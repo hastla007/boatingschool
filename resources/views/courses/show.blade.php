@@ -66,7 +66,7 @@
             <a href="{{ route('video.index', $course) }}" class="relative rounded-2xl p-4 h-28 flex flex-col justify-between text-white overflow-hidden bg-gradient-to-br from-blue-600 to-cyan-500 hover:opacity-95 transition">
                 <x-icon name="academic-cap" class="w-6 h-6 text-white/60 self-end" />
                 <div>
-                    <div class="font-semibold">Videokurs</div>
+                    <div class="font-semibold">Knoten</div>
                     <div class="text-xs text-white/80">{{ $videoPercent }}% angesehen</div>
                 </div>
             </a>
