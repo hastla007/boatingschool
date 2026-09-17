@@ -49,8 +49,19 @@ jobs:
           extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, pdo_pgsql, pgsql, sqlite, pdo_sqlite
           coverage: none
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
       - name: Install Composer dependencies
         run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Install NPM dependencies and build assets
+        run: |
+          npm ci
+          npm run build
 
       - name: Copy environment file
         run: cp .env.example .env
