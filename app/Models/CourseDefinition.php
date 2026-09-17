@@ -56,6 +56,11 @@ class CourseDefinition extends Model
         return $this->hasMany(VideoModule::class, 'course_id')->orderBy('sort_order');
     }
 
+    public function navigationTasks(): HasMany
+    {
+        return $this->hasMany(NavigationTask::class, 'course_id')->orderBy('sort_order');
+    }
+
     /** Aktuell gültiges (published + verifiziert) Regelwerk. */
     public function activeExamRuleSet(): ?ExamRuleSet
     {

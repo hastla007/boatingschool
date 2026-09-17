@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\CourseDefinition;
 use App\Models\VideoLesson;
+use App\Models\VideoLessonStep;
 use App\Models\VideoModule;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -63,6 +64,25 @@ class VideoCourseTest extends TestCase
         $page = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/video");
         $page->assertOk();
         $page->assertSee('1 / 2 Lektionen', false);
+    }
+
+    public function test_lesson_step_gallery_is_shown_when_present(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $firstLesson] = $this->makeIsolatedVideoCourse();
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $this->onAdmin(function () use ($firstLesson) {
+            VideoLessonStep::create(['video_lesson_id' => $firstLesson->id, 'title' => 'Schritt eins', 'sort_order' => 1]);
+            VideoLessonStep::create(['video_lesson_id' => $firstLesson->id, 'title' => 'Schritt zwei', 'sort_order' => 2]);
+        });
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/video/{$firstLesson->id}");
+
+        $response->assertOk();
+        $response->assertSee('Schritt eins');
+        $response->assertSee('Schritt zwei');
     }
 
     /** @return array{0: CourseDefinition, 1: VideoLesson, 2: VideoLesson} */

@@ -26,7 +26,11 @@ class ExamController extends Controller
 
         $ruleSet = $course->activeExamRuleSet();
 
-        return view('exam.intro', ['course' => $course, 'ruleSet' => $ruleSet]);
+        return view('exam.intro', [
+            'course' => $course,
+            'ruleSet' => $ruleSet,
+            'hasNavigationTasks' => $course->navigationTasks()->exists(),
+        ]);
     }
 
     public function start(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course): Response
