@@ -61,10 +61,12 @@ auf PostgreSQL, gemäß dem mitgelieferten technischen Konzept
   `app/Http/Controllers/NavigationTaskController.php`): Übungsaufgaben mit
   sofort einsehbarer Musterlösung, bewusst getrennt von der strengen
   Prüfungssimulation (dort gilt "keine Sofortauflösung"). Wie der Videokurs
-  zentraler, globaler Content ohne eigenen Fortschritt. **Hinweis**:
-  Szenarien und Musterlösungen sind Demo-Platzhalter und müssen vor
-  Produktivbetrieb durch fachlich geprüftes, amtliches Material der
-  Bootsschule ersetzt werden.
+  zentraler, globaler Content ohne eigenen Fortschritt. `NavigationTaskSeeder`
+  importiert die 15 amtlichen Navigationsaufgaben (je 9 Teilaufgaben) aus
+  `database/data/sbf_see_navigationsaufgaben.csv` (Quelle: ELWIS,
+  Fragenkatalog-See/Navigationsaufgaben). Einzelne Aufgaben tragen einen
+  aufgabenweiten Hinweis auf eine spätere amtliche Korrektur (z. B.
+  Verkehrsblatt-Berichtigung), der für alle ihre Teilaufgaben gilt.
 - **Feste Prüfungsbögen** (`exam_paper`, `exam_paper_question`,
   `ExamController@papersOverview`/`startPaper`): ergänzt das bestehende,
   zufällig zusammenstellende `exam_rule_set`/`exam_blueprint` um 15 feste,

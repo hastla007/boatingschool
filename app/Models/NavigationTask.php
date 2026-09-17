@@ -15,7 +15,7 @@ class NavigationTask extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['course_id', 'task_number', 'scenario_text', 'sort_order'];
+    protected $fillable = ['course_id', 'task_number', 'scenario_text', 'hint', 'sort_order'];
 
     public function course(): BelongsTo
     {
