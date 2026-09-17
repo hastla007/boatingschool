@@ -114,6 +114,7 @@ class CourseController extends Controller
             'praxisPercent' => $praxisModule ? $chapterPercent([$praxisModule->id]) : 0,
             'navigationModuleId' => $navigationModule?->id,
             'navigationPercent' => $navigationModule ? $chapterPercent([$navigationModule->id]) : 0,
+            'examReadinessThreshold' => $tenant->branding->exam_readiness_threshold_percent,
         ]);
     }
 

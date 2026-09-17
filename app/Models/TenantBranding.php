@@ -25,6 +25,7 @@ class TenantBranding extends Model
     protected $fillable = [
         'tenant_id', 'logo_asset_id', 'favicon_asset_id', 'primary_color', 'secondary_color',
         'support_email', 'legal_name', 'imprint_url', 'privacy_url', 'custom_domain',
+        'exam_readiness_threshold_percent',
     ];
 
     public function tenant(): BelongsTo

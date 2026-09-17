@@ -29,6 +29,7 @@ class BrandingController extends Controller
             'support_email' => ['nullable', 'email'],
             'legal_name' => ['nullable', 'string', 'max:255'],
             'logo' => ['nullable', 'image', 'max:1024'],
+            'exam_readiness_threshold_percent' => ['required', 'integer', 'min:0', 'max:100'],
         ]);
 
         $before = $tenant->branding->toArray();

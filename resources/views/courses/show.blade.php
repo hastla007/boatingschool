@@ -109,6 +109,25 @@
                 </div>
             </a>
         @endif
+
+        @if ($overallPercent >= $examReadinessThreshold)
+            <a href="{{ route('praxis-pruefung.index', $course) }}" class="relative rounded-2xl p-4 h-28 flex flex-col justify-between text-white overflow-hidden bg-gradient-to-br from-emerald-600 to-teal-700 hover:opacity-95 transition">
+                <x-icon name="shield-check" class="w-6 h-6 text-white/60 self-end" />
+                <div>
+                    <div class="font-semibold">Praxis &amp; Prüfung</div>
+                    <div class="text-xs text-white/80">Jetzt buchbar</div>
+                </div>
+            </a>
+        @else
+            <div class="relative rounded-2xl p-4 h-28 flex flex-col justify-between overflow-hidden bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed"
+                 title="Ab {{ $examReadinessThreshold }}% Kursfortschritt buchbar">
+                <x-icon name="lock-closed" class="w-6 h-6 text-slate-300 dark:text-slate-600 self-end" />
+                <div>
+                    <div class="font-semibold">Praxis &amp; Prüfung</div>
+                    <div class="text-xs">Ab {{ $examReadinessThreshold }}% Kursfortschritt &middot; {{ $overallPercent }}%/{{ $examReadinessThreshold }}%</div>
+                </div>
+            </div>
+        @endif
     </div>
 
     <div class="space-y-3">

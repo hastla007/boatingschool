@@ -67,6 +67,18 @@
                 <input type="text" name="legal_name" value="{{ old('legal_name', $branding->legal_name) }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
             </div>
 
+            <div class="pt-2 border-t border-slate-100 dark:border-slate-700">
+                <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Kursfortschritt-Voraussetzung für Prüfung &amp; Praxis</label>
+                <p class="text-xs text-slate-400 mb-2">Ab diesem Kursfortschritt darf ein Schüler die Kachel „Praxis &amp; Prüfung" auswählen, um Prüfung und Praxis bei Ihrer Bootsschule zu buchen.</p>
+                <div class="flex items-center gap-2">
+                    <input type="number" name="exam_readiness_threshold_percent" min="0" max="100"
+                           value="{{ old('exam_readiness_threshold_percent', $branding->exam_readiness_threshold_percent) }}"
+                           class="w-24 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                    <span class="text-sm text-slate-500 dark:text-slate-400">% Kursfortschritt</span>
+                </div>
+                <x-input-error :messages="$errors->get('exam_readiness_threshold_percent')" class="mt-2" />
+            </div>
+
             <button type="submit" class="px-5 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
                 Änderungen speichern
             </button>
