@@ -91,6 +91,16 @@
                 </div>
             </a>
         @endif
+
+        @if ($hasVideoCourse)
+            <a href="{{ route('video.index', $course) }}" class="relative rounded-2xl p-4 h-28 flex flex-col justify-between text-white overflow-hidden bg-gradient-to-br from-rose-500 to-red-600 hover:opacity-95 transition">
+                <x-icon name="bolt" class="w-6 h-6 text-white/60 self-end" />
+                <div>
+                    <div class="font-semibold">Praxisvideos (Motor)</div>
+                    <div class="text-xs text-white/80">{{ $videoPercent }}% angesehen</div>
+                </div>
+            </a>
+        @endif
     </div>
 
     <div class="space-y-3">
