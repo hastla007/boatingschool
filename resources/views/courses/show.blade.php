@@ -4,12 +4,6 @@
     </x-slot>
 
     @php
-        $tileColors = [
-            'from-teal-400 to-teal-500',
-            'from-teal-500 to-emerald-600',
-            'from-emerald-600 to-teal-700',
-            'from-sky-500 to-blue-600',
-        ];
         $icons = ['book-open', 'compass', 'flag', 'life-buoy', 'shield-check', 'chart-bar'];
     @endphp
 
@@ -43,25 +37,6 @@
     </div>
 
     <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-        @foreach ($modules as $entry)
-            <a href="{{ route('learning.show', $course) }}?mode=smarttrainer&module={{ $entry['module']->id }}"
-               class="relative rounded-2xl p-4 h-28 flex flex-col justify-between text-white overflow-hidden bg-gradient-to-br {{ $tileColors[$loop->index % count($tileColors)] }} hover:opacity-95 transition">
-                <x-icon :name="$icons[$loop->index % count($icons)]" class="w-6 h-6 text-white/60 self-end" />
-                <div>
-                    <div class="font-semibold">{{ $entry['module']->name }}</div>
-                    <div class="text-xs text-white/80">{{ $entry['mastered'] }} / {{ $entry['total'] }} &middot; {{ $entry['percent'] }}%</div>
-                </div>
-            </a>
-        @endforeach
-
-        <a href="{{ route('exam.intro', $course) }}" class="relative rounded-2xl p-4 h-28 flex flex-col justify-between text-white overflow-hidden bg-gradient-to-br from-indigo-600 to-blue-700 hover:opacity-95 transition">
-            <x-icon name="clipboard-document-check" class="w-6 h-6 text-white/60 self-end" />
-            <div>
-                <div class="font-semibold">Prüfungssimulation</div>
-                <div class="text-xs text-white/80">{{ $hasExam ? 'Bereit zum Starten' : 'Noch nicht freigegeben' }}</div>
-            </div>
-        </a>
-
         <a href="{{ route('learning.overview', $course) }}" class="relative rounded-2xl p-4 h-28 flex flex-col justify-between text-white overflow-hidden bg-gradient-to-br from-teal-500 to-cyan-600 hover:opacity-95 transition">
             <x-icon name="bolt" class="w-6 h-6 text-white/60 self-end" />
             <div>
@@ -80,16 +55,6 @@
             </a>
         @endif
 
-        @if ($hasNavigationTasks)
-            <a href="{{ route('exam.navigation.index', $course) }}" class="relative rounded-2xl p-4 h-28 flex flex-col justify-between text-white overflow-hidden bg-gradient-to-br from-amber-500 to-orange-600 hover:opacity-95 transition">
-                <x-icon name="compass" class="w-6 h-6 text-white/60 self-end" />
-                <div>
-                    <div class="font-semibold">Navigationsaufgaben</div>
-                    <div class="text-xs text-white/80">Übung mit Musterlösung</div>
-                </div>
-            </a>
-        @endif
-
         @if ($navigationModuleId)
             <a href="{{ route('video.index', $course) }}?kapitel={{ $navigationModuleId }}" class="relative rounded-2xl p-4 h-28 flex flex-col justify-between text-white overflow-hidden bg-gradient-to-br from-sky-500 to-indigo-600 hover:opacity-95 transition">
                 <x-icon name="flag" class="w-6 h-6 text-white/60 self-end" />
@@ -100,11 +65,29 @@
             </a>
         @endif
 
+        <a href="{{ route('exam.intro', $course) }}" class="relative rounded-2xl p-4 h-28 flex flex-col justify-between text-white overflow-hidden bg-gradient-to-br from-indigo-600 to-blue-700 hover:opacity-95 transition">
+            <x-icon name="clipboard-document-check" class="w-6 h-6 text-white/60 self-end" />
+            <div>
+                <div class="font-semibold">Prüfungssimulation</div>
+                <div class="text-xs text-white/80">{{ $hasExam ? 'Bereit zum Starten' : 'Noch nicht freigegeben' }}</div>
+            </div>
+        </a>
+
+        @if ($hasNavigationTasks)
+            <a href="{{ route('exam.navigation.index', $course) }}" class="relative rounded-2xl p-4 h-28 flex flex-col justify-between text-white overflow-hidden bg-gradient-to-br from-amber-500 to-orange-600 hover:opacity-95 transition">
+                <x-icon name="compass" class="w-6 h-6 text-white/60 self-end" />
+                <div>
+                    <div class="font-semibold">Navigationsaufgaben</div>
+                    <div class="text-xs text-white/80">Übung mit Musterlösung</div>
+                </div>
+            </a>
+        @endif
+
         @if ($praxisModuleId)
             <a href="{{ route('video.index', $course) }}?kapitel={{ $praxisModuleId }}" class="relative rounded-2xl p-4 h-28 flex flex-col justify-between text-white overflow-hidden bg-gradient-to-br from-rose-500 to-red-600 hover:opacity-95 transition">
                 <x-icon name="bolt" class="w-6 h-6 text-white/60 self-end" />
                 <div>
-                    <div class="font-semibold">Praxisvideos (Motor)</div>
+                    <div class="font-semibold">Praxisvideos</div>
                     <div class="text-xs text-white/80">{{ $praxisPercent }}% angesehen</div>
                 </div>
             </a>
