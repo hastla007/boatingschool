@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\CourseDefinition;
 use App\Models\Progress;
 use App\Models\VideoProgress;
+use App\Services\CourseProgressService;
 use App\Services\EntitlementService;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
@@ -44,7 +45,7 @@ class CourseController extends Controller
         ]);
     }
 
-    public function show(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course): View|Response
+    public function show(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseProgressService $courseProgress, CourseDefinition $course): View|Response
     {
         $tenant = $tenantContext->tenant();
         $user = $request->user();
@@ -60,19 +61,10 @@ class CourseController extends Controller
         // einzelne id-Spalte, daher hier bewusst whereIn() auf dem Attribut.
         $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get();
 
-        $modules = $course->modules->map(function ($module) use ($progress) {
-            $questionIds = $module->questions->pluck('id');
-            $moduleProgress = $progress->whereIn('question_id', $questionIds);
-            $total = max($questionIds->count(), 1);
-            $mastered = $moduleProgress->where('learning_state', 'gefestigt')->count();
-
-            return [
-                'module' => $module,
-                'total' => $questionIds->count(),
-                'mastered' => $mastered,
-                'percent' => (int) round(($mastered / $total) * 100),
-            ];
-        });
+        // Je Modul nach echter Smart-Learning-Kategorie aufgeschlüsselt, damit
+        // die Kursübersicht direkt in den passenden Smarttrainer-Ausschnitt
+        // verlinken kann, statt nur pauschal "Neue Fragen"/"Falsch beantwortet".
+        $moduleGroups = $courseProgress->moduleKategorieBreakdown($course, $tenant, $user);
 
         $videoModules = $course->videoModules()->with('lessons')->get();
         $videoLessonIds = $videoModules->flatMap->lessons->pluck('id');
@@ -102,7 +94,7 @@ class CourseController extends Controller
 
         return view('courses.show', [
             'course' => $course,
-            'modules' => $modules,
+            'moduleGroups' => $moduleGroups,
             'overallPercent' => $this->courseMasteryPercent($course, $progress),
             'hasVideoCourse' => $videoTotal > 0,
             'videoPercent' => $videoTotal > 0 ? (int) round($videoCompleted / $videoTotal * 100) : 0,

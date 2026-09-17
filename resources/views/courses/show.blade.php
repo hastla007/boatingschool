@@ -114,23 +114,32 @@
     </div>
 
     <div class="space-y-3">
-        @foreach ($modules as $entry)
+        @foreach ($moduleGroups as $group)
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
-                <div class="flex items-center gap-3 mb-2">
+                <a href="{{ route('learning.overview', $course) }}" class="flex items-center gap-3 mb-3 group">
                     <div class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300">
                         <x-icon :name="$icons[$loop->index % count($icons)]" class="w-4 h-4" />
                     </div>
                     <div class="flex-1 min-w-0">
-                        <div class="font-medium text-slate-700 dark:text-slate-200">{{ $entry['module']->name }}</div>
+                        <div class="font-medium text-slate-700 dark:text-slate-200 group-hover:underline">{{ $group['module']->name }}</div>
+                        <div class="text-xs text-slate-400 inline-flex items-center gap-1">
+                            <x-icon name="bolt" class="w-3 h-3" /> In Smart-Learning öffnen
+                        </div>
                     </div>
-                    <div class="text-sm text-slate-400 shrink-0">{{ $entry['mastered'] }} / {{ $entry['total'] }} &middot; {{ $entry['percent'] }}%</div>
-                </div>
-                <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2 mb-3">
-                    <div class="h-2 rounded-full" style="width: {{ $entry['percent'] }}%; background-color: var(--brand-secondary, #00A8A8)"></div>
-                </div>
-                <div class="flex flex-wrap gap-2 text-sm">
-                    <a href="{{ route('learning.show', $course) }}?mode=new&module={{ $entry['module']->id }}" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition">Neue Fragen</a>
-                    <a href="{{ route('learning.show', $course) }}?mode=wrong&module={{ $entry['module']->id }}" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition">Falsch beantwortet</a>
+                    <div class="text-sm text-slate-400 shrink-0">{{ $group['mastered'] }} / {{ $group['total'] }} &middot; {{ $group['percent'] }}%</div>
+                </a>
+                <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                    @foreach ($group['topics'] as $topicEntry)
+                        <a href="{{ route('learning.show', ['course' => $course, 'mode' => 'topic', 'module' => $group['module']->id, 'topic' => $topicEntry['topic']]) }}"
+                           class="flex items-center gap-3 rounded-xl px-3 py-3 text-white transition hover:opacity-90"
+                           style="background: linear-gradient(120deg, #0B2A4A, #14395E);">
+                            <x-progress-ring :percent="$topicEntry['percent']" :size="36" :stroke="4" class="shrink-0 [&_circle:first-child]:stroke-white/25" />
+                            <div class="flex-1 min-w-0">
+                                <div class="text-sm font-medium truncate">{{ $topicEntry['topic'] }}</div>
+                                <div class="text-xs text-white/70">{{ $topicEntry['mastered'] }}/{{ $topicEntry['total'] }} Fragen</div>
+                            </div>
+                        </a>
+                    @endforeach
                 </div>
             </div>
         @endforeach
