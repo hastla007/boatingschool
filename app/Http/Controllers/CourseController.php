@@ -82,15 +82,12 @@ class CourseController extends Controller
                 ->whereIn('video_lesson_id', $videoLessonIds)->where('completed', true)->count()
             : 0;
 
-        // Einzelne Videokurs-Kapitel als eigenständige Seiten: "Knoten" und
-        // "Praxisvideos (Motor)" bekommen ihre eigene, auf ihr Kapitel
-        // beschränkte Ansicht (?kapitel=<module_id>); "Navigation" bündelt
-        // alle übrigen Kapitel als eine gemeinsame Ansicht.
+        // Einzelne Videokurs-Kapitel als eigenständige Seiten: "Knoten",
+        // "Praxisvideos (Motor)" und "Navigation" bekommen jeweils ihre
+        // eigene, auf ihr Kapitel beschränkte Ansicht (?kapitel=<module_id>).
         $knotenModule = $videoModules->firstWhere('title', 'Knoten');
         $praxisModule = $videoModules->firstWhere('title', 'Praxisvideos (Motor)');
-        $navigationModuleIds = $videoModules
-            ->reject(fn ($m) => in_array($m->title, ['Knoten', 'Praxisvideos (Motor)']))
-            ->pluck('id')->all();
+        $navigationModule = $videoModules->firstWhere('title', 'Navigation');
 
         $chapterPercent = function (array $moduleIds) use ($tenant, $user, $videoModules) {
             $lessonIds = $videoModules->whereIn('id', $moduleIds)->flatMap->lessons->pluck('id');
@@ -115,8 +112,8 @@ class CourseController extends Controller
             'knotenPercent' => $knotenModule ? $chapterPercent([$knotenModule->id]) : 0,
             'praxisModuleId' => $praxisModule?->id,
             'praxisPercent' => $praxisModule ? $chapterPercent([$praxisModule->id]) : 0,
-            'navigationModuleIds' => $navigationModuleIds,
-            'navigationPercent' => $chapterPercent($navigationModuleIds),
+            'navigationModuleId' => $navigationModule?->id,
+            'navigationPercent' => $navigationModule ? $chapterPercent([$navigationModule->id]) : 0,
         ]);
     }
 

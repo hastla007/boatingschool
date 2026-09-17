@@ -24,6 +24,7 @@ class DatabaseSeeder extends Seeder
             NavigationTaskSeeder::class,
             ExamRuleSetSeeder::class,
             ExamPaperSeeder::class,
+            PraxisTrainerSeeder::class,
             TenantSeeder::class,
             UserAndEntitlementSeeder::class,
             DemoLearningActivitySeeder::class,

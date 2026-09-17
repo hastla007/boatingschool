@@ -10,6 +10,7 @@ use App\Http\Controllers\ExamController;
 use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\LearningController;
 use App\Http\Controllers\NavigationTaskController;
+use App\Http\Controllers\PraxisTrainerController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProgressController;
 use App\Http\Controllers\VideoCourseController;
@@ -26,6 +27,7 @@ Route::middleware(['auth', 'tenant.member'])->group(function () {
     Route::get('/courses/{course}', [CourseController::class, 'show'])->name('courses.show');
 
     Route::get('/courses/{course}/learn', [LearningController::class, 'show'])->name('learning.show');
+    Route::get('/courses/{course}/learn/overview', [LearningController::class, 'overview'])->name('learning.overview');
     Route::post('/courses/{course}/learn/attempts', [LearningController::class, 'storeAttempt'])->name('learning.attempts.store');
 
     Route::get('/favorites', [FavoriteController::class, 'index'])->name('favorites.index');
@@ -48,6 +50,10 @@ Route::middleware(['auth', 'tenant.member'])->group(function () {
 
     Route::get('/courses/{course}/exam/navigation', [NavigationTaskController::class, 'index'])->name('exam.navigation.index');
     Route::get('/courses/{course}/exam/navigation/{task}', [NavigationTaskController::class, 'show'])->name('exam.navigation.show');
+
+    Route::get('/courses/{course}/praxistrainer', [PraxisTrainerController::class, 'index'])->name('praxistrainer.index');
+    Route::get('/courses/{course}/praxistrainer/{task}', [PraxisTrainerController::class, 'show'])->name('praxistrainer.show');
+    Route::post('/courses/{course}/praxistrainer/{task}/complete', [PraxisTrainerController::class, 'complete'])->name('praxistrainer.complete');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

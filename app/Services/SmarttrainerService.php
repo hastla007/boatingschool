@@ -101,9 +101,11 @@ class SmarttrainerService
 
     private function questionTopic(ContentQuestion $question): ?string
     {
-        return $question->relationLoaded('revisions')
-            ? $question->revisions->first()?->topic
-            : $question->publishedRevision()?->topic;
+        $revision = $question->relationLoaded('revisions')
+            ? $question->revisions->first()
+            : $question->publishedRevision();
+
+        return $revision?->smartmodus_kategorie ?: $revision?->topic;
     }
 
     private function topicAccuracy(Collection $progressByQuestion, Collection $questions): Collection
