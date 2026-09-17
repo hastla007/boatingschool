@@ -84,18 +84,26 @@ class LearningLoopTest extends TestCase
             'mode' => 'smarttrainer',
         ];
 
+        $attemptsQuery = fn () => Attempt::where('tenant_id', $tenant->id)
+            ->where('user_id', $learner->id)
+            ->where('question_id', $question->id);
+
         $this->actingAsInTenant($learner, $tenant)->post($endpoint, $payload($wrongAnswer->id))->assertOk();
+        $firstAttempt = $attemptsQuery()->sole();
+        $this->assertFalse($firstAttempt->correct);
+
         $this->actingAsInTenant($learner, $tenant)->post($endpoint, $payload($correctAnswer->id))->assertOk();
 
-        $attempts = Attempt::where('tenant_id', $tenant->id)
-            ->where('user_id', $learner->id)
-            ->where('question_id', $question->id)
-            ->orderBy('created_at')
-            ->get();
+        // Zwei parallele Requests können in Postgres denselben Transaktions-
+        // Zeitstempel erhalten (created_at ist keine verlässliche Sortierung),
+        // daher wird der zweite Versuch über die bereits bekannte erste
+        // Attempt-ID abgegrenzt statt über eine chronologische Sortierung.
+        $attempts = $attemptsQuery()->get();
+        $secondAttempt = $attempts->first(fn ($attempt) => $attempt->id !== $firstAttempt->id);
 
         $this->assertCount(2, $attempts);
-        $this->assertFalse($attempts[0]->correct);
-        $this->assertTrue($attempts[1]->correct);
+        $this->assertNotNull($secondAttempt);
+        $this->assertTrue($secondAttempt->correct);
 
         $progress = Progress::where('tenant_id', $tenant->id)
             ->where('user_id', $learner->id)
