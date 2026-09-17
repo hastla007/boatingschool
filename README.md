@@ -65,6 +65,21 @@ auf PostgreSQL, gemäß dem mitgelieferten technischen Konzept
   Szenarien und Musterlösungen sind Demo-Platzhalter und müssen vor
   Produktivbetrieb durch fachlich geprüftes, amtliches Material der
   Bootsschule ersetzt werden.
+- **Feste Prüfungsbögen** (`exam_paper`, `exam_paper_question`,
+  `ExamController@papersOverview`/`startPaper`): ergänzt das bestehende,
+  zufällig zusammenstellende `exam_rule_set`/`exam_blueprint` um 15 feste,
+  wiederholbare Fragensets ("Bogen 1" .. "Bogen 15", je 30 Fragen: 7
+  allgemeine Basisfragen + 23 kursspezifische Fragen). Ein Bogen-Versuch
+  ist ein ganz normaler `exam_session`-Datensatz (Zeitlimit, keine
+  Sofortauflösung, unveränderliches Ergebnis) mit einem zusätzlichen
+  `paper_id`-Verweis statt zufällig gewürfelter Fragen; erneutes Starten
+  desselben Bogens setzt einen bereits laufenden Versuch fort statt ihn zu
+  duplizieren. Die Prüfungssimulation-Startseite zeigt pro Bogen einen
+  Fortschrittsring mit dem Ergebnis des letzten abgeschlossenen Versuchs.
+  **Hinweis**: Die Zuordnung Frage→Bogen ist aktuell eine deterministische
+  Demo-Verteilung aus dem echten, bereits importierten Fragenpool (kein
+  erfundener Fragentext) und muss vor Produktivbetrieb durch die
+  tatsächliche amtliche Bogen-Zusammenstellung ersetzt werden.
 
 ## Setup (lokal)
 

@@ -61,6 +61,11 @@ class CourseDefinition extends Model
         return $this->hasMany(NavigationTask::class, 'course_id')->orderBy('sort_order');
     }
 
+    public function examPapers(): HasMany
+    {
+        return $this->hasMany(ExamPaper::class, 'course_id')->orderBy('sort_order');
+    }
+
     /** Aktuell gültiges (published + verifiziert) Regelwerk. */
     public function activeExamRuleSet(): ?ExamRuleSet
     {

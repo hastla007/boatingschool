@@ -4,11 +4,17 @@ namespace App\Http\Controllers;
 
 use App\Models\ContentAnswer;
 use App\Models\CourseDefinition;
+use App\Models\ExamPaper;
 use App\Models\ExamSession;
 use App\Models\ExamSessionQuestion;
+use App\Models\Favorite;
+use App\Models\Progress;
+use App\Models\Tenant;
+use App\Models\User;
 use App\Services\EntitlementService;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\Response;
@@ -22,7 +28,14 @@ class ExamController extends Controller
     public function intro(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course): View
     {
         $tenant = $tenantContext->tenant();
-        abort_unless($entitlements->hasAccess($tenant, $request->user(), $course), 403);
+        $user = $request->user();
+        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403);
+
+        $papers = $course->examPapers;
+
+        if ($papers->isNotEmpty()) {
+            return $this->papersOverview($tenant, $user, $course, $papers);
+        }
 
         $ruleSet = $course->activeExamRuleSet();
 
@@ -31,6 +44,95 @@ class ExamController extends Controller
             'ruleSet' => $ruleSet,
             'hasNavigationTasks' => $course->navigationTasks()->exists(),
         ]);
+    }
+
+    /** @param Collection<int, ExamPaper> $papers */
+    private function papersOverview(Tenant $tenant, User $user, CourseDefinition $course, Collection $papers): View
+    {
+        $paperIds = $papers->pluck('id');
+
+        $latestEvaluatedSessions = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+            ->whereIn('paper_id', $paperIds)
+            ->where('status', 'evaluated')
+            ->orderByDesc('submitted_at')
+            ->get()
+            ->unique('paper_id')
+            ->keyBy('paper_id');
+
+        $paperStats = $papers->map(function ($paper) use ($latestEvaluatedSessions) {
+            $session = $latestEvaluatedSessions->get($paper->id);
+            $total = $paper->paperQuestions()->count();
+
+            return [
+                'paper' => $paper,
+                'attempted' => (bool) $session,
+                'percent' => $session ? (int) round($session->score * 100) : 0,
+                'correct' => $session ? $session->questions()->where('correct', true)->count() : 0,
+                'total' => $total,
+            ];
+        });
+
+        $attemptedStats = $paperStats->filter(fn ($s) => $s['attempted']);
+        $overallPercent = $attemptedStats->isNotEmpty() ? (int) round($attemptedStats->avg('percent')) : 0;
+
+        $favoriteIds = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)->pluck('question_id');
+        $favoritesMastered = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+            ->whereIn('question_id', $favoriteIds)->where('learning_state', 'gefestigt')->count();
+
+        return view('exam.papers', [
+            'course' => $course,
+            'paperStats' => $paperStats,
+            'overallPercent' => $overallPercent,
+            'favoritesTotal' => $favoriteIds->count(),
+            'favoritesMastered' => $favoritesMastered,
+            'hasNavigationTasks' => $course->navigationTasks()->exists(),
+        ]);
+    }
+
+    public function startPaper(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course, ExamPaper $paper): Response
+    {
+        $tenant = $tenantContext->tenant();
+        $user = $request->user();
+        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403);
+        abort_unless($paper->course_id === $course->id, 404);
+
+        $ruleSet = $course->activeExamRuleSet();
+        abort_unless($ruleSet && $ruleSet->isVerified(), 409, 'Für diesen Kurs liegt noch kein fachlich freigegebenes Prüfungsregelwerk vor.');
+
+        $running = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+            ->where('paper_id', $paper->id)->where('status', 'running')->first();
+
+        if ($running) {
+            return redirect()->route('exam.show', $running);
+        }
+
+        $session = DB::transaction(function () use ($tenant, $user, $course, $ruleSet, $paper) {
+            $session = ExamSession::create([
+                'tenant_id' => $tenant->id,
+                'user_id' => $user->id,
+                'course_id' => $course->id,
+                'rule_set_id' => $ruleSet->id,
+                'paper_id' => $paper->id,
+                'status' => 'running',
+                'started_at' => now(),
+            ]);
+
+            foreach ($paper->paperQuestions as $paperQuestion) {
+                $revision = $paperQuestion->question->publishedRevision();
+                abort_if(! $revision, 404, 'Für eine Frage dieses Bogens liegt keine veröffentlichte Fassung vor.');
+
+                ExamSessionQuestion::create([
+                    'exam_session_id' => $session->id,
+                    'question_id' => $paperQuestion->question_id,
+                    'revision_id' => $revision->id,
+                    'position' => $paperQuestion->position,
+                ]);
+            }
+
+            return $session;
+        });
+
+        return redirect()->route('exam.show', $session);
     }
 
     public function start(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course): Response

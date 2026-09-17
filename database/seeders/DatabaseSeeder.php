@@ -23,6 +23,7 @@ class DatabaseSeeder extends Seeder
             VideoCourseSeeder::class,
             NavigationTaskSeeder::class,
             ExamRuleSetSeeder::class,
+            ExamPaperSeeder::class,
             TenantSeeder::class,
             UserAndEntitlementSeeder::class,
             DemoLearningActivitySeeder::class,
