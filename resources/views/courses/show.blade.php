@@ -62,12 +62,12 @@
             </div>
         </a>
 
-        @if ($hasVideoCourse)
-            <a href="{{ route('video.index', $course) }}" class="relative rounded-2xl p-4 h-28 flex flex-col justify-between text-white overflow-hidden bg-gradient-to-br from-blue-600 to-cyan-500 hover:opacity-95 transition">
+        @if ($knotenModuleId)
+            <a href="{{ route('video.index', $course) }}?kapitel={{ $knotenModuleId }}" class="relative rounded-2xl p-4 h-28 flex flex-col justify-between text-white overflow-hidden bg-gradient-to-br from-blue-600 to-cyan-500 hover:opacity-95 transition">
                 <x-icon name="academic-cap" class="w-6 h-6 text-white/60 self-end" />
                 <div>
                     <div class="font-semibold">Knoten</div>
-                    <div class="text-xs text-white/80">{{ $videoPercent }}% angesehen</div>
+                    <div class="text-xs text-white/80">{{ $knotenPercent }}% angesehen</div>
                 </div>
             </a>
         @endif
@@ -82,22 +82,22 @@
             </a>
         @endif
 
-        @if ($hasVideoCourse)
-            <a href="{{ route('video.index', $course) }}" class="relative rounded-2xl p-4 h-28 flex flex-col justify-between text-white overflow-hidden bg-gradient-to-br from-sky-500 to-indigo-600 hover:opacity-95 transition">
+        @if (! empty($navigationModuleIds))
+            <a href="{{ route('video.index', $course) }}?kapitel={{ implode(',', $navigationModuleIds) }}" class="relative rounded-2xl p-4 h-28 flex flex-col justify-between text-white overflow-hidden bg-gradient-to-br from-sky-500 to-indigo-600 hover:opacity-95 transition">
                 <x-icon name="flag" class="w-6 h-6 text-white/60 self-end" />
                 <div>
                     <div class="font-semibold">Navigation</div>
-                    <div class="text-xs text-white/80">{{ $videoPercent }}% angesehen</div>
+                    <div class="text-xs text-white/80">{{ $navigationPercent }}% angesehen</div>
                 </div>
             </a>
         @endif
 
-        @if ($hasVideoCourse)
-            <a href="{{ route('video.index', $course) }}" class="relative rounded-2xl p-4 h-28 flex flex-col justify-between text-white overflow-hidden bg-gradient-to-br from-rose-500 to-red-600 hover:opacity-95 transition">
+        @if ($praxisModuleId)
+            <a href="{{ route('video.index', $course) }}?kapitel={{ $praxisModuleId }}" class="relative rounded-2xl p-4 h-28 flex flex-col justify-between text-white overflow-hidden bg-gradient-to-br from-rose-500 to-red-600 hover:opacity-95 transition">
                 <x-icon name="bolt" class="w-6 h-6 text-white/60 self-end" />
                 <div>
                     <div class="font-semibold">Praxisvideos (Motor)</div>
-                    <div class="text-xs text-white/80">{{ $videoPercent }}% angesehen</div>
+                    <div class="text-xs text-white/80">{{ $praxisPercent }}% angesehen</div>
                 </div>
             </a>
         @endif

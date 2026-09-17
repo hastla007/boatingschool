@@ -85,6 +85,21 @@ class VideoCourseTest extends TestCase
         $response->assertSee('Schritt zwei');
     }
 
+    public function test_kapitel_query_param_scopes_the_video_course_to_a_single_module(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $moduleA, $moduleB] = $this->makeIsolatedVideoCourseWithTwoModules();
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/video?kapitel={$moduleB->id}");
+
+        $response->assertOk();
+        $response->assertSee('Kapitel B Lektion 1');
+        $response->assertDontSee('Kapitel A Lektion 1');
+        $response->assertSee('0 / 1 Lektionen', false);
+    }
+
     /** @return array{0: CourseDefinition, 1: VideoLesson, 2: VideoLesson} */
     private function makeIsolatedVideoCourse(): array
     {
@@ -103,6 +118,29 @@ class VideoCourseTest extends TestCase
             $second = VideoLesson::create(['video_module_id' => $module->id, 'title' => 'Lektion 2', 'video_url' => 'https://example.test/2.mp4', 'sort_order' => 2]);
 
             return [$course, $first, $second];
+        });
+    }
+
+    /** @return array{0: CourseDefinition, 1: VideoModule, 2: VideoModule} */
+    private function makeIsolatedVideoCourseWithTwoModules(): array
+    {
+        return $this->onAdmin(function () {
+            $course = CourseDefinition::withoutGlobalScopes()->create([
+                'tenant_id' => null,
+                'code' => 'TEST-VIDEO-'.uniqid(),
+                'name' => 'Test Videokurs',
+                'course_type' => 'full',
+                'status' => 'published',
+            ]);
+            $this->createdCourseIds[] = $course->id;
+
+            $moduleA = VideoModule::create(['course_id' => $course->id, 'title' => 'Kapitel A', 'sort_order' => 1]);
+            VideoLesson::create(['video_module_id' => $moduleA->id, 'title' => 'Kapitel A Lektion 1', 'video_url' => 'https://example.test/a1.mp4', 'sort_order' => 1]);
+
+            $moduleB = VideoModule::create(['course_id' => $course->id, 'title' => 'Kapitel B', 'sort_order' => 2]);
+            VideoLesson::create(['video_module_id' => $moduleB->id, 'title' => 'Kapitel B Lektion 1', 'video_url' => 'https://example.test/b1.mp4', 'sort_order' => 1]);
+
+            return [$course, $moduleA, $moduleB];
         });
     }
 }

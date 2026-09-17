@@ -46,7 +46,7 @@
                             @foreach ($group as $item)
                                 @php($isCompleted = $progress[$item->id]->completed ?? false)
                                 @php($isCurrent = $item->id === $lesson->id)
-                                <a href="{{ route('video.show', ['course' => $course, 'lesson' => $item]) }}"
+                                <a href="{{ route('video.show', array_filter(['course' => $course, 'lesson' => $item, 'kapitel' => $moduleIds ? implode(',', $moduleIds) : null])) }}"
                                    class="flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition {{ $isCurrent ? 'bg-slate-100 dark:bg-slate-700 font-medium text-slate-800 dark:text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50' }}">
                                     @if ($isCompleted)
                                         <x-icon name="check-circle" class="w-3.5 h-3.5 text-emerald-500 shrink-0" />
@@ -81,7 +81,7 @@
                         Noch nicht abgeschlossen
                     @endif
                 </span>
-                <form method="POST" action="{{ route('video.complete', ['course' => $course, 'lesson' => $lesson]) }}">
+                <form method="POST" action="{{ route('video.complete', array_filter(['course' => $course, 'lesson' => $lesson, 'kapitel' => $moduleIds ? implode(',', $moduleIds) : null])) }}">
                     @csrf
                     <button type="submit" class="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
                         {{ $next ? 'Nächstes Video' : 'Kurs abschließen' }} <x-icon name="arrow-right" class="w-4 h-4" />
