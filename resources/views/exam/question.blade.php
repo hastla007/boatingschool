@@ -19,6 +19,10 @@
             <div class="h-1.5 rounded-full transition-all" style="width: {{ $total ? ($answered / $total * 100) : 0 }}%; background-color: var(--brand-primary, #005FD7)"></div>
         </div>
 
+        @foreach ($current->revision->media as $media)
+            <img src="{{ $media->storage_path }}" alt="{{ $media->alt_text }}" class="rounded-lg mb-4 max-h-64 mx-auto">
+        @endforeach
+
         <h3 class="text-lg font-medium text-slate-800 dark:text-white mb-4">{{ $current->revision->question_text }}</h3>
 
         <form method="POST" action="{{ route('exam.answer', $examSession) }}" x-data="{ selected: null }">

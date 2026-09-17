@@ -192,7 +192,7 @@ class ExamController extends Controller
             return $this->finish($request, $examSession);
         }
 
-        $current = $examSession->questions()->whereNull('answered_at')->orderBy('position')->with('revision.answers')->first();
+        $current = $examSession->questions()->whereNull('answered_at')->orderBy('position')->with('revision.answers', 'revision.media')->first();
 
         if (! $current) {
             return $this->finish($request, $examSession);

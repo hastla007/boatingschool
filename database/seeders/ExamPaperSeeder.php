@@ -2,27 +2,34 @@
 
 namespace Database\Seeders;
 
+use App\Models\ContentQuestion;
 use App\Models\CourseDefinition;
 use App\Models\ExamPaper;
 use App\Models\ExamPaperQuestion;
-use App\Models\Module;
+use App\Models\MediaAsset;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Storage;
 
 /**
- * 15 feste Prüfungsbögen für SBF See, je 30 Fragen (7 allgemeine
- * Basisfragen + 23 kursspezifische Fragen), analog zu den amtlichen
- * Prüfungsbögen. Die Zuordnung Frage->Bogen ist hier eine deterministische
- * Verteilung aus dem echten, bereits importierten Fragenpool (kein
- * erfundener Fragentext) -- vor Produktivbetrieb durch die tatsächliche
- * amtliche Bogen-Zuordnung ersetzen.
+ * Die 15 amtlichen Prüfungsbögen für SBF See, importiert aus
+ * database/data/sbf_see_pruefungsboegen.csv (Quelle: die einzelnen Bögen
+ * unter bootsfuehrerscheinpruefung.de/sbfsee/pruefungsboegen/, vom Betreiber
+ * bereitgestellt). Jede Zeile referenziert eine Frage über ihre
+ * Fragenkatalog-Nr. (= content_question.official_number), eindeutig erst in
+ * Kombination mit der Fragenfamilie ("Basisfragen" vs. "Spezifische Fragen
+ * See" aus der Tags-Spalte), da dieselbe Katalognummer je nach Familie
+ * mehrfach vorkommt (z. B. Basis-Frage 8 und SRC-Frage 8 sind verschiedene
+ * Fragen). Bilder, die in den Prüfungsbögen verwendet werden, werden dabei
+ * gleich an die jeweilige Frage angehängt (question_media), sodass sie
+ * überall erscheinen, wo diese Frage angezeigt wird (Smarttrainer,
+ * Prüfungssimulation, Navigationsaufgaben-ähnliche Ansichten).
  */
 class ExamPaperSeeder extends Seeder
 {
-    private const PAPER_COUNT = 15;
-
-    private const BASIS_PER_PAPER = 7;
-
-    private const SPECIFIC_PER_PAPER = 23;
+    private const CONTENT_ROLE_BY_TAG = [
+        'Basisfragen' => 'shared_basis',
+        'Spezifische Fragen See' => 'see_specific',
+    ];
 
     public function run(): void
     {
@@ -32,44 +39,107 @@ class ExamPaperSeeder extends Seeder
             return;
         }
 
-        $basisModule = Module::withoutGlobalScopes()->where('code', 'SBF_BASIS')->first();
-        $specificModule = Module::withoutGlobalScopes()->where('code', 'SBF_SEE')->first();
-
-        if (! $basisModule || ! $specificModule) {
+        $csvPath = database_path('data/sbf_see_pruefungsboegen.csv');
+        if (! file_exists($csvPath)) {
             return;
         }
 
-        $publishedQuestionIds = fn (Module $module) => $module->questions()
-            ->whereHas('revisions', fn ($q) => $q->where('editorial_status', 'published'))
-            ->orderBy('content_question.id')
-            ->pluck('content_question.id')
-            ->all();
+        $papers = [];
 
-        $basisIds = $publishedQuestionIds($basisModule);
-        $specificIds = $publishedQuestionIds($specificModule);
+        foreach ($this->readCsv($csvPath) as $row) {
+            $paperNumber = (int) $row['Prüfungsbogen'];
+            $position = (int) $row['Position im Bogen'];
+            $officialNumber = trim($row['Fragenkatalog-Nr.']);
+            $contentRole = $this->resolveContentRole($row['Tags'] ?? '');
 
-        if (empty($basisIds) || empty($specificIds)) {
-            return;
-        }
+            $question = $contentRole
+                ? ContentQuestion::where('official_number', $officialNumber)->where('content_role', $contentRole)->first()
+                : null;
 
-        for ($paperNumber = 1; $paperNumber <= self::PAPER_COUNT; $paperNumber++) {
-            $paper = ExamPaper::create([
+            if (! $question) {
+                continue;
+            }
+
+            $paper = $papers[$paperNumber] ??= ExamPaper::create([
                 'course_id' => $course->id,
                 'paper_number' => $paperNumber,
                 'sort_order' => $paperNumber,
             ]);
 
-            $position = 1;
+            ExamPaperQuestion::create([
+                'exam_paper_id' => $paper->id,
+                'question_id' => $question->id,
+                'position' => $position,
+            ]);
 
-            for ($i = 0; $i < self::BASIS_PER_PAPER; $i++) {
-                $questionId = $basisIds[(($paperNumber - 1) * self::BASIS_PER_PAPER + $i) % count($basisIds)];
-                ExamPaperQuestion::create(['exam_paper_id' => $paper->id, 'question_id' => $questionId, 'position' => $position++]);
-            }
+            $this->attachImages($question, $row['Bilddateien im ZIP'] ?? '');
+        }
+    }
 
-            for ($i = 0; $i < self::SPECIFIC_PER_PAPER; $i++) {
-                $questionId = $specificIds[(($paperNumber - 1) * self::SPECIFIC_PER_PAPER + $i) % count($specificIds)];
-                ExamPaperQuestion::create(['exam_paper_id' => $paper->id, 'question_id' => $questionId, 'position' => $position++]);
+    private function resolveContentRole(string $tagsCell): ?string
+    {
+        foreach (self::CONTENT_ROLE_BY_TAG as $tag => $role) {
+            if (str_contains($tagsCell, $tag)) {
+                return $role;
             }
         }
+
+        return null;
+    }
+
+    private function attachImages(ContentQuestion $question, string $imagesCell): void
+    {
+        $filenames = array_filter(array_map('trim', explode(';', $imagesCell)));
+
+        if (empty($filenames)) {
+            return;
+        }
+
+        $revision = $question->publishedRevision();
+        if (! $revision) {
+            return;
+        }
+
+        foreach ($filenames as $index => $imagePath) {
+            $filename = basename($imagePath);
+            $sourcePath = database_path('data/pruefungsboegen_bilder/'.$filename);
+
+            if (! file_exists($sourcePath)) {
+                continue;
+            }
+
+            $storagePath = 'question-media/'.$filename;
+            if (! Storage::disk('public')->exists($storagePath)) {
+                Storage::disk('public')->put($storagePath, file_get_contents($sourcePath));
+            }
+
+            $asset = MediaAsset::firstOrCreate(
+                ['asset_key' => $filename],
+                [
+                    'media_type' => 'image',
+                    'storage_path' => Storage::disk('public')->url($storagePath),
+                    'mime_type' => 'image/png',
+                    'source' => 'bootsfuehrerscheinpruefung.de',
+                ]
+            );
+
+            if (! $revision->media()->where('media_asset_id', $asset->id)->exists()) {
+                $revision->media()->attach($asset->id, ['role' => 'question', 'sort_order' => $index + 1]);
+            }
+        }
+    }
+
+    /** @return iterable<array<string, string>> */
+    private function readCsv(string $path): iterable
+    {
+        $handle = fopen($path, 'r');
+        $header = fgetcsv($handle, 0, ';');
+        $header[0] = preg_replace('/^\xEF\xBB\xBF/', '', $header[0]);
+
+        while (($data = fgetcsv($handle, 0, ';')) !== false) {
+            yield array_combine($header, $data);
+        }
+
+        fclose($handle);
     }
 }

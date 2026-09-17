@@ -76,10 +76,17 @@ auf PostgreSQL, gemäß dem mitgelieferten technischen Konzept
   desselben Bogens setzt einen bereits laufenden Versuch fort statt ihn zu
   duplizieren. Die Prüfungssimulation-Startseite zeigt pro Bogen einen
   Fortschrittsring mit dem Ergebnis des letzten abgeschlossenen Versuchs.
-  **Hinweis**: Die Zuordnung Frage→Bogen ist aktuell eine deterministische
-  Demo-Verteilung aus dem echten, bereits importierten Fragenpool (kein
-  erfundener Fragentext) und muss vor Produktivbetrieb durch die
-  tatsächliche amtliche Bogen-Zusammenstellung ersetzt werden.
+  Die 15 Bögen werden von `ExamPaperSeeder` aus
+  `database/data/sbf_see_pruefungsboegen.csv` importiert (Quelle: die
+  einzelnen Bögen unter bootsfuehrerscheinpruefung.de/sbfsee/pruefungsboegen/).
+  Jede Zeile referenziert eine Frage über ihre Fragenkatalog-Nr.
+  (= `content_question.official_number`), eindeutig erst in Kombination mit
+  der Fragenfamilie aus der Tags-Spalte ("Basisfragen" → `shared_basis`,
+  "Spezifische Fragen See" → `see_specific`), da dieselbe Katalognummer je
+  Fragenfamilie mehrfach vorkommt. Bilder aus
+  `database/data/pruefungsboegen_bilder/` werden dabei direkt an die
+  jeweilige Frage angehängt (`question_media`) und erscheinen dadurch überall,
+  wo diese Frage angezeigt wird (Smarttrainer, Prüfungssimulation).
 
 ## Setup (lokal)
 
