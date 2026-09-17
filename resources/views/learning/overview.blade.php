@@ -57,6 +57,30 @@
                     </div>
                 </div>
             @endforeach
+
+            @if ($praxisCategories->isNotEmpty())
+                <div x-data="{ open: false }" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden">
+                    <button type="button" x-on:click="open = !open"
+                            class="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
+                        <span class="flex-1 font-medium text-slate-700 dark:text-slate-200">Trainer für die praktische Prüfung SBF See</span>
+                        <x-icon name="chevron-right" class="w-4 h-4 text-slate-400 shrink-0 transition-transform" x-bind:class="open ? 'rotate-90' : ''" />
+                    </button>
+                    <div x-show="open" x-transition class="px-4 pb-4 grid sm:grid-cols-2 gap-2">
+                        @foreach ($praxisCategories as $entry)
+                            <a href="{{ route('praxistrainer.index', ['course' => $course, 'kategorie' => $entry['kategorie']]) }}"
+                               class="flex items-center gap-3 rounded-xl px-3 py-3 text-white transition hover:opacity-90"
+                               style="background: linear-gradient(120deg, #0B2A4A, #14395E);">
+                                <x-progress-ring :percent="$entry['percent']" :size="40" :stroke="4" class="shrink-0 [&_circle:first-child]:stroke-white/25" />
+                                <div class="flex-1 min-w-0">
+                                    <div class="text-sm font-medium truncate">{{ $entry['kategorie'] }}</div>
+                                    <div class="text-xs text-white/70">{{ $entry['mastered'] }}/{{ $entry['total'] }} Fragen</div>
+                                </div>
+                                <x-icon name="light-bulb" class="w-4 h-4 text-white/50 shrink-0" />
+                            </a>
+                        @endforeach
+                    </div>
+                </div>
+            @endif
         </div>
     </div>
 </x-app-layout>

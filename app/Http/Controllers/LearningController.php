@@ -7,6 +7,7 @@ use App\Models\ContentQuestion;
 use App\Models\ContentQuestionRevision;
 use App\Models\CourseDefinition;
 use App\Models\Favorite;
+use App\Models\PraxisProgress;
 use App\Models\Progress;
 use App\Services\EntitlementService;
 use App\Services\LearningService;
@@ -26,7 +27,7 @@ class LearningController extends Controller
 
         $course->load(['modules.questions.revisions' => function ($query) {
             $query->where('editorial_status', 'published')->orderByDesc('revision_no');
-        }]);
+        }, 'praxisTasks']);
 
         $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get();
 
@@ -72,12 +73,33 @@ class LearningController extends Controller
 
         $favoriteIds = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)->pluck('question_id');
 
+        $praxisProgress = PraxisProgress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get();
+        $praxisMastered = fn ($taskIds) => $praxisProgress->whereIn('praxis_task_id', $taskIds)->where('completed', true)->count();
+
+        $praxisCategories = $course->praxisTasks
+            ->groupBy('kategorie')
+            ->map(function ($tasks, $kategorie) use ($praxisMastered) {
+                $taskIds = $tasks->pluck('id');
+                $total = $taskIds->count();
+                $categoryMastered = $praxisMastered($taskIds);
+
+                return [
+                    'kategorie' => $kategorie,
+                    'total' => $total,
+                    'mastered' => $categoryMastered,
+                    'percent' => $total > 0 ? (int) round($categoryMastered / $total * 100) : 0,
+                ];
+            })
+            ->sortByDesc('total')
+            ->values();
+
         return view('learning.overview', [
             'course' => $course,
             'overallPercent' => $overallPercent,
             'moduleGroups' => $moduleGroups,
             'favoritesTotal' => $favoriteIds->count(),
             'favoritesMastered' => $favoriteIds->isNotEmpty() ? $mastered($favoriteIds) : 0,
+            'praxisCategories' => $praxisCategories,
         ]);
     }
 
