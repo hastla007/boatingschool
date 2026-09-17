@@ -38,8 +38,19 @@ class VideoCourseSeeder extends Seeder
                 ['Jetskis', 74],
             ],
             'Seemannschaft' => [
-                ['Knotenkunde Grundlagen', 210],
                 ['Anlegemanöver', 245],
+            ],
+            'Knoten' => [
+                ['Achtknoten', 34],
+                ['Kreuzknoten', 34],
+                ['Einfacher Schotstek', 40],
+                ['Doppelter Schotstek', 52],
+                ['Palstek', 65],
+                ['Webeleinsteg', 31],
+                ['Webeleinsteg auf Slip', 38],
+                ['Stopperstek', 46],
+                ['1½ Rundtörn mit zwei halben Schlägen', 58],
+                ['Klampe belegen mit Kopfschlag', 71],
             ],
             'Wetterkunde' => [
                 ['Wolken und Wettervorhersage', 198],
@@ -54,16 +65,79 @@ class VideoCourseSeeder extends Seeder
             ],
         ];
 
-        // Schritt-für-Schritt-Galerie für die Knotenlektion (analog zur
+        // Schritt-für-Schritt-Galerie je Knoten (analog zur
         // "Der Achtknoten"-Ansicht im Referenzprodukt). Ohne echtes
         // Bildmaterial werden hier nur benannte Platzhalter-Schritte
         // angelegt -- vor Produktivbetrieb durch echte Aufnahmen ersetzen.
         $knotSteps = [
-            'Ende zur Schlaufe legen',
-            'Ende um das stehende Part führen',
-            'Ende durch die Schlaufe fädeln',
-            'Knoten festziehen',
-            'Fertigen Knoten prüfen',
+            'Achtknoten' => [
+                'Ende zur Schlaufe legen',
+                'Ende um das stehende Part führen',
+                'Ende durch die Schlaufe fädeln',
+                'Knoten festziehen',
+                'Fertigen Knoten prüfen',
+            ],
+            'Kreuzknoten' => [
+                'Enden überkreuzen',
+                'Erste Schlaufe formen',
+                'Enden erneut überkreuzen',
+                'Zweite Schlaufe formen',
+                'Knoten festziehen',
+            ],
+            'Einfacher Schotstek' => [
+                'Bucht der dickeren Leine formen',
+                'Ende der dünneren Leine durchführen',
+                'Ende um die Bucht herumführen',
+                'Ende unter sich selbst durchstecken',
+                'Knoten festziehen',
+            ],
+            'Doppelter Schotstek' => [
+                'Bucht der dickeren Leine formen',
+                'Ende der dünneren Leine durchführen',
+                'Ende um die Bucht führen',
+                'Zweite Windung um die Bucht legen',
+                'Ende unter sich selbst durchstecken',
+                'Knoten festziehen',
+            ],
+            'Palstek' => [
+                'Kleine Schlaufe ins stehende Part legen',
+                'Ende von unten durch die Schlaufe führen',
+                'Ende um das stehende Part führen',
+                'Ende zurück durch die Schlaufe führen',
+                'Knoten festziehen',
+            ],
+            'Webeleinsteg' => [
+                'Erste Törn um das Rundholz legen',
+                'Zweite Törn darüberlegen',
+                'Ende unter die letzte Windung führen',
+                'Knoten festziehen',
+            ],
+            'Webeleinsteg auf Slip' => [
+                'Webeleinsteg wie gewohnt legen',
+                'Ende als Bucht statt fest durchziehen',
+                'Bucht unter die Windung stecken',
+                'Knoten zum schnellen Lösen festziehen',
+            ],
+            'Stopperstek' => [
+                'Erste Törn um die Leine legen',
+                'Zweite Törn in Zugrichtung legen',
+                'Dritte Törn kreuzend darüberlegen',
+                'Ende unter die letzte Windung führen',
+                'Knoten festziehen',
+            ],
+            '1½ Rundtörn mit zwei halben Schlägen' => [
+                'Anderthalb Rundtörns um Poller/Ring legen',
+                'Ersten halben Schlag legen',
+                'Zweiten halben Schlag legen',
+                'Knoten festziehen',
+            ],
+            'Klampe belegen mit Kopfschlag' => [
+                'Leine unter dem ersten Horn durchführen',
+                'Erste Achterschlaufe um die Klampe legen',
+                'Weitere Achterschlaufen legen',
+                'Kopfschlag als Sicherung legen',
+                'Leine festziehen',
+            ],
         ];
 
         $chapterIndex = 0;
@@ -84,8 +158,8 @@ class VideoCourseSeeder extends Seeder
                     'sort_order' => ++$lessonIndex,
                 ]);
 
-                if ($lessonTitle === 'Knotenkunde Grundlagen') {
-                    foreach ($knotSteps as $stepIndex => $stepTitle) {
+                if (isset($knotSteps[$lessonTitle])) {
+                    foreach ($knotSteps[$lessonTitle] as $stepIndex => $stepTitle) {
                         VideoLessonStep::create([
                             'video_lesson_id' => $lesson->id,
                             'title' => $stepTitle,
