@@ -2,18 +2,21 @@
     <x-slot name="header">
         <div class="flex items-center justify-between">
             <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Prüfungssimulation</h2>
-            <div class="text-sm text-slate-500">
+            <div class="text-sm text-slate-500 flex items-center gap-1.5">
+                <x-icon name="clipboard-document-check" class="w-4 h-4 text-slate-400" />
                 Frage {{ $current->position }} von {{ $total }}
                 @if (! is_null($remainingSeconds))
-                    · <span id="exam-timer" data-remaining="{{ $remainingSeconds }}">{{ gmdate('i:s', $remainingSeconds) }}</span>
+                    <span class="text-slate-300">&middot;</span>
+                    <x-icon name="clock" class="w-4 h-4 text-slate-400" />
+                    <span id="exam-timer" data-remaining="{{ $remainingSeconds }}">{{ gmdate('i:s', $remainingSeconds) }}</span>
                 @endif
             </div>
         </div>
     </x-slot>
 
-    <div class="max-w-2xl mx-auto bg-white dark:bg-slate-800 rounded-xl shadow-sm p-6">
+    <div class="max-w-2xl mx-auto bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6">
         <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 mb-6">
-            <div class="h-1.5 rounded-full" style="width: {{ $total ? ($answered / $total * 100) : 0 }}%; background-color: var(--brand-primary, #005FD7)"></div>
+            <div class="h-1.5 rounded-full transition-all" style="width: {{ $total ? ($answered / $total * 100) : 0 }}%; background-color: var(--brand-primary, #005FD7)"></div>
         </div>
 
         <h3 class="text-lg font-medium text-slate-800 dark:text-white mb-4">{{ $current->revision->question_text }}</h3>
@@ -24,7 +27,7 @@
 
             <div class="space-y-2">
                 @foreach ($current->revision->answers as $answer)
-                    <label class="flex items-center gap-3 border border-slate-200 dark:border-slate-600 hover:border-slate-400 rounded-lg px-4 py-3 cursor-pointer">
+                    <label class="flex items-center gap-3 border border-slate-200 dark:border-slate-600 hover:border-slate-400 rounded-xl px-4 py-3 cursor-pointer transition">
                         <input type="radio" name="answer_id" value="{{ $answer->id }}" x-model="selected" class="shrink-0">
                         <span class="text-slate-700 dark:text-slate-200">{{ $answer->answer_text }}</span>
                     </label>
@@ -32,9 +35,9 @@
             </div>
 
             <div class="flex justify-end mt-6">
-                <button type="submit" x-bind:disabled="!selected" class="px-5 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-40"
+                <button type="submit" x-bind:disabled="!selected" class="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-40 hover:opacity-90 transition"
                         style="background-color: var(--brand-primary, #005FD7)">
-                    {{ $current->position === $total ? 'Abschließen' : 'Weiter' }}
+                    {{ $current->position === $total ? 'Abschließen' : 'Weiter' }} <x-icon name="arrow-right" class="w-4 h-4" />
                 </button>
             </div>
         </form>

@@ -36,6 +36,23 @@ auf PostgreSQL, gemäß dem mitgelieferten technischen Konzept
 - **Prüfungssimulation** (`app/Http/Controllers/ExamController.php`):
   Regelwerk-Snapshot, keine Sofortauflösung während der Prüfung, serverseitig
   berechnetes Ergebnis nach Abschluss.
+- **Modul-gefilterter Smarttrainer**: `LearningController@show` akzeptiert
+  einen optionalen `?module=`-Query-Parameter, der `SmarttrainerService` auf
+  die Fragen eines einzelnen Kursmoduls einschränkt. Wird von den
+  Kapitel-Kacheln auf der Kursdetailseite genutzt.
+- **Videokurs** (`video_module`, `video_lesson`, `video_progress`,
+  `app/Http/Controllers/VideoCourseController.php`): wie Fragen/Module ist
+  der Videocontent zentraler, mandantenunabhängiger Content, an
+  `course_definition` gehängt (`CourseDefinition::videoModules()`). Nur der
+  Sehfortschritt (`video_progress`) ist mandantenbezogen und per RLS
+  abgesichert (Policy `video_progress_isolation`). Der Player
+  (`resources/views/video/show.blade.php`) zeigt eine nach Kapiteln
+  gruppierte Lektionsliste, markiert abgeschlossene Lektionen und springt
+  beim Abschließen automatisch zur nächsten Lektion. **Hinweis**: Die per
+  `VideoCourseSeeder` angelegten Lektionen verweisen aktuell auf ein
+  öffentliches Platzhaltervideo (`https://www.w3schools.com/html/mov_bbb.mp4`)
+  und müssen vor einem produktiven Einsatz durch lizenzierte Kursvideos
+  ersetzt werden.
 
 ## Setup (lokal)
 
@@ -46,7 +63,12 @@ composer install
 npm install && npm run build
 cp .env.example .env
 php artisan key:generate
+php artisan storage:link
 ```
+
+`storage:link` wird für den Logo-Upload im Branding benötigt (Bootsschul-Admin
+→ Branding-Einstellungen); Dateien landen unter `storage/app/public` und
+werden über `public/storage` ausgeliefert.
 
 Zwei DB-Rollen anlegen (einmalig, per Infra/Admin – die Owner-Rolle braucht
 aus Sicherheitsgründen absichtlich kein `CREATE ROLE`-Recht für die App

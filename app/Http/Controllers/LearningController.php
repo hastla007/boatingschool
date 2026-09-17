@@ -30,13 +30,14 @@ class LearningController extends Controller
 
         $mode = $request->query('mode', 'smarttrainer');
         $topic = $request->query('topic');
+        $moduleId = $request->query('module');
 
         if ($mode === 'favorites') {
             $favoriteIds = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)->pluck('question_id');
             $questionId = $favoriteIds->isNotEmpty() ? $favoriteIds->random() : null;
             $next = $questionId ? ['question' => ContentQuestion::find($questionId), 'reason' => 'Favorit'] : null;
         } else {
-            $next = $smarttrainer->nextQuestion($tenant, $user, $course, $mode, $topic);
+            $next = $smarttrainer->nextQuestion($tenant, $user, $course, $mode, $topic, $moduleId);
         }
 
         if (! $next) {
@@ -56,6 +57,7 @@ class LearningController extends Controller
             'reason' => $next['reason'],
             'mode' => $mode,
             'topic' => $topic,
+            'moduleId' => $moduleId,
             'isFavorite' => $isFavorite,
             'startedAt' => now()->valueOf(),
             'answered' => false,
@@ -113,6 +115,7 @@ class LearningController extends Controller
             'reason' => null,
             'mode' => $validated['mode'],
             'topic' => $request->query('topic'),
+            'moduleId' => $request->query('module'),
             'isFavorite' => $isFavorite,
             'startedAt' => now()->valueOf(),
             'answered' => true,

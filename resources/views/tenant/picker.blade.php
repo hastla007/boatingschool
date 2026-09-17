@@ -9,15 +9,18 @@
 <body class="bg-slate-100 dark:bg-slate-900 min-h-screen flex items-center justify-center p-6">
     <div class="w-full max-w-md">
         <div class="text-center mb-8">
-            <div class="text-3xl mb-2">⚓</div>
+            <x-icon name="anchor" class="w-9 h-9 mx-auto mb-2 text-blue-600" />
             <h1 class="text-2xl font-bold text-slate-800 dark:text-white">White-Label Lernplattform</h1>
             <p class="text-slate-500 dark:text-slate-400">Bitte wählen Sie Ihre Bootsschule</p>
         </div>
-        <div class="bg-white dark:bg-slate-800 rounded-xl shadow p-4 space-y-2">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 space-y-2">
             @forelse ($tenants as $tenant)
                 <a href="{{ url('/') }}?as_tenant={{ $tenant->slug }}"
-                   class="flex items-center justify-between px-4 py-3 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-slate-700 transition">
-                    <span class="font-medium text-slate-700 dark:text-slate-100">{{ $tenant->name }}</span>
+                   class="flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-slate-700 transition">
+                    <div class="w-9 h-9 rounded-lg bg-blue-50 dark:bg-slate-700 flex items-center justify-center shrink-0 text-blue-600">
+                        <x-icon name="academic-cap" class="w-4 h-4" />
+                    </div>
+                    <span class="font-medium text-slate-700 dark:text-slate-100 flex-1">{{ $tenant->name }}</span>
                     <span class="text-xs text-slate-400">{{ $tenant->slug }}.{{ config('app.central_domain') }}</span>
                 </a>
             @empty

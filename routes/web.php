@@ -11,6 +11,7 @@ use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\LearningController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProgressController;
+use App\Http\Controllers\VideoCourseController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -31,6 +32,10 @@ Route::middleware(['auth', 'tenant.member'])->group(function () {
     Route::delete('/favorites/{question}', [FavoriteController::class, 'destroy'])->name('favorites.destroy');
 
     Route::get('/progress', [ProgressController::class, 'index'])->name('progress.index');
+
+    Route::get('/courses/{course}/video', [VideoCourseController::class, 'index'])->name('video.index');
+    Route::get('/courses/{course}/video/{lesson}', [VideoCourseController::class, 'show'])->name('video.show');
+    Route::post('/courses/{course}/video/{lesson}/complete', [VideoCourseController::class, 'complete'])->name('video.complete');
 
     Route::get('/courses/{course}/exam', [ExamController::class, 'intro'])->name('exam.intro');
     Route::post('/courses/{course}/exam', [ExamController::class, 'start'])->name('exam.start');

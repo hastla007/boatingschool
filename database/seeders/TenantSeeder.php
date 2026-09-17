@@ -30,7 +30,7 @@ class TenantSeeder extends Seeder
                 'name' => 'Hanse Bootsschule Kiel',
                 'branding' => [
                     'primary_color' => '#C2410C',
-                    'secondary_color' => '#0F172A',
+                    'secondary_color' => '#0EA5E9',
                     'support_email' => 'kontakt@hanse-bootsschule-kiel.de',
                     'legal_name' => 'Hanse Bootsschule Kiel e.K.',
                 ],
