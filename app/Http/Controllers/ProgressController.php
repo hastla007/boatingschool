@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ExamSession;
 use App\Models\Progress;
 use App\Services\EntitlementService;
 use App\Support\TenantContext;
@@ -37,6 +38,13 @@ class ProgressController extends Controller
             })
             ->sortBy('accuracy');
 
+        $examResults = ExamSession::where('tenant_id', $tenant->id)
+            ->where('user_id', $user->id)
+            ->where('status', 'evaluated')
+            ->with('course', 'paper')
+            ->orderByDesc('submitted_at')
+            ->get();
+
         return view('learning.progress', [
             'totalQuestions' => $totalQuestions,
             'answered' => $progress->where('attempt_count', '>', 0)->count(),
@@ -44,6 +52,7 @@ class ProgressController extends Controller
             'overallAccuracy' => $overallAccuracy,
             'dueReviews' => $progress->where('next_review_at', '<=', now())->where('current_streak', '>', 0)->count(),
             'byTopic' => $byTopic,
+            'examResults' => $examResults,
         ]);
     }
 }

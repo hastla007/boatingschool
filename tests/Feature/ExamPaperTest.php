@@ -88,6 +88,34 @@ class ExamPaperTest extends TestCase
         $this->assertSame(1, ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->count());
     }
 
+    public function test_completed_exam_appears_in_the_progress_overview(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $paper, $questions] = $this->makeIsolatedExamPaper();
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam/papers/{$paper->id}");
+        $session = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail();
+
+        foreach ($session->questions()->orderBy('position')->get() as $sq) {
+            $wrongAnswer = $sq->revision->answers->firstWhere('is_correct', false);
+            $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/answers", [
+                'position' => $sq->position,
+                'answer_id' => $wrongAnswer->id,
+            ]);
+        }
+        $this->actingAsInTenant($learner, $tenant)->get("/exam-sessions/{$session->id}");
+
+        $progress = $this->actingAsInTenant($learner, $tenant)->get('/progress');
+
+        $progress->assertOk();
+        $progress->assertSee('Test Prüfungskurs');
+        $progress->assertSee('Bogen 1');
+        $progress->assertSee('0%');
+        $progress->assertSee('Nicht bestanden');
+    }
+
     /** @return array{0: CourseDefinition, 1: ExamPaper, 2: \Illuminate\Support\Collection<int, ContentQuestion>} */
     private function makeIsolatedExamPaper(): array
     {
