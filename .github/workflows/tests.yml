@@ -19,9 +19,24 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        php: [8.2, 8.3, 8.4]
+        php: [8.4]
 
     name: PHP ${{ matrix.php }}
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
 
     steps:
       - name: Checkout code
@@ -31,7 +46,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
-          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, pdo_pgsql, pgsql, sqlite, pdo_sqlite
           coverage: none
 
       - name: Install Composer dependencies
@@ -42,6 +57,28 @@ jobs:
 
       - name: Generate app key
         run: php artisan key:generate
+
+      # Zwei-Rollen-Architektur (siehe README): die Owner-Rolle
+      # "boatingschool" legt Schema/Content per Migration/Seed an und
+      # umgeht RLS; die Least-Privilege-Rolle "boatingschool_app" ist die
+      # einzige, mit der die App selbst (und die Tests) sich verbindet.
+      - name: Create Postgres roles and databases
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -c "CREATE ROLE boatingschool LOGIN PASSWORD 'boatingschool';"
+          psql -h 127.0.0.1 -U postgres -c "CREATE ROLE boatingschool_app LOGIN PASSWORD 'boatingschool_app';"
+          psql -h 127.0.0.1 -U postgres -c "CREATE DATABASE boatingschool OWNER boatingschool;"
+          psql -h 127.0.0.1 -U postgres -c "CREATE DATABASE boatingschool_test OWNER boatingschool;"
+          psql -h 127.0.0.1 -U postgres -c "GRANT CONNECT ON DATABASE boatingschool TO boatingschool_app;"
+          psql -h 127.0.0.1 -U postgres -c "GRANT CONNECT ON DATABASE boatingschool_test TO boatingschool_app;"
+
+      - name: Migrate and seed test database
+        env:
+          DB_DATABASE: boatingschool_test
+        run: |
+          php artisan migrate --database=pgsql_admin --force
+          php artisan db:seed --database=pgsql_admin --force
 
       - name: Execute tests
         run: vendor/bin/phpunit
