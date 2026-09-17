@@ -122,6 +122,8 @@ class LearningLoopTest extends TestCase
      * ohne eigene id-Spalte. Eloquent-Collection::only() arbeitet intern über
      * den Modell-Primärschlüssel und lieferte dadurch für jedes Modul immer
      * 0 gefestigte Fragen zurück, obwohl echte Fortschrittsdaten vorlagen.
+     * Die Modul-Aufschlüsselung lebt inzwischen in Smart-Learning statt auf
+     * der Kursübersicht, daher prüft dieser Test dort weiter.
      */
     public function test_course_overview_reports_mastered_questions_per_module(): void
     {
@@ -142,10 +144,10 @@ class LearningLoopTest extends TestCase
             $this->actingAsInTenant($learner, $tenant)->post($endpoint, $payload)->assertOk();
         }
 
-        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
+        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/learn/overview");
 
         $response->assertOk();
-        $response->assertSee('1 / ', false);
+        $response->assertSee('1/', false);
     }
 
     public function test_smarttrainer_can_be_filtered_to_a_single_module(): void

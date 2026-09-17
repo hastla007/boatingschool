@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\CourseDefinition;
 use App\Models\Progress;
 use App\Models\VideoProgress;
-use App\Services\CourseProgressService;
 use App\Services\EntitlementService;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
@@ -45,7 +44,7 @@ class CourseController extends Controller
         ]);
     }
 
-    public function show(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseProgressService $courseProgress, CourseDefinition $course): View|Response
+    public function show(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course): View|Response
     {
         $tenant = $tenantContext->tenant();
         $user = $request->user();
@@ -60,11 +59,6 @@ class CourseController extends Controller
         // Models; Progress hat aber einen zusammengesetzten Schlüssel ohne
         // einzelne id-Spalte, daher hier bewusst whereIn() auf dem Attribut.
         $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get();
-
-        // Je Modul nach echter Smart-Learning-Kategorie aufgeschlüsselt, damit
-        // die Kursübersicht direkt in den passenden Smarttrainer-Ausschnitt
-        // verlinken kann, statt nur pauschal "Neue Fragen"/"Falsch beantwortet".
-        $moduleGroups = $courseProgress->moduleKategorieBreakdown($course, $tenant, $user);
 
         $videoModules = $course->videoModules()->with('lessons')->get();
         $videoLessonIds = $videoModules->flatMap->lessons->pluck('id');
@@ -94,7 +88,6 @@ class CourseController extends Controller
 
         return view('courses.show', [
             'course' => $course,
-            'moduleGroups' => $moduleGroups,
             'overallPercent' => $this->courseMasteryPercent($course, $progress),
             'hasVideoCourse' => $videoTotal > 0,
             'videoPercent' => $videoTotal > 0 ? (int) round($videoCompleted / $videoTotal * 100) : 0,
