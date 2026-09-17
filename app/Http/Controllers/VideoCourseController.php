@@ -18,7 +18,8 @@ class VideoCourseController extends Controller
     {
         abort_unless($entitlements->hasAccess($tenantContext->tenant(), $request->user(), $course), 403);
 
-        $lessons = $this->orderedLessons($course);
+        $moduleIds = $this->parseModuleIds($request);
+        $lessons = $this->orderedLessons($course, $moduleIds);
         abort_if($lessons->isEmpty(), 404, 'Für diesen Kurs ist noch kein Videokurs hinterlegt.');
 
         $progress = $this->progressFor($tenantContext, $request, $lessons);
@@ -31,8 +32,9 @@ class VideoCourseController extends Controller
     {
         abort_unless($entitlements->hasAccess($tenantContext->tenant(), $request->user(), $course), 403);
 
-        $lessons = $this->orderedLessons($course);
-        abort_unless($lessons->contains('id', $lesson->id), 404, 'Diese Lektion gehört nicht zu diesem Kurs.');
+        $moduleIds = $this->parseModuleIds($request);
+        $lessons = $this->orderedLessons($course, $moduleIds);
+        abort_unless($lessons->contains('id', $lesson->id), 404, 'Diese Lektion gehört nicht zu diesem Kapitel.');
 
         $progress = $this->progressFor($tenantContext, $request, $lessons);
         $currentIndex = $lessons->search(fn ($l) => $l->id === $lesson->id);
@@ -50,6 +52,7 @@ class VideoCourseController extends Controller
             'completedCount' => $completedCount,
             'totalCount' => $lessons->count(),
             'percent' => $lessons->isNotEmpty() ? (int) round($completedCount / $lessons->count() * 100) : 0,
+            'moduleIds' => $moduleIds,
         ]);
     }
 
@@ -59,7 +62,8 @@ class VideoCourseController extends Controller
         $user = $request->user();
         abort_unless($entitlements->hasAccess($tenant, $user, $course), 403);
 
-        $lessons = $this->orderedLessons($course);
+        $moduleIds = $this->parseModuleIds($request);
+        $lessons = $this->orderedLessons($course, $moduleIds);
         abort_unless($lessons->contains('id', $lesson->id), 404);
 
         VideoProgress::updateOrCreate(
@@ -69,18 +73,35 @@ class VideoCourseController extends Controller
 
         $currentIndex = $lessons->search(fn ($l) => $l->id === $lesson->id);
         $next = $lessons->get($currentIndex + 1);
+        $kapitel = $moduleIds ? ['kapitel' => implode(',', $moduleIds)] : [];
 
-        return redirect()->route($next ? 'video.show' : 'video.index', $next
-            ? ['course' => $course, 'lesson' => $next]
-            : ['course' => $course]);
+        return redirect()->route($next ? 'video.show' : 'video.index', array_merge(
+            $next ? ['course' => $course, 'lesson' => $next] : ['course' => $course],
+            $kapitel
+        ));
+    }
+
+    /** Eigenständige Kapitel-Seiten (z. B. "Knoten", "Praxisvideos (Motor)")
+     * beschränken die Lektionsliste über ?kapitel=<module_id>[,<module_id>...]
+     * auf die dort genannten Video-Module, statt den gesamten Videokurs zu
+     * zeigen. */
+    private function parseModuleIds(Request $request): ?array
+    {
+        $raw = $request->query('kapitel');
+
+        return $raw ? array_values(array_filter(explode(',', $raw))) : null;
     }
 
     /** @return Collection<int, VideoLesson> */
-    private function orderedLessons(CourseDefinition $course): Collection
+    private function orderedLessons(CourseDefinition $course, ?array $moduleIds = null): Collection
     {
-        return $course->videoModules()
-            ->with('lessons')
-            ->get()
+        $query = $course->videoModules()->with('lessons');
+
+        if ($moduleIds) {
+            $query->whereIn('id', $moduleIds);
+        }
+
+        return $query->get()
             ->flatMap(fn ($module) => $module->lessons->map(fn ($lesson) => tap($lesson, fn ($l) => $l->setRelation('module', $module))));
     }
 

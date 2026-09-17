@@ -52,6 +52,13 @@ class VideoCourseSeeder extends Seeder
                 ['1½ Rundtörn mit zwei halben Schlägen', 58],
                 ['Klampe belegen mit Kopfschlag', 71],
             ],
+            'Praxisvideos (Motor)' => [
+                ['Motor starten und abstellen', 58],
+                ['Ölstand und Kühlwasser prüfen', 64],
+                ['Kraftstoffsystem entlüften', 72],
+                ['Propeller und Antrieb kontrollieren', 51],
+                ['Verhalten bei Startproblemen', 69],
+            ],
             'Wetterkunde' => [
                 ['Wolken und Wettervorhersage', 198],
                 ['Wind und Seegang', 187],

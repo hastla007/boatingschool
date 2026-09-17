@@ -37,4 +37,32 @@
             @endforelse
         </div>
     </div>
+
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 mt-4">
+        <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
+            <x-icon name="clipboard-document-check" class="w-4 h-4 text-slate-400" /> Ergebnisse der Prüfungssimulationen
+        </h3>
+        <div class="space-y-2">
+            @forelse ($examResults as $session)
+                <a href="{{ route('exam.result', $session) }}" class="flex items-center justify-between gap-3 rounded-xl border border-slate-100 dark:border-slate-700 px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
+                    <div class="min-w-0">
+                        <div class="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">
+                            {{ $session->course->name }}
+                            <span class="text-slate-400 font-normal">&middot; {{ $session->paper ? 'Bogen '.$session->paper->paper_number : 'Zufällige Prüfung' }}</span>
+                        </div>
+                        <div class="text-xs text-slate-400">{{ $session->submitted_at?->format('d.m.Y H:i') }}</div>
+                    </div>
+                    <div class="flex items-center gap-3 shrink-0">
+                        <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">{{ (int) round($session->score * 100) }}%</span>
+                        <span class="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full {{ $session->passed ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300' }}">
+                            <x-icon :name="$session->passed ? 'check-circle' : 'x-circle'" class="w-3.5 h-3.5" />
+                            {{ $session->passed ? 'Bestanden' : 'Nicht bestanden' }}
+                        </span>
+                    </div>
+                </a>
+            @empty
+                <p class="text-slate-500 text-sm">Noch keine abgeschlossene Prüfungssimulation vorhanden.</p>
+            @endforelse
+        </div>
+    </div>
 </x-app-layout>

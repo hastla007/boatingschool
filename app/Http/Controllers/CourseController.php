@@ -74,12 +74,34 @@ class CourseController extends Controller
             ];
         });
 
-        $videoLessonIds = $course->videoModules()->with('lessons')->get()->flatMap->lessons->pluck('id');
+        $videoModules = $course->videoModules()->with('lessons')->get();
+        $videoLessonIds = $videoModules->flatMap->lessons->pluck('id');
         $videoTotal = $videoLessonIds->count();
         $videoCompleted = $videoTotal > 0
             ? VideoProgress::where('tenant_id', $tenant->id)->where('user_id', $user->id)
                 ->whereIn('video_lesson_id', $videoLessonIds)->where('completed', true)->count()
             : 0;
+
+        // Einzelne Videokurs-Kapitel als eigenständige Seiten: "Knoten" und
+        // "Praxisvideos (Motor)" bekommen ihre eigene, auf ihr Kapitel
+        // beschränkte Ansicht (?kapitel=<module_id>); "Navigation" bündelt
+        // alle übrigen Kapitel als eine gemeinsame Ansicht.
+        $knotenModule = $videoModules->firstWhere('title', 'Knoten');
+        $praxisModule = $videoModules->firstWhere('title', 'Praxisvideos (Motor)');
+        $navigationModuleIds = $videoModules
+            ->reject(fn ($m) => in_array($m->title, ['Knoten', 'Praxisvideos (Motor)']))
+            ->pluck('id')->all();
+
+        $chapterPercent = function (array $moduleIds) use ($tenant, $user, $videoModules) {
+            $lessonIds = $videoModules->whereIn('id', $moduleIds)->flatMap->lessons->pluck('id');
+            if ($lessonIds->isEmpty()) {
+                return 0;
+            }
+            $completed = VideoProgress::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+                ->whereIn('video_lesson_id', $lessonIds)->where('completed', true)->count();
+
+            return (int) round($completed / $lessonIds->count() * 100);
+        };
 
         return view('courses.show', [
             'course' => $course,
@@ -89,6 +111,12 @@ class CourseController extends Controller
             'videoPercent' => $videoTotal > 0 ? (int) round($videoCompleted / $videoTotal * 100) : 0,
             'hasExam' => (bool) $course->activeExamRuleSet(),
             'hasNavigationTasks' => $course->navigationTasks()->exists(),
+            'knotenModuleId' => $knotenModule?->id,
+            'knotenPercent' => $knotenModule ? $chapterPercent([$knotenModule->id]) : 0,
+            'praxisModuleId' => $praxisModule?->id,
+            'praxisPercent' => $praxisModule ? $chapterPercent([$praxisModule->id]) : 0,
+            'navigationModuleIds' => $navigationModuleIds,
+            'navigationPercent' => $chapterPercent($navigationModuleIds),
         ]);
     }
 
