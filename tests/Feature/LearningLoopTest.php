@@ -176,16 +176,17 @@ class LearningLoopTest extends TestCase
 
         $module = $this->existingModule('SBF_SEE');
         [, $revision] = $this->anyPublishedQuestionIn($module);
-        $topic = $revision->topic;
+        $category = $revision->smartmodus_kategorie ?: $revision->topic;
 
         $response = $this->actingAsInTenant($learner, $tenant)
-            ->get("/courses/{$course->id}/learn?mode=topic&module={$module->id}&topic=".urlencode($topic));
+            ->get("/courses/{$course->id}/learn?mode=topic&module={$module->id}&topic=".urlencode($category));
 
         $response->assertOk();
-        $this->assertSame($topic, $response->viewData('revision')->topic);
+        $returned = $response->viewData('revision');
+        $this->assertSame($category, $returned->smartmodus_kategorie ?: $returned->topic);
     }
 
-    public function test_smart_learning_overview_lists_modules_grouped_by_topic_with_mastery_counts(): void
+    public function test_smart_learning_overview_lists_modules_grouped_by_smartmodus_kategorie_with_mastery_counts(): void
     {
         $tenant = $this->createTestTenant();
         $learner = $this->createTenantUser($tenant, 'learner');
@@ -207,7 +208,7 @@ class LearningLoopTest extends TestCase
 
         $response->assertOk();
         $response->assertSee($module->name);
-        $response->assertSee($revision->topic);
+        $response->assertSee($revision->smartmodus_kategorie ?: $revision->topic);
         $response->assertSee('1/', false);
     }
 

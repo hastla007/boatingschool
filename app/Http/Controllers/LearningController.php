@@ -34,7 +34,11 @@ class LearningController extends Controller
 
         $moduleGroups = $course->modules->map(function ($module) use ($mastered) {
             $topics = $module->questions
-                ->groupBy(fn ($q) => $q->revisions->first()?->topic ?? 'Sonstiges')
+                ->groupBy(function ($q) {
+                    $revision = $q->revisions->first();
+
+                    return $revision?->smartmodus_kategorie ?: ($revision?->topic ?: 'Sonstiges');
+                })
                 ->map(function ($questions, $topic) use ($mastered) {
                     $questionIds = $questions->pluck('id');
                     $total = $questionIds->count();

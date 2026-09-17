@@ -4,9 +4,9 @@
             <div>
                 <div class="text-xs text-slate-400 flex items-center gap-1">
                     <a href="{{ route('courses.show', $course) }}" class="hover:underline">{{ $course->name }}</a>
-                    @if ($revision->topic)
+                    @if ($revision->smartmodus_kategorie ?: $revision->topic)
                         <x-icon name="chevron-right" class="w-3 h-3" />
-                        <span>{{ $revision->topic }}</span>
+                        <span>{{ $revision->smartmodus_kategorie ?: $revision->topic }}</span>
                     @endif
                 </div>
                 <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">{{ $revision->subtopic ?? $revision->topic ?? 'Frage' }}</h2>
