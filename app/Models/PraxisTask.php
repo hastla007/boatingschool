@@ -20,6 +20,17 @@ class PraxisTask extends Model
         'quelle', 'quellen_url', 'sort_order',
     ];
 
+    /**
+     * Kategorien, in denen die Aufgabe den Namen des Knotens/Manövers bereits
+     * in der Frage nennt ("Führe den Knoten X vor ...") und das Bild die
+     * korrekt ausgeführte Lösung zeigt -- im Gegensatz zu "Was bedeutet das
+     * dargestellte Zeichen/Signal/Feuer?", wo das Bild zur Frage gehört und
+     * zum Beantworten benötigt wird.
+     */
+    private const CATEGORIES_WHERE_IMAGE_IS_THE_SOLUTION = [
+        'Pflichtmanöver', 'Sonstige Manöver', 'Seemannsknoten', 'Sicherheit und Crew',
+    ];
+
     public function course(): BelongsTo
     {
         return $this->belongsTo(CourseDefinition::class, 'course_id');
@@ -28,5 +39,10 @@ class PraxisTask extends Model
     public function media(): BelongsTo
     {
         return $this->belongsTo(MediaAsset::class, 'media_asset_id');
+    }
+
+    public function imageBelongsToSolution(): bool
+    {
+        return in_array($this->kategorie, self::CATEGORIES_WHERE_IMAGE_IS_THE_SOLUTION, true);
     }
 }

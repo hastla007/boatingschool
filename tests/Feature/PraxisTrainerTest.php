@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\CourseDefinition;
+use App\Models\MediaAsset;
 use App\Models\PraxisTask;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -78,6 +79,68 @@ class PraxisTrainerTest extends TestCase
         $response->assertSee('Kategorie B Aufgabe');
         $response->assertDontSee('Kategorie A Aufgabe');
         $response->assertSee('0 / 1 Aufgaben', false);
+    }
+
+    public function test_image_is_hidden_before_reveal_for_knots_but_shown_upfront_for_signs(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $knotTask, $signTask] = $this->onAdmin(function () {
+            $course = CourseDefinition::withoutGlobalScopes()->create([
+                'tenant_id' => null,
+                'code' => 'TEST-PRAXIS-'.uniqid(),
+                'name' => 'Test Praxistrainer',
+                'course_type' => 'full',
+                'status' => 'published',
+            ]);
+            $this->createdCourseIds[] = $course->id;
+
+            $asset = MediaAsset::create([
+                'asset_key' => 'test-praxis-image-'.uniqid(),
+                'media_type' => 'image',
+                'storage_path' => 'http://localhost/storage/question-media/praxistrainer/test-solution-image.png',
+            ]);
+
+            $knotTask = PraxisTask::create([
+                'course_id' => $course->id,
+                'content_id' => 'TEST-PRAXIS-KNOT',
+                'kategorie' => 'Seemannsknoten',
+                'frage' => 'Führe den Knoten „Testknoten“ vor.',
+                'antwort' => 'Musterlösung Testknoten',
+                'media_asset_id' => $asset->id,
+                'sort_order' => 1,
+            ]);
+            $signTask = PraxisTask::create([
+                'course_id' => $course->id,
+                'content_id' => 'TEST-PRAXIS-SIGN',
+                'kategorie' => 'Zeichen auf See',
+                'frage' => 'Was bedeutet das dargestellte Zeichen?',
+                'antwort' => 'Musterlösung Zeichen',
+                'media_asset_id' => $asset->id,
+                'sort_order' => 2,
+            ]);
+
+            return [$course, $knotTask, $signTask];
+        });
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $knotPage = $this->actingAsInTenant($learner, $tenant)
+            ->get(route('praxistrainer.show', ['course' => $course, 'task' => $knotTask]))
+            ->getContent();
+        $this->assertGreaterThan(
+            strpos($knotPage, 'MUSTERLÖSUNG'),
+            strpos($knotPage, 'test-solution-image.png'),
+            'Für Knoten muss das Bild erst nach der Musterlösung im HTML stehen.'
+        );
+
+        $signPage = $this->actingAsInTenant($learner, $tenant)
+            ->get(route('praxistrainer.show', ['course' => $course, 'task' => $signTask]))
+            ->getContent();
+        $this->assertLessThan(
+            strpos($signPage, 'Musterlösung anzeigen'),
+            strpos($signPage, 'test-solution-image.png'),
+            'Für Zeichen muss das Bild schon vor dem Musterlösung-Button im HTML stehen.'
+        );
     }
 
     /** @return array{0: CourseDefinition, 1: PraxisTask, 2: PraxisTask} */
