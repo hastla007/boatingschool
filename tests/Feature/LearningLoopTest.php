@@ -139,4 +139,23 @@ class LearningLoopTest extends TestCase
         $response->assertOk();
         $response->assertSee('1 / ', false);
     }
+
+    public function test_smarttrainer_can_be_filtered_to_a_single_module(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SBF-SEE');
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $module = $this->existingModule('SBF_SEE');
+        $moduleQuestionIds = $this->onAdmin(fn () => $module->questions()->pluck('content_question.id'));
+
+        $response = $this->actingAsInTenant($learner, $tenant)
+            ->get("/courses/{$course->id}/learn?mode=smarttrainer&module={$module->id}");
+
+        $response->assertOk();
+
+        $revisionId = $response->viewData('revision')->question_id;
+        $this->assertTrue($moduleQuestionIds->contains($revisionId));
+    }
 }

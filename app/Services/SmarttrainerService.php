@@ -18,13 +18,14 @@ use Illuminate\Support\Collection;
  */
 class SmarttrainerService
 {
-    public function nextQuestion(Tenant $tenant, User $user, CourseDefinition $course, string $mode = 'smarttrainer', ?string $topic = null): ?array
+    public function nextQuestion(Tenant $tenant, User $user, CourseDefinition $course, string $mode = 'smarttrainer', ?string $topic = null, ?string $moduleId = null): ?array
     {
         $course->loadMissing(['modules.questions.revisions' => function ($query) {
             $query->where('editorial_status', 'published')->orderByDesc('revision_no');
         }]);
 
-        $questions = $course->modules->flatMap(fn ($module) => $module->questions)->unique('id');
+        $modules = $moduleId ? $course->modules->where('id', $moduleId) : $course->modules;
+        $questions = $modules->flatMap(fn ($module) => $module->questions)->unique('id');
 
         if ($questions->isEmpty()) {
             return null;

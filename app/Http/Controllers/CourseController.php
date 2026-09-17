@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\CourseDefinition;
 use App\Models\Progress;
+use App\Models\VideoProgress;
 use App\Services\EntitlementService;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -14,9 +16,32 @@ class CourseController extends Controller
 {
     public function index(Request $request, TenantContext $tenantContext, EntitlementService $entitlements): View
     {
-        $courses = $entitlements->activeCourses($tenantContext->tenant(), $request->user());
+        $tenant = $tenantContext->tenant();
+        $user = $request->user();
 
-        return view('courses.index', ['courses' => $courses]);
+        $activeEntitlements = $entitlements->activeEntitlements($tenant, $user)->keyBy('course_id');
+        $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get();
+
+        $courses = $activeEntitlements->map(function ($entitlement) use ($progress) {
+            $course = $entitlement->course;
+
+            return [
+                'course' => $course,
+                'entitlement' => $entitlement,
+                'percent' => $this->courseMasteryPercent($course, $progress),
+            ];
+        })->values();
+
+        $lockedCourses = CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')
+            ->orderBy('name')
+            ->get()
+            ->reject(fn ($c) => $activeEntitlements->has($c->id))
+            ->values();
+
+        return view('courses.index', [
+            'courses' => $courses,
+            'lockedCourses' => $lockedCourses,
+        ]);
     }
 
     public function show(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course): View|Response
@@ -49,6 +74,29 @@ class CourseController extends Controller
             ];
         });
 
-        return view('courses.show', ['course' => $course, 'modules' => $modules]);
+        $videoLessonIds = $course->videoModules()->with('lessons')->get()->flatMap->lessons->pluck('id');
+        $videoTotal = $videoLessonIds->count();
+        $videoCompleted = $videoTotal > 0
+            ? VideoProgress::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+                ->whereIn('video_lesson_id', $videoLessonIds)->where('completed', true)->count()
+            : 0;
+
+        return view('courses.show', [
+            'course' => $course,
+            'modules' => $modules,
+            'overallPercent' => $this->courseMasteryPercent($course, $progress),
+            'hasVideoCourse' => $videoTotal > 0,
+            'videoPercent' => $videoTotal > 0 ? (int) round($videoCompleted / $videoTotal * 100) : 0,
+            'hasExam' => (bool) $course->activeExamRuleSet(),
+        ]);
+    }
+
+    private function courseMasteryPercent(CourseDefinition $course, Collection $progress): int
+    {
+        $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id')->unique();
+        $total = max($questionIds->count(), 1);
+        $mastered = $progress->whereIn('question_id', $questionIds)->where('learning_state', 'gefestigt')->count();
+
+        return (int) round($mastered / $total * 100);
     }
 }
