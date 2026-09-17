@@ -137,7 +137,7 @@ class LearningLoopTest extends TestCase
         $endpoint = "/courses/{$course->id}/learn/attempts";
         $payload = ['revision_id' => $revision->id, 'answer_id' => $correctAnswer->id, 'mode' => 'smarttrainer'];
 
-        // Drei richtige Antworten in Folge => learning_state "gefestigt".
+        // Drei richtige Antworten (insgesamt, s. MasteryCalculatorTest) => learning_state "gefestigt".
         for ($i = 0; $i < 3; $i++) {
             $this->actingAsInTenant($learner, $tenant)->post($endpoint, $payload)->assertOk();
         }

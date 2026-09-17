@@ -48,7 +48,10 @@ class MasteryCalculator
             return 'neu';
         }
 
-        if ($progress->current_streak >= 3 && $progress->mastery_score >= 0.8) {
+        // "Gefestigt" zählt 3 richtige Antworten insgesamt, nicht zwingend
+        // in Folge -- ein zwischenzeitlicher Fehler setzt zwar den Streak
+        // zurück, aber nicht den Fortschritt Richtung Mastery.
+        if ($progress->correct_count >= 3) {
             return $progress->next_review_at && $progress->next_review_at->lte($now)
                 ? 'wiederholung_faellig'
                 : 'gefestigt';
