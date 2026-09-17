@@ -8,10 +8,13 @@ use App\Models\NavigationTask;
 use Illuminate\Database\Seeder;
 
 /**
- * Navigationsaufgaben-Trainer für SBF See: Übungsaufgaben mit einsehbarer
- * Musterlösung, getrennt von der strengen Prüfungssimulation. Szenarien und
- * Musterlösungen sind Platzhalter zu Demozwecken -- vor Produktivbetrieb
- * durch fachlich geprüfte, amtliche Navigationsaufgaben ersetzen.
+ * Die 15 amtlichen Navigationsaufgaben für SBF See, importiert aus
+ * database/data/sbf_see_navigationsaufgaben.csv (Quelle: ELWIS, jeweils
+ * Fragenkatalog-See/Navigationsaufgaben/Navigationsaufgabe-XX). Jede Aufgabe
+ * hat genau 9 Teilaufgaben mit amtlichem Ergebnis; einzelne Aufgaben tragen
+ * zusätzlich einen Hinweis auf eine spätere amtliche Korrektur (z. B.
+ * Verkehrsblatt-Berichtigung), der für alle ihre Teilaufgaben gleichermaßen
+ * gilt.
  */
 class NavigationTaskSeeder extends Seeder
 {
@@ -23,46 +26,46 @@ class NavigationTaskSeeder extends Seeder
             return;
         }
 
-        $tasks = [
-            [
-                'scenario' => 'Ein Sportboot befindet sich am 05.05. in der Deutschen Bucht auf der Reise von Borkum nach Cuxhaven. '
-                    .'Die Fahrt über Grund beträgt 8 kn. Um 10:00 Uhr wird die Leuchttonne "TG19/Weser 2" nahebei passiert. '
-                    .'Von dieser Tonne wird der Kurs auf die Ansteuerungstonne der alten Weser "ST" abgesetzt.',
-                'questions' => [
-                    ['Wie lautet der rechtweisende Kurs (rwK) von "TG19/Weser 2" nach "ST"?', 'Aus der Seekarte gemessener rwK, z. B. 143°.'],
-                    ['Die Ablenkung beträgt +4°, die Missweisung ist der Seekarte zu entnehmen. Wie lautet der missweisende Kurs (MgK)?', 'MgK = rwK − Missweisung − Ablenkung (Vorzeichen beachten).'],
-                    ['Wie groß ist die Distanz zwischen "TG19/Weser 2" und "ST"?', 'Aus der Seekarte mit dem Kartenzirkel gemessene Distanz in sm.'],
-                    ['In welcher Zeit wird die Distanz zwischen "TG19/Weser 2" und "ST" bei 8 kn zurückgelegt?', 'Zeit = Distanz ÷ Geschwindigkeit (in Stunden, dann in hh:mm umrechnen).'],
-                ],
-            ],
-            [
-                'scenario' => 'Ein Sportboot verlässt um 14:00 Uhr den Hafen von Helgoland mit Kurs auf die Tonne "Elbe 1". '
-                    .'Die Geschwindigkeit über Grund beträgt 6 kn.',
-                'questions' => [
-                    ['Wie lautet der rechtweisende Kurs (rwK) von Helgoland nach "Elbe 1"?', 'Aus der Seekarte gemessener rwK.'],
-                    ['Wie groß ist die Distanz zwischen Helgoland und "Elbe 1"?', 'Aus der Seekarte gemessene Distanz in sm.'],
-                    ['Wann wird "Elbe 1" voraussichtlich erreicht?', 'Ankunftszeit = Abfahrtszeit + (Distanz ÷ Geschwindigkeit).'],
-                ],
-            ],
-        ];
+        $csvPath = database_path('data/sbf_see_navigationsaufgaben.csv');
+        if (! file_exists($csvPath)) {
+            return;
+        }
 
-        foreach ($tasks as $taskIndex => $task) {
-            $navigationTask = NavigationTask::create([
+        $tasks = [];
+
+        foreach ($this->readCsv($csvPath) as $row) {
+            $taskNumber = (int) $row['Navigationsaufgabe'];
+            $questionNumber = (int) $row['Teilaufgabe'];
+
+            $task = $tasks[$taskNumber] ??= NavigationTask::create([
                 'course_id' => $course->id,
-                'task_number' => $taskIndex + 1,
-                'scenario_text' => $task['scenario'],
-                'sort_order' => $taskIndex + 1,
+                'task_number' => $taskNumber,
+                'scenario_text' => trim($row['Szenario']),
+                'hint' => trim($row['Hinweis']) !== '' ? trim($row['Hinweis']) : null,
+                'sort_order' => $taskNumber,
             ]);
 
-            foreach ($task['questions'] as $questionIndex => [$questionText, $answerText]) {
-                NavigationQuestion::create([
-                    'navigation_task_id' => $navigationTask->id,
-                    'question_number' => $questionIndex + 1,
-                    'question_text' => $questionText,
-                    'answer_text' => $answerText,
-                    'sort_order' => $questionIndex + 1,
-                ]);
-            }
+            NavigationQuestion::create([
+                'navigation_task_id' => $task->id,
+                'question_number' => $questionNumber,
+                'question_text' => trim($row['Aufgabenstellung']),
+                'answer_text' => trim($row['Amtliches Ergebnis']),
+                'sort_order' => $questionNumber,
+            ]);
         }
+    }
+
+    /** @return iterable<array<string, string>> */
+    private function readCsv(string $path): iterable
+    {
+        $handle = fopen($path, 'r');
+        $header = fgetcsv($handle, 0, ';');
+        $header[0] = preg_replace('/^\xEF\xBB\xBF/', '', $header[0]);
+
+        while (($data = fgetcsv($handle, 0, ';')) !== false) {
+            yield array_combine($header, $data);
+        }
+
+        fclose($handle);
     }
 }

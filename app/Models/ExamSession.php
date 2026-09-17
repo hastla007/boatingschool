@@ -17,7 +17,7 @@ class ExamSession extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'tenant_id', 'user_id', 'course_id', 'rule_set_id', 'status',
+        'tenant_id', 'user_id', 'course_id', 'rule_set_id', 'paper_id', 'status',
         'started_at', 'submitted_at', 'score', 'passed',
     ];
 
@@ -40,6 +40,11 @@ class ExamSession extends Model
     public function ruleSet(): BelongsTo
     {
         return $this->belongsTo(ExamRuleSet::class, 'rule_set_id');
+    }
+
+    public function paper(): BelongsTo
+    {
+        return $this->belongsTo(ExamPaper::class, 'paper_id');
     }
 
     public function questions(): HasMany

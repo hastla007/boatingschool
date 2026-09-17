@@ -40,6 +40,7 @@ Route::middleware(['auth', 'tenant.member'])->group(function () {
 
     Route::get('/courses/{course}/exam', [ExamController::class, 'intro'])->name('exam.intro');
     Route::post('/courses/{course}/exam', [ExamController::class, 'start'])->name('exam.start');
+    Route::post('/courses/{course}/exam/papers/{paper}', [ExamController::class, 'startPaper'])->name('exam.papers.start');
     Route::get('/exam-sessions/{examSession}', [ExamController::class, 'show'])->name('exam.show');
     Route::post('/exam-sessions/{examSession}/answers', [ExamController::class, 'answer'])->name('exam.answer');
     Route::post('/exam-sessions/{examSession}/finish', [ExamController::class, 'finish'])->name('exam.finish');

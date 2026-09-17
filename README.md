@@ -61,10 +61,34 @@ auf PostgreSQL, gemäß dem mitgelieferten technischen Konzept
   `app/Http/Controllers/NavigationTaskController.php`): Übungsaufgaben mit
   sofort einsehbarer Musterlösung, bewusst getrennt von der strengen
   Prüfungssimulation (dort gilt "keine Sofortauflösung"). Wie der Videokurs
-  zentraler, globaler Content ohne eigenen Fortschritt. **Hinweis**:
-  Szenarien und Musterlösungen sind Demo-Platzhalter und müssen vor
-  Produktivbetrieb durch fachlich geprüftes, amtliches Material der
-  Bootsschule ersetzt werden.
+  zentraler, globaler Content ohne eigenen Fortschritt. `NavigationTaskSeeder`
+  importiert die 15 amtlichen Navigationsaufgaben (je 9 Teilaufgaben) aus
+  `database/data/sbf_see_navigationsaufgaben.csv` (Quelle: ELWIS,
+  Fragenkatalog-See/Navigationsaufgaben). Einzelne Aufgaben tragen einen
+  aufgabenweiten Hinweis auf eine spätere amtliche Korrektur (z. B.
+  Verkehrsblatt-Berichtigung), der für alle ihre Teilaufgaben gilt.
+- **Feste Prüfungsbögen** (`exam_paper`, `exam_paper_question`,
+  `ExamController@papersOverview`/`startPaper`): ergänzt das bestehende,
+  zufällig zusammenstellende `exam_rule_set`/`exam_blueprint` um 15 feste,
+  wiederholbare Fragensets ("Bogen 1" .. "Bogen 15", je 30 Fragen: 7
+  allgemeine Basisfragen + 23 kursspezifische Fragen). Ein Bogen-Versuch
+  ist ein ganz normaler `exam_session`-Datensatz (Zeitlimit, keine
+  Sofortauflösung, unveränderliches Ergebnis) mit einem zusätzlichen
+  `paper_id`-Verweis statt zufällig gewürfelter Fragen; erneutes Starten
+  desselben Bogens setzt einen bereits laufenden Versuch fort statt ihn zu
+  duplizieren. Die Prüfungssimulation-Startseite zeigt pro Bogen einen
+  Fortschrittsring mit dem Ergebnis des letzten abgeschlossenen Versuchs.
+  Die 15 Bögen werden von `ExamPaperSeeder` aus
+  `database/data/sbf_see_pruefungsboegen.csv` importiert (Quelle: die
+  einzelnen Bögen unter bootsfuehrerscheinpruefung.de/sbfsee/pruefungsboegen/).
+  Jede Zeile referenziert eine Frage über ihre Fragenkatalog-Nr.
+  (= `content_question.official_number`), eindeutig erst in Kombination mit
+  der Fragenfamilie aus der Tags-Spalte ("Basisfragen" → `shared_basis`,
+  "Spezifische Fragen See" → `see_specific`), da dieselbe Katalognummer je
+  Fragenfamilie mehrfach vorkommt. Bilder aus
+  `database/data/pruefungsboegen_bilder/` werden dabei direkt an die
+  jeweilige Frage angehängt (`question_media`) und erscheinen dadurch überall,
+  wo diese Frage angezeigt wird (Smarttrainer, Prüfungssimulation).
 
 ## Setup (lokal)
 

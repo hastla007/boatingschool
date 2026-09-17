@@ -30,6 +30,12 @@
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
             <h3 class="font-medium text-slate-800 dark:text-white mb-2">Navigationsaufgabe {{ $task->task_number }}</h3>
             <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">{{ $task->scenario_text }}</p>
+            @if ($task->hint)
+                <div class="mt-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 dark:bg-amber-900/30 dark:border-amber-800 dark:text-amber-300 px-3 py-2 text-xs flex items-start gap-2">
+                    <x-icon name="shield-check" class="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{{ $task->hint }}</span>
+                </div>
+            @endif
         </div>
 
         <div class="space-y-2">
@@ -53,8 +59,7 @@
         </div>
 
         <p class="text-xs text-slate-400">
-            Hinweis: Szenarien und Musterlösungen sind Demo-Platzhalter und ersetzen keine amtlichen Navigationsaufgaben &mdash;
-            vor Produktivbetrieb durch fachlich geprüftes Material der Bootsschule ersetzen.
+            Quelle: ELWIS &mdash; Fragenkatalog See, Navigationsaufgaben.
         </p>
     </div>
 </x-app-layout>
