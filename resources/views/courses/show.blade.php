@@ -62,7 +62,7 @@
             </div>
         </a>
 
-        <a href="{{ route('learning.show', $course) }}" class="relative rounded-2xl p-4 h-28 flex flex-col justify-between text-white overflow-hidden bg-gradient-to-br from-teal-500 to-cyan-600 hover:opacity-95 transition">
+        <a href="{{ route('learning.overview', $course) }}" class="relative rounded-2xl p-4 h-28 flex flex-col justify-between text-white overflow-hidden bg-gradient-to-br from-teal-500 to-cyan-600 hover:opacity-95 transition">
             <x-icon name="bolt" class="w-6 h-6 text-white/60 self-end" />
             <div>
                 <div class="font-semibold">Smart-Learning</div>

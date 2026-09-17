@@ -26,6 +26,7 @@ Route::middleware(['auth', 'tenant.member'])->group(function () {
     Route::get('/courses/{course}', [CourseController::class, 'show'])->name('courses.show');
 
     Route::get('/courses/{course}/learn', [LearningController::class, 'show'])->name('learning.show');
+    Route::get('/courses/{course}/learn/overview', [LearningController::class, 'overview'])->name('learning.overview');
     Route::post('/courses/{course}/learn/attempts', [LearningController::class, 'storeAttempt'])->name('learning.attempts.store');
 
     Route::get('/favorites', [FavoriteController::class, 'index'])->name('favorites.index');

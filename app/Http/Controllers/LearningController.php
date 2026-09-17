@@ -7,6 +7,7 @@ use App\Models\ContentQuestion;
 use App\Models\ContentQuestionRevision;
 use App\Models\CourseDefinition;
 use App\Models\Favorite;
+use App\Models\Progress;
 use App\Services\EntitlementService;
 use App\Services\LearningService;
 use App\Services\SmarttrainerService;
@@ -16,6 +17,66 @@ use Illuminate\View\View;
 
 class LearningController extends Controller
 {
+    public function overview(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course): View
+    {
+        $tenant = $tenantContext->tenant();
+        $user = $request->user();
+
+        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Für diesen Kurs liegt kein aktives Entitlement vor.');
+
+        $course->load(['modules.questions.revisions' => function ($query) {
+            $query->where('editorial_status', 'published')->orderByDesc('revision_no');
+        }]);
+
+        $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get();
+
+        $mastered = fn ($questionIds) => $progress->whereIn('question_id', $questionIds)->where('learning_state', 'gefestigt')->count();
+
+        $moduleGroups = $course->modules->map(function ($module) use ($mastered) {
+            $topics = $module->questions
+                ->groupBy(fn ($q) => $q->revisions->first()?->topic ?? 'Sonstiges')
+                ->map(function ($questions, $topic) use ($mastered) {
+                    $questionIds = $questions->pluck('id');
+                    $total = $questionIds->count();
+                    $topicMastered = $mastered($questionIds);
+
+                    return [
+                        'topic' => $topic,
+                        'total' => $total,
+                        'mastered' => $topicMastered,
+                        'percent' => $total > 0 ? (int) round($topicMastered / $total * 100) : 0,
+                    ];
+                })
+                ->sortByDesc('total')
+                ->values();
+
+            $questionIds = $module->questions->pluck('id');
+            $total = $questionIds->count();
+            $moduleMastered = $mastered($questionIds);
+
+            return [
+                'module' => $module,
+                'topics' => $topics,
+                'total' => $total,
+                'mastered' => $moduleMastered,
+                'percent' => $total > 0 ? (int) round($moduleMastered / $total * 100) : 0,
+            ];
+        })->values();
+
+        $allQuestionIds = $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id')->unique();
+        $overallPercent = $allQuestionIds->isNotEmpty() ? (int) round($mastered($allQuestionIds) / $allQuestionIds->count() * 100) : 0;
+
+        $favoriteIds = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)->pluck('question_id');
+
+        return view('learning.overview', [
+            'course' => $course,
+            'overallPercent' => $overallPercent,
+            'moduleGroups' => $moduleGroups,
+            'favoritesTotal' => $favoriteIds->count(),
+            'favoritesMastered' => $favoriteIds->isNotEmpty() ? $mastered($favoriteIds) : 0,
+        ]);
+    }
+
     public function show(
         Request $request,
         TenantContext $tenantContext,
