@@ -31,4 +31,9 @@ class TenantBranding extends Model
     {
         return $this->belongsTo(Tenant::class, 'tenant_id');
     }
+
+    public function logoAsset(): BelongsTo
+    {
+        return $this->belongsTo(MediaAsset::class, 'logo_asset_id');
+    }
 }

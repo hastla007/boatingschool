@@ -46,7 +46,12 @@ composer install
 npm install && npm run build
 cp .env.example .env
 php artisan key:generate
+php artisan storage:link
 ```
+
+`storage:link` wird für den Logo-Upload im Branding benötigt (Bootsschul-Admin
+→ Branding-Einstellungen); Dateien landen unter `storage/app/public` und
+werden über `public/storage` ausgeliefert.
 
 Zwei DB-Rollen anlegen (einmalig, per Infra/Admin – die Owner-Rolle braucht
 aus Sicherheitsgründen absichtlich kein `CREATE ROLE`-Recht für die App

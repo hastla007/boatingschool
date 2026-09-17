@@ -4,15 +4,20 @@
     </x-slot>
 
     @if ($courses->isEmpty())
-        <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-6 text-center text-slate-500">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 text-center text-slate-500">
             Noch keine Kurse freigeschaltet.
         </div>
     @else
         <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             @foreach ($courses as $course)
-                <a href="{{ route('courses.show', $course) }}" class="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-4 hover:shadow-md transition block">
-                    <div class="font-medium text-slate-800 dark:text-white">{{ $course->name }}</div>
-                    <div class="text-xs text-slate-400 mt-1">{{ $course->modules->pluck('name')->join(' · ') }}</div>
+                <a href="{{ route('courses.show', $course) }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 hover:shadow-md transition flex items-start gap-3">
+                    <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-white" style="background-color: var(--brand-primary, #005FD7)">
+                        <x-icon name="academic-cap" class="w-5 h-5" />
+                    </div>
+                    <div class="min-w-0">
+                        <div class="font-medium text-slate-800 dark:text-white">{{ $course->name }}</div>
+                        <div class="text-xs text-slate-400 mt-1">{{ $course->modules->pluck('name')->join(' · ') }}</div>
+                    </div>
                 </a>
             @endforeach
         </div>

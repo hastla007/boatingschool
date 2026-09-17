@@ -108,4 +108,35 @@ class LearningLoopTest extends TestCase
         $this->assertSame($attempts->where('correct', true)->count(), $progress->correct_count);
         $this->assertSame($attempts->where('correct', false)->count(), $progress->incorrect_count);
     }
+
+    /**
+     * Regressionstest: Progress hat einen zusammengesetzten Primärschlüssel
+     * ohne eigene id-Spalte. Eloquent-Collection::only() arbeitet intern über
+     * den Modell-Primärschlüssel und lieferte dadurch für jedes Modul immer
+     * 0 gefestigte Fragen zurück, obwohl echte Fortschrittsdaten vorlagen.
+     */
+    public function test_course_overview_reports_mastered_questions_per_module(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SBF-SEE');
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $module = $this->existingModule('SBF_BASIS');
+        [, $revision] = $this->anyPublishedQuestionIn($module);
+        $correctAnswer = $revision->answers->firstWhere('is_correct', true);
+
+        $endpoint = "/courses/{$course->id}/learn/attempts";
+        $payload = ['revision_id' => $revision->id, 'answer_id' => $correctAnswer->id, 'mode' => 'smarttrainer'];
+
+        // Drei richtige Antworten in Folge => learning_state "gefestigt".
+        for ($i = 0; $i < 3; $i++) {
+            $this->actingAsInTenant($learner, $tenant)->post($endpoint, $payload)->assertOk();
+        }
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
+
+        $response->assertOk();
+        $response->assertSee('1 / ', false);
+    }
 }

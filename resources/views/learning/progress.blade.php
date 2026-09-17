@@ -3,27 +3,23 @@
         <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Mein Fortschritt &amp; Statistiken</h2>
     </x-slot>
 
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-4">
-            <div class="text-2xl font-bold text-slate-800 dark:text-white">{{ $overallAccuracy }}%</div>
-            <div class="text-xs text-slate-400">Trefferquote gesamt</div>
+    <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-6 items-stretch">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-4">
+            <x-progress-ring :percent="$overallAccuracy" :size="72" :stroke="7" />
+            <div>
+                <div class="text-sm font-medium text-slate-700 dark:text-slate-200">Trefferquote</div>
+                <div class="text-xs text-slate-400">gesamt</div>
+            </div>
         </div>
-        <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-4">
-            <div class="text-2xl font-bold text-slate-800 dark:text-white">{{ $answered }}/{{ $totalQuestions }}</div>
-            <div class="text-xs text-slate-400">Fragen bearbeitet</div>
-        </div>
-        <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-4">
-            <div class="text-2xl font-bold text-emerald-600">{{ $mastered }}</div>
-            <div class="text-xs text-slate-400">gefestigt</div>
-        </div>
-        <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-4">
-            <div class="text-2xl font-bold text-amber-500">{{ $dueReviews }}</div>
-            <div class="text-xs text-slate-400">Wiederholung fällig</div>
-        </div>
+        <x-stat-tile icon="book-open" :value="$answered.'/'.$totalQuestions" label="Fragen bearbeitet" />
+        <x-stat-tile icon="check-circle" :value="$mastered" label="gefestigt" tone="success" />
+        <x-stat-tile icon="clock" :value="$dueReviews" label="Wiederholung fällig" tone="warning" />
     </div>
 
-    <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-4">
-        <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3">Trefferquote nach Themen</h3>
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
+        <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
+            <x-icon name="chart-bar" class="w-4 h-4 text-slate-400" /> Trefferquote nach Themen
+        </h3>
         <div class="space-y-3">
             @forelse ($byTopic as $topic => $stats)
                 <div>

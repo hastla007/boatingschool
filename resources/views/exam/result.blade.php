@@ -4,16 +4,20 @@
     </x-slot>
 
     <div class="max-w-2xl mx-auto space-y-6">
-        <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-6 text-center">
-            <div class="text-4xl mb-2">{{ $examSession->passed ? '✅' : '❌' }}</div>
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 text-center">
+            <div class="w-16 h-16 rounded-full mx-auto mb-3 flex items-center justify-center {{ $examSession->passed ? 'bg-emerald-50 dark:bg-emerald-900/30' : 'bg-rose-50 dark:bg-rose-900/30' }}">
+                <x-icon :name="$examSession->passed ? 'check-circle' : 'x-circle'" class="w-9 h-9 {{ $examSession->passed ? 'text-emerald-500' : 'text-rose-500' }}" />
+            </div>
             <div class="text-2xl font-bold {{ $examSession->passed ? 'text-emerald-600' : 'text-rose-500' }}">
                 {{ $examSession->passed ? 'Bestanden' : 'Nicht bestanden' }}
             </div>
-            <div class="text-slate-500 mt-1">{{ (int) round($examSession->score * 100) }}% richtig · {{ $questions->where('correct', true)->count() }}/{{ $questions->count() }} Fragen</div>
+            <div class="text-slate-500 mt-1">{{ (int) round($examSession->score * 100) }}% richtig &middot; {{ $questions->where('correct', true)->count() }}/{{ $questions->count() }} Fragen</div>
         </div>
 
-        <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-4">
-            <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3">Themenanalyse</h3>
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
+            <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
+                <x-icon name="chart-bar" class="w-4 h-4 text-slate-400" /> Themenanalyse
+            </h3>
             <div class="space-y-2">
                 @foreach ($topicBreakdown as $topic => $stats)
                     <div class="flex justify-between text-sm">
@@ -25,7 +29,7 @@
         </div>
 
         @if ($wrong->isNotEmpty())
-            <div class="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-4">
+            <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
                 <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3">Fehlerliste</h3>
                 <div class="space-y-3">
                     @foreach ($wrong as $item)
@@ -38,7 +42,7 @@
             </div>
         @endif
 
-        <a href="{{ route('courses.show', $examSession->course) }}" class="block text-center px-5 py-2 rounded-lg text-white text-sm font-medium" style="background-color: var(--brand-primary, #005FD7)">
+        <a href="{{ route('courses.show', $examSession->course) }}" class="flex items-center justify-center gap-1.5 text-center px-5 py-2.5 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
             Zurück zum Kurs
         </a>
     </div>

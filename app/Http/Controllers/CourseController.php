@@ -30,11 +30,14 @@ class CourseController extends Controller
 
         $course->load('modules.questions.revisions');
 
-        $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get()->keyBy('question_id');
+        // Eloquent-Collection::only() arbeitet über den Primärschlüssel des
+        // Models; Progress hat aber einen zusammengesetzten Schlüssel ohne
+        // einzelne id-Spalte, daher hier bewusst whereIn() auf dem Attribut.
+        $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get();
 
         $modules = $course->modules->map(function ($module) use ($progress) {
             $questionIds = $module->questions->pluck('id');
-            $moduleProgress = $progress->only($questionIds->all());
+            $moduleProgress = $progress->whereIn('question_id', $questionIds);
             $total = max($questionIds->count(), 1);
             $mastered = $moduleProgress->where('learning_state', 'gefestigt')->count();
 
