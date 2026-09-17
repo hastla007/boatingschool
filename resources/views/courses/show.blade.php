@@ -71,6 +71,16 @@
                 </div>
             </a>
         @endif
+
+        @if ($hasNavigationTasks)
+            <a href="{{ route('exam.navigation.index', $course) }}" class="relative rounded-2xl p-4 h-28 flex flex-col justify-between text-white overflow-hidden bg-gradient-to-br from-amber-500 to-orange-600 hover:opacity-95 transition">
+                <x-icon name="compass" class="w-6 h-6 text-white/60 self-end" />
+                <div>
+                    <div class="font-semibold">Navigationsaufgaben</div>
+                    <div class="text-xs text-white/80">Übung mit Musterlösung</div>
+                </div>
+            </a>
+        @endif
     </div>
 
     <div class="space-y-3">

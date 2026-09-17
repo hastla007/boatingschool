@@ -88,6 +88,7 @@ class CourseController extends Controller
             'hasVideoCourse' => $videoTotal > 0,
             'videoPercent' => $videoTotal > 0 ? (int) round($videoCompleted / $videoTotal * 100) : 0,
             'hasExam' => (bool) $course->activeExamRuleSet(),
+            'hasNavigationTasks' => $course->navigationTasks()->exists(),
         ]);
     }
 

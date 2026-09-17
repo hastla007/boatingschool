@@ -51,5 +51,14 @@
                 </form>
             @endif
         </div>
+
+        @if ($hasNavigationTasks)
+            <a href="{{ route('exam.navigation.index', $course) }}" class="mt-4 flex items-center justify-between gap-3 bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
+                <span class="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+                    <x-icon name="compass" class="w-5 h-5 text-slate-400" /> Navigationsaufgaben üben
+                </span>
+                <x-icon name="arrow-right" class="w-4 h-4 text-slate-400" />
+            </a>
+        @endif
     </div>
 </x-app-layout>

@@ -39,6 +39,7 @@ class VideoCourseController extends Controller
         $next = $lessons->get($currentIndex + 1);
 
         $completedCount = $progress->filter(fn ($p) => $p->completed)->count();
+        $lesson->load('steps');
 
         return view('video.show', [
             'course' => $course,

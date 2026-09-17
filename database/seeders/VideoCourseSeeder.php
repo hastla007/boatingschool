@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\CourseDefinition;
 use App\Models\VideoLesson;
+use App\Models\VideoLessonStep;
 use App\Models\VideoModule;
 use Illuminate\Database\Seeder;
 
@@ -53,6 +54,18 @@ class VideoCourseSeeder extends Seeder
             ],
         ];
 
+        // Schritt-für-Schritt-Galerie für die Knotenlektion (analog zur
+        // "Der Achtknoten"-Ansicht im Referenzprodukt). Ohne echtes
+        // Bildmaterial werden hier nur benannte Platzhalter-Schritte
+        // angelegt -- vor Produktivbetrieb durch echte Aufnahmen ersetzen.
+        $knotSteps = [
+            'Ende zur Schlaufe legen',
+            'Ende um das stehende Part führen',
+            'Ende durch die Schlaufe fädeln',
+            'Knoten festziehen',
+            'Fertigen Knoten prüfen',
+        ];
+
         $chapterIndex = 0;
         foreach ($chapters as $title => $lessons) {
             $module = VideoModule::create([
@@ -63,13 +76,23 @@ class VideoCourseSeeder extends Seeder
 
             $lessonIndex = 0;
             foreach ($lessons as [$lessonTitle, $duration]) {
-                VideoLesson::create([
+                $lesson = VideoLesson::create([
                     'video_module_id' => $module->id,
                     'title' => $lessonTitle,
                     'video_url' => self::PLACEHOLDER_VIDEO,
                     'duration_seconds' => $duration,
                     'sort_order' => ++$lessonIndex,
                 ]);
+
+                if ($lessonTitle === 'Knotenkunde Grundlagen') {
+                    foreach ($knotSteps as $stepIndex => $stepTitle) {
+                        VideoLessonStep::create([
+                            'video_lesson_id' => $lesson->id,
+                            'title' => $stepTitle,
+                            'sort_order' => $stepIndex + 1,
+                        ]);
+                    }
+                }
             }
         }
     }

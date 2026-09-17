@@ -53,6 +53,18 @@ auf PostgreSQL, gemäß dem mitgelieferten technischen Konzept
   öffentliches Platzhaltervideo (`https://www.w3schools.com/html/mov_bbb.mp4`)
   und müssen vor einem produktiven Einsatz durch lizenzierte Kursvideos
   ersetzt werden.
+- **Schritt-Galerie unter dem Video** (`video_lesson_step`): einzelne
+  Lektionen (z. B. Knotenkunde) können eine Schritt-für-Schritt-Galerie
+  (`VideoLesson::steps()`) unter dem Player anzeigen. Ohne echtes
+  Bildmaterial werden aktuell nur benannte Platzhalter-Schritte angezeigt.
+- **Navigationsaufgaben-Trainer** (`navigation_task`, `navigation_question`,
+  `app/Http/Controllers/NavigationTaskController.php`): Übungsaufgaben mit
+  sofort einsehbarer Musterlösung, bewusst getrennt von der strengen
+  Prüfungssimulation (dort gilt "keine Sofortauflösung"). Wie der Videokurs
+  zentraler, globaler Content ohne eigenen Fortschritt. **Hinweis**:
+  Szenarien und Musterlösungen sind Demo-Platzhalter und müssen vor
+  Produktivbetrieb durch fachlich geprüftes, amtliches Material der
+  Bootsschule ersetzt werden.
 
 ## Setup (lokal)
 
