@@ -2,14 +2,18 @@
 
 <div class="grid sm:grid-cols-2 gap-4">
     <div>
-        <x-input-label for="category" value="Kategorie" />
-        <x-text-input id="category" name="category" type="text" class="mt-1 block w-full" :value="old('category', $tip?->category)" list="category-options" required placeholder="z. B. Knoten" />
-        <datalist id="category-options">
+        <x-input-label for="category_id" value="Kategorie" />
+        <select id="category_id" name="category_id" required
+                class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+            <option value="" disabled @selected(! old('category_id', $tip?->category_id))>Bitte wählen…</option>
             @foreach ($categories as $category)
-                <option value="{{ $category }}"></option>
+                <option value="{{ $category->id }}" @selected(old('category_id', $tip?->category_id) === $category->id)>{{ $category->name }}</option>
             @endforeach
-        </datalist>
-        <x-input-error :messages="$errors->get('category')" class="mt-2" />
+        </select>
+        @if ($categories->isEmpty())
+            <p class="text-xs text-amber-600 mt-1">Noch keine Kategorie angelegt — <a href="{{ route('superadmin.tips.categories.index') }}" class="underline">jetzt anlegen</a>.</p>
+        @endif
+        <x-input-error :messages="$errors->get('category_id')" class="mt-2" />
     </div>
     <div>
         <x-input-label for="sort_order" value="Reihenfolge" />

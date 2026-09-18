@@ -2,21 +2,26 @@
     <x-slot name="header">
         <div class="flex items-center justify-between">
             <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Tipps & Tricks</h2>
-            <a href="{{ route('superadmin.tips.create') }}" class="px-4 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: #005FD7">
-                Neuer Tipp
-            </a>
+            <div class="flex items-center gap-3">
+                <a href="{{ route('superadmin.tips.categories.index') }}" class="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition">
+                    Kategorien verwalten
+                </a>
+                <a href="{{ route('superadmin.tips.create') }}" class="px-4 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: #005FD7">
+                    Neuer Tipp
+                </a>
+            </div>
         </div>
     </x-slot>
 
     <div class="space-y-6">
-        @forelse ($tips as $category => $categoryTips)
+        @forelse ($categories as $category)
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden">
                 <div class="px-4 py-3 bg-slate-50 dark:bg-slate-700 font-medium text-slate-700 dark:text-slate-200">
-                    {{ $category }}
+                    {{ $category->name }}
                 </div>
                 <table class="w-full text-sm">
                     <tbody>
-                        @foreach ($categoryTips as $tip)
+                        @forelse ($category->tips as $tip)
                             <tr class="border-t border-slate-100 dark:border-slate-700 {{ $tip->active ? '' : 'opacity-50' }}">
                                 <td class="px-4 py-3 font-medium text-slate-700 dark:text-slate-200">
                                     {{ $tip->title }}
@@ -44,13 +49,15 @@
                                     </form>
                                 </td>
                             </tr>
-                        @endforeach
+                        @empty
+                            <tr><td colspan="3" class="px-4 py-3 text-slate-400">Noch keine Tipps in dieser Kategorie.</td></tr>
+                        @endforelse
                     </tbody>
                 </table>
             </div>
         @empty
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 text-slate-500">
-                Noch keine Tipps & Tricks angelegt.
+                Noch keine Kategorien angelegt. <a href="{{ route('superadmin.tips.categories.index') }}" class="underline">Jetzt anlegen</a>.
             </div>
         @endforelse
     </div>

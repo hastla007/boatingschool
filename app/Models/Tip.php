@@ -12,11 +12,16 @@ class Tip extends Model
 
     protected $table = 'tip';
 
-    protected $fillable = ['category', 'title', 'body', 'pdf_asset_id', 'sort_order', 'active'];
+    protected $fillable = ['category_id', 'title', 'body', 'pdf_asset_id', 'sort_order', 'active'];
 
     protected function casts(): array
     {
         return ['active' => 'boolean'];
+    }
+
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(TipCategory::class, 'category_id');
     }
 
     public function pdfAsset(): BelongsTo

@@ -3,17 +3,17 @@
         <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Tipps & Tricks</h2>
     </x-slot>
 
-    @if ($tips->isEmpty())
+    @if ($categories->isEmpty())
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 text-center text-slate-500">
             Noch keine Tipps & Tricks verfügbar.
         </div>
     @else
         <div class="space-y-8">
-            @foreach ($tips as $category => $categoryTips)
+            @foreach ($categories as $category)
                 <div>
-                    <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-400 mb-3">{{ $category }}</h3>
+                    <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-400 mb-3">{{ $category->name }}</h3>
                     <div class="grid sm:grid-cols-2 gap-5">
-                        @foreach ($categoryTips as $tip)
+                        @foreach ($category->tips as $tip)
                             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
                                 <div class="flex items-start gap-3">
                                     <x-icon name="light-bulb" class="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />

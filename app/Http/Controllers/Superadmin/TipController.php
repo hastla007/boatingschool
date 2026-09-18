@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Superadmin;
 use App\Http\Controllers\Controller;
 use App\Models\MediaAsset;
 use App\Models\Tip;
+use App\Models\TipCategory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -15,15 +16,16 @@ class TipController extends Controller
 {
     public function index(): View
     {
-        $tips = Tip::orderBy('category')->orderBy('sort_order')->orderBy('title')->get()->groupBy('category');
-        $categories = Tip::query()->distinct()->orderBy('category')->pluck('category');
+        $categories = TipCategory::with(['tips' => function ($query) {
+            $query->orderBy('sort_order')->orderBy('title');
+        }])->orderBy('sort_order')->orderBy('name')->get();
 
-        return view('superadmin.tips.index', ['tips' => $tips, 'categories' => $categories]);
+        return view('superadmin.tips.index', ['categories' => $categories]);
     }
 
     public function create(): View
     {
-        $categories = Tip::query()->distinct()->orderBy('category')->pluck('category');
+        $categories = TipCategory::orderBy('sort_order')->orderBy('name')->get();
 
         return view('superadmin.tips.create', ['categories' => $categories]);
     }
@@ -41,7 +43,7 @@ class TipController extends Controller
 
     public function edit(Tip $tip): View
     {
-        $categories = Tip::query()->distinct()->orderBy('category')->pluck('category');
+        $categories = TipCategory::orderBy('sort_order')->orderBy('name')->get();
 
         return view('superadmin.tips.edit', ['tip' => $tip, 'categories' => $categories]);
     }
@@ -77,7 +79,7 @@ class TipController extends Controller
     private function validateTip(Request $request): array
     {
         $validated = $request->validate([
-            'category' => ['required', 'string', 'max:255'],
+            'category_id' => ['required', 'uuid', 'exists:tip_category,id'],
             'title' => ['required', 'string', 'max:255'],
             'body' => ['required', 'string'],
             'sort_order' => ['nullable', 'integer'],
