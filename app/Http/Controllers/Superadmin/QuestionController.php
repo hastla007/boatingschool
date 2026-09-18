@@ -51,6 +51,8 @@ class QuestionController extends Controller
                 'revision_no' => 1,
                 'question_type' => 'single_choice',
                 'question_text' => $validated['question_text'],
+                'feedback_correct' => $validated['feedback_correct'] ?? null,
+                'feedback_incorrect' => $validated['feedback_incorrect'] ?? null,
                 'topic' => $validated['topic'] ?? null,
                 'subtopic' => $validated['subtopic'] ?? null,
                 'smartmodus_kategorie' => $validated['smartmodus_kategorie'] ?? null,
@@ -88,6 +90,8 @@ class QuestionController extends Controller
                 'revision_no' => $latest ? $latest->revision_no + 1 : 1,
                 'question_type' => 'single_choice',
                 'question_text' => $validated['question_text'],
+                'feedback_correct' => $validated['feedback_correct'] ?? null,
+                'feedback_incorrect' => $validated['feedback_incorrect'] ?? null,
                 'topic' => $validated['topic'] ?? null,
                 'subtopic' => $validated['subtopic'] ?? null,
                 'smartmodus_kategorie' => $validated['smartmodus_kategorie'] ?? null,
@@ -113,6 +117,8 @@ class QuestionController extends Controller
     {
         return $request->validate([
             'question_text' => ['required', 'string'],
+            'feedback_correct' => ['nullable', 'string'],
+            'feedback_incorrect' => ['nullable', 'string'],
             'topic' => ['nullable', 'string', 'max:255'],
             'subtopic' => ['nullable', 'string', 'max:255'],
             'smartmodus_kategorie' => ['nullable', 'string', 'max:255'],

@@ -79,6 +79,10 @@
                         @if (!$correct)
                             <div class="text-sm mt-1">Richtige Antwort: {{ $revision->correctAnswer()?->answer_text }}</div>
                         @endif
+                        @php($feedback = $correct ? $revision->feedback_correct : $revision->feedback_incorrect)
+                        @if ($feedback)
+                            <div class="text-sm mt-2 whitespace-pre-line">{{ $feedback }}</div>
+                        @endif
                     </div>
                 </div>
                 <div class="flex items-center justify-between mt-4">

@@ -47,3 +47,18 @@
     <x-input-error :messages="$errors->get('answers')" class="mt-2" />
     <x-input-error :messages="$errors->get('correct')" class="mt-2" />
 </div>
+
+<div class="grid sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100 dark:border-slate-700">
+    <div>
+        <x-input-label for="feedback_correct" value="Feedback bei richtiger Antwort (optional)" />
+        <textarea id="feedback_correct" name="feedback_correct" rows="4"
+                  class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">{{ old('feedback_correct', $revision?->feedback_correct) }}</textarea>
+        <p class="text-xs text-slate-400 mt-1">Wird unter „Richtig!" angezeigt.</p>
+    </div>
+    <div>
+        <x-input-label for="feedback_incorrect" value="Feedback bei falscher Antwort (optional)" />
+        <textarea id="feedback_incorrect" name="feedback_incorrect" rows="4"
+                  class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">{{ old('feedback_incorrect', $revision?->feedback_incorrect) }}</textarea>
+        <p class="text-xs text-slate-400 mt-1">Wird unter „Leider falsch." angezeigt.</p>
+    </div>
+</div>
