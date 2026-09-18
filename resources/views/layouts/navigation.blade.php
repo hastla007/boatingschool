@@ -10,11 +10,7 @@
         <div class="flex justify-between h-16">
             <div class="flex items-center">
                 <a href="{{ route('dashboard') }}" class="flex items-center gap-2 shrink-0">
-                    @if (($branding->logo_asset_id ?? null) && $branding->logoAsset)
-                        <img src="{{ $branding->logoAsset->storage_path }}" alt="{{ $currentTenant->name }}" class="w-7 h-7 object-contain rounded">
-                    @else
-                        <x-icon name="anchor" class="w-5 h-5" style="color: var(--brand-primary, #005FD7)" />
-                    @endif
+                    <x-icon name="anchor" class="w-5 h-5" style="color: var(--brand-primary, #005FD7)" />
                     <span class="font-bold text-slate-800 dark:text-white">{{ $currentTenant->name ?? config('app.name') }}</span>
                 </a>
 
