@@ -114,7 +114,7 @@
         $hasContactDetails = $branding && ($branding->phone || $branding->street || $branding->city || $branding->website);
     @endphp
     @if ($hasContactDetails || $waLink)
-        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 mb-6">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 mb-6 lg:w-1/2 lg:mx-auto">
             <div class="flex flex-col sm:flex-row items-center gap-6">
                 <div class="flex flex-col items-center text-center gap-2 shrink-0 sm:w-36">
                     @if ($branding->logo_asset_id && $branding->logoAsset)
