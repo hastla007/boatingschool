@@ -127,10 +127,10 @@
                         @endphp
                         @if ($websiteUrl)
                             <a href="{{ $websiteUrl }}" target="_blank" rel="noopener" class="hover:opacity-80 transition">
-                                <img src="{{ $branding->logoAsset->storage_path }}" alt="{{ $currentTenant->name }} Logo" class="w-[10.5rem] h-[10.5rem] object-contain rounded-xl">
+                                <img src="{{ $branding->logoAsset->storage_path }}" alt="{{ $currentTenant->name }} Logo" class="max-w-[10.5rem] max-h-[10.5rem] w-auto h-auto object-contain rounded-xl">
                             </a>
                         @else
-                            <img src="{{ $branding->logoAsset->storage_path }}" alt="{{ $currentTenant->name }} Logo" class="w-[10.5rem] h-[10.5rem] object-contain rounded-xl">
+                            <img src="{{ $branding->logoAsset->storage_path }}" alt="{{ $currentTenant->name }} Logo" class="max-w-[10.5rem] max-h-[10.5rem] w-auto h-auto object-contain rounded-xl">
                         @endif
                     @endif
                     @if ($branding->street || $branding->city)
