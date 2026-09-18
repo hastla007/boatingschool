@@ -26,7 +26,7 @@ class LearningController extends Controller
 
         abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Für diesen Kurs liegt kein aktives Entitlement vor.');
 
-        $course->loadMissing('praxisTasks');
+        $course->loadMissing('praxisTasks', 'modules.questions');
 
         $moduleGroups = $courseProgress->moduleKategorieBreakdown($course, $tenant, $user);
         $overallPercent = $courseProgress->overallPercent($course, $tenant, $user);
@@ -34,7 +34,11 @@ class LearningController extends Controller
         $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get();
         $mastered = fn ($questionIds) => $progress->whereIn('question_id', $questionIds)->where('learning_state', 'gefestigt')->count();
 
-        $favoriteIds = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)->pluck('question_id');
+        // Favoriten sind kursgebunden: nur Fragen zählen, die tatsächlich zu
+        // diesem Kurs gehören, damit jeder Kurs seine eigenen Favoriten hat.
+        $courseQuestionIds = $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id')->unique();
+        $favoriteIds = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+            ->whereIn('question_id', $courseQuestionIds)->pluck('question_id');
 
         $praxisProgress = PraxisProgress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get();
         $praxisMastered = fn ($taskIds) => $praxisProgress->whereIn('praxis_task_id', $taskIds)->where('completed', true)->count();
@@ -84,7 +88,9 @@ class LearningController extends Controller
         $questionIds = $this->parseQuestionIds($request->query('questions'));
 
         if ($mode === 'favorites') {
-            $favoriteIds = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)->pluck('question_id');
+            $courseQuestionIds = $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id')->unique();
+            $favoriteIds = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+                ->whereIn('question_id', $courseQuestionIds)->pluck('question_id');
             $questionId = $favoriteIds->isNotEmpty() ? $favoriteIds->random() : null;
             $next = $questionId ? ['question' => ContentQuestion::find($questionId), 'reason' => 'Favorit'] : null;
         } else {

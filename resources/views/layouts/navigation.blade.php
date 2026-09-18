@@ -40,6 +40,9 @@
                                     <a href="{{ route('progress.show', $navCourse) }}" class="block w-full pl-8 pr-4 py-1.5 text-start text-xs text-slate-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-slate-700 dark:hover:text-slate-300 focus:outline-none focus:bg-gray-100 dark:focus:bg-gray-800 transition duration-150 ease-in-out">
                                         Fortschritt
                                     </a>
+                                    <a href="{{ route('favorites.index', $navCourse) }}" class="block w-full pl-8 pr-4 py-1.5 text-start text-xs text-slate-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-slate-700 dark:hover:text-slate-300 focus:outline-none focus:bg-gray-100 dark:focus:bg-gray-800 transition duration-150 ease-in-out">
+                                        Favoriten
+                                    </a>
                                 @endforeach
                             </x-slot>
                         </x-dropdown>
@@ -47,7 +50,6 @@
                         <x-nav-link :href="route('courses.index')" :active="request()->routeIs('courses.*')">Kurse</x-nav-link>
                     @endif
 
-                    <x-nav-link :href="route('favorites.index')" :active="request()->routeIs('favorites.*')">Favoriten</x-nav-link>
                     @if ($isAdmin)
                         <x-nav-link :href="route('admin.dashboard')" :active="request()->routeIs('admin.*')">Bootsschul-Admin</x-nav-link>
                     @endif
@@ -98,9 +100,11 @@
                     <x-responsive-nav-link :href="route('progress.show', $navCourse)" :active="request()->routeIs('progress.show') && ($course ?? null)?->id === $navCourse->id">
                         Fortschritt
                     </x-responsive-nav-link>
+                    <x-responsive-nav-link :href="route('favorites.index', $navCourse)" :active="request()->routeIs('favorites.index') && ($course ?? null)?->id === $navCourse->id">
+                        Favoriten
+                    </x-responsive-nav-link>
                 </div>
             @endforeach
-            <x-responsive-nav-link :href="route('favorites.index')" :active="request()->routeIs('favorites.*')">Favoriten</x-responsive-nav-link>
             @if ($isAdmin)
                 <x-responsive-nav-link :href="route('admin.dashboard')" :active="request()->routeIs('admin.*')">Bootsschul-Admin</x-responsive-nav-link>
             @endif

@@ -93,6 +93,8 @@ class ProgressPageTest extends TestCase
         $response->assertSee(route('courses.show', $courseB));
         $response->assertSee(route('progress.show', $courseA));
         $response->assertSee(route('progress.show', $courseB));
+        $response->assertSee(route('favorites.index', $courseA));
+        $response->assertSee(route('favorites.index', $courseB));
 
         // Kein Link mehr auf die allgemeine, auch gesperrte Kurse
         // enthaltende Kursübersicht -- das Menü listet nur Freigeschaltetes.

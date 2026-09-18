@@ -1,6 +1,11 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Favoriten &amp; Fehler</h2>
+        <div class="flex items-center gap-3">
+            <a href="{{ route('courses.show', $course) }}" class="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 shrink-0">
+                <x-icon name="chevron-right" class="w-4 h-4 rotate-180" />
+            </a>
+            <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">{{ $course->name }} &middot; Favoriten &amp; Fehler</h2>
+        </div>
     </x-slot>
 
     <div x-data="{ tab: 'favorites' }">
