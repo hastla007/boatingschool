@@ -13,10 +13,12 @@ use Tests\TestCase;
 
 /**
  * Favoriten sind sowohl kurs- als auch bereichsgebunden: Smart-Learning und
- * Prüfungsfragen haben pro Kurs jeweils ihre eigene Favoriten-Seite (inkl.
- * eigener "Meine Fehler"-Auswertung), damit ein im Smart-Learning
- * gespeicherter Favorit bzw. Fehler nicht mit einem während der
- * Prüfungssimulation entstandenen vermischt wird.
+ * Prüfungsfragen haben pro Kurs jeweils ihre eigene Favoriten-/Fehler-
+ * Auswertung, damit ein im Smart-Learning gespeicherter Favorit bzw. Fehler
+ * nicht mit einem während der Prüfungssimulation entstandenen vermischt
+ * wird -- beide Bereiche leben als Tabs auf einer gemeinsamen Seite, deren
+ * beide Einstiegs-URLs (.../favorites/smart-learning, .../favorites/exam)
+ * denselben Datensatz liefern und sich nur im aktiven Tab unterscheiden.
  */
 class FavoritesPageTest extends TestCase
 {
@@ -123,7 +125,7 @@ class FavoritesPageTest extends TestCase
         $this->assertCount(0, $smartLearning->viewData('wrongQuestions'));
     }
 
-    public function test_the_kurse_navigation_lists_both_favoriten_links_for_each_entitled_course(): void
+    public function test_the_kurse_navigation_lists_a_single_favoriten_link_for_each_entitled_course(): void
     {
         $tenant = $this->createTestTenant();
         $learner = $this->createTenantUser($tenant, 'learner');
@@ -134,9 +136,26 @@ class FavoritesPageTest extends TestCase
 
         $response->assertOk();
         $response->assertSee(route('favorites.smart-learning', $course));
-        $response->assertSee(route('favorites.exam', $course));
-        $response->assertSee('Favoriten: Smart-Learning');
-        $response->assertSee('Favoriten: Prüfungsfragen');
+        $response->assertSee('Favoriten');
+    }
+
+    public function test_the_combined_favorites_page_has_tabs_for_both_sections(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/favorites/smart-learning");
+
+        $response->assertOk();
+        $response->assertSee('Smart-Learning');
+        $response->assertSee('Prüfungsfragen');
+        $response->assertViewHas('activeTab', 'smart');
+
+        $examEntry = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/favorites/exam");
+        $examEntry->assertOk();
+        $examEntry->assertViewHas('activeTab', 'exam');
     }
 
     /** @return array{0: Tenant, 1: User, 2: CourseDefinition} */

@@ -47,7 +47,7 @@ class SupportEmailVerificationController extends Controller
             $branding->forceFill(['support_email_verified_at' => now()])->save();
         }
 
-        return redirect()->route('admin.branding.edit')->with('status', 'Support-E-Mail bestätigt.');
+        return redirect()->route('admin.dashboard', ['tab' => 'branding'])->with('status', 'Support-E-Mail bestätigt.');
     }
 
     public static function sendVerificationMail(Tenant $tenant): void

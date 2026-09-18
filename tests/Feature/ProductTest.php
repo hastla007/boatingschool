@@ -117,10 +117,10 @@ class ProductTest extends TestCase
         $profile->assertOk();
         $profile->assertSee('E2E Fahrstunde');
 
-        // sichtbar für die Bootsschule (Teilnehmer-Übersicht)
-        $participants = $this->actingAsInTenant($admin, $tenant)->get('/admin/participants');
-        $participants->assertOk();
-        $participants->assertSee('E2E Fahrstunde');
+        // sichtbar für die Bootsschule (Teilnehmer-Tab im Bootsschul-Admin)
+        $adminPage = $this->actingAsInTenant($admin, $tenant)->get('/admin');
+        $adminPage->assertOk();
+        $adminPage->assertSee('E2E Fahrstunde');
     }
 
     public function test_a_product_purchase_is_visible_in_superadmin_user_detail(): void
@@ -157,7 +157,7 @@ class ProductTest extends TestCase
 
         $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', ['code' => $coupon->code]);
 
-        $response = $this->actingAsInTenant($admin, $tenant)->get('/admin/coupons');
+        $response = $this->actingAsInTenant($admin, $tenant)->get('/admin');
 
         $response->assertOk();
         $response->assertSee($coupon->code);

@@ -8,7 +8,6 @@ use App\Models\CourseDefinition;
 use App\Models\TenantCourseDisabled;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
-use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -22,19 +21,6 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class CourseSelectionController extends Controller
 {
-    public function edit(TenantContext $tenantContext): View
-    {
-        $tenant = $tenantContext->tenant();
-
-        $courses = CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')
-            ->where('site_enabled', true)
-            ->orderBy('name')->get();
-
-        $disabledCourseIds = TenantCourseDisabled::where('tenant_id', $tenant->id)->pluck('course_id');
-
-        return view('admin.course-selection', ['courses' => $courses, 'disabledCourseIds' => $disabledCourseIds]);
-    }
-
     public function update(Request $request, TenantContext $tenantContext): Response
     {
         $tenant = $tenantContext->tenant();

@@ -11,16 +11,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
-use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\Response;
 
 class BrandingController extends Controller
 {
-    public function edit(TenantContext $tenantContext): View
-    {
-        return view('admin.branding', ['tenant' => $tenantContext->tenant(), 'branding' => $tenantContext->tenant()->branding]);
-    }
-
     public function update(Request $request, TenantContext $tenantContext): Response
     {
         $tenant = $tenantContext->tenant();

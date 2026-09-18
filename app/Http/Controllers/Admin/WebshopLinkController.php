@@ -8,7 +8,6 @@ use App\Models\CourseDefinition;
 use App\Models\CourseWebshopLink;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
-use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -19,16 +18,6 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class WebshopLinkController extends Controller
 {
-    public function edit(TenantContext $tenantContext): View
-    {
-        $tenant = $tenantContext->tenant();
-
-        $courses = CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')->orderBy('name')->get();
-        $links = CourseWebshopLink::where('tenant_id', $tenant->id)->pluck('url', 'course_id');
-
-        return view('admin.webshop-links', ['courses' => $courses, 'links' => $links]);
-    }
-
     public function update(Request $request, TenantContext $tenantContext): Response
     {
         $tenant = $tenantContext->tenant();

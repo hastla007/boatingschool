@@ -136,7 +136,7 @@ class CourseSelectionTest extends TestCase
             'status' => $course->status,
         ]);
 
-        $response = $this->actingAsInTenant($admin, $tenant)->get('/admin/courses');
+        $response = $this->actingAsInTenant($admin, $tenant)->get('/admin');
 
         $response->assertOk();
         $response->assertDontSee($course->name);

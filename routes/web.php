@@ -2,7 +2,6 @@
 
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\BrandingController;
-use App\Http\Controllers\Admin\CouponController as AdminCouponController;
 use App\Http\Controllers\Admin\CourseSelectionController;
 use App\Http\Controllers\Admin\EntitlementController;
 use App\Http\Controllers\Admin\ParticipantController;
@@ -78,24 +77,18 @@ Route::middleware(['auth', 'tenant.member'])->group(function () {
 
 Route::middleware(['auth', 'tenant.role:owner,admin,instructor'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/', AdminDashboardController::class)->name('dashboard');
-    Route::get('/participants', [ParticipantController::class, 'index'])->name('participants.index');
     Route::post('/participants/invite', [ParticipantController::class, 'invite'])->name('participants.invite');
     Route::post('/entitlements', [EntitlementController::class, 'store'])->name('entitlements.store');
     Route::patch('/entitlements/{entitlement}', [EntitlementController::class, 'update'])->name('entitlements.update');
-    Route::get('/branding', [BrandingController::class, 'edit'])->name('branding.edit');
     Route::patch('/branding', [BrandingController::class, 'update'])->name('branding.update');
     Route::post('/branding/support-email/verification-notification', [SupportEmailVerificationController::class, 'send'])
         ->middleware('throttle:6,1')->name('branding.support-email.send');
     Route::get('/branding/support-email/verify/{tenant}/{hash}', [SupportEmailVerificationController::class, 'verify'])
         ->middleware(['signed', 'throttle:6,1'])->name('branding.support-email.verify');
 
-    Route::get('/webshop-links', [WebshopLinkController::class, 'edit'])->name('webshop-links.edit');
     Route::patch('/webshop-links', [WebshopLinkController::class, 'update'])->name('webshop-links.update');
 
-    Route::get('/courses', [CourseSelectionController::class, 'edit'])->name('courses.edit');
     Route::patch('/courses', [CourseSelectionController::class, 'update'])->name('courses.update');
-
-    Route::get('/coupons', [AdminCouponController::class, 'index'])->name('coupons.index');
 });
 
 require __DIR__.'/superadmin.php';

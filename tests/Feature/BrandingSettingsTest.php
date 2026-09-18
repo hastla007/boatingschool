@@ -139,7 +139,7 @@ class BrandingSettingsTest extends TestCase
 
         $response = $this->actingAsInTenant($admin, $tenant)->get($verificationUrl);
 
-        $response->assertRedirect(route('admin.branding.edit'));
+        $response->assertRedirect(route('admin.dashboard', ['tab' => 'branding']));
         $this->assertNotNull($tenant->branding->fresh()->support_email_verified_at);
     }
 
