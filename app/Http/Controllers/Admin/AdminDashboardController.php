@@ -15,6 +15,7 @@ use App\Models\ProductPurchase;
 use App\Models\TenantCourseDisabled;
 use App\Models\TenantUser;
 use App\Support\TenantContext;
+use Illuminate\Http\Request;
 use Illuminate\View\View;
 
 /**
@@ -29,7 +30,7 @@ use Illuminate\View\View;
  */
 class AdminDashboardController extends Controller
 {
-    public function __invoke(TenantContext $tenantContext): View
+    public function __invoke(Request $request, TenantContext $tenantContext): View
     {
         $tenant = $tenantContext->tenant();
 
@@ -78,11 +79,26 @@ class AdminDashboardController extends Controller
 
         $disabledCourseIds = TenantCourseDisabled::where('tenant_id', $tenant->id)->pluck('course_id');
 
+        $couponFilters = $request->only(['coupon_search', 'coupon_status', 'coupon_type']);
+
         $coupons = Coupon::with('course', 'product', 'redeemedBy')
-            ->where('tenant_id', $tenant->id)
-            ->orWhere('redeemed_tenant_id', $tenant->id)
+            ->where(fn ($q) => $q->where('tenant_id', $tenant->id)->orWhere('redeemed_tenant_id', $tenant->id))
+            ->when(trim((string) ($couponFilters['coupon_search'] ?? '')) !== '', function ($q) use ($couponFilters) {
+                $term = '%'.trim($couponFilters['coupon_search']).'%';
+                $q->where(function ($q2) use ($term) {
+                    $q2->where('code', 'ilike', $term)
+                        ->orWhereHas('course', fn ($q3) => $q3->where('name', 'ilike', $term))
+                        ->orWhereHas('product', fn ($q3) => $q3->where('name', 'ilike', $term))
+                        ->orWhereHas('redeemedBy', fn ($q3) => $q3->where('display_name', 'ilike', $term));
+                });
+            })
+            ->when(($couponFilters['coupon_status'] ?? null) === 'open', fn ($q) => $q->whereNull('redeemed_at'))
+            ->when(($couponFilters['coupon_status'] ?? null) === 'redeemed', fn ($q) => $q->whereNotNull('redeemed_at'))
+            ->when(($couponFilters['coupon_type'] ?? null) === 'course', fn ($q) => $q->whereNotNull('course_id'))
+            ->when(($couponFilters['coupon_type'] ?? null) === 'product', fn ($q) => $q->whereNotNull('product_id'))
             ->orderByDesc('created_at')
-            ->paginate(50);
+            ->paginate(50)
+            ->withQueryString();
 
         // Bestand je Kurs/Produkt aus den Codes, die dieser Bootsschule
         // gehören (übernommen per Import oder vom Superadmin zugeteilt) --
@@ -122,6 +138,7 @@ class AdminDashboardController extends Controller
             'disabledCourseIds' => $disabledCourseIds,
             'coupons' => $coupons,
             'couponSummary' => $couponSummary,
+            'couponFilters' => $couponFilters,
         ]);
     }
 }

@@ -53,6 +53,26 @@
 </div>
 
 <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden">
+    <form method="GET" action="{{ route('admin.dashboard') }}" class="flex flex-wrap gap-2 p-4 border-b border-slate-100 dark:border-slate-700">
+        <input type="hidden" name="tab" value="coupons">
+        <input type="text" name="coupon_search" value="{{ $couponFilters['coupon_search'] ?? '' }}"
+               placeholder="Code, Kurs/Produkt oder Nutzer suchen…"
+               class="flex-1 min-w-[220px] rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+        <select name="coupon_status" onchange="this.form.submit()" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+            <option value="">Alle Status</option>
+            <option value="open" @selected(($couponFilters['coupon_status'] ?? null) === 'open')>offen</option>
+            <option value="redeemed" @selected(($couponFilters['coupon_status'] ?? null) === 'redeemed')>eingelöst</option>
+        </select>
+        <select name="coupon_type" onchange="this.form.submit()" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+            <option value="">Kurse &amp; Produkte</option>
+            <option value="course" @selected(($couponFilters['coupon_type'] ?? null) === 'course')>nur Kurse</option>
+            <option value="product" @selected(($couponFilters['coupon_type'] ?? null) === 'product')>nur Produkte</option>
+        </select>
+        <button type="submit" class="px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-sm">Suchen</button>
+        @if (($couponFilters['coupon_search'] ?? '') !== '' || ($couponFilters['coupon_status'] ?? '') !== '' || ($couponFilters['coupon_type'] ?? '') !== '')
+            <a href="{{ route('admin.dashboard', ['tab' => 'coupons']) }}" class="text-sm text-slate-500 hover:underline self-center">Filter zurücksetzen</a>
+        @endif
+    </form>
     <table class="w-full text-sm">
         <thead class="bg-slate-50 dark:bg-slate-700 text-slate-500 dark:text-slate-300 text-left">
             <tr>
@@ -102,7 +122,13 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="7" class="px-4 py-3 text-slate-500">Noch keine Codes für diese Bootsschule.</td></tr>
+                <tr><td colspan="7" class="px-4 py-3 text-slate-500">
+                    @if (array_filter($couponFilters))
+                        Keine Codes gefunden, die zu diesem Filter passen.
+                    @else
+                        Noch keine Codes für diese Bootsschule.
+                    @endif
+                </td></tr>
             @endforelse
         </tbody>
     </table>

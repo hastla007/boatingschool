@@ -264,4 +264,91 @@ class CouponManagementTest extends TestCase
         $response->assertSee('Coupon-Code einlösen');
         $response->assertSee(route('coupons.redeem', absolute: false), false);
     }
+
+    public function test_coupon_list_can_be_searched_by_code(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $course = $this->existingCourse('SRC');
+        $codes = ['E2E-SEARCH-FINDME', 'E2E-SEARCH-OTHER'];
+        $this->createdCodes = array_merge($this->createdCodes, $codes);
+        foreach ($codes as $code) {
+            $this->onAdmin(fn () => Coupon::create(['code' => $code, 'course_id' => $course->id, 'tenant_id' => $tenant->id]));
+        }
+
+        $response = $this->actingAsInTenant($admin, $tenant)->get('/admin?tab=coupons&coupon_search=FINDME');
+
+        $response->assertOk();
+        $response->assertSee('E2E-SEARCH-FINDME');
+        $response->assertDontSee('E2E-SEARCH-OTHER');
+    }
+
+    public function test_coupon_list_can_be_searched_by_redeemed_user_name(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner', ['display_name' => 'Gesuchte Lernperson']);
+        $otherLearner = $this->createTenantUser($tenant, 'learner', ['display_name' => 'Andere Person']);
+        $course = $this->existingCourse('SRC');
+        $codeA = 'E2E-SEARCH-USER-A';
+        $codeB = 'E2E-SEARCH-USER-B';
+        $this->createdCodes = array_merge($this->createdCodes, [$codeA, $codeB]);
+        $this->onAdmin(fn () => Coupon::create(['code' => $codeA, 'course_id' => $course->id, 'tenant_id' => $tenant->id]));
+        $this->onAdmin(fn () => Coupon::create(['code' => $codeB, 'course_id' => $course->id, 'tenant_id' => $tenant->id]));
+        $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', ['code' => $codeA]);
+        $this->actingAsInTenant($otherLearner, $tenant)->post('/coupons/redeem', ['code' => $codeB]);
+
+        $response = $this->actingAsInTenant($admin, $tenant)->get('/admin?tab=coupons&coupon_search=Gesuchte');
+
+        $response->assertOk();
+        $response->assertSee($codeA);
+        $response->assertDontSee($codeB);
+    }
+
+    public function test_coupon_list_can_be_filtered_by_status(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $openCode = 'E2E-FILTER-OPEN';
+        $redeemedCode = 'E2E-FILTER-REDEEMED';
+        $this->createdCodes = array_merge($this->createdCodes, [$openCode, $redeemedCode]);
+        $this->onAdmin(fn () => Coupon::create(['code' => $openCode, 'course_id' => $course->id, 'tenant_id' => $tenant->id]));
+        $this->onAdmin(fn () => Coupon::create(['code' => $redeemedCode, 'course_id' => $course->id, 'tenant_id' => $tenant->id]));
+        $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', ['code' => $redeemedCode]);
+
+        $openOnly = $this->actingAsInTenant($admin, $tenant)->get('/admin?tab=coupons&coupon_status=open');
+        $openOnly->assertOk();
+        $openOnly->assertSee($openCode);
+        $openOnly->assertDontSee($redeemedCode);
+
+        $redeemedOnly = $this->actingAsInTenant($admin, $tenant)->get('/admin?tab=coupons&coupon_status=redeemed');
+        $redeemedOnly->assertOk();
+        $redeemedOnly->assertSee($redeemedCode);
+        $redeemedOnly->assertDontSee($openCode);
+    }
+
+    public function test_coupon_list_can_be_filtered_by_type(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $course = $this->existingCourse('SRC');
+        $product = $this->onAdmin(fn () => Product::where('active', true)->firstOrFail());
+        $courseCode = 'E2E-FILTER-COURSE';
+        $productCode = 'E2E-FILTER-PRODUCT';
+        $this->createdCodes = array_merge($this->createdCodes, [$courseCode, $productCode]);
+        $this->onAdmin(fn () => Coupon::create(['code' => $courseCode, 'course_id' => $course->id, 'tenant_id' => $tenant->id]));
+        $this->onAdmin(fn () => Coupon::create(['code' => $productCode, 'product_id' => $product->id, 'tenant_id' => $tenant->id]));
+
+        $coursesOnly = $this->actingAsInTenant($admin, $tenant)->get('/admin?tab=coupons&coupon_type=course');
+        $coursesOnly->assertOk();
+        $coursesOnly->assertSee($courseCode);
+        $coursesOnly->assertDontSee($productCode);
+
+        $productsOnly = $this->actingAsInTenant($admin, $tenant)->get('/admin?tab=coupons&coupon_type=product');
+        $productsOnly->assertOk();
+        $productsOnly->assertSee($productCode);
+        $productsOnly->assertDontSee($courseCode);
+    }
 }
