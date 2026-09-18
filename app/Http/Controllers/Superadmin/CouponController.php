@@ -78,12 +78,29 @@ class CouponController extends Controller
         return back()->with('status', $message)->with('generatedCodes', $codes);
     }
 
-    /** Codes als .txt herunterladen -- respektiert dieselben Filter (Bootsschule/Status/Suche) wie index(). */
+    /**
+     * Codes als .txt herunterladen -- entweder die per Checkbox einzeln
+     * ausgewählten (ids[]) oder, bei "Alle auswählen", der komplette
+     * aktuell gefilterte/gesuchte Bestand über alle Seiten hinweg (dieselben
+     * Filter wie index(), da sie als Hidden-Felder mitgesendet werden).
+     */
     public function export(Request $request): Response
     {
-        $filters = $request->only(['tenant_id', 'status', 'search']);
+        $validated = $request->validate([
+            'select_all' => ['nullable', 'boolean'],
+            'ids' => ['required_if:select_all,0', 'array'],
+            'ids.*' => ['uuid'],
+            'tenant_id' => ['nullable', 'string'],
+            'status' => ['nullable', 'string'],
+            'search' => ['nullable', 'string'],
+        ]);
 
-        $codes = $this->filteredCoupons($filters)->orderByDesc('created_at')->pluck('code');
+        if ($request->boolean('select_all')) {
+            $filters = $request->only(['tenant_id', 'status', 'search']);
+            $codes = $this->filteredCoupons($filters)->orderByDesc('created_at')->pluck('code');
+        } else {
+            $codes = Coupon::whereIn('id', $validated['ids'])->orderByDesc('created_at')->pluck('code');
+        }
 
         $filename = 'coupon-codes-'.now()->format('Y-m-d_His').'.txt';
 

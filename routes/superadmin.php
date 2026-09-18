@@ -60,5 +60,5 @@ Route::middleware(['auth', 'superadmin', 'admin-db'])->prefix('superadmin')->nam
 
     Route::get('/coupons', [CouponController::class, 'index'])->name('coupons.index');
     Route::post('/coupons', [CouponController::class, 'store'])->name('coupons.store');
-    Route::get('/coupons/export', [CouponController::class, 'export'])->name('coupons.export');
+    Route::post('/coupons/export', [CouponController::class, 'export'])->name('coupons.export');
 });

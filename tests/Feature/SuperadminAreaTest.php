@@ -279,7 +279,7 @@ class SuperadminAreaTest extends TestCase
         $index->assertSee('Als TXT herunterladen');
     }
 
-    public function test_superadmin_can_export_coupon_codes_as_a_text_file(): void
+    public function test_superadmin_can_export_all_filtered_coupon_codes_via_select_all(): void
     {
         $superadmin = $this->createSuperAdmin();
         $tenantA = $this->createTestTenant();
@@ -287,16 +287,53 @@ class SuperadminAreaTest extends TestCase
         $course = $this->existingCourse('SRC');
 
         $this->onAdmin(fn () => Coupon::create(['code' => 'E2E-EXPORT-A1', 'course_id' => $course->id, 'tenant_id' => $tenantA->id]));
+        $this->onAdmin(fn () => Coupon::create(['code' => 'E2E-EXPORT-A2', 'course_id' => $course->id, 'tenant_id' => $tenantA->id]));
         $this->onAdmin(fn () => Coupon::create(['code' => 'E2E-EXPORT-B1', 'course_id' => $course->id, 'tenant_id' => $tenantB->id]));
 
-        $response = $this->actingAs($superadmin)->get('/superadmin/coupons/export?tenant_id='.$tenantA->id);
+        $response = $this->actingAs($superadmin)->post('/superadmin/coupons/export', [
+            'select_all' => '1',
+            'tenant_id' => $tenantA->id,
+        ]);
 
         $response->assertOk();
         $response->assertHeader('Content-Type', 'text/plain; charset=UTF-8');
         $response->assertSee('E2E-EXPORT-A1', false);
+        $response->assertSee('E2E-EXPORT-A2', false);
         $response->assertDontSee('E2E-EXPORT-B1');
 
-        $this->onAdmin(fn () => Coupon::whereIn('code', ['E2E-EXPORT-A1', 'E2E-EXPORT-B1'])->delete());
+        $this->onAdmin(fn () => Coupon::whereIn('code', ['E2E-EXPORT-A1', 'E2E-EXPORT-A2', 'E2E-EXPORT-B1'])->delete());
+    }
+
+    public function test_superadmin_can_export_individually_selected_coupon_codes(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        $tenant = $this->createTestTenant();
+        $course = $this->existingCourse('SRC');
+
+        $picked = $this->onAdmin(fn () => Coupon::create(['code' => 'E2E-EXPORT-PICKED', 'course_id' => $course->id, 'tenant_id' => $tenant->id]));
+        $this->onAdmin(fn () => Coupon::create(['code' => 'E2E-EXPORT-NOT-PICKED', 'course_id' => $course->id, 'tenant_id' => $tenant->id]));
+
+        $response = $this->actingAs($superadmin)->post('/superadmin/coupons/export', [
+            'select_all' => '0',
+            'ids' => [$picked->id],
+        ]);
+
+        $response->assertOk();
+        $response->assertSee('E2E-EXPORT-PICKED', false);
+        $response->assertDontSee('E2E-EXPORT-NOT-PICKED');
+
+        $this->onAdmin(fn () => Coupon::whereIn('code', ['E2E-EXPORT-PICKED', 'E2E-EXPORT-NOT-PICKED'])->delete());
+    }
+
+    public function test_exporting_without_a_selection_fails_validation(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+
+        $response = $this->actingAs($superadmin)->post('/superadmin/coupons/export', [
+            'select_all' => '0',
+        ]);
+
+        $response->assertSessionHasErrors('ids');
     }
 
     public function test_superadmin_can_search_the_coupon_list_showing_when_it_was_created(): void

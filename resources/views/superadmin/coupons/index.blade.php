@@ -67,53 +67,90 @@
                 @if (! empty($filters['tenant_id']) || ! empty($filters['status']) || ! empty($filters['search']))
                     <a href="{{ route('superadmin.coupons.index') }}" class="text-sm text-slate-500 hover:underline self-center">Filter zurücksetzen</a>
                 @endif
-                <a href="{{ route('superadmin.coupons.export', $filters) }}"
-                   class="inline-flex items-center gap-1.5 ms-auto px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-sm">
-                    <x-icon name="download" class="w-4 h-4" /> Codes exportieren (.txt)
-                </a>
             </form>
 
-            <table class="w-full text-sm">
-                <thead class="text-slate-400 text-left">
-                    <tr>
-                        <th class="py-1">Code</th>
-                        <th class="py-1">Typ</th>
-                        <th class="py-1">Kurs / Produkt</th>
-                        <th class="py-1">Bootsschule</th>
-                        <th class="py-1">Erzeugt am</th>
-                        <th class="py-1">Status</th>
-                        <th class="py-1">Eingelöst am</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse ($coupons as $coupon)
-                        <tr class="border-t border-slate-100 dark:border-slate-700">
-                            <td class="py-1.5 font-mono text-xs">{{ $coupon->code }}</td>
-                            <td class="py-1.5 text-slate-500">
-                                <span class="inline-block px-2 py-0.5 rounded-full text-xs {{ $coupon->isForProduct() ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-100 text-slate-600' }}">
-                                    {{ $coupon->isForProduct() ? 'Produkt' : 'Kurs' }}
-                                </span>
-                            </td>
-                            <td class="py-1.5 text-slate-600 dark:text-slate-300">{{ $coupon->redeemableName() }}</td>
-                            <td class="py-1.5 text-slate-500">{{ $coupon->tenant?->name ?? '—' }}</td>
-                            <td class="py-1.5 text-slate-500 text-xs">{{ $coupon->created_at?->format('d.m.Y H:i') ?? '—' }}</td>
-                            <td class="py-1.5">
-                                @if ($coupon->isRedeemed())
-                                    <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500">
-                                        eingelöst &middot; {{ $coupon->redeemedBy?->name }} ({{ $coupon->redeemedTenant?->name }})
-                                    </span>
-                                @else
-                                    <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">offen</span>
-                                @endif
-                            </td>
-                            <td class="py-1.5 text-slate-500 text-xs">{{ $coupon->redeemed_at?->format('d.m.Y H:i') ?? '—' }}</td>
+            <form method="POST" action="{{ route('superadmin.coupons.export') }}" id="export-form">
+                @csrf
+                <input type="hidden" name="tenant_id" value="{{ $filters['tenant_id'] ?? '' }}">
+                <input type="hidden" name="status" value="{{ $filters['status'] ?? '' }}">
+                <input type="hidden" name="search" value="{{ $filters['search'] ?? '' }}">
+                <input type="hidden" name="select_all" id="select-all-input" value="0">
+
+                <div class="flex items-center justify-between mb-2">
+                    <label class="flex items-center gap-2 text-sm text-slate-500">
+                        <input type="checkbox" id="select-all-checkbox" onchange="couponExport.toggleSelectAll(this.checked)">
+                        Alle {{ $coupons->total() }} gefilterten Codes auswählen
+                    </label>
+                    <button type="submit" id="export-selected-btn" disabled
+                            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-sm disabled:opacity-40 disabled:cursor-not-allowed">
+                        <x-icon name="download" class="w-4 h-4" /> Ausgewählte exportieren (.txt)
+                    </button>
+                </div>
+
+                <table class="w-full text-sm">
+                    <thead class="text-slate-400 text-left">
+                        <tr>
+                            <th class="py-1 w-6"></th>
+                            <th class="py-1">Code</th>
+                            <th class="py-1">Typ</th>
+                            <th class="py-1">Kurs / Produkt</th>
+                            <th class="py-1">Bootsschule</th>
+                            <th class="py-1">Erzeugt am</th>
+                            <th class="py-1">Status</th>
+                            <th class="py-1">Eingelöst am</th>
                         </tr>
-                    @empty
-                        <tr><td colspan="7" class="py-3 text-slate-500">Keine Codes gefunden.</td></tr>
-                    @endforelse
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        @forelse ($coupons as $coupon)
+                            <tr class="border-t border-slate-100 dark:border-slate-700">
+                                <td class="py-1.5">
+                                    <input type="checkbox" name="ids[]" value="{{ $coupon->id }}" class="coupon-row-checkbox" onchange="couponExport.updateButton()">
+                                </td>
+                                <td class="py-1.5 font-mono text-xs">{{ $coupon->code }}</td>
+                                <td class="py-1.5 text-slate-500">
+                                    <span class="inline-block px-2 py-0.5 rounded-full text-xs {{ $coupon->isForProduct() ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-100 text-slate-600' }}">
+                                        {{ $coupon->isForProduct() ? 'Produkt' : 'Kurs' }}
+                                    </span>
+                                </td>
+                                <td class="py-1.5 text-slate-600 dark:text-slate-300">{{ $coupon->redeemableName() }}</td>
+                                <td class="py-1.5 text-slate-500">{{ $coupon->tenant?->name ?? '—' }}</td>
+                                <td class="py-1.5 text-slate-500 text-xs">{{ $coupon->created_at?->format('d.m.Y H:i') ?? '—' }}</td>
+                                <td class="py-1.5">
+                                    @if ($coupon->isRedeemed())
+                                        <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500">
+                                            eingelöst &middot; {{ $coupon->redeemedBy?->name }} ({{ $coupon->redeemedTenant?->name }})
+                                        </span>
+                                    @else
+                                        <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">offen</span>
+                                    @endif
+                                </td>
+                                <td class="py-1.5 text-slate-500 text-xs">{{ $coupon->redeemed_at?->format('d.m.Y H:i') ?? '—' }}</td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="8" class="py-3 text-slate-500">Keine Codes gefunden.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </form>
             <div class="mt-4">{{ $coupons->links() }}</div>
         </div>
     </div>
+
+    <script>
+        window.couponExport = {
+            toggleSelectAll(checked) {
+                document.getElementById('select-all-input').value = checked ? '1' : '0';
+                document.querySelectorAll('.coupon-row-checkbox').forEach((el) => {
+                    el.checked = checked;
+                    el.disabled = checked;
+                });
+                this.updateButton();
+            },
+            updateButton() {
+                const selectAll = document.getElementById('select-all-checkbox').checked;
+                const anyChecked = selectAll || Array.from(document.querySelectorAll('.coupon-row-checkbox')).some((el) => el.checked);
+                document.getElementById('export-selected-btn').disabled = !anyChecked;
+            },
+        };
+    </script>
 </x-superadmin-layout>
