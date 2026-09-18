@@ -116,13 +116,13 @@
     @if ($hasContactDetails || $waLink)
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 mb-6 lg:w-[65%]">
             <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6">
-                <div class="flex flex-col items-center text-center gap-2 shrink-0 sm:w-52">
+                <div class="flex flex-col items-center text-center gap-2 shrink-0 sm:w-52 sm:self-center">
                     @if ($branding->logo_asset_id && $branding->logoAsset)
                         <img src="{{ $branding->logoAsset->storage_path }}" alt="{{ $currentTenant->name }} Logo" class="w-[10.5rem] h-[10.5rem] object-contain rounded-xl">
                     @endif
                 </div>
 
-                <div class="flex-1 text-center">
+                <div class="flex-1 text-center sm:self-center">
                     <h3 class="font-semibold text-slate-800 dark:text-white text-lg mb-3">Fragen? Kontaktiere Deine Bootsschule!</h3>
                     @if ($branding->phone)
                         <a href="tel:{{ preg_replace('/\s+/', '', $branding->phone) }}" class="block text-3xl font-bold hover:opacity-80 transition" style="color: var(--brand-primary, #005FD7)">
