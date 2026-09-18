@@ -29,7 +29,7 @@ class CourseDetailWidgetsTest extends TestCase
         $response->assertDontSee('Fragen? Kontaktiere Deine Bootsschule!');
     }
 
-    public function test_contact_widget_shows_phone_address_and_website_when_configured(): void
+    public function test_contact_widget_shows_phone_and_address_when_configured(): void
     {
         $tenant = $this->createTestTenant();
         $learner = $this->createTenantUser($tenant, 'learner');
@@ -43,7 +43,6 @@ class CourseDetailWidgetsTest extends TestCase
             'postal_code' => '20457',
             'city' => 'Hamburg',
             'country' => 'Deutschland',
-            'website' => 'www.e2e-bootsschule.test',
         ]));
 
         $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
@@ -53,8 +52,6 @@ class CourseDetailWidgetsTest extends TestCase
         $response->assertSee('+49 40 1234567');
         $response->assertSee('Hafenstraße 1');
         $response->assertSee('20457 Hamburg');
-        $response->assertSee('www.e2e-bootsschule.test');
-        $response->assertSee('https://www.e2e-bootsschule.test', false);
         $response->assertSee($tenant->name);
     }
 

@@ -158,12 +158,6 @@
                             {{ $branding->support_email }}
                         </a>
                     @endif
-                    @if ($branding->website)
-                        <a href="{{ \Illuminate\Support\Str::startsWith($branding->website, ['http://', 'https://']) ? $branding->website : 'https://'.$branding->website }}"
-                           target="_blank" rel="noopener" class="inline-block text-sm mt-1 hover:underline" style="color: var(--brand-primary, #005FD7)">
-                            {{ $branding->website }}
-                        </a>
-                    @endif
                 </div>
 
                 @if ($waLink)
