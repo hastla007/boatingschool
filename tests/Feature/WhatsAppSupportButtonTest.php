@@ -63,6 +63,23 @@ class WhatsAppSupportButtonTest extends TestCase
         $response->assertSee($expectedText, false);
     }
 
+    public function test_button_label_shows_the_tenants_name_instead_of_a_generic_label(): void
+    {
+        $tenant = $this->createTestTenant('Bootsschule Müller');
+        $learner = $this->createTenantUser($tenant, 'learner');
+
+        $this->onAdmin(fn () => $tenant->branding->update([
+            'whatsapp_enabled' => true,
+            'whatsapp_phone' => '491701234567',
+        ]));
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get('/dashboard');
+
+        $response->assertOk();
+        $response->assertSee('Bootsschule Müller');
+        $response->assertDontSee('>Support<', false);
+    }
+
     public function test_greeting_includes_the_course_name_on_a_course_page(): void
     {
         $tenant = $this->createTestTenant();
