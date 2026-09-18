@@ -80,6 +80,53 @@ class CourseDetailWidgetsTest extends TestCase
         $response->assertSee('http://localhost/storage/branding-logos/test-logo.png', false);
     }
 
+    public function test_logo_links_to_the_tenants_website_when_configured(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $this->onAdmin(function () use ($tenant) {
+            $asset = MediaAsset::create([
+                'asset_key' => 'test-tenant-logo-'.uniqid(),
+                'media_type' => 'image',
+                'storage_path' => 'http://localhost/storage/branding-logos/test-logo.png',
+            ]);
+            $tenant->branding->update([
+                'logo_asset_id' => $asset->id,
+                'website' => 'www.e2e-bootsschule.test',
+            ]);
+        });
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
+
+        $response->assertOk();
+        $response->assertSee('<a href="https://www.e2e-bootsschule.test" target="_blank"', false);
+    }
+
+    public function test_logo_is_not_a_link_when_no_website_is_configured(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $this->onAdmin(function () use ($tenant) {
+            $asset = MediaAsset::create([
+                'asset_key' => 'test-tenant-logo-'.uniqid(),
+                'media_type' => 'image',
+                'storage_path' => 'http://localhost/storage/branding-logos/test-logo.png',
+            ]);
+            $tenant->branding->update(['logo_asset_id' => $asset->id, 'phone' => '+49 40 1234567', 'phone_support_enabled' => true]);
+        });
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
+
+        $response->assertOk();
+        $response->assertDontSee('<a href="https://', false);
+    }
+
     public function test_whatsapp_hint_is_shown_next_to_the_contact_widget_when_enabled(): void
     {
         $tenant = $this->createTestTenant();

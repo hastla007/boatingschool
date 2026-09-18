@@ -120,11 +120,22 @@
             <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6">
                 <div class="flex flex-col items-center text-center gap-2 shrink-0 sm:w-52 sm:self-center">
                     @if ($branding->logo_asset_id && $branding->logoAsset)
-                        <img src="{{ $branding->logoAsset->storage_path }}" alt="{{ $currentTenant->name }} Logo" class="w-[10.5rem] h-[10.5rem] object-contain rounded-xl">
+                        @php
+                            $websiteUrl = $branding->website
+                                ? (\Illuminate\Support\Str::startsWith($branding->website, ['http://', 'https://']) ? $branding->website : 'https://'.$branding->website)
+                                : null;
+                        @endphp
+                        @if ($websiteUrl)
+                            <a href="{{ $websiteUrl }}" target="_blank" rel="noopener" class="hover:opacity-80 transition">
+                                <img src="{{ $branding->logoAsset->storage_path }}" alt="{{ $currentTenant->name }} Logo" class="w-[10.5rem] h-[10.5rem] object-contain rounded-xl">
+                            </a>
+                        @else
+                            <img src="{{ $branding->logoAsset->storage_path }}" alt="{{ $currentTenant->name }} Logo" class="w-[10.5rem] h-[10.5rem] object-contain rounded-xl">
+                        @endif
                     @endif
                     @if ($branding->street || $branding->city)
-                        <p class="text-sm font-semibold text-slate-700 dark:text-slate-200 mt-2">{{ $currentTenant->name }}</p>
-                        <p class="text-sm text-slate-500">
+                        <p class="w-full text-sm font-semibold text-slate-700 dark:text-slate-200 text-center">{{ $currentTenant->name }}</p>
+                        <p class="w-full text-sm text-slate-500 text-center">
                             @if ($branding->street) {{ $branding->street }}<br> @endif
                             @if ($branding->postal_code || $branding->city) {{ trim($branding->postal_code.' '.$branding->city) }} @endif
                             @if ($branding->country) &middot; {{ $branding->country }} @endif
