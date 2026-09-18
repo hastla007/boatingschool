@@ -131,8 +131,11 @@
                             {{ $branding->phone }}
                         </a>
                     @endif
+                    @if ($showPhone && $showEmail)
+                        <p class="text-sm text-slate-400 my-1">oder</p>
+                    @endif
                     @if ($showEmail)
-                        <a href="mailto:{{ $branding->support_email }}" class="block text-lg font-semibold hover:opacity-80 transition mt-1" style="color: var(--brand-primary, #005FD7)">
+                        <a href="mailto:{{ $branding->support_email }}" class="block text-lg font-semibold hover:opacity-80 transition" style="color: var(--brand-primary, #005FD7)">
                             {{ $branding->support_email }}
                         </a>
                     @endif

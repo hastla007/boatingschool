@@ -162,6 +162,46 @@ class CourseDetailWidgetsTest extends TestCase
         $response->assertSee('mailto:kontakt@e2e-bootsschule.test', false);
     }
 
+    public function test_oder_separates_phone_and_email_when_both_are_enabled(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $this->onAdmin(fn () => $tenant->branding->update([
+            'phone' => '+49 40 1234567',
+            'phone_support_enabled' => true,
+            'support_email' => 'kontakt@e2e-bootsschule.test',
+            'email_support_enabled' => true,
+        ]));
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
+
+        $response->assertOk();
+        $response->assertSee('+49 40 1234567');
+        $response->assertSee('oder');
+        $response->assertSee('kontakt@e2e-bootsschule.test');
+    }
+
+    public function test_oder_is_not_shown_when_only_one_support_channel_is_enabled(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $this->onAdmin(fn () => $tenant->branding->update([
+            'phone' => '+49 40 1234567',
+            'phone_support_enabled' => true,
+        ]));
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
+
+        $response->assertOk();
+        $response->assertDontSee('oder');
+    }
+
     public function test_support_email_is_hidden_when_email_support_is_not_enabled(): void
     {
         $tenant = $this->createTestTenant();
