@@ -122,11 +122,22 @@
         </div>
 
         <div class="pt-2 border-t border-slate-100 dark:border-slate-700">
-            <label class="inline-flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" name="whatsapp_enabled" value="1" @checked(old('whatsapp_enabled', $branding->whatsapp_enabled)) class="rounded border-slate-300 dark:border-slate-600 text-emerald-600 focus:ring-emerald-500">
-                <span class="text-sm font-medium text-slate-600 dark:text-slate-300">WhatsApp Support aktivieren</span>
-            </label>
-            <p class="text-xs text-slate-400 mt-1 mb-3">Zeigt eingeloggten Schülern einen Support-Button, der direkt zu WhatsApp weiterleitet.</p>
+            <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-2">Support via:</label>
+            <div class="space-y-2 mb-3">
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" name="email_support_enabled" value="1" @checked(old('email_support_enabled', $branding->email_support_enabled)) class="rounded border-slate-300 dark:border-slate-600 text-emerald-600 focus:ring-emerald-500">
+                    <span class="text-sm text-slate-600 dark:text-slate-300">Mail</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" name="phone_support_enabled" value="1" @checked(old('phone_support_enabled', $branding->phone_support_enabled)) class="rounded border-slate-300 dark:border-slate-600 text-emerald-600 focus:ring-emerald-500">
+                    <span class="text-sm text-slate-600 dark:text-slate-300">Telefon</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" name="whatsapp_enabled" value="1" @checked(old('whatsapp_enabled', $branding->whatsapp_enabled)) class="rounded border-slate-300 dark:border-slate-600 text-emerald-600 focus:ring-emerald-500">
+                    <span class="text-sm text-slate-600 dark:text-slate-300">WhatsApp</span>
+                </label>
+            </div>
+            <p class="text-xs text-slate-400 mb-3">Wählen Sie frei, über welche Kanäle Schüler Sie im Kurs kontaktieren können. Die Support-E-Mail und Telefonnummer hinterlegen Sie oben.</p>
 
             <div class="space-y-3">
                 <div>

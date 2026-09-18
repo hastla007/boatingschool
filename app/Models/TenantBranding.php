@@ -24,8 +24,9 @@ class TenantBranding extends Model
 
     protected $fillable = [
         'tenant_id', 'logo_asset_id', 'favicon_asset_id', 'primary_color', 'secondary_color',
-        'support_email', 'support_email_verified_at', 'legal_name', 'contact_first_name', 'contact_last_name',
-        'imprint_url', 'privacy_url', 'custom_domain', 'phone', 'street', 'postal_code', 'city', 'country',
+        'support_email', 'support_email_verified_at', 'email_support_enabled', 'legal_name',
+        'contact_first_name', 'contact_last_name', 'imprint_url', 'privacy_url', 'custom_domain',
+        'phone', 'phone_support_enabled', 'street', 'postal_code', 'city', 'country',
         'website', 'exam_readiness_threshold_percent', 'whatsapp_enabled', 'whatsapp_phone', 'whatsapp_greeting',
     ];
 
@@ -33,6 +34,8 @@ class TenantBranding extends Model
     {
         return [
             'support_email_verified_at' => 'datetime',
+            'email_support_enabled' => 'boolean',
+            'phone_support_enabled' => 'boolean',
             'whatsapp_enabled' => 'boolean',
         ];
     }

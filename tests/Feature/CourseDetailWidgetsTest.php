@@ -38,6 +38,7 @@ class CourseDetailWidgetsTest extends TestCase
 
         $this->onAdmin(fn () => $tenant->branding->update([
             'phone' => '+49 40 1234567',
+            'phone_support_enabled' => true,
             'street' => 'Hafenstraße 1',
             'postal_code' => '20457',
             'city' => 'Hamburg',
@@ -70,7 +71,7 @@ class CourseDetailWidgetsTest extends TestCase
                 'media_type' => 'image',
                 'storage_path' => 'http://localhost/storage/branding-logos/test-logo.png',
             ]);
-            $tenant->branding->update(['logo_asset_id' => $asset->id, 'phone' => '+49 40 1234567']);
+            $tenant->branding->update(['logo_asset_id' => $asset->id, 'phone' => '+49 40 1234567', 'phone_support_enabled' => true]);
         });
 
         $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
@@ -109,7 +110,7 @@ class CourseDetailWidgetsTest extends TestCase
         $course = $this->existingCourse('SRC');
         $this->grantEntitlement($tenant, $learner, $course);
 
-        $this->onAdmin(fn () => $tenant->branding->update(['phone' => '+49 40 1234567']));
+        $this->onAdmin(fn () => $tenant->branding->update(['phone' => '+49 40 1234567', 'phone_support_enabled' => true]));
 
         $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
 
@@ -119,6 +120,65 @@ class CourseDetailWidgetsTest extends TestCase
         $response->assertSee('Ruf uns einfach an!');
         $response->assertSee('captain-phone.webp', false);
         $response->assertSee('tel:+4940123456', false);
+    }
+
+    public function test_phone_number_is_hidden_when_phone_support_is_not_enabled(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $this->onAdmin(fn () => $tenant->branding->update([
+            'phone' => '+49 40 1234567',
+            'phone_support_enabled' => false,
+            'website' => 'www.e2e-bootsschule.test',
+        ]));
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
+
+        $response->assertOk();
+        $response->assertDontSee('+49 40 1234567');
+        $response->assertDontSee('Ruf uns einfach an!');
+        $response->assertSee('Wir sind gerne für Dich da!');
+    }
+
+    public function test_support_email_is_shown_when_email_support_is_enabled(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $this->onAdmin(fn () => $tenant->branding->update([
+            'support_email' => 'kontakt@e2e-bootsschule.test',
+            'email_support_enabled' => true,
+        ]));
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
+
+        $response->assertOk();
+        $response->assertSee('kontakt@e2e-bootsschule.test');
+        $response->assertSee('mailto:kontakt@e2e-bootsschule.test', false);
+    }
+
+    public function test_support_email_is_hidden_when_email_support_is_not_enabled(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $this->onAdmin(fn () => $tenant->branding->update([
+            'support_email' => 'kontakt@e2e-bootsschule.test',
+            'email_support_enabled' => false,
+            'website' => 'www.e2e-bootsschule.test',
+        ]));
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
+
+        $response->assertOk();
+        $response->assertDontSee('kontakt@e2e-bootsschule.test');
     }
 
     public function test_generic_captain_hint_is_shown_when_contact_details_have_no_phone_number(): void

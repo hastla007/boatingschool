@@ -218,6 +218,48 @@ class BrandingSettingsTest extends TestCase
         $this->assertFalse($tenant->branding->fresh()->whatsapp_enabled);
     }
 
+    public function test_a_school_admin_can_enable_email_and_phone_support_channels(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+
+        $response = $this->actingAsInTenant($admin, $tenant)->patch('/admin/branding', [
+            'primary_color' => '#005FD7',
+            'secondary_color' => '#00A8A8',
+            'exam_readiness_threshold_percent' => 50,
+            'support_email' => 'kontakt@bootsschule-mueller.de',
+            'email_support_enabled' => '1',
+            'phone' => '+49 40 1234567',
+            'phone_support_enabled' => '1',
+        ]);
+
+        $response->assertRedirect();
+
+        $branding = $tenant->branding->fresh();
+        $this->assertTrue($branding->email_support_enabled);
+        $this->assertTrue($branding->phone_support_enabled);
+    }
+
+    public function test_email_and_phone_support_channels_default_to_disabled(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+
+        $response = $this->actingAsInTenant($admin, $tenant)->patch('/admin/branding', [
+            'primary_color' => '#005FD7',
+            'secondary_color' => '#00A8A8',
+            'exam_readiness_threshold_percent' => 50,
+            'support_email' => 'kontakt@bootsschule-mueller.de',
+            'phone' => '+49 40 1234567',
+        ]);
+
+        $response->assertRedirect();
+
+        $branding = $tenant->branding->fresh();
+        $this->assertFalse($branding->email_support_enabled);
+        $this->assertFalse($branding->phone_support_enabled);
+    }
+
     public function test_support_email_is_not_verified_with_an_invalid_hash(): void
     {
         $tenant = $this->createTestTenant();

@@ -111,7 +111,9 @@
 
     @php
         $waLink = ($branding && auth()->check()) ? \App\Support\WhatsAppLink::for($branding, auth()->user(), $course) : null;
-        $hasContactDetails = $branding && ($branding->phone || $branding->street || $branding->city || $branding->website);
+        $showPhone = $branding && $branding->phone_support_enabled && $branding->phone;
+        $showEmail = $branding && $branding->email_support_enabled && $branding->support_email;
+        $hasContactDetails = $branding && ($showPhone || $showEmail || $branding->street || $branding->city || $branding->website);
     @endphp
     @if ($hasContactDetails || $waLink)
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 mb-6 lg:w-[65%]">
@@ -124,9 +126,14 @@
 
                 <div class="flex-1 text-center sm:self-center">
                     <h3 class="font-semibold text-slate-800 dark:text-white text-lg mb-3">Fragen? Kontaktiere Deine Bootsschule!</h3>
-                    @if ($branding->phone)
+                    @if ($showPhone)
                         <a href="tel:{{ preg_replace('/\s+/', '', $branding->phone) }}" class="block text-3xl font-bold hover:opacity-80 transition" style="color: var(--brand-primary, #005FD7)">
                             {{ $branding->phone }}
+                        </a>
+                    @endif
+                    @if ($showEmail)
+                        <a href="mailto:{{ $branding->support_email }}" class="block text-lg font-semibold hover:opacity-80 transition mt-1" style="color: var(--brand-primary, #005FD7)">
+                            {{ $branding->support_email }}
                         </a>
                     @endif
                     @if ($branding->street || $branding->city)
@@ -151,7 +158,7 @@
                         <span class="text-xs text-slate-500 dark:text-slate-400">Frag uns auch direkt per WhatsApp!</span>
                     </a>
                 @elseif ($hasContactDetails)
-                    @if ($branding->phone)
+                    @if ($showPhone)
                         <a href="tel:{{ preg_replace('/\s+/', '', $branding->phone) }}" class="flex flex-col items-center text-center gap-2 shrink-0 sm:w-56 hover:opacity-80 transition">
                             <img src="{{ asset('images/captain-phone.webp') }}" alt="Kapitän am Telefon" class="w-[12.5rem] h-[12.5rem] object-contain -scale-x-100">
                             <span class="text-xs text-slate-500 dark:text-slate-400">Ruf uns einfach an!</span>
