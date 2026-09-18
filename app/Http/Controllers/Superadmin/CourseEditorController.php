@@ -33,6 +33,8 @@ class CourseEditorController extends Controller
             'status' => ['required', 'in:draft,published,archived'],
         ]);
 
+        $validated['site_enabled'] = $request->boolean('site_enabled', true);
+
         $course = CourseDefinition::withoutGlobalScopes()->create($validated + ['tenant_id' => null]);
 
         return redirect()->route('superadmin.courses.show', $course)->with('status', 'Kurs angelegt.');
@@ -57,6 +59,8 @@ class CourseEditorController extends Controller
             'course_type' => ['required', 'string', 'max:60'],
             'status' => ['required', 'in:draft,published,archived'],
         ]);
+
+        $validated['site_enabled'] = $request->boolean('site_enabled');
 
         $course->update($validated);
 

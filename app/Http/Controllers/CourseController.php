@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\CourseDefinition;
 use App\Models\CourseWebshopLink;
 use App\Models\Progress;
+use App\Models\TenantCourseDisabled;
 use App\Models\VideoProgress;
 use App\Services\EntitlementService;
 use App\Support\TenantContext;
@@ -33,7 +34,11 @@ class CourseController extends Controller
             ];
         })->values();
 
+        $disabledCourseIds = TenantCourseDisabled::where('tenant_id', $tenant->id)->pluck('course_id');
+
         $lockedCourses = CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')
+            ->where('site_enabled', true)
+            ->whereNotIn('id', $disabledCourseIds)
             ->orderBy('name')
             ->get()
             ->reject(fn ($c) => $activeEntitlements->has($c->id))

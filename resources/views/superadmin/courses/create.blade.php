@@ -29,6 +29,13 @@
                     <option value="archived">archived</option>
                 </select>
             </div>
+            <div class="pt-2 border-t border-slate-100 dark:border-slate-700">
+                <label class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                    <input type="checkbox" name="site_enabled" value="1" checked class="rounded border-slate-300">
+                    Sitewide für alle Bootsschulen verfügbar
+                </label>
+                <p class="text-xs text-slate-400 mt-1">Deaktiviert kann keine Bootsschule diesen Kurs anbieten, auch nicht mit bereits vergebenem Zugang.</p>
+            </div>
 
             <button type="submit" class="px-5 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: #005FD7">
                 Kurs anlegen

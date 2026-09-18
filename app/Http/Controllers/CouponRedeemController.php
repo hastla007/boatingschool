@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\AuditLog;
 use App\Models\Coupon;
+use App\Models\CourseDefinition;
 use App\Models\Entitlement;
+use App\Services\EntitlementService;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -26,7 +28,7 @@ class CouponRedeemController extends Controller
         return view('coupons.redeem');
     }
 
-    public function redeem(Request $request, TenantContext $tenantContext): Response
+    public function redeem(Request $request, TenantContext $tenantContext, EntitlementService $entitlements): Response
     {
         $tenant = $tenantContext->tenant();
         $user = $request->user();
@@ -41,6 +43,12 @@ class CouponRedeemController extends Controller
 
         if (! $coupon) {
             return back()->withErrors(['code' => 'Dieser Code ist ungültig oder wurde bereits eingelöst.'])->withInput();
+        }
+
+        $course = CourseDefinition::withoutGlobalScopes()->find($coupon->course_id);
+
+        if (! $course || ! $entitlements->isOfferable($tenant, $course)) {
+            return back()->withErrors(['code' => 'Dieser Kurs ist aktuell nicht verfügbar.'])->withInput();
         }
 
         $entitlement = DB::transaction(function () use ($coupon, $tenant, $user) {
