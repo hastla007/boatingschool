@@ -153,12 +153,12 @@
                 @elseif ($hasContactDetails)
                     @if ($branding->phone)
                         <a href="tel:{{ preg_replace('/\s+/', '', $branding->phone) }}" class="flex flex-col items-center text-center gap-3 shrink-0 sm:w-36 hover:opacity-80 transition">
-                            <img src="{{ asset('images/captain-phone.webp') }}" alt="Kapitän am Telefon" class="w-20 h-20 object-contain -scale-x-100">
+                            <img src="{{ asset('images/captain-phone.webp') }}" alt="Kapitän am Telefon" class="w-20 h-20 object-contain" style="transform: scaleX(-1.2) scaleY(1.2)">
                             <span class="text-xs text-slate-500 dark:text-slate-400">Ruf uns einfach an!</span>
                         </a>
                     @else
                         <div class="flex flex-col items-center text-center gap-3 shrink-0 sm:w-36">
-                            <img src="{{ asset('images/captain-phone.webp') }}" alt="Kapitän am Telefon" class="w-20 h-20 object-contain -scale-x-100">
+                            <img src="{{ asset('images/captain-phone.webp') }}" alt="Kapitän am Telefon" class="w-20 h-20 object-contain" style="transform: scaleX(-1.2) scaleY(1.2)">
                             <span class="text-xs text-slate-500 dark:text-slate-400">Wir sind gerne für Dich da!</span>
                         </div>
                     @endif
