@@ -118,7 +118,7 @@
     @if ($hasContactDetails || $waLink)
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 mb-6 lg:w-[65%]">
             <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6">
-                <div class="flex flex-col items-center text-center gap-2 shrink-0 sm:w-52 sm:self-center">
+                <div class="flex flex-col items-center text-center shrink-0 sm:w-52 sm:self-center">
                     @if ($branding->logo_asset_id && $branding->logoAsset)
                         @php
                             $websiteUrl = $branding->website
@@ -134,7 +134,7 @@
                         @endif
                     @endif
                     @if ($branding->street || $branding->city)
-                        <p class="w-full text-sm font-semibold text-slate-700 dark:text-slate-200 text-center">{{ $currentTenant->name }}</p>
+                        <p class="w-full text-sm font-semibold text-slate-700 dark:text-slate-200 text-center mt-[20px]">{{ $currentTenant->name }}</p>
                         <p class="w-full text-sm text-slate-500 text-center">
                             @if ($branding->street) {{ $branding->street }}<br> @endif
                             @if ($branding->postal_code || $branding->city) {{ trim($branding->postal_code.' '.$branding->city) }} @endif
