@@ -146,7 +146,7 @@
                 <div class="flex-1 text-center sm:self-center">
                     <h3 class="font-semibold text-slate-800 dark:text-white text-lg mb-3">Fragen? Kontaktiere Deine Bootsschule!</h3>
                     @if ($showPhone)
-                        <a href="tel:{{ preg_replace('/\s+/', '', $branding->phone) }}" class="block text-3xl font-bold hover:opacity-80 transition" style="color: var(--brand-primary, #005FD7)">
+                        <a href="tel:{{ preg_replace('/\s+/', '', $branding->phone) }}" class="block text-3xl font-bold whitespace-nowrap hover:opacity-80 transition" style="color: var(--brand-primary, #005FD7)">
                             {{ $branding->phone }}
                         </a>
                     @endif
@@ -154,7 +154,7 @@
                         <p class="text-sm text-slate-400 my-1">oder</p>
                     @endif
                     @if ($showEmail)
-                        <a href="mailto:{{ $branding->support_email }}" class="block text-lg font-semibold hover:opacity-80 transition" style="color: var(--brand-primary, #005FD7)">
+                        <a href="mailto:{{ $branding->support_email }}" class="block text-lg font-semibold whitespace-nowrap hover:opacity-80 transition" style="color: var(--brand-primary, #005FD7)">
                             {{ $branding->support_email }}
                         </a>
                     @endif
