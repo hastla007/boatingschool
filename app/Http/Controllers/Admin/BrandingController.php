@@ -19,6 +19,8 @@ class BrandingController extends Controller
     {
         $tenant = $tenantContext->tenant();
 
+        $whatsappEnabled = $request->boolean('whatsapp_enabled');
+
         $validated = $request->validate([
             'primary_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'secondary_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
@@ -34,7 +36,15 @@ class BrandingController extends Controller
             'website' => ['nullable', 'url', 'max:255'],
             'logo' => ['nullable', 'image', 'max:1024'],
             'exam_readiness_threshold_percent' => ['required', 'integer', 'min:0', 'max:100'],
+            'whatsapp_phone' => [
+                $whatsappEnabled ? 'required' : 'nullable', 'string', 'max:20', 'regex:/^[1-9][0-9]{5,14}$/',
+            ],
+            'whatsapp_greeting' => ['nullable', 'string', 'max:500'],
+        ], [
+            'whatsapp_phone.regex' => 'Bitte die WhatsApp-Nummer im internationalen Format ohne Leerzeichen oder "+" eingeben, z. B. 491701234567.',
         ]);
+
+        $validated['whatsapp_enabled'] = $whatsappEnabled;
 
         $before = $tenant->branding->toArray();
         unset($validated['logo']);

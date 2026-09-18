@@ -26,13 +26,14 @@ class TenantBranding extends Model
         'tenant_id', 'logo_asset_id', 'favicon_asset_id', 'primary_color', 'secondary_color',
         'support_email', 'support_email_verified_at', 'legal_name', 'contact_first_name', 'contact_last_name',
         'imprint_url', 'privacy_url', 'custom_domain', 'phone', 'street', 'postal_code', 'city', 'country',
-        'website', 'exam_readiness_threshold_percent',
+        'website', 'exam_readiness_threshold_percent', 'whatsapp_enabled', 'whatsapp_phone', 'whatsapp_greeting',
     ];
 
     protected function casts(): array
     {
         return [
             'support_email_verified_at' => 'datetime',
+            'whatsapp_enabled' => 'boolean',
         ];
     }
 

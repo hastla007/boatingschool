@@ -122,6 +122,30 @@
         </div>
 
         <div class="pt-2 border-t border-slate-100 dark:border-slate-700">
+            <label class="inline-flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" name="whatsapp_enabled" value="1" @checked(old('whatsapp_enabled', $branding->whatsapp_enabled)) class="rounded border-slate-300 dark:border-slate-600 text-emerald-600 focus:ring-emerald-500">
+                <span class="text-sm font-medium text-slate-600 dark:text-slate-300">WhatsApp Support aktivieren</span>
+            </label>
+            <p class="text-xs text-slate-400 mt-1 mb-3">Zeigt eingeloggten Schülern einen Support-Button, der direkt zu WhatsApp weiterleitet.</p>
+
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Telefonnummer</label>
+                    <input type="text" name="whatsapp_phone" value="{{ old('whatsapp_phone', $branding->whatsapp_phone) }}" placeholder="491701234567" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                    <p class="text-xs text-slate-400 mt-1">Bitte im internationalen Format ohne Leerzeichen oder „+" eingeben, z.&nbsp;B. 491701234567.</p>
+                    <x-input-error :messages="$errors->get('whatsapp_phone')" class="mt-2" />
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Standard-Begrüßungstext</label>
+                    <textarea name="whatsapp_greeting" rows="2" placeholder="Hallo {name}, ich habe eine Frage zu {kurs}." class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">{{ old('whatsapp_greeting', $branding->whatsapp_greeting) }}</textarea>
+                    <p class="text-xs text-slate-400 mt-1">Der Text, den der Schüler vorausgefüllt in seinem Chatfenster sieht. Mit <code>{name}</code> und <code>{kurs}</code> werden Name und gebuchter Kurs automatisch eingesetzt, wenn möglich.</p>
+                    <x-input-error :messages="$errors->get('whatsapp_greeting')" class="mt-2" />
+                </div>
+            </div>
+        </div>
+
+        <div class="pt-2 border-t border-slate-100 dark:border-slate-700">
             <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Kursfortschritt-Voraussetzung für Prüfung &amp; Praxis</label>
             <p class="text-xs text-slate-400 mb-2">Ab diesem Kursfortschritt darf ein Schüler die Kachel „Praxis &amp; Prüfung" auswählen, um Prüfung und Praxis bei Ihrer Bootsschule zu buchen.</p>
             <div class="flex items-center gap-2">

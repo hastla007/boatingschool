@@ -143,6 +143,81 @@ class BrandingSettingsTest extends TestCase
         $this->assertNotNull($tenant->branding->fresh()->support_email_verified_at);
     }
 
+    public function test_a_school_admin_can_enable_whatsapp_support_with_a_valid_phone_number(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+
+        $response = $this->actingAsInTenant($admin, $tenant)->patch('/admin/branding', [
+            'primary_color' => '#005FD7',
+            'secondary_color' => '#00A8A8',
+            'exam_readiness_threshold_percent' => 50,
+            'whatsapp_enabled' => '1',
+            'whatsapp_phone' => '491701234567',
+            'whatsapp_greeting' => 'Hallo {name}, ich habe eine Frage zu {kurs}.',
+        ]);
+
+        $response->assertRedirect();
+
+        $branding = $tenant->branding->fresh();
+        $this->assertTrue($branding->whatsapp_enabled);
+        $this->assertSame('491701234567', $branding->whatsapp_phone);
+        $this->assertSame('Hallo {name}, ich habe eine Frage zu {kurs}.', $branding->whatsapp_greeting);
+    }
+
+    public function test_whatsapp_phone_is_required_when_whatsapp_support_is_enabled(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+
+        $response = $this->actingAsInTenant($admin, $tenant)->patch('/admin/branding', [
+            'primary_color' => '#005FD7',
+            'secondary_color' => '#00A8A8',
+            'exam_readiness_threshold_percent' => 50,
+            'whatsapp_enabled' => '1',
+        ]);
+
+        $response->assertSessionHasErrors('whatsapp_phone');
+        $this->assertFalse($tenant->branding->fresh()->whatsapp_enabled);
+    }
+
+    public function test_whatsapp_phone_must_be_in_international_format_without_spaces_or_plus(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+
+        $response = $this->actingAsInTenant($admin, $tenant)->patch('/admin/branding', [
+            'primary_color' => '#005FD7',
+            'secondary_color' => '#00A8A8',
+            'exam_readiness_threshold_percent' => 50,
+            'whatsapp_enabled' => '1',
+            'whatsapp_phone' => '+49 170 1234567',
+        ]);
+
+        $response->assertSessionHasErrors('whatsapp_phone');
+        $this->assertFalse($tenant->branding->fresh()->whatsapp_enabled);
+    }
+
+    public function test_whatsapp_support_can_be_disabled_without_a_phone_number(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+
+        $this->onAdmin(fn () => $tenant->branding->update([
+            'whatsapp_enabled' => true,
+            'whatsapp_phone' => '491701234567',
+        ]));
+
+        $response = $this->actingAsInTenant($admin, $tenant)->patch('/admin/branding', [
+            'primary_color' => '#005FD7',
+            'secondary_color' => '#00A8A8',
+            'exam_readiness_threshold_percent' => 50,
+        ]);
+
+        $response->assertRedirect();
+        $this->assertFalse($tenant->branding->fresh()->whatsapp_enabled);
+    }
+
     public function test_support_email_is_not_verified_with_an_invalid_hash(): void
     {
         $tenant = $this->createTestTenant();

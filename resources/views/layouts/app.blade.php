@@ -43,5 +43,7 @@
                 {{ $slot }}
             </main>
         </div>
+
+        <x-whatsapp-support-button />
     </body>
 </html>
