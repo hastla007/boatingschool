@@ -107,7 +107,7 @@ class ExamPaperTest extends TestCase
         }
         $this->actingAsInTenant($learner, $tenant)->get("/exam-sessions/{$session->id}");
 
-        $progress = $this->actingAsInTenant($learner, $tenant)->get('/progress');
+        $progress = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/progress");
 
         $progress->assertOk();
         $progress->assertSee('Test Prüfungskurs');

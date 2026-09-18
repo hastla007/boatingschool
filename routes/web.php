@@ -35,7 +35,7 @@ Route::middleware(['auth', 'tenant.member'])->group(function () {
     Route::post('/favorites/{question}', [FavoriteController::class, 'store'])->name('favorites.store');
     Route::delete('/favorites/{question}', [FavoriteController::class, 'destroy'])->name('favorites.destroy');
 
-    Route::get('/progress', [ProgressController::class, 'index'])->name('progress.index');
+    Route::get('/courses/{course}/progress', [ProgressController::class, 'show'])->name('progress.show');
 
     Route::get('/courses/{course}/video', [VideoCourseController::class, 'index'])->name('video.index');
     Route::get('/courses/{course}/video/{lesson}', [VideoCourseController::class, 'show'])->name('video.show');

@@ -1,6 +1,11 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Mein Fortschritt &amp; Statistiken</h2>
+        <div class="flex items-center gap-3">
+            <a href="{{ route('courses.show', $course) }}" class="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 shrink-0">
+                <x-icon name="chevron-right" class="w-4 h-4 rotate-180" />
+            </a>
+            <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">{{ $course->name }} &middot; Fortschritt &amp; Statistiken</h2>
+        </div>
     </x-slot>
 
     <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-6 items-stretch">
@@ -22,7 +27,7 @@
         </h3>
         <div class="space-y-3">
             @forelse ($byTopic as $topic => $stats)
-                <a href="{{ route('learning.show', ['course' => $stats['course'], 'mode' => 'topic', 'module' => $stats['module']->id, 'topic' => $topic]) }}" class="block group">
+                <a href="{{ route('learning.show', ['course' => $course, 'mode' => 'topic', 'module' => $stats['module']->id, 'topic' => $topic]) }}" class="block group">
                     <div class="flex justify-between text-sm mb-1">
                         <span class="text-slate-600 dark:text-slate-300 group-hover:underline">{{ $topic }}</span>
                         <span class="text-slate-400">{{ $stats['mastered'] }}/{{ $stats['total'] }} &middot; {{ $stats['percent'] }}%</span>
@@ -48,8 +53,7 @@
                     <div class="flex items-center justify-between gap-3">
                         <div class="min-w-0">
                             <div class="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">
-                                {{ $session->course->name }}
-                                <span class="text-slate-400 font-normal">&middot; {{ $session->displayLabel }}</span>
+                                {{ $session->displayLabel }}
                             </div>
                             <div class="text-xs text-slate-400">{{ $session->submitted_at?->format('d.m.Y H:i') }}</div>
                         </div>

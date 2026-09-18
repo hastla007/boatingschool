@@ -255,7 +255,7 @@ class LearningLoopTest extends TestCase
             $this->actingAsInTenant($learner, $tenant)->post($endpoint, $payload)->assertOk();
         }
 
-        $response = $this->actingAsInTenant($learner, $tenant)->get('/progress');
+        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/progress");
 
         $response->assertOk();
         $response->assertSee($revision->smartmodus_kategorie ?: $revision->topic);

@@ -95,7 +95,7 @@ class ExamEngineTest extends TestCase
         $this->finishRandomExam($tenant, $learner, $course);
         $this->finishRandomExam($tenant, $learner, $course);
 
-        $progress = $this->actingAsInTenant($learner, $tenant)->get('/progress');
+        $progress = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/progress");
 
         $progress->assertOk();
         $progress->assertSee('Prüfungsbogen Nr. 1');

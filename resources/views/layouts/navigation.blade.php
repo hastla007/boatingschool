@@ -1,6 +1,9 @@
 @php
     $role = Auth::check() ? Auth::user()->roleForTenant($currentTenant ?? null) : null;
     $isAdmin = in_array($role, ['owner', 'admin', 'instructor'], true);
+    $navCourses = Auth::check() && isset($currentTenant)
+        ? app(\App\Services\EntitlementService::class)->activeCourses($currentTenant, Auth::user())
+        : collect();
 @endphp
 <nav x-data="{ open: false }" class="bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -17,8 +20,29 @@
 
                 <div class="hidden sm:flex sm:ms-10 sm:space-x-1">
                     <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">Lernen</x-nav-link>
-                    <x-nav-link :href="route('courses.index')" :active="request()->routeIs('courses.*')">Kurse</x-nav-link>
-                    <x-nav-link :href="route('progress.index')" :active="request()->routeIs('progress.*')">Fortschritt</x-nav-link>
+
+                    @if ($navCourses->isNotEmpty())
+                        <x-dropdown align="left" width="w-64">
+                            <x-slot name="trigger">
+                                <button type="button"
+                                        class="inline-flex items-center gap-1 px-1 pt-1 border-b-2 text-sm font-medium leading-5 transition duration-150 ease-in-out {{ request()->routeIs('courses.*') ? 'text-slate-900 dark:text-white' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600' }}"
+                                        @style(request()->routeIs('courses.*') ? 'border-color: var(--brand-primary, #005FD7)' : '')>
+                                    Kurse
+                                    <svg class="fill-current h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+                                </button>
+                            </x-slot>
+                            <x-slot name="content">
+                                <x-dropdown-link :href="route('courses.index')">Alle Kurse</x-dropdown-link>
+                                <div class="border-t border-slate-100 dark:border-slate-600 my-1"></div>
+                                @foreach ($navCourses as $navCourse)
+                                    <x-dropdown-link :href="route('courses.show', $navCourse)">{{ $navCourse->name }}</x-dropdown-link>
+                                @endforeach
+                            </x-slot>
+                        </x-dropdown>
+                    @else
+                        <x-nav-link :href="route('courses.index')" :active="request()->routeIs('courses.*')">Kurse</x-nav-link>
+                    @endif
+
                     <x-nav-link :href="route('favorites.index')" :active="request()->routeIs('favorites.*')">Favoriten</x-nav-link>
                     @if ($isAdmin)
                         <x-nav-link :href="route('admin.dashboard')" :active="request()->routeIs('admin.*')">Bootsschul-Admin</x-nav-link>
@@ -62,8 +86,14 @@
     <div :class="{'block': open, 'hidden': ! open}" class="hidden sm:hidden">
         <div class="pt-2 pb-3 space-y-1">
             <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">Lernen</x-responsive-nav-link>
-            <x-responsive-nav-link :href="route('courses.index')" :active="request()->routeIs('courses.*')">Kurse</x-responsive-nav-link>
-            <x-responsive-nav-link :href="route('progress.index')" :active="request()->routeIs('progress.*')">Fortschritt</x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('courses.index')" :active="request()->routeIs('courses.index')">Alle Kurse</x-responsive-nav-link>
+            @foreach ($navCourses as $navCourse)
+                <div class="pl-6">
+                    <x-responsive-nav-link :href="route('courses.show', $navCourse)" :active="request()->routeIs('courses.show') && ($course ?? null)?->id === $navCourse->id">
+                        {{ $navCourse->name }}
+                    </x-responsive-nav-link>
+                </div>
+            @endforeach
             <x-responsive-nav-link :href="route('favorites.index')" :active="request()->routeIs('favorites.*')">Favoriten</x-responsive-nav-link>
             @if ($isAdmin)
                 <x-responsive-nav-link :href="route('admin.dashboard')" :active="request()->routeIs('admin.*')">Bootsschul-Admin</x-responsive-nav-link>

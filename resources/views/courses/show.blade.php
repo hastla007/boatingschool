@@ -22,14 +22,14 @@
             </div>
         @endif
 
-        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex flex-col items-center justify-center">
+        <a href="{{ route('progress.show', $course) }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex flex-col items-center justify-center hover:shadow-md transition">
             <div class="text-sm font-medium text-slate-600 dark:text-slate-300 mb-2">Kursfortschritt</div>
             <x-progress-ring :percent="$overallPercent" :size="88" :stroke="8" />
             <div class="flex items-center gap-3 text-xs text-slate-400 mt-2">
                 <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full" style="background-color: var(--brand-secondary, #00A8A8)"></span> Gefestigt</span>
                 <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-slate-200 dark:bg-slate-600"></span> Offen</span>
             </div>
-        </div>
+        </a>
     </div>
 
     <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
