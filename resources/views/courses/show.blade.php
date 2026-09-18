@@ -115,12 +115,12 @@
     @endphp
     @if ($hasContactDetails || $waLink)
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 mb-6 lg:w-[65%]">
-            <div class="flex flex-col sm:flex-row items-center gap-6">
+            <div class="flex flex-col sm:flex-row items-center sm:items-start gap-6">
                 <div class="flex flex-col items-center text-center gap-2 shrink-0 sm:w-52">
                     @if ($branding->logo_asset_id && $branding->logoAsset)
                         <img src="{{ $branding->logoAsset->storage_path }}" alt="{{ $currentTenant->name }} Logo" class="w-[10.5rem] h-[10.5rem] object-contain rounded-xl">
                     @endif
-                    <div class="text-lg font-semibold text-slate-700 dark:text-slate-200">{{ $currentTenant->name }}</div>
+                    <div class="w-full text-lg font-semibold text-slate-700 dark:text-slate-200">{{ $currentTenant->name }}</div>
                 </div>
 
                 <div class="flex-1 text-center">
