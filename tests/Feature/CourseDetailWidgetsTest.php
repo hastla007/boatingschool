@@ -139,7 +139,8 @@ class CourseDetailWidgetsTest extends TestCase
         $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
 
         $response->assertOk();
-        $response->assertSee('Frag uns auch direkt per WhatsApp!');
+        $response->assertSee('Frag uns auch direkt');
+        $response->assertSee('per WhatsApp!');
         $response->assertSee('https://wa.me/491701234567?text=', false);
         // Die Bootsschule hat noch keine Kontaktdaten hinterlegt, aber der
         // WhatsApp-Hinweis allein reicht schon aus, damit das Widget (mit
@@ -159,7 +160,7 @@ class CourseDetailWidgetsTest extends TestCase
         $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
 
         $response->assertOk();
-        $response->assertDontSee('Frag uns auch direkt per WhatsApp!');
+        $response->assertDontSee('Frag uns auch direkt');
         $response->assertDontSee('wa.me', false);
         $response->assertSee('Ruf uns einfach an!');
         $response->assertSee('captain-phone.webp', false);

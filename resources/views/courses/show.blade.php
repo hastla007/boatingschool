@@ -163,7 +163,7 @@
                 @if ($waLink)
                     <a href="{{ $waLink }}" target="_blank" rel="noopener" class="flex flex-col items-center text-center gap-2 shrink-0 sm:w-56 sm:self-center hover:opacity-80 transition">
                         <img src="{{ asset('images/captain-laptop.webp') }}" alt="Kapitän am Laptop" class="w-[12.5rem] h-[12.5rem] object-contain">
-                        <span class="text-xs text-slate-500 dark:text-slate-400">Frag uns auch direkt per WhatsApp!</span>
+                        <span class="text-xs text-slate-500 dark:text-slate-400">Frag uns auch direkt<br>per WhatsApp!</span>
                     </a>
                 @elseif ($hasContactDetails)
                     @if ($showPhone)
