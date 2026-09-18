@@ -53,8 +53,15 @@
 
             <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
                 @if (session('status'))
-                    <div class="mb-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 text-sm dark:bg-emerald-900/30 dark:border-emerald-800 dark:text-emerald-300">
-                        {{ session('status') }}
+                    <div class="mb-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 text-sm dark:bg-emerald-900/30 dark:border-emerald-800 dark:text-emerald-300 flex items-center justify-between gap-4 flex-wrap">
+                        <span>{{ session('status') }}</span>
+                        @if (session('generatedCodes'))
+                            <a href="data:text/plain;charset=utf-8,{{ rawurlencode(implode("\n", session('generatedCodes'))) }}"
+                               download="coupon-codes-{{ now()->format('Y-m-d_His') }}.txt"
+                               class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-medium hover:opacity-90 transition">
+                                <x-icon name="download" class="w-3.5 h-3.5" /> Als TXT herunterladen
+                            </a>
+                        @endif
                     </div>
                 @endif
 

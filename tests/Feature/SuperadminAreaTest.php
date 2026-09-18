@@ -260,6 +260,7 @@ class SuperadminAreaTest extends TestCase
             'quantity' => 1,
         ]);
         $single->assertRedirect();
+        $single->assertSessionHas('generatedCodes', fn ($codes) => count($codes) === 1);
         $this->assertSame(1, Coupon::where('tenant_id', $tenant->id)->count());
 
         $batch = $this->actingAs($superadmin)->post('/superadmin/coupons', [
@@ -269,11 +270,58 @@ class SuperadminAreaTest extends TestCase
             'batch_label' => 'E2E Testbatch',
         ]);
         $batch->assertRedirect();
+        $batch->assertSessionHas('generatedCodes', fn ($codes) => count($codes) === 5);
         $this->assertSame(6, Coupon::where('tenant_id', $tenant->id)->count());
         $this->assertSame(5, Coupon::where('tenant_id', $tenant->id)->where('batch_label', 'E2E Testbatch')->count());
 
         $index = $this->actingAs($superadmin)->get('/superadmin/coupons?tenant_id='.$tenant->id);
         $index->assertOk();
+        $index->assertSee('Als TXT herunterladen');
+    }
+
+    public function test_superadmin_can_export_coupon_codes_as_a_text_file(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        $tenantA = $this->createTestTenant();
+        $tenantB = $this->createTestTenant();
+        $course = $this->existingCourse('SRC');
+
+        $this->onAdmin(fn () => Coupon::create(['code' => 'E2E-EXPORT-A1', 'course_id' => $course->id, 'tenant_id' => $tenantA->id]));
+        $this->onAdmin(fn () => Coupon::create(['code' => 'E2E-EXPORT-B1', 'course_id' => $course->id, 'tenant_id' => $tenantB->id]));
+
+        $response = $this->actingAs($superadmin)->get('/superadmin/coupons/export?tenant_id='.$tenantA->id);
+
+        $response->assertOk();
+        $response->assertHeader('Content-Type', 'text/plain; charset=UTF-8');
+        $response->assertSee('E2E-EXPORT-A1', false);
+        $response->assertDontSee('E2E-EXPORT-B1');
+
+        $this->onAdmin(fn () => Coupon::whereIn('code', ['E2E-EXPORT-A1', 'E2E-EXPORT-B1'])->delete());
+    }
+
+    public function test_superadmin_can_search_the_coupon_list_showing_when_it_was_created(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        $tenant = $this->createTestTenant('E2E Suchbare Schule');
+        $course = $this->existingCourse('SRC');
+
+        $this->onAdmin(fn () => Coupon::create(['code' => 'E2E-SEARCH-MATCH', 'course_id' => $course->id, 'tenant_id' => $tenant->id]));
+        $this->onAdmin(fn () => Coupon::create(['code' => 'E2E-SEARCH-OTHER', 'course_id' => $course->id, 'tenant_id' => null]));
+
+        $response = $this->actingAs($superadmin)->get('/superadmin/coupons?search=E2E-SEARCH-MATCH');
+
+        $response->assertOk();
+        $response->assertSee('E2E-SEARCH-MATCH');
+        $response->assertDontSee('E2E-SEARCH-OTHER');
+        $response->assertSee('Erzeugt am');
+        $response->assertSee(now()->format('d.m.Y'));
+
+        $byTenantName = $this->actingAs($superadmin)->get('/superadmin/coupons?search=E2E+Suchbare+Schule');
+        $byTenantName->assertOk();
+        $byTenantName->assertSee('E2E-SEARCH-MATCH');
+        $byTenantName->assertDontSee('E2E-SEARCH-OTHER');
+
+        $this->onAdmin(fn () => Coupon::whereIn('code', ['E2E-SEARCH-MATCH', 'E2E-SEARCH-OTHER'])->delete());
     }
 
     public function test_a_tenant_assigned_coupon_can_be_redeemed_by_that_tenants_learner(): void

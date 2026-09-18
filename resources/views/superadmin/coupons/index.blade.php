@@ -49,6 +49,9 @@
 
         <div class="lg:col-span-2 bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
             <form method="GET" class="flex flex-wrap gap-2 mb-4">
+                <input type="text" name="search" value="{{ $filters['search'] ?? '' }}"
+                       placeholder="Code, Kurs/Produkt, Bootsschule oder Nutzer suchen…"
+                       class="flex-1 min-w-[220px] rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                 <select name="tenant_id" onchange="this.form.submit()" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                     <option value="">Alle Bootsschulen</option>
                     @foreach ($tenants as $tenant)
@@ -60,9 +63,14 @@
                     <option value="open" @selected(($filters['status'] ?? null) === 'open')>offen</option>
                     <option value="redeemed" @selected(($filters['status'] ?? null) === 'redeemed')>eingelöst</option>
                 </select>
-                @if (! empty($filters['tenant_id']) || ! empty($filters['status']))
+                <button type="submit" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-sm">Suchen</button>
+                @if (! empty($filters['tenant_id']) || ! empty($filters['status']) || ! empty($filters['search']))
                     <a href="{{ route('superadmin.coupons.index') }}" class="text-sm text-slate-500 hover:underline self-center">Filter zurücksetzen</a>
                 @endif
+                <a href="{{ route('superadmin.coupons.export', $filters) }}"
+                   class="inline-flex items-center gap-1.5 ms-auto px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-sm">
+                    <x-icon name="download" class="w-4 h-4" /> Codes exportieren (.txt)
+                </a>
             </form>
 
             <table class="w-full text-sm">
@@ -72,6 +80,7 @@
                         <th class="py-1">Typ</th>
                         <th class="py-1">Kurs / Produkt</th>
                         <th class="py-1">Bootsschule</th>
+                        <th class="py-1">Erzeugt am</th>
                         <th class="py-1">Status</th>
                         <th class="py-1">Eingelöst am</th>
                     </tr>
@@ -87,6 +96,7 @@
                             </td>
                             <td class="py-1.5 text-slate-600 dark:text-slate-300">{{ $coupon->redeemableName() }}</td>
                             <td class="py-1.5 text-slate-500">{{ $coupon->tenant?->name ?? '—' }}</td>
+                            <td class="py-1.5 text-slate-500 text-xs">{{ $coupon->created_at?->format('d.m.Y H:i') ?? '—' }}</td>
                             <td class="py-1.5">
                                 @if ($coupon->isRedeemed())
                                     <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500">
@@ -99,7 +109,7 @@
                             <td class="py-1.5 text-slate-500 text-xs">{{ $coupon->redeemed_at?->format('d.m.Y H:i') ?? '—' }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="6" class="py-3 text-slate-500">Keine Codes gefunden.</td></tr>
+                        <tr><td colspan="7" class="py-3 text-slate-500">Keine Codes gefunden.</td></tr>
                     @endforelse
                 </tbody>
             </table>
