@@ -134,7 +134,7 @@
                         @endif
                     @endif
                     @if ($branding->street || $branding->city)
-                        <p class="w-full text-sm font-semibold text-slate-700 dark:text-slate-200 text-center mt-2">{{ $currentTenant->name }}</p>
+                        <p class="w-full text-sm font-semibold text-slate-700 dark:text-slate-200 text-center mt-4">{{ $currentTenant->name }}</p>
                         <p class="w-full text-sm text-slate-500 text-center">
                             @if ($branding->street) {{ $branding->street }}<br> @endif
                             @if ($branding->postal_code || $branding->city) {{ trim($branding->postal_code.' '.$branding->city) }} @endif
