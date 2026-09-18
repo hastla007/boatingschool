@@ -166,5 +166,6 @@ class QuestionFeedbackTest extends TestCase
         $this->assertNotNull($revision->feedback_incorrect);
         $this->assertStringStartsNotWith('Richtig.', $revision->feedback_correct);
         $this->assertStringStartsNotWith('Falsch.', $revision->feedback_incorrect);
+        $this->assertStringNotContainsString('Richtig ist:', $revision->feedback_incorrect);
     }
 }

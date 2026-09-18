@@ -13,7 +13,10 @@ use Illuminate\Console\Command;
  * werden auf der aktuell veröffentlichten Revision ergänzt. Die Feedback-
  * Spalten der Quelldatei beginnen redundant mit "Richtig."/"Falsch." --
  * das steht in der Oberfläche bereits als eigene Überschrift, deshalb wird
- * diese erste Zeile beim Import abgeschnitten.
+ * diese erste Zeile beim Import abgeschnitten. "Falsch."-Texte wiederholen
+ * zusätzlich noch die richtige Antwort als eigene Zeile ("Richtig ist:
+ * „...“") -- das steht in der Oberfläche bereits als "Richtige Antwort:
+ * ..." darüber, deshalb wird auch diese Zeile beim Import entfernt.
  */
 class ImportContentFeedback extends Command
 {
@@ -68,6 +71,7 @@ class ImportContentFeedback extends Command
 
         $feedbackCorrect = $this->stripLeadingVerdict(trim((string) ($row['feedback_correct'] ?? '')), 'Richtig.');
         $feedbackIncorrect = $this->stripLeadingVerdict(trim((string) ($row['feedback_incorrect'] ?? '')), 'Falsch.');
+        $feedbackIncorrect = $this->stripLeadingCorrectAnswerLine($feedbackIncorrect);
 
         if ($feedbackCorrect === '' && $feedbackIncorrect === '') {
             $this->recordSkip($lineNumber, "Kein Feedback für '{$contentId}' in der Quelldatei.");
@@ -109,6 +113,12 @@ class ImportContentFeedback extends Command
         }
 
         return trim($text);
+    }
+
+    /** Entfernt die führende "Richtig ist: „...“"-Zeile, die die App bereits als "Richtige Antwort: ..." anzeigt. */
+    private function stripLeadingCorrectAnswerLine(string $text): string
+    {
+        return trim(preg_replace('/^Richtig ist: „[^“]*“\s*/u', '', $text, 1));
     }
 
     /** @return iterable<int, array<string, string>> */
