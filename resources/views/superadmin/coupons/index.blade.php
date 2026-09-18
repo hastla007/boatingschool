@@ -9,13 +9,20 @@
             <form method="POST" action="{{ route('superadmin.coupons.store') }}" class="space-y-3">
                 @csrf
                 <div>
-                    <x-input-label for="course_id" value="Kurs" />
-                    <select id="course_id" name="course_id" required class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
-                        @foreach ($courses as $course)
-                            <option value="{{ $course->id }}">{{ $course->name }}</option>
-                        @endforeach
+                    <x-input-label for="target" value="Kurs oder Produkt" />
+                    <select id="target" name="target" required class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                        <optgroup label="Kurse">
+                            @foreach ($courses as $course)
+                                <option value="course:{{ $course->id }}">{{ $course->name }}</option>
+                            @endforeach
+                        </optgroup>
+                        <optgroup label="Produkte">
+                            @foreach ($products as $product)
+                                <option value="product:{{ $product->id }}">{{ $product->name }}</option>
+                            @endforeach
+                        </optgroup>
                     </select>
-                    <x-input-error :messages="$errors->get('course_id')" class="mt-2" />
+                    <x-input-error :messages="$errors->get('target')" class="mt-2" />
                 </div>
                 <div>
                     <x-input-label for="tenant_id" value="Bootsschule (optional)" />
@@ -62,16 +69,23 @@
                 <thead class="text-slate-400 text-left">
                     <tr>
                         <th class="py-1">Code</th>
-                        <th class="py-1">Kurs</th>
+                        <th class="py-1">Typ</th>
+                        <th class="py-1">Kurs / Produkt</th>
                         <th class="py-1">Bootsschule</th>
                         <th class="py-1">Status</th>
+                        <th class="py-1">Eingelöst am</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse ($coupons as $coupon)
                         <tr class="border-t border-slate-100 dark:border-slate-700">
                             <td class="py-1.5 font-mono text-xs">{{ $coupon->code }}</td>
-                            <td class="py-1.5 text-slate-600 dark:text-slate-300">{{ $coupon->course->name }}</td>
+                            <td class="py-1.5 text-slate-500">
+                                <span class="inline-block px-2 py-0.5 rounded-full text-xs {{ $coupon->isForProduct() ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-100 text-slate-600' }}">
+                                    {{ $coupon->isForProduct() ? 'Produkt' : 'Kurs' }}
+                                </span>
+                            </td>
+                            <td class="py-1.5 text-slate-600 dark:text-slate-300">{{ $coupon->redeemableName() }}</td>
                             <td class="py-1.5 text-slate-500">{{ $coupon->tenant?->name ?? '—' }}</td>
                             <td class="py-1.5">
                                 @if ($coupon->isRedeemed())
@@ -82,9 +96,10 @@
                                     <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">offen</span>
                                 @endif
                             </td>
+                            <td class="py-1.5 text-slate-500 text-xs">{{ $coupon->redeemed_at?->format('d.m.Y H:i') ?? '—' }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="4" class="py-3 text-slate-500">Keine Codes gefunden.</td></tr>
+                        <tr><td colspan="6" class="py-3 text-slate-500">Keine Codes gefunden.</td></tr>
                     @endforelse
                 </tbody>
             </table>

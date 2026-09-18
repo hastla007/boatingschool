@@ -255,7 +255,7 @@ class SuperadminAreaTest extends TestCase
         $course = $this->existingCourse('SRC');
 
         $single = $this->actingAs($superadmin)->post('/superadmin/coupons', [
-            'course_id' => $course->id,
+            'target' => 'course:'.$course->id,
             'tenant_id' => $tenant->id,
             'quantity' => 1,
         ]);
@@ -263,7 +263,7 @@ class SuperadminAreaTest extends TestCase
         $this->assertSame(1, Coupon::where('tenant_id', $tenant->id)->count());
 
         $batch = $this->actingAs($superadmin)->post('/superadmin/coupons', [
-            'course_id' => $course->id,
+            'target' => 'course:'.$course->id,
             'tenant_id' => $tenant->id,
             'quantity' => 5,
             'batch_label' => 'E2E Testbatch',

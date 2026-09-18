@@ -27,6 +27,7 @@
                                 <a href="{{ route('superadmin.tenants.index') }}" class="px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.tenants.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Bootsschulen</a>
                                 <a href="{{ route('superadmin.users.index') }}" class="px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.users.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Nutzer</a>
                                 <a href="{{ route('superadmin.courses.index') }}" class="px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.courses.*', 'superadmin.modules.*', 'superadmin.questions.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Kurse</a>
+                                <a href="{{ route('superadmin.products.index') }}" class="px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.products.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Produkte</a>
                                 <a href="{{ route('superadmin.coupons.index') }}" class="px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.coupons.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Coupons</a>
                                 <a href="{{ route('superadmin.settings.edit') }}" class="px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.settings.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Website</a>
                             </div>

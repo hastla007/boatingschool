@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Superadmin;
 use App\Http\Controllers\Controller;
 use App\Models\Entitlement;
 use App\Models\ExamSession;
+use App\Models\ProductPurchase;
 use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
@@ -87,11 +88,15 @@ class UserController extends Controller
         $examResults = ExamSession::where('user_id', $user->id)->where('status', 'evaluated')
             ->with('course', 'paper')->orderByDesc('submitted_at')->get();
 
+        $productPurchases = ProductPurchase::where('user_id', $user->id)->with('product', 'tenant')
+            ->orderByDesc('created_at')->get();
+
         return view('superadmin.users.show', [
             'user' => $user,
             'memberships' => $memberships,
             'results' => $results,
             'examResults' => $examResults,
+            'productPurchases' => $productPurchases,
             'tenants' => Tenant::orderBy('name')->get(),
             'countries' => Countries::OPTIONS,
         ]);

@@ -49,6 +49,15 @@
                 <div class="text-xs text-slate-400">Welche Kurse deine Bootsschule anbietet</div>
             </div>
         </a>
+        <a href="{{ route('admin.coupons.index') }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-3 hover:shadow-md transition">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0 bg-rose-500">
+                <x-icon name="bookmark" class="w-5 h-5" />
+            </div>
+            <div>
+                <div class="font-medium text-slate-700 dark:text-slate-200">Gutschein-Codes</div>
+                <div class="text-xs text-slate-400">Wer wann welchen Code eingelöst hat</div>
+            </div>
+        </a>
     </div>
 
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">

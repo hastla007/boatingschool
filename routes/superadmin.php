@@ -4,6 +4,7 @@ use App\Http\Controllers\Superadmin\CourseEditorController;
 use App\Http\Controllers\Superadmin\CouponController;
 use App\Http\Controllers\Superadmin\DashboardController;
 use App\Http\Controllers\Superadmin\ModuleController;
+use App\Http\Controllers\Superadmin\ProductController;
 use App\Http\Controllers\Superadmin\QuestionController;
 use App\Http\Controllers\Superadmin\SettingsController;
 use App\Http\Controllers\Superadmin\TenantController;
@@ -52,6 +53,10 @@ Route::middleware(['auth', 'superadmin', 'admin-db'])->prefix('superadmin')->nam
 
     Route::get('/settings', [SettingsController::class, 'edit'])->name('settings.edit');
     Route::patch('/settings', [SettingsController::class, 'update'])->name('settings.update');
+
+    Route::get('/products', [ProductController::class, 'index'])->name('products.index');
+    Route::post('/products', [ProductController::class, 'store'])->name('products.store');
+    Route::post('/products/{product}/toggle-active', [ProductController::class, 'toggleActive'])->name('products.toggle-active');
 
     Route::get('/coupons', [CouponController::class, 'index'])->name('coupons.index');
     Route::post('/coupons', [CouponController::class, 'store'])->name('coupons.store');

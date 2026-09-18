@@ -127,6 +127,27 @@
 
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
                 <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
+                    <x-icon name="cube" class="w-4 h-4 text-slate-400" /> Gekaufte Produkte
+                </h3>
+                <table class="w-full text-sm">
+                    <thead class="text-slate-400 text-left"><tr><th class="py-1">Produkt</th><th class="py-1">Bootsschule</th><th class="py-1">Quelle</th><th class="py-1">Gekauft am</th></tr></thead>
+                    <tbody>
+                        @forelse ($productPurchases as $purchase)
+                            <tr class="border-t border-slate-100 dark:border-slate-700">
+                                <td class="py-1.5">{{ $purchase->product->name }}</td>
+                                <td class="py-1.5 text-slate-500">{{ $purchase->tenant->name }}</td>
+                                <td class="py-1.5 text-slate-500">{{ $purchase->source_type === 'coupon' ? 'Coupon '.$purchase->source_reference : $purchase->source_type }}</td>
+                                <td class="py-1.5 text-slate-500">{{ $purchase->created_at?->format('d.m.Y H:i') }}</td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="4" class="py-3 text-slate-500">Noch keine Produkte gekauft.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
+                <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
                     <x-icon name="clipboard-document-check" class="w-4 h-4 text-slate-400" /> Prüfungssimulationen
                 </h3>
                 <table class="w-full text-sm">

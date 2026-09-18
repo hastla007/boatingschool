@@ -15,7 +15,7 @@ class Coupon extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'code', 'course_id', 'tenant_id', 'batch_label', 'created_by_user_id',
+        'code', 'course_id', 'product_id', 'tenant_id', 'batch_label', 'created_by_user_id',
         'redeemed_by_user_id', 'redeemed_tenant_id', 'redeemed_at',
     ];
 
@@ -30,6 +30,22 @@ class Coupon extends Model
     public function course(): BelongsTo
     {
         return $this->belongsTo(CourseDefinition::class, 'course_id');
+    }
+
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Product::class, 'product_id');
+    }
+
+    /** Anzeigename des durch diesen Coupon freigeschalteten Kurses oder Produkts. */
+    public function redeemableName(): string
+    {
+        return $this->course?->name ?? $this->product?->name ?? '—';
+    }
+
+    public function isForProduct(): bool
+    {
+        return $this->product_id !== null;
     }
 
     public function tenant(): BelongsTo

@@ -11,7 +11,7 @@
         <x-stat-tile icon="bookmark" :value="$couponRedeemed.'/'.$couponTotal" label="Coupons eingelöst" tone="warning" />
     </div>
 
-    <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="grid sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
         <a href="{{ route('superadmin.tenants.index') }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-3 hover:shadow-md transition">
             <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0" style="background-color: #005FD7">
                 <x-icon name="swatch" class="w-5 h-5" />
@@ -37,6 +37,15 @@
             <div>
                 <div class="font-medium text-slate-700 dark:text-slate-200">Kurse &amp; Fragen</div>
                 <div class="text-xs text-slate-400">Inhalte editieren</div>
+            </div>
+        </a>
+        <a href="{{ route('superadmin.products.index') }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-3 hover:shadow-md transition">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0 bg-teal-600">
+                <x-icon name="cube" class="w-5 h-5" />
+            </div>
+            <div>
+                <div class="font-medium text-slate-700 dark:text-slate-200">Produkte</div>
+                <div class="text-xs text-slate-400">Einzelleistungen verwalten</div>
             </div>
         </a>
         <a href="{{ route('superadmin.coupons.index') }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-3 hover:shadow-md transition">

@@ -22,6 +22,7 @@
                     <th class="px-4 py-2">Name</th>
                     <th class="px-4 py-2">E-Mail</th>
                     <th class="px-4 py-2">Kurse</th>
+                    <th class="px-4 py-2">Produkte</th>
                     <th class="px-4 py-2">Kurs freischalten</th>
                 </tr>
             </thead>
@@ -41,6 +42,15 @@
                             @forelse ($membership->user->entitlements as $entitlement)
                                 <span class="inline-block px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-xs mb-1">
                                     {{ $entitlement->course->name }} ({{ $entitlement->status }})
+                                </span>
+                            @empty
+                                <span class="text-slate-400">keine</span>
+                            @endforelse
+                        </td>
+                        <td class="px-4 py-2 text-slate-500">
+                            @forelse ($productPurchases->get($membership->user_id, collect()) as $purchase)
+                                <span class="inline-block px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-xs mb-1">
+                                    {{ $purchase->product->name }}
                                 </span>
                             @empty
                                 <span class="text-slate-400">keine</span>

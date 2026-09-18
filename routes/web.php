@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\BrandingController;
+use App\Http\Controllers\Admin\CouponController as AdminCouponController;
 use App\Http\Controllers\Admin\CourseSelectionController;
 use App\Http\Controllers\Admin\EntitlementController;
 use App\Http\Controllers\Admin\ParticipantController;
@@ -93,6 +94,8 @@ Route::middleware(['auth', 'tenant.role:owner,admin,instructor'])->prefix('admin
 
     Route::get('/courses', [CourseSelectionController::class, 'edit'])->name('courses.edit');
     Route::patch('/courses', [CourseSelectionController::class, 'update'])->name('courses.update');
+
+    Route::get('/coupons', [AdminCouponController::class, 'index'])->name('coupons.index');
 });
 
 require __DIR__.'/superadmin.php';
