@@ -109,6 +109,30 @@
         @endif
     </div>
 
+    @if ($branding && ($branding->phone || $branding->street || $branding->city || $branding->website))
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 mb-6 text-center">
+            <h3 class="font-semibold text-slate-800 dark:text-white text-lg mb-3">Fragen? Kontaktiere Deine Bootsschule!</h3>
+            @if ($branding->phone)
+                <a href="tel:{{ preg_replace('/\s+/', '', $branding->phone) }}" class="block text-3xl font-bold hover:opacity-80 transition" style="color: var(--brand-primary, #005FD7)">
+                    {{ $branding->phone }}
+                </a>
+            @endif
+            @if ($branding->street || $branding->city)
+                <p class="text-sm text-slate-500 mt-2">
+                    @if ($branding->street) {{ $branding->street }}<br> @endif
+                    @if ($branding->postal_code || $branding->city) {{ trim($branding->postal_code.' '.$branding->city) }} @endif
+                    @if ($branding->country) &middot; {{ $branding->country }} @endif
+                </p>
+            @endif
+            @if ($branding->website)
+                <a href="{{ \Illuminate\Support\Str::startsWith($branding->website, ['http://', 'https://']) ? $branding->website : 'https://'.$branding->website }}"
+                   target="_blank" rel="noopener" class="inline-block text-sm mt-1 hover:underline" style="color: var(--brand-primary, #005FD7)">
+                    {{ $branding->website }}
+                </a>
+            @endif
+        </div>
+    @endif
+
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
         <div class="text-center sm:text-left">
             <h3 class="font-semibold text-slate-800 dark:text-white text-lg">Lerne auch auf deinem Handy!</h3>
