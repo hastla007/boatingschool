@@ -146,12 +146,22 @@
                 </div>
 
                 @if ($waLink)
-                    <a href="{{ $waLink }}" target="_blank" rel="noopener" class="flex flex-col items-center text-center gap-2 shrink-0 sm:w-36 hover:opacity-80 transition">
-                        <span class="w-12 h-12 rounded-full flex items-center justify-center text-white" style="background-color: #25D366">
-                            <x-whatsapp-icon class="w-6 h-6" />
-                        </span>
+                    <a href="{{ $waLink }}" target="_blank" rel="noopener" class="flex flex-col items-center text-center gap-1 shrink-0 sm:w-36 hover:opacity-80 transition">
+                        <img src="{{ asset('images/captain-laptop.webp') }}" alt="Kapitän am Laptop" class="w-20 h-20 object-contain">
                         <span class="text-xs text-slate-500 dark:text-slate-400">Frag uns auch direkt per WhatsApp!</span>
                     </a>
+                @elseif ($hasContactDetails)
+                    @if ($branding->phone)
+                        <a href="tel:{{ preg_replace('/\s+/', '', $branding->phone) }}" class="flex flex-col items-center text-center gap-1 shrink-0 sm:w-36 hover:opacity-80 transition">
+                            <img src="{{ asset('images/captain-phone.webp') }}" alt="Kapitän am Telefon" class="w-20 h-20 object-contain">
+                            <span class="text-xs text-slate-500 dark:text-slate-400">Ruf uns einfach an!</span>
+                        </a>
+                    @else
+                        <div class="flex flex-col items-center text-center gap-1 shrink-0 sm:w-36">
+                            <img src="{{ asset('images/captain-phone.webp') }}" alt="Kapitän am Telefon" class="w-20 h-20 object-contain">
+                            <span class="text-xs text-slate-500 dark:text-slate-400">Wir sind gerne für Dich da!</span>
+                        </div>
+                    @endif
                 @endif
             </div>
         </div>

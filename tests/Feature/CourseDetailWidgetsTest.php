@@ -116,6 +116,43 @@ class CourseDetailWidgetsTest extends TestCase
         $response->assertOk();
         $response->assertDontSee('Frag uns auch direkt per WhatsApp!');
         $response->assertDontSee('wa.me', false);
+        $response->assertSee('Ruf uns einfach an!');
+        $response->assertSee('captain-phone.webp', false);
+        $response->assertSee('tel:+4940123456', false);
+    }
+
+    public function test_generic_captain_hint_is_shown_when_contact_details_have_no_phone_number(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $this->onAdmin(fn () => $tenant->branding->update(['website' => 'www.e2e-bootsschule.test']));
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
+
+        $response->assertOk();
+        $response->assertSee('Wir sind gerne für Dich da!');
+        $response->assertSee('captain-phone.webp', false);
+    }
+
+    public function test_captain_at_laptop_image_is_shown_next_to_the_whatsapp_hint(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $this->onAdmin(fn () => $tenant->branding->update([
+            'whatsapp_enabled' => true,
+            'whatsapp_phone' => '491701234567',
+        ]));
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
+
+        $response->assertOk();
+        $response->assertSee('captain-laptop.webp', false);
     }
 
     public function test_mobile_app_widget_is_always_shown_without_a_real_store_link(): void
