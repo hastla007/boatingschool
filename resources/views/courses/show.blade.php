@@ -120,7 +120,7 @@
                     @if ($branding->logo_asset_id && $branding->logoAsset)
                         <img src="{{ $branding->logoAsset->storage_path }}" alt="{{ $currentTenant->name }} Logo" class="w-14 h-14 object-contain rounded-xl">
                     @endif
-                    <div class="text-sm font-semibold text-slate-700 dark:text-slate-200">{{ $currentTenant->name }}</div>
+                    <div class="text-lg font-semibold text-slate-700 dark:text-slate-200">{{ $currentTenant->name }}</div>
                 </div>
 
                 <div class="flex-1 text-center">
