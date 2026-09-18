@@ -49,8 +49,8 @@
             <x-icon name="bookmark" class="w-5 h-5" />
         </div>
         <div>
-            <div class="font-medium text-slate-700 dark:text-slate-200">Gutschein-Codes</div>
-            <div class="text-xs text-slate-400">Wer wann welchen Code eingelöst hat</div>
+            <div class="font-medium text-slate-700 dark:text-slate-200">Coupon-Codes</div>
+            <div class="text-xs text-slate-400">Importieren, zuweisen, wer wann eingelöst hat</div>
         </div>
     </button>
 </div>

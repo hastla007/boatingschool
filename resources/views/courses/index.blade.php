@@ -17,7 +17,7 @@
     <a href="{{ route('coupons.redeem') }}" class="flex items-center gap-3 rounded-2xl p-4 mb-5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition">
         <x-icon name="bookmark" class="w-5 h-5 text-amber-500 shrink-0" />
         <div class="flex-1">
-            <div class="text-sm font-medium text-slate-700 dark:text-slate-200">Hast du einen Gutschein-Code?</div>
+            <div class="text-sm font-medium text-slate-700 dark:text-slate-200">Hast du einen Coupon-Code?</div>
             <div class="text-xs text-slate-400">Code einlösen und Kurs freischalten</div>
         </div>
         <x-icon name="arrow-right" class="w-4 h-4 text-slate-400 shrink-0" />

@@ -78,7 +78,7 @@ class TenantController extends Controller
         });
 
         $coupons = Coupon::where('tenant_id', $tenant->id)->orWhere('redeemed_tenant_id', $tenant->id)
-            ->with('course', 'redeemedBy')->orderByDesc('created_at')->get();
+            ->with('course', 'product', 'redeemedBy')->orderByDesc('created_at')->get();
 
         return view('superadmin.tenants.show', [
             'tenant' => $tenant,

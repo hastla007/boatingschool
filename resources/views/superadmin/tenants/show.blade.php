@@ -81,19 +81,19 @@
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
         <div class="flex items-center justify-between mb-3">
             <h3 class="font-medium text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
-                <x-icon name="bookmark" class="w-4 h-4 text-slate-400" /> Gutschein-Codes dieser Bootsschule
+                <x-icon name="bookmark" class="w-4 h-4 text-slate-400" /> Coupon-Codes dieser Bootsschule
             </h3>
             <a href="{{ route('superadmin.coupons.index', ['tenant_id' => $tenant->id]) }}" class="text-sm hover:underline" style="color: #005FD7">Im Coupon-Bereich verwalten &rarr;</a>
         </div>
         <table class="w-full text-sm">
             <thead class="text-slate-400 text-left">
-                <tr><th class="py-1">Code</th><th class="py-1">Kurs</th><th class="py-1">Status</th></tr>
+                <tr><th class="py-1">Code</th><th class="py-1">Kurs / Produkt</th><th class="py-1">Status</th></tr>
             </thead>
             <tbody>
                 @forelse ($coupons->take(10) as $coupon)
                     <tr class="border-t border-slate-100 dark:border-slate-700">
                         <td class="py-1.5 font-mono text-xs">{{ $coupon->code }}</td>
-                        <td class="py-1.5 text-slate-500">{{ $coupon->course->name }}</td>
+                        <td class="py-1.5 text-slate-500">{{ $coupon->redeemableName() }}</td>
                         <td class="py-1.5">
                             @if ($coupon->isRedeemed())
                                 <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500">

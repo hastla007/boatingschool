@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Gutschein-Codes, die der Superadmin für einen Kurs erzeugt und optional
+ * Coupon-Codes, die der Superadmin für einen Kurs erzeugt und optional
  * einer bestimmten Bootsschule zuordnet (z. B. beim Verkauf eines
  * Kontingents). tenant_id = NULL bedeutet "noch keiner Bootsschule
  * zugeordnet / frei einlösbar"; ist eine Bootsschule gesetzt, kann der Code

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\BrandingController;
+use App\Http\Controllers\Admin\CouponController as AdminCouponController;
 use App\Http\Controllers\Admin\CourseSelectionController;
 use App\Http\Controllers\Admin\EntitlementController;
 use App\Http\Controllers\Admin\ParticipantController;
@@ -89,6 +90,9 @@ Route::middleware(['auth', 'tenant.role:owner,admin,instructor'])->prefix('admin
     Route::patch('/webshop-links', [WebshopLinkController::class, 'update'])->name('webshop-links.update');
 
     Route::patch('/courses', [CourseSelectionController::class, 'update'])->name('courses.update');
+
+    Route::post('/coupons/import', [AdminCouponController::class, 'import'])->name('coupons.import');
+    Route::post('/coupons/{coupon}/assign', [AdminCouponController::class, 'assign'])->name('coupons.assign');
 });
 
 require __DIR__.'/superadmin.php';

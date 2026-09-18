@@ -72,7 +72,7 @@ class CouponController extends Controller
             ]);
         }
 
-        $message = $quantity === 1 ? 'Gutschein-Code erzeugt.' : "{$quantity} Gutschein-Codes erzeugt.";
+        $message = $quantity === 1 ? 'Coupon-Code erzeugt.' : "{$quantity} Coupon-Codes erzeugt.";
 
         return back()->with('status', $message);
     }

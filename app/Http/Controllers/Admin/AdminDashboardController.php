@@ -10,6 +10,7 @@ use App\Models\CourseDefinition;
 use App\Models\CourseWebshopLink;
 use App\Models\Entitlement;
 use App\Models\ExamSession;
+use App\Models\Product;
 use App\Models\ProductPurchase;
 use App\Models\TenantCourseDisabled;
 use App\Models\TenantUser;
@@ -18,12 +19,13 @@ use Illuminate\View\View;
 
 /**
  * Ein einziger Bootsschul-Admin-Bereich mit Tabs (Dashboard, Teilnehmer,
- * Branding, Webshop-Links, Kursauswahl, Gutschein-Codes) statt sechs
+ * Branding, Webshop-Links, Kursauswahl, Coupon-Codes) statt sechs
  * separater Seiten -- alle Daten werden hier gesammelt geladen, die Tabs
  * selbst sind reine Client-Umschaltung (siehe admin/dashboard.blade.php).
  * Die schreibenden Aktionen (Teilnehmer einladen, Branding/Webshop-Links/
- * Kursauswahl speichern, Kurs manuell freischalten) bleiben in ihren
- * jeweiligen Controllern, nur die Anzeige ist hier zusammengeführt.
+ * Kursauswahl speichern, Kurs manuell freischalten, Coupon-Codes
+ * importieren/zuweisen) bleiben in ihren jeweiligen Controllern, nur die
+ * Anzeige ist hier zusammengeführt.
  */
 class AdminDashboardController extends Controller
 {
@@ -76,11 +78,39 @@ class AdminDashboardController extends Controller
 
         $disabledCourseIds = TenantCourseDisabled::where('tenant_id', $tenant->id)->pluck('course_id');
 
+        // Kurse, die diese Bootsschule aktuell tatsächlich anbietet (sitewide
+        // freigegeben UND nicht per Kursauswahl abgewählt) -- die einzigen,
+        // für die es Sinn ergibt, eigene Coupon-Codes zu importieren oder
+        // zuzuweisen (siehe EntitlementService::isOfferable()).
+        $offerableCourses = $courses->reject(fn (CourseDefinition $course) => $disabledCourseIds->contains($course->id))->values();
+        $products = Product::where('active', true)->orderBy('name')->get();
+
         $coupons = Coupon::with('course', 'product', 'redeemedBy')
             ->where('tenant_id', $tenant->id)
             ->orWhere('redeemed_tenant_id', $tenant->id)
             ->orderByDesc('created_at')
             ->paginate(50);
+
+        // Bestand je Kurs/Produkt aus den Codes, die dieser Bootsschule
+        // gehören (importiert oder vom Superadmin zugeteilt) -- Codes, die
+        // nur eingelöst, aber keiner Bootsschule zugeordnet wurden, zählen
+        // hier bewusst nicht mit (das ist kein Bestand, den sie verwaltet).
+        $couponSummary = Coupon::where('tenant_id', $tenant->id)
+            ->selectRaw('course_id, product_id, count(*) filter (where redeemed_at is null) as free_count, count(*) filter (where redeemed_at is not null) as used_count')
+            ->groupBy('course_id', 'product_id')
+            ->get()
+            ->map(function ($row) {
+                $course = $row->course_id ? CourseDefinition::withoutGlobalScopes()->find($row->course_id) : null;
+                $product = $row->product_id ? Product::find($row->product_id) : null;
+
+                return (object) [
+                    'name' => $course->name ?? $product->name ?? '—',
+                    'free' => (int) $row->free_count,
+                    'used' => (int) $row->used_count,
+                ];
+            })
+            ->sortBy('name')
+            ->values();
 
         return view('admin.dashboard', [
             'tenant' => $tenant,
@@ -96,7 +126,10 @@ class AdminDashboardController extends Controller
             'branding' => $branding,
             'webshopLinks' => $webshopLinks,
             'disabledCourseIds' => $disabledCourseIds,
+            'offerableCourses' => $offerableCourses,
+            'products' => $products,
             'coupons' => $coupons,
+            'couponSummary' => $couponSummary,
         ]);
     }
 }
