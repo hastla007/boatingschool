@@ -75,7 +75,7 @@ class ProgressPageTest extends TestCase
         $response->assertSee(route('progress.show', $course));
     }
 
-    public function test_the_kurse_navigation_lists_all_entitled_courses_in_a_dropdown(): void
+    public function test_the_kurse_navigation_lists_only_entitled_courses_with_a_fortschritt_link_each(): void
     {
         $tenant = $this->createTestTenant();
         $learner = $this->createTenantUser($tenant, 'learner');
@@ -91,5 +91,24 @@ class ProgressPageTest extends TestCase
         $response->assertSee($courseB->name);
         $response->assertSee(route('courses.show', $courseA));
         $response->assertSee(route('courses.show', $courseB));
+        $response->assertSee(route('progress.show', $courseA));
+        $response->assertSee(route('progress.show', $courseB));
+
+        // Kein Link mehr auf die allgemeine, auch gesperrte Kurse
+        // enthaltende Kursübersicht -- das Menü listet nur Freigeschaltetes.
+        $response->assertDontSee('Alle Kurse');
+    }
+
+    public function test_the_dashboard_no_longer_shows_a_separate_meine_kurse_grid(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get('/dashboard');
+
+        $response->assertOk();
+        $response->assertDontSee('Deine Kurse');
     }
 }

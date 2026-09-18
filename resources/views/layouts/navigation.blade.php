@@ -32,10 +32,14 @@
                                 </button>
                             </x-slot>
                             <x-slot name="content">
-                                <x-dropdown-link :href="route('courses.index')">Alle Kurse</x-dropdown-link>
-                                <div class="border-t border-slate-100 dark:border-slate-600 my-1"></div>
                                 @foreach ($navCourses as $navCourse)
-                                    <x-dropdown-link :href="route('courses.show', $navCourse)">{{ $navCourse->name }}</x-dropdown-link>
+                                    @if (! $loop->first)
+                                        <div class="border-t border-slate-100 dark:border-slate-600 my-1"></div>
+                                    @endif
+                                    <x-dropdown-link :href="route('courses.show', $navCourse)" class="font-semibold">{{ $navCourse->name }}</x-dropdown-link>
+                                    <a href="{{ route('progress.show', $navCourse) }}" class="block w-full pl-8 pr-4 py-1.5 text-start text-xs text-slate-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-slate-700 dark:hover:text-slate-300 focus:outline-none focus:bg-gray-100 dark:focus:bg-gray-800 transition duration-150 ease-in-out">
+                                        Fortschritt
+                                    </a>
                                 @endforeach
                             </x-slot>
                         </x-dropdown>
@@ -86,11 +90,13 @@
     <div :class="{'block': open, 'hidden': ! open}" class="hidden sm:hidden">
         <div class="pt-2 pb-3 space-y-1">
             <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">Lernen</x-responsive-nav-link>
-            <x-responsive-nav-link :href="route('courses.index')" :active="request()->routeIs('courses.index')">Alle Kurse</x-responsive-nav-link>
             @foreach ($navCourses as $navCourse)
+                <x-responsive-nav-link :href="route('courses.show', $navCourse)" :active="request()->routeIs('courses.show') && ($course ?? null)?->id === $navCourse->id">
+                    {{ $navCourse->name }}
+                </x-responsive-nav-link>
                 <div class="pl-6">
-                    <x-responsive-nav-link :href="route('courses.show', $navCourse)" :active="request()->routeIs('courses.show') && ($course ?? null)?->id === $navCourse->id">
-                        {{ $navCourse->name }}
+                    <x-responsive-nav-link :href="route('progress.show', $navCourse)" :active="request()->routeIs('progress.show') && ($course ?? null)?->id === $navCourse->id">
+                        Fortschritt
                     </x-responsive-nav-link>
                 </div>
             @endforeach
