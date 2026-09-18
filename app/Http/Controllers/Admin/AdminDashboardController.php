@@ -78,13 +78,6 @@ class AdminDashboardController extends Controller
 
         $disabledCourseIds = TenantCourseDisabled::where('tenant_id', $tenant->id)->pluck('course_id');
 
-        // Kurse, die diese Bootsschule aktuell tatsächlich anbietet (sitewide
-        // freigegeben UND nicht per Kursauswahl abgewählt) -- die einzigen,
-        // für die es Sinn ergibt, eigene Coupon-Codes zu importieren oder
-        // zuzuweisen (siehe EntitlementService::isOfferable()).
-        $offerableCourses = $courses->reject(fn (CourseDefinition $course) => $disabledCourseIds->contains($course->id))->values();
-        $products = Product::where('active', true)->orderBy('name')->get();
-
         $coupons = Coupon::with('course', 'product', 'redeemedBy')
             ->where('tenant_id', $tenant->id)
             ->orWhere('redeemed_tenant_id', $tenant->id)
@@ -92,9 +85,10 @@ class AdminDashboardController extends Controller
             ->paginate(50);
 
         // Bestand je Kurs/Produkt aus den Codes, die dieser Bootsschule
-        // gehören (importiert oder vom Superadmin zugeteilt) -- Codes, die
-        // nur eingelöst, aber keiner Bootsschule zugeordnet wurden, zählen
-        // hier bewusst nicht mit (das ist kein Bestand, den sie verwaltet).
+        // gehören (übernommen per Import oder vom Superadmin zugeteilt) --
+        // Codes, die nur eingelöst, aber keiner Bootsschule zugeordnet
+        // wurden, zählen hier bewusst nicht mit (das ist kein Bestand, den
+        // sie verwaltet).
         $couponSummary = Coupon::where('tenant_id', $tenant->id)
             ->selectRaw('course_id, product_id, count(*) filter (where redeemed_at is null) as free_count, count(*) filter (where redeemed_at is not null) as used_count')
             ->groupBy('course_id', 'product_id')
@@ -126,8 +120,6 @@ class AdminDashboardController extends Controller
             'branding' => $branding,
             'webshopLinks' => $webshopLinks,
             'disabledCourseIds' => $disabledCourseIds,
-            'offerableCourses' => $offerableCourses,
-            'products' => $products,
             'coupons' => $coupons,
             'couponSummary' => $couponSummary,
         ]);

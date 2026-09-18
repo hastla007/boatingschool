@@ -1,6 +1,7 @@
 <p class="text-slate-500 mb-6">
     Eigene Coupon-Codes bekommt ihr auf zwei Wegen: entweder teilt euch der Plattform-Betreiber welche zu, oder ihr
-    importiert Codes, die ihr einzeln oder im Bulk über einen externen Webshop gekauft habt.
+    übernehmt Codes, die ihr einzeln oder im Bulk über einen externen Webshop gekauft habt, per Import in euren
+    Bestand.
 </p>
 
 <div class="grid lg:grid-cols-2 gap-6 mb-6">
@@ -8,29 +9,12 @@
         <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-1 flex items-center gap-1.5">
             <x-icon name="upload" class="w-4 h-4 text-slate-400" /> Codes importieren
         </h3>
-        <p class="text-xs text-slate-400 mb-3">Ein Code pro Zeile (oder durch Komma/Semikolon getrennt).</p>
+        <p class="text-xs text-slate-400 mb-3">
+            Ein Code pro Zeile (oder durch Komma/Semikolon getrennt). Kurs oder Produkt erkennt das System
+            automatisch anhand des Codes -- eine Auswahl ist nicht nötig.
+        </p>
         <form method="POST" action="{{ route('admin.coupons.import') }}" class="space-y-3">
             @csrf
-            <div>
-                <select name="target" required class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
-                    <option value="">Kurs oder Produkt wählen…</option>
-                    @if ($offerableCourses->isNotEmpty())
-                        <optgroup label="Kurse">
-                            @foreach ($offerableCourses as $course)
-                                <option value="course:{{ $course->id }}" @selected(old('target') === 'course:'.$course->id)>{{ $course->name }}</option>
-                            @endforeach
-                        </optgroup>
-                    @endif
-                    @if ($products->isNotEmpty())
-                        <optgroup label="Produkte">
-                            @foreach ($products as $product)
-                                <option value="product:{{ $product->id }}" @selected(old('target') === 'product:'.$product->id)>{{ $product->name }}</option>
-                            @endforeach
-                        </optgroup>
-                    @endif
-                </select>
-                <x-input-error :messages="$errors->get('target')" class="mt-2" />
-            </div>
             <div>
                 <textarea name="codes" rows="4" required placeholder="XXXX-XXXX-XXXX" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm font-mono">{{ old('codes') }}</textarea>
                 <x-input-error :messages="$errors->get('codes')" class="mt-2" />
