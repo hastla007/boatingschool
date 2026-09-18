@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\CourseDefinition;
+use App\Models\CourseWebshopLink;
 use App\Models\Progress;
+use App\Models\TenantCourseDisabled;
 use App\Models\VideoProgress;
 use App\Services\EntitlementService;
 use App\Support\TenantContext;
@@ -32,15 +34,22 @@ class CourseController extends Controller
             ];
         })->values();
 
+        $disabledCourseIds = TenantCourseDisabled::where('tenant_id', $tenant->id)->pluck('course_id');
+
         $lockedCourses = CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')
+            ->where('site_enabled', true)
+            ->whereNotIn('id', $disabledCourseIds)
             ->orderBy('name')
             ->get()
             ->reject(fn ($c) => $activeEntitlements->has($c->id))
             ->values();
 
+        $webshopLinks = CourseWebshopLink::where('tenant_id', $tenant->id)->pluck('url', 'course_id');
+
         return view('courses.index', [
             'courses' => $courses,
             'lockedCourses' => $lockedCourses,
+            'webshopLinks' => $webshopLinks,
         ]);
     }
 
@@ -59,20 +68,6 @@ class CourseController extends Controller
         // Models; Progress hat aber einen zusammengesetzten Schlüssel ohne
         // einzelne id-Spalte, daher hier bewusst whereIn() auf dem Attribut.
         $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get();
-
-        $modules = $course->modules->map(function ($module) use ($progress) {
-            $questionIds = $module->questions->pluck('id');
-            $moduleProgress = $progress->whereIn('question_id', $questionIds);
-            $total = max($questionIds->count(), 1);
-            $mastered = $moduleProgress->where('learning_state', 'gefestigt')->count();
-
-            return [
-                'module' => $module,
-                'total' => $questionIds->count(),
-                'mastered' => $mastered,
-                'percent' => (int) round(($mastered / $total) * 100),
-            ];
-        });
 
         $videoModules = $course->videoModules()->with('lessons')->get();
         $videoLessonIds = $videoModules->flatMap->lessons->pluck('id');
@@ -102,7 +97,6 @@ class CourseController extends Controller
 
         return view('courses.show', [
             'course' => $course,
-            'modules' => $modules,
             'overallPercent' => $this->courseMasteryPercent($course, $progress),
             'hasVideoCourse' => $videoTotal > 0,
             'videoPercent' => $videoTotal > 0 ? (int) round($videoCompleted / $videoTotal * 100) : 0,
@@ -114,6 +108,7 @@ class CourseController extends Controller
             'praxisPercent' => $praxisModule ? $chapterPercent([$praxisModule->id]) : 0,
             'navigationModuleId' => $navigationModule?->id,
             'navigationPercent' => $navigationModule ? $chapterPercent([$navigationModule->id]) : 0,
+            'examReadinessThreshold' => $tenant->branding->exam_readiness_threshold_percent,
         ]);
     }
 

@@ -17,7 +17,7 @@ class ContentQuestionRevision extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'question_id', 'revision_no', 'question_type', 'question_text', 'topic',
+        'question_id', 'revision_no', 'question_type', 'question_text', 'feedback_correct', 'feedback_incorrect', 'topic',
         'subtopic', 'competency', 'smartmodus_kategorie', 'image_required', 'source_catalog', 'source_version',
         'source_page', 'source_question_id', 'editorial_status', 'rights_status',
         'rights_owner', 'license_reference', 'valid_from', 'valid_to',

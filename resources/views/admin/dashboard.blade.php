@@ -1,51 +1,42 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Willkommen, {{ Auth::user()->name }}!</h2>
+        <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Bootsschul-Admin</h2>
     </x-slot>
 
-    <p class="text-slate-500 mb-6">Hier sehen Sie die wichtigsten Informationen Ihrer Bootsschule.</p>
+    <div x-data="{ tab: new URLSearchParams(window.location.search).get('tab') || 'dashboard' }"
+         x-init="$watch('tab', (value) => { const url = new URL(window.location); url.searchParams.set('tab', value); window.history.replaceState({}, '', url); })">
+        <div class="flex gap-1 mb-6 border-b border-slate-200 dark:border-slate-700 overflow-x-auto">
+            <button type="button" @click="tab = 'dashboard'" :class="tab === 'dashboard' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500'"
+                    :style="tab === 'dashboard' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Dashboard</button>
+            <button type="button" @click="tab = 'participants'" :class="tab === 'participants' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500'"
+                    :style="tab === 'participants' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Teilnehmer</button>
+            <button type="button" @click="tab = 'branding'" :class="tab === 'branding' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500'"
+                    :style="tab === 'branding' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Branding</button>
+            <button type="button" @click="tab = 'webshop-links'" :class="tab === 'webshop-links' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500'"
+                    :style="tab === 'webshop-links' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Webshop-Links</button>
+            <button type="button" @click="tab = 'courses'" :class="tab === 'courses' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500'"
+                    :style="tab === 'courses' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Kursauswahl</button>
+            <button type="button" @click="tab = 'coupons'" :class="tab === 'coupons' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500'"
+                    :style="tab === 'coupons' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Coupon-Codes</button>
+        </div>
 
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        <x-stat-tile icon="users" :value="$learnerCount" label="Teilnehmer" tone="brand" />
-        <x-stat-tile icon="academic-cap" :value="$activeEntitlements" label="Aktive Kurszugänge" />
-        <x-stat-tile icon="bolt" :value="$weeklyActivityRate.'%'" label="wöchentlich aktiv" tone="success" />
-        <x-stat-tile icon="clipboard-document-check" :value="$recentExamsCount" label="Prüfungen (30 Tage)" tone="warning" />
-    </div>
-
-    <div class="grid sm:grid-cols-2 gap-4 mb-6">
-        <a href="{{ route('admin.participants.index') }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-3 hover:shadow-md transition">
-            <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0" style="background-color: var(--brand-primary, #005FD7)">
-                <x-icon name="users" class="w-5 h-5" />
-            </div>
-            <div>
-                <div class="font-medium text-slate-700 dark:text-slate-200">Teilnehmer verwalten</div>
-                <div class="text-xs text-slate-400">Einladen, Kurse freischalten</div>
-            </div>
-        </a>
-        <a href="{{ route('admin.branding.edit') }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-3 hover:shadow-md transition">
-            <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0" style="background-color: var(--brand-secondary, #00A8A8)">
-                <x-icon name="swatch" class="w-5 h-5" />
-            </div>
-            <div>
-                <div class="font-medium text-slate-700 dark:text-slate-200">Branding anpassen</div>
-                <div class="text-xs text-slate-400">Logo, Farben, Kontakt</div>
-            </div>
-        </a>
-    </div>
-
-    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
-        <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
-            <x-icon name="clock" class="w-4 h-4 text-slate-400" /> Letzte Aktivitäten
-        </h3>
-        <div class="space-y-2 text-sm">
-            @forelse ($recentActivity as $entry)
-                <div class="flex justify-between border-b border-slate-100 dark:border-slate-700 pb-2 last:border-0 last:pb-0">
-                    <span class="text-slate-600 dark:text-slate-300">{{ $entry->action }}</span>
-                    <span class="text-slate-400">{{ $entry->created_at->diffForHumans() }}</span>
-                </div>
-            @empty
-                <p class="text-slate-500">Noch keine Aktivitäten protokolliert.</p>
-            @endforelse
+        <div x-show="tab === 'dashboard'">
+            @include('admin.tabs.dashboard')
+        </div>
+        <div x-show="tab === 'participants'" style="display: none">
+            @include('admin.tabs.participants')
+        </div>
+        <div x-show="tab === 'branding'" style="display: none">
+            @include('admin.tabs.branding')
+        </div>
+        <div x-show="tab === 'webshop-links'" style="display: none">
+            @include('admin.tabs.webshop-links')
+        </div>
+        <div x-show="tab === 'courses'" style="display: none">
+            @include('admin.tabs.courses')
+        </div>
+        <div x-show="tab === 'coupons'" style="display: none">
+            @include('admin.tabs.coupons')
         </div>
     </div>
 </x-app-layout>

@@ -25,7 +25,7 @@ class TenantIsolationTest extends TestCase
         $this->createTenantUser($tenantB, 'learner');
 
         // adminA ist kein Mitglied von tenantB -> Middleware muss blocken.
-        $response = $this->actingAsInTenant($adminA, $tenantB)->get('/admin/participants');
+        $response = $this->actingAsInTenant($adminA, $tenantB)->get('/admin');
 
         $response->assertForbidden();
     }

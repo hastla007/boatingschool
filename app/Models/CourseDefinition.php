@@ -15,7 +15,12 @@ class CourseDefinition extends Model
 
     protected $table = 'course_definition';
 
-    protected $fillable = ['tenant_id', 'code', 'name', 'course_type', 'status'];
+    protected $fillable = ['tenant_id', 'code', 'name', 'course_type', 'status', 'site_enabled'];
+
+    protected function casts(): array
+    {
+        return ['site_enabled' => 'boolean'];
+    }
 
     /**
      * Kurse sind entweder global (tenant_id NULL, Plattform-Katalog) oder

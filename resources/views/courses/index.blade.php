@@ -14,6 +14,15 @@
         ];
     @endphp
 
+    <a href="{{ route('coupons.redeem') }}" class="flex items-center gap-3 rounded-2xl p-4 mb-5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition">
+        <x-icon name="bookmark" class="w-5 h-5 text-amber-500 shrink-0" />
+        <div class="flex-1">
+            <div class="text-sm font-medium text-slate-700 dark:text-slate-200">Hast du einen Coupon-Code?</div>
+            <div class="text-xs text-slate-400">Code einlösen und Kurs freischalten</div>
+        </div>
+        <x-icon name="arrow-right" class="w-4 h-4 text-slate-400 shrink-0" />
+    </a>
+
     @if ($courses->isEmpty() && $lockedCourses->isEmpty())
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 text-center text-slate-500">
             Noch keine Kurse verfügbar.
@@ -39,15 +48,23 @@
             @endforeach
 
             @foreach ($lockedCourses as $course)
-                <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden opacity-70">
+                @php($webshopUrl = $webshopLinks->get($course->id))
+                <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden {{ $webshopUrl ? '' : 'opacity-70' }}">
                     <div class="relative h-32 bg-gradient-to-br from-slate-300 to-slate-400 dark:from-slate-700 dark:to-slate-600 flex items-center justify-center">
                         <x-icon name="lock-closed" class="w-10 h-10 text-white/50" />
                     </div>
                     <div class="pt-4 pb-4 px-4 text-center">
                         <div class="font-semibold text-slate-600 dark:text-slate-300">{{ $course->name }}</div>
-                        <div class="text-xs text-slate-400 mt-2 inline-flex items-center gap-1">
-                            <x-icon name="lock-closed" class="w-3.5 h-3.5" /> Kein Zugang &mdash; bitte bei deiner Bootsschule anfragen
-                        </div>
+                        @if ($webshopUrl)
+                            <a href="{{ $webshopUrl }}" target="_blank" rel="noopener"
+                               class="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
+                                <x-icon name="arrow-right" class="w-3.5 h-3.5" /> Jetzt kaufen
+                            </a>
+                        @else
+                            <div class="text-xs text-slate-400 mt-2 inline-flex items-center gap-1">
+                                <x-icon name="lock-closed" class="w-3.5 h-3.5" /> Kein Zugang &mdash; bitte bei deiner Bootsschule anfragen
+                            </div>
+                        @endif
                     </div>
                 </div>
             @endforeach

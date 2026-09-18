@@ -122,6 +122,24 @@ trait InteractsWithTenants
         ]));
     }
 
+    protected function createSuperAdmin(array $attributes = []): User
+    {
+        return $this->onAdmin(function () use ($attributes) {
+            $user = User::create(array_merge([
+                'email' => Str::uuid().'@platform.test',
+                'display_name' => 'Test Superadmin',
+                'password' => bcrypt('password'),
+                'status' => 'active',
+                'email_verified_at' => now(),
+                'is_superadmin' => true,
+            ], $attributes));
+
+            $this->createdUserIds[] = $user->id;
+
+            return $user;
+        });
+    }
+
     protected function existingCourse(string $code): CourseDefinition
     {
         return $this->onAdmin(fn () => CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')->where('code', $code)->firstOrFail());

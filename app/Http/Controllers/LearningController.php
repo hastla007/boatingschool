@@ -9,6 +9,7 @@ use App\Models\CourseDefinition;
 use App\Models\Favorite;
 use App\Models\PraxisProgress;
 use App\Models\Progress;
+use App\Services\CourseProgressService;
 use App\Services\EntitlementService;
 use App\Services\LearningService;
 use App\Services\SmarttrainerService;
@@ -18,60 +19,27 @@ use Illuminate\View\View;
 
 class LearningController extends Controller
 {
-    public function overview(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course): View
+    public function overview(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseProgressService $courseProgress, CourseDefinition $course): View
     {
         $tenant = $tenantContext->tenant();
         $user = $request->user();
 
         abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Für diesen Kurs liegt kein aktives Entitlement vor.');
 
-        $course->load(['modules.questions.revisions' => function ($query) {
-            $query->where('editorial_status', 'published')->orderByDesc('revision_no');
-        }, 'praxisTasks']);
+        $course->loadMissing('praxisTasks', 'modules.questions');
+
+        $moduleGroups = $courseProgress->moduleKategorieBreakdown($course, $tenant, $user);
+        $overallPercent = $courseProgress->overallPercent($course, $tenant, $user);
 
         $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get();
-
         $mastered = fn ($questionIds) => $progress->whereIn('question_id', $questionIds)->where('learning_state', 'gefestigt')->count();
 
-        $moduleGroups = $course->modules->map(function ($module) use ($mastered) {
-            $topics = $module->questions
-                ->groupBy(function ($q) {
-                    $revision = $q->revisions->first();
-
-                    return $revision?->smartmodus_kategorie ?: ($revision?->topic ?: 'Sonstiges');
-                })
-                ->map(function ($questions, $topic) use ($mastered) {
-                    $questionIds = $questions->pluck('id');
-                    $total = $questionIds->count();
-                    $topicMastered = $mastered($questionIds);
-
-                    return [
-                        'topic' => $topic,
-                        'total' => $total,
-                        'mastered' => $topicMastered,
-                        'percent' => $total > 0 ? (int) round($topicMastered / $total * 100) : 0,
-                    ];
-                })
-                ->sortByDesc('total')
-                ->values();
-
-            $questionIds = $module->questions->pluck('id');
-            $total = $questionIds->count();
-            $moduleMastered = $mastered($questionIds);
-
-            return [
-                'module' => $module,
-                'topics' => $topics,
-                'total' => $total,
-                'mastered' => $moduleMastered,
-                'percent' => $total > 0 ? (int) round($moduleMastered / $total * 100) : 0,
-            ];
-        })->values();
-
-        $allQuestionIds = $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id')->unique();
-        $overallPercent = $allQuestionIds->isNotEmpty() ? (int) round($mastered($allQuestionIds) / $allQuestionIds->count() * 100) : 0;
-
-        $favoriteIds = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)->pluck('question_id');
+        // Favoriten sind kursgebunden: nur Fragen zählen, die tatsächlich zu
+        // diesem Kurs gehören, damit jeder Kurs seine eigenen Favoriten hat.
+        $courseQuestionIds = $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id')->unique();
+        $favoriteIds = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+            ->where('context', Favorite::CONTEXT_SMART_LEARNING)
+            ->whereIn('question_id', $courseQuestionIds)->pluck('question_id');
 
         $praxisProgress = PraxisProgress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get();
         $praxisMastered = fn ($taskIds) => $praxisProgress->whereIn('praxis_task_id', $taskIds)->where('completed', true)->count();
@@ -118,13 +86,17 @@ class LearningController extends Controller
         $mode = $request->query('mode', 'smarttrainer');
         $topic = $request->query('topic');
         $moduleId = $request->query('module');
+        $questionIds = $this->parseQuestionIds($request->query('questions'));
 
         if ($mode === 'favorites') {
-            $favoriteIds = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)->pluck('question_id');
+            $courseQuestionIds = $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id')->unique();
+            $favoriteIds = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+                ->where('context', Favorite::CONTEXT_SMART_LEARNING)
+                ->whereIn('question_id', $courseQuestionIds)->pluck('question_id');
             $questionId = $favoriteIds->isNotEmpty() ? $favoriteIds->random() : null;
             $next = $questionId ? ['question' => ContentQuestion::find($questionId), 'reason' => 'Favorit'] : null;
         } else {
-            $next = $smarttrainer->nextQuestion($tenant, $user, $course, $mode, $topic, $moduleId);
+            $next = $smarttrainer->nextQuestion($tenant, $user, $course, $mode, $topic, $moduleId, $questionIds);
         }
 
         if (! $next) {
@@ -136,6 +108,7 @@ class LearningController extends Controller
         $revision->load('answers', 'media');
 
         $isFavorite = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+            ->where('context', Favorite::CONTEXT_SMART_LEARNING)
             ->where('question_id', $next['question']->id)->exists();
 
         return view('learning.question', [
@@ -145,6 +118,7 @@ class LearningController extends Controller
             'mode' => $mode,
             'topic' => $topic,
             'moduleId' => $moduleId,
+            'questionsParam' => $request->query('questions'),
             'isFavorite' => $isFavorite,
             'startedAt' => now()->valueOf(),
             'answered' => false,
@@ -194,6 +168,7 @@ class LearningController extends Controller
 
         $revision->load('answers', 'media');
         $isFavorite = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+            ->where('context', Favorite::CONTEXT_SMART_LEARNING)
             ->where('question_id', $revision->question_id)->exists();
 
         return view('learning.question', [
@@ -203,11 +178,21 @@ class LearningController extends Controller
             'mode' => $validated['mode'],
             'topic' => $request->query('topic'),
             'moduleId' => $request->query('module'),
+            'questionsParam' => $request->query('questions'),
             'isFavorite' => $isFavorite,
             'startedAt' => now()->valueOf(),
             'answered' => true,
             'correct' => $attempt->correct,
             'selectedAnswerId' => $selectedAnswer?->id,
         ]);
+    }
+
+    private function parseQuestionIds(?string $questions): ?array
+    {
+        if (! $questions) {
+            return null;
+        }
+
+        return array_values(array_filter(explode(',', $questions)));
     }
 }

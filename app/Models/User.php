@@ -18,12 +18,20 @@ class User extends Authenticatable
     protected $fillable = [
         'display_name',
         'name',
+        'first_name',
+        'last_name',
         'email',
         'password',
         'locale',
         'status',
         'external_identity',
         'email_verified_at',
+        'phone',
+        'street',
+        'postal_code',
+        'city',
+        'country',
+        'is_superadmin',
     ];
 
     protected $hidden = [
@@ -36,6 +44,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_superadmin' => 'boolean',
         ];
     }
 

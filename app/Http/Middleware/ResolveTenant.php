@@ -30,6 +30,13 @@ class ResolveTenant
             ?? $this->resolveViaSubdomain($request);
 
         if (! $tenant) {
+            // Der Superadmin-Bereich (und Login/Logout, damit ein Superadmin sich
+            // überhaupt ohne Bootsschul-Subdomain anmelden kann) ist bewusst
+            // mandantenunabhängig und läuft unabhängig vom aufgelösten Host.
+            if ($this->isTenantAgnosticRoute($request)) {
+                return $next($request);
+            }
+
             if ($request->getHost() === config('app.central_domain')) {
                 return response()->view('tenant.picker', ['tenants' => Tenant::query()->orderBy('name')->get()]);
             }
@@ -47,6 +54,11 @@ class ResolveTenant
         view()->share('branding', $tenant->branding);
 
         return $next($request);
+    }
+
+    private function isTenantAgnosticRoute(Request $request): bool
+    {
+        return $request->is('login') || $request->is('logout') || $request->is('superadmin') || $request->is('superadmin/*');
     }
 
     private function resolveViaCustomDomain(Request $request): ?Tenant

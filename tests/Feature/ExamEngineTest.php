@@ -88,6 +88,37 @@ class ExamEngineTest extends TestCase
         $this->assertTrue($session->passed);
     }
 
+    public function test_random_exams_without_a_paper_are_numbered_sequentially_on_the_progress_page(): void
+    {
+        [$tenant, $learner, $course] = $this->setUpVerifiedExamCourse();
+
+        $this->finishRandomExam($tenant, $learner, $course);
+        $this->finishRandomExam($tenant, $learner, $course);
+
+        $progress = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/progress");
+
+        $progress->assertOk();
+        $progress->assertSee('Prüfungsbogen Nr. 1');
+        $progress->assertSee('Prüfungsbogen Nr. 2');
+    }
+
+    private function finishRandomExam(\App\Models\Tenant $tenant, User $learner, CourseDefinition $course): void
+    {
+        $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam");
+        $session = \App\Models\ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
+            ->where('status', 'running')->firstOrFail();
+
+        foreach ($session->questions()->orderBy('position')->get() as $sq) {
+            $correctAnswer = $sq->revision->correctAnswer();
+            $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/answers", [
+                'position' => $sq->position,
+                'answer_id' => $correctAnswer->id,
+            ]);
+        }
+
+        $this->actingAsInTenant($learner, $tenant)->get("/exam-sessions/{$session->id}");
+    }
+
     /** @return array{0: \App\Models\Tenant, 1: User, 2: CourseDefinition} */
     private function setUpVerifiedExamCourse(): array
     {

@@ -107,13 +107,24 @@ class ExamPaperTest extends TestCase
         }
         $this->actingAsInTenant($learner, $tenant)->get("/exam-sessions/{$session->id}");
 
-        $progress = $this->actingAsInTenant($learner, $tenant)->get('/progress');
+        $progress = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/progress");
 
         $progress->assertOk();
         $progress->assertSee('Test Prüfungskurs');
-        $progress->assertSee('Bogen 1');
+        $progress->assertSee('Prüfungsbogen Nr. 1');
         $progress->assertSee('0%');
         $progress->assertSee('Nicht bestanden');
+
+        // Jedes Ergebnis bietet "Erneut starten" (POST auf denselben Bogen),
+        // "Falsche Fragen erneut lernen" (Smarttrainer eingeschränkt auf die
+        // konkret falsch beantworteten Fragen dieser Prüfung) und "Ergebnisse".
+        $wrongQuestionIds = $session->questions()->pluck('question_id');
+        $progress->assertSee(route('exam.papers.start', ['course' => $course, 'paper' => $paper]));
+        $progress->assertSee('Erneut starten');
+        $progress->assertSee(route('learning.show', ['course' => $course, 'mode' => 'smarttrainer', 'questions' => $wrongQuestionIds->implode(',')]));
+        $progress->assertSee('Falsche Fragen erneut lernen');
+        $progress->assertSee(route('exam.result', $session));
+        $progress->assertSee('Ergebnisse');
     }
 
     /** @return array{0: CourseDefinition, 1: ExamPaper, 2: \Illuminate\Support\Collection<int, ContentQuestion>} */

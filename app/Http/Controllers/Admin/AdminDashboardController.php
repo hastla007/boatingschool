@@ -5,15 +5,32 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Attempt;
 use App\Models\AuditLog;
+use App\Models\Coupon;
+use App\Models\CourseDefinition;
+use App\Models\CourseWebshopLink;
 use App\Models\Entitlement;
 use App\Models\ExamSession;
+use App\Models\Product;
+use App\Models\ProductPurchase;
+use App\Models\TenantCourseDisabled;
 use App\Models\TenantUser;
 use App\Support\TenantContext;
+use Illuminate\Http\Request;
 use Illuminate\View\View;
 
+/**
+ * Ein einziger Bootsschul-Admin-Bereich mit Tabs (Dashboard, Teilnehmer,
+ * Branding, Webshop-Links, Kursauswahl, Coupon-Codes) statt sechs
+ * separater Seiten -- alle Daten werden hier gesammelt geladen, die Tabs
+ * selbst sind reine Client-Umschaltung (siehe admin/dashboard.blade.php).
+ * Die schreibenden Aktionen (Teilnehmer einladen, Branding/Webshop-Links/
+ * Kursauswahl speichern, Kurs manuell freischalten, Coupon-Codes
+ * importieren/zuweisen) bleiben in ihren jeweiligen Controllern, nur die
+ * Anzeige ist hier zusammengeführt.
+ */
 class AdminDashboardController extends Controller
 {
-    public function __invoke(TenantContext $tenantContext): View
+    public function __invoke(Request $request, TenantContext $tenantContext): View
     {
         $tenant = $tenantContext->tenant();
 
@@ -39,6 +56,72 @@ class AdminDashboardController extends Controller
             ? (int) round($recentExams->where('passed', true)->count() / $recentExams->count() * 100)
             : 0;
 
+        $participants = TenantUser::with(['user.entitlements' => function ($q) use ($tenant) {
+            $q->where('tenant_id', $tenant->id)->with('course');
+        }])
+            ->where('tenant_id', $tenant->id)
+            ->where('role', 'learner')
+            ->get();
+
+        // Sitewide deaktivierte Kurse (course_definition.site_enabled = false)
+        // tauchen konsequent in keinem Tab auf -- weder zum manuellen
+        // Freischalten noch für Webshop-Links noch in der Kursauswahl selbst.
+        $courses = CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')
+            ->where('site_enabled', true)
+            ->orderBy('name')->get();
+
+        $productPurchases = ProductPurchase::where('tenant_id', $tenant->id)->with('product')->get()
+            ->groupBy('user_id');
+
+        $branding = $tenant->branding;
+
+        $webshopLinks = CourseWebshopLink::where('tenant_id', $tenant->id)->pluck('url', 'course_id');
+
+        $disabledCourseIds = TenantCourseDisabled::where('tenant_id', $tenant->id)->pluck('course_id');
+
+        $couponFilters = $request->only(['coupon_search', 'coupon_status', 'coupon_type']);
+
+        $coupons = Coupon::with('course', 'product', 'redeemedBy')
+            ->where(fn ($q) => $q->where('tenant_id', $tenant->id)->orWhere('redeemed_tenant_id', $tenant->id))
+            ->when(trim((string) ($couponFilters['coupon_search'] ?? '')) !== '', function ($q) use ($couponFilters) {
+                $term = '%'.trim($couponFilters['coupon_search']).'%';
+                $q->where(function ($q2) use ($term) {
+                    $q2->where('code', 'ilike', $term)
+                        ->orWhereHas('course', fn ($q3) => $q3->where('name', 'ilike', $term))
+                        ->orWhereHas('product', fn ($q3) => $q3->where('name', 'ilike', $term))
+                        ->orWhereHas('redeemedBy', fn ($q3) => $q3->where('display_name', 'ilike', $term));
+                });
+            })
+            ->when(($couponFilters['coupon_status'] ?? null) === 'open', fn ($q) => $q->whereNull('redeemed_at'))
+            ->when(($couponFilters['coupon_status'] ?? null) === 'redeemed', fn ($q) => $q->whereNotNull('redeemed_at'))
+            ->when(($couponFilters['coupon_type'] ?? null) === 'course', fn ($q) => $q->whereNotNull('course_id'))
+            ->when(($couponFilters['coupon_type'] ?? null) === 'product', fn ($q) => $q->whereNotNull('product_id'))
+            ->orderByDesc('created_at')
+            ->paginate(50)
+            ->withQueryString();
+
+        // Bestand je Kurs/Produkt aus den Codes, die dieser Bootsschule
+        // gehören (übernommen per Import oder vom Superadmin zugeteilt) --
+        // Codes, die nur eingelöst, aber keiner Bootsschule zugeordnet
+        // wurden, zählen hier bewusst nicht mit (das ist kein Bestand, den
+        // sie verwaltet).
+        $couponSummary = Coupon::where('tenant_id', $tenant->id)
+            ->selectRaw('course_id, product_id, count(*) filter (where redeemed_at is null) as free_count, count(*) filter (where redeemed_at is not null) as used_count')
+            ->groupBy('course_id', 'product_id')
+            ->get()
+            ->map(function ($row) {
+                $course = $row->course_id ? CourseDefinition::withoutGlobalScopes()->find($row->course_id) : null;
+                $product = $row->product_id ? Product::find($row->product_id) : null;
+
+                return (object) [
+                    'name' => $course->name ?? $product->name ?? '—',
+                    'free' => (int) $row->free_count,
+                    'used' => (int) $row->used_count,
+                ];
+            })
+            ->sortBy('name')
+            ->values();
+
         return view('admin.dashboard', [
             'tenant' => $tenant,
             'learnerCount' => $learnerCount,
@@ -47,6 +130,15 @@ class AdminDashboardController extends Controller
             'weeklyActivityRate' => $weeklyActivityRate,
             'recentExamsCount' => $recentExams->count(),
             'examPassRate' => $examPassRate,
+            'participants' => $participants,
+            'courses' => $courses,
+            'productPurchases' => $productPurchases,
+            'branding' => $branding,
+            'webshopLinks' => $webshopLinks,
+            'disabledCourseIds' => $disabledCourseIds,
+            'coupons' => $coupons,
+            'couponSummary' => $couponSummary,
+            'couponFilters' => $couponFilters,
         ]);
     }
 }

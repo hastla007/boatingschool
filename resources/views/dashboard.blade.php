@@ -48,22 +48,6 @@
                     </p>
                 @endif
             </div>
-
-            <div>
-                <h2 class="font-semibold text-slate-700 dark:text-slate-200 mb-3">Deine Kurse</h2>
-                <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    @foreach ($courses as $summary)
-                        <a href="{{ route('courses.show', $summary['course']) }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 hover:shadow-md transition block">
-                            <div class="font-medium text-slate-800 dark:text-white">{{ $summary['course']->name }}</div>
-                            <div class="text-xs text-slate-400 mb-2">Fortschritt gesamt</div>
-                            <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2">
-                                <div class="h-2 rounded-full" style="width: {{ $summary['percent'] }}%; background-color: var(--brand-secondary, #00A8A8)"></div>
-                            </div>
-                            <div class="text-xs text-slate-500 mt-1">{{ $summary['percent'] }}%</div>
-                        </a>
-                    @endforeach
-                </div>
-            </div>
         @endif
     </div>
 </x-app-layout>

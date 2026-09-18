@@ -18,6 +18,9 @@ class DatabaseSeeder extends Seeder
         $this->command->info('Importiere zentrale Fragenbasis ...');
         Artisan::call('content:import', [], $this->command->getOutput());
 
+        $this->command->info('Importiere Richtig-/Falsch-Feedback ...');
+        Artisan::call('content:import-feedback', [], $this->command->getOutput());
+
         $this->call([
             CourseSeeder::class,
             VideoCourseSeeder::class,

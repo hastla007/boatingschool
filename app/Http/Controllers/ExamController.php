@@ -75,7 +75,12 @@ class ExamController extends Controller
         $attemptedStats = $paperStats->filter(fn ($s) => $s['attempted']);
         $overallPercent = $attemptedStats->isNotEmpty() ? (int) round($attemptedStats->avg('percent')) : 0;
 
-        $favoriteIds = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)->pluck('question_id');
+        // Favoriten sind kursgebunden: nur Fragen zählen, die tatsächlich zu
+        // diesem Kurs gehören, damit jeder Kurs seine eigenen Favoriten hat.
+        $courseQuestionIds = $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id')->unique();
+        $favoriteIds = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+            ->where('context', Favorite::CONTEXT_EXAM)
+            ->whereIn('question_id', $courseQuestionIds)->pluck('question_id');
         $favoritesMastered = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)
             ->whereIn('question_id', $favoriteIds)->where('learning_state', 'gefestigt')->count();
 
@@ -204,12 +209,17 @@ class ExamController extends Controller
             ? max(0, $examSession->ruleSet->time_limit_seconds - $examSession->started_at->diffInSeconds(now()))
             : null;
 
+        $isFavorite = Favorite::where('tenant_id', $examSession->tenant_id)->where('user_id', $examSession->user_id)
+            ->where('context', Favorite::CONTEXT_EXAM)
+            ->where('question_id', $current->question_id)->exists();
+
         return view('exam.question', [
             'examSession' => $examSession,
             'current' => $current,
             'total' => $total,
             'answered' => $answered,
             'remainingSeconds' => $remainingSeconds,
+            'isFavorite' => $isFavorite,
         ]);
     }
 
