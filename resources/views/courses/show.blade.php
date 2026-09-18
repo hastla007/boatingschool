@@ -122,6 +122,14 @@
                     @if ($branding->logo_asset_id && $branding->logoAsset)
                         <img src="{{ $branding->logoAsset->storage_path }}" alt="{{ $currentTenant->name }} Logo" class="w-[10.5rem] h-[10.5rem] object-contain rounded-xl">
                     @endif
+                    @if ($branding->street || $branding->city)
+                        <p class="text-sm font-semibold text-slate-700 dark:text-slate-200 mt-2">{{ $currentTenant->name }}</p>
+                        <p class="text-sm text-slate-500">
+                            @if ($branding->street) {{ $branding->street }}<br> @endif
+                            @if ($branding->postal_code || $branding->city) {{ trim($branding->postal_code.' '.$branding->city) }} @endif
+                            @if ($branding->country) &middot; {{ $branding->country }} @endif
+                        </p>
+                    @endif
                 </div>
 
                 <div class="flex-1 text-center sm:self-center">
@@ -138,14 +146,6 @@
                         <a href="mailto:{{ $branding->support_email }}" class="block text-lg font-semibold hover:opacity-80 transition" style="color: var(--brand-primary, #005FD7)">
                             {{ $branding->support_email }}
                         </a>
-                    @endif
-                    @if ($branding->street || $branding->city)
-                        <p class="text-sm font-semibold text-slate-700 dark:text-slate-200 mt-2">{{ $currentTenant->name }}</p>
-                        <p class="text-sm text-slate-500">
-                            @if ($branding->street) {{ $branding->street }}<br> @endif
-                            @if ($branding->postal_code || $branding->city) {{ trim($branding->postal_code.' '.$branding->city) }} @endif
-                            @if ($branding->country) &middot; {{ $branding->country }} @endif
-                        </p>
                     @endif
                     @if ($branding->website)
                         <a href="{{ \Illuminate\Support\Str::startsWith($branding->website, ['http://', 'https://']) ? $branding->website : 'https://'.$branding->website }}"
