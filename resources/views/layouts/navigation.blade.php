@@ -47,6 +47,7 @@
                         <x-nav-link :href="route('courses.index')" :active="request()->routeIs('courses.*')">Kurse</x-nav-link>
                     @endif
 
+                    <x-nav-link :href="route('tips.index')" :active="request()->routeIs('tips.index')">Tipps & Tricks</x-nav-link>
                 </div>
             </div>
 
@@ -107,6 +108,7 @@
                     </x-responsive-nav-link>
                 </div>
             @endforeach
+            <x-responsive-nav-link :href="route('tips.index')" :active="request()->routeIs('tips.index')">Tipps & Tricks</x-responsive-nav-link>
             <x-responsive-nav-link :href="route('coupons.redeem')" :active="request()->routeIs('coupons.redeem')">Coupon-Code einlösen</x-responsive-nav-link>
         </div>
         <div class="pt-4 pb-1 border-t border-slate-200 dark:border-slate-600">

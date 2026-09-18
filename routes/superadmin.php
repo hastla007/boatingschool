@@ -8,6 +8,7 @@ use App\Http\Controllers\Superadmin\ProductController;
 use App\Http\Controllers\Superadmin\QuestionController;
 use App\Http\Controllers\Superadmin\SettingsController;
 use App\Http\Controllers\Superadmin\TenantController;
+use App\Http\Controllers\Superadmin\TipController;
 use App\Http\Controllers\Superadmin\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -61,4 +62,12 @@ Route::middleware(['auth', 'superadmin', 'admin-db'])->prefix('superadmin')->nam
     Route::get('/coupons', [CouponController::class, 'index'])->name('coupons.index');
     Route::post('/coupons', [CouponController::class, 'store'])->name('coupons.store');
     Route::post('/coupons/export', [CouponController::class, 'export'])->name('coupons.export');
+
+    Route::get('/tips', [TipController::class, 'index'])->name('tips.index');
+    Route::get('/tips/create', [TipController::class, 'create'])->name('tips.create');
+    Route::post('/tips', [TipController::class, 'store'])->name('tips.store');
+    Route::get('/tips/{tip}/edit', [TipController::class, 'edit'])->name('tips.edit');
+    Route::patch('/tips/{tip}', [TipController::class, 'update'])->name('tips.update');
+    Route::post('/tips/{tip}/toggle-active', [TipController::class, 'toggleActive'])->name('tips.toggle-active');
+    Route::delete('/tips/{tip}', [TipController::class, 'destroy'])->name('tips.destroy');
 });

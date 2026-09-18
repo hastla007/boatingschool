@@ -19,6 +19,7 @@ use App\Http\Controllers\PraxisPruefungController;
 use App\Http\Controllers\PraxisTrainerController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProgressController;
+use App\Http\Controllers\TipController;
 use App\Http\Controllers\VideoCourseController;
 use Illuminate\Support\Facades\Route;
 
@@ -35,6 +36,8 @@ Route::middleware(['auth', 'tenant.member'])->group(function () {
 
     Route::get('/courses', [CourseController::class, 'index'])->name('courses.index');
     Route::get('/courses/{course}', [CourseController::class, 'show'])->name('courses.show');
+
+    Route::get('/tipps-tricks', [TipController::class, 'index'])->name('tips.index');
 
     Route::get('/courses/{course}/learn', [LearningController::class, 'show'])->name('learning.show');
     Route::get('/courses/{course}/learn/overview', [LearningController::class, 'overview'])->name('learning.overview');
