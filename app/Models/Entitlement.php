@@ -36,6 +36,11 @@ class Entitlement extends Model
         return $this->belongsTo(CourseDefinition::class, 'course_id');
     }
 
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class, 'tenant_id');
+    }
+
     public function isCurrentlyActive(): bool
     {
         if ($this->status !== 'active') {

@@ -35,6 +35,7 @@ class EntitlementController extends Controller
             'tenant_id' => $tenant->id,
             'user_id' => $user->id,
             'course_id' => $course->id,
+            'valid_from' => now(),
             'valid_until' => $validated['valid_until'] ?? null,
             'status' => 'active',
             'source_type' => 'manual',

@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\EntitlementController;
 use App\Http\Controllers\Admin\ParticipantController;
 use App\Http\Controllers\Admin\SupportEmailVerificationController;
 use App\Http\Controllers\Admin\WebshopLinkController;
+use App\Http\Controllers\CouponRedeemController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExamController;
@@ -20,7 +21,11 @@ use App\Http\Controllers\VideoCourseController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return redirect()->route(auth()->check() ? 'dashboard' : 'login');
+    if (! auth()->check()) {
+        return redirect()->route('login');
+    }
+
+    return redirect()->route(auth()->user()->is_superadmin ? 'superadmin.dashboard' : 'dashboard');
 });
 
 Route::middleware(['auth', 'tenant.member'])->group(function () {
@@ -64,6 +69,9 @@ Route::middleware(['auth', 'tenant.member'])->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    Route::get('/coupons/redeem', [CouponRedeemController::class, 'show'])->name('coupons.redeem');
+    Route::post('/coupons/redeem', [CouponRedeemController::class, 'redeem'])->name('coupons.redeem.store');
 });
 
 Route::middleware(['auth', 'tenant.role:owner,admin,instructor'])->prefix('admin')->name('admin.')->group(function () {
@@ -83,4 +91,5 @@ Route::middleware(['auth', 'tenant.role:owner,admin,instructor'])->prefix('admin
     Route::patch('/webshop-links', [WebshopLinkController::class, 'update'])->name('webshop-links.update');
 });
 
+require __DIR__.'/superadmin.php';
 require __DIR__.'/auth.php';
