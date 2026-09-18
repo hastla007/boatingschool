@@ -109,27 +109,51 @@
         @endif
     </div>
 
-    @if ($branding && ($branding->phone || $branding->street || $branding->city || $branding->website))
-        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 mb-6 text-center">
-            <h3 class="font-semibold text-slate-800 dark:text-white text-lg mb-3">Fragen? Kontaktiere Deine Bootsschule!</h3>
-            @if ($branding->phone)
-                <a href="tel:{{ preg_replace('/\s+/', '', $branding->phone) }}" class="block text-3xl font-bold hover:opacity-80 transition" style="color: var(--brand-primary, #005FD7)">
-                    {{ $branding->phone }}
-                </a>
-            @endif
-            @if ($branding->street || $branding->city)
-                <p class="text-sm text-slate-500 mt-2">
-                    @if ($branding->street) {{ $branding->street }}<br> @endif
-                    @if ($branding->postal_code || $branding->city) {{ trim($branding->postal_code.' '.$branding->city) }} @endif
-                    @if ($branding->country) &middot; {{ $branding->country }} @endif
-                </p>
-            @endif
-            @if ($branding->website)
-                <a href="{{ \Illuminate\Support\Str::startsWith($branding->website, ['http://', 'https://']) ? $branding->website : 'https://'.$branding->website }}"
-                   target="_blank" rel="noopener" class="inline-block text-sm mt-1 hover:underline" style="color: var(--brand-primary, #005FD7)">
-                    {{ $branding->website }}
-                </a>
-            @endif
+    @php
+        $waLink = ($branding && auth()->check()) ? \App\Support\WhatsAppLink::for($branding, auth()->user(), $course) : null;
+        $hasContactDetails = $branding && ($branding->phone || $branding->street || $branding->city || $branding->website);
+    @endphp
+    @if ($hasContactDetails || $waLink)
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 mb-6">
+            <div class="flex flex-col sm:flex-row items-center gap-6">
+                <div class="flex flex-col items-center text-center gap-2 shrink-0 sm:w-36">
+                    @if ($branding->logo_asset_id && $branding->logoAsset)
+                        <img src="{{ $branding->logoAsset->storage_path }}" alt="{{ $currentTenant->name }} Logo" class="w-14 h-14 object-contain rounded-xl">
+                    @endif
+                    <div class="text-sm font-semibold text-slate-700 dark:text-slate-200">{{ $currentTenant->name }}</div>
+                </div>
+
+                <div class="flex-1 text-center">
+                    <h3 class="font-semibold text-slate-800 dark:text-white text-lg mb-3">Fragen? Kontaktiere Deine Bootsschule!</h3>
+                    @if ($branding->phone)
+                        <a href="tel:{{ preg_replace('/\s+/', '', $branding->phone) }}" class="block text-3xl font-bold hover:opacity-80 transition" style="color: var(--brand-primary, #005FD7)">
+                            {{ $branding->phone }}
+                        </a>
+                    @endif
+                    @if ($branding->street || $branding->city)
+                        <p class="text-sm text-slate-500 mt-2">
+                            @if ($branding->street) {{ $branding->street }}<br> @endif
+                            @if ($branding->postal_code || $branding->city) {{ trim($branding->postal_code.' '.$branding->city) }} @endif
+                            @if ($branding->country) &middot; {{ $branding->country }} @endif
+                        </p>
+                    @endif
+                    @if ($branding->website)
+                        <a href="{{ \Illuminate\Support\Str::startsWith($branding->website, ['http://', 'https://']) ? $branding->website : 'https://'.$branding->website }}"
+                           target="_blank" rel="noopener" class="inline-block text-sm mt-1 hover:underline" style="color: var(--brand-primary, #005FD7)">
+                            {{ $branding->website }}
+                        </a>
+                    @endif
+                </div>
+
+                @if ($waLink)
+                    <a href="{{ $waLink }}" target="_blank" rel="noopener" class="flex flex-col items-center text-center gap-2 shrink-0 sm:w-36 hover:opacity-80 transition">
+                        <span class="w-12 h-12 rounded-full flex items-center justify-center text-white" style="background-color: #25D366">
+                            <x-whatsapp-icon class="w-6 h-6" />
+                        </span>
+                        <span class="text-xs text-slate-500 dark:text-slate-400">Frag uns auch direkt per WhatsApp!</span>
+                    </a>
+                @endif
+            </div>
         </div>
     @endif
 

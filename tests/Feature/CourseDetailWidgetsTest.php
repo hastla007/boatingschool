@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\MediaAsset;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -53,6 +54,68 @@ class CourseDetailWidgetsTest extends TestCase
         $response->assertSee('20457 Hamburg');
         $response->assertSee('www.e2e-bootsschule.test');
         $response->assertSee('https://www.e2e-bootsschule.test', false);
+        $response->assertSee($tenant->name);
+    }
+
+    public function test_contact_widget_shows_the_tenant_logo_when_uploaded(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $this->onAdmin(function () use ($tenant) {
+            $asset = MediaAsset::create([
+                'asset_key' => 'test-tenant-logo-'.uniqid(),
+                'media_type' => 'image',
+                'storage_path' => 'http://localhost/storage/branding-logos/test-logo.png',
+            ]);
+            $tenant->branding->update(['logo_asset_id' => $asset->id, 'phone' => '+49 40 1234567']);
+        });
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
+
+        $response->assertOk();
+        $response->assertSee('http://localhost/storage/branding-logos/test-logo.png', false);
+    }
+
+    public function test_whatsapp_hint_is_shown_next_to_the_contact_widget_when_enabled(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $this->onAdmin(fn () => $tenant->branding->update([
+            'whatsapp_enabled' => true,
+            'whatsapp_phone' => '491701234567',
+        ]));
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
+
+        $response->assertOk();
+        $response->assertSee('Frag uns auch direkt per WhatsApp!');
+        $response->assertSee('https://wa.me/491701234567?text=', false);
+        // Die Bootsschule hat noch keine Kontaktdaten hinterlegt, aber der
+        // WhatsApp-Hinweis allein reicht schon aus, damit das Widget (mit
+        // Logo-Spalte und Namen) angezeigt wird.
+        $response->assertSee($tenant->name);
+    }
+
+    public function test_whatsapp_hint_is_hidden_when_whatsapp_support_is_not_enabled(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $this->onAdmin(fn () => $tenant->branding->update(['phone' => '+49 40 1234567']));
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
+
+        $response->assertOk();
+        $response->assertDontSee('Frag uns auch direkt per WhatsApp!');
+        $response->assertDontSee('wa.me', false);
     }
 
     public function test_mobile_app_widget_is_always_shown_without_a_real_store_link(): void
