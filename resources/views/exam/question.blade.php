@@ -38,7 +38,10 @@
                 @endforeach
             </div>
 
-            <div class="flex justify-end mt-6">
+            <div class="flex items-center justify-between mt-6">
+                <button type="button" onclick="toggleFavorite()" class="inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
+                    <x-icon name="star" class="w-4 h-4" /> {{ $isFavorite ? 'Favorit' : 'Als Favorit speichern' }}
+                </button>
                 <button type="submit" x-bind:disabled="!selected" class="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-40 hover:opacity-90 transition"
                         style="background-color: var(--brand-primary, #005FD7)">
                     {{ $current->position === $total ? 'Abschließen' : 'Weiter' }} <x-icon name="arrow-right" class="w-4 h-4" />
@@ -46,6 +49,15 @@
             </div>
         </form>
     </div>
+
+    <form id="favorite-form" method="POST" action="{{ route($isFavorite ? 'favorites.destroy' : 'favorites.store', $current->question_id) }}" class="hidden">
+        @csrf
+        <input type="hidden" name="context" value="exam">
+        @if ($isFavorite) @method('DELETE') @endif
+    </form>
+    <script>
+        function toggleFavorite() { document.getElementById('favorite-form').submit(); }
+    </script>
 
     @if (! is_null($remainingSeconds))
         <script>

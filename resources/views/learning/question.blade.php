@@ -108,6 +108,7 @@
 
     <form id="favorite-form" method="POST" action="{{ route($isFavorite ? 'favorites.destroy' : 'favorites.store', $revision->question_id) }}" class="hidden">
         @csrf
+        <input type="hidden" name="context" value="smart_learning">
         @if ($isFavorite) @method('DELETE') @endif
     </form>
     <script>

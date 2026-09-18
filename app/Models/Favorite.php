@@ -11,15 +11,19 @@ class Favorite extends Model
 {
     use BelongsToTenant, HasCompositePrimaryKey;
 
+    public const CONTEXT_SMART_LEARNING = 'smart_learning';
+
+    public const CONTEXT_EXAM = 'exam';
+
     protected $table = 'favorite';
 
-    protected array $compositeKey = ['tenant_id', 'user_id', 'question_id'];
+    protected array $compositeKey = ['tenant_id', 'user_id', 'question_id', 'context'];
 
     public $incrementing = false;
 
     public $timestamps = false;
 
-    protected $fillable = ['tenant_id', 'user_id', 'question_id'];
+    protected $fillable = ['tenant_id', 'user_id', 'question_id', 'context'];
 
     public function question(): BelongsTo
     {

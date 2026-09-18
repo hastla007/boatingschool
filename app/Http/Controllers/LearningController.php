@@ -38,6 +38,7 @@ class LearningController extends Controller
         // diesem Kurs gehören, damit jeder Kurs seine eigenen Favoriten hat.
         $courseQuestionIds = $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id')->unique();
         $favoriteIds = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+            ->where('context', Favorite::CONTEXT_SMART_LEARNING)
             ->whereIn('question_id', $courseQuestionIds)->pluck('question_id');
 
         $praxisProgress = PraxisProgress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get();
@@ -90,6 +91,7 @@ class LearningController extends Controller
         if ($mode === 'favorites') {
             $courseQuestionIds = $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id')->unique();
             $favoriteIds = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+                ->where('context', Favorite::CONTEXT_SMART_LEARNING)
                 ->whereIn('question_id', $courseQuestionIds)->pluck('question_id');
             $questionId = $favoriteIds->isNotEmpty() ? $favoriteIds->random() : null;
             $next = $questionId ? ['question' => ContentQuestion::find($questionId), 'reason' => 'Favorit'] : null;
@@ -106,6 +108,7 @@ class LearningController extends Controller
         $revision->load('answers', 'media');
 
         $isFavorite = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+            ->where('context', Favorite::CONTEXT_SMART_LEARNING)
             ->where('question_id', $next['question']->id)->exists();
 
         return view('learning.question', [
@@ -165,6 +168,7 @@ class LearningController extends Controller
 
         $revision->load('answers', 'media');
         $isFavorite = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+            ->where('context', Favorite::CONTEXT_SMART_LEARNING)
             ->where('question_id', $revision->question_id)->exists();
 
         return view('learning.question', [

@@ -35,7 +35,7 @@
             </p>
         </div>
 
-        <a href="{{ route('favorites.index', $course) }}" class="flex items-center gap-4 rounded-2xl p-5 text-white hover:opacity-95 transition"
+        <a href="{{ route('favorites.exam', $course) }}" class="flex items-center gap-4 rounded-2xl p-5 text-white hover:opacity-95 transition"
            style="background: linear-gradient(120deg, var(--brand-secondary, #00A8A8), color-mix(in srgb, var(--brand-secondary, #00A8A8) 55%, #001233));">
             <div class="w-12 h-12 rounded-full bg-white/15 flex items-center justify-center shrink-0">
                 <x-icon name="star" class="w-6 h-6" />

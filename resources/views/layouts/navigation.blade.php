@@ -36,13 +36,11 @@
                                     @if (! $loop->first)
                                         <div class="border-t border-slate-100 dark:border-slate-600 my-1"></div>
                                     @endif
+                                    @php($subLinkClasses = 'block w-full pl-8 pr-4 py-1.5 text-start text-xs text-slate-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-slate-700 dark:hover:text-slate-300 focus:outline-none focus:bg-gray-100 dark:focus:bg-gray-800 transition duration-150 ease-in-out')
                                     <x-dropdown-link :href="route('courses.show', $navCourse)" class="font-semibold">{{ $navCourse->name }}</x-dropdown-link>
-                                    <a href="{{ route('progress.show', $navCourse) }}" class="block w-full pl-8 pr-4 py-1.5 text-start text-xs text-slate-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-slate-700 dark:hover:text-slate-300 focus:outline-none focus:bg-gray-100 dark:focus:bg-gray-800 transition duration-150 ease-in-out">
-                                        Fortschritt
-                                    </a>
-                                    <a href="{{ route('favorites.index', $navCourse) }}" class="block w-full pl-8 pr-4 py-1.5 text-start text-xs text-slate-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-slate-700 dark:hover:text-slate-300 focus:outline-none focus:bg-gray-100 dark:focus:bg-gray-800 transition duration-150 ease-in-out">
-                                        Favoriten
-                                    </a>
+                                    <a href="{{ route('progress.show', $navCourse) }}" class="{{ $subLinkClasses }}">Fortschritt</a>
+                                    <a href="{{ route('favorites.smart-learning', $navCourse) }}" class="{{ $subLinkClasses }}">Favoriten: Smart-Learning</a>
+                                    <a href="{{ route('favorites.exam', $navCourse) }}" class="{{ $subLinkClasses }}">Favoriten: Prüfungsfragen</a>
                                 @endforeach
                             </x-slot>
                         </x-dropdown>
@@ -100,8 +98,11 @@
                     <x-responsive-nav-link :href="route('progress.show', $navCourse)" :active="request()->routeIs('progress.show') && ($course ?? null)?->id === $navCourse->id">
                         Fortschritt
                     </x-responsive-nav-link>
-                    <x-responsive-nav-link :href="route('favorites.index', $navCourse)" :active="request()->routeIs('favorites.index') && ($course ?? null)?->id === $navCourse->id">
-                        Favoriten
+                    <x-responsive-nav-link :href="route('favorites.smart-learning', $navCourse)" :active="request()->routeIs('favorites.smart-learning') && ($course ?? null)?->id === $navCourse->id">
+                        Favoriten: Smart-Learning
+                    </x-responsive-nav-link>
+                    <x-responsive-nav-link :href="route('favorites.exam', $navCourse)" :active="request()->routeIs('favorites.exam') && ($course ?? null)?->id === $navCourse->id">
+                        Favoriten: Prüfungsfragen
                     </x-responsive-nav-link>
                 </div>
             @endforeach
