@@ -48,10 +48,6 @@
                     @endif
 
                     <x-nav-link :href="route('coupons.redeem')" :active="request()->routeIs('coupons.redeem')">Coupon-Code einlösen</x-nav-link>
-
-                    @if ($isAdmin)
-                        <x-nav-link :href="route('admin.dashboard')" :active="request()->routeIs('admin.*')">Bootsschul-Admin</x-nav-link>
-                    @endif
                 </div>
             </div>
 
@@ -67,6 +63,12 @@
                     </x-slot>
                     <x-slot name="content">
                         <x-dropdown-link :href="route('profile.edit')">Profil</x-dropdown-link>
+                        @if ($isAdmin)
+                            <x-dropdown-link :href="route('admin.dashboard')">Bootsschul-Admin</x-dropdown-link>
+                        @endif
+                        @if (Auth::user()->is_superadmin)
+                            <x-dropdown-link :href="route('superadmin.dashboard')">Login auf Plattform</x-dropdown-link>
+                        @endif
                         <form method="POST" action="{{ route('logout') }}">
                             @csrf
                             <x-dropdown-link :href="route('logout')" onclick="event.preventDefault(); this.closest('form').submit();">
@@ -105,9 +107,6 @@
                 </div>
             @endforeach
             <x-responsive-nav-link :href="route('coupons.redeem')" :active="request()->routeIs('coupons.redeem')">Coupon-Code einlösen</x-responsive-nav-link>
-            @if ($isAdmin)
-                <x-responsive-nav-link :href="route('admin.dashboard')" :active="request()->routeIs('admin.*')">Bootsschul-Admin</x-responsive-nav-link>
-            @endif
         </div>
         <div class="pt-4 pb-1 border-t border-slate-200 dark:border-slate-600">
             <div class="px-4">
@@ -116,6 +115,12 @@
             </div>
             <div class="mt-3 space-y-1">
                 <x-responsive-nav-link :href="route('profile.edit')">Profil</x-responsive-nav-link>
+                @if ($isAdmin)
+                    <x-responsive-nav-link :href="route('admin.dashboard')" :active="request()->routeIs('admin.*')">Bootsschul-Admin</x-responsive-nav-link>
+                @endif
+                @if (Auth::user()->is_superadmin)
+                    <x-responsive-nav-link :href="route('superadmin.dashboard')">Login auf Plattform</x-responsive-nav-link>
+                @endif
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf
                     <x-responsive-nav-link :href="route('logout')" onclick="event.preventDefault(); this.closest('form').submit();">
