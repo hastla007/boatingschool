@@ -12,7 +12,7 @@
         <x-stat-tile icon="clipboard-document-check" :value="$recentExamsCount" label="Prüfungen (30 Tage)" tone="warning" />
     </div>
 
-    <div class="grid sm:grid-cols-2 gap-4 mb-6">
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         <a href="{{ route('admin.participants.index') }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-3 hover:shadow-md transition">
             <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0" style="background-color: var(--brand-primary, #005FD7)">
                 <x-icon name="users" class="w-5 h-5" />
@@ -29,6 +29,15 @@
             <div>
                 <div class="font-medium text-slate-700 dark:text-slate-200">Branding anpassen</div>
                 <div class="text-xs text-slate-400">Logo, Farben, Kontakt</div>
+            </div>
+        </a>
+        <a href="{{ route('admin.webshop-links.edit') }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-3 hover:shadow-md transition">
+            <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0 bg-amber-500">
+                <x-icon name="upload" class="w-5 h-5" />
+            </div>
+            <div>
+                <div class="font-medium text-slate-700 dark:text-slate-200">Webshop-Links</div>
+                <div class="text-xs text-slate-400">Kauf-Links je Kurs hinterlegen</div>
             </div>
         </a>
     </div>

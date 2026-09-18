@@ -24,9 +24,22 @@ class TenantBranding extends Model
 
     protected $fillable = [
         'tenant_id', 'logo_asset_id', 'favicon_asset_id', 'primary_color', 'secondary_color',
-        'support_email', 'legal_name', 'imprint_url', 'privacy_url', 'custom_domain',
-        'exam_readiness_threshold_percent',
+        'support_email', 'support_email_verified_at', 'legal_name', 'contact_first_name', 'contact_last_name',
+        'imprint_url', 'privacy_url', 'custom_domain', 'phone', 'street', 'postal_code', 'city', 'country',
+        'website', 'exam_readiness_threshold_percent',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'support_email_verified_at' => 'datetime',
+        ];
+    }
+
+    public function hasVerifiedSupportEmail(): bool
+    {
+        return ! $this->support_email || $this->support_email_verified_at !== null;
+    }
 
     public function tenant(): BelongsTo
     {

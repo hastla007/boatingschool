@@ -18,12 +18,19 @@ class User extends Authenticatable
     protected $fillable = [
         'display_name',
         'name',
+        'first_name',
+        'last_name',
         'email',
         'password',
         'locale',
         'status',
         'external_identity',
         'email_verified_at',
+        'phone',
+        'street',
+        'postal_code',
+        'city',
+        'country',
     ];
 
     protected $hidden = [

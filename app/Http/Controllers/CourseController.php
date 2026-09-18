@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\CourseDefinition;
+use App\Models\CourseWebshopLink;
 use App\Models\Progress;
 use App\Models\VideoProgress;
 use App\Services\EntitlementService;
@@ -38,9 +39,12 @@ class CourseController extends Controller
             ->reject(fn ($c) => $activeEntitlements->has($c->id))
             ->values();
 
+        $webshopLinks = CourseWebshopLink::where('tenant_id', $tenant->id)->pluck('url', 'course_id');
+
         return view('courses.index', [
             'courses' => $courses,
             'lockedCourses' => $lockedCourses,
+            'webshopLinks' => $webshopLinks,
         ]);
     }
 
