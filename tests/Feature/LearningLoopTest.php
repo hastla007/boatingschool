@@ -214,6 +214,54 @@ class LearningLoopTest extends TestCase
         $response->assertSee('1/', false);
     }
 
+    public function test_smarttrainer_can_be_restricted_to_explicit_question_ids(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SBF-SEE');
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $module = $this->existingModule('SBF_BASIS');
+        $questionIds = $this->onAdmin(fn () => $module->questions()
+            ->whereHas('revisions', fn ($q) => $q->where('editorial_status', 'published'))
+            ->orderBy('content_question.content_id')
+            ->take(2)
+            ->pluck('content_question.id'));
+
+        $targetId = $questionIds->last();
+
+        $response = $this->actingAsInTenant($learner, $tenant)
+            ->get("/courses/{$course->id}/learn?mode=smarttrainer&questions={$targetId}");
+
+        $response->assertOk();
+        $this->assertSame($targetId, $response->viewData('revision')->question_id);
+    }
+
+    public function test_progress_overview_reports_the_real_smart_learning_topic_breakdown(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SBF-SEE');
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $module = $this->existingModule('SBF_BASIS');
+        [, $revision] = $this->anyPublishedQuestionIn($module);
+        $correctAnswer = $revision->answers->firstWhere('is_correct', true);
+
+        $endpoint = "/courses/{$course->id}/learn/attempts";
+        $payload = ['revision_id' => $revision->id, 'answer_id' => $correctAnswer->id, 'mode' => 'smarttrainer'];
+
+        for ($i = 0; $i < 3; $i++) {
+            $this->actingAsInTenant($learner, $tenant)->post($endpoint, $payload)->assertOk();
+        }
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get('/progress');
+
+        $response->assertOk();
+        $response->assertSee($revision->smartmodus_kategorie ?: $revision->topic);
+        $response->assertSee('1/', false);
+    }
+
     public function test_smart_learning_overview_requires_entitlement(): void
     {
         $tenant = $this->createTestTenant();

@@ -36,7 +36,7 @@
 
         <h3 class="text-lg font-medium text-slate-800 dark:text-white mb-4">{{ $revision->question_text }}</h3>
 
-        <form method="POST" action="{{ route('learning.attempts.store', ['course' => $course, 'topic' => $topic, 'module' => $moduleId]) }}" x-data="{ selected: {{ $selectedAnswerId ? "'{$selectedAnswerId}'" : 'null' }} }">
+        <form method="POST" action="{{ route('learning.attempts.store', ['course' => $course, 'topic' => $topic, 'module' => $moduleId, 'questions' => $questionsParam]) }}" x-data="{ selected: {{ $selectedAnswerId ? "'{$selectedAnswerId}'" : 'null' }} }">
             @csrf
             <input type="hidden" name="revision_id" value="{{ $revision->id }}">
             <input type="hidden" name="mode" value="{{ $mode }}">
@@ -85,7 +85,7 @@
                     <button type="button" onclick="toggleFavorite()" class="inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
                         <x-icon name="star" class="w-4 h-4" /> {{ $isFavorite ? 'Favorit' : 'Als Favorit speichern' }}
                     </button>
-                    <a href="{{ route('learning.show', $course) }}?mode={{ $mode }}{{ $topic ? '&topic='.$topic : '' }}{{ $moduleId ? '&module='.$moduleId : '' }}"
+                    <a href="{{ route('learning.show', $course) }}?mode={{ $mode }}{{ $topic ? '&topic='.$topic : '' }}{{ $moduleId ? '&module='.$moduleId : '' }}{{ $questionsParam ? '&questions='.$questionsParam : '' }}"
                        class="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
                         Nächste Frage <x-icon name="arrow-right" class="w-4 h-4" />
                     </a>

@@ -81,13 +81,14 @@ class LearningController extends Controller
         $mode = $request->query('mode', 'smarttrainer');
         $topic = $request->query('topic');
         $moduleId = $request->query('module');
+        $questionIds = $this->parseQuestionIds($request->query('questions'));
 
         if ($mode === 'favorites') {
             $favoriteIds = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)->pluck('question_id');
             $questionId = $favoriteIds->isNotEmpty() ? $favoriteIds->random() : null;
             $next = $questionId ? ['question' => ContentQuestion::find($questionId), 'reason' => 'Favorit'] : null;
         } else {
-            $next = $smarttrainer->nextQuestion($tenant, $user, $course, $mode, $topic, $moduleId);
+            $next = $smarttrainer->nextQuestion($tenant, $user, $course, $mode, $topic, $moduleId, $questionIds);
         }
 
         if (! $next) {
@@ -108,6 +109,7 @@ class LearningController extends Controller
             'mode' => $mode,
             'topic' => $topic,
             'moduleId' => $moduleId,
+            'questionsParam' => $request->query('questions'),
             'isFavorite' => $isFavorite,
             'startedAt' => now()->valueOf(),
             'answered' => false,
@@ -166,11 +168,21 @@ class LearningController extends Controller
             'mode' => $validated['mode'],
             'topic' => $request->query('topic'),
             'moduleId' => $request->query('module'),
+            'questionsParam' => $request->query('questions'),
             'isFavorite' => $isFavorite,
             'startedAt' => now()->valueOf(),
             'answered' => true,
             'correct' => $attempt->correct,
             'selectedAnswerId' => $selectedAnswer?->id,
         ]);
+    }
+
+    private function parseQuestionIds(?string $questions): ?array
+    {
+        if (! $questions) {
+            return null;
+        }
+
+        return array_values(array_filter(explode(',', $questions)));
     }
 }

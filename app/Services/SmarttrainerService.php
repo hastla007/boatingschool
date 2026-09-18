@@ -18,7 +18,7 @@ use Illuminate\Support\Collection;
  */
 class SmarttrainerService
 {
-    public function nextQuestion(Tenant $tenant, User $user, CourseDefinition $course, string $mode = 'smarttrainer', ?string $topic = null, ?string $moduleId = null): ?array
+    public function nextQuestion(Tenant $tenant, User $user, CourseDefinition $course, string $mode = 'smarttrainer', ?string $topic = null, ?string $moduleId = null, ?array $questionIds = null): ?array
     {
         $course->loadMissing(['modules.questions.revisions' => function ($query) {
             $query->where('editorial_status', 'published')->orderByDesc('revision_no');
@@ -26,6 +26,10 @@ class SmarttrainerService
 
         $modules = $moduleId ? $course->modules->where('id', $moduleId) : $course->modules;
         $questions = $modules->flatMap(fn ($module) => $module->questions)->unique('id');
+
+        if ($questionIds !== null) {
+            $questions = $questions->whereIn('id', $questionIds);
+        }
 
         if ($questions->isEmpty()) {
             return null;
