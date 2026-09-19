@@ -117,7 +117,7 @@
                     <img src="{{ asset('images/captain-laptop.webp') }}" alt="Kapitän"
                          class="w-16 h-16 rounded-full object-cover object-top bg-white shrink-0 shadow-sm">
                     <div class="min-w-0">
-                        <div class="font-semibold text-slate-800 dark:text-white">Fragen zu unseren Kursen?</div>
+                        <div class="text-lg font-semibold text-slate-800 dark:text-white">Fragen zu unseren Kursen?</div>
                         <div class="text-sm text-slate-500 dark:text-slate-400">Wir sind für dich da und helfen dir gerne weiter.</div>
                     </div>
                 </div>
