@@ -17,6 +17,7 @@
             'SBF-BIN-MOTOR' => 'images/courses/sbf-binnen.webp',
             'SRC-UBI' => 'images/courses/src-ubi.webp',
             'SRC' => 'images/courses/src.webp',
+            'UBI' => 'images/courses/ubi.webp',
         ];
     @endphp
 
