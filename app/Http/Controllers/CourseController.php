@@ -16,10 +16,21 @@ use Symfony\Component\HttpFoundation\Response;
 
 class CourseController extends Controller
 {
+    /**
+     * Anzeigereihenfolge der Kurskacheln: erst die Vollkurse in dieser
+     * festen Reihenfolge, danach alle Ergänzungskurse (nicht in dieser
+     * Liste enthalten, daher automatisch ans Ende sortiert).
+     */
+    private const COURSE_DISPLAY_ORDER = [
+        'SBF-SEE', 'SBF-BIN-MOTOR', 'SRC-UBI', 'SBF-BIN-SEGEL', 'SRC', 'UBI',
+    ];
+
     public function index(Request $request, TenantContext $tenantContext, EntitlementService $entitlements): View
     {
         $tenant = $tenantContext->tenant();
         $user = $request->user();
+
+        $orderIndex = array_flip(self::COURSE_DISPLAY_ORDER);
 
         $activeEntitlements = $entitlements->activeEntitlements($tenant, $user)->keyBy('course_id');
         $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get();
@@ -32,7 +43,7 @@ class CourseController extends Controller
                 'entitlement' => $entitlement,
                 'percent' => $this->courseMasteryPercent($course, $progress),
             ];
-        })->values();
+        })->sortBy(fn ($entry) => $orderIndex[$entry['course']->code] ?? PHP_INT_MAX)->values();
 
         $disabledCourseIds = TenantCourseDisabled::where('tenant_id', $tenant->id)->pluck('course_id');
 
@@ -42,6 +53,7 @@ class CourseController extends Controller
             ->orderBy('name')
             ->get()
             ->reject(fn ($c) => $activeEntitlements->has($c->id))
+            ->sortBy(fn ($c) => $orderIndex[$c->code] ?? PHP_INT_MAX)
             ->values();
 
         $webshopLinks = CourseWebshopLink::where('tenant_id', $tenant->id)->pluck('url', 'course_id');
