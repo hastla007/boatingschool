@@ -111,7 +111,7 @@
     @endif
 
     @if ($hasContactDetails)
-        <div class="mt-6 rounded-3xl p-6 sm:p-8 bg-gradient-to-r from-sky-50 via-cyan-50 to-teal-50 dark:from-slate-800 dark:via-slate-800 dark:to-slate-800 border border-cyan-100 dark:border-slate-700">
+        <div class="mt-6 rounded-3xl p-6 sm:p-8 bg-white dark:bg-slate-800 shadow-sm">
             <div class="flex flex-col sm:flex-row sm:items-center gap-5">
                 <div class="flex items-center gap-4 flex-1 min-w-0">
                     <img src="{{ asset('images/captain-laptop.webp') }}" alt="Kapitän"
@@ -122,16 +122,16 @@
                     </div>
                 </div>
 
-                <div class="hidden sm:block w-px self-stretch bg-cyan-200 dark:bg-slate-600"></div>
+                <div class="hidden sm:block w-px self-stretch bg-slate-200 dark:bg-slate-600"></div>
 
                 <div class="flex items-center gap-3 shrink-0">
-                    <x-icon name="phone" class="w-5 h-5 text-teal-600 dark:text-teal-400 shrink-0" />
+                    <x-icon name="phone" class="w-5 h-5 shrink-0" style="color: var(--brand-primary, #005FD7)" />
                     <div class="text-sm leading-snug">
                         @if ($showPhone)
                             <a href="tel:{{ preg_replace('/\s+/', '', $branding->phone) }}" class="block font-semibold text-slate-800 dark:text-white hover:opacity-80 transition whitespace-nowrap">{{ $branding->phone }}</a>
                         @endif
                         @if ($showEmail)
-                            <a href="mailto:{{ $branding->support_email }}" class="block text-teal-700 dark:text-teal-400 hover:opacity-80 transition whitespace-nowrap">{{ $branding->support_email }}</a>
+                            <a href="mailto:{{ $branding->support_email }}" class="block hover:opacity-80 transition whitespace-nowrap" style="color: var(--brand-primary, #005FD7)">{{ $branding->support_email }}</a>
                         @endif
                     </div>
                 </div>
