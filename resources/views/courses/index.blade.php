@@ -23,6 +23,9 @@
         $waLink = (isset($branding) && auth()->check())
             ? \App\Support\WhatsAppLink::for($branding, auth()->user())
             : null;
+        $showPhone = $branding && $branding->phone_support_enabled && $branding->phone;
+        $showEmail = $branding && $branding->email_support_enabled && $branding->support_email;
+        $hasContactDetails = $branding && ($showPhone || $showEmail);
     @endphp
 
     <a href="{{ route('coupons.redeem') }}" class="flex items-center gap-3 rounded-2xl p-4 mb-5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition">
@@ -104,6 +107,41 @@
                     </a>
                 </div>
             @endif
+        </div>
+    @endif
+
+    @if ($hasContactDetails)
+        <div class="mt-6 rounded-3xl p-6 sm:p-8 bg-gradient-to-r from-sky-50 via-cyan-50 to-teal-50 dark:from-slate-800 dark:via-slate-800 dark:to-slate-800 border border-cyan-100 dark:border-slate-700">
+            <div class="flex flex-col sm:flex-row sm:items-center gap-5">
+                <div class="flex items-center gap-4 flex-1 min-w-0">
+                    <img src="{{ asset('images/captain-laptop.webp') }}" alt="Kapitän"
+                         class="w-16 h-16 rounded-full object-cover object-top bg-white shrink-0 shadow-sm">
+                    <div class="min-w-0">
+                        <div class="font-semibold text-slate-800 dark:text-white">Fragen zu unseren Kursen?</div>
+                        <div class="text-sm text-slate-500 dark:text-slate-400">Wir sind für dich da und helfen dir gerne weiter.</div>
+                    </div>
+                </div>
+
+                <div class="hidden sm:block w-px self-stretch bg-cyan-200 dark:bg-slate-600"></div>
+
+                <div class="flex items-center gap-3 shrink-0">
+                    <x-icon name="phone" class="w-5 h-5 text-teal-600 dark:text-teal-400 shrink-0" />
+                    <div class="text-sm leading-snug">
+                        @if ($showPhone)
+                            <a href="tel:{{ preg_replace('/\s+/', '', $branding->phone) }}" class="block font-semibold text-slate-800 dark:text-white hover:opacity-80 transition whitespace-nowrap">{{ $branding->phone }}</a>
+                        @endif
+                        @if ($showEmail)
+                            <a href="mailto:{{ $branding->support_email }}" class="block text-teal-700 dark:text-teal-400 hover:opacity-80 transition whitespace-nowrap">{{ $branding->support_email }}</a>
+                        @endif
+                    </div>
+                </div>
+
+                <a href="{{ $showEmail ? 'mailto:'.$branding->support_email : 'tel:'.preg_replace('/\s+/', '', $branding->phone) }}"
+                   class="shrink-0 inline-flex items-center justify-center px-5 py-2.5 rounded-xl text-white text-sm font-medium hover:opacity-90 transition"
+                   style="background-color: var(--brand-primary, #005FD7)">
+                    Kontakt aufnehmen
+                </a>
+            </div>
         </div>
     @endif
 </x-app-layout>
