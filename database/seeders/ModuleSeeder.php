@@ -20,6 +20,8 @@ class ModuleSeeder extends Seeder
             ['code' => 'SBF_BINNEN_SEGELN', 'name' => 'SBF Binnen Segeln (Zusatzmodul)'],
             ['code' => 'SRC', 'name' => 'SRC Seefunk'],
             ['code' => 'UBI', 'name' => 'UBI Binnenfunk'],
+            ['code' => 'SKN', 'name' => 'SKN'],
+            ['code' => 'FKN', 'name' => 'FKN'],
         ];
 
         foreach ($modules as $module) {
