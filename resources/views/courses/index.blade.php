@@ -124,7 +124,7 @@
 
                 <div class="hidden sm:block w-px self-stretch bg-slate-200 dark:bg-slate-600"></div>
 
-                <div class="flex items-center gap-3 shrink-0">
+                <div class="flex items-center gap-3 shrink-0 sm:-ml-2">
                     <x-icon name="phone" class="w-5 h-5 shrink-0" style="color: var(--brand-primary, #005FD7)" />
                     <div class="leading-snug">
                         @if ($showPhone)
@@ -138,7 +138,7 @@
 
                 @if ($waLink)
                     <a href="{{ $waLink }}" target="_blank" rel="noopener"
-                       class="shrink-0 text-2xl leading-tight text-center hover:opacity-80 transition"
+                       class="shrink-0 text-2xl leading-tight text-center hover:opacity-80 transition sm:ml-8"
                        style="font-family: 'Caveat', cursive; color: var(--brand-primary, #005FD7)">
                         Oder einfach<br>via WhatsApp!
                     </a>
