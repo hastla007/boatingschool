@@ -12,6 +12,11 @@
             'from-amber-600 to-orange-500',
             'from-rose-600 to-pink-500',
         ];
+        $courseImages = [
+            'SBF-SEE' => 'images/courses/sbf-see.webp',
+            'SBF-BIN-MOTOR' => 'images/courses/sbf-binnen.webp',
+            'SRC-UBI' => 'images/courses/src-ubi.webp',
+        ];
     @endphp
 
     <a href="{{ route('coupons.redeem') }}" class="flex items-center gap-3 rounded-2xl p-4 mb-5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition">
@@ -30,9 +35,15 @@
     @else
         <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
             @foreach ($courses as $entry)
+                @php($image = $courseImages[$entry['course']->code] ?? null)
                 <a href="{{ route('courses.show', $entry['course']) }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden hover:shadow-md transition group">
-                    <div class="relative h-32 bg-gradient-to-br {{ $gradients[$loop->index % count($gradients)] }} flex items-center justify-center">
-                        <x-icon name="academic-cap" class="w-10 h-10 text-white/30" />
+                    <div class="relative h-32 flex items-center justify-center {{ $image ? 'bg-cover bg-center' : 'bg-gradient-to-br '.$gradients[$loop->index % count($gradients)] }}"
+                         @if ($image) style="background-image: url('{{ asset($image) }}')" @endif>
+                        @if ($image)
+                            <div class="absolute inset-0 bg-black/25"></div>
+                        @else
+                            <x-icon name="academic-cap" class="w-10 h-10 text-white/30" />
+                        @endif
                         <div class="absolute -bottom-6 left-1/2 -translate-x-1/2">
                             <x-progress-ring :percent="$entry['percent']" :size="64" :stroke="6" class="bg-white dark:bg-slate-800 rounded-full shadow" />
                         </div>
@@ -49,9 +60,16 @@
 
             @foreach ($lockedCourses as $course)
                 @php($webshopUrl = $webshopLinks->get($course->id))
+                @php($image = $courseImages[$course->code] ?? null)
                 <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden {{ $webshopUrl ? '' : 'opacity-70' }}">
-                    <div class="relative h-32 bg-gradient-to-br from-slate-300 to-slate-400 dark:from-slate-700 dark:to-slate-600 flex items-center justify-center">
-                        <x-icon name="lock-closed" class="w-10 h-10 text-white/50" />
+                    <div class="relative h-32 flex items-center justify-center {{ $image ? 'bg-cover bg-center' : 'bg-gradient-to-br from-slate-300 to-slate-400 dark:from-slate-700 dark:to-slate-600' }}"
+                         @if ($image) style="background-image: url('{{ asset($image) }}')" @endif>
+                        @if ($image)
+                            <div class="absolute inset-0 bg-black/40"></div>
+                            <x-icon name="lock-closed" class="relative w-10 h-10 text-white/80" />
+                        @else
+                            <x-icon name="lock-closed" class="w-10 h-10 text-white/50" />
+                        @endif
                     </div>
                     <div class="pt-4 pb-4 px-4 text-center">
                         <div class="font-semibold text-slate-600 dark:text-slate-300">{{ $course->name }}</div>
