@@ -95,9 +95,14 @@ class CourseController extends Controller
             return (int) round($completed / $lessonIds->count() * 100);
         };
 
+        $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id')->unique();
+        $masteredCount = $progress->whereIn('question_id', $questionIds)->where('learning_state', 'gefestigt')->count();
+
         return view('courses.show', [
             'course' => $course,
             'overallPercent' => $this->courseMasteryPercent($course, $progress),
+            'masteredCount' => $masteredCount,
+            'openCount' => max($questionIds->count() - $masteredCount, 0),
             'hasVideoCourse' => $videoTotal > 0,
             'videoPercent' => $videoTotal > 0 ? (int) round($videoCompleted / $videoTotal * 100) : 0,
             'hasExam' => (bool) $course->activeExamRuleSet(),

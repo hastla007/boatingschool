@@ -3,15 +3,31 @@
         <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">{{ $course->name }}</h2>
     </x-slot>
 
+    <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-800 dark:text-white">{{ $course->name }}</h1>
+            <p class="text-sm text-slate-400 mt-0.5">Dein Lernbereich</p>
+        </div>
+        <div class="flex items-center gap-2 text-slate-400 dark:text-slate-500 text-xs text-right">
+            <span class="leading-tight">Mehr Wissen.<br>Sicher auf dem Wasser.</span>
+            <x-icon name="anchor" class="w-5 h-5 shrink-0" style="color: var(--brand-secondary, #00A8A8)" />
+        </div>
+    </div>
+
     <div class="grid lg:grid-cols-[1fr_320px] gap-4 mb-6">
         @if ($hasVideoCourse)
-            <a href="{{ route('video.index', $course) }}" class="rounded-2xl p-6 text-white flex items-center gap-5 hover:opacity-95 transition"
-               style="background: linear-gradient(120deg, var(--brand-primary, #005FD7), color-mix(in srgb, var(--brand-primary, #005FD7) 55%, #001233));">
-                <x-progress-ring :percent="$videoPercent" :size="72" :stroke="6" class="shrink-0 [&_circle:first-child]:stroke-white/25" />
-                <div>
-                    <div class="font-semibold text-lg">{{ $course->name }}</div>
-                    <div class="text-white/80 text-sm">Dein Videokurs für {{ $course->name }}</div>
-                    <div class="text-white/90 text-sm mt-1 inline-flex items-center gap-1">
+            <a href="{{ route('video.index', $course) }}" class="relative rounded-2xl p-6 text-white overflow-hidden hover:opacity-95 transition"
+               style="background: linear-gradient(135deg, color-mix(in srgb, var(--brand-primary, #005FD7) 90%, #001233), color-mix(in srgb, var(--brand-primary, #005FD7) 45%, #001233));">
+                <x-icon name="compass" class="absolute -right-6 -bottom-6 w-40 h-40 text-white/10 pointer-events-none" />
+                <div class="relative">
+                    <div class="text-xs font-semibold tracking-wide uppercase" style="color: var(--brand-secondary, #6EE7E0)">Dein nächster Schritt</div>
+                    <div class="font-bold text-xl mt-1">{{ $course->name }}</div>
+                    <div class="text-white/70 text-sm">Dein Videokurs für {{ $course->name }}</div>
+                    <div class="text-white/90 text-sm mt-3">Kursfortschritt {{ $videoPercent }}&nbsp;%</div>
+                    <div class="w-full bg-white/20 rounded-full h-1.5 mt-1 max-w-xs">
+                        <div class="h-1.5 rounded-full bg-white" style="width: {{ $videoPercent }}%"></div>
+                    </div>
+                    <div class="inline-flex items-center gap-1 mt-4 bg-white rounded-lg px-4 py-2 text-sm font-semibold" style="color: var(--brand-primary, #005FD7)">
                         {{ $videoPercent >= 100 ? 'Abgeschlossen' : 'Weiterschauen' }} <x-icon name="arrow-right" class="w-3.5 h-3.5" />
                     </div>
                 </div>
@@ -22,86 +38,141 @@
             </div>
         @endif
 
-        <a href="{{ route('progress.show', $course) }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex flex-col items-center justify-center hover:shadow-md transition">
-            <div class="text-sm font-medium text-slate-600 dark:text-slate-300 mb-2">Kursfortschritt</div>
-            <x-progress-ring :percent="$overallPercent" :size="88" :stroke="8" />
-            <div class="flex items-center gap-3 text-xs text-slate-400 mt-2">
-                <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full" style="background-color: var(--brand-secondary, #00A8A8)"></span> Gefestigt</span>
-                <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-slate-200 dark:bg-slate-600"></span> Offen</span>
+        <a href="{{ route('progress.show', $course) }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5 flex flex-col hover:shadow-md transition">
+            <div class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-3">Dein Fortschritt</div>
+            <div class="flex items-center gap-4">
+                <x-progress-ring :percent="$overallPercent" :size="80" :stroke="8" class="shrink-0" />
+                <div class="text-sm space-y-1.5 min-w-0">
+                    <div class="flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full shrink-0" style="background-color: var(--brand-secondary, #00A8A8)"></span>
+                        <span class="text-slate-500 dark:text-slate-400">Gefestigt</span>
+                        <span class="ml-auto font-semibold text-slate-700 dark:text-slate-200">{{ $masteredCount }}</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-slate-200 dark:bg-slate-600 shrink-0"></span>
+                        <span class="text-slate-500 dark:text-slate-400">Offen</span>
+                        <span class="ml-auto font-semibold text-slate-700 dark:text-slate-200">{{ $openCount }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700 text-xs text-slate-400 flex items-center gap-1.5">
+                <x-icon name="anchor" class="w-3.5 h-3.5 shrink-0" style="color: var(--brand-secondary, #00A8A8)" />
+                Weiter so! Du bist auf einem guten Weg.
             </div>
         </a>
     </div>
 
+    <div class="flex items-end justify-between mb-3">
+        <h3 class="font-semibold text-lg text-slate-800 dark:text-white">Lernbereiche</h3>
+        <span class="text-xs text-slate-400 hidden sm:inline">Wähle einen Bereich und lege los!</span>
+    </div>
+
+    @php
+        $tileIconBg = 'background-color: color-mix(in srgb, var(--brand-secondary, #00A8A8) 15%, white)';
+        $tileIconColor = 'color: var(--brand-secondary, #00A8A8)';
+    @endphp
     <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-        <a href="{{ route('learning.overview', $course) }}" class="relative rounded-2xl p-4 h-28 flex flex-col justify-between text-white overflow-hidden bg-gradient-to-br from-teal-500 to-cyan-600 hover:opacity-95 transition">
-            <x-icon name="bolt" class="w-6 h-6 text-white/60 self-end" />
-            <div>
-                <div class="font-semibold">Smart-Learning</div>
-                <div class="text-xs text-white/80">Smarttrainer wählt die nächste Frage für dich</div>
+        <a href="{{ route('learning.overview', $course) }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-4 hover:shadow-md transition">
+            <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="{{ $tileIconBg }}">
+                <x-icon name="bolt" class="w-5 h-5" style="{{ $tileIconColor }}" />
             </div>
+            <div class="flex-1 min-w-0">
+                <div class="font-semibold text-slate-800 dark:text-white">Smart-Learning</div>
+                <div class="text-xs text-slate-400">Smarttrainer wählt die nächste Frage für dich</div>
+            </div>
+            <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />
         </a>
 
         @if ($knotenModuleId)
-            <a href="{{ route('video.index', $course) }}?kapitel={{ $knotenModuleId }}" class="relative rounded-2xl p-4 h-28 flex flex-col justify-between text-white overflow-hidden bg-gradient-to-br from-blue-600 to-cyan-500 hover:opacity-95 transition">
-                <x-icon name="academic-cap" class="w-6 h-6 text-white/60 self-end" />
-                <div>
-                    <div class="font-semibold">Knoten</div>
-                    <div class="text-xs text-white/80">{{ $knotenPercent }}% angesehen</div>
+            <a href="{{ route('video.index', $course) }}?kapitel={{ $knotenModuleId }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-4 hover:shadow-md transition">
+                <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="{{ $tileIconBg }}">
+                    <x-icon name="link" class="w-5 h-5" style="{{ $tileIconColor }}" />
                 </div>
+                <div class="flex-1 min-w-0">
+                    <div class="font-semibold text-slate-800 dark:text-white">Knoten</div>
+                    <div class="text-xs text-slate-400 mb-1">{{ $knotenPercent }}% angesehen</div>
+                    <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5">
+                        <div class="h-1.5 rounded-full" style="width: {{ $knotenPercent }}%; background-color: var(--brand-secondary, #00A8A8)"></div>
+                    </div>
+                </div>
+                <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />
             </a>
         @endif
 
         @if ($navigationModuleId)
-            <a href="{{ route('video.index', $course) }}?kapitel={{ $navigationModuleId }}" class="relative rounded-2xl p-4 h-28 flex flex-col justify-between text-white overflow-hidden bg-gradient-to-br from-sky-500 to-indigo-600 hover:opacity-95 transition">
-                <x-icon name="flag" class="w-6 h-6 text-white/60 self-end" />
-                <div>
-                    <div class="font-semibold">Navigation</div>
-                    <div class="text-xs text-white/80">{{ $navigationPercent }}% angesehen</div>
+            <a href="{{ route('video.index', $course) }}?kapitel={{ $navigationModuleId }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-4 hover:shadow-md transition">
+                <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="{{ $tileIconBg }}">
+                    <x-icon name="compass" class="w-5 h-5" style="{{ $tileIconColor }}" />
                 </div>
+                <div class="flex-1 min-w-0">
+                    <div class="font-semibold text-slate-800 dark:text-white">Navigation</div>
+                    <div class="text-xs text-slate-400 mb-1">{{ $navigationPercent }}% angesehen</div>
+                    <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5">
+                        <div class="h-1.5 rounded-full" style="width: {{ $navigationPercent }}%; background-color: var(--brand-secondary, #00A8A8)"></div>
+                    </div>
+                </div>
+                <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />
             </a>
         @endif
 
-        <a href="{{ route('exam.intro', $course) }}" class="relative rounded-2xl p-4 h-28 flex flex-col justify-between text-white overflow-hidden bg-gradient-to-br from-indigo-600 to-blue-700 hover:opacity-95 transition">
-            <x-icon name="clipboard-document-check" class="w-6 h-6 text-white/60 self-end" />
-            <div>
-                <div class="font-semibold">Prüfungssimulation</div>
-                <div class="text-xs text-white/80">{{ $hasExam ? 'Bereit zum Starten' : 'Noch nicht freigegeben' }}</div>
+        <a href="{{ route('exam.intro', $course) }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-4 hover:shadow-md transition">
+            <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="{{ $tileIconBg }}">
+                <x-icon name="clipboard-document-check" class="w-5 h-5" style="{{ $tileIconColor }}" />
             </div>
+            <div class="flex-1 min-w-0">
+                <div class="font-semibold text-slate-800 dark:text-white">Prüfungssimulation</div>
+                <div class="text-xs text-slate-400">{{ $hasExam ? 'Bereit zum Starten' : 'Noch nicht freigegeben' }}</div>
+            </div>
+            <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />
         </a>
 
         @if ($hasNavigationTasks)
-            <a href="{{ route('exam.navigation.index', $course) }}" class="relative rounded-2xl p-4 h-28 flex flex-col justify-between text-white overflow-hidden bg-gradient-to-br from-amber-500 to-orange-600 hover:opacity-95 transition">
-                <x-icon name="compass" class="w-6 h-6 text-white/60 self-end" />
-                <div>
-                    <div class="font-semibold">Navigationsaufgaben</div>
-                    <div class="text-xs text-white/80">Übung mit Musterlösung</div>
+            <a href="{{ route('exam.navigation.index', $course) }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-4 hover:shadow-md transition">
+                <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="{{ $tileIconBg }}">
+                    <x-icon name="map-pin" class="w-5 h-5" style="{{ $tileIconColor }}" />
                 </div>
+                <div class="flex-1 min-w-0">
+                    <div class="font-semibold text-slate-800 dark:text-white">Navigationsaufgaben</div>
+                    <div class="text-xs text-slate-400">Übung mit Musterlösung</div>
+                </div>
+                <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />
             </a>
         @endif
 
         @if ($praxisModuleId)
-            <a href="{{ route('video.index', $course) }}?kapitel={{ $praxisModuleId }}" class="relative rounded-2xl p-4 h-28 flex flex-col justify-between text-white overflow-hidden bg-gradient-to-br from-rose-500 to-red-600 hover:opacity-95 transition">
-                <x-icon name="bolt" class="w-6 h-6 text-white/60 self-end" />
-                <div>
-                    <div class="font-semibold">Praxisvideos</div>
-                    <div class="text-xs text-white/80">{{ $praxisPercent }}% angesehen</div>
+            <a href="{{ route('video.index', $course) }}?kapitel={{ $praxisModuleId }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-4 hover:shadow-md transition">
+                <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="{{ $tileIconBg }}">
+                    <x-icon name="play" class="w-5 h-5" style="{{ $tileIconColor }}" />
                 </div>
+                <div class="flex-1 min-w-0">
+                    <div class="font-semibold text-slate-800 dark:text-white">Praxisvideos</div>
+                    <div class="text-xs text-slate-400 mb-1">{{ $praxisPercent }}% angesehen</div>
+                    <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5">
+                        <div class="h-1.5 rounded-full" style="width: {{ $praxisPercent }}%; background-color: var(--brand-secondary, #00A8A8)"></div>
+                    </div>
+                </div>
+                <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />
             </a>
         @endif
 
         @if ($overallPercent >= $examReadinessThreshold)
-            <a href="{{ route('praxis-pruefung.index', $course) }}" class="relative rounded-2xl p-4 h-28 flex flex-col justify-between text-white overflow-hidden bg-gradient-to-br from-emerald-600 to-teal-700 hover:opacity-95 transition">
-                <x-icon name="shield-check" class="w-6 h-6 text-white/60 self-end" />
-                <div>
-                    <div class="font-semibold">Praxis &amp; Prüfung</div>
-                    <div class="text-xs text-white/80">Jetzt buchbar</div>
+            <a href="{{ route('praxis-pruefung.index', $course) }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-4 hover:shadow-md transition">
+                <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="{{ $tileIconBg }}">
+                    <x-icon name="shield-check" class="w-5 h-5" style="{{ $tileIconColor }}" />
                 </div>
+                <div class="flex-1 min-w-0">
+                    <div class="font-semibold text-slate-800 dark:text-white">Praxis &amp; Prüfung</div>
+                    <div class="text-xs text-slate-400">Jetzt buchbar</div>
+                </div>
+                <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />
             </a>
         @else
-            <div class="relative rounded-2xl p-4 h-28 flex flex-col justify-between overflow-hidden bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed"
+            <div class="bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-4 flex items-center gap-4 text-slate-400 dark:text-slate-500 cursor-not-allowed"
                  title="Ab {{ $examReadinessThreshold }}% Kursfortschritt buchbar">
-                <x-icon name="lock-closed" class="w-6 h-6 text-slate-300 dark:text-slate-600 self-end" />
-                <div>
+                <div class="w-11 h-11 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center shrink-0">
+                    <x-icon name="lock-closed" class="w-5 h-5 text-slate-300 dark:text-slate-600" />
+                </div>
+                <div class="flex-1 min-w-0">
                     <div class="font-semibold">Praxis &amp; Prüfung</div>
                     <div class="text-xs">Ab {{ $examReadinessThreshold }}% Kursfortschritt &middot; {{ $overallPercent }}%/{{ $examReadinessThreshold }}%</div>
                 </div>
