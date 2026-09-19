@@ -29,18 +29,24 @@
                 </div>
             </div>
 
-            <div class="flex-1 flex flex-col items-center justify-center px-6 py-12">
-                <div class="w-full max-w-sm">
-                    <div class="text-center mb-8 lg:hidden">
-                        <x-icon name="anchor" class="w-10 h-10 mx-auto mb-2" style="color: var(--brand-primary, #005FD7)" />
-                        <div class="text-xl font-bold" style="color: var(--brand-primary, #005FD7)">{{ $currentTenant->name ?? config('app.name') }}</div>
-                        <div class="text-sm text-slate-400">Dein Weg zum Bootsführerschein</div>
-                    </div>
+            <div class="flex-1 flex flex-col min-h-screen px-6 py-12">
+                <div class="flex-1 flex flex-col items-center justify-center">
+                    <div class="w-full max-w-sm">
+                        <div class="text-center mb-8 lg:hidden">
+                            <x-icon name="anchor" class="w-10 h-10 mx-auto mb-2" style="color: var(--brand-primary, #005FD7)" />
+                            <div class="text-xl font-bold" style="color: var(--brand-primary, #005FD7)">{{ $currentTenant->name ?? config('app.name') }}</div>
+                            <div class="text-sm text-slate-400">Dein Weg zum Bootsführerschein</div>
+                        </div>
 
-                    <div class="bg-white dark:bg-slate-800 shadow-sm rounded-2xl px-6 py-8">
-                        {{ $slot }}
+                        <div class="bg-white dark:bg-slate-800 shadow-sm rounded-2xl px-6 py-8">
+                            {{ $slot }}
+                        </div>
                     </div>
                 </div>
+
+                @unless (request()->routeIs('login'))
+                    <x-site-footer />
+                @endunless
             </div>
         </div>
     </body>

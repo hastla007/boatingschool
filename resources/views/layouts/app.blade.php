@@ -33,6 +33,8 @@
 
                 {{ $slot }}
             </main>
+
+            <x-site-footer />
         </div>
 
         <x-whatsapp-support-button />
