@@ -20,6 +20,9 @@
             'UBI' => 'images/courses/ubi.webp',
             'SBF-BIN-SEGEL' => 'images/courses/sbf-bin-segel.webp',
         ];
+        $waLink = (isset($branding) && auth()->check())
+            ? \App\Support\WhatsAppLink::for($branding, auth()->user())
+            : null;
     @endphp
 
     <a href="{{ route('coupons.redeem') }}" class="flex items-center gap-3 rounded-2xl p-4 mb-5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition">
@@ -89,6 +92,18 @@
                     </div>
                 </div>
             @endforeach
+
+            @if ($waLink)
+                <div class="flex items-start justify-end">
+                    <a href="{{ $waLink }}" target="_blank" rel="noopener"
+                       class="inline-flex items-center gap-2 pl-3 pr-4 py-3 rounded-full shadow-lg text-white text-sm font-medium hover:opacity-90 transition"
+                       style="background-color: #25D366"
+                       title="WhatsApp Support - {{ $currentTenant->name }}">
+                        <x-whatsapp-icon class="w-6 h-6 shrink-0" />
+                        <span class="hidden sm:inline truncate">{{ $currentTenant->name }}</span>
+                    </a>
+                </div>
+            @endif
         </div>
     @endif
 </x-app-layout>
