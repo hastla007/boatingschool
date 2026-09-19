@@ -19,6 +19,7 @@
             'SRC' => 'images/courses/src.webp',
             'UBI' => 'images/courses/ubi.webp',
             'SBF-BIN-SEGEL' => 'images/courses/sbf-bin-segel.webp',
+            'FKN' => 'images/courses/fkn.webp',
         ];
         $waLink = (isset($branding) && auth()->check())
             ? \App\Support\WhatsAppLink::for($branding, auth()->user())
