@@ -117,7 +117,7 @@
                     <img src="{{ asset('images/captain-laptop.webp') }}" alt="Kapitän"
                          class="w-16 h-16 rounded-full object-cover object-top bg-white shrink-0 shadow-sm">
                     <div class="min-w-0">
-                        <div class="text-lg font-semibold text-slate-800 dark:text-white">Fragen zu unseren Kursen?</div>
+                        <div class="text-xl font-semibold text-slate-800 dark:text-white">Fragen zu unseren Kursen?</div>
                         <div class="text-sm text-slate-500 dark:text-slate-400">Wir sind für dich da und helfen dir gerne weiter.</div>
                     </div>
                 </div>
@@ -126,12 +126,12 @@
 
                 <div class="flex items-center gap-3 shrink-0">
                     <x-icon name="phone" class="w-5 h-5 shrink-0" style="color: var(--brand-primary, #005FD7)" />
-                    <div class="text-sm leading-snug">
+                    <div class="leading-snug">
                         @if ($showPhone)
-                            <a href="tel:{{ preg_replace('/\s+/', '', $branding->phone) }}" class="block font-semibold text-slate-800 dark:text-white hover:opacity-80 transition whitespace-nowrap">{{ $branding->phone }}</a>
+                            <a href="tel:{{ preg_replace('/\s+/', '', $branding->phone) }}" class="block text-lg font-semibold text-slate-800 dark:text-white hover:opacity-80 transition whitespace-nowrap">{{ $branding->phone }}</a>
                         @endif
                         @if ($showEmail)
-                            <a href="mailto:{{ $branding->support_email }}" class="block hover:opacity-80 transition whitespace-nowrap" style="color: var(--brand-primary, #005FD7)">{{ $branding->support_email }}</a>
+                            <a href="mailto:{{ $branding->support_email }}" class="block text-sm hover:opacity-80 transition whitespace-nowrap" style="color: var(--brand-primary, #005FD7)">{{ $branding->support_email }}</a>
                         @endif
                     </div>
                 </div>
