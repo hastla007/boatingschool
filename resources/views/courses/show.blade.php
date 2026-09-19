@@ -25,13 +25,13 @@
                     <text x="565" y="30" fill="white" fill-opacity="0.16" font-size="14" font-family="sans-serif">12</text>
                     <text x="565" y="175" fill="white" fill-opacity="0.14" font-size="14" font-family="sans-serif">28</text>
                     <g transform="translate(680,100)" stroke="white">
-                        <circle r="72" stroke-opacity="0.14" fill="none" />
-                        <circle r="55" stroke-opacity="0.18" fill="none" />
-                        <path d="M0,-55 L10,-10 L55,0 L10,10 L0,55 L-10,10 L-55,0 L-10,-10 Z" fill="white" fill-opacity="0.16" stroke="none" />
-                        <text x="0" y="-80" fill="white" fill-opacity="0.28" font-size="13" font-family="sans-serif" text-anchor="middle">N</text>
-                        <text x="0" y="92" fill="white" fill-opacity="0.28" font-size="13" font-family="sans-serif" text-anchor="middle">S</text>
-                        <text x="-85" y="4" fill="white" fill-opacity="0.28" font-size="13" font-family="sans-serif" text-anchor="middle">W</text>
-                        <text x="85" y="4" fill="white" fill-opacity="0.28" font-size="13" font-family="sans-serif" text-anchor="middle">O</text>
+                        <circle r="58" stroke-opacity="0.10" fill="none" />
+                        <circle r="44" stroke-opacity="0.13" fill="none" />
+                        <path d="M0,-44 L8,-8 L44,0 L8,8 L0,44 L-8,8 L-44,0 L-8,-8 Z" fill="white" fill-opacity="0.11" stroke="none" />
+                        <text x="0" y="-66" fill="white" fill-opacity="0.20" font-size="12" font-family="sans-serif" text-anchor="middle">N</text>
+                        <text x="0" y="76" fill="white" fill-opacity="0.20" font-size="12" font-family="sans-serif" text-anchor="middle">S</text>
+                        <text x="-69" y="4" fill="white" fill-opacity="0.20" font-size="12" font-family="sans-serif" text-anchor="middle">W</text>
+                        <text x="69" y="4" fill="white" fill-opacity="0.20" font-size="12" font-family="sans-serif" text-anchor="middle">O</text>
                     </g>
                 </svg>
                 <div class="relative">
