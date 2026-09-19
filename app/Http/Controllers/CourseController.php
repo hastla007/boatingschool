@@ -22,7 +22,7 @@ class CourseController extends Controller
      * Liste enthalten, daher automatisch ans Ende sortiert).
      */
     private const COURSE_DISPLAY_ORDER = [
-        'SBF-SEE', 'SBF-BIN-MOTOR', 'SRC-UBI', 'SBF-BIN-SEGEL', 'SRC', 'UBI', 'SKN', 'FKN', 'SKN-FKN',
+        'SBF-SEE', 'SBF-BIN-MOTOR', 'SRC-UBI', 'SBF-BIN-SEGEL', 'SRC', 'UBI', 'SKN-FKN', 'SKN', 'FKN',
     ];
 
     public function index(Request $request, TenantContext $tenantContext, EntitlementService $entitlements): View
