@@ -136,11 +136,14 @@
                     </div>
                 </div>
 
-                <a href="{{ $showEmail ? 'mailto:'.$branding->support_email : 'tel:'.preg_replace('/\s+/', '', $branding->phone) }}"
-                   class="shrink-0 inline-flex items-center justify-center px-5 py-2.5 rounded-xl text-white text-sm font-medium hover:opacity-90 transition"
-                   style="background-color: var(--brand-primary, #005FD7)">
-                    Kontakt aufnehmen
-                </a>
+                @if ($waLink)
+                    <a href="{{ $waLink }}" target="_blank" rel="noopener"
+                       class="shrink-0 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-medium hover:opacity-90 transition"
+                       style="background-color: #25D366">
+                        <x-whatsapp-icon class="w-5 h-5 shrink-0" />
+                        Oder einfach via WhatsApp!
+                    </a>
+                @endif
             </div>
         </div>
     @endif
