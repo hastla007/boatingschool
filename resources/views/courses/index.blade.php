@@ -138,8 +138,8 @@
 
                 @if ($waLink)
                     <a href="{{ $waLink }}" target="_blank" rel="noopener"
-                       class="shrink-0 text-2xl leading-tight text-center hover:opacity-80 transition sm:ml-8"
-                       style="font-family: 'Caveat', cursive; color: var(--brand-primary, #005FD7)">
+                       class="shrink-0 text-2xl leading-tight text-center text-slate-400 dark:text-slate-500 hover:opacity-80 transition sm:ml-8"
+                       style="font-family: 'Caveat', cursive;">
                         Oder einfach<br>via WhatsApp!
                     </a>
                 @endif
