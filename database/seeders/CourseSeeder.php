@@ -16,9 +16,9 @@ class CourseSeeder extends Seeder
     public function run(): void
     {
         $courses = [
-            ['code' => 'SBF-SEE', 'name' => 'SBF See Vollkurs', 'type' => 'full', 'modules' => ['SBF_BASIS', 'SBF_SEE']],
-            ['code' => 'SBF-BIN-MOTOR', 'name' => 'SBF Binnen Motor Vollkurs', 'type' => 'full', 'modules' => ['SBF_BASIS', 'SBF_BINNEN']],
-            ['code' => 'SBF-BIN-SEGEL', 'name' => 'SBF Binnen Segeln Vollkurs', 'type' => 'full', 'modules' => ['SBF_BASIS', 'SBF_BINNEN', 'SBF_BINNEN_SEGELN']],
+            ['code' => 'SBF-SEE', 'name' => 'SBF See', 'type' => 'full', 'modules' => ['SBF_BASIS', 'SBF_SEE']],
+            ['code' => 'SBF-BIN-MOTOR', 'name' => 'SBF Binnen', 'type' => 'full', 'modules' => ['SBF_BASIS', 'SBF_BINNEN']],
+            ['code' => 'SBF-BIN-SEGEL', 'name' => 'SBF Binnen unter Segel', 'type' => 'full', 'modules' => ['SBF_BASIS', 'SBF_BINNEN', 'SBF_BINNEN_SEGELN']],
             ['code' => 'ADD-SEE-TO-BIN', 'name' => 'Ergänzung See → Binnen', 'type' => 'addon', 'modules' => ['SBF_BINNEN']],
             ['code' => 'ADD-BIN-TO-SEE', 'name' => 'Ergänzung Binnen → See', 'type' => 'addon', 'modules' => ['SBF_SEE']],
             ['code' => 'ADD-BIN-SEGEL', 'name' => 'Ergänzung Binnen Segeln', 'type' => 'addon', 'modules' => ['SBF_BINNEN_SEGELN']],
