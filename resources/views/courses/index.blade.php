@@ -18,6 +18,7 @@
             'SRC-UBI' => 'images/courses/src-ubi.webp',
             'SRC' => 'images/courses/src.webp',
             'UBI' => 'images/courses/ubi.webp',
+            'SBF-BIN-SEGEL' => 'images/courses/sbf-bin-segel.webp',
         ];
     @endphp
 
