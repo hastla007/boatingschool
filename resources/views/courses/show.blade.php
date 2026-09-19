@@ -1,6 +1,10 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">{{ $course->name }}</h2>
+        <div class="flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400">
+            <a href="{{ route('courses.index') }}" class="hover:underline">Kurse</a>
+            <x-icon name="chevron-right" class="w-3.5 h-3.5 text-slate-400" />
+            <span class="font-semibold text-slate-800 dark:text-slate-200">{{ $course->name }}</span>
+        </div>
     </x-slot>
 
     <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 mb-6">
