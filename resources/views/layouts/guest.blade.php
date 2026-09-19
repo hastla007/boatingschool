@@ -11,15 +11,6 @@
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700&display=swap" rel="stylesheet" />
 
         @vite(['resources/css/app.css', 'resources/js/app.js'])
-
-        @if (isset($branding))
-            <style>
-                :root {
-                    --brand-primary: {{ $branding->primary_color ?? '#005FD7' }};
-                    --brand-secondary: {{ $branding->secondary_color ?? '#00A8A8' }};
-                }
-            </style>
-        @endif
     </head>
     <body class="font-sans text-slate-900 antialiased">
         <div class="min-h-screen flex bg-slate-50 dark:bg-slate-900">

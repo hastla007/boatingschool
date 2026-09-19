@@ -39,23 +39,6 @@
             <input type="text" value="{{ $tenant->slug }}.{{ config('app.central_domain') }}" disabled class="w-full rounded-lg border-slate-200 bg-slate-50 dark:bg-slate-700 text-sm text-slate-400">
         </div>
 
-        <div class="grid grid-cols-2 gap-4">
-            <div>
-                <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Primärfarbe</label>
-                <div class="flex items-center gap-2">
-                    <input type="color" name="primary_color" value="{{ old('primary_color', $branding->primary_color) }}" class="w-10 h-10 rounded-lg border-slate-300 shrink-0 p-0.5">
-                    <span class="text-xs text-slate-400 font-mono">{{ old('primary_color', $branding->primary_color) }}</span>
-                </div>
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Sekundärfarbe</label>
-                <div class="flex items-center gap-2">
-                    <input type="color" name="secondary_color" value="{{ old('secondary_color', $branding->secondary_color) }}" class="w-10 h-10 rounded-lg border-slate-300 shrink-0 p-0.5">
-                    <span class="text-xs text-slate-400 font-mono">{{ old('secondary_color', $branding->secondary_color) }}</span>
-                </div>
-            </div>
-        </div>
-
         <div>
             <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Support E-Mail</label>
             <input type="email" name="support_email" value="{{ old('support_email', $branding->support_email) }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">

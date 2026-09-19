@@ -22,8 +22,6 @@ class BrandingController extends Controller
         $whatsappEnabled = $request->boolean('whatsapp_enabled');
 
         $validated = $request->validate([
-            'primary_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
-            'secondary_color' => ['required', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'support_email' => ['nullable', 'email'],
             'legal_name' => ['nullable', 'string', 'max:255'],
             'contact_first_name' => ['nullable', 'string', 'max:255'],
