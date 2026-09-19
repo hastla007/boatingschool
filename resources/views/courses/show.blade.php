@@ -18,7 +18,22 @@
         @if ($hasVideoCourse)
             <a href="{{ route('video.index', $course) }}" class="relative rounded-2xl p-6 text-white overflow-hidden hover:opacity-95 transition"
                style="background: linear-gradient(135deg, color-mix(in srgb, var(--brand-primary, #005FD7) 90%, #001233), color-mix(in srgb, var(--brand-primary, #005FD7) 45%, #001233));">
-                <x-icon name="compass" class="absolute -right-6 -bottom-6 w-40 h-40 text-white/10 pointer-events-none" />
+                <svg class="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 800 200" preserveAspectRatio="xMidYMid slice" fill="none">
+                    <path d="M-20,38 C130,20 280,55 430,35 S730,18 820,32" stroke="white" stroke-opacity="0.08" stroke-width="1.5" />
+                    <path d="M-20,94 C140,110 300,75 460,97 S740,118 820,100" stroke="white" stroke-opacity="0.07" stroke-width="1.5" />
+                    <path d="M-20,156 C160,140 320,168 480,150 S760,134 820,153" stroke="white" stroke-opacity="0.06" stroke-width="1.5" />
+                    <text x="565" y="30" fill="white" fill-opacity="0.16" font-size="14" font-family="sans-serif">12</text>
+                    <text x="565" y="175" fill="white" fill-opacity="0.14" font-size="14" font-family="sans-serif">28</text>
+                    <g transform="translate(680,100)" stroke="white">
+                        <circle r="72" stroke-opacity="0.14" fill="none" />
+                        <circle r="55" stroke-opacity="0.18" fill="none" />
+                        <path d="M0,-55 L10,-10 L55,0 L10,10 L0,55 L-10,10 L-55,0 L-10,-10 Z" fill="white" fill-opacity="0.16" stroke="none" />
+                        <text x="0" y="-80" fill="white" fill-opacity="0.28" font-size="13" font-family="sans-serif" text-anchor="middle">N</text>
+                        <text x="0" y="92" fill="white" fill-opacity="0.28" font-size="13" font-family="sans-serif" text-anchor="middle">S</text>
+                        <text x="-85" y="4" fill="white" fill-opacity="0.28" font-size="13" font-family="sans-serif" text-anchor="middle">W</text>
+                        <text x="85" y="4" fill="white" fill-opacity="0.28" font-size="13" font-family="sans-serif" text-anchor="middle">O</text>
+                    </g>
+                </svg>
                 <div class="relative">
                     <div class="text-xs font-semibold tracking-wide uppercase" style="color: var(--brand-secondary, #6EE7E0)">Dein nächster Schritt</div>
                     <div class="font-bold text-xl mt-1">{{ $course->name }}</div>
