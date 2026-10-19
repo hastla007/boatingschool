@@ -102,6 +102,13 @@ class BinnenLessonQuestionSeeder extends Seeder
                 'Wie müssen Ausweichmanöver durchgeführt werden?',
                 'Ein Kleinfahrzeug und ein Fahrzeug über 20 m Länge nähern sich auf kreuzenden Kursen. Es besteht die Gefahr eines Zusammenstoßes. Wer ist ausweichpflichtig?',
                 'Wie muss sich ein kreuzendes Kleinfahrzeug unter Segel am Wind in der Nähe eines Ufers gegenüber einem anderen Kleinfahrzeug verhalten?',
+                'Wer ist ausweichpflichtig bzw. wer ist nicht ausweichpflichtig?',
+            ],
+            'Umweltschutz' => [
+                'Wie kann mitgeholfen werden, die Lebensmöglichkeiten der Pflanzen- und Tierwelt in Gewässern und Feuchtgebieten zu bewahren und zu fördern?',
+                'Warum sollte man sich von Schilf- und Röhrichtzonen sowie von dicht bewachsenen Uferzonen möglichst weit fernhalten?',
+                'Wo finden Sie Informationen über umweltfreundliche Farben, Lacke und Antifouling-Beschichtungen für Ihr Boot?',
+                'Wie müssen Abfälle entsorgt werden?',
             ],
         ],
     ];
