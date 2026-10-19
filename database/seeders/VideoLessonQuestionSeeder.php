@@ -117,6 +117,16 @@ class VideoLessonQuestionSeeder extends Seeder
             ],
             'Schallsignale' => [
                 'Wie lang ist die Dauer eines kurzen Tons ( )?',
+                'Wie lang ist die Dauer eines langen Tons ( )?',
+            ],
+        ],
+        'Lichter und Signale' => [
+            'Positionslaternen' => [
+                'Was für eine Laterne kann ein Segelfahrzeug von weniger als 20 m Länge anstelle der Seitenlichter und des Hecklichtes führen?',
+            ],
+            'Spezialfälle' => [
+                ['media' => 'Lichter-Frage-93-gif.png'],
+                ['media' => 'Lichter-Frage-107-gif.png'],
             ],
         ],
     ];
@@ -143,17 +153,23 @@ class VideoLessonQuestionSeeder extends Seeder
         }
     }
 
-    /** @param array<int, string> $questionTexts */
-    private function attachQuestions(?VideoLesson $lesson, array $questionTexts): void
+    /**
+     * @param array<int, string|array{media: string}> $questions Fragetext, oder
+     *        ['media' => '...'] um bei mehrdeutigem (mehrfach verwendetem)
+     *        Fragetext über den Dateinamen des zugehörigen Bildes zu identifizieren.
+     */
+    private function attachQuestions(?VideoLesson $lesson, array $questions): void
     {
         if (! $lesson || $lesson->questions()->exists()) {
             return;
         }
 
-        foreach ($questionTexts as $sortOrder => $text) {
-            $revision = ContentQuestionRevision::where('editorial_status', 'published')
-                ->where('question_text', $text)
-                ->first();
+        foreach ($questions as $sortOrder => $question) {
+            $query = ContentQuestionRevision::where('editorial_status', 'published');
+
+            $revision = is_array($question)
+                ? $query->whereHas('media', fn ($q) => $q->where('storage_path', 'ilike', '%' . $question['media']))->first()
+                : $query->where('question_text', $question)->first();
 
             if ($revision) {
                 $lesson->questions()->syncWithoutDetaching([$revision->question_id => ['sort_order' => $sortOrder + 1]]);

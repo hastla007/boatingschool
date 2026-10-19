@@ -47,6 +47,9 @@ class SeemannschaftVideoSeeder extends Seeder
             ['Verkehrstrennungsgebiete', 87],
             ['Schallsignale', 110],
         ],
+        'Lichter und Signale' => [
+            ['Spezialfälle', 454],
+        ],
     ];
 
     public function run(): void
