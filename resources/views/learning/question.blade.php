@@ -46,78 +46,210 @@
 
         <h3 class="text-lg font-medium text-slate-800 dark:text-white mb-4">{{ $revision->question_text }}</h3>
 
-        <form method="POST" action="{{ route('learning.attempts.store', ['course' => $course, 'topic' => $topic, 'module' => $moduleId, 'questions' => $questionsParam]) }}" x-data="{ selected: {{ $selectedAnswerId ? "'{$selectedAnswerId}'" : 'null' }} }">
-            @csrf
-            <input type="hidden" name="revision_id" value="{{ $revision->id }}">
-            <input type="hidden" name="mode" value="{{ $mode }}">
-            <input type="hidden" name="response_time_ms" x-ref="responseTime" value="0">
+        @if ($revision->question_type === 'multi_choice')
+            <form method="POST" action="{{ route('learning.attempts.store', ['course' => $course, 'topic' => $topic, 'module' => $moduleId, 'questions' => $questionsParam]) }}" x-data="{ selected: {{ json_encode($selectedAnswerIds ?? []) }} }">
+                @csrf
+                <input type="hidden" name="revision_id" value="{{ $revision->id }}">
+                <input type="hidden" name="mode" value="{{ $mode }}">
+                <input type="hidden" name="response_time_ms" x-ref="responseTime" value="0">
 
-            <div class="space-y-2">
-                @foreach ($revision->answers as $answer)
-                    @php
-                        $state = 'border-slate-200 dark:border-slate-600 hover:border-slate-400';
-                        $showCorrectIcon = false;
-                        $showWrongIcon = false;
-                        if ($answered) {
-                            if ($answer->is_correct) {
-                                $state = 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/30';
-                                $showCorrectIcon = true;
-                            } elseif ($answer->id === $selectedAnswerId) {
-                                $state = 'border-rose-500 bg-rose-50 dark:bg-rose-900/30';
-                                $showWrongIcon = true;
+                @unless ($answered)
+                    <p class="text-xs text-slate-400 mb-2">Mehrfachauswahl &mdash; mindestens eine Antwort ist richtig.</p>
+                @endunless
+
+                <div class="space-y-2">
+                    @foreach ($revision->answers as $answer)
+                        @php
+                            $state = 'border-slate-200 dark:border-slate-600 hover:border-slate-400';
+                            $showCorrectIcon = false;
+                            $showWrongIcon = false;
+                            $wasSelected = in_array($answer->id, $selectedAnswerIds ?? [], true);
+                            if ($answered) {
+                                if ($answer->is_correct) {
+                                    $state = 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/30';
+                                    $showCorrectIcon = true;
+                                } elseif ($wasSelected) {
+                                    $state = 'border-rose-500 bg-rose-50 dark:bg-rose-900/30';
+                                    $showWrongIcon = true;
+                                }
                             }
-                        }
-                    @endphp
-                    <label class="flex items-center gap-3 border rounded-xl px-4 py-3 cursor-pointer transition {{ $state }}">
-                        <input type="radio" name="answer_id" value="{{ $answer->id }}" x-model="selected"
-                               @checked($answer->id === $selectedAnswerId) {{ $answered ? 'disabled' : '' }} class="shrink-0">
-                        <span class="text-slate-700 dark:text-slate-200 flex-1">{{ $answer->answer_text }}</span>
-                        @if ($showCorrectIcon)
-                            <x-icon name="check-circle" class="w-5 h-5 text-emerald-500 shrink-0" />
-                        @elseif ($showWrongIcon)
-                            <x-icon name="x-circle" class="w-5 h-5 text-rose-500 shrink-0" />
-                        @endif
-                    </label>
-                @endforeach
-            </div>
+                        @endphp
+                        <label class="flex items-center gap-3 border rounded-xl px-4 py-3 cursor-pointer transition {{ $state }}">
+                            <input type="checkbox" name="answer_ids[]" value="{{ $answer->id }}" x-model="selected"
+                                   @checked($wasSelected) {{ $answered ? 'disabled' : '' }} class="shrink-0">
+                            <span class="text-slate-700 dark:text-slate-200 flex-1">{{ $answer->answer_text }}</span>
+                            @if ($showCorrectIcon)
+                                <x-icon name="check-circle" class="w-5 h-5 text-emerald-500 shrink-0" />
+                            @elseif ($showWrongIcon)
+                                <x-icon name="x-circle" class="w-5 h-5 text-rose-500 shrink-0" />
+                            @endif
+                        </label>
+                    @endforeach
+                </div>
 
-            @if ($answered)
-                <div class="mt-4 rounded-xl p-4 flex items-start gap-2 {{ $correct ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300' }}">
-                    <x-icon :name="$correct ? 'check-circle' : 'x-circle'" class="w-5 h-5 shrink-0 mt-0.5" />
+                @if ($answered)
+                    <div class="mt-4 rounded-xl p-4 flex items-start gap-2 {{ $correct ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300' }}">
+                        <x-icon :name="$correct ? 'check-circle' : 'x-circle'" class="w-5 h-5 shrink-0 mt-0.5" />
+                        <div>
+                            <strong>{{ $correct ? 'Richtig!' : 'Leider falsch.' }}</strong>
+                            @if (!$correct)
+                                <div class="text-sm mt-1">Richtige Antworten: {{ $revision->correctAnswers()->pluck('answer_text')->implode('; ') }}</div>
+                            @endif
+                            @php $feedback = $correct ? $revision->feedback_correct : $revision->feedback_incorrect; @endphp
+                            @if ($feedback)
+                                <div class="text-sm mt-2 whitespace-pre-line">{{ $feedback }}</div>
+                            @endif
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between mt-4">
+                        <button type="button" onclick="toggleFavorite()" class="inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
+                            <x-icon name="star" class="w-4 h-4" /> {{ $isFavorite ? 'Favorit' : 'Als Favorit speichern' }}
+                        </button>
+                        <a href="{{ route('learning.show', $course) }}?mode={{ $mode }}{{ $topic ? '&topic='.$topic : '' }}{{ $moduleId ? '&module='.$moduleId : '' }}{{ $questionsParam ? '&questions='.$questionsParam : '' }}"
+                           class="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
+                            Nächste Frage <x-icon name="arrow-right" class="w-4 h-4" />
+                        </a>
+                    </div>
+                @else
+                    <div class="flex items-center justify-between mt-4">
+                        <button type="button" onclick="toggleFavorite()" class="inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
+                            <x-icon name="star" class="w-4 h-4" /> {{ $isFavorite ? 'Favorit' : 'Als Favorit speichern' }}
+                        </button>
+                        <button type="submit" x-bind:disabled="selected.length === 0"
+                                x-on:click="$refs.responseTime.value = Date.now() - {{ $startedAt }}"
+                                class="px-5 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-40 hover:opacity-90 transition"
+                                style="background-color: var(--brand-primary, #005FD7)">
+                            Antworten
+                        </button>
+                    </div>
+                @endif
+            </form>
+        @elseif ($revision->question_type === 'open_text')
+            <div x-data="{ revealed: {{ $answered ? 'true' : 'false' }} }">
+                <p class="text-xs text-slate-400 mb-2">Offene Frage &mdash; keine Antwortoptionen. Schätze selbst ein, ob Du die Antwort wusstest.</p>
+
+                <template x-if="!revealed">
+                    <button type="button" @click="revealed = true" class="w-full px-5 py-3 rounded-xl border border-slate-200 dark:border-slate-600 text-sm font-medium text-slate-600 dark:text-slate-200 hover:border-slate-400 transition">
+                        Musterantwort anzeigen
+                    </button>
+                </template>
+
+                <template x-if="revealed">
                     <div>
-                        <strong>{{ $correct ? 'Richtig!' : 'Leider falsch.' }}</strong>
-                        @if (!$correct)
-                            <div class="text-sm mt-1">Richtige Antwort: {{ $revision->correctAnswer()?->answer_text }}</div>
-                        @endif
-                        @php($feedback = $correct ? $revision->feedback_correct : $revision->feedback_incorrect)
-                        @if ($feedback)
-                            <div class="text-sm mt-2 whitespace-pre-line">{{ $feedback }}</div>
+                        <div class="rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 px-4 py-3 text-sm text-slate-700 dark:text-slate-200 whitespace-pre-line">
+                            {{ $revision->correctAnswer()?->answer_text }}
+                        </div>
+
+                        @if ($answered)
+                            <div class="mt-4 rounded-xl p-4 flex items-start gap-2 {{ $correct ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300' }}">
+                                <x-icon :name="$correct ? 'check-circle' : 'x-circle'" class="w-5 h-5 shrink-0 mt-0.5" />
+                                <strong>{{ $correct ? 'Als gewusst markiert.' : 'Als nicht gewusst markiert.' }}</strong>
+                            </div>
+                            <div class="flex items-center justify-between mt-4">
+                                <button type="button" onclick="toggleFavorite()" class="inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
+                                    <x-icon name="star" class="w-4 h-4" /> {{ $isFavorite ? 'Favorit' : 'Als Favorit speichern' }}
+                                </button>
+                                <a href="{{ route('learning.show', $course) }}?mode={{ $mode }}{{ $topic ? '&topic='.$topic : '' }}{{ $moduleId ? '&module='.$moduleId : '' }}{{ $questionsParam ? '&questions='.$questionsParam : '' }}"
+                                   class="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
+                                    Nächste Frage <x-icon name="arrow-right" class="w-4 h-4" />
+                                </a>
+                            </div>
+                        @else
+                            <form method="POST" action="{{ route('learning.attempts.store', ['course' => $course, 'topic' => $topic, 'module' => $moduleId, 'questions' => $questionsParam]) }}" class="flex items-center justify-between mt-6" x-data="{}">
+                                @csrf
+                                <input type="hidden" name="revision_id" value="{{ $revision->id }}">
+                                <input type="hidden" name="mode" value="{{ $mode }}">
+                                <input type="hidden" name="response_time_ms" x-ref="responseTime" value="0">
+                                <button type="button" onclick="toggleFavorite()" class="inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
+                                    <x-icon name="star" class="w-4 h-4" /> {{ $isFavorite ? 'Favorit' : 'Als Favorit speichern' }}
+                                </button>
+                                <div class="flex gap-2">
+                                    <button type="submit" name="known" value="0" x-on:click="$refs.responseTime.value = Date.now() - {{ $startedAt }}" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-rose-300 text-rose-600 text-sm font-medium hover:bg-rose-50 dark:hover:bg-rose-900/20 transition">
+                                        Nicht gewusst
+                                    </button>
+                                    <button type="submit" name="known" value="1" x-on:click="$refs.responseTime.value = Date.now() - {{ $startedAt }}" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
+                                        Gewusst
+                                    </button>
+                                </div>
+                            </form>
                         @endif
                     </div>
+                </template>
+            </div>
+        @else
+            <form method="POST" action="{{ route('learning.attempts.store', ['course' => $course, 'topic' => $topic, 'module' => $moduleId, 'questions' => $questionsParam]) }}" x-data="{ selected: {{ $selectedAnswerId ? "'{$selectedAnswerId}'" : 'null' }} }">
+                @csrf
+                <input type="hidden" name="revision_id" value="{{ $revision->id }}">
+                <input type="hidden" name="mode" value="{{ $mode }}">
+                <input type="hidden" name="response_time_ms" x-ref="responseTime" value="0">
+
+                <div class="space-y-2">
+                    @foreach ($revision->answers as $answer)
+                        @php
+                            $state = 'border-slate-200 dark:border-slate-600 hover:border-slate-400';
+                            $showCorrectIcon = false;
+                            $showWrongIcon = false;
+                            if ($answered) {
+                                if ($answer->is_correct) {
+                                    $state = 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/30';
+                                    $showCorrectIcon = true;
+                                } elseif ($answer->id === $selectedAnswerId) {
+                                    $state = 'border-rose-500 bg-rose-50 dark:bg-rose-900/30';
+                                    $showWrongIcon = true;
+                                }
+                            }
+                        @endphp
+                        <label class="flex items-center gap-3 border rounded-xl px-4 py-3 cursor-pointer transition {{ $state }}">
+                            <input type="radio" name="answer_id" value="{{ $answer->id }}" x-model="selected"
+                                   @checked($answer->id === $selectedAnswerId) {{ $answered ? 'disabled' : '' }} class="shrink-0">
+                            <span class="text-slate-700 dark:text-slate-200 flex-1">{{ $answer->answer_text }}</span>
+                            @if ($showCorrectIcon)
+                                <x-icon name="check-circle" class="w-5 h-5 text-emerald-500 shrink-0" />
+                            @elseif ($showWrongIcon)
+                                <x-icon name="x-circle" class="w-5 h-5 text-rose-500 shrink-0" />
+                            @endif
+                        </label>
+                    @endforeach
                 </div>
-                <div class="flex items-center justify-between mt-4">
-                    <button type="button" onclick="toggleFavorite()" class="inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
-                        <x-icon name="star" class="w-4 h-4" /> {{ $isFavorite ? 'Favorit' : 'Als Favorit speichern' }}
-                    </button>
-                    <a href="{{ route('learning.show', $course) }}?mode={{ $mode }}{{ $topic ? '&topic='.$topic : '' }}{{ $moduleId ? '&module='.$moduleId : '' }}{{ $questionsParam ? '&questions='.$questionsParam : '' }}"
-                       class="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
-                        Nächste Frage <x-icon name="arrow-right" class="w-4 h-4" />
-                    </a>
-                </div>
-            @else
-                <div class="flex items-center justify-between mt-4">
-                    <button type="button" onclick="toggleFavorite()" class="inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
-                        <x-icon name="star" class="w-4 h-4" /> {{ $isFavorite ? 'Favorit' : 'Als Favorit speichern' }}
-                    </button>
-                    <button type="submit" x-bind:disabled="!selected"
-                            x-on:click="$refs.responseTime.value = Date.now() - {{ $startedAt }}"
-                            class="px-5 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-40 hover:opacity-90 transition"
-                            style="background-color: var(--brand-primary, #005FD7)">
-                        Antworten
-                    </button>
-                </div>
-            @endif
-        </form>
+
+                @if ($answered)
+                    <div class="mt-4 rounded-xl p-4 flex items-start gap-2 {{ $correct ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300' }}">
+                        <x-icon :name="$correct ? 'check-circle' : 'x-circle'" class="w-5 h-5 shrink-0 mt-0.5" />
+                        <div>
+                            <strong>{{ $correct ? 'Richtig!' : 'Leider falsch.' }}</strong>
+                            @if (!$correct)
+                                <div class="text-sm mt-1">Richtige Antwort: {{ $revision->correctAnswer()?->answer_text }}</div>
+                            @endif
+                            @php $feedback = $correct ? $revision->feedback_correct : $revision->feedback_incorrect; @endphp
+                            @if ($feedback)
+                                <div class="text-sm mt-2 whitespace-pre-line">{{ $feedback }}</div>
+                            @endif
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between mt-4">
+                        <button type="button" onclick="toggleFavorite()" class="inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
+                            <x-icon name="star" class="w-4 h-4" /> {{ $isFavorite ? 'Favorit' : 'Als Favorit speichern' }}
+                        </button>
+                        <a href="{{ route('learning.show', $course) }}?mode={{ $mode }}{{ $topic ? '&topic='.$topic : '' }}{{ $moduleId ? '&module='.$moduleId : '' }}{{ $questionsParam ? '&questions='.$questionsParam : '' }}"
+                           class="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
+                            Nächste Frage <x-icon name="arrow-right" class="w-4 h-4" />
+                        </a>
+                    </div>
+                @else
+                    <div class="flex items-center justify-between mt-4">
+                        <button type="button" onclick="toggleFavorite()" class="inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
+                            <x-icon name="star" class="w-4 h-4" /> {{ $isFavorite ? 'Favorit' : 'Als Favorit speichern' }}
+                        </button>
+                        <button type="submit" x-bind:disabled="!selected"
+                                x-on:click="$refs.responseTime.value = Date.now() - {{ $startedAt }}"
+                                class="px-5 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-40 hover:opacity-90 transition"
+                                style="background-color: var(--brand-primary, #005FD7)">
+                            Antworten
+                        </button>
+                    </div>
+                @endif
+            </form>
+        @endif
     </div>
 
     <form id="favorite-form" method="POST" action="{{ route($isFavorite ? 'favorites.destroy' : 'favorites.store', $revision->question_id) }}" class="hidden">

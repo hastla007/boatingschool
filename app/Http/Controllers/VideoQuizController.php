@@ -48,6 +48,7 @@ class VideoQuizController extends Controller
             'answered' => false,
             'correct' => null,
             'selectedAnswerId' => null,
+            'selectedAnswerIds' => null,
         ]);
     }
 
@@ -67,17 +68,28 @@ class VideoQuizController extends Controller
 
         $validated = $request->validate([
             'answer_id' => ['nullable', 'uuid'],
+            'answer_ids' => ['nullable', 'array'],
+            'answer_ids.*' => ['uuid'],
+            'known' => ['nullable', 'boolean'],
         ]);
 
         $selectedAnswer = null;
-        if ($validated['answer_id'] ?? null) {
+        $selectedAnswers = null;
+        $selfAssessedKnown = null;
+
+        if ($revision->question_type === 'multi_choice') {
+            $selectedAnswers = ContentAnswer::where('revision_id', $revision->id)
+                ->whereIn('id', $validated['answer_ids'] ?? [])->get();
+        } elseif ($revision->question_type === 'open_text') {
+            $selfAssessedKnown = array_key_exists('known', $validated) ? (bool) $validated['known'] : null;
+        } elseif ($validated['answer_id'] ?? null) {
             $selectedAnswer = ContentAnswer::where('id', $validated['answer_id'])
                 ->where('revision_id', $revision->id)
                 ->firstOrFail();
         }
 
         $attempt = $learningService->recordAttempt(
-            $tenant, $user, $revision, $selectedAnswer, 'video_quiz', $course, null
+            $tenant, $user, $revision, $selectedAnswer, 'video_quiz', $course, null, $selectedAnswers, $selfAssessedKnown
         );
 
         // Die Auswertungsseite liest den Ausgang je Frage aus der Session
@@ -87,7 +99,11 @@ class VideoQuizController extends Controller
         // zuverlässig nach "zuletzt beantwortet" sortierbar.
         $request->session()->put(
             "video_quiz.{$lesson->id}.{$revision->question_id}",
-            ['selectedAnswerId' => $selectedAnswer?->id, 'correct' => $attempt->correct]
+            [
+                'selectedAnswerId' => $attempt->selected_answer_id,
+                'selectedAnswerIds' => $attempt->selected_answer_ids,
+                'correct' => $attempt->correct,
+            ]
         );
 
         $revision->load('answers', 'media');
@@ -104,7 +120,8 @@ class VideoQuizController extends Controller
             'revision' => $revision,
             'answered' => true,
             'correct' => $attempt->correct,
-            'selectedAnswerId' => $selectedAnswer?->id,
+            'selectedAnswerId' => $attempt->selected_answer_id,
+            'selectedAnswerIds' => $attempt->selected_answer_ids,
         ]);
     }
 
@@ -133,6 +150,7 @@ class VideoQuizController extends Controller
                 'questionId' => $question->id,
                 'revision' => $revision,
                 'selectedAnswerId' => $answer['selectedAnswerId'] ?? null,
+                'selectedAnswerIds' => $answer['selectedAnswerIds'] ?? null,
                 'correct' => (bool) ($answer['correct'] ?? false),
             ];
         })->filter(fn (array $r) => $r['revision'] !== null)->values();

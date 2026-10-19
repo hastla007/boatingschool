@@ -54,4 +54,10 @@ class ContentQuestionRevision extends Model
     {
         return $this->answers->firstWhere('is_correct', true);
     }
+
+    /** @return \Illuminate\Support\Collection<int, ContentAnswer> */
+    public function correctAnswers(): \Illuminate\Support\Collection
+    {
+        return $this->answers->where('is_correct', true)->values();
+    }
 }

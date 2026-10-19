@@ -11,7 +11,11 @@
             <div class="text-2xl font-bold {{ $examSession->passed ? 'text-emerald-600' : 'text-rose-500' }}">
                 {{ $examSession->passed ? 'Bestanden' : 'Nicht bestanden' }}
             </div>
-            <div class="text-slate-500 mt-1">{{ (int) round($examSession->score * 100) }}% richtig &middot; {{ $questions->where('correct', true)->count() }}/{{ $questions->count() }} Fragen</div>
+            @php $scored = $questions->filter(fn ($q) => $q->revision->question_type !== 'open_text'); @endphp
+            <div class="text-slate-500 mt-1">{{ (int) round($examSession->score * 100) }}% richtig &middot; {{ $scored->where('correct', true)->count() }}/{{ $scored->count() }} Fragen</div>
+            @if ($questions->count() > $scored->count())
+                <div class="text-xs text-slate-400 mt-1">zzgl. {{ $questions->count() - $scored->count() }} offene Lernkarten-Fragen (nicht bewertet)</div>
+            @endif
         </div>
 
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
@@ -35,7 +39,13 @@
                     @foreach ($wrong as $item)
                         <div class="border-l-4 border-rose-400 pl-3">
                             <div class="text-slate-700 dark:text-slate-200 text-sm">{{ $item->revision->question_text }}</div>
-                            <div class="text-xs text-slate-400">Richtige Antwort: {{ $item->revision->correctAnswer()?->answer_text }}</div>
+                            @if ($item->revision->question_type === 'multi_choice')
+                                <div class="text-xs text-slate-400">Richtige Antworten: {{ $item->revision->correctAnswers()->pluck('answer_text')->implode('; ') }}</div>
+                            @elseif ($item->revision->question_type === 'open_text')
+                                <div class="text-xs text-slate-400">Musterantwort: {{ $item->revision->correctAnswer()?->answer_text }}</div>
+                            @else
+                                <div class="text-xs text-slate-400">Richtige Antwort: {{ $item->revision->correctAnswer()?->answer_text }}</div>
+                            @endif
                         </div>
                     @endforeach
                 </div>

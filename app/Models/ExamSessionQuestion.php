@@ -20,13 +20,15 @@ class ExamSessionQuestion extends Model
 
     protected $fillable = [
         'exam_session_id', 'question_id', 'revision_id', 'position',
-        'selected_answer_id', 'correct', 'answered_at',
+        'selected_answer_id', 'selected_answer_ids', 'self_assessed_known', 'correct', 'answered_at',
     ];
 
     protected function casts(): array
     {
         return [
             'correct' => 'boolean',
+            'self_assessed_known' => 'boolean',
+            'selected_answer_ids' => 'array',
             'answered_at' => 'datetime',
         ];
     }

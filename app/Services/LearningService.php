@@ -24,6 +24,11 @@ class LearningService
     {
     }
 
+    /**
+     * @param  ?ContentAnswer  $selectedAnswer  Ausgewählte Antwort bei single_choice.
+     * @param  ?\Illuminate\Support\Collection<int, ContentAnswer>  $selectedAnswers  Ausgewählte Antworten bei multi_choice (mehrere Checkboxen).
+     * @param  ?bool  $selfAssessedKnown  Selbsteinschätzung bei open_text ("gewusst"/"nicht gewusst"), nicht aus is_correct abgeleitet.
+     */
     public function recordAttempt(
         Tenant $tenant,
         User $user,
@@ -32,9 +37,26 @@ class LearningService
         string $context,
         ?CourseDefinition $course,
         ?int $responseTimeMs,
+        ?\Illuminate\Support\Collection $selectedAnswers = null,
+        ?bool $selfAssessedKnown = null,
     ): Attempt {
-        return DB::transaction(function () use ($tenant, $user, $revision, $selectedAnswer, $context, $course, $responseTimeMs) {
-            $correct = (bool) ($selectedAnswer?->is_correct);
+        return DB::transaction(function () use ($tenant, $user, $revision, $selectedAnswer, $context, $course, $responseTimeMs, $selectedAnswers, $selfAssessedKnown) {
+            $type = $revision->question_type;
+            $selectedAnswerIds = null;
+
+            if ($type === 'multi_choice') {
+                $correctIds = $revision->correctAnswers()->pluck('id')->sort()->values()->all();
+                $selectedIds = ($selectedAnswers ?? collect())->pluck('id')->sort()->values()->all();
+                $correct = $correctIds === $selectedIds;
+                $selectedAnswerIds = ($selectedAnswers ?? collect())->pluck('id')->all();
+                $effectiveSelectedAnswer = null;
+            } elseif ($type === 'open_text') {
+                $correct = (bool) $selfAssessedKnown;
+                $effectiveSelectedAnswer = $revision->correctAnswer();
+            } else {
+                $correct = (bool) ($selectedAnswer?->is_correct);
+                $effectiveSelectedAnswer = $selectedAnswer;
+            }
 
             $attempt = Attempt::create([
                 'tenant_id' => $tenant->id,
@@ -42,7 +64,8 @@ class LearningService
                 'question_id' => $revision->question_id,
                 'revision_id' => $revision->id,
                 'course_id' => $course?->id,
-                'selected_answer_id' => $selectedAnswer?->id,
+                'selected_answer_id' => $effectiveSelectedAnswer?->id,
+                'selected_answer_ids' => $selectedAnswerIds,
                 'correct' => $correct,
                 'context' => $context,
                 'response_time_ms' => $responseTimeMs,

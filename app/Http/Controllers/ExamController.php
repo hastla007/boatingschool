@@ -234,20 +234,45 @@ class ExamController extends Controller
 
         $validated = $request->validate([
             'position' => ['required', 'integer'],
-            'answer_id' => ['required', 'uuid'],
+            'answer_id' => ['nullable', 'uuid'],
+            'answer_ids' => ['nullable', 'array'],
+            'answer_ids.*' => ['uuid'],
+            'known' => ['nullable', 'boolean'],
         ]);
 
-        $sessionQuestion = $examSession->questions()->where('position', $validated['position'])->firstOrFail();
-
-        $answer = ContentAnswer::where('id', $validated['answer_id'])
-            ->where('revision_id', $sessionQuestion->revision_id)
-            ->firstOrFail();
+        $sessionQuestion = $examSession->questions()->where('position', $validated['position'])->with('revision')->firstOrFail();
+        $type = $sessionQuestion->revision->question_type;
 
         // Keine Sofortauflösung: correct wird erst bei finish() befüllt.
-        $sessionQuestion->update([
-            'selected_answer_id' => $answer->id,
-            'answered_at' => now(),
-        ]);
+        if ($type === 'multi_choice') {
+            abort_if(empty($validated['answer_ids']), 422, 'Bitte mindestens eine Antwort auswählen.');
+            $answerIds = ContentAnswer::where('revision_id', $sessionQuestion->revision_id)
+                ->whereIn('id', $validated['answer_ids'])->pluck('id');
+            abort_if($answerIds->count() !== count($validated['answer_ids']), 422);
+
+            $sessionQuestion->update([
+                'selected_answer_id' => null,
+                'selected_answer_ids' => $answerIds->values()->all(),
+                'answered_at' => now(),
+            ]);
+        } elseif ($type === 'open_text') {
+            abort_if(! array_key_exists('known', $validated) || $validated['known'] === null, 422, 'Bitte Selbsteinschätzung angeben.');
+
+            $sessionQuestion->update([
+                'self_assessed_known' => (bool) $validated['known'],
+                'answered_at' => now(),
+            ]);
+        } else {
+            abort_if(empty($validated['answer_id']), 422, 'Bitte eine Antwort auswählen.');
+            $answer = ContentAnswer::where('id', $validated['answer_id'])
+                ->where('revision_id', $sessionQuestion->revision_id)
+                ->firstOrFail();
+
+            $sessionQuestion->update([
+                'selected_answer_id' => $answer->id,
+                'answered_at' => now(),
+            ]);
+        }
 
         return redirect()->route('exam.show', $examSession);
     }
@@ -263,15 +288,32 @@ class ExamController extends Controller
         DB::transaction(function () use ($examSession) {
             $questions = $examSession->questions()->with('revision.answers')->lockForUpdate()->get();
             $correctCount = 0;
+            $scoredTotal = 0;
 
             foreach ($questions as $sq) {
-                $correctAnswerId = $sq->revision->correctAnswer()?->id;
-                $isCorrect = $sq->selected_answer_id !== null && $sq->selected_answer_id === $correctAnswerId;
-                $sq->update(['correct' => $isCorrect]);
-                $correctCount += $isCorrect ? 1 : 0;
+                $type = $sq->revision->question_type;
+
+                if ($type === 'multi_choice') {
+                    $correctIds = $sq->revision->correctAnswers()->pluck('id')->sort()->values()->all();
+                    $selectedIds = collect($sq->selected_answer_ids ?? [])->sort()->values()->all();
+                    $isCorrect = $selectedIds !== [] && $selectedIds === $correctIds;
+                    $sq->update(['correct' => $isCorrect]);
+                    $correctCount += $isCorrect ? 1 : 0;
+                    $scoredTotal++;
+                } elseif ($type === 'open_text') {
+                    // Selbsteinschätzung fließt nicht in die Bestehensgrenze ein,
+                    // dient nur als Lernkarte (siehe self_assessed_known).
+                    $sq->update(['correct' => (bool) $sq->self_assessed_known]);
+                } else {
+                    $correctAnswerId = $sq->revision->correctAnswer()?->id;
+                    $isCorrect = $sq->selected_answer_id !== null && $sq->selected_answer_id === $correctAnswerId;
+                    $sq->update(['correct' => $isCorrect]);
+                    $correctCount += $isCorrect ? 1 : 0;
+                    $scoredTotal++;
+                }
             }
 
-            $total = max($questions->count(), 1);
+            $total = max($scoredTotal, 1);
             $score = round($correctCount / $total, 4);
             $minRatio = $examSession->ruleSet->passing_rule['min_correct_ratio'] ?? 0.75;
 

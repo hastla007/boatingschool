@@ -25,29 +25,90 @@
 
         <h3 class="text-lg font-medium text-slate-800 dark:text-white mb-4">{{ $current->revision->question_text }}</h3>
 
-        <form method="POST" action="{{ route('exam.answer', $examSession) }}" x-data="{ selected: null }">
-            @csrf
-            <input type="hidden" name="position" value="{{ $current->position }}">
+        @if ($current->revision->question_type === 'multi_choice')
+            <form method="POST" action="{{ route('exam.answer', $examSession) }}" x-data="{ selected: [] }">
+                @csrf
+                <input type="hidden" name="position" value="{{ $current->position }}">
 
-            <div class="space-y-2">
-                @foreach ($current->revision->answers as $answer)
-                    <label class="flex items-center gap-3 border border-slate-200 dark:border-slate-600 hover:border-slate-400 rounded-xl px-4 py-3 cursor-pointer transition">
-                        <input type="radio" name="answer_id" value="{{ $answer->id }}" x-model="selected" class="shrink-0">
-                        <span class="text-slate-700 dark:text-slate-200">{{ $answer->answer_text }}</span>
-                    </label>
-                @endforeach
-            </div>
+                <p class="text-xs text-slate-400 mb-2">Mehrfachauswahl &mdash; mindestens eine Antwort ist richtig.</p>
+                <div class="space-y-2">
+                    @foreach ($current->revision->answers as $answer)
+                        <label class="flex items-center gap-3 border border-slate-200 dark:border-slate-600 hover:border-slate-400 rounded-xl px-4 py-3 cursor-pointer transition">
+                            <input type="checkbox" name="answer_ids[]" value="{{ $answer->id }}" x-model="selected" class="shrink-0">
+                            <span class="text-slate-700 dark:text-slate-200">{{ $answer->answer_text }}</span>
+                        </label>
+                    @endforeach
+                </div>
 
-            <div class="flex items-center justify-between mt-6">
-                <button type="button" onclick="toggleFavorite()" class="inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
-                    <x-icon name="star" class="w-4 h-4" /> {{ $isFavorite ? 'Favorit' : 'Als Favorit speichern' }}
-                </button>
-                <button type="submit" x-bind:disabled="!selected" class="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-40 hover:opacity-90 transition"
-                        style="background-color: var(--brand-primary, #005FD7)">
-                    {{ $current->position === $total ? 'Abschließen' : 'Weiter' }} <x-icon name="arrow-right" class="w-4 h-4" />
-                </button>
+                <div class="flex items-center justify-between mt-6">
+                    <button type="button" onclick="toggleFavorite()" class="inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
+                        <x-icon name="star" class="w-4 h-4" /> {{ $isFavorite ? 'Favorit' : 'Als Favorit speichern' }}
+                    </button>
+                    <button type="submit" x-bind:disabled="selected.length === 0" class="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-40 hover:opacity-90 transition"
+                            style="background-color: var(--brand-primary, #005FD7)">
+                        {{ $current->position === $total ? 'Abschließen' : 'Weiter' }} <x-icon name="arrow-right" class="w-4 h-4" />
+                    </button>
+                </div>
+            </form>
+        @elseif ($current->revision->question_type === 'open_text')
+            <div x-data="{ revealed: false }">
+                <p class="text-xs text-slate-400 mb-2">Offene Frage &mdash; keine Antwortoptionen. Schätze selbst ein, ob Du die Antwort wusstest.</p>
+
+                <template x-if="!revealed">
+                    <button type="button" @click="revealed = true" class="w-full px-5 py-3 rounded-xl border border-slate-200 dark:border-slate-600 text-sm font-medium text-slate-600 dark:text-slate-200 hover:border-slate-400 transition">
+                        Musterantwort anzeigen
+                    </button>
+                </template>
+
+                <template x-if="revealed">
+                    <div>
+                        <div class="rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 px-4 py-3 text-sm text-slate-700 dark:text-slate-200 whitespace-pre-line">
+                            {{ $current->revision->correctAnswer()?->answer_text }}
+                        </div>
+
+                        <form method="POST" action="{{ route('exam.answer', $examSession) }}" class="flex items-center justify-between mt-6">
+                            @csrf
+                            <input type="hidden" name="position" value="{{ $current->position }}">
+                            <button type="button" onclick="toggleFavorite()" class="inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
+                                <x-icon name="star" class="w-4 h-4" /> {{ $isFavorite ? 'Favorit' : 'Als Favorit speichern' }}
+                            </button>
+                            <div class="flex gap-2">
+                                <button type="submit" name="known" value="0" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-rose-300 text-rose-600 text-sm font-medium hover:bg-rose-50 dark:hover:bg-rose-900/20 transition">
+                                    Nicht gewusst
+                                </button>
+                                <button type="submit" name="known" value="1" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
+                                    Gewusst
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </template>
             </div>
-        </form>
+        @else
+            <form method="POST" action="{{ route('exam.answer', $examSession) }}" x-data="{ selected: null }">
+                @csrf
+                <input type="hidden" name="position" value="{{ $current->position }}">
+
+                <div class="space-y-2">
+                    @foreach ($current->revision->answers as $answer)
+                        <label class="flex items-center gap-3 border border-slate-200 dark:border-slate-600 hover:border-slate-400 rounded-xl px-4 py-3 cursor-pointer transition">
+                            <input type="radio" name="answer_id" value="{{ $answer->id }}" x-model="selected" class="shrink-0">
+                            <span class="text-slate-700 dark:text-slate-200">{{ $answer->answer_text }}</span>
+                        </label>
+                    @endforeach
+                </div>
+
+                <div class="flex items-center justify-between mt-6">
+                    <button type="button" onclick="toggleFavorite()" class="inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
+                        <x-icon name="star" class="w-4 h-4" /> {{ $isFavorite ? 'Favorit' : 'Als Favorit speichern' }}
+                    </button>
+                    <button type="submit" x-bind:disabled="!selected" class="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-40 hover:opacity-90 transition"
+                            style="background-color: var(--brand-primary, #005FD7)">
+                        {{ $current->position === $total ? 'Abschließen' : 'Weiter' }} <x-icon name="arrow-right" class="w-4 h-4" />
+                    </button>
+                </div>
+            </form>
+        @endif
     </div>
 
     <form id="favorite-form" method="POST" action="{{ route($isFavorite ? 'favorites.destroy' : 'favorites.store', $current->question_id) }}" class="hidden">

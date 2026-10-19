@@ -28,10 +28,12 @@
                         @php
                             $state = 'bg-white dark:bg-slate-800 border-transparent';
                             $icon = null;
+                            $wasSelected = $answer->id === $review['selectedAnswerId']
+                                || in_array($answer->id, $review['selectedAnswerIds'] ?? [], true);
                             if ($answer->is_correct) {
                                 $state = 'bg-white dark:bg-slate-800 border-emerald-500';
                                 $icon = ['check-circle', 'text-emerald-500'];
-                            } elseif ($answer->id === $review['selectedAnswerId']) {
+                            } elseif ($wasSelected) {
                                 $state = 'bg-white dark:bg-slate-800 border-rose-500';
                                 $icon = ['x-circle', 'text-rose-500'];
                             }
