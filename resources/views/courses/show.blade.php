@@ -30,15 +30,26 @@
                             <path d="M-20,156 C160,140 320,168 480,150 S760,134 820,153" stroke="white" stroke-opacity="0.06" stroke-width="1.5" />
                             <text x="565" y="30" fill="white" fill-opacity="0.16" font-size="14" font-family="sans-serif">12</text>
                             <text x="565" y="175" fill="white" fill-opacity="0.14" font-size="14" font-family="sans-serif">28</text>
-                            <g transform="translate(680,100)" stroke="white">
-                                <circle r="58" stroke-opacity="0.10" fill="none" />
-                                <circle r="44" stroke-opacity="0.13" fill="none" />
-                                <path d="M0,-44 L8,-8 L44,0 L8,8 L0,44 L-8,8 L-44,0 L-8,-8 Z" fill="white" fill-opacity="0.11" stroke="none" />
-                                <text x="0" y="-66" fill="white" fill-opacity="0.20" font-size="12" font-family="sans-serif" text-anchor="middle">N</text>
-                                <text x="0" y="76" fill="white" fill-opacity="0.20" font-size="12" font-family="sans-serif" text-anchor="middle">S</text>
-                                <text x="-69" y="4" fill="white" fill-opacity="0.20" font-size="12" font-family="sans-serif" text-anchor="middle">W</text>
-                                <text x="69" y="4" fill="white" fill-opacity="0.20" font-size="12" font-family="sans-serif" text-anchor="middle">O</text>
-                            </g>
+                            @if ($loop->first)
+                                <g transform="translate(680,100)" stroke="white">
+                                    <circle r="58" stroke-opacity="0.10" fill="none" />
+                                    <circle r="44" stroke-opacity="0.13" fill="none" />
+                                    <path d="M0,-44 L8,-8 L44,0 L8,8 L0,44 L-8,8 L-44,0 L-8,-8 Z" fill="white" fill-opacity="0.11" stroke="none" />
+                                    <text x="0" y="-66" fill="white" fill-opacity="0.20" font-size="12" font-family="sans-serif" text-anchor="middle">N</text>
+                                    <text x="0" y="76" fill="white" fill-opacity="0.20" font-size="12" font-family="sans-serif" text-anchor="middle">S</text>
+                                    <text x="-69" y="4" fill="white" fill-opacity="0.20" font-size="12" font-family="sans-serif" text-anchor="middle">W</text>
+                                    <text x="69" y="4" fill="white" fill-opacity="0.20" font-size="12" font-family="sans-serif" text-anchor="middle">O</text>
+                                </g>
+                            @else
+                                <g transform="translate(680,100)" stroke="white" fill="none" stroke-linecap="round">
+                                    <circle r="58" stroke-opacity="0.10" />
+                                    <circle cy="-52" r="10" stroke-opacity="0.20" stroke-width="2" />
+                                    <path d="M0,-42 L0,38" stroke-opacity="0.20" stroke-width="2" />
+                                    <path d="M-22,-24 L22,-24" stroke-opacity="0.20" stroke-width="2" />
+                                    <path d="M0,38 C-2,54 -24,58 -36,40" stroke-opacity="0.20" stroke-width="2" />
+                                    <path d="M0,38 C2,54 24,58 36,40" stroke-opacity="0.20" stroke-width="2" />
+                                </g>
+                            @endif
                         </svg>
                         <div class="relative">
                             <div class="text-xs font-semibold tracking-wide uppercase" style="color: var(--brand-secondary, #6EE7E0)">{{ $loop->first ? 'Dein nächster Schritt' : 'Dein Teilkurs' }}</div>
