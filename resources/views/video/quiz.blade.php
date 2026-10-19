@@ -5,6 +5,9 @@
                class="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 shrink-0">
                 <x-icon name="chevron-right" class="w-4 h-4 rotate-180" />
             </a>
+            @php
+                $linkParams = fn (array $extra = []) => array_filter(array_merge(['course' => $course, 'lesson' => $lesson, 'kapitel' => $moduleIds ? implode(',', $moduleIds) : null, 'questions' => $questionsParam], $extra));
+            @endphp
             <div class="flex-1">
                 <div class="text-xs text-slate-400">{{ $lesson->title }}</div>
                 <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Fragen zum Video</h2>
@@ -24,7 +27,7 @@
 
         <h3 class="text-lg font-medium text-slate-800 dark:text-white mb-4">{{ $revision->question_text }}</h3>
 
-        <form method="POST" action="{{ route('video.quiz.answer', array_filter(['course' => $course, 'lesson' => $lesson, 'position' => $position, 'kapitel' => $moduleIds ? implode(',', $moduleIds) : null])) }}" x-data="{ selected: {{ $selectedAnswerId ? "'{$selectedAnswerId}'" : 'null' }} }">
+        <form method="POST" action="{{ route('video.quiz.answer', $linkParams(['position' => $position])) }}" x-data="{ selected: {{ $selectedAnswerId ? "'{$selectedAnswerId}'" : 'null' }} }">
             @csrf
 
             <div class="space-y-2">
@@ -83,17 +86,15 @@
             </div>
             <div class="flex justify-end mt-4">
                 @if ($position < $total)
-                    <a href="{{ route('video.quiz.show', array_filter(['course' => $course, 'lesson' => $lesson, 'position' => $position + 1, 'kapitel' => $moduleIds ? implode(',', $moduleIds) : null])) }}"
+                    <a href="{{ route('video.quiz.show', $linkParams(['position' => $position + 1])) }}"
                        class="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
                         Nächste Frage <x-icon name="arrow-right" class="w-4 h-4" />
                     </a>
                 @else
-                    <form method="POST" action="{{ route('video.complete', array_filter(['course' => $course, 'lesson' => $lesson, 'kapitel' => $moduleIds ? implode(',', $moduleIds) : null])) }}">
-                        @csrf
-                        <button type="submit" class="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
-                            {{ $next ? 'Nächstes Video' : 'Kurs abschließen' }} <x-icon name="arrow-right" class="w-4 h-4" />
-                        </button>
-                    </form>
+                    <a href="{{ route('video.quiz.result', $linkParams()) }}"
+                       class="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
+                        Auswertung anzeigen <x-icon name="arrow-right" class="w-4 h-4" />
+                    </a>
                 @endif
             </div>
         @endif

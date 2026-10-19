@@ -55,6 +55,7 @@ Route::middleware(['auth', 'tenant.member'])->group(function () {
     Route::get('/courses/{course}/video/{lesson}', [VideoCourseController::class, 'show'])->name('video.show');
     Route::post('/courses/{course}/video/{lesson}/complete', [VideoCourseController::class, 'complete'])->name('video.complete');
 
+    Route::get('/courses/{course}/video/{lesson}/questions/result', [VideoQuizController::class, 'result'])->name('video.quiz.result');
     Route::get('/courses/{course}/video/{lesson}/questions/{position}', [VideoQuizController::class, 'show'])->name('video.quiz.show')->where('position', '[0-9]+');
     Route::post('/courses/{course}/video/{lesson}/questions/{position}', [VideoQuizController::class, 'answer'])->name('video.quiz.answer')->where('position', '[0-9]+');
 

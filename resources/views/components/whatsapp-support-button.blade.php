@@ -20,7 +20,8 @@
     // die Video-Steuerleiste. Dort wird es stattdessen rechtsbündig im
     // Footer gerendert (siehe components/site-footer.blade.php).
     $isFooterWhatsappPage = request()->routeIs(
-        'learning.show', 'learning.attempts.store', 'video.index', 'video.show', 'video.quiz.show', 'video.quiz.answer'
+        'learning.show', 'learning.attempts.store', 'video.index', 'video.show',
+        'video.quiz.show', 'video.quiz.answer', 'video.quiz.result'
     );
 @endphp
 @if ($waLink && ! $isCoursesIndex && ! $isFooterWhatsappPage)

@@ -150,9 +150,9 @@ class VideoCourseTest extends TestCase
         );
         $answerResponse->assertOk();
         $answerResponse->assertSee('Richtig!');
-        // Letzte (und einzige) Frage beantwortet -> der Abschluss-Button
-        // führt jetzt direkt zum nächsten Video statt zurück zum Video.
-        $answerResponse->assertSee('Nächstes Video');
+        // Letzte (und einzige) Frage beantwortet -> führt jetzt zur
+        // Auswertungsseite statt direkt zum nächsten Video.
+        $answerResponse->assertSee('Auswertung anzeigen');
 
         $this->assertDatabaseHas('attempt', [
             'tenant_id' => $tenant->id,
@@ -162,6 +162,13 @@ class VideoCourseTest extends TestCase
             'context' => 'video_quiz',
             'correct' => true,
         ]);
+
+        $resultPage = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/video/{$firstLesson->id}/questions/result");
+        $resultPage->assertOk();
+        $resultPage->assertSee('Du hast 1 von 1 Fragen richtig beantwortet!');
+        $resultPage->assertSee($revision->question_text);
+        // Alles richtig -> "Nur falsche Fragen erneut versuchen" ist nicht anklickbar.
+        $resultPage->assertDontSee(route('video.quiz.show', ['course' => $course, 'lesson' => $firstLesson, 'position' => 1, 'questions' => $question->id]), false);
 
         $completeResponse = $this->actingAsInTenant($learner, $tenant)->post(
             "/courses/{$course->id}/video/{$firstLesson->id}/complete"
@@ -173,6 +180,43 @@ class VideoCourseTest extends TestCase
             'video_lesson_id' => $firstLesson->id,
             'completed' => true,
         ]);
+    }
+
+    public function test_the_result_page_lets_the_learner_retry_only_the_wrong_questions(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $firstLesson] = $this->makeIsolatedVideoCourse();
+        $this->grantEntitlement($tenant, $learner, $course);
+        [$question, $revision, $correctAnswer, $wrongAnswer] = $this->attachIsolatedQuestion($firstLesson);
+
+        $this->actingAsInTenant($learner, $tenant)->post(
+            "/courses/{$course->id}/video/{$firstLesson->id}/questions/1",
+            ['answer_id' => $wrongAnswer->id]
+        );
+
+        $resultPage = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/video/{$firstLesson->id}/questions/result");
+        $resultPage->assertOk();
+        $resultPage->assertSee('Du hast 0 von 1 Fragen richtig beantwortet!');
+        $retryWrongUrl = route('video.quiz.show', ['course' => $course, 'lesson' => $firstLesson, 'position' => 1, 'questions' => $question->id]);
+        $resultPage->assertSee($retryWrongUrl, false);
+
+        $retryPage = $this->actingAsInTenant($learner, $tenant)->get($retryWrongUrl);
+        $retryPage->assertOk();
+        $retryPage->assertSee($revision->question_text);
+
+        $retryAnswer = $this->actingAsInTenant($learner, $tenant)->post(
+            "/courses/{$course->id}/video/{$firstLesson->id}/questions/1?questions={$question->id}",
+            ['answer_id' => $correctAnswer->id]
+        );
+        $retryAnswer->assertOk();
+        $retryAnswer->assertSee('Richtig!');
+
+        $finalResult = $this->actingAsInTenant($learner, $tenant)->get(
+            "/courses/{$course->id}/video/{$firstLesson->id}/questions/result?questions={$question->id}"
+        );
+        $finalResult->assertOk();
+        $finalResult->assertSee('Du hast 1 von 1 Fragen richtig beantwortet!');
     }
 
     public function test_the_video_quiz_requires_an_active_entitlement(): void
@@ -215,7 +259,7 @@ class VideoCourseTest extends TestCase
         $this->assertDatabaseMissing('video_lesson_question', ['video_lesson_id' => $firstLesson->id, 'question_id' => $question->id]);
     }
 
-    /** @return array{0: ContentQuestion, 1: ContentQuestionRevision, 2: ContentAnswer} */
+    /** @return array{0: ContentQuestion, 1: ContentQuestionRevision, 2: ContentAnswer, 3: ContentAnswer} */
     private function attachIsolatedQuestion(VideoLesson $lesson): array
     {
         return $this->onAdmin(function () use ($lesson) {
@@ -238,13 +282,13 @@ class VideoCourseTest extends TestCase
             $correctAnswer = ContentAnswer::create([
                 'revision_id' => $revision->id, 'answer_key' => 'A', 'answer_text' => 'Rechte Schiffsseite', 'is_correct' => true, 'sort_order' => 1,
             ]);
-            ContentAnswer::create([
+            $wrongAnswer = ContentAnswer::create([
                 'revision_id' => $revision->id, 'answer_key' => 'B', 'answer_text' => 'Linke Schiffsseite', 'is_correct' => false, 'sort_order' => 2,
             ]);
 
             $lesson->questions()->attach($question->id, ['sort_order' => 1]);
 
-            return [$question, $revision, $correctAnswer];
+            return [$question, $revision, $correctAnswer, $wrongAnswer];
         });
     }
 
