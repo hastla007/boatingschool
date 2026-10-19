@@ -43,6 +43,9 @@ class SeemannschaftVideoSeeder extends Seeder
         ],
         'Berufsschifffahrt' => [
             ['Seeverkehrsrecht', 289],
+            ['Seefunk', 194],
+            ['Verkehrstrennungsgebiete', 87],
+            ['Schallsignale', 110],
         ],
     ];
 

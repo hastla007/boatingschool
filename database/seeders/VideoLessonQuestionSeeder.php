@@ -107,6 +107,17 @@ class VideoLessonQuestionSeeder extends Seeder
                 'Wo gelten die Kollisionsverhütungsregeln (KVR)?',
                 'Was gilt, wenn eine Bestimmung der Seeschifffahrtsstraßen-Ordnung (SeeSchStrO) mit den Kollisionsverhütungsregeln (KVR) im Widerspruch steht?',
             ],
+            'Seefunk' => [
+                'Wozu dient primär das Automatische Identifikationssystem (AIS)?',
+                'Welche Informationen können über das Automatische Identifikationssystem (AIS) ausgetauscht werden?',
+            ],
+            'Verkehrstrennungsgebiete' => [
+                'Was sind "Verkehrstrennungsgebiete"?',
+                'Wie sind Verkehrstrennungsgebiete zu befahren?',
+            ],
+            'Schallsignale' => [
+                'Wie lang ist die Dauer eines kurzen Tons ( )?',
+            ],
         ],
     ];
 
