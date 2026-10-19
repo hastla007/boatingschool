@@ -62,7 +62,7 @@
                 <div x-data="{ open: false }" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden">
                     <button type="button" x-on:click="open = !open"
                             class="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
-                        <span class="flex-1 font-medium text-slate-700 dark:text-slate-200">Trainer für die praktische Prüfung SBF See</span>
+                        <span class="flex-1 font-medium text-slate-700 dark:text-slate-200">Trainer für die praktische Prüfung SBF</span>
                         <x-icon name="chevron-right" class="w-4 h-4 text-slate-400 shrink-0 transition-transform" x-bind:class="open ? 'rotate-90' : ''" />
                     </button>
                     <div x-show="open" x-transition class="px-4 pb-4 grid sm:grid-cols-2 gap-2">
