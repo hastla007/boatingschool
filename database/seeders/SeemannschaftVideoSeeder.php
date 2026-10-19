@@ -22,6 +22,7 @@ class SeemannschaftVideoSeeder extends Seeder
     /** @var array<int, array{0: string, 1: string}> [Neues Kapitel, Titel des Kapitels davor]. */
     private const NEW_CHAPTERS = [
         ['Berufsschifffahrt', 'Ausweichregeln'],
+        ['Leuchtfeuer und Tonnen', 'Lichter und Signale'],
     ];
 
     /** @var array<string, array<int, array{0: string, 1: int}>> Kapitel => [Lektion, Dauer in Sekunden]. */
@@ -50,6 +51,9 @@ class SeemannschaftVideoSeeder extends Seeder
         'Lichter und Signale' => [
             ['Spezialfälle', 454],
             ['Signalkörper und Flaggen', 206],
+        ],
+        'Leuchtfeuer und Tonnen' => [
+            ['Feuerarten und Kennungen', 249],
         ],
     ];
 

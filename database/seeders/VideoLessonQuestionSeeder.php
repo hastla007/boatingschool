@@ -138,6 +138,15 @@ class VideoLessonQuestionSeeder extends Seeder
                 ['media' => 'Signalkoerper-Frage-104-gif.png'],
                 ['media' => 'Signalkoerper-Frage-106-gif.png'],
                 ['media' => 'Signalkoerper-Frage-109-gif.png'],
+                ['media' => 'Signalkoerper-Frage-112-gif.png'],
+            ],
+        ],
+        'Leuchtfeuer und Tonnen' => [
+            'Feuerarten und Kennungen' => [
+                'Was versteht man unter einem unterbrochenen Feuer?',
+                'Was versteht man unter einem Blinkfeuer?',
+                'Was versteht man unter einem Blitzfeuer?',
+                'Was versteht man unter einem Funkelfeuer?',
             ],
         ],
     ];
