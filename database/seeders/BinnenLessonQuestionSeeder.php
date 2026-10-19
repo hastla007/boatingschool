@@ -70,6 +70,13 @@ class BinnenLessonQuestionSeeder extends Seeder
             ],
             'Signalkörper und Lichter bei Nacht' => [
                 'Was bedeutet auf einem Fahrzeug ein blaues Licht?',
+                'Was bedeuten auf einem Fahrzeug zwei blaue Lichter übereinander?',
+                'Was bedeuten auf einem Fahrzeug drei blaue Lichter übereinander?',
+            ],
+            'Schallsignale' => [
+                ['question' => 'Welche Bedeutung hat folgendes Schallsignal?', 'correct_answer' => 'Bleib-weg-Signal, Gefahrenbereich sofort verlassen.'],
+                'Was bedeuten vier kurze Töne?',
+                'Was bedeuten fünf kurze Töne?',
             ],
         ],
     ];
