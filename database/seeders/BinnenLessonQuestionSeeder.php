@@ -77,6 +77,17 @@ class BinnenLessonQuestionSeeder extends Seeder
                 ['question' => 'Welche Bedeutung hat folgendes Schallsignal?', 'correct_answer' => 'Bleib-weg-Signal, Gefahrenbereich sofort verlassen.'],
                 'Was bedeuten vier kurze Töne?',
                 'Was bedeuten fünf kurze Töne?',
+                ['question' => 'Was bedeutet dieses Schallsignal?', 'correct_answer' => 'Überholen an der Steuerbordseite des Vorausfahrenden.'],
+                ['question' => 'Was bedeutet dieses Schallsignal?', 'correct_answer' => 'Überholen an der Backbordseite des Vorausfahrenden.'],
+                'Was ist eine Folge sehr kurzer Töne?',
+            ],
+            'Notfallsignale' => [
+                'Was ist vorrangig zu beachten, wenn eine Jolle gekentert ist und sie nicht wieder aufgerichtet werden kann?',
+            ],
+        ],
+        'Bootsführung und Bordtechnik' => [
+            'Liegen und Fahren' => [
+                ['question' => 'Welche Bedeutung haben folgende Tafelzeichen?', 'correct_answer' => 'Festmache- und Liegeverbot.'],
             ],
         ],
     ];
