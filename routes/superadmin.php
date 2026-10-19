@@ -11,6 +11,7 @@ use App\Http\Controllers\Superadmin\TenantController;
 use App\Http\Controllers\Superadmin\TipCategoryController;
 use App\Http\Controllers\Superadmin\TipController;
 use App\Http\Controllers\Superadmin\UserController;
+use App\Http\Controllers\Superadmin\VideoLessonController;
 use Illuminate\Support\Facades\Route;
 
 /**
@@ -42,6 +43,10 @@ Route::middleware(['auth', 'superadmin', 'admin-db'])->prefix('superadmin')->nam
     Route::patch('/courses/{course}', [CourseEditorController::class, 'update'])->name('courses.update');
     Route::post('/courses/{course}/modules', [CourseEditorController::class, 'attachModule'])->name('courses.modules.attach');
     Route::delete('/courses/{course}/modules/{module}', [CourseEditorController::class, 'detachModule'])->name('courses.modules.detach');
+
+    Route::get('/video-lessons/{lesson}', [VideoLessonController::class, 'show'])->name('video-lessons.show');
+    Route::post('/video-lessons/{lesson}/questions', [VideoLessonController::class, 'attachQuestion'])->name('video-lessons.questions.attach');
+    Route::delete('/video-lessons/{lesson}/questions/{question}', [VideoLessonController::class, 'detachQuestion'])->name('video-lessons.questions.detach');
 
     Route::get('/modules', [ModuleController::class, 'index'])->name('modules.index');
     Route::post('/modules', [ModuleController::class, 'store'])->name('modules.store');

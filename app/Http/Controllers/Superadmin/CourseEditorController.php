@@ -43,6 +43,7 @@ class CourseEditorController extends Controller
     public function show(CourseDefinition $course): View
     {
         $course->loadMissing(['modules' => fn ($q) => $q->withCount('questions')]);
+        $course->loadMissing(['videoModules' => fn ($q) => $q->with(['lessons' => fn ($l) => $l->withCount('questions')])]);
 
         $availableModules = Module::whereNotIn('id', $course->modules->pluck('id'))->orderBy('name')->get();
 

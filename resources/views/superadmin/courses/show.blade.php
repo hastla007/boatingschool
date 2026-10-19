@@ -71,5 +71,28 @@
                 </form>
             @endif
         </div>
+
+        @if ($course->videoModules->isNotEmpty())
+            <div class="lg:col-span-3 bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
+                <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3">Videokurs dieses Kurses</h3>
+                <p class="text-xs text-slate-400 mb-3">Pro Lektion lassen sich Fragen aus der zentralen Fragenbasis als "Zu den Fragen"-Quiz nach dem Video hinterlegen.</p>
+                <div class="space-y-4">
+                    @foreach ($course->videoModules as $videoModule)
+                        <div>
+                            <div class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-1.5">{{ $videoModule->title }}</div>
+                            <div class="space-y-1">
+                                @foreach ($videoModule->lessons as $lesson)
+                                    <a href="{{ route('superadmin.video-lessons.show', $lesson) }}"
+                                       class="flex items-center justify-between border border-slate-100 dark:border-slate-700 rounded-xl px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
+                                        <span class="text-slate-700 dark:text-slate-200">{{ $lesson->title }}</span>
+                                        <span class="text-xs text-slate-400">{{ $lesson->questions_count }} {{ $lesson->questions_count === 1 ? 'Frage' : 'Fragen' }}</span>
+                                    </a>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        @endif
     </div>
 </x-superadmin-layout>

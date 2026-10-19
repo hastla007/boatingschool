@@ -42,7 +42,7 @@ class VideoCourseController extends Controller
         $next = $lessons->get($currentIndex + 1);
 
         $completedCount = $progress->filter(fn ($p) => $p->completed)->count();
-        $lesson->load('steps');
+        $lesson->load('steps', 'questions');
 
         // Kombikurse zeigen im Player-Header den Namen des gerade aktiven
         // Teilkurses (z. B. "SBF See") statt des Kombikurs-Gesamtnamens.

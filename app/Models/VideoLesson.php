@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class VideoLesson extends Model
@@ -25,6 +26,14 @@ class VideoLesson extends Model
     public function steps(): HasMany
     {
         return $this->hasMany(VideoLessonStep::class, 'video_lesson_id')->orderBy('sort_order');
+    }
+
+    /** "Zu den Fragen"-Quiz nach dem Video (siehe VideoQuizController). */
+    public function questions(): BelongsToMany
+    {
+        return $this->belongsToMany(ContentQuestion::class, 'video_lesson_question', 'video_lesson_id', 'question_id')
+            ->withPivot('sort_order')
+            ->orderBy('video_lesson_question.sort_order');
     }
 
     public function formattedDuration(): string
