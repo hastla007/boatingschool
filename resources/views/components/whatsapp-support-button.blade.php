@@ -14,8 +14,13 @@
     // Kachelraster selbst gerendert (siehe courses/index.blade.php), damit es
     // automatisch in eine freie Zelle statt auf eine Kachel fällt.
     $isCoursesIndex = request()->routeIs('courses.index');
+
+    // Auf den Smart-Learning-Fragenseiten überlappt das fest positionierte
+    // Widget den "Antworten"-Button. Dort wird es stattdessen rechtsbündig
+    // im Footer gerendert (siehe components/site-footer.blade.php).
+    $isLearningQuestionPage = request()->routeIs('learning.show', 'learning.attempts.store');
 @endphp
-@if ($waLink && ! $isCoursesIndex)
+@if ($waLink && ! $isCoursesIndex && ! $isLearningQuestionPage)
     <a href="{{ $waLink }}" target="_blank" rel="noopener"
        class="fixed bottom-[135px] right-5 z-40 inline-flex items-center gap-2 pl-3 pr-4 py-3 rounded-full shadow-lg text-white text-sm font-medium hover:opacity-90 transition max-w-[calc(100vw-2.5rem)]"
        style="background-color: #25D366"
