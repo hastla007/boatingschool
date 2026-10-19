@@ -8,9 +8,9 @@ use Carbon\Carbon;
 use Tests\TestCase;
 
 /**
- * "Gefestigt" zählt 3 richtige Antworten insgesamt, nicht in Folge -- ein
- * zwischenzeitlicher Fehler reißt den Streak ab, aber nicht den Fortschritt
- * Richtung Mastery (siehe MasteryCalculator::learningState()).
+ * "Gefestigt" erfordert 3 richtige Antworten in Folge -- ein
+ * zwischenzeitlicher Fehler reißt den Streak ab und damit auch den
+ * Fortschritt Richtung Mastery (siehe MasteryCalculator::learningState()).
  */
 class MasteryCalculatorTest extends TestCase
 {
@@ -40,21 +40,22 @@ class MasteryCalculatorTest extends TestCase
         $this->assertSame('gefestigt', $progress->learning_state);
     }
 
-    public function test_three_correct_answers_with_a_wrong_answer_in_between_are_also_mastered(): void
+    public function test_three_correct_answers_with_a_wrong_answer_in_between_are_not_yet_mastered(): void
     {
         $progress = $this->freshProgress();
         $calculator = new MasteryCalculator();
         $now = Carbon::now();
 
         // Richtig, falsch (Streak reißt ab), richtig, richtig -> insgesamt
-        // 3 richtige Antworten, aber kein Streak von 3 am Stück.
+        // 3 richtige Antworten, aber nur ein Streak von 2 am Stück -- noch
+        // nicht gefestigt, da die Serie nicht ununterbrochen ist.
         foreach ([true, false, true, true] as $correct) {
             $calculator->apply($progress, $correct, $now);
         }
 
         $this->assertSame(3, $progress->correct_count);
         $this->assertSame(2, $progress->current_streak);
-        $this->assertSame('gefestigt', $progress->learning_state);
+        $this->assertNotSame('gefestigt', $progress->learning_state);
     }
 
     public function test_two_correct_answers_are_not_yet_mastered(): void
