@@ -33,6 +33,13 @@ class BinnenLessonQuestionSeeder extends Seeder
             'Rechtliche Bestimmungen' => [
                 'Wo findet man die allgemeinen Verkehrsregeln für die Binnenschifffahrtsstraßen und den Rhein?',
                 'Wo findet man die allgemeinen Verkehrsregeln für die Mosel und die Donau?',
+                'Wo findet man Regeln für den Verkehr von Wassermotorrädern und für das Wasserskilaufen?',
+            ],
+            'Orientierung auf Wasserstraßen' => [
+                'Was versteht man unter "Fahrwasser"?',
+                'Was versteht man unter "Fahrrinne"?',
+                'In welche Richtung werden bei Flüssen die Uferseiten als rechtes bzw. linkes Ufer bezeichnet?',
+                'Was bedeutet "zu Berg" oder "Bergfahrt" auf Flüssen?',
             ],
         ],
     ];
