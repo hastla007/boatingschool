@@ -147,6 +147,13 @@ class VideoLessonQuestionSeeder extends Seeder
                 'Was versteht man unter einem Blinkfeuer?',
                 'Was versteht man unter einem Blitzfeuer?',
                 'Was versteht man unter einem Funkelfeuer?',
+                'Was versteht man unter einem Gleichtaktfeuer?',
+            ],
+            'Sektorenfeuer' => [
+                'Was versteht man unter einem Leitfeuer?',
+                'Wie navigiert man mittels eines Leitfeuers?',
+                'Was versteht man unter einem Richtfeuer?',
+                'Was versteht man unter einem Quermarkenfeuer?',
             ],
         ],
     ];
