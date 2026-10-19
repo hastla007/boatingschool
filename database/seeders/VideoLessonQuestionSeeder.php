@@ -42,6 +42,17 @@ class VideoLessonQuestionSeeder extends Seeder
                 'Weshalb ist die Kenntnis der Propellerdrehrichtung von Bedeutung?',
                 'Welche Anlegeseite ist mit rechtsdrehendem Propeller empfehlenswert und warum?',
             ],
+            'Lebensgefahr im Wasser' => [
+                'In welcher Situation dürfen Notsignale gegeben werden?',
+            ],
+            'Tanken' => [
+                'Was muss beim Tanken beachtet werden?',
+            ],
+            'Umweltschutz' => [
+                'Welches Merkblatt enthält Hinweise für das Verhalten zum Schutz seltener Tiere und Pflanzen sowie zur Reinhaltung der Gewässer?',
+                'Wie kann mitgeholfen werden, die Lebensmöglichkeiten der Pflanzen- und Tierwelt in Gewässern und Feuchtgebieten zu bewahren und zu fördern?',
+                'Warum sollte man sich von Schilf- und Röhrichtzonen sowie von dicht bewachsenen Uferzonen möglichst weit fernhalten?',
+            ],
         ],
     ];
 
