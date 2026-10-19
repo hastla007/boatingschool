@@ -32,7 +32,7 @@
                 ];
             @endphp
             @if (isset($addonCopy[$course->code]))
-                @php($copy = $addonCopy[$course->code])
+                @php $copy = $addonCopy[$course->code]; @endphp
                 <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
                     Hier findest Du alle {{ $paperStats->count() }} offiziellen Ergänzungsbögen für den Kurs „{{ $copy['kurs'] }}&quot;. Die
                     Bögen haben immer die gleiche Zusammensetzung, sodass Du Dich gezielt und effizient vorbereiten kannst.
@@ -54,7 +54,7 @@
                     (Quelle: seeundbinnen.de).
                 </p>
             @elseif (isset($fullCourseCopy[$course->code]))
-                @php($copy = $fullCourseCopy[$course->code])
+                @php $copy = $fullCourseCopy[$course->code]; @endphp
                 <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
                     Hier findest Du alle {{ $paperStats->count() }} offiziellen Prüfungsbögen für diesen Kurs. Die
                     Bögen haben immer die gleiche Zusammensetzung, sodass Du Dich gezielt und effizient vorbereiten kannst.
@@ -84,11 +84,17 @@
             <x-icon name="arrow-right" class="w-4 h-4 text-white/70 shrink-0" />
         </a>
 
-        @php($groupedStats = $paperStats->groupBy('group'))
+        @php
+            $groupedStats = $paperStats->groupBy('group');
+            $lastGroupLabel = $groupedStats->keys()->last();
+            $waLink = (isset($branding) && auth()->check())
+                ? \App\Support\WhatsAppLink::for($branding, auth()->user(), $course)
+                : null;
+        @endphp
         @foreach ($groupedStats as $groupLabel => $statsInGroup)
             <div>
                 <h4 class="font-medium text-slate-700 dark:text-slate-200 mb-3">{{ $groupLabel ?: $course->name }}</h4>
-                <div class="grid grid-cols-3 sm:grid-cols-5 gap-3">
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                     @foreach ($statsInGroup as $stat)
                         <form method="POST" action="{{ route('exam.papers.start', ['course' => $course, 'paper' => $stat['paper']]) }}">
                             @csrf
@@ -105,6 +111,18 @@
                             </button>
                         </form>
                     @endforeach
+
+                    @if ($waLink && $groupLabel === $lastGroupLabel)
+                        <div class="flex items-center justify-center">
+                            <a href="{{ $waLink }}" target="_blank" rel="noopener"
+                               class="inline-flex items-center gap-2 pl-3 pr-4 py-3 rounded-full shadow-lg text-white text-sm font-medium hover:opacity-90 transition"
+                               style="background-color: #25D366"
+                               title="WhatsApp Support - {{ $currentTenant->name }}">
+                                <x-whatsapp-icon class="w-6 h-6 shrink-0" />
+                                <span class="hidden sm:inline truncate">{{ $currentTenant->name }}</span>
+                            </a>
+                        </div>
+                    @endif
                 </div>
             </div>
         @endforeach

@@ -23,8 +23,20 @@
         'learning.show', 'learning.attempts.store', 'video.index', 'video.show',
         'video.quiz.show', 'video.quiz.answer', 'video.quiz.result'
     );
+
+    // exam.intro rendert je nach Kurs entweder die Bogen-Kachelübersicht
+    // (exam/papers.blade.php, nur wenn echte Prüfungsbögen vorliegen) oder
+    // die schlichte Regelwerk-Seite (exam/intro.blade.php) -- nur bei der
+    // Kachelübersicht würde das fest positionierte Widget je nach
+    // Scrollposition eine Bogen-Kachel überlappen. Dort wird es daher wie
+    // auf der Kursübersicht direkt im letzten Kachelraster gerendert, damit
+    // es automatisch in eine freie Zelle statt auf eine Kachel fällt.
+    $examCourse = request()->route('course');
+    $isExamPapersPage = request()->routeIs('exam.intro')
+        && $examCourse instanceof \App\Models\CourseDefinition
+        && $examCourse->examPapers()->exists();
 @endphp
-@if ($waLink && ! $isCoursesIndex && ! $isFooterWhatsappPage)
+@if ($waLink && ! $isCoursesIndex && ! $isFooterWhatsappPage && ! $isExamPapersPage)
     <a href="{{ $waLink }}" target="_blank" rel="noopener"
        class="fixed bottom-[135px] right-5 z-40 inline-flex items-center gap-2 pl-3 pr-4 py-3 rounded-full shadow-lg text-white text-sm font-medium hover:opacity-90 transition max-w-[calc(100vw-2.5rem)]"
        style="background-color: #25D366"
