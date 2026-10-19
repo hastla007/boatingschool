@@ -46,6 +46,13 @@ class BinnenLessonQuestionSeeder extends Seeder
                 'Welche Fahrrinnenseite hat ein Bergfahrer an seiner Steuerbordseite und wie ist diese gekennzeichnet?',
                 'Welche Fahrrinnenseite hat ein Talfahrer an seiner Backbordseite?',
             ],
+            'Bedeutung von Tonnen' => [
+                'Was bedeutet eine rot-grün gestreifte Tonne oder Schwimmstange und was ist zu beachten?',
+                'Mit welchen Zeichen werden Hindernisse wie zum Beispiel Buhnen und Kribben an der rechten Seite der Wasserstraße bezeichnet?',
+                'Was kennzeichnet eine grün-weiß gestreifte Schwimmstange mit grünem Kegel, Spitze nach oben, oder eine grüne Tonne mit grün-weiß gestreiftem Aufsatz mit grünem Kegel, Spitze nach oben?',
+                'Ein Fahrzeug fährt in der Fahrrinne gegen den Strom. Voraus liegt eine grüne Tonne. Auf welcher Fahrrinnenseite befindet sich diese Tonne und an welcher Schiffsseite muss diese Tonne passiert werden?',
+                'Welche Funktion haben gelbe Tonnen mit einem Radarreflektor vor Brückenpfeilern?',
+            ],
         ],
     ];
 
