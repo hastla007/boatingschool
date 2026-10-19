@@ -49,6 +49,7 @@ class SeemannschaftVideoSeeder extends Seeder
         ],
         'Lichter und Signale' => [
             ['Spezialfälle', 454],
+            ['Signalkörper und Flaggen', 206],
         ],
     ];
 

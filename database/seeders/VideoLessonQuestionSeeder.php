@@ -132,6 +132,13 @@ class VideoLessonQuestionSeeder extends Seeder
                 ['media' => 'Lichter-Frage-110-gif.png'],
                 ['media' => 'Lichter-Frage-111-gif.png'],
             ],
+            'Signalkörper und Flaggen' => [
+                'Was bedeutet es, wenn jedes Fahrzeug eines Schleppverbandes einen schwarzen Rhombus führt?',
+                ['media' => 'Signalkoerper-Frage-99-gif.png'],
+                ['media' => 'Signalkoerper-Frage-104-gif.png'],
+                ['media' => 'Signalkoerper-Frage-106-gif.png'],
+                ['media' => 'Signalkoerper-Frage-109-gif.png'],
+            ],
         ],
     ];
 
