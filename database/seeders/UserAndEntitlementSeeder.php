@@ -18,6 +18,7 @@ class UserAndEntitlementSeeder extends Seeder
             ['name' => 'Anna Meyer', 'email' => 'admin@bootsschule-mueller.de', 'role' => 'admin'],
         ], [
             ['name' => 'Max Mustermann', 'email' => 'max@bootsschule-mueller.de', 'course' => 'SBF-SEE'],
+            ['name' => 'Max Mustermann', 'email' => 'max@bootsschule-mueller.de', 'course' => 'SBF-SEE-BIN'],
             ['name' => 'Erika Schmidt', 'email' => 'erika@bootsschule-mueller.de', 'course' => 'SBF-BIN-MOTOR'],
         ]);
 

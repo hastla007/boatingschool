@@ -19,7 +19,27 @@
     </div>
 
     <div class="grid lg:grid-cols-[1fr_320px] gap-4 mb-6">
-        @if ($hasVideoCourse)
+        @if ($comboVideoGroups->isNotEmpty())
+            <div class="flex flex-col gap-4">
+                @foreach ($comboVideoGroups as $group)
+                    <a href="{{ route('video.index', $course) }}?kapitel={{ $group['moduleIds']->implode(',') }}" class="relative rounded-2xl p-5 text-white overflow-hidden hover:opacity-95 transition"
+                       style="background: linear-gradient(135deg, color-mix(in srgb, {{ $loop->first ? 'var(--brand-primary, #005FD7)' : 'var(--brand-secondary, #00A8A8)' }} 90%, #001233), color-mix(in srgb, {{ $loop->first ? 'var(--brand-primary, #005FD7)' : 'var(--brand-secondary, #00A8A8)' }} 45%, #001233));">
+                        <div class="relative">
+                            <div class="text-xs font-semibold tracking-wide uppercase" style="color: var(--brand-secondary, #6EE7E0)">{{ $loop->first ? 'Dein nächster Schritt' : 'Dein Teilkurs' }}</div>
+                            <div class="font-bold text-lg mt-1">{{ $group['label'] }}</div>
+                            <div class="text-white/70 text-sm">Dein Videokurs für {{ $group['label'] }}</div>
+                            <div class="text-white/90 text-sm mt-3">Kursfortschritt {{ $group['percent'] }}&nbsp;%</div>
+                            <div class="w-full bg-white/20 rounded-full h-1.5 mt-1 max-w-xs">
+                                <div class="h-1.5 rounded-full bg-white" style="width: {{ $group['percent'] }}%"></div>
+                            </div>
+                            <div class="inline-flex items-center gap-1 mt-3 bg-white rounded-lg px-4 py-2 text-sm font-semibold" style="color: var(--brand-primary, #005FD7)">
+                                {{ $group['percent'] >= 100 ? 'Abgeschlossen' : 'Weiterschauen' }} <x-icon name="arrow-right" class="w-3.5 h-3.5" />
+                            </div>
+                        </div>
+                    </a>
+                @endforeach
+            </div>
+        @elseif ($hasVideoCourse)
             <a href="{{ route('video.index', $course) }}" class="relative rounded-2xl p-6 text-white overflow-hidden hover:opacity-95 transition"
                style="background: linear-gradient(135deg, color-mix(in srgb, var(--brand-primary, #005FD7) 90%, #001233), color-mix(in srgb, var(--brand-primary, #005FD7) 45%, #001233));">
                 <svg class="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 800 200" preserveAspectRatio="xMidYMid slice" fill="none">
@@ -168,6 +188,54 @@
                     <div class="text-xs text-slate-400 mb-1">{{ $praxisPercent }}% angesehen</div>
                     <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5">
                         <div class="h-1.5 rounded-full" style="width: {{ $praxisPercent }}%; background-color: var(--brand-secondary, #00A8A8)"></div>
+                    </div>
+                </div>
+                <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />
+            </a>
+        @endif
+
+        @if ($grundlagenModuleId)
+            <a href="{{ route('video.index', $course) }}?kapitel={{ $grundlagenModuleId }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-4 hover:shadow-md transition">
+                <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="{{ $tileIconBg }}">
+                    <x-icon name="book-open" class="w-5 h-5" style="{{ $tileIconColor }}" />
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="font-semibold text-slate-800 dark:text-white">Grundlagen</div>
+                    <div class="text-xs text-slate-400 mb-1">{{ $grundlagenPercent }}% angesehen</div>
+                    <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5">
+                        <div class="h-1.5 rounded-full" style="width: {{ $grundlagenPercent }}%; background-color: var(--brand-secondary, #00A8A8)"></div>
+                    </div>
+                </div>
+                <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />
+            </a>
+        @endif
+
+        @if ($lichterModuleId)
+            <a href="{{ route('video.index', $course) }}?kapitel={{ $lichterModuleId }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-4 hover:shadow-md transition">
+                <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="{{ $tileIconBg }}">
+                    <x-icon name="light-bulb" class="w-5 h-5" style="{{ $tileIconColor }}" />
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="font-semibold text-slate-800 dark:text-white">Lichter, Zeichen und Töne</div>
+                    <div class="text-xs text-slate-400 mb-1">{{ $lichterPercent }}% angesehen</div>
+                    <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5">
+                        <div class="h-1.5 rounded-full" style="width: {{ $lichterPercent }}%; background-color: var(--brand-secondary, #00A8A8)"></div>
+                    </div>
+                </div>
+                <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />
+            </a>
+        @endif
+
+        @if ($bootsfuehrungModuleId)
+            <a href="{{ route('video.index', $course) }}?kapitel={{ $bootsfuehrungModuleId }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-4 hover:shadow-md transition">
+                <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="{{ $tileIconBg }}">
+                    <x-icon name="anchor" class="w-5 h-5" style="{{ $tileIconColor }}" />
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="font-semibold text-slate-800 dark:text-white">Bootsführung und Bordtechnik</div>
+                    <div class="text-xs text-slate-400 mb-1">{{ $bootsfuehrungPercent }}% angesehen</div>
+                    <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5">
+                        <div class="h-1.5 rounded-full" style="width: {{ $bootsfuehrungPercent }}%; background-color: var(--brand-secondary, #00A8A8)"></div>
                     </div>
                 </div>
                 <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />

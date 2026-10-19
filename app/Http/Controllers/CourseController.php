@@ -22,7 +22,26 @@ class CourseController extends Controller
      * Liste enthalten, daher automatisch ans Ende sortiert).
      */
     private const COURSE_DISPLAY_ORDER = [
-        'SBF-SEE', 'SBF-BIN-MOTOR', 'SRC-UBI', 'SBF-BIN-SEGEL', 'SRC', 'UBI', 'SKN-FKN', 'SKN', 'FKN',
+        'SBF-SEE', 'SBF-BIN-MOTOR', 'SRC-UBI', 'SBF-BIN-SEGEL', 'SBF-SEE-BIN', 'SRC', 'UBI', 'SKN-FKN', 'SKN', 'FKN',
+    ];
+
+    /**
+     * Kombikurse bündeln die Videokapitel mehrerer Teilkurse unter der
+     * eigenen Kurs-ID (siehe ComboVideoCourseSeeder). Die Kapitelnamen hier
+     * legen fest, welche Videomodule zu welchem Teilkurs-Fortschritt
+     * gehören, damit die Kursseite pro Teilkurs eine eigene Fortschrittskarte
+     * zeigen kann statt eines einzigen gemeinsamen Videokurses.
+     */
+    private const COMBO_VIDEO_GROUPS = [
+        'SBF-SEE-BIN' => [
+            ['label' => 'SBF See', 'chapters' => [
+                'Einführung in den Sportbootführerschein', 'Seemannschaft', 'Knoten',
+                'Praxisvideos (Motor)', 'Navigation', 'Wetterkunde', 'Ausweichregeln', 'Lichter und Signale',
+            ]],
+            ['label' => 'SBF Binnen', 'chapters' => [
+                'Grundlagen', 'Lichter, Zeichen und Töne', 'Bootsführung und Bordtechnik',
+            ]],
+        ],
     ];
 
     public function index(Request $request, TenantContext $tenantContext, EntitlementService $entitlements): View
@@ -95,6 +114,9 @@ class CourseController extends Controller
         $knotenModule = $videoModules->firstWhere('title', 'Knoten');
         $praxisModule = $videoModules->firstWhere('title', 'Praxisvideos (Motor)');
         $navigationModule = $videoModules->firstWhere('title', 'Navigation');
+        $grundlagenModule = $videoModules->firstWhere('title', 'Grundlagen');
+        $lichterModule = $videoModules->firstWhere('title', 'Lichter, Zeichen und Töne');
+        $bootsfuehrungModule = $videoModules->firstWhere('title', 'Bootsführung und Bordtechnik');
 
         $chapterPercent = function (array $moduleIds) use ($tenant, $user, $videoModules) {
             $lessonIds = $videoModules->whereIn('id', $moduleIds)->flatMap->lessons->pluck('id');
@@ -107,6 +129,21 @@ class CourseController extends Controller
             return (int) round($completed / $lessonIds->count() * 100);
         };
 
+        // Kombikurse zeigen statt einem einzelnen "Weiterlernen"-Hero eine
+        // Fortschrittskarte je Teilkurs (siehe COMBO_VIDEO_GROUPS).
+        $comboVideoGroups = collect(self::COMBO_VIDEO_GROUPS[$course->code] ?? [])
+            ->map(function (array $group) use ($videoModules, $chapterPercent) {
+                $modules = $videoModules->whereIn('title', $group['chapters']);
+
+                return [
+                    'label' => $group['label'],
+                    'moduleIds' => $modules->pluck('id')->values(),
+                    'percent' => $modules->isNotEmpty() ? $chapterPercent($modules->pluck('id')->all()) : 0,
+                ];
+            })
+            ->filter(fn (array $group) => $group['moduleIds']->isNotEmpty())
+            ->values();
+
         $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id')->unique();
         $masteredCount = $progress->whereIn('question_id', $questionIds)->where('learning_state', 'gefestigt')->count();
 
@@ -117,6 +154,7 @@ class CourseController extends Controller
             'openCount' => max($questionIds->count() - $masteredCount, 0),
             'hasVideoCourse' => $videoTotal > 0,
             'videoPercent' => $videoTotal > 0 ? (int) round($videoCompleted / $videoTotal * 100) : 0,
+            'comboVideoGroups' => $comboVideoGroups,
             'hasExam' => (bool) $course->activeExamRuleSet(),
             'hasNavigationTasks' => $course->navigationTasks()->exists(),
             'knotenModuleId' => $knotenModule?->id,
@@ -125,6 +163,12 @@ class CourseController extends Controller
             'praxisPercent' => $praxisModule ? $chapterPercent([$praxisModule->id]) : 0,
             'navigationModuleId' => $navigationModule?->id,
             'navigationPercent' => $navigationModule ? $chapterPercent([$navigationModule->id]) : 0,
+            'grundlagenModuleId' => $grundlagenModule?->id,
+            'grundlagenPercent' => $grundlagenModule ? $chapterPercent([$grundlagenModule->id]) : 0,
+            'lichterModuleId' => $lichterModule?->id,
+            'lichterPercent' => $lichterModule ? $chapterPercent([$lichterModule->id]) : 0,
+            'bootsfuehrungModuleId' => $bootsfuehrungModule?->id,
+            'bootsfuehrungPercent' => $bootsfuehrungModule ? $chapterPercent([$bootsfuehrungModule->id]) : 0,
             'examReadinessThreshold' => $tenant->branding->exam_readiness_threshold_percent,
         ]);
     }

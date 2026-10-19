@@ -24,6 +24,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             CourseSeeder::class,
             VideoCourseSeeder::class,
+            ComboVideoCourseSeeder::class,
             NavigationTaskSeeder::class,
             ExamRuleSetSeeder::class,
             ExamPaperSeeder::class,
