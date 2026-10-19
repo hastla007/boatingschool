@@ -194,54 +194,6 @@
             </a>
         @endif
 
-        @if ($grundlagenModuleId)
-            <a href="{{ route('video.index', $course) }}?kapitel={{ $grundlagenModuleId }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-4 hover:shadow-md transition">
-                <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="{{ $tileIconBg }}">
-                    <x-icon name="book-open" class="w-5 h-5" style="{{ $tileIconColor }}" />
-                </div>
-                <div class="flex-1 min-w-0">
-                    <div class="font-semibold text-slate-800 dark:text-white">Grundlagen</div>
-                    <div class="text-xs text-slate-400 mb-1">{{ $grundlagenPercent }}% angesehen</div>
-                    <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5">
-                        <div class="h-1.5 rounded-full" style="width: {{ $grundlagenPercent }}%; background-color: var(--brand-secondary, #00A8A8)"></div>
-                    </div>
-                </div>
-                <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />
-            </a>
-        @endif
-
-        @if ($lichterModuleId)
-            <a href="{{ route('video.index', $course) }}?kapitel={{ $lichterModuleId }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-4 hover:shadow-md transition">
-                <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="{{ $tileIconBg }}">
-                    <x-icon name="light-bulb" class="w-5 h-5" style="{{ $tileIconColor }}" />
-                </div>
-                <div class="flex-1 min-w-0">
-                    <div class="font-semibold text-slate-800 dark:text-white">Lichter, Zeichen und Töne</div>
-                    <div class="text-xs text-slate-400 mb-1">{{ $lichterPercent }}% angesehen</div>
-                    <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5">
-                        <div class="h-1.5 rounded-full" style="width: {{ $lichterPercent }}%; background-color: var(--brand-secondary, #00A8A8)"></div>
-                    </div>
-                </div>
-                <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />
-            </a>
-        @endif
-
-        @if ($bootsfuehrungModuleId)
-            <a href="{{ route('video.index', $course) }}?kapitel={{ $bootsfuehrungModuleId }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-4 hover:shadow-md transition">
-                <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="{{ $tileIconBg }}">
-                    <x-icon name="anchor" class="w-5 h-5" style="{{ $tileIconColor }}" />
-                </div>
-                <div class="flex-1 min-w-0">
-                    <div class="font-semibold text-slate-800 dark:text-white">Bootsführung und Bordtechnik</div>
-                    <div class="text-xs text-slate-400 mb-1">{{ $bootsfuehrungPercent }}% angesehen</div>
-                    <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5">
-                        <div class="h-1.5 rounded-full" style="width: {{ $bootsfuehrungPercent }}%; background-color: var(--brand-secondary, #00A8A8)"></div>
-                    </div>
-                </div>
-                <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />
-            </a>
-        @endif
-
         @if ($overallPercent >= $examReadinessThreshold)
             <a href="{{ route('praxis-pruefung.index', $course) }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-4 hover:shadow-md transition">
                 <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="{{ $tileIconBg }}">

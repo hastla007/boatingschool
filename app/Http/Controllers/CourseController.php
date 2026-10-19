@@ -96,9 +96,6 @@ class CourseController extends Controller
         $knotenModule = $videoModules->firstWhere('title', 'Knoten');
         $praxisModule = $videoModules->firstWhere('title', 'Praxisvideos (Motor)');
         $navigationModule = $videoModules->firstWhere('title', 'Navigation');
-        $grundlagenModule = $videoModules->firstWhere('title', 'Grundlagen');
-        $lichterModule = $videoModules->firstWhere('title', 'Lichter, Zeichen und Töne');
-        $bootsfuehrungModule = $videoModules->firstWhere('title', 'Bootsführung und Bordtechnik');
 
         $chapterPercent = function (array $moduleIds) use ($tenant, $user, $videoModules) {
             $lessonIds = $videoModules->whereIn('id', $moduleIds)->flatMap->lessons->pluck('id');
@@ -145,12 +142,6 @@ class CourseController extends Controller
             'praxisPercent' => $praxisModule ? $chapterPercent([$praxisModule->id]) : 0,
             'navigationModuleId' => $navigationModule?->id,
             'navigationPercent' => $navigationModule ? $chapterPercent([$navigationModule->id]) : 0,
-            'grundlagenModuleId' => $grundlagenModule?->id,
-            'grundlagenPercent' => $grundlagenModule ? $chapterPercent([$grundlagenModule->id]) : 0,
-            'lichterModuleId' => $lichterModule?->id,
-            'lichterPercent' => $lichterModule ? $chapterPercent([$lichterModule->id]) : 0,
-            'bootsfuehrungModuleId' => $bootsfuehrungModule?->id,
-            'bootsfuehrungPercent' => $bootsfuehrungModule ? $chapterPercent([$bootsfuehrungModule->id]) : 0,
             'examReadinessThreshold' => $tenant->branding->exam_readiness_threshold_percent,
         ]);
     }
