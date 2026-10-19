@@ -25,6 +25,12 @@
                     'ADD-BIN-TO-SEE' => ['kurs' => 'Ergänzung Binnen → See', 'bereich' => 'See', 'vorhanden' => 'SBF Binnen', 'profil' => 'see-with-binnen'],
                 ];
             @endphp
+            @php
+                $fullCourseCopy = [
+                    'SBF-SEE' => ['bereich' => 'See'],
+                    'SBF-BIN-MOTOR' => ['bereich' => 'Binnen'],
+                ];
+            @endphp
             @if (isset($addonCopy[$course->code]))
                 @php($copy = $addonCopy[$course->code])
                 <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
@@ -37,20 +43,31 @@
                     Hinweis: Die Zuordnung der Fragen zu den einzelnen Bögen entspricht den amtlichen Ergänzungsbögen
                     (Quelle: seeundbinnen.de, Profil „{{ $copy['profil'] }}&quot;).
                 </p>
-            @else
+            @elseif ($course->code === 'SBF-SEE-BIN')
                 <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                    Hier findest Du alle {{ $paperStats->count() }} offiziellen Prüfungsbögen für den Sportbootführerschein See. Die
+                    Hier findest Du alle 30 offiziellen Prüfungsbögen &mdash; 15 für SBF See und 15 für SBF Binnen, jeweils mit
+                    30 Multiple-Choice-Fragen (7 allgemeine Basisfragen und 23 kursspezifische Fragen). Die Bögen haben immer
+                    die gleiche Zusammensetzung, sodass Du Dich gezielt und effizient auf beide Prüfungen vorbereiten kannst.
+                </p>
+                <p class="text-xs text-slate-400 mt-3">
+                    Hinweis: Die Zuordnung der Fragen zu den einzelnen Bögen entspricht den amtlichen Prüfungsbögen
+                    (Quelle: seeundbinnen.de).
+                </p>
+            @elseif (isset($fullCourseCopy[$course->code]))
+                @php($copy = $fullCourseCopy[$course->code])
+                <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                    Hier findest Du alle {{ $paperStats->count() }} offiziellen Prüfungsbögen für diesen Kurs. Die
                     Bögen haben immer die gleiche Zusammensetzung, sodass Du Dich gezielt und effizient vorbereiten kannst.
                     Jeder Prüfungsbogen enthält 30 Multiple-Choice-Fragen &mdash; 7 allgemeine Basisfragen und 23 spezifische
-                    Fragen aus dem Bereich See.
+                    Fragen aus dem Bereich {{ $copy['bereich'] }}.
                     @if ($hasNavigationTasks)
                         Außerdem kommt in der Prüfung eine Navigationsaufgabe vor. Diese findest Du im Bereich
                         <a href="{{ route('exam.navigation.index', $course) }}" class="inline-flex items-center px-2 py-0.5 rounded-md text-white text-xs font-medium" style="background-color: var(--brand-primary, #005FD7)">Navigation Prüfungssimulation</a>.
                     @endif
                 </p>
                 <p class="text-xs text-slate-400 mt-3">
-                    Hinweis: Die Zuordnung der Fragen zu den einzelnen Bögen ist eine Demo-Verteilung aus dem echten Fragenpool
-                    und ersetzt keine amtliche Bogen-Zusammenstellung &mdash; vor Produktivbetrieb durch das offizielle Material ersetzen.
+                    Hinweis: Die Zuordnung der Fragen zu den einzelnen Bögen entspricht den amtlichen Prüfungsbögen
+                    (Quelle: seeundbinnen.de).
                 </p>
             @endif
         </div>
@@ -67,26 +84,29 @@
             <x-icon name="arrow-right" class="w-4 h-4 text-white/70 shrink-0" />
         </a>
 
-        <div>
-            <h4 class="font-medium text-slate-700 dark:text-slate-200 mb-3">{{ $course->name }}</h4>
-            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                @foreach ($paperStats as $stat)
-                    <form method="POST" action="{{ route('exam.papers.start', ['course' => $course, 'paper' => $stat['paper']]) }}">
-                        @csrf
-                        <button type="submit" class="w-full rounded-2xl p-4 text-white text-left hover:opacity-95 transition"
-                                style="background: linear-gradient(150deg, #0B3D64, #071E33);">
-                            <div class="flex items-center justify-between mb-1">
-                                <x-progress-ring :percent="$stat['percent']" :size="52" :stroke="5" class="[&_circle:first-child]:stroke-white/20 [&_circle:last-child]:stroke-white [&_span]:text-white" />
-                                @if ($stat['attempted'])
-                                    <x-icon name="clock" class="w-4 h-4 text-white/40" />
-                                @endif
-                            </div>
-                            <div class="font-semibold">Bogen {{ $stat['paper']->paper_number }}</div>
-                            <div class="text-xs text-white/70">{{ $stat['correct'] }}/{{ $stat['total'] }}</div>
-                        </button>
-                    </form>
-                @endforeach
+        @php($groupedStats = $paperStats->groupBy('group'))
+        @foreach ($groupedStats as $groupLabel => $statsInGroup)
+            <div>
+                <h4 class="font-medium text-slate-700 dark:text-slate-200 mb-3">{{ $groupLabel ?: $course->name }}</h4>
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    @foreach ($statsInGroup as $stat)
+                        <form method="POST" action="{{ route('exam.papers.start', ['course' => $course, 'paper' => $stat['paper']]) }}">
+                            @csrf
+                            <button type="submit" class="w-full rounded-2xl p-4 text-white text-left hover:opacity-95 transition"
+                                    style="background: linear-gradient(150deg, #0B3D64, #071E33);">
+                                <div class="flex items-center justify-between mb-1">
+                                    <x-progress-ring :percent="$stat['percent']" :size="52" :stroke="5" class="[&_circle:first-child]:stroke-white/20 [&_circle:last-child]:stroke-white [&_span]:text-white" />
+                                    @if ($stat['attempted'])
+                                        <x-icon name="clock" class="w-4 h-4 text-white/40" />
+                                    @endif
+                                </div>
+                                <div class="font-semibold">Bogen {{ $stat['displayNumber'] }}</div>
+                                <div class="text-xs text-white/70">{{ $stat['correct'] }}/{{ $stat['total'] }}</div>
+                            </button>
+                        </form>
+                    @endforeach
+                </div>
             </div>
-        </div>
+        @endforeach
     </div>
 </x-app-layout>

@@ -12,6 +12,7 @@ use App\Models\Progress;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\EntitlementService;
+use App\Support\ComboExamGroups;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -59,9 +60,10 @@ class ExamController extends Controller
             ->unique('paper_id')
             ->keyBy('paper_id');
 
-        $paperStats = $papers->map(function ($paper) use ($latestEvaluatedSessions) {
+        $paperStats = $papers->map(function ($paper) use ($latestEvaluatedSessions, $course) {
             $session = $latestEvaluatedSessions->get($paper->id);
             $total = $paper->paperQuestions()->count();
+            $comboInfo = ComboExamGroups::infoFor($course->code, $paper->paper_number);
 
             return [
                 'paper' => $paper,
@@ -69,6 +71,8 @@ class ExamController extends Controller
                 'percent' => $session ? (int) round($session->score * 100) : 0,
                 'correct' => $session ? $session->questions()->where('correct', true)->count() : 0,
                 'total' => $total,
+                'group' => $comboInfo['label'] ?? null,
+                'displayNumber' => $comboInfo['displayNumber'] ?? $paper->paper_number,
             ];
         });
 
