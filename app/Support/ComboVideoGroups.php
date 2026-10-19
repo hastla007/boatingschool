@@ -14,7 +14,7 @@ class ComboVideoGroups
     public const GROUPS = [
         'SBF-SEE-BIN' => [
             ['label' => 'SBF See', 'chapters' => [
-                'Einführung in den Sportbootführerschein', 'Seemannschaft', 'Knoten',
+                'Einführung in den Sportbootführerschein', 'Seemannschaft',
                 'Praxisvideos (Motor)', 'Navigation', 'Wetterkunde', 'Ausweichregeln', 'Lichter und Signale',
             ]],
             ['label' => 'SBF Binnen', 'chapters' => [

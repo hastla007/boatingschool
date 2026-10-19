@@ -83,7 +83,13 @@ class CourseController extends Controller
         $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get();
 
         $videoModules = $course->videoModules()->with('lessons')->get();
-        $videoLessonIds = $videoModules->flatMap->lessons->pluck('id');
+
+        // "Knoten" ist als eigene Lernbereiche-Kachel mit eigener Seite
+        // ausgelagert (siehe unten) und taucht daher bewusst nicht als
+        // Kapitel im sequenziellen Haupt-Videokurs bzw. dessen
+        // Kursfortschritt auf.
+        $mainVideoModules = $videoModules->reject(fn ($m) => $m->title === 'Knoten');
+        $videoLessonIds = $mainVideoModules->flatMap->lessons->pluck('id');
         $videoTotal = $videoLessonIds->count();
         $videoCompleted = $videoTotal > 0
             ? VideoProgress::where('tenant_id', $tenant->id)->where('user_id', $user->id)

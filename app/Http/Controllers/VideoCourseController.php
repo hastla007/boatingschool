@@ -132,6 +132,12 @@ class VideoCourseController extends Controller
 
         if ($moduleIds) {
             $query->whereIn('id', $moduleIds);
+        } else {
+            // "Knoten" ist als eigene Kachel/Seite ausgelagert (siehe
+            // CourseController) und taucht im normalen, unfilterten
+            // Kursfluss bewusst nicht als Kapitel auf -- nur über die
+            // gezielte ?kapitel=<id>-Verlinkung der Kachel erreichbar.
+            $query->where('title', '!=', 'Knoten');
         }
 
         return $query->get()
