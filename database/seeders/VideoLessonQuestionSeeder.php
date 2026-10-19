@@ -127,6 +127,10 @@ class VideoLessonQuestionSeeder extends Seeder
             'Spezialfälle' => [
                 ['media' => 'Lichter-Frage-93-gif.png'],
                 ['media' => 'Lichter-Frage-107-gif.png'],
+                ['media' => 'Lichter-Frage-105-gif.png'],
+                ['media' => 'Lichter-Frage-108-gif.png'],
+                ['media' => 'Lichter-Frage-110-gif.png'],
+                ['media' => 'Lichter-Frage-111-gif.png'],
             ],
         ],
     ];
