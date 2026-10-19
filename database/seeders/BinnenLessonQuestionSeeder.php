@@ -97,6 +97,11 @@ class BinnenLessonQuestionSeeder extends Seeder
             'Ausweichen' => [
                 'Wie weichen zwei Motorboote aus, die sich auf entgegengesetzten Kursen nähern?',
                 'Zwei Motorboote nähern sich auf kreuzenden Kursen. Es besteht die Gefahr eines Zusammenstoßes. Wer ist ausweichpflichtig?',
+                'Wie ist ein Überholmanöver durchzuführen?',
+                'Wann besteht die Gefahr eines Zusammenstoßes?',
+                'Wie müssen Ausweichmanöver durchgeführt werden?',
+                'Ein Kleinfahrzeug und ein Fahrzeug über 20 m Länge nähern sich auf kreuzenden Kursen. Es besteht die Gefahr eines Zusammenstoßes. Wer ist ausweichpflichtig?',
+                'Wie muss sich ein kreuzendes Kleinfahrzeug unter Segel am Wind in der Nähe eines Ufers gegenüber einem anderen Kleinfahrzeug verhalten?',
             ],
         ],
     ];
