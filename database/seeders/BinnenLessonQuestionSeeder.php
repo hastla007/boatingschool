@@ -40,6 +40,11 @@ class BinnenLessonQuestionSeeder extends Seeder
                 'Was versteht man unter "Fahrrinne"?',
                 'In welche Richtung werden bei Flüssen die Uferseiten als rechtes bzw. linkes Ufer bezeichnet?',
                 'Was bedeutet "zu Berg" oder "Bergfahrt" auf Flüssen?',
+                'Was bedeutet "zu Berg" oder "Bergfahrt" auf Kanälen?',
+                'Welche Zeichen begrenzen die Fahrrinne zum rechten Ufer?',
+                'Welche Zeichen begrenzen die Fahrrinne zum linken Ufer?',
+                'Welche Fahrrinnenseite hat ein Bergfahrer an seiner Steuerbordseite und wie ist diese gekennzeichnet?',
+                'Welche Fahrrinnenseite hat ein Talfahrer an seiner Backbordseite?',
             ],
         ],
     ];
