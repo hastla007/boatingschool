@@ -24,11 +24,21 @@
     </x-slot>
 
     <div class="max-w-2xl mx-auto bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6">
-        @if ($reason)
-            <div class="inline-flex items-center gap-1.5 text-xs text-slate-400 mb-3 bg-slate-50 dark:bg-slate-700/50 rounded-full px-3 py-1">
-                <x-icon name="bolt" class="w-3.5 h-3.5" /> Ausgewählt vom Smarttrainer: {{ $reason }}
+        <div class="flex items-center justify-between gap-2 mb-3">
+            @if ($reason)
+                <div class="inline-flex items-center gap-1.5 text-xs text-slate-400 bg-slate-50 dark:bg-slate-700/50 rounded-full px-3 py-1">
+                    <x-icon name="bolt" class="w-3.5 h-3.5" /> Ausgewählt vom Smarttrainer: {{ $reason }}
+                </div>
+            @else
+                <span></span>
+            @endif
+
+            <div class="inline-flex items-center gap-1.5 text-xs font-medium rounded-full px-3 py-1 shrink-0 {{ $mastered ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-slate-50 text-slate-500 dark:bg-slate-700/50 dark:text-slate-300' }}"
+                  title="Die Serie zählt pro Frage. Beantworte diese Frage 3x hintereinander richtig, dann gilt sie als gelernt und dein Fortschritt steigt.">
+                <x-icon :name="$mastered ? 'check-circle' : 'lock-closed'" class="w-3.5 h-3.5" />
+                {{ min($streak, 3) }}/3
             </div>
-        @endif
+        </div>
 
         @foreach ($revision->media as $media)
             <img src="{{ $media->storage_path }}" alt="{{ $media->alt_text }}" class="rounded-lg mb-4 max-h-64 mx-auto">

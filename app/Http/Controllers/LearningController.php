@@ -111,6 +111,9 @@ class LearningController extends Controller
             ->where('context', Favorite::CONTEXT_SMART_LEARNING)
             ->where('question_id', $next['question']->id)->exists();
 
+        $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+            ->where('question_id', $next['question']->id)->first();
+
         return view('learning.question', [
             'course' => $course,
             'revision' => $revision,
@@ -124,6 +127,8 @@ class LearningController extends Controller
             'answered' => false,
             'correct' => null,
             'selectedAnswerId' => null,
+            'streak' => $progress?->current_streak ?? 0,
+            'mastered' => $progress?->learning_state === 'gefestigt',
         ]);
     }
 
@@ -171,6 +176,9 @@ class LearningController extends Controller
             ->where('context', Favorite::CONTEXT_SMART_LEARNING)
             ->where('question_id', $revision->question_id)->exists();
 
+        $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+            ->where('question_id', $revision->question_id)->first();
+
         return view('learning.question', [
             'course' => $course,
             'revision' => $revision,
@@ -184,6 +192,8 @@ class LearningController extends Controller
             'answered' => true,
             'correct' => $attempt->correct,
             'selectedAnswerId' => $selectedAnswer?->id,
+            'streak' => $progress?->current_streak ?? 0,
+            'mastered' => $progress?->learning_state === 'gefestigt',
         ]);
     }
 
