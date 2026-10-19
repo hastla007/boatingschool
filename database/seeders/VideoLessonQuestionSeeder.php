@@ -59,6 +59,14 @@ class VideoLessonQuestionSeeder extends Seeder
                 'Was bewirkt der Quickstopp?',
             ],
         ],
+        'Seemannschaft' => [
+            'Ankern' => [
+                'Woran kann man erkennen, ob der Anker hält?',
+            ],
+            'Feuer an Bord' => [
+                'Welcher Feuerlöscher ist für Sportboote zweckmäßig und wie oft muss man einen Feuerlöscher überprüfen lassen?',
+            ],
+        ],
     ];
 
     public function run(): void
