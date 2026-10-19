@@ -24,6 +24,22 @@
                 @foreach ($comboVideoGroups as $group)
                     <a href="{{ route('video.index', $course) }}?kapitel={{ $group['moduleIds']->implode(',') }}" class="relative rounded-2xl p-5 text-white overflow-hidden hover:opacity-95 transition"
                        style="background: linear-gradient(135deg, color-mix(in srgb, {{ $loop->first ? 'var(--brand-primary, #005FD7)' : 'var(--brand-secondary, #00A8A8)' }} 90%, #001233), color-mix(in srgb, {{ $loop->first ? 'var(--brand-primary, #005FD7)' : 'var(--brand-secondary, #00A8A8)' }} 45%, #001233));">
+                        <svg class="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 800 200" preserveAspectRatio="xMidYMid slice" fill="none">
+                            <path d="M-20,38 C130,20 280,55 430,35 S730,18 820,32" stroke="white" stroke-opacity="0.08" stroke-width="1.5" />
+                            <path d="M-20,94 C140,110 300,75 460,97 S740,118 820,100" stroke="white" stroke-opacity="0.07" stroke-width="1.5" />
+                            <path d="M-20,156 C160,140 320,168 480,150 S760,134 820,153" stroke="white" stroke-opacity="0.06" stroke-width="1.5" />
+                            <text x="565" y="30" fill="white" fill-opacity="0.16" font-size="14" font-family="sans-serif">12</text>
+                            <text x="565" y="175" fill="white" fill-opacity="0.14" font-size="14" font-family="sans-serif">28</text>
+                            <g transform="translate(680,100)" stroke="white">
+                                <circle r="58" stroke-opacity="0.10" fill="none" />
+                                <circle r="44" stroke-opacity="0.13" fill="none" />
+                                <path d="M0,-44 L8,-8 L44,0 L8,8 L0,44 L-8,8 L-44,0 L-8,-8 Z" fill="white" fill-opacity="0.11" stroke="none" />
+                                <text x="0" y="-66" fill="white" fill-opacity="0.20" font-size="12" font-family="sans-serif" text-anchor="middle">N</text>
+                                <text x="0" y="76" fill="white" fill-opacity="0.20" font-size="12" font-family="sans-serif" text-anchor="middle">S</text>
+                                <text x="-69" y="4" fill="white" fill-opacity="0.20" font-size="12" font-family="sans-serif" text-anchor="middle">W</text>
+                                <text x="69" y="4" fill="white" fill-opacity="0.20" font-size="12" font-family="sans-serif" text-anchor="middle">O</text>
+                            </g>
+                        </svg>
                         <div class="relative">
                             <div class="text-xs font-semibold tracking-wide uppercase" style="color: var(--brand-secondary, #6EE7E0)">{{ $loop->first ? 'Dein nächster Schritt' : 'Dein Teilkurs' }}</div>
                             <div class="font-bold text-lg mt-1">{{ $group['label'] }}</div>
