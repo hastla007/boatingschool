@@ -23,7 +23,8 @@
         </div>
 
         <a href="{{ route('learning.show', ['course' => $course, 'mode' => 'favorites']) }}"
-           class="flex items-center gap-4 rounded-2xl p-4 text-white overflow-hidden bg-gradient-to-br from-teal-500 to-emerald-700 hover:opacity-95 transition">
+           class="flex items-center gap-4 rounded-2xl p-4 text-white overflow-hidden hover:opacity-95 transition"
+           style="background: linear-gradient(135deg, color-mix(in srgb, var(--brand-primary, #005FD7) 90%, #001233), color-mix(in srgb, var(--brand-primary, #005FD7) 45%, #001233));">
             <x-progress-ring :percent="$favoritesTotal > 0 ? (int) round($favoritesMastered / $favoritesTotal * 100) : 0" :size="48" :stroke="5" class="shrink-0 [&_circle:first-child]:stroke-white/25 [&_span]:text-white" />
             <div class="flex-1 min-w-0">
                 <div class="font-semibold">Gespeicherte Fragen</div>
@@ -44,14 +45,13 @@
                     <div x-show="open" x-transition class="px-4 pb-4 grid sm:grid-cols-2 gap-2">
                         @foreach ($group['topics'] as $topicEntry)
                             <a href="{{ route('learning.show', ['course' => $course, 'mode' => 'topic', 'module' => $group['module']->id, 'topic' => $topicEntry['topic']]) }}"
-                               class="flex items-center gap-3 rounded-xl px-3 py-3 text-white transition hover:opacity-90"
-                               style="background: linear-gradient(120deg, #0B2A4A, #14395E);">
-                                <x-progress-ring :percent="$topicEntry['percent']" :size="40" :stroke="4" class="shrink-0 [&_circle:first-child]:stroke-white/25" />
+                               class="flex items-center gap-3 rounded-xl px-3 py-3 bg-white dark:bg-slate-700/50 border border-slate-100 dark:border-slate-600 shadow-sm hover:shadow-md transition">
+                                <x-progress-ring :percent="$topicEntry['percent']" :size="40" :stroke="4" class="shrink-0" />
                                 <div class="flex-1 min-w-0">
-                                    <div class="text-sm font-medium truncate">{{ $topicEntry['topic'] }}</div>
-                                    <div class="text-xs text-white/70">{{ $topicEntry['mastered'] }}/{{ $topicEntry['total'] }} Fragen</div>
+                                    <div class="text-sm font-medium truncate text-slate-800 dark:text-white">{{ $topicEntry['topic'] }}</div>
+                                    <div class="text-xs text-slate-400">{{ $topicEntry['mastered'] }}/{{ $topicEntry['total'] }} Fragen</div>
                                 </div>
-                                <x-icon name="light-bulb" class="w-4 h-4 text-white/50 shrink-0" />
+                                <x-icon name="light-bulb" class="w-4 h-4 text-slate-300 shrink-0" />
                             </a>
                         @endforeach
                     </div>
@@ -68,14 +68,13 @@
                     <div x-show="open" x-transition class="px-4 pb-4 grid sm:grid-cols-2 gap-2">
                         @foreach ($praxisCategories as $entry)
                             <a href="{{ route('praxistrainer.index', ['course' => $course, 'kategorie' => $entry['kategorie']]) }}"
-                               class="flex items-center gap-3 rounded-xl px-3 py-3 text-white transition hover:opacity-90"
-                               style="background: linear-gradient(120deg, #0B2A4A, #14395E);">
-                                <x-progress-ring :percent="$entry['percent']" :size="40" :stroke="4" class="shrink-0 [&_circle:first-child]:stroke-white/25" />
+                               class="flex items-center gap-3 rounded-xl px-3 py-3 bg-white dark:bg-slate-700/50 border border-slate-100 dark:border-slate-600 shadow-sm hover:shadow-md transition">
+                                <x-progress-ring :percent="$entry['percent']" :size="40" :stroke="4" class="shrink-0" />
                                 <div class="flex-1 min-w-0">
-                                    <div class="text-sm font-medium truncate">{{ $entry['kategorie'] }}</div>
-                                    <div class="text-xs text-white/70">{{ $entry['mastered'] }}/{{ $entry['total'] }} Fragen</div>
+                                    <div class="text-sm font-medium truncate text-slate-800 dark:text-white">{{ $entry['kategorie'] }}</div>
+                                    <div class="text-xs text-slate-400">{{ $entry['mastered'] }}/{{ $entry['total'] }} Fragen</div>
                                 </div>
-                                <x-icon name="light-bulb" class="w-4 h-4 text-white/50 shrink-0" />
+                                <x-icon name="light-bulb" class="w-4 h-4 text-slate-300 shrink-0" />
                             </a>
                         @endforeach
                     </div>
