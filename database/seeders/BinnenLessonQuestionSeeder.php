@@ -88,6 +88,15 @@ class BinnenLessonQuestionSeeder extends Seeder
         'Bootsführung und Bordtechnik' => [
             'Liegen und Fahren' => [
                 ['question' => 'Welche Bedeutung haben folgende Tafelzeichen?', 'correct_answer' => 'Festmache- und Liegeverbot.'],
+                'Was ist in Kanälen verboten?',
+            ],
+            'Schleusen' => [
+                'Welche Bedeutung haben vor einer Schleuse ein rotes oder ein rotes und ein grünes Licht?',
+                'In welcher Reihenfolge fahren Fahrzeuge, die nicht Kleinfahrzeuge sind, und Kleinfahrzeuge, die gemeinsam geschleust werden sollen, in die Schleuse ein?',
+            ],
+            'Ausweichen' => [
+                'Wie weichen zwei Motorboote aus, die sich auf entgegengesetzten Kursen nähern?',
+                'Zwei Motorboote nähern sich auf kreuzenden Kursen. Es besteht die Gefahr eines Zusammenstoßes. Wer ist ausweichpflichtig?',
             ],
         ],
     ];
