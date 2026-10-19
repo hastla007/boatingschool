@@ -100,7 +100,7 @@
             @endforeach
 
             @if ($waLink)
-                <div class="flex items-start justify-end">
+                <div class="flex items-start justify-end sm:col-start-2 lg:col-start-3">
                     <a href="{{ $waLink }}" target="_blank" rel="noopener"
                        class="inline-flex items-center gap-2 pl-3 pr-4 py-3 rounded-full shadow-lg text-white text-sm font-medium hover:opacity-90 transition"
                        style="background-color: #25D366"
