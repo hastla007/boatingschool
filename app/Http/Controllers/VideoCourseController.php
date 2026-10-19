@@ -6,6 +6,7 @@ use App\Models\CourseDefinition;
 use App\Models\VideoLesson;
 use App\Models\VideoProgress;
 use App\Services\EntitlementService;
+use App\Support\ComboVideoGroups;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -43,6 +44,10 @@ class VideoCourseController extends Controller
         $completedCount = $progress->filter(fn ($p) => $p->completed)->count();
         $lesson->load('steps');
 
+        // Kombikurse zeigen im Player-Header den Namen des gerade aktiven
+        // Teilkurses (z. B. "SBF See") statt des Kombikurs-Gesamtnamens.
+        $sectionLabel = ComboVideoGroups::labelForChapter($course->code, $lesson->module->title) ?? $course->name;
+
         return view('video.show', [
             'course' => $course,
             'lesson' => $lesson,
@@ -53,6 +58,8 @@ class VideoCourseController extends Controller
             'totalCount' => $lessons->count(),
             'percent' => $lessons->isNotEmpty() ? (int) round($completedCount / $lessons->count() * 100) : 0,
             'moduleIds' => $moduleIds,
+            'sectionLabel' => $sectionLabel,
+            'posterUri' => $this->posterUri($sectionLabel, $lesson->module->title),
         ]);
     }
 
@@ -79,6 +86,24 @@ class VideoCourseController extends Controller
             $next ? ['course' => $course, 'lesson' => $next] : ['course' => $course],
             $kapitel
         ));
+    }
+
+    /** Einfacher markenfarbener Platzhalter-Poster (SVG-Data-URI) für das
+     * Video-Element, solange noch keine echten Vorschaubilder hinterlegt
+     * sind (siehe Hinweis zum Platzhaltervideo in der README). */
+    private function posterUri(string $sectionLabel, string $chapterTitle): string
+    {
+        $svg = '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" viewBox="0 0 800 450">'
+            .'<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">'
+            .'<stop offset="0" stop-color="#005FD7"/><stop offset="1" stop-color="#001233"/>'
+            .'</linearGradient></defs>'
+            .'<rect width="800" height="450" fill="url(#g)"/>'
+            .'<text x="48" y="208" fill="white" fill-opacity="0.55" font-family="sans-serif" font-size="16" font-weight="700" letter-spacing="1">KAPITEL</text>'
+            .'<text x="48" y="248" fill="white" font-family="sans-serif" font-size="40" font-weight="700">'.e($sectionLabel).'</text>'
+            .'<text x="48" y="282" fill="white" fill-opacity="0.75" font-family="sans-serif" font-size="18">'.e($chapterTitle).'</text>'
+            .'</svg>';
+
+        return 'data:image/svg+xml,'.rawurlencode($svg);
     }
 
     /** Eigenständige Kapitel-Seiten (z. B. "Knoten", "Praxisvideos (Motor)")

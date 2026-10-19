@@ -8,6 +8,7 @@ use App\Models\Progress;
 use App\Models\TenantCourseDisabled;
 use App\Models\VideoProgress;
 use App\Services\EntitlementService;
+use App\Support\ComboVideoGroups;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -23,25 +24,6 @@ class CourseController extends Controller
      */
     private const COURSE_DISPLAY_ORDER = [
         'SBF-SEE', 'SBF-BIN-MOTOR', 'SRC-UBI', 'SBF-BIN-SEGEL', 'SBF-SEE-BIN', 'SRC', 'UBI', 'SKN-FKN', 'SKN', 'FKN',
-    ];
-
-    /**
-     * Kombikurse bündeln die Videokapitel mehrerer Teilkurse unter der
-     * eigenen Kurs-ID (siehe ComboVideoCourseSeeder). Die Kapitelnamen hier
-     * legen fest, welche Videomodule zu welchem Teilkurs-Fortschritt
-     * gehören, damit die Kursseite pro Teilkurs eine eigene Fortschrittskarte
-     * zeigen kann statt eines einzigen gemeinsamen Videokurses.
-     */
-    private const COMBO_VIDEO_GROUPS = [
-        'SBF-SEE-BIN' => [
-            ['label' => 'SBF See', 'chapters' => [
-                'Einführung in den Sportbootführerschein', 'Seemannschaft', 'Knoten',
-                'Praxisvideos (Motor)', 'Navigation', 'Wetterkunde', 'Ausweichregeln', 'Lichter und Signale',
-            ]],
-            ['label' => 'SBF Binnen', 'chapters' => [
-                'Grundlagen', 'Lichter, Zeichen und Töne', 'Bootsführung und Bordtechnik',
-            ]],
-        ],
     ];
 
     public function index(Request $request, TenantContext $tenantContext, EntitlementService $entitlements): View
@@ -131,7 +113,7 @@ class CourseController extends Controller
 
         // Kombikurse zeigen statt einem einzelnen "Weiterlernen"-Hero eine
         // Fortschrittskarte je Teilkurs (siehe COMBO_VIDEO_GROUPS).
-        $comboVideoGroups = collect(self::COMBO_VIDEO_GROUPS[$course->code] ?? [])
+        $comboVideoGroups = collect(ComboVideoGroups::GROUPS[$course->code] ?? [])
             ->map(function (array $group) use ($videoModules, $chapterPercent) {
                 $modules = $videoModules->whereIn('title', $group['chapters']);
 
