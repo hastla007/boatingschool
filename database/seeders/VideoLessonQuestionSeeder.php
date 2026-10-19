@@ -79,6 +79,17 @@ class VideoLessonQuestionSeeder extends Seeder
                 'Für welche Windstärken wird eine Starkwindwarnung herausgegeben?',
                 'Für welche Windstärken wird eine Sturmwarnung herausgegeben?',
             ],
+            'Wetterkarten' => [
+                'Wie werden Orte gleichen Luftdrucks in der Wetterkarte dargestellt und in welcher Maßeinheit wird der Luftdruck angegeben?',
+                'Was bedeuten die in der Wetterkarte abgebildeten Isobaren?',
+            ],
+        ],
+        'Ausweichregeln' => [
+            'Ausweichregeln für alle Fahrzeuge' => [
+                'Wie weichen zwei Motorboote aus, die sich auf entgegengesetzten Kursen nähern?',
+                'Was bedeutet das "Manöver des letzten Augenblicks"?',
+                'Wie müssen sich zwei in Sicht befindliche Maschinenfahrzeuge verhalten, die sich einander auf entgegengesetzten oder fast entgegengesetzten Kursen nähern, um die Möglichkeit der Gefahr eines Zusammenstoßes zu vermeiden?',
+            ],
         ],
     ];
 

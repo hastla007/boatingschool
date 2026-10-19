@@ -27,6 +27,10 @@ class SeemannschaftVideoSeeder extends Seeder
         'Wetterkunde' => [
             ['Entstehung des Wetters', 152],
             ['Der Wind', 123],
+            ['Wetterkarten', 187],
+        ],
+        'Ausweichregeln' => [
+            ['Ausweichregeln für alle Fahrzeuge', 378],
         ],
     ];
 
