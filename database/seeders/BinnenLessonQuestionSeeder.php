@@ -116,6 +116,13 @@ class BinnenLessonQuestionSeeder extends Seeder
                 'Warum sind die Flüssiggase Propan und Butan an Bord besonders gefährlich?',
                 'Was ist zu tun, wenn Flüssiggas in das Innere des Bootes gelangt?',
                 'Was ist vor Inbetriebnahme einer Flüssiggasanlage zu prüfen?',
+                'Was ist zu beachten, wenn eine Flüssiggasanlage außer Betrieb gesetzt wird?',
+            ],
+            'Wassersport' => [
+                ['question' => 'Welche Bedeutung haben folgende Tafelzeichen?', 'correct_answer' => 'Wasserflächen, auf denen mit Wasserski oder Wassermotorrädern gefahren werden darf.'],
+                'Wo ist die Geschwindigkeit zu vermindern, um Sog und Wellenschlag zu vermeiden?',
+                'Wo darf auf Binnenschifffahrtsstraßen Wasserski gelaufen werden?',
+                'Zu welcher Tageszeit und bei welchen Sichtweiten darf auf den erlaubten Gewässerabschnitten Wasserski gelaufen werden?',
             ],
         ],
     ];
