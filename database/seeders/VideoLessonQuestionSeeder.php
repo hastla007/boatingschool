@@ -89,6 +89,12 @@ class VideoLessonQuestionSeeder extends Seeder
                 'Wie weichen zwei Motorboote aus, die sich auf entgegengesetzten Kursen nähern?',
                 'Was bedeutet das "Manöver des letzten Augenblicks"?',
                 'Wie müssen sich zwei in Sicht befindliche Maschinenfahrzeuge verhalten, die sich einander auf entgegengesetzten oder fast entgegengesetzten Kursen nähern, um die Möglichkeit der Gefahr eines Zusammenstoßes zu vermeiden?',
+                'Wie verhält sich der Kurshaltepflichtige vor Einleitung des Manövers des letzten Augenblicks gegenüber einem ausweichpflichtigen Fahrzeug?',
+                'Wie muss sich ein Ausweichpflichtiger gegenüber einem Kurshalter verhalten?',
+                'Wie verhält man sich als Kurshalter, wenn man feststellt, dass ein anderes Fahrzeug seiner Ausweichpflicht nicht nachkommt und die Gefahr einer unmittelbaren Kollision bevorsteht?',
+            ],
+            'Ausweichregeln für Maschinenfahrzeuge' => [
+                'Zwei Motorboote nähern sich auf kreuzenden Kursen. Es besteht die Gefahr eines Zusammenstoßes. Wer ist ausweichpflichtig?',
             ],
         ],
     ];

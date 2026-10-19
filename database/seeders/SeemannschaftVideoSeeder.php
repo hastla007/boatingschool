@@ -31,6 +31,7 @@ class SeemannschaftVideoSeeder extends Seeder
         ],
         'Ausweichregeln' => [
             ['Ausweichregeln für alle Fahrzeuge', 378],
+            ['Ausweichregeln für Maschinenfahrzeuge', 87],
         ],
     ];
 
