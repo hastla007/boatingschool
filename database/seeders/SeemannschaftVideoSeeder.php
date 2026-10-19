@@ -31,6 +31,8 @@ class SeemannschaftVideoSeeder extends Seeder
             ['Ankern', 139],
             ['Feuer an Bord', 76],
             ['Nebel', 86],
+            ['Schleppen und Schleusen', 244],
+            ['Seeunfall und Seenotsignale', 207],
         ],
         'Wetterkunde' => [
             ['Entstehung des Wetters', 152],
@@ -56,6 +58,7 @@ class SeemannschaftVideoSeeder extends Seeder
             ['Feuerarten und Kennungen', 249],
             ['Sektorenfeuer', 101],
             ['Fahrwasser', 224],
+            ['Besondere Tonnen', 158],
         ],
     ];
 
