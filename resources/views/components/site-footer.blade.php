@@ -1,10 +1,12 @@
 @php
     // Siehe components/whatsapp-support-button.blade.php: auf den
-    // Smart-Learning-Fragenseiten und im Videoplayer wandert der
-    // WhatsApp-Button vom fest positionierten Overlay rechtsbündig in den
-    // Footer, damit er nicht mehr den "Antworten"-Button bzw. die
+    // Smart-Learning-Fragenseiten, im Videoplayer und im Video-Quiz wandert
+    // der WhatsApp-Button vom fest positionierten Overlay rechtsbündig in
+    // den Footer, damit er nicht mehr den "Antworten"-Button bzw. die
     // Video-Steuerleiste überlappt.
-    $showInlineWhatsapp = request()->routeIs('learning.show', 'learning.attempts.store', 'video.index', 'video.show');
+    $showInlineWhatsapp = request()->routeIs(
+        'learning.show', 'learning.attempts.store', 'video.index', 'video.show', 'video.quiz.show', 'video.quiz.answer'
+    );
     $inlineWaLink = ($showInlineWhatsapp && isset($branding) && auth()->check() && ! request()->routeIs('admin.*'))
         ? \App\Support\WhatsAppLink::for(
             $branding,
