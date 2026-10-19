@@ -65,6 +65,19 @@ class VideoLessonQuestionSeeder extends Seeder
             ],
             'Feuer an Bord' => [
                 'Welcher Feuerlöscher ist für Sportboote zweckmäßig und wie oft muss man einen Feuerlöscher überprüfen lassen?',
+                'Welche Maßnahmen muss man ergreifen, um einen Brand mit dem Feuerlöscher wirksam zu bekämpfen?',
+            ],
+            'Nebel' => [
+                'Welche besonderen Maßnahmen sind bei verminderter Sicht zu treffen?',
+            ],
+        ],
+        'Wetterkunde' => [
+            'Entstehung des Wetters' => [
+                'Welche Faktoren sind hauptsächlich für das Wettergeschehen, also für Wind und Niederschläge, ausschlaggebend?',
+            ],
+            'Der Wind' => [
+                'Für welche Windstärken wird eine Starkwindwarnung herausgegeben?',
+                'Für welche Windstärken wird eine Sturmwarnung herausgegeben?',
             ],
         ],
     ];

@@ -7,46 +7,60 @@ use App\Models\VideoLesson;
 use Illuminate\Database\Seeder;
 
 /**
- * Das Kapitel "Seemannschaft" hatte bisher nur die Lektion "Anlegemanöver".
- * Für das "Zu den Fragen"-Quiz (siehe VideoLessonQuestionSeeder) werden
- * zwei weitere Lektionen ergänzt, deren Themen bereits amtliche Fragen in
- * der zentralen Fragenbasis haben: "Ankern" und "Feuer an Bord". Wie bei den
- * übrigen Kapiteln ein öffentliches Platzhaltervideo, bis echtes,
- * lizenziertes Kursmaterial vorliegt.
+ * Einzelne Kapitel von SBF See hatten bisher weniger Lektionen, als es für
+ * das "Zu den Fragen"-Quiz (siehe VideoLessonQuestionSeeder) amtliche Fragen
+ * in der zentralen Fragenbasis gibt. Ergänzt die fehlenden Lektionen mit
+ * einem öffentlichen Platzhaltervideo, bis echtes, lizenziertes
+ * Kursmaterial vorliegt -- wie bei den übrigen Kapiteln.
  */
 class SeemannschaftVideoSeeder extends Seeder
 {
     private const PLACEHOLDER_VIDEO = 'https://www.w3schools.com/html/mov_bbb.mp4';
 
-    private const LESSONS = [
-        ['Ankern', 139],
-        ['Feuer an Bord', 76],
+    /** @var array<string, array<int, array{0: string, 1: int}>> Kapitel => [Lektion, Dauer in Sekunden]. */
+    private const EXTRA_LESSONS = [
+        'Seemannschaft' => [
+            ['Ankern', 139],
+            ['Feuer an Bord', 76],
+            ['Nebel', 86],
+        ],
+        'Wetterkunde' => [
+            ['Entstehung des Wetters', 152],
+            ['Der Wind', 123],
+        ],
     ];
 
     public function run(): void
     {
         $sbfSee = CourseDefinition::withoutGlobalScopes()->where('code', 'SBF-SEE')->whereNull('tenant_id')->first();
-        $chapter = $sbfSee?->videoModules()->where('title', 'Seemannschaft')->first();
 
-        if (! $chapter) {
+        if (! $sbfSee) {
             return;
         }
 
-        $nextSortOrder = (int) $chapter->lessons()->max('sort_order');
+        foreach (self::EXTRA_LESSONS as $chapterTitle => $lessons) {
+            $chapter = $sbfSee->videoModules()->where('title', $chapterTitle)->first();
 
-        foreach (self::LESSONS as [$title, $duration]) {
-            if ($chapter->lessons()->where('title', $title)->exists()) {
+            if (! $chapter) {
                 continue;
             }
 
-            $nextSortOrder++;
-            VideoLesson::create([
-                'video_module_id' => $chapter->id,
-                'title' => $title,
-                'video_url' => self::PLACEHOLDER_VIDEO,
-                'duration_seconds' => $duration,
-                'sort_order' => $nextSortOrder,
-            ]);
+            $nextSortOrder = (int) $chapter->lessons()->max('sort_order');
+
+            foreach ($lessons as [$title, $duration]) {
+                if ($chapter->lessons()->where('title', $title)->exists()) {
+                    continue;
+                }
+
+                $nextSortOrder++;
+                VideoLesson::create([
+                    'video_module_id' => $chapter->id,
+                    'title' => $title,
+                    'video_url' => self::PLACEHOLDER_VIDEO,
+                    'duration_seconds' => $duration,
+                    'sort_order' => $nextSortOrder,
+                ]);
+            }
         }
     }
 }
