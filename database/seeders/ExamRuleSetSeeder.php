@@ -21,9 +21,10 @@ use Illuminate\Database\Seeder;
  * Fragenmix dieses Platzhalter-Regelwerks. ADD-BIN-SEGEL hat zusätzlich
  * eine eigene, von der Prüfungsordnung vorgegebene Bestehensgrenze (5
  * von 7 Fragen) und Bearbeitungszeit (15 Minuten) statt der generischen
- * Standardwerte. Für alle anderen Kurse muss Zeitlimit/Fragenmix/
- * Bestehensgrenze vor echtem Produktivbetrieb noch fachlich geprüft
- * werden.
+ * Standardwerte. SRC hat eine eigene Bestehensgrenze (19 von 24 Fragen)
+ * und Bearbeitungszeit (30 Minuten). Für alle anderen Kurse muss
+ * Zeitlimit/Fragenmix/Bestehensgrenze vor echtem Produktivbetrieb noch
+ * fachlich geprüft werden.
  */
 class ExamRuleSetSeeder extends Seeder
 {
@@ -41,7 +42,7 @@ class ExamRuleSetSeeder extends Seeder
         // die 23 Binnen-spezifischen Fragen geprüft werden. Dieses
         // Regelwerk ist deshalb -- wie SBF-SEE -- fachlich verifiziert und
         // nicht nur ein generischer Platzhalter.
-        $verifiedCourses = ['SBF-SEE', 'SBF-BIN-MOTOR', 'SBF-SEE-BIN', 'ADD-SEE-TO-BIN', 'ADD-BIN-TO-SEE', 'SBF-BIN-SEGEL', 'ADD-BIN-SEGEL'];
+        $verifiedCourses = ['SBF-SEE', 'SBF-BIN-MOTOR', 'SBF-SEE-BIN', 'ADD-SEE-TO-BIN', 'ADD-BIN-TO-SEE', 'SBF-BIN-SEGEL', 'ADD-BIN-SEGEL', 'SRC'];
         $questionCountOverrides = ['ADD-SEE-TO-BIN' => 23, 'ADD-BIN-TO-SEE' => 23];
 
         // ADD-BIN-SEGEL ("Ergänzung Binnen Segeln"): nur noch die 7
@@ -49,8 +50,12 @@ class ExamRuleSetSeeder extends Seeder
         // Basisfragen, da bei vorhandenem SBF Binnen bereits geprüft) --
         // mit eigener, verkürzter Bestehensgrenze (5 von 7) und
         // Bearbeitungszeit (15 Minuten) laut Prüfungsordnung.
-        $timeLimitOverrides = ['ADD-BIN-SEGEL' => 900];
-        $passingRuleOverrides = ['ADD-BIN-SEGEL' => ['min_correct_ratio' => 5 / 7]];
+        //
+        // SRC ("SRC Vollkurs"): 19 von 24 Fragen müssen richtig
+        // beantwortet werden (max. 5 Fehler), Bearbeitungszeit 30
+        // Minuten.
+        $timeLimitOverrides = ['ADD-BIN-SEGEL' => 900, 'SRC' => 1800];
+        $passingRuleOverrides = ['ADD-BIN-SEGEL' => ['min_correct_ratio' => 5 / 7], 'SRC' => ['min_correct_ratio' => 19 / 24]];
 
         foreach ($courses as $course) {
             $questionsPerModule = 10;

@@ -80,6 +80,16 @@
                     Hinweis: Die Zuordnung der Fragen zu den einzelnen Bögen entspricht den amtlichen Prüfungsbögen
                     (Quelle: seeundbinnen.de).
                 </p>
+            @elseif ($course->code === 'SRC')
+                <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                    Hier findest Du alle {{ $paperStats->count() }} offiziellen Prüfungsbögen für den SRC Vollkurs. Die Bögen haben immer
+                    die gleiche Zusammensetzung, sodass Du Dich gezielt und effizient vorbereiten kannst. Jeder Prüfungsbogen enthält 24
+                    Multiple-Choice-Fragen, Bearbeitungszeit 30 Minuten, Bestehensgrenze 19 von 24 Fragen (max. 5 Fehler).
+                </p>
+                <p class="text-xs text-slate-400 mt-3">
+                    Hinweis: Zur SRC-Prüfung gehören zusätzlich ein englisches Diktat und eine schriftliche Übersetzung, die nicht Teil
+                    dieser Online-Simulation sind. Quelle der Prüfungsbögen: Fachstelle der WSV für Verkehrstechniken, Koblenz.
+                </p>
             @elseif ($course->code === 'ADD-BIN-SEGEL')
                 <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
                     Hier findest Du alle {{ $paperStats->count() }} offiziellen Prüfungsbögen für die Ergänzungsprüfung Binnen Segeln. Da Du
