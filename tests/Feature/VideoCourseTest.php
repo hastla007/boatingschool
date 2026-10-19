@@ -136,6 +136,9 @@ class VideoCourseTest extends TestCase
         $lessonPage = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/video/{$firstLesson->id}");
         $lessonPage->assertOk();
         $lessonPage->assertSee('Zu den Fragen (1)');
+        // Solange Fragen hinterlegt sind, ersetzt "Zu den Fragen" den
+        // direkten "Nächstes Video"-Button auf der Videoseite selbst.
+        $lessonPage->assertDontSee('Nächstes Video');
 
         $quizPage = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/video/{$firstLesson->id}/questions/1");
         $quizPage->assertOk();
@@ -147,6 +150,9 @@ class VideoCourseTest extends TestCase
         );
         $answerResponse->assertOk();
         $answerResponse->assertSee('Richtig!');
+        // Letzte (und einzige) Frage beantwortet -> der Abschluss-Button
+        // führt jetzt direkt zum nächsten Video statt zurück zum Video.
+        $answerResponse->assertSee('Nächstes Video');
 
         $this->assertDatabaseHas('attempt', [
             'tenant_id' => $tenant->id,
@@ -155,6 +161,17 @@ class VideoCourseTest extends TestCase
             'course_id' => $course->id,
             'context' => 'video_quiz',
             'correct' => true,
+        ]);
+
+        $completeResponse = $this->actingAsInTenant($learner, $tenant)->post(
+            "/courses/{$course->id}/video/{$firstLesson->id}/complete"
+        );
+        $completeResponse->assertRedirect();
+        $this->assertDatabaseHas('video_progress', [
+            'tenant_id' => $tenant->id,
+            'user_id' => $learner->id,
+            'video_lesson_id' => $firstLesson->id,
+            'completed' => true,
         ]);
     }
 

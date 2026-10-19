@@ -8,6 +8,7 @@ use App\Models\VideoLesson;
 use App\Services\EntitlementService;
 use App\Services\LearningService;
 use App\Support\TenantContext;
+use App\Support\VideoCourseLessons;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -32,16 +33,19 @@ class VideoQuizController extends Controller
         abort_if(! $revision, 404, 'Für diese Frage liegt keine veröffentlichte Fassung vor.');
         $revision->load('answers', 'media');
 
+        $moduleIds = $this->parseModuleIds($request);
+
         return view('video.quiz', [
             'course' => $course,
             'lesson' => $lesson,
-            'moduleIds' => $this->parseModuleIds($request),
+            'moduleIds' => $moduleIds,
             'position' => $position,
             'total' => $questions->count(),
             'revision' => $revision,
             'answered' => false,
             'correct' => null,
             'selectedAnswerId' => null,
+            'next' => $this->nextLesson($course, $lesson, $moduleIds),
         ]);
     }
 
@@ -76,16 +80,19 @@ class VideoQuizController extends Controller
 
         $revision->load('answers', 'media');
 
+        $moduleIds = $this->parseModuleIds($request);
+
         return view('video.quiz', [
             'course' => $course,
             'lesson' => $lesson,
-            'moduleIds' => $this->parseModuleIds($request),
+            'moduleIds' => $moduleIds,
             'position' => $position,
             'total' => $questions->count(),
             'revision' => $revision,
             'answered' => true,
             'correct' => $attempt->correct,
             'selectedAnswerId' => $selectedAnswer?->id,
+            'next' => $this->nextLesson($course, $lesson, $moduleIds),
         ]);
     }
 
@@ -94,5 +101,13 @@ class VideoQuizController extends Controller
         $raw = $request->query('kapitel');
 
         return $raw ? array_values(array_filter(explode(',', $raw))) : null;
+    }
+
+    private function nextLesson(CourseDefinition $course, VideoLesson $lesson, ?array $moduleIds): ?VideoLesson
+    {
+        $lessons = VideoCourseLessons::ordered($course, $moduleIds);
+        $currentIndex = $lessons->search(fn ($l) => $l->id === $lesson->id);
+
+        return $currentIndex === false ? null : $lessons->get($currentIndex + 1);
     }
 }

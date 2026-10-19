@@ -56,34 +56,7 @@
                 @endforeach
             </div>
 
-            @if ($answered)
-                <div class="mt-4 rounded-xl p-4 flex items-start gap-2 {{ $correct ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300' }}">
-                    <x-icon :name="$correct ? 'check-circle' : 'x-circle'" class="w-5 h-5 shrink-0 mt-0.5" />
-                    <div>
-                        <strong>{{ $correct ? 'Richtig!' : 'Leider falsch.' }}</strong>
-                        @if (!$correct)
-                            <div class="text-sm mt-1">Richtige Antwort: {{ $revision->correctAnswer()?->answer_text }}</div>
-                        @endif
-                        @php($feedback = $correct ? $revision->feedback_correct : $revision->feedback_incorrect)
-                        @if ($feedback)
-                            <div class="text-sm mt-2 whitespace-pre-line">{{ $feedback }}</div>
-                        @endif
-                    </div>
-                </div>
-                <div class="flex justify-end mt-4">
-                    @if ($position < $total)
-                        <a href="{{ route('video.quiz.show', array_filter(['course' => $course, 'lesson' => $lesson, 'position' => $position + 1, 'kapitel' => $moduleIds ? implode(',', $moduleIds) : null])) }}"
-                           class="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
-                            Nächste Frage <x-icon name="arrow-right" class="w-4 h-4" />
-                        </a>
-                    @else
-                        <a href="{{ route('video.show', array_filter(['course' => $course, 'lesson' => $lesson, 'kapitel' => $moduleIds ? implode(',', $moduleIds) : null])) }}"
-                           class="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
-                            Zurück zum Video <x-icon name="arrow-right" class="w-4 h-4" />
-                        </a>
-                    @endif
-                </div>
-            @else
+            @unless ($answered)
                 <div class="flex justify-end mt-6">
                     <button type="submit" x-bind:disabled="!selected"
                             class="px-5 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-40 hover:opacity-90 transition"
@@ -91,7 +64,38 @@
                         Antwort senden
                     </button>
                 </div>
-            @endif
+            @endunless
         </form>
+
+        @if ($answered)
+            <div class="mt-4 rounded-xl p-4 flex items-start gap-2 {{ $correct ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300' }}">
+                <x-icon :name="$correct ? 'check-circle' : 'x-circle'" class="w-5 h-5 shrink-0 mt-0.5" />
+                <div>
+                    <strong>{{ $correct ? 'Richtig!' : 'Leider falsch.' }}</strong>
+                    @if (!$correct)
+                        <div class="text-sm mt-1">Richtige Antwort: {{ $revision->correctAnswer()?->answer_text }}</div>
+                    @endif
+                    @php($feedback = $correct ? $revision->feedback_correct : $revision->feedback_incorrect)
+                    @if ($feedback)
+                        <div class="text-sm mt-2 whitespace-pre-line">{{ $feedback }}</div>
+                    @endif
+                </div>
+            </div>
+            <div class="flex justify-end mt-4">
+                @if ($position < $total)
+                    <a href="{{ route('video.quiz.show', array_filter(['course' => $course, 'lesson' => $lesson, 'position' => $position + 1, 'kapitel' => $moduleIds ? implode(',', $moduleIds) : null])) }}"
+                       class="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
+                        Nächste Frage <x-icon name="arrow-right" class="w-4 h-4" />
+                    </a>
+                @else
+                    <form method="POST" action="{{ route('video.complete', array_filter(['course' => $course, 'lesson' => $lesson, 'kapitel' => $moduleIds ? implode(',', $moduleIds) : null])) }}">
+                        @csrf
+                        <button type="submit" class="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
+                            {{ $next ? 'Nächstes Video' : 'Kurs abschließen' }} <x-icon name="arrow-right" class="w-4 h-4" />
+                        </button>
+                    </form>
+                @endif
+            </div>
+        @endif
     </div>
 </x-app-layout>

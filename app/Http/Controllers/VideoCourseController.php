@@ -8,6 +8,7 @@ use App\Models\VideoProgress;
 use App\Services\EntitlementService;
 use App\Support\ComboVideoGroups;
 use App\Support\TenantContext;
+use App\Support\VideoCourseLessons;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
@@ -20,7 +21,7 @@ class VideoCourseController extends Controller
         abort_unless($entitlements->hasAccess($tenantContext->tenant(), $request->user(), $course), 403);
 
         $moduleIds = $this->parseModuleIds($request);
-        $lessons = $this->orderedLessons($course, $moduleIds);
+        $lessons = VideoCourseLessons::ordered($course, $moduleIds);
         abort_if($lessons->isEmpty(), 404, 'Für diesen Kurs ist noch kein Videokurs hinterlegt.');
 
         $progress = $this->progressFor($tenantContext, $request, $lessons);
@@ -34,7 +35,7 @@ class VideoCourseController extends Controller
         abort_unless($entitlements->hasAccess($tenantContext->tenant(), $request->user(), $course), 403);
 
         $moduleIds = $this->parseModuleIds($request);
-        $lessons = $this->orderedLessons($course, $moduleIds);
+        $lessons = VideoCourseLessons::ordered($course, $moduleIds);
         abort_unless($lessons->contains('id', $lesson->id), 404, 'Diese Lektion gehört nicht zu diesem Kapitel.');
 
         $progress = $this->progressFor($tenantContext, $request, $lessons);
@@ -78,7 +79,7 @@ class VideoCourseController extends Controller
         abort_unless($entitlements->hasAccess($tenant, $user, $course), 403);
 
         $moduleIds = $this->parseModuleIds($request);
-        $lessons = $this->orderedLessons($course, $moduleIds);
+        $lessons = VideoCourseLessons::ordered($course, $moduleIds);
         abort_unless($lessons->contains('id', $lesson->id), 404);
 
         VideoProgress::updateOrCreate(
@@ -123,25 +124,6 @@ class VideoCourseController extends Controller
         $raw = $request->query('kapitel');
 
         return $raw ? array_values(array_filter(explode(',', $raw))) : null;
-    }
-
-    /** @return Collection<int, VideoLesson> */
-    private function orderedLessons(CourseDefinition $course, ?array $moduleIds = null): Collection
-    {
-        $query = $course->videoModules()->with('lessons');
-
-        if ($moduleIds) {
-            $query->whereIn('id', $moduleIds);
-        } else {
-            // "Knoten" ist als eigene Kachel/Seite ausgelagert (siehe
-            // CourseController) und taucht im normalen, unfilterten
-            // Kursfluss bewusst nicht als Kapitel auf -- nur über die
-            // gezielte ?kapitel=<id>-Verlinkung der Kachel erreichbar.
-            $query->where('title', '!=', 'Knoten');
-        }
-
-        return $query->get()
-            ->flatMap(fn ($module) => $module->lessons->map(fn ($lesson) => tap($lesson, fn ($l) => $l->setRelation('module', $module))));
     }
 
     /** @return Collection<string, VideoProgress> */
