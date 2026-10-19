@@ -26,6 +26,13 @@ class BinnenLessonQuestionSeeder extends Seeder
                 'Für welche Sportboote ist der Sportbootführerschein mit dem Geltungsbereich Binnenschifffahrtsstraßen vorgeschrieben?',
                 'Auf welchen Gewässern gilt der Sportbootführerschein mit dem Geltungsbereich Binnenschifffahrtsstraßen?',
                 'Was beinhaltet die allgemeine Sorgfaltspflicht?',
+                'Welche Anforderungen neben der körperlichen und geistigen Tauglichkeit und fachlichen Eignung muss der Führer eines Sportbootes auf Binnenschifffahrtsstraßen erfüllen, wenn die größte Nutzleistung der Antriebsmaschine 11,03 kW bei Verbrennungsmotoren bzw. 7,5 kW bei Elektromotoren Betriebsart S1 (Dauerbetrieb) oder weniger beträgt?',
+                'Welche Anforderungen neben der körperlichen und geistigen Tauglichkeit und fachlichen Eignung muss der Führer eines Sportbootes auf dem Rhein erfüllen, wenn die Nutzleistung der Antriebsmaschine mehr als 11,03 kW bei Verbrennungsmotoren bzw. 7,5 kW bei Elektromotoren Betriebsart S1 (Dauerbetrieb) beträgt?',
+                'Welche Anforderungen werden an die Person gestellt, mit der der Schiffsführer das Ruder eines Sportbootes mit Antriebsmaschine auf Binnenschifffahrtstraßen besetzen will?',
+            ],
+            'Rechtliche Bestimmungen' => [
+                'Wo findet man die allgemeinen Verkehrsregeln für die Binnenschifffahrtsstraßen und den Rhein?',
+                'Wo findet man die allgemeinen Verkehrsregeln für die Mosel und die Donau?',
             ],
         ],
     ];
