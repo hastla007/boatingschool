@@ -88,7 +88,7 @@
         @foreach ($groupedStats as $groupLabel => $statsInGroup)
             <div>
                 <h4 class="font-medium text-slate-700 dark:text-slate-200 mb-3">{{ $groupLabel ?: $course->name }}</h4>
-                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                <div class="grid grid-cols-3 sm:grid-cols-5 gap-3">
                     @foreach ($statsInGroup as $stat)
                         <form method="POST" action="{{ route('exam.papers.start', ['course' => $course, 'paper' => $stat['paper']]) }}">
                             @csrf
