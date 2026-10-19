@@ -38,7 +38,7 @@ class ExamRuleSetSeeder extends Seeder
         // die 23 Binnen-spezifischen Fragen geprüft werden. Dieses
         // Regelwerk ist deshalb -- wie SBF-SEE -- fachlich verifiziert und
         // nicht nur ein generischer Platzhalter.
-        $verifiedCourses = ['SBF-SEE', 'SBF-BIN-MOTOR', 'SBF-SEE-BIN', 'ADD-SEE-TO-BIN', 'ADD-BIN-TO-SEE'];
+        $verifiedCourses = ['SBF-SEE', 'SBF-BIN-MOTOR', 'SBF-SEE-BIN', 'ADD-SEE-TO-BIN', 'ADD-BIN-TO-SEE', 'SBF-BIN-SEGEL'];
         $questionCountOverrides = ['ADD-SEE-TO-BIN' => 23, 'ADD-BIN-TO-SEE' => 23];
 
         foreach ($courses as $course) {

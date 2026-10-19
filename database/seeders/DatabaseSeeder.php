@@ -40,6 +40,7 @@ class DatabaseSeeder extends Seeder
             AddSeeToBinExamPaperSeeder::class,
             AddBinToSeeExamPaperSeeder::class,
             ComboExamPaperSeeder::class,
+            BinnenSegelnExamPaperSeeder::class,
             PraxisTrainerSeeder::class,
             ComboPraxisTrainerSeeder::class,
             TenantSeeder::class,
