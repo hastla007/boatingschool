@@ -123,6 +123,9 @@ class BinnenLessonQuestionSeeder extends Seeder
                 'Wo ist die Geschwindigkeit zu vermindern, um Sog und Wellenschlag zu vermeiden?',
                 'Wo darf auf Binnenschifffahrtsstraßen Wasserski gelaufen werden?',
                 'Zu welcher Tageszeit und bei welchen Sichtweiten darf auf den erlaubten Gewässerabschnitten Wasserski gelaufen werden?',
+                'Wie muss sich der Wasserskiläufer bei der Vorbeifahrt an Fahrzeugen, Schwimmkörpern oder Badenden verhalten?',
+                'Unter welchen Voraussetzungen darf außerhalb der ausgewiesenen Strecken/Wasserflächen Wassermotorrad gefahren werden?',
+                'Wie hat sich der Führer eines Wassermotorrades außerhalb der ausgewiesenen Strecken/Wasserflächen zu verhalten?',
             ],
         ],
     ];
