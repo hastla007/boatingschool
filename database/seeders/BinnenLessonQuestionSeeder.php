@@ -109,6 +109,13 @@ class BinnenLessonQuestionSeeder extends Seeder
                 'Warum sollte man sich von Schilf- und Röhrichtzonen sowie von dicht bewachsenen Uferzonen möglichst weit fernhalten?',
                 'Wo finden Sie Informationen über umweltfreundliche Farben, Lacke und Antifouling-Beschichtungen für Ihr Boot?',
                 'Wie müssen Abfälle entsorgt werden?',
+                'Was ist beim Neuanstrich des Unterwasserschiffs und bei der Entfernung des alten Anstrichs zu beachten?',
+            ],
+            'Gefahren von Gas an Bord' => [
+                'Wo sollen die Gasbehälter einer Flüssiggasanlage gelagert werden?',
+                'Warum sind die Flüssiggase Propan und Butan an Bord besonders gefährlich?',
+                'Was ist zu tun, wenn Flüssiggas in das Innere des Bootes gelangt?',
+                'Was ist vor Inbetriebnahme einer Flüssiggasanlage zu prüfen?',
             ],
         ],
     ];
