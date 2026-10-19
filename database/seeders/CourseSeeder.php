@@ -29,7 +29,6 @@ class CourseSeeder extends Seeder
             ['code' => 'ADD-UBI-TO-SRC', 'name' => 'UBI-Ergänzung zu SRC', 'type' => 'addon', 'modules' => ['UBI']],
             ['code' => 'SKN', 'name' => 'SKN Vollkurs', 'type' => 'full', 'modules' => ['SKN']],
             ['code' => 'FKN', 'name' => 'FKN Vollkurs', 'type' => 'full', 'modules' => ['FKN']],
-            ['code' => 'SKN-FKN', 'name' => 'SKN & FKN Kombikurs', 'type' => 'combo', 'modules' => ['SKN', 'FKN']],
         ];
 
         foreach ($courses as $definition) {
