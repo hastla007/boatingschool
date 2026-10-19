@@ -69,7 +69,7 @@ class ComboVideoCourseSeeder extends Seeder
                 ['Besonderheiten und Sonderregelungen', 284],
                 ['Signalkörper und Lichter bei Nacht', 215],
                 ['Schallsignale', 183],
-                ['Smartmodus', 60],
+                ['Smart-Learning', 60],
                 ['Notfallsignale', 128],
             ],
             'Bootsführung und Bordtechnik' => [
