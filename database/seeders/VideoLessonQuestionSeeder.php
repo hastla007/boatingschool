@@ -154,6 +154,11 @@ class VideoLessonQuestionSeeder extends Seeder
                 'Wie navigiert man mittels eines Leitfeuers?',
                 'Was versteht man unter einem Richtfeuer?',
                 'Was versteht man unter einem Quermarkenfeuer?',
+                'Wie navigiert man mittels eines Quermarkenfeuers?',
+            ],
+            'Fahrwasser' => [
+                'Welche Kennung und Farbe haben die Feuer der Leuchttonnen an der Steuerbordseite des Fahrwassers?',
+                'Welche Kennung und Farbe haben die Feuer der Leuchttonnen an der Backbordseite des Fahrwassers?',
             ],
         ],
     ];

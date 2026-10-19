@@ -55,6 +55,7 @@ class SeemannschaftVideoSeeder extends Seeder
         'Leuchtfeuer und Tonnen' => [
             ['Feuerarten und Kennungen', 249],
             ['Sektorenfeuer', 101],
+            ['Fahrwasser', 224],
         ],
     ];
 
