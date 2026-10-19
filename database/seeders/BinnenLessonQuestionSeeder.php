@@ -54,6 +54,15 @@ class BinnenLessonQuestionSeeder extends Seeder
                 'Welche Funktion haben gelbe Tonnen mit einem Radarreflektor vor Brückenpfeilern?',
             ],
         ],
+        'Lichter, Zeichen und Töne' => [
+            'Grundlagen der Lichterführung' => [
+                'Wann müssen die Lichter von Fahrzeugen geführt oder gezeigt werden?',
+                'Wozu dient die Lichterführung?',
+                'Was für eine Laterne kann ein Segelfahrzeug von weniger als 20 m Länge anstelle der Seitenlichter und des Hecklichtes führen?',
+                'Welche Lichter muss ein Fahrzeug unter Segel, das gleichzeitig mit Maschinenkraft fährt, führen?',
+                'Welchen Sichtwinkel und welche Farben haben die vorgeschriebenen Lichter an Bord?',
+            ],
+        ],
     ];
 
     public function run(): void
