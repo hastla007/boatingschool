@@ -15,12 +15,13 @@
     // automatisch in eine freie Zelle statt auf eine Kachel fällt.
     $isCoursesIndex = request()->routeIs('courses.index');
 
-    // Auf den Smart-Learning-Fragenseiten überlappt das fest positionierte
-    // Widget den "Antworten"-Button. Dort wird es stattdessen rechtsbündig
-    // im Footer gerendert (siehe components/site-footer.blade.php).
-    $isLearningQuestionPage = request()->routeIs('learning.show', 'learning.attempts.store');
+    // Auf den Smart-Learning-Fragenseiten und im Videoplayer überlappt das
+    // fest positionierte Widget den "Antworten"-Button bzw. die Video-
+    // Steuerleiste. Dort wird es stattdessen rechtsbündig im Footer
+    // gerendert (siehe components/site-footer.blade.php).
+    $isFooterWhatsappPage = request()->routeIs('learning.show', 'learning.attempts.store', 'video.index', 'video.show');
 @endphp
-@if ($waLink && ! $isCoursesIndex && ! $isLearningQuestionPage)
+@if ($waLink && ! $isCoursesIndex && ! $isFooterWhatsappPage)
     <a href="{{ $waLink }}" target="_blank" rel="noopener"
        class="fixed bottom-[135px] right-5 z-40 inline-flex items-center gap-2 pl-3 pr-4 py-3 rounded-full shadow-lg text-white text-sm font-medium hover:opacity-90 transition max-w-[calc(100vw-2.5rem)]"
        style="background-color: #25D366"
