@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\CourseDefinition;
 use App\Models\VideoLesson;
+use App\Models\VideoModule;
 use Illuminate\Database\Seeder;
 
 /**
@@ -11,11 +12,17 @@ use Illuminate\Database\Seeder;
  * das "Zu den Fragen"-Quiz (siehe VideoLessonQuestionSeeder) amtliche Fragen
  * in der zentralen Fragenbasis gibt. Ergänzt die fehlenden Lektionen mit
  * einem öffentlichen Platzhaltervideo, bis echtes, lizenziertes
- * Kursmaterial vorliegt -- wie bei den übrigen Kapiteln.
+ * Kursmaterial vorliegt -- wie bei den übrigen Kapiteln. NEW_CHAPTERS legt
+ * dafür ggf. fehlende Kapitel direkt vor einem bestehenden Referenzkapitel an.
  */
 class SeemannschaftVideoSeeder extends Seeder
 {
     private const PLACEHOLDER_VIDEO = 'https://www.w3schools.com/html/mov_bbb.mp4';
+
+    /** @var array<int, array{0: string, 1: string}> [Neues Kapitel, Titel des Kapitels davor]. */
+    private const NEW_CHAPTERS = [
+        ['Berufsschifffahrt', 'Ausweichregeln'],
+    ];
 
     /** @var array<string, array<int, array{0: string, 1: int}>> Kapitel => [Lektion, Dauer in Sekunden]. */
     private const EXTRA_LESSONS = [
@@ -32,6 +39,10 @@ class SeemannschaftVideoSeeder extends Seeder
         'Ausweichregeln' => [
             ['Ausweichregeln für alle Fahrzeuge', 378],
             ['Ausweichregeln für Maschinenfahrzeuge', 87],
+            ['Ausweichregeln für Segelfahrzeuge', 124],
+        ],
+        'Berufsschifffahrt' => [
+            ['Seeverkehrsrecht', 289],
         ],
     ];
 
@@ -42,6 +53,8 @@ class SeemannschaftVideoSeeder extends Seeder
         if (! $sbfSee) {
             return;
         }
+
+        $this->createMissingChapters($sbfSee);
 
         foreach (self::EXTRA_LESSONS as $chapterTitle => $lessons) {
             $chapter = $sbfSee->videoModules()->where('title', $chapterTitle)->first();
@@ -66,6 +79,31 @@ class SeemannschaftVideoSeeder extends Seeder
                     'sort_order' => $nextSortOrder,
                 ]);
             }
+        }
+    }
+
+    private function createMissingChapters(CourseDefinition $sbfSee): void
+    {
+        foreach (self::NEW_CHAPTERS as [$chapterTitle, $beforeTitle]) {
+            if ($sbfSee->videoModules()->where('title', $chapterTitle)->exists()) {
+                continue;
+            }
+
+            $before = $sbfSee->videoModules()->where('title', $beforeTitle)->first();
+
+            if (! $before) {
+                continue;
+            }
+
+            $sbfSee->videoModules()
+                ->where('sort_order', '>', $before->sort_order)
+                ->increment('sort_order');
+
+            VideoModule::create([
+                'course_id' => $sbfSee->id,
+                'title' => $chapterTitle,
+                'sort_order' => $before->sort_order + 1,
+            ]);
         }
     }
 }

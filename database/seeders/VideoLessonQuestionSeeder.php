@@ -96,6 +96,17 @@ class VideoLessonQuestionSeeder extends Seeder
             'Ausweichregeln für Maschinenfahrzeuge' => [
                 'Zwei Motorboote nähern sich auf kreuzenden Kursen. Es besteht die Gefahr eines Zusammenstoßes. Wer ist ausweichpflichtig?',
             ],
+            'Ausweichregeln für Segelfahrzeuge' => [
+                'Welche Seite wird als Luvseite bezeichnet?',
+                'Welche Seite wird als Leeseite bezeichnet?',
+            ],
+        ],
+        'Berufsschifffahrt' => [
+            'Seeverkehrsrecht' => [
+                'Wann ist ein Fahrzeug in Fahrt?',
+                'Wo gelten die Kollisionsverhütungsregeln (KVR)?',
+                'Was gilt, wenn eine Bestimmung der Seeschifffahrtsstraßen-Ordnung (SeeSchStrO) mit den Kollisionsverhütungsregeln (KVR) im Widerspruch steht?',
+            ],
         ],
     ];
 
