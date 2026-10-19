@@ -35,6 +35,13 @@ class VideoLessonQuestionSeeder extends Seeder
                 'Der Motor ist gestartet worden. Was kann die Ursache sein, wenn nach dem Einkuppeln der Antriebswelle der Motor stehenbleibt?',
                 'Ein Außenborder mit gefülltem Tank bleibt während der Fahrt stehen. Was könnten die Ursachen sein?',
             ],
+            'Radeffekt' => [
+                'Was ist unter einem rechtsdrehenden Propeller zu verstehen?',
+                'Was ist unter einem linksdrehenden Propeller zu verstehen?',
+                'Was ist unter der indirekten Ruderwirkung (Radeffekt) des Propellers zu verstehen?',
+                'Weshalb ist die Kenntnis der Propellerdrehrichtung von Bedeutung?',
+                'Welche Anlegeseite ist mit rechtsdrehendem Propeller empfehlenswert und warum?',
+            ],
         ],
     ];
 
