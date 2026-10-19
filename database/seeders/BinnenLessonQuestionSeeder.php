@@ -61,6 +61,15 @@ class BinnenLessonQuestionSeeder extends Seeder
                 'Was für eine Laterne kann ein Segelfahrzeug von weniger als 20 m Länge anstelle der Seitenlichter und des Hecklichtes führen?',
                 'Welche Lichter muss ein Fahrzeug unter Segel, das gleichzeitig mit Maschinenkraft fährt, führen?',
                 'Welchen Sichtwinkel und welche Farben haben die vorgeschriebenen Lichter an Bord?',
+                'Welches Licht muss ein Kleinfahrzeug ohne Maschinenantrieb mindestens führen?',
+            ],
+            'Besonderheiten und Sonderregelungen' => [
+                ['question' => 'Was bedeutet dieses Sichtzeichen?', 'correct_answer' => 'Schleppfahrzeug an der Spitze eines Schleppverbandes.'],
+                ['question' => 'Was bedeutet dieses Sichtzeichen?', 'correct_answer' => 'Fahrzeug eines Schleppverbandes.'],
+                ['question' => 'Was bedeuten diese Lichter?', 'correct_answer' => 'Schubverband in Fahrt von vorne.'],
+            ],
+            'Signalkörper und Lichter bei Nacht' => [
+                'Was bedeutet auf einem Fahrzeug ein blaues Licht?',
             ],
         ],
     ];
@@ -88,9 +97,12 @@ class BinnenLessonQuestionSeeder extends Seeder
     }
 
     /**
-     * @param array<int, string|array{media: string}> $questions Fragetext, oder
-     *        ['media' => '...'] um bei mehrdeutigem (mehrfach verwendetem)
-     *        Fragetext über den Dateinamen des zugehörigen Bildes zu identifizieren.
+     * @param array<int, string|array{media: string}|array{question: string, correct_answer: string}> $questions
+     *        Fragetext, oder ['media' => '...'] um bei mehrdeutigem (mehrfach
+     *        verwendetem) Fragetext über den Dateinamen des zugehörigen Bildes
+     *        zu identifizieren, oder ['question' => ..., 'correct_answer' => ...]
+     *        um stattdessen über den Text der richtigen Antwort zu identifizieren
+     *        (für bildbasierte Fragen ohne hinterlegtes Bild in der Fragenbasis).
      */
     private function attachQuestions(?VideoLesson $lesson, array $questions): void
     {
@@ -101,9 +113,15 @@ class BinnenLessonQuestionSeeder extends Seeder
         foreach ($questions as $sortOrder => $question) {
             $query = ContentQuestionRevision::where('editorial_status', 'published');
 
-            $revision = is_array($question)
-                ? $query->whereHas('media', fn ($q) => $q->where('storage_path', 'ilike', '%' . $question['media']))->first()
-                : $query->where('question_text', $question)->first();
+            if (is_array($question) && isset($question['media'])) {
+                $revision = $query->whereHas('media', fn ($q) => $q->where('storage_path', 'ilike', '%' . $question['media']))->first();
+            } elseif (is_array($question) && isset($question['correct_answer'])) {
+                $revision = $query->where('question_text', $question['question'])
+                    ->whereHas('answers', fn ($q) => $q->where('is_correct', true)->where('answer_text', $question['correct_answer']))
+                    ->first();
+            } else {
+                $revision = $query->where('question_text', $question)->first();
+            }
 
             if ($revision) {
                 $lesson->questions()->syncWithoutDetaching([$revision->question_id => ['sort_order' => $sortOrder + 1]]);
