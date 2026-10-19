@@ -13,10 +13,12 @@ use Illuminate\Database\Seeder;
  * ("Noch festzulegende Betriebsparameter") sind Fragenmix, Zeitlimit und
  * Bestehensgrenze je Katalog noch fachlich zu verifizieren -- Sprint 6 darf
  * laut Implementierungsplan nur mit freigegebenem Rule Set starten. Diese
- * Werte sind deshalb bewusst als "draft"/unverifiziert markiert; nur der
- * SBF-See-Datensatz wird zusätzlich als Demo-Verifizierung veröffentlicht,
- * damit die technische Prüfungssimulation end-to-end getestet werden kann.
- * Vor echtem Produktivbetrieb muss das fachlich geprüft werden.
+ * Werte sind deshalb bewusst als "draft"/unverifiziert markiert; nur
+ * SBF-SEE und ADD-SEE-TO-BIN werden zusätzlich veröffentlicht -- SBF-SEE
+ * als Demo-Verifizierung, ADD-SEE-TO-BIN weil dessen Fragenmix (23
+ * Binnen-spezifische Fragen, keine Basisfragen für Inhaber eines SBF See)
+ * fachlich feststeht. Für alle anderen Kurse muss Zeitlimit/Fragenmix/
+ * Bestehensgrenze vor echtem Produktivbetrieb noch fachlich geprüft werden.
  */
 class ExamRuleSetSeeder extends Seeder
 {
@@ -29,9 +31,17 @@ class ExamRuleSetSeeder extends Seeder
 
         $courses = CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')->get();
 
+        // ADD-SEE-TO-BIN ("Ergänzung See → Binnen"): laut Prüfungsordnung
+        // entfallen für Inhaber eines SBF See die 7 Basisfragen, sodass nur
+        // die 23 Binnen-spezifischen Fragen geprüft werden. Dieses
+        // Regelwerk ist deshalb -- wie SBF-SEE -- fachlich verifiziert und
+        // nicht nur ein generischer Platzhalter.
+        $verifiedCourses = ['SBF-SEE', 'ADD-SEE-TO-BIN'];
+        $questionCountOverrides = ['ADD-SEE-TO-BIN' => 23];
+
         foreach ($courses as $course) {
-            $moduleCount = $course->modules()->count();
             $questionsPerModule = 10;
+            $isVerified = in_array($course->code, $verifiedCourses, true);
 
             $ruleSet = ExamRuleSet::updateOrCreate(
                 ['course_id' => $course->id, 'version' => 'draft-2026-09'],
@@ -39,16 +49,18 @@ class ExamRuleSetSeeder extends Seeder
                     'valid_from' => now()->toDateString(),
                     'time_limit_seconds' => 3600,
                     'passing_rule' => ['min_correct_ratio' => 0.75],
-                    'status' => $course->code === 'SBF-SEE' ? 'published' : 'draft',
-                    'verified_by' => $course->code === 'SBF-SEE' ? $reviewer->id : null,
-                    'verified_at' => $course->code === 'SBF-SEE' ? now() : null,
+                    'status' => $isVerified ? 'published' : 'draft',
+                    'verified_by' => $isVerified ? $reviewer->id : null,
+                    'verified_at' => $isVerified ? now() : null,
                 ]
             );
 
             foreach ($course->modules as $module) {
+                $questionCount = $questionCountOverrides[$course->code] ?? $questionsPerModule;
+
                 ExamBlueprint::updateOrCreate(
                     ['rule_set_id' => $ruleSet->id, 'module_id' => $module->id],
-                    ['question_count' => min($questionsPerModule, max(1, $module->questions()->count()))]
+                    ['question_count' => min($questionCount, max(1, $module->questions()->count()))]
                 );
             }
         }

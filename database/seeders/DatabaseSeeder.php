@@ -30,6 +30,7 @@ class DatabaseSeeder extends Seeder
             SeemannschaftVideoSeeder::class,
             VideoLessonQuestionSeeder::class,
             BinnenLessonQuestionSeeder::class,
+            AddSeeToBinVideoCourseSeeder::class,
             NavigationTaskSeeder::class,
             ComboNavigationTaskSeeder::class,
             ExamRuleSetSeeder::class,
