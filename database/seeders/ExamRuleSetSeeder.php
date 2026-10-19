@@ -14,10 +14,11 @@ use Illuminate\Database\Seeder;
  * Bestehensgrenze je Katalog noch fachlich zu verifizieren -- Sprint 6 darf
  * laut Implementierungsplan nur mit freigegebenem Rule Set starten. Diese
  * Werte sind deshalb bewusst als "draft"/unverifiziert markiert; nur
- * SBF-SEE und ADD-SEE-TO-BIN werden zusätzlich veröffentlicht -- SBF-SEE
- * als Demo-Verifizierung, ADD-SEE-TO-BIN weil dessen Fragenmix (23
- * Binnen-spezifische Fragen, keine Basisfragen für Inhaber eines SBF See)
- * fachlich feststeht. Für alle anderen Kurse muss Zeitlimit/Fragenmix/
+ * SBF-SEE, ADD-SEE-TO-BIN und ADD-BIN-TO-SEE werden zusätzlich
+ * veröffentlicht -- SBF-SEE als Demo-Verifizierung, die beiden
+ * Ergänzungskurse weil deren Fragenmix (je 23 kursspezifische Fragen,
+ * keine Basisfragen für Inhaber des jeweils anderen Scheins) fachlich
+ * feststeht. Für alle anderen Kurse muss Zeitlimit/Fragenmix/
  * Bestehensgrenze vor echtem Produktivbetrieb noch fachlich geprüft werden.
  */
 class ExamRuleSetSeeder extends Seeder
@@ -36,8 +37,8 @@ class ExamRuleSetSeeder extends Seeder
         // die 23 Binnen-spezifischen Fragen geprüft werden. Dieses
         // Regelwerk ist deshalb -- wie SBF-SEE -- fachlich verifiziert und
         // nicht nur ein generischer Platzhalter.
-        $verifiedCourses = ['SBF-SEE', 'ADD-SEE-TO-BIN'];
-        $questionCountOverrides = ['ADD-SEE-TO-BIN' => 23];
+        $verifiedCourses = ['SBF-SEE', 'ADD-SEE-TO-BIN', 'ADD-BIN-TO-SEE'];
+        $questionCountOverrides = ['ADD-SEE-TO-BIN' => 23, 'ADD-BIN-TO-SEE' => 23];
 
         foreach ($courses as $course) {
             $questionsPerModule = 10;

@@ -19,16 +19,23 @@
     <div class="space-y-4">
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
             <h3 class="font-medium text-slate-800 dark:text-white mb-2">Herzlich willkommen zu den Prüfungsbögen!</h3>
-            @if ($course->code === 'ADD-SEE-TO-BIN')
+            @php
+                $addonCopy = [
+                    'ADD-SEE-TO-BIN' => ['kurs' => 'Ergänzung See → Binnen', 'bereich' => 'Binnen', 'vorhanden' => 'SBF See', 'profil' => 'binnen-motor-with-see'],
+                    'ADD-BIN-TO-SEE' => ['kurs' => 'Ergänzung Binnen → See', 'bereich' => 'See', 'vorhanden' => 'SBF Binnen', 'profil' => 'see-with-binnen'],
+                ];
+            @endphp
+            @if (isset($addonCopy[$course->code]))
+                @php($copy = $addonCopy[$course->code])
                 <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                    Hier findest Du alle {{ $paperStats->count() }} offiziellen Ergänzungsbögen für den Kurs „Ergänzung See → Binnen&quot;. Die
+                    Hier findest Du alle {{ $paperStats->count() }} offiziellen Ergänzungsbögen für den Kurs „{{ $copy['kurs'] }}&quot;. Die
                     Bögen haben immer die gleiche Zusammensetzung, sodass Du Dich gezielt und effizient vorbereiten kannst.
-                    Jeder Prüfungsbogen enthält 23 Multiple-Choice-Fragen aus dem Bereich Binnen &mdash; die 7 allgemeinen
-                    Basisfragen entfallen, da diese mit Deinem vorhandenen SBF See bereits geprüft wurden.
+                    Jeder Prüfungsbogen enthält 23 Multiple-Choice-Fragen aus dem Bereich {{ $copy['bereich'] }} &mdash; die 7 allgemeinen
+                    Basisfragen entfallen, da diese mit Deinem vorhandenen {{ $copy['vorhanden'] }} bereits geprüft wurden.
                 </p>
                 <p class="text-xs text-slate-400 mt-3">
                     Hinweis: Die Zuordnung der Fragen zu den einzelnen Bögen entspricht den amtlichen Ergänzungsbögen
-                    (Quelle: seeundbinnen.de, Profil „binnen-motor-with-see&quot;).
+                    (Quelle: seeundbinnen.de, Profil „{{ $copy['profil'] }}&quot;).
                 </p>
             @else
                 <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
