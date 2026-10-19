@@ -26,6 +26,7 @@ class DatabaseSeeder extends Seeder
             VideoCourseSeeder::class,
             ComboVideoCourseSeeder::class,
             NavigationTaskSeeder::class,
+            ComboNavigationTaskSeeder::class,
             ExamRuleSetSeeder::class,
             ExamPaperSeeder::class,
             PraxisTrainerSeeder::class,
