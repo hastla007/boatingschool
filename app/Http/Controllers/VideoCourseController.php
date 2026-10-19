@@ -46,7 +46,15 @@ class VideoCourseController extends Controller
 
         // Kombikurse zeigen im Player-Header den Namen des gerade aktiven
         // Teilkurses (z. B. "SBF See") statt des Kombikurs-Gesamtnamens.
-        $sectionLabel = ComboVideoGroups::labelForChapter($course->code, $lesson->module->title) ?? $course->name;
+        $comboLabel = ComboVideoGroups::labelForChapter($course->code, $lesson->module->title);
+        $sectionLabel = $comboLabel ?? $course->name;
+
+        // Auf dem Poster selbst ist bei Einzelkursen das Kapitel (z. B.
+        // "Knoten") die interessantere große Überschrift als der ohnehin im
+        // Seitenleisten-Header stehende Kursname -- bei Kombikursen bleibt
+        // es hingegen beim Teilkurs-Namen, der die Kapitel erst einordnet.
+        $posterTitle = $comboLabel ?? $lesson->module->title;
+        $posterSubtitle = $comboLabel ? $lesson->module->title : $course->name;
 
         return view('video.show', [
             'course' => $course,
@@ -59,7 +67,7 @@ class VideoCourseController extends Controller
             'percent' => $lessons->isNotEmpty() ? (int) round($completedCount / $lessons->count() * 100) : 0,
             'moduleIds' => $moduleIds,
             'sectionLabel' => $sectionLabel,
-            'posterUri' => $this->posterUri($sectionLabel, $lesson->module->title),
+            'posterUri' => $this->posterUri($posterTitle, $posterSubtitle),
         ]);
     }
 
