@@ -19,20 +19,33 @@
     <div class="space-y-4">
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
             <h3 class="font-medium text-slate-800 dark:text-white mb-2">Herzlich willkommen zu den Prüfungsbögen!</h3>
-            <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                Hier findest Du alle {{ $paperStats->count() }} offiziellen Prüfungsbögen für den Sportbootführerschein See. Die
-                Bögen haben immer die gleiche Zusammensetzung, sodass Du Dich gezielt und effizient vorbereiten kannst.
-                Jeder Prüfungsbogen enthält 30 Multiple-Choice-Fragen &mdash; 7 allgemeine Basisfragen und 23 spezifische
-                Fragen aus dem Bereich See.
-                @if ($hasNavigationTasks)
-                    Außerdem kommt in der Prüfung eine Navigationsaufgabe vor. Diese findest Du im Bereich
-                    <a href="{{ route('exam.navigation.index', $course) }}" class="inline-flex items-center px-2 py-0.5 rounded-md text-white text-xs font-medium" style="background-color: var(--brand-primary, #005FD7)">Navigation Prüfungssimulation</a>.
-                @endif
-            </p>
-            <p class="text-xs text-slate-400 mt-3">
-                Hinweis: Die Zuordnung der Fragen zu den einzelnen Bögen ist eine Demo-Verteilung aus dem echten Fragenpool
-                und ersetzt keine amtliche Bogen-Zusammenstellung &mdash; vor Produktivbetrieb durch das offizielle Material ersetzen.
-            </p>
+            @if ($course->code === 'ADD-SEE-TO-BIN')
+                <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                    Hier findest Du alle {{ $paperStats->count() }} offiziellen Ergänzungsbögen für den Kurs „Ergänzung See → Binnen&quot;. Die
+                    Bögen haben immer die gleiche Zusammensetzung, sodass Du Dich gezielt und effizient vorbereiten kannst.
+                    Jeder Prüfungsbogen enthält 23 Multiple-Choice-Fragen aus dem Bereich Binnen &mdash; die 7 allgemeinen
+                    Basisfragen entfallen, da diese mit Deinem vorhandenen SBF See bereits geprüft wurden.
+                </p>
+                <p class="text-xs text-slate-400 mt-3">
+                    Hinweis: Die Zuordnung der Fragen zu den einzelnen Bögen entspricht den amtlichen Ergänzungsbögen
+                    (Quelle: seeundbinnen.de, Profil „binnen-motor-with-see&quot;).
+                </p>
+            @else
+                <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                    Hier findest Du alle {{ $paperStats->count() }} offiziellen Prüfungsbögen für den Sportbootführerschein See. Die
+                    Bögen haben immer die gleiche Zusammensetzung, sodass Du Dich gezielt und effizient vorbereiten kannst.
+                    Jeder Prüfungsbogen enthält 30 Multiple-Choice-Fragen &mdash; 7 allgemeine Basisfragen und 23 spezifische
+                    Fragen aus dem Bereich See.
+                    @if ($hasNavigationTasks)
+                        Außerdem kommt in der Prüfung eine Navigationsaufgabe vor. Diese findest Du im Bereich
+                        <a href="{{ route('exam.navigation.index', $course) }}" class="inline-flex items-center px-2 py-0.5 rounded-md text-white text-xs font-medium" style="background-color: var(--brand-primary, #005FD7)">Navigation Prüfungssimulation</a>.
+                    @endif
+                </p>
+                <p class="text-xs text-slate-400 mt-3">
+                    Hinweis: Die Zuordnung der Fragen zu den einzelnen Bögen ist eine Demo-Verteilung aus dem echten Fragenpool
+                    und ersetzt keine amtliche Bogen-Zusammenstellung &mdash; vor Produktivbetrieb durch das offizielle Material ersetzen.
+                </p>
+            @endif
         </div>
 
         <a href="{{ route('favorites.exam', $course) }}" class="flex items-center gap-4 rounded-2xl p-5 text-white hover:opacity-95 transition"

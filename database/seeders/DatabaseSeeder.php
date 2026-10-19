@@ -35,6 +35,7 @@ class DatabaseSeeder extends Seeder
             ComboNavigationTaskSeeder::class,
             ExamRuleSetSeeder::class,
             ExamPaperSeeder::class,
+            AddSeeToBinExamPaperSeeder::class,
             PraxisTrainerSeeder::class,
             ComboPraxisTrainerSeeder::class,
             TenantSeeder::class,
