@@ -69,6 +69,17 @@
                     Hinweis: Die Zuordnung der Fragen zu den einzelnen Bögen entspricht den amtlichen Prüfungsbögen
                     (Quelle: seeundbinnen.de).
                 </p>
+            @elseif ($course->code === 'SBF-BIN-SEGEL')
+                <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                    Hier findest Du alle {{ $paperStats->count() }} offiziellen Prüfungsbögen für die Kombiprüfung SBF Binnen unter Segel. Die
+                    Bögen haben immer die gleiche Zusammensetzung, sodass Du Dich gezielt und effizient vorbereiten kannst.
+                    Jeder Prüfungsbogen enthält 37 Multiple-Choice-Fragen &mdash; 7 allgemeine Basisfragen, 23 spezifische Fragen
+                    Binnen und 7 spezifische Segelfragen.
+                </p>
+                <p class="text-xs text-slate-400 mt-3">
+                    Hinweis: Die Zuordnung der Fragen zu den einzelnen Bögen entspricht den amtlichen Prüfungsbögen
+                    (Quelle: seeundbinnen.de).
+                </p>
             @endif
         </div>
 
