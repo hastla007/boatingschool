@@ -21,6 +21,8 @@ class DatabaseSeeder extends Seeder
         $this->command->info('Importiere Richtig-/Falsch-Feedback ...');
         Artisan::call('content:import-feedback', [], $this->command->getOutput());
 
+        $this->call(FknSknContentSeeder::class);
+
         $this->call([
             CourseSeeder::class,
             VideoCourseSeeder::class,
@@ -43,6 +45,7 @@ class DatabaseSeeder extends Seeder
             BinnenSegelnExamPaperSeeder::class,
             BinnenSegelnAddonExamPaperSeeder::class,
             SrcExamPaperSeeder::class,
+            FknExamPaperSeeder::class,
             PraxisTrainerSeeder::class,
             ComboPraxisTrainerSeeder::class,
             TenantSeeder::class,
