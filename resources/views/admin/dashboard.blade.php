@@ -22,6 +22,8 @@
                     :style="tab === 'addons' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Addons</button>
             <button type="button" @click="tab = 'course-promo-banners'" :class="tab === 'course-promo-banners' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500'"
                     :style="tab === 'course-promo-banners' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Kursempfehlungen</button>
+            <button type="button" @click="tab = 'praxis-anmeldungen'" :class="tab === 'praxis-anmeldungen' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500'"
+                    :style="tab === 'praxis-anmeldungen' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Praxis-Anmeldungen</button>
         </div>
 
         <div x-show="tab === 'dashboard'">
@@ -47,6 +49,9 @@
         </div>
         <div x-show="tab === 'course-promo-banners'" style="display: none">
             @include('admin.tabs.course-promo-banners')
+        </div>
+        <div x-show="tab === 'praxis-anmeldungen'" style="display: none">
+            @include('admin.tabs.praxis-anmeldungen')
         </div>
     </div>
 </x-app-layout>

@@ -31,6 +31,7 @@
                                 <a href="{{ route('superadmin.tips.index') }}" class="px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.tips.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Tipps & Tricks</a>
                                 <a href="{{ route('superadmin.coupons.index') }}" class="px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.coupons.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Coupons</a>
                                 <a href="{{ route('superadmin.addon-templates.index') }}" class="px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.addon-templates.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Addons</a>
+                                <a href="{{ route('superadmin.praxis-form-templates.index') }}" class="px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.praxis-form-templates.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Praxisformulare</a>
                                 <a href="{{ route('superadmin.settings.edit') }}" class="px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.settings.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Website</a>
                             </div>
                         </div>

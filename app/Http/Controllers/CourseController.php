@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\CourseDefinition;
 use App\Models\CoursePromoBanner;
 use App\Models\CourseWebshopLink;
+use App\Models\PraxisFormTemplate;
 use App\Models\Progress;
 use App\Models\TenantAddon;
 use App\Models\TenantCourseDisabled;
@@ -182,7 +183,9 @@ class CourseController extends Controller
             'praxisPercent' => $praxisModule ? $chapterPercent([$praxisModule->id]) : 0,
             'navigationModuleId' => $navigationModule?->id,
             'navigationPercent' => $navigationModule ? $chapterPercent([$navigationModule->id]) : 0,
-            'examReadinessThreshold' => $tenant->branding->exam_readiness_threshold_percent,
+            'examReadinessThreshold' => PraxisFormTemplate::where('active', true)
+                ->whereJsonContains('course_ids', $course->id)
+                ->value('min_progress_percent') ?? $tenant->branding->exam_readiness_threshold_percent,
         ]);
     }
 

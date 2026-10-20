@@ -12,6 +12,7 @@ use App\Models\CoursePromoBanner;
 use App\Models\CourseWebshopLink;
 use App\Models\Entitlement;
 use App\Models\ExamSession;
+use App\Models\PraxisFormSubmission;
 use App\Models\Product;
 use App\Models\ProductPurchase;
 use App\Models\TenantAddon;
@@ -85,6 +86,11 @@ class AdminDashboardController extends Controller
 
         $coursePromoBanners = CoursePromoBanner::where('tenant_id', $tenant->id)->orderBy('created_at')->get();
 
+        $praxisFormSubmissions = PraxisFormSubmission::where('tenant_id', $tenant->id)
+            ->with(['user', 'course', 'template'])
+            ->orderByDesc('created_at')
+            ->get();
+
         $disabledCourseIds = TenantCourseDisabled::where('tenant_id', $tenant->id)->pluck('course_id');
 
         $couponFilters = $request->only(['coupon_search', 'coupon_status', 'coupon_type']);
@@ -146,6 +152,7 @@ class AdminDashboardController extends Controller
             'addonTemplates' => $addonTemplates,
             'tenantAddons' => $tenantAddons,
             'coursePromoBanners' => $coursePromoBanners,
+            'praxisFormSubmissions' => $praxisFormSubmissions,
             'disabledCourseIds' => $disabledCourseIds,
             'coupons' => $coupons,
             'couponSummary' => $couponSummary,

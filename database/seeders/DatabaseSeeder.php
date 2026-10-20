@@ -58,6 +58,7 @@ class DatabaseSeeder extends Seeder
             UserAndEntitlementSeeder::class,
             AddonDemoSeeder::class,
             CoursePromoBannerDemoSeeder::class,
+            PraxisFormTemplateSeeder::class,
             DemoLearningActivitySeeder::class,
         ]);
     }

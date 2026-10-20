@@ -5,6 +5,7 @@ use App\Http\Controllers\Superadmin\CourseEditorController;
 use App\Http\Controllers\Superadmin\CouponController;
 use App\Http\Controllers\Superadmin\DashboardController;
 use App\Http\Controllers\Superadmin\ModuleController;
+use App\Http\Controllers\Superadmin\PraxisFormTemplateController;
 use App\Http\Controllers\Superadmin\ProductController;
 use App\Http\Controllers\Superadmin\QuestionController;
 use App\Http\Controllers\Superadmin\SettingsController;
@@ -90,4 +91,12 @@ Route::middleware(['auth', 'superadmin', 'admin-db'])->prefix('superadmin')->nam
     Route::patch('/addon-templates/{addonTemplate}', [AddonTemplateController::class, 'update'])->name('addon-templates.update');
     Route::post('/addon-templates/{addonTemplate}/toggle-active', [AddonTemplateController::class, 'toggleActive'])->name('addon-templates.toggle-active');
     Route::delete('/addon-templates/{addonTemplate}', [AddonTemplateController::class, 'destroy'])->name('addon-templates.destroy');
+
+    Route::get('/praxis-form-templates', [PraxisFormTemplateController::class, 'index'])->name('praxis-form-templates.index');
+    Route::get('/praxis-form-templates/create', [PraxisFormTemplateController::class, 'create'])->name('praxis-form-templates.create');
+    Route::post('/praxis-form-templates', [PraxisFormTemplateController::class, 'store'])->name('praxis-form-templates.store');
+    Route::get('/praxis-form-templates/{praxisFormTemplate}/edit', [PraxisFormTemplateController::class, 'edit'])->name('praxis-form-templates.edit');
+    Route::patch('/praxis-form-templates/{praxisFormTemplate}', [PraxisFormTemplateController::class, 'update'])->name('praxis-form-templates.update');
+    Route::post('/praxis-form-templates/{praxisFormTemplate}/toggle-active', [PraxisFormTemplateController::class, 'toggleActive'])->name('praxis-form-templates.toggle-active');
+    Route::delete('/praxis-form-templates/{praxisFormTemplate}', [PraxisFormTemplateController::class, 'destroy'])->name('praxis-form-templates.destroy');
 });

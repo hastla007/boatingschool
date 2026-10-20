@@ -1,0 +1,19 @@
+@php($template = null)
+<x-superadmin-layout>
+    <x-slot name="header">
+        <div>
+            <div class="text-xs text-slate-400"><a href="{{ route('superadmin.praxis-form-templates.index') }}" class="hover:underline">Praxisformulare</a></div>
+            <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Neues Praxisformular</h2>
+        </div>
+    </x-slot>
+
+    <div class="max-w-2xl bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6">
+        <form method="POST" action="{{ route('superadmin.praxis-form-templates.store') }}" class="space-y-5">
+            @csrf
+            @include('superadmin.praxis-form-templates._form')
+            <button type="submit" class="px-5 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: #005FD7">
+                Formular anlegen
+            </button>
+        </form>
+    </div>
+</x-superadmin-layout>
