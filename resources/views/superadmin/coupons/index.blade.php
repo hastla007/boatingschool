@@ -6,11 +6,12 @@
     <div class="grid lg:grid-cols-3 gap-4 mb-6">
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
             <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3">Codes erzeugen</h3>
-            <form method="POST" action="{{ route('superadmin.coupons.store') }}" class="space-y-3">
+            <form method="POST" action="{{ route('superadmin.coupons.store') }}" class="space-y-3"
+                  x-data="{ target: {{ json_encode(old('target', ''), JSON_HEX_APOS | JSON_HEX_QUOT) }} }">
                 @csrf
                 <div>
                     <x-input-label for="target" value="Kurs oder Produkt" />
-                    <select id="target" name="target" required class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                    <select id="target" name="target" x-model="target" required class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                         <optgroup label="Kurse">
                             @foreach ($courses as $course)
                                 <option value="course:{{ $course->id }}">{{ $course->name }}</option>
@@ -23,6 +24,17 @@
                         </optgroup>
                     </select>
                     <x-input-error :messages="$errors->get('target')" class="mt-2" />
+                </div>
+                <div x-show="target.startsWith('course:')" style="display: none">
+                    <x-input-label for="option_product_id" value="Option (optional)" />
+                    <select id="option_product_id" name="option_product_id" class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                        <option value="">&mdash; keine &mdash;</option>
+                        @foreach ($products as $product)
+                            <option value="{{ $product->id }}" @selected(old('option_product_id') === $product->id)>{{ $product->name }}</option>
+                        @endforeach
+                    </select>
+                    <p class="text-xs text-slate-400 mt-1">Wird bei Einlösung zusätzlich zum Kurs als eigene Buchung freigeschaltet.</p>
+                    <x-input-error :messages="$errors->get('option_product_id')" class="mt-2" />
                 </div>
                 <div>
                     <x-input-label for="tenant_id" value="Bootsschule (optional)" />
@@ -112,7 +124,12 @@
                                         {{ $coupon->isForProduct() ? 'Produkt' : 'Kurs' }}
                                     </span>
                                 </td>
-                                <td class="py-1.5 text-slate-600 dark:text-slate-300">{{ $coupon->redeemableName() }}</td>
+                                <td class="py-1.5 text-slate-600 dark:text-slate-300">
+                                    {{ $coupon->redeemableName() }}
+                                    @if ($coupon->optionProduct)
+                                        <span class="block text-xs text-indigo-600 dark:text-indigo-400">+ {{ $coupon->optionProduct->name }}</span>
+                                    @endif
+                                </td>
                                 <td class="py-1.5 text-slate-500">{{ $coupon->tenant?->name ?? '—' }}</td>
                                 <td class="py-1.5 text-slate-500 text-xs">{{ $coupon->created_at?->format('d.m.Y H:i') ?? '—' }}</td>
                                 <td class="py-1.5">

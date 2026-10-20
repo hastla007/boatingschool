@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Coupon;
 use App\Models\Entitlement;
 use App\Models\Product;
+use App\Models\ProductPurchase;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -350,5 +351,81 @@ class CouponManagementTest extends TestCase
         $productsOnly->assertOk();
         $productsOnly->assertSee($productCode);
         $productsOnly->assertDontSee($courseCode);
+    }
+
+    public function test_redeeming_a_course_coupon_with_a_bundled_option_also_grants_the_option_product(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $option = $this->onAdmin(fn () => Product::where('code', 'LERNPLATTFORM-WB')->firstOrFail());
+        $code = 'E2E-OPTION-BUNDLE';
+        $this->createdCodes[] = $code;
+        $this->onAdmin(fn () => Coupon::create([
+            'code' => $code, 'course_id' => $course->id, 'option_product_id' => $option->id, 'tenant_id' => $tenant->id,
+        ]));
+
+        $response = $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', ['code' => $code]);
+
+        $response->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('entitlement', [
+            'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'course_id' => $course->id, 'source_reference' => $code,
+        ]);
+        $this->assertDatabaseHas('product_purchase', [
+            'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'product_id' => $option->id, 'source_type' => 'coupon', 'source_reference' => $code,
+        ]);
+    }
+
+    public function test_redeeming_a_course_coupon_without_an_option_does_not_create_a_product_purchase(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $code = 'E2E-NO-OPTION';
+        $this->createdCodes[] = $code;
+        $this->onAdmin(fn () => Coupon::create(['code' => $code, 'course_id' => $course->id, 'tenant_id' => $tenant->id]));
+
+        $response = $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', ['code' => $code]);
+
+        $response->assertSessionHasNoErrors();
+        $this->onAdmin(fn () => $this->assertDatabaseMissing('product_purchase', [
+            'tenant_id' => $tenant->id, 'user_id' => $learner->id,
+        ]));
+    }
+
+    public function test_redeeming_a_grosse_praxiseinheit_option_replaces_an_existing_kleine_praxiseinheit(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $courseA = $this->existingCourse('SRC');
+        $courseB = $this->existingCourse('UBI');
+        $kleine = $this->onAdmin(fn () => Product::where('code', 'PRAXISEINHEIT-KLEIN')->firstOrFail());
+        $grosse = $this->onAdmin(fn () => Product::where('code', 'PRAXISEINHEIT-GROSS')->firstOrFail());
+
+        $codeKlein = 'E2E-PRAXIS-KLEIN';
+        $codeGross = 'E2E-PRAXIS-GROSS';
+        $this->createdCodes = array_merge($this->createdCodes, [$codeKlein, $codeGross]);
+        $this->onAdmin(fn () => Coupon::create([
+            'code' => $codeKlein, 'course_id' => $courseA->id, 'option_product_id' => $kleine->id, 'tenant_id' => $tenant->id,
+        ]));
+        $this->onAdmin(fn () => Coupon::create([
+            'code' => $codeGross, 'course_id' => $courseB->id, 'option_product_id' => $grosse->id, 'tenant_id' => $tenant->id,
+        ]));
+
+        $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', ['code' => $codeKlein])->assertSessionHasNoErrors();
+        $this->onAdmin(fn () => $this->assertDatabaseHas('product_purchase', [
+            'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'product_id' => $kleine->id,
+        ]));
+
+        $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', ['code' => $codeGross])->assertSessionHasNoErrors();
+
+        $this->onAdmin(function () use ($tenant, $learner, $kleine, $grosse) {
+            $this->assertDatabaseMissing('product_purchase', [
+                'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'product_id' => $kleine->id,
+            ]);
+            $this->assertDatabaseHas('product_purchase', [
+                'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'product_id' => $grosse->id,
+            ]);
+        });
     }
 }

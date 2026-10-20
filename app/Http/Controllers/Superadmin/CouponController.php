@@ -20,7 +20,7 @@ class CouponController extends Controller
         $filters = $request->only(['tenant_id', 'status', 'search']);
 
         $coupons = $this->filteredCoupons($filters)
-            ->with('course', 'product', 'tenant', 'redeemedBy', 'redeemedTenant')
+            ->with('course', 'product', 'optionProduct', 'tenant', 'redeemedBy', 'redeemedTenant')
             ->orderByDesc('created_at')
             ->paginate(50)
             ->withQueryString();
@@ -38,6 +38,7 @@ class CouponController extends Controller
     {
         $validated = $request->validate([
             'target' => ['required', 'string'],
+            'option_product_id' => ['nullable', 'uuid', 'exists:product,id'],
             'tenant_id' => ['nullable', 'uuid', 'exists:tenant,id'],
             'quantity' => ['required', 'integer', 'min:1', 'max:500'],
             'batch_label' => ['nullable', 'string', 'max:255'],
@@ -57,6 +58,11 @@ class CouponController extends Controller
             throw ValidationException::withMessages(['target' => 'Bitte einen Kurs oder ein Produkt wählen.']);
         }
 
+        // Eine Option (z. B. "Lernplattform inkl. Willkommensbox") kann nur
+        // einem Kurs-Code mitgegeben werden, nicht einem Produkt-Code (siehe
+        // coupon_option_only_with_course_check).
+        $optionProductId = $type === 'course' ? ($validated['option_product_id'] ?? null) : null;
+
         $quantity = $validated['quantity'];
         $batchLabel = ($validated['batch_label'] ?? null) ?: ($quantity > 1 ? 'Batch vom '.now()->format('d.m.Y H:i') : null);
 
@@ -66,6 +72,7 @@ class CouponController extends Controller
                 'code' => Coupon::generateUniqueCode(),
                 'course_id' => $type === 'course' ? $targetId : null,
                 'product_id' => $type === 'product' ? $targetId : null,
+                'option_product_id' => $optionProductId,
                 'tenant_id' => $validated['tenant_id'] ?? null,
                 'batch_label' => $batchLabel,
                 'created_by_user_id' => $request->user()->id,
@@ -124,6 +131,7 @@ class CouponController extends Controller
                     $q2->where('code', 'ilike', $like)
                         ->orWhereHas('course', fn ($q3) => $q3->where('name', 'ilike', $like))
                         ->orWhereHas('product', fn ($q3) => $q3->where('name', 'ilike', $like))
+                        ->orWhereHas('optionProduct', fn ($q3) => $q3->where('name', 'ilike', $like))
                         ->orWhereHas('tenant', fn ($q3) => $q3->where('name', 'ilike', $like))
                         ->orWhereHas('redeemedBy', fn ($q3) => $q3->where('display_name', 'ilike', $like));
                 });

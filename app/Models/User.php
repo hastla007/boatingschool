@@ -56,6 +56,15 @@ class User extends Authenticatable
         return $this->street && $this->postal_code && $this->city && $this->country && $this->birthdate;
     }
 
+    /** Ob dieser Nutzer bei dieser Bootsschule "Lernplattform (inkl. Willkommensbox)" eingelöst hat. */
+    public function hasWillkommensboxAccess(Tenant $tenant): bool
+    {
+        return ProductPurchase::where('tenant_id', $tenant->id)
+            ->where('user_id', $this->id)
+            ->whereHas('product', fn ($q) => $q->where('code', 'LERNPLATTFORM-WB'))
+            ->exists();
+    }
+
     /**
      * Laravel Breeze/Auth-Views und -Requests arbeiten mit `name`; die
      * Spalte heißt laut schema.sql aber `display_name`.

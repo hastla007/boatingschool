@@ -8,6 +8,7 @@ use App\Models\ContentQuestion;
 use App\Models\ContentQuestionRevision;
 use App\Models\CourseDefinition;
 use App\Models\PlatformSetting;
+use App\Models\Product;
 use Illuminate\Support\Facades\DB;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -277,6 +278,50 @@ class SuperadminAreaTest extends TestCase
         $index = $this->actingAs($superadmin)->get('/superadmin/coupons?tenant_id='.$tenant->id);
         $index->assertOk();
         $index->assertSee('Als TXT herunterladen');
+    }
+
+    public function test_superadmin_can_generate_a_course_coupon_with_a_bundled_option_product(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        $tenant = $this->createTestTenant();
+        $course = $this->existingCourse('SRC');
+        $option = $this->onAdmin(fn () => Product::where('code', 'LERNPLATTFORM-WB')->firstOrFail());
+
+        $response = $this->actingAs($superadmin)->post('/superadmin/coupons', [
+            'target' => 'course:'.$course->id,
+            'option_product_id' => $option->id,
+            'tenant_id' => $tenant->id,
+            'quantity' => 1,
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('coupon', [
+            'tenant_id' => $tenant->id,
+            'course_id' => $course->id,
+            'option_product_id' => $option->id,
+        ]);
+    }
+
+    public function test_option_product_id_is_ignored_when_generating_a_product_coupon(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        $tenant = $this->createTestTenant();
+        $product = $this->onAdmin(fn () => Product::where('code', 'PRAXISEINHEIT-KLEIN')->firstOrFail());
+        $option = $this->onAdmin(fn () => Product::where('code', 'LERNPLATTFORM-WB')->firstOrFail());
+
+        $response = $this->actingAs($superadmin)->post('/superadmin/coupons', [
+            'target' => 'product:'.$product->id,
+            'option_product_id' => $option->id,
+            'tenant_id' => $tenant->id,
+            'quantity' => 1,
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('coupon', [
+            'tenant_id' => $tenant->id,
+            'product_id' => $product->id,
+            'option_product_id' => null,
+        ]);
     }
 
     public function test_superadmin_can_export_all_filtered_coupon_codes_via_select_all(): void

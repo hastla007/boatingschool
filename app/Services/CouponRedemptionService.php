@@ -6,6 +6,7 @@ use App\Models\AuditLog;
 use App\Models\Coupon;
 use App\Models\CourseDefinition;
 use App\Models\Entitlement;
+use App\Models\Product;
 use App\Models\ProductPurchase;
 use App\Models\Tenant;
 use App\Models\User;
@@ -57,6 +58,8 @@ class CouponRedemptionService
                 'source_reference' => $coupon->code,
             ]);
 
+            $this->applyOptionProduct($coupon, $tenant, $user);
+
             $coupon->update([
                 'redeemed_by_user_id' => $user->id,
                 'redeemed_tenant_id' => $tenant->id,
@@ -69,6 +72,46 @@ class CouponRedemptionService
         AuditLog::record($tenant->id, $actor->id, 'coupon.redeem', 'coupon', $coupon->id, null, ['course_id' => $coupon->course_id, 'user_id' => $user->id]);
 
         return ['type' => 'course', 'course' => $course, 'entitlement' => $entitlement];
+    }
+
+    /**
+     * Ein Kurs-Coupon kann zusätzlich ein Produkt bündeln (siehe
+     * coupon.option_product_id, z. B. "Lernplattform inkl. Willkommensbox"
+     * oder eine Praxiseinheit) -- bei Einlösung entsteht dafür eine eigene
+     * ProductPurchase neben dem Kurs-Entitlement, genau wie bei einem
+     * eigenständigen Produkt-Coupon.
+     *
+     * Für Praxiseinheiten gilt zusätzlich: eine "Große Praxiseinheit"
+     * ersetzt eine bereits vorhandene "Kleine Praxiseinheit" -- der Kunde
+     * hat danach nur noch die größere Einheit gebucht, nicht beide
+     * nebeneinander.
+     */
+    private function applyOptionProduct(Coupon $coupon, Tenant $tenant, User $user): void
+    {
+        if (! $coupon->option_product_id) {
+            return;
+        }
+
+        $option = Product::find($coupon->option_product_id);
+
+        if (! $option) {
+            return;
+        }
+
+        if ($option->code === 'PRAXISEINHEIT-GROSS') {
+            ProductPurchase::where('tenant_id', $tenant->id)
+                ->where('user_id', $user->id)
+                ->whereHas('product', fn ($q) => $q->where('code', 'PRAXISEINHEIT-KLEIN'))
+                ->delete();
+        }
+
+        ProductPurchase::create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $user->id,
+            'product_id' => $option->id,
+            'source_type' => 'coupon',
+            'source_reference' => $coupon->code,
+        ]);
     }
 
     private function redeemForProduct(Coupon $coupon, Tenant $tenant, User $user, User $actor): array

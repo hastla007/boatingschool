@@ -27,6 +27,7 @@ use App\Http\Controllers\ProgressController;
 use App\Http\Controllers\TipController;
 use App\Http\Controllers\VideoCourseController;
 use App\Http\Controllers\VideoQuizController;
+use App\Http\Controllers\WillkommensboxController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -46,6 +47,9 @@ Route::middleware(['auth', 'tenant.member'])->group(function () {
     Route::get('/tipps-tricks', [TipController::class, 'index'])->name('tips.index');
 
     Route::get('/angebote', [OffersController::class, 'index'])->name('offers.index');
+
+    Route::get('/willkommensbox', [WillkommensboxController::class, 'index'])->name('willkommensbox.index');
+    Route::post('/willkommensbox', [WillkommensboxController::class, 'store'])->name('willkommensbox.store');
 
     Route::get('/courses/{course}/learn', [LearningController::class, 'show'])->name('learning.show');
     Route::get('/courses/{course}/learn/overview', [LearningController::class, 'overview'])->name('learning.overview');
