@@ -65,6 +65,9 @@
                             <span class="block text-xs text-slate-400">
                                 {{ $booking['source_type'] === 'coupon' ? 'Code '.$booking['source_reference'] : 'Manuell freigeschaltet' }}
                             </span>
+                            @if ($booking['options']->isNotEmpty())
+                                <span class="block text-xs text-indigo-600 dark:text-indigo-400 mt-0.5">+ {{ $booking['options']->implode(', ') }}</span>
+                            @endif
                         </div>
                         <span class="text-xs text-slate-400 whitespace-nowrap">{{ $booking['date']?->format('d.m.Y') }}</span>
                     </div>

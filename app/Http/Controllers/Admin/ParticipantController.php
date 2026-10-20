@@ -38,27 +38,46 @@ class ParticipantController extends Controller
         $membership = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $user->id)->first();
         abort_unless($membership, 404);
 
+        $productPurchases = ProductPurchase::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+            ->with('product')->orderByDesc('created_at')->get();
+
+        // Optionen, die ein Kurs-Coupon zusätzlich bündelt (z. B. "Kleine
+        // Praxiseinheit"), landen bei Einlösung als eigene ProductPurchase
+        // mit demselben source_reference-Code wie das Kurs-Entitlement
+        // (siehe CouponRedemptionService::applyOptionProducts) -- darüber
+        // lassen sie sich hier dem jeweiligen Kurs wieder zuordnen, statt
+        // als unabhängige Zeile zu erscheinen.
+        $optionsByCode = $productPurchases->where('source_type', 'coupon')->groupBy('source_reference');
+        $bundledProductIds = [];
+
         $entitlements = Entitlement::where('tenant_id', $tenant->id)->where('user_id', $user->id)
             ->with('course')->orderByDesc('valid_from')->get()
-            ->map(fn (Entitlement $e) => [
-                'label' => $e->course->name ?? '—',
-                'source_type' => $e->source_type,
-                'source_reference' => $e->source_reference,
-                'date' => $e->valid_from,
-                'status' => $e->status,
-            ]);
+            ->map(function (Entitlement $e) use ($optionsByCode, &$bundledProductIds) {
+                $options = $e->source_type === 'coupon' ? ($optionsByCode->get($e->source_reference) ?? collect()) : collect();
+                $bundledProductIds = [...$bundledProductIds, ...$options->pluck('id')->all()];
 
-        $productPurchases = ProductPurchase::where('tenant_id', $tenant->id)->where('user_id', $user->id)
-            ->with('product')->orderByDesc('created_at')->get()
+                return [
+                    'label' => $e->course->name ?? '—',
+                    'source_type' => $e->source_type,
+                    'source_reference' => $e->source_reference,
+                    'date' => $e->valid_from,
+                    'status' => $e->status,
+                    'options' => $options->map(fn (ProductPurchase $p) => $p->product->name ?? '—')->values(),
+                ];
+            });
+
+        $standaloneProductPurchases = $productPurchases
+            ->reject(fn (ProductPurchase $p) => in_array($p->id, $bundledProductIds, true))
             ->map(fn (ProductPurchase $p) => [
                 'label' => $p->product->name ?? '—',
                 'source_type' => $p->source_type,
                 'source_reference' => $p->source_reference,
                 'date' => $p->created_at,
                 'status' => null,
+                'options' => collect(),
             ]);
 
-        $bookings = $entitlements->concat($productPurchases)->sortByDesc('date')->values();
+        $bookings = $entitlements->concat($standaloneProductPurchases)->sortByDesc('date')->values();
 
         $praxisFormSubmissions = PraxisFormSubmission::where('tenant_id', $tenant->id)->where('user_id', $user->id)
             ->with(['course', 'template'])->orderByDesc('created_at')->get();

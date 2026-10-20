@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Coupon;
 use App\Models\PraxisFormSubmission;
 use App\Models\PraxisFormTemplate;
 use App\Models\Product;
@@ -20,6 +21,8 @@ class ParticipantDetailTest extends TestCase
 
     private array $createdTemplateIds = [];
 
+    private array $createdCodes = [];
+
     protected function tearDown(): void
     {
         // Erst Tenants (kaskadiert praxis_form_submission weg), dann die
@@ -30,6 +33,9 @@ class ParticipantDetailTest extends TestCase
         $this->onAdmin(function () {
             foreach ($this->createdTemplateIds as $id) {
                 PraxisFormTemplate::where('id', $id)->delete();
+            }
+            foreach ($this->createdCodes as $code) {
+                Coupon::where('code', $code)->delete();
             }
         });
 
@@ -132,6 +138,52 @@ class ParticipantDetailTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Noch keine Praxis-Anmeldung eingegangen.');
+    }
+
+    public function test_bundled_options_from_a_course_coupon_are_shown_under_that_course(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $willkommensbox = $this->onAdmin(fn () => Product::where('code', 'LERNPLATTFORM-WB')->firstOrFail());
+        $kleinePraxis = $this->onAdmin(fn () => Product::where('code', 'PRAXISEINHEIT-KLEIN')->firstOrFail());
+        $code = 'E2E-DETAIL-OPTIONS';
+        $this->createdCodes[] = $code;
+        $this->onAdmin(function () use ($code, $course, $willkommensbox, $kleinePraxis, $tenant) {
+            $coupon = Coupon::create(['code' => $code, 'course_id' => $course->id, 'tenant_id' => $tenant->id]);
+            $coupon->optionProducts()->attach([$willkommensbox->id, $kleinePraxis->id]);
+        });
+        $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', ['code' => $code]);
+
+        $response = $this->actingAsInTenant($admin, $tenant)->get("/admin/participants/{$learner->id}");
+
+        $response->assertOk();
+        // Der Kurs erscheint als eigene Buchung, die Optionen als
+        // Zusatzzeile darunter statt als eigenständige Buchungen.
+        $response->assertSeeInOrder([$course->name, $willkommensbox->name, $kleinePraxis->name]);
+        $response->assertSeeText('+ '.$willkommensbox->name.', '.$kleinePraxis->name);
+    }
+
+    public function test_a_standalone_product_purchase_without_a_matching_course_is_shown_on_its_own(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $product = $this->onAdmin(fn () => Product::where('active', true)->firstOrFail());
+        $this->onAdmin(fn () => ProductPurchase::create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $learner->id,
+            'product_id' => $product->id,
+            'source_type' => 'manual',
+            'source_reference' => 'admin:'.$admin->id,
+        ]));
+
+        $response = $this->actingAsInTenant($admin, $tenant)->get("/admin/participants/{$learner->id}");
+
+        $response->assertOk();
+        $response->assertSee($product->name);
+        $response->assertDontSee('+ '.$product->name);
     }
 
     public function test_admin_cannot_view_a_participant_from_another_tenant(): void
