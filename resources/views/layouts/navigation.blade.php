@@ -47,14 +47,13 @@
                     <x-nav-link :href="route('tips.index')" :active="request()->routeIs('tips.index')">Tipps & Tricks</x-nav-link>
 
                     <x-nav-link :href="route('offers.index')" :active="request()->routeIs('offers.index')">Angebote</x-nav-link>
-
-                    @if ($hasWillkommensbox)
-                        <x-nav-link :href="route('willkommensbox.index')" :active="request()->routeIs('willkommensbox.index')">Willkommensbox</x-nav-link>
-                    @endif
                 </div>
             </div>
 
             <div class="hidden sm:flex sm:items-center sm:ms-6 gap-4">
+                @if ($hasWillkommensbox)
+                    <x-nav-link :href="route('willkommensbox.index')" :active="request()->routeIs('willkommensbox.index')">Willkommensbox</x-nav-link>
+                @endif
                 <x-nav-link :href="route('coupons.redeem')" :active="request()->routeIs('coupons.redeem')">Coupon-Code einlösen</x-nav-link>
 
                 <x-dropdown align="right" width="48">
