@@ -139,6 +139,15 @@ class AdminDashboardController extends Controller
             ->sortBy('name')
             ->values();
 
+        // Für den "Kurs freischalten"-Dropdown im Teilnehmer-Tab: wie viele
+        // eigene, noch nicht eingelöste Codes die Bootsschule je Kurs hat.
+        $freeCourseCouponCounts = Coupon::where('tenant_id', $tenant->id)
+            ->whereNotNull('course_id')
+            ->whereNull('redeemed_at')
+            ->selectRaw('course_id, count(*) as free_count')
+            ->groupBy('course_id')
+            ->pluck('free_count', 'course_id');
+
         return view('admin.dashboard', [
             'tenant' => $tenant,
             'learnerCount' => $learnerCount,
@@ -161,6 +170,7 @@ class AdminDashboardController extends Controller
             'coupons' => $coupons,
             'couponSummary' => $couponSummary,
             'couponFilters' => $couponFilters,
+            'freeCourseCouponCounts' => $freeCourseCouponCounts,
         ]);
     }
 }
