@@ -45,7 +45,9 @@
                         <dd class="text-slate-800 dark:text-slate-200 text-end">{{ $participant->birthdate?->format('d.m.Y') ?? 'noch nicht angegeben' }}</dd>
                     </div>
                 </dl>
-                <button type="button" @click="editing = true" class="mt-3 text-xs text-slate-500 hover:underline">Bearbeiten</button>
+                <button type="button" @click="editing = true" class="mt-3 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-medium hover:bg-slate-200 dark:hover:bg-slate-600 transition">
+                    Bearbeiten
+                </button>
                 @unless ($participant->hasCompleteRegistrationProfile())
                     <p class="text-xs text-amber-600 mt-2">Profil noch unvollständig.</p>
                 @endunless
