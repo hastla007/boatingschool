@@ -146,25 +146,9 @@
                 </div>
             @endif
 
-            @if ($template->requires_tauglichkeit)
-                <div class="rounded-xl p-4 mb-5 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
-                    <div class="flex items-start gap-2.5">
-                        <x-icon name="check-circle" class="w-5 h-5 shrink-0 text-emerald-500 mt-0.5" />
-                        <div class="text-sm text-emerald-900 dark:text-emerald-200">
-                            <p>Du brauchst für die Prüfung eine ärztliche Tauglichkeitsbescheinigung. Plane dafür ein paar Tage Vorlauf ein.</p>
-                            <p class="mt-1.5">Du kannst trotzdem jetzt schon buchen. Kümmere dich zeitnah nach Buchung um die Tauglichkeit.</p>
-                            <p class="mt-1.5 flex items-start gap-1.5">
-                                <x-icon name="light-bulb" class="w-4 h-4 shrink-0 text-emerald-500 mt-0.5" />
-                                <span>Tipp: Du kannst die Untersuchung auch bequem online machen. Wie das geht, zeigen wir dir in unseren
-                                    <a href="{{ route('tips.index') }}" class="font-semibold underline hover:no-underline">Tipps und Tricks</a>.</span>
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            @endif
-
             <form method="POST" action="{{ route('praxis-pruefung.store', $course) }}" class="space-y-5">
                 @csrf
+                @php($hasTauglichkeitField = collect($template->fields)->contains(fn ($f) => str_contains($f['key'], 'tauglichkeit')))
                 @foreach ($template->fields as $field)
                     @continue($field['type'] === 'location' && $locations->isEmpty())
                     @php($fieldId = 'field-'.$field['key'])
@@ -232,7 +216,16 @@
                         @endif
                         <x-input-error :messages="$errors->get($field['key'])" class="mt-2" />
                     </div>
+
+                    @if ($template->requires_tauglichkeit && str_contains($field['key'], 'tauglichkeit'))
+                        @include('praxis-pruefung._tauglichkeit-hint')
+                    @endif
                 @endforeach
+
+                {{-- Fallback, falls das Formular keine eigene Tauglichkeits-Checkbox hat --}}
+                @if ($template->requires_tauglichkeit && ! $hasTauglichkeitField)
+                    @include('praxis-pruefung._tauglichkeit-hint')
+                @endif
 
                 <button type="submit" class="w-full inline-flex items-center justify-center px-5 py-2.5 rounded-lg text-white text-sm font-semibold hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
                     Jetzt anmelden

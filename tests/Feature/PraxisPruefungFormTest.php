@@ -462,6 +462,42 @@ class PraxisPruefungFormTest extends TestCase
         $response->assertOk();
         $response->assertSee('ärztliche Tauglichkeitsbescheinigung');
         $response->assertSee(route('tips.index'), false);
+
+        // Der Hinweis muss unter der Tauglichkeits-Checkbox stehen, nicht
+        // ganz oben im Formular vor den übrigen Feldern.
+        $html = $response->getContent();
+        $this->assertGreaterThan(
+            strpos($html, 'Ich habe bereits die Tauglichkeit'),
+            strpos($html, 'ärztliche Tauglichkeitsbescheinigung'),
+        );
+    }
+
+    public function test_tauglichkeit_hint_falls_back_to_the_end_of_the_form_without_a_matching_field(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course] = $this->makeIsolatedCourseWithQuestions(2);
+        $this->grantEntitlement($tenant, $learner, $course);
+        $this->masterAllQuestions($tenant, $learner, $course);
+        $this->createTemplate([
+            'course_ids' => [$course->id],
+            'min_progress_percent' => 10,
+            'requires_tauglichkeit' => true,
+            'fields' => [
+                ['key' => 'telefonnummer', 'label' => 'Telefonnummer', 'type' => 'text', 'required' => true, 'options' => [], 'help_text' => null],
+            ],
+        ]);
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get(route('praxis-pruefung.index', $course));
+
+        $response->assertOk();
+        $response->assertSee('ärztliche Tauglichkeitsbescheinigung');
+
+        $html = $response->getContent();
+        $this->assertGreaterThan(
+            strpos($html, 'Telefonnummer'),
+            strpos($html, 'ärztliche Tauglichkeitsbescheinigung'),
+        );
     }
 
     public function test_tauglichkeit_hint_is_hidden_when_disabled_on_the_template(): void
