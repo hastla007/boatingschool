@@ -374,6 +374,29 @@ class ParticipantDetailTest extends TestCase
         $response->assertSee('Lieferstadt');
         $response->assertSee('Bitte beim Nachbarn abgeben.');
         $response->assertSee('Als versendet markieren');
+        $response->assertSee('Bestellung eingegangen');
+    }
+
+    public function test_detail_page_hides_the_shipping_notice_once_the_order_is_shipped(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $this->grantWillkommensbox($tenant, $learner);
+        $this->onAdmin(fn () => WillkommensboxOrder::create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $learner->id,
+            'street' => 'Lieferstraße 1',
+            'postal_code' => '12345',
+            'city' => 'Lieferstadt',
+            'country' => 'Deutschland',
+            'shipped_at' => now(),
+        ]));
+
+        $response = $this->actingAsInTenant($admin, $tenant)->get("/admin/participants/{$learner->id}");
+
+        $response->assertOk();
+        $response->assertDontSee('Bestellung eingegangen');
     }
 
     public function test_detail_page_shows_a_hint_when_access_exists_but_nothing_was_ordered_yet(): void
