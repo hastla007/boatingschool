@@ -3,7 +3,22 @@
         <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Willkommensbox</h2>
     </x-slot>
 
-    @if ($state === 'submitted')
+    @if ($state === 'locked')
+        <div class="max-w-2xl mx-auto bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-8 text-center">
+            <x-icon name="lock-closed" class="w-10 h-10 mx-auto text-slate-300 mb-4" />
+            <h3 class="font-semibold text-lg text-slate-800 dark:text-white mb-2">Du erfüllst noch nicht alle Voraussetzungen zur Bestellung.</h3>
+            <p class="text-sm text-slate-500 dark:text-slate-400">
+                Aktuell hast du <span class="font-semibold text-slate-700 dark:text-slate-200">{{ $percent }}% Kursfortschritt</span>.
+                Für die Bestellung der Willkommensbox benötigst du mindestens <span class="font-semibold text-slate-700 dark:text-slate-200">{{ $threshold }}% Kursfortschritt</span>.
+            </p>
+            <div class="mt-6 w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2">
+                <div class="h-2 rounded-full" style="width: {{ min($percent, 100) }}%; background-color: var(--brand-secondary, #00A8A8)"></div>
+            </div>
+            <a href="{{ route('dashboard') }}" class="inline-flex items-center justify-center mt-6 px-5 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
+                Weiterlernen
+            </a>
+        </div>
+    @elseif ($state === 'submitted')
         <div class="max-w-2xl mx-auto bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-8">
             <div class="text-center mb-6">
                 <x-icon name="check-circle" class="w-10 h-10 mx-auto text-emerald-500 mb-3" />

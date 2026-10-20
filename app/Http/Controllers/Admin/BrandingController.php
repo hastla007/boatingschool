@@ -34,6 +34,11 @@ class BrandingController extends Controller
             'website' => ['nullable', 'url', 'max:255'],
             'logo' => ['nullable', 'image', 'max:1024'],
             'exam_readiness_threshold_percent' => ['required', 'integer', 'min:0', 'max:100'],
+            // Nullable statt required wie beim Prüfungs-Pendant: dieses
+            // Feld kam nach exam_readiness_threshold_percent dazu, ältere
+            // Formular-Submits ohne dieses Feld sollen weiterhin
+            // funktionieren und den bisherigen Wert unverändert lassen.
+            'willkommensbox_threshold_percent' => ['nullable', 'integer', 'min:0', 'max:100'],
             'whatsapp_phone' => [
                 $whatsappEnabled ? 'required' : 'nullable', 'string', 'max:20', 'regex:/^[1-9][0-9]{5,14}$/',
             ],
@@ -42,6 +47,7 @@ class BrandingController extends Controller
             'whatsapp_phone.regex' => 'Bitte die WhatsApp-Nummer im internationalen Format ohne Leerzeichen oder "+" eingeben, z. B. 491701234567.',
         ]);
 
+        $validated['willkommensbox_threshold_percent'] = $validated['willkommensbox_threshold_percent'] ?? $tenant->branding->willkommensbox_threshold_percent;
         $validated['whatsapp_enabled'] = $whatsappEnabled;
         $validated['email_support_enabled'] = $request->boolean('email_support_enabled');
         $validated['phone_support_enabled'] = $request->boolean('phone_support_enabled');

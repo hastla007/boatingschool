@@ -2,8 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Models\ContentQuestion;
+use App\Models\CourseDefinition;
+use App\Models\Module;
 use App\Models\Product;
 use App\Models\ProductPurchase;
+use App\Models\Progress;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -11,11 +15,41 @@ use Tests\TestCase;
  * Bestellformular für die Willkommensbox (siehe WillkommensboxController,
  * WillkommensboxOrder) -- nur erreichbar, wenn der Nutzer "Lernplattform
  * (inkl. Willkommensbox)" eingelöst hat (siehe CouponManagementTest für die
- * Einlöse-Seite, die diese ProductPurchase erzeugt).
+ * Einlöse-Seite, die diese ProductPurchase erzeugt) UND den bootsschulweiten
+ * Kursfortschritt (siehe TenantBranding::willkommensbox_threshold_percent)
+ * erreicht hat.
  */
 class WillkommensboxTest extends TestCase
 {
     use InteractsWithTenants;
+
+    private array $createdCourseIds = [];
+
+    private array $createdModuleIds = [];
+
+    private array $createdQuestionIds = [];
+
+    protected function tearDown(): void
+    {
+        // Tenants zuerst aufräumen (kaskadiert Entitlements weg), erst
+        // danach die global geteilten Test-Kurse löschen -- sonst schlägt
+        // das wegen der FK auf noch existierende Entitlements fehl.
+        $this->cleanUpCreatedTenantsAndUsers();
+
+        $this->onAdmin(function () {
+            foreach ($this->createdCourseIds as $id) {
+                CourseDefinition::withoutGlobalScopes()->whereKey($id)->delete();
+            }
+            foreach ($this->createdModuleIds as $id) {
+                Module::whereKey($id)->delete();
+            }
+            foreach ($this->createdQuestionIds as $id) {
+                ContentQuestion::whereKey($id)->delete();
+            }
+        });
+
+        parent::tearDown();
+    }
 
     private function grantWillkommensbox($tenant, $user): void
     {
@@ -27,6 +61,61 @@ class WillkommensboxTest extends TestCase
             'source_type' => 'coupon',
             'source_reference' => 'E2E-WB-CODE',
         ]));
+    }
+
+    private function setThreshold($tenant, int $percent): void
+    {
+        $this->onAdmin(fn () => $tenant->branding->update(['willkommensbox_threshold_percent' => $percent]));
+    }
+
+    /** @return array{0: CourseDefinition, 1: array<int, string>} */
+    private function makeIsolatedCourseWithQuestions(int $count): array
+    {
+        return $this->onAdmin(function () use ($count) {
+            $course = CourseDefinition::withoutGlobalScopes()->create([
+                'tenant_id' => null,
+                'code' => 'TEST-WB-'.uniqid(),
+                'name' => 'Test-Kurs für Willkommensbox',
+                'course_type' => 'full',
+                'status' => 'published',
+            ]);
+            $this->createdCourseIds[] = $course->id;
+
+            $module = Module::create([
+                'code' => 'TEST-WB-MODULE-'.uniqid(),
+                'name' => 'Testmodul',
+                'version' => '1',
+                'status' => 'published',
+            ]);
+            $this->createdModuleIds[] = $module->id;
+            $course->modules()->attach($module->id, ['sort_order' => 1, 'required' => true]);
+
+            $questionIds = [];
+            for ($i = 0; $i < $count; $i++) {
+                $question = ContentQuestion::create([
+                    'content_id' => 'TEST-WB-Q-'.uniqid(),
+                    'language' => 'de-DE',
+                    'active' => true,
+                ]);
+                $this->createdQuestionIds[] = $question->id;
+                $questionIds[] = $question->id;
+                $module->questions()->attach($question->id, ['sort_order' => $i + 1, 'required' => true]);
+            }
+
+            return [$course, $questionIds];
+        });
+    }
+
+    private function masterQuestions($tenant, $learner, array $questionIds): void
+    {
+        $this->onAdmin(function () use ($tenant, $learner, $questionIds) {
+            foreach ($questionIds as $questionId) {
+                Progress::updateOrCreate(
+                    ['tenant_id' => $tenant->id, 'user_id' => $learner->id, 'question_id' => $questionId],
+                    ['learning_state' => 'gefestigt', 'mastery_score' => 1, 'attempt_count' => 1, 'correct_count' => 1]
+                );
+            }
+        });
     }
 
     public function test_menu_link_is_hidden_without_the_product(): void
@@ -167,5 +256,67 @@ class WillkommensboxTest extends TestCase
 
         $responseB = $this->actingAsInTenant($learner, $tenantB)->get('/willkommensbox');
         $responseB->assertForbidden();
+    }
+
+    public function test_page_shows_locked_state_below_the_progress_threshold(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $this->grantWillkommensbox($tenant, $learner);
+        $this->setThreshold($tenant, 50);
+        [$course, $questionIds] = $this->makeIsolatedCourseWithQuestions(4);
+        $this->grantEntitlement($tenant, $learner, $course);
+        $this->masterQuestions($tenant, $learner, array_slice($questionIds, 0, 1));
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get('/willkommensbox');
+
+        $response->assertOk();
+        $response->assertSee('noch nicht alle Voraussetzungen');
+        $response->assertDontSee('Jetzt bestellen');
+    }
+
+    public function test_page_shows_the_form_once_the_progress_threshold_is_reached(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $this->grantWillkommensbox($tenant, $learner);
+        $this->setThreshold($tenant, 50);
+        [$course, $questionIds] = $this->makeIsolatedCourseWithQuestions(4);
+        $this->grantEntitlement($tenant, $learner, $course);
+        $this->masterQuestions($tenant, $learner, array_slice($questionIds, 0, 2));
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get('/willkommensbox');
+
+        $response->assertOk();
+        $response->assertSee('Jetzt bestellen');
+    }
+
+    public function test_order_is_forbidden_below_the_progress_threshold(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $this->grantWillkommensbox($tenant, $learner);
+        $this->setThreshold($tenant, 50);
+        [$course] = $this->makeIsolatedCourseWithQuestions(4);
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $response = $this->actingAsInTenant($learner, $tenant)->post('/willkommensbox', [
+            'street' => 'Straße 1', 'postal_code' => '12345', 'city' => 'Stadt', 'country' => 'Deutschland',
+        ]);
+
+        $response->assertForbidden();
+        $this->onAdmin(fn () => $this->assertDatabaseMissing('willkommensbox_order', ['tenant_id' => $tenant->id, 'user_id' => $learner->id]));
+    }
+
+    public function test_default_threshold_of_zero_does_not_gate_the_order(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $this->grantWillkommensbox($tenant, $learner);
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get('/willkommensbox');
+
+        $response->assertOk();
+        $response->assertSee('Jetzt bestellen');
     }
 }

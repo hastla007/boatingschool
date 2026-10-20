@@ -48,6 +48,60 @@ class BrandingSettingsTest extends TestCase
         $response->assertSessionHasErrors('exam_readiness_threshold_percent');
     }
 
+    public function test_new_tenants_default_to_no_willkommensbox_progress_requirement(): void
+    {
+        $tenant = $this->createTestTenant();
+
+        $this->assertSame(0, $tenant->branding->fresh()->willkommensbox_threshold_percent);
+    }
+
+    public function test_a_school_admin_can_configure_the_willkommensbox_threshold(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+
+        $response = $this->actingAsInTenant($admin, $tenant)->patch('/admin/branding', [
+            'primary_color' => '#005FD7',
+            'secondary_color' => '#00A8A8',
+            'exam_readiness_threshold_percent' => 50,
+            'willkommensbox_threshold_percent' => 30,
+        ]);
+
+        $response->assertRedirect();
+        $this->assertSame(30, $tenant->branding->fresh()->willkommensbox_threshold_percent);
+    }
+
+    public function test_willkommensbox_threshold_must_be_a_percentage(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+
+        $response = $this->actingAsInTenant($admin, $tenant)->patch('/admin/branding', [
+            'primary_color' => '#005FD7',
+            'secondary_color' => '#00A8A8',
+            'exam_readiness_threshold_percent' => 50,
+            'willkommensbox_threshold_percent' => 150,
+        ]);
+
+        $response->assertSessionHasErrors('willkommensbox_threshold_percent');
+    }
+
+    public function test_willkommensbox_threshold_stays_unchanged_when_omitted_from_the_submit(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $this->onAdmin(fn () => $tenant->branding->update(['willkommensbox_threshold_percent' => 20]));
+
+        $response = $this->actingAsInTenant($admin, $tenant)->patch('/admin/branding', [
+            'primary_color' => '#005FD7',
+            'secondary_color' => '#00A8A8',
+            'exam_readiness_threshold_percent' => 50,
+        ]);
+
+        $response->assertRedirect();
+        $this->assertSame(20, $tenant->branding->fresh()->willkommensbox_threshold_percent);
+    }
+
     public function test_a_school_admin_can_configure_contact_address_and_website(): void
     {
         $tenant = $this->createTestTenant();

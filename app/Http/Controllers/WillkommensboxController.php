@@ -2,7 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Tenant;
+use App\Models\User;
 use App\Models\WillkommensboxOrder;
+use App\Services\CourseProgressService;
+use App\Services\EntitlementService;
 use App\Support\Countries;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
@@ -14,18 +18,27 @@ use Symfony\Component\HttpFoundation\Response;
  * Bestellformular für die Willkommensbox (siehe WillkommensboxOrder) --
  * nur erreichbar, wenn der Nutzer "Lernplattform (inkl. Willkommensbox)"
  * eingelöst hat (siehe User::hasWillkommensboxAccess,
- * CouponRedemptionService). Genau wie beim Praxisformular ist die
- * Bestellung einmalig: nach dem Absenden zeigt die Seite nur noch eine
- * Bestätigung, kein erneutes Formular.
+ * CouponRedemptionService) UND den bootsschulweiten Kursfortschritt
+ * (siehe TenantBranding::willkommensbox_threshold_percent) erreicht hat.
+ * Genau wie beim Praxisformular ist die Bestellung einmalig: nach dem
+ * Absenden zeigt die Seite nur noch eine Bestätigung, kein erneutes
+ * Formular.
  */
 class WillkommensboxController extends Controller
 {
-    public function index(Request $request, TenantContext $tenantContext): View
+    public function index(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseProgressService $courseProgress): View
     {
         $tenant = $tenantContext->tenant();
         $user = $request->user();
 
         abort_unless($user->hasWillkommensboxAccess($tenant), 403, 'Die Willkommensbox ist für dich aktuell nicht freigeschaltet.');
+
+        $percent = $this->progressPercent($tenant, $user, $entitlements, $courseProgress);
+        $threshold = $tenant->branding->willkommensbox_threshold_percent;
+
+        if ($percent < $threshold) {
+            return view('willkommensbox.index', ['state' => 'locked', 'percent' => $percent, 'threshold' => $threshold]);
+        }
 
         $order = WillkommensboxOrder::where('tenant_id', $tenant->id)->where('user_id', $user->id)->first();
 
@@ -36,12 +49,16 @@ class WillkommensboxController extends Controller
         return view('willkommensbox.index', ['state' => 'form', 'user' => $user]);
     }
 
-    public function store(Request $request, TenantContext $tenantContext): Response
+    public function store(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseProgressService $courseProgress): Response
     {
         $tenant = $tenantContext->tenant();
         $user = $request->user();
 
         abort_unless($user->hasWillkommensboxAccess($tenant), 403, 'Die Willkommensbox ist für dich aktuell nicht freigeschaltet.');
+
+        $percent = $this->progressPercent($tenant, $user, $entitlements, $courseProgress);
+        $threshold = $tenant->branding->willkommensbox_threshold_percent;
+        abort_unless($percent >= $threshold, 403, "Für die Bestellung der Willkommensbox werden mindestens {$threshold}% Kursfortschritt benötigt.");
 
         $existing = WillkommensboxOrder::where('tenant_id', $tenant->id)->where('user_id', $user->id)->exists();
 
@@ -63,5 +80,17 @@ class WillkommensboxController extends Controller
         ]);
 
         return redirect()->route('willkommensbox.index');
+    }
+
+    /**
+     * Die Willkommensbox ist nicht an einen bestimmten Kurs gekoppelt --
+     * bei mehreren aktiven Kurszugängen zählt (wie beim Dashboard-Chart
+     * "Kursfortschritt in der Lernphase") der am weitesten fortgeschrittene.
+     */
+    private function progressPercent(Tenant $tenant, User $user, EntitlementService $entitlements, CourseProgressService $courseProgress): int
+    {
+        return $entitlements->activeCourses($tenant, $user)
+            ->map(fn ($course) => $courseProgress->overallPercent($course, $tenant, $user))
+            ->max() ?? 0;
     }
 }
