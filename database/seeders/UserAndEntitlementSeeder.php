@@ -25,6 +25,8 @@ class UserAndEntitlementSeeder extends Seeder
             ['name' => 'Erika Schmidt', 'email' => 'erika@bootsschule-mueller.de', 'course' => 'SBF-BIN-SEGEL'],
             ['name' => 'Erika Schmidt', 'email' => 'erika@bootsschule-mueller.de', 'course' => 'ADD-BIN-SEGEL'],
             ['name' => 'Max Mustermann', 'email' => 'max@bootsschule-mueller.de', 'course' => 'FKN'],
+            ['name' => 'Max Mustermann', 'email' => 'max@bootsschule-mueller.de', 'course' => 'SKN'],
+            ['name' => 'Max Mustermann', 'email' => 'max@bootsschule-mueller.de', 'course' => 'ADD-FKN-TO-SKN'],
         ]);
 
         $this->seedForTenant('hanse-kiel', 'hansekiel', [
