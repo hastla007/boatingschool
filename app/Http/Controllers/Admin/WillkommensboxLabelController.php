@@ -32,12 +32,17 @@ class WillkommensboxLabelController extends Controller
 
         $willkommensboxOrder->loadMissing('user');
 
+        // A4 ist kein Vollformat-Label, sondern ein A6-Label zum
+        // Ausschneiden auf einem A4-Bogen (siehe label.blade.php) -- dafür
+        // druckt der Bogen selbst hochkant, A5/A6 als Vollformat-Label quer.
+        $paper = $size === 'a4' ? ['A4', 'portrait'] : [strtoupper($size), 'landscape'];
+
         $pdf = Pdf::loadView('admin.willkommensbox.label', [
             'order' => $willkommensboxOrder,
             'branding' => $branding,
             'tenant' => $tenant,
             'size' => $size,
-        ])->setPaper(strtoupper($size), 'landscape');
+        ])->setPaper(...$paper);
 
         return $pdf->download("versandlabel-{$size}-{$willkommensboxOrder->id}.pdf");
     }
