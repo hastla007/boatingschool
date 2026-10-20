@@ -62,6 +62,7 @@ class DatabaseSeeder extends Seeder
             TenantCourseLocationDemoSeeder::class,
             DemoLearningActivitySeeder::class,
             WillkommensboxDemoSeeder::class,
+            PraxisAnmeldungDemoSeeder::class,
         ]);
     }
 }
