@@ -17,7 +17,7 @@
     // WillkommensboxLabelController) kalibrierbar.
     $contentWidthMm = $pageWidthMm - 8 - 12;
     $contentHeightMm = $pageHeightMm - 8 - 12;
-    $spacerHeightMm = round($contentHeightMm * 0.06, 1);
+    $spacerHeightMm = round($contentHeightMm * 0.02, 1);
     $recipientIndentMm = round($contentWidthMm * 0.38, 1);
 @endphp
 <!DOCTYPE html>
