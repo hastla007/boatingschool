@@ -93,7 +93,7 @@
 
         .recipient {
             position: relative;
-            top: -8mm;
+            top: -4mm;
             margin-left: {{ $recipientIndentMm }}mm;
             font-size: {{ $fontSizes['recipient'] }};
             font-weight: bold;
