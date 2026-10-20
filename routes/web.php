@@ -17,6 +17,7 @@ use App\Http\Controllers\ExamController;
 use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\LearningController;
 use App\Http\Controllers\NavigationTaskController;
+use App\Http\Controllers\OffersController;
 use App\Http\Controllers\PraxisPruefungController;
 use App\Http\Controllers\PraxisTrainerController;
 use App\Http\Controllers\ProfileController;
@@ -41,6 +42,8 @@ Route::middleware(['auth', 'tenant.member'])->group(function () {
     Route::get('/courses/{course}', [CourseController::class, 'show'])->name('courses.show');
 
     Route::get('/tipps-tricks', [TipController::class, 'index'])->name('tips.index');
+
+    Route::get('/angebote', [OffersController::class, 'index'])->name('offers.index');
 
     Route::get('/courses/{course}/learn', [LearningController::class, 'show'])->name('learning.show');
     Route::get('/courses/{course}/learn/overview', [LearningController::class, 'overview'])->name('learning.overview');
