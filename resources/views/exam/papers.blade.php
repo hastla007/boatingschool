@@ -103,7 +103,7 @@
                 </p>
             @elseif ($course->code === 'ADD-BIN-SEGEL')
                 <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                    Hier findest Du alle {{ $paperStats->count() }} offiziellen Prüfungsbögen für die Ergänzungsprüfung Binnen Segeln. Da Du
+                    Hier findest Du alle {{ $paperStats->count() }} offiziellen Prüfungsbögen für die Ergänzungsprüfung „Binnen &rarr; Segeln&quot;. Da Du
                     Deinen SBF Binnen bereits besitzt, entfallen der allgemeine Teil und die Basisfragen &mdash; jeder Bogen enthält nur noch
                     7 spezifische Segelfragen. Du musst mindestens 5 der 7 Fragen richtig beantworten, die Bearbeitungszeit beträgt 15 Minuten.
                 </p>

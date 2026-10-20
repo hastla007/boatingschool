@@ -8,7 +8,7 @@ use App\Models\VideoModule;
 use Illuminate\Database\Seeder;
 
 /**
- * Videokurs für den Ergänzungskurs "Binnen Segeln" (ADD-BIN-SEGEL): nur
+ * Videokurs für den Ergänzungskurs "Binnen → Segeln" (ADD-BIN-SEGEL): nur
  * der Segelteil für Inhaber eines SBF Binnen unter Motor, passend zu den
  * 47 spezifischen Segelfragen (ELWIS-Nr. 254-300) -- Basis- und
  * Binnen-Themen werden nicht erneut behandelt. Eigenständige, kürzere

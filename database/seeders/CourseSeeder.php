@@ -22,7 +22,7 @@ class CourseSeeder extends Seeder
             ['code' => 'SBF-SEE-BIN', 'name' => 'SBF See & Binnen', 'type' => 'combo', 'modules' => ['SBF_BASIS', 'SBF_SEE', 'SBF_BINNEN']],
             ['code' => 'ADD-SEE-TO-BIN', 'name' => 'Ergänzung See → Binnen', 'type' => 'addon', 'modules' => ['SBF_BINNEN']],
             ['code' => 'ADD-BIN-TO-SEE', 'name' => 'Ergänzung Binnen → See', 'type' => 'addon', 'modules' => ['SBF_SEE']],
-            ['code' => 'ADD-BIN-SEGEL', 'name' => 'Ergänzung Binnen Segeln', 'type' => 'addon', 'modules' => ['SBF_BINNEN_SEGELN']],
+            ['code' => 'ADD-BIN-SEGEL', 'name' => 'Ergänzung Binnen → Segeln', 'type' => 'addon', 'modules' => ['SBF_BINNEN_SEGELN']],
             ['code' => 'SRC', 'name' => 'SRC Vollkurs', 'type' => 'full', 'modules' => ['SRC']],
             ['code' => 'UBI', 'name' => 'UBI Vollkurs', 'type' => 'full', 'modules' => ['UBI']],
             ['code' => 'SRC-UBI', 'name' => 'SRC & UBI Kombikurs', 'type' => 'combo', 'modules' => ['SRC', 'UBI']],

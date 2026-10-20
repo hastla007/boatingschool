@@ -9,7 +9,7 @@ use Illuminate\Database\Seeder;
 
 /**
  * Demo-Bestückung des "Zu den Fragen"-Quiz für den Ergänzungskurs
- * "Binnen Segeln" (ADD-BIN-SEGEL): verknüpft die 47 spezifischen
+ * "Binnen → Segeln" (ADD-BIN-SEGEL): verknüpft die 47 spezifischen
  * Segelfragen (ELWIS-Nr. 254-300, content_role=segel_specific) mit den
  * 19 Videolektionen, jede Frage genau einmal über alle Lektionen
  * verteilt. Zuordnung über official_number statt question_text (siehe

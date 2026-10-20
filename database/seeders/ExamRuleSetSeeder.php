@@ -54,7 +54,7 @@ class ExamRuleSetSeeder extends Seeder
         $verifiedCourses = ['SBF-SEE', 'SBF-BIN-MOTOR', 'SBF-SEE-BIN', 'ADD-SEE-TO-BIN', 'ADD-BIN-TO-SEE', 'SBF-BIN-SEGEL', 'ADD-BIN-SEGEL', 'SRC', 'FKN'];
         $questionCountOverrides = ['ADD-SEE-TO-BIN' => 23, 'ADD-BIN-TO-SEE' => 23];
 
-        // ADD-BIN-SEGEL ("Ergänzung Binnen Segeln"): nur noch die 7
+        // ADD-BIN-SEGEL ("Ergänzung Binnen → Segeln"): nur noch die 7
         // spezifischen Segelfragen je Bogen (kein allgemeiner Teil, keine
         // Basisfragen, da bei vorhandenem SBF Binnen bereits geprüft) --
         // mit eigener, verkürzter Bestehensgrenze (5 von 7) und

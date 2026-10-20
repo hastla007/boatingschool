@@ -9,7 +9,7 @@ use App\Models\ExamPaperQuestion;
 use Illuminate\Database\Seeder;
 
 /**
- * Die 15 amtlichen Prüfungsbögen für den Ergänzungskurs "Binnen Segeln"
+ * Die 15 amtlichen Prüfungsbögen für den Ergänzungskurs "Binnen → Segeln"
  * (ADD-BIN-SEGEL): für Inhaber eines SBF Binnen entfallen der allgemeine
  * Teil und die Basisfragen, sodass jeder Bogen nur noch die 7
  * spezifischen Segelfragen enthält (Bestehensgrenze 5/7, Zeitlimit 15
