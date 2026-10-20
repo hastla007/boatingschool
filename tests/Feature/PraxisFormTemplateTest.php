@@ -192,6 +192,38 @@ class PraxisFormTemplateTest extends TestCase
         $this->trackTemplate(PraxisFormTemplate::where('title', 'E2E Formular ohne Tauglichkeit')->first());
     }
 
+    public function test_superadmin_can_set_the_practice_appointment_count(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        $course = $this->makeIsolatedCourse();
+
+        $response = $this->actingAs($superadmin)->post('/superadmin/praxis-form-templates', [
+            'title' => 'E2E Formular mit Praxisterminen',
+            'min_progress_percent' => '50',
+            'practice_appointment_count' => '2',
+            'course_ids' => [$course->id],
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('praxis_form_template', ['title' => 'E2E Formular mit Praxisterminen', 'practice_appointment_count' => 2]);
+        $this->trackTemplate(PraxisFormTemplate::where('title', 'E2E Formular mit Praxisterminen')->first());
+    }
+
+    public function test_practice_appointment_count_defaults_to_zero(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        $course = $this->makeIsolatedCourse();
+
+        $this->actingAs($superadmin)->post('/superadmin/praxis-form-templates', [
+            'title' => 'E2E Formular ohne Praxistermine',
+            'min_progress_percent' => '50',
+            'course_ids' => [$course->id],
+        ]);
+
+        $this->assertDatabaseHas('praxis_form_template', ['title' => 'E2E Formular ohne Praxistermine', 'practice_appointment_count' => 0]);
+        $this->trackTemplate(PraxisFormTemplate::where('title', 'E2E Formular ohne Praxistermine')->first());
+    }
+
     public function test_superadmin_can_toggle_and_delete_a_template(): void
     {
         $superadmin = $this->createSuperAdmin();

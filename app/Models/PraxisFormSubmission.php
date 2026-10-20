@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
 class PraxisFormSubmission extends Model
 {
@@ -26,19 +28,53 @@ class PraxisFormSubmission extends Model
         ];
     }
 
+    /**
+     * Alle Terminvorschlagsrunden über alle Slots hinweg -- slot 0 ist der
+     * Prüfungstermin selbst, slot 1, 2, ... sind unabhängige, zusätzliche
+     * Praxistermine (siehe requiredPracticeAppointmentCount()). Für einen
+     * einzelnen Slot immer appointmentsForSlot() verwenden, nicht direkt
+     * filtern.
+     */
     public function examAppointments(): HasMany
     {
-        return $this->hasMany(PraxisExamAppointment::class)->orderBy('round');
+        return $this->hasMany(PraxisExamAppointment::class)->orderBy('slot')->orderBy('round');
+    }
+
+    /** @return Collection<int, PraxisExamAppointment> */
+    public function appointmentsForSlot(int $slot): Collection
+    {
+        return $this->examAppointments->where('slot', $slot)->values();
+    }
+
+    public function latestAppointmentForSlot(int $slot): ?PraxisExamAppointment
+    {
+        return $this->appointmentsForSlot($slot)->last();
     }
 
     public function latestExamAppointment(): ?PraxisExamAppointment
     {
-        return $this->examAppointments->last();
+        return $this->latestAppointmentForSlot(0);
     }
 
     public function isExamDateConfirmed(): bool
     {
         return $this->confirmed_exam_date !== null;
+    }
+
+    /** Anzahl zusätzlicher Praxistermine, die für den Kurs dieser Anmeldung vorgesehen sind (siehe PraxisFormTemplate). */
+    public function requiredPracticeAppointmentCount(): int
+    {
+        return $this->template->practice_appointment_count ?? 0;
+    }
+
+    public function isPracticeAppointmentConfirmed(int $slot): bool
+    {
+        return $this->confirmedPracticeDate($slot) !== null;
+    }
+
+    public function confirmedPracticeDate(int $slot): ?Carbon
+    {
+        return $this->appointmentsForSlot($slot)->firstWhere('response', 'accepted')?->exam_date;
     }
 
     public function course(): BelongsTo

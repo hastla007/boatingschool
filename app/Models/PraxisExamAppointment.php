@@ -14,7 +14,7 @@ class PraxisExamAppointment extends Model
     protected $table = 'praxis_exam_appointment';
 
     protected $fillable = [
-        'tenant_id', 'praxis_form_submission_id', 'round', 'exam_date',
+        'tenant_id', 'praxis_form_submission_id', 'slot', 'round', 'exam_date',
         'proposed_by_user_id', 'response', 'response_comment', 'responded_at',
     ];
 

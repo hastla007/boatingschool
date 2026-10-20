@@ -11,8 +11,10 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Rückmeldung des Lerners auf einen von der Bootsschule vorgeschlagenen
- * Prüfungstermin (siehe PraxisExamAppointmentService) -- Gegenstück zum
- * Vorschlag im Bootsschul-Admin (Admin\PraxisExamAppointmentController).
+ * Termin -- Prüfungstermin (slot 0) oder einer von mehreren zusätzlichen
+ * Praxisterminen (slot 1, 2, ..., siehe PraxisExamAppointmentService).
+ * Gegenstück zum Vorschlag im Bootsschul-Admin
+ * (Admin\PraxisExamAppointmentController).
  */
 class PraxisExamAppointmentController extends Controller
 {
@@ -40,8 +42,10 @@ class PraxisExamAppointmentController extends Controller
             return back()->withErrors(['decision' => $e->getMessage()]);
         }
 
+        $label = $examAppointment->slot === 0 ? 'Prüfungstermin' : 'Termin';
+
         $status = $validated['decision'] === 'accepted'
-            ? 'Prüfungstermin bestätigt.'
+            ? $label.' bestätigt.'
             : 'Rückmeldung gespeichert -- deine Bootsschule schlägt dir einen neuen Termin vor.';
 
         return redirect()->route('praxis-pruefung.index', $course)->with('status', $status);
