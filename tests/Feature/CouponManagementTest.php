@@ -361,9 +361,10 @@ class CouponManagementTest extends TestCase
         $option = $this->onAdmin(fn () => Product::where('code', 'LERNPLATTFORM-WB')->firstOrFail());
         $code = 'E2E-OPTION-BUNDLE';
         $this->createdCodes[] = $code;
-        $this->onAdmin(fn () => Coupon::create([
-            'code' => $code, 'course_id' => $course->id, 'option_product_id' => $option->id, 'tenant_id' => $tenant->id,
-        ]));
+        $this->onAdmin(function () use ($code, $course, $option, $tenant) {
+            $coupon = Coupon::create(['code' => $code, 'course_id' => $course->id, 'tenant_id' => $tenant->id]);
+            $coupon->optionProducts()->attach($option->id);
+        });
 
         $response = $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', ['code' => $code]);
 
@@ -373,6 +374,34 @@ class CouponManagementTest extends TestCase
         ]);
         $this->assertDatabaseHas('product_purchase', [
             'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'product_id' => $option->id, 'source_type' => 'coupon', 'source_reference' => $code,
+        ]);
+    }
+
+    public function test_redeeming_a_course_coupon_with_several_bundled_options_grants_all_of_them(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $willkommensbox = $this->onAdmin(fn () => Product::where('code', 'LERNPLATTFORM-WB')->firstOrFail());
+        $kleinePraxis = $this->onAdmin(fn () => Product::where('code', 'PRAXISEINHEIT-KLEIN')->firstOrFail());
+        $code = 'E2E-MULTI-OPTION';
+        $this->createdCodes[] = $code;
+        $this->onAdmin(function () use ($code, $course, $willkommensbox, $kleinePraxis, $tenant) {
+            $coupon = Coupon::create(['code' => $code, 'course_id' => $course->id, 'tenant_id' => $tenant->id]);
+            $coupon->optionProducts()->attach([$willkommensbox->id, $kleinePraxis->id]);
+        });
+
+        $response = $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', ['code' => $code]);
+
+        $response->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('entitlement', [
+            'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'course_id' => $course->id, 'source_reference' => $code,
+        ]);
+        $this->assertDatabaseHas('product_purchase', [
+            'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'product_id' => $willkommensbox->id, 'source_reference' => $code,
+        ]);
+        $this->assertDatabaseHas('product_purchase', [
+            'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'product_id' => $kleinePraxis->id, 'source_reference' => $code,
         ]);
     }
 
@@ -405,12 +434,14 @@ class CouponManagementTest extends TestCase
         $codeKlein = 'E2E-PRAXIS-KLEIN';
         $codeGross = 'E2E-PRAXIS-GROSS';
         $this->createdCodes = array_merge($this->createdCodes, [$codeKlein, $codeGross]);
-        $this->onAdmin(fn () => Coupon::create([
-            'code' => $codeKlein, 'course_id' => $courseA->id, 'option_product_id' => $kleine->id, 'tenant_id' => $tenant->id,
-        ]));
-        $this->onAdmin(fn () => Coupon::create([
-            'code' => $codeGross, 'course_id' => $courseB->id, 'option_product_id' => $grosse->id, 'tenant_id' => $tenant->id,
-        ]));
+        $this->onAdmin(function () use ($codeKlein, $courseA, $kleine, $tenant) {
+            $coupon = Coupon::create(['code' => $codeKlein, 'course_id' => $courseA->id, 'tenant_id' => $tenant->id]);
+            $coupon->optionProducts()->attach($kleine->id);
+        });
+        $this->onAdmin(function () use ($codeGross, $courseB, $grosse, $tenant) {
+            $coupon = Coupon::create(['code' => $codeGross, 'course_id' => $courseB->id, 'tenant_id' => $tenant->id]);
+            $coupon->optionProducts()->attach($grosse->id);
+        });
 
         $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', ['code' => $codeKlein])->assertSessionHasNoErrors();
         $this->onAdmin(fn () => $this->assertDatabaseHas('product_purchase', [
@@ -419,6 +450,33 @@ class CouponManagementTest extends TestCase
 
         $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', ['code' => $codeGross])->assertSessionHasNoErrors();
 
+        $this->onAdmin(function () use ($tenant, $learner, $kleine, $grosse) {
+            $this->assertDatabaseMissing('product_purchase', [
+                'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'product_id' => $kleine->id,
+            ]);
+            $this->assertDatabaseHas('product_purchase', [
+                'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'product_id' => $grosse->id,
+            ]);
+        });
+    }
+
+    public function test_a_single_coupon_bundling_both_praxiseinheiten_at_once_only_grants_the_grosse(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $kleine = $this->onAdmin(fn () => Product::where('code', 'PRAXISEINHEIT-KLEIN')->firstOrFail());
+        $grosse = $this->onAdmin(fn () => Product::where('code', 'PRAXISEINHEIT-GROSS')->firstOrFail());
+        $code = 'E2E-PRAXIS-BOTH';
+        $this->createdCodes[] = $code;
+        $this->onAdmin(function () use ($code, $course, $kleine, $grosse, $tenant) {
+            $coupon = Coupon::create(['code' => $code, 'course_id' => $course->id, 'tenant_id' => $tenant->id]);
+            $coupon->optionProducts()->attach([$kleine->id, $grosse->id]);
+        });
+
+        $response = $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', ['code' => $code]);
+
+        $response->assertSessionHasNoErrors();
         $this->onAdmin(function () use ($tenant, $learner, $kleine, $grosse) {
             $this->assertDatabaseMissing('product_purchase', [
                 'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'product_id' => $kleine->id,

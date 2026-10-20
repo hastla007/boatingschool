@@ -6,7 +6,6 @@ use App\Models\AuditLog;
 use App\Models\Coupon;
 use App\Models\CourseDefinition;
 use App\Models\Entitlement;
-use App\Models\Product;
 use App\Models\ProductPurchase;
 use App\Models\Tenant;
 use App\Models\User;
@@ -58,7 +57,7 @@ class CouponRedemptionService
                 'source_reference' => $coupon->code,
             ]);
 
-            $this->applyOptionProduct($coupon, $tenant, $user);
+            $this->applyOptionProducts($coupon, $tenant, $user);
 
             $coupon->update([
                 'redeemed_by_user_id' => $user->id,
@@ -75,43 +74,48 @@ class CouponRedemptionService
     }
 
     /**
-     * Ein Kurs-Coupon kann zusätzlich ein Produkt bündeln (siehe
-     * coupon.option_product_id, z. B. "Lernplattform inkl. Willkommensbox"
-     * oder eine Praxiseinheit) -- bei Einlösung entsteht dafür eine eigene
-     * ProductPurchase neben dem Kurs-Entitlement, genau wie bei einem
-     * eigenständigen Produkt-Coupon.
+     * Ein Kurs-Coupon kann zusätzlich mehrere Produkte bündeln (siehe
+     * coupon_option_product, z. B. "Lernplattform inkl. Willkommensbox" und
+     * eine Praxiseinheit gleichzeitig) -- bei Einlösung entsteht dafür je
+     * Option eine eigene ProductPurchase neben dem Kurs-Entitlement, genau
+     * wie bei einem eigenständigen Produkt-Coupon.
      *
      * Für Praxiseinheiten gilt zusätzlich: eine "Große Praxiseinheit"
      * ersetzt eine bereits vorhandene "Kleine Praxiseinheit" -- der Kunde
      * hat danach nur noch die größere Einheit gebucht, nicht beide
-     * nebeneinander.
+     * nebeneinander. Die Löschung läuft vor den Neuanlagen, damit das auch
+     * gilt, wenn ein Code beide Praxiseinheiten gleichzeitig bündelt.
      */
-    private function applyOptionProduct(Coupon $coupon, Tenant $tenant, User $user): void
+    private function applyOptionProducts(Coupon $coupon, Tenant $tenant, User $user): void
     {
-        if (! $coupon->option_product_id) {
+        $options = $coupon->optionProducts;
+
+        if ($options->isEmpty()) {
             return;
         }
 
-        $option = Product::find($coupon->option_product_id);
-
-        if (! $option) {
-            return;
-        }
-
-        if ($option->code === 'PRAXISEINHEIT-GROSS') {
+        if ($options->contains('code', 'PRAXISEINHEIT-GROSS')) {
             ProductPurchase::where('tenant_id', $tenant->id)
                 ->where('user_id', $user->id)
                 ->whereHas('product', fn ($q) => $q->where('code', 'PRAXISEINHEIT-KLEIN'))
                 ->delete();
+
+            // Bündelt derselbe Code ausnahmsweise beide Praxiseinheiten
+            // gleichzeitig, zählt nur die größere -- sonst würde der
+            // nachfolgende Anlage-Schritt die gerade gelöschte Kleine sofort
+            // wieder neu anlegen.
+            $options = $options->reject(fn ($option) => $option->code === 'PRAXISEINHEIT-KLEIN');
         }
 
-        ProductPurchase::create([
-            'tenant_id' => $tenant->id,
-            'user_id' => $user->id,
-            'product_id' => $option->id,
-            'source_type' => 'coupon',
-            'source_reference' => $coupon->code,
-        ]);
+        foreach ($options as $option) {
+            ProductPurchase::create([
+                'tenant_id' => $tenant->id,
+                'user_id' => $user->id,
+                'product_id' => $option->id,
+                'source_type' => 'coupon',
+                'source_reference' => $coupon->code,
+            ]);
+        }
     }
 
     private function redeemForProduct(Coupon $coupon, Tenant $tenant, User $user, User $actor): array

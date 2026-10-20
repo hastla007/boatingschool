@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Coupon extends Model
 {
@@ -15,7 +16,7 @@ class Coupon extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'code', 'course_id', 'product_id', 'option_product_id', 'tenant_id', 'batch_label', 'created_by_user_id',
+        'code', 'course_id', 'product_id', 'tenant_id', 'batch_label', 'created_by_user_id',
         'redeemed_by_user_id', 'redeemed_tenant_id', 'redeemed_at',
     ];
 
@@ -37,10 +38,10 @@ class Coupon extends Model
         return $this->belongsTo(Product::class, 'product_id');
     }
 
-    /** Zusätzlich gebündeltes Produkt bei einem Kurs-Coupon (siehe redeemForCourse). */
-    public function optionProduct(): BelongsTo
+    /** Zusätzlich gebündelte Produkte bei einem Kurs-Coupon (siehe redeemForCourse). */
+    public function optionProducts(): BelongsToMany
     {
-        return $this->belongsTo(Product::class, 'option_product_id');
+        return $this->belongsToMany(Product::class, 'coupon_option_product');
     }
 
     /** Anzeigename des durch diesen Coupon freigeschalteten Kurses oder Produkts. */

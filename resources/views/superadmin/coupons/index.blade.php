@@ -25,16 +25,21 @@
                     </select>
                     <x-input-error :messages="$errors->get('target')" class="mt-2" />
                 </div>
+                @php($selectedOptionProductIds = old('option_product_ids', []))
                 <div x-show="target.startsWith('course:')" style="display: none">
-                    <x-input-label for="option_product_id" value="Option (optional)" />
-                    <select id="option_product_id" name="option_product_id" class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
-                        <option value="">&mdash; keine &mdash;</option>
+                    <x-input-label value="Optionen (optional)" />
+                    <div class="mt-1 space-y-1.5 border border-slate-200 dark:border-slate-600 rounded-lg p-3">
                         @foreach ($products as $product)
-                            <option value="{{ $product->id }}" @selected(old('option_product_id') === $product->id)>{{ $product->name }}</option>
+                            <label class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                                <input type="checkbox" name="option_product_ids[]" value="{{ $product->id }}"
+                                       @checked(in_array($product->id, $selectedOptionProductIds, true))
+                                       class="rounded border-slate-300 dark:bg-slate-700 dark:border-slate-600">
+                                {{ $product->name }}
+                            </label>
                         @endforeach
-                    </select>
-                    <p class="text-xs text-slate-400 mt-1">Wird bei Einlösung zusätzlich zum Kurs als eigene Buchung freigeschaltet.</p>
-                    <x-input-error :messages="$errors->get('option_product_id')" class="mt-2" />
+                    </div>
+                    <p class="text-xs text-slate-400 mt-1">Werden bei Einlösung zusätzlich zum Kurs als eigene Buchungen freigeschaltet.</p>
+                    <x-input-error :messages="$errors->get('option_product_ids')" class="mt-2" />
                 </div>
                 <div>
                     <x-input-label for="tenant_id" value="Bootsschule (optional)" />
@@ -126,8 +131,8 @@
                                 </td>
                                 <td class="py-1.5 text-slate-600 dark:text-slate-300">
                                     {{ $coupon->redeemableName() }}
-                                    @if ($coupon->optionProduct)
-                                        <span class="block text-xs text-indigo-600 dark:text-indigo-400">+ {{ $coupon->optionProduct->name }}</span>
+                                    @if ($coupon->optionProducts->isNotEmpty())
+                                        <span class="block text-xs text-indigo-600 dark:text-indigo-400">+ {{ $coupon->optionProducts->pluck('name')->implode(', ') }}</span>
                                     @endif
                                 </td>
                                 <td class="py-1.5 text-slate-500">{{ $coupon->tenant?->name ?? '—' }}</td>

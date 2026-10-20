@@ -289,20 +289,39 @@ class SuperadminAreaTest extends TestCase
 
         $response = $this->actingAs($superadmin)->post('/superadmin/coupons', [
             'target' => 'course:'.$course->id,
-            'option_product_id' => $option->id,
+            'option_product_ids' => [$option->id],
             'tenant_id' => $tenant->id,
             'quantity' => 1,
         ]);
 
         $response->assertRedirect();
-        $this->assertDatabaseHas('coupon', [
-            'tenant_id' => $tenant->id,
-            'course_id' => $course->id,
-            'option_product_id' => $option->id,
-        ]);
+        $coupon = Coupon::where('tenant_id', $tenant->id)->where('course_id', $course->id)->first();
+        $this->assertNotNull($coupon);
+        $this->assertSame([$option->id], $coupon->optionProducts->pluck('id')->all());
     }
 
-    public function test_option_product_id_is_ignored_when_generating_a_product_coupon(): void
+    public function test_superadmin_can_generate_a_course_coupon_with_several_bundled_option_products(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        $tenant = $this->createTestTenant();
+        $course = $this->existingCourse('SRC');
+        $willkommensbox = $this->onAdmin(fn () => Product::where('code', 'LERNPLATTFORM-WB')->firstOrFail());
+        $kleinePraxis = $this->onAdmin(fn () => Product::where('code', 'PRAXISEINHEIT-KLEIN')->firstOrFail());
+
+        $response = $this->actingAs($superadmin)->post('/superadmin/coupons', [
+            'target' => 'course:'.$course->id,
+            'option_product_ids' => [$willkommensbox->id, $kleinePraxis->id],
+            'tenant_id' => $tenant->id,
+            'quantity' => 1,
+        ]);
+
+        $response->assertRedirect();
+        $coupon = Coupon::where('tenant_id', $tenant->id)->where('course_id', $course->id)->first();
+        $this->assertNotNull($coupon);
+        $this->assertEqualsCanonicalizing([$willkommensbox->id, $kleinePraxis->id], $coupon->optionProducts->pluck('id')->all());
+    }
+
+    public function test_option_product_ids_are_ignored_when_generating_a_product_coupon(): void
     {
         $superadmin = $this->createSuperAdmin();
         $tenant = $this->createTestTenant();
@@ -311,17 +330,15 @@ class SuperadminAreaTest extends TestCase
 
         $response = $this->actingAs($superadmin)->post('/superadmin/coupons', [
             'target' => 'product:'.$product->id,
-            'option_product_id' => $option->id,
+            'option_product_ids' => [$option->id],
             'tenant_id' => $tenant->id,
             'quantity' => 1,
         ]);
 
         $response->assertRedirect();
-        $this->assertDatabaseHas('coupon', [
-            'tenant_id' => $tenant->id,
-            'product_id' => $product->id,
-            'option_product_id' => null,
-        ]);
+        $coupon = Coupon::where('tenant_id', $tenant->id)->where('product_id', $product->id)->first();
+        $this->assertNotNull($coupon);
+        $this->assertTrue($coupon->optionProducts->isEmpty());
     }
 
     public function test_superadmin_can_export_all_filtered_coupon_codes_via_select_all(): void
