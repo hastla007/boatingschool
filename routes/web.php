@@ -99,6 +99,7 @@ Route::middleware(['auth', 'tenant.member'])->group(function () {
 Route::middleware(['auth', 'tenant.role:owner,admin,instructor'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/', AdminDashboardController::class)->name('dashboard');
     Route::post('/participants/invite', [ParticipantController::class, 'invite'])->name('participants.invite');
+    Route::get('/participants/{user}', [ParticipantController::class, 'show'])->name('participants.show');
     Route::post('/entitlements', [EntitlementController::class, 'store'])->name('entitlements.store');
     Route::patch('/entitlements/{entitlement}', [EntitlementController::class, 'update'])->name('entitlements.update');
     Route::patch('/branding', [BrandingController::class, 'update'])->name('branding.update');

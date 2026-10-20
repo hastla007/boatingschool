@@ -5,6 +5,9 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Coupon;
+use App\Models\Entitlement;
+use App\Models\PraxisFormSubmission;
+use App\Models\ProductPurchase;
 use App\Models\TenantUser;
 use App\Models\User;
 use App\Services\CouponRedemptionService;
@@ -15,11 +18,59 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\View\View;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 
 class ParticipantController extends Controller
 {
+    /**
+     * Detailseite je Teilnehmer: Adresse, gebuchte Kurse/Produkte (inkl.
+     * eingelöstem Code je Buchung) und Praxis-Anmeldungen an einem Ort --
+     * dieselbe "Buchungen"-Logik wie ProfileController::edit (Lerner sehen
+     * ihre eigenen Buchungen dort), hier aus Admin-Sicht für einen
+     * bestimmten Teilnehmer der eigenen Bootsschule.
+     */
+    public function show(TenantContext $tenantContext, User $user): View
+    {
+        $tenant = $tenantContext->tenant();
+
+        $membership = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $user->id)->first();
+        abort_unless($membership, 404);
+
+        $entitlements = Entitlement::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+            ->with('course')->orderByDesc('valid_from')->get()
+            ->map(fn (Entitlement $e) => [
+                'label' => $e->course->name ?? '—',
+                'source_type' => $e->source_type,
+                'source_reference' => $e->source_reference,
+                'date' => $e->valid_from,
+                'status' => $e->status,
+            ]);
+
+        $productPurchases = ProductPurchase::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+            ->with('product')->orderByDesc('created_at')->get()
+            ->map(fn (ProductPurchase $p) => [
+                'label' => $p->product->name ?? '—',
+                'source_type' => $p->source_type,
+                'source_reference' => $p->source_reference,
+                'date' => $p->created_at,
+                'status' => null,
+            ]);
+
+        $bookings = $entitlements->concat($productPurchases)->sortByDesc('date')->values();
+
+        $praxisFormSubmissions = PraxisFormSubmission::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+            ->with(['course', 'template'])->orderByDesc('created_at')->get();
+
+        return view('admin.participants.show', [
+            'participant' => $user,
+            'membership' => $membership,
+            'bookings' => $bookings,
+            'praxisFormSubmissions' => $praxisFormSubmissions,
+        ]);
+    }
+
     public function invite(Request $request, TenantContext $tenantContext, CouponRedemptionService $redemption): Response
     {
         $tenant = $tenantContext->tenant();

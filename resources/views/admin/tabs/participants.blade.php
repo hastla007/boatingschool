@@ -60,12 +60,12 @@
             @foreach ($participants as $membership)
                 <tr class="border-t border-slate-100 dark:border-slate-700">
                     <td class="px-4 py-2">
-                        <div class="flex items-center gap-2">
+                        <a href="{{ route('admin.participants.show', $membership->user_id) }}" class="flex items-center gap-2 hover:underline">
                             <div class="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-semibold shrink-0" style="background-color: var(--brand-primary, #005FD7)">
                                 {{ strtoupper(substr($membership->user->name, 0, 1)) }}
                             </div>
                             <span class="text-slate-700 dark:text-slate-200">{{ $membership->user->name }}</span>
-                        </div>
+                        </a>
                     </td>
                     <td class="px-4 py-2 text-slate-500">{{ $membership->user->email }}</td>
                     <td class="px-4 py-2 text-slate-500">
