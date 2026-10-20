@@ -9,6 +9,7 @@ use App\Models\ExamSession;
 use App\Models\PraxisExamAppointment;
 use App\Models\PraxisFormSubmission;
 use App\Models\PraxisFormTemplate;
+use App\Models\Progress;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Testing\TestResponse;
@@ -237,5 +238,52 @@ class AdminDashboardMetricsTest extends TestCase
         $this->assertPhasePercent($response, 'Praxis angemeldet', 1, 20);
         $this->assertPhasePercent($response, 'Prüfungstermin fixiert', 1, 20);
         $this->assertPhasePercent($response, 'Geprüft', 1, 20);
+    }
+
+    public function test_dashboard_shows_progress_distribution_for_learning_phase_learners(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $course = $this->existingCourse('SRC');
+
+        // 0% -- noch keine einzige Frage gefestigt.
+        $beginner = $this->createTenantUser($tenant, 'learner', ['display_name' => 'Anfänger']);
+        $this->grantEntitlement($tenant, $beginner, $course);
+
+        // 100% -- alle Fragen des Kurses gefestigt.
+        $expert = $this->createTenantUser($tenant, 'learner', ['display_name' => 'Fast fertig']);
+        $this->grantEntitlement($tenant, $expert, $course);
+        $this->onAdmin(function () use ($tenant, $expert, $course) {
+            $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id')->unique();
+            foreach ($questionIds as $questionId) {
+                Progress::updateOrCreate(
+                    ['tenant_id' => $tenant->id, 'user_id' => $expert->id, 'question_id' => $questionId],
+                    ['learning_state' => 'gefestigt', 'mastery_score' => 1, 'attempt_count' => 1, 'correct_count' => 1]
+                );
+            }
+        });
+
+        $response = $this->actingAsInTenant($admin, $tenant)->get(route('admin.dashboard'));
+
+        $response->assertOk();
+        $response->assertSee('Kursfortschritt in der Lernphase');
+        $response->assertSee('0–20%: 1 Teilnehmer (50%)');
+        $response->assertSee('81–100%: 1 Teilnehmer (50%)');
+    }
+
+    public function test_dashboard_excludes_non_learning_phase_learners_from_progress_chart(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+
+        // Hat bereits eine Praxis-Anmeldung -- zählt zur Phase "Praxis
+        // angemeldet", nicht zu "Lernen", taucht also hier nicht auf.
+        $registered = $this->createTenantUser($tenant, 'learner');
+        $this->createSubmission($tenant, $registered);
+
+        $response = $this->actingAsInTenant($admin, $tenant)->get(route('admin.dashboard'));
+
+        $response->assertOk();
+        $response->assertSee('Aktuell keine Teilnehmer in der Lernphase.');
     }
 }

@@ -96,6 +96,33 @@
 
 <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 mb-6">
     <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
+        <x-icon name="chart-bar" class="w-4 h-4 text-slate-400" /> Kursfortschritt in der Lernphase
+    </h3>
+    @if ($learningPhaseLearnerCount > 0)
+        <div class="flex items-end gap-4 h-32 mb-2">
+            @foreach ($progressDistribution as $bucket)
+                <div class="flex-1 flex flex-col items-center justify-end h-full">
+                    <span class="text-xs text-slate-500 mb-1">{{ $bucket['count'] }}</span>
+                    <div
+                        class="w-full rounded-t-lg transition-all"
+                        style="height: {{ $bucket['percent'] }}%; background-color: var(--brand-primary, #005FD7); {{ $bucket['count'] === 0 ? 'min-height: 2px; opacity: .25;' : '' }}"
+                        title="{{ $bucket['label'] }}: {{ $bucket['count'] }} Teilnehmer ({{ $bucket['percent'] }}%)"
+                    ></div>
+                </div>
+            @endforeach
+        </div>
+        <div class="flex gap-4 text-xs text-slate-400 text-center">
+            @foreach ($progressDistribution as $bucket)
+                <div class="flex-1">{{ $bucket['label'] }}</div>
+            @endforeach
+        </div>
+    @else
+        <p class="text-slate-500">Aktuell keine Teilnehmer in der Lernphase.</p>
+    @endif
+</div>
+
+<div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 mb-6">
+    <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
         <x-icon name="clipboard-document-check" class="w-4 h-4 text-slate-400" /> Kürzlich gebuchte Kurse &amp; Produkte
     </h3>
     <div class="space-y-2 text-sm">

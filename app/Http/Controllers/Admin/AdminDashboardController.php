@@ -20,6 +20,7 @@ use App\Models\TenantAddon;
 use App\Models\TenantCourseDisabled;
 use App\Models\TenantCourseLocation;
 use App\Models\TenantUser;
+use App\Services\CourseProgressService;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -36,7 +37,7 @@ use Illuminate\View\View;
  */
 class AdminDashboardController extends Controller
 {
-    public function __invoke(Request $request, TenantContext $tenantContext): View
+    public function __invoke(Request $request, TenantContext $tenantContext, CourseProgressService $courseProgress): View
     {
         $tenant = $tenantContext->tenant();
 
@@ -144,6 +145,7 @@ class AdminDashboardController extends Controller
             'Lernen' => 0,
             'Nicht gestartet' => 0,
         ];
+        $learningPhaseLearnerIds = [];
         foreach ($learnerIds as $learnerId) {
             if ($passedExamUserIds->contains($learnerId)) {
                 $phaseCounts['Geprüft']++;
@@ -153,6 +155,7 @@ class AdminDashboardController extends Controller
                 $phaseCounts['Praxis angemeldet']++;
             } elseif ($activeEntitlementUserIds->contains($learnerId)) {
                 $phaseCounts['Lernen']++;
+                $learningPhaseLearnerIds[] = $learnerId;
             } else {
                 $phaseCounts['Nicht gestartet']++;
             }
@@ -167,6 +170,44 @@ class AdminDashboardController extends Controller
             'label' => $label,
             'count' => $count,
             'percent' => $learnerCount > 0 ? round($count / $learnerCount * 100) : 0,
+        ])->values();
+
+        // Zweites Chart, drillt in die Phase "Lernen" hinein: wie viele
+        // dieser Lerner stehen bei welchem Kursfortschritt (in 20%-
+        // Schritten)? Bei mehreren aktiven Kurszugängen zählt der am
+        // weitesten fortgeschrittene (derselbe Fortschrittswert wie auf
+        // der Kursübersicht, siehe CourseProgressService::overallPercent).
+        $learningEntitlementsByUser = Entitlement::where('tenant_id', $tenant->id)
+            ->where('status', 'active')
+            ->whereIn('user_id', $learningPhaseLearnerIds)
+            ->with(['course', 'user'])
+            ->get()
+            ->groupBy('user_id');
+        $progressBuckets = ['0–20%' => 0, '21–40%' => 0, '41–60%' => 0, '61–80%' => 0, '81–100%' => 0];
+        foreach ($learningPhaseLearnerIds as $learnerId) {
+            $entitlementsForLearner = $learningEntitlementsByUser->get($learnerId) ?? collect();
+            $user = $entitlementsForLearner->first()?->user;
+            if (! $user) {
+                continue;
+            }
+            $percent = $entitlementsForLearner
+                ->filter(fn (Entitlement $e) => $e->course !== null)
+                ->map(fn (Entitlement $e) => $courseProgress->overallPercent($e->course, $tenant, $user))
+                ->max() ?? 0;
+            $bucket = match (true) {
+                $percent <= 20 => '0–20%',
+                $percent <= 40 => '21–40%',
+                $percent <= 60 => '41–60%',
+                $percent <= 80 => '61–80%',
+                default => '81–100%',
+            };
+            $progressBuckets[$bucket]++;
+        }
+        $learningPhaseLearnerCount = count($learningPhaseLearnerIds);
+        $progressDistribution = collect($progressBuckets)->map(fn ($count, $label) => [
+            'label' => $label,
+            'count' => $count,
+            'percent' => $learningPhaseLearnerCount > 0 ? round($count / $learningPhaseLearnerCount * 100) : 0,
         ])->values();
 
         $participants = TenantUser::with(['user.entitlements' => function ($q) use ($tenant) {
@@ -268,6 +309,8 @@ class AdminDashboardController extends Controller
             'upcomingAppointmentsNext7Days' => $upcomingAppointmentsNext7Days,
             'upcomingAppointmentsNext30Days' => $upcomingAppointmentsNext30Days,
             'learnerPhases' => $learnerPhases,
+            'progressDistribution' => $progressDistribution,
+            'learningPhaseLearnerCount' => $learningPhaseLearnerCount,
             'participants' => $participants,
             'courses' => $courses,
             'productPurchases' => $productPurchases,
