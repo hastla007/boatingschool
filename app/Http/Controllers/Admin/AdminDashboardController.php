@@ -105,6 +105,7 @@ class AdminDashboardController extends Controller
         $examPassRate = $recentExams->isNotEmpty()
             ? (int) round($recentExams->where('passed', true)->count() / $recentExams->count() * 100)
             : 0;
+        $recentExamsNext7DaysCount = $recentExams->where('created_at', '>=', now()->subDays(7))->count();
 
         // Anstehende Termine (Prüfungstermin + alle frei angelegten
         // Praxistermine, siehe PraxisExamAppointment) -- nur bereits vom
@@ -305,6 +306,7 @@ class AdminDashboardController extends Controller
             'recentBookings' => $recentBookings,
             'weeklyActivityRate' => $weeklyActivityRate,
             'recentExamsCount' => $recentExams->count(),
+            'recentExamsNext7DaysCount' => $recentExamsNext7DaysCount,
             'examPassRate' => $examPassRate,
             'upcomingAppointmentsNext7Days' => $upcomingAppointmentsNext7Days,
             'upcomingAppointmentsNext30Days' => $upcomingAppointmentsNext30Days,

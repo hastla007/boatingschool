@@ -286,4 +286,49 @@ class AdminDashboardMetricsTest extends TestCase
         $response->assertOk();
         $response->assertSee('Aktuell keine Teilnehmer in der Lernphase.');
     }
+
+    public function test_dashboard_counts_evaluated_exams_within_seven_days_separately_from_thirty(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $ruleSet = $this->onAdmin(function () use ($course) {
+            $ruleSet = ExamRuleSet::create([
+                'course_id' => $course->id,
+                'version' => 'test-'.uniqid(),
+                'time_limit_seconds' => 3600,
+                'passing_rule' => ['min_correct_ratio' => 0.75],
+                'status' => 'published',
+            ]);
+            $this->createdRuleSetIds[] = $ruleSet->id;
+
+            return $ruleSet;
+        });
+
+        // Vor 2 Tagen ausgewertet -- zählt zu beiden Kacheln.
+        $this->onAdmin(function () use ($tenant, $learner, $course, $ruleSet) {
+            $session = ExamSession::create([
+                'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'course_id' => $course->id,
+                'rule_set_id' => $ruleSet->id, 'status' => 'evaluated', 'passed' => true,
+                'started_at' => now()->subDays(2), 'submitted_at' => now()->subDays(2), 'score' => 90,
+            ]);
+            $session->forceFill(['created_at' => now()->subDays(2)])->save();
+        });
+        // Vor 20 Tagen ausgewertet -- nur in der 30-Tage-Kachel.
+        $this->onAdmin(function () use ($tenant, $learner, $course, $ruleSet) {
+            $session = ExamSession::create([
+                'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'course_id' => $course->id,
+                'rule_set_id' => $ruleSet->id, 'status' => 'evaluated', 'passed' => false,
+                'started_at' => now()->subDays(20), 'submitted_at' => now()->subDays(20), 'score' => 40,
+            ]);
+            $session->forceFill(['created_at' => now()->subDays(20)])->save();
+        });
+
+        $response = $this->actingAsInTenant($admin, $tenant)->get(route('admin.dashboard'));
+
+        $response->assertOk();
+        $this->assertStatTileValue($response, 'Prüfungen (7 Tage)', '1');
+        $this->assertStatTileValue($response, 'Prüfungen (30 Tage)', '2');
+    }
 }
