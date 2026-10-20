@@ -41,9 +41,7 @@
         }
 
         .block-label {
-            font-size: 7pt;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
+            font-size: 8pt;
             color: #94a3b8;
             margin-bottom: 3mm;
         }
@@ -54,7 +52,7 @@
             left: 6mm;
             font-size: {{ $fontSizes['sender'] }};
             line-height: 1.5;
-            color: #475569;
+            color: #94a3b8;
         }
 
         .recipient {
@@ -64,23 +62,18 @@
             right: 6mm;
             font-size: {{ $fontSizes['recipient'] }};
             line-height: 1.5;
-            color: #0f172a;
-        }
-
-        .recipient .name {
-            font-weight: bold;
+            color: #1e293b;
         }
 
         .recipient .country {
             text-transform: uppercase;
-            font-weight: bold;
         }
     </style>
 </head>
 <body>
     <div class="frame">
         <div class="sender">
-            <div class="block-label">Absender</div>
+            <div class="block-label">Absender:</div>
             {{ $senderName }}<br>
             @if ($branding->street)
                 {{ $branding->street }}<br>
@@ -91,8 +84,8 @@
         </div>
 
         <div class="recipient">
-            <div class="block-label">Empfänger</div>
-            <span class="name">{{ $recipientName }}</span><br>
+            <div class="block-label">Empfänger:</div>
+            {{ $recipientName }}<br>
             {{ $order->street }}<br>
             {{ $order->postal_code }} {{ $order->city }}<br>
             <span class="country">{{ $order->country }}</span>
