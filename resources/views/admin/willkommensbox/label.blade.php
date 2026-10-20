@@ -9,6 +9,16 @@
 
     $senderName = $branding->legal_name ?: $tenant->name;
     $recipientName = $order->user->name ?? '—';
+
+    // Der Empfänger-Block wird im normalen Textfluss positioniert (Absender
+    // -> Abstandshalter -> Empfänger) statt per position:absolute --
+    // deutlich zuverlässiger in dompdf als mehrfach verschachtelte absolut
+    // positionierte Elemente und einfacher an die Vorgabe (siehe
+    // WillkommensboxLabelController) kalibrierbar.
+    $contentWidthMm = $pageWidthMm - 16 - 12;
+    $contentHeightMm = $pageHeightMm - 16 - 12;
+    $spacerHeightMm = round($contentHeightMm * 0.12, 1);
+    $recipientIndentMm = round($contentWidthMm * 0.38, 1);
 @endphp
 <!DOCTYPE html>
 <html lang="de">
@@ -47,19 +57,17 @@
         }
 
         .sender {
-            position: absolute;
-            top: 6mm;
-            left: 6mm;
             font-size: {{ $fontSizes['sender'] }};
             line-height: 1.5;
             color: #94a3b8;
         }
 
+        .spacer {
+            height: {{ $spacerHeightMm }}mm;
+        }
+
         .recipient {
-            position: absolute;
-            top: 46%;
-            left: 42%;
-            right: 6mm;
+            margin-left: {{ $recipientIndentMm }}mm;
             font-size: {{ $fontSizes['recipient'] }};
             line-height: 1.5;
             color: #1e293b;
@@ -82,6 +90,8 @@
                 {{ $branding->postal_code }} {{ $branding->city }}
             @endif
         </div>
+
+        <div class="spacer"></div>
 
         <div class="recipient">
             <div class="block-label">Empfänger:</div>
