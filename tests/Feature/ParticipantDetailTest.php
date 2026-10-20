@@ -75,6 +75,42 @@ class ParticipantDetailTest extends TestCase
         $response->assertSee('value="Deutschland" selected', false);
         $response->assertSee($course->name);
         $response->assertSee($product->name);
+        // Mit vorhandenen Daten startet die Karte im Lesemodus (Bearbeiten-Button), nicht im Formular.
+        $response->assertSee('x-data="{ editing: false }"', false);
+        $response->assertSee('15.06.1995');
+        $response->assertSee('Bearbeiten');
+    }
+
+    public function test_address_section_starts_in_edit_mode_without_any_saved_data(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+
+        $response = $this->actingAsInTenant($admin, $tenant)->get("/admin/participants/{$learner->id}");
+
+        $response->assertOk();
+        $response->assertSee('x-data="{ editing: true }"', false);
+    }
+
+    public function test_address_section_starts_in_edit_mode_after_a_validation_error(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner', [
+            'street' => 'Hafenstraße 5', 'postal_code' => '20457', 'city' => 'Hamburg',
+            'country' => 'Deutschland', 'birthdate' => '1995-06-15',
+        ]);
+
+        $actor = $this->actingAsInTenant($admin, $tenant);
+        $actor->get("/admin/participants/{$learner->id}");
+
+        $response = $actor->followingRedirects()->patch("/admin/participants/{$learner->id}", [
+            'country' => 'Elbonien',
+        ]);
+
+        $response->assertOk();
+        $response->assertSee('x-data="{ editing: true }"', false);
     }
 
     public function test_detail_page_is_linked_from_the_participants_table(): void

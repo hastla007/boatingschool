@@ -19,11 +19,39 @@
     </div>
 
     <div class="grid lg:grid-cols-2 gap-6 mb-6">
-        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
+        @php($hasAddressData = $participant->street || $participant->postal_code || $participant->city || $participant->country || $participant->birthdate)
+        @php($startInEditMode = ! $hasAddressData || $errors->hasAny(['street', 'postal_code', 'city', 'country', 'birthdate']))
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5" x-data="{ editing: {{ $startInEditMode ? 'true' : 'false' }} }">
             <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
                 <x-icon name="map-pin" class="w-4 h-4 text-slate-400" /> Adresse &amp; Geburtsdatum
             </h3>
-            <form method="POST" action="{{ route('admin.participants.update', $participant) }}" class="space-y-2">
+
+            <div x-show="! editing" style="display: none">
+                <dl class="text-sm space-y-1.5">
+                    <div class="flex justify-between gap-4">
+                        <dt class="text-slate-500">Straße</dt>
+                        <dd class="text-slate-800 dark:text-slate-200 text-end">{{ $participant->street ?? '—' }}</dd>
+                    </div>
+                    <div class="flex justify-between gap-4">
+                        <dt class="text-slate-500">PLZ / Stadt</dt>
+                        <dd class="text-slate-800 dark:text-slate-200 text-end">{{ trim(($participant->postal_code ?? '').' '.($participant->city ?? '')) ?: '—' }}</dd>
+                    </div>
+                    <div class="flex justify-between gap-4">
+                        <dt class="text-slate-500">Land</dt>
+                        <dd class="text-slate-800 dark:text-slate-200 text-end">{{ $participant->country ?? '—' }}</dd>
+                    </div>
+                    <div class="flex justify-between gap-4">
+                        <dt class="text-slate-500">Geburtsdatum</dt>
+                        <dd class="text-slate-800 dark:text-slate-200 text-end">{{ $participant->birthdate?->format('d.m.Y') ?? 'noch nicht angegeben' }}</dd>
+                    </div>
+                </dl>
+                <button type="button" @click="editing = true" class="mt-3 text-xs text-slate-500 hover:underline">Bearbeiten</button>
+                @unless ($participant->hasCompleteRegistrationProfile())
+                    <p class="text-xs text-amber-600 mt-2">Profil noch unvollständig.</p>
+                @endunless
+            </div>
+
+            <form x-show="editing" style="display: none" method="POST" action="{{ route('admin.participants.update', $participant) }}" class="space-y-2">
                 @csrf
                 @method('PATCH')
                 <div>
@@ -58,13 +86,17 @@
                 <x-input-error :messages="$errors->get('city')" class="mt-1" />
                 <x-input-error :messages="$errors->get('country')" class="mt-1" />
                 <x-input-error :messages="$errors->get('birthdate')" class="mt-1" />
-                <button type="submit" class="px-4 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
-                    Speichern
-                </button>
+                <div class="flex gap-2">
+                    <button type="submit" class="px-4 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
+                        Speichern
+                    </button>
+                    @if ($hasAddressData)
+                        <button type="button" @click="editing = false" class="px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-medium hover:bg-slate-200 dark:hover:bg-slate-600 transition">
+                            Abbrechen
+                        </button>
+                    @endif
+                </div>
             </form>
-            @unless ($participant->hasCompleteRegistrationProfile())
-                <p class="text-xs text-amber-600 mt-2">Profil noch unvollständig.</p>
-            @endunless
         </div>
 
         @if ($willkommensboxOrder)
