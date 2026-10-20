@@ -19,7 +19,7 @@
 
     // Für den Ausschneide-Bogen (A4/A5) gelten dieselben Schriftgrößen wie
     // beim A6-Label selbst -- das Label soll 1:1 identisch aussehen.
-    $fontSizes = ['sender' => '10pt', 'recipient' => '11pt'];
+    $fontSizes = ['sender' => '10pt', 'recipient' => '14.3pt'];
 
     $senderName = $branding->legal_name ?: $tenant->name;
     $recipientName = $order->user->name ?? '—';
