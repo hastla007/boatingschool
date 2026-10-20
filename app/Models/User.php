@@ -31,6 +31,7 @@ class User extends Authenticatable
         'postal_code',
         'city',
         'country',
+        'birthdate',
         'is_superadmin',
     ];
 
@@ -45,7 +46,14 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_superadmin' => 'boolean',
+            'birthdate' => 'date',
         ];
+    }
+
+    /** Ob Adresse und Geburtsdatum vollständig im Profil hinterlegt sind (siehe Praxisformular-Gate). */
+    public function hasCompleteRegistrationProfile(): bool
+    {
+        return $this->street && $this->postal_code && $this->city && $this->country && $this->birthdate;
     }
 
     /**

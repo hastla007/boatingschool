@@ -44,6 +44,11 @@ class PraxisFormSubmissionController extends Controller
         $percent = $courseProgress->overallPercent($course, $tenant, $user);
         abort_unless($percent >= $template->min_progress_percent, 403, "Für die Anmeldung werden mindestens {$template->min_progress_percent}% Kursfortschritt benötigt.");
 
+        // Gleiches Gate wie PraxisPruefungController::index() -- verhindert,
+        // dass ein Formular abgeschickt wird, dessen Tab seit vor dem
+        // Vervollständigen des Profils offen war.
+        abort_unless($user->hasCompleteRegistrationProfile(), 403, 'Bitte vervollständige zuerst dein Profil (Adresse und Geburtsdatum).');
+
         $existing = PraxisFormSubmission::where('tenant_id', $tenant->id)
             ->where('user_id', $user->id)
             ->where('course_id', $course->id)

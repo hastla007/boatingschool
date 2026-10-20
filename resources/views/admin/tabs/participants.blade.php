@@ -2,10 +2,32 @@
     <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
         <x-icon name="envelope" class="w-4 h-4 text-slate-400" /> Teilnehmer einladen
     </h3>
-    <form method="POST" action="{{ route('admin.participants.invite') }}" class="flex flex-col sm:flex-row gap-2">
+    <form method="POST" action="{{ route('admin.participants.invite') }}" class="space-y-2">
         @csrf
-        <input type="text" name="name" placeholder="Name" required class="flex-1 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
-        <input type="email" name="email" placeholder="E-Mail" required class="flex-1 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+        <div class="flex flex-col sm:flex-row gap-2">
+            <input type="text" name="name" placeholder="Name" required class="flex-1 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+            <input type="email" name="email" placeholder="E-Mail" required class="flex-1 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+        </div>
+        <div x-data="{ showAddress: false }">
+            <button type="button" @click="showAddress = ! showAddress" class="text-xs text-slate-500 hover:underline">
+                <span x-show="! showAddress">+ Adresse hinterlegen (optional)</span>
+                <span x-show="showAddress" style="display: none">&minus; Adresse ausblenden</span>
+            </button>
+            <div x-show="showAddress" style="display: none" class="mt-2 grid sm:grid-cols-[2fr_1fr] gap-2">
+                <input type="text" name="street" placeholder="Straße & Hausnummer" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                <input type="text" name="postal_code" placeholder="PLZ" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                <input type="text" name="city" placeholder="Wohnort" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                <select name="country" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                    <option value="">Land wählen&hellip;</option>
+                    @foreach (\App\Support\Countries::OPTIONS as $countryOption)
+                        <option value="{{ $countryOption }}">{{ $countryOption }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <p class="text-xs text-slate-400 mt-1">
+                Das Geburtsdatum muss der Teilnehmer für die Anmeldung zu Praxis &amp; Prüfung selbst im eigenen Profil angeben.
+            </p>
+        </div>
         <button type="submit" class="px-4 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">Einladen</button>
     </form>
 </div>

@@ -65,6 +65,14 @@
         </div>
 
         <div>
+            <x-input-label for="birthdate" value="Geburtsdatum" />
+            <x-text-input id="birthdate" name="birthdate" type="date" class="mt-1 block w-full"
+                          :value="old('birthdate', $user->birthdate?->format('Y-m-d'))" autocomplete="bday" />
+            <p class="text-xs text-gray-400 mt-1">Wird u. a. für die Anmeldung zu Praxis &amp; Prüfung benötigt.</p>
+            <x-input-error class="mt-2" :messages="$errors->get('birthdate')" />
+        </div>
+
+        <div>
             <x-input-label value="Adresse" />
             <div class="grid sm:grid-cols-[2fr_1fr] gap-4 mt-1">
                 <div>
@@ -95,16 +103,6 @@
 
         <div class="flex items-center gap-4">
             <x-primary-button>{{ __('Save') }}</x-primary-button>
-
-            @if (session('status') === 'profile-updated')
-                <p
-                    x-data="{ show: true }"
-                    x-show="show"
-                    x-transition
-                    x-init="setTimeout(() => show = false, 2000)"
-                    class="text-sm text-gray-600 dark:text-gray-400"
-                >{{ __('Saved.') }}</p>
-            @endif
         </div>
     </form>
 </section>

@@ -66,6 +66,16 @@ class PraxisPruefungController extends Controller
             ]);
         }
 
+        // Adresse und Geburtsdatum werden einmalig im Profil erfasst (nicht
+        // im Praxisformular selbst), da sie kurs-/anmeldungsübergreifend
+        // gelten. Admins können beim Anlegen eines Teilnehmers zwar die
+        // Adresse hinterlegen (siehe ParticipantController::invite), das
+        // Geburtsdatum aber bewusst nicht -- es muss immer vom Lerner selbst
+        // kommen, daher greift dieses Gate auch dann noch.
+        if (! $user->hasCompleteRegistrationProfile()) {
+            return view('praxis-pruefung.index', ['course' => $course, 'state' => 'incomplete-profile']);
+        }
+
         $locations = TenantCourseLocation::where('tenant_id', $tenant->id)
             ->whereJsonContains('course_ids', $course->id)
             ->orderBy('sort_order')

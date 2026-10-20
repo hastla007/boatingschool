@@ -8,12 +8,6 @@
         <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Praxis &amp; Prüfung</h2>
     </x-slot>
 
-    @if (session('status'))
-        <div class="max-w-2xl mx-auto mb-4 px-4 py-3 rounded-lg bg-emerald-50 text-emerald-700 text-sm">
-            {{ session('status') }}
-        </div>
-    @endif
-
     @if ($state === 'unavailable')
         <div class="max-w-2xl mx-auto bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-10 text-center">
             <x-icon name="anchor" class="w-10 h-10 mx-auto text-slate-300 mb-3" />
@@ -32,6 +26,18 @@
             </div>
             <a href="{{ route('courses.show', $course) }}" class="inline-flex items-center justify-center mt-6 px-5 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
                 Weiterlernen
+            </a>
+        </div>
+    @elseif ($state === 'incomplete-profile')
+        <div class="max-w-2xl mx-auto bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-8 text-center">
+            <x-icon name="map-pin" class="w-10 h-10 mx-auto text-slate-300 mb-4" />
+            <h3 class="font-semibold text-lg text-slate-800 dark:text-white mb-2">Vervollständige zuerst dein Profil.</h3>
+            <p class="text-sm text-slate-500 dark:text-slate-400">
+                Für die Anmeldung zu Praxis &amp; Prüfung benötigen wir einmalig deine Adresse und dein Geburtsdatum &mdash;
+                beides trägt deine Bootsschule bei der Prüfungskommission ein.
+            </p>
+            <a href="{{ route('profile.edit', ['return_to' => '/'.request()->path()]) }}" class="inline-flex items-center justify-center mt-6 px-5 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
+                Profil vervollständigen
             </a>
         </div>
     @elseif ($state === 'submitted')

@@ -110,6 +110,26 @@ trait InteractsWithTenants
         });
     }
 
+    /**
+     * Füllt Adresse + Geburtsdatum, damit der User das Profil-Gate vor der
+     * Praxisformular-Anmeldung passiert (siehe
+     * User::hasCompleteRegistrationProfile, PraxisPruefungController).
+     */
+    protected function completeRegistrationProfile(User $user): User
+    {
+        return $this->onAdmin(function () use ($user) {
+            $user->update([
+                'street' => 'Teststraße 1',
+                'postal_code' => '12345',
+                'city' => 'Teststadt',
+                'country' => 'Deutschland',
+                'birthdate' => '1990-01-01',
+            ]);
+
+            return $user->fresh();
+        });
+    }
+
     protected function grantEntitlement(Tenant $tenant, User $user, CourseDefinition $course): Entitlement
     {
         return $this->onAdmin(fn () => Entitlement::create([

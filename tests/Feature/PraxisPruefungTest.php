@@ -60,6 +60,7 @@ class PraxisPruefungTest extends TestCase
         $learner = $this->createTenantUser($tenant, 'learner');
         [$course] = $this->makeIsolatedCourseWithQuestions(2);
         $this->grantEntitlement($tenant, $learner, $course);
+        $this->completeRegistrationProfile($learner);
 
         // 0 von 2 Fragen gefestigt = 0% < 50% Standard-Voraussetzung.
         $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/praxis-pruefung");
@@ -73,6 +74,7 @@ class PraxisPruefungTest extends TestCase
         $learner = $this->createTenantUser($tenant, 'learner');
         [$course, , $questionIds] = $this->makeIsolatedCourseWithQuestions(2);
         $this->grantEntitlement($tenant, $learner, $course);
+        $this->completeRegistrationProfile($learner);
 
         // 1 von 2 Fragen gefestigt = 50% >= 50% Standard-Voraussetzung.
         $this->masterQuestions($tenant, $learner, array_slice($questionIds, 0, 1));
@@ -89,6 +91,7 @@ class PraxisPruefungTest extends TestCase
         $learner = $this->createTenantUser($tenant, 'learner');
         [$course, , $questionIds] = $this->makeIsolatedCourseWithQuestions(10);
         $this->grantEntitlement($tenant, $learner, $course);
+        $this->completeRegistrationProfile($learner);
 
         $this->onAdmin(fn () => $tenant->branding->update(['exam_readiness_threshold_percent' => 10]));
 
@@ -107,6 +110,7 @@ class PraxisPruefungTest extends TestCase
         $learner = $this->createTenantUser($tenant, 'learner');
         [$course] = $this->makeIsolatedCourseWithQuestions(2);
         $this->grantEntitlement($tenant, $learner, $course);
+        $this->completeRegistrationProfile($learner);
 
         $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
 
@@ -122,6 +126,7 @@ class PraxisPruefungTest extends TestCase
         $learner = $this->createTenantUser($tenant, 'learner');
         [$course, , $questionIds] = $this->makeIsolatedCourseWithQuestions(2);
         $this->grantEntitlement($tenant, $learner, $course);
+        $this->completeRegistrationProfile($learner);
         $this->masterQuestions($tenant, $learner, array_slice($questionIds, 0, 1));
 
         $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");

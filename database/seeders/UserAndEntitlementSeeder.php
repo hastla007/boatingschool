@@ -53,9 +53,23 @@ class UserAndEntitlementSeeder extends Seeder
         }
 
         foreach ($learners as $learner) {
+            // Max Mustermann bekommt ein vollständiges Profil (Adresse +
+            // Geburtsdatum), damit die bestehenden Demo-/Verifikationsläufe
+            // für Praxis & Prüfung ohne Zusatzschritt weiter funktionieren --
+            // die übrigen Demo-Lerner bleiben bewusst unvollständig, um das
+            // neue Profil-Gate (siehe PraxisPruefungController) im Frontend
+            // demonstrierbar zu lassen.
+            $profile = $learner['email'] === 'max@bootsschule-mueller.de' ? [
+                'street' => 'Hafenstraße 12',
+                'postal_code' => '20095',
+                'city' => 'Hamburg',
+                'country' => 'Deutschland',
+                'birthdate' => '1990-06-15',
+            ] : [];
+
             $user = User::firstOrCreate(
                 ['email' => $learner['email']],
-                ['display_name' => $learner['name'], 'password' => Hash::make('password'), 'status' => 'active']
+                array_merge(['display_name' => $learner['name'], 'password' => Hash::make('password'), 'status' => 'active'], $profile)
             );
 
             TenantUser::firstOrCreate(

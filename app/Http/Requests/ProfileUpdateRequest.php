@@ -33,6 +33,7 @@ class ProfileUpdateRequest extends FormRequest
             'postal_code' => ['nullable', 'string', 'max:20'],
             'city' => ['nullable', 'string', 'max:255'],
             'country' => ['nullable', 'string', Rule::in(Countries::OPTIONS)],
+            'birthdate' => ['nullable', 'date', 'before:today'],
         ];
     }
 }

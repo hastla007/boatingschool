@@ -144,6 +144,7 @@ class PraxisPruefungFormTest extends TestCase
         $learner = $this->createTenantUser($tenant, 'learner');
         [$course] = $this->makeIsolatedCourseWithQuestions(2);
         $this->grantEntitlement($tenant, $learner, $course);
+        $this->completeRegistrationProfile($learner);
         // Ohne zugewiesenes Formular gilt weiter die bootsschulweite
         // Branding-Schwelle (Standard 50%) -- hier auf 0 gesetzt, um nur
         // das "kein Formular zugewiesen"-Verhalten isoliert zu prüfen.
@@ -161,6 +162,7 @@ class PraxisPruefungFormTest extends TestCase
         $learner = $this->createTenantUser($tenant, 'learner');
         [$course] = $this->makeIsolatedCourseWithQuestions(2);
         $this->grantEntitlement($tenant, $learner, $course);
+        $this->completeRegistrationProfile($learner);
         $this->createTemplate(['course_ids' => [$course->id], 'min_progress_percent' => 50]);
 
         $response = $this->actingAsInTenant($learner, $tenant)->get(route('praxis-pruefung.index', $course));
@@ -176,6 +178,7 @@ class PraxisPruefungFormTest extends TestCase
         $learner = $this->createTenantUser($tenant, 'learner');
         [$course] = $this->makeIsolatedCourseWithQuestions(2);
         $this->grantEntitlement($tenant, $learner, $course);
+        $this->completeRegistrationProfile($learner);
         $this->masterAllQuestions($tenant, $learner, $course);
         $template = $this->createTemplate(['course_ids' => [$course->id], 'min_progress_percent' => 10]);
 
@@ -187,12 +190,67 @@ class PraxisPruefungFormTest extends TestCase
         $response->assertSee('Geschlecht');
     }
 
+    public function test_shows_an_incomplete_profile_hint_instead_of_the_form_without_address_and_birthdate(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course] = $this->makeIsolatedCourseWithQuestions(2);
+        $this->grantEntitlement($tenant, $learner, $course);
+        // Kein completeRegistrationProfile() -- Profil bleibt unvollständig.
+        $this->masterAllQuestions($tenant, $learner, $course);
+        $this->createTemplate(['course_ids' => [$course->id], 'min_progress_percent' => 10]);
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get(route('praxis-pruefung.index', $course));
+
+        $response->assertOk();
+        $response->assertSee('Vervollständige zuerst dein Profil');
+        $response->assertSee(route('profile.edit'), false);
+        $response->assertDontSee('Telefonnummer');
+    }
+
+    public function test_incomplete_profile_hint_disappears_once_the_profile_is_completed(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course] = $this->makeIsolatedCourseWithQuestions(2);
+        $this->grantEntitlement($tenant, $learner, $course);
+        $this->masterAllQuestions($tenant, $learner, $course);
+        $this->createTemplate(['course_ids' => [$course->id], 'min_progress_percent' => 10]);
+
+        $this->actingAsInTenant($learner, $tenant)->get(route('praxis-pruefung.index', $course))
+            ->assertSee('Vervollständige zuerst dein Profil');
+
+        $this->completeRegistrationProfile($learner);
+
+        $this->actingAsInTenant($learner, $tenant)->get(route('praxis-pruefung.index', $course))
+            ->assertSee('Telefonnummer')
+            ->assertDontSee('Vervollständige zuerst dein Profil');
+    }
+
+    public function test_submission_is_rejected_without_a_complete_profile(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course] = $this->makeIsolatedCourseWithQuestions(2);
+        $this->grantEntitlement($tenant, $learner, $course);
+        $this->masterAllQuestions($tenant, $learner, $course);
+        $this->createTemplate(['course_ids' => [$course->id], 'min_progress_percent' => 10]);
+
+        $response = $this->actingAsInTenant($learner, $tenant)->post(route('praxis-pruefung.store', $course), []);
+
+        $response->assertForbidden();
+        $this->onAdmin(fn () => $this->assertDatabaseMissing('praxis_form_submission', [
+            'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'course_id' => $course->id,
+        ]));
+    }
+
     public function test_learner_can_submit_the_form_and_sees_a_confirmation(): void
     {
         $tenant = $this->createTestTenant();
         $learner = $this->createTenantUser($tenant, 'learner');
         [$course] = $this->makeIsolatedCourseWithQuestions(2);
         $this->grantEntitlement($tenant, $learner, $course);
+        $this->completeRegistrationProfile($learner);
         $this->masterAllQuestions($tenant, $learner, $course);
         $template = $this->createTemplate(['course_ids' => [$course->id], 'min_progress_percent' => 10]);
 
@@ -226,6 +284,7 @@ class PraxisPruefungFormTest extends TestCase
         $learner = $this->createTenantUser($tenant, 'learner');
         [$course] = $this->makeIsolatedCourseWithQuestions(2);
         $this->grantEntitlement($tenant, $learner, $course);
+        $this->completeRegistrationProfile($learner);
         $this->masterAllQuestions($tenant, $learner, $course);
         $this->createTemplate(['course_ids' => [$course->id], 'min_progress_percent' => 10]);
 
@@ -241,6 +300,7 @@ class PraxisPruefungFormTest extends TestCase
         $learner = $this->createTenantUser($tenant, 'learner');
         [$course] = $this->makeIsolatedCourseWithQuestions(2);
         $this->grantEntitlement($tenant, $learner, $course);
+        $this->completeRegistrationProfile($learner);
         $this->createTemplate(['course_ids' => [$course->id], 'min_progress_percent' => 50]);
 
         $response = $this->actingAsInTenant($learner, $tenant)->post(route('praxis-pruefung.store', $course), [
@@ -257,6 +317,7 @@ class PraxisPruefungFormTest extends TestCase
         $learner = $this->createTenantUser($tenant, 'learner');
         [$course] = $this->makeIsolatedCourseWithQuestions(2);
         $this->grantEntitlement($tenant, $learner, $course);
+        $this->completeRegistrationProfile($learner);
         $this->masterAllQuestions($tenant, $learner, $course);
         $this->createTemplate([
             'course_ids' => [$course->id],
@@ -287,6 +348,7 @@ class PraxisPruefungFormTest extends TestCase
         $learner = $this->createTenantUser($tenant, 'learner');
         [$course] = $this->makeIsolatedCourseWithQuestions(2);
         $this->grantEntitlement($tenant, $learner, $course);
+        $this->completeRegistrationProfile($learner);
         $this->masterAllQuestions($tenant, $learner, $course);
         $this->createTemplate([
             'course_ids' => [$course->id],
@@ -310,6 +372,7 @@ class PraxisPruefungFormTest extends TestCase
         $learner = $this->createTenantUser($tenant, 'learner');
         [$course] = $this->makeIsolatedCourseWithQuestions(2);
         $this->grantEntitlement($tenant, $learner, $course);
+        $this->completeRegistrationProfile($learner);
         $this->masterAllQuestions($tenant, $learner, $course);
         $this->createTemplate([
             'course_ids' => [$course->id],
@@ -342,6 +405,7 @@ class PraxisPruefungFormTest extends TestCase
         $learner = $this->createTenantUser($tenant, 'learner');
         [$course] = $this->makeIsolatedCourseWithQuestions(2);
         $this->grantEntitlement($tenant, $learner, $course);
+        $this->completeRegistrationProfile($learner);
         $this->masterAllQuestions($tenant, $learner, $course);
         $template = $this->createTemplate([
             'course_ids' => [$course->id],
@@ -381,6 +445,7 @@ class PraxisPruefungFormTest extends TestCase
         $learner = $this->createTenantUser($tenant, 'learner');
         [$course] = $this->makeIsolatedCourseWithQuestions(2);
         $this->grantEntitlement($tenant, $learner, $course);
+        $this->completeRegistrationProfile($learner);
         $this->masterAllQuestions($tenant, $learner, $course);
         $template = $this->createTemplate([
             'course_ids' => [$course->id],
@@ -426,6 +491,7 @@ class PraxisPruefungFormTest extends TestCase
         $learner = $this->createTenantUser($tenant, 'learner');
         [$course] = $this->makeIsolatedCourseWithQuestions(2);
         $this->grantEntitlement($tenant, $learner, $course);
+        $this->completeRegistrationProfile($learner);
         $this->masterAllQuestions($tenant, $learner, $course);
         $this->createTemplate([
             'course_ids' => [$course->id],
@@ -454,6 +520,7 @@ class PraxisPruefungFormTest extends TestCase
         $learner = $this->createTenantUser($tenant, 'learner');
         [$course] = $this->makeIsolatedCourseWithQuestions(2);
         $this->grantEntitlement($tenant, $learner, $course);
+        $this->completeRegistrationProfile($learner);
         $this->masterAllQuestions($tenant, $learner, $course);
         $this->createTemplate(['course_ids' => [$course->id], 'min_progress_percent' => 10, 'requires_tauglichkeit' => true]);
 
@@ -478,6 +545,7 @@ class PraxisPruefungFormTest extends TestCase
         $learner = $this->createTenantUser($tenant, 'learner');
         [$course] = $this->makeIsolatedCourseWithQuestions(2);
         $this->grantEntitlement($tenant, $learner, $course);
+        $this->completeRegistrationProfile($learner);
         $this->masterAllQuestions($tenant, $learner, $course);
         $this->createTemplate([
             'course_ids' => [$course->id],
@@ -506,6 +574,7 @@ class PraxisPruefungFormTest extends TestCase
         $learner = $this->createTenantUser($tenant, 'learner');
         [$course] = $this->makeIsolatedCourseWithQuestions(2);
         $this->grantEntitlement($tenant, $learner, $course);
+        $this->completeRegistrationProfile($learner);
         $this->masterAllQuestions($tenant, $learner, $course);
         $this->createTemplate(['course_ids' => [$course->id], 'min_progress_percent' => 10, 'requires_tauglichkeit' => false]);
 
@@ -521,6 +590,7 @@ class PraxisPruefungFormTest extends TestCase
         $learner = $this->createTenantUser($tenant, 'learner');
         [$course] = $this->makeIsolatedCourseWithQuestions(2);
         $this->grantEntitlement($tenant, $learner, $course);
+        $this->completeRegistrationProfile($learner);
         $this->masterAllQuestions($tenant, $learner, $course);
         $this->createTemplate(['course_ids' => [$course->id], 'min_progress_percent' => 10]);
 
@@ -554,6 +624,7 @@ class PraxisPruefungFormTest extends TestCase
         $learner = $this->createTenantUser($tenant, 'learner');
         [$course] = $this->makeIsolatedCourseWithQuestions(2);
         $this->grantEntitlement($tenant, $learner, $course);
+        $this->completeRegistrationProfile($learner);
         // Kein masterAllQuestions() -- Fortschritt bleibt bei 0%, unter der
         // Addon-Schwelle, aber die Formular-Hürde selbst ist 0%, damit der
         // 'form'-Zustand trotzdem erreicht wird.
@@ -585,6 +656,7 @@ class PraxisPruefungFormTest extends TestCase
         $learner = $this->createTenantUser($tenant, 'learner');
         [$course] = $this->makeIsolatedCourseWithQuestions(2);
         $this->grantEntitlement($tenant, $learner, $course);
+        $this->completeRegistrationProfile($learner);
         $this->masterAllQuestions($tenant, $learner, $course);
         $this->createTemplate(['course_ids' => [$course->id], 'min_progress_percent' => 10]);
 
