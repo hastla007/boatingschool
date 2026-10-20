@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\TenantCourseDisabled;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -99,5 +100,47 @@ class WebshopLinkTest extends TestCase
         $response->assertOk();
         $response->assertDontSee('https://shop.example.test/src-kurs');
         $response->assertSee('Kein Zugang');
+    }
+
+    public function test_webshop_links_tab_greys_out_a_course_disabled_in_kursauswahl(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $disabledCourse = $this->existingCourse('SRC');
+        $activeCourse = $this->existingCourse('UBI');
+        $this->onAdmin(fn () => TenantCourseDisabled::create(['tenant_id' => $tenant->id, 'course_id' => $disabledCourse->id]));
+
+        $response = $this->actingAsInTenant($admin, $tenant)->get('/admin?tab=webshop-links');
+
+        $response->assertOk();
+        $response->assertSee('(Kurs aktuell abgewählt)');
+
+        // Nur das umschließende div des abgewählten Kurses soll
+        // "opacity-50" tragen -- das des aktiven Kurses nicht.
+        preg_match('/<div([^>]*)>\s*<label[^>]*>\s*'.preg_quote($disabledCourse->name, '/').'/', $response->getContent(), $disabledMatch);
+        preg_match('/<div([^>]*)>\s*<label[^>]*>\s*'.preg_quote($activeCourse->name, '/').'/', $response->getContent(), $activeMatch);
+        $this->assertNotEmpty($disabledMatch, 'Feld für den abgewählten Kurs nicht gefunden.');
+        $this->assertNotEmpty($activeMatch, 'Feld für den aktiven Kurs nicht gefunden.');
+        $this->assertStringContainsString('opacity-50', $disabledMatch[1]);
+        $this->assertStringNotContainsString('opacity-50', $activeMatch[1]);
+    }
+
+    public function test_link_for_a_disabled_course_can_still_be_saved(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $course = $this->existingCourse('SRC');
+        $this->onAdmin(fn () => TenantCourseDisabled::create(['tenant_id' => $tenant->id, 'course_id' => $course->id]));
+
+        $response = $this->actingAsInTenant($admin, $tenant)->patch('/admin/webshop-links', [
+            'links' => [$course->id => 'https://shop.example.test/fuer-spaeter'],
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('course_webshop_link', [
+            'tenant_id' => $tenant->id,
+            'course_id' => $course->id,
+            'url' => 'https://shop.example.test/fuer-spaeter',
+        ]);
     }
 }
