@@ -22,11 +22,12 @@ class CourseController extends Controller
 {
     /**
      * Anzeigereihenfolge der Kurskacheln: erst die Vollkurse in dieser
-     * festen Reihenfolge, danach alle Ergänzungskurse (nicht in dieser
-     * Liste enthalten, daher automatisch ans Ende sortiert).
+     * festen Reihenfolge, danach die Ergänzungskurse in der gleichen
+     * Reihenfolge wie ihre zugehörigen Vollkurse.
      */
     private const COURSE_DISPLAY_ORDER = [
-        'SBF-SEE', 'SBF-BIN-MOTOR', 'SRC-UBI', 'SBF-BIN-SEGEL', 'SBF-SEE-BIN', 'SRC', 'UBI', 'SKN', 'FKN',
+        'SBF-SEE-BIN', 'SBF-SEE', 'SBF-BIN-MOTOR', 'SRC-UBI', 'SRC', 'UBI', 'SBF-BIN-SEGEL', 'SKN', 'FKN',
+        'ADD-SEE-TO-BIN', 'ADD-BIN-TO-SEE', 'ADD-UBI-TO-SRC', 'ADD-BIN-SEGEL', 'ADD-FKN-TO-SKN',
     ];
 
     public function index(Request $request, TenantContext $tenantContext, EntitlementService $entitlements): View
