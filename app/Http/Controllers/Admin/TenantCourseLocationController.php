@@ -63,14 +63,36 @@ class TenantCourseLocationController extends Controller
     {
         $validated = $request->validate([
             'praxis_ort' => ['required', 'string', 'max:255'],
+            'praxis_strasse' => ['nullable', 'string', 'max:255'],
+            'praxis_plz' => ['nullable', 'string', 'max:20'],
+            'praxis_stadt' => ['nullable', 'string', 'max:255'],
+            'praxis_land' => ['nullable', 'string', 'max:255'],
             'pruefung_ort' => ['nullable', 'string', 'max:255'],
+            'pruefung_strasse' => ['nullable', 'string', 'max:255'],
+            'pruefung_plz' => ['nullable', 'string', 'max:20'],
+            'pruefung_stadt' => ['nullable', 'string', 'max:255'],
+            'pruefung_land' => ['nullable', 'string', 'max:255'],
             'course_ids' => ['nullable', 'array'],
             'course_ids.*' => ['uuid', 'exists:course_definition,id'],
         ]);
 
+        // Ist der Prüfungsort (inkl. Anschrift) identisch mit dem Praxisort,
+        // deaktiviert das Frontend ("Gleich wie Praxisort") die Prüfungsort-
+        // Felder, wodurch sie leer ankommen -- hier fällt jedes leere
+        // Prüfungsort-Feld einzeln auf den entsprechenden Praxisort-Wert zurück.
+        $fallback = fn (string $pruefungKey, string $praxisKey) => trim((string) ($validated[$pruefungKey] ?? '')) ?: ($validated[$praxisKey] ?? null);
+
         return [
             'praxis_ort' => $validated['praxis_ort'],
-            'pruefung_ort' => trim((string) ($validated['pruefung_ort'] ?? '')) ?: $validated['praxis_ort'],
+            'praxis_strasse' => $validated['praxis_strasse'] ?? null,
+            'praxis_plz' => $validated['praxis_plz'] ?? null,
+            'praxis_stadt' => $validated['praxis_stadt'] ?? null,
+            'praxis_land' => $validated['praxis_land'] ?? null,
+            'pruefung_ort' => $fallback('pruefung_ort', 'praxis_ort'),
+            'pruefung_strasse' => $fallback('pruefung_strasse', 'praxis_strasse'),
+            'pruefung_plz' => $fallback('pruefung_plz', 'praxis_plz'),
+            'pruefung_stadt' => $fallback('pruefung_stadt', 'praxis_stadt'),
+            'pruefung_land' => $fallback('pruefung_land', 'praxis_land'),
             'course_ids' => array_values($validated['course_ids'] ?? []),
         ];
     }

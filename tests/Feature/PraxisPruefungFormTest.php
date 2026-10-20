@@ -339,6 +339,51 @@ class PraxisPruefungFormTest extends TestCase
         $follow->assertSee('Prüfstelle Süd');
     }
 
+    public function test_submission_stores_and_shows_the_full_address_of_both_locations(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course] = $this->makeIsolatedCourseWithQuestions(2);
+        $this->grantEntitlement($tenant, $learner, $course);
+        $this->masterAllQuestions($tenant, $learner, $course);
+        $template = $this->createTemplate([
+            'course_ids' => [$course->id],
+            'min_progress_percent' => 10,
+            'fields' => [
+                ['key' => 'ort', 'label' => 'Ort', 'type' => 'location', 'required' => true, 'options' => [], 'help_text' => null],
+            ],
+        ]);
+        $location = $this->onAdmin(fn () => TenantCourseLocation::create([
+            'tenant_id' => $tenant->id,
+            'praxis_ort' => 'Standort Nord',
+            'praxis_strasse' => 'Nordweg 1',
+            'praxis_plz' => '11111',
+            'praxis_stadt' => 'Nordstadt',
+            'praxis_land' => 'Deutschland',
+            'pruefung_ort' => 'Prüfstelle Süd',
+            'pruefung_strasse' => 'Südallee 2',
+            'pruefung_plz' => '22222',
+            'pruefung_stadt' => 'Südstadt',
+            'pruefung_land' => 'Österreich',
+            'course_ids' => [$course->id],
+        ]));
+
+        $this->actingAsInTenant($learner, $tenant)->post(route('praxis-pruefung.store', $course), [
+            'ort' => $location->id,
+        ])->assertRedirect(route('praxis-pruefung.index', $course));
+
+        $this->onAdmin(function () use ($tenant, $learner, $course) {
+            $submission = PraxisFormSubmission::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->where('course_id', $course->id)->first();
+            $this->assertSame('Nordweg 1, 11111 Nordstadt, Deutschland', $submission->data['ort_adresse']);
+            $this->assertSame('Südallee 2, 22222 Südstadt, Österreich', $submission->data['ort_pruefungsort_adresse']);
+        });
+
+        $follow = $this->actingAsInTenant($learner, $tenant)->get(route('praxis-pruefung.index', $course));
+        $follow->assertOk();
+        $follow->assertSee('Nordweg 1, 11111 Nordstadt, Deutschland');
+        $follow->assertSee('Südallee 2, 22222 Südstadt, Österreich');
+    }
+
     public function test_submitting_an_invalid_location_id_is_rejected(): void
     {
         $tenant = $this->createTestTenant();

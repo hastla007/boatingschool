@@ -38,6 +38,62 @@ class TenantCourseLocationTest extends TestCase
         $this->assertSame([$course->id], $location->course_ids);
     }
 
+    public function test_a_location_stores_separate_addresses_for_praxis_and_pruefung(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+
+        $response = $this->actingAsInTenant($admin, $tenant)->post('/admin/tenant-course-locations', [
+            'praxis_ort' => 'Standort Binnensee',
+            'praxis_strasse' => 'Seeweg 1',
+            'praxis_plz' => '12345',
+            'praxis_stadt' => 'Binnenstadt',
+            'praxis_land' => 'Deutschland',
+            'pruefung_ort' => 'Prüfstelle Hafenstadt',
+            'pruefung_strasse' => 'Hafenallee 9',
+            'pruefung_plz' => '54321',
+            'pruefung_stadt' => 'Hafenstadt',
+            'pruefung_land' => 'Österreich',
+            'course_ids' => [],
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('tenant_course_location', [
+            'tenant_id' => $tenant->id,
+            'praxis_strasse' => 'Seeweg 1',
+            'praxis_plz' => '12345',
+            'praxis_stadt' => 'Binnenstadt',
+            'praxis_land' => 'Deutschland',
+            'pruefung_strasse' => 'Hafenallee 9',
+            'pruefung_plz' => '54321',
+            'pruefung_stadt' => 'Hafenstadt',
+            'pruefung_land' => 'Österreich',
+        ]);
+    }
+
+    public function test_pruefung_address_defaults_to_praxis_address_when_left_empty(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+
+        $this->actingAsInTenant($admin, $tenant)->post('/admin/tenant-course-locations', [
+            'praxis_ort' => 'Hauptstandort',
+            'praxis_strasse' => 'Musterweg 1',
+            'praxis_plz' => '11111',
+            'praxis_stadt' => 'Musterstadt',
+            'praxis_land' => 'Deutschland',
+            'course_ids' => [],
+        ]);
+
+        $this->assertDatabaseHas('tenant_course_location', [
+            'tenant_id' => $tenant->id,
+            'pruefung_strasse' => 'Musterweg 1',
+            'pruefung_plz' => '11111',
+            'pruefung_stadt' => 'Musterstadt',
+            'pruefung_land' => 'Deutschland',
+        ]);
+    }
+
     public function test_pruefung_ort_defaults_to_praxis_ort_when_left_empty(): void
     {
         $tenant = $this->createTestTenant();

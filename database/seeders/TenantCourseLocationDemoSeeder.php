@@ -32,7 +32,15 @@ class TenantCourseLocationDemoSeeder extends Seeder
         TenantCourseLocation::updateOrCreate(
             ['tenant_id' => $tenant->id, 'praxis_ort' => 'Hauptstandort Hamburg'],
             [
+                'praxis_strasse' => 'Hafenstraße 12',
+                'praxis_plz' => '20095',
+                'praxis_stadt' => 'Hamburg',
+                'praxis_land' => 'Deutschland',
                 'pruefung_ort' => 'Hauptstandort Hamburg',
+                'pruefung_strasse' => 'Hafenstraße 12',
+                'pruefung_plz' => '20095',
+                'pruefung_stadt' => 'Hamburg',
+                'pruefung_land' => 'Deutschland',
                 'course_ids' => $courseIds,
                 'sort_order' => 1,
             ]
@@ -41,7 +49,15 @@ class TenantCourseLocationDemoSeeder extends Seeder
         TenantCourseLocation::updateOrCreate(
             ['tenant_id' => $tenant->id, 'praxis_ort' => 'Trainingsgewässer Alster'],
             [
+                'praxis_strasse' => 'Alsterufer 5',
+                'praxis_plz' => '20354',
+                'praxis_stadt' => 'Hamburg',
+                'praxis_land' => 'Deutschland',
                 'pruefung_ort' => 'Prüfstelle Wassersportzentrum',
+                'pruefung_strasse' => 'Wassersportallee 3',
+                'pruefung_plz' => '22527',
+                'pruefung_stadt' => 'Hamburg',
+                'pruefung_land' => 'Deutschland',
                 'course_ids' => $courseIds,
                 'sort_order' => 2,
             ]

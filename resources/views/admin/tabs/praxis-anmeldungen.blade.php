@@ -32,11 +32,25 @@
                                     @endif
                                 </dd>
                             </div>
-                            @if ($field['type'] === 'location' && ! empty($submission->data[$field['key'].'_pruefungsort']))
-                                <div class="py-2 grid grid-cols-2 gap-4">
-                                    <dt class="text-slate-500 dark:text-slate-400">Prüfungsort</dt>
-                                    <dd class="text-slate-800 dark:text-slate-200 font-medium">{{ $submission->data[$field['key'].'_pruefungsort'] }}</dd>
-                                </div>
+                            @if ($field['type'] === 'location')
+                                @if (! empty($submission->data[$field['key'].'_adresse']))
+                                    <div class="py-2 grid grid-cols-2 gap-4">
+                                        <dt class="text-slate-500 dark:text-slate-400">Anschrift Praxisort</dt>
+                                        <dd class="text-slate-800 dark:text-slate-200 font-medium">{{ $submission->data[$field['key'].'_adresse'] }}</dd>
+                                    </div>
+                                @endif
+                                @if (! empty($submission->data[$field['key'].'_pruefungsort']))
+                                    <div class="py-2 grid grid-cols-2 gap-4">
+                                        <dt class="text-slate-500 dark:text-slate-400">Prüfungsort</dt>
+                                        <dd class="text-slate-800 dark:text-slate-200 font-medium">{{ $submission->data[$field['key'].'_pruefungsort'] }}</dd>
+                                    </div>
+                                @endif
+                                @if (! empty($submission->data[$field['key'].'_pruefungsort_adresse']))
+                                    <div class="py-2 grid grid-cols-2 gap-4">
+                                        <dt class="text-slate-500 dark:text-slate-400">Anschrift Prüfungsort</dt>
+                                        <dd class="text-slate-800 dark:text-slate-200 font-medium">{{ $submission->data[$field['key'].'_pruefungsort_adresse'] }}</dd>
+                                    </div>
+                                @endif
                             @endif
                         @endforeach
                     </dl>
