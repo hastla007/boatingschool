@@ -10,6 +10,7 @@ use App\Models\PraxisFormSubmission;
 use App\Models\ProductPurchase;
 use App\Models\TenantUser;
 use App\Models\User;
+use App\Models\WillkommensboxOrder;
 use App\Services\CouponRedemptionService;
 use App\Support\Countries;
 use App\Support\TenantContext;
@@ -26,10 +27,11 @@ class ParticipantController extends Controller
 {
     /**
      * Detailseite je Teilnehmer: Adresse, gebuchte Kurse/Produkte (inkl.
-     * eingelöstem Code je Buchung) und Praxis-Anmeldungen an einem Ort --
-     * dieselbe "Buchungen"-Logik wie ProfileController::edit (Lerner sehen
-     * ihre eigenen Buchungen dort), hier aus Admin-Sicht für einen
-     * bestimmten Teilnehmer der eigenen Bootsschule.
+     * eingelöstem Code je Buchung), Praxis-Anmeldungen und Willkommensbox-
+     * Bestellung an einem Ort -- dieselbe "Buchungen"-Logik wie
+     * ProfileController::edit (Lerner sehen ihre eigenen Buchungen dort),
+     * hier aus Admin-Sicht für einen bestimmten Teilnehmer der eigenen
+     * Bootsschule.
      */
     public function show(TenantContext $tenantContext, User $user): View
     {
@@ -82,11 +84,15 @@ class ParticipantController extends Controller
         $praxisFormSubmissions = PraxisFormSubmission::where('tenant_id', $tenant->id)->where('user_id', $user->id)
             ->with(['course', 'template', 'examAppointments'])->orderByDesc('created_at')->get();
 
+        $willkommensboxOrder = WillkommensboxOrder::where('tenant_id', $tenant->id)->where('user_id', $user->id)->first();
+
         return view('admin.participants.show', [
             'participant' => $user,
             'membership' => $membership,
             'bookings' => $bookings,
             'praxisFormSubmissions' => $praxisFormSubmissions,
+            'willkommensboxOrder' => $willkommensboxOrder,
+            'hasWillkommensboxAccess' => $user->hasWillkommensboxAccess($tenant),
         ]);
     }
 

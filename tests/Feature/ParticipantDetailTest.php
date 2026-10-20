@@ -7,6 +7,7 @@ use App\Models\PraxisFormSubmission;
 use App\Models\PraxisFormTemplate;
 use App\Models\Product;
 use App\Models\ProductPurchase;
+use App\Models\WillkommensboxOrder;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -297,6 +298,154 @@ class ParticipantDetailTest extends TestCase
         $response->assertNotFound();
         $this->onAdmin(function () use ($learnerB) {
             $this->assertNull($learnerB->fresh()->city);
+        });
+    }
+
+    private function grantWillkommensbox($tenant, $user): void
+    {
+        $product = $this->onAdmin(fn () => Product::where('code', 'LERNPLATTFORM-WB')->firstOrFail());
+        $this->onAdmin(fn () => ProductPurchase::create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $user->id,
+            'product_id' => $product->id,
+            'source_type' => 'coupon',
+            'source_reference' => 'E2E-WB-CODE',
+        ]));
+    }
+
+    public function test_detail_page_shows_the_willkommensbox_order_address(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $this->grantWillkommensbox($tenant, $learner);
+        $this->onAdmin(fn () => WillkommensboxOrder::create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $learner->id,
+            'street' => 'Lieferstraße 1',
+            'postal_code' => '12345',
+            'city' => 'Lieferstadt',
+            'country' => 'Deutschland',
+            'note' => 'Bitte beim Nachbarn abgeben.',
+        ]));
+
+        $response = $this->actingAsInTenant($admin, $tenant)->get("/admin/participants/{$learner->id}");
+
+        $response->assertOk();
+        $response->assertSee('Willkommensbox');
+        $response->assertSee('Lieferstraße 1');
+        $response->assertSee('12345');
+        $response->assertSee('Lieferstadt');
+        $response->assertSee('Bitte beim Nachbarn abgeben.');
+        $response->assertSee('Als versendet markieren');
+    }
+
+    public function test_detail_page_shows_a_hint_when_access_exists_but_nothing_was_ordered_yet(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $this->grantWillkommensbox($tenant, $learner);
+
+        $response = $this->actingAsInTenant($admin, $tenant)->get("/admin/participants/{$learner->id}");
+
+        $response->assertOk();
+        $response->assertSee('Zugang vorhanden, aber noch nicht bestellt.');
+    }
+
+    public function test_detail_page_does_not_show_willkommensbox_section_without_access(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+
+        $response = $this->actingAsInTenant($admin, $tenant)->get("/admin/participants/{$learner->id}");
+
+        $response->assertOk();
+        $response->assertDontSee('Willkommensbox');
+    }
+
+    public function test_admin_can_mark_a_willkommensbox_order_as_shipped_with_a_tracking_number(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $this->grantWillkommensbox($tenant, $learner);
+        $order = $this->onAdmin(fn () => WillkommensboxOrder::create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $learner->id,
+            'street' => 'Lieferstraße 1',
+            'postal_code' => '12345',
+            'city' => 'Lieferstadt',
+            'country' => 'Deutschland',
+        ]));
+
+        $response = $this->actingAsInTenant($admin, $tenant)->patch("/admin/willkommensbox-orders/{$order->id}/ship", [
+            'tracking_number' => 'DHL1234567890',
+        ]);
+
+        $response->assertRedirect();
+        $this->onAdmin(function () use ($order) {
+            $fresh = $order->fresh();
+            $this->assertNotNull($fresh->shipped_at);
+            $this->assertSame('DHL1234567890', $fresh->tracking_number);
+        });
+
+        $detail = $this->actingAsInTenant($admin, $tenant)->get("/admin/participants/{$learner->id}");
+        $detail->assertOk();
+        $detail->assertSee('Versendet am');
+        $detail->assertSee('DHL1234567890');
+        $detail->assertDontSee('Als versendet markieren');
+    }
+
+    public function test_admin_can_mark_a_willkommensbox_order_as_shipped_without_a_tracking_number(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $this->grantWillkommensbox($tenant, $learner);
+        $order = $this->onAdmin(fn () => WillkommensboxOrder::create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $learner->id,
+            'street' => 'Lieferstraße 1',
+            'postal_code' => '12345',
+            'city' => 'Lieferstadt',
+            'country' => 'Deutschland',
+        ]));
+
+        $response = $this->actingAsInTenant($admin, $tenant)->patch("/admin/willkommensbox-orders/{$order->id}/ship", []);
+
+        $response->assertRedirect();
+        $this->onAdmin(function () use ($order) {
+            $fresh = $order->fresh();
+            $this->assertNotNull($fresh->shipped_at);
+            $this->assertNull($fresh->tracking_number);
+        });
+    }
+
+    public function test_admin_cannot_ship_a_willkommensbox_order_of_another_tenant(): void
+    {
+        $tenantA = $this->createTestTenant();
+        $tenantB = $this->createTestTenant();
+        $adminA = $this->createTenantUser($tenantA, 'owner');
+        $learnerB = $this->createTenantUser($tenantB, 'learner');
+        $this->grantWillkommensbox($tenantB, $learnerB);
+        $order = $this->onAdmin(fn () => WillkommensboxOrder::create([
+            'tenant_id' => $tenantB->id,
+            'user_id' => $learnerB->id,
+            'street' => 'Lieferstraße 1',
+            'postal_code' => '12345',
+            'city' => 'Lieferstadt',
+            'country' => 'Deutschland',
+        ]));
+
+        $response = $this->actingAsInTenant($adminA, $tenantA)->patch("/admin/willkommensbox-orders/{$order->id}/ship", [
+            'tracking_number' => 'SOLLTE-NICHT-ANKOMMEN',
+        ]);
+
+        $response->assertNotFound();
+        $this->onAdmin(function () use ($order) {
+            $this->assertNull($order->fresh()->shipped_at);
         });
     }
 }

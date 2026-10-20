@@ -12,6 +12,7 @@ use App\Http\Controllers\Admin\PraxisExamAppointmentController as AdminPraxisExa
 use App\Http\Controllers\Admin\SupportEmailVerificationController;
 use App\Http\Controllers\Admin\TenantCourseLocationController;
 use App\Http\Controllers\Admin\WebshopLinkController;
+use App\Http\Controllers\Admin\WillkommensboxOrderController;
 use App\Http\Controllers\CouponRedeemController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\DashboardController;
@@ -130,6 +131,8 @@ Route::middleware(['auth', 'tenant.role:owner,admin,instructor'])->prefix('admin
     Route::post('/coupons/{coupon}/assign', [AdminCouponController::class, 'assign'])->name('coupons.assign');
 
     Route::post('/praxis-form-submissions/{submission}/exam-appointments', [AdminPraxisExamAppointmentController::class, 'store'])->name('praxis-form-submissions.exam-appointments.store');
+
+    Route::patch('/willkommensbox-orders/{willkommensboxOrder}/ship', [WillkommensboxOrderController::class, 'ship'])->name('willkommensbox-orders.ship');
 });
 
 require __DIR__.'/superadmin.php';

@@ -67,6 +67,67 @@
             @endunless
         </div>
 
+        @if ($willkommensboxOrder)
+            <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
+                <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
+                    <x-icon name="cube" class="w-4 h-4 text-slate-400" /> Willkommensbox
+                </h3>
+                <dl class="text-sm space-y-1.5 mb-3">
+                    <div class="flex justify-between gap-4">
+                        <dt class="text-slate-500">Straße</dt>
+                        <dd class="text-slate-800 dark:text-slate-200 text-end">{{ $willkommensboxOrder->street }}</dd>
+                    </div>
+                    <div class="flex justify-between gap-4">
+                        <dt class="text-slate-500">PLZ / Stadt</dt>
+                        <dd class="text-slate-800 dark:text-slate-200 text-end">{{ $willkommensboxOrder->postal_code }} {{ $willkommensboxOrder->city }}</dd>
+                    </div>
+                    <div class="flex justify-between gap-4">
+                        <dt class="text-slate-500">Land</dt>
+                        <dd class="text-slate-800 dark:text-slate-200 text-end">{{ $willkommensboxOrder->country }}</dd>
+                    </div>
+                    @if ($willkommensboxOrder->note)
+                        <div class="flex justify-between gap-4">
+                            <dt class="text-slate-500">Notiz</dt>
+                            <dd class="text-slate-800 dark:text-slate-200 text-end">{{ $willkommensboxOrder->note }}</dd>
+                        </div>
+                    @endif
+                    <div class="flex justify-between gap-4">
+                        <dt class="text-slate-500">Bestellt am</dt>
+                        <dd class="text-slate-800 dark:text-slate-200 text-end">{{ $willkommensboxOrder->created_at->format('d.m.Y') }}</dd>
+                    </div>
+                </dl>
+
+                @if ($willkommensboxOrder->isShipped())
+                    <div class="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 rounded-lg px-3 py-2">
+                        <x-icon name="check-circle" class="w-4 h-4 shrink-0" />
+                        Versendet am {{ $willkommensboxOrder->shipped_at->format('d.m.Y') }}
+                        @if ($willkommensboxOrder->tracking_number)
+                            &middot; Tracking: {{ $willkommensboxOrder->tracking_number }}
+                        @endif
+                    </div>
+                @else
+                    <form method="POST" action="{{ route('admin.willkommensbox-orders.ship', $willkommensboxOrder) }}" class="flex flex-wrap items-end gap-2">
+                        @csrf
+                        @method('PATCH')
+                        <div>
+                            <label class="block text-xs text-slate-500 mb-1">Trackingnummer (optional)</label>
+                            <input type="text" name="tracking_number" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                        </div>
+                        <button type="submit" class="px-3 py-1.5 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
+                            Als versendet markieren
+                        </button>
+                    </form>
+                @endif
+            </div>
+        @elseif ($hasWillkommensboxAccess)
+            <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
+                <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
+                    <x-icon name="cube" class="w-4 h-4 text-slate-400" /> Willkommensbox
+                </h3>
+                <p class="text-sm text-slate-400">Zugang vorhanden, aber noch nicht bestellt.</p>
+            </div>
+        @endif
+
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
             <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
                 <x-icon name="clipboard-document-check" class="w-4 h-4 text-slate-400" /> Gebuchte Kurse &amp; Produkte
