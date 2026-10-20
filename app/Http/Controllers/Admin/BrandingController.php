@@ -51,6 +51,9 @@ class BrandingController extends Controller
         $validated['whatsapp_enabled'] = $whatsappEnabled;
         $validated['email_support_enabled'] = $request->boolean('email_support_enabled');
         $validated['phone_support_enabled'] = $request->boolean('phone_support_enabled');
+        $validated['label_size_a4'] = $request->boolean('label_size_a4');
+        $validated['label_size_a5'] = $request->boolean('label_size_a5');
+        $validated['label_size_a6'] = $request->boolean('label_size_a6');
 
         $before = $tenant->branding->toArray();
         unset($validated['logo']);

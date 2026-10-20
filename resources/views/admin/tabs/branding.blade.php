@@ -163,6 +163,25 @@
             <x-input-error :messages="$errors->get('willkommensbox_threshold_percent')" class="mt-2" />
         </div>
 
+        <div class="pt-2 border-t border-slate-100 dark:border-slate-700">
+            <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Label</label>
+            <p class="text-xs text-slate-400 mb-2">In welchen Papiergrößen kann für eine Willkommensbox-Bestellung ein Versandlabel-PDF heruntergeladen werden (siehe Teilnehmer-Detailseite)?</p>
+            <div class="space-y-2">
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" name="label_size_a4" value="1" @checked(old('label_size_a4', $branding->label_size_a4)) class="rounded border-slate-300 dark:border-slate-600 text-emerald-600 focus:ring-emerald-500">
+                    <span class="text-sm text-slate-600 dark:text-slate-300">A4</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" name="label_size_a5" value="1" @checked(old('label_size_a5', $branding->label_size_a5)) class="rounded border-slate-300 dark:border-slate-600 text-emerald-600 focus:ring-emerald-500">
+                    <span class="text-sm text-slate-600 dark:text-slate-300">A5</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" name="label_size_a6" value="1" @checked(old('label_size_a6', $branding->label_size_a6)) class="rounded border-slate-300 dark:border-slate-600 text-emerald-600 focus:ring-emerald-500">
+                    <span class="text-sm text-slate-600 dark:text-slate-300">A6 <span class="text-slate-400">(gängige Paketdienst-Labelgröße)</span></span>
+                </label>
+            </div>
+        </div>
+
         <button type="submit" class="px-5 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
             Änderungen speichern
         </button>

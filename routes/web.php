@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\ParticipantController;
 use App\Http\Controllers\Admin\PraxisExamAppointmentController as AdminPraxisExamAppointmentController;
 use App\Http\Controllers\Admin\SupportEmailVerificationController;
 use App\Http\Controllers\Admin\TenantCourseLocationController;
+use App\Http\Controllers\Admin\WillkommensboxLabelController;
 use App\Http\Controllers\Admin\WillkommensboxOrderController;
 use App\Http\Controllers\CouponRedeemController;
 use App\Http\Controllers\CourseController;
@@ -131,6 +132,7 @@ Route::middleware(['auth', 'tenant.role:owner,admin,instructor'])->prefix('admin
     Route::post('/praxis-form-submissions/{submission}/exam-appointments', [AdminPraxisExamAppointmentController::class, 'store'])->name('praxis-form-submissions.exam-appointments.store');
 
     Route::patch('/willkommensbox-orders/{willkommensboxOrder}/ship', [WillkommensboxOrderController::class, 'ship'])->name('willkommensbox-orders.ship');
+    Route::get('/willkommensbox-orders/{willkommensboxOrder}/label/{size}', [WillkommensboxLabelController::class, 'show'])->name('willkommensbox-orders.label');
 });
 
 require __DIR__.'/superadmin.php';

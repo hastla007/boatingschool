@@ -28,6 +28,7 @@ class TenantBranding extends Model
         'contact_first_name', 'contact_last_name', 'imprint_url', 'privacy_url', 'custom_domain',
         'phone', 'phone_support_enabled', 'street', 'postal_code', 'city', 'country',
         'website', 'exam_readiness_threshold_percent', 'willkommensbox_threshold_percent', 'whatsapp_enabled', 'whatsapp_phone', 'whatsapp_greeting',
+        'label_size_a4', 'label_size_a5', 'label_size_a6',
     ];
 
     protected function casts(): array
@@ -37,7 +38,19 @@ class TenantBranding extends Model
             'email_support_enabled' => 'boolean',
             'phone_support_enabled' => 'boolean',
             'whatsapp_enabled' => 'boolean',
+            'label_size_a4' => 'boolean',
+            'label_size_a5' => 'boolean',
+            'label_size_a6' => 'boolean',
         ];
+    }
+
+    /** @return array<int, string> z. B. ['a4', 'a6'] -- Reihenfolge wie in der Branding-UI. */
+    public function enabledLabelSizes(): array
+    {
+        return collect(['a4' => $this->label_size_a4, 'a5' => $this->label_size_a5, 'a6' => $this->label_size_a6])
+            ->filter()
+            ->keys()
+            ->all();
     }
 
     public function hasVerifiedSupportEmail(): bool

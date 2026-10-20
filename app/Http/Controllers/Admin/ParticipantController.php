@@ -127,6 +127,7 @@ class ParticipantController extends Controller
             'actionItems' => $actionItems,
             'willkommensboxOrder' => $willkommensboxOrder,
             'hasWillkommensboxAccess' => $user->hasWillkommensboxAccess($tenant),
+            'willkommensboxLabelSizes' => $tenant->branding->enabledLabelSizes(),
         ]);
     }
 
