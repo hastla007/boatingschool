@@ -2,11 +2,15 @@
 
 namespace Tests\Feature;
 
+use App\Models\CourseDefinition;
 use App\Models\Coupon;
+use App\Models\PraxisExamAppointment;
 use App\Models\PraxisFormSubmission;
 use App\Models\PraxisFormTemplate;
 use App\Models\Product;
 use App\Models\ProductPurchase;
+use App\Models\Tenant;
+use App\Models\User;
 use App\Models\WillkommensboxOrder;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -24,6 +28,8 @@ class ParticipantDetailTest extends TestCase
 
     private array $createdCodes = [];
 
+    private array $createdCourseIds = [];
+
     protected function tearDown(): void
     {
         // Erst Tenants (kaskadiert praxis_form_submission weg), dann die
@@ -37,6 +43,9 @@ class ParticipantDetailTest extends TestCase
             }
             foreach ($this->createdCodes as $code) {
                 Coupon::where('code', $code)->delete();
+            }
+            foreach ($this->createdCourseIds as $id) {
+                CourseDefinition::withoutGlobalScopes()->where('id', $id)->delete();
             }
         });
 
@@ -176,6 +185,134 @@ class ParticipantDetailTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Noch keine Praxis-Anmeldung eingegangen.');
+        $response->assertSee('Keine offenen Aktionen.');
+    }
+
+    /**
+     * Eigener isolierter Kurs statt eines echten Katalogkurses, dessen
+     * Demo-Praxisformular (siehe PraxisFormTemplateSeeder) sonst mit einer
+     * eigens angelegten Vorlage kollidieren würde.
+     */
+    private function createPraxisSubmission(Tenant $tenant, User $learner): PraxisFormSubmission
+    {
+        $course = $this->onAdmin(function () {
+            $course = CourseDefinition::withoutGlobalScopes()->create([
+                'tenant_id' => null,
+                'code' => 'TEST-NOTIFY-'.uniqid(),
+                'name' => 'Test-Kurs für Benachrichtigungen',
+                'course_type' => 'full',
+                'status' => 'published',
+            ]);
+            $this->createdCourseIds[] = $course->id;
+
+            return $course;
+        });
+
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $template = $this->onAdmin(function () use ($course) {
+            $template = PraxisFormTemplate::create([
+                'title' => 'E2E Benachrichtigungs-Formular',
+                'min_progress_percent' => 0,
+                'course_ids' => [$course->id],
+                'fields' => [],
+                'active' => true,
+            ]);
+            $this->createdTemplateIds[] = $template->id;
+
+            return $template;
+        });
+
+        return $this->onAdmin(fn () => PraxisFormSubmission::create([
+            'tenant_id' => $tenant->id,
+            'course_id' => $course->id,
+            'user_id' => $learner->id,
+            'praxis_form_template_id' => $template->id,
+            'data' => [],
+        ]));
+    }
+
+    public function test_detail_page_notifies_about_a_new_submission_without_an_exam_date(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $submission = $this->createPraxisSubmission($tenant, $learner);
+
+        $response = $this->actingAsInTenant($admin, $tenant)->get("/admin/participants/{$learner->id}");
+
+        $response->assertOk();
+        $response->assertSee('Benachrichtigungen');
+        $response->assertSee($submission->course->name);
+        $response->assertSee('Neue Anmeldung -- bitte Prüfungstermin vorschlagen.');
+        $response->assertDontSee('Keine offenen Aktionen.');
+    }
+
+    public function test_detail_page_notifies_about_a_declined_exam_date_proposal(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $submission = $this->createPraxisSubmission($tenant, $learner);
+
+        $this->actingAsInTenant($admin, $tenant)->post(
+            "/admin/praxis-form-submissions/{$submission->id}/exam-appointments",
+            ['exam_date' => '2026-06-01 09:00', 'slot' => 0]
+        );
+        $appointment = $this->onAdmin(fn () => PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->first());
+        $this->actingAsInTenant($learner, $tenant)->post(
+            route('praxis-pruefung.exam-appointments.respond', [$submission->course_id, $appointment->id]),
+            ['decision' => 'declined', 'comment' => 'Passt leider nicht.']
+        );
+
+        $response = $this->actingAsInTenant($admin, $tenant)->get("/admin/participants/{$learner->id}");
+
+        $response->assertOk();
+        $response->assertSee('Vorschlag abgelehnt -- bitte neuen Termin vorschlagen.');
+        $response->assertDontSee('Keine offenen Aktionen.');
+    }
+
+    public function test_detail_page_has_no_open_action_while_a_proposal_is_pending(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $submission = $this->createPraxisSubmission($tenant, $learner);
+
+        $this->actingAsInTenant($admin, $tenant)->post(
+            "/admin/praxis-form-submissions/{$submission->id}/exam-appointments",
+            ['exam_date' => '2026-06-01 09:00', 'slot' => 0]
+        );
+
+        $response = $this->actingAsInTenant($admin, $tenant)->get("/admin/participants/{$learner->id}");
+
+        $response->assertOk();
+        // Wartet auf Rückmeldung des Teilnehmers -- die Bootsschule ist
+        // hier noch nicht am Zug.
+        $response->assertSee('Keine offenen Aktionen.');
+    }
+
+    public function test_detail_page_has_no_open_action_once_the_exam_date_is_accepted(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $submission = $this->createPraxisSubmission($tenant, $learner);
+
+        $this->actingAsInTenant($admin, $tenant)->post(
+            "/admin/praxis-form-submissions/{$submission->id}/exam-appointments",
+            ['exam_date' => '2026-06-01 09:00', 'slot' => 0]
+        );
+        $appointment = $this->onAdmin(fn () => PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->first());
+        $this->actingAsInTenant($learner, $tenant)->post(
+            route('praxis-pruefung.exam-appointments.respond', [$submission->course_id, $appointment->id]),
+            ['decision' => 'accepted']
+        );
+
+        $response = $this->actingAsInTenant($admin, $tenant)->get("/admin/participants/{$learner->id}");
+
+        $response->assertOk();
+        $response->assertSee('Keine offenen Aktionen.');
     }
 
     public function test_bundled_options_from_a_course_coupon_are_shown_under_that_course(): void
