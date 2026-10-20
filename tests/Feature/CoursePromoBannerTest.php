@@ -8,11 +8,13 @@ use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
 /**
- * Bootsschulen können pro Kurs einen frei formulierten Empfehlungsbanner
- * aktivieren, der für einen anderen/weiterführenden Kurs wirbt -- anders
- * als der vorgefertigte Addon-Banner (siehe TenantAddonTest) gehört der
- * Text hier komplett der Bootsschule. Siehe admin/tabs/course-promo-
- * banners.blade.php und CoursePromoBannerController.
+ * Bootsschulen können frei formulierte Banner anlegen, die für einen
+ * anderen/weiterführenden Kurs werben -- anders als der vorgefertigte
+ * Addon-Banner (siehe TenantAddonTest) gehört der Text hier komplett der
+ * Bootsschule. Ein Banner kann gleichzeitig auf mehreren Kursseiten
+ * erscheinen (course_ids), auf jeder davon gated durch den Fortschritt
+ * des jeweiligen Kurses selbst. Siehe admin/tabs/course-promo-banners.
+ * blade.php und CoursePromoBannerController.
  */
 class CoursePromoBannerTest extends TestCase
 {
@@ -32,31 +34,29 @@ class CoursePromoBannerTest extends TestCase
         });
     }
 
-    public function test_a_school_admin_can_activate_and_configure_a_promo_banner(): void
+    public function test_a_school_admin_can_create_a_promo_banner(): void
     {
         $tenant = $this->createTestTenant();
         $admin = $this->createTenantUser($tenant, 'owner');
         $course = $this->existingCourse('SRC');
 
-        $response = $this->actingAsInTenant($admin, $tenant)->patch('/admin/course-promo-banners', [
-            'banners' => [
-                $course->id => [
-                    'active' => '1',
-                    'headline' => 'Mach weiter mit der Segelausbildung!',
-                    'description' => 'Erweitere deinen Schein um die Segelprüfung.',
-                    'cta_label' => 'Jetzt entdecken',
-                    'price_label' => '149 €',
-                    'discount_percent' => '10',
-                    'coupon_code' => 'SEGEL10',
-                    'offer_url' => 'https://shop.example.test/segel-ergaenzung',
-                ],
-            ],
+        $response = $this->actingAsInTenant($admin, $tenant)->post('/admin/course-promo-banners', [
+            'active' => '1',
+            'headline' => 'Mach weiter mit der Segelausbildung!',
+            'description' => 'Erweitere deinen Schein um die Segelprüfung.',
+            'bullets' => "Punkt 1\n\nPunkt 2\n",
+            'cta_label' => 'Jetzt entdecken',
+            'price_label' => '149 €',
+            'discount_percent' => '10',
+            'coupon_code' => 'SEGEL10',
+            'offer_url' => 'https://shop.example.test/segel-ergaenzung',
+            'course_ids' => [$course->id],
+            'trigger_percent' => '0',
         ]);
 
         $response->assertRedirect();
         $this->assertDatabaseHas('course_promo_banner', [
             'tenant_id' => $tenant->id,
-            'course_id' => $course->id,
             'active' => true,
             'headline' => 'Mach weiter mit der Segelausbildung!',
             'description' => 'Erweitere deinen Schein um die Segelprüfung.',
@@ -66,149 +66,204 @@ class CoursePromoBannerTest extends TestCase
             'coupon_code' => 'SEGEL10',
             'offer_url' => 'https://shop.example.test/segel-ergaenzung',
         ]);
-    }
 
-    public function test_bullets_can_be_added_edited_and_cleared(): void
-    {
-        $tenant = $this->createTestTenant();
-        $admin = $this->createTenantUser($tenant, 'owner');
-        $course = $this->existingCourse('SRC');
-
-        $this->actingAsInTenant($admin, $tenant)->patch('/admin/course-promo-banners', [
-            'banners' => [
-                $course->id => [
-                    'active' => '1',
-                    'headline' => 'Test',
-                    'bullets' => "Punkt 1\n\nPunkt 2\n",
-                    'offer_url' => 'https://shop.example.test/x',
-                ],
-            ],
-        ]);
-
-        $banner = $this->onAdmin(fn () => CoursePromoBanner::where('tenant_id', $tenant->id)->where('course_id', $course->id)->first());
+        $banner = $this->onAdmin(fn () => CoursePromoBanner::where('tenant_id', $tenant->id)->first());
         $this->assertSame(['Punkt 1', 'Punkt 2'], $banner->bullets);
-
-        $this->actingAsInTenant($admin, $tenant)->patch('/admin/course-promo-banners', [
-            'banners' => [
-                $course->id => [
-                    'active' => '1',
-                    'headline' => 'Test',
-                    'bullets' => '',
-                    'offer_url' => 'https://shop.example.test/x',
-                ],
-            ],
-        ]);
-
-        $refetched = $this->onAdmin(fn () => CoursePromoBanner::where('tenant_id', $tenant->id)->where('course_id', $course->id)->first());
-        $this->assertSame([], $refetched->bullets);
+        $this->assertSame([$course->id], $banner->course_ids);
     }
 
-    public function test_deactivating_a_promo_banner_removes_its_configuration(): void
+    public function test_a_banner_can_target_multiple_courses_at_once(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $courseA = $this->existingCourse('SRC');
+        $courseB = $this->existingCourse('UBI');
+
+        $this->actingAsInTenant($admin, $tenant)->post('/admin/course-promo-banners', [
+            'active' => '1',
+            'headline' => 'Für beide Kurse',
+            'offer_url' => 'https://shop.example.test/x',
+            'course_ids' => [$courseA->id, $courseB->id],
+        ]);
+
+        $banner = $this->onAdmin(fn () => CoursePromoBanner::where('tenant_id', $tenant->id)->first());
+        $this->assertEqualsCanonicalizing([$courseA->id, $courseB->id], $banner->course_ids);
+    }
+
+    public function test_a_school_admin_can_update_a_promo_banner(): void
     {
         $tenant = $this->createTestTenant();
         $admin = $this->createTenantUser($tenant, 'owner');
         $course = $this->existingCourse('SRC');
+        $banner = $this->onAdmin(fn () => CoursePromoBanner::create([
+            'tenant_id' => $tenant->id,
+            'active' => true,
+            'headline' => 'Alt',
+            'offer_url' => 'https://shop.example.test/x',
+            'course_ids' => [$course->id],
+        ]));
 
-        $this->actingAsInTenant($admin, $tenant)->patch('/admin/course-promo-banners', [
-            'banners' => [
-                $course->id => ['active' => '1', 'headline' => 'Test', 'offer_url' => 'https://shop.example.test/x'],
-            ],
-        ]);
-
-        $response = $this->actingAsInTenant($admin, $tenant)->patch('/admin/course-promo-banners', [
-            'banners' => [
-                $course->id => ['active' => '0'],
-            ],
+        $response = $this->actingAsInTenant($admin, $tenant)->patch("/admin/course-promo-banners/{$banner->id}", [
+            'active' => '1',
+            'headline' => 'Neu',
+            'offer_url' => 'https://shop.example.test/y',
+            'course_ids' => [$course->id],
         ]);
 
         $response->assertRedirect();
-        $this->assertDatabaseMissing('course_promo_banner', [
-            'tenant_id' => $tenant->id,
-            'course_id' => $course->id,
-        ]);
+        $this->assertDatabaseHas('course_promo_banner', ['id' => $banner->id, 'headline' => 'Neu', 'offer_url' => 'https://shop.example.test/y']);
     }
 
-    public function test_course_promo_banners_tab_lists_courses(): void
+    public function test_a_school_admin_can_delete_a_promo_banner(): void
     {
         $tenant = $this->createTestTenant();
         $admin = $this->createTenantUser($tenant, 'owner');
         $course = $this->existingCourse('SRC');
+        $banner = $this->onAdmin(fn () => CoursePromoBanner::create([
+            'tenant_id' => $tenant->id,
+            'active' => true,
+            'headline' => 'Löschen',
+            'offer_url' => 'https://shop.example.test/x',
+            'course_ids' => [$course->id],
+        ]));
+
+        $response = $this->actingAsInTenant($admin, $tenant)->delete("/admin/course-promo-banners/{$banner->id}");
+
+        $response->assertRedirect();
+        $this->assertDatabaseMissing('course_promo_banner', ['id' => $banner->id]);
+    }
+
+    public function test_a_school_admin_cannot_update_another_tenants_banner(): void
+    {
+        $tenantA = $this->createTestTenant();
+        $tenantB = $this->createTestTenant();
+        $adminB = $this->createTenantUser($tenantB, 'owner');
+        $course = $this->existingCourse('SRC');
+        $banner = $this->onAdmin(fn () => CoursePromoBanner::create([
+            'tenant_id' => $tenantA->id,
+            'active' => true,
+            'headline' => 'Nur A',
+            'offer_url' => 'https://shop.example.test/x',
+            'course_ids' => [$course->id],
+        ]));
+
+        $response = $this->actingAsInTenant($adminB, $tenantB)->patch("/admin/course-promo-banners/{$banner->id}", [
+            'active' => '1',
+            'headline' => 'Übernommen',
+            'offer_url' => 'https://shop.example.test/y',
+        ]);
+
+        $response->assertNotFound();
+        $this->onAdmin(fn () => $this->assertDatabaseHas('course_promo_banner', ['id' => $banner->id, 'headline' => 'Nur A']));
+    }
+
+    public function test_course_promo_banners_tab_lists_existing_banners(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $course = $this->existingCourse('SRC');
+        $this->onAdmin(fn () => CoursePromoBanner::create([
+            'tenant_id' => $tenant->id,
+            'active' => true,
+            'headline' => 'E2E Sichtbarer Banner',
+            'offer_url' => 'https://shop.example.test/x',
+            'course_ids' => [$course->id],
+        ]));
 
         $response = $this->actingAsInTenant($admin, $tenant)->get('/admin?tab=course-promo-banners');
 
         $response->assertOk();
-        $response->assertSee($course->name);
+        $response->assertSee('E2E Sichtbarer Banner');
     }
 
-    public function test_promo_banner_configuration_is_isolated_per_tenant(): void
+    public function test_banner_configuration_is_isolated_per_tenant(): void
     {
         $tenantA = $this->createTestTenant();
         $tenantB = $this->createTestTenant();
-        $adminA = $this->createTenantUser($tenantA, 'owner');
         $course = $this->existingCourse('SRC');
+        $this->onAdmin(fn () => CoursePromoBanner::create([
+            'tenant_id' => $tenantA->id,
+            'active' => true,
+            'headline' => 'Nur für A',
+            'offer_url' => 'https://shop.example.test/a',
+            'course_ids' => [$course->id],
+        ]));
 
-        $this->actingAsInTenant($adminA, $tenantA)->patch('/admin/course-promo-banners', [
-            'banners' => [
-                $course->id => ['active' => '1', 'headline' => 'Nur für A', 'offer_url' => 'https://shop.example.test/a'],
-            ],
-        ]);
-
-        $this->assertDatabaseHas('course_promo_banner', ['tenant_id' => $tenantA->id, 'headline' => 'Nur für A']);
-        $this->assertDatabaseMissing('course_promo_banner', ['tenant_id' => $tenantB->id, 'course_id' => $course->id]);
+        $this->onAdmin(fn () => $this->assertDatabaseHas('course_promo_banner', ['tenant_id' => $tenantA->id, 'headline' => 'Nur für A']));
+        $this->onAdmin(fn () => $this->assertDatabaseMissing('course_promo_banner', ['tenant_id' => $tenantB->id, 'headline' => 'Nur für A']));
     }
 
-    public function test_banner_is_shown_on_the_configured_courses_page(): void
+    public function test_banner_is_shown_on_each_of_its_configured_courses(): void
     {
         $tenant = $this->createTestTenant();
         $learner = $this->createTenantUser($tenant, 'learner');
-        $course = $this->existingCourse('SRC');
-        $this->grantEntitlement($tenant, $learner, $course);
+        $courseA = $this->existingCourse('SRC');
+        $courseB = $this->existingCourse('UBI');
+        $this->grantEntitlement($tenant, $learner, $courseA);
+        $this->grantEntitlement($tenant, $learner, $courseB);
 
         $this->onAdmin(fn () => CoursePromoBanner::create([
             'tenant_id' => $tenant->id,
-            'course_id' => $course->id,
             'active' => true,
-            'headline' => 'Mach weiter mit der Segelausbildung!',
+            'headline' => 'Auf beiden Kursen sichtbar',
             'description' => 'Erweitere deinen Schein um die Segelprüfung.',
+            'bullets' => ['Erster Punkt', 'Zweiter Punkt'],
             'cta_label' => 'Jetzt entdecken',
             'price_label' => '149 €',
             'discount_percent' => 10,
             'coupon_code' => 'SEGEL10',
             'offer_url' => 'https://shop.example.test/segel-ergaenzung',
+            'course_ids' => [$courseA->id, $courseB->id],
         ]));
 
-        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
+        $responseA = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$courseA->id}");
+        $responseA->assertOk();
+        $responseA->assertSee('Auf beiden Kursen sichtbar');
+        $responseA->assertSee('Erster Punkt');
+        $responseA->assertSee('149 €', false);
+        $responseA->assertSee('134,10 €', false);
+        $responseA->assertSee('SEGEL10');
+        $responseA->assertSee('https://shop.example.test/segel-ergaenzung');
 
-        $response->assertOk();
-        $response->assertSee('Mach weiter mit der Segelausbildung!');
-        $response->assertSee('Erweitere deinen Schein um die Segelprüfung.');
-        $response->assertSee('149 €', false);
-        $response->assertSee('134,10 €', false);
-        $response->assertSee('SEGEL10');
-        $response->assertSee('https://shop.example.test/segel-ergaenzung');
+        $responseB = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$courseB->id}");
+        $responseB->assertOk();
+        $responseB->assertSee('Auf beiden Kursen sichtbar');
     }
 
-    public function test_banner_with_bullets_shows_them_on_the_course_page(): void
+    public function test_banner_is_hidden_without_a_configuration(): void
     {
         $tenant = $this->createTestTenant();
         $learner = $this->createTenantUser($tenant, 'learner');
         $course = $this->existingCourse('SRC');
         $this->grantEntitlement($tenant, $learner, $course);
 
+        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
+
+        $response->assertOk();
+        $response->assertDontSee('Mach weiter mit der Segelausbildung!');
+    }
+
+    public function test_banner_is_hidden_on_a_course_it_does_not_target(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $otherCourse = $this->existingCourse('UBI');
+        $this->grantEntitlement($tenant, $learner, $course);
+        $this->grantEntitlement($tenant, $learner, $otherCourse);
+
         $this->onAdmin(fn () => CoursePromoBanner::create([
             'tenant_id' => $tenant->id,
-            'course_id' => $course->id,
             'active' => true,
-            'headline' => 'Test mit Bullets',
-            'bullets' => ['Erster Punkt', 'Zweiter Punkt'],
+            'headline' => 'Nur auf dem anderen Kurs',
             'offer_url' => 'https://shop.example.test/x',
+            'course_ids' => [$otherCourse->id],
         ]));
 
         $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
 
         $response->assertOk();
-        $response->assertSee('Erster Punkt');
-        $response->assertSee('Zweiter Punkt');
+        $response->assertDontSee('Nur auf dem anderen Kurs');
     }
 
     public function test_banner_is_hidden_below_its_progress_trigger_threshold(): void
@@ -220,11 +275,10 @@ class CoursePromoBannerTest extends TestCase
 
         $this->onAdmin(fn () => CoursePromoBanner::create([
             'tenant_id' => $tenant->id,
-            'course_id' => $course->id,
             'active' => true,
             'headline' => 'Erst ab 50%',
             'offer_url' => 'https://shop.example.test/x',
-            'trigger_course_id' => $course->id,
+            'course_ids' => [$course->id],
             'trigger_percent' => 50,
         ]));
 
@@ -244,11 +298,10 @@ class CoursePromoBannerTest extends TestCase
 
         $this->onAdmin(fn () => CoursePromoBanner::create([
             'tenant_id' => $tenant->id,
-            'course_id' => $course->id,
             'active' => true,
             'headline' => 'Erst ab 50%',
             'offer_url' => 'https://shop.example.test/x',
-            'trigger_course_id' => $course->id,
+            'course_ids' => [$course->id],
             'trigger_percent' => 50,
         ]));
 
@@ -258,65 +311,31 @@ class CoursePromoBannerTest extends TestCase
         $response->assertSee('Erst ab 50%');
     }
 
-    public function test_banner_trigger_can_reference_a_different_course_than_it_is_shown_on(): void
+    public function test_banner_trigger_threshold_is_evaluated_per_course_independently(): void
     {
         $tenant = $this->createTestTenant();
         $learner = $this->createTenantUser($tenant, 'learner');
-        $course = $this->existingCourse('SRC');
-        $otherCourse = $this->existingCourse('UBI');
-        $this->grantEntitlement($tenant, $learner, $course);
-        $this->grantEntitlement($tenant, $learner, $otherCourse);
-        $this->masterAllQuestions($tenant, $learner, $otherCourse);
+        $courseA = $this->existingCourse('SRC');
+        $courseB = $this->existingCourse('UBI');
+        $this->grantEntitlement($tenant, $learner, $courseA);
+        $this->grantEntitlement($tenant, $learner, $courseB);
+        $this->masterAllQuestions($tenant, $learner, $courseA);
 
         $this->onAdmin(fn () => CoursePromoBanner::create([
             'tenant_id' => $tenant->id,
-            'course_id' => $course->id,
             'active' => true,
-            'headline' => 'Erst ab Fortschritt in UBI',
+            'headline' => 'Erst ab 50%',
             'offer_url' => 'https://shop.example.test/x',
-            'trigger_course_id' => $otherCourse->id,
+            'course_ids' => [$courseA->id, $courseB->id],
             'trigger_percent' => 50,
         ]));
 
-        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
+        $responseA = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$courseA->id}");
+        $responseA->assertOk();
+        $responseA->assertSee('Erst ab 50%');
 
-        $response->assertOk();
-        $response->assertSee('Erst ab Fortschritt in UBI');
-    }
-
-    public function test_banner_is_hidden_without_a_configuration(): void
-    {
-        $tenant = $this->createTestTenant();
-        $learner = $this->createTenantUser($tenant, 'learner');
-        $course = $this->existingCourse('SRC');
-        $this->grantEntitlement($tenant, $learner, $course);
-
-        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
-
-        $response->assertOk();
-        $response->assertDontSee('Mach weiter mit der Segelausbildung!');
-    }
-
-    public function test_banner_is_hidden_on_a_different_course(): void
-    {
-        $tenant = $this->createTestTenant();
-        $learner = $this->createTenantUser($tenant, 'learner');
-        $course = $this->existingCourse('SRC');
-        $otherCourse = $this->existingCourse('UBI');
-        $this->grantEntitlement($tenant, $learner, $course);
-        $this->grantEntitlement($tenant, $learner, $otherCourse);
-
-        $this->onAdmin(fn () => CoursePromoBanner::create([
-            'tenant_id' => $tenant->id,
-            'course_id' => $otherCourse->id,
-            'active' => true,
-            'headline' => 'Nur auf dem anderen Kurs',
-            'offer_url' => 'https://shop.example.test/x',
-        ]));
-
-        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
-
-        $response->assertOk();
-        $response->assertDontSee('Nur auf dem anderen Kurs');
+        $responseB = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$courseB->id}");
+        $responseB->assertOk();
+        $responseB->assertDontSee('Erst ab 50%');
     }
 }

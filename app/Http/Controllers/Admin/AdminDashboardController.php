@@ -83,7 +83,7 @@ class AdminDashboardController extends Controller
         $addonTemplates = AddonTemplate::where('active', true)->orderBy('sort_order')->orderBy('title')->get();
         $tenantAddons = TenantAddon::where('tenant_id', $tenant->id)->get()->keyBy('addon_template_id');
 
-        $coursePromoBanners = CoursePromoBanner::where('tenant_id', $tenant->id)->get()->keyBy('course_id');
+        $coursePromoBanners = CoursePromoBanner::where('tenant_id', $tenant->id)->orderBy('created_at')->get();
 
         $disabledCourseIds = TenantCourseDisabled::where('tenant_id', $tenant->id)->pluck('course_id');
 

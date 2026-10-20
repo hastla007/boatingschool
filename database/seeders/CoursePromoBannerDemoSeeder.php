@@ -9,27 +9,32 @@ use Illuminate\Database\Seeder;
 
 /**
  * Demo-Bestückung für den Kurs-Empfehlungsbanner (siehe CoursePromoBanner):
- * auf der Kursseite von "SBF See & Binnen" wirbt die Demo-Bootsschule
- * "mueller" zusätzlich zum Addon-Banner (siehe AddonDemoSeeder) für den
- * SRC-Funkschein als sinnvolle Ergänzung -- zeigt, dass beide Banner-Arten
- * gleichzeitig auf einer Kursseite erscheinen können.
+ * die Demo-Bootsschule "mueller" wirbt mit einem einzigen Banner
+ * gleichzeitig auf den Kursseiten "SBF See & Binnen" und "SBF See" für den
+ * SRC-Funkschein als sinnvolle Ergänzung -- zeigt, dass ein Banner mehrere
+ * Kursseiten gleichzeitig bespielen kann und zusätzlich zum Addon-Banner
+ * (siehe AddonDemoSeeder) erscheint.
  */
 class CoursePromoBannerDemoSeeder extends Seeder
 {
     public function run(): void
     {
         $tenant = Tenant::where('slug', 'mueller')->first();
-        $course = CourseDefinition::withoutGlobalScopes()->where('code', 'SBF-SEE-BIN')->whereNull('tenant_id')->first();
 
-        if (! $tenant || ! $course) {
+        $courseIds = CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')
+            ->whereIn('code', ['SBF-SEE-BIN', 'SBF-SEE'])
+            ->pluck('id')
+            ->values()
+            ->all();
+
+        if (! $tenant || empty($courseIds)) {
             return;
         }
 
         CoursePromoBanner::updateOrCreate(
-            ['tenant_id' => $tenant->id, 'course_id' => $course->id],
+            ['tenant_id' => $tenant->id, 'headline' => 'Jetzt auch den Seefunk-Schein (SRC) sichern!'],
             [
                 'active' => true,
-                'headline' => 'Jetzt auch den Seefunk-Schein (SRC) sichern!',
                 'description' => 'Perfekt in Kombination mit deinem Bootsführerschein.',
                 'bullets' => [
                     'Nur 12 offizielle Prüfungsbögen',
@@ -40,6 +45,8 @@ class CoursePromoBannerDemoSeeder extends Seeder
                 'discount_percent' => 15,
                 'coupon_code' => 'SRC15',
                 'offer_url' => 'https://bootsschule-mueller.de/angebote/src',
+                'course_ids' => $courseIds,
+                'trigger_percent' => 0,
             ]
         );
     }

@@ -101,7 +101,9 @@ Route::middleware(['auth', 'tenant.role:owner,admin,instructor'])->prefix('admin
 
     Route::patch('/addons', [AddonController::class, 'update'])->name('addons.update');
 
-    Route::patch('/course-promo-banners', [CoursePromoBannerController::class, 'update'])->name('course-promo-banners.update');
+    Route::post('/course-promo-banners', [CoursePromoBannerController::class, 'store'])->name('course-promo-banners.store');
+    Route::patch('/course-promo-banners/{coursePromoBanner}', [CoursePromoBannerController::class, 'update'])->name('course-promo-banners.update');
+    Route::delete('/course-promo-banners/{coursePromoBanner}', [CoursePromoBannerController::class, 'destroy'])->name('course-promo-banners.destroy');
 
     Route::patch('/courses', [CourseSelectionController::class, 'update'])->name('courses.update');
 

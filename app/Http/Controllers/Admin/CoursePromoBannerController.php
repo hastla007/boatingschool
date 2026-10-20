@@ -4,82 +4,95 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
-use App\Models\CourseDefinition;
 use App\Models\CoursePromoBanner;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Erlaubt Bootsschulen, auf der Seite eines Kurses für einen anderen oder
- * weiterführenden Kurs (z. B. einen Ergänzungskurs) zu werben -- anders
- * als der vorgefertigte Addon-Banner (siehe AddonController) gehört
- * Überschrift und Beschreibungstext hier komplett der Bootsschule, Preis/
- * Rabatt/Gutscheincode und der Link zur externen Angebotsseite sind
- * optional.
+ * Erlaubt Bootsschulen, frei formulierte Banner anzulegen, die für einen
+ * anderen oder weiterführenden Kurs werben (z. B. einen Ergänzungskurs) --
+ * anders als der vorgefertigte Addon-Banner (siehe AddonController) gehört
+ * der komplette Text hier der Bootsschule. Ein Banner kann gleichzeitig
+ * auf mehreren Kursseiten erscheinen (course_ids); auf jeder davon gated
+ * der Kursfortschritt des jeweiligen Kurses selbst gegen trigger_percent.
+ * Eine Bootsschule kann mehrere unabhängige Banner anlegen, daher eine
+ * echte Zeilen-CRUD statt der bulk-PATCH-Form wie bei den Addons.
  */
 class CoursePromoBannerController extends Controller
 {
-    public function update(Request $request, TenantContext $tenantContext): Response
+    public function store(Request $request, TenantContext $tenantContext): Response
     {
         $tenant = $tenantContext->tenant();
+        $validated = $this->validateBanner($request);
 
-        $validated = $request->validate([
-            'banners' => ['array'],
-            'banners.*.active' => ['nullable', 'boolean'],
-            'banners.*.headline' => ['nullable', 'string', 'max:255'],
-            'banners.*.description' => ['nullable', 'string', 'max:2000'],
-            'banners.*.bullets' => ['nullable', 'string'],
-            'banners.*.cta_label' => ['nullable', 'string', 'max:255'],
-            'banners.*.price_label' => ['nullable', 'string', 'max:255'],
-            'banners.*.discount_percent' => ['nullable', 'integer', 'min:0', 'max:100'],
-            'banners.*.coupon_code' => ['nullable', 'string', 'max:255'],
-            'banners.*.offer_url' => ['nullable', 'url', 'max:2048'],
-            'banners.*.trigger_course_id' => ['nullable', 'uuid', 'exists:course_definition,id'],
-            'banners.*.trigger_percent' => ['nullable', 'integer', 'min:0', 'max:100'],
-        ]);
+        CoursePromoBanner::create($validated + ['tenant_id' => $tenant->id]);
 
-        $rows = collect($validated['banners'] ?? []);
-        $courseIds = CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')->pluck('id');
+        AuditLog::record($tenant->id, $request->user()->id, 'course-promo-banners.create', 'course_promo_banner', null, null, $validated);
 
-        foreach ($courseIds as $courseId) {
-            $row = $rows->get($courseId, []);
-            $active = (bool) ($row['active'] ?? false);
-
-            if (! $active) {
-                CoursePromoBanner::where('tenant_id', $tenant->id)->where('course_id', $courseId)->delete();
-
-                continue;
-            }
-
-            CoursePromoBanner::updateOrCreate(
-                ['tenant_id' => $tenant->id, 'course_id' => $courseId],
-                [
-                    'active' => true,
-                    'headline' => trim((string) ($row['headline'] ?? '')) ?: null,
-                    'description' => trim((string) ($row['description'] ?? '')) ?: null,
-                    'bullets' => $this->parseBullets($row['bullets'] ?? ''),
-                    'cta_label' => trim((string) ($row['cta_label'] ?? '')) ?: 'Jetzt entdecken',
-                    'price_label' => trim((string) ($row['price_label'] ?? '')) ?: null,
-                    'discount_percent' => isset($row['discount_percent']) && $row['discount_percent'] !== '' ? (int) $row['discount_percent'] : null,
-                    'coupon_code' => trim((string) ($row['coupon_code'] ?? '')) ?: null,
-                    'offer_url' => trim((string) ($row['offer_url'] ?? '')) ?: null,
-                    'trigger_course_id' => $row['trigger_course_id'] ?? null,
-                    'trigger_percent' => (int) ($row['trigger_percent'] ?? 0),
-                ]
-            );
-        }
-
-        AuditLog::record($tenant->id, $request->user()->id, 'course-promo-banners.update', 'course_promo_banner', $tenant->id, null, $rows->toArray());
-
-        return back()->with('status', 'Kursempfehlungen aktualisiert.');
+        return back()->with('status', 'Kursempfehlungs-Banner angelegt.');
     }
 
-    /**
-     * Textarea (eine Zeile pro Punkt) -> Array.
-     *
-     * @return string[]
-     */
+    public function update(Request $request, TenantContext $tenantContext, CoursePromoBanner $coursePromoBanner): Response
+    {
+        abort_unless($coursePromoBanner->tenant_id === $tenantContext->id(), 404);
+
+        $validated = $this->validateBanner($request);
+        $before = $coursePromoBanner->toArray();
+
+        $coursePromoBanner->update($validated);
+
+        AuditLog::record($tenantContext->id(), $request->user()->id, 'course-promo-banners.update', 'course_promo_banner', $coursePromoBanner->id, $before, $coursePromoBanner->fresh()->toArray());
+
+        return back()->with('status', 'Kursempfehlungs-Banner aktualisiert.');
+    }
+
+    public function destroy(Request $request, TenantContext $tenantContext, CoursePromoBanner $coursePromoBanner): Response
+    {
+        abort_unless($coursePromoBanner->tenant_id === $tenantContext->id(), 404);
+
+        $before = $coursePromoBanner->toArray();
+        $coursePromoBanner->delete();
+
+        AuditLog::record($tenantContext->id(), $request->user()->id, 'course-promo-banners.delete', 'course_promo_banner', $before['id'], $before, null);
+
+        return back()->with('status', 'Kursempfehlungs-Banner gelöscht.');
+    }
+
+    /** @return array<string, mixed> */
+    private function validateBanner(Request $request): array
+    {
+        $validated = $request->validate([
+            'active' => ['nullable', 'boolean'],
+            'headline' => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string', 'max:2000'],
+            'bullets' => ['nullable', 'string'],
+            'cta_label' => ['nullable', 'string', 'max:255'],
+            'price_label' => ['nullable', 'string', 'max:255'],
+            'discount_percent' => ['nullable', 'integer', 'min:0', 'max:100'],
+            'coupon_code' => ['nullable', 'string', 'max:255'],
+            'offer_url' => ['nullable', 'url', 'max:2048'],
+            'course_ids' => ['nullable', 'array'],
+            'course_ids.*' => ['uuid', 'exists:course_definition,id'],
+            'trigger_percent' => ['nullable', 'integer', 'min:0', 'max:100'],
+        ]);
+
+        return [
+            'active' => (bool) ($validated['active'] ?? false),
+            'headline' => $validated['headline'],
+            'description' => trim((string) ($validated['description'] ?? '')) ?: null,
+            'bullets' => $this->parseBullets($validated['bullets'] ?? ''),
+            'cta_label' => trim((string) ($validated['cta_label'] ?? '')) ?: 'Jetzt entdecken',
+            'price_label' => trim((string) ($validated['price_label'] ?? '')) ?: null,
+            'discount_percent' => isset($validated['discount_percent']) && $validated['discount_percent'] !== '' ? (int) $validated['discount_percent'] : null,
+            'coupon_code' => trim((string) ($validated['coupon_code'] ?? '')) ?: null,
+            'offer_url' => trim((string) ($validated['offer_url'] ?? '')) ?: null,
+            'course_ids' => array_values($validated['course_ids'] ?? []),
+            'trigger_percent' => (int) ($validated['trigger_percent'] ?? 0),
+        ];
+    }
+
+    /** @return string[] */
     private function parseBullets(string $raw): array
     {
         return array_values(array_filter(array_map('trim', explode("\n", $raw)), fn ($line) => $line !== ''));

@@ -95,7 +95,7 @@
 
     @if ($coursePromoBanner)
         <div x-data="{ dismissed: false }"
-             x-init="dismissed = (() => { try { return localStorage.getItem('course-promo-banner-dismissed-{{ $coursePromoBanner->course_id }}') === '1' } catch (e) { return false } })()"
+             x-init="dismissed = (() => { try { return localStorage.getItem('course-promo-banner-dismissed-{{ $coursePromoBanner->id }}-{{ $course->id }}') === '1' } catch (e) { return false } })()"
              x-show="!dismissed"
              class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border-l-4 p-4 sm:p-5 mb-6 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5"
              style="border-color: var(--brand-secondary, #00A8A8)">
@@ -143,7 +143,7 @@
                         </div>
                     @endif
                     <button type="button"
-                            @click="dismissed = true; (() => { try { localStorage.setItem('course-promo-banner-dismissed-{{ $coursePromoBanner->course_id }}', '1') } catch (e) {} })()"
+                            @click="dismissed = true; (() => { try { localStorage.setItem('course-promo-banner-dismissed-{{ $coursePromoBanner->id }}-{{ $course->id }}', '1') } catch (e) {} })()"
                             class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xl leading-none w-8 h-8 shrink-0 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition"
                             aria-label="Banner schließen">
                         &times;
