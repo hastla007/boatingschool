@@ -1,10 +1,13 @@
 <p class="text-slate-500 mb-6">Hier sehen Sie die wichtigsten Informationen Ihrer Bootsschule.</p>
 
-<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
     <x-stat-tile icon="users" :value="$learnerCount" label="Teilnehmer" tone="brand" />
     <x-stat-tile icon="academic-cap" :value="$activeEntitlements" label="Aktive Kurszugänge" />
     <x-stat-tile icon="bolt" :value="$weeklyActivityRate.'%'" label="wöchentlich aktiv" tone="success" />
     <x-stat-tile icon="clipboard-document-check" :value="$recentExamsCount" label="Prüfungen (30 Tage)" tone="warning" />
+</div>
+
+<div class="grid grid-cols-2 gap-3 mb-6 max-w-md">
     <x-stat-tile icon="compass" :value="$upcomingAppointmentsNext7Days" label="Praxistermine (7 Tage)" />
     <x-stat-tile icon="compass" :value="$upcomingAppointmentsNext30Days" label="Praxistermine (30 Tage)" />
 </div>
