@@ -1,5 +1,5 @@
 @php
-    $dimensions = ['a4' => [210, 297], 'a5' => [148, 210], 'a6' => [105, 148]];
+    $dimensions = ['a4' => [297, 210], 'a5' => [210, 148], 'a6' => [148, 105]];
     [$pageWidthMm, $pageHeightMm] = $dimensions[$size] ?? $dimensions['a4'];
     $fontSizes = [
         'a4' => ['sender' => '10pt', 'recipient' => '18pt'],

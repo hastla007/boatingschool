@@ -37,7 +37,7 @@ class WillkommensboxLabelController extends Controller
             'branding' => $branding,
             'tenant' => $tenant,
             'size' => $size,
-        ])->setPaper(strtoupper($size), 'portrait');
+        ])->setPaper(strtoupper($size), 'landscape');
 
         return $pdf->download("versandlabel-{$size}-{$willkommensboxOrder->id}.pdf");
     }
