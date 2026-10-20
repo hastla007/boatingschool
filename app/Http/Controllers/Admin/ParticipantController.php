@@ -88,11 +88,13 @@ class ParticipantController extends Controller
 
         // Für die Benachrichtigungsbox neben den Praxis-Anmeldungen: alles,
         // wo die Bootsschule gerade am Zug ist -- eine neue Anmeldung ohne
-        // Prüfungstermin-Vorschlag, oder ein abgelehnter Vorschlag (egal ob
+        // Prüfungstermin-Vorschlag, ein abgelehnter Vorschlag (egal ob
         // Prüfungstermin oder ein zusätzlicher Praxistermin), der einen
-        // neuen Vorschlag braucht. Ein Vorschlag, der noch auf Rückmeldung
-        // des Teilnehmers wartet, ist dagegen nicht an der Bootsschule.
-        $praxisActionItems = $praxisFormSubmissions->flatMap(function (PraxisFormSubmission $submission) {
+        // neuen Vorschlag braucht, oder eine noch nicht versendete
+        // Willkommensbox-Bestellung. Ein Vorschlag, der noch auf
+        // Rückmeldung des Teilnehmers wartet, ist dagegen nicht an der
+        // Bootsschule.
+        $actionItems = $praxisFormSubmissions->flatMap(function (PraxisFormSubmission $submission) {
             $items = collect();
             $course = $submission->course->name ?? '—';
 
@@ -113,12 +115,16 @@ class ParticipantController extends Controller
             return $items;
         });
 
+        if ($willkommensboxOrder && ! $willkommensboxOrder->isShipped()) {
+            $actionItems->push(['course' => 'Willkommensbox', 'label' => 'Versand', 'reason' => 'Bestellung eingegangen -- bitte Willkommensbox versenden.']);
+        }
+
         return view('admin.participants.show', [
             'participant' => $user,
             'membership' => $membership,
             'bookings' => $bookings,
             'praxisFormSubmissions' => $praxisFormSubmissions,
-            'praxisActionItems' => $praxisActionItems,
+            'actionItems' => $actionItems,
             'willkommensboxOrder' => $willkommensboxOrder,
             'hasWillkommensboxAccess' => $user->hasWillkommensboxAccess($tenant),
         ]);

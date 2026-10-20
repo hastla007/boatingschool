@@ -512,6 +512,10 @@ class ParticipantDetailTest extends TestCase
         $response->assertSee('Bitte beim Nachbarn abgeben.');
         $response->assertSee('Als versendet markieren');
         $response->assertSee('Bestellung eingegangen');
+        // Taucht auch in der Benachrichtigungsbox neben den
+        // Praxis-Anmeldungen auf, nicht nur in der Willkommensbox-Karte.
+        $response->assertSee('bitte Willkommensbox versenden.');
+        $response->assertDontSee('Keine offenen Aktionen.');
     }
 
     public function test_detail_page_hides_the_shipping_notice_once_the_order_is_shipped(): void
@@ -534,6 +538,7 @@ class ParticipantDetailTest extends TestCase
 
         $response->assertOk();
         $response->assertDontSee('Bestellung eingegangen');
+        $response->assertSee('Keine offenen Aktionen.');
     }
 
     public function test_detail_page_shows_a_hint_when_access_exists_but_nothing_was_ordered_yet(): void

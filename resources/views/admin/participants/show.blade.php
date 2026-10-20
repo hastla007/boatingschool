@@ -300,7 +300,7 @@
         <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
             <x-icon name="flag" class="w-4 h-4 text-slate-400" /> Benachrichtigungen
         </h3>
-        @forelse ($praxisActionItems as $item)
+        @forelse ($actionItems as $item)
             <div class="flex items-start gap-2 text-sm text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 rounded-lg px-3 py-2 mb-2 last:mb-0">
                 <x-icon name="bolt" class="w-4 h-4 shrink-0 mt-0.5" />
                 <div>
