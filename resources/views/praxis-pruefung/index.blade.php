@@ -88,14 +88,14 @@
             <x-praxis-appointment-response :submission="$submission" :course="$course" :appointment-slot="0" label="Prüfungstermin" />
 
             @if ($submission->isExamDateConfirmed())
-                @for ($practiceSlot = 1; $practiceSlot <= $submission->requiredPracticeAppointmentCount(); $practiceSlot++)
+                @foreach ($submission->practiceSlotNumbers() as $practiceSlot)
                     <x-praxis-appointment-response
                         :submission="$submission"
                         :course="$course"
                         :appointment-slot="$practiceSlot"
-                        :label="$submission->requiredPracticeAppointmentCount() > 1 ? 'Praxistermin '.$practiceSlot : 'Praxistermin'"
+                        :label="$submission->labelForSlot($practiceSlot)"
                     />
-                @endfor
+                @endforeach
             @endif
         </div>
     @elseif ($state === 'form')

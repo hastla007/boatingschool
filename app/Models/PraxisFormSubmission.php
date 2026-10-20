@@ -7,7 +7,6 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 class PraxisFormSubmission extends Model
@@ -31,9 +30,9 @@ class PraxisFormSubmission extends Model
     /**
      * Alle Terminvorschlagsrunden über alle Slots hinweg -- slot 0 ist der
      * Prüfungstermin selbst, slot 1, 2, ... sind unabhängige, zusätzliche
-     * Praxistermine (siehe requiredPracticeAppointmentCount()). Für einen
-     * einzelnen Slot immer appointmentsForSlot() verwenden, nicht direkt
-     * filtern.
+     * Termine, die die Bootsschule frei benannt und terminiert anlegt
+     * (siehe nextPracticeSlotNumber()). Für einen einzelnen Slot immer
+     * appointmentsForSlot() verwenden, nicht direkt filtern.
      */
     public function examAppointments(): HasMany
     {
@@ -61,20 +60,34 @@ class PraxisFormSubmission extends Model
         return $this->confirmed_exam_date !== null;
     }
 
-    /** Anzahl zusätzlicher Praxistermine, die für den Kurs dieser Anmeldung vorgesehen sind (siehe PraxisFormTemplate). */
-    public function requiredPracticeAppointmentCount(): int
+    /**
+     * Die vom Teilnehmer bereits angelegten zusätzlichen Terminreihen
+     * (slot >= 1), aufsteigend sortiert -- ihre Anzahl und Bezeichnung
+     * bestimmt die Bootsschule frei, es gibt kein festes Kontingent.
+     *
+     * @return array<int, int>
+     */
+    public function practiceSlotNumbers(): array
     {
-        return $this->template->practice_appointment_count ?? 0;
+        return $this->examAppointments->where('slot', '>', 0)->pluck('slot')->unique()->sort()->values()->all();
+    }
+
+    public function nextPracticeSlotNumber(): int
+    {
+        $existing = $this->practiceSlotNumbers();
+
+        return $existing === [] ? 1 : max($existing) + 1;
+    }
+
+    /** Die von der Bootsschule vergebene Bezeichnung dieses Termins (z. B. "Kleine Praxisstunde (1h)", "Navigationsstunde"). */
+    public function labelForSlot(int $slot): ?string
+    {
+        return $this->latestAppointmentForSlot($slot)?->label;
     }
 
     public function isPracticeAppointmentConfirmed(int $slot): bool
     {
-        return $this->confirmedPracticeDate($slot) !== null;
-    }
-
-    public function confirmedPracticeDate(int $slot): ?Carbon
-    {
-        return $this->appointmentsForSlot($slot)->firstWhere('response', 'accepted')?->exam_date;
+        return $this->appointmentsForSlot($slot)->firstWhere('response', 'accepted') !== null;
     }
 
     public function course(): BelongsTo

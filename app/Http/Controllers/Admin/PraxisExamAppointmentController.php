@@ -13,11 +13,13 @@ use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Terminvorschlag der Bootsschule zu einer Praxis-Anmeldung -- entweder
- * für den Prüfungstermin selbst (slot 0) oder, sobald dieser fixiert ist,
- * für einen zusätzlichen Praxistermin (slot 1, 2, ..., siehe
- * PraxisExamAppointmentService). Gegenstück zur Rückmeldung des Lerners
- * (PraxisExamAppointmentController im Lerner-Bereich).
+ * Terminvorschlag der Bootsschule zu einer Praxis-Anmeldung -- für den
+ * Prüfungstermin selbst (slot 0, ohne "slot"-Feld im Formular), eine neue
+ * Runde für einen bereits bestehenden zusätzlichen Termin (slot gesetzt),
+ * oder einen komplett neuen, frei benannten Termin (slot leer, "label"
+ * Pflicht -- siehe PraxisExamAppointmentService). Gegenstück zur
+ * Rückmeldung des Lerners (PraxisExamAppointmentController im
+ * Lerner-Bereich).
  */
 class PraxisExamAppointmentController extends Controller
 {
@@ -27,13 +29,22 @@ class PraxisExamAppointmentController extends Controller
 
         $validated = $request->validate([
             'exam_date' => ['required', 'date'],
+            'ends_at' => ['nullable', 'date', 'after:exam_date'],
             'slot' => ['nullable', 'integer', 'min:0'],
+            'label' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $slot = (int) ($validated['slot'] ?? 0);
+        $slot = $request->filled('slot') ? (int) $request->input('slot') : null;
 
         try {
-            $appointment = $appointments->propose($submission, $request->user(), Carbon::parse($validated['exam_date']), $slot);
+            $appointment = $appointments->propose(
+                $submission,
+                $request->user(),
+                Carbon::parse($validated['exam_date']),
+                isset($validated['ends_at']) ? Carbon::parse($validated['ends_at']) : null,
+                $slot,
+                $validated['label'] ?? null,
+            );
         } catch (RuntimeException $e) {
             return back()->withErrors(['exam_date' => $e->getMessage()]);
         }
@@ -43,8 +54,6 @@ class PraxisExamAppointmentController extends Controller
             'praxis_exam_appointment', $appointment->id, null, $appointment->toArray()
         );
 
-        $label = $slot === 0 ? 'Prüfungstermin' : 'Praxistermin';
-
-        return back()->with('status', $label.' vorgeschlagen (Runde '.$appointment->round.').');
+        return back()->with('status', '"'.$appointment->label.'" vorgeschlagen (Runde '.$appointment->round.').');
     }
 }

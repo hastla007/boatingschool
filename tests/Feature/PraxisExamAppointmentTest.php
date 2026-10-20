@@ -12,11 +12,14 @@ use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
 /**
- * Prüfungstermin-Vorschlagsrunden zu einer Praxis-Anmeldung (siehe
+ * Terminvorschlagsrunden zu einer Praxis-Anmeldung (siehe
  * PraxisExamAppointmentService): die Bootsschule schlägt einen Termin vor
  * (auf der Teilnehmer-Detailseite), der Lerner nimmt an oder lehnt ab --
  * bei Ablehnung folgt eine neue Runde, bis ein Termin angenommen und
- * damit fixiert wird.
+ * damit fixiert wird. Sobald der Prüfungstermin (slot 0) fixiert ist,
+ * kann die Bootsschule beliebig viele zusätzliche, frei benannte und
+ * terminierte Termine anlegen (slot 1, 2, ...) -- keine feste Anzahl,
+ * keine feste Bezeichnung.
  */
 class PraxisExamAppointmentTest extends TestCase
 {
@@ -51,7 +54,7 @@ class PraxisExamAppointmentTest extends TestCase
      * demselben Kurs würde sonst mit dessen min_progress_percent in
      * Konflikt geraten (vgl. PraxisPruefungFormTest).
      */
-    private function createSubmission(Tenant $tenant, User $learner, int $practiceAppointmentCount = 0): PraxisFormSubmission
+    private function createSubmission(Tenant $tenant, User $learner): PraxisFormSubmission
     {
         $course = $this->onAdmin(function () {
             $course = CourseDefinition::withoutGlobalScopes()->create([
@@ -68,14 +71,13 @@ class PraxisExamAppointmentTest extends TestCase
 
         $this->grantEntitlement($tenant, $learner, $course);
 
-        $template = $this->onAdmin(function () use ($course, $practiceAppointmentCount) {
+        $template = $this->onAdmin(function () use ($course) {
             $template = PraxisFormTemplate::create([
                 'title' => 'E2E Termin-Formular',
                 'min_progress_percent' => 0,
                 'course_ids' => [$course->id],
                 'fields' => [],
                 'active' => true,
-                'practice_appointment_count' => $practiceAppointmentCount,
             ]);
             $this->createdTemplateIds[] = $template->id;
 
@@ -91,13 +93,14 @@ class PraxisExamAppointmentTest extends TestCase
         ]));
     }
 
-    private function confirmSlot(Tenant $tenant, User $admin, User $learner, PraxisFormSubmission $submission, string $examDate, int $slot = 0): PraxisExamAppointment
+    /** Schlägt den Prüfungstermin (slot 0) vor und lässt ihn vom Lerner annehmen. */
+    private function confirmExamDate(Tenant $tenant, User $admin, User $learner, PraxisFormSubmission $submission, string $examDate): PraxisExamAppointment
     {
         $this->actingAsInTenant($admin, $tenant)->post(
             "/admin/praxis-form-submissions/{$submission->id}/exam-appointments",
-            ['exam_date' => $examDate, 'slot' => $slot]
+            ['exam_date' => $examDate, 'slot' => 0]
         );
-        $appointment = $this->onAdmin(fn () => PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->where('slot', $slot)->latest('round')->first());
+        $appointment = $this->onAdmin(fn () => PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->where('slot', 0)->first());
         $this->actingAsInTenant($learner, $tenant)->post(
             route('praxis-pruefung.exam-appointments.respond', [$submission->course_id, $appointment->id]),
             ['decision' => 'accepted']
@@ -115,15 +118,17 @@ class PraxisExamAppointmentTest extends TestCase
 
         $response = $this->actingAsInTenant($admin, $tenant)->post(
             "/admin/praxis-form-submissions/{$submission->id}/exam-appointments",
-            ['exam_date' => '2026-05-10 09:00']
+            ['exam_date' => '2026-05-10 09:00', 'slot' => 0]
         );
 
         $response->assertSessionHasNoErrors();
         $this->onAdmin(function () use ($submission) {
-            $appointment = PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->first();
+            $appointment = PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->where('slot', 0)->first();
             $this->assertNotNull($appointment);
             $this->assertSame(1, $appointment->round);
             $this->assertSame('pending', $appointment->response);
+            $this->assertSame('Prüfungstermin', $appointment->label);
+            $this->assertNull($appointment->ends_at);
             $this->assertSame('10.05.2026 09:00', $appointment->exam_date->format('d.m.Y H:i'));
         });
     }
@@ -136,17 +141,17 @@ class PraxisExamAppointmentTest extends TestCase
         $submission = $this->createSubmission($tenant, $learner);
         $this->actingAsInTenant($admin, $tenant)->post(
             "/admin/praxis-form-submissions/{$submission->id}/exam-appointments",
-            ['exam_date' => '2026-05-10 09:00']
+            ['exam_date' => '2026-05-10 09:00', 'slot' => 0]
         );
 
         $response = $this->actingAsInTenant($admin, $tenant)->post(
             "/admin/praxis-form-submissions/{$submission->id}/exam-appointments",
-            ['exam_date' => '2026-05-12 09:00']
+            ['exam_date' => '2026-05-12 09:00', 'slot' => 0]
         );
 
         $response->assertSessionHasErrors('exam_date');
         $this->onAdmin(function () use ($submission) {
-            $this->assertSame(1, PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->count());
+            $this->assertSame(1, PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->where('slot', 0)->count());
         });
     }
 
@@ -160,7 +165,7 @@ class PraxisExamAppointmentTest extends TestCase
 
         $response = $this->actingAsInTenant($adminB, $tenantB)->post(
             "/admin/praxis-form-submissions/{$submission->id}/exam-appointments",
-            ['exam_date' => '2026-05-10 09:00']
+            ['exam_date' => '2026-05-10 09:00', 'slot' => 0]
         );
 
         $response->assertNotFound();
@@ -174,7 +179,7 @@ class PraxisExamAppointmentTest extends TestCase
         $submission = $this->createSubmission($tenant, $learner);
         $this->actingAsInTenant($admin, $tenant)->post(
             "/admin/praxis-form-submissions/{$submission->id}/exam-appointments",
-            ['exam_date' => '2026-05-10 09:00']
+            ['exam_date' => '2026-05-10 09:00', 'slot' => 0]
         );
         $appointment = $this->onAdmin(fn () => PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->first());
 
@@ -202,7 +207,7 @@ class PraxisExamAppointmentTest extends TestCase
         $submission = $this->createSubmission($tenant, $learner);
         $this->actingAsInTenant($admin, $tenant)->post(
             "/admin/praxis-form-submissions/{$submission->id}/exam-appointments",
-            ['exam_date' => '2026-05-10 09:00']
+            ['exam_date' => '2026-05-10 09:00', 'slot' => 0]
         );
         $firstAppointment = $this->onAdmin(fn () => PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->first());
 
@@ -218,15 +223,14 @@ class PraxisExamAppointmentTest extends TestCase
             $this->assertNull($submission->fresh()->confirmed_exam_date);
         });
 
-        $secondProposal = $this->actingAsInTenant($admin, $tenant)->post(
+        $secondRound = $this->actingAsInTenant($admin, $tenant)->post(
             "/admin/praxis-form-submissions/{$submission->id}/exam-appointments",
-            ['exam_date' => '2026-05-17 09:00']
+            ['exam_date' => '2026-05-17 09:00', 'slot' => 0]
         );
 
-        $secondProposal->assertSessionHasNoErrors();
+        $secondRound->assertSessionHasNoErrors();
         $this->onAdmin(function () use ($submission) {
-            $this->assertSame(1, PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->where('round', 2)->count());
-            $this->assertSame(2, PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->count());
+            $this->assertSame(2, PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->where('slot', 0)->count());
         });
     }
 
@@ -239,7 +243,7 @@ class PraxisExamAppointmentTest extends TestCase
         $submission = $this->createSubmission($tenant, $learner);
         $this->actingAsInTenant($admin, $tenant)->post(
             "/admin/praxis-form-submissions/{$submission->id}/exam-appointments",
-            ['exam_date' => '2026-05-10 09:00']
+            ['exam_date' => '2026-05-10 09:00', 'slot' => 0]
         );
         $appointment = $this->onAdmin(fn () => PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->first());
 
@@ -259,7 +263,7 @@ class PraxisExamAppointmentTest extends TestCase
         $submission = $this->createSubmission($tenant, $learner);
         $this->actingAsInTenant($admin, $tenant)->post(
             "/admin/praxis-form-submissions/{$submission->id}/exam-appointments",
-            ['exam_date' => '2026-05-10 09:00']
+            ['exam_date' => '2026-05-10 09:00', 'slot' => 0]
         );
         $appointment = $this->onAdmin(fn () => PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->first());
         $this->actingAsInTenant($learner, $tenant)->post(
@@ -282,7 +286,7 @@ class PraxisExamAppointmentTest extends TestCase
         $submission = $this->createSubmission($tenant, $learner);
         $this->actingAsInTenant($admin, $tenant)->post(
             "/admin/praxis-form-submissions/{$submission->id}/exam-appointments",
-            ['exam_date' => '2026-05-10 09:00']
+            ['exam_date' => '2026-05-10 09:00', 'slot' => 0]
         );
 
         $response = $this->actingAsInTenant($learner, $tenant)->get(route('praxis-pruefung.index', $submission->course_id));
@@ -294,51 +298,82 @@ class PraxisExamAppointmentTest extends TestCase
         $response->assertSee('Passt mir nicht');
     }
 
-    public function test_admin_cannot_propose_a_practice_appointment_before_the_exam_date_is_confirmed(): void
+    public function test_admin_cannot_create_a_new_appointment_before_the_exam_date_is_confirmed(): void
     {
         $tenant = $this->createTestTenant();
         $admin = $this->createTenantUser($tenant, 'owner');
         $learner = $this->createTenantUser($tenant, 'learner');
-        $submission = $this->createSubmission($tenant, $learner, practiceAppointmentCount: 2);
+        $submission = $this->createSubmission($tenant, $learner);
 
         $response = $this->actingAsInTenant($admin, $tenant)->post(
             "/admin/praxis-form-submissions/{$submission->id}/exam-appointments",
-            ['exam_date' => '2026-06-01 09:00', 'slot' => 1]
+            ['exam_date' => '2026-06-01 09:00', 'label' => 'Kleine Praxisstunde (1h)']
         );
 
         $response->assertSessionHasErrors('exam_date');
         $this->onAdmin(function () use ($submission) {
-            $this->assertSame(0, PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->where('slot', 1)->count());
+            $this->assertSame(0, PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->where('slot', '>', 0)->count());
         });
     }
 
-    public function test_admin_can_propose_and_confirm_multiple_independent_practice_appointments_after_the_exam_date(): void
+    public function test_admin_must_provide_a_label_for_a_new_appointment(): void
     {
         $tenant = $this->createTestTenant();
         $admin = $this->createTenantUser($tenant, 'owner');
         $learner = $this->createTenantUser($tenant, 'learner');
-        $submission = $this->createSubmission($tenant, $learner, practiceAppointmentCount: 2);
-        $this->confirmSlot($tenant, $admin, $learner, $submission, '2026-06-01 09:00', slot: 0);
+        $submission = $this->createSubmission($tenant, $learner);
+        $this->confirmExamDate($tenant, $admin, $learner, $submission, '2026-06-01 09:00');
 
-        $firstPractice = $this->actingAsInTenant($admin, $tenant)->post(
+        $response = $this->actingAsInTenant($admin, $tenant)->post(
             "/admin/praxis-form-submissions/{$submission->id}/exam-appointments",
-            ['exam_date' => '2026-06-05 10:00', 'slot' => 1]
-        );
-        $secondPractice = $this->actingAsInTenant($admin, $tenant)->post(
-            "/admin/praxis-form-submissions/{$submission->id}/exam-appointments",
-            ['exam_date' => '2026-06-06 10:00', 'slot' => 2]
+            ['exam_date' => '2026-06-05 16:00']
         );
 
-        $firstPractice->assertSessionHasNoErrors();
-        $secondPractice->assertSessionHasNoErrors();
+        $response->assertSessionHasErrors('exam_date');
         $this->onAdmin(function () use ($submission) {
-            $this->assertSame(1, PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->where('slot', 1)->count());
-            $this->assertSame(1, PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->where('slot', 2)->count());
+            $this->assertSame(0, PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->where('slot', '>', 0)->count());
+        });
+    }
+
+    public function test_admin_can_freely_create_several_independently_labeled_and_timed_appointments(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $submission = $this->createSubmission($tenant, $learner);
+        $this->confirmExamDate($tenant, $admin, $learner, $submission, '2026-06-01 09:00');
+
+        $first = $this->actingAsInTenant($admin, $tenant)->post(
+            "/admin/praxis-form-submissions/{$submission->id}/exam-appointments",
+            ['exam_date' => '2026-06-05 16:00', 'ends_at' => '2026-06-05 18:00', 'label' => 'Kleine Praxisstunde (2h)']
+        );
+        $second = $this->actingAsInTenant($admin, $tenant)->post(
+            "/admin/praxis-form-submissions/{$submission->id}/exam-appointments",
+            ['exam_date' => '2026-06-06 09:00', 'label' => 'Navigationsstunde']
+        );
+        $third = $this->actingAsInTenant($admin, $tenant)->post(
+            "/admin/praxis-form-submissions/{$submission->id}/exam-appointments",
+            ['exam_date' => '2026-06-07 10:00', 'ends_at' => '2026-06-07 14:00', 'label' => 'Große Praxisstunde (4h)']
+        );
+
+        $first->assertSessionHasNoErrors();
+        $second->assertSessionHasNoErrors();
+        $third->assertSessionHasNoErrors();
+        $this->onAdmin(function () use ($submission) {
+            $appointments = PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)
+                ->where('slot', '>', 0)->orderBy('slot')->get();
+            $this->assertCount(3, $appointments);
+            $this->assertSame('Kleine Praxisstunde (2h)', $appointments[0]->label);
+            $this->assertSame('18:00', $appointments[0]->ends_at->format('H:i'));
+            $this->assertSame('Navigationsstunde', $appointments[1]->label);
+            $this->assertNull($appointments[1]->ends_at);
+            $this->assertSame('Große Praxisstunde (4h)', $appointments[2]->label);
+            $this->assertSame([1, 2, 3], $appointments->pluck('slot')->all());
         });
 
-        $appointment1 = $this->onAdmin(fn () => PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->where('slot', 1)->first());
+        $firstAppointment = $this->onAdmin(fn () => PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->where('slot', 1)->first());
         $this->actingAsInTenant($learner, $tenant)->post(
-            route('praxis-pruefung.exam-appointments.respond', [$submission->course_id, $appointment1->id]),
+            route('praxis-pruefung.exam-appointments.respond', [$submission->course_id, $firstAppointment->id]),
             ['decision' => 'accepted']
         );
 
@@ -346,93 +381,119 @@ class PraxisExamAppointmentTest extends TestCase
             $fresh = $submission->fresh();
             $this->assertTrue($fresh->isPracticeAppointmentConfirmed(1));
             $this->assertFalse($fresh->isPracticeAppointmentConfirmed(2));
+            $this->assertFalse($fresh->isPracticeAppointmentConfirmed(3));
         });
     }
 
-    public function test_admin_cannot_propose_a_practice_slot_beyond_the_configured_count(): void
+    public function test_an_end_time_before_the_start_time_is_rejected(): void
     {
         $tenant = $this->createTestTenant();
         $admin = $this->createTenantUser($tenant, 'owner');
         $learner = $this->createTenantUser($tenant, 'learner');
-        $submission = $this->createSubmission($tenant, $learner, practiceAppointmentCount: 1);
-        $this->confirmSlot($tenant, $admin, $learner, $submission, '2026-06-01 09:00', slot: 0);
+        $submission = $this->createSubmission($tenant, $learner);
+        $this->confirmExamDate($tenant, $admin, $learner, $submission, '2026-06-01 09:00');
 
         $response = $this->actingAsInTenant($admin, $tenant)->post(
             "/admin/praxis-form-submissions/{$submission->id}/exam-appointments",
-            ['exam_date' => '2026-06-10 09:00', 'slot' => 2]
+            ['exam_date' => '2026-06-05 16:00', 'ends_at' => '2026-06-05 14:00', 'label' => 'Kleine Praxisstunde']
         );
 
-        $response->assertSessionHasErrors('exam_date');
-        $this->onAdmin(function () use ($submission) {
-            $this->assertSame(0, PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->where('slot', 2)->count());
-        });
+        $response->assertSessionHasErrors('ends_at');
     }
 
-    public function test_a_declined_practice_appointment_allows_a_next_round_independent_of_other_slots(): void
+    public function test_a_declined_appointment_allows_a_next_round_independent_of_other_appointments(): void
     {
         $tenant = $this->createTestTenant();
         $admin = $this->createTenantUser($tenant, 'owner');
         $learner = $this->createTenantUser($tenant, 'learner');
-        $submission = $this->createSubmission($tenant, $learner, practiceAppointmentCount: 2);
-        $this->confirmSlot($tenant, $admin, $learner, $submission, '2026-06-01 09:00', slot: 0);
+        $submission = $this->createSubmission($tenant, $learner);
+        $this->confirmExamDate($tenant, $admin, $learner, $submission, '2026-06-01 09:00');
 
         $this->actingAsInTenant($admin, $tenant)->post(
             "/admin/praxis-form-submissions/{$submission->id}/exam-appointments",
-            ['exam_date' => '2026-06-05 10:00', 'slot' => 1]
+            ['exam_date' => '2026-06-05 16:00', 'label' => 'Kleine Praxisstunde']
         );
-        $appointment1Round1 = $this->onAdmin(fn () => PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->where('slot', 1)->first());
+        $round1 = $this->onAdmin(fn () => PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->where('slot', 1)->first());
         $this->actingAsInTenant($learner, $tenant)->post(
-            route('praxis-pruefung.exam-appointments.respond', [$submission->course_id, $appointment1Round1->id]),
+            route('praxis-pruefung.exam-appointments.respond', [$submission->course_id, $round1->id]),
             ['decision' => 'declined', 'comment' => 'Lieber eine Woche später.']
         );
 
         $secondRound = $this->actingAsInTenant($admin, $tenant)->post(
             "/admin/praxis-form-submissions/{$submission->id}/exam-appointments",
-            ['exam_date' => '2026-06-12 10:00', 'slot' => 1]
+            ['exam_date' => '2026-06-12 16:00', 'slot' => 1]
         );
 
         $secondRound->assertSessionHasNoErrors();
         $this->onAdmin(function () use ($submission) {
-            $this->assertSame(2, PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->where('slot', 1)->count());
-            $this->assertSame(1, PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->where('slot', 1)->where('round', 2)->count());
+            $appointments = PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->where('slot', 1)->orderBy('round')->get();
+            $this->assertCount(2, $appointments);
+            $this->assertSame('Kleine Praxisstunde', $appointments[1]->label, 'Bezeichnung bleibt über Runden hinweg erhalten.');
         });
     }
 
-    public function test_detail_page_shows_practice_appointment_slots_once_exam_date_is_confirmed(): void
+    public function test_detail_page_shows_the_new_appointment_form_only_once_exam_date_is_confirmed(): void
     {
         $tenant = $this->createTestTenant();
         $admin = $this->createTenantUser($tenant, 'owner');
         $learner = $this->createTenantUser($tenant, 'learner');
-        $submission = $this->createSubmission($tenant, $learner, practiceAppointmentCount: 2);
+        $submission = $this->createSubmission($tenant, $learner);
 
         $before = $this->actingAsInTenant($admin, $tenant)->get("/admin/participants/{$learner->id}");
         $before->assertOk();
-        $before->assertSee('Wird verfügbar, sobald der Prüfungstermin fixiert ist.');
+        $before->assertSee('können frei angelegt werden, sobald der Prüfungstermin fixiert ist.');
 
-        $this->confirmSlot($tenant, $admin, $learner, $submission, '2026-06-01 09:00', slot: 0);
+        $this->confirmExamDate($tenant, $admin, $learner, $submission, '2026-06-01 09:00');
 
         $after = $this->actingAsInTenant($admin, $tenant)->get("/admin/participants/{$learner->id}");
         $after->assertOk();
-        $after->assertSee('Praxistermin 1 von 2');
-        $after->assertSee('Praxistermin 2 von 2');
-        $after->assertDontSee('Wird verfügbar, sobald der Prüfungstermin fixiert ist.');
+        $after->assertSee('Weiteren Termin anlegen');
+        $after->assertDontSee('können frei angelegt werden, sobald der Prüfungstermin fixiert ist.');
     }
 
-    public function test_learner_page_shows_practice_appointment_slots_only_after_exam_date_is_confirmed(): void
+    public function test_detail_page_shows_a_freely_labeled_appointment_with_its_time_range(): void
     {
         $tenant = $this->createTestTenant();
         $admin = $this->createTenantUser($tenant, 'owner');
         $learner = $this->createTenantUser($tenant, 'learner');
-        $submission = $this->createSubmission($tenant, $learner, practiceAppointmentCount: 1);
+        $submission = $this->createSubmission($tenant, $learner);
+        $this->confirmExamDate($tenant, $admin, $learner, $submission, '2026-06-01 09:00');
+
+        $this->actingAsInTenant($admin, $tenant)->post(
+            "/admin/praxis-form-submissions/{$submission->id}/exam-appointments",
+            ['exam_date' => '2026-06-05 16:00', 'ends_at' => '2026-06-05 18:00', 'label' => 'Kleine Praxisstunde (2h)']
+        );
+
+        $response = $this->actingAsInTenant($admin, $tenant)->get("/admin/participants/{$learner->id}");
+
+        $response->assertOk();
+        $response->assertSee('Kleine Praxisstunde (2h)');
+        $response->assertSee('05.06.2026 16:00');
+        $response->assertSee('18:00');
+    }
+
+    public function test_learner_page_shows_the_freely_labeled_appointment_with_its_time_range(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $submission = $this->createSubmission($tenant, $learner);
+        $this->confirmExamDate($tenant, $admin, $learner, $submission, '2026-06-01 09:00');
 
         $before = $this->actingAsInTenant($learner, $tenant)->get(route('praxis-pruefung.index', $submission->course_id));
         $before->assertOk();
-        $before->assertDontSee('Praxistermin');
+        $before->assertDontSee('Navigationsstunde');
 
-        $this->confirmSlot($tenant, $admin, $learner, $submission, '2026-06-01 09:00', slot: 0);
+        $this->actingAsInTenant($admin, $tenant)->post(
+            "/admin/praxis-form-submissions/{$submission->id}/exam-appointments",
+            ['exam_date' => '2026-06-06 16:00', 'ends_at' => '2026-06-06 18:00', 'label' => 'Navigationsstunde']
+        );
 
         $after = $this->actingAsInTenant($learner, $tenant)->get(route('praxis-pruefung.index', $submission->course_id));
         $after->assertOk();
-        $after->assertSee('Deine Bootsschule schlägt dir in Kürze deinen Praxistermin vor.');
+        $after->assertSee('Navigationsstunde');
+        $after->assertSee('06.06.2026 16:00');
+        $after->assertSee('18:00');
+        $after->assertSee('Passt mir');
     }
 }

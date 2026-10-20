@@ -39,17 +39,6 @@
         </span>
     </label>
 
-    <div class="max-w-xs">
-        <x-input-label for="practice_appointment_count" value="Zusätzliche Praxistermine nach der Prüfung" />
-        <x-text-input id="practice_appointment_count" name="practice_appointment_count" type="number" min="0" max="10"
-                      class="mt-1 block w-full" :value="old('practice_appointment_count', $template?->practice_appointment_count ?? 0)" />
-        <p class="text-xs text-slate-400 mt-1">
-            Sobald der Prüfungstermin fixiert ist, kann die Bootsschule für diesen Kurs so viele zusätzliche Praxistermine
-            vorschlagen (z. B. 2 für eine Große Praxiseinheit). 0 = keine zusätzlichen Praxistermine.
-        </p>
-        <x-input-error :messages="$errors->get('practice_appointment_count')" class="mt-2" />
-    </div>
-
     <div>
         <x-input-label value="Zugewiesene Kurse" />
         <p class="text-xs text-slate-400 mt-1 mb-2">Ein Kurs kann nur einem aktiven Formular zugewiesen sein. Bereits vergebene Kurse sind ausgegraut.</p>

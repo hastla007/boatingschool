@@ -131,15 +131,48 @@
 
                 <x-admin.praxis-appointment-slot :submission="$submission" :appointment-slot="0" label="Prüfungstermin" />
 
-                @for ($practiceSlot = 1; $practiceSlot <= $submission->requiredPracticeAppointmentCount(); $practiceSlot++)
-                    <x-admin.praxis-appointment-slot
-                        :submission="$submission"
-                        :appointment-slot="$practiceSlot"
-                        :label="$submission->requiredPracticeAppointmentCount() > 1 ? 'Praxistermin '.$practiceSlot.' von '.$submission->requiredPracticeAppointmentCount() : 'Praxistermin'"
-                        :locked="! $submission->isExamDateConfirmed()"
-                        locked-reason="Wird verfügbar, sobald der Prüfungstermin fixiert ist."
-                    />
-                @endfor
+                @if ($submission->isExamDateConfirmed())
+                    @foreach ($submission->practiceSlotNumbers() as $practiceSlot)
+                        <x-admin.praxis-appointment-slot
+                            :submission="$submission"
+                            :appointment-slot="$practiceSlot"
+                            :label="$submission->labelForSlot($practiceSlot)"
+                        />
+                    @endforeach
+
+                    <div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700">
+                        <h4 class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">Weiteren Termin anlegen</h4>
+                        <p class="text-xs text-slate-400 mb-2">
+                            Frei benannt und terminiert -- z. B. "Kleine Praxisstunde (1h)", "Große Praxisstunde (4h)", "Navigationsstunde" oder "Onlinekurs".
+                            So viele wie nötig, keine feste Anzahl.
+                        </p>
+                        <form method="POST" action="{{ route('admin.praxis-form-submissions.exam-appointments.store', $submission) }}" class="flex flex-wrap items-end gap-2">
+                            @csrf
+                            <div>
+                                <label class="block text-xs text-slate-500 mb-1">Bezeichnung</label>
+                                <input type="text" name="label" placeholder="z. B. Navigationsstunde" required maxlength="255" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm w-56">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-slate-500 mb-1">Beginn</label>
+                                <input type="datetime-local" name="exam_date" required class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-slate-500 mb-1">Ende (optional, z. B. 16:00-18:00 Uhr)</label>
+                                <input type="datetime-local" name="ends_at" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                            </div>
+                            <button type="submit" class="px-3 py-1.5 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
+                                Vorschlagen
+                            </button>
+                        </form>
+                        @error('exam_date')
+                            <p class="text-rose-600 text-xs mt-2">{{ $message }}</p>
+                        @enderror
+                    </div>
+                @else
+                    <p class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700 text-xs text-slate-400">
+                        Weitere Termine (z. B. Praxisstunden, Navigationsstunde, Onlinekurs) können frei angelegt werden, sobald der Prüfungstermin fixiert ist.
+                    </p>
+                @endif
             </div>
         @empty
             <p class="text-sm text-slate-400">Noch keine Praxis-Anmeldung eingegangen.</p>

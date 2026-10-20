@@ -14,7 +14,7 @@ class PraxisExamAppointment extends Model
     protected $table = 'praxis_exam_appointment';
 
     protected $fillable = [
-        'tenant_id', 'praxis_form_submission_id', 'slot', 'round', 'exam_date',
+        'tenant_id', 'praxis_form_submission_id', 'slot', 'label', 'round', 'exam_date', 'ends_at',
         'proposed_by_user_id', 'response', 'response_comment', 'responded_at',
     ];
 
@@ -22,6 +22,7 @@ class PraxisExamAppointment extends Model
     {
         return [
             'exam_date' => 'datetime',
+            'ends_at' => 'datetime',
             'responded_at' => 'datetime',
         ];
     }
@@ -29,6 +30,14 @@ class PraxisExamAppointment extends Model
     public function isPending(): bool
     {
         return $this->response === 'pending';
+    }
+
+    /** "15.07.2026 16:00" oder, mit Ende, "15.07.2026 16:00-18:00". */
+    public function formattedRange(): string
+    {
+        $range = $this->exam_date->format('d.m.Y H:i');
+
+        return $this->ends_at ? $range.'–'.$this->ends_at->format('H:i') : $range;
     }
 
     public function submission(): BelongsTo
