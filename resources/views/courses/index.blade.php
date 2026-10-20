@@ -25,6 +25,7 @@
             'SBF-BIN-SEGEL' => 'images/courses/sbf-bin-segel.webp',
             'ADD-BIN-SEGEL' => 'images/courses/sbf-bin-to-segel.webp',
             'FKN' => 'images/courses/fkn.webp',
+            'ADD-FKN-TO-SKN' => 'images/courses/fkn-to-skn.webp',
             'SKN' => 'images/courses/skn.webp',
         ];
         $waLink = (isset($branding) && auth()->check())
