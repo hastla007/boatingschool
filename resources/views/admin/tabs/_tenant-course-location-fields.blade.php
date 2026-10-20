@@ -122,10 +122,19 @@
         @php($selectedCourseIds = old('course_ids', $location?->course_ids ?? []))
         <div class="mt-1 grid sm:grid-cols-2 gap-x-4 gap-y-1.5 max-h-56 overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-lg p-3">
             @foreach ($courses as $course)
-                <label class="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                @php($courseDisabled = $disabledCourseIds->contains($course->id))
+                {{-- In der Kursauswahl abgewählte Kurse bleiben hier wählbar
+                     und speicherbar (z. B. schon für eine spätere
+                     Reaktivierung), werden aber ausgegraut -- so lange der
+                     Kurs dort abgewählt bleibt, taucht er für Lernende im
+                     Praxisformular ohnehin nicht auf. --}}
+                <label @class(['inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300', 'opacity-50' => $courseDisabled])>
                     <input type="checkbox" name="course_ids[]" value="{{ $course->id }}" @checked(in_array($course->id, $selectedCourseIds, true))
                            class="rounded border-slate-300 dark:bg-slate-700 dark:border-slate-600">
                     {{ $course->name }}
+                    @if ($courseDisabled)
+                        <span class="text-xs">(abgewählt)</span>
+                    @endif
                 </label>
             @endforeach
         </div>

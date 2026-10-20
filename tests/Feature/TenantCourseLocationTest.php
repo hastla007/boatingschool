@@ -240,4 +240,55 @@ class TenantCourseLocationTest extends TestCase
         $response->assertOk();
         $response->assertSee('E2E Sichtbarer Ort');
     }
+
+    public function test_orte_tab_greys_out_a_course_disabled_in_kursauswahl(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $disabledCourse = $this->existingCourse('SRC');
+        $activeCourse = $this->existingCourse('UBI');
+        $this->onAdmin(fn () => TenantCourseLocation::create([
+            'tenant_id' => $tenant->id,
+            'praxis_ort' => 'E2E Ort',
+            'pruefung_ort' => 'E2E Ort',
+            'course_ids' => [],
+        ]));
+        $this->onAdmin(fn () => \App\Models\TenantCourseDisabled::create(['tenant_id' => $tenant->id, 'course_id' => $disabledCourse->id]));
+
+        $response = $this->actingAsInTenant($admin, $tenant)->get('/admin?tab=orte');
+
+        $response->assertOk();
+        $response->assertSee('(abgewählt)');
+
+        // Dieselben Kursnamen tauchen auch in der Kursauswahl-Tab-Liste
+        // auf (alle Tabs stehen gleichzeitig im HTML, nur per x-show
+        // versteckt) -- deshalb hier gezielt erst ab der Kurs-Checkliste
+        // des Orts suchen, nicht irgendwo auf der ganzen Seite.
+        $courseList = \Illuminate\Support\Str::after($response->getContent(), 'Für diese Kurse verfügbar');
+        preg_match('/<label([^>]*)>\s*<input[^>]*>\s*'.preg_quote($disabledCourse->name, '/').'/', $courseList, $disabledMatch);
+        preg_match('/<label([^>]*)>\s*<input[^>]*>\s*'.preg_quote($activeCourse->name, '/').'/', $courseList, $activeMatch);
+        $this->assertNotEmpty($disabledMatch, 'Checkbox für den abgewählten Kurs nicht gefunden.');
+        $this->assertNotEmpty($activeMatch, 'Checkbox für den aktiven Kurs nicht gefunden.');
+        $this->assertStringContainsString('opacity-50', $disabledMatch[1]);
+        $this->assertStringNotContainsString('opacity-50', $activeMatch[1]);
+    }
+
+    public function test_a_disabled_courses_location_assignment_can_still_be_saved(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $course = $this->existingCourse('SRC');
+        $this->onAdmin(fn () => \App\Models\TenantCourseDisabled::create(['tenant_id' => $tenant->id, 'course_id' => $course->id]));
+
+        $response = $this->actingAsInTenant($admin, $tenant)->post('/admin/tenant-course-locations', [
+            'praxis_ort' => 'E2E Für später',
+            'pruefung_ort' => 'E2E Für später',
+            'course_ids' => [$course->id],
+        ]);
+
+        $response->assertRedirect();
+        $location = TenantCourseLocation::where('tenant_id', $tenant->id)->where('praxis_ort', 'E2E Für später')->first();
+        $this->assertNotNull($location);
+        $this->assertSame([$course->id], $location->course_ids);
+    }
 }
