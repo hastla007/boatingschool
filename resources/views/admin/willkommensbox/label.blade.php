@@ -36,6 +36,14 @@
 
     $labelOffsetTopMm = $isCutGuide ? 20 : 0;
     $labelOffsetLeftMm = $isCutGuide ? round(($pageWidthMm - $labelWidthMm) / 2, 1) : 0;
+
+    // Referenzzettel oberhalb der Schneidlinie (nur auf dem Ausschneide-
+    // Bogen, nicht auf dem A6-Label selbst): Empfänger, Inhalt und eine
+    // Zeile zum handschriftlichen Eintragen der Trackingnummer -- bleibt
+    // bei der Bootsschule, nachdem das Label ausgeschnitten und aufs Paket
+    // geklebt wurde.
+    $infoBoxTopMm = $labelOffsetTopMm + $labelHeightMm + 15;
+    $cutHintTopMm = $pageHeightMm - 20;
 @endphp
 <!DOCTYPE html>
 <html lang="de">
@@ -109,9 +117,31 @@
             text-transform: uppercase;
         }
 
+        .info-box {
+            position: absolute;
+            top: {{ $infoBoxTopMm }}mm;
+            left: 12mm;
+            right: 12mm;
+            font-size: 10pt;
+            line-height: 1.6;
+            color: #1e293b;
+        }
+
+        .info-box .row {
+            margin-bottom: 2mm;
+        }
+
+        .info-box .row.spaced {
+            margin-top: 4mm;
+        }
+
+        .info-box .tracking-row {
+            margin-top: 8mm;
+        }
+
         .cut-hint {
             position: absolute;
-            top: {{ $labelOffsetTopMm + $labelHeightMm + 10 }}mm;
+            top: {{ $cutHintTopMm }}mm;
             left: 0;
             width: 100%;
             text-align: center;
@@ -150,6 +180,13 @@
     </div>
 
     @if ($isCutGuide)
+        <div class="info-box">
+            <div class="row"><strong>Name des Empfängers:</strong> {{ $recipientName }}</div>
+            <div class="row"><strong>Adresse:</strong> {{ $order->street }}, {{ $order->postal_code }} {{ $order->city }}, {{ $order->country }}</div>
+            <div class="row spaced"><strong>Inhalt des Pakets:</strong> Willkommensbox</div>
+            <div class="row tracking-row"><strong>Tracking:</strong> ____________________________________________</div>
+        </div>
+
         <div class="cut-hint">Hier an der Linie ausschneiden und auf das Paket kleben.</div>
     @endif
 </body>
