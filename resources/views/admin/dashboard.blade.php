@@ -20,6 +20,8 @@
                     :style="tab === 'coupons' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Coupon-Codes</button>
             <button type="button" @click="tab = 'addons'" :class="tab === 'addons' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500'"
                     :style="tab === 'addons' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Addons</button>
+            <button type="button" @click="tab = 'course-promo-banners'" :class="tab === 'course-promo-banners' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500'"
+                    :style="tab === 'course-promo-banners' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Kursempfehlungen</button>
         </div>
 
         <div x-show="tab === 'dashboard'">
@@ -42,6 +44,9 @@
         </div>
         <div x-show="tab === 'addons'" style="display: none">
             @include('admin.tabs.addons')
+        </div>
+        <div x-show="tab === 'course-promo-banners'" style="display: none">
+            @include('admin.tabs.course-promo-banners')
         </div>
     </div>
 </x-app-layout>

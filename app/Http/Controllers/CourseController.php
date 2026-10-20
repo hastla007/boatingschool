@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\CourseDefinition;
+use App\Models\CoursePromoBanner;
 use App\Models\CourseWebshopLink;
 use App\Models\Progress;
 use App\Models\TenantAddon;
@@ -147,10 +148,19 @@ class CourseController extends Controller
             ->sortByDesc('trigger_percent')
             ->first();
 
+        // Von der Bootsschule selbst getexteter Empfehlungsbanner für
+        // einen anderen/weiterführenden Kurs -- unabhängig vom Addon-
+        // Banner oben, erscheint unabhängig vom Kursfortschritt.
+        $coursePromoBanner = CoursePromoBanner::where('tenant_id', $tenant->id)
+            ->where('course_id', $course->id)
+            ->where('active', true)
+            ->first();
+
         return view('courses.show', [
             'course' => $course,
             'overallPercent' => $overallPercent,
             'addonBanner' => $addonBanner,
+            'coursePromoBanner' => $coursePromoBanner,
             'masteredCount' => $masteredCount,
             'openCount' => max($questionIds->count() - $masteredCount, 0),
             'hasVideoCourse' => $videoTotal > 0,

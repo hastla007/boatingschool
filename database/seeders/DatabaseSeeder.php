@@ -57,6 +57,7 @@ class DatabaseSeeder extends Seeder
             TenantSeeder::class,
             UserAndEntitlementSeeder::class,
             AddonDemoSeeder::class,
+            CoursePromoBannerDemoSeeder::class,
             DemoLearningActivitySeeder::class,
         ]);
     }

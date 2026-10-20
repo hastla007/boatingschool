@@ -92,6 +92,61 @@
         </div>
     @endif
 
+    @if ($coursePromoBanner)
+        <div x-data="{ dismissed: false }"
+             x-init="dismissed = (() => { try { return localStorage.getItem('course-promo-banner-dismissed-{{ $coursePromoBanner->course_id }}') === '1' } catch (e) { return false } })()"
+             x-show="!dismissed"
+             class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border-l-4 p-4 sm:p-5 mb-6 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5"
+             style="border-color: var(--brand-secondary, #00A8A8)">
+            <div class="flex-1 min-w-0">
+                @if ($coursePromoBanner->headline)
+                    <h3 class="font-semibold text-slate-800 dark:text-white text-sm sm:text-base">{{ $coursePromoBanner->headline }}</h3>
+                @endif
+                @if ($coursePromoBanner->description)
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">{{ $coursePromoBanner->description }}</p>
+                @endif
+            </div>
+            <div class="flex flex-col items-end gap-2 shrink-0 self-start sm:self-center">
+                <div class="flex items-start gap-2">
+                    @if ($coursePromoBanner->price_label || $coursePromoBanner->coupon_code)
+                        @php
+                            $promoDiscountedPrice = $coursePromoBanner->discountedPriceLabel();
+                        @endphp
+                        <div class="text-right text-xs text-slate-500 dark:text-slate-400 leading-snug">
+                            @if ($coursePromoBanner->price_label)
+                                <div class="flex items-center justify-end gap-2 flex-wrap">
+                                    @if ($promoDiscountedPrice)
+                                        <span class="line-through text-slate-400 dark:text-slate-500">{{ $coursePromoBanner->price_label }}</span>
+                                        <span class="font-semibold text-base" style="color: var(--brand-primary, #005FD7)">{{ $promoDiscountedPrice }}</span>
+                                        <span class="inline-flex items-center text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                                            &minus;{{ $coursePromoBanner->discount_percent }}%
+                                        </span>
+                                    @else
+                                        <span class="font-semibold text-slate-700 dark:text-slate-200">{{ $coursePromoBanner->price_label }}</span>
+                                    @endif
+                                </div>
+                            @endif
+                            @if ($coursePromoBanner->coupon_code)
+                                <div class="mt-0.5">Gutscheincode: <span class="font-mono font-semibold text-slate-700 dark:text-slate-200">{{ $coursePromoBanner->coupon_code }}</span></div>
+                            @endif
+                        </div>
+                    @endif
+                    <button type="button"
+                            @click="dismissed = true; (() => { try { localStorage.setItem('course-promo-banner-dismissed-{{ $coursePromoBanner->course_id }}', '1') } catch (e) {} })()"
+                            class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xl leading-none w-8 h-8 shrink-0 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+                            aria-label="Banner schließen">
+                        &times;
+                    </button>
+                </div>
+                <a href="{{ $coursePromoBanner->offer_url }}" target="_blank" rel="noopener"
+                   class="inline-flex items-center justify-center px-4 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 transition whitespace-nowrap"
+                   style="background-color: var(--brand-primary, #005FD7)">
+                    {{ $coursePromoBanner->cta_label }}
+                </a>
+            </div>
+        </div>
+    @endif
+
     <div class="grid lg:grid-cols-[1fr_320px] gap-4 mb-6">
         @if ($comboVideoGroups->isNotEmpty())
             <div class="flex flex-col gap-4">

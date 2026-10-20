@@ -4,12 +4,13 @@ namespace App\Models;
 
 use App\Models\Concerns\BelongsToTenant;
 use App\Models\Concerns\HasCompositePrimaryKey;
+use App\Models\Concerns\HasDiscountedPriceLabel;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class TenantAddon extends Model
 {
-    use BelongsToTenant, HasCompositePrimaryKey;
+    use BelongsToTenant, HasCompositePrimaryKey, HasDiscountedPriceLabel;
 
     protected $table = 'tenant_addon';
 
@@ -39,46 +40,5 @@ class TenantAddon extends Model
     public function triggerCourse(): BelongsTo
     {
         return $this->belongsTo(CourseDefinition::class, 'trigger_course_id');
-    }
-
-    /**
-     * Rabattierter VK, berechnet aus dem frei eingegebenen price_label
-     * (z. B. "299 €") und discount_percent -- null, wenn kein Rabatt
-     * hinterlegt ist oder sich aus price_label keine Zahl extrahieren
-     * lässt (price_label bleibt bewusst ein Freitextfeld).
-     */
-    public function discountedPriceLabel(): ?string
-    {
-        if (! $this->discount_percent || ! $this->price_label) {
-            return null;
-        }
-
-        $amount = $this->parsePriceAmount($this->price_label);
-
-        if ($amount === null) {
-            return null;
-        }
-
-        $discounted = round($amount * (1 - $this->discount_percent / 100), 2);
-
-        return number_format($discounted, 2, ',', '.').' €';
-    }
-
-    private function parsePriceAmount(string $label): ?float
-    {
-        if (! preg_match('/[\d.,]+/', $label, $matches)) {
-            return null;
-        }
-
-        $number = $matches[0];
-
-        if (str_contains($number, ',') && str_contains($number, '.')) {
-            $number = str_replace('.', '', $number);
-            $number = str_replace(',', '.', $number);
-        } elseif (str_contains($number, ',')) {
-            $number = str_replace(',', '.', $number);
-        }
-
-        return is_numeric($number) ? (float) $number : null;
     }
 }

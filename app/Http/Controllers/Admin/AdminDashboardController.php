@@ -8,6 +8,7 @@ use App\Models\Attempt;
 use App\Models\AuditLog;
 use App\Models\Coupon;
 use App\Models\CourseDefinition;
+use App\Models\CoursePromoBanner;
 use App\Models\CourseWebshopLink;
 use App\Models\Entitlement;
 use App\Models\ExamSession;
@@ -82,6 +83,8 @@ class AdminDashboardController extends Controller
         $addonTemplates = AddonTemplate::where('active', true)->orderBy('sort_order')->orderBy('title')->get();
         $tenantAddons = TenantAddon::where('tenant_id', $tenant->id)->get()->keyBy('addon_template_id');
 
+        $coursePromoBanners = CoursePromoBanner::where('tenant_id', $tenant->id)->get()->keyBy('course_id');
+
         $disabledCourseIds = TenantCourseDisabled::where('tenant_id', $tenant->id)->pluck('course_id');
 
         $couponFilters = $request->only(['coupon_search', 'coupon_status', 'coupon_type']);
@@ -142,6 +145,7 @@ class AdminDashboardController extends Controller
             'webshopLinks' => $webshopLinks,
             'addonTemplates' => $addonTemplates,
             'tenantAddons' => $tenantAddons,
+            'coursePromoBanners' => $coursePromoBanners,
             'disabledCourseIds' => $disabledCourseIds,
             'coupons' => $coupons,
             'couponSummary' => $couponSummary,

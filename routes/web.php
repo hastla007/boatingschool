@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\AddonController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\BrandingController;
 use App\Http\Controllers\Admin\CouponController as AdminCouponController;
+use App\Http\Controllers\Admin\CoursePromoBannerController;
 use App\Http\Controllers\Admin\CourseSelectionController;
 use App\Http\Controllers\Admin\EntitlementController;
 use App\Http\Controllers\Admin\ParticipantController;
@@ -99,6 +100,8 @@ Route::middleware(['auth', 'tenant.role:owner,admin,instructor'])->prefix('admin
     Route::patch('/webshop-links', [WebshopLinkController::class, 'update'])->name('webshop-links.update');
 
     Route::patch('/addons', [AddonController::class, 'update'])->name('addons.update');
+
+    Route::patch('/course-promo-banners', [CoursePromoBannerController::class, 'update'])->name('course-promo-banners.update');
 
     Route::patch('/courses', [CourseSelectionController::class, 'update'])->name('courses.update');
 
