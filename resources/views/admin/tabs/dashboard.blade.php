@@ -65,6 +65,9 @@
                 <div>
                     <span class="text-slate-700 dark:text-slate-200 font-medium">{{ $booking['user'] }}</span>
                     <span class="text-slate-400">&ndash; {{ $booking['label'] }}</span>
+                    @if ($booking['options']->isNotEmpty())
+                        <span class="block text-xs text-indigo-600 dark:text-indigo-400 mt-0.5">+ {{ $booking['options']->implode(', ') }}</span>
+                    @endif
                 </div>
                 <span class="text-xs text-slate-400 whitespace-nowrap">{{ $booking['date']->format('d.m.Y') }}</span>
             </div>

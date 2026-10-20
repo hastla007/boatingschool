@@ -50,14 +50,41 @@ class AdminDashboardController extends Controller
         // auf der Teilnehmer-Detailseite, die nur dort anstehende Aktionen
         // zeigt, nicht einfach jede Buchung).
         $recentBookingsCutoff = now()->subDays(7);
+        $recentProductPurchases = ProductPurchase::where('tenant_id', $tenant->id)
+            ->where('created_at', '>=', $recentBookingsCutoff)
+            ->with(['product', 'user'])->get();
+
+        // Optionen, die ein Kurs-Coupon zusätzlich bündelt (z. B. "Kleine
+        // Praxiseinheit"), sollen hier wie auf der Teilnehmer-Detailseite
+        // unter dem jeweiligen Kurs erscheinen statt als eigene Zeile
+        // (siehe ParticipantController::show).
+        $optionsByCode = $recentProductPurchases->where('source_type', 'coupon')->groupBy('source_reference');
+        $bundledProductIds = [];
+
         $recentCourseBookings = Entitlement::where('tenant_id', $tenant->id)
             ->where('valid_from', '>=', $recentBookingsCutoff)
             ->with(['course', 'user'])->get()
-            ->map(fn (Entitlement $e) => ['user' => $e->user->name ?? '—', 'label' => $e->course->name ?? '—', 'date' => $e->valid_from]);
-        $recentProductBookings = ProductPurchase::where('tenant_id', $tenant->id)
-            ->where('created_at', '>=', $recentBookingsCutoff)
-            ->with(['product', 'user'])->get()
-            ->map(fn (ProductPurchase $p) => ['user' => $p->user->name ?? '—', 'label' => $p->product->name ?? '—', 'date' => $p->created_at]);
+            ->map(function (Entitlement $e) use ($optionsByCode, &$bundledProductIds) {
+                $options = $e->source_type === 'coupon' ? ($optionsByCode->get($e->source_reference) ?? collect()) : collect();
+                $bundledProductIds = [...$bundledProductIds, ...$options->pluck('id')->all()];
+
+                return [
+                    'user' => $e->user->name ?? '—',
+                    'label' => $e->course->name ?? '—',
+                    'date' => $e->valid_from,
+                    'options' => $options->map(fn (ProductPurchase $p) => $p->product->name ?? '—')->values(),
+                ];
+            });
+
+        $recentProductBookings = $recentProductPurchases
+            ->reject(fn (ProductPurchase $p) => in_array($p->id, $bundledProductIds, true))
+            ->map(fn (ProductPurchase $p) => [
+                'user' => $p->user->name ?? '—',
+                'label' => $p->product->name ?? '—',
+                'date' => $p->created_at,
+                'options' => collect(),
+            ]);
+
         $recentBookings = $recentCourseBookings->concat($recentProductBookings)->sortByDesc('date')->values();
 
         $activeThisWeek = $learnerCount > 0
