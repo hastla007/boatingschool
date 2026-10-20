@@ -6,6 +6,7 @@ use App\Models\Coupon;
 use App\Models\Entitlement;
 use App\Models\Product;
 use App\Models\ProductPurchase;
+use Illuminate\Support\Str;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -303,7 +304,11 @@ class CouponManagementTest extends TestCase
 
         $response->assertOk();
         $response->assertSee($codeA);
-        $response->assertDontSee($codeB);
+        // $codeB bleibt in "Letzte Aktivitäten" sichtbar (siehe
+        // AuditLog::description()) -- hier zählt nur die gefilterte
+        // Coupon-Liste selbst, nicht die ganze Seite.
+        $couponListSection = Str::between($response->getContent(), 'name="coupon_search"', 'Addon-Banner');
+        $this->assertStringNotContainsString($codeB, $couponListSection);
     }
 
     public function test_coupon_list_can_be_filtered_by_status(): void
@@ -322,7 +327,11 @@ class CouponManagementTest extends TestCase
         $openOnly = $this->actingAsInTenant($admin, $tenant)->get('/admin?tab=coupons&coupon_status=open');
         $openOnly->assertOk();
         $openOnly->assertSee($openCode);
-        $openOnly->assertDontSee($redeemedCode);
+        // $redeemedCode bleibt in "Letzte Aktivitäten" sichtbar (siehe
+        // AuditLog::description()) -- hier zählt nur die gefilterte
+        // Coupon-Liste selbst, nicht die ganze Seite.
+        $openOnlyCouponListSection = Str::between($openOnly->getContent(), 'name="coupon_search"', 'Addon-Banner');
+        $this->assertStringNotContainsString($redeemedCode, $openOnlyCouponListSection);
 
         $redeemedOnly = $this->actingAsInTenant($admin, $tenant)->get('/admin?tab=coupons&coupon_status=redeemed');
         $redeemedOnly->assertOk();

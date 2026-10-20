@@ -84,7 +84,7 @@
     <div class="space-y-2 text-sm">
         @forelse ($recentActivity as $entry)
             <div class="flex justify-between border-b border-slate-100 dark:border-slate-700 pb-2 last:border-0 last:pb-0">
-                <span class="text-slate-600 dark:text-slate-300">{{ $entry->action }}</span>
+                <span class="text-slate-600 dark:text-slate-300">{{ $entry->description() }}</span>
                 <span class="text-slate-400">{{ $entry->created_at->diffForHumans() }}</span>
             </div>
         @empty
