@@ -1,0 +1,151 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\AddonTemplate;
+use Tests\Feature\Concerns\InteractsWithTenants;
+use Tests\TestCase;
+
+/**
+ * Bootsschulen aktivieren vom Superadmin vorgefertigte Addon-Vorlagen
+ * (siehe AddonTemplateTest) für sich selbst und befüllen sie mit ihren
+ * eigenen Daten (Gutscheincode, Preis, Trigger-Kurs/-Fortschritt, Link) --
+ * siehe admin/tabs/addons.blade.php und AddonController.
+ */
+class TenantAddonTest extends TestCase
+{
+    use InteractsWithTenants;
+
+    private array $createdTemplateIds = [];
+
+    protected function tearDown(): void
+    {
+        $this->onAdmin(function () {
+            foreach ($this->createdTemplateIds as $id) {
+                AddonTemplate::where('id', $id)->delete();
+            }
+        });
+
+        $this->cleanUpCreatedTenantsAndUsers();
+
+        parent::tearDown();
+    }
+
+    private function createTestTemplate(): AddonTemplate
+    {
+        return $this->onAdmin(function () {
+            $template = AddonTemplate::create([
+                'title' => 'E2E Großes Paket',
+                'badge_text' => 'BESTSELLER',
+                'stat_text' => '81% wählen diese Option',
+                'headline' => 'Sichere dir jetzt das große Paket',
+                'bullets' => ['Vorteil 1', 'Vorteil 2'],
+                'cta_label' => 'Jetzt sichern',
+                'active' => true,
+            ]);
+            $this->createdTemplateIds[] = $template->id;
+
+            return $template;
+        });
+    }
+
+    public function test_a_school_admin_can_activate_and_configure_an_addon(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $template = $this->createTestTemplate();
+        $course = $this->existingCourse('SRC');
+
+        $response = $this->actingAsInTenant($admin, $tenant)->patch('/admin/addons', [
+            'addons' => [
+                $template->id => [
+                    'active' => '1',
+                    'coupon_code' => 'SOMMER25',
+                    'price_label' => '149 €',
+                    'trigger_course_id' => $course->id,
+                    'trigger_percent' => '30',
+                    'offer_url' => 'https://shop.example.test/grosses-paket',
+                ],
+            ],
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('tenant_addon', [
+            'tenant_id' => $tenant->id,
+            'addon_template_id' => $template->id,
+            'active' => true,
+            'coupon_code' => 'SOMMER25',
+            'price_label' => '149 €',
+            'trigger_course_id' => $course->id,
+            'trigger_percent' => 30,
+            'offer_url' => 'https://shop.example.test/grosses-paket',
+        ]);
+    }
+
+    public function test_deactivating_an_addon_removes_its_configuration(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $template = $this->createTestTemplate();
+        $course = $this->existingCourse('SRC');
+
+        $this->actingAsInTenant($admin, $tenant)->patch('/admin/addons', [
+            'addons' => [
+                $template->id => [
+                    'active' => '1',
+                    'trigger_course_id' => $course->id,
+                    'trigger_percent' => '30',
+                    'offer_url' => 'https://shop.example.test/grosses-paket',
+                ],
+            ],
+        ]);
+
+        $response = $this->actingAsInTenant($admin, $tenant)->patch('/admin/addons', [
+            'addons' => [
+                $template->id => ['active' => '0'],
+            ],
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseMissing('tenant_addon', [
+            'tenant_id' => $tenant->id,
+            'addon_template_id' => $template->id,
+        ]);
+    }
+
+    public function test_addons_tab_lists_active_templates(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $this->createTestTemplate();
+
+        $response = $this->actingAsInTenant($admin, $tenant)->get('/admin?tab=addons');
+
+        $response->assertOk();
+        $response->assertSee('E2E Großes Paket');
+    }
+
+    public function test_addon_configuration_is_isolated_per_tenant(): void
+    {
+        $tenantA = $this->createTestTenant();
+        $tenantB = $this->createTestTenant();
+        $adminA = $this->createTenantUser($tenantA, 'owner');
+        $template = $this->createTestTemplate();
+        $course = $this->existingCourse('SRC');
+
+        $this->actingAsInTenant($adminA, $tenantA)->patch('/admin/addons', [
+            'addons' => [
+                $template->id => [
+                    'active' => '1',
+                    'coupon_code' => 'NUR-A',
+                    'trigger_course_id' => $course->id,
+                    'trigger_percent' => '30',
+                    'offer_url' => 'https://shop.example.test/a',
+                ],
+            ],
+        ]);
+
+        $this->assertDatabaseHas('tenant_addon', ['tenant_id' => $tenantA->id, 'coupon_code' => 'NUR-A']);
+        $this->assertDatabaseMissing('tenant_addon', ['tenant_id' => $tenantB->id, 'addon_template_id' => $template->id]);
+    }
+}

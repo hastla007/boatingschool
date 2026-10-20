@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AddonController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\BrandingController;
 use App\Http\Controllers\Admin\CouponController as AdminCouponController;
@@ -96,6 +97,8 @@ Route::middleware(['auth', 'tenant.role:owner,admin,instructor'])->prefix('admin
         ->middleware(['signed', 'throttle:6,1'])->name('branding.support-email.verify');
 
     Route::patch('/webshop-links', [WebshopLinkController::class, 'update'])->name('webshop-links.update');
+
+    Route::patch('/addons', [AddonController::class, 'update'])->name('addons.update');
 
     Route::patch('/courses', [CourseSelectionController::class, 'update'])->name('courses.update');
 

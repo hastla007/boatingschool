@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AddonTemplate;
 use App\Models\Attempt;
 use App\Models\AuditLog;
 use App\Models\Coupon;
@@ -12,6 +13,7 @@ use App\Models\Entitlement;
 use App\Models\ExamSession;
 use App\Models\Product;
 use App\Models\ProductPurchase;
+use App\Models\TenantAddon;
 use App\Models\TenantCourseDisabled;
 use App\Models\TenantUser;
 use App\Support\TenantContext;
@@ -77,6 +79,9 @@ class AdminDashboardController extends Controller
 
         $webshopLinks = CourseWebshopLink::where('tenant_id', $tenant->id)->pluck('url', 'course_id');
 
+        $addonTemplates = AddonTemplate::where('active', true)->orderBy('sort_order')->orderBy('title')->get();
+        $tenantAddons = TenantAddon::where('tenant_id', $tenant->id)->get()->keyBy('addon_template_id');
+
         $disabledCourseIds = TenantCourseDisabled::where('tenant_id', $tenant->id)->pluck('course_id');
 
         $couponFilters = $request->only(['coupon_search', 'coupon_status', 'coupon_type']);
@@ -135,6 +140,8 @@ class AdminDashboardController extends Controller
             'productPurchases' => $productPurchases,
             'branding' => $branding,
             'webshopLinks' => $webshopLinks,
+            'addonTemplates' => $addonTemplates,
+            'tenantAddons' => $tenantAddons,
             'disabledCourseIds' => $disabledCourseIds,
             'coupons' => $coupons,
             'couponSummary' => $couponSummary,
