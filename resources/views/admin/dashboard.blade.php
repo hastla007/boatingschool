@@ -12,8 +12,6 @@
                     :style="tab === 'participants' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Teilnehmer</button>
             <button type="button" @click="tab = 'branding'" :class="tab === 'branding' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500'"
                     :style="tab === 'branding' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Branding</button>
-            <button type="button" @click="tab = 'webshop-links'" :class="tab === 'webshop-links' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500'"
-                    :style="tab === 'webshop-links' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Webshop-Links</button>
             <button type="button" @click="tab = 'courses'" :class="tab === 'courses' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500'"
                     :style="tab === 'courses' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Kursauswahl</button>
             <button type="button" @click="tab = 'coupons'" :class="tab === 'coupons' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500'"
@@ -36,9 +34,6 @@
         </div>
         <div x-show="tab === 'branding'" style="display: none">
             @include('admin.tabs.branding')
-        </div>
-        <div x-show="tab === 'webshop-links'" style="display: none">
-            @include('admin.tabs.webshop-links')
         </div>
         <div x-show="tab === 'courses'" style="display: none">
             @include('admin.tabs.courses')

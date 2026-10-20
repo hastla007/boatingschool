@@ -11,7 +11,6 @@ use App\Http\Controllers\Admin\ParticipantController;
 use App\Http\Controllers\Admin\PraxisExamAppointmentController as AdminPraxisExamAppointmentController;
 use App\Http\Controllers\Admin\SupportEmailVerificationController;
 use App\Http\Controllers\Admin\TenantCourseLocationController;
-use App\Http\Controllers\Admin\WebshopLinkController;
 use App\Http\Controllers\Admin\WillkommensboxOrderController;
 use App\Http\Controllers\CouponRedeemController;
 use App\Http\Controllers\CourseController;
@@ -113,7 +112,6 @@ Route::middleware(['auth', 'tenant.role:owner,admin,instructor'])->prefix('admin
     Route::get('/branding/support-email/verify/{tenant}/{hash}', [SupportEmailVerificationController::class, 'verify'])
         ->middleware(['signed', 'throttle:6,1'])->name('branding.support-email.verify');
 
-    Route::patch('/webshop-links', [WebshopLinkController::class, 'update'])->name('webshop-links.update');
 
     Route::patch('/addons', [AddonController::class, 'update'])->name('addons.update');
 
