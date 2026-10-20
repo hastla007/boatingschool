@@ -1,10 +1,12 @@
 <p class="text-slate-500 mb-6">Hier sehen Sie die wichtigsten Informationen Ihrer Bootsschule.</p>
 
-<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
     <x-stat-tile icon="users" :value="$learnerCount" label="Teilnehmer" tone="brand" />
     <x-stat-tile icon="academic-cap" :value="$activeEntitlements" label="Aktive Kurszugänge" />
     <x-stat-tile icon="bolt" :value="$weeklyActivityRate.'%'" label="wöchentlich aktiv" tone="success" />
     <x-stat-tile icon="clipboard-document-check" :value="$recentExamsCount" label="Prüfungen (30 Tage)" tone="warning" />
+    <x-stat-tile icon="compass" :value="$upcomingAppointmentsNext7Days" label="Praxistermine (7 Tage)" />
+    <x-stat-tile icon="compass" :value="$upcomingAppointmentsNext30Days" label="Praxistermine (30 Tage)" />
 </div>
 
 <div class="grid sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
@@ -53,6 +55,43 @@
             <div class="text-xs text-slate-400">Importieren, zuweisen, wer wann eingelöst hat</div>
         </div>
     </button>
+</div>
+
+<div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 mb-6">
+    <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
+        <x-icon name="chart-bar" class="w-4 h-4 text-slate-400" /> Teilnehmer je Phase
+    </h3>
+    @php
+        $phaseColors = [
+            'Geprüft' => 'bg-emerald-500',
+            'Prüfungstermin fixiert' => 'bg-indigo-500',
+            'Praxis angemeldet' => 'bg-amber-500',
+            'Lernen' => 'bg-sky-500',
+            'Nicht gestartet' => 'bg-slate-300 dark:bg-slate-500',
+        ];
+    @endphp
+    @if ($learnerCount > 0)
+        <div class="flex w-full h-3 rounded-full overflow-hidden mb-3">
+            @foreach ($learnerPhases as $phase)
+                @if ($phase['count'] > 0)
+                    <div class="{{ $phaseColors[$phase['label']] }}" style="width: {{ $phase['percent'] }}%" title="{{ $phase['label'] }}: {{ $phase['percent'] }}%"></div>
+                @endif
+            @endforeach
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 text-sm">
+            @foreach ($learnerPhases as $phase)
+                <div class="flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full shrink-0 {{ $phaseColors[$phase['label']] }}"></span>
+                    <div class="min-w-0">
+                        <div class="text-slate-700 dark:text-slate-200 font-medium">{{ $phase['percent'] }}%</div>
+                        <div class="text-xs text-slate-400 truncate">{{ $phase['label'] }} ({{ $phase['count'] }})</div>
+                    </div>
+                </div>
+            @endforeach
+        </div>
+    @else
+        <p class="text-slate-500">Noch keine Teilnehmer.</p>
+    @endif
 </div>
 
 <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 mb-6">

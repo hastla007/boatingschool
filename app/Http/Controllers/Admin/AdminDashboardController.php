@@ -12,6 +12,7 @@ use App\Models\CoursePromoBanner;
 use App\Models\CourseWebshopLink;
 use App\Models\Entitlement;
 use App\Models\ExamSession;
+use App\Models\PraxisExamAppointment;
 use App\Models\PraxisFormSubmission;
 use App\Models\Product;
 use App\Models\ProductPurchase;
@@ -103,6 +104,70 @@ class AdminDashboardController extends Controller
         $examPassRate = $recentExams->isNotEmpty()
             ? (int) round($recentExams->where('passed', true)->count() / $recentExams->count() * 100)
             : 0;
+
+        // Anstehende Termine (Prüfungstermin + alle frei angelegten
+        // Praxistermine, siehe PraxisExamAppointment) -- nur bereits vom
+        // Teilnehmer angenommene zählen hier, ein noch offener Vorschlag
+        // ist schließlich noch nicht fix verabredet.
+        $now = now();
+        $upcomingAppointments = PraxisExamAppointment::where('tenant_id', $tenant->id)
+            ->where('response', 'accepted')
+            ->where('exam_date', '>=', $now)
+            ->where('exam_date', '<=', $now->copy()->addDays(30))
+            ->get(['exam_date']);
+        $upcomingAppointmentsNext7Days = $upcomingAppointments->where('exam_date', '<=', $now->copy()->addDays(7))->count();
+        $upcomingAppointmentsNext30Days = $upcomingAppointments->count();
+
+        // Info-Chart "Teilnehmer je Phase" -- der jeweils am weitesten
+        // fortgeschrittene Status je Lerner über alle seine Kurse/
+        // Anmeldungen hinweg, nicht je Kurs einzeln.
+        $activeEntitlementUserIds = Entitlement::where('tenant_id', $tenant->id)
+            ->where('status', 'active')
+            ->whereIn('user_id', $learnerIds)
+            ->pluck('user_id')
+            ->unique();
+        $submissionsByUser = PraxisFormSubmission::where('tenant_id', $tenant->id)
+            ->whereIn('user_id', $learnerIds)
+            ->get(['user_id', 'confirmed_exam_date'])
+            ->groupBy('user_id');
+        $passedExamUserIds = ExamSession::where('tenant_id', $tenant->id)
+            ->where('status', 'evaluated')
+            ->where('passed', true)
+            ->whereIn('user_id', $learnerIds)
+            ->pluck('user_id')
+            ->unique();
+
+        $phaseCounts = [
+            'Geprüft' => 0,
+            'Prüfungstermin fixiert' => 0,
+            'Praxis angemeldet' => 0,
+            'Lernen' => 0,
+            'Nicht gestartet' => 0,
+        ];
+        foreach ($learnerIds as $learnerId) {
+            if ($passedExamUserIds->contains($learnerId)) {
+                $phaseCounts['Geprüft']++;
+            } elseif ($submissionsByUser->get($learnerId)?->contains(fn ($s) => $s->confirmed_exam_date !== null)) {
+                $phaseCounts['Prüfungstermin fixiert']++;
+            } elseif ($submissionsByUser->get($learnerId)?->isNotEmpty()) {
+                $phaseCounts['Praxis angemeldet']++;
+            } elseif ($activeEntitlementUserIds->contains($learnerId)) {
+                $phaseCounts['Lernen']++;
+            } else {
+                $phaseCounts['Nicht gestartet']++;
+            }
+        }
+        // Die Tailwind-Klassen je Phase stehen bewusst in dashboard.blade.php
+        // (nicht hier) -- Tailwinds Build-Scan durchsucht nur
+        // resources/views/**/*.blade.php nach Klassennamen, ein hier als
+        // PHP-String zusammengesetzter Klassenname würde beim Build
+        // stillschweigend wegfallen (ungenutzt aussehen) und im Browser
+        // unsichtbar bleiben.
+        $learnerPhases = collect($phaseCounts)->map(fn ($count, $label) => [
+            'label' => $label,
+            'count' => $count,
+            'percent' => $learnerCount > 0 ? round($count / $learnerCount * 100) : 0,
+        ])->values();
 
         $participants = TenantUser::with(['user.entitlements' => function ($q) use ($tenant) {
             $q->where('tenant_id', $tenant->id)->with('course');
@@ -200,6 +265,9 @@ class AdminDashboardController extends Controller
             'weeklyActivityRate' => $weeklyActivityRate,
             'recentExamsCount' => $recentExams->count(),
             'examPassRate' => $examPassRate,
+            'upcomingAppointmentsNext7Days' => $upcomingAppointmentsNext7Days,
+            'upcomingAppointmentsNext30Days' => $upcomingAppointmentsNext30Days,
+            'learnerPhases' => $learnerPhases,
             'participants' => $participants,
             'courses' => $courses,
             'productPurchases' => $productPurchases,

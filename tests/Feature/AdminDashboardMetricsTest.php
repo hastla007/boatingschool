@@ -1,0 +1,241 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\CourseDefinition;
+use App\Models\Entitlement;
+use App\Models\ExamRuleSet;
+use App\Models\ExamSession;
+use App\Models\PraxisExamAppointment;
+use App\Models\PraxisFormSubmission;
+use App\Models\PraxisFormTemplate;
+use App\Models\Tenant;
+use App\Models\User;
+use Illuminate\Testing\TestResponse;
+use Tests\Feature\Concerns\InteractsWithTenants;
+use Tests\TestCase;
+
+/**
+ * Zwei neue Dashboard-Kennzahlen (AdminDashboardController): Kacheln für
+ * anstehende Praxistermine (7/30 Tage, nur bereits angenommene Vorschläge
+ * zählen) und ein Phasen-Chart, das zeigt, wie viele Teilnehmer gerade in
+ * welcher Phase (Lernen, Praxis angemeldet, Prüfungstermin fixiert,
+ * geprüft) stehen -- jeweils der am weitesten fortgeschrittene Status je
+ * Lerner über all seine Kurse hinweg.
+ */
+class AdminDashboardMetricsTest extends TestCase
+{
+    use InteractsWithTenants;
+
+    private array $createdTemplateIds = [];
+
+    private array $createdCourseIds = [];
+
+    private array $createdRuleSetIds = [];
+
+    protected function tearDown(): void
+    {
+        $this->cleanUpCreatedTenantsAndUsers();
+
+        $this->onAdmin(function () {
+            foreach ($this->createdTemplateIds as $id) {
+                PraxisFormTemplate::where('id', $id)->delete();
+            }
+            foreach ($this->createdRuleSetIds as $id) {
+                ExamRuleSet::where('id', $id)->delete();
+            }
+            foreach ($this->createdCourseIds as $id) {
+                CourseDefinition::withoutGlobalScopes()->where('id', $id)->delete();
+            }
+        });
+
+        parent::tearDown();
+    }
+
+    private function createSubmission(Tenant $tenant, User $learner): PraxisFormSubmission
+    {
+        $course = $this->onAdmin(function () {
+            $course = CourseDefinition::withoutGlobalScopes()->create([
+                'tenant_id' => null,
+                'code' => 'TEST-DASH-METRICS-'.uniqid(),
+                'name' => 'Test-Kurs für Dashboard-Kennzahlen',
+                'course_type' => 'full',
+                'status' => 'published',
+            ]);
+            $this->createdCourseIds[] = $course->id;
+
+            return $course;
+        });
+
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $template = $this->onAdmin(function () use ($course) {
+            $template = PraxisFormTemplate::create([
+                'title' => 'E2E Dashboard-Formular',
+                'min_progress_percent' => 0,
+                'course_ids' => [$course->id],
+                'fields' => [],
+                'active' => true,
+            ]);
+            $this->createdTemplateIds[] = $template->id;
+
+            return $template;
+        });
+
+        return $this->onAdmin(fn () => PraxisFormSubmission::create([
+            'tenant_id' => $tenant->id,
+            'course_id' => $course->id,
+            'user_id' => $learner->id,
+            'praxis_form_template_id' => $template->id,
+            'data' => [],
+        ]));
+    }
+
+    /** Liest den Zahlenwert einer x-stat-tile anhand ihres Labels aus dem gerenderten HTML. */
+    private function assertStatTileValue(TestResponse $response, string $label, string $expectedValue): void
+    {
+        preg_match(
+            '/text-xl font-bold leading-tight[^>]*>([^<]*)<\/div>\s*<div class="text-xs text-slate-400 truncate">'.preg_quote($label, '/').'/',
+            $response->getContent(),
+            $matches
+        );
+        $this->assertNotEmpty($matches, "Stat-Kachel \"{$label}\" nicht gefunden.");
+        $this->assertSame($expectedValue, trim($matches[1]));
+    }
+
+    /** Liest Prozentsatz + Anzahl einer Phasen-Legendenzeile anhand ihres Labels aus. */
+    private function assertPhasePercent(TestResponse $response, string $label, int $count, int $percent): void
+    {
+        preg_match(
+            '/font-medium">(\d+)%<\/div>\s*<div class="text-xs text-slate-400 truncate">'.preg_quote($label, '/').' \((\d+)\)/s',
+            $response->getContent(),
+            $matches
+        );
+        $this->assertNotEmpty($matches, "Phase \"{$label}\" nicht gefunden.");
+        $this->assertSame((string) $percent, $matches[1]);
+        $this->assertSame((string) $count, $matches[2]);
+    }
+
+    private function createAcceptedAppointment(Tenant $tenant, User $admin, PraxisFormSubmission $submission, \DateTimeInterface $examDate, int $slot = 0): PraxisExamAppointment
+    {
+        return $this->onAdmin(fn () => PraxisExamAppointment::create([
+            'tenant_id' => $tenant->id,
+            'praxis_form_submission_id' => $submission->id,
+            'slot' => $slot,
+            'label' => $slot === 0 ? 'Prüfungstermin' : 'Kleine Praxisstunde',
+            'round' => 1,
+            'exam_date' => $examDate,
+            'proposed_by_user_id' => $admin->id,
+            'response' => 'accepted',
+            'responded_at' => now(),
+        ]));
+    }
+
+    public function test_dashboard_counts_accepted_appointments_within_seven_and_thirty_days(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $submission = $this->createSubmission($tenant, $learner);
+
+        $this->createAcceptedAppointment($tenant, $admin, $submission, now()->addDays(3), 0);
+        $this->createAcceptedAppointment($tenant, $admin, $submission, now()->addDays(20), 1);
+        $this->createAcceptedAppointment($tenant, $admin, $submission, now()->addDays(45), 2);
+
+        $response = $this->actingAsInTenant($admin, $tenant)->get(route('admin.dashboard'));
+
+        $response->assertOk();
+        $this->assertStatTileValue($response, 'Praxistermine (7 Tage)', '1');
+        $this->assertStatTileValue($response, 'Praxistermine (30 Tage)', '2');
+    }
+
+    public function test_dashboard_does_not_count_pending_or_past_appointments(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $submission = $this->createSubmission($tenant, $learner);
+
+        // Noch offener Vorschlag -- zählt nicht, bis der Teilnehmer
+        // zugesagt hat.
+        $this->onAdmin(fn () => PraxisExamAppointment::create([
+            'tenant_id' => $tenant->id,
+            'praxis_form_submission_id' => $submission->id,
+            'slot' => 0,
+            'label' => 'Prüfungstermin',
+            'round' => 1,
+            'exam_date' => now()->addDays(3),
+            'proposed_by_user_id' => $admin->id,
+            'response' => 'pending',
+        ]));
+        // Liegt bereits in der Vergangenheit -- anderer Slot, damit es
+        // nicht mit dem offenen Vorschlag oben (slot 0, Runde 1) kollidiert.
+        $this->createAcceptedAppointment($tenant, $admin, $submission, now()->subDays(1), 1);
+
+        $response = $this->actingAsInTenant($admin, $tenant)->get(route('admin.dashboard'));
+
+        $response->assertOk();
+        $this->assertStatTileValue($response, 'Praxistermine (7 Tage)', '0');
+        $this->assertStatTileValue($response, 'Praxistermine (30 Tage)', '0');
+    }
+
+    public function test_dashboard_shows_learner_phase_distribution(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+
+        // Nicht gestartet -- kein aktiver Kurszugang.
+        $this->createTenantUser($tenant, 'learner', ['display_name' => 'Noch nicht gestartet']);
+
+        // Lernen -- aktiver Kurszugang, aber noch keine Praxis-Anmeldung.
+        $learning = $this->createTenantUser($tenant, 'learner', ['display_name' => 'Lernt gerade']);
+        $course = $this->existingCourse('SRC');
+        $this->grantEntitlement($tenant, $learning, $course);
+
+        // Praxis angemeldet -- Anmeldung da, aber kein fixierter Termin.
+        $registered = $this->createTenantUser($tenant, 'learner', ['display_name' => 'Praxis angemeldet']);
+        $this->createSubmission($tenant, $registered);
+
+        // Prüfungstermin fixiert.
+        $confirmed = $this->createTenantUser($tenant, 'learner', ['display_name' => 'Termin fixiert']);
+        $confirmedSubmission = $this->createSubmission($tenant, $confirmed);
+        $this->onAdmin(fn () => $confirmedSubmission->update(['confirmed_exam_date' => now()->addDays(5)]));
+
+        // Geprüft -- bestandene theoretische Prüfung.
+        $passed = $this->createTenantUser($tenant, 'learner', ['display_name' => 'Geprüft']);
+        $ruleSet = $this->onAdmin(function () use ($course) {
+            $ruleSet = ExamRuleSet::create([
+                'course_id' => $course->id,
+                'version' => 'test-'.uniqid(),
+                'time_limit_seconds' => 3600,
+                'passing_rule' => ['min_correct_ratio' => 0.75],
+                'status' => 'published',
+            ]);
+            $this->createdRuleSetIds[] = $ruleSet->id;
+
+            return $ruleSet;
+        });
+        $this->onAdmin(fn () => ExamSession::create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $passed->id,
+            'course_id' => $course->id,
+            'rule_set_id' => $ruleSet->id,
+            'status' => 'evaluated',
+            'passed' => true,
+            'started_at' => now()->subHour(),
+            'submitted_at' => now(),
+            'score' => 95,
+        ]));
+
+        $response = $this->actingAsInTenant($admin, $tenant)->get(route('admin.dashboard'));
+
+        $response->assertOk();
+        $response->assertSee('Teilnehmer je Phase');
+        // Je 1 von 5 Lernern (20%) in jeder der fünf Phasen.
+        $this->assertPhasePercent($response, 'Nicht gestartet', 1, 20);
+        $this->assertPhasePercent($response, 'Lernen', 1, 20);
+        $this->assertPhasePercent($response, 'Praxis angemeldet', 1, 20);
+        $this->assertPhasePercent($response, 'Prüfungstermin fixiert', 1, 20);
+        $this->assertPhasePercent($response, 'Geprüft', 1, 20);
+    }
+}
