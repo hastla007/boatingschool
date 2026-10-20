@@ -140,7 +140,7 @@
     @endif
 </div>
 
-<div class="grid lg:grid-cols-3 gap-6">
+<div class="grid lg:grid-cols-[2fr_3fr] gap-6">
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
         <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
             <x-icon name="clipboard-document-check" class="w-4 h-4 text-slate-400" /> Kürzlich gebuchte Kurse &amp; Produkte
@@ -163,7 +163,7 @@
         </div>
     </div>
 
-    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 lg:col-span-2">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
         <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
             <x-icon name="clock" class="w-4 h-4 text-slate-400" /> Letzte Aktivitäten
         </h3>
