@@ -15,7 +15,7 @@
                     <span class="font-bold text-slate-800 dark:text-white">{{ $currentTenant->name ?? config('app.name') }}</span>
                 </a>
 
-                <div class="hidden lg:flex lg:ms-10 lg:space-x-1">
+                <div class="hidden lg:flex lg:ms-16 lg:space-x-1">
                     <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">Lernen</x-nav-link>
 
                     @if ($navCourses->isNotEmpty())
@@ -58,7 +58,7 @@
 
                 <x-dropdown align="right" width="48">
                     <x-slot name="trigger">
-                        <button class="inline-flex items-center whitespace-nowrap px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-300 focus:outline-none transition ease-in-out duration-150">
+                        <button class="inline-flex items-center whitespace-nowrap px-1 pt-1 border-b-2 border-transparent text-sm leading-5 font-medium text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-300 focus:outline-none transition ease-in-out duration-150">
                             <div class="max-w-[10rem] truncate">{{ Auth::user()->name }}</div>
                             <div class="ms-1">
                                 <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
