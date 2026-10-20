@@ -29,6 +29,7 @@ class DatabaseSeeder extends Seeder
             ComboVideoCourseSeeder::class,
             BinnenVideoCourseSeeder::class,
             BinnenSegelnVideoCourseSeeder::class,
+            BinnenSegelnAddonVideoCourseSeeder::class,
             BinnenKnotenVideoSeeder::class,
             SeemannschaftVideoSeeder::class,
             VideoLessonQuestionSeeder::class,
