@@ -90,6 +90,17 @@
                     Hinweis: Zur SRC-Prüfung gehören zusätzlich ein englisches Diktat und eine schriftliche Übersetzung, die nicht Teil
                     dieser Online-Simulation sind. Quelle der Prüfungsbögen: Fachstelle der WSV für Verkehrstechniken, Koblenz.
                 </p>
+            @elseif ($course->code === 'FKN')
+                <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                    Hier findest Du alle {{ $paperStats->count() }} offiziellen Prüfungsbögen für den FKN Vollkurs (Fachkundenachweis für
+                    Seenotsignalmittel). Jeder Prüfungsbogen enthält 15 Fragen &mdash; teils Mehrfachauswahl-Fragen, teils offene Fragen ohne
+                    Antwortoptionen (als Lernkarte mit Musterantwort). Bearbeitungszeit 30 Minuten, Bestehensgrenze 24 von 30 Punkten
+                    (amtlich mit Teilpunkten bewertet; hier vereinfacht als 12 von 15 Fragen richtig, da die offenen Fragen als
+                    Lernkarten nicht automatisiert bewertet werden).
+                </p>
+                <p class="text-xs text-slate-400 mt-3">
+                    Hinweis: Die Zuordnung der Fragen zu den einzelnen Bögen entspricht dem amtlichen FKN-Fragenkatalog (Quelle: PANord).
+                </p>
             @elseif ($course->code === 'ADD-BIN-SEGEL')
                 <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
                     Hier findest Du alle {{ $paperStats->count() }} offiziellen Prüfungsbögen für die Ergänzungsprüfung Binnen Segeln. Da Du

@@ -22,9 +22,18 @@ use Illuminate\Database\Seeder;
  * eine eigene, von der Prüfungsordnung vorgegebene Bestehensgrenze (5
  * von 7 Fragen) und Bearbeitungszeit (15 Minuten) statt der generischen
  * Standardwerte. SRC hat eine eigene Bestehensgrenze (19 von 24 Fragen)
- * und Bearbeitungszeit (30 Minuten). Für alle anderen Kurse muss
- * Zeitlimit/Fragenmix/Bestehensgrenze vor echtem Produktivbetrieb noch
- * fachlich geprüft werden.
+ * und Bearbeitungszeit (30 Minuten). FKN hat amtlich 24 von 30 Punkten
+ * (2 Punkte je vollständig korrekter Antwort, 15 Fragen/Bogen) als
+ * Bestehensgrenze -- diese Plattform bewertet Fragen binär (richtig/
+ * falsch, keine Teilpunkte), daher rechnerisch gleichwertig als 12 von
+ * 15 (80%) übernommen; Bearbeitungszeit 30 Minuten. Offene Fragen
+ * (question_type=open_text) zählen dabei nicht zur Bestehensgrenze mit
+ * (siehe ExamController::finish -- sie sind nicht automatisiert
+ * auswertbar und dienen nur als Lernkarte), sodass sich die 80%-Grenze
+ * effektiv nur auf die Multiple-Choice-Fragen je Bogen bezieht, nicht
+ * auf alle 15 Fragen. Für alle anderen Kurse muss Zeitlimit/Fragenmix/
+ * Bestehensgrenze vor echtem Produktivbetrieb noch fachlich geprüft
+ * werden.
  */
 class ExamRuleSetSeeder extends Seeder
 {
@@ -42,7 +51,7 @@ class ExamRuleSetSeeder extends Seeder
         // die 23 Binnen-spezifischen Fragen geprüft werden. Dieses
         // Regelwerk ist deshalb -- wie SBF-SEE -- fachlich verifiziert und
         // nicht nur ein generischer Platzhalter.
-        $verifiedCourses = ['SBF-SEE', 'SBF-BIN-MOTOR', 'SBF-SEE-BIN', 'ADD-SEE-TO-BIN', 'ADD-BIN-TO-SEE', 'SBF-BIN-SEGEL', 'ADD-BIN-SEGEL', 'SRC'];
+        $verifiedCourses = ['SBF-SEE', 'SBF-BIN-MOTOR', 'SBF-SEE-BIN', 'ADD-SEE-TO-BIN', 'ADD-BIN-TO-SEE', 'SBF-BIN-SEGEL', 'ADD-BIN-SEGEL', 'SRC', 'FKN'];
         $questionCountOverrides = ['ADD-SEE-TO-BIN' => 23, 'ADD-BIN-TO-SEE' => 23];
 
         // ADD-BIN-SEGEL ("Ergänzung Binnen Segeln"): nur noch die 7
@@ -54,8 +63,8 @@ class ExamRuleSetSeeder extends Seeder
         // SRC ("SRC Vollkurs"): 19 von 24 Fragen müssen richtig
         // beantwortet werden (max. 5 Fehler), Bearbeitungszeit 30
         // Minuten.
-        $timeLimitOverrides = ['ADD-BIN-SEGEL' => 900, 'SRC' => 1800];
-        $passingRuleOverrides = ['ADD-BIN-SEGEL' => ['min_correct_ratio' => 5 / 7], 'SRC' => ['min_correct_ratio' => 19 / 24]];
+        $timeLimitOverrides = ['ADD-BIN-SEGEL' => 900, 'SRC' => 1800, 'FKN' => 1800];
+        $passingRuleOverrides = ['ADD-BIN-SEGEL' => ['min_correct_ratio' => 5 / 7], 'SRC' => ['min_correct_ratio' => 19 / 24], 'FKN' => ['min_correct_ratio' => 24 / 30]];
 
         foreach ($courses as $course) {
             $questionsPerModule = 10;
