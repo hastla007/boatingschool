@@ -52,35 +52,30 @@
                 @endif
             </div>
             <div class="flex flex-col items-end gap-2 shrink-0 self-start sm:self-center">
-                @if ($addonBanner->price_label || $addonBanner->coupon_code)
-                    @php
-                        $discountedPrice = $addonBanner->discountedPriceLabel();
-                    @endphp
-                    <div class="text-right text-xs text-slate-500 dark:text-slate-400 leading-snug">
-                        @if ($addonBanner->price_label)
-                            <div class="flex items-center justify-end gap-2 flex-wrap">
-                                @if ($discountedPrice)
-                                    <span class="line-through text-slate-400 dark:text-slate-500">{{ $addonBanner->price_label }}</span>
-                                    <span class="font-semibold text-base" style="color: var(--brand-primary, #005FD7)">{{ $discountedPrice }}</span>
-                                    <span class="inline-flex items-center text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
-                                        &minus;{{ $addonBanner->discount_percent }}%
-                                    </span>
-                                @else
-                                    <span class="font-semibold text-slate-700 dark:text-slate-200">{{ $addonBanner->price_label }}</span>
-                                @endif
-                            </div>
-                        @endif
-                        @if ($addonBanner->coupon_code)
-                            <div class="mt-0.5">Gutscheincode: <span class="font-mono font-semibold text-slate-700 dark:text-slate-200">{{ $addonBanner->coupon_code }}</span></div>
-                        @endif
-                    </div>
-                @endif
-                <div class="flex items-center gap-2">
-                    <a href="{{ $addonBanner->offer_url }}" target="_blank" rel="noopener"
-                       class="inline-flex items-center justify-center px-4 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 transition whitespace-nowrap"
-                       style="background-color: var(--brand-primary, #005FD7)">
-                        {{ $addonTemplate->cta_label }}
-                    </a>
+                <div class="flex items-start gap-2">
+                    @if ($addonBanner->price_label || $addonBanner->coupon_code)
+                        @php
+                            $discountedPrice = $addonBanner->discountedPriceLabel();
+                        @endphp
+                        <div class="text-right text-xs text-slate-500 dark:text-slate-400 leading-snug">
+                            @if ($addonBanner->price_label)
+                                <div class="flex items-center justify-end gap-2 flex-wrap">
+                                    @if ($discountedPrice)
+                                        <span class="line-through text-slate-400 dark:text-slate-500">{{ $addonBanner->price_label }}</span>
+                                        <span class="font-semibold text-base" style="color: var(--brand-primary, #005FD7)">{{ $discountedPrice }}</span>
+                                        <span class="inline-flex items-center text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                                            &minus;{{ $addonBanner->discount_percent }}%
+                                        </span>
+                                    @else
+                                        <span class="font-semibold text-slate-700 dark:text-slate-200">{{ $addonBanner->price_label }}</span>
+                                    @endif
+                                </div>
+                            @endif
+                            @if ($addonBanner->coupon_code)
+                                <div class="mt-0.5">Gutscheincode: <span class="font-mono font-semibold text-slate-700 dark:text-slate-200">{{ $addonBanner->coupon_code }}</span></div>
+                            @endif
+                        </div>
+                    @endif
                     <button type="button"
                             @click="dismissed = true; (() => { try { localStorage.setItem('addon-banner-dismissed-{{ $addonBanner->addon_template_id }}', '1') } catch (e) {} })()"
                             class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xl leading-none w-8 h-8 shrink-0 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition"
@@ -88,6 +83,11 @@
                         &times;
                     </button>
                 </div>
+                <a href="{{ $addonBanner->offer_url }}" target="_blank" rel="noopener"
+                   class="inline-flex items-center justify-center px-4 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 transition whitespace-nowrap"
+                   style="background-color: var(--brand-primary, #005FD7)">
+                    {{ $addonTemplate->cta_label }}
+                </a>
             </div>
         </div>
     @endif
