@@ -29,6 +29,16 @@
         </div>
     </div>
 
+    <label class="inline-flex items-start gap-2 text-sm text-slate-600 dark:text-slate-300">
+        <input type="hidden" name="requires_tauglichkeit" value="0">
+        <input type="checkbox" name="requires_tauglichkeit" value="1" @checked(old('requires_tauglichkeit', $template?->requires_tauglichkeit))
+               class="mt-0.5 rounded border-slate-300 dark:bg-slate-700 dark:border-slate-600">
+        <span>
+            Weist den Lerner im Formular auf die benötigte ärztliche Tauglichkeitsbescheinigung hin
+            <span class="block text-xs text-slate-400">Zeigt einen Hinweis mit Link zu den Tipps &amp; Tricks, blockiert die Anmeldung nicht.</span>
+        </span>
+    </label>
+
     <div>
         <x-input-label value="Zugewiesene Kurse" />
         <p class="text-xs text-slate-400 mt-1 mb-2">Ein Kurs kann nur einem aktiven Formular zugewiesen sein. Bereits vergebene Kurse sind ausgegraut.</p>

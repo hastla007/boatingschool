@@ -104,6 +104,65 @@
             <h3 class="font-semibold text-lg text-slate-800 dark:text-white mb-1">{{ $template->title }}</h3>
             <p class="text-sm text-slate-500 dark:text-slate-400 mb-6">Bitte fülle die folgenden Angaben aus &mdash; deine Bootsschule meldet dich damit zur Prüfung an.</p>
 
+            @if ($recommendedAddon)
+                @php($addonTemplate = $recommendedAddon->addonTemplate)
+                @php($addonDiscountedPrice = $recommendedAddon->discountedPriceLabel())
+                <div class="rounded-xl p-4 mb-5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                    <div class="flex items-start gap-2.5">
+                        <x-icon name="star" class="w-5 h-5 shrink-0 text-amber-500 mt-0.5" />
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-semibold text-amber-900 dark:text-amber-200">{{ $addonTemplate->headline }}</p>
+                            @if (! empty($recommendedAddon->effectiveBullets()))
+                                <ul class="mt-1.5 space-y-0.5">
+                                    @foreach ($recommendedAddon->effectiveBullets() as $bullet)
+                                        <li class="text-xs text-amber-800 dark:text-amber-300">&bull; {{ $bullet }}</li>
+                                    @endforeach
+                                </ul>
+                            @endif
+                            <div class="mt-3 flex flex-wrap items-center gap-3">
+                                @if ($recommendedAddon->price_label)
+                                    <span class="text-xs text-amber-800 dark:text-amber-300">
+                                        @if ($addonDiscountedPrice)
+                                            <span class="line-through">{{ $recommendedAddon->price_label }}</span>
+                                            <span class="font-semibold">{{ $addonDiscountedPrice }}</span>
+                                        @else
+                                            <span class="font-semibold">{{ $recommendedAddon->price_label }}</span>
+                                        @endif
+                                    </span>
+                                @endif
+                                @if ($recommendedAddon->offer_url)
+                                    <a href="{{ $recommendedAddon->offer_url }}" target="_blank" rel="noopener"
+                                       class="inline-flex items-center justify-center px-3 py-1.5 rounded-lg text-white text-xs font-semibold hover:opacity-90 transition"
+                                       style="background-color: var(--brand-primary, #005FD7)">
+                                        {{ $addonTemplate->cta_label }}
+                                    </a>
+                                @endif
+                            </div>
+                            <p class="text-xs text-amber-700 dark:text-amber-400 mt-2">
+                                Du kannst dich auch ohne dieses Angebot anmelden &mdash; diese Empfehlung passt einfach gut zu deinem aktuellen Kurs.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            @endif
+
+            @if ($template->requires_tauglichkeit)
+                <div class="rounded-xl p-4 mb-5 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
+                    <div class="flex items-start gap-2.5">
+                        <x-icon name="check-circle" class="w-5 h-5 shrink-0 text-emerald-500 mt-0.5" />
+                        <div class="text-sm text-emerald-900 dark:text-emerald-200">
+                            <p>Du brauchst für die Prüfung eine ärztliche Tauglichkeitsbescheinigung. Plane dafür ein paar Tage Vorlauf ein.</p>
+                            <p class="mt-1.5">Du kannst trotzdem jetzt schon buchen. Kümmere dich zeitnah nach Buchung um die Tauglichkeit.</p>
+                            <p class="mt-1.5 flex items-start gap-1.5">
+                                <x-icon name="light-bulb" class="w-4 h-4 shrink-0 text-emerald-500 mt-0.5" />
+                                <span>Tipp: Du kannst die Untersuchung auch bequem online machen. Wie das geht, zeigen wir dir in unseren
+                                    <a href="{{ route('tips.index') }}" class="font-semibold underline hover:no-underline">Tipps und Tricks</a>.</span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            @endif
+
             <form method="POST" action="{{ route('praxis-pruefung.store', $course) }}" class="space-y-5">
                 @csrf
                 @foreach ($template->fields as $field)

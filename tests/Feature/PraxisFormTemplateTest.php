@@ -160,6 +160,38 @@ class PraxisFormTemplateTest extends TestCase
         $this->assertDatabaseHas('praxis_form_template', ['id' => $template->id, 'title' => 'E2E Formular (aktualisiert)', 'min_progress_percent' => 60]);
     }
 
+    public function test_superadmin_can_enable_the_tauglichkeit_hint(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        $course = $this->makeIsolatedCourse();
+
+        $response = $this->actingAs($superadmin)->post('/superadmin/praxis-form-templates', [
+            'title' => 'E2E Formular mit Tauglichkeit',
+            'min_progress_percent' => '50',
+            'requires_tauglichkeit' => '1',
+            'course_ids' => [$course->id],
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('praxis_form_template', ['title' => 'E2E Formular mit Tauglichkeit', 'requires_tauglichkeit' => true]);
+        $this->trackTemplate(PraxisFormTemplate::where('title', 'E2E Formular mit Tauglichkeit')->first());
+    }
+
+    public function test_requires_tauglichkeit_defaults_to_false(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        $course = $this->makeIsolatedCourse();
+
+        $this->actingAs($superadmin)->post('/superadmin/praxis-form-templates', [
+            'title' => 'E2E Formular ohne Tauglichkeit',
+            'min_progress_percent' => '50',
+            'course_ids' => [$course->id],
+        ]);
+
+        $this->assertDatabaseHas('praxis_form_template', ['title' => 'E2E Formular ohne Tauglichkeit', 'requires_tauglichkeit' => false]);
+        $this->trackTemplate(PraxisFormTemplate::where('title', 'E2E Formular ohne Tauglichkeit')->first());
+    }
+
     public function test_superadmin_can_toggle_and_delete_a_template(): void
     {
         $superadmin = $this->createSuperAdmin();

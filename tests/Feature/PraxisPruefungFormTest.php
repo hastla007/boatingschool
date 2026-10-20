@@ -2,12 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Models\AddonTemplate;
 use App\Models\ContentQuestion;
 use App\Models\CourseDefinition;
 use App\Models\Module;
 use App\Models\PraxisFormSubmission;
 use App\Models\PraxisFormTemplate;
 use App\Models\Progress;
+use App\Models\TenantAddon;
 use App\Models\TenantCourseLocation;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -444,5 +446,115 @@ class PraxisPruefungFormTest extends TestCase
         ]);
 
         $response->assertSessionHasErrors('ort');
+    }
+
+    public function test_tauglichkeit_hint_is_shown_when_enabled_on_the_template(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course] = $this->makeIsolatedCourseWithQuestions(2);
+        $this->grantEntitlement($tenant, $learner, $course);
+        $this->masterAllQuestions($tenant, $learner, $course);
+        $this->createTemplate(['course_ids' => [$course->id], 'min_progress_percent' => 10, 'requires_tauglichkeit' => true]);
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get(route('praxis-pruefung.index', $course));
+
+        $response->assertOk();
+        $response->assertSee('ärztliche Tauglichkeitsbescheinigung');
+        $response->assertSee(route('tips.index'), false);
+    }
+
+    public function test_tauglichkeit_hint_is_hidden_when_disabled_on_the_template(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course] = $this->makeIsolatedCourseWithQuestions(2);
+        $this->grantEntitlement($tenant, $learner, $course);
+        $this->masterAllQuestions($tenant, $learner, $course);
+        $this->createTemplate(['course_ids' => [$course->id], 'min_progress_percent' => 10, 'requires_tauglichkeit' => false]);
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get(route('praxis-pruefung.index', $course));
+
+        $response->assertOk();
+        $response->assertDontSee('ärztliche Tauglichkeitsbescheinigung');
+    }
+
+    public function test_recommended_addon_hint_is_shown_when_an_active_addon_targets_this_course(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course] = $this->makeIsolatedCourseWithQuestions(2);
+        $this->grantEntitlement($tenant, $learner, $course);
+        $this->masterAllQuestions($tenant, $learner, $course);
+        $this->createTemplate(['course_ids' => [$course->id], 'min_progress_percent' => 10]);
+
+        $addonTemplate = $this->onAdmin(fn () => AddonTemplate::create([
+            'title' => 'E2E Großes Paket',
+            'headline' => 'Sichere dir jetzt das große Paket',
+            'cta_label' => 'Paket sichern',
+            'bullets' => ['Alle Praxisstunden inklusive'],
+            'active' => true,
+        ]));
+        $this->onAdmin(fn () => TenantAddon::create([
+            'tenant_id' => $tenant->id,
+            'addon_template_id' => $addonTemplate->id,
+            'active' => true,
+            'price_label' => '299 €',
+            'trigger_course_id' => $course->id,
+            'trigger_percent' => 0,
+            'offer_url' => 'https://example.test/angebot',
+        ]));
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get(route('praxis-pruefung.index', $course));
+
+        $response->assertOk();
+        $response->assertSee('Sichere dir jetzt das große Paket');
+        $response->assertSee('https://example.test/angebot', false);
+    }
+
+    public function test_recommended_addon_hint_is_hidden_below_its_trigger_percent(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course] = $this->makeIsolatedCourseWithQuestions(2);
+        $this->grantEntitlement($tenant, $learner, $course);
+        // Kein masterAllQuestions() -- Fortschritt bleibt bei 0%, unter der
+        // Addon-Schwelle, aber die Formular-Hürde selbst ist 0%, damit der
+        // 'form'-Zustand trotzdem erreicht wird.
+        $this->createTemplate(['course_ids' => [$course->id], 'min_progress_percent' => 0]);
+
+        $addonTemplate = $this->onAdmin(fn () => AddonTemplate::create([
+            'title' => 'E2E Großes Paket (hohe Schwelle)',
+            'headline' => 'Sichere dir jetzt das große Paket (hohe Schwelle)',
+            'cta_label' => 'Paket sichern',
+            'active' => true,
+        ]));
+        $this->onAdmin(fn () => TenantAddon::create([
+            'tenant_id' => $tenant->id,
+            'addon_template_id' => $addonTemplate->id,
+            'active' => true,
+            'trigger_course_id' => $course->id,
+            'trigger_percent' => 50,
+        ]));
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get(route('praxis-pruefung.index', $course));
+
+        $response->assertOk();
+        $response->assertDontSee('Sichere dir jetzt das große Paket (hohe Schwelle)');
+    }
+
+    public function test_recommended_addon_hint_is_hidden_without_a_matching_addon(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course] = $this->makeIsolatedCourseWithQuestions(2);
+        $this->grantEntitlement($tenant, $learner, $course);
+        $this->masterAllQuestions($tenant, $learner, $course);
+        $this->createTemplate(['course_ids' => [$course->id], 'min_progress_percent' => 10]);
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get(route('praxis-pruefung.index', $course));
+
+        $response->assertOk();
+        $response->assertDontSee('rounded-xl p-4 mb-5 bg-amber-50', false);
     }
 }

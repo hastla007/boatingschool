@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\CourseDefinition;
 use App\Models\PraxisFormSubmission;
 use App\Models\PraxisFormTemplate;
+use App\Models\TenantAddon;
 use App\Models\TenantCourseLocation;
 use App\Services\CourseProgressService;
 use App\Services\EntitlementService;
@@ -70,11 +71,27 @@ class PraxisPruefungController extends Controller
             ->orderBy('sort_order')
             ->get();
 
+        // Gleiche Auswahl wie der Addon-Banner auf der Kursseite (siehe
+        // CourseController::show) -- es gibt keine Bestell-/Kauf-Erfassung
+        // im System (der Kauf läuft extern über offer_url), daher ist dies
+        // ein Hinweis auf ein zum Kurs passendes, aktives Addon-Angebot,
+        // kein Nachweis, dass der Lerner es noch nicht erworben hat.
+        $recommendedAddon = TenantAddon::where('tenant_id', $tenant->id)
+            ->where('trigger_course_id', $course->id)
+            ->where('active', true)
+            ->whereHas('addonTemplate', fn ($q) => $q->where('active', true))
+            ->with('addonTemplate')
+            ->get()
+            ->filter(fn ($tenantAddon) => $percent >= $tenantAddon->trigger_percent)
+            ->sortByDesc('trigger_percent')
+            ->first();
+
         return view('praxis-pruefung.index', [
             'course' => $course,
             'state' => 'form',
             'template' => $template,
             'locations' => $locations,
+            'recommendedAddon' => $recommendedAddon,
         ]);
     }
 }

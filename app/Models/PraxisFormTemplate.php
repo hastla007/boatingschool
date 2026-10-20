@@ -13,13 +13,14 @@ class PraxisFormTemplate extends Model
     protected $table = 'praxis_form_template';
 
     protected $fillable = [
-        'title', 'min_progress_percent', 'fields', 'course_ids', 'active',
+        'title', 'min_progress_percent', 'requires_tauglichkeit', 'fields', 'course_ids', 'active',
     ];
 
     protected function casts(): array
     {
         return [
             'min_progress_percent' => 'integer',
+            'requires_tauglichkeit' => 'boolean',
             'fields' => 'array',
             'course_ids' => 'array',
             'active' => 'boolean',

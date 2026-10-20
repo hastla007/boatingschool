@@ -127,15 +127,18 @@ class PraxisFormTemplateSeeder extends Seeder
 
     public function run(): void
     {
-        $this->template('Praxis & Prüfung Motorboot', 50, self::PRAXIS_FIELDS, ['SBF-SEE', 'SBF-BIN-MOTOR', 'SBF-SEE-BIN']);
-        $this->template('Praxis & Prüfung Segeln', 50, self::PRAXIS_FIELDS, ['SBF-BIN-SEGEL', 'ADD-BIN-SEGEL']);
-        $this->template('Praxis & Prüfung Ergänzungskurs', 50, self::PRAXIS_FIELDS, ['ADD-SEE-TO-BIN', 'ADD-BIN-TO-SEE']);
+        // Praxis & Prüfung (Motorboot/Segeln/Ergänzung) erfordert eine
+        // ärztliche Tauglichkeitsbescheinigung -- die reinen
+        // Funk-/Pyroschein-Prüfungen (THEORIE_FIELDS) nicht.
+        $this->template('Praxis & Prüfung Motorboot', 50, self::PRAXIS_FIELDS, ['SBF-SEE', 'SBF-BIN-MOTOR', 'SBF-SEE-BIN'], requiresTauglichkeit: true);
+        $this->template('Praxis & Prüfung Segeln', 50, self::PRAXIS_FIELDS, ['SBF-BIN-SEGEL', 'ADD-BIN-SEGEL'], requiresTauglichkeit: true);
+        $this->template('Praxis & Prüfung Ergänzungskurs', 50, self::PRAXIS_FIELDS, ['ADD-SEE-TO-BIN', 'ADD-BIN-TO-SEE'], requiresTauglichkeit: true);
         $this->template('Anmeldung Funkzeugnis-Prüfung', 80, self::THEORIE_FIELDS, ['SRC', 'UBI', 'SRC-UBI', 'ADD-UBI-TO-SRC']);
         $this->template('Anmeldung Pyroschein-Prüfung', 70, self::THEORIE_FIELDS, ['FKN', 'SKN', 'ADD-FKN-TO-SKN']);
     }
 
     /** @param string[] $courseCodes */
-    private function template(string $title, int $minProgressPercent, array $fields, array $courseCodes): void
+    private function template(string $title, int $minProgressPercent, array $fields, array $courseCodes, bool $requiresTauglichkeit = false): void
     {
         $courseIds = CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')
             ->whereIn('code', $courseCodes)->pluck('id')->values()->all();
@@ -148,6 +151,7 @@ class PraxisFormTemplateSeeder extends Seeder
             ['title' => $title],
             [
                 'min_progress_percent' => $minProgressPercent,
+                'requires_tauglichkeit' => $requiresTauglichkeit,
                 'fields' => $fields,
                 'course_ids' => $courseIds,
                 'active' => true,

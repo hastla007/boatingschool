@@ -89,6 +89,7 @@ class PraxisFormTemplateController extends Controller
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:255'],
             'min_progress_percent' => ['required', 'integer', 'min:0', 'max:100'],
+            'requires_tauglichkeit' => ['nullable', 'boolean'],
             'course_ids' => ['nullable', 'array'],
             'course_ids.*' => ['uuid', 'exists:course_definition,id'],
             'fields' => ['nullable', 'array'],
@@ -111,6 +112,7 @@ class PraxisFormTemplateController extends Controller
         return [
             'title' => $validated['title'],
             'min_progress_percent' => (int) $validated['min_progress_percent'],
+            'requires_tauglichkeit' => (bool) ($validated['requires_tauglichkeit'] ?? false),
             'course_ids' => $courseIds,
             'fields' => $this->parseFields($validated['fields'] ?? []),
             'active' => true,
