@@ -17,6 +17,7 @@
             'SBF-BIN-MOTOR' => 'images/courses/sbf-binnen.webp',
             'SBF-SEE-BIN' => 'images/courses/sbf-see-bin.webp',
             'ADD-SEE-TO-BIN' => 'images/courses/sbf-see-to-bin.webp',
+            'ADD-BIN-TO-SEE' => 'images/courses/sbf-bin-to-see.webp',
             'SRC-UBI' => 'images/courses/src-ubi.webp',
             'SRC' => 'images/courses/src.webp',
             'UBI' => 'images/courses/ubi.webp',
