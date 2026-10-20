@@ -8,9 +8,9 @@
 
 <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
     <x-stat-tile icon="clipboard-document-check" :value="$recentExamsNext7DaysCount" label="Prüfungen (7 Tage)" tone="warning" />
-    <x-stat-tile icon="compass" :value="$upcomingAppointmentsNext7Days" label="Praxistermine (7 Tage)" />
+    <x-stat-tile icon="ship" :value="$upcomingAppointmentsNext7Days" label="Praxistermine (7 Tage)" />
     <x-stat-tile icon="clipboard-document-check" :value="$recentExamsCount" label="Prüfungen (30 Tage)" tone="warning" />
-    <x-stat-tile icon="compass" :value="$upcomingAppointmentsNext30Days" label="Praxistermine (30 Tage)" />
+    <x-stat-tile icon="ship" :value="$upcomingAppointmentsNext30Days" label="Praxistermine (30 Tage)" />
 </div>
 
 <div class="grid sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
