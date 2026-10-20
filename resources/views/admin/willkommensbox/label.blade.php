@@ -2,10 +2,10 @@
     $dimensions = ['a4' => [297, 210], 'a5' => [210, 148], 'a6' => [148, 105]];
     [$pageWidthMm, $pageHeightMm] = $dimensions[$size] ?? $dimensions['a4'];
     $fontSizes = [
-        'a4' => ['sender' => '10pt', 'recipient' => '18pt'],
-        'a5' => ['sender' => '9pt', 'recipient' => '15pt'],
-        'a6' => ['sender' => '8pt', 'recipient' => '11pt'],
-    ][$size] ?? ['sender' => '10pt', 'recipient' => '18pt'];
+        'a4' => ['sender' => '13pt', 'recipient' => '18pt'],
+        'a5' => ['sender' => '11pt', 'recipient' => '15pt'],
+        'a6' => ['sender' => '10pt', 'recipient' => '11pt'],
+    ][$size] ?? ['sender' => '13pt', 'recipient' => '18pt'];
 
     $senderName = $branding->legal_name ?: $tenant->name;
     $recipientName = $order->user->name ?? '—';
@@ -15,8 +15,8 @@
     // deutlich zuverlässiger in dompdf als mehrfach verschachtelte absolut
     // positionierte Elemente und einfacher an die Vorgabe (siehe
     // WillkommensboxLabelController) kalibrierbar.
-    $contentWidthMm = $pageWidthMm - 16 - 12;
-    $contentHeightMm = $pageHeightMm - 16 - 12;
+    $contentWidthMm = $pageWidthMm - 8 - 12;
+    $contentHeightMm = $pageHeightMm - 8 - 12;
     $spacerHeightMm = round($contentHeightMm * 0.12, 1);
     $recipientIndentMm = round($contentWidthMm * 0.38, 1);
 @endphp
@@ -41,10 +41,10 @@
 
         .frame {
             position: absolute;
-            top: 8mm;
-            left: 8mm;
-            right: 8mm;
-            bottom: 8mm;
+            top: 4mm;
+            left: 4mm;
+            right: 4mm;
+            bottom: 4mm;
             border: 1.5px dashed #94a3b8;
             box-sizing: border-box;
             padding: 6mm;
@@ -69,8 +69,13 @@
         .recipient {
             margin-left: {{ $recipientIndentMm }}mm;
             font-size: {{ $fontSizes['recipient'] }};
+            font-weight: bold;
             line-height: 1.5;
             color: #1e293b;
+        }
+
+        .recipient .block-label {
+            font-weight: normal;
         }
 
         .recipient .country {
@@ -87,7 +92,10 @@
                 {{ $branding->street }}<br>
             @endif
             @if ($branding->postal_code || $branding->city)
-                {{ $branding->postal_code }} {{ $branding->city }}
+                {{ $branding->postal_code }} {{ $branding->city }}<br>
+            @endif
+            @if ($branding->country)
+                {{ $branding->country }}
             @endif
         </div>
 
