@@ -37,6 +37,7 @@ class DatabaseSeeder extends Seeder
             BinnenLessonQuestionSeeder::class,
             BinnenSegelnLessonQuestionSeeder::class,
             BinnenSegelnAddonLessonQuestionSeeder::class,
+            FknSknLessonQuestionSeeder::class,
             AddSeeToBinVideoCourseSeeder::class,
             AddBinToSeeVideoCourseSeeder::class,
             NavigationTaskSeeder::class,
