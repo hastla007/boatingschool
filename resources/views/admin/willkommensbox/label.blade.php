@@ -1,29 +1,25 @@
 @php
-    // A4 ist kein eigenes Vollformat-Label, sondern ein A6-Label (exakt wie
-    // die A6-Vorlage) zentriert auf einem A4-Bogen zum Ausschneiden -- die
-    // meisten Drucker/Schulen haben kein A6-Papier vorrätig, A4 dagegen
-    // immer.
-    $isA4CutGuide = $size === 'a4';
+    // A4 und A5 sind kein eigenes Vollformat-Label, sondern ein A6-Label
+    // (exakt wie die A6-Vorlage) zentriert auf einem hochkanten Bogen zum
+    // Ausschneiden -- die meisten Bootsschulen haben kein A6-Papier
+    // vorrätig, A4/A5 dagegen eher.
+    $cutGuidePageDimensions = ['a4' => [210, 297], 'a5' => [148, 210]];
+    $isCutGuide = array_key_exists($size, $cutGuidePageDimensions);
 
-    if ($isA4CutGuide) {
-        $pageWidthMm = 210;
-        $pageHeightMm = 297;
+    if ($isCutGuide) {
+        [$pageWidthMm, $pageHeightMm] = $cutGuidePageDimensions[$size];
         $labelWidthMm = 148;
         $labelHeightMm = 105;
     } else {
-        $dimensions = ['a5' => [210, 148], 'a6' => [148, 105]];
-        [$labelWidthMm, $labelHeightMm] = $dimensions[$size] ?? $dimensions['a6'];
+        $labelWidthMm = 148;
+        $labelHeightMm = 105;
         $pageWidthMm = $labelWidthMm;
         $pageHeightMm = $labelHeightMm;
     }
 
-    $fontSizesBySize = [
-        'a5' => ['sender' => '11pt', 'recipient' => '15pt'],
-        'a6' => ['sender' => '10pt', 'recipient' => '11pt'],
-    ];
-    // Für den Ausschneide-Bogen gelten dieselben Schriftgrößen wie beim
-    // A6-Label selbst -- das Label soll 1:1 identisch aussehen.
-    $fontSizes = $isA4CutGuide ? $fontSizesBySize['a6'] : ($fontSizesBySize[$size] ?? $fontSizesBySize['a6']);
+    // Für den Ausschneide-Bogen (A4/A5) gelten dieselben Schriftgrößen wie
+    // beim A6-Label selbst -- das Label soll 1:1 identisch aussehen.
+    $fontSizes = ['sender' => '10pt', 'recipient' => '11pt'];
 
     $senderName = $branding->legal_name ?: $tenant->name;
     $recipientName = $order->user->name ?? '—';
@@ -38,8 +34,8 @@
     $spacerHeightMm = round($contentHeightMm * 0.02, 1);
     $recipientIndentMm = round($contentWidthMm * 0.38, 1);
 
-    $labelOffsetTopMm = $isA4CutGuide ? 20 : 0;
-    $labelOffsetLeftMm = $isA4CutGuide ? round(($pageWidthMm - $labelWidthMm) / 2, 1) : 0;
+    $labelOffsetTopMm = $isCutGuide ? 20 : 0;
+    $labelOffsetLeftMm = $isCutGuide ? round(($pageWidthMm - $labelWidthMm) / 2, 1) : 0;
 @endphp
 <!DOCTYPE html>
 <html lang="de">
@@ -151,7 +147,7 @@
         </div>
     </div>
 
-    @if ($isA4CutGuide)
+    @if ($isCutGuide)
         <div class="cut-hint">Hier an der Linie ausschneiden und auf das Paket kleben.</div>
     @endif
 </body>
