@@ -21,6 +21,7 @@
     @if ($addonBanner)
         @php
             $addonTemplate = $addonBanner->addonTemplate;
+            $addonBullets = $addonBanner->effectiveBullets();
         @endphp
         <div x-data="{ dismissed: false }"
              x-init="dismissed = (() => { try { return localStorage.getItem('addon-banner-dismissed-{{ $addonBanner->addon_template_id }}') === '1' } catch (e) { return false } })()"
@@ -40,9 +41,9 @@
                     @endif
                 </div>
                 <h3 class="font-semibold text-slate-800 dark:text-white text-sm sm:text-base">{{ $addonTemplate->headline }}</h3>
-                @if (! empty($addonTemplate->bullets))
+                @if (! empty($addonBullets))
                     <ul class="grid grid-cols-2 gap-x-4 gap-y-2 mt-2">
-                        @foreach ($addonTemplate->bullets as $bullet)
+                        @foreach ($addonBullets as $bullet)
                             <li class="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
                                 <x-icon name="check-circle" class="w-3.5 h-3.5 shrink-0" style="color: var(--brand-secondary, #00A8A8)" />
                                 {{ $bullet }}
@@ -104,6 +105,16 @@
                 @endif
                 @if ($coursePromoBanner->description)
                     <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">{{ $coursePromoBanner->description }}</p>
+                @endif
+                @if (! empty($coursePromoBanner->bullets))
+                    <ul class="grid grid-cols-2 gap-x-4 gap-y-2 mt-2">
+                        @foreach ($coursePromoBanner->bullets as $bullet)
+                            <li class="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                                <x-icon name="check-circle" class="w-3.5 h-3.5 shrink-0" style="color: var(--brand-secondary, #00A8A8)" />
+                                {{ $bullet }}
+                            </li>
+                        @endforeach
+                    </ul>
                 @endif
             </div>
             <div class="flex flex-col items-end gap-2 shrink-0 self-start sm:self-center">

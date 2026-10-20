@@ -2,9 +2,9 @@
     Hier kannst du vorgefertigte Addon-Banner aktivieren, mit denen du Kursteilnehmern ein Upgrade oder
     Zusatzpaket anbietest. Für jedes aktivierte Addon hinterlegst du deinen Gutscheincode und Preis
     (beides reine Anzeigefelder &mdash; der Verkauf läuft über deinen eigenen Webshop), optional einen
-    Rabatt in % (der rabattierte VK wird daraus automatisch berechnet und zusätzlich angezeigt), den Kurs
-    und den Kursfortschritt, ab dem der Banner auf dessen Kursseite erscheint, sowie den Link zu deiner
-    Angebotsseite.
+    Rabatt in % (der rabattierte VK wird daraus automatisch berechnet und zusätzlich angezeigt), die
+    Haken-Bullets (standardmäßig die der Vorlage, von dir frei änderbar), den Kurs und den Kursfortschritt,
+    ab dem der Banner auf dessen Kursseite erscheint, sowie den Link zu deiner Angebotsseite.
 </p>
 
 @if ($addonTemplates->isEmpty())
@@ -50,6 +50,13 @@
                         <x-text-input :id="'discount_percent_'.$template->id" name="addons[{{ $template->id }}][discount_percent]" type="number" min="0" max="100" placeholder="z. B. 20"
                                       class="mt-1 block w-full" :value="old('addons.'.$template->id.'.discount_percent', $config?->discount_percent)" />
                         <x-input-error :messages="$errors->get('addons.'.$template->id.'.discount_percent')" class="mt-2" />
+                    </div>
+                    <div class="sm:col-span-2">
+                        <x-input-label :for="'bullets_'.$template->id" value="Haken-Bullets (eine Zeile pro Punkt)" />
+                        <textarea id="{{ 'bullets_'.$template->id }}" name="addons[{{ $template->id }}][bullets]" rows="4"
+                                  class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">{{ old('addons.'.$template->id.'.bullets', implode("\n", $config?->effectiveBullets() ?? $template->bullets ?? [])) }}</textarea>
+                        <p class="text-xs text-slate-400 mt-1">Vorausgefüllt mit den Punkten der Vorlage &mdash; du kannst sie anpassen, ergänzen oder löschen.</p>
+                        <x-input-error :messages="$errors->get('addons.'.$template->id.'.bullets')" class="mt-2" />
                     </div>
                     <div>
                         <x-input-label :for="'trigger_course_id_'.$template->id" value="Sichtbar ab % Kursfortschritt von" />

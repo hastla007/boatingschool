@@ -31,6 +31,10 @@ class CoursePromoBannerDemoSeeder extends Seeder
                 'active' => true,
                 'headline' => 'Jetzt auch den Seefunk-Schein (SRC) sichern!',
                 'description' => 'Perfekt in Kombination mit deinem Bootsführerschein.',
+                'bullets' => [
+                    'Nur 12 offizielle Prüfungsbögen',
+                    'In 30 Minuten machbar',
+                ],
                 'cta_label' => 'Jetzt entdecken',
                 'price_label' => '189 €',
                 'discount_percent' => 15,

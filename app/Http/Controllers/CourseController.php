@@ -9,6 +9,7 @@ use App\Models\Progress;
 use App\Models\TenantAddon;
 use App\Models\TenantCourseDisabled;
 use App\Models\VideoProgress;
+use App\Services\CourseProgressService;
 use App\Services\EntitlementService;
 use App\Support\ComboVideoGroups;
 use App\Support\TenantContext;
@@ -68,7 +69,7 @@ class CourseController extends Controller
         ]);
     }
 
-    public function show(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course): View|Response
+    public function show(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseProgressService $progressService, CourseDefinition $course): View|Response
     {
         $tenant = $tenantContext->tenant();
         $user = $request->user();
@@ -150,11 +151,23 @@ class CourseController extends Controller
 
         // Von der Bootsschule selbst getexteter Empfehlungsbanner für
         // einen anderen/weiterführenden Kurs -- unabhängig vom Addon-
-        // Banner oben, erscheint unabhängig vom Kursfortschritt.
+        // Banner oben. Ohne gewählten Trigger-Kurs erscheint er sofort,
+        // mit Trigger-Kurs erst ab dessen konfiguriertem Kursfortschritt
+        // (kann ein anderer Kurs als der gerade angesehene sein).
         $coursePromoBanner = CoursePromoBanner::where('tenant_id', $tenant->id)
             ->where('course_id', $course->id)
             ->where('active', true)
             ->first();
+
+        if ($coursePromoBanner && $coursePromoBanner->trigger_course_id) {
+            $triggerCourse = CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')
+                ->find($coursePromoBanner->trigger_course_id);
+            $triggerPercent = $triggerCourse ? $progressService->overallPercent($triggerCourse, $tenant, $user) : 0;
+
+            if ($triggerPercent < $coursePromoBanner->trigger_percent) {
+                $coursePromoBanner = null;
+            }
+        }
 
         return view('courses.show', [
             'course' => $course,

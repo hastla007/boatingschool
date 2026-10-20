@@ -111,6 +111,55 @@ class TenantAddonTest extends TestCase
         ]);
     }
 
+    public function test_a_school_admin_can_override_the_templates_bullets(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $template = $this->createTestTemplate();
+        $course = $this->existingCourse('SRC');
+
+        $this->actingAsInTenant($admin, $tenant)->patch('/admin/addons', [
+            'addons' => [
+                $template->id => [
+                    'active' => '1',
+                    'bullets' => "Eigener Punkt 1\n\nEigener Punkt 2\n",
+                    'trigger_course_id' => $course->id,
+                    'trigger_percent' => '30',
+                    'offer_url' => 'https://shop.example.test/grosses-paket',
+                ],
+            ],
+        ]);
+
+        $tenantAddon = $this->onAdmin(fn () => \App\Models\TenantAddon::where('tenant_id', $tenant->id)->where('addon_template_id', $template->id)->first());
+
+        $this->assertSame(['Eigener Punkt 1', 'Eigener Punkt 2'], $tenantAddon->bullets);
+        $this->assertSame(['Eigener Punkt 1', 'Eigener Punkt 2'], $tenantAddon->effectiveBullets());
+    }
+
+    public function test_leaving_bullets_empty_falls_back_to_the_templates_bullets(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $template = $this->createTestTemplate();
+        $course = $this->existingCourse('SRC');
+
+        $this->actingAsInTenant($admin, $tenant)->patch('/admin/addons', [
+            'addons' => [
+                $template->id => [
+                    'active' => '1',
+                    'trigger_course_id' => $course->id,
+                    'trigger_percent' => '30',
+                    'offer_url' => 'https://shop.example.test/grosses-paket',
+                ],
+            ],
+        ]);
+
+        $tenantAddon = $this->onAdmin(fn () => \App\Models\TenantAddon::where('tenant_id', $tenant->id)->where('addon_template_id', $template->id)->first());
+
+        $this->assertNull($tenantAddon->bullets);
+        $this->assertSame(['Vorteil 1', 'Vorteil 2'], $tenantAddon->effectiveBullets());
+    }
+
     public function test_deactivating_an_addon_removes_its_configuration(): void
     {
         $tenant = $this->createTestTenant();

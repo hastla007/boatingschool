@@ -1,8 +1,10 @@
 <p class="text-slate-500 mb-6">
     Hier kannst du pro Kurs einen Banner aktivieren, der auf dessen Kursseite für einen anderen oder
-    weiterführenden Kurs wirbt (z. B. einen Ergänzungskurs). Überschrift und Beschreibungstext schreibst du
-    frei selbst, Preis, Rabatt in % und Gutscheincode sind optional (reine Anzeigefelder &mdash; der Rabatt-VK
-    wird daraus automatisch berechnet), der Link führt zu deiner externen Angebotsseite.
+    weiterführenden Kurs wirbt (z. B. einen Ergänzungskurs). Überschrift, Beschreibungstext und Haken-Bullets
+    schreibst du frei selbst, Preis, Rabatt in % und Gutscheincode sind optional (reine Anzeigefelder &mdash;
+    der Rabatt-VK wird daraus automatisch berechnet), der Link führt zu deiner externen Angebotsseite. Optional
+    kannst du den Banner erst ab einem bestimmten Kursfortschritt eines frei wählbaren Kurses einblenden
+    lassen.
 </p>
 
 <form method="POST" action="{{ route('admin.course-promo-banners.update') }}" class="space-y-6">
@@ -36,6 +38,12 @@
                     <x-input-error :messages="$errors->get('banners.'.$course->id.'.description')" class="mt-2" />
                 </div>
                 <div>
+                    <x-input-label :for="'bullets_'.$course->id" value="Haken-Bullets (eine Zeile pro Punkt, optional)" />
+                    <textarea id="{{ 'bullets_'.$course->id }}" name="banners[{{ $course->id }}][bullets]" rows="4"
+                              class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">{{ old('banners.'.$course->id.'.bullets', implode("\n", $config?->bullets ?? [])) }}</textarea>
+                    <x-input-error :messages="$errors->get('banners.'.$course->id.'.bullets')" class="mt-2" />
+                </div>
+                <div>
                     <x-input-label :for="'cta_label_'.$course->id" value="Button-Text" />
                     <x-text-input :id="'cta_label_'.$course->id" name="banners[{{ $course->id }}][cta_label]" type="text" placeholder="Jetzt entdecken"
                                   class="mt-1 block w-full" :value="old('banners.'.$course->id.'.cta_label', $config?->cta_label ?? 'Jetzt entdecken')" />
@@ -66,6 +74,25 @@
                     <x-text-input :id="'offer_url_'.$course->id" name="banners[{{ $course->id }}][offer_url]" type="url" placeholder="https://dein-webshop.de/angebot/..."
                                   class="mt-1 block w-full" :value="old('banners.'.$course->id.'.offer_url', $config?->offer_url)" />
                     <x-input-error :messages="$errors->get('banners.'.$course->id.'.offer_url')" class="mt-2" />
+                </div>
+                <div class="grid sm:grid-cols-2 gap-4">
+                    <div>
+                        <x-input-label :for="'trigger_course_id_'.$course->id" value="Sichtbar ab % Kursfortschritt von (optional)" />
+                        <select id="{{ 'trigger_course_id_'.$course->id }}" name="banners[{{ $course->id }}][trigger_course_id]"
+                                class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                            <option value="" @selected(! old('banners.'.$course->id.'.trigger_course_id', $config?->trigger_course_id))>Sofort sichtbar (kein Kurs ausgewählt)</option>
+                            @foreach ($courses as $triggerCourse)
+                                <option value="{{ $triggerCourse->id }}" @selected(old('banners.'.$course->id.'.trigger_course_id', $config?->trigger_course_id) === $triggerCourse->id)>{{ $triggerCourse->name }}</option>
+                            @endforeach
+                        </select>
+                        <x-input-error :messages="$errors->get('banners.'.$course->id.'.trigger_course_id')" class="mt-2" />
+                    </div>
+                    <div>
+                        <x-input-label :for="'trigger_percent_'.$course->id" value="Sichtbar ab % Kursfortschritt" />
+                        <x-text-input :id="'trigger_percent_'.$course->id" name="banners[{{ $course->id }}][trigger_percent]" type="number" min="0" max="100"
+                                      class="mt-1 block w-full" :value="old('banners.'.$course->id.'.trigger_percent', $config?->trigger_percent ?? 0)" />
+                        <x-input-error :messages="$errors->get('banners.'.$course->id.'.trigger_percent')" class="mt-2" />
+                    </div>
                 </div>
             </div>
         </div>

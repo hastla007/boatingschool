@@ -19,7 +19,7 @@ class TenantAddon extends Model
     public $incrementing = false;
 
     protected $fillable = [
-        'tenant_id', 'addon_template_id', 'active', 'coupon_code', 'price_label', 'discount_percent',
+        'tenant_id', 'addon_template_id', 'active', 'coupon_code', 'price_label', 'discount_percent', 'bullets',
         'trigger_course_id', 'trigger_percent', 'offer_url',
     ];
 
@@ -29,6 +29,7 @@ class TenantAddon extends Model
             'active' => 'boolean',
             'trigger_percent' => 'integer',
             'discount_percent' => 'integer',
+            'bullets' => 'array',
         ];
     }
 
@@ -40,5 +41,14 @@ class TenantAddon extends Model
     public function triggerCourse(): BelongsTo
     {
         return $this->belongsTo(CourseDefinition::class, 'trigger_course_id');
+    }
+
+    /**
+     * Eigene Bullets der Bootsschule, falls hinterlegt, sonst die
+     * Vorlagen-Bullets (addon_template.bullets).
+     */
+    public function effectiveBullets(): array
+    {
+        return $this->bullets ?: ($this->addonTemplate->bullets ?? []);
     }
 }

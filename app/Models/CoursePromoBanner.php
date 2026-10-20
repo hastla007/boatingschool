@@ -19,8 +19,9 @@ class CoursePromoBanner extends Model
     public $incrementing = false;
 
     protected $fillable = [
-        'tenant_id', 'course_id', 'active', 'headline', 'description', 'cta_label',
+        'tenant_id', 'course_id', 'active', 'headline', 'description', 'bullets', 'cta_label',
         'price_label', 'discount_percent', 'coupon_code', 'offer_url',
+        'trigger_course_id', 'trigger_percent',
     ];
 
     protected function casts(): array
@@ -28,11 +29,18 @@ class CoursePromoBanner extends Model
         return [
             'active' => 'boolean',
             'discount_percent' => 'integer',
+            'bullets' => 'array',
+            'trigger_percent' => 'integer',
         ];
     }
 
     public function course(): BelongsTo
     {
         return $this->belongsTo(CourseDefinition::class, 'course_id');
+    }
+
+    public function triggerCourse(): BelongsTo
+    {
+        return $this->belongsTo(CourseDefinition::class, 'trigger_course_id');
     }
 }

@@ -31,6 +31,7 @@ class AddonController extends Controller
             'addons.*.coupon_code' => ['nullable', 'string', 'max:255'],
             'addons.*.price_label' => ['nullable', 'string', 'max:255'],
             'addons.*.discount_percent' => ['nullable', 'integer', 'min:0', 'max:100'],
+            'addons.*.bullets' => ['nullable', 'string'],
             'addons.*.trigger_course_id' => ['nullable', 'uuid', 'exists:course_definition,id'],
             'addons.*.trigger_percent' => ['nullable', 'integer', 'min:0', 'max:100'],
             'addons.*.offer_url' => ['nullable', 'url', 'max:2048'],
@@ -56,6 +57,7 @@ class AddonController extends Controller
                     'coupon_code' => trim((string) ($row['coupon_code'] ?? '')) ?: null,
                     'price_label' => trim((string) ($row['price_label'] ?? '')) ?: null,
                     'discount_percent' => isset($row['discount_percent']) && $row['discount_percent'] !== '' ? (int) $row['discount_percent'] : null,
+                    'bullets' => $this->parseBullets($row['bullets'] ?? ''),
                     'trigger_course_id' => $row['trigger_course_id'] ?? null,
                     'trigger_percent' => (int) ($row['trigger_percent'] ?? 0),
                     'offer_url' => trim((string) ($row['offer_url'] ?? '')) ?: null,
@@ -66,5 +68,19 @@ class AddonController extends Controller
         AuditLog::record($tenant->id, $request->user()->id, 'addons.update', 'tenant_addon', $tenant->id, null, $rows->toArray());
 
         return back()->with('status', 'Addons aktualisiert.');
+    }
+
+    /**
+     * Textarea (eine Zeile pro Punkt) -> Array, oder null bei leerem Feld
+     * (dann gelten weiter die Vorlagen-Bullets, siehe
+     * TenantAddon::effectiveBullets()).
+     *
+     * @return string[]|null
+     */
+    private function parseBullets(string $raw): ?array
+    {
+        $lines = array_values(array_filter(array_map('trim', explode("\n", $raw)), fn ($line) => $line !== ''));
+
+        return $lines ?: null;
     }
 }
