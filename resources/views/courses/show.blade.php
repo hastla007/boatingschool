@@ -51,7 +51,7 @@
                     </ul>
                 @endif
             </div>
-            <div class="flex items-center gap-3 sm:gap-4 shrink-0 self-start sm:self-center">
+            <div class="flex flex-col items-end gap-2 shrink-0 self-start sm:self-center">
                 @if ($addonBanner->price_label || $addonBanner->coupon_code)
                     @php
                         $discountedPrice = $addonBanner->discountedPriceLabel();
@@ -75,17 +75,19 @@
                         @endif
                     </div>
                 @endif
-                <a href="{{ $addonBanner->offer_url }}" target="_blank" rel="noopener"
-                   class="inline-flex items-center justify-center px-4 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 transition whitespace-nowrap"
-                   style="background-color: var(--brand-primary, #005FD7)">
-                    {{ $addonTemplate->cta_label }}
-                </a>
-                <button type="button"
-                        @click="dismissed = true; (() => { try { localStorage.setItem('addon-banner-dismissed-{{ $addonBanner->addon_template_id }}', '1') } catch (e) {} })()"
-                        class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xl leading-none w-8 h-8 shrink-0 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition"
-                        aria-label="Banner schließen">
-                    &times;
-                </button>
+                <div class="flex items-center gap-2">
+                    <a href="{{ $addonBanner->offer_url }}" target="_blank" rel="noopener"
+                       class="inline-flex items-center justify-center px-4 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 transition whitespace-nowrap"
+                       style="background-color: var(--brand-primary, #005FD7)">
+                        {{ $addonTemplate->cta_label }}
+                    </a>
+                    <button type="button"
+                            @click="dismissed = true; (() => { try { localStorage.setItem('addon-banner-dismissed-{{ $addonBanner->addon_template_id }}', '1') } catch (e) {} })()"
+                            class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xl leading-none w-8 h-8 shrink-0 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+                            aria-label="Banner schließen">
+                        &times;
+                    </button>
+                </div>
             </div>
         </div>
     @endif
