@@ -1,7 +1,14 @@
 <x-app-layout>
-    <x-slot name="header">
-        <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Bootsschul-Admin</h2>
-    </x-slot>
+    <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-slate-800 dark:text-white">Bootsschul-Admin</h1>
+            <p class="text-sm text-slate-400 mt-0.5">Verwalte Teilnehmer, Kurse und Einstellungen deiner Bootsschule.</p>
+        </div>
+        <div class="flex items-center gap-2 text-slate-400 dark:text-slate-500 text-xs text-right">
+            <span class="leading-tight">Alles im Blick.<br>Immer startklar.</span>
+            <x-icon name="anchor" class="w-5 h-5 shrink-0" style="color: var(--brand-secondary, #00A8A8)" />
+        </div>
+    </div>
 
     <div x-data="{ tab: new URLSearchParams(window.location.search).get('tab') || 'dashboard' }"
          x-init="$watch('tab', (value) => { const url = new URL(window.location); url.searchParams.set('tab', value); window.history.replaceState({}, '', url); })">
