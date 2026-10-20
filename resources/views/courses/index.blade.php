@@ -22,6 +22,7 @@
             'SRC' => 'images/courses/src.webp',
             'UBI' => 'images/courses/ubi.webp',
             'SBF-BIN-SEGEL' => 'images/courses/sbf-bin-segel.webp',
+            'ADD-BIN-SEGEL' => 'images/courses/sbf-bin-to-segel.webp',
             'FKN' => 'images/courses/fkn.webp',
             'SKN' => 'images/courses/skn.webp',
         ];
