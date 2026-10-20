@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\PraxisFormSubmission;
+use App\Models\PraxisFormTemplate;
 use App\Models\Product;
 use App\Models\ProductPurchase;
 use Tests\Feature\Concerns\InteractsWithTenants;
@@ -15,6 +17,24 @@ use Tests\TestCase;
 class ParticipantDetailTest extends TestCase
 {
     use InteractsWithTenants;
+
+    private array $createdTemplateIds = [];
+
+    protected function tearDown(): void
+    {
+        // Erst Tenants (kaskadiert praxis_form_submission weg), dann die
+        // Vorlage selbst -- sonst verhindert der FK auf praxis_form_template
+        // das Löschen, solange noch eine Submission darauf verweist.
+        $this->cleanUpCreatedTenantsAndUsers();
+
+        $this->onAdmin(function () {
+            foreach ($this->createdTemplateIds as $id) {
+                PraxisFormTemplate::where('id', $id)->delete();
+            }
+        });
+
+        parent::tearDown();
+    }
 
     public function test_admin_sees_a_participants_address_and_bookings_on_the_detail_page(): void
     {
@@ -59,6 +79,59 @@ class ParticipantDetailTest extends TestCase
 
         $response->assertOk();
         $response->assertSee(route('admin.participants.show', $learner->id), false);
+    }
+
+    public function test_admin_sees_the_submitted_praxis_form_data_on_the_detail_page(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+
+        $template = $this->onAdmin(function () {
+            $template = PraxisFormTemplate::create([
+                'title' => 'E2E Anmeldeformular',
+                'min_progress_percent' => 0,
+                'course_ids' => [],
+                'fields' => [
+                    ['key' => 'telefonnummer', 'label' => 'Telefonnummer', 'type' => 'text', 'required' => true, 'options' => [], 'help_text' => null],
+                    ['key' => 'tauglich', 'label' => 'Tauglichkeitsbescheinigung liegt vor', 'type' => 'checkbox', 'required' => false, 'options' => [], 'help_text' => null],
+                ],
+                'active' => true,
+            ]);
+            $this->createdTemplateIds[] = $template->id;
+
+            return $template;
+        });
+
+        $this->onAdmin(fn () => PraxisFormSubmission::create([
+            'tenant_id' => $tenant->id,
+            'course_id' => $course->id,
+            'user_id' => $learner->id,
+            'praxis_form_template_id' => $template->id,
+            'data' => ['telefonnummer' => '+49 170 7654321', 'tauglich' => true],
+        ]));
+
+        $response = $this->actingAsInTenant($admin, $tenant)->get("/admin/participants/{$learner->id}");
+
+        $response->assertOk();
+        $response->assertSee('E2E Anmeldeformular');
+        $response->assertSee('Telefonnummer');
+        $response->assertSee('+49 170 7654321');
+        $response->assertSee('Tauglichkeitsbescheinigung liegt vor');
+        $response->assertSee('Ja');
+    }
+
+    public function test_detail_page_shows_a_placeholder_when_no_praxis_form_was_submitted_yet(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+
+        $response = $this->actingAsInTenant($admin, $tenant)->get("/admin/participants/{$learner->id}");
+
+        $response->assertOk();
+        $response->assertSee('Noch keine Praxis-Anmeldung eingegangen.');
     }
 
     public function test_admin_cannot_view_a_participant_from_another_tenant(): void
