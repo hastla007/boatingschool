@@ -101,6 +101,49 @@
             </form>
         </div>
 
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
+            <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
+                <x-icon name="flag" class="w-4 h-4 text-slate-400" /> Benachrichtigungen
+            </h3>
+            @forelse ($actionItems as $item)
+                <div class="flex items-start gap-2 text-sm text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 rounded-lg px-3 py-2 mb-2 last:mb-0">
+                    <x-icon name="bolt" class="w-4 h-4 shrink-0 mt-0.5" />
+                    <div>
+                        <span class="font-medium">{{ $item['course'] }}</span> &ndash; {{ $item['label'] }}: {{ $item['reason'] }}
+                    </div>
+                </div>
+            @empty
+                <p class="text-sm text-slate-400">Keine offenen Aktionen.</p>
+            @endforelse
+        </div>
+
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
+            <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
+                <x-icon name="clipboard-document-check" class="w-4 h-4 text-slate-400" /> Gebuchte Kurse &amp; Produkte
+            </h3>
+            <div class="space-y-2">
+                @forelse ($bookings as $booking)
+                    <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-2 last:border-0 last:pb-0">
+                        <div>
+                            <span class="text-sm text-slate-700 dark:text-slate-200">{{ $booking['label'] }}</span>
+                            @if ($booking['status'])
+                                <span class="inline-block ms-1 px-1.5 py-0.5 rounded-full text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-500">{{ $booking['status'] }}</span>
+                            @endif
+                            <span class="block text-xs text-slate-400">
+                                {{ $booking['source_type'] === 'coupon' ? 'Code '.$booking['source_reference'] : 'Manuell freigeschaltet' }}
+                            </span>
+                            @if ($booking['options']->isNotEmpty())
+                                <span class="block text-xs text-indigo-600 dark:text-indigo-400 mt-0.5">+ {{ $booking['options']->implode(', ') }}</span>
+                            @endif
+                        </div>
+                        <span class="text-xs text-slate-400 whitespace-nowrap">{{ $booking['date']?->format('d.m.Y') }}</span>
+                    </div>
+                @empty
+                    <p class="text-sm text-slate-400">Noch keine Buchungen.</p>
+                @endforelse
+            </div>
+        </div>
+
         @if ($willkommensboxOrder)
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
                 <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
@@ -165,36 +208,8 @@
                 <p class="text-sm text-slate-400">Zugang vorhanden, aber noch nicht bestellt.</p>
             </div>
         @endif
-
-        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
-            <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
-                <x-icon name="clipboard-document-check" class="w-4 h-4 text-slate-400" /> Gebuchte Kurse &amp; Produkte
-            </h3>
-            <div class="space-y-2">
-                @forelse ($bookings as $booking)
-                    <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-2 last:border-0 last:pb-0">
-                        <div>
-                            <span class="text-sm text-slate-700 dark:text-slate-200">{{ $booking['label'] }}</span>
-                            @if ($booking['status'])
-                                <span class="inline-block ms-1 px-1.5 py-0.5 rounded-full text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-500">{{ $booking['status'] }}</span>
-                            @endif
-                            <span class="block text-xs text-slate-400">
-                                {{ $booking['source_type'] === 'coupon' ? 'Code '.$booking['source_reference'] : 'Manuell freigeschaltet' }}
-                            </span>
-                            @if ($booking['options']->isNotEmpty())
-                                <span class="block text-xs text-indigo-600 dark:text-indigo-400 mt-0.5">+ {{ $booking['options']->implode(', ') }}</span>
-                            @endif
-                        </div>
-                        <span class="text-xs text-slate-400 whitespace-nowrap">{{ $booking['date']?->format('d.m.Y') }}</span>
-                    </div>
-                @empty
-                    <p class="text-sm text-slate-400">Noch keine Buchungen.</p>
-                @endforelse
-            </div>
-        </div>
     </div>
 
-    <div class="grid lg:grid-cols-2 gap-6 items-start">
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
         <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
             <x-icon name="academic-cap" class="w-4 h-4 text-slate-400" /> Praxis-Anmeldungen
@@ -294,22 +309,5 @@
         @empty
             <p class="text-sm text-slate-400">Noch keine Praxis-Anmeldung eingegangen.</p>
         @endforelse
-    </div>
-
-    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
-        <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
-            <x-icon name="flag" class="w-4 h-4 text-slate-400" /> Benachrichtigungen
-        </h3>
-        @forelse ($actionItems as $item)
-            <div class="flex items-start gap-2 text-sm text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 rounded-lg px-3 py-2 mb-2 last:mb-0">
-                <x-icon name="bolt" class="w-4 h-4 shrink-0 mt-0.5" />
-                <div>
-                    <span class="font-medium">{{ $item['course'] }}</span> &ndash; {{ $item['label'] }}: {{ $item['reason'] }}
-                </div>
-            </div>
-        @empty
-            <p class="text-sm text-slate-400">Keine offenen Aktionen.</p>
-        @endforelse
-    </div>
     </div>
 </x-app-layout>
