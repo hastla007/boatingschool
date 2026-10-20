@@ -28,6 +28,19 @@
                 Das Geburtsdatum muss der Teilnehmer für die Anmeldung zu Praxis &amp; Prüfung selbst im eigenen Profil angeben.
             </p>
         </div>
+        <div x-data="{ showCode: {{ $errors->has('code') ? 'true' : 'false' }} }">
+            <button type="button" @click="showCode = ! showCode" class="text-xs text-slate-500 hover:underline">
+                <span x-show="! showCode" @if ($errors->has('code')) style="display: none" @endif>+ Code zuweisen (optional)</span>
+                <span x-show="showCode" @unless ($errors->has('code')) style="display: none" @endunless>&minus; Code ausblenden</span>
+            </button>
+            <div x-show="showCode" @unless ($errors->has('code')) style="display: none" @endunless class="mt-2">
+                <input type="text" name="code" value="{{ old('code') }}" placeholder="XXXX-XXXX-XXXX" class="w-full sm:w-64 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm font-mono">
+                <x-input-error :messages="$errors->get('code')" class="mt-1" />
+                <p class="text-xs text-slate-400 mt-1">
+                    Ein eigener Code (Kurs oder Produkt) wird dem Teilnehmer direkt bei der Einladung zugewiesen und eingelöst.
+                </p>
+            </div>
+        </div>
         <button type="submit" class="px-4 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">Einladen</button>
     </form>
 </div>
