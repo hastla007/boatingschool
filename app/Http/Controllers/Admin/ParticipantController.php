@@ -80,7 +80,7 @@ class ParticipantController extends Controller
         $bookings = $entitlements->concat($standaloneProductPurchases)->sortByDesc('date')->values();
 
         $praxisFormSubmissions = PraxisFormSubmission::where('tenant_id', $tenant->id)->where('user_id', $user->id)
-            ->with(['course', 'template'])->orderByDesc('created_at')->get();
+            ->with(['course', 'template', 'examAppointments'])->orderByDesc('created_at')->get();
 
         return view('admin.participants.show', [
             'participant' => $user,

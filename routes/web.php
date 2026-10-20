@@ -8,6 +8,7 @@ use App\Http\Controllers\Admin\CoursePromoBannerController;
 use App\Http\Controllers\Admin\CourseSelectionController;
 use App\Http\Controllers\Admin\EntitlementController;
 use App\Http\Controllers\Admin\ParticipantController;
+use App\Http\Controllers\Admin\PraxisExamAppointmentController as AdminPraxisExamAppointmentController;
 use App\Http\Controllers\Admin\SupportEmailVerificationController;
 use App\Http\Controllers\Admin\TenantCourseLocationController;
 use App\Http\Controllers\Admin\WebshopLinkController;
@@ -19,6 +20,7 @@ use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\LearningController;
 use App\Http\Controllers\NavigationTaskController;
 use App\Http\Controllers\OffersController;
+use App\Http\Controllers\PraxisExamAppointmentController;
 use App\Http\Controllers\PraxisFormSubmissionController;
 use App\Http\Controllers\PraxisPruefungController;
 use App\Http\Controllers\PraxisTrainerController;
@@ -87,6 +89,7 @@ Route::middleware(['auth', 'tenant.member'])->group(function () {
 
     Route::get('/courses/{course}/praxis-pruefung', [PraxisPruefungController::class, 'index'])->name('praxis-pruefung.index');
     Route::post('/courses/{course}/praxis-pruefung', [PraxisFormSubmissionController::class, 'store'])->name('praxis-pruefung.store');
+    Route::post('/courses/{course}/praxis-pruefung/exam-appointments/{examAppointment}/respond', [PraxisExamAppointmentController::class, 'respond'])->name('praxis-pruefung.exam-appointments.respond');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
@@ -124,6 +127,8 @@ Route::middleware(['auth', 'tenant.role:owner,admin,instructor'])->prefix('admin
 
     Route::post('/coupons/import', [AdminCouponController::class, 'import'])->name('coupons.import');
     Route::post('/coupons/{coupon}/assign', [AdminCouponController::class, 'assign'])->name('coupons.assign');
+
+    Route::post('/praxis-form-submissions/{submission}/exam-appointments', [AdminPraxisExamAppointmentController::class, 'store'])->name('praxis-form-submissions.exam-appointments.store');
 });
 
 require __DIR__.'/superadmin.php';
