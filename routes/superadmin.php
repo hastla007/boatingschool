@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Superadmin\AddonTemplateController;
 use App\Http\Controllers\Superadmin\CourseEditorController;
 use App\Http\Controllers\Superadmin\CouponController;
 use App\Http\Controllers\Superadmin\DashboardController;
@@ -81,4 +82,12 @@ Route::middleware(['auth', 'superadmin', 'admin-db'])->prefix('superadmin')->nam
     Route::patch('/tips/{tip}', [TipController::class, 'update'])->name('tips.update');
     Route::post('/tips/{tip}/toggle-active', [TipController::class, 'toggleActive'])->name('tips.toggle-active');
     Route::delete('/tips/{tip}', [TipController::class, 'destroy'])->name('tips.destroy');
+
+    Route::get('/addon-templates', [AddonTemplateController::class, 'index'])->name('addon-templates.index');
+    Route::get('/addon-templates/create', [AddonTemplateController::class, 'create'])->name('addon-templates.create');
+    Route::post('/addon-templates', [AddonTemplateController::class, 'store'])->name('addon-templates.store');
+    Route::get('/addon-templates/{addonTemplate}/edit', [AddonTemplateController::class, 'edit'])->name('addon-templates.edit');
+    Route::patch('/addon-templates/{addonTemplate}', [AddonTemplateController::class, 'update'])->name('addon-templates.update');
+    Route::post('/addon-templates/{addonTemplate}/toggle-active', [AddonTemplateController::class, 'toggleActive'])->name('addon-templates.toggle-active');
+    Route::delete('/addon-templates/{addonTemplate}', [AddonTemplateController::class, 'destroy'])->name('addon-templates.destroy');
 });
