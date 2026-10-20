@@ -67,11 +67,15 @@ class TenantCourseLocationController extends Controller
             'praxis_plz' => ['nullable', 'string', 'max:20'],
             'praxis_stadt' => ['nullable', 'string', 'max:255'],
             'praxis_land' => ['nullable', 'string', 'max:255'],
+            'praxis_lat' => ['nullable', 'numeric', 'between:-90,90'],
+            'praxis_lng' => ['nullable', 'numeric', 'between:-180,180'],
             'pruefung_ort' => ['nullable', 'string', 'max:255'],
             'pruefung_strasse' => ['nullable', 'string', 'max:255'],
             'pruefung_plz' => ['nullable', 'string', 'max:20'],
             'pruefung_stadt' => ['nullable', 'string', 'max:255'],
             'pruefung_land' => ['nullable', 'string', 'max:255'],
+            'pruefung_lat' => ['nullable', 'numeric', 'between:-90,90'],
+            'pruefung_lng' => ['nullable', 'numeric', 'between:-180,180'],
             'course_ids' => ['nullable', 'array'],
             'course_ids.*' => ['uuid', 'exists:course_definition,id'],
         ]);
@@ -80,7 +84,13 @@ class TenantCourseLocationController extends Controller
         // deaktiviert das Frontend ("Gleich wie Praxisort") die Prüfungsort-
         // Felder, wodurch sie leer ankommen -- hier fällt jedes leere
         // Prüfungsort-Feld einzeln auf den entsprechenden Praxisort-Wert zurück.
-        $fallback = fn (string $pruefungKey, string $praxisKey) => trim((string) ($validated[$pruefungKey] ?? '')) ?: ($validated[$praxisKey] ?? null);
+        // Numerische Felder (lat/lng) dürfen legitim "0" sein, daher kein
+        // Falsy-Check auf den String-Wert, sondern explizit auf "leer/fehlt".
+        $fallback = function (string $pruefungKey, string $praxisKey) use ($validated) {
+            $value = $validated[$pruefungKey] ?? null;
+
+            return ($value !== null && trim((string) $value) !== '') ? $value : ($validated[$praxisKey] ?? null);
+        };
 
         return [
             'praxis_ort' => $validated['praxis_ort'],
@@ -88,11 +98,15 @@ class TenantCourseLocationController extends Controller
             'praxis_plz' => $validated['praxis_plz'] ?? null,
             'praxis_stadt' => $validated['praxis_stadt'] ?? null,
             'praxis_land' => $validated['praxis_land'] ?? null,
+            'praxis_lat' => $validated['praxis_lat'] ?? null,
+            'praxis_lng' => $validated['praxis_lng'] ?? null,
             'pruefung_ort' => $fallback('pruefung_ort', 'praxis_ort'),
             'pruefung_strasse' => $fallback('pruefung_strasse', 'praxis_strasse'),
             'pruefung_plz' => $fallback('pruefung_plz', 'praxis_plz'),
             'pruefung_stadt' => $fallback('pruefung_stadt', 'praxis_stadt'),
             'pruefung_land' => $fallback('pruefung_land', 'praxis_land'),
+            'pruefung_lat' => $fallback('pruefung_lat', 'praxis_lat'),
+            'pruefung_lng' => $fallback('pruefung_lng', 'praxis_lng'),
             'course_ids' => array_values($validated['course_ids'] ?? []),
         ];
     }

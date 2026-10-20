@@ -275,6 +275,8 @@ class PraxisPruefungFormTest extends TestCase
         $response->assertOk();
         $response->assertSee('Standort Nord');
         $response->assertSee('Prüfstelle Süd');
+        // Ort ohne Koordinaten -- die Karte darf nicht gerendert werden.
+        $response->assertDontSee('pruefungsort-map', false);
     }
 
     public function test_location_field_is_skipped_when_no_locations_are_configured(): void
@@ -298,6 +300,38 @@ class PraxisPruefungFormTest extends TestCase
         $submitResponse = $this->actingAsInTenant($learner, $tenant)->post(route('praxis-pruefung.store', $course), []);
         $submitResponse->assertSessionDoesntHaveErrors('ort');
         $submitResponse->assertRedirect(route('praxis-pruefung.index', $course));
+    }
+
+    public function test_map_with_exam_locations_is_shown_when_coordinates_are_configured(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course] = $this->makeIsolatedCourseWithQuestions(2);
+        $this->grantEntitlement($tenant, $learner, $course);
+        $this->masterAllQuestions($tenant, $learner, $course);
+        $this->createTemplate([
+            'course_ids' => [$course->id],
+            'min_progress_percent' => 10,
+            'fields' => [
+                ['key' => 'ort', 'label' => 'Ort', 'type' => 'location', 'required' => true, 'options' => [], 'help_text' => null],
+            ],
+        ]);
+        $this->onAdmin(fn () => TenantCourseLocation::create([
+            'tenant_id' => $tenant->id,
+            'praxis_ort' => 'Standort Nord',
+            'pruefung_ort' => 'Prüfstelle Süd',
+            'pruefung_lat' => 53.5460740,
+            'pruefung_lng' => 9.9826940,
+            'course_ids' => [$course->id],
+        ]));
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get(route('praxis-pruefung.index', $course));
+
+        $response->assertOk();
+        $response->assertSee('pruefungsort-map', false);
+        $response->assertSee('leaflet', false);
+        $response->assertSee('53.546074', false);
+        $response->assertSee('Prüfstelle Süd');
     }
 
     public function test_submitting_a_location_stores_the_coupled_exam_location(): void

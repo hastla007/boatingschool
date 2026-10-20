@@ -14,8 +14,8 @@ class TenantCourseLocation extends Model
 
     protected $fillable = [
         'tenant_id',
-        'praxis_ort', 'praxis_strasse', 'praxis_plz', 'praxis_stadt', 'praxis_land',
-        'pruefung_ort', 'pruefung_strasse', 'pruefung_plz', 'pruefung_stadt', 'pruefung_land',
+        'praxis_ort', 'praxis_strasse', 'praxis_plz', 'praxis_stadt', 'praxis_land', 'praxis_lat', 'praxis_lng',
+        'pruefung_ort', 'pruefung_strasse', 'pruefung_plz', 'pruefung_stadt', 'pruefung_land', 'pruefung_lat', 'pruefung_lng',
         'course_ids', 'sort_order',
     ];
 
@@ -46,6 +46,15 @@ class TenantCourseLocation extends Model
         return [
             'course_ids' => 'array',
             'sort_order' => 'integer',
+            'praxis_lat' => 'float',
+            'praxis_lng' => 'float',
+            'pruefung_lat' => 'float',
+            'pruefung_lng' => 'float',
         ];
+    }
+
+    public function hasPruefungCoordinates(): bool
+    {
+        return $this->pruefung_lat !== null && $this->pruefung_lng !== null;
     }
 }

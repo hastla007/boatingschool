@@ -38,6 +38,60 @@ class TenantCourseLocationTest extends TestCase
         $this->assertSame([$course->id], $location->course_ids);
     }
 
+    public function test_a_location_stores_coordinates_and_falls_back_to_praxis_coordinates(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+
+        $this->actingAsInTenant($admin, $tenant)->post('/admin/tenant-course-locations', [
+            'praxis_ort' => 'Standort Nord',
+            'praxis_lat' => '53.5460740',
+            'praxis_lng' => '9.9826940',
+            'pruefung_ort' => 'Prüfstelle Süd',
+            'pruefung_lat' => '48.1351250',
+            'pruefung_lng' => '11.5819810',
+            'course_ids' => [],
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('tenant_course_location', [
+            'tenant_id' => $tenant->id,
+            'praxis_lat' => 53.5460740,
+            'praxis_lng' => 9.9826940,
+            'pruefung_lat' => 48.1351250,
+            'pruefung_lng' => 11.5819810,
+        ]);
+
+        $this->actingAsInTenant($admin, $tenant)->post('/admin/tenant-course-locations', [
+            'praxis_ort' => 'Standort West',
+            'praxis_lat' => '51.2277400',
+            'praxis_lng' => '6.7734560',
+            'course_ids' => [],
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('tenant_course_location', [
+            'tenant_id' => $tenant->id,
+            'praxis_ort' => 'Standort West',
+            'pruefung_lat' => 51.2277400,
+            'pruefung_lng' => 6.7734560,
+        ]);
+    }
+
+    public function test_coordinates_are_rejected_outside_valid_ranges(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+
+        $response = $this->actingAsInTenant($admin, $tenant)->post('/admin/tenant-course-locations', [
+            'praxis_ort' => 'Standort Ungültig',
+            'praxis_lat' => '200',
+            'praxis_lng' => '9.98',
+            'course_ids' => [],
+        ]);
+
+        $response->assertSessionHasErrors('praxis_lat');
+        $this->assertDatabaseMissing('tenant_course_location', ['praxis_ort' => 'Standort Ungültig']);
+    }
+
     public function test_a_location_stores_separate_addresses_for_praxis_and_pruefung(): void
     {
         $tenant = $this->createTestTenant();

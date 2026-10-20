@@ -80,7 +80,27 @@
             @endif
         </div>
     @elseif ($state === 'form')
-        <div class="max-w-2xl mx-auto bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-8">
+        @php($locationField = collect($template->fields)->firstWhere('type', 'location'))
+        @php($locationsWithCoords = $locationField ? $locations->filter->hasPruefungCoordinates()->values() : collect())
+        @php($locationFieldId = $locationField ? 'field-'.$locationField['key'] : null)
+        @php($pruefungsorteForMap = $locationsWithCoords->map(fn ($location) => [
+            'id' => $location->id,
+            'name' => $location->pruefung_ort,
+            'address' => $location->pruefungAdresse(),
+            'lat' => $location->pruefung_lat,
+            'lng' => $location->pruefung_lng,
+        ]))
+
+        <div class="max-w-5xl mx-auto {{ $locationsWithCoords->isNotEmpty() ? 'grid lg:grid-cols-2 gap-6 items-start' : '' }}">
+            @if ($locationsWithCoords->isNotEmpty())
+                <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 lg:sticky lg:top-6">
+                    <h4 class="text-sm font-medium text-slate-600 dark:text-slate-300 px-2 pb-3">Prüfungsorte in deiner Nähe</h4>
+                    <div id="pruefungsort-map" style="height: 420px; border-radius: 0.75rem;"></div>
+                    <p class="text-xs text-slate-400 px-2 pt-3">Klicke auf einen Marker, um den Ort im Formular auszuwählen.</p>
+                </div>
+            @endif
+
+            <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-8">
             <h3 class="font-semibold text-lg text-slate-800 dark:text-white mb-1">{{ $template->title }}</h3>
             <p class="text-sm text-slate-500 dark:text-slate-400 mb-6">Bitte fülle die folgenden Angaben aus &mdash; deine Bootsschule meldet dich damit zur Prüfung an.</p>
 
@@ -159,6 +179,50 @@
                     Jetzt anmelden
                 </button>
             </form>
+            </div>
         </div>
+
+        @if ($locationsWithCoords->isNotEmpty())
+            <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+            <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+            <script>
+                document.addEventListener('DOMContentLoaded', function () {
+                    var mapEl = document.getElementById('pruefungsort-map');
+                    if (! mapEl || typeof L === 'undefined') {
+                        return;
+                    }
+
+                    var pruefungsorte = @json($pruefungsorteForMap);
+
+                    var map = L.map(mapEl);
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>-Mitwirkende',
+                        maxZoom: 18,
+                    }).addTo(map);
+
+                    var select = @js($locationFieldId) ? document.getElementById(@js($locationFieldId)) : null;
+                    var markers = [];
+
+                    pruefungsorte.forEach(function (ort) {
+                        var marker = L.marker([ort.lat, ort.lng]).addTo(map);
+                        var popup = '<strong>' + ort.name + '</strong>' + (ort.address ? '<br>' + ort.address : '');
+                        marker.bindPopup(popup);
+                        marker.on('click', function () {
+                            if (select) {
+                                select.value = ort.id;
+                                select.dispatchEvent(new Event('change'));
+                            }
+                        });
+                        markers.push(marker);
+                    });
+
+                    if (markers.length > 1) {
+                        map.fitBounds(L.featureGroup(markers).getBounds().pad(0.25));
+                    } else {
+                        map.setView([pruefungsorte[0].lat, pruefungsorte[0].lng], 13);
+                    }
+                });
+            </script>
+        @endif
     @endif
 </x-app-layout>

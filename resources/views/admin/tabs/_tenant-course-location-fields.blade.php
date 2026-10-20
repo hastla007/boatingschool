@@ -5,6 +5,8 @@
     && $location->praxis_plz === $location->pruefung_plz
     && $location->praxis_stadt === $location->pruefung_stadt
     && $location->praxis_land === $location->pruefung_land
+    && $location->praxis_lat === $location->pruefung_lat
+    && $location->praxis_lng === $location->pruefung_lng
 ))
 
 <div x-data="{ sameAsLocation: {{ $sameByDefault ? 'true' : 'false' }} }" class="space-y-4">
@@ -42,6 +44,23 @@
                               class="mt-1 block w-full" :value="old('praxis_land', $location?->praxis_land)" />
                 <x-input-error :messages="$errors->get('praxis_land')" class="mt-2" />
             </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <x-input-label :for="$prefix.'-praxis_lat'" value="Breitengrad" />
+                    <x-text-input :id="$prefix.'-praxis_lat'" name="praxis_lat" type="text" inputmode="decimal" placeholder="53.5460740"
+                                  class="mt-1 block w-full" :value="old('praxis_lat', $location?->praxis_lat)" />
+                    <x-input-error :messages="$errors->get('praxis_lat')" class="mt-2" />
+                </div>
+                <div>
+                    <x-input-label :for="$prefix.'-praxis_lng'" value="Längengrad" />
+                    <x-text-input :id="$prefix.'-praxis_lng'" name="praxis_lng" type="text" inputmode="decimal" placeholder="9.9826940"
+                                  class="mt-1 block w-full" :value="old('praxis_lng', $location?->praxis_lng)" />
+                    <x-input-error :messages="$errors->get('praxis_lng')" class="mt-2" />
+                </div>
+            </div>
+            <p class="text-xs text-slate-400">
+                Für die Karte im Praxisformular: Ort bei Google Maps suchen, Rechtsklick auf den Punkt &rarr; Koordinaten kopieren.
+            </p>
         </div>
         <div class="space-y-3">
             <div>
@@ -80,6 +99,20 @@
                 <x-text-input :id="$prefix.'-pruefung_land'" name="pruefung_land" type="text" placeholder="Deutschland"
                               class="mt-1 block w-full" x-bind:disabled="sameAsLocation" :value="old('pruefung_land', $location?->pruefung_land)" />
                 <x-input-error :messages="$errors->get('pruefung_land')" class="mt-2" />
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <x-input-label :for="$prefix.'-pruefung_lat'" value="Breitengrad" />
+                    <x-text-input :id="$prefix.'-pruefung_lat'" name="pruefung_lat" type="text" inputmode="decimal" placeholder="53.5460740"
+                                  class="mt-1 block w-full" x-bind:disabled="sameAsLocation" :value="old('pruefung_lat', $location?->pruefung_lat)" />
+                    <x-input-error :messages="$errors->get('pruefung_lat')" class="mt-2" />
+                </div>
+                <div>
+                    <x-input-label :for="$prefix.'-pruefung_lng'" value="Längengrad" />
+                    <x-text-input :id="$prefix.'-pruefung_lng'" name="pruefung_lng" type="text" inputmode="decimal" placeholder="9.9826940"
+                                  class="mt-1 block w-full" x-bind:disabled="sameAsLocation" :value="old('pruefung_lng', $location?->pruefung_lng)" />
+                    <x-input-error :messages="$errors->get('pruefung_lng')" class="mt-2" />
+                </div>
             </div>
         </div>
     </div>
