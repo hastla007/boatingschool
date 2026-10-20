@@ -187,7 +187,7 @@
             <div class="row tracking-row"><strong>Tracking:</strong> ____________________________________________</div>
         </div>
 
-        <div class="cut-hint">Hier an der Linie ausschneiden und auf das Paket kleben.</div>
+        <div class="cut-hint">An der Linie ausschneiden und auf das Paket kleben.</div>
     @endif
 </body>
 </html>
