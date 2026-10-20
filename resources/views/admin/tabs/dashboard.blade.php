@@ -55,6 +55,25 @@
     </button>
 </div>
 
+<div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 mb-6">
+    <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
+        <x-icon name="clipboard-document-check" class="w-4 h-4 text-slate-400" /> Kürzlich gebuchte Kurse &amp; Produkte
+    </h3>
+    <div class="space-y-2 text-sm">
+        @forelse ($recentBookings as $booking)
+            <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-2 last:border-0 last:pb-0">
+                <div>
+                    <span class="text-slate-700 dark:text-slate-200 font-medium">{{ $booking['user'] }}</span>
+                    <span class="text-slate-400">&ndash; {{ $booking['label'] }}</span>
+                </div>
+                <span class="text-xs text-slate-400 whitespace-nowrap">{{ $booking['date']->format('d.m.Y') }}</span>
+            </div>
+        @empty
+            <p class="text-slate-500">Keine Buchungen in den letzten 7 Tagen.</p>
+        @endforelse
+    </div>
+</div>
+
 <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
     <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
         <x-icon name="clock" class="w-4 h-4 text-slate-400" /> Letzte Aktivitäten

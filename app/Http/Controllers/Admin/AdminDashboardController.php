@@ -44,6 +44,22 @@ class AdminDashboardController extends Controller
         $activeEntitlements = Entitlement::where('tenant_id', $tenant->id)->where('status', 'active')->count();
         $recentActivity = AuditLog::where('tenant_id', $tenant->id)->latest('created_at')->take(10)->get();
 
+        // Info-Hinweis "Kürzlich gebuchte Kurse & Produkte" auf dem
+        // Dashboard -- über alle Teilnehmer der Bootsschule hinweg, damit
+        // neue Buchungen nicht untergehen (anders als die Benachrichtigungsbox
+        // auf der Teilnehmer-Detailseite, die nur dort anstehende Aktionen
+        // zeigt, nicht einfach jede Buchung).
+        $recentBookingsCutoff = now()->subDays(7);
+        $recentCourseBookings = Entitlement::where('tenant_id', $tenant->id)
+            ->where('valid_from', '>=', $recentBookingsCutoff)
+            ->with(['course', 'user'])->get()
+            ->map(fn (Entitlement $e) => ['user' => $e->user->name ?? '—', 'label' => $e->course->name ?? '—', 'date' => $e->valid_from]);
+        $recentProductBookings = ProductPurchase::where('tenant_id', $tenant->id)
+            ->where('created_at', '>=', $recentBookingsCutoff)
+            ->with(['product', 'user'])->get()
+            ->map(fn (ProductPurchase $p) => ['user' => $p->user->name ?? '—', 'label' => $p->product->name ?? '—', 'date' => $p->created_at]);
+        $recentBookings = $recentCourseBookings->concat($recentProductBookings)->sortByDesc('date')->values();
+
         $activeThisWeek = $learnerCount > 0
             ? Attempt::where('tenant_id', $tenant->id)
                 ->whereIn('user_id', $learnerIds)
@@ -153,6 +169,7 @@ class AdminDashboardController extends Controller
             'learnerCount' => $learnerCount,
             'activeEntitlements' => $activeEntitlements,
             'recentActivity' => $recentActivity,
+            'recentBookings' => $recentBookings,
             'weeklyActivityRate' => $weeklyActivityRate,
             'recentExamsCount' => $recentExams->count(),
             'examPassRate' => $examPassRate,
