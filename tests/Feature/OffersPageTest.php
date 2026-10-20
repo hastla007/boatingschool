@@ -128,7 +128,7 @@ class OffersPageTest extends TestCase
 
         $response->assertOk();
         $response->assertDontSee('Sichere dir jetzt das große Paket');
-        $response->assertSee('Aktuell sind keine Addons für dich verfügbar.');
+        $response->assertSee('Aktuell sind keine Empfehlungen für dich verfügbar.');
     }
 
     public function test_offers_page_shows_an_eligible_promo_banner_even_after_it_was_dismissed_on_the_course_page(): void
@@ -185,7 +185,7 @@ class OffersPageTest extends TestCase
 
         $response->assertOk();
         $response->assertDontSee('Erst ab 50%');
-        $response->assertSee('Aktuell sind keine Kursempfehlungen für dich verfügbar.');
+        $response->assertSee('Aktuell sind keine Kursangebote für dich verfügbar.');
     }
 
     public function test_offers_nav_link_is_shown_in_the_main_navigation(): void

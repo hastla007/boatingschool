@@ -10,11 +10,11 @@
 
     <div class="space-y-8">
         <div>
-            <h2 class="text-lg font-semibold text-slate-800 dark:text-white mb-3">Addons</h2>
+            <h2 class="text-lg font-semibold text-slate-800 dark:text-white mb-3">Empfehlungen</h2>
 
             @if ($addons->isEmpty())
                 <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 text-slate-500 dark:text-slate-400 text-sm">
-                    Aktuell sind keine Addons für dich verfügbar.
+                    Aktuell sind keine Empfehlungen für dich verfügbar.
                 </div>
             @else
                 <div class="space-y-4">
@@ -84,11 +84,11 @@
         </div>
 
         <div>
-            <h2 class="text-lg font-semibold text-slate-800 dark:text-white mb-3">Kursempfehlungen</h2>
+            <h2 class="text-lg font-semibold text-slate-800 dark:text-white mb-3">Kursangebote für Dich</h2>
 
             @if ($promoBanners->isEmpty())
                 <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 text-slate-500 dark:text-slate-400 text-sm">
-                    Aktuell sind keine Kursempfehlungen für dich verfügbar.
+                    Aktuell sind keine Kursangebote für dich verfügbar.
                 </div>
             @else
                 <div class="space-y-4">
