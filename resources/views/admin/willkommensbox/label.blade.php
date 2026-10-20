@@ -31,7 +31,7 @@
     // WillkommensboxLabelController) kalibrierbar.
     $contentWidthMm = $labelWidthMm - 8 - 12;
     $contentHeightMm = $labelHeightMm - 8 - 12;
-    $spacerHeightMm = round($contentHeightMm * 0.02, 1);
+    $spacerHeightMm = 0;
     $recipientIndentMm = round($contentWidthMm * 0.38, 1);
 
     $labelOffsetTopMm = $isCutGuide ? 20 : 0;
@@ -92,6 +92,8 @@
         }
 
         .recipient {
+            position: relative;
+            top: -8mm;
             margin-left: {{ $recipientIndentMm }}mm;
             font-size: {{ $fontSizes['recipient'] }};
             font-weight: bold;
