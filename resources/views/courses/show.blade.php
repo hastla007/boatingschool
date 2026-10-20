@@ -41,7 +41,7 @@
                 </div>
                 <h3 class="font-semibold text-slate-800 dark:text-white text-sm sm:text-base">{{ $addonTemplate->headline }}</h3>
                 @if (! empty($addonTemplate->bullets))
-                    <ul class="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+                    <ul class="grid grid-cols-2 gap-x-4 gap-y-2 mt-2">
                         @foreach ($addonTemplate->bullets as $bullet)
                             <li class="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
                                 <x-icon name="check-circle" class="w-3.5 h-3.5 shrink-0" style="color: var(--brand-secondary, #00A8A8)" />
