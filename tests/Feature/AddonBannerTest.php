@@ -98,6 +98,62 @@ class AddonBannerTest extends TestCase
         $response->assertSee('Vorteil Eins');
     }
 
+    public function test_banner_shows_the_discounted_price_when_a_discount_is_configured(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $this->grantEntitlement($tenant, $learner, $course);
+        $template = $this->createTestTemplate();
+
+        $this->onAdmin(fn () => TenantAddon::create([
+            'tenant_id' => $tenant->id,
+            'addon_template_id' => $template->id,
+            'active' => true,
+            'price_label' => '299 €',
+            'discount_percent' => 20,
+            'trigger_course_id' => $course->id,
+            'trigger_percent' => 50,
+            'offer_url' => 'https://shop.example.test/grosses-paket',
+        ]));
+
+        $this->masterAllQuestions($tenant, $learner, $course);
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
+
+        $response->assertOk();
+        $response->assertSee('299 €', false);
+        $response->assertSee('239,20 €', false);
+        $response->assertSee('20%', false);
+    }
+
+    public function test_banner_shows_the_plain_price_without_a_discount(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $this->grantEntitlement($tenant, $learner, $course);
+        $template = $this->createTestTemplate();
+
+        $this->onAdmin(fn () => TenantAddon::create([
+            'tenant_id' => $tenant->id,
+            'addon_template_id' => $template->id,
+            'active' => true,
+            'price_label' => '299 €',
+            'trigger_course_id' => $course->id,
+            'trigger_percent' => 50,
+            'offer_url' => 'https://shop.example.test/grosses-paket',
+        ]));
+
+        $this->masterAllQuestions($tenant, $learner, $course);
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
+
+        $response->assertOk();
+        $response->assertSee('299 €', false);
+        $response->assertDontSee('239,20 €', false);
+    }
+
     public function test_banner_is_hidden_below_the_progress_threshold(): void
     {
         $tenant = $this->createTestTenant();

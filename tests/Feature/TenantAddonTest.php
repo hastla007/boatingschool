@@ -62,6 +62,7 @@ class TenantAddonTest extends TestCase
                     'active' => '1',
                     'coupon_code' => 'SOMMER25',
                     'price_label' => '149 €',
+                    'discount_percent' => '20',
                     'trigger_course_id' => $course->id,
                     'trigger_percent' => '30',
                     'offer_url' => 'https://shop.example.test/grosses-paket',
@@ -76,9 +77,37 @@ class TenantAddonTest extends TestCase
             'active' => true,
             'coupon_code' => 'SOMMER25',
             'price_label' => '149 €',
+            'discount_percent' => 20,
             'trigger_course_id' => $course->id,
             'trigger_percent' => 30,
             'offer_url' => 'https://shop.example.test/grosses-paket',
+        ]);
+    }
+
+    public function test_discount_percent_is_optional_and_defaults_to_null(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $template = $this->createTestTemplate();
+        $course = $this->existingCourse('SRC');
+
+        $response = $this->actingAsInTenant($admin, $tenant)->patch('/admin/addons', [
+            'addons' => [
+                $template->id => [
+                    'active' => '1',
+                    'price_label' => '149 €',
+                    'trigger_course_id' => $course->id,
+                    'trigger_percent' => '30',
+                    'offer_url' => 'https://shop.example.test/grosses-paket',
+                ],
+            ],
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('tenant_addon', [
+            'tenant_id' => $tenant->id,
+            'addon_template_id' => $template->id,
+            'discount_percent' => null,
         ]);
     }
 

@@ -51,12 +51,23 @@
                     </ul>
                 @endif
                 @if ($addonBanner->price_label || $addonBanner->coupon_code)
-                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                    @php
+                        $discountedPrice = $addonBanner->discountedPriceLabel();
+                    @endphp
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-2 flex flex-wrap items-center gap-2">
                         @if ($addonBanner->price_label)
-                            <span class="font-semibold text-slate-700 dark:text-slate-200">{{ $addonBanner->price_label }}</span>
+                            @if ($discountedPrice)
+                                <span class="line-through text-slate-400 dark:text-slate-500">{{ $addonBanner->price_label }}</span>
+                                <span class="font-semibold text-base" style="color: var(--brand-primary, #005FD7)">{{ $discountedPrice }}</span>
+                                <span class="inline-flex items-center text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                                    &minus;{{ $addonBanner->discount_percent }}%
+                                </span>
+                            @else
+                                <span class="font-semibold text-slate-700 dark:text-slate-200">{{ $addonBanner->price_label }}</span>
+                            @endif
                         @endif
                         @if ($addonBanner->coupon_code)
-                            <span class="ml-2">Gutscheincode: <span class="font-mono font-semibold text-slate-700 dark:text-slate-200">{{ $addonBanner->coupon_code }}</span></span>
+                            <span>Gutscheincode: <span class="font-mono font-semibold text-slate-700 dark:text-slate-200">{{ $addonBanner->coupon_code }}</span></span>
                         @endif
                     </p>
                 @endif

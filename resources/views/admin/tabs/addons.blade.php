@@ -1,8 +1,10 @@
 <p class="text-slate-500 mb-6">
     Hier kannst du vorgefertigte Addon-Banner aktivieren, mit denen du Kursteilnehmern ein Upgrade oder
     Zusatzpaket anbietest. Für jedes aktivierte Addon hinterlegst du deinen Gutscheincode und Preis
-    (beides reine Anzeigefelder &mdash; der Verkauf läuft über deinen eigenen Webshop), den Kurs und den
-    Kursfortschritt, ab dem der Banner auf dessen Kursseite erscheint, sowie den Link zu deiner Angebotsseite.
+    (beides reine Anzeigefelder &mdash; der Verkauf läuft über deinen eigenen Webshop), optional einen
+    Rabatt in % (der rabattierte VK wird daraus automatisch berechnet und zusätzlich angezeigt), den Kurs
+    und den Kursfortschritt, ab dem der Banner auf dessen Kursseite erscheint, sowie den Link zu deiner
+    Angebotsseite.
 </p>
 
 @if ($addonTemplates->isEmpty())
@@ -42,6 +44,12 @@
                         <x-text-input :id="'price_label_'.$template->id" name="addons[{{ $template->id }}][price_label]" type="text" placeholder="z. B. 149 €"
                                       class="mt-1 block w-full" :value="old('addons.'.$template->id.'.price_label', $config?->price_label)" />
                         <x-input-error :messages="$errors->get('addons.'.$template->id.'.price_label')" class="mt-2" />
+                    </div>
+                    <div>
+                        <x-input-label :for="'discount_percent_'.$template->id" value="Rabatt in % (optional)" />
+                        <x-text-input :id="'discount_percent_'.$template->id" name="addons[{{ $template->id }}][discount_percent]" type="number" min="0" max="100" placeholder="z. B. 20"
+                                      class="mt-1 block w-full" :value="old('addons.'.$template->id.'.discount_percent', $config?->discount_percent)" />
+                        <x-input-error :messages="$errors->get('addons.'.$template->id.'.discount_percent')" class="mt-2" />
                     </div>
                     <div>
                         <x-input-label :for="'trigger_course_id_'.$template->id" value="Sichtbar ab % Kursfortschritt von" />

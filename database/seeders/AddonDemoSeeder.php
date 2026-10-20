@@ -50,6 +50,7 @@ class AddonDemoSeeder extends Seeder
                 'active' => true,
                 'coupon_code' => 'PAKET20',
                 'price_label' => '299 €',
+                'discount_percent' => 20,
                 'trigger_course_id' => $course->id,
                 'trigger_percent' => 20,
                 'offer_url' => 'https://bootsschule-mueller.de/angebote/grosses-paket',
