@@ -76,6 +76,13 @@ class TenantCourseLocationController extends Controller
             'pruefung_land' => ['nullable', 'string', 'max:255'],
             'pruefung_lat' => ['nullable', 'numeric', 'between:-90,90'],
             'pruefung_lng' => ['nullable', 'numeric', 'between:-180,180'],
+            'theorie_ort' => ['nullable', 'string', 'max:255'],
+            'theorie_strasse' => ['nullable', 'string', 'max:255'],
+            'theorie_plz' => ['nullable', 'string', 'max:20'],
+            'theorie_stadt' => ['nullable', 'string', 'max:255'],
+            'theorie_land' => ['nullable', 'string', 'max:255'],
+            'theorie_lat' => ['nullable', 'numeric', 'between:-90,90'],
+            'theorie_lng' => ['nullable', 'numeric', 'between:-180,180'],
             'course_ids' => ['nullable', 'array'],
             'course_ids.*' => ['uuid', 'exists:course_definition,id'],
         ]);
@@ -107,6 +114,16 @@ class TenantCourseLocationController extends Controller
             'pruefung_land' => $fallback('pruefung_land', 'praxis_land'),
             'pruefung_lat' => $fallback('pruefung_lat', 'praxis_lat'),
             'pruefung_lng' => $fallback('pruefung_lng', 'praxis_lng'),
+            // Der Theorieort ist -- anders als der Prüfungsort -- echt
+            // optional: kein Fallback auf den Praxisort, bleibt leer, wenn
+            // die Bootsschule ihn nicht pflegt.
+            'theorie_ort' => $validated['theorie_ort'] ?? null,
+            'theorie_strasse' => $validated['theorie_strasse'] ?? null,
+            'theorie_plz' => $validated['theorie_plz'] ?? null,
+            'theorie_stadt' => $validated['theorie_stadt'] ?? null,
+            'theorie_land' => $validated['theorie_land'] ?? null,
+            'theorie_lat' => $validated['theorie_lat'] ?? null,
+            'theorie_lng' => $validated['theorie_lng'] ?? null,
             'course_ids' => array_values($validated['course_ids'] ?? []),
         ];
     }

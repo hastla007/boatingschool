@@ -8,8 +8,9 @@
     && $location->praxis_lat === $location->pruefung_lat
     && $location->praxis_lng === $location->pruefung_lng
 ))
+@php($hasTheorieOrt = $location && $location->hasTheorieOrt())
 
-<div x-data="{ sameAsLocation: {{ $sameByDefault ? 'true' : 'false' }} }" class="space-y-4">
+<div x-data="{ sameAsLocation: {{ $sameByDefault ? 'true' : 'false' }}, theorieOrtEnabled: {{ $hasTheorieOrt ? 'true' : 'false' }} }" class="space-y-4">
     <div class="grid sm:grid-cols-2 gap-4">
         <div class="space-y-3">
             <div>
@@ -112,6 +113,71 @@
                     <x-text-input :id="$prefix.'-pruefung_lng'" name="pruefung_lng" type="text" inputmode="decimal" placeholder="9.9826940"
                                   class="mt-1 block w-full" x-bind:disabled="sameAsLocation" :value="old('pruefung_lng', $location?->pruefung_lng)" />
                     <x-input-error :messages="$errors->get('pruefung_lng')" class="mt-2" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="border-t border-slate-100 dark:border-slate-700 pt-4">
+        <button type="button" @click="theorieOrtEnabled = ! theorieOrtEnabled" x-show="! theorieOrtEnabled"
+                class="text-sm font-medium hover:underline" style="color: var(--brand-primary, #005FD7)">
+            + Theorieort hinzufügen
+        </button>
+        <p x-show="! theorieOrtEnabled" class="text-xs text-slate-400 mt-1">
+            Optional &mdash; z. B. wenn der Theorieteil eines Navigationskurses an einem anderen Ort als die Praxis stattfindet.
+        </p>
+
+        <div x-show="theorieOrtEnabled" style="display: none" class="space-y-3">
+            <div class="flex items-center justify-between">
+                <x-input-label value="Theorieort (optional)" />
+                <button type="button" @click="theorieOrtEnabled = false" class="text-xs text-slate-400 hover:underline">
+                    Entfernen
+                </button>
+            </div>
+            <div>
+                <x-input-label :for="$prefix.'-theorie_ort'" value="Ort" class="sr-only" />
+                <x-text-input :id="$prefix.'-theorie_ort'" name="theorie_ort" type="text" placeholder="z. B. Theoriezentrum Innenstadt"
+                              class="mt-1 block w-full" :value="old('theorie_ort', $location?->theorie_ort)" />
+                <x-input-error :messages="$errors->get('theorie_ort')" class="mt-2" />
+            </div>
+            <div>
+                <x-input-label :for="$prefix.'-theorie_strasse'" value="Straße & Nr." class="sr-only" />
+                <x-text-input :id="$prefix.'-theorie_strasse'" name="theorie_strasse" type="text" placeholder="z. B. Hafenstraße 12"
+                              class="mt-1 block w-full" :value="old('theorie_strasse', $location?->theorie_strasse)" />
+                <x-input-error :messages="$errors->get('theorie_strasse')" class="mt-2" />
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <x-input-label :for="$prefix.'-theorie_plz'" value="PLZ" class="sr-only" />
+                    <x-text-input :id="$prefix.'-theorie_plz'" name="theorie_plz" type="text" placeholder="20095"
+                                  class="mt-1 block w-full" :value="old('theorie_plz', $location?->theorie_plz)" />
+                    <x-input-error :messages="$errors->get('theorie_plz')" class="mt-2" />
+                </div>
+                <div>
+                    <x-input-label :for="$prefix.'-theorie_stadt'" value="Stadt" class="sr-only" />
+                    <x-text-input :id="$prefix.'-theorie_stadt'" name="theorie_stadt" type="text" placeholder="Hamburg"
+                                  class="mt-1 block w-full" :value="old('theorie_stadt', $location?->theorie_stadt)" />
+                    <x-input-error :messages="$errors->get('theorie_stadt')" class="mt-2" />
+                </div>
+            </div>
+            <div>
+                <x-input-label :for="$prefix.'-theorie_land'" value="Land" class="sr-only" />
+                <x-text-input :id="$prefix.'-theorie_land'" name="theorie_land" type="text" placeholder="Deutschland"
+                              class="mt-1 block w-full" :value="old('theorie_land', $location?->theorie_land)" />
+                <x-input-error :messages="$errors->get('theorie_land')" class="mt-2" />
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <div>
+                    <x-input-label :for="$prefix.'-theorie_lat'" value="Breitengrad" class="sr-only" />
+                    <x-text-input :id="$prefix.'-theorie_lat'" name="theorie_lat" type="text" inputmode="decimal" placeholder="53.5460740"
+                                  class="mt-1 block w-full" :value="old('theorie_lat', $location?->theorie_lat)" />
+                    <x-input-error :messages="$errors->get('theorie_lat')" class="mt-2" />
+                </div>
+                <div>
+                    <x-input-label :for="$prefix.'-theorie_lng'" value="Längengrad" class="sr-only" />
+                    <x-text-input :id="$prefix.'-theorie_lng'" name="theorie_lng" type="text" inputmode="decimal" placeholder="9.9826940"
+                                  class="mt-1 block w-full" :value="old('theorie_lng', $location?->theorie_lng)" />
+                    <x-input-error :messages="$errors->get('theorie_lng')" class="mt-2" />
                 </div>
             </div>
         </div>

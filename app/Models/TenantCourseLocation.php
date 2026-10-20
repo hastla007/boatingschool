@@ -16,6 +16,7 @@ class TenantCourseLocation extends Model
         'tenant_id',
         'praxis_ort', 'praxis_strasse', 'praxis_plz', 'praxis_stadt', 'praxis_land', 'praxis_lat', 'praxis_lng',
         'pruefung_ort', 'pruefung_strasse', 'pruefung_plz', 'pruefung_stadt', 'pruefung_land', 'pruefung_lat', 'pruefung_lng',
+        'theorie_ort', 'theorie_strasse', 'theorie_plz', 'theorie_stadt', 'theorie_land', 'theorie_lat', 'theorie_lng',
         'course_ids', 'sort_order',
     ];
 
@@ -31,6 +32,15 @@ class TenantCourseLocation extends Model
     public function pruefungAdresse(): ?string
     {
         return self::formatAddress($this->pruefung_strasse, $this->pruefung_plz, $this->pruefung_stadt, $this->pruefung_land);
+    }
+
+    /**
+     * Anders als Praxis- und Prüfungsort ist der Theorieort rein optional
+     * und hat keinen Fallback -- gibt null zurück, wenn nicht gepflegt.
+     */
+    public function theorieAdresse(): ?string
+    {
+        return self::formatAddress($this->theorie_strasse, $this->theorie_plz, $this->theorie_stadt, $this->theorie_land);
     }
 
     public static function formatAddress(?string $strasse, ?string $plz, ?string $stadt, ?string $land): ?string
@@ -50,11 +60,18 @@ class TenantCourseLocation extends Model
             'praxis_lng' => 'float',
             'pruefung_lat' => 'float',
             'pruefung_lng' => 'float',
+            'theorie_lat' => 'float',
+            'theorie_lng' => 'float',
         ];
     }
 
     public function hasPruefungCoordinates(): bool
     {
         return $this->pruefung_lat !== null && $this->pruefung_lng !== null;
+    }
+
+    public function hasTheorieOrt(): bool
+    {
+        return $this->theorie_ort !== null && trim($this->theorie_ort) !== '';
     }
 }

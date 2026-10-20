@@ -273,6 +273,70 @@ class TenantCourseLocationTest extends TestCase
         $this->assertStringNotContainsString('opacity-50', $activeMatch[1]);
     }
 
+    public function test_a_school_admin_can_add_an_optional_theorieort(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+
+        $response = $this->actingAsInTenant($admin, $tenant)->post('/admin/tenant-course-locations', [
+            'praxis_ort' => 'Standort Binnensee',
+            'theorie_ort' => 'Theoriezentrum Innenstadt',
+            'theorie_strasse' => 'Schulstraße 3',
+            'theorie_plz' => '20099',
+            'theorie_stadt' => 'Hamburg',
+            'theorie_land' => 'Deutschland',
+            'course_ids' => [],
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('tenant_course_location', [
+            'tenant_id' => $tenant->id,
+            'praxis_ort' => 'Standort Binnensee',
+            'theorie_ort' => 'Theoriezentrum Innenstadt',
+            'theorie_strasse' => 'Schulstraße 3',
+            'theorie_plz' => '20099',
+            'theorie_stadt' => 'Hamburg',
+            'theorie_land' => 'Deutschland',
+        ]);
+    }
+
+    public function test_theorie_ort_stays_empty_when_not_provided_unlike_pruefung_ort(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+
+        $response = $this->actingAsInTenant($admin, $tenant)->post('/admin/tenant-course-locations', [
+            'praxis_ort' => 'Hauptstandort',
+            'course_ids' => [],
+        ]);
+
+        $response->assertRedirect();
+        $location = TenantCourseLocation::where('tenant_id', $tenant->id)->first();
+        // Anders als Prüfungsort gibt es für Theorieort keinen Fallback
+        // auf den Praxisort -- er bleibt leer, wenn nicht gepflegt.
+        $this->assertSame('Hauptstandort', $location->pruefung_ort);
+        $this->assertNull($location->theorie_ort);
+        $this->assertFalse($location->hasTheorieOrt());
+    }
+
+    public function test_orte_tab_shows_theorie_ort_when_present(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $this->onAdmin(fn () => TenantCourseLocation::create([
+            'tenant_id' => $tenant->id,
+            'praxis_ort' => 'E2E Praxisort',
+            'pruefung_ort' => 'E2E Praxisort',
+            'theorie_ort' => 'E2E Theorieort',
+            'course_ids' => [],
+        ]));
+
+        $response = $this->actingAsInTenant($admin, $tenant)->get('/admin?tab=orte');
+
+        $response->assertOk();
+        $response->assertSee('E2E Theorieort');
+    }
+
     public function test_a_disabled_courses_location_assignment_can_still_be_saved(): void
     {
         $tenant = $this->createTestTenant();

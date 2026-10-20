@@ -132,6 +132,11 @@ class PraxisFormSubmissionController extends Controller
                 $data[$field['key'].'_adresse'] = $location->praxisAdresse();
                 $data[$field['key'].'_pruefungsort'] = $location->pruefung_ort;
                 $data[$field['key'].'_pruefungsort_adresse'] = $location->pruefungAdresse();
+
+                if ($location->hasTheorieOrt()) {
+                    $data[$field['key'].'_theorieort'] = $location->theorie_ort;
+                    $data[$field['key'].'_theorieort_adresse'] = $location->theorieAdresse();
+                }
             }
         }
 

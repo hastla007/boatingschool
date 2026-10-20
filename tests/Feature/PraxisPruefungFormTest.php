@@ -485,6 +485,82 @@ class PraxisPruefungFormTest extends TestCase
         $follow->assertSee('Südallee 2, 22222 Südstadt, Österreich');
     }
 
+    public function test_submission_stores_and_shows_the_optional_theorieort_when_present(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course] = $this->makeIsolatedCourseWithQuestions(2);
+        $this->grantEntitlement($tenant, $learner, $course);
+        $this->completeRegistrationProfile($learner);
+        $this->masterAllQuestions($tenant, $learner, $course);
+        $template = $this->createTemplate([
+            'course_ids' => [$course->id],
+            'min_progress_percent' => 10,
+            'fields' => [
+                ['key' => 'ort', 'label' => 'Ort', 'type' => 'location', 'required' => true, 'options' => [], 'help_text' => null],
+            ],
+        ]);
+        $location = $this->onAdmin(fn () => TenantCourseLocation::create([
+            'tenant_id' => $tenant->id,
+            'praxis_ort' => 'Standort Nord',
+            'pruefung_ort' => 'Prüfstelle Süd',
+            'theorie_ort' => 'Theoriezentrum Mitte',
+            'theorie_strasse' => 'Mittelweg 5',
+            'theorie_plz' => '33333',
+            'theorie_stadt' => 'Mittelstadt',
+            'theorie_land' => 'Deutschland',
+            'course_ids' => [$course->id],
+        ]));
+
+        $this->actingAsInTenant($learner, $tenant)->post(route('praxis-pruefung.store', $course), [
+            'ort' => $location->id,
+        ])->assertRedirect(route('praxis-pruefung.index', $course));
+
+        $this->onAdmin(function () use ($tenant, $learner, $course) {
+            $submission = PraxisFormSubmission::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->where('course_id', $course->id)->first();
+            $this->assertSame('Theoriezentrum Mitte', $submission->data['ort_theorieort']);
+            $this->assertSame('Mittelweg 5, 33333 Mittelstadt, Deutschland', $submission->data['ort_theorieort_adresse']);
+        });
+
+        $follow = $this->actingAsInTenant($learner, $tenant)->get(route('praxis-pruefung.index', $course));
+        $follow->assertOk();
+        $follow->assertSee('Theoriezentrum Mitte');
+        $follow->assertSee('Mittelweg 5, 33333 Mittelstadt, Deutschland');
+    }
+
+    public function test_submission_omits_theorieort_fields_when_not_configured(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course] = $this->makeIsolatedCourseWithQuestions(2);
+        $this->grantEntitlement($tenant, $learner, $course);
+        $this->completeRegistrationProfile($learner);
+        $this->masterAllQuestions($tenant, $learner, $course);
+        $this->createTemplate([
+            'course_ids' => [$course->id],
+            'min_progress_percent' => 10,
+            'fields' => [
+                ['key' => 'ort', 'label' => 'Ort', 'type' => 'location', 'required' => true, 'options' => [], 'help_text' => null],
+            ],
+        ]);
+        $location = $this->onAdmin(fn () => TenantCourseLocation::create([
+            'tenant_id' => $tenant->id,
+            'praxis_ort' => 'Standort Nord',
+            'pruefung_ort' => 'Prüfstelle Süd',
+            'course_ids' => [$course->id],
+        ]));
+
+        $this->actingAsInTenant($learner, $tenant)->post(route('praxis-pruefung.store', $course), [
+            'ort' => $location->id,
+        ])->assertRedirect(route('praxis-pruefung.index', $course));
+
+        $this->onAdmin(function () use ($tenant, $learner, $course) {
+            $submission = PraxisFormSubmission::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->where('course_id', $course->id)->first();
+            $this->assertArrayNotHasKey('ort_theorieort', $submission->data);
+            $this->assertArrayNotHasKey('ort_theorieort_adresse', $submission->data);
+        });
+    }
+
     public function test_submitting_an_invalid_location_id_is_rejected(): void
     {
         $tenant = $this->createTestTenant();

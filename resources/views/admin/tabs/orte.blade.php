@@ -16,6 +16,9 @@
                     @if ($location->pruefung_ort !== $location->praxis_ort)
                         <span class="text-slate-400 font-normal">&middot; Prüfung: {{ $location->pruefung_ort }}</span>
                     @endif
+                    @if ($location->hasTheorieOrt())
+                        <span class="text-slate-400 font-normal">&middot; Theorie: {{ $location->theorie_ort }}</span>
+                    @endif
                 </div>
 
                 @include('admin.tabs._tenant-course-location-fields', ['location' => $location, 'prefix' => 'location-'.$location->id])
