@@ -56,6 +56,7 @@ class DatabaseSeeder extends Seeder
             ComboPraxisTrainerSeeder::class,
             TenantSeeder::class,
             UserAndEntitlementSeeder::class,
+            AddonDemoSeeder::class,
             DemoLearningActivitySeeder::class,
         ]);
     }

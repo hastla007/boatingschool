@@ -18,6 +18,63 @@
         </div>
     </div>
 
+    @if ($addonBanner)
+        @php
+            $addonTemplate = $addonBanner->addonTemplate;
+        @endphp
+        <div x-data="{ dismissed: false }"
+             x-init="dismissed = (() => { try { return localStorage.getItem('addon-banner-dismissed-{{ $addonBanner->addon_template_id }}') === '1' } catch (e) { return false } })()"
+             x-show="!dismissed"
+             class="relative rounded-2xl p-6 mb-6 text-white overflow-hidden"
+             style="background: linear-gradient(135deg, #0f172a, #1e293b);">
+            <button type="button"
+                    @click="dismissed = true; (() => { try { localStorage.setItem('addon-banner-dismissed-{{ $addonBanner->addon_template_id }}', '1') } catch (e) {} })()"
+                    class="absolute top-3 right-3 text-white/60 hover:text-white text-2xl leading-none w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10 transition"
+                    aria-label="Banner schließen">
+                &times;
+            </button>
+            <div class="flex flex-col sm:flex-row sm:items-center gap-5">
+                <div class="flex-1 pr-8">
+                    @if ($addonTemplate->badge_text)
+                        <span class="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-400 text-slate-900 mb-2">
+                            {{ $addonTemplate->badge_text }}
+                        </span>
+                    @endif
+                    @if ($addonTemplate->stat_text)
+                        <p class="text-xs text-white/60 mb-1">{{ $addonTemplate->stat_text }}</p>
+                    @endif
+                    <h3 class="text-lg font-bold mb-2">{{ $addonTemplate->headline }}</h3>
+                    @if (! empty($addonTemplate->bullets))
+                        <ul class="space-y-1 mb-3">
+                            @foreach ($addonTemplate->bullets as $bullet)
+                                <li class="flex items-center gap-2 text-sm text-white/80">
+                                    <x-icon name="check-circle" class="w-4 h-4 shrink-0 text-emerald-400" />
+                                    {{ $bullet }}
+                                </li>
+                            @endforeach
+                        </ul>
+                    @endif
+                    @if ($addonBanner->price_label || $addonBanner->coupon_code)
+                        <p class="text-sm text-white/70">
+                            @if ($addonBanner->price_label)
+                                <span class="font-semibold text-white">{{ $addonBanner->price_label }}</span>
+                            @endif
+                            @if ($addonBanner->coupon_code)
+                                <span class="ml-2">Gutscheincode: <span class="font-mono font-semibold text-white">{{ $addonBanner->coupon_code }}</span></span>
+                            @endif
+                        </p>
+                    @endif
+                </div>
+                <div class="shrink-0">
+                    <a href="{{ $addonBanner->offer_url }}" target="_blank" rel="noopener"
+                       class="inline-flex items-center justify-center px-5 py-2.5 rounded-lg bg-white text-slate-900 text-sm font-semibold hover:bg-slate-100 transition whitespace-nowrap">
+                        {{ $addonTemplate->cta_label }}
+                    </a>
+                </div>
+            </div>
+        </div>
+    @endif
+
     <div class="grid lg:grid-cols-[1fr_320px] gap-4 mb-6">
         @if ($comboVideoGroups->isNotEmpty())
             <div class="flex flex-col gap-4">

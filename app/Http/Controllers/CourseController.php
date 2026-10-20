@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\CourseDefinition;
 use App\Models\CourseWebshopLink;
 use App\Models\Progress;
+use App\Models\TenantAddon;
 use App\Models\TenantCourseDisabled;
 use App\Models\VideoProgress;
 use App\Services\EntitlementService;
@@ -131,10 +132,25 @@ class CourseController extends Controller
 
         $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id')->unique();
         $masteredCount = $progress->whereIn('question_id', $questionIds)->where('learning_state', 'gefestigt')->count();
+        $overallPercent = $this->courseMasteryPercent($course, $progress);
+
+        // Nur ein Banner pro Kursseite -- bei mehreren fürs aktuelle
+        // Fortschritts-Niveau freigeschalteten Addons zählt die höchste
+        // Schwelle (das "größte" Angebot kommt zuerst).
+        $addonBanner = TenantAddon::where('tenant_id', $tenant->id)
+            ->where('trigger_course_id', $course->id)
+            ->where('active', true)
+            ->whereHas('addonTemplate', fn ($q) => $q->where('active', true))
+            ->with('addonTemplate')
+            ->get()
+            ->filter(fn ($tenantAddon) => $overallPercent >= $tenantAddon->trigger_percent)
+            ->sortByDesc('trigger_percent')
+            ->first();
 
         return view('courses.show', [
             'course' => $course,
-            'overallPercent' => $this->courseMasteryPercent($course, $progress),
+            'overallPercent' => $overallPercent,
+            'addonBanner' => $addonBanner,
             'masteredCount' => $masteredCount,
             'openCount' => max($questionIds->count() - $masteredCount, 0),
             'hasVideoCourse' => $videoTotal > 0,
