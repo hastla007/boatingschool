@@ -8,6 +8,7 @@ use App\Models\Module;
 use App\Models\PraxisFormSubmission;
 use App\Models\PraxisFormTemplate;
 use App\Models\Progress;
+use App\Models\TenantCourseLocation;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -246,5 +247,123 @@ class PraxisPruefungFormTest extends TestCase
         ]);
 
         $response->assertForbidden();
+    }
+
+    public function test_form_shows_a_location_select_populated_from_the_schools_locations(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course] = $this->makeIsolatedCourseWithQuestions(2);
+        $this->grantEntitlement($tenant, $learner, $course);
+        $this->masterAllQuestions($tenant, $learner, $course);
+        $this->createTemplate([
+            'course_ids' => [$course->id],
+            'min_progress_percent' => 10,
+            'fields' => [
+                ['key' => 'ort', 'label' => 'Ort', 'type' => 'location', 'required' => true, 'options' => [], 'help_text' => null],
+            ],
+        ]);
+        $this->onAdmin(fn () => TenantCourseLocation::create([
+            'tenant_id' => $tenant->id,
+            'praxis_ort' => 'Standort Nord',
+            'pruefung_ort' => 'Prüfstelle Süd',
+            'course_ids' => [$course->id],
+        ]));
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get(route('praxis-pruefung.index', $course));
+
+        $response->assertOk();
+        $response->assertSee('Standort Nord');
+        $response->assertSee('Prüfstelle Süd');
+    }
+
+    public function test_location_field_is_skipped_when_no_locations_are_configured(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course] = $this->makeIsolatedCourseWithQuestions(2);
+        $this->grantEntitlement($tenant, $learner, $course);
+        $this->masterAllQuestions($tenant, $learner, $course);
+        $this->createTemplate([
+            'course_ids' => [$course->id],
+            'min_progress_percent' => 10,
+            'fields' => [
+                ['key' => 'ort', 'label' => 'Ort', 'type' => 'location', 'required' => true, 'options' => [], 'help_text' => null],
+            ],
+        ]);
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get(route('praxis-pruefung.index', $course));
+        $response->assertOk();
+
+        $submitResponse = $this->actingAsInTenant($learner, $tenant)->post(route('praxis-pruefung.store', $course), []);
+        $submitResponse->assertSessionDoesntHaveErrors('ort');
+        $submitResponse->assertRedirect(route('praxis-pruefung.index', $course));
+    }
+
+    public function test_submitting_a_location_stores_the_coupled_exam_location(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course] = $this->makeIsolatedCourseWithQuestions(2);
+        $this->grantEntitlement($tenant, $learner, $course);
+        $this->masterAllQuestions($tenant, $learner, $course);
+        $template = $this->createTemplate([
+            'course_ids' => [$course->id],
+            'min_progress_percent' => 10,
+            'fields' => [
+                ['key' => 'ort', 'label' => 'Ort', 'type' => 'location', 'required' => true, 'options' => [], 'help_text' => null],
+            ],
+        ]);
+        $location = $this->onAdmin(fn () => TenantCourseLocation::create([
+            'tenant_id' => $tenant->id,
+            'praxis_ort' => 'Standort Nord',
+            'pruefung_ort' => 'Prüfstelle Süd',
+            'course_ids' => [$course->id],
+        ]));
+
+        $response = $this->actingAsInTenant($learner, $tenant)->post(route('praxis-pruefung.store', $course), [
+            'ort' => $location->id,
+        ]);
+
+        $response->assertRedirect(route('praxis-pruefung.index', $course));
+
+        $this->onAdmin(function () use ($tenant, $learner, $course) {
+            $submission = PraxisFormSubmission::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->where('course_id', $course->id)->first();
+            $this->assertSame('Standort Nord', $submission->data['ort']);
+            $this->assertSame('Prüfstelle Süd', $submission->data['ort_pruefungsort']);
+        });
+
+        $follow = $this->actingAsInTenant($learner, $tenant)->get(route('praxis-pruefung.index', $course));
+        $follow->assertOk();
+        $follow->assertSee('Standort Nord');
+        $follow->assertSee('Prüfstelle Süd');
+    }
+
+    public function test_submitting_an_invalid_location_id_is_rejected(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course] = $this->makeIsolatedCourseWithQuestions(2);
+        $this->grantEntitlement($tenant, $learner, $course);
+        $this->masterAllQuestions($tenant, $learner, $course);
+        $this->createTemplate([
+            'course_ids' => [$course->id],
+            'min_progress_percent' => 10,
+            'fields' => [
+                ['key' => 'ort', 'label' => 'Ort', 'type' => 'location', 'required' => true, 'options' => [], 'help_text' => null],
+            ],
+        ]);
+        $this->onAdmin(fn () => TenantCourseLocation::create([
+            'tenant_id' => $tenant->id,
+            'praxis_ort' => 'Standort Nord',
+            'pruefung_ort' => 'Standort Nord',
+            'course_ids' => [$course->id],
+        ]));
+
+        $response = $this->actingAsInTenant($learner, $tenant)->post(route('praxis-pruefung.store', $course), [
+            'ort' => (string) \Illuminate\Support\Str::uuid(),
+        ]);
+
+        $response->assertSessionHasErrors('ort');
     }
 }

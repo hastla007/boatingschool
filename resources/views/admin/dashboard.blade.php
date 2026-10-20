@@ -24,6 +24,8 @@
                     :style="tab === 'course-promo-banners' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Kursempfehlungen</button>
             <button type="button" @click="tab = 'praxis-anmeldungen'" :class="tab === 'praxis-anmeldungen' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500'"
                     :style="tab === 'praxis-anmeldungen' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Praxis-Anmeldungen</button>
+            <button type="button" @click="tab = 'orte'" :class="tab === 'orte' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500'"
+                    :style="tab === 'orte' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Orte</button>
         </div>
 
         <div x-show="tab === 'dashboard'">
@@ -52,6 +54,9 @@
         </div>
         <div x-show="tab === 'praxis-anmeldungen'" style="display: none">
             @include('admin.tabs.praxis-anmeldungen')
+        </div>
+        <div x-show="tab === 'orte'" style="display: none">
+            @include('admin.tabs.orte')
         </div>
     </div>
 </x-app-layout>

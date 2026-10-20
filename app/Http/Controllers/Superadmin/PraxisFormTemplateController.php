@@ -93,7 +93,7 @@ class PraxisFormTemplateController extends Controller
             'course_ids.*' => ['uuid', 'exists:course_definition,id'],
             'fields' => ['nullable', 'array'],
             'fields.*.label' => ['required_with:fields', 'string', 'max:255'],
-            'fields.*.type' => ['required_with:fields', 'in:text,textarea,date,select,radio,checkbox'],
+            'fields.*.type' => ['required_with:fields', 'in:text,textarea,date,select,radio,checkbox,location'],
             'fields.*.required' => ['nullable', 'boolean'],
             'fields.*.options' => ['nullable', 'string'],
             'fields.*.help_text' => ['nullable', 'string', 'max:500'],

@@ -19,9 +19,9 @@ class PraxisFormTemplateSeeder extends Seeder
         [
             'key' => 'ort',
             'label' => 'Ort',
-            'type' => 'select',
+            'type' => 'location',
             'required' => true,
-            'options' => ['Hauptstandort', 'Nebenstandort'],
+            'options' => [],
             'help_text' => null,
         ],
         [
@@ -83,6 +83,14 @@ class PraxisFormTemplateSeeder extends Seeder
     ];
 
     private const THEORIE_FIELDS = [
+        [
+            'key' => 'ort',
+            'label' => 'Ort',
+            'type' => 'location',
+            'required' => true,
+            'options' => [],
+            'help_text' => null,
+        ],
         [
             'key' => 'wunschtermin',
             'label' => 'Wunschtermin',

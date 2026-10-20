@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\CourseSelectionController;
 use App\Http\Controllers\Admin\EntitlementController;
 use App\Http\Controllers\Admin\ParticipantController;
 use App\Http\Controllers\Admin\SupportEmailVerificationController;
+use App\Http\Controllers\Admin\TenantCourseLocationController;
 use App\Http\Controllers\Admin\WebshopLinkController;
 use App\Http\Controllers\CouponRedeemController;
 use App\Http\Controllers\CourseController;
@@ -109,6 +110,10 @@ Route::middleware(['auth', 'tenant.role:owner,admin,instructor'])->prefix('admin
     Route::post('/course-promo-banners', [CoursePromoBannerController::class, 'store'])->name('course-promo-banners.store');
     Route::patch('/course-promo-banners/{coursePromoBanner}', [CoursePromoBannerController::class, 'update'])->name('course-promo-banners.update');
     Route::delete('/course-promo-banners/{coursePromoBanner}', [CoursePromoBannerController::class, 'destroy'])->name('course-promo-banners.destroy');
+
+    Route::post('/tenant-course-locations', [TenantCourseLocationController::class, 'store'])->name('tenant-course-locations.store');
+    Route::patch('/tenant-course-locations/{tenantCourseLocation}', [TenantCourseLocationController::class, 'update'])->name('tenant-course-locations.update');
+    Route::delete('/tenant-course-locations/{tenantCourseLocation}', [TenantCourseLocationController::class, 'destroy'])->name('tenant-course-locations.destroy');
 
     Route::patch('/courses', [CourseSelectionController::class, 'update'])->name('courses.update');
 

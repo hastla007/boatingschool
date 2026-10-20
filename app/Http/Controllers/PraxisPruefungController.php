@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\CourseDefinition;
 use App\Models\PraxisFormSubmission;
 use App\Models\PraxisFormTemplate;
+use App\Models\TenantCourseLocation;
 use App\Services\CourseProgressService;
 use App\Services\EntitlementService;
 use App\Support\TenantContext;
@@ -64,10 +65,16 @@ class PraxisPruefungController extends Controller
             ]);
         }
 
+        $locations = TenantCourseLocation::where('tenant_id', $tenant->id)
+            ->whereJsonContains('course_ids', $course->id)
+            ->orderBy('sort_order')
+            ->get();
+
         return view('praxis-pruefung.index', [
             'course' => $course,
             'state' => 'form',
             'template' => $template,
+            'locations' => $locations,
         ]);
     }
 }

@@ -72,6 +72,7 @@
                                 <option value="select">Dropdown-Auswahl</option>
                                 <option value="radio">Auswahl (Radio)</option>
                                 <option value="checkbox">Checkbox (Ja/Nein)</option>
+                                <option value="location">Ort (von der Bootsschule verwaltet)</option>
                             </select>
                         </div>
                         <div class="flex items-end h-full pb-1">
@@ -84,6 +85,11 @@
                         <textarea :name="'fields['+index+'][options]'" x-model="field.options" rows="3"
                                   class="mt-0.5 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm"></textarea>
                     </div>
+
+                    <p x-show="field.type === 'location'" style="display: none" class="text-xs text-slate-400">
+                        Die Auswahlmöglichkeiten pflegt jede Bootsschule selbst im Tab „Orte&quot; ihres Admin-Bereichs
+                        (Praxis- und gekoppelter Prüfungsort).
+                    </p>
 
                     <div>
                         <label class="text-xs text-slate-500 dark:text-slate-400">Hilfetext (optional)</label>

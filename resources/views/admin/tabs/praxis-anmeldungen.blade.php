@@ -32,6 +32,12 @@
                                     @endif
                                 </dd>
                             </div>
+                            @if ($field['type'] === 'location' && ! empty($submission->data[$field['key'].'_pruefungsort']))
+                                <div class="py-2 grid grid-cols-2 gap-4">
+                                    <dt class="text-slate-500 dark:text-slate-400">Prüfungsort</dt>
+                                    <dd class="text-slate-800 dark:text-slate-200 font-medium">{{ $submission->data[$field['key'].'_pruefungsort'] }}</dd>
+                                </div>
+                            @endif
                         @endforeach
                     </dl>
                 @endif

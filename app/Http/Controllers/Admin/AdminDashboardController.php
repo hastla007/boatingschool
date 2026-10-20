@@ -17,6 +17,7 @@ use App\Models\Product;
 use App\Models\ProductPurchase;
 use App\Models\TenantAddon;
 use App\Models\TenantCourseDisabled;
+use App\Models\TenantCourseLocation;
 use App\Models\TenantUser;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
@@ -91,6 +92,8 @@ class AdminDashboardController extends Controller
             ->orderByDesc('created_at')
             ->get();
 
+        $tenantCourseLocations = TenantCourseLocation::where('tenant_id', $tenant->id)->orderBy('sort_order')->get();
+
         $disabledCourseIds = TenantCourseDisabled::where('tenant_id', $tenant->id)->pluck('course_id');
 
         $couponFilters = $request->only(['coupon_search', 'coupon_status', 'coupon_type']);
@@ -153,6 +156,7 @@ class AdminDashboardController extends Controller
             'tenantAddons' => $tenantAddons,
             'coursePromoBanners' => $coursePromoBanners,
             'praxisFormSubmissions' => $praxisFormSubmissions,
+            'tenantCourseLocations' => $tenantCourseLocations,
             'disabledCourseIds' => $disabledCourseIds,
             'coupons' => $coupons,
             'couponSummary' => $couponSummary,

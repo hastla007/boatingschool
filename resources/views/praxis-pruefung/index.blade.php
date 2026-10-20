@@ -55,6 +55,12 @@
                                 @endif
                             </dd>
                         </div>
+                        @if ($field['type'] === 'location' && ! empty($submission->data[$field['key'].'_pruefungsort']))
+                            <div class="py-2.5 grid grid-cols-2 gap-4 text-sm">
+                                <dt class="text-slate-500 dark:text-slate-400">Prüfungsort</dt>
+                                <dd class="text-slate-800 dark:text-slate-200 font-medium">{{ $submission->data[$field['key'].'_pruefungsort'] }}</dd>
+                            </div>
+                        @endif
                     @endforeach
                 </dl>
             @endif
@@ -67,6 +73,7 @@
             <form method="POST" action="{{ route('praxis-pruefung.store', $course) }}" class="space-y-5">
                 @csrf
                 @foreach ($template->fields as $field)
+                    @continue($field['type'] === 'location' && $locations->isEmpty())
                     @php($fieldId = 'field-'.$field['key'])
                     <div>
                         @if ($field['type'] !== 'checkbox')
@@ -100,6 +107,20 @@
                                         </label>
                                     @endforeach
                                 </div>
+                                @break
+                            @case('location')
+                                <select id="{{ $fieldId }}" name="{{ $field['key'] }}" @if ($field['required']) required @endif
+                                        class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                                    <option value="" disabled @selected(! old($field['key']))>Bitte wählen…</option>
+                                    @foreach ($locations as $location)
+                                        <option value="{{ $location->id }}" @selected(old($field['key']) === $location->id)>
+                                            {{ $location->praxis_ort }}
+                                            @if ($location->pruefung_ort !== $location->praxis_ort)
+                                                (Prüfung: {{ $location->pruefung_ort }})
+                                            @endif
+                                        </option>
+                                    @endforeach
+                                </select>
                                 @break
                             @case('checkbox')
                                 <label class="inline-flex items-start gap-2 text-sm text-slate-600 dark:text-slate-300">
