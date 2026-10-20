@@ -90,6 +90,36 @@ class ParticipantController extends Controller
         ]);
     }
 
+    /**
+     * Adresse und Geburtsdatum eines Teilnehmers hinzufügen/ändern --
+     * anders als beim Einladen (invite(), nur Adresse, kein Geburtsdatum)
+     * darf die Bootsschule hier beides jederzeit nachtragen oder
+     * korrigieren, z. B. wenn der Lerner sein Profil noch nicht selbst
+     * vervollständigt hat.
+     */
+    public function update(Request $request, TenantContext $tenantContext, User $user): Response
+    {
+        $tenant = $tenantContext->tenant();
+
+        $membership = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $user->id)->first();
+        abort_unless($membership, 404);
+
+        $validated = $request->validate([
+            'street' => ['nullable', 'string', 'max:255'],
+            'postal_code' => ['nullable', 'string', 'max:20'],
+            'city' => ['nullable', 'string', 'max:255'],
+            'country' => ['nullable', 'string', Rule::in(Countries::OPTIONS)],
+            'birthdate' => ['nullable', 'date', 'before:today'],
+        ]);
+
+        $before = $user->only(['street', 'postal_code', 'city', 'country', 'birthdate']);
+        $user->update($validated);
+
+        AuditLog::record($tenant->id, $request->user()->id, 'participant.update', 'app_user', $user->id, $before, $validated);
+
+        return back()->with('status', 'Angaben gespeichert.');
+    }
+
     public function invite(Request $request, TenantContext $tenantContext, CouponRedemptionService $redemption): Response
     {
         $tenant = $tenantContext->tenant();

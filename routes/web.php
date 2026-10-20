@@ -103,6 +103,7 @@ Route::middleware(['auth', 'tenant.role:owner,admin,instructor'])->prefix('admin
     Route::get('/', AdminDashboardController::class)->name('dashboard');
     Route::post('/participants/invite', [ParticipantController::class, 'invite'])->name('participants.invite');
     Route::get('/participants/{user}', [ParticipantController::class, 'show'])->name('participants.show');
+    Route::patch('/participants/{user}', [ParticipantController::class, 'update'])->name('participants.update');
     Route::post('/entitlements', [EntitlementController::class, 'store'])->name('entitlements.store');
     Route::patch('/entitlements/{entitlement}', [EntitlementController::class, 'update'])->name('entitlements.update');
     Route::patch('/branding', [BrandingController::class, 'update'])->name('branding.update');

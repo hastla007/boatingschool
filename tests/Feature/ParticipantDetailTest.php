@@ -67,10 +67,11 @@ class ParticipantDetailTest extends TestCase
         $response = $this->actingAsInTenant($admin, $tenant)->get("/admin/participants/{$learner->id}");
 
         $response->assertOk();
-        $response->assertSee('Hafenstraße 5');
-        $response->assertSee('20457 Hamburg');
-        $response->assertSee('Deutschland');
-        $response->assertSee('15.06.1995');
+        $response->assertSee('value="Hafenstraße 5"', false);
+        $response->assertSee('value="20457"', false);
+        $response->assertSee('value="Hamburg"', false);
+        $response->assertSee('value="1995-06-15"', false);
+        $response->assertSee('value="Deutschland" selected', false);
         $response->assertSee($course->name);
         $response->assertSee($product->name);
     }
@@ -196,5 +197,106 @@ class ParticipantDetailTest extends TestCase
         $response = $this->actingAsInTenant($adminA, $tenantA)->get("/admin/participants/{$learnerB->id}");
 
         $response->assertNotFound();
+    }
+
+    public function test_admin_can_add_an_address_and_birthdate_to_a_participant_without_one(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+
+        $response = $this->actingAsInTenant($admin, $tenant)->patch("/admin/participants/{$learner->id}", [
+            'street' => 'Hafenstraße 5',
+            'postal_code' => '20457',
+            'city' => 'Hamburg',
+            'country' => 'Deutschland',
+            'birthdate' => '1995-06-15',
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHasNoErrors();
+        $this->onAdmin(function () use ($learner) {
+            $fresh = $learner->fresh();
+            $this->assertSame('Hafenstraße 5', $fresh->street);
+            $this->assertSame('20457', $fresh->postal_code);
+            $this->assertSame('Hamburg', $fresh->city);
+            $this->assertSame('Deutschland', $fresh->country);
+            $this->assertSame('1995-06-15', $fresh->birthdate->format('Y-m-d'));
+            $this->assertTrue($fresh->hasCompleteRegistrationProfile());
+        });
+    }
+
+    public function test_admin_can_change_an_existing_address_and_birthdate(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner', [
+            'street' => 'Alte Straße 1',
+            'postal_code' => '10000',
+            'city' => 'Altstadt',
+            'country' => 'Österreich',
+            'birthdate' => '1990-01-01',
+        ]);
+
+        $response = $this->actingAsInTenant($admin, $tenant)->patch("/admin/participants/{$learner->id}", [
+            'street' => 'Neue Straße 2',
+            'postal_code' => '20000',
+            'city' => 'Neustadt',
+            'country' => 'Deutschland',
+            'birthdate' => '1991-02-02',
+        ]);
+
+        $response->assertRedirect();
+        $this->onAdmin(function () use ($learner) {
+            $fresh = $learner->fresh();
+            $this->assertSame('Neue Straße 2', $fresh->street);
+            $this->assertSame('20000', $fresh->postal_code);
+            $this->assertSame('Neustadt', $fresh->city);
+            $this->assertSame('Deutschland', $fresh->country);
+            $this->assertSame('1991-02-02', $fresh->birthdate->format('Y-m-d'));
+        });
+    }
+
+    public function test_updating_a_participant_rejects_an_unsupported_country(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+
+        $response = $this->actingAsInTenant($admin, $tenant)->patch("/admin/participants/{$learner->id}", [
+            'country' => 'Elbonien',
+        ]);
+
+        $response->assertSessionHasErrors('country');
+    }
+
+    public function test_updating_a_participant_rejects_a_future_birthdate(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+
+        $response = $this->actingAsInTenant($admin, $tenant)->patch("/admin/participants/{$learner->id}", [
+            'birthdate' => now()->addDay()->format('Y-m-d'),
+        ]);
+
+        $response->assertSessionHasErrors('birthdate');
+    }
+
+    public function test_admin_cannot_update_a_participant_from_another_tenant(): void
+    {
+        $tenantA = $this->createTestTenant();
+        $tenantB = $this->createTestTenant();
+        $adminA = $this->createTenantUser($tenantA, 'owner');
+        $learnerB = $this->createTenantUser($tenantB, 'learner');
+
+        $response = $this->actingAsInTenant($adminA, $tenantA)->patch("/admin/participants/{$learnerB->id}", [
+            'city' => 'Sollte nicht ankommen',
+        ]);
+
+        $response->assertNotFound();
+        $this->onAdmin(function () use ($learnerB) {
+            $this->assertNull($learnerB->fresh()->city);
+        });
     }
 }

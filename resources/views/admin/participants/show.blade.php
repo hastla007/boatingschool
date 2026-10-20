@@ -23,30 +23,47 @@
             <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
                 <x-icon name="map-pin" class="w-4 h-4 text-slate-400" /> Adresse &amp; Geburtsdatum
             </h3>
-            @if ($participant->street || $participant->postal_code || $participant->city || $participant->country)
-                <dl class="text-sm space-y-1.5">
-                    <div class="flex justify-between gap-4">
-                        <dt class="text-slate-500">Straße</dt>
-                        <dd class="text-slate-800 dark:text-slate-200 text-end">{{ $participant->street ?? '—' }}</dd>
+            <form method="POST" action="{{ route('admin.participants.update', $participant) }}" class="space-y-2">
+                @csrf
+                @method('PATCH')
+                <div>
+                    <label class="block text-xs text-slate-500 mb-1">Straße &amp; Hausnummer</label>
+                    <input type="text" name="street" value="{{ old('street', $participant->street) }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-xs text-slate-500 mb-1">PLZ</label>
+                        <input type="text" name="postal_code" value="{{ old('postal_code', $participant->postal_code) }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                     </div>
-                    <div class="flex justify-between gap-4">
-                        <dt class="text-slate-500">PLZ / Stadt</dt>
-                        <dd class="text-slate-800 dark:text-slate-200 text-end">{{ trim(($participant->postal_code ?? '').' '.($participant->city ?? '')) ?: '—' }}</dd>
+                    <div>
+                        <label class="block text-xs text-slate-500 mb-1">Wohnort</label>
+                        <input type="text" name="city" value="{{ old('city', $participant->city) }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                     </div>
-                    <div class="flex justify-between gap-4">
-                        <dt class="text-slate-500">Land</dt>
-                        <dd class="text-slate-800 dark:text-slate-200 text-end">{{ $participant->country ?? '—' }}</dd>
-                    </div>
-                </dl>
-            @else
-                <p class="text-sm text-slate-400">Noch keine Adresse hinterlegt.</p>
-            @endif
-            <div class="flex justify-between gap-4 text-sm mt-3 pt-3 border-t border-slate-100 dark:border-slate-700">
-                <dt class="text-slate-500">Geburtsdatum</dt>
-                <dd class="text-slate-800 dark:text-slate-200">{{ $participant->birthdate?->format('d.m.Y') ?? 'noch nicht angegeben' }}</dd>
-            </div>
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-500 mb-1">Land</label>
+                    <select name="country" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                        <option value="">Land wählen&hellip;</option>
+                        @foreach (\App\Support\Countries::OPTIONS as $countryOption)
+                            <option value="{{ $countryOption }}" @selected(old('country', $participant->country) === $countryOption)>{{ $countryOption }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-500 mb-1">Geburtsdatum</label>
+                    <input type="date" name="birthdate" value="{{ old('birthdate', $participant->birthdate?->format('Y-m-d')) }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                </div>
+                <x-input-error :messages="$errors->get('street')" class="mt-1" />
+                <x-input-error :messages="$errors->get('postal_code')" class="mt-1" />
+                <x-input-error :messages="$errors->get('city')" class="mt-1" />
+                <x-input-error :messages="$errors->get('country')" class="mt-1" />
+                <x-input-error :messages="$errors->get('birthdate')" class="mt-1" />
+                <button type="submit" class="px-4 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
+                    Speichern
+                </button>
+            </form>
             @unless ($participant->hasCompleteRegistrationProfile())
-                <p class="text-xs text-amber-600 mt-2">Profil noch unvollständig -- der Teilnehmer muss fehlende Angaben selbst im eigenen Profil ergänzen.</p>
+                <p class="text-xs text-amber-600 mt-2">Profil noch unvollständig.</p>
             @endunless
         </div>
 
