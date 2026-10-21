@@ -71,7 +71,9 @@ class CoursePromoBannerController extends Controller
             'price_label' => ['nullable', 'string', 'max:255'],
             'discount_percent' => ['nullable', 'integer', 'min:0', 'max:100'],
             'coupon_code' => ['nullable', 'string', 'max:255'],
-            'offer_url' => ['nullable', 'url', 'max:2048'],
+            // Sicherheitsreview N1: auf http/https eingeschränkt, sonst
+            // ließe die bloße "url"-Regel auch javascript:/data:-Schemata durch.
+            'offer_url' => ['nullable', 'url:http,https', 'max:2048'],
             'course_ids' => ['nullable', 'array'],
             'course_ids.*' => ['uuid', 'exists:course_definition,id'],
             'trigger_percent' => ['nullable', 'integer', 'min:0', 'max:100'],

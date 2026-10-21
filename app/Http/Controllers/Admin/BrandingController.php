@@ -31,7 +31,9 @@ class BrandingController extends Controller
             'postal_code' => ['nullable', 'string', 'max:20'],
             'city' => ['nullable', 'string', 'max:255'],
             'country' => ['nullable', 'string', Rule::in(Countries::OPTIONS)],
-            'website' => ['nullable', 'url', 'max:255'],
+            // Sicherheitsreview N1: auf http/https eingeschränkt, sonst
+            // ließe die bloße "url"-Regel auch javascript:/data:-Schemata durch.
+            'website' => ['nullable', 'url:http,https', 'max:255'],
             // Kein SVG: eine SVG-Datei kann <script> enthalten und wird vom
             // Browser als HTML/XML statt als reines Bild interpretiert --
             // über die Logo-URL wäre das gespeichertes XSS im Ursprung der

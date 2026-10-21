@@ -44,7 +44,9 @@ class PraxisExamAppointmentController extends Controller
             'label' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:2000'],
             'location' => ['nullable', 'string', Rule::in([...$locationIds->all(), 'online'])],
-            'online_meeting_url' => ['nullable', 'url', 'max:500'],
+            // Sicherheitsreview N1: auf http/https eingeschränkt, sonst
+            // ließe die bloße "url"-Regel auch javascript:/data:-Schemata durch.
+            'online_meeting_url' => ['nullable', 'url:http,https', 'max:500'],
         ]);
 
         $slot = $request->filled('slot') ? (int) $request->input('slot') : null;

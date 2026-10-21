@@ -34,7 +34,9 @@ class AddonController extends Controller
             'addons.*.bullets' => ['nullable', 'string'],
             'addons.*.trigger_course_id' => ['nullable', 'uuid', 'exists:course_definition,id'],
             'addons.*.trigger_percent' => ['nullable', 'integer', 'min:0', 'max:100'],
-            'addons.*.offer_url' => ['nullable', 'url', 'max:2048'],
+            // Sicherheitsreview N1: auf http/https eingeschränkt, sonst
+            // ließe die bloße "url"-Regel auch javascript:/data:-Schemata durch.
+            'addons.*.offer_url' => ['nullable', 'url:http,https', 'max:2048'],
         ]);
 
         $rows = collect($validated['addons'] ?? []);

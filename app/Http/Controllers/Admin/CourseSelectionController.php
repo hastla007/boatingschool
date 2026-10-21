@@ -43,9 +43,12 @@ class CourseSelectionController extends Controller
             'enabled' => ['array'],
             'enabled.*' => ['uuid'],
             'links' => ['array'],
-            'links.*' => ['nullable', 'url', 'max:2048'],
+            // Sicherheitsreview N1: die bloße "url"-Regel lässt auch
+            // javascript:/data:/file:-Schemata durch, die als href in
+            // courses/index.blade.php landen -- auf http/https eingeschränkt.
+            'links.*' => ['nullable', 'url:http,https', 'max:2048'],
             'course_validity_days' => ['nullable', 'integer', 'min:1', 'max:3650'],
-            'renewal_webshop_link' => ['nullable', 'url', 'max:2048'],
+            'renewal_webshop_link' => ['nullable', 'url:http,https', 'max:2048'],
         ]);
 
         $tenant->branding()->update([
