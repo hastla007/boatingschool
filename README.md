@@ -111,8 +111,10 @@ aus Sicherheitsgründen absichtlich kein `CREATE ROLE`-Recht für die App
 selbst):
 
 ```sql
-CREATE ROLE boatingschool LOGIN PASSWORD 'boatingschool';
-CREATE ROLE boatingschool_app LOGIN PASSWORD 'boatingschool_app';
+-- Eigene, zufällig erzeugte Passwörter einsetzen (z. B. `openssl rand -base64 24`)
+-- statt der Rollennamen selbst -- diese Platzhalter nie produktiv übernehmen.
+CREATE ROLE boatingschool LOGIN PASSWORD '<eigenes-owner-passwort>';
+CREATE ROLE boatingschool_app LOGIN PASSWORD '<eigenes-app-passwort>';
 CREATE DATABASE boatingschool OWNER boatingschool;
 CREATE DATABASE boatingschool_test OWNER boatingschool;
 GRANT CONNECT ON DATABASE boatingschool TO boatingschool_app;

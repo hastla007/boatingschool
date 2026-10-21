@@ -74,6 +74,14 @@ class ResolveTenant
             return null;
         }
 
+        // Zusätzliche Absicherung (Sicherheitsreview M4): selbst in einer als
+        // lokal/Test markierten Umgebung nur aktiv, wenn explizit per
+        // DEV_TENANT_OVERRIDE freigeschaltet UND der Request tatsächlich von
+        // localhost kommt.
+        if (! config('app.dev_tenant_override') || ! in_array($request->ip(), ['127.0.0.1', '::1'], true)) {
+            return null;
+        }
+
         if ($request->query('as_tenant') === '') {
             $request->session()->forget('dev_tenant_slug');
 

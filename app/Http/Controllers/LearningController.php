@@ -84,7 +84,14 @@ class LearningController extends Controller
 
         abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Für diesen Kurs liegt kein aktives Entitlement vor.');
 
+        // Feste Positivliste statt eines beliebigen Query-Werts
+        // (Sicherheitsreview M4) -- ein unbekannter Wert fällt auf den
+        // Standardmodus zurück, statt unvalidiert weitergereicht zu werden
+        // (u. a. landet mode als attempt.mode, varchar(40), in storeAttempt()).
         $mode = $request->query('mode', 'smarttrainer');
+        if (! in_array($mode, ['smarttrainer', 'new', 'wrong', 'topic', 'favorites'], true)) {
+            $mode = 'smarttrainer';
+        }
         $topic = $request->query('topic');
         $moduleId = $request->query('module');
         $questionIds = $this->parseQuestionIds($request->query('questions'));
@@ -152,7 +159,12 @@ class LearningController extends Controller
             'answer_ids' => ['nullable', 'array'],
             'answer_ids.*' => ['uuid'],
             'known' => ['nullable', 'boolean'],
-            'mode' => ['required', 'string'],
+            // max:40 passend zur Spaltenbreite attempt.mode (varchar(40)) --
+            // sonst scheitert ein zu langer Wert erst beim Insert mit einer
+            // harten Postgres-Exception statt einem sauberen 422
+            // (Sicherheitsreview M4). "in" beschränkt zusätzlich auf die
+            // tatsächlich unterstützten Modi (siehe SmarttrainerService).
+            'mode' => ['required', 'string', 'max:40', 'in:smarttrainer,new,wrong,topic,favorites'],
             'response_time_ms' => ['nullable', 'integer', 'min:0'],
         ]);
 
