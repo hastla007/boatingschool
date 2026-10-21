@@ -21,7 +21,13 @@ class Pruefungsausschuss extends Model
     protected $fillable = [
         'kommission', 'standorttyp', 'kontaktperson', 'strasse', 'plz', 'stadt',
         'telefon', 'fax', 'email', 'website', 'sprechzeiten', 'hinweis', 'quelle', 'sort_order',
+        'course_ids',
     ];
+
+    protected function casts(): array
+    {
+        return ['course_ids' => 'array'];
+    }
 
     /** "Kommission — Standorttyp" oder nur "Kommission", wenn kein Standorttyp gepflegt ist. */
     public function label(): string

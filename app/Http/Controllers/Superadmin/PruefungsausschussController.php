@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Superadmin;
 
 use App\Http\Controllers\Controller;
+use App\Models\CourseDefinition;
 use App\Models\Pruefungsausschuss;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -19,13 +20,14 @@ class PruefungsausschussController extends Controller
     public function index(): View
     {
         $pruefungsausschuesse = Pruefungsausschuss::orderBy('sort_order')->orderBy('kommission')->get();
+        $courses = $this->courses()->keyBy('id');
 
-        return view('superadmin.pruefungsausschuesse.index', ['pruefungsausschuesse' => $pruefungsausschuesse]);
+        return view('superadmin.pruefungsausschuesse.index', ['pruefungsausschuesse' => $pruefungsausschuesse, 'courses' => $courses]);
     }
 
     public function create(): View
     {
-        return view('superadmin.pruefungsausschuesse.create');
+        return view('superadmin.pruefungsausschuesse.create', ['courses' => $this->courses()]);
     }
 
     public function store(Request $request): Response
@@ -39,7 +41,10 @@ class PruefungsausschussController extends Controller
 
     public function edit(Pruefungsausschuss $pruefungsausschuss): View
     {
-        return view('superadmin.pruefungsausschuesse.edit', ['pruefungsausschuss' => $pruefungsausschuss]);
+        return view('superadmin.pruefungsausschuesse.edit', [
+            'pruefungsausschuss' => $pruefungsausschuss,
+            'courses' => $this->courses(),
+        ]);
     }
 
     public function update(Request $request, Pruefungsausschuss $pruefungsausschuss): Response
@@ -78,10 +83,19 @@ class PruefungsausschussController extends Controller
             'sprechzeiten' => ['nullable', 'string', 'max:255'],
             'hinweis' => ['nullable', 'string', 'max:2000'],
             'sort_order' => ['nullable', 'integer'],
+            'course_ids' => ['nullable', 'array'],
+            'course_ids.*' => ['uuid', 'exists:course_definition,id'],
         ]);
 
         $validated['sort_order'] = (int) ($validated['sort_order'] ?? 0);
+        $validated['course_ids'] = array_values($validated['course_ids'] ?? []);
 
         return $validated;
+    }
+
+    /** Globaler Kurskatalog (plattformweit, keine Tenant-Kurse) zur Auswahl je Prüfungsausschuss. */
+    private function courses()
+    {
+        return CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')->orderBy('name')->get();
     }
 }

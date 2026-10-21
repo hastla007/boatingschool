@@ -22,6 +22,11 @@
                                 <span class="text-slate-400 font-normal">&middot; {{ $pa->standorttyp }}</span>
                             @endif
                             <div class="text-xs text-slate-400">{{ $pa->adresse() ?? '—' }}</div>
+                            @if (! empty($pa->course_ids))
+                                <div class="text-xs text-slate-400 mt-0.5">
+                                    Zuständig für: {{ collect($pa->course_ids)->map(fn ($id) => $courses->get($id)?->name)->filter()->implode(', ') }}
+                                </div>
+                            @endif
                         </td>
                         <td class="px-4 py-3 text-slate-500 dark:text-slate-400 text-xs">
                             {{ $pa->kontaktperson }}
