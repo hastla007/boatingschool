@@ -119,13 +119,20 @@ class UserController extends Controller
         ]);
 
         $validated['display_name'] = trim($validated['first_name'].' '.$validated['last_name']);
-        $validated['is_superadmin'] = $request->boolean('is_superadmin');
+
+        // is_superadmin ist bewusst nicht $fillable (Sicherheitsreview N4) --
+        // Mass-Assignment-Falle für künftigen Code, der versehentlich
+        // $request->all() durchreicht. Hier bewusst und explizit per
+        // forceFill gesetzt, aus demselben validierten Boolean wie zuvor.
+        $isSuperadmin = $request->boolean('is_superadmin');
+        unset($validated['is_superadmin']);
 
         if ($user->email !== $validated['email']) {
             $user->email_verified_at = null;
         }
 
         $wasActive = $user->status === 'active';
+        $user->forceFill(['is_superadmin' => $isSuperadmin]);
         $user->update($validated);
 
         // Eine Sperrung soll sofort wirken, nicht erst wenn eine laufende

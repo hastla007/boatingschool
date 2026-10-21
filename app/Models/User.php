@@ -34,7 +34,6 @@ class User extends Authenticatable implements MustVerifyEmail
         'city',
         'country',
         'birthdate',
-        'is_superadmin',
     ];
 
     protected $hidden = [

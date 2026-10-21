@@ -94,7 +94,10 @@ trait InteractsWithTenants
     protected function createTenantUser(Tenant $tenant, string $role = 'learner', array $attributes = []): User
     {
         return $this->onAdmin(function () use ($tenant, $role, $attributes) {
-            $user = User::create(array_merge([
+            // forceCreate statt create(): is_superadmin ist bewusst nicht
+            // $fillable (Sicherheitsreview N4), Testfixtures dürfen es trotzdem
+            // gezielt setzen können (siehe NavigationMenuTest).
+            $user = User::forceCreate(array_merge([
                 'email' => Str::uuid().'@example.test',
                 'display_name' => 'Test '.Str::ucfirst($role),
                 'password' => bcrypt('password'),
@@ -145,7 +148,7 @@ trait InteractsWithTenants
     protected function createSuperAdmin(array $attributes = []): User
     {
         return $this->onAdmin(function () use ($attributes) {
-            $user = User::create(array_merge([
+            $user = User::forceCreate(array_merge([
                 'email' => Str::uuid().'@platform.test',
                 'display_name' => 'Test Superadmin',
                 'password' => bcrypt('password'),
