@@ -9,8 +9,20 @@
     && $location->praxis_lng === $location->pruefung_lng
 ))
 @php($hasTheorieOrt = $location && $location->hasTheorieOrt())
+@php($initialPruefungsausschussId = old('pruefungsausschuss_id', $location?->pruefungsausschuss_id))
+@php($pruefungsausschussInfo = $pruefungsausschuesse->mapWithKeys(fn ($pa) => [
+    $pa->id => [
+        'adresse' => $pa->adresse(),
+        'kurse' => collect($pa->course_ids ?? [])->map(fn ($id) => $courses->firstWhere('id', $id)?->name)->filter()->values(),
+    ],
+]))
 
-<div x-data="{ sameAsLocation: {{ $sameByDefault ? 'true' : 'false' }}, theorieOrtEnabled: {{ $hasTheorieOrt ? 'true' : 'false' }} }" class="space-y-4">
+<div x-data="{
+        sameAsLocation: {{ $sameByDefault ? 'true' : 'false' }},
+        theorieOrtEnabled: {{ $hasTheorieOrt ? 'true' : 'false' }},
+        pruefungsausschussId: {{ \Illuminate\Support\Js::from((string) $initialPruefungsausschussId) }},
+        pruefungsausschussInfo: {{ \Illuminate\Support\Js::from($pruefungsausschussInfo) }},
+     }" class="space-y-4">
     <div class="grid sm:grid-cols-2 gap-4">
         <div class="space-y-3">
             <div>
@@ -188,15 +200,23 @@
         <p class="text-xs text-slate-400 mt-1 mb-2">
             Zuständige Prüfungskommission für diesen Ort -- feste Adresse aus der bundesweiten DMYV-Liste.
         </p>
-        @php($selectedPruefungsausschussId = old('pruefungsausschuss_id', $location?->pruefungsausschuss_id))
-        <select id="{{ $prefix }}-pruefungsausschuss_id" name="pruefungsausschuss_id"
+        <select id="{{ $prefix }}-pruefungsausschuss_id" name="pruefungsausschuss_id" x-model="pruefungsausschussId"
                 class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
             <option value="">&mdash; keiner zugeordnet &mdash;</option>
             @foreach ($pruefungsausschuesse as $pa)
-                <option value="{{ $pa->id }}" @selected($selectedPruefungsausschussId === $pa->id)>{{ $pa->label() }}</option>
+                <option value="{{ $pa->id }}" @selected($initialPruefungsausschussId === $pa->id)>{{ $pa->label() }}</option>
             @endforeach
         </select>
         <x-input-error :messages="$errors->get('pruefungsausschuss_id')" class="mt-2" />
+
+        <template x-if="pruefungsausschussId && pruefungsausschussInfo[pruefungsausschussId]">
+            <div class="mt-2 text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/40 rounded-lg p-3 space-y-1">
+                <p x-show="pruefungsausschussInfo[pruefungsausschussId].adresse" x-text="pruefungsausschussInfo[pruefungsausschussId].adresse"></p>
+                <template x-if="pruefungsausschussInfo[pruefungsausschussId].kurse.length">
+                    <p>Zuständig für: <span x-text="pruefungsausschussInfo[pruefungsausschussId].kurse.join(', ')"></span></p>
+                </template>
+            </div>
+        </template>
     </div>
 
     <div>
