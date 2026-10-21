@@ -32,7 +32,13 @@ class BrandingController extends Controller
             'city' => ['nullable', 'string', 'max:255'],
             'country' => ['nullable', 'string', Rule::in(Countries::OPTIONS)],
             'website' => ['nullable', 'url', 'max:255'],
-            'logo' => ['nullable', 'image', 'max:1024'],
+            // Kein SVG: eine SVG-Datei kann <script> enthalten und wird vom
+            // Browser als HTML/XML statt als reines Bild interpretiert --
+            // über die Logo-URL wäre das gespeichertes XSS im Ursprung der
+            // Plattform (Sicherheitsreview H4). "image" lässt SVG in
+            // Laravel 11 sonst durch, daher zusätzlich "mimes" auf eine
+            // feste Positivliste einschränken.
+            'logo' => ['nullable', 'image', 'mimes:png,jpg,jpeg,webp', 'max:1024'],
             'exam_readiness_threshold_percent' => ['required', 'integer', 'min:0', 'max:100'],
             // Nullable statt required wie beim Prüfungs-Pendant: dieses
             // Feld kam nach exam_readiness_threshold_percent dazu, ältere
@@ -65,13 +71,36 @@ class BrandingController extends Controller
 
         if ($request->hasFile('logo')) {
             $file = $request->file('logo');
-            $path = $file->storeAs('branding-logos', $tenant->id.'-'.Str::random(8).'.'.$file->extension(), 'public');
+
+            // Statt die hochgeladene Datei unverändert abzulegen, wird sie
+            // über GD neu kodiert (Sicherheitsreview H4): GD liest nur die
+            // tatsächlichen Bilddaten ein und erzeugt daraus ein komplett
+            // neues PNG -- ein als Bild getarntes Polyglot (z. B. mit
+            // eingebettetem HTML/JS) übersteht das nicht, auch wenn es die
+            // Mime-Validierung oben passiert hätte.
+            $image = @imagecreatefromstring(file_get_contents($file->getRealPath()));
+
+            if ($image === false) {
+                return back()->withErrors(['logo' => 'Diese Bilddatei konnte nicht gelesen werden.'])->withInput();
+            }
+
+            imagepalettetotruecolor($image);
+            imagealphablending($image, true);
+            imagesavealpha($image, true);
+
+            ob_start();
+            imagepng($image);
+            $pngData = ob_get_clean();
+            imagedestroy($image);
+
+            $path = 'branding-logos/'.$tenant->id.'-'.Str::random(8).'.png';
+            Storage::disk('public')->put($path, $pngData);
 
             $asset = MediaAsset::create([
                 'asset_key' => 'branding-logo-'.$tenant->id.'-'.Str::random(8),
                 'media_type' => 'image',
                 'storage_path' => Storage::disk('public')->url($path),
-                'mime_type' => $file->getMimeType(),
+                'mime_type' => 'image/png',
                 'rights_status' => 'licensed',
                 'status' => 'published',
             ]);
