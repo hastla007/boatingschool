@@ -32,8 +32,10 @@ class DashboardTest extends TestCase
         $response = $this->actingAsInTenant($learner, $tenant)->get('/dashboard');
 
         $response->assertOk();
+        $response->assertSee('Zum Kurs');
         $response->assertSee('Fortschritt & Statistiken');
         $response->assertSee('Favoriten & Fehler');
+        $response->assertSee(route('learning.show', $course));
         $response->assertSee(route('progress.show', $course));
         $response->assertSee(route('favorites.smart-learning', $course));
     }
@@ -50,8 +52,10 @@ class DashboardTest extends TestCase
         $response = $this->actingAsInTenant($learner, $tenant)->get('/dashboard');
 
         $response->assertOk();
+        $response->assertSee(route('learning.show', $courseA));
         $response->assertSee(route('progress.show', $courseA));
         $response->assertSee(route('favorites.smart-learning', $courseA));
+        $response->assertSee(route('learning.show', $courseB));
         $response->assertSee(route('progress.show', $courseB));
         $response->assertSee(route('favorites.smart-learning', $courseB));
     }
