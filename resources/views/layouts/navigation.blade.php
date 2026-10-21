@@ -47,8 +47,8 @@
                                                     </button>
                                                 </div>
                                                 <div x-show="open" style="display: none">
-                                                    <a href="{{ route('progress.show', $navCourse) }}" class="block w-full pl-12 pr-4 py-1.5 text-start text-xs text-slate-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-slate-700 dark:hover:text-slate-300 focus:outline-none focus:bg-gray-100 dark:focus:bg-gray-800 transition duration-150 ease-in-out">Fortschritt</a>
-                                                    <a href="{{ route('favorites.smart-learning', $navCourse) }}" class="block w-full pl-12 pr-4 py-1.5 text-start text-xs text-slate-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-slate-700 dark:hover:text-slate-300 focus:outline-none focus:bg-gray-100 dark:focus:bg-gray-800 transition duration-150 ease-in-out">Favoriten</a>
+                                                    <a href="{{ route('progress.show', $navCourse) }}" class="block w-full pl-16 pr-4 py-1.5 text-start text-xs text-slate-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-slate-700 dark:hover:text-slate-300 focus:outline-none focus:bg-gray-100 dark:focus:bg-gray-800 transition duration-150 ease-in-out">&rarr; Fortschritt</a>
+                                                    <a href="{{ route('favorites.smart-learning', $navCourse) }}" class="block w-full pl-16 pr-4 py-1.5 text-start text-xs text-slate-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-slate-700 dark:hover:text-slate-300 focus:outline-none focus:bg-gray-100 dark:focus:bg-gray-800 transition duration-150 ease-in-out">&rarr; Favoriten</a>
                                                 </div>
                                             </div>
                                         @endforeach
@@ -122,12 +122,12 @@
                         {{ $navCourse->name }}
                     </x-responsive-nav-link>
                 </div>
-                <div class="pl-16">
+                <div class="pl-20">
                     <x-responsive-nav-link :href="route('progress.show', $navCourse)" :active="request()->routeIs('progress.show') && ($course ?? null)?->id === $navCourse->id">
-                        Fortschritt
+                        &rarr; Fortschritt
                     </x-responsive-nav-link>
                     <x-responsive-nav-link :href="route('favorites.smart-learning', $navCourse)" :active="request()->routeIs('favorites.smart-learning', 'favorites.exam') && ($course ?? null)?->id === $navCourse->id">
-                        Favoriten
+                        &rarr; Favoriten
                     </x-responsive-nav-link>
                 </div>
             @empty
