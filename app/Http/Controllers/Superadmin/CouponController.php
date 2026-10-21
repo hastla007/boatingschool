@@ -47,7 +47,7 @@ class CouponController extends Controller
 
         [$type, $targetId] = array_pad(explode(':', $validated['target'], 2), 2, null);
 
-        if ($type === 'course') {
+        if ($type === 'course' || $type === 'renewal') {
             if (! $targetId || ! CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')->whereKey($targetId)->exists()) {
                 throw ValidationException::withMessages(['target' => 'Ungültiger Kurs.']);
             }
@@ -56,12 +56,12 @@ class CouponController extends Controller
                 throw ValidationException::withMessages(['target' => 'Ungültiges Produkt.']);
             }
         } else {
-            throw ValidationException::withMessages(['target' => 'Bitte einen Kurs oder ein Produkt wählen.']);
+            throw ValidationException::withMessages(['target' => 'Bitte einen Kurs, ein Produkt oder einen Verlängerungscode wählen.']);
         }
 
         // Optionen (z. B. "Lernplattform inkl. Willkommensbox" + "Kleine
         // Praxiseinheit") können nur einem Kurs-Code mitgegeben werden, nicht
-        // einem Produkt-Code.
+        // einem Produkt- oder Verlängerungscode.
         $optionProductIds = $type === 'course' ? array_values($validated['option_product_ids'] ?? []) : [];
 
         $quantity = $validated['quantity'];
@@ -71,8 +71,9 @@ class CouponController extends Controller
         for ($i = 0; $i < $quantity; $i++) {
             $coupon = Coupon::create([
                 'code' => Coupon::generateUniqueCode(),
-                'course_id' => $type === 'course' ? $targetId : null,
+                'course_id' => $type === 'product' ? null : $targetId,
                 'product_id' => $type === 'product' ? $targetId : null,
+                'is_renewal' => $type === 'renewal',
                 'tenant_id' => $validated['tenant_id'] ?? null,
                 'batch_label' => $batchLabel,
                 'created_by_user_id' => $request->user()->id,

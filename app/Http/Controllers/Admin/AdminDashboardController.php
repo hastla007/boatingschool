@@ -276,8 +276,9 @@ class AdminDashboardController extends Controller
             })
             ->when(($couponFilters['coupon_status'] ?? null) === 'open', fn ($q) => $q->whereNull('redeemed_at'))
             ->when(($couponFilters['coupon_status'] ?? null) === 'redeemed', fn ($q) => $q->whereNotNull('redeemed_at'))
-            ->when(($couponFilters['coupon_type'] ?? null) === 'course', fn ($q) => $q->whereNotNull('course_id'))
+            ->when(($couponFilters['coupon_type'] ?? null) === 'course', fn ($q) => $q->whereNotNull('course_id')->where('is_renewal', false))
             ->when(($couponFilters['coupon_type'] ?? null) === 'product', fn ($q) => $q->whereNotNull('product_id'))
+            ->when(($couponFilters['coupon_type'] ?? null) === 'renewal', fn ($q) => $q->where('is_renewal', true))
             ->orderByDesc('created_at')
             ->paginate(50)
             ->withQueryString();
@@ -286,17 +287,20 @@ class AdminDashboardController extends Controller
         // gehören (übernommen per Import oder vom Superadmin zugeteilt) --
         // Codes, die nur eingelöst, aber keiner Bootsschule zugeordnet
         // wurden, zählen hier bewusst nicht mit (das ist kein Bestand, den
-        // sie verwaltet).
+        // sie verwaltet). Verlängerungscodes laufen als eigene Zeile je
+        // Kurs, damit sie nicht mit regulären Kurs-Freischalt-Codes
+        // vermischt werden.
         $couponSummary = Coupon::where('tenant_id', $tenant->id)
-            ->selectRaw('course_id, product_id, count(*) filter (where redeemed_at is null) as free_count, count(*) filter (where redeemed_at is not null) as used_count')
-            ->groupBy('course_id', 'product_id')
+            ->selectRaw('course_id, product_id, is_renewal, count(*) filter (where redeemed_at is null) as free_count, count(*) filter (where redeemed_at is not null) as used_count')
+            ->groupBy('course_id', 'product_id', 'is_renewal')
             ->get()
             ->map(function ($row) {
                 $course = $row->course_id ? CourseDefinition::withoutGlobalScopes()->find($row->course_id) : null;
                 $product = $row->product_id ? Product::find($row->product_id) : null;
+                $name = $course->name ?? $product->name ?? '—';
 
                 return (object) [
-                    'name' => $course->name ?? $product->name ?? '—',
+                    'name' => $row->is_renewal ? "{$name} (Verlängerung)" : $name,
                     'free' => (int) $row->free_count,
                     'used' => (int) $row->used_count,
                 ];
@@ -305,9 +309,12 @@ class AdminDashboardController extends Controller
             ->values();
 
         // Für den "Kurs freischalten"-Dropdown im Teilnehmer-Tab: wie viele
-        // eigene, noch nicht eingelöste Codes die Bootsschule je Kurs hat.
+        // eigene, noch nicht eingelöste Codes die Bootsschule je Kurs hat --
+        // Verlängerungscodes zählen hier bewusst nicht mit, die schalten
+        // keinen neuen Kurs frei, sondern verlängern einen bestehenden.
         $freeCourseCouponCounts = Coupon::where('tenant_id', $tenant->id)
             ->whereNotNull('course_id')
+            ->where('is_renewal', false)
             ->whereNull('redeemed_at')
             ->selectRaw('course_id, count(*) as free_count')
             ->groupBy('course_id')

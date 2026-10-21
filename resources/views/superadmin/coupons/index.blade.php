@@ -22,6 +22,11 @@
                                 <option value="product:{{ $product->id }}">{{ $product->name }}</option>
                             @endforeach
                         </optgroup>
+                        <optgroup label="Verlängerungscodes">
+                            @foreach ($courses as $course)
+                                <option value="renewal:{{ $course->id }}">{{ $course->name }} (Verlängerung)</option>
+                            @endforeach
+                        </optgroup>
                     </select>
                     <x-input-error :messages="$errors->get('target')" class="mt-2" />
                 </div>
@@ -125,8 +130,8 @@
                                 </td>
                                 <td class="py-1.5 font-mono text-xs">{{ $coupon->code }}</td>
                                 <td class="py-1.5 text-slate-500">
-                                    <span class="inline-block px-2 py-0.5 rounded-full text-xs {{ $coupon->isForProduct() ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-100 text-slate-600' }}">
-                                        {{ $coupon->isForProduct() ? 'Produkt' : 'Kurs' }}
+                                    <span class="inline-block px-2 py-0.5 rounded-full text-xs {{ $coupon->isForProduct() ? 'bg-indigo-50 text-indigo-700' : ($coupon->isForRenewal() ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-600') }}">
+                                        {{ $coupon->isForProduct() ? 'Produkt' : ($coupon->isForRenewal() ? 'Verlängerung' : 'Kurs') }}
                                     </span>
                                 </td>
                                 <td class="py-1.5 text-slate-600 dark:text-slate-300">

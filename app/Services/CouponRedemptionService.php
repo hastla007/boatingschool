@@ -13,8 +13,10 @@ use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
 /**
- * Einlösen eines Coupons für einen Kurs (Entitlement) oder ein Produkt
- * (ProductPurchase) -- Kernlogik geteilt zwischen dem Self-Service-Einlösen
+ * Einlösen eines Coupons für einen Kurs (Entitlement), ein Produkt
+ * (ProductPurchase) oder einen Verlängerungscode (verlängert ein
+ * bestehendes Entitlement statt ein neues anzulegen, siehe
+ * redeemForRenewal) -- Kernlogik geteilt zwischen dem Self-Service-Einlösen
  * (CouponRedeemController, $user löst für sich selbst ein) und der
  * Zuweisung durch den Bootsschul-Admin an einen bestimmten Nutzer
  * (Admin\CouponController::assign, $user erhält den Code, $actor ist der
@@ -26,11 +28,15 @@ class CouponRedemptionService
     {
     }
 
-    /** @return array{type: 'course'|'product', course?: CourseDefinition, product?: \App\Models\Product} */
+    /** @return array{type: 'course'|'product'|'course_renewal', course?: CourseDefinition, product?: \App\Models\Product, entitlement?: Entitlement} */
     public function redeem(Coupon $coupon, Tenant $tenant, User $user, ?User $actor = null): array
     {
         if ($coupon->isRedeemed()) {
             throw new RuntimeException('Dieser Code wurde bereits eingelöst.');
+        }
+
+        if ($coupon->isForRenewal()) {
+            return $this->redeemForRenewal($coupon, $tenant, $user, $actor ?? $user);
         }
 
         return $coupon->isForProduct()
@@ -74,6 +80,69 @@ class CouponRedemptionService
         AuditLog::record($tenant->id, $actor->id, 'coupon.redeem', 'coupon', $coupon->id, null, ['course_id' => $coupon->course_id, 'user_id' => $user->id]);
 
         return ['type' => 'course', 'course' => $course, 'entitlement' => $entitlement];
+    }
+
+    /**
+     * Verlängert ein Kurs-Entitlement statt ein neues anzulegen: "Ablauf 1"
+     * (Teilnehmer löst selbst über CouponRedeemController ein) und "Ablauf 2"
+     * (Bootsschul-Admin weist über Admin\CouponController::assign direkt
+     * einem Teilnehmer zu) laufen beide über diese eine Methode. Läuft das
+     * bestehende Entitlement noch, verlängert sich sein valid_until ab dem
+     * aktuellen Ablaufdatum (nicht ab heute) -- eine ungenutzte Restlaufzeit
+     * geht also nicht verloren. Ist es bereits abgelaufen (oder gab es noch
+     * nie eines für diesen Kurs), zählt die Frist ab heute. In beiden Fällen
+     * wird der Status wieder auf "active" gesetzt, auch wenn er zwischenzeitlich
+     * suspendiert war -- ein gekaufter Verlängerungscode soll den Zugang
+     * zuverlässig zurückbringen.
+     */
+    private function redeemForRenewal(Coupon $coupon, Tenant $tenant, User $user, User $actor): array
+    {
+        $course = CourseDefinition::withoutGlobalScopes()->find($coupon->course_id);
+
+        if (! $course || ! $this->entitlements->isOfferable($tenant, $course)) {
+            throw new RuntimeException('Dieser Kurs ist aktuell nicht verfügbar.');
+        }
+
+        $entitlement = DB::transaction(function () use ($coupon, $tenant, $user, $course) {
+            $now = now();
+            $days = $tenant->branding->course_validity_days;
+
+            $entitlement = Entitlement::where('tenant_id', $tenant->id)
+                ->where('user_id', $user->id)
+                ->where('course_id', $course->id)
+                ->orderByDesc('valid_until')
+                ->first();
+
+            if ($entitlement) {
+                $base = ($entitlement->valid_until && $entitlement->valid_until->gt($now)) ? $entitlement->valid_until : $now;
+                $entitlement->update(['valid_until' => $base->copy()->addDays($days), 'status' => 'active']);
+            } else {
+                $entitlement = Entitlement::create([
+                    'tenant_id' => $tenant->id,
+                    'user_id' => $user->id,
+                    'course_id' => $course->id,
+                    'valid_from' => $now,
+                    'valid_until' => $now->copy()->addDays($days),
+                    'status' => 'active',
+                    'source_type' => 'coupon_renewal',
+                    'source_reference' => $coupon->code,
+                ]);
+            }
+
+            $coupon->update([
+                'redeemed_by_user_id' => $user->id,
+                'redeemed_tenant_id' => $tenant->id,
+                'redeemed_at' => $now,
+            ]);
+
+            return $entitlement;
+        });
+
+        AuditLog::record($tenant->id, $actor->id, 'coupon.redeem_renewal', 'coupon', $coupon->id, null, [
+            'course_id' => $course->id, 'user_id' => $user->id, 'valid_until' => $entitlement->valid_until?->toIso8601String(),
+        ]);
+
+        return ['type' => 'course_renewal', 'course' => $course, 'entitlement' => $entitlement];
     }
 
     /**

@@ -16,13 +16,14 @@ class Coupon extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'code', 'course_id', 'product_id', 'tenant_id', 'batch_label', 'created_by_user_id',
+        'code', 'course_id', 'product_id', 'is_renewal', 'tenant_id', 'batch_label', 'created_by_user_id',
         'redeemed_by_user_id', 'redeemed_tenant_id', 'redeemed_at',
     ];
 
     protected function casts(): array
     {
         return [
+            'is_renewal' => 'boolean',
             'redeemed_at' => 'datetime',
             'created_at' => 'datetime',
         ];
@@ -53,6 +54,12 @@ class Coupon extends Model
     public function isForProduct(): bool
     {
         return $this->product_id !== null;
+    }
+
+    /** Ein Verlängerungscode verlängert ein bestehendes Kurs-Entitlement statt ein neues anzulegen (siehe CouponRedemptionService::redeemForRenewal). */
+    public function isForRenewal(): bool
+    {
+        return $this->is_renewal;
     }
 
     public function tenant(): BelongsTo

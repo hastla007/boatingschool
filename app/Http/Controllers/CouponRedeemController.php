@@ -57,6 +57,13 @@ class CouponRedeemController extends Controller
                 ->with('status', 'Code eingelöst -- der Kurs ist jetzt freigeschaltet!');
         }
 
+        if ($result['type'] === 'course_renewal') {
+            $validUntil = $result['entitlement']->valid_until?->format('d.m.Y');
+
+            return redirect()->route('courses.show', $result['course'])
+                ->with('status', "Code eingelöst -- dein Zugang zu \"{$result['course']->name}\" wurde verlängert".($validUntil ? " bis {$validUntil}" : '').'!');
+        }
+
         return redirect()->route('profile.edit')
             ->with('status', "Code eingelöst -- \"{$result['product']->name}\" wurde deinem Konto gutgeschrieben!");
     }
