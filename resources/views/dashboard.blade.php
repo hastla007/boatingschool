@@ -47,6 +47,31 @@
                         <x-icon name="clock" class="w-4 h-4" /> {{ $dueReviews }} Wiederholung(en) sind fällig.
                     </p>
                 @endif
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                    <a href="{{ route('progress.show', $primary['course']) }}"
+                       class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-3 hover:shadow-md transition">
+                        <div class="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center shrink-0 text-slate-600 dark:text-slate-200">
+                            <x-icon name="chart-bar" class="w-5 h-5" />
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <div class="text-sm font-medium text-slate-700 dark:text-slate-200">Fortschritt &amp; Statistiken</div>
+                            <div class="text-xs text-slate-400 truncate">{{ $primary['course']->name }}</div>
+                        </div>
+                        <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />
+                    </a>
+                    <a href="{{ route('favorites.smart-learning', $primary['course']) }}"
+                       class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-3 hover:shadow-md transition">
+                        <div class="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center shrink-0 text-amber-500">
+                            <x-icon name="star" class="w-5 h-5" />
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <div class="text-sm font-medium text-slate-700 dark:text-slate-200">Favoriten &amp; Fehler</div>
+                            <div class="text-xs text-slate-400 truncate">{{ $primary['course']->name }}</div>
+                        </div>
+                        <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />
+                    </a>
+                </div>
             </div>
         @endif
     </div>
