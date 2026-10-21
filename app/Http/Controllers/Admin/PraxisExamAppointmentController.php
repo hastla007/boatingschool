@@ -33,15 +33,23 @@ class PraxisExamAppointmentController extends Controller
             ->whereJsonContains('course_ids', $submission->course_id)
             ->pluck('id');
 
+        // Das "Ort"-Feld liefert entweder eine echte Orts-UUID, den
+        // Spezialwert "online" (Onlinekurs, siehe PraxisExamAppointment::
+        // isOnline) oder bleibt leer -- kein eigenes tenant_course_location-
+        // Fake-Datensatz dafür nötig.
         $validated = $request->validate([
             'exam_date' => ['required', 'date'],
             'ends_at' => ['nullable', 'date', 'after:exam_date'],
             'slot' => ['nullable', 'integer', 'min:0'],
             'label' => ['nullable', 'string', 'max:255'],
-            'tenant_course_location_id' => ['nullable', 'uuid', Rule::in($locationIds)],
+            'description' => ['nullable', 'string', 'max:2000'],
+            'location' => ['nullable', 'string', Rule::in([...$locationIds->all(), 'online'])],
+            'online_meeting_url' => ['nullable', 'url', 'max:500'],
         ]);
 
         $slot = $request->filled('slot') ? (int) $request->input('slot') : null;
+        $isOnline = ($validated['location'] ?? null) === 'online';
+        $locationId = $isOnline ? null : ($validated['location'] ?? null);
 
         try {
             $appointment = $appointments->propose(
@@ -51,7 +59,10 @@ class PraxisExamAppointmentController extends Controller
                 isset($validated['ends_at']) ? Carbon::parse($validated['ends_at']) : null,
                 $slot,
                 $validated['label'] ?? null,
-                $validated['tenant_course_location_id'] ?? null,
+                $locationId,
+                $isOnline,
+                $validated['online_meeting_url'] ?? null,
+                $validated['description'] ?? null,
             );
         } catch (RuntimeException $e) {
             return back()->withErrors(['exam_date' => $e->getMessage()]);

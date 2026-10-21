@@ -39,6 +39,9 @@ class PraxisExamAppointmentService
         ?int $slot = null,
         ?string $label = null,
         ?string $tenantCourseLocationId = null,
+        bool $isOnline = false,
+        ?string $onlineMeetingUrl = null,
+        ?string $description = null,
     ): PraxisExamAppointment {
         if ($endsAt && $endsAt->lessThanOrEqualTo($examDate)) {
             throw new RuntimeException('Das Ende muss nach dem Beginn liegen.');
@@ -80,12 +83,15 @@ class PraxisExamAppointmentService
         return PraxisExamAppointment::create([
             'tenant_id' => $submission->tenant_id,
             'praxis_form_submission_id' => $submission->id,
-            'tenant_course_location_id' => $tenantCourseLocationId,
+            'tenant_course_location_id' => $isOnline ? null : $tenantCourseLocationId,
+            'is_online' => $isOnline,
+            'online_meeting_url' => $isOnline ? $onlineMeetingUrl : null,
             'slot' => $slot,
             'label' => $label,
             'round' => $round,
             'exam_date' => $examDate,
             'ends_at' => $endsAt,
+            'description' => $description,
             'proposed_by_user_id' => $admin->id,
         ]);
     }

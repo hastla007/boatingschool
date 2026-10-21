@@ -14,8 +14,9 @@ class PraxisExamAppointment extends Model
     protected $table = 'praxis_exam_appointment';
 
     protected $fillable = [
-        'tenant_id', 'praxis_form_submission_id', 'tenant_course_location_id', 'slot', 'label', 'round',
-        'exam_date', 'ends_at', 'proposed_by_user_id', 'response', 'response_comment', 'responded_at',
+        'tenant_id', 'praxis_form_submission_id', 'tenant_course_location_id', 'is_online', 'online_meeting_url',
+        'slot', 'label', 'round', 'exam_date', 'ends_at', 'description', 'proposed_by_user_id', 'response',
+        'response_comment', 'responded_at',
     ];
 
     protected function casts(): array
@@ -24,6 +25,7 @@ class PraxisExamAppointment extends Model
             'exam_date' => 'datetime',
             'ends_at' => 'datetime',
             'responded_at' => 'datetime',
+            'is_online' => 'boolean',
         ];
     }
 
@@ -48,6 +50,16 @@ class PraxisExamAppointment extends Model
     public function location(): BelongsTo
     {
         return $this->belongsTo(TenantCourseLocation::class, 'tenant_course_location_id');
+    }
+
+    /** "Online" oder der Praxisort-Name des gewählten Standorts, sonst null. */
+    public function locationLabel(): ?string
+    {
+        if ($this->is_online) {
+            return 'Online';
+        }
+
+        return $this->location?->praxis_ort;
     }
 
     public function proposedBy(): BelongsTo

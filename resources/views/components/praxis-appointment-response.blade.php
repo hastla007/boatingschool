@@ -12,12 +12,23 @@
 @endphp
 
 @if ($confirmedAppointment)
-    <div class="mt-6 flex items-center gap-2 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-xl p-4 text-sm">
-        <x-icon name="check-circle" class="w-5 h-5 shrink-0" />
-        @if ($isExamSlot)
-            Dein {{ $label }} ist fix: {{ $confirmedAppointment->formattedRange() }} Uhr.
-        @else
-            &bdquo;{{ $label }}&ldquo; ist fix: {{ $confirmedAppointment->formattedRange() }} Uhr.
+    <div class="mt-6 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-xl p-4 text-sm">
+        <div class="flex items-center gap-2">
+            <x-icon name="check-circle" class="w-5 h-5 shrink-0" />
+            @if ($isExamSlot)
+                Dein {{ $label }} ist fix: {{ $confirmedAppointment->formattedRange() }} Uhr.
+            @else
+                &bdquo;{{ $label }}&ldquo; ist fix: {{ $confirmedAppointment->formattedRange() }} Uhr.
+            @endif
+            @if ($confirmedAppointment->locationLabel())
+                &middot; {{ $confirmedAppointment->locationLabel() }}
+            @endif
+        </div>
+        @if ($confirmedAppointment->is_online && $confirmedAppointment->online_meeting_url)
+            <a href="{{ $confirmedAppointment->online_meeting_url }}" target="_blank" rel="noopener" class="block mt-2 ms-7 text-sm underline break-all">{{ $confirmedAppointment->online_meeting_url }}</a>
+        @endif
+        @if ($confirmedAppointment->description)
+            <p class="mt-2 ms-7 text-emerald-800 dark:text-emerald-300">{{ $confirmedAppointment->description }}</p>
         @endif
     </div>
 @elseif ($latestAppointment && $latestAppointment->isPending())
@@ -29,7 +40,20 @@
                 Vorschlag für &bdquo;{{ $label }}&ldquo;
             @endif
         </p>
-        <p class="text-sm text-slate-600 dark:text-slate-300 mb-3">{{ $latestAppointment->formattedRange() }} Uhr &ndash; passt dir dieser Termin?</p>
+        <p class="text-sm text-slate-600 dark:text-slate-300 mb-1">
+            {{ $latestAppointment->formattedRange() }} Uhr &ndash; passt dir dieser Termin?
+            @if ($latestAppointment->locationLabel())
+                <span class="block sm:inline">&middot; {{ $latestAppointment->locationLabel() }}</span>
+            @endif
+        </p>
+        @if ($latestAppointment->is_online && $latestAppointment->online_meeting_url)
+            <a href="{{ $latestAppointment->online_meeting_url }}" target="_blank" rel="noopener" class="block text-sm text-slate-600 dark:text-slate-300 underline break-all mb-1">{{ $latestAppointment->online_meeting_url }}</a>
+        @endif
+        @if ($latestAppointment->description)
+            <p class="text-sm text-slate-600 dark:text-slate-300 mb-3">{{ $latestAppointment->description }}</p>
+        @else
+            <div class="mb-3"></div>
+        @endif
 
         <div x-show="! declining" class="flex gap-2">
             <form method="POST" action="{{ route('praxis-pruefung.exam-appointments.respond', [$course, $latestAppointment]) }}">

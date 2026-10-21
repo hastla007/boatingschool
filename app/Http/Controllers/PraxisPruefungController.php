@@ -55,7 +55,7 @@ class PraxisPruefungController extends Controller
         $submission = PraxisFormSubmission::where('tenant_id', $tenant->id)
             ->where('user_id', $user->id)
             ->where('course_id', $course->id)
-            ->with('examAppointments')
+            ->with('examAppointments.location')
             ->first();
 
         if ($submission) {
