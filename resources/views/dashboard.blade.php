@@ -12,28 +12,27 @@
                 <p class="text-sm text-slate-400 mt-1">Bitte wende dich an deine Bootsschule, um Zugang zu erhalten.</p>
             </div>
         @else
-            @php($primary = $courses->sortByDesc(fn($c) => $c['answered'])->first())
-            <a href="{{ route('learning.show', $primary['course']) }}"
-               class="flex items-center justify-between rounded-2xl p-5 text-white shadow-sm hover:opacity-95 transition"
-               style="background: linear-gradient(120deg, var(--brand-primary, #005FD7), color-mix(in srgb, var(--brand-primary, #005FD7) 65%, #001233));">
-                <div class="flex items-center gap-4">
-                    <div class="w-11 h-11 rounded-xl bg-white/15 flex items-center justify-center shrink-0">
-                        <x-icon name="bolt" class="w-6 h-6" />
-                    </div>
-                    <div>
-                        <div class="font-semibold text-lg">Weiterlernen</div>
-                        <div class="text-white/80 text-sm">{{ $primary['course']->name }} &middot; Smarttrainer wählt die nächste Frage für dich</div>
-                    </div>
-                </div>
-                <x-icon name="arrow-right" class="w-6 h-6 shrink-0" />
-            </a>
-
-            {{-- Jeder gebuchte Kurs bekommt seinen eigenen Fortschritts-Block
-                 samt Fortschritt-/Favoriten-Kacheln, nicht nur der aktivste. --}}
+            {{-- Jeder gebuchte Kurs bekommt seinen eigenen "Weiterlernen"-Banner
+                 direkt unter dem Kurstitel sowie einen eigenen Fortschritts-Block
+                 samt Fortschritt-/Favoriten-Kacheln, nicht nur der aktivste Kurs. --}}
             <div class="space-y-6">
                 @foreach ($courses as $courseSummary)
                     <div>
                         <h2 class="font-semibold text-slate-700 dark:text-slate-200 mb-3">{{ $courseSummary['course']->name }}</h2>
+                        <a href="{{ route('learning.show', $courseSummary['course']) }}"
+                           class="flex items-center justify-between rounded-2xl p-5 text-white shadow-sm hover:opacity-95 transition mb-3"
+                           style="background: linear-gradient(120deg, var(--brand-primary, #005FD7), color-mix(in srgb, var(--brand-primary, #005FD7) 65%, #001233));">
+                            <div class="flex items-center gap-4">
+                                <div class="w-11 h-11 rounded-xl bg-white/15 flex items-center justify-center shrink-0">
+                                    <x-icon name="bolt" class="w-6 h-6" />
+                                </div>
+                                <div>
+                                    <div class="font-semibold text-lg">Weiterlernen</div>
+                                    <div class="text-white/80 text-sm">{{ $courseSummary['course']->name }} &middot; Smarttrainer wählt die nächste Frage für dich</div>
+                                </div>
+                            </div>
+                            <x-icon name="arrow-right" class="w-6 h-6 shrink-0" />
+                        </a>
                         <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-stretch">
                             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-4">
                                 <x-progress-ring :percent="$courseSummary['percent']" :size="72" :stroke="7" />
