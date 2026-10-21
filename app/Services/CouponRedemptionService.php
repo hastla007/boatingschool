@@ -31,17 +31,32 @@ class CouponRedemptionService
     /** @return array{type: 'course'|'product'|'course_renewal', course?: CourseDefinition, product?: \App\Models\Product, entitlement?: Entitlement} */
     public function redeem(Coupon $coupon, Tenant $tenant, User $user, ?User $actor = null): array
     {
-        if ($coupon->isRedeemed()) {
-            throw new RuntimeException('Dieser Code wurde bereits eingelöst.');
-        }
+        $actor ??= $user;
 
-        if ($coupon->isForRenewal()) {
-            return $this->redeemForRenewal($coupon, $tenant, $user, $actor ?? $user);
-        }
+        return DB::transaction(function () use ($coupon, $tenant, $user, $actor) {
+            // Zeile sperren und erst danach frisch lesen: verhindert, dass
+            // zwei gleichzeitige Einlöse-Versuche desselben Codes (Self-
+            // Service-Doppelklick, zwei Konten mit demselben Code, oder
+            // Self-Service parallel zur Admin-Zuweisung) beide isRedeemed()
+            // == false sehen. Der zweite Request wartet an dieser Stelle,
+            // bis der erste committet hat, und bricht danach kontrolliert ab
+            // (siehe Sicherheitsreview H1).
+            $locked = Coupon::whereKey($coupon->id)->lockForUpdate()->first();
 
-        return $coupon->isForProduct()
-            ? $this->redeemForProduct($coupon, $tenant, $user, $actor ?? $user)
-            : $this->redeemForCourse($coupon, $tenant, $user, $actor ?? $user);
+            if (! $locked || $locked->isRedeemed()) {
+                throw new RuntimeException('Dieser Code wurde bereits eingelöst.');
+            }
+
+            $coupon = $locked;
+
+            if ($coupon->isForRenewal()) {
+                return $this->redeemForRenewal($coupon, $tenant, $user, $actor);
+            }
+
+            return $coupon->isForProduct()
+                ? $this->redeemForProduct($coupon, $tenant, $user, $actor)
+                : $this->redeemForCourse($coupon, $tenant, $user, $actor);
+        });
     }
 
     private function redeemForCourse(Coupon $coupon, Tenant $tenant, User $user, User $actor): array
@@ -52,30 +67,26 @@ class CouponRedemptionService
             throw new RuntimeException('Dieser Kurs ist aktuell nicht verfügbar.');
         }
 
-        $entitlement = DB::transaction(function () use ($coupon, $tenant, $user) {
-            $now = now();
+        $now = now();
 
-            $entitlement = Entitlement::create([
-                'tenant_id' => $tenant->id,
-                'user_id' => $user->id,
-                'course_id' => $coupon->course_id,
-                'valid_from' => $now,
-                'valid_until' => $now->copy()->addDays($tenant->branding->course_validity_days),
-                'status' => 'active',
-                'source_type' => 'coupon',
-                'source_reference' => $coupon->code,
-            ]);
+        $entitlement = Entitlement::create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $user->id,
+            'course_id' => $coupon->course_id,
+            'valid_from' => $now,
+            'valid_until' => $now->copy()->addDays($tenant->branding->course_validity_days),
+            'status' => 'active',
+            'source_type' => 'coupon',
+            'source_reference' => $coupon->code,
+        ]);
 
-            $this->applyOptionProducts($coupon, $tenant, $user);
+        $this->applyOptionProducts($coupon, $tenant, $user);
 
-            $coupon->update([
-                'redeemed_by_user_id' => $user->id,
-                'redeemed_tenant_id' => $tenant->id,
-                'redeemed_at' => now(),
-            ]);
-
-            return $entitlement;
-        });
+        $coupon->update([
+            'redeemed_by_user_id' => $user->id,
+            'redeemed_tenant_id' => $tenant->id,
+            'redeemed_at' => $now,
+        ]);
 
         AuditLog::record($tenant->id, $actor->id, 'coupon.redeem', 'coupon', $coupon->id, null, ['course_id' => $coupon->course_id, 'user_id' => $user->id]);
 
@@ -103,40 +114,36 @@ class CouponRedemptionService
             throw new RuntimeException('Dieser Kurs ist aktuell nicht verfügbar.');
         }
 
-        $entitlement = DB::transaction(function () use ($coupon, $tenant, $user, $course) {
-            $now = now();
-            $days = $tenant->branding->course_validity_days;
+        $now = now();
+        $days = $tenant->branding->course_validity_days;
 
-            $entitlement = Entitlement::where('tenant_id', $tenant->id)
-                ->where('user_id', $user->id)
-                ->where('course_id', $course->id)
-                ->orderByDesc('valid_until')
-                ->first();
+        $entitlement = Entitlement::where('tenant_id', $tenant->id)
+            ->where('user_id', $user->id)
+            ->where('course_id', $course->id)
+            ->orderByDesc('valid_until')
+            ->first();
 
-            if ($entitlement) {
-                $base = ($entitlement->valid_until && $entitlement->valid_until->gt($now)) ? $entitlement->valid_until : $now;
-                $entitlement->update(['valid_until' => $base->copy()->addDays($days), 'status' => 'active']);
-            } else {
-                $entitlement = Entitlement::create([
-                    'tenant_id' => $tenant->id,
-                    'user_id' => $user->id,
-                    'course_id' => $course->id,
-                    'valid_from' => $now,
-                    'valid_until' => $now->copy()->addDays($days),
-                    'status' => 'active',
-                    'source_type' => 'coupon_renewal',
-                    'source_reference' => $coupon->code,
-                ]);
-            }
-
-            $coupon->update([
-                'redeemed_by_user_id' => $user->id,
-                'redeemed_tenant_id' => $tenant->id,
-                'redeemed_at' => $now,
+        if ($entitlement) {
+            $base = ($entitlement->valid_until && $entitlement->valid_until->gt($now)) ? $entitlement->valid_until : $now;
+            $entitlement->update(['valid_until' => $base->copy()->addDays($days), 'status' => 'active']);
+        } else {
+            $entitlement = Entitlement::create([
+                'tenant_id' => $tenant->id,
+                'user_id' => $user->id,
+                'course_id' => $course->id,
+                'valid_from' => $now,
+                'valid_until' => $now->copy()->addDays($days),
+                'status' => 'active',
+                'source_type' => 'coupon_renewal',
+                'source_reference' => $coupon->code,
             ]);
+        }
 
-            return $entitlement;
-        });
+        $coupon->update([
+            'redeemed_by_user_id' => $user->id,
+            'redeemed_tenant_id' => $tenant->id,
+            'redeemed_at' => $now,
+        ]);
 
         AuditLog::record($tenant->id, $actor->id, 'coupon.redeem_renewal', 'coupon', $coupon->id, null, [
             'course_id' => $course->id, 'user_id' => $user->id, 'valid_until' => $entitlement->valid_until?->toIso8601String(),
@@ -198,21 +205,21 @@ class CouponRedemptionService
             throw new RuntimeException('Dieses Produkt ist aktuell nicht verfügbar.');
         }
 
-        DB::transaction(function () use ($coupon, $tenant, $user, $product) {
-            ProductPurchase::create([
-                'tenant_id' => $tenant->id,
-                'user_id' => $user->id,
-                'product_id' => $product->id,
-                'source_type' => 'coupon',
-                'source_reference' => $coupon->code,
-            ]);
+        $now = now();
 
-            $coupon->update([
-                'redeemed_by_user_id' => $user->id,
-                'redeemed_tenant_id' => $tenant->id,
-                'redeemed_at' => now(),
-            ]);
-        });
+        ProductPurchase::create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $user->id,
+            'product_id' => $product->id,
+            'source_type' => 'coupon',
+            'source_reference' => $coupon->code,
+        ]);
+
+        $coupon->update([
+            'redeemed_by_user_id' => $user->id,
+            'redeemed_tenant_id' => $tenant->id,
+            'redeemed_at' => $now,
+        ]);
 
         AuditLog::record($tenant->id, $actor->id, 'coupon.redeem', 'coupon', $coupon->id, null, ['product_id' => $product->id, 'user_id' => $user->id]);
 

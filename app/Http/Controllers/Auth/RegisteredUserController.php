@@ -43,9 +43,10 @@ class RegisteredUserController extends Controller
                 'email' => $request->email,
                 'password' => Hash::make($request->password),
                 'status' => 'active',
-                // V1 hat keinen echten Mailversand konfiguriert; siehe
-                // "Auth-Provider-Entscheidung" (Sprint-0-Gate im Implementierungsplan).
-                'email_verified_at' => now(),
+                // E-Mail muss bestätigt werden, bevor "verified"-geschützte
+                // Routen zugänglich sind (siehe Sicherheitsreview H2) -- die
+                // Registered-Event-Listener (AppServiceProvider) verschickt
+                // dafür automatisch die Verifizierungs-Mail.
             ]);
 
             TenantUser::create([

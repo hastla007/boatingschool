@@ -72,8 +72,18 @@ class CouponController extends Controller
                 continue;
             }
 
-            $coupon->update(['tenant_id' => $tenant->id]);
-            $claimed++;
+            // Atomarer Claim statt lesen-dann-schreiben: WHERE tenant_id IS
+            // NULL verhindert, dass zwei Bootsschulen denselben noch
+            // unzugeordneten Code gleichzeitig übernehmen (Sicherheitsreview
+            // H1). Gewinnt die andere das Rennen, betrifft dieses UPDATE 0
+            // Zeilen -- der Code gilt für uns dann als nicht verfügbar.
+            $claimedRows = Coupon::where('id', $coupon->id)->whereNull('tenant_id')->update(['tenant_id' => $tenant->id]);
+
+            if ($claimedRows === 1) {
+                $claimed++;
+            } else {
+                $unavailable[] = $code;
+            }
         }
 
         $parts = [$claimed === 1 ? '1 Code übernommen.' : "{$claimed} Codes übernommen."];

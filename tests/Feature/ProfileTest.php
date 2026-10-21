@@ -6,8 +6,8 @@ use App\Models\CourseDefinition;
 use App\Models\Entitlement;
 use App\Models\Product;
 use App\Models\ProductPurchase;
+use App\Notifications\ConfirmPendingEmail;
 use Illuminate\Support\Facades\Notification;
-use Illuminate\Auth\Notifications\VerifyEmail;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -29,13 +29,15 @@ class ProfileTest extends TestCase
     {
         $tenant = $this->createTestTenant();
         $user = $this->createTenantUser($tenant);
+        $originalEmail = $user->email;
+        $newEmail = 'updated-'.uniqid().'@example.test';
 
         Notification::fake();
 
         $response = $this->actingAsInTenant($user, $tenant)->patch('/profile', [
             'first_name' => 'Test',
             'last_name' => 'User',
-            'email' => 'updated-'.uniqid().'@example.test',
+            'email' => $newEmail,
             'phone' => '+49 30 1234567',
             'street' => 'Hafenstraße 1',
             'postal_code' => '12345',
@@ -55,10 +57,70 @@ class ProfileTest extends TestCase
         $this->assertSame('12345', $user->postal_code);
         $this->assertSame('Hamburg', $user->city);
         $this->assertSame('Deutschland', $user->country);
-        $this->assertNull($user->email_verified_at);
 
-        // Eine geänderte E-Mail-Adresse muss erneut verifiziert werden.
-        Notification::assertSentTo($user, VerifyEmail::class);
+        // Eine geänderte E-Mail-Adresse wird erst nach Bestätigung über den
+        // zugeschickten Link live geschaltet (Sicherheitsreview H2) -- bis
+        // dahin bleibt die bisherige Adresse aktiv und verifiziert.
+        $this->assertSame($originalEmail, $user->email);
+        $this->assertSame($newEmail, $user->pending_email);
+        $this->assertNotNull($user->email_verified_at);
+        Notification::assertSentTo($user, ConfirmPendingEmail::class);
+    }
+
+    public function test_a_changed_email_takes_effect_only_after_confirmation(): void
+    {
+        $tenant = $this->createTestTenant();
+        $user = $this->createTenantUser($tenant);
+        $newEmail = 'updated-'.uniqid().'@example.test';
+
+        $this->actingAsInTenant($user, $tenant)->patch('/profile', [
+            'first_name' => 'Test',
+            'last_name' => 'User',
+            'email' => $newEmail,
+        ])->assertSessionHasNoErrors();
+
+        $user->refresh();
+        $this->assertSame($newEmail, $user->pending_email);
+
+        $url = \Illuminate\Support\Facades\URL::temporarySignedRoute(
+            'profile.email.confirm',
+            now()->addMinutes(60),
+            ['id' => $user->id, 'hash' => sha1($newEmail)]
+        );
+
+        $response = $this->actingAsInTenant($user, $tenant)->get($url);
+
+        $response->assertRedirect(route('profile.edit'));
+
+        $user->refresh();
+        $this->assertSame($newEmail, $user->email);
+        $this->assertNull($user->pending_email);
+        $this->assertNotNull($user->email_verified_at);
+    }
+
+    public function test_an_invalid_confirmation_hash_does_not_change_the_email(): void
+    {
+        $tenant = $this->createTestTenant();
+        $user = $this->createTenantUser($tenant);
+        $newEmail = 'updated-'.uniqid().'@example.test';
+
+        $this->actingAsInTenant($user, $tenant)->patch('/profile', [
+            'first_name' => 'Test',
+            'last_name' => 'User',
+            'email' => $newEmail,
+        ]);
+
+        $url = \Illuminate\Support\Facades\URL::temporarySignedRoute(
+            'profile.email.confirm',
+            now()->addMinutes(60),
+            ['id' => $user->id, 'hash' => sha1('someone-else@example.test')]
+        );
+
+        $response = $this->actingAsInTenant($user, $tenant)->get($url);
+
+        $response->assertForbidden();
+        $this->assertSame($newEmail, $user->fresh()->pending_email);
+        $this->assertNotSame($newEmail, $user->fresh()->email);
     }
 
     public function test_birthdate_can_be_saved(): void
@@ -174,8 +236,10 @@ class ProfileTest extends TestCase
 
         $response->assertSessionHasNoErrors()->assertRedirect('/profile');
 
-        $this->assertNotNull($user->refresh()->email_verified_at);
-        Notification::assertNotSentTo($user, VerifyEmail::class);
+        $user->refresh();
+        $this->assertNotNull($user->email_verified_at);
+        $this->assertNull($user->pending_email);
+        Notification::assertNotSentTo($user, ConfirmPendingEmail::class);
     }
 
     public function test_country_must_be_one_of_the_supported_options(): void

@@ -43,7 +43,7 @@ Route::get('/', function () {
     return redirect()->route(auth()->user()->is_superadmin ? 'superadmin.dashboard' : 'dashboard');
 });
 
-Route::middleware(['auth', 'tenant.member'])->group(function () {
+Route::middleware(['auth', 'tenant.member', 'verified'])->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
 
     Route::get('/courses', [CourseController::class, 'index'])->name('courses.index');

@@ -9,6 +9,8 @@ use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Auth\VerifyEmailController;
+use App\Http\Controllers\InvitationAcceptController;
+use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
@@ -46,6 +48,19 @@ Route::middleware('auth')->group(function () {
     Route::post('email/verification-notification', [EmailVerificationNotificationController::class, 'store'])
         ->middleware('throttle:6,1')
         ->name('verification.send');
+
+    // Eine im Profil geänderte E-Mail-Adresse wird erst hierüber live
+    // geschaltet (siehe Sicherheitsreview H2, ProfileController).
+    Route::get('profile/confirm-email/{id}/{hash}', [ProfileController::class, 'confirmEmail'])
+        ->middleware(['signed', 'throttle:6,1'])
+        ->name('profile.email.confirm');
+
+    // Einladung zu einer Bootsschule annehmen: nur wirksam, wenn der
+    // eingeloggte Nutzer dieselbe (bestätigte) E-Mail-Adresse hat wie die
+    // Einladung (siehe Sicherheitsreview H2, InvitationAcceptController).
+    Route::get('invitations/{invitation}/accept/{hash}', [InvitationAcceptController::class, 'accept'])
+        ->middleware(['signed', 'throttle:6,1'])
+        ->name('invitations.accept');
 
     Route::get('confirm-password', [ConfirmablePasswordController::class, 'show'])
         ->name('password.confirm');

@@ -3,6 +3,9 @@
 namespace App\Providers;
 
 use App\Support\TenantContext;
+use Illuminate\Auth\Events\Registered;
+use Illuminate\Auth\Listeners\SendEmailVerificationNotification;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -20,6 +23,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Verschickt die Verifizierungs-Mail nach der Registrierung (User
+        // implementiert MustVerifyEmail, siehe Sicherheitsreview H2) -- in
+        // Laravel 11 ohne EventServiceProvider muss das explizit verdrahtet
+        // werden.
+        Event::listen(Registered::class, SendEmailVerificationNotification::class);
     }
 }

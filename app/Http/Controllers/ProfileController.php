@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\ProfileUpdateRequest;
 use App\Models\Entitlement;
 use App\Models\ProductPurchase;
+use App\Notifications\ConfirmPendingEmail;
 use App\Support\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -65,23 +66,32 @@ class ProfileController extends Controller
 
     /**
      * Update the user's profile information.
+     *
+     * Eine geänderte E-Mail-Adresse wird nicht sofort übernommen, sondern
+     * erst über confirmEmail() nach Klick auf den zugeschickten Link (siehe
+     * Sicherheitsreview H2) -- sonst könnte jemand hier eine fremde Adresse
+     * eintragen und sie sofort für sein Konto nutzen, ohne sie je besessen
+     * zu haben.
      */
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
         $user = $request->user();
         $validated = $request->validated();
 
+        $newEmail = $validated['email'];
+        unset($validated['email']);
+
         $user->fill($validated);
         $user->display_name = trim($validated['first_name'].' '.$validated['last_name']);
-
-        if ($user->isDirty('email')) {
-            $user->email_verified_at = null;
-        }
-
         $user->save();
 
-        if ($user->wasChanged('email')) {
-            $user->sendEmailVerificationNotification();
+        $status = 'Profil gespeichert.';
+
+        if (strcasecmp($newEmail, $user->email) !== 0) {
+            $user->forceFill(['pending_email' => $newEmail])->save();
+            $user->notify(new ConfirmPendingEmail($newEmail));
+
+            $status = 'Profil gespeichert. Bitte bestätige deine neue E-Mail-Adresse über den Link, den wir dir geschickt haben -- bis dahin bleibt deine bisherige Adresse aktiv.';
         }
 
         // Menschenlesbarer Text statt eines reinen Status-Schlüssels, da die
@@ -90,10 +100,32 @@ class ProfileController extends Controller
         // das return_to-Ziel, das keine eigene Übersetzung dafür hat.
         $returnTo = $request->session()->pull('profile.return_to');
         if ($returnTo && $this->isSafeReturnUrl($returnTo)) {
-            return Redirect::to($returnTo)->with('status', 'Profil gespeichert.');
+            return Redirect::to($returnTo)->with('status', $status);
         }
 
-        return Redirect::route('profile.edit')->with('status', 'Profil gespeichert.');
+        return Redirect::route('profile.edit')->with('status', $status);
+    }
+
+    /** Übernimmt eine im Profil eingetragene neue E-Mail-Adresse, nachdem ihr Besitz über den zugeschickten Link bestätigt wurde. */
+    public function confirmEmail(Request $request): RedirectResponse
+    {
+        $user = $request->user();
+
+        if ((string) $request->route('id') !== (string) $user->getKey()) {
+            abort(403);
+        }
+
+        if (! $user->pending_email || ! hash_equals(sha1($user->pending_email), (string) $request->route('hash'))) {
+            abort(403);
+        }
+
+        $user->forceFill([
+            'email' => $user->pending_email,
+            'pending_email' => null,
+            'email_verified_at' => now(),
+        ])->save();
+
+        return Redirect::route('profile.edit')->with('status', 'Neue E-Mail-Adresse bestätigt.');
     }
 
     /** Nur serverrelative Pfade zulassen, kein Schema/Host (Open-Redirect-Schutz). */

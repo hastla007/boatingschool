@@ -9,15 +9,18 @@ use App\Models\Entitlement;
 use App\Models\PraxisFormSubmission;
 use App\Models\ProductPurchase;
 use App\Models\TenantCourseLocation;
+use App\Models\TenantInvitation;
 use App\Models\TenantUser;
 use App\Models\User;
 use App\Models\WillkommensboxOrder;
+use App\Notifications\TenantInvitationNotification;
 use App\Services\CouponRedemptionService;
 use App\Support\Countries;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -196,24 +199,65 @@ class ParticipantController extends Controller
             'code' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $user = DB::transaction(function () use ($validated, $tenant, $request) {
-            $user = User::firstOrCreate(
-                ['email' => $validated['email']],
-                [
-                    'display_name' => $validated['name'],
-                    'password' => Hash::make(Str::random(32)),
-                    'status' => 'invited',
-                    'street' => $validated['street'] ?? null,
-                    'postal_code' => $validated['postal_code'] ?? null,
-                    'city' => $validated['city'] ?? null,
-                    'country' => $validated['country'] ?? null,
-                ]
-            );
+        // Existiert für diese Adresse schon ein Konto, wird NICHT sofort
+        // Mitglied gemacht (Sicherheitsreview H2, Account-Pre-Hijacking):
+        // ein Angreifer könnte die Adresse vorab irgendwo auf der Plattform
+        // registriert haben, um später automatisch in jede Bootsschule
+        // übernommen zu werden, die sie einlädt. Stattdessen entsteht eine
+        // Einladung, die nur annehmen kann, wer sich tatsächlich mit dieser
+        // Adresse einloggt (siehe InvitationAcceptController). Ein noch
+        // unverifiziertes Konto ist zusätzlich verdächtig genug, um
+        // vorsorglich dessen laufende Sitzungen zu beenden und das Passwort
+        // zu ändern -- der echte Besitzer bekommt sein Konto über "Passwort
+        // vergessen" zurück, ein Angreifer verliert den Zugriff sofort.
+        $existingUser = User::where('email', $validated['email'])->first();
 
-            TenantUser::firstOrCreate(
-                ['tenant_id' => $tenant->id, 'user_id' => $user->id],
-                ['role' => 'learner', 'status' => 'active']
-            );
+        if ($existingUser) {
+            if (! $existingUser->hasVerifiedEmail()) {
+                DB::table('sessions')->where('user_id', $existingUser->id)->delete();
+                $existingUser->forceFill(['password' => Hash::make(Str::random(40))])->save();
+            }
+
+            $invitation = TenantInvitation::create([
+                'tenant_id' => $tenant->id,
+                'email' => $existingUser->email,
+                'role' => 'learner',
+                'invited_by_user_id' => $request->user()->id,
+            ]);
+
+            Notification::route('mail', $existingUser->email)->notify(new TenantInvitationNotification($invitation));
+
+            AuditLog::record($tenant->id, $request->user()->id, 'participant.invite_pending', 'tenant_invitation', $invitation->id, null, [
+                'email' => $existingUser->email,
+            ]);
+
+            $status = 'Für diese E-Mail-Adresse existiert bereits ein Konto. Eine Einladung wurde verschickt -- die Mitgliedschaft entsteht erst, wenn der Kontoinhaber sie selbst bestätigt.';
+
+            if (trim((string) ($validated['code'] ?? '')) !== '') {
+                $status .= ' Ein angegebener Code wird dabei nicht automatisch zugewiesen -- das geht nach der Bestätigung über die Coupon-Codes-Verwaltung.';
+            }
+
+            return back()->with('status', $status);
+        }
+
+        $user = DB::transaction(function () use ($validated, $tenant, $request) {
+            $user = User::create([
+                'email' => $validated['email'],
+                'display_name' => $validated['name'],
+                'password' => Hash::make(Str::random(32)),
+                'status' => 'invited',
+                'street' => $validated['street'] ?? null,
+                'postal_code' => $validated['postal_code'] ?? null,
+                'city' => $validated['city'] ?? null,
+                'country' => $validated['country'] ?? null,
+            ]);
+
+            TenantUser::create([
+                'tenant_id' => $tenant->id,
+                'user_id' => $user->id,
+                'role' => 'learner',
+                'status' => 'active',
+            ]);
 
             AuditLog::record($tenant->id, $request->user()->id, 'participant.invite', 'app_user', $user->id, null, [
                 'email' => $user->email,
