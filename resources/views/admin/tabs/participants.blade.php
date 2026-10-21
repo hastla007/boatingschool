@@ -54,6 +54,9 @@
                 <th class="px-4 py-2">Kurse</th>
                 <th class="px-4 py-2">Produkte</th>
                 <th class="px-4 py-2">Kurs freischalten</th>
+                @if ($canManageTenant)
+                    <th class="px-4 py-2">Status</th>
+                @endif
             </tr>
         </thead>
         <tbody>
@@ -109,6 +112,25 @@
                             <span class="text-slate-400 text-xs">alle Kurse gebucht</span>
                         @endif
                     </td>
+                    @if ($canManageTenant)
+                        <td class="px-4 py-2">
+                            @if ($membership->user_id === auth()->id())
+                                <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">aktiv (du)</span>
+                            @else
+                                <form method="POST" action="{{ route('admin.participants.membership.update', $membership->user_id) }}" class="flex items-center gap-2">
+                                    @csrf
+                                    @method('PATCH')
+                                    <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full {{ $membership->status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700' }}">
+                                        {{ $membership->status === 'active' ? 'aktiv' : 'gesperrt' }}
+                                    </span>
+                                    <input type="hidden" name="status" value="{{ $membership->status === 'active' ? 'suspended' : 'active' }}">
+                                    <button type="submit" class="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-xs whitespace-nowrap">
+                                        {{ $membership->status === 'active' ? 'Sperren' : 'Entsperren' }}
+                                    </button>
+                                </form>
+                            @endif
+                        </td>
+                    @endif
                 </tr>
             @endforeach
         </tbody>

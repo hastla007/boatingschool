@@ -177,6 +177,36 @@ class ParticipantController extends Controller
         return back()->with('status', 'Angaben gespeichert.');
     }
 
+    /**
+     * Mitgliedschaft eines Teilnehmers sperren/reaktivieren (Sicherheitsreview
+     * M1) -- bisher gab es dafür keine Route, eine gesperrte/entfernte
+     * Mitgliedschaft griff also nie. User::roleForTenant() ignoriert eine
+     * nicht-aktive Mitgliedschaft; ein gesperrter Teilnehmer verliert damit
+     * ab der nächsten Anfrage den Zugang zu dieser Bootsschule, ohne dass
+     * seine Sitzung extra beendet werden muss (er bleibt ja ggf. bei
+     * anderen Bootsschulen weiter aktiv).
+     */
+    public function updateMembership(Request $request, TenantContext $tenantContext, User $user): Response
+    {
+        $tenant = $tenantContext->tenant();
+
+        $membership = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $user->id)->first();
+        abort_unless($membership, 404);
+
+        abort_if($membership->user_id === $request->user()->id, 422, 'Die eigene Mitgliedschaft kann nicht geändert werden.');
+
+        $validated = $request->validate([
+            'status' => ['required', 'in:active,suspended,closed'],
+        ]);
+
+        $before = $membership->only('status');
+        $membership->update($validated);
+
+        AuditLog::record($tenant->id, $request->user()->id, 'participant.membership_update', 'tenant_user', $user->id, $before, $validated);
+
+        return back()->with('status', 'Mitgliedschaft aktualisiert.');
+    }
+
     public function invite(Request $request, TenantContext $tenantContext, CouponRedemptionService $redemption): Response
     {
         $tenant = $tenantContext->tenant();

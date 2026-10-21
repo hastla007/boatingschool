@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Services\CourseProgressService;
 use App\Support\Countries;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\Response;
@@ -108,7 +109,7 @@ class UserController extends Controller
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:app_user,email,'.$user->id],
-            'status' => ['required', 'in:invited,active,suspended,deleted'],
+            'status' => ['required', 'in:invited,active,suspended,closed'],
             'phone' => ['nullable', 'string', 'max:40'],
             'street' => ['nullable', 'string', 'max:255'],
             'postal_code' => ['nullable', 'string', 'max:20'],
@@ -124,7 +125,14 @@ class UserController extends Controller
             $user->email_verified_at = null;
         }
 
+        $wasActive = $user->status === 'active';
         $user->update($validated);
+
+        // Eine Sperrung soll sofort wirken, nicht erst wenn eine laufende
+        // Session neu authentifiziert wird (Sicherheitsreview M1).
+        if ($wasActive && $validated['status'] !== 'active') {
+            DB::table('sessions')->where('user_id', $user->id)->delete();
+        }
 
         return back()->with('status', 'Nutzer aktualisiert.');
     }

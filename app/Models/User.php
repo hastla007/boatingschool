@@ -97,8 +97,13 @@ class User extends Authenticatable implements MustVerifyEmail
             return null;
         }
 
+        // 'status' => 'active' ignoriert eine gesperrte Mitgliedschaft, selbst
+        // wenn das Konto selbst aktiv ist (Sicherheitsreview M1) -- sonst
+        // behielte ein von einer Bootsschule entfernter/gesperrter
+        // Teilnehmer dort weiter Zugang.
         return $this->tenantMemberships()
             ->where('tenant_id', $tenant->id)
+            ->where('status', 'active')
             ->value('role');
     }
 

@@ -42,7 +42,11 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
-        if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
+        // 'status' => 'active' verweigert gesperrten Konten (suspended,
+        // closed) auch mit korrektem Passwort das Anmelden (Sicherheitsreview
+        // M1) -- vorher konnte eine Sperrung durch den Superadmin umgangen
+        // werden, weil hier nur E-Mail/Passwort geprüft wurden.
+        if (! Auth::attempt([...$this->only('email', 'password'), 'status' => 'active'], $this->boolean('remember'))) {
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([

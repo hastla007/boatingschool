@@ -60,7 +60,7 @@
                 <div>
                     <x-input-label for="status" value="Status" />
                     <select id="status" name="status" class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
-                        @foreach (['invited', 'active', 'suspended', 'deleted'] as $option)
+                        @foreach (['invited', 'active', 'suspended', 'closed'] as $option)
                             <option value="{{ $option }}" @selected(old('status', $user->status) === $option)>{{ $option }}</option>
                         @endforeach
                     </select>

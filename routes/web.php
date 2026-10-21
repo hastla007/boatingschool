@@ -140,6 +140,8 @@ Route::middleware(['auth', 'tenant.role:owner,admin'])->prefix('admin')->name('a
     Route::post('/branding/support-email/verification-notification', [SupportEmailVerificationController::class, 'send'])
         ->middleware('throttle:6,1')->name('branding.support-email.send');
 
+    Route::patch('/participants/{user}/membership', [ParticipantController::class, 'updateMembership'])->name('participants.membership.update');
+
     Route::patch('/addons', [AddonController::class, 'update'])->name('addons.update');
 
     Route::post('/course-promo-banners', [CoursePromoBannerController::class, 'store'])->name('course-promo-banners.store');

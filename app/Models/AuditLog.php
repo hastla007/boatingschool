@@ -65,6 +65,8 @@ class AuditLog extends Model
             $this->action === 'praxis-exam-appointment.propose' => $this->describePraxisAppointmentPropose($actorName),
             $this->action === 'participant.update' => $this->describeParticipantUpdate($actorName),
             $this->action === 'participant.invite' => $this->describeParticipantInvite($actorName),
+            $this->action === 'participant.invite_pending' => "{$actorName} hat eine Einladung an eine bereits bestehende E-Mail-Adresse verschickt.",
+            $this->action === 'participant.membership_update' => $this->describeParticipantMembershipUpdate($actorName),
             $this->action === 'branding.update' => "{$actorName} hat das Branding aktualisiert.",
             $this->action === 'webshop-links.update' => "{$actorName} hat die Webshop-Links aktualisiert.",
             $this->action === 'course-selection.update' => "{$actorName} hat die Kursauswahl aktualisiert.",
@@ -147,5 +149,20 @@ class AuditLog extends Model
         $learnerName = ($this->entity_id ? User::find($this->entity_id)?->name : null) ?? ($this->after_data['email'] ?? 'einen Teilnehmer');
 
         return "{$actorName} hat {$learnerName} eingeladen.";
+    }
+
+    private function describeParticipantMembershipUpdate(string $actorName): string
+    {
+        $learnerName = ($this->entity_id ? User::find($this->entity_id)?->name : null) ?? 'einem Teilnehmer';
+        $status = $this->after_data['status'] ?? null;
+
+        $verb = match ($status) {
+            'active' => 'entsperrt',
+            'suspended' => 'gesperrt',
+            'closed' => 'entfernt',
+            default => 'geändert',
+        };
+
+        return "{$actorName} hat die Mitgliedschaft von {$learnerName} {$verb}.";
     }
 }
