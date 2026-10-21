@@ -232,6 +232,17 @@ class ExamController extends Controller
         $this->authorizeSession($request, $examSession);
         abort_if($examSession->status !== 'running', 409);
 
+        // Serverseitig prüfen statt nur der Weiterleitung in show() zu
+        // vertrauen (Sicherheitsreview M2): ohne diese Prüfung ließ sich nach
+        // Ablauf der Zeit beliebig weiter antworten, solange die Session noch
+        // auf "running" stand. Abgelaufen wird sofort ausgewertet und
+        // abgeschlossen statt die Antwort noch anzunehmen.
+        if ($this->timeExpired($examSession)) {
+            $this->evaluate($examSession);
+
+            abort(409, 'Die Prüfungszeit ist abgelaufen.');
+        }
+
         $validated = $request->validate([
             'position' => ['required', 'integer'],
             'answer_id' => ['nullable', 'uuid'],
@@ -240,7 +251,13 @@ class ExamController extends Controller
             'known' => ['nullable', 'boolean'],
         ]);
 
-        $sessionQuestion = $examSession->questions()->where('position', $validated['position'])->with('revision')->firstOrFail();
+        // whereNull('answered_at'): eine bereits beantwortete Frage lässt
+        // sich über die reguläre UI (show() liefert immer die nächste
+        // unbeantwortete Frage) nicht erneut erreichen -- nur über einen
+        // gezielt nachgebauten Request mit alter position. Das wird hier
+        // unterbunden (Sicherheitsreview M2).
+        $sessionQuestion = $examSession->questions()->where('position', $validated['position'])
+            ->whereNull('answered_at')->with('revision')->firstOrFail();
         $type = $sessionQuestion->revision->question_type;
 
         // Keine Sofortauflösung: correct wird erst bei finish() befüllt.
@@ -285,17 +302,48 @@ class ExamController extends Controller
             return redirect()->route('exam.result', $examSession);
         }
 
+        $this->evaluate($examSession);
+
+        return redirect()->route('exam.result', $examSession);
+    }
+
+    /**
+     * Wertet eine laufende Prüfungssession aus und schließt sie ab -- geteilt
+     * zwischen dem regulären Abschluss (finish(), z. B. "Abgeben"-Button oder
+     * letzte Frage beantwortet) und dem serverseitigen Zeit-Timeout
+     * (answer(), siehe Sicherheitsreview M2). Eine Antwort zählt nur, wenn
+     * sie innerhalb der Zeitlimit-Frist ab started_at gespeichert wurde --
+     * das greift zusätzlich zur Sperre in answer(), falls eine Antwort
+     * trotzdem noch knapp vor Ablauf hereinkommt oder die Session kein
+     * laufendes time_limit_seconds hatte, als sie gestartet wurde.
+     */
+    private function evaluate(ExamSession $examSession): void
+    {
+        if ($examSession->status === 'evaluated') {
+            return;
+        }
+
         DB::transaction(function () use ($examSession) {
+            $examSession->refresh();
+
+            if ($examSession->status === 'evaluated') {
+                return;
+            }
+
+            $limit = $examSession->ruleSet->time_limit_seconds;
+            $deadline = $limit ? $examSession->started_at->copy()->addSeconds($limit) : null;
+
             $questions = $examSession->questions()->with('revision.answers')->lockForUpdate()->get();
             $correctCount = 0;
             $scoredTotal = 0;
 
             foreach ($questions as $sq) {
+                $withinTime = ! $deadline || ! $sq->answered_at || $sq->answered_at->lte($deadline);
                 $type = $sq->revision->question_type;
 
                 if ($type === 'multi_choice') {
                     $correctIds = $sq->revision->correctAnswers()->pluck('id')->sort()->values()->all();
-                    $selectedIds = collect($sq->selected_answer_ids ?? [])->sort()->values()->all();
+                    $selectedIds = $withinTime ? collect($sq->selected_answer_ids ?? [])->sort()->values()->all() : [];
                     $isCorrect = $selectedIds !== [] && $selectedIds === $correctIds;
                     $sq->update(['correct' => $isCorrect]);
                     $correctCount += $isCorrect ? 1 : 0;
@@ -303,10 +351,11 @@ class ExamController extends Controller
                 } elseif ($type === 'open_text') {
                     // Selbsteinschätzung fließt nicht in die Bestehensgrenze ein,
                     // dient nur als Lernkarte (siehe self_assessed_known).
-                    $sq->update(['correct' => (bool) $sq->self_assessed_known]);
+                    $sq->update(['correct' => $withinTime && (bool) $sq->self_assessed_known]);
                 } else {
                     $correctAnswerId = $sq->revision->correctAnswer()?->id;
-                    $isCorrect = $sq->selected_answer_id !== null && $sq->selected_answer_id === $correctAnswerId;
+                    $selectedId = $withinTime ? $sq->selected_answer_id : null;
+                    $isCorrect = $selectedId !== null && $selectedId === $correctAnswerId;
                     $sq->update(['correct' => $isCorrect]);
                     $correctCount += $isCorrect ? 1 : 0;
                     $scoredTotal++;
@@ -324,8 +373,6 @@ class ExamController extends Controller
                 'passed' => $score >= $minRatio,
             ]);
         });
-
-        return redirect()->route('exam.result', $examSession);
     }
 
     public function result(Request $request, ExamSession $examSession): View

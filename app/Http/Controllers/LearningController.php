@@ -6,6 +6,7 @@ use App\Models\ContentAnswer;
 use App\Models\ContentQuestion;
 use App\Models\ContentQuestionRevision;
 use App\Models\CourseDefinition;
+use App\Models\ExamSession;
 use App\Models\Favorite;
 use App\Models\PraxisProgress;
 use App\Models\Progress;
@@ -163,6 +164,19 @@ class LearningController extends Controller
         // Content gehören, der für den Kurs des Nutzers tatsächlich freigegeben ist.
         $courseQuestionIds = $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id');
         abort_unless($courseQuestionIds->contains($revision->question_id), 403, 'Frage gehört nicht zum berechtigten Kurs.');
+
+        // Eine Frage, die gerade Teil einer laufenden Prüfungssession dieses
+        // Nutzers ist, darf währenddessen nicht im Lernmodus bearbeitet
+        // werden (Sicherheitsreview M2) -- sonst ließe sich die richtige
+        // Antwort über die sofortige Rückmeldung hier einsehen und danach in
+        // der noch offenen Prüfung eintragen.
+        $isPartOfRunningExam = ExamSession::where('tenant_id', $tenant->id)
+            ->where('user_id', $user->id)
+            ->where('status', 'running')
+            ->whereHas('questions', fn ($q) => $q->where('question_id', $revision->question_id))
+            ->exists();
+
+        abort_if($isPartOfRunningExam, 409, 'Diese Frage ist Teil einer laufenden Prüfung und kann währenddessen nicht im Lernmodus bearbeitet werden.');
 
         $selectedAnswer = null;
         $selectedAnswers = null;
