@@ -14,8 +14,8 @@ class PraxisExamAppointment extends Model
     protected $table = 'praxis_exam_appointment';
 
     protected $fillable = [
-        'tenant_id', 'praxis_form_submission_id', 'slot', 'label', 'round', 'exam_date', 'ends_at',
-        'proposed_by_user_id', 'response', 'response_comment', 'responded_at',
+        'tenant_id', 'praxis_form_submission_id', 'tenant_course_location_id', 'slot', 'label', 'round',
+        'exam_date', 'ends_at', 'proposed_by_user_id', 'response', 'response_comment', 'responded_at',
     ];
 
     protected function casts(): array
@@ -43,6 +43,11 @@ class PraxisExamAppointment extends Model
     public function submission(): BelongsTo
     {
         return $this->belongsTo(PraxisFormSubmission::class, 'praxis_form_submission_id');
+    }
+
+    public function location(): BelongsTo
+    {
+        return $this->belongsTo(TenantCourseLocation::class, 'tenant_course_location_id');
     }
 
     public function proposedBy(): BelongsTo

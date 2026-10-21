@@ -8,6 +8,7 @@ use App\Models\Coupon;
 use App\Models\Entitlement;
 use App\Models\PraxisFormSubmission;
 use App\Models\ProductPurchase;
+use App\Models\TenantCourseLocation;
 use App\Models\TenantUser;
 use App\Models\User;
 use App\Models\WillkommensboxOrder;
@@ -82,7 +83,18 @@ class ParticipantController extends Controller
         $bookings = $entitlements->concat($standaloneProductPurchases)->sortByDesc('date')->values();
 
         $praxisFormSubmissions = PraxisFormSubmission::where('tenant_id', $tenant->id)->where('user_id', $user->id)
-            ->with(['course', 'template', 'examAppointments'])->orderByDesc('created_at')->get();
+            ->with(['course', 'template', 'examAppointments.location'])->orderByDesc('created_at')->get();
+
+        // Für das Termin-Vorschlagsformular je Anmeldung: die für den
+        // jeweiligen Kurs hinterlegten Orte (siehe TenantCourseLocation),
+        // damit die Bootsschule bei mehreren Standorten auswählen kann, wo
+        // ein Termin stattfindet -- nach Kurs gruppiert, da verschiedene
+        // Anmeldungen unterschiedliche Kurse betreffen können.
+        $allLocations = TenantCourseLocation::where('tenant_id', $tenant->id)->orderBy('sort_order')->get();
+        $locationsByCourse = $praxisFormSubmissions->pluck('course_id')->unique()
+            ->mapWithKeys(fn ($courseId) => [
+                $courseId => $allLocations->filter(fn (TenantCourseLocation $l) => in_array($courseId, $l->course_ids ?? [], true))->values(),
+            ]);
 
         $willkommensboxOrder = WillkommensboxOrder::where('tenant_id', $tenant->id)->where('user_id', $user->id)->first();
 
@@ -124,6 +136,7 @@ class ParticipantController extends Controller
             'membership' => $membership,
             'bookings' => $bookings,
             'praxisFormSubmissions' => $praxisFormSubmissions,
+            'locationsByCourse' => $locationsByCourse,
             'actionItems' => $actionItems,
             'willkommensboxOrder' => $willkommensboxOrder,
             'hasWillkommensboxAccess' => $user->hasWillkommensboxAccess($tenant),

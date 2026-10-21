@@ -286,7 +286,9 @@
                     </dl>
                 @endif
 
-                <x-admin.praxis-appointment-slot :submission="$submission" :appointment-slot="0" label="Prüfungstermin" />
+                @php($submissionLocations = $locationsByCourse[$submission->course_id] ?? collect())
+
+                <x-admin.praxis-appointment-slot :submission="$submission" :appointment-slot="0" label="Prüfungstermin" :locations="$submissionLocations" />
 
                 @if ($submission->isExamDateConfirmed())
                     @foreach ($submission->practiceSlotNumbers() as $practiceSlot)
@@ -294,6 +296,7 @@
                             :submission="$submission"
                             :appointment-slot="$practiceSlot"
                             :label="$submission->labelForSlot($practiceSlot)"
+                            :locations="$submissionLocations"
                         />
                     @endforeach
 
@@ -317,6 +320,25 @@
                                 <label class="block text-xs text-slate-500 mb-1">Ende (optional, z. B. 16:00-18:00 Uhr)</label>
                                 <input type="datetime-local" name="ends_at" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                             </div>
+                            @if ($submissionLocations->isNotEmpty())
+                                <div>
+                                    <label class="block text-xs text-slate-500 mb-1">Ort</label>
+                                    <select name="tenant_course_location_id" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                                        <option value="">&mdash;</option>
+                                        @foreach ($submissionLocations as $location)
+                                            <option value="{{ $location->id }}">
+                                                {{ $location->praxis_ort }}
+                                                @if ($location->pruefung_ort !== $location->praxis_ort)
+                                                    (Prüfung: {{ $location->pruefung_ort }})
+                                                @endif
+                                                @if ($location->hasTheorieOrt())
+                                                    (Theorie: {{ $location->theorie_ort }})
+                                                @endif
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            @endif
                             <button type="submit" class="px-3 py-1.5 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
                                 Vorschlagen
                             </button>

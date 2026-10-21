@@ -38,6 +38,7 @@ class PraxisExamAppointmentService
         ?CarbonInterface $endsAt = null,
         ?int $slot = null,
         ?string $label = null,
+        ?string $tenantCourseLocationId = null,
     ): PraxisExamAppointment {
         if ($endsAt && $endsAt->lessThanOrEqualTo($examDate)) {
             throw new RuntimeException('Das Ende muss nach dem Beginn liegen.');
@@ -79,6 +80,7 @@ class PraxisExamAppointmentService
         return PraxisExamAppointment::create([
             'tenant_id' => $submission->tenant_id,
             'praxis_form_submission_id' => $submission->id,
+            'tenant_course_location_id' => $tenantCourseLocationId,
             'slot' => $slot,
             'label' => $label,
             'round' => $round,

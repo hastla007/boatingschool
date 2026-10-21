@@ -5,10 +5,12 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\PraxisFormSubmission;
+use App\Models\TenantCourseLocation;
 use App\Services\PraxisExamAppointmentService;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Validation\Rule;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -27,11 +29,16 @@ class PraxisExamAppointmentController extends Controller
     {
         abort_unless($submission->tenant_id === $tenantContext->id(), 404);
 
+        $locationIds = TenantCourseLocation::where('tenant_id', $tenantContext->id())
+            ->whereJsonContains('course_ids', $submission->course_id)
+            ->pluck('id');
+
         $validated = $request->validate([
             'exam_date' => ['required', 'date'],
             'ends_at' => ['nullable', 'date', 'after:exam_date'],
             'slot' => ['nullable', 'integer', 'min:0'],
             'label' => ['nullable', 'string', 'max:255'],
+            'tenant_course_location_id' => ['nullable', 'uuid', Rule::in($locationIds)],
         ]);
 
         $slot = $request->filled('slot') ? (int) $request->input('slot') : null;
@@ -44,6 +51,7 @@ class PraxisExamAppointmentController extends Controller
                 isset($validated['ends_at']) ? Carbon::parse($validated['ends_at']) : null,
                 $slot,
                 $validated['label'] ?? null,
+                $validated['tenant_course_location_id'] ?? null,
             );
         } catch (RuntimeException $e) {
             return back()->withErrors(['exam_date' => $e->getMessage()]);
