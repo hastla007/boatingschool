@@ -17,31 +17,46 @@
 
                 <div class="hidden lg:flex lg:ms-16 lg:space-x-1">
                     @php($coursesMenuActive = request()->routeIs('dashboard') || request()->routeIs('courses.*'))
+                    @php($chevron = '<svg class="fill-current h-3 w-3 shrink-0 transition-transform" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>')
                     <x-dropdown align="left" width="w-64">
                         <x-slot name="trigger">
                             <button type="button"
                                     class="inline-flex items-center gap-1 whitespace-nowrap px-1 pt-1 border-b-2 text-sm font-medium leading-5 transition duration-150 ease-in-out {{ $coursesMenuActive ? 'text-slate-900 dark:text-white' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600' }}"
                                     @style($coursesMenuActive ? 'border-color: var(--brand-primary, #005FD7)' : '')>
-                                Lernen
+                                Kurse
                                 <svg class="fill-current h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
                             </button>
                         </x-slot>
                         <x-slot name="content">
-                            <x-dropdown-link :href="route('dashboard')" @class(['font-semibold' => request()->routeIs('dashboard')])>Übersicht</x-dropdown-link>
-                            <div class="border-t border-slate-100 dark:border-slate-600 my-1"></div>
-                            @if ($navCourses->isNotEmpty())
-                                @foreach ($navCourses as $navCourse)
-                                    @if (! $loop->first)
-                                        <div class="border-t border-slate-100 dark:border-slate-600 my-1"></div>
+                            {{-- "Lernen" ist der einzige Top-Level-Eintrag -- die gebuchten Kurse (inkl. ihrer Fortschritt-/Favoriten-Untermenüs) sind wiederum Untermenüs von "Lernen". --}}
+                            <div x-data="{ lernenOpen: true }">
+                                <div class="flex items-center">
+                                    <a href="{{ route('dashboard') }}" @class(['flex-1 block px-4 py-2 text-start text-sm leading-5 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:bg-gray-100 dark:focus:bg-gray-800 transition duration-150 ease-in-out', 'font-semibold' => request()->routeIs('dashboard')])>Lernen</a>
+                                    <button type="button" @click.stop="lernenOpen = ! lernenOpen" class="pe-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+                                        <span :class="lernenOpen ? 'rotate-90' : ''" class="inline-block transition-transform">{!! $chevron !!}</span>
+                                    </button>
+                                </div>
+                                <div x-show="lernenOpen" class="border-t border-slate-100 dark:border-slate-600 pt-1">
+                                    @if ($navCourses->isNotEmpty())
+                                        @foreach ($navCourses as $navCourse)
+                                            <div x-data="{ open: false }">
+                                                <div class="flex items-center">
+                                                    <a href="{{ route('courses.show', $navCourse) }}" class="flex-1 block pl-8 pr-2 py-1.5 text-start text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:bg-gray-100 dark:focus:bg-gray-800 transition duration-150 ease-in-out">{{ $navCourse->name }}</a>
+                                                    <button type="button" @click.stop="open = ! open" class="pe-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300">
+                                                        <span :class="open ? 'rotate-90' : ''" class="inline-block transition-transform">{!! $chevron !!}</span>
+                                                    </button>
+                                                </div>
+                                                <div x-show="open" style="display: none">
+                                                    <a href="{{ route('progress.show', $navCourse) }}" class="block w-full pl-12 pr-4 py-1.5 text-start text-xs text-slate-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-slate-700 dark:hover:text-slate-300 focus:outline-none focus:bg-gray-100 dark:focus:bg-gray-800 transition duration-150 ease-in-out">Fortschritt</a>
+                                                    <a href="{{ route('favorites.smart-learning', $navCourse) }}" class="block w-full pl-12 pr-4 py-1.5 text-start text-xs text-slate-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-slate-700 dark:hover:text-slate-300 focus:outline-none focus:bg-gray-100 dark:focus:bg-gray-800 transition duration-150 ease-in-out">Favoriten</a>
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                    @else
+                                        <x-dropdown-link :href="route('courses.index')" class="pl-8">Deine Kurse</x-dropdown-link>
                                     @endif
-                                    @php($subLinkClasses = 'block w-full pl-8 pr-4 py-1.5 text-start text-xs text-slate-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-slate-700 dark:hover:text-slate-300 focus:outline-none focus:bg-gray-100 dark:focus:bg-gray-800 transition duration-150 ease-in-out')
-                                    <x-dropdown-link :href="route('courses.show', $navCourse)" class="font-semibold">{{ $navCourse->name }}</x-dropdown-link>
-                                    <a href="{{ route('progress.show', $navCourse) }}" class="{{ $subLinkClasses }}">Fortschritt</a>
-                                    <a href="{{ route('favorites.smart-learning', $navCourse) }}" class="{{ $subLinkClasses }}">Favoriten</a>
-                                @endforeach
-                            @else
-                                <x-dropdown-link :href="route('courses.index')">Deine Kurse</x-dropdown-link>
-                            @endif
+                                </div>
+                            </div>
                         </x-slot>
                     </x-dropdown>
 
@@ -97,15 +112,17 @@
 
     <div :class="{'block': open, 'hidden': ! open}" class="hidden lg:hidden">
         <div class="pt-2 pb-3 space-y-1">
-            <div class="px-4 pt-1 pb-0.5 text-xs font-semibold uppercase tracking-wide text-slate-400">Lernen</div>
+            <div class="px-4 pt-1 pb-0.5 text-xs font-semibold uppercase tracking-wide text-slate-400">Kurse</div>
             <div class="pl-6">
-                <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">Übersicht</x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">Lernen</x-responsive-nav-link>
             </div>
             @forelse ($navCourses as $navCourse)
-                <x-responsive-nav-link :href="route('courses.show', $navCourse)" :active="request()->routeIs('courses.show') && ($course ?? null)?->id === $navCourse->id">
-                    {{ $navCourse->name }}
-                </x-responsive-nav-link>
-                <div class="pl-6">
+                <div class="pl-12">
+                    <x-responsive-nav-link :href="route('courses.show', $navCourse)" :active="request()->routeIs('courses.show') && ($course ?? null)?->id === $navCourse->id">
+                        {{ $navCourse->name }}
+                    </x-responsive-nav-link>
+                </div>
+                <div class="pl-16">
                     <x-responsive-nav-link :href="route('progress.show', $navCourse)" :active="request()->routeIs('progress.show') && ($course ?? null)?->id === $navCourse->id">
                         Fortschritt
                     </x-responsive-nav-link>
@@ -114,7 +131,7 @@
                     </x-responsive-nav-link>
                 </div>
             @empty
-                <div class="pl-6">
+                <div class="pl-12">
                     <x-responsive-nav-link :href="route('courses.index')" :active="request()->routeIs('courses.*')">Deine Kurse</x-responsive-nav-link>
                 </div>
             @endforelse
