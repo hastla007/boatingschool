@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class TenantCourseLocation extends Model
 {
@@ -17,8 +18,13 @@ class TenantCourseLocation extends Model
         'praxis_ort', 'praxis_strasse', 'praxis_plz', 'praxis_stadt', 'praxis_land', 'praxis_lat', 'praxis_lng',
         'pruefung_ort', 'pruefung_strasse', 'pruefung_plz', 'pruefung_stadt', 'pruefung_land', 'pruefung_lat', 'pruefung_lng',
         'theorie_ort', 'theorie_strasse', 'theorie_plz', 'theorie_stadt', 'theorie_land', 'theorie_lat', 'theorie_lng',
-        'course_ids', 'sort_order',
+        'pruefungsausschuss_id', 'course_ids', 'sort_order',
     ];
+
+    public function pruefungsausschuss(): BelongsTo
+    {
+        return $this->belongsTo(Pruefungsausschuss::class);
+    }
 
     /**
      * Formatierte Anschrift für Anzeige/Export (z. B. in der Anmeldungsübersicht

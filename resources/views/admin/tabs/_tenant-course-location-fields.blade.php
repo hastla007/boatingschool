@@ -183,6 +183,22 @@
         </div>
     </div>
 
+    <div class="border-t border-slate-100 dark:border-slate-700 pt-4">
+        <x-input-label :for="$prefix.'-pruefungsausschuss_id'" value="Prüfungsausschuss (optional)" />
+        <p class="text-xs text-slate-400 mt-1 mb-2">
+            Zuständige Prüfungskommission für diesen Ort -- feste Adresse aus der bundesweiten DMYV-Liste.
+        </p>
+        @php($selectedPruefungsausschussId = old('pruefungsausschuss_id', $location?->pruefungsausschuss_id))
+        <select id="{{ $prefix }}-pruefungsausschuss_id" name="pruefungsausschuss_id"
+                class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+            <option value="">&mdash; keiner zugeordnet &mdash;</option>
+            @foreach ($pruefungsausschuesse as $pa)
+                <option value="{{ $pa->id }}" @selected($selectedPruefungsausschussId === $pa->id)>{{ $pa->label() }}</option>
+            @endforeach
+        </select>
+        <x-input-error :messages="$errors->get('pruefungsausschuss_id')" class="mt-2" />
+    </div>
+
     <div>
         <x-input-label value="Für diese Kurse verfügbar" />
         @php($selectedCourseIds = old('course_ids', $location?->course_ids ?? []))

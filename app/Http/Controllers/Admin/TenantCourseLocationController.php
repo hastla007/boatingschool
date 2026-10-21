@@ -83,6 +83,7 @@ class TenantCourseLocationController extends Controller
             'theorie_land' => ['nullable', 'string', 'max:255'],
             'theorie_lat' => ['nullable', 'numeric', 'between:-90,90'],
             'theorie_lng' => ['nullable', 'numeric', 'between:-180,180'],
+            'pruefungsausschuss_id' => ['nullable', 'uuid', 'exists:pruefungsausschuss,id'],
             'course_ids' => ['nullable', 'array'],
             'course_ids.*' => ['uuid', 'exists:course_definition,id'],
         ]);
@@ -124,6 +125,7 @@ class TenantCourseLocationController extends Controller
             'theorie_land' => $validated['theorie_land'] ?? null,
             'theorie_lat' => $validated['theorie_lat'] ?? null,
             'theorie_lng' => $validated['theorie_lng'] ?? null,
+            'pruefungsausschuss_id' => $validated['pruefungsausschuss_id'] ?? null,
             'course_ids' => array_values($validated['course_ids'] ?? []),
         ];
     }

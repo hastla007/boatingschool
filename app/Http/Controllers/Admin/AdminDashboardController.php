@@ -16,6 +16,7 @@ use App\Models\PraxisExamAppointment;
 use App\Models\PraxisFormSubmission;
 use App\Models\Product;
 use App\Models\ProductPurchase;
+use App\Models\Pruefungsausschuss;
 use App\Models\TenantAddon;
 use App\Models\TenantCourseDisabled;
 use App\Models\TenantCourseLocation;
@@ -242,7 +243,8 @@ class AdminDashboardController extends Controller
             ->orderByDesc('created_at')
             ->get();
 
-        $tenantCourseLocations = TenantCourseLocation::where('tenant_id', $tenant->id)->orderBy('sort_order')->get();
+        $tenantCourseLocations = TenantCourseLocation::where('tenant_id', $tenant->id)->with('pruefungsausschuss')->orderBy('sort_order')->get();
+        $pruefungsausschuesse = Pruefungsausschuss::orderBy('sort_order')->get();
 
         $disabledCourseIds = TenantCourseDisabled::where('tenant_id', $tenant->id)->pluck('course_id');
 
@@ -323,6 +325,7 @@ class AdminDashboardController extends Controller
             'coursePromoBanners' => $coursePromoBanners,
             'praxisFormSubmissions' => $praxisFormSubmissions,
             'tenantCourseLocations' => $tenantCourseLocations,
+            'pruefungsausschuesse' => $pruefungsausschuesse,
             'disabledCourseIds' => $disabledCourseIds,
             'coupons' => $coupons,
             'couponSummary' => $couponSummary,

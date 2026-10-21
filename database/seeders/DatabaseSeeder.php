@@ -14,6 +14,7 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call(ModuleSeeder::class);
+        $this->call(PruefungsausschussSeeder::class);
 
         $this->command->info('Importiere zentrale Fragenbasis ...');
         Artisan::call('content:import', [], $this->command->getOutput());
