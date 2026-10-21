@@ -15,8 +15,18 @@
                 <option value="{{ $course->id }}" @selected(($anmeldungFilters['anmeldung_course'] ?? '') === $course->id)>{{ $course->name }}</option>
             @endforeach
         </select>
+        <div class="flex items-center gap-1.5">
+            <label for="anmeldung_from" class="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">Eingereicht von</label>
+            <input type="date" id="anmeldung_from" name="anmeldung_from" value="{{ $anmeldungFilters['anmeldung_from'] ?? '' }}"
+                   class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+        </div>
+        <div class="flex items-center gap-1.5">
+            <label for="anmeldung_to" class="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">bis</label>
+            <input type="date" id="anmeldung_to" name="anmeldung_to" value="{{ $anmeldungFilters['anmeldung_to'] ?? '' }}"
+                   class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+        </div>
         <button type="submit" class="px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-sm">Suchen</button>
-        @if (($anmeldungFilters['anmeldung_search'] ?? '') !== '' || ($anmeldungFilters['anmeldung_course'] ?? '') !== '')
+        @if (($anmeldungFilters['anmeldung_search'] ?? '') !== '' || ($anmeldungFilters['anmeldung_course'] ?? '') !== '' || ($anmeldungFilters['anmeldung_from'] ?? '') !== '' || ($anmeldungFilters['anmeldung_to'] ?? '') !== '')
             <a href="{{ route('admin.dashboard', ['tab' => 'praxis-anmeldungen']) }}" class="text-sm text-slate-500 hover:underline self-center">Filter zurücksetzen</a>
         @endif
     </form>

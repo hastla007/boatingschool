@@ -122,6 +122,58 @@ class PraxisAnmeldungenTabTest extends TestCase
         $response->assertDontSee(route('admin.praxis-form-submissions.show', $noMatchSubmission));
     }
 
+    public function test_date_range_filters_submissions_by_submission_date(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $oldLearner = $this->createTenantUser($tenant, 'learner', ['display_name' => 'Alte Anmeldung']);
+        $newLearner = $this->createTenantUser($tenant, 'learner', ['display_name' => 'Neue Anmeldung']);
+        $course = $this->existingCourse('SRC');
+
+        $template = $this->onAdmin(function () {
+            $template = PraxisFormTemplate::create([
+                'title' => 'E2E Formular',
+                'min_progress_percent' => 0,
+                'course_ids' => [],
+                'fields' => [],
+                'active' => true,
+            ]);
+            $this->createdTemplateIds[] = $template->id;
+
+            return $template;
+        });
+
+        [$oldSubmission, $newSubmission] = $this->onAdmin(function () use ($tenant, $oldLearner, $newLearner, $course, $template) {
+            $old = PraxisFormSubmission::create([
+                'tenant_id' => $tenant->id, 'course_id' => $course->id, 'user_id' => $oldLearner->id,
+                'praxis_form_template_id' => $template->id, 'data' => [],
+            ]);
+            $old->created_at = now()->subDays(30);
+            $old->save();
+
+            $new = PraxisFormSubmission::create([
+                'tenant_id' => $tenant->id, 'course_id' => $course->id, 'user_id' => $newLearner->id,
+                'praxis_form_template_id' => $template->id, 'data' => [],
+            ]);
+            $new->created_at = now()->subDays(1);
+            $new->save();
+
+            return [$old, $new];
+        });
+
+        $from = now()->subDays(7)->format('Y-m-d');
+        $response = $this->actingAsInTenant($admin, $tenant)->get("/admin?tab=praxis-anmeldungen&anmeldung_from={$from}");
+
+        // Über den eindeutigen Detail-Link geprüft statt über den Namen --
+        // beide Lerner sind ohnehin Teilnehmer der Bootsschule und tauchen
+        // daher unabhängig vom Datumsfilter auch im Teilnehmer-Tab auf, der
+        // wie jeder Tab serverseitig mitgerendert wird (siehe
+        // test_search_filters_submissions_by_name).
+        $response->assertOk();
+        $response->assertSee(route('admin.praxis-form-submissions.show', $newSubmission));
+        $response->assertDontSee(route('admin.praxis-form-submissions.show', $oldSubmission));
+    }
+
     public function test_table_shows_fixed_exam_date_as_next_step(): void
     {
         $tenant = $this->createTestTenant();

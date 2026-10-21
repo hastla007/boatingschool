@@ -241,7 +241,7 @@ class AdminDashboardController extends Controller
         $tenantCourseLocations = TenantCourseLocation::where('tenant_id', $tenant->id)->with('pruefungsausschuss')->orderBy('sort_order')->get();
         $pruefungsausschuesse = Pruefungsausschuss::orderBy('sort_order')->get();
 
-        $anmeldungFilters = $request->only(['anmeldung_search', 'anmeldung_course']);
+        $anmeldungFilters = $request->only(['anmeldung_search', 'anmeldung_course', 'anmeldung_from', 'anmeldung_to']);
 
         $praxisFormSubmissions = PraxisFormSubmission::where('tenant_id', $tenant->id)
             ->with(['user', 'course', 'template', 'examAppointments'])
@@ -253,6 +253,8 @@ class AdminDashboardController extends Controller
                 });
             })
             ->when(($anmeldungFilters['anmeldung_course'] ?? '') !== '', fn ($q) => $q->where('course_id', $anmeldungFilters['anmeldung_course']))
+            ->when(($anmeldungFilters['anmeldung_from'] ?? '') !== '', fn ($q) => $q->whereDate('created_at', '>=', $anmeldungFilters['anmeldung_from']))
+            ->when(($anmeldungFilters['anmeldung_to'] ?? '') !== '', fn ($q) => $q->whereDate('created_at', '<=', $anmeldungFilters['anmeldung_to']))
             ->orderByDesc('created_at')
             ->paginate(20)
             ->withQueryString();
