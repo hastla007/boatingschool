@@ -25,7 +25,7 @@
             <tr>
                 <th class="px-4 py-2">Teilnehmer</th>
                 <th class="px-4 py-2">Kurs</th>
-                <th class="px-4 py-2">Formular</th>
+                <th class="px-4 py-2">Nächster Schritt</th>
                 <th class="px-4 py-2">Eingereicht am</th>
                 <th class="px-4 py-2"></th>
             </tr>
@@ -42,7 +42,15 @@
                         </a>
                     </td>
                     <td class="px-4 py-2 text-slate-600 dark:text-slate-300">{{ $submission->course->name ?? '—' }}</td>
-                    <td class="px-4 py-2 text-slate-500">{{ $submission->template->title ?? 'Formular gelöscht' }}</td>
+                    <td class="px-4 py-2">
+                        @php($nextStep = $submission->nextStep())
+                        <span @class([
+                            'inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full',
+                            'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' => $nextStep['action_needed'],
+                            'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' => ! $nextStep['action_needed'] && str_starts_with($nextStep['label'], 'Prüfungstermin fix'),
+                            'bg-slate-100 text-slate-500 dark:bg-slate-700/50 dark:text-slate-400' => ! $nextStep['action_needed'] && ! str_starts_with($nextStep['label'], 'Prüfungstermin fix'),
+                        ])>{{ $nextStep['label'] }}</span>
+                    </td>
                     <td class="px-4 py-2 text-slate-500 text-xs whitespace-nowrap">{{ $submission->created_at->format('d.m.Y H:i') }}</td>
                     <td class="px-4 py-2 text-right whitespace-nowrap">
                         <a href="{{ route('admin.praxis-form-submissions.show', $submission) }}" class="text-xs hover:underline" style="color: var(--brand-primary, #005FD7)">Details &rarr;</a>

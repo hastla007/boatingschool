@@ -104,4 +104,43 @@ class PraxisFormSubmission extends Model
     {
         return $this->belongsTo(PraxisFormTemplate::class, 'praxis_form_template_id');
     }
+
+    /**
+     * Kompakter Status für die Anmeldungsliste: was als Nächstes ansteht.
+     * Deckt sich mit der Reihenfolge, in der ParticipantController die
+     * Benachrichtigungsbox befüllt -- hier aber als eine einzelne Zeile
+     * statt einer Liste, für die Übersichtstabelle.
+     *
+     * @return array{label: string, action_needed: bool}
+     */
+    public function nextStep(): array
+    {
+        $exam = $this->latestExamAppointment();
+
+        if (! $exam) {
+            return ['label' => 'Prüfungstermin vorschlagen', 'action_needed' => true];
+        }
+
+        if ($exam->response === 'declined') {
+            return ['label' => 'Prüfungstermin erneut vorschlagen', 'action_needed' => true];
+        }
+
+        if ($exam->isPending()) {
+            return ['label' => 'Wartet auf Rückmeldung (Prüfungstermin)', 'action_needed' => false];
+        }
+
+        foreach ($this->practiceSlotNumbers() as $slot) {
+            $latest = $this->latestAppointmentForSlot($slot);
+
+            if ($latest && $latest->response === 'declined') {
+                return ['label' => 'Termin erneut vorschlagen ('.$this->labelForSlot($slot).')', 'action_needed' => true];
+            }
+
+            if ($latest && $latest->isPending()) {
+                return ['label' => 'Wartet auf Rückmeldung ('.$this->labelForSlot($slot).')', 'action_needed' => false];
+            }
+        }
+
+        return ['label' => 'Prüfungstermin fix: '.$exam->formattedRange(), 'action_needed' => false];
+    }
 }

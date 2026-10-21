@@ -244,7 +244,7 @@ class AdminDashboardController extends Controller
         $anmeldungFilters = $request->only(['anmeldung_search', 'anmeldung_course']);
 
         $praxisFormSubmissions = PraxisFormSubmission::where('tenant_id', $tenant->id)
-            ->with(['user', 'course', 'template'])
+            ->with(['user', 'course', 'template', 'examAppointments'])
             ->when(trim((string) ($anmeldungFilters['anmeldung_search'] ?? '')) !== '', function ($q) use ($anmeldungFilters) {
                 $term = '%'.trim($anmeldungFilters['anmeldung_search']).'%';
                 $q->where(function ($q2) use ($term) {

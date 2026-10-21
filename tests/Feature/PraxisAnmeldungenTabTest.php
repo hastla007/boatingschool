@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\PraxisExamAppointment;
 use App\Models\PraxisFormSubmission;
 use App\Models\PraxisFormTemplate;
 use Tests\Feature\Concerns\InteractsWithTenants;
@@ -66,11 +67,12 @@ class PraxisAnmeldungenTabTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('E2E Lerner');
-        $response->assertSee('E2E Formular');
+        $response->assertSee('Prüfungstermin vorschlagen');
 
         $detail = $this->actingAsInTenant($admin, $tenant)->get(route('admin.praxis-form-submissions.show', $submission));
         $detail->assertOk();
         $detail->assertSee('E2E Lerner');
+        $detail->assertSee('E2E Formular');
         $detail->assertSee('+49 170 1234567');
     }
 
@@ -118,6 +120,59 @@ class PraxisAnmeldungenTabTest extends TestCase
         $response->assertOk();
         $response->assertSee(route('admin.praxis-form-submissions.show', $matchSubmission));
         $response->assertDontSee(route('admin.praxis-form-submissions.show', $noMatchSubmission));
+    }
+
+    public function test_table_shows_fixed_exam_date_as_next_step(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner', ['display_name' => 'Fix Lerner']);
+        $course = $this->existingCourse('SRC');
+
+        $template = $this->onAdmin(function () {
+            $template = PraxisFormTemplate::create([
+                'title' => 'E2E Formular',
+                'min_progress_percent' => 0,
+                'course_ids' => [],
+                'fields' => [],
+                'active' => true,
+            ]);
+            $this->createdTemplateIds[] = $template->id;
+
+            return $template;
+        });
+
+        $this->onAdmin(function () use ($tenant, $admin, $learner, $course, $template) {
+            $submission = PraxisFormSubmission::create([
+                'tenant_id' => $tenant->id,
+                'course_id' => $course->id,
+                'user_id' => $learner->id,
+                'praxis_form_template_id' => $template->id,
+                'data' => [],
+            ]);
+
+            $examDate = now()->addWeek();
+
+            PraxisExamAppointment::create([
+                'tenant_id' => $tenant->id,
+                'praxis_form_submission_id' => $submission->id,
+                'slot' => 0,
+                'label' => 'Prüfungstermin',
+                'round' => 1,
+                'exam_date' => $examDate,
+                'response' => 'accepted',
+                'responded_at' => now(),
+                'proposed_by_user_id' => $admin->id,
+            ]);
+
+            $submission->update(['confirmed_exam_date' => $examDate]);
+        });
+
+        $response = $this->actingAsInTenant($admin, $tenant)->get('/admin?tab=praxis-anmeldungen');
+
+        $response->assertOk();
+        $response->assertSee('Fix Lerner');
+        $response->assertSee('Prüfungstermin fix:');
     }
 
     public function test_admin_cannot_view_submission_detail_of_other_tenant(): void
