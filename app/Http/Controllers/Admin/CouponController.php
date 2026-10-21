@@ -33,7 +33,10 @@ class CouponController extends Controller
         $tenant = $tenantContext->tenant();
 
         $validated = $request->validate([
-            'codes' => ['required', 'string'],
+            // max passend zu max. 500 Codes à 20 Zeichen inkl. Trennzeichen
+            // (Sicherheitsreview M8) -- verhindert, dass ein einzelner
+            // Request beliebig viele Codes gegen den Bestand prüft.
+            'codes' => ['required', 'string', 'max:12000'],
         ]);
 
         $codes = collect(preg_split('/[\s,;]+/', $validated['codes']))
@@ -41,6 +44,8 @@ class CouponController extends Controller
             ->filter()
             ->unique()
             ->values();
+
+        abort_if($codes->count() > 500, 422, 'Bitte maximal 500 Codes pro Übernahme einreichen.');
 
         $claimed = 0;
         $alreadyOwned = 0;

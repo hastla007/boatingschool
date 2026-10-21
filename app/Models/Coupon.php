@@ -87,14 +87,29 @@ class Coupon extends Model
         return $this->redeemed_at !== null;
     }
 
+    /**
+     * str_shuffle() (Sicherheitsreview M8) nutzt Mt19937, keinen
+     * kryptographischen Zufall, und wählte außerdem je Gruppe nur 4 von 33
+     * Zeichen ohne Wiederholung -- zusammen nur ~59 Bit Entropie. random_int()
+     * ist CSPRNG-gestützt; vier Gruppen à vier Zeichen MIT Wiederholung aus
+     * demselben 33-Zeichen-Alphabet (ohne I/O/0/1 zur besseren Lesbarkeit)
+     * ergeben 16 Zeichen und rund 80 Bit Entropie.
+     */
     public static function generateUniqueCode(): string
     {
+        $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        $alphabetLength = strlen($alphabet);
+
         do {
-            $code = strtoupper(implode('-', [
-                substr(str_shuffle('ABCDEFGHJKLMNPQRSTUVWXYZ23456789'), 0, 4),
-                substr(str_shuffle('ABCDEFGHJKLMNPQRSTUVWXYZ23456789'), 0, 4),
-                substr(str_shuffle('ABCDEFGHJKLMNPQRSTUVWXYZ23456789'), 0, 4),
-            ]));
+            $segments = [];
+            for ($segment = 0; $segment < 4; $segment++) {
+                $chars = '';
+                for ($i = 0; $i < 4; $i++) {
+                    $chars .= $alphabet[random_int(0, $alphabetLength - 1)];
+                }
+                $segments[] = $chars;
+            }
+            $code = implode('-', $segments);
         } while (static::withoutGlobalScopes()->where('code', $code)->exists());
 
         return $code;

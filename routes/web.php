@@ -104,7 +104,11 @@ Route::middleware(['auth', 'tenant.member', 'verified'])->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
     Route::get('/coupons/redeem', [CouponRedeemController::class, 'show'])->name('coupons.redeem');
-    Route::post('/coupons/redeem', [CouponRedeemController::class, 'redeem'])->name('coupons.redeem.store');
+    // Sicherheitsreview M8: ohne Limit ließe sich über die Fehlermeldung
+    // ("ungültig" vs. intern schon unterschieden nach eingelöst/unbekannt im
+    // Admin-Import, hier bewusst einheitlich) die Existenz von Codes gegen
+    // die ~59 Bit Entropie durchprobieren.
+    Route::post('/coupons/redeem', [CouponRedeemController::class, 'redeem'])->middleware('throttle:10,1')->name('coupons.redeem.store');
 });
 
 Route::middleware(['auth', 'tenant.role:owner,admin,instructor'])->prefix('admin')->name('admin.')->group(function () {
@@ -150,7 +154,11 @@ Route::middleware(['auth', 'tenant.role:owner,admin'])->prefix('admin')->name('a
 
     Route::patch('/courses', [CourseSelectionController::class, 'update'])->name('courses.update');
 
-    Route::post('/coupons/import', [AdminCouponController::class, 'import'])->name('coupons.import');
+    // Sicherheitsreview M8: begrenzt, wie oft pro Minute auf freie Codes
+    // (tenant_id NULL) getestet werden kann -- die Rückmeldung
+    // unterscheidet bewusst "bereits eingelöst"/"unbekannt", ist also ein
+    // Oracle für Code-Existenz.
+    Route::post('/coupons/import', [AdminCouponController::class, 'import'])->middleware('throttle:10,1')->name('coupons.import');
     Route::post('/coupons/{coupon}/assign', [AdminCouponController::class, 'assign'])->name('coupons.assign');
 });
 
