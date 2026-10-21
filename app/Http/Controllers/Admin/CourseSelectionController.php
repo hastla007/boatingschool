@@ -26,6 +26,12 @@ use Symfony\Component\HttpFoundation\Response;
  * zusammengeführt, weil beides dieselbe Kursliste betrifft). Ein Link
  * bleibt auch für einen gerade abgewählten Kurs gespeichert, damit die
  * Bootsschule ihn schon für später hinterlegen kann.
+ *
+ * Zusätzlich zwei Einstellungen für die ganze Bootsschule (nicht je Kurs):
+ * wie viele Tage ein neu vergebenes Entitlement gültig bleibt
+ * (course_validity_days, siehe CouponRedemptionService), und der
+ * Webshop-Link, über den Teilnehmer nach Ablauf einen Verlängerungs-Code
+ * kaufen können (renewal_webshop_link, siehe courses/index.blade.php).
  */
 class CourseSelectionController extends Controller
 {
@@ -38,6 +44,13 @@ class CourseSelectionController extends Controller
             'enabled.*' => ['uuid'],
             'links' => ['array'],
             'links.*' => ['nullable', 'url', 'max:2048'],
+            'course_validity_days' => ['nullable', 'integer', 'min:1', 'max:3650'],
+            'renewal_webshop_link' => ['nullable', 'url', 'max:2048'],
+        ]);
+
+        $tenant->branding()->update([
+            'course_validity_days' => $validated['course_validity_days'] ?? $tenant->branding->course_validity_days,
+            'renewal_webshop_link' => $validated['renewal_webshop_link'] ?? null,
         ]);
 
         $enabledIds = collect($validated['enabled'] ?? []);

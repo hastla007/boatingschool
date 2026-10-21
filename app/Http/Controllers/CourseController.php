@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\CourseDefinition;
 use App\Models\CoursePromoBanner;
 use App\Models\CourseWebshopLink;
+use App\Models\Entitlement;
 use App\Models\PraxisFormTemplate;
 use App\Models\Progress;
 use App\Models\TenantAddon;
@@ -63,10 +64,23 @@ class CourseController extends Controller
 
         $webshopLinks = CourseWebshopLink::where('tenant_id', $tenant->id)->pluck('url', 'course_id');
 
+        // Ein gesperrter Kurs, für den schon einmal ein Entitlement bestand,
+        // das aber inzwischen zeitlich abgelaufen ist (siehe
+        // CouponRedemptionService::course_validity_days), bekommt statt des
+        // normalen Kauf-Hinweises den Verlängerungs-Code-Hinweis.
+        $expiredCourseIds = Entitlement::where('tenant_id', $tenant->id)
+            ->where('user_id', $user->id)
+            ->where('status', 'active')
+            ->whereNotNull('valid_until')
+            ->where('valid_until', '<=', now())
+            ->pluck('course_id');
+
         return view('courses.index', [
             'courses' => $courses,
             'lockedCourses' => $lockedCourses,
             'webshopLinks' => $webshopLinks,
+            'expiredCourseIds' => $expiredCourseIds,
+            'renewalWebshopLink' => $tenant->branding->renewal_webshop_link,
         ]);
     }
 

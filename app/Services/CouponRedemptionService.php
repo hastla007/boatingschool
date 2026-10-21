@@ -47,11 +47,14 @@ class CouponRedemptionService
         }
 
         $entitlement = DB::transaction(function () use ($coupon, $tenant, $user) {
+            $now = now();
+
             $entitlement = Entitlement::create([
                 'tenant_id' => $tenant->id,
                 'user_id' => $user->id,
                 'course_id' => $coupon->course_id,
-                'valid_from' => now(),
+                'valid_from' => $now,
+                'valid_until' => $now->copy()->addDays($tenant->branding->course_validity_days),
                 'status' => 'active',
                 'source_type' => 'coupon',
                 'source_reference' => $coupon->code,

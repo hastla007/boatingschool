@@ -78,7 +78,8 @@
             @foreach ($lockedCourses as $course)
                 @php($webshopUrl = $webshopLinks->get($course->id))
                 @php($image = $courseImages[$course->code] ?? null)
-                <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden {{ $webshopUrl ? '' : 'opacity-70' }}">
+                @php($isExpired = $expiredCourseIds->contains($course->id))
+                <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden {{ ($webshopUrl || ($isExpired && $renewalWebshopLink)) ? '' : 'opacity-70' }}">
                     <div class="relative h-32 flex items-center justify-center {{ $image ? 'bg-cover bg-center' : 'bg-gradient-to-br from-slate-300 to-slate-400 dark:from-slate-700 dark:to-slate-600' }}"
                          @if ($image) style="background-image: url('{{ asset($image) }}')" @endif>
                         @if ($image)
@@ -90,7 +91,19 @@
                     </div>
                     <div class="pt-4 pb-4 px-4 text-center">
                         <div class="font-semibold text-slate-600 dark:text-slate-300">{{ $course->name }}</div>
-                        @if ($webshopUrl)
+                        @if ($isExpired)
+                            <div class="text-xs text-amber-600 dark:text-amber-400 mt-1">Zugang abgelaufen</div>
+                            @if ($renewalWebshopLink)
+                                <a href="{{ $renewalWebshopLink }}" target="_blank" rel="noopener"
+                                   class="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
+                                    <x-icon name="arrow-right" class="w-3.5 h-3.5" /> Verlängerungs-Code kaufen
+                                </a>
+                            @else
+                                <div class="text-xs text-slate-400 mt-2 inline-flex items-center gap-1">
+                                    <x-icon name="lock-closed" class="w-3.5 h-3.5" /> Bitte Verlängerungscode bei Deiner Bootsschule anfragen!
+                                </div>
+                            @endif
+                        @elseif ($webshopUrl)
                             <a href="{{ $webshopUrl }}" target="_blank" rel="noopener"
                                class="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
                                 <x-icon name="arrow-right" class="w-3.5 h-3.5" /> Jetzt kaufen

@@ -12,6 +12,37 @@
         @csrf
         @method('PATCH')
 
+        <div class="grid sm:grid-cols-2 gap-6 pb-5 border-b border-slate-100 dark:border-slate-700">
+            <div>
+                <label for="course_validity_days" class="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">
+                    Kurse X Tage für Teilnehmer verfügbar
+                </label>
+                <p class="text-xs text-slate-400 mb-2">
+                    Nach Ablauf dieser Frist verliert ein Teilnehmer den Zugriff auf seinen Kurs und benötigt
+                    einen Verlängerungs-Code.
+                </p>
+                <input type="number" id="course_validity_days" name="course_validity_days" min="1" max="3650"
+                       value="{{ old('course_validity_days', $branding->course_validity_days) }}"
+                       class="w-28 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                <x-input-error :messages="$errors->get('course_validity_days')" class="mt-1" />
+            </div>
+
+            <div>
+                <label for="renewal_webshop_link" class="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">
+                    Verlängerungs-Codes
+                </label>
+                <p class="text-xs text-slate-400 mb-2">
+                    Link zu deinem Webshop, wo Teilnehmer nach Ablauf einen Verlängerungs-Code kaufen können. Ohne
+                    Link sehen Teilnehmer stattdessen den Hinweis, sich an dich zu wenden.
+                </p>
+                <input type="url" id="renewal_webshop_link" name="renewal_webshop_link"
+                       placeholder="https://dein-webshop.de/verlaengerung (optional)"
+                       value="{{ old('renewal_webshop_link', $branding->renewal_webshop_link) }}"
+                       class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                <x-input-error :messages="$errors->get('renewal_webshop_link')" class="mt-1" />
+            </div>
+        </div>
+
         @php
             $isChecked = fn (string $courseId) => old('enabled')
                 ? in_array($courseId, old('enabled', []), true)
