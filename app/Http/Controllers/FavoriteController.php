@@ -7,7 +7,10 @@ use App\Models\ContentQuestion;
 use App\Models\CourseDefinition;
 use App\Models\ExamSession;
 use App\Models\Favorite;
+use App\Models\FavoriteCollection;
+use App\Models\FavoriteCollectionItem;
 use App\Services\EntitlementService;
+use App\Services\FavoriteCollectionService;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -24,17 +27,17 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class FavoriteController extends Controller
 {
-    public function smartLearning(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course): View
+    public function smartLearning(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, FavoriteCollectionService $collections, CourseDefinition $course): View
     {
-        return $this->renderFavorites($request, $tenantContext, $entitlements, $course, 'smart');
+        return $this->renderFavorites($request, $tenantContext, $entitlements, $collections, $course, 'smart');
     }
 
-    public function exam(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course): View
+    public function exam(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, FavoriteCollectionService $collections, CourseDefinition $course): View
     {
-        return $this->renderFavorites($request, $tenantContext, $entitlements, $course, 'exam');
+        return $this->renderFavorites($request, $tenantContext, $entitlements, $collections, $course, 'exam');
     }
 
-    private function renderFavorites(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course, string $activeTab): View
+    private function renderFavorites(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, FavoriteCollectionService $collectionService, CourseDefinition $course, string $activeTab): View
     {
         $tenant = $tenantContext->tenant();
         $user = $request->user();
@@ -78,6 +81,20 @@ class FavoriteController extends Controller
 
         $examWrongQuestions = ContentQuestion::with('revisions')->whereIn('id', $examWrongQuestionIds)->get();
 
+        // Default-Collection existiert ab dem ersten Aufruf der Seite, auch
+        // wenn der Lerner noch nie etwas bewusst einsortiert hat.
+        $collectionService->defaultFor($tenant, $user, $course);
+
+        $collections = FavoriteCollection::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)
+            ->orderByDesc('is_default')->orderBy('sort_order')->orderBy('name')->get();
+
+        $itemsByContext = FavoriteCollectionItem::where('tenant_id', $tenant->id)
+            ->whereIn('favorite_collection_id', $collections->pluck('id'))
+            ->whereIn('question_id', $questionIds)
+            ->get()
+            ->groupBy('context')
+            ->map(fn ($rows) => $rows->groupBy('question_id')->map(fn ($g) => $g->pluck('favorite_collection_id')->all()));
+
         return view('learning.favorites', [
             'course' => $course,
             'activeTab' => $activeTab,
@@ -88,28 +105,52 @@ class FavoriteController extends Controller
             // Rückwärtskompatible Aliase auf den jeweils angefragten Bereich.
             'favorites' => $activeTab === 'exam' ? $examFavorites : $smartFavorites,
             'wrongQuestions' => $activeTab === 'exam' ? $examWrongQuestions : $smartWrongQuestions,
+            'collections' => $collections,
+            'smartItemCollections' => $itemsByContext->get(Favorite::CONTEXT_SMART_LEARNING, collect()),
+            'examItemCollections' => $itemsByContext->get(Favorite::CONTEXT_EXAM, collect()),
         ]);
     }
 
-    public function store(Request $request, TenantContext $tenantContext, ContentQuestion $question): Response
+    public function store(Request $request, TenantContext $tenantContext, ContentQuestion $question, FavoriteCollectionService $collections): Response
     {
+        $tenant = $tenantContext->tenant();
+        $context = $this->resolveContext($request);
+
         Favorite::firstOrCreate([
-            'tenant_id' => $tenantContext->id(),
+            'tenant_id' => $tenant->id,
             'user_id' => $request->user()->id,
             'question_id' => $question->id,
-            'context' => $this->resolveContext($request),
+            'context' => $context,
         ]);
+
+        // course_id ist optional (nicht jede Stelle, von der aus favorisiert
+        // werden kann, kennt den Kurskontext) -- ohne ihn bleibt der
+        // Favorit gültig, landet aber in keiner Collection.
+        if ($courseId = $request->input('course_id')) {
+            // Bewusst der tenant-gescopte Default-Query (nicht
+            // withoutGlobalScopes()) -- verhindert, dass eine manipulierte
+            // course_id eine fremde, nicht-globale Tenant-Kurs-ID trifft.
+            $course = CourseDefinition::find($courseId);
+            if ($course) {
+                $collections->ensureInDefault($tenant, $request->user(), $course, $question->id, $context);
+            }
+        }
 
         return back();
     }
 
-    public function destroy(Request $request, TenantContext $tenantContext, ContentQuestion $question): Response
+    public function destroy(Request $request, TenantContext $tenantContext, ContentQuestion $question, FavoriteCollectionService $collections): Response
     {
-        Favorite::where('tenant_id', $tenantContext->id())
+        $tenant = $tenantContext->tenant();
+        $context = $this->resolveContext($request);
+
+        Favorite::where('tenant_id', $tenant->id)
             ->where('user_id', $request->user()->id)
             ->where('question_id', $question->id)
-            ->where('context', $this->resolveContext($request))
+            ->where('context', $context)
             ->delete();
+
+        $collections->detachFromAllCollections($tenant, $question->id, $context);
 
         return back();
     }

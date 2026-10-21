@@ -8,13 +8,75 @@
         </div>
     </x-slot>
 
-    <div x-data="{ section: '{{ $activeTab }}', smartView: 'favorites', examView: 'favorites' }">
+    <div x-data="{ section: '{{ $activeTab }}', smartView: 'favorites', examView: 'favorites', selectedCollection: null, newCollectionOpen: false }">
         <div class="flex gap-1 mb-4 border-b border-slate-200 dark:border-slate-700">
             <button @click="section = 'smart'" :class="section === 'smart' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500'"
                     :style="section === 'smart' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm transition">Smart-Learning</button>
             <button @click="section = 'exam'" :class="section === 'exam' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500'"
                     :style="section === 'exam' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm transition">Prüfungsfragen</button>
         </div>
+
+        {{-- Collections gelten kursweit für beide Bereiche gleichzeitig -- die Auswahl filtert also sowohl Smart-Learning als auch Prüfungsfragen. --}}
+        <div class="mb-2 flex flex-wrap items-center gap-2">
+            <button @click="selectedCollection = null"
+                    :class="selectedCollection === null ? 'text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'"
+                    :style="selectedCollection === null ? 'background-color: var(--brand-primary, #005FD7)' : ''"
+                    class="px-3 py-1 rounded-full text-xs font-medium transition">Alle</button>
+            @foreach ($collections as $collection)
+                <button @click="selectedCollection = (selectedCollection === '{{ $collection->id }}' ? null : '{{ $collection->id }}')"
+                        :class="selectedCollection === '{{ $collection->id }}' ? 'text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'"
+                        :style="selectedCollection === '{{ $collection->id }}' ? 'background-color: var(--brand-primary, #005FD7)' : ''"
+                        class="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition">
+                    @if ($collection->is_default)
+                        <x-icon name="star" class="w-3 h-3" />
+                    @endif
+                    {{ $collection->name }}
+                </button>
+            @endforeach
+            <button @click="newCollectionOpen = ! newCollectionOpen"
+                    class="px-3 py-1 rounded-full text-xs font-medium border border-dashed border-slate-300 dark:border-slate-600 text-slate-500 hover:border-slate-400 dark:hover:border-slate-500 transition">
+                + Neue Collection
+            </button>
+        </div>
+
+        <div x-show="newCollectionOpen" style="display: none" class="mb-4">
+            <form method="POST" action="{{ route('favorite-collections.store', $course) }}" class="flex flex-wrap items-center gap-2">
+                @csrf
+                <input type="text" name="name" placeholder="Name der Collection" required maxlength="255"
+                       class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm w-56">
+                <button type="submit" class="px-3 py-1.5 rounded-lg text-white text-xs font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
+                    Anlegen
+                </button>
+            </form>
+            @error('name')
+                <p class="text-rose-600 text-xs mt-1">{{ $message }}</p>
+            @enderror
+        </div>
+
+        @foreach ($collections as $collection)
+            <div x-show="selectedCollection === '{{ $collection->id }}'" style="display: none" class="mb-4 flex flex-wrap items-center gap-3 text-sm bg-slate-50 dark:bg-slate-700/40 rounded-xl px-3 py-2">
+                <form method="POST" action="{{ route('favorite-collections.update', $collection) }}" class="flex items-center gap-1.5">
+                    @csrf
+                    @method('PATCH')
+                    <input type="text" name="name" value="{{ $collection->name }}" maxlength="255"
+                           class="text-sm rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 py-1">
+                    <button type="submit" class="text-xs text-slate-500 hover:underline whitespace-nowrap">Umbenennen</button>
+                </form>
+                @unless ($collection->is_default)
+                    <form method="POST" action="{{ route('favorite-collections.destroy', $collection) }}"
+                          onsubmit="return confirm('Collection „{{ $collection->name }}“ wirklich löschen? Die enthaltenen Favoriten bleiben erhalten, nur die Einsortierung entfällt.');">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="text-xs text-rose-600 hover:underline whitespace-nowrap">Collection löschen</button>
+                    </form>
+                @else
+                    <span class="text-xs text-slate-400">Standard-Collection -- kann nicht gelöscht werden</span>
+                @endunless
+            </div>
+        @endforeach
+        @error('collection')
+            <p class="text-rose-600 text-xs mb-3">{{ $message }}</p>
+        @enderror
 
         <div x-show="section === 'smart'">
             <div x-data="{}" class="mb-2">
@@ -28,16 +90,15 @@
 
             <div x-show="smartView === 'favorites'" class="space-y-2">
                 @forelse ($smartFavorites as $favorite)
-                    @php($revision = $favorite->question->publishedRevision())
-                    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center shrink-0 text-amber-500">
-                            <x-icon name="star" class="w-5 h-5" />
-                        </div>
-                        <div class="min-w-0 flex-1">
-                            <div class="text-slate-700 dark:text-slate-200 truncate">{{ $revision?->question_text }}</div>
-                            <div class="text-xs text-slate-400">{{ $revision?->topic }}</div>
-                        </div>
-                    </div>
+                    @include('learning._favorite-card', [
+                        'question' => $favorite->question,
+                        'context' => 'smart_learning',
+                        'isFavorite' => true,
+                        'badgeBg' => 'bg-amber-50 dark:bg-amber-900/30',
+                        'badgeColor' => 'text-amber-500',
+                        'badgeIcon' => 'star',
+                        'assignedCollectionIds' => $smartItemCollections->get($favorite->question_id, []),
+                    ])
                 @empty
                     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 text-center text-slate-500 text-sm">
                         Noch keine Favoriten gespeichert.
@@ -47,16 +108,15 @@
 
             <div x-show="smartView === 'errors'" class="space-y-2" style="display: none">
                 @forelse ($smartWrongQuestions as $question)
-                    @php($revision = $question->publishedRevision())
-                    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-900/30 flex items-center justify-center shrink-0 text-rose-500">
-                            <x-icon name="x-circle" class="w-5 h-5" />
-                        </div>
-                        <div class="min-w-0 flex-1">
-                            <div class="text-slate-700 dark:text-slate-200 truncate">{{ $revision?->question_text }}</div>
-                            <div class="text-xs text-slate-400">{{ $revision?->topic }}</div>
-                        </div>
-                    </div>
+                    @include('learning._favorite-card', [
+                        'question' => $question,
+                        'context' => 'smart_learning',
+                        'isFavorite' => $smartFavorites->contains('question_id', $question->id),
+                        'badgeBg' => 'bg-rose-50 dark:bg-rose-900/30',
+                        'badgeColor' => 'text-rose-500',
+                        'badgeIcon' => 'x-circle',
+                        'assignedCollectionIds' => $smartItemCollections->get($question->id, []),
+                    ])
                 @empty
                     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 text-center text-slate-500 text-sm">
                         Bisher keine falsch beantworteten Fragen.
@@ -77,16 +137,15 @@
 
             <div x-show="examView === 'favorites'" class="space-y-2">
                 @forelse ($examFavorites as $favorite)
-                    @php($revision = $favorite->question->publishedRevision())
-                    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center shrink-0 text-amber-500">
-                            <x-icon name="star" class="w-5 h-5" />
-                        </div>
-                        <div class="min-w-0 flex-1">
-                            <div class="text-slate-700 dark:text-slate-200 truncate">{{ $revision?->question_text }}</div>
-                            <div class="text-xs text-slate-400">{{ $revision?->topic }}</div>
-                        </div>
-                    </div>
+                    @include('learning._favorite-card', [
+                        'question' => $favorite->question,
+                        'context' => 'exam',
+                        'isFavorite' => true,
+                        'badgeBg' => 'bg-amber-50 dark:bg-amber-900/30',
+                        'badgeColor' => 'text-amber-500',
+                        'badgeIcon' => 'star',
+                        'assignedCollectionIds' => $examItemCollections->get($favorite->question_id, []),
+                    ])
                 @empty
                     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 text-center text-slate-500 text-sm">
                         Noch keine Favoriten gespeichert.
@@ -96,16 +155,15 @@
 
             <div x-show="examView === 'errors'" class="space-y-2" style="display: none">
                 @forelse ($examWrongQuestions as $question)
-                    @php($revision = $question->publishedRevision())
-                    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-900/30 flex items-center justify-center shrink-0 text-rose-500">
-                            <x-icon name="x-circle" class="w-5 h-5" />
-                        </div>
-                        <div class="min-w-0 flex-1">
-                            <div class="text-slate-700 dark:text-slate-200 truncate">{{ $revision?->question_text }}</div>
-                            <div class="text-xs text-slate-400">{{ $revision?->topic }}</div>
-                        </div>
-                    </div>
+                    @include('learning._favorite-card', [
+                        'question' => $question,
+                        'context' => 'exam',
+                        'isFavorite' => $examFavorites->contains('question_id', $question->id),
+                        'badgeBg' => 'bg-rose-50 dark:bg-rose-900/30',
+                        'badgeColor' => 'text-rose-500',
+                        'badgeIcon' => 'x-circle',
+                        'assignedCollectionIds' => $examItemCollections->get($question->id, []),
+                    ])
                 @empty
                     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 text-center text-slate-500 text-sm">
                         Bisher keine falsch beantworteten Fragen.

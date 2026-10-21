@@ -18,6 +18,7 @@ use App\Http\Controllers\CouponRedeemController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExamController;
+use App\Http\Controllers\FavoriteCollectionController;
 use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\LearningController;
 use App\Http\Controllers\NavigationTaskController;
@@ -63,6 +64,11 @@ Route::middleware(['auth', 'tenant.member'])->group(function () {
     Route::get('/courses/{course}/favorites/exam', [FavoriteController::class, 'exam'])->name('favorites.exam');
     Route::post('/favorites/{question}', [FavoriteController::class, 'store'])->name('favorites.store');
     Route::delete('/favorites/{question}', [FavoriteController::class, 'destroy'])->name('favorites.destroy');
+
+    Route::post('/courses/{course}/favorites/collections', [FavoriteCollectionController::class, 'store'])->name('favorite-collections.store');
+    Route::patch('/favorites/collections/{favoriteCollection}', [FavoriteCollectionController::class, 'update'])->name('favorite-collections.update');
+    Route::delete('/favorites/collections/{favoriteCollection}', [FavoriteCollectionController::class, 'destroy'])->name('favorite-collections.destroy');
+    Route::put('/courses/{course}/favorites/{question}/collections', [FavoriteCollectionController::class, 'sync'])->name('favorite-collections.sync');
 
     Route::get('/courses/{course}/progress', [ProgressController::class, 'show'])->name('progress.show');
 
