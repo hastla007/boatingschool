@@ -38,7 +38,11 @@ class ResolveTenant
             }
 
             if ($request->getHost() === config('app.central_domain')) {
-                return response()->view('tenant.picker', ['tenants' => Tenant::query()->orderBy('name')->get()]);
+                // Sicherheitsreview N5: zeigte bislang auch suspended/closed/
+                // trial-Mandanten öffentlich mit Name und Slug an.
+                return response()->view('tenant.picker', [
+                    'tenants' => Tenant::query()->where('status', 'active')->orderBy('name')->get(),
+                ]);
             }
 
             return response()->view('tenant.not-found', [], 404);
