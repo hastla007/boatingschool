@@ -42,6 +42,14 @@ class AdminDashboardController extends Controller
     {
         $tenant = $tenantContext->tenant();
 
+        // Steuert, ob die Tabs mit Finanz-/Vertrauens-relevanten
+        // Einstellungen (Branding, Addons, Kursauswahl/Webshop-Links,
+        // Kursempfehlungen, Coupon-Codes) überhaupt angezeigt werden -- die
+        // zugehörigen Routen sind serverseitig ohnehin auf owner/admin
+        // beschränkt (siehe routes/web.php, Sicherheitsreview H3), das hier
+        // vermeidet nur unbedienbare Formulare für einen Instructor.
+        $canManageTenant = $request->user()->isAdminFor($tenant);
+
         $learnerIds = TenantUser::where('tenant_id', $tenant->id)->where('role', 'learner')->pluck('user_id');
         $learnerCount = $learnerIds->count();
         $activeEntitlements = Entitlement::where('tenant_id', $tenant->id)->where('status', 'active')->count();
@@ -322,6 +330,7 @@ class AdminDashboardController extends Controller
 
         return view('admin.dashboard', [
             'tenant' => $tenant,
+            'canManageTenant' => $canManageTenant,
             'learnerCount' => $learnerCount,
             'activeEntitlements' => $activeEntitlements,
             'recentActivity' => $recentActivity,

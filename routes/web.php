@@ -112,14 +112,33 @@ Route::middleware(['auth', 'tenant.role:owner,admin,instructor'])->prefix('admin
     Route::post('/participants/invite', [ParticipantController::class, 'invite'])->name('participants.invite');
     Route::get('/participants/{user}', [ParticipantController::class, 'show'])->name('participants.show');
     Route::patch('/participants/{user}', [ParticipantController::class, 'update'])->name('participants.update');
+    Route::get('/branding/support-email/verify/{tenant}/{hash}', [SupportEmailVerificationController::class, 'verify'])
+        ->middleware(['signed', 'throttle:6,1'])->name('branding.support-email.verify');
+
+    Route::post('/tenant-course-locations', [TenantCourseLocationController::class, 'store'])->name('tenant-course-locations.store');
+    Route::patch('/tenant-course-locations/{tenantCourseLocation}', [TenantCourseLocationController::class, 'update'])->name('tenant-course-locations.update');
+    Route::delete('/tenant-course-locations/{tenantCourseLocation}', [TenantCourseLocationController::class, 'destroy'])->name('tenant-course-locations.destroy');
+
+    Route::get('/praxis-form-submissions/{submission}', [AdminPraxisFormSubmissionController::class, 'show'])->name('praxis-form-submissions.show');
+    Route::post('/praxis-form-submissions/{submission}/exam-appointments', [AdminPraxisExamAppointmentController::class, 'store'])->name('praxis-form-submissions.exam-appointments.store');
+
+    Route::patch('/willkommensbox-orders/{willkommensboxOrder}/ship', [WillkommensboxOrderController::class, 'ship'])->name('willkommensbox-orders.ship');
+    Route::get('/willkommensbox-orders/{willkommensboxOrder}/label/{size}', [WillkommensboxLabelController::class, 'show'])->name('willkommensbox-orders.label');
+});
+
+// Finanz-/Vertrauens-relevante Stellschrauben bleiben Owner/Admin
+// vorbehalten -- ein Instructor kann weder Kurse kostenlos freischalten
+// oder widerrufen, noch Branding/Support-Kontakt (Phishing-Risiko über das
+// Schul-Branding), Webshop-Links/Kursauswahl, Addon-Konfiguration,
+// Kurs-Empfehlungsbanner oder den Coupon-Bestand ändern (Sicherheitsreview
+// H3). Instructor sieht diese Tabs im Admin-Bereich entsprechend auch
+// nicht (siehe admin/dashboard.blade.php, $canManageTenant).
+Route::middleware(['auth', 'tenant.role:owner,admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::post('/entitlements', [EntitlementController::class, 'store'])->name('entitlements.store');
     Route::patch('/entitlements/{entitlement}', [EntitlementController::class, 'update'])->name('entitlements.update');
     Route::patch('/branding', [BrandingController::class, 'update'])->name('branding.update');
     Route::post('/branding/support-email/verification-notification', [SupportEmailVerificationController::class, 'send'])
         ->middleware('throttle:6,1')->name('branding.support-email.send');
-    Route::get('/branding/support-email/verify/{tenant}/{hash}', [SupportEmailVerificationController::class, 'verify'])
-        ->middleware(['signed', 'throttle:6,1'])->name('branding.support-email.verify');
-
 
     Route::patch('/addons', [AddonController::class, 'update'])->name('addons.update');
 
@@ -127,20 +146,10 @@ Route::middleware(['auth', 'tenant.role:owner,admin,instructor'])->prefix('admin
     Route::patch('/course-promo-banners/{coursePromoBanner}', [CoursePromoBannerController::class, 'update'])->name('course-promo-banners.update');
     Route::delete('/course-promo-banners/{coursePromoBanner}', [CoursePromoBannerController::class, 'destroy'])->name('course-promo-banners.destroy');
 
-    Route::post('/tenant-course-locations', [TenantCourseLocationController::class, 'store'])->name('tenant-course-locations.store');
-    Route::patch('/tenant-course-locations/{tenantCourseLocation}', [TenantCourseLocationController::class, 'update'])->name('tenant-course-locations.update');
-    Route::delete('/tenant-course-locations/{tenantCourseLocation}', [TenantCourseLocationController::class, 'destroy'])->name('tenant-course-locations.destroy');
-
     Route::patch('/courses', [CourseSelectionController::class, 'update'])->name('courses.update');
 
     Route::post('/coupons/import', [AdminCouponController::class, 'import'])->name('coupons.import');
     Route::post('/coupons/{coupon}/assign', [AdminCouponController::class, 'assign'])->name('coupons.assign');
-
-    Route::get('/praxis-form-submissions/{submission}', [AdminPraxisFormSubmissionController::class, 'show'])->name('praxis-form-submissions.show');
-    Route::post('/praxis-form-submissions/{submission}/exam-appointments', [AdminPraxisExamAppointmentController::class, 'store'])->name('praxis-form-submissions.exam-appointments.store');
-
-    Route::patch('/willkommensbox-orders/{willkommensboxOrder}/ship', [WillkommensboxOrderController::class, 'ship'])->name('willkommensbox-orders.ship');
-    Route::get('/willkommensbox-orders/{willkommensboxOrder}/label/{size}', [WillkommensboxLabelController::class, 'show'])->name('willkommensbox-orders.label');
 });
 
 require __DIR__.'/superadmin.php';

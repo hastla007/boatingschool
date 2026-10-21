@@ -19,18 +19,22 @@
                     :style="tab === 'participants' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Teilnehmer</button>
             <button type="button" @click="tab = 'praxis-anmeldungen'" :class="tab === 'praxis-anmeldungen' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500'"
                     :style="tab === 'praxis-anmeldungen' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Praxis-Anmeldungen</button>
-            <button type="button" @click="tab = 'coupons'" :class="tab === 'coupons' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500'"
-                    :style="tab === 'coupons' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Coupon-Codes</button>
-            <button type="button" @click="tab = 'courses'" :class="tab === 'courses' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500'"
-                    :style="tab === 'courses' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Kursauswahl</button>
+            @if ($canManageTenant)
+                <button type="button" @click="tab = 'coupons'" :class="tab === 'coupons' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500'"
+                        :style="tab === 'coupons' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Coupon-Codes</button>
+                <button type="button" @click="tab = 'courses'" :class="tab === 'courses' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500'"
+                        :style="tab === 'courses' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Kursauswahl</button>
+            @endif
             <button type="button" @click="tab = 'orte'" :class="tab === 'orte' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500'"
                     :style="tab === 'orte' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Orte</button>
-            <button type="button" @click="tab = 'branding'" :class="tab === 'branding' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500'"
-                    :style="tab === 'branding' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Branding</button>
-            <button type="button" @click="tab = 'addons'" :class="tab === 'addons' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500'"
-                    :style="tab === 'addons' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Addons</button>
-            <button type="button" @click="tab = 'course-promo-banners'" :class="tab === 'course-promo-banners' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500'"
-                    :style="tab === 'course-promo-banners' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Kursempfehlungen</button>
+            @if ($canManageTenant)
+                <button type="button" @click="tab = 'branding'" :class="tab === 'branding' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500'"
+                        :style="tab === 'branding' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Branding</button>
+                <button type="button" @click="tab = 'addons'" :class="tab === 'addons' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500'"
+                        :style="tab === 'addons' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Addons</button>
+                <button type="button" @click="tab = 'course-promo-banners'" :class="tab === 'course-promo-banners' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500'"
+                        :style="tab === 'course-promo-banners' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Kursempfehlungen</button>
+            @endif
         </div>
 
         <div x-show="tab === 'dashboard'">
@@ -42,23 +46,27 @@
         <div x-show="tab === 'praxis-anmeldungen'" style="display: none">
             @include('admin.tabs.praxis-anmeldungen')
         </div>
-        <div x-show="tab === 'coupons'" style="display: none">
-            @include('admin.tabs.coupons')
-        </div>
-        <div x-show="tab === 'courses'" style="display: none">
-            @include('admin.tabs.courses')
-        </div>
+        @if ($canManageTenant)
+            <div x-show="tab === 'coupons'" style="display: none">
+                @include('admin.tabs.coupons')
+            </div>
+            <div x-show="tab === 'courses'" style="display: none">
+                @include('admin.tabs.courses')
+            </div>
+        @endif
         <div x-show="tab === 'orte'" style="display: none">
             @include('admin.tabs.orte')
         </div>
-        <div x-show="tab === 'branding'" style="display: none">
-            @include('admin.tabs.branding')
-        </div>
-        <div x-show="tab === 'addons'" style="display: none">
-            @include('admin.tabs.addons')
-        </div>
-        <div x-show="tab === 'course-promo-banners'" style="display: none">
-            @include('admin.tabs.course-promo-banners')
-        </div>
+        @if ($canManageTenant)
+            <div x-show="tab === 'branding'" style="display: none">
+                @include('admin.tabs.branding')
+            </div>
+            <div x-show="tab === 'addons'" style="display: none">
+                @include('admin.tabs.addons')
+            </div>
+            <div x-show="tab === 'course-promo-banners'" style="display: none">
+                @include('admin.tabs.course-promo-banners')
+            </div>
+        @endif
     </div>
 </x-app-layout>

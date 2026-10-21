@@ -23,33 +23,35 @@
             <div class="text-xs text-slate-400">Einladen, Kurse freischalten</div>
         </div>
     </button>
-    <button type="button" @click="tab = 'branding'" class="text-left bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-3 hover:shadow-md transition">
-        <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="background-color: color-mix(in srgb, var(--brand-secondary, #00A8A8) 15%, white); color: var(--brand-secondary, #00A8A8)">
-            <x-icon name="swatch" class="w-5 h-5" />
-        </div>
-        <div>
-            <div class="font-medium text-slate-700 dark:text-slate-200">Branding anpassen</div>
-            <div class="text-xs text-slate-400">Logo, Farben, Kontakt</div>
-        </div>
-    </button>
-    <button type="button" @click="tab = 'courses'" class="text-left bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-3 hover:shadow-md transition">
-        <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0 bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-300">
-            <x-icon name="academic-cap" class="w-5 h-5" />
-        </div>
-        <div>
-            <div class="font-medium text-slate-700 dark:text-slate-200">Kursauswahl</div>
-            <div class="text-xs text-slate-400">Kurse &amp; Webshop-Links je Kurs</div>
-        </div>
-    </button>
-    <button type="button" @click="tab = 'coupons'" class="text-left bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-3 hover:shadow-md transition">
-        <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0 bg-rose-50 text-rose-600 dark:bg-rose-900/30 dark:text-rose-300">
-            <x-icon name="bookmark" class="w-5 h-5" />
-        </div>
-        <div>
-            <div class="font-medium text-slate-700 dark:text-slate-200">Coupon-Codes</div>
-            <div class="text-xs text-slate-400">Importieren, zuweisen, wer wann eingelöst hat</div>
-        </div>
-    </button>
+    @if ($canManageTenant)
+        <button type="button" @click="tab = 'branding'" class="text-left bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-3 hover:shadow-md transition">
+            <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="background-color: color-mix(in srgb, var(--brand-secondary, #00A8A8) 15%, white); color: var(--brand-secondary, #00A8A8)">
+                <x-icon name="swatch" class="w-5 h-5" />
+            </div>
+            <div>
+                <div class="font-medium text-slate-700 dark:text-slate-200">Branding anpassen</div>
+                <div class="text-xs text-slate-400">Logo, Farben, Kontakt</div>
+            </div>
+        </button>
+        <button type="button" @click="tab = 'courses'" class="text-left bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-3 hover:shadow-md transition">
+            <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0 bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-300">
+                <x-icon name="academic-cap" class="w-5 h-5" />
+            </div>
+            <div>
+                <div class="font-medium text-slate-700 dark:text-slate-200">Kursauswahl</div>
+                <div class="text-xs text-slate-400">Kurse &amp; Webshop-Links je Kurs</div>
+            </div>
+        </button>
+        <button type="button" @click="tab = 'coupons'" class="text-left bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-3 hover:shadow-md transition">
+            <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0 bg-rose-50 text-rose-600 dark:bg-rose-900/30 dark:text-rose-300">
+                <x-icon name="bookmark" class="w-5 h-5" />
+            </div>
+            <div>
+                <div class="font-medium text-slate-700 dark:text-slate-200">Coupon-Codes</div>
+                <div class="text-xs text-slate-400">Importieren, zuweisen, wer wann eingelöst hat</div>
+            </div>
+        </button>
+    @endif
 </div>
 
 <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 mb-6">

@@ -89,7 +89,9 @@
                     <td class="px-4 py-2">
                         @php($bookedCourseIds = $membership->user->entitlements->pluck('course_id')->all())
                         @php($unbookedCourses = $courses->whereNotIn('id', $bookedCourseIds))
-                        @if ($unbookedCourses->isNotEmpty())
+                        @if (! $canManageTenant)
+                            <span class="text-slate-300 dark:text-slate-600 text-xs">—</span>
+                        @elseif ($unbookedCourses->isNotEmpty())
                             <form method="POST" action="{{ route('admin.entitlements.store') }}" class="flex gap-1">
                                 @csrf
                                 <input type="hidden" name="user_id" value="{{ $membership->user_id }}">
