@@ -43,7 +43,11 @@ class UserAndEntitlementSeeder extends Seeder
         foreach ($admins as $admin) {
             $user = User::firstOrCreate(
                 ['email' => $admin['email']],
-                ['display_name' => $admin['name'], 'password' => Hash::make('password'), 'status' => 'active']
+                // email_verified_at => now(): Demo-Zugänge sollen sich ohne
+                // Zusatzschritt einloggen lassen (Sicherheitsreview H2
+                // verlangt eine verifizierte E-Mail für den "verified"-
+                // Middleware-Gate).
+                ['display_name' => $admin['name'], 'password' => Hash::make('password'), 'status' => 'active', 'email_verified_at' => now()]
             );
 
             TenantUser::firstOrCreate(
@@ -69,7 +73,7 @@ class UserAndEntitlementSeeder extends Seeder
 
             $user = User::firstOrCreate(
                 ['email' => $learner['email']],
-                array_merge(['display_name' => $learner['name'], 'password' => Hash::make('password'), 'status' => 'active'], $profile)
+                array_merge(['display_name' => $learner['name'], 'password' => Hash::make('password'), 'status' => 'active', 'email_verified_at' => now()], $profile)
             );
 
             TenantUser::firstOrCreate(

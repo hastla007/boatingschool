@@ -1,3 +1,11 @@
+<IfModule mod_headers.c>
+    # Greift auch für statische Dateien (z. B. hochgeladene Logos unter
+    # /storage), die der Webserver direkt ausliefert und die deshalb nie
+    # durch die Laravel-Middleware (SecurityHeaders) laufen -- siehe
+    # Sicherheitsreview H4/M9.
+    Header always set X-Content-Type-Options "nosniff"
+</IfModule>
+
 <IfModule mod_rewrite.c>
     <IfModule mod_negotiation.c>
         Options -MultiViews -Indexes
