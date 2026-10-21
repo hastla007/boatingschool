@@ -80,7 +80,6 @@ class ProgressController extends Controller
             'answered' => $progress->where('attempt_count', '>', 0)->count(),
             'mastered' => $mastered,
             'overallAccuracy' => $overallAccuracy,
-            'dueReviews' => $progress->where('next_review_at', '<=', now())->where('current_streak', '>', 0)->count(),
             'byTopic' => $byTopic,
             'examResults' => $examResults,
         ]);

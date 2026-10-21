@@ -38,7 +38,6 @@ class DashboardController extends Controller
                 'correct' => $courseProgress->sum('correct_count'),
                 'incorrect' => $courseProgress->sum('incorrect_count'),
                 'attempts' => $courseProgress->sum('attempt_count'),
-                'due_reviews' => $courseProgress->where('next_review_at', '<=', now())->where('current_streak', '>', 0)->count(),
             ];
         });
 

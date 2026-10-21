@@ -31,8 +31,8 @@ auf PostgreSQL, gemäß dem mitgelieferten technischen Konzept
 - **Learning Engine** (`app/Services/MasteryCalculator.php`,
   `LearningService.php`, `SmarttrainerService.php`): serverseitige
   Bewertung, unveränderliche Attempts, deterministische und erklärbare
-  Priorisierung (neu → falsch → fällige Wiederholung → schwaches Thema →
-  gefestigt).
+  Priorisierung (neu → falsch → schwaches Thema → gefestigt). Gefestigt
+  bedeutet 3 richtige Antworten in Folge, ohne zeitbasierte Wiederholung.
 - **Prüfungssimulation** (`app/Http/Controllers/ExamController.php`):
   Regelwerk-Snapshot, keine Sofortauflösung während der Prüfung, serverseitig
   berechnetes Ergebnis nach Abschluss.

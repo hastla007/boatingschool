@@ -22,7 +22,7 @@ class Progress extends Model
     protected $fillable = [
         'tenant_id', 'user_id', 'question_id', 'attempt_count', 'correct_count',
         'incorrect_count', 'current_streak', 'mastery_score', 'learning_state',
-        'first_seen_at', 'last_seen_at', 'last_correct_at', 'next_review_at',
+        'first_seen_at', 'last_seen_at', 'last_correct_at',
     ];
 
     protected function casts(): array
@@ -32,7 +32,6 @@ class Progress extends Model
             'first_seen_at' => 'datetime',
             'last_seen_at' => 'datetime',
             'last_correct_at' => 'datetime',
-            'next_review_at' => 'datetime',
         ];
     }
 

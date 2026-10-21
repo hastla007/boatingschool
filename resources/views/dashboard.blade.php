@@ -46,12 +46,6 @@
                             <x-stat-tile icon="x-circle" :value="$courseSummary['incorrect']" label="falsch" tone="danger" />
                             <x-stat-tile icon="chart-bar" :value="$courseSummary['attempts']" label="gesamt beantwortet" />
                         </div>
-                        @if ($courseSummary['due_reviews'] > 0)
-                            <p class="text-sm text-amber-600 mt-3 flex items-center gap-1.5">
-                                <x-icon name="clock" class="w-4 h-4" /> {{ $courseSummary['due_reviews'] }} Wiederholung(en) sind fällig.
-                            </p>
-                        @endif
-
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
                             <a href="{{ route('progress.show', $courseSummary['course']) }}"
                                class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-3 hover:shadow-md transition">

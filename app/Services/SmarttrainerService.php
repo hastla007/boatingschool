@@ -10,11 +10,11 @@ use App\Models\User;
 use Illuminate\Support\Collection;
 
 /**
- * Transparente, deterministische Priorisierung laut api_spec.md:
- * "1. noch nie gesehen, 2. falsch/mehrfach falsch, 3. niedrige Mastery,
- * 4. next_review_at fällig, 5. schwaches Thema." Keine ML-Abhängigkeit.
- * apply() ist eine reine Funktion über bereits geladene Kandidaten, damit
- * sie ohne DB deterministisch getestet werden kann.
+ * Transparente, deterministische Priorisierung: "1. noch nie gesehen,
+ * 2. falsch/mehrfach falsch, 3. niedrige Mastery, 4. schwaches Thema."
+ * Keine ML-Abhängigkeit. apply() ist eine reine Funktion über bereits
+ * geladene Kandidaten, damit sie ohne DB deterministisch getestet werden
+ * kann.
  */
 class SmarttrainerService
 {
@@ -81,10 +81,6 @@ class SmarttrainerService
 
         if ($this->wasLastWrong($progress)) {
             return [800 + min($progress->incorrect_count, 10) * 10, 'Zuletzt falsch beantwortet'];
-        }
-
-        if ($progress->next_review_at && $progress->next_review_at->lte(now())) {
-            return [500 + (1 - $progress->mastery_score) * 100, 'Wiederholung fällig'];
         }
 
         $topic = $this->questionTopic($question);

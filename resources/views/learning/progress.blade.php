@@ -8,7 +8,7 @@
         </div>
     </x-slot>
 
-    <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-6 items-stretch">
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6 items-stretch">
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-4">
             <x-progress-ring :percent="$overallAccuracy" :size="72" :stroke="7" />
             <div>
@@ -18,7 +18,6 @@
         </div>
         <x-stat-tile icon="book-open" :value="$answered.'/'.$totalQuestions" label="Fragen bearbeitet" />
         <x-stat-tile icon="check-circle" :value="$mastered" label="gefestigt" tone="success" />
-        <x-stat-tile icon="clock" :value="$dueReviews" label="Wiederholung fällig" tone="warning" />
     </div>
 
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
