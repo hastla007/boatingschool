@@ -145,7 +145,7 @@ class PraxisFormSubmissionController extends Controller
                         ->values();
 
                     if ($kurse->isNotEmpty()) {
-                        $data[$field['key'].'_pruefungsausschuss_kurse'] = $kurse->implode(', ');
+                        $data[$field['key'].'_pruefungsausschuss_kurse'] = $kurse->all();
                     }
                 }
 

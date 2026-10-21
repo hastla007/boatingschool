@@ -278,7 +278,16 @@
                                                 <span class="block text-xs text-slate-400 font-normal">{{ $submission->data[$field['key'].'_pruefungsausschuss_adresse'] }}</span>
                                             @endif
                                             @if (! empty($submission->data[$field['key'].'_pruefungsausschuss_kurse']))
-                                                <span class="block text-xs text-slate-400 font-normal">Zuständig für: {{ $submission->data[$field['key'].'_pruefungsausschuss_kurse'] }}</span>
+                                                <span class="flex flex-wrap items-center gap-1 mt-1 text-xs text-slate-400 font-normal">
+                                                    Zuständig für:
+                                                    @foreach ($submission->data[$field['key'].'_pruefungsausschuss_kurse'] as $kursName)
+                                                        <span @class([
+                                                            'inline-flex items-center px-1.5 py-0.5 rounded-full text-[11px] font-medium',
+                                                            'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' => $kursName === ($submission->course->name ?? null),
+                                                            'bg-slate-100 text-slate-500 dark:bg-slate-700/50 dark:text-slate-400' => $kursName !== ($submission->course->name ?? null),
+                                                        ])>{{ $kursName }}</span>
+                                                    @endforeach
+                                                </span>
                                             @endif
                                         </dd>
                                     </div>
