@@ -46,6 +46,12 @@ class ImportContentQuestions extends Command
 
     public function handle(): int
     {
+        // Schreibt in den zentralen, mandantenunabhängigen Fragenkatalog --
+        // dieselbe administrative Operation wie Migrationen/Seeder, daher
+        // über die Owner-Verbindung statt der least-privilege App-Rolle, die
+        // seit Sicherheitsreview M7 dort nur noch SELECT hat.
+        config(['database.default' => 'pgsql_admin']);
+
         $path = base_path($this->argument('path'));
         if (! is_file($path)) {
             $this->error("Datei nicht gefunden: {$path}");

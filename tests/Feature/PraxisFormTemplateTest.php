@@ -96,13 +96,13 @@ class PraxisFormTemplateTest extends TestCase
         $superadmin = $this->createSuperAdmin();
         $course = $this->makeIsolatedCourse();
 
-        $this->trackTemplate(PraxisFormTemplate::create([
+        $this->trackTemplate($this->onAdmin(fn () => PraxisFormTemplate::create([
             'title' => 'E2E Erstes Formular',
             'min_progress_percent' => 50,
             'course_ids' => [$course->id],
             'fields' => [],
             'active' => true,
-        ]));
+        ])));
 
         $response = $this->actingAs($superadmin)->post('/superadmin/praxis-form-templates', [
             'title' => 'E2E Zweites Formular',
@@ -119,13 +119,13 @@ class PraxisFormTemplateTest extends TestCase
         $superadmin = $this->createSuperAdmin();
         $course = $this->makeIsolatedCourse();
 
-        $old = $this->trackTemplate(PraxisFormTemplate::create([
+        $old = $this->trackTemplate($this->onAdmin(fn () => PraxisFormTemplate::create([
             'title' => 'E2E Altes Formular',
             'min_progress_percent' => 50,
             'course_ids' => [$course->id],
             'fields' => [],
             'active' => false,
-        ]));
+        ])));
 
         $response = $this->actingAs($superadmin)->post('/superadmin/praxis-form-templates', [
             'title' => 'E2E Neues Formular',
@@ -142,13 +142,13 @@ class PraxisFormTemplateTest extends TestCase
     {
         $superadmin = $this->createSuperAdmin();
         $course = $this->makeIsolatedCourse();
-        $template = $this->trackTemplate(PraxisFormTemplate::create([
+        $template = $this->trackTemplate($this->onAdmin(fn () => PraxisFormTemplate::create([
             'title' => 'E2E Formular',
             'min_progress_percent' => 50,
             'course_ids' => [$course->id],
             'fields' => [],
             'active' => true,
-        ]));
+        ])));
 
         $response = $this->actingAs($superadmin)->patch("/superadmin/praxis-form-templates/{$template->id}", [
             'title' => 'E2E Formular (aktualisiert)',
@@ -196,13 +196,13 @@ class PraxisFormTemplateTest extends TestCase
     public function test_superadmin_can_toggle_and_delete_a_template(): void
     {
         $superadmin = $this->createSuperAdmin();
-        $template = $this->trackTemplate(PraxisFormTemplate::create([
+        $template = $this->trackTemplate($this->onAdmin(fn () => PraxisFormTemplate::create([
             'title' => 'E2E Formular',
             'min_progress_percent' => 50,
             'course_ids' => [],
             'fields' => [],
             'active' => true,
-        ]));
+        ])));
 
         $this->actingAs($superadmin)->post("/superadmin/praxis-form-templates/{$template->id}/toggle-active")->assertRedirect();
         $this->assertDatabaseHas('praxis_form_template', ['id' => $template->id, 'active' => false]);

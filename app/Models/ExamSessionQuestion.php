@@ -2,12 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use App\Models\Concerns\HasCompositePrimaryKey;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ExamSessionQuestion extends Model
 {
+    use BelongsToTenant;
     use HasCompositePrimaryKey;
 
     protected $table = 'exam_session_question';
@@ -19,7 +21,7 @@ class ExamSessionQuestion extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'exam_session_id', 'question_id', 'revision_id', 'position',
+        'tenant_id', 'exam_session_id', 'question_id', 'revision_id', 'position',
         'selected_answer_id', 'selected_answer_ids', 'self_assessed_known', 'correct', 'answered_at',
     ];
 
