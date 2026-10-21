@@ -277,6 +277,9 @@
                                             @if (! empty($submission->data[$field['key'].'_pruefungsausschuss_adresse']))
                                                 <span class="block text-xs text-slate-400 font-normal">{{ $submission->data[$field['key'].'_pruefungsausschuss_adresse'] }}</span>
                                             @endif
+                                            @if (! empty($submission->data[$field['key'].'_pruefungsausschuss_kurse']))
+                                                <span class="block text-xs text-slate-400 font-normal">Zuständig für: {{ $submission->data[$field['key'].'_pruefungsausschuss_kurse'] }}</span>
+                                            @endif
                                         </dd>
                                     </div>
                                 @endif

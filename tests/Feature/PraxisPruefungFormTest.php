@@ -601,12 +601,14 @@ class PraxisPruefungFormTest extends TestCase
             $submission = PraxisFormSubmission::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->where('course_id', $course->id)->first();
             $this->assertSame('Prüfungsausschuss Testregion — Geschäftsstelle', $submission->data['ort_pruefungsausschuss']);
             $this->assertSame('Ausschussweg 9, 44444 Ausschussstadt', $submission->data['ort_pruefungsausschuss_adresse']);
+            $this->assertSame('Test-Kurs für Praxis & Prüfung', $submission->data['ort_pruefungsausschuss_kurse']);
         });
 
         $follow = $this->actingAsInTenant($learner, $tenant)->get(route('praxis-pruefung.index', $course));
         $follow->assertOk();
         $follow->assertSee('Prüfungsausschuss Testregion — Geschäftsstelle');
         $follow->assertSee('Ausschussweg 9, 44444 Ausschussstadt');
+        $follow->assertSee('Zuständig für: Test-Kurs für Praxis & Prüfung');
     }
 
     public function test_submission_omits_pruefungsausschuss_fields_when_not_assigned(): void

@@ -64,7 +64,7 @@ class PraxisFormSubmissionController extends Controller
             ->get();
 
         $validated = $request->validate($this->rulesFor($template, $locations));
-        $data = $this->resolveLocationFields($template, $locations, $validated);
+        $data = $this->resolveLocationFields($template, $locations, $validated, $this->allCourses());
 
         PraxisFormSubmission::create([
             'tenant_id' => $tenant->id,
@@ -115,9 +115,10 @@ class PraxisFormSubmissionController extends Controller
      *
      * @param  Collection<int, TenantCourseLocation>  $locations
      * @param  array<string, mixed>  $validated
+     * @param  Collection<int, CourseDefinition>  $allCourses
      * @return array<string, mixed>
      */
-    private function resolveLocationFields(PraxisFormTemplate $template, Collection $locations, array $validated): array
+    private function resolveLocationFields(PraxisFormTemplate $template, Collection $locations, array $validated, Collection $allCourses): array
     {
         $data = $validated;
 
@@ -137,6 +138,15 @@ class PraxisFormSubmissionController extends Controller
                 if ($location->pruefungsausschuss) {
                     $data[$field['key'].'_pruefungsausschuss'] = $location->pruefungsausschuss->label();
                     $data[$field['key'].'_pruefungsausschuss_adresse'] = $location->pruefungsausschuss->adresse();
+
+                    $kurse = collect($location->pruefungsausschuss->course_ids ?? [])
+                        ->map(fn ($id) => $allCourses->firstWhere('id', $id)?->name)
+                        ->filter()
+                        ->values();
+
+                    if ($kurse->isNotEmpty()) {
+                        $data[$field['key'].'_pruefungsausschuss_kurse'] = $kurse->implode(', ');
+                    }
                 }
 
                 if ($location->hasTheorieOrt()) {
@@ -147,5 +157,11 @@ class PraxisFormSubmissionController extends Controller
         }
 
         return $data;
+    }
+
+    /** Globaler Kurskatalog zur Auflösung der course_ids eines Prüfungsausschusses in lesbare Namen. */
+    private function allCourses(): Collection
+    {
+        return CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')->get(['id', 'name']);
     }
 }
