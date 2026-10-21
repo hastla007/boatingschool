@@ -60,6 +60,7 @@ class PraxisFormSubmissionController extends Controller
 
         $locations = TenantCourseLocation::where('tenant_id', $tenant->id)
             ->whereJsonContains('course_ids', $course->id)
+            ->with('pruefungsausschuss')
             ->get();
 
         $validated = $request->validate($this->rulesFor($template, $locations));
@@ -132,6 +133,11 @@ class PraxisFormSubmissionController extends Controller
                 $data[$field['key'].'_adresse'] = $location->praxisAdresse();
                 $data[$field['key'].'_pruefungsort'] = $location->pruefung_ort;
                 $data[$field['key'].'_pruefungsort_adresse'] = $location->pruefungAdresse();
+
+                if ($location->pruefungsausschuss) {
+                    $data[$field['key'].'_pruefungsausschuss'] = $location->pruefungsausschuss->label();
+                    $data[$field['key'].'_pruefungsausschuss_adresse'] = $location->pruefungsausschuss->adresse();
+                }
 
                 if ($location->hasTheorieOrt()) {
                     $data[$field['key'].'_theorieort'] = $location->theorie_ort;

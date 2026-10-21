@@ -80,6 +80,17 @@
                                     <dd class="text-slate-800 dark:text-slate-200 font-medium">{{ $submission->data[$field['key'].'_pruefungsort_adresse'] }}</dd>
                                 </div>
                             @endif
+                            @if (! empty($submission->data[$field['key'].'_pruefungsausschuss']))
+                                <div class="py-2.5 grid grid-cols-2 gap-4 text-sm">
+                                    <dt class="text-slate-500 dark:text-slate-400">Prüfungskommission</dt>
+                                    <dd class="text-slate-800 dark:text-slate-200 font-medium">
+                                        {{ $submission->data[$field['key'].'_pruefungsausschuss'] }}
+                                        @if (! empty($submission->data[$field['key'].'_pruefungsausschuss_adresse']))
+                                            <span class="block text-xs text-slate-400 font-normal">{{ $submission->data[$field['key'].'_pruefungsausschuss_adresse'] }}</span>
+                                        @endif
+                                    </dd>
+                                </div>
+                            @endif
                             @if (! empty($submission->data[$field['key'].'_theorieort']))
                                 <div class="py-2.5 grid grid-cols-2 gap-4 text-sm">
                                     <dt class="text-slate-500 dark:text-slate-400">Theorieort</dt>

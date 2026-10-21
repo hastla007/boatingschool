@@ -9,6 +9,7 @@ use App\Models\Module;
 use App\Models\PraxisFormSubmission;
 use App\Models\PraxisFormTemplate;
 use App\Models\Progress;
+use App\Models\Pruefungsausschuss;
 use App\Models\TenantAddon;
 use App\Models\TenantCourseLocation;
 use Tests\Feature\Concerns\InteractsWithTenants;
@@ -558,6 +559,86 @@ class PraxisPruefungFormTest extends TestCase
             $submission = PraxisFormSubmission::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->where('course_id', $course->id)->first();
             $this->assertArrayNotHasKey('ort_theorieort', $submission->data);
             $this->assertArrayNotHasKey('ort_theorieort_adresse', $submission->data);
+        });
+    }
+
+    public function test_submission_stores_and_shows_the_assigned_pruefungsausschuss_when_present(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course] = $this->makeIsolatedCourseWithQuestions(2);
+        $this->grantEntitlement($tenant, $learner, $course);
+        $this->completeRegistrationProfile($learner);
+        $this->masterAllQuestions($tenant, $learner, $course);
+        $this->createTemplate([
+            'course_ids' => [$course->id],
+            'min_progress_percent' => 10,
+            'fields' => [
+                ['key' => 'ort', 'label' => 'Ort', 'type' => 'location', 'required' => true, 'options' => [], 'help_text' => null],
+            ],
+        ]);
+        $pruefungsausschuss = $this->onAdmin(fn () => Pruefungsausschuss::create([
+            'kommission' => 'Prüfungsausschuss Testregion',
+            'standorttyp' => 'Geschäftsstelle',
+            'strasse' => 'Ausschussweg 9',
+            'plz' => '44444',
+            'stadt' => 'Ausschussstadt',
+            'course_ids' => [$course->id],
+        ]));
+        $location = $this->onAdmin(fn () => TenantCourseLocation::create([
+            'tenant_id' => $tenant->id,
+            'praxis_ort' => 'Standort Nord',
+            'pruefung_ort' => 'Prüfstelle Süd',
+            'pruefungsausschuss_id' => $pruefungsausschuss->id,
+            'course_ids' => [$course->id],
+        ]));
+
+        $this->actingAsInTenant($learner, $tenant)->post(route('praxis-pruefung.store', $course), [
+            'ort' => $location->id,
+        ])->assertRedirect(route('praxis-pruefung.index', $course));
+
+        $this->onAdmin(function () use ($tenant, $learner, $course) {
+            $submission = PraxisFormSubmission::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->where('course_id', $course->id)->first();
+            $this->assertSame('Prüfungsausschuss Testregion — Geschäftsstelle', $submission->data['ort_pruefungsausschuss']);
+            $this->assertSame('Ausschussweg 9, 44444 Ausschussstadt', $submission->data['ort_pruefungsausschuss_adresse']);
+        });
+
+        $follow = $this->actingAsInTenant($learner, $tenant)->get(route('praxis-pruefung.index', $course));
+        $follow->assertOk();
+        $follow->assertSee('Prüfungsausschuss Testregion — Geschäftsstelle');
+        $follow->assertSee('Ausschussweg 9, 44444 Ausschussstadt');
+    }
+
+    public function test_submission_omits_pruefungsausschuss_fields_when_not_assigned(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course] = $this->makeIsolatedCourseWithQuestions(2);
+        $this->grantEntitlement($tenant, $learner, $course);
+        $this->completeRegistrationProfile($learner);
+        $this->masterAllQuestions($tenant, $learner, $course);
+        $this->createTemplate([
+            'course_ids' => [$course->id],
+            'min_progress_percent' => 10,
+            'fields' => [
+                ['key' => 'ort', 'label' => 'Ort', 'type' => 'location', 'required' => true, 'options' => [], 'help_text' => null],
+            ],
+        ]);
+        $location = $this->onAdmin(fn () => TenantCourseLocation::create([
+            'tenant_id' => $tenant->id,
+            'praxis_ort' => 'Standort Nord',
+            'pruefung_ort' => 'Prüfstelle Süd',
+            'course_ids' => [$course->id],
+        ]));
+
+        $this->actingAsInTenant($learner, $tenant)->post(route('praxis-pruefung.store', $course), [
+            'ort' => $location->id,
+        ])->assertRedirect(route('praxis-pruefung.index', $course));
+
+        $this->onAdmin(function () use ($tenant, $learner, $course) {
+            $submission = PraxisFormSubmission::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->where('course_id', $course->id)->first();
+            $this->assertArrayNotHasKey('ort_pruefungsausschuss', $submission->data);
+            $this->assertArrayNotHasKey('ort_pruefungsausschuss_adresse', $submission->data);
         });
     }
 
