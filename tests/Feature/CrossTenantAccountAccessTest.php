@@ -33,8 +33,8 @@ class CrossTenantAccountAccessTest extends TestCase
         $response = $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/register', [
             'name' => 'Angreifer',
             'email' => $existing->email,
-            'password' => 'password',
-            'password_confirmation' => 'password',
+            'password' => 'password1234',
+            'password_confirmation' => 'password1234',
         ]);
 
         $response->assertSessionDoesntHaveErrors('email');
@@ -50,8 +50,8 @@ class CrossTenantAccountAccessTest extends TestCase
         $response = $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/register', [
             'name' => 'Neuer Nutzer',
             'email' => $email,
-            'password' => 'password',
-            'password_confirmation' => 'password',
+            'password' => 'password1234',
+            'password_confirmation' => 'password1234',
         ]);
 
         $response->assertRedirect(route('dashboard', absolute: false));

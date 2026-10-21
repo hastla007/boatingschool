@@ -8,6 +8,7 @@ use Illuminate\Auth\Listeners\SendEmailVerificationNotification;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Validation\Rules\Password;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -31,6 +32,23 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(Registered::class, SendEmailVerificationNotification::class);
 
         $this->registerUuidRoutePatterns();
+        $this->configurePasswordPolicy();
+    }
+
+    /**
+     * Sicherheitsreview N3: ohne eigene Password::defaults() griff nur
+     * Laravels eingebauter Minimalstandard (8 Zeichen, sonst ungeprüft).
+     * uncompromised() ruft die HIBP-API live auf -- in local/testing bewusst
+     * ausgelassen, damit Tests (u. a. Registrierung/Passwort-Reset) nicht von
+     * einem externen Netzwerkaufruf abhängen.
+     */
+    private function configurePasswordPolicy(): void
+    {
+        Password::defaults(function () {
+            $rule = Password::min(10);
+
+            return app()->environment('local', 'testing') ? $rule : $rule->uncompromised();
+        });
     }
 
     /**
