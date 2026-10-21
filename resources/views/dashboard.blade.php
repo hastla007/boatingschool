@@ -19,16 +19,41 @@
                 @foreach ($courses as $courseSummary)
                     <div>
                         <h2 class="font-semibold text-slate-700 dark:text-slate-200 mb-3">{{ $courseSummary['course']->name }}</h2>
-                        <a href="{{ route('learning.show', $courseSummary['course']) }}"
+                        {{-- Der Banner führt je nach Kursfortschritt zum nächsten sinnvollen
+                             Schritt: erst Videokurs, dann Smarttrainer, ab hoher Mastery-Quote
+                             die Prüfungssimulation (siehe DashboardController::$bannerMode). --}}
+                        @php
+                            $banner = match ($courseSummary['banner_mode']) {
+                                'video' => [
+                                    'href' => route('video.index', $courseSummary['course']),
+                                    'icon' => 'play',
+                                    'title' => 'Videokurs ansehen',
+                                    'subtitle' => $courseSummary['course']->name.' &middot; Starte mit den Lernvideos',
+                                ],
+                                'exam' => [
+                                    'href' => route('exam.intro', $courseSummary['course']),
+                                    'icon' => 'clipboard-document-check',
+                                    'title' => 'Prüfungsaufgaben',
+                                    'subtitle' => $courseSummary['course']->name.' &middot; Teste dich in der Prüfungssimulation',
+                                ],
+                                default => [
+                                    'href' => route('learning.show', $courseSummary['course']),
+                                    'icon' => 'bolt',
+                                    'title' => 'Weiterlernen',
+                                    'subtitle' => $courseSummary['course']->name.' &middot; Smarttrainer wählt die nächste Frage für dich',
+                                ],
+                            };
+                        @endphp
+                        <a href="{{ $banner['href'] }}"
                            class="flex items-center justify-between rounded-2xl p-5 text-white shadow-sm hover:opacity-95 transition mb-3"
                            style="background: linear-gradient(120deg, var(--brand-primary, #005FD7), color-mix(in srgb, var(--brand-primary, #005FD7) 65%, #001233));">
                             <div class="flex items-center gap-4">
                                 <div class="w-11 h-11 rounded-xl bg-white/15 flex items-center justify-center shrink-0">
-                                    <x-icon name="bolt" class="w-6 h-6" />
+                                    <x-icon :name="$banner['icon']" class="w-6 h-6" />
                                 </div>
                                 <div>
-                                    <div class="font-semibold text-lg">Weiterlernen</div>
-                                    <div class="text-white/80 text-sm">{{ $courseSummary['course']->name }} &middot; Smarttrainer wählt die nächste Frage für dich</div>
+                                    <div class="font-semibold text-lg">{{ $banner['title'] }}</div>
+                                    <div class="text-white/80 text-sm">{!! $banner['subtitle'] !!}</div>
                                 </div>
                             </div>
                             <x-icon name="arrow-right" class="w-6 h-6 shrink-0" />

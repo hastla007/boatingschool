@@ -2,6 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\Progress;
+use App\Models\VideoProgress;
+use App\Support\VideoCourseLessons;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -70,5 +73,92 @@ class DashboardTest extends TestCase
         $response->assertOk();
         $response->assertDontSee('Fortschritt & Statistiken');
         $response->assertDontSee('Favoriten & Fehler');
+    }
+
+    public function test_banner_offers_the_video_course_while_its_lessons_are_not_yet_all_watched(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('FKN');
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get('/dashboard');
+
+        $response->assertOk();
+        $response->assertSee('Videokurs ansehen');
+        $response->assertSee(route('video.index', $course));
+        $response->assertDontSee('Smarttrainer wählt die nächste Frage für dich');
+    }
+
+    public function test_banner_offers_the_smarttrainer_once_all_video_lessons_are_watched(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('FKN');
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $this->onAdmin(function () use ($tenant, $learner, $course) {
+            foreach (VideoCourseLessons::ordered($course) as $lesson) {
+                VideoProgress::create([
+                    'tenant_id' => $tenant->id,
+                    'user_id' => $learner->id,
+                    'video_lesson_id' => $lesson->id,
+                    'completed' => true,
+                    'updated_at' => now(),
+                ]);
+            }
+        });
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get('/dashboard');
+
+        $response->assertOk();
+        $response->assertSee('Weiterlernen');
+        $response->assertSee(route('learning.show', $course));
+        $response->assertDontSee('Videokurs ansehen');
+    }
+
+    public function test_banner_offers_the_exam_once_mastery_is_above_90_percent(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('FKN');
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $this->onAdmin(function () use ($tenant, $learner, $course) {
+            foreach (VideoCourseLessons::ordered($course) as $lesson) {
+                VideoProgress::create([
+                    'tenant_id' => $tenant->id,
+                    'user_id' => $learner->id,
+                    'video_lesson_id' => $lesson->id,
+                    'completed' => true,
+                    'updated_at' => now(),
+                ]);
+            }
+
+            $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id')->unique();
+            foreach ($questionIds as $questionId) {
+                Progress::create([
+                    'tenant_id' => $tenant->id,
+                    'user_id' => $learner->id,
+                    'question_id' => $questionId,
+                    'attempt_count' => 3,
+                    'correct_count' => 3,
+                    'incorrect_count' => 0,
+                    'current_streak' => 3,
+                    'mastery_score' => 1,
+                    'learning_state' => 'gefestigt',
+                    'first_seen_at' => now(),
+                    'last_seen_at' => now(),
+                    'last_correct_at' => now(),
+                ]);
+            }
+        });
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get('/dashboard');
+
+        $response->assertOk();
+        $response->assertSee('Prüfungsaufgaben');
+        $response->assertSee(route('exam.intro', $course));
+        $response->assertDontSee('Smarttrainer wählt die nächste Frage für dich');
     }
 }
