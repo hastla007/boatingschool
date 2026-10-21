@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\CourseSelectionController;
 use App\Http\Controllers\Admin\EntitlementController;
 use App\Http\Controllers\Admin\ParticipantController;
 use App\Http\Controllers\Admin\PraxisExamAppointmentController as AdminPraxisExamAppointmentController;
+use App\Http\Controllers\Admin\PraxisFormSubmissionController as AdminPraxisFormSubmissionController;
 use App\Http\Controllers\Admin\SupportEmailVerificationController;
 use App\Http\Controllers\Admin\TenantCourseLocationController;
 use App\Http\Controllers\Admin\WillkommensboxLabelController;
@@ -129,6 +130,7 @@ Route::middleware(['auth', 'tenant.role:owner,admin,instructor'])->prefix('admin
     Route::post('/coupons/import', [AdminCouponController::class, 'import'])->name('coupons.import');
     Route::post('/coupons/{coupon}/assign', [AdminCouponController::class, 'assign'])->name('coupons.assign');
 
+    Route::get('/praxis-form-submissions/{submission}', [AdminPraxisFormSubmissionController::class, 'show'])->name('praxis-form-submissions.show');
     Route::post('/praxis-form-submissions/{submission}/exam-appointments', [AdminPraxisExamAppointmentController::class, 'store'])->name('praxis-form-submissions.exam-appointments.store');
 
     Route::patch('/willkommensbox-orders/{willkommensboxOrder}/ship', [WillkommensboxOrderController::class, 'ship'])->name('willkommensbox-orders.ship');

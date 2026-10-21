@@ -54,7 +54,7 @@ class PraxisAnmeldungenTabTest extends TestCase
             return $template;
         });
 
-        $this->onAdmin(fn () => PraxisFormSubmission::create([
+        $submission = $this->onAdmin(fn () => PraxisFormSubmission::create([
             'tenant_id' => $tenant->id,
             'course_id' => $course->id,
             'user_id' => $learner->id,
@@ -67,7 +67,91 @@ class PraxisAnmeldungenTabTest extends TestCase
         $response->assertOk();
         $response->assertSee('E2E Lerner');
         $response->assertSee('E2E Formular');
-        $response->assertSee('+49 170 1234567');
+
+        $detail = $this->actingAsInTenant($admin, $tenant)->get(route('admin.praxis-form-submissions.show', $submission));
+        $detail->assertOk();
+        $detail->assertSee('E2E Lerner');
+        $detail->assertSee('+49 170 1234567');
+    }
+
+    public function test_search_filters_submissions_by_name(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $match = $this->createTenantUser($tenant, 'learner', ['display_name' => 'Findbar Franz']);
+        $noMatch = $this->createTenantUser($tenant, 'learner', ['display_name' => 'Anderer Anton']);
+        $course = $this->existingCourse('SRC');
+
+        $template = $this->onAdmin(function () {
+            $template = PraxisFormTemplate::create([
+                'title' => 'E2E Formular',
+                'min_progress_percent' => 0,
+                'course_ids' => [],
+                'fields' => [],
+                'active' => true,
+            ]);
+            $this->createdTemplateIds[] = $template->id;
+
+            return $template;
+        });
+
+        [$matchSubmission, $noMatchSubmission] = $this->onAdmin(function () use ($tenant, $match, $noMatch, $course, $template) {
+            $matchSubmission = PraxisFormSubmission::create([
+                'tenant_id' => $tenant->id, 'course_id' => $course->id, 'user_id' => $match->id,
+                'praxis_form_template_id' => $template->id, 'data' => [],
+            ]);
+            $noMatchSubmission = PraxisFormSubmission::create([
+                'tenant_id' => $tenant->id, 'course_id' => $course->id, 'user_id' => $noMatch->id,
+                'praxis_form_template_id' => $template->id, 'data' => [],
+            ]);
+
+            return [$matchSubmission, $noMatchSubmission];
+        });
+
+        $response = $this->actingAsInTenant($admin, $tenant)->get('/admin?tab=praxis-anmeldungen&anmeldung_search=Findbar');
+
+        // Beide Lernernamen tauchen im übrigen Dashboard (z. B. Teilnehmer-
+        // Tab) ohnehin auf, da alle Tabs serverseitig gerendert und nur per
+        // Alpine ein-/ausgeblendet werden -- daher hier über den eindeutigen
+        // Detail-Link (enthält die Submission-UUID) statt über den Namen
+        // geprüft, ob der Filter tatsächlich wirkt.
+        $response->assertOk();
+        $response->assertSee(route('admin.praxis-form-submissions.show', $matchSubmission));
+        $response->assertDontSee(route('admin.praxis-form-submissions.show', $noMatchSubmission));
+    }
+
+    public function test_admin_cannot_view_submission_detail_of_other_tenant(): void
+    {
+        $tenantA = $this->createTestTenant();
+        $tenantB = $this->createTestTenant();
+        $adminB = $this->createTenantUser($tenantB, 'owner');
+        $learnerA = $this->createTenantUser($tenantA, 'learner');
+        $course = $this->existingCourse('SRC');
+
+        $template = $this->onAdmin(function () {
+            $template = PraxisFormTemplate::create([
+                'title' => 'E2E Formular',
+                'min_progress_percent' => 0,
+                'course_ids' => [],
+                'fields' => [],
+                'active' => true,
+            ]);
+            $this->createdTemplateIds[] = $template->id;
+
+            return $template;
+        });
+
+        $submission = $this->onAdmin(fn () => PraxisFormSubmission::create([
+            'tenant_id' => $tenantA->id,
+            'course_id' => $course->id,
+            'user_id' => $learnerA->id,
+            'praxis_form_template_id' => $template->id,
+            'data' => [],
+        ]));
+
+        $this->actingAsInTenant($adminB, $tenantB)
+            ->get(route('admin.praxis-form-submissions.show', $submission))
+            ->assertNotFound();
     }
 
     public function test_admin_does_not_see_submissions_of_other_tenants(): void

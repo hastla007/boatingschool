@@ -238,13 +238,24 @@ class AdminDashboardController extends Controller
 
         $coursePromoBanners = CoursePromoBanner::where('tenant_id', $tenant->id)->orderBy('created_at')->get();
 
-        $praxisFormSubmissions = PraxisFormSubmission::where('tenant_id', $tenant->id)
-            ->with(['user', 'course', 'template'])
-            ->orderByDesc('created_at')
-            ->get();
-
         $tenantCourseLocations = TenantCourseLocation::where('tenant_id', $tenant->id)->with('pruefungsausschuss')->orderBy('sort_order')->get();
         $pruefungsausschuesse = Pruefungsausschuss::orderBy('sort_order')->get();
+
+        $anmeldungFilters = $request->only(['anmeldung_search', 'anmeldung_course']);
+
+        $praxisFormSubmissions = PraxisFormSubmission::where('tenant_id', $tenant->id)
+            ->with(['user', 'course', 'template'])
+            ->when(trim((string) ($anmeldungFilters['anmeldung_search'] ?? '')) !== '', function ($q) use ($anmeldungFilters) {
+                $term = '%'.trim($anmeldungFilters['anmeldung_search']).'%';
+                $q->where(function ($q2) use ($term) {
+                    $q2->whereHas('user', fn ($q3) => $q3->where('display_name', 'ilike', $term)->orWhere('email', 'ilike', $term))
+                        ->orWhereHas('course', fn ($q3) => $q3->where('name', 'ilike', $term));
+                });
+            })
+            ->when(($anmeldungFilters['anmeldung_course'] ?? '') !== '', fn ($q) => $q->where('course_id', $anmeldungFilters['anmeldung_course']))
+            ->orderByDesc('created_at')
+            ->paginate(20)
+            ->withQueryString();
 
         $disabledCourseIds = TenantCourseDisabled::where('tenant_id', $tenant->id)->pluck('course_id');
 
@@ -326,6 +337,7 @@ class AdminDashboardController extends Controller
             'praxisFormSubmissions' => $praxisFormSubmissions,
             'tenantCourseLocations' => $tenantCourseLocations,
             'pruefungsausschuesse' => $pruefungsausschuesse,
+            'anmeldungFilters' => $anmeldungFilters,
             'disabledCourseIds' => $disabledCourseIds,
             'coupons' => $coupons,
             'couponSummary' => $couponSummary,
