@@ -18,11 +18,11 @@ class DashboardController extends Controller
         $courses = $entitlements->activeCourses($tenant, $user);
 
         $progressStats = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get();
-        $totalAttempts = $progressStats->sum('attempt_count');
-        $totalCorrect = $progressStats->sum('correct_count');
-        $totalIncorrect = $progressStats->sum('incorrect_count');
-        $dueReviews = $progressStats->where('next_review_at', '<=', now())->where('current_streak', '>', 0)->count();
 
+        // Jeder gebuchte Kurs bekommt auf dem Dashboard eine eigene Karte
+        // (siehe dashboard.blade.php) -- daher hier je Kurs die vollen
+        // Statistiken statt nur des einen "aktivsten" Kurses, den es vor
+        // Einführung mehrerer Kurskarten gab.
         $courseSummaries = $courses->map(function ($course) use ($progressStats) {
             $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id')->unique();
             $courseProgress = $progressStats->whereIn('question_id', $questionIds);
@@ -35,15 +35,15 @@ class DashboardController extends Controller
                 'answered' => $courseProgress->where('attempt_count', '>', 0)->count(),
                 'mastered' => $mastered,
                 'percent' => (int) round(($mastered / $total) * 100),
+                'correct' => $courseProgress->sum('correct_count'),
+                'incorrect' => $courseProgress->sum('incorrect_count'),
+                'attempts' => $courseProgress->sum('attempt_count'),
+                'due_reviews' => $courseProgress->where('next_review_at', '<=', now())->where('current_streak', '>', 0)->count(),
             ];
         });
 
         return view('dashboard', [
             'courses' => $courseSummaries,
-            'totalAttempts' => $totalAttempts,
-            'totalCorrect' => $totalCorrect,
-            'totalIncorrect' => $totalIncorrect,
-            'dueReviews' => $dueReviews,
         ]);
     }
 }

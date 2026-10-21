@@ -38,6 +38,24 @@ class DashboardTest extends TestCase
         $response->assertSee(route('favorites.smart-learning', $course));
     }
 
+    public function test_dashboard_shows_tiles_for_every_entitled_course(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $courseA = $this->existingCourse('SRC');
+        $courseB = $this->existingCourse('UBI');
+        $this->grantEntitlement($tenant, $learner, $courseA);
+        $this->grantEntitlement($tenant, $learner, $courseB);
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get('/dashboard');
+
+        $response->assertOk();
+        $response->assertSee(route('progress.show', $courseA));
+        $response->assertSee(route('favorites.smart-learning', $courseA));
+        $response->assertSee(route('progress.show', $courseB));
+        $response->assertSee(route('favorites.smart-learning', $courseB));
+    }
+
     public function test_dashboard_without_any_course_shows_no_tiles(): void
     {
         $tenant = $this->createTestTenant();
