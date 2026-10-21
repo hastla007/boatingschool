@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\CourseDefinition;
 use App\Models\Entitlement;
+use App\Models\TenantUser;
 use App\Models\User;
+use App\Services\EntitlementService;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -18,7 +20,7 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class EntitlementController extends Controller
 {
-    public function store(Request $request, TenantContext $tenantContext): Response
+    public function store(Request $request, TenantContext $tenantContext, EntitlementService $entitlements): Response
     {
         $tenant = $tenantContext->tenant();
 
@@ -30,6 +32,14 @@ class EntitlementController extends Controller
 
         $user = User::findOrFail($validated['user_id']);
         $course = CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')->findOrFail($validated['course_id']);
+
+        // Sicherheitsreview M3: ohne diese beiden Prüfungen ließ sich eine
+        // beliebige User-UUID (z. B. aus einer anderen Bootsschule) als
+        // Teilnehmer dieser Bootsschule freischalten, und ein sitewide oder
+        // mandantenseitig deaktivierter Kurs trotzdem freischalten.
+        $isMember = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $user->id)->exists();
+        abort_unless($isMember, 404, 'Dieser Nutzer gehört nicht zu eurer Bootsschule.');
+        abort_unless($entitlements->isOfferable($tenant, $course), 404, 'Dieser Kurs ist für eure Bootsschule nicht verfügbar.');
 
         $entitlement = Entitlement::create([
             'tenant_id' => $tenant->id,

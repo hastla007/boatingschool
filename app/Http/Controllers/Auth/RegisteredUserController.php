@@ -28,14 +28,26 @@ class RegisteredUserController extends Controller
      */
     public function store(Request $request, TenantContext $tenantContext): RedirectResponse
     {
+        // Kein "unique"-Regelverstoß mehr auf dem email-Feld (Sicherheitsreview
+        // M3): Laravels Standardmeldung "wurde bereits vergeben" bestätigt
+        // sonst platformweit, ob eine Adresse irgendwo existiert, auf jeder
+        // beliebigen Bootsschul-Subdomain. Der Duplikat-Fall unten bekommt
+        // stattdessen eine neutrale Meldung statt eines Feld-Fehlers.
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:app_user,email'],
+            'email' => ['required', 'string', 'lowercase', 'email', 'max:255'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
         $tenant = $tenantContext->tenant();
         abort_if(! $tenant, 400, 'Registrierung erfordert eine gültige Bootsschul-Domain.');
+
+        if (User::where('email', $request->email)->exists()) {
+            return back()->withInput($request->except('password', 'password_confirmation'))->with(
+                'status',
+                'Falls diese E-Mail-Adresse bereits bei uns registriert ist, melde dich stattdessen an oder setze dein Passwort zurück. Andernfalls prüfe bitte die Schreibweise und versuche es erneut.'
+            );
+        }
 
         $user = DB::transaction(function () use ($request, $tenant) {
             $user = User::create([
