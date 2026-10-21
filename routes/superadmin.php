@@ -7,6 +7,7 @@ use App\Http\Controllers\Superadmin\DashboardController;
 use App\Http\Controllers\Superadmin\ModuleController;
 use App\Http\Controllers\Superadmin\PraxisFormTemplateController;
 use App\Http\Controllers\Superadmin\ProductController;
+use App\Http\Controllers\Superadmin\PruefungsausschussController;
 use App\Http\Controllers\Superadmin\QuestionController;
 use App\Http\Controllers\Superadmin\SettingsController;
 use App\Http\Controllers\Superadmin\TenantController;
@@ -99,4 +100,11 @@ Route::middleware(['auth', 'superadmin', 'admin-db'])->prefix('superadmin')->nam
     Route::patch('/praxis-form-templates/{praxisFormTemplate}', [PraxisFormTemplateController::class, 'update'])->name('praxis-form-templates.update');
     Route::post('/praxis-form-templates/{praxisFormTemplate}/toggle-active', [PraxisFormTemplateController::class, 'toggleActive'])->name('praxis-form-templates.toggle-active');
     Route::delete('/praxis-form-templates/{praxisFormTemplate}', [PraxisFormTemplateController::class, 'destroy'])->name('praxis-form-templates.destroy');
+
+    Route::get('/pruefungsausschuesse', [PruefungsausschussController::class, 'index'])->name('pruefungsausschuesse.index');
+    Route::get('/pruefungsausschuesse/create', [PruefungsausschussController::class, 'create'])->name('pruefungsausschuesse.create');
+    Route::post('/pruefungsausschuesse', [PruefungsausschussController::class, 'store'])->name('pruefungsausschuesse.store');
+    Route::get('/pruefungsausschuesse/{pruefungsausschuss}/edit', [PruefungsausschussController::class, 'edit'])->name('pruefungsausschuesse.edit');
+    Route::patch('/pruefungsausschuesse/{pruefungsausschuss}', [PruefungsausschussController::class, 'update'])->name('pruefungsausschuesse.update');
+    Route::delete('/pruefungsausschuesse/{pruefungsausschuss}', [PruefungsausschussController::class, 'destroy'])->name('pruefungsausschuesse.destroy');
 });

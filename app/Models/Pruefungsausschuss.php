@@ -6,15 +6,22 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Fest definierte Prüfungsausschuss-Adresse (siehe DMYV-Liste), platt-
- * formweit gültig -- keine Tenant-Bindung, keine RLS, nur lesend für die
- * Bootsschule (siehe tenant_course_location.pruefungsausschuss_id).
+ * Prüfungsausschuss-Adresse (ursprünglich aus der DMYV-Liste importiert,
+ * siehe PruefungsausschussSeeder), plattformweit gültig -- keine
+ * Tenant-Bindung, keine RLS. Im Superadmin verwaltet (Superadmin\
+ * PruefungsausschussController), für die Bootsschule nur lesend als
+ * Auswahl je Praxisort (siehe tenant_course_location.pruefungsausschuss_id).
  */
 class Pruefungsausschuss extends Model
 {
     use HasUuids;
 
     protected $table = 'pruefungsausschuss';
+
+    protected $fillable = [
+        'kommission', 'standorttyp', 'kontaktperson', 'strasse', 'plz', 'stadt',
+        'telefon', 'fax', 'email', 'website', 'sprechzeiten', 'hinweis', 'quelle', 'sort_order',
+    ];
 
     /** "Kommission — Standorttyp" oder nur "Kommission", wenn kein Standorttyp gepflegt ist. */
     public function label(): string
