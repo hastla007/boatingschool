@@ -23,6 +23,18 @@ auf PostgreSQL, gemäß dem mitgelieferten technischen Konzept
   Ausnahme). Migrations, Seeder und der Content-Import laufen bewusst über
   die Owner-Rolle `boatingschool` (`--database=pgsql_admin`) und umgehen RLS
   absichtlich, weil sie administrative Vorgänge sind.
+- **Connection-Pooling und RLS**: `TenantContext::set()`/`clear()` setzt den
+  Mandanten pro Request per `SET app.current_tenant_id = ...` auf der
+  jeweiligen Datenbankverbindung (Sicherheitsreview M5). Das funktioniert
+  nur zuverlässig, solange eine Verbindung für die Dauer eines Requests
+  demselben Client zugeordnet bleibt. Ein vorgeschalteter Connection-Pooler
+  (z. B. PgBouncer) **muss deshalb im Session-Modus betrieben werden**
+  (`pool_mode = session`), niemals im Transaction- oder Statement-Modus –
+  sonst könnte eine einzelne Anfrage mehrere, voneinander unabhängige
+  physische Backends durchlaufen, auf denen die GUC nicht (oder noch vom
+  vorherigen Client) gesetzt ist, was RLS aushebeln oder Daten eines
+  anderen Mandanten anzeigen könnte. Ohne Pooler (direkte Verbindungen,
+  wie im lokalen Setup) besteht dieses Risiko nicht.
 - **Content-Modell**: `content_question` ist die stabile fachliche Identität,
   jede Textänderung erzeugt eine neue `content_question_revision`. Attempts
   speichern sowohl die stabile Frage als auch die tatsächlich gezeigte
