@@ -52,12 +52,19 @@ class ExamRuleSetSeeder extends Seeder
 
         $courses = CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')->get();
 
-        // ADD-SEE-TO-BIN ("Ergänzung See → Binnen"): laut Prüfungsordnung
-        // entfallen für Inhaber eines SBF See die 7 Basisfragen, sodass nur
-        // die 23 Binnen-spezifischen Fragen geprüft werden. Dieses
-        // Regelwerk ist deshalb -- wie SBF-SEE -- fachlich verifiziert und
-        // nicht nur ein generischer Platzhalter.
-        $verifiedCourses = ['SBF-SEE', 'SBF-BIN-MOTOR', 'SBF-SEE-BIN', 'ADD-SEE-TO-BIN', 'ADD-BIN-TO-SEE', 'SBF-BIN-SEGEL', 'ADD-BIN-SEGEL', 'SRC', 'FKN'];
+        // Bug-Review B5: SBF-SEE, SBF-BIN-MOTOR, SBF-SEE-BIN, ADD-SEE-TO-BIN,
+        // ADD-BIN-TO-SEE und SBF-BIN-SEGEL standen hier bislang ebenfalls als
+        // "verifiziert"/published -- das schaltete über
+        // ExamRuleSet::isVerified() echte, zählende Prüfungsversuche
+        // (ExamController::startPaper) für sie frei, obwohl ihr
+        // passing_rule weiterhin nur den generischen 75%-Platzhalter unten
+        // (Zeile "?? ['min_correct_ratio' => 0.75]") nutzte, statt einer
+        // tatsächlich amtlichen, aus der Prüfungsordnung belegten
+        // Bestehensgrenze. Nur Kurse mit einer EXPLIZIT dokumentierten,
+        // amtlichen Bestehensgrenze (siehe $passingRuleOverrides unten)
+        // gelten hier als verifiziert; alle anderen bleiben "draft", bis
+        // jemand die echten Werte recherchiert und einträgt.
+        $verifiedCourses = ['ADD-BIN-SEGEL', 'SRC', 'FKN'];
         $questionCountOverrides = ['ADD-SEE-TO-BIN' => 23, 'ADD-BIN-TO-SEE' => 23];
 
         // ADD-BIN-SEGEL ("Ergänzung Binnen → Segeln"): nur noch die 7
