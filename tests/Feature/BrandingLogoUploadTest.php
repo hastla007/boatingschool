@@ -90,4 +90,36 @@ class BrandingLogoUploadTest extends TestCase
 
         $response->assertSessionHasErrors('logo');
     }
+
+    /**
+     * DSGVO-Review D2: das bisherige Logo (Datei + media_asset-Zeile) wurde
+     * beim Ersetzen nie entfernt und sammelte sich unbegrenzt an.
+     */
+    public function test_replacing_the_logo_deletes_the_old_file_and_media_asset_row(): void
+    {
+        Storage::fake('public');
+
+        $tenant = $this->createTestTenant();
+        $owner = $this->createTenantUser($tenant, 'owner');
+
+        $this->actingAsInTenant($owner, $tenant)->patch('/admin/branding', [
+            'exam_readiness_threshold_percent' => 50,
+            'logo' => UploadedFile::fake()->image('logo.png', 120, 80),
+        ]);
+
+        $oldAsset = MediaAsset::where('asset_key', 'like', 'branding-logo-'.$tenant->id.'-%')->sole();
+        $oldPath = str_replace(Storage::disk('public')->url(''), '', $oldAsset->storage_path);
+        Storage::disk('public')->assertExists($oldPath);
+
+        $this->actingAsInTenant($owner, $tenant)->patch('/admin/branding', [
+            'exam_readiness_threshold_percent' => 50,
+            'logo' => UploadedFile::fake()->image('logo-neu.png', 120, 80),
+        ]);
+
+        $this->assertNull(MediaAsset::find($oldAsset->id));
+        Storage::disk('public')->assertMissing($oldPath);
+
+        $newAsset = MediaAsset::where('asset_key', 'like', 'branding-logo-'.$tenant->id.'-%')->sole();
+        $this->assertNotSame($oldAsset->id, $newAsset->id);
+    }
 }

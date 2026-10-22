@@ -71,6 +71,10 @@ class BrandingController extends Controller
             $validated['support_email_verified_at'] = null;
         }
 
+        // DSGVO-Review D2: das bisherige Logo (Datei + media_asset-Zeile)
+        // wurde beim Ersetzen nie entfernt und sammelte sich unbegrenzt an.
+        $oldLogoAssetId = $tenant->branding->logo_asset_id;
+
         if ($request->hasFile('logo')) {
             $file = $request->file('logo');
 
@@ -114,6 +118,10 @@ class BrandingController extends Controller
 
         $tenant->branding->update($validated);
 
+        if ($request->hasFile('logo') && $oldLogoAssetId && $oldLogoAssetId !== $validated['logo_asset_id']) {
+            $this->deleteMediaAsset($oldLogoAssetId);
+        }
+
         if ($emailChangedToVerify) {
             SupportEmailVerificationController::sendVerificationMail($tenant->fresh());
         }
@@ -121,5 +129,21 @@ class BrandingController extends Controller
         AuditLog::record($tenant->id, $request->user()->id, 'branding.update', 'tenant_branding', $tenant->id, $before, $validated);
 
         return back()->with('status', 'Branding aktualisiert.');
+    }
+
+    private function deleteMediaAsset(string $assetId): void
+    {
+        $asset = MediaAsset::find($assetId);
+
+        if (! $asset) {
+            return;
+        }
+
+        $publicUrlPrefix = Storage::disk('public')->url('');
+        if (str_starts_with($asset->storage_path, $publicUrlPrefix)) {
+            Storage::disk('public')->delete(substr($asset->storage_path, strlen($publicUrlPrefix)));
+        }
+
+        $asset->delete();
     }
 }
