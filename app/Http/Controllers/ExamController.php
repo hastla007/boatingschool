@@ -232,8 +232,12 @@ class ExamController extends Controller
 
         $total = $examSession->questions()->count();
         $answered = $examSession->questions()->whereNotNull('answered_at')->count();
+        // Bug-Review B23/B24: diffInSeconds() liefert einen float mit
+        // Mikrosekunden-Bruchteil -- das löste beim Rendern per gmdate()
+        // eine Deprecation-Warnung aus ("Implicit conversion from float to
+        // int loses precision"). (int) rundet hier zuverlässig ab.
         $remainingSeconds = $examSession->ruleSet->time_limit_seconds
-            ? max(0, $examSession->ruleSet->time_limit_seconds - $examSession->started_at->diffInSeconds(now()))
+            ? max(0, (int) ($examSession->ruleSet->time_limit_seconds - $examSession->started_at->diffInSeconds(now())))
             : null;
 
         $isFavorite = Favorite::where('tenant_id', $examSession->tenant_id)->where('user_id', $examSession->user_id)

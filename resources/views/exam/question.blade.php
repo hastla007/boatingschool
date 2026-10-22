@@ -8,7 +8,12 @@
                 @if (! is_null($remainingSeconds))
                     <span class="text-slate-300">&middot;</span>
                     <x-icon name="clock" class="w-4 h-4 text-slate-400" />
-                    <span id="exam-timer" data-remaining="{{ $remainingSeconds }}">{{ gmdate('i:s', $remainingSeconds) }}</span>
+                    {{-- Bug-Review B23: gmdate('i:s', ...) interpretiert den
+                         Wert als Unix-Timestamp und liefert nur die
+                         Minute/Sekunde INNERHALB der aktuellen Stunde --
+                         bei genau 60 Minuten (3600s) sprang die Anzeige
+                         dadurch auf "00:00" statt "60:00" zu zeigen. --}}
+                    <span id="exam-timer" data-remaining="{{ $remainingSeconds }}">{{ sprintf('%02d:%02d', intdiv($remainingSeconds, 60), $remainingSeconds % 60) }}</span>
                 @endif
             </div>
         </div>
