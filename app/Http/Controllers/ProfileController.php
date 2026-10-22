@@ -6,6 +6,7 @@ use App\Http\Requests\ProfileUpdateRequest;
 use App\Models\Entitlement;
 use App\Models\ProductPurchase;
 use App\Notifications\ConfirmPendingEmail;
+use App\Services\AccountErasureService;
 use App\Support\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -135,19 +136,26 @@ class ProfileController extends Controller
     }
 
     /**
-     * Delete the user's account.
+     * Entfernt die Mitgliedschaft (und alle mandantengebundenen
+     * personenbezogenen Daten) bei der aktuellen Bootsschule. Das Konto
+     * selbst wird nur gelöscht, wenn danach keine Mitgliedschaft bei
+     * irgendeiner Bootsschule mehr übrig ist -- eine Löschung bei Schule A
+     * darf nicht ungefragt auch Mitgliedschaft und Lerndaten bei Schule B
+     * entfernen (DSGVO-Review D1: jede Bootsschule ist ein eigener
+     * datenschutzrechtlich Verantwortlicher).
      */
-    public function destroy(Request $request): RedirectResponse
+    public function destroy(Request $request, TenantContext $tenantContext, AccountErasureService $erasure): RedirectResponse
     {
         $request->validateWithBag('userDeletion', [
             'password' => ['required', 'current_password'],
         ]);
 
         $user = $request->user();
+        $tenant = $tenantContext->tenant();
 
         Auth::logout();
 
-        $user->delete();
+        $erasure->leaveTenant($user, $tenant);
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();
