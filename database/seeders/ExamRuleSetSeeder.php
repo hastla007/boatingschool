@@ -7,6 +7,8 @@ use App\Models\ExamBlueprint;
 use App\Models\ExamRuleSet;
 use App\Models\User;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 /**
  * Platzhalter-Regelwerke für die Prüfungssimulation. Laut Umsetzungskonzept
@@ -39,9 +41,13 @@ class ExamRuleSetSeeder extends Seeder
 {
     public function run(): void
     {
+        // O3: dieses Konto dient nur der FK-Zuordnung (reviewed_by) und
+        // wird nirgends für einen echten Login verwendet -- ein zufälliges
+        // Passwort schließt aus, dass es trotzdem (z. B. per Credential-
+        // Stuffing mit dem Standardwert "password") missbraucht werden kann.
         $reviewer = User::firstOrCreate(
             ['email' => 'content-admin@plattform.example'],
-            ['display_name' => 'Plattform Content-Admin', 'password' => bcrypt('password'), 'status' => 'active']
+            ['display_name' => 'Plattform Content-Admin', 'password' => Hash::make(Str::random(40)), 'status' => 'active']
         );
 
         $courses = CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')->get();

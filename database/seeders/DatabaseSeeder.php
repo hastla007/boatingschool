@@ -55,15 +55,25 @@ class DatabaseSeeder extends Seeder
             FknExamPaperSeeder::class,
             PraxisTrainerSeeder::class,
             ComboPraxisTrainerSeeder::class,
-            TenantSeeder::class,
-            UserAndEntitlementSeeder::class,
-            AddonDemoSeeder::class,
-            CoursePromoBannerDemoSeeder::class,
             PraxisFormTemplateSeeder::class,
-            TenantCourseLocationDemoSeeder::class,
-            DemoLearningActivitySeeder::class,
-            WillkommensboxDemoSeeder::class,
-            PraxisAnmeldungDemoSeeder::class,
         ]);
+
+        // O3: alles ab hier erzeugt ausschließlich die beiden fiktiven
+        // Demo-Bootsschulen ("mueller"/"hanse-kiel") samt Konten mit dem
+        // Standardpasswort "password" -- unverzichtbar für lokale
+        // Entwicklung/Tests, in einer echten Produktivumgebung aber
+        // erratbare Zugangsdaten, die dort niemand angelegt haben will.
+        if (app()->environment('local', 'testing')) {
+            $this->call([
+                TenantSeeder::class,
+                UserAndEntitlementSeeder::class,
+                AddonDemoSeeder::class,
+                CoursePromoBannerDemoSeeder::class,
+                TenantCourseLocationDemoSeeder::class,
+                DemoLearningActivitySeeder::class,
+                WillkommensboxDemoSeeder::class,
+                PraxisAnmeldungDemoSeeder::class,
+            ]);
+        }
     }
 }
