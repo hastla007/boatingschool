@@ -59,6 +59,11 @@ Route::middleware(['auth', 'tenant.member', 'verified'])->group(function () {
     Route::get('/courses/{course}/learn', [LearningController::class, 'show'])->name('learning.show');
     Route::get('/courses/{course}/learn/overview', [LearningController::class, 'overview'])->name('learning.overview');
     Route::post('/courses/{course}/learn/attempts', [LearningController::class, 'storeAttempt'])->name('learning.attempts.store');
+    // Bug-Review B20: storeAttempt() rendert die Antwort jetzt nicht mehr
+    // direkt als POST-Antwort, sondern leitet hierhin weiter (POST/Redirect/
+    // GET) -- ein Neuladen (F5) ruft diese GET-Route erneut auf statt die
+    // Antwort samt Attempt-Anlage ein zweites Mal einzureichen.
+    Route::get('/courses/{course}/learn/attempts/{attempt}', [LearningController::class, 'showAttempt'])->name('learning.attempts.show');
 
     Route::get('/courses/{course}/favorites/smart-learning', [FavoriteController::class, 'smartLearning'])->name('favorites.smart-learning');
     Route::get('/courses/{course}/favorites/exam', [FavoriteController::class, 'exam'])->name('favorites.exam');

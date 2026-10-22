@@ -49,6 +49,7 @@ class TopicQueryStringEncodingTest extends TestCase
         // topic kommt -- wie beim echten Formular (action="...&topic=...") --
         // über die Query-String der Action-URL, nicht aus dem Body.
         $response = $this->actingAsInTenant($learner, $tenant)
+            ->followingRedirects()
             ->post('/courses/'.$course->id.'/learn/attempts?topic='.urlencode($topic), $payload);
 
         $response->assertOk();

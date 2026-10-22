@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Attempt;
 use App\Models\ContentAnswer;
 use App\Models\ContentQuestion;
 use App\Models\ContentQuestionRevision;
@@ -221,7 +222,39 @@ class LearningController extends Controller
             $tenant, $user, $revision, $selectedAnswer, $validated['mode'], $course, $responseTimeMs, $selectedAnswers, $selfAssessedKnown
         );
 
-        $revision->load('answers', 'media');
+        // Bug-Review B20: dieser Handler rendert die beantwortete Frage
+        // nicht mehr direkt als POST-Antwort -- ein Neuladen (F5) hätte den
+        // Browser sonst zur erneuten Formular-Einreichung (derselbe
+        // POST) veranlasst und einen zweiten Attempt für dieselbe Frage
+        // angelegt. Der Redirect auf die GET-Route showAttempt() ist bei
+        // einem Reload hingegen ein harmloses erneutes Laden desselben,
+        // bereits gespeicherten Attempts.
+        return redirect()->route('learning.attempts.show', array_filter([
+            'course' => $course,
+            'attempt' => $attempt,
+            'mode' => $validated['mode'],
+            'topic' => $request->query('topic'),
+            'module' => $request->query('module'),
+            'questions' => $request->query('questions'),
+        ]));
+    }
+
+    public function showAttempt(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course, Attempt $attempt): View
+    {
+        $tenant = $tenantContext->tenant();
+        $user = $request->user();
+
+        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Für diesen Kurs liegt kein aktives Entitlement vor.');
+        abort_unless($attempt->user_id === $user->id, 403);
+        abort_unless($attempt->course_id === $course->id, 404);
+
+        $mode = $request->query('mode', 'smarttrainer');
+        if (! in_array($mode, ['smarttrainer', 'new', 'wrong', 'topic', 'favorites'], true)) {
+            $mode = 'smarttrainer';
+        }
+
+        $revision = $attempt->revision()->with('answers', 'media')->firstOrFail();
+
         $isFavorite = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)
             ->where('context', Favorite::CONTEXT_SMART_LEARNING)
             ->where('question_id', $revision->question_id)->exists();
@@ -233,7 +266,7 @@ class LearningController extends Controller
             'course' => $course,
             'revision' => $revision,
             'reason' => null,
-            'mode' => $validated['mode'],
+            'mode' => $mode,
             'topic' => $request->query('topic'),
             'moduleId' => $request->query('module'),
             'questionsParam' => $request->query('questions'),

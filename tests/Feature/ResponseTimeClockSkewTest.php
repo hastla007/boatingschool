@@ -44,7 +44,7 @@ class ResponseTimeClockSkewTest extends TestCase
             'started_at_ms' => $startedAtInTheFuture,
         ]);
 
-        $response->assertOk();
+        $response->assertRedirect();
         $response->assertSessionHasNoErrors();
 
         $attempt = Attempt::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
@@ -75,7 +75,7 @@ class ResponseTimeClockSkewTest extends TestCase
             'started_at_ms' => $startedAt,
         ]);
 
-        $response->assertOk();
+        $response->assertRedirect();
 
         $attempt = Attempt::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
             ->where('question_id', $question->id)->latest('created_at')->first();

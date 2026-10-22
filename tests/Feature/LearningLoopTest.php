@@ -34,7 +34,7 @@ class LearningLoopTest extends TestCase
             'response_time_ms' => 1000,
         ]);
 
-        $response->assertOk();
+        $response->assertRedirect();
 
         $this->assertDatabaseHas('attempt', [
             'tenant_id' => $tenant->id,
@@ -88,11 +88,11 @@ class LearningLoopTest extends TestCase
             ->where('user_id', $learner->id)
             ->where('question_id', $question->id);
 
-        $this->actingAsInTenant($learner, $tenant)->post($endpoint, $payload($wrongAnswer->id))->assertOk();
+        $this->actingAsInTenant($learner, $tenant)->post($endpoint, $payload($wrongAnswer->id))->assertRedirect();
         $firstAttempt = $attemptsQuery()->sole();
         $this->assertFalse($firstAttempt->correct);
 
-        $this->actingAsInTenant($learner, $tenant)->post($endpoint, $payload($correctAnswer->id))->assertOk();
+        $this->actingAsInTenant($learner, $tenant)->post($endpoint, $payload($correctAnswer->id))->assertRedirect();
 
         // Zwei parallele Requests können in Postgres denselben Transaktions-
         // Zeitstempel erhalten (created_at ist keine verlässliche Sortierung),
@@ -141,7 +141,7 @@ class LearningLoopTest extends TestCase
 
         // Drei richtige Antworten in Folge (s. MasteryCalculatorTest) => learning_state "gefestigt".
         for ($i = 0; $i < 3; $i++) {
-            $this->actingAsInTenant($learner, $tenant)->post($endpoint, $payload)->assertOk();
+            $this->actingAsInTenant($learner, $tenant)->post($endpoint, $payload)->assertRedirect();
         }
 
         $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/learn/overview");
@@ -203,7 +203,7 @@ class LearningLoopTest extends TestCase
         $payload = ['revision_id' => $revision->id, 'answer_id' => $correctAnswer->id, 'mode' => 'smarttrainer'];
 
         for ($i = 0; $i < 3; $i++) {
-            $this->actingAsInTenant($learner, $tenant)->post($endpoint, $payload)->assertOk();
+            $this->actingAsInTenant($learner, $tenant)->post($endpoint, $payload)->assertRedirect();
         }
 
         $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/learn/overview");
@@ -252,7 +252,7 @@ class LearningLoopTest extends TestCase
         $payload = ['revision_id' => $revision->id, 'answer_id' => $correctAnswer->id, 'mode' => 'smarttrainer'];
 
         for ($i = 0; $i < 3; $i++) {
-            $this->actingAsInTenant($learner, $tenant)->post($endpoint, $payload)->assertOk();
+            $this->actingAsInTenant($learner, $tenant)->post($endpoint, $payload)->assertRedirect();
         }
 
         $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/progress");

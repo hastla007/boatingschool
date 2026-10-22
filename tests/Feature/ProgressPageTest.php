@@ -43,7 +43,7 @@ class ProgressPageTest extends TestCase
             'revision_id' => $revisionA->id,
             'answer_id' => $correctA->id,
             'mode' => 'smarttrainer',
-        ])->assertOk();
+        ])->assertRedirect();
 
         $progressA = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$courseA->id}/progress");
         $progressB = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$courseB->id}/progress");

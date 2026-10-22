@@ -58,7 +58,7 @@ class QuestionFeedbackTest extends TestCase
         $this->setFeedback($revision, 'E2E: Das ist die richtige Erklärung.', 'E2E: Das ist die falsche Erklärung.');
         $correctAnswer = $revision->answers->firstWhere('is_correct', true);
 
-        $response = $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/learn/attempts", [
+        $response = $this->actingAsInTenant($learner, $tenant)->followingRedirects()->post("/courses/{$course->id}/learn/attempts", [
             'revision_id' => $revision->id,
             'answer_id' => $correctAnswer->id,
             'mode' => 'smarttrainer',
@@ -83,7 +83,7 @@ class QuestionFeedbackTest extends TestCase
         $this->setFeedback($revision, 'E2E: Das ist die richtige Erklärung.', 'E2E: Das ist die falsche Erklärung.');
         $wrongAnswer = $revision->answers->firstWhere('is_correct', false);
 
-        $response = $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/learn/attempts", [
+        $response = $this->actingAsInTenant($learner, $tenant)->followingRedirects()->post("/courses/{$course->id}/learn/attempts", [
             'revision_id' => $revision->id,
             'answer_id' => $wrongAnswer->id,
             'mode' => 'smarttrainer',
@@ -108,7 +108,7 @@ class QuestionFeedbackTest extends TestCase
         $this->setFeedback($revision, null, null);
         $correctAnswer = $revision->answers->firstWhere('is_correct', true);
 
-        $response = $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/learn/attempts", [
+        $response = $this->actingAsInTenant($learner, $tenant)->followingRedirects()->post("/courses/{$course->id}/learn/attempts", [
             'revision_id' => $revision->id,
             'answer_id' => $correctAnswer->id,
             'mode' => 'smarttrainer',
