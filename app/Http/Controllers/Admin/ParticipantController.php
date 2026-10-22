@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Models\WillkommensboxOrder;
 use App\Notifications\TenantInvitationNotification;
 use App\Services\CouponRedemptionService;
+use App\Support\BestEffortMail;
 use App\Support\Countries;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
@@ -275,13 +276,23 @@ class ParticipantController extends Controller
                 'invited_by_user_id' => $request->user()->id,
             ]);
 
-            Notification::route('mail', $existingUser->email)->notify(new TenantInvitationNotification($invitation));
+            // Bug-Review B31: die Einladung ist zu diesem Zeitpunkt schon
+            // angelegt -- ein SMTP-Fehler beim Versand soll das nicht mehr
+            // als HTTP 500 melden, siehe BestEffortMail.
+            $mailSent = BestEffortMail::send(
+                fn () => Notification::route('mail', $existingUser->email)->notify(new TenantInvitationNotification($invitation)),
+                "Einladungsmail Bestandskonto {$invitation->id}"
+            );
 
             AuditLog::record($tenant->id, $request->user()->id, 'participant.invite_pending', 'tenant_invitation', $invitation->id, null, [
                 'email' => $existingUser->email,
             ]);
 
             $status = 'Für diese E-Mail-Adresse existiert bereits ein Konto. Eine Einladung wurde verschickt -- die Mitgliedschaft entsteht erst, wenn der Kontoinhaber sie selbst bestätigt.';
+
+            if (! $mailSent) {
+                $status = 'Für diese E-Mail-Adresse existiert bereits ein Konto, die Einladung wurde angelegt. Die Einladungsmail konnte aber nicht versendet werden -- bitte später erneut einladen.';
+            }
 
             if (trim((string) ($validated['code'] ?? '')) !== '') {
                 $status .= ' Ein angegebener Code wird dabei nicht automatisch zugewiesen -- das geht nach der Bestätigung über die Coupon-Codes-Verwaltung.';
@@ -320,9 +331,17 @@ class ParticipantController extends Controller
         // niemandem bekanntes Passwort -- ohne eine Mail dazu gab es keine
         // Möglichkeit, sich je einzuloggen. Derselbe Passwort-Reset-Link
         // wie bei "Passwort vergessen" setzt zugleich das erste Passwort.
-        Password::sendResetLink(['email' => $user->email]);
+        // Bug-Review B31: der Teilnehmer ist zu diesem Zeitpunkt schon
+        // angelegt -- ein SMTP-Fehler beim Versand soll das nicht mehr als
+        // HTTP 500 melden, siehe BestEffortMail.
+        $mailSent = BestEffortMail::send(
+            fn () => Password::sendResetLink(['email' => $user->email]),
+            "Einladungsmail neuer Teilnehmer {$user->id}"
+        );
 
-        $status = 'Teilnehmer eingeladen/zugeordnet.';
+        $status = $mailSent
+            ? 'Teilnehmer eingeladen/zugeordnet.'
+            : 'Teilnehmer wurde angelegt, die Einladungsmail konnte aber nicht versendet werden -- bitte den Zugang über "Passwort vergessen" erneut anstoßen.';
         $code = trim((string) ($validated['code'] ?? ''));
 
         if ($code === '') {

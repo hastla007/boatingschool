@@ -1,0 +1,136 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Tenant;
+use App\Models\TenantInvitation;
+use App\Models\User;
+use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Password;
+use RuntimeException;
+use Tests\Feature\Concerns\InteractsWithTenants;
+use Tests\TestCase;
+
+/**
+ * Bug-Review B31: Mailversand lief synchron im Request -- ein SMTP-Fehler
+ * ergab HTTP 500, obwohl die eigentliche Schreiboperation (neue
+ * Bootsschule/neuer Teilnehmer/neue E-Mail-Adresse) schon erfolgreich
+ * gespeichert war. Alle drei Stellen laufen den Versand jetzt über
+ * App\Support\BestEffortMail::send() -- ein Fehler wird geloggt, bricht den
+ * Request aber nicht mehr ab.
+ */
+class MailFailureDoesNotBlockRequestTest extends TestCase
+{
+    use InteractsWithTenants;
+
+    protected function tearDown(): void
+    {
+        $this->cleanUpCreatedTenantsAndUsers();
+
+        parent::tearDown();
+    }
+
+    public function test_creating_a_tenant_still_succeeds_when_the_invite_mail_fails(): void
+    {
+        Password::shouldReceive('sendResetLink')->once()->andThrow(new RuntimeException('SMTP down'));
+
+        $superadmin = $this->createSuperAdmin();
+        $slug = 'b31-schule-'.uniqid();
+        $email = 'b31-admin-'.uniqid().'@example.test';
+
+        $response = $this->actingAs($superadmin)->post('/superadmin/tenants', [
+            'slug' => $slug,
+            'name' => 'B31 Schule',
+            'status' => 'active',
+            'admin_first_name' => 'Test',
+            'admin_last_name' => 'Admin',
+            'admin_email' => $email,
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('status', fn ($status) => str_contains($status, 'Bootsschule angelegt') && str_contains($status, 'nicht versendet'));
+
+        $this->onAdmin(function () use ($slug, $email) {
+            $tenant = Tenant::where('slug', $slug)->first();
+            $this->assertNotNull($tenant, 'Tenant wurde trotz Mail-Fehler nicht gespeichert.');
+            $this->createdTenantIds[] = $tenant->id;
+
+            $admin = User::where('email', $email)->first();
+            $this->assertNotNull($admin, 'Admin-Konto wurde trotz Mail-Fehler nicht gespeichert.');
+            $this->createdUserIds[] = $admin->id;
+        });
+    }
+
+    public function test_inviting_a_new_participant_still_succeeds_when_the_invite_mail_fails(): void
+    {
+        Password::shouldReceive('sendResetLink')->once()->andThrow(new RuntimeException('SMTP down'));
+
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $email = 'b31-teilnehmer-'.uniqid().'@example.test';
+
+        $response = $this->actingAsInTenant($admin, $tenant)->post('/admin/participants/invite', [
+            'name' => 'Neuer Teilnehmer',
+            'email' => $email,
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('status', fn ($status) => str_contains($status, 'nicht versendet'));
+
+        $this->onAdmin(function () use ($email) {
+            $learner = User::where('email', $email)->first();
+            $this->assertNotNull($learner, 'Teilnehmer wurde trotz Mail-Fehler nicht gespeichert.');
+            $this->createdUserIds[] = $learner->id;
+        });
+    }
+
+    public function test_inviting_an_existing_account_still_succeeds_when_the_invite_mail_fails(): void
+    {
+        Notification::shouldReceive('send')->once()->andThrow(new RuntimeException('SMTP down'));
+
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $existingUser = $this->onAdmin(fn () => User::forceCreate([
+            'email' => 'b31-bestand-'.uniqid().'@example.test',
+            'display_name' => 'Bestandskonto',
+            'password' => bcrypt('password'),
+            'status' => 'active',
+        ]));
+        $this->createdUserIds[] = $existingUser->id;
+
+        $response = $this->actingAsInTenant($admin, $tenant)->post('/admin/participants/invite', [
+            'name' => 'Bestandskonto',
+            'email' => $existingUser->email,
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('status', fn ($status) => str_contains($status, 'nicht versendet'));
+
+        $this->onAdmin(function () use ($existingUser) {
+            $this->assertTrue(
+                TenantInvitation::where('email', $existingUser->email)->exists(),
+                'Einladung wurde trotz Mail-Fehler nicht gespeichert.'
+            );
+        });
+    }
+
+    public function test_changing_the_profile_email_still_succeeds_when_the_confirmation_mail_fails(): void
+    {
+        Notification::shouldReceive('send')->once()->andThrow(new RuntimeException('SMTP down'));
+
+        $tenant = $this->createTestTenant();
+        $user = $this->createTenantUser($tenant, 'learner', ['first_name' => 'Test', 'last_name' => 'User']);
+        $newEmail = 'b31-neu-'.uniqid().'@example.test';
+
+        $response = $this->actingAsInTenant($user, $tenant)->patch('/profile', [
+            'first_name' => 'Test',
+            'last_name' => 'User',
+            'email' => $newEmail,
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHas('status', fn ($status) => str_contains($status, 'Profil gespeichert') && str_contains($status, 'nicht versendet'));
+
+        $this->assertSame($newEmail, $user->fresh()->pending_email, 'pending_email wurde trotz Mail-Fehler nicht gespeichert.');
+    }
+}

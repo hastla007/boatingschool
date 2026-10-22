@@ -8,6 +8,7 @@ use App\Models\ProductPurchase;
 use App\Notifications\ConfirmPendingEmail;
 use App\Services\AccountErasureService;
 use App\Services\PersonalDataExportService;
+use App\Support\BestEffortMail;
 use App\Support\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -92,9 +93,18 @@ class ProfileController extends Controller
 
         if (strcasecmp($newEmail, $user->email) !== 0) {
             $user->forceFill(['pending_email' => $newEmail])->save();
-            $user->notify(new ConfirmPendingEmail($newEmail));
 
-            $status = 'Profil gespeichert. Bitte bestätige deine neue E-Mail-Adresse über den Link, den wir dir geschickt haben -- bis dahin bleibt deine bisherige Adresse aktiv.';
+            // Bug-Review B31: das Profil samt pending_email ist zu diesem
+            // Zeitpunkt schon gespeichert -- ein SMTP-Fehler beim Versand
+            // soll das nicht mehr als HTTP 500 melden, siehe BestEffortMail.
+            $mailSent = BestEffortMail::send(
+                fn () => $user->notify(new ConfirmPendingEmail($newEmail)),
+                "Bestätigungsmail neue E-Mail-Adresse Nutzer {$user->id}"
+            );
+
+            $status = $mailSent
+                ? 'Profil gespeichert. Bitte bestätige deine neue E-Mail-Adresse über den Link, den wir dir geschickt haben -- bis dahin bleibt deine bisherige Adresse aktiv.'
+                : 'Profil gespeichert. Die Bestätigungsmail für deine neue E-Mail-Adresse konnte aber nicht versendet werden -- bitte versuche es später erneut.';
         }
 
         // Menschenlesbarer Text statt eines reinen Status-Schlüssels, da die

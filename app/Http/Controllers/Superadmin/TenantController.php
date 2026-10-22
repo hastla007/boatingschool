@@ -9,6 +9,7 @@ use App\Models\Tenant;
 use App\Models\TenantBranding;
 use App\Models\TenantUser;
 use App\Services\CourseProgressService;
+use App\Support\BestEffortMail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -104,9 +105,21 @@ class TenantController extends Controller
         // gab es keine Möglichkeit, sich je einzuloggen. Derselbe
         // Passwort-Reset-Link wie bei "Passwort vergessen" setzt zugleich
         // das erste Passwort.
-        Password::sendResetLink(['email' => $validated['admin_email']]);
+        // Bug-Review B31: die Bootsschule ist zu diesem Zeitpunkt schon
+        // angelegt -- ein SMTP-Fehler beim Versand soll das nicht mehr als
+        // HTTP 500 melden, siehe BestEffortMail.
+        $mailSent = BestEffortMail::send(
+            fn () => Password::sendResetLink(['email' => $validated['admin_email']]),
+            "Einladungsmail neue Bootsschule {$tenant->id}"
+        );
 
-        return redirect()->route('superadmin.tenants.show', $tenant)->with('status', 'Bootsschule angelegt.');
+        $status = 'Bootsschule angelegt.';
+
+        if (! $mailSent) {
+            $status .= ' Die Einladungsmail an den Admin konnte nicht versendet werden -- bitte den Zugang über "Passwort vergessen" erneut anstoßen.';
+        }
+
+        return redirect()->route('superadmin.tenants.show', $tenant)->with('status', $status);
     }
 
     public function show(Tenant $tenant, CourseProgressService $courseProgress): View
