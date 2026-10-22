@@ -100,6 +100,17 @@ class QuestionController extends Controller
             ]);
 
             $this->storeAnswers($revision, $validated);
+
+            // Bug-Review B13: eine neue Revision begann bisher immer ohne
+            // Medien -- ein Bild verschwand dadurch von der Frage, sobald
+            // sie das nächste Mal bearbeitet wurde, auch ohne dass sich am
+            // Bild selbst etwas geändert hat. Bestehende Medienzuordnungen
+            // der Vorgänger-Revision werden deshalb übernommen.
+            if ($latest) {
+                foreach ($latest->media as $media) {
+                    $revision->media()->attach($media->id, ['role' => $media->pivot->role, 'sort_order' => $media->pivot->sort_order]);
+                }
+            }
         });
 
         return redirect()->route('superadmin.questions.edit', $question)->with('status', 'Neue Fassung gespeichert.');
