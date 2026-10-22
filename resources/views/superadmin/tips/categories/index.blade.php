@@ -55,7 +55,7 @@
                                     @method('PATCH')
                                 </form>
                                 <button type="submit" form="{{ $formId }}" class="text-xs text-slate-500 hover:underline">Speichern</button>
-                                <form method="POST" action="{{ route('superadmin.tips.categories.destroy', $category) }}" class="inline" onsubmit="return confirm('Diese Kategorie wirklich löschen?');">
+                                <form method="POST" action="{{ route('superadmin.tips.categories.destroy', $category) }}" class="inline" @submit="if (! confirm('Diese Kategorie wirklich löschen?')) $event.preventDefault()">
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit" class="ml-3 text-xs text-red-500 hover:underline" @disabled($category->tips_count > 0)>Löschen</button>

@@ -20,50 +20,67 @@ class ResolveTenant
 {
     public function handle(Request $request, Closure $next): Response
     {
-        // Ohne dies könnte bei wiederverwendeten DB-Verbindungen (Octane,
-        // PgBouncer im Session-Modus, Tests) app.current_tenant_id aus einem
-        // vorherigen Request stehen bleiben und sowohl die Tenant-Auflösung
-        // selbst als auch RLS-geschützte Queries dieses Requests verfälschen.
-        app(TenantContext::class)->clear();
+        // Sicherheitsreview M5: app.current_tenant_id wird per SET LOCAL
+        // gesetzt (siehe TenantContext), das nur innerhalb der aktuellen
+        // Transaktion gilt -- deshalb läuft der gesamte restliche Request
+        // (inklusive aller Routen-/Controller-Queries auf dieser
+        // Verbindung) hier in einer Transaktion. Am Ende wird automatisch
+        // committet bzw. bei einer Exception zurückgerollt und die
+        // GUC damit zuverlässig zurückgesetzt, statt bei wiederverwendeten
+        // Verbindungen (Octane, PgBouncer im Session-Modus) über das
+        // Request-Ende hinaus bestehen zu bleiben.
+        return DB::transaction(function () use ($request, $next) {
+            app(TenantContext::class)->clear();
 
-        $tenant = $this->resolveViaCustomDomain($request)
-            ?? $this->resolveViaDevOverride($request)
-            ?? $this->resolveViaSubdomain($request);
+            $tenant = $this->resolveViaCustomDomain($request)
+                ?? $this->resolveViaDevOverride($request)
+                ?? $this->resolveViaSubdomain($request);
 
-        if (! $tenant) {
-            // Der Superadmin-Bereich (und Login/Logout, damit ein Superadmin sich
-            // überhaupt ohne Bootsschul-Subdomain anmelden kann) ist bewusst
-            // mandantenunabhängig und läuft unabhängig vom aufgelösten Host.
-            if ($this->isTenantAgnosticRoute($request)) {
-                return $next($request);
+            if (! $tenant) {
+                // Der Superadmin-Bereich (und Login/Logout, damit ein Superadmin sich
+                // überhaupt ohne Bootsschul-Subdomain anmelden kann) ist bewusst
+                // mandantenunabhängig und läuft unabhängig vom aufgelösten Host.
+                if ($this->isTenantAgnosticRoute($request)) {
+                    return $next($request);
+                }
+
+                if ($request->getHost() === config('app.central_domain')) {
+                    // Sicherheitsreview N5: zeigte bislang auch suspended/closed/
+                    // trial-Mandanten öffentlich mit Name und Slug an.
+                    return response()->view('tenant.picker', [
+                        'tenants' => Tenant::query()->where('status', 'active')->orderBy('name')->get(),
+                    ]);
+                }
+
+                return response()->view('tenant.not-found', [], 404);
             }
 
-            if ($request->getHost() === config('app.central_domain')) {
-                // Sicherheitsreview N5: zeigte bislang auch suspended/closed/
-                // trial-Mandanten öffentlich mit Name und Slug an.
-                return response()->view('tenant.picker', [
-                    'tenants' => Tenant::query()->where('status', 'active')->orderBy('name')->get(),
-                ]);
+            if ($tenant->status === 'closed' || $tenant->status === 'suspended') {
+                return response()->view('tenant.suspended', ['tenant' => $tenant], 403);
             }
 
-            return response()->view('tenant.not-found', [], 404);
-        }
+            app(TenantContext::class)->set($tenant);
+            app()->instance('currentTenant', $tenant);
+            view()->share('currentTenant', $tenant);
+            view()->share('branding', $tenant->branding);
 
-        if ($tenant->status === 'closed' || $tenant->status === 'suspended') {
-            return response()->view('tenant.suspended', ['tenant' => $tenant], 403);
-        }
-
-        app(TenantContext::class)->set($tenant);
-        app()->instance('currentTenant', $tenant);
-        view()->share('currentTenant', $tenant);
-        view()->share('branding', $tenant->branding);
-
-        return $next($request);
+            return $next($request);
+        });
     }
 
     private function isTenantAgnosticRoute(Request $request): bool
     {
-        return $request->is('login') || $request->is('logout') || $request->is('superadmin') || $request->is('superadmin/*');
+        // Sicherheitsreview M7: forgot-password/reset-password berühren wie
+        // login/logout keine mandantengebundenen Daten (siehe
+        // PasswordResetLinkController, NewPasswordController -- keiner
+        // benutzt TenantContext) und müssen plattformweit nach einer
+        // E-Mail-Adresse suchen können, bevor überhaupt ein Mandant
+        // feststeht. Ohne diese Einstufung griffe die neue app_user-RLS-
+        // Policy (siehe Migration 000461) hier fälschlich ein, sobald die
+        // Seite über eine echte Bootsschul-Subdomain aufgerufen wird.
+        return $request->is('login') || $request->is('logout')
+            || $request->is('forgot-password') || $request->is('reset-password') || $request->is('reset-password/*')
+            || $request->is('superadmin') || $request->is('superadmin/*');
     }
 
     private function resolveViaCustomDomain(Request $request): ?Tenant

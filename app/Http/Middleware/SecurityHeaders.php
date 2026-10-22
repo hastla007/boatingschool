@@ -4,28 +4,45 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Sicherheitsreview M9: ohne diese Header ließen sich u. a. die
  * Superadmin-Formulare per Clickjacking in ein fremdes iframe einbetten,
  * und ein über H4 hinausgehender MIME-Sniffing-Angriff auf hochgeladene
- * Dateien war nicht zusätzlich erschwert. Die CSP erlaubt bewusst
- * 'unsafe-eval'/'unsafe-inline' für script-src, weil Alpine.js (ohne die
- * CSP-Alpine-Variante) Direktiven wie x-data über new Function() auswertet
- * -- eine strengere Policy würde die gesamte UI brechen. unpkg.com/
+ * Dateien war nicht zusätzlich erschwert. Die CSP erlaubt weiterhin
+ * 'unsafe-eval' für script-src, weil Alpine.js (ohne die CSP-Alpine-
+ * Variante) Direktiven wie x-data über new Function() auswertet -- eine
+ * strengere Policy würde die gesamte UI brechen. unpkg.com/
  * tile.openstreetmap.org sind für die Leaflet-Karte im Praxisformular
  * nötig (siehe praxis-pruefung/index.blade.php).
+ *
+ * 'unsafe-inline' für script-src ist entfernt: die wenigen eigenen
+ * <script>-Blöcke bekommen stattdessen ein pro Request erzeugtes Nonce
+ * (siehe $cspNonce/x-script-nonce-Blade-Component), alle onclick=/
+ * onsubmit=/onchange=-Attribute wurden zu Alpine-Direktiven (@click/
+ * @submit/@change). 'unsafe-inline' bleibt für style-src bewusst
+ * bestehen: die tenant-abhängige Branding-Farbe (var(--brand-primary, ...))
+ * steckt als inline style=-Attribut in >70 Templates -- CSP-Nonces greifen
+ * nur bei <style>-Blöcken, nicht beim style=-Attribut selbst, und
+ * Hash-basierte CSP wäre bei so vielen, sich häufig ändernden Werten zu
+ * fragil (ein editierter style-String ohne aktualisierten Hash würde die
+ * Seite lautlos kaputt machen). Das ist ein bewusst akzeptiertes Risiko,
+ * kein Versehen.
  */
 class SecurityHeaders
 {
     public function handle(Request $request, Closure $next): Response
     {
+        $nonce = Str::random(32);
+        view()->share('cspNonce', $nonce);
+
         $response = $next($request);
 
         $csp = implode('; ', [
             "default-src 'self'",
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com",
+            "script-src 'self' 'nonce-{$nonce}' 'unsafe-eval' https://unpkg.com",
             "style-src 'self' 'unsafe-inline' https://fonts.bunny.net https://unpkg.com",
             "font-src 'self' https://fonts.bunny.net",
             "img-src 'self' data: https://*.tile.openstreetmap.org https://unpkg.com",

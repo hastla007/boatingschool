@@ -58,12 +58,12 @@
         <input type="text" name="coupon_search" value="{{ $couponFilters['coupon_search'] ?? '' }}"
                placeholder="Code, Kurs/Produkt oder Nutzer suchen…"
                class="flex-1 min-w-[220px] rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
-        <select name="coupon_status" onchange="this.form.submit()" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+        <select name="coupon_status" @change="$el.form.submit()" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
             <option value="">Alle Status</option>
             <option value="open" @selected(($couponFilters['coupon_status'] ?? null) === 'open')>offen</option>
             <option value="redeemed" @selected(($couponFilters['coupon_status'] ?? null) === 'redeemed')>eingelöst</option>
         </select>
-        <select name="coupon_type" onchange="this.form.submit()" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+        <select name="coupon_type" @change="$el.form.submit()" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
             <option value="">Kurse, Produkte &amp; Verlängerungen</option>
             <option value="course" @selected(($couponFilters['coupon_type'] ?? null) === 'course')>nur Kurse</option>
             <option value="product" @selected(($couponFilters['coupon_type'] ?? null) === 'product')>nur Produkte</option>

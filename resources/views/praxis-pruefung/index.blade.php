@@ -294,7 +294,7 @@
         @if ($locationsWithCoords->isNotEmpty())
             <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
             <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-            <script>
+            <script nonce="{{ $cspNonce }}">
                 document.addEventListener('DOMContentLoaded', function () {
                     var mapEl = document.getElementById('pruefungsort-map');
                     if (! mapEl || typeof L === 'undefined') {

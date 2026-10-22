@@ -74,13 +74,13 @@
                 <input type="text" name="search" value="{{ $filters['search'] ?? '' }}"
                        placeholder="Code, Kurs/Produkt, Bootsschule oder Nutzer suchen…"
                        class="flex-1 min-w-[220px] rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
-                <select name="tenant_id" onchange="this.form.submit()" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                <select name="tenant_id" @change="$el.form.submit()" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                     <option value="">Alle Bootsschulen</option>
                     @foreach ($tenants as $tenant)
                         <option value="{{ $tenant->id }}" @selected(($filters['tenant_id'] ?? null) === $tenant->id)>{{ $tenant->name }}</option>
                     @endforeach
                 </select>
-                <select name="status" onchange="this.form.submit()" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                <select name="status" @change="$el.form.submit()" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                     <option value="">Alle Status</option>
                     <option value="open" @selected(($filters['status'] ?? null) === 'open')>offen</option>
                     <option value="redeemed" @selected(($filters['status'] ?? null) === 'redeemed')>eingelöst</option>
@@ -100,7 +100,7 @@
 
                 <div class="flex items-center justify-between mb-2">
                     <label class="flex items-center gap-2 text-sm text-slate-500">
-                        <input type="checkbox" id="select-all-checkbox" onchange="couponExport.toggleSelectAll(this.checked)">
+                        <input type="checkbox" id="select-all-checkbox" @change="couponExport.toggleSelectAll($el.checked)">
                         Alle {{ $coupons->total() }} gefilterten Codes auswählen
                     </label>
                     <button type="submit" id="export-selected-btn" disabled
@@ -126,7 +126,7 @@
                         @forelse ($coupons as $coupon)
                             <tr class="border-t border-slate-100 dark:border-slate-700">
                                 <td class="py-1.5">
-                                    <input type="checkbox" name="ids[]" value="{{ $coupon->id }}" class="coupon-row-checkbox" onchange="couponExport.updateButton()">
+                                    <input type="checkbox" name="ids[]" value="{{ $coupon->id }}" class="coupon-row-checkbox" @change="couponExport.updateButton()">
                                 </td>
                                 <td class="py-1.5 font-mono text-xs">{{ $coupon->code }}</td>
                                 <td class="py-1.5 text-slate-500">
@@ -163,7 +163,7 @@
         </div>
     </div>
 
-    <script>
+    <script nonce="{{ $cspNonce }}">
         window.couponExport = {
             toggleSelectAll(checked) {
                 document.getElementById('select-all-input').value = checked ? '1' : '0';

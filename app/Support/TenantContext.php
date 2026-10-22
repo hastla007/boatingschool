@@ -27,7 +27,17 @@ class TenantContext
         // RLS-Grundlage: Der Webprozess verbindet sich als least-privilege
         // Rolle boatingschool_app; diese SET-Anweisung ist die einzige Quelle
         // für app.current_tenant_id, die die DB-Policies auswerten.
-        DB::statement("SET app.current_tenant_id = '{$tenant->id}'");
+        //
+        // Sicherheitsreview M5: SET LOCAL statt SET -- ein bloßes SET setzt
+        // die GUC für die gesamte Verbindungs-SESSION, nicht nur die
+        // aktuelle Transaktion. Bei wiederverwendeten Verbindungen
+        // (Connection-Pooling/PgBouncer im Session-Modus, Octane) könnte ein
+        // reines SET sonst über das Ende der aktuellen Transaktion hinaus
+        // bestehen bleiben. SET LOCAL wird am Transaktionsende automatisch
+        // zurückgesetzt -- dafür muss ResolveTenant::handle() den gesamten
+        // Request in eine Transaktion auf dieser Verbindung einpacken, siehe
+        // dort.
+        DB::statement("SET LOCAL app.current_tenant_id = '{$tenant->id}'");
     }
 
     /**
@@ -40,7 +50,7 @@ class TenantContext
     public function clear(): void
     {
         $this->tenant = null;
-        DB::statement("SET app.current_tenant_id = '00000000-0000-0000-0000-000000000000'");
+        DB::statement("SET LOCAL app.current_tenant_id = '00000000-0000-0000-0000-000000000000'");
     }
 
     public function tenant(): ?Tenant

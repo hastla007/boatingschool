@@ -42,7 +42,11 @@ class RegisteredUserController extends Controller
         $tenant = $tenantContext->tenant();
         abort_if(! $tenant, 400, 'Registrierung erfordert eine gültige Bootsschul-Domain.');
 
-        if (User::where('email', $request->email)->exists()) {
+        // Sicherheitsreview M7: app_user hat jetzt RLS -- diese
+        // Duplikat-Erkennung muss aber bewusst plattformweit suchen (das ist
+        // ihr ganzer Zweck), deshalb hier explizit über die RLS-freie
+        // Owner-Verbindung.
+        if (User::on('pgsql_admin')->where('email', $request->email)->exists()) {
             return back()->withInput($request->except('password', 'password_confirmation'))->with(
                 'status',
                 'Falls diese E-Mail-Adresse bereits bei uns registriert ist, melde dich stattdessen an oder setze dein Passwort zurück. Andernfalls prüfe bitte die Schreibweise und versuche es erneut.'

@@ -7,6 +7,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
 
 class PasswordController extends Controller
@@ -21,9 +22,19 @@ class PasswordController extends Controller
             'password' => ['required', Password::defaults(), 'confirmed'],
         ]);
 
-        $request->user()->update([
+        // Sicherheitsreview M1/N6: remember_token mitändern -- sonst meldet
+        // das "Angemeldet bleiben"-Cookie eines Angreifers (oder einer alten,
+        // kompromittierten Sitzung) ihn beim nächsten Request automatisch
+        // wieder an, ganz ohne Passwort, und hebelt das Beenden der anderen
+        // Sitzungen unten komplett aus (genau wie NewPasswordController das
+        // beim Passwort-Reset bereits richtig macht).
+        // remember_token ist bewusst nicht $fillable (siehe User-Model) --
+        // ein normales update() würde das Feld deshalb stillschweigend
+        // ignorieren.
+        $request->user()->forceFill([
             'password' => Hash::make($validated['password']),
-        ]);
+            'remember_token' => Str::random(60),
+        ])->save();
 
         // Beendet alle anderen laufenden Sitzungen dieses Kontos (z. B. eines
         // Angreifers mit gestohlenen Zugangsdaten) -- die eigene, gerade

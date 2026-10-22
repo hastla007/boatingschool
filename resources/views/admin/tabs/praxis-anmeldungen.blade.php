@@ -9,7 +9,7 @@
         <input type="text" name="anmeldung_search" value="{{ $anmeldungFilters['anmeldung_search'] ?? '' }}"
                placeholder="Name, E-Mail oder Kurs suchen…"
                class="flex-1 min-w-[220px] rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
-        <select name="anmeldung_course" onchange="this.form.submit()" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+        <select name="anmeldung_course" @change="$el.form.submit()" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
             <option value="">Alle Kurse</option>
             @foreach ($courses as $course)
                 <option value="{{ $course->id }}" @selected(($anmeldungFilters['anmeldung_course'] ?? '') === $course->id)>{{ $course->name }}</option>

@@ -288,7 +288,12 @@ class ParticipantController extends Controller
         // gegen eine beliebige, ihm fremde Adresse als Belästigung
         // missbrauchen. Entfernt, ohne die eigentliche Schutzwirkung zu
         // verlieren.
-        $existingUser = User::where('email', $validated['email'])->first();
+        // Sicherheitsreview M7: app_user hat jetzt RLS -- sichtbar sind einer
+        // laufenden Anfrage mit gesetztem Tenant-Kontext nur Nutzer, die
+        // Mitglied dieser Bootsschule sind. Diese Erkennung muss aber
+        // bewusst plattformweit suchen (das ist ihr ganzer Zweck), deshalb
+        // hier explizit über die RLS-freie Owner-Verbindung.
+        $existingUser = User::on('pgsql_admin')->where('email', $validated['email'])->first();
 
         if ($existingUser) {
             $invitation = TenantInvitation::create([

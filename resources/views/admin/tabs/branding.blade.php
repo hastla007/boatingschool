@@ -22,7 +22,7 @@
                 <label class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-sm text-slate-600 dark:text-slate-300 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition">
                     <x-icon name="upload" class="w-4 h-4" />
                     <span>Logo hochladen</span>
-                    <input type="file" name="logo" accept="image/*" class="hidden" onchange="this.form.requestSubmit ? null : null; document.getElementById('logo-filename').textContent = this.files[0]?.name ?? ''">
+                    <input type="file" name="logo" accept="image/*" class="hidden" @change="document.getElementById('logo-filename').textContent = $el.files[0]?.name ?? ''">
                 </label>
                 <span id="logo-filename" class="text-xs text-slate-400"></span>
             </div>

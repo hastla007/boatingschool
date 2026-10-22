@@ -30,16 +30,17 @@ class PasswordResetLinkController extends Controller
             'email' => ['required', 'email'],
         ]);
 
-        // We will send the password reset link to this user. Once we have attempted
-        // to send the link, we will examine the response then see the message we
-        // need to show to the user. Finally, we'll send out a proper response.
-        $status = Password::sendResetLink(
-            $request->only('email')
-        );
+        Password::sendResetLink($request->only('email'));
 
-        return $status == Password::RESET_LINK_SENT
-                    ? back()->with('status', __($status))
-                    : back()->withInput($request->only('email'))
-                        ->withErrors(['email' => __($status)]);
+        // Sicherheitsreview M3: unabhängig davon, ob die Adresse tatsächlich
+        // registriert ist, bekommt der Request immer dieselbe Antwort --
+        // Laravels Standardverhalten hätte hier sonst einen Feld-Fehler samt
+        // zurückgegebenem Input gezeigt, falls die Adresse NICHT existiert,
+        // und einen Erfolgs-Flash ohne Feld-Fehler, falls doch. Selbst mit
+        // bewusst neutral formuliertem Text verrät allein diese
+        // UNTERSCHIEDLICHE ANTWORTSTRUKTUR (Fehler+Input vs. reiner Erfolg)
+        // schon, ob eine Adresse existiert -- jetzt immer derselbe
+        // Erfolgs-Flash, egal was Password::sendResetLink() zurückgibt.
+        return back()->with('status', __('passwords.sent'));
     }
 }

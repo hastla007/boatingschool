@@ -97,7 +97,7 @@
                         @endif
                         <form method="POST" action="{{ route('logout') }}">
                             @csrf
-                            <x-dropdown-link :href="route('logout')" onclick="event.preventDefault(); this.closest('form').submit();">
+                            <x-dropdown-link :href="route('logout')" @click="$event.preventDefault(); $el.closest('form').submit()">
                                 Abmelden
                             </x-dropdown-link>
                         </form>
@@ -165,7 +165,7 @@
                 @endif
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf
-                    <x-responsive-nav-link :href="route('logout')" onclick="event.preventDefault(); this.closest('form').submit();">
+                    <x-responsive-nav-link :href="route('logout')" @click="$event.preventDefault(); $el.closest('form').submit()">
                         Abmelden
                     </x-responsive-nav-link>
                 </form>

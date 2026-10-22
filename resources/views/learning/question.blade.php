@@ -110,7 +110,7 @@
                         </div>
                     </div>
                     <div class="flex items-center justify-between mt-4">
-                        <button type="button" onclick="toggleFavorite()" class="inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
+                        <button type="button" @click="toggleFavorite()" class="inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
                             <x-icon name="star" class="w-4 h-4" /> {{ $isFavorite ? 'Favorit' : 'Als Favorit speichern' }}
                         </button>
                         <a href="{{ route('learning.show', array_filter(['course' => $course, 'mode' => $mode, 'topic' => $topic, 'module' => $moduleId, 'questions' => $questionsParam])) }}"
@@ -120,7 +120,7 @@
                     </div>
                 @else
                     <div class="flex items-center justify-between mt-4">
-                        <button type="button" onclick="toggleFavorite()" class="inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
+                        <button type="button" @click="toggleFavorite()" class="inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
                             <x-icon name="star" class="w-4 h-4" /> {{ $isFavorite ? 'Favorit' : 'Als Favorit speichern' }}
                         </button>
                         <button type="submit" x-bind:disabled="selected.length === 0"
@@ -153,7 +153,7 @@
                                 <strong>{{ $correct ? 'Als gewusst markiert.' : 'Als nicht gewusst markiert.' }}</strong>
                             </div>
                             <div class="flex items-center justify-between mt-4">
-                                <button type="button" onclick="toggleFavorite()" class="inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
+                                <button type="button" @click="toggleFavorite()" class="inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
                                     <x-icon name="star" class="w-4 h-4" /> {{ $isFavorite ? 'Favorit' : 'Als Favorit speichern' }}
                                 </button>
                                 <a href="{{ route('learning.show', array_filter(['course' => $course, 'mode' => $mode, 'topic' => $topic, 'module' => $moduleId, 'questions' => $questionsParam])) }}"
@@ -167,7 +167,7 @@
                                 <input type="hidden" name="revision_id" value="{{ $revision->id }}">
                                 <input type="hidden" name="mode" value="{{ $mode }}">
                                 <input type="hidden" name="started_at_ms" value="{{ $startedAt }}">
-                                <button type="button" onclick="toggleFavorite()" class="inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
+                                <button type="button" @click="toggleFavorite()" class="inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
                                     <x-icon name="star" class="w-4 h-4" /> {{ $isFavorite ? 'Favorit' : 'Als Favorit speichern' }}
                                 </button>
                                 <div class="flex gap-2">
@@ -234,7 +234,7 @@
                         </div>
                     </div>
                     <div class="flex items-center justify-between mt-4">
-                        <button type="button" onclick="toggleFavorite()" class="inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
+                        <button type="button" @click="toggleFavorite()" class="inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
                             <x-icon name="star" class="w-4 h-4" /> {{ $isFavorite ? 'Favorit' : 'Als Favorit speichern' }}
                         </button>
                         <a href="{{ route('learning.show', array_filter(['course' => $course, 'mode' => $mode, 'topic' => $topic, 'module' => $moduleId, 'questions' => $questionsParam])) }}"
@@ -244,7 +244,7 @@
                     </div>
                 @else
                     <div class="flex items-center justify-between mt-4">
-                        <button type="button" onclick="toggleFavorite()" class="inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
+                        <button type="button" @click="toggleFavorite()" class="inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
                             <x-icon name="star" class="w-4 h-4" /> {{ $isFavorite ? 'Favorit' : 'Als Favorit speichern' }}
                         </button>
                         <button type="submit" x-bind:disabled="!selected"
@@ -264,7 +264,7 @@
         <input type="hidden" name="course_id" value="{{ $course->id }}">
         @if ($isFavorite) @method('DELETE') @endif
     </form>
-    <script>
+    <script nonce="{{ $cspNonce }}">
         function toggleFavorite() { document.getElementById('favorite-form').submit(); }
     </script>
 </x-app-layout>

@@ -35,7 +35,7 @@
                         Änderungen speichern
                     </button>
                 </form>
-                <form method="POST" action="{{ route('admin.tenant-course-locations.destroy', $location) }}" onsubmit="return confirm('Diesen Ort wirklich löschen?');">
+                <form method="POST" action="{{ route('admin.tenant-course-locations.destroy', $location) }}" @submit="if (! confirm('Diesen Ort wirklich löschen?')) $event.preventDefault()">
                     @csrf
                     @method('DELETE')
                     <button type="submit" class="text-xs text-red-500 hover:underline">Ort löschen</button>

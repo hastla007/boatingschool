@@ -72,4 +72,31 @@ class PasswordResetTest extends TestCase
             return true;
         });
     }
+
+    /**
+     * Sicherheitsreview M3: Laravels Standardverhalten unterscheidet sich
+     * strukturell, je nachdem ob die Adresse existiert -- ein Feld-Fehler
+     * samt zurückgegebenem Input bei einer unbekannten Adresse, ein reiner
+     * Erfolgs-Flash bei einer bekannten. Selbst mit bewusst neutral
+     * formuliertem Text verrät allein diese unterschiedliche Antwortform
+     * schon, ob eine Adresse existiert.
+     */
+    public function test_requesting_a_reset_link_for_an_unknown_email_looks_identical_to_a_known_one(): void
+    {
+        $tenant = $this->createTestTenant();
+        $user = $this->createTenantUser($tenant);
+
+        $known = $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/forgot-password', ['email' => $user->email]);
+        $known->assertSessionHasNoErrors();
+        $knownStatus = $known->baseResponse->getSession()->get('status');
+
+        $unknown = $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/forgot-password', ['email' => 'niemand-registriertes@example.test']);
+        $unknown->assertSessionHasNoErrors();
+        $unknownStatus = $unknown->baseResponse->getSession()->get('status');
+
+        $this->assertNotNull($knownStatus);
+        $this->assertSame($knownStatus, $unknownStatus);
+        $this->assertSame($known->getStatusCode(), $unknown->getStatusCode());
+        $this->assertSame($known->headers->get('Location'), $unknown->headers->get('Location'));
+    }
 }

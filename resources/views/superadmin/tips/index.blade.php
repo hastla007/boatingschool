@@ -42,7 +42,7 @@
                                         @csrf
                                         <button type="submit" class="ml-3 text-xs text-slate-500 hover:underline">{{ $tip->active ? 'Deaktivieren' : 'Aktivieren' }}</button>
                                     </form>
-                                    <form method="POST" action="{{ route('superadmin.tips.destroy', $tip) }}" class="inline" onsubmit="return confirm('Diesen Tipp wirklich löschen?');">
+                                    <form method="POST" action="{{ route('superadmin.tips.destroy', $tip) }}" class="inline" @submit="if (! confirm('Diesen Tipp wirklich löschen?')) $event.preventDefault()">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" class="ml-3 text-xs text-red-500 hover:underline">Löschen</button>

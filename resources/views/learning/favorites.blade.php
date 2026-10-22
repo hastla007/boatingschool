@@ -64,7 +64,7 @@
                 </form>
                 @unless ($collection->is_default)
                     <form method="POST" action="{{ route('favorite-collections.destroy', $collection) }}"
-                          onsubmit="return confirm('Collection „{{ $collection->name }}“ wirklich löschen? Die enthaltenen Favoriten bleiben erhalten, nur die Einsortierung entfällt.');">
+                          @submit="if (! confirm('Collection „{{ $collection->name }}“ wirklich löschen? Die enthaltenen Favoriten bleiben erhalten, nur die Einsortierung entfällt.')) $event.preventDefault()">
                         @csrf
                         @method('DELETE')
                         <button type="submit" class="text-xs text-rose-600 hover:underline whitespace-nowrap">Collection löschen</button>

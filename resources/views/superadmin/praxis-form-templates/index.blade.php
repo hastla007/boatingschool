@@ -43,7 +43,7 @@
                                 @csrf
                                 <button type="submit" class="ml-3 text-xs text-slate-500 hover:underline">{{ $template->active ? 'Deaktivieren' : 'Aktivieren' }}</button>
                             </form>
-                            <form method="POST" action="{{ route('superadmin.praxis-form-templates.destroy', $template) }}" class="inline" onsubmit="return confirm('Dieses Formular wirklich löschen?');">
+                            <form method="POST" action="{{ route('superadmin.praxis-form-templates.destroy', $template) }}" class="inline" @submit="if (! confirm('Dieses Formular wirklich löschen?')) $event.preventDefault()">
                                 @csrf
                                 @method('DELETE')
                                 <button type="submit" class="ml-3 text-xs text-red-500 hover:underline">Löschen</button>

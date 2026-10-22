@@ -6,6 +6,8 @@ use App\Models\Attempt;
 use App\Models\Entitlement;
 use App\Models\ExamSession;
 use App\Models\Favorite;
+use App\Models\FavoriteCollection;
+use App\Models\PraxisExamAppointment;
 use App\Models\PraxisFormSubmission;
 use App\Models\PraxisProgress;
 use App\Models\ProductPurchase;
@@ -99,11 +101,35 @@ class PersonalDataExportService
                     'context' => $f->context,
                     'created_at' => $f->created_at?->toIso8601String(),
                 ])->all(),
+            // N8/D3: selbst benannte Favoriten-Sammlungen kamen nach der
+            // ersten Fassung dieses Exports hinzu.
+            'favorite_collections' => FavoriteCollection::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+                ->orderBy('sort_order')->get()
+                ->map(fn (FavoriteCollection $c) => [
+                    'name' => $c->name,
+                    'course_id' => $c->course_id,
+                    'is_default' => $c->is_default,
+                ])->all(),
             'praxis_form_submissions' => PraxisFormSubmission::where('tenant_id', $tenant->id)->where('user_id', $user->id)
                 ->orderBy('created_at')->get()
                 ->map(fn (PraxisFormSubmission $s) => [
                     'data' => $s->data,
                     'created_at' => $s->created_at?->toIso8601String(),
+                ])->all(),
+            // N8/D3: Praxis-/Prüfungstermine (siehe PraxisExamAppointment) sind
+            // über die Anmeldung mit dem Nutzer verknüpft, nicht über eine
+            // eigene user_id-Spalte -- diese Funktion kam nach der ersten
+            // Fassung dieses Exports hinzu und wurde hier nachgezogen.
+            'praxis_exam_appointments' => PraxisExamAppointment::where('tenant_id', $tenant->id)
+                ->whereHas('submission', fn ($q) => $q->where('user_id', $user->id))
+                ->orderBy('exam_date')->get()
+                ->map(fn (PraxisExamAppointment $a) => [
+                    'label' => $a->label,
+                    'exam_date' => $a->exam_date?->toIso8601String(),
+                    'ends_at' => $a->ends_at?->toIso8601String(),
+                    'response' => $a->response,
+                    'response_comment' => $a->response_comment,
+                    'responded_at' => $a->responded_at?->toIso8601String(),
                 ])->all(),
             'praxis_progress' => PraxisProgress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get()
                 ->map(fn (PraxisProgress $p) => [

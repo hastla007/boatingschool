@@ -13,6 +13,7 @@ use App\Services\CourseProgressService;
 use App\Support\Countries;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\Response;
@@ -136,9 +137,14 @@ class UserController extends Controller
         $user->update($validated);
 
         // Eine Sperrung soll sofort wirken, nicht erst wenn eine laufende
-        // Session neu authentifiziert wird (Sicherheitsreview M1).
+        // Session neu authentifiziert wird (Sicherheitsreview M1). Das
+        // "Angemeldet bleiben"-Cookie meldet sonst trotz gelöschter Sessions
+        // beim nächsten Request automatisch wieder an -- die Sperrung griffe
+        // nur beim nächsten expliziten Login, nicht sofort (Sicherheitsreview
+        // M1/N6, analog zum Passwort-Reset in NewPasswordController).
         if ($wasActive && $validated['status'] !== 'active') {
             DB::table('sessions')->where('user_id', $user->id)->delete();
+            $user->forceFill(['remember_token' => Str::random(60)])->save();
         }
 
         return back()->with('status', 'Nutzer aktualisiert.');

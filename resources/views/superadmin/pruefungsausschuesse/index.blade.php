@@ -39,7 +39,7 @@
                         </td>
                         <td class="px-4 py-3 text-right whitespace-nowrap">
                             <a href="{{ route('superadmin.pruefungsausschuesse.edit', $pa) }}" class="text-xs text-slate-500 hover:underline">Bearbeiten</a>
-                            <form method="POST" action="{{ route('superadmin.pruefungsausschuesse.destroy', $pa) }}" class="inline" onsubmit="return confirm('Diesen Prüfungsausschuss wirklich löschen? Praxisorte, die ihn zugeordnet haben, verlieren die Zuordnung.');">
+                            <form method="POST" action="{{ route('superadmin.pruefungsausschuesse.destroy', $pa) }}" class="inline" @submit="if (! confirm('Diesen Prüfungsausschuss wirklich löschen? Praxisorte, die ihn zugeordnet haben, verlieren die Zuordnung.')) $event.preventDefault()">
                                 @csrf
                                 @method('DELETE')
                                 <button type="submit" class="ml-3 text-xs text-red-500 hover:underline">Löschen</button>

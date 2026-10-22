@@ -69,4 +69,28 @@ class PasswordUpdateTest extends TestCase
 
         $this->assertDatabaseMissing('sessions', ['id' => 'other-device-session']);
     }
+
+    /**
+     * Sicherheitsreview M1/N6: das Beenden der anderen Sessions allein
+     * reicht nicht -- ein "Angemeldet bleiben"-Cookie (z. B. eines
+     * Angreifers mit gestohlenen Zugangsdaten) meldet sich beim nächsten
+     * Request sonst automatisch mit dem alten remember_token wieder an,
+     * ganz ohne das neue Passwort zu kennen.
+     */
+    public function test_changing_the_password_invalidates_the_remember_me_cookie(): void
+    {
+        $tenant = $this->createTestTenant();
+        $user = $this->createTenantUser($tenant, 'learner', ['remember_token' => 'original-remember-token']);
+
+        $response = $this->actingAsInTenant($user, $tenant)
+            ->from('/profile')
+            ->put('/password', [
+                'current_password' => 'password',
+                'password' => 'new-password',
+                'password_confirmation' => 'new-password',
+            ]);
+
+        $response->assertSessionHasNoErrors();
+        $this->assertNotSame('original-remember-token', $user->fresh()->remember_token);
+    }
 }

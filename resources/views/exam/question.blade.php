@@ -46,7 +46,7 @@
                 </div>
 
                 <div class="flex items-center justify-between mt-6">
-                    <button type="button" onclick="toggleFavorite(this)" data-favorite="{{ $isFavorite ? '1' : '0' }}" data-question-id="{{ $current->question_id }}" class="favorite-toggle inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
+                    <button type="button" @click="toggleFavorite($el)" data-favorite="{{ $isFavorite ? '1' : '0' }}" data-question-id="{{ $current->question_id }}" class="favorite-toggle inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
                         <x-icon name="star" class="w-4 h-4" /> <span class="favorite-label">{{ $isFavorite ? 'Favorit' : 'Als Favorit speichern' }}</span>
                     </button>
                     <button type="submit" x-bind:disabled="selected.length === 0" class="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-40 hover:opacity-90 transition"
@@ -74,7 +74,7 @@
                         <form method="POST" action="{{ route('exam.answer', $examSession) }}" class="flex items-center justify-between mt-6">
                             @csrf
                             <input type="hidden" name="position" value="{{ $current->position }}">
-                            <button type="button" onclick="toggleFavorite()" class="inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
+                            <button type="button" @click="toggleFavorite()" class="inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
                                 <x-icon name="star" class="w-4 h-4" /> {{ $isFavorite ? 'Favorit' : 'Als Favorit speichern' }}
                             </button>
                             <div class="flex gap-2">
@@ -104,7 +104,7 @@
                 </div>
 
                 <div class="flex items-center justify-between mt-6">
-                    <button type="button" onclick="toggleFavorite(this)" data-favorite="{{ $isFavorite ? '1' : '0' }}" data-question-id="{{ $current->question_id }}" class="favorite-toggle inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
+                    <button type="button" @click="toggleFavorite($el)" data-favorite="{{ $isFavorite ? '1' : '0' }}" data-question-id="{{ $current->question_id }}" class="favorite-toggle inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
                         <x-icon name="star" class="w-4 h-4" /> <span class="favorite-label">{{ $isFavorite ? 'Favorit' : 'Als Favorit speichern' }}</span>
                     </button>
                     <button type="submit" x-bind:disabled="!selected" class="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-40 hover:opacity-90 transition"
@@ -116,7 +116,7 @@
         @endif
     </div>
 
-    <script>
+    <script nonce="{{ $cspNonce }}">
         // Bug-Review B29: ein Klick auf "Favorit" sendete bisher ein
         // verstecktes Formular ab und navigierte damit die gesamte Seite
         // neu -- die noch nicht abgeschickte Antwortauswahl im
@@ -150,7 +150,7 @@
     </script>
 
     @if (! is_null($remainingSeconds))
-        <script>
+        <script nonce="{{ $cspNonce }}">
             (function () {
                 const el = document.getElementById('exam-timer');
                 let remaining = parseInt(el.dataset.remaining, 10);
