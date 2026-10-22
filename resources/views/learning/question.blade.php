@@ -51,7 +51,15 @@
                 @csrf
                 <input type="hidden" name="revision_id" value="{{ $revision->id }}">
                 <input type="hidden" name="mode" value="{{ $mode }}">
-                <input type="hidden" name="response_time_ms" x-ref="responseTime" value="0">
+                {{-- Bug-Review B19: Antwortzeit wurde bisher client-seitig als
+                     Date.now() - $startedAt berechnet -- bei einer
+                     nachgehenden Geräteuhr konnte das negativ werden und
+                     die gesamte Antwort wegen "response_time_ms >= 0"
+                     ablehnen. started_at_ms trägt nur den unverändert vom
+                     Server gerenderten Zeitpunkt weiter; die eigentliche
+                     Dauer berechnet LearningController::storeAttempt() aus
+                     der Differenz zur eigenen (Server-)Uhr bei Eingang. --}}
+                <input type="hidden" name="started_at_ms" value="{{ $startedAt }}">
 
                 @unless ($answered)
                     <p class="text-xs text-slate-400 mb-2">Mehrfachauswahl &mdash; mindestens eine Antwort ist richtig.</p>
@@ -116,7 +124,6 @@
                             <x-icon name="star" class="w-4 h-4" /> {{ $isFavorite ? 'Favorit' : 'Als Favorit speichern' }}
                         </button>
                         <button type="submit" x-bind:disabled="selected.length === 0"
-                                x-on:click="$refs.responseTime.value = Date.now() - {{ $startedAt }}"
                                 class="px-5 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-40 hover:opacity-90 transition"
                                 style="background-color: var(--brand-primary, #005FD7)">
                             Antworten
@@ -159,15 +166,15 @@
                                 @csrf
                                 <input type="hidden" name="revision_id" value="{{ $revision->id }}">
                                 <input type="hidden" name="mode" value="{{ $mode }}">
-                                <input type="hidden" name="response_time_ms" x-ref="responseTime" value="0">
+                                <input type="hidden" name="started_at_ms" value="{{ $startedAt }}">
                                 <button type="button" onclick="toggleFavorite()" class="inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
                                     <x-icon name="star" class="w-4 h-4" /> {{ $isFavorite ? 'Favorit' : 'Als Favorit speichern' }}
                                 </button>
                                 <div class="flex gap-2">
-                                    <button type="submit" name="known" value="0" x-on:click="$refs.responseTime.value = Date.now() - {{ $startedAt }}" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-rose-300 text-rose-600 text-sm font-medium hover:bg-rose-50 dark:hover:bg-rose-900/20 transition">
+                                    <button type="submit" name="known" value="0" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-rose-300 text-rose-600 text-sm font-medium hover:bg-rose-50 dark:hover:bg-rose-900/20 transition">
                                         Nicht gewusst
                                     </button>
-                                    <button type="submit" name="known" value="1" x-on:click="$refs.responseTime.value = Date.now() - {{ $startedAt }}" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
+                                    <button type="submit" name="known" value="1" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
                                         Gewusst
                                     </button>
                                 </div>
@@ -181,7 +188,7 @@
                 @csrf
                 <input type="hidden" name="revision_id" value="{{ $revision->id }}">
                 <input type="hidden" name="mode" value="{{ $mode }}">
-                <input type="hidden" name="response_time_ms" x-ref="responseTime" value="0">
+                <input type="hidden" name="started_at_ms" value="{{ $startedAt }}">
 
                 <div class="space-y-2">
                     @foreach ($revision->answers as $answer)
@@ -241,7 +248,6 @@
                             <x-icon name="star" class="w-4 h-4" /> {{ $isFavorite ? 'Favorit' : 'Als Favorit speichern' }}
                         </button>
                         <button type="submit" x-bind:disabled="!selected"
-                                x-on:click="$refs.responseTime.value = Date.now() - {{ $startedAt }}"
                                 class="px-5 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-40 hover:opacity-90 transition"
                                 style="background-color: var(--brand-primary, #005FD7)">
                             Antworten

@@ -165,8 +165,20 @@ class LearningController extends Controller
             // (Sicherheitsreview M4). "in" beschränkt zusätzlich auf die
             // tatsächlich unterstützten Modi (siehe SmarttrainerService).
             'mode' => ['required', 'string', 'max:40', 'in:smarttrainer,new,wrong,topic,favorites'],
-            'response_time_ms' => ['nullable', 'integer', 'min:0'],
+            // Bug-Review B19: die Antwortzeit kam bisher vom Client fertig
+            // berechnet (Date.now() - startedAt, beide clientseitig) --
+            // eine nachgehende Geräteuhr konnte das negativ werden lassen
+            // und die gesamte Antwort wegen min:0 ablehnen. started_at_ms
+            // ist nur der unverändert vom Server gerenderte Zeitpunkt
+            // (LearningController::show(), 'startedAt' => now()->valueOf());
+            // die Dauer wird unten aus der Differenz zur eigenen Uhr bei
+            // Eingang berechnet, unabhängig von der Client-Uhr.
+            'started_at_ms' => ['nullable', 'integer'],
         ]);
+
+        $responseTimeMs = isset($validated['started_at_ms'])
+            ? max(0, (int) round(microtime(true) * 1000) - $validated['started_at_ms'])
+            : null;
 
         $revision = ContentQuestionRevision::where('id', $validated['revision_id'])
             ->where('editorial_status', 'published')
@@ -206,7 +218,7 @@ class LearningController extends Controller
         }
 
         $attempt = $learningService->recordAttempt(
-            $tenant, $user, $revision, $selectedAnswer, $validated['mode'], $course, $validated['response_time_ms'] ?? null, $selectedAnswers, $selfAssessedKnown
+            $tenant, $user, $revision, $selectedAnswer, $validated['mode'], $course, $responseTimeMs, $selectedAnswers, $selfAssessedKnown
         );
 
         $revision->load('answers', 'media');
