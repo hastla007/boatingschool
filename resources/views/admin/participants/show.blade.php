@@ -7,7 +7,12 @@
 
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5 mb-6 flex items-center gap-4">
         <div class="w-12 h-12 rounded-full flex items-center justify-center text-white text-lg font-semibold shrink-0" style="background-color: var(--brand-primary, #005FD7)">
-            {{ strtoupper(substr($participant->name, 0, 1)) }}
+            {{-- Bug-Review B28: substr/strtoupper schneiden bei einem mit
+                 einem Umlaut beginnenden Namen nur das erste Byte der
+                 UTF-8-Sequenz ab bzw. lassen Nicht-ASCII-Buchstaben
+                 unverändert -- mb_substr/mb_strtoupper behandeln das
+                 korrekt als ein Zeichen. --}}
+            {{ mb_strtoupper(mb_substr($participant->name, 0, 1)) }}
         </div>
         <div>
             <div class="text-lg font-semibold text-slate-800 dark:text-white">{{ $participant->name }}</div>

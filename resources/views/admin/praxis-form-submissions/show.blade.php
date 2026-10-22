@@ -7,7 +7,10 @@
 
     <div class="max-w-2xl bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5 mb-6 flex items-center gap-4">
         <div class="w-12 h-12 rounded-full flex items-center justify-center text-white text-lg font-semibold shrink-0" style="background-color: var(--brand-primary, #005FD7)">
-            {{ strtoupper(substr($submission->user->display_name ?? $submission->user->email, 0, 1)) }}
+            {{-- Bug-Review B28: mb_substr/mb_strtoupper statt substr/strtoupper,
+                 sonst zerstört ein mit einem Umlaut beginnender Name das
+                 erste Zeichen. --}}
+            {{ mb_strtoupper(mb_substr($submission->user->display_name ?? $submission->user->email, 0, 1)) }}
         </div>
         <div>
             <div class="text-lg font-semibold text-slate-800 dark:text-white">{{ $submission->user->display_name ?? $submission->user->email }}</div>

@@ -46,7 +46,11 @@
                     <td class="px-4 py-2">
                         <a href="{{ route('admin.praxis-form-submissions.show', $submission) }}" class="flex items-center gap-2 hover:underline">
                             <div class="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-semibold shrink-0" style="background-color: var(--brand-primary, #005FD7)">
-                                {{ strtoupper(substr($submission->user->display_name ?? $submission->user->email, 0, 1)) }}
+                                {{-- Bug-Review B28: mb_substr/mb_strtoupper statt
+                                     substr/strtoupper, sonst zerstört ein mit
+                                     einem Umlaut beginnender Name das erste
+                                     Zeichen. --}}
+                                {{ mb_strtoupper(mb_substr($submission->user->display_name ?? $submission->user->email, 0, 1)) }}
                             </div>
                             <span class="text-slate-700 dark:text-slate-200">{{ $submission->user->display_name ?? $submission->user->email }}</span>
                         </a>

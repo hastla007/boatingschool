@@ -65,7 +65,12 @@
                     <td class="px-4 py-2">
                         <a href="{{ route('admin.participants.show', $membership->user_id) }}" class="flex items-center gap-2 hover:underline">
                             <div class="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-semibold shrink-0" style="background-color: var(--brand-primary, #005FD7)">
-                                {{ strtoupper(substr($membership->user->name, 0, 1)) }}
+                                {{-- Bug-Review B28: mb_substr/mb_strtoupper statt
+                                     substr/strtoupper, sonst zerstört ein mit
+                                     einem Umlaut beginnender Name das erste
+                                     Zeichen (nur das erste Byte der
+                                     UTF-8-Sequenz wird abgeschnitten). --}}
+                                {{ mb_strtoupper(mb_substr($membership->user->name, 0, 1)) }}
                             </div>
                             <span class="text-slate-700 dark:text-slate-200">{{ $membership->user->name }}</span>
                         </a>
