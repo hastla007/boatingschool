@@ -19,7 +19,10 @@ class DashboardController extends Controller
         return view('superadmin.dashboard', [
             'tenantCount' => $tenants->count(),
             'userCount' => User::count(),
-            'activeEntitlementCount' => Entitlement::where('status', 'active')->count(),
+            // Bug-Review B15: status wechselt nie automatisch auf "expired"
+            // -- ein reines status=active zählte abgelaufene
+            // Freischaltungen weiter als aktiv.
+            'activeEntitlementCount' => Entitlement::currentlyActive()->count(),
             'courseCount' => CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')->count(),
             'couponTotal' => Coupon::count(),
             'couponRedeemed' => Coupon::whereNotNull('redeemed_at')->count(),

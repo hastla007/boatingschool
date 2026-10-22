@@ -52,7 +52,10 @@ class AdminDashboardController extends Controller
 
         $learnerIds = TenantUser::where('tenant_id', $tenant->id)->where('role', 'learner')->pluck('user_id');
         $learnerCount = $learnerIds->count();
-        $activeEntitlements = Entitlement::where('tenant_id', $tenant->id)->where('status', 'active')->count();
+        // Bug-Review B15: status wechselt nie automatisch auf "expired" --
+        // ein reines status=active zählte abgelaufene Freischaltungen
+        // weiter als aktiv. currentlyActive() prüft zusätzlich valid_until.
+        $activeEntitlements = Entitlement::where('tenant_id', $tenant->id)->currentlyActive()->count();
         $recentActivity = AuditLog::where('tenant_id', $tenant->id)->latest('created_at')->take(10)->get();
 
         // Info-Hinweis "Kürzlich gebuchte Kurse & Produkte" auf dem
@@ -132,8 +135,11 @@ class AdminDashboardController extends Controller
         // Info-Chart "Teilnehmer je Phase" -- der jeweils am weitesten
         // fortgeschrittene Status je Lerner über alle seine Kurse/
         // Anmeldungen hinweg, nicht je Kurs einzeln.
+        // Bug-Review B15: currentlyActive() statt eines reinen status=active,
+        // sonst landen Lerner mit einer abgelaufenen Freischaltung
+        // fälschlich in der Phase "Lernen" statt "Nicht gestartet".
         $activeEntitlementUserIds = Entitlement::where('tenant_id', $tenant->id)
-            ->where('status', 'active')
+            ->currentlyActive()
             ->whereIn('user_id', $learnerIds)
             ->pluck('user_id')
             ->unique();
@@ -188,7 +194,7 @@ class AdminDashboardController extends Controller
         // weitesten fortgeschrittene (derselbe Fortschrittswert wie auf
         // der Kursübersicht, siehe CourseProgressService::overallPercent).
         $learningEntitlementsByUser = Entitlement::where('tenant_id', $tenant->id)
-            ->where('status', 'active')
+            ->currentlyActive()
             ->whereIn('user_id', $learningPhaseLearnerIds)
             ->with(['course', 'user'])
             ->get()

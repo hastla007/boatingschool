@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToTenant;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -50,5 +51,21 @@ class Entitlement extends Model
         $now = now();
 
         return $this->valid_from <= $now && ($this->valid_until === null || $this->valid_until > $now);
+    }
+
+    /**
+     * Bug-Review B15: status wechselt nie automatisch auf "expired" (dafür
+     * gibt es einen eigenen Scheduler-Befehl, siehe ExpireEntitlements),
+     * daher reicht ein reines status=active für "aktiv" nicht aus -- diese
+     * Scope prüft zusätzlich valid_from/valid_until, genauso wie
+     * EntitlementService::activeEntitlements() und isCurrentlyActive().
+     */
+    public function scopeCurrentlyActive(Builder $query): Builder
+    {
+        $now = now();
+
+        return $query->where('status', 'active')
+            ->where('valid_from', '<=', $now)
+            ->where(fn ($q) => $q->whereNull('valid_until')->orWhere('valid_until', '>', $now));
     }
 }

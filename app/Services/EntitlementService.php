@@ -28,15 +28,12 @@ class EntitlementService
     /** @return Collection<int, Entitlement> */
     public function activeEntitlements(Tenant $tenant, User $user): Collection
     {
-        $now = now();
         $disabledCourseIds = TenantCourseDisabled::where('tenant_id', $tenant->id)->pluck('course_id');
 
         return Entitlement::with('course.modules')
             ->where('tenant_id', $tenant->id)
             ->where('user_id', $user->id)
-            ->where('status', 'active')
-            ->where('valid_from', '<=', $now)
-            ->where(fn ($q) => $q->whereNull('valid_until')->orWhere('valid_until', '>', $now))
+            ->currentlyActive()
             ->get()
             ->filter(fn (Entitlement $e) => $e->course && $e->course->site_enabled && ! $disabledCourseIds->contains($e->course_id))
             ->values();

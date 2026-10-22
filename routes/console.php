@@ -13,3 +13,7 @@ Artisan::command('inspire', function () {
 // Ein echter Scheduler-Cronjob (`php artisan schedule:run` jede Minute)
 // muss serverseitig eingerichtet sein, damit das überhaupt greift.
 Schedule::command('app:prune-personal-data')->daily();
+
+// Bug-Review B15: ohne diesen Lauf blieb entitlement.status für
+// abgelaufene Freischaltungen dauerhaft auf "active" stehen.
+Schedule::command('app:expire-entitlements')->hourly();
