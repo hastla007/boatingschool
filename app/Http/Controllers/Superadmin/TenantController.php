@@ -11,11 +11,20 @@ use App\Models\TenantUser;
 use App\Services\CourseProgressService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\Response;
 
 class TenantController extends Controller
 {
+    /**
+     * Bug-Review B17: diese Namen würden als Subdomain mit zentraler
+     * Infrastruktur kollidieren (www als Alias der Hauptdomain, admin/
+     * superadmin mit den gleichnamigen URL-Pfaden dieser App) oder sind
+     * allgemein für technische Zwecke reserviert.
+     */
+    private const RESERVED_SLUGS = ['www', 'admin', 'superadmin', 'api', 'app', 'mail', 'ftp', 'support', 'help'];
+
     public function index(): View
     {
         $tenants = Tenant::withCount('tenantUsers')->orderBy('name')->get();
@@ -31,12 +40,28 @@ class TenantController extends Controller
     public function store(Request $request): Response
     {
         $validated = $request->validate([
-            'slug' => ['required', 'alpha_dash', 'max:120', 'unique:tenant,slug'],
+            // Bug-Review B17: alpha_dash erlaubt Großbuchstaben und
+            // Unterstriche -- der Slug wird aber direkt als Subdomain
+            // verwendet (ResolveTenant::resolveViaSubdomain()), und der
+            // dortige Tenant::where('slug', ...)-Vergleich ist
+            // case-sensitive, während Browser/DNS den Host immer
+            // kleinschreiben. Ein Slug mit Großbuchstaben war dadurch nie
+            // erreichbar. Erlaubt ist deshalb nur das klassische
+            // Kleinbuchstaben-Zahlen-Bindestrich-Format.
+            'slug' => [
+                'required', 'string', 'max:120',
+                'regex:/^[a-z0-9]+(-[a-z0-9]+)*$/',
+                'unique:tenant,slug',
+                Rule::notIn(self::RESERVED_SLUGS),
+            ],
             'name' => ['required', 'string', 'max:255'],
             'status' => ['required', 'in:trial,active,suspended,closed'],
             'admin_first_name' => ['required', 'string', 'max:255'],
             'admin_last_name' => ['required', 'string', 'max:255'],
             'admin_email' => ['required', 'email', 'max:255', 'unique:app_user,email'],
+        ], [
+            'slug.regex' => 'Der Slug darf nur Kleinbuchstaben, Ziffern und einzelne Bindestriche enthalten (z. B. "meine-bootsschule").',
+            'slug.not_in' => 'Dieser Slug ist für die Plattform reserviert und kann nicht verwendet werden.',
         ]);
 
         $tenant = Tenant::create([
