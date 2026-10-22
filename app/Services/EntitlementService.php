@@ -35,7 +35,12 @@ class EntitlementService
             ->where('user_id', $user->id)
             ->currentlyActive()
             ->get()
-            ->filter(fn (Entitlement $e) => $e->course && $e->course->site_enabled && ! $disabledCourseIds->contains($e->course_id))
+            // Bug-Review B21: course_definition.status (draft/published/
+            // archived) wurde hier bisher ignoriert -- ein noch nicht
+            // veröffentlichter oder bereits archivierter Kurs blieb über ein
+            // bestehendes Entitlement trotzdem zugänglich, genau wie
+            // site_enabled wird jetzt auch status === 'published' geprüft.
+            ->filter(fn (Entitlement $e) => $e->course && $e->course->status === 'published' && $e->course->site_enabled && ! $disabledCourseIds->contains($e->course_id))
             ->values();
     }
 
@@ -44,10 +49,15 @@ class EntitlementService
         return $this->activeCourses($tenant, $user)->contains('id', $course->id);
     }
 
-    /** Ob ein Kurs für diese Bootsschule aktuell angeboten werden kann (sitewide UND mandantenseitig aktiv). */
+    /** Ob ein Kurs für diese Bootsschule aktuell angeboten werden kann (veröffentlicht, sitewide UND mandantenseitig aktiv). */
     public function isOfferable(Tenant $tenant, CourseDefinition $course): bool
     {
-        if (! $course->site_enabled) {
+        // Bug-Review B21: siehe activeEntitlements() -- ein Kurs im Status
+        // draft oder archived wurde bisher trotzdem als anbietbar
+        // behandelt, ließ sich also z. B. per Coupon einlösen oder manuell
+        // freischalten, obwohl er fachlich noch nicht fertig oder bereits
+        // zurückgezogen ist.
+        if ($course->status !== 'published' || ! $course->site_enabled) {
             return false;
         }
 

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CourseDefinition;
 use App\Models\Module;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -27,7 +28,13 @@ class CourseEditorController extends Controller
     public function store(Request $request): Response
     {
         $validated = $request->validate([
-            'code' => ['required', 'string', 'max:100'],
+            // Bug-Review B21: der DB-Unique-Index liegt auf (tenant_id,
+            // code) -- da tenant_id für globale Kurse NULL ist und
+            // Postgres NULLs als paarweise verschieden behandelt, verhindert
+            // das keine zwei globalen Kurse mit demselben Code. Diese Regel
+            // prüft die Eindeutigkeit deshalb explizit innerhalb des
+            // globalen Katalogs (tenant_id IS NULL).
+            'code' => ['required', 'string', 'max:100', Rule::unique('course_definition', 'code')->whereNull('tenant_id')],
             'name' => ['required', 'string', 'max:255'],
             'course_type' => ['required', 'string', 'max:60'],
             'status' => ['required', 'in:draft,published,archived'],

@@ -76,12 +76,23 @@ class CourseDefinition extends Model
         return $this->hasMany(PraxisTask::class, 'course_id')->orderBy('sort_order');
     }
 
-    /** Aktuell gültiges (published + verifiziert) Regelwerk. */
+    /**
+     * Aktuell gültiges (published + verifiziert + innerhalb der Gültigkeits-
+     * frist) Regelwerk. Bug-Review B21: valid_from/valid_until wurden
+     * bisher nicht geprüft -- ein bereits abgelaufenes oder noch nicht
+     * wirksames Regelwerk konnte trotzdem als "aktuell gültig" ausgewählt
+     * werden, sobald es das mit dem spätesten valid_from unter den
+     * published+verifizierten war.
+     */
     public function activeExamRuleSet(): ?ExamRuleSet
     {
+        $today = now()->toDateString();
+
         return $this->examRuleSets()
             ->where('status', 'published')
             ->whereNotNull('verified_at')
+            ->where(fn ($q) => $q->whereNull('valid_from')->orWhere('valid_from', '<=', $today))
+            ->where(fn ($q) => $q->whereNull('valid_until')->orWhere('valid_until', '>=', $today))
             ->orderByDesc('valid_from')
             ->first();
     }
