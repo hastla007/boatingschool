@@ -208,22 +208,22 @@ class ExamController extends Controller
         return redirect()->route('exam.show', $session);
     }
 
-    public function show(Request $request, ExamSession $examSession): View|Response
+    public function show(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, ExamSession $examSession): View|Response
     {
-        $this->authorizeSession($request, $examSession);
+        $this->authorizeSession($request, $tenantContext, $entitlements, $examSession);
 
         if ($examSession->status === 'evaluated') {
             return redirect()->route('exam.result', $examSession);
         }
 
         if ($this->timeExpired($examSession)) {
-            return $this->finish($request, $examSession);
+            return $this->finish($request, $tenantContext, $entitlements, $examSession);
         }
 
         $current = $examSession->questions()->whereNull('answered_at')->orderBy('position')->with('revision.answers', 'revision.media')->first();
 
         if (! $current) {
-            return $this->finish($request, $examSession);
+            return $this->finish($request, $tenantContext, $entitlements, $examSession);
         }
 
         $total = $examSession->questions()->count();
@@ -246,9 +246,9 @@ class ExamController extends Controller
         ]);
     }
 
-    public function answer(Request $request, ExamSession $examSession): Response
+    public function answer(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, ExamSession $examSession): Response
     {
-        $this->authorizeSession($request, $examSession);
+        $this->authorizeSession($request, $tenantContext, $entitlements, $examSession);
         abort_if($examSession->status !== 'running', 409);
 
         // Serverseitig prüfen statt nur der Weiterleitung in show() zu
@@ -313,9 +313,9 @@ class ExamController extends Controller
         return redirect()->route('exam.show', $examSession);
     }
 
-    public function finish(Request $request, ExamSession $examSession): Response
+    public function finish(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, ExamSession $examSession): Response
     {
-        $this->authorizeSession($request, $examSession);
+        $this->authorizeSession($request, $tenantContext, $entitlements, $examSession);
 
         if ($examSession->status === 'evaluated') {
             return redirect()->route('exam.result', $examSession);
@@ -394,9 +394,9 @@ class ExamController extends Controller
         });
     }
 
-    public function result(Request $request, ExamSession $examSession): View
+    public function result(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, ExamSession $examSession): View
     {
-        $this->authorizeSession($request, $examSession);
+        $this->authorizeSession($request, $tenantContext, $entitlements, $examSession);
         abort_unless($examSession->status === 'evaluated', 409, 'Prüfung ist noch nicht abgeschlossen.');
 
         $questions = $examSession->questions()->with('revision.answers')->orderBy('position')->get();
@@ -418,9 +418,17 @@ class ExamController extends Controller
         ]);
     }
 
-    private function authorizeSession(Request $request, ExamSession $examSession): void
+    private function authorizeSession(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, ExamSession $examSession): void
     {
         abort_unless($examSession->user_id === $request->user()->id, 403);
+
+        // Bug-Review B11: ohne diese Prüfung ließ sich eine laufende Prüfung
+        // beliebig fortsetzen (und auch abgeschlossene Ergebnisse weiter
+        // einsehen), selbst nachdem die Kursberechtigung entzogen wurde --
+        // genau wie bei der Fortschrittsseite (ProgressController) gilt der
+        // Zugriff auf einen Kurs nur, solange ein aktives Entitlement besteht.
+        $course = $examSession->course;
+        abort_unless($course && $entitlements->hasAccess($tenantContext->tenant(), $request->user(), $course), 403, 'Für diesen Kurs liegt kein aktives Entitlement vor.');
     }
 
     private function timeExpired(ExamSession $examSession): bool
