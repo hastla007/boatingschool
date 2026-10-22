@@ -53,6 +53,48 @@ class EnvironmentHardeningTest extends TestCase
         $response->assertOk();
     }
 
+    /**
+     * Laufzeitverhalten, wenn config('app.dev_tenant_override') false ist
+     * (z. B. weil DEV_TENANT_OVERRIDE nie gesetzt wurde) -- selbst von
+     * localhost aus greift der Dev-Override dann nicht mehr.
+     */
+    public function test_dev_tenant_override_has_no_effect_when_disabled_even_from_localhost(): void
+    {
+        config(['app.dev_tenant_override' => false]);
+
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+
+        $response = $this->actingAs($learner)
+            ->withServerVariables(['REMOTE_ADDR' => '127.0.0.1'])
+            ->withSession(['dev_tenant_slug' => $tenant->slug])
+            ->get('/dashboard');
+
+        $response->assertDontSee('Weiterlernen');
+    }
+
+    /**
+     * Pinnt den tatsächlichen Default-Wert in config/app.php fest
+     * (Sicherheitsreview M4): frühere Fassung fiel ohne gesetztes
+     * DEV_TENANT_OVERRIDE auf true zurück, der Dev-Override griff also
+     * automatisch, sobald irgendeine Umgebung (versehentlich)
+     * APP_ENV=local/testing setzte, selbst ohne diese Variable je bewusst
+     * gesetzt zu haben. Die beiden Tests oben allein reichen dafür nicht
+     * aus -- sie prüfen nur das Laufzeitverhalten bei einem per config()
+     * erzwungenen Wert, nicht den Default, den env() tatsächlich liefert,
+     * wenn die Variable fehlt (hier über phpunit.xml ohnehin immer gesetzt).
+     */
+    public function test_dev_tenant_override_config_default_literal_is_false(): void
+    {
+        $configSource = file_get_contents(config_path('app.php'));
+
+        $this->assertMatchesRegularExpression(
+            "/env\\('DEV_TENANT_OVERRIDE',\\s*false\\)/",
+            $configSource,
+            "config/app.php muss env('DEV_TENANT_OVERRIDE', false) verwenden -- ein true-Default würde den Dev-Override automatisch für jede APP_ENV=local/testing-Umgebung aktivieren, auch ohne die Variable je gesetzt zu haben."
+        );
+    }
+
     public function test_a_malformed_uuid_route_parameter_returns_404_not_a_server_error(): void
     {
         $tenant = $this->createTestTenant();

@@ -22,8 +22,12 @@ return [
     // Greift nur zusammen mit APP_ENV=local/testing UND einem Request von
     // localhost -- falls eine produktive .env versehentlich APP_ENV=local
     // erbt, bleibt der Host-Wechsel trotzdem gesperrt, solange der Zugriff
-    // nicht von localhost kommt.
-    'dev_tenant_override' => env('DEV_TENANT_OVERRIDE', true),
+    // nicht von localhost kommt. Der Default ist bewusst false (sicherer
+    // Standardwert): ohne explizites DEV_TENANT_OVERRIDE=true in der
+    // eigenen .env/phpunit.xml bleibt dieser Dev-Komfort deaktiviert, statt
+    // automatisch anzuspringen, sobald irgendeine Umgebung APP_ENV=local
+    // setzt.
+    'dev_tenant_override' => env('DEV_TENANT_OVERRIDE', false),
 
     /*
     |--------------------------------------------------------------------------
