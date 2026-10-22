@@ -44,7 +44,7 @@ class ExamTimerDisplayTest extends TestCase
         [$tenant, $learner, $course] = $this->setUpExamCourseWithTimeLimit(5400); // 90 Minuten
 
         $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam");
-        $session = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail();
+        $session = $this->asTenant($tenant, fn () => ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail());
 
         $response = $this->actingAsInTenant($learner, $tenant)->get("/exam-sessions/{$session->id}");
 

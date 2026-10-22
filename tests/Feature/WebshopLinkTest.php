@@ -38,11 +38,13 @@ class WebshopLinkTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $this->assertDatabaseHas('course_webshop_link', [
-            'tenant_id' => $tenant->id,
-            'course_id' => $course->id,
-            'url' => 'https://shop.example.test/src-kurs',
-        ]);
+        $this->asTenant($tenant, function () use ($tenant, $course) {
+            $this->assertDatabaseHas('course_webshop_link', [
+                'tenant_id' => $tenant->id,
+                'course_id' => $course->id,
+                'url' => 'https://shop.example.test/src-kurs',
+            ]);
+        });
     }
 
     public function test_clearing_a_link_removes_it(): void
@@ -62,10 +64,12 @@ class WebshopLinkTest extends TestCase
             'links' => [$course->id => ''],
         ]);
 
-        $this->assertDatabaseMissing('course_webshop_link', [
-            'tenant_id' => $tenant->id,
-            'course_id' => $course->id,
-        ]);
+        $this->asTenant($tenant, function () use ($tenant, $course) {
+            $this->assertDatabaseMissing('course_webshop_link', [
+                'tenant_id' => $tenant->id,
+                'course_id' => $course->id,
+            ]);
+        });
     }
 
     public function test_course_overview_shows_jetzt_kaufen_when_a_link_is_configured(): void
@@ -156,14 +160,16 @@ class WebshopLinkTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $this->assertDatabaseHas('course_webshop_link', [
-            'tenant_id' => $tenant->id,
-            'course_id' => $course->id,
-            'url' => 'https://shop.example.test/fuer-spaeter',
-        ]);
-        $this->assertDatabaseHas('tenant_course_disabled', [
-            'tenant_id' => $tenant->id,
-            'course_id' => $course->id,
-        ]);
+        $this->asTenant($tenant, function () use ($tenant, $course) {
+            $this->assertDatabaseHas('course_webshop_link', [
+                'tenant_id' => $tenant->id,
+                'course_id' => $course->id,
+                'url' => 'https://shop.example.test/fuer-spaeter',
+            ]);
+            $this->assertDatabaseHas('tenant_course_disabled', [
+                'tenant_id' => $tenant->id,
+                'course_id' => $course->id,
+            ]);
+        });
     }
 }

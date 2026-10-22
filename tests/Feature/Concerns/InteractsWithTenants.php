@@ -11,6 +11,8 @@ use App\Models\Tenant;
 use App\Models\TenantBranding;
 use App\Models\TenantUser;
 use App\Models\User;
+use App\Support\TenantContext;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
@@ -75,6 +77,25 @@ trait InteractsWithTenants
         } finally {
             config(['database.default' => $original]);
         }
+    }
+
+    /**
+     * Sicherheitsreview M5: app.current_tenant_id wird per SET LOCAL
+     * gesetzt und gilt deshalb nur innerhalb der Transaktion, in der es
+     * gesetzt wurde (siehe TenantContext, ResolveTenant) -- eine über
+     * actingAsInTenant() ausgelöste HTTP-Anfrage setzt den Kontext also
+     * nicht mehr über das Ende dieser Anfrage hinaus. Eine direkte
+     * Eloquent-Abfrage auf die App-Rolle (RLS aktiv) NACH einem solchen
+     * Request braucht deshalb ihren eigenen, frischen Tenant-Kontext --
+     * genau das stellt dieser Helfer her.
+     */
+    protected function asTenant(Tenant $tenant, callable $callback): mixed
+    {
+        return DB::transaction(function () use ($tenant, $callback) {
+            app(TenantContext::class)->set($tenant);
+
+            return $callback();
+        });
     }
 
     protected function createTestTenant(string $namePrefix = 'Test Schule'): Tenant

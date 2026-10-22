@@ -35,10 +35,12 @@ class RegistrationTest extends TestCase
         $userId = auth()->id();
         $this->createdUserIds[] = $userId;
 
-        $this->assertDatabaseHas('tenant_user', [
-            'tenant_id' => $tenant->id,
-            'user_id' => $userId,
-            'role' => 'learner',
-        ]);
+        $this->asTenant($tenant, function () use ($tenant, $userId) {
+            $this->assertDatabaseHas('tenant_user', [
+                'tenant_id' => $tenant->id,
+                'user_id' => $userId,
+                'role' => 'learner',
+            ]);
+        });
     }
 }

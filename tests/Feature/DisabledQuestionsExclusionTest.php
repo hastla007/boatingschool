@@ -116,9 +116,11 @@ class DisabledQuestionsExclusionTest extends TestCase
         });
 
         $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam");
-        $session = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail();
+        $sessionQuestionIds = $this->asTenant($tenant, function () use ($tenant, $learner) {
+            $session = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail();
 
-        $sessionQuestionIds = $session->questions()->pluck('question_id')->all();
+            return $session->questions()->pluck('question_id')->all();
+        });
         $this->assertSame([$activeQuestion->id], $sessionQuestionIds);
     }
 

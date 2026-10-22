@@ -61,14 +61,16 @@ class CouponManagementTest extends TestCase
 
         $response->assertSessionHasNoErrors();
         $response->assertSessionHas('status', fn ($status) => str_contains($status, '3 Codes übernommen'));
-        foreach ($codes as $code) {
-            $this->assertDatabaseHas('coupon', [
-                'code' => $code,
-                'course_id' => $course->id,
-                'tenant_id' => $tenant->id,
-                'redeemed_at' => null,
-            ]);
-        }
+        $this->onAdmin(function () use ($codes, $course, $tenant) {
+            foreach ($codes as $code) {
+                $this->assertDatabaseHas('coupon', [
+                    'code' => $code,
+                    'course_id' => $course->id,
+                    'tenant_id' => $tenant->id,
+                    'redeemed_at' => null,
+                ]);
+            }
+        });
     }
 
     public function test_admin_can_import_a_pre_generated_product_code(): void
@@ -85,11 +87,13 @@ class CouponManagementTest extends TestCase
         ]);
 
         $response->assertSessionHasNoErrors();
-        $this->assertDatabaseHas('coupon', [
-            'code' => $code,
-            'product_id' => $product->id,
-            'tenant_id' => $tenant->id,
-        ]);
+        $this->onAdmin(function () use ($code, $product, $tenant) {
+            $this->assertDatabaseHas('coupon', [
+                'code' => $code,
+                'product_id' => $product->id,
+                'tenant_id' => $tenant->id,
+            ]);
+        });
     }
 
     public function test_importing_an_unknown_code_is_reported_as_unavailable(): void
@@ -199,16 +203,18 @@ class CouponManagementTest extends TestCase
         ]);
 
         $response->assertSessionHasNoErrors();
-        $this->assertDatabaseHas('entitlement', [
-            'tenant_id' => $tenant->id,
-            'user_id' => $learner->id,
-            'course_id' => $course->id,
-            'source_type' => 'coupon',
-            'source_reference' => $code,
-        ]);
-        $coupon->refresh();
-        $this->assertTrue($coupon->isRedeemed());
-        $this->assertSame($learner->id, $coupon->redeemed_by_user_id);
+        $this->onAdmin(function () use ($tenant, $learner, $course, $code, $coupon) {
+            $this->assertDatabaseHas('entitlement', [
+                'tenant_id' => $tenant->id,
+                'user_id' => $learner->id,
+                'course_id' => $course->id,
+                'source_type' => 'coupon',
+                'source_reference' => $code,
+            ]);
+            $coupon->refresh();
+            $this->assertTrue($coupon->isRedeemed());
+            $this->assertSame($learner->id, $coupon->redeemed_by_user_id);
+        });
 
         $courseShow = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
         $courseShow->assertOk();
@@ -230,9 +236,11 @@ class CouponManagementTest extends TestCase
         ]);
 
         $response->assertSessionHasErrors('assign');
-        $coupon->refresh();
-        $this->assertFalse($coupon->isRedeemed());
-        $this->assertDatabaseMissing('entitlement', ['tenant_id' => $tenantA->id, 'user_id' => $learnerB->id, 'course_id' => $course->id]);
+        $this->onAdmin(function () use ($tenantA, $learnerB, $course, $coupon) {
+            $coupon->refresh();
+            $this->assertFalse($coupon->isRedeemed());
+            $this->assertDatabaseMissing('entitlement', ['tenant_id' => $tenantA->id, 'user_id' => $learnerB->id, 'course_id' => $course->id]);
+        });
     }
 
     public function test_admin_cannot_assign_an_already_redeemed_code(): void
@@ -252,7 +260,7 @@ class CouponManagementTest extends TestCase
         ]);
 
         $response->assertNotFound();
-        $this->assertSame(1, Entitlement::where('tenant_id', $tenant->id)->where('course_id', $course->id)->count());
+        $this->assertSame(1, $this->onAdmin(fn () => Entitlement::where('tenant_id', $tenant->id)->where('course_id', $course->id)->count()));
     }
 
     public function test_coupon_redeem_menu_link_is_visible_for_a_learner(): void
@@ -378,12 +386,14 @@ class CouponManagementTest extends TestCase
         $response = $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', ['code' => $code]);
 
         $response->assertSessionHasNoErrors();
-        $this->assertDatabaseHas('entitlement', [
-            'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'course_id' => $course->id, 'source_reference' => $code,
-        ]);
-        $this->assertDatabaseHas('product_purchase', [
-            'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'product_id' => $option->id, 'source_type' => 'coupon', 'source_reference' => $code,
-        ]);
+        $this->onAdmin(function () use ($tenant, $learner, $course, $option, $code) {
+            $this->assertDatabaseHas('entitlement', [
+                'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'course_id' => $course->id, 'source_reference' => $code,
+            ]);
+            $this->assertDatabaseHas('product_purchase', [
+                'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'product_id' => $option->id, 'source_type' => 'coupon', 'source_reference' => $code,
+            ]);
+        });
     }
 
     public function test_redeeming_a_course_coupon_with_several_bundled_options_grants_all_of_them(): void
@@ -403,15 +413,17 @@ class CouponManagementTest extends TestCase
         $response = $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', ['code' => $code]);
 
         $response->assertSessionHasNoErrors();
-        $this->assertDatabaseHas('entitlement', [
-            'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'course_id' => $course->id, 'source_reference' => $code,
-        ]);
-        $this->assertDatabaseHas('product_purchase', [
-            'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'product_id' => $willkommensbox->id, 'source_reference' => $code,
-        ]);
-        $this->assertDatabaseHas('product_purchase', [
-            'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'product_id' => $kleinePraxis->id, 'source_reference' => $code,
-        ]);
+        $this->onAdmin(function () use ($tenant, $learner, $course, $willkommensbox, $kleinePraxis, $code) {
+            $this->assertDatabaseHas('entitlement', [
+                'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'course_id' => $course->id, 'source_reference' => $code,
+            ]);
+            $this->assertDatabaseHas('product_purchase', [
+                'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'product_id' => $willkommensbox->id, 'source_reference' => $code,
+            ]);
+            $this->assertDatabaseHas('product_purchase', [
+                'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'product_id' => $kleinePraxis->id, 'source_reference' => $code,
+            ]);
+        });
     }
 
     public function test_redeeming_a_course_coupon_without_an_option_does_not_create_a_product_purchase(): void

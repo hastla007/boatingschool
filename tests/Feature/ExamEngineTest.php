@@ -44,9 +44,12 @@ class ExamEngineTest extends TestCase
         [$tenant, $learner, $course] = $this->setUpVerifiedExamCourse();
 
         $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam");
-        $session = \App\Models\ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail();
+        [$session, $question] = $this->asTenant($tenant, function () use ($tenant, $learner) {
+            $session = \App\Models\ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail();
+            $question = $session->questions()->orderBy('position')->with('revision.answers')->firstOrFail();
 
-        $question = $session->questions()->orderBy('position')->firstOrFail();
+            return [$session, $question];
+        });
         $answer = $question->revision->answers->first();
 
         $response = $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/answers", [
@@ -57,11 +60,13 @@ class ExamEngineTest extends TestCase
         $response->assertRedirect(route('exam.show', $session));
         $this->assertStringNotContainsString('correct', strtolower($response->headers->get('location')));
 
-        $this->assertDatabaseHas('exam_session_question', [
-            'exam_session_id' => $session->id,
-            'position' => $question->position,
-            'correct' => null,
-        ]);
+        $this->asTenant($tenant, function () use ($session, $question) {
+            $this->assertDatabaseHas('exam_session_question', [
+                'exam_session_id' => $session->id,
+                'position' => $question->position,
+                'correct' => null,
+            ]);
+        });
     }
 
     public function test_finishing_computes_score_from_stored_answers_and_locks_the_session(): void
@@ -69,9 +74,14 @@ class ExamEngineTest extends TestCase
         [$tenant, $learner, $course] = $this->setUpVerifiedExamCourse();
 
         $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam");
-        $session = \App\Models\ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail();
+        [$session, $sessionQuestions] = $this->asTenant($tenant, function () use ($tenant, $learner) {
+            $session = \App\Models\ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail();
+            $sessionQuestions = $session->questions()->orderBy('position')->with('revision.answers')->get();
 
-        foreach ($session->questions()->orderBy('position')->get() as $sq) {
+            return [$session, $sessionQuestions];
+        });
+
+        foreach ($sessionQuestions as $sq) {
             $correctAnswer = $sq->revision->correctAnswer();
             $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/answers", [
                 'position' => $sq->position,
@@ -82,7 +92,7 @@ class ExamEngineTest extends TestCase
         $response = $this->actingAsInTenant($learner, $tenant)->get("/exam-sessions/{$session->id}");
         $response->assertRedirect(route('exam.result', $session));
 
-        $session->refresh();
+        $session = $this->asTenant($tenant, fn () => \App\Models\ExamSession::find($session->id));
         $this->assertSame('evaluated', $session->status);
         $this->assertEquals(1.0, $session->score);
         $this->assertTrue($session->passed);
@@ -105,10 +115,15 @@ class ExamEngineTest extends TestCase
     private function finishRandomExam(\App\Models\Tenant $tenant, User $learner, CourseDefinition $course): void
     {
         $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam");
-        $session = \App\Models\ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
-            ->where('status', 'running')->firstOrFail();
+        [$session, $sessionQuestions] = $this->asTenant($tenant, function () use ($tenant, $learner) {
+            $session = \App\Models\ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
+                ->where('status', 'running')->firstOrFail();
+            $sessionQuestions = $session->questions()->orderBy('position')->with('revision.answers')->get();
 
-        foreach ($session->questions()->orderBy('position')->get() as $sq) {
+            return [$session, $sessionQuestions];
+        });
+
+        foreach ($sessionQuestions as $sq) {
             $correctAnswer = $sq->revision->correctAnswer();
             $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/answers", [
                 'position' => $sq->position,

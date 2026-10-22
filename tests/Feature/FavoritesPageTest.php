@@ -106,9 +106,14 @@ class FavoritesPageTest extends TestCase
         [$tenant, $learner, $course] = $this->setUpVerifiedExamCourse();
 
         $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam");
-        $session = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail();
+        [$session, $sessionQuestions] = $this->asTenant($tenant, function () use ($tenant, $learner) {
+            $session = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail();
+            $sessionQuestions = $session->questions()->orderBy('position')->with('revision.answers')->get();
 
-        foreach ($session->questions()->orderBy('position')->get() as $sq) {
+            return [$session, $sessionQuestions];
+        });
+
+        foreach ($sessionQuestions as $sq) {
             $wrongAnswer = $sq->revision->answers->firstWhere('is_correct', false);
             $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/answers", [
                 'position' => $sq->position,

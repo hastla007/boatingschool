@@ -111,9 +111,11 @@ class AccountErasureTest extends TestCase
         $this->actingAsInTenant($user, $tenant)->delete('/profile', ['password' => 'password'])
             ->assertSessionHasNoErrors();
 
-        $entry = DB::table('audit_log')->where('entity_type', 'app_user')->where('entity_id', $user->id)->first();
-        $this->assertNotNull($entry);
-        $this->assertNull($entry->after_data);
+        $this->onAdmin(function () use ($user) {
+            $entry = DB::table('audit_log')->where('entity_type', 'app_user')->where('entity_id', $user->id)->first();
+            $this->assertNotNull($entry);
+            $this->assertNull($entry->after_data);
+        });
     }
 
     public function test_sessions_and_password_reset_tokens_are_removed_when_the_account_is_fully_deleted(): void

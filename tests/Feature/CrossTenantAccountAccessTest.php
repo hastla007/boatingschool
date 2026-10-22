@@ -73,11 +73,11 @@ class CrossTenantAccountAccessTest extends TestCase
         ]);
 
         $response->assertNotFound();
-        $this->assertDatabaseMissing('entitlement', [
+        $this->onAdmin(fn () => $this->assertDatabaseMissing('entitlement', [
             'tenant_id' => $tenantA->id,
             'user_id' => $outsiderOfB->id,
             'course_id' => $course->id,
-        ]);
+        ]));
     }
 
     public function test_entitlement_cannot_be_granted_for_a_course_disabled_for_the_tenant(): void
@@ -94,11 +94,11 @@ class CrossTenantAccountAccessTest extends TestCase
         ]);
 
         $response->assertNotFound();
-        $this->assertDatabaseMissing('entitlement', [
+        $this->onAdmin(fn () => $this->assertDatabaseMissing('entitlement', [
             'tenant_id' => $tenant->id,
             'user_id' => $learner->id,
             'course_id' => $course->id,
-        ]);
+        ]));
     }
 
     public function test_entitlement_can_still_be_granted_to_a_real_member_for_an_offered_course(): void
@@ -114,10 +114,10 @@ class CrossTenantAccountAccessTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $this->assertDatabaseHas('entitlement', [
+        $this->onAdmin(fn () => $this->assertDatabaseHas('entitlement', [
             'tenant_id' => $tenant->id,
             'user_id' => $learner->id,
             'course_id' => $course->id,
-        ]);
+        ]));
     }
 }

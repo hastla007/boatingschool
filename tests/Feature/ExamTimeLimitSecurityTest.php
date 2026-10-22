@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\ExamBlueprint;
 use App\Models\ExamRuleSet;
 use App\Models\ExamSession;
+use App\Models\ExamSessionQuestion;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -41,12 +42,16 @@ class ExamTimeLimitSecurityTest extends TestCase
         [$tenant, $learner, $course] = $this->setUpVerifiedExamCourse(timeLimitSeconds: 60);
 
         $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam");
-        $session = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail();
+        [$session, $question] = $this->asTenant($tenant, function () use ($tenant, $learner) {
+            $session = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail();
+            $question = $session->questions()->orderBy('position')->with('revision.answers')->firstOrFail();
+
+            return [$session, $question];
+        });
 
         // Zeitlimit künstlich in die Vergangenheit verlegen statt zu warten.
-        $this->onAdmin(fn () => $session->update(['started_at' => now()->subMinutes(5)]));
+        $this->onAdmin(fn () => ExamSession::where('id', $session->id)->update(['started_at' => now()->subMinutes(5)]));
 
-        $question = $session->questions()->orderBy('position')->firstOrFail();
         $answer = $question->revision->answers->first();
 
         $response = $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/answers", [
@@ -55,12 +60,14 @@ class ExamTimeLimitSecurityTest extends TestCase
         ]);
 
         $response->assertStatus(409);
-        $this->assertSame('evaluated', $session->fresh()->status);
-        $this->assertDatabaseHas('exam_session_question', [
-            'exam_session_id' => $session->id,
-            'position' => $question->position,
-            'answered_at' => null,
-        ]);
+        $this->asTenant($tenant, function () use ($session, $question) {
+            $this->assertSame('evaluated', ExamSession::find($session->id)->status);
+            $this->assertDatabaseHas('exam_session_question', [
+                'exam_session_id' => $session->id,
+                'position' => $question->position,
+                'answered_at' => null,
+            ]);
+        });
     }
 
     public function test_an_already_answered_question_cannot_be_answered_again(): void
@@ -68,9 +75,12 @@ class ExamTimeLimitSecurityTest extends TestCase
         [$tenant, $learner, $course] = $this->setUpVerifiedExamCourse(timeLimitSeconds: 3600);
 
         $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam");
-        $session = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail();
+        [$session, $question] = $this->asTenant($tenant, function () use ($tenant, $learner) {
+            $session = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail();
+            $question = $session->questions()->orderBy('position')->with('revision.answers')->firstOrFail();
 
-        $question = $session->questions()->orderBy('position')->firstOrFail();
+            return [$session, $question];
+        });
         $answers = $question->revision->answers;
         $firstAnswer = $answers->first();
         $otherAnswer = $answers->firstWhere('id', '!=', $firstAnswer->id) ?? $firstAnswer;
@@ -86,11 +96,13 @@ class ExamTimeLimitSecurityTest extends TestCase
         ]);
 
         $retry->assertNotFound();
-        $this->assertDatabaseHas('exam_session_question', [
-            'exam_session_id' => $session->id,
-            'position' => $question->position,
-            'selected_answer_id' => $firstAnswer->id,
-        ]);
+        $this->asTenant($tenant, function () use ($session, $question, $firstAnswer) {
+            $this->assertDatabaseHas('exam_session_question', [
+                'exam_session_id' => $session->id,
+                'position' => $question->position,
+                'selected_answer_id' => $firstAnswer->id,
+            ]);
+        });
     }
 
     public function test_an_answer_saved_after_the_deadline_does_not_count_toward_the_score(): void
@@ -98,28 +110,43 @@ class ExamTimeLimitSecurityTest extends TestCase
         [$tenant, $learner, $course] = $this->setUpVerifiedExamCourse(timeLimitSeconds: 60);
 
         $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam");
-        $session = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail();
-        $questions = $session->questions()->orderBy('position')->get();
+        [$session, $questions] = $this->asTenant($tenant, function () use ($tenant, $learner) {
+            $session = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail();
+            $questions = $session->questions()->orderBy('position')->with('revision.answers')->get();
+
+            return [$session, $questions];
+        });
 
         // Simuliert eine Antwort, die (z. B. durch eine Race Condition) trotz
         // allem nach Ablauf der Frist gespeichert wurde.
+        //
+        // Statt $q->update(...)/$session->update(...): eine zuvor geladene
+        // Model-Instanz trägt die Connection fest, die beim Laden "default"
+        // war (hier: die App-Rolle) -- onAdmin() schaltet nur die
+        // KONFIGURATION um, ein Aufruf auf dieser Instanz würde also
+        // trotzdem (unter RLS, ohne gesetzten Tenant-Kontext) ins Leere
+        // laufen und 0 Zeilen treffen, obwohl update()/save() trotzdem true
+        // zurückgibt. Der statische Query-Builder-Stil baut dagegen bei
+        // jedem Aufruf neu auf der gerade aktuellen Default-Verbindung auf.
         $this->onAdmin(function () use ($session, $questions) {
             $q = $questions->first();
             $correctAnswerId = $q->revision->correctAnswer()->id;
-            $q->update([
+            ExamSessionQuestion::where('exam_session_id', $q->exam_session_id)->where('question_id', $q->question_id)->update([
                 'selected_answer_id' => $correctAnswerId,
                 'answered_at' => $session->started_at->copy()->addMinutes(10),
             ]);
-            $session->update(['started_at' => now()->subMinutes(15)]);
+            ExamSession::where('id', $session->id)->update(['started_at' => now()->subMinutes(15)]);
         });
 
         $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/finish");
 
-        $this->assertDatabaseHas('exam_session_question', [
-            'exam_session_id' => $session->id,
-            'position' => $questions->first()->position,
-            'correct' => false,
-        ]);
+        $this->asTenant($tenant, function () use ($session, $questions) {
+            $this->assertDatabaseHas('exam_session_question', [
+                'exam_session_id' => $session->id,
+                'position' => $questions->first()->position,
+                'correct' => false,
+            ]);
+        });
     }
 
     public function test_a_question_in_a_running_exam_cannot_be_answered_via_the_learning_mode(): void
@@ -127,8 +154,11 @@ class ExamTimeLimitSecurityTest extends TestCase
         [$tenant, $learner, $course] = $this->setUpVerifiedExamCourse(timeLimitSeconds: 3600);
 
         $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam");
-        $session = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail();
-        $question = $session->questions()->orderBy('position')->firstOrFail();
+        $question = $this->asTenant($tenant, function () use ($tenant, $learner) {
+            $session = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail();
+
+            return $session->questions()->orderBy('position')->with('revision.answers')->firstOrFail();
+        });
 
         $response = $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/learn/attempts", [
             'revision_id' => $question->revision_id,
@@ -137,11 +167,13 @@ class ExamTimeLimitSecurityTest extends TestCase
         ]);
 
         $response->assertStatus(409);
-        $this->assertDatabaseMissing('attempt', [
-            'tenant_id' => $tenant->id,
-            'user_id' => $learner->id,
-            'question_id' => $question->question_id,
-        ]);
+        $this->asTenant($tenant, function () use ($tenant, $learner, $question) {
+            $this->assertDatabaseMissing('attempt', [
+                'tenant_id' => $tenant->id,
+                'user_id' => $learner->id,
+                'question_id' => $question->question_id,
+            ]);
+        });
     }
 
     /** @return array{0: \App\Models\Tenant, 1: \App\Models\User, 2: \App\Models\CourseDefinition} */

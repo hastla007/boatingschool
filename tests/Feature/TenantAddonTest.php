@@ -71,17 +71,19 @@ class TenantAddonTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $this->assertDatabaseHas('tenant_addon', [
-            'tenant_id' => $tenant->id,
-            'addon_template_id' => $template->id,
-            'active' => true,
-            'coupon_code' => 'SOMMER25',
-            'price_label' => '149 €',
-            'discount_percent' => 20,
-            'trigger_course_id' => $course->id,
-            'trigger_percent' => 30,
-            'offer_url' => 'https://shop.example.test/grosses-paket',
-        ]);
+        $this->asTenant($tenant, function () use ($tenant, $template, $course) {
+            $this->assertDatabaseHas('tenant_addon', [
+                'tenant_id' => $tenant->id,
+                'addon_template_id' => $template->id,
+                'active' => true,
+                'coupon_code' => 'SOMMER25',
+                'price_label' => '149 €',
+                'discount_percent' => 20,
+                'trigger_course_id' => $course->id,
+                'trigger_percent' => 30,
+                'offer_url' => 'https://shop.example.test/grosses-paket',
+            ]);
+        });
     }
 
     public function test_discount_percent_is_optional_and_defaults_to_null(): void
@@ -104,11 +106,13 @@ class TenantAddonTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $this->assertDatabaseHas('tenant_addon', [
-            'tenant_id' => $tenant->id,
-            'addon_template_id' => $template->id,
-            'discount_percent' => null,
-        ]);
+        $this->asTenant($tenant, function () use ($tenant, $template) {
+            $this->assertDatabaseHas('tenant_addon', [
+                'tenant_id' => $tenant->id,
+                'addon_template_id' => $template->id,
+                'discount_percent' => null,
+            ]);
+        });
     }
 
     public function test_a_school_admin_can_override_the_templates_bullets(): void
@@ -185,10 +189,10 @@ class TenantAddonTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $this->assertDatabaseMissing('tenant_addon', [
+        $this->asTenant($tenant, fn () => $this->assertDatabaseMissing('tenant_addon', [
             'tenant_id' => $tenant->id,
             'addon_template_id' => $template->id,
-        ]);
+        ]));
     }
 
     public function test_addons_tab_lists_active_templates(): void
@@ -223,7 +227,9 @@ class TenantAddonTest extends TestCase
             ],
         ]);
 
-        $this->assertDatabaseHas('tenant_addon', ['tenant_id' => $tenantA->id, 'coupon_code' => 'NUR-A']);
-        $this->assertDatabaseMissing('tenant_addon', ['tenant_id' => $tenantB->id, 'addon_template_id' => $template->id]);
+        $this->asTenant($tenantA, function () use ($tenantA, $template) {
+            $this->assertDatabaseHas('tenant_addon', ['tenant_id' => $tenantA->id, 'coupon_code' => 'NUR-A']);
+        });
+        $this->onAdmin(fn () => $this->assertDatabaseMissing('tenant_addon', ['tenant_id' => $tenantB->id, 'addon_template_id' => $template->id]));
     }
 }

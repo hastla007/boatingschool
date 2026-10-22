@@ -95,8 +95,8 @@ class RenewalCodeTest extends TestCase
         $response->assertSessionHasNoErrors();
         $response->assertRedirect(route('courses.show', $course));
 
-        $entitlement = Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
-            ->where('course_id', $course->id)->firstOrFail();
+        $entitlement = $this->asTenant($tenant, fn () => Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
+            ->where('course_id', $course->id)->firstOrFail());
         $this->assertSame('active', $entitlement->status);
         $this->assertTrue($entitlement->valid_until->isFuture());
         $this->assertTrue($entitlement->valid_until->between(now()->addDays(364), now()->addDays(366)));
@@ -126,8 +126,8 @@ class RenewalCodeTest extends TestCase
         $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', ['code' => $coupon->code])
             ->assertSessionHasNoErrors();
 
-        $entitlement = Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
-            ->where('course_id', $course->id)->firstOrFail();
+        $entitlement = $this->asTenant($tenant, fn () => Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
+            ->where('course_id', $course->id)->firstOrFail());
 
         // 30 Tage Restlaufzeit + 365 Tage Verlängerung, nicht nur 365 ab heute.
         $this->assertTrue($entitlement->valid_until->between($futureExpiry->copy()->addDays(364), $futureExpiry->copy()->addDays(366)));
@@ -159,11 +159,13 @@ class RenewalCodeTest extends TestCase
         $response->assertRedirect();
         $response->assertSessionHasNoErrors();
 
-        $entitlement = Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
-            ->where('course_id', $course->id)->firstOrFail();
-        $this->assertTrue($entitlement->valid_until->isFuture());
+        $this->asTenant($tenant, function () use ($tenant, $learner, $course, $coupon) {
+            $entitlement = Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
+                ->where('course_id', $course->id)->firstOrFail();
+            $this->assertTrue($entitlement->valid_until->isFuture());
 
-        $this->assertDatabaseHas('coupon', ['id' => $coupon->id, 'redeemed_by_user_id' => $learner->id]);
+            $this->assertDatabaseHas('coupon', ['id' => $coupon->id, 'redeemed_by_user_id' => $learner->id]);
+        });
     }
 
     public function test_renewal_creates_a_fresh_entitlement_when_the_course_was_never_booked(): void
@@ -176,13 +178,15 @@ class RenewalCodeTest extends TestCase
         $response = $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', ['code' => $coupon->code]);
 
         $response->assertSessionHasNoErrors();
-        $this->assertDatabaseHas('entitlement', [
-            'tenant_id' => $tenant->id,
-            'user_id' => $learner->id,
-            'course_id' => $course->id,
-            'status' => 'active',
-            'source_type' => 'coupon_renewal',
-        ]);
+        $this->asTenant($tenant, function () use ($tenant, $learner, $course) {
+            $this->assertDatabaseHas('entitlement', [
+                'tenant_id' => $tenant->id,
+                'user_id' => $learner->id,
+                'course_id' => $course->id,
+                'status' => 'active',
+                'source_type' => 'coupon_renewal',
+            ]);
+        });
     }
 
     public function test_coupon_type_filter_shows_only_renewal_codes_in_admin_tab(): void

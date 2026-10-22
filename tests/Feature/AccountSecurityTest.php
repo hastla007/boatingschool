@@ -46,8 +46,8 @@ class AccountSecurityTest extends TestCase
         $second = $this->actingAsInTenant($learnerB, $tenant)->post('/coupons/redeem', ['code' => $code]);
 
         $second->assertSessionHasErrors('code');
-        $this->assertSame(1, Entitlement::where('tenant_id', $tenant->id)->where('course_id', $course->id)
-            ->where('source_type', 'coupon')->where('source_reference', $code)->count());
+        $this->assertSame(1, $this->asTenant($tenant, fn () => Entitlement::where('tenant_id', $tenant->id)->where('course_id', $course->id)
+            ->where('source_type', 'coupon')->where('source_reference', $code)->count()));
 
         $this->onAdmin(fn () => Coupon::where('code', $code)->delete());
     }
@@ -67,8 +67,8 @@ class AccountSecurityTest extends TestCase
         $response = $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', ['code' => $code]);
 
         $response->assertSessionHasErrors('code');
-        $this->assertSame(1, Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
-            ->where('course_id', $course->id)->count());
+        $this->assertSame(1, $this->asTenant($tenant, fn () => Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
+            ->where('course_id', $course->id)->count()));
         $this->assertNull($this->onAdmin(fn () => Coupon::where('code', $code)->first())->redeemed_at);
 
         $this->onAdmin(fn () => Coupon::where('code', $code)->delete());
@@ -96,15 +96,17 @@ class AccountSecurityTest extends TestCase
 
         $response->assertRedirect();
 
-        $this->assertDatabaseMissing('tenant_user', [
-            'tenant_id' => $invitingTenant->id,
-            'user_id' => $attackerVictim->id,
-        ]);
+        $this->asTenant($invitingTenant, function () use ($invitingTenant, $attackerVictim) {
+            $this->assertDatabaseMissing('tenant_user', [
+                'tenant_id' => $invitingTenant->id,
+                'user_id' => $attackerVictim->id,
+            ]);
 
-        $this->assertDatabaseHas('tenant_invitation', [
-            'tenant_id' => $invitingTenant->id,
-            'email' => 'opfer@example.test',
-        ]);
+            $this->assertDatabaseHas('tenant_invitation', [
+                'tenant_id' => $invitingTenant->id,
+                'email' => 'opfer@example.test',
+            ]);
+        });
 
         Notification::assertSentOnDemand(TenantInvitationNotification::class);
     }
@@ -125,7 +127,7 @@ class AccountSecurityTest extends TestCase
             'email' => 'opfer2@example.test',
         ]);
 
-        $invitation = TenantInvitation::where('tenant_id', $invitingTenant->id)->where('email', 'opfer2@example.test')->firstOrFail();
+        $invitation = $this->asTenant($invitingTenant, fn () => TenantInvitation::where('tenant_id', $invitingTenant->id)->where('email', 'opfer2@example.test')->firstOrFail());
 
         $url = URL::temporarySignedRoute('invitations.accept', now()->addDays(7), [
             'invitation' => $invitation->id,
@@ -135,11 +137,13 @@ class AccountSecurityTest extends TestCase
         $response = $this->actingAsInTenant($victim, $invitingTenant)->get($url);
 
         $response->assertRedirect(route('dashboard'));
-        $this->assertDatabaseHas('tenant_user', [
-            'tenant_id' => $invitingTenant->id,
-            'user_id' => $victim->id,
-        ]);
-        $this->assertNotNull($invitation->fresh()->accepted_at);
+        $this->asTenant($invitingTenant, function () use ($invitingTenant, $victim, $invitation) {
+            $this->assertDatabaseHas('tenant_user', [
+                'tenant_id' => $invitingTenant->id,
+                'user_id' => $victim->id,
+            ]);
+            $this->assertNotNull(TenantInvitation::find($invitation->id)->accepted_at);
+        });
     }
 
     /**
@@ -168,7 +172,7 @@ class AccountSecurityTest extends TestCase
             'email' => 'vorab-registriert@example.test',
         ]);
 
-        $invitation = TenantInvitation::where('tenant_id', $invitingTenant->id)->where('email', 'vorab-registriert@example.test')->firstOrFail();
+        $invitation = $this->asTenant($invitingTenant, fn () => TenantInvitation::where('tenant_id', $invitingTenant->id)->where('email', 'vorab-registriert@example.test')->firstOrFail());
         $url = URL::temporarySignedRoute('invitations.accept', now()->addDays(7), [
             'invitation' => $invitation->id,
             'hash' => sha1('vorab-registriert@example.test'),
@@ -178,10 +182,12 @@ class AccountSecurityTest extends TestCase
         $response = $this->actingAsInTenant($attacker, $invitingTenant)->get($url);
 
         $response->assertForbidden();
-        $this->assertDatabaseMissing('tenant_user', [
-            'tenant_id' => $invitingTenant->id,
-            'user_id' => $attacker->id,
-        ]);
+        $this->asTenant($invitingTenant, function () use ($invitingTenant, $attacker) {
+            $this->assertDatabaseMissing('tenant_user', [
+                'tenant_id' => $invitingTenant->id,
+                'user_id' => $attacker->id,
+            ]);
+        });
     }
 
     /**
@@ -226,7 +232,9 @@ class AccountSecurityTest extends TestCase
         $response->assertRedirect();
         $user = User::where('email', $email)->first();
         $this->assertNotNull($user);
-        $this->assertDatabaseHas('tenant_user', ['tenant_id' => $tenant->id, 'user_id' => $user->id]);
+        $this->asTenant($tenant, function () use ($tenant, $user) {
+            $this->assertDatabaseHas('tenant_user', ['tenant_id' => $tenant->id, 'user_id' => $user->id]);
+        });
         $this->createdUserIds[] = $user->id;
     }
 }

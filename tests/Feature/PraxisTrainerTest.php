@@ -53,12 +53,14 @@ class PraxisTrainerTest extends TestCase
 
         $response->assertRedirect(route('praxistrainer.show', ['course' => $course, 'task' => $secondTask]));
 
-        $this->assertDatabaseHas('praxis_progress', [
-            'tenant_id' => $tenant->id,
-            'user_id' => $learner->id,
-            'praxis_task_id' => $firstTask->id,
-            'completed' => true,
-        ]);
+        $this->asTenant($tenant, function () use ($tenant, $learner, $firstTask) {
+            $this->assertDatabaseHas('praxis_progress', [
+                'tenant_id' => $tenant->id,
+                'user_id' => $learner->id,
+                'praxis_task_id' => $firstTask->id,
+                'completed' => true,
+            ]);
+        });
 
         $page = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/praxistrainer");
         $page->assertOk();

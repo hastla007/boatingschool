@@ -67,7 +67,7 @@ class AccountSuspensionTest extends TestCase
             'status' => 'suspended',
         ]);
         $suspend->assertRedirect();
-        $this->assertSame('suspended', TenantUser::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->value('status'));
+        $this->assertSame('suspended', $this->asTenant($tenant, fn () => TenantUser::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->value('status')));
 
         $blocked = $this->actingAsInTenant($learner, $tenant)->get('/dashboard');
         $blocked->assertForbidden();
@@ -76,7 +76,7 @@ class AccountSuspensionTest extends TestCase
             'status' => 'active',
         ]);
         $reactivate->assertRedirect();
-        $this->assertSame('active', TenantUser::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->value('status'));
+        $this->assertSame('active', $this->asTenant($tenant, fn () => TenantUser::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->value('status')));
 
         $allowed = $this->actingAsInTenant($learner, $tenant)->get('/dashboard');
         $allowed->assertOk();
@@ -93,7 +93,7 @@ class AccountSuspensionTest extends TestCase
         ]);
 
         $response->assertForbidden();
-        $this->assertSame('active', TenantUser::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->value('status'));
+        $this->assertSame('active', $this->asTenant($tenant, fn () => TenantUser::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->value('status')));
     }
 
     public function test_an_admin_cannot_suspend_their_own_membership(): void
@@ -106,7 +106,7 @@ class AccountSuspensionTest extends TestCase
         ]);
 
         $response->assertStatus(422);
-        $this->assertSame('active', TenantUser::where('tenant_id', $tenant->id)->where('user_id', $admin->id)->value('status'));
+        $this->assertSame('active', $this->asTenant($tenant, fn () => TenantUser::where('tenant_id', $tenant->id)->where('user_id', $admin->id)->value('status')));
     }
 
     public function test_superadmin_suspending_a_user_ends_their_sessions(): void
@@ -132,5 +132,45 @@ class AccountSuspensionTest extends TestCase
 
         $response->assertRedirect();
         $this->assertDatabaseMissing('sessions', ['user_id' => $user->id]);
+    }
+
+    /**
+     * Sicherheitsreview M1/N6: das Löschen der Sessions allein reicht nicht
+     * -- ein "Angemeldet bleiben"-Cookie meldet den gesperrten Nutzer beim
+     * nächsten Request sonst automatisch wieder an, ganz ohne Passwort,
+     * weil Laravel dafür nur den (unveränderten) remember_token prüft.
+     */
+    public function test_superadmin_suspending_a_user_also_invalidates_their_remember_me_cookie(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        $tenant = $this->createTestTenant();
+        $user = $this->createTenantUser($tenant, 'learner', ['remember_token' => 'original-remember-token']);
+
+        $response = $this->actingAs($superadmin)->patch("/superadmin/users/{$user->id}", [
+            'first_name' => 'Test',
+            'last_name' => 'User',
+            'email' => $user->email,
+            'status' => 'suspended',
+        ]);
+
+        $response->assertRedirect();
+        $this->assertNotSame('original-remember-token', $user->fresh()->remember_token);
+    }
+
+    public function test_suspending_an_already_inactive_user_does_not_touch_their_remember_me_cookie_again(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        $tenant = $this->createTestTenant();
+        $user = $this->createTenantUser($tenant, 'learner', ['status' => 'suspended', 'remember_token' => 'still-the-same-token']);
+
+        $response = $this->actingAs($superadmin)->patch("/superadmin/users/{$user->id}", [
+            'first_name' => 'Test',
+            'last_name' => 'User',
+            'email' => $user->email,
+            'status' => 'closed',
+        ]);
+
+        $response->assertRedirect();
+        $this->assertSame('still-the-same-token', $user->fresh()->remember_token);
     }
 }

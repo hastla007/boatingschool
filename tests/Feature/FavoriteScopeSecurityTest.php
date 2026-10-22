@@ -42,7 +42,9 @@ class FavoriteScopeSecurityTest extends TestCase
             ->post("/favorites/{$question->id}", ['context' => 'smart_learning', 'course_id' => $course->id]);
 
         $response->assertForbidden();
-        $this->assertDatabaseMissing('favorite', ['question_id' => $question->id, 'user_id' => $learner->id]);
+        $this->asTenant($tenant, function () use ($question, $learner) {
+            $this->assertDatabaseMissing('favorite', ['question_id' => $question->id, 'user_id' => $learner->id]);
+        });
     }
 
     public function test_favoriting_a_question_that_does_not_belong_to_the_given_course_is_rejected(): void
@@ -60,6 +62,8 @@ class FavoriteScopeSecurityTest extends TestCase
             ->post("/favorites/{$questionFromB->id}", ['context' => 'smart_learning', 'course_id' => $courseA->id]);
 
         $response->assertForbidden();
-        $this->assertDatabaseMissing('favorite', ['question_id' => $questionFromB->id, 'user_id' => $learner->id]);
+        $this->asTenant($tenant, function () use ($questionFromB, $learner) {
+            $this->assertDatabaseMissing('favorite', ['question_id' => $questionFromB->id, 'user_id' => $learner->id]);
+        });
     }
 }

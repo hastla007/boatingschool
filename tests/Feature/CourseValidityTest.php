@@ -109,8 +109,8 @@ class CourseValidityTest extends TestCase
 
         $this->redeemCourseCoupon($course, $tenant, $learner);
 
-        $entitlement = Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
-            ->where('course_id', $course->id)->firstOrFail();
+        $entitlement = $this->asTenant($tenant, fn () => Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
+            ->where('course_id', $course->id)->firstOrFail());
 
         $this->assertNotNull($entitlement->valid_until);
         $this->assertTrue($entitlement->valid_until->between(now()->addDays(29), now()->addDays(31)));
@@ -123,9 +123,12 @@ class CourseValidityTest extends TestCase
         $course = $this->existingCourse('SRC');
         $this->redeemCourseCoupon($course, $tenant, $learner);
 
-        $entitlement = Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
-            ->where('course_id', $course->id)->firstOrFail();
-        $this->onAdmin(fn () => $entitlement->update(['valid_from' => now()->subDays(40), 'valid_until' => now()->subDay()]));
+        $entitlement = $this->asTenant($tenant, fn () => Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
+            ->where('course_id', $course->id)->firstOrFail());
+        // Statt $entitlement->update(...): eine zuvor geladene Model-Instanz
+        // trägt die Connection fest, die beim Laden "default" war -- siehe
+        // ExpireAbandonedExamSessionsTest für die ausführliche Begründung.
+        $this->onAdmin(fn () => Entitlement::where('id', $entitlement->id)->update(['valid_from' => now()->subDays(40), 'valid_until' => now()->subDay()]));
 
         $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
 
@@ -145,9 +148,9 @@ class CourseValidityTest extends TestCase
         ]);
 
         $this->redeemCourseCoupon($course, $tenant, $learner);
-        $entitlement = Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
-            ->where('course_id', $course->id)->firstOrFail();
-        $this->onAdmin(fn () => $entitlement->update(['valid_from' => now()->subDays(40), 'valid_until' => now()->subDay()]));
+        $entitlement = $this->asTenant($tenant, fn () => Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
+            ->where('course_id', $course->id)->firstOrFail());
+        $this->onAdmin(fn () => Entitlement::where('id', $entitlement->id)->update(['valid_from' => now()->subDays(40), 'valid_until' => now()->subDay()]));
 
         $response = $this->actingAsInTenant($learner, $tenant)->get('/courses');
 
@@ -164,9 +167,9 @@ class CourseValidityTest extends TestCase
         $course = $this->existingCourse('SRC');
 
         $this->redeemCourseCoupon($course, $tenant, $learner);
-        $entitlement = Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
-            ->where('course_id', $course->id)->firstOrFail();
-        $this->onAdmin(fn () => $entitlement->update(['valid_from' => now()->subDays(40), 'valid_until' => now()->subDay()]));
+        $entitlement = $this->asTenant($tenant, fn () => Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
+            ->where('course_id', $course->id)->firstOrFail());
+        $this->onAdmin(fn () => Entitlement::where('id', $entitlement->id)->update(['valid_from' => now()->subDays(40), 'valid_until' => now()->subDay()]));
 
         $response = $this->actingAsInTenant($learner, $tenant)->get('/courses');
 

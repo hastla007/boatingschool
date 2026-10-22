@@ -46,13 +46,22 @@ class ExpireAbandonedExamSessionsTest extends TestCase
         [$tenant, $learner, $course] = $this->setUpExamCourse(timeLimitSeconds: 1800);
 
         $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam");
-        $session = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail();
+        $session = $this->asTenant($tenant, fn () => ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail());
 
-        $this->onAdmin(fn () => $session->update(['started_at' => now()->subMinutes(31)]));
+        // Statt $session->update(...): eine zuvor geladene Model-Instanz
+        // trägt die Connection fest, die beim Laden "default" war (hier:
+        // die App-Rolle) -- onAdmin() schaltet nur die KONFIGURATION um,
+        // ein Aufruf auf dieser Instanz würde also trotzdem (unter RLS,
+        // ohne gesetzten Tenant-Kontext) ins Leere laufen und 0 Zeilen
+        // treffen, obwohl update()/save() trotzdem true zurückgibt. Der
+        // statische Query-Builder-Stil baut dagegen bei jedem Aufruf neu
+        // auf der gerade aktuellen Default-Verbindung auf.
+        $this->onAdmin(fn () => ExamSession::where('id', $session->id)->update(['started_at' => now()->subMinutes(31)]));
 
         Artisan::call('app:expire-abandoned-exam-sessions');
 
-        $this->assertSame('evaluated', $session->fresh()->status);
+        $session = $this->asTenant($tenant, fn () => ExamSession::find($session->id));
+        $this->assertSame('evaluated', $session->status);
     }
 
     public function test_an_abandoned_session_without_a_time_limit_is_evaluated_after_the_grace_period(): void
@@ -60,13 +69,14 @@ class ExpireAbandonedExamSessionsTest extends TestCase
         [$tenant, $learner, $course] = $this->setUpExamCourse(timeLimitSeconds: null);
 
         $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam");
-        $session = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail();
+        $session = $this->asTenant($tenant, fn () => ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail());
 
-        $this->onAdmin(fn () => $session->update(['started_at' => now()->subHours(25)]));
+        $this->onAdmin(fn () => ExamSession::where('id', $session->id)->update(['started_at' => now()->subHours(25)]));
 
         Artisan::call('app:expire-abandoned-exam-sessions');
 
-        $this->assertSame('evaluated', $session->fresh()->status);
+        $session = $this->asTenant($tenant, fn () => ExamSession::find($session->id));
+        $this->assertSame('evaluated', $session->status);
     }
 
     public function test_a_recently_started_session_is_left_running(): void
@@ -74,11 +84,12 @@ class ExpireAbandonedExamSessionsTest extends TestCase
         [$tenant, $learner, $course] = $this->setUpExamCourse(timeLimitSeconds: 1800);
 
         $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam");
-        $session = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail();
+        $session = $this->asTenant($tenant, fn () => ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail());
 
         Artisan::call('app:expire-abandoned-exam-sessions');
 
-        $this->assertSame('running', $session->fresh()->status);
+        $session = $this->asTenant($tenant, fn () => ExamSession::find($session->id));
+        $this->assertSame('running', $session->status);
     }
 
     /** @return array{0: \App\Models\Tenant, 1: User, 2: CourseDefinition} */

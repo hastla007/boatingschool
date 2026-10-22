@@ -28,7 +28,9 @@ class InstructorCannotManageLocationsTest extends TestCase
         ]);
 
         $response->assertForbidden();
-        $this->assertDatabaseMissing('tenant_course_location', ['praxis_ort' => 'Sollte nicht entstehen']);
+        $this->asTenant($tenant, function () {
+            $this->assertDatabaseMissing('tenant_course_location', ['praxis_ort' => 'Sollte nicht entstehen']);
+        });
     }
 
     public function test_an_instructor_cannot_update_or_delete_a_location(): void
@@ -48,7 +50,9 @@ class InstructorCannotManageLocationsTest extends TestCase
         ])->assertForbidden();
         $this->actingAsInTenant($instructor, $tenant)->delete("/admin/tenant-course-locations/{$location->id}")->assertForbidden();
 
-        $this->assertDatabaseHas('tenant_course_location', ['id' => $location->id, 'praxis_ort' => 'Alt']);
+        $this->asTenant($tenant, function () use ($location) {
+            $this->assertDatabaseHas('tenant_course_location', ['id' => $location->id, 'praxis_ort' => 'Alt']);
+        });
     }
 
     public function test_an_instructor_sees_the_orte_tab_without_mutation_forms(): void
@@ -80,6 +84,8 @@ class InstructorCannotManageLocationsTest extends TestCase
             'course_ids' => [],
         ])->assertRedirect();
 
-        $this->assertDatabaseHas('tenant_course_location', ['tenant_id' => $tenant->id, 'praxis_ort' => 'Owner-Ort']);
+        $this->asTenant($tenant, function () use ($tenant) {
+            $this->assertDatabaseHas('tenant_course_location', ['tenant_id' => $tenant->id, 'praxis_ort' => 'Owner-Ort']);
+        });
     }
 }

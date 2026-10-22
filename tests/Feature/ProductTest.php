@@ -100,17 +100,19 @@ class ProductTest extends TestCase
         $response = $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', ['code' => $coupon->code]);
 
         $response->assertRedirect(route('profile.edit', absolute: false));
-        $this->assertDatabaseHas('product_purchase', [
-            'tenant_id' => $tenant->id,
-            'user_id' => $learner->id,
-            'product_id' => $product->id,
-            'source_type' => 'coupon',
-            'source_reference' => $coupon->code,
-        ]);
+        $this->onAdmin(function () use ($tenant, $learner, $product, $coupon) {
+            $this->assertDatabaseHas('product_purchase', [
+                'tenant_id' => $tenant->id,
+                'user_id' => $learner->id,
+                'product_id' => $product->id,
+                'source_type' => 'coupon',
+                'source_reference' => $coupon->code,
+            ]);
 
-        $coupon->refresh();
-        $this->assertTrue($coupon->isRedeemed());
-        $this->assertSame($learner->id, $coupon->redeemed_by_user_id);
+            $coupon->refresh();
+            $this->assertTrue($coupon->isRedeemed());
+            $this->assertSame($learner->id, $coupon->redeemed_by_user_id);
+        });
 
         // sichtbar im eigenen Profil
         $profile = $this->actingAsInTenant($learner, $tenant)->get('/profile');
@@ -179,7 +181,7 @@ class ProductTest extends TestCase
         $response = $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', ['code' => $coupon->code]);
 
         $response->assertSessionHasErrors('code');
-        $this->assertDatabaseMissing('product_purchase', ['tenant_id' => $tenant->id, 'product_id' => $product->id]);
+        $this->onAdmin(fn () => $this->assertDatabaseMissing('product_purchase', ['tenant_id' => $tenant->id, 'product_id' => $product->id]));
     }
 
     public function test_a_coupon_cannot_target_both_a_course_and_a_product(): void

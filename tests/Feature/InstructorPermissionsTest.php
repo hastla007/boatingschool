@@ -38,11 +38,13 @@ class InstructorPermissionsTest extends TestCase
         ]);
 
         $response->assertForbidden();
-        $this->assertDatabaseMissing('entitlement', [
-            'tenant_id' => $tenant->id,
-            'user_id' => $learner->id,
-            'course_id' => $course->id,
-        ]);
+        $this->asTenant($tenant, function () use ($tenant, $learner, $course) {
+            $this->assertDatabaseMissing('entitlement', [
+                'tenant_id' => $tenant->id,
+                'user_id' => $learner->id,
+                'course_id' => $course->id,
+            ]);
+        });
     }
 
     public function test_instructor_cannot_revoke_an_entitlement(): void

@@ -17,6 +17,7 @@ use App\Models\TenantUser;
 use App\Models\User;
 use App\Models\VideoProgress;
 use App\Models\WillkommensboxOrder;
+use App\Support\TenantContext;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -30,6 +31,10 @@ use Illuminate\Support\Facades\DB;
  */
 class AccountErasureService
 {
+    public function __construct(private TenantContext $tenantContext)
+    {
+    }
+
     public function leaveTenant(User $user, Tenant $tenant): void
     {
         DB::transaction(function () use ($user, $tenant) {
@@ -65,6 +70,18 @@ class AccountErasureService
         );
 
         if (! $hasRemainingMemberships) {
+            // Sicherheitsreview M7 (Folgefehler): Postgres lässt UPDATE/DELETE
+            // nur auf Zeilen zu, die auch über eine SELECT-Policy sichtbar
+            // sind -- die eigene app_user_delete_unrestricted-Policy (USING
+            // true) allein reicht nicht, wenn die app_user_select_visibility-
+            // Policy die Zeile verdeckt. Genau das passiert hier: die eben
+            // gelöschte tenant_user-Mitgliedschaft war die letzte
+            // Sichtbarkeits-Grundlage dieser Zeile unter dem noch gesetzten
+            // Mandantenkontext. clear() setzt den Kontext auf die Nil-UUID,
+            // für die die SELECT-Policy ausdrücklich sichtbar ist (genau wie
+            // für mandantenunabhängige Routen) -- ohne die Verbindung zu
+            // wechseln und damit ohne das Deadlock-Risiko von M5.
+            $this->tenantContext->clear();
             $this->deleteAccountEntirely($user);
         }
     }

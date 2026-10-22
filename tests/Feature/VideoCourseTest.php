@@ -66,12 +66,14 @@ class VideoCourseTest extends TestCase
 
         $response->assertRedirect(route('video.show', ['course' => $course, 'lesson' => $secondLesson]));
 
-        $this->assertDatabaseHas('video_progress', [
-            'tenant_id' => $tenant->id,
-            'user_id' => $learner->id,
-            'video_lesson_id' => $firstLesson->id,
-            'completed' => true,
-        ]);
+        $this->asTenant($tenant, function () use ($tenant, $learner, $firstLesson) {
+            $this->assertDatabaseHas('video_progress', [
+                'tenant_id' => $tenant->id,
+                'user_id' => $learner->id,
+                'video_lesson_id' => $firstLesson->id,
+                'completed' => true,
+            ]);
+        });
 
         $page = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/video");
         $page->assertOk();
@@ -154,14 +156,16 @@ class VideoCourseTest extends TestCase
         // Auswertungsseite statt direkt zum nächsten Video.
         $answerResponse->assertSee('Auswertung anzeigen');
 
-        $this->assertDatabaseHas('attempt', [
-            'tenant_id' => $tenant->id,
-            'user_id' => $learner->id,
-            'question_id' => $question->id,
-            'course_id' => $course->id,
-            'context' => 'video_quiz',
-            'correct' => true,
-        ]);
+        $this->asTenant($tenant, function () use ($tenant, $learner, $question, $course) {
+            $this->assertDatabaseHas('attempt', [
+                'tenant_id' => $tenant->id,
+                'user_id' => $learner->id,
+                'question_id' => $question->id,
+                'course_id' => $course->id,
+                'context' => 'video_quiz',
+                'correct' => true,
+            ]);
+        });
 
         $resultPage = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/video/{$firstLesson->id}/questions/result");
         $resultPage->assertOk();
@@ -174,12 +178,14 @@ class VideoCourseTest extends TestCase
             "/courses/{$course->id}/video/{$firstLesson->id}/complete"
         );
         $completeResponse->assertRedirect();
-        $this->assertDatabaseHas('video_progress', [
-            'tenant_id' => $tenant->id,
-            'user_id' => $learner->id,
-            'video_lesson_id' => $firstLesson->id,
-            'completed' => true,
-        ]);
+        $this->asTenant($tenant, function () use ($tenant, $learner, $firstLesson) {
+            $this->assertDatabaseHas('video_progress', [
+                'tenant_id' => $tenant->id,
+                'user_id' => $learner->id,
+                'video_lesson_id' => $firstLesson->id,
+                'completed' => true,
+            ]);
+        });
     }
 
     public function test_the_result_page_lets_the_learner_retry_only_the_wrong_questions(): void

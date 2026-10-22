@@ -45,13 +45,15 @@ class ExamFavoritesMisgradingTest extends TestCase
         [$tenant, $learner, $course] = $this->setUpVerifiedExamCourse();
 
         $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam");
-        $session = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
-            ->where('status', 'running')->firstOrFail();
+        $session = $this->asTenant($tenant, fn () => ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
+            ->where('status', 'running')->firstOrFail());
 
-        $this->assertDatabaseHas('exam_session_question', [
-            'exam_session_id' => $session->id,
-            'correct' => null,
-        ]);
+        $this->asTenant($tenant, function () use ($session) {
+            $this->assertDatabaseHas('exam_session_question', [
+                'exam_session_id' => $session->id,
+                'correct' => null,
+            ]);
+        });
 
         $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/favorites/exam");
 

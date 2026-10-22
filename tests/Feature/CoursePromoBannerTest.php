@@ -55,17 +55,19 @@ class CoursePromoBannerTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $this->assertDatabaseHas('course_promo_banner', [
-            'tenant_id' => $tenant->id,
-            'active' => true,
-            'headline' => 'Mach weiter mit der Segelausbildung!',
-            'description' => 'Erweitere deinen Schein um die Segelprüfung.',
-            'cta_label' => 'Jetzt entdecken',
-            'price_label' => '149 €',
-            'discount_percent' => 10,
-            'coupon_code' => 'SEGEL10',
-            'offer_url' => 'https://shop.example.test/segel-ergaenzung',
-        ]);
+        $this->onAdmin(function () use ($tenant) {
+            $this->assertDatabaseHas('course_promo_banner', [
+                'tenant_id' => $tenant->id,
+                'active' => true,
+                'headline' => 'Mach weiter mit der Segelausbildung!',
+                'description' => 'Erweitere deinen Schein um die Segelprüfung.',
+                'cta_label' => 'Jetzt entdecken',
+                'price_label' => '149 €',
+                'discount_percent' => 10,
+                'coupon_code' => 'SEGEL10',
+                'offer_url' => 'https://shop.example.test/segel-ergaenzung',
+            ]);
+        });
 
         $banner = $this->onAdmin(fn () => CoursePromoBanner::where('tenant_id', $tenant->id)->first());
         $this->assertSame(['Punkt 1', 'Punkt 2'], $banner->bullets);
@@ -111,7 +113,7 @@ class CoursePromoBannerTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $this->assertDatabaseHas('course_promo_banner', ['id' => $banner->id, 'headline' => 'Neu', 'offer_url' => 'https://shop.example.test/y']);
+        $this->onAdmin(fn () => $this->assertDatabaseHas('course_promo_banner', ['id' => $banner->id, 'headline' => 'Neu', 'offer_url' => 'https://shop.example.test/y']));
     }
 
     public function test_a_school_admin_can_delete_a_promo_banner(): void
@@ -130,7 +132,7 @@ class CoursePromoBannerTest extends TestCase
         $response = $this->actingAsInTenant($admin, $tenant)->delete("/admin/course-promo-banners/{$banner->id}");
 
         $response->assertRedirect();
-        $this->assertDatabaseMissing('course_promo_banner', ['id' => $banner->id]);
+        $this->onAdmin(fn () => $this->assertDatabaseMissing('course_promo_banner', ['id' => $banner->id]));
     }
 
     public function test_a_school_admin_cannot_update_another_tenants_banner(): void

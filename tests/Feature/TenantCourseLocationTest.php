@@ -28,14 +28,16 @@ class TenantCourseLocationTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $this->assertDatabaseHas('tenant_course_location', [
-            'tenant_id' => $tenant->id,
-            'praxis_ort' => 'Standort Binnensee',
-            'pruefung_ort' => 'Prüfstelle Hafenstadt',
-        ]);
+        $this->asTenant($tenant, function () use ($tenant, $course) {
+            $this->assertDatabaseHas('tenant_course_location', [
+                'tenant_id' => $tenant->id,
+                'praxis_ort' => 'Standort Binnensee',
+                'pruefung_ort' => 'Prüfstelle Hafenstadt',
+            ]);
 
-        $location = TenantCourseLocation::where('tenant_id', $tenant->id)->first();
-        $this->assertSame([$course->id], $location->course_ids);
+            $location = TenantCourseLocation::where('tenant_id', $tenant->id)->first();
+            $this->assertSame([$course->id], $location->course_ids);
+        });
     }
 
     public function test_a_location_stores_coordinates_and_falls_back_to_praxis_coordinates(): void
@@ -53,13 +55,15 @@ class TenantCourseLocationTest extends TestCase
             'course_ids' => [],
         ])->assertRedirect();
 
-        $this->assertDatabaseHas('tenant_course_location', [
-            'tenant_id' => $tenant->id,
-            'praxis_lat' => 53.5460740,
-            'praxis_lng' => 9.9826940,
-            'pruefung_lat' => 48.1351250,
-            'pruefung_lng' => 11.5819810,
-        ]);
+        $this->asTenant($tenant, function () use ($tenant) {
+            $this->assertDatabaseHas('tenant_course_location', [
+                'tenant_id' => $tenant->id,
+                'praxis_lat' => 53.5460740,
+                'praxis_lng' => 9.9826940,
+                'pruefung_lat' => 48.1351250,
+                'pruefung_lng' => 11.5819810,
+            ]);
+        });
 
         $this->actingAsInTenant($admin, $tenant)->post('/admin/tenant-course-locations', [
             'praxis_ort' => 'Standort West',
@@ -68,12 +72,14 @@ class TenantCourseLocationTest extends TestCase
             'course_ids' => [],
         ])->assertRedirect();
 
-        $this->assertDatabaseHas('tenant_course_location', [
-            'tenant_id' => $tenant->id,
-            'praxis_ort' => 'Standort West',
-            'pruefung_lat' => 51.2277400,
-            'pruefung_lng' => 6.7734560,
-        ]);
+        $this->asTenant($tenant, function () use ($tenant) {
+            $this->assertDatabaseHas('tenant_course_location', [
+                'tenant_id' => $tenant->id,
+                'praxis_ort' => 'Standort West',
+                'pruefung_lat' => 51.2277400,
+                'pruefung_lng' => 6.7734560,
+            ]);
+        });
     }
 
     public function test_coordinates_are_rejected_outside_valid_ranges(): void
@@ -89,7 +95,7 @@ class TenantCourseLocationTest extends TestCase
         ]);
 
         $response->assertSessionHasErrors('praxis_lat');
-        $this->assertDatabaseMissing('tenant_course_location', ['praxis_ort' => 'Standort Ungültig']);
+        $this->asTenant($tenant, fn () => $this->assertDatabaseMissing('tenant_course_location', ['praxis_ort' => 'Standort Ungültig']));
     }
 
     public function test_a_location_stores_separate_addresses_for_praxis_and_pruefung(): void
@@ -112,17 +118,19 @@ class TenantCourseLocationTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $this->assertDatabaseHas('tenant_course_location', [
-            'tenant_id' => $tenant->id,
-            'praxis_strasse' => 'Seeweg 1',
-            'praxis_plz' => '12345',
-            'praxis_stadt' => 'Binnenstadt',
-            'praxis_land' => 'Deutschland',
-            'pruefung_strasse' => 'Hafenallee 9',
-            'pruefung_plz' => '54321',
-            'pruefung_stadt' => 'Hafenstadt',
-            'pruefung_land' => 'Österreich',
-        ]);
+        $this->asTenant($tenant, function () use ($tenant) {
+            $this->assertDatabaseHas('tenant_course_location', [
+                'tenant_id' => $tenant->id,
+                'praxis_strasse' => 'Seeweg 1',
+                'praxis_plz' => '12345',
+                'praxis_stadt' => 'Binnenstadt',
+                'praxis_land' => 'Deutschland',
+                'pruefung_strasse' => 'Hafenallee 9',
+                'pruefung_plz' => '54321',
+                'pruefung_stadt' => 'Hafenstadt',
+                'pruefung_land' => 'Österreich',
+            ]);
+        });
     }
 
     public function test_pruefung_address_defaults_to_praxis_address_when_left_empty(): void
@@ -139,13 +147,15 @@ class TenantCourseLocationTest extends TestCase
             'course_ids' => [],
         ]);
 
-        $this->assertDatabaseHas('tenant_course_location', [
-            'tenant_id' => $tenant->id,
-            'pruefung_strasse' => 'Musterweg 1',
-            'pruefung_plz' => '11111',
-            'pruefung_stadt' => 'Musterstadt',
-            'pruefung_land' => 'Deutschland',
-        ]);
+        $this->asTenant($tenant, function () use ($tenant) {
+            $this->assertDatabaseHas('tenant_course_location', [
+                'tenant_id' => $tenant->id,
+                'pruefung_strasse' => 'Musterweg 1',
+                'pruefung_plz' => '11111',
+                'pruefung_stadt' => 'Musterstadt',
+                'pruefung_land' => 'Deutschland',
+            ]);
+        });
     }
 
     public function test_pruefung_ort_defaults_to_praxis_ort_when_left_empty(): void
@@ -159,11 +169,13 @@ class TenantCourseLocationTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $this->assertDatabaseHas('tenant_course_location', [
-            'tenant_id' => $tenant->id,
-            'praxis_ort' => 'Hauptstandort',
-            'pruefung_ort' => 'Hauptstandort',
-        ]);
+        $this->asTenant($tenant, function () use ($tenant) {
+            $this->assertDatabaseHas('tenant_course_location', [
+                'tenant_id' => $tenant->id,
+                'praxis_ort' => 'Hauptstandort',
+                'pruefung_ort' => 'Hauptstandort',
+            ]);
+        });
     }
 
     public function test_a_location_can_target_multiple_courses(): void
@@ -178,7 +190,7 @@ class TenantCourseLocationTest extends TestCase
             'course_ids' => [$courseA->id, $courseB->id],
         ]);
 
-        $location = TenantCourseLocation::where('tenant_id', $tenant->id)->first();
+        $location = $this->asTenant($tenant, fn () => TenantCourseLocation::where('tenant_id', $tenant->id)->first());
         $this->assertEqualsCanonicalizing([$courseA->id, $courseB->id], $location->course_ids);
     }
 
@@ -197,10 +209,12 @@ class TenantCourseLocationTest extends TestCase
             'praxis_ort' => 'Neu',
             'course_ids' => [],
         ])->assertRedirect();
-        $this->assertDatabaseHas('tenant_course_location', ['id' => $location->id, 'praxis_ort' => 'Neu']);
+        $this->asTenant($tenant, function () use ($location) {
+            $this->assertDatabaseHas('tenant_course_location', ['id' => $location->id, 'praxis_ort' => 'Neu']);
+        });
 
         $this->actingAsInTenant($admin, $tenant)->delete("/admin/tenant-course-locations/{$location->id}")->assertRedirect();
-        $this->assertDatabaseMissing('tenant_course_location', ['id' => $location->id]);
+        $this->onAdmin(fn () => $this->assertDatabaseMissing('tenant_course_location', ['id' => $location->id]));
     }
 
     public function test_a_school_admin_cannot_modify_another_tenants_location(): void
@@ -289,15 +303,17 @@ class TenantCourseLocationTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $this->assertDatabaseHas('tenant_course_location', [
-            'tenant_id' => $tenant->id,
-            'praxis_ort' => 'Standort Binnensee',
-            'theorie_ort' => 'Theoriezentrum Innenstadt',
-            'theorie_strasse' => 'Schulstraße 3',
-            'theorie_plz' => '20099',
-            'theorie_stadt' => 'Hamburg',
-            'theorie_land' => 'Deutschland',
-        ]);
+        $this->asTenant($tenant, function () use ($tenant) {
+            $this->assertDatabaseHas('tenant_course_location', [
+                'tenant_id' => $tenant->id,
+                'praxis_ort' => 'Standort Binnensee',
+                'theorie_ort' => 'Theoriezentrum Innenstadt',
+                'theorie_strasse' => 'Schulstraße 3',
+                'theorie_plz' => '20099',
+                'theorie_stadt' => 'Hamburg',
+                'theorie_land' => 'Deutschland',
+            ]);
+        });
     }
 
     public function test_theorie_ort_stays_empty_when_not_provided_unlike_pruefung_ort(): void
@@ -311,7 +327,7 @@ class TenantCourseLocationTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $location = TenantCourseLocation::where('tenant_id', $tenant->id)->first();
+        $location = $this->asTenant($tenant, fn () => TenantCourseLocation::where('tenant_id', $tenant->id)->first());
         // Anders als Prüfungsort gibt es für Theorieort keinen Fallback
         // auf den Praxisort -- er bleibt leer, wenn nicht gepflegt.
         $this->assertSame('Hauptstandort', $location->pruefung_ort);
@@ -351,7 +367,7 @@ class TenantCourseLocationTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $location = TenantCourseLocation::where('tenant_id', $tenant->id)->where('praxis_ort', 'E2E Für später')->first();
+        $location = $this->asTenant($tenant, fn () => TenantCourseLocation::where('tenant_id', $tenant->id)->where('praxis_ort', 'E2E Für später')->first());
         $this->assertNotNull($location);
         $this->assertSame([$course->id], $location->course_ids);
     }

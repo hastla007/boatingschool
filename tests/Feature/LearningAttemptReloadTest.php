@@ -36,8 +36,8 @@ class LearningAttemptReloadTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $this->assertSame(1, Attempt::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
-            ->where('question_id', $question->id)->count());
+        $this->assertSame(1, $this->asTenant($tenant, fn () => Attempt::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
+            ->where('question_id', $question->id)->count()));
 
         $resultPage = $this->actingAsInTenant($learner, $tenant)->get($response->headers->get('Location'));
 
@@ -70,8 +70,8 @@ class LearningAttemptReloadTest extends TestCase
         $this->actingAsInTenant($learner, $tenant)->get($resultUrl)->assertOk();
         $this->actingAsInTenant($learner, $tenant)->get($resultUrl)->assertOk();
 
-        $this->assertSame(1, Attempt::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
-            ->where('question_id', $question->id)->count());
+        $this->assertSame(1, $this->asTenant($tenant, fn () => Attempt::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
+            ->where('question_id', $question->id)->count()));
     }
 
     public function test_a_learner_cannot_view_another_learners_attempt_result(): void

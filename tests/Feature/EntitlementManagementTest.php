@@ -43,8 +43,8 @@ class EntitlementManagementTest extends TestCase
         $response->assertRedirect();
         $response->assertSessionHasNoErrors();
 
-        $entitlement = Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
-            ->where('course_id', $course->id)->firstOrFail();
+        $entitlement = $this->asTenant($tenant, fn () => Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
+            ->where('course_id', $course->id)->firstOrFail());
 
         $this->assertTrue($entitlement->valid_until->isSameDay(now()));
         $this->assertSame(23, $entitlement->valid_until->hour);
@@ -62,8 +62,8 @@ class EntitlementManagementTest extends TestCase
         $this->actingAsInTenant($admin, $tenant)->post('/admin/entitlements', $payload);
         $this->actingAsInTenant($admin, $tenant)->post('/admin/entitlements', $payload);
 
-        $this->assertSame(1, Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
-            ->where('course_id', $course->id)->count());
+        $this->assertSame(1, $this->asTenant($tenant, fn () => Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
+            ->where('course_id', $course->id)->count()));
     }
 
     public function test_granting_access_again_reactivates_a_previously_revoked_entitlement_instead_of_duplicating(): void
@@ -74,14 +74,17 @@ class EntitlementManagementTest extends TestCase
         $course = $this->existingCourse('SRC');
 
         $this->actingAsInTenant($admin, $tenant)->post('/admin/entitlements', ['user_id' => $learner->id, 'course_id' => $course->id]);
-        $entitlement = Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->where('course_id', $course->id)->firstOrFail();
-        $entitlement->update(['status' => 'revoked']);
+        $entitlement = $this->asTenant($tenant, fn () => Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->where('course_id', $course->id)->firstOrFail());
+        // Statt $entitlement->update(...): die Instanz trägt die Connection
+        // fest, die beim Laden "default" war -- siehe
+        // ExpireAbandonedExamSessionsTest für die ausführliche Begründung.
+        $this->onAdmin(fn () => Entitlement::where('id', $entitlement->id)->update(['status' => 'revoked']));
 
         $this->actingAsInTenant($admin, $tenant)->post('/admin/entitlements', ['user_id' => $learner->id, 'course_id' => $course->id]);
 
-        $this->assertSame(1, Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
-            ->where('course_id', $course->id)->count());
-        $entitlement->refresh();
+        $this->assertSame(1, $this->asTenant($tenant, fn () => Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
+            ->where('course_id', $course->id)->count()));
+        $entitlement = $this->asTenant($tenant, fn () => Entitlement::find($entitlement->id));
         $this->assertSame('active', $entitlement->status);
     }
 
@@ -106,7 +109,7 @@ class EntitlementManagementTest extends TestCase
         ]);
         $extend->assertRedirect();
 
-        $entitlement->refresh();
+        $entitlement = $this->asTenant($tenant, fn () => Entitlement::find($entitlement->id));
         $this->assertTrue($entitlement->valid_until->isSameDay(now()->addDays(10)));
         $this->assertSame(23, $entitlement->valid_until->hour);
 
@@ -115,7 +118,7 @@ class EntitlementManagementTest extends TestCase
         ]);
         $suspend->assertRedirect();
 
-        $entitlement->refresh();
+        $entitlement = $this->asTenant($tenant, fn () => Entitlement::find($entitlement->id));
         $this->assertSame('suspended', $entitlement->status);
     }
 

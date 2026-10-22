@@ -52,14 +52,19 @@ class ExamPaperTest extends TestCase
 
         $response = $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam/papers/{$paper->id}");
 
-        $session = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail();
+        [$session, $sessionQuestionIds, $sessionQuestions] = $this->asTenant($tenant, function () use ($tenant, $learner) {
+            $session = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail();
+            $sessionQuestionIds = $session->questions()->orderBy('position')->pluck('question_id')->all();
+            $sessionQuestions = $session->questions()->orderBy('position')->with('revision.answers')->get();
+
+            return [$session, $sessionQuestionIds, $sessionQuestions];
+        });
         $response->assertRedirect(route('exam.show', $session));
 
         $this->assertSame($paper->id, $session->paper_id);
-        $sessionQuestionIds = $session->questions()->orderBy('position')->pluck('question_id')->all();
         $this->assertSame($questions->pluck('id')->all(), $sessionQuestionIds);
 
-        foreach ($session->questions()->orderBy('position')->get() as $sq) {
+        foreach ($sessionQuestions as $sq) {
             $correctAnswer = $sq->revision->correctAnswer();
             $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/answers", [
                 'position' => $sq->position,
@@ -85,7 +90,8 @@ class ExamPaperTest extends TestCase
         $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam/papers/{$paper->id}");
         $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam/papers/{$paper->id}");
 
-        $this->assertSame(1, ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->count());
+        $count = $this->asTenant($tenant, fn () => ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->count());
+        $this->assertSame(1, $count);
     }
 
     /**
@@ -103,7 +109,7 @@ class ExamPaperTest extends TestCase
         $this->grantEntitlement($tenant, $learner, $course);
 
         $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam/papers/{$paper->id}");
-        $staleSession = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail();
+        $staleSession = $this->asTenant($tenant, fn () => ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail());
 
         // Simuliert einen Lerner, der die laufende Prüfung einfach verlassen
         // hat, ohne sie manuell abzuschließen: das Zeitlimit (3600s, siehe
@@ -112,11 +118,11 @@ class ExamPaperTest extends TestCase
 
         $response = $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam/papers/{$paper->id}");
 
-        $sessions = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->get();
+        $sessions = $this->asTenant($tenant, fn () => ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->get());
         $this->assertCount(2, $sessions);
 
-        $staleSession->refresh();
-        $this->assertSame('evaluated', $staleSession->status);
+        $staleSessionFresh = $sessions->firstWhere('id', $staleSession->id);
+        $this->assertSame('evaluated', $staleSessionFresh->status);
 
         $newSession = $sessions->first(fn ($s) => $s->id !== $staleSession->id);
         $this->assertSame('running', $newSession->status);
@@ -131,9 +137,16 @@ class ExamPaperTest extends TestCase
         $this->grantEntitlement($tenant, $learner, $course);
 
         $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam/papers/{$paper->id}");
-        $session = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail();
 
-        foreach ($session->questions()->orderBy('position')->get() as $sq) {
+        [$session, $sessionQuestions, $wrongQuestionIds] = $this->asTenant($tenant, function () use ($tenant, $learner) {
+            $session = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail();
+            $sessionQuestions = $session->questions()->orderBy('position')->with('revision.answers')->get();
+            $wrongQuestionIds = $session->questions()->pluck('question_id');
+
+            return [$session, $sessionQuestions, $wrongQuestionIds];
+        });
+
+        foreach ($sessionQuestions as $sq) {
             $wrongAnswer = $sq->revision->answers->firstWhere('is_correct', false);
             $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/answers", [
                 'position' => $sq->position,
@@ -153,7 +166,6 @@ class ExamPaperTest extends TestCase
         // Jedes Ergebnis bietet "Erneut starten" (POST auf denselben Bogen),
         // "Falsche Fragen erneut lernen" (Smarttrainer eingeschränkt auf die
         // konkret falsch beantworteten Fragen dieser Prüfung) und "Ergebnisse".
-        $wrongQuestionIds = $session->questions()->pluck('question_id');
         $progress->assertSee(route('exam.papers.start', ['course' => $course, 'paper' => $paper]));
         $progress->assertSee('Erneut starten');
         $progress->assertSee(route('learning.show', ['course' => $course, 'mode' => 'smarttrainer', 'questions' => $wrongQuestionIds->implode(',')]));

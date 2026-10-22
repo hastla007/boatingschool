@@ -55,7 +55,7 @@ class CourseSelectionTest extends TestCase
         $update = $this->actingAsInTenant($admin, $tenant)->patch('/admin/courses', ['enabled' => $keep]);
         $update->assertRedirect();
 
-        $this->assertDatabaseHas('tenant_course_disabled', ['tenant_id' => $tenant->id, 'course_id' => $course->id]);
+        $this->onAdmin(fn () => $this->assertDatabaseHas('tenant_course_disabled', ['tenant_id' => $tenant->id, 'course_id' => $course->id]));
 
         $after = $this->actingAsInTenant($learner, $tenant)->get('/courses');
         $after->assertOk();
@@ -165,7 +165,7 @@ class CourseSelectionTest extends TestCase
         $response = $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', ['code' => $coupon->code]);
 
         $response->assertSessionHasErrors('code');
-        $this->assertDatabaseMissing('entitlement', ['tenant_id' => $tenant->id, 'course_id' => $course->id]);
+        $this->onAdmin(fn () => $this->assertDatabaseMissing('entitlement', ['tenant_id' => $tenant->id, 'course_id' => $course->id]));
 
         $this->onAdmin(fn () => CourseDefinition::withoutGlobalScopes()->where('id', $course->id)->update(['site_enabled' => true]));
     }
@@ -185,7 +185,7 @@ class CourseSelectionTest extends TestCase
         $response = $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', ['code' => $coupon->code]);
 
         $response->assertSessionHasErrors('code');
-        $this->assertDatabaseMissing('entitlement', ['tenant_id' => $tenant->id, 'course_id' => $course->id]);
+        $this->onAdmin(fn () => $this->assertDatabaseMissing('entitlement', ['tenant_id' => $tenant->id, 'course_id' => $course->id]));
     }
 
     public function test_a_non_superadmin_cannot_toggle_the_sitewide_switch(): void

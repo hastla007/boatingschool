@@ -45,7 +45,7 @@ class ExamFavoriteToggleTest extends TestCase
         [$tenant, $learner, $course] = $this->setUpVerifiedExamCourse();
 
         $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam");
-        $session = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail();
+        $session = $this->asTenant($tenant, fn () => ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail());
 
         $response = $this->actingAsInTenant($learner, $tenant)->get("/exam-sessions/{$session->id}");
 
@@ -55,7 +55,11 @@ class ExamFavoriteToggleTest extends TestCase
         $response->assertDontSee('id="favorite-form"', false);
         // Die neue Variante: ein Button mit question-id/favorite-Status, der
         // nur noch per fetch() (ohne Formular-Submit) umschaltet.
-        $response->assertSee('toggleFavorite(this)', false);
+        // Sicherheitsreview M9: der Handler ist inzwischen ein Alpine-@click
+        // statt eines onclick-Attributs (siehe SecurityHeaders, CSP ohne
+        // unsafe-inline für script-src) -- "this" wird dabei zu Alpines
+        // Magic-Property $el, verhält sich aber identisch.
+        $response->assertSee('toggleFavorite($el)', false);
         $response->assertSee('data-question-id=', false);
     }
 
@@ -64,8 +68,12 @@ class ExamFavoriteToggleTest extends TestCase
         [$tenant, $learner, $course] = $this->setUpVerifiedExamCourse();
 
         $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam");
-        $session = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail();
-        $question = $session->questions()->orderBy('position')->firstOrFail();
+        [$session, $question] = $this->asTenant($tenant, function () use ($tenant, $learner) {
+            $session = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail();
+            $question = $session->questions()->orderBy('position')->firstOrFail();
+
+            return [$session, $question];
+        });
 
         // Simuliert exakt das, was der fetch()-Aufruf aus toggleFavorite()
         // an den Server schickt.
@@ -75,14 +83,16 @@ class ExamFavoriteToggleTest extends TestCase
         // back() liefert unabhängig vom Accept-Header einen Redirect --
         // genau das, was fetch() im Browser transparent weiterverfolgt.
         $response->assertRedirect();
-        $this->assertDatabaseHas('favorite', [
-            'tenant_id' => $tenant->id,
-            'user_id' => $learner->id,
-            'question_id' => $question->question_id,
-            'context' => Favorite::CONTEXT_EXAM,
-        ]);
+        $this->asTenant($tenant, function () use ($tenant, $learner, $question) {
+            $this->assertDatabaseHas('favorite', [
+                'tenant_id' => $tenant->id,
+                'user_id' => $learner->id,
+                'question_id' => $question->question_id,
+                'context' => Favorite::CONTEXT_EXAM,
+            ]);
+        });
 
-        $session->refresh();
+        $session = $this->asTenant($tenant, fn () => ExamSession::find($session->id));
         $this->assertSame('running', $session->status);
     }
 

@@ -48,72 +48,81 @@ class AppRoleGrantHardeningTest extends TestCase
     public function test_app_role_cannot_write_to_the_global_question_catalog(): void
     {
         $tenant = $this->createTestTenant();
-        app(TenantContext::class)->set($tenant);
 
         $this->expectException(QueryException::class);
         $this->expectExceptionMessageMatches('/permission denied for table content_question/');
 
-        DB::table('content_question')->insert([
-            'id' => (string) \Illuminate\Support\Str::uuid(),
-            'content_id' => 'HACK-'.uniqid(),
-        ]);
+        // Sicherheitsreview M5: app.current_tenant_id gilt seit SET LOCAL
+        // nur innerhalb der Transaktion, in der es gesetzt wurde -- ein
+        // bloßer set()-Aufruf ohne Transaktion wäre sofort wieder verfallen.
+        $this->asTenant($tenant, function () {
+            DB::table('content_question')->insert([
+                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'content_id' => 'HACK-'.uniqid(),
+            ]);
+        });
     }
 
     public function test_app_role_cannot_mint_a_free_coupon(): void
     {
         $tenant = $this->createTestTenant();
         $course = $this->existingCourse('SRC');
-        app(TenantContext::class)->set($tenant);
 
         $this->expectException(QueryException::class);
         $this->expectExceptionMessageMatches('/permission denied for table coupon/');
 
-        DB::table('coupon')->insert([
-            'id' => (string) \Illuminate\Support\Str::uuid(),
-            'code' => 'MINTED-'.uniqid(),
-            'course_id' => $course->id,
-            'tenant_id' => null,
-            'is_renewal' => false,
-            'created_at' => now(),
-        ]);
+        $this->asTenant($tenant, function () use ($course) {
+            DB::table('coupon')->insert([
+                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'code' => 'MINTED-'.uniqid(),
+                'course_id' => $course->id,
+                'tenant_id' => null,
+                'is_renewal' => false,
+                'created_at' => now(),
+            ]);
+        });
     }
 
     public function test_app_role_cannot_delete_audit_log_entries(): void
     {
         $tenant = $this->createTestTenant();
-        app(TenantContext::class)->set($tenant);
-
         $id = (string) \Illuminate\Support\Str::uuid();
-        DB::table('audit_log')->insert([
-            'id' => $id,
-            'tenant_id' => $tenant->id,
-            'action' => 'test.action',
-            'entity_type' => 'tenant',
-            'entity_id' => $tenant->id,
-            'created_at' => now(),
-        ]);
+
+        $this->asTenant($tenant, function () use ($tenant, $id) {
+            DB::table('audit_log')->insert([
+                'id' => $id,
+                'tenant_id' => $tenant->id,
+                'action' => 'test.action',
+                'entity_type' => 'tenant',
+                'entity_id' => $tenant->id,
+                'created_at' => now(),
+            ]);
+        });
 
         $this->expectException(QueryException::class);
         $this->expectExceptionMessageMatches('/permission denied for table audit_log/');
 
-        DB::table('audit_log')->where('id', $id)->delete();
+        $this->asTenant($tenant, function () use ($id) {
+            DB::table('audit_log')->where('id', $id)->delete();
+        });
     }
 
     public function test_app_role_cannot_insert_a_platform_wide_audit_log_entry(): void
     {
         $tenant = $this->createTestTenant();
-        app(TenantContext::class)->set($tenant);
 
         $this->expectException(QueryException::class);
 
-        DB::table('audit_log')->insert([
-            'id' => (string) \Illuminate\Support\Str::uuid(),
-            'tenant_id' => null,
-            'action' => 'test.platform_action',
-            'entity_type' => 'tenant',
-            'entity_id' => $tenant->id,
-            'created_at' => now(),
-        ]);
+        $this->asTenant($tenant, function () use ($tenant) {
+            DB::table('audit_log')->insert([
+                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'tenant_id' => null,
+                'action' => 'test.platform_action',
+                'entity_type' => 'tenant',
+                'entity_id' => $tenant->id,
+                'created_at' => now(),
+            ]);
+        });
     }
 
     public function test_exam_session_question_is_isolated_per_tenant(): void

@@ -47,8 +47,8 @@ class ResponseTimeClockSkewTest extends TestCase
         $response->assertRedirect();
         $response->assertSessionHasNoErrors();
 
-        $attempt = Attempt::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
-            ->where('question_id', $question->id)->latest('created_at')->first();
+        $attempt = $this->asTenant($tenant, fn () => Attempt::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
+            ->where('question_id', $question->id)->latest('created_at')->first());
 
         $this->assertNotNull($attempt);
         $this->assertTrue($attempt->correct);
@@ -77,8 +77,8 @@ class ResponseTimeClockSkewTest extends TestCase
 
         $response->assertRedirect();
 
-        $attempt = Attempt::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
-            ->where('question_id', $question->id)->latest('created_at')->first();
+        $attempt = $this->asTenant($tenant, fn () => Attempt::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
+            ->where('question_id', $question->id)->latest('created_at')->first());
 
         $this->assertNotNull($attempt);
         $this->assertGreaterThanOrEqual(5_000, $attempt->response_time_ms);

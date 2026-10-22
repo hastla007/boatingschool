@@ -36,12 +36,14 @@ class LearningLoopTest extends TestCase
 
         $response->assertRedirect();
 
-        $this->assertDatabaseHas('attempt', [
-            'tenant_id' => $tenant->id,
-            'user_id' => $learner->id,
-            'question_id' => $question->id,
-            'correct' => false,
-        ]);
+        $this->asTenant($tenant, function () use ($tenant, $learner, $question) {
+            $this->assertDatabaseHas('attempt', [
+                'tenant_id' => $tenant->id,
+                'user_id' => $learner->id,
+                'question_id' => $question->id,
+                'correct' => false,
+            ]);
+        });
     }
 
     public function test_a_question_outside_the_course_cannot_be_attempted(): void
@@ -89,7 +91,7 @@ class LearningLoopTest extends TestCase
             ->where('question_id', $question->id);
 
         $this->actingAsInTenant($learner, $tenant)->post($endpoint, $payload($wrongAnswer->id))->assertRedirect();
-        $firstAttempt = $attemptsQuery()->sole();
+        $firstAttempt = $this->asTenant($tenant, fn () => $attemptsQuery()->sole());
         $this->assertFalse($firstAttempt->correct);
 
         $this->actingAsInTenant($learner, $tenant)->post($endpoint, $payload($correctAnswer->id))->assertRedirect();
@@ -98,17 +100,20 @@ class LearningLoopTest extends TestCase
         // Zeitstempel erhalten (created_at ist keine verlässliche Sortierung),
         // daher wird der zweite Versuch über die bereits bekannte erste
         // Attempt-ID abgegrenzt statt über eine chronologische Sortierung.
-        $attempts = $attemptsQuery()->get();
-        $secondAttempt = $attempts->first(fn ($attempt) => $attempt->id !== $firstAttempt->id);
+        [$attempts, $secondAttempt, $progress] = $this->asTenant($tenant, function () use ($attemptsQuery, $firstAttempt, $tenant, $learner, $question) {
+            $attempts = $attemptsQuery()->get();
+            $secondAttempt = $attempts->first(fn ($attempt) => $attempt->id !== $firstAttempt->id);
+            $progress = Progress::where('tenant_id', $tenant->id)
+                ->where('user_id', $learner->id)
+                ->where('question_id', $question->id)
+                ->firstOrFail();
+
+            return [$attempts, $secondAttempt, $progress];
+        });
 
         $this->assertCount(2, $attempts);
         $this->assertNotNull($secondAttempt);
         $this->assertTrue($secondAttempt->correct);
-
-        $progress = Progress::where('tenant_id', $tenant->id)
-            ->where('user_id', $learner->id)
-            ->where('question_id', $question->id)
-            ->firstOrFail();
 
         $this->assertSame(2, $progress->attempt_count);
         $this->assertSame(1, $progress->correct_count);

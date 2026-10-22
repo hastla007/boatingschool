@@ -439,15 +439,17 @@ class SuperadminAreaTest extends TestCase
         ]);
 
         $response->assertRedirect(route('courses.show', $course, absolute: false));
-        $this->assertDatabaseHas('entitlement', [
-            'tenant_id' => $tenant->id,
-            'user_id' => $learner->id,
-            'course_id' => $course->id,
-            'source_type' => 'coupon',
-        ]);
-        $coupon->refresh();
-        $this->assertTrue($coupon->isRedeemed());
-        $this->assertSame($tenant->id, $coupon->redeemed_tenant_id);
+        $this->asTenant($tenant, function () use ($tenant, $learner, $course, &$coupon) {
+            $this->assertDatabaseHas('entitlement', [
+                'tenant_id' => $tenant->id,
+                'user_id' => $learner->id,
+                'course_id' => $course->id,
+                'source_type' => 'coupon',
+            ]);
+            $coupon = Coupon::find($coupon->id);
+            $this->assertTrue($coupon->isRedeemed());
+            $this->assertSame($tenant->id, $coupon->redeemed_tenant_id);
+        });
 
         // Direkt nach dem Einlösen muss der Kurs ohne Race-Condition sofort zugreifbar sein.
         $courseShow = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
@@ -471,7 +473,7 @@ class SuperadminAreaTest extends TestCase
         ]);
 
         $response->assertSessionHasErrors('code');
-        $this->assertDatabaseMissing('entitlement', ['tenant_id' => $tenantB->id, 'course_id' => $course->id]);
+        $this->asTenant($tenantB, fn () => $this->assertDatabaseMissing('entitlement', ['tenant_id' => $tenantB->id, 'course_id' => $course->id]));
 
         $coupon->refresh();
         $this->assertFalse($coupon->isRedeemed());
@@ -493,7 +495,7 @@ class SuperadminAreaTest extends TestCase
         $second = $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', ['code' => $coupon->code]);
 
         $second->assertSessionHasErrors('code');
-        $this->assertSame(1, DB::table('entitlement')->where('tenant_id', $tenant->id)->where('course_id', $course->id)->count());
+        $this->assertSame(1, $this->asTenant($tenant, fn () => DB::table('entitlement')->where('tenant_id', $tenant->id)->where('course_id', $course->id)->count()));
     }
 
     public function test_an_unassigned_coupon_can_be_redeemed_by_any_tenants_learner(): void
@@ -512,7 +514,9 @@ class SuperadminAreaTest extends TestCase
         ]);
 
         $response->assertRedirect(route('courses.show', $course, absolute: false));
-        $this->assertDatabaseHas('entitlement', ['tenant_id' => $tenant->id, 'user_id' => $learner->id, 'course_id' => $course->id]);
+        $this->asTenant($tenant, function () use ($tenant, $learner, $course) {
+            $this->assertDatabaseHas('entitlement', ['tenant_id' => $tenant->id, 'user_id' => $learner->id, 'course_id' => $course->id]);
+        });
     }
 
     public function test_an_invalid_coupon_code_shows_an_error(): void
