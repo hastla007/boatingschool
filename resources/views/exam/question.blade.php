@@ -46,8 +46,8 @@
                 </div>
 
                 <div class="flex items-center justify-between mt-6">
-                    <button type="button" onclick="toggleFavorite()" class="inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
-                        <x-icon name="star" class="w-4 h-4" /> {{ $isFavorite ? 'Favorit' : 'Als Favorit speichern' }}
+                    <button type="button" onclick="toggleFavorite(this)" data-favorite="{{ $isFavorite ? '1' : '0' }}" data-question-id="{{ $current->question_id }}" class="favorite-toggle inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
+                        <x-icon name="star" class="w-4 h-4" /> <span class="favorite-label">{{ $isFavorite ? 'Favorit' : 'Als Favorit speichern' }}</span>
                     </button>
                     <button type="submit" x-bind:disabled="selected.length === 0" class="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-40 hover:opacity-90 transition"
                             style="background-color: var(--brand-primary, #005FD7)">
@@ -104,8 +104,8 @@
                 </div>
 
                 <div class="flex items-center justify-between mt-6">
-                    <button type="button" onclick="toggleFavorite()" class="inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
-                        <x-icon name="star" class="w-4 h-4" /> {{ $isFavorite ? 'Favorit' : 'Als Favorit speichern' }}
+                    <button type="button" onclick="toggleFavorite(this)" data-favorite="{{ $isFavorite ? '1' : '0' }}" data-question-id="{{ $current->question_id }}" class="favorite-toggle inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
+                        <x-icon name="star" class="w-4 h-4" /> <span class="favorite-label">{{ $isFavorite ? 'Favorit' : 'Als Favorit speichern' }}</span>
                     </button>
                     <button type="submit" x-bind:disabled="!selected" class="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-40 hover:opacity-90 transition"
                             style="background-color: var(--brand-primary, #005FD7)">
@@ -116,14 +116,37 @@
         @endif
     </div>
 
-    <form id="favorite-form" method="POST" action="{{ route($isFavorite ? 'favorites.destroy' : 'favorites.store', $current->question_id) }}" class="hidden">
-        @csrf
-        <input type="hidden" name="context" value="exam">
-        <input type="hidden" name="course_id" value="{{ $examSession->course_id }}">
-        @if ($isFavorite) @method('DELETE') @endif
-    </form>
     <script>
-        function toggleFavorite() { document.getElementById('favorite-form').submit(); }
+        // Bug-Review B29: ein Klick auf "Favorit" sendete bisher ein
+        // verstecktes Formular ab und navigierte damit die gesamte Seite
+        // neu -- die noch nicht abgeschickte Antwortauswahl im
+        // Hauptformular ging dabei verloren. Per fetch() bleibt die Seite
+        // (und die Auswahl) unverändert; nur der Button-Zustand wechselt.
+        function toggleFavorite(btn) {
+            const wasFavorite = btn.dataset.favorite === '1';
+            const csrf = document.querySelector('meta[name="csrf-token"]').content;
+
+            fetch('/favorites/' + btn.dataset.questionId, {
+                method: wasFavorite ? 'DELETE' : 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': csrf,
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({ context: 'exam', course_id: '{{ $examSession->course_id }}' }),
+            }).then(function (response) {
+                if (! response.ok) {
+                    return;
+                }
+
+                const nowFavorite = ! wasFavorite;
+                btn.dataset.favorite = nowFavorite ? '1' : '0';
+                btn.classList.toggle('text-amber-500', nowFavorite);
+                btn.classList.toggle('text-slate-500', ! nowFavorite);
+                btn.classList.toggle('hover:text-amber-500', ! nowFavorite);
+                btn.querySelector('.favorite-label').textContent = nowFavorite ? 'Favorit' : 'Als Favorit speichern';
+            });
+        }
     </script>
 
     @if (! is_null($remainingSeconds))
