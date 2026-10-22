@@ -17,3 +17,8 @@ Schedule::command('app:prune-personal-data')->daily();
 // Bug-Review B15: ohne diesen Lauf blieb entitlement.status für
 // abgelaufene Freischaltungen dauerhaft auf "active" stehen.
 Schedule::command('app:expire-entitlements')->hourly();
+
+// Bug-Review B32: ohne diesen Lauf blieb exam_session.status für
+// abgebrochene (nie wieder aufgerufene) Prüfungen dauerhaft auf "running"
+// stehen.
+Schedule::command('app:expire-abandoned-exam-sessions')->hourly();

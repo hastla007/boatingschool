@@ -12,6 +12,7 @@ use App\Models\Progress;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\EntitlementService;
+use App\Services\ExamEvaluationService;
 use App\Support\ComboExamGroups;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
@@ -98,7 +99,7 @@ class ExamController extends Controller
         ]);
     }
 
-    public function startPaper(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course, ExamPaper $paper): Response
+    public function startPaper(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, ExamEvaluationService $examEvaluation, CourseDefinition $course, ExamPaper $paper): Response
     {
         $tenant = $tenantContext->tenant();
         $user = $request->user();
@@ -117,13 +118,13 @@ class ExamController extends Controller
         // Tenant/Nutzer/Bogen-Kombination für die Dauer der Transaktion; der
         // Unique-Index aus der Migration 000460 sichert das zusätzlich auf
         // Datenbankebene ab.
-        return DB::transaction(function () use ($tenant, $user, $course, $ruleSet, $paper) {
+        return DB::transaction(function () use ($tenant, $user, $course, $ruleSet, $paper, $examEvaluation) {
             DB::statement('SELECT pg_advisory_xact_lock(hashtext(?))', [$tenant->id.':'.$user->id.':'.$paper->id]);
 
             $running = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $user->id)
                 ->where('paper_id', $paper->id)->where('status', 'running')->first();
 
-            if ($running && ! $this->timeExpired($running)) {
+            if ($running && ! $examEvaluation->timeExpired($running)) {
                 return redirect()->route('exam.show', $running);
             }
 
@@ -134,7 +135,7 @@ class ExamController extends Controller
                 // Ergebnis statt direkt zu einem neuen Versuch. Jetzt wird
                 // sie hier sofort abgeschlossen, bevor der neue Versuch
                 // angelegt wird.
-                $this->evaluate($running);
+                $examEvaluation->evaluate($running);
             }
 
             $session = ExamSession::create([
@@ -212,7 +213,7 @@ class ExamController extends Controller
         return redirect()->route('exam.show', $session);
     }
 
-    public function show(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, ExamSession $examSession): View|Response
+    public function show(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, ExamEvaluationService $examEvaluation, ExamSession $examSession): View|Response
     {
         $this->authorizeSession($request, $tenantContext, $entitlements, $examSession);
 
@@ -220,14 +221,14 @@ class ExamController extends Controller
             return redirect()->route('exam.result', $examSession);
         }
 
-        if ($this->timeExpired($examSession)) {
-            return $this->finish($request, $tenantContext, $entitlements, $examSession);
+        if ($examEvaluation->timeExpired($examSession)) {
+            return $this->finish($request, $tenantContext, $entitlements, $examEvaluation, $examSession);
         }
 
         $current = $examSession->questions()->whereNull('answered_at')->orderBy('position')->with('revision.answers', 'revision.media')->first();
 
         if (! $current) {
-            return $this->finish($request, $tenantContext, $entitlements, $examSession);
+            return $this->finish($request, $tenantContext, $entitlements, $examEvaluation, $examSession);
         }
 
         $total = $examSession->questions()->count();
@@ -254,7 +255,7 @@ class ExamController extends Controller
         ]);
     }
 
-    public function answer(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, ExamSession $examSession): Response
+    public function answer(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, ExamEvaluationService $examEvaluation, ExamSession $examSession): Response
     {
         $this->authorizeSession($request, $tenantContext, $entitlements, $examSession);
         abort_if($examSession->status !== 'running', 409);
@@ -264,8 +265,8 @@ class ExamController extends Controller
         // Ablauf der Zeit beliebig weiter antworten, solange die Session noch
         // auf "running" stand. Abgelaufen wird sofort ausgewertet und
         // abgeschlossen statt die Antwort noch anzunehmen.
-        if ($this->timeExpired($examSession)) {
-            $this->evaluate($examSession);
+        if ($examEvaluation->timeExpired($examSession)) {
+            $examEvaluation->evaluate($examSession);
 
             abort(409, 'Die Prüfungszeit ist abgelaufen.');
         }
@@ -321,7 +322,7 @@ class ExamController extends Controller
         return redirect()->route('exam.show', $examSession);
     }
 
-    public function finish(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, ExamSession $examSession): Response
+    public function finish(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, ExamEvaluationService $examEvaluation, ExamSession $examSession): Response
     {
         $this->authorizeSession($request, $tenantContext, $entitlements, $examSession);
 
@@ -329,77 +330,9 @@ class ExamController extends Controller
             return redirect()->route('exam.result', $examSession);
         }
 
-        $this->evaluate($examSession);
+        $examEvaluation->evaluate($examSession);
 
         return redirect()->route('exam.result', $examSession);
-    }
-
-    /**
-     * Wertet eine laufende Prüfungssession aus und schließt sie ab -- geteilt
-     * zwischen dem regulären Abschluss (finish(), z. B. "Abgeben"-Button oder
-     * letzte Frage beantwortet) und dem serverseitigen Zeit-Timeout
-     * (answer(), siehe Sicherheitsreview M2). Eine Antwort zählt nur, wenn
-     * sie innerhalb der Zeitlimit-Frist ab started_at gespeichert wurde --
-     * das greift zusätzlich zur Sperre in answer(), falls eine Antwort
-     * trotzdem noch knapp vor Ablauf hereinkommt oder die Session kein
-     * laufendes time_limit_seconds hatte, als sie gestartet wurde.
-     */
-    private function evaluate(ExamSession $examSession): void
-    {
-        if ($examSession->status === 'evaluated') {
-            return;
-        }
-
-        DB::transaction(function () use ($examSession) {
-            $examSession->refresh();
-
-            if ($examSession->status === 'evaluated') {
-                return;
-            }
-
-            $limit = $examSession->ruleSet->time_limit_seconds;
-            $deadline = $limit ? $examSession->started_at->copy()->addSeconds($limit) : null;
-
-            $questions = $examSession->questions()->with('revision.answers')->lockForUpdate()->get();
-            $correctCount = 0;
-            $scoredTotal = 0;
-
-            foreach ($questions as $sq) {
-                $withinTime = ! $deadline || ! $sq->answered_at || $sq->answered_at->lte($deadline);
-                $type = $sq->revision->question_type;
-
-                if ($type === 'multi_choice') {
-                    $correctIds = $sq->revision->correctAnswers()->pluck('id')->sort()->values()->all();
-                    $selectedIds = $withinTime ? collect($sq->selected_answer_ids ?? [])->sort()->values()->all() : [];
-                    $isCorrect = $selectedIds !== [] && $selectedIds === $correctIds;
-                    $sq->update(['correct' => $isCorrect]);
-                    $correctCount += $isCorrect ? 1 : 0;
-                    $scoredTotal++;
-                } elseif ($type === 'open_text') {
-                    // Selbsteinschätzung fließt nicht in die Bestehensgrenze ein,
-                    // dient nur als Lernkarte (siehe self_assessed_known).
-                    $sq->update(['correct' => $withinTime && (bool) $sq->self_assessed_known]);
-                } else {
-                    $correctAnswerId = $sq->revision->correctAnswer()?->id;
-                    $selectedId = $withinTime ? $sq->selected_answer_id : null;
-                    $isCorrect = $selectedId !== null && $selectedId === $correctAnswerId;
-                    $sq->update(['correct' => $isCorrect]);
-                    $correctCount += $isCorrect ? 1 : 0;
-                    $scoredTotal++;
-                }
-            }
-
-            $total = max($scoredTotal, 1);
-            $score = round($correctCount / $total, 4);
-            $minRatio = $examSession->ruleSet->passing_rule['min_correct_ratio'] ?? 0.75;
-
-            $examSession->update([
-                'status' => 'evaluated',
-                'submitted_at' => now(),
-                'score' => $score,
-                'passed' => $score >= $minRatio,
-            ]);
-        });
     }
 
     public function result(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, ExamSession $examSession): View
@@ -439,10 +372,4 @@ class ExamController extends Controller
         abort_unless($course && $entitlements->hasAccess($tenantContext->tenant(), $request->user(), $course), 403, 'Für diesen Kurs liegt kein aktives Entitlement vor.');
     }
 
-    private function timeExpired(ExamSession $examSession): bool
-    {
-        $limit = $examSession->ruleSet->time_limit_seconds;
-
-        return $limit && $examSession->started_at->diffInSeconds(now()) > $limit;
-    }
 }
