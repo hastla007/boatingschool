@@ -71,7 +71,10 @@ class ProgressController extends Controller
 
         $examResults->each(function (ExamSession $session) use ($randomOrdinals) {
             $session->displayLabel = 'Prüfungsbogen Nr. '.($session->paper->paper_number ?? $randomOrdinals[$session->id]);
-            $session->wrongQuestionIds = $session->questions->where('correct', false)->pluck('question_id')->values();
+            // Bug-Review B2: Collection::where() vergleicht standardmäßig lose
+            // (null == false wäre wahr) -- whereStrict erzwingt ===, auch wenn
+            // bei status=evaluated correct für jede Frage bereits gesetzt ist.
+            $session->wrongQuestionIds = $session->questions->whereStrict('correct', false)->pluck('question_id')->values();
         });
 
         return view('learning.progress', [

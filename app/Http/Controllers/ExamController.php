@@ -381,7 +381,9 @@ class ExamController extends Controller
         abort_unless($examSession->status === 'evaluated', 409, 'Prüfung ist noch nicht abgeschlossen.');
 
         $questions = $examSession->questions()->with('revision.answers')->orderBy('position')->get();
-        $wrong = $questions->where('correct', false);
+        // Bug-Review B2: Collection::where() vergleicht standardmäßig lose
+        // (null == false wäre wahr) -- whereStrict erzwingt ===.
+        $wrong = $questions->whereStrict('correct', false);
 
         $topicBreakdown = $questions->groupBy(fn ($q) => $q->revision->topic ?? '—')
             ->map(fn ($rows) => [

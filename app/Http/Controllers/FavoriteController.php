@@ -75,7 +75,11 @@ class FavoriteController extends Controller
             ->with('questions')
             ->get()
             ->flatMap->questions
-            ->where('correct', false)
+            // Bug-Review B2: Collection::where() vergleicht standardmäßig
+            // lose -- correct ist bei noch unbeantworteten Fragen NULL, und
+            // null == false ist in PHP wahr. Unbeantwortete Fragen zählten
+            // dadurch fälschlich als "Fehler". whereStrict erzwingt ===.
+            ->whereStrict('correct', false)
             ->sortByDesc('answered_at')
             ->pluck('question_id')->unique()->take(20);
 
