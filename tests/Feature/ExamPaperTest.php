@@ -88,6 +88,41 @@ class ExamPaperTest extends TestCase
         $this->assertSame(1, ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->count());
     }
 
+    /**
+     * Bug-Review B4: eine abgelaufene, aber noch "running" stehende Session
+     * blockierte bisher den Neustart -- ein Klick auf "Jetzt starten" führte
+     * (über show()) nur zum alten Ergebnis statt direkt zu einem neuen
+     * Versuch. startPaper() wertet eine solche Session jetzt selbst sofort
+     * aus und legt im selben Request einen frischen Versuch an.
+     */
+    public function test_starting_an_expired_paper_evaluates_the_stale_session_and_starts_a_fresh_one(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $paper] = $this->makeIsolatedExamPaper();
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam/papers/{$paper->id}");
+        $staleSession = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail();
+
+        // Simuliert einen Lerner, der die laufende Prüfung einfach verlassen
+        // hat, ohne sie manuell abzuschließen: das Zeitlimit (3600s, siehe
+        // makeIsolatedExamPaper) ist längst überschritten.
+        $this->onAdmin(fn () => ExamSession::where('id', $staleSession->id)->update(['started_at' => now()->subHours(2)]));
+
+        $response = $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam/papers/{$paper->id}");
+
+        $sessions = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->get();
+        $this->assertCount(2, $sessions);
+
+        $staleSession->refresh();
+        $this->assertSame('evaluated', $staleSession->status);
+
+        $newSession = $sessions->first(fn ($s) => $s->id !== $staleSession->id);
+        $this->assertSame('running', $newSession->status);
+        $response->assertRedirect(route('exam.show', $newSession));
+    }
+
     public function test_completed_exam_appears_in_the_progress_overview(): void
     {
         $tenant = $this->createTestTenant();

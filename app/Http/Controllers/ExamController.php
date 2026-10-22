@@ -108,14 +108,35 @@ class ExamController extends Controller
         $ruleSet = $course->activeExamRuleSet();
         abort_unless($ruleSet && $ruleSet->isVerified(), 409, 'Für diesen Kurs liegt noch kein fachlich freigegebenes Prüfungsregelwerk vor.');
 
-        $running = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $user->id)
-            ->where('paper_id', $paper->id)->where('status', 'running')->first();
+        // Bug-Review B4: der alte Ablauf prüfte erst (lesend), ob bereits
+        // eine laufende Session für diesen Bogen existiert, und legte dann
+        // (schreibend) eine neue an -- zwischen beiden Schritten lag kein
+        // Lock, ein Doppelklick auf "Jetzt starten" konnte also zwei
+        // "running"-Sessions für denselben Bogen erzeugen. Der
+        // Advisory-Lock serialisiert gleichzeitige Start-Versuche derselben
+        // Tenant/Nutzer/Bogen-Kombination für die Dauer der Transaktion; der
+        // Unique-Index aus der Migration 000460 sichert das zusätzlich auf
+        // Datenbankebene ab.
+        return DB::transaction(function () use ($tenant, $user, $course, $ruleSet, $paper) {
+            DB::statement('SELECT pg_advisory_xact_lock(hashtext(?))', [$tenant->id.':'.$user->id.':'.$paper->id]);
 
-        if ($running) {
-            return redirect()->route('exam.show', $running);
-        }
+            $running = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+                ->where('paper_id', $paper->id)->where('status', 'running')->first();
 
-        $session = DB::transaction(function () use ($tenant, $user, $course, $ruleSet, $paper) {
+            if ($running && ! $this->timeExpired($running)) {
+                return redirect()->route('exam.show', $running);
+            }
+
+            if ($running) {
+                // Eine abgelaufene, aber noch nicht ausgewertete Session
+                // blockierte bisher den Neustart: der erste Klick auf
+                // "Jetzt starten" führte (über show()) nur zum alten
+                // Ergebnis statt direkt zu einem neuen Versuch. Jetzt wird
+                // sie hier sofort abgeschlossen, bevor der neue Versuch
+                // angelegt wird.
+                $this->evaluate($running);
+            }
+
             $session = ExamSession::create([
                 'tenant_id' => $tenant->id,
                 'user_id' => $user->id,
@@ -138,10 +159,8 @@ class ExamController extends Controller
                 ]);
             }
 
-            return $session;
+            return redirect()->route('exam.show', $session);
         });
-
-        return redirect()->route('exam.show', $session);
     }
 
     public function start(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course): Response
