@@ -7,7 +7,6 @@ use App\Models\MediaAsset;
 use App\Models\Tip;
 use App\Models\TipCategory;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\Response;
@@ -104,7 +103,7 @@ class TipController extends Controller
         $asset = MediaAsset::create([
             'asset_key' => 'tip-pdf-'.Str::random(12),
             'media_type' => 'document',
-            'storage_path' => Storage::disk('public')->url($path),
+            'storage_path' => $path,
             'mime_type' => $file->getMimeType(),
             'rights_status' => 'licensed',
             'status' => 'published',

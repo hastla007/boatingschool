@@ -105,7 +105,7 @@ class BrandingController extends Controller
             $asset = MediaAsset::create([
                 'asset_key' => 'branding-logo-'.$tenant->id.'-'.Str::random(8),
                 'media_type' => 'image',
-                'storage_path' => Storage::disk('public')->url($path),
+                'storage_path' => $path,
                 'mime_type' => 'image/png',
                 'rights_status' => 'licensed',
                 'status' => 'published',
@@ -139,10 +139,10 @@ class BrandingController extends Controller
             return;
         }
 
-        $publicUrlPrefix = Storage::disk('public')->url('');
-        if (str_starts_with($asset->storage_path, $publicUrlPrefix)) {
-            Storage::disk('public')->delete(substr($asset->storage_path, strlen($publicUrlPrefix)));
-        }
+        // O2: storage_path liefert über den Model-Accessor jetzt die volle
+        // URL -- für Storage::delete() wird der rohe, relative Pfad
+        // gebraucht, wie er tatsächlich in der DB steht.
+        Storage::disk('public')->delete($asset->getRawOriginal('storage_path'));
 
         $asset->delete();
     }
