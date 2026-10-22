@@ -45,7 +45,11 @@ class FavoriteController extends Controller
         abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Für diesen Kurs liegt kein aktives Entitlement vor.');
 
         $course->loadMissing('modules.questions');
-        $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id')->unique();
+        // Bug-Review B12 (Folgefehler): eine im Superadmin deaktivierte
+        // Frage blieb hier trotzdem als Favorit/Fehler sichtbar und
+        // anklickbar, obwohl sie im Lernmodus und in der Prüfung längst
+        // ausgeschlossen ist.
+        $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->where('active', true)->pluck('id')->unique();
 
         $smartFavorites = Favorite::with('question.revisions')
             ->where('tenant_id', $tenant->id)->where('user_id', $user->id)

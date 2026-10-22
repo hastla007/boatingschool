@@ -7,10 +7,15 @@ use App\Models\ContentQuestion;
 use App\Models\ContentQuestionRevision;
 use App\Models\CourseDefinition;
 use App\Models\ExamBlueprint;
+use App\Models\ExamPaper;
+use App\Models\ExamPaperQuestion;
 use App\Models\ExamRuleSet;
 use App\Models\ExamSession;
+use App\Models\Favorite;
 use App\Models\Module;
 use App\Models\Progress;
+use App\Models\VideoLesson;
+use App\Models\VideoModule;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -51,6 +56,11 @@ class DisabledQuestionsExclusionTest extends TestCase
                 ContentQuestion::where('id', $id)->delete();
             }
         });
+
+        // Bug-Review Testisolation: fehlte hier -- jeder per
+        // createTenantUser() angelegte Nutzer blieb dauerhaft stehen, weil
+        // nur der Tenant (nicht aber der Nutzer selbst) aufgeräumt wurde.
+        $this->cleanUpCreatedUsers();
 
         parent::tearDown();
     }
@@ -122,6 +132,94 @@ class DisabledQuestionsExclusionTest extends TestCase
             return $session->questions()->pluck('question_id')->all();
         });
         $this->assertSame([$activeQuestion->id], $sessionQuestionIds);
+    }
+
+    public function test_a_fixed_exam_paper_never_includes_a_disabled_question(): void
+    {
+        [$course, $module, $activeQuestion, $disabledQuestion] = $this->makeIsolatedCourseWithQuestions();
+
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $paper = $this->onAdmin(function () use ($course, $module, $activeQuestion, $disabledQuestion) {
+            $ruleSet = ExamRuleSet::create([
+                'course_id' => $course->id,
+                'version' => 'test-'.uniqid(),
+                'time_limit_seconds' => 3600,
+                'passing_rule' => ['min_correct_ratio' => 0.75],
+                'status' => 'published',
+                'verified_at' => now(),
+            ]);
+            $this->createdRuleSetIds[] = $ruleSet->id;
+            ExamBlueprint::create(['rule_set_id' => $ruleSet->id, 'module_id' => $module->id, 'question_count' => 2]);
+
+            $paper = ExamPaper::create(['course_id' => $course->id, 'paper_number' => 1, 'sort_order' => 1]);
+            ExamPaperQuestion::create(['exam_paper_id' => $paper->id, 'question_id' => $activeQuestion->id, 'position' => 1]);
+            ExamPaperQuestion::create(['exam_paper_id' => $paper->id, 'question_id' => $disabledQuestion->id, 'position' => 2]);
+
+            return $paper;
+        });
+
+        $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam/papers/{$paper->id}");
+        $sessionQuestionIds = $this->asTenant($tenant, function () use ($tenant, $learner) {
+            $session = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail();
+
+            return $session->questions()->orderBy('position')->pluck('question_id')->all();
+        });
+
+        $this->assertSame([$activeQuestion->id], $sessionQuestionIds);
+    }
+
+    public function test_favorites_page_excludes_a_disabled_question(): void
+    {
+        [$course, $module, $activeQuestion, $disabledQuestion] = $this->makeIsolatedCourseWithQuestions();
+
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $this->onAdmin(function () use ($tenant, $learner, $course, $activeQuestion, $disabledQuestion) {
+            foreach ([$activeQuestion, $disabledQuestion] as $question) {
+                Favorite::create([
+                    'tenant_id' => $tenant->id,
+                    'user_id' => $learner->id,
+                    'question_id' => $question->id,
+                    'context' => Favorite::CONTEXT_SMART_LEARNING,
+                ]);
+            }
+        });
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/favorites/smart-learning");
+
+        $response->assertOk();
+        $response->assertSee('Aktive Testfrage B12');
+        $response->assertDontSee('Deaktivierte Testfrage B12');
+    }
+
+    public function test_video_quiz_excludes_a_disabled_question(): void
+    {
+        [$course, , $activeQuestion, $disabledQuestion] = $this->makeIsolatedCourseWithQuestions();
+
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $lesson = $this->onAdmin(function () use ($course, $activeQuestion, $disabledQuestion) {
+            $videoModule = VideoModule::create(['course_id' => $course->id, 'title' => 'Test-Modul B12', 'sort_order' => 1]);
+            $lesson = VideoLesson::create(['video_module_id' => $videoModule->id, 'title' => 'Test-Lektion B12', 'video_url' => 'https://example.test/video.mp4', 'sort_order' => 1]);
+            $lesson->questions()->attach([$disabledQuestion->id => ['sort_order' => 1], $activeQuestion->id => ['sort_order' => 2]]);
+
+            return $lesson;
+        });
+
+        // Die deaktivierte Frage steht an Position 1 -- ohne den
+        // active-Filter wäre sie die einzige Frage an dieser Position.
+        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/video/{$lesson->id}/questions/1");
+
+        $response->assertOk();
+        $response->assertSee('Aktive Testfrage B12');
+        $response->assertDontSee('Deaktivierte Testfrage B12');
     }
 
     /** @return array{0: CourseDefinition, 1: Module, 2: ContentQuestion, 3: ContentQuestion} */

@@ -8,6 +8,7 @@ use App\Models\TenantInvitation;
 use App\Models\TenantUser;
 use App\Models\User;
 use App\Notifications\TenantInvitationNotification;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\URL;
 use Tests\Feature\Concerns\InteractsWithTenants;
@@ -236,5 +237,58 @@ class AccountSecurityTest extends TestCase
             $this->assertDatabaseHas('tenant_user', ['tenant_id' => $tenant->id, 'user_id' => $user->id]);
         });
         $this->createdUserIds[] = $user->id;
+    }
+
+    /**
+     * Bug-Review B18: ein über die Einladung neu angelegtes Konto bekommt
+     * den Status "invited" und ein zufälliges Passwort -- der versendete
+     * Link ist derselbe wie bei "Passwort vergessen" und setzt das erste
+     * eigene Passwort. Ohne einen Übergang auf status=active blieb das
+     * Konto aber dauerhaft gesperrt, weil LoginRequest explizit status=
+     * active voraussetzt (Sicherheitsreview M1) -- das Einloggen nach einer
+     * Einladung war deshalb kaputt.
+     */
+    public function test_a_newly_invited_user_can_actually_log_in_after_setting_their_password(): void
+    {
+        Notification::fake();
+
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $email = 'brandneu-'.uniqid().'@example.test';
+
+        $this->actingAsInTenant($admin, $tenant)->post('/admin/participants/invite', [
+            'name' => 'Neu',
+            'email' => $email,
+        ])->assertRedirect();
+
+        $user = User::where('email', $email)->first();
+        $this->createdUserIds[] = $user->id;
+        $this->assertSame('invited', $user->status);
+
+        // Die Reset-Route liegt hinter "guest" -- ohne das Ausloggen würde
+        // sie den noch als $admin authentifizierten Test-Client direkt
+        // zum Dashboard umleiten, statt den Controller überhaupt zu
+        // erreichen.
+        $this->post('/logout');
+
+        Notification::assertSentTo($user, ResetPassword::class, function ($notification) use ($user, $email, $tenant) {
+            $response = $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/reset-password', [
+                'token' => $notification->token,
+                'email' => $email,
+                'password' => 'password1234',
+                'password_confirmation' => 'password1234',
+            ]);
+            $response->assertSessionHasNoErrors()->assertRedirect(route('login'));
+
+            $this->assertSame('active', $user->fresh()->status);
+
+            $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/login', [
+                'email' => $email,
+                'password' => 'password1234',
+            ])->assertRedirect(route('dashboard', absolute: false));
+            $this->assertAuthenticatedAs($user->fresh());
+
+            return true;
+        });
     }
 }

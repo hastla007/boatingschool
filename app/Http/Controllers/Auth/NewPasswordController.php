@@ -47,6 +47,15 @@ class NewPasswordController extends Controller
                 $user->forceFill([
                     'password' => Hash::make($request->password),
                     'remember_token' => Str::random(60),
+                    // Bug-Review B18: ein über ParticipantController::invite()
+                    // neu angelegtes Konto bekommt den Status "invited" und
+                    // ein zufälliges Passwort -- genau dieser Reset-Link setzt
+                    // das erste eigene Passwort. Ohne diesen Übergang blieb
+                    // der Status für immer auf "invited" stehen, und
+                    // LoginRequest verlangt status=active -- das Konto konnte
+                    // sich also nie einloggen. Ein bereits gesperrtes
+                    // (suspended/closed) Konto bleibt bewusst unverändert.
+                    'status' => $user->status === 'invited' ? 'active' : $user->status,
                 ])->save();
 
                 // Beendet alle laufenden Sitzungen dieses Kontos (z. B. eines

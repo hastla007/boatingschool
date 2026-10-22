@@ -133,4 +133,47 @@ class MailFailureDoesNotBlockRequestTest extends TestCase
 
         $this->assertSame($newEmail, $user->fresh()->pending_email, 'pending_email wurde trotz Mail-Fehler nicht gespeichert.');
     }
+
+    /**
+     * Bug-Review SMTP: Registrierung und "Passwort vergessen" liefen bisher
+     * noch ungeschützt synchron -- ein SMTP-Fehler ergab HTTP 500, obwohl
+     * das neue Konto (hier) bzw. gar keine Schreiboperation (siehe unten)
+     * davon unberührt bleibt.
+     */
+    public function test_registering_still_succeeds_when_the_verification_mail_fails(): void
+    {
+        Notification::shouldReceive('send')->once()->andThrow(new RuntimeException('SMTP down'));
+
+        $tenant = $this->createTestTenant();
+        $email = 'smtp-register-'.uniqid().'@example.test';
+
+        $response = $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/register', [
+            'name' => 'SMTP Test',
+            'email' => $email,
+            'password' => 'password1234',
+            'password_confirmation' => 'password1234',
+        ]);
+
+        $response->assertRedirect(route('dashboard', absolute: false));
+        $this->assertAuthenticated();
+        $this->createdUserIds[] = auth()->id();
+
+        $this->assertNotNull(User::where('email', $email)->first(), 'Konto wurde trotz Mail-Fehler nicht gespeichert.');
+    }
+
+    public function test_requesting_a_password_reset_link_still_returns_success_when_the_mail_fails(): void
+    {
+        Password::shouldReceive('sendResetLink')->once()->andThrow(new RuntimeException('SMTP down'));
+
+        $tenant = $this->createTestTenant();
+        $user = $this->createTenantUser($tenant);
+
+        $response = $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/forgot-password', [
+            'email' => $user->email,
+        ]);
+
+        $response->assertSessionHasNoErrors();
+        $response->assertRedirect();
+        $this->assertFalse($response->isServerError());
+    }
 }

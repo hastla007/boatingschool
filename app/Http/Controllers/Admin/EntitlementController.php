@@ -29,7 +29,14 @@ class EntitlementController extends Controller
         $validated = $request->validate([
             'user_id' => ['required', 'uuid'],
             'course_id' => ['required', 'uuid'],
-            'valid_until' => ['nullable', 'date'],
+            // Bug-Review B14 (Folgefehler): endOfValidityDay() normalisiert
+            // nur auf das Ende des gewählten Tages -- ein tatsächlich in der
+            // Vergangenheit liegendes Datum (nicht nur "heute") lag damit
+            // immer noch vor valid_from (jetzt) und verletzte weiterhin den
+            // DB-Check-Constraint (HTTP 500). after_or_equal:today lässt
+            // "heute" bewusst zu (siehe endOfValidityDay), weist aber jedes
+            // frühere Datum schon in der Validierung zurück.
+            'valid_until' => ['nullable', 'date', 'after_or_equal:today'],
         ]);
 
         $user = User::findOrFail($validated['user_id']);
@@ -89,7 +96,10 @@ class EntitlementController extends Controller
 
         $validated = $request->validate([
             'action' => ['required', 'in:extend,suspend,revoke,reactivate'],
-            'valid_until' => ['required_if:action,extend', 'nullable', 'date'],
+            // Bug-Review B14 (Folgefehler): siehe store() -- ohne diese
+            // Grenze führte "Verlängern" mit einem vergangenen Datum
+            // weiterhin zum CHECK-Constraint-Verstoß (HTTP 500).
+            'valid_until' => ['required_if:action,extend', 'nullable', 'date', 'after_or_equal:today'],
         ]);
 
         $before = $entitlement->toArray();

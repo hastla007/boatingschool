@@ -65,6 +65,7 @@ class RenewalCodeTest extends TestCase
         $response->assertRedirect();
         $coupon = Coupon::where('tenant_id', $tenant->id)->where('course_id', $course->id)->first();
         $this->assertNotNull($coupon);
+        $this->createdCodes[] = $coupon->code;
         $this->assertTrue($coupon->is_renewal);
 
         $index = $this->actingAs($superadmin)->get('/superadmin/coupons?tenant_id='.$tenant->id);

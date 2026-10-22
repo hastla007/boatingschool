@@ -18,9 +18,16 @@ class CourseSelectionTest extends TestCase
 {
     use InteractsWithTenants;
 
+    /** Bug-Review Testisolation: Coupons für SRC/UBI (geteilte Katalogkurse, nicht per Tenant kaskadiert) bleiben ohne Tracking dauerhaft stehen. */
+    private array $createdCouponIds = [];
+
     protected function tearDown(): void
     {
         $this->onAdmin(function () {
+            foreach ($this->createdCouponIds as $id) {
+                Coupon::where('id', $id)->delete();
+            }
+
             $course = CourseDefinition::withoutGlobalScopes()->where('code', 'like', 'CST-%')->first();
             if ($course) {
                 $course->modules()->detach();
@@ -155,6 +162,7 @@ class CourseSelectionTest extends TestCase
             'course_id' => $course->id,
             'tenant_id' => null,
         ]));
+        $this->createdCouponIds[] = $coupon->id;
 
         $this->actingAs($superadmin)->patch("/superadmin/courses/{$course->id}", [
             'name' => $course->name,
@@ -180,6 +188,7 @@ class CourseSelectionTest extends TestCase
             'course_id' => $course->id,
             'tenant_id' => null,
         ]));
+        $this->createdCouponIds[] = $coupon->id;
         $this->onAdmin(fn () => TenantCourseDisabled::create(['tenant_id' => $tenant->id, 'course_id' => $course->id]));
 
         $response = $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', ['code' => $coupon->code]);

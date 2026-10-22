@@ -29,8 +29,9 @@ class TopicQueryStringEncodingTest extends TestCase
 
         $tenant = $this->createTestTenant();
         $learner = $this->createTenantUser($tenant, 'learner');
-        // SBF-SEE bindet das Modul SBF_BASIS ein, dem die "&"-Frage angehört.
-        $course = $this->existingCourse('SBF-SEE');
+        // SBF-BIN-MOTOR bindet das Modul SBF_BINNEN ein, dem die "&"-Frage
+        // ("Lichter, Zeichen & Schallsignale") gehört.
+        $course = $this->existingCourse('SBF-BIN-MOTOR');
         $this->grantEntitlement($tenant, $learner, $course);
 
         $payload = [

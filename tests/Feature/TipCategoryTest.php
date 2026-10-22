@@ -32,6 +32,12 @@ class TipCategoryTest extends TestCase
             }
         });
 
+        // Bug-Review Testisolation: fehlte hier -- jeder per
+        // createSuperAdmin() angelegte Nutzer blieb dauerhaft in der
+        // Datenbank stehen, weil nichts die getrackten createdUserIds
+        // jemals löschte.
+        $this->cleanUpCreatedTenantsAndUsers();
+
         parent::tearDown();
     }
 

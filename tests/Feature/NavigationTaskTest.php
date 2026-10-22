@@ -27,6 +27,11 @@ class NavigationTaskTest extends TestCase
             }
         });
 
+        // Bug-Review Testisolation: fehlte hier -- jeder per
+        // createTenantUser() angelegte Nutzer blieb dauerhaft stehen, weil
+        // nur der Tenant (nicht aber der Nutzer selbst) aufgeräumt wurde.
+        $this->cleanUpCreatedUsers();
+
         parent::tearDown();
     }
 

@@ -52,6 +52,26 @@
             </div>
         @endif
 
+        @if ($unanswered->isNotEmpty())
+            <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
+                <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3">Nicht beantwortet</h3>
+                <div class="space-y-3">
+                    @foreach ($unanswered as $item)
+                        <div class="border-l-4 border-amber-400 pl-3">
+                            <div class="text-slate-700 dark:text-slate-200 text-sm">{{ $item->revision->question_text }}</div>
+                            @if ($item->revision->question_type === 'multi_choice')
+                                <div class="text-xs text-slate-400">Richtige Antworten: {{ $item->revision->correctAnswers()->pluck('answer_text')->implode('; ') }}</div>
+                            @elseif ($item->revision->question_type === 'open_text')
+                                <div class="text-xs text-slate-400">Musterantwort: {{ $item->revision->correctAnswer()?->answer_text }}</div>
+                            @else
+                                <div class="text-xs text-slate-400">Richtige Antwort: {{ $item->revision->correctAnswer()?->answer_text }}</div>
+                            @endif
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        @endif
+
         <a href="{{ route('courses.show', $examSession->course) }}" class="flex items-center justify-center gap-1.5 text-center px-5 py-2.5 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
             Zurück zum Kurs
         </a>

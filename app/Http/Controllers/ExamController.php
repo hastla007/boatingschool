@@ -148,7 +148,18 @@ class ExamController extends Controller
                 'started_at' => now(),
             ]);
 
+            $position = 1;
             foreach ($paper->paperQuestions as $paperQuestion) {
+                // Bug-Review B12 (Folgefehler): eine nach dem Anlegen des
+                // Bogens im Superadmin deaktivierte Frage (content_question.
+                // active) wurde hier -- im Gegensatz zur zufällig
+                // zusammengestellten Prüfung in start() -- trotzdem noch
+                // ausgespielt. Positionen werden deshalb neu durchnummeriert,
+                // statt Lücken zu lassen.
+                if (! $paperQuestion->question->active) {
+                    continue;
+                }
+
                 $revision = $paperQuestion->question->publishedRevision();
                 abort_if(! $revision, 404, 'Für eine Frage dieses Bogens liegt keine veröffentlichte Fassung vor.');
 
@@ -156,7 +167,7 @@ class ExamController extends Controller
                     'exam_session_id' => $session->id,
                     'question_id' => $paperQuestion->question_id,
                     'revision_id' => $revision->id,
-                    'position' => $paperQuestion->position,
+                    'position' => $position++,
                 ]);
             }
 
@@ -343,7 +354,13 @@ class ExamController extends Controller
         $questions = $examSession->questions()->with('revision.answers')->orderBy('position')->get();
         // Bug-Review B2: Collection::where() vergleicht standardmäßig lose
         // (null == false wäre wahr) -- whereStrict erzwingt ===.
-        $wrong = $questions->whereStrict('correct', false);
+        $incorrect = $questions->whereStrict('correct', false);
+        // Bug-Review B2 (Folgefehler): die Auswertung setzt correct=false
+        // auch für nie beantwortete Fragen (siehe ExamEvaluationService) --
+        // ohne diese Trennung erschienen unbeantwortete Fragen fälschlich
+        // als "falsch beantwortet" statt als eigene Kategorie.
+        $wrong = $incorrect->whereNotNull('answered_at');
+        $unanswered = $incorrect->whereNull('answered_at');
 
         $topicBreakdown = $questions->groupBy(fn ($q) => $q->revision->topic ?? '—')
             ->map(fn ($rows) => [
@@ -355,6 +372,7 @@ class ExamController extends Controller
             'examSession' => $examSession,
             'questions' => $questions,
             'wrong' => $wrong,
+            'unanswered' => $unanswered,
             'topicBreakdown' => $topicBreakdown,
         ]);
     }

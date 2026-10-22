@@ -149,11 +149,22 @@ class InstructorPermissionsTest extends TestCase
         $response = $this->actingAsInTenant($instructor, $tenant)->get('/admin');
         $response->assertOk();
 
+        $email = 'instructor-invited-'.uniqid().'@example.test';
         $invite = $this->actingAsInTenant($instructor, $tenant)->post('/admin/participants/invite', [
             'name' => 'Von Instructor Eingeladen',
-            'email' => 'instructor-invited-'.uniqid().'@example.test',
+            'email' => $email,
         ]);
         $invite->assertRedirect();
+
+        // Bug-Review Testisolation: die Einladung legt einen neuen
+        // app_user an, der über die Tenant-Löschung hinweg bestehen
+        // bleibt (tenant_user kaskadiert weg, app_user selbst nicht).
+        $this->onAdmin(function () use ($email) {
+            $invited = \App\Models\User::where('email', $email)->first();
+            if ($invited) {
+                $this->createdUserIds[] = $invited->id;
+            }
+        });
     }
 
     /**

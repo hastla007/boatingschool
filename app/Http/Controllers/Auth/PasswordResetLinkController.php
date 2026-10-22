@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Support\BestEffortMail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Password;
@@ -30,7 +31,16 @@ class PasswordResetLinkController extends Controller
             'email' => ['required', 'email'],
         ]);
 
-        Password::sendResetLink($request->only('email'));
+        // Bug-Review SMTP: lief bisher synchron und ungeschützt -- ein
+        // SMTP-Fehler ergab HTTP 500, obwohl es hier gar keine eigene
+        // Schreiboperation gibt, die dadurch gefährdet wäre (nur der
+        // Versand selbst). Analog zu den bereits auf BestEffortMail
+        // umgestellten Stellen (Bug-Review B31) wird ein Fehler nur noch
+        // geloggt.
+        BestEffortMail::send(
+            fn () => Password::sendResetLink($request->only('email')),
+            'Passwort-Reset-Link für '.$request->input('email')
+        );
 
         // Sicherheitsreview M3: unabhängig davon, ob die Adresse tatsächlich
         // registriert ist, bekommt der Request immer dieselbe Antwort --

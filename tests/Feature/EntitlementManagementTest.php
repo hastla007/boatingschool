@@ -51,6 +51,52 @@ class EntitlementManagementTest extends TestCase
         $this->assertTrue($entitlement->valid_until->gt($entitlement->valid_from));
     }
 
+    /**
+     * Bug-Review B14 (Folgefehler): endOfValidityDay() normalisiert nur auf
+     * das Ende des gewählten Tages -- ein tatsächlich vergangenes Datum lag
+     * damit immer noch vor valid_from (jetzt) und verletzte weiterhin den
+     * DB-Check-Constraint (HTTP 500) statt einen Validierungsfehler zu
+     * liefern.
+     */
+    public function test_granting_access_with_a_date_in_the_past_returns_a_validation_error_instead_of_crashing(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+
+        $response = $this->actingAsInTenant($admin, $tenant)->post('/admin/entitlements', [
+            'user_id' => $learner->id,
+            'course_id' => $course->id,
+            'valid_until' => now()->subDays(2)->format('Y-m-d'),
+        ]);
+
+        $response->assertSessionHasErrors('valid_until');
+        $this->assertFalse($response->isServerError());
+        $this->onAdmin(fn () => $this->assertDatabaseMissing('entitlement', [
+            'tenant_id' => $tenant->id,
+            'user_id' => $learner->id,
+            'course_id' => $course->id,
+        ]));
+    }
+
+    public function test_extending_an_entitlement_with_a_date_in_the_past_returns_a_validation_error_instead_of_crashing(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $entitlement = $this->grantEntitlement($tenant, $learner, $course);
+
+        $response = $this->actingAsInTenant($admin, $tenant)->patch("/admin/entitlements/{$entitlement->id}", [
+            'action' => 'extend',
+            'valid_until' => now()->subDays(2)->format('Y-m-d'),
+        ]);
+
+        $response->assertSessionHasErrors('valid_until');
+        $this->assertFalse($response->isServerError());
+    }
+
     public function test_double_submitting_the_grant_form_does_not_create_a_duplicate_entitlement(): void
     {
         $tenant = $this->createTestTenant();

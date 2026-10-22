@@ -180,12 +180,40 @@ class CourseAndRuleSetIntegrityTest extends TestCase
         $this->assertSame(1, CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')->where('code', $code)->count());
     }
 
-    private function makeIsolatedCourse(string $status): CourseDefinition
+    /**
+     * Bug-Review B21 (Folgefehler): die Eindeutigkeit globaler Kurscodes war
+     * bislang nur auf Anwendungsebene geprüft (siehe Test oben) -- der
+     * zusammengesetzte DB-Index liegt auf (tenant_id, code), und Postgres
+     * behandelt NULL-tenant_id-Werte dabei paarweise als verschieden. Ein
+     * direkter zweiter Insert (z. B. durch einen Wettlauf zwischen zwei
+     * gleichzeitigen Anfragen, oder eine Migration/Seeder) wurde dadurch nie
+     * von der Datenbank selbst verhindert.
+     */
+    public function test_the_database_itself_rejects_a_second_global_course_with_the_same_code(): void
     {
-        return $this->onAdmin(function () use ($status) {
+        $code = 'B21-DB-DUP-'.uniqid();
+        $this->makeIsolatedCourse('published', $code);
+
+        $this->expectException(\Illuminate\Database\QueryException::class);
+
+        $this->onAdmin(function () use ($code) {
             $course = CourseDefinition::withoutGlobalScopes()->create([
                 'tenant_id' => null,
-                'code' => 'TEST-B21-'.uniqid(),
+                'code' => $code,
+                'name' => 'Test Kurs B21 Duplikat',
+                'course_type' => 'full',
+                'status' => 'published',
+            ]);
+            $this->createdCourseIds[] = $course->id;
+        });
+    }
+
+    private function makeIsolatedCourse(string $status, ?string $code = null): CourseDefinition
+    {
+        return $this->onAdmin(function () use ($status, $code) {
+            $course = CourseDefinition::withoutGlobalScopes()->create([
+                'tenant_id' => null,
+                'code' => $code ?? 'TEST-B21-'.uniqid(),
                 'name' => 'Test Kurs B21',
                 'course_type' => 'full',
                 'status' => $status,

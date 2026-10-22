@@ -10,6 +10,7 @@ use App\Models\CourseDefinition;
 use App\Models\PlatformSetting;
 use App\Models\Product;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -27,9 +28,24 @@ class SuperadminAreaTest extends TestCase
 
     private array $createdQuestionIds = [];
 
+    /**
+     * Bug-Review Testisolation: coupon.tenant_id setzt beim Löschen eines
+     * Mandanten nur auf NULL (nullOnDelete) statt die Zeile zu kaskadieren
+     * -- das ist für echte Mandanten richtig (ein Code mit tenant_id=NULL
+     * bleibt bewusst frei einlösbar, siehe Migration 000210), lässt aber
+     * jeden hier per Coupon::generateUniqueCode()/create() erzeugten
+     * Test-Coupon dauerhaft (nur verwaist) in der Tabelle zurück, wenn er
+     * nicht explizit nachverfolgt wird.
+     */
+    private array $createdCouponIds = [];
+
     protected function tearDown(): void
     {
         $this->onAdmin(function () {
+            foreach ($this->createdCouponIds as $id) {
+                Coupon::where('id', $id)->delete();
+            }
+
             foreach ($this->createdQuestionIds as $id) {
                 ContentAnswer::whereIn('revision_id', ContentQuestionRevision::where('question_id', $id)->pluck('id'))->delete();
                 ContentQuestionRevision::where('question_id', $id)->delete();
@@ -150,6 +166,55 @@ class SuperadminAreaTest extends TestCase
 
         $response->assertOk();
         $response->assertSee($course->name);
+    }
+
+    /**
+     * Bug-Review P1: die Prozentzahl je Freischaltung lief vorher über
+     * CourseProgressService::overallPercent() PRO Freischaltung (N+1) --
+     * der Umbau auf eine einzige, im Voraus geladene Progress-Abfrage darf
+     * die Prozentzahl pro Mandant nicht vertauschen oder vermischen, auch
+     * wenn derselbe Nutzer in mehreren Bootsschulen Fortschritt im selben
+     * Kurs hat.
+     */
+    public function test_superadmin_sees_the_correct_per_tenant_progress_percentage_across_several_entitlements(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        $tenantA = $this->createTestTenant('E2E P1 Schule A');
+        $tenantB = $this->createTestTenant('E2E P1 Schule B');
+        $learner = $this->createTenantUser($tenantA, 'learner');
+        $this->onAdmin(fn () => \App\Models\TenantUser::create([
+            'tenant_id' => $tenantB->id,
+            'user_id' => $learner->id,
+            'role' => 'learner',
+            'status' => 'active',
+        ]));
+        $course = $this->existingCourse('SRC');
+        $this->grantEntitlement($tenantA, $learner, $course);
+        $this->grantEntitlement($tenantB, $learner, $course);
+
+        $module = $this->existingModule('SRC');
+        $questionIds = $module->questions()->pluck('content_question.id');
+        $this->assertGreaterThanOrEqual(2, $questionIds->count());
+
+        // TenantA: eine von mehreren Fragen gefestigt. TenantB: keine.
+        $this->onAdmin(fn () => \App\Models\Progress::create([
+            'tenant_id' => $tenantA->id,
+            'user_id' => $learner->id,
+            'question_id' => $questionIds->first(),
+            'learning_state' => 'gefestigt',
+        ]));
+
+        $response = $this->actingAs($superadmin)->get("/superadmin/users/{$learner->id}");
+
+        $response->assertOk();
+        $expectedPercent = (int) round(1 / $questionIds->count() * 100);
+
+        $resultsSection = Str::between($response->getContent(), 'Kursergebnisse', '</table>');
+        $rowA = Str::between($resultsSection, $tenantA->name, '</tr>');
+        $rowB = Str::between($resultsSection, $tenantB->name, '</tr>');
+        $this->assertStringContainsString($expectedPercent.'%', $rowA);
+        $this->assertStringContainsString('0%', $rowB);
+        $this->assertStringNotContainsString($expectedPercent.'%', $rowB);
     }
 
     public function test_superadmin_can_create_a_course_attach_a_module_and_add_a_question_with_answers(): void
@@ -273,6 +338,7 @@ class SuperadminAreaTest extends TestCase
         $batch->assertRedirect();
         $batch->assertSessionHas('generatedCodes', fn ($codes) => count($codes) === 5);
         $this->assertSame(6, Coupon::where('tenant_id', $tenant->id)->count());
+        $this->createdCouponIds = array_merge($this->createdCouponIds, Coupon::where('tenant_id', $tenant->id)->pluck('id')->all());
         $this->assertSame(5, Coupon::where('tenant_id', $tenant->id)->where('batch_label', 'E2E Testbatch')->count());
 
         $index = $this->actingAs($superadmin)->get('/superadmin/coupons?tenant_id='.$tenant->id);
@@ -297,6 +363,7 @@ class SuperadminAreaTest extends TestCase
         $response->assertRedirect();
         $coupon = Coupon::where('tenant_id', $tenant->id)->where('course_id', $course->id)->first();
         $this->assertNotNull($coupon);
+        $this->createdCouponIds[] = $coupon->id;
         $this->assertSame([$option->id], $coupon->optionProducts->pluck('id')->all());
     }
 
@@ -318,6 +385,7 @@ class SuperadminAreaTest extends TestCase
         $response->assertRedirect();
         $coupon = Coupon::where('tenant_id', $tenant->id)->where('course_id', $course->id)->first();
         $this->assertNotNull($coupon);
+        $this->createdCouponIds[] = $coupon->id;
         $this->assertEqualsCanonicalizing([$willkommensbox->id, $kleinePraxis->id], $coupon->optionProducts->pluck('id')->all());
     }
 
@@ -338,6 +406,7 @@ class SuperadminAreaTest extends TestCase
         $response->assertRedirect();
         $coupon = Coupon::where('tenant_id', $tenant->id)->where('product_id', $product->id)->first();
         $this->assertNotNull($coupon);
+        $this->createdCouponIds[] = $coupon->id;
         $this->assertTrue($coupon->optionProducts->isEmpty());
     }
 
@@ -433,6 +502,7 @@ class SuperadminAreaTest extends TestCase
             'course_id' => $course->id,
             'tenant_id' => $tenant->id,
         ]));
+        $this->createdCouponIds[] = $coupon->id;
 
         $response = $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', [
             'code' => $coupon->code,
@@ -467,6 +537,7 @@ class SuperadminAreaTest extends TestCase
             'course_id' => $course->id,
             'tenant_id' => $tenantA->id,
         ]));
+        $this->createdCouponIds[] = $coupon->id;
 
         $response = $this->actingAsInTenant($learnerB, $tenantB)->post('/coupons/redeem', [
             'code' => $coupon->code,
@@ -489,6 +560,7 @@ class SuperadminAreaTest extends TestCase
             'course_id' => $course->id,
             'tenant_id' => null,
         ]));
+        $this->createdCouponIds[] = $coupon->id;
 
         $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', ['code' => $coupon->code]);
 
@@ -508,6 +580,7 @@ class SuperadminAreaTest extends TestCase
             'course_id' => $course->id,
             'tenant_id' => null,
         ]));
+        $this->createdCouponIds[] = $coupon->id;
 
         $response = $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', [
             'code' => $coupon->code,

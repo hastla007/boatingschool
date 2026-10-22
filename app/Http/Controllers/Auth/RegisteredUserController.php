@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\TenantUser;
 use App\Models\User;
+use App\Support\BestEffortMail;
 use App\Support\TenantContext;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
@@ -75,7 +76,16 @@ class RegisteredUserController extends Controller
             return $user;
         });
 
-        event(new Registered($user));
+        // Bug-Review SMTP: der Registered-Listener (AppServiceProvider)
+        // verschickt die Verifizierungs-Mail synchron -- ein SMTP-Fehler
+        // ergab HTTP 500, obwohl das Konto (siehe oben) schon erfolgreich
+        // angelegt war. Analog zu den bereits auf BestEffortMail
+        // umgestellten Stellen (Bug-Review B31) wird ein Fehler nur noch
+        // geloggt, die Registrierung selbst schlägt dadurch nicht mehr fehl.
+        BestEffortMail::send(
+            fn () => event(new Registered($user)),
+            "Verifizierungsmail Registrierung {$user->id}"
+        );
 
         Auth::login($user);
 

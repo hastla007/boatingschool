@@ -5,11 +5,11 @@ namespace App\Http\Controllers\Superadmin;
 use App\Http\Controllers\Controller;
 use App\Models\Entitlement;
 use App\Models\ExamSession;
+use App\Models\Progress;
 use App\Models\ProductPurchase;
 use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
-use App\Services\CourseProgressService;
 use App\Support\Countries;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -74,16 +74,34 @@ class UserController extends Controller
         return redirect()->route('superadmin.users.show', $user)->with('status', 'Nutzer angelegt.');
     }
 
-    public function show(User $user, CourseProgressService $courseProgress): View
+    public function show(User $user): View
     {
         $memberships = TenantUser::where('user_id', $user->id)->with('tenant')->get();
 
-        $entitlements = Entitlement::where('user_id', $user->id)->with('course', 'tenant')->get();
+        $entitlements = Entitlement::where('user_id', $user->id)->with('course.modules.questions', 'tenant')->get();
 
-        $results = $entitlements->map(function (Entitlement $entitlement) use ($user, $courseProgress) {
+        // Bug-Review P1: CourseProgressService::overallPercent() lief hier
+        // einmal PRO Freischaltung und fragte dabei jedes Mal frisch die
+        // Progress-Tabelle ab -- bei einem Nutzer mit vielen Freischaltungen
+        // (verschiedene Bootsschulen/Kurse über die Zeit) wurde die Seite
+        // dadurch spürbar langsam (N+1). Progress wird deshalb hier einmal
+        // komplett geladen und die Prozentzahl pro Freischaltung im
+        // Speicher berechnet, exakt dieselbe Formel wie overallPercent().
+        $masteredProgress = Progress::where('user_id', $user->id)
+            ->where('learning_state', 'gefestigt')
+            ->get(['tenant_id', 'question_id']);
+
+        $results = $entitlements->map(function (Entitlement $entitlement) use ($masteredProgress) {
+            $questionIds = $entitlement->course->modules->flatMap(fn ($m) => $m->questions)->pluck('id')->unique();
+            $total = max($questionIds->count(), 1);
+            $mastered = $masteredProgress
+                ->where('tenant_id', $entitlement->tenant_id)
+                ->whereIn('question_id', $questionIds)
+                ->count();
+
             return [
                 'entitlement' => $entitlement,
-                'percent' => $courseProgress->overallPercent($entitlement->course, $entitlement->tenant, $user),
+                'percent' => (int) round($mastered / $total * 100),
             ];
         });
 

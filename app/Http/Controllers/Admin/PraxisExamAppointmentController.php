@@ -57,8 +57,20 @@ class PraxisExamAppointmentController extends Controller
             $appointment = $appointments->propose(
                 $submission,
                 $request->user(),
-                Carbon::parse($validated['exam_date']),
-                isset($validated['ends_at']) ? Carbon::parse($validated['ends_at']) : null,
+                // Bug-Review UTC: das datetime-local-Feld liefert einen
+                // Offset-losen String, den der Admin in seiner eigenen
+                // (deutschen) Ortszeit eingibt -- APP_TIMEZONE ist aber
+                // bewusst UTC (siehe GermanTime, Bug-Review B30). Ohne die
+                // explizite Interpretations-Zeitzone läse Carbon::parse()
+                // den String fälschlich als UTC. setTimezone('UTC') ist
+                // zusätzlich nötig: Eloquents 'datetime'-Cast serialisiert
+                // beim Speichern offset-los in der AKTUELLEN Zeitzone des
+                // Carbon-Objekts (hier sonst weiterhin Europe/Berlin), und
+                // die UTC-Session der Postgres-Verbindung würde diesen
+                // String dann als UTC fehlinterpretieren -- genau das vom
+                // GermanTime-Kommentar beschriebene Problem, nur umgekehrt.
+                Carbon::parse($validated['exam_date'], 'Europe/Berlin')->setTimezone('UTC'),
+                isset($validated['ends_at']) ? Carbon::parse($validated['ends_at'], 'Europe/Berlin')->setTimezone('UTC') : null,
                 $slot,
                 $validated['label'] ?? null,
                 $locationId,

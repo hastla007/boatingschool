@@ -172,15 +172,20 @@ class VideoQuizController extends Controller
     /** @return Collection<int, ContentQuestion> */
     private function resolveQuestions(VideoLesson $lesson, Request $request): Collection
     {
+        // Bug-Review B12 (Folgefehler): eine im Superadmin deaktivierte
+        // Frage wurde hier -- im Gegensatz zu Smarttrainer und Prüfung --
+        // trotzdem noch im Video-Quiz ausgespielt.
+        $activeQuestions = $lesson->questions->where('active', true);
+
         $raw = $request->query('questions');
 
         if (! $raw) {
-            return $lesson->questions;
+            return $activeQuestions->values();
         }
 
         $ids = array_values(array_filter(explode(',', $raw)));
 
-        return $lesson->questions->whereIn('id', $ids)
+        return $activeQuestions->whereIn('id', $ids)
             ->sortBy(fn ($question) => array_search($question->id, $ids, true))
             ->values();
     }
