@@ -33,21 +33,29 @@ class TenantCreationAndInviteEmailTest extends TestCase
         Notification::fake();
         $superadmin = $this->createSuperAdmin();
 
+        // Eindeutig pro Testlauf statt eines festen Strings: Password::
+        // sendResetLink() drosselt (throttle) wiederholte Anfragen für
+        // dieselbe Adresse innerhalb kurzer Zeit -- ein fester String hätte
+        // bei mehreren Testläufen kurz hintereinander keine neue
+        // Benachrichtigung mehr ausgelöst.
+        $slug = 'b18-neue-schule-'.uniqid();
+        $email = 'b18-neue-schule-admin-'.uniqid().'@example.test';
+
         $response = $this->actingAs($superadmin)->post('/superadmin/tenants', [
-            'slug' => 'b18-neue-schule',
+            'slug' => $slug,
             'name' => 'B18 Neue Schule',
             'status' => 'active',
             'admin_first_name' => 'Test',
             'admin_last_name' => 'Admin',
-            'admin_email' => 'b18-neue-schule-admin@example.test',
+            'admin_email' => $email,
         ]);
 
         $response->assertRedirect();
 
-        $this->onAdmin(function () {
-            $tenant = \App\Models\Tenant::where('slug', 'b18-neue-schule')->first();
+        $this->onAdmin(function () use ($slug, $email) {
+            $tenant = \App\Models\Tenant::where('slug', $slug)->first();
             $this->createdTenantIds[] = $tenant->id;
-            $admin = User::where('email', 'b18-neue-schule-admin@example.test')->first();
+            $admin = User::where('email', $email)->first();
             $this->createdUserIds[] = $admin->id;
 
             Notification::assertSentTo($admin, ResetPassword::class);
@@ -78,15 +86,19 @@ class TenantCreationAndInviteEmailTest extends TestCase
         $tenant = $this->createTestTenant();
         $admin = $this->createTenantUser($tenant, 'owner');
 
+        // Eindeutig pro Testlauf statt eines festen Strings, siehe
+        // test_creating_a_tenant_sends_a_password_set_link_to_the_new_owner().
+        $email = 'b18-teilnehmer-'.uniqid().'@example.test';
+
         $response = $this->actingAsInTenant($admin, $tenant)->post('/admin/participants/invite', [
             'name' => 'Neuer Teilnehmer',
-            'email' => 'b18-teilnehmer@example.test',
+            'email' => $email,
         ]);
 
         $response->assertRedirect();
 
-        $this->onAdmin(function () {
-            $learner = User::where('email', 'b18-teilnehmer@example.test')->first();
+        $this->onAdmin(function () use ($email) {
+            $learner = User::where('email', $email)->first();
             $this->createdUserIds[] = $learner->id;
 
             Notification::assertSentTo($learner, ResetPassword::class);

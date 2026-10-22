@@ -54,7 +54,7 @@
                             <div class="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">
                                 {{ $session->displayLabel }}
                             </div>
-                            <div class="text-xs text-slate-400">{{ $session->submitted_at?->format('d.m.Y H:i') }}</div>
+                            <div class="text-xs text-slate-400">{{ \App\Support\GermanTime::format($session->submitted_at, 'd.m.Y H:i') }}</div>
                         </div>
                         <div class="flex items-center gap-3 shrink-0">
                             <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">{{ (int) round($session->score * 100) }}%</span>

@@ -137,7 +137,7 @@
                                 <td class="py-1.5">{{ $purchase->product->name }}</td>
                                 <td class="py-1.5 text-slate-500">{{ $purchase->tenant->name }}</td>
                                 <td class="py-1.5 text-slate-500">{{ $purchase->source_type === 'coupon' ? 'Coupon '.$purchase->source_reference : $purchase->source_type }}</td>
-                                <td class="py-1.5 text-slate-500">{{ $purchase->created_at?->format('d.m.Y H:i') }}</td>
+                                <td class="py-1.5 text-slate-500">{{ \App\Support\GermanTime::format($purchase->created_at, 'd.m.Y H:i') }}</td>
                             </tr>
                         @empty
                             <tr><td colspan="4" class="py-3 text-slate-500">Noch keine Produkte gekauft.</td></tr>
@@ -161,7 +161,7 @@
                                         {{ (int) round($session->score * 100) }}% &middot; {{ $session->passed ? 'Bestanden' : 'Nicht bestanden' }}
                                     </span>
                                 </td>
-                                <td class="py-1.5 text-slate-500">{{ $session->submitted_at?->format('d.m.Y H:i') }}</td>
+                                <td class="py-1.5 text-slate-500">{{ \App\Support\GermanTime::format($session->submitted_at, 'd.m.Y H:i') }}</td>
                             </tr>
                         @empty
                             <tr><td colspan="3" class="py-3 text-slate-500">Noch keine Prüfungssimulation abgelegt.</td></tr>

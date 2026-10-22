@@ -141,7 +141,7 @@
                                     @endif
                                 </td>
                                 <td class="py-1.5 text-slate-500">{{ $coupon->tenant?->name ?? '—' }}</td>
-                                <td class="py-1.5 text-slate-500 text-xs">{{ $coupon->created_at?->format('d.m.Y H:i') ?? '—' }}</td>
+                                <td class="py-1.5 text-slate-500 text-xs">{{ \App\Support\GermanTime::format($coupon->created_at, 'd.m.Y H:i') ?? '—' }}</td>
                                 <td class="py-1.5">
                                     @if ($coupon->isRedeemed())
                                         <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500">
@@ -151,7 +151,7 @@
                                         <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">offen</span>
                                     @endif
                                 </td>
-                                <td class="py-1.5 text-slate-500 text-xs">{{ $coupon->redeemed_at?->format('d.m.Y H:i') ?? '—' }}</td>
+                                <td class="py-1.5 text-slate-500 text-xs">{{ \App\Support\GermanTime::format($coupon->redeemed_at, 'd.m.Y H:i') ?? '—' }}</td>
                             </tr>
                         @empty
                             <tr><td colspan="8" class="py-3 text-slate-500">Keine Codes gefunden.</td></tr>

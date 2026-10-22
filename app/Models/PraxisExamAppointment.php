@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToTenant;
+use App\Support\GermanTime;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -34,12 +35,16 @@ class PraxisExamAppointment extends Model
         return $this->response === 'pending';
     }
 
-    /** "15.07.2026 16:00" oder, mit Ende, "15.07.2026 16:00-18:00". */
+    /**
+     * "15.07.2026 16:00" oder, mit Ende, "15.07.2026 16:00-18:00". Bug-Review
+     * B30: ein Termin wird dem Teilnehmer in deutscher Ortszeit angekündigt,
+     * nicht in der intern für Speicherung/Berechnung genutzten UTC-Zeit.
+     */
     public function formattedRange(): string
     {
-        $range = $this->exam_date->format('d.m.Y H:i');
+        $range = GermanTime::format($this->exam_date, 'd.m.Y H:i');
 
-        return $this->ends_at ? $range.'–'.$this->ends_at->format('H:i') : $range;
+        return $this->ends_at ? $range.'–'.GermanTime::format($this->ends_at, 'H:i') : $range;
     }
 
     public function submission(): BelongsTo

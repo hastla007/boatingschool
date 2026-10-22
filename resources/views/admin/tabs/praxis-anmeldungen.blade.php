@@ -65,7 +65,7 @@
                             'bg-slate-100 text-slate-500 dark:bg-slate-700/50 dark:text-slate-400' => ! $nextStep['action_needed'] && ! str_starts_with($nextStep['label'], 'Prüfungstermin fix'),
                         ])>{{ $nextStep['label'] }}</span>
                     </td>
-                    <td class="px-4 py-2 text-slate-500 text-xs whitespace-nowrap">{{ $submission->created_at->format('d.m.Y H:i') }}</td>
+                    <td class="px-4 py-2 text-slate-500 text-xs whitespace-nowrap">{{ \App\Support\GermanTime::format($submission->created_at, 'd.m.Y H:i') }}</td>
                     <td class="px-4 py-2 text-right whitespace-nowrap">
                         <a href="{{ route('admin.praxis-form-submissions.show', $submission) }}" class="text-xs hover:underline" style="color: var(--brand-primary, #005FD7)">Details &rarr;</a>
                     </td>

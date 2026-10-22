@@ -275,7 +275,8 @@ class PraxisExamAppointmentTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Prüfungstermin');
-        $response->assertSee('10.05.2026 09:00');
+        // Bug-Review B30: exam_date wird intern als UTC gespeichert und abgefragt ('2026-05-10 09:00' ohne Offset = UTC); angezeigt wird jetzt deutsche Ortszeit (CEST, +2h im Mai).
+        $response->assertSee('10.05.2026 11:00');
     }
 
     public function test_learner_page_shows_the_pending_proposal_with_response_buttons(): void
@@ -293,7 +294,8 @@ class PraxisExamAppointmentTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Vorschlag für deinen Prüfungstermin');
-        $response->assertSee('10.05.2026 09:00');
+        // Bug-Review B30: exam_date wird intern als UTC gespeichert und abgefragt ('2026-05-10 09:00' ohne Offset = UTC); angezeigt wird jetzt deutsche Ortszeit (CEST, +2h im Mai).
+        $response->assertSee('10.05.2026 11:00');
         $response->assertSee('Passt mir');
         $response->assertSee('Passt mir nicht');
     }
@@ -468,8 +470,9 @@ class PraxisExamAppointmentTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Kleine Praxisstunde (2h)');
-        $response->assertSee('05.06.2026 16:00');
-        $response->assertSee('18:00');
+        // Bug-Review B30: exam_date/ends_at werden intern als UTC gespeichert ('16:00'/'18:00' ohne Offset = UTC); angezeigt wird jetzt deutsche Ortszeit (CEST, +2h im Juni: 18:00-20:00).
+        $response->assertSee('05.06.2026 18:00');
+        $response->assertSee('20:00');
     }
 
     public function test_learner_page_shows_the_freely_labeled_appointment_with_its_time_range(): void
@@ -492,8 +495,9 @@ class PraxisExamAppointmentTest extends TestCase
         $after = $this->actingAsInTenant($learner, $tenant)->get(route('praxis-pruefung.index', $submission->course_id));
         $after->assertOk();
         $after->assertSee('Navigationsstunde');
-        $after->assertSee('06.06.2026 16:00');
-        $after->assertSee('18:00');
+        // Bug-Review B30: exam_date/ends_at werden intern als UTC gespeichert ('16:00'/'18:00' ohne Offset = UTC); angezeigt wird jetzt deutsche Ortszeit (CEST, +2h im Juni: 18:00-20:00).
+        $after->assertSee('06.06.2026 18:00');
+        $after->assertSee('20:00');
         $after->assertSee('Passt mir');
     }
 }

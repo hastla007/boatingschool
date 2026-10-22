@@ -7,6 +7,7 @@ use App\Models\Coupon;
 use App\Models\CourseDefinition;
 use App\Models\Product;
 use App\Models\Tenant;
+use App\Support\GermanTime;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -65,7 +66,9 @@ class CouponController extends Controller
         $optionProductIds = $type === 'course' ? array_values($validated['option_product_ids'] ?? []) : [];
 
         $quantity = $validated['quantity'];
-        $batchLabel = ($validated['batch_label'] ?? null) ?: ($quantity > 1 ? 'Batch vom '.now()->format('d.m.Y H:i') : null);
+        // Bug-Review B30: das Label soll die deutsche Ortszeit zeigen, nicht
+        // die intern genutzte UTC-Zeit.
+        $batchLabel = ($validated['batch_label'] ?? null) ?: ($quantity > 1 ? 'Batch vom '.GermanTime::format(now(), 'd.m.Y H:i') : null);
 
         $codes = [];
         for ($i = 0; $i < $quantity; $i++) {

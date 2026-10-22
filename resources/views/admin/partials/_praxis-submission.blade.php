@@ -11,7 +11,7 @@
             <span class="text-sm font-medium text-slate-700 dark:text-slate-200">{{ $submission->course->name ?? '—' }}</span>
             <span class="block text-xs text-slate-400">{{ $submission->template->title ?? 'Formular gelöscht' }}</span>
         </div>
-        <span class="text-xs text-slate-400 whitespace-nowrap">{{ $submission->created_at->format('d.m.Y H:i') }}</span>
+        <span class="text-xs text-slate-400 whitespace-nowrap">{{ \App\Support\GermanTime::format($submission->created_at, 'd.m.Y H:i') }}</span>
     </div>
     @if ($submission->template && ! empty($submission->template->fields))
         <dl class="divide-y divide-slate-100 dark:divide-slate-700 border-t border-slate-100 dark:border-slate-700 text-sm">

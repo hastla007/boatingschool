@@ -104,7 +104,7 @@
                         @endif
                     </td>
                     <td class="px-4 py-2 text-slate-500">{{ $coupon->redeemedBy?->name ?? '—' }}</td>
-                    <td class="px-4 py-2 text-slate-500 text-xs">{{ $coupon->redeemed_at?->format('d.m.Y H:i') ?? '—' }}</td>
+                    <td class="px-4 py-2 text-slate-500 text-xs">{{ \App\Support\GermanTime::format($coupon->redeemed_at, 'd.m.Y H:i') ?? '—' }}</td>
                     <td class="px-4 py-2">
                         @if (! $coupon->isRedeemed() && $coupon->tenant_id === $tenant->id)
                             <form method="POST" action="{{ route('admin.coupons.assign', $coupon) }}" class="flex gap-1">
