@@ -28,7 +28,17 @@ class EnforceMaintenanceMode
         $settings = PlatformSetting::query()->first();
 
         if ($settings && $settings->maintenance_mode) {
-            return response()->view('maintenance', ['message' => $settings->maintenance_message], 503);
+            // Bug-Review B16: site_name/support_email wurden gespeichert,
+            // aber nie irgendwo angezeigt -- die Wartungsseite ist der
+            // einzige Ort, an dem ein Lerner/Bootsschul-Admin je mit
+            // plattformweiten (nicht mandantenbezogenen) Texten in Kontakt
+            // kommt, und passt thematisch zur bereits dort gezeigten
+            // maintenance_message.
+            return response()->view('maintenance', [
+                'message' => $settings->maintenance_message,
+                'siteName' => $settings->site_name ?: config('app.name'),
+                'supportEmail' => $settings->support_email,
+            ], 503);
         }
 
         return $next($request);

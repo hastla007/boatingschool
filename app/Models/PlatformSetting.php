@@ -23,4 +23,17 @@ class PlatformSetting extends Model
     {
         return static::query()->firstOrCreate(['id' => 1]);
     }
+
+    /**
+     * Bug-Review B16: site_name wurde gespeichert, aber z. B. im Seitentitel
+     * nie gelesen -- ein reines first() statt current(), damit das auch
+     * unter der seit Sicherheitsreview M7 nur noch SELECT-berechtigten
+     * App-Rolle funktioniert (current() würde dort bei fehlender Zeile per
+     * firstOrCreate() crashen; in der Praxis seedet die Migration die Zeile
+     * aber immer).
+     */
+    public static function siteName(): string
+    {
+        return static::query()->first()?->site_name ?: config('app.name');
+    }
 }
