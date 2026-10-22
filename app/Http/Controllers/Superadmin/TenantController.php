@@ -10,7 +10,9 @@ use App\Models\TenantBranding;
 use App\Models\TenantUser;
 use App\Services\CourseProgressService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\Response;
@@ -58,31 +60,51 @@ class TenantController extends Controller
             'status' => ['required', 'in:trial,active,suspended,closed'],
             'admin_first_name' => ['required', 'string', 'max:255'],
             'admin_last_name' => ['required', 'string', 'max:255'],
-            'admin_email' => ['required', 'email', 'max:255', 'unique:app_user,email'],
+            // Bug-Review B18: ohne 'lowercase' konnte dieselbe Adresse mit
+            // abweichender Schreibweise ein zweites, von Postgres als
+            // "anderes" betrachtetes Konto erzeugen (case-sensitiver
+            // unique-Vergleich) -- dasselbe Muster wie bereits in
+            // RegisteredUserController.
+            'admin_email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:app_user,email'],
         ], [
             'slug.regex' => 'Der Slug darf nur Kleinbuchstaben, Ziffern und einzelne Bindestriche enthalten (z. B. "meine-bootsschule").',
             'slug.not_in' => 'Dieser Slug ist für die Plattform reserviert und kann nicht verwendet werden.',
         ]);
 
-        $tenant = Tenant::create([
-            'slug' => $validated['slug'],
-            'name' => $validated['name'],
-            'status' => $validated['status'],
-            'default_locale' => 'de-DE',
-        ]);
+        // Bug-Review B18: die drei Schreib-Operationen liefen bisher ohne
+        // Transaktion -- schlug z. B. die TenantUser-Anlage fehl, blieben
+        // Tenant/Branding/Admin-Konto als Daten-Fragment ohne Mitgliedschaft
+        // zurück.
+        $tenant = DB::transaction(function () use ($validated) {
+            $tenant = Tenant::create([
+                'slug' => $validated['slug'],
+                'name' => $validated['name'],
+                'status' => $validated['status'],
+                'default_locale' => 'de-DE',
+            ]);
 
-        TenantBranding::create(['tenant_id' => $tenant->id, 'primary_color' => '#005FD7', 'secondary_color' => '#00A8A8']);
+            TenantBranding::create(['tenant_id' => $tenant->id, 'primary_color' => '#005FD7', 'secondary_color' => '#00A8A8']);
 
-        $admin = \App\Models\User::create([
-            'display_name' => trim($validated['admin_first_name'].' '.$validated['admin_last_name']),
-            'first_name' => $validated['admin_first_name'],
-            'last_name' => $validated['admin_last_name'],
-            'email' => $validated['admin_email'],
-            'password' => Hash::make(str()->random(32)),
-            'status' => 'invited',
-        ]);
+            $admin = \App\Models\User::create([
+                'display_name' => trim($validated['admin_first_name'].' '.$validated['admin_last_name']),
+                'first_name' => $validated['admin_first_name'],
+                'last_name' => $validated['admin_last_name'],
+                'email' => $validated['admin_email'],
+                'password' => Hash::make(str()->random(32)),
+                'status' => 'invited',
+            ]);
 
-        TenantUser::create(['tenant_id' => $tenant->id, 'user_id' => $admin->id, 'role' => 'owner', 'status' => 'active']);
+            TenantUser::create(['tenant_id' => $tenant->id, 'user_id' => $admin->id, 'role' => 'owner', 'status' => 'active']);
+
+            return $tenant;
+        });
+
+        // Bug-Review B18: das neu angelegte Admin-Konto bekommt ein
+        // zufälliges, niemandem bekanntes Passwort -- ohne eine Mail dazu
+        // gab es keine Möglichkeit, sich je einzuloggen. Derselbe
+        // Passwort-Reset-Link wie bei "Passwort vergessen" setzt zugleich
+        // das erste Passwort.
+        Password::sendResetLink(['email' => $validated['admin_email']]);
 
         return redirect()->route('superadmin.tenants.show', $tenant)->with('status', 'Bootsschule angelegt.');
     }

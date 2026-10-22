@@ -21,6 +21,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -226,7 +227,12 @@ class ParticipantController extends Controller
         $tenant = $tenantContext->tenant();
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255'],
+            // Bug-Review B18: ohne 'lowercase' konnte dieselbe Adresse mit
+            // abweichender Schreibweise ein zweites, von Postgres als
+            // "anderes" betrachtetes Konto erzeugen (case-sensitiver
+            // unique-Vergleich) -- dasselbe Muster wie bereits in
+            // RegisteredUserController.
+            'email' => ['required', 'string', 'lowercase', 'email', 'max:255'],
             // Adresse kann die Bootsschule beim Anlegen (z. B. vor Ort)
             // gleich mit hinterlegen -- das Geburtsdatum bewusst nicht, das
             // muss immer der Lerner selbst angeben (siehe
@@ -309,6 +315,12 @@ class ParticipantController extends Controller
 
             return $user;
         });
+
+        // Bug-Review B18: das neu angelegte Konto bekommt ein zufälliges,
+        // niemandem bekanntes Passwort -- ohne eine Mail dazu gab es keine
+        // Möglichkeit, sich je einzuloggen. Derselbe Passwort-Reset-Link
+        // wie bei "Passwort vergessen" setzt zugleich das erste Passwort.
+        Password::sendResetLink(['email' => $user->email]);
 
         $status = 'Teilnehmer eingeladen/zugeordnet.';
         $code = trim((string) ($validated['code'] ?? ''));
