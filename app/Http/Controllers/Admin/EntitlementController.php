@@ -10,7 +10,9 @@ use App\Models\TenantUser;
 use App\Models\User;
 use App\Services\EntitlementService;
 use App\Support\TenantContext;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -41,20 +43,44 @@ class EntitlementController extends Controller
         abort_unless($isMember, 404, 'Dieser Nutzer gehört nicht zu eurer Bootsschule.');
         abort_unless($entitlements->isOfferable($tenant, $course), 404, 'Dieser Kurs ist für eure Bootsschule nicht verfügbar.');
 
-        $entitlement = Entitlement::create([
-            'tenant_id' => $tenant->id,
-            'user_id' => $user->id,
-            'course_id' => $course->id,
-            'valid_from' => now(),
-            'valid_until' => $validated['valid_until'] ?? null,
-            'status' => 'active',
-            'source_type' => 'manual',
-            'source_reference' => 'admin:'.$request->user()->id,
-        ]);
+        $validUntil = $this->endOfValidityDay($validated['valid_until'] ?? null);
 
-        AuditLog::record($tenant->id, $request->user()->id, 'entitlement.create', 'entitlement', $entitlement->id, null, $entitlement->toArray());
+        // Bug-Review B14: zwischen der Prüfung "noch nicht gebucht" und dem
+        // eigentlichen INSERT lag kein Lock -- ein Doppelklick auf
+        // "Freischalten" konnte zwei Entitlement-Zeilen für denselben Kurs
+        // anlegen. Der Advisory-Lock serialisiert das; existiert bereits
+        // eine Zeile für diese Tenant/Nutzer/Kurs-Kombination (egal welchen
+        // Status, z. B. eine zuvor widerrufene), wird sie reaktiviert statt
+        // dupliziert.
+        return DB::transaction(function () use ($tenant, $user, $course, $validUntil, $request) {
+            DB::statement('SELECT pg_advisory_xact_lock(hashtext(?))', [$tenant->id.':'.$user->id.':'.$course->id]);
 
-        return back()->with('status', 'Kurs freigeschaltet.');
+            $entitlement = Entitlement::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)->first();
+            $before = $entitlement?->toArray();
+
+            $attributes = [
+                'valid_from' => now(),
+                'valid_until' => $validUntil,
+                'status' => 'active',
+                'source_type' => 'manual',
+                'source_reference' => 'admin:'.$request->user()->id,
+            ];
+
+            if ($entitlement) {
+                $entitlement->update($attributes);
+            } else {
+                $entitlement = Entitlement::create([
+                    'tenant_id' => $tenant->id,
+                    'user_id' => $user->id,
+                    'course_id' => $course->id,
+                    ...$attributes,
+                ]);
+            }
+
+            AuditLog::record($tenant->id, $request->user()->id, 'entitlement.create', 'entitlement', $entitlement->id, $before, $entitlement->fresh()->toArray());
+
+            return back()->with('status', 'Kurs freigeschaltet.');
+        });
     }
 
     public function update(Request $request, TenantContext $tenantContext, Entitlement $entitlement): Response
@@ -63,13 +89,21 @@ class EntitlementController extends Controller
 
         $validated = $request->validate([
             'action' => ['required', 'in:extend,suspend,revoke,reactivate'],
-            'valid_until' => ['nullable', 'date'],
+            'valid_until' => ['required_if:action,extend', 'nullable', 'date'],
         ]);
 
         $before = $entitlement->toArray();
 
         match ($validated['action']) {
-            'extend' => $entitlement->update(['valid_until' => $validated['valid_until']]),
+            // Bug-Review B14: ein reines Datum ("gültig bis heute") wurde
+            // bisher unverändert als valid_until gespeichert -- das
+            // entspricht Mitternacht, also dem BEGINN des Tages, nicht
+            // seinem Ende. Der Zugang endete damit schon am gewählten Tag
+            // selbst statt erst danach, und ein "bis heute" konnte sogar vor
+            // valid_from (jetzt) liegen und am CHECK-Constraint der
+            // Datenbank scheitern (HTTP 500). endOfValidityDay() verschiebt
+            // auf das Ende des gewählten Tages.
+            'extend' => $entitlement->update(['valid_until' => $this->endOfValidityDay($validated['valid_until'])]),
             'suspend' => $entitlement->update(['status' => 'suspended']),
             'revoke' => $entitlement->update(['status' => 'revoked']),
             'reactivate' => $entitlement->update(['status' => 'active']),
@@ -81,5 +115,16 @@ class EntitlementController extends Controller
         );
 
         return back()->with('status', 'Entitlement aktualisiert.');
+    }
+
+    /**
+     * Ein über ein Datumsfeld gewähltes "gültig bis" bezeichnet den letzten
+     * Tag, an dem der Zugang noch bestehen soll -- gespeichert wird deshalb
+     * das Ende dieses Tages (23:59:59), nicht sein Beginn (Mitternacht).
+     * Siehe B14.
+     */
+    private function endOfValidityDay(?string $value): ?Carbon
+    {
+        return $value ? Carbon::parse($value)->endOfDay() : null;
     }
 }

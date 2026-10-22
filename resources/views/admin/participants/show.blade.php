@@ -136,7 +136,38 @@
                                 <span class="block text-xs text-indigo-600 dark:text-indigo-400 mt-0.5">+ {{ $booking['options']->implode(', ') }}</span>
                             @endif
                         </div>
-                        <span class="text-xs text-slate-400 whitespace-nowrap">{{ $booking['date']?->format('d.m.Y') }}</span>
+                        <div class="text-end">
+                            <span class="text-xs text-slate-400 whitespace-nowrap">{{ $booking['date']?->format('d.m.Y') }}</span>
+                            @if ($canManageTenant && $booking['entitlement_id'])
+                                {{-- Bug-Review B14: Verlängern/Sperren gab es bisher nur im
+                                     Controller (EntitlementController::update), ohne jede
+                                     Oberfläche dafür. --}}
+                                <div class="mt-1" x-data="{ showExtend: false }">
+                                    <div class="flex items-center justify-end gap-1">
+                                        @if (in_array($booking['status'], ['active', 'suspended'], true))
+                                            <form method="POST" action="{{ route('admin.entitlements.update', $booking['entitlement_id']) }}">
+                                                @csrf
+                                                @method('PATCH')
+                                                <input type="hidden" name="action" value="{{ $booking['status'] === 'active' ? 'suspend' : 'reactivate' }}">
+                                                <button type="submit" class="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-[11px] whitespace-nowrap">
+                                                    {{ $booking['status'] === 'active' ? 'Sperren' : 'Entsperren' }}
+                                                </button>
+                                            </form>
+                                        @endif
+                                        <button type="button" @click="showExtend = ! showExtend" class="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-[11px] whitespace-nowrap">
+                                            Verlängern
+                                        </button>
+                                    </div>
+                                    <form method="POST" action="{{ route('admin.entitlements.update', $booking['entitlement_id']) }}" x-show="showExtend" style="display: none" class="mt-1 flex items-center justify-end gap-1">
+                                        @csrf
+                                        @method('PATCH')
+                                        <input type="hidden" name="action" value="extend">
+                                        <input type="date" name="valid_until" value="{{ $booking['valid_until']?->format('Y-m-d') }}" required class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-[11px] py-0.5">
+                                        <button type="submit" class="px-2 py-0.5 rounded-lg text-white text-[11px]" style="background-color: var(--brand-primary, #005FD7)">Speichern</button>
+                                    </form>
+                                </div>
+                            @endif
+                        </div>
                     </div>
                 @empty
                     <p class="text-sm text-slate-400">Noch keine Buchungen.</p>

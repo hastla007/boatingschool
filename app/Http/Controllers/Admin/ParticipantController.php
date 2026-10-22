@@ -37,9 +37,15 @@ class ParticipantController extends Controller
      * hier aus Admin-Sicht für einen bestimmten Teilnehmer der eigenen
      * Bootsschule.
      */
-    public function show(TenantContext $tenantContext, User $user): View
+    public function show(Request $request, TenantContext $tenantContext, User $user): View
     {
         $tenant = $tenantContext->tenant();
+
+        // Diese Seite ist auch für Instructor erreichbar (siehe
+        // routes/web.php); Verlängern/Sperren bleibt serverseitig ohnehin
+        // auf owner/admin beschränkt (Sicherheitsreview H3) -- das hier
+        // vermeidet nur ein unbedienbares Formular für einen Instructor.
+        $canManageTenant = $request->user()->isAdminFor($tenant);
 
         $membership = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $user->id)->first();
         abort_unless($membership, 404);
@@ -69,6 +75,11 @@ class ParticipantController extends Controller
                     'date' => $e->valid_from,
                     'status' => $e->status,
                     'options' => $options->map(fn (ProductPurchase $p) => $p->product->name ?? '—')->values(),
+                    // Bug-Review B14: nur über diese beiden Felder lässt sich
+                    // in der Detailansicht ein "Verlängern"/"Sperren"-Formular
+                    // für genau diese Entitlement-Zeile rendern.
+                    'entitlement_id' => $e->id,
+                    'valid_until' => $e->valid_until,
                 ];
             });
 
@@ -81,6 +92,8 @@ class ParticipantController extends Controller
                 'date' => $p->created_at,
                 'status' => null,
                 'options' => collect(),
+                'entitlement_id' => null,
+                'valid_until' => null,
             ]);
 
         $bookings = $entitlements->concat($standaloneProductPurchases)->sortByDesc('date')->values();
@@ -137,6 +150,7 @@ class ParticipantController extends Controller
         return view('admin.participants.show', [
             'participant' => $user,
             'membership' => $membership,
+            'canManageTenant' => $canManageTenant,
             'bookings' => $bookings,
             'praxisFormSubmissions' => $praxisFormSubmissions,
             'locationsByCourse' => $locationsByCourse,
