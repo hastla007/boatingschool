@@ -6,6 +6,7 @@ use App\Models\Tenant;
 use App\Support\TenantContext;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -69,7 +70,18 @@ class ResolveTenant
     {
         $host = $request->getHost();
 
-        return Tenant::whereHas('branding', fn ($q) => $q->where('custom_domain', $host))->first();
+        // tenant_branding ist RLS-geschützt; an dieser Stelle wurde der
+        // Tenant-Kontext gerade erst auf die Nil-UUID geleert (siehe
+        // clear() oben), die App-Rolle sähe also nie eine Zeile -- diese
+        // eine Mandanten-Auflösung braucht deshalb bewusst die
+        // Owner-Verbindung, exakt wie Migrationen/Seeder/Superadmin
+        // (Sicherheitsreview N9). Funktional kaputt, kein Spoofing-Risiko:
+        // whereHas() fand vorher einfach nie eine Übereinstimmung.
+        $tenantId = DB::connection('pgsql_admin')->table('tenant_branding')
+            ->where('custom_domain', $host)
+            ->value('tenant_id');
+
+        return $tenantId ? Tenant::find($tenantId) : null;
     }
 
     private function resolveViaDevOverride(Request $request): ?Tenant
