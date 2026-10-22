@@ -2,16 +2,26 @@
 
 namespace App\Console\Commands;
 
+use App\Models\ContentAnswer;
 use App\Models\ContentQuestion;
+use App\Models\ContentQuestionRevision;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Backfill von Richtig-/Falsch-Feedback für bereits importierte Fragen
- * (siehe database/data/sbf_see_binnen_fragen_feedback.csv). Anders als
- * ImportContentQuestions erzeugt dieser Import keine neue Revision: Frage
- * und Antworten ändern sich nicht, nur die erklärenden Feedback-Texte
- * werden auf der aktuell veröffentlichten Revision ergänzt. Die Feedback-
- * Spalten der Quelldatei beginnen redundant mit "Richtig."/"Falsch." --
+ * (siehe database/data/sbf_see_binnen_fragen_feedback.csv). Bug-Review B27:
+ * schrieb die Feedback-Texte bisher direkt auf die veröffentlichte
+ * Revision statt -- konsistent mit Superadmin\QuestionController::update()
+ * -- eine neue Revision anzulegen. Das verletzte die an anderer Stelle
+ * dieser App durchgehend eingehaltene Unveränderlichkeit veröffentlichter
+ * Revisionen: exam_session_question/attempt verweisen per revision_id auf
+ * den exakten Stand, der einem Lerner zu diesem Zeitpunkt angezeigt wurde,
+ * und ein nachträgliches Umschreiben ließ diesen historischen Bezug
+ * rückwirkend "falsch" aussehen. Frage und Antworten ändern sich inhaltlich
+ * nicht -- nur die erklärenden Feedback-Texte werden ergänzt, aber über
+ * eine neue, unveränderliche Revision statt eines direkten Updates. Die
+ * Feedback-Spalten der Quelldatei beginnen redundant mit "Richtig."/"Falsch." --
  * das steht in der Oberfläche bereits als eigene Überschrift, deshalb wird
  * diese erste Zeile beim Import abgeschnitten. "Falsch."-Texte wiederholen
  * zusätzlich noch die richtige Antwort als eigene Zeile ("Richtig ist:
@@ -35,6 +45,12 @@ class ImportContentFeedback extends Command
 
     public function handle(): int
     {
+        // Sicherheitsreview M7 hat INSERT/UPDATE auf content_question_revision
+        // (u. a.) der App-Rolle entzogen, da dieses Schreibrecht nirgends in
+        // der App selbst genutzt wird -- Import-Befehle laufen deshalb wie
+        // ImportContentQuestions über die Owner-Verbindung.
+        config(['database.default' => 'pgsql_admin']);
+
         $path = base_path($this->argument('path'));
         if (! is_file($path)) {
             $this->error("Datei nicht gefunden: {$path}");
@@ -86,12 +102,15 @@ class ImportContentFeedback extends Command
             return;
         }
 
-        $revision = $question->publishedRevision() ?? $question->revisions()->orderByDesc('revision_no')->first();
+        $revision = $question->publishedRevision();
         if (! $revision) {
-            $this->recordSkip($lineNumber, "Keine Revision für '{$contentId}' gefunden.");
+            $this->recordSkip($lineNumber, "Keine veröffentlichte Revision für '{$contentId}' gefunden.");
 
             return;
         }
+
+        $feedbackCorrect = $feedbackCorrect ?: null;
+        $feedbackIncorrect = $feedbackIncorrect ?: null;
 
         if ($revision->feedback_correct === $feedbackCorrect && $revision->feedback_incorrect === $feedbackIncorrect) {
             $this->unchanged++;
@@ -99,10 +118,52 @@ class ImportContentFeedback extends Command
             return;
         }
 
-        $revision->update([
-            'feedback_correct' => $feedbackCorrect ?: null,
-            'feedback_incorrect' => $feedbackIncorrect ?: null,
-        ]);
+        DB::transaction(function () use ($revision, $feedbackCorrect, $feedbackIncorrect) {
+            $revision->update(['editorial_status' => 'deprecated']);
+
+            $newRevision = ContentQuestionRevision::create([
+                'question_id' => $revision->question_id,
+                'revision_no' => $revision->revision_no + 1,
+                'question_type' => $revision->question_type,
+                'question_text' => $revision->question_text,
+                'feedback_correct' => $feedbackCorrect,
+                'feedback_incorrect' => $feedbackIncorrect,
+                'topic' => $revision->topic,
+                'subtopic' => $revision->subtopic,
+                'competency' => $revision->competency,
+                'smartmodus_kategorie' => $revision->smartmodus_kategorie,
+                'image_required' => $revision->image_required,
+                'source_catalog' => $revision->source_catalog,
+                'source_version' => $revision->source_version,
+                'source_page' => $revision->source_page,
+                'source_question_id' => $revision->source_question_id,
+                'editorial_status' => 'published',
+                'rights_status' => $revision->rights_status,
+                'rights_owner' => $revision->rights_owner,
+                'license_reference' => $revision->license_reference,
+                'valid_from' => $revision->valid_from,
+                'valid_to' => $revision->valid_to,
+                'reviewed_by' => $revision->reviewed_by,
+                'reviewed_at' => $revision->reviewed_at,
+            ]);
+
+            foreach ($revision->answers as $answer) {
+                ContentAnswer::create([
+                    'revision_id' => $newRevision->id,
+                    'answer_key' => $answer->answer_key,
+                    'answer_text' => $answer->answer_text,
+                    'is_correct' => $answer->is_correct,
+                    'sort_order' => $answer->sort_order,
+                ]);
+            }
+
+            // Bug-Review B13: Medienzuordnungen der Vorgänger-Revision
+            // übernehmen, sonst würde das zugehörige Fragenbild verschwinden.
+            foreach ($revision->media as $media) {
+                $newRevision->media()->attach($media->id, ['role' => $media->pivot->role, 'sort_order' => $media->pivot->sort_order]);
+            }
+        });
+
         $this->updated++;
     }
 
