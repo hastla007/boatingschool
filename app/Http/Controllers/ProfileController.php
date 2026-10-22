@@ -7,9 +7,11 @@ use App\Models\Entitlement;
 use App\Models\ProductPurchase;
 use App\Notifications\ConfirmPendingEmail;
 use App\Services\AccountErasureService;
+use App\Services\PersonalDataExportService;
 use App\Support\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\View\View;
@@ -127,6 +129,23 @@ class ProfileController extends Controller
         ])->save();
 
         return Redirect::route('profile.edit')->with('status', 'Neue E-Mail-Adresse bestätigt.');
+    }
+
+    /**
+     * DSGVO-Review D3: Auskunfts-/Mitnahmerecht (Art. 15/20) -- liefert die
+     * bei der aktuellen Bootsschule gespeicherten personenbezogenen Daten
+     * als strukturierte, maschinenlesbare JSON-Datei zum Download.
+     */
+    public function exportData(Request $request, TenantContext $tenantContext, PersonalDataExportService $export): Response
+    {
+        $tenant = $tenantContext->tenant();
+        $data = $export->export($request->user(), $tenant);
+
+        $filename = 'meine-daten-'.$tenant->slug.'-'.now()->format('Y-m-d').'.json';
+
+        return response(json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES))
+            ->header('Content-Type', 'application/json')
+            ->header('Content-Disposition', 'attachment; filename="'.$filename.'"');
     }
 
     /** Nur serverrelative Pfade zulassen, kein Schema/Host (Open-Redirect-Schutz). */

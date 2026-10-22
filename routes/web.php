@@ -102,6 +102,8 @@ Route::middleware(['auth', 'tenant.member', 'verified'])->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    // DSGVO-Review D3: Auskunfts-/Mitnahmerecht (Art. 15/20).
+    Route::get('/profile/export-data', [ProfileController::class, 'exportData'])->name('profile.export');
 
     Route::get('/coupons/redeem', [CouponRedeemController::class, 'show'])->name('coupons.redeem');
     // Sicherheitsreview M8: ohne Limit ließe sich über die Fehlermeldung
