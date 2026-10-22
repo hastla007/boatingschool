@@ -14,6 +14,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             \App\Http\Middleware\SecurityHeaders::class,
             \App\Http\Middleware\EnforceMaintenanceMode::class,
+            \App\Http\Middleware\EnsureAccountIsActive::class,
             \App\Http\Middleware\ResolveTenant::class,
         ]);
 

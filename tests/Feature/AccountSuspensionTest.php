@@ -45,6 +45,47 @@ class AccountSuspensionTest extends TestCase
         $this->assertAuthenticatedAs($user);
     }
 
+    /**
+     * Bug-Review B7: Laravels Remember-me-Mechanismus meldet ein Konto beim
+     * nächsten Request automatisch wieder an, sobald Token und Nutzer-ID
+     * zusammenpassen (EloquentUserProvider::retrieveByToken()) -- dabei
+     * wird NIE geprüft, ob das Konto überhaupt noch status=active hat.
+     * Eine bereits laufende (Remember-me- oder reguläre) Sitzung überlebte
+     * eine nachträgliche Sperrung deshalb bislang bis zum nächsten echten
+     * Login-Versuch. EnsureAccountIsActive prüft den Status jetzt bei
+     * JEDEM Request neu und meldet ein zwischenzeitlich gesperrtes Konto
+     * sofort ab -- unabhängig davon, ob es per Session oder per
+     * Remember-me-Cookie "angemeldet" ist.
+     */
+    public function test_a_remember_me_cookie_does_not_keep_a_newly_suspended_account_logged_in(): void
+    {
+        $tenant = $this->createTestTenant();
+        $user = $this->createTenantUser($tenant, 'learner');
+
+        $login = $this->post('/login', ['email' => $user->email, 'password' => 'password', 'remember' => '1']);
+        $login->assertRedirect();
+        $this->assertAuthenticatedAs($user);
+
+        // Direkte DB-Änderung statt Superadmin-Endpunkt: isoliert diesen
+        // Test bewusst von der bereits separat geprüften Token-Rotation
+        // (siehe test_superadmin_suspending_a_user_also_invalidates_...)
+        // und prüft wirklich nur die hier neue, davon unabhängige Prüfung.
+        $this->onAdmin(fn () => $user->forceFill(['status' => 'suspended'])->save());
+
+        // In echten Requests ist jeder Request ein neuer Prozess, der
+        // $user frisch aus der Session-ID nachlädt -- im Testprozess bleibt
+        // der SessionGuard dagegen über beide simulierten Requests hinweg
+        // derselbe und cached den (hier veralteten) $user aus dem Login.
+        // forgetGuards() erzwingt die in echten Requests selbstverständliche
+        // frische Auflösung, ohne den eigentlichen Prüfpfad zu verändern.
+        $this->app['auth']->forgetGuards();
+
+        $response = $this->withSession(['dev_tenant_slug' => $tenant->slug])->get('/dashboard');
+
+        $response->assertRedirect(route('login'));
+        $this->assertGuest();
+    }
+
     public function test_a_suspended_membership_blocks_access_to_that_tenant(): void
     {
         $tenant = $this->createTestTenant();
