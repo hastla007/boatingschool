@@ -34,8 +34,15 @@ class SupportEmailVerificationController extends Controller
         return back()->with('status', 'support-email-verification-link-sent');
     }
 
-    public function verify(Request $request, Tenant $tenant): Response
+    public function verify(Request $request, TenantContext $tenantContext, Tenant $tenant): Response
     {
+        // Sicherheitsreview N7: {tenant} aus der Route muss zum serverseitig
+        // aufgelösten Mandanten passen. Die Signatur macht das schon praktisch
+        // harmlos, aber eine Abweichung führte bislang zu einem rohen Fehler,
+        // weil tenant_branding einer fremden Tenant-ID per RLS ohnehin nie
+        // sichtbar ist -- jetzt ein sauberer 404 statt eines Absturzes.
+        abort_unless($tenant->id === $tenantContext->id(), 404);
+
         $branding = $tenant->branding;
 
         abort_unless(

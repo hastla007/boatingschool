@@ -197,6 +197,41 @@ class BrandingSettingsTest extends TestCase
         $this->assertNotNull($tenant->branding->fresh()->support_email_verified_at);
     }
 
+    /**
+     * Sicherheitsreview N7: {tenant} in der Route muss zum serverseitig
+     * aufgelösten Mandanten passen -- sonst ein sauberer 404 statt eines
+     * Absturzes, weil tenant_branding einer fremden Tenant-ID per RLS
+     * ohnehin nie sichtbar ist.
+     */
+    public function test_support_email_verification_rejects_a_tenant_mismatch(): void
+    {
+        $tenant = $this->createTestTenant();
+        $otherTenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+
+        $this->actingAsInTenant($admin, $tenant)->patch('/admin/branding', [
+            'primary_color' => '#005FD7',
+            'secondary_color' => '#00A8A8',
+            'exam_readiness_threshold_percent' => 50,
+            'support_email' => 'kontakt@bootsschule-mueller.de',
+        ]);
+
+        $verificationUrl = URL::temporarySignedRoute(
+            'admin.branding.support-email.verify',
+            now()->addMinutes(60),
+            ['tenant' => $tenant->id, 'hash' => sha1('kontakt@bootsschule-mueller.de')]
+        );
+
+        // Beim anderen Mandanten eingeloggt, Link zeigt aber auf $tenant.
+        $otherAdmin = $this->createTenantUser($otherTenant, 'owner');
+        $response = $this->actingAsInTenant($otherAdmin, $otherTenant)->get($verificationUrl);
+
+        $response->assertNotFound();
+        $verifiedAt = $this->onAdmin(fn () => \Illuminate\Support\Facades\DB::table('tenant_branding')
+            ->where('tenant_id', $tenant->id)->value('support_email_verified_at'));
+        $this->assertNull($verifiedAt);
+    }
+
     public function test_a_school_admin_can_enable_whatsapp_support_with_a_valid_phone_number(): void
     {
         $tenant = $this->createTestTenant();
