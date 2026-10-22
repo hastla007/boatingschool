@@ -111,10 +111,31 @@ class FavoriteController extends Controller
         ]);
     }
 
-    public function store(Request $request, TenantContext $tenantContext, ContentQuestion $question, FavoriteCollectionService $collections): Response
+    public function store(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, ContentQuestion $question, FavoriteCollectionService $collections): Response
     {
         $tenant = $tenantContext->tenant();
         $context = $this->resolveContext($request);
+
+        // Sicherheitsreview N8: ohne diese Prüfung ließ sich jede beliebige,
+        // globale Frage favorisieren, unabhängig von Kurs oder Entitlement
+        // (kein Datenabfluss, da die Anzeige ohnehin nach Kurs filtert, aber
+        // unnötige/fremde Favoriten-Zeilen). course_id ist deshalb jetzt
+        // Pflicht; alle aktuellen Aufrufer (Lernmodus, Prüfung,
+        // Favoriten-Karte) schicken es bereits mit.
+        $validated = $request->validate([
+            'course_id' => ['required', 'uuid'],
+        ]);
+
+        // Bewusst der tenant-gescopte Default-Query (nicht
+        // withoutGlobalScopes()) -- verhindert, dass eine manipulierte
+        // course_id eine fremde, nicht-globale Tenant-Kurs-ID trifft.
+        $course = CourseDefinition::find($validated['course_id']);
+        abort_unless($course, 404);
+        abort_unless($entitlements->hasAccess($tenant, $request->user(), $course), 403, 'Für diesen Kurs liegt kein aktives Entitlement vor.');
+
+        $course->loadMissing('modules.questions');
+        $courseQuestionIds = $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id');
+        abort_unless($courseQuestionIds->contains($question->id), 403, 'Frage gehört nicht zum berechtigten Kurs.');
 
         Favorite::firstOrCreate([
             'tenant_id' => $tenant->id,
@@ -123,18 +144,7 @@ class FavoriteController extends Controller
             'context' => $context,
         ]);
 
-        // course_id ist optional (nicht jede Stelle, von der aus favorisiert
-        // werden kann, kennt den Kurskontext) -- ohne ihn bleibt der
-        // Favorit gültig, landet aber in keiner Collection.
-        if ($courseId = $request->input('course_id')) {
-            // Bewusst der tenant-gescopte Default-Query (nicht
-            // withoutGlobalScopes()) -- verhindert, dass eine manipulierte
-            // course_id eine fremde, nicht-globale Tenant-Kurs-ID trifft.
-            $course = CourseDefinition::find($courseId);
-            if ($course) {
-                $collections->ensureInDefault($tenant, $request->user(), $course, $question->id, $context);
-            }
-        }
+        $collections->ensureInDefault($tenant, $request->user(), $course, $question->id, $context);
 
         return back();
     }

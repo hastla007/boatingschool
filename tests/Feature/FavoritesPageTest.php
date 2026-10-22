@@ -64,7 +64,7 @@ class FavoritesPageTest extends TestCase
         [$questionA] = $this->anyPublishedQuestionIn($moduleA);
 
         $this->actingAsInTenant($learner, $tenant)
-            ->post("/favorites/{$questionA->id}", ['context' => 'smart_learning'])
+            ->post("/favorites/{$questionA->id}", ['context' => 'smart_learning', 'course_id' => $courseA->id])
             ->assertRedirect();
 
         $favoritesA = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$courseA->id}/favorites/smart-learning");
@@ -90,7 +90,7 @@ class FavoritesPageTest extends TestCase
 
         // Dieselbe Frage wird ausschliesslich im Smart-Learning favorisiert ...
         $this->actingAsInTenant($learner, $tenant)
-            ->post("/favorites/{$question->id}", ['context' => 'smart_learning'])
+            ->post("/favorites/{$question->id}", ['context' => 'smart_learning', 'course_id' => $course->id])
             ->assertRedirect();
 
         $smartLearning = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/favorites/smart-learning");
