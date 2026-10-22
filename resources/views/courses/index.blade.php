@@ -34,16 +34,23 @@
         $showPhone = $branding && $branding->phone_support_enabled && $branding->phone;
         $showEmail = $branding && $branding->email_support_enabled && $branding->support_email;
         $hasContactDetails = $branding && ($showPhone || $showEmail);
+        // Sicherheitsreview H3: ein Instructor ist Lehrkraft, kein
+        // Kursteilnehmer -- für ihn ist die Route serverseitig gesperrt
+        // (tenant.role:owner,admin,learner), das hier vermeidet nur einen
+        // Link ins Leere.
+        $canRedeemCoupon = auth()->check() && auth()->user()->roleForTenant($currentTenant ?? null) !== 'instructor';
     @endphp
 
-    <a href="{{ route('coupons.redeem') }}" class="flex items-center gap-3 rounded-2xl p-4 mb-5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition">
-        <x-icon name="bookmark" class="w-5 h-5 text-amber-500 shrink-0" />
+    @if ($canRedeemCoupon)
+        <a href="{{ route('coupons.redeem') }}" class="flex items-center gap-3 rounded-2xl p-4 mb-5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700/60 transition">
+            <x-icon name="bookmark" class="w-5 h-5 text-amber-500 shrink-0" />
         <div class="flex-1">
             <div class="text-sm font-medium text-slate-700 dark:text-slate-200">Hast du einen Coupon-Code?</div>
             <div class="text-xs text-slate-400">Code einlösen und Kurs freischalten</div>
         </div>
         <x-icon name="arrow-right" class="w-4 h-4 text-slate-400 shrink-0" />
-    </a>
+        </a>
+    @endif
 
     @if ($courses->isEmpty() && $lockedCourses->isEmpty())
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 text-center text-slate-500">

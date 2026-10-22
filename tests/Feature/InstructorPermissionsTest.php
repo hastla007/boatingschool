@@ -153,4 +153,94 @@ class InstructorPermissionsTest extends TestCase
         ]);
         $invite->assertRedirect();
     }
+
+    /**
+     * Die "Teilnehmer"-UI zeigt einem Instructor nur role=learner an (siehe
+     * AdminDashboardController) -- die Routen /admin/participants/{user}
+     * (GET+PATCH) kannten diese Einschränkung bisher nicht und akzeptierten
+     * jede User-ID derselben Bootsschule, auch die eines Admins/Owners.
+     */
+    public function test_instructor_cannot_view_or_edit_an_admins_data(): void
+    {
+        $tenant = $this->createTestTenant();
+        $instructor = $this->createTenantUser($tenant, 'instructor');
+        $admin = $this->createTenantUser($tenant, 'admin', ['street' => 'Admin-Straße 1']);
+
+        $this->actingAsInTenant($instructor, $tenant)->get("/admin/participants/{$admin->id}")->assertNotFound();
+
+        $this->actingAsInTenant($instructor, $tenant)->patch("/admin/participants/{$admin->id}", [
+            'street' => 'Übernommen',
+        ])->assertNotFound();
+
+        $this->assertSame('Admin-Straße 1', $admin->fresh()->street);
+    }
+
+    public function test_instructor_can_still_view_and_edit_a_learners_data(): void
+    {
+        $tenant = $this->createTestTenant();
+        $instructor = $this->createTenantUser($tenant, 'instructor');
+        $learner = $this->createTenantUser($tenant, 'learner');
+
+        $this->actingAsInTenant($instructor, $tenant)->get("/admin/participants/{$learner->id}")->assertOk();
+
+        $this->actingAsInTenant($instructor, $tenant)->patch("/admin/participants/{$learner->id}", [
+            'street' => 'Lerner-Straße 1',
+        ])->assertRedirect();
+
+        $this->assertSame('Lerner-Straße 1', $learner->fresh()->street);
+    }
+
+    public function test_owner_can_still_view_and_edit_an_admins_data(): void
+    {
+        $tenant = $this->createTestTenant();
+        $owner = $this->createTenantUser($tenant, 'owner');
+        $admin = $this->createTenantUser($tenant, 'admin');
+
+        $this->actingAsInTenant($owner, $tenant)->get("/admin/participants/{$admin->id}")->assertOk();
+
+        $this->actingAsInTenant($owner, $tenant)->patch("/admin/participants/{$admin->id}", [
+            'street' => 'Von Owner Geändert',
+        ])->assertRedirect();
+
+        $this->assertSame('Von Owner Geändert', $admin->fresh()->street);
+    }
+
+    /**
+     * Ein eigener Code ist für den Kursbesuch gedacht -- ein Instructor ist
+     * eine Lehrkraft, kein Kursteilnehmer, und sollte deshalb keine Codes
+     * für sich selbst einlösen können.
+     */
+    public function test_instructor_cannot_redeem_a_coupon(): void
+    {
+        $tenant = $this->createTestTenant();
+        $instructor = $this->createTenantUser($tenant, 'instructor');
+        $course = $this->existingCourse('SRC');
+        $code = 'E2E-INSTRUCTOR-REDEEM';
+        $coupon = $this->onAdmin(fn () => Coupon::create(['code' => $code, 'course_id' => $course->id]));
+
+        $this->actingAsInTenant($instructor, $tenant)->get('/coupons/redeem')->assertForbidden();
+
+        $response = $this->actingAsInTenant($instructor, $tenant)->post('/coupons/redeem', ['code' => $code]);
+        $response->assertForbidden();
+
+        $this->assertFalse($coupon->fresh()->isRedeemed());
+        $this->onAdmin(fn () => Coupon::where('code', $code)->delete());
+    }
+
+    public function test_a_learner_can_still_redeem_a_coupon(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $code = 'E2E-LEARNER-REDEEM';
+        $coupon = $this->onAdmin(fn () => Coupon::create(['code' => $code, 'course_id' => $course->id]));
+
+        $this->actingAsInTenant($learner, $tenant)->get('/coupons/redeem')->assertOk();
+
+        $response = $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', ['code' => $code]);
+        $response->assertRedirect();
+
+        $this->assertTrue($coupon->fresh()->isRedeemed());
+        $this->onAdmin(fn () => Coupon::where('code', $code)->delete());
+    }
 }

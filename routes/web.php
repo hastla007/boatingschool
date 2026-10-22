@@ -110,12 +110,18 @@ Route::middleware(['auth', 'tenant.member', 'verified'])->group(function () {
     // DSGVO-Review D3: Auskunfts-/Mitnahmerecht (Art. 15/20).
     Route::get('/profile/export-data', [ProfileController::class, 'exportData'])->name('profile.export');
 
-    Route::get('/coupons/redeem', [CouponRedeemController::class, 'show'])->name('coupons.redeem');
-    // Sicherheitsreview M8: ohne Limit ließe sich über die Fehlermeldung
-    // ("ungültig" vs. intern schon unterschieden nach eingelöst/unbekannt im
-    // Admin-Import, hier bewusst einheitlich) die Existenz von Codes gegen
-    // die ~59 Bit Entropie durchprobieren.
-    Route::post('/coupons/redeem', [CouponRedeemController::class, 'redeem'])->middleware('throttle:10,1')->name('coupons.redeem.store');
+    // Sicherheitsreview H3: ein eigener Code ist für den Kursbesuch gedacht
+    // -- ein Instructor ist eine Lehrkraft, kein Kursteilnehmer, und sollte
+    // deshalb keine Codes für sich selbst einlösen können (verbraucht sonst
+    // u. a. den begrenzten Coupon-Bestand der Bootsschule ohne Gegenwert).
+    Route::middleware('tenant.role:owner,admin,learner')->group(function () {
+        Route::get('/coupons/redeem', [CouponRedeemController::class, 'show'])->name('coupons.redeem');
+        // Sicherheitsreview M8: ohne Limit ließe sich über die Fehlermeldung
+        // ("ungültig" vs. intern schon unterschieden nach eingelöst/unbekannt im
+        // Admin-Import, hier bewusst einheitlich) die Existenz von Codes gegen
+        // die ~59 Bit Entropie durchprobieren.
+        Route::post('/coupons/redeem', [CouponRedeemController::class, 'redeem'])->middleware('throttle:10,1')->name('coupons.redeem.store');
+    });
 });
 
 Route::middleware(['auth', 'tenant.role:owner,admin,instructor'])->prefix('admin')->name('admin.')->group(function () {
@@ -125,10 +131,6 @@ Route::middleware(['auth', 'tenant.role:owner,admin,instructor'])->prefix('admin
     Route::patch('/participants/{user}', [ParticipantController::class, 'update'])->name('participants.update');
     Route::get('/branding/support-email/verify/{tenant}/{hash}', [SupportEmailVerificationController::class, 'verify'])
         ->middleware(['signed', 'throttle:6,1'])->name('branding.support-email.verify');
-
-    Route::post('/tenant-course-locations', [TenantCourseLocationController::class, 'store'])->name('tenant-course-locations.store');
-    Route::patch('/tenant-course-locations/{tenantCourseLocation}', [TenantCourseLocationController::class, 'update'])->name('tenant-course-locations.update');
-    Route::delete('/tenant-course-locations/{tenantCourseLocation}', [TenantCourseLocationController::class, 'destroy'])->name('tenant-course-locations.destroy');
 
     Route::get('/praxis-form-submissions/{submission}', [AdminPraxisFormSubmissionController::class, 'show'])->name('praxis-form-submissions.show');
     Route::post('/praxis-form-submissions/{submission}/exam-appointments', [AdminPraxisExamAppointmentController::class, 'store'])->name('praxis-form-submissions.exam-appointments.store');
@@ -141,12 +143,17 @@ Route::middleware(['auth', 'tenant.role:owner,admin,instructor'])->prefix('admin
 // vorbehalten -- ein Instructor kann weder Kurse kostenlos freischalten
 // oder widerrufen, noch Branding/Support-Kontakt (Phishing-Risiko über das
 // Schul-Branding), Webshop-Links/Kursauswahl, Addon-Konfiguration,
-// Kurs-Empfehlungsbanner oder den Coupon-Bestand ändern (Sicherheitsreview
-// H3). Instructor sieht diese Tabs im Admin-Bereich entsprechend auch
-// nicht (siehe admin/dashboard.blade.php, $canManageTenant).
+// Kurs-Empfehlungsbanner, Praxis-/Prüfungsorte oder den Coupon-Bestand
+// ändern (Sicherheitsreview H3). Instructor sieht diese Tabs im
+// Admin-Bereich entsprechend auch nicht bzw. nur lesend (siehe
+// admin/dashboard.blade.php, admin/tabs/orte.blade.php, $canManageTenant).
 Route::middleware(['auth', 'tenant.role:owner,admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::post('/entitlements', [EntitlementController::class, 'store'])->name('entitlements.store');
     Route::patch('/entitlements/{entitlement}', [EntitlementController::class, 'update'])->name('entitlements.update');
+
+    Route::post('/tenant-course-locations', [TenantCourseLocationController::class, 'store'])->name('tenant-course-locations.store');
+    Route::patch('/tenant-course-locations/{tenantCourseLocation}', [TenantCourseLocationController::class, 'update'])->name('tenant-course-locations.update');
+    Route::delete('/tenant-course-locations/{tenantCourseLocation}', [TenantCourseLocationController::class, 'destroy'])->name('tenant-course-locations.destroy');
     Route::patch('/branding', [BrandingController::class, 'update'])->name('branding.update');
     Route::post('/branding/support-email/verification-notification', [SupportEmailVerificationController::class, 'send'])
         ->middleware('throttle:6,1')->name('branding.support-email.send');

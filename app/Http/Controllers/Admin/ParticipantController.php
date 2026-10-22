@@ -52,6 +52,13 @@ class ParticipantController extends Controller
         $membership = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $user->id)->first();
         abort_unless($membership, 404);
 
+        // Sicherheitsreview H3: die "Teilnehmer"-Liste zeigt nur Mitglieder
+        // mit role=learner (siehe AdminDashboardController) -- ohne diese
+        // Prüfung konnte ein Instructor trotzdem per direktem Request auf
+        // die Stammdaten eines Admins/Owners/anderen Instructors derselben
+        // Bootsschule zugreifen, einfach indem er dessen User-ID erriet.
+        abort_unless($membership->role === 'learner' || $canManageTenant, 404);
+
         $productPurchases = ProductPurchase::where('tenant_id', $tenant->id)->where('user_id', $user->id)
             ->with('product')->orderByDesc('created_at')->get();
 
@@ -176,6 +183,13 @@ class ParticipantController extends Controller
 
         $membership = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $user->id)->first();
         abort_unless($membership, 404);
+
+        // Sicherheitsreview H3: ohne diese Prüfung konnte ein Instructor
+        // per direktem Request die Stammdaten eines Admins/Owners/anderen
+        // Instructors derselben Bootsschule ändern -- die "Teilnehmer"-UI
+        // zeigt ihm nur role=learner an, die Route selbst kannte diese
+        // Einschränkung bisher nicht.
+        abort_unless($membership->role === 'learner' || $request->user()->isAdminFor($tenant), 404);
 
         $validated = $request->validate([
             'street' => ['nullable', 'string', 'max:255'],
