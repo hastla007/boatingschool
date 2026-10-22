@@ -13,7 +13,7 @@
             </div>
             <div class="flex flex-wrap gap-1 text-xs">
                 @foreach (['smarttrainer' => ['Smarttrainer', 'bolt'], 'new' => ['Neu', 'star'], 'wrong' => ['Falsch', 'x-circle'], 'favorites' => ['Favoriten', 'star']] as $key => [$label, $icon])
-                    <a href="{{ route('learning.show', $course) }}?mode={{ $key }}{{ $moduleId ? '&module='.$moduleId : '' }}"
+                    <a href="{{ route('learning.show', array_filter(['course' => $course, 'mode' => $key, 'module' => $moduleId])) }}"
                        class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg {{ $mode === $key ? 'text-white' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-200' }}"
                        @style(["background-color: var(--brand-primary, #005FD7)" => $mode === $key])>
                         {{ $label }}
@@ -105,7 +105,7 @@
                         <button type="button" onclick="toggleFavorite()" class="inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
                             <x-icon name="star" class="w-4 h-4" /> {{ $isFavorite ? 'Favorit' : 'Als Favorit speichern' }}
                         </button>
-                        <a href="{{ route('learning.show', $course) }}?mode={{ $mode }}{{ $topic ? '&topic='.$topic : '' }}{{ $moduleId ? '&module='.$moduleId : '' }}{{ $questionsParam ? '&questions='.$questionsParam : '' }}"
+                        <a href="{{ route('learning.show', array_filter(['course' => $course, 'mode' => $mode, 'topic' => $topic, 'module' => $moduleId, 'questions' => $questionsParam])) }}"
                            class="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
                             Nächste Frage <x-icon name="arrow-right" class="w-4 h-4" />
                         </a>
@@ -149,7 +149,7 @@
                                 <button type="button" onclick="toggleFavorite()" class="inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
                                     <x-icon name="star" class="w-4 h-4" /> {{ $isFavorite ? 'Favorit' : 'Als Favorit speichern' }}
                                 </button>
-                                <a href="{{ route('learning.show', $course) }}?mode={{ $mode }}{{ $topic ? '&topic='.$topic : '' }}{{ $moduleId ? '&module='.$moduleId : '' }}{{ $questionsParam ? '&questions='.$questionsParam : '' }}"
+                                <a href="{{ route('learning.show', array_filter(['course' => $course, 'mode' => $mode, 'topic' => $topic, 'module' => $moduleId, 'questions' => $questionsParam])) }}"
                                    class="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
                                     Nächste Frage <x-icon name="arrow-right" class="w-4 h-4" />
                                 </a>
@@ -230,7 +230,7 @@
                         <button type="button" onclick="toggleFavorite()" class="inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
                             <x-icon name="star" class="w-4 h-4" /> {{ $isFavorite ? 'Favorit' : 'Als Favorit speichern' }}
                         </button>
-                        <a href="{{ route('learning.show', $course) }}?mode={{ $mode }}{{ $topic ? '&topic='.$topic : '' }}{{ $moduleId ? '&module='.$moduleId : '' }}{{ $questionsParam ? '&questions='.$questionsParam : '' }}"
+                        <a href="{{ route('learning.show', array_filter(['course' => $course, 'mode' => $mode, 'topic' => $topic, 'module' => $moduleId, 'questions' => $questionsParam])) }}"
                            class="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
                             Nächste Frage <x-icon name="arrow-right" class="w-4 h-4" />
                         </a>
