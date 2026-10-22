@@ -184,7 +184,11 @@ class ExamController extends Controller
 
             $position = 1;
             foreach ($ruleSet->blueprints as $blueprint) {
+                // Bug-Review B12: eine im Superadmin deaktivierte Frage
+                // (content_question.active) konnte hier trotzdem in eine
+                // zufällig zusammengestellte Prüfung geraten.
                 $questions = $blueprint->module->questions()
+                    ->where('active', true)
                     ->whereHas('revisions', fn ($q) => $q->where('editorial_status', 'published'))
                     ->inRandomOrder()
                     ->take($blueprint->question_count)

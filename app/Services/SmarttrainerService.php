@@ -25,7 +25,10 @@ class SmarttrainerService
         }]);
 
         $modules = $moduleId ? $course->modules->where('id', $moduleId) : $course->modules;
-        $questions = $modules->flatMap(fn ($module) => $module->questions)->unique('id');
+        // Bug-Review B12: eine im Superadmin deaktivierte Frage
+        // (content_question.active) wurde hier weiter als Kandidat
+        // ausgespielt -- active=true schließt sie von der Auswahl aus.
+        $questions = $modules->flatMap(fn ($module) => $module->questions)->unique('id')->where('active', true);
 
         if ($questionIds !== null) {
             $questions = $questions->whereIn('id', $questionIds);
