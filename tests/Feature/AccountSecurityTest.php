@@ -52,6 +52,28 @@ class AccountSecurityTest extends TestCase
         $this->onAdmin(fn () => Coupon::where('code', $code)->delete());
     }
 
+    // -- B10: Coupon-Einlösung für einen bereits freigeschalteten Kurs ------
+
+    public function test_a_course_coupon_is_rejected_and_kept_unredeemed_if_the_user_already_has_access(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $code = 'E2E-ALREADY-OWNED';
+        $this->onAdmin(fn () => Coupon::create(['code' => $code, 'course_id' => $course->id, 'tenant_id' => $tenant->id]));
+
+        $response = $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', ['code' => $code]);
+
+        $response->assertSessionHasErrors('code');
+        $this->assertSame(1, Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
+            ->where('course_id', $course->id)->count());
+        $this->assertNull($this->onAdmin(fn () => Coupon::where('code', $code)->first())->redeemed_at);
+
+        $this->onAdmin(fn () => Coupon::where('code', $code)->delete());
+    }
+
     // -- H2: Einladung an eine bereits existierende Adresse -----------------
 
     public function test_inviting_an_existing_verified_account_does_not_attach_membership_immediately(): void

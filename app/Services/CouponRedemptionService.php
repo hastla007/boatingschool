@@ -67,6 +67,15 @@ class CouponRedemptionService
             throw new RuntimeException('Dieser Kurs ist aktuell nicht verfügbar.');
         }
 
+        // Bug-Review B10: ohne diese Prüfung verbrauchte ein Nutzer, der den
+        // Kurs schon freigeschaltet hat, trotzdem den Code und erhielt ein
+        // zweites, redundantes Entitlement -- der Code war damit verloren,
+        // ohne dass der Nutzer einen Vorteil davon hatte. Eine Verlängerung
+        // läuft über einen eigenen Verlängerungscode (redeemForRenewal).
+        if ($this->entitlements->hasAccess($tenant, $user, $course)) {
+            throw new RuntimeException('Du hast diesen Kurs bereits freigeschaltet. Für eine Verlängerung wird ein Verlängerungscode benötigt.');
+        }
+
         $now = now();
 
         $entitlement = Entitlement::create([
