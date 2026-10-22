@@ -142,6 +142,16 @@ class AccountSecurityTest extends TestCase
         $this->assertNotNull($invitation->fresh()->accepted_at);
     }
 
+    /**
+     * Bug-Review H2: eine frühere Fassung hat das unverifizierte Konto des
+     * Angreifers hier zusätzlich präventiv ausgeloggt und sein Passwort
+     * randomisiert. Das war redundant (die hasVerifiedEmail()-Prüfung beim
+     * Annehmen -- siehe unten -- verhindert die Übernahme schon allein) und
+     * machte jede Einladung an eine noch unbestätigte, aber völlig legitime
+     * Adresse zu einem ungewollten Logout+Passwort-Reset für deren echten
+     * Besitzer. Entfernt; dieser Test prüft seitdem nur noch die eigentliche
+     * Schutzwirkung: die Einladung bleibt für den Angreifer unannehmbar.
+     */
     public function test_an_attacker_who_pre_registered_the_victims_email_cannot_accept_the_invitation(): void
     {
         $invitingTenant = $this->createTestTenant('Einladende Schule');
@@ -152,16 +162,11 @@ class AccountSecurityTest extends TestCase
             'email' => 'vorab-registriert@example.test',
             'email_verified_at' => null,
         ]);
-        $attackerOriginalPassword = $attacker->password;
 
         $this->actingAsInTenant($admin, $invitingTenant)->post('/admin/participants/invite', [
             'name' => 'Opfer',
             'email' => 'vorab-registriert@example.test',
         ]);
-
-        // Das unverifizierte Konto des Angreifers wird vorsorglich entwertet.
-        $this->assertNotSame($attackerOriginalPassword, $attacker->fresh()->password);
-        $this->assertDatabaseMissing('sessions', ['user_id' => $attacker->id]);
 
         $invitation = TenantInvitation::where('tenant_id', $invitingTenant->id)->where('email', 'vorab-registriert@example.test')->firstOrFail();
         $url = URL::temporarySignedRoute('invitations.accept', now()->addDays(7), [
@@ -169,7 +174,7 @@ class AccountSecurityTest extends TestCase
             'hash' => sha1('vorab-registriert@example.test'),
         ]);
 
-        // Der Angreifer (noch mit gültiger Session vor dem Reset) versucht anzunehmen.
+        // Der Angreifer versucht mit seinem eigenen, unverifizierten Konto anzunehmen.
         $response = $this->actingAsInTenant($attacker, $invitingTenant)->get($url);
 
         $response->assertForbidden();
@@ -177,6 +182,34 @@ class AccountSecurityTest extends TestCase
             'tenant_id' => $invitingTenant->id,
             'user_id' => $attacker->id,
         ]);
+    }
+
+    /**
+     * Bug-Review H2: die inzwischen entfernte präventive Passwort-Entwertung
+     * traf JEDES unverifizierte Konto, dessen Adresse irgendwo eingeladen
+     * wurde -- unabhängig davon, ob überhaupt ein Zusammenhang zu dieser
+     * Bootsschule bestand. Das machte "jemanden einladen" zu einer Waffe
+     * gegen x-beliebige, fremde Adressen (erzwungener Passwort-Reset für
+     * den echten, völlig unbeteiligten Kontoinhaber).
+     */
+    public function test_inviting_an_unrelated_persons_unverified_email_does_not_reset_their_password(): void
+    {
+        $bystanderTenant = $this->createTestTenant('Unbeteiligte Schule');
+        $bystander = $this->createTenantUser($bystanderTenant, 'learner', [
+            'email' => 'unbeteiligt@example.test',
+            'email_verified_at' => null,
+        ]);
+        $bystanderOriginalPassword = $bystander->password;
+
+        $invitingTenant = $this->createTestTenant('Fremde Schule');
+        $admin = $this->createTenantUser($invitingTenant, 'owner');
+
+        $this->actingAsInTenant($admin, $invitingTenant)->post('/admin/participants/invite', [
+            'name' => 'Unbeteiligt',
+            'email' => 'unbeteiligt@example.test',
+        ]);
+
+        $this->assertSame($bystanderOriginalPassword, $bystander->fresh()->password);
     }
 
     public function test_inviting_a_brand_new_email_still_creates_the_membership_directly(): void

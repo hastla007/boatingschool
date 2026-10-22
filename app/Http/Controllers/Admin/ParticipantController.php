@@ -270,19 +270,27 @@ class ParticipantController extends Controller
         // registriert haben, um später automatisch in jede Bootsschule
         // übernommen zu werden, die sie einlädt. Stattdessen entsteht eine
         // Einladung, die nur annehmen kann, wer sich tatsächlich mit dieser
-        // Adresse einloggt (siehe InvitationAcceptController). Ein noch
-        // unverifiziertes Konto ist zusätzlich verdächtig genug, um
-        // vorsorglich dessen laufende Sitzungen zu beenden und das Passwort
-        // zu ändern -- der echte Besitzer bekommt sein Konto über "Passwort
-        // vergessen" zurück, ein Angreifer verliert den Zugriff sofort.
+        // Adresse einloggt UND sie bestätigt hat (siehe
+        // InvitationAcceptController::accept(), hasVerifiedEmail()-Prüfung
+        // dort) -- ein Angreifer, der die Adresse nur vorab registriert hat,
+        // kann die ihm fremde Adresse nie bestätigen und die Einladung damit
+        // nie für sich selbst annehmen, unabhängig davon, wie lange sein
+        // Konto schon unverifiziert existiert.
+        //
+        // Frühere Fassung (Sicherheitsreview H2) hat ein noch unverifiziertes
+        // Konto hier zusätzlich präventiv ausgeloggt und sein Passwort
+        // randomisiert -- das schützte nicht zusätzlich (die
+        // hasVerifiedEmail()-Prüfung beim Annehmen reicht allein schon aus),
+        // machte aber JEDE Einladung an eine noch unbestätigte, aber völlig
+        // legitime Adresse (z. B. jemand, der sich gerade erst irgendwo
+        // registriert hat) zu einem ungewollten Logout+Passwort-Reset für
+        // den echten Kontoinhaber -- und ließ sich von jedem Bootsschul-Admin
+        // gegen eine beliebige, ihm fremde Adresse als Belästigung
+        // missbrauchen. Entfernt, ohne die eigentliche Schutzwirkung zu
+        // verlieren.
         $existingUser = User::where('email', $validated['email'])->first();
 
         if ($existingUser) {
-            if (! $existingUser->hasVerifiedEmail()) {
-                DB::table('sessions')->where('user_id', $existingUser->id)->delete();
-                $existingUser->forceFill(['password' => Hash::make(Str::random(40))])->save();
-            }
-
             $invitation = TenantInvitation::create([
                 'tenant_id' => $tenant->id,
                 'email' => $existingUser->email,
