@@ -101,7 +101,14 @@ class CouponController extends Controller
     {
         $validated = $request->validate([
             'select_all' => ['nullable', 'boolean'],
-            'ids' => ['required_if:select_all,0', 'array'],
+            // Bug-Review B26: required_if:select_all,0 griff nur, wenn
+            // select_all tatsächlich den Wert "0" trug -- bei einem
+            // Request ganz ohne select_all (z. B. manuell manipuliert)
+            // bestand die Regel nicht, $validated['ids'] existierte dann
+            // nicht, und whereIn('id', null) schlug mit einem
+            // ungefangenen TypeError (HTTP 500) fehl. required_unless
+            // greift dagegen immer außer bei select_all=1.
+            'ids' => ['required_unless:select_all,1', 'array'],
             'ids.*' => ['uuid'],
             'tenant_id' => ['nullable', 'string'],
             'status' => ['nullable', 'string'],
