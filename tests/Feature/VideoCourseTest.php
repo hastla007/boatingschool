@@ -6,6 +6,9 @@ use App\Models\ContentAnswer;
 use App\Models\ContentQuestion;
 use App\Models\ContentQuestionRevision;
 use App\Models\CourseDefinition;
+use App\Models\ExamRuleSet;
+use App\Models\ExamSession;
+use App\Models\ExamSessionQuestion;
 use App\Models\VideoLesson;
 use App\Models\VideoLessonStep;
 use App\Models\VideoModule;
@@ -223,6 +226,93 @@ class VideoCourseTest extends TestCase
         );
         $finalResult->assertOk();
         $finalResult->assertSee('Du hast 1 von 1 Fragen richtig beantwortet!');
+    }
+
+    /**
+     * Bug-Review N13: viele Fragen aus dem Katalog stecken unverändert auch
+     * in amtlichen Prüfungsbögen. Ohne diese Prüfung konnte ein Lerner
+     * während einer laufenden Prüfung dieselbe Frage im Video-Quiz
+     * aufrufen und sich die dort sofort angezeigte richtige Antwort
+     * verraten lassen.
+     */
+    public function test_a_question_from_a_running_exam_cannot_be_answered_in_the_video_quiz(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $firstLesson] = $this->makeIsolatedVideoCourse();
+        $this->grantEntitlement($tenant, $learner, $course);
+        [$question, $revision, $correctAnswer] = $this->attachIsolatedQuestion($firstLesson);
+        $this->startRunningExamSessionWithQuestion($tenant, $learner, $course, $question, $revision);
+
+        $response = $this->actingAsInTenant($learner, $tenant)->post(
+            "/courses/{$course->id}/video/{$firstLesson->id}/questions/1",
+            ['answer_id' => $correctAnswer->id]
+        );
+
+        $response->assertStatus(409);
+        $this->asTenant($tenant, function () use ($tenant, $learner, $question, $course) {
+            $this->assertDatabaseMissing('attempt', [
+                'tenant_id' => $tenant->id,
+                'user_id' => $learner->id,
+                'question_id' => $question->id,
+                'course_id' => $course->id,
+                'context' => 'video_quiz',
+            ]);
+        });
+    }
+
+    public function test_a_question_can_be_answered_in_the_video_quiz_once_its_exam_is_evaluated(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $firstLesson] = $this->makeIsolatedVideoCourse();
+        $this->grantEntitlement($tenant, $learner, $course);
+        [$question, $revision, $correctAnswer] = $this->attachIsolatedQuestion($firstLesson);
+        $this->startRunningExamSessionWithQuestion($tenant, $learner, $course, $question, $revision, 'evaluated');
+
+        $response = $this->actingAsInTenant($learner, $tenant)->post(
+            "/courses/{$course->id}/video/{$firstLesson->id}/questions/1",
+            ['answer_id' => $correctAnswer->id]
+        );
+
+        $response->assertOk();
+        $response->assertSee('Richtig!');
+    }
+
+    private function startRunningExamSessionWithQuestion(
+        \App\Models\Tenant $tenant,
+        \App\Models\User $learner,
+        CourseDefinition $course,
+        ContentQuestion $question,
+        ContentQuestionRevision $revision,
+        string $status = 'running'
+    ): void {
+        $this->onAdmin(function () use ($tenant, $learner, $course, $question, $revision, $status) {
+            $ruleSet = ExamRuleSet::create([
+                'course_id' => $course->id,
+                'version' => 'test-'.uniqid(),
+                'time_limit_seconds' => 3600,
+                'passing_rule' => ['min_correct_ratio' => 0.75],
+                'status' => 'published',
+            ]);
+
+            $session = ExamSession::create([
+                'tenant_id' => $tenant->id,
+                'user_id' => $learner->id,
+                'course_id' => $course->id,
+                'rule_set_id' => $ruleSet->id,
+                'status' => $status,
+                'started_at' => now(),
+            ]);
+
+            ExamSessionQuestion::create([
+                'tenant_id' => $tenant->id,
+                'exam_session_id' => $session->id,
+                'question_id' => $question->id,
+                'revision_id' => $revision->id,
+                'position' => 1,
+            ]);
+        });
     }
 
     public function test_the_video_quiz_requires_an_active_entitlement(): void

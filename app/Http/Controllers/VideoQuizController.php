@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\ContentAnswer;
 use App\Models\ContentQuestion;
 use App\Models\CourseDefinition;
+use App\Models\ExamSession;
+use App\Models\ExamSessionQuestion;
 use App\Models\VideoLesson;
 use App\Services\EntitlementService;
 use App\Services\LearningService;
@@ -65,6 +67,20 @@ class VideoQuizController extends Controller
 
         $revision = $questions[$position - 1]->publishedRevision();
         abort_if(! $revision, 404);
+
+        // Bug-Review N13: viele Fragen aus dem Katalog stecken unverändert
+        // auch in amtlichen Prüfungsbögen. Ohne diese Prüfung konnte ein
+        // Lerner während einer laufenden (noch nicht abgegebenen) Prüfung
+        // dieselbe Frage im Video-Quiz aufrufen und sich die dort sofort
+        // angezeigte richtige Antwort verraten lassen.
+        $hasRunningExamWithThisQuestion = ExamSessionQuestion::where('tenant_id', $tenant->id)
+            ->where('question_id', $revision->question_id)
+            ->whereIn('exam_session_id', ExamSession::where('tenant_id', $tenant->id)
+                ->where('user_id', $user->id)
+                ->where('status', 'running')
+                ->pluck('id'))
+            ->exists();
+        abort_if($hasRunningExamWithThisQuestion, 409, 'Diese Frage ist Teil einer laufenden Prüfung und kann hier aktuell nicht beantwortet werden.');
 
         $validated = $request->validate([
             'answer_id' => ['nullable', 'uuid'],
