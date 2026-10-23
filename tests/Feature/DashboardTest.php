@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\CourseDefinition;
 use App\Models\Progress;
 use App\Models\VideoProgress;
 use App\Support\VideoCourseLessons;
@@ -18,9 +19,17 @@ class DashboardTest extends TestCase
 {
     use InteractsWithTenants;
 
+    private array $createdCourseIds = [];
+
     protected function tearDown(): void
     {
         $this->cleanUpCreatedTenantsAndUsers();
+
+        $this->onAdmin(function () {
+            foreach ($this->createdCourseIds as $id) {
+                CourseDefinition::withoutGlobalScopes()->where('id', $id)->delete();
+            }
+        });
 
         parent::tearDown();
     }
@@ -73,6 +82,39 @@ class DashboardTest extends TestCase
         $response->assertOk();
         $response->assertDontSee('Fortschritt & Statistiken');
         $response->assertDontSee('Favoriten & Fehler');
+    }
+
+    /**
+     * Bug-Review N22: der Weiterlernen-Banner baute $course->name bisher
+     * ungeprüft in eine Zeichenkette ein und gab sie über {!! !!} (also
+     * ungeschützt vor HTML/JS) aus. Kursnamen werden aktuell nur vom
+     * Superadmin gepflegt (kein erreichbarer Angriffsweg), aber {{ }}
+     * escapt jetzt trotzdem automatisch -- als Verteidigung für den Fall,
+     * dass Kursnamen künftig aus weniger vertrauenswürdiger Quelle stammen.
+     */
+    public function test_the_course_name_in_the_banner_subtitle_is_escaped(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->onAdmin(function () {
+            $course = CourseDefinition::withoutGlobalScopes()->create([
+                'tenant_id' => null,
+                'code' => 'TEST-XSS-'.uniqid(),
+                'name' => '<script>alert(1)</script>',
+                'course_type' => 'full',
+                'status' => 'published',
+            ]);
+            $this->createdCourseIds[] = $course->id;
+
+            return $course;
+        });
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get('/dashboard');
+
+        $response->assertOk();
+        $response->assertDontSee('<script>alert(1)</script>', false);
+        $response->assertSee('&lt;script&gt;alert(1)&lt;/script&gt;', false);
     }
 
     public function test_banner_offers_the_video_course_while_its_lessons_are_not_yet_all_watched(): void

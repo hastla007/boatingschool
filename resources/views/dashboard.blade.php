@@ -28,19 +28,19 @@
                                     'href' => route('video.index', $courseSummary['course']),
                                     'icon' => 'play',
                                     'title' => 'Videokurs ansehen',
-                                    'subtitle' => $courseSummary['course']->name.' &middot; Starte mit den Lernvideos',
+                                    'subtitle' => $courseSummary['course']->name.' · Starte mit den Lernvideos',
                                 ],
                                 'exam' => [
                                     'href' => route('exam.intro', $courseSummary['course']),
                                     'icon' => 'clipboard-document-check',
                                     'title' => 'Prüfungsaufgaben',
-                                    'subtitle' => $courseSummary['course']->name.' &middot; Teste dich in der Prüfungssimulation',
+                                    'subtitle' => $courseSummary['course']->name.' · Teste dich in der Prüfungssimulation',
                                 ],
                                 default => [
                                     'href' => route('learning.show', $courseSummary['course']),
                                     'icon' => 'bolt',
                                     'title' => 'Weiterlernen',
-                                    'subtitle' => $courseSummary['course']->name.' &middot; Smarttrainer wählt die nächste Frage für dich',
+                                    'subtitle' => $courseSummary['course']->name.' · Smarttrainer wählt die nächste Frage für dich',
                                 ],
                             };
                         @endphp
@@ -53,7 +53,14 @@
                                 </div>
                                 <div>
                                     <div class="font-semibold text-lg">{{ $banner['title'] }}</div>
-                                    <div class="text-white/80 text-sm">{!! $banner['subtitle'] !!}</div>
+                                    {{-- Bug-Review N22: $banner['subtitle'] enthält den
+                                         Kursnamen (course_definition wird nur vom
+                                         Superadmin gepflegt, aktuell also kein
+                                         erreichbarer XSS-Pfad) -- {{ }} statt {!! !!}
+                                         escapt ihn trotzdem automatisch, als Verteidigung
+                                         für den Fall, dass Kursnamen künftig aus weniger
+                                         vertrauenswürdiger Quelle stammen. --}}
+                                    <div class="text-white/80 text-sm">{{ $banner['subtitle'] }}</div>
                                 </div>
                             </div>
                             <x-icon name="arrow-right" class="w-6 h-6 shrink-0" />
