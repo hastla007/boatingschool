@@ -276,6 +276,17 @@ class AdminDashboardController extends Controller
 
         $anmeldungFilters = $request->only(['anmeldung_search', 'anmeldung_course', 'anmeldung_from', 'anmeldung_to']);
 
+        // Bug-Review N21: anmeldung_from/anmeldung_to kamen bisher ungeprüft
+        // aus der Query-String direkt in whereDate() -- ein ungültiges
+        // Datum (z. B. von Hand in die URL eingetragen) ließ Postgres mit
+        // "invalid input syntax for type date" scheitern (HTTP 500), statt
+        // den Filter einfach zu ignorieren.
+        foreach (['anmeldung_from', 'anmeldung_to'] as $dateFilter) {
+            if (($anmeldungFilters[$dateFilter] ?? '') !== '' && ! strtotime($anmeldungFilters[$dateFilter])) {
+                $anmeldungFilters[$dateFilter] = '';
+            }
+        }
+
         $praxisFormSubmissions = PraxisFormSubmission::where('tenant_id', $tenant->id)
             ->with(['user', 'course', 'template', 'examAppointments'])
             ->when(trim((string) ($anmeldungFilters['anmeldung_search'] ?? '')) !== '', function ($q) use ($anmeldungFilters) {

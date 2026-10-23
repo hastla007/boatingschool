@@ -174,6 +174,22 @@ class PraxisAnmeldungenTabTest extends TestCase
         $response->assertDontSee(route('admin.praxis-form-submissions.show', $oldSubmission));
     }
 
+    /**
+     * Bug-Review N21: anmeldung_from/anmeldung_to kommen ungeprüft aus der
+     * Query-String direkt in whereDate() -- ein ungültiges Datum (z. B. von
+     * Hand in die URL eingetragen) ließ Postgres mit "invalid input syntax
+     * for type date" scheitern, statt den Filter einfach zu ignorieren.
+     */
+    public function test_an_invalid_date_filter_is_ignored_instead_of_crashing(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+
+        $response = $this->actingAsInTenant($admin, $tenant)->get('/admin?tab=praxis-anmeldungen&anmeldung_from=not-a-date&anmeldung_to=also-not-a-date');
+
+        $response->assertOk();
+    }
+
     public function test_table_shows_fixed_exam_date_as_next_step(): void
     {
         $tenant = $this->createTestTenant();
