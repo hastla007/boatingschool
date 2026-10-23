@@ -54,9 +54,14 @@ class CrossTenantAccountAccessTest extends TestCase
             'password_confirmation' => 'password1234',
         ]);
 
-        $response->assertRedirect(route('dashboard', absolute: false));
-        $this->assertAuthenticated();
-        $this->createdUserIds[] = auth()->id();
+        $response->assertSessionHasNoErrors();
+        $this->assertGuest();
+
+        $this->onAdmin(function () use ($email) {
+            $user = User::where('email', $email)->first();
+            $this->assertNotNull($user);
+            $this->createdUserIds[] = $user->id;
+        });
     }
 
     public function test_entitlement_cannot_be_granted_to_a_user_who_is_not_a_member_of_the_tenant(): void

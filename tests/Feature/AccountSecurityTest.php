@@ -321,4 +321,45 @@ class AccountSecurityTest extends TestCase
             return true;
         });
     }
+
+    /**
+     * Bug-Review M3 (Folgefehler): die neutrale Formulierung allein hat das
+     * Orakel aus dem Test oben nicht geschlossen -- bis hierher gaben beide
+     * Zweige noch einen UNTERSCHIEDLICHEN Text zurück ("Einladung
+     * verschickt -- die Mitgliedschaft entsteht erst..." vs. "Teilnehmer
+     * eingeladen/zugeordnet."), ein Bootsschul-Admin konnte darüber also
+     * weiterhin plattformweit prüfen, ob eine beliebige Adresse bereits ein
+     * Konto hat. Beide Zweige müssen deshalb exakt denselben Text liefern.
+     */
+    public function test_inviting_a_new_and_an_existing_email_returns_the_exact_same_status_text(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+
+        $existingAccountEmail = 'bereits-registriert-'.uniqid().'@example.test';
+        $this->createTenantUser($this->createTestTenant(), 'learner', ['email' => $existingAccountEmail]);
+
+        Notification::fake();
+        $this->actingAsInTenant($admin, $tenant)->post('/admin/participants/invite', [
+            'name' => 'Jemand Bestehendes',
+            'email' => $existingAccountEmail,
+        ]);
+        $existingStatus = session('status');
+
+        $newEmail = 'ganz-neu-'.uniqid().'@example.test';
+        $this->actingAsInTenant($admin, $tenant)->post('/admin/participants/invite', [
+            'name' => 'Jemand Neues',
+            'email' => $newEmail,
+        ]);
+        $newStatus = session('status');
+
+        $this->assertNotNull($existingStatus);
+        $this->assertSame($existingStatus, $newStatus);
+
+        $this->onAdmin(function () use ($newEmail) {
+            $newUser = User::where('email', $newEmail)->first();
+            $this->assertNotNull($newUser);
+            $this->createdUserIds[] = $newUser->id;
+        });
+    }
 }

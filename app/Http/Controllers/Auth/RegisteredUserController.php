@@ -10,7 +10,6 @@ use App\Support\TenantContext;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
@@ -43,15 +42,32 @@ class RegisteredUserController extends Controller
         $tenant = $tenantContext->tenant();
         abort_if(! $tenant, 400, 'Registrierung erfordert eine gültige Bootsschul-Domain.');
 
+        // Bug-Review M3 (Folgefehler): die neutrale Formulierung unten allein
+        // hat das Orakel nicht geschlossen -- bis hierher führten beide
+        // Zweige noch zu UNTERSCHIEDLICHEN Antworten (sofortiges Login +
+        // Redirect ins Dashboard bei neuer Adresse, bloßer Zurück-Redirect
+        // ohne Login beim Duplikat), was allein über diese abweichende
+        // Antwortstruktur verrät, ob ein Konto existiert -- unabhängig vom
+        // Text. Beide Zweige liefern deshalb jetzt denselben
+        // Zurück-Redirect mit demselben Status-Text; ein neu angelegtes
+        // Konto wird nicht mehr sofort eingeloggt, sondern muss sich zuerst
+        // ganz normal über "Anmelden" einloggen -- der signierte
+        // Verifizierungs-Link in der E-Mail (siehe unten) greift dann über
+        // die bestehende "auth"-Middleware (routes/auth.php) wie gewohnt.
+        $status = 'Fast fertig -- falls die Adresse neu ist, haben wir dir eine Bestätigungsmail geschickt; bitte melde dich an, um fortzufahren. Falls sie bereits bei uns registriert ist, melde dich stattdessen einfach an oder setze dein Passwort zurück.';
+
         // Sicherheitsreview M7: app_user hat jetzt RLS -- diese
         // Duplikat-Erkennung muss aber bewusst plattformweit suchen (das ist
         // ihr ganzer Zweck), deshalb hier explizit über die RLS-freie
         // Owner-Verbindung.
         if (User::on('pgsql_admin')->where('email', $request->email)->exists()) {
-            return back()->withInput($request->except('password', 'password_confirmation'))->with(
-                'status',
-                'Falls diese E-Mail-Adresse bereits bei uns registriert ist, melde dich stattdessen an oder setze dein Passwort zurück. Andernfalls prüfe bitte die Schreibweise und versuche es erneut.'
-            );
+            // Bug-Review M3 (Folgefehler): ein verworfener Dummy-Hash gleicht
+            // die Laufzeit an den Erfolgsfall an (der dort unten erzeugte
+            // echte Hash ist der mit Abstand teuerste Schritt) -- sonst bliebe
+            // selbst bei identischer Antwort noch ein Timing-Seitenkanal.
+            Hash::make($request->password);
+
+            return back()->withInput($request->except('password', 'password_confirmation'))->with('status', $status);
         }
 
         $user = DB::transaction(function () use ($request, $tenant) {
@@ -87,8 +103,6 @@ class RegisteredUserController extends Controller
             "Verifizierungsmail Registrierung {$user->id}"
         );
 
-        Auth::login($user);
-
-        return redirect(route('dashboard', absolute: false));
+        return back()->withInput($request->except('password', 'password_confirmation'))->with('status', $status);
     }
 }

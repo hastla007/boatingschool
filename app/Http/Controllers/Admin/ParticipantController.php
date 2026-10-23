@@ -336,10 +336,19 @@ class ParticipantController extends Controller
             // tatsächliche Konsequenz (Mitgliedschaft erst nach Bestätigung
             // durch die eingeladene Person), ohne das als "Konto existiert
             // bereits" zu begründen.
-            $status = 'Einladung verschickt -- die Mitgliedschaft entsteht erst, wenn die eingeladene Person sie über ihr eigenes Konto bestätigt.';
+            //
+            // Bug-Review M3 (Folgefehler): die Formulierung allein hat das
+            // Orakel nicht geschlossen -- dieser Zweig (Konto existiert
+            // bereits irgendwo auf der Plattform) lieferte bisher einen
+            // ANDEREN Text als der Zweig unten (neues Konto), wodurch ein
+            // Bootsschul-Admin allein über den Rückgabetext weiter
+            // plattformweit prüfen konnte, ob zu einer beliebigen Adresse
+            // schon ein Konto existiert. Beide Zweige geben deshalb jetzt
+            // denselben Basistext zurück.
+            $status = 'Einladung verschickt.';
 
             if (! $mailSent) {
-                $status = 'Einladung angelegt, die Einladungsmail konnte aber nicht versendet werden -- bitte später erneut einladen.';
+                $status = 'Einladung angelegt, der Versand der E-Mail ist aber fehlgeschlagen -- bitte später erneut einladen.';
             }
 
             if (trim((string) ($validated['code'] ?? '')) !== '') {
@@ -387,9 +396,11 @@ class ParticipantController extends Controller
             "Einladungsmail neuer Teilnehmer {$user->id}"
         );
 
+        // Bug-Review M3 (Folgefehler): identischer Basistext wie im
+        // "Konto existiert bereits"-Zweig oben, siehe Kommentar dort.
         $status = $mailSent
-            ? 'Teilnehmer eingeladen/zugeordnet.'
-            : 'Teilnehmer wurde angelegt, die Einladungsmail konnte aber nicht versendet werden -- bitte den Zugang über "Passwort vergessen" erneut anstoßen.';
+            ? 'Einladung verschickt.'
+            : 'Einladung angelegt, der Versand der E-Mail ist aber fehlgeschlagen -- bitte später erneut einladen.';
         $code = trim((string) ($validated['code'] ?? ''));
 
         if ($code === '') {

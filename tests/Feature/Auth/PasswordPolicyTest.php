@@ -31,15 +31,21 @@ class PasswordPolicyTest extends TestCase
     public function test_a_ten_character_password_is_accepted_on_registration(): void
     {
         $tenant = $this->createTestTenant();
+        $email = 'long-'.uniqid().'@example.test';
 
         $response = $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/register', [
             'name' => 'Test User',
-            'email' => 'long-'.uniqid().'@example.test',
+            'email' => $email,
             'password' => 'password1234',
             'password_confirmation' => 'password1234',
         ]);
 
-        $this->assertAuthenticated();
-        $this->createdUserIds[] = auth()->id();
+        $response->assertSessionHasNoErrors();
+
+        $this->onAdmin(function () use ($email) {
+            $user = \App\Models\User::where('email', $email)->first();
+            $this->assertNotNull($user);
+            $this->createdUserIds[] = $user->id;
+        });
     }
 }

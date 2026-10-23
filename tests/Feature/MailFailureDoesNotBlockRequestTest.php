@@ -75,7 +75,7 @@ class MailFailureDoesNotBlockRequestTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $response->assertSessionHas('status', fn ($status) => str_contains($status, 'nicht versendet'));
+        $response->assertSessionHas('status', fn ($status) => str_contains($status, 'fehlgeschlagen'));
 
         $this->onAdmin(function () use ($email) {
             $learner = User::where('email', $email)->first();
@@ -104,7 +104,7 @@ class MailFailureDoesNotBlockRequestTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $response->assertSessionHas('status', fn ($status) => str_contains($status, 'nicht versendet'));
+        $response->assertSessionHas('status', fn ($status) => str_contains($status, 'fehlgeschlagen'));
 
         $this->onAdmin(function () use ($existingUser) {
             $this->assertTrue(
@@ -154,11 +154,14 @@ class MailFailureDoesNotBlockRequestTest extends TestCase
             'password_confirmation' => 'password1234',
         ]);
 
-        $response->assertRedirect(route('dashboard', absolute: false));
-        $this->assertAuthenticated();
-        $this->createdUserIds[] = auth()->id();
+        $response->assertSessionHasNoErrors();
+        $this->assertGuest();
 
-        $this->assertNotNull(User::where('email', $email)->first(), 'Konto wurde trotz Mail-Fehler nicht gespeichert.');
+        $this->onAdmin(function () use ($email) {
+            $user = User::where('email', $email)->first();
+            $this->assertNotNull($user, 'Konto wurde trotz Mail-Fehler nicht gespeichert.');
+            $this->createdUserIds[] = $user->id;
+        });
     }
 
     public function test_requesting_a_password_reset_link_still_returns_success_when_the_mail_fails(): void

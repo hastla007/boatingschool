@@ -2,6 +2,12 @@
     <h2 class="text-xl font-bold text-slate-800 dark:text-white mb-1">Konto erstellen</h2>
     <p class="text-sm text-slate-400 mb-6">Registriere dich, um mit dem Lernen zu starten.</p>
 
+    {{-- Bug-Review M3 (Folgefehler): der Status-Flash wurde bisher gesetzt,
+    aber nirgends in dieser View gerendert -- seit die Registrierung nicht
+    mehr sofort einloggt (siehe RegisteredUserController), ist das die
+    einzige Rückmeldung, die ein Nutzer nach dem Absenden überhaupt sieht. --}}
+    <x-auth-session-status class="mb-4" :status="session('status')" />
+
     <form method="POST" action="{{ route('register') }}" class="space-y-4">
         @csrf
 
