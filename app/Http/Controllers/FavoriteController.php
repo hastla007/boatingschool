@@ -168,7 +168,7 @@ class FavoriteController extends Controller
             ->where('context', $context)
             ->delete();
 
-        $collections->detachFromAllCollections($tenant, $question->id, $context);
+        $collections->detachFromAllCollections($tenant, $request->user(), $question->id, $context);
 
         return back();
     }

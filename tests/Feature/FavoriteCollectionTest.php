@@ -236,4 +236,47 @@ class FavoriteCollectionTest extends TestCase
             ->delete("/favorites/collections/{$collection->id}")
             ->assertNotFound();
     }
+
+    /**
+     * Bug-Review N3: FavoriteCollectionService::detachFromAllCollections()
+     * löschte bislang die FavoriteCollectionItem-Zeilen nur nach tenant_id/
+     * question_id/context -- ohne Einschränkung auf die eigenen
+     * Collections des Lerners (anders als syncQuestion()). Wählt ein
+     * Lerner einen eigenen Favoriten ab (FavoriteController::destroy),
+     * verliert dieselbe Frage dadurch die Collection-Zuordnung bei JEDEM
+     * anderen Lerner derselben Bootsschule mit.
+     */
+    public function test_removing_a_favorite_does_not_affect_another_learners_collection_assignment_for_the_same_question(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learnerA = $this->createTenantUser($tenant, 'learner');
+        $learnerB = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $this->grantEntitlement($tenant, $learnerA, $course);
+        $this->grantEntitlement($tenant, $learnerB, $course);
+        $module = $this->existingModule('SRC');
+        [$question] = $this->anyPublishedQuestionIn($module);
+
+        $this->actingAsInTenant($learnerA, $tenant)->post("/favorites/{$question->id}", ['context' => 'smart_learning', 'course_id' => $course->id]);
+        $this->actingAsInTenant($learnerB, $tenant)->post("/favorites/{$question->id}", ['context' => 'smart_learning', 'course_id' => $course->id]);
+
+        // learnerA wählt die Frage wieder ab -- das darf nur SEINE eigene
+        // Collection-Zuordnung entfernen, nicht die von learnerB.
+        $this->actingAsInTenant($learnerA, $tenant)->delete("/favorites/{$question->id}", ['context' => 'smart_learning']);
+
+        $this->onAdmin(function () use ($tenant, $learnerA, $learnerB, $question) {
+            $this->assertFalse(Favorite::where('tenant_id', $tenant->id)->where('user_id', $learnerA->id)->where('question_id', $question->id)->exists());
+            $this->assertTrue(Favorite::where('tenant_id', $tenant->id)->where('user_id', $learnerB->id)->where('question_id', $question->id)->exists());
+
+            $learnerBCollectionIds = FavoriteCollection::where('tenant_id', $tenant->id)->where('user_id', $learnerB->id)->pluck('id');
+            $this->assertTrue(
+                FavoriteCollectionItem::where('tenant_id', $tenant->id)
+                    ->where('question_id', $question->id)
+                    ->where('context', 'smart_learning')
+                    ->whereIn('favorite_collection_id', $learnerBCollectionIds)
+                    ->exists(),
+                'learnerB hat seine Collection-Zuordnung für diese Frage verloren, obwohl nur learnerA seinen Favoriten abgewählt hat.'
+            );
+        });
+    }
 }

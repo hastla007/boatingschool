@@ -145,12 +145,26 @@ class FavoriteCollectionService
         }
     }
 
-    /** Beim Entfernen eines Favoriten (Stern abgewählt) verliert er auch alle Collection-Zuordnungen in diesem Kontext. */
-    public function detachFromAllCollections(Tenant $tenant, string $questionId, string $context): void
+    /**
+     * Beim Entfernen eines Favoriten (Stern abgewählt) verliert er auch alle
+     * Collection-Zuordnungen in diesem Kontext -- aber nur die EIGENEN des
+     * Lerners. Bug-Review N3: fehlte hier bislang (anders als bei
+     * syncQuestion() oben) die Einschränkung auf die eigenen Collections
+     * ($ownCollectionIds) -- jeder Lerner konnte damit über das simple
+     * Abwählen eines eigenen Favoriten versehentlich die
+     * Collection-Zuordnung DERSELBEN Frage für JEDEN anderen Lerner
+     * derselben Bootsschule mitlöschen.
+     */
+    public function detachFromAllCollections(Tenant $tenant, User $user, string $questionId, string $context): void
     {
+        $ownCollectionIds = FavoriteCollection::where('tenant_id', $tenant->id)
+            ->where('user_id', $user->id)
+            ->pluck('id');
+
         FavoriteCollectionItem::where('tenant_id', $tenant->id)
             ->where('question_id', $questionId)
             ->where('context', $context)
+            ->whereIn('favorite_collection_id', $ownCollectionIds)
             ->delete();
     }
 
