@@ -54,7 +54,13 @@ return [
 
         'stack' => [
             'driver' => 'stack',
-            'channels' => explode(',', env('LOG_STACK', 'single')),
+            // "Keine Log-Rotation": .env/.env.example setzen LOG_STACK=daily,
+            // aber dieser Code-Default blieb "single" (unbegrenzt wachsende
+            // Datei, keine Rotation) -- jede Umgebung, die LOG_STACK nicht
+            // explizit setzt (z. B. echte Umgebungsvariablen ohne .env-Datei,
+            // eine vergessene Zeile beim Deploy), fiel damit trotzdem auf
+            // das unsichere Verhalten zurück.
+            'channels' => explode(',', env('LOG_STACK', 'daily')),
             'ignore_exceptions' => false,
         ],
 

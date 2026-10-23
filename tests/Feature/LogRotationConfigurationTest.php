@@ -28,4 +28,23 @@ class LogRotationConfigurationTest extends TestCase
             '.env.example muss LOG_STACK=daily als Default dokumentieren, damit eine frische Installation nicht wieder auf "single" (keine Rotation) zurückfällt.'
         );
     }
+
+    /**
+     * .env/.env.example allein reichen nicht: eine Umgebung, die LOG_STACK
+     * nicht über eine .env-Datei setzt (echte Umgebungsvariablen, ein
+     * vergessenes Deploy-Skript), fällt sonst auf den hartcodierten
+     * Code-Default in config/logging.php zurück -- der muss deshalb selbst
+     * schon "daily" sein, unabhängig davon, was eine .env-Datei im
+     * aktuellen Testlauf zufällig enthält.
+     */
+    public function test_the_hardcoded_config_default_itself_is_daily_not_single(): void
+    {
+        $config = file_get_contents(base_path('config/logging.php'));
+
+        $this->assertMatchesRegularExpression(
+            "/env\\('LOG_STACK',\\s*'daily'\\)/",
+            $config,
+            'config/logging.php muss env(\'LOG_STACK\', \'daily\') als Code-Default nutzen, damit eine Umgebung ohne LOG_STACK in der .env nicht auf "single" zurückfällt.'
+        );
+    }
 }
