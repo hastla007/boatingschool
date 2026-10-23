@@ -14,6 +14,16 @@
         Ein Kurs kann nur einem aktiven Formular gleichzeitig zugewiesen sein.
     </p>
 
+    {{-- Bug-Review N10 (Folgefehler): destroy() lehnte ein Löschen bei
+         vorhandenen Anmeldungen bereits mit withErrors(['template' => ...])
+         ab, aber diese Seite zeigte den Fehler nirgends an -- der Klick auf
+         "Löschen" schien dadurch wirkungslos zu verpuffen. --}}
+    @error('template')
+        <div class="mb-4 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 text-sm dark:bg-rose-900/30 dark:border-rose-800 dark:text-rose-300">
+            {{ $message }}
+        </div>
+    @enderror
+
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden">
         <table class="w-full text-sm">
             <tbody>

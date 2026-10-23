@@ -249,6 +249,13 @@ class PraxisFormTemplateTest extends TestCase
             $response->assertSessionHasErrors('template');
             $this->assertFalse($response->isServerError());
             $this->assertDatabaseHas('praxis_form_template', ['id' => $template->id]);
+
+            // Bug-Review N10 (Folgefehler): withErrors() allein reichte
+            // nicht -- die Formular-Übersicht zeigte den Fehler nirgends
+            // an, der Klick auf "Löschen" schien dadurch wirkungslos.
+            $index = $this->actingAs($superadmin)->get('/superadmin/praxis-form-templates');
+            $index->assertOk();
+            $index->assertSee('wird bereits von Anmeldungen verwendet');
         } finally {
             $this->onAdmin(function () use ($submission, $template) {
                 PraxisFormSubmission::where('id', $submission->id)->delete();
