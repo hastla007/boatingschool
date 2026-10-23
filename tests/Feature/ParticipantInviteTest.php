@@ -225,4 +225,37 @@ class ParticipantInviteTest extends TestCase
             $this->deleteInvitedUser($user);
         });
     }
+
+    /**
+     * Bug-Review R3-8: ohne Throttle ließ sich dieser Endpoint beliebig oft
+     * mit wechselnden E-Mail-Adressen aufrufen -- trotz identischer Antwort
+     * für "Konto existiert bereits" vs. "neu" (Bug-Review M3, Folgefehler)
+     * bleibt bei unbegrenzter Anfragerate ein statistischer
+     * Timing-Seitenkanal realistisch nutzbar, und jede beliebige echte
+     * Adresse ließ sich unbegrenzt mit Einladungs-/Reset-Mails zuspammen.
+     */
+    public function test_inviting_participants_is_rate_limited(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+
+        for ($i = 0; $i < 10; $i++) {
+            $response = $this->actingAsInTenant($admin, $tenant)->post('/admin/participants/invite', [
+                'name' => 'Rate Limit Test',
+                'email' => 'rate-limit-'.$i.'-'.uniqid().'@example.test',
+            ]);
+            $this->assertNotEquals(429, $response->status());
+        }
+
+        $response = $this->actingAsInTenant($admin, $tenant)->post('/admin/participants/invite', [
+            'name' => 'Rate Limit Test',
+            'email' => 'rate-limit-one-more-'.uniqid().'@example.test',
+        ]);
+
+        $response->assertStatus(429);
+
+        $this->onAdmin(function () {
+            User::where('display_name', 'Rate Limit Test')->get()->each(fn (User $user) => $this->deleteInvitedUser($user));
+        });
+    }
 }

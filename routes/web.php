@@ -132,7 +132,13 @@ Route::middleware(['auth', 'tenant.member', 'verified'])->group(function () {
 // tatsächlich ihm gehört.
 Route::middleware(['auth', 'tenant.role:owner,admin,instructor', 'verified'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/', AdminDashboardController::class)->name('dashboard');
-    Route::post('/participants/invite', [ParticipantController::class, 'invite'])->name('participants.invite');
+    // Bug-Review R3-8: ohne Throttle ließ sich dieser Endpoint beliebig oft
+    // mit wechselnden E-Mail-Adressen aufrufen -- trotz identischer
+    // Antwort für "Konto existiert bereits" vs. "neu" (Bug-Review M3,
+    // Folgefehler) bleibt bei unbegrenzter Anfragerate ein statistischer
+    // Timing-Seitenkanal realistisch nutzbar, und jede beliebige echte
+    // Adresse ließ sich unbegrenzt mit Einladungs-/Reset-Mails zuspammen.
+    Route::post('/participants/invite', [ParticipantController::class, 'invite'])->middleware('throttle:10,1')->name('participants.invite');
     Route::get('/participants/{user}', [ParticipantController::class, 'show'])->name('participants.show');
     Route::patch('/participants/{user}', [ParticipantController::class, 'update'])->name('participants.update');
     Route::get('/branding/support-email/verify/{tenant}/{hash}', [SupportEmailVerificationController::class, 'verify'])
