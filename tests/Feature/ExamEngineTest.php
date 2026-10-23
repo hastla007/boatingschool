@@ -112,6 +112,53 @@ class ExamEngineTest extends TestCase
         $progress->assertSee('Prüfungsbogen Nr. 2');
     }
 
+    /**
+     * Bug-Review N20: derselbe Doppelklick-Fehler wie B4 (startPaper()),
+     * nur für die zufällig zusammengestellte Prüfung ohne Bogen -- dafür
+     * gab es bisher weder einen Advisory-Lock noch einen Unique-Index.
+     */
+    public function test_starting_a_random_exam_again_resumes_the_running_session_instead_of_duplicating(): void
+    {
+        [$tenant, $learner, $course] = $this->setUpVerifiedExamCourse();
+
+        $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam");
+        $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam");
+
+        $count = $this->asTenant($tenant, fn () => \App\Models\ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->count());
+        $this->assertSame(1, $count);
+    }
+
+    /**
+     * Bug-Review N20 (Folgefehler): eine abgelaufene, aber noch "running"
+     * stehende Session blockierte bisher den Neustart -- analog zu B4 bei
+     * startPaper(). start() wertet eine solche Session jetzt selbst sofort
+     * aus und legt im selben Request einen frischen Versuch an.
+     */
+    public function test_starting_a_random_exam_after_it_expired_evaluates_the_stale_session_and_starts_a_fresh_one(): void
+    {
+        [$tenant, $learner, $course] = $this->setUpVerifiedExamCourse();
+
+        $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam");
+        $staleSession = $this->asTenant($tenant, fn () => \App\Models\ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail());
+
+        // Zeitlimit (3600s, siehe setUpVerifiedExamCourse) ist längst
+        // überschritten -- simuliert einen Lerner, der die laufende
+        // Prüfung einfach verlassen hat, ohne sie manuell abzuschließen.
+        $this->onAdmin(fn () => \App\Models\ExamSession::where('id', $staleSession->id)->update(['started_at' => now()->subHours(2)]));
+
+        $response = $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam");
+
+        $sessions = $this->asTenant($tenant, fn () => \App\Models\ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->get());
+        $this->assertCount(2, $sessions);
+
+        $staleSessionFresh = $sessions->firstWhere('id', $staleSession->id);
+        $this->assertSame('evaluated', $staleSessionFresh->status);
+
+        $newSession = $sessions->first(fn ($s) => $s->id !== $staleSession->id);
+        $this->assertSame('running', $newSession->status);
+        $response->assertRedirect(route('exam.show', $newSession));
+    }
+
     private function finishRandomExam(\App\Models\Tenant $tenant, User $learner, CourseDefinition $course): void
     {
         $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam");

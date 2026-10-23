@@ -175,7 +175,7 @@ class ExamController extends Controller
         });
     }
 
-    public function start(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course): Response
+    public function start(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, ExamEvaluationService $examEvaluation, CourseDefinition $course): Response
     {
         $tenant = $tenantContext->tenant();
         $user = $request->user();
@@ -184,7 +184,26 @@ class ExamController extends Controller
         $ruleSet = $course->activeExamRuleSet();
         abort_unless($ruleSet && $ruleSet->isVerified(), 409, 'Für diesen Kurs liegt noch kein fachlich freigegebenes Prüfungsregelwerk vor.');
 
-        $session = DB::transaction(function () use ($tenant, $user, $course, $ruleSet) {
+        // Bug-Review N20: derselbe Doppelklick-Fehler wie B4 (startPaper()),
+        // nur für die zufällig zusammengestellte Prüfung ohne Bogen -- dafür
+        // gab es bisher weder einen Advisory-Lock noch einen Unique-Index.
+        // Ein Doppelklick auf "Zufallsprüfung starten" konnte zwei parallele
+        // "running"-Sessions für denselben Kurs anlegen. Der Unique-Index
+        // aus Migration 000466 sichert das zusätzlich auf Datenbankebene ab.
+        return DB::transaction(function () use ($tenant, $user, $course, $ruleSet, $examEvaluation) {
+            DB::statement('SELECT pg_advisory_xact_lock(hashtext(?))', [$tenant->id.':'.$user->id.':'.$course->id.':random-exam']);
+
+            $running = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+                ->where('course_id', $course->id)->whereNull('paper_id')->where('status', 'running')->first();
+
+            if ($running && ! $examEvaluation->timeExpired($running)) {
+                return redirect()->route('exam.show', $running);
+            }
+
+            if ($running) {
+                $examEvaluation->evaluate($running);
+            }
+
             $session = ExamSession::create([
                 'tenant_id' => $tenant->id,
                 'user_id' => $user->id,
@@ -218,10 +237,8 @@ class ExamController extends Controller
                 }
             }
 
-            return $session;
+            return redirect()->route('exam.show', $session);
         });
-
-        return redirect()->route('exam.show', $session);
     }
 
     public function show(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, ExamEvaluationService $examEvaluation, ExamSession $examSession): View|Response
