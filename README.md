@@ -167,6 +167,43 @@ erscheint ein einfacher Bootsschul-Picker.
 | Hanse Bootsschule Kiel (`hanse-kiel`) | Admin | admin@hanse-bootsschule-kiel.de | password |
 | Hanse Bootsschule Kiel (`hanse-kiel`) | Lernender | lena@hanse-bootsschule-kiel.de | password |
 
+### Scheduler (Cron) und Queue
+
+Der Laravel-Scheduler (`routes/console.php`) braucht serverseitig einen
+echten Cronjob, der `php artisan schedule:run` jede Minute aufruft --
+ohne ihn laufen die folgenden Kommandos nie, auch nicht im Dev-Setup mit
+`php artisan serve`:
+
+```cron
+* * * * * cd /pfad/zur/app && php artisan schedule:run >> /dev/null 2>&1
+```
+
+Geplante Kommandos:
+
+- `app:expire-entitlements` (stündlich) -- setzt `entitlement.status` für
+  abgelaufene Freischaltungen von `active` auf `expired` (Bug-Review B15).
+  Ohne diesen Lauf bliebe eine abgelaufene Freischaltung dauerhaft als
+  aktiv markiert.
+- `app:expire-abandoned-exam-sessions` (stündlich) -- wertet Prüfungs-
+  Sessions aus, die ihr Zeitlimit überschritten haben, aber nie manuell
+  abgeschlossen wurden (Bug-Review B32). Ohne diesen Lauf bliebe
+  `exam_session.status` für eine abgebrochene Prüfung dauerhaft auf
+  "running" stehen.
+- `app:prune-personal-data` (täglich) -- löscht personenbezogene Daten
+  gemäß den in `config/data_retention.php` konfigurierten Fristen (DSGVO-
+  Review D3). Greift nur, wenn die jeweilige Frist bewusst per `.env`
+  aktiviert wurde.
+
+`QUEUE_CONNECTION` steht in `.env`/`.env.example` auf `database` (Tabellen
+`jobs`/`failed_jobs`/`job_batches` existieren bereits), aktuell nutzt aber
+keine Klasse `ShouldQueue` -- der gesamte Mailversand (Passwort-Set-Link,
+Einladung, E-Mail-Bestätigung) läuft bewusst synchron im Request über
+`App\Support\BestEffortMail` (Bug-Review B31: ein SMTP-Fehler wird
+geloggt, bricht den Request aber nicht ab). Ein `php artisan queue:work`
+ist daher für den aktuellen Funktionsumfang nicht nötig; sobald ein
+künftiges Feature echte Queue-Jobs einführt, muss ein Worker-Prozess
+(z. B. per Supervisor) dauerhaft laufen.
+
 ## Tests
 
 ```bash
