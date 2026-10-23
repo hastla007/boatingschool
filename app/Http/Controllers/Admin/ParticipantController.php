@@ -315,10 +315,21 @@ class ParticipantController extends Controller
                 'email' => $existingUser->email,
             ]);
 
-            $status = 'Für diese E-Mail-Adresse existiert bereits ein Konto. Eine Einladung wurde verschickt -- die Mitgliedschaft entsteht erst, wenn der Kontoinhaber sie selbst bestätigt.';
+            // Sicherheitsreview S-N3: "Für diese E-Mail-Adresse existiert
+            // bereits ein Konto" bestätigte dem einladenden Bootsschul-Admin
+            // direkt und unabhängig von jeder Beziehung zur Bootsschule, ob
+            // irgendwo auf der Plattform ein Konto zu dieser Adresse
+            // existiert -- missbrauchbar als Enumerations-Orakel über
+            // beliebig viele eingeladene Adressen (analog zu M3, nur über
+            // diesen authentifizierten Endpunkt statt Login/Passwort-
+            // vergessen). Die Formulierung beschreibt jetzt nur noch die
+            // tatsächliche Konsequenz (Mitgliedschaft erst nach Bestätigung
+            // durch die eingeladene Person), ohne das als "Konto existiert
+            // bereits" zu begründen.
+            $status = 'Einladung verschickt -- die Mitgliedschaft entsteht erst, wenn die eingeladene Person sie über ihr eigenes Konto bestätigt.';
 
             if (! $mailSent) {
-                $status = 'Für diese E-Mail-Adresse existiert bereits ein Konto, die Einladung wurde angelegt. Die Einladungsmail konnte aber nicht versendet werden -- bitte später erneut einladen.';
+                $status = 'Einladung angelegt, die Einladungsmail konnte aber nicht versendet werden -- bitte später erneut einladen.';
             }
 
             if (trim((string) ($validated['code'] ?? '')) !== '') {

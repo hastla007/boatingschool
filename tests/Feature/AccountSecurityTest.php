@@ -291,4 +291,35 @@ class AccountSecurityTest extends TestCase
             return true;
         });
     }
+
+    /**
+     * Sicherheitsreview S-N3: die Erfolgsmeldung sagte dem einladenden
+     * Bootsschul-Admin bislang explizit "Für diese E-Mail-Adresse
+     * existiert bereits ein Konto" -- bestätigte also unabhängig von
+     * jeder Beziehung zur eigenen Bootsschule, ob irgendwo auf der
+     * Plattform ein Konto zu dieser Adresse existiert. Über beliebig
+     * viele "eingeladene" Adressen ließ sich das als Enumerations-Orakel
+     * missbrauchen (analog zu M3, nur über diesen authentifizierten
+     * Endpunkt statt Login/Passwort-vergessen).
+     */
+    public function test_the_response_does_not_disclose_whether_an_invited_email_already_has_an_account(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+
+        $existingAccountEmail = 'bereits-registriert-'.uniqid().'@example.test';
+        $this->createTenantUser($this->createTestTenant(), 'learner', ['email' => $existingAccountEmail]);
+
+        Notification::fake();
+        $existingResponse = $this->actingAsInTenant($admin, $tenant)->post('/admin/participants/invite', [
+            'name' => 'Jemand',
+            'email' => $existingAccountEmail,
+        ]);
+
+        $existingResponse->assertSessionHas('status', function ($status) {
+            $this->assertStringNotContainsString('existiert bereits ein Konto', $status);
+
+            return true;
+        });
+    }
 }
