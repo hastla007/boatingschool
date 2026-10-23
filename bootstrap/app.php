@@ -21,6 +21,27 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        // Bug-Review M4 (Folgefehler): ohne eine vertrauenswürdige
+        // TrustProxies-Konfiguration liefert $request->ip() hinter JEDEM
+        // Reverse-Proxy (auch einem rein lokalen, z. B. nginx vor php-fpm
+        // in einem Docker-Setup) immer die Adresse des Proxys statt des
+        // echten Clients -- der Localhost-Check in
+        // ResolveTenant::resolveViaDevOverride() (Sicherheitsreview M4)
+        // griff deshalb hinter einem solchen Proxy nie mehr, selbst wenn
+        // der tatsächliche Client echtes Localhost war. TRUSTED_PROXIES
+        // bleibt standardmäßig leer (= heutiges, sicheres Verhalten:
+        // keinem Proxy vertrauen) und muss explizit auf die IP(s)/CIDR(s)
+        // des EIGENEN, bekannten Proxys gesetzt werden -- bewusst NICHT
+        // "*": sonst ließe sich X-Forwarded-For von jedem beliebigen
+        // Client fälschen, was sowohl diesen M4-Check als auch die
+        // IP-basierten throttle-Limits (routes/auth.php) aushebeln würde.
+        $trustedProxies = array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('TRUSTED_PROXIES', ''))
+        )));
+
+        $middleware->trustProxies(at: $trustedProxies !== [] ? $trustedProxies : null);
+
         $middleware->web(append: [
             SecurityHeaders::class,
             EnforceMaintenanceMode::class,
