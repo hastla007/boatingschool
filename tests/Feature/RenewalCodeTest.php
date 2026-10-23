@@ -169,6 +169,43 @@ class RenewalCodeTest extends TestCase
         });
     }
 
+    /**
+     * Bug-Review N5: valid_until=null bedeutet unbefristeten Zugang
+     * (siehe Entitlement::isCurrentlyValid()) -- redeemForRenewal()
+     * berechnete bislang unbedingt ein neues valid_until = now()+
+     * course_validity_days, auch wenn das bestehende Entitlement gar kein
+     * valid_until (also unbefristeten Zugang) hatte. Ein Verlängerungscode
+     * VERKÜRZTE einen unbefristeten Zugang damit auf nur noch 1 Jahr,
+     * statt ihn nur zurückzubringen bzw. zu verlängern.
+     */
+    public function test_redeeming_a_renewal_code_does_not_shorten_an_unlimited_entitlement(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+
+        $this->onAdmin(fn () => Entitlement::create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $learner->id,
+            'course_id' => $course->id,
+            'status' => 'suspended',
+            'source_type' => 'coupon',
+            'valid_from' => now()->subDays(400),
+            'valid_until' => null,
+        ]));
+
+        $coupon = $this->makeRenewalCoupon($course, $tenant);
+
+        $response = $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', ['code' => $coupon->code]);
+
+        $response->assertSessionHasNoErrors();
+
+        $entitlement = $this->asTenant($tenant, fn () => Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
+            ->where('course_id', $course->id)->firstOrFail());
+        $this->assertSame('active', $entitlement->status);
+        $this->assertNull($entitlement->valid_until, 'Unbefristeter Zugang wurde durch den Verlängerungscode befristet.');
+    }
+
     public function test_renewal_creates_a_fresh_entitlement_when_the_course_was_never_booked(): void
     {
         $tenant = $this->createTestTenant();

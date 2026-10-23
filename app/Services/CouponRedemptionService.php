@@ -133,8 +133,19 @@ class CouponRedemptionService
             ->first();
 
         if ($entitlement) {
-            $base = ($entitlement->valid_until && $entitlement->valid_until->gt($now)) ? $entitlement->valid_until : $now;
-            $entitlement->update(['valid_until' => $base->copy()->addDays($days), 'status' => 'active']);
+            // Bug-Review N5: valid_until=null bedeutet unbefristeten Zugang
+            // (siehe EntitlementService::isOfferable/hasAccess) -- ohne
+            // diese Ausnahme wurde ein unbefristeter Zugang hier auf
+            // now()+course_validity_days (z. B. 1 Jahr) VERKÜRZT, statt den
+            // Zugang nur zurückzubringen bzw. zu verlängern. Unbefristet
+            // bleibt unbefristet; nur ein bereits befristeter (laufender
+            // oder abgelaufener) Zugang bekommt ein neues, verlängertes
+            // valid_until.
+            $newValidUntil = $entitlement->valid_until === null
+                ? null
+                : ($entitlement->valid_until->gt($now) ? $entitlement->valid_until : $now)->copy()->addDays($days);
+
+            $entitlement->update(['valid_until' => $newValidUntil, 'status' => 'active']);
         } else {
             $entitlement = Entitlement::create([
                 'tenant_id' => $tenant->id,
