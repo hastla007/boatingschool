@@ -51,6 +51,14 @@ class ExamController extends Controller
     /** @param Collection<int, ExamPaper> $papers */
     private function papersOverview(Tenant $tenant, User $user, CourseDefinition $course, Collection $papers): View
     {
+        // Bug-Review B5 (Folgefehler): startPaper() lehnt einen Versuch für
+        // ein nicht freigegebenes Regelwerk bereits mit 409 ab -- diese
+        // Übersicht zeigte die "Bogen N"-Start-Buttons aber unverändert an,
+        // ein Klick führte also ins Leere statt den Kurs klar als noch
+        // nicht freigegeben zu kennzeichnen (analog zu exam/intro.blade.php).
+        $ruleSet = $course->activeExamRuleSet();
+        $isVerified = $ruleSet && $ruleSet->isVerified();
+
         $paperIds = $papers->pluck('id');
 
         $latestEvaluatedSessions = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $user->id)
@@ -91,6 +99,7 @@ class ExamController extends Controller
 
         return view('exam.papers', [
             'course' => $course,
+            'isVerified' => $isVerified,
             'paperStats' => $paperStats,
             'overallPercent' => $overallPercent,
             'favoritesTotal' => $favoriteIds->count(),

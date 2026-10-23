@@ -65,6 +65,43 @@ class ExamRuleSetAuthorityTest extends TestCase
         $response->assertStatus(409);
     }
 
+    /**
+     * Bug-Review B5 (Folgefehler): startPaper() lehnt einen Versuch für ein
+     * nicht freigegebenes Regelwerk bereits mit 409 ab -- die Bögen-
+     * Übersicht zeigte die "Bogen N"-Start-Buttons aber unverändert
+     * klickbar an, ein Klick führte also ins Leere statt den Kurs klar als
+     * noch nicht freigegeben zu kennzeichnen.
+     */
+    public function test_papers_overview_hides_the_start_buttons_for_an_unverified_course(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SBF-SEE');
+        $this->grantEntitlement($tenant, $learner, $course);
+        $paper = $this->onAdmin(fn () => ExamPaper::where('course_id', $course->id)->orderBy('paper_number')->firstOrFail());
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/exam");
+
+        $response->assertOk();
+        $response->assertSee('noch nicht freigegeben');
+        $response->assertDontSee(route('exam.papers.start', ['course' => $course, 'paper' => $paper]), false);
+    }
+
+    public function test_papers_overview_still_shows_the_start_buttons_for_a_verified_course(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $this->grantEntitlement($tenant, $learner, $course);
+        $paper = $this->onAdmin(fn () => ExamPaper::where('course_id', $course->id)->orderBy('paper_number')->firstOrFail());
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/exam");
+
+        $response->assertOk();
+        $response->assertDontSee('noch nicht freigegeben');
+        $response->assertSee(route('exam.papers.start', ['course' => $course, 'paper' => $paper]), false);
+    }
+
     public function test_courses_with_a_documented_official_passing_threshold_remain_verified(): void
     {
         foreach (self::VERIFIED_COURSE_CODES_WITH_A_DOCUMENTED_OFFICIAL_THRESHOLD as $code) {

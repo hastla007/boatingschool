@@ -133,25 +133,43 @@
                 ? \App\Support\WhatsAppLink::for($branding, auth()->user(), $course)
                 : null;
         @endphp
+        @unless ($isVerified)
+            <div class="rounded-xl bg-amber-50 border border-amber-200 text-amber-700 dark:bg-amber-900/30 dark:border-amber-800 dark:text-amber-300 px-4 py-3 text-sm flex items-start gap-2">
+                <x-icon name="lock-closed" class="w-5 h-5 shrink-0 mt-0.5" />
+                <span>Für diesen Kurs sind die Prüfungsbögen vorbereitet, aber das Regelwerk (Fragenmix, Zeitlimit, Bestehensgrenze)
+                ist fachlich noch nicht freigegeben. Die Prüfungsbögen starten erst nach Verifizierung.</span>
+            </div>
+        @endunless
         @foreach ($groupedStats as $groupLabel => $statsInGroup)
             <div>
                 <h4 class="font-medium text-slate-700 dark:text-slate-200 mb-3">{{ $groupLabel ?: $course->name }}</h4>
                 <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                     @foreach ($statsInGroup as $stat)
-                        <form method="POST" action="{{ route('exam.papers.start', ['course' => $course, 'paper' => $stat['paper']]) }}">
-                            @csrf
-                            <button type="submit" class="w-full rounded-2xl p-4 text-white text-left hover:opacity-95 transition"
-                                    style="background: linear-gradient(150deg, #0B3D64, #071E33);">
+                        @if ($isVerified)
+                            <form method="POST" action="{{ route('exam.papers.start', ['course' => $course, 'paper' => $stat['paper']]) }}">
+                                @csrf
+                                <button type="submit" class="w-full rounded-2xl p-4 text-white text-left hover:opacity-95 transition"
+                                        style="background: linear-gradient(150deg, #0B3D64, #071E33);">
+                                    <div class="flex items-center justify-between mb-1">
+                                        <x-progress-ring :percent="$stat['percent']" :size="52" :stroke="5" class="[&_circle:first-child]:stroke-white/20 [&_circle:last-child]:stroke-white [&_span]:text-white" />
+                                        @if ($stat['attempted'])
+                                            <x-icon name="clock" class="w-4 h-4 text-white/40" />
+                                        @endif
+                                    </div>
+                                    <div class="font-semibold">Bogen {{ $stat['displayNumber'] }}</div>
+                                    <div class="text-xs text-white/70">{{ $stat['correct'] }}/{{ $stat['total'] }}</div>
+                                </button>
+                            </form>
+                        @else
+                            <div class="w-full rounded-2xl p-4 text-left opacity-50" style="background: linear-gradient(150deg, #0B3D64, #071E33);">
                                 <div class="flex items-center justify-between mb-1">
                                     <x-progress-ring :percent="$stat['percent']" :size="52" :stroke="5" class="[&_circle:first-child]:stroke-white/20 [&_circle:last-child]:stroke-white [&_span]:text-white" />
-                                    @if ($stat['attempted'])
-                                        <x-icon name="clock" class="w-4 h-4 text-white/40" />
-                                    @endif
+                                    <x-icon name="lock-closed" class="w-4 h-4 text-white/40" />
                                 </div>
-                                <div class="font-semibold">Bogen {{ $stat['displayNumber'] }}</div>
+                                <div class="font-semibold text-white">Bogen {{ $stat['displayNumber'] }}</div>
                                 <div class="text-xs text-white/70">{{ $stat['correct'] }}/{{ $stat['total'] }}</div>
-                            </button>
-                        </form>
+                            </div>
+                        @endif
                     @endforeach
 
                     @if ($waLink && $groupLabel === $lastGroupLabel)
