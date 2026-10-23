@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\AuditLog;
 use App\Models\ContentQuestionRevision;
+use App\Models\TenantInvitation;
 use App\Models\TenantUser;
 use Illuminate\Support\Facades\DB;
 use Tests\Feature\Concerns\InteractsWithTenants;
@@ -143,6 +144,78 @@ class AccountErasureTest extends TestCase
 
         $this->assertDatabaseMissing('sessions', ['id' => 'erasure-test-session']);
         $this->assertDatabaseMissing('password_reset_tokens', ['email' => $user->email]);
+    }
+
+    /**
+     * DSGVO-Review D2 (Folgefehler): eine Einladung an eine bereits
+     * existierende Adresse legt nur eine tenant_invitation-Zeile an (noch
+     * keine Mitgliedschaft, siehe Sicherheitsreview H2) -- die stand
+     * bisher nirgends in dieser Löschung und überlebte sie deshalb
+     * unverändert mit der eingeladenen E-Mail-Adresse.
+     */
+    public function test_leaving_a_tenant_also_removes_a_pending_invitation_for_the_users_email(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $user = $this->createTenantUser($tenant, 'learner');
+
+        $invitation = $this->onAdmin(fn () => TenantInvitation::create([
+            'tenant_id' => $tenant->id,
+            'email' => $user->email,
+            'role' => 'learner',
+            'invited_by_user_id' => $admin->id,
+        ]));
+
+        $this->actingAsInTenant($user, $tenant)->delete('/profile', ['password' => 'password'])
+            ->assertSessionHasNoErrors();
+
+        $this->onAdmin(function () use ($invitation) {
+            $this->assertDatabaseMissing('tenant_invitation', ['id' => $invitation->id]);
+        });
+
+        $this->createdUserIds[] = $admin->id;
+    }
+
+    /**
+     * DSGVO-Review D2 (Folgefehler): participant.invite_pending
+     * protokolliert mit entity_type=tenant_invitation und
+     * entity_id=<Einladungs-ID>, nicht mit der User-ID -- die bisherige
+     * Pseudonymisierung (actor_user_id oder entity_type=app_user) erfasste
+     * diese Zeilen nie, die E-Mail-Adresse im JSON überlebte deshalb auch
+     * jede Löschung.
+     */
+    public function test_leaving_a_tenant_also_removes_the_email_from_the_invitation_audit_log_entry(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $user = $this->createTenantUser($tenant, 'learner');
+
+        $invitation = $this->onAdmin(fn () => TenantInvitation::create([
+            'tenant_id' => $tenant->id,
+            'email' => $user->email,
+            'role' => 'learner',
+            'invited_by_user_id' => $admin->id,
+        ]));
+
+        $this->onAdmin(fn () => AuditLog::create([
+            'tenant_id' => $tenant->id,
+            'actor_user_id' => $admin->id,
+            'action' => 'participant.invite_pending',
+            'entity_type' => 'tenant_invitation',
+            'entity_id' => $invitation->id,
+            'after_data' => ['email' => $user->email],
+        ]));
+
+        $this->actingAsInTenant($user, $tenant)->delete('/profile', ['password' => 'password'])
+            ->assertSessionHasNoErrors();
+
+        $this->onAdmin(function () use ($invitation) {
+            $entry = DB::table('audit_log')->where('entity_type', 'tenant_invitation')->where('entity_id', $invitation->id)->first();
+            $this->assertNotNull($entry);
+            $this->assertNull($entry->after_data);
+        });
+
+        $this->createdUserIds[] = $admin->id;
     }
 
     public function test_deleting_a_user_who_reviewed_a_question_revision_does_not_fail(): void

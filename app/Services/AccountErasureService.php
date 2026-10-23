@@ -13,6 +13,7 @@ use App\Models\PraxisProgress;
 use App\Models\ProductPurchase;
 use App\Models\Progress;
 use App\Models\Tenant;
+use App\Models\TenantInvitation;
 use App\Models\TenantUser;
 use App\Models\User;
 use App\Models\VideoProgress;
@@ -40,7 +41,8 @@ class AccountErasureService
                 $model::where('tenant_id', $tenant->id)->where('user_id', $user->id)->delete();
             }
 
-            $this->pseudonymizeAuditLogFor($tenant, $user);
+            $invitationIds = $this->deleteInvitationsFor($tenant, $user);
+            $this->pseudonymizeAuditLogFor($tenant, $user, $invitationIds);
 
             TenantUser::where('tenant_id', $tenant->id)->where('user_id', $user->id)->delete();
         });
@@ -118,19 +120,57 @@ class AccountErasureService
     }
 
     /**
+     * DSGVO-Review D2 (Folgefehler): eine Einladung an eine bereits
+     * existierende Adresse (siehe ParticipantController::invite(),
+     * Sicherheitsreview H2) legt bewusst noch keine Mitgliedschaft an,
+     * sondern nur eine tenant_invitation-Zeile mit der eingeladenen
+     * E-Mail-Adresse -- die stand bisher weder in tenantScopedModels()
+     * noch sonst irgendwo in dieser Löschung und überlebte sie deshalb
+     * unverändert.
+     *
+     * @return list<string> IDs der gelöschten Einladungen, für
+     *                       pseudonymizeAuditLogFor() unten.
+     */
+    private function deleteInvitationsFor(Tenant $tenant, User $user): array
+    {
+        $invitationIds = TenantInvitation::where('tenant_id', $tenant->id)
+            ->where('email', $user->email)
+            ->pluck('id')
+            ->all();
+
+        TenantInvitation::where('tenant_id', $tenant->id)->where('email', $user->email)->delete();
+
+        return $invitationIds;
+    }
+
+    /**
      * Behält den Audit-Trail (Aktion, Zeitpunkt, Entitätstyp) als
      * betrieblichen Nachweis, entfernt aber personenbezogene Daten aus dem
      * JSON (z. B. die E-Mail-Adresse bei participant.invite) -- bislang
      * wurde bei einer Löschung nur actor_user_id auf NULL gesetzt, die
      * Nutzdaten blieben aber im JSON stehen.
+     *
+     * DSGVO-Review D2 (Folgefehler): participant.invite_pending (siehe
+     * ParticipantController::invite()) protokolliert mit
+     * entity_type=tenant_invitation und entity_id=<Einladungs-ID>, nicht
+     * mit der User-ID -- die bisherige Prüfung (actor_user_id oder
+     * entity_type=app_user+entity_id=User-ID) erfasste diese Zeilen nie,
+     * die E-Mail-Adresse im JSON überlebte deshalb auch jede Löschung.
+     *
+     * @param  list<string>  $invitationIds
      */
-    private function pseudonymizeAuditLogFor(Tenant $tenant, User $user): void
+    private function pseudonymizeAuditLogFor(Tenant $tenant, User $user, array $invitationIds): void
     {
         AuditLog::where('tenant_id', $tenant->id)
-            ->where(function ($query) use ($user) {
+            ->where(function ($query) use ($user, $invitationIds) {
                 $query->where('actor_user_id', $user->id)
                     ->orWhere(function ($inner) use ($user) {
                         $inner->where('entity_type', 'app_user')->where('entity_id', $user->id);
+                    })
+                    ->when($invitationIds !== [], function ($query) use ($invitationIds) {
+                        $query->orWhere(function ($inner) use ($invitationIds) {
+                            $inner->where('entity_type', 'tenant_invitation')->whereIn('entity_id', $invitationIds);
+                        });
                     });
             })
             ->update(['before_data' => null, 'after_data' => null]);

@@ -13,6 +13,7 @@ use App\Models\PraxisProgress;
 use App\Models\ProductPurchase;
 use App\Models\Progress;
 use App\Models\Tenant;
+use App\Models\TenantInvitation;
 use App\Models\TenantUser;
 use App\Models\User;
 use App\Models\VideoProgress;
@@ -149,6 +150,18 @@ class PersonalDataExportService
                     'postal_code' => $o->postal_code,
                     'city' => $o->city,
                     'created_at' => $o->created_at?->toIso8601String(),
+                ])->all(),
+            // DSGVO-Review D3 (Folgefehler): eine Einladung an eine bereits
+            // existierende Adresse (siehe ParticipantController::invite(),
+            // Sicherheitsreview H2) legt eine tenant_invitation-Zeile mit der
+            // eingeladenen E-Mail-Adresse an -- über sie gespeicherte Daten
+            // fehlten im Auskunfts-Export bisher vollständig.
+            'tenant_invitations' => TenantInvitation::where('tenant_id', $tenant->id)->where('email', $user->email)
+                ->orderBy('created_at')->get()
+                ->map(fn (TenantInvitation $i) => [
+                    'role' => $i->role,
+                    'created_at' => $i->created_at?->toIso8601String(),
+                    'accepted_at' => $i->accepted_at?->toIso8601String(),
                 ])->all(),
         ];
     }

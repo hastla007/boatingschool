@@ -6,6 +6,7 @@ use App\Models\FavoriteCollection;
 use App\Models\PraxisExamAppointment;
 use App\Models\PraxisFormSubmission;
 use App\Models\PraxisFormTemplate;
+use App\Models\TenantInvitation;
 use App\Models\TenantUser;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -154,5 +155,34 @@ class PersonalDataExportTest extends TestCase
         $this->assertSame('Meine schwierigen Fragen', $data['favorite_collections'][0]['name']);
 
         $this->createdUserIds[] = $learner->id;
+    }
+
+    /**
+     * DSGVO-Review D3 (Folgefehler): eine Einladung an eine bereits
+     * existierende Adresse legt eine tenant_invitation-Zeile an (siehe
+     * ParticipantController::invite(), Sicherheitsreview H2) -- die fehlte
+     * im Auskunfts-Export bisher vollständig.
+     */
+    public function test_the_export_includes_a_pending_invitation_for_the_learners_email(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $admin = $this->createTenantUser($tenant, 'owner');
+
+        $this->onAdmin(fn () => TenantInvitation::create([
+            'tenant_id' => $tenant->id,
+            'email' => $learner->email,
+            'role' => 'learner',
+            'invited_by_user_id' => $admin->id,
+        ]));
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get('/profile/export-data');
+        $data = json_decode($response->getContent(), true);
+
+        $this->assertCount(1, $data['tenant_invitations']);
+        $this->assertSame('learner', $data['tenant_invitations'][0]['role']);
+        $this->assertNull($data['tenant_invitations'][0]['accepted_at']);
+
+        $this->createdUserIds[] = $admin->id;
     }
 }
