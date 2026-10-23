@@ -18,7 +18,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        DB::statement('GRANT UPDATE (before_data, after_data) ON audit_log TO boatingschool_app');
+        // Bug-Review M7 (Folgefehler): GRANT ... TO <rolle> schlägt mit einem
+        // Postgres-Fehler fehl, wenn die Rolle gar nicht existiert (z. B.
+        // migrate:fresh auf einer frisch angelegten DB, bevor die App-Rolle
+        // separat provisioniert wurde) -- analog zu 2024_02_01_000210/_000447.
+        if (DB::selectOne("SELECT 1 FROM pg_roles WHERE rolname = 'boatingschool_app'")) {
+            DB::statement('GRANT UPDATE (before_data, after_data) ON audit_log TO boatingschool_app');
+        }
 
         // M7 definierte nur SELECT- und INSERT-Policies für audit_log -- ohne
         // eine eigene UPDATE-Policy würde RLS das Statement sonst still auf
@@ -33,6 +39,9 @@ return new class extends Migration
     public function down(): void
     {
         DB::statement('DROP POLICY IF EXISTS audit_log_update_isolation ON audit_log');
-        DB::statement('REVOKE UPDATE (before_data, after_data) ON audit_log FROM boatingschool_app');
+
+        if (DB::selectOne("SELECT 1 FROM pg_roles WHERE rolname = 'boatingschool_app'")) {
+            DB::statement('REVOKE UPDATE (before_data, after_data) ON audit_log FROM boatingschool_app');
+        }
     }
 };
