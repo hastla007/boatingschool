@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Concerns;
 
+use App\Models\AuditLog;
 use App\Models\ContentQuestion;
 use App\Models\ContentQuestionRevision;
 use App\Models\CourseDefinition;
@@ -48,6 +49,15 @@ trait InteractsWithTenants
     {
         $this->onAdmin(function () {
             foreach ($this->createdTenantIds as $id) {
+                // Bug-Review Testisolation: audit_log.tenant_id ist bewusst
+                // nullOnDelete() (ein echtes Audit-Log soll eine gelöschte
+                // Bootsschule überleben) -- für die hier angelegten
+                // Test-Tenants heißt das aber, dass jede protokollierte
+                // Aktion (Teilnehmer bearbeiten, Freischalten, ...)
+                // dauerhaft als verwaister Datensatz (tenant_id = NULL)
+                // stehen bleibt, statt mit dem Tenant zu verschwinden.
+                AuditLog::where('tenant_id', $id)->delete();
+
                 Tenant::withoutGlobalScopes()->where('id', $id)->delete();
             }
         });
@@ -60,6 +70,19 @@ trait InteractsWithTenants
     {
         $this->onAdmin(function () {
             foreach ($this->createdUserIds as $id) {
+                $user = User::find($id);
+
+                // Bug-Review Testisolation: password_reset_tokens hat gar
+                // keinen Fremdschlüssel (die Tabelle ist nur per E-Mail-
+                // String geschlüsselt, Laravel-Standardschema) -- ein
+                // Test, der einen Reset-Link auslöst (z. B. Registrierung,
+                // Einladung, siehe BestEffortMail/Password::sendResetLink),
+                // hinterließ die Zeile deshalb dauerhaft, unabhängig vom
+                // Löschen des Nutzers selbst.
+                if ($user) {
+                    DB::table('password_reset_tokens')->where('email', $user->email)->delete();
+                }
+
                 User::where('id', $id)->delete();
             }
         });

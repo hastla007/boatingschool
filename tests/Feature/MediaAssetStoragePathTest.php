@@ -22,9 +22,21 @@ class MediaAssetStoragePathTest extends TestCase
 {
     use InteractsWithTenants;
 
+    private array $createdMediaAssetIds = [];
+
     protected function tearDown(): void
     {
         $this->cleanUpCreatedTenantsAndUsers();
+
+        // Bug-Review Testisolation: media_asset hat keinen tenant_id/FK, der
+        // beim Löschen des Tenants mitkaskadiert -- ohne dieses Aufräumen
+        // blieben die hier angelegten Assets dauerhaft als Daten-Reste in
+        // der Tabelle stehen.
+        $this->onAdmin(function () {
+            foreach ($this->createdMediaAssetIds as $id) {
+                MediaAsset::where('id', $id)->delete();
+            }
+        });
 
         parent::tearDown();
     }
@@ -41,6 +53,7 @@ class MediaAssetStoragePathTest extends TestCase
             'rights_status' => 'licensed',
             'status' => 'published',
         ]);
+        $this->createdMediaAssetIds[] = $asset->id;
 
         $rawValue = $asset->getRawOriginal('storage_path');
 
@@ -60,6 +73,7 @@ class MediaAssetStoragePathTest extends TestCase
             'rights_status' => 'licensed',
             'status' => 'published',
         ]);
+        $this->createdMediaAssetIds[] = $asset->id;
 
         config(['filesystems.disks.public.url' => 'http://localhost:8000/storage']);
         Storage::forgetDisk('public');
@@ -93,6 +107,7 @@ class MediaAssetStoragePathTest extends TestCase
             'rights_status' => 'licensed',
             'status' => 'published',
         ]);
+        $this->createdMediaAssetIds[] = $asset->id;
 
         $this->assertSame($path, $asset->getRawOriginal('storage_path'));
     }
@@ -109,6 +124,7 @@ class MediaAssetStoragePathTest extends TestCase
             'rights_status' => 'licensed',
             'status' => 'published',
         ]);
+        $this->createdMediaAssetIds[] = $asset->id;
 
         // Altbestand aus der Zeit vor diesem Fix: direkt (unter Umgehung
         // des Mutators) eine volle URL eines Hosts hinterlegt, der nicht
@@ -135,6 +151,7 @@ class MediaAssetStoragePathTest extends TestCase
 
         $asset = MediaAsset::where('asset_key', 'like', 'branding-logo-'.$tenant->id.'-%')->first();
         $this->assertNotNull($asset);
+        $this->createdMediaAssetIds[] = $asset->id;
         $this->assertStringStartsNotWith('http', $asset->getRawOriginal('storage_path'));
     }
 }

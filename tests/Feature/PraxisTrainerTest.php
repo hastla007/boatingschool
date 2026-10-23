@@ -14,6 +14,8 @@ class PraxisTrainerTest extends TestCase
 
     private array $createdCourseIds = [];
 
+    private array $createdMediaAssetIds = [];
+
     protected function tearDown(): void
     {
         // Tenant zuerst (kaskadiert praxis_progress weg), dann den
@@ -23,6 +25,14 @@ class PraxisTrainerTest extends TestCase
         $this->onAdmin(function () {
             foreach ($this->createdCourseIds as $id) {
                 CourseDefinition::withoutGlobalScopes()->where('id', $id)->delete();
+            }
+
+            // Bug-Review Testisolation: media_asset hat keinen tenant_id/FK,
+            // der beim Löschen des Kurses mitkaskadiert -- ohne dieses
+            // Aufräumen blieb das hier angelegte Lösungsbild dauerhaft als
+            // Daten-Rest in der Tabelle stehen.
+            foreach ($this->createdMediaAssetIds as $id) {
+                MediaAsset::where('id', $id)->delete();
             }
         });
 
@@ -107,6 +117,7 @@ class PraxisTrainerTest extends TestCase
                 'media_type' => 'image',
                 'storage_path' => 'http://localhost/storage/question-media/praxistrainer/test-solution-image.png',
             ]);
+            $this->createdMediaAssetIds[] = $asset->id;
 
             $knotTask = PraxisTask::create([
                 'course_id' => $course->id,

@@ -16,6 +16,25 @@ class CourseDetailWidgetsTest extends TestCase
 {
     use InteractsWithTenants;
 
+    private array $createdMediaAssetIds = [];
+
+    protected function tearDown(): void
+    {
+        $this->cleanUpCreatedTenantsAndUsers();
+
+        // Bug-Review Testisolation: media_asset hat keinen tenant_id/FK, der
+        // beim Löschen des Tenants mitkaskadiert -- ohne dieses Aufräumen
+        // blieben die hier angelegten Logo-Assets dauerhaft als
+        // Daten-Reste in der Tabelle stehen.
+        $this->onAdmin(function () {
+            foreach ($this->createdMediaAssetIds as $id) {
+                MediaAsset::where('id', $id)->delete();
+            }
+        });
+
+        parent::tearDown();
+    }
+
     public function test_contact_widget_is_hidden_when_no_contact_details_are_configured(): void
     {
         $tenant = $this->createTestTenant();
@@ -68,6 +87,7 @@ class CourseDetailWidgetsTest extends TestCase
                 'media_type' => 'image',
                 'storage_path' => 'http://localhost/storage/branding-logos/test-logo.png',
             ]);
+            $this->createdMediaAssetIds[] = $asset->id;
             $tenant->branding->update(['logo_asset_id' => $asset->id, 'phone' => '+49 40 1234567', 'phone_support_enabled' => true]);
         });
 
@@ -90,6 +110,7 @@ class CourseDetailWidgetsTest extends TestCase
                 'media_type' => 'image',
                 'storage_path' => 'http://localhost/storage/branding-logos/test-logo.png',
             ]);
+            $this->createdMediaAssetIds[] = $asset->id;
             $tenant->branding->update([
                 'logo_asset_id' => $asset->id,
                 'website' => 'www.e2e-bootsschule.test',
@@ -115,6 +136,7 @@ class CourseDetailWidgetsTest extends TestCase
                 'media_type' => 'image',
                 'storage_path' => 'http://localhost/storage/branding-logos/test-logo.png',
             ]);
+            $this->createdMediaAssetIds[] = $asset->id;
             $tenant->branding->update(['logo_asset_id' => $asset->id, 'phone' => '+49 40 1234567', 'phone_support_enabled' => true]);
         });
 

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Coupon;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -36,6 +37,19 @@ class ParticipantInviteTest extends TestCase
         parent::tearDown();
     }
 
+    /**
+     * Bug-Review Testisolation: die Einladung löst per BestEffortMail einen
+     * Passwort-Set-Link aus, der eine Zeile in password_reset_tokens
+     * anlegt -- diese Tabelle hat keinen Fremdschlüssel (nur per
+     * E-Mail-String geschlüsselt, Laravel-Standardschema) und wurde beim
+     * bloßen $user->delete() hier nie mitgelöscht.
+     */
+    private function deleteInvitedUser(User $user): void
+    {
+        DB::table('password_reset_tokens')->where('email', $user->email)->delete();
+        $user->delete();
+    }
+
     public function test_admin_can_invite_a_participant_with_an_address(): void
     {
         $tenant = $this->createTestTenant();
@@ -59,7 +73,7 @@ class ParticipantInviteTest extends TestCase
             $this->assertSame('Neumarkt', $user->city);
             $this->assertSame('Österreich', $user->country);
             $this->assertNull($user->birthdate);
-            $user->delete();
+            $this->deleteInvitedUser($user);
         });
     }
 
@@ -78,7 +92,7 @@ class ParticipantInviteTest extends TestCase
             $user = User::where('display_name', 'Teilnehmer Ohne Adresse')->first();
             $this->assertNotNull($user);
             $this->assertNull($user->street);
-            $user->delete();
+            $this->deleteInvitedUser($user);
         });
     }
 
@@ -125,7 +139,7 @@ class ParticipantInviteTest extends TestCase
             $coupon = Coupon::where('code', $code)->first();
             $this->assertTrue($coupon->isRedeemed());
             $this->assertSame($user->id, $coupon->redeemed_by_user_id);
-            $user->delete();
+            $this->deleteInvitedUser($user);
         });
     }
 
@@ -145,7 +159,7 @@ class ParticipantInviteTest extends TestCase
             $user = User::where('display_name', 'Teilnehmer Falscher Code')->first();
             $this->assertNotNull($user, 'Die Einladung soll trotz ungültigem Code durchgehen.');
             $this->assertCount(0, $user->entitlements);
-            $user->delete();
+            $this->deleteInvitedUser($user);
         });
     }
 
@@ -172,7 +186,7 @@ class ParticipantInviteTest extends TestCase
             $this->assertCount(0, $user->entitlements);
             $coupon = Coupon::where('code', $code)->first();
             $this->assertFalse($coupon->isRedeemed());
-            $user->delete();
+            $this->deleteInvitedUser($user);
         });
     }
 }

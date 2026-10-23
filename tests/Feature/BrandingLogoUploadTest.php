@@ -20,9 +20,21 @@ class BrandingLogoUploadTest extends TestCase
 {
     use InteractsWithTenants;
 
+    private array $createdMediaAssetIds = [];
+
     protected function tearDown(): void
     {
         $this->cleanUpCreatedTenantsAndUsers();
+
+        // Bug-Review Testisolation: media_asset hat keinen tenant_id/FK, der
+        // beim Löschen des Tenants mitkaskadiert -- ohne dieses Aufräumen
+        // blieben die hier hochgeladenen Logo-Assets dauerhaft als
+        // Daten-Reste in der Tabelle stehen.
+        $this->onAdmin(function () {
+            foreach ($this->createdMediaAssetIds as $id) {
+                MediaAsset::where('id', $id)->delete();
+            }
+        });
 
         parent::tearDown();
     }
@@ -43,6 +55,7 @@ class BrandingLogoUploadTest extends TestCase
 
         $asset = MediaAsset::where('asset_key', 'like', 'branding-logo-'.$tenant->id.'-%')->first();
         $this->assertNotNull($asset);
+        $this->createdMediaAssetIds[] = $asset->id;
         $this->assertSame('image/png', $asset->mime_type);
         $this->assertStringEndsWith('.png', $asset->storage_path);
     }
@@ -120,6 +133,7 @@ class BrandingLogoUploadTest extends TestCase
         Storage::disk('public')->assertMissing($oldPath);
 
         $newAsset = MediaAsset::where('asset_key', 'like', 'branding-logo-'.$tenant->id.'-%')->sole();
+        $this->createdMediaAssetIds[] = $newAsset->id;
         $this->assertNotSame($oldAsset->id, $newAsset->id);
     }
 }
