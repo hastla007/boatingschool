@@ -276,13 +276,18 @@ class AdminDashboardController extends Controller
 
         $anmeldungFilters = $request->only(['anmeldung_search', 'anmeldung_course', 'anmeldung_from', 'anmeldung_to']);
 
-        // Bug-Review N21: anmeldung_from/anmeldung_to kamen bisher ungeprüft
-        // aus der Query-String direkt in whereDate() -- ein ungültiges
-        // Datum (z. B. von Hand in die URL eingetragen) ließ Postgres mit
-        // "invalid input syntax for type date" scheitern (HTTP 500), statt
-        // den Filter einfach zu ignorieren.
+        // Bug-Review N21 (Folgefehler): anmeldung_from/anmeldung_to kamen
+        // bisher ungeprüft aus der Query-String direkt in whereDate() --
+        // ein ungültiges Datum (z. B. von Hand in die URL eingetragen) ließ
+        // Postgres mit "invalid input syntax for type date" scheitern
+        // (HTTP 500), statt den Filter einfach zu ignorieren. strtotime()
+        // allein reicht dafür nicht: es "rollt" einen kalendarisch
+        // unmöglichen Tag (z. B. "2026-02-31", Februar hat keinen 31.)
+        // stillschweigend auf ein gültiges Datum weiter (hier 2026-03-03)
+        // statt ihn abzulehnen -- Postgres' eigener Date-Cast tut das nicht
+        // und scheiterte am weitergereichten, unveränderten String weiterhin.
         foreach (['anmeldung_from', 'anmeldung_to'] as $dateFilter) {
-            if (($anmeldungFilters[$dateFilter] ?? '') !== '' && ! strtotime($anmeldungFilters[$dateFilter])) {
+            if (($anmeldungFilters[$dateFilter] ?? '') !== '' && ! $this->isValidCalendarDate($anmeldungFilters[$dateFilter])) {
                 $anmeldungFilters[$dateFilter] = '';
             }
         }
@@ -399,5 +404,13 @@ class AdminDashboardController extends Controller
             'couponFilters' => $couponFilters,
             'freeCourseCouponCounts' => $freeCourseCouponCounts,
         ]);
+    }
+
+    /** Lehnt sowohl unparsebare Strings als auch kalendarisch unmögliche Daten (z. B. "2026-02-31") ab. */
+    private function isValidCalendarDate(string $value): bool
+    {
+        $date = \DateTime::createFromFormat('Y-m-d', $value);
+
+        return $date !== false && $date->format('Y-m-d') === $value;
     }
 }

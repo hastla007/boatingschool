@@ -190,6 +190,24 @@ class PraxisAnmeldungenTabTest extends TestCase
         $response->assertOk();
     }
 
+    /**
+     * Bug-Review N21 (Folgefehler): strtotime() allein reichte nicht --
+     * es "rollt" einen kalendarisch unmöglichen Tag (Februar hat keinen
+     * 31.) stillschweigend auf ein gültiges Datum weiter (hier 2026-03-03)
+     * statt ihn abzulehnen. Postgres' eigener Date-Cast tut das nicht und
+     * scheiterte am unverändert weitergereichten String weiterhin mit
+     * "invalid input syntax for type date" (HTTP 500).
+     */
+    public function test_a_calendrically_impossible_date_filter_is_ignored_instead_of_crashing(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+
+        $response = $this->actingAsInTenant($admin, $tenant)->get('/admin?tab=praxis-anmeldungen&anmeldung_from=2026-02-31');
+
+        $response->assertOk();
+    }
+
     public function test_table_shows_fixed_exam_date_as_next_step(): void
     {
         $tenant = $this->createTestTenant();
