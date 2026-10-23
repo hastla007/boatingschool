@@ -124,7 +124,13 @@ Route::middleware(['auth', 'tenant.member', 'verified'])->group(function () {
     });
 });
 
-Route::middleware(['auth', 'tenant.role:owner,admin,instructor'])->prefix('admin')->name('admin.')->group(function () {
+// Bug-Review: 'verified' fehlte auf beiden Admin-Gruppen (anders als auf
+// der regulären Lerner-Gruppe oben) -- ein Owner/Admin/Instructor mit noch
+// nicht bestätigter E-Mail-Adresse konnte trotzdem Teilnehmer einladen,
+// Entitlements/Coupons verwalten und Branding ändern (Phishing-Risiko über
+// das Schul-Branding), ohne je nachgewiesen zu haben, dass die Adresse
+// tatsächlich ihm gehört.
+Route::middleware(['auth', 'tenant.role:owner,admin,instructor', 'verified'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/', AdminDashboardController::class)->name('dashboard');
     Route::post('/participants/invite', [ParticipantController::class, 'invite'])->name('participants.invite');
     Route::get('/participants/{user}', [ParticipantController::class, 'show'])->name('participants.show');
@@ -147,7 +153,7 @@ Route::middleware(['auth', 'tenant.role:owner,admin,instructor'])->prefix('admin
 // ändern (Sicherheitsreview H3). Instructor sieht diese Tabs im
 // Admin-Bereich entsprechend auch nicht bzw. nur lesend (siehe
 // admin/dashboard.blade.php, admin/tabs/orte.blade.php, $canManageTenant).
-Route::middleware(['auth', 'tenant.role:owner,admin'])->prefix('admin')->name('admin.')->group(function () {
+Route::middleware(['auth', 'tenant.role:owner,admin', 'verified'])->prefix('admin')->name('admin.')->group(function () {
     Route::post('/entitlements', [EntitlementController::class, 'store'])->name('entitlements.store');
     Route::patch('/entitlements/{entitlement}', [EntitlementController::class, 'update'])->name('entitlements.update');
 
