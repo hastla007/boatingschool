@@ -20,53 +20,76 @@ class ResolveTenant
 {
     public function handle(Request $request, Closure $next): Response
     {
-        // Sicherheitsreview M5: app.current_tenant_id wird per SET LOCAL
-        // gesetzt (siehe TenantContext), das nur innerhalb der aktuellen
-        // Transaktion gilt -- deshalb läuft der gesamte restliche Request
-        // (inklusive aller Routen-/Controller-Queries auf dieser
-        // Verbindung) hier in einer Transaktion. Am Ende wird automatisch
-        // committet bzw. bei einer Exception zurückgerollt und die
-        // GUC damit zuverlässig zurückgesetzt, statt bei wiederverwendeten
-        // Verbindungen (Octane, PgBouncer im Session-Modus) über das
-        // Request-Ende hinaus bestehen zu bleiben.
-        return DB::transaction(function () use ($request, $next) {
-            app(TenantContext::class)->clear();
-            $this->setCurrentUserIdForRls($request);
-
-            $tenant = $this->resolveViaCustomDomain($request)
-                ?? $this->resolveViaDevOverride($request)
-                ?? $this->resolveViaSubdomain($request);
-
-            if (! $tenant) {
-                // Der Superadmin-Bereich (und Login/Logout, damit ein Superadmin sich
-                // überhaupt ohne Bootsschul-Subdomain anmelden kann) ist bewusst
-                // mandantenunabhängig und läuft unabhängig vom aufgelösten Host.
-                if ($this->isTenantAgnosticRoute($request)) {
-                    return $next($request);
-                }
-
-                if ($request->getHost() === config('app.central_domain')) {
-                    // Sicherheitsreview N5: zeigte bislang auch suspended/closed/
-                    // trial-Mandanten öffentlich mit Name und Slug an.
-                    return response()->view('tenant.picker', [
-                        'tenants' => Tenant::query()->where('status', 'active')->orderBy('name')->get(),
-                    ]);
-                }
-
-                return response()->view('tenant.not-found', [], 404);
-            }
-
-            if ($tenant->status === 'closed' || $tenant->status === 'suspended') {
-                return response()->view('tenant.suspended', ['tenant' => $tenant], 403);
-            }
-
-            app(TenantContext::class)->set($tenant);
-            app()->instance('currentTenant', $tenant);
-            view()->share('currentTenant', $tenant);
-            view()->share('branding', $tenant->branding);
-
-            return $next($request);
+        // Bug-Review R3-7 (Folgefehler Sicherheitsreview M5): vormals lief
+        // der GESAMTE restliche Request (inklusive aller Routen-/
+        // Controller-Queries) in einer Transaktion, nur damit SET LOCAL
+        // app.current_tenant_id/app.current_user_id (siehe TenantContext)
+        // am Transaktionsende zuverlässig zurückgesetzt wird. Das hielt
+        // aber jedes im Request erworbene DB-Lock bis zum Request-Ende --
+        // auch während des synchronen SMTP-Versands über BestEffortMail
+        // (aktuell implementiert keine Notification ShouldQueue, siehe
+        // README.md) -- und täuschte eine Atomarität des gesamten Requests
+        // vor, die es nie gab: die meisten Fehlerpfade fangen ihre Exception
+        // bereits selbst (BestEffortMail, ProfileController::confirmEmail()
+        // u. a.), die Transaktion committete also ohnehin normal weiter,
+        // teilweise geschriebene Daten blieben trotzdem bestehen. Operationen,
+        // die wirklich mehrere Schreibvorgänge atomar brauchen (z. B.
+        // CouponRedemptionService::redeem()), kapseln sich dafür bereits
+        // selbst in einen eigenen DB::transaction()-Block.
+        //
+        // Die GUCs werden jetzt per SET (gilt für die gesamte Verbindungs-
+        // SESSION, siehe TenantContext) gesetzt und per app()->terminating()
+        // -Callback am Ende JEDES Requests explizit per RESET zurückgesetzt
+        // -- unabhängig vom weiteren Transaktionsstatus. Das erhält die
+        // Sicherheitsreview-M5-Garantie (GUC bleibt nie über das Request-
+        // Ende hinaus auf einer wiederverwendeten Verbindung bestehen, z. B.
+        // PgBouncer im Session-Modus), ohne den ganzen Request in eine
+        // Transaktion zu zwingen. Die Verbindung wird VOR etwaigen späteren
+        // Verbindungswechseln (UseAdminDatabaseConnection) festgehalten,
+        // damit der Reset garantiert dieselbe Verbindung trifft, auf der die
+        // GUCs gesetzt wurden.
+        $connection = DB::connection();
+        app()->terminating(function () use ($connection) {
+            $connection->statement('RESET app.current_tenant_id');
+            $connection->statement('RESET app.current_user_id');
         });
+
+        app(TenantContext::class)->clear();
+        $this->setCurrentUserIdForRls($request);
+
+        $tenant = $this->resolveViaCustomDomain($request)
+            ?? $this->resolveViaDevOverride($request)
+            ?? $this->resolveViaSubdomain($request);
+
+        if (! $tenant) {
+            // Der Superadmin-Bereich (und Login/Logout, damit ein Superadmin sich
+            // überhaupt ohne Bootsschul-Subdomain anmelden kann) ist bewusst
+            // mandantenunabhängig und läuft unabhängig vom aufgelösten Host.
+            if ($this->isTenantAgnosticRoute($request)) {
+                return $next($request);
+            }
+
+            if ($request->getHost() === config('app.central_domain')) {
+                // Sicherheitsreview N5: zeigte bislang auch suspended/closed/
+                // trial-Mandanten öffentlich mit Name und Slug an.
+                return response()->view('tenant.picker', [
+                    'tenants' => Tenant::query()->where('status', 'active')->orderBy('name')->get(),
+                ]);
+            }
+
+            return response()->view('tenant.not-found', [], 404);
+        }
+
+        if ($tenant->status === 'closed' || $tenant->status === 'suspended') {
+            return response()->view('tenant.suspended', ['tenant' => $tenant], 403);
+        }
+
+        app(TenantContext::class)->set($tenant);
+        app()->instance('currentTenant', $tenant);
+        view()->share('currentTenant', $tenant);
+        view()->share('branding', $tenant->branding);
+
+        return $next($request);
     }
 
     private function isTenantAgnosticRoute(Request $request): bool
@@ -119,7 +142,10 @@ class ResolveTenant
             return;
         }
 
-        DB::statement("SET LOCAL app.current_user_id = '{$userId}'");
+        // Bug-Review R3-7: SET statt SET LOCAL, siehe Kommentar in handle() --
+        // der Reset am Request-Ende läuft jetzt über den
+        // app()->terminating()-Callback statt über eine Transaktionsgrenze.
+        DB::statement("SET app.current_user_id = '{$userId}'");
     }
 
     private function resolveViaCustomDomain(Request $request): ?Tenant

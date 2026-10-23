@@ -28,16 +28,23 @@ class TenantContext
         // Rolle boatingschool_app; diese SET-Anweisung ist die einzige Quelle
         // für app.current_tenant_id, die die DB-Policies auswerten.
         //
-        // Sicherheitsreview M5: SET LOCAL statt SET -- ein bloßes SET setzt
-        // die GUC für die gesamte Verbindungs-SESSION, nicht nur die
-        // aktuelle Transaktion. Bei wiederverwendeten Verbindungen
-        // (Connection-Pooling/PgBouncer im Session-Modus, Octane) könnte ein
-        // reines SET sonst über das Ende der aktuellen Transaktion hinaus
-        // bestehen bleiben. SET LOCAL wird am Transaktionsende automatisch
-        // zurückgesetzt -- dafür muss ResolveTenant::handle() den gesamten
-        // Request in eine Transaktion auf dieser Verbindung einpacken, siehe
-        // dort.
-        DB::statement("SET LOCAL app.current_tenant_id = '{$tenant->id}'");
+        // Bug-Review R3-7 (Folgefehler Sicherheitsreview M5): SET LOCAL
+        // wirkte nur innerhalb der aktuellen Transaktion -- das zwang
+        // ResolveTenant::handle() bisher dazu, den GESAMTEN restlichen
+        // Request in einer Transaktion laufen zu lassen, nur damit die GUC
+        // zuverlässig zurückgesetzt wird. Das hielt jedes im Request
+        // erworbene DB-Lock bis zum Request-Ende (auch während synchronem
+        // SMTP-Versand) und täuschte eine Atomarität des gesamten Requests
+        // vor, die es nie gab (die meisten Fehlerpfade fangen ihre Exception
+        // selbst, siehe BestEffortMail). SET (statt SET LOCAL) gilt für die
+        // gesamte Verbindungs-SESSION; ResolveTenant::handle() setzt dafür
+        // jetzt per app()->terminating()-Callback zuverlässig RESET am Ende
+        // JEDES Requests, unabhängig vom Transaktionsstatus -- das erhält
+        // die M5-Garantie (GUC bleibt nie über das Request-Ende hinaus auf
+        // einer wiederverwendeten Verbindung bestehen, z. B. PgBouncer im
+        // Session-Modus), ohne den ganzen Request in eine Transaktion zu
+        // zwingen.
+        DB::statement("SET app.current_tenant_id = '{$tenant->id}'");
     }
 
     /**
@@ -50,7 +57,7 @@ class TenantContext
     public function clear(): void
     {
         $this->tenant = null;
-        DB::statement("SET LOCAL app.current_tenant_id = '00000000-0000-0000-0000-000000000000'");
+        DB::statement("SET app.current_tenant_id = '00000000-0000-0000-0000-000000000000'");
     }
 
     public function tenant(): ?Tenant

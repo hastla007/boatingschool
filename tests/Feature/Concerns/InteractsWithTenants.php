@@ -103,22 +103,31 @@ trait InteractsWithTenants
     }
 
     /**
-     * Sicherheitsreview M5: app.current_tenant_id wird per SET LOCAL
-     * gesetzt und gilt deshalb nur innerhalb der Transaktion, in der es
-     * gesetzt wurde (siehe TenantContext, ResolveTenant) -- eine über
-     * actingAsInTenant() ausgelöste HTTP-Anfrage setzt den Kontext also
-     * nicht mehr über das Ende dieser Anfrage hinaus. Eine direkte
-     * Eloquent-Abfrage auf die App-Rolle (RLS aktiv) NACH einem solchen
-     * Request braucht deshalb ihren eigenen, frischen Tenant-Kontext --
-     * genau das stellt dieser Helfer her.
+     * Bug-Review R3-7 (Folgefehler Sicherheitsreview M5): app.current_tenant_id
+     * wird seit R3-7 per SET (nicht mehr SET LOCAL) gesetzt und gilt damit
+     * für die gesamte Verbindungs-SESSION statt nur innerhalb einer
+     * Transaktion -- eine über actingAsInTenant() ausgelöste HTTP-Anfrage
+     * setzt den Kontext seit jeher nicht mehr über das Ende dieser Anfrage
+     * hinaus (ResolveTenant::handle() räumt per terminating()-Callback
+     * selbst auf), eine direkte Eloquent-Abfrage auf die App-Rolle
+     * (RLS aktiv) NACH einem solchen Request braucht trotzdem ihren
+     * eigenen, frischen Tenant-Kontext -- genau das stellt dieser Helfer
+     * her. Ohne das abschließende clear() im finally-Block würde der
+     * Kontext (anders als vor R3-7, wo ihn SET LOCAL + Transaktionsende
+     * automatisch zurücksetzte) sonst über diesen Aufruf hinaus auf der
+     * wiederverwendeten Testverbindung bestehen bleiben und nachfolgende,
+     * von diesem Helfer unabhängige Abfragen in DEMSELBEN Testlauf
+     * verfälschen.
      */
     protected function asTenant(Tenant $tenant, callable $callback): mixed
     {
-        return DB::transaction(function () use ($tenant, $callback) {
+        try {
             app(TenantContext::class)->set($tenant);
 
             return $callback();
-        });
+        } finally {
+            app(TenantContext::class)->clear();
+        }
     }
 
     protected function createTestTenant(string $namePrefix = 'Test Schule'): Tenant
