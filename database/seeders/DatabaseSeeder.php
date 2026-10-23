@@ -27,6 +27,14 @@ class DatabaseSeeder extends Seeder
         $this->call([
             CourseSeeder::class,
             VideoCourseSeeder::class,
+            // Bug-Review N4: VideoLessonQuestionSeeder muss vor
+            // ComboVideoCourseSeeder laufen -- dessen Quiz-Spiegelung für
+            // den SBF-See-Teil des Kombikurses kopiert die bereits an
+            // SBF-SEE's eigenen Lektionen hängenden Fragen; auf einer
+            // frischen Installation (vorher: Reihenfolge umgekehrt) waren
+            // diese zum Zeitpunkt von ComboVideoCourseSeeder noch nie
+            // befüllt, die Kopie lief also immer leer.
+            VideoLessonQuestionSeeder::class,
             ComboVideoCourseSeeder::class,
             BinnenVideoCourseSeeder::class,
             BinnenSegelnVideoCourseSeeder::class,
@@ -34,7 +42,6 @@ class DatabaseSeeder extends Seeder
             FknSknVideoCourseSeeder::class,
             BinnenKnotenVideoSeeder::class,
             SeemannschaftVideoSeeder::class,
-            VideoLessonQuestionSeeder::class,
             BinnenLessonQuestionSeeder::class,
             BinnenSegelnLessonQuestionSeeder::class,
             BinnenSegelnAddonLessonQuestionSeeder::class,

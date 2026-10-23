@@ -10,38 +10,42 @@ use Illuminate\Database\Seeder;
 
 /**
  * Videokurs für den Kombikurs "SBF See & Binnen": die bestehenden SBF-See-
- * Kapitel und die SBF-Binnen-spezifischen Kapitel (ohne "Knoten", das
- * bereits über SBF See gespiegelt wird) werden unter der eigenen Kurs-ID
- * des Kombikurses gespiegelt (Video-/Fortschritts-/Quizdaten hängen an
- * course_id bzw. video_lesson_id, nicht an course_module), inklusive der
- * bereits zugeordneten Quizfragen (video_lesson_question). So reicht ein
- * einzelnes Entitlement auf den Kombikurs für beide Teilkurse.
+ * Kapitel (inklusive ihrer bereits von VideoLessonQuestionSeeder
+ * zugeordneten Quizfragen, siehe DatabaseSeeder -- muss deshalb VOR
+ * diesem Seeder laufen) werden unter der eigenen Kurs-ID des Kombikurses
+ * gespiegelt (Video-/Fortschritts-/Quizdaten hängen an course_id bzw.
+ * video_lesson_id, nicht an course_module), ergänzt um die drei SBF-
+ * Binnen-spezifischen Kapitel.
+ *
+ * Bug-Review N4 (Seeder-Regression): eine frühere Fassung versuchte, die
+ * SBF-Binnen-Kapitel stattdessen aus $sbfBinnen->videoModules() zu
+ * spiegeln -- die werden aber ihrerseits erst von BinnenVideoCourseSeeder
+ * aus GENAU DIESEM Kombikurs gespiegelt (siehe dort). Auf einer frischen
+ * Installation lief dieser Seeder zuerst (siehe DatabaseSeeder), fand bei
+ * $sbfBinnen also noch nichts vor, und blieb komplett ohne Binnen-Teil
+ * (und, weil BinnenVideoCourseSeeder danach ebenfalls nichts zum
+ * Spiegeln vorfand, hatte auch der eigenständige SBF-Binnen-Vollkurs gar
+ * keinen Videokurs mehr). Die Binnen-Kapitel werden deshalb -- wie vor
+ * dieser Regression -- wieder direkt hier nativ angelegt; sie sind die
+ * tatsächliche Quelle, aus der BinnenVideoCourseSeeder sie in den
+ * eigenständigen Binnen-Vollkurs spiegelt, nicht umgekehrt.
  */
 class ComboVideoCourseSeeder extends Seeder
 {
-    private const EXCLUDED_BINNEN_CHAPTERS = ['Knoten'];
+    private const PLACEHOLDER_VIDEO = 'https://www.w3schools.com/html/mov_bbb.mp4';
 
     public function run(): void
     {
         $combo = CourseDefinition::withoutGlobalScopes()->where('code', 'SBF-SEE-BIN')->whereNull('tenant_id')->first();
         $sbfSee = CourseDefinition::withoutGlobalScopes()->where('code', 'SBF-SEE')->whereNull('tenant_id')->first();
-        $sbfBinnen = CourseDefinition::withoutGlobalScopes()->where('code', 'SBF-BIN-MOTOR')->whereNull('tenant_id')->first();
 
-        if (! $combo || ! $sbfSee || ! $sbfBinnen || $combo->videoModules()->exists()) {
+        if (! $combo || ! $sbfSee || $combo->videoModules()->exists()) {
             return;
         }
 
         $sortOrder = 0;
 
-        $sourceModules = $sbfSee->videoModules()->with(['lessons.steps', 'lessons.questions'])->get()
-            ->concat(
-                $sbfBinnen->videoModules()
-                    ->whereNotIn('title', self::EXCLUDED_BINNEN_CHAPTERS)
-                    ->with(['lessons.steps', 'lessons.questions'])
-                    ->get()
-            );
-
-        foreach ($sourceModules as $sourceModule) {
+        foreach ($sbfSee->videoModules()->with(['lessons.steps', 'lessons.questions'])->get() as $sourceModule) {
             $sortOrder++;
             $module = VideoModule::create([
                 'course_id' => $combo->id,
@@ -72,6 +76,53 @@ class ComboVideoCourseSeeder extends Seeder
                         'sort_order' => $sourceQuestion->pivot->sort_order,
                     ]);
                 }
+            }
+        }
+
+        $binnenChapters = [
+            'Grundlagen' => [
+                ['Einführung in die Schifffahrt', 404],
+                ['Rechtliche Bestimmungen', 200],
+                ['Orientierung auf Wasserstraßen', 210],
+                ['Bedeutung von Tonnen', 265],
+            ],
+            'Lichter, Zeichen und Töne' => [
+                ['Grundlagen der Lichterführung', 348],
+                ['Besonderheiten und Sonderregelungen', 284],
+                ['Signalkörper und Lichter bei Nacht', 215],
+                ['Schallsignale', 183],
+                ['Smart-Learning', 60],
+                ['Notfallsignale', 128],
+            ],
+            'Bootsführung und Bordtechnik' => [
+                ['Liegen und Fahren', 203],
+                ['Schleusen', 182],
+                ['Ausweichen', 231],
+                ['Ausrüstung an Bord', 177],
+                ['Elektrische Systeme', 172],
+                ['Umweltschutz', 118],
+                ['Gefahren von Gas an Bord', 92],
+                ['Wassersport', 161],
+            ],
+        ];
+
+        foreach ($binnenChapters as $title => $lessons) {
+            $sortOrder++;
+            $module = VideoModule::create([
+                'course_id' => $combo->id,
+                'title' => $title,
+                'sort_order' => $sortOrder,
+            ]);
+
+            $lessonIndex = 0;
+            foreach ($lessons as [$lessonTitle, $duration]) {
+                VideoLesson::create([
+                    'video_module_id' => $module->id,
+                    'title' => $lessonTitle,
+                    'video_url' => self::PLACEHOLDER_VIDEO,
+                    'duration_seconds' => $duration,
+                    'sort_order' => ++$lessonIndex,
+                ]);
             }
         }
     }
