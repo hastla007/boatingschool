@@ -314,7 +314,20 @@
 
                     pruefungsorte.forEach(function (ort) {
                         var marker = L.marker([ort.lat, ort.lng]).addTo(map);
-                        var popup = '<strong>' + ort.name + '</strong>' + (ort.address ? '<br>' + ort.address : '');
+                        // Sicherheitsreview S-N1: Ortsname/-adresse sind
+                        // freier Admin-Text (TenantCourseLocation) -- per
+                        // String-Konkatenation gebautes HTML, das bindPopup()
+                        // direkt rendert, wäre ein gespeichertes XSS. Ein
+                        // DOM-Element mit textContent entgeht jeder
+                        // HTML-Interpretation.
+                        var popup = document.createElement('div');
+                        var name = document.createElement('strong');
+                        name.textContent = ort.name;
+                        popup.appendChild(name);
+                        if (ort.address) {
+                            popup.appendChild(document.createElement('br'));
+                            popup.appendChild(document.createTextNode(ort.address));
+                        }
                         marker.bindPopup(popup);
                         marker.on('click', function () {
                             if (select) {

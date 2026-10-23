@@ -400,6 +400,62 @@ class PraxisPruefungFormTest extends TestCase
         $response->assertSee('Prüfstelle Süd');
     }
 
+    /**
+     * Sicherheitsreview S-N1: die Marker-Popups der Ortskarte bauten ihr
+     * HTML bislang per String-Konkatenation ('<strong>' + ort.name + ...)
+     * und übergaben es Leaflets bindPopup() als rohen HTML-String -- ein
+     * per <img onerror=...> oder <svg onload=...> präparierter Orts-/
+     * Adressname wäre damit ein gespeichertes XSS gegen jeden Betrachter
+     * der Seite gewesen. Da die eigentliche Schwachstelle erst zur
+     * Laufzeit im Browser-JS entsteht (nicht im Server-Response selbst --
+     * @json() escaped bereits HTML-kritische Zeichen im JSON-Blob), prüft
+     * dieser Test serverseitig, dass das verwundbare String-Muster aus
+     * der Seite entfernt ist und durch den sicheren DOM-/textContent-
+     * Aufbau ersetzt wurde.
+     */
+    public function test_the_map_popup_is_built_via_safe_dom_text_content_not_raw_html_concatenation(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course] = $this->makeIsolatedCourseWithQuestions(2);
+        $this->grantEntitlement($tenant, $learner, $course);
+        $this->completeRegistrationProfile($learner);
+        $this->masterAllQuestions($tenant, $learner, $course);
+        $this->createTemplate([
+            'course_ids' => [$course->id],
+            'min_progress_percent' => 10,
+            'fields' => [
+                ['key' => 'ort', 'label' => 'Ort', 'type' => 'location', 'required' => true, 'options' => [], 'help_text' => null],
+            ],
+        ]);
+        $this->onAdmin(fn () => TenantCourseLocation::create([
+            'tenant_id' => $tenant->id,
+            'praxis_ort' => 'Standort Nord',
+            'pruefung_ort' => '<img src=x onerror=alert(1)>',
+            'pruefung_lat' => 53.5460740,
+            'pruefung_lng' => 9.9826940,
+            'course_ids' => [$course->id],
+        ]));
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get(route('praxis-pruefung.index', $course));
+
+        $response->assertOk();
+        $html = $response->getContent();
+
+        $this->assertStringNotContainsString(
+            "'<strong>' + ort.name",
+            $html,
+            'Das Popup wird noch per unsicherer String-Konkatenation gebaut.'
+        );
+        $this->assertStringContainsString('marker.bindPopup(popup)', $html);
+        $this->assertStringContainsString('name.textContent = ort.name', $html);
+
+        // @json() escaped < und > zu Unicode-Escapes (JSON_HEX_TAG) -- der
+        // Payload selbst darf deshalb nirgends als rohes HTML-Tag im
+        // Response auftauchen.
+        $this->assertStringNotContainsString('<img src=x onerror=alert(1)>', $html);
+    }
+
     public function test_submitting_a_location_stores_the_coupled_exam_location(): void
     {
         $tenant = $this->createTestTenant();
