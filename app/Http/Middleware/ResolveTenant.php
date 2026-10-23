@@ -31,6 +31,7 @@ class ResolveTenant
         // Request-Ende hinaus bestehen zu bleiben.
         return DB::transaction(function () use ($request, $next) {
             app(TenantContext::class)->clear();
+            $this->setCurrentUserIdForRls($request);
 
             $tenant = $this->resolveViaCustomDomain($request)
                 ?? $this->resolveViaDevOverride($request)
@@ -81,6 +82,44 @@ class ResolveTenant
         return $request->is('login') || $request->is('logout')
             || $request->is('forgot-password') || $request->is('reset-password') || $request->is('reset-password/*')
             || $request->is('superadmin') || $request->is('superadmin/*');
+    }
+
+    /**
+     * Sicherheitsreview R3-1: app_user_select_visibility (Migration 000461)
+     * macht eine Zeile nur sichtbar, wenn kein echter Tenant-Kontext gesetzt
+     * ist ODER der Nutzer bereits tenant_user der aktuell aufgelösten
+     * Bootsschule ist -- ein bereits eingeloggter Nutzer, der noch KEIN
+     * Mitglied dieser Bootsschule ist (z. B. beim Aufruf eines
+     * Einladungs-Links auf deren Subdomain, siehe InvitationAcceptController),
+     * verschwindet dadurch vor sich selbst: EnsureAccountIsActive/
+     * Auth::user() lädt ihn über genau diese RLS-beschränkte Verbindung neu,
+     * sobald der echte Tenant-Kontext steht (läuft nach ResolveTenant),
+     * findet die eigene Zeile nicht mehr und behandelt ihn wie nicht
+     * eingeloggt -- eine Einladungsannahme für ein bestehendes Konto wäre
+     * damit faktisch nie möglich.
+     *
+     * app.current_user_id wird deshalb zusätzlich aus dem RAW
+     * Session-Wert gesetzt (derselbe Schlüssel, den Laravels SessionGuard
+     * selbst für den Login-Status verwendet, siehe SessionGuard::getName())
+     * -- die Session ist signiert/verschlüsselt und damit vom Client nicht
+     * fälschbar, ihr Inhalt muss für diese reine Sichtbarkeits-Freigabe
+     * noch nicht per DB-Query bestätigt sein (das übernimmt die
+     * anschließende Auth-Resolution ohnehin). Die ergänzte RLS-Policy
+     * (Migration 000468) lässt eine Zeile zusätzlich sichtbar, wenn ihre
+     * id mit dieser GUC übereinstimmt -- ein Nutzer sieht damit immer sich
+     * selbst, unabhängig von jeder Mitgliedschaft.
+     */
+    private function setCurrentUserIdForRls(Request $request): void
+    {
+        $userId = $request->hasSession()
+            ? $request->session()->get('login_web_'.sha1(\Illuminate\Auth\SessionGuard::class))
+            : null;
+
+        if (! $userId || ! preg_match('/^[0-9a-f-]{36}$/i', $userId)) {
+            return;
+        }
+
+        DB::statement("SET LOCAL app.current_user_id = '{$userId}'");
     }
 
     private function resolveViaCustomDomain(Request $request): ?Tenant
