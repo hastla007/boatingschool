@@ -407,6 +407,18 @@ class ParticipantController extends Controller
             return back()->with('status', $status);
         }
 
+        // Bug-Review H3 (Rest): /coupons/redeem schließt Instructor bewusst
+        // aus (siehe Kommentar dort, routes/web.php) -- über diesen Umweg
+        // (Code gleich beim Einladen eines NEUEN Teilnehmers mitgeben, diese
+        // Route lässt auch Instructor zu) ließe sich dieselbe Einschränkung
+        // sonst umgehen und ein begrenzter Coupon ohne Owner/Admin-Freigabe
+        // verbrauchen. Der Teilnehmer selbst bleibt trotzdem angelegt --
+        // genau wie bei einem ungültigen Code unten wird nur die
+        // Code-Zuweisung abgelehnt, nicht die ganze Einladung.
+        if (! $request->user()->isAdminFor($tenant)) {
+            return back()->withErrors(['code' => 'Nur Owner/Admin können beim Einladen direkt einen Code zuweisen -- das geht sonst nach der Einladung über die Coupon-Codes-Verwaltung.'])->with('status', $status);
+        }
+
         // Eine fehlgeschlagene Code-Zuweisung soll die bereits erfolgte
         // Einladung nicht rückgängig machen -- der Teilnehmer bleibt
         // angelegt, nur der Code-Fehler wird separat gemeldet (die

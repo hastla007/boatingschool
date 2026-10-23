@@ -143,6 +143,42 @@ class ParticipantInviteTest extends TestCase
         });
     }
 
+    /**
+     * Bug-Review H3 (Rest): /coupons/redeem schließt Instructor bewusst aus
+     * (siehe Kommentar dort, routes/web.php) -- diese Route lässt auch
+     * Instructor zu und erlaubte bisher trotzdem, über den optionalen
+     * code-Parameter beim Einladen eines NEUEN Teilnehmers einen Coupon
+     * sofort einzulösen, ohne Owner/Admin-Freigabe.
+     */
+    public function test_an_instructor_cannot_assign_a_code_while_inviting_a_new_participant(): void
+    {
+        $tenant = $this->createTestTenant();
+        $instructor = $this->createTenantUser($tenant, 'instructor');
+        $course = $this->existingCourse('SRC');
+        $code = 'E2E-INVITE-INSTRUCTOR';
+        $this->createdCodes[] = $code;
+        $this->onAdmin(fn () => Coupon::create(['code' => $code, 'course_id' => $course->id, 'tenant_id' => $tenant->id]));
+
+        $response = $this->actingAsInTenant($instructor, $tenant)->post('/admin/participants/invite', [
+            'name' => 'Von Instructor Eingeladen',
+            'email' => 'instructor-invite-'.uniqid().'@example.test',
+            'code' => $code,
+        ]);
+
+        $response->assertSessionHasErrors('code');
+
+        $this->onAdmin(function () use ($tenant, $course, $code) {
+            $user = User::where('display_name', 'Von Instructor Eingeladen')->first();
+            $this->assertNotNull($user, 'Die Einladung soll trotz abgelehntem Code durchgehen.');
+            $this->assertCount(0, $user->entitlements);
+
+            $coupon = Coupon::where('code', $code)->first();
+            $this->assertFalse($coupon->isRedeemed());
+
+            $this->deleteInvitedUser($user);
+        });
+    }
+
     public function test_an_unknown_code_does_not_block_the_invite_but_shows_an_error(): void
     {
         $tenant = $this->createTestTenant();
