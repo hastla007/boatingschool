@@ -6,6 +6,7 @@ use App\Models\ContentQuestion;
 use App\Models\CourseDefinition;
 use App\Models\Favorite;
 use App\Models\FavoriteCollection;
+use App\Services\EntitlementService;
 use App\Services\FavoriteCollectionService;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
@@ -21,9 +22,16 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class FavoriteCollectionController extends Controller
 {
-    public function store(Request $request, TenantContext $tenantContext, CourseDefinition $course, FavoriteCollectionService $collections): Response
+    public function store(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course, FavoriteCollectionService $collections): Response
     {
         $tenant = $tenantContext->tenant();
+
+        // Bug-Review N12: ohne diese Prüfung ließ sich für einen beliebigen
+        // Kurs (Route-Model-Binding akzeptiert jede existierende UUID) eine
+        // Collection anlegen, auch ohne Entitlement dafür -- analog zur
+        // bereits bestehenden Prüfung in FavoriteController::store().
+        abort_unless($entitlements->hasAccess($tenant, $request->user(), $course), 403, 'Für diesen Kurs liegt kein aktives Entitlement vor.');
+
         $validated = $request->validate(['name' => ['required', 'string', 'max:255']]);
 
         try {
@@ -63,9 +71,20 @@ class FavoriteCollectionController extends Controller
         return back()->with('status', 'Collection gelöscht.');
     }
 
-    public function sync(Request $request, TenantContext $tenantContext, CourseDefinition $course, ContentQuestion $question, FavoriteCollectionService $collections): Response
+    public function sync(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course, ContentQuestion $question, FavoriteCollectionService $collections): Response
     {
         $tenant = $tenantContext->tenant();
+
+        // Bug-Review N12: ohne diese beiden Prüfungen ließ sich eine Frage
+        // für einen beliebigen Kurs ohne Entitlement einsortieren, und eine
+        // Frage, die gar nicht zu diesem Kurs gehört, trotzdem seiner
+        // Collection zuordnen -- analog zur bereits bestehenden Prüfung in
+        // FavoriteController::store().
+        abort_unless($entitlements->hasAccess($tenant, $request->user(), $course), 403, 'Für diesen Kurs liegt kein aktives Entitlement vor.');
+
+        $course->loadMissing('modules.questions');
+        $courseQuestionIds = $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id');
+        abort_unless($courseQuestionIds->contains($question->id), 403, 'Frage gehört nicht zum berechtigten Kurs.');
 
         $validated = $request->validate([
             'context' => ['required', 'in:'.Favorite::CONTEXT_SMART_LEARNING.','.Favorite::CONTEXT_EXAM],

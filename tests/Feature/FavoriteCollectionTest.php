@@ -238,6 +238,71 @@ class FavoriteCollectionTest extends TestCase
     }
 
     /**
+     * Bug-Review N12: FavoriteCollectionController::store() prüfte bislang
+     * nicht, ob der Lerner überhaupt ein aktives Entitlement für den
+     * (per Route-Model-Binding beliebig wählbaren) Kurs hat -- anders als
+     * der bereits geprüfte FavoriteController::store().
+     */
+    public function test_creating_a_collection_for_a_course_without_an_entitlement_is_rejected(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        // Bewusst kein grantEntitlement().
+
+        $response = $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/favorites/collections", [
+            'name' => 'Unberechtigt',
+        ]);
+
+        $response->assertForbidden();
+        $this->asTenant($tenant, function () use ($tenant, $learner, $course) {
+            $this->assertDatabaseMissing('favorite_collection', ['tenant_id' => $tenant->id, 'user_id' => $learner->id, 'course_id' => $course->id]);
+        });
+    }
+
+    /**
+     * Bug-Review N12: FavoriteCollectionController::sync() prüfte bislang
+     * weder ein Entitlement für den Kurs noch, ob die Frage überhaupt zu
+     * diesem Kurs gehört -- anders als der bereits geprüfte
+     * FavoriteController::store().
+     */
+    public function test_syncing_a_question_for_a_course_without_an_entitlement_is_rejected(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $module = $this->existingModule('SRC');
+        [$question] = $this->anyPublishedQuestionIn($module);
+        // Bewusst kein grantEntitlement().
+
+        $response = $this->actingAsInTenant($learner, $tenant)->put("/courses/{$course->id}/favorites/{$question->id}/collections", [
+            'context' => 'smart_learning',
+            'collection_ids' => [],
+        ]);
+
+        $response->assertForbidden();
+    }
+
+    public function test_syncing_a_question_that_does_not_belong_to_the_course_is_rejected(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $courseA = $this->existingCourse('SRC');
+        $courseB = $this->existingCourse('UBI');
+        $this->grantEntitlement($tenant, $learner, $courseA);
+        $this->grantEntitlement($tenant, $learner, $courseB);
+        $moduleB = $this->existingModule('UBI');
+        [$questionFromB] = $this->anyPublishedQuestionIn($moduleB);
+
+        $response = $this->actingAsInTenant($learner, $tenant)->put("/courses/{$courseA->id}/favorites/{$questionFromB->id}/collections", [
+            'context' => 'smart_learning',
+            'collection_ids' => [],
+        ]);
+
+        $response->assertForbidden();
+    }
+
+    /**
      * Bug-Review N3: FavoriteCollectionService::detachFromAllCollections()
      * löschte bislang die FavoriteCollectionItem-Zeilen nur nach tenant_id/
      * question_id/context -- ohne Einschränkung auf die eigenen
