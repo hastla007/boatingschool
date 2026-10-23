@@ -63,10 +63,16 @@ class RenewalCodeTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $coupon = Coupon::where('tenant_id', $tenant->id)->where('course_id', $course->id)->first();
-        $this->assertNotNull($coupon);
-        $this->createdCodes[] = $coupon->code;
-        $this->assertTrue($coupon->is_renewal);
+        // Bug-Review M6 (Folgefehler): die App-Verbindung sieht einen
+        // fremden Mandanten-Coupon ohne gesetzten Tenant-Kontext (RLS)
+        // nicht -- diese Prüfung muss deshalb über die Owner-Verbindung
+        // laufen.
+        $this->onAdmin(function () use ($tenant, $course) {
+            $coupon = Coupon::where('tenant_id', $tenant->id)->where('course_id', $course->id)->first();
+            $this->assertNotNull($coupon);
+            $this->createdCodes[] = $coupon->code;
+            $this->assertTrue($coupon->is_renewal);
+        });
 
         $index = $this->actingAs($superadmin)->get('/superadmin/coupons?tenant_id='.$tenant->id);
         $index->assertOk();

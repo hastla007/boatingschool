@@ -315,7 +315,16 @@ class SuperadminAreaTest extends TestCase
         $this->assertTrue((bool) $settings->maintenance_mode);
 
         // Zustand für nachfolgende Tests zurücksetzen (Singleton-Zeile).
-        $this->onAdmin(fn () => $settings->update(['site_name' => 'Bootsführerschein-Lernplattform', 'support_email' => null, 'maintenance_mode' => false, 'maintenance_message' => null]));
+        // Bug-Review M6 (Folgefehler): $settings wurde oben AUSSERHALB von
+        // onAdmin() geholt, also auf der regulären (jetzt korrekt
+        // wiederhergestellten) App-Verbindung hydriert -- Eloquent legt die
+        // Verbindung eines Models beim Hydrieren fest und ignoriert ein
+        // späteres config('database.default'), siehe
+        // AccountErasureService::deleteAccountEntirely(). ->update() auf
+        // diesem Objekt INNERHALB von onAdmin() liefe deshalb trotzdem auf
+        // der App-Verbindung, die hierfür kein Schreibrecht hat -- frisch
+        // über DB::table() statt über das bereits gebundene Model aktualisieren.
+        $this->onAdmin(fn () => DB::table('platform_setting')->update(['site_name' => 'Bootsführerschein-Lernplattform', 'support_email' => null, 'maintenance_mode' => false, 'maintenance_message' => null]));
     }
 
     public function test_superadmin_can_generate_a_single_and_a_batch_of_coupons_scoped_to_a_tenant(): void
@@ -331,7 +340,11 @@ class SuperadminAreaTest extends TestCase
         ]);
         $single->assertRedirect();
         $single->assertSessionHas('generatedCodes', fn ($codes) => count($codes) === 1);
-        $this->assertSame(1, Coupon::where('tenant_id', $tenant->id)->count());
+        // Bug-Review M6 (Folgefehler): die davor korrekt wiederhergestellte
+        // App-Verbindung sieht einen fremden Mandanten-Coupon ohne gesetzten
+        // Tenant-Kontext (RLS) gar nicht -- diese Prüfungen müssen deshalb
+        // über die Owner-Verbindung laufen, exakt wie der Rest dieser Klasse.
+        $this->onAdmin(fn () => $this->assertSame(1, Coupon::where('tenant_id', $tenant->id)->count()));
 
         $batch = $this->actingAs($superadmin)->post('/superadmin/coupons', [
             'target' => 'course:'.$course->id,
@@ -341,9 +354,11 @@ class SuperadminAreaTest extends TestCase
         ]);
         $batch->assertRedirect();
         $batch->assertSessionHas('generatedCodes', fn ($codes) => count($codes) === 5);
-        $this->assertSame(6, Coupon::where('tenant_id', $tenant->id)->count());
-        $this->createdCouponIds = array_merge($this->createdCouponIds, Coupon::where('tenant_id', $tenant->id)->pluck('id')->all());
-        $this->assertSame(5, Coupon::where('tenant_id', $tenant->id)->where('batch_label', 'E2E Testbatch')->count());
+        $this->onAdmin(function () use ($tenant) {
+            $this->assertSame(6, Coupon::where('tenant_id', $tenant->id)->count());
+            $this->createdCouponIds = array_merge($this->createdCouponIds, Coupon::where('tenant_id', $tenant->id)->pluck('id')->all());
+            $this->assertSame(5, Coupon::where('tenant_id', $tenant->id)->where('batch_label', 'E2E Testbatch')->count());
+        });
 
         $index = $this->actingAs($superadmin)->get('/superadmin/coupons?tenant_id='.$tenant->id);
         $index->assertOk();
@@ -365,10 +380,15 @@ class SuperadminAreaTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $coupon = Coupon::where('tenant_id', $tenant->id)->where('course_id', $course->id)->first();
-        $this->assertNotNull($coupon);
-        $this->createdCouponIds[] = $coupon->id;
-        $this->assertSame([$option->id], $coupon->optionProducts->pluck('id')->all());
+        // Bug-Review M6 (Folgefehler): siehe Kommentar im Test oben --
+        // die App-Verbindung sieht einen fremden Mandanten-Coupon ohne
+        // gesetzten Tenant-Kontext (RLS) nicht.
+        $this->onAdmin(function () use ($tenant, $course, $option) {
+            $coupon = Coupon::where('tenant_id', $tenant->id)->where('course_id', $course->id)->first();
+            $this->assertNotNull($coupon);
+            $this->createdCouponIds[] = $coupon->id;
+            $this->assertSame([$option->id], $coupon->optionProducts->pluck('id')->all());
+        });
     }
 
     public function test_superadmin_can_generate_a_course_coupon_with_several_bundled_option_products(): void
@@ -387,10 +407,12 @@ class SuperadminAreaTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $coupon = Coupon::where('tenant_id', $tenant->id)->where('course_id', $course->id)->first();
-        $this->assertNotNull($coupon);
-        $this->createdCouponIds[] = $coupon->id;
-        $this->assertEqualsCanonicalizing([$willkommensbox->id, $kleinePraxis->id], $coupon->optionProducts->pluck('id')->all());
+        $this->onAdmin(function () use ($tenant, $course, $willkommensbox, $kleinePraxis) {
+            $coupon = Coupon::where('tenant_id', $tenant->id)->where('course_id', $course->id)->first();
+            $this->assertNotNull($coupon);
+            $this->createdCouponIds[] = $coupon->id;
+            $this->assertEqualsCanonicalizing([$willkommensbox->id, $kleinePraxis->id], $coupon->optionProducts->pluck('id')->all());
+        });
     }
 
     public function test_option_product_ids_are_ignored_when_generating_a_product_coupon(): void
@@ -408,10 +430,12 @@ class SuperadminAreaTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $coupon = Coupon::where('tenant_id', $tenant->id)->where('product_id', $product->id)->first();
-        $this->assertNotNull($coupon);
-        $this->createdCouponIds[] = $coupon->id;
-        $this->assertTrue($coupon->optionProducts->isEmpty());
+        $this->onAdmin(function () use ($tenant, $product) {
+            $coupon = Coupon::where('tenant_id', $tenant->id)->where('product_id', $product->id)->first();
+            $this->assertNotNull($coupon);
+            $this->createdCouponIds[] = $coupon->id;
+            $this->assertTrue($coupon->optionProducts->isEmpty());
+        });
     }
 
     public function test_superadmin_can_export_all_filtered_coupon_codes_via_select_all(): void

@@ -82,8 +82,14 @@ class ProductTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $this->assertSame(3, Coupon::where('product_id', $product->id)->where('tenant_id', $tenant->id)->count());
-        $this->assertDatabaseHas('coupon', ['product_id' => $product->id, 'course_id' => null]);
+        // Bug-Review M6 (Folgefehler): die App-Verbindung sieht einen
+        // fremden Mandanten-Coupon ohne gesetzten Tenant-Kontext (RLS)
+        // nicht -- diese Prüfung muss deshalb über die Owner-Verbindung
+        // laufen.
+        $this->onAdmin(function () use ($product, $tenant) {
+            $this->assertSame(3, Coupon::where('product_id', $product->id)->where('tenant_id', $tenant->id)->count());
+            $this->assertDatabaseHas('coupon', ['product_id' => $product->id, 'course_id' => null]);
+        });
     }
 
     public function test_redeeming_a_product_coupon_creates_a_purchase_record_visible_in_profile_and_admin(): void
