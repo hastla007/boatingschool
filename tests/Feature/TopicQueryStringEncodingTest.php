@@ -21,8 +21,14 @@ class TopicQueryStringEncodingTest extends TestCase
 
     public function test_the_next_question_link_keeps_an_ampersand_in_the_topic_name_intact(): void
     {
+        // Bug-Review N23: ohne orderBy() lieferte Postgres je nach
+        // physischer Zeilenreihenfolge (die sich z. B. durch UPDATEs
+        // anderer Tests auf den Fragenkatalog verschiebt) mal dieses, mal
+        // ein anderes der zahlreichen "&"-Themen im Katalog zurück -- im
+        // Komplettlauf der Suite damit nicht deterministisch denselben
+        // Datensatz wie im isolierten Lauf dieses Tests.
         $revision = $this->onAdmin(fn () => ContentQuestionRevision::where('topic', 'like', '%&%')
-            ->where('editorial_status', 'published')->with('answers')->first());
+            ->where('editorial_status', 'published')->with('answers')->orderBy('id')->first());
 
         $this->assertNotNull($revision, 'Erwartet ein Thema mit "&" im Katalog (z. B. "Lichter, Zeichen & Schallsignale").');
         $topic = $revision->topic;
