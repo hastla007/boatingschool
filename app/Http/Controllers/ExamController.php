@@ -406,5 +406,4 @@ class ExamController extends Controller
         $course = $examSession->course;
         abort_unless($course && $entitlements->hasAccess($tenantContext->tenant(), $request->user(), $course), 403, 'Für diesen Kurs liegt kein aktives Entitlement vor.');
     }
-
 }

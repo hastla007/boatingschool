@@ -16,7 +16,7 @@ class MasteryCalculatorTest extends TestCase
 {
     private function freshProgress(): Progress
     {
-        $progress = new Progress();
+        $progress = new Progress;
         $progress->fill([
             'attempt_count' => 0, 'correct_count' => 0, 'incorrect_count' => 0,
             'current_streak' => 0, 'mastery_score' => 0, 'learning_state' => 'neu',
@@ -28,7 +28,7 @@ class MasteryCalculatorTest extends TestCase
     public function test_three_correct_answers_in_a_row_are_mastered(): void
     {
         $progress = $this->freshProgress();
-        $calculator = new MasteryCalculator();
+        $calculator = new MasteryCalculator;
         $now = Carbon::now();
 
         foreach ([true, true, true] as $correct) {
@@ -43,7 +43,7 @@ class MasteryCalculatorTest extends TestCase
     public function test_three_correct_answers_with_a_wrong_answer_in_between_are_not_yet_mastered(): void
     {
         $progress = $this->freshProgress();
-        $calculator = new MasteryCalculator();
+        $calculator = new MasteryCalculator;
         $now = Carbon::now();
 
         // Richtig, falsch (Streak reißt ab), richtig, richtig -> insgesamt
@@ -61,7 +61,7 @@ class MasteryCalculatorTest extends TestCase
     public function test_two_correct_answers_are_not_yet_mastered(): void
     {
         $progress = $this->freshProgress();
-        $calculator = new MasteryCalculator();
+        $calculator = new MasteryCalculator;
         $now = Carbon::now();
 
         foreach ([true, true] as $correct) {
@@ -75,7 +75,7 @@ class MasteryCalculatorTest extends TestCase
     public function test_a_wrong_answer_resets_the_streak_but_not_the_correct_count(): void
     {
         $progress = $this->freshProgress();
-        $calculator = new MasteryCalculator();
+        $calculator = new MasteryCalculator;
         $now = Carbon::now();
 
         $calculator->apply($progress, true, $now);

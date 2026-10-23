@@ -61,7 +61,7 @@ class PrunePersonalData extends Command
         $config = config("data_retention.{$configKey}");
 
         if (! $config['enabled']) {
-            $this->line("{$table}: Aufräumen deaktiviert (DATA_RETENTION_".strtoupper($configKey)."_ENABLED -- Frist bewusst zu prüfen, siehe config/data_retention.php).");
+            $this->line("{$table}: Aufräumen deaktiviert (DATA_RETENTION_".strtoupper($configKey).'_ENABLED -- Frist bewusst zu prüfen, siehe config/data_retention.php).');
 
             return;
         }

@@ -2,8 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Models\Attempt;
 use App\Models\ContentQuestion;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Tests\Feature\Concerns\InteractsWithTenants;
@@ -38,9 +40,9 @@ class ContentImportTest extends TestCase
         $this->cleanUpCreatedTenantsAndUsers();
 
         $this->onAdmin(function () {
-            $question = \App\Models\ContentQuestion::where('content_id', 'TEST-IMPORT-0001')->first();
+            $question = ContentQuestion::where('content_id', 'TEST-IMPORT-0001')->first();
             if ($question) {
-                \Illuminate\Support\Facades\DB::table('module_content')->where('question_id', $question->id)->delete();
+                DB::table('module_content')->where('question_id', $question->id)->delete();
                 $question->delete();
             }
         });
@@ -74,7 +76,7 @@ class ContentImportTest extends TestCase
         $learner = $this->createTenantUser($tenant, 'learner');
         $answer = $revision1->answers()->firstOrFail();
 
-        $attempt = $this->onAdmin(fn () => \App\Models\Attempt::create([
+        $attempt = $this->onAdmin(fn () => Attempt::create([
             'tenant_id' => $tenant->id,
             'user_id' => $learner->id,
             'question_id' => $question->id,
@@ -98,7 +100,7 @@ class ContentImportTest extends TestCase
         $this->fixturePath = storage_path('framework/testing/content-import-test.xlsx');
         @mkdir(dirname($this->fixturePath), recursive: true);
 
-        $spreadsheet = new Spreadsheet();
+        $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Central Question Pool');
         $sheet->fromArray(self::HEADER, null, 'A1');

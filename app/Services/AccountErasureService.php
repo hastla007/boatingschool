@@ -31,9 +31,7 @@ use Illuminate\Support\Facades\DB;
  */
 class AccountErasureService
 {
-    public function __construct(private TenantContext $tenantContext)
-    {
-    }
+    public function __construct(private TenantContext $tenantContext) {}
 
     public function leaveTenant(User $user, Tenant $tenant): void
     {

@@ -17,9 +17,7 @@ class ConfirmPendingEmail extends Notification
 {
     use Queueable;
 
-    public function __construct(private readonly string $pendingEmail)
-    {
-    }
+    public function __construct(private readonly string $pendingEmail) {}
 
     /** @return array<int, string> */
     public function via(mixed $notifiable): array

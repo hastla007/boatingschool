@@ -2,6 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Models\FavoriteCollection;
+use App\Models\PraxisExamAppointment;
+use App\Models\PraxisFormSubmission;
+use App\Models\PraxisFormTemplate;
+use App\Models\TenantUser;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -24,7 +29,7 @@ class PersonalDataExportTest extends TestCase
 
         $this->onAdmin(function () {
             foreach ($this->createdTemplateIds as $id) {
-                \App\Models\PraxisFormTemplate::where('id', $id)->delete();
+                PraxisFormTemplate::where('id', $id)->delete();
             }
         });
 
@@ -58,7 +63,7 @@ class PersonalDataExportTest extends TestCase
         $tenantA = $this->createTestTenant();
         $tenantB = $this->createTestTenant();
         $user = $this->createTenantUser($tenantA, 'learner');
-        $this->onAdmin(fn () => \App\Models\TenantUser::create([
+        $this->onAdmin(fn () => TenantUser::create([
             'tenant_id' => $tenantB->id,
             'user_id' => $user->id,
             'role' => 'learner',
@@ -101,7 +106,7 @@ class PersonalDataExportTest extends TestCase
         $this->grantEntitlement($tenant, $learner, $course);
 
         $this->onAdmin(function () use ($tenant, $learner, $course) {
-            $template = \App\Models\PraxisFormTemplate::create([
+            $template = PraxisFormTemplate::create([
                 'title' => 'E2E Export-Formular',
                 'min_progress_percent' => 0,
                 'course_ids' => [$course->id],
@@ -110,7 +115,7 @@ class PersonalDataExportTest extends TestCase
             ]);
             $this->createdTemplateIds[] = $template->id;
 
-            $submission = \App\Models\PraxisFormSubmission::create([
+            $submission = PraxisFormSubmission::create([
                 'tenant_id' => $tenant->id,
                 'course_id' => $course->id,
                 'user_id' => $learner->id,
@@ -118,7 +123,7 @@ class PersonalDataExportTest extends TestCase
                 'data' => [],
             ]);
 
-            \App\Models\PraxisExamAppointment::create([
+            PraxisExamAppointment::create([
                 'tenant_id' => $tenant->id,
                 'praxis_form_submission_id' => $submission->id,
                 'slot' => 0,
@@ -128,7 +133,7 @@ class PersonalDataExportTest extends TestCase
                 'response' => 'accepted',
             ]);
 
-            \App\Models\FavoriteCollection::create([
+            FavoriteCollection::create([
                 'tenant_id' => $tenant->id,
                 'user_id' => $learner->id,
                 'course_id' => $course->id,

@@ -2,13 +2,17 @@
 
 namespace Tests\Feature;
 
-use App\Models\Coupon;
 use App\Models\ContentAnswer;
 use App\Models\ContentQuestion;
 use App\Models\ContentQuestionRevision;
+use App\Models\Coupon;
 use App\Models\CourseDefinition;
 use App\Models\PlatformSetting;
 use App\Models\Product;
+use App\Models\Progress;
+use App\Models\Tenant;
+use App\Models\TenantUser;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\Feature\Concerns\InteractsWithTenants;
@@ -121,9 +125,9 @@ class SuperadminAreaTest extends TestCase
         $this->assertDatabaseHas('app_user', ['email' => 'e2e-neue-schule-admin@example.test']);
 
         $this->onAdmin(function () {
-            $tenant = \App\Models\Tenant::where('slug', 'e2e-neue-schule')->first();
+            $tenant = Tenant::where('slug', 'e2e-neue-schule')->first();
             $this->createdTenantIds[] = $tenant->id;
-            $admin = \App\Models\User::where('email', 'e2e-neue-schule-admin@example.test')->first();
+            $admin = User::where('email', 'e2e-neue-schule-admin@example.test')->first();
             $this->createdUserIds[] = $admin->id;
 
             $this->assertNotNull($tenant->branding, 'Beim Anlegen sollte automatisch ein Branding-Datensatz erzeugt werden.');
@@ -148,7 +152,7 @@ class SuperadminAreaTest extends TestCase
         $this->assertDatabaseHas('app_user', ['email' => 'nina-beispiel@example.test']);
 
         $this->onAdmin(function () use ($tenant) {
-            $user = \App\Models\User::where('email', 'nina-beispiel@example.test')->first();
+            $user = User::where('email', 'nina-beispiel@example.test')->first();
             $this->createdUserIds[] = $user->id;
             $this->assertDatabaseHas('tenant_user', ['tenant_id' => $tenant->id, 'user_id' => $user->id, 'role' => 'learner']);
         });
@@ -182,7 +186,7 @@ class SuperadminAreaTest extends TestCase
         $tenantA = $this->createTestTenant('E2E P1 Schule A');
         $tenantB = $this->createTestTenant('E2E P1 Schule B');
         $learner = $this->createTenantUser($tenantA, 'learner');
-        $this->onAdmin(fn () => \App\Models\TenantUser::create([
+        $this->onAdmin(fn () => TenantUser::create([
             'tenant_id' => $tenantB->id,
             'user_id' => $learner->id,
             'role' => 'learner',
@@ -197,7 +201,7 @@ class SuperadminAreaTest extends TestCase
         $this->assertGreaterThanOrEqual(2, $questionIds->count());
 
         // TenantA: eine von mehreren Fragen gefestigt. TenantB: keine.
-        $this->onAdmin(fn () => \App\Models\Progress::create([
+        $this->onAdmin(fn () => Progress::create([
             'tenant_id' => $tenantA->id,
             'user_id' => $learner->id,
             'question_id' => $questionIds->first(),

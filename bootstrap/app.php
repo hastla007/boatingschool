@@ -1,8 +1,18 @@
 <?php
 
+use App\Http\Middleware\EnforceMaintenanceMode;
+use App\Http\Middleware\EnsureAccountIsActive;
+use App\Http\Middleware\EnsureSuperAdmin;
+use App\Http\Middleware\EnsureTenantMembership;
+use App\Http\Middleware\EnsureTenantRole;
+use App\Http\Middleware\ResolveTenant;
+use App\Http\Middleware\SecurityHeaders;
+use App\Http\Middleware\UseAdminDatabaseConnection;
+use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Session\Middleware\StartSession;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -12,10 +22,10 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->web(append: [
-            \App\Http\Middleware\SecurityHeaders::class,
-            \App\Http\Middleware\EnforceMaintenanceMode::class,
-            \App\Http\Middleware\EnsureAccountIsActive::class,
-            \App\Http\Middleware\ResolveTenant::class,
+            SecurityHeaders::class,
+            EnforceMaintenanceMode::class,
+            EnsureAccountIsActive::class,
+            ResolveTenant::class,
         ]);
 
         // Muss nach StartSession (Dev-Override liest die Session) aber vor
@@ -23,8 +33,8 @@ return Application::configure(basePath: dirname(__DIR__))
         // Modelle (CourseDefinition, ExamSession, ...) braucht den bereits
         // aufgelösten Tenant-Kontext für RLS und den globalen Scope.
         $middleware->appendToPriorityList(
-            after: \Illuminate\Session\Middleware\StartSession::class,
-            append: \App\Http\Middleware\ResolveTenant::class,
+            after: StartSession::class,
+            append: ResolveTenant::class,
         );
 
         // EnsureSuperAdmin (der "superadmin"-Alias) muss nach Authenticate
@@ -35,8 +45,8 @@ return Application::configure(basePath: dirname(__DIR__))
         // (Sicherheitsreview N10: admin-db stand vorher noch vor
         // Authenticate in der Default-Priorität).
         $middleware->appendToPriorityList(
-            after: \Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests::class,
-            append: \App\Http\Middleware\EnsureSuperAdmin::class,
+            after: AuthenticatesRequests::class,
+            append: EnsureSuperAdmin::class,
         );
 
         // Muss weiterhin vor SubstituteBindings laufen: Route-Model-Binding
@@ -48,15 +58,15 @@ return Application::configure(basePath: dirname(__DIR__))
         // bei Schreibzugriffen aus derselben Transaktion führt. Jetzt erst
         // NACH EnsureSuperAdmin, nicht mehr direkt nach ResolveTenant.
         $middleware->appendToPriorityList(
-            after: \App\Http\Middleware\EnsureSuperAdmin::class,
-            append: \App\Http\Middleware\UseAdminDatabaseConnection::class,
+            after: EnsureSuperAdmin::class,
+            append: UseAdminDatabaseConnection::class,
         );
 
         $middleware->alias([
-            'tenant.role' => \App\Http\Middleware\EnsureTenantRole::class,
-            'tenant.member' => \App\Http\Middleware\EnsureTenantMembership::class,
-            'superadmin' => \App\Http\Middleware\EnsureSuperAdmin::class,
-            'admin-db' => \App\Http\Middleware\UseAdminDatabaseConnection::class,
+            'tenant.role' => EnsureTenantRole::class,
+            'tenant.member' => EnsureTenantMembership::class,
+            'superadmin' => EnsureSuperAdmin::class,
+            'admin-db' => UseAdminDatabaseConnection::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

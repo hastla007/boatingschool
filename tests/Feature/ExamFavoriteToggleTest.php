@@ -7,6 +7,7 @@ use App\Models\ExamBlueprint;
 use App\Models\ExamRuleSet;
 use App\Models\ExamSession;
 use App\Models\Favorite;
+use App\Models\Tenant;
 use App\Models\User;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -96,7 +97,7 @@ class ExamFavoriteToggleTest extends TestCase
         $this->assertSame('running', $session->status);
     }
 
-    /** @return array{0: \App\Models\Tenant, 1: User, 2: CourseDefinition} */
+    /** @return array{0: Tenant, 1: User, 2: CourseDefinition} */
     private function setUpVerifiedExamCourse(): array
     {
         $tenant = $this->createTestTenant();

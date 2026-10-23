@@ -2,9 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Models\CourseDefinition;
 use App\Models\ExamBlueprint;
 use App\Models\ExamRuleSet;
 use App\Models\ExamSession;
+use App\Models\Tenant;
+use App\Models\User;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -91,7 +94,7 @@ class ExamResultUnansweredTest extends TestCase
         });
     }
 
-    /** @return array{0: \App\Models\Tenant, 1: \App\Models\User, 2: \App\Models\CourseDefinition} */
+    /** @return array{0: Tenant, 1: User, 2: CourseDefinition} */
     private function setUpVerifiedExamCourse(): array
     {
         $tenant = $this->createTestTenant();

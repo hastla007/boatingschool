@@ -3,7 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Coupon;
-use App\Models\Entitlement;
+use App\Models\User;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -160,7 +160,7 @@ class InstructorPermissionsTest extends TestCase
         // app_user an, der über die Tenant-Löschung hinweg bestehen
         // bleibt (tenant_user kaskadiert weg, app_user selbst nicht).
         $this->onAdmin(function () use ($email) {
-            $invited = \App\Models\User::where('email', $email)->first();
+            $invited = User::where('email', $email)->first();
             if ($invited) {
                 $this->createdUserIds[] = $invited->id;
             }

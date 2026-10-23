@@ -2,8 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\Coupon;
 use App\Models\CourseDefinition;
-use App\Models\Entitlement;
+use App\Models\ExamPaper;
 use App\Models\ExamRuleSet;
 use App\Models\ExamSession;
 use App\Models\PraxisExamAppointment;
@@ -220,7 +221,7 @@ class AdminDashboardMetricsTest extends TestCase
         // Prüfungsbogen (paper_id gesetzt) zählen, kein zufällig
         // zusammengestelltes Übungsbogen (siehe ExamController::start()
         // vs. startPaper()) -- deshalb hier ein echter ExamPaper des Kurses.
-        $paper = $this->onAdmin(fn () => \App\Models\ExamPaper::where('course_id', $course->id)->first());
+        $paper = $this->onAdmin(fn () => ExamPaper::where('course_id', $course->id)->first());
         $this->onAdmin(fn () => ExamSession::create([
             'tenant_id' => $tenant->id,
             'user_id' => $passed->id,
@@ -343,7 +344,7 @@ class AdminDashboardMetricsTest extends TestCase
             $learners[] = $this->createTenantUser($tenant, 'learner', ['display_name' => "Teilnehmer {$i}"]);
         }
         $code = 'E2E-N14-PAGE-'.uniqid();
-        $this->onAdmin(fn () => \App\Models\Coupon::create(['code' => $code, 'course_id' => $course->id, 'tenant_id' => $tenant->id]));
+        $this->onAdmin(fn () => Coupon::create(['code' => $code, 'course_id' => $course->id, 'tenant_id' => $tenant->id]));
 
         $response = $this->actingAsInTenant($admin, $tenant)->get(route('admin.dashboard'));
 
@@ -354,7 +355,7 @@ class AdminDashboardMetricsTest extends TestCase
         // ...aber im Coupon-Zuweisen-Dropdown stehen weiterhin alle 30 zur Auswahl.
         $response->assertSee('>Teilnehmer 30</option>', false);
 
-        $this->onAdmin(fn () => \App\Models\Coupon::where('code', $code)->delete());
+        $this->onAdmin(fn () => Coupon::where('code', $code)->delete());
     }
 
     public function test_dashboard_excludes_non_learning_phase_learners_from_progress_chart(): void

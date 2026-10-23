@@ -9,6 +9,7 @@ use App\Models\CourseDefinition;
 use App\Models\Progress;
 use App\Models\Tenant;
 use App\Models\User;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -20,13 +21,11 @@ use Illuminate\Support\Facades\DB;
  */
 class LearningService
 {
-    public function __construct(private MasteryCalculator $mastery)
-    {
-    }
+    public function __construct(private MasteryCalculator $mastery) {}
 
     /**
      * @param  ?ContentAnswer  $selectedAnswer  Ausgewählte Antwort bei single_choice.
-     * @param  ?\Illuminate\Support\Collection<int, ContentAnswer>  $selectedAnswers  Ausgewählte Antworten bei multi_choice (mehrere Checkboxen).
+     * @param  ?Collection<int, ContentAnswer>  $selectedAnswers  Ausgewählte Antworten bei multi_choice (mehrere Checkboxen).
      * @param  ?bool  $selfAssessedKnown  Selbsteinschätzung bei open_text ("gewusst"/"nicht gewusst"), nicht aus is_correct abgeleitet.
      */
     public function recordAttempt(
@@ -37,7 +36,7 @@ class LearningService
         string $context,
         ?CourseDefinition $course,
         ?int $responseTimeMs,
-        ?\Illuminate\Support\Collection $selectedAnswers = null,
+        ?Collection $selectedAnswers = null,
         ?bool $selfAssessedKnown = null,
     ): Attempt {
         return DB::transaction(function () use ($tenant, $user, $revision, $selectedAnswer, $context, $course, $responseTimeMs, $selectedAnswers, $selfAssessedKnown) {

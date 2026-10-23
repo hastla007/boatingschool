@@ -6,6 +6,7 @@ use App\Models\AuditLog;
 use App\Models\Coupon;
 use App\Models\CourseDefinition;
 use App\Models\Entitlement;
+use App\Models\Product;
 use App\Models\ProductPurchase;
 use App\Models\Tenant;
 use App\Models\User;
@@ -24,11 +25,9 @@ use RuntimeException;
  */
 class CouponRedemptionService
 {
-    public function __construct(private EntitlementService $entitlements)
-    {
-    }
+    public function __construct(private EntitlementService $entitlements) {}
 
-    /** @return array{type: 'course'|'product'|'course_renewal', course?: CourseDefinition, product?: \App\Models\Product, entitlement?: Entitlement} */
+    /** @return array{type: 'course'|'product'|'course_renewal', course?: CourseDefinition, product?: Product, entitlement?: Entitlement} */
     public function redeem(Coupon $coupon, Tenant $tenant, User $user, ?User $actor = null): array
     {
         $actor ??= $user;

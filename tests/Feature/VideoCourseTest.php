@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Attempt;
 use App\Models\ContentAnswer;
 use App\Models\ContentQuestion;
 use App\Models\ContentQuestionRevision;
@@ -9,6 +10,8 @@ use App\Models\CourseDefinition;
 use App\Models\ExamRuleSet;
 use App\Models\ExamSession;
 use App\Models\ExamSessionQuestion;
+use App\Models\Tenant;
+use App\Models\User;
 use App\Models\VideoLesson;
 use App\Models\VideoLessonStep;
 use App\Models\VideoModule;
@@ -231,7 +234,7 @@ class VideoCourseTest extends TestCase
         $reload->assertDontSee('Richtig!');
 
         $this->asTenant($tenant, function () use ($tenant, $learner, $question, $course) {
-            $this->assertSame(1, \App\Models\Attempt::where('tenant_id', $tenant->id)
+            $this->assertSame(1, Attempt::where('tenant_id', $tenant->id)
                 ->where('user_id', $learner->id)->where('question_id', $question->id)
                 ->where('course_id', $course->id)->where('context', 'video_quiz')->count());
         });
@@ -326,8 +329,8 @@ class VideoCourseTest extends TestCase
     }
 
     private function startRunningExamSessionWithQuestion(
-        \App\Models\Tenant $tenant,
-        \App\Models\User $learner,
+        Tenant $tenant,
+        User $learner,
         CourseDefinition $course,
         ContentQuestion $question,
         ContentQuestionRevision $revision,

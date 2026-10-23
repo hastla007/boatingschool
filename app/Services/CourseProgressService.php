@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\CourseDefinition;
+use App\Models\Module;
 use App\Models\Progress;
 use App\Models\Tenant;
 use App\Models\User;
@@ -40,7 +41,7 @@ class CourseProgressService
      * andere Seiten (z. B. die Kursübersicht) direkt dorthin verlinken
      * können, ohne die Aufschlüsselung zu duplizieren.
      *
-     * @return Collection<int, array{module: \App\Models\Module, topics: Collection, total: int, mastered: int, percent: int}>
+     * @return Collection<int, array{module: Module, topics: Collection, total: int, mastered: int, percent: int}>
      */
     public function moduleKategorieBreakdown(CourseDefinition $course, Tenant $tenant, User $user): Collection
     {

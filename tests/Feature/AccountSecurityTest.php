@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Models\Coupon;
 use App\Models\Entitlement;
 use App\Models\TenantInvitation;
-use App\Models\TenantUser;
 use App\Models\User;
 use App\Notifications\TenantInvitationNotification;
 use Illuminate\Auth\Notifications\ResetPassword;

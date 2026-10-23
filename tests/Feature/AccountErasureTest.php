@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\AuditLog;
 use App\Models\ContentQuestionRevision;
+use App\Models\TenantUser;
 use Illuminate\Support\Facades\DB;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -26,7 +27,7 @@ class AccountErasureTest extends TestCase
         $tenantA = $this->createTestTenant();
         $tenantB = $this->createTestTenant();
         $user = $this->createTenantUser($tenantA, 'learner');
-        $this->onAdmin(fn () => \App\Models\TenantUser::create([
+        $this->onAdmin(fn () => TenantUser::create([
             'tenant_id' => $tenantB->id,
             'user_id' => $user->id,
             'role' => 'learner',
@@ -70,7 +71,7 @@ class AccountErasureTest extends TestCase
         $tenantA = $this->createTestTenant();
         $tenantB = $this->createTestTenant();
         $user = $this->createTenantUser($tenantA, 'learner');
-        $this->onAdmin(fn () => \App\Models\TenantUser::create([
+        $this->onAdmin(fn () => TenantUser::create([
             'tenant_id' => $tenantB->id,
             'user_id' => $user->id,
             'role' => 'learner',

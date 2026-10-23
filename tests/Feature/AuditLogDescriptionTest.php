@@ -4,8 +4,10 @@ namespace Tests\Feature;
 
 use App\Models\Coupon;
 use App\Models\CourseDefinition;
+use App\Models\Entitlement;
 use App\Models\PraxisFormSubmission;
 use App\Models\PraxisFormTemplate;
+use App\Models\User;
 use App\Models\WillkommensboxOrder;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -95,7 +97,7 @@ class AuditLogDescriptionTest extends TestCase
         // ParticipantController::invite legt den Nutzer selbst an -- für
         // die Aufräumung durch cleanUpCreatedTenantsAndUsers() in tearDown()
         // muss die id daher hier nachträglich erfasst werden.
-        $invitedUserId = $this->onAdmin(fn () => \App\Models\User::where('email', $email)->firstOrFail()->id);
+        $invitedUserId = $this->onAdmin(fn () => User::where('email', $email)->firstOrFail()->id);
         $this->createdUserIds[] = $invitedUserId;
 
         $response = $this->actingAsInTenant($admin, $tenant)->get(route('admin.dashboard'));
@@ -115,7 +117,7 @@ class AuditLogDescriptionTest extends TestCase
             'user_id' => $learner->id,
             'course_id' => $course->id,
         ]);
-        $entitlement = $this->onAdmin(fn () => \App\Models\Entitlement::where('user_id', $learner->id)->where('course_id', $course->id)->first());
+        $entitlement = $this->onAdmin(fn () => Entitlement::where('user_id', $learner->id)->where('course_id', $course->id)->first());
 
         $response = $this->actingAsInTenant($admin, $tenant)->get(route('admin.dashboard'));
         $response->assertOk();

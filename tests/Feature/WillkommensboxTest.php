@@ -8,6 +8,8 @@ use App\Models\Module;
 use App\Models\Product;
 use App\Models\ProductPurchase;
 use App\Models\Progress;
+use App\Models\TenantUser;
+use App\Models\WillkommensboxOrder;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -215,7 +217,7 @@ class WillkommensboxTest extends TestCase
 
         $second->assertRedirect();
         $this->onAdmin(function () use ($tenant, $learner) {
-            $this->assertSame(1, \App\Models\WillkommensboxOrder::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->count());
+            $this->assertSame(1, WillkommensboxOrder::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->count());
             $this->assertDatabaseHas('willkommensbox_order', ['tenant_id' => $tenant->id, 'user_id' => $learner->id, 'street' => 'Erste Straße 1']);
         });
     }
@@ -248,7 +250,7 @@ class WillkommensboxTest extends TestCase
         $tenantA = $this->createTestTenant();
         $tenantB = $this->createTestTenant();
         $learner = $this->createTenantUser($tenantA, 'learner');
-        $this->onAdmin(fn () => \App\Models\TenantUser::create(['tenant_id' => $tenantB->id, 'user_id' => $learner->id, 'role' => 'learner', 'status' => 'active']));
+        $this->onAdmin(fn () => TenantUser::create(['tenant_id' => $tenantB->id, 'user_id' => $learner->id, 'role' => 'learner', 'status' => 'active']));
         $this->grantWillkommensbox($tenantA, $learner);
 
         $responseA = $this->actingAsInTenant($learner, $tenantA)->get('/willkommensbox');

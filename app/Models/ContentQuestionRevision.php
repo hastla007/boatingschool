@@ -5,8 +5,9 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection;
 
 class ContentQuestionRevision extends Model
 {
@@ -55,8 +56,8 @@ class ContentQuestionRevision extends Model
         return $this->answers->firstWhere('is_correct', true);
     }
 
-    /** @return \Illuminate\Support\Collection<int, ContentAnswer> */
-    public function correctAnswers(): \Illuminate\Support\Collection
+    /** @return Collection<int, ContentAnswer> */
+    public function correctAnswers(): Collection
     {
         return $this->answers->where('is_correct', true)->values();
     }

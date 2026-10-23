@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Coupon;
 use App\Models\Product;
 use App\Models\ProductPurchase;
+use Illuminate\Database\QueryException;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -189,7 +190,7 @@ class ProductTest extends TestCase
         $course = $this->existingCourse('SRC');
         $product = $this->createTestProduct();
 
-        $this->expectException(\Illuminate\Database\QueryException::class);
+        $this->expectException(QueryException::class);
 
         $this->onAdmin(fn () => Coupon::create([
             'code' => Coupon::generateUniqueCode(),

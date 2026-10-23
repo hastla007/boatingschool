@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\AddonTemplate;
+use App\Models\TenantAddon;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -134,7 +135,7 @@ class TenantAddonTest extends TestCase
             ],
         ]);
 
-        $tenantAddon = $this->onAdmin(fn () => \App\Models\TenantAddon::where('tenant_id', $tenant->id)->where('addon_template_id', $template->id)->first());
+        $tenantAddon = $this->onAdmin(fn () => TenantAddon::where('tenant_id', $tenant->id)->where('addon_template_id', $template->id)->first());
 
         $this->assertSame(['Eigener Punkt 1', 'Eigener Punkt 2'], $tenantAddon->bullets);
         $this->assertSame(['Eigener Punkt 1', 'Eigener Punkt 2'], $tenantAddon->effectiveBullets());
@@ -158,7 +159,7 @@ class TenantAddonTest extends TestCase
             ],
         ]);
 
-        $tenantAddon = $this->onAdmin(fn () => \App\Models\TenantAddon::where('tenant_id', $tenant->id)->where('addon_template_id', $template->id)->first());
+        $tenantAddon = $this->onAdmin(fn () => TenantAddon::where('tenant_id', $tenant->id)->where('addon_template_id', $template->id)->first());
 
         $this->assertNull($tenantAddon->bullets);
         $this->assertSame(['Vorteil 1', 'Vorteil 2'], $tenantAddon->effectiveBullets());
@@ -227,7 +228,7 @@ class TenantAddonTest extends TestCase
             ],
         ]);
 
-        $this->asTenant($tenantA, function () use ($tenantA, $template) {
+        $this->asTenant($tenantA, function () use ($tenantA) {
             $this->assertDatabaseHas('tenant_addon', ['tenant_id' => $tenantA->id, 'coupon_code' => 'NUR-A']);
         });
         $this->onAdmin(fn () => $this->assertDatabaseMissing('tenant_addon', ['tenant_id' => $tenantB->id, 'addon_template_id' => $template->id]));

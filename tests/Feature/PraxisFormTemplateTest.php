@@ -193,7 +193,6 @@ class PraxisFormTemplateTest extends TestCase
         $this->trackTemplate(PraxisFormTemplate::where('title', 'E2E Formular ohne Tauglichkeit')->first());
     }
 
-
     public function test_superadmin_can_toggle_and_delete_a_template(): void
     {
         $superadmin = $this->createSuperAdmin();

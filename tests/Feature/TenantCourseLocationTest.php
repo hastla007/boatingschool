@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\TenantCourseDisabled;
 use App\Models\TenantCourseLocation;
+use Illuminate\Support\Str;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -267,7 +269,7 @@ class TenantCourseLocationTest extends TestCase
             'pruefung_ort' => 'E2E Ort',
             'course_ids' => [],
         ]));
-        $this->onAdmin(fn () => \App\Models\TenantCourseDisabled::create(['tenant_id' => $tenant->id, 'course_id' => $disabledCourse->id]));
+        $this->onAdmin(fn () => TenantCourseDisabled::create(['tenant_id' => $tenant->id, 'course_id' => $disabledCourse->id]));
 
         $response = $this->actingAsInTenant($admin, $tenant)->get('/admin?tab=orte');
 
@@ -278,7 +280,7 @@ class TenantCourseLocationTest extends TestCase
         // auf (alle Tabs stehen gleichzeitig im HTML, nur per x-show
         // versteckt) -- deshalb hier gezielt erst ab der Kurs-Checkliste
         // des Orts suchen, nicht irgendwo auf der ganzen Seite.
-        $courseList = \Illuminate\Support\Str::after($response->getContent(), 'Für diese Kurse verfügbar');
+        $courseList = Str::after($response->getContent(), 'Für diese Kurse verfügbar');
         preg_match('/<label([^>]*)>\s*<input[^>]*>\s*'.preg_quote($disabledCourse->name, '/').'/', $courseList, $disabledMatch);
         preg_match('/<label([^>]*)>\s*<input[^>]*>\s*'.preg_quote($activeCourse->name, '/').'/', $courseList, $activeMatch);
         $this->assertNotEmpty($disabledMatch, 'Checkbox für den abgewählten Kurs nicht gefunden.');
@@ -358,7 +360,7 @@ class TenantCourseLocationTest extends TestCase
         $tenant = $this->createTestTenant();
         $admin = $this->createTenantUser($tenant, 'owner');
         $course = $this->existingCourse('SRC');
-        $this->onAdmin(fn () => \App\Models\TenantCourseDisabled::create(['tenant_id' => $tenant->id, 'course_id' => $course->id]));
+        $this->onAdmin(fn () => TenantCourseDisabled::create(['tenant_id' => $tenant->id, 'course_id' => $course->id]));
 
         $response = $this->actingAsInTenant($admin, $tenant)->post('/admin/tenant-course-locations', [
             'praxis_ort' => 'E2E Für später',

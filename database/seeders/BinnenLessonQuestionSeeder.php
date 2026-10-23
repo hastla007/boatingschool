@@ -153,12 +153,12 @@ class BinnenLessonQuestionSeeder extends Seeder
     }
 
     /**
-     * @param array<int, string|array{media: string}|array{question: string, correct_answer: string}> $questions
-     *        Fragetext, oder ['media' => '...'] um bei mehrdeutigem (mehrfach
-     *        verwendetem) Fragetext über den Dateinamen des zugehörigen Bildes
-     *        zu identifizieren, oder ['question' => ..., 'correct_answer' => ...]
-     *        um stattdessen über den Text der richtigen Antwort zu identifizieren
-     *        (für bildbasierte Fragen ohne hinterlegtes Bild in der Fragenbasis).
+     * @param  array<int, string|array{media: string}|array{question: string, correct_answer: string}>  $questions
+     *                                                                                                              Fragetext, oder ['media' => '...'] um bei mehrdeutigem (mehrfach
+     *                                                                                                              verwendetem) Fragetext über den Dateinamen des zugehörigen Bildes
+     *                                                                                                              zu identifizieren, oder ['question' => ..., 'correct_answer' => ...]
+     *                                                                                                              um stattdessen über den Text der richtigen Antwort zu identifizieren
+     *                                                                                                              (für bildbasierte Fragen ohne hinterlegtes Bild in der Fragenbasis).
      */
     private function attachQuestions(?VideoLesson $lesson, array $questions): void
     {
@@ -170,7 +170,7 @@ class BinnenLessonQuestionSeeder extends Seeder
             $query = ContentQuestionRevision::where('editorial_status', 'published');
 
             if (is_array($question) && isset($question['media'])) {
-                $revision = $query->whereHas('media', fn ($q) => $q->where('storage_path', 'ilike', '%' . $question['media']))->first();
+                $revision = $query->whereHas('media', fn ($q) => $q->where('storage_path', 'ilike', '%'.$question['media']))->first();
             } elseif (is_array($question) && isset($question['correct_answer'])) {
                 $revision = $query->where('question_text', $question['question'])
                     ->whereHas('answers', fn ($q) => $q->where('is_correct', true)->where('answer_text', $question['correct_answer']))

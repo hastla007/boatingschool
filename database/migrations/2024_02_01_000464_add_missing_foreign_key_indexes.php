@@ -193,7 +193,8 @@ return new class extends Migration
 
         Schema::table('willkommensbox_order', function (Blueprint $table) {
             $table->index('user_id');
-        });    }
+        });
+    }
 
     public function down(): void
     {
@@ -372,5 +373,6 @@ return new class extends Migration
 
         Schema::table('willkommensbox_order', function (Blueprint $table) {
             $table->dropIndex(['user_id']);
-        });    }
+        });
+    }
 };

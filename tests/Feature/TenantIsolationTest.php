@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Entitlement;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -77,7 +78,7 @@ class TenantIsolationTest extends TestCase
         $learner = $this->createTenantUser($tenant, 'learner');
         $course = $this->existingCourse('SBF-SEE');
 
-        $this->onAdmin(fn () => \App\Models\Entitlement::create([
+        $this->onAdmin(fn () => Entitlement::create([
             'tenant_id' => $tenant->id,
             'user_id' => $learner->id,
             'course_id' => $course->id,

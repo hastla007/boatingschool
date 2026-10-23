@@ -9,6 +9,7 @@ use App\Models\ExamSessionQuestion;
 use App\Support\TenantContext;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -57,7 +58,7 @@ class AppRoleGrantHardeningTest extends TestCase
         // bloßer set()-Aufruf ohne Transaktion wäre sofort wieder verfallen.
         $this->asTenant($tenant, function () {
             DB::table('content_question')->insert([
-                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'id' => (string) Str::uuid(),
                 'content_id' => 'HACK-'.uniqid(),
             ]);
         });
@@ -73,7 +74,7 @@ class AppRoleGrantHardeningTest extends TestCase
 
         $this->asTenant($tenant, function () use ($course) {
             DB::table('coupon')->insert([
-                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'id' => (string) Str::uuid(),
                 'code' => 'MINTED-'.uniqid(),
                 'course_id' => $course->id,
                 'tenant_id' => null,
@@ -86,7 +87,7 @@ class AppRoleGrantHardeningTest extends TestCase
     public function test_app_role_cannot_delete_audit_log_entries(): void
     {
         $tenant = $this->createTestTenant();
-        $id = (string) \Illuminate\Support\Str::uuid();
+        $id = (string) Str::uuid();
 
         $this->asTenant($tenant, function () use ($tenant, $id) {
             DB::table('audit_log')->insert([
@@ -115,7 +116,7 @@ class AppRoleGrantHardeningTest extends TestCase
 
         $this->asTenant($tenant, function () use ($tenant) {
             DB::table('audit_log')->insert([
-                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'id' => (string) Str::uuid(),
                 'tenant_id' => null,
                 'action' => 'test.platform_action',
                 'entity_type' => 'tenant',

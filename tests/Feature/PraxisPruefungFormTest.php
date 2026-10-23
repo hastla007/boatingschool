@@ -12,6 +12,7 @@ use App\Models\Progress;
 use App\Models\Pruefungsausschuss;
 use App\Models\TenantAddon;
 use App\Models\TenantCourseLocation;
+use Illuminate\Support\Str;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -304,7 +305,7 @@ class PraxisPruefungFormTest extends TestCase
         $this->assertFalse($second->isServerError());
 
         $this->onAdmin(function () use ($tenant, $learner, $course) {
-            $this->assertSame(1, \App\Models\PraxisFormSubmission::where('tenant_id', $tenant->id)
+            $this->assertSame(1, PraxisFormSubmission::where('tenant_id', $tenant->id)
                 ->where('user_id', $learner->id)->where('course_id', $course->id)->count());
         });
     }
@@ -438,6 +439,7 @@ class PraxisPruefungFormTest extends TestCase
      * Adressname wäre damit ein gespeichertes XSS gegen jeden Betrachter
      * der Seite gewesen. Da die eigentliche Schwachstelle erst zur
      * Laufzeit im Browser-JS entsteht (nicht im Server-Response selbst --
+     *
      * @json() escaped bereits HTML-kritische Zeichen im JSON-Blob), prüft
      * dieser Test serverseitig, dass das verwundbare String-Muster aus
      * der Seite entfernt ist und durch den sicheren DOM-/textContent-
@@ -754,7 +756,7 @@ class PraxisPruefungFormTest extends TestCase
         ]));
 
         $response = $this->actingAsInTenant($learner, $tenant)->post(route('praxis-pruefung.store', $course), [
-            'ort' => (string) \Illuminate\Support\Str::uuid(),
+            'ort' => (string) Str::uuid(),
         ]);
 
         $response->assertSessionHasErrors('ort');

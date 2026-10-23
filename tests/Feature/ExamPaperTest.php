@@ -9,6 +9,7 @@ use App\Models\ExamPaperQuestion;
 use App\Models\ExamRuleSet;
 use App\Models\ExamSession;
 use App\Models\Module;
+use Illuminate\Support\Collection;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -179,7 +180,7 @@ class ExamPaperTest extends TestCase
         $progress->assertSee('Ergebnisse');
     }
 
-    /** @return array{0: CourseDefinition, 1: ExamPaper, 2: \Illuminate\Support\Collection<int, ContentQuestion>} */
+    /** @return array{0: CourseDefinition, 1: ExamPaper, 2: Collection<int, ContentQuestion>} */
     private function makeIsolatedExamPaper(): array
     {
         return $this->onAdmin(function () {

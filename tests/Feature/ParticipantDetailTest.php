@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Models\CourseDefinition;
 use App\Models\Coupon;
+use App\Models\CourseDefinition;
 use App\Models\PraxisExamAppointment;
 use App\Models\PraxisFormSubmission;
 use App\Models\PraxisFormTemplate;

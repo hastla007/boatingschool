@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Foundation\Exceptions\RegisterErrorViewPaths;
 use Illuminate\Support\Facades\Artisan;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
@@ -36,7 +37,7 @@ class CustomErrorPagesTest extends TestCase
         // minimal') in jeder dieser Views braucht) registriert Laravel erst
         // lazy innerhalb des Exception-Handlers -- hier manuell nachgeholt,
         // um die Views auch isoliert ohne eine echte Exception zu prüfen.
-        (new \Illuminate\Foundation\Exceptions\RegisterErrorViewPaths)();
+        (new RegisterErrorViewPaths)();
 
         $html = view("errors.{$code}")->render();
 

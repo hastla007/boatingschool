@@ -186,9 +186,9 @@ class VideoLessonQuestionSeeder extends Seeder
     }
 
     /**
-     * @param array<int, string|array{media: string}> $questions Fragetext, oder
-     *        ['media' => '...'] um bei mehrdeutigem (mehrfach verwendetem)
-     *        Fragetext über den Dateinamen des zugehörigen Bildes zu identifizieren.
+     * @param  array<int, string|array{media: string}>  $questions  Fragetext, oder
+     *                                                              ['media' => '...'] um bei mehrdeutigem (mehrfach verwendetem)
+     *                                                              Fragetext über den Dateinamen des zugehörigen Bildes zu identifizieren.
      */
     private function attachQuestions(?VideoLesson $lesson, array $questions): void
     {
@@ -200,7 +200,7 @@ class VideoLessonQuestionSeeder extends Seeder
             $query = ContentQuestionRevision::where('editorial_status', 'published');
 
             $revision = is_array($question)
-                ? $query->whereHas('media', fn ($q) => $q->where('storage_path', 'ilike', '%' . $question['media']))->first()
+                ? $query->whereHas('media', fn ($q) => $q->where('storage_path', 'ilike', '%'.$question['media']))->first()
                 : $query->where('question_text', $question)->first();
 
             if ($revision) {

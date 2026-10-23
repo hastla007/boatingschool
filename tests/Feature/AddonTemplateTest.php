@@ -79,7 +79,7 @@ class AddonTemplateTest extends TestCase
         $response = $this->actingAs($superadmin)->patch("/superadmin/addon-templates/{$template->id}", [
             'title' => 'E2E Großes Paket (aktualisiert)',
             'headline' => $template->headline,
-            'bullets' => "Neuer Vorteil",
+            'bullets' => 'Neuer Vorteil',
             'cta_label' => $template->cta_label,
         ]);
 

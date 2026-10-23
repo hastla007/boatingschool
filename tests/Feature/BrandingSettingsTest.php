@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Mail\VerifySupportEmail;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\URL;
 use Tests\Feature\Concerns\InteractsWithTenants;
@@ -227,7 +228,7 @@ class BrandingSettingsTest extends TestCase
         $response = $this->actingAsInTenant($otherAdmin, $otherTenant)->get($verificationUrl);
 
         $response->assertNotFound();
-        $verifiedAt = $this->onAdmin(fn () => \Illuminate\Support\Facades\DB::table('tenant_branding')
+        $verifiedAt = $this->onAdmin(fn () => DB::table('tenant_branding')
             ->where('tenant_id', $tenant->id)->value('support_email_verified_at'));
         $this->assertNull($verifiedAt);
     }

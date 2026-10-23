@@ -2,6 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\Tenant;
+use App\Models\User;
+use Illuminate\Testing\TestResponse;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -68,14 +71,14 @@ class TenantSlugValidationTest extends TestCase
         $this->assertDatabaseHas('tenant', ['slug' => 'b17-gueltiger-slug']);
 
         $this->onAdmin(function () {
-            $tenant = \App\Models\Tenant::where('slug', 'b17-gueltiger-slug')->first();
+            $tenant = Tenant::where('slug', 'b17-gueltiger-slug')->first();
             $this->createdTenantIds[] = $tenant->id;
-            $admin = \App\Models\User::where('email', 'b17-gueltiger-slug-admin@example.test')->first();
+            $admin = User::where('email', 'b17-gueltiger-slug-admin@example.test')->first();
             $this->createdUserIds[] = $admin->id;
         });
     }
 
-    private function createTenantWithSlug(string $slug): \Illuminate\Testing\TestResponse
+    private function createTenantWithSlug(string $slug): TestResponse
     {
         $superadmin = $this->createSuperAdmin();
 

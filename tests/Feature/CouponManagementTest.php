@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Models\Coupon;
 use App\Models\Entitlement;
 use App\Models\Product;
-use App\Models\ProductPurchase;
 use Illuminate\Support\Str;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;

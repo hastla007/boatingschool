@@ -21,9 +21,7 @@ class TenantInvitationNotification extends Notification
 {
     use Queueable;
 
-    public function __construct(private readonly TenantInvitation $invitation)
-    {
-    }
+    public function __construct(private readonly TenantInvitation $invitation) {}
 
     /** @return array<int, string> */
     public function via(mixed $notifiable): array

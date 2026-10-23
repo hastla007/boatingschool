@@ -1,8 +1,8 @@
 <?php
 
 use App\Http\Controllers\Superadmin\AddonTemplateController;
-use App\Http\Controllers\Superadmin\CourseEditorController;
 use App\Http\Controllers\Superadmin\CouponController;
+use App\Http\Controllers\Superadmin\CourseEditorController;
 use App\Http\Controllers\Superadmin\DashboardController;
 use App\Http\Controllers\Superadmin\ModuleController;
 use App\Http\Controllers\Superadmin\PraxisFormTemplateController;

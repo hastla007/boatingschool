@@ -25,7 +25,7 @@ return new class extends Migration
             $table->jsonb('course_ids')->default('[]');
         });
 
-        DB::statement("UPDATE course_promo_banner SET course_ids = jsonb_build_array(course_id) WHERE course_id IS NOT NULL");
+        DB::statement('UPDATE course_promo_banner SET course_ids = jsonb_build_array(course_id) WHERE course_id IS NOT NULL');
 
         Schema::table('course_promo_banner', function (Blueprint $table) {
             $table->dropForeign(['course_id']);
@@ -46,7 +46,7 @@ return new class extends Migration
             $table->uuid('trigger_course_id')->nullable();
         });
 
-        DB::statement("UPDATE course_promo_banner SET course_id = (course_ids->>0)::uuid WHERE jsonb_array_length(course_ids) > 0");
+        DB::statement('UPDATE course_promo_banner SET course_id = (course_ids->>0)::uuid WHERE jsonb_array_length(course_ids) > 0');
 
         Schema::table('course_promo_banner', function (Blueprint $table) {
             $table->dropPrimary('course_promo_banner_pkey');

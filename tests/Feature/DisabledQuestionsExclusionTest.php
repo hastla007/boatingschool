@@ -179,7 +179,7 @@ class DisabledQuestionsExclusionTest extends TestCase
         $learner = $this->createTenantUser($tenant, 'learner');
         $this->grantEntitlement($tenant, $learner, $course);
 
-        $this->onAdmin(function () use ($tenant, $learner, $course, $activeQuestion, $disabledQuestion) {
+        $this->onAdmin(function () use ($tenant, $learner, $activeQuestion, $disabledQuestion) {
             foreach ([$activeQuestion, $disabledQuestion] as $question) {
                 Favorite::create([
                     'tenant_id' => $tenant->id,

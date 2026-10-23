@@ -3,7 +3,10 @@
 namespace Tests\Feature;
 
 use App\Models\CourseDefinition;
+use App\Models\ExamBlueprint;
 use App\Models\ExamRuleSet;
+use App\Models\ExamSession;
+use App\Models\Tenant;
 use App\Models\User;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -45,7 +48,7 @@ class ExamEngineTest extends TestCase
 
         $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam");
         [$session, $question] = $this->asTenant($tenant, function () use ($tenant, $learner) {
-            $session = \App\Models\ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail();
+            $session = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail();
             $question = $session->questions()->orderBy('position')->with('revision.answers')->firstOrFail();
 
             return [$session, $question];
@@ -75,7 +78,7 @@ class ExamEngineTest extends TestCase
 
         $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam");
         [$session, $sessionQuestions] = $this->asTenant($tenant, function () use ($tenant, $learner) {
-            $session = \App\Models\ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail();
+            $session = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail();
             $sessionQuestions = $session->questions()->orderBy('position')->with('revision.answers')->get();
 
             return [$session, $sessionQuestions];
@@ -92,7 +95,7 @@ class ExamEngineTest extends TestCase
         $response = $this->actingAsInTenant($learner, $tenant)->get("/exam-sessions/{$session->id}");
         $response->assertRedirect(route('exam.result', $session));
 
-        $session = $this->asTenant($tenant, fn () => \App\Models\ExamSession::find($session->id));
+        $session = $this->asTenant($tenant, fn () => ExamSession::find($session->id));
         $this->assertSame('evaluated', $session->status);
         $this->assertEquals(1.0, $session->score);
         $this->assertTrue($session->passed);
@@ -124,7 +127,7 @@ class ExamEngineTest extends TestCase
         $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam");
         $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam");
 
-        $count = $this->asTenant($tenant, fn () => \App\Models\ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->count());
+        $count = $this->asTenant($tenant, fn () => ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->count());
         $this->assertSame(1, $count);
     }
 
@@ -139,16 +142,16 @@ class ExamEngineTest extends TestCase
         [$tenant, $learner, $course] = $this->setUpVerifiedExamCourse();
 
         $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam");
-        $staleSession = $this->asTenant($tenant, fn () => \App\Models\ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail());
+        $staleSession = $this->asTenant($tenant, fn () => ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail());
 
         // Zeitlimit (3600s, siehe setUpVerifiedExamCourse) ist längst
         // überschritten -- simuliert einen Lerner, der die laufende
         // Prüfung einfach verlassen hat, ohne sie manuell abzuschließen.
-        $this->onAdmin(fn () => \App\Models\ExamSession::where('id', $staleSession->id)->update(['started_at' => now()->subHours(2)]));
+        $this->onAdmin(fn () => ExamSession::where('id', $staleSession->id)->update(['started_at' => now()->subHours(2)]));
 
         $response = $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam");
 
-        $sessions = $this->asTenant($tenant, fn () => \App\Models\ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->get());
+        $sessions = $this->asTenant($tenant, fn () => ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->get());
         $this->assertCount(2, $sessions);
 
         $staleSessionFresh = $sessions->firstWhere('id', $staleSession->id);
@@ -159,11 +162,11 @@ class ExamEngineTest extends TestCase
         $response->assertRedirect(route('exam.show', $newSession));
     }
 
-    private function finishRandomExam(\App\Models\Tenant $tenant, User $learner, CourseDefinition $course): void
+    private function finishRandomExam(Tenant $tenant, User $learner, CourseDefinition $course): void
     {
         $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam");
         [$session, $sessionQuestions] = $this->asTenant($tenant, function () use ($tenant, $learner) {
-            $session = \App\Models\ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
+            $session = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
                 ->where('status', 'running')->firstOrFail();
             $sessionQuestions = $session->questions()->orderBy('position')->with('revision.answers')->get();
 
@@ -181,7 +184,7 @@ class ExamEngineTest extends TestCase
         $this->actingAsInTenant($learner, $tenant)->get("/exam-sessions/{$session->id}");
     }
 
-    /** @return array{0: \App\Models\Tenant, 1: User, 2: CourseDefinition} */
+    /** @return array{0: Tenant, 1: User, 2: CourseDefinition} */
     private function setUpVerifiedExamCourse(): array
     {
         $tenant = $this->createTestTenant();
@@ -203,7 +206,7 @@ class ExamEngineTest extends TestCase
                 'verified_at' => now(),
             ]);
 
-            \App\Models\ExamBlueprint::create([
+            ExamBlueprint::create([
                 'rule_set_id' => $ruleSet->id,
                 'module_id' => $module->id,
                 'question_count' => 3,

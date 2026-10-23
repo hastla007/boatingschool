@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\Notification;
@@ -53,7 +54,7 @@ class TenantCreationAndInviteEmailTest extends TestCase
         $response->assertRedirect();
 
         $this->onAdmin(function () use ($slug, $email) {
-            $tenant = \App\Models\Tenant::where('slug', $slug)->first();
+            $tenant = Tenant::where('slug', $slug)->first();
             $this->createdTenantIds[] = $tenant->id;
             $admin = User::where('email', $email)->first();
             $this->createdUserIds[] = $admin->id;

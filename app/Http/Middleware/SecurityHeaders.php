@@ -22,6 +22,7 @@ use Symfony\Component\HttpFoundation\Response;
  * <script>-Blöcke bekommen stattdessen ein pro Request erzeugtes Nonce
  * (siehe $cspNonce/x-script-nonce-Blade-Component), alle onclick=/
  * onsubmit=/onchange=-Attribute wurden zu Alpine-Direktiven (@click/
+ *
  * @submit/@change). 'unsafe-inline' bleibt für style-src bewusst
  * bestehen: die tenant-abhängige Branding-Farbe (var(--brand-primary, ...))
  * steckt als inline style=-Attribut in >70 Templates -- CSP-Nonces greifen

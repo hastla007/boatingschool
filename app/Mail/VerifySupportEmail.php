@@ -15,9 +15,7 @@ class VerifySupportEmail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public function __construct(public string $tenantName, public string $verificationUrl)
-    {
-    }
+    public function __construct(public string $tenantName, public string $verificationUrl) {}
 
     public function build(): self
     {

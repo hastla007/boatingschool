@@ -6,6 +6,7 @@ use App\Models\CourseDefinition;
 use App\Models\ExamBlueprint;
 use App\Models\ExamRuleSet;
 use App\Models\ExamSession;
+use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Support\Facades\Artisan;
 use Tests\Feature\Concerns\InteractsWithTenants;
@@ -92,7 +93,7 @@ class ExpireAbandonedExamSessionsTest extends TestCase
         $this->assertSame('running', $session->status);
     }
 
-    /** @return array{0: \App\Models\Tenant, 1: User, 2: CourseDefinition} */
+    /** @return array{0: Tenant, 1: User, 2: CourseDefinition} */
     private function setUpExamCourse(?int $timeLimitSeconds): array
     {
         $tenant = $this->createTestTenant();

@@ -14,7 +14,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        DB::statement("CREATE EXTENSION IF NOT EXISTS pgcrypto");
+        DB::statement('CREATE EXTENSION IF NOT EXISTS pgcrypto');
         DB::statement("CREATE TYPE user_status AS ENUM ('invited','active','suspended','closed')");
 
         Schema::create('app_user', function (Blueprint $table) {

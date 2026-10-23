@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\CourseDefinition;
 use App\Models\ExamRuleSet;
+use App\Models\Module;
+use Illuminate\Database\QueryException;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -69,7 +71,7 @@ class CourseAndRuleSetIntegrityTest extends TestCase
     {
         [$course, $module] = $this->makeIsolatedCourseWithModule();
 
-        $this->onAdmin(function () use ($course, $module) {
+        $this->onAdmin(function () use ($course) {
             $ruleSet = ExamRuleSet::create([
                 'course_id' => $course->id,
                 'version' => 'expired-'.uniqid(),
@@ -90,7 +92,7 @@ class CourseAndRuleSetIntegrityTest extends TestCase
     {
         [$course, $module] = $this->makeIsolatedCourseWithModule();
 
-        $this->onAdmin(function () use ($course, $module) {
+        $this->onAdmin(function () use ($course) {
             $ruleSet = ExamRuleSet::create([
                 'course_id' => $course->id,
                 'version' => 'future-'.uniqid(),
@@ -194,7 +196,7 @@ class CourseAndRuleSetIntegrityTest extends TestCase
         $code = 'B21-DB-DUP-'.uniqid();
         $this->makeIsolatedCourse('published', $code);
 
-        $this->expectException(\Illuminate\Database\QueryException::class);
+        $this->expectException(QueryException::class);
 
         $this->onAdmin(function () use ($code) {
             $course = CourseDefinition::withoutGlobalScopes()->create([
@@ -224,7 +226,7 @@ class CourseAndRuleSetIntegrityTest extends TestCase
         });
     }
 
-    /** @return array{0: CourseDefinition, 1: \App\Models\Module} */
+    /** @return array{0: CourseDefinition, 1: Module} */
     private function makeIsolatedCourseWithModule(): array
     {
         $course = $this->makeIsolatedCourse('published');

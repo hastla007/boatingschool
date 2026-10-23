@@ -2,7 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Http\Middleware\EnsureSuperAdmin;
+use App\Http\Middleware\UseAdminDatabaseConnection;
+use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
 use Illuminate\Contracts\Http\Kernel;
+use Illuminate\Routing\Middleware\SubstituteBindings;
+use Illuminate\Support\Str;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -26,10 +31,10 @@ class SuperadminMiddlewareOrderingTest extends TestCase
         $prop->setAccessible(true);
         $priority = $prop->getValue($kernel);
 
-        $authPos = array_search(\Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests::class, $priority, true);
-        $superadminPos = array_search(\App\Http\Middleware\EnsureSuperAdmin::class, $priority, true);
-        $adminDbPos = array_search(\App\Http\Middleware\UseAdminDatabaseConnection::class, $priority, true);
-        $bindingsPos = array_search(\Illuminate\Routing\Middleware\SubstituteBindings::class, $priority, true);
+        $authPos = array_search(AuthenticatesRequests::class, $priority, true);
+        $superadminPos = array_search(EnsureSuperAdmin::class, $priority, true);
+        $adminDbPos = array_search(UseAdminDatabaseConnection::class, $priority, true);
+        $bindingsPos = array_search(SubstituteBindings::class, $priority, true);
 
         $this->assertNotFalse($authPos);
         $this->assertNotFalse($superadminPos);
@@ -47,7 +52,7 @@ class SuperadminMiddlewareOrderingTest extends TestCase
         $admin = $this->createTenantUser($tenant, 'admin');
 
         $existing = $this->actingAs($admin)->get("/superadmin/tenants/{$tenant->id}");
-        $nonExisting = $this->actingAs($admin)->get('/superadmin/tenants/'.\Illuminate\Support\Str::uuid());
+        $nonExisting = $this->actingAs($admin)->get('/superadmin/tenants/'.Str::uuid());
 
         $existing->assertForbidden();
         $nonExisting->assertForbidden();
@@ -58,7 +63,7 @@ class SuperadminMiddlewareOrderingTest extends TestCase
         $tenant = $this->createTestTenant();
 
         $existing = $this->get("/superadmin/tenants/{$tenant->id}");
-        $nonExisting = $this->get('/superadmin/tenants/'.\Illuminate\Support\Str::uuid());
+        $nonExisting = $this->get('/superadmin/tenants/'.Str::uuid());
 
         $existing->assertRedirect(route('login'));
         $nonExisting->assertRedirect(route('login'));

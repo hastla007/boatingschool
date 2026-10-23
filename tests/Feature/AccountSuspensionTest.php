@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\TenantUser;
+use Illuminate\Support\Facades\DB;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -190,7 +191,7 @@ class AccountSuspensionTest extends TestCase
         $user = $this->createTenantUser($tenant, 'learner');
 
         $this->actingAsInTenant($user, $tenant)->get('/dashboard')->assertOk();
-        $this->onAdmin(fn () => \Illuminate\Support\Facades\DB::table('sessions')->insert([
+        $this->onAdmin(fn () => DB::table('sessions')->insert([
             'id' => 'fake-session-for-test',
             'user_id' => $user->id,
             'payload' => base64_encode('test'),

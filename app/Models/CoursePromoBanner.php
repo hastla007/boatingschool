@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class CoursePromoBanner extends Model
 {
-    use BelongsToTenant, HasUuids, HasDiscountedPriceLabel;
+    use BelongsToTenant, HasDiscountedPriceLabel, HasUuids;
 
     protected $table = 'course_promo_banner';
 

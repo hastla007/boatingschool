@@ -2,12 +2,12 @@
 
 namespace Tests\Feature;
 
-use App\Models\CourseDefinition;
 use App\Models\Entitlement;
 use App\Models\Product;
 use App\Models\ProductPurchase;
 use App\Notifications\ConfirmPendingEmail;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\URL;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -82,7 +82,7 @@ class ProfileTest extends TestCase
         $user->refresh();
         $this->assertSame($newEmail, $user->pending_email);
 
-        $url = \Illuminate\Support\Facades\URL::temporarySignedRoute(
+        $url = URL::temporarySignedRoute(
             'profile.email.confirm',
             now()->addMinutes(60),
             ['id' => $user->id, 'hash' => sha1($newEmail)]
@@ -110,7 +110,7 @@ class ProfileTest extends TestCase
             'email' => $newEmail,
         ]);
 
-        $url = \Illuminate\Support\Facades\URL::temporarySignedRoute(
+        $url = URL::temporarySignedRoute(
             'profile.email.confirm',
             now()->addMinutes(60),
             ['id' => $user->id, 'hash' => sha1('someone-else@example.test')]

@@ -8,6 +8,7 @@ use App\Models\Entitlement;
 use App\Models\Tenant;
 use App\Models\TenantBranding;
 use App\Models\TenantUser;
+use App\Models\User;
 use App\Services\CourseProgressService;
 use App\Support\BestEffortMail;
 use Illuminate\Http\Request;
@@ -86,7 +87,7 @@ class TenantController extends Controller
 
             TenantBranding::create(['tenant_id' => $tenant->id, 'primary_color' => '#005FD7', 'secondary_color' => '#00A8A8']);
 
-            $admin = \App\Models\User::create([
+            $admin = User::create([
                 'display_name' => trim($validated['admin_first_name'].' '.$validated['admin_last_name']),
                 'first_name' => $validated['admin_first_name'],
                 'last_name' => $validated['admin_last_name'],
