@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Entitlement;
+use App\Support\GermanTime;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -47,7 +48,10 @@ class EntitlementManagementTest extends TestCase
             ->where('course_id', $course->id)->firstOrFail());
 
         $this->assertTrue($entitlement->valid_until->isSameDay(now()));
-        $this->assertSame(23, $entitlement->valid_until->hour);
+        // Bug-Review N18: endet am Ende des gewählten Tages in deutscher
+        // Zeit, nicht in UTC -- der rohe (UTC-)Stundenwert liegt je nach
+        // Sommer-/Winterzeit bei 21 oder 22, nicht bei 23.
+        $this->assertSame('23', GermanTime::format($entitlement->valid_until, 'H'));
         $this->assertTrue($entitlement->valid_until->gt($entitlement->valid_from));
     }
 
@@ -196,7 +200,7 @@ class EntitlementManagementTest extends TestCase
 
         $entitlement = $this->asTenant($tenant, fn () => Entitlement::find($entitlement->id));
         $this->assertTrue($entitlement->valid_until->isSameDay(now()->addDays(10)));
-        $this->assertSame(23, $entitlement->valid_until->hour);
+        $this->assertSame('23', GermanTime::format($entitlement->valid_until, 'H'));
 
         $suspend = $this->actingAsInTenant($admin, $tenant)->patch(route('admin.entitlements.update', $entitlement), [
             'action' => 'suspend',

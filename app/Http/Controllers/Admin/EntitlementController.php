@@ -139,9 +139,16 @@ class EntitlementController extends Controller
      * Tag, an dem der Zugang noch bestehen soll -- gespeichert wird deshalb
      * das Ende dieses Tages (23:59:59), nicht sein Beginn (Mitternacht).
      * Siehe B14.
+     *
+     * Bug-Review N18: der Admin wählt diesen Tag im Datums-Feld in
+     * deutscher Zeit, aber Carbon::parse() interpretierte ihn ohne
+     * Zeitzonen-Angabe in APP_TIMEZONE (bewusst UTC, siehe GermanTime) --
+     * endOfDay() endete dadurch tatsächlich erst 1-2 Stunden nach
+     * Mitternacht deutscher Zeit des FOLGETAGS, statt wie beabsichtigt am
+     * Ende des gewählten Tages in deutscher Zeit.
      */
     private function endOfValidityDay(?string $value): ?Carbon
     {
-        return $value ? Carbon::parse($value)->endOfDay() : null;
+        return $value ? Carbon::parse($value, 'Europe/Berlin')->endOfDay()->setTimezone('UTC') : null;
     }
 }
