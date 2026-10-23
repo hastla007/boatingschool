@@ -150,6 +150,39 @@ class AccountSuspensionTest extends TestCase
         $this->assertSame('active', $this->asTenant($tenant, fn () => TenantUser::where('tenant_id', $tenant->id)->where('user_id', $admin->id)->value('status')));
     }
 
+    /**
+     * Bug-Review N11: diese Route liegt hinter tenant.role:owner,admin --
+     * ohne eine zusätzliche Rollenprüfung konnte ein Admin damit die
+     * Mitgliedschaft des Owners (oder eines anderen Admins) sperren.
+     */
+    public function test_an_admin_cannot_suspend_the_owners_membership(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'admin');
+        $owner = $this->createTenantUser($tenant, 'owner');
+
+        $response = $this->actingAsInTenant($admin, $tenant)->patch("/admin/participants/{$owner->id}/membership", [
+            'status' => 'suspended',
+        ]);
+
+        $response->assertNotFound();
+        $this->assertSame('active', $this->asTenant($tenant, fn () => TenantUser::where('tenant_id', $tenant->id)->where('user_id', $owner->id)->value('status')));
+    }
+
+    public function test_an_admin_cannot_suspend_another_admins_membership(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'admin');
+        $otherAdmin = $this->createTenantUser($tenant, 'admin');
+
+        $response = $this->actingAsInTenant($admin, $tenant)->patch("/admin/participants/{$otherAdmin->id}/membership", [
+            'status' => 'suspended',
+        ]);
+
+        $response->assertNotFound();
+        $this->assertSame('active', $this->asTenant($tenant, fn () => TenantUser::where('tenant_id', $tenant->id)->where('user_id', $otherAdmin->id)->value('status')));
+    }
+
     public function test_superadmin_suspending_a_user_ends_their_sessions(): void
     {
         $superadmin = $this->createSuperAdmin();

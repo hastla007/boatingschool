@@ -189,7 +189,12 @@ class ParticipantController extends Controller
         // Instructors derselben Bootsschule ändern -- die "Teilnehmer"-UI
         // zeigt ihm nur role=learner an, die Route selbst kannte diese
         // Einschränkung bisher nicht.
-        abort_unless($membership->role === 'learner' || $request->user()->isAdminFor($tenant), 404);
+        // Bug-Review N11: isAdminFor() behandelt owner/admin als gleich
+        // vertrauenswürdig -- ein Admin konnte damit genauso die
+        // Stammdaten des Owners (oder eines anderen Admins) ändern wie ein
+        // Instructor die eines Admins. Nur der Owner darf hier eine
+        // Nicht-Lerner-Mitgliedschaft bearbeiten.
+        abort_unless($membership->role === 'learner' || $request->user()->roleForTenant($tenant) === 'owner', 404);
 
         $validated = $request->validate([
             'street' => ['nullable', 'string', 'max:255'],
@@ -224,6 +229,11 @@ class ParticipantController extends Controller
         abort_unless($membership, 404);
 
         abort_if($membership->user_id === $request->user()->id, 422, 'Die eigene Mitgliedschaft kann nicht geändert werden.');
+
+        // Bug-Review N11: diese Route liegt hinter tenant.role:owner,admin --
+        // ohne diese zusätzliche Prüfung konnte ein Admin die Mitgliedschaft
+        // des Owners (oder eines anderen Admins) sperren/schließen.
+        abort_unless($membership->role === 'learner' || $request->user()->roleForTenant($tenant) === 'owner', 404);
 
         $validated = $request->validate([
             'status' => ['required', 'in:active,suspended,closed'],

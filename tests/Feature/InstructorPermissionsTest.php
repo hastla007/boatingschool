@@ -219,6 +219,39 @@ class InstructorPermissionsTest extends TestCase
     }
 
     /**
+     * Bug-Review N11: isAdminFor() behandelt owner/admin als gleich
+     * vertrauenswürdig -- ein Admin konnte damit genauso die Stammdaten
+     * des Owners (oder eines anderen Admins) ändern wie ein Instructor
+     * die eines Admins. Nur der Owner darf eine Nicht-Lerner-
+     * Mitgliedschaft bearbeiten.
+     */
+    public function test_admin_cannot_edit_the_owners_data(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'admin');
+        $owner = $this->createTenantUser($tenant, 'owner', ['street' => 'Owner-Straße 1']);
+
+        $this->actingAsInTenant($admin, $tenant)->patch("/admin/participants/{$owner->id}", [
+            'street' => 'Übernommen',
+        ])->assertNotFound();
+
+        $this->assertSame('Owner-Straße 1', $owner->fresh()->street);
+    }
+
+    public function test_admin_cannot_edit_another_admins_data(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'admin');
+        $otherAdmin = $this->createTenantUser($tenant, 'admin', ['street' => 'Anderer-Admin-Straße 1']);
+
+        $this->actingAsInTenant($admin, $tenant)->patch("/admin/participants/{$otherAdmin->id}", [
+            'street' => 'Übernommen',
+        ])->assertNotFound();
+
+        $this->assertSame('Anderer-Admin-Straße 1', $otherAdmin->fresh()->street);
+    }
+
+    /**
      * Ein eigener Code ist für den Kursbesuch gedacht -- ein Instructor ist
      * eine Lehrkraft, kein Kursteilnehmer, und sollte deshalb keine Codes
      * für sich selbst einlösen können.
