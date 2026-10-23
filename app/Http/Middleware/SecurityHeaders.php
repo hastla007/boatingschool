@@ -14,9 +14,13 @@ use Symfony\Component\HttpFoundation\Response;
  * Dateien war nicht zusätzlich erschwert. Die CSP erlaubt weiterhin
  * 'unsafe-eval' für script-src, weil Alpine.js (ohne die CSP-Alpine-
  * Variante) Direktiven wie x-data über new Function() auswertet -- eine
- * strengere Policy würde die gesamte UI brechen. unpkg.com/
- * tile.openstreetmap.org sind für die Leaflet-Karte im Praxisformular
- * nötig (siehe praxis-pruefung/index.blade.php).
+ * strengere Policy würde die gesamte UI brechen. tile.openstreetmap.org
+ * ist für die Kartenkacheln der Leaflet-Karte im Praxisformular nötig
+ * (siehe praxis-pruefung/index.blade.php) -- Leaflet selbst kam früher vom
+ * unpkg.com-CDN und erlaubte dafür die GANZE Domain (CSP kennt nur
+ * Origin-, keine Pfad-Einschränkungen), ist jetzt aber per npm/Vite
+ * gebündelt (Bug-Review M9, Folgefehler), unpkg.com ist deshalb nirgends
+ * mehr nötig.
  *
  * 'unsafe-inline' für script-src ist entfernt: die wenigen eigenen
  * <script>-Blöcke bekommen stattdessen ein pro Request erzeugtes Nonce
@@ -43,10 +47,10 @@ class SecurityHeaders
 
         $csp = implode('; ', [
             "default-src 'self'",
-            "script-src 'self' 'nonce-{$nonce}' 'unsafe-eval' https://unpkg.com",
-            "style-src 'self' 'unsafe-inline' https://fonts.bunny.net https://unpkg.com",
+            "script-src 'self' 'nonce-{$nonce}' 'unsafe-eval'",
+            "style-src 'self' 'unsafe-inline' https://fonts.bunny.net",
             "font-src 'self' https://fonts.bunny.net",
-            "img-src 'self' data: https://*.tile.openstreetmap.org https://unpkg.com",
+            "img-src 'self' data: https://*.tile.openstreetmap.org",
             "connect-src 'self'",
             "media-src 'self' https:",
             "object-src 'none'",

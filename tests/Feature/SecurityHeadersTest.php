@@ -46,12 +46,18 @@ class SecurityHeadersTest extends TestCase
         $response->assertHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
     }
 
-    public function test_the_content_security_policy_allows_the_leaflet_map_assets(): void
+    public function test_the_content_security_policy_allows_the_map_tiles_but_no_longer_the_whole_cdn(): void
     {
         $csp = $this->get('/login')->headers->get('Content-Security-Policy');
 
-        $this->assertStringContainsString('https://unpkg.com', $csp);
         $this->assertStringContainsString('https://*.tile.openstreetmap.org', $csp);
+
+        // Bug-Review M9 (Folgefehler): Leaflet selbst kam früher vom
+        // unpkg.com-CDN -- die CSP musste dafür die GANZE Domain erlauben
+        // (CSP kennt nur Origin-, keine Pfad-Einschränkungen), nicht nur
+        // dieses eine Paket. Jetzt per npm/Vite gebündelt, unpkg.com ist
+        // nirgends mehr nötig.
+        $this->assertStringNotContainsString('unpkg.com', $csp);
     }
 
     /**

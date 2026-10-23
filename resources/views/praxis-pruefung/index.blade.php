@@ -292,8 +292,11 @@
         </div>
 
         @if ($locationsWithCoords->isNotEmpty())
-            <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-            <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+            {{-- Bug-Review M9 (Folgefehler): statt vom unpkg.com-CDN jetzt per
+            npm/Vite gebündelt -- die CSP musste für das CDN die GANZE
+            unpkg.com-Domain erlauben (CSP kennt nur Origin-, keine
+            Pfad-Einschränkungen), nicht nur dieses eine Paket. --}}
+            @vite(['resources/js/leaflet-map.js'])
             <script nonce="{{ $cspNonce }}">
                 document.addEventListener('DOMContentLoaded', function () {
                     var mapEl = document.getElementById('pruefungsort-map');

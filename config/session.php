@@ -167,9 +167,20 @@ return [
     | to the server if the browser has a HTTPS connection. This will keep
     | the cookie from being sent to you when it can't be done securely.
     |
+    | Bug-Review M9 (Folgefehler): ohne gesetztes SESSION_SECURE_COOKIE fiel
+    | das bisher auf null (automatisch, je nach aktuellem Request-Schema)
+    | zurück -- eine produktive Umgebung, die diese .env-Variable vergisst,
+    | bekam also KEINEN erzwungenen Secure-Flag. Der Code-Default erzwingt
+    | ihn jetzt selbst, sobald APP_ENV=production, unabhängig davon, ob die
+    | Variable je gesetzt wurde; env() gewinnt weiterhin, wenn sie explizit
+    | gesetzt ist (z. B. um sie in einer Nicht-Produktivumgebung bewusst
+    | abzuschalten). app()->environment() ist an dieser Stelle (Config-Load,
+    | vor dem "env"-Container-Binding) noch nicht sicher aufrufbar --
+    | deshalb ein reiner env('APP_ENV')-Vergleich statt dessen.
+    |
     */
 
-    'secure' => env('SESSION_SECURE_COOKIE'),
+    'secure' => env('SESSION_SECURE_COOKIE', env('APP_ENV') === 'production'),
 
     /*
     |--------------------------------------------------------------------------
