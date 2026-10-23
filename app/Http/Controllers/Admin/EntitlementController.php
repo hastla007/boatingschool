@@ -113,7 +113,14 @@ class EntitlementController extends Controller
             // valid_from (jetzt) liegen und am CHECK-Constraint der
             // Datenbank scheitern (HTTP 500). endOfValidityDay() verschiebt
             // auf das Ende des gewählten Tages.
-            'extend' => $entitlement->update(['valid_until' => $this->endOfValidityDay($validated['valid_until'])]),
+            // Bug-Review N6: status wechselt nie automatisch zurück auf
+            // "active" (das erledigt nur ExpireEntitlements in Richtung
+            // "expired", nie umgekehrt) -- isCurrentlyActive() verlangt
+            // aber zwingend status=active, unabhängig von valid_until.
+            // Ohne das zusätzliche Update blieb ein bereits abgelaufener
+            // (status=expired) Zugang trotz neuem, in der Zukunft
+            // liegendem valid_until wirkungslos gesperrt.
+            'extend' => $entitlement->update(['valid_until' => $this->endOfValidityDay($validated['valid_until']), 'status' => 'active']),
             'suspend' => $entitlement->update(['status' => 'suspended']),
             'revoke' => $entitlement->update(['status' => 'revoked']),
             'reactivate' => $entitlement->update(['status' => 'active']),

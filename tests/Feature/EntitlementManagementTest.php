@@ -97,6 +97,45 @@ class EntitlementManagementTest extends TestCase
         $this->assertFalse($response->isServerError());
     }
 
+    /**
+     * Bug-Review N6: status wechselt nie automatisch zurück auf "active"
+     * (nur ExpireEntitlements setzt ihn Richtung "expired") --
+     * isCurrentlyActive() verlangt aber zwingend status=active,
+     * unabhängig von valid_until. "Verlängern" eines bereits
+     * abgelaufenen (status=expired) Zugangs blieb deshalb trotz neuem,
+     * zukünftigem valid_until wirkungslos gesperrt.
+     */
+    public function test_extending_an_already_expired_entitlement_reactivates_access(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $entitlement = $this->onAdmin(fn () => Entitlement::create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $learner->id,
+            'course_id' => $course->id,
+            'status' => 'expired',
+            'source_type' => 'manual',
+            'valid_from' => now()->subDays(400),
+            'valid_until' => now()->subDays(30),
+        ]));
+
+        $response = $this->actingAsInTenant($admin, $tenant)->patch("/admin/entitlements/{$entitlement->id}", [
+            'action' => 'extend',
+            'valid_until' => now()->addDays(365)->format('Y-m-d'),
+        ]);
+
+        $response->assertSessionHasNoErrors();
+
+        $fresh = $this->onAdmin(fn () => $entitlement->fresh());
+        $this->assertSame('active', $fresh->status);
+        $this->assertTrue($fresh->isCurrentlyActive());
+
+        $access = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
+        $access->assertOk();
+    }
+
     public function test_double_submitting_the_grant_form_does_not_create_a_duplicate_entitlement(): void
     {
         $tenant = $this->createTestTenant();
