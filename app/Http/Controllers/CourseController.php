@@ -68,9 +68,18 @@ class CourseController extends Controller
         // das aber inzwischen zeitlich abgelaufen ist (siehe
         // CouponRedemptionService::course_validity_days), bekommt statt des
         // normalen Kauf-Hinweises den Verlängerungs-Code-Hinweis.
+        //
+        // Bug-Review N7: status='active' allein erfasste nur den Zeitraum
+        // zwischen dem tatsächlichen Ablauf und dem nächsten Lauf des
+        // ExpireEntitlements-Schedulers (der genau solche Zeilen auf
+        // status='expired' umstellt) -- danach verschwand der Hinweis
+        // wieder, obwohl der Zugang weiterhin abgelaufen war. 'suspended'/
+        // 'revoked' bleiben bewusst ausgeschlossen: das sind administrative
+        // Entscheidungen, kein zeitliches Ablaufen, ein Verlängerungscode
+        // würde daran nichts ändern.
         $expiredCourseIds = Entitlement::where('tenant_id', $tenant->id)
             ->where('user_id', $user->id)
-            ->where('status', 'active')
+            ->whereIn('status', ['active', 'expired'])
             ->whereNotNull('valid_until')
             ->where('valid_until', '<=', now())
             ->pluck('course_id');

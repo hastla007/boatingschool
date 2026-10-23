@@ -179,6 +179,38 @@ class CourseValidityTest extends TestCase
         $response->assertDontSee('Verlängerungs-Code kaufen');
     }
 
+    /**
+     * Bug-Review N7: die Erkennung griff bislang nur bei status='active' --
+     * genau das stellt der ExpireEntitlements-Scheduler aber auf
+     * 'expired' um, sobald er läuft (status='active' AND valid_until <=
+     * now()). Nach seinem nächsten Lauf verschwand der
+     * Verlängerungs-Hinweis also wieder, obwohl der Zugang weiterhin
+     * abgelaufen war.
+     */
+    public function test_the_renewal_note_still_shows_after_the_expire_entitlements_scheduler_has_run(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+
+        $this->redeemCourseCoupon($course, $tenant, $learner);
+        $entitlement = $this->asTenant($tenant, fn () => Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
+            ->where('course_id', $course->id)->firstOrFail());
+        // Simuliert den Zustand NACH dem ExpireEntitlements-Lauf, nicht nur
+        // ein natürlich verstrichenes valid_until.
+        $this->onAdmin(fn () => Entitlement::where('id', $entitlement->id)->update([
+            'valid_from' => now()->subDays(400),
+            'valid_until' => now()->subDays(30),
+            'status' => 'expired',
+        ]));
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get('/courses');
+
+        $response->assertOk();
+        $response->assertSee('Zugang abgelaufen');
+        $response->assertSee('Bitte Verlängerungscode bei Deiner Bootsschule anfragen!');
+    }
+
     public function test_a_still_valid_course_does_not_show_the_renewal_note(): void
     {
         $tenant = $this->createTestTenant();
