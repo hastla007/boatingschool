@@ -15,6 +15,7 @@ use App\Support\VideoCourseLessons;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * "Zu den Fragen"-Quiz nach einem Video (siehe video_lesson_question-Pivot,
@@ -39,6 +40,18 @@ class VideoQuizController extends Controller
 
         $moduleIds = $this->parseModuleIds($request);
 
+        // Bug-Review N19: die soeben abgegebene Antwort wird nur über
+        // genau diese eine Flash-Nachricht (gültig für genau den nächsten
+        // Request) angezeigt, siehe answer(). Ein F5 auf dieser Seite ist
+        // damit ein harmloses GET, das die Frage wieder unbeantwortet
+        // zeigt, statt -- wie vorher, als answer() die Rückmeldung direkt
+        // als POST-Antwort rendertete -- dieselbe Antwort erneut
+        // abzuschicken.
+        $justAnswered = $request->session()->get('videoQuizAnswered');
+        $answered = $justAnswered !== null
+            && $justAnswered['lessonId'] === $lesson->id
+            && $justAnswered['questionId'] === $revision->question_id;
+
         return view('video.quiz', [
             'course' => $course,
             'lesson' => $lesson,
@@ -47,14 +60,14 @@ class VideoQuizController extends Controller
             'position' => $position,
             'total' => $questions->count(),
             'revision' => $revision,
-            'answered' => false,
-            'correct' => null,
-            'selectedAnswerId' => null,
-            'selectedAnswerIds' => null,
+            'answered' => $answered,
+            'correct' => $answered ? $justAnswered['correct'] : null,
+            'selectedAnswerId' => $answered ? $justAnswered['selectedAnswerId'] : null,
+            'selectedAnswerIds' => $answered ? $justAnswered['selectedAnswerIds'] : null,
         ]);
     }
 
-    public function answer(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, LearningService $learningService, CourseDefinition $course, VideoLesson $lesson, int $position): View
+    public function answer(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, LearningService $learningService, CourseDefinition $course, VideoLesson $lesson, int $position): Response
     {
         $tenant = $tenantContext->tenant();
         $user = $request->user();
@@ -122,19 +135,21 @@ class VideoQuizController extends Controller
             ]
         );
 
-        $revision->load('answers', 'media');
-
-        $moduleIds = $this->parseModuleIds($request);
-
-        return view('video.quiz', [
+        // Bug-Review N19: diese Methode rendertete die Antwort-Rückmeldung
+        // bisher direkt als Antwort auf den POST -- ein F5 (Browser:
+        // "Formular erneut senden?") sendete die Antwort dann noch einmal
+        // und löste recordAttempt() erneut aus. Post/Redirect/Get wie bei
+        // ExamController::answer(): der Browser landet nach dem POST auf
+        // einem GET (show()), ein F5 dort wiederholt nur das (harmlose) GET.
+        return redirect()->route('video.quiz.show', array_filter([
             'course' => $course,
             'lesson' => $lesson,
-            'moduleIds' => $moduleIds,
-            'questionsParam' => $request->query('questions'),
             'position' => $position,
-            'total' => $questions->count(),
-            'revision' => $revision,
-            'answered' => true,
+            'questions' => $request->query('questions'),
+            'kapitel' => $request->query('kapitel'),
+        ]))->with('videoQuizAnswered', [
+            'lessonId' => $lesson->id,
+            'questionId' => $revision->question_id,
             'correct' => $attempt->correct,
             'selectedAnswerId' => $attempt->selected_answer_id,
             'selectedAnswerIds' => $attempt->selected_answer_ids,

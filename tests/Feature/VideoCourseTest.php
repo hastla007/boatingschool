@@ -149,7 +149,10 @@ class VideoCourseTest extends TestCase
         $quizPage->assertOk();
         $quizPage->assertSee($revision->question_text);
 
-        $answerResponse = $this->actingAsInTenant($learner, $tenant)->post(
+        // Bug-Review N19: answer() leitet nach dem Speichern per Redirect auf
+        // show() weiter (Post/Redirect/Get) statt die Rückmeldung direkt als
+        // POST-Antwort zu rendern -- followingRedirects() folgt dem hier.
+        $answerResponse = $this->actingAsInTenant($learner, $tenant)->followingRedirects()->post(
             "/courses/{$course->id}/video/{$firstLesson->id}/questions/1",
             ['answer_id' => $correctAnswer->id]
         );
@@ -191,6 +194,49 @@ class VideoCourseTest extends TestCase
         });
     }
 
+    /**
+     * Bug-Review N19: answer() rendertete die Antwort-Rückmeldung bisher
+     * direkt als Antwort auf den POST -- ein F5 (Browser: "Formular erneut
+     * senden?") sendete die Antwort dann noch einmal und erzeugte einen
+     * zweiten Attempt-Datensatz. Nach dem Fix landet der POST per Redirect
+     * auf einem GET; ein F5 dort wiederholt nur das (harmlose) GET.
+     */
+    public function test_submitting_an_answer_redirects_and_a_page_reload_does_not_resend_it(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $firstLesson] = $this->makeIsolatedVideoCourse();
+        $this->grantEntitlement($tenant, $learner, $course);
+        [$question, , $correctAnswer] = $this->attachIsolatedQuestion($firstLesson);
+
+        $answerResponse = $this->actingAsInTenant($learner, $tenant)->post(
+            "/courses/{$course->id}/video/{$firstLesson->id}/questions/1",
+            ['answer_id' => $correctAnswer->id]
+        );
+        $answerResponse->assertRedirect("/courses/{$course->id}/video/{$firstLesson->id}/questions/1");
+
+        $afterRedirect = $this->actingAsInTenant($learner, $tenant)->get(
+            "/courses/{$course->id}/video/{$firstLesson->id}/questions/1"
+        );
+        $afterRedirect->assertOk();
+        $afterRedirect->assertSee('Richtig!');
+
+        // F5 auf derselben Seite: die Flash-Rückmeldung ist bereits
+        // verbraucht, die Frage erscheint wieder unbeantwortet -- kein
+        // erneutes Absenden, kein zweiter Attempt.
+        $reload = $this->actingAsInTenant($learner, $tenant)->get(
+            "/courses/{$course->id}/video/{$firstLesson->id}/questions/1"
+        );
+        $reload->assertOk();
+        $reload->assertDontSee('Richtig!');
+
+        $this->asTenant($tenant, function () use ($tenant, $learner, $question, $course) {
+            $this->assertSame(1, \App\Models\Attempt::where('tenant_id', $tenant->id)
+                ->where('user_id', $learner->id)->where('question_id', $question->id)
+                ->where('course_id', $course->id)->where('context', 'video_quiz')->count());
+        });
+    }
+
     public function test_the_result_page_lets_the_learner_retry_only_the_wrong_questions(): void
     {
         $tenant = $this->createTestTenant();
@@ -214,7 +260,7 @@ class VideoCourseTest extends TestCase
         $retryPage->assertOk();
         $retryPage->assertSee($revision->question_text);
 
-        $retryAnswer = $this->actingAsInTenant($learner, $tenant)->post(
+        $retryAnswer = $this->actingAsInTenant($learner, $tenant)->followingRedirects()->post(
             "/courses/{$course->id}/video/{$firstLesson->id}/questions/1?questions={$question->id}",
             ['answer_id' => $correctAnswer->id]
         );
@@ -270,7 +316,7 @@ class VideoCourseTest extends TestCase
         [$question, $revision, $correctAnswer] = $this->attachIsolatedQuestion($firstLesson);
         $this->startRunningExamSessionWithQuestion($tenant, $learner, $course, $question, $revision, 'evaluated');
 
-        $response = $this->actingAsInTenant($learner, $tenant)->post(
+        $response = $this->actingAsInTenant($learner, $tenant)->followingRedirects()->post(
             "/courses/{$course->id}/video/{$firstLesson->id}/questions/1",
             ['answer_id' => $correctAnswer->id]
         );
