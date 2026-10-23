@@ -25,8 +25,17 @@ return new class extends Migration
 
     public function down(): void
     {
-        DB::table('product')->whereIn('code', [
+        $productIds = DB::table('product')->whereIn('code', [
             'LERNPLATTFORM', 'LERNPLATTFORM-WB', 'PRAXISEINHEIT-KLEIN', 'PRAXISEINHEIT-GROSS',
-        ])->delete();
+        ])->pluck('id');
+
+        // Bug-Review migrate:reset: product_purchase.product_id hat keinen
+        // ON DELETE CASCADE/SET NULL -- ein Löschversuch bei bereits
+        // vorhandenen Käufen dieser Optionen (echte Coupon-Einlösungen)
+        // verletzte den FK-Constraint und ließ migrate:reset/rollback auf
+        // einer befüllten Datenbank an dieser Migration scheitern.
+        DB::table('product_purchase')->whereIn('product_id', $productIds)->delete();
+
+        DB::table('product')->whereIn('id', $productIds)->delete();
     }
 };
