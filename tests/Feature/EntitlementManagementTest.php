@@ -25,6 +25,12 @@ class EntitlementManagementTest extends TestCase
     {
         $this->cleanUpCreatedTenantsAndUsers();
 
+        // Bug-Review B14 (Folgefehler): travelTo() friert die Zeit über das
+        // Testende hinaus ein, wenn hier nicht zurückgesetzt wird --
+        // andernfalls liefen alle nachfolgenden Tests im selben Prozess
+        // mit einer falschen "jetzt"-Zeit weiter.
+        $this->travelBack();
+
         parent::tearDown();
     }
 
@@ -99,6 +105,60 @@ class EntitlementManagementTest extends TestCase
 
         $response->assertSessionHasErrors('valid_until');
         $this->assertFalse($response->isServerError());
+    }
+
+    /**
+     * Bug-Review B14 (Folgefehler): zwischen dem deutschen Tagesende (in
+     * UTC) und dem UTC-Tagesende selbst (hier: 23:00-24:00 UTC im Winter,
+     * CET) besteht "heute" die Validierung oben (after_or_equal:today, in
+     * UTC geprüft), aber endOfValidityDay() interpretiert "heute" in
+     * deutscher Zeit (siehe N18) -- das Ergebnis lag dann bereits vor dem
+     * eingefrorenen "jetzt" und verletzte weiterhin den DB-Check-
+     * Constraint (HTTP 500) statt einen Validierungsfehler zu liefern.
+     */
+    public function test_granting_access_valid_until_today_between_11pm_and_midnight_utc_returns_a_validation_error_instead_of_crashing(): void
+    {
+        $this->travelTo(\Illuminate\Support\Carbon::parse('2026-01-15 23:30:00', 'UTC'));
+
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+
+        $response = $this->actingAsInTenant($admin, $tenant)->post('/admin/entitlements', [
+            'user_id' => $learner->id,
+            'course_id' => $course->id,
+            'valid_until' => '2026-01-15',
+        ]);
+
+        $response->assertSessionHasErrors('valid_until');
+        $this->assertFalse($response->isServerError());
+        $this->onAdmin(fn () => $this->assertDatabaseMissing('entitlement', [
+            'tenant_id' => $tenant->id,
+            'user_id' => $learner->id,
+            'course_id' => $course->id,
+        ]));
+    }
+
+    public function test_extending_an_entitlement_valid_until_today_between_11pm_and_midnight_utc_returns_a_validation_error_instead_of_crashing(): void
+    {
+        $this->travelTo(\Illuminate\Support\Carbon::parse('2026-01-15 23:30:00', 'UTC'));
+
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $entitlement = $this->grantEntitlement($tenant, $learner, $course);
+        $originalValidUntil = $entitlement->valid_until;
+
+        $response = $this->actingAsInTenant($admin, $tenant)->patch("/admin/entitlements/{$entitlement->id}", [
+            'action' => 'extend',
+            'valid_until' => '2026-01-15',
+        ]);
+
+        $response->assertSessionHasErrors('valid_until');
+        $this->assertFalse($response->isServerError());
+        $this->assertEquals($originalValidUntil, $entitlement->fresh()->valid_until);
     }
 
     /**

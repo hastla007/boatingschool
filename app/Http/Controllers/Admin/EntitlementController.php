@@ -52,6 +52,18 @@ class EntitlementController extends Controller
 
         $validUntil = $this->endOfValidityDay($validated['valid_until'] ?? null);
 
+        // Bug-Review B14 (Folgefehler): "heute" bestand die Validierung oben
+        // (after_or_equal:today, in UTC geprüft), aber endOfValidityDay()
+        // interpretiert den gewählten Tag in deutscher Zeit (siehe N18) --
+        // zwischen dem deutschen Tagesende (in UTC) und dem UTC-Tagesende
+        // (also etwa 22/23 bis 24 Uhr UTC) liefert "heute" trotzdem bereits
+        // ein in der Vergangenheit liegendes Ergebnis und verletzte
+        // weiterhin den DB-Check-Constraint (HTTP 500) statt einen
+        // Validierungsfehler zu liefern.
+        if ($validUntil && $validUntil->lte(now())) {
+            return back()->withErrors(['valid_until' => 'Das gewählte Datum liegt bereits in der Vergangenheit.']);
+        }
+
         // Bug-Review B14: zwischen der Prüfung "noch nicht gebucht" und dem
         // eigentlichen INSERT lag kein Lock -- ein Doppelklick auf
         // "Freischalten" konnte zwei Entitlement-Zeilen für denselben Kurs
@@ -104,6 +116,15 @@ class EntitlementController extends Controller
 
         $before = $entitlement->toArray();
 
+        // Bug-Review B14 (Folgefehler): siehe store() -- derselbe schmale
+        // Zeitfenster-Fall (etwa 22/23 bis 24 Uhr UTC) führte auch hier
+        // trotz bestandener after_or_equal:today-Validierung weiterhin zum
+        // CHECK-Constraint-Verstoß (HTTP 500).
+        $validUntil = $validated['action'] === 'extend' ? $this->endOfValidityDay($validated['valid_until']) : null;
+        if ($validated['action'] === 'extend' && $validUntil->lte(now())) {
+            return back()->withErrors(['valid_until' => 'Das gewählte Datum liegt bereits in der Vergangenheit.']);
+        }
+
         match ($validated['action']) {
             // Bug-Review B14: ein reines Datum ("gültig bis heute") wurde
             // bisher unverändert als valid_until gespeichert -- das
@@ -120,7 +141,7 @@ class EntitlementController extends Controller
             // Ohne das zusätzliche Update blieb ein bereits abgelaufener
             // (status=expired) Zugang trotz neuem, in der Zukunft
             // liegendem valid_until wirkungslos gesperrt.
-            'extend' => $entitlement->update(['valid_until' => $this->endOfValidityDay($validated['valid_until']), 'status' => 'active']),
+            'extend' => $entitlement->update(['valid_until' => $validUntil, 'status' => 'active']),
             'suspend' => $entitlement->update(['status' => 'suspended']),
             'revoke' => $entitlement->update(['status' => 'revoked']),
             'reactivate' => $entitlement->update(['status' => 'active']),
