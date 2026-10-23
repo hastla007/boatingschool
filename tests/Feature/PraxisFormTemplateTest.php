@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\CourseDefinition;
+use App\Models\PraxisFormSubmission;
 use App\Models\PraxisFormTemplate;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -210,5 +211,50 @@ class PraxisFormTemplateTest extends TestCase
         $this->actingAs($superadmin)->delete("/superadmin/praxis-form-templates/{$template->id}")->assertRedirect();
         $this->assertDatabaseMissing('praxis_form_template', ['id' => $template->id]);
         $this->createdTemplateIds = array_diff($this->createdTemplateIds, [$template->id]);
+    }
+
+    /**
+     * Bug-Review N10: praxis_form_submission.praxis_form_template_id hat
+     * keinen ON DELETE CASCADE/SET NULL -- ein Löschversuch bei bereits
+     * bestehenden Anmeldungen verletzte den FK-Constraint und ergab einen
+     * HTTP 500 statt einer verständlichen Fehlermeldung.
+     */
+    public function test_deleting_a_template_with_existing_submissions_fails_gracefully_instead_of_a_500(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->makeIsolatedCourse();
+        // Bewusst NICHT trackTemplate(): die Anmeldung unten muss vor dem
+        // Formular gelöscht werden, sonst scheitert bereits das
+        // Standard-tearDown() (löscht Formulare vor Tenants/Nutzern) am
+        // selben FK-Constraint, den dieser Test gerade prüft.
+        $template = $this->onAdmin(fn () => PraxisFormTemplate::create([
+            'title' => 'E2E Formular mit Anmeldung',
+            'min_progress_percent' => 50,
+            'course_ids' => [$course->id],
+            'fields' => [],
+            'active' => true,
+        ]));
+        $submission = $this->onAdmin(fn () => PraxisFormSubmission::create([
+            'tenant_id' => $tenant->id,
+            'course_id' => $course->id,
+            'user_id' => $learner->id,
+            'praxis_form_template_id' => $template->id,
+            'data' => [],
+        ]));
+
+        try {
+            $response = $this->actingAs($superadmin)->delete("/superadmin/praxis-form-templates/{$template->id}");
+
+            $response->assertSessionHasErrors('template');
+            $this->assertFalse($response->isServerError());
+            $this->assertDatabaseHas('praxis_form_template', ['id' => $template->id]);
+        } finally {
+            $this->onAdmin(function () use ($submission, $template) {
+                PraxisFormSubmission::where('id', $submission->id)->delete();
+                PraxisFormTemplate::where('id', $template->id)->delete();
+            });
+        }
     }
 }

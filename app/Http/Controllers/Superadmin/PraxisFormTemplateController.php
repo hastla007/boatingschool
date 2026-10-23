@@ -78,6 +78,18 @@ class PraxisFormTemplateController extends Controller
 
     public function destroy(PraxisFormTemplate $praxisFormTemplate): Response
     {
+        // Bug-Review N10: praxis_form_submission.praxis_form_template_id
+        // hat keinen ON DELETE CASCADE/SET NULL -- ein Löschversuch bei
+        // bereits bestehenden Anmeldungen verletzte den FK-Constraint und
+        // ergab einen HTTP 500 statt einer verständlichen Fehlermeldung.
+        // Anmeldungen sind echte, abgeschlossene Praxis-Prüfungs-
+        // Registrierungen und dürfen beim Löschen der Formularvorlage
+        // nicht verloren gehen -- analog zu Superadmin\TipCategoryController
+        // ::destroy().
+        if ($praxisFormTemplate->submissions()->exists()) {
+            return back()->withErrors(['template' => 'Dieses Formular wird bereits von Anmeldungen verwendet und kann nicht gelöscht werden.']);
+        }
+
         $praxisFormTemplate->delete();
 
         return redirect()->route('superadmin.praxis-form-templates.index')->with('status', 'Praxisformular gelöscht.');
