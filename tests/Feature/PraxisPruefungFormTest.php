@@ -279,6 +279,36 @@ class PraxisPruefungFormTest extends TestCase
         $follow->assertSee('Männlich');
     }
 
+    /**
+     * Bug-Review N16: zwischen der Prüfung "noch nicht angemeldet?" und dem
+     * eigentlichen INSERT lag kein Lock -- ein Doppelklick auf "Absenden"
+     * konnte zwei Anmeldungen für denselben Kurs anlegen und verletzte dann
+     * den Unique-Index (tenant_id, user_id, course_id), was als uncaught
+     * QueryException in einem HTTP 500 endete.
+     */
+    public function test_double_submitting_the_form_does_not_create_a_duplicate_submission(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course] = $this->makeIsolatedCourseWithQuestions(2);
+        $this->grantEntitlement($tenant, $learner, $course);
+        $this->completeRegistrationProfile($learner);
+        $this->masterAllQuestions($tenant, $learner, $course);
+        $this->createTemplate(['course_ids' => [$course->id], 'min_progress_percent' => 10]);
+
+        $payload = ['telefonnummer' => '+49 170 1234567', 'geschlecht' => 'Männlich', 'tauglichkeit' => '1'];
+        $first = $this->actingAsInTenant($learner, $tenant)->post(route('praxis-pruefung.store', $course), $payload);
+        $second = $this->actingAsInTenant($learner, $tenant)->post(route('praxis-pruefung.store', $course), $payload);
+
+        $first->assertRedirect(route('praxis-pruefung.index', $course));
+        $this->assertFalse($second->isServerError());
+
+        $this->onAdmin(function () use ($tenant, $learner, $course) {
+            $this->assertSame(1, \App\Models\PraxisFormSubmission::where('tenant_id', $tenant->id)
+                ->where('user_id', $learner->id)->where('course_id', $course->id)->count());
+        });
+    }
+
     public function test_submission_requires_required_fields(): void
     {
         $tenant = $this->createTestTenant();

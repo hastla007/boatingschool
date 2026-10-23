@@ -6,6 +6,7 @@ use App\Models\PraxisExamAppointment;
 use App\Models\PraxisFormSubmission;
 use App\Models\User;
 use Carbon\CarbonInterface;
+use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
 /**
@@ -47,6 +48,34 @@ class PraxisExamAppointmentService
             throw new RuntimeException('Das Ende muss nach dem Beginn liegen.');
         }
 
+        // Bug-Review N16: zwischen den Prüfungen unten (bereits fixiert?
+        // noch ein Vorschlag offen? nächste freie Slot-Nummer?) und dem
+        // eigentlichen INSERT lag kein Lock -- ein Doppelklick auf
+        // "Vorschlagen" konnte zwei Zeilen mit derselben Slot/Runden-
+        // Kombination anlegen und verletzte dann den Unique-Index
+        // (praxis_form_submission_id, slot, round), was als uncaught
+        // QueryException in einem HTTP 500 endete. Der Advisory-Lock
+        // serialisiert das pro Anmeldung, analog zu Bug-Review B14
+        // (EntitlementController) und B4 (ExamController::startPaper()).
+        return DB::transaction(function () use ($submission, $admin, $examDate, $endsAt, $slot, $label, $tenantCourseLocationId, $isOnline, $onlineMeetingUrl, $description) {
+            DB::statement('SELECT pg_advisory_xact_lock(hashtext(?))', [$submission->id]);
+
+            return $this->proposeLocked($submission, $admin, $examDate, $endsAt, $slot, $label, $tenantCourseLocationId, $isOnline, $onlineMeetingUrl, $description);
+        });
+    }
+
+    private function proposeLocked(
+        PraxisFormSubmission $submission,
+        User $admin,
+        CarbonInterface $examDate,
+        ?CarbonInterface $endsAt,
+        ?int $slot,
+        ?string $label,
+        ?string $tenantCourseLocationId,
+        bool $isOnline,
+        ?string $onlineMeetingUrl,
+        ?string $description,
+    ): PraxisExamAppointment {
         if ($slot === null) {
             if (! $submission->isExamDateConfirmed()) {
                 throw new RuntimeException('Der Prüfungstermin muss zuerst fixiert werden, bevor weitere Termine vorgeschlagen werden können.');

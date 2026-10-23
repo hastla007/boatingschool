@@ -11,6 +11,7 @@ use App\Services\EntitlementService;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -66,15 +67,36 @@ class PraxisFormSubmissionController extends Controller
         $validated = $request->validate($this->rulesFor($template, $locations));
         $data = $this->resolveLocationFields($template, $locations, $validated, $this->allCourses());
 
-        PraxisFormSubmission::create([
-            'tenant_id' => $tenant->id,
-            'course_id' => $course->id,
-            'user_id' => $user->id,
-            'praxis_form_template_id' => $template->id,
-            'data' => $data,
-        ]);
+        // Bug-Review N16: zwischen der Prüfung oben ("noch nicht
+        // angemeldet?") und dem eigentlichen INSERT lag kein Lock -- ein
+        // Doppelklick auf "Absenden" konnte zwei Anmeldungen für denselben
+        // Kurs anlegen und verletzte dann den Unique-Index (tenant_id,
+        // user_id, course_id), was als uncaught QueryException in einem
+        // HTTP 500 endete. Der Advisory-Lock serialisiert das und prüft
+        // "bereits angemeldet" direkt davor noch einmal, analog zu
+        // Bug-Review B14 (EntitlementController).
+        return DB::transaction(function () use ($tenant, $course, $user, $template, $data) {
+            DB::statement('SELECT pg_advisory_xact_lock(hashtext(?))', [$tenant->id.':'.$user->id.':'.$course->id]);
 
-        return redirect()->route('praxis-pruefung.index', $course);
+            $stillExisting = PraxisFormSubmission::where('tenant_id', $tenant->id)
+                ->where('user_id', $user->id)
+                ->where('course_id', $course->id)
+                ->exists();
+
+            if ($stillExisting) {
+                return back()->with('status', 'Du hast dich für diesen Kurs bereits angemeldet.');
+            }
+
+            PraxisFormSubmission::create([
+                'tenant_id' => $tenant->id,
+                'course_id' => $course->id,
+                'user_id' => $user->id,
+                'praxis_form_template_id' => $template->id,
+                'data' => $data,
+            ]);
+
+            return redirect()->route('praxis-pruefung.index', $course);
+        });
     }
 
     /**
