@@ -197,6 +197,40 @@ class DisabledQuestionsExclusionTest extends TestCase
         $response->assertDontSee('Deaktivierte Testfrage B12');
     }
 
+    /**
+     * Bug-Review B12 (Folgefehler): storeAttempt() prüfte bisher nur
+     * editorial_status, nicht ob die Frage selbst (content_question.active)
+     * deaktiviert wurde -- eine direkt per revision_id eingereichte
+     * deaktivierte Frage (sie ist dem Lerner also schon vorher bekannt,
+     * sonst hätte er die revision_id nicht) wurde trotzdem angenommen.
+     */
+    public function test_store_attempt_rejects_a_disabled_question_submitted_directly(): void
+    {
+        [$course, , , $disabledQuestion] = $this->makeIsolatedCourseWithQuestions();
+
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $revision = $this->onAdmin(fn () => $disabledQuestion->publishedRevision()->load('answers'));
+        $answer = $revision->answers->firstWhere('is_correct', true);
+
+        $response = $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/learn/attempts", [
+            'revision_id' => $revision->id,
+            'answer_id' => $answer->id,
+            'mode' => 'smarttrainer',
+        ]);
+
+        $response->assertNotFound();
+        $this->onAdmin(function () use ($tenant, $learner, $disabledQuestion) {
+            $this->assertDatabaseMissing('attempt', [
+                'tenant_id' => $tenant->id,
+                'user_id' => $learner->id,
+                'question_id' => $disabledQuestion->id,
+            ]);
+        });
+    }
+
     public function test_video_quiz_excludes_a_disabled_question(): void
     {
         [$course, , $activeQuestion, $disabledQuestion] = $this->makeIsolatedCourseWithQuestions();

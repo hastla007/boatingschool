@@ -181,8 +181,15 @@ class LearningController extends Controller
             ? max(0, (int) round(microtime(true) * 1000) - $validated['started_at_ms'])
             : null;
 
+        // Bug-Review B12 (Folgefehler): storeAttempt() prüfte bisher nur
+        // editorial_status, nicht ob die zugehörige Frage im Superadmin
+        // deaktiviert wurde (content_question.active) -- anders als die
+        // Auswahl im Smarttrainer/Prüfung/Video-Quiz, die solche Fragen
+        // konsequent ausblendet, nahm storeAttempt eine direkt per
+        // revision_id eingereichte deaktivierte Frage trotzdem an.
         $revision = ContentQuestionRevision::where('id', $validated['revision_id'])
             ->where('editorial_status', 'published')
+            ->whereHas('question', fn ($q) => $q->where('active', true))
             ->firstOrFail();
 
         // Sicherheitsregel laut api_spec.md: question_id/revision_id müssen zu
