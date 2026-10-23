@@ -111,7 +111,7 @@
                                 @csrf
                                 <select name="user_id" required class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs">
                                     <option value="">Nutzer wählen…</option>
-                                    @foreach ($participants as $membership)
+                                    @foreach ($allParticipants as $membership)
                                         <option value="{{ $membership->user_id }}">{{ $membership->user->name }}</option>
                                     @endforeach
                                 </select>

@@ -216,11 +216,17 @@ class AdminDashboardMetricsTest extends TestCase
 
             return $ruleSet;
         });
+        // Bug-Review N14: "Geprüft" darf nur ein bestandener amtlicher
+        // Prüfungsbogen (paper_id gesetzt) zählen, kein zufällig
+        // zusammengestelltes Übungsbogen (siehe ExamController::start()
+        // vs. startPaper()) -- deshalb hier ein echter ExamPaper des Kurses.
+        $paper = $this->onAdmin(fn () => \App\Models\ExamPaper::where('course_id', $course->id)->first());
         $this->onAdmin(fn () => ExamSession::create([
             'tenant_id' => $tenant->id,
             'user_id' => $passed->id,
             'course_id' => $course->id,
             'rule_set_id' => $ruleSet->id,
+            'paper_id' => $paper->id,
             'status' => 'evaluated',
             'passed' => true,
             'started_at' => now()->subHour(),
@@ -238,6 +244,56 @@ class AdminDashboardMetricsTest extends TestCase
         $this->assertPhasePercent($response, 'Praxis angemeldet', 1, 20);
         $this->assertPhasePercent($response, 'Prüfungstermin fixiert', 1, 20);
         $this->assertPhasePercent($response, 'Geprüft', 1, 20);
+    }
+
+    /**
+     * Bug-Review N14: ExamController::start() legt ohne paper_id eine
+     * zufällig zusammengestellte Übungsprüfung an -- nur ein bestandener
+     * amtlicher Prüfungsbogen (paper_id gesetzt, über startPaper()) darf
+     * als "Geprüft" zählen.
+     */
+    public function test_dashboard_does_not_count_a_passed_practice_exam_as_geprueft(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $course = $this->existingCourse('SRC');
+
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $ruleSet = $this->onAdmin(function () use ($course) {
+            $ruleSet = ExamRuleSet::create([
+                'course_id' => $course->id,
+                'version' => 'test-'.uniqid(),
+                'time_limit_seconds' => 3600,
+                'passing_rule' => ['min_correct_ratio' => 0.75],
+                'status' => 'published',
+            ]);
+            $this->createdRuleSetIds[] = $ruleSet->id;
+
+            return $ruleSet;
+        });
+        // Bewusst ohne paper_id -- entspricht einer über ExamController::
+        // start() zufällig zusammengestellten Übungsprüfung.
+        $this->onAdmin(fn () => ExamSession::create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $learner->id,
+            'course_id' => $course->id,
+            'rule_set_id' => $ruleSet->id,
+            'status' => 'evaluated',
+            'passed' => true,
+            'started_at' => now()->subHour(),
+            'submitted_at' => now(),
+            'score' => 95,
+        ]));
+
+        $response = $this->actingAsInTenant($admin, $tenant)->get(route('admin.dashboard'));
+
+        $response->assertOk();
+        // Der einzige Lerner hat einen aktiven Kurszugang und keine
+        // bestandene amtliche Prüfung -> bleibt in "Lernen", nicht "Geprüft".
+        $this->assertPhasePercent($response, 'Lernen', 1, 100);
+        $this->assertPhasePercent($response, 'Geprüft', 0, 0);
     }
 
     public function test_dashboard_shows_progress_distribution_for_learning_phase_learners(): void
@@ -269,6 +325,36 @@ class AdminDashboardMetricsTest extends TestCase
         $response->assertSee('Kursfortschritt in der Lernphase');
         $response->assertSee('0–20%: 1 Teilnehmer (50%)');
         $response->assertSee('81–100%: 1 Teilnehmer (50%)');
+    }
+
+    /**
+     * Bug-Review N14: die Teilnehmerliste lud bislang jedes Mitglied der
+     * Bootsschule auf einen Schlag, ohne Seitenaufteilung. Die "Coupon
+     * zuweisen"-Auswahl im Coupon-Tab braucht dagegen wirklich alle
+     * Teilnehmer und darf durch die Seitenaufteilung nicht einbrechen.
+     */
+    public function test_participants_tab_paginates_while_the_coupon_assign_dropdown_still_lists_everyone(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $course = $this->existingCourse('SRC');
+        $learners = [];
+        for ($i = 1; $i <= 30; $i++) {
+            $learners[] = $this->createTenantUser($tenant, 'learner', ['display_name' => "Teilnehmer {$i}"]);
+        }
+        $code = 'E2E-N14-PAGE-'.uniqid();
+        $this->onAdmin(fn () => \App\Models\Coupon::create(['code' => $code, 'course_id' => $course->id, 'tenant_id' => $tenant->id]));
+
+        $response = $this->actingAsInTenant($admin, $tenant)->get(route('admin.dashboard'));
+
+        $response->assertOk();
+        // Nur die erste Seite (25) wird in der Teilnehmerliste angezeigt...
+        $response->assertSee('<span class="text-slate-700 dark:text-slate-200">Teilnehmer 1</span>', false);
+        $response->assertDontSee('<span class="text-slate-700 dark:text-slate-200">Teilnehmer 30</span>', false);
+        // ...aber im Coupon-Zuweisen-Dropdown stehen weiterhin alle 30 zur Auswahl.
+        $response->assertSee('>Teilnehmer 30</option>', false);
+
+        $this->onAdmin(fn () => \App\Models\Coupon::where('code', $code)->delete());
     }
 
     public function test_dashboard_excludes_non_learning_phase_learners_from_progress_chart(): void

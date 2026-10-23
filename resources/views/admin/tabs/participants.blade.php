@@ -140,4 +140,5 @@
             @endforeach
         </tbody>
     </table>
+    <div class="p-4">{{ $participants->links() }}</div>
 </div>

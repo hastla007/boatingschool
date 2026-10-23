@@ -147,9 +147,15 @@ class AdminDashboardController extends Controller
             ->whereIn('user_id', $learnerIds)
             ->get(['user_id', 'confirmed_exam_date'])
             ->groupBy('user_id');
+        // Bug-Review N14: ExamController::start() legt ohne paper_id eine
+        // zufällig zusammengestellte Übungsprüfung an (siehe dort), nur
+        // startPaper() mit einem der amtlichen ExamPaper-Bögen bildet die
+        // echte Prüfung ab. Ohne whereNotNull('paper_id') zählte ein
+        // bestandener Übungsversuch hier fälschlich schon als "Geprüft".
         $passedExamUserIds = ExamSession::where('tenant_id', $tenant->id)
             ->where('status', 'evaluated')
             ->where('passed', true)
+            ->whereNotNull('paper_id')
             ->whereIn('user_id', $learnerIds)
             ->pluck('user_id')
             ->unique();
@@ -226,11 +232,24 @@ class AdminDashboardController extends Controller
             'percent' => $learningPhaseLearnerCount > 0 ? round($count / $learningPhaseLearnerCount * 100) : 0,
         ])->values();
 
+        // Bug-Review N14: ohne Seitenaufteilung lud diese Liste bei vielen
+        // Teilnehmern jedes Mitglied samt all seiner Entitlements auf
+        // einen Schlag -- die "Coupon zuweisen"-Auswahl (admin.tabs.coupons)
+        // braucht dagegen wirklich alle Teilnehmer und bleibt deshalb eine
+        // eigene, schlanke Abfrage ohne Entitlements.
         $participants = TenantUser::with(['user.entitlements' => function ($q) use ($tenant) {
             $q->where('tenant_id', $tenant->id)->with('course');
         }])
             ->where('tenant_id', $tenant->id)
             ->where('role', 'learner')
+            ->orderBy('created_at')
+            ->paginate(25)
+            ->withQueryString();
+
+        $allParticipants = TenantUser::with('user')
+            ->where('tenant_id', $tenant->id)
+            ->where('role', 'learner')
+            ->orderBy('created_at')
             ->get();
 
         // Sitewide deaktivierte Kurse (course_definition.site_enabled = false)
@@ -351,6 +370,7 @@ class AdminDashboardController extends Controller
             'progressDistribution' => $progressDistribution,
             'learningPhaseLearnerCount' => $learningPhaseLearnerCount,
             'participants' => $participants,
+            'allParticipants' => $allParticipants,
             'courses' => $courses,
             'productPurchases' => $productPurchases,
             'branding' => $branding,
