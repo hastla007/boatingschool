@@ -105,6 +105,38 @@ class TenantCreationAndInviteEmailTest extends TestCase
         });
     }
 
+    /**
+     * Bug-Review N1: anders als Superadmin\TenantController::store() und
+     * Admin\ParticipantController::invite() (siehe oben) verschickte
+     * Superadmin\UserController::store() keine Einladungsmail -- das neu
+     * angelegte Konto blieb mit einem zufälligen, niemandem bekannten
+     * Passwort auf status=invited stehen und konnte sich nie einloggen
+     * (LoginRequest verlangt status=active).
+     */
+    public function test_creating_a_standalone_user_via_the_superadmin_sends_a_password_set_link(): void
+    {
+        Notification::fake();
+        $superadmin = $this->createSuperAdmin();
+
+        $email = 'n1-neuer-nutzer-'.uniqid().'@example.test';
+
+        $response = $this->actingAs($superadmin)->post('/superadmin/users', [
+            'first_name' => 'Neuer',
+            'last_name' => 'Nutzer',
+            'email' => $email,
+        ]);
+
+        $response->assertRedirect();
+
+        $this->onAdmin(function () use ($email) {
+            $user = User::where('email', $email)->first();
+            $this->createdUserIds[] = $user->id;
+
+            $this->assertSame('invited', $user->status);
+            Notification::assertSentTo($user, ResetPassword::class);
+        });
+    }
+
     public function test_inviting_a_participant_rejects_an_uppercase_email(): void
     {
         $tenant = $this->createTestTenant();

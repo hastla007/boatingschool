@@ -10,11 +10,13 @@ use App\Models\ProductPurchase;
 use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
+use App\Support\BestEffortMail;
 use App\Support\Countries;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -71,7 +73,27 @@ class UserController extends Controller
             ]);
         }
 
-        return redirect()->route('superadmin.users.show', $user)->with('status', 'Nutzer angelegt.');
+        // Bug-Review N1: das neu angelegte Konto bekommt ein zufälliges,
+        // niemandem bekanntes Passwort und bleibt auf status=invited stehen
+        // -- ohne eine Mail dazu (wie bereits bei ParticipantController::
+        // invite() und Superadmin\TenantController::store()) gab es keine
+        // Möglichkeit, je ein eigenes Passwort zu setzen; LoginRequest
+        // verlangt status=active, das Konto konnte sich also nie einloggen.
+        // Derselbe Passwort-Reset-Link wie bei "Passwort vergessen" setzt
+        // zugleich das erste Passwort und schaltet den Status frei (siehe
+        // NewPasswordController). Ein SMTP-Fehler beim Versand soll den
+        // bereits erfolgreich angelegten Nutzer nicht als HTTP 500 melden
+        // (Bug-Review B31, siehe BestEffortMail).
+        $mailSent = BestEffortMail::send(
+            fn () => Password::sendResetLink(['email' => $user->email]),
+            "Einladungsmail neuer Nutzer {$user->id}"
+        );
+
+        $status = $mailSent
+            ? 'Nutzer angelegt.'
+            : 'Nutzer angelegt, die Einladungsmail konnte aber nicht versendet werden -- bitte den Zugang über "Passwort vergessen" erneut anstoßen.';
+
+        return redirect()->route('superadmin.users.show', $user)->with('status', $status);
     }
 
     public function show(User $user): View
