@@ -1,8 +1,18 @@
 <?php
 
 /**
+ * Bug-Review N26: dieser Katalog deckt NUR das Kapitel "Pyrotechnische
+ * Not- und Seenotsignalmittel / Waffenrecht" des FKN-Fragenkatalogs ab
+ * (62 Fragen) -- nicht die eigentlichen Funkverkehr-Inhalte (Sprechfunk-
+ * verfahren, Seenot-/Dringlichkeits-/Sicherheitsmeldungen, Buchstabier-
+ * alphabet etc.), die dem Funkbetriebszeugnis für den Nahbereich seinen
+ * Namen geben. Für diese fehlen aktuell keine eigenen Datendateien unter
+ * database/data/ -- wer dieses Kapitel um den eigentlichen Funkverkehr
+ * ergänzen will, muss die amtlichen Funkverkehr-Fragen zusätzlich
+ * importieren.
+ *
  * Amtlicher FKN-Fragenkatalog (Funkbetriebszeugnis für den Nahbereich,
- * Stand 01/2020, "internen FKN-Katalog des PANord"). 62 Fragen, Kapitel
+ * Stand 01/2020, "internen FKN-Katalog des PANord"), Kapitel
  * "Pyrotechnische Not- und Seenotsignalmittel / Waffenrecht". Fragen ohne
  * Antwortoptionen (nur Musterantwort im Original) werden als 'open_text'
  * importiert; Fragen mit Buchstaben-Optionen (teils mehrere korrekt) als
