@@ -32,6 +32,27 @@ class AuthenticationTest extends TestCase
         $response->assertRedirect(route('dashboard', absolute: false));
     }
 
+    /**
+     * Bug-Review N17: Auth::attempt() vergleicht die E-Mail standardmäßig
+     * groß-/kleinschreibungssensitiv -- auf dem Handy wird der erste
+     * Buchstabe beim Eintippen oft automatisch großgeschrieben (Auto-
+     * kapitalisierung), was den Login trotz korrektem Passwort scheitern
+     * ließ.
+     */
+    public function test_users_can_authenticate_with_a_differently_cased_email(): void
+    {
+        $tenant = $this->createTestTenant();
+        $user = $this->createTenantUser($tenant, 'learner', ['email' => 'hans.mueller@example.test']);
+
+        $response = $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/login', [
+            'email' => 'Hans.Mueller@example.test',
+            'password' => 'password',
+        ]);
+
+        $this->assertAuthenticatedAs($user);
+        $response->assertRedirect(route('dashboard', absolute: false));
+    }
+
     public function test_users_can_not_authenticate_with_invalid_password(): void
     {
         $tenant = $this->createTestTenant();

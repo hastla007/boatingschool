@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Models\User;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -42,11 +43,24 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
+        $credentials = $this->only('email', 'password');
+
+        // Bug-Review N17: Postgres vergleicht "email = ?" standardmäßig
+        // groß-/kleinschreibungssensitiv -- Auth::attempt() lehnte die
+        // eingegebene E-Mail deshalb schon dann ab, wenn nur deren
+        // Groß-/Kleinschreibung vom gespeicherten Wert abwich (z. B. durch
+        // die auf dem Handy übliche Autokapitalisierung des ersten
+        // Buchstabens), selbst bei korrektem Passwort. Die E-Mail wird
+        // hier case-insensitiv auf den tatsächlich gespeicherten Wert
+        // aufgelöst, bevor Auth::attempt() sie prüft.
+        $credentials['email'] = User::whereRaw('lower(email) = ?', [Str::lower($credentials['email'])])->value('email')
+            ?? $credentials['email'];
+
         // 'status' => 'active' verweigert gesperrten Konten (suspended,
         // closed) auch mit korrektem Passwort das Anmelden (Sicherheitsreview
         // M1) -- vorher konnte eine Sperrung durch den Superadmin umgangen
         // werden, weil hier nur E-Mail/Passwort geprüft wurden.
-        if (! Auth::attempt([...$this->only('email', 'password'), 'status' => 'active'], $this->boolean('remember'))) {
+        if (! Auth::attempt([...$credentials, 'status' => 'active'], $this->boolean('remember'))) {
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([
