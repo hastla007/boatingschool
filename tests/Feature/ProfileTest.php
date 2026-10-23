@@ -123,6 +123,63 @@ class ProfileTest extends TestCase
         $this->assertNotSame($newEmail, $user->fresh()->email);
     }
 
+    /**
+     * Bug-Review R3-6: Rule::unique() lief bisher über die RLS-beschränkte
+     * App-Verbindung -- ein Nutzer einer ANDEREN Bootsschule mit derselben
+     * Adresse ist unter dem aktuellen Tenant-Kontext unsichtbar, die
+     * Prüfung sah also fälschlich "frei".
+     */
+    public function test_an_email_already_used_at_another_tenant_is_rejected_on_submission(): void
+    {
+        $otherTenant = $this->createTestTenant();
+        $existing = $this->createTenantUser($otherTenant, 'learner', ['email' => 'anderswo-'.uniqid().'@example.test']);
+
+        $tenant = $this->createTestTenant();
+        $user = $this->createTenantUser($tenant);
+
+        $response = $this->actingAsInTenant($user, $tenant)->patch('/profile', [
+            'first_name' => 'Test',
+            'last_name' => 'User',
+            'email' => $existing->email,
+        ]);
+
+        $response->assertSessionHasErrors('email');
+        $this->assertNull($user->fresh()->pending_email);
+    }
+
+    /**
+     * Bug-Review R3-6: entgeht die Adresse der Prüfung bei der Eingabe
+     * trotzdem (z. B. weil sie erst NACH dem Absenden anderswo vergeben
+     * wurde), griff beim Bestätigen bisher ungefangen der echte,
+     * plattformweite UNIQUE-Constraint auf app_user.email -- HTTP 500
+     * statt einer verständlichen Meldung.
+     */
+    public function test_confirming_an_email_that_became_taken_in_the_meantime_shows_an_error_instead_of_crashing(): void
+    {
+        $otherTenant = $this->createTestTenant();
+        $existing = $this->createTenantUser($otherTenant, 'learner', ['email' => 'inzwischen-vergeben-'.uniqid().'@example.test']);
+
+        $tenant = $this->createTestTenant();
+        $user = $this->createTenantUser($tenant);
+
+        $this->onAdmin(fn () => $user->forceFill(['pending_email' => $existing->email])->save());
+
+        $url = URL::temporarySignedRoute(
+            'profile.email.confirm',
+            now()->addMinutes(60),
+            ['id' => $user->id, 'hash' => sha1($existing->email)]
+        );
+
+        $response = $this->actingAsInTenant($user, $tenant)->get($url);
+
+        $response->assertRedirect(route('profile.edit'));
+        $this->assertFalse($response->isServerError());
+
+        $user->refresh();
+        $this->assertNull($user->pending_email);
+        $this->assertNotSame($existing->email, $user->email);
+    }
+
     public function test_birthdate_can_be_saved(): void
     {
         $tenant = $this->createTestTenant();

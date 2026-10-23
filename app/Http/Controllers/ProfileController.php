@@ -132,11 +132,28 @@ class ProfileController extends Controller
             abort(403);
         }
 
-        $user->forceFill([
-            'email' => $user->pending_email,
-            'pending_email' => null,
-            'email_verified_at' => now(),
-        ])->save();
+        // Bug-Review R3-6: die Unique-Prüfung bei der Eingabe
+        // (ProfileUpdateRequest) kann eine inzwischen anderweitig vergebene
+        // Adresse nicht mehr ausschließen (Zeitfenster zwischen Eingabe und
+        // Bestätigung des Links) -- der echte, plattformweite
+        // UNIQUE-Constraint auf app_user.email greift dann hier, bisher
+        // ungefangen als HTTP 500 statt einer verständlichen Meldung.
+        try {
+            $user->forceFill([
+                'email' => $user->pending_email,
+                'pending_email' => null,
+                'email_verified_at' => now(),
+            ])->save();
+        } catch (\Illuminate\Database\UniqueConstraintViolationException) {
+            // fresh() statt $user direkt: forceFill() oben hat "email" im
+            // Model bereits auf den fremden Wert gesetzt, obwohl der
+            // Schreibversuch fehlschlug -- ein erneutes save() auf
+            // demselben (weiterhin "dirty") Objekt würde denselben
+            // Konflikt sofort nochmal auslösen.
+            $user->fresh()->forceFill(['pending_email' => null])->save();
+
+            return Redirect::route('profile.edit')->with('status', 'Diese E-Mail-Adresse wird inzwischen von einem anderen Konto verwendet. Bitte wähle eine andere Adresse.');
+        }
 
         return Redirect::route('profile.edit')->with('status', 'Neue E-Mail-Adresse bestätigt.');
     }
