@@ -124,6 +124,27 @@ class SuperadminAreaTest extends TestCase
         $response->assertRedirect(route('superadmin.dashboard', absolute: false));
     }
 
+    /**
+     * Bug-Review (Niedrig): /login ist auf jedem Host erreichbar (siehe
+     * ResolveTenant); /superadmin* seit NEU-3 aber bewusst nur noch auf
+     * der zentralen Domain. Der bisherige Redirect
+     * (route(..., absolute: false), ein reiner Pfad) hätte einen auf
+     * einer Bootsschul-Subdomain eingeloggten Superadmin auf eine dort
+     * nicht mehr existierende Route (404) geschickt statt in sein eigenes
+     * Dashboard.
+     */
+    public function test_login_redirects_a_superadmin_on_a_tenant_subdomain_to_the_central_domain(): void
+    {
+        $superadmin = $this->createSuperAdmin(['email' => 'super-login-subdomain-test@platform.test']);
+
+        $response = $this->post('http://schule-a.example.test/login', [
+            'email' => 'super-login-subdomain-test@platform.test',
+            'password' => 'password',
+        ]);
+
+        $response->assertRedirect(config('app.url').route('superadmin.dashboard', absolute: false));
+    }
+
     public function test_superadmin_can_create_a_tenant_with_an_owner_admin(): void
     {
         $superadmin = $this->createSuperAdmin();

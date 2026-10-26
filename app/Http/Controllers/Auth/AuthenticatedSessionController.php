@@ -29,6 +29,20 @@ class AuthenticatedSessionController extends Controller
         $request->session()->regenerate();
 
         if ($request->user()->is_superadmin) {
+            // Bug-Review (Niedrig): /login ist mandantenunabhängig und auf
+            // JEDEM Host erreichbar (siehe ResolveTenant), /superadmin*
+            // seit der NEU-3-Korrektur aber bewusst nur noch auf der
+            // zentralen Domain. route(..., absolute: false) erzeugt einen
+            // reinen Pfad ("/superadmin") -- der Browser löst den gegen
+            // den AKTUELLEN Host auf; meldete sich ein Superadmin über
+            // eine Bootsschul-Subdomain an, landete er dadurch auf einer
+            // dort nicht mehr existierenden Route (404) statt im eigenen
+            // Dashboard. Auf jedem anderen Host als der zentralen Domain
+            // deshalb explizit per absoluter URL dorthin umleiten.
+            if ($request->getHost() !== config('app.central_domain')) {
+                return redirect()->to(rtrim(config('app.url'), '/').route('superadmin.dashboard', absolute: false));
+            }
+
             return redirect()->intended(route('superadmin.dashboard', absolute: false));
         }
 
