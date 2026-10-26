@@ -274,6 +274,22 @@ class ParticipantController extends Controller
             'code' => ['nullable', 'string', 'max:255'],
         ]);
 
+        $code = trim((string) ($validated['code'] ?? ''));
+
+        // Bug-Review R4-E (Folgefehler M3/H3-Rest): diese Rollenprüfung galt
+        // bisher nur im Neukonto-Zweig weiter unten -- im
+        // Bestandskonto-Zweig direkt darunter bekam ein Instructor
+        // stattdessen stillschweigend nur den Zusatzsatz "wird dabei nicht
+        // automatisch zugewiesen" an den sonst identischen Status angehängt.
+        // Beide Antworten unterschieden sich dadurch allein danach, ob zur
+        // Adresse schon ein Konto existiert (Fehlermeldung vs. stiller
+        // Zusatzsatz) -- ein Instructor konnte so, trotz der M3-Angleichung
+        // des Basistexts, über einen beigelegten Code weiter plattformweit
+        // prüfen, ob eine beliebige Adresse bereits ein Konto hat. Die
+        // Prüfung läuft deshalb jetzt VOR der Existenz-Verzweigung und
+        // liefert in beiden Fällen denselben Fehler.
+        $codeRequiresAdmin = $code !== '' && ! $request->user()->isAdminFor($tenant);
+
         // Existiert für diese Adresse schon ein Konto, wird NICHT sofort
         // Mitglied gemacht (Sicherheitsreview H2, Account-Pre-Hijacking):
         // ein Angreifer könnte die Adresse vorab irgendwo auf der Plattform
@@ -351,7 +367,11 @@ class ParticipantController extends Controller
                 $status = 'Einladung angelegt, der Versand der E-Mail ist aber fehlgeschlagen -- bitte später erneut einladen.';
             }
 
-            if (trim((string) ($validated['code'] ?? '')) !== '') {
+            if ($codeRequiresAdmin) {
+                return back()->withErrors(['code' => 'Nur Owner/Admin können beim Einladen direkt einen Code zuweisen -- das geht sonst nach der Einladung über die Coupon-Codes-Verwaltung.'])->with('status', $status);
+            }
+
+            if ($code !== '') {
                 $status .= ' Ein angegebener Code wird dabei nicht automatisch zugewiesen -- das geht nach der Bestätigung über die Coupon-Codes-Verwaltung.';
             }
 
@@ -401,7 +421,6 @@ class ParticipantController extends Controller
         $status = $mailSent
             ? 'Einladung verschickt.'
             : 'Einladung angelegt, der Versand der E-Mail ist aber fehlgeschlagen -- bitte später erneut einladen.';
-        $code = trim((string) ($validated['code'] ?? ''));
 
         if ($code === '') {
             return back()->with('status', $status);
@@ -415,7 +434,7 @@ class ParticipantController extends Controller
         // verbrauchen. Der Teilnehmer selbst bleibt trotzdem angelegt --
         // genau wie bei einem ungültigen Code unten wird nur die
         // Code-Zuweisung abgelehnt, nicht die ganze Einladung.
-        if (! $request->user()->isAdminFor($tenant)) {
+        if ($codeRequiresAdmin) {
             return back()->withErrors(['code' => 'Nur Owner/Admin können beim Einladen direkt einen Code zuweisen -- das geht sonst nach der Einladung über die Coupon-Codes-Verwaltung.'])->with('status', $status);
         }
 

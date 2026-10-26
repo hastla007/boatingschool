@@ -179,6 +179,50 @@ class ParticipantInviteTest extends TestCase
         });
     }
 
+    /**
+     * Bug-Review R4-E (Folgefehler M3/H3-Rest): die Instructor-Sperre für
+     * den code-Parameter griff bisher nur im Neukonto-Zweig -- lud ein
+     * Instructor stattdessen eine Adresse ein, zu der schon IRGENDWO ein
+     * Konto existiert, bekam er trotz beigelegtem Code nur den stillen
+     * Status "Einladung verschickt." samt Zusatzsatz statt einer
+     * Fehlermeldung. Dieser Unterschied im Antwortformat (Fehler vs. stiller
+     * Zusatzsatz) verriet einem Instructor weiter, ob zu einer beliebigen
+     * Adresse schon ein Konto existiert -- exakt dasselbe Muster wie beim
+     * Neukonto-Zweig oben, nur im jeweils anderen Zweig.
+     */
+    public function test_an_instructor_cannot_assign_a_code_while_inviting_an_existing_account_either(): void
+    {
+        $tenant = $this->createTestTenant();
+        $instructor = $this->createTenantUser($tenant, 'instructor');
+        $course = $this->existingCourse('SRC');
+        $code = 'E2E-INVITE-INSTRUCTOR-EXIST';
+        $this->createdCodes[] = $code;
+        $this->onAdmin(fn () => Coupon::create(['code' => $code, 'course_id' => $course->id, 'tenant_id' => $tenant->id]));
+
+        $existingEmail = 'instructor-invite-existing-'.uniqid().'@example.test';
+        $this->onAdmin(fn () => User::create([
+            'email' => $existingEmail,
+            'display_name' => 'Bereits Registriert',
+            'password' => bcrypt('irrelevant-password'),
+            'status' => 'active',
+        ]));
+
+        $response = $this->actingAsInTenant($instructor, $tenant)->post('/admin/participants/invite', [
+            'name' => 'Bereits Registriert',
+            'email' => $existingEmail,
+            'code' => $code,
+        ]);
+
+        $response->assertSessionHasErrors('code');
+
+        $this->onAdmin(function () use ($code, $existingEmail) {
+            $coupon = Coupon::where('code', $code)->first();
+            $this->assertFalse($coupon->isRedeemed());
+
+            $this->deleteInvitedUser(User::where('email', $existingEmail)->first());
+        });
+    }
+
     public function test_an_unknown_code_does_not_block_the_invite_but_shows_an_error(): void
     {
         $tenant = $this->createTestTenant();
