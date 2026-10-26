@@ -132,22 +132,33 @@ class BinnenLessonQuestionSeeder extends Seeder
 
     public function run(): void
     {
-        $sbfBinnen = CourseDefinition::withoutGlobalScopes()->where('code', 'SBF-BIN-MOTOR')->whereNull('tenant_id')->first();
+        // Bug-Review R4-8: ComboVideoCourseSeeder legt die SBF-Binnen-Kapitel
+        // für den Kombikurs "SBF See & Binnen" (SBF-SEE-BIN) NATIV an --
+        // das sind eigene video_module_id/video_lesson_id-Zeilen, keine
+        // bloßen Verweise auf den eigenständigen Vollkurs. Dieser Seeder
+        // verknüpfte bisher nur die Lektionen des eigenständigen Vollkurses
+        // (SBF-BIN-MOTOR, von BinnenVideoCourseSeeder aus GENAU DIESEN
+        // Kombikurs-Kapiteln gespiegelt) mit Quizfragen -- der Kombikurs
+        // selbst blieb bei seinen eigenen, nativen Binnen-Kapiteln
+        // komplett ohne Quiz.
+        foreach (['SBF-SEE-BIN', 'SBF-BIN-MOTOR'] as $courseCode) {
+            $course = CourseDefinition::withoutGlobalScopes()->where('code', $courseCode)->whereNull('tenant_id')->first();
 
-        if (! $sbfBinnen) {
-            return;
-        }
-
-        foreach (self::LESSON_QUESTIONS as $chapterTitle => $lessons) {
-            $chapter = $sbfBinnen->videoModules()->where('title', $chapterTitle)->first();
-
-            if (! $chapter) {
+            if (! $course) {
                 continue;
             }
 
-            foreach ($lessons as $lessonTitle => $questionTexts) {
-                $lesson = $chapter->lessons()->where('title', $lessonTitle)->first();
-                $this->attachQuestions($lesson, $questionTexts);
+            foreach (self::LESSON_QUESTIONS as $chapterTitle => $lessons) {
+                $chapter = $course->videoModules()->where('title', $chapterTitle)->first();
+
+                if (! $chapter) {
+                    continue;
+                }
+
+                foreach ($lessons as $lessonTitle => $questionTexts) {
+                    $lesson = $chapter->lessons()->where('title', $lessonTitle)->first();
+                    $this->attachQuestions($lesson, $questionTexts);
+                }
             }
         }
     }

@@ -47,6 +47,32 @@ class ComboVideoCourseSeederTest extends TestCase
         );
     }
 
+    /**
+     * Bug-Review R4-8: ComboVideoCourseSeeder legt die drei SBF-Binnen-
+     * Kapitel für den Kombikurs NATIV an (eigene video_module_id/
+     * video_lesson_id-Zeilen, keine Verweise auf den eigenständigen
+     * Vollkurs). BinnenLessonQuestionSeeder verknüpfte bisher nur die
+     * Lektionen des davon GESPIEGELTEN eigenständigen Vollkurses
+     * (SBF-BIN-MOTOR) mit Quizfragen -- der Kombikurs selbst blieb bei
+     * seinen eigenen, nativen Binnen-Kapiteln komplett ohne Quiz.
+     */
+    public function test_the_combo_course_has_quiz_questions_attached_to_its_binnen_chapters(): void
+    {
+        $combo = CourseDefinition::withoutGlobalScopes()->where('code', 'SBF-SEE-BIN')->whereNull('tenant_id')->firstOrFail();
+
+        $binnenModuleIds = $combo->videoModules()
+            ->whereIn('title', ['Grundlagen', 'Lichter, Zeichen und Töne', 'Bootsführung und Bordtechnik'])
+            ->pluck('id');
+
+        $lessonIds = VideoLesson::whereIn('video_module_id', $binnenModuleIds)->pluck('id');
+
+        $this->assertGreaterThan(
+            0,
+            DB::table('video_lesson_question')->whereIn('video_lesson_id', $lessonIds)->count(),
+            'Den nativen Binnen-Kapiteln des Kombikurses sind keine Quizfragen zugeordnet.'
+        );
+    }
+
     public function test_the_standalone_binnen_course_mirrors_the_same_chapters_from_the_combo_course(): void
     {
         $binnen = CourseDefinition::withoutGlobalScopes()->where('code', 'SBF-BIN-MOTOR')->whereNull('tenant_id')->firstOrFail();
