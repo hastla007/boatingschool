@@ -79,8 +79,31 @@ class ResolveTenant
         // die RLS-GUC bleibt auf der Nil-UUID (siehe TenantContext::clear()
         // oben), unter der app_user_select_visibility plattformweit
         // sichtbar lässt.
+        // Bug-Review NEU-3: /superadmin* war bisher auf JEDEM Host erreichbar
+        // (<schule>.<domain>/superadmin lieferte 200) -- der Superadmin-
+        // Bereich ist aber eine rein plattformweite, von keinem einzelnen
+        // Tenant abhängige Funktion und gehört ausschließlich auf die
+        // zentrale Domain, nicht auf eine beliebige, von Dritten (dem
+        // jeweiligen Bootsschul-Betreiber) kontrollierte Subdomain/Custom
+        // Domain -- unabhängig davon, ob dort überhaupt ein Tenant auflöst.
+        if ($this->isSuperadminRoute($request) && $request->getHost() !== config('app.central_domain')) {
+            return response()->view('tenant.not-found', [], 404);
+        }
+
         if ($this->isTenantAgnosticRoute($request)) {
             if ($tenant) {
+                // Bug-Review "Gesperrte Schule": diese Prüfung griff bisher
+                // nur im NICHT-agnostischen Zweig unten -- auf der Subdomain
+                // einer gesperrten Schule erschien deshalb trotzdem die
+                // normale Login-Seite (mit deren Branding) statt der
+                // Sperrseite, obwohl ein tatsächlicher Login-Versuch
+                // ohnehin an derselben Prüfung in Auth/LoginRequest o. ä.
+                // scheitert -- keine Daten wurden dadurch offengelegt, nur
+                // die falsche Seite angezeigt.
+                if ($tenant->status === 'closed' || $tenant->status === 'suspended') {
+                    return response()->view('tenant.suspended', ['tenant' => $tenant], 403);
+                }
+
                 app()->instance('currentTenant', $tenant);
                 view()->share('currentTenant', $tenant);
                 view()->share('branding', $tenant->branding);
@@ -123,9 +146,25 @@ class ResolveTenant
         // feststeht. Ohne diese Einstufung griffe die neue app_user-RLS-
         // Policy (siehe Migration 000461) hier fälschlich ein, sobald die
         // Seite über eine echte Bootsschul-Subdomain aufgerufen wird.
+        //
+        // Bug-Review NEU-2 (Folgefehler "verified fehlt auf der
+        // Superadmin-Gruppe"): verify-email* fehlte hier -- auf der
+        // zentralen Domain (kein Tenant auflösbar, z. B. der Superadmin-
+        // Bereich) landete ein unbestätigter Nutzer beim Redirect der
+        // 'verified'-Middleware deshalb nicht auf der Bestätigungsseite,
+        // sondern auf dem Tenant-Picker bzw. tenant.not-found (siehe
+        // handle() unten, Zweig ohne aufgelösten Tenant) -- ein
+        // unbestätigter Superadmin konnte sich damit auf der zentralen
+        // Domain gar nicht mehr verifizieren.
         return $request->is('login') || $request->is('logout')
             || $request->is('forgot-password') || $request->is('reset-password') || $request->is('reset-password/*')
-            || $request->is('superadmin') || $request->is('superadmin/*');
+            || $request->is('verify-email') || $request->is('verify-email/*') || $request->is('email/verification-notification')
+            || $this->isSuperadminRoute($request);
+    }
+
+    private function isSuperadminRoute(Request $request): bool
+    {
+        return $request->is('superadmin') || $request->is('superadmin/*');
     }
 
     /**

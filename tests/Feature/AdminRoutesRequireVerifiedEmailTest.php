@@ -87,4 +87,24 @@ class AdminRoutesRequireVerifiedEmailTest extends TestCase
 
         $response->assertOk();
     }
+
+    /**
+     * Bug-Review NEU-2 (Folgefehler): verify-email* fehlte in
+     * ResolveTenant::isTenantAgnosticRoute() -- auf der zentralen Domain
+     * (kein Tenant auflösbar) landete ein unbestätigter Nutzer beim
+     * Redirect der 'verified'-Middleware deshalb nicht auf der
+     * Bestätigungsseite, sondern auf dem Tenant-Picker (siehe
+     * ResolveTenant::handle(), Zweig ohne aufgelösten Tenant) -- ein
+     * unbestätigter Superadmin konnte sich auf der zentralen Domain damit
+     * gar nicht mehr verifizieren.
+     */
+    public function test_an_unverified_superadmin_can_reach_the_verification_prompt_on_the_central_domain(): void
+    {
+        $superadmin = $this->createSuperAdmin(['email_verified_at' => null]);
+
+        $response = $this->actingAs($superadmin)->get('/verify-email');
+
+        $response->assertOk();
+        $response->assertViewIs('auth.verify-email');
+    }
 }

@@ -83,6 +83,23 @@ class SuperadminAreaTest extends TestCase
         $response->assertForbidden();
     }
 
+    /**
+     * Bug-Review NEU-3: /superadmin* war bisher auf JEDEM Host erreichbar
+     * (<schule>.<domain>/superadmin lieferte 200) -- der Superadmin-
+     * Bereich ist eine rein plattformweite, von keinem einzelnen Tenant
+     * abhängige Funktion und gehört ausschließlich auf die zentrale
+     * Domain, nicht auf eine beliebige, vom jeweiligen Bootsschul-
+     * Betreiber kontrollierte Subdomain.
+     */
+    public function test_the_superadmin_area_is_not_reachable_on_a_tenant_subdomain(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+
+        $response = $this->actingAs($superadmin)->get('http://schule-a.example.test/superadmin');
+
+        $response->assertNotFound();
+    }
+
     public function test_login_and_the_superadmin_area_are_reachable_without_a_resolved_tenant(): void
     {
         $superadmin = $this->createSuperAdmin();
