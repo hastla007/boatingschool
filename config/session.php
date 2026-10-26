@@ -157,38 +157,27 @@ return [
     |
     */
 
-    // Bug-Review R3-1 (Folgefehler): ohne einen geteilten Domain-Scope
-    // bindet der Browser das Session-Cookie an genau den Host, der es
-    // gesetzt hat (Standardverhalten ohne explizites Domain-Attribut) --
-    // ein Login auf schule-a.{CENTRAL_DOMAIN} setzt das Cookie also NUR
-    // für schule-a.{CENTRAL_DOMAIN}, nicht für schule-b.{CENTRAL_DOMAIN}.
-    // Ein bereits eingeloggter Nutzer, der einen Einladungs-Link für eine
-    // ANDERE Bootsschule (andere Subdomain) öffnet, schickt dieses Cookie
-    // deshalb nie mit und sieht sich selbst dort als nicht eingeloggt --
-    // unabhängig vom app.current_user_id-RLS-Fix in ResolveTenant (R3-1),
-    // der nur innerhalb EINES Session-Cookies wirkt. SESSION_DOMAIN auf
-    // ".<CENTRAL_DOMAIN>" lässt den Browser das Cookie für die zentrale
-    // Domain UND alle ihre Subdomains senden -- fachlich korrekt für diese
-    // Plattform: ein app_user ist plattformweit eine einzige Identität,
-    // die bei mehreren Bootsschulen Mitglied sein kann, die Session also
-    // bewusst kein Pro-Tenant-Geheimnis (RLS/Mitgliedschaft entscheiden
-    // ohnehin bei jedem Zugriff erneut, unabhängig vom Cookie-Scope).
-    // Für localhost/127.0.0.1 (lokale Entwicklung, siehe
-    // ResolveTenant::resolveViaDevOverride()) bleibt es beim bisherigen,
-    // unveränderten Verhalten (kein Domain-Attribut) -- ein führender
-    // Punkt vor "localhost" wird von Browsern ohnehin nicht zuverlässig
-    // als Subdomain-Wildcard behandelt. SESSION_DOMAIN bleibt weiterhin
-    // explizit überschreibbar -- siehe App\Support\SessionCookieDomain für
-    // die (direkt testbare) Ableitungslogik: env() liefert für einen
-    // EXPLIZIT gesetzten Wert (auch die leere Zeichenkette oder das zu
-    // PHP-null konvertierte literale "null" in .env) immer diesen Wert
-    // zurück, nie einen übergebenen Default -- die Ableitung muss deshalb
-    // selbst sowohl "gar nicht gesetzt" als auch "explizit leer/null
-    // gesetzt" gleich behandeln.
-    'domain' => SessionCookieDomain::resolve(
-        env('SESSION_DOMAIN'),
-        env('CENTRAL_DOMAIN', 'localhost')
-    ),
+    // Bug-Review NEU-1 (Regression, Folgefehler von R3-1): die R3-1-
+    // Fassung leitete hier automatisch ".<CENTRAL_DOMAIN>" ab, um ein
+    // bereits bestehendes Session-Cookie auch auf einer ANDEREN
+    // Bootsschul-Subdomain mitzuschicken. Das brach Custom Domains
+    // vollständig (ein Set-Cookie mit einem zum aufgerufenen Host nicht
+    // passenden Domain-Attribut wird vom Browser komplett verworfen, RFC
+    // 6265 -- Login antwortete dort am echten Server verifiziert mit 419)
+    // und vergrößerte unnötig die Angriffsfläche (ein plattformweites
+    // Cookie statt eines pro Host, siehe App\Support\SessionCookieDomain
+    // für die ausführliche Begründung). Das Cookie bleibt deshalb wieder
+    // (wie vor R3-1 und wie Laravel es standardmäßig vorsieht) an genau
+    // den Host gebunden, der es gesetzt hat -- die ursprüngliche R3-1-
+    // Lücke (RLS-Selbstsichtbarkeit beim Login über eine fremde Subdomain)
+    // ist bereits unabhängig davon über app.current_user_id in
+    // ResolveTenant behoben. SESSION_DOMAIN bleibt weiterhin explizit
+    // überschreibbar: env() liefert für einen EXPLIZIT gesetzten Wert
+    // (auch die leere Zeichenkette oder das zu PHP-null konvertierte
+    // literale "null" in .env) immer diesen Wert zurück, nie einen
+    // übergebenen Default -- SessionCookieDomain::resolve() behandelt
+    // deshalb "gar nicht gesetzt" und "explizit leer/null gesetzt" gleich.
+    'domain' => SessionCookieDomain::resolve(env('SESSION_DOMAIN')),
 
     /*
     |--------------------------------------------------------------------------
