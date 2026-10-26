@@ -25,16 +25,28 @@ auf PostgreSQL, gemäß dem mitgelieferten technischen Konzept
   absichtlich, weil sie administrative Vorgänge sind.
 - **Connection-Pooling und RLS**: `TenantContext::set()`/`clear()` setzt den
   Mandanten pro Request per `SET app.current_tenant_id = ...` auf der
-  jeweiligen Datenbankverbindung (Sicherheitsreview M5). Das funktioniert
-  nur zuverlässig, solange eine Verbindung für die Dauer eines Requests
-  demselben Client zugeordnet bleibt. Ein vorgeschalteter Connection-Pooler
-  (z. B. PgBouncer) **muss deshalb im Session-Modus betrieben werden**
+  jeweiligen Datenbankverbindung (Sicherheitsreview M5), `ResolveTenant::
+  setCurrentUserIdForRls()` setzt analog `app.current_user_id` (Sicherheits-
+  review R3-1). Beide GUCs werden sowohl am REQUEST-START (immer, auch
+  wenn keine gültige Session vorliegt -- dann per `RESET`) als auch per
+  `app()->terminating()`-Callback am REQUEST-ENDE zurückgesetzt
+  (Bug-Review R3-7/R4-D) -- zwei voneinander unabhängige Absicherungen,
+  die beide rein auf PHP-Code-Ebene laufen (keine Transaktionsgrenze mehr,
+  siehe R3-7-Begründung). Ein vorgeschalteter Connection-Pooler (z. B.
+  PgBouncer) **muss deshalb im Session-Modus betrieben werden**
   (`pool_mode = session`), niemals im Transaction- oder Statement-Modus –
   sonst könnte eine einzelne Anfrage mehrere, voneinander unabhängige
-  physische Backends durchlaufen, auf denen die GUC nicht (oder noch vom
-  vorherigen Client) gesetzt ist, was RLS aushebeln oder Daten eines
-  anderen Mandanten anzeigen könnte. Ohne Pooler (direkte Verbindungen,
-  wie im lokalen Setup) besteht dieses Risiko nicht.
+  physische Backends durchlaufen (oder eine Backend-Verbindung noch
+  WÄHREND eines Requests an einen anderen Client weitergegeben werden,
+  bevor der terminating()-Callback überhaupt läuft), auf denen die GUC
+  nicht (oder noch vom vorherigen Client) gesetzt ist, was RLS aushebeln
+  oder Daten eines anderen Mandanten anzeigen könnte. Diese Anforderung
+  ist organisatorisch (Pooler-Konfiguration), nicht durch den
+  Anwendungscode technisch erzwingbar -- der Request-Start-Reset mindert
+  das Risiko, schließt es bei einem entgegen dieser Vorgabe im
+  Transaction-Modus betriebenen Pooler aber nicht vollständig aus. Ohne
+  Pooler (direkte Verbindungen, wie im lokalen Setup) besteht dieses
+  Risiko nicht.
 - **Content-Modell**: `content_question` ist die stabile fachliche Identität,
   jede Textänderung erzeugt eine neue `content_question_revision`. Attempts
   speichern sowohl die stabile Frage als auch die tatsächlich gezeigte

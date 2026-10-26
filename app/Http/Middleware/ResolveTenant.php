@@ -151,6 +151,19 @@ class ResolveTenant
      * (Migration 000468) lässt eine Zeile zusätzlich sichtbar, wenn ihre
      * id mit dieser GUC übereinstimmt -- ein Nutzer sieht damit immer sich
      * selbst, unabhängig von jeder Mitgliedschaft.
+     *
+     * Bug-Review R4-D (Folgefehler R3-7): der Rückweg ohne gültige
+     * Session-Nutzer-ID kehrte hier bisher einfach zurück, OHNE die GUC
+     * zu bereinigen -- der app()->terminating()-Callback (siehe handle())
+     * setzt sie zwar am ENDE jedes Requests zurück, das ist aber die
+     * einzige Absicherung, die rein vom PHP-Code abhängt (ein Fataler
+     * Fehler, der den Callback nie ausführen lässt, oder ein entgegen der
+     * README-Vorgabe im Transaction- statt Session-Modus betriebener
+     * Connection-Pooler, könnte diesen Reset überspringen). Diese Methode
+     * setzt die GUC deshalb jetzt AUCH am REQUEST-START explizit und
+     * unabhängig vom Ergebnis des vorherigen Requests -- dieselbe
+     * Verteidigungslinie, die TenantContext::clear() für
+     * app.current_tenant_id bereits am Anfang von handle() leistet.
      */
     private function setCurrentUserIdForRls(Request $request): void
     {
@@ -159,12 +172,15 @@ class ResolveTenant
             : null;
 
         if (! $userId || ! preg_match('/^[0-9a-f-]{36}$/i', $userId)) {
+            DB::statement('RESET app.current_user_id');
+
             return;
         }
 
         // Bug-Review R3-7: SET statt SET LOCAL, siehe Kommentar in handle() --
-        // der Reset am Request-Ende läuft jetzt über den
-        // app()->terminating()-Callback statt über eine Transaktionsgrenze.
+        // der Reset am Request-Ende läuft über den app()->terminating()
+        // -Callback statt über eine Transaktionsgrenze, UND (siehe oben)
+        // zusätzlich am Request-Start hier.
         DB::statement("SET app.current_user_id = '{$userId}'");
     }
 
