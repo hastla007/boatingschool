@@ -212,6 +212,44 @@ class RenewalCodeTest extends TestCase
         $this->assertNull($entitlement->valid_until, 'Unbefristeter Zugang wurde durch den Verlängerungscode befristet.');
     }
 
+    /**
+     * Bug-Review R4-7: anders als "suspended" (siehe Test oben -- bewusst
+     * gewollt, siehe CouponRedemptionService::redeemForRenewal()-Kommentar)
+     * ist "revoked" die bewusst HÄRTERE Admin-Entscheidung (z. B. bei
+     * Betrug/Rückbuchung, Admin\EntitlementController::update()) -- ein vom
+     * Lerner selbst eingelöster Verlängerungscode darf das nicht einfach
+     * unterlaufen.
+     */
+    public function test_redeeming_a_renewal_code_does_not_reactivate_a_revoked_entitlement(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+
+        $this->onAdmin(fn () => Entitlement::create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $learner->id,
+            'course_id' => $course->id,
+            'status' => 'revoked',
+            'source_type' => 'coupon',
+            'valid_from' => now()->subDays(30),
+            'valid_until' => now()->addDays(300),
+        ]));
+
+        $coupon = $this->makeRenewalCoupon($course, $tenant);
+
+        $response = $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', ['code' => $coupon->code]);
+
+        $response->assertSessionHasErrors('code');
+
+        $entitlement = $this->asTenant($tenant, fn () => Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
+            ->where('course_id', $course->id)->firstOrFail());
+        $this->assertSame('revoked', $entitlement->status);
+
+        $freshCoupon = $this->onAdmin(fn () => Coupon::where('code', $coupon->code)->first());
+        $this->assertFalse($freshCoupon->isRedeemed(), 'Der Code wurde trotz abgelehnter Verlängerung verbraucht.');
+    }
+
     public function test_renewal_creates_a_fresh_entitlement_when_the_course_was_never_booked(): void
     {
         $tenant = $this->createTestTenant();

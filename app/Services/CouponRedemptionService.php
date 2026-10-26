@@ -112,7 +112,11 @@ class CouponRedemptionService
      * nie eines für diesen Kurs), zählt die Frist ab heute. In beiden Fällen
      * wird der Status wieder auf "active" gesetzt, auch wenn er zwischenzeitlich
      * suspendiert war -- ein gekaufter Verlängerungscode soll den Zugang
-     * zuverlässig zurückbringen.
+     * zuverlässig zurückbringen. Ein "revoked" Zugang (siehe weiter unten)
+     * ist davon bewusst ausgenommen: das ist die bewusst HÄRTERE
+     * Admin-Entscheidung (z. B. bei Betrug/Rückbuchung, Admin\
+     * EntitlementController) und soll nicht durch einen vom Lerner selbst
+     * eingelösten Code unterlaufen werden können (Bug-Review R4-7).
      */
     private function redeemForRenewal(Coupon $coupon, Tenant $tenant, User $user, User $actor): array
     {
@@ -130,6 +134,15 @@ class CouponRedemptionService
             ->where('course_id', $course->id)
             ->orderByDesc('valid_until')
             ->first();
+
+        // Bug-Review R4-7: anders als "suspended" (siehe Kommentar oben) soll
+        // ein bewusst entzogener ("revoked") Zugang nicht einfach durch einen
+        // Verlängerungscode zurückkommen -- dafür ist eine neue, explizite
+        // Admin-Aktion nötig (z. B. erneutes Freischalten über
+        // Admin\EntitlementController oder ein neu zugewiesenes Entitlement).
+        if ($entitlement && $entitlement->status === 'revoked') {
+            throw new RuntimeException('Der Zugang zu diesem Kurs wurde entzogen und kann nicht per Verlängerungscode reaktiviert werden. Bitte wende dich an deine Bootsschule.');
+        }
 
         if ($entitlement) {
             // Bug-Review N5: valid_until=null bedeutet unbefristeten Zugang
