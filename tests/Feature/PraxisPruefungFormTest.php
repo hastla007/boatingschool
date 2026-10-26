@@ -34,12 +34,27 @@ class PraxisPruefungFormTest extends TestCase
 
     private array $createdQuestionIds = [];
 
+    /**
+     * Bug-Review Testisolation: zwei Tests legen hier über AddonTemplate::
+     * create() eine echte, global geteilte Vorlage an -- $createdTemplateIds
+     * oben trackt ausschließlich PraxisFormTemplate (ein anderes Modell/
+     * Tabelle), diese Zeilen blieben also dauerhaft stehen.
+     */
+    private array $createdAddonTemplateIds = [];
+
+    /**
+     * Bug-Review Testisolation: ein Test legt hier einen echten
+     * Pruefungsausschuss an, ohne ihn je wieder zu löschen.
+     */
+    private array $createdPruefungsausschussIds = [];
+
     protected function tearDown(): void
     {
-        // Tenants zuerst aufräumen (kaskadiert praxis_form_submission weg),
-        // erst danach die global geteilten Formular-Vorlagen löschen --
-        // sonst schlägt das wegen der FK auf noch existierende
-        // Einreichungen fehl.
+        // Tenants zuerst aufräumen (kaskadiert praxis_form_submission und
+        // tenant_course_location weg), erst danach die global geteilten
+        // Formular-/Addon-Vorlagen und Prüfungsausschüsse löschen -- sonst
+        // schlägt das wegen der FK auf noch existierende Einreichungen bzw.
+        // Orte fehl.
         $this->cleanUpCreatedTenantsAndUsers();
 
         $this->onAdmin(function () {
@@ -54,6 +69,12 @@ class PraxisPruefungFormTest extends TestCase
             }
             foreach ($this->createdQuestionIds as $id) {
                 ContentQuestion::where('id', $id)->delete();
+            }
+            foreach ($this->createdAddonTemplateIds as $id) {
+                AddonTemplate::where('id', $id)->delete();
+            }
+            foreach ($this->createdPruefungsausschussIds as $id) {
+                Pruefungsausschuss::where('id', $id)->delete();
             }
         });
 
@@ -673,6 +694,7 @@ class PraxisPruefungFormTest extends TestCase
             'stadt' => 'Ausschussstadt',
             'course_ids' => [$course->id],
         ]));
+        $this->createdPruefungsausschussIds[] = $pruefungsausschuss->id;
         $location = $this->onAdmin(fn () => TenantCourseLocation::create([
             'tenant_id' => $tenant->id,
             'praxis_ort' => 'Standort Nord',
@@ -849,6 +871,7 @@ class PraxisPruefungFormTest extends TestCase
             'bullets' => ['Alle Praxisstunden inklusive'],
             'active' => true,
         ]));
+        $this->createdAddonTemplateIds[] = $addonTemplate->id;
         $this->onAdmin(fn () => TenantAddon::create([
             'tenant_id' => $tenant->id,
             'addon_template_id' => $addonTemplate->id,
@@ -884,6 +907,7 @@ class PraxisPruefungFormTest extends TestCase
             'cta_label' => 'Paket sichern',
             'active' => true,
         ]));
+        $this->createdAddonTemplateIds[] = $addonTemplate->id;
         $this->onAdmin(fn () => TenantAddon::create([
             'tenant_id' => $tenant->id,
             'addon_template_id' => $addonTemplate->id,

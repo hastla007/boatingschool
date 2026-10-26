@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -23,11 +24,24 @@ class ThrottleKeyIsolationTest extends TestCase
 {
     use InteractsWithTenants;
 
+    /**
+     * Bug-Review NEU-5: /admin/participants/invite legt für jede neue
+     * Adresse einen echten Teilnehmer an und löst per BestEffortMail einen
+     * Passwort-Set-Link aus (Password::sendResetLink(), siehe
+     * ParticipantController::invite()) -- das erzeugt eine Zeile in
+     * password_reset_tokens (keine Fremdschlüssel-Beziehung, siehe
+     * ParticipantInviteTest::deleteInvitedUser() für dasselbe Muster).
+     * 10 Einladungen in einem einzigen Testlauf hinterließen bisher 10
+     * solcher Zeilen dauerhaft, unabhängig vom Löschen der Nutzer selbst.
+     */
     protected function tearDown(): void
     {
         $this->onAdmin(function () {
             User::where('display_name', 'Throttle Isolation Test')->get()
-                ->each(fn (User $user) => $user->delete());
+                ->each(function (User $user) {
+                    DB::table('password_reset_tokens')->where('email', $user->email)->delete();
+                    $user->delete();
+                });
         });
 
         $this->cleanUpCreatedTenantsAndUsers();

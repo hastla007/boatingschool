@@ -22,7 +22,11 @@ class CreateSuperAdminCommandTest extends TestCase
     protected function tearDown(): void
     {
         $this->setSuperAdminPasswordEnv(null);
-        $this->cleanUpCreatedUsers();
+        // Bug-Review NEU-5: drei Tests hier legen über createTestTenant()
+        // einen echten Tenant an -- cleanUpCreatedUsers() allein räumt nur
+        // $createdUserIds auf, nie $createdTenantIds, die Tenants blieben
+        // also dauerhaft (verwaist, ohne Mitglieder) stehen.
+        $this->cleanUpCreatedTenantsAndUsers();
 
         parent::tearDown();
     }
