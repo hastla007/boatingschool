@@ -237,13 +237,23 @@ class AdminDashboardController extends Controller
         // einen Schlag -- die "Coupon zuweisen"-Auswahl (admin.tabs.coupons)
         // braucht dagegen wirklich alle Teilnehmer und bleibt deshalb eine
         // eigene, schlanke Abfrage ohne Entitlements.
+        //
+        // Bug-Review R4-4: alle drei Listen auf dieser Seite (Teilnehmer,
+        // Anmeldungen, Coupons) paginierten bisher ohne eigenen pageName --
+        // Laravels Default dafür ist bei JEDEM Paginator derselbe
+        // Query-String-Parameter "page". Da hier aber alle drei Listen auf
+        // einer einzigen Seite (nur per Tab client-seitig umgeschaltet,
+        // siehe admin/dashboard.blade.php) zusammen gerendert werden, blätterte
+        // "nächste Seite" bei EINER Liste automatisch auch die ANDEREN
+        // beiden Listen um (gleicher ?page=N-Parameter) statt nur die
+        // gerade sichtbare.
         $participants = TenantUser::with(['user.entitlements' => function ($q) use ($tenant) {
             $q->where('tenant_id', $tenant->id)->with('course');
         }])
             ->where('tenant_id', $tenant->id)
             ->where('role', 'learner')
             ->orderBy('created_at')
-            ->paginate(25)
+            ->paginate(25, ['*'], 'participants_page')
             ->withQueryString();
 
         $allParticipants = TenantUser::with('user')
@@ -305,7 +315,7 @@ class AdminDashboardController extends Controller
             ->when(($anmeldungFilters['anmeldung_from'] ?? '') !== '', fn ($q) => $q->whereDate('created_at', '>=', $anmeldungFilters['anmeldung_from']))
             ->when(($anmeldungFilters['anmeldung_to'] ?? '') !== '', fn ($q) => $q->whereDate('created_at', '<=', $anmeldungFilters['anmeldung_to']))
             ->orderByDesc('created_at')
-            ->paginate(20)
+            ->paginate(20, ['*'], 'anmeldung_page')
             ->withQueryString();
 
         $disabledCourseIds = TenantCourseDisabled::where('tenant_id', $tenant->id)->pluck('course_id');
@@ -329,7 +339,7 @@ class AdminDashboardController extends Controller
             ->when(($couponFilters['coupon_type'] ?? null) === 'product', fn ($q) => $q->whereNotNull('product_id'))
             ->when(($couponFilters['coupon_type'] ?? null) === 'renewal', fn ($q) => $q->where('is_renewal', true))
             ->orderByDesc('created_at')
-            ->paginate(50)
+            ->paginate(50, ['*'], 'coupon_page')
             ->withQueryString();
 
         // Bestand je Kurs/Produkt aus den Codes, die dieser Bootsschule
