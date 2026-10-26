@@ -38,7 +38,8 @@ class TrustedHostsTest extends TestCase
     {
         parent::setUp();
 
-        Cache::store('file')->forget('trusted-hosts:custom-domains');
+        Cache::store('file')->forget('trusted-hosts:custom-domains:data');
+        Cache::store('file')->forget('trusted-hosts:custom-domains:fresh-until');
     }
 
     public function test_patterns_match_the_central_domain_and_its_subdomains(): void
@@ -101,6 +102,47 @@ class TrustedHostsTest extends TestCase
             $this->assertTrue(
                 $this->matchesAny($patterns, $central),
                 'Die zentrale Domain muss auch bei einem Ausfall der Owner-Verbindung erreichbar bleiben.'
+            );
+        } finally {
+            config(['database.connections.pgsql_admin' => $originalConfig]);
+            DB::purge('pgsql_admin');
+        }
+    }
+
+    /**
+     * Bug-Review NEU-6 (Folgefehler, eigener Fund): eine erste Fassung
+     * cachte Custom Domains direkt über Cache::remember() mit einer
+     * TTL -- Illuminate\Cache\FileStore::getPayload() löscht eine
+     * abgelaufene Datei aber schon beim ERSTEN get()-Aufruf (den
+     * remember() selbst vor dem Callback macht), der im Kommentar
+     * versprochene "Rückfall auf die letzte bekannte, ggf. abgelaufene
+     * Kopie" bei einem Ausfall existierte dadurch nie -- nach Ablauf der
+     * TTL lieferte ein Ausfall immer eine leere Liste. Dieser Test prüft
+     * den echten Rückfall: eine zuvor erfolgreich geladene Custom Domain
+     * muss auch NACH Ablauf des Cache-Fensters noch zurückkommen, wenn in
+     * genau diesem Moment die Owner-Verbindung ausfällt.
+     */
+    public function test_a_previously_loaded_custom_domain_survives_an_outage_after_the_cache_window_expired(): void
+    {
+        // Setzt NUR die Daten (ohne TTL), OHNE den Frische-Marker -- exakt
+        // der Zustand nach Ablauf des Cache-Fensters, deterministisch
+        // nachgebildet statt auf echte 5 Minuten Wartezeit angewiesen zu
+        // sein (sonst würde ein noch gültiger, "zufällig" frischer Cache-
+        // Eintrag denselben Test auch mit einer kaputten Implementierung
+        // bestehen lassen, siehe Kommentar oben zur ersten Fassung).
+        Cache::store('file')->forever('trusted-hosts:custom-domains:data', ['kurse.stale-fallback-e2e.test']);
+        Cache::store('file')->forget('trusted-hosts:custom-domains:fresh-until');
+
+        $originalConfig = config('database.connections.pgsql_admin');
+        config(['database.connections.pgsql_admin.port' => 1]);
+        DB::purge('pgsql_admin');
+
+        try {
+            $patterns = TrustedHosts::patterns();
+
+            $this->assertTrue(
+                $this->matchesAny($patterns, 'kurse.stale-fallback-e2e.test'),
+                'Eine zuvor erfolgreich geladene Custom Domain muss auch bei einem Ausfall nach Ablauf des Cache-Fensters noch zurückkommen (echter Rückfall, nicht nur versprochen).'
             );
         } finally {
             config(['database.connections.pgsql_admin' => $originalConfig]);

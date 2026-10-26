@@ -54,7 +54,9 @@ class TrustedHosts
         return $patterns;
     }
 
-    private const CACHE_KEY = 'trusted-hosts:custom-domains';
+    private const DATA_KEY = 'trusted-hosts:custom-domains:data';
+
+    private const FRESH_KEY = 'trusted-hosts:custom-domains:fresh-until';
 
     private const CACHE_TTL_MINUTES = 5;
 
@@ -71,16 +73,37 @@ class TrustedHosts
      * konfigurierten Standard-Stores (CACHE_STORE=database, siehe .env) --
      * ein DB-gestützter Cache wäre bei einem echten Postgres-Ausfall
      * genauso betroffen wie die eigentliche Abfrage selbst und würde
-     * nichts entschärfen. Mit dem Dateisystem-Cache übersteht ein bereits
-     * befüllter Eintrag einen Postgres-Ausfall vollständig; schlägt die
-     * Abfrage fehl (Verbindungsfehler ODER kalter Cache), fällt diese
-     * Methode auf die letzte bekannte (ggf. abgelaufene) Dateisystem-
-     * Cache-Kopie zurück, im schlimmsten Fall auf eine leere Liste -- die
-     * zentrale Domain und ihre Subdomains bleiben davon unberührt (siehe
-     * patterns() oben, kommt rein aus der Config), nur noch nicht
-     * gecachte/neue Custom Domains würden während eines solchen Ausfalls
-     * vorübergehend als nicht vertrauenswürdig abgelehnt, statt die
-     * gesamte Plattform für jeden Host mit 500 zu beantworten.
+     * nichts entschärfen.
+     *
+     * Bug-Review NEU-6 (Folgefehler, eigener Fund): eine erste Fassung
+     * nutzte dafür Cache::remember() mit einer 5-minütigen TTL direkt auf
+     * demselben Schlüssel -- Illuminate\Cache\FileStore::getPayload()
+     * LÖSCHT eine abgelaufene Datei aber schon beim ersten get()-Aufruf
+     * (den remember() selbst zuerst macht, bevor es den Callback
+     * überhaupt aufruft), noch bevor ein Ausfall je zum eigenen try/catch
+     * unten durchdringen konnte -- der dort versprochene "Rückfall auf
+     * die letzte bekannte, ggf. abgelaufene Kopie" existierte dadurch nie:
+     * nach Ablauf der TTL lieferte ein Ausfall immer eine leere Liste, per
+     * Tinker verifiziert (Cache::store('file')->get() nach Ablauf liefert
+     * nachweislich null, nicht den letzten Wert). Die eigentliche
+     * Degradation (zentrale Domain bleibt erreichbar, nur Custom Domains
+     * würden während des Ausfalls vorübergehend abgelehnt) war damit zwar
+     * immer noch besser als der ungefangene 500 von vorher, aber schwächer
+     * als dokumentiert.
+     *
+     * Echter Rückfall jetzt über zwei getrennte Schlüssel: die Daten
+     * selbst (DATA_KEY) bleiben ohne TTL stehen und werden nur bei einer
+     * ERFOLGREICHEN Abfrage überschrieben; ein separater, kurzlebiger
+     * Marker (FRESH_KEY) entscheidet nur, ob überhaupt neu abgefragt wird.
+     * Schlägt die Abfrage fehl (Verbindungsfehler), bleiben die zuletzt
+     * erfolgreich geladenen Daten unter DATA_KEY unverändert stehen und
+     * werden zurückgegeben -- echt, nicht nur versprochen.
+     *
+     * Invalidieren: ein plain `php artisan cache:clear` räumt nur den
+     * KONFIGURIERTEN Standard-Store (CACHE_STORE=database) -- dieser hier
+     * nutzt bewusst den davon unabhängigen 'file'-Store (s. o.) und wird
+     * davon NICHT getroffen. `php artisan cache:clear --store=file` leert
+     * ihn gezielt (oder einfach bis zu CACHE_TTL_MINUTES abwarten).
      *
      * @return array<int, string>
      */
@@ -88,22 +111,29 @@ class TrustedHosts
     {
         $cache = Cache::store('file');
 
+        if ($cache->has(self::FRESH_KEY)) {
+            return $cache->get(self::DATA_KEY, []);
+        }
+
         try {
-            return $cache->remember(self::CACHE_KEY, now()->addMinutes(self::CACHE_TTL_MINUTES), function () {
-                // Läuft als globale Middleware VOR jeder Tenant-/RLS-
-                // Auflösung -- dieselbe Owner-Verbindung wie
-                // ResolveTenant::resolveViaCustomDomain() (Sicherheitsreview
-                // N9), aus demselben Grund: die App-Rolle sähe ohne
-                // Tenant-Kontext ohnehin nie eine Zeile.
-                return DB::connection('pgsql_admin')->table('tenant_branding')
-                    ->whereNotNull('custom_domain')
-                    ->pluck('custom_domain')
-                    ->all();
-            });
+            // Läuft als globale Middleware VOR jeder Tenant-/RLS-Auflösung
+            // -- dieselbe Owner-Verbindung wie ResolveTenant::
+            // resolveViaCustomDomain() (Sicherheitsreview N9), aus
+            // demselben Grund: die App-Rolle sähe ohne Tenant-Kontext
+            // ohnehin nie eine Zeile.
+            $domains = DB::connection('pgsql_admin')->table('tenant_branding')
+                ->whereNotNull('custom_domain')
+                ->pluck('custom_domain')
+                ->all();
+
+            $cache->forever(self::DATA_KEY, $domains);
+            $cache->put(self::FRESH_KEY, true, now()->addMinutes(self::CACHE_TTL_MINUTES));
+
+            return $domains;
         } catch (Throwable $e) {
             report($e);
 
-            return $cache->get(self::CACHE_KEY, []);
+            return $cache->get(self::DATA_KEY, []);
         }
     }
 }
