@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Models\TenantBranding;
 use App\Support\TrustedHosts;
 use Illuminate\Http\Middleware\TrustHosts;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -25,6 +27,20 @@ class TrustedHostsTest extends TestCase
 {
     use InteractsWithTenants;
 
+    /**
+     * Bug-Review NEU-6: TrustedHosts::customDomains() cacht das Ergebnis
+     * jetzt (siehe dort) -- ohne diesen Reset vor jedem Test würde ein
+     * früher im Lauf gecachtes (z. B. noch leeres) Ergebnis andere, SPÄTER
+     * in diesem Lauf neu gesetzte Custom Domains verdecken und Tests von
+     * ihrer Ausführungsreihenfolge abhängig machen.
+     */
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Cache::store('file')->forget('trusted-hosts:custom-domains');
+    }
+
     public function test_patterns_match_the_central_domain_and_its_subdomains(): void
     {
         $central = config('app.central_domain');
@@ -42,6 +58,54 @@ class TrustedHostsTest extends TestCase
         $patterns = TrustedHosts::patterns();
 
         $this->assertTrue($this->matchesAny($patterns, 'kurse.meine-bootsschule-e2e.test'), 'Konfigurierte Custom-Domain wird von keinem Muster abgedeckt.');
+    }
+
+    /**
+     * Bug-Review NEU-6: customDomains() cachte das Ergebnis bisher gar
+     * nicht und fragte bei JEDEM Request (auch /up, dem Health-Check) die
+     * Owner-Verbindung ab. Dieser Test prüft die Cache-Seite direkt: eine
+     * NACH dem ersten patterns()-Aufruf gesetzte Custom Domain darf
+     * innerhalb des Cache-Fensters noch nicht auftauchen -- sonst würde
+     * jeder Request weiterhin ungecacht gegen die DB laufen.
+     */
+    public function test_patterns_are_cached_and_do_not_reflect_a_change_within_the_cache_window(): void
+    {
+        $tenant = $this->createTestTenant();
+
+        TrustedHosts::patterns();
+
+        $this->onAdmin(fn () => TenantBranding::where('tenant_id', $tenant->id)->update(['custom_domain' => 'kurse.cache-test-e2e.test']));
+
+        $patterns = TrustedHosts::patterns();
+
+        $this->assertFalse($this->matchesAny($patterns, 'kurse.cache-test-e2e.test'), 'Eine innerhalb des Cache-Fensters neu gesetzte Custom Domain darf noch nicht auftauchen -- sonst wird gar nicht gecacht.');
+    }
+
+    /**
+     * Bug-Review NEU-6 (Ausfallsicherheit): fiel die Owner-Verbindung aus,
+     * beantwortete bisher die GESAMTE Plattform jeden Request mit 500 --
+     * nicht nur Custom-Domain-Requests, sondern auch die zentrale Domain
+     * und jede reguläre Bootsschul-Subdomain, deren Muster rein aus der
+     * Config (CENTRAL_DOMAIN) kommt und gar keine DB-Abfrage braucht.
+     */
+    public function test_patterns_still_cover_the_central_domain_when_the_admin_connection_is_unreachable(): void
+    {
+        $originalConfig = config('database.connections.pgsql_admin');
+        config(['database.connections.pgsql_admin.port' => 1]);
+        DB::purge('pgsql_admin');
+
+        try {
+            $patterns = TrustedHosts::patterns();
+
+            $central = config('app.central_domain');
+            $this->assertTrue(
+                $this->matchesAny($patterns, $central),
+                'Die zentrale Domain muss auch bei einem Ausfall der Owner-Verbindung erreichbar bleiben.'
+            );
+        } finally {
+            config(['database.connections.pgsql_admin' => $originalConfig]);
+            DB::purge('pgsql_admin');
+        }
     }
 
     /**

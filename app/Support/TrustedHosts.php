@@ -2,7 +2,9 @@
 
 namespace App\Support;
 
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 /**
  * Bug-Review R3-2/R4-A: ohne trustHosts() vertraut Laravel jedem
@@ -52,16 +54,56 @@ class TrustedHosts
         return $patterns;
     }
 
-    /** @return array<int, string> */
+    private const CACHE_KEY = 'trusted-hosts:custom-domains';
+
+    private const CACHE_TTL_MINUTES = 5;
+
+    /**
+     * Bug-Review NEU-6 (Performance und Ausfallsicherheit): als globale
+     * Middleware lief diese Abfrage bisher bei JEDEM Request gegen die
+     * Owner-Verbindung -- auch für /up (Health-Check) und jeden statischen
+     * Asset-Request, der überhaupt durch den vollen HTTP-Stack läuft.
+     * Fällt diese Verbindung aus, beantwortete bisher ALLES (nicht nur
+     * Custom-Domain-Requests) mit 500, einschließlich des Health-Checks,
+     * der genau diesen Ausfall eigentlich melden sollte.
+     *
+     * Der 'file'-Cache-Store ist hier bewusst explizit gewählt statt des
+     * konfigurierten Standard-Stores (CACHE_STORE=database, siehe .env) --
+     * ein DB-gestützter Cache wäre bei einem echten Postgres-Ausfall
+     * genauso betroffen wie die eigentliche Abfrage selbst und würde
+     * nichts entschärfen. Mit dem Dateisystem-Cache übersteht ein bereits
+     * befüllter Eintrag einen Postgres-Ausfall vollständig; schlägt die
+     * Abfrage fehl (Verbindungsfehler ODER kalter Cache), fällt diese
+     * Methode auf die letzte bekannte (ggf. abgelaufene) Dateisystem-
+     * Cache-Kopie zurück, im schlimmsten Fall auf eine leere Liste -- die
+     * zentrale Domain und ihre Subdomains bleiben davon unberührt (siehe
+     * patterns() oben, kommt rein aus der Config), nur noch nicht
+     * gecachte/neue Custom Domains würden während eines solchen Ausfalls
+     * vorübergehend als nicht vertrauenswürdig abgelehnt, statt die
+     * gesamte Plattform für jeden Host mit 500 zu beantworten.
+     *
+     * @return array<int, string>
+     */
     private static function customDomains(): array
     {
-        // Läuft als globale Middleware VOR jeder Tenant-/RLS-Auflösung --
-        // dieselbe Owner-Verbindung wie ResolveTenant::resolveViaCustomDomain()
-        // (Sicherheitsreview N9), aus demselben Grund: die App-Rolle sähe
-        // ohne Tenant-Kontext ohnehin nie eine Zeile.
-        return DB::connection('pgsql_admin')->table('tenant_branding')
-            ->whereNotNull('custom_domain')
-            ->pluck('custom_domain')
-            ->all();
+        $cache = Cache::store('file');
+
+        try {
+            return $cache->remember(self::CACHE_KEY, now()->addMinutes(self::CACHE_TTL_MINUTES), function () {
+                // Läuft als globale Middleware VOR jeder Tenant-/RLS-
+                // Auflösung -- dieselbe Owner-Verbindung wie
+                // ResolveTenant::resolveViaCustomDomain() (Sicherheitsreview
+                // N9), aus demselben Grund: die App-Rolle sähe ohne
+                // Tenant-Kontext ohnehin nie eine Zeile.
+                return DB::connection('pgsql_admin')->table('tenant_branding')
+                    ->whereNotNull('custom_domain')
+                    ->pluck('custom_domain')
+                    ->all();
+            });
+        } catch (Throwable $e) {
+            report($e);
+
+            return $cache->get(self::CACHE_KEY, []);
+        }
     }
 }
