@@ -66,7 +66,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // liefert (eigene CENTRAL_DOMAIN-Logik statt Laravels APP_URL-
         // basierter allSubdomainsOfApplicationUrl()).
         //
-        // [TrustedHosts::class, 'patterns'] (PHP-First-Class-Callable-Syntax)
+        // TrustedHosts::patterns(...) (PHP-First-Class-Callable-Syntax)
         // statt [TrustedHosts::class, 'patterns']: Illuminate\Http\
         // Middleware\TrustHosts::hosts() prüft per match(true) ZUERST
         // is_array($at), DANACH erst is_callable($at) -- ein Array-Callable

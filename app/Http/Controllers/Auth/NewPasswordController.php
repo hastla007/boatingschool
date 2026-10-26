@@ -56,6 +56,17 @@ class NewPasswordController extends Controller
                     // sich also nie einloggen. Ein bereits gesperrtes
                     // (suspended/closed) Konto bleibt bewusst unverändert.
                     'status' => $user->status === 'invited' ? 'active' : $user->status,
+                    // Bug-Review NEU-7: ein erfolgreicher Passwort-Reset
+                    // bestätigt den Besitz der Mailbox genauso stark wie ein
+                    // eigener Verifizierungslink (beide beweisen sich
+                    // ausschließlich darüber, dass der tatsächliche Besitzer
+                    // einen an diese Adresse geschickten, signierten Token
+                    // zurückgibt) -- ohne das blieb email_verified_at trotz
+                    // bewiesenem Mailbox-Besitz null. app:create-superadmin
+                    // empfiehlt genau diesen Weg ("z. B. Passwort-Reset-Link")
+                    // als Nachweis für ein unbestätigtes Konto; ohne diese
+                    // Zeile hätte der Befehl danach trotzdem weiter abgelehnt.
+                    'email_verified_at' => $user->email_verified_at ?? now(),
                 ])->save();
 
                 // Beendet alle laufenden Sitzungen dieses Kontos (z. B. eines

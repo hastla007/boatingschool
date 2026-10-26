@@ -3,6 +3,7 @@
 namespace Tests\Feature\Auth;
 
 use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Notification;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -71,6 +72,39 @@ class PasswordResetTest extends TestCase
 
             return true;
         });
+    }
+
+    /**
+     * Bug-Review NEU-7: app:create-superadmin empfiehlt einem Konto, dessen
+     * E-Mail-Adresse nie bestätigt wurde, genau diesen Weg ("z. B.
+     * Passwort-Reset-Link") als Nachweis -- ohne dass ein erfolgreicher
+     * Reset email_verified_at setzt, hätte der Befehl danach trotzdem
+     * weiter abgelehnt, obwohl der Mailbox-Besitz gerade bewiesen wurde.
+     */
+    public function test_a_successful_password_reset_verifies_a_previously_unverified_email(): void
+    {
+        Notification::fake();
+
+        $tenant = $this->createTestTenant();
+        $user = $this->createTenantUser($tenant, 'owner', ['email_verified_at' => null]);
+
+        $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/forgot-password', ['email' => $user->email]);
+
+        Notification::assertSentTo($user, ResetPassword::class, function ($notification) use ($user, $tenant) {
+            $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/reset-password', [
+                'token' => $notification->token,
+                'email' => $user->email,
+                'password' => 'password1234',
+                'password_confirmation' => 'password1234',
+            ])->assertSessionHasNoErrors();
+
+            return true;
+        });
+
+        $this->assertNotNull($user->fresh()->email_verified_at);
+
+        $exitCode = Artisan::call('app:create-superadmin', ['email' => $user->email]);
+        $this->assertSame(0, $exitCode, 'app:create-superadmin muss nach dem empfohlenen Passwort-Reset-Nachweis erfolgreich befördern.');
     }
 
     /**
