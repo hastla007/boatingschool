@@ -65,6 +65,21 @@ class SecurityHeaders
         $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
         $response->headers->set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
 
+        // Bug-Review R4-J: $request->secure() spiegelt nur die
+        // tatsächliche TLS-Verbindung, die PHP selbst sieht -- hinter
+        // einem TLS-terminierenden Reverse-Proxy (nginx, Load Balancer,
+        // CDN) kommt der Request bei PHP intern per Klartext-HTTP an, nur
+        // der Proxy weiß per X-Forwarded-Proto, dass der Browser selbst
+        // über HTTPS verbunden war. Dieser Header wird aber nur
+        // ausgewertet, wenn die Proxy-IP in TRUSTED_PROXIES eingetragen
+        // ist (bootstrap/app.php, siehe dortigen Kommentar) -- ohne das
+        // bleibt $request->secure() in genau diesem, in Produktion
+        // üblichen Aufbau dauerhaft false, und dieser Header würde nie
+        // gesendet, obwohl die Seite für jeden Browser ausschließlich über
+        // HTTPS erreichbar ist. Das ist eine Konfigurations-, keine
+        // Code-Garantie (siehe .env.example) -- der Code kann ohne
+        // korrekt gesetztes TRUSTED_PROXIES nicht zuverlässig wissen, ob
+        // der Browser wirklich über HTTPS verbunden war.
         if ($request->secure()) {
             $response->headers->set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
         }
