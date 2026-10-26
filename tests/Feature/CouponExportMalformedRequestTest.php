@@ -19,8 +19,24 @@ class CouponExportMalformedRequestTest extends TestCase
 {
     use InteractsWithTenants;
 
+    /**
+     * Bug-Review R4-J: der feste Testcode (ohne uniqid()-Suffix) wurde
+     * bisher erst NACH den eigenen Assertions im Testkörper selbst
+     * gelöscht -- schlug eine Assertion fehl, lief dieses Aufräumen nie,
+     * und der Code blieb dauerhaft stehen. Ein späterer Testlauf scheiterte
+     * dann an genau diesem Code mit einer UniqueConstraintViolationException,
+     * unabhängig vom eigentlich zu prüfenden Verhalten.
+     */
+    private array $createdCouponCodes = [];
+
     protected function tearDown(): void
     {
+        $this->onAdmin(function () {
+            foreach ($this->createdCouponCodes as $code) {
+                Coupon::where('code', $code)->delete();
+            }
+        });
+
         $this->cleanUpCreatedTenantsAndUsers();
 
         parent::tearDown();
@@ -50,6 +66,7 @@ class CouponExportMalformedRequestTest extends TestCase
     {
         $superadmin = $this->createSuperAdmin();
         $course = $this->existingCourse('SRC');
+        $this->createdCouponCodes[] = 'B26-EXPORT-TEST';
         $this->onAdmin(fn () => Coupon::create(['code' => 'B26-EXPORT-TEST', 'course_id' => $course->id]));
 
         $response = $this->actingAs($superadmin)->post('/superadmin/coupons/export', [
@@ -58,7 +75,5 @@ class CouponExportMalformedRequestTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('B26-EXPORT-TEST');
-
-        $this->onAdmin(fn () => Coupon::where('code', 'B26-EXPORT-TEST')->delete());
     }
 }

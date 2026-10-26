@@ -18,8 +18,28 @@ class InstructorPermissionsTest extends TestCase
 {
     use InteractsWithTenants;
 
+    /**
+     * Bug-Review R4-J: die drei Coupon-Tests hier löschten ihren jeweils
+     * fest codierten Testcode (ohne uniqid()-Suffix) bisher erst NACH ihren
+     * eigenen Assertions im Testkörper selbst -- schlug eine Assertion
+     * (oder ein künftiger Regressions-Fix) fehl, lief dieses Aufräumen nie,
+     * und der Code blieb dauerhaft (nur per UNIQUE-Constraint verwaist)
+     * stehen. Ein späterer Testlauf scheiterte dann an genau diesem Code
+     * mit einer UniqueConstraintViolationException, unabhängig vom
+     * eigentlich zu prüfenden Verhalten. tearDown() räumt jetzt
+     * unabhängig vom Testergebnis auf, analog zu $createdCodes in
+     * ParticipantInviteTest.
+     */
+    private array $createdCouponCodes = [];
+
     protected function tearDown(): void
     {
+        $this->onAdmin(function () {
+            foreach ($this->createdCouponCodes as $code) {
+                Coupon::where('code', $code)->delete();
+            }
+        });
+
         $this->cleanUpCreatedTenantsAndUsers();
 
         parent::tearDown();
@@ -95,6 +115,7 @@ class InstructorPermissionsTest extends TestCase
         $learner = $this->createTenantUser($tenant, 'learner');
         $course = $this->existingCourse('SRC');
         $code = 'E2E-INSTRUCTOR-BLOCK';
+        $this->createdCouponCodes[] = $code;
         $coupon = $this->onAdmin(fn () => Coupon::create(['code' => $code, 'course_id' => $course->id, 'tenant_id' => $tenant->id]));
 
         $importResponse = $this->actingAsInTenant($instructor, $tenant)->post('/admin/coupons/import', ['codes' => $code]);
@@ -104,7 +125,6 @@ class InstructorPermissionsTest extends TestCase
         $assignResponse->assertForbidden();
 
         $this->assertFalse($coupon->fresh()->isRedeemed());
-        $this->onAdmin(fn () => Coupon::where('code', $code)->delete());
     }
 
     public function test_instructor_cannot_update_addons_or_course_promo_banners(): void
@@ -262,6 +282,7 @@ class InstructorPermissionsTest extends TestCase
         $instructor = $this->createTenantUser($tenant, 'instructor');
         $course = $this->existingCourse('SRC');
         $code = 'E2E-INSTRUCTOR-REDEEM';
+        $this->createdCouponCodes[] = $code;
         $coupon = $this->onAdmin(fn () => Coupon::create(['code' => $code, 'course_id' => $course->id]));
 
         $this->actingAsInTenant($instructor, $tenant)->get('/coupons/redeem')->assertForbidden();
@@ -270,7 +291,6 @@ class InstructorPermissionsTest extends TestCase
         $response->assertForbidden();
 
         $this->assertFalse($coupon->fresh()->isRedeemed());
-        $this->onAdmin(fn () => Coupon::where('code', $code)->delete());
     }
 
     public function test_a_learner_can_still_redeem_a_coupon(): void
@@ -279,6 +299,7 @@ class InstructorPermissionsTest extends TestCase
         $learner = $this->createTenantUser($tenant, 'learner');
         $course = $this->existingCourse('SRC');
         $code = 'E2E-LEARNER-REDEEM';
+        $this->createdCouponCodes[] = $code;
         $coupon = $this->onAdmin(fn () => Coupon::create(['code' => $code, 'course_id' => $course->id]));
 
         $this->actingAsInTenant($learner, $tenant)->get('/coupons/redeem')->assertOk();
@@ -287,6 +308,5 @@ class InstructorPermissionsTest extends TestCase
         $response->assertRedirect();
 
         $this->assertTrue($coupon->fresh()->isRedeemed());
-        $this->onAdmin(fn () => Coupon::where('code', $code)->delete());
     }
 }
