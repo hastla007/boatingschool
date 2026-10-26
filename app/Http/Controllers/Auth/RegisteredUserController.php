@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\TenantUser;
 use App\Models\User;
+use App\Notifications\DuplicateRegistrationAttempt;
 use App\Support\BestEffortMail;
 use App\Support\TenantContext;
 use Illuminate\Auth\Events\Registered;
@@ -12,6 +13,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\Rules;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -66,6 +68,16 @@ class RegisteredUserController extends Controller
             // echte Hash ist der mit Abstand teuerste Schritt) -- sonst bliebe
             // selbst bei identischer Antwort noch ein Timing-Seitenkanal.
             Hash::make($request->password);
+
+            // Bug-Review R4-F: der Neukonto-Zweig löst unten synchron einen
+            // echten SMTP-Versand aus (Verifizierungsmail) -- ein Dummy-Hash
+            // allein gleicht dessen Laufzeit nicht an, ein SMTP-Roundtrip
+            // dominiert jede lokale Rechenzeit deutlich. Dieser Versand hat
+            // zugleich einen echten Zweck (siehe DuplicateRegistrationAttempt).
+            BestEffortMail::send(
+                fn () => Notification::route('mail', $request->email)->notify(new DuplicateRegistrationAttempt),
+                'Hinweismail Registrierungsversuch auf bestehendes Konto'
+            );
 
             return back()->withInput($request->except('password', 'password_confirmation'))->with('status', $status);
         }

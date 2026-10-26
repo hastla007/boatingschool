@@ -3,6 +3,8 @@
 namespace Tests\Feature\Auth;
 
 use App\Models\User;
+use App\Notifications\DuplicateRegistrationAttempt;
+use Illuminate\Support\Facades\Notification;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -96,5 +98,34 @@ class RegistrationTest extends TestCase
             $this->assertNotNull($newUser);
             $this->createdUserIds[] = $newUser->id;
         });
+    }
+
+    /**
+     * Bug-Review R4-F: der Neukonto-Zweig löst synchron einen echten
+     * SMTP-Versand aus (Verifizierungsmail) -- ohne ein Äquivalent im
+     * Duplikat-Zweig blieb die Registrierung trotz identischer Antwort
+     * weiter über die Antwortzeit unterscheidbar (ein SMTP-Roundtrip
+     * dominiert jede lokale Rechenzeit deutlich). Diese Mail an die
+     * bestehende Adresse gleicht die Laufzeit an.
+     */
+    public function test_registering_an_already_registered_email_notifies_that_account_by_mail(): void
+    {
+        Notification::fake();
+
+        $tenant = $this->createTestTenant();
+        $existingEmail = 'bereits-benachrichtigt-'.uniqid().'@example.test';
+        $this->createTenantUser($tenant, 'learner', ['email' => $existingEmail]);
+
+        $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/register', [
+            'name' => 'Duplikat',
+            'email' => $existingEmail,
+            'password' => 'password1234',
+            'password_confirmation' => 'password1234',
+        ]);
+
+        Notification::assertSentOnDemand(
+            DuplicateRegistrationAttempt::class,
+            fn ($notification, $channels, $notifiable) => $notifiable->routes['mail'] === $existingEmail
+        );
     }
 }
