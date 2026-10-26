@@ -8,6 +8,7 @@ use App\Http\Middleware\EnsureTenantRole;
 use App\Http\Middleware\ResolveTenant;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\UseAdminDatabaseConnection;
+use App\Support\TrustedHosts;
 use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -41,6 +42,40 @@ return Application::configure(basePath: dirname(__DIR__))
         )));
 
         $middleware->trustProxies(at: $trustedProxies !== [] ? $trustedProxies : null);
+
+        // Bug-Review R3-2/R4-A: ohne trustHosts() vertraut Laravel jedem
+        // Host-Header blind -- route()/url() erzeugen absolute URLs (z. B.
+        // der Link in der Passwort-Reset-Mail) damit mit dem Host, den der
+        // CLIENT schickt; ein gefälschter Host-Header hätte diesen Link auf
+        // eine beliebige, vom Angreifer kontrollierte Domain zeigen lassen
+        // können (Host-Header-Poisoning). Zusätzlich löst TrustProxies bei
+        // einem Host-Header, der auf ".on-forge.com"/".on-vapor.com" endet,
+        // AUTOMATISCH "vertraue jedem Proxy" aus, unabhängig von
+        // TRUSTED_PROXIES oben -- ein Angreifer könnte das mit einem frei
+        // wählbaren, gefälschten Host-Header erzwingen und darüber
+        // X-Forwarded-For beliebig fälschen, was die IP-basierten
+        // throttle-Limits (routes/auth.php) aushebeln würde. TrustHosts
+        // läuft in Laravels globaler Middleware-Liste VOR TrustProxies und
+        // schließt damit beide Lücken: ein nicht passender Host-Header wird
+        // schon hier abgelehnt (400), bevor TrustProxies ihn zu Gesicht
+        // bekommt. Siehe App\Support\TrustedHosts für die Muster (zentrale
+        // Domain + ihre Subdomains + je Mandant konfigurierte Custom-
+        // Domains aus tenant_branding) -- subdomains: false, weil
+        // TrustedHosts::patterns() das Subdomain-Muster bereits selbst
+        // liefert (eigene CENTRAL_DOMAIN-Logik statt Laravels APP_URL-
+        // basierter allSubdomainsOfApplicationUrl()).
+        //
+        // [TrustedHosts::class, 'patterns'] (PHP-First-Class-Callable-Syntax)
+        // statt [TrustedHosts::class, 'patterns']: Illuminate\Http\
+        // Middleware\TrustHosts::hosts() prüft per match(true) ZUERST
+        // is_array($at), DANACH erst is_callable($at) -- ein Array-Callable
+        // IST aber selbst ein Array und würde deshalb fälschlich als
+        // LITERALE Host-Liste (['App\Support\TrustedHosts', 'patterns'])
+        // behandelt statt aufgerufen zu werden, was zu einem ungültigen
+        // Regex-Muster führt (der Klassenname selbst landet als "Host-
+        // Pattern"). Ein echtes Closure-Objekt ist dagegen kein Array und
+        // nimmt zuverlässig den is_callable-Zweig.
+        $middleware->trustHosts(at: TrustedHosts::patterns(...), subdomains: false);
 
         $middleware->web(append: [
             SecurityHeaders::class,
