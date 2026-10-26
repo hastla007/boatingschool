@@ -12,6 +12,10 @@ use Tests\TestCase;
  * trotzdem Teilnehmer einladen, Entitlements/Coupons verwalten und
  * Branding ändern (Phishing-Risiko über das Schul-Branding), ohne je
  * nachgewiesen zu haben, dass die Adresse tatsächlich ihm gehört.
+ *
+ * Bug-Review R4-J: dieselbe Lücke bestand auch auf der noch mächtigeren
+ * Superadmin-Routengruppe (routes/superadmin.php) -- EnsureSuperAdmin
+ * prüft nur is_superadmin, nicht email_verified_at.
  */
 class AdminRoutesRequireVerifiedEmailTest extends TestCase
 {
@@ -62,6 +66,24 @@ class AdminRoutesRequireVerifiedEmailTest extends TestCase
         $owner = $this->createTenantUser($tenant, 'owner');
 
         $response = $this->actingAsInTenant($owner, $tenant)->get('/admin');
+
+        $response->assertOk();
+    }
+
+    public function test_an_unverified_superadmin_is_redirected_away_from_the_superadmin_area(): void
+    {
+        $superadmin = $this->createSuperAdmin(['email_verified_at' => null]);
+
+        $response = $this->actingAs($superadmin)->get('/superadmin');
+
+        $response->assertRedirect(route('verification.notice'));
+    }
+
+    public function test_a_verified_superadmin_can_still_reach_the_superadmin_area(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+
+        $response = $this->actingAs($superadmin)->get('/superadmin');
 
         $response->assertOk();
     }

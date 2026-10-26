@@ -22,8 +22,19 @@ use Illuminate\Support\Facades\Route;
  * ResolveTenant::isTenantAgnosticRoute()) und läuft über die
  * "admin-db"-Middleware auf der Owner-DB-Verbindung, damit er RLS-frei
  * über alle Bootsschulen hinweg lesen/schreiben kann.
+ *
+ * Bug-Review R4-J: 'verified' fehlte hier (anders als auf den
+ * Bootsschul-Admin-Gruppen in web.php, siehe Bug-Review "verified fehlt
+ * auf der Admin-Gruppe") -- EnsureSuperAdmin prüft nur is_superadmin,
+ * nicht email_verified_at. app:create-superadmin verweigert zwar schon
+ * die ERST-Beförderung eines unbestätigten Kontos (Bug-Review R3-4);
+ * Superadmin\UserController::update() setzt email_verified_at aber auf
+ * null, sobald sich die E-Mail-Adresse eines Nutzers ändert, UND erlaubt
+ * is_superadmin im selben Request zu setzen -- ein so (neu oder erneut)
+ * beförderter Superadmin behielt damit plattformweiten Vollzugriff auf
+ * ALLE Bootsschulen, ohne je die aktuelle Adresse bestätigt zu haben.
  */
-Route::middleware(['auth', 'superadmin', 'admin-db'])->prefix('superadmin')->name('superadmin.')->group(function () {
+Route::middleware(['auth', 'superadmin', 'admin-db', 'verified'])->prefix('superadmin')->name('superadmin.')->group(function () {
     Route::get('/', DashboardController::class)->name('dashboard');
 
     Route::get('/tenants', [TenantController::class, 'index'])->name('tenants.index');
