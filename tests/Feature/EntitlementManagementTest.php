@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Entitlement;
 use App\Support\GermanTime;
+use Illuminate\Support\Carbon;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -118,7 +119,7 @@ class EntitlementManagementTest extends TestCase
      */
     public function test_granting_access_valid_until_today_between_11pm_and_midnight_utc_returns_a_validation_error_instead_of_crashing(): void
     {
-        $this->travelTo(\Illuminate\Support\Carbon::parse('2026-01-15 23:30:00', 'UTC'));
+        $this->travelTo(Carbon::parse('2026-01-15 23:30:00', 'UTC'));
 
         $tenant = $this->createTestTenant();
         $admin = $this->createTenantUser($tenant, 'owner');
@@ -142,7 +143,7 @@ class EntitlementManagementTest extends TestCase
 
     public function test_extending_an_entitlement_valid_until_today_between_11pm_and_midnight_utc_returns_a_validation_error_instead_of_crashing(): void
     {
-        $this->travelTo(\Illuminate\Support\Carbon::parse('2026-01-15 23:30:00', 'UTC'));
+        $this->travelTo(Carbon::parse('2026-01-15 23:30:00', 'UTC'));
 
         $tenant = $this->createTestTenant();
         $admin = $this->createTenantUser($tenant, 'owner');

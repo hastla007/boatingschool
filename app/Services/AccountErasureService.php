@@ -129,7 +129,7 @@ class AccountErasureService
      * unverändert.
      *
      * @return list<string> IDs der gelöschten Einladungen, für
-     *                       pseudonymizeAuditLogFor() unten.
+     *                      pseudonymizeAuditLogFor() unten.
      */
     private function deleteInvitationsFor(Tenant $tenant, User $user): array
     {

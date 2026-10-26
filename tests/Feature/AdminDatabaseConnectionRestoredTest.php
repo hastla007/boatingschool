@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Support\Facades\DB;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -63,7 +64,7 @@ class AdminDatabaseConnectionRestoredTest extends TestCase
         $this->actingAs($superadmin)->get('/superadmin')->assertOk();
 
         $this->asTenant($tenantA, function () use ($tenantA) {
-            $visibleTenantIds = \Illuminate\Support\Facades\DB::table('tenant_user')->distinct()->pluck('tenant_id')->all();
+            $visibleTenantIds = DB::table('tenant_user')->distinct()->pluck('tenant_id')->all();
 
             $this->assertSame([$tenantA->id], $visibleTenantIds);
         });

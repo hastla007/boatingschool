@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Models\Tenant;
 use App\Support\TenantContext;
 use Closure;
+use Illuminate\Auth\SessionGuard;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
@@ -168,7 +169,7 @@ class ResolveTenant
     private function setCurrentUserIdForRls(Request $request): void
     {
         $userId = $request->hasSession()
-            ? $request->session()->get('login_web_'.sha1(\Illuminate\Auth\SessionGuard::class))
+            ? $request->session()->get('login_web_'.sha1(SessionGuard::class))
             : null;
 
         if (! $userId || ! preg_match('/^[0-9a-f-]{36}$/i', $userId)) {

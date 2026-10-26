@@ -10,6 +10,7 @@ use App\Services\AccountErasureService;
 use App\Services\PersonalDataExportService;
 use App\Support\BestEffortMail;
 use App\Support\TenantContext;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -144,7 +145,7 @@ class ProfileController extends Controller
                 'pending_email' => null,
                 'email_verified_at' => now(),
             ])->save();
-        } catch (\Illuminate\Database\UniqueConstraintViolationException) {
+        } catch (UniqueConstraintViolationException) {
             // fresh() statt $user direkt: forceFill() oben hat "email" im
             // Model bereits auf den fremden Wert gesetzt, obwohl der
             // Schreibversuch fehlschlug -- ein erneutes save() auf

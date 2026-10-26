@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use Symfony\Component\HttpFoundation\Cookie;
 use Tests\TestCase;
 
 /**
@@ -39,7 +40,7 @@ class SessionCookieDomainFeatureTest extends TestCase
         $this->assertNull($cookie->getDomain());
     }
 
-    private function findSessionCookie($response): ?\Symfony\Component\HttpFoundation\Cookie
+    private function findSessionCookie($response): ?Cookie
     {
         foreach ($response->headers->getCookies() as $cookie) {
             if ($cookie->getName() === config('session.cookie')) {

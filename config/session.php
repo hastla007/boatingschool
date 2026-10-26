@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\SessionCookieDomain;
 use Illuminate\Support\Str;
 
 return [
@@ -184,7 +185,7 @@ return [
     // zurück, nie einen übergebenen Default -- die Ableitung muss deshalb
     // selbst sowohl "gar nicht gesetzt" als auch "explizit leer/null
     // gesetzt" gleich behandeln.
-    'domain' => \App\Support\SessionCookieDomain::resolve(
+    'domain' => SessionCookieDomain::resolve(
         env('SESSION_DOMAIN'),
         env('CENTRAL_DOMAIN', 'localhost')
     ),

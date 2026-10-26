@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Models\User;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -43,7 +44,7 @@ class PasswordPolicyTest extends TestCase
         $response->assertSessionHasNoErrors();
 
         $this->onAdmin(function () use ($email) {
-            $user = \App\Models\User::where('email', $email)->first();
+            $user = User::where('email', $email)->first();
             $this->assertNotNull($user);
             $this->createdUserIds[] = $user->id;
         });

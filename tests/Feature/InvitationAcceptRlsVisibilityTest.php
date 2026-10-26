@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\TenantInvitation;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\URL;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -100,7 +101,7 @@ class InvitationAcceptRlsVisibilityTest extends TestCase
         // dieser Test prüfen soll. Auth::forgetGuards() zwingt eine frische
         // Guard-Instanz und damit eine echte Neuauflösung für den nächsten
         // Request, wie bei einem echten, separaten HTTP-Request.
-        \Illuminate\Support\Facades\Auth::forgetGuards();
+        Auth::forgetGuards();
 
         $response = $this->withSession(['dev_tenant_slug' => $invitingTenant->slug])->get($url);
 

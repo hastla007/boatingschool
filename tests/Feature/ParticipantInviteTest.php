@@ -167,7 +167,7 @@ class ParticipantInviteTest extends TestCase
 
         $response->assertSessionHasErrors('code');
 
-        $this->onAdmin(function () use ($tenant, $course, $code) {
+        $this->onAdmin(function () use ($code) {
             $user = User::where('display_name', 'Von Instructor Eingeladen')->first();
             $this->assertNotNull($user, 'Die Einladung soll trotz abgelehntem Code durchgehen.');
             $this->assertCount(0, $user->entitlements);
