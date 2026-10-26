@@ -18,7 +18,23 @@
 
         @foreach ($addonTemplates as $template)
             @php($config = $tenantAddons->get($template->id))
-            <div class="max-w-2xl bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 space-y-4" x-data="{ active: {{ old('addons.'.$template->id.'.active', $config?->active ? 'true' : 'false') }} }">
+            {{--
+                Bug-Review R4-I: old() liefert bei fehlgeschlagener
+                Validierung den ROHEN, unveränderten Submit-Wert zurück --
+                der bisherige Default ('true'/'false' als Text) täuschte
+                ein sicheres Boolean vor, eingebettet wurde aber trotzdem
+                direkt der alte Textwert, unescaped, in diesen
+                JS-String-Kontext (dieselbe Lücke wie beim Self-XSS über
+                old()/x-data an anderer Stelle, siehe
+                favorites.blade.php). addons.*.active ist zwar mit
+                'boolean' validiert, alles außer einem gültigen Boolean
+                löst aber genau den Validierungsfehler aus, der old()
+                erst befüllt -- filter_var(...) zwingt den Wert deshalb
+                defensiv auf ein echtes PHP-Boolean, bevor er per
+                json_encode() als reines true/false-Literal eingebettet
+                wird.
+            --}}
+            <div class="max-w-2xl bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 space-y-4" x-data="{ active: {{ json_encode(filter_var(old('addons.'.$template->id.'.active', $config?->active), FILTER_VALIDATE_BOOLEAN)) }} }">
                 <div class="flex items-center justify-between">
                     <div>
                         <div class="font-medium text-slate-700 dark:text-slate-200">{{ $template->title }}</div>

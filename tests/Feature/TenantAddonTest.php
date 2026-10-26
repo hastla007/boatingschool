@@ -208,6 +208,47 @@ class TenantAddonTest extends TestCase
         $response->assertSee('E2E Großes Paket');
     }
 
+    /**
+     * Bug-Review R4-I: bei fehlgeschlagener Validierung liefert old() den
+     * ROHEN, unveränderten Submit-Wert zurück -- der Default-Wert im
+     * x-data-Ausdruck für "active" war bisher nur eine Attrappe ('true'/
+     * 'false' als Text), old() selbst floss aber direkt, unescaped, in
+     * diesen JS-String-Kontext ein. addons.*.active ist zwar mit
+     * 'boolean' validiert, ein ungültiger Wert löst aber genau den
+     * Validierungsfehler aus, der old() erst befüllt (Self-XSS, analog zu
+     * Bug-Review R4-3 beim Collection-Namen).
+     */
+    public function test_an_invalid_active_value_is_not_reflected_unescaped_into_the_addons_tab(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $template = $this->createTestTemplate();
+
+        $maliciousValue = '1}; alert(document.cookie); //';
+
+        $this->actingAsInTenant($admin, $tenant)->patch('/admin/addons', [
+            'addons' => [
+                $template->id => [
+                    'active' => $maliciousValue,
+                ],
+            ],
+        ])->assertSessionHasErrors("addons.{$template->id}.active");
+
+        $response = $this->actingAsInTenant($admin, $tenant)->get('/admin?tab=addons');
+        $response->assertOk();
+
+        $html = $response->getContent();
+
+        // Die rohe, für den JS-Ausdruck gefährliche Eingabe darf an KEINER
+        // Stelle unverändert im Markup auftauchen.
+        $this->assertStringNotContainsString($maliciousValue, $html);
+
+        // Stattdessen muss filter_var() den ungültigen Wert defensiv auf
+        // false zwingen, bevor json_encode() ihn als reines Boolean-Literal
+        // einbettet.
+        $this->assertStringContainsString('active: false', $html);
+    }
+
     public function test_addon_configuration_is_isolated_per_tenant(): void
     {
         $tenantA = $this->createTestTenant();
