@@ -61,14 +61,34 @@ class ResolveTenant
             ?? $this->resolveViaDevOverride($request)
             ?? $this->resolveViaSubdomain($request);
 
-        if (! $tenant) {
-            // Der Superadmin-Bereich (und Login/Logout, damit ein Superadmin sich
-            // überhaupt ohne Bootsschul-Subdomain anmelden kann) ist bewusst
-            // mandantenunabhängig und läuft unabhängig vom aufgelösten Host.
-            if ($this->isTenantAgnosticRoute($request)) {
-                return $next($request);
+        // Bug-Review R3-1 (Folgefehler): diese Prüfung griff bisher nur,
+        // wenn GAR KEIN Tenant aufgelöst werden konnte (zentrale Domain) --
+        // auf einer echten Bootsschul-Subdomain wurde stattdessen weiter
+        // unten der REALE Tenant-Kontext gesetzt, obwohl der Kommentar dort
+        // ("läuft unabhängig vom aufgelösten Host") etwas anderes verspricht.
+        // app_user_select_visibility (Migration 000461) macht eine Zeile
+        // aber nur sichtbar, wenn kein echter Tenant-Kontext gesetzt ist
+        // ODER der Nutzer bereits Mitglied DIESER Bootsschule ist -- ein
+        // Login mit korrektem Passwort schlug deshalb fehl
+        // ("Diese Zugangsdaten wurden nicht gefunden"), sobald jemand
+        // /login direkt über die Subdomain einer Bootsschule aufrief, bei
+        // der er (noch) kein Mitglied ist (z. B. beim allerersten Login
+        // direkt über einen Einladungs-Link). Branding bleibt trotzdem
+        // erhalten (Logo/Farben der gerade aufgerufenen Bootsschule), nur
+        // die RLS-GUC bleibt auf der Nil-UUID (siehe TenantContext::clear()
+        // oben), unter der app_user_select_visibility plattformweit
+        // sichtbar lässt.
+        if ($this->isTenantAgnosticRoute($request)) {
+            if ($tenant) {
+                app()->instance('currentTenant', $tenant);
+                view()->share('currentTenant', $tenant);
+                view()->share('branding', $tenant->branding);
             }
 
+            return $next($request);
+        }
+
+        if (! $tenant) {
             if ($request->getHost() === config('app.central_domain')) {
                 // Sicherheitsreview N5: zeigte bislang auch suspended/closed/
                 // trial-Mandanten öffentlich mit Name und Slug an.

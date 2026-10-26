@@ -28,6 +28,21 @@ use Tests\TestCase;
  * "nicht eingeloggt" und schickt ihn zu /login zurück, wo er sich erneut
  * (erfolglos) mit genau diesem Konto anmelden soll -- eine Einladungs-
  * Annahme für ein bestehendes Konto ist damit faktisch nie möglich.
+ *
+ * Bug-Review R3-1 (Folgefehler): dieser Test allein ist NICHT ausreichend
+ * fürs echte Szenario, auch wenn er die oben beschriebene RLS-
+ * Sichtbarkeitslücke korrekt abdeckt. Laravels HTTP-Testclient (dieser
+ * Test wie auch ein echter Login) teilt sich EINE Session über alle
+ * get()/post()-Aufrufe eines Testmethodenlaufs -- das entspricht einem
+ * ECHTEN Browser nur dann, wenn Login und Einladungs-Link auf DERSELBEN
+ * Subdomain liegen. In Produktion liegen sie auf VERSCHIEDENEN
+ * Bootsschul-Subdomains; ohne einen geteilten Session-Cookie-Domain-Scope
+ * (siehe config/session.php, App\Support\SessionCookieDomain) schickt der
+ * Browser das beim Login gesetzte Cookie dort gar nicht erst mit -- ein
+ * Fehler, den dieser Test prinzipbedingt nicht abbilden kann. Die
+ * Cookie-Scope-Ableitung selbst ist separat getestet (siehe
+ * tests/Unit/SessionCookieDomainTest.php,
+ * tests/Feature/SessionCookieDomainFeatureTest.php).
  */
 class InvitationAcceptRlsVisibilityTest extends TestCase
 {

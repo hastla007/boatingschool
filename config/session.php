@@ -156,7 +156,38 @@ return [
     |
     */
 
-    'domain' => env('SESSION_DOMAIN'),
+    // Bug-Review R3-1 (Folgefehler): ohne einen geteilten Domain-Scope
+    // bindet der Browser das Session-Cookie an genau den Host, der es
+    // gesetzt hat (Standardverhalten ohne explizites Domain-Attribut) --
+    // ein Login auf schule-a.{CENTRAL_DOMAIN} setzt das Cookie also NUR
+    // für schule-a.{CENTRAL_DOMAIN}, nicht für schule-b.{CENTRAL_DOMAIN}.
+    // Ein bereits eingeloggter Nutzer, der einen Einladungs-Link für eine
+    // ANDERE Bootsschule (andere Subdomain) öffnet, schickt dieses Cookie
+    // deshalb nie mit und sieht sich selbst dort als nicht eingeloggt --
+    // unabhängig vom app.current_user_id-RLS-Fix in ResolveTenant (R3-1),
+    // der nur innerhalb EINES Session-Cookies wirkt. SESSION_DOMAIN auf
+    // ".<CENTRAL_DOMAIN>" lässt den Browser das Cookie für die zentrale
+    // Domain UND alle ihre Subdomains senden -- fachlich korrekt für diese
+    // Plattform: ein app_user ist plattformweit eine einzige Identität,
+    // die bei mehreren Bootsschulen Mitglied sein kann, die Session also
+    // bewusst kein Pro-Tenant-Geheimnis (RLS/Mitgliedschaft entscheiden
+    // ohnehin bei jedem Zugriff erneut, unabhängig vom Cookie-Scope).
+    // Für localhost/127.0.0.1 (lokale Entwicklung, siehe
+    // ResolveTenant::resolveViaDevOverride()) bleibt es beim bisherigen,
+    // unveränderten Verhalten (kein Domain-Attribut) -- ein führender
+    // Punkt vor "localhost" wird von Browsern ohnehin nicht zuverlässig
+    // als Subdomain-Wildcard behandelt. SESSION_DOMAIN bleibt weiterhin
+    // explizit überschreibbar -- siehe App\Support\SessionCookieDomain für
+    // die (direkt testbare) Ableitungslogik: env() liefert für einen
+    // EXPLIZIT gesetzten Wert (auch die leere Zeichenkette oder das zu
+    // PHP-null konvertierte literale "null" in .env) immer diesen Wert
+    // zurück, nie einen übergebenen Default -- die Ableitung muss deshalb
+    // selbst sowohl "gar nicht gesetzt" als auch "explizit leer/null
+    // gesetzt" gleich behandeln.
+    'domain' => \App\Support\SessionCookieDomain::resolve(
+        env('SESSION_DOMAIN'),
+        env('CENTRAL_DOMAIN', 'localhost')
+    ),
 
     /*
     |--------------------------------------------------------------------------
