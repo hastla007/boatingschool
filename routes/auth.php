@@ -23,20 +23,29 @@ Route::middleware('guest')->group(function () {
     // 60s-Limit von Password::sendResetLink -- sonst bleibt
     // Credential-Stuffing/Massenregistrierung über viele E-Mails von
     // derselben IP ungebremst.
+    //
+    // Bug-Review R4-H: ThrottleRequests::resolveRequestSignature() baut den
+    // Zähler für einen Gast allein aus Domain+IP, für einen eingeloggten
+    // Nutzer allein aus dessen Nutzer-ID -- ohne einen eigenen Prefix (3.
+    // Argument) teilten sich register/login/forgot-password hier bisher
+    // EINEN gemeinsamen Zähler pro IP: ein paar Fehlversuche beim Login
+    // blockierten damit zusätzlich genau die Funktion, die man danach
+    // bräuchte (Passwort vergessen), und umgekehrt. Jede Stelle bekommt
+    // deshalb einen eigenen Prefix.
     Route::post('register', [RegisteredUserController::class, 'store'])
-        ->middleware('throttle:10,1');
+        ->middleware('throttle:10,1,register');
 
     Route::get('login', [AuthenticatedSessionController::class, 'create'])
         ->name('login');
 
     Route::post('login', [AuthenticatedSessionController::class, 'store'])
-        ->middleware('throttle:10,1');
+        ->middleware('throttle:10,1,login');
 
     Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])
         ->name('password.request');
 
     Route::post('forgot-password', [PasswordResetLinkController::class, 'store'])
-        ->middleware('throttle:10,1')
+        ->middleware('throttle:10,1,forgot-password')
         ->name('password.email');
 
     Route::get('reset-password/{token}', [NewPasswordController::class, 'create'])
@@ -51,24 +60,24 @@ Route::middleware('auth')->group(function () {
         ->name('verification.notice');
 
     Route::get('verify-email/{id}/{hash}', VerifyEmailController::class)
-        ->middleware(['signed', 'throttle:6,1'])
+        ->middleware(['signed', 'throttle:6,1,verify-email'])
         ->name('verification.verify');
 
     Route::post('email/verification-notification', [EmailVerificationNotificationController::class, 'store'])
-        ->middleware('throttle:6,1')
+        ->middleware('throttle:6,1,verification-send')
         ->name('verification.send');
 
     // Eine im Profil geänderte E-Mail-Adresse wird erst hierüber live
     // geschaltet (siehe Sicherheitsreview H2, ProfileController).
     Route::get('profile/confirm-email/{id}/{hash}', [ProfileController::class, 'confirmEmail'])
-        ->middleware(['signed', 'throttle:6,1'])
+        ->middleware(['signed', 'throttle:6,1,profile-email-confirm'])
         ->name('profile.email.confirm');
 
     // Einladung zu einer Bootsschule annehmen: nur wirksam, wenn der
     // eingeloggte Nutzer dieselbe (bestätigte) E-Mail-Adresse hat wie die
     // Einladung (siehe Sicherheitsreview H2, InvitationAcceptController).
     Route::get('invitations/{invitation}/accept/{hash}', [InvitationAcceptController::class, 'accept'])
-        ->middleware(['signed', 'throttle:6,1'])
+        ->middleware(['signed', 'throttle:6,1,invitation-accept'])
         ->name('invitations.accept');
 
     Route::get('confirm-password', [ConfirmablePasswordController::class, 'show'])

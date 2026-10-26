@@ -115,7 +115,16 @@ Route::middleware(['auth', 'tenant.member', 'verified'])->group(function () {
     // sind. throttle begrenzt die Anfragerate dagegen, analog zu den
     // bereits bestehenden Limits bei /participants/invite (Bug-Review
     // R3-8) und der Registrierung (Sicherheitsreview M3/N2).
-    Route::patch('/profile', [ProfileController::class, 'update'])->middleware('throttle:10,1')->name('profile.update');
+    //
+    // Bug-Review R4-H: ThrottleRequests::resolveRequestSignature() baut den
+    // Zähler für einen eingeloggten Nutzer allein aus dessen Nutzer-ID --
+    // ohne einen eigenen Prefix (3. Argument) teilen sich ALLE Routen mit
+    // der (hier wie an den übrigen throttle:10,1-Stellen) bloßen Zahlenform
+    // denselben Zähler, unabhängig von der Route. Ein Owner/Admin, der
+    // z. B. 10 Teilnehmer einlädt, blockierte sich damit zusätzlich selbst
+    // beim Profil-Update, Coupon-Import oder Code-Einlösen (und umgekehrt).
+    // Jede Stelle bekommt deshalb einen eigenen Prefix.
+    Route::patch('/profile', [ProfileController::class, 'update'])->middleware('throttle:10,1,profile-update')->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
     // DSGVO-Review D3: Auskunfts-/Mitnahmerecht (Art. 15/20).
     Route::get('/profile/export-data', [ProfileController::class, 'exportData'])->name('profile.export');
@@ -130,7 +139,7 @@ Route::middleware(['auth', 'tenant.member', 'verified'])->group(function () {
         // ("ungültig" vs. intern schon unterschieden nach eingelöst/unbekannt im
         // Admin-Import, hier bewusst einheitlich) die Existenz von Codes gegen
         // die ~59 Bit Entropie durchprobieren.
-        Route::post('/coupons/redeem', [CouponRedeemController::class, 'redeem'])->middleware('throttle:10,1')->name('coupons.redeem.store');
+        Route::post('/coupons/redeem', [CouponRedeemController::class, 'redeem'])->middleware('throttle:10,1,coupons-redeem')->name('coupons.redeem.store');
     });
 });
 
@@ -148,11 +157,11 @@ Route::middleware(['auth', 'tenant.role:owner,admin,instructor', 'verified'])->p
     // Folgefehler) bleibt bei unbegrenzter Anfragerate ein statistischer
     // Timing-Seitenkanal realistisch nutzbar, und jede beliebige echte
     // Adresse ließ sich unbegrenzt mit Einladungs-/Reset-Mails zuspammen.
-    Route::post('/participants/invite', [ParticipantController::class, 'invite'])->middleware('throttle:10,1')->name('participants.invite');
+    Route::post('/participants/invite', [ParticipantController::class, 'invite'])->middleware('throttle:10,1,participants-invite')->name('participants.invite');
     Route::get('/participants/{user}', [ParticipantController::class, 'show'])->name('participants.show');
     Route::patch('/participants/{user}', [ParticipantController::class, 'update'])->name('participants.update');
     Route::get('/branding/support-email/verify/{tenant}/{hash}', [SupportEmailVerificationController::class, 'verify'])
-        ->middleware(['signed', 'throttle:6,1'])->name('branding.support-email.verify');
+        ->middleware(['signed', 'throttle:6,1,support-email-verify'])->name('branding.support-email.verify');
 
     Route::get('/praxis-form-submissions/{submission}', [AdminPraxisFormSubmissionController::class, 'show'])->name('praxis-form-submissions.show');
     Route::post('/praxis-form-submissions/{submission}/exam-appointments', [AdminPraxisExamAppointmentController::class, 'store'])->name('praxis-form-submissions.exam-appointments.store');
@@ -178,7 +187,7 @@ Route::middleware(['auth', 'tenant.role:owner,admin', 'verified'])->prefix('admi
     Route::delete('/tenant-course-locations/{tenantCourseLocation}', [TenantCourseLocationController::class, 'destroy'])->name('tenant-course-locations.destroy');
     Route::patch('/branding', [BrandingController::class, 'update'])->name('branding.update');
     Route::post('/branding/support-email/verification-notification', [SupportEmailVerificationController::class, 'send'])
-        ->middleware('throttle:6,1')->name('branding.support-email.send');
+        ->middleware('throttle:6,1,support-email-send')->name('branding.support-email.send');
 
     Route::patch('/participants/{user}/membership', [ParticipantController::class, 'updateMembership'])->name('participants.membership.update');
 
@@ -194,7 +203,7 @@ Route::middleware(['auth', 'tenant.role:owner,admin', 'verified'])->prefix('admi
     // (tenant_id NULL) getestet werden kann -- die Rückmeldung
     // unterscheidet bewusst "bereits eingelöst"/"unbekannt", ist also ein
     // Oracle für Code-Existenz.
-    Route::post('/coupons/import', [AdminCouponController::class, 'import'])->middleware('throttle:10,1')->name('coupons.import');
+    Route::post('/coupons/import', [AdminCouponController::class, 'import'])->middleware('throttle:10,1,coupons-import')->name('coupons.import');
     Route::post('/coupons/{coupon}/assign', [AdminCouponController::class, 'assign'])->name('coupons.assign');
 });
 
