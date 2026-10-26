@@ -37,6 +37,45 @@ class SecurityHeadersTest extends TestCase
         $this->assertStringContainsString("default-src 'self'", $csp);
     }
 
+    /**
+     * Bug-Review R4-1: SecurityHeaders stand bisher ohne eigenen
+     * Prioritätseintrag nur per append() in der web-Gruppe -- Laravel
+     * reiht nicht priorisierte Middleware hinter jede explizit
+     * priorisierte ein (siehe bootstrap/app.php), SecurityHeaders lag damit
+     * INNERHALB von ResolveTenant/ThrottleRequests/VerifyCsrfToken statt
+     * sie zu umschließen. Eine frühe Antwort direkt aus einer dieser
+     * Middleware (Tenant-Picker/tenant.not-found, 429) erreichte den
+     * Header-setzenden Code in SecurityHeaders::handle() deshalb nie.
+     */
+    public function test_the_tenant_picker_carries_the_hardening_headers(): void
+    {
+        $response = $this->get('/');
+
+        $response->assertOk();
+        $response->assertHeader('X-Frame-Options', 'DENY');
+        $response->assertHeader('Content-Security-Policy');
+    }
+
+    public function test_an_unresolvable_tenant_host_carries_the_hardening_headers(): void
+    {
+        $response = $this->get('http://unknown-tenant.'.config('app.central_domain').'.invalid/');
+
+        $response->assertNotFound();
+        $response->assertHeader('X-Frame-Options', 'DENY');
+        $response->assertHeader('Content-Security-Policy');
+    }
+
+    public function test_a_throttled_response_carries_the_hardening_headers(): void
+    {
+        for ($i = 0; $i < 11; $i++) {
+            $response = $this->post('/login', ['email' => 'nope-'.$i.'@example.test', 'password' => 'wrong']);
+        }
+
+        $response->assertStatus(429);
+        $response->assertHeader('X-Frame-Options', 'DENY');
+        $response->assertHeader('Content-Security-Policy');
+    }
+
     public function test_hsts_is_only_sent_over_an_actually_secure_request(): void
     {
         $this->get('/login')->assertHeaderMissing('Strict-Transport-Security');

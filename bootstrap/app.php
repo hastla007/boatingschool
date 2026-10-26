@@ -49,6 +49,25 @@ return Application::configure(basePath: dirname(__DIR__))
             ResolveTenant::class,
         ]);
 
+        // Bug-Review R4-1: SecurityHeaders stand bisher ohne eigenen
+        // Prioritätseintrag nur per append() in der web-Gruppe -- Laravels
+        // Sortierung reiht nicht priorisierte Middleware HINTER jede
+        // explizit priorisierte ein (hier u. a. ResolveTenant,
+        // ThrottleRequests, VerifyCsrfToken). SecurityHeaders lag damit
+        // INNERHALB dieser Middleware, statt sie zu umschließen -- eine
+        // frühe Antwort von dort (Tenant-Picker/tenant.not-found aus
+        // ResolveTenant, 419 aus VerifyCsrfToken, 429 aus ThrottleRequests)
+        // erreichte den Code in SecurityHeaders::handle() nie, der die
+        // Header erst NACH next($request) setzt -- diese Antworten kamen
+        // komplett ohne CSP/X-Frame-Options/... beim Client an. Der feste
+        // Platz ganz vorne in der Prioritätsliste macht SecurityHeaders zur
+        // äußersten Middleware für jeden Request, unabhängig davon, welche
+        // andere Middleware früh abbricht.
+        $middleware->prependToPriorityList(
+            before: \Illuminate\Foundation\Http\Middleware\HandlePrecognitiveRequests::class,
+            prepend: SecurityHeaders::class,
+        );
+
         // Muss nach StartSession (Dev-Override liest die Session) aber vor
         // SubstituteBindings laufen: Route-Model-Binding für tenant-gebundene
         // Modelle (CourseDefinition, ExamSession, ...) braucht den bereits
