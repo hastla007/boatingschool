@@ -54,7 +54,23 @@
         </div>
 
         @foreach ($collections as $collection)
-            <div x-show="selectedCollection === '{{ $collection->id }}'" style="display: none" class="mb-4 flex flex-wrap items-center gap-3 text-sm bg-slate-50 dark:bg-slate-700/40 rounded-xl px-3 py-2">
+            {{-- Bug-Review R4-3: $collection->name floss hier direkt in einen
+                 JS-String innerhalb von @submit="confirm('...')" ein. Blades
+                 {{ }} escaped nur für den HTML-Attribut-Kontext (' wird zu
+                 &#039;) -- der Browser DEKODIERT diese Entity aber beim
+                 Parsen des Attributwerts wieder zurück zu einem echten ',
+                 bevor Alpine den Text als JS auswertet. Ein Collection-Name
+                 wie x'); alert(document.domain); // brach damit aus dem
+                 JS-String-Literal aus (Self-XSS -- der Angreifer müsste sich
+                 selbst eine so benannte Collection anlegen). Der Name kommt
+                 jetzt als per json_encode() sauber maskierter JS-Wert über
+                 x-data herein (wie schon bei coupons/index.blade.php) und
+                 wird per JS-String-Konkatenation (+) statt Text-Interpolation
+                 eingefügt -- beliebiger Inhalt bleibt dadurch ein reiner
+                 String-Wert, kein auswertbarer Code. --}}
+            <div x-show="selectedCollection === '{{ $collection->id }}'" style="display: none"
+                 x-data="{ collectionName: {{ json_encode($collection->name, JSON_HEX_APOS | JSON_HEX_QUOT) }} }"
+                 class="mb-4 flex flex-wrap items-center gap-3 text-sm bg-slate-50 dark:bg-slate-700/40 rounded-xl px-3 py-2">
                 <form method="POST" action="{{ route('favorite-collections.update', $collection) }}" class="flex items-center gap-1.5">
                     @csrf
                     @method('PATCH')
@@ -64,7 +80,7 @@
                 </form>
                 @unless ($collection->is_default)
                     <form method="POST" action="{{ route('favorite-collections.destroy', $collection) }}"
-                          @submit="if (! confirm('Collection „{{ $collection->name }}“ wirklich löschen? Die enthaltenen Favoriten bleiben erhalten, nur die Einsortierung entfällt.')) $event.preventDefault()">
+                          @submit="if (! confirm('Collection „' + collectionName + '“ wirklich löschen? Die enthaltenen Favoriten bleiben erhalten, nur die Einsortierung entfällt.')) $event.preventDefault()">
                         @csrf
                         @method('DELETE')
                         <button type="submit" class="text-xs text-rose-600 hover:underline whitespace-nowrap">Collection löschen</button>

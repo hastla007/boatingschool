@@ -69,7 +69,14 @@
             </form>
         </div>
 
-        <div class="lg:col-span-2 bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
+        {{-- Bug-Review R4-2: @change/@submit auf den Filter-Selects und dem
+             Export-Formular lagen bisher außerhalb JEDES x-data-Bereichs
+             (das einzige x-data auf dieser Seite gehört zum Codes-erzeugen-
+             Formular links) -- Alpine initialisiert Direktiven nur innerhalb
+             eines x-data-Teilbaums, ohne ihn blieben die @change-Handler
+             komplett wirkungslos (Filter reagierten nicht auf Auswahl,
+             Alle-auswählen/Export-Button taten nichts). --}}
+        <div class="lg:col-span-2 bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5" x-data="{}">
             <form method="GET" class="flex flex-wrap gap-2 mb-4">
                 <input type="text" name="search" value="{{ $filters['search'] ?? '' }}"
                        placeholder="Code, Kurs/Produkt, Bootsschule oder Nutzer suchen…"

@@ -6,7 +6,12 @@
         </div>
     </x-slot>
 
-    <div class="grid lg:grid-cols-3 gap-4">
+    {{-- Bug-Review R4-2: @submit="...confirm(...)..." bei der Kategorie
+         löschen unten griff ohne einen umschließenden x-data-Bereich
+         nicht -- Alpine initialisiert Direktiven nur innerhalb eines
+         x-data-Teilbaums, das Formular wurde also ohne Rückfrage sofort
+         abgeschickt. --}}
+    <div class="grid lg:grid-cols-3 gap-4" x-data="{}">
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
             <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3">Kategorie anlegen</h3>
             <form method="POST" action="{{ route('superadmin.tips.categories.store') }}" class="space-y-3">

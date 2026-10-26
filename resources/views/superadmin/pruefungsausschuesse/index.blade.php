@@ -11,7 +11,11 @@
         </div>
     </x-slot>
 
-    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden">
+    {{-- Bug-Review R4-2: @submit="...confirm(...)..." unten griff ohne
+         einen umschließenden x-data-Bereich nicht -- Alpine initialisiert
+         Direktiven nur innerhalb eines x-data-Teilbaums, das Formular
+         wurde also ohne Rückfrage sofort abgeschickt. --}}
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden" x-data="{}">
         <table class="w-full text-sm">
             <tbody>
                 @forelse ($pruefungsausschuesse as $pa)

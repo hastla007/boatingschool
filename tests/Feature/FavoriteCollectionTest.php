@@ -344,4 +344,45 @@ class FavoriteCollectionTest extends TestCase
             );
         });
     }
+
+    /**
+     * Bug-Review R4-3: der Collection-Name floss bisher direkt (nur HTML-
+     * escaped) in den JS-String von @submit="confirm('...')" ein. Ein Name
+     * mit einem rohen Apostroph brach aus diesem String-Literal aus, sobald
+     * der Browser die von Blade erzeugte &#039;-Entity beim Parsen des
+     * Attributwerts wieder in ein echtes ' zurückverwandelte -- Alpine sah
+     * dann zusätzlichen, vom Angreifer bestimmten JS-Code (Self-XSS über
+     * den eigenen Collection-Namen).
+     */
+    public function test_a_collection_name_with_a_quote_does_not_break_out_of_the_inline_confirm_script(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $maliciousName = "x'); alert(document.domain); //";
+
+        $this->actingAsInTenant($learner, $tenant)
+            ->post("/courses/{$course->id}/favorites/collections", ['name' => $maliciousName])
+            ->assertSessionHasNoErrors();
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/favorites/smart-learning");
+        $response->assertOk();
+
+        $html = $response->getContent();
+
+        // Die rohe, für ein JS-String-Literal gefährliche Eingabe darf an
+        // KEINER Stelle unverändert im Markup auftauchen.
+        $this->assertStringNotContainsString($maliciousName, $html);
+
+        // Stattdessen muss der Name per json_encode(..., JSON_HEX_APOS) als
+        // reiner Datenwert über x-data hereinkommen -- das Apostroph als
+        // ' statt als rohes Zeichen (zusätzlich HTML-escaped durch
+        // Blades {{ }}, da der JSON-String selbst in "..." steckt).
+        $this->assertStringContainsString(
+            'collectionName: '.e(json_encode($maliciousName, JSON_HEX_APOS | JSON_HEX_QUOT)),
+            $html
+        );
+    }
 }

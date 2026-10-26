@@ -13,7 +13,11 @@
         </div>
     </x-slot>
 
-    <div class="space-y-6">
+    {{-- Bug-Review R4-2: @submit="...confirm(...)..." beim Tipp löschen
+         griff ohne einen umschließenden x-data-Bereich nicht -- Alpine
+         initialisiert Direktiven nur innerhalb eines x-data-Teilbaums,
+         das Formular wurde also ohne Rückfrage sofort abgeschickt. --}}
+    <div class="space-y-6" x-data="{}">
         @forelse ($categories as $category)
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden">
                 <div class="px-4 py-3 bg-slate-50 dark:bg-slate-700 font-medium text-slate-700 dark:text-slate-200">
