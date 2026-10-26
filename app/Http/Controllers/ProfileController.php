@@ -15,6 +15,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\View\View;
 
@@ -95,11 +96,23 @@ class ProfileController extends Controller
         if (strcasecmp($newEmail, $user->email) !== 0) {
             $user->forceFill(['pending_email' => $newEmail])->save();
 
+            // Bug-Review H2 (Folgefehler, kritisch): $user->notify(...)
+            // schickt über den 'mail'-Kanal IMMER an die aktuelle
+            // $user->email -- nicht an pending_email. Der Besitz der NEUEN
+            // Adresse wurde dadurch nie geprüft: der Nutzer bekommt den
+            // Bestätigungslink für eine x-beliebige, ihm fremde Adresse
+            // selbst in sein eigenes (bereits verifiziertes) Postfach
+            // zugeschickt und kann ihn sofort selbst anklicken -- genau das
+            // Vorab-Übernehmen eines Kontos aus Sicherheitsreview H2, nur
+            // über das Profil statt über die Registrierung. Notification::
+            // route('mail', $newEmail) schickt stattdessen explizit an die
+            // NEUE Adresse; nur wer sie tatsächlich besitzt, sieht den Link.
+            //
             // Bug-Review B31: das Profil samt pending_email ist zu diesem
             // Zeitpunkt schon gespeichert -- ein SMTP-Fehler beim Versand
             // soll das nicht mehr als HTTP 500 melden, siehe BestEffortMail.
             $mailSent = BestEffortMail::send(
-                fn () => $user->notify(new ConfirmPendingEmail($newEmail)),
+                fn () => Notification::route('mail', $newEmail)->notify(new ConfirmPendingEmail($user->id, $newEmail)),
                 "Bestätigungsmail neue E-Mail-Adresse Nutzer {$user->id}"
             );
 

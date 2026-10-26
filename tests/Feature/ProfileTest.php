@@ -64,7 +64,18 @@ class ProfileTest extends TestCase
         $this->assertSame($originalEmail, $user->email);
         $this->assertSame($newEmail, $user->pending_email);
         $this->assertNotNull($user->email_verified_at);
-        Notification::assertSentTo($user, ConfirmPendingEmail::class);
+
+        // Bug-Review H2 (Folgefehler, kritisch): die Bestätigungsmail muss
+        // an die NEUE Adresse gehen, nicht an $user (= die aktuelle, alte
+        // Adresse) -- sonst bestätigt der Nutzer den Besitz der neuen
+        // Adresse nie und könnte jede fremde Adresse selbst für sein
+        // eigenes Konto "bestätigen" (assertSentTo($user, ...) hätte genau
+        // diesen Fehler zementiert, siehe Commit c54f535).
+        Notification::assertNotSentTo($user, ConfirmPendingEmail::class);
+        Notification::assertSentOnDemand(
+            ConfirmPendingEmail::class,
+            fn ($notification, $channels, $notifiable) => $notifiable->routes['mail'] === $newEmail
+        );
     }
 
     public function test_a_changed_email_takes_effect_only_after_confirmation(): void

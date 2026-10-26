@@ -12,12 +12,26 @@ use Illuminate\Support\Facades\URL;
  * live geschaltet wird (siehe ProfileController, Sicherheitsreview H2) --
  * geht an die NEUE Adresse, nicht an die alte, damit nur deren Besitzer den
  * Wechsel bestätigen kann.
+ *
+ * Bug-Review H2 (Folgefehler, kritisch): $notifiable ist beim Versand über
+ * Notification::route('mail', $pendingEmail) (siehe ProfileController) ein
+ * anonymer AnonymousNotifiable OHNE getKey() -- die Nutzer-ID für den
+ * signierten Bestätigungslink kommt deshalb jetzt explizit aus dem
+ * Konstruktor statt aus $notifiable. Vorher landete dieselbe Notification
+ * per $user->notify(...) immer im Postfach der AKTUELLEN (alten) Adresse
+ * -- der Besitz der neuen Adresse wurde dadurch nie geprüft, der Nutzer
+ * konnte jede fremde Adresse selbst anklicken und für sein eigenes Konto
+ * "bestätigen" (Vorab-Übernahme wie in Sicherheitsreview H2, nur über das
+ * Profil statt über die Registrierung).
  */
 class ConfirmPendingEmail extends Notification
 {
     use Queueable;
 
-    public function __construct(private readonly string $pendingEmail) {}
+    public function __construct(
+        private readonly string $userId,
+        private readonly string $pendingEmail,
+    ) {}
 
     /** @return array<int, string> */
     public function via(mixed $notifiable): array
@@ -30,7 +44,7 @@ class ConfirmPendingEmail extends Notification
         $url = URL::temporarySignedRoute(
             'profile.email.confirm',
             now()->addMinutes(60),
-            ['id' => $notifiable->getKey(), 'hash' => sha1($this->pendingEmail)]
+            ['id' => $this->userId, 'hash' => sha1($this->pendingEmail)]
         );
 
         return (new MailMessage)
