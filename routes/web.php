@@ -105,7 +105,17 @@ Route::middleware(['auth', 'tenant.member', 'verified'])->group(function () {
     Route::post('/courses/{course}/praxis-pruefung/exam-appointments/{examAppointment}/respond', [PraxisExamAppointmentController::class, 'respond'])->name('praxis-pruefung.exam-appointments.respond');
 
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    // Bug-Review R4-B: ProfileUpdateRequest prüft die neue E-Mail-Adresse
+    // bewusst plattformweit über alle Bootsschulen hinweg (Bug-Review R3-6
+    // -- der echte UNIQUE-Constraint greift sonst erst unverständlich beim
+    // Bestätigen), die Fehlermeldung "wird bereits verwendet" ist damit
+    // selbst ein Enumerations-Orakel: jeder eingeloggte Nutzer kann über
+    // sein eigenes Profil beliebige Adressen durchprobieren und an dieser
+    // Antwort ablesen, ob sie IRGENDWO auf der Plattform schon vergeben
+    // sind. throttle begrenzt die Anfragerate dagegen, analog zu den
+    // bereits bestehenden Limits bei /participants/invite (Bug-Review
+    // R3-8) und der Registrierung (Sicherheitsreview M3/N2).
+    Route::patch('/profile', [ProfileController::class, 'update'])->middleware('throttle:10,1')->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
     // DSGVO-Review D3: Auskunfts-/Mitnahmerecht (Art. 15/20).
     Route::get('/profile/export-data', [ProfileController::class, 'exportData'])->name('profile.export');

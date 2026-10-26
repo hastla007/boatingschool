@@ -148,6 +148,36 @@ class ProfileTest extends TestCase
     }
 
     /**
+     * Bug-Review R4-B: die plattformweite Prüfung oben ist selbst ein
+     * Enumerations-Orakel ("wird bereits verwendet" vs. kein Fehler) --
+     * jeder eingeloggte Nutzer könnte über sein eigenes Profil beliebige
+     * Adressen durchprobieren und daran ablesen, ob sie irgendwo auf der
+     * Plattform schon vergeben sind. throttle begrenzt die Anfragerate.
+     */
+    public function test_updating_the_profile_is_rate_limited(): void
+    {
+        $tenant = $this->createTestTenant();
+        $user = $this->createTenantUser($tenant);
+
+        for ($i = 0; $i < 10; $i++) {
+            $response = $this->actingAsInTenant($user, $tenant)->patch('/profile', [
+                'first_name' => 'Test',
+                'last_name' => 'User',
+                'email' => $user->email,
+            ]);
+            $this->assertNotEquals(429, $response->status());
+        }
+
+        $response = $this->actingAsInTenant($user, $tenant)->patch('/profile', [
+            'first_name' => 'Test',
+            'last_name' => 'User',
+            'email' => $user->email,
+        ]);
+
+        $response->assertStatus(429);
+    }
+
+    /**
      * Bug-Review R3-6: entgeht die Adresse der Prüfung bei der Eingabe
      * trotzdem (z. B. weil sie erst NACH dem Absenden anderswo vergeben
      * wurde), griff beim Bestätigen bisher ungefangen der echte,
