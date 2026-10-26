@@ -124,12 +124,22 @@ class ProfileTest extends TestCase
     }
 
     /**
-     * Bug-Review R3-6: Rule::unique() lief bisher über die RLS-beschränkte
-     * App-Verbindung -- ein Nutzer einer ANDEREN Bootsschule mit derselben
-     * Adresse ist unter dem aktuellen Tenant-Kontext unsichtbar, die
-     * Prüfung sah also fälschlich "frei".
+     * Bug-Review R3-6 (Folgefehler R4-B): eine synchrone
+     * Eindeutigkeitsprüfung bei der Eingabe bestätigte dem einloggten
+     * Nutzer bisher direkt, ob eine beliebige Adresse irgendwo auf der
+     * Plattform bereits einem ANDEREN Konto gehört ("wird bereits
+     * verwendet" vs. kein Fehler) -- ein Enumerations-Orakel über das
+     * eigene Profil, zuvor nur per Throttle gebremst statt geschlossen
+     * (dasselbe Muster wie M3 bei Login/Registrierung/Einladung). Die
+     * Antwort beim Speichern des Profils ist jetzt unabhängig davon
+     * identisch, ob die eingegebene Adresse bereits irgendwo vergeben ist
+     * -- ein tatsächlicher Konflikt wird weiterhin sicher abgefangen, aber
+     * erst beim Bestätigen über den zugeschickten Link (siehe
+     * ProfileController::confirmEmail(),
+     * test_confirming_an_email_that_became_taken_in_the_meantime_...
+     * unten), nicht mehr gegenüber dem ursprünglich anfragenden Nutzer.
      */
-    public function test_an_email_already_used_at_another_tenant_is_rejected_on_submission(): void
+    public function test_an_email_already_used_at_another_tenant_is_accepted_identically_to_an_available_one(): void
     {
         $otherTenant = $this->createTestTenant();
         $existing = $this->createTenantUser($otherTenant, 'learner', ['email' => 'anderswo-'.uniqid().'@example.test']);
@@ -137,14 +147,28 @@ class ProfileTest extends TestCase
         $tenant = $this->createTestTenant();
         $user = $this->createTenantUser($tenant);
 
-        $response = $this->actingAsInTenant($user, $tenant)->patch('/profile', [
+        $takenResponse = $this->actingAsInTenant($user, $tenant)->patch('/profile', [
             'first_name' => 'Test',
             'last_name' => 'User',
             'email' => $existing->email,
         ]);
 
-        $response->assertSessionHasErrors('email');
-        $this->assertNull($user->fresh()->pending_email);
+        $takenResponse->assertSessionHasNoErrors();
+        $this->assertSame($existing->email, $user->fresh()->pending_email);
+        $takenStatus = session('status');
+
+        $this->onAdmin(fn () => $user->fresh()->forceFill(['pending_email' => null])->save());
+
+        $availableResponse = $this->actingAsInTenant($user, $tenant)->patch('/profile', [
+            'first_name' => 'Test',
+            'last_name' => 'User',
+            'email' => 'ganz-neu-'.uniqid().'@example.test',
+        ]);
+
+        $availableResponse->assertSessionHasNoErrors();
+        $availableStatus = session('status');
+
+        $this->assertSame($takenStatus, $availableStatus);
     }
 
     /**
@@ -152,7 +176,9 @@ class ProfileTest extends TestCase
      * Enumerations-Orakel ("wird bereits verwendet" vs. kein Fehler) --
      * jeder eingeloggte Nutzer könnte über sein eigenes Profil beliebige
      * Adressen durchprobieren und daran ablesen, ob sie irgendwo auf der
-     * Plattform schon vergeben sind. throttle begrenzt die Anfragerate.
+     * Plattform schon vergeben sind. throttle begrenzt die Anfragerate
+     * zusätzlich (Verteidigung in der Tiefe, siehe Test oben für die
+     * eigentliche Schließung der Lücke).
      */
     public function test_updating_the_profile_is_rate_limited(): void
     {
