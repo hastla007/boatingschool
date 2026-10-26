@@ -50,7 +50,21 @@ class UserController extends Controller
         $validated = $request->validate([
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', 'unique:app_user,email'],
+            // Bug-Review R4-6: jede andere Stelle, die eine E-Mail-Adresse
+            // anlegt oder ändert (RegisteredUserController,
+            // ParticipantController::invite(), ProfileUpdateRequest,
+            // Superadmin\TenantController), erzwingt per 'lowercase'-Regel,
+            // dass sie klein geschrieben gespeichert wird -- diese Stelle
+            // tat das bisher nicht. Ein hier mit Großbuchstaben angelegtes
+            // Konto wäre für Password::sendResetLink()/Login (beide lösen
+            // case-insensitiv auf den TATSÄCHLICH gespeicherten Wert auf,
+            // siehe LoginRequest/PasswordResetLinkController) zwar weiterhin
+            // nutzbar, aber app:create-superadmin (lowercased Lookup) oder
+            // ein künftiges Konto mit identischer, nur klein geschriebener
+            // Adresse hätten diese Zeile nie gefunden bzw. hätten eine
+            // Dopplung angelegt (die unique-Regel vergleicht ebenfalls
+            // Groß-/Kleinschreibung-sensitiv).
+            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:app_user,email'],
             'tenant_id' => ['nullable', 'uuid', 'exists:tenant,id'],
             'role' => ['required_with:tenant_id', 'nullable', 'in:owner,admin,instructor,staff,learner,support'],
         ]);
@@ -149,7 +163,9 @@ class UserController extends Controller
         $validated = $request->validate([
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', 'unique:app_user,email,'.$user->id],
+            // Bug-Review R4-6: siehe store() oben -- dieselbe fehlende
+            // 'lowercase'-Regel wie dort.
+            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:app_user,email,'.$user->id],
             'status' => ['required', 'in:invited,active,suspended,closed'],
             'phone' => ['nullable', 'string', 'max:40'],
             'street' => ['nullable', 'string', 'max:255'],

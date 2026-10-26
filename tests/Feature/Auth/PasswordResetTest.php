@@ -74,6 +74,26 @@ class PasswordResetTest extends TestCase
     }
 
     /**
+     * Bug-Review R4-6: jede Stelle, die eine E-Mail-Adresse anlegt oder
+     * ändert, erzwingt per 'lowercase'-Regel, dass sie klein geschrieben
+     * gespeichert wird -- Password::sendResetLink() suchte aber bisher per
+     * exaktem, Groß-/Kleinschreibung-sensitivem Vergleich. Tippt der Nutzer
+     * seine eigene Adresse hier mit (nur) einem Großbuchstaben ein (z. B.
+     * Autokapitalisierung der Handy-Tastatur), fand das Konto bisher niemand.
+     */
+    public function test_a_reset_link_is_still_found_when_the_email_is_typed_with_different_case(): void
+    {
+        Notification::fake();
+
+        $tenant = $this->createTestTenant();
+        $user = $this->createTenantUser($tenant);
+
+        $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/forgot-password', ['email' => strtoupper($user->email)]);
+
+        Notification::assertSentTo($user, ResetPassword::class);
+    }
+
+    /**
      * Sicherheitsreview M3: Laravels Standardverhalten unterscheidet sich
      * strukturell, je nachdem ob die Adresse existiert -- ein Feld-Fehler
      * samt zurückgegebenem Input bei einer unbekannten Adresse, ein reiner

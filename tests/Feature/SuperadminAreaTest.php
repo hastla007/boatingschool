@@ -158,6 +158,47 @@ class SuperadminAreaTest extends TestCase
         });
     }
 
+    /**
+     * Bug-Review R4-6: jede andere Stelle, die eine E-Mail-Adresse anlegt
+     * oder ändert (RegisteredUserController, ParticipantController::invite(),
+     * ProfileUpdateRequest, Superadmin\TenantController), erzwingt per
+     * 'lowercase'-Regel, dass sie klein geschrieben gespeichert wird --
+     * hier fehlte diese Regel bisher, ein Konto hätte mit Großbuchstaben
+     * angelegt werden können, was die Groß-/Kleinschreibung-sensitiven
+     * E-Mail-Vergleiche an anderer Stelle (z. B. app:create-superadmin)
+     * unterlaufen hätte.
+     */
+    public function test_a_new_users_email_must_be_lowercase(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+
+        $response = $this->actingAs($superadmin)->post('/superadmin/users', [
+            'first_name' => 'Nina',
+            'last_name' => 'Beispiel',
+            'email' => 'Nina-Beispiel@Example.test',
+        ]);
+
+        $response->assertSessionHasErrors('email');
+        $this->assertDatabaseMissing('app_user', ['email' => 'Nina-Beispiel@Example.test']);
+    }
+
+    public function test_updating_a_users_email_to_mixed_case_is_rejected(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        $tenant = $this->createTestTenant();
+        $user = $this->createTenantUser($tenant, 'learner');
+
+        $response = $this->actingAs($superadmin)->patch("/superadmin/users/{$user->id}", [
+            'first_name' => 'Nina',
+            'last_name' => 'Beispiel',
+            'email' => 'Grossgeschrieben@Example.test',
+            'status' => 'active',
+        ]);
+
+        $response->assertSessionHasErrors('email');
+        $this->assertSame($user->email, $user->fresh()->email);
+    }
+
     public function test_superadmin_sees_a_users_course_results_across_tenants(): void
     {
         $superadmin = $this->createSuperAdmin();

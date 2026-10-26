@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use App\Support\BestEffortMail;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
@@ -31,6 +33,22 @@ class PasswordResetLinkController extends Controller
             'email' => ['required', 'email'],
         ]);
 
+        // Bug-Review R4-6: jede Stelle, die eine E-Mail-Adresse anlegt oder
+        // ändert (RegisteredUserController, ParticipantController::invite(),
+        // ProfileUpdateRequest, Superadmin\TenantController), erzwingt per
+        // 'lowercase'-Regel, dass sie klein geschrieben gespeichert wird --
+        // Password::sendResetLink() sucht aber per exaktem, Groß-/
+        // Kleinschreibung-sensitivem Vergleich. Tippt ein Nutzer seine
+        // eigene Adresse hier mit (nur) einem Großbuchstaben ein (z. B.
+        // Autokapitalisierung der Handy-Tastatur), fand das Konto bisher
+        // niemand -- wegen Sicherheitsreview M3 (immer derselbe
+        // Erfolgs-Flash) ohne jeden Hinweis darauf. Dasselbe Muster wie
+        // bereits in LoginRequest (Bug-Review N17): die Adresse wird
+        // case-insensitiv auf den tatsächlich gespeicherten Wert
+        // aufgelöst, bevor Password::sendResetLink() sie prüft.
+        $email = User::whereRaw('lower(email) = ?', [Str::lower($request->input('email'))])->value('email')
+            ?? $request->input('email');
+
         // Bug-Review SMTP: lief bisher synchron und ungeschützt -- ein
         // SMTP-Fehler ergab HTTP 500, obwohl es hier gar keine eigene
         // Schreiboperation gibt, die dadurch gefährdet wäre (nur der
@@ -38,8 +56,8 @@ class PasswordResetLinkController extends Controller
         // umgestellten Stellen (Bug-Review B31) wird ein Fehler nur noch
         // geloggt.
         BestEffortMail::send(
-            fn () => Password::sendResetLink($request->only('email')),
-            'Passwort-Reset-Link für '.$request->input('email')
+            fn () => Password::sendResetLink(['email' => $email]),
+            'Passwort-Reset-Link für '.$email
         );
 
         // Sicherheitsreview M3: unabhängig davon, ob die Adresse tatsächlich
