@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\ContentQuestion;
 use App\Models\ContentQuestionRevision;
+use App\Models\MediaAsset;
 use App\Models\Module;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -22,6 +23,8 @@ class ContentQuestionReviewPublishingTest extends TestCase
 
     private array $createdQuestionIds = [];
 
+    private array $createdMediaAssetIds = [];
+
     protected function tearDown(): void
     {
         $this->onAdmin(function () {
@@ -30,6 +33,9 @@ class ContentQuestionReviewPublishingTest extends TestCase
             }
             foreach ($this->createdQuestionIds as $id) {
                 ContentQuestion::where('id', $id)->delete();
+            }
+            foreach ($this->createdMediaAssetIds as $id) {
+                MediaAsset::where('id', $id)->delete();
             }
         });
 
@@ -98,6 +104,77 @@ class ContentQuestionReviewPublishingTest extends TestCase
 
         $response->assertNotFound();
         $this->onAdmin(fn () => $this->assertSame('published', $published->fresh()->editorial_status));
+    }
+
+    /**
+     * Bug-Review (Veröffentlichen einer Import-Revision verliert Feedback
+     * und Bilder): ImportContentQuestions setzt auf einer neuen
+     * "review"-Revision nie feedback_correct/feedback_incorrect und hängt
+     * kein Bild an (beides reine Editor-Felder) -- ohne das von der bisher
+     * veröffentlichten Fassung zu übernehmen, hätte das Veröffentlichen
+     * einer solchen Revision beides stillschweigend gelöscht.
+     */
+    public function test_publishing_a_review_revision_carries_over_feedback_and_media_from_the_previously_published_revision(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        [, $question, $published, $review] = $this->makeQuestionWithPendingReview();
+
+        $media = $this->onAdmin(function () use ($published) {
+            $media = MediaAsset::create([
+                'asset_key' => 'test-o5-image-'.uniqid(),
+                'media_type' => 'image',
+                'storage_path' => '/images/test-o5.png',
+                'status' => 'published',
+            ]);
+            $this->createdMediaAssetIds[] = $media->id;
+            $published->media()->attach($media->id, ['role' => 'question', 'sort_order' => 1]);
+            $published->update(['feedback_correct' => 'Genau richtig!', 'feedback_incorrect' => 'Leider nicht.']);
+
+            return $media;
+        });
+
+        $response = $this->actingAs($superadmin)->post(route('superadmin.questions.revisions.publish', $review));
+
+        $response->assertRedirect();
+
+        $this->onAdmin(function () use ($question, $media) {
+            $publishedNow = $question->publishedRevision();
+            $this->assertSame('Genau richtig!', $publishedNow->feedback_correct);
+            $this->assertSame('Leider nicht.', $publishedNow->feedback_incorrect);
+            $this->assertSame([$media->id], $publishedNow->media()->pluck('media_asset.id')->all());
+        });
+    }
+
+    /**
+     * Bug-Review (Veröffentlichen einer Import-Revision verliert Feedback
+     * und Bilder): ImportContentQuestions prüft beim Anlegen einer neuen
+     * "review"-Revision nur die insgesamt letzte Revision, nicht gezielt
+     * nach einer dort schon wartenden -- zwei Reimports in Folge können
+     * deshalb zwei "review"-Revisionen stapeln. Ein noch offener Link auf
+     * die ältere davon darf sie nicht mehr veröffentlichen dürfen, sobald
+     * eine neuere existiert.
+     */
+    public function test_publishing_a_stale_review_revision_is_rejected_once_a_newer_one_exists(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        [, $question, , $staleReview] = $this->makeQuestionWithPendingReview();
+
+        $newerReview = $this->onAdmin(fn () => ContentQuestionRevision::create([
+            'question_id' => $question->id,
+            'revision_no' => 3,
+            'question_type' => 'single_choice',
+            'question_text' => 'Noch neuere Fassung aus einem zweiten Reimport',
+            'editorial_status' => 'review',
+            'rights_status' => 'review',
+        ]));
+
+        $response = $this->actingAs($superadmin)->post(route('superadmin.questions.revisions.publish', $staleReview));
+
+        $response->assertStatus(409);
+        $this->onAdmin(function () use ($staleReview, $newerReview) {
+            $this->assertSame('review', $staleReview->fresh()->editorial_status);
+            $this->assertSame('review', $newerReview->fresh()->editorial_status);
+        });
     }
 
     public function test_question_list_shows_a_pending_review_badge_and_publish_action(): void

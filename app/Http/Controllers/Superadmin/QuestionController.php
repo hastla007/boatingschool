@@ -142,10 +142,45 @@ class QuestionController extends Controller
     {
         abort_unless($revision->editorial_status === 'review', 404);
 
+        // Bug-Review (Veröffentlichen einer Import-Revision verliert
+        // Feedback/Bilder): ImportContentQuestions prüft beim Anlegen einer
+        // neuen "review"-Revision nur die insgesamt letzte Revision der
+        // Frage, nicht gezielt nach einer dort schon wartenden, noch nicht
+        // veröffentlichten "review"-Revision -- zwei Reimports in Folge
+        // können deshalb zwei "review"-Revisionen stapeln, ohne die ältere
+        // zu verwerfen. Ein noch offener Link auf die ältere davon durfte
+        // sie bisher trotzdem veröffentlichen und damit die inzwischen
+        // neuere "review"-Revision verwaist (nie mehr erreichbar) zurück-
+        // lassen. Veröffentlichbar ist deshalb nur noch die Revision mit
+        // der tatsächlich höchsten revision_no dieser Frage.
+        $isLatest = $revision->revision_no === $revision->question->revisions()->max('revision_no');
+        abort_unless($isLatest, 409, 'Für diese Frage liegt inzwischen eine neuere Fassung vor -- bitte die Seite neu laden.');
+
         DB::transaction(function () use ($revision) {
-            ContentQuestionRevision::where('question_id', $revision->question_id)
+            $published = ContentQuestionRevision::where('question_id', $revision->question_id)
                 ->where('editorial_status', 'published')
-                ->update(['editorial_status' => 'deprecated']);
+                ->first();
+
+            if ($published) {
+                // Bug-Review (Veröffentlichen einer Import-Revision verliert
+                // Feedback/Bilder): ImportContentQuestions setzt auf einer
+                // neuen "review"-Revision nie feedback_correct/
+                // feedback_incorrect und hängt auch kein Bild an (beides
+                // sind reine Editor-Felder) -- ohne das hier genau wie
+                // update() (Bug-Review B13) von der bisher veröffentlichten
+                // Fassung zu übernehmen, würde das Veröffentlichen einer
+                // solchen Import-Revision beides stillschweigend löschen.
+                $revision->update([
+                    'feedback_correct' => $revision->feedback_correct ?? $published->feedback_correct,
+                    'feedback_incorrect' => $revision->feedback_incorrect ?? $published->feedback_incorrect,
+                ]);
+
+                foreach ($published->media as $media) {
+                    $revision->media()->attach($media->id, ['role' => $media->pivot->role, 'sort_order' => $media->pivot->sort_order]);
+                }
+
+                $published->update(['editorial_status' => 'deprecated']);
+            }
 
             $revision->update(['editorial_status' => 'published']);
         });
