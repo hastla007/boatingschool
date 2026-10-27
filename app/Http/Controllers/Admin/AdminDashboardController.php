@@ -25,6 +25,7 @@ use App\Models\TenantUser;
 use App\Models\WillkommensboxOrder;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 /**
@@ -327,6 +328,15 @@ class AdminDashboardController extends Controller
             if (($anmeldungFilters[$dateFilter] ?? '') !== '' && ! $this->isValidCalendarDate($anmeldungFilters[$dateFilter])) {
                 $anmeldungFilters[$dateFilter] = '';
             }
+        }
+
+        // Bug-Review (Query-Parameter-Validierung): anmeldung_course landete
+        // ungeprüft in einem where('course_id', ...) gegen die uuid-Spalte
+        // praxis_form_submission.course_id -- derselbe Fehler wie bei
+        // anmeldung_from/anmeldung_to oben, nur mit UUID statt Datum als
+        // erwartetem Format.
+        if (($anmeldungFilters['anmeldung_course'] ?? '') !== '' && (! is_string($anmeldungFilters['anmeldung_course']) || ! Str::isUuid($anmeldungFilters['anmeldung_course']))) {
+            $anmeldungFilters['anmeldung_course'] = '';
         }
 
         $praxisFormSubmissions = PraxisFormSubmission::where('tenant_id', $tenant->id)

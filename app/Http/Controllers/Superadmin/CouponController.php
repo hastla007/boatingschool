@@ -11,6 +11,7 @@ use App\Models\Tenant;
 use App\Support\GermanTime;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\Response;
@@ -150,7 +151,14 @@ class CouponController extends Controller
     {
         $term = trim((string) ($filters['search'] ?? ''));
 
-        return Coupon::when($filters['tenant_id'] ?? null, fn ($q, $tenantId) => $q->where('tenant_id', $tenantId))
+        // Bug-Review (Query-Parameter-Validierung): tenant_id kam ungeprüft
+        // aus der Query-String direkt in ein where('tenant_id', ...) gegen
+        // die uuid-Spalte coupon.tenant_id -- ein manipulierter, nicht-UUID-
+        // förmiger Wert ließ Postgres mit "invalid input syntax for type
+        // uuid" scheitern (HTTP 500) statt den Filter zu ignorieren.
+        $tenantIdFilter = is_string($filters['tenant_id'] ?? null) && Str::isUuid($filters['tenant_id']) ? $filters['tenant_id'] : null;
+
+        return Coupon::when($tenantIdFilter, fn ($q, $tenantId) => $q->where('tenant_id', $tenantId))
             ->when(($filters['status'] ?? null) === 'redeemed', fn ($q) => $q->whereNotNull('redeemed_at'))
             ->when(($filters['status'] ?? null) === 'open', fn ($q) => $q->whereNull('redeemed_at'))
             ->when($term !== '', function ($q) use ($term) {
