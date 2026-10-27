@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\AddonTemplate;
 use App\Models\AuditLog;
 use App\Models\TenantAddon;
 use App\Support\TenantContext;
@@ -40,7 +39,23 @@ class AddonController extends Controller
         ]);
 
         $rows = collect($validated['addons'] ?? []);
-        $templateIds = AddonTemplate::pluck('id');
+
+        // Bug-Review F2: hier stand bisher AddonTemplate::pluck('id') --
+        // ALLE Vorlagen, nicht nur die aktiven. Das Formular (siehe
+        // AdminDashboardController) rendert aber nur Zeilen für aktive
+        // Vorlagen (AddonTemplate::where('active', true)) -- deaktiviert
+        // der Superadmin eine Vorlage, fehlt ihre ID im nächsten Request
+        // komplett, $active fiel hier auf false zurück, und die eigene
+        // Konfiguration der Bootsschule (Gutscheincode, Preis, Bullets,
+        // Trigger-Kurs, Link) wurde beim NÄCHSTEN Speichern gelöscht --
+        // unabhängig davon, ob die Schule überhaupt etwas an diesem Addon
+        // ändern wollte. Die Lernerseite blendet ein Addon mit deaktivierter
+        // Vorlage ohnehin schon zuverlässig aus (CourseController::show(),
+        // whereHas('addonTemplate', fn ($q) => $q->where('active', true))) --
+        // das Löschen hier war nie nötig, um das durchzusetzen. Nur noch die
+        // tatsächlich im Formular enthaltenen (= aktiven) Vorlagen werden
+        // deshalb überhaupt berührt.
+        $templateIds = $rows->keys();
 
         foreach ($templateIds as $templateId) {
             $row = $rows->get($templateId, []);

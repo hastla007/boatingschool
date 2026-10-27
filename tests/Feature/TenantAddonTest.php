@@ -196,6 +196,55 @@ class TenantAddonTest extends TestCase
         ]));
     }
 
+    /**
+     * Bug-Review F2: AddonController::update() iterierte bisher über ALLE
+     * Vorlagen (AddonTemplate::pluck('id')), nicht nur die aktiven -- das
+     * Formular (siehe admin/tabs/addons.blade.php) rendert aber nur Zeilen
+     * für aktive Vorlagen (AdminDashboardController). Deaktivierte der
+     * Superadmin eine Vorlage, fehlte ihre ID im nächsten Request komplett,
+     * $active fiel auf false zurück, und die eigene Konfiguration der
+     * Bootsschule (Gutscheincode, Preis, Bullets, Trigger, Link) wurde
+     * beim NÄCHSTEN Speichern gelöscht -- unabhängig davon, ob die Schule
+     * überhaupt etwas an diesem Addon ändern wollte.
+     */
+    public function test_disabling_a_template_in_superadmin_does_not_delete_the_tenants_existing_addon_configuration(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $template = $this->createTestTemplate();
+        $course = $this->existingCourse('SRC');
+
+        $this->actingAsInTenant($admin, $tenant)->patch('/admin/addons', [
+            'addons' => [
+                $template->id => [
+                    'active' => '1',
+                    'coupon_code' => 'SOMMER25',
+                    'trigger_course_id' => $course->id,
+                    'trigger_percent' => '30',
+                    'offer_url' => 'https://shop.example.test/grosses-paket',
+                ],
+            ],
+        ])->assertRedirect();
+
+        // Superadmin deaktiviert die Vorlage -- das Formular zeigt sie
+        // danach gar nicht mehr an (AdminDashboardController filtert auf
+        // active=true), ein erneutes Speichern enthält deshalb keine Zeile
+        // mehr dafür.
+        $this->onAdmin(fn () => $template->update(['active' => false]));
+
+        $response = $this->actingAsInTenant($admin, $tenant)->patch('/admin/addons', ['addons' => []]);
+        $response->assertRedirect();
+
+        $this->asTenant($tenant, function () use ($tenant, $template) {
+            $this->assertDatabaseHas('tenant_addon', [
+                'tenant_id' => $tenant->id,
+                'addon_template_id' => $template->id,
+                'active' => true,
+                'coupon_code' => 'SOMMER25',
+            ]);
+        });
+    }
+
     public function test_addons_tab_lists_active_templates(): void
     {
         $tenant = $this->createTestTenant();
