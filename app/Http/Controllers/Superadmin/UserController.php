@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Superadmin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\Entitlement;
 use App\Models\ExamSession;
 use App\Models\ProductPurchase;
@@ -191,9 +192,19 @@ class UserController extends Controller
             $user->email_verified_at = null;
         }
 
+        // Sicherheitsreview S4: Superadmin-Aktionen -- insbesondere Sperren
+        // (status) und das Erteilen/Entziehen von is_superadmin -- wurden
+        // bisher gar nicht protokolliert.
+        $before = ['status' => $user->status, 'is_superadmin' => $user->is_superadmin];
+
         $wasActive = $user->status === 'active';
         $user->forceFill(['is_superadmin' => $isSuperadmin]);
         $user->update($validated);
+
+        AuditLog::record(null, $request->user()->id, 'superadmin.user.update', 'app_user', $user->id, $before, [
+            'status' => $validated['status'],
+            'is_superadmin' => $isSuperadmin,
+        ]);
 
         // Eine Sperrung soll sofort wirken, nicht erst wenn eine laufende
         // Session neu authentifiziert wird (Sicherheitsreview M1). Das
@@ -216,10 +227,21 @@ class UserController extends Controller
             'role' => ['required', 'in:owner,admin,instructor,staff,learner,support'],
         ]);
 
+        // Sicherheitsreview S4: eine über den Superadmin zugewiesene/
+        // geänderte Rolle (z. B. "owner" einer Bootsschule) wurde bisher gar
+        // nicht protokolliert.
+        $before = TenantUser::withoutGlobalScopes()
+            ->where('tenant_id', $validated['tenant_id'])->where('user_id', $user->id)
+            ->first()?->only(['role', 'status']);
+
         TenantUser::updateOrCreate(
             ['tenant_id' => $validated['tenant_id'], 'user_id' => $user->id],
             ['role' => $validated['role'], 'status' => 'active']
         );
+
+        AuditLog::record($validated['tenant_id'], $request->user()->id, 'superadmin.user.membership_update', 'tenant_user', $user->id, $before, [
+            'role' => $validated['role'], 'status' => 'active',
+        ]);
 
         return back()->with('status', 'Bootsschul-Zuordnung gespeichert.');
     }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Superadmin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\Coupon;
 use App\Models\CourseDefinition;
 use App\Models\Product;
@@ -88,6 +89,17 @@ class CouponController extends Controller
 
             $codes[] = $coupon->code;
         }
+
+        // Sicherheitsreview S4: die Erzeugung von Coupon-Codes (potenziell
+        // kostenlose Freischaltungen, bis zu 500 pro Aufruf) wurde bisher
+        // gar nicht protokolliert -- ein einziger Eintrag pro Batch statt
+        // einem je Code, da ein Batch bis zu 500 Zeilen erzeugen könnte.
+        AuditLog::record($validated['tenant_id'] ?? null, $request->user()->id, 'superadmin.coupon.create', 'coupon', null, null, [
+            'target' => $validated['target'],
+            'quantity' => $quantity,
+            'batch_label' => $batchLabel,
+            'codes' => $codes,
+        ]);
 
         $message = $quantity === 1 ? 'Coupon-Code erzeugt.' : "{$quantity} Coupon-Codes erzeugt.";
 

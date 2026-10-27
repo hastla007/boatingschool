@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Superadmin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\Coupon;
 use App\Models\Entitlement;
 use App\Models\Tenant;
@@ -156,7 +157,14 @@ class TenantController extends Controller
             'status' => ['required', 'in:trial,active,suspended,closed'],
         ]);
 
+        // Sicherheitsreview S4: Superadmin-Aktionen (hier insbesondere das
+        // Sperren/Schließen einer ganzen Bootsschule, betrifft alle ihre
+        // Nutzer) wurden bisher gar nicht protokolliert -- im Unterschied
+        // zu den längst bestehenden AuditLog::record()-Aufrufen für
+        // Bootsschul-Admin-Aktionen (z. B. entitlement.*, coupon.redeem).
+        $before = $tenant->only(['name', 'status']);
         $tenant->update($validated);
+        AuditLog::record($tenant->id, $request->user()->id, 'superadmin.tenant.update', 'tenant', $tenant->id, $before, $validated);
 
         return back()->with('status', 'Bootsschule aktualisiert.');
     }
