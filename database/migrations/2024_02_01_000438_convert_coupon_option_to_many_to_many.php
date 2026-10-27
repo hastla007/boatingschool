@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\AppRoleGrants;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -24,8 +25,10 @@ return new class extends Migration
             $table->primary(['coupon_id', 'product_id']);
         });
 
-        if (DB::selectOne("SELECT 1 FROM pg_roles WHERE rolname = 'boatingschool_app'")) {
-            DB::statement('GRANT SELECT, INSERT, UPDATE, DELETE ON coupon_option_product TO boatingschool_app');
+        $appRole = AppRoleGrants::role();
+
+        if (AppRoleGrants::roleExistsOrWarn()) {
+            DB::statement("GRANT SELECT, INSERT, UPDATE, DELETE ON coupon_option_product TO {$appRole}");
         }
 
         DB::statement('INSERT INTO coupon_option_product (coupon_id, product_id)

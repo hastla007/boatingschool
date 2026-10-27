@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\AppRoleGrants;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -24,8 +25,10 @@ return new class extends Migration
         });
         DB::statement('CREATE INDEX idx_video_lesson_question_question ON video_lesson_question(question_id)');
 
-        if (DB::selectOne("SELECT 1 FROM pg_roles WHERE rolname = 'boatingschool_app'")) {
-            DB::statement('GRANT SELECT, INSERT, UPDATE, DELETE ON video_lesson_question TO boatingschool_app');
+        $appRole = AppRoleGrants::role();
+
+        if (AppRoleGrants::roleExistsOrWarn()) {
+            DB::statement("GRANT SELECT, INSERT, UPDATE, DELETE ON video_lesson_question TO {$appRole}");
         }
     }
 

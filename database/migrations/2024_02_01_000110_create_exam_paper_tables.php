@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\AppRoleGrants;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -43,8 +44,10 @@ return new class extends Migration
             $table->foreign('paper_id')->references('id')->on('exam_paper');
         });
 
-        if (DB::selectOne("SELECT 1 FROM pg_roles WHERE rolname = 'boatingschool_app'")) {
-            DB::statement('GRANT SELECT, INSERT, UPDATE, DELETE ON exam_paper, exam_paper_question TO boatingschool_app');
+        $appRole = AppRoleGrants::role();
+
+        if (AppRoleGrants::roleExistsOrWarn()) {
+            DB::statement("GRANT SELECT, INSERT, UPDATE, DELETE ON exam_paper, exam_paper_question TO {$appRole}");
         }
     }
 

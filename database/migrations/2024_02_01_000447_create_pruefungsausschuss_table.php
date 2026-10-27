@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\AppRoleGrants;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -46,8 +47,10 @@ return new class extends Migration
         // Nur lesend für die Laufzeitrolle -- die Liste ist fest vorgegeben
         // und wird ausschließlich über Migrations/Seeder (Owner-Verbindung)
         // gepflegt, nie von der Bootsschule selbst.
-        if (DB::selectOne("SELECT 1 FROM pg_roles WHERE rolname = 'boatingschool_app'")) {
-            DB::statement('GRANT SELECT ON pruefungsausschuss TO boatingschool_app');
+        $appRole = AppRoleGrants::role();
+
+        if (AppRoleGrants::roleExistsOrWarn()) {
+            DB::statement("GRANT SELECT ON pruefungsausschuss TO {$appRole}");
         }
     }
 
