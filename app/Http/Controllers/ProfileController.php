@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\ProfileUpdateRequest;
 use App\Models\Entitlement;
 use App\Models\ProductPurchase;
+use App\Models\TenantUser;
 use App\Notifications\ConfirmPendingEmail;
 use App\Services\AccountErasureService;
 use App\Services\PersonalDataExportService;
@@ -64,8 +65,15 @@ class ProfileController extends Controller
 
         $bookings = $entitlements->concat($productPurchases)->sortByDesc('date')->values();
 
+        // Sicherheitsreview S3: Adresse/Geburtsdatum liegen jetzt je
+        // Mitgliedschaft auf tenant_user statt kontoweit auf app_user --
+        // 'tenant.member' (routes/web.php) garantiert hier eine aktive
+        // Mitgliedschaft für den aktuellen Mandanten.
+        $membership = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $user->id)->first();
+
         return view('profile.edit', [
             'user' => $user,
+            'membership' => $membership,
             'bookings' => $bookings,
         ]);
     }
@@ -79,17 +87,29 @@ class ProfileController extends Controller
      * eintragen und sie sofort für sein Konto nutzen, ohne sie je besessen
      * zu haben.
      */
-    public function update(ProfileUpdateRequest $request): RedirectResponse
+    public function update(ProfileUpdateRequest $request, TenantContext $tenantContext): RedirectResponse
     {
+        $tenant = $tenantContext->tenant();
         $user = $request->user();
         $validated = $request->validated();
 
         $newEmail = $validated['email'];
         unset($validated['email']);
 
+        // Sicherheitsreview S3: street/postal_code/city/country/birthdate
+        // liegen jetzt je Mitgliedschaft auf tenant_user statt kontoweit auf
+        // app_user (siehe Migration 000469) -- nur first_name/last_name/
+        // phone bleiben Konto-Identität und landen weiter auf $user.
+        $addressFields = array_intersect_key($validated, array_flip(['street', 'postal_code', 'city', 'country', 'birthdate']));
+        $validated = array_diff_key($validated, $addressFields);
+
         $user->fill($validated);
         $user->display_name = trim($validated['first_name'].' '.$validated['last_name']);
         $user->save();
+
+        if ($addressFields !== []) {
+            TenantUser::where('tenant_id', $tenant->id)->where('user_id', $user->id)->update($addressFields);
+        }
 
         $status = 'Profil gespeichert.';
 

@@ -73,12 +73,14 @@ class UserAndEntitlementSeeder extends Seeder
 
             $user = User::firstOrCreate(
                 ['email' => $learner['email']],
-                array_merge(['display_name' => $learner['name'], 'password' => Hash::make('password'), 'status' => 'active', 'email_verified_at' => now()], $profile)
+                ['display_name' => $learner['name'], 'password' => Hash::make('password'), 'status' => 'active', 'email_verified_at' => now()]
             );
 
+            // Sicherheitsreview S3: street/postal_code/city/country/birthdate
+            // liegen seit Migration 000469 je Mitgliedschaft auf tenant_user.
             TenantUser::firstOrCreate(
                 ['tenant_id' => $tenant->id, 'user_id' => $user->id],
-                ['role' => 'learner', 'status' => 'active']
+                array_merge(['role' => 'learner', 'status' => 'active'], $profile)
             );
 
             $course = CourseDefinition::withoutGlobalScopes()->where('code', $learner['course'])->whereNull('tenant_id')->first();

@@ -48,7 +48,7 @@ class PraxisFormSubmissionController extends Controller
         // Gleiches Gate wie PraxisPruefungController::index() -- verhindert,
         // dass ein Formular abgeschickt wird, dessen Tab seit vor dem
         // Vervollständigen des Profils offen war.
-        abort_unless($user->hasCompleteRegistrationProfile(), 403, 'Bitte vervollständige zuerst dein Profil (Adresse und Geburtsdatum).');
+        abort_unless($user->hasCompleteRegistrationProfile($tenant), 403, 'Bitte vervollständige zuerst dein Profil (Adresse und Geburtsdatum).');
 
         $existing = PraxisFormSubmission::where('tenant_id', $tenant->id)
             ->where('user_id', $user->id)

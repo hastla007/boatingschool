@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Entitlement;
 use App\Models\Product;
 use App\Models\ProductPurchase;
+use App\Models\TenantUser;
 use App\Notifications\ConfirmPendingEmail;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\URL;
@@ -53,10 +54,14 @@ class ProfileTest extends TestCase
         $this->assertSame('User', $user->last_name);
         $this->assertSame('Test User', $user->name);
         $this->assertSame('+49 30 1234567', $user->phone);
-        $this->assertSame('Hafenstraße 1', $user->street);
-        $this->assertSame('12345', $user->postal_code);
-        $this->assertSame('Hamburg', $user->city);
-        $this->assertSame('Deutschland', $user->country);
+
+        // Sicherheitsreview S3: street/postal_code/city/country liegen seit
+        // Migration 000469 je Mitgliedschaft auf tenant_user.
+        $membership = $this->onAdmin(fn () => TenantUser::where('tenant_id', $tenant->id)->where('user_id', $user->id)->first());
+        $this->assertSame('Hafenstraße 1', $membership->street);
+        $this->assertSame('12345', $membership->postal_code);
+        $this->assertSame('Hamburg', $membership->city);
+        $this->assertSame('Deutschland', $membership->country);
 
         // Eine geänderte E-Mail-Adresse wird erst nach Bestätigung über den
         // zugeschickten Link live geschaltet (Sicherheitsreview H2) -- bis
@@ -260,7 +265,11 @@ class ProfileTest extends TestCase
         ]);
 
         $response->assertSessionHasNoErrors()->assertRedirect('/profile');
-        $this->assertSame('1990-05-20', $user->refresh()->birthdate->format('Y-m-d'));
+
+        // Sicherheitsreview S3: birthdate liegt seit Migration 000469 je
+        // Mitgliedschaft auf tenant_user.
+        $membership = $this->onAdmin(fn () => TenantUser::where('tenant_id', $tenant->id)->where('user_id', $user->id)->first());
+        $this->assertSame('1990-05-20', $membership->birthdate->format('Y-m-d'));
     }
 
     public function test_birthdate_must_be_in_the_past(): void

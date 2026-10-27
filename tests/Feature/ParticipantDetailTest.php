@@ -10,6 +10,7 @@ use App\Models\PraxisFormTemplate;
 use App\Models\Product;
 use App\Models\ProductPurchase;
 use App\Models\Tenant;
+use App\Models\TenantUser;
 use App\Models\User;
 use App\Models\WillkommensboxOrder;
 use Tests\Feature\Concerns\InteractsWithTenants;
@@ -389,14 +390,14 @@ class ParticipantDetailTest extends TestCase
 
         $response->assertRedirect();
         $response->assertSessionHasNoErrors();
-        $this->onAdmin(function () use ($learner) {
-            $fresh = $learner->fresh();
-            $this->assertSame('Hafenstraße 5', $fresh->street);
-            $this->assertSame('20457', $fresh->postal_code);
-            $this->assertSame('Hamburg', $fresh->city);
-            $this->assertSame('Deutschland', $fresh->country);
-            $this->assertSame('1995-06-15', $fresh->birthdate->format('Y-m-d'));
-            $this->assertTrue($fresh->hasCompleteRegistrationProfile());
+        $this->onAdmin(function () use ($learner, $tenant) {
+            $membership = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->first();
+            $this->assertSame('Hafenstraße 5', $membership->street);
+            $this->assertSame('20457', $membership->postal_code);
+            $this->assertSame('Hamburg', $membership->city);
+            $this->assertSame('Deutschland', $membership->country);
+            $this->assertSame('1995-06-15', $membership->birthdate->format('Y-m-d'));
+            $this->assertTrue($learner->fresh()->hasCompleteRegistrationProfile($tenant));
         });
     }
 
@@ -421,13 +422,63 @@ class ParticipantDetailTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $this->onAdmin(function () use ($learner) {
-            $fresh = $learner->fresh();
-            $this->assertSame('Neue Straße 2', $fresh->street);
-            $this->assertSame('20000', $fresh->postal_code);
-            $this->assertSame('Neustadt', $fresh->city);
-            $this->assertSame('Deutschland', $fresh->country);
-            $this->assertSame('1991-02-02', $fresh->birthdate->format('Y-m-d'));
+        $this->onAdmin(function () use ($learner, $tenant) {
+            $membership = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->first();
+            $this->assertSame('Neue Straße 2', $membership->street);
+            $this->assertSame('20000', $membership->postal_code);
+            $this->assertSame('Neustadt', $membership->city);
+            $this->assertSame('Deutschland', $membership->country);
+            $this->assertSame('1991-02-02', $membership->birthdate->format('Y-m-d'));
+        });
+    }
+
+    /**
+     * Sicherheitsreview S3: Adresse und Geburtsdatum standen bisher direkt
+     * auf app_user -- EINE einzige, kontoweite Kopie, unabhängig davon, bei
+     * wie vielen Bootsschulen das Konto Mitglied ist. Ist ein Lerner
+     * gleichzeitig Mitglied bei Schule A und Schule B, sah und änderte
+     * Schule A damit dieselbe Adresse/dasselbe Geburtsdatum, die Schule B
+     * für ihre eigene Prüfungsanmeldung verwendet.
+     */
+    public function test_a_participants_address_is_isolated_between_two_tenant_memberships(): void
+    {
+        $tenantA = $this->createTestTenant();
+        $tenantB = $this->createTestTenant();
+        $adminA = $this->createTenantUser($tenantA, 'owner');
+        $learner = $this->createTenantUser($tenantA, 'learner');
+
+        $this->onAdmin(fn () => TenantUser::create([
+            'tenant_id' => $tenantB->id,
+            'user_id' => $learner->id,
+            'role' => 'learner',
+            'status' => 'active',
+            'street' => 'Schule-B-Straße 1',
+            'postal_code' => '50000',
+            'city' => 'Schule-B-Stadt',
+            'country' => 'Deutschland',
+            'birthdate' => '1988-03-03',
+        ]));
+
+        $this->actingAsInTenant($adminA, $tenantA)->patch("/admin/participants/{$learner->id}", [
+            'street' => 'Schule-A-Straße 9',
+            'postal_code' => '10000',
+            'city' => 'Schule-A-Stadt',
+            'country' => 'Österreich',
+            'birthdate' => '1999-09-09',
+        ])->assertRedirect();
+
+        $this->onAdmin(function () use ($learner, $tenantA, $tenantB) {
+            $membershipA = TenantUser::withoutGlobalScopes()->where('tenant_id', $tenantA->id)->where('user_id', $learner->id)->first();
+            $membershipB = TenantUser::withoutGlobalScopes()->where('tenant_id', $tenantB->id)->where('user_id', $learner->id)->first();
+
+            $this->assertSame('Schule-A-Straße 9', $membershipA->street);
+
+            // Schule B muss von der Änderung durch Schule A unberührt bleiben.
+            $this->assertSame('Schule-B-Straße 1', $membershipB->street);
+            $this->assertSame('50000', $membershipB->postal_code);
+            $this->assertSame('Schule-B-Stadt', $membershipB->city);
+            $this->assertSame('Deutschland', $membershipB->country);
+            $this->assertSame('1988-03-03', $membershipB->birthdate->format('Y-m-d'));
         });
     }
 
@@ -469,8 +520,13 @@ class ParticipantDetailTest extends TestCase
         ]);
 
         $response->assertNotFound();
-        $this->onAdmin(function () use ($learnerB) {
-            $this->assertNull($learnerB->fresh()->city);
+        $this->onAdmin(function () use ($learnerB, $tenantB) {
+            // withoutGlobalScopes(): die vorangehende Anfrage hinterlässt den
+            // TenantContext auf $tenantA (BelongsToTenant::bootBelongsToTenant()
+            // filtert sonst zusätzlich implizit danach) -- hier wird aber
+            // bewusst die Mitgliedschaft bei $tenantB geprüft.
+            $membership = TenantUser::withoutGlobalScopes()->where('tenant_id', $tenantB->id)->where('user_id', $learnerB->id)->first();
+            $this->assertNull($membership->city);
         });
     }
 

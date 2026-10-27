@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Tenant;
+use App\Models\TenantUser;
 use App\Models\User;
 use App\Models\WillkommensboxOrder;
 use App\Services\CourseProgressService;
@@ -46,7 +47,12 @@ class WillkommensboxController extends Controller
             return view('willkommensbox.index', ['state' => 'submitted', 'order' => $order]);
         }
 
-        return view('willkommensbox.index', ['state' => 'form', 'user' => $user]);
+        // Sicherheitsreview S3: Adresse-Vorbefüllung kommt jetzt aus der
+        // Mitgliedschaft (tenant_user) dieses Mandanten statt kontoweit von
+        // app_user -- siehe Migration 000469.
+        $membership = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $user->id)->first();
+
+        return view('willkommensbox.index', ['state' => 'form', 'membership' => $membership]);
     }
 
     public function store(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseProgressService $courseProgress): Response

@@ -154,12 +154,19 @@ class UserController extends Controller
             'examResults' => $examResults,
             'productPurchases' => $productPurchases,
             'tenants' => Tenant::orderBy('name')->get(),
-            'countries' => Countries::OPTIONS,
         ]);
     }
 
     public function update(Request $request, User $user): Response
     {
+        // Sicherheitsreview S3: street/postal_code/city/country/birthdate
+        // liegen seit Migration 000469 je Mitgliedschaft auf tenant_user,
+        // nicht mehr kontoweit auf app_user -- ein Konto kann bei mehreren
+        // Bootsschulen Mitglied sein, jede mit ihrer eigenen Kopie. Diese
+        // plattformweite Superadmin-Seite kennt keine einzelne Bootsschule,
+        // der sie eine Adresse zuordnen könnte; diese Felder editiert
+        // deshalb nur noch die jeweilige Bootsschule selbst (Profil/
+        // Teilnehmerverwaltung), nicht mehr der Superadmin.
         $validated = $request->validate([
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
@@ -168,10 +175,6 @@ class UserController extends Controller
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:app_user,email,'.$user->id],
             'status' => ['required', 'in:invited,active,suspended,closed'],
             'phone' => ['nullable', 'string', 'max:40'],
-            'street' => ['nullable', 'string', 'max:255'],
-            'postal_code' => ['nullable', 'string', 'max:20'],
-            'city' => ['nullable', 'string', 'max:255'],
-            'country' => ['nullable', 'string', 'in:'.implode(',', Countries::OPTIONS)],
             'is_superadmin' => ['sometimes', 'boolean'],
         ]);
 

@@ -73,7 +73,7 @@ class PraxisPruefungController extends Controller
         // Adresse hinterlegen (siehe ParticipantController::invite), das
         // Geburtsdatum aber bewusst nicht -- es muss immer vom Lerner selbst
         // kommen, daher greift dieses Gate auch dann noch.
-        if (! $user->hasCompleteRegistrationProfile()) {
+        if (! $user->hasCompleteRegistrationProfile($tenant)) {
             return view('praxis-pruefung.index', ['course' => $course, 'state' => 'incomplete-profile']);
         }
 

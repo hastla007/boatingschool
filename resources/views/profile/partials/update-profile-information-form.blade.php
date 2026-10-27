@@ -73,7 +73,7 @@
         <div>
             <x-input-label for="birthdate" value="Geburtsdatum" />
             <x-text-input id="birthdate" name="birthdate" type="date" class="mt-1 block w-full"
-                          :value="old('birthdate', $user->birthdate?->format('Y-m-d'))" autocomplete="bday" />
+                          :value="old('birthdate', $membership->birthdate?->format('Y-m-d'))" autocomplete="bday" />
             <p class="text-xs text-gray-400 mt-1">Wird u. a. für die Anmeldung zu Praxis &amp; Prüfung benötigt.</p>
             <x-input-error class="mt-2" :messages="$errors->get('birthdate')" />
         </div>
@@ -82,24 +82,24 @@
             <x-input-label value="Adresse" />
             <div class="grid sm:grid-cols-[2fr_1fr] gap-4 mt-1">
                 <div>
-                    <x-text-input id="street" name="street" type="text" placeholder="Straße & Hausnummer" class="block w-full" :value="old('street', $user->street)" autocomplete="street-address" />
+                    <x-text-input id="street" name="street" type="text" placeholder="Straße & Hausnummer" class="block w-full" :value="old('street', $membership->street)" autocomplete="street-address" />
                     <x-input-error class="mt-2" :messages="$errors->get('street')" />
                 </div>
                 <div>
-                    <x-text-input id="postal_code" name="postal_code" type="text" placeholder="PLZ" class="block w-full" :value="old('postal_code', $user->postal_code)" autocomplete="postal-code" />
+                    <x-text-input id="postal_code" name="postal_code" type="text" placeholder="PLZ" class="block w-full" :value="old('postal_code', $membership->postal_code)" autocomplete="postal-code" />
                     <x-input-error class="mt-2" :messages="$errors->get('postal_code')" />
                 </div>
             </div>
             <div class="grid sm:grid-cols-2 gap-4 mt-2">
                 <div>
-                    <x-text-input id="city" name="city" type="text" placeholder="Wohnort" class="block w-full" :value="old('city', $user->city)" autocomplete="address-level2" />
+                    <x-text-input id="city" name="city" type="text" placeholder="Wohnort" class="block w-full" :value="old('city', $membership->city)" autocomplete="address-level2" />
                     <x-input-error class="mt-2" :messages="$errors->get('city')" />
                 </div>
                 <div>
                     <select id="country" name="country" class="block w-full border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 focus:border-blue-500 dark:focus:border-blue-500 focus:ring-blue-500 rounded-lg shadow-sm">
                         <option value="">Land wählen&hellip;</option>
                         @foreach (\App\Support\Countries::OPTIONS as $countryOption)
-                            <option value="{{ $countryOption }}" @selected(old('country', $user->country) === $countryOption)>{{ $countryOption }}</option>
+                            <option value="{{ $countryOption }}" @selected(old('country', $membership->country) === $countryOption)>{{ $countryOption }}</option>
                         @endforeach
                     </select>
                     <x-input-error class="mt-2" :messages="$errors->get('country')" />

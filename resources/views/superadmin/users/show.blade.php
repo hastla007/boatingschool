@@ -32,31 +32,14 @@
                     <x-input-label for="phone" value="Telefonnummer" />
                     <x-text-input id="phone" name="phone" type="text" class="mt-1 block w-full" :value="old('phone', $user->phone)" />
                 </div>
-                <div class="grid grid-cols-[2fr_1fr] gap-3">
-                    <div>
-                        <x-input-label for="street" value="Straße" />
-                        <x-text-input id="street" name="street" type="text" class="mt-1 block w-full" :value="old('street', $user->street)" />
-                    </div>
-                    <div>
-                        <x-input-label for="postal_code" value="PLZ" />
-                        <x-text-input id="postal_code" name="postal_code" type="text" class="mt-1 block w-full" :value="old('postal_code', $user->postal_code)" />
-                    </div>
-                </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <x-input-label for="city" value="Wohnort" />
-                        <x-text-input id="city" name="city" type="text" class="mt-1 block w-full" :value="old('city', $user->city)" />
-                    </div>
-                    <div>
-                        <x-input-label for="country" value="Land" />
-                        <select id="country" name="country" class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
-                            <option value="">&mdash;</option>
-                            @foreach ($countries as $countryOption)
-                                <option value="{{ $countryOption }}" @selected(old('country', $user->country) === $countryOption)>{{ $countryOption }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                </div>
+                {{--
+                    Sicherheitsreview S3: Adresse/Geburtsdatum liegen seit
+                    Migration 000469 je Mitgliedschaft auf tenant_user, nicht
+                    mehr kontoweit auf app_user -- diese plattformweite Seite
+                    kennt keine einzelne Bootsschule, der sie eine Adresse
+                    zuordnen könnte. Das bearbeitet jede Bootsschule jetzt
+                    selbst (Profil/Teilnehmerverwaltung).
+                --}}
                 <div>
                     <x-input-label for="status" value="Status" />
                     <select id="status" name="status" class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">

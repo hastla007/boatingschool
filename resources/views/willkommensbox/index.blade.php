@@ -55,18 +55,18 @@
                 @csrf
                 <div>
                     <x-input-label for="street" value="Straße & Hausnummer *" />
-                    <x-text-input id="street" name="street" type="text" class="mt-1 block w-full" :value="old('street', $user->street)" required />
+                    <x-text-input id="street" name="street" type="text" class="mt-1 block w-full" :value="old('street', $membership->street)" required />
                     <x-input-error :messages="$errors->get('street')" class="mt-2" />
                 </div>
                 <div class="grid sm:grid-cols-2 gap-4">
                     <div>
                         <x-input-label for="postal_code" value="PLZ *" />
-                        <x-text-input id="postal_code" name="postal_code" type="text" class="mt-1 block w-full" :value="old('postal_code', $user->postal_code)" required />
+                        <x-text-input id="postal_code" name="postal_code" type="text" class="mt-1 block w-full" :value="old('postal_code', $membership->postal_code)" required />
                         <x-input-error :messages="$errors->get('postal_code')" class="mt-2" />
                     </div>
                     <div>
                         <x-input-label for="city" value="Ort *" />
-                        <x-text-input id="city" name="city" type="text" class="mt-1 block w-full" :value="old('city', $user->city)" required />
+                        <x-text-input id="city" name="city" type="text" class="mt-1 block w-full" :value="old('city', $membership->city)" required />
                         <x-input-error :messages="$errors->get('city')" class="mt-2" />
                     </div>
                 </div>
@@ -74,9 +74,9 @@
                     <x-input-label for="country" value="Land *" />
                     <select id="country" name="country" required
                             class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
-                        <option value="" disabled @selected(! old('country', $user->country))>Bitte wählen…</option>
+                        <option value="" disabled @selected(! old('country', $membership->country))>Bitte wählen…</option>
                         @foreach (\App\Support\Countries::OPTIONS as $countryOption)
-                            <option value="{{ $countryOption }}" @selected(old('country', $user->country) === $countryOption)>{{ $countryOption }}</option>
+                            <option value="{{ $countryOption }}" @selected(old('country', $membership->country) === $countryOption)>{{ $countryOption }}</option>
                         @endforeach
                     </select>
                     <x-input-error :messages="$errors->get('country')" class="mt-2" />

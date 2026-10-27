@@ -204,8 +204,11 @@ class ParticipantController extends Controller
             'birthdate' => ['nullable', 'date', 'before:today'],
         ]);
 
-        $before = $user->only(['street', 'postal_code', 'city', 'country', 'birthdate']);
-        $user->update($validated);
+        // Sicherheitsreview S3: diese Felder liegen jetzt auf der
+        // Mitgliedschaft (tenant_user), nicht mehr kontoweit auf app_user --
+        // siehe Migration 000469 und User::hasCompleteRegistrationProfile().
+        $before = $membership->only(['street', 'postal_code', 'city', 'country', 'birthdate']);
+        $membership->update($validated);
 
         AuditLog::record($tenant->id, $request->user()->id, 'participant.update', 'app_user', $user->id, $before, $validated);
 
@@ -384,17 +387,20 @@ class ParticipantController extends Controller
                 'display_name' => $validated['name'],
                 'password' => Hash::make(Str::random(32)),
                 'status' => 'invited',
-                'street' => $validated['street'] ?? null,
-                'postal_code' => $validated['postal_code'] ?? null,
-                'city' => $validated['city'] ?? null,
-                'country' => $validated['country'] ?? null,
             ]);
 
+            // Sicherheitsreview S3: Adresse liegt jetzt auf der Mitgliedschaft
+            // (tenant_user), nicht mehr kontoweit auf app_user -- siehe
+            // Migration 000469.
             TenantUser::create([
                 'tenant_id' => $tenant->id,
                 'user_id' => $user->id,
                 'role' => 'learner',
                 'status' => 'active',
+                'street' => $validated['street'] ?? null,
+                'postal_code' => $validated['postal_code'] ?? null,
+                'city' => $validated['city'] ?? null,
+                'country' => $validated['country'] ?? null,
             ]);
 
             AuditLog::record($tenant->id, $request->user()->id, 'participant.invite', 'app_user', $user->id, null, [
