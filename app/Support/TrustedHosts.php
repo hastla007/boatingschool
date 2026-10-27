@@ -58,7 +58,28 @@ class TrustedHosts
 
     private const FRESH_KEY = 'trusted-hosts:custom-domains:fresh-until';
 
-    private const CACHE_TTL_MINUTES = 5;
+    /**
+     * Bug-Review (Niedrig, Folgefehler): kürzer als die ursprünglichen 5
+     * Minuten -- eine neue Custom Domain (aktuell ohnehin nur per
+     * Migration/Seeder/Tinker setzbar, siehe NEU-6) wird sonst bis zu 5
+     * Minuten lang mit 400 abgelehnt, bevor sie überhaupt zum ersten Mal
+     * abgefragt wird. 1 Minute hält die DB-Last weiterhin fern von "pro
+     * Request", verkürzt aber die Wartezeit bis zur Wirkung deutlich.
+     */
+    private const CACHE_TTL_MINUTES = 1;
+
+    /**
+     * Bug-Review (Niedrig, Folgefehler): ohne diesen Wert fragte ein
+     * Ausfall der Owner-Verbindung bei JEDEM einzelnen Request erneut die
+     * DB ab, sobald FRESH_KEY abgelaufen war -- der Rückfall auf die
+     * zuletzt bekannten Daten griff zwar, aber ohne Backoff hämmerte
+     * jeder Request währenddessen trotzdem gegen die tote Verbindung.
+     * Ein Fehlschlag setzt FRESH_KEY deshalb jetzt ebenfalls, nur für eine
+     * deutlich kürzere Zeitspanne als ein Erfolg -- erneute Versuche
+     * bleiben so periodisch statt pro Request, ohne eine Erholung der
+     * Verbindung lange zu verzögern.
+     */
+    private const BACKOFF_SECONDS = 30;
 
     /**
      * Bug-Review NEU-6 (Performance und Ausfallsicherheit): als globale
@@ -132,6 +153,8 @@ class TrustedHosts
             return $domains;
         } catch (Throwable $e) {
             report($e);
+
+            $cache->put(self::FRESH_KEY, true, now()->addSeconds(self::BACKOFF_SECONDS));
 
             return $cache->get(self::DATA_KEY, []);
         }

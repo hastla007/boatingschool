@@ -110,6 +110,33 @@ class TrustedHostsTest extends TestCase
     }
 
     /**
+     * Bug-Review (Niedrig, Folgefehler): ohne einen eigenen Backoff-Wert
+     * fragte ein Ausfall bei JEDEM einzelnen Request erneut die DB ab,
+     * sobald der Frische-Marker abgelaufen war -- der Rückfall auf die
+     * zuletzt bekannten Daten griff zwar trotzdem, aber jeder Request
+     * hämmerte währenddessen weiter gegen die tote Verbindung, statt sich
+     * für eine kurze Zeitspanne zurückzuziehen.
+     */
+    public function test_a_failed_lookup_sets_a_short_backoff_marker_to_avoid_retrying_on_every_request(): void
+    {
+        $originalConfig = config('database.connections.pgsql_admin');
+        config(['database.connections.pgsql_admin.port' => 1]);
+        DB::purge('pgsql_admin');
+
+        try {
+            TrustedHosts::patterns();
+
+            $this->assertTrue(
+                Cache::store('file')->has('trusted-hosts:custom-domains:fresh-until'),
+                'Ein Fehlschlag muss denselben Frische-Marker wie ein Erfolg setzen (nur kürzer) -- sonst fragt jeder weitere Request währenddessen erneut gegen die tote Verbindung ab.'
+            );
+        } finally {
+            config(['database.connections.pgsql_admin' => $originalConfig]);
+            DB::purge('pgsql_admin');
+        }
+    }
+
+    /**
      * Bug-Review NEU-6 (Folgefehler, eigener Fund): eine erste Fassung
      * cachte Custom Domains direkt über Cache::remember() mit einer
      * TTL -- Illuminate\Cache\FileStore::getPayload() löscht eine
