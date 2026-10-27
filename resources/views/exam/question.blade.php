@@ -56,20 +56,40 @@
                 </div>
             </form>
         @elseif ($current->revision->question_type === 'open_text')
-            <div x-data="{ revealed: false }">
+            {{-- Bug-Review Oberfläche U9: die Musterantwort stand bisher
+                 immer schon im anfänglichen HTML der Seite (Blade rendert
+                 sie serverseitig in den x-if="revealed"-Block hinein, der
+                 nur die DARSTELLUNG im DOM steuert, nicht den Inhalt der
+                 HTTP-Antwort) -- per Devtools/Ansicht-Quelltext war die
+                 Antwort schon vor jedem Klick sichtbar. Sie wird jetzt erst
+                 per fetch() nach dem Klick vom neuen Reveal-Endpoint
+                 geladen, der zugleich revealed_at setzt (siehe
+                 ExamController::reveal()/answer() -- die Selbsteinschätzung
+                 unten verlangt serverseitig, dass die Musterantwort über
+                 genau diesen Endpunkt abgerufen wurde, bevor "Gewusst"/
+                 "Nicht gewusst" angenommen wird). --}}
+            <div x-data="{ revealed: false, answerText: '' }">
                 <p class="text-xs text-slate-600 dark:text-slate-400 mb-2">Offene Frage &mdash; keine Antwortoptionen. Schätze selbst ein, ob Du die Antwort wusstest.</p>
 
                 <template x-if="!revealed">
-                    <button type="button" @click="revealed = true" class="w-full px-5 py-3 rounded-xl border border-slate-200 dark:border-slate-600 text-sm font-medium text-slate-600 dark:text-slate-200 hover:border-slate-400 transition">
+                    <button type="button"
+                            @click="fetch('{{ route('exam.reveal', $examSession) }}', {
+                                method: 'POST',
+                                headers: {
+                                    'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'application/json',
+                                },
+                                body: JSON.stringify({ position: {{ $current->position }} }),
+                            }).then(r => r.json()).then(json => { answerText = json.answer_text; revealed = true })"
+                            class="w-full px-5 py-3 rounded-xl border border-slate-200 dark:border-slate-600 text-sm font-medium text-slate-600 dark:text-slate-200 hover:border-slate-400 transition">
                         Musterantwort anzeigen
                     </button>
                 </template>
 
                 <template x-if="revealed">
                     <div>
-                        <div class="rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 px-4 py-3 text-sm text-slate-700 dark:text-slate-200 whitespace-pre-line">
-                            {{ $current->revision->correctAnswer()?->answer_text }}
-                        </div>
+                        <div class="rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 px-4 py-3 text-sm text-slate-700 dark:text-slate-200 whitespace-pre-line" x-text="answerText"></div>
 
                         <form method="POST" action="{{ route('exam.answer', $examSession) }}" class="flex items-center justify-between mt-6">
                             @csrf

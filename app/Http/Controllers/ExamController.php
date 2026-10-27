@@ -340,6 +340,15 @@ class ExamController extends Controller
         } elseif ($type === 'open_text') {
             abort_if(! array_key_exists('known', $validated) || $validated['known'] === null, 422, 'Bitte Selbsteinschätzung angeben.');
 
+            // Bug-Review Oberfläche U9: self_assessed_known entscheidet
+            // direkt über "correct" bei finish() (siehe ExamEvaluationService)
+            // -- ohne diese Prüfung konnte ein per Devtools nachgebauter
+            // Request mit known=1 jede offene Frage als gewusst zählen
+            // lassen, ohne die Musterantwort je abgerufen zu haben.
+            // reveal() setzt revealed_at erst, wenn die Antwort tatsächlich
+            // ausgeliefert wurde.
+            abort_unless($sessionQuestion->revealed_at, 422, 'Bitte zuerst die Musterantwort anzeigen.');
+
             $sessionQuestion->update([
                 'self_assessed_known' => (bool) $validated['known'],
                 'answered_at' => now(),
@@ -357,6 +366,39 @@ class ExamController extends Controller
         }
 
         return redirect()->route('exam.show', $examSession);
+    }
+
+    /**
+     * Bug-Review Oberfläche U9: die Musterantwort offener Fragen stand
+     * bisher immer schon im initialen HTML von show() -- Alpines
+     * x-if="revealed" blendet den Block nur im DOM aus, verhindert aber
+     * nicht, dass Blade den Text serverseitig in die HTTP-Antwort
+     * schreibt. Sie wird jetzt erst hier, nach einem expliziten Klick auf
+     * "Musterantwort anzeigen", ausgeliefert; revealed_at macht diesen
+     * Abruf zugleich zur serverseitigen Voraussetzung für die
+     * Selbsteinschätzung in answer().
+     */
+    public function reveal(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, ExamSession $examSession): Response
+    {
+        $this->authorizeSession($request, $tenantContext, $entitlements, $examSession);
+        abort_if($examSession->status !== 'running', 409);
+
+        $validated = $request->validate([
+            'position' => ['required', 'integer'],
+        ]);
+
+        $sessionQuestion = $examSession->questions()->where('position', $validated['position'])
+            ->whereNull('answered_at')->with('revision')->firstOrFail();
+
+        abort_unless($sessionQuestion->revision->question_type === 'open_text', 422);
+
+        if (! $sessionQuestion->revealed_at) {
+            $sessionQuestion->update(['revealed_at' => now()]);
+        }
+
+        return response()->json([
+            'answer_text' => $sessionQuestion->revision->correctAnswer()?->answer_text,
+        ]);
     }
 
     public function finish(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, ExamEvaluationService $examEvaluation, ExamSession $examSession): Response

@@ -22,7 +22,7 @@ class ExamSessionQuestion extends Model
 
     protected $fillable = [
         'tenant_id', 'exam_session_id', 'question_id', 'revision_id', 'position',
-        'selected_answer_id', 'selected_answer_ids', 'self_assessed_known', 'correct', 'answered_at',
+        'selected_answer_id', 'selected_answer_ids', 'self_assessed_known', 'correct', 'answered_at', 'revealed_at',
     ];
 
     protected function casts(): array
@@ -32,6 +32,7 @@ class ExamSessionQuestion extends Model
             'self_assessed_known' => 'boolean',
             'selected_answer_ids' => 'array',
             'answered_at' => 'datetime',
+            'revealed_at' => 'datetime',
         ];
     }
 

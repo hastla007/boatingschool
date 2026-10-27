@@ -53,6 +53,13 @@ class OpenTextQuestionsCountTowardExamScoreTest extends TestCase
                     'answer_ids' => $correctIds,
                 ]);
             } elseif ($type === 'open_text') {
+                // Bug-Review Oberfläche U9: die Selbsteinschätzung verlangt
+                // jetzt serverseitig, dass die Musterantwort zuvor über
+                // reveal() abgerufen wurde.
+                $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/reveal", [
+                    'position' => $sq->position,
+                ]);
+
                 // Bewusst als "nicht gewusst" eingeschätzt -- diese Antworten
                 // müssen jetzt messbar die Quote senken, nicht mehr folgenlos
                 // bleiben.

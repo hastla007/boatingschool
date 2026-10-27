@@ -105,6 +105,9 @@ Route::middleware(['auth', 'tenant.member', 'verified'])->group(function () {
     Route::post('/courses/{course}/exam/papers/{paper}', [ExamController::class, 'startPaper'])->name('exam.papers.start');
     Route::get('/exam-sessions/{examSession}', [ExamController::class, 'show'])->name('exam.show');
     Route::post('/exam-sessions/{examSession}/answers', [ExamController::class, 'answer'])->name('exam.answer');
+    // Bug-Review Oberfläche U9: Musterantwort offener Fragen wird erst hier
+    // ausgeliefert, statt bereits im initialen HTML von show() zu stehen.
+    Route::post('/exam-sessions/{examSession}/reveal', [ExamController::class, 'reveal'])->name('exam.reveal');
     Route::post('/exam-sessions/{examSession}/finish', [ExamController::class, 'finish'])->name('exam.finish');
     Route::get('/exam-sessions/{examSession}/result', [ExamController::class, 'result'])->name('exam.result');
 
