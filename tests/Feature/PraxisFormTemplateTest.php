@@ -139,6 +139,111 @@ class PraxisFormTemplateTest extends TestCase
         $this->trackTemplate(PraxisFormTemplate::where('title', 'E2E Neues Formular')->first());
     }
 
+    /**
+     * Bug-Review F3: parseFields() leitete den Key JEDES Feldes bei JEDEM
+     * Speichern neu aus dem aktuellen Label ab -- schon eine reine
+     * Tippfehlerkorrektur am Label änderte den Key und ließ die zu ihm
+     * gehörenden Antworten bestehender Anmeldungen (PraxisFormSubmission::
+     * data ist nach dem Key geschlüsselt) aus der Admin-Ansicht
+     * verschwinden, obwohl sie in der Datenbank unverändert vorhanden
+     * blieben.
+     */
+    public function test_editing_a_fields_label_does_not_hide_existing_submission_data(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $course = $this->makeIsolatedCourse();
+
+        $this->actingAs($superadmin)->post('/superadmin/praxis-form-templates', [
+            'title' => 'E2E Formular',
+            'min_progress_percent' => '50',
+            'course_ids' => [$course->id],
+            'fields' => [
+                ['label' => 'Telefonnummer', 'type' => 'text', 'required' => '1'],
+            ],
+        ]);
+
+        // Bewusst NICHT trackTemplate(): die Anmeldung unten muss vor dem
+        // Formular gelöscht werden, sonst scheitert bereits das
+        // Standard-tearDown() am FK-Constraint (siehe N10-Test oben).
+        $template = PraxisFormTemplate::where('title', 'E2E Formular')->first();
+        $originalKey = $template->fields[0]['key'];
+        $this->assertSame('telefonnummer', $originalKey);
+
+        $submission = $this->onAdmin(fn () => PraxisFormSubmission::create([
+            'tenant_id' => $tenant->id,
+            'course_id' => $course->id,
+            'user_id' => $learner->id,
+            'praxis_form_template_id' => $template->id,
+            'data' => [$originalKey => '+49 30 1234567'],
+        ]));
+
+        try {
+            // Reine Tippfehlerkorrektur am Label -- der mitgeschickte Key
+            // (siehe _form.blade.php) muss trotzdem erhalten bleiben.
+            $this->actingAs($superadmin)->patch("/superadmin/praxis-form-templates/{$template->id}", [
+                'title' => 'E2E Formular',
+                'min_progress_percent' => '50',
+                'course_ids' => [$course->id],
+                'fields' => [
+                    ['key' => $originalKey, 'label' => 'Telefon-Nummer', 'type' => 'text', 'required' => '1'],
+                ],
+            ])->assertSessionHasNoErrors();
+
+            $template = $template->fresh();
+            $this->assertSame($originalKey, $template->fields[0]['key']);
+            $this->assertSame('Telefon-Nummer', $template->fields[0]['label']);
+
+            $detail = $this->actingAsInTenant($admin, $tenant)->get("/admin/participants/{$learner->id}");
+
+            $detail->assertOk();
+            $detail->assertSee('+49 30 1234567');
+        } finally {
+            $this->onAdmin(function () use ($submission, $template) {
+                PraxisFormSubmission::where('id', $submission->id)->delete();
+                PraxisFormTemplate::where('id', $template->id)->delete();
+            });
+        }
+    }
+
+    /**
+     * Bug-Review F3: toggleActive() setzte active bisher ohne jede Prüfung
+     * um -- store()/update() lehnen eine Kurs-Doppelbelegung über
+     * conflictingCourses() zwar ab, aber ein deaktiviertes Formular ließ
+     * sich über GENAU DIESEN Umschalter trotzdem wieder aktivieren,
+     * während ein zweites, in der Zwischenzeit angelegtes Formular
+     * denselben Kurs schon aktiv belegte -- zwei aktive Formulare für
+     * denselben Kurs gleichzeitig.
+     */
+    public function test_reactivating_a_template_through_the_toggle_rejects_a_course_conflict(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        $course = $this->makeIsolatedCourse();
+
+        $first = $this->trackTemplate($this->onAdmin(fn () => PraxisFormTemplate::create([
+            'title' => 'E2E Erstes Formular',
+            'min_progress_percent' => 50,
+            'course_ids' => [$course->id],
+            'fields' => [],
+            'active' => false,
+        ])));
+
+        $this->trackTemplate($this->onAdmin(fn () => PraxisFormTemplate::create([
+            'title' => 'E2E Zweites Formular',
+            'min_progress_percent' => 50,
+            'course_ids' => [$course->id],
+            'fields' => [],
+            'active' => true,
+        ])));
+
+        $response = $this->actingAs($superadmin)->post("/superadmin/praxis-form-templates/{$first->id}/toggle-active");
+
+        $response->assertSessionHasErrors('template');
+        $this->assertFalse($this->onAdmin(fn () => $first->fresh()->active));
+    }
+
     public function test_superadmin_can_update_a_template_keeping_its_own_course_assignment(): void
     {
         $superadmin = $this->createSuperAdmin();

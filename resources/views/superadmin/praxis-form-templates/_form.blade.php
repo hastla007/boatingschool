@@ -3,6 +3,14 @@
     $initialFields = old('fields', $template?->fields ?? []);
     if (is_array($initialFields)) {
         $initialFields = collect($initialFields)->map(fn ($f) => [
+            // Bug-Review F3: der bestehende Key muss ins Formular zurück,
+            // damit er beim Speichern wiederverwendet werden kann (siehe
+            // PraxisFormTemplateController::parseFields()) -- sonst leitet
+            // jedes Speichern ihn neu aus dem Label ab, und bestehende
+            // Anmeldungen (PraxisFormSubmission::data ist nach dem Key
+            // geschlüsselt) verlieren ihre Antworten aus der Sicht, sobald
+            // sich nur die Beschriftung ändert.
+            'key' => $f['key'] ?? null,
             'label' => $f['label'] ?? '',
             'type' => $f['type'] ?? 'text',
             'required' => ! empty($f['required']),
@@ -66,6 +74,7 @@
         <div class="space-y-3">
             <template x-for="(field, index) in fields" :key="index">
                 <div class="border border-slate-200 dark:border-slate-600 rounded-lg p-3 space-y-3">
+                    <input type="hidden" :name="'fields['+index+'][key]'" :value="field.key">
                     <div class="grid sm:grid-cols-[1fr_160px_auto] gap-3 items-start">
                         <div>
                             <label class="text-xs text-slate-500 dark:text-slate-400">Beschriftung</label>
@@ -118,7 +127,7 @@
         </div>
 
         <button type="button"
-                @click="fields.push({ label: '', type: 'text', required: false, options: '', help_text: '' })"
+                @click="fields.push({ key: null, label: '', type: 'text', required: false, options: '', help_text: '' })"
                 class="mt-3 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition">
             + Feld hinzufügen
         </button>
