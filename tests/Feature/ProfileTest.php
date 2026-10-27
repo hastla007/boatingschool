@@ -8,6 +8,7 @@ use App\Models\ProductPurchase;
 use App\Models\TenantUser;
 use App\Notifications\ConfirmPendingEmail;
 use App\Notifications\EmailChangeRequested;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\URL;
 use Tests\Feature\Concerns\InteractsWithTenants;
@@ -151,6 +152,54 @@ class ProfileTest extends TestCase
         $this->assertSame($newEmail, $user->email);
         $this->assertNull($user->pending_email);
         $this->assertNotNull($user->email_verified_at);
+    }
+
+    /**
+     * Bug-Review (Sessions überleben den E-Mail-Wechsel): anders als beim
+     * Passwortwechsel (PasswordChangeSecurityTest, Sicherheitsreview
+     * M1/N6) blieben remember_token und andere laufende Sitzungen bisher
+     * unangetastet -- eine bereits kompromittierte Sitzung (oder deren
+     * "Angemeldet bleiben"-Cookie) überlebte den E-Mail-Wechsel einfach
+     * weiter.
+     */
+    public function test_confirming_a_changed_email_rotates_the_remember_token_and_ends_other_sessions(): void
+    {
+        $tenant = $this->createTestTenant();
+        $user = $this->createTenantUser($tenant, 'learner', ['remember_token' => 'original-remember-token']);
+        $newEmail = 'updated-'.uniqid().'@example.test';
+
+        $this->actingAsInTenant($user, $tenant)->patch('/profile', [
+            'first_name' => 'Test',
+            'last_name' => 'User',
+            'email' => $newEmail,
+            'current_password' => 'password',
+        ])->assertSessionHasNoErrors();
+
+        $otherSessionId = 'other-device-session-'.uniqid();
+        $this->onAdmin(fn () => DB::table('sessions')->insert([
+            'id' => $otherSessionId,
+            'user_id' => $user->id,
+            'payload' => base64_encode('test'),
+            'last_activity' => now()->timestamp,
+        ]));
+
+        $url = URL::temporarySignedRoute(
+            'profile.email.confirm',
+            now()->addMinutes(60),
+            ['id' => $user->id, 'hash' => sha1($newEmail)]
+        );
+
+        $response = $this->actingAsInTenant($user, $tenant)->get($url);
+
+        $response->assertRedirect(route('profile.edit'));
+
+        $this->onAdmin(function () use ($user, $otherSessionId) {
+            $this->assertNotSame('original-remember-token', $user->fresh()->remember_token);
+            $this->assertDatabaseMissing('sessions', ['id' => $otherSessionId]);
+        });
+
+        // Die eigene, gerade genutzte Sitzung bleibt bewusst aktiv.
+        $this->assertAuthenticatedAs($user->fresh());
     }
 
     public function test_an_invalid_confirmation_hash_does_not_change_the_email(): void

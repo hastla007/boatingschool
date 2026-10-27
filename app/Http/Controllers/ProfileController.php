@@ -17,8 +17,10 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Redirect;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class ProfileController extends Controller
@@ -200,11 +202,26 @@ class ProfileController extends Controller
         // UNIQUE-Constraint auf app_user.email greift dann hier, bisher
         // ungefangen als HTTP 500 statt einer verständlichen Meldung.
         try {
+            // Bug-Review (Sessions überleben den E-Mail-Wechsel): weder
+            // remember_token noch andere laufende Sitzungen wurden hier
+            // bisher angerührt -- anders als beim Passwortwechsel
+            // (PasswordController, Sicherheitsreview M1/N6) blieb eine
+            // bereits kompromittierte Sitzung (oder deren "Angemeldet
+            // bleiben"-Cookie) über den E-Mail-Wechsel hinweg einfach
+            // weiter gültig. remember_token wird deshalb genauso mitgeändert,
+            // und alle anderen Sitzungen dieses Kontos werden beendet; die
+            // eigene, gerade genutzte Sitzung bleibt bewusst aktiv.
             $user->forceFill([
                 'email' => $user->pending_email,
                 'pending_email' => null,
                 'email_verified_at' => now(),
+                'remember_token' => Str::random(60),
             ])->save();
+
+            DB::table('sessions')
+                ->where('user_id', $user->id)
+                ->where('id', '!=', $request->session()->getId())
+                ->delete();
         } catch (UniqueConstraintViolationException) {
             // fresh() statt $user direkt: forceFill() oben hat "email" im
             // Model bereits auf den fremden Wert gesetzt, obwohl der
