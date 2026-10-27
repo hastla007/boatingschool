@@ -85,7 +85,23 @@ class QuestionController extends Controller
         $revision = $question->publishedRevision() ?? $question->revisions()->orderByDesc('revision_no')->first();
         $revision?->loadMissing('answers');
 
-        return view('superadmin.questions.edit', ['question' => $question, 'revision' => $revision]);
+        // Bug-Review F8: wenn eine neuere "review"-Revision (siehe
+        // ImportContentQuestions) existiert, bearbeitet das Formular oben
+        // trotzdem weiterhin die aktuell veröffentlichte Fassung -- die
+        // Vorschau hier zeigt den ausstehenden Entwurf separat an, damit er
+        // sichtbar bleibt und veröffentlicht werden kann, statt beim
+        // nächsten Speichern unbemerkt verwaist zu bleiben.
+        $pendingReview = $question->pendingReviewRevision();
+        $pendingReview?->loadMissing('answers');
+
+        $latest = $question->revisions()->orderByDesc('revision_no')->first();
+
+        return view('superadmin.questions.edit', [
+            'question' => $question,
+            'revision' => $revision,
+            'pendingReview' => $pendingReview,
+            'nextRevisionNo' => ($latest?->revision_no ?? 0) + 1,
+        ]);
     }
 
     public function update(Request $request, ContentQuestion $question): Response
@@ -132,6 +148,26 @@ class QuestionController extends Controller
         $question->update(['active' => ! $question->active]);
 
         return back()->with('status', $question->active ? 'Frage aktiviert.' : 'Frage deaktiviert.');
+    }
+
+    /**
+     * Bug-Review F8: eine von ImportContentQuestions bei einem geänderten
+     * Reimport angelegte Revision im Status "review" erreichte Lerner
+     * bisher nie -- es gab keinen Weg, sie zu veröffentlichen.
+     */
+    public function publishRevision(ContentQuestionRevision $revision): Response
+    {
+        abort_unless($revision->editorial_status === 'review', 404);
+
+        DB::transaction(function () use ($revision) {
+            ContentQuestionRevision::where('question_id', $revision->question_id)
+                ->where('editorial_status', 'published')
+                ->update(['editorial_status' => 'deprecated']);
+
+            $revision->update(['editorial_status' => 'published']);
+        });
+
+        return back()->with('status', 'Fassung veröffentlicht.');
     }
 
     /**

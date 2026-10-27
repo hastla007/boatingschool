@@ -5,8 +5,26 @@
 
     <div class="max-w-2xl space-y-4">
         <div class="bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/40 rounded-xl px-4 py-3 text-sm text-amber-800 dark:text-amber-200">
-            Speichern erzeugt eine neue Fassung dieser Frage (Revision {{ ($revision?->revision_no ?? 0) + 1 }}); die bisherige Fassung bleibt unveränderlich in der Historie erhalten.
+            Speichern erzeugt eine neue Fassung dieser Frage (Revision {{ $nextRevisionNo }}); die bisherige Fassung bleibt unveränderlich in der Historie erhalten.
         </div>
+
+        @if ($pendingReview)
+            {{-- Bug-Review F8: eine vom Content-Import angelegte Revision im
+                 Status "review" erreichte Lerner bisher nie -- unten wird
+                 weiterhin die aktuell veröffentlichte Fassung bearbeitet,
+                 damit der Entwurf hier sichtbar bleibt und gezielt
+                 veröffentlicht werden kann. --}}
+            <div class="bg-sky-50 dark:bg-sky-900/20 border border-sky-100 dark:border-sky-900/40 rounded-xl px-4 py-3 text-sm text-sky-900 dark:text-sky-200 space-y-2">
+                <p class="font-medium">Es liegt eine noch nicht veröffentlichte Fassung (Revision {{ $pendingReview->revision_no }}) vor, z. B. aus einem erneuten Content-Import:</p>
+                <p class="italic">{{ $pendingReview->question_text }}</p>
+                <form method="POST" action="{{ route('superadmin.questions.revisions.publish', $pendingReview) }}">
+                    @csrf
+                    <button type="submit" class="px-3 py-1.5 rounded-lg text-white text-xs font-medium hover:opacity-90 transition" style="background-color: #005FD7" onclick="return confirm('Diese Fassung jetzt veröffentlichen?');">
+                        Diese Fassung veröffentlichen
+                    </button>
+                </form>
+            </div>
+        @endif
 
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6">
             <form method="POST" action="{{ route('superadmin.questions.update', $question) }}" class="space-y-5">
