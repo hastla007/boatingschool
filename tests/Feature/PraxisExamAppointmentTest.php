@@ -705,6 +705,127 @@ class PraxisExamAppointmentTest extends TestCase
     }
 
     /**
+     * Bug-Review (Zurückziehen/Absagen ungesperrt gegen Annehmen): die
+     * Bootsschule zieht einen Vorschlag zurück, während der Lerner
+     * praktisch gleichzeitig genau diesen Vorschlag annimmt. withdraw()
+     * lief bisher ohne den Advisory-Lock aus respond() -- eine veraltete,
+     * vor der Annahme geladene Kopie durfte den inzwischen angenommenen
+     * Termin stillschweigend auf "withdrawn" zurücksetzen, während
+     * confirmed_exam_date weiterhin gesetzt blieb.
+     */
+    public function test_withdrawing_a_proposal_that_was_just_accepted_is_rejected_instead_of_corrupting_state(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $submission = $this->createSubmission($tenant, $learner);
+        $this->actingAsInTenant($admin, $tenant)->post(
+            "/admin/praxis-form-submissions/{$submission->id}/exam-appointments",
+            ['exam_date' => now()->addMonth()->format('Y-m-d H:i'), 'slot' => 0]
+        );
+
+        // Zwei unabhängig geladene Kopien desselben Termins simulieren den
+        // Admin-Tab (zieht zurück) und den Lerner-Tab (nimmt an), die beide
+        // vor jeder der beiden Aktionen geöffnet wurden.
+        $adminsCopy = $this->onAdmin(fn () => PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->first());
+        $learnersCopy = $this->onAdmin(fn () => PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->first());
+
+        app(PraxisExamAppointmentService::class)->respond($learnersCopy, 'accepted', null);
+
+        $this->expectException(RuntimeException::class);
+
+        try {
+            app(PraxisExamAppointmentService::class)->withdraw($adminsCopy);
+        } finally {
+            $this->onAdmin(function () use ($submission) {
+                $fresh = PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->first();
+                $this->assertSame('accepted', $fresh->response);
+                $this->assertNotNull($submission->fresh()->confirmed_exam_date);
+            });
+        }
+    }
+
+    /**
+     * Bug-Review (Zurückziehen/Absagen ungesperrt gegen Annehmen): dieselbe
+     * Lücke bestand in cancel() gegenüber einer gleichzeitigen Ablehnung
+     * durch den Lerner -- eine veraltete Kopie durfte den inzwischen
+     * abgelehnten Termin trotzdem auf "cancelled" setzen und
+     * confirmed_exam_date fälschlich erneut leeren.
+     */
+    public function test_cancelling_a_confirmed_date_that_was_just_declined_again_is_rejected_instead_of_corrupting_state(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $submission = $this->createSubmission($tenant, $learner);
+        $appointment = $this->confirmExamDate($tenant, $admin, $learner, $submission, now()->addMonth()->format('Y-m-d H:i'));
+
+        // Der Prüfungsausschuss will absagen, während der Lerner
+        // gleichzeitig (über einen zweiten, bereits vorher geladenen
+        // Datensatz) noch einmal auf "abgelehnt" reagiert -- respond()
+        // selbst erlaubt nur eine Rückmeldung auf einen Vorschlag, aber
+        // hier geht es gezielt um das Zusammenspiel von cancel() mit
+        // einer dazwischen bereits abgeschlossenen anderen Änderung.
+        $adminsCopy = $appointment->fresh();
+        $appointment->update(['response' => 'declined', 'responded_at' => now()]);
+
+        $this->expectException(RuntimeException::class);
+
+        try {
+            app(PraxisExamAppointmentService::class)->cancel($adminsCopy);
+        } finally {
+            $this->onAdmin(function () use ($appointment) {
+                $this->assertSame('declined', $appointment->fresh()->response);
+            });
+        }
+    }
+
+    /**
+     * Bug-Review (Zurückgezogene/abgesagte Termine erscheinen als "fix"):
+     * nextStep() prüfte bisher nur auf response === 'declined' -- ein
+     * zurückgezogener oder abgesagter Termin fiel durch alle Prüfungen
+     * und erschien in der Anmeldungsliste fälschlich als "Prüfungstermin
+     * fix", obwohl kein gültiger Termin mehr vorlag.
+     */
+    public function test_next_step_shows_reproposal_needed_after_withdrawing_the_exam_date(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $submission = $this->createSubmission($tenant, $learner);
+        $this->actingAsInTenant($admin, $tenant)->post(
+            "/admin/praxis-form-submissions/{$submission->id}/exam-appointments",
+            ['exam_date' => now()->addMonth()->format('Y-m-d H:i'), 'slot' => 0]
+        );
+        $appointment = $this->onAdmin(fn () => PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->first());
+
+        $this->actingAsInTenant($admin, $tenant)->patch(
+            route('admin.praxis-form-submissions.exam-appointments.withdraw', [$submission, $appointment])
+        );
+
+        $this->onAdmin(function () use ($submission) {
+            $this->assertSame('Prüfungstermin erneut vorschlagen', $submission->fresh()->nextStep()['label']);
+        });
+    }
+
+    public function test_next_step_shows_reproposal_needed_after_cancelling_the_confirmed_exam_date(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $submission = $this->createSubmission($tenant, $learner);
+        $appointment = $this->confirmExamDate($tenant, $admin, $learner, $submission, now()->addMonth()->format('Y-m-d H:i'));
+
+        $this->actingAsInTenant($admin, $tenant)->patch(
+            route('admin.praxis-form-submissions.exam-appointments.cancel', [$submission, $appointment])
+        );
+
+        $this->onAdmin(function () use ($submission) {
+            $this->assertSame('Prüfungstermin erneut vorschlagen', $submission->fresh()->nextStep()['label']);
+        });
+    }
+
+    /**
      * Bug-Review F5: im gesamten Ablauf von Praxis-Anmeldung, Terminen und
      * Willkommensbox wurde bisher keine Mail verschickt -- der Lerner
      * bemerkte einen neuen Terminvorschlag bisher nur, wenn er von selbst

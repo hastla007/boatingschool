@@ -198,17 +198,34 @@ class PraxisExamAppointmentService
      * zurückgezogener Vorschlag räumt die Runde verbraucht, genau wie eine
      * echte Ablehnung durch den Lerner -- die nächste Runde kann sofort
      * vorgeschlagen werden.
+     *
+     * Bug-Review (Zurückziehen/Absagen ungesperrt gegen Annehmen): anders
+     * als respond() lief diese Methode bisher ohne den Advisory-Lock aus
+     * respond() -- nimmt der Lerner einen Vorschlag an, während die
+     * Bootsschule praktisch gleichzeitig genau diesen Vorschlag zurückzieht,
+     * konnte isPending() hier noch den alten, noch ausstehenden Stand lesen
+     * und ihn anschließend auf "withdrawn" überschreiben, nachdem respond()
+     * ihn bereits als "accepted" samt confirmed_exam_date fixiert hatte --
+     * derselbe inkonsistente Zustand wie beim in respond() bereits
+     * behobenen Race, nur über zwei verschiedene Methoden statt zwei
+     * Aufrufe derselben. Derselbe Lock-Schlüssel (hashtext() über die
+     * Termin-ID) serialisiert withdraw() jetzt auch gegen respond().
      */
     public function withdraw(PraxisExamAppointment $appointment): void
     {
-        if (! $appointment->isPending()) {
-            throw new RuntimeException('Dieser Vorschlag wartet nicht mehr auf eine Rückmeldung.');
-        }
+        DB::transaction(function () use ($appointment) {
+            DB::statement('SELECT pg_advisory_xact_lock(hashtext(?))', [$appointment->id]);
+            $appointment->refresh();
 
-        $appointment->update([
-            'response' => 'withdrawn',
-            'responded_at' => now(),
-        ]);
+            if (! $appointment->isPending()) {
+                throw new RuntimeException('Dieser Vorschlag wartet nicht mehr auf eine Rückmeldung.');
+            }
+
+            $appointment->update([
+                'response' => 'withdrawn',
+                'responded_at' => now(),
+            ]);
+        });
     }
 
     /**
@@ -218,14 +235,26 @@ class PraxisExamAppointmentService
      * auch confirmed_exam_date wieder geleert, damit ein neuer
      * Prüfungstermin vorgeschlagen werden kann (proposeLocked() lehnt
      * slot 0 sonst ab, solange isExamDateConfirmed() noch zutrifft).
+     *
+     * Bug-Review (Zurückziehen/Absagen ungesperrt gegen Annehmen): siehe
+     * withdraw() oben -- dieselbe Lücke bestand hier gegenüber einer
+     * gleichzeitigen Ablehnung durch den Lerner (respond() mit
+     * "declined"): cancel() prüfte response auf einer womöglich bereits
+     * veralteten Kopie, bevor respond() seinen Lock überhaupt erwarb, und
+     * konnte den inzwischen abgelehnten Termin anschließend trotzdem auf
+     * "cancelled" setzen und confirmed_exam_date erneut (fälschlich)
+     * leeren. Derselbe Lock-Schlüssel wie in respond()/withdraw() oben.
      */
     public function cancel(PraxisExamAppointment $appointment): void
     {
-        if ($appointment->response !== 'accepted') {
-            throw new RuntimeException('Nur ein bereits angenommener Termin kann abgesagt werden.');
-        }
-
         DB::transaction(function () use ($appointment) {
+            DB::statement('SELECT pg_advisory_xact_lock(hashtext(?))', [$appointment->id]);
+            $appointment->refresh();
+
+            if ($appointment->response !== 'accepted') {
+                throw new RuntimeException('Nur ein bereits angenommener Termin kann abgesagt werden.');
+            }
+
             $appointment->update(['response' => 'cancelled']);
 
             if ($appointment->slot === 0) {
