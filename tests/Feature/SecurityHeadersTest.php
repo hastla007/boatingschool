@@ -100,6 +100,35 @@ class SecurityHeadersTest extends TestCase
     }
 
     /**
+     * Bug-Review (Hoch): MediaAsset::storagePath() liefert eine ABSOLUTE,
+     * fest auf den APP_URL-Host verankerte URL (config/filesystems.php,
+     * 'url' => env('APP_URL').'/storage') -- auf einer Bootsschul-
+     * Subdomain oder Custom Domain ist das ein ANDERER Origin als die
+     * aufgerufene Seite. img-src 'self' allein ließ nur den EIGENEN
+     * Origin zu, der Browser blockierte Fragen-/Praxis-/Logo-Bilder dort
+     * unabhängig davon, dass der Server sie korrekt auslieferte -- die
+     * Testsuite lief bisher immer unter genau dem APP_URL-Host, weshalb
+     * das nie auffiel.
+     */
+    public function test_the_content_security_policy_allows_images_from_the_app_url_host_on_any_requested_host(): void
+    {
+        $csp = $this->get('http://schule-a.example.test/login')->headers->get('Content-Security-Policy');
+
+        $appHost = parse_url(config('app.url'), PHP_URL_HOST);
+        $this->assertNotSame(
+            'schule-a.example.test',
+            $appHost,
+            'Testvoraussetzung: der aufgerufene Host muss sich vom APP_URL-Host unterscheiden, sonst prüft dieser Test nichts.'
+        );
+
+        $this->assertStringContainsString(
+            $appHost,
+            $csp,
+            'img-src muss den APP_URL-Host auch dann erlauben, wenn die Seite selbst über einen ANDEREN Host aufgerufen wird -- sonst werden Fragen-/Praxis-/Logo-Bilder dort vom Browser blockiert.'
+        );
+    }
+
+    /**
      * Sicherheitsreview M9: script-src 'unsafe-inline' wurde entfernt --
      * die eigenen <script>-Blöcke bekommen stattdessen ein pro Request
      * erzeugtes Nonce (siehe SecurityHeaders::handle()), onclick=/
