@@ -137,7 +137,19 @@ class PraxisFormTemplateSeeder extends Seeder
         $this->template('Anmeldung Pyroschein-Prüfung', 70, self::THEORIE_FIELDS, ['FKN', 'SKN', 'ADD-FKN-TO-SKN']);
     }
 
-    /** @param string[] $courseCodes */
+    /**
+     * Bug-Review (Hoch, Folgefehler von CourseSeeder): dieser Seeder läuft
+     * in Produktion erneut, sobald ein neues Formular im Code dazukommt --
+     * updateOrCreate() überschrieb dabei bisher BEI JEDEM Lauf
+     * min_progress_percent/requires_tauglichkeit/fields/course_ids/active
+     * JEDES bereits existierenden Formulars mit genau diesen Startwerten,
+     * unabhängig davon, was ein Superadmin über
+     * PraxisFormTemplateController::update() seitdem geändert hatte.
+     * firstOrCreate() lässt ein bereits existierendes Formular unberührt
+     * und erzeugt nur wirklich NEUE Formulare mit den Startwerten.
+     *
+     * @param  string[]  $courseCodes
+     */
     private function template(string $title, int $minProgressPercent, array $fields, array $courseCodes, bool $requiresTauglichkeit = false): void
     {
         $courseIds = CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')
@@ -147,7 +159,7 @@ class PraxisFormTemplateSeeder extends Seeder
             return;
         }
 
-        PraxisFormTemplate::updateOrCreate(
+        PraxisFormTemplate::firstOrCreate(
             ['title' => $title],
             [
                 'min_progress_percent' => $minProgressPercent,
