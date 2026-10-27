@@ -29,6 +29,7 @@
          initialisiert Direktiven nur innerhalb eines x-data-Teilbaums,
          das Formular wurde also ohne Rückfrage sofort abgeschickt. --}}
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden" x-data="{}">
+        <div class="overflow-x-auto">
         <table class="w-full text-sm">
             <tbody>
                 @forelse ($templates as $template)
@@ -69,5 +70,6 @@
                 @endforelse
             </tbody>
         </table>
+        </div>
     </div>
 </x-superadmin-layout>

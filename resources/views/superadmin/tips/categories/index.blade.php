@@ -34,6 +34,7 @@
             @if ($errors->has('category'))
                 <div class="px-4 py-3 bg-red-50 text-red-700 text-sm border-b border-red-100">{{ $errors->first('category') }}</div>
             @endif
+            <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead class="bg-slate-50 dark:bg-slate-700 text-slate-500 dark:text-slate-300 text-left">
                     <tr>
@@ -72,6 +73,7 @@
                     @endforelse
                 </tbody>
             </table>
+            </div>
         </div>
     </div>
 </x-superadmin-layout>

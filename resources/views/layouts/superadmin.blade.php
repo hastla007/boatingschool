@@ -14,7 +14,17 @@
     </head>
     <body class="font-sans antialiased">
         <div class="min-h-screen bg-slate-100 dark:bg-slate-950">
-            <nav class="bg-slate-900 text-slate-200">
+            {{--
+                Bug-Review (Hoch): die gesamte Navigation steckte bisher in
+                einem reinen "hidden md:flex" (Zeile unten) -- unterhalb von
+                768px Breite verschwand sie komplett, ohne jeden Ersatz
+                (kein Hamburger-Menü wie im Lerner-Layout, siehe
+                layouts/navigation.blade.php). Ein Superadmin auf dem Handy
+                konnte dadurch keine der 11 Sektionen erreichen außer der,
+                auf der er gerade zufällig stand. Der Hamburger-Umschalter
+                unten übernimmt dasselbe, bereits bewährte Alpine-Muster.
+            --}}
+            <nav x-data="{ open: false }" class="bg-slate-900 text-slate-200">
                 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div class="flex justify-between h-16 items-center">
                         <div class="flex items-center gap-8">
@@ -36,13 +46,44 @@
                                 <a href="{{ route('superadmin.settings.edit') }}" class="px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.settings.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Website</a>
                             </div>
                         </div>
-                        <div class="flex items-center gap-4 text-sm">
+                        <div class="hidden md:flex items-center gap-4 text-sm">
                             <span class="text-slate-400">{{ Auth::user()->name }}</span>
                             <form method="POST" action="{{ route('logout') }}">
                                 @csrf
                                 <button type="submit" class="text-slate-300 hover:text-white">Abmelden</button>
                             </form>
                         </div>
+                        <div class="-me-2 flex items-center md:hidden">
+                            <button @click="open = ! open" class="inline-flex items-center justify-center p-2 rounded-md text-slate-300 hover:text-white hover:bg-slate-800 focus:outline-none">
+                                <svg class="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24">
+                                    <path :class="{'hidden': open, 'inline-flex': ! open }" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                                    <path :class="{'hidden': ! open, 'inline-flex': open }" class="hidden" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div :class="{'block': open, 'hidden': ! open}" class="hidden md:hidden border-t border-slate-800">
+                    <div class="px-2 pt-2 pb-3 space-y-1">
+                        <a href="{{ route('superadmin.dashboard') }}" class="block px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.dashboard') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Dashboard</a>
+                        <a href="{{ route('superadmin.tenants.index') }}" class="block px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.tenants.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Bootsschulen</a>
+                        <a href="{{ route('superadmin.users.index') }}" class="block px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.users.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Nutzer</a>
+                        <a href="{{ route('superadmin.courses.index') }}" class="block px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.courses.*', 'superadmin.modules.*', 'superadmin.questions.*', 'superadmin.video-lessons.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Kurse</a>
+                        <a href="{{ route('superadmin.products.index') }}" class="block px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.products.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Produkte</a>
+                        <a href="{{ route('superadmin.tips.index') }}" class="block px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.tips.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Tipps & Tricks</a>
+                        <a href="{{ route('superadmin.coupons.index') }}" class="block px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.coupons.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Coupons</a>
+                        <a href="{{ route('superadmin.addon-templates.index') }}" class="block px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.addon-templates.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Addons</a>
+                        <a href="{{ route('superadmin.praxis-form-templates.index') }}" class="block px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.praxis-form-templates.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Praxisformulare</a>
+                        <a href="{{ route('superadmin.pruefungsausschuesse.index') }}" class="block px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.pruefungsausschuesse.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Prüfungsausschüsse</a>
+                        <a href="{{ route('superadmin.settings.edit') }}" class="block px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.settings.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Website</a>
+                    </div>
+                    <div class="pt-3 pb-3 border-t border-slate-800 px-5">
+                        <div class="text-slate-400 text-sm mb-2">{{ Auth::user()->name }}</div>
+                        <form method="POST" action="{{ route('logout') }}">
+                            @csrf
+                            <button type="submit" class="text-slate-300 hover:text-white text-sm">Abmelden</button>
+                        </form>
                     </div>
                 </div>
             </nav>

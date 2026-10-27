@@ -116,6 +116,7 @@
                     </button>
                 </div>
 
+                <div class="overflow-x-auto">
                 <table class="w-full text-sm">
                     <thead class="text-slate-400 text-left">
                         <tr>
@@ -165,6 +166,7 @@
                         @endforelse
                     </tbody>
                 </table>
+                </div>
             </form>
             <div class="mt-4">{{ $coupons->links() }}</div>
         </div>

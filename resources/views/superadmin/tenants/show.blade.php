@@ -60,6 +60,7 @@
         <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
             <x-icon name="chart-bar" class="w-4 h-4 text-slate-400" /> Kursergebnisse
         </h3>
+        <div class="overflow-x-auto">
         <table class="w-full text-sm">
             <thead class="text-slate-400 text-left">
                 <tr><th class="py-1">Nutzer</th><th class="py-1">Kurs</th><th class="py-1">Fortschritt</th></tr>
@@ -76,6 +77,7 @@
                 @endforelse
             </tbody>
         </table>
+        </div>
     </div>
 
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
@@ -85,6 +87,7 @@
             </h3>
             <a href="{{ route('superadmin.coupons.index', ['tenant_id' => $tenant->id]) }}" class="text-sm hover:underline" style="color: #005FD7">Im Coupon-Bereich verwalten &rarr;</a>
         </div>
+        <div class="overflow-x-auto">
         <table class="w-full text-sm">
             <thead class="text-slate-400 text-left">
                 <tr><th class="py-1">Code</th><th class="py-1">Kurs / Produkt</th><th class="py-1">Status</th></tr>
@@ -109,5 +112,6 @@
                 @endforelse
             </tbody>
         </table>
+        </div>
     </div>
 </x-superadmin-layout>

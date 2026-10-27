@@ -30,6 +30,7 @@
         </div>
 
         <div class="lg:col-span-2 bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead class="bg-slate-50 dark:bg-slate-700 text-slate-500 dark:text-slate-300 text-left">
                     <tr>
@@ -50,6 +51,7 @@
                     @endforeach
                 </tbody>
             </table>
+            </div>
         </div>
     </div>
 </x-superadmin-layout>

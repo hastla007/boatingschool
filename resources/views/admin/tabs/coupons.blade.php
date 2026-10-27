@@ -29,6 +29,7 @@
         <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700">
             <h3 class="font-medium text-slate-700 dark:text-slate-200">Bestand je Kurs/Produkt</h3>
         </div>
+        <div class="overflow-x-auto">
         <table class="w-full text-sm">
             <thead class="bg-slate-50 dark:bg-slate-700 text-slate-500 dark:text-slate-300 text-left">
                 <tr>
@@ -49,6 +50,7 @@
                 @endforelse
             </tbody>
         </table>
+        </div>
     </div>
 </div>
 
@@ -74,6 +76,7 @@
             <a href="{{ route('admin.dashboard', ['tab' => 'coupons']) }}" class="text-sm text-slate-500 hover:underline self-center">Filter zurücksetzen</a>
         @endif
     </form>
+    <div class="overflow-x-auto">
     <table class="w-full text-sm">
         <thead class="bg-slate-50 dark:bg-slate-700 text-slate-500 dark:text-slate-300 text-left">
             <tr>
@@ -133,6 +136,7 @@
             @endforelse
         </tbody>
     </table>
+    </div>
     <div class="p-4">{{ $coupons->links() }}</div>
 </div>
 

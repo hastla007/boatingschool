@@ -30,6 +30,7 @@
             <a href="{{ route('admin.dashboard', ['tab' => 'praxis-anmeldungen']) }}" class="text-sm text-slate-500 hover:underline self-center">Filter zurücksetzen</a>
         @endif
     </form>
+    <div class="overflow-x-auto">
     <table class="w-full text-sm">
         <thead class="bg-slate-50 dark:bg-slate-700 text-slate-500 dark:text-slate-300 text-left">
             <tr>
@@ -81,5 +82,6 @@
             @endforelse
         </tbody>
     </table>
+    </div>
     <div class="p-4">{{ $praxisFormSubmissions->links() }}</div>
 </div>

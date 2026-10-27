@@ -23,6 +23,7 @@
                 <div class="px-4 py-3 bg-slate-50 dark:bg-slate-700 font-medium text-slate-700 dark:text-slate-200">
                     {{ $category->name }}
                 </div>
+                <div class="overflow-x-auto">
                 <table class="w-full text-sm">
                     <tbody>
                         @forelse ($category->tips as $tip)
@@ -58,6 +59,7 @@
                         @endforelse
                     </tbody>
                 </table>
+                </div>
             </div>
         @empty
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 text-slate-500">
