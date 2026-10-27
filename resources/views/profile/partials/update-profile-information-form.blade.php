@@ -44,6 +44,13 @@
                     Neue Adresse <strong>{{ $user->pending_email }}</strong> wartet auf Bestätigung über den zugeschickten Link.
                 </p>
             @endif
+        </div>
+
+        <div>
+            <x-input-label for="current_password_for_email" value="Aktuelles Passwort" />
+            <x-text-input id="current_password_for_email" name="current_password" type="password" class="mt-1 block w-full" autocomplete="current-password" />
+            <p class="text-xs text-gray-400 mt-1">Nur nötig, wenn du deine E-Mail-Adresse änderst.</p>
+            <x-input-error class="mt-2" :messages="$errors->emailChange->get('current_password')" />
 
             @if ($user instanceof \Illuminate\Contracts\Auth\MustVerifyEmail && ! $user->hasVerifiedEmail())
                 <div>

@@ -87,9 +87,19 @@ Route::middleware('auth')->group(function () {
     Route::get('confirm-password', [ConfirmablePasswordController::class, 'show'])
         ->name('password.confirm');
 
-    Route::post('confirm-password', [ConfirmablePasswordController::class, 'store']);
+    // Bug-Review (Passwort-Throttle eingeloggter Nutzer): beide Routen
+    // prüfen das aktuelle Passwort eines bereits eingeloggten Nutzers
+    // (Hash::check intern über current_password bzw.
+    // Auth::guard()->validate()) -- ohne throttle ließe sich das Passwort
+    // hinter einer gestohlenen/entführten Session beliebig oft erraten,
+    // derselbe Risikofall wie bei /reset-password vor Sicherheitsreview S2
+    // oben, nur für eingeloggte Nutzer statt Gäste.
+    Route::post('confirm-password', [ConfirmablePasswordController::class, 'store'])
+        ->middleware('throttle:10,1,confirm-password');
 
-    Route::put('password', [PasswordController::class, 'update'])->name('password.update');
+    Route::put('password', [PasswordController::class, 'update'])
+        ->middleware('throttle:10,1,password-update')
+        ->name('password.update');
 
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])
         ->name('logout');

@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\ProductPurchase;
 use App\Models\TenantUser;
 use App\Notifications\ConfirmPendingEmail;
+use App\Notifications\EmailChangeRequested;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\URL;
 use Tests\Feature\Concerns\InteractsWithTenants;
@@ -70,6 +71,7 @@ class ProfileTest extends TestCase
             'first_name' => 'Test',
             'last_name' => 'User',
             'email' => $newEmail,
+            'current_password' => 'password',
             'phone' => '+49 30 1234567',
             'street' => 'Hafenstraße 1',
             'postal_code' => '12345',
@@ -112,6 +114,11 @@ class ProfileTest extends TestCase
             ConfirmPendingEmail::class,
             fn ($notification, $channels, $notifiable) => $notifiable->routes['mail'] === $newEmail
         );
+
+        // Bug-Review (E-Mail-Änderung ohne Hinweis an die alte Adresse): der
+        // Besitzer der bisherigen Adresse muss von der Änderung erfahren --
+        // unabhängig von der Bestätigungsmail an die neue Adresse oben.
+        Notification::assertSentTo($user, EmailChangeRequested::class);
     }
 
     public function test_a_changed_email_takes_effect_only_after_confirmation(): void
@@ -124,6 +131,7 @@ class ProfileTest extends TestCase
             'first_name' => 'Test',
             'last_name' => 'User',
             'email' => $newEmail,
+            'current_password' => 'password',
         ])->assertSessionHasNoErrors();
 
         $user->refresh();
@@ -155,6 +163,7 @@ class ProfileTest extends TestCase
             'first_name' => 'Test',
             'last_name' => 'User',
             'email' => $newEmail,
+            'current_password' => 'password',
         ]);
 
         $url = URL::temporarySignedRoute(
@@ -198,6 +207,7 @@ class ProfileTest extends TestCase
             'first_name' => 'Test',
             'last_name' => 'User',
             'email' => $existing->email,
+            'current_password' => 'password',
         ]);
 
         $takenResponse->assertSessionHasNoErrors();
@@ -210,6 +220,7 @@ class ProfileTest extends TestCase
             'first_name' => 'Test',
             'last_name' => 'User',
             'email' => 'ganz-neu-'.uniqid().'@example.test',
+            'current_password' => 'password',
         ]);
 
         $availableResponse->assertSessionHasNoErrors();
@@ -419,6 +430,61 @@ class ProfileTest extends TestCase
         ]);
 
         $response->assertSessionHasErrors('country');
+    }
+
+    /**
+     * Bug-Review (E-Mail-Änderung ohne Passwortprüfung): eine laufende
+     * Session allein durfte bisher die Login-E-Mail-Adresse ändern, ohne
+     * das aktuelle Passwort erneut einzugeben -- genauso sensibel wie die
+     * Kontolöschung weiter unten, die das längst verlangt.
+     */
+    public function test_changing_the_email_requires_the_current_password(): void
+    {
+        $tenant = $this->createTestTenant();
+        $user = $this->createTenantUser($tenant);
+        $newEmail = 'updated-'.uniqid().'@example.test';
+
+        $response = $this->actingAsInTenant($user, $tenant)->patch('/profile', [
+            'first_name' => 'Test',
+            'last_name' => 'User',
+            'email' => $newEmail,
+        ]);
+
+        $response->assertSessionHasErrorsIn('emailChange', 'current_password');
+        $this->assertNull($user->fresh()->pending_email);
+    }
+
+    public function test_changing_the_email_rejects_an_incorrect_current_password(): void
+    {
+        $tenant = $this->createTestTenant();
+        $user = $this->createTenantUser($tenant);
+        $newEmail = 'updated-'.uniqid().'@example.test';
+
+        $response = $this->actingAsInTenant($user, $tenant)->patch('/profile', [
+            'first_name' => 'Test',
+            'last_name' => 'User',
+            'email' => $newEmail,
+            'current_password' => 'wrong-password',
+        ]);
+
+        $response->assertSessionHasErrorsIn('emailChange', 'current_password');
+        $this->assertNull($user->fresh()->pending_email);
+    }
+
+    /** Ein reines Namens-/Adress-Update ohne E-Mail-Änderung soll weiter kein Passwort verlangen. */
+    public function test_updating_other_fields_without_changing_the_email_does_not_require_the_current_password(): void
+    {
+        $tenant = $this->createTestTenant();
+        $user = $this->createTenantUser($tenant);
+
+        $response = $this->actingAsInTenant($user, $tenant)->patch('/profile', [
+            'first_name' => 'Neuer',
+            'last_name' => 'Name',
+            'email' => $user->email,
+        ]);
+
+        $response->assertSessionHasNoErrors()->assertRedirect('/profile');
+        $this->assertSame('Neuer', $user->fresh()->first_name);
     }
 
     public function test_user_can_delete_their_account(): void

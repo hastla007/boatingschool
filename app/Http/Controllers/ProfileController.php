@@ -7,6 +7,7 @@ use App\Models\Entitlement;
 use App\Models\ProductPurchase;
 use App\Models\TenantUser;
 use App\Notifications\ConfirmPendingEmail;
+use App\Notifications\EmailChangeRequested;
 use App\Services\AccountErasureService;
 use App\Services\PersonalDataExportService;
 use App\Support\BestEffortMail;
@@ -96,6 +97,20 @@ class ProfileController extends Controller
         $newEmail = $validated['email'];
         unset($validated['email']);
 
+        $emailChanged = strcasecmp($newEmail, $user->email) !== 0;
+
+        // Bug-Review (E-Mail-Änderung ohne Passwortprüfung): eine laufende
+        // Session allein reichte bisher, um die E-Mail-Adresse zu ändern --
+        // genauso sensibel wie die Kontolöschung (destroy() unten), die das
+        // aktuelle Passwort längst verlangt. Nur beim tatsächlichen Wechsel
+        // der Adresse erneut abgefragt, nicht bei einem reinen Namens-/
+        // Adress-Update.
+        if ($emailChanged) {
+            $request->validateWithBag('emailChange', [
+                'current_password' => ['required', 'current_password'],
+            ]);
+        }
+
         // Sicherheitsreview S3: street/postal_code/city/country/birthdate
         // liegen jetzt je Mitgliedschaft auf tenant_user statt kontoweit auf
         // app_user (siehe Migration 000469) -- nur first_name/last_name/
@@ -113,7 +128,7 @@ class ProfileController extends Controller
 
         $status = 'Profil gespeichert.';
 
-        if (strcasecmp($newEmail, $user->email) !== 0) {
+        if ($emailChanged) {
             $user->forceFill(['pending_email' => $newEmail])->save();
 
             // Bug-Review H2 (Folgefehler, kritisch): $user->notify(...)
@@ -134,6 +149,18 @@ class ProfileController extends Controller
             $mailSent = BestEffortMail::send(
                 fn () => Notification::route('mail', $newEmail)->notify(new ConfirmPendingEmail($user->id, $newEmail)),
                 "Bestätigungsmail neue E-Mail-Adresse Nutzer {$user->id}"
+            );
+
+            // Bug-Review (E-Mail-Änderung ohne Hinweis an die alte Adresse):
+            // $user->email ist an dieser Stelle noch die BISHERIGE Adresse
+            // (erst confirmEmail() übernimmt pending_email) -- $user->notify()
+            // geht also absichtlich genau an sie, nicht an $newEmail. Der
+            // Versand ist best effort: ein SMTP-Fehler hier soll das
+            // eigentliche Profil-Speichern (oben bereits erfolgt) nicht als
+            // Fehler erscheinen lassen.
+            BestEffortMail::send(
+                fn () => $user->notify(new EmailChangeRequested($newEmail)),
+                "Hinweis an alte E-Mail-Adresse Nutzer {$user->id}"
             );
 
             $status = $mailSent

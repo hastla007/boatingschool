@@ -143,7 +143,10 @@ Route::middleware(['auth', 'tenant.member', 'verified'])->group(function () {
     // beim Profil-Update, Coupon-Import oder Code-Einlösen (und umgekehrt).
     // Jede Stelle bekommt deshalb einen eigenen Prefix.
     Route::patch('/profile', [ProfileController::class, 'update'])->middleware('throttle:10,1,profile-update')->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    // Bug-Review (Passwort-Throttle eingeloggter Nutzer): destroy() prüft
+    // ebenfalls das aktuelle Passwort (current_password) -- fehlte hier
+    // bisher als einzige der drei Profil-Routen, siehe profile-update oben.
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->middleware('throttle:10,1,profile-destroy')->name('profile.destroy');
     // DSGVO-Review D3: Auskunfts-/Mitnahmerecht (Art. 15/20).
     Route::get('/profile/export-data', [ProfileController::class, 'exportData'])->name('profile.export');
 

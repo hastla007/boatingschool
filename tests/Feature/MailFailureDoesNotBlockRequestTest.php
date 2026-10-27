@@ -117,7 +117,13 @@ class MailFailureDoesNotBlockRequestTest extends TestCase
 
     public function test_changing_the_profile_email_still_succeeds_when_the_confirmation_mail_fails(): void
     {
-        Notification::shouldReceive('send')->once()->andThrow(new RuntimeException('SMTP down'));
+        // Bug-Review (E-Mail-Änderung ohne Hinweis an die alte Adresse):
+        // seit EmailChangeRequested geht beim Adresswechsel eine zweite,
+        // ebenfalls best-effort versendete Mail an die alte Adresse --
+        // ->once() würde ab dem zweiten Notification::send()-Aufruf scheitern,
+        // obwohl hier gerade beide Fehlschläge unabhängig abgefangen werden
+        // sollen.
+        Notification::shouldReceive('send')->andThrow(new RuntimeException('SMTP down'));
 
         $tenant = $this->createTestTenant();
         $user = $this->createTenantUser($tenant, 'learner', ['first_name' => 'Test', 'last_name' => 'User']);
@@ -127,6 +133,7 @@ class MailFailureDoesNotBlockRequestTest extends TestCase
             'first_name' => 'Test',
             'last_name' => 'User',
             'email' => $newEmail,
+            'current_password' => 'password',
         ]);
 
         $response->assertRedirect();
