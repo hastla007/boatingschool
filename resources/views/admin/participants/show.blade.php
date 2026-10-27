@@ -62,22 +62,22 @@
                 @csrf
                 @method('PATCH')
                 <div>
-                    <label class="block text-xs text-slate-500 mb-1">Straße &amp; Hausnummer</label>
-                    <input type="text" name="street" value="{{ old('street', $membership->street) }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                    <label for="participant_street" class="block text-xs text-slate-500 mb-1">Straße &amp; Hausnummer</label>
+                    <input type="text" id="participant_street" name="street" value="{{ old('street', $membership->street) }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                 </div>
                 <div class="grid grid-cols-2 gap-2">
                     <div>
-                        <label class="block text-xs text-slate-500 mb-1">PLZ</label>
-                        <input type="text" name="postal_code" value="{{ old('postal_code', $membership->postal_code) }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                        <label for="participant_postal_code" class="block text-xs text-slate-500 mb-1">PLZ</label>
+                        <input type="text" id="participant_postal_code" name="postal_code" value="{{ old('postal_code', $membership->postal_code) }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                     </div>
                     <div>
-                        <label class="block text-xs text-slate-500 mb-1">Wohnort</label>
-                        <input type="text" name="city" value="{{ old('city', $membership->city) }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                        <label for="participant_city" class="block text-xs text-slate-500 mb-1">Wohnort</label>
+                        <input type="text" id="participant_city" name="city" value="{{ old('city', $membership->city) }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                     </div>
                 </div>
                 <div>
-                    <label class="block text-xs text-slate-500 mb-1">Land</label>
-                    <select name="country" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                    <label for="participant_country" class="block text-xs text-slate-500 mb-1">Land</label>
+                    <select id="participant_country" name="country" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                         <option value="">Land wählen&hellip;</option>
                         @foreach (\App\Support\Countries::OPTIONS as $countryOption)
                             <option value="{{ $countryOption }}" @selected(old('country', $membership->country) === $countryOption)>{{ $countryOption }}</option>
@@ -85,8 +85,8 @@
                     </select>
                 </div>
                 <div>
-                    <label class="block text-xs text-slate-500 mb-1">Geburtsdatum</label>
-                    <input type="date" name="birthdate" value="{{ old('birthdate', $membership->birthdate?->format('Y-m-d')) }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                    <label for="participant_birthdate" class="block text-xs text-slate-500 mb-1">Geburtsdatum</label>
+                    <input type="date" id="participant_birthdate" name="birthdate" value="{{ old('birthdate', $membership->birthdate?->format('Y-m-d')) }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                 </div>
                 <x-input-error :messages="$errors->get('street')" class="mt-1" />
                 <x-input-error :messages="$errors->get('postal_code')" class="mt-1" />
@@ -264,8 +264,8 @@
                         @csrf
                         @method('PATCH')
                         <div>
-                            <label class="block text-xs text-slate-500 mb-1">Trackingnummer (optional)</label>
-                            <input type="text" name="tracking_number" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                            <label for="wb_tracking_number" class="block text-xs text-slate-500 mb-1">Trackingnummer (optional)</label>
+                            <input type="text" id="wb_tracking_number" name="tracking_number" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                         </div>
                         <button type="submit" class="px-3 py-1.5 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
                             Als versendet markieren

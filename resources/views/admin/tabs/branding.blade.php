@@ -57,17 +57,17 @@
              "Farben" (siehe admin/tabs/dashboard.blade.php) keine Wirkung. --}}
         <div class="grid grid-cols-2 gap-4">
             <div>
-                <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Hauptfarbe</label>
+                <label for="primary_color" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Hauptfarbe</label>
                 <div class="flex items-center gap-2">
-                    <input type="color" name="primary_color" value="{{ old('primary_color', $branding->primaryColorOrDefault()) }}" class="w-10 h-10 rounded-lg border border-slate-300 dark:border-slate-600 cursor-pointer">
+                    <input type="color" id="primary_color" name="primary_color" value="{{ old('primary_color', $branding->primaryColorOrDefault()) }}" class="w-10 h-10 rounded-lg border border-slate-300 dark:border-slate-600 cursor-pointer">
                     <span class="text-xs text-slate-400">Navigation, Buttons, Akzente</span>
                 </div>
                 <x-input-error :messages="$errors->get('primary_color')" class="mt-2" />
             </div>
             <div>
-                <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Nebenfarbe</label>
+                <label for="secondary_color" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Nebenfarbe</label>
                 <div class="flex items-center gap-2">
-                    <input type="color" name="secondary_color" value="{{ old('secondary_color', $branding->secondaryColorOrDefault()) }}" class="w-10 h-10 rounded-lg border border-slate-300 dark:border-slate-600 cursor-pointer">
+                    <input type="color" id="secondary_color" name="secondary_color" value="{{ old('secondary_color', $branding->secondaryColorOrDefault()) }}" class="w-10 h-10 rounded-lg border border-slate-300 dark:border-slate-600 cursor-pointer">
                     <span class="text-xs text-slate-400">Fortschrittsbalken, Kacheln</span>
                 </div>
                 <x-input-error :messages="$errors->get('secondary_color')" class="mt-2" />
@@ -75,18 +75,18 @@
         </div>
 
         <div>
-            <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Name</label>
-            <input type="text" value="{{ $tenant->name }}" disabled class="w-full rounded-lg border-slate-200 bg-slate-50 dark:bg-slate-700 text-sm text-slate-400">
+            <label for="tenant_name" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Name</label>
+            <input type="text" id="tenant_name" value="{{ $tenant->name }}" disabled class="w-full rounded-lg border-slate-200 bg-slate-50 dark:bg-slate-700 text-sm text-slate-400">
         </div>
 
         <div>
-            <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Domain</label>
-            <input type="text" value="{{ $tenant->slug }}.{{ config('app.central_domain') }}" disabled class="w-full rounded-lg border-slate-200 bg-slate-50 dark:bg-slate-700 text-sm text-slate-400">
+            <label for="tenant_domain" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Domain</label>
+            <input type="text" id="tenant_domain" value="{{ $tenant->slug }}.{{ config('app.central_domain') }}" disabled class="w-full rounded-lg border-slate-200 bg-slate-50 dark:bg-slate-700 text-sm text-slate-400">
         </div>
 
         <div>
-            <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Support E-Mail</label>
-            <input type="email" name="support_email" value="{{ old('support_email', $branding->support_email) }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+            <label for="support_email" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Support E-Mail</label>
+            <input type="email" id="support_email" name="support_email" value="{{ old('support_email', $branding->support_email) }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
             @if ($branding->support_email && ! $branding->hasVerifiedSupportEmail())
                 <p class="text-sm mt-2 text-amber-600 dark:text-amber-400">
                     Diese E-Mail-Adresse ist noch nicht bestätigt.
@@ -105,41 +105,45 @@
         </div>
 
         <div>
-            <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Rechtlicher Name</label>
-            <input type="text" name="legal_name" value="{{ old('legal_name', $branding->legal_name) }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+            <label for="legal_name" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Rechtlicher Name</label>
+            <input type="text" id="legal_name" name="legal_name" value="{{ old('legal_name', $branding->legal_name) }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
         </div>
 
         <div class="grid grid-cols-2 gap-4">
             <div>
-                <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Ansprechpartner Vorname</label>
-                <input type="text" name="contact_first_name" value="{{ old('contact_first_name', $branding->contact_first_name) }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                <label for="contact_first_name" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Ansprechpartner Vorname</label>
+                <input type="text" id="contact_first_name" name="contact_first_name" value="{{ old('contact_first_name', $branding->contact_first_name) }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
             </div>
             <div>
-                <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Ansprechpartner Nachname</label>
-                <input type="text" name="contact_last_name" value="{{ old('contact_last_name', $branding->contact_last_name) }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                <label for="contact_last_name" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Ansprechpartner Nachname</label>
+                <input type="text" id="contact_last_name" name="contact_last_name" value="{{ old('contact_last_name', $branding->contact_last_name) }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
             </div>
         </div>
 
         <div>
-            <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Telefonnummer</label>
-            <input type="text" name="phone" value="{{ old('phone', $branding->phone) }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+            <label for="phone" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Telefonnummer</label>
+            <input type="text" id="phone" name="phone" value="{{ old('phone', $branding->phone) }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
         </div>
 
         <div>
-            <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Website</label>
-            <input type="url" name="website" placeholder="https://" value="{{ old('website', $branding->website) }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+            <label for="website" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Website</label>
+            <input type="url" id="website" name="website" placeholder="https://" value="{{ old('website', $branding->website) }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
             <x-input-error :messages="$errors->get('website')" class="mt-2" />
         </div>
 
         <div>
-            <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Adresse</label>
+            <span class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Adresse</span>
             <div class="grid grid-cols-[2fr_1fr] gap-4">
-                <input type="text" name="street" placeholder="Straße & Hausnummer" value="{{ old('street', $branding->street) }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
-                <input type="text" name="postal_code" placeholder="PLZ" value="{{ old('postal_code', $branding->postal_code) }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                <label for="street" class="sr-only">Straße &amp; Hausnummer</label>
+                <input type="text" id="street" name="street" placeholder="Straße & Hausnummer" value="{{ old('street', $branding->street) }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                <label for="postal_code" class="sr-only">PLZ</label>
+                <input type="text" id="postal_code" name="postal_code" placeholder="PLZ" value="{{ old('postal_code', $branding->postal_code) }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
             </div>
             <div class="grid grid-cols-2 gap-4 mt-2">
-                <input type="text" name="city" placeholder="Wohnort" value="{{ old('city', $branding->city) }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
-                <select name="country" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                <label for="city" class="sr-only">Wohnort</label>
+                <input type="text" id="city" name="city" placeholder="Wohnort" value="{{ old('city', $branding->city) }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                <label for="country" class="sr-only">Land</label>
+                <select id="country" name="country" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                     <option value="">Land wählen&hellip;</option>
                     @foreach (\App\Support\Countries::OPTIONS as $countryOption)
                         <option value="{{ $countryOption }}" @selected(old('country', $branding->country) === $countryOption)>{{ $countryOption }}</option>
@@ -169,15 +173,15 @@
 
             <div class="space-y-3">
                 <div>
-                    <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Telefonnummer</label>
-                    <input type="text" name="whatsapp_phone" value="{{ old('whatsapp_phone', $branding->whatsapp_phone) }}" placeholder="491701234567" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                    <label for="whatsapp_phone" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Telefonnummer</label>
+                    <input type="text" id="whatsapp_phone" name="whatsapp_phone" value="{{ old('whatsapp_phone', $branding->whatsapp_phone) }}" placeholder="491701234567" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                     <p class="text-xs text-slate-400 mt-1">Bitte im internationalen Format ohne Leerzeichen oder „+" eingeben, z.&nbsp;B. 491701234567.</p>
                     <x-input-error :messages="$errors->get('whatsapp_phone')" class="mt-2" />
                 </div>
 
                 <div>
-                    <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Standard-Begrüßungstext</label>
-                    <textarea name="whatsapp_greeting" rows="2" placeholder="Hallo {name}, ich habe eine Frage zu {kurs}." class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">{{ old('whatsapp_greeting', $branding->whatsapp_greeting) }}</textarea>
+                    <label for="whatsapp_greeting" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Standard-Begrüßungstext</label>
+                    <textarea id="whatsapp_greeting" name="whatsapp_greeting" rows="2" placeholder="Hallo {name}, ich habe eine Frage zu {kurs}." class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">{{ old('whatsapp_greeting', $branding->whatsapp_greeting) }}</textarea>
                     <p class="text-xs text-slate-400 mt-1">Der Text, den der Schüler vorausgefüllt in seinem Chatfenster sieht. Mit <code>{name}</code> und <code>{kurs}</code> werden Name und gebuchter Kurs automatisch eingesetzt, wenn möglich.</p>
                     <x-input-error :messages="$errors->get('whatsapp_greeting')" class="mt-2" />
                 </div>
@@ -185,10 +189,10 @@
         </div>
 
         <div class="pt-2 border-t border-slate-100 dark:border-slate-700">
-            <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Kursfortschritt-Voraussetzung für Prüfung &amp; Praxis</label>
+            <label for="exam_readiness_threshold_percent" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Kursfortschritt-Voraussetzung für Prüfung &amp; Praxis</label>
             <p class="text-xs text-slate-400 mb-2">Ab diesem Kursfortschritt darf ein Schüler die Kachel „Praxis &amp; Prüfung" auswählen, um Prüfung und Praxis bei Ihrer Bootsschule zu buchen.</p>
             <div class="flex items-center gap-2">
-                <input type="number" name="exam_readiness_threshold_percent" min="0" max="100"
+                <input type="number" id="exam_readiness_threshold_percent" name="exam_readiness_threshold_percent" min="0" max="100"
                        value="{{ old('exam_readiness_threshold_percent', $branding->exam_readiness_threshold_percent) }}"
                        class="w-24 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                 <span class="text-sm text-slate-500 dark:text-slate-400">% Kursfortschritt</span>
@@ -197,10 +201,10 @@
         </div>
 
         <div class="pt-2 border-t border-slate-100 dark:border-slate-700">
-            <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Kursfortschritt-Voraussetzung für Willkommensbox</label>
+            <label for="willkommensbox_threshold_percent" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Kursfortschritt-Voraussetzung für Willkommensbox</label>
             <p class="text-xs text-slate-400 mb-2">Ab diesem Kursfortschritt darf ein Schüler mit „Lernplattform (inkl. Willkommensbox)" die Willkommensbox bestellen. 0% = keine zusätzliche Voraussetzung.</p>
             <div class="flex items-center gap-2">
-                <input type="number" name="willkommensbox_threshold_percent" min="0" max="100"
+                <input type="number" id="willkommensbox_threshold_percent" name="willkommensbox_threshold_percent" min="0" max="100"
                        value="{{ old('willkommensbox_threshold_percent', $branding->willkommensbox_threshold_percent) }}"
                        class="w-24 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                 <span class="text-sm text-slate-500 dark:text-slate-400">% Kursfortschritt</span>

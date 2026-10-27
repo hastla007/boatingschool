@@ -65,18 +65,18 @@
                 @csrf
                 <input type="hidden" name="slot" value="{{ $appointmentSlot }}">
                 <div>
-                    <label class="block text-xs text-slate-500 mb-1">
+                    <label for="slot_exam_date_{{ $submission->id }}_{{ $appointmentSlot }}" class="block text-xs text-slate-500 mb-1">
                         {{ $latestAppointment ? 'Neuen Termin vorschlagen (Runde '.($latestAppointment->round + 1).')' : 'Termin vorschlagen' }}
                     </label>
-                    <input type="datetime-local" name="exam_date" required class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                    <input type="datetime-local" id="slot_exam_date_{{ $submission->id }}_{{ $appointmentSlot }}" name="exam_date" required class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                 </div>
                 <div>
-                    <label class="block text-xs text-slate-500 mb-1">Ende (optional, z. B. für 16:00-18:00 Uhr)</label>
-                    <input type="datetime-local" name="ends_at" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                    <label for="slot_ends_at_{{ $submission->id }}_{{ $appointmentSlot }}" class="block text-xs text-slate-500 mb-1">Ende (optional, z. B. für 16:00-18:00 Uhr)</label>
+                    <input type="datetime-local" id="slot_ends_at_{{ $submission->id }}_{{ $appointmentSlot }}" name="ends_at" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                 </div>
                 <div>
-                    <label class="block text-xs text-slate-500 mb-1">Ort</label>
-                    <select name="location" x-model="location" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                    <label for="slot_location_{{ $submission->id }}_{{ $appointmentSlot }}" class="block text-xs text-slate-500 mb-1">Ort</label>
+                    <select id="slot_location_{{ $submission->id }}_{{ $appointmentSlot }}" name="location" x-model="location" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                         <option value="">&mdash;</option>
                         @foreach ($locations as $location)
                             <option value="{{ $location->id }}">
@@ -93,12 +93,12 @@
                     </select>
                 </div>
                 <div x-show="location === 'online'" style="display: none">
-                    <label class="block text-xs text-slate-500 mb-1">Link Onlinemeeting</label>
-                    <input type="url" name="online_meeting_url" placeholder="https://..." class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm w-56">
+                    <label for="slot_online_meeting_url_{{ $submission->id }}_{{ $appointmentSlot }}" class="block text-xs text-slate-500 mb-1">Link Onlinemeeting</label>
+                    <input type="url" id="slot_online_meeting_url_{{ $submission->id }}_{{ $appointmentSlot }}" name="online_meeting_url" placeholder="https://..." class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm w-56">
                 </div>
                 <div class="w-full">
-                    <label class="block text-xs text-slate-500 mb-1">Beschreibung (optional, für den Teilnehmer sichtbar)</label>
-                    <textarea name="description" rows="2" maxlength="2000" placeholder="z. B. Treffpunkt, Mitzubringendes, Ablauf ..." class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm"></textarea>
+                    <label for="slot_description_{{ $submission->id }}_{{ $appointmentSlot }}" class="block text-xs text-slate-500 mb-1">Beschreibung (optional, für den Teilnehmer sichtbar)</label>
+                    <textarea id="slot_description_{{ $submission->id }}_{{ $appointmentSlot }}" name="description" rows="2" maxlength="2000" placeholder="z. B. Treffpunkt, Mitzubringendes, Ablauf ..." class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm"></textarea>
                 </div>
                 <button type="submit" class="px-3 py-1.5 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
                     Vorschlagen

@@ -13,7 +13,8 @@
         <form method="POST" action="{{ route('coupons.redeem.store') }}" class="space-y-3">
             @csrf
             <div>
-                <x-text-input name="code" type="text" class="block w-full uppercase tracking-widest text-center font-mono" placeholder="XXXX-XXXX-XXXX" :value="old('code')" required autofocus />
+                <x-input-label for="code" value="Coupon-Code" class="sr-only" />
+                <x-text-input id="code" name="code" type="text" class="block w-full uppercase tracking-widest text-center font-mono" placeholder="XXXX-XXXX-XXXX" :value="old('code')" required autofocus />
                 <x-input-error :messages="$errors->get('code')" class="mt-2" />
             </div>
             <button type="submit" class="w-full px-5 py-2.5 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">

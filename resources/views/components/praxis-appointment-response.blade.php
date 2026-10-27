@@ -67,7 +67,8 @@
         <form x-show="declining" style="display: none" method="POST" action="{{ route('praxis-pruefung.exam-appointments.respond', [$course, $latestAppointment]) }}" class="space-y-2">
             @csrf
             <input type="hidden" name="decision" value="declined">
-            <textarea name="comment" rows="2" maxlength="2000" placeholder="Grund oder Terminvorschlag (optional)" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm"></textarea>
+            <label for="response_comment_{{ $submission->id }}_{{ $appointmentSlot }}" class="sr-only">Grund oder Terminvorschlag</label>
+            <textarea id="response_comment_{{ $submission->id }}_{{ $appointmentSlot }}" name="comment" rows="2" maxlength="2000" placeholder="Grund oder Terminvorschlag (optional)" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm"></textarea>
             <div class="flex gap-2">
                 <button type="submit" class="px-4 py-2 rounded-lg bg-rose-600 text-white text-sm font-medium hover:opacity-90 transition">Termin passt nicht</button>
                 <button type="button" @click="declining = false" class="px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-medium hover:bg-slate-200 dark:hover:bg-slate-600 transition">Abbrechen</button>

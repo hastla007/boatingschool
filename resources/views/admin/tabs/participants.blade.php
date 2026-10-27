@@ -5,8 +5,10 @@
     <form method="POST" action="{{ route('admin.participants.invite') }}" class="space-y-2">
         @csrf
         <div class="flex flex-col sm:flex-row gap-2">
-            <input type="text" name="name" placeholder="Name" required class="flex-1 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
-            <input type="email" name="email" placeholder="E-Mail" required class="flex-1 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+            <label for="invite_name" class="sr-only">Name</label>
+            <input type="text" id="invite_name" name="name" placeholder="Name" required class="flex-1 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+            <label for="invite_email" class="sr-only">E-Mail</label>
+            <input type="email" id="invite_email" name="email" placeholder="E-Mail" required class="flex-1 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
         </div>
         <div x-data="{ showAddress: false }">
             <button type="button" @click="showAddress = ! showAddress" class="text-xs text-slate-500 hover:underline">
@@ -14,10 +16,14 @@
                 <span x-show="showAddress" style="display: none">&minus; Adresse ausblenden</span>
             </button>
             <div x-show="showAddress" style="display: none" class="mt-2 grid sm:grid-cols-[2fr_1fr] gap-2">
-                <input type="text" name="street" placeholder="Straße & Hausnummer" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
-                <input type="text" name="postal_code" placeholder="PLZ" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
-                <input type="text" name="city" placeholder="Wohnort" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
-                <select name="country" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                <label for="invite_street" class="sr-only">Straße &amp; Hausnummer</label>
+                <input type="text" id="invite_street" name="street" placeholder="Straße & Hausnummer" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                <label for="invite_postal_code" class="sr-only">PLZ</label>
+                <input type="text" id="invite_postal_code" name="postal_code" placeholder="PLZ" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                <label for="invite_city" class="sr-only">Wohnort</label>
+                <input type="text" id="invite_city" name="city" placeholder="Wohnort" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                <label for="invite_country" class="sr-only">Land</label>
+                <select id="invite_country" name="country" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                     <option value="">Land wählen&hellip;</option>
                     @foreach (\App\Support\Countries::OPTIONS as $countryOption)
                         <option value="{{ $countryOption }}">{{ $countryOption }}</option>
@@ -34,7 +40,8 @@
                 <span x-show="showCode" @unless ($errors->has('code')) style="display: none" @endunless>&minus; Code ausblenden</span>
             </button>
             <div x-show="showCode" @unless ($errors->has('code')) style="display: none" @endunless class="mt-2">
-                <input type="text" name="code" value="{{ old('code') }}" placeholder="XXXX-XXXX-XXXX" class="w-full sm:w-64 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm font-mono">
+                <label for="invite_code" class="sr-only">Coupon-Code</label>
+                <input type="text" id="invite_code" name="code" value="{{ old('code') }}" placeholder="XXXX-XXXX-XXXX" class="w-full sm:w-64 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm font-mono">
                 <x-input-error :messages="$errors->get('code')" class="mt-1" />
                 <p class="text-xs text-slate-400 mt-1">
                     Ein eigener Code (Kurs oder Produkt) wird dem Teilnehmer direkt bei der Einladung zugewiesen und eingelöst.
@@ -104,7 +111,7 @@
                             <form method="POST" action="{{ route('admin.entitlements.store') }}" class="flex gap-1">
                                 @csrf
                                 <input type="hidden" name="user_id" value="{{ $membership->user_id }}">
-                                <select name="course_id" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs">
+                                <select name="course_id" aria-label="Kurs für {{ $membership->user->name }} freischalten" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs">
                                     @foreach ($unbookedCourses as $course)
                                         @php($freeCount = $freeCourseCouponCounts->get($course->id, 0))
                                         <option value="{{ $course->id }}" @disabled($freeCount < 1) @class(['text-slate-400' => $freeCount < 1])>

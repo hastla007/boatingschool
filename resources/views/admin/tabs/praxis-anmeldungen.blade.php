@@ -6,10 +6,12 @@
 <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden">
     <form method="GET" action="{{ route('admin.dashboard') }}" class="flex flex-wrap gap-2 p-4 border-b border-slate-100 dark:border-slate-700">
         <input type="hidden" name="tab" value="praxis-anmeldungen">
-        <input type="text" name="anmeldung_search" value="{{ $anmeldungFilters['anmeldung_search'] ?? '' }}"
+        <label for="anmeldung_search" class="sr-only">Name, E-Mail oder Kurs suchen</label>
+        <input type="text" id="anmeldung_search" name="anmeldung_search" value="{{ $anmeldungFilters['anmeldung_search'] ?? '' }}"
                placeholder="Name, E-Mail oder Kurs suchen…"
                class="flex-1 min-w-[220px] rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
-        <select name="anmeldung_course" @change="$el.form.submit()" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+        <label for="anmeldung_course" class="sr-only">Kurs filtern</label>
+        <select id="anmeldung_course" name="anmeldung_course" @change="$el.form.submit()" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
             <option value="">Alle Kurse</option>
             @foreach ($courses as $course)
                 <option value="{{ $course->id }}" @selected(($anmeldungFilters['anmeldung_course'] ?? '') === $course->id)>{{ $course->name }}</option>

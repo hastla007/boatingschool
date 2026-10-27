@@ -9,7 +9,8 @@
     </x-slot>
 
     <form method="GET" class="mb-4 max-w-sm">
-        <input type="search" name="q" value="{{ $search }}" placeholder="Name oder E-Mail suchen&hellip;" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+        <label for="user_search" class="sr-only">Name oder E-Mail suchen</label>
+        <input type="search" id="user_search" name="q" value="{{ $search }}" placeholder="Name oder E-Mail suchen&hellip;" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
     </form>
 
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden">

@@ -49,10 +49,12 @@
                         @php($formId = 'category-form-'.$category->id)
                         <tr class="border-t border-slate-100 dark:border-slate-700">
                             <td class="px-4 py-2">
-                                <input form="{{ $formId }}" type="text" name="name" value="{{ $category->name }}" class="block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm" required>
+                                <label for="{{ $formId }}-name" class="sr-only">Name der Kategorie</label>
+                                <input form="{{ $formId }}" id="{{ $formId }}-name" type="text" name="name" value="{{ $category->name }}" class="block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm" required>
                             </td>
                             <td class="px-4 py-2">
-                                <input form="{{ $formId }}" type="number" name="sort_order" value="{{ $category->sort_order }}" class="block w-20 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                                <label for="{{ $formId }}-sort-order" class="sr-only">Reihenfolge</label>
+                                <input form="{{ $formId }}" id="{{ $formId }}-sort-order" type="number" name="sort_order" value="{{ $category->sort_order }}" class="block w-20 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                             </td>
                             <td class="px-4 py-2 text-slate-500">{{ $category->tips_count }}</td>
                             <td class="px-4 py-2 text-right whitespace-nowrap">

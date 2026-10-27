@@ -16,7 +16,8 @@
         <form method="POST" action="{{ route('admin.coupons.import') }}" class="space-y-3">
             @csrf
             <div>
-                <textarea name="codes" rows="4" required placeholder="XXXX-XXXX-XXXX" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm font-mono">{{ old('codes') }}</textarea>
+                <label for="codes" class="sr-only">Coupon-Codes</label>
+                <textarea id="codes" name="codes" rows="4" required placeholder="XXXX-XXXX-XXXX" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm font-mono">{{ old('codes') }}</textarea>
                 <x-input-error :messages="$errors->get('codes')" class="mt-2" />
             </div>
             <button type="submit" class="px-4 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
@@ -57,15 +58,18 @@
 <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden">
     <form method="GET" action="{{ route('admin.dashboard') }}" class="flex flex-wrap gap-2 p-4 border-b border-slate-100 dark:border-slate-700">
         <input type="hidden" name="tab" value="coupons">
-        <input type="text" name="coupon_search" value="{{ $couponFilters['coupon_search'] ?? '' }}"
+        <label for="coupon_search" class="sr-only">Code, Kurs/Produkt oder Nutzer suchen</label>
+        <input type="text" id="coupon_search" name="coupon_search" value="{{ $couponFilters['coupon_search'] ?? '' }}"
                placeholder="Code, Kurs/Produkt oder Nutzer suchen…"
                class="flex-1 min-w-[220px] rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
-        <select name="coupon_status" @change="$el.form.submit()" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+        <label for="coupon_status" class="sr-only">Status filtern</label>
+        <select id="coupon_status" name="coupon_status" @change="$el.form.submit()" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
             <option value="">Alle Status</option>
             <option value="open" @selected(($couponFilters['coupon_status'] ?? null) === 'open')>offen</option>
             <option value="redeemed" @selected(($couponFilters['coupon_status'] ?? null) === 'redeemed')>eingelöst</option>
         </select>
-        <select name="coupon_type" @change="$el.form.submit()" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+        <label for="coupon_type" class="sr-only">Typ filtern</label>
+        <select id="coupon_type" name="coupon_type" @change="$el.form.submit()" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
             <option value="">Kurse, Produkte &amp; Verlängerungen</option>
             <option value="course" @selected(($couponFilters['coupon_type'] ?? null) === 'course')>nur Kurse</option>
             <option value="product" @selected(($couponFilters['coupon_type'] ?? null) === 'product')>nur Produkte</option>
@@ -112,7 +116,7 @@
                         @if (! $coupon->isRedeemed() && $coupon->tenant_id === $tenant->id)
                             <form method="POST" action="{{ route('admin.coupons.assign', $coupon) }}" class="flex gap-1">
                                 @csrf
-                                <select name="user_id" required class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs">
+                                <select name="user_id" required aria-label="Nutzer für Coupon {{ $coupon->code }} wählen" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs">
                                     <option value="">Nutzer wählen…</option>
                                     @foreach ($allParticipants as $membership)
                                         <option value="{{ $membership->user_id }}">{{ $membership->user->name }}</option>

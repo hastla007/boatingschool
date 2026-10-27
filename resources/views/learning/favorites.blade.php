@@ -42,7 +42,8 @@
         <div x-show="newCollectionOpen" style="display: none" class="mb-4">
             <form method="POST" action="{{ route('favorite-collections.store', $course) }}" class="flex flex-wrap items-center gap-2">
                 @csrf
-                <input type="text" name="name" placeholder="Name der Collection" required maxlength="255"
+                <label for="new_collection_name" class="sr-only">Name der Collection</label>
+                <input type="text" id="new_collection_name" name="name" placeholder="Name der Collection" required maxlength="255"
                        class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm w-56">
                 <button type="submit" class="px-3 py-1.5 rounded-lg text-white text-xs font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
                     Anlegen
@@ -74,7 +75,8 @@
                 <form method="POST" action="{{ route('favorite-collections.update', $collection) }}" class="flex items-center gap-1.5">
                     @csrf
                     @method('PATCH')
-                    <input type="text" name="name" value="{{ $collection->name }}" maxlength="255"
+                    <label for="collection_name_{{ $collection->id }}" class="sr-only">Name der Collection</label>
+                    <input type="text" id="collection_name_{{ $collection->id }}" name="name" value="{{ $collection->name }}" maxlength="255"
                            class="text-sm rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 py-1">
                     <button type="submit" class="text-xs text-slate-500 hover:underline whitespace-nowrap">Umbenennen</button>
                 </form>

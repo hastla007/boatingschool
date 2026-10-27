@@ -10,7 +10,8 @@
 <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden">
     <form method="GET" action="{{ route('admin.dashboard') }}" class="flex flex-wrap gap-2 p-4 border-b border-slate-100 dark:border-slate-700">
         <input type="hidden" name="tab" value="willkommensbox">
-        <input type="text" name="wb_search" value="{{ $willkommensboxFilters['wb_search'] ?? '' }}"
+        <label for="wb_search" class="sr-only">Name oder E-Mail suchen</label>
+        <input type="text" id="wb_search" name="wb_search" value="{{ $willkommensboxFilters['wb_search'] ?? '' }}"
                placeholder="Name oder E-Mail suchen…"
                class="flex-1 min-w-[220px] rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
         <button type="submit" class="px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-sm">Suchen</button>
@@ -59,7 +60,8 @@
                             <form method="POST" action="{{ route('admin.willkommensbox-orders.ship', $order) }}" class="inline-flex items-center gap-1.5">
                                 @csrf
                                 @method('PATCH')
-                                <input type="text" name="tracking_number" placeholder="Tracking (optional)" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs w-32">
+                                <label for="tracking_number_{{ $order->id }}" class="sr-only">Tracking-Nummer für {{ $order->user->display_name ?? $order->user->email }}</label>
+                                <input type="text" id="tracking_number_{{ $order->id }}" name="tracking_number" placeholder="Tracking (optional)" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs w-32">
                                 <button type="submit" class="px-2.5 py-1 rounded-lg text-white text-xs font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
                                     Versendet
                                 </button>

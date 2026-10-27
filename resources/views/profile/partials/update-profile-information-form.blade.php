@@ -82,20 +82,24 @@
             <x-input-label value="Adresse" />
             <div class="grid sm:grid-cols-[2fr_1fr] gap-4 mt-1">
                 <div>
+                    <x-input-label for="street" value="Straße &amp; Hausnummer" class="sr-only" />
                     <x-text-input id="street" name="street" type="text" placeholder="Straße & Hausnummer" class="block w-full" :value="old('street', $membership->street)" autocomplete="street-address" />
                     <x-input-error class="mt-2" :messages="$errors->get('street')" />
                 </div>
                 <div>
+                    <x-input-label for="postal_code" value="PLZ" class="sr-only" />
                     <x-text-input id="postal_code" name="postal_code" type="text" placeholder="PLZ" class="block w-full" :value="old('postal_code', $membership->postal_code)" autocomplete="postal-code" />
                     <x-input-error class="mt-2" :messages="$errors->get('postal_code')" />
                 </div>
             </div>
             <div class="grid sm:grid-cols-2 gap-4 mt-2">
                 <div>
+                    <x-input-label for="city" value="Wohnort" class="sr-only" />
                     <x-text-input id="city" name="city" type="text" placeholder="Wohnort" class="block w-full" :value="old('city', $membership->city)" autocomplete="address-level2" />
                     <x-input-error class="mt-2" :messages="$errors->get('city')" />
                 </div>
                 <div>
+                    <x-input-label for="country" value="Land" class="sr-only" />
                     <select id="country" name="country" class="block w-full border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 focus:border-blue-500 dark:focus:border-blue-500 focus:ring-blue-500 rounded-lg shadow-sm">
                         <option value="">Land wählen&hellip;</option>
                         @foreach (\App\Support\Countries::OPTIONS as $countryOption)

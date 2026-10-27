@@ -91,9 +91,10 @@
         <div class="space-y-3">
             @foreach (['A', 'B', 'C', 'D'] as $key)
                 <div class="flex items-center gap-3">
-                    <input type="radio" name="correct" value="{{ $key }}" @checked($singleCorrectKey === $key) class="shrink-0">
-                    <span class="w-5 text-sm text-slate-400 shrink-0">{{ $key }}</span>
-                    <x-text-input name="answers[{{ $key }}]" type="text" class="block w-full" :value="$singleAnswerText($key)" />
+                    <input type="radio" id="correct_{{ $key }}" name="correct" value="{{ $key }}" @checked($singleCorrectKey === $key) class="shrink-0">
+                    <label for="correct_{{ $key }}" class="w-5 text-sm text-slate-400 shrink-0">{{ $key }}</label>
+                    <x-input-label for="answer_{{ $key }}" value="Antworttext {{ $key }}" class="sr-only" />
+                    <x-text-input id="answer_{{ $key }}" name="answers[{{ $key }}]" type="text" class="block w-full" :value="$singleAnswerText($key)" />
                 </div>
             @endforeach
         </div>
@@ -108,8 +109,8 @@
         <div class="space-y-3">
             <template x-for="(answer, index) in multiAnswers" :key="index">
                 <div class="flex items-center gap-3">
-                    <input type="checkbox" :name="'multi_correct[]'" :value="index" x-model="answer.correct" class="shrink-0">
-                    <input type="text" :name="'multi_answers['+index+'][text]'" x-model="answer.text"
+                    <input type="checkbox" :name="'multi_correct[]'" :value="index" :aria-label="'Antwort ' + (index + 1) + ' als richtig markieren'" x-model="answer.correct" class="shrink-0">
+                    <input type="text" :name="'multi_answers['+index+'][text]'" :aria-label="'Antworttext ' + (index + 1)" x-model="answer.text"
                            class="block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                     <button type="button" @click="multiAnswers.splice(index, 1)" class="text-xs text-red-500 hover:underline whitespace-nowrap">Entfernen</button>
                 </div>

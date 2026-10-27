@@ -74,12 +74,14 @@
                 </div>
                 <form method="POST" action="{{ route('superadmin.users.memberships.store', $user) }}" class="flex gap-2">
                     @csrf
-                    <select name="tenant_id" required class="flex-1 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs">
+                    <label for="membership_tenant_id" class="sr-only">Bootsschule</label>
+                    <select id="membership_tenant_id" name="tenant_id" required class="flex-1 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs">
                         @foreach ($tenants as $tenant)
                             <option value="{{ $tenant->id }}">{{ $tenant->name }}</option>
                         @endforeach
                     </select>
-                    <select name="role" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs">
+                    <label for="membership_role" class="sr-only">Rolle</label>
+                    <select id="membership_role" name="role" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs">
                         @foreach (['learner', 'staff', 'instructor', 'admin', 'owner', 'support'] as $role)
                             <option value="{{ $role }}">{{ $role }}</option>
                         @endforeach

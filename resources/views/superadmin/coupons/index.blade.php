@@ -78,16 +78,19 @@
              Alle-auswählen/Export-Button taten nichts). --}}
         <div class="lg:col-span-2 bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5" x-data="{}">
             <form method="GET" class="flex flex-wrap gap-2 mb-4">
-                <input type="text" name="search" value="{{ $filters['search'] ?? '' }}"
+                <label for="coupon_search_sa" class="sr-only">Code, Kurs/Produkt, Bootsschule oder Nutzer suchen</label>
+                <input type="text" id="coupon_search_sa" name="search" value="{{ $filters['search'] ?? '' }}"
                        placeholder="Code, Kurs/Produkt, Bootsschule oder Nutzer suchen…"
                        class="flex-1 min-w-[220px] rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
-                <select name="tenant_id" @change="$el.form.submit()" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                <label for="coupon_tenant_id_sa" class="sr-only">Bootsschule filtern</label>
+                <select id="coupon_tenant_id_sa" name="tenant_id" @change="$el.form.submit()" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                     <option value="">Alle Bootsschulen</option>
                     @foreach ($tenants as $tenant)
                         <option value="{{ $tenant->id }}" @selected(($filters['tenant_id'] ?? null) === $tenant->id)>{{ $tenant->name }}</option>
                     @endforeach
                 </select>
-                <select name="status" @change="$el.form.submit()" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                <label for="coupon_status_sa" class="sr-only">Status filtern</label>
+                <select id="coupon_status_sa" name="status" @change="$el.form.submit()" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                     <option value="">Alle Status</option>
                     <option value="open" @selected(($filters['status'] ?? null) === 'open')>offen</option>
                     <option value="redeemed" @selected(($filters['status'] ?? null) === 'redeemed')>eingelöst</option>

@@ -62,7 +62,8 @@
             @if ($availableModules->isNotEmpty())
                 <form method="POST" action="{{ route('superadmin.courses.modules.attach', $course) }}" class="flex gap-2">
                     @csrf
-                    <select name="module_id" required class="flex-1 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                    <label for="attach_module_id" class="sr-only">Modul zuordnen</label>
+                    <select id="attach_module_id" name="module_id" required class="flex-1 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                         @foreach ($availableModules as $module)
                             <option value="{{ $module->id }}">{{ $module->name }}</option>
                         @endforeach

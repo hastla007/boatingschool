@@ -37,7 +37,8 @@
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
             <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3">Frage aus der Fragenbasis hinzufügen</h3>
             <form method="GET" action="{{ route('superadmin.video-lessons.show', $lesson) }}" class="flex gap-2 mb-4">
-                <input type="text" name="q" value="{{ $query }}" placeholder="Fragetext durchsuchen &hellip;"
+                <label for="video_lesson_question_search" class="sr-only">Fragetext durchsuchen</label>
+                <input type="text" id="video_lesson_question_search" name="q" value="{{ $query }}" placeholder="Fragetext durchsuchen &hellip;"
                        class="flex-1 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                 <button type="submit" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-sm shrink-0">Suchen</button>
             </form>
