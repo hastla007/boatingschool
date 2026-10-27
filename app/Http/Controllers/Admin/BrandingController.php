@@ -41,6 +41,18 @@ class BrandingController extends Controller
             // Laravel 11 sonst durch, daher zusätzlich "mimes" auf eine
             // feste Positivliste einschränken.
             'logo' => ['nullable', 'image', 'mimes:png,jpg,jpeg,webp', 'max:1024'],
+            // Bug-Review Oberfläche U4: favicon_asset_id existierte in der
+            // Tabelle bereits (siehe TenantBranding), hatte aber weder ein
+            // Formularfeld noch eine Upload-Verarbeitung -- dasselbe
+            // SVG-Verbot wie beim Logo (Sicherheitsreview H4) gilt auch hier.
+            'favicon' => ['nullable', 'image', 'mimes:png,jpg,jpeg,webp', 'max:512'],
+            // Bug-Review Oberfläche U4: primary_color/secondary_color
+            // existierten in der Tabelle bereits, wurden aber nie validiert
+            // oder gespeichert -- das Formularfeld "Farben" hatte dadurch
+            // keine Wirkung. HTML <input type="color"> liefert immer genau
+            // dieses #rrggbb-Format.
+            'primary_color' => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
+            'secondary_color' => ['nullable', 'regex:/^#[0-9a-fA-F]{6}$/'],
             'exam_readiness_threshold_percent' => ['required', 'integer', 'min:0', 'max:100'],
             // Nullable statt required wie beim Prüfungs-Pendant: dieses
             // Feld kam nach exam_readiness_threshold_percent dazu, ältere
@@ -64,54 +76,41 @@ class BrandingController extends Controller
         $validated['label_size_a6'] = $request->boolean('label_size_a6');
 
         $before = $tenant->branding->toArray();
-        unset($validated['logo']);
+        unset($validated['logo'], $validated['favicon']);
 
         $supportEmailChanged = $tenant->branding->support_email !== ($validated['support_email'] ?? null);
         if ($supportEmailChanged) {
             $validated['support_email_verified_at'] = null;
         }
 
-        // DSGVO-Review D2: das bisherige Logo (Datei + media_asset-Zeile)
-        // wurde beim Ersetzen nie entfernt und sammelte sich unbegrenzt an.
+        // DSGVO-Review D2: das bisherige Logo/Favicon (Datei +
+        // media_asset-Zeile) wurde beim Ersetzen nie entfernt und sammelte
+        // sich unbegrenzt an.
         $oldLogoAssetId = $tenant->branding->logo_asset_id;
+        $oldFaviconAssetId = $tenant->branding->favicon_asset_id;
 
         if ($request->hasFile('logo')) {
-            $file = $request->file('logo');
+            $asset = $this->storeUploadedImage($request->file('logo'), 'branding-logos', $tenant->id, 'branding-logo-'.$tenant->id);
 
-            // Statt die hochgeladene Datei unverändert abzulegen, wird sie
-            // über GD neu kodiert (Sicherheitsreview H4): GD liest nur die
-            // tatsächlichen Bilddaten ein und erzeugt daraus ein komplett
-            // neues PNG -- ein als Bild getarntes Polyglot (z. B. mit
-            // eingebettetem HTML/JS) übersteht das nicht, auch wenn es die
-            // Mime-Validierung oben passiert hätte.
-            $image = @imagecreatefromstring(file_get_contents($file->getRealPath()));
-
-            if ($image === false) {
+            if (! $asset) {
                 return back()->withErrors(['logo' => 'Diese Bilddatei konnte nicht gelesen werden.'])->withInput();
             }
 
-            imagepalettetotruecolor($image);
-            imagealphablending($image, true);
-            imagesavealpha($image, true);
-
-            ob_start();
-            imagepng($image);
-            $pngData = ob_get_clean();
-            imagedestroy($image);
-
-            $path = 'branding-logos/'.$tenant->id.'-'.Str::random(8).'.png';
-            Storage::disk('public')->put($path, $pngData);
-
-            $asset = MediaAsset::create([
-                'asset_key' => 'branding-logo-'.$tenant->id.'-'.Str::random(8),
-                'media_type' => 'image',
-                'storage_path' => $path,
-                'mime_type' => 'image/png',
-                'rights_status' => 'licensed',
-                'status' => 'published',
-            ]);
-
             $validated['logo_asset_id'] = $asset->id;
+        }
+
+        // Bug-Review Oberfläche U4: favicon_asset_id existierte bereits in
+        // der Tabelle, hatte aber weder ein Formularfeld noch eine
+        // Upload-Verarbeitung -- das Favicon blieb dadurch für jede
+        // Bootsschule leer.
+        if ($request->hasFile('favicon')) {
+            $asset = $this->storeUploadedImage($request->file('favicon'), 'branding-favicons', $tenant->id, 'branding-favicon-'.$tenant->id);
+
+            if (! $asset) {
+                return back()->withErrors(['favicon' => 'Diese Bilddatei konnte nicht gelesen werden.'])->withInput();
+            }
+
+            $validated['favicon_asset_id'] = $asset->id;
         }
 
         $emailChangedToVerify = $supportEmailChanged && ! empty($validated['support_email']);
@@ -120,6 +119,10 @@ class BrandingController extends Controller
 
         if ($request->hasFile('logo') && $oldLogoAssetId && $oldLogoAssetId !== $validated['logo_asset_id']) {
             $this->deleteMediaAsset($oldLogoAssetId);
+        }
+
+        if ($request->hasFile('favicon') && $oldFaviconAssetId && $oldFaviconAssetId !== $validated['favicon_asset_id']) {
+            $this->deleteMediaAsset($oldFaviconAssetId);
         }
 
         // Bug-Review F9: siehe SupportEmailVerificationController::
@@ -137,6 +140,45 @@ class BrandingController extends Controller
             : 'Branding aktualisiert, die Bestätigungs-Mail für die Support-Adresse konnte aber nicht versendet werden -- bitte über "Bestätigungslink erneut senden" noch einmal versuchen.';
 
         return back()->with('status', $status);
+    }
+
+    /**
+     * Statt eine hochgeladene Datei unverändert abzulegen, wird sie über GD
+     * neu kodiert (Sicherheitsreview H4): GD liest nur die tatsächlichen
+     * Bilddaten ein und erzeugt daraus ein komplett neues PNG -- ein als
+     * Bild getarntes Polyglot (z. B. mit eingebettetem HTML/JS) übersteht
+     * das nicht, auch wenn es die Mime-Validierung oben passiert hätte.
+     * Gemeinsam genutzt von Logo- und Favicon-Upload (Bug-Review
+     * Oberfläche U4).
+     */
+    private function storeUploadedImage($file, string $directory, string $tenantId, string $assetKeyPrefix): ?MediaAsset
+    {
+        $image = @imagecreatefromstring(file_get_contents($file->getRealPath()));
+
+        if ($image === false) {
+            return null;
+        }
+
+        imagepalettetotruecolor($image);
+        imagealphablending($image, true);
+        imagesavealpha($image, true);
+
+        ob_start();
+        imagepng($image);
+        $pngData = ob_get_clean();
+        imagedestroy($image);
+
+        $path = $directory.'/'.$tenantId.'-'.Str::random(8).'.png';
+        Storage::disk('public')->put($path, $pngData);
+
+        return MediaAsset::create([
+            'asset_key' => $assetKeyPrefix.'-'.Str::random(8),
+            'media_type' => 'image',
+            'storage_path' => $path,
+            'mime_type' => 'image/png',
+            'rights_status' => 'licensed',
+            'status' => 'published',
+        ]);
     }
 
     private function deleteMediaAsset(string $assetId): void

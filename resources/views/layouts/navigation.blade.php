@@ -11,7 +11,13 @@
         <div class="flex justify-between h-16">
             <div class="flex items-center">
                 <a href="{{ route('dashboard') }}" class="flex items-center gap-2 shrink-0">
-                    <x-icon name="anchor" class="w-5 h-5" style="color: var(--brand-primary, #005FD7)" />
+                    {{-- Bug-Review Oberfläche U4: das Logo erschien bisher
+                         nur auf der Kursseite, nicht in der Navigation. --}}
+                    @if (isset($branding) && $branding->logo_asset_id && $branding->logoAsset)
+                        <img src="{{ $branding->logoAsset->storage_path }}" alt="{{ $currentTenant->name ?? config('app.name') }} Logo" class="w-7 h-7 object-contain rounded shrink-0">
+                    @else
+                        <x-icon name="anchor" class="w-5 h-5" style="color: var(--brand-primary, #005FD7)" />
+                    @endif
                     <span class="font-bold text-slate-800 dark:text-white">{{ $currentTenant->name ?? config('app.name') }}</span>
                 </a>
 

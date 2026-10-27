@@ -29,6 +29,51 @@
             <x-input-error :messages="$errors->get('logo')" class="mt-2" />
         </div>
 
+        {{-- Bug-Review Oberfläche U4: favicon_asset_id existierte bereits in
+             der Tabelle, hatte aber weder ein Formularfeld noch eine
+             Upload-Verarbeitung. --}}
+        <div>
+            <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-2">Favicon</label>
+            <div class="flex items-center gap-4">
+                <div class="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center overflow-hidden shrink-0">
+                    @if ($branding->favicon_asset_id && $branding->faviconAsset)
+                        <img src="{{ $branding->faviconAsset->storage_path }}" alt="Favicon" class="w-full h-full object-contain">
+                    @else
+                        <x-icon name="anchor" class="w-5 h-5 text-slate-300" />
+                    @endif
+                </div>
+                <label class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-sm text-slate-600 dark:text-slate-300 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition">
+                    <x-icon name="upload" class="w-4 h-4" />
+                    <span>Favicon hochladen</span>
+                    <input type="file" name="favicon" accept="image/*" class="hidden" @change="document.getElementById('favicon-filename').textContent = $el.files[0]?.name ?? ''">
+                </label>
+                <span id="favicon-filename" class="text-xs text-slate-400"></span>
+            </div>
+            <x-input-error :messages="$errors->get('favicon')" class="mt-2" />
+        </div>
+
+        {{-- Bug-Review Oberfläche U4: primary_color/secondary_color
+             existierten in der Tabelle bereits, aber ohne Formularfeld hatte
+             "Farben" (siehe admin/tabs/dashboard.blade.php) keine Wirkung. --}}
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Hauptfarbe</label>
+                <div class="flex items-center gap-2">
+                    <input type="color" name="primary_color" value="{{ old('primary_color', $branding->primaryColorOrDefault()) }}" class="w-10 h-10 rounded-lg border border-slate-300 dark:border-slate-600 cursor-pointer">
+                    <span class="text-xs text-slate-400">Navigation, Buttons, Akzente</span>
+                </div>
+                <x-input-error :messages="$errors->get('primary_color')" class="mt-2" />
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Nebenfarbe</label>
+                <div class="flex items-center gap-2">
+                    <input type="color" name="secondary_color" value="{{ old('secondary_color', $branding->secondaryColorOrDefault()) }}" class="w-10 h-10 rounded-lg border border-slate-300 dark:border-slate-600 cursor-pointer">
+                    <span class="text-xs text-slate-400">Fortschrittsbalken, Kacheln</span>
+                </div>
+                <x-input-error :messages="$errors->get('secondary_color')" class="mt-2" />
+            </div>
+        </div>
+
         <div>
             <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Name</label>
             <input type="text" value="{{ $tenant->name }}" disabled class="w-full rounded-lg border-slate-200 bg-slate-50 dark:bg-slate-700 text-sm text-slate-400">

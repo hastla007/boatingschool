@@ -7,8 +7,34 @@
 
         <title>{{ isset($currentTenant) ? $currentTenant->name.' – Lernplattform' : \App\Models\PlatformSetting::siteName() }}</title>
 
+        {{-- Bug-Review Oberfläche U4: ohne ein eigenes <link rel="icon">
+             fiel der Browser auf /favicon.ico zurück -- die Datei existierte,
+             war aber 0 Byte groß, das Tab-Icon blieb dadurch für jede
+             Bootsschule leer. Das von der Bootsschule hochgeladene Favicon
+             hat Vorrang, sonst greift das Plattform-Standard-SVG. --}}
+        @if ((isset($branding) && $branding?->favicon_asset_id && $branding->faviconAsset))
+            <link rel="icon" href="{{ $branding->faviconAsset->storage_path }}">
+        @else
+            <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
+        @endif
+
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700|caveat:600&display=swap" rel="stylesheet" />
+
+        {{-- Bug-Review Oberfläche U4: primary_color/secondary_color wurden
+             bisher nirgends als CSS-Variable definiert -- jedes
+             var(--brand-primary, #005FD7) im Markup griff dadurch immer nur
+             auf den hartkodierten Fallback zurück. Mit der Definition hier
+             greifen alle bestehenden var(...)-Stellen automatisch, ohne dass
+             jede einzelne Stelle geändert werden muss. --}}
+        @if (isset($branding))
+            <style>
+                :root {
+                    --brand-primary: {{ $branding->primaryColorOrDefault() }};
+                    --brand-secondary: {{ $branding->secondaryColorOrDefault() }};
+                }
+            </style>
+        @endif
 
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>

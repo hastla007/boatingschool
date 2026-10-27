@@ -7,8 +7,27 @@
 
         <title>{{ isset($currentTenant) ? $currentTenant->name : \App\Models\PlatformSetting::siteName() }}</title>
 
+        {{-- Bug-Review Oberfläche U4: siehe layouts/app.blade.php -- ohne
+             eigenes <link rel="icon"> fiel der Browser auf die leere
+             /favicon.ico zurück. --}}
+        @if ((isset($branding) && $branding?->favicon_asset_id && $branding->faviconAsset))
+            <link rel="icon" href="{{ $branding->faviconAsset->storage_path }}">
+        @else
+            <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
+        @endif
+
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700&display=swap" rel="stylesheet" />
+
+        {{-- Bug-Review Oberfläche U4: siehe layouts/app.blade.php --}}
+        @if (isset($branding))
+            <style>
+                :root {
+                    --brand-primary: {{ $branding->primaryColorOrDefault() }};
+                    --brand-secondary: {{ $branding->secondaryColorOrDefault() }};
+                }
+            </style>
+        @endif
 
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
@@ -23,7 +42,16 @@
                     <path d="M0,192L80,181.3C160,171,320,149,480,154.7C640,160,800,192,960,197.3C1120,203,1280,181,1360,170.7L1440,160L1440,320L0,320Z"></path>
                 </svg>
                 <div class="relative text-center px-12">
-                    <x-icon name="anchor" class="w-16 h-16 mx-auto text-white/90 mb-6" />
+                    {{-- Bug-Review Oberfläche U4: das Logo erschien bisher
+                         nur auf der Kursseite -- auf der Login-Seite stand
+                         immer nur das generische Anker-Icon, selbst wenn die
+                         Bootsschule bereits ein eigenes Logo hochgeladen
+                         hatte. --}}
+                    @if (isset($branding) && $branding->logo_asset_id && $branding->logoAsset)
+                        <img src="{{ $branding->logoAsset->storage_path }}" alt="{{ $currentTenant->name }} Logo" class="max-w-[8rem] max-h-[8rem] w-auto h-auto object-contain mx-auto mb-6">
+                    @else
+                        <x-icon name="anchor" class="w-16 h-16 mx-auto text-white/90 mb-6" />
+                    @endif
                     <h1 class="text-3xl font-bold text-white mb-3">{{ $currentTenant->name ?? config('app.name') }}</h1>
                     <p class="text-white/80 max-w-sm mx-auto">Dein Weg zum Bootsführerschein &mdash; SBF See, SBF Binnen, SRC und UBI in einer Lernplattform.</p>
                 </div>
@@ -33,7 +61,11 @@
                 <div class="flex-1 flex flex-col items-center justify-center">
                     <div class="w-full max-w-sm">
                         <div class="text-center mb-8 lg:hidden">
-                            <x-icon name="anchor" class="w-10 h-10 mx-auto mb-2" style="color: var(--brand-primary, #005FD7)" />
+                            @if (isset($branding) && $branding->logo_asset_id && $branding->logoAsset)
+                                <img src="{{ $branding->logoAsset->storage_path }}" alt="{{ $currentTenant->name }} Logo" class="max-w-[4rem] max-h-[4rem] w-auto h-auto object-contain mx-auto mb-2">
+                            @else
+                                <x-icon name="anchor" class="w-10 h-10 mx-auto mb-2" style="color: var(--brand-primary, #005FD7)" />
+                            @endif
                             <div class="text-xl font-bold" style="color: var(--brand-primary, #005FD7)">{{ $currentTenant->name ?? config('app.name') }}</div>
                             <div class="text-sm text-slate-400">Dein Weg zum Bootsführerschein</div>
                         </div>
