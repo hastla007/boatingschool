@@ -9,7 +9,14 @@
         </div>
     </x-slot>
 
-    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden">
+    {{-- Bug-Review (Lösch-Rückfragen von CSP blockiert): onclick="return
+         confirm(...)" ist ein Inline-Event-Handler und wird von der CSP
+         (Bug-Review M9: script-src ohne 'unsafe-inline') blockiert -- die
+         Bestätigung erschien nie, die Fassung wurde beim Klick sofort und
+         ohne Rückfrage veröffentlicht. Alpines @click-Direktive greift nur
+         innerhalb eines x-data-Teilbaums (Bug-Review R4-2), das hier bisher
+         komplett fehlte. --}}
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden" x-data="{}">
         <div class="overflow-x-auto">
         <table class="w-full text-sm">
             <thead class="bg-slate-50 dark:bg-slate-700 text-slate-500 dark:text-slate-300 text-left">
@@ -43,7 +50,7 @@
                             @if ($pendingReview)
                                 <form method="POST" action="{{ route('superadmin.questions.revisions.publish', $pendingReview) }}" class="inline">
                                     @csrf
-                                    <button type="submit" class="text-xs hover:underline me-2" style="color: #005FD7" onclick="return confirm('Die Review-Fassung dieser Frage jetzt veröffentlichen?');">Veröffentlichen</button>
+                                    <button type="submit" class="text-xs hover:underline me-2" style="color: #005FD7" @click="if (! confirm('Die Review-Fassung dieser Frage jetzt veröffentlichen?')) $event.preventDefault()">Veröffentlichen</button>
                                 </form>
                             @endif
                             <form method="POST" action="{{ route('superadmin.questions.toggle-active', $question) }}" class="inline">

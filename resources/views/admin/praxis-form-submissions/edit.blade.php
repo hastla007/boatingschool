@@ -5,7 +5,14 @@
 
     <a href="{{ route('admin.praxis-form-submissions.show', $submission) }}" class="text-sm text-slate-500 hover:underline inline-block mb-4">&larr; Zurück zur Anmeldung</a>
 
-    <div class="max-w-2xl bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-8">
+    {{-- Bug-Review (Lösch-Rückfragen von CSP blockiert): onsubmit="return
+         confirm(...)" ist ein klassischer Inline-Event-Handler und wird von
+         der CSP (Bug-Review M9: script-src ohne 'unsafe-inline') blockiert
+         wie jedes andere onclick=/onchange= -- die Bestätigung erschien nie,
+         das Formular wurde beim Klick sofort und ohne Rückfrage abgeschickt.
+         Alpines @submit-Direktive greift nur innerhalb eines x-data-
+         Teilbaums (Bug-Review R4-2), das hier bisher komplett fehlte. --}}
+    <div class="max-w-2xl bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-8" x-data="{}">
         <h3 class="font-semibold text-lg text-slate-800 dark:text-white mb-1">{{ $submission->template->title }}</h3>
         <p class="text-sm text-slate-500 dark:text-slate-400 mb-6">
             {{ $submission->user->display_name ?? $submission->user->email }} &mdash; {{ $submission->course->name ?? '—' }}
@@ -93,7 +100,7 @@
         </form>
 
         <form method="POST" action="{{ route('admin.praxis-form-submissions.destroy', $submission) }}"
-              onsubmit="return confirm('Diese Anmeldung wirklich unwiderruflich löschen? Alle dazu vorgeschlagenen Termine gehen dabei ebenfalls verloren.');"
+              @submit="if (! confirm('Diese Anmeldung wirklich unwiderruflich löschen? Alle dazu vorgeschlagenen Termine gehen dabei ebenfalls verloren.')) $event.preventDefault()"
               class="mt-6 pt-6 border-t border-slate-100 dark:border-slate-700">
             @csrf
             @method('DELETE')

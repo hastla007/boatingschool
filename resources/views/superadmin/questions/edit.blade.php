@@ -14,12 +14,19 @@
                  weiterhin die aktuell veröffentlichte Fassung bearbeitet,
                  damit der Entwurf hier sichtbar bleibt und gezielt
                  veröffentlicht werden kann. --}}
-            <div class="bg-sky-50 dark:bg-sky-900/20 border border-sky-100 dark:border-sky-900/40 rounded-xl px-4 py-3 text-sm text-sky-900 dark:text-sky-200 space-y-2">
+            {{-- Bug-Review (Lösch-Rückfragen von CSP blockiert): onclick="return
+                 confirm(...)" ist ein Inline-Event-Handler und wird von der CSP
+                 (Bug-Review M9: script-src ohne 'unsafe-inline') blockiert --
+                 die Bestätigung erschien nie, die Fassung wurde beim Klick
+                 sofort und ohne Rückfrage veröffentlicht. Alpines @click-
+                 Direktive greift nur innerhalb eines x-data-Teilbaums
+                 (Bug-Review R4-2), das hier bisher komplett fehlte. --}}
+            <div class="bg-sky-50 dark:bg-sky-900/20 border border-sky-100 dark:border-sky-900/40 rounded-xl px-4 py-3 text-sm text-sky-900 dark:text-sky-200 space-y-2" x-data="{}">
                 <p class="font-medium">Es liegt eine noch nicht veröffentlichte Fassung (Revision {{ $pendingReview->revision_no }}) vor, z. B. aus einem erneuten Content-Import:</p>
                 <p class="italic">{{ $pendingReview->question_text }}</p>
                 <form method="POST" action="{{ route('superadmin.questions.revisions.publish', $pendingReview) }}">
                     @csrf
-                    <button type="submit" class="px-3 py-1.5 rounded-lg text-white text-xs font-medium hover:opacity-90 transition" style="background-color: #005FD7" onclick="return confirm('Diese Fassung jetzt veröffentlichen?');">
+                    <button type="submit" class="px-3 py-1.5 rounded-lg text-white text-xs font-medium hover:opacity-90 transition" style="background-color: #005FD7" @click="if (! confirm('Diese Fassung jetzt veröffentlichen?')) $event.preventDefault()">
                         Diese Fassung veröffentlichen
                     </button>
                 </form>
