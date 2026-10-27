@@ -37,9 +37,17 @@ return Application::configure(basePath: dirname(__DIR__))
         // "*": sonst ließe sich X-Forwarded-For von jedem beliebigen
         // Client fälschen, was sowohl diesen M4-Check als auch die
         // IP-basierten throttle-Limits (routes/auth.php) aushebeln würde.
+        //
+        // Bug-Review (Hoch, eigener Fund): config('app.trusted_proxies')
+        // statt eines direkten env()-Aufrufs für TRUSTED_PROXIES -- env()
+        // außerhalb einer config/*.php-Datei liefert nach `php artisan
+        // config:cache`
+        // (Teil des produktiv üblichen `optimize`) immer nur den Default,
+        // weil Laravel die .env dann gar nicht mehr lädt. Siehe
+        // config/app.php für die ausführliche Begründung.
         $trustedProxies = array_values(array_filter(array_map(
             'trim',
-            explode(',', (string) env('TRUSTED_PROXIES', ''))
+            explode(',', (string) config('app.trusted_proxies', ''))
         )));
 
         $middleware->trustProxies(at: $trustedProxies !== [] ? $trustedProxies : null);
