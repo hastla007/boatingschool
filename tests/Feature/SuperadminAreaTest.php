@@ -333,6 +333,7 @@ class SuperadminAreaTest extends TestCase
         $this->assertDatabaseHas('course_module', ['course_id' => $course->id, 'module_id' => $module->id]);
 
         $questionResponse = $this->actingAs($superadmin)->post("/superadmin/modules/{$module->id}/questions", [
+            'question_type' => 'single_choice',
             'question_text' => 'E2E: Was bedeutet Steuerbord?',
             'topic' => 'Navigation',
             'answers' => [
@@ -360,6 +361,7 @@ class SuperadminAreaTest extends TestCase
         $module = $this->existingModule('SRC');
 
         $this->actingAs($superadmin)->post("/superadmin/modules/{$module->id}/questions", [
+            'question_type' => 'single_choice',
             'question_text' => 'E2E: Revisionstest Frage',
             'answers' => ['A' => 'Antwort A', 'B' => 'Antwort B', 'C' => 'Antwort C', 'D' => 'Antwort D'],
             'correct' => 'A',
@@ -370,6 +372,7 @@ class SuperadminAreaTest extends TestCase
         $question = ContentQuestion::find($firstRevision->question_id);
 
         $updateResponse = $this->actingAs($superadmin)->patch("/superadmin/questions/{$question->id}", [
+            'question_type' => 'single_choice',
             'question_text' => 'E2E: Revisionstest Frage (bearbeitet)',
             'answers' => ['A' => 'Antwort A neu', 'B' => 'Antwort B', 'C' => 'Antwort C', 'D' => 'Antwort D'],
             'correct' => 'B',

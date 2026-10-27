@@ -9,6 +9,7 @@ use App\Models\ContentQuestionRevision;
 use App\Models\Module;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -18,6 +19,17 @@ use Symfony\Component\HttpFoundation\Response;
  * neue, unveränderliche Revision statt die bestehende zu überschreiben; die
  * bisherige veröffentlichte Revision wird dabei auf "deprecated" gesetzt,
  * damit publishedRevision() genau eine aktuelle Fassung liefert.
+ *
+ * Bug-Review (Hoch): store()/update() setzten question_type bisher immer
+ * hart auf 'single_choice' und validateQuestion() verlangte zwingend genau
+ * die Antworten A-D plus ein "correct" -- unabhängig vom TATSÄCHLICHEN Typ
+ * der bearbeiteten Frage. Jede Bearbeitung einer multi_choice- oder
+ * open_text-Frage (siehe FknSknContentSeeder, 151 FKN/SKN-Fragen) erzeugte
+ * dadurch eine neue Revision, die deren echte Antwortstruktur (mehrere
+ * richtige Antworten bzw. eine Musterantwort ohne Auswahlmöglichkeiten)
+ * durch genau 4 Single-Choice-Antworten ersetzte. question_type kommt jetzt
+ * aus dem Formular (bei einer bestehenden Frage unveränderlich, siehe View)
+ * und steuert typabhängig sowohl Validierung als auch Antwort-Speicherung.
  */
 class QuestionController extends Controller
 {
@@ -35,7 +47,7 @@ class QuestionController extends Controller
 
     public function store(Request $request, Module $module): Response
     {
-        $validated = $this->validateQuestion($request);
+        $validated = $this->validateQuestion($request, null);
 
         DB::transaction(function () use ($validated, $module) {
             $question = ContentQuestion::create([
@@ -49,7 +61,7 @@ class QuestionController extends Controller
             $revision = ContentQuestionRevision::create([
                 'question_id' => $question->id,
                 'revision_no' => 1,
-                'question_type' => 'single_choice',
+                'question_type' => $validated['question_type'],
                 'question_text' => $validated['question_text'],
                 'feedback_correct' => $validated['feedback_correct'] ?? null,
                 'feedback_incorrect' => $validated['feedback_incorrect'] ?? null,
@@ -78,17 +90,16 @@ class QuestionController extends Controller
 
     public function update(Request $request, ContentQuestion $question): Response
     {
-        $validated = $this->validateQuestion($request);
+        $latest = $question->revisions()->orderByDesc('revision_no')->first();
+        $validated = $this->validateQuestion($request, $latest?->question_type);
 
-        DB::transaction(function () use ($validated, $question) {
-            $latest = $question->revisions()->orderByDesc('revision_no')->first();
-
+        DB::transaction(function () use ($validated, $question, $latest) {
             $question->revisions()->where('editorial_status', 'published')->update(['editorial_status' => 'deprecated']);
 
             $revision = ContentQuestionRevision::create([
                 'question_id' => $question->id,
                 'revision_no' => $latest ? $latest->revision_no + 1 : 1,
-                'question_type' => 'single_choice',
+                'question_type' => $validated['question_type'],
                 'question_text' => $validated['question_text'],
                 'feedback_correct' => $validated['feedback_correct'] ?? null,
                 'feedback_incorrect' => $validated['feedback_incorrect'] ?? null,
@@ -123,10 +134,26 @@ class QuestionController extends Controller
         return back()->with('status', $question->active ? 'Frage aktiviert.' : 'Frage deaktiviert.');
     }
 
-    /** @return array<string, mixed> */
-    private function validateQuestion(Request $request): array
+    /**
+     * $existingType ist der Fragetyp der bisherigen Revision (null beim
+     * Anlegen) -- der eingereichte question_type muss bei einer
+     * BESTEHENDEN Frage exakt diesem entsprechen, da die View ihn nur als
+     * verstecktes Feld mitsendet und ein nachträglicher Typwechsel die
+     * Antwortstruktur der Frage grundlegend ändern würde (siehe
+     * Klassen-Docblock).
+     *
+     * @return array<string, mixed>
+     */
+    private function validateQuestion(Request $request, ?string $existingType): array
     {
-        return $request->validate([
+        $typeRules = ['required', 'in:single_choice,multi_choice,open_text'];
+
+        if ($existingType) {
+            $typeRules[] = "in:{$existingType}";
+        }
+
+        $base = $request->validate([
+            'question_type' => $typeRules,
             'question_text' => ['required', 'string'],
             'feedback_correct' => ['nullable', 'string'],
             'feedback_incorrect' => ['nullable', 'string'],
@@ -134,6 +161,19 @@ class QuestionController extends Controller
             'subtopic' => ['nullable', 'string', 'max:255'],
             'smartmodus_kategorie' => ['nullable', 'string', 'max:255'],
             'official_number' => ['nullable', 'string', 'max:60'],
+        ]);
+
+        return $base + match ($base['question_type']) {
+            'single_choice' => $this->validateSingleChoice($request),
+            'multi_choice' => $this->validateMultiChoice($request),
+            'open_text' => $request->validate(['model_answer' => ['required', 'string']]),
+        };
+    }
+
+    /** @return array<string, mixed> */
+    private function validateSingleChoice(Request $request): array
+    {
+        return $request->validate([
             'answers' => ['required', 'array'],
             'answers.A' => ['required', 'string'],
             'answers.B' => ['required', 'string'],
@@ -143,7 +183,47 @@ class QuestionController extends Controller
         ]);
     }
 
+    /** @return array<string, mixed> */
+    private function validateMultiChoice(Request $request): array
+    {
+        $validated = $request->validate([
+            'multi_answers' => ['required', 'array'],
+            'multi_answers.*.text' => ['nullable', 'string'],
+            'multi_correct' => ['nullable', 'array'],
+            'multi_correct.*' => ['string'],
+        ]);
+
+        $nonEmpty = collect($validated['multi_answers'])->filter(fn ($a) => trim((string) ($a['text'] ?? '')) !== '');
+
+        if ($nonEmpty->count() < 2) {
+            throw ValidationException::withMessages(['multi_answers' => 'Mindestens zwei Antwortoptionen sind erforderlich.']);
+        }
+
+        $correctKeys = array_map('strval', $validated['multi_correct'] ?? []);
+
+        if ($nonEmpty->keys()->map('strval')->intersect($correctKeys)->isEmpty()) {
+            throw ValidationException::withMessages(['multi_correct' => 'Mindestens eine Antwort muss als richtig markiert sein.']);
+        }
+
+        return $validated;
+    }
+
     private function storeAnswers(ContentQuestionRevision $revision, array $validated): void
+    {
+        match ($validated['question_type']) {
+            'single_choice' => $this->storeSingleChoiceAnswers($revision, $validated),
+            'multi_choice' => $this->storeMultiChoiceAnswers($revision, $validated),
+            'open_text' => ContentAnswer::create([
+                'revision_id' => $revision->id,
+                'answer_key' => 'MODEL',
+                'answer_text' => $validated['model_answer'],
+                'is_correct' => true,
+                'sort_order' => 1,
+            ]),
+        };
+    }
+
+    private function storeSingleChoiceAnswers(ContentQuestionRevision $revision, array $validated): void
     {
         foreach (['A', 'B', 'C', 'D'] as $index => $key) {
             ContentAnswer::create([
@@ -153,6 +233,30 @@ class QuestionController extends Controller
                 'is_correct' => $key === $validated['correct'],
                 'sort_order' => $index + 1,
             ]);
+        }
+    }
+
+    private function storeMultiChoiceAnswers(ContentQuestionRevision $revision, array $validated): void
+    {
+        $correctKeys = array_map('strval', $validated['multi_correct'] ?? []);
+        $position = 0;
+
+        foreach ($validated['multi_answers'] as $index => $answer) {
+            $text = trim((string) ($answer['text'] ?? ''));
+
+            if ($text === '') {
+                continue;
+            }
+
+            ContentAnswer::create([
+                'revision_id' => $revision->id,
+                'answer_key' => chr(ord('A') + $position),
+                'answer_text' => $text,
+                'is_correct' => in_array((string) $index, $correctKeys, true),
+                'sort_order' => $position + 1,
+            ]);
+
+            $position++;
         }
     }
 }
