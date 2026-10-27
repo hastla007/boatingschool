@@ -12,6 +12,7 @@ use App\Services\EntitlementService;
 use App\Support\BestEffortMail;
 use App\Support\Countries;
 use App\Support\TenantContext;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\Rule;
@@ -83,10 +84,20 @@ class WillkommensboxController extends Controller
             'note' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        $order = WillkommensboxOrder::create($validated + [
-            'tenant_id' => $tenant->id,
-            'user_id' => $user->id,
-        ]);
+        // Bug-Review (Doppelklick-Race): der exists()-Check oben schließt
+        // eine echte Gleichzeitigkeit nicht aus (TOCTOU) -- ein Doppelklick
+        // konnte zwei Requests mit exists() === false auslösen, von denen
+        // der zweite hier gegen den UNIQUE-Constraint (tenant_id, user_id)
+        // lief und bisher als ungefangene QueryException mit HTTP 500 endete,
+        // analog zum bereits behandelten Fall in ProfileController (R3-6).
+        try {
+            $order = WillkommensboxOrder::create($validated + [
+                'tenant_id' => $tenant->id,
+                'user_id' => $user->id,
+            ]);
+        } catch (UniqueConstraintViolationException) {
+            return back()->with('status', 'Du hast deine Willkommensbox bereits bestellt.');
+        }
 
         // Bug-Review F5: im gesamten Ablauf von Praxis-Anmeldung, Terminen
         // und Willkommensbox wurde bisher keine Mail verschickt -- eine
