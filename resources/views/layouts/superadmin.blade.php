@@ -7,8 +7,10 @@
 
         <title>Superadmin &middot; {{ \App\Models\PlatformSetting::siteName() }}</title>
 
-        <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700&display=swap" rel="stylesheet" />
+        {{-- Bug-Review (Fonts von fonts.bunny.net ohne Einwilligung): siehe
+             layouts/app.blade.php -- Figtree wird jetzt selbst gehostet über
+             resources/css/app.css (@fontsource), kein Drittanbieter-Request
+             mehr. --}}
 
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>

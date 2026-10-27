@@ -38,6 +38,23 @@ class SecurityHeadersTest extends TestCase
     }
 
     /**
+     * Bug-Review (Fonts von fonts.bunny.net ohne Einwilligung): Figtree/
+     * Caveat kamen bisher per <link> direkt von fonts.bunny.net -- ein
+     * Drittanbieter-Request schon beim reinen Seitenaufruf, vor jeder
+     * Einwilligung. Die Schriften werden jetzt selbst gehostet (siehe
+     * resources/css/app.css, @fontsource) -- weder im Markup noch in der
+     * CSP darf fonts.bunny.net noch auftauchen.
+     */
+    public function test_no_page_loads_fonts_from_a_third_party(): void
+    {
+        $response = $this->get('/login');
+
+        $response->assertOk();
+        $response->assertDontSee('fonts.bunny.net', false);
+        $this->assertStringNotContainsString('fonts.bunny.net', $response->headers->get('Content-Security-Policy'));
+    }
+
+    /**
      * Bug-Review R4-1: SecurityHeaders stand bisher ohne eigenen
      * Prioritätseintrag nur per append() in der web-Gruppe -- Laravel
      * reiht nicht priorisierte Middleware hinter jede explizit

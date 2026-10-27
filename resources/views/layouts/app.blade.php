@@ -18,8 +18,11 @@
             <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
         @endif
 
-        <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700|caveat:600&display=swap" rel="stylesheet" />
+        {{-- Bug-Review (Fonts von fonts.bunny.net ohne Einwilligung): Figtree/
+             Caveat kamen bisher per <link> direkt von fonts.bunny.net -- ein
+             Drittanbieter-Request schon beim reinen Seitenaufruf, vor jeder
+             Einwilligung. Die Schriften werden jetzt selbst gehostet über
+             resources/css/app.css (@fontsource), siehe @vite unten. --}}
 
         {{-- Bug-Review Oberfläche U4: primary_color/secondary_color wurden
              bisher nirgends als CSS-Variable definiert -- jedes

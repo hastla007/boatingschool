@@ -62,8 +62,13 @@ class SecurityHeaders
         $csp = implode('; ', [
             "default-src 'self'",
             "script-src 'self' 'nonce-{$nonce}' 'unsafe-eval'",
-            "style-src 'self' 'unsafe-inline' https://fonts.bunny.net",
-            "font-src 'self' https://fonts.bunny.net",
+            // Bug-Review (Fonts von fonts.bunny.net ohne Einwilligung):
+            // Figtree/Caveat werden seit resources/css/app.css (@fontsource)
+            // selbst gehostet statt von fonts.bunny.net geladen -- die
+            // Freigabe dieses Drittanbieters in style-src/font-src wird
+            // dadurch nicht mehr benötigt.
+            "style-src 'self' 'unsafe-inline'",
+            "font-src 'self'",
             "img-src 'self' data: https://*.tile.openstreetmap.org".($appOrigin ? " {$appOrigin}" : ''),
             "connect-src 'self'",
             "media-src 'self' https:",
