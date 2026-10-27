@@ -4,8 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\CourseDefinition;
 use App\Models\PraxisExamAppointment;
+use App\Models\Tenant;
+use App\Notifications\PraxisExamAppointmentResponded;
 use App\Services\PraxisExamAppointmentService;
+use App\Support\BestEffortMail;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Notification;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -40,6 +44,18 @@ class PraxisExamAppointmentController extends Controller
             $appointments->respond($examAppointment, $validated['decision'], $validated['comment'] ?? null);
         } catch (RuntimeException $e) {
             return back()->withErrors(['decision' => $e->getMessage()]);
+        }
+
+        // Bug-Review F5: im gesamten Ablauf von Praxis-Anmeldung, Terminen
+        // und Willkommensbox wurde bisher keine Mail verschickt -- die
+        // Bootsschule bemerkte eine Rückmeldung bisher nur, wenn jemand
+        // aktiv im Admin-Bereich nachsah.
+        $admins = Tenant::find($examAppointment->tenant_id)?->admins() ?? collect();
+        if ($admins->isNotEmpty()) {
+            BestEffortMail::send(
+                fn () => Notification::send($admins, new PraxisExamAppointmentResponded($examAppointment)),
+                "Rückmeldung {$examAppointment->id}"
+            );
         }
 
         $status = $validated['decision'] === 'accepted'

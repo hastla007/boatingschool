@@ -6,11 +6,14 @@ use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
 use App\Models\WillkommensboxOrder;
+use App\Notifications\WillkommensboxOrderPlaced;
 use App\Services\CourseProgressService;
 use App\Services\EntitlementService;
+use App\Support\BestEffortMail;
 use App\Support\Countries;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\Response;
@@ -80,10 +83,22 @@ class WillkommensboxController extends Controller
             'note' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        WillkommensboxOrder::create($validated + [
+        $order = WillkommensboxOrder::create($validated + [
             'tenant_id' => $tenant->id,
             'user_id' => $user->id,
         ]);
+
+        // Bug-Review F5: im gesamten Ablauf von Praxis-Anmeldung, Terminen
+        // und Willkommensbox wurde bisher keine Mail verschickt -- eine
+        // Bootsschule bemerkte den Versandbedarf nur, wenn jemand aktiv in
+        // der Teilnehmerliste nachsah.
+        $admins = $tenant->admins();
+        if ($admins->isNotEmpty()) {
+            BestEffortMail::send(
+                fn () => Notification::send($admins, new WillkommensboxOrderPlaced($order)),
+                "Willkommensbox-Bestellung {$order->id} an Bootsschule {$tenant->id}"
+            );
+        }
 
         return redirect()->route('willkommensbox.index');
     }

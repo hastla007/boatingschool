@@ -13,6 +13,8 @@ use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
 use App\Models\WillkommensboxOrder;
+use App\Notifications\WillkommensboxOrderShipped;
+use Illuminate\Support\Facades\Notification;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -678,6 +680,38 @@ class ParticipantDetailTest extends TestCase
             $this->assertNotNull($fresh->shipped_at);
             $this->assertNull($fresh->tracking_number);
         });
+    }
+
+    /**
+     * Bug-Review F5: im gesamten Ablauf von Praxis-Anmeldung, Terminen und
+     * Willkommensbox wurde bisher keine Mail verschickt -- der Lerner
+     * bemerkte den Versand nur, wenn er von selbst wieder auf die
+     * Willkommensbox-Seite sah.
+     */
+    public function test_marking_a_willkommensbox_order_as_shipped_notifies_the_learner_by_mail(): void
+    {
+        Notification::fake();
+
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $this->grantWillkommensbox($tenant, $learner);
+        $order = $this->onAdmin(fn () => WillkommensboxOrder::create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $learner->id,
+            'street' => 'Lieferstraße 1',
+            'postal_code' => '12345',
+            'city' => 'Lieferstadt',
+            'country' => 'Deutschland',
+        ]));
+
+        $response = $this->actingAsInTenant($admin, $tenant)->patch("/admin/willkommensbox-orders/{$order->id}/ship", [
+            'tracking_number' => 'DHL1234567890',
+        ]);
+
+        $response->assertRedirect();
+
+        Notification::assertSentTo($learner, WillkommensboxOrderShipped::class);
     }
 
     public function test_admin_cannot_ship_a_willkommensbox_order_of_another_tenant(): void

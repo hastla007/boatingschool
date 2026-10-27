@@ -12,6 +12,8 @@ use App\Models\Progress;
 use App\Models\Pruefungsausschuss;
 use App\Models\TenantAddon;
 use App\Models\TenantCourseLocation;
+use App\Notifications\PraxisFormSubmissionReceived;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -299,6 +301,36 @@ class PraxisPruefungFormTest extends TestCase
         $follow->assertSee('Deine Anmeldung ist eingegangen.');
         $follow->assertSee('+49 170 1234567');
         $follow->assertSee('Männlich');
+    }
+
+    /**
+     * Bug-Review F5: im gesamten Ablauf von Praxis-Anmeldung, Terminen und
+     * Willkommensbox wurde bisher keine Mail verschickt -- eine Bootsschule
+     * bemerkte eine neue Praxis-Anmeldung nur, wenn jemand aktiv im
+     * Admin-Bereich nachsah.
+     */
+    public function test_submitting_the_form_notifies_the_schools_admins_by_mail(): void
+    {
+        Notification::fake();
+
+        $tenant = $this->createTestTenant();
+        $owner = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course] = $this->makeIsolatedCourseWithQuestions(2);
+        $this->grantEntitlement($tenant, $learner, $course);
+        $this->completeRegistrationProfile($learner, $tenant);
+        $this->masterAllQuestions($tenant, $learner, $course);
+        $this->createTemplate(['course_ids' => [$course->id], 'min_progress_percent' => 10]);
+
+        $response = $this->actingAsInTenant($learner, $tenant)->post(route('praxis-pruefung.store', $course), [
+            'telefonnummer' => '+49 170 1234567',
+            'geschlecht' => 'Männlich',
+            'tauglichkeit' => '1',
+        ]);
+
+        $response->assertRedirect(route('praxis-pruefung.index', $course));
+
+        Notification::assertSentTo($owner, PraxisFormSubmissionReceived::class);
     }
 
     /**

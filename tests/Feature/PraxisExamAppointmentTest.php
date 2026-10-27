@@ -8,7 +8,10 @@ use App\Models\PraxisFormSubmission;
 use App\Models\PraxisFormTemplate;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Notifications\PraxisExamAppointmentResponded;
+use App\Notifications\PraxisExamAppointmentUpdated;
 use App\Services\PraxisExamAppointmentService;
+use Illuminate\Support\Facades\Notification;
 use RuntimeException;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -699,5 +702,99 @@ class PraxisExamAppointmentTest extends TestCase
                 $this->assertNotNull($submission->fresh()->confirmed_exam_date);
             });
         }
+    }
+
+    /**
+     * Bug-Review F5: im gesamten Ablauf von Praxis-Anmeldung, Terminen und
+     * Willkommensbox wurde bisher keine Mail verschickt -- der Lerner
+     * bemerkte einen neuen Terminvorschlag bisher nur, wenn er von selbst
+     * wieder auf die Praxis-Seite seines Kurses sah.
+     */
+    public function test_proposing_an_exam_date_notifies_the_learner_by_mail(): void
+    {
+        Notification::fake();
+
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $submission = $this->createSubmission($tenant, $learner);
+
+        $this->actingAsInTenant($admin, $tenant)->post(
+            "/admin/praxis-form-submissions/{$submission->id}/exam-appointments",
+            ['exam_date' => '2027-05-10 09:00', 'slot' => 0]
+        );
+
+        Notification::assertSentTo(
+            $learner,
+            PraxisExamAppointmentUpdated::class,
+            fn ($notification) => $notification->toMail($learner)->subject === 'Terminvorschlag: Prüfungstermin'
+        );
+    }
+
+    /** Bug-Review F5: siehe oben -- gilt genauso für das Zurückziehen eines noch offenen Vorschlags. */
+    public function test_withdrawing_a_proposal_notifies_the_learner_by_mail(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $submission = $this->createSubmission($tenant, $learner);
+        $this->actingAsInTenant($admin, $tenant)->post(
+            "/admin/praxis-form-submissions/{$submission->id}/exam-appointments",
+            ['exam_date' => now()->addMonth()->format('Y-m-d H:i'), 'slot' => 0]
+        );
+        $appointment = $this->onAdmin(fn () => PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->first());
+
+        Notification::fake();
+
+        $this->actingAsInTenant($admin, $tenant)->patch(
+            route('admin.praxis-form-submissions.exam-appointments.withdraw', [$submission, $appointment])
+        );
+
+        Notification::assertSentTo($learner, PraxisExamAppointmentUpdated::class);
+    }
+
+    /** Bug-Review F5: siehe oben -- gilt genauso für die Absage eines bereits bestätigten Termins. */
+    public function test_cancelling_a_confirmed_exam_date_notifies_the_learner_by_mail(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $submission = $this->createSubmission($tenant, $learner);
+        $appointment = $this->confirmExamDate($tenant, $admin, $learner, $submission, now()->addMonth()->format('Y-m-d H:i'));
+
+        Notification::fake();
+
+        $this->actingAsInTenant($admin, $tenant)->patch(
+            route('admin.praxis-form-submissions.exam-appointments.cancel', [$submission, $appointment])
+        );
+
+        Notification::assertSentTo($learner, PraxisExamAppointmentUpdated::class);
+    }
+
+    /**
+     * Bug-Review F5: siehe oben -- die Bootsschule bemerkte eine
+     * Rückmeldung des Lerners bisher nur, wenn jemand aktiv im
+     * Admin-Bereich nachsah.
+     */
+    public function test_responding_to_a_proposal_notifies_the_schools_admins_by_mail(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $submission = $this->createSubmission($tenant, $learner);
+        $this->actingAsInTenant($admin, $tenant)->post(
+            "/admin/praxis-form-submissions/{$submission->id}/exam-appointments",
+            ['exam_date' => '2027-05-10 09:00', 'slot' => 0]
+        );
+        $appointment = $this->onAdmin(fn () => PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->first());
+
+        Notification::fake();
+
+        $this->actingAsInTenant($learner, $tenant)->post(
+            route('praxis-pruefung.exam-appointments.respond', [$submission->course_id, $appointment->id]),
+            ['decision' => 'accepted']
+        );
+
+        Notification::assertSentTo($admin, PraxisExamAppointmentResponded::class);
     }
 }

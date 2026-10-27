@@ -10,6 +10,8 @@ use App\Models\ProductPurchase;
 use App\Models\Progress;
 use App\Models\TenantUser;
 use App\Models\WillkommensboxOrder;
+use App\Notifications\WillkommensboxOrderPlaced;
+use Illuminate\Support\Facades\Notification;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -199,6 +201,33 @@ class WillkommensboxTest extends TestCase
         $confirmation->assertOk();
         $confirmation->assertSee('Lieferstraße 1');
         $confirmation->assertSee('bestellt');
+    }
+
+    /**
+     * Bug-Review F5: im gesamten Ablauf von Praxis-Anmeldung, Terminen und
+     * Willkommensbox wurde bisher keine Mail verschickt -- eine Bootsschule
+     * bemerkte den Versandbedarf nur, wenn jemand aktiv in der
+     * Teilnehmerliste nachsah.
+     */
+    public function test_ordering_the_willkommensbox_notifies_the_schools_admins_by_mail(): void
+    {
+        Notification::fake();
+
+        $tenant = $this->createTestTenant();
+        $owner = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $this->grantWillkommensbox($tenant, $learner);
+
+        $response = $this->actingAsInTenant($learner, $tenant)->post('/willkommensbox', [
+            'street' => 'Lieferstraße 1',
+            'postal_code' => '12345',
+            'city' => 'Lieferstadt',
+            'country' => 'Deutschland',
+        ]);
+
+        $response->assertRedirect(route('willkommensbox.index'));
+
+        Notification::assertSentTo($owner, WillkommensboxOrderPlaced::class);
     }
 
     public function test_willkommensbox_cannot_be_ordered_twice(): void

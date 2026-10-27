@@ -6,12 +6,15 @@ use App\Models\CourseDefinition;
 use App\Models\PraxisFormSubmission;
 use App\Models\PraxisFormTemplate;
 use App\Models\TenantCourseLocation;
+use App\Notifications\PraxisFormSubmissionReceived;
 use App\Services\CourseProgressService;
 use App\Services\EntitlementService;
+use App\Support\BestEffortMail;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -87,13 +90,26 @@ class PraxisFormSubmissionController extends Controller
                 return back()->with('status', 'Du hast dich für diesen Kurs bereits angemeldet.');
             }
 
-            PraxisFormSubmission::create([
+            $submission = PraxisFormSubmission::create([
                 'tenant_id' => $tenant->id,
                 'course_id' => $course->id,
                 'user_id' => $user->id,
                 'praxis_form_template_id' => $template->id,
                 'data' => $data,
             ]);
+
+            // Bug-Review F5: im gesamten Ablauf von Praxis-Anmeldung,
+            // Terminen und Willkommensbox wurde bisher keine Mail
+            // verschickt -- eine Bootsschule bemerkte eine neue
+            // Praxis-Anmeldung nur, wenn jemand aktiv im Admin-Bereich
+            // nachsah.
+            $admins = $tenant->admins();
+            if ($admins->isNotEmpty()) {
+                BestEffortMail::send(
+                    fn () => Notification::send($admins, new PraxisFormSubmissionReceived($submission)),
+                    "Praxis-Anmeldung {$submission->id} an Bootsschule {$tenant->id}"
+                );
+            }
 
             return redirect()->route('praxis-pruefung.index', $course);
         });
