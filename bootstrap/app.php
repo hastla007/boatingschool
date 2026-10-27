@@ -45,9 +45,22 @@ return Application::configure(basePath: dirname(__DIR__))
         // (Teil des produktiv üblichen `optimize`) immer nur den Default,
         // weil Laravel die .env dann gar nicht mehr lädt. Siehe
         // config/app.php für die ausführliche Begründung.
+        //
+        // Upgrade Laravel 11 -> 12: ApplicationBuilder::withMiddleware()
+        // ruft diesen Callback jetzt zusätzlich sofort bei der Auflösung
+        // des ConsoleKernel auf (siehe Illuminate\Foundation\Configuration\
+        // ApplicationBuilder::withMiddleware(), "afterResolving(ConsoleKernel::class, ...)"),
+        // und das passiert für Artisan-Befehle VOR LoadConfiguration -- die
+        // 'config'-Bindung existiert im Container zu diesem Zeitpunkt noch
+        // nicht, config() würde dort mit einer BindingResolutionException
+        // abbrechen (jeder Artisan-Aufruf, nicht nur HTTP-Requests, wäre
+        // betroffen). TRUSTED_PROXIES/TrustProxies betreffen ohnehin nur
+        // echte HTTP-Requests -- für den frühen Konsolen-Aufruf reicht der
+        // sichere Leerstring-Default (= "keinem Proxy vertrauen", identisch
+        // zum bisherigen Verhalten ohne gesetzte Variable).
         $trustedProxies = array_values(array_filter(array_map(
             'trim',
-            explode(',', (string) config('app.trusted_proxies', ''))
+            explode(',', app()->bound('config') ? (string) config('app.trusted_proxies', '') : '')
         )));
 
         $middleware->trustProxies(at: $trustedProxies !== [] ? $trustedProxies : null);
