@@ -104,7 +104,14 @@ class ExamPaperSeeder extends Seeder
             $filename = basename($imagePath);
             $sourcePath = database_path('data/pruefungsboegen_bilder/'.$filename);
 
+            // Bug-Review (Hoch): ein fehlendes Bild wurde hier bisher
+            // lautlos übersprungen -- die einzige Spur blieb eine per
+            // Ad-hoc-SQL auffindbare, aber nirgends sichtbare Lücke (siehe
+            // AuditMissingRequiredImages). Eine Warnung macht das beim
+            // nächsten Seed-Lauf wenigstens im Konsolen-Output sichtbar.
             if (! file_exists($sourcePath)) {
+                $this->command?->warn("Bilddatei fehlt, Frage {$question->official_number}: {$filename}");
+
                 continue;
             }
 
