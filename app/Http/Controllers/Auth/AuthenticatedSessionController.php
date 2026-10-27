@@ -29,18 +29,24 @@ class AuthenticatedSessionController extends Controller
         $request->session()->regenerate();
 
         if ($request->user()->is_superadmin) {
-            // Bug-Review (Niedrig): /login ist mandantenunabhängig und auf
-            // JEDEM Host erreichbar (siehe ResolveTenant), /superadmin*
-            // seit der NEU-3-Korrektur aber bewusst nur noch auf der
-            // zentralen Domain. route(..., absolute: false) erzeugt einen
-            // reinen Pfad ("/superadmin") -- der Browser löst den gegen
-            // den AKTUELLEN Host auf; meldete sich ein Superadmin über
-            // eine Bootsschul-Subdomain an, landete er dadurch auf einer
-            // dort nicht mehr existierenden Route (404) statt im eigenen
-            // Dashboard. Auf jedem anderen Host als der zentralen Domain
-            // deshalb explizit per absoluter URL dorthin umleiten.
+            // Bug-Review (Niedrig, Folgefehler): /login ist
+            // mandantenunabhängig und auf JEDEM Host erreichbar (siehe
+            // ResolveTenant), /superadmin* seit der NEU-3-Korrektur aber
+            // bewusst nur noch auf der zentralen Domain. Ein per
+            // absoluter URL dorthin umgeleiteter Superadmin landete dort
+            // trotzdem nicht eingeloggt: das Session-Cookie bleibt (seit
+            // NEU-1, bewusst) an genau den Host gebunden, der es gesetzt
+            // hat -- auf der Subdomain gesetzt, wird es auf der zentralen
+            // Domain nie mitgeschickt. Eine zweite, eigene Anmeldung dort
+            // ist deshalb unvermeidbar; der Umweg über /superadmin (das
+            // ohne gültige Session ohnehin nur zurück zu /login
+            // umgeleitet hätte) entfällt dafür -- stattdessen direkt
+            // dorthin, mit einer erklärenden Meldung statt eines
+            // verwirrenden Doppel-Redirects.
             if ($request->getHost() !== config('app.central_domain')) {
-                return redirect()->to(rtrim(config('app.url'), '/').route('superadmin.dashboard', absolute: false));
+                return redirect()
+                    ->to($this->centralDomainUrl($request, route('login', absolute: false)))
+                    ->with('status', 'Der Superadmin-Bereich ist nur über die zentrale Domain erreichbar -- bitte melde dich hier noch einmal an.');
             }
 
             return redirect()->intended(route('superadmin.dashboard', absolute: false));
@@ -61,5 +67,19 @@ class AuthenticatedSessionController extends Controller
         $request->session()->regenerateToken();
 
         return redirect('/');
+    }
+
+    /**
+     * Bug-Review (Niedrig, Folgefehler): die erste Fassung baute die
+     * absolute URL aus config('app.url') -- das setzt implizit voraus,
+     * dass APP_URL zur zentralen Domain passt (CENTRAL_DOMAIN ist davon
+     * unabhängig konfigurierbar, siehe ResolveTenant). Weichen beide
+     * Werte ab, hätte der Redirect auf dem FALSCHEN Host gelandet. Host
+     * und Schema kommen deshalb jetzt direkt aus CENTRAL_DOMAIN bzw. dem
+     * aktuellen Request, nicht aus APP_URL.
+     */
+    private function centralDomainUrl(Request $request, string $path): string
+    {
+        return $request->getScheme().'://'.config('app.central_domain').$path;
     }
 }

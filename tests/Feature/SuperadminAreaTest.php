@@ -133,7 +133,16 @@ class SuperadminAreaTest extends TestCase
      * nicht mehr existierende Route (404) geschickt statt in sein eigenes
      * Dashboard.
      */
-    public function test_login_redirects_a_superadmin_on_a_tenant_subdomain_to_the_central_domain(): void
+    /**
+     * Bug-Review (Niedrig, Folgefehler): ein Redirect nach /superadmin
+     * wäre dort trotz absoluter URL nicht eingeloggt angekommen -- das
+     * Session-Cookie bleibt (seit NEU-1, bewusst) an genau den Host
+     * gebunden, der es gesetzt hat (hier die Subdomain), und wird der
+     * zentralen Domain nie mitgeschickt. Der direkte Umweg über /login
+     * dort erspart wenigstens den zusätzlichen, zwangsläufig erfolglosen
+     * Zwischenschritt über /superadmin.
+     */
+    public function test_login_redirects_a_superadmin_on_a_tenant_subdomain_to_the_central_login(): void
     {
         $superadmin = $this->createSuperAdmin(['email' => 'super-login-subdomain-test@platform.test']);
 
@@ -142,7 +151,8 @@ class SuperadminAreaTest extends TestCase
             'password' => 'password',
         ]);
 
-        $response->assertRedirect(config('app.url').route('superadmin.dashboard', absolute: false));
+        $response->assertRedirect('http://'.config('app.central_domain').route('login', absolute: false));
+        $response->assertSessionHas('status');
     }
 
     public function test_superadmin_can_create_a_tenant_with_an_owner_admin(): void
