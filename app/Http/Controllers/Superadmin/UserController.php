@@ -129,7 +129,11 @@ class UserController extends Controller
             ->get(['tenant_id', 'question_id']);
 
         $results = $entitlements->map(function (Entitlement $entitlement) use ($masteredProgress) {
-            $questionIds = $entitlement->course->modules->flatMap(fn ($m) => $m->questions)->pluck('id')->unique();
+            // Bug-Review F7: eine deaktivierte Frage zählte hier weiter mit,
+            // obwohl sie nie "gefestigt" werden kann (siehe
+            // CourseProgressService::overallPercent, dessen Formel hier aus
+            // Performance-Gründen dupliziert ist).
+            $questionIds = $entitlement->course->modules->flatMap(fn ($m) => $m->questions)->where('active', true)->pluck('id')->unique();
             $total = max($questionIds->count(), 1);
             $mastered = $masteredProgress
                 ->where('tenant_id', $entitlement->tenant_id)

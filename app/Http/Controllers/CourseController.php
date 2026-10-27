@@ -156,7 +156,12 @@ class CourseController extends Controller
             ->filter(fn (array $group) => $group['moduleIds']->isNotEmpty())
             ->values();
 
-        $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id')->unique();
+        // Bug-Review F7: eine deaktivierte Frage taucht im Smarttrainer, im
+        // Favoriten-Fragenpool und in der Prüfung nicht mehr auf -- sie
+        // zählte hier aber weiter mit, sodass "gefestigt/offen" und der
+        // Gesamtfortschritt nie 100% erreichen konnten (siehe auch
+        // CourseProgressService::overallPercent).
+        $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->where('active', true)->pluck('id')->unique();
         $masteredCount = $progress->whereIn('question_id', $questionIds)->where('learning_state', 'gefestigt')->count();
         $overallPercent = $this->courseMasteryPercent($course, $progress);
 
@@ -215,7 +220,10 @@ class CourseController extends Controller
 
     private function courseMasteryPercent(CourseDefinition $course, Collection $progress): int
     {
-        $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id')->unique();
+        // Bug-Review F7: siehe oben -- eine deaktivierte Frage darf hier
+        // nicht mitzählen, sonst sind 100% nie erreichbar und die darauf
+        // aufbauenden Addon-/Banner-Freigaben bleiben dauerhaft gesperrt.
+        $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->where('active', true)->pluck('id')->unique();
         $total = max($questionIds->count(), 1);
         $mastered = $progress->whereIn('question_id', $questionIds)->where('learning_state', 'gefestigt')->count();
 

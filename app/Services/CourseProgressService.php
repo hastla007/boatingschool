@@ -22,7 +22,15 @@ class CourseProgressService
     {
         $course->loadMissing('modules.questions');
 
-        $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id')->unique();
+        // Bug-Review F7: eine vom Superadmin deaktivierte Frage (z. B.
+        // fehlerhaft oder veraltet) taucht im Smarttrainer, im
+        // Favoriten-Fragenpool und in der Prüfung nicht mehr auf (siehe
+        // SmarttrainerService, FavoriteController, ExamController) -- sie
+        // zählte hier aber weiter im Nenner mit. Da sie so nie "gefestigt"
+        // werden konnte, waren 100% Kursfortschritt dauerhaft unerreichbar,
+        // und die darauf aufbauenden Freigaben (Praxisformular,
+        // Willkommensbox, Addon-/Banner-Empfehlungen) blieben gesperrt.
+        $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->where('active', true)->pluck('id')->unique();
         $total = max($questionIds->count(), 1);
 
         $mastered = Progress::where('tenant_id', $tenant->id)
@@ -53,7 +61,12 @@ class CourseProgressService
         $mastered = fn ($questionIds) => $progress->whereIn('question_id', $questionIds)->where('learning_state', 'gefestigt')->count();
 
         return $course->modules->map(function ($module) use ($mastered) {
-            $topics = $module->questions
+            // Bug-Review F7: siehe overallPercent() -- eine deaktivierte
+            // Frage zählte hier ebenfalls weiter mit, obwohl sie nie
+            // "gefestigt" werden kann.
+            $activeQuestions = $module->questions->where('active', true);
+
+            $topics = $activeQuestions
                 ->groupBy(function ($q) {
                     $revision = $q->revisions->first();
 
@@ -74,7 +87,7 @@ class CourseProgressService
                 ->sortByDesc('total')
                 ->values();
 
-            $questionIds = $module->questions->pluck('id');
+            $questionIds = $activeQuestions->pluck('id');
             $total = $questionIds->count();
             $moduleMastered = $mastered($questionIds);
 
