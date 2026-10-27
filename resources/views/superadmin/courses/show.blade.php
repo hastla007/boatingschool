@@ -74,8 +74,14 @@
 
         @if ($course->videoModules->isNotEmpty())
             <div class="lg:col-span-3 bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
-                <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3">Videokurs dieses Kurses</h3>
-                <p class="text-xs text-slate-400 mb-3">Pro Lektion lassen sich Fragen aus der zentralen Fragenbasis als "Zu den Fragen"-Quiz nach dem Video hinterlegen.</p>
+                @php($placeholderCount = $course->videoModules->flatMap->lessons->filter->isPlaceholder()->count())
+                <div class="flex items-center justify-between gap-3 mb-3">
+                    <h3 class="font-medium text-slate-700 dark:text-slate-200">Videokurs dieses Kurses</h3>
+                    @if ($placeholderCount > 0)
+                        <span class="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">{{ $placeholderCount }} von {{ $course->videoModules->flatMap->lessons->count() }} Lektionen mit Platzhaltervideo</span>
+                    @endif
+                </div>
+                <p class="text-xs text-slate-400 mb-3">Pro Lektion lassen sich Titel, Video-URL und Dauer pflegen sowie Fragen aus der zentralen Fragenbasis als "Zu den Fragen"-Quiz nach dem Video hinterlegen.</p>
                 <div class="space-y-4">
                     @foreach ($course->videoModules as $videoModule)
                         <div>
@@ -85,7 +91,12 @@
                                     <a href="{{ route('superadmin.video-lessons.show', $lesson) }}"
                                        class="flex items-center justify-between border border-slate-100 dark:border-slate-700 rounded-xl px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
                                         <span class="text-slate-700 dark:text-slate-200">{{ $lesson->title }}</span>
-                                        <span class="text-xs text-slate-400">{{ $lesson->questions_count }} {{ $lesson->questions_count === 1 ? 'Frage' : 'Fragen' }}</span>
+                                        <span class="flex items-center gap-2 shrink-0">
+                                            @if ($lesson->isPlaceholder())
+                                                <span class="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">Platzhalter</span>
+                                            @endif
+                                            <span class="text-xs text-slate-400">{{ $lesson->questions_count }} {{ $lesson->questions_count === 1 ? 'Frage' : 'Fragen' }}</span>
+                                        </span>
                                     </a>
                                 @endforeach
                             </div>

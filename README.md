@@ -76,7 +76,11 @@ auf PostgreSQL, gemäß dem mitgelieferten technischen Konzept
   `VideoCourseSeeder` angelegten Lektionen verweisen aktuell auf ein
   öffentliches Platzhaltervideo (`https://www.w3schools.com/html/mov_bbb.mp4`)
   und müssen vor einem produktiven Einsatz durch lizenzierte Kursvideos
-  ersetzt werden.
+  ersetzt werden. Das geht im Superadmin unter Kurse → Kurs → Lektion
+  (Titel, https-Video-URL, Dauer); Lektionen mit Platzhaltervideo sind dort
+  markiert. Eine neue URL lässt sich auf Wunsch in die von den Seedern
+  angelegten Kopien derselben Lektion in Kombi-/Ergänzungskursen
+  übernehmen.
 - **Schritt-Galerie unter dem Video** (`video_lesson_step`): einzelne
   Lektionen (z. B. Knotenkunde) können eine Schritt-für-Schritt-Galerie
   (`VideoLesson::steps()`) unter dem Player anzeigen. Ohne echtes

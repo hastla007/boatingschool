@@ -59,6 +59,7 @@ Route::middleware(['auth', 'superadmin', 'admin-db', 'verified'])->prefix('super
     Route::delete('/courses/{course}/modules/{module}', [CourseEditorController::class, 'detachModule'])->name('courses.modules.detach');
 
     Route::get('/video-lessons/{lesson}', [VideoLessonController::class, 'show'])->name('video-lessons.show');
+    Route::patch('/video-lessons/{lesson}', [VideoLessonController::class, 'update'])->name('video-lessons.update');
     Route::post('/video-lessons/{lesson}/questions', [VideoLessonController::class, 'attachQuestion'])->name('video-lessons.questions.attach');
     Route::delete('/video-lessons/{lesson}/questions/{question}', [VideoLessonController::class, 'detachQuestion'])->name('video-lessons.questions.detach');
 
