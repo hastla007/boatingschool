@@ -79,12 +79,61 @@
         </div>
     </div>
 
-    @if (! $revision)
+    <div>
+        <x-input-label for="official_number" value="Amtliche Fragennummer (optional)" />
+        <x-text-input id="official_number" name="official_number" type="text" class="mt-1 block w-full" :value="old('official_number', $question?->official_number)" />
+    </div>
+
+    {{-- Bug-Review (Fragen-Editor verliert Metadaten): competency/
+         image_required/source_*/valid_from/valid_to bestückt der Import
+         (ImportContentQuestions/FknSknContentSeeder) bereits -- ohne diese
+         Felder im Formular wurden sie bei jeder Bearbeitung auf der neuen
+         Revision stillschweigend geleert, was den nächsten Reimport
+         außerdem lautlos eine neue Review-Revision erzeugen ließ (die
+         Felder fließen in ImportContentQuestions::hashRevision() ein). --}}
+    <div class="grid sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100 dark:border-slate-700">
         <div>
-            <x-input-label for="official_number" value="Amtliche Fragennummer (optional)" />
-            <x-text-input id="official_number" name="official_number" type="text" class="mt-1 block w-full" :value="old('official_number')" />
+            <x-input-label for="competency" value="Kompetenz (optional)" />
+            <x-text-input id="competency" name="competency" type="text" class="mt-1 block w-full" :value="old('competency', $revision?->competency)" />
         </div>
-    @endif
+        <div class="flex items-end pb-2">
+            <label for="image_required" class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+                <input type="checkbox" id="image_required" name="image_required" value="1" @checked(old('image_required', $revision?->image_required))>
+                Bild zu dieser Frage erforderlich
+            </label>
+        </div>
+    </div>
+
+    <div class="grid sm:grid-cols-4 gap-4">
+        <div>
+            <x-input-label for="source_catalog" value="Quelle: Katalog (optional)" />
+            <x-text-input id="source_catalog" name="source_catalog" type="text" class="mt-1 block w-full" :value="old('source_catalog', $revision?->source_catalog)" />
+        </div>
+        <div>
+            <x-input-label for="source_version" value="Quelle: Version (optional)" />
+            <x-text-input id="source_version" name="source_version" type="text" class="mt-1 block w-full" :value="old('source_version', $revision?->source_version)" />
+        </div>
+        <div>
+            <x-input-label for="source_page" value="Quelle: Seite (optional)" />
+            <x-text-input id="source_page" name="source_page" type="text" class="mt-1 block w-full" :value="old('source_page', $revision?->source_page)" />
+        </div>
+        <div>
+            <x-input-label for="source_question_id" value="Quelle: Fragen-ID (optional)" />
+            <x-text-input id="source_question_id" name="source_question_id" type="text" class="mt-1 block w-full" :value="old('source_question_id', $revision?->source_question_id)" />
+        </div>
+    </div>
+
+    <div class="grid sm:grid-cols-2 gap-4">
+        <div>
+            <x-input-label for="valid_from" value="Gültig ab (optional)" />
+            <x-text-input id="valid_from" name="valid_from" type="date" class="mt-1 block w-full" :value="old('valid_from', optional($revision?->valid_from)->format('Y-m-d'))" />
+        </div>
+        <div>
+            <x-input-label for="valid_to" value="Gültig bis (optional)" />
+            <x-text-input id="valid_to" name="valid_to" type="date" class="mt-1 block w-full" :value="old('valid_to', optional($revision?->valid_to)->format('Y-m-d'))" />
+            <x-input-error :messages="$errors->get('valid_to')" class="mt-2" />
+        </div>
+    </div>
 
     <div class="pt-2 border-t border-slate-100 dark:border-slate-700" x-show="questionType === 'single_choice'" style="display: none">
         <p class="text-sm font-medium text-slate-600 dark:text-slate-300 mb-3">Antworten (die richtige markieren)</p>

@@ -58,19 +58,7 @@ class QuestionController extends Controller
                 'active' => true,
             ]);
 
-            $revision = ContentQuestionRevision::create([
-                'question_id' => $question->id,
-                'revision_no' => 1,
-                'question_type' => $validated['question_type'],
-                'question_text' => $validated['question_text'],
-                'feedback_correct' => $validated['feedback_correct'] ?? null,
-                'feedback_incorrect' => $validated['feedback_incorrect'] ?? null,
-                'topic' => $validated['topic'] ?? null,
-                'subtopic' => $validated['subtopic'] ?? null,
-                'smartmodus_kategorie' => $validated['smartmodus_kategorie'] ?? null,
-                'editorial_status' => 'published',
-                'rights_status' => 'licensed',
-            ]);
+            $revision = ContentQuestionRevision::create($this->revisionAttributes($question, 1, $validated));
 
             $this->storeAnswers($revision, $validated);
 
@@ -110,21 +98,16 @@ class QuestionController extends Controller
         $validated = $this->validateQuestion($request, $latest?->question_type);
 
         DB::transaction(function () use ($validated, $question, $latest) {
+            // Bug-Review (Fragen-Editor verliert Metadaten): official_number
+            // liegt auf content_question, nicht auf der Revision -- bisher
+            // wurde es hier nie aktualisiert (nur store() setzte es, einmalig
+            // bei der Anlage), und das Formular zeigte das Feld bei einer
+            // bestehenden Frage gar nicht erst an.
+            $question->update(['official_number' => $validated['official_number'] ?? null]);
+
             $question->revisions()->where('editorial_status', 'published')->update(['editorial_status' => 'deprecated']);
 
-            $revision = ContentQuestionRevision::create([
-                'question_id' => $question->id,
-                'revision_no' => $latest ? $latest->revision_no + 1 : 1,
-                'question_type' => $validated['question_type'],
-                'question_text' => $validated['question_text'],
-                'feedback_correct' => $validated['feedback_correct'] ?? null,
-                'feedback_incorrect' => $validated['feedback_incorrect'] ?? null,
-                'topic' => $validated['topic'] ?? null,
-                'subtopic' => $validated['subtopic'] ?? null,
-                'smartmodus_kategorie' => $validated['smartmodus_kategorie'] ?? null,
-                'editorial_status' => 'published',
-                'rights_status' => 'licensed',
-            ]);
+            $revision = ContentQuestionRevision::create($this->revisionAttributes($question, $latest ? $latest->revision_no + 1 : 1, $validated));
 
             $this->storeAnswers($revision, $validated);
 
@@ -197,13 +180,56 @@ class QuestionController extends Controller
             'subtopic' => ['nullable', 'string', 'max:255'],
             'smartmodus_kategorie' => ['nullable', 'string', 'max:255'],
             'official_number' => ['nullable', 'string', 'max:60'],
+            // Bug-Review (Fragen-Editor verliert Metadaten): diese Felder
+            // bestückt der Import (ImportContentQuestions/FknSknContentSeeder)
+            // bereits -- das Editor-Formular kannte sie bisher gar nicht,
+            // jede Bearbeitung nullte sie dadurch auf der neuen Revision.
+            'competency' => ['nullable', 'string', 'max:255'],
+            'image_required' => ['nullable', 'boolean'],
+            'source_catalog' => ['nullable', 'string', 'max:120'],
+            'source_version' => ['nullable', 'string', 'max:80'],
+            'source_page' => ['nullable', 'string', 'max:40'],
+            'source_question_id' => ['nullable', 'string', 'max:255'],
+            'valid_from' => ['nullable', 'date'],
+            'valid_to' => ['nullable', 'date', 'after_or_equal:valid_from'],
         ]);
+
+        // $request->boolean() statt des rohen validierten Werts: eine nicht
+        // angehakte Checkbox fehlt im Request komplett (liefert hier null
+        // statt false), eine angehakte käme als String "1" an.
+        $base['image_required'] = $request->boolean('image_required');
 
         return $base + match ($base['question_type']) {
             'single_choice' => $this->validateSingleChoice($request),
             'multi_choice' => $this->validateMultiChoice($request),
             'open_text' => $request->validate(['model_answer' => ['required', 'string']]),
         };
+    }
+
+    /** @return array<string, mixed> */
+    private function revisionAttributes(ContentQuestion $question, int $revisionNo, array $validated): array
+    {
+        return [
+            'question_id' => $question->id,
+            'revision_no' => $revisionNo,
+            'question_type' => $validated['question_type'],
+            'question_text' => $validated['question_text'],
+            'feedback_correct' => $validated['feedback_correct'] ?? null,
+            'feedback_incorrect' => $validated['feedback_incorrect'] ?? null,
+            'topic' => $validated['topic'] ?? null,
+            'subtopic' => $validated['subtopic'] ?? null,
+            'smartmodus_kategorie' => $validated['smartmodus_kategorie'] ?? null,
+            'competency' => $validated['competency'] ?? null,
+            'image_required' => $validated['image_required'] ?? false,
+            'source_catalog' => $validated['source_catalog'] ?? null,
+            'source_version' => $validated['source_version'] ?? null,
+            'source_page' => $validated['source_page'] ?? null,
+            'source_question_id' => $validated['source_question_id'] ?? null,
+            'valid_from' => $validated['valid_from'] ?? null,
+            'valid_to' => $validated['valid_to'] ?? null,
+            'editorial_status' => 'published',
+            'rights_status' => 'licensed',
+        ];
     }
 
     /** @return array<string, mixed> */

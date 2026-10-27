@@ -1,4 +1,5 @@
 @php($revision = null)
+@php($question = null)
 <x-superadmin-layout>
     <x-slot name="header">
         <div>
