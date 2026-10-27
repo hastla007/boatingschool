@@ -16,13 +16,13 @@ use App\Models\PraxisExamAppointment;
 use App\Models\PraxisFormSubmission;
 use App\Models\Product;
 use App\Models\ProductPurchase;
+use App\Models\Progress;
 use App\Models\Pruefungsausschuss;
 use App\Models\TenantAddon;
 use App\Models\TenantCourseDisabled;
 use App\Models\TenantCourseLocation;
 use App\Models\TenantUser;
 use App\Models\WillkommensboxOrder;
-use App\Services\CourseProgressService;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -39,7 +39,7 @@ use Illuminate\View\View;
  */
 class AdminDashboardController extends Controller
 {
-    public function __invoke(Request $request, TenantContext $tenantContext, CourseProgressService $courseProgress): View
+    public function __invoke(Request $request, TenantContext $tenantContext): View
     {
         $tenant = $tenantContext->tenant();
 
@@ -200,12 +200,26 @@ class AdminDashboardController extends Controller
         // Schritten)? Bei mehreren aktiven Kurszugängen zählt der am
         // weitesten fortgeschrittene (derselbe Fortschrittswert wie auf
         // der Kursübersicht, siehe CourseProgressService::overallPercent).
+        // Bug-Review Betrieb B6 (dasselbe Muster wie Superadmin\UserController::
+        // show(), Bug-Review P1): overallPercent() lief hier einmal PRO
+        // Freischaltung JE Lerner in der Phase "Lernen" und lud dabei jedes
+        // Mal frisch sowohl die Modul-/Fragen-Relation des Kurses als auch
+        // die Progress-Tabelle nach -- bei 500 Lernenden wurde /admin
+        // dadurch mit hunderten zusätzlichen Queries spürbar langsam.
+        // Kurs-Module/-Fragen werden deshalb direkt mit eager-geladen,
+        // Progress einmal komplett geladen, und die Prozentzahl pro
+        // Freischaltung im Speicher berechnet -- exakt dieselbe Formel wie
+        // overallPercent().
         $learningEntitlementsByUser = Entitlement::where('tenant_id', $tenant->id)
             ->currentlyActive()
             ->whereIn('user_id', $learningPhaseLearnerIds)
-            ->with(['course', 'user'])
+            ->with(['course.modules.questions', 'user'])
             ->get()
             ->groupBy('user_id');
+        $learningMasteredProgress = Progress::where('tenant_id', $tenant->id)
+            ->whereIn('user_id', $learningPhaseLearnerIds)
+            ->where('learning_state', 'gefestigt')
+            ->get(['user_id', 'question_id']);
         $progressBuckets = ['0–20%' => 0, '21–40%' => 0, '41–60%' => 0, '61–80%' => 0, '81–100%' => 0];
         foreach ($learningPhaseLearnerIds as $learnerId) {
             $entitlementsForLearner = $learningEntitlementsByUser->get($learnerId) ?? collect();
@@ -215,7 +229,19 @@ class AdminDashboardController extends Controller
             }
             $percent = $entitlementsForLearner
                 ->filter(fn (Entitlement $e) => $e->course !== null)
-                ->map(fn (Entitlement $e) => $courseProgress->overallPercent($e->course, $tenant, $user))
+                ->map(function (Entitlement $e) use ($learningMasteredProgress) {
+                    // Bug-Review F7: siehe overallPercent() -- eine
+                    // deaktivierte Frage zählt hier nie als gefestigt, aber
+                    // weiter im Nenner mit.
+                    $questionIds = $e->course->modules->flatMap(fn ($m) => $m->questions)->where('active', true)->pluck('id')->unique();
+                    $total = max($questionIds->count(), 1);
+                    $mastered = $learningMasteredProgress
+                        ->where('user_id', $e->user_id)
+                        ->whereIn('question_id', $questionIds)
+                        ->count();
+
+                    return (int) round($mastered / $total * 100);
+                })
                 ->max() ?? 0;
             $bucket = match (true) {
                 $percent <= 20 => '0–20%',

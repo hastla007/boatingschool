@@ -53,6 +53,7 @@
                     <p class="text-slate-500">Noch keine Nutzer.</p>
                 @endforelse
             </div>
+            <div class="mt-2">{{ $memberships->links() }}</div>
         </div>
     </div>
 
@@ -78,6 +79,7 @@
             </tbody>
         </table>
         </div>
+        <div class="mt-2">{{ $results->links() }}</div>
     </div>
 
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
