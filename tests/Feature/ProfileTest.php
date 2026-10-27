@@ -26,6 +26,37 @@ class ProfileTest extends TestCase
         $response->assertOk();
     }
 
+    /**
+     * Bug-Review Betrieb U1: die Breeze-Standardseite (Profil, Passwort
+     * ändern, Konto löschen) blieb bislang unübersetzt -- __('Profile'),
+     * __('Save'), __('Delete Account') usw. gaben ohne passenden Eintrag in
+     * lang/de.json einfach den rohen englischen Schlüssel zurück. Die Seite
+     * ist jetzt vollständig deutsch, durchgängig im Du-Ton (passend zum
+     * Rest des Profils, z. B. "Deine Buchungen").
+     */
+    public function test_profile_page_is_fully_german_not_the_untranslated_breeze_default(): void
+    {
+        $tenant = $this->createTestTenant();
+        $user = $this->createTenantUser($tenant);
+
+        $response = $this->actingAsInTenant($user, $tenant)->get('/profile');
+
+        $response->assertOk();
+        $response->assertSee('Profildaten');
+        $response->assertSee('Passwort ändern');
+        $response->assertSee('Konto löschen');
+        $response->assertSee('Speichern');
+        $response->assertSee('Aktuelles Passwort');
+        $response->assertSee('Neues Passwort');
+
+        $content = $response->getContent();
+        $this->assertStringNotContainsString('Profile Information', $content);
+        $this->assertStringNotContainsString('Update Password', $content);
+        $this->assertStringNotContainsString('Delete Account', $content);
+        $this->assertStringNotContainsString('Current Password', $content);
+        $this->assertStringNotContainsString('Save', $content);
+    }
+
     public function test_profile_information_can_be_updated(): void
     {
         $tenant = $this->createTestTenant();
