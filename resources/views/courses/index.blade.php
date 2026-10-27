@@ -32,7 +32,12 @@
             ? \App\Support\WhatsAppLink::for($branding, auth()->user())
             : null;
         $showPhone = $branding && $branding->phone_support_enabled && $branding->phone;
-        $showEmail = $branding && $branding->email_support_enabled && $branding->support_email;
+        // Bug-Review F9: eine noch nicht bestätigte Support-E-Mail (siehe
+        // SupportEmailVerificationController) wurde hier bisher trotzdem
+        // angezeigt -- der Admin-Tab selbst macht daraus bereits einen
+        // Hinweis "noch nicht bestätigt" statt sie als Kontaktmöglichkeit
+        // zu zeigen.
+        $showEmail = $branding && $branding->email_support_enabled && $branding->support_email && $branding->hasVerifiedSupportEmail();
         $hasContactDetails = $branding && ($showPhone || $showEmail);
         // Sicherheitsreview H3: ein Instructor ist Lehrkraft, kein
         // Kursteilnehmer -- für ihn ist die Route serverseitig gesperrt

@@ -122,13 +122,21 @@ class BrandingController extends Controller
             $this->deleteMediaAsset($oldLogoAssetId);
         }
 
-        if ($emailChangedToVerify) {
-            SupportEmailVerificationController::sendVerificationMail($tenant->fresh());
-        }
+        // Bug-Review F9: siehe SupportEmailVerificationController::
+        // sendVerificationMail() -- ein SMTP-Fehler darf das bereits
+        // erfolgreich gespeicherte Branding-Update nicht nachträglich als
+        // HTTP 500 melden.
+        $mailSent = $emailChangedToVerify
+            ? SupportEmailVerificationController::sendVerificationMail($tenant->fresh())
+            : true;
 
         AuditLog::record($tenant->id, $request->user()->id, 'branding.update', 'tenant_branding', $tenant->id, $before, $validated);
 
-        return back()->with('status', 'Branding aktualisiert.');
+        $status = $mailSent
+            ? 'Branding aktualisiert.'
+            : 'Branding aktualisiert, die Bestätigungs-Mail für die Support-Adresse konnte aber nicht versendet werden -- bitte über "Bestätigungslink erneut senden" noch einmal versuchen.';
+
+        return back()->with('status', $status);
     }
 
     private function deleteMediaAsset(string $assetId): void

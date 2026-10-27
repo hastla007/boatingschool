@@ -389,7 +389,9 @@
     @php
         $waLink = ($branding && auth()->check()) ? \App\Support\WhatsAppLink::for($branding, auth()->user(), $course) : null;
         $showPhone = $branding && $branding->phone_support_enabled && $branding->phone;
-        $showEmail = $branding && $branding->email_support_enabled && $branding->support_email;
+        // Bug-Review F9: siehe courses/index.blade.php -- eine noch nicht
+        // bestätigte Support-E-Mail wurde hier bisher trotzdem angezeigt.
+        $showEmail = $branding && $branding->email_support_enabled && $branding->support_email && $branding->hasVerifiedSupportEmail();
         $hasContactDetails = $branding && ($showPhone || $showEmail || $branding->street || $branding->city || $branding->website);
     @endphp
     @if ($hasContactDetails || $waLink)
