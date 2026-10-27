@@ -165,6 +165,11 @@ Route::middleware(['auth', 'tenant.role:owner,admin,instructor', 'verified'])->p
 
     Route::get('/praxis-form-submissions/{submission}', [AdminPraxisFormSubmissionController::class, 'show'])->name('praxis-form-submissions.show');
     Route::post('/praxis-form-submissions/{submission}/exam-appointments', [AdminPraxisExamAppointmentController::class, 'store'])->name('praxis-form-submissions.exam-appointments.store');
+    // Bug-Review F4: es gab bisher keine Möglichkeit, einen eigenen,
+    // noch offenen Vorschlag zurückzuziehen oder einen bereits
+    // angenommenen Termin wieder abzusagen.
+    Route::patch('/praxis-form-submissions/{submission}/exam-appointments/{examAppointment}/withdraw', [AdminPraxisExamAppointmentController::class, 'withdraw'])->name('praxis-form-submissions.exam-appointments.withdraw');
+    Route::patch('/praxis-form-submissions/{submission}/exam-appointments/{examAppointment}/cancel', [AdminPraxisExamAppointmentController::class, 'cancel'])->name('praxis-form-submissions.exam-appointments.cancel');
 
     Route::patch('/willkommensbox-orders/{willkommensboxOrder}/ship', [WillkommensboxOrderController::class, 'ship'])->name('willkommensbox-orders.ship');
     Route::get('/willkommensbox-orders/{willkommensboxOrder}/label/{size}', [WillkommensboxLabelController::class, 'show'])->name('willkommensbox-orders.label');

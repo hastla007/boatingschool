@@ -24,6 +24,15 @@
             @if ($confirmedAppointment->description)
                 <p class="mt-1 text-xs text-emerald-800 dark:text-emerald-300">{{ $confirmedAppointment->description }}</p>
             @endif
+            {{-- Bug-Review F4: ein bereits fixierter Termin ließ sich bisher
+                 nicht mehr absagen, z. B. wenn der Prüfungsausschuss ihn doch
+                 nicht wahrnehmen kann. --}}
+            <form method="POST" action="{{ route('admin.praxis-form-submissions.exam-appointments.cancel', [$submission, $confirmedAppointment]) }}" class="mt-2"
+                  @submit="if (! confirm('Diesen Termin wirklich absagen?')) $event.preventDefault()">
+                @csrf
+                @method('PATCH')
+                <button type="submit" class="text-xs text-red-600 dark:text-red-400 hover:underline">Absagen</button>
+            </form>
         </div>
     @else
         @if ($latestAppointment && $latestAppointment->isPending())
@@ -40,6 +49,15 @@
                 @if ($latestAppointment->description)
                     <p class="mt-1 text-xs text-amber-800 dark:text-amber-300">{{ $latestAppointment->description }}</p>
                 @endif
+                {{-- Bug-Review F4: ein eigener, noch offener Vorschlag ließ
+                     sich bisher nicht zurückziehen (z. B. bei einem
+                     Tippfehler im Datum). --}}
+                <form method="POST" action="{{ route('admin.praxis-form-submissions.exam-appointments.withdraw', [$submission, $latestAppointment]) }}" class="mt-2"
+                      @submit="if (! confirm('Diesen Terminvorschlag wirklich zurückziehen?')) $event.preventDefault()">
+                    @csrf
+                    @method('PATCH')
+                    <button type="submit" class="text-xs text-amber-800 dark:text-amber-300 hover:underline">Zurückziehen</button>
+                </form>
             </div>
         @else
             <form method="POST" action="{{ route('admin.praxis-form-submissions.exam-appointments.store', $submission) }}"
@@ -98,7 +116,7 @@
                 <div class="text-xs text-slate-400">
                     Runde {{ $appointment->round }}: {{ $appointment->formattedRange() }} Uhr
                     <span class="inline-block px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500">
-                        {{ ['pending' => 'offen', 'accepted' => 'angenommen', 'declined' => 'abgelehnt'][$appointment->response] }}
+                        {{ ['pending' => 'offen', 'accepted' => 'angenommen', 'declined' => 'abgelehnt', 'withdrawn' => 'zurückgezogen', 'cancelled' => 'abgesagt'][$appointment->response] ?? $appointment->response }}
                     </span>
                     @if ($appointment->locationLabel())
                         &middot; {{ $appointment->locationLabel() }}

@@ -258,7 +258,7 @@ class ParticipantDetailTest extends TestCase
 
         $this->actingAsInTenant($admin, $tenant)->post(
             "/admin/praxis-form-submissions/{$submission->id}/exam-appointments",
-            ['exam_date' => '2026-06-01 09:00', 'slot' => 0]
+            ['exam_date' => '2027-06-01 09:00', 'slot' => 0]
         );
         $appointment = $this->onAdmin(fn () => PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->first());
         $this->actingAsInTenant($learner, $tenant)->post(
@@ -282,7 +282,7 @@ class ParticipantDetailTest extends TestCase
 
         $this->actingAsInTenant($admin, $tenant)->post(
             "/admin/praxis-form-submissions/{$submission->id}/exam-appointments",
-            ['exam_date' => '2026-06-01 09:00', 'slot' => 0]
+            ['exam_date' => '2027-06-01 09:00', 'slot' => 0]
         );
 
         $response = $this->actingAsInTenant($admin, $tenant)->get("/admin/participants/{$learner->id}");
@@ -302,7 +302,7 @@ class ParticipantDetailTest extends TestCase
 
         $this->actingAsInTenant($admin, $tenant)->post(
             "/admin/praxis-form-submissions/{$submission->id}/exam-appointments",
-            ['exam_date' => '2026-06-01 09:00', 'slot' => 0]
+            ['exam_date' => '2027-06-01 09:00', 'slot' => 0]
         );
         $appointment = $this->onAdmin(fn () => PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->first());
         $this->actingAsInTenant($learner, $tenant)->post(
