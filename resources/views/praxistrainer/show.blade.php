@@ -11,7 +11,16 @@
                         <span>{{ $kategorie }}</span>
                     @endif
                 </div>
-                <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">{{ $task->unterkategorie ?? $task->kategorie }}</h2>
+                {{-- Bug-Review (Hoch): unterkategorie ist in den Kategorien, in
+                     denen imageBelongsToSolution() false liefert ("Was
+                     bedeutet das dargestellte Zeichen/Signal/Feuer?"), die
+                     Lösung selbst (z. B. "Überholverbot") -- stand damit
+                     schon im Seitentitel, bevor "Musterlösung anzeigen"
+                     überhaupt geklickt wurde. Siehe
+                     PraxisTask::unterkategorieIsSafeToDisplayBeforeReveal(). --}}
+                <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">
+                    {{ $task->unterkategorieIsSafeToDisplayBeforeReveal() ? ($task->unterkategorie ?? $task->kategorie) : $task->kategorie }}
+                </h2>
             </div>
             <div class="text-sm text-slate-500">{{ $completedCount }} / {{ $totalCount }} Aufgaben &middot; {{ $percent }}%</div>
         </div>
@@ -41,7 +50,7 @@
                         @else
                             <span class="w-3.5 h-3.5 rounded-full border-2 border-slate-300 dark:border-slate-600 shrink-0"></span>
                         @endif
-                        <span class="flex-1 truncate">{{ $item->unterkategorie ?? $item->frage }}</span>
+                        <span class="flex-1 truncate">{{ $item->unterkategorieIsSafeToDisplayBeforeReveal() ? ($item->unterkategorie ?? $item->frage) : $item->frage }}</span>
                     </a>
                 @endforeach
             </div>
@@ -51,7 +60,13 @@
             <p class="text-lg text-slate-800 dark:text-white mb-4">{{ $task->frage }}</p>
 
             @if ($task->media && ! $task->imageBelongsToSolution())
-                <img src="{{ $task->media->storage_path }}" alt="{{ $task->media->alt_text ?? $task->unterkategorie }}" class="rounded-xl mb-4 max-h-80 mx-auto">
+                {{-- Bug-Review (Hoch): hier gehört das Bild ZUR FRAGE ("Was
+                     bedeutet das dargestellte Zeichen/Signal/Feuer?") --
+                     unterkategorie IST in genau diesem Fall die Lösung
+                     (imageBelongsToSolution() liefert hier immer false),
+                     der Alt-Text verriet sie also schon vor dem Klick auf
+                     "Musterlösung anzeigen". --}}
+                <img src="{{ $task->media->storage_path }}" alt="{{ $task->media->alt_text ?: 'Abbildung zur Aufgabe' }}" class="rounded-xl mb-4 max-h-80 mx-auto">
             @endif
 
             <div x-show="!revealed">

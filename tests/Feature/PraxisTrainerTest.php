@@ -161,6 +161,88 @@ class PraxisTrainerTest extends TestCase
         );
     }
 
+    /**
+     * Bug-Review (Hoch): unterkategorie ist in Kategorien wie "Zeichen auf
+     * See" ("Was bedeutet das dargestellte Zeichen?") die Lösung selbst
+     * (z. B. "Überholverbot") -- sie stand bisher unbedingt im Seitentitel,
+     * in der Aufgabenliste (auch für ANDERE Aufgaben als die aktuell
+     * angezeigte) und im Bild-Alt-Text, jeweils bevor "Musterlösung
+     * anzeigen" geklickt wurde.
+     */
+    public function test_a_signs_category_unterkategorie_does_not_leak_the_solution_before_reveal(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $firstTask] = $this->onAdmin(function () {
+            $course = CourseDefinition::withoutGlobalScopes()->create([
+                'tenant_id' => null,
+                'code' => 'TEST-PRAXIS-'.uniqid(),
+                'name' => 'Test Praxistrainer',
+                'course_type' => 'full',
+                'status' => 'published',
+            ]);
+            $this->createdCourseIds[] = $course->id;
+
+            $asset = MediaAsset::create([
+                'asset_key' => 'test-praxis-image-'.uniqid(),
+                'media_type' => 'image',
+                'storage_path' => 'http://localhost/storage/question-media/praxistrainer/test-sign.png',
+            ]);
+            $this->createdMediaAssetIds[] = $asset->id;
+
+            $firstTask = PraxisTask::create([
+                'course_id' => $course->id,
+                'content_id' => 'TEST-PRAXIS-SIGN-1',
+                'kategorie' => 'Zeichen auf See',
+                'unterkategorie' => 'Geheimlösung-Ueberholverbot',
+                'frage' => 'Was bedeutet das dargestellte Schifffahrtszeichen?',
+                'antwort' => 'Geheimlösung-Ueberholverbot: zwei Pfeile mit rotem Schrägstrich.',
+                'media_asset_id' => $asset->id,
+                'sort_order' => 1,
+            ]);
+            PraxisTask::create([
+                'course_id' => $course->id,
+                'content_id' => 'TEST-PRAXIS-SIGN-2',
+                'kategorie' => 'Zeichen auf See',
+                'unterkategorie' => 'Geheimlösung-Geschwindigkeit',
+                'frage' => 'Was bedeutet das dargestellte Schifffahrtszeichen?',
+                'antwort' => 'Geheimlösung-Geschwindigkeit: Höchstgeschwindigkeit einhalten.',
+                'sort_order' => 2,
+            ]);
+
+            return [$course, $firstTask];
+        });
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $html = $this->actingAsInTenant($learner, $tenant)
+            ->get(route('praxistrainer.show', ['course' => $course, 'task' => $firstTask]))
+            ->assertOk()
+            ->getContent();
+
+        // Die andere Aufgabe wird auf dieser Seite nirgends "aufgelöst" --
+        // ihre unterkategorie darf deshalb überhaupt nicht im HTML stehen.
+        $this->assertStringNotContainsString('Geheimlösung-Geschwindigkeit', $html);
+
+        // Die aktuelle Aufgabe enthält ihre unterkategorie zwangsläufig
+        // INNERHALB der Musterlösung selbst (antwort beginnt im echten
+        // Katalog genauso, z. B. "Überholverbot: zwei Pfeile ..."). Alpine
+        // blendet den Musterlösung-Block nur per CSS aus, er steht trotzdem
+        // im HTML -- entscheidend ist deshalb nicht, OB die unterkategorie
+        // im HTML auftaucht, sondern DASS ihr erstes Auftreten erst NACH dem
+        // "Musterlösung anzeigen"-Button kommt (Titel, Aufgabenliste und der
+        // erste Bild-Alt-Text stehen davor im DOM).
+        $buttonPosition = strpos($html, 'Musterlösung anzeigen');
+        $this->assertNotFalse($buttonPosition, 'Button "Musterlösung anzeigen" nicht gefunden.');
+
+        $firstLeakPosition = strpos($html, 'Geheimlösung-Ueberholverbot');
+        $this->assertNotFalse($firstLeakPosition, 'Testvoraussetzung: die unterkategorie muss zumindest innerhalb der Musterlösung auftauchen.');
+        $this->assertGreaterThan(
+            $buttonPosition,
+            $firstLeakPosition,
+            'unterkategorie darf nur innerhalb des Musterlösung-Blocks stehen (Titel/Liste/Alt-Text davor sind ein Leak).'
+        );
+    }
+
     /** @return array{0: CourseDefinition, 1: PraxisTask, 2: PraxisTask} */
     private function makeIsolatedPraxisTasks(): array
     {
