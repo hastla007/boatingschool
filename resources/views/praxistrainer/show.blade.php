@@ -1,6 +1,12 @@
 <x-app-layout>
+    {{-- Bug-Review Oberfläche U8: flex items-center justify-between ohne
+         flex-wrap zwingt Titel und Fortschritts-Statistik auf dieselbe
+         Zeile -- bei 360px Breite reichte dafür bei längeren
+         Kategorienamen der Platz nicht, die Seite lief horizontal über.
+         Unter sm:: stapelt die Statistik jetzt unter den Titel statt
+         danebenzudrängen. --}}
     <x-slot name="header">
-        <div class="flex items-center justify-between">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
             <div>
                 <div class="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1">
                     <a href="{{ route('courses.show', $course) }}" class="hover:underline">{{ $course->name }}</a>
@@ -22,7 +28,7 @@
                     {{ $task->unterkategorieIsSafeToDisplayBeforeReveal() ? ($task->unterkategorie ?? $task->kategorie) : $task->kategorie }}
                 </h2>
             </div>
-            <div class="text-sm text-slate-500">{{ $completedCount }} / {{ $totalCount }} Aufgaben &middot; {{ $percent }}%</div>
+            <div class="text-sm text-slate-500 shrink-0">{{ $completedCount }} / {{ $totalCount }} Aufgaben &middot; {{ $percent }}%</div>
         </div>
     </x-slot>
 

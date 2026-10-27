@@ -86,6 +86,25 @@ class VideoCourseTest extends TestCase
         $page->assertSee('1 / 2 Lektionen', false);
     }
 
+    /**
+     * Bug-Review Oberfläche U8: Status-Text und CTA-Button standen bisher
+     * in einem "flex items-center justify-between" ohne flex-wrap -- bei
+     * 360px Breite reichte dafür bei "Zu den Fragen (N)" der Platz nicht,
+     * die Seite lief horizontal über.
+     */
+    public function test_the_action_row_stacks_the_cta_below_the_status_text_on_narrow_screens(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $firstLesson] = $this->makeIsolatedVideoCourse();
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/video/{$firstLesson->id}");
+
+        $response->assertOk();
+        $response->assertSee('flex flex-col sm:flex-row sm:items-center sm:justify-between', false);
+    }
+
     public function test_lesson_step_gallery_is_shown_when_present(): void
     {
         $tenant = $this->createTestTenant();

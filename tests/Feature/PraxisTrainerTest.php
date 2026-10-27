@@ -82,6 +82,26 @@ class PraxisTrainerTest extends TestCase
         $page->assertSee('1 / 2 Aufgaben', false);
     }
 
+    /**
+     * Bug-Review Oberfläche U8: der Seitenkopf (Titel + Fortschritts-
+     * Statistik) stand bisher in einem "flex items-center justify-between"
+     * ohne flex-wrap -- bei 360px Breite reichte der Platz dafür bei
+     * längeren Kategorienamen nicht, die Seite lief horizontal über.
+     */
+    public function test_the_header_stacks_the_progress_stat_below_the_title_on_narrow_screens(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $firstTask] = $this->makeIsolatedPraxisTasks();
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $response = $this->actingAsInTenant($learner, $tenant)
+            ->get(route('praxistrainer.show', ['course' => $course, 'task' => $firstTask]));
+
+        $response->assertOk();
+        $response->assertSee('flex flex-col sm:flex-row sm:items-center sm:justify-between', false);
+    }
+
     public function test_kategorie_query_param_scopes_the_praxistrainer_to_a_single_category(): void
     {
         $tenant = $this->createTestTenant();

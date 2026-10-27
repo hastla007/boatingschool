@@ -73,7 +73,13 @@
                 </video>
             </div>
 
-            <div class="flex items-center justify-between mt-4">
+            {{-- Bug-Review Oberfläche U8: flex items-center justify-between
+                 ohne flex-wrap zwang den Status-Text und den CTA-Button auf
+                 dieselbe Zeile -- bei 360px Breite reichte dafür bei
+                 "Zu den Fragen (N)" der Platz nicht, die Seite lief
+                 horizontal über. Unter sm:: stapelt der Button jetzt unter
+                 den Status-Text statt danebenzudrängen. --}}
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mt-4">
                 <span class="text-xs text-slate-600 dark:text-slate-400">
                     @if ($progress[$lesson->id]->completed ?? false)
                         <span class="inline-flex items-center gap-1 text-emerald-600"><x-icon name="check-circle" class="w-4 h-4" /> Abgeschlossen</span>
