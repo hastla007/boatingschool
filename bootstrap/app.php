@@ -7,6 +7,7 @@ use App\Http\Middleware\EnsureTenantMembership;
 use App\Http\Middleware\EnsureTenantRole;
 use App\Http\Middleware\ResolveTenant;
 use App\Http\Middleware\SecurityHeaders;
+use App\Http\Middleware\TrustHosts;
 use App\Http\Middleware\UseAdminDatabaseConnection;
 use App\Support\TrustedHosts;
 use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
@@ -98,6 +99,14 @@ return Application::configure(basePath: dirname(__DIR__))
         // Pattern"). Ein echtes Closure-Objekt ist dagegen kein Array und
         // nimmt zuverlässig den is_callable-Zweig.
         $middleware->trustHosts(at: TrustedHosts::patterns(...), subdomains: false);
+
+        // Bug-Review Betrieb: tauscht die von trustHosts() oben fest
+        // verdrahtete Illuminate\Http\Middleware\TrustHosts gegen unsere
+        // eigene Unterklasse, die /up (Health-Check) von der Host-
+        // Validierung ausnimmt -- siehe App\Http\Middleware\TrustHosts für
+        // die ausführliche Begründung (Load-Balancer-Probes senden den
+        // Host-Header oft als rohe IP).
+        $middleware->replace(Illuminate\Http\Middleware\TrustHosts::class, TrustHosts::class);
 
         $middleware->web(append: [
             SecurityHeaders::class,

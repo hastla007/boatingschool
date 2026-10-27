@@ -6,7 +6,9 @@ use App\Support\TenantContext;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Listeners\SendEmailVerificationNotification;
 use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Foundation\Events\DiagnosingHealth;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
@@ -36,6 +38,25 @@ class AppServiceProvider extends ServiceProvider
         $this->registerUuidRoutePatterns();
         $this->configurePasswordPolicy();
         $this->configurePasswordResetUrl();
+        $this->configureHealthCheck();
+    }
+
+    /**
+     * Bug-Review Betrieb: Laravels eingebauter /up-Healthcheck (siehe
+     * bootstrap/app.php, health: '/up') feuert lediglich das
+     * DiagnosingHealth-Event und liefert 200, solange kein Listener eine
+     * Exception wirft -- ohne eigenen Listener prüft er also NUR, ob PHP
+     * selbst noch Requests annimmt, nicht, ob die App tatsächlich
+     * funktioniert. Eine abgeschaltete/unerreichbare Datenbank lieferte
+     * damit weiterhin 200, obwohl praktisch jeder echte Request (jede
+     * Seite mit RLS-Query) mit 500 gescheitert wäre -- ein Monitoring/
+     * Load-Balancer-Check auf /up hätte den Ausfall nie bemerkt.
+     */
+    private function configureHealthCheck(): void
+    {
+        Event::listen(DiagnosingHealth::class, function () {
+            DB::connection()->getPdo();
+        });
     }
 
     /**
