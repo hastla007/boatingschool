@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Support\Env;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -26,6 +27,14 @@ class TrustedProxyDevOverrideTest extends TestCase
 
     protected function setUp(): void
     {
+        // Steht TRUSTED_PROXIES= in der .env (so in .env.example und damit
+        // in CI), hat Dotenv die Variable beim ersten App-Bootstrap dieses
+        // Prozesses selbst gesetzt und überschreibt sie bei jedem weiteren
+        // Bootstrap wieder mit "" -- der Wert unten käme dann nie an. clear()
+        // nimmt sie aus Dotenvs "selbst geladen"-Liste, danach gilt der
+        // direkt gesetzte Wert als extern definiert und bleibt stehen.
+        Env::getRepository()->clear('TRUSTED_PROXIES');
+
         putenv('TRUSTED_PROXIES=10.0.0.9');
         $_ENV['TRUSTED_PROXIES'] = '10.0.0.9';
         $_SERVER['TRUSTED_PROXIES'] = '10.0.0.9';

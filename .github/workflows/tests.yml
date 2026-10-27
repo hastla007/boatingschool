@@ -22,6 +22,13 @@ jobs:
 
     name: PHP ${{ matrix.php }}
 
+    # .env.example enthält bewusst keine Passwörter mehr (Sicherheitsreview
+    # M4); die Wegwerf-Rollen dieses CI-Laufs (siehe "Create Postgres roles
+    # and databases") bekommen ihre Passwörter deshalb hier.
+    env:
+      DB_PASSWORD: boatingschool_app
+      DB_ADMIN_PASSWORD: boatingschool
+
     services:
       postgres:
         image: postgres:16

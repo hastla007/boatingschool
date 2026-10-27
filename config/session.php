@@ -128,10 +128,10 @@ return [
     |
     */
 
-    'cookie' => env(
-        'SESSION_COOKIE',
-        Str::slug(env('APP_NAME', 'laravel'), '_').'_session'
-    ),
+    // "?:" statt Default-Parameter: ein leer gesetztes SESSION_COOKIE=
+    // (siehe .env.example, NEU-4) liefert sonst "" und Symfony bricht mit
+    // "The cookie name cannot be empty." ab.
+    'cookie' => env('SESSION_COOKIE') ?: Str::slug(env('APP_NAME', 'laravel'), '_').'_session',
 
     /*
     |--------------------------------------------------------------------------
