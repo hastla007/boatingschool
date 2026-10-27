@@ -51,7 +51,11 @@ Route::middleware('guest')->group(function () {
     Route::get('reset-password/{token}', [NewPasswordController::class, 'create'])
         ->name('password.reset');
 
+    // Sicherheitsreview S2: stand bisher ganz ohne throttle-Middleware da,
+    // anders als jede andere sensible Route in dieser Gruppe -- siehe
+    // Bug-Review R4-H oben für den eigenen Prefix pro Route.
     Route::post('reset-password', [NewPasswordController::class, 'store'])
+        ->middleware('throttle:10,1,reset-password')
         ->name('password.store');
 });
 
