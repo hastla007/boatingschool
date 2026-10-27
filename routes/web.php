@@ -33,14 +33,29 @@ use App\Http\Controllers\TipController;
 use App\Http\Controllers\VideoCourseController;
 use App\Http\Controllers\VideoQuizController;
 use App\Http\Controllers\WillkommensboxController;
+use App\Support\TenantContext;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
+Route::get('/', function (TenantContext $tenantContext) {
     if (! auth()->check()) {
         return redirect()->route('login');
     }
 
-    return redirect()->route(auth()->user()->is_superadmin ? 'superadmin.dashboard' : 'dashboard');
+    $user = auth()->user();
+    if ($user->is_superadmin) {
+        return redirect()->route('superadmin.dashboard');
+    }
+
+    // Bug-Review Oberfläche U3: siehe AuthenticatedSessionController::
+    // store() -- dieselbe Weiche gilt auch hier, da redirect()->intended()
+    // nach einem Login einen vorher aufgerufenen "/" als intended URL
+    // speichert und diesen Handler hier dann erneut durchläuft.
+    $tenant = $tenantContext->tenant();
+    if ($tenant && in_array($user->roleForTenant($tenant), ['owner', 'admin', 'instructor'], true)) {
+        return redirect()->route('admin.dashboard');
+    }
+
+    return redirect()->route('dashboard');
 });
 
 Route::middleware(['auth', 'tenant.member', 'verified'])->group(function () {

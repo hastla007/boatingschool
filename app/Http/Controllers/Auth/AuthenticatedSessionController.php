@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Support\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -22,7 +23,7 @@ class AuthenticatedSessionController extends Controller
     /**
      * Handle an incoming authentication request.
      */
-    public function store(LoginRequest $request): RedirectResponse
+    public function store(LoginRequest $request, TenantContext $tenantContext): RedirectResponse
     {
         $request->authenticate();
 
@@ -50,6 +51,40 @@ class AuthenticatedSessionController extends Controller
             }
 
             return redirect()->intended(route('superadmin.dashboard', absolute: false));
+        }
+
+        // Bug-Review Oberfläche U3: ein Login leitete bisher IMMER auf
+        // /dashboard (das Lernenden-Dashboard) weiter -- ein Owner/Admin/
+        // Instructor hat dort aber meist keine eigene Freischaltung und
+        // landete so auf einer verwirrenden Seite mit "Für dich ist noch
+        // kein Kurs freigeschaltet", statt im eigentlich für ihre Rolle
+        // gedachten Bootsschul-Admin-Bereich. 'owner', 'admin', 'instructor'
+        // entspricht exakt den Rollen, die routes/web.php für den
+        // /admin-Routenblock zulässt (tenant.role:owner,admin,instructor).
+        //
+        // /login ist als "tenant-agnostisch" eingestuft (siehe
+        // ResolveTenant::isTenantAgnosticRoute(), Sicherheitsreview R3-1) --
+        // TenantContext bleibt dort bewusst ungesetzt (Nil-UUID), damit die
+        // Login-Abfrage selbst app_user unabhängig vom Tenant sehen kann.
+        // ResolveTenant hinterlegt den über Subdomain/Custom-Domain/Dev-
+        // Override aufgelösten Tenant trotzdem fürs Branding als
+        // "currentTenant"-Instanz -- genau den nutzt dieser Block hier,
+        // statt TenantContext. roleForTenant() fragt tenant_user ab, das
+        // ebenfalls per RLS an app.current_tenant_id hängt; der Tenant-
+        // Kontext wird deshalb NUR für diese eine Abfrage (NACH der
+        // bereits abgeschlossenen Authentifizierung, R3-1 betrifft also
+        // nicht mehr diesen Nutzer) kurz gesetzt und sofort wieder
+        // geleert.
+        $tenant = app()->bound('currentTenant') ? app('currentTenant') : null;
+        $role = null;
+        if ($tenant) {
+            $tenantContext->set($tenant);
+            $role = $request->user()->roleForTenant($tenant);
+            $tenantContext->clear();
+        }
+
+        if ($tenant && in_array($role, ['owner', 'admin', 'instructor'], true)) {
+            return redirect()->intended(route('admin.dashboard', absolute: false));
         }
 
         return redirect()->intended(route('dashboard', absolute: false));
