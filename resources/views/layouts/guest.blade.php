@@ -32,6 +32,9 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="font-sans text-slate-900 antialiased">
+        {{-- Bug-Review Oberfläche U7: siehe layouts/app.blade.php -- fehlte
+             hier ebenfalls. --}}
+        <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-2 focus:left-2 focus:px-4 focus:py-2 focus:rounded-lg focus:bg-white focus:text-slate-900 focus:shadow-lg">Zum Hauptinhalt springen</a>
         <div class="min-h-screen flex bg-slate-50 dark:bg-slate-900">
             <div class="hidden lg:flex lg:w-1/2 relative overflow-hidden items-center justify-center"
                  style="background: linear-gradient(160deg, var(--brand-primary, #005FD7), color-mix(in srgb, var(--brand-primary, #005FD7) 55%, #001233));">
@@ -70,7 +73,7 @@
                             <div class="text-sm text-slate-600 dark:text-slate-400">Dein Weg zum Bootsführerschein</div>
                         </div>
 
-                        <div class="bg-white dark:bg-slate-800 shadow-sm rounded-2xl px-6 py-8">
+                        <div id="main-content" class="bg-white dark:bg-slate-800 shadow-sm rounded-2xl px-6 py-8">
                             {{ $slot }}
                         </div>
                     </div>

@@ -13,6 +13,11 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="font-sans antialiased">
+        {{-- Bug-Review Oberfläche U7: kein Skip-Link -- ein Tastatur-/
+             Screenreader-Nutzer musste bisher jeden Menüpunkt der
+             Superadmin-Navigation einzeln durchtaben, um zum eigentlichen
+             Seiteninhalt zu gelangen. --}}
+        <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-2 focus:left-2 focus:px-4 focus:py-2 focus:rounded-lg focus:bg-white focus:text-slate-900 focus:shadow-lg">Zum Hauptinhalt springen</a>
         <div class="min-h-screen bg-slate-100 dark:bg-slate-950">
             {{--
                 Bug-Review (Hoch): die gesamte Navigation steckte bisher in
@@ -54,7 +59,10 @@
                             </form>
                         </div>
                         <div class="-me-2 flex items-center md:hidden">
-                            <button @click="open = ! open" class="inline-flex items-center justify-center p-2 rounded-md text-slate-300 hover:text-white hover:bg-slate-800 focus:outline-none">
+                            {{-- Bug-Review Oberfläche U7: siehe layouts/navigation.blade.php -- derselbe
+                                 Hamburger ohne erkennbaren Namen, ohne aria-expanded/aria-controls und
+                                 ohne sichtbaren Fokusring. --}}
+                            <button @click="open = ! open" :aria-expanded="open" aria-controls="superadmin-mobile-menu" aria-label="Menü öffnen/schließen" class="inline-flex items-center justify-center p-2 rounded-md text-slate-300 hover:text-white hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-offset-2 focus:ring-offset-slate-900">
                                 <svg class="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24">
                                     <path :class="{'hidden': open, 'inline-flex': ! open }" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
                                     <path :class="{'hidden': ! open, 'inline-flex': open }" class="hidden" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -64,7 +72,7 @@
                     </div>
                 </div>
 
-                <div :class="{'block': open, 'hidden': ! open}" class="hidden md:hidden border-t border-slate-800">
+                <div id="superadmin-mobile-menu" :class="{'block': open, 'hidden': ! open}" class="hidden md:hidden border-t border-slate-800">
                     <div class="px-2 pt-2 pb-3 space-y-1">
                         <a href="{{ route('superadmin.dashboard') }}" class="block px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.dashboard') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Dashboard</a>
                         <a href="{{ route('superadmin.tenants.index') }}" class="block px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.tenants.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Bootsschulen</a>
@@ -96,7 +104,7 @@
                 </header>
             @endisset
 
-            <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <main id="main-content" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
                 @if (session('status'))
                     <div class="mb-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 text-sm dark:bg-emerald-900/30 dark:border-emerald-800 dark:text-emerald-300 flex items-center justify-between gap-4 flex-wrap">
                         <span>{{ session('status') }}</span>

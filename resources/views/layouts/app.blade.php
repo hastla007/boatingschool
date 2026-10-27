@@ -39,6 +39,11 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="font-sans antialiased">
+        {{-- Bug-Review Oberfläche U7: kein Skip-Link -- ein Tastatur-/
+             Screenreader-Nutzer musste bisher die gesamte Navigation
+             (inkl. Kurse-Untermenü) durchtaben, um zum eigentlichen
+             Seiteninhalt zu gelangen. --}}
+        <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-2 focus:left-2 focus:px-4 focus:py-2 focus:rounded-lg focus:bg-white focus:text-slate-900 focus:shadow-lg">Zum Hauptinhalt springen</a>
         <div class="min-h-screen bg-slate-50 dark:bg-slate-900">
             @include('layouts.navigation')
 
@@ -50,7 +55,7 @@
                 </header>
             @endisset
 
-            <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <main id="main-content" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
                 @if (session('status'))
                     <div class="mb-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 text-sm dark:bg-emerald-900/30 dark:border-emerald-800 dark:text-emerald-300">
                         {{ session('status') }}
