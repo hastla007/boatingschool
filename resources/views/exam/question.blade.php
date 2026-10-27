@@ -74,8 +74,16 @@
                         <form method="POST" action="{{ route('exam.answer', $examSession) }}" class="flex items-center justify-between mt-6">
                             @csrf
                             <input type="hidden" name="position" value="{{ $current->position }}">
-                            <button type="button" @click="toggleFavorite()" class="inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
-                                <x-icon name="star" class="w-4 h-4" /> {{ $isFavorite ? 'Favorit' : 'Als Favorit speichern' }}
+                            {{-- Bug-Review (Hoch): fehlende $el-Übergabe sowie
+                                 data-favorite/data-question-id -- anders als
+                                 bei den beiden anderen Fragetypen oben rief
+                                 dieser Button toggleFavorite() ohne Argument
+                                 auf. btn war dadurch undefined,
+                                 btn.dataset.favorite warf sofort einen
+                                 TypeError, bevor der fetch()-Aufruf überhaupt
+                                 feuerte -- ein Klick speicherte nichts. --}}
+                            <button type="button" @click="toggleFavorite($el)" data-favorite="{{ $isFavorite ? '1' : '0' }}" data-question-id="{{ $current->question_id }}" class="favorite-toggle inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
+                                <x-icon name="star" class="w-4 h-4" /> <span class="favorite-label">{{ $isFavorite ? 'Favorit' : 'Als Favorit speichern' }}</span>
                             </button>
                             <div class="flex gap-2">
                                 <button type="submit" name="known" value="0" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-rose-300 text-rose-600 text-sm font-medium hover:bg-rose-50 dark:hover:bg-rose-900/20 transition">

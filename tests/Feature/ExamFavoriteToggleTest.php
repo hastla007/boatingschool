@@ -97,6 +97,32 @@ class ExamFavoriteToggleTest extends TestCase
         $this->assertSame('running', $session->status);
     }
 
+    /**
+     * Bug-Review (Hoch): der Favoriten-Button bei einer offenen Frage
+     * (question_type=open_text) rief toggleFavorite() bisher OHNE das
+     * $el-Argument auf, anders als die beiden anderen Fragetypen oben in
+     * dieser Datei. toggleFavorite(btn) griff dadurch sofort auf
+     * btn.dataset zu, wo btn undefined war -- ein TypeError, bevor der
+     * fetch()-Aufruf überhaupt feuerte. Der Button hatte zusätzlich weder
+     * data-favorite noch data-question-id gesetzt. Da dieses Projekt keine
+     * JS-Testinfrastruktur hat, pinnt dieser Test die (jetzt für alle drei
+     * Fragetypen identische) Quelltext-Struktur fest statt das Verhalten im
+     * Browser zu simulieren.
+     */
+    public function test_the_open_text_favorite_button_passes_el_and_carries_the_same_data_attributes_as_the_other_question_types(): void
+    {
+        $source = file_get_contents(resource_path('views/exam/question.blade.php'));
+
+        $this->assertSame(
+            3,
+            substr_count($source, '@click="toggleFavorite($el)"'),
+            'Alle drei Fragetypen (multi_choice, open_text, single_choice) müssen $el übergeben.'
+        );
+        $this->assertStringNotContainsString('@click="toggleFavorite()"', $source);
+        $this->assertSame(3, substr_count($source, 'data-question-id="{{ $current->question_id }}"'));
+        $this->assertSame(3, substr_count($source, "data-favorite=\"{{ \$isFavorite ? '1' : '0' }}\""));
+    }
+
     /** @return array{0: Tenant, 1: User, 2: CourseDefinition} */
     private function setUpVerifiedExamCourse(): array
     {
