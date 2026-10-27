@@ -158,6 +158,30 @@
                                                     {{ $booking['status'] === 'active' ? 'Sperren' : 'Entsperren' }}
                                                 </button>
                                             </form>
+                                            {{-- Bug-Review F1: es gab bisher keine Oberfläche für
+                                                 "Widerrufen", obwohl EntitlementController::update()
+                                                 die Aktion schon lange unterstützt -- die einzige
+                                                 bewusst HÄRTERE Sperr-Stufe (z. B. bei Betrug/
+                                                 Rückbuchung) war dadurch über die UI gar nicht
+                                                 auslösbar. --}}
+                                            <form method="POST" action="{{ route('admin.entitlements.update', $booking['entitlement_id']) }}"
+                                                  @submit="if (! confirm('Diesen Zugang wirklich widerrufen? Anders als Sperren lässt er sich danach nicht mehr einfach per neuem Code wiederherstellen.')) $event.preventDefault()">
+                                                @csrf
+                                                @method('PATCH')
+                                                <input type="hidden" name="action" value="revoke">
+                                                <button type="submit" class="px-2 py-0.5 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/50 transition text-[11px] whitespace-nowrap">
+                                                    Widerrufen
+                                                </button>
+                                            </form>
+                                        @elseif ($booking['status'] === 'revoked')
+                                            <form method="POST" action="{{ route('admin.entitlements.update', $booking['entitlement_id']) }}">
+                                                @csrf
+                                                @method('PATCH')
+                                                <input type="hidden" name="action" value="reactivate">
+                                                <button type="submit" class="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-[11px] whitespace-nowrap">
+                                                    Widerruf aufheben
+                                                </button>
+                                            </form>
                                         @endif
                                         <button type="button" @click="showExtend = ! showExtend" class="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-[11px] whitespace-nowrap">
                                             Verlängern

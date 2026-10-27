@@ -216,7 +216,7 @@ class EntitlementManagementTest extends TestCase
         $this->assertSame($learner->id, $fresh->redeemed_by_user_id);
     }
 
-    public function test_granting_access_again_reactivates_a_previously_revoked_entitlement_instead_of_duplicating(): void
+    public function test_granting_access_again_reactivates_a_previously_suspended_entitlement_instead_of_duplicating(): void
     {
         $tenant = $this->createTestTenant();
         $admin = $this->createTenantUser($tenant, 'owner');
@@ -229,10 +229,10 @@ class EntitlementManagementTest extends TestCase
         // Statt $entitlement->update(...): die Instanz trägt die Connection
         // fest, die beim Laden "default" war -- siehe
         // ExpireAbandonedExamSessionsTest für die ausführliche Begründung.
-        $this->onAdmin(fn () => Entitlement::where('id', $entitlement->id)->update(['status' => 'revoked']));
+        $this->onAdmin(fn () => Entitlement::where('id', $entitlement->id)->update(['status' => 'suspended']));
 
-        // Ein widerrufener Zugang ist keine aktive Freischaltung mehr --
-        // die Reaktivierung verbraucht deshalb einen WEITEREN eigenen Code.
+        // Ein gesperrter Zugang ist keine aktive Freischaltung mehr -- die
+        // Reaktivierung verbraucht deshalb einen WEITEREN eigenen Code.
         $this->makeCourseCoupon($tenant, $course);
         $this->actingAsInTenant($admin, $tenant)->post('/admin/entitlements', ['user_id' => $learner->id, 'course_id' => $course->id])
             ->assertSessionHasNoErrors();
@@ -241,6 +241,36 @@ class EntitlementManagementTest extends TestCase
             ->where('course_id', $course->id)->count()));
         $entitlement = $this->asTenant($tenant, fn () => Entitlement::find($entitlement->id));
         $this->assertSame('active', $entitlement->status);
+    }
+
+    /**
+     * Bug-Review F1: anders als "suspended" (siehe Test oben) soll ein
+     * bewusst widerrufener ("revoked") Zugang nicht einfach durch einen
+     * neuen Code zurückkommen -- analog zu CouponRedemptionService::
+     * redeemForRenewal() (Bug-Review R4-7). Vor diesem Fix hat genau dieser
+     * Weg den Widerruf stillschweigend aufgehoben, sobald wieder ein freier
+     * Code für den Kurs verfügbar war.
+     */
+    public function test_granting_access_again_does_not_silently_revive_a_revoked_entitlement(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $this->makeCourseCoupon($tenant, $course);
+
+        $this->actingAsInTenant($admin, $tenant)->post('/admin/entitlements', ['user_id' => $learner->id, 'course_id' => $course->id]);
+        $entitlement = $this->asTenant($tenant, fn () => Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->where('course_id', $course->id)->firstOrFail());
+        $this->onAdmin(fn () => Entitlement::where('id', $entitlement->id)->update(['status' => 'revoked']));
+
+        $coupon = $this->makeCourseCoupon($tenant, $course);
+        $response = $this->actingAsInTenant($admin, $tenant)->post('/admin/entitlements', ['user_id' => $learner->id, 'course_id' => $course->id]);
+
+        $response->assertSessionHasErrors('course_id');
+
+        $entitlement = $this->asTenant($tenant, fn () => Entitlement::find($entitlement->id));
+        $this->assertSame('revoked', $entitlement->status);
+        $this->assertNull($this->onAdmin(fn () => $coupon->fresh()->redeemed_at));
     }
 
     public function test_admin_can_extend_and_suspend_an_entitlement_through_the_participant_page(): void
@@ -275,6 +305,96 @@ class EntitlementManagementTest extends TestCase
 
         $entitlement = $this->asTenant($tenant, fn () => Entitlement::find($entitlement->id));
         $this->assertSame('suspended', $entitlement->status);
+    }
+
+    /**
+     * Bug-Review F1: "Verlängern" setzte status bisher UNBEDINGT auf
+     * "active" zurück -- eine bewusste Sperrung ließ sich dadurch allein
+     * durch ein neues Ablaufdatum aufheben, ohne die eigentliche
+     * "Entsperren"-Aktion zu durchlaufen.
+     */
+    public function test_extending_a_suspended_entitlement_does_not_lift_the_suspension(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $entitlement = $this->grantEntitlement($tenant, $learner, $course);
+        $this->onAdmin(fn () => Entitlement::where('id', $entitlement->id)->update(['status' => 'suspended']));
+
+        $response = $this->actingAsInTenant($admin, $tenant)->patch(route('admin.entitlements.update', $entitlement), [
+            'action' => 'extend',
+            'valid_until' => now()->addDays(10)->format('Y-m-d'),
+        ]);
+
+        $response->assertSessionHasNoErrors();
+
+        $fresh = $this->asTenant($tenant, fn () => Entitlement::find($entitlement->id));
+        $this->assertSame('suspended', $fresh->status);
+        $this->assertTrue($fresh->valid_until->isSameDay(now()->addDays(10)));
+    }
+
+    /**
+     * Bug-Review F1: dieselbe Lücke wie oben, nur für "Widerrufen" --
+     * zusätzlich die bewusst HÄRTERE Stufe, die laut CouponRedemptionService::
+     * redeemForRenewal() (Bug-Review R4-7) ausdrücklich NICHT durch eine
+     * reine Datumsänderung unterlaufen werden soll.
+     */
+    public function test_extending_a_revoked_entitlement_does_not_lift_the_revocation(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $entitlement = $this->grantEntitlement($tenant, $learner, $course);
+        $this->onAdmin(fn () => Entitlement::where('id', $entitlement->id)->update(['status' => 'revoked']));
+
+        $response = $this->actingAsInTenant($admin, $tenant)->patch(route('admin.entitlements.update', $entitlement), [
+            'action' => 'extend',
+            'valid_until' => now()->addDays(10)->format('Y-m-d'),
+        ]);
+
+        $response->assertSessionHasNoErrors();
+
+        $fresh = $this->asTenant($tenant, fn () => Entitlement::find($entitlement->id));
+        $this->assertSame('revoked', $fresh->status);
+    }
+
+    /**
+     * Bug-Review F1: es gab bisher keine Oberfläche für "Widerrufen" -- nur
+     * "Verlängern"/"Sperren" waren über die Teilnehmerseite erreichbar,
+     * obwohl der Controller die Aktion längst unterstützt.
+     */
+    public function test_admin_can_revoke_and_then_undo_the_revocation_through_the_participant_page(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $entitlement = $this->grantEntitlement($tenant, $learner, $course);
+
+        $detail = $this->actingAsInTenant($admin, $tenant)->get("/admin/participants/{$learner->id}");
+        $detail->assertOk();
+        $detail->assertSee('Widerrufen');
+
+        $revoke = $this->actingAsInTenant($admin, $tenant)->patch(route('admin.entitlements.update', $entitlement), [
+            'action' => 'revoke',
+        ]);
+        $revoke->assertRedirect();
+
+        $entitlement = $this->asTenant($tenant, fn () => Entitlement::find($entitlement->id));
+        $this->assertSame('revoked', $entitlement->status);
+
+        $detailAfterRevoke = $this->actingAsInTenant($admin, $tenant)->get("/admin/participants/{$learner->id}");
+        $detailAfterRevoke->assertSee('Widerruf aufheben');
+
+        $undo = $this->actingAsInTenant($admin, $tenant)->patch(route('admin.entitlements.update', $entitlement), [
+            'action' => 'reactivate',
+        ]);
+        $undo->assertRedirect();
+
+        $entitlement = $this->asTenant($tenant, fn () => Entitlement::find($entitlement->id));
+        $this->assertSame('active', $entitlement->status);
     }
 
     public function test_an_instructor_does_not_see_the_extend_or_suspend_controls(): void

@@ -79,6 +79,18 @@ class EntitlementController extends Controller
                 return back()->with('status', 'Kurs freigeschaltet.');
             }
 
+            // Bug-Review F1: analog zu CouponRedemptionService::
+            // redeemForRenewal() (Bug-Review R4-7) soll ein bewusst
+            // widerrufener Zugang nicht einfach durch einen neuen Code
+            // zurückkommen -- sonst ließe sich die bewusst HÄRTERE
+            // "Widerrufen"-Entscheidung (z. B. bei Betrug/Rückbuchung)
+            // allein dadurch unterlaufen, dass irgendwann wieder ein freier
+            // Code für diesen Kurs verfügbar ist. Dafür ist die eigene,
+            // ausdrückliche "Widerruf aufheben"-Aktion nötig (siehe update()).
+            if ($entitlement && $entitlement->status === 'revoked') {
+                return back()->withErrors(['course_id' => 'Der Zugang zu diesem Kurs wurde widerrufen und kann nicht einfach per neuem Code wiederhergestellt werden -- bitte zuerst den Widerruf bei der bestehenden Buchung aufheben.']);
+            }
+
             $coupon = Coupon::where('tenant_id', $tenant->id)
                 ->where('course_id', $course->id)
                 ->where('is_renewal', false)
@@ -162,7 +174,19 @@ class EntitlementController extends Controller
             // Ohne das zusätzliche Update blieb ein bereits abgelaufener
             // (status=expired) Zugang trotz neuem, in der Zukunft
             // liegendem valid_until wirkungslos gesperrt.
-            'extend' => $entitlement->update(['valid_until' => $validUntil, 'status' => 'active']),
+            //
+            // Bug-Review F1: "active" wurde hier bisher UNBEDINGT gesetzt --
+            // "Verlängern" hob damit nebenbei auch ein bewusstes "Sperren"
+            // oder "Widerrufen" auf, obwohl das Datumsfeld rein die Laufzeit
+            // betrifft. status=active wird deshalb nur noch aus "expired"
+            // hergestellt (das zeitbasierte Auslaufen, das N6 oben
+            // behandelt) -- ein bewusst gesperrter oder widerrufener Zugang
+            // bleibt es, bis eine eigene, explizite Aktion (reactivate) ihn
+            // ausdrücklich zurücksetzt.
+            'extend' => $entitlement->update([
+                'valid_until' => $validUntil,
+                'status' => $entitlement->status === 'expired' ? 'active' : $entitlement->status,
+            ]),
             'suspend' => $entitlement->update(['status' => 'suspended']),
             'revoke' => $entitlement->update(['status' => 'revoked']),
             'reactivate' => $entitlement->update(['status' => 'active']),
