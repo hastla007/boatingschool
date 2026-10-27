@@ -8,7 +8,7 @@
             <x-icon name="check-circle" class="w-7 h-7 text-emerald-500" />
         </div>
         <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-1">Keine Fragen in diesem Modus verfügbar</h3>
-        <p class="text-sm text-slate-400 mb-4">
+        <p class="text-sm text-slate-600 dark:text-slate-400 mb-4">
             @switch($mode)
                 @case('new') Du hast bereits alle Fragen dieses Kurses gesehen. @break
                 @case('wrong') Aktuell gibt es keine offen falsch beantworteten Fragen. @break

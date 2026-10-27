@@ -20,13 +20,13 @@
 
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
             <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
-                <x-icon name="chart-bar" class="w-4 h-4 text-slate-400" /> Themenanalyse
+                <x-icon name="chart-bar" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Themenanalyse
             </h3>
             <div class="space-y-2">
                 @foreach ($topicBreakdown as $topic => $stats)
                     <div class="flex justify-between text-sm">
                         <span class="text-slate-600 dark:text-slate-300">{{ $topic }}</span>
-                        <span class="text-slate-400">{{ $stats['correct'] }}/{{ $stats['total'] }}</span>
+                        <span class="text-slate-600 dark:text-slate-400">{{ $stats['correct'] }}/{{ $stats['total'] }}</span>
                     </div>
                 @endforeach
             </div>
@@ -40,11 +40,11 @@
                         <div class="border-l-4 border-rose-400 pl-3">
                             <div class="text-slate-700 dark:text-slate-200 text-sm">{{ $item->revision->question_text }}</div>
                             @if ($item->revision->question_type === 'multi_choice')
-                                <div class="text-xs text-slate-400">Richtige Antworten: {{ $item->revision->correctAnswers()->pluck('answer_text')->implode('; ') }}</div>
+                                <div class="text-xs text-slate-600 dark:text-slate-400">Richtige Antworten: {{ $item->revision->correctAnswers()->pluck('answer_text')->implode('; ') }}</div>
                             @elseif ($item->revision->question_type === 'open_text')
-                                <div class="text-xs text-slate-400">Musterantwort: {{ $item->revision->correctAnswer()?->answer_text }}</div>
+                                <div class="text-xs text-slate-600 dark:text-slate-400">Musterantwort: {{ $item->revision->correctAnswer()?->answer_text }}</div>
                             @else
-                                <div class="text-xs text-slate-400">Richtige Antwort: {{ $item->revision->correctAnswer()?->answer_text }}</div>
+                                <div class="text-xs text-slate-600 dark:text-slate-400">Richtige Antwort: {{ $item->revision->correctAnswer()?->answer_text }}</div>
                             @endif
                         </div>
                     @endforeach
@@ -60,11 +60,11 @@
                         <div class="border-l-4 border-amber-400 pl-3">
                             <div class="text-slate-700 dark:text-slate-200 text-sm">{{ $item->revision->question_text }}</div>
                             @if ($item->revision->question_type === 'multi_choice')
-                                <div class="text-xs text-slate-400">Richtige Antworten: {{ $item->revision->correctAnswers()->pluck('answer_text')->implode('; ') }}</div>
+                                <div class="text-xs text-slate-600 dark:text-slate-400">Richtige Antworten: {{ $item->revision->correctAnswers()->pluck('answer_text')->implode('; ') }}</div>
                             @elseif ($item->revision->question_type === 'open_text')
-                                <div class="text-xs text-slate-400">Musterantwort: {{ $item->revision->correctAnswer()?->answer_text }}</div>
+                                <div class="text-xs text-slate-600 dark:text-slate-400">Musterantwort: {{ $item->revision->correctAnswer()?->answer_text }}</div>
                             @else
-                                <div class="text-xs text-slate-400">Richtige Antwort: {{ $item->revision->correctAnswer()?->answer_text }}</div>
+                                <div class="text-xs text-slate-600 dark:text-slate-400">Richtige Antwort: {{ $item->revision->correctAnswer()?->answer_text }}</div>
                             @endif
                         </div>
                     @endforeach

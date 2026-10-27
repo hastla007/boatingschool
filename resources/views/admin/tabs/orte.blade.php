@@ -11,13 +11,13 @@
             <div class="font-medium text-slate-700 dark:text-slate-200">
                 {{ $location->praxis_ort }}
                 @if ($location->pruefung_ort !== $location->praxis_ort)
-                    <span class="text-slate-400 font-normal">&middot; Prüfung: {{ $location->pruefung_ort }}</span>
+                    <span class="text-slate-600 dark:text-slate-400 font-normal">&middot; Prüfung: {{ $location->pruefung_ort }}</span>
                 @endif
                 @if ($location->hasTheorieOrt())
-                    <span class="text-slate-400 font-normal">&middot; Theorie: {{ $location->theorie_ort }}</span>
+                    <span class="text-slate-600 dark:text-slate-400 font-normal">&middot; Theorie: {{ $location->theorie_ort }}</span>
                 @endif
                 @if ($location->pruefungsausschuss)
-                    <span class="text-slate-400 font-normal">&middot; Prüfungsausschuss: {{ $location->pruefungsausschuss->label() }}</span>
+                    <span class="text-slate-600 dark:text-slate-400 font-normal">&middot; Prüfungsausschuss: {{ $location->pruefungsausschuss->label() }}</span>
                 @endif
             </div>
 

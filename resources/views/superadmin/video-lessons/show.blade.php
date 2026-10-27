@@ -1,7 +1,7 @@
 <x-superadmin-layout>
     <x-slot name="header">
         <div>
-            <div class="text-xs text-slate-400 flex items-center gap-1">
+            <div class="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1">
                 <a href="{{ route('superadmin.courses.index') }}" class="hover:underline">Kurse</a>
                 <x-icon name="chevron-right" class="w-3 h-3" />
                 <a href="{{ route('superadmin.courses.show', $lesson->module->course) }}" class="hover:underline">{{ $lesson->module->course->name }}</a>
@@ -15,7 +15,7 @@
     <div class="grid lg:grid-cols-2 gap-4">
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
             <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3">Fragen zu diesem Video</h3>
-            <p class="text-xs text-slate-400 mb-3">Diese Fragen erscheinen im Kurs unter "Zu den Fragen" nach dem Video.</p>
+            <p class="text-xs text-slate-600 dark:text-slate-400 mb-3">Diese Fragen erscheinen im Kurs unter "Zu den Fragen" nach dem Video.</p>
 
             <div class="space-y-2">
                 @forelse ($lesson->questions as $question)

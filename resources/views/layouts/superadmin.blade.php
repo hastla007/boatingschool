@@ -47,7 +47,7 @@
                             </div>
                         </div>
                         <div class="hidden md:flex items-center gap-4 text-sm">
-                            <span class="text-slate-400">{{ Auth::user()->name }}</span>
+                            <span class="text-slate-600 dark:text-slate-400">{{ Auth::user()->name }}</span>
                             <form method="POST" action="{{ route('logout') }}">
                                 @csrf
                                 <button type="submit" class="text-slate-300 hover:text-white">Abmelden</button>
@@ -79,7 +79,7 @@
                         <a href="{{ route('superadmin.settings.edit') }}" class="block px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.settings.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Website</a>
                     </div>
                     <div class="pt-3 pb-3 border-t border-slate-800 px-5">
-                        <div class="text-slate-400 text-sm mb-2">{{ Auth::user()->name }}</div>
+                        <div class="text-slate-600 dark:text-slate-400 text-sm mb-2">{{ Auth::user()->name }}</div>
                         <form method="POST" action="{{ route('logout') }}">
                             @csrf
                             <button type="submit" class="text-slate-300 hover:text-white text-sm">Abmelden</button>

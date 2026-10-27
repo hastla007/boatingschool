@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div class="flex items-center justify-between">
             <div>
-                <div class="text-xs text-slate-400 flex items-center gap-1">
+                <div class="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1">
                     <a href="{{ route('courses.show', $course) }}" class="hover:underline">{{ $course->name }}</a>
                     <x-icon name="chevron-right" class="w-3 h-3" />
                     <span>Praxistrainer</span>
@@ -29,7 +29,7 @@
     <div class="grid lg:grid-cols-[280px_1fr] gap-4 items-start">
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-3 lg:sticky lg:top-4">
             <div class="flex items-center gap-2 px-1 mb-2">
-                <a href="{{ route('courses.show', $course) }}" class="w-7 h-7 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 shrink-0">
+                <a href="{{ route('courses.show', $course) }}" class="w-7 h-7 rounded-full flex items-center justify-center text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 shrink-0">
                     <x-icon name="chevron-right" class="w-4 h-4 rotate-180" />
                 </a>
                 <span class="text-xs font-semibold text-slate-500 dark:text-slate-300 uppercase tracking-wide">{{ $kategorie ?? 'Praxistrainer' }}</span>
@@ -37,7 +37,7 @@
             <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 mb-1 mx-1" style="width: calc(100% - 0.5rem)">
                 <div class="h-1.5 rounded-full" style="width: {{ $percent }}%; background-color: var(--brand-primary, #005FD7)"></div>
             </div>
-            <div class="text-right text-xs text-slate-400 px-1 mb-3">{{ $percent }}%</div>
+            <div class="text-right text-xs text-slate-600 dark:text-slate-400 px-1 mb-3">{{ $percent }}%</div>
 
             <div class="space-y-0.5 max-h-[65vh] overflow-y-auto pr-1">
                 @foreach ($tasks as $item)
@@ -89,7 +89,7 @@
                     </div>
                 @endif
                 @if ($task->quelle)
-                    <p class="text-xs text-slate-400">Quelle: {{ $task->quelle }}</p>
+                    <p class="text-xs text-slate-600 dark:text-slate-400">Quelle: {{ $task->quelle }}</p>
                 @endif
 
                 <div class="flex items-center justify-end pt-2">

@@ -81,7 +81,7 @@
                     @endswitch
 
                     @if (! empty($field['help_text']))
-                        <p class="text-xs text-slate-400 mt-1">{{ $field['help_text'] }}</p>
+                        <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">{{ $field['help_text'] }}</p>
                     @endif
                     <x-input-error :messages="$errors->get($field['key'])" class="mt-2" />
                 </div>

@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex items-center gap-3">
-            <a href="{{ route('courses.show', $course) }}" class="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 shrink-0">
+            <a href="{{ route('courses.show', $course) }}" class="w-8 h-8 rounded-full flex items-center justify-center text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 shrink-0">
                 <x-icon name="chevron-right" class="w-4 h-4 rotate-180" />
             </a>
             <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">{{ $course->name }} &middot; Fortschritt &amp; Statistiken</h2>
@@ -13,7 +13,7 @@
             <x-progress-ring :percent="$overallAccuracy" :size="72" :stroke="7" />
             <div>
                 <div class="text-sm font-medium text-slate-700 dark:text-slate-200">Trefferquote</div>
-                <div class="text-xs text-slate-400">gesamt</div>
+                <div class="text-xs text-slate-600 dark:text-slate-400">gesamt</div>
             </div>
         </div>
         <x-stat-tile icon="book-open" :value="$answered.'/'.$totalQuestions" label="Fragen bearbeitet" />
@@ -22,18 +22,18 @@
 
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
         <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
-            <x-icon name="light-bulb" class="w-4 h-4 text-slate-400" /> Fortschritt nach Themen (Smart-Learning)
+            <x-icon name="light-bulb" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Fortschritt nach Themen (Smart-Learning)
         </h3>
         <div class="space-y-3">
             @forelse ($byTopic as $topic => $stats)
                 <a href="{{ route('learning.show', ['course' => $course, 'mode' => 'topic', 'module' => $stats['module']->id, 'topic' => $topic]) }}" class="block group">
                     <div class="flex justify-between text-sm mb-1">
                         <span class="text-slate-600 dark:text-slate-300 group-hover:underline">{{ $topic }}</span>
-                        <span class="text-slate-400">{{ $stats['mastered'] }}/{{ $stats['total'] }} &middot; {{ $stats['percent'] }}%</span>
+                        <span class="text-slate-600 dark:text-slate-400">{{ $stats['mastered'] }}/{{ $stats['total'] }} &middot; {{ $stats['percent'] }}%</span>
                     </div>
                     <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2">
                         <div class="h-2 rounded-full {{ $stats['percent'] < 60 ? 'bg-rose-500' : '' }}"
-                             style="width: {{ $stats['percent'] }}%; {{ $stats['percent'] >= 60 ? 'background-color: var(--brand-secondary, #00A8A8)' : '' }}"></div>
+                             style="width: {{ $stats['percent'] }}%; {{ $stats['percent'] >= 60 ? 'background-color: var(--brand-secondary, #007A7A)' : '' }}"></div>
                     </div>
                 </a>
             @empty
@@ -44,7 +44,7 @@
 
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 mt-4">
         <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
-            <x-icon name="clipboard-document-check" class="w-4 h-4 text-slate-400" /> Ergebnisse der Prüfungssimulationen
+            <x-icon name="clipboard-document-check" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Ergebnisse der Prüfungssimulationen
         </h3>
         <div class="space-y-3">
             @forelse ($examResults as $session)
@@ -54,7 +54,7 @@
                             <div class="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">
                                 {{ $session->displayLabel }}
                             </div>
-                            <div class="text-xs text-slate-400">{{ \App\Support\GermanTime::format($session->submitted_at, 'd.m.Y H:i') }}</div>
+                            <div class="text-xs text-slate-600 dark:text-slate-400">{{ \App\Support\GermanTime::format($session->submitted_at, 'd.m.Y H:i') }}</div>
                         </div>
                         <div class="flex items-center gap-3 shrink-0">
                             <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">{{ (int) round($session->score * 100) }}%</span>

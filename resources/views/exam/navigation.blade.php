@@ -1,12 +1,12 @@
 <x-app-layout>
     <x-slot name="header">
-        <div class="text-xs text-slate-400 flex items-center gap-1">
+        <div class="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1">
             <a href="{{ route('exam.intro', $course) }}" class="hover:underline">Prüfungssimulation &middot; {{ $course->name }}</a>
             <x-icon name="chevron-right" class="w-3 h-3" />
             <span>Navigationsaufgaben</span>
         </div>
         <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200 flex items-center gap-2">
-            <x-icon name="compass" class="w-5 h-5 text-slate-400" /> Navigationsaufgaben
+            <x-icon name="compass" class="w-5 h-5 text-slate-600 dark:text-slate-400" /> Navigationsaufgaben
         </h2>
     </x-slot>
 
@@ -44,7 +44,7 @@
                     <button type="button" x-on:click="open = !open"
                             class="w-full flex items-center justify-between gap-3 px-4 py-3 text-left">
                         <span class="text-sm font-medium text-slate-700 dark:text-slate-200">Frage {{ $question->question_number }}</span>
-                        <x-icon name="chevron-right" class="w-4 h-4 text-slate-400 shrink-0 transition-transform" x-bind:class="open ? 'rotate-90' : ''" />
+                        <x-icon name="chevron-right" class="w-4 h-4 text-slate-600 dark:text-slate-400 shrink-0 transition-transform" x-bind:class="open ? 'rotate-90' : ''" />
                     </button>
                     <div class="px-4 pb-3 text-sm text-slate-600 dark:text-slate-300">
                         {{ $question->question_text }}
@@ -58,7 +58,7 @@
             @endforeach
         </div>
 
-        <p class="text-xs text-slate-400">
+        <p class="text-xs text-slate-600 dark:text-slate-400">
             Quelle: ELWIS &mdash; Fragenkatalog See, Navigationsaufgaben.
         </p>
     </div>

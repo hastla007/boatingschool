@@ -9,9 +9,9 @@
     <div class="flex items-start justify-between gap-4 mb-2">
         <div>
             <span class="text-sm font-medium text-slate-700 dark:text-slate-200">{{ $submission->course->name ?? '—' }}</span>
-            <span class="block text-xs text-slate-400">{{ $submission->template->title ?? 'Formular gelöscht' }}</span>
+            <span class="block text-xs text-slate-600 dark:text-slate-400">{{ $submission->template->title ?? 'Formular gelöscht' }}</span>
         </div>
-        <span class="text-xs text-slate-400 whitespace-nowrap">{{ \App\Support\GermanTime::format($submission->created_at, 'd.m.Y H:i') }}</span>
+        <span class="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">{{ \App\Support\GermanTime::format($submission->created_at, 'd.m.Y H:i') }}</span>
     </div>
     @if ($submission->template && ! empty($submission->template->fields))
         <dl class="divide-y divide-slate-100 dark:divide-slate-700 border-t border-slate-100 dark:border-slate-700 text-sm">
@@ -52,10 +52,10 @@
                             <dd class="text-slate-800 dark:text-slate-200 font-medium">
                                 {{ $submission->data[$field['key'].'_pruefungsausschuss'] }}
                                 @if (! empty($submission->data[$field['key'].'_pruefungsausschuss_adresse']))
-                                    <span class="block text-xs text-slate-400 font-normal">{{ $submission->data[$field['key'].'_pruefungsausschuss_adresse'] }}</span>
+                                    <span class="block text-xs text-slate-600 dark:text-slate-400 font-normal">{{ $submission->data[$field['key'].'_pruefungsausschuss_adresse'] }}</span>
                                 @endif
                                 @if (! empty($submission->data[$field['key'].'_pruefungsausschuss_kurse']))
-                                    <span class="flex flex-wrap items-center gap-1 mt-1 text-xs text-slate-400 font-normal">
+                                    <span class="flex flex-wrap items-center gap-1 mt-1 text-xs text-slate-600 dark:text-slate-400 font-normal">
                                         Zuständig für:
                                         @foreach ($submission->data[$field['key'].'_pruefungsausschuss_kurse'] as $kursName)
                                             <span @class([
@@ -100,7 +100,7 @@
 
         <div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700">
             <h4 class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">Weiteren Termin anlegen</h4>
-            <p class="text-xs text-slate-400 mb-2">
+            <p class="text-xs text-slate-600 dark:text-slate-400 mb-2">
                 Frei benannt und terminiert -- z. B. "Kleine Praxisstunde (1h)", "Große Praxisstunde (4h)", "Navigationsstunde" oder "Onlinekurs".
                 So viele wie nötig, keine feste Anzahl.
             </p>
@@ -153,7 +153,7 @@
             @enderror
         </div>
     @else
-        <p class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700 text-xs text-slate-400">
+        <p class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-400">
             Weitere Termine (z. B. Praxisstunden, Navigationsstunde, Onlinekurs) können frei angelegt werden, sobald der Prüfungstermin fixiert ist.
         </p>
     @endif

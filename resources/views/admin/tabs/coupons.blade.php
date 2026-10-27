@@ -7,9 +7,9 @@
 <div class="grid lg:grid-cols-2 gap-6 mb-6">
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
         <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-1 flex items-center gap-1.5">
-            <x-icon name="upload" class="w-4 h-4 text-slate-400" /> Codes importieren
+            <x-icon name="upload" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Codes importieren
         </h3>
-        <p class="text-xs text-slate-400 mb-3">
+        <p class="text-xs text-slate-600 dark:text-slate-400 mb-3">
             Ein Code pro Zeile (oder durch Komma/Semikolon getrennt). Kurs oder Produkt erkennt das System
             automatisch anhand des Codes -- eine Auswahl ist nicht nötig.
         </p>

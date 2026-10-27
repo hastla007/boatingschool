@@ -43,7 +43,7 @@
                             </label>
                         @endforeach
                     </div>
-                    <p class="text-xs text-slate-400 mt-1">Werden bei Einlösung zusätzlich zum Kurs als eigene Buchungen freigeschaltet.</p>
+                    <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Werden bei Einlösung zusätzlich zum Kurs als eigene Buchungen freigeschaltet.</p>
                     <x-input-error :messages="$errors->get('option_product_ids')" class="mt-2" />
                 </div>
                 <div>
@@ -54,7 +54,7 @@
                             <option value="{{ $tenant->id }}" @selected(old('tenant_id', request('tenant_id')) === $tenant->id)>{{ $tenant->name }}</option>
                         @endforeach
                     </select>
-                    <p class="text-xs text-slate-400 mt-1">Ist eine Bootsschule gewählt, kann der Code nur dort eingelöst werden.</p>
+                    <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Ist eine Bootsschule gewählt, kann der Code nur dort eingelöst werden.</p>
                 </div>
                 <div>
                     <x-input-label for="quantity" value="Anzahl (Batch-Generierung)" />
@@ -121,7 +121,7 @@
 
                 <div class="overflow-x-auto">
                 <table class="w-full text-sm">
-                    <thead class="text-slate-400 text-left">
+                    <thead class="text-slate-600 dark:text-slate-400 text-left">
                         <tr>
                             <th class="py-1 w-6"></th>
                             <th class="py-1">Code</th>

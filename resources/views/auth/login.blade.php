@@ -1,6 +1,6 @@
 <x-guest-layout>
     <h2 class="text-xl font-bold text-slate-800 dark:text-white mb-1">Anmelden</h2>
-    <p class="text-sm text-slate-400 mb-6">Schön, dass du wieder da bist.</p>
+    <p class="text-sm text-slate-600 dark:text-slate-400 mb-6">Schön, dass du wieder da bist.</p>
 
     <x-auth-session-status class="mb-4" :status="session('status')" />
 

@@ -20,7 +20,7 @@
                     <tr class="border-t border-slate-100 dark:border-slate-700 first:border-t-0 {{ $template->active ? '' : 'opacity-50' }}">
                         <td class="px-4 py-3 font-medium text-slate-700 dark:text-slate-200">
                             {{ $template->title }}
-                            <div class="text-xs text-slate-400">{{ $template->headline }}</div>
+                            <div class="text-xs text-slate-600 dark:text-slate-400">{{ $template->headline }}</div>
                         </td>
                         <td class="px-4 py-3">
                             @if ($template->active)
@@ -43,7 +43,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="3" class="px-4 py-3 text-slate-400">Noch keine Addon-Vorlagen angelegt.</td></tr>
+                    <tr><td colspan="3" class="px-4 py-3 text-slate-600 dark:text-slate-400">Noch keine Addon-Vorlagen angelegt.</td></tr>
                 @endforelse
             </tbody>
         </table>

@@ -3,7 +3,7 @@
         <div class="flex items-center justify-between">
             <div>
                 <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Prüfungsausschüsse</h2>
-                <p class="text-xs text-slate-400 mt-0.5">Feste, plattformweite Adressen -- Bootsschulen können sie im Orte-Tab einem Praxisort zuordnen.</p>
+                <p class="text-xs text-slate-600 dark:text-slate-400 mt-0.5">Feste, plattformweite Adressen -- Bootsschulen können sie im Orte-Tab einem Praxisort zuordnen.</p>
             </div>
             <a href="{{ route('superadmin.pruefungsausschuesse.create') }}" class="px-4 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: #005FD7">
                 Neuer Prüfungsausschuss
@@ -24,11 +24,11 @@
                         <td class="px-4 py-3 font-medium text-slate-700 dark:text-slate-200">
                             {{ $pa->kommission }}
                             @if ($pa->standorttyp)
-                                <span class="text-slate-400 font-normal">&middot; {{ $pa->standorttyp }}</span>
+                                <span class="text-slate-600 dark:text-slate-400 font-normal">&middot; {{ $pa->standorttyp }}</span>
                             @endif
-                            <div class="text-xs text-slate-400">{{ $pa->adresse() ?? '—' }}</div>
+                            <div class="text-xs text-slate-600 dark:text-slate-400">{{ $pa->adresse() ?? '—' }}</div>
                             @if (! empty($pa->course_ids))
-                                <div class="text-xs text-slate-400 mt-0.5">
+                                <div class="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
                                     Zuständig für: {{ collect($pa->course_ids)->map(fn ($id) => $courses->get($id)?->name)->filter()->implode(', ') }}
                                 </div>
                             @endif
@@ -52,7 +52,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="3" class="px-4 py-3 text-slate-400">Noch keine Prüfungsausschüsse angelegt.</td></tr>
+                    <tr><td colspan="3" class="px-4 py-3 text-slate-600 dark:text-slate-400">Noch keine Prüfungsausschüsse angelegt.</td></tr>
                 @endforelse
             </tbody>
         </table>

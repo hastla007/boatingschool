@@ -17,7 +17,7 @@
                 <label for="course_validity_days" class="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">
                     Kurse X Tage für Teilnehmer verfügbar
                 </label>
-                <p class="text-xs text-slate-400 mb-2">
+                <p class="text-xs text-slate-600 dark:text-slate-400 mb-2">
                     Nach Ablauf dieser Frist verliert ein Teilnehmer den Zugriff auf seinen Kurs und benötigt
                     einen Verlängerungs-Code.
                 </p>
@@ -31,7 +31,7 @@
                 <label for="renewal_webshop_link" class="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">
                     Verlängerungs-Codes
                 </label>
-                <p class="text-xs text-slate-400 mb-2">
+                <p class="text-xs text-slate-600 dark:text-slate-400 mb-2">
                     Link zu deinem Webshop, wo Teilnehmer nach Ablauf einen Verlängerungs-Code kaufen können. Ohne
                     Link sehen Teilnehmer stattdessen den Hinweis, sich an dich zu wenden.
                 </p>

@@ -36,11 +36,11 @@
                     <tr class="border-t border-slate-100 dark:border-slate-700 first:border-t-0 {{ $template->active ? '' : 'opacity-50' }}">
                         <td class="px-4 py-3 font-medium text-slate-700 dark:text-slate-200">
                             {{ $template->title }}
-                            <div class="text-xs text-slate-400">
+                            <div class="text-xs text-slate-600 dark:text-slate-400">
                                 Ab {{ $template->min_progress_percent }}% Kursfortschritt &middot; {{ count($template->fields) }} Feld(er)
                             </div>
                             @if (! empty($template->course_ids))
-                                <div class="text-xs text-slate-400 mt-0.5">
+                                <div class="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
                                     {{ collect($template->course_ids)->map(fn ($id) => $courses->get($id)?->name)->filter()->implode(', ') }}
                                 </div>
                             @endif
@@ -66,7 +66,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="3" class="px-4 py-3 text-slate-400">Noch keine Praxisformulare angelegt.</td></tr>
+                    <tr><td colspan="3" class="px-4 py-3 text-slate-600 dark:text-slate-400">Noch keine Praxisformulare angelegt.</td></tr>
                 @endforelse
             </tbody>
         </table>

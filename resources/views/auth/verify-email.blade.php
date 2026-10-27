@@ -1,6 +1,6 @@
 <x-guest-layout>
     <h2 class="text-xl font-bold text-slate-800 dark:text-white mb-2">E-Mail-Adresse bestätigen</h2>
-    <p class="text-sm text-slate-400 mb-4">
+    <p class="text-sm text-slate-600 dark:text-slate-400 mb-4">
         Danke für deine Registrierung! Bitte bestätige deine E-Mail-Adresse über den Link, den wir dir gesendet haben.
     </p>
 

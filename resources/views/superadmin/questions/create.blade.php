@@ -2,7 +2,7 @@
 <x-superadmin-layout>
     <x-slot name="header">
         <div>
-            <div class="text-xs text-slate-400"><a href="{{ route('superadmin.questions.index', $module) }}" class="hover:underline">{{ $module->name }}</a></div>
+            <div class="text-xs text-slate-600 dark:text-slate-400"><a href="{{ route('superadmin.questions.index', $module) }}" class="hover:underline">{{ $module->name }}</a></div>
             <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Neue Frage</h2>
         </div>
     </x-slot>

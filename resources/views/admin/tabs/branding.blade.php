@@ -24,7 +24,7 @@
                     <span>Logo hochladen</span>
                     <input type="file" name="logo" accept="image/*" class="hidden" @change="document.getElementById('logo-filename').textContent = $el.files[0]?.name ?? ''">
                 </label>
-                <span id="logo-filename" class="text-xs text-slate-400"></span>
+                <span id="logo-filename" class="text-xs text-slate-600 dark:text-slate-400"></span>
             </div>
             <x-input-error :messages="$errors->get('logo')" class="mt-2" />
         </div>
@@ -47,7 +47,7 @@
                     <span>Favicon hochladen</span>
                     <input type="file" name="favicon" accept="image/*" class="hidden" @change="document.getElementById('favicon-filename').textContent = $el.files[0]?.name ?? ''">
                 </label>
-                <span id="favicon-filename" class="text-xs text-slate-400"></span>
+                <span id="favicon-filename" class="text-xs text-slate-600 dark:text-slate-400"></span>
             </div>
             <x-input-error :messages="$errors->get('favicon')" class="mt-2" />
         </div>
@@ -60,7 +60,7 @@
                 <label for="primary_color" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Hauptfarbe</label>
                 <div class="flex items-center gap-2">
                     <input type="color" id="primary_color" name="primary_color" value="{{ old('primary_color', $branding->primaryColorOrDefault()) }}" class="w-10 h-10 rounded-lg border border-slate-300 dark:border-slate-600 cursor-pointer">
-                    <span class="text-xs text-slate-400">Navigation, Buttons, Akzente</span>
+                    <span class="text-xs text-slate-600 dark:text-slate-400">Navigation, Buttons, Akzente</span>
                 </div>
                 <x-input-error :messages="$errors->get('primary_color')" class="mt-2" />
             </div>
@@ -68,7 +68,7 @@
                 <label for="secondary_color" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Nebenfarbe</label>
                 <div class="flex items-center gap-2">
                     <input type="color" id="secondary_color" name="secondary_color" value="{{ old('secondary_color', $branding->secondaryColorOrDefault()) }}" class="w-10 h-10 rounded-lg border border-slate-300 dark:border-slate-600 cursor-pointer">
-                    <span class="text-xs text-slate-400">Fortschrittsbalken, Kacheln</span>
+                    <span class="text-xs text-slate-600 dark:text-slate-400">Fortschrittsbalken, Kacheln</span>
                 </div>
                 <x-input-error :messages="$errors->get('secondary_color')" class="mt-2" />
             </div>
@@ -76,12 +76,12 @@
 
         <div>
             <label for="tenant_name" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Name</label>
-            <input type="text" id="tenant_name" value="{{ $tenant->name }}" disabled class="w-full rounded-lg border-slate-200 bg-slate-50 dark:bg-slate-700 text-sm text-slate-400">
+            <input type="text" id="tenant_name" value="{{ $tenant->name }}" disabled class="w-full rounded-lg border-slate-200 bg-slate-50 dark:bg-slate-700 text-sm text-slate-600 dark:text-slate-400">
         </div>
 
         <div>
             <label for="tenant_domain" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Domain</label>
-            <input type="text" id="tenant_domain" value="{{ $tenant->slug }}.{{ config('app.central_domain') }}" disabled class="w-full rounded-lg border-slate-200 bg-slate-50 dark:bg-slate-700 text-sm text-slate-400">
+            <input type="text" id="tenant_domain" value="{{ $tenant->slug }}.{{ config('app.central_domain') }}" disabled class="w-full rounded-lg border-slate-200 bg-slate-50 dark:bg-slate-700 text-sm text-slate-600 dark:text-slate-400">
         </div>
 
         <div>
@@ -169,20 +169,20 @@
                     <span class="text-sm text-slate-600 dark:text-slate-300">WhatsApp</span>
                 </label>
             </div>
-            <p class="text-xs text-slate-400 mb-3">Wählen Sie frei, über welche Kanäle Schüler Sie im Kurs kontaktieren können. Die Support-E-Mail und Telefonnummer hinterlegen Sie oben.</p>
+            <p class="text-xs text-slate-600 dark:text-slate-400 mb-3">Wählen Sie frei, über welche Kanäle Schüler Sie im Kurs kontaktieren können. Die Support-E-Mail und Telefonnummer hinterlegen Sie oben.</p>
 
             <div class="space-y-3">
                 <div>
                     <label for="whatsapp_phone" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Telefonnummer</label>
                     <input type="text" id="whatsapp_phone" name="whatsapp_phone" value="{{ old('whatsapp_phone', $branding->whatsapp_phone) }}" placeholder="491701234567" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
-                    <p class="text-xs text-slate-400 mt-1">Bitte im internationalen Format ohne Leerzeichen oder „+" eingeben, z.&nbsp;B. 491701234567.</p>
+                    <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Bitte im internationalen Format ohne Leerzeichen oder „+" eingeben, z.&nbsp;B. 491701234567.</p>
                     <x-input-error :messages="$errors->get('whatsapp_phone')" class="mt-2" />
                 </div>
 
                 <div>
                     <label for="whatsapp_greeting" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Standard-Begrüßungstext</label>
                     <textarea id="whatsapp_greeting" name="whatsapp_greeting" rows="2" placeholder="Hallo {name}, ich habe eine Frage zu {kurs}." class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">{{ old('whatsapp_greeting', $branding->whatsapp_greeting) }}</textarea>
-                    <p class="text-xs text-slate-400 mt-1">Der Text, den der Schüler vorausgefüllt in seinem Chatfenster sieht. Mit <code>{name}</code> und <code>{kurs}</code> werden Name und gebuchter Kurs automatisch eingesetzt, wenn möglich.</p>
+                    <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Der Text, den der Schüler vorausgefüllt in seinem Chatfenster sieht. Mit <code>{name}</code> und <code>{kurs}</code> werden Name und gebuchter Kurs automatisch eingesetzt, wenn möglich.</p>
                     <x-input-error :messages="$errors->get('whatsapp_greeting')" class="mt-2" />
                 </div>
             </div>
@@ -190,7 +190,7 @@
 
         <div class="pt-2 border-t border-slate-100 dark:border-slate-700">
             <label for="exam_readiness_threshold_percent" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Kursfortschritt-Voraussetzung für Prüfung &amp; Praxis</label>
-            <p class="text-xs text-slate-400 mb-2">Ab diesem Kursfortschritt darf ein Schüler die Kachel „Praxis &amp; Prüfung" auswählen, um Prüfung und Praxis bei Ihrer Bootsschule zu buchen.</p>
+            <p class="text-xs text-slate-600 dark:text-slate-400 mb-2">Ab diesem Kursfortschritt darf ein Schüler die Kachel „Praxis &amp; Prüfung" auswählen, um Prüfung und Praxis bei Ihrer Bootsschule zu buchen.</p>
             <div class="flex items-center gap-2">
                 <input type="number" id="exam_readiness_threshold_percent" name="exam_readiness_threshold_percent" min="0" max="100"
                        value="{{ old('exam_readiness_threshold_percent', $branding->exam_readiness_threshold_percent) }}"
@@ -202,7 +202,7 @@
 
         <div class="pt-2 border-t border-slate-100 dark:border-slate-700">
             <label for="willkommensbox_threshold_percent" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Kursfortschritt-Voraussetzung für Willkommensbox</label>
-            <p class="text-xs text-slate-400 mb-2">Ab diesem Kursfortschritt darf ein Schüler mit „Lernplattform (inkl. Willkommensbox)" die Willkommensbox bestellen. 0% = keine zusätzliche Voraussetzung.</p>
+            <p class="text-xs text-slate-600 dark:text-slate-400 mb-2">Ab diesem Kursfortschritt darf ein Schüler mit „Lernplattform (inkl. Willkommensbox)" die Willkommensbox bestellen. 0% = keine zusätzliche Voraussetzung.</p>
             <div class="flex items-center gap-2">
                 <input type="number" id="willkommensbox_threshold_percent" name="willkommensbox_threshold_percent" min="0" max="100"
                        value="{{ old('willkommensbox_threshold_percent', $branding->willkommensbox_threshold_percent) }}"
@@ -214,7 +214,7 @@
 
         <div class="pt-2 border-t border-slate-100 dark:border-slate-700">
             <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Label</label>
-            <p class="text-xs text-slate-400 mb-2">In welchen Papiergrößen kann für eine Willkommensbox-Bestellung ein Versandlabel-PDF heruntergeladen werden (siehe Teilnehmer-Detailseite)?</p>
+            <p class="text-xs text-slate-600 dark:text-slate-400 mb-2">In welchen Papiergrößen kann für eine Willkommensbox-Bestellung ein Versandlabel-PDF heruntergeladen werden (siehe Teilnehmer-Detailseite)?</p>
             <div class="space-y-2">
                 <label class="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" name="label_size_a4" value="1" @checked(old('label_size_a4', $branding->label_size_a4)) class="rounded border-slate-300 dark:border-slate-600 text-emerald-600 focus:ring-emerald-500">
@@ -226,7 +226,7 @@
                 </label>
                 <label class="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" name="label_size_a6" value="1" @checked(old('label_size_a6', $branding->label_size_a6)) class="rounded border-slate-300 dark:border-slate-600 text-emerald-600 focus:ring-emerald-500">
-                    <span class="text-sm text-slate-600 dark:text-slate-300">A6 <span class="text-slate-400">(gängige Paketdienst-Labelgröße)</span></span>
+                    <span class="text-sm text-slate-600 dark:text-slate-300">A6 <span class="text-slate-600 dark:text-slate-400">(gängige Paketdienst-Labelgröße)</span></span>
                 </label>
             </div>
         </div>

@@ -1,6 +1,6 @@
 <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 mb-6">
     <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
-        <x-icon name="envelope" class="w-4 h-4 text-slate-400" /> Teilnehmer einladen
+        <x-icon name="envelope" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Teilnehmer einladen
     </h3>
     <form method="POST" action="{{ route('admin.participants.invite') }}" class="space-y-2">
         @csrf
@@ -30,7 +30,7 @@
                     @endforeach
                 </select>
             </div>
-            <p class="text-xs text-slate-400 mt-1">
+            <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">
                 Das Geburtsdatum muss der Teilnehmer für die Anmeldung zu Praxis &amp; Prüfung selbst im eigenen Profil angeben.
             </p>
         </div>
@@ -43,7 +43,7 @@
                 <label for="invite_code" class="sr-only">Coupon-Code</label>
                 <input type="text" id="invite_code" name="code" value="{{ old('code') }}" placeholder="XXXX-XXXX-XXXX" class="w-full sm:w-64 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm font-mono">
                 <x-input-error :messages="$errors->get('code')" class="mt-1" />
-                <p class="text-xs text-slate-400 mt-1">
+                <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">
                     Ein eigener Code (Kurs oder Produkt) wird dem Teilnehmer direkt bei der Einladung zugewiesen und eingelöst.
                 </p>
             </div>
@@ -90,7 +90,7 @@
                                 {{ $entitlement->course->name }} ({{ $entitlement->status }})
                             </span>
                         @empty
-                            <span class="text-slate-400">keine</span>
+                            <span class="text-slate-600 dark:text-slate-400">keine</span>
                         @endforelse
                     </td>
                     <td class="px-4 py-2 text-slate-500">
@@ -99,7 +99,7 @@
                                 {{ $purchase->product->name }}
                             </span>
                         @empty
-                            <span class="text-slate-400">keine</span>
+                            <span class="text-slate-600 dark:text-slate-400">keine</span>
                         @endforelse
                     </td>
                     <td class="px-4 py-2">
@@ -114,7 +114,7 @@
                                 <select name="course_id" aria-label="Kurs für {{ $membership->user->name }} freischalten" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs">
                                     @foreach ($unbookedCourses as $course)
                                         @php($freeCount = $freeCourseCouponCounts->get($course->id, 0))
-                                        <option value="{{ $course->id }}" @disabled($freeCount < 1) @class(['text-slate-400' => $freeCount < 1])>
+                                        <option value="{{ $course->id }}" @disabled($freeCount < 1) @class(['text-slate-600 dark:text-slate-400' => $freeCount < 1])>
                                             {{ $course->name }} ({{ $freeCount < 1 ? 'keine Codes' : $freeCount.' frei' }})
                                         </option>
                                     @endforeach
@@ -122,7 +122,7 @@
                                 <button type="submit" class="px-3 py-1 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-xs">Freischalten</button>
                             </form>
                         @else
-                            <span class="text-slate-400 text-xs">alle Kurse gebucht</span>
+                            <span class="text-slate-600 dark:text-slate-400 text-xs">alle Kurse gebucht</span>
                         @endif
                     </td>
                     @if ($canManageTenant)

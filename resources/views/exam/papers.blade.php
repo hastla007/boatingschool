@@ -1,15 +1,15 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex items-center gap-3">
-            <a href="{{ route('courses.show', $course) }}" class="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 shrink-0">
+            <a href="{{ route('courses.show', $course) }}" class="w-8 h-8 rounded-full flex items-center justify-center text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 shrink-0">
                 <x-icon name="chevron-right" class="w-4 h-4 rotate-180" />
             </a>
             <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                <x-icon name="clipboard-document-check" class="w-5 h-5 text-slate-400" /> Prüfungssimulation
+                <x-icon name="clipboard-document-check" class="w-5 h-5 text-slate-600 dark:text-slate-400" /> Prüfungssimulation
             </h2>
             <div class="flex-1 flex items-center gap-2 max-w-xs ml-4">
                 <div class="flex-1 bg-slate-100 dark:bg-slate-700 rounded-full h-1.5">
-                    <div class="h-1.5 rounded-full" style="width: {{ $overallPercent }}%; background-color: var(--brand-secondary, #00A8A8)"></div>
+                    <div class="h-1.5 rounded-full" style="width: {{ $overallPercent }}%; background-color: var(--brand-secondary, #007A7A)"></div>
                 </div>
                 <span class="text-xs text-slate-500 dark:text-slate-400 shrink-0">{{ $overallPercent }}%</span>
             </div>
@@ -39,7 +39,7 @@
                     Jeder Prüfungsbogen enthält 23 Multiple-Choice-Fragen aus dem Bereich {{ $copy['bereich'] }} &mdash; die 7 allgemeinen
                     Basisfragen entfallen, da diese mit Deinem vorhandenen {{ $copy['vorhanden'] }} bereits geprüft wurden.
                 </p>
-                <p class="text-xs text-slate-400 mt-3">
+                <p class="text-xs text-slate-600 dark:text-slate-400 mt-3">
                     Hinweis: Die Zuordnung der Fragen zu den einzelnen Bögen entspricht den amtlichen Ergänzungsbögen
                     (Quelle: seeundbinnen.de, Profil „{{ $copy['profil'] }}&quot;).
                 </p>
@@ -49,7 +49,7 @@
                     30 Multiple-Choice-Fragen (7 allgemeine Basisfragen und 23 kursspezifische Fragen). Die Bögen haben immer
                     die gleiche Zusammensetzung, sodass Du Dich gezielt und effizient auf beide Prüfungen vorbereiten kannst.
                 </p>
-                <p class="text-xs text-slate-400 mt-3">
+                <p class="text-xs text-slate-600 dark:text-slate-400 mt-3">
                     Hinweis: Die Zuordnung der Fragen zu den einzelnen Bögen entspricht den amtlichen Prüfungsbögen
                     (Quelle: seeundbinnen.de).
                 </p>
@@ -65,7 +65,7 @@
                         <a href="{{ route('exam.navigation.index', $course) }}" class="inline-flex items-center px-2 py-0.5 rounded-md text-white text-xs font-medium" style="background-color: var(--brand-primary, #005FD7)">Navigation Prüfungssimulation</a>.
                     @endif
                 </p>
-                <p class="text-xs text-slate-400 mt-3">
+                <p class="text-xs text-slate-600 dark:text-slate-400 mt-3">
                     Hinweis: Die Zuordnung der Fragen zu den einzelnen Bögen entspricht den amtlichen Prüfungsbögen
                     (Quelle: seeundbinnen.de).
                 </p>
@@ -76,7 +76,7 @@
                     Jeder Prüfungsbogen enthält 37 Multiple-Choice-Fragen &mdash; 7 allgemeine Basisfragen, 23 spezifische Fragen
                     Binnen und 7 spezifische Segelfragen.
                 </p>
-                <p class="text-xs text-slate-400 mt-3">
+                <p class="text-xs text-slate-600 dark:text-slate-400 mt-3">
                     Hinweis: Die Zuordnung der Fragen zu den einzelnen Bögen entspricht den amtlichen Prüfungsbögen
                     (Quelle: seeundbinnen.de).
                 </p>
@@ -86,7 +86,7 @@
                     die gleiche Zusammensetzung, sodass Du Dich gezielt und effizient vorbereiten kannst. Jeder Prüfungsbogen enthält 24
                     Multiple-Choice-Fragen, Bearbeitungszeit 30 Minuten, Bestehensgrenze 19 von 24 Fragen (max. 5 Fehler).
                 </p>
-                <p class="text-xs text-slate-400 mt-3">
+                <p class="text-xs text-slate-600 dark:text-slate-400 mt-3">
                     Hinweis: Zur SRC-Prüfung gehören zusätzlich ein englisches Diktat und eine schriftliche Übersetzung, die nicht Teil
                     dieser Online-Simulation sind. Quelle der Prüfungsbögen: Fachstelle der WSV für Verkehrstechniken, Koblenz.
                 </p>
@@ -98,7 +98,7 @@
                     (amtlich mit Teilpunkten bewertet; hier vereinfacht als 12 von 15 Fragen richtig, da die offenen Fragen als
                     Lernkarten nicht automatisiert bewertet werden).
                 </p>
-                <p class="text-xs text-slate-400 mt-3">
+                <p class="text-xs text-slate-600 dark:text-slate-400 mt-3">
                     Hinweis: Die Zuordnung der Fragen zu den einzelnen Bögen entspricht dem amtlichen FKN-Fragenkatalog (Quelle: PANord).
                 </p>
             @elseif ($course->code === 'ADD-BIN-SEGEL')
@@ -107,7 +107,7 @@
                     Deinen SBF Binnen bereits besitzt, entfallen der allgemeine Teil und die Basisfragen &mdash; jeder Bogen enthält nur noch
                     7 spezifische Segelfragen. Du musst mindestens 5 der 7 Fragen richtig beantworten, die Bearbeitungszeit beträgt 15 Minuten.
                 </p>
-                <p class="text-xs text-slate-400 mt-3">
+                <p class="text-xs text-slate-600 dark:text-slate-400 mt-3">
                     Hinweis: Die Zuordnung der Fragen zu den einzelnen Bögen entspricht den amtlichen Prüfungsbögen
                     (Quelle: seeundbinnen.de).
                 </p>
@@ -115,7 +115,7 @@
         </div>
 
         <a href="{{ route('favorites.exam', $course) }}" class="flex items-center gap-4 rounded-2xl p-5 text-white hover:opacity-95 transition"
-           style="background: linear-gradient(120deg, var(--brand-secondary, #00A8A8), color-mix(in srgb, var(--brand-secondary, #00A8A8) 55%, #001233));">
+           style="background: linear-gradient(120deg, var(--brand-secondary, #007A7A), color-mix(in srgb, var(--brand-secondary, #007A7A) 55%, #001233));">
             <div class="w-12 h-12 rounded-full bg-white/15 flex items-center justify-center shrink-0">
                 <x-icon name="star" class="w-6 h-6" />
             </div>
@@ -176,7 +176,8 @@
                         <div class="flex items-center justify-center">
                             <a href="{{ $waLink }}" target="_blank" rel="noopener"
                                class="inline-flex items-center gap-2 pl-3 pr-4 py-3 rounded-full shadow-lg text-white text-sm font-medium hover:opacity-90 transition"
-                               style="background-color: #25D366"
+                               {{-- Bug-Review Oberfläche U6: siehe components/whatsapp-support-button.blade.php --}}
+                               style="background-color: #075E54"
                                title="WhatsApp Support - {{ $currentTenant->name }}">
                                 <x-whatsapp-icon class="w-6 h-6 shrink-0" />
                                 <span class="hidden sm:inline truncate">{{ $currentTenant->name }}</span>

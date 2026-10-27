@@ -55,7 +55,7 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="3" class="px-4 py-3 text-slate-400">Noch keine Tipps in dieser Kategorie.</td></tr>
+                            <tr><td colspan="3" class="px-4 py-3 text-slate-600 dark:text-slate-400">Noch keine Tipps in dieser Kategorie.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

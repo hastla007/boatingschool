@@ -90,9 +90,17 @@ class TenantBranding extends Model
         return $this->isValidHexColor($this->primary_color) ? $this->primary_color : '#005FD7';
     }
 
+    /**
+     * Bug-Review Oberfläche U6: #00A8A8 (der bisherige Standard- und
+     * Neuanlage-Wert, siehe Superadmin\TenantController::store() und
+     * TenantSeeder) erreicht mit weißer Buttonschrift nur 2,9:1 -- WCAG AA
+     * verlangt 4,5:1 für Text. #007A7A (dieselbe Farbfamilie, nur dunkler/
+     * gesättigter) kommt auf rechnerisch 5,2:1 und besteht damit mit
+     * Spielraum.
+     */
     public function secondaryColorOrDefault(): string
     {
-        return $this->isValidHexColor($this->secondary_color) ? $this->secondary_color : '#00A8A8';
+        return $this->isValidHexColor($this->secondary_color) ? $this->secondary_color : '#007A7A';
     }
 
     private function isValidHexColor(?string $value): bool

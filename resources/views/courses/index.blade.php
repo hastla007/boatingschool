@@ -51,9 +51,9 @@
             <x-icon name="bookmark" class="w-5 h-5 text-amber-500 shrink-0" />
         <div class="flex-1">
             <div class="text-sm font-medium text-slate-700 dark:text-slate-200">Hast du einen Coupon-Code?</div>
-            <div class="text-xs text-slate-400">Code einlösen und Kurs freischalten</div>
+            <div class="text-xs text-slate-600 dark:text-slate-400">Code einlösen und Kurs freischalten</div>
         </div>
-        <x-icon name="arrow-right" class="w-4 h-4 text-slate-400 shrink-0" />
+        <x-icon name="arrow-right" class="w-4 h-4 text-slate-600 dark:text-slate-400 shrink-0" />
         </a>
     @endif
 
@@ -79,8 +79,8 @@
                     </div>
                     <div class="pt-9 pb-4 px-4 text-center">
                         <div class="font-semibold text-slate-800 dark:text-white">{{ $entry['course']->name }}</div>
-                        <div class="text-xs text-slate-400 mt-1">{{ $entry['course']->modules->pluck('name')->join(' · ') }}</div>
-                        <div class="text-xs text-slate-400 mt-2">
+                        <div class="text-xs text-slate-600 dark:text-slate-400 mt-1">{{ $entry['course']->modules->pluck('name')->join(' · ') }}</div>
+                        <div class="text-xs text-slate-600 dark:text-slate-400 mt-2">
                             Freigeschaltet am {{ $entry['entitlement']->valid_from->format('d.m.Y') }}
                         </div>
                     </div>
@@ -111,7 +111,7 @@
                                     <x-icon name="arrow-right" class="w-3.5 h-3.5" /> Verlängerungs-Code kaufen
                                 </a>
                             @else
-                                <div class="text-xs text-slate-400 mt-2 inline-flex items-center gap-1">
+                                <div class="text-xs text-slate-600 dark:text-slate-400 mt-2 inline-flex items-center gap-1">
                                     <x-icon name="lock-closed" class="w-3.5 h-3.5" /> Bitte Verlängerungscode bei Deiner Bootsschule anfragen!
                                 </div>
                             @endif
@@ -121,7 +121,7 @@
                                 <x-icon name="arrow-right" class="w-3.5 h-3.5" /> Jetzt kaufen
                             </a>
                         @else
-                            <div class="text-xs text-slate-400 mt-2 inline-flex items-center gap-1">
+                            <div class="text-xs text-slate-600 dark:text-slate-400 mt-2 inline-flex items-center gap-1">
                                 <x-icon name="lock-closed" class="w-3.5 h-3.5" /> Kein Zugang &mdash; bitte bei deiner Bootsschule anfragen
                             </div>
                         @endif
@@ -133,7 +133,8 @@
                 <div class="flex items-start justify-end sm:col-start-2 lg:col-start-3">
                     <a href="{{ $waLink }}" target="_blank" rel="noopener"
                        class="inline-flex items-center gap-2 pl-3 pr-4 py-3 rounded-full shadow-lg text-white text-sm font-medium hover:opacity-90 transition"
-                       style="background-color: #25D366"
+                       {{-- Bug-Review Oberfläche U6: siehe components/whatsapp-support-button.blade.php --}}
+                       style="background-color: #075E54"
                        title="WhatsApp Support - {{ $currentTenant->name }}">
                         <x-whatsapp-icon class="w-6 h-6 shrink-0" />
                         <span class="hidden sm:inline truncate">{{ $currentTenant->name }}</span>
@@ -171,7 +172,7 @@
 
                 @if ($waLink)
                     <a href="{{ $waLink }}" target="_blank" rel="noopener"
-                       class="shrink-0 text-2xl leading-tight text-center text-slate-400 dark:text-slate-500 hover:opacity-80 transition sm:ml-8"
+                       class="shrink-0 text-2xl leading-tight text-center text-slate-600 dark:text-slate-400 dark:text-slate-500 hover:opacity-80 transition sm:ml-8"
                        style="font-family: 'Caveat', cursive;">
                         Oder einfach<br>via WhatsApp!
                     </a>

@@ -113,7 +113,7 @@
     @if ($appointmentsForSlot->isNotEmpty())
         <div class="space-y-1">
             @foreach ($appointmentsForSlot as $appointment)
-                <div class="text-xs text-slate-400">
+                <div class="text-xs text-slate-600 dark:text-slate-400">
                     Runde {{ $appointment->round }}: {{ $appointment->formattedRange() }} Uhr
                     <span class="inline-block px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500">
                         {{ ['pending' => 'offen', 'accepted' => 'angenommen', 'declined' => 'abgelehnt', 'withdrawn' => 'zurückgezogen', 'cancelled' => 'abgesagt'][$appointment->response] ?? $appointment->response }}

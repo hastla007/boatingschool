@@ -38,7 +38,7 @@
                 <div class="flex items-center justify-between">
                     <div>
                         <div class="font-medium text-slate-700 dark:text-slate-200">{{ $template->title }}</div>
-                        <div class="text-xs text-slate-400">{{ $template->headline }}</div>
+                        <div class="text-xs text-slate-600 dark:text-slate-400">{{ $template->headline }}</div>
                     </div>
                     <label class="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
                         <input type="hidden" name="addons[{{ $template->id }}][active]" value="0">
@@ -71,7 +71,7 @@
                         <x-input-label :for="'bullets_'.$template->id" value="Haken-Bullets (eine Zeile pro Punkt)" />
                         <textarea id="{{ 'bullets_'.$template->id }}" name="addons[{{ $template->id }}][bullets]" rows="4"
                                   class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">{{ old('addons.'.$template->id.'.bullets', implode("\n", $config?->effectiveBullets() ?? $template->bullets ?? [])) }}</textarea>
-                        <p class="text-xs text-slate-400 mt-1">Vorausgefüllt mit den Punkten der Vorlage &mdash; du kannst sie anpassen, ergänzen oder löschen.</p>
+                        <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Vorausgefüllt mit den Punkten der Vorlage &mdash; du kannst sie anpassen, ergänzen oder löschen.</p>
                         <x-input-error :messages="$errors->get('addons.'.$template->id.'.bullets')" class="mt-2" />
                     </div>
                     <div>

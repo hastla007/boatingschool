@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-                <div class="text-xs text-slate-400 flex items-center gap-1">
+                <div class="text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1">
                     <a href="{{ route('courses.show', $course) }}" class="hover:underline">{{ $course->name }}</a>
                     @if ($revision->smartmodus_kategorie ?: $revision->topic)
                         <x-icon name="chevron-right" class="w-3 h-3" />
@@ -26,7 +26,7 @@
     <div class="max-w-2xl mx-auto bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6">
         <div class="flex items-center justify-between gap-2 mb-3">
             @if ($reason)
-                <div class="inline-flex items-center gap-1.5 text-xs text-slate-400 bg-slate-50 dark:bg-slate-700/50 rounded-full px-3 py-1">
+                <div class="inline-flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-700/50 rounded-full px-3 py-1">
                     <x-icon name="bolt" class="w-3.5 h-3.5" /> Ausgewählt vom Smarttrainer: {{ $reason }}
                 </div>
             @else
@@ -62,7 +62,7 @@
                 <input type="hidden" name="started_at_ms" value="{{ $startedAt }}">
 
                 @unless ($answered)
-                    <p class="text-xs text-slate-400 mb-2">Mehrfachauswahl &mdash; mindestens eine Antwort ist richtig.</p>
+                    <p class="text-xs text-slate-600 dark:text-slate-400 mb-2">Mehrfachauswahl &mdash; mindestens eine Antwort ist richtig.</p>
                 @endunless
 
                 <div class="space-y-2">
@@ -133,7 +133,7 @@
             </form>
         @elseif ($revision->question_type === 'open_text')
             <div x-data="{ revealed: {{ $answered ? 'true' : 'false' }} }">
-                <p class="text-xs text-slate-400 mb-2">Offene Frage &mdash; keine Antwortoptionen. Schätze selbst ein, ob Du die Antwort wusstest.</p>
+                <p class="text-xs text-slate-600 dark:text-slate-400 mb-2">Offene Frage &mdash; keine Antwortoptionen. Schätze selbst ein, ob Du die Antwort wusstest.</p>
 
                 <template x-if="!revealed">
                     <button type="button" @click="revealed = true" class="w-full px-5 py-3 rounded-xl border border-slate-200 dark:border-slate-600 text-sm font-medium text-slate-600 dark:text-slate-200 hover:border-slate-400 transition">

@@ -67,7 +67,7 @@
                                 <x-icon name="anchor" class="w-10 h-10 mx-auto mb-2" style="color: var(--brand-primary, #005FD7)" />
                             @endif
                             <div class="text-xl font-bold" style="color: var(--brand-primary, #005FD7)">{{ $currentTenant->name ?? config('app.name') }}</div>
-                            <div class="text-sm text-slate-400">Dein Weg zum Bootsführerschein</div>
+                            <div class="text-sm text-slate-600 dark:text-slate-400">Dein Weg zum Bootsführerschein</div>
                         </div>
 
                         <div class="bg-white dark:bg-slate-800 shadow-sm rounded-2xl px-6 py-8">

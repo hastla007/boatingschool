@@ -14,7 +14,7 @@
         <h1 class="text-xl font-bold text-slate-800 dark:text-white mb-2">Wartungsarbeiten</h1>
         <p class="text-slate-500 dark:text-slate-400">{{ $message ?: 'Die Plattform ist gerade kurz nicht erreichbar. Bitte versuchen Sie es in Kürze erneut.' }}</p>
         @if (! empty($supportEmail))
-            <p class="text-sm text-slate-400 dark:text-slate-500 mt-4">
+            <p class="text-sm text-slate-600 dark:text-slate-400 dark:text-slate-500 mt-4">
                 Fragen? <a href="mailto:{{ $supportEmail }}" class="underline">{{ $supportEmail }}</a>
             </p>
         @endif

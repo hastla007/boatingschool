@@ -2,11 +2,11 @@
     <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 mb-6">
         <div>
             <h1 class="text-2xl font-bold text-slate-800 dark:text-white">Bootsschul-Admin</h1>
-            <p class="text-sm text-slate-400 mt-0.5">Verwalte Teilnehmer, Kurse und Einstellungen deiner Bootsschule.</p>
+            <p class="text-sm text-slate-600 dark:text-slate-400 mt-0.5">Verwalte Teilnehmer, Kurse und Einstellungen deiner Bootsschule.</p>
         </div>
-        <div class="flex items-center gap-2 text-slate-400 dark:text-slate-500 text-xs text-right">
+        <div class="flex items-center gap-2 text-slate-600 dark:text-slate-400 dark:text-slate-500 text-xs text-right">
             <span class="leading-tight">Alles im Blick.<br>Immer startklar.</span>
-            <x-icon name="anchor" class="w-5 h-5 shrink-0" style="color: var(--brand-secondary, #00A8A8)" />
+            <x-icon name="anchor" class="w-5 h-5 shrink-0" style="color: var(--brand-secondary, #007A7A)" />
         </div>
     </div>
 

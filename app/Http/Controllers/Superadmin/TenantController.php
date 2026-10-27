@@ -86,7 +86,10 @@ class TenantController extends Controller
                 'default_locale' => 'de-DE',
             ]);
 
-            TenantBranding::create(['tenant_id' => $tenant->id, 'primary_color' => '#005FD7', 'secondary_color' => '#00A8A8']);
+            // Bug-Review Oberfläche U6: #00A8A8 erreichte mit weißer
+            // Buttonschrift nur 2,9:1 Kontrast (WCAG AA verlangt 4,5:1) --
+            // siehe TenantBranding::secondaryColorOrDefault().
+            TenantBranding::create(['tenant_id' => $tenant->id, 'primary_color' => '#005FD7', 'secondary_color' => '#007A7A']);
 
             $admin = User::create([
                 'display_name' => trim($validated['admin_first_name'].' '.$validated['admin_last_name']),

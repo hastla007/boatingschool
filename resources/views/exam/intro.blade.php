@@ -4,7 +4,7 @@
     </x-slot>
 
     <div class="max-w-xl mx-auto">
-        <div class="flex items-center justify-center gap-2 mb-6 text-xs text-slate-400">
+        <div class="flex items-center justify-center gap-2 mb-6 text-xs text-slate-600 dark:text-slate-400">
             <span class="flex items-center gap-1.5 font-medium" style="color: var(--brand-primary, #005FD7)">
                 <span class="w-5 h-5 rounded-full text-white flex items-center justify-center text-[11px]" style="background-color: var(--brand-primary, #005FD7)">1</span> Einführung
             </span>
@@ -31,16 +31,16 @@
                 <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3">Prüfungsbedingungen</h3>
                 <ul class="space-y-2 text-sm text-slate-600 dark:text-slate-300 mb-6">
                     <li class="flex items-center gap-2">
-                        <x-icon name="clock" class="w-4 h-4 text-slate-400" /> Zeitlimit: {{ intdiv($ruleSet->time_limit_seconds, 60) }} Minuten
+                        <x-icon name="clock" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Zeitlimit: {{ intdiv($ruleSet->time_limit_seconds, 60) }} Minuten
                     </li>
                     <li class="flex items-center gap-2">
-                        <x-icon name="clipboard-document-check" class="w-4 h-4 text-slate-400" /> Fragenmix: {{ $ruleSet->blueprints->sum('question_count') }} Fragen aus {{ $ruleSet->blueprints->count() }} Modul(en)
+                        <x-icon name="clipboard-document-check" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Fragenmix: {{ $ruleSet->blueprints->sum('question_count') }} Fragen aus {{ $ruleSet->blueprints->count() }} Modul(en)
                     </li>
                     <li class="flex items-center gap-2">
-                        <x-icon name="shield-check" class="w-4 h-4 text-slate-400" /> Bestehensgrenze: {{ (int) round(($ruleSet->passing_rule['min_correct_ratio'] ?? 0.75) * 100) }}%
+                        <x-icon name="shield-check" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Bestehensgrenze: {{ (int) round(($ruleSet->passing_rule['min_correct_ratio'] ?? 0.75) * 100) }}%
                     </li>
                 </ul>
-                <p class="text-xs text-slate-400 mb-4">
+                <p class="text-xs text-slate-600 dark:text-slate-400 mb-4">
                     Hinweis: Dieses Regelwerk ist eine Demo-Verifizierung für Testzwecke und ersetzt keine amtliche Prüfungsordnung.
                 </p>
                 <form method="POST" action="{{ route('exam.start', $course) }}">
@@ -55,9 +55,9 @@
         @if ($hasNavigationTasks)
             <a href="{{ route('exam.navigation.index', $course) }}" class="mt-4 flex items-center justify-between gap-3 bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
                 <span class="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200">
-                    <x-icon name="compass" class="w-5 h-5 text-slate-400" /> Navigationsaufgaben üben
+                    <x-icon name="compass" class="w-5 h-5 text-slate-600 dark:text-slate-400" /> Navigationsaufgaben üben
                 </span>
-                <x-icon name="arrow-right" class="w-4 h-4 text-slate-400" />
+                <x-icon name="arrow-right" class="w-4 h-4 text-slate-600 dark:text-slate-400" />
             </a>
         @endif
     </div>

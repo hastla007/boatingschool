@@ -1,7 +1,7 @@
 <x-superadmin-layout>
     <x-slot name="header">
         <div>
-            <div class="text-xs text-slate-400"><a href="{{ route('superadmin.users.index') }}" class="hover:underline">Nutzer</a></div>
+            <div class="text-xs text-slate-600 dark:text-slate-400"><a href="{{ route('superadmin.users.index') }}" class="hover:underline">Nutzer</a></div>
             <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">{{ $user->name }}</h2>
         </div>
     </x-slot>
@@ -60,7 +60,7 @@
         <div class="lg:col-span-2 space-y-4">
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
                 <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
-                    <x-icon name="swatch" class="w-4 h-4 text-slate-400" /> Bootsschul-Zuordnungen
+                    <x-icon name="swatch" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Bootsschul-Zuordnungen
                 </h3>
                 <div class="space-y-2 text-sm mb-4">
                     @forelse ($memberships as $membership)
@@ -92,11 +92,11 @@
 
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
                 <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
-                    <x-icon name="chart-bar" class="w-4 h-4 text-slate-400" /> Kursergebnisse
+                    <x-icon name="chart-bar" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Kursergebnisse
                 </h3>
                 <div class="overflow-x-auto">
                 <table class="w-full text-sm">
-                    <thead class="text-slate-400 text-left"><tr><th class="py-1">Kurs</th><th class="py-1">Bootsschule</th><th class="py-1">Fortschritt</th></tr></thead>
+                    <thead class="text-slate-600 dark:text-slate-400 text-left"><tr><th class="py-1">Kurs</th><th class="py-1">Bootsschule</th><th class="py-1">Fortschritt</th></tr></thead>
                     <tbody>
                         @forelse ($results as $result)
                             <tr class="border-t border-slate-100 dark:border-slate-700">
@@ -114,11 +114,11 @@
 
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
                 <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
-                    <x-icon name="cube" class="w-4 h-4 text-slate-400" /> Gekaufte Produkte
+                    <x-icon name="cube" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Gekaufte Produkte
                 </h3>
                 <div class="overflow-x-auto">
                 <table class="w-full text-sm">
-                    <thead class="text-slate-400 text-left"><tr><th class="py-1">Produkt</th><th class="py-1">Bootsschule</th><th class="py-1">Quelle</th><th class="py-1">Gekauft am</th></tr></thead>
+                    <thead class="text-slate-600 dark:text-slate-400 text-left"><tr><th class="py-1">Produkt</th><th class="py-1">Bootsschule</th><th class="py-1">Quelle</th><th class="py-1">Gekauft am</th></tr></thead>
                     <tbody>
                         @forelse ($productPurchases as $purchase)
                             <tr class="border-t border-slate-100 dark:border-slate-700">
@@ -137,11 +137,11 @@
 
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
                 <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
-                    <x-icon name="clipboard-document-check" class="w-4 h-4 text-slate-400" /> Prüfungssimulationen
+                    <x-icon name="clipboard-document-check" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Prüfungssimulationen
                 </h3>
                 <div class="overflow-x-auto">
                 <table class="w-full text-sm">
-                    <thead class="text-slate-400 text-left"><tr><th class="py-1">Kurs</th><th class="py-1">Ergebnis</th><th class="py-1">Datum</th></tr></thead>
+                    <thead class="text-slate-600 dark:text-slate-400 text-left"><tr><th class="py-1">Kurs</th><th class="py-1">Ergebnis</th><th class="py-1">Datum</th></tr></thead>
                     <tbody>
                         @forelse ($examResults as $session)
                             <tr class="border-t border-slate-100 dark:border-slate-700">

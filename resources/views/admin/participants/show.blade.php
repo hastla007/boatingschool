@@ -28,7 +28,7 @@
         @php($startInEditMode = ! $hasAddressData || $errors->hasAny(['street', 'postal_code', 'city', 'country', 'birthdate']))
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5" x-data="{ editing: {{ $startInEditMode ? 'true' : 'false' }} }">
             <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
-                <x-icon name="map-pin" class="w-4 h-4 text-slate-400" /> Adresse &amp; Geburtsdatum
+                <x-icon name="map-pin" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Adresse &amp; Geburtsdatum
             </h3>
 
             <div x-show="! editing" style="display: none">
@@ -108,7 +108,7 @@
 
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
             <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
-                <x-icon name="flag" class="w-4 h-4 text-slate-400" /> Benachrichtigungen
+                <x-icon name="flag" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Benachrichtigungen
             </h3>
             @forelse ($actionItems as $item)
                 <div class="flex items-start gap-2 text-sm text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 rounded-lg px-3 py-2 mb-2 last:mb-0">
@@ -118,13 +118,13 @@
                     </div>
                 </div>
             @empty
-                <p class="text-sm text-slate-400">Keine offenen Aktionen.</p>
+                <p class="text-sm text-slate-600 dark:text-slate-400">Keine offenen Aktionen.</p>
             @endforelse
         </div>
 
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
             <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
-                <x-icon name="clipboard-document-check" class="w-4 h-4 text-slate-400" /> Gebuchte Kurse &amp; Produkte
+                <x-icon name="clipboard-document-check" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Gebuchte Kurse &amp; Produkte
             </h3>
             <div class="space-y-2">
                 @forelse ($bookings as $booking)
@@ -134,7 +134,7 @@
                             @if ($booking['status'])
                                 <span class="inline-block ms-1 px-1.5 py-0.5 rounded-full text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-500">{{ $booking['status'] }}</span>
                             @endif
-                            <span class="block text-xs text-slate-400">
+                            <span class="block text-xs text-slate-600 dark:text-slate-400">
                                 {{ $booking['source_type'] === 'coupon' ? 'Code '.$booking['source_reference'] : 'Manuell freigeschaltet' }}
                             </span>
                             @if ($booking['options']->isNotEmpty())
@@ -142,7 +142,7 @@
                             @endif
                         </div>
                         <div class="text-end">
-                            <span class="text-xs text-slate-400 whitespace-nowrap">{{ $booking['date']?->format('d.m.Y') }}</span>
+                            <span class="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">{{ $booking['date']?->format('d.m.Y') }}</span>
                             @if ($canManageTenant && $booking['entitlement_id'])
                                 {{-- Bug-Review B14: Verlängern/Sperren gab es bisher nur im
                                      Controller (EntitlementController::update), ohne jede
@@ -199,7 +199,7 @@
                         </div>
                     </div>
                 @empty
-                    <p class="text-sm text-slate-400">Noch keine Buchungen.</p>
+                    <p class="text-sm text-slate-600 dark:text-slate-400">Noch keine Buchungen.</p>
                 @endforelse
             </div>
         </div>
@@ -207,7 +207,7 @@
         @if ($willkommensboxOrder)
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
                 <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
-                    <x-icon name="cube" class="w-4 h-4 text-slate-400" /> Willkommensbox
+                    <x-icon name="cube" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Willkommensbox
                 </h3>
                 <dl class="text-sm space-y-1.5 mb-3">
                     <div class="flex justify-between gap-4">
@@ -276,16 +276,16 @@
         @elseif ($hasWillkommensboxAccess)
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
                 <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
-                    <x-icon name="cube" class="w-4 h-4 text-slate-400" /> Willkommensbox
+                    <x-icon name="cube" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Willkommensbox
                 </h3>
-                <p class="text-sm text-slate-400">Zugang vorhanden, aber noch nicht bestellt.</p>
+                <p class="text-sm text-slate-600 dark:text-slate-400">Zugang vorhanden, aber noch nicht bestellt.</p>
             </div>
         @endif
     </div>
 
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
         <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
-            <x-icon name="academic-cap" class="w-4 h-4 text-slate-400" /> Praxis-Anmeldungen
+            <x-icon name="academic-cap" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Praxis-Anmeldungen
         </h3>
         @forelse ($praxisFormSubmissions as $submission)
             @include('admin.partials._praxis-submission', [
@@ -293,7 +293,7 @@
                 'submissionLocations' => $locationsByCourse[$submission->course_id] ?? collect(),
             ])
         @empty
-            <p class="text-sm text-slate-400">Noch keine Praxis-Anmeldung eingegangen.</p>
+            <p class="text-sm text-slate-600 dark:text-slate-400">Noch keine Praxis-Anmeldung eingegangen.</p>
         @endforelse
     </div>
 </x-app-layout>

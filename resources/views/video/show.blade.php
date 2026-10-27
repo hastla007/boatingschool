@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div class="flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400">
             <a href="{{ route('courses.index') }}" class="hover:underline">Kurse</a>
-            <x-icon name="chevron-right" class="w-3.5 h-3.5 text-slate-400" />
+            <x-icon name="chevron-right" class="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
             <a href="{{ route('courses.show', $course) }}" class="hover:underline">{{ $course->name }}</a>
         </div>
     </x-slot>
@@ -14,14 +14,14 @@
                     <x-icon name="book-open" class="w-4 h-4" style="color: var(--brand-primary, #005FD7)" />
                 </div>
                 <span class="flex-1 font-semibold text-slate-800 dark:text-white truncate">{{ $sectionLabel }}</span>
-                <a href="{{ route('courses.show', $course) }}" class="w-7 h-7 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 shrink-0">
+                <a href="{{ route('courses.show', $course) }}" class="w-7 h-7 rounded-full flex items-center justify-center text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 shrink-0">
                     <x-icon name="chevron-right" class="w-4 h-4 rotate-180" />
                 </a>
             </div>
             <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 mb-1 mx-1" style="width: calc(100% - 0.5rem)">
                 <div class="h-1.5 rounded-full" style="width: {{ $percent }}%; background-color: var(--brand-primary, #005FD7)"></div>
             </div>
-            <div class="flex items-center justify-between text-xs text-slate-400 px-1 mb-3">
+            <div class="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 px-1 mb-3">
                 <span>{{ $completedCount }} / {{ $totalCount }} Lektionen</span>
                 <span>{{ $percent }}%</span>
             </div>
@@ -40,7 +40,7 @@
                                 <span class="w-4 h-4 rounded-full border-2 border-slate-300 dark:border-slate-600 shrink-0"></span>
                             @endif
                             <span class="flex-1 text-sm font-medium text-slate-700 dark:text-slate-200 truncate">{{ $module->title }}</span>
-                            <x-icon name="chevron-right" class="w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform" x-bind:class="open ? 'rotate-90' : ''" />
+                            <x-icon name="chevron-right" class="w-3.5 h-3.5 text-slate-600 dark:text-slate-400 shrink-0 transition-transform" x-bind:class="open ? 'rotate-90' : ''" />
                         </button>
                         <div x-show="open" x-transition class="space-y-0.5 pl-6 pb-1">
                             @foreach ($group as $item)
@@ -55,7 +55,7 @@
                                     @endif
                                     <span class="flex-1 truncate">{{ $item->title }}</span>
                                     @if ($item->duration_seconds)
-                                        <span class="text-xs text-slate-400 shrink-0">{{ $item->formattedDuration() }}</span>
+                                        <span class="text-xs text-slate-600 dark:text-slate-400 shrink-0">{{ $item->formattedDuration() }}</span>
                                     @endif
                                 </a>
                             @endforeach
@@ -74,7 +74,7 @@
             </div>
 
             <div class="flex items-center justify-between mt-4">
-                <span class="text-xs text-slate-400">
+                <span class="text-xs text-slate-600 dark:text-slate-400">
                     @if ($progress[$lesson->id]->completed ?? false)
                         <span class="inline-flex items-center gap-1 text-emerald-600"><x-icon name="check-circle" class="w-4 h-4" /> Abgeschlossen</span>
                     @else
@@ -83,13 +83,13 @@
                 </span>
                 @if ($lesson->questions->isNotEmpty())
                     <a href="{{ route('video.quiz.show', array_filter(['course' => $course, 'lesson' => $lesson, 'position' => 1, 'kapitel' => $moduleIds ? implode(',', $moduleIds) : null])) }}"
-                       class="inline-flex items-center gap-1.5 px-5 py-2 rounded-full text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-secondary, #00A8A8)">
+                       class="inline-flex items-center gap-1.5 px-5 py-2 rounded-full text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-secondary, #007A7A)">
                         Zu den Fragen ({{ $lesson->questions->count() }}) <x-icon name="arrow-right" class="w-4 h-4" />
                     </a>
                 @else
                     <form method="POST" action="{{ route('video.complete', array_filter(['course' => $course, 'lesson' => $lesson, 'kapitel' => $moduleIds ? implode(',', $moduleIds) : null])) }}">
                         @csrf
-                        <button type="submit" class="inline-flex items-center gap-1.5 px-5 py-2 rounded-full text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-secondary, #00A8A8)">
+                        <button type="submit" class="inline-flex items-center gap-1.5 px-5 py-2 rounded-full text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-secondary, #007A7A)">
                             {{ $next ? 'Nächstes Video' : 'Kurs abschließen' }} <x-icon name="arrow-right" class="w-4 h-4" />
                         </button>
                     </form>
@@ -102,14 +102,14 @@
                     <div class="flex gap-3 overflow-x-auto pb-1">
                         @foreach ($lesson->steps as $step)
                             <div class="shrink-0 w-32 rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-100 dark:border-slate-700 p-3 text-center">
-                                <div class="w-full aspect-square rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center mb-2 text-slate-400">
+                                <div class="w-full aspect-square rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center mb-2 text-slate-600 dark:text-slate-400">
                                     <span class="text-lg font-semibold">{{ $loop->iteration }}</span>
                                 </div>
                                 <div class="text-xs text-slate-600 dark:text-slate-300 leading-snug">{{ $step->title }}</div>
                             </div>
                         @endforeach
                     </div>
-                    <p class="text-xs text-slate-400 mt-2">Platzhalter-Schritte ohne echtes Bildmaterial &mdash; vor Produktivbetrieb durch Aufnahmen der Bootsschule ersetzen.</p>
+                    <p class="text-xs text-slate-600 dark:text-slate-400 mt-2">Platzhalter-Schritte ohne echtes Bildmaterial &mdash; vor Produktivbetrieb durch Aufnahmen der Bootsschule ersetzen.</p>
                 </div>
             @endif
         </div>

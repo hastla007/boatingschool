@@ -3,11 +3,11 @@
         <div class="flex items-center justify-between">
             <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Prüfungssimulation</h2>
             <div class="text-sm text-slate-500 flex items-center gap-1.5">
-                <x-icon name="clipboard-document-check" class="w-4 h-4 text-slate-400" />
+                <x-icon name="clipboard-document-check" class="w-4 h-4 text-slate-600 dark:text-slate-400" />
                 Frage {{ $current->position }} von {{ $total }}
                 @if (! is_null($remainingSeconds))
                     <span class="text-slate-300">&middot;</span>
-                    <x-icon name="clock" class="w-4 h-4 text-slate-400" />
+                    <x-icon name="clock" class="w-4 h-4 text-slate-600 dark:text-slate-400" />
                     {{-- Bug-Review B23: gmdate('i:s', ...) interpretiert den
                          Wert als Unix-Timestamp und liefert nur die
                          Minute/Sekunde INNERHALB der aktuellen Stunde --
@@ -35,7 +35,7 @@
                 @csrf
                 <input type="hidden" name="position" value="{{ $current->position }}">
 
-                <p class="text-xs text-slate-400 mb-2">Mehrfachauswahl &mdash; mindestens eine Antwort ist richtig.</p>
+                <p class="text-xs text-slate-600 dark:text-slate-400 mb-2">Mehrfachauswahl &mdash; mindestens eine Antwort ist richtig.</p>
                 <div class="space-y-2">
                     @foreach ($current->revision->answers as $answer)
                         <label class="flex items-center gap-3 border border-slate-200 dark:border-slate-600 hover:border-slate-400 rounded-xl px-4 py-3 cursor-pointer transition">
@@ -57,7 +57,7 @@
             </form>
         @elseif ($current->revision->question_type === 'open_text')
             <div x-data="{ revealed: false }">
-                <p class="text-xs text-slate-400 mb-2">Offene Frage &mdash; keine Antwortoptionen. Schätze selbst ein, ob Du die Antwort wusstest.</p>
+                <p class="text-xs text-slate-600 dark:text-slate-400 mb-2">Offene Frage &mdash; keine Antwortoptionen. Schätze selbst ein, ob Du die Antwort wusstest.</p>
 
                 <template x-if="!revealed">
                     <button type="button" @click="revealed = true" class="w-full px-5 py-3 rounded-xl border border-slate-200 dark:border-slate-600 text-sm font-medium text-slate-600 dark:text-slate-200 hover:border-slate-400 transition">

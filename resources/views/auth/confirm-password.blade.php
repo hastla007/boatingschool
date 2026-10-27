@@ -1,6 +1,6 @@
 <x-guest-layout>
     <h2 class="text-xl font-bold text-slate-800 dark:text-white mb-2">Passwort bestätigen</h2>
-    <p class="text-sm text-slate-400 mb-6">Dies ist ein geschützter Bereich. Bitte bestätige dein Passwort, um fortzufahren.</p>
+    <p class="text-sm text-slate-600 dark:text-slate-400 mb-6">Dies ist ein geschützter Bereich. Bitte bestätige dein Passwort, um fortzufahren.</p>
 
     <form method="POST" action="{{ route('password.confirm') }}" class="space-y-4">
         @csrf

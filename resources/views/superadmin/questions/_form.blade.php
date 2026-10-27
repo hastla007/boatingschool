@@ -44,7 +44,7 @@
             <input type="hidden" name="question_type" value="{{ $questionType }}">
             <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
                 {{ ['single_choice' => 'Single Choice', 'multi_choice' => 'Multi Choice', 'open_text' => 'Offene Frage (Lernkarte)'][$questionType] ?? $questionType }}
-                <span class="block text-xs text-slate-400">Der Fragetyp kann nachträglich nicht mehr geändert werden.</span>
+                <span class="block text-xs text-slate-600 dark:text-slate-400">Der Fragetyp kann nachträglich nicht mehr geändert werden.</span>
             </p>
         @else
             <select id="question_type" name="question_type" x-model="questionType"
@@ -92,7 +92,7 @@
             @foreach (['A', 'B', 'C', 'D'] as $key)
                 <div class="flex items-center gap-3">
                     <input type="radio" id="correct_{{ $key }}" name="correct" value="{{ $key }}" @checked($singleCorrectKey === $key) class="shrink-0">
-                    <label for="correct_{{ $key }}" class="w-5 text-sm text-slate-400 shrink-0">{{ $key }}</label>
+                    <label for="correct_{{ $key }}" class="w-5 text-sm text-slate-600 dark:text-slate-400 shrink-0">{{ $key }}</label>
                     <x-input-label for="answer_{{ $key }}" value="Antworttext {{ $key }}" class="sr-only" />
                     <x-text-input id="answer_{{ $key }}" name="answers[{{ $key }}]" type="text" class="block w-full" :value="$singleAnswerText($key)" />
                 </div>
@@ -128,7 +128,7 @@
         <x-input-label for="model_answer" value="Musterantwort (Rückseite der Lernkarte)" />
         <textarea id="model_answer" name="model_answer" rows="3"
                   class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">{{ $modelAnswer }}</textarea>
-        <p class="text-xs text-slate-400 mt-1">Dient nur als Lernkarte -- der Lerner schätzt selbst ein, ob er die Antwort wusste, fließt nicht automatisch in eine Auswertung ein.</p>
+        <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Dient nur als Lernkarte -- der Lerner schätzt selbst ein, ob er die Antwort wusste, fließt nicht automatisch in eine Auswertung ein.</p>
         <x-input-error :messages="$errors->get('model_answer')" class="mt-2" />
     </div>
 
@@ -137,13 +137,13 @@
             <x-input-label for="feedback_correct" value="Feedback bei richtiger Antwort (optional)" />
             <textarea id="feedback_correct" name="feedback_correct" rows="4"
                       class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">{{ old('feedback_correct', $revision?->feedback_correct) }}</textarea>
-            <p class="text-xs text-slate-400 mt-1">Wird unter „Richtig!" angezeigt.</p>
+            <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Wird unter „Richtig!" angezeigt.</p>
         </div>
         <div>
             <x-input-label for="feedback_incorrect" value="Feedback bei falscher Antwort (optional)" />
             <textarea id="feedback_incorrect" name="feedback_incorrect" rows="4"
                       class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">{{ old('feedback_incorrect', $revision?->feedback_incorrect) }}</textarea>
-            <p class="text-xs text-slate-400 mt-1">Wird unter „Leider falsch." angezeigt.</p>
+            <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Wird unter „Leider falsch." angezeigt.</p>
         </div>
     </div>
 </div>

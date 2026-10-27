@@ -12,7 +12,7 @@
                 Für die Bestellung der Willkommensbox benötigst du mindestens <span class="font-semibold text-slate-700 dark:text-slate-200">{{ $threshold }}% Kursfortschritt</span>.
             </p>
             <div class="mt-6 w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2">
-                <div class="h-2 rounded-full" style="width: {{ min($percent, 100) }}%; background-color: var(--brand-secondary, #00A8A8)"></div>
+                <div class="h-2 rounded-full" style="width: {{ min($percent, 100) }}%; background-color: var(--brand-secondary, #007A7A)"></div>
             </div>
             <a href="{{ route('dashboard') }}" class="inline-flex items-center justify-center mt-6 px-5 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
                 Weiterlernen
