@@ -11,11 +11,11 @@
             <div class="text-2xl font-bold {{ $examSession->passed ? 'text-emerald-600' : 'text-rose-500' }}">
                 {{ $examSession->passed ? 'Bestanden' : 'Nicht bestanden' }}
             </div>
-            @php $scored = $questions->filter(fn ($q) => $q->revision->question_type !== 'open_text'); @endphp
-            <div class="text-slate-500 mt-1">{{ (int) round($examSession->score * 100) }}% richtig &middot; {{ $scored->where('correct', true)->count() }}/{{ $scored->count() }} Fragen</div>
-            @if ($questions->count() > $scored->count())
-                <div class="text-xs text-slate-400 mt-1">zzgl. {{ $questions->count() - $scored->count() }} offene Lernkarten-Fragen (nicht bewertet)</div>
-            @endif
+            {{-- Bug-Review (Hoch): open_text-Fragen zählten hier bisher nicht
+                 zur Quote (siehe ExamEvaluationService) -- diese Anzeige wies
+                 sie deshalb separat als "nicht bewertet" aus. Sie fließen
+                 jetzt wie jede andere Frage in $examSession->score ein. --}}
+            <div class="text-slate-500 mt-1">{{ (int) round($examSession->score * 100) }}% richtig &middot; {{ $questions->where('correct', true)->count() }}/{{ $questions->count() }} Fragen</div>
         </div>
 
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
