@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
+use App\Models\Coupon;
 use App\Models\CourseDefinition;
 use App\Models\Entitlement;
 use App\Models\TenantUser;
@@ -29,14 +30,6 @@ class EntitlementController extends Controller
         $validated = $request->validate([
             'user_id' => ['required', 'uuid'],
             'course_id' => ['required', 'uuid'],
-            // Bug-Review B14 (Folgefehler): endOfValidityDay() normalisiert
-            // nur auf das Ende des gewählten Tages -- ein tatsächlich in der
-            // Vergangenheit liegendes Datum (nicht nur "heute") lag damit
-            // immer noch vor valid_from (jetzt) und verletzte weiterhin den
-            // DB-Check-Constraint (HTTP 500). after_or_equal:today lässt
-            // "heute" bewusst zu (siehe endOfValidityDay), weist aber jedes
-            // frühere Datum schon in der Validierung zurück.
-            'valid_until' => ['nullable', 'date', 'after_or_equal:today'],
         ]);
 
         $user = User::findOrFail($validated['user_id']);
@@ -50,20 +43,6 @@ class EntitlementController extends Controller
         abort_unless($isMember, 404, 'Dieser Nutzer gehört nicht zu eurer Bootsschule.');
         abort_unless($entitlements->isOfferable($tenant, $course), 404, 'Dieser Kurs ist für eure Bootsschule nicht verfügbar.');
 
-        $validUntil = $this->endOfValidityDay($validated['valid_until'] ?? null);
-
-        // Bug-Review B14 (Folgefehler): "heute" bestand die Validierung oben
-        // (after_or_equal:today, in UTC geprüft), aber endOfValidityDay()
-        // interpretiert den gewählten Tag in deutscher Zeit (siehe N18) --
-        // zwischen dem deutschen Tagesende (in UTC) und dem UTC-Tagesende
-        // (also etwa 22/23 bis 24 Uhr UTC) liefert "heute" trotzdem bereits
-        // ein in der Vergangenheit liegendes Ergebnis und verletzte
-        // weiterhin den DB-Check-Constraint (HTTP 500) statt einen
-        // Validierungsfehler zu liefern.
-        if ($validUntil && $validUntil->lte(now())) {
-            return back()->withErrors(['valid_until' => 'Das gewählte Datum liegt bereits in der Vergangenheit.']);
-        }
-
         // Bug-Review B14: zwischen der Prüfung "noch nicht gebucht" und dem
         // eigentlichen INSERT lag kein Lock -- ein Doppelklick auf
         // "Freischalten" konnte zwei Entitlement-Zeilen für denselben Kurs
@@ -71,18 +50,54 @@ class EntitlementController extends Controller
         // eine Zeile für diese Tenant/Nutzer/Kurs-Kombination (egal welchen
         // Status, z. B. eine zuvor widerrufene), wird sie reaktiviert statt
         // dupliziert.
-        return DB::transaction(function () use ($tenant, $user, $course, $validUntil, $request) {
+        //
+        // Bug-Review (Hoch): dieser "Kurs freischalten"-Weg legte bisher
+        // IMMER ein Entitlement an (source_type=manual, valid_until=null,
+        // also unbefristet), ohne jemals einen Coupon-Code zu verbrauchen --
+        // das Dropdown im Teilnehmer-Tab zeigt dabei aber ausdrücklich an,
+        // wie viele eigene, noch nicht eingelöste Codes die Bootsschule je
+        // Kurs besitzt ($freeCourseCouponCounts, AdminDashboardController),
+        // und deaktiviert die Option sogar bei 0 ("keine Codes"). Diese
+        // Anzeige suggerierte also einen Verbrauch, der nie stattfand: die
+        // Freischaltung blieb unbegrenzt oft kostenlos möglich, unabhängig
+        // vom tatsächlichen Code-Bestand. Ein verfügbarer, der Bootsschule
+        // gehörender Kurs-Coupon ist jetzt Voraussetzung und wird dabei
+        // verbraucht -- derselbe Mechanismus wie beim direkten
+        // "Code zuweisen" im Coupons-Tab (Admin\CouponController::assign)
+        // bzw. der Selbst-Einlösung (CouponRedeemController), nur ohne dass
+        // der Admin selbst erst einen konkreten Code heraussuchen muss.
+        // Bereits AKTIV freigeschaltete Kurse bleiben dabei bewusst ein
+        // kostenloser No-Op (Doppelklick-Schutz oben) -- nur eine
+        // Neuvergabe (oder Reaktivierung eines gesperrten/widerrufenen
+        // Zugangs) verbraucht einen Code.
+        return DB::transaction(function () use ($tenant, $user, $course, $request) {
             DB::statement('SELECT pg_advisory_xact_lock(hashtext(?))', [$tenant->id.':'.$user->id.':'.$course->id]);
 
             $entitlement = Entitlement::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)->first();
+
+            if ($entitlement && $entitlement->status === 'active') {
+                return back()->with('status', 'Kurs freigeschaltet.');
+            }
+
+            $coupon = Coupon::where('tenant_id', $tenant->id)
+                ->where('course_id', $course->id)
+                ->where('is_renewal', false)
+                ->whereNull('redeemed_at')
+                ->lockForUpdate()
+                ->first();
+
+            if (! $coupon) {
+                return back()->withErrors(['course_id' => 'Für diesen Kurs ist kein freier Code mehr vorhanden.']);
+            }
+
             $before = $entitlement?->toArray();
 
             $attributes = [
                 'valid_from' => now(),
-                'valid_until' => $validUntil,
+                'valid_until' => now()->copy()->addDays($tenant->branding->course_validity_days),
                 'status' => 'active',
-                'source_type' => 'manual',
-                'source_reference' => 'admin:'.$request->user()->id,
+                'source_type' => 'coupon',
+                'source_reference' => $coupon->code,
             ];
 
             if ($entitlement) {
@@ -95,6 +110,12 @@ class EntitlementController extends Controller
                     ...$attributes,
                 ]);
             }
+
+            $coupon->update([
+                'redeemed_by_user_id' => $user->id,
+                'redeemed_tenant_id' => $tenant->id,
+                'redeemed_at' => now(),
+            ]);
 
             AuditLog::record($tenant->id, $request->user()->id, 'entitlement.create', 'entitlement', $entitlement->id, $before, $entitlement->fresh()->toArray());
 

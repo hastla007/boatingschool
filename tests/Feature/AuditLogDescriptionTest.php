@@ -112,6 +112,9 @@ class AuditLogDescriptionTest extends TestCase
         $admin = $this->createTenantUser($tenant, 'owner', ['display_name' => 'Anna Meyer']);
         $learner = $this->createTenantUser($tenant, 'learner', ['display_name' => 'Max Mustermann']);
         $course = $this->existingCourse('SRC');
+        $code = 'TEST-AUDIT-ENT-'.uniqid();
+        $this->createdCodes[] = $code;
+        $this->onAdmin(fn () => Coupon::create(['code' => $code, 'course_id' => $course->id, 'tenant_id' => $tenant->id]));
 
         $this->actingAsInTenant($admin, $tenant)->post('/admin/entitlements', [
             'user_id' => $learner->id,
