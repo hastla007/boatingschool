@@ -21,6 +21,7 @@ use App\Models\TenantAddon;
 use App\Models\TenantCourseDisabled;
 use App\Models\TenantCourseLocation;
 use App\Models\TenantUser;
+use App\Models\WillkommensboxOrder;
 use App\Services\CourseProgressService;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
@@ -318,6 +319,24 @@ class AdminDashboardController extends Controller
             ->paginate(20, ['*'], 'anmeldung_page')
             ->withQueryString();
 
+        // Bug-Review F6: Willkommensbox-Bestellungen ließen sich bisher nur
+        // einzeln auf der Teilnehmer-Detailseite finden -- keine
+        // Gesamtübersicht über alle offenen/versendeten Bestellungen
+        // dieser Bootsschule.
+        $willkommensboxFilters = $request->only(['wb_search']);
+
+        $willkommensboxOrders = WillkommensboxOrder::where('tenant_id', $tenant->id)
+            ->with('user')
+            ->when(trim((string) ($willkommensboxFilters['wb_search'] ?? '')) !== '', function ($q) use ($willkommensboxFilters) {
+                $term = '%'.trim($willkommensboxFilters['wb_search']).'%';
+                $q->whereHas('user', fn ($q2) => $q2->where('display_name', 'ilike', $term)->orWhere('email', 'ilike', $term));
+            })
+            // Offene (noch nicht versendete) Bestellungen zuerst, darin neueste zuerst.
+            ->orderByRaw('shipped_at is null desc')
+            ->orderByDesc('created_at')
+            ->paginate(20, ['*'], 'wb_page')
+            ->withQueryString();
+
         $disabledCourseIds = TenantCourseDisabled::where('tenant_id', $tenant->id)->pluck('course_id');
 
         $couponFilters = $request->only(['coupon_search', 'coupon_status', 'coupon_type']);
@@ -408,6 +427,9 @@ class AdminDashboardController extends Controller
             'tenantCourseLocations' => $tenantCourseLocations,
             'pruefungsausschuesse' => $pruefungsausschuesse,
             'anmeldungFilters' => $anmeldungFilters,
+            'willkommensboxOrders' => $willkommensboxOrders,
+            'willkommensboxFilters' => $willkommensboxFilters,
+            'willkommensboxLabelSizes' => $branding->enabledLabelSizes(),
             'disabledCourseIds' => $disabledCourseIds,
             'coupons' => $coupons,
             'couponSummary' => $couponSummary,

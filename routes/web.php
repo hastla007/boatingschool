@@ -164,6 +164,12 @@ Route::middleware(['auth', 'tenant.role:owner,admin,instructor', 'verified'])->p
         ->middleware(['signed', 'throttle:6,1,support-email-verify'])->name('branding.support-email.verify');
 
     Route::get('/praxis-form-submissions/{submission}', [AdminPraxisFormSubmissionController::class, 'show'])->name('praxis-form-submissions.show');
+    // Bug-Review F6: die Formulardaten waren bisher nach dem Absenden rein
+    // lesend, und eine Anmeldung ließ sich nicht löschen (blockierte dann
+    // über den Unique-Index auch jede neue Anmeldung desselben Lerners).
+    Route::get('/praxis-form-submissions/{submission}/edit', [AdminPraxisFormSubmissionController::class, 'edit'])->name('praxis-form-submissions.edit');
+    Route::patch('/praxis-form-submissions/{submission}', [AdminPraxisFormSubmissionController::class, 'update'])->name('praxis-form-submissions.update');
+    Route::delete('/praxis-form-submissions/{submission}', [AdminPraxisFormSubmissionController::class, 'destroy'])->name('praxis-form-submissions.destroy');
     Route::post('/praxis-form-submissions/{submission}/exam-appointments', [AdminPraxisExamAppointmentController::class, 'store'])->name('praxis-form-submissions.exam-appointments.store');
     // Bug-Review F4: es gab bisher keine Möglichkeit, einen eigenen,
     // noch offenen Vorschlag zurückzuziehen oder einen bereits

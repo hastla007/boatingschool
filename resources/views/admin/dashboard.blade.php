@@ -19,6 +19,8 @@
                     :style="tab === 'participants' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Teilnehmer</button>
             <button type="button" @click="tab = 'praxis-anmeldungen'" :class="tab === 'praxis-anmeldungen' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500'"
                     :style="tab === 'praxis-anmeldungen' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Praxis-Anmeldungen</button>
+            <button type="button" @click="tab = 'willkommensbox'" :class="tab === 'willkommensbox' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500'"
+                    :style="tab === 'willkommensbox' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Willkommensbox</button>
             @if ($canManageTenant)
                 <button type="button" @click="tab = 'coupons'" :class="tab === 'coupons' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500'"
                         :style="tab === 'coupons' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Coupon-Codes</button>
@@ -45,6 +47,9 @@
         </div>
         <div x-show="tab === 'praxis-anmeldungen'" style="display: none">
             @include('admin.tabs.praxis-anmeldungen')
+        </div>
+        <div x-show="tab === 'willkommensbox'" style="display: none">
+            @include('admin.tabs.willkommensbox')
         </div>
         @if ($canManageTenant)
             <div x-show="tab === 'coupons'" style="display: none">
