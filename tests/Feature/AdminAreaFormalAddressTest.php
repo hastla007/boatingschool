@@ -102,4 +102,43 @@ class AdminAreaFormalAddressTest extends TestCase
         $response->assertSee('Bestellungen der Willkommensbox Ihrer Lerner.');
         $response->assertDontSee('Bestellungen der Willkommensbox deiner Lerner.');
     }
+
+    /**
+     * Bug-Review T8: nutzte bisher die informelle ihr-Form ("euch", "ihr",
+     * "euren") statt der formellen Sie-Form.
+     */
+    public function test_the_coupons_tab_sizes_instead_of_the_informal_ihr_form(): void
+    {
+        $tenant = $this->createTestTenant();
+        $owner = $this->createTenantUser($tenant, 'owner');
+
+        $response = $this->actingAsInTenant($owner, $tenant)->get(route('admin.dashboard', ['tab' => 'coupons']));
+
+        $response->assertOk();
+        $response->assertSee('Eigene Coupon-Codes bekommen Sie auf zwei Wegen', false);
+        $response->assertDontSee('Eigene Coupon-Codes bekommt ihr auf zwei Wegen', false);
+    }
+
+    /**
+     * Bug-Review T8: "eurer Bootsschule"/"eure Bootsschule" ist die
+     * informelle ihr-Form. Die Row-Level-Security auf app_user
+     * (app_user_select_visibility) macht einen Nutzer ohne tenant_user-
+     * Zeile für die aktuelle Bootsschule bereits für
+     * User::findOrFail() unsichtbar (ModelNotFoundException, bevor
+     * dieser abort_unless()-Zweig überhaupt erreicht wird, siehe
+     * CrossTenantAccountAccessTest) -- genau wie beim durch $el
+     * übergebenen toggleFavorite()-Aufruf (Bug-Review Hoch, siehe
+     * ExamFavoriteToggleTest) lässt sich dieser konkrete Text deshalb
+     * nicht über einen HTTP-Request auslösen; der Test pinnt ihn
+     * stattdessen im Quelltext fest.
+     */
+    public function test_the_non_member_entitlement_error_sizes_instead_of_the_informal_ihr_form(): void
+    {
+        $source = file_get_contents(app_path('Http/Controllers/Admin/EntitlementController.php'));
+
+        $this->assertStringContainsString('Dieser Nutzer gehört nicht zu Ihrer Bootsschule.', $source);
+        $this->assertStringContainsString('Dieser Kurs ist für Ihre Bootsschule nicht verfügbar.', $source);
+        $this->assertStringNotContainsString('eurer Bootsschule', $source);
+        $this->assertStringNotContainsString('eure Bootsschule', $source);
+    }
 }

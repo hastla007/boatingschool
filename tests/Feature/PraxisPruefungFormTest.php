@@ -366,6 +366,40 @@ class PraxisPruefungFormTest extends TestCase
     }
 
     /**
+     * Bug-Review T8: "Bitte schlage ... vor" ist der informelle
+     * du-Imperativ -- der restliche Admin-Bereich siezt durchgehend.
+     */
+    public function test_the_admin_notification_mail_sizes_instead_of_the_informal_du_imperative(): void
+    {
+        Notification::fake();
+
+        $tenant = $this->createTestTenant();
+        $owner = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course] = $this->makeIsolatedCourseWithQuestions(2);
+        $this->grantEntitlement($tenant, $learner, $course);
+        $this->completeRegistrationProfile($learner, $tenant);
+        $this->masterAllQuestions($tenant, $learner, $course);
+        $this->createTemplate(['course_ids' => [$course->id], 'min_progress_percent' => 10]);
+
+        $this->actingAsInTenant($learner, $tenant)->post(route('praxis-pruefung.store', $course), [
+            'telefonnummer' => '+49 170 1234567',
+            'geschlecht' => 'Männlich',
+            'tauglichkeit' => '1',
+        ]);
+
+        Notification::assertSentTo($owner, function (PraxisFormSubmissionReceived $notification) use ($owner) {
+            $mail = $notification->toMail($owner);
+            $lines = implode(' ', array_map('strval', array_merge($mail->introLines, $mail->outroLines)));
+
+            $this->assertStringContainsString('Bitte schlagen Sie als Nächstes einen Prüfungstermin vor.', $lines);
+            $this->assertStringNotContainsString('Bitte schlage als Nächstes', $lines);
+
+            return true;
+        });
+    }
+
+    /**
      * Bug-Review (Mails synchron in Transaktion mit Lock): der Mailversand
      * lief hier bisher INNERHALB der Transaktion, die zusätzlich den
      * Advisory-Lock (siehe Bug-Review N16) hält -- ein langsamer oder nicht

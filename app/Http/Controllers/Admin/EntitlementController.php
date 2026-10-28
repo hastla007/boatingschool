@@ -41,9 +41,11 @@ class EntitlementController extends Controller
         // beliebige User-UUID (z. B. aus einer anderen Bootsschule) als
         // Teilnehmer dieser Bootsschule freischalten, und ein sitewide oder
         // mandantenseitig deaktivierter Kurs trotzdem freischalten.
+        // Bug-Review T8: "eurer"/"eure" ist die informelle ihr-Form -- der
+        // restliche Admin-Bereich siezt durchgehend.
         $isMember = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $user->id)->exists();
-        abort_unless($isMember, 404, 'Dieser Nutzer gehört nicht zu eurer Bootsschule.');
-        abort_unless($entitlements->isOfferable($tenant, $course), 404, 'Dieser Kurs ist für eure Bootsschule nicht verfügbar.');
+        abort_unless($isMember, 404, 'Dieser Nutzer gehört nicht zu Ihrer Bootsschule.');
+        abort_unless($entitlements->isOfferable($tenant, $course), 404, 'Dieser Kurs ist für Ihre Bootsschule nicht verfügbar.');
 
         // Bug-Review B14: zwischen der Prüfung "noch nicht gebucht" und dem
         // eigentlichen INSERT lag kein Lock -- ein Doppelklick auf

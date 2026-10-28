@@ -35,6 +35,9 @@ class PraxisFormSubmissionReceived extends Notification
             ->subject('Neue Praxis-Anmeldung: '.$courseName)
             ->line("{$learnerName} hat sich für \"{$courseName}\" zu Praxis & Prüfung angemeldet.")
             ->action('Anmeldung ansehen', route('admin.participants.show', $this->submission->user_id))
-            ->line('Bitte schlage als Nächstes einen Prüfungstermin vor.');
+            // Bug-Review T8: "schlage ... vor" ist der informelle
+            // du-Imperativ -- der restliche Admin-Bereich siezt
+            // durchgehend.
+            ->line('Bitte schlagen Sie als Nächstes einen Prüfungstermin vor.');
     }
 }

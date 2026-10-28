@@ -1,6 +1,10 @@
+{{-- Bug-Review T8: der restliche Admin-Bereich siezt durchgehend (siehe
+     die zahlreichen "Du/Sie im Admin-Bereich gemischt"-Fixes), dieser
+     Absatz nutzte bisher als einzige Stelle hier die informelle
+     ihr-Form. --}}
 <p class="text-slate-500 mb-6">
-    Eigene Coupon-Codes bekommt ihr auf zwei Wegen: entweder teilt euch der Plattform-Betreiber welche zu, oder ihr
-    übernehmt Codes, die ihr einzeln oder im Bulk über einen externen Webshop gekauft habt, per Import in euren
+    Eigene Coupon-Codes bekommen Sie auf zwei Wegen: entweder teilt Ihnen der Plattform-Betreiber welche zu, oder Sie
+    übernehmen Codes, die Sie einzeln oder im Bulk über einen externen Webshop gekauft haben, per Import in Ihren
     Bestand.
 </p>
 
