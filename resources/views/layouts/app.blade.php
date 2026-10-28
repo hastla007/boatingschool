@@ -65,6 +65,28 @@
                     </div>
                 @endif
 
+                {{-- Bug-Review T4: Admin\EntitlementController::store()/
+                     update() liefern bei fehlender Code-Verfügbarkeit
+                     (Freischalten/Verlängern/Widerruf aufheben) bisher
+                     back()->withErrors(['course_id' => ...]) bzw.
+                     ['action' => ...] -- dieses Layout rendert aber nur
+                     session('status') global, $errors sonst nirgends auf
+                     den betroffenen Seiten (admin/tabs/participants.blade.php,
+                     admin/participants/show.blade.php kennen nur Felder wie
+                     street/postal_code/birthdate). Der Admin sah nach einem
+                     Klick auf "Freischalten"/"Verlängern"/"Widerruf
+                     aufheben" ohne freien Code dadurch gar keine Rückmeldung
+                     -- der Request schlug lediglich unsichtbar fehl. --}}
+                @if ($errors->any())
+                    <div class="mb-4 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 text-sm dark:bg-rose-900/30 dark:border-rose-800 dark:text-rose-300">
+                        <ul class="space-y-1">
+                            @foreach ($errors->all() as $error)
+                                <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
+
                 {{ $slot }}
             </main>
 
