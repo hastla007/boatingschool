@@ -178,7 +178,7 @@ class EntitlementController extends Controller
      * ohnehin schon bezahlte Restlaufzeit zurück, keinen zusätzlichen
      * Wert.
      */
-    public function update(Request $request, TenantContext $tenantContext, Entitlement $entitlement, CouponRedemptionService $redemption): Response
+    public function update(Request $request, TenantContext $tenantContext, Entitlement $entitlement): Response
     {
         abort_unless($entitlement->tenant_id === $tenantContext->id(), 404);
 
@@ -188,7 +188,7 @@ class EntitlementController extends Controller
 
         $tenant = $tenantContext->tenant();
 
-        return DB::transaction(function () use ($validated, $entitlement, $tenant, $request, $redemption) {
+        return DB::transaction(function () use ($validated, $entitlement, $tenant, $request) {
             DB::statement('SELECT pg_advisory_xact_lock(hashtext(?))', [$tenant->id.':'.$entitlement->user_id.':'.$entitlement->course_id]);
             $entitlement->refresh();
 
@@ -198,7 +198,7 @@ class EntitlementController extends Controller
                 'extend' => $this->extend($entitlement, $tenant),
                 'suspend' => $this->suspend($entitlement),
                 'revoke' => $this->revoke($entitlement),
-                'reactivate' => $this->reactivate($entitlement, $tenant, $redemption),
+                'reactivate' => $this->reactivate($entitlement, $tenant),
             };
 
             if ($error) {
@@ -296,10 +296,11 @@ class EntitlementController extends Controller
      * über das bereits Bezahlte hinaus gewährt, nur die Pause
      * rückgängig gemacht. "Widerruf aufheben" (status=revoked) braucht
      * dagegen einen vollwertigen Kurs-Code, genau wie eine Neuvergabe
-     * über store() -- inklusive frischer Laufzeit und etwaiger
-     * gebündelter Zusatzprodukte.
+     * über store() -- inklusive frischer Laufzeit. Gebündelte
+     * Zusatzprodukte werden hier NICHT erneut vergeben, siehe
+     * Bug-Review-Kommentar unten.
      */
-    private function reactivate(Entitlement $entitlement, Tenant $tenant, CouponRedemptionService $redemption): ?RedirectResponse
+    private function reactivate(Entitlement $entitlement, Tenant $tenant): ?RedirectResponse
     {
         if ($entitlement->status !== 'revoked') {
             $entitlement->update(['status' => 'active']);
@@ -333,7 +334,16 @@ class EntitlementController extends Controller
             'redeemed_at' => now(),
         ]);
 
-        $redemption->applyOptionProducts($coupon, $tenant, $entitlement->user);
+        // Bug-Review (Bezahlte Zusatzprodukte stillschweigend nicht
+        // angelegt): hier stand bisher applyOptionProducts($coupon, ...),
+        // um dasselbe gebündelte Zusatzprodukt (z. B. die Willkommensbox)
+        // erneut zu vergeben -- revoke() oben löscht aber nie die
+        // ProductPurchase-Zeile der ursprünglichen Einlösung, der Lerner
+        // besitzt das Produkt also bereits durchgehend über den gesamten
+        // Widerrufen/Aufheben-Zyklus. Der erneute Aufruf war daher nie
+        // nötig und legte (nach dem T6-Fix) wegen der dortigen, zu breiten
+        // Dopplungsprüfung sogar ein per ANDEREM Kurs/Coupon gebündeltes,
+        // aber zufällig gleiches Produkt fälschlich gar nicht erst an.
 
         return null;
     }

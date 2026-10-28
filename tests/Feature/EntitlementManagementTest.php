@@ -602,6 +602,51 @@ class EntitlementManagementTest extends TestCase
         });
     }
 
+    /**
+     * Bug-Review (Bezahlte Zusatzprodukte stillschweigend nicht angelegt):
+     * der T6-Fix prüfte in applyOptionProducts() bisher, ob der Lerner
+     * irgendeine ProductPurchase-Zeile für dasselbe Produkt schon besitzt --
+     * unabhängig von Kurs oder Coupon. Ein Lerner, der einen Coupon für
+     * Kurs A mit gebündelter "Kleinen Praxiseinheit" einlöst und danach
+     * einen Coupon für einen ANDEREN Kurs B, der ebenfalls die "Kleine
+     * Praxiseinheit" bündelt, bekam die zweite Einheit dadurch nie
+     * gutgeschrieben.
+     */
+    public function test_redeeming_a_second_course_coupon_still_grants_the_same_bundled_option_product(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $seeCourse = $this->existingCourse('SBF-SEE');
+        $binnenCourse = $this->existingCourse('SBF-BIN-MOTOR');
+        $praxiseinheit = $this->onAdmin(fn () => Product::where('code', 'PRAXISEINHEIT-KLEIN')->firstOrFail());
+
+        $seeCoupon = $this->makeCourseCoupon($tenant, $seeCourse);
+        $this->onAdmin(fn () => $seeCoupon->optionProducts()->attach($praxiseinheit->id));
+
+        $binnenCoupon = $this->makeCourseCoupon($tenant, $binnenCourse);
+        $this->onAdmin(fn () => $binnenCoupon->optionProducts()->attach($praxiseinheit->id));
+
+        $this->actingAsInTenant($admin, $tenant)->post('/admin/entitlements', [
+            'user_id' => $learner->id,
+            'course_id' => $seeCourse->id,
+        ])->assertSessionHasNoErrors();
+
+        $this->actingAsInTenant($admin, $tenant)->post('/admin/entitlements', [
+            'user_id' => $learner->id,
+            'course_id' => $binnenCourse->id,
+        ])->assertSessionHasNoErrors();
+
+        $this->onAdmin(function () use ($tenant, $learner, $praxiseinheit) {
+            $purchases = ProductPurchase::where('tenant_id', $tenant->id)
+                ->where('user_id', $learner->id)
+                ->where('product_id', $praxiseinheit->id)
+                ->get();
+
+            $this->assertCount(2, $purchases, 'Ein zweiter Kurs-Coupon mit demselben gebündelten Zusatzprodukt muss eine eigene Praxiseinheit gutschreiben, nicht nur eine insgesamt.');
+        });
+    }
+
     public function test_an_instructor_does_not_see_the_extend_or_suspend_controls(): void
     {
         $tenant = $this->createTestTenant();
