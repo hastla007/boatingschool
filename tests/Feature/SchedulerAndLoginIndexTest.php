@@ -41,4 +41,25 @@ class SchedulerAndLoginIndexTest extends TestCase
             $this->assertTrue($event->onOneServer, "{$command} läuft nicht mit onOneServer().");
         }
     }
+
+    /**
+     * Bug-Review (Scheduler läuft ohne withoutOverlapping): onOneServer()
+     * schützt nur gegen einen gleichzeitigen zweiten SERVER -- läuft ein
+     * Task auf demselben Server länger als sein eigenes Intervall, startet
+     * der nächste geplante Lauf ohne withoutOverlapping() trotzdem parallel
+     * dazu.
+     */
+    public function test_the_scheduled_commands_do_not_overlap_with_their_own_next_run(): void
+    {
+        $schedule = $this->app->make(Schedule::class);
+
+        $commands = ['app:prune-personal-data', 'app:expire-entitlements', 'app:expire-abandoned-exam-sessions'];
+
+        foreach ($commands as $command) {
+            $event = collect($schedule->events())->first(fn ($e) => str_contains($e->command, $command));
+
+            $this->assertNotNull($event, "Scheduler-Event für {$command} nicht gefunden.");
+            $this->assertTrue($event->withoutOverlapping, "{$command} läuft nicht mit withoutOverlapping().");
+        }
+    }
 }
