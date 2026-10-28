@@ -12,6 +12,60 @@
         </div>
     </x-slot>
 
+    <div class="grid lg:grid-cols-2 gap-4 mb-4">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
+            <div class="flex items-center justify-between gap-3 mb-3">
+                <h3 class="font-medium text-slate-700 dark:text-slate-200">Video</h3>
+                @if ($lesson->isPlaceholder())
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">Platzhaltervideo</span>
+                @endif
+            </div>
+            <form method="POST" action="{{ route('superadmin.video-lessons.update', $lesson) }}" class="space-y-3">
+                @csrf
+                @method('PATCH')
+                <div>
+                    <x-input-label for="title" value="Titel" />
+                    <x-text-input id="title" name="title" type="text" class="mt-1 block w-full" :value="old('title', $lesson->title)" required maxlength="200" />
+                    <x-input-error :messages="$errors->get('title')" class="mt-1" />
+                </div>
+                <div>
+                    <x-input-label for="video_url" value="Video-URL (https, direkt abspielbare Datei, z. B. MP4)" />
+                    <x-text-input id="video_url" name="video_url" type="url" class="mt-1 block w-full" :value="old('video_url', $lesson->video_url)" required maxlength="2048" placeholder="https://" />
+                    <x-input-error :messages="$errors->get('video_url')" class="mt-1" />
+                </div>
+                <div>
+                    <x-input-label for="duration" value="Dauer (Minuten:Sekunden, optional)" />
+                    <x-text-input id="duration" name="duration" type="text" class="mt-1 block w-32" :value="old('duration', $lesson->formattedDuration())" placeholder="4:30" />
+                    <x-input-error :messages="$errors->get('duration')" class="mt-1" />
+                </div>
+                @if ($copies->isNotEmpty())
+                    <div class="pt-2 border-t border-slate-100 dark:border-slate-700">
+                        <label class="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-300">
+                            <input type="checkbox" name="apply_to_copies" value="1" @checked(old('apply_to_copies')) class="rounded border-slate-300 mt-0.5">
+                            <span>Video-URL und Dauer auch in {{ $copies->count() }} {{ $copies->count() === 1 ? 'Kopie' : 'Kopien' }} dieser Lektion übernehmen</span>
+                        </label>
+                        <ul class="text-xs text-slate-600 dark:text-slate-400 mt-1 ml-6 list-disc">
+                            @foreach ($copies as $copy)
+                                <li>{{ $copy->module->course->name }} · {{ $copy->module->title }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
+                <button type="submit" class="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium hover:opacity-90 transition">Speichern</button>
+            </form>
+        </div>
+
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
+            <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3">Vorschau</h3>
+            <div class="rounded-xl overflow-hidden bg-slate-900 aspect-video">
+                <video controls class="w-full h-full" preload="metadata">
+                    <source src="{{ $lesson->video_url }}" type="video/mp4">
+                </video>
+            </div>
+            <p class="text-xs text-slate-600 dark:text-slate-400 mt-2 break-all">{{ $lesson->video_url }}</p>
+        </div>
+    </div>
+
     <div class="grid lg:grid-cols-2 gap-4">
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
             <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3">Fragen zu diesem Video</h3>
