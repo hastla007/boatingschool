@@ -85,7 +85,18 @@ class PraxisFormSubmissionController extends Controller
         // HTTP 500 endete. Der Advisory-Lock serialisiert das und prüft
         // "bereits angemeldet" direkt davor noch einmal, analog zu
         // Bug-Review B14 (EntitlementController).
-        return DB::transaction(function () use ($tenant, $course, $user, $template, $data) {
+        //
+        // Bug-Review (Mails synchron in Transaktion mit Lock): der
+        // synchrone Mailversand (siehe BestEffortMail) lief hier bisher
+        // INNERHALB dieser Transaktion, die zusätzlich den Advisory-Lock
+        // oben hält -- ein langsamer oder nicht erreichbarer Mailserver
+        // hielt damit Transaktion und Lock unnötig lange offen und
+        // blockierte dadurch jeden anderen Request, der denselben Lock für
+        // dieselbe Anmeldung erwerben wollte. Transaktion/Lock umfassen
+        // jetzt nur noch den eigentlichen INSERT; der Mailversand läuft
+        // erst danach, analog zu allen anderen Mailversänden in dieser
+        // Anwendung (z. B. Admin\PraxisExamAppointmentController).
+        $submission = DB::transaction(function () use ($tenant, $course, $user, $template, $data) {
             DB::statement('SELECT pg_advisory_xact_lock(hashtext(?))', [$tenant->id.':'.$user->id.':'.$course->id]);
 
             $stillExisting = PraxisFormSubmission::where('tenant_id', $tenant->id)
@@ -94,31 +105,34 @@ class PraxisFormSubmissionController extends Controller
                 ->exists();
 
             if ($stillExisting) {
-                return back()->with('status', 'Du hast dich für diesen Kurs bereits angemeldet.');
+                return null;
             }
 
-            $submission = PraxisFormSubmission::create([
+            return PraxisFormSubmission::create([
                 'tenant_id' => $tenant->id,
                 'course_id' => $course->id,
                 'user_id' => $user->id,
                 'praxis_form_template_id' => $template->id,
                 'data' => $data,
             ]);
-
-            // Bug-Review F5: im gesamten Ablauf von Praxis-Anmeldung,
-            // Terminen und Willkommensbox wurde bisher keine Mail
-            // verschickt -- eine Bootsschule bemerkte eine neue
-            // Praxis-Anmeldung nur, wenn jemand aktiv im Admin-Bereich
-            // nachsah.
-            $admins = $tenant->admins();
-            if ($admins->isNotEmpty()) {
-                BestEffortMail::send(
-                    fn () => Notification::send($admins, new PraxisFormSubmissionReceived($submission)),
-                    "Praxis-Anmeldung {$submission->id} an Bootsschule {$tenant->id}"
-                );
-            }
-
-            return redirect()->route('praxis-pruefung.index', $course);
         });
+
+        if ($submission === null) {
+            return back()->with('status', 'Du hast dich für diesen Kurs bereits angemeldet.');
+        }
+
+        // Bug-Review F5: im gesamten Ablauf von Praxis-Anmeldung, Terminen
+        // und Willkommensbox wurde bisher keine Mail verschickt -- eine
+        // Bootsschule bemerkte eine neue Praxis-Anmeldung nur, wenn jemand
+        // aktiv im Admin-Bereich nachsah.
+        $admins = $tenant->admins();
+        if ($admins->isNotEmpty()) {
+            BestEffortMail::send(
+                fn () => Notification::send($admins, new PraxisFormSubmissionReceived($submission)),
+                "Praxis-Anmeldung {$submission->id} an Bootsschule {$tenant->id}"
+            );
+        }
+
+        return redirect()->route('praxis-pruefung.index', $course);
     }
 }

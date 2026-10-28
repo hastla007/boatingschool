@@ -13,6 +13,9 @@ use App\Models\Pruefungsausschuss;
 use App\Models\TenantAddon;
 use App\Models\TenantCourseLocation;
 use App\Notifications\PraxisFormSubmissionReceived;
+use Illuminate\Notifications\Events\NotificationSending;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 use Tests\Feature\Concerns\InteractsWithTenants;
@@ -360,6 +363,55 @@ class PraxisPruefungFormTest extends TestCase
         $response->assertRedirect(route('praxis-pruefung.index', $course));
 
         Notification::assertSentTo($owner, PraxisFormSubmissionReceived::class);
+    }
+
+    /**
+     * Bug-Review (Mails synchron in Transaktion mit Lock): der Mailversand
+     * lief hier bisher INNERHALB der Transaktion, die zusätzlich den
+     * Advisory-Lock (siehe Bug-Review N16) hält -- ein langsamer oder nicht
+     * erreichbarer Mailserver hätte Transaktion und Lock unnötig lange
+     * offengehalten. Prüft das über eine ZWEITE, unabhängige DB-Verbindung
+     * (pgsql_admin): wäre die Anmeldung zum Zeitpunkt des Mailversands auf
+     * dieser zweiten Verbindung noch NICHT sichtbar, liefe die Transaktion
+     * der ersten Verbindung noch.
+     */
+    public function test_sending_the_admin_notification_mail_happens_after_the_submission_lock_transaction_commits(): void
+    {
+        $tenant = $this->createTestTenant();
+        $owner = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course] = $this->makeIsolatedCourseWithQuestions(2);
+        $this->grantEntitlement($tenant, $learner, $course);
+        $this->completeRegistrationProfile($learner, $tenant);
+        $this->masterAllQuestions($tenant, $learner, $course);
+        $this->createTemplate(['course_ids' => [$course->id], 'min_progress_percent' => 10]);
+
+        $visibleOnSeparateConnection = null;
+        Event::listen(NotificationSending::class, function ($event) use (&$visibleOnSeparateConnection, $tenant, $learner, $course) {
+            if (! $event->notification instanceof PraxisFormSubmissionReceived) {
+                return;
+            }
+
+            $visibleOnSeparateConnection = DB::connection('pgsql_admin')
+                ->table('praxis_form_submission')
+                ->where('tenant_id', $tenant->id)
+                ->where('user_id', $learner->id)
+                ->where('course_id', $course->id)
+                ->exists();
+        });
+
+        $response = $this->actingAsInTenant($learner, $tenant)->post(route('praxis-pruefung.store', $course), [
+            'telefonnummer' => '+49 170 1234567',
+            'geschlecht' => 'Männlich',
+            'tauglichkeit' => '1',
+        ]);
+
+        $response->assertRedirect(route('praxis-pruefung.index', $course));
+        $this->assertNotNull($visibleOnSeparateConnection, 'NotificationSending wurde nicht ausgelöst.');
+        $this->assertTrue(
+            $visibleOnSeparateConnection,
+            'Die Anmeldung war über eine zweite Verbindung beim Mailversand noch nicht sichtbar -- die Transaktion mit dem Advisory-Lock lief zu diesem Zeitpunkt noch.'
+        );
     }
 
     /**
