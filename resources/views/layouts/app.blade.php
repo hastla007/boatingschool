@@ -76,11 +76,23 @@
                      street/postal_code/birthdate). Der Admin sah nach einem
                      Klick auf "Freischalten"/"Verlängern"/"Widerruf
                      aufheben" ohne freien Code dadurch gar keine Rückmeldung
-                     -- der Request schlug lediglich unsichtbar fehl. --}}
-                @if ($errors->any())
+                     -- der Request schlug lediglich unsichtbar fehl.
+
+                     Bug-Review (Fehlermeldungen erscheinen doppelt): diese
+                     globale Box zeigte danach $errors->all() komplett an,
+                     auch Meldungen, die eine Seite bereits direkt neben
+                     ihrem Feld anzeigt (z. B. <x-input-error> bei
+                     Adresse/Coupon-Zuweisung) -- jede so eingeleitete
+                     Meldung erschien dadurch zweimal. $slot ist an dieser
+                     Stelle bereits vollständig gerendert (Blade führt den
+                     Inhalt zwischen <x-app-layout>...</x-app-layout> vor
+                     dieser Vorlage aus), ShownFormErrors kennt die dabei
+                     bereits angezeigten Meldungen also schon. --}}
+                @php($globalErrors = collect($errors->all())->reject(fn ($message) => \App\Support\ShownFormErrors::wasShown($message)))
+                @if ($globalErrors->isNotEmpty())
                     <div class="mb-4 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 text-sm dark:bg-rose-900/30 dark:border-rose-800 dark:text-rose-300">
                         <ul class="space-y-1">
-                            @foreach ($errors->all() as $error)
+                            @foreach ($globalErrors as $error)
                                 <li>{{ $error }}</li>
                             @endforeach
                         </ul>

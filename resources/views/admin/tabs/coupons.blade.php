@@ -174,5 +174,6 @@
 </script>
 
 @if ($errors->has('assign'))
+    @php(\App\Support\ShownFormErrors::register([$errors->first('assign')]))
     <p class="text-rose-600 text-sm mt-3">{{ $errors->first('assign') }}</p>
 @endif
