@@ -131,7 +131,9 @@
                     @if ($canManageTenant)
                         <td class="px-4 py-2">
                             @if ($membership->user_id === auth()->id())
-                                <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">aktiv (du)</span>
+                                {{-- Bug-Review (Du/Sie im Admin-Bereich gemischt): der restliche
+                                     Admin-Bereich siezt durchgehend. --}}
+                                <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">aktiv (Sie)</span>
                             @else
                                 <form method="POST" action="{{ route('admin.participants.membership.update', $membership->user_id) }}" class="flex items-center gap-2">
                                     @csrf

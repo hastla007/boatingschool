@@ -2,7 +2,9 @@
     <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 mb-6">
         <div>
             <h1 class="text-2xl font-bold text-slate-800 dark:text-white">Bootsschul-Admin</h1>
-            <p class="text-sm text-slate-600 dark:text-slate-400 mt-0.5">Verwalte Teilnehmer, Kurse und Einstellungen deiner Bootsschule.</p>
+            {{-- Bug-Review (Du/Sie im Admin-Bereich gemischt): der restliche
+                 Admin-Bereich siezt durchgehend (siehe tabs/dashboard.blade.php). --}}
+            <p class="text-sm text-slate-600 dark:text-slate-400 mt-0.5">Verwalten Sie Teilnehmer, Kurse und Einstellungen Ihrer Bootsschule.</p>
         </div>
         <div class="flex items-center gap-2 text-slate-600 dark:text-slate-400 dark:text-slate-500 text-xs text-right">
             <span class="leading-tight">Alles im Blick.<br>Immer startklar.</span>

@@ -1,6 +1,8 @@
+{{-- Bug-Review (Du/Sie im Admin-Bereich gemischt): der restliche
+     Admin-Bereich siezt durchgehend. --}}
 <p class="text-slate-500 mb-6">
     Anmeldungen zu „Praxis &amp; Prüfung&quot;, die Lerner über ein ihnen zugewiesenes Praxisformular abgeschickt haben.
-    Diese Daten dienen dir als Grundlage für die Anmeldung bei der Prüfungskommission. Klick auf eine Anmeldung für die Details.
+    Diese Daten dienen Ihnen als Grundlage für die Anmeldung bei der Prüfungskommission. Klicken Sie auf eine Anmeldung für die Details.
 </p>
 
 <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden">

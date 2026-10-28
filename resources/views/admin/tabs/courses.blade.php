@@ -1,8 +1,10 @@
+{{-- Bug-Review (Du/Sie im Admin-Bereich gemischt): der restliche
+     Admin-Bereich siezt durchgehend. --}}
 <p class="text-slate-500 mb-6">
-    Wähle aus, welche Kurse deine Bootsschule anbietet. Abgewählte Kurse verschwinden für deine Lernenden
+    Wählen Sie aus, welche Kurse Ihre Bootsschule anbietet. Abgewählte Kurse verschwinden für Ihre Lernenden
     vollständig aus der Kursübersicht &mdash; auch wenn bereits ein Zugang dafür besteht. Kurse, die der
     Plattform-Betreiber sitewide deaktiviert hat, erscheinen hier nicht und können nicht aktiviert werden.
-    Verkaufst du Kurszugänge über deinen eigenen Webshop, kannst du hier optional gleich je Kurs einen
+    Verkaufen Sie Kurszugänge über Ihren eigenen Webshop, können Sie hier optional gleich je Kurs einen
     Kauf-Link hinterlegen &mdash; der ersetzt auf der Kursübersicht für Lernende ohne Zugang dann den
     Standardhinweis durch einen „Jetzt kaufen"-Button.
 </p>
@@ -32,11 +34,11 @@
                     Verlängerungs-Codes
                 </label>
                 <p class="text-xs text-slate-600 dark:text-slate-400 mb-2">
-                    Link zu deinem Webshop, wo Teilnehmer nach Ablauf einen Verlängerungs-Code kaufen können. Ohne
-                    Link sehen Teilnehmer stattdessen den Hinweis, sich an dich zu wenden.
+                    Link zu Ihrem Webshop, wo Teilnehmer nach Ablauf einen Verlängerungs-Code kaufen können. Ohne
+                    Link sehen Teilnehmer stattdessen den Hinweis, sich an Sie zu wenden.
                 </p>
                 <input type="url" id="renewal_webshop_link" name="renewal_webshop_link"
-                       placeholder="https://dein-webshop.de/verlaengerung (optional)"
+                       placeholder="https://ihr-webshop.de/verlaengerung (optional)"
                        value="{{ old('renewal_webshop_link', $branding->renewal_webshop_link) }}"
                        class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                 <x-input-error :messages="$errors->get('renewal_webshop_link')" class="mt-1" />
@@ -60,7 +62,7 @@
                     <span class="text-sm text-slate-700 dark:text-slate-200">{{ $course->name }}</span>
                 </label>
                 <div class="flex-1">
-                    <input type="url" name="links[{{ $course->id }}]" placeholder="https://dein-webshop.de/produkt/... (optional)"
+                    <input type="url" name="links[{{ $course->id }}]" placeholder="https://ihr-webshop.de/produkt/... (optional)"
                            value="{{ old('links.'.$course->id, $webshopLinks->get($course->id)) }}"
                            :class="{ 'opacity-50': ! enabled }"
                            class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
