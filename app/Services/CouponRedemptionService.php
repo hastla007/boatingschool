@@ -196,8 +196,14 @@ class CouponRedemptionService
      * hat danach nur noch die größere Einheit gebucht, nicht beide
      * nebeneinander. Die Löschung läuft vor den Neuanlagen, damit das auch
      * gilt, wenn ein Code beide Praxiseinheiten gleichzeitig bündelt.
+     *
+     * Bug-Review (Manuelle Freischaltung verliert gebündelte Zusatzprodukte):
+     * public, damit Admin\EntitlementController::store() -- das selbst
+     * einen Coupon auswählt und verbraucht, statt über redeem() zu laufen --
+     * dieselbe Bündel-Logik anwenden kann, statt sie zu duplizieren oder
+     * (wie bisher) ganz zu übergehen.
      */
-    private function applyOptionProducts(Coupon $coupon, Tenant $tenant, User $user): void
+    public function applyOptionProducts(Coupon $coupon, Tenant $tenant, User $user): void
     {
         $options = $coupon->optionProducts;
 

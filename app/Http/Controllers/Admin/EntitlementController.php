@@ -9,6 +9,7 @@ use App\Models\CourseDefinition;
 use App\Models\Entitlement;
 use App\Models\TenantUser;
 use App\Models\User;
+use App\Services\CouponRedemptionService;
 use App\Services\EntitlementService;
 use App\Support\TenantContext;
 use Carbon\Carbon;
@@ -23,7 +24,7 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class EntitlementController extends Controller
 {
-    public function store(Request $request, TenantContext $tenantContext, EntitlementService $entitlements): Response
+    public function store(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CouponRedemptionService $redemption): Response
     {
         $tenant = $tenantContext->tenant();
 
@@ -70,7 +71,7 @@ class EntitlementController extends Controller
         // kostenloser No-Op (Doppelklick-Schutz oben) -- nur eine
         // Neuvergabe (oder Reaktivierung eines gesperrten/widerrufenen
         // Zugangs) verbraucht einen Code.
-        return DB::transaction(function () use ($tenant, $user, $course, $request) {
+        return DB::transaction(function () use ($tenant, $user, $course, $request, $redemption) {
             DB::statement('SELECT pg_advisory_xact_lock(hashtext(?))', [$tenant->id.':'.$user->id.':'.$course->id]);
 
             $entitlement = Entitlement::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)->first();
@@ -91,10 +92,18 @@ class EntitlementController extends Controller
                 return back()->withErrors(['course_id' => 'Der Zugang zu diesem Kurs wurde widerrufen und kann nicht einfach per neuem Code wiederhergestellt werden -- bitte zuerst den Widerruf bei der bestehenden Buchung aufheben.']);
             }
 
+            // Bug-Review (Manuelle Freischaltung -- Code beliebig gewählt):
+            // ohne ORDER BY lieferte Postgres hier eine für den Admin nicht
+            // nachvollziehbare, letztlich zufällige Reihenfolge -- welcher
+            // der ggf. mehreren freien Codes für diesen Kurs verbraucht
+            // wird, war damit reiner Zufall. ->oldest() macht das
+            // deterministisch (der am längsten ungenutzte Code zuerst) und
+            // damit nachvollziehbar.
             $coupon = Coupon::where('tenant_id', $tenant->id)
                 ->where('course_id', $course->id)
                 ->where('is_renewal', false)
                 ->whereNull('redeemed_at')
+                ->oldest()
                 ->lockForUpdate()
                 ->first();
 
@@ -128,6 +137,17 @@ class EntitlementController extends Controller
                 'redeemed_tenant_id' => $tenant->id,
                 'redeemed_at' => now(),
             ]);
+
+            // Bug-Review (Manuelle Freischaltung verliert gebündelte
+            // Zusatzprodukte): dieser Weg erzeugte das Entitlement bisher
+            // komplett losgelöst von CouponRedemptionService::
+            // redeemForCourse() -- bündelte der hier verbrauchte Coupon
+            // zusätzliche Produkte (z. B. "Lernplattform inkl.
+            // Willkommensbox", siehe coupon_option_product), gingen diese
+            // stillschweigend verloren, weil applyOptionProducts() nie
+            // aufgerufen wurde. Der Lerner hatte danach den Kurs, aber
+            // keines der mitgekauften Zusatzprodukte.
+            $redemption->applyOptionProducts($coupon, $tenant, $user);
 
             AuditLog::record($tenant->id, $request->user()->id, 'entitlement.create', 'entitlement', $entitlement->id, $before, $entitlement->fresh()->toArray());
 

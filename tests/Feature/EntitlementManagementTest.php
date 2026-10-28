@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Coupon;
 use App\Models\CourseDefinition;
 use App\Models\Entitlement;
+use App\Models\Product;
 use App\Models\Tenant;
 use App\Support\GermanTime;
 use Illuminate\Support\Carbon;
@@ -214,6 +215,66 @@ class EntitlementManagementTest extends TestCase
         $fresh = $this->onAdmin(fn () => $coupon->fresh());
         $this->assertNotNull($fresh->redeemed_at);
         $this->assertSame($learner->id, $fresh->redeemed_by_user_id);
+    }
+
+    /**
+     * Bug-Review (Manuelle Freischaltung verliert gebündelte
+     * Zusatzprodukte): store() baute das Entitlement bisher komplett
+     * losgelöst von CouponRedemptionService::redeemForCourse() -- bündelte
+     * der hier verbrauchte Coupon zusätzliche Produkte (z. B. die
+     * Willkommensbox, siehe coupon_option_product), gingen diese
+     * stillschweigend verloren.
+     */
+    public function test_granting_access_through_the_participant_tab_also_grants_bundled_option_products(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $willkommensbox = $this->onAdmin(fn () => Product::where('code', 'LERNPLATTFORM-WB')->firstOrFail());
+        $coupon = $this->makeCourseCoupon($tenant, $course);
+        $this->onAdmin(fn () => $coupon->optionProducts()->attach($willkommensbox->id));
+
+        $response = $this->actingAsInTenant($admin, $tenant)->post('/admin/entitlements', [
+            'user_id' => $learner->id,
+            'course_id' => $course->id,
+        ]);
+
+        $response->assertSessionHasNoErrors();
+        $this->onAdmin(function () use ($tenant, $learner, $willkommensbox, $coupon) {
+            $this->assertDatabaseHas('product_purchase', [
+                'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'product_id' => $willkommensbox->id,
+                'source_type' => 'coupon', 'source_reference' => $coupon->code,
+            ]);
+        });
+    }
+
+    /**
+     * Bug-Review (Manuelle Freischaltung -- Code beliebig gewählt): ohne
+     * ORDER BY war nicht nachvollziehbar, welcher von mehreren freien
+     * Codes verbraucht wird. Der Code wird jetzt deterministisch nach
+     * Anlagedatum verbraucht (der älteste zuerst).
+     */
+    public function test_granting_access_consumes_the_oldest_available_coupon_first(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+
+        $older = $this->onAdmin(fn () => Coupon::create([
+            'code' => 'TEST-ENT-OLD-'.uniqid(), 'course_id' => $course->id, 'tenant_id' => $tenant->id, 'created_at' => now()->subDay(),
+        ]));
+        $this->makeCourseCoupon($tenant, $course);
+
+        $this->actingAsInTenant($admin, $tenant)->post('/admin/entitlements', [
+            'user_id' => $learner->id,
+            'course_id' => $course->id,
+        ])->assertSessionHasNoErrors();
+
+        $entitlement = $this->asTenant($tenant, fn () => Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
+            ->where('course_id', $course->id)->firstOrFail());
+        $this->assertSame($older->code, $entitlement->source_reference);
     }
 
     public function test_granting_access_again_reactivates_a_previously_suspended_entitlement_instead_of_duplicating(): void

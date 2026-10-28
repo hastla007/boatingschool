@@ -61,7 +61,10 @@
                 <th class="px-4 py-2">E-Mail</th>
                 <th class="px-4 py-2">Kurse</th>
                 <th class="px-4 py-2">Produkte</th>
-                <th class="px-4 py-2">Kurs freischalten</th>
+                <th class="px-4 py-2">
+                    Kurs freischalten
+                    <span class="block text-[11px] font-normal text-slate-500 dark:text-slate-400">verbraucht einen eigenen Code</span>
+                </th>
                 @if ($canManageTenant)
                     <th class="px-4 py-2">Status</th>
                 @endif
@@ -119,7 +122,7 @@
                                         </option>
                                     @endforeach
                                 </select>
-                                <button type="submit" class="px-3 py-1 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-xs">Freischalten</button>
+                                <button type="submit" class="px-3 py-1 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-xs" title="Verbraucht einen eigenen, noch nicht eingelösten Code für diesen Kurs.">Freischalten</button>
                             </form>
                         @else
                             <span class="text-slate-600 dark:text-slate-400 text-xs">alle Kurse gebucht</span>
