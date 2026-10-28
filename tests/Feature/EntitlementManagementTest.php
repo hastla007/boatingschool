@@ -36,8 +36,18 @@ class EntitlementManagementTest extends TestCase
 {
     use InteractsWithTenants;
 
+    // Bug-Review T9: coupon.tenant_id ist nullOnDelete() (derselbe Grund
+    // wie bei audit_log.tenant_id, siehe TestIsolationCleanupTest) --
+    // cleanUpCreatedTenants() löschte den hier angelegten Test-Tenant
+    // bisher, ohne die über makeCourseCoupon()/makeRenewalCoupon() bzw.
+    // direkt per Coupon::create() angelegten Coupons je zu löschen. Jeder
+    // Testlauf hinterließ dadurch dauerhaft verwaiste, keiner Bootsschule
+    // mehr zugeordnete Coupon-Zeilen (tenant_id = NULL).
+    private array $createdCouponIds = [];
+
     protected function tearDown(): void
     {
+        $this->cleanUpCreatedCoupons();
         $this->cleanUpCreatedTenantsAndUsers();
 
         // Bug-Review B14 (Folgefehler): travelTo() friert die Zeit über das
@@ -49,23 +59,38 @@ class EntitlementManagementTest extends TestCase
         parent::tearDown();
     }
 
+    private function cleanUpCreatedCoupons(): void
+    {
+        $this->onAdmin(function () {
+            Coupon::whereIn('id', $this->createdCouponIds)->delete();
+        });
+
+        $this->createdCouponIds = [];
+    }
+
     private function makeCourseCoupon(Tenant $tenant, CourseDefinition $course): Coupon
     {
-        return $this->onAdmin(fn () => Coupon::create([
+        $coupon = $this->onAdmin(fn () => Coupon::create([
             'code' => 'TEST-ENT-'.uniqid(),
             'course_id' => $course->id,
             'tenant_id' => $tenant->id,
         ]));
+        $this->createdCouponIds[] = $coupon->id;
+
+        return $coupon;
     }
 
     private function makeRenewalCoupon(Tenant $tenant, CourseDefinition $course): Coupon
     {
-        return $this->onAdmin(fn () => Coupon::create([
+        $coupon = $this->onAdmin(fn () => Coupon::create([
             'code' => 'TEST-ENT-RENEW-'.uniqid(),
             'course_id' => $course->id,
             'tenant_id' => $tenant->id,
             'is_renewal' => true,
         ]));
+        $this->createdCouponIds[] = $coupon->id;
+
+        return $coupon;
     }
 
     /**
@@ -281,6 +306,7 @@ class EntitlementManagementTest extends TestCase
         $older = $this->onAdmin(fn () => Coupon::create([
             'code' => 'TEST-ENT-OLD-'.uniqid(), 'course_id' => $course->id, 'tenant_id' => $tenant->id, 'created_at' => now()->subDay(),
         ]));
+        $this->createdCouponIds[] = $older->id;
         $this->makeCourseCoupon($tenant, $course);
 
         $this->actingAsInTenant($admin, $tenant)->post('/admin/entitlements', [
@@ -589,5 +615,26 @@ class EntitlementManagementTest extends TestCase
         $detail->assertOk();
         $detail->assertDontSee('Verlängern');
         $detail->assertDontSee('Sperren');
+    }
+
+    /**
+     * Bug-Review T9: dieselbe Art Lücke wie TestIsolationCleanupTest für
+     * audit_log/password_reset_tokens, hier für die über
+     * makeCourseCoupon()/makeRenewalCoupon() angelegten Test-Coupons --
+     * coupon.tenant_id ist ebenfalls nullOnDelete(), cleanUpCreatedTenants()
+     * löschte sie deshalb nie mit, nur ihr tenant_id wurde auf NULL
+     * gesetzt.
+     */
+    public function test_cleaning_up_the_test_also_removes_its_coupons(): void
+    {
+        $tenant = $this->createTestTenant();
+        $course = $this->existingCourse('SRC');
+
+        $coupon = $this->makeCourseCoupon($tenant, $course);
+        $this->onAdmin(fn () => $this->assertDatabaseHas('coupon', ['id' => $coupon->id]));
+
+        $this->cleanUpCreatedCoupons();
+
+        $this->onAdmin(fn () => $this->assertDatabaseMissing('coupon', ['id' => $coupon->id]));
     }
 }

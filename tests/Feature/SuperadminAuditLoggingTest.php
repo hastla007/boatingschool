@@ -7,6 +7,7 @@ use App\Models\Coupon;
 use App\Models\PlatformSetting;
 use App\Models\Tenant;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -31,6 +32,17 @@ class SuperadminAuditLoggingTest extends TestCase
 
     private array $createdCouponCodes = [];
 
+    // Bug-Review T9: die meisten AuditLog::record()-Aufrufe in den
+    // Superadmin-Controllern protokollieren bewusst mit tenant_id=null
+    // (plattformweite Aktion, siehe z. B. UserController::update() für
+    // superadmin.user.update) oder zeigen auf einen hier manuell -- nicht
+    // über $createdTenantIds/$createdUserIds -- gelöschten Tenant/Nutzer.
+    // cleanUpCreatedTenants() löscht AuditLog-Zeilen aber ausschließlich
+    // über tenant_id -- jede so protokollierte Zeile blieb deshalb nach
+    // jedem Testlauf dauerhaft (verwaist, entity_id zeigt ins Leere)
+    // bestehen.
+    private array $createdAuditLogIds = [];
+
     protected function tearDown(): void
     {
         $this->onAdmin(function () {
@@ -39,9 +51,19 @@ class SuperadminAuditLoggingTest extends TestCase
             }
         });
 
+        $this->cleanUpCreatedAuditLogs();
         $this->cleanUpCreatedTenantsAndUsers();
 
         parent::tearDown();
+    }
+
+    private function cleanUpCreatedAuditLogs(): void
+    {
+        $this->onAdmin(function () {
+            AuditLog::whereIn('id', $this->createdAuditLogIds)->delete();
+        });
+
+        $this->createdAuditLogIds = [];
     }
 
     public function test_suspending_a_tenant_is_logged(): void
@@ -59,6 +81,7 @@ class SuperadminAuditLoggingTest extends TestCase
                 ->where('entity_id', $tenant->id)->first();
 
             $this->assertNotNull($log);
+            $this->createdAuditLogIds[] = $log->id;
             $this->assertSame($superadmin->id, $log->actor_user_id);
             $this->assertSame('active', $log->before_data['status']);
             $this->assertSame('suspended', $log->after_data['status']);
@@ -83,6 +106,7 @@ class SuperadminAuditLoggingTest extends TestCase
                 ->where('entity_id', $user->id)->first();
 
             $this->assertNotNull($log);
+            $this->createdAuditLogIds[] = $log->id;
             $this->assertSame($superadmin->id, $log->actor_user_id);
             $this->assertSame('active', $log->before_data['status']);
             $this->assertSame('suspended', $log->after_data['status']);
@@ -108,6 +132,7 @@ class SuperadminAuditLoggingTest extends TestCase
                 ->where('entity_id', $user->id)->first();
 
             $this->assertNotNull($log);
+            $this->createdAuditLogIds[] = $log->id;
             $this->assertSame($superadmin->id, $log->actor_user_id);
             $this->assertFalse($log->before_data['is_superadmin']);
             $this->assertTrue($log->after_data['is_superadmin']);
@@ -130,6 +155,7 @@ class SuperadminAuditLoggingTest extends TestCase
                 ->where('tenant_id', $tenant->id)->where('entity_id', $user->id)->first();
 
             $this->assertNotNull($log);
+            $this->createdAuditLogIds[] = $log->id;
             $this->assertSame($superadmin->id, $log->actor_user_id);
             $this->assertSame('learner', $log->before_data['role']);
             $this->assertSame('owner', $log->after_data['role']);
@@ -154,6 +180,7 @@ class SuperadminAuditLoggingTest extends TestCase
             $log = AuditLog::where('action', 'superadmin.coupon.create')->latest('id')->first();
 
             $this->assertNotNull($log);
+            $this->createdAuditLogIds[] = $log->id;
             $this->assertSame($superadmin->id, $log->actor_user_id);
             $this->assertSame(2, $log->after_data['quantity']);
             // Bug-Review (Codes im Klartext im Log): die erzeugten Codes
@@ -180,9 +207,16 @@ class SuperadminAuditLoggingTest extends TestCase
             $log = AuditLog::where('action', 'superadmin.user.create')->where('entity_id', $user->id)->first();
 
             $this->assertNotNull($log);
+            $this->createdAuditLogIds[] = $log->id;
             $this->assertSame($superadmin->id, $log->actor_user_id);
             $this->assertSame($user->email, $log->after_data['email']);
 
+            // Bug-Review T9: UserController::store() schickt für den neuen
+            // Nutzer einen Password::sendResetLink() -- password_reset_tokens
+            // hat keinen Fremdschlüssel (nur per E-Mail-String geschlüsselt,
+            // siehe cleanUpCreatedUsers()) und wurde hier nie geräumt, weil
+            // $user über $createdUserIds nie nachverfolgt wird.
+            DB::table('password_reset_tokens')->where('email', $user->email)->delete();
             $user->delete();
         });
     }
@@ -209,8 +243,15 @@ class SuperadminAuditLoggingTest extends TestCase
             $log = AuditLog::where('action', 'superadmin.tenant.create')->where('entity_id', $tenant->id)->first();
 
             $this->assertNotNull($log);
+            $this->createdAuditLogIds[] = $log->id;
             $this->assertSame($superadmin->id, $log->actor_user_id);
             $this->assertSame($slug, $log->after_data['slug']);
+
+            // Bug-Review T9: TenantController::store() schickt für den neu
+            // angelegten Bootsschul-Admin ebenfalls einen
+            // Password::sendResetLink() -- siehe ausführlichen Kommentar in
+            // test_creating_a_user_is_logged() oben.
+            DB::table('password_reset_tokens')->where('email', $log->after_data['admin_email'])->delete();
 
             $admin = User::where('email', $log->after_data['admin_email'])->first();
             $tenant->delete();
@@ -237,6 +278,7 @@ class SuperadminAuditLoggingTest extends TestCase
             $log = AuditLog::where('action', 'superadmin.coupon.export')->latest('id')->first();
 
             $this->assertNotNull($log);
+            $this->createdAuditLogIds[] = $log->id;
             $this->assertSame($superadmin->id, $log->actor_user_id);
             $this->assertSame(1, $log->after_data['count']);
             $this->assertArrayNotHasKey('codes', $log->after_data);
@@ -262,6 +304,7 @@ class SuperadminAuditLoggingTest extends TestCase
                 ->where('entity_id', $user->id)->first();
 
             $this->assertNotNull($log);
+            $this->createdAuditLogIds[] = $log->id;
             $this->assertSame($superadmin->id, $log->actor_user_id);
             $this->assertSame($user->email, $log->before_data['email']);
             $this->assertSame($newEmail, $log->after_data['email']);
@@ -287,11 +330,44 @@ class SuperadminAuditLoggingTest extends TestCase
             $log = AuditLog::where('action', 'superadmin.settings.update')->latest('created_at')->first();
 
             $this->assertNotNull($log);
+            $this->createdAuditLogIds[] = $log->id;
             $this->assertSame($superadmin->id, $log->actor_user_id);
             $this->assertSame($originalSiteName, $log->before_data['site_name']);
             $this->assertSame($newSiteName, $log->after_data['site_name']);
 
             PlatformSetting::current()->update(['site_name' => $originalSiteName, 'support_email' => null]);
+        });
+    }
+
+    /**
+     * Bug-Review T9: dieselbe Art Lücke wie TestIsolationCleanupTest für
+     * tenant_id/password_reset_tokens, hier für die $createdAuditLogIds-
+     * Nachverfolgung oben -- ohne sie bliebe z. B. die Zeile aus
+     * test_updating_platform_settings_is_logged() (tenant_id=null) nach
+     * jedem Testlauf dauerhaft verwaist stehen, weil
+     * cleanUpCreatedTenants() nur über tenant_id löscht.
+     */
+    public function test_cleaning_up_the_test_also_removes_its_platform_wide_audit_log_entries(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        $marker = 'test.isolation.audit.'.uniqid();
+
+        $logId = $this->onAdmin(function () use ($superadmin, $marker) {
+            // tenant_id bewusst null -- genau das Muster von
+            // superadmin.settings.update/superadmin.user.update/
+            // superadmin.coupon.create/-export, das $createdTenantIds nie
+            // erfasst.
+            $log = AuditLog::record(null, $superadmin->id, $marker, 'test_entity', null);
+            $this->assertDatabaseHas('audit_log', ['action' => $marker]);
+
+            return $log->id;
+        });
+
+        $this->createdAuditLogIds[] = $logId;
+        $this->cleanUpCreatedAuditLogs();
+
+        $this->onAdmin(function () use ($marker) {
+            $this->assertDatabaseMissing('audit_log', ['action' => $marker]);
         });
     }
 }
