@@ -197,6 +197,35 @@ class PraxisPruefungFormTest extends TestCase
         $response->assertSee('50% Kursfortschritt');
     }
 
+    /**
+     * Bug-Review (Gates vergleichen den gerundeten Wert): 3 von 8 Fragen
+     * gefestigt sind exakt 37,5% -- der ungerundete Wert bleibt unter der
+     * Schwelle von 38%, aber round(37.5) rundet in PHP auf 38 auf. Vor
+     * dem Fix erfüllte das fälschlich eine Schwelle von 38%.
+     */
+    public function test_shows_the_threshold_gate_at_a_percentage_that_would_round_up_to_the_threshold(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $questionIds] = $this->makeIsolatedCourseWithQuestions(8);
+        $this->grantEntitlement($tenant, $learner, $course);
+        $this->completeRegistrationProfile($learner, $tenant);
+        $this->onAdmin(function () use ($tenant, $learner, $questionIds) {
+            foreach (array_slice($questionIds, 0, 3) as $questionId) {
+                Progress::create([
+                    'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'question_id' => $questionId,
+                    'learning_state' => 'gefestigt', 'mastery_score' => 1, 'attempt_count' => 1, 'correct_count' => 1,
+                ]);
+            }
+        });
+        $this->createTemplate(['course_ids' => [$course->id], 'min_progress_percent' => 38]);
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get(route('praxis-pruefung.index', $course));
+
+        $response->assertOk();
+        $response->assertSee('Du erfüllst noch nicht alle Voraussetzungen');
+    }
+
     public function test_shows_the_dynamic_form_once_the_threshold_is_reached(): void
     {
         $tenant = $this->createTestTenant();
@@ -387,6 +416,36 @@ class PraxisPruefungFormTest extends TestCase
         $this->grantEntitlement($tenant, $learner, $course);
         $this->completeRegistrationProfile($learner, $tenant);
         $this->createTemplate(['course_ids' => [$course->id], 'min_progress_percent' => 50]);
+
+        $response = $this->actingAsInTenant($learner, $tenant)->post(route('praxis-pruefung.store', $course), [
+            'telefonnummer' => '+49 170 1234567',
+            'geschlecht' => 'Männlich',
+        ]);
+
+        $response->assertForbidden();
+    }
+
+    /**
+     * Bug-Review (Gates vergleichen den gerundeten Wert): siehe den
+     * gleichnamigen Test oben für index() -- dieselbe Lücke bestand auch
+     * beim tatsächlichen Absenden des Formulars.
+     */
+    public function test_submission_is_rejected_at_a_percentage_that_would_round_up_to_the_threshold(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $questionIds] = $this->makeIsolatedCourseWithQuestions(8);
+        $this->grantEntitlement($tenant, $learner, $course);
+        $this->completeRegistrationProfile($learner, $tenant);
+        $this->onAdmin(function () use ($tenant, $learner, $questionIds) {
+            foreach (array_slice($questionIds, 0, 3) as $questionId) {
+                Progress::create([
+                    'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'question_id' => $questionId,
+                    'learning_state' => 'gefestigt', 'mastery_score' => 1, 'attempt_count' => 1, 'correct_count' => 1,
+                ]);
+            }
+        });
+        $this->createTemplate(['course_ids' => [$course->id], 'min_progress_percent' => 38]);
 
         $response = $this->actingAsInTenant($learner, $tenant)->post(route('praxis-pruefung.store', $course), [
             'telefonnummer' => '+49 170 1234567',

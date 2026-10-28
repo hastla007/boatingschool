@@ -306,6 +306,29 @@ class WillkommensboxTest extends TestCase
         $response->assertDontSee('Jetzt bestellen');
     }
 
+    /**
+     * Bug-Review (Gates vergleichen den gerundeten Wert): 3 von 8 Fragen
+     * gefestigt sind exakt 37,5% -- der ungerundete Wert bleibt unter der
+     * Schwelle von 38%, aber round(37.5) rundet in PHP auf 38 auf. Vor
+     * dem Fix erfüllte das fälschlich eine Schwelle von 38%.
+     */
+    public function test_page_shows_locked_state_at_a_percentage_that_would_round_up_to_the_threshold(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $this->grantWillkommensbox($tenant, $learner);
+        $this->setThreshold($tenant, 38);
+        [$course, $questionIds] = $this->makeIsolatedCourseWithQuestions(8);
+        $this->grantEntitlement($tenant, $learner, $course);
+        $this->masterQuestions($tenant, $learner, array_slice($questionIds, 0, 3));
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get('/willkommensbox');
+
+        $response->assertOk();
+        $response->assertSee('noch nicht alle Voraussetzungen');
+        $response->assertDontSee('Jetzt bestellen');
+    }
+
     public function test_page_shows_the_form_once_the_progress_threshold_is_reached(): void
     {
         $tenant = $this->createTestTenant();

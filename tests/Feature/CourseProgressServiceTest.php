@@ -84,6 +84,105 @@ class CourseProgressServiceTest extends TestCase
         });
     }
 
+    /** @return array{0: CourseDefinition, 1: array<int, string>} */
+    private function makeCourseWithActiveQuestions(int $count): array
+    {
+        return $this->onAdmin(function () use ($count) {
+            $course = CourseDefinition::withoutGlobalScopes()->create([
+                'tenant_id' => null,
+                'code' => 'TEST-CPS-'.uniqid(),
+                'name' => 'Test-Kurs für Fortschrittsberechnung',
+                'course_type' => 'full',
+                'status' => 'published',
+            ]);
+            $this->createdCourseIds[] = $course->id;
+
+            $module = Module::create([
+                'code' => 'TEST-CPS-MODULE-'.uniqid(),
+                'name' => 'Testmodul',
+                'version' => '1',
+                'status' => 'published',
+            ]);
+            $this->createdModuleIds[] = $module->id;
+            $course->modules()->attach($module->id, ['sort_order' => 1, 'required' => true]);
+
+            $questionIds = [];
+            for ($i = 0; $i < $count; $i++) {
+                $question = ContentQuestion::create(['content_id' => 'TEST-CPS-Q-'.uniqid(), 'language' => 'de-DE', 'active' => true]);
+                $this->createdQuestionIds[] = $question->id;
+                $questionIds[] = $question->id;
+                $module->questions()->attach($question->id, ['sort_order' => $i + 1, 'required' => true]);
+            }
+
+            return [$course, $questionIds];
+        });
+    }
+
+    /**
+     * Bug-Review (Gates vergleichen den gerundeten Wert): overallPercent()
+     * rundet für die Anzeige -- 3 von 8 Fragen gefestigt sind exakt
+     * 37,5%, aber round(37.5) rundet in PHP auf 38 auf. exactPercent()
+     * muss für Gates den ungerundeten Wert liefern.
+     */
+    public function test_exact_percent_is_not_rounded_unlike_overall_percent(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $questionIds] = $this->makeCourseWithActiveQuestions(8);
+
+        $this->onAdmin(function () use ($tenant, $learner, $questionIds) {
+            foreach (array_slice($questionIds, 0, 3) as $questionId) {
+                Progress::create([
+                    'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'question_id' => $questionId,
+                    'learning_state' => 'gefestigt', 'mastery_score' => 1, 'attempt_count' => 1, 'correct_count' => 1,
+                ]);
+            }
+        });
+
+        $this->asTenant($tenant, function () use ($course, $tenant, $learner) {
+            $service = app(CourseProgressService::class);
+            $this->assertSame(37.5, $service->exactPercent($course, $tenant, $learner));
+            $this->assertSame(38, $service->overallPercent($course, $tenant, $learner));
+        });
+    }
+
+    /**
+     * Bug-Review (Gates vergleichen den gerundeten Wert): derselbe
+     * Rundungsfehler wie oben, hier für den CoursePromoBanner-Trigger auf
+     * der Kursseite (CourseController::show) -- eine Schwelle von 38%
+     * schaltete den Banner bisher fälschlich schon bei genau 37,5% frei.
+     */
+    public function test_course_page_banner_is_not_shown_at_a_percentage_that_would_round_up_to_the_trigger(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $questionIds] = $this->makeCourseWithActiveQuestions(8);
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $this->onAdmin(function () use ($tenant, $learner, $course, $questionIds) {
+            foreach (array_slice($questionIds, 0, 3) as $questionId) {
+                Progress::create([
+                    'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'question_id' => $questionId,
+                    'learning_state' => 'gefestigt', 'mastery_score' => 1, 'attempt_count' => 1, 'correct_count' => 1,
+                ]);
+            }
+
+            CoursePromoBanner::create([
+                'tenant_id' => $tenant->id,
+                'active' => true,
+                'headline' => 'Nur ab 38% sichtbar',
+                'offer_url' => 'https://shop.example.test/x',
+                'course_ids' => [$course->id],
+                'trigger_percent' => 38,
+            ]);
+        });
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
+
+        $response->assertOk();
+        $response->assertDontSee('Nur ab 38% sichtbar');
+    }
+
     public function test_overall_percent_reaches_100_with_a_disabled_question_in_the_denominator(): void
     {
         $tenant = $this->createTestTenant();
@@ -189,5 +288,68 @@ class CourseProgressServiceTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('100%');
+    }
+
+    /**
+     * Bug-Review (Fortschritt zählt deaktivierte Fragen): dieselbe
+     * Formel ist, losgelöst von CourseProgressService, ein weiteres Mal
+     * in DashboardController dupliziert (treibt dort u. a. den
+     * Weiterlernen-Banner-Modus) -- hatte denselben F7-Fehler
+     * unabhängig von den anderen Stellen.
+     */
+    public function test_dashboard_shows_100_percent_despite_a_disabled_question(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $activeA, $activeB] = $this->makeCourseWithTwoActiveAndOneDisabledQuestion();
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $this->onAdmin(function () use ($tenant, $learner, $activeA, $activeB) {
+            foreach ([$activeA, $activeB] as $question) {
+                Progress::create([
+                    'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'question_id' => $question->id,
+                    'learning_state' => 'gefestigt', 'mastery_score' => 1, 'attempt_count' => 1, 'correct_count' => 1,
+                ]);
+            }
+        });
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get('/dashboard');
+
+        $response->assertOk();
+        $response->assertSee('100%');
+    }
+
+    /**
+     * Bug-Review (Fortschritt zählt deaktivierte Fragen): dieselbe
+     * Formel ist, losgelöst von CourseProgressService, ein weiteres Mal
+     * in ProgressController dupliziert -- hatte denselben F7-Fehler
+     * unabhängig von den anderen Stellen.
+     */
+    public function test_progress_page_counts_only_active_questions_despite_a_disabled_question(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $activeA, $activeB] = $this->makeCourseWithTwoActiveAndOneDisabledQuestion();
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $this->onAdmin(function () use ($tenant, $learner, $activeA, $activeB) {
+            foreach ([$activeA, $activeB] as $question) {
+                Progress::create([
+                    'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'question_id' => $question->id,
+                    'learning_state' => 'gefestigt', 'mastery_score' => 1, 'attempt_count' => 1, 'correct_count' => 1,
+                ]);
+            }
+        });
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get(route('progress.show', $course));
+
+        $response->assertOk();
+        // 2 aktive Fragen, beide bearbeitet -- die deaktivierte dritte darf
+        // nicht im Nenner von "bearbeitet/gesamt" auftauchen. Die Themen-
+        // Aufschlüsselung zeigt ohnehin schon korrekt "2/2" (sie nutzt
+        // CourseProgressService), deshalb hier gezielt die FALSCHE
+        // Kombination ausschließen statt die (mehrfach vorkommende)
+        // richtige zu suchen.
+        $response->assertDontSee('2/3');
     }
 }

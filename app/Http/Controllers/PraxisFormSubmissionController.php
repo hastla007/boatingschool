@@ -47,7 +47,12 @@ class PraxisFormSubmissionController extends Controller
 
         abort_unless($template, 404, 'Für diesen Kurs ist aktuell kein Praxisformular hinterlegt.');
 
-        $percent = $courseProgress->overallPercent($course, $tenant, $user);
+        // Bug-Review (Gates vergleichen den gerundeten Wert): overallPercent()
+        // rundet für die Anzeige -- 49,5% gefestigte Fragen zeigten sich
+        // bisher als "50%" und erfüllten damit fälschlich eine Schwelle von
+        // 50%. exactPercent() vergleicht den tatsächlichen, ungerundeten
+        // Fortschritt.
+        $percent = $courseProgress->exactPercent($course, $tenant, $user);
         abort_unless($percent >= $template->min_progress_percent, 403, "Für die Anmeldung werden mindestens {$template->min_progress_percent}% Kursfortschritt benötigt.");
 
         // Gleiches Gate wie PraxisPruefungController::index() -- verhindert,

@@ -38,11 +38,14 @@ class WillkommensboxController extends Controller
 
         abort_unless($user->hasWillkommensboxAccess($tenant), 403, 'Die Willkommensbox ist für dich aktuell nicht freigeschaltet.');
 
-        $percent = $this->progressPercent($tenant, $user, $entitlements, $courseProgress);
+        // Bug-Review (Gates vergleichen den gerundeten Wert): siehe
+        // store() unten -- das Gate vergleicht den ungerundeten Wert,
+        // nur die Anzeige im "locked"-Zustand nutzt den gerundeten.
+        $exactPercent = $this->progressExactPercent($tenant, $user, $entitlements, $courseProgress);
         $threshold = $tenant->branding->willkommensbox_threshold_percent;
 
-        if ($percent < $threshold) {
-            return view('willkommensbox.index', ['state' => 'locked', 'percent' => $percent, 'threshold' => $threshold]);
+        if ($exactPercent < $threshold) {
+            return view('willkommensbox.index', ['state' => 'locked', 'percent' => (int) round($exactPercent), 'threshold' => $threshold]);
         }
 
         $order = WillkommensboxOrder::where('tenant_id', $tenant->id)->where('user_id', $user->id)->first();
@@ -66,9 +69,14 @@ class WillkommensboxController extends Controller
 
         abort_unless($user->hasWillkommensboxAccess($tenant), 403, 'Die Willkommensbox ist für dich aktuell nicht freigeschaltet.');
 
-        $percent = $this->progressPercent($tenant, $user, $entitlements, $courseProgress);
+        // Bug-Review (Gates vergleichen den gerundeten Wert): overallPercent()
+        // rundet für die Anzeige -- 49,5% gefestigte Fragen zeigten sich
+        // bisher als "50%" und erfüllten damit fälschlich eine Schwelle von
+        // 50%. progressExactPercent() vergleicht den tatsächlichen,
+        // ungerundeten Fortschritt.
+        $exactPercent = $this->progressExactPercent($tenant, $user, $entitlements, $courseProgress);
         $threshold = $tenant->branding->willkommensbox_threshold_percent;
-        abort_unless($percent >= $threshold, 403, "Für die Bestellung der Willkommensbox werden mindestens {$threshold}% Kursfortschritt benötigt.");
+        abort_unless($exactPercent >= $threshold, 403, "Für die Bestellung der Willkommensbox werden mindestens {$threshold}% Kursfortschritt benötigt.");
 
         $existing = WillkommensboxOrder::where('tenant_id', $tenant->id)->where('user_id', $user->id)->exists();
 
@@ -118,11 +126,15 @@ class WillkommensboxController extends Controller
      * Die Willkommensbox ist nicht an einen bestimmten Kurs gekoppelt --
      * bei mehreren aktiven Kurszugängen zählt (wie beim Dashboard-Chart
      * "Kursfortschritt in der Lernphase") der am weitesten fortgeschrittene.
+     *
+     * Bug-Review (Gates vergleichen den gerundeten Wert): ungerundet, für
+     * den Schwellenvergleich -- overallPercent() rundet nur für die
+     * Anzeige.
      */
-    private function progressPercent(Tenant $tenant, User $user, EntitlementService $entitlements, CourseProgressService $courseProgress): int
+    private function progressExactPercent(Tenant $tenant, User $user, EntitlementService $entitlements, CourseProgressService $courseProgress): float
     {
         return $entitlements->activeCourses($tenant, $user)
-            ->map(fn ($course) => $courseProgress->overallPercent($course, $tenant, $user))
-            ->max() ?? 0;
+            ->map(fn ($course) => $courseProgress->exactPercent($course, $tenant, $user))
+            ->max() ?? 0.0;
     }
 }

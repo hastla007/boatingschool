@@ -31,7 +31,14 @@ class DashboardController extends Controller
         // Statistiken statt nur des einen "aktivsten" Kurses, den es vor
         // Einführung mehrerer Kurskarten gab.
         $courseSummaries = $courses->map(function ($course) use ($progressStats, $videoProgressStats) {
-            $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id')->unique();
+            // Bug-Review (Fortschritt zählt deaktivierte Fragen): eine
+            // vom Superadmin deaktivierte Frage kann nie "gefestigt"
+            // werden (siehe CourseProgressService::overallPercent, Bug-
+            // Review F7), zählte hier aber weiter im Nenner mit -- diese
+            // eigene, von CourseProgressService losgelöste Berechnung
+            // (für die Weiterlernen-Banner-Logik unten) hatte den F7-Fix
+            // nie mitbekommen.
+            $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->where('active', true)->pluck('id')->unique();
             $courseProgress = $progressStats->whereIn('question_id', $questionIds);
             $mastered = $courseProgress->where('learning_state', 'gefestigt')->count();
             $total = max($questionIds->count(), 1);

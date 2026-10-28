@@ -21,7 +21,13 @@ class ProgressController extends Controller
         abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Für diesen Kurs liegt kein aktives Entitlement vor.');
 
         $course->loadMissing('modules.questions');
-        $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id')->unique();
+        // Bug-Review (Fortschritt zählt deaktivierte Fragen): eine vom
+        // Superadmin deaktivierte Frage kann nie "gefestigt" werden
+        // (siehe CourseProgressService::overallPercent, Bug-Review F7),
+        // zählte hier aber weiter im Nenner mit -- diese eigene, von
+        // CourseProgressService losgelöste Zählung hatte den F7-Fix nie
+        // mitbekommen.
+        $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->where('active', true)->pluck('id')->unique();
 
         $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)
             ->whereIn('question_id', $questionIds)->get();
