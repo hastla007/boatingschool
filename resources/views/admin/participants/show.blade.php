@@ -201,16 +201,26 @@
                                              Verlängerungscodes vollständig. "Verlängern" verbraucht
                                              jetzt wie jede andere Freischaltung einen Code und
                                              erweitert die Laufzeit um die übliche Gültigkeitsdauer --
-                                             kein frei wählbares Datum mehr. --}}
-                                        <form method="POST" action="{{ route('admin.entitlements.update', $booking['entitlement_id']) }}"
-                                              title="Verbraucht einen eigenen Verlängerungscode für diesen Kurs.">
-                                            @csrf
-                                            @method('PATCH')
-                                            <input type="hidden" name="action" value="extend">
-                                            <button type="submit" class="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-[11px] whitespace-nowrap">
-                                                Verlängern
-                                            </button>
-                                        </form>
+                                             kein frei wählbares Datum mehr.
+
+                                             Bug-Review T5: bei einem widerrufenen Zugang blendet
+                                             EntitlementController::extend() die Aktion jetzt serverseitig
+                                             ab (verbrauchte sonst einen Verlängerungscode wirkungslos,
+                                             der Zugang blieb trotzdem gesperrt) -- der Button hier
+                                             verschwindet für status=revoked zusätzlich auch in der
+                                             Oberfläche, "Widerruf aufheben" oben ist dort die einzig
+                                             sinnvolle Aktion. --}}
+                                        @if ($booking['status'] !== 'revoked')
+                                            <form method="POST" action="{{ route('admin.entitlements.update', $booking['entitlement_id']) }}"
+                                                  title="Verbraucht einen eigenen Verlängerungscode für diesen Kurs.">
+                                                @csrf
+                                                @method('PATCH')
+                                                <input type="hidden" name="action" value="extend">
+                                                <button type="submit" class="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-[11px] whitespace-nowrap">
+                                                    Verlängern
+                                                </button>
+                                            </form>
+                                        @endif
                                     </div>
                                 </div>
                             @endif

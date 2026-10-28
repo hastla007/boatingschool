@@ -226,6 +226,21 @@ class EntitlementController extends Controller
      */
     private function extend(Entitlement $entitlement, Tenant $tenant): ?RedirectResponse
     {
+        // Bug-Review T5: ohne diese Prüfung verbrauchte "Verlängern" bei
+        // einem widerrufenen Zugang trotzdem einen vollwertigen
+        // Verlängerungscode und erweiterte valid_until -- der Status
+        // selbst bleibt laut Kommentar oben aber bewusst unberührt, außer
+        // er wechselt von "expired" zu "active" (Bug-Review N6). Bei
+        // status=revoked greift das nie, der Code verfiel also wirkungslos:
+        // der Zugang blieb weiterhin gesperrt, EntitlementService prüft
+        // status unabhängig von valid_until. Reaktivieren eines Widerrufs
+        // läuft stattdessen ausschließlich über die eigene
+        // "Widerruf aufheben"-Aktion (reactivate()), die dafür einen
+        // regulären Kurs-Code verlangt.
+        if ($entitlement->status === 'revoked') {
+            return back()->withErrors(['action' => 'Der Zugang zu diesem Kurs wurde widerrufen und lässt sich nicht einfach verlängern -- bitte zuerst den Widerruf aufheben.']);
+        }
+
         if ($entitlement->valid_until === null) {
             return back()->withErrors(['action' => 'Dieser Zugang ist bereits unbefristet gültig.']);
         }

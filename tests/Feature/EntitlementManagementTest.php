@@ -440,17 +440,29 @@ class EntitlementManagementTest extends TestCase
         $learner = $this->createTenantUser($tenant, 'learner');
         $course = $this->existingCourse('SRC');
         $entitlement = $this->grantEntitlement($tenant, $learner, $course);
-        $this->onAdmin(fn () => Entitlement::where('id', $entitlement->id)->update(['status' => 'revoked', 'valid_until' => now()->addDays(5)]));
-        $this->makeRenewalCoupon($tenant, $course);
+        $originalValidUntil = now()->addDays(5);
+        $this->onAdmin(fn () => Entitlement::where('id', $entitlement->id)->update(['status' => 'revoked', 'valid_until' => $originalValidUntil]));
+        $coupon = $this->makeRenewalCoupon($tenant, $course);
 
+        // Bug-Review T5: "Verlängern" lehnte status=revoked bisher gar
+        // nicht ab -- extend() setzt den Status nur von "expired" auf
+        // "active" zurück, bei "revoked" blieb er unverändert bestehen,
+        // valid_until wurde aber trotzdem erweitert UND der
+        // Verlängerungscode unten als eingelöst markiert. Der Zugang blieb
+        // für den Lerner weiterhin gesperrt (EntitlementService prüft den
+        // Status unabhängig von valid_until) -- der Code verfiel dadurch
+        // wirkungslos. extend() lehnt status=revoked jetzt explizit ab,
+        // bevor überhaupt ein Code gesucht/gesperrt wird.
         $response = $this->actingAsInTenant($admin, $tenant)->patch(route('admin.entitlements.update', $entitlement), [
             'action' => 'extend',
         ]);
 
-        $response->assertSessionHasNoErrors();
+        $response->assertSessionHasErrors('action');
 
         $fresh = $this->asTenant($tenant, fn () => Entitlement::find($entitlement->id));
         $this->assertSame('revoked', $fresh->status);
+        $this->assertTrue($fresh->valid_until->isSameDay($originalValidUntil));
+        $this->assertNull($this->onAdmin(fn () => $coupon->fresh()->redeemed_at));
     }
 
     /**
