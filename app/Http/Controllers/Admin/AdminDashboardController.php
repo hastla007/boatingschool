@@ -275,12 +275,23 @@ class AdminDashboardController extends Controller
         // "nächste Seite" bei EINER Liste automatisch auch die ANDEREN
         // beiden Listen um (gleicher ?page=N-Parameter) statt nur die
         // gerade sichtbare.
+        // Bug-Review (Paginierung -- Teilnehmerliste nicht eindeutig
+        // sortiert): created_at ist nicht eindeutig -- mehrere Mitglieder
+        // können (z. B. durch einen gemeinsamen Import oder einfach
+        // dieselbe Sekunde) denselben Zeitstempel haben. Ohne ein
+        // eindeutiges Tie-Break-Kriterium ist die Reihenfolge gleicher
+        // Zeitstempel über verschiedene Abfragen (z. B. aufsteigend vs.
+        // absteigend) hinweg nicht garantiert konsistent, wodurch
+        // Paginierung Teilnehmer verdoppeln oder auslassen kann. user_id
+        // ist innerhalb eines Mandanten eindeutig (siehe
+        // zusammengesetzter Primärschlüssel (tenant_id, user_id)).
         $participants = TenantUser::with(['user.entitlements' => function ($q) use ($tenant) {
             $q->where('tenant_id', $tenant->id)->with('course');
         }])
             ->where('tenant_id', $tenant->id)
             ->where('role', 'learner')
             ->orderBy('created_at')
+            ->orderBy('user_id')
             ->paginate(25, ['*'], 'participants_page')
             ->withQueryString();
 
@@ -288,6 +299,7 @@ class AdminDashboardController extends Controller
             ->where('tenant_id', $tenant->id)
             ->where('role', 'learner')
             ->orderBy('created_at')
+            ->orderBy('user_id')
             ->get();
 
         // Sitewide deaktivierte Kurse (course_definition.site_enabled = false)
