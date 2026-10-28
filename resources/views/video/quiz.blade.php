@@ -1,7 +1,11 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex items-center gap-3">
+            {{-- Bug-Review (Zurück-Pfeile ohne Beschriftung): nur ein Icon ohne
+                 Text -- ohne aria-label hatte dieser Link keinen für
+                 Screenreader erkennbaren Namen. --}}
             <a href="{{ route('video.show', array_filter(['course' => $course, 'lesson' => $lesson, 'kapitel' => $moduleIds ? implode(',', $moduleIds) : null])) }}"
+               aria-label="Zurück zur Lektion"
                class="w-8 h-8 rounded-full flex items-center justify-center text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 shrink-0">
                 <x-icon name="chevron-right" class="w-4 h-4 rotate-180" />
             </a>

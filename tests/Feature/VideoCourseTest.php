@@ -127,6 +127,24 @@ class VideoCourseTest extends TestCase
         $response->assertSee('grid grid-cols-1 lg:grid-cols-[280px_1fr]', false);
     }
 
+    /**
+     * Bug-Review (Zurück-Pfeile ohne Beschriftung): der "Zurück zum Kurs"-
+     * Pfeil oben rechts besteht nur aus einem Icon ohne Text -- ohne
+     * aria-label hatte er keinen für Screenreader erkennbaren Namen.
+     */
+    public function test_the_back_to_course_link_has_an_accessible_label(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $firstLesson] = $this->makeIsolatedVideoCourse();
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/video/{$firstLesson->id}");
+
+        $response->assertOk();
+        $response->assertSee('aria-label="Zurück zum Kurs"', false);
+    }
+
     public function test_lesson_step_gallery_is_shown_when_present(): void
     {
         $tenant = $this->createTestTenant();
@@ -192,6 +210,9 @@ class VideoCourseTest extends TestCase
         $quizPage = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/video/{$firstLesson->id}/questions/1");
         $quizPage->assertOk();
         $quizPage->assertSee($revision->question_text);
+        // Bug-Review (Zurück-Pfeile ohne Beschriftung): der "Zurück zur
+        // Lektion"-Pfeil besteht nur aus einem Icon ohne Text.
+        $quizPage->assertSee('aria-label="Zurück zur Lektion"', false);
 
         // Bug-Review N19: answer() leitet nach dem Speichern per Redirect auf
         // show() weiter (Post/Redirect/Get) statt die Rückmeldung direkt als
@@ -223,6 +244,9 @@ class VideoCourseTest extends TestCase
         $resultPage->assertSee($revision->question_text);
         // Alles richtig -> "Nur falsche Fragen erneut versuchen" ist nicht anklickbar.
         $resultPage->assertDontSee(route('video.quiz.show', ['course' => $course, 'lesson' => $firstLesson, 'position' => 1, 'questions' => $question->id]), false);
+        // Bug-Review (Zurück-Pfeile ohne Beschriftung): siehe oben, derselbe
+        // unbeschriftete Pfeil auf der Auswertungsseite.
+        $resultPage->assertSee('aria-label="Zurück zur Lektion"', false);
 
         $completeResponse = $this->actingAsInTenant($learner, $tenant)->post(
             "/courses/{$course->id}/video/{$firstLesson->id}/complete"

@@ -125,6 +125,25 @@ class PraxisTrainerTest extends TestCase
         $response->assertSee('grid grid-cols-1 lg:grid-cols-[280px_1fr]', false);
     }
 
+    /**
+     * Bug-Review (Zurück-Pfeile ohne Beschriftung): der "Zurück zum Kurs"-
+     * Pfeil in der Sidebar besteht nur aus einem Icon ohne Text -- ohne
+     * aria-label hatte er keinen für Screenreader erkennbaren Namen.
+     */
+    public function test_the_back_to_course_link_has_an_accessible_label(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $firstTask] = $this->makeIsolatedPraxisTasks();
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $response = $this->actingAsInTenant($learner, $tenant)
+            ->get(route('praxistrainer.show', ['course' => $course, 'task' => $firstTask]));
+
+        $response->assertOk();
+        $response->assertSee('aria-label="Zurück zum Kurs"', false);
+    }
+
     public function test_kategorie_query_param_scopes_the_praxistrainer_to_a_single_category(): void
     {
         $tenant = $this->createTestTenant();
