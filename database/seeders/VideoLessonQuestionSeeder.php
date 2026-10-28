@@ -175,11 +175,28 @@ class VideoLessonQuestionSeeder extends Seeder
             $chapter = $sbfSee->videoModules()->where('title', $chapterTitle)->first();
 
             if (! $chapter) {
+                // Bug-Review Betrieb B5: Kapitel/Lektionen für SBF See
+                // kommen aus mehreren, unabhängig voneinander gepflegten
+                // Seedern (VideoCourseSeeder, SeemannschaftVideoSeeder) --
+                // ein stiller continue() hier verschleierte zuvor jede
+                // künftige Drift zwischen diesen Titeln und den hier
+                // erwarteten, bis jemand die angehängten Fragen von Hand
+                // nachzählt (siehe DatabaseSeeder für den konkreten Fall:
+                // SeemannschaftVideoSeeder lief bisher NACH diesem Seeder).
+                $this->command?->warn("VideoLessonQuestionSeeder: Kapitel '{$chapterTitle}' existiert (noch) nicht bei SBF See -- Fragen dieses Kapitels wurden NICHT angehängt.");
+
                 continue;
             }
 
             foreach ($lessons as $lessonTitle => $questionTexts) {
                 $lesson = $chapter->lessons()->where('title', $lessonTitle)->first();
+
+                if (! $lesson) {
+                    $this->command?->warn("VideoLessonQuestionSeeder: Lektion '{$lessonTitle}' existiert (noch) nicht im Kapitel '{$chapterTitle}' -- Fragen dieser Lektion wurden NICHT angehängt.");
+
+                    continue;
+                }
+
                 $this->attachQuestions($lesson, $questionTexts);
             }
         }
@@ -190,9 +207,9 @@ class VideoLessonQuestionSeeder extends Seeder
      *                                                              ['media' => '...'] um bei mehrdeutigem (mehrfach verwendetem)
      *                                                              Fragetext über den Dateinamen des zugehörigen Bildes zu identifizieren.
      */
-    private function attachQuestions(?VideoLesson $lesson, array $questions): void
+    private function attachQuestions(VideoLesson $lesson, array $questions): void
     {
-        if (! $lesson || $lesson->questions()->exists()) {
+        if ($lesson->questions()->exists()) {
             return;
         }
 
@@ -205,7 +222,12 @@ class VideoLessonQuestionSeeder extends Seeder
 
             if ($revision) {
                 $lesson->questions()->syncWithoutDetaching([$revision->question_id => ['sort_order' => $sortOrder + 1]]);
+
+                continue;
             }
+
+            $identifier = is_array($question) ? "Bild '{$question['media']}'" : "Text '{$question}'";
+            $this->command?->warn("VideoLessonQuestionSeeder: Keine veröffentlichte Frage für {$identifier} (Lektion '{$lesson->title}') gefunden -- nicht angehängt.");
         }
     }
 }

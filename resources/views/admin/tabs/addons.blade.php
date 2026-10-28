@@ -1,10 +1,12 @@
+{{-- Bug-Review (Du/Sie im Admin-Bereich gemischt): der restliche
+     Admin-Bereich siezt durchgehend. --}}
 <p class="text-slate-500 mb-6">
-    Hier kannst du vorgefertigte Addon-Banner aktivieren, mit denen du Kursteilnehmern ein Upgrade oder
-    Zusatzpaket anbietest. Für jedes aktivierte Addon hinterlegst du deinen Gutscheincode und Preis
-    (beides reine Anzeigefelder &mdash; der Verkauf läuft über deinen eigenen Webshop), optional einen
+    Hier können Sie vorgefertigte Addon-Banner aktivieren, mit denen Sie Kursteilnehmern ein Upgrade oder
+    Zusatzpaket anbieten. Für jedes aktivierte Addon hinterlegen Sie Ihren Gutscheincode und Preis
+    (beides reine Anzeigefelder &mdash; der Verkauf läuft über Ihren eigenen Webshop), optional einen
     Rabatt in % (der rabattierte VK wird daraus automatisch berechnet und zusätzlich angezeigt), die
-    Haken-Bullets (standardmäßig die der Vorlage, von dir frei änderbar), den Kurs und den Kursfortschritt,
-    ab dem der Banner auf dessen Kursseite erscheint, sowie den Link zu deiner Angebotsseite.
+    Haken-Bullets (standardmäßig die der Vorlage, von Ihnen frei änderbar), den Kurs und den Kursfortschritt,
+    ab dem der Banner auf dessen Kursseite erscheint, sowie den Link zu Ihrer Angebotsseite.
 </p>
 
 @if ($addonTemplates->isEmpty())
@@ -38,7 +40,7 @@
                 <div class="flex items-center justify-between">
                     <div>
                         <div class="font-medium text-slate-700 dark:text-slate-200">{{ $template->title }}</div>
-                        <div class="text-xs text-slate-400">{{ $template->headline }}</div>
+                        <div class="text-xs text-slate-600 dark:text-slate-400">{{ $template->headline }}</div>
                     </div>
                     <label class="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
                         <input type="hidden" name="addons[{{ $template->id }}][active]" value="0">
@@ -71,7 +73,7 @@
                         <x-input-label :for="'bullets_'.$template->id" value="Haken-Bullets (eine Zeile pro Punkt)" />
                         <textarea id="{{ 'bullets_'.$template->id }}" name="addons[{{ $template->id }}][bullets]" rows="4"
                                   class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">{{ old('addons.'.$template->id.'.bullets', implode("\n", $config?->effectiveBullets() ?? $template->bullets ?? [])) }}</textarea>
-                        <p class="text-xs text-slate-400 mt-1">Vorausgefüllt mit den Punkten der Vorlage &mdash; du kannst sie anpassen, ergänzen oder löschen.</p>
+                        <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Vorausgefüllt mit den Punkten der Vorlage &mdash; Sie können sie anpassen, ergänzen oder löschen.</p>
                         <x-input-error :messages="$errors->get('addons.'.$template->id.'.bullets')" class="mt-2" />
                     </div>
                     <div>
@@ -92,8 +94,8 @@
                         <x-input-error :messages="$errors->get('addons.'.$template->id.'.trigger_percent')" class="mt-2" />
                     </div>
                     <div class="sm:col-span-2">
-                        <x-input-label :for="'offer_url_'.$template->id" value="Link zu deiner Angebotsseite" />
-                        <x-text-input :id="'offer_url_'.$template->id" name="addons[{{ $template->id }}][offer_url]" type="url" placeholder="https://dein-webshop.de/angebot/..."
+                        <x-input-label :for="'offer_url_'.$template->id" value="Link zu Ihrer Angebotsseite" />
+                        <x-text-input :id="'offer_url_'.$template->id" name="addons[{{ $template->id }}][offer_url]" type="url" placeholder="https://ihr-webshop.de/angebot/..."
                                       class="mt-1 block w-full" :value="old('addons.'.$template->id.'.offer_url', $config?->offer_url)" />
                         <x-input-error :messages="$errors->get('addons.'.$template->id.'.offer_url')" class="mt-2" />
                     </div>

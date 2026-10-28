@@ -68,4 +68,43 @@ class TenantBranding extends Model
     {
         return $this->belongsTo(MediaAsset::class, 'logo_asset_id');
     }
+
+    public function faviconAsset(): BelongsTo
+    {
+        return $this->belongsTo(MediaAsset::class, 'favicon_asset_id');
+    }
+
+    /**
+     * Bug-Review Oberfläche U4: primary_color/secondary_color wurden bisher
+     * nirgends gelesen -- jede Nutzung von var(--brand-primary, #005FD7) im
+     * Markup griff dadurch immer nur auf den hartkodierten Fallback zurück,
+     * unabhängig vom in der Bootsschul-Admin-Oberfläche eingestellten Wert.
+     * Ein nicht valider Wert (z. B. aus einer alten, manuell geänderten
+     * Zeile) würde unvalidiert in ein <style>-Tag interpoliert sonst CSS/
+     * Markup-Injection ermöglichen -- hier zusätzlich zur Validierung bei
+     * der Eingabe (BrandingController) nochmals gegen das erwartete
+     * #rrggbb-Format geprüft, bevor der Wert ausgegeben wird.
+     */
+    public function primaryColorOrDefault(): string
+    {
+        return $this->isValidHexColor($this->primary_color) ? $this->primary_color : '#005FD7';
+    }
+
+    /**
+     * Bug-Review Oberfläche U6: #00A8A8 (der bisherige Standard- und
+     * Neuanlage-Wert, siehe Superadmin\TenantController::store() und
+     * TenantSeeder) erreicht mit weißer Buttonschrift nur 2,9:1 -- WCAG AA
+     * verlangt 4,5:1 für Text. #007A7A (dieselbe Farbfamilie, nur dunkler/
+     * gesättigter) kommt auf rechnerisch 5,2:1 und besteht damit mit
+     * Spielraum.
+     */
+    public function secondaryColorOrDefault(): string
+    {
+        return $this->isValidHexColor($this->secondary_color) ? $this->secondary_color : '#007A7A';
+    }
+
+    private function isValidHexColor(?string $value): bool
+    {
+        return $value !== null && preg_match('/^#[0-9a-fA-F]{6}$/', $value) === 1;
+    }
 }

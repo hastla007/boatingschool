@@ -8,6 +8,7 @@ use App\Models\AuditLog;
 use App\Models\TenantAddon;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -40,7 +41,38 @@ class AddonController extends Controller
         ]);
 
         $rows = collect($validated['addons'] ?? []);
-        $templateIds = AddonTemplate::pluck('id');
+
+        // Bug-Review F2: hier stand bisher AddonTemplate::pluck('id') --
+        // ALLE Vorlagen, nicht nur die aktiven. Das Formular (siehe
+        // AdminDashboardController) rendert aber nur Zeilen für aktive
+        // Vorlagen (AddonTemplate::where('active', true)) -- deaktiviert
+        // der Superadmin eine Vorlage, fehlt ihre ID im nächsten Request
+        // komplett, $active fiel hier auf false zurück, und die eigene
+        // Konfiguration der Bootsschule (Gutscheincode, Preis, Bullets,
+        // Trigger-Kurs, Link) wurde beim NÄCHSTEN Speichern gelöscht --
+        // unabhängig davon, ob die Schule überhaupt etwas an diesem Addon
+        // ändern wollte. Die Lernerseite blendet ein Addon mit deaktivierter
+        // Vorlage ohnehin schon zuverlässig aus (CourseController::show(),
+        // whereHas('addonTemplate', fn ($q) => $q->where('active', true))) --
+        // das Löschen hier war nie nötig, um das durchzusetzen. Nur noch die
+        // tatsächlich im Formular enthaltenen (= aktiven) Vorlagen werden
+        // deshalb überhaupt berührt.
+        // Bug-Review (Query-Parameter-Validierung): die Schlüssel des
+        // addons-Arrays (Vorlagen-IDs) kamen bisher ungeprüft aus dem
+        // Request direkt in where('addon_template_id', ...) bzw. ein
+        // Insert gegen die uuid-Spalte tenant_addon.addon_template_id --
+        // ein manipulierter, nicht-UUID-förmiger Schlüssel ließ Postgres
+        // mit "invalid input syntax for type uuid" scheitern, ein
+        // UUID-förmiger, aber nicht existierender Schlüssel mit einer
+        // verletzten Fremdschlüssel-Zwangsbedingung. Beides endete als
+        // unbehandelte QueryException mit HTTP 500, statt den Schlüssel
+        // einfach zu ignorieren (analog zu VideoCourseController::
+        // parseModuleIds()).
+        $existingTemplateIds = AddonTemplate::whereIn('id', $rows->keys()->filter(fn ($id) => is_string($id) && Str::isUuid($id))->values())
+            ->pluck('id')
+            ->map(fn ($id) => (string) $id);
+
+        $templateIds = $rows->keys()->intersect($existingTemplateIds);
 
         foreach ($templateIds as $templateId) {
             $row = $rows->get($templateId, []);

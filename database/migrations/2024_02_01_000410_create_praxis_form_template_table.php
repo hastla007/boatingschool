@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\AppRoleGrants;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -32,8 +33,10 @@ return new class extends Migration
 
         DB::statement('ALTER TABLE praxis_form_template ADD CONSTRAINT praxis_form_template_min_progress_percent_check CHECK (min_progress_percent >= 0 AND min_progress_percent <= 100)');
 
-        if (DB::selectOne("SELECT 1 FROM pg_roles WHERE rolname = 'boatingschool_app'")) {
-            DB::statement('GRANT SELECT, INSERT, UPDATE, DELETE ON praxis_form_template TO boatingschool_app');
+        $appRole = AppRoleGrants::quotedRole();
+
+        if (AppRoleGrants::roleExistsOrWarn()) {
+            DB::statement("GRANT SELECT, INSERT, UPDATE, DELETE ON praxis_form_template TO {$appRole}");
         }
     }
 

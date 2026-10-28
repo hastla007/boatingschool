@@ -101,4 +101,75 @@ class ImportContentFeedbackRevisionTest extends TestCase
             $this->assertNotSame($answer->id, $newAnswers->first()->id);
         });
     }
+
+    /**
+     * Bug-Review F8: lag bereits eine neuere, noch unveröffentlichte
+     * Revision im Status "review" vor (z. B. aus einem erneuten
+     * Content-Import, siehe ImportContentQuestions), berechnete sich die
+     * neue revision_no hier bisher aus der veröffentlichten Revision + 1
+     * -- das kollidierte mit dem Unique-Index (question_id, revision_no)
+     * und brach den gesamten Feedback-Import mit einer unabgefangenen
+     * QueryException ab, statt nur diese eine Zeile zu überspringen.
+     */
+    public function test_feedback_import_does_not_abort_when_a_pending_review_revision_already_exists(): void
+    {
+        $contentId = 'TEST-F8-'.uniqid();
+
+        [$question, $publishedRevision, $reviewRevision] = $this->onAdmin(function () use ($contentId) {
+            $module = Module::create(['code' => 'TEST-F8-MOD-'.uniqid(), 'name' => 'Test Modul F8', 'version' => '1', 'status' => 'published']);
+            $this->createdModuleIds[] = $module->id;
+
+            $question = ContentQuestion::create(['content_id' => $contentId, 'language' => 'de-DE', 'active' => true]);
+            $this->createdQuestionIds[] = $question->id;
+            $module->questions()->attach($question->id, ['required' => true]);
+
+            $publishedRevision = ContentQuestionRevision::create([
+                'question_id' => $question->id,
+                'revision_no' => 1,
+                'question_type' => 'single_choice',
+                'question_text' => 'F8 Testfrage',
+                'editorial_status' => 'published',
+                'rights_status' => 'licensed',
+            ]);
+            ContentAnswer::create(['revision_id' => $publishedRevision->id, 'answer_key' => 'A', 'answer_text' => 'Richtig', 'is_correct' => true, 'sort_order' => 1]);
+            ContentAnswer::create(['revision_id' => $publishedRevision->id, 'answer_key' => 'B', 'answer_text' => 'Falsch', 'is_correct' => false, 'sort_order' => 2]);
+
+            // Simuliert einen erneuten Content-Import, der die Frage
+            // inhaltlich geändert hat -- die neue Fassung wartet im Status
+            // "review" auf Veröffentlichung (siehe ImportContentQuestions).
+            $reviewRevision = ContentQuestionRevision::create([
+                'question_id' => $question->id,
+                'revision_no' => 2,
+                'question_type' => 'single_choice',
+                'question_text' => 'F8 Testfrage (überarbeitet)',
+                'editorial_status' => 'review',
+                'rights_status' => 'review',
+            ]);
+
+            return [$question, $publishedRevision, $reviewRevision];
+        });
+
+        $this->csvPath = storage_path('app/test-f8-feedback-'.uniqid().'.csv');
+        file_put_contents($this->csvPath, implode(';', ['content_id', 'feedback_correct', 'feedback_incorrect'])."\n"
+            .implode(';', [$contentId, 'Richtig. Erklärtext.', 'Falsch. Falsch-Text.'])."\n");
+
+        $exitCode = Artisan::call('content:import-feedback', ['path' => 'storage/app/'.basename($this->csvPath)]);
+
+        $this->assertSame(0, $exitCode);
+
+        $this->onAdmin(function () use ($question, $publishedRevision, $reviewRevision) {
+            $publishedRevision->refresh();
+            $this->assertSame('deprecated', $publishedRevision->editorial_status);
+
+            // Die Review-Revision bleibt von der Feedback-Ergänzung unberührt.
+            $reviewRevision->refresh();
+            $this->assertSame('review', $reviewRevision->editorial_status);
+
+            $newRevision = $question->publishedRevision();
+            $this->assertNotNull($newRevision);
+            $this->assertSame(3, $newRevision->revision_no);
+            $this->assertSame('Erklärtext.', $newRevision->feedback_correct);
+            $this->assertSame('Falsch-Text.', $newRevision->feedback_incorrect);
+        });
+    }
 }

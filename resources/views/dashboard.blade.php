@@ -9,7 +9,7 @@
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 text-center">
                 <x-icon name="life-buoy" class="w-8 h-8 mx-auto text-slate-300 mb-2" />
                 <p class="text-slate-600 dark:text-slate-300">Für dich ist noch kein Kurs freigeschaltet.</p>
-                <p class="text-sm text-slate-400 mt-1">Bitte wende dich an deine Bootsschule, um Zugang zu erhalten.</p>
+                <p class="text-sm text-slate-600 dark:text-slate-400 mt-1">Bitte wende dich an deine Bootsschule, um Zugang zu erhalten.</p>
             </div>
         @else
             {{-- Jeder gebuchte Kurs bekommt seinen eigenen "Weiterlernen"-Banner
@@ -70,7 +70,7 @@
                                 <x-progress-ring :percent="$courseSummary['percent']" :size="72" :stroke="7" />
                                 <div class="min-w-0">
                                     <div class="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">{{ $courseSummary['course']->name }}</div>
-                                    <div class="text-xs text-slate-400">Fortschritt gesamt</div>
+                                    <div class="text-xs text-slate-600 dark:text-slate-400">Fortschritt gesamt</div>
                                 </div>
                             </div>
                             <x-stat-tile icon="check-circle" :value="$courseSummary['correct']" label="richtig" tone="success" />
@@ -85,7 +85,7 @@
                                 </div>
                                 <div class="min-w-0 flex-1">
                                     <div class="text-sm font-medium text-slate-700 dark:text-slate-200">Zum Kurs</div>
-                                    <div class="text-xs text-slate-400 truncate">{{ $courseSummary['course']->name }}</div>
+                                    <div class="text-xs text-slate-600 dark:text-slate-400 truncate">{{ $courseSummary['course']->name }}</div>
                                 </div>
                                 <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />
                             </a>
@@ -96,7 +96,7 @@
                                 </div>
                                 <div class="min-w-0 flex-1">
                                     <div class="text-sm font-medium text-slate-700 dark:text-slate-200">Fortschritt &amp; Statistiken</div>
-                                    <div class="text-xs text-slate-400 truncate">{{ $courseSummary['course']->name }}</div>
+                                    <div class="text-xs text-slate-600 dark:text-slate-400 truncate">{{ $courseSummary['course']->name }}</div>
                                 </div>
                                 <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />
                             </a>
@@ -107,7 +107,7 @@
                                 </div>
                                 <div class="min-w-0 flex-1">
                                     <div class="text-sm font-medium text-slate-700 dark:text-slate-200">Favoriten &amp; Fehler</div>
-                                    <div class="text-xs text-slate-400 truncate">{{ $courseSummary['course']->name }}</div>
+                                    <div class="text-xs text-slate-600 dark:text-slate-400 truncate">{{ $courseSummary['course']->name }}</div>
                                 </div>
                                 <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />
                             </a>

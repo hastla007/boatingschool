@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\AppRoleGrants;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
@@ -52,11 +53,13 @@ return new class extends Migration
         // Die Rolle selbst wird von Infra/Ops vorab angelegt (CREATE ROLE
         // erfordert CREATEROLE, das die Migrations-Rolle bewusst nicht hat);
         // hier werden ihr nur die laufenden Rechte auf die Tabellen erteilt.
-        if (DB::selectOne("SELECT 1 FROM pg_roles WHERE rolname = 'boatingschool_app'")) {
-            DB::statement('GRANT CONNECT ON DATABASE '.DB::getDatabaseName().' TO boatingschool_app');
-            DB::statement('GRANT USAGE ON SCHEMA public TO boatingschool_app');
-            DB::statement('GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO boatingschool_app');
-            DB::statement('GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO boatingschool_app');
+        $appRole = AppRoleGrants::quotedRole();
+
+        if (AppRoleGrants::roleExistsOrWarn()) {
+            DB::statement('GRANT CONNECT ON DATABASE '.DB::getDatabaseName().' TO '.$appRole);
+            DB::statement("GRANT USAGE ON SCHEMA public TO {$appRole}");
+            DB::statement("GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO {$appRole}");
+            DB::statement("GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO {$appRole}");
         }
     }
 

@@ -27,7 +27,14 @@ class PraxisPruefungController extends Controller
 
         abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Für diesen Kurs liegt kein aktives Entitlement vor.');
 
-        $percent = $courseProgress->overallPercent($course, $tenant, $user);
+        // Bug-Review (Gates vergleichen den gerundeten Wert):
+        // overallPercent() rundet für die Anzeige -- 49,5% gefestigte
+        // Fragen zeigten sich bisher als "50%" und erfüllten damit
+        // fälschlich eine Schwelle von 50%. Die Gates unten vergleichen
+        // deshalb den ungerundeten $exactPercent, nur die Anzeige im
+        // "locked"-Zustand nutzt weiterhin den gerundeten $percent.
+        $exactPercent = $courseProgress->exactPercent($course, $tenant, $user);
+        $percent = (int) round($exactPercent);
 
         $template = PraxisFormTemplate::where('active', true)
             ->whereJsonContains('course_ids', $course->id)
@@ -38,12 +45,12 @@ class PraxisPruefungController extends Controller
             // beibehalten (Platzhalterseite, gated über die
             // bootsschulweite Branding-Schwelle statt eines Formulars).
             $threshold = $tenant->branding->exam_readiness_threshold_percent;
-            abort_unless($percent >= $threshold, 403, "Für die Buchung von Prüfung & Praxis werden mindestens {$threshold}% Kursfortschritt benötigt.");
+            abort_unless($exactPercent >= $threshold, 403, "Für die Buchung von Prüfung & Praxis werden mindestens {$threshold}% Kursfortschritt benötigt.");
 
             return view('praxis-pruefung.index', ['course' => $course, 'state' => 'unavailable']);
         }
 
-        if ($percent < $template->min_progress_percent) {
+        if ($exactPercent < $template->min_progress_percent) {
             return view('praxis-pruefung.index', [
                 'course' => $course,
                 'state' => 'locked',
@@ -73,7 +80,7 @@ class PraxisPruefungController extends Controller
         // Adresse hinterlegen (siehe ParticipantController::invite), das
         // Geburtsdatum aber bewusst nicht -- es muss immer vom Lerner selbst
         // kommen, daher greift dieses Gate auch dann noch.
-        if (! $user->hasCompleteRegistrationProfile()) {
+        if (! $user->hasCompleteRegistrationProfile($tenant)) {
             return view('praxis-pruefung.index', ['course' => $course, 'state' => 'incomplete-profile']);
         }
 
@@ -93,7 +100,7 @@ class PraxisPruefungController extends Controller
             ->whereHas('addonTemplate', fn ($q) => $q->where('active', true))
             ->with('addonTemplate')
             ->get()
-            ->filter(fn ($tenantAddon) => $percent >= $tenantAddon->trigger_percent)
+            ->filter(fn ($tenantAddon) => $exactPercent >= $tenantAddon->trigger_percent)
             ->sortByDesc('trigger_percent')
             ->first();
 

@@ -8,7 +8,7 @@
     </div>
     <div class="min-w-0 flex-1">
         <div class="text-slate-700 dark:text-slate-200 truncate">{{ $revision?->question_text }}</div>
-        <div class="text-xs text-slate-400">{{ $revision?->topic }}</div>
+        <div class="text-xs text-slate-600 dark:text-slate-400">{{ $revision?->topic }}</div>
     </div>
     <div class="flex items-center gap-1 shrink-0">
         <form method="POST" action="{{ route($isFavorite ? 'favorites.destroy' : 'favorites.store', $question->id) }}">
@@ -24,7 +24,7 @@
 
         <x-dropdown align="right" width="w-60">
             <x-slot name="trigger">
-                <button type="button" class="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 transition text-slate-400"
+                <button type="button" class="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 transition text-slate-600 dark:text-slate-400"
                         title="Collections">
                     <x-icon name="bookmark" class="w-4 h-4" />
                 </button>

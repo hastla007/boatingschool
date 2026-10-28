@@ -86,7 +86,7 @@
 
 <div>
     <x-input-label value="Zuständig für diese Kurse" />
-    <p class="text-xs text-slate-400 mt-1 mb-2">
+    <p class="text-xs text-slate-600 dark:text-slate-400 mt-1 mb-2">
         Mehrere Adressen derselben Kommission können unterschiedliche Kurse abdecken
         (z. B. eine Geschäftsstelle für SBF-Scheine, eine separate Postanschrift nur für UBI/SRC/FKN).
     </p>

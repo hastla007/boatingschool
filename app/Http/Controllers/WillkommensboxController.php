@@ -3,13 +3,18 @@
 namespace App\Http\Controllers;
 
 use App\Models\Tenant;
+use App\Models\TenantUser;
 use App\Models\User;
 use App\Models\WillkommensboxOrder;
+use App\Notifications\WillkommensboxOrderPlaced;
 use App\Services\CourseProgressService;
 use App\Services\EntitlementService;
+use App\Support\BestEffortMail;
 use App\Support\Countries;
 use App\Support\TenantContext;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\Response;
@@ -33,11 +38,14 @@ class WillkommensboxController extends Controller
 
         abort_unless($user->hasWillkommensboxAccess($tenant), 403, 'Die Willkommensbox ist für dich aktuell nicht freigeschaltet.');
 
-        $percent = $this->progressPercent($tenant, $user, $entitlements, $courseProgress);
+        // Bug-Review (Gates vergleichen den gerundeten Wert): siehe
+        // store() unten -- das Gate vergleicht den ungerundeten Wert,
+        // nur die Anzeige im "locked"-Zustand nutzt den gerundeten.
+        $exactPercent = $this->progressExactPercent($tenant, $user, $entitlements, $courseProgress);
         $threshold = $tenant->branding->willkommensbox_threshold_percent;
 
-        if ($percent < $threshold) {
-            return view('willkommensbox.index', ['state' => 'locked', 'percent' => $percent, 'threshold' => $threshold]);
+        if ($exactPercent < $threshold) {
+            return view('willkommensbox.index', ['state' => 'locked', 'percent' => (int) round($exactPercent), 'threshold' => $threshold]);
         }
 
         $order = WillkommensboxOrder::where('tenant_id', $tenant->id)->where('user_id', $user->id)->first();
@@ -46,7 +54,12 @@ class WillkommensboxController extends Controller
             return view('willkommensbox.index', ['state' => 'submitted', 'order' => $order]);
         }
 
-        return view('willkommensbox.index', ['state' => 'form', 'user' => $user]);
+        // Sicherheitsreview S3: Adresse-Vorbefüllung kommt jetzt aus der
+        // Mitgliedschaft (tenant_user) dieses Mandanten statt kontoweit von
+        // app_user -- siehe Migration 000469.
+        $membership = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $user->id)->first();
+
+        return view('willkommensbox.index', ['state' => 'form', 'membership' => $membership]);
     }
 
     public function store(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseProgressService $courseProgress): Response
@@ -56,9 +69,14 @@ class WillkommensboxController extends Controller
 
         abort_unless($user->hasWillkommensboxAccess($tenant), 403, 'Die Willkommensbox ist für dich aktuell nicht freigeschaltet.');
 
-        $percent = $this->progressPercent($tenant, $user, $entitlements, $courseProgress);
+        // Bug-Review (Gates vergleichen den gerundeten Wert): overallPercent()
+        // rundet für die Anzeige -- 49,5% gefestigte Fragen zeigten sich
+        // bisher als "50%" und erfüllten damit fälschlich eine Schwelle von
+        // 50%. progressExactPercent() vergleicht den tatsächlichen,
+        // ungerundeten Fortschritt.
+        $exactPercent = $this->progressExactPercent($tenant, $user, $entitlements, $courseProgress);
         $threshold = $tenant->branding->willkommensbox_threshold_percent;
-        abort_unless($percent >= $threshold, 403, "Für die Bestellung der Willkommensbox werden mindestens {$threshold}% Kursfortschritt benötigt.");
+        abort_unless($exactPercent >= $threshold, 403, "Für die Bestellung der Willkommensbox werden mindestens {$threshold}% Kursfortschritt benötigt.");
 
         $existing = WillkommensboxOrder::where('tenant_id', $tenant->id)->where('user_id', $user->id)->exists();
 
@@ -74,10 +92,32 @@ class WillkommensboxController extends Controller
             'note' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        WillkommensboxOrder::create($validated + [
-            'tenant_id' => $tenant->id,
-            'user_id' => $user->id,
-        ]);
+        // Bug-Review (Doppelklick-Race): der exists()-Check oben schließt
+        // eine echte Gleichzeitigkeit nicht aus (TOCTOU) -- ein Doppelklick
+        // konnte zwei Requests mit exists() === false auslösen, von denen
+        // der zweite hier gegen den UNIQUE-Constraint (tenant_id, user_id)
+        // lief und bisher als ungefangene QueryException mit HTTP 500 endete,
+        // analog zum bereits behandelten Fall in ProfileController (R3-6).
+        try {
+            $order = WillkommensboxOrder::create($validated + [
+                'tenant_id' => $tenant->id,
+                'user_id' => $user->id,
+            ]);
+        } catch (UniqueConstraintViolationException) {
+            return back()->with('status', 'Du hast deine Willkommensbox bereits bestellt.');
+        }
+
+        // Bug-Review F5: im gesamten Ablauf von Praxis-Anmeldung, Terminen
+        // und Willkommensbox wurde bisher keine Mail verschickt -- eine
+        // Bootsschule bemerkte den Versandbedarf nur, wenn jemand aktiv in
+        // der Teilnehmerliste nachsah.
+        $admins = $tenant->admins();
+        if ($admins->isNotEmpty()) {
+            BestEffortMail::send(
+                fn () => Notification::send($admins, new WillkommensboxOrderPlaced($order)),
+                "Willkommensbox-Bestellung {$order->id} an Bootsschule {$tenant->id}"
+            );
+        }
 
         return redirect()->route('willkommensbox.index');
     }
@@ -86,11 +126,15 @@ class WillkommensboxController extends Controller
      * Die Willkommensbox ist nicht an einen bestimmten Kurs gekoppelt --
      * bei mehreren aktiven Kurszugängen zählt (wie beim Dashboard-Chart
      * "Kursfortschritt in der Lernphase") der am weitesten fortgeschrittene.
+     *
+     * Bug-Review (Gates vergleichen den gerundeten Wert): ungerundet, für
+     * den Schwellenvergleich -- overallPercent() rundet nur für die
+     * Anzeige.
      */
-    private function progressPercent(Tenant $tenant, User $user, EntitlementService $entitlements, CourseProgressService $courseProgress): int
+    private function progressExactPercent(Tenant $tenant, User $user, EntitlementService $entitlements, CourseProgressService $courseProgress): float
     {
         return $entitlements->activeCourses($tenant, $user)
-            ->map(fn ($course) => $courseProgress->overallPercent($course, $tenant, $user))
-            ->max() ?? 0;
+            ->map(fn ($course) => $courseProgress->exactPercent($course, $tenant, $user))
+            ->max() ?? 0.0;
     }
 }

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Superadmin;
 
+use App\Models\AuditLog;
 use App\Models\User;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -47,6 +48,13 @@ class UserMassAssignmentTest extends TestCase
 
         $response->assertRedirect();
         $this->assertTrue($target->fresh()->is_superadmin);
+
+        // Bug-Review (Testdaten bleiben weiter liegen): Superadmin\
+        // UserController::update() protokolliert bewusst immer mit
+        // tenant_id=null (plattformweite Aktion) -- die automatische
+        // AuditLog-Aufräumung über den gelöschten Test-Tenant greift hier
+        // also nicht.
+        $this->onAdmin(fn () => AuditLog::where('action', 'superadmin.user.update')->where('entity_id', $target->id)->delete());
     }
 
     public function test_superadmin_can_still_revoke_superadmin_rights(): void
@@ -64,5 +72,7 @@ class UserMassAssignmentTest extends TestCase
 
         $response->assertRedirect();
         $this->assertFalse($target->fresh()->is_superadmin);
+
+        $this->onAdmin(fn () => AuditLog::where('action', 'superadmin.user.update')->where('entity_id', $target->id)->delete());
     }
 }

@@ -9,15 +9,17 @@ auf PostgreSQL, gemäß dem mitgelieferten technischen Konzept
 
 ## Architektur
 
-- **Laravel 11 / Blade / Tailwind**, PostgreSQL 16.
+- **Laravel 12 / Blade / Tailwind**, PostgreSQL 16.
 - **Multi-Tenancy**: jede Bootsschule ist ein `tenant`, aufgelöst per
   Subdomain (`{slug}.CENTRAL_DOMAIN`) oder Custom Domain
   (`app/Http/Middleware/ResolveTenant.php`). Mandantengebundene Tabellen
-  (`tenant_branding`, `tenant_user`, `entitlement`, `attempt`, `progress`,
-  `favorite`, `exam_session`, `audit_log`) sind zusätzlich per **Postgres
-  Row-Level-Security** abgesichert – ein UI-Filter allein zählt nicht als
-  Schutz. Globaler Content (Fragen, Module, Kursdefinitionen) ist
-  tenant-unabhängig und wird nur referenziert, nie dupliziert.
+  (inzwischen 25, u. a. `tenant_branding`, `tenant_user`,
+  `entitlement`, `attempt`, `progress`, `favorite`, `exam_session`,
+  `exam_session_question`, `coupon`, `audit_log`, `app_user`) sind
+  zusätzlich per **Postgres Row-Level-Security** abgesichert – ein
+  UI-Filter allein zählt nicht als Schutz. Globaler Content (Fragen,
+  Module, Kursdefinitionen) ist tenant-unabhängig und wird nur
+  referenziert, nie dupliziert.
 - **Zwei DB-Rollen**: der Webprozess verbindet sich als
   least-privilege-Rolle `boatingschool_app` (RLS greift für sie ohne
   Ausnahme). Migrations, Seeder und der Content-Import laufen bewusst über
@@ -112,11 +114,15 @@ auf PostgreSQL, gemäß dem mitgelieferten technischen Konzept
   Fragenfamilie mehrfach vorkommt. Bilder aus
   `database/data/pruefungsboegen_bilder/` werden dabei direkt an die
   jeweilige Frage angehängt (`question_media`) und erscheinen dadurch überall,
-  wo diese Frage angezeigt wird (Smarttrainer, Prüfungssimulation).
+  wo diese Frage angezeigt wird (Smarttrainer, Prüfungssimulation). Dasselbe
+  Muster (eigener Seeder je Kurs, feste statt zufällig gewürfelter Fragen)
+  wurde inzwischen auch auf weitere Kurse übertragen (u. a. SRC, FKN, SBF
+  Binnen, Kombikurse) – mit jeweils eigener Fragenzahl/-zusammensetzung laut
+  deren amtlichem Prüfungsbogen statt der hier beschriebenen 30/7/23.
 
 ## Setup (lokal)
 
-Voraussetzungen: PHP 8.4+, Composer, Node 20+, PostgreSQL 16+.
+Voraussetzungen: PHP 8.3+, Composer, Node 20+, PostgreSQL 16+.
 
 ```bash
 composer install
@@ -155,9 +161,9 @@ php artisan db:seed --database=pgsql_admin --force
 
 Der Seed-Lauf importiert automatisch die mitgelieferte zentrale
 Fragenbasis (`database/data/zentrale_fragenbasis.xlsx`, 838 Zeilen, davon
-821 importierbar – 17 Zeilen sind freie Kartenaufgaben ohne A–D-Antworten
+823 importierbar – 15 Zeilen sind freie Kartenaufgaben ohne A–D-Antworten
 und werden bewusst als Fehler ausgewiesen, nicht stillschweigend
-übersprungen), legt die 6 Module und 11 Kursdefinitionen an und erzeugt
+übersprungen), legt die 8 Module und 14 Kursdefinitionen an und erzeugt
 zwei Demo-Bootsschulen.
 
 ```bash
@@ -235,24 +241,33 @@ serverseitige Auswertung).
 
 ## Umfang dieser Version
 
-**Umgesetzt** (entspricht Sprint 0–6 des Implementierungsplans): zentraler
-Content mit Revisionshistorie, Excel-Import, Tenant/Branding/Rollen mit
-RLS, Kurse/Entitlements, vollständige Learning Loop, Smarttrainer,
+**Umgesetzt** (deutlich über Sprint 0–6 des ursprünglichen
+Implementierungsplans hinaus gewachsen): zentraler Content mit
+Revisionshistorie, Excel-Import, Tenant/Branding/Rollen mit RLS,
+Kurse/Entitlements, vollständige Learning Loop, Smarttrainer,
 Lernenden-Dashboard, Bootsschul-Admin (Teilnehmer, manuelle Freischaltung,
-Branding), Prüfungssimulation.
+Branding), Prüfungssimulation (inkl. fester, amtlicher Prüfungsbögen für
+mehrere Kurse), Videokurs, Navigationsaufgaben-Trainer,
+Coupon-/Zugangscode-System (inkl. Bundle-Optionen, Export, Audit-Log),
+Praxisformular-Anmeldung samt Prüfungsterminen, Willkommensbox-Bestellung
+und Versandlabel-Druck, Addon-Banner, Tipps sowie DSGVO-Werkzeuge
+(Datenexport, Löschfristen).
 
 **Bewusst ausgeklammert**, konsistent mit der im Technikpaket festgelegten
-Reihenfolge "nach V1": Zugangscodes, WooCommerce-/Commerce-Adapter,
-automatisierte Domain-Provisionierung, Self-Service-Billing, ein
-vollständiges Content-Review-UI (Staging/Diff/Publish-Oberfläche – der
-Import validiert und veröffentlicht aktuell in einem Schritt) sowie
-fortgeschrittenes Spaced Repetition.
+Reihenfolge "nach V1": ein echter WooCommerce-/Commerce-Adapter bzw.
+In-App-Zahlungsabwicklung (Kurskäufe laufen weiterhin über einen externen
+Webshop-Link je Kurs, `course_webshop_link`, dessen Bestätigungscode erst
+hier als Coupon eingelöst wird), automatisierte Domain-Provisionierung,
+Self-Service-Billing, ein vollständiges Content-Review-UI
+(Staging/Diff/Publish-Oberfläche – der Import validiert und veröffentlicht
+aktuell in einem Schritt) sowie fortgeschrittenes Spaced Repetition.
 
 **Wichtiger Hinweis zur Prüfungssimulation**: Die Prüfungsregelwerke
-(Fragenmix, Zeitlimit, Bestehensgrenze) sind für alle Kurse als
-`draft`/unverifiziert markiert, mit Ausnahme von SBF See, das eine
-**Demo-Verifizierung** trägt, um die technische Prüfungssimulation
-end-to-end zeigen zu können. Das ersetzt keine fachliche Freigabe – vor
-echtem Produktivbetrieb müssen die Regelwerke je Katalog fachlich
-verifiziert werden (siehe Umsetzungskonzept, Abschnitt "Noch festzulegende
-Betriebsparameter").
+(Fragenmix, Zeitlimit, Bestehensgrenze) sind für die meisten Kurse weiterhin
+als `draft`/unverifiziert markiert. Nur für Kurse mit echten, amtlichen
+Prüfungsbögen (ADD-BIN-SEGEL, SRC, FKN) ist zusätzlich eine tatsächlich aus
+der jeweiligen Prüfungsordnung belegte Bestehensgrenze eingetragen und das
+Regelwerk als verifiziert markiert (siehe `ExamRuleSetSeeder`) – für alle
+anderen Kurse müssen Zeitlimit/Fragenmix/Bestehensgrenze vor echtem
+Produktivbetrieb noch fachlich geprüft werden (siehe Umsetzungskonzept,
+Abschnitt "Noch festzulegende Betriebsparameter").

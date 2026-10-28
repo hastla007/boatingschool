@@ -1,8 +1,8 @@
 <x-superadmin-layout>
     <x-slot name="header">
         <div>
-            <div class="text-xs text-slate-400"><a href="{{ route('superadmin.praxis-form-templates.index') }}" class="hover:underline">Praxisformulare</a></div>
-            <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Praxisformular bearbeiten</h2>
+            <div class="text-xs text-slate-600 dark:text-slate-400"><a href="{{ route('superadmin.praxis-form-templates.index') }}" class="hover:underline">Praxisformulare</a></div>
+            <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Praxisformular bearbeiten</h1>
         </div>
     </x-slot>
 

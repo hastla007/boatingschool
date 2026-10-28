@@ -5,6 +5,10 @@ namespace App\Providers;
 use App\Support\TenantContext;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Listeners\SendEmailVerificationNotification;
+use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Foundation\Events\DiagnosingHealth;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
@@ -33,6 +37,58 @@ class AppServiceProvider extends ServiceProvider
 
         $this->registerUuidRoutePatterns();
         $this->configurePasswordPolicy();
+        $this->configurePasswordResetUrl();
+        $this->configureHealthCheck();
+    }
+
+    /**
+     * Bug-Review Betrieb: Laravels eingebauter /up-Healthcheck (siehe
+     * bootstrap/app.php, health: '/up') feuert lediglich das
+     * DiagnosingHealth-Event und liefert 200, solange kein Listener eine
+     * Exception wirft -- ohne eigenen Listener prüft er also NUR, ob PHP
+     * selbst noch Requests annimmt, nicht, ob die App tatsächlich
+     * funktioniert. Eine abgeschaltete/unerreichbare Datenbank lieferte
+     * damit weiterhin 200, obwohl praktisch jeder echte Request (jede
+     * Seite mit RLS-Query) mit 500 gescheitert wäre -- ein Monitoring/
+     * Load-Balancer-Check auf /up hätte den Ausfall nie bemerkt.
+     */
+    private function configureHealthCheck(): void
+    {
+        Event::listen(DiagnosingHealth::class, function () {
+            DB::connection()->getPdo();
+        });
+    }
+
+    /**
+     * Sicherheitsreview S1: ohne eigenen createUrlCallback baut
+     * ResetPassword::resetUrl() die URL über url(route(..., false)) --
+     * route(..., false) liefert nur den relativen Pfad, url() löst die
+     * fehlende Domain über Illuminate\Routing\UrlGenerator::to() aus
+     * $this->request->root() auf, also aus dem HOST-HEADER DES REQUESTS,
+     * der gerade /forgot-password verarbeitet (forceRootUrl() wird
+     * nirgends im Projekt aufgerufen). ResolveTenant::isTenantAgnosticRoute()
+     * erlaubt /forgot-password aber bewusst auf JEDEM vertrauten Host --
+     * auch der Custom Domain einer beliebigen Bootsschule -- unabhängig
+     * davon, wem das per E-Mail angegebene Konto gehört
+     * (Password::sendResetLink() ist rollenunabhängig, betrifft also auch
+     * Superadmins). Wer später die DNS dieser Domain kontrolliert (z. B.
+     * eine Custom Domain, die eine Schule nicht mehr betreibt), kontrolliert
+     * damit jeden noch gültigen, bereits verschickten Reset-Link und kann
+     * das jeweilige Konto übernehmen. Die URL wird deshalb unabhängig vom
+     * Host des auslösenden Requests immer explizit auf die zentrale Domain
+     * verankert; der relative Pfad kommt weiterhin aus route(..., false),
+     * damit er mit der tatsächlichen Routendefinition (routes/auth.php)
+     * übereinstimmt.
+     */
+    private function configurePasswordResetUrl(): void
+    {
+        ResetPassword::createUrlUsing(function ($notifiable, string $token) {
+            $scheme = app()->environment('production') ? 'https' : 'http';
+
+            return $scheme.'://'.config('app.central_domain').route('password.reset', ['token' => $token], false).'?'.Arr::query([
+                'email' => $notifiable->getEmailForPasswordReset(),
+            ]);
+        });
     }
 
     /**

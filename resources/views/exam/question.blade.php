@@ -1,13 +1,13 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex items-center justify-between">
-            <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Prüfungssimulation</h2>
+            <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Prüfungssimulation</h1>
             <div class="text-sm text-slate-500 flex items-center gap-1.5">
-                <x-icon name="clipboard-document-check" class="w-4 h-4 text-slate-400" />
+                <x-icon name="clipboard-document-check" class="w-4 h-4 text-slate-600 dark:text-slate-400" />
                 Frage {{ $current->position }} von {{ $total }}
                 @if (! is_null($remainingSeconds))
                     <span class="text-slate-300">&middot;</span>
-                    <x-icon name="clock" class="w-4 h-4 text-slate-400" />
+                    <x-icon name="clock" class="w-4 h-4 text-slate-600 dark:text-slate-400" />
                     {{-- Bug-Review B23: gmdate('i:s', ...) interpretiert den
                          Wert als Unix-Timestamp und liefert nur die
                          Minute/Sekunde INNERHALB der aktuellen Stunde --
@@ -35,7 +35,7 @@
                 @csrf
                 <input type="hidden" name="position" value="{{ $current->position }}">
 
-                <p class="text-xs text-slate-400 mb-2">Mehrfachauswahl &mdash; mindestens eine Antwort ist richtig.</p>
+                <p class="text-xs text-slate-600 dark:text-slate-400 mb-2">Mehrfachauswahl &mdash; mindestens eine Antwort ist richtig.</p>
                 <div class="space-y-2">
                     @foreach ($current->revision->answers as $answer)
                         <label class="flex items-center gap-3 border border-slate-200 dark:border-slate-600 hover:border-slate-400 rounded-xl px-4 py-3 cursor-pointer transition">
@@ -56,26 +56,54 @@
                 </div>
             </form>
         @elseif ($current->revision->question_type === 'open_text')
-            <div x-data="{ revealed: false }">
-                <p class="text-xs text-slate-400 mb-2">Offene Frage &mdash; keine Antwortoptionen. Schätze selbst ein, ob Du die Antwort wusstest.</p>
+            {{-- Bug-Review Oberfläche U9: die Musterantwort stand bisher
+                 immer schon im anfänglichen HTML der Seite (Blade rendert
+                 sie serverseitig in den x-if="revealed"-Block hinein, der
+                 nur die DARSTELLUNG im DOM steuert, nicht den Inhalt der
+                 HTTP-Antwort) -- per Devtools/Ansicht-Quelltext war die
+                 Antwort schon vor jedem Klick sichtbar. Sie wird jetzt erst
+                 per fetch() nach dem Klick vom neuen Reveal-Endpoint
+                 geladen, der zugleich revealed_at setzt (siehe
+                 ExamController::reveal()/answer() -- die Selbsteinschätzung
+                 unten verlangt serverseitig, dass die Musterantwort über
+                 genau diesen Endpunkt abgerufen wurde, bevor "Gewusst"/
+                 "Nicht gewusst" angenommen wird). --}}
+            <div x-data="{ revealed: false, answerText: '' }">
+                <p class="text-xs text-slate-600 dark:text-slate-400 mb-2">Offene Frage &mdash; keine Antwortoptionen. Schätze selbst ein, ob Du die Antwort wusstest.</p>
 
                 <template x-if="!revealed">
-                    <button type="button" @click="revealed = true" class="w-full px-5 py-3 rounded-xl border border-slate-200 dark:border-slate-600 text-sm font-medium text-slate-600 dark:text-slate-200 hover:border-slate-400 transition">
+                    <button type="button"
+                            @click="fetch('{{ route('exam.reveal', $examSession) }}', {
+                                method: 'POST',
+                                headers: {
+                                    'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'application/json',
+                                },
+                                body: JSON.stringify({ position: {{ $current->position }} }),
+                            }).then(r => r.json()).then(json => { answerText = json.answer_text; revealed = true })"
+                            class="w-full px-5 py-3 rounded-xl border border-slate-200 dark:border-slate-600 text-sm font-medium text-slate-600 dark:text-slate-200 hover:border-slate-400 transition">
                         Musterantwort anzeigen
                     </button>
                 </template>
 
                 <template x-if="revealed">
                     <div>
-                        <div class="rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 px-4 py-3 text-sm text-slate-700 dark:text-slate-200 whitespace-pre-line">
-                            {{ $current->revision->correctAnswer()?->answer_text }}
-                        </div>
+                        <div class="rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 px-4 py-3 text-sm text-slate-700 dark:text-slate-200 whitespace-pre-line" x-text="answerText"></div>
 
                         <form method="POST" action="{{ route('exam.answer', $examSession) }}" class="flex items-center justify-between mt-6">
                             @csrf
                             <input type="hidden" name="position" value="{{ $current->position }}">
-                            <button type="button" @click="toggleFavorite()" class="inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
-                                <x-icon name="star" class="w-4 h-4" /> {{ $isFavorite ? 'Favorit' : 'Als Favorit speichern' }}
+                            {{-- Bug-Review (Hoch): fehlende $el-Übergabe sowie
+                                 data-favorite/data-question-id -- anders als
+                                 bei den beiden anderen Fragetypen oben rief
+                                 dieser Button toggleFavorite() ohne Argument
+                                 auf. btn war dadurch undefined,
+                                 btn.dataset.favorite warf sofort einen
+                                 TypeError, bevor der fetch()-Aufruf überhaupt
+                                 feuerte -- ein Klick speicherte nichts. --}}
+                            <button type="button" @click="toggleFavorite($el)" data-favorite="{{ $isFavorite ? '1' : '0' }}" data-question-id="{{ $current->question_id }}" class="favorite-toggle inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
+                                <x-icon name="star" class="w-4 h-4" /> <span class="favorite-label">{{ $isFavorite ? 'Favorit' : 'Als Favorit speichern' }}</span>
                             </button>
                             <div class="flex gap-2">
                                 <button type="submit" name="known" value="0" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-rose-300 text-rose-600 text-sm font-medium hover:bg-rose-50 dark:hover:bg-rose-900/20 transition">

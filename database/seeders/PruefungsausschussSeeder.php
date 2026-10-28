@@ -39,7 +39,18 @@ class PruefungsausschussSeeder extends Seeder
 
             $data = array_combine($header, $row);
 
-            Pruefungsausschuss::updateOrCreate(
+            // Bug-Review (Seeder überschreibt Superadmin-Änderungen): dieser
+            // Seeder läuft in Produktion erneut, sobald die DMYV-Liste
+            // aktualisiert wird -- updateOrCreate() überschrieb dabei bisher
+            // BEI JEDEM Lauf jedes Attribut JEDES bereits existierenden
+            // Prüfungsausschusses mit dem CSV-Wert, auch wenn ein
+            // Superadmin ihn zwischenzeitlich manuell korrigiert hatte
+            // (z. B. eine veraltete Telefonnummer oder Adresse). Analog zu
+            // CourseSeeder/ModuleSeeder/ExamRuleSetSeeder/
+            // PraxisFormTemplateSeeder (Bug-Review Hoch) lässt firstOrCreate()
+            // einen bereits existierenden Eintrag unberührt und legt nur
+            // wirklich NEUE Prüfungsausschüsse mit den CSV-Werten an.
+            Pruefungsausschuss::firstOrCreate(
                 ['kommission' => $data['kommission'], 'standorttyp' => $data['standorttyp'] ?: null],
                 [
                     'kontaktperson' => $data['kontaktperson'] ?: null,

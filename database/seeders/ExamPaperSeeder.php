@@ -8,6 +8,7 @@ use App\Models\ExamPaper;
 use App\Models\ExamPaperQuestion;
 use App\Models\MediaAsset;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -33,47 +34,74 @@ class ExamPaperSeeder extends Seeder
 
     public function run(): void
     {
-        $course = CourseDefinition::withoutGlobalScopes()->where('code', 'SBF-SEE')->whereNull('tenant_id')->first();
+        $course = $this->resolveCourse();
 
         if (! $course || $course->examPapers()->exists()) {
             return;
         }
 
-        $csvPath = database_path('data/sbf_see_pruefungsboegen.csv');
+        $csvPath = $this->csvPath();
         if (! file_exists($csvPath)) {
             return;
         }
 
-        $papers = [];
+        // Bug-Review (Seeder nicht atomar): ohne Transaktion hinterließ ein
+        // Abbruch mitten im CSV-Durchlauf (z. B. eine fehlerhafte Zeile,
+        // ein DB-Verbindungsabbruch, ein abgebrochener Deploy) dauerhaft
+        // nur die bis dahin angelegten Bögen (z. B. 7 statt 15) -- die
+        // Guard-Klausel oben (examPapers()->exists()) hielt einen erneuten
+        // Seed-Lauf danach für immer davon ab, die fehlenden Bögen
+        // nachzuholen. Die gesamte Verarbeitung läuft jetzt in einer
+        // Transaktion: schlägt sie irgendwo fehl, bleibt kein einziger
+        // Bogen zurück, und der nächste Seed-Lauf beginnt wieder von vorn.
+        DB::transaction(function () use ($course, $csvPath) {
+            $papers = [];
 
-        foreach ($this->readCsv($csvPath) as $row) {
-            $paperNumber = (int) $row['Prüfungsbogen'];
-            $position = (int) $row['Position im Bogen'];
-            $officialNumber = trim($row['Fragenkatalog-Nr.']);
-            $contentRole = $this->resolveContentRole($row['Tags'] ?? '');
+            foreach ($this->readCsv($csvPath) as $row) {
+                $paperNumber = (int) $row['Prüfungsbogen'];
+                $position = (int) $row['Position im Bogen'];
+                $officialNumber = trim($row['Fragenkatalog-Nr.']);
+                $contentRole = $this->resolveContentRole($row['Tags'] ?? '');
 
-            $question = $contentRole
-                ? ContentQuestion::where('official_number', $officialNumber)->where('content_role', $contentRole)->first()
-                : null;
+                $question = $contentRole
+                    ? ContentQuestion::where('official_number', $officialNumber)->where('content_role', $contentRole)->first()
+                    : null;
 
-            if (! $question) {
-                continue;
+                if (! $question) {
+                    continue;
+                }
+
+                $paper = $papers[$paperNumber] ??= ExamPaper::create([
+                    'course_id' => $course->id,
+                    'paper_number' => $paperNumber,
+                    'sort_order' => $paperNumber,
+                ]);
+
+                ExamPaperQuestion::create([
+                    'exam_paper_id' => $paper->id,
+                    'question_id' => $question->id,
+                    'position' => $position,
+                ]);
+
+                $this->attachImages($question, $row['Bilddateien im ZIP'] ?? '');
             }
+        });
+    }
 
-            $paper = $papers[$paperNumber] ??= ExamPaper::create([
-                'course_id' => $course->id,
-                'paper_number' => $paperNumber,
-                'sort_order' => $paperNumber,
-            ]);
+    /**
+     * In einer eigenen, überschreibbaren Methode, damit ein Test die
+     * Atomicität (Bug-Review Seeder nicht atomar) gegen einen eigenen,
+     * isolierten Testkurs statt der echten SBF-SEE-Daten prüfen kann.
+     */
+    protected function resolveCourse(): ?CourseDefinition
+    {
+        return CourseDefinition::withoutGlobalScopes()->where('code', 'SBF-SEE')->whereNull('tenant_id')->first();
+    }
 
-            ExamPaperQuestion::create([
-                'exam_paper_id' => $paper->id,
-                'question_id' => $question->id,
-                'position' => $position,
-            ]);
-
-            $this->attachImages($question, $row['Bilddateien im ZIP'] ?? '');
-        }
+    /** Siehe resolveCourse() -- aus demselben Grund überschreibbar. */
+    protected function csvPath(): string
+    {
+        return database_path('data/sbf_see_pruefungsboegen.csv');
     }
 
     private function resolveContentRole(string $tagsCell): ?string
@@ -104,7 +132,14 @@ class ExamPaperSeeder extends Seeder
             $filename = basename($imagePath);
             $sourcePath = database_path('data/pruefungsboegen_bilder/'.$filename);
 
+            // Bug-Review (Hoch): ein fehlendes Bild wurde hier bisher
+            // lautlos übersprungen -- die einzige Spur blieb eine per
+            // Ad-hoc-SQL auffindbare, aber nirgends sichtbare Lücke (siehe
+            // AuditMissingRequiredImages). Eine Warnung macht das beim
+            // nächsten Seed-Lauf wenigstens im Konsolen-Output sichtbar.
             if (! file_exists($sourcePath)) {
+                $this->command?->warn("Bilddatei fehlt, Frage {$question->official_number}: {$filename}");
+
                 continue;
             }
 

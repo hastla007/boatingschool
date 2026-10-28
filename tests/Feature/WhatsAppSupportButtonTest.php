@@ -135,4 +135,25 @@ class WhatsAppSupportButtonTest extends TestCase
         $response->assertOk();
         $response->assertDontSee('wa.me', false);
     }
+
+    /**
+     * Bug-Review Oberfläche U6: #25D366 (WhatsApp-Logo-Grün) erreichte mit
+     * weißer Schrift/Icon nur 2,0:1 Kontrast (WCAG AA verlangt 4,5:1).
+     */
+    public function test_button_uses_the_darker_high_contrast_whatsapp_green(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+
+        $this->onAdmin(fn () => $tenant->branding->update([
+            'whatsapp_enabled' => true,
+            'whatsapp_phone' => '491701234567',
+        ]));
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get('/dashboard');
+
+        $response->assertOk();
+        $response->assertSee('background-color: #075E54', false);
+        $response->assertDontSee('#25D366', false);
+    }
 }

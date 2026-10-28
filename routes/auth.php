@@ -51,7 +51,11 @@ Route::middleware('guest')->group(function () {
     Route::get('reset-password/{token}', [NewPasswordController::class, 'create'])
         ->name('password.reset');
 
+    // Sicherheitsreview S2: stand bisher ganz ohne throttle-Middleware da,
+    // anders als jede andere sensible Route in dieser Gruppe -- siehe
+    // Bug-Review R4-H oben für den eigenen Prefix pro Route.
     Route::post('reset-password', [NewPasswordController::class, 'store'])
+        ->middleware('throttle:10,1,reset-password')
         ->name('password.store');
 });
 
@@ -83,9 +87,19 @@ Route::middleware('auth')->group(function () {
     Route::get('confirm-password', [ConfirmablePasswordController::class, 'show'])
         ->name('password.confirm');
 
-    Route::post('confirm-password', [ConfirmablePasswordController::class, 'store']);
+    // Bug-Review (Passwort-Throttle eingeloggter Nutzer): beide Routen
+    // prüfen das aktuelle Passwort eines bereits eingeloggten Nutzers
+    // (Hash::check intern über current_password bzw.
+    // Auth::guard()->validate()) -- ohne throttle ließe sich das Passwort
+    // hinter einer gestohlenen/entführten Session beliebig oft erraten,
+    // derselbe Risikofall wie bei /reset-password vor Sicherheitsreview S2
+    // oben, nur für eingeloggte Nutzer statt Gäste.
+    Route::post('confirm-password', [ConfirmablePasswordController::class, 'store'])
+        ->middleware('throttle:10,1,confirm-password');
 
-    Route::put('password', [PasswordController::class, 'update'])->name('password.update');
+    Route::put('password', [PasswordController::class, 'update'])
+        ->middleware('throttle:10,1,password-update')
+        ->name('password.update');
 
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])
         ->name('logout');

@@ -1,6 +1,6 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Tipps & Tricks</h2>
+        <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Tipps & Tricks</h1>
     </x-slot>
 
     @if ($categories->isEmpty())
@@ -11,7 +11,7 @@
         <div class="space-y-8">
             @foreach ($categories as $category)
                 <div>
-                    <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-400 mb-3">{{ $category->name }}</h3>
+                    <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400 mb-3">{{ $category->name }}</h3>
                     <div class="grid sm:grid-cols-2 gap-5">
                         @foreach ($category->tips as $tip)
                             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">

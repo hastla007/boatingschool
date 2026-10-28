@@ -88,6 +88,7 @@ class QuestionMediaCarryoverTest extends TestCase
         });
 
         $response = $this->actingAs($superadmin)->patch("/superadmin/questions/{$question->id}", [
+            'question_type' => 'single_choice',
             'question_text' => 'Welches Zeichen zeigt diese Tonne? (überarbeitet)',
             'answers' => ['A' => 'Richtig', 'B' => 'Falsch', 'C' => 'Falsch', 'D' => 'Falsch'],
             'correct' => 'A',

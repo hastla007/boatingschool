@@ -21,7 +21,13 @@ class ProgressController extends Controller
         abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Für diesen Kurs liegt kein aktives Entitlement vor.');
 
         $course->loadMissing('modules.questions');
-        $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id')->unique();
+        // Bug-Review (Fortschritt zählt deaktivierte Fragen): eine vom
+        // Superadmin deaktivierte Frage kann nie "gefestigt" werden
+        // (siehe CourseProgressService::overallPercent, Bug-Review F7),
+        // zählte hier aber weiter im Nenner mit -- diese eigene, von
+        // CourseProgressService losgelöste Zählung hatte den F7-Fix nie
+        // mitbekommen.
+        $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->where('active', true)->pluck('id')->unique();
 
         $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)
             ->whereIn('question_id', $questionIds)->get();
@@ -57,7 +63,7 @@ class ProgressController extends Controller
             ->where('user_id', $user->id)
             ->where('course_id', $course->id)
             ->where('status', 'evaluated')
-            ->with('course', 'paper', 'questions')
+            ->with('course', 'paper', 'questions.revision')
             ->orderByDesc('submitted_at')
             ->get();
 
@@ -75,6 +81,13 @@ class ProgressController extends Controller
             // (null == false wäre wahr) -- whereStrict erzwingt ===, auch wenn
             // bei status=evaluated correct für jede Frage bereits gesetzt ist.
             $session->wrongQuestionIds = $session->questions->whereStrict('correct', false)->pluck('question_id')->values();
+
+            // Bug-Review (FKN offene Fragen): siehe ExamController::result() --
+            // dieselbe Selbsteinschätzung-Transparenz auch hier, wo die
+            // eigene Prüfungs-Historie dauerhaft einsehbar bleibt.
+            $openTextQuestions = $session->questions->where('revision.question_type', 'open_text');
+            $session->openTextCount = $openTextQuestions->count();
+            $session->openTextCorrect = $openTextQuestions->where('correct', true)->count();
         });
 
         return view('learning.progress', [

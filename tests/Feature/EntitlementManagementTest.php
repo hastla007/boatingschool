@@ -2,9 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Models\Coupon;
+use App\Models\CourseDefinition;
 use App\Models\Entitlement;
-use App\Support\GermanTime;
-use Illuminate\Support\Carbon;
+use App\Models\Product;
+use App\Models\ProductPurchase;
+use App\Models\Tenant;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -17,13 +20,34 @@ use Tests\TestCase;
  * "Freischalten" konnte zwei Entitlement-Zeilen für denselben Kurs anlegen.
  * "Verlängern" und "Sperren" existierten im Controller, aber ohne jede
  * Oberfläche.
+ *
+ * Bug-Review (Hoch): store() ("Kurs freischalten" im Teilnehmer-Tab) legte
+ * bisher IMMER ein unbefristetes Entitlement an (valid_until frei wählbar,
+ * Default null), ohne jemals einen Coupon-Code der Bootsschule zu
+ * verbrauchen -- obwohl das Dropdown im Teilnehmer-Tab ausdrücklich den
+ * verfügbaren Code-Bestand je Kurs anzeigt und bei 0 deaktiviert. store()
+ * verlangt jetzt einen verfügbaren, der Bootsschule gehörenden Kurs-Coupon
+ * und verbraucht ihn (valid_until kommt seitdem, wie bei jeder anderen
+ * Coupon-Einlösung, aus tenant_branding.course_validity_days). Die
+ * valid_until-Tests unten für store() sind damit hinfällig -- "Verlängern"
+ * (update()/extend) bleibt unverändert admin-frei wählbar.
  */
 class EntitlementManagementTest extends TestCase
 {
     use InteractsWithTenants;
 
+    // Bug-Review T9: coupon.tenant_id ist nullOnDelete() (derselbe Grund
+    // wie bei audit_log.tenant_id, siehe TestIsolationCleanupTest) --
+    // cleanUpCreatedTenants() löschte den hier angelegten Test-Tenant
+    // bisher, ohne die über makeCourseCoupon()/makeRenewalCoupon() bzw.
+    // direkt per Coupon::create() angelegten Coupons je zu löschen. Jeder
+    // Testlauf hinterließ dadurch dauerhaft verwaiste, keiner Bootsschule
+    // mehr zugeordnete Coupon-Zeilen (tenant_id = NULL).
+    private array $createdCouponIds = [];
+
     protected function tearDown(): void
     {
+        $this->cleanUpCreatedCoupons();
         $this->cleanUpCreatedTenantsAndUsers();
 
         // Bug-Review B14 (Folgefehler): travelTo() friert die Zeit über das
@@ -35,131 +59,81 @@ class EntitlementManagementTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_granting_access_valid_until_today_does_not_crash_and_keeps_access_until_end_of_day(): void
+    private function cleanUpCreatedCoupons(): void
     {
-        $tenant = $this->createTestTenant();
-        $admin = $this->createTenantUser($tenant, 'owner');
-        $learner = $this->createTenantUser($tenant, 'learner');
-        $course = $this->existingCourse('SRC');
+        $this->onAdmin(function () {
+            Coupon::whereIn('id', $this->createdCouponIds)->delete();
+        });
 
-        $response = $this->actingAsInTenant($admin, $tenant)->post('/admin/entitlements', [
-            'user_id' => $learner->id,
+        $this->createdCouponIds = [];
+    }
+
+    private function makeCourseCoupon(Tenant $tenant, CourseDefinition $course): Coupon
+    {
+        $coupon = $this->onAdmin(fn () => Coupon::create([
+            'code' => 'TEST-ENT-'.uniqid(),
             'course_id' => $course->id,
-            'valid_until' => now()->format('Y-m-d'),
-        ]);
+            'tenant_id' => $tenant->id,
+        ]));
+        $this->createdCouponIds[] = $coupon->id;
 
-        $response->assertRedirect();
-        $response->assertSessionHasNoErrors();
+        return $coupon;
+    }
 
-        $entitlement = $this->asTenant($tenant, fn () => Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
-            ->where('course_id', $course->id)->firstOrFail());
+    private function makeRenewalCoupon(Tenant $tenant, CourseDefinition $course): Coupon
+    {
+        $coupon = $this->onAdmin(fn () => Coupon::create([
+            'code' => 'TEST-ENT-RENEW-'.uniqid(),
+            'course_id' => $course->id,
+            'tenant_id' => $tenant->id,
+            'is_renewal' => true,
+        ]));
+        $this->createdCouponIds[] = $coupon->id;
 
-        $this->assertTrue($entitlement->valid_until->isSameDay(now()));
-        // Bug-Review N18: endet am Ende des gewählten Tages in deutscher
-        // Zeit, nicht in UTC -- der rohe (UTC-)Stundenwert liegt je nach
-        // Sommer-/Winterzeit bei 21 oder 22, nicht bei 23.
-        $this->assertSame('23', GermanTime::format($entitlement->valid_until, 'H'));
-        $this->assertTrue($entitlement->valid_until->gt($entitlement->valid_from));
+        return $coupon;
     }
 
     /**
-     * Bug-Review B14 (Folgefehler): endOfValidityDay() normalisiert nur auf
-     * das Ende des gewählten Tages -- ein tatsächlich vergangenes Datum lag
-     * damit immer noch vor valid_from (jetzt) und verletzte weiterhin den
-     * DB-Check-Constraint (HTTP 500) statt einen Validierungsfehler zu
-     * liefern.
+     * Bug-Review (Kostenlose Umgehungen -- Verlängern): ein frei
+     * wählbares Datum existiert nicht mehr -- "Verlängern" verbraucht
+     * jetzt einen Verlängerungscode und erweitert um
+     * tenant_branding.course_validity_days ab dem späteren von aktuellem
+     * valid_until und jetzt.
      */
-    public function test_granting_access_with_a_date_in_the_past_returns_a_validation_error_instead_of_crashing(): void
-    {
-        $tenant = $this->createTestTenant();
-        $admin = $this->createTenantUser($tenant, 'owner');
-        $learner = $this->createTenantUser($tenant, 'learner');
-        $course = $this->existingCourse('SRC');
-
-        $response = $this->actingAsInTenant($admin, $tenant)->post('/admin/entitlements', [
-            'user_id' => $learner->id,
-            'course_id' => $course->id,
-            'valid_until' => now()->subDays(2)->format('Y-m-d'),
-        ]);
-
-        $response->assertSessionHasErrors('valid_until');
-        $this->assertFalse($response->isServerError());
-        $this->onAdmin(fn () => $this->assertDatabaseMissing('entitlement', [
-            'tenant_id' => $tenant->id,
-            'user_id' => $learner->id,
-            'course_id' => $course->id,
-        ]));
-    }
-
-    public function test_extending_an_entitlement_with_a_date_in_the_past_returns_a_validation_error_instead_of_crashing(): void
+    public function test_extending_without_an_available_renewal_coupon_fails_with_a_clear_error(): void
     {
         $tenant = $this->createTestTenant();
         $admin = $this->createTenantUser($tenant, 'owner');
         $learner = $this->createTenantUser($tenant, 'learner');
         $course = $this->existingCourse('SRC');
         $entitlement = $this->grantEntitlement($tenant, $learner, $course);
+        $this->onAdmin(fn () => Entitlement::where('id', $entitlement->id)->update(['valid_until' => now()->addDays(5)]));
 
         $response = $this->actingAsInTenant($admin, $tenant)->patch("/admin/entitlements/{$entitlement->id}", [
             'action' => 'extend',
-            'valid_until' => now()->subDays(2)->format('Y-m-d'),
         ]);
 
-        $response->assertSessionHasErrors('valid_until');
-        $this->assertFalse($response->isServerError());
+        $response->assertSessionHasErrors('action');
+        $this->assertTrue($entitlement->fresh()->valid_until->isSameDay(now()->addDays(5)));
     }
 
-    /**
-     * Bug-Review B14 (Folgefehler): zwischen dem deutschen Tagesende (in
-     * UTC) und dem UTC-Tagesende selbst (hier: 23:00-24:00 UTC im Winter,
-     * CET) besteht "heute" die Validierung oben (after_or_equal:today, in
-     * UTC geprüft), aber endOfValidityDay() interpretiert "heute" in
-     * deutscher Zeit (siehe N18) -- das Ergebnis lag dann bereits vor dem
-     * eingefrorenen "jetzt" und verletzte weiterhin den DB-Check-
-     * Constraint (HTTP 500) statt einen Validierungsfehler zu liefern.
-     */
-    public function test_granting_access_valid_until_today_between_11pm_and_midnight_utc_returns_a_validation_error_instead_of_crashing(): void
+    public function test_extending_an_unlimited_entitlement_is_rejected_without_consuming_a_coupon(): void
     {
-        $this->travelTo(Carbon::parse('2026-01-15 23:30:00', 'UTC'));
-
         $tenant = $this->createTestTenant();
         $admin = $this->createTenantUser($tenant, 'owner');
         $learner = $this->createTenantUser($tenant, 'learner');
         $course = $this->existingCourse('SRC');
-
-        $response = $this->actingAsInTenant($admin, $tenant)->post('/admin/entitlements', [
-            'user_id' => $learner->id,
-            'course_id' => $course->id,
-            'valid_until' => '2026-01-15',
-        ]);
-
-        $response->assertSessionHasErrors('valid_until');
-        $this->assertFalse($response->isServerError());
-        $this->onAdmin(fn () => $this->assertDatabaseMissing('entitlement', [
-            'tenant_id' => $tenant->id,
-            'user_id' => $learner->id,
-            'course_id' => $course->id,
-        ]));
-    }
-
-    public function test_extending_an_entitlement_valid_until_today_between_11pm_and_midnight_utc_returns_a_validation_error_instead_of_crashing(): void
-    {
-        $this->travelTo(Carbon::parse('2026-01-15 23:30:00', 'UTC'));
-
-        $tenant = $this->createTestTenant();
-        $admin = $this->createTenantUser($tenant, 'owner');
-        $learner = $this->createTenantUser($tenant, 'learner');
-        $course = $this->existingCourse('SRC');
+        // grantEntitlement() legt bewusst KEIN valid_until an (unbefristet).
         $entitlement = $this->grantEntitlement($tenant, $learner, $course);
-        $originalValidUntil = $entitlement->valid_until;
+        $coupon = $this->makeRenewalCoupon($tenant, $course);
 
         $response = $this->actingAsInTenant($admin, $tenant)->patch("/admin/entitlements/{$entitlement->id}", [
             'action' => 'extend',
-            'valid_until' => '2026-01-15',
         ]);
 
-        $response->assertSessionHasErrors('valid_until');
-        $this->assertFalse($response->isServerError());
-        $this->assertEquals($originalValidUntil, $entitlement->fresh()->valid_until);
+        $response->assertSessionHasErrors('action');
+        $this->assertNull($entitlement->fresh()->valid_until);
+        $this->assertNull($this->onAdmin(fn () => $coupon->fresh()->redeemed_at));
     }
 
     /**
@@ -185,10 +159,10 @@ class EntitlementManagementTest extends TestCase
             'valid_from' => now()->subDays(400),
             'valid_until' => now()->subDays(30),
         ]));
+        $this->makeRenewalCoupon($tenant, $course);
 
         $response = $this->actingAsInTenant($admin, $tenant)->patch("/admin/entitlements/{$entitlement->id}", [
             'action' => 'extend',
-            'valid_until' => now()->addDays(365)->format('Y-m-d'),
         ]);
 
         $response->assertSessionHasNoErrors();
@@ -196,6 +170,8 @@ class EntitlementManagementTest extends TestCase
         $fresh = $this->onAdmin(fn () => $entitlement->fresh());
         $this->assertSame('active', $fresh->status);
         $this->assertTrue($fresh->isCurrentlyActive());
+        $days = $this->onAdmin(fn () => $tenant->branding->course_validity_days);
+        $this->assertTrue($fresh->valid_until->isSameDay(now()->addDays($days)));
 
         $access = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
         $access->assertOk();
@@ -207,35 +183,197 @@ class EntitlementManagementTest extends TestCase
         $admin = $this->createTenantUser($tenant, 'owner');
         $learner = $this->createTenantUser($tenant, 'learner');
         $course = $this->existingCourse('SRC');
+        $coupon = $this->makeCourseCoupon($tenant, $course);
 
         $payload = ['user_id' => $learner->id, 'course_id' => $course->id];
-        $this->actingAsInTenant($admin, $tenant)->post('/admin/entitlements', $payload);
-        $this->actingAsInTenant($admin, $tenant)->post('/admin/entitlements', $payload);
+        $this->actingAsInTenant($admin, $tenant)->post('/admin/entitlements', $payload)->assertSessionHasNoErrors();
+        // Bug-Review (Hoch): eine bereits AKTIVE Freischaltung ist jetzt ein
+        // kostenloser No-Op (siehe store()) -- der zweite Klick braucht
+        // deshalb keinen zweiten Code, nur EIN Coupon ist hier bewusst
+        // angelegt.
+        $this->actingAsInTenant($admin, $tenant)->post('/admin/entitlements', $payload)->assertSessionHasNoErrors();
 
         $this->assertSame(1, $this->asTenant($tenant, fn () => Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
             ->where('course_id', $course->id)->count()));
+        $this->assertNotNull($this->onAdmin(fn () => $coupon->fresh()->redeemed_at));
     }
 
-    public function test_granting_access_again_reactivates_a_previously_revoked_entitlement_instead_of_duplicating(): void
+    /**
+     * Bug-Review (Hoch): store() verlangt jetzt einen verfügbaren Coupon --
+     * ohne einen angelegten Coupon muss die Freischaltung mit einem
+     * Validierungsfehler abgelehnt werden statt (wie vor dem Fix) immer
+     * kostenlos zu gelingen.
+     */
+    public function test_granting_access_without_an_available_coupon_fails_with_a_clear_error(): void
     {
         $tenant = $this->createTestTenant();
         $admin = $this->createTenantUser($tenant, 'owner');
         $learner = $this->createTenantUser($tenant, 'learner');
         $course = $this->existingCourse('SRC');
 
+        $response = $this->actingAsInTenant($admin, $tenant)->post('/admin/entitlements', [
+            'user_id' => $learner->id,
+            'course_id' => $course->id,
+        ]);
+
+        $response->assertSessionHasErrors('course_id');
+        $this->onAdmin(fn () => $this->assertDatabaseMissing('entitlement', [
+            'tenant_id' => $tenant->id,
+            'user_id' => $learner->id,
+            'course_id' => $course->id,
+        ]));
+    }
+
+    /**
+     * Bug-Review (Hoch): store() leitet valid_until jetzt aus
+     * tenant_branding.course_validity_days ab (wie jede andere
+     * Coupon-Einlösung), statt es unbefristet zu lassen.
+     */
+    public function test_granting_access_consumes_a_coupon_and_sets_validity_from_tenant_branding(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $coupon = $this->makeCourseCoupon($tenant, $course);
+
+        $response = $this->actingAsInTenant($admin, $tenant)->post('/admin/entitlements', [
+            'user_id' => $learner->id,
+            'course_id' => $course->id,
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHasNoErrors();
+
+        $entitlement = $this->asTenant($tenant, fn () => Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
+            ->where('course_id', $course->id)->firstOrFail());
+        $days = $this->onAdmin(fn () => $tenant->branding->course_validity_days);
+
+        $this->assertSame('coupon', $entitlement->source_type);
+        $this->assertSame($coupon->code, $entitlement->source_reference);
+        $this->assertTrue($entitlement->valid_until->isSameDay(now()->addDays($days)));
+
+        $fresh = $this->onAdmin(fn () => $coupon->fresh());
+        $this->assertNotNull($fresh->redeemed_at);
+        $this->assertSame($learner->id, $fresh->redeemed_by_user_id);
+    }
+
+    /**
+     * Bug-Review (Manuelle Freischaltung verliert gebündelte
+     * Zusatzprodukte): store() baute das Entitlement bisher komplett
+     * losgelöst von CouponRedemptionService::redeemForCourse() -- bündelte
+     * der hier verbrauchte Coupon zusätzliche Produkte (z. B. die
+     * Willkommensbox, siehe coupon_option_product), gingen diese
+     * stillschweigend verloren.
+     */
+    public function test_granting_access_through_the_participant_tab_also_grants_bundled_option_products(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $willkommensbox = $this->onAdmin(fn () => Product::where('code', 'LERNPLATTFORM-WB')->firstOrFail());
+        $coupon = $this->makeCourseCoupon($tenant, $course);
+        $this->onAdmin(fn () => $coupon->optionProducts()->attach($willkommensbox->id));
+
+        $response = $this->actingAsInTenant($admin, $tenant)->post('/admin/entitlements', [
+            'user_id' => $learner->id,
+            'course_id' => $course->id,
+        ]);
+
+        $response->assertSessionHasNoErrors();
+        $this->onAdmin(function () use ($tenant, $learner, $willkommensbox, $coupon) {
+            $this->assertDatabaseHas('product_purchase', [
+                'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'product_id' => $willkommensbox->id,
+                'source_type' => 'coupon', 'source_reference' => $coupon->code,
+            ]);
+        });
+    }
+
+    /**
+     * Bug-Review (Manuelle Freischaltung -- Code beliebig gewählt): ohne
+     * ORDER BY war nicht nachvollziehbar, welcher von mehreren freien
+     * Codes verbraucht wird. Der Code wird jetzt deterministisch nach
+     * Anlagedatum verbraucht (der älteste zuerst).
+     */
+    public function test_granting_access_consumes_the_oldest_available_coupon_first(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+
+        $older = $this->onAdmin(fn () => Coupon::create([
+            'code' => 'TEST-ENT-OLD-'.uniqid(), 'course_id' => $course->id, 'tenant_id' => $tenant->id, 'created_at' => now()->subDay(),
+        ]));
+        $this->createdCouponIds[] = $older->id;
+        $this->makeCourseCoupon($tenant, $course);
+
+        $this->actingAsInTenant($admin, $tenant)->post('/admin/entitlements', [
+            'user_id' => $learner->id,
+            'course_id' => $course->id,
+        ])->assertSessionHasNoErrors();
+
+        $entitlement = $this->asTenant($tenant, fn () => Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
+            ->where('course_id', $course->id)->firstOrFail());
+        $this->assertSame($older->code, $entitlement->source_reference);
+    }
+
+    public function test_granting_access_again_reactivates_a_previously_suspended_entitlement_instead_of_duplicating(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $this->makeCourseCoupon($tenant, $course);
+
         $this->actingAsInTenant($admin, $tenant)->post('/admin/entitlements', ['user_id' => $learner->id, 'course_id' => $course->id]);
         $entitlement = $this->asTenant($tenant, fn () => Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->where('course_id', $course->id)->firstOrFail());
         // Statt $entitlement->update(...): die Instanz trägt die Connection
         // fest, die beim Laden "default" war -- siehe
         // ExpireAbandonedExamSessionsTest für die ausführliche Begründung.
-        $this->onAdmin(fn () => Entitlement::where('id', $entitlement->id)->update(['status' => 'revoked']));
+        $this->onAdmin(fn () => Entitlement::where('id', $entitlement->id)->update(['status' => 'suspended']));
 
-        $this->actingAsInTenant($admin, $tenant)->post('/admin/entitlements', ['user_id' => $learner->id, 'course_id' => $course->id]);
+        // Ein gesperrter Zugang ist keine aktive Freischaltung mehr -- die
+        // Reaktivierung verbraucht deshalb einen WEITEREN eigenen Code.
+        $this->makeCourseCoupon($tenant, $course);
+        $this->actingAsInTenant($admin, $tenant)->post('/admin/entitlements', ['user_id' => $learner->id, 'course_id' => $course->id])
+            ->assertSessionHasNoErrors();
 
         $this->assertSame(1, $this->asTenant($tenant, fn () => Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
             ->where('course_id', $course->id)->count()));
         $entitlement = $this->asTenant($tenant, fn () => Entitlement::find($entitlement->id));
         $this->assertSame('active', $entitlement->status);
+    }
+
+    /**
+     * Bug-Review F1: anders als "suspended" (siehe Test oben) soll ein
+     * bewusst widerrufener ("revoked") Zugang nicht einfach durch einen
+     * neuen Code zurückkommen -- analog zu CouponRedemptionService::
+     * redeemForRenewal() (Bug-Review R4-7). Vor diesem Fix hat genau dieser
+     * Weg den Widerruf stillschweigend aufgehoben, sobald wieder ein freier
+     * Code für den Kurs verfügbar war.
+     */
+    public function test_granting_access_again_does_not_silently_revive_a_revoked_entitlement(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $this->makeCourseCoupon($tenant, $course);
+
+        $this->actingAsInTenant($admin, $tenant)->post('/admin/entitlements', ['user_id' => $learner->id, 'course_id' => $course->id]);
+        $entitlement = $this->asTenant($tenant, fn () => Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->where('course_id', $course->id)->firstOrFail());
+        $this->onAdmin(fn () => Entitlement::where('id', $entitlement->id)->update(['status' => 'revoked']));
+
+        $coupon = $this->makeCourseCoupon($tenant, $course);
+        $response = $this->actingAsInTenant($admin, $tenant)->post('/admin/entitlements', ['user_id' => $learner->id, 'course_id' => $course->id]);
+
+        $response->assertSessionHasErrors('course_id');
+
+        $entitlement = $this->asTenant($tenant, fn () => Entitlement::find($entitlement->id));
+        $this->assertSame('revoked', $entitlement->status);
+        $this->assertNull($this->onAdmin(fn () => $coupon->fresh()->redeemed_at));
     }
 
     public function test_admin_can_extend_and_suspend_an_entitlement_through_the_participant_page(): void
@@ -245,6 +383,9 @@ class EntitlementManagementTest extends TestCase
         $learner = $this->createTenantUser($tenant, 'learner');
         $course = $this->existingCourse('SRC');
         $entitlement = $this->grantEntitlement($tenant, $learner, $course);
+        $originalValidUntil = now()->addDays(5);
+        $this->onAdmin(fn () => Entitlement::where('id', $entitlement->id)->update(['valid_until' => $originalValidUntil]));
+        $this->makeRenewalCoupon($tenant, $course);
 
         $detail = $this->actingAsInTenant($admin, $tenant)->get("/admin/participants/{$learner->id}");
         $detail->assertOk();
@@ -252,16 +393,15 @@ class EntitlementManagementTest extends TestCase
         $detail->assertSee('Verlängern');
         $detail->assertSee('Sperren');
 
-        $newValidUntil = now()->addDays(10)->format('Y-m-d');
         $extend = $this->actingAsInTenant($admin, $tenant)->patch(route('admin.entitlements.update', $entitlement), [
             'action' => 'extend',
-            'valid_until' => $newValidUntil,
         ]);
         $extend->assertRedirect();
+        $extend->assertSessionHasNoErrors();
 
         $entitlement = $this->asTenant($tenant, fn () => Entitlement::find($entitlement->id));
-        $this->assertTrue($entitlement->valid_until->isSameDay(now()->addDays(10)));
-        $this->assertSame('23', GermanTime::format($entitlement->valid_until, 'H'));
+        $days = $this->onAdmin(fn () => $tenant->branding->course_validity_days);
+        $this->assertTrue($entitlement->valid_until->isSameDay($originalValidUntil->copy()->addDays($days)));
 
         $suspend = $this->actingAsInTenant($admin, $tenant)->patch(route('admin.entitlements.update', $entitlement), [
             'action' => 'suspend',
@@ -270,6 +410,241 @@ class EntitlementManagementTest extends TestCase
 
         $entitlement = $this->asTenant($tenant, fn () => Entitlement::find($entitlement->id));
         $this->assertSame('suspended', $entitlement->status);
+
+        // Bug-Review (Kostenlose Umgehungen -- Entsperren): "Entsperren"
+        // rührt valid_until nie an und gewährt damit keinen zusätzlichen
+        // Wert über die ohnehin schon bezahlte Restlaufzeit hinaus --
+        // bleibt deshalb bewusst kostenlos, ganz ohne Code.
+        $unsuspend = $this->actingAsInTenant($admin, $tenant)->patch(route('admin.entitlements.update', $entitlement), [
+            'action' => 'reactivate',
+        ]);
+        $unsuspend->assertRedirect();
+        $unsuspend->assertSessionHasNoErrors();
+
+        $entitlement = $this->asTenant($tenant, fn () => Entitlement::find($entitlement->id));
+        $this->assertSame('active', $entitlement->status);
+    }
+
+    /**
+     * Bug-Review F1: "Verlängern" setzte status bisher UNBEDINGT auf
+     * "active" zurück -- eine bewusste Sperrung ließ sich dadurch allein
+     * durch ein neues Ablaufdatum aufheben, ohne die eigentliche
+     * "Entsperren"-Aktion zu durchlaufen.
+     */
+    public function test_extending_a_suspended_entitlement_does_not_lift_the_suspension(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $entitlement = $this->grantEntitlement($tenant, $learner, $course);
+        $originalValidUntil = now()->addDays(5);
+        $this->onAdmin(fn () => Entitlement::where('id', $entitlement->id)->update(['status' => 'suspended', 'valid_until' => $originalValidUntil]));
+        $this->makeRenewalCoupon($tenant, $course);
+
+        $response = $this->actingAsInTenant($admin, $tenant)->patch(route('admin.entitlements.update', $entitlement), [
+            'action' => 'extend',
+        ]);
+
+        $response->assertSessionHasNoErrors();
+
+        $fresh = $this->asTenant($tenant, fn () => Entitlement::find($entitlement->id));
+        $this->assertSame('suspended', $fresh->status);
+        $days = $this->onAdmin(fn () => $tenant->branding->course_validity_days);
+        $this->assertTrue($fresh->valid_until->isSameDay($originalValidUntil->copy()->addDays($days)));
+    }
+
+    /**
+     * Bug-Review F1: dieselbe Lücke wie oben, nur für "Widerrufen" --
+     * zusätzlich die bewusst HÄRTERE Stufe, die laut CouponRedemptionService::
+     * redeemForRenewal() (Bug-Review R4-7) ausdrücklich NICHT durch eine
+     * reine Datumsänderung unterlaufen werden soll.
+     */
+    public function test_extending_a_revoked_entitlement_does_not_lift_the_revocation(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $entitlement = $this->grantEntitlement($tenant, $learner, $course);
+        $originalValidUntil = now()->addDays(5);
+        $this->onAdmin(fn () => Entitlement::where('id', $entitlement->id)->update(['status' => 'revoked', 'valid_until' => $originalValidUntil]));
+        $coupon = $this->makeRenewalCoupon($tenant, $course);
+
+        // Bug-Review T5: "Verlängern" lehnte status=revoked bisher gar
+        // nicht ab -- extend() setzt den Status nur von "expired" auf
+        // "active" zurück, bei "revoked" blieb er unverändert bestehen,
+        // valid_until wurde aber trotzdem erweitert UND der
+        // Verlängerungscode unten als eingelöst markiert. Der Zugang blieb
+        // für den Lerner weiterhin gesperrt (EntitlementService prüft den
+        // Status unabhängig von valid_until) -- der Code verfiel dadurch
+        // wirkungslos. extend() lehnt status=revoked jetzt explizit ab,
+        // bevor überhaupt ein Code gesucht/gesperrt wird.
+        $response = $this->actingAsInTenant($admin, $tenant)->patch(route('admin.entitlements.update', $entitlement), [
+            'action' => 'extend',
+        ]);
+
+        $response->assertSessionHasErrors('action');
+
+        $fresh = $this->asTenant($tenant, fn () => Entitlement::find($entitlement->id));
+        $this->assertSame('revoked', $fresh->status);
+        $this->assertTrue($fresh->valid_until->isSameDay($originalValidUntil));
+        $this->assertNull($this->onAdmin(fn () => $coupon->fresh()->redeemed_at));
+    }
+
+    /**
+     * Bug-Review F1: es gab bisher keine Oberfläche für "Widerrufen" -- nur
+     * "Verlängern"/"Sperren" waren über die Teilnehmerseite erreichbar,
+     * obwohl der Controller die Aktion längst unterstützt.
+     *
+     * Bug-Review (Kostenlose Umgehungen -- Widerruf aufheben): "Widerruf
+     * aufheben" verbraucht jetzt wie eine Neuvergabe einen regulären
+     * Kurs-Code -- revoke() gefolgt von reactivate() ist nicht länger
+     * zusammen kostenlos.
+     */
+    public function test_admin_can_revoke_and_then_undo_the_revocation_through_the_participant_page(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $entitlement = $this->grantEntitlement($tenant, $learner, $course);
+
+        $detail = $this->actingAsInTenant($admin, $tenant)->get("/admin/participants/{$learner->id}");
+        $detail->assertOk();
+        $detail->assertSee('Widerrufen');
+
+        $revoke = $this->actingAsInTenant($admin, $tenant)->patch(route('admin.entitlements.update', $entitlement), [
+            'action' => 'revoke',
+        ]);
+        $revoke->assertRedirect();
+
+        $entitlement = $this->asTenant($tenant, fn () => Entitlement::find($entitlement->id));
+        $this->assertSame('revoked', $entitlement->status);
+
+        $detailAfterRevoke = $this->actingAsInTenant($admin, $tenant)->get("/admin/participants/{$learner->id}");
+        $detailAfterRevoke->assertSee('Widerruf aufheben');
+
+        $undoWithoutCoupon = $this->actingAsInTenant($admin, $tenant)->patch(route('admin.entitlements.update', $entitlement), [
+            'action' => 'reactivate',
+        ]);
+        $undoWithoutCoupon->assertSessionHasErrors('action');
+        $this->assertSame('revoked', $this->asTenant($tenant, fn () => Entitlement::find($entitlement->id))->status);
+
+        $coupon = $this->makeCourseCoupon($tenant, $course);
+        $undo = $this->actingAsInTenant($admin, $tenant)->patch(route('admin.entitlements.update', $entitlement), [
+            'action' => 'reactivate',
+        ]);
+        $undo->assertRedirect();
+        $undo->assertSessionHasNoErrors();
+
+        $entitlement = $this->asTenant($tenant, fn () => Entitlement::find($entitlement->id));
+        $this->assertSame('active', $entitlement->status);
+        $this->assertSame('coupon', $entitlement->source_type);
+        $this->assertSame($coupon->code, $entitlement->source_reference);
+        $this->assertNotNull($this->onAdmin(fn () => $coupon->fresh()->redeemed_at));
+    }
+
+    /**
+     * Bug-Review T6: CouponRedemptionService::applyOptionProducts() legte
+     * für jedes gebündelte Zusatzprodukt bisher IMMER eine neue
+     * product_purchase-Zeile an, ohne zu prüfen, ob der Lerner dieses
+     * Produkt schon besitzt. Der Unique-Index
+     * product_purchase_coupon_source_unique (source_type, source_reference,
+     * product_id) griff dabei nicht, weil "Widerruf aufheben" bewusst einen
+     * FRISCHEN, bisher unbenutzten Code verbraucht (source_reference also
+     * ein anderer Coupon-Code als beim ursprünglichen Kauf). Ein Zyklus aus
+     * Widerrufen + Widerruf aufheben legte das gebündelte Produkt (hier die
+     * Willkommensbox) dadurch ein zweites Mal an.
+     */
+    public function test_undoing_a_revocation_does_not_duplicate_an_already_owned_bundled_option_product(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $willkommensbox = $this->onAdmin(fn () => Product::where('code', 'LERNPLATTFORM-WB')->firstOrFail());
+
+        $firstCoupon = $this->makeCourseCoupon($tenant, $course);
+        $this->onAdmin(fn () => $firstCoupon->optionProducts()->attach($willkommensbox->id));
+
+        $grant = $this->actingAsInTenant($admin, $tenant)->post('/admin/entitlements', [
+            'user_id' => $learner->id,
+            'course_id' => $course->id,
+        ]);
+        $grant->assertSessionHasNoErrors();
+        $entitlement = $this->asTenant($tenant, fn () => Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->where('course_id', $course->id)->first());
+
+        $this->actingAsInTenant($admin, $tenant)->patch(route('admin.entitlements.update', $entitlement), [
+            'action' => 'revoke',
+        ])->assertRedirect();
+
+        $secondCoupon = $this->makeCourseCoupon($tenant, $course);
+        $this->onAdmin(fn () => $secondCoupon->optionProducts()->attach($willkommensbox->id));
+
+        $undo = $this->actingAsInTenant($admin, $tenant)->patch(route('admin.entitlements.update', $entitlement), [
+            'action' => 'reactivate',
+        ]);
+        $undo->assertSessionHasNoErrors();
+
+        $this->onAdmin(function () use ($tenant, $learner, $willkommensbox, $secondCoupon) {
+            // Der zweite Code gilt trotzdem als eingelöst -- nur die
+            // doppelte Produktzeile wird vermieden, nicht der Code
+            // geschont.
+            $this->assertNotNull($secondCoupon->fresh()->redeemed_at);
+
+            $purchases = ProductPurchase::where('tenant_id', $tenant->id)
+                ->where('user_id', $learner->id)
+                ->where('product_id', $willkommensbox->id)
+                ->get();
+
+            $this->assertCount(1, $purchases, 'Die Willkommensbox darf nach Widerruf + Widerruf aufheben nur einmal vorhanden sein.');
+        });
+    }
+
+    /**
+     * Bug-Review (Bezahlte Zusatzprodukte stillschweigend nicht angelegt):
+     * der T6-Fix prüfte in applyOptionProducts() bisher, ob der Lerner
+     * irgendeine ProductPurchase-Zeile für dasselbe Produkt schon besitzt --
+     * unabhängig von Kurs oder Coupon. Ein Lerner, der einen Coupon für
+     * Kurs A mit gebündelter "Kleinen Praxiseinheit" einlöst und danach
+     * einen Coupon für einen ANDEREN Kurs B, der ebenfalls die "Kleine
+     * Praxiseinheit" bündelt, bekam die zweite Einheit dadurch nie
+     * gutgeschrieben.
+     */
+    public function test_redeeming_a_second_course_coupon_still_grants_the_same_bundled_option_product(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $seeCourse = $this->existingCourse('SBF-SEE');
+        $binnenCourse = $this->existingCourse('SBF-BIN-MOTOR');
+        $praxiseinheit = $this->onAdmin(fn () => Product::where('code', 'PRAXISEINHEIT-KLEIN')->firstOrFail());
+
+        $seeCoupon = $this->makeCourseCoupon($tenant, $seeCourse);
+        $this->onAdmin(fn () => $seeCoupon->optionProducts()->attach($praxiseinheit->id));
+
+        $binnenCoupon = $this->makeCourseCoupon($tenant, $binnenCourse);
+        $this->onAdmin(fn () => $binnenCoupon->optionProducts()->attach($praxiseinheit->id));
+
+        $this->actingAsInTenant($admin, $tenant)->post('/admin/entitlements', [
+            'user_id' => $learner->id,
+            'course_id' => $seeCourse->id,
+        ])->assertSessionHasNoErrors();
+
+        $this->actingAsInTenant($admin, $tenant)->post('/admin/entitlements', [
+            'user_id' => $learner->id,
+            'course_id' => $binnenCourse->id,
+        ])->assertSessionHasNoErrors();
+
+        $this->onAdmin(function () use ($tenant, $learner, $praxiseinheit) {
+            $purchases = ProductPurchase::where('tenant_id', $tenant->id)
+                ->where('user_id', $learner->id)
+                ->where('product_id', $praxiseinheit->id)
+                ->get();
+
+            $this->assertCount(2, $purchases, 'Ein zweiter Kurs-Coupon mit demselben gebündelten Zusatzprodukt muss eine eigene Praxiseinheit gutschreiben, nicht nur eine insgesamt.');
+        });
     }
 
     public function test_an_instructor_does_not_see_the_extend_or_suspend_controls(): void
@@ -285,5 +660,26 @@ class EntitlementManagementTest extends TestCase
         $detail->assertOk();
         $detail->assertDontSee('Verlängern');
         $detail->assertDontSee('Sperren');
+    }
+
+    /**
+     * Bug-Review T9: dieselbe Art Lücke wie TestIsolationCleanupTest für
+     * audit_log/password_reset_tokens, hier für die über
+     * makeCourseCoupon()/makeRenewalCoupon() angelegten Test-Coupons --
+     * coupon.tenant_id ist ebenfalls nullOnDelete(), cleanUpCreatedTenants()
+     * löschte sie deshalb nie mit, nur ihr tenant_id wurde auf NULL
+     * gesetzt.
+     */
+    public function test_cleaning_up_the_test_also_removes_its_coupons(): void
+    {
+        $tenant = $this->createTestTenant();
+        $course = $this->existingCourse('SRC');
+
+        $coupon = $this->makeCourseCoupon($tenant, $course);
+        $this->onAdmin(fn () => $this->assertDatabaseHas('coupon', ['id' => $coupon->id]));
+
+        $this->cleanUpCreatedCoupons();
+
+        $this->onAdmin(fn () => $this->assertDatabaseMissing('coupon', ['id' => $coupon->id]));
     }
 }

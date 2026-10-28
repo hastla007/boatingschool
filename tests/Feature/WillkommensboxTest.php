@@ -10,6 +10,8 @@ use App\Models\ProductPurchase;
 use App\Models\Progress;
 use App\Models\TenantUser;
 use App\Models\WillkommensboxOrder;
+use App\Notifications\WillkommensboxOrderPlaced;
+use Illuminate\Support\Facades\Notification;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -201,6 +203,33 @@ class WillkommensboxTest extends TestCase
         $confirmation->assertSee('bestellt');
     }
 
+    /**
+     * Bug-Review F5: im gesamten Ablauf von Praxis-Anmeldung, Terminen und
+     * Willkommensbox wurde bisher keine Mail verschickt -- eine Bootsschule
+     * bemerkte den Versandbedarf nur, wenn jemand aktiv in der
+     * Teilnehmerliste nachsah.
+     */
+    public function test_ordering_the_willkommensbox_notifies_the_schools_admins_by_mail(): void
+    {
+        Notification::fake();
+
+        $tenant = $this->createTestTenant();
+        $owner = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $this->grantWillkommensbox($tenant, $learner);
+
+        $response = $this->actingAsInTenant($learner, $tenant)->post('/willkommensbox', [
+            'street' => 'Lieferstraße 1',
+            'postal_code' => '12345',
+            'city' => 'Lieferstadt',
+            'country' => 'Deutschland',
+        ]);
+
+        $response->assertRedirect(route('willkommensbox.index'));
+
+        Notification::assertSentTo($owner, WillkommensboxOrderPlaced::class);
+    }
+
     public function test_willkommensbox_cannot_be_ordered_twice(): void
     {
         $tenant = $this->createTestTenant();
@@ -269,6 +298,29 @@ class WillkommensboxTest extends TestCase
         [$course, $questionIds] = $this->makeIsolatedCourseWithQuestions(4);
         $this->grantEntitlement($tenant, $learner, $course);
         $this->masterQuestions($tenant, $learner, array_slice($questionIds, 0, 1));
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get('/willkommensbox');
+
+        $response->assertOk();
+        $response->assertSee('noch nicht alle Voraussetzungen');
+        $response->assertDontSee('Jetzt bestellen');
+    }
+
+    /**
+     * Bug-Review (Gates vergleichen den gerundeten Wert): 3 von 8 Fragen
+     * gefestigt sind exakt 37,5% -- der ungerundete Wert bleibt unter der
+     * Schwelle von 38%, aber round(37.5) rundet in PHP auf 38 auf. Vor
+     * dem Fix erfüllte das fälschlich eine Schwelle von 38%.
+     */
+    public function test_page_shows_locked_state_at_a_percentage_that_would_round_up_to_the_threshold(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $this->grantWillkommensbox($tenant, $learner);
+        $this->setThreshold($tenant, 38);
+        [$course, $questionIds] = $this->makeIsolatedCourseWithQuestions(8);
+        $this->grantEntitlement($tenant, $learner, $course);
+        $this->masterQuestions($tenant, $learner, array_slice($questionIds, 0, 3));
 
         $response = $this->actingAsInTenant($learner, $tenant)->get('/willkommensbox');
 

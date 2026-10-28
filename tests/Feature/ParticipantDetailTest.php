@@ -10,8 +10,11 @@ use App\Models\PraxisFormTemplate;
 use App\Models\Product;
 use App\Models\ProductPurchase;
 use App\Models\Tenant;
+use App\Models\TenantUser;
 use App\Models\User;
 use App\Models\WillkommensboxOrder;
+use App\Notifications\WillkommensboxOrderShipped;
+use Illuminate\Support\Facades\Notification;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -257,7 +260,7 @@ class ParticipantDetailTest extends TestCase
 
         $this->actingAsInTenant($admin, $tenant)->post(
             "/admin/praxis-form-submissions/{$submission->id}/exam-appointments",
-            ['exam_date' => '2026-06-01 09:00', 'slot' => 0]
+            ['exam_date' => '2027-06-01 09:00', 'slot' => 0]
         );
         $appointment = $this->onAdmin(fn () => PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->first());
         $this->actingAsInTenant($learner, $tenant)->post(
@@ -281,7 +284,7 @@ class ParticipantDetailTest extends TestCase
 
         $this->actingAsInTenant($admin, $tenant)->post(
             "/admin/praxis-form-submissions/{$submission->id}/exam-appointments",
-            ['exam_date' => '2026-06-01 09:00', 'slot' => 0]
+            ['exam_date' => '2027-06-01 09:00', 'slot' => 0]
         );
 
         $response = $this->actingAsInTenant($admin, $tenant)->get("/admin/participants/{$learner->id}");
@@ -301,7 +304,7 @@ class ParticipantDetailTest extends TestCase
 
         $this->actingAsInTenant($admin, $tenant)->post(
             "/admin/praxis-form-submissions/{$submission->id}/exam-appointments",
-            ['exam_date' => '2026-06-01 09:00', 'slot' => 0]
+            ['exam_date' => '2027-06-01 09:00', 'slot' => 0]
         );
         $appointment = $this->onAdmin(fn () => PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->first());
         $this->actingAsInTenant($learner, $tenant)->post(
@@ -389,14 +392,14 @@ class ParticipantDetailTest extends TestCase
 
         $response->assertRedirect();
         $response->assertSessionHasNoErrors();
-        $this->onAdmin(function () use ($learner) {
-            $fresh = $learner->fresh();
-            $this->assertSame('Hafenstraße 5', $fresh->street);
-            $this->assertSame('20457', $fresh->postal_code);
-            $this->assertSame('Hamburg', $fresh->city);
-            $this->assertSame('Deutschland', $fresh->country);
-            $this->assertSame('1995-06-15', $fresh->birthdate->format('Y-m-d'));
-            $this->assertTrue($fresh->hasCompleteRegistrationProfile());
+        $this->onAdmin(function () use ($learner, $tenant) {
+            $membership = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->first();
+            $this->assertSame('Hafenstraße 5', $membership->street);
+            $this->assertSame('20457', $membership->postal_code);
+            $this->assertSame('Hamburg', $membership->city);
+            $this->assertSame('Deutschland', $membership->country);
+            $this->assertSame('1995-06-15', $membership->birthdate->format('Y-m-d'));
+            $this->assertTrue($learner->fresh()->hasCompleteRegistrationProfile($tenant));
         });
     }
 
@@ -421,13 +424,63 @@ class ParticipantDetailTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $this->onAdmin(function () use ($learner) {
-            $fresh = $learner->fresh();
-            $this->assertSame('Neue Straße 2', $fresh->street);
-            $this->assertSame('20000', $fresh->postal_code);
-            $this->assertSame('Neustadt', $fresh->city);
-            $this->assertSame('Deutschland', $fresh->country);
-            $this->assertSame('1991-02-02', $fresh->birthdate->format('Y-m-d'));
+        $this->onAdmin(function () use ($learner, $tenant) {
+            $membership = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->first();
+            $this->assertSame('Neue Straße 2', $membership->street);
+            $this->assertSame('20000', $membership->postal_code);
+            $this->assertSame('Neustadt', $membership->city);
+            $this->assertSame('Deutschland', $membership->country);
+            $this->assertSame('1991-02-02', $membership->birthdate->format('Y-m-d'));
+        });
+    }
+
+    /**
+     * Sicherheitsreview S3: Adresse und Geburtsdatum standen bisher direkt
+     * auf app_user -- EINE einzige, kontoweite Kopie, unabhängig davon, bei
+     * wie vielen Bootsschulen das Konto Mitglied ist. Ist ein Lerner
+     * gleichzeitig Mitglied bei Schule A und Schule B, sah und änderte
+     * Schule A damit dieselbe Adresse/dasselbe Geburtsdatum, die Schule B
+     * für ihre eigene Prüfungsanmeldung verwendet.
+     */
+    public function test_a_participants_address_is_isolated_between_two_tenant_memberships(): void
+    {
+        $tenantA = $this->createTestTenant();
+        $tenantB = $this->createTestTenant();
+        $adminA = $this->createTenantUser($tenantA, 'owner');
+        $learner = $this->createTenantUser($tenantA, 'learner');
+
+        $this->onAdmin(fn () => TenantUser::create([
+            'tenant_id' => $tenantB->id,
+            'user_id' => $learner->id,
+            'role' => 'learner',
+            'status' => 'active',
+            'street' => 'Schule-B-Straße 1',
+            'postal_code' => '50000',
+            'city' => 'Schule-B-Stadt',
+            'country' => 'Deutschland',
+            'birthdate' => '1988-03-03',
+        ]));
+
+        $this->actingAsInTenant($adminA, $tenantA)->patch("/admin/participants/{$learner->id}", [
+            'street' => 'Schule-A-Straße 9',
+            'postal_code' => '10000',
+            'city' => 'Schule-A-Stadt',
+            'country' => 'Österreich',
+            'birthdate' => '1999-09-09',
+        ])->assertRedirect();
+
+        $this->onAdmin(function () use ($learner, $tenantA, $tenantB) {
+            $membershipA = TenantUser::withoutGlobalScopes()->where('tenant_id', $tenantA->id)->where('user_id', $learner->id)->first();
+            $membershipB = TenantUser::withoutGlobalScopes()->where('tenant_id', $tenantB->id)->where('user_id', $learner->id)->first();
+
+            $this->assertSame('Schule-A-Straße 9', $membershipA->street);
+
+            // Schule B muss von der Änderung durch Schule A unberührt bleiben.
+            $this->assertSame('Schule-B-Straße 1', $membershipB->street);
+            $this->assertSame('50000', $membershipB->postal_code);
+            $this->assertSame('Schule-B-Stadt', $membershipB->city);
+            $this->assertSame('Deutschland', $membershipB->country);
+            $this->assertSame('1988-03-03', $membershipB->birthdate->format('Y-m-d'));
         });
     }
 
@@ -469,8 +522,13 @@ class ParticipantDetailTest extends TestCase
         ]);
 
         $response->assertNotFound();
-        $this->onAdmin(function () use ($learnerB) {
-            $this->assertNull($learnerB->fresh()->city);
+        $this->onAdmin(function () use ($learnerB, $tenantB) {
+            // withoutGlobalScopes(): die vorangehende Anfrage hinterlässt den
+            // TenantContext auf $tenantA (BelongsToTenant::bootBelongsToTenant()
+            // filtert sonst zusätzlich implizit danach) -- hier wird aber
+            // bewusst die Mitgliedschaft bei $tenantB geprüft.
+            $membership = TenantUser::withoutGlobalScopes()->where('tenant_id', $tenantB->id)->where('user_id', $learnerB->id)->first();
+            $this->assertNull($membership->city);
         });
     }
 
@@ -516,6 +574,26 @@ class ParticipantDetailTest extends TestCase
         // Praxis-Anmeldungen auf, nicht nur in der Willkommensbox-Karte.
         $response->assertSee('bitte Willkommensbox versenden.');
         $response->assertDontSee('Keine offenen Aktionen.');
+    }
+
+    /**
+     * Bug-Review (Willkommensbox -- Tab läuft auf dem Handy über): die
+     * Adresse- und die Willkommensbox-Karte liegen nebeneinander in einem
+     * grid-Container, der unterhalb von lg (z. B. 360px) bisher keine
+     * explizite Spaltenzahl hatte -- ohne grid-cols-1 bleibt die Breite
+     * content-based (shrink-to-fit) statt zu stapeln, wodurch beide Karten
+     * über den Viewport hinausliefen (derselbe Fehler wie Bug-Review P8).
+     */
+    public function test_the_detail_page_layout_grid_has_an_explicit_single_column_below_the_desktop_breakpoint(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+
+        $response = $this->actingAsInTenant($admin, $tenant)->get("/admin/participants/{$learner->id}");
+
+        $response->assertOk();
+        $response->assertSee('grid grid-cols-1 lg:grid-cols-2', false);
     }
 
     public function test_detail_page_hides_the_shipping_notice_once_the_order_is_shipped(): void
@@ -621,6 +699,81 @@ class ParticipantDetailTest extends TestCase
             $fresh = $order->fresh();
             $this->assertNotNull($fresh->shipped_at);
             $this->assertNull($fresh->tracking_number);
+        });
+    }
+
+    /**
+     * Bug-Review F5: im gesamten Ablauf von Praxis-Anmeldung, Terminen und
+     * Willkommensbox wurde bisher keine Mail verschickt -- der Lerner
+     * bemerkte den Versand nur, wenn er von selbst wieder auf die
+     * Willkommensbox-Seite sah.
+     */
+    public function test_marking_a_willkommensbox_order_as_shipped_notifies_the_learner_by_mail(): void
+    {
+        Notification::fake();
+
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $this->grantWillkommensbox($tenant, $learner);
+        $order = $this->onAdmin(fn () => WillkommensboxOrder::create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $learner->id,
+            'street' => 'Lieferstraße 1',
+            'postal_code' => '12345',
+            'city' => 'Lieferstadt',
+            'country' => 'Deutschland',
+        ]));
+
+        $response = $this->actingAsInTenant($admin, $tenant)->patch("/admin/willkommensbox-orders/{$order->id}/ship", [
+            'tracking_number' => 'DHL1234567890',
+        ]);
+
+        $response->assertRedirect();
+
+        Notification::assertSentTo($learner, WillkommensboxOrderShipped::class);
+    }
+
+    /**
+     * Bug-Review (Willkommensbox -- Doppelklick auf "Versendet" schickt
+     * zwei Mails): ship() lief bisher unbedingt -- ein zweiter Request auf
+     * eine bereits versendete Bestellung (Doppelklick oder zwei nahezu
+     * gleichzeitige Requests) aktualisierte shipped_at erneut und
+     * verschickte die Versandbestätigung ein zweites Mal.
+     */
+    public function test_shipping_an_already_shipped_order_again_does_not_send_a_second_mail(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $this->grantWillkommensbox($tenant, $learner);
+        $order = $this->onAdmin(fn () => WillkommensboxOrder::create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $learner->id,
+            'street' => 'Lieferstraße 1',
+            'postal_code' => '12345',
+            'city' => 'Lieferstadt',
+            'country' => 'Deutschland',
+        ]));
+
+        $first = $this->actingAsInTenant($admin, $tenant)->patch("/admin/willkommensbox-orders/{$order->id}/ship", [
+            'tracking_number' => 'DHL1234567890',
+        ]);
+        $first->assertRedirect();
+        $firstShippedAt = $this->onAdmin(fn () => $order->fresh()->shipped_at);
+
+        Notification::fake();
+
+        $second = $this->actingAsInTenant($admin, $tenant)->patch("/admin/willkommensbox-orders/{$order->id}/ship", [
+            'tracking_number' => 'DHL-ZWEITER-VERSUCH',
+        ]);
+
+        $second->assertRedirect();
+        Notification::assertNothingSent();
+        $this->onAdmin(function () use ($order, $firstShippedAt) {
+            $fresh = $order->fresh();
+            $this->assertSame($firstShippedAt->format('Y-m-d H:i:s'), $fresh->shipped_at->format('Y-m-d H:i:s'));
+            $this->assertSame('DHL1234567890', $fresh->tracking_number);
         });
     }
 

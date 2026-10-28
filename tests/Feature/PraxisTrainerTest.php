@@ -82,6 +82,68 @@ class PraxisTrainerTest extends TestCase
         $page->assertSee('1 / 2 Aufgaben', false);
     }
 
+    /**
+     * Bug-Review Oberfläche U8: der Seitenkopf (Titel + Fortschritts-
+     * Statistik) stand bisher in einem "flex items-center justify-between"
+     * ohne flex-wrap -- bei 360px Breite reichte der Platz dafür bei
+     * längeren Kategorienamen nicht, die Seite lief horizontal über.
+     */
+    public function test_the_header_stacks_the_progress_stat_below_the_title_on_narrow_screens(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $firstTask] = $this->makeIsolatedPraxisTasks();
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $response = $this->actingAsInTenant($learner, $tenant)
+            ->get(route('praxistrainer.show', ['course' => $course, 'task' => $firstTask]));
+
+        $response->assertOk();
+        $response->assertSee('flex flex-col sm:flex-row sm:items-center sm:justify-between', false);
+    }
+
+    /**
+     * Bug-Review (Mobil-Overflow Video/Praxistrainer): der U8-Fix oben
+     * betraf nur den Seitenkopf -- der umgebende Grid-Container hatte
+     * unterhalb von lg: keine explizite grid-cols-1 und blieb damit
+     * content-based (shrink-to-fit). Ein langer Kategorien-/Aufgabenname
+     * in der Sidebar-Navigation zog die Spalte und damit die ganze Seite
+     * bei 360px in die Breite, da .truncate nur greift, wenn die Breite
+     * des Containers bereits feststeht.
+     */
+    public function test_the_layout_grid_has_an_explicit_single_column_below_the_desktop_breakpoint(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $firstTask] = $this->makeIsolatedPraxisTasks();
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $response = $this->actingAsInTenant($learner, $tenant)
+            ->get(route('praxistrainer.show', ['course' => $course, 'task' => $firstTask]));
+
+        $response->assertOk();
+        $response->assertSee('grid grid-cols-1 lg:grid-cols-[280px_1fr]', false);
+    }
+
+    /**
+     * Bug-Review (Zurück-Pfeile ohne Beschriftung): der "Zurück zum Kurs"-
+     * Pfeil in der Sidebar besteht nur aus einem Icon ohne Text -- ohne
+     * aria-label hatte er keinen für Screenreader erkennbaren Namen.
+     */
+    public function test_the_back_to_course_link_has_an_accessible_label(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $firstTask] = $this->makeIsolatedPraxisTasks();
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $response = $this->actingAsInTenant($learner, $tenant)
+            ->get(route('praxistrainer.show', ['course' => $course, 'task' => $firstTask]));
+
+        $response->assertOk();
+        $response->assertSee('aria-label="Zurück zum Kurs"', false);
+    }
+
     public function test_kategorie_query_param_scopes_the_praxistrainer_to_a_single_category(): void
     {
         $tenant = $this->createTestTenant();
@@ -158,6 +220,88 @@ class PraxisTrainerTest extends TestCase
             strpos($signPage, 'Musterlösung anzeigen'),
             strpos($signPage, 'test-solution-image.png'),
             'Für Zeichen muss das Bild schon vor dem Musterlösung-Button im HTML stehen.'
+        );
+    }
+
+    /**
+     * Bug-Review (Hoch): unterkategorie ist in Kategorien wie "Zeichen auf
+     * See" ("Was bedeutet das dargestellte Zeichen?") die Lösung selbst
+     * (z. B. "Überholverbot") -- sie stand bisher unbedingt im Seitentitel,
+     * in der Aufgabenliste (auch für ANDERE Aufgaben als die aktuell
+     * angezeigte) und im Bild-Alt-Text, jeweils bevor "Musterlösung
+     * anzeigen" geklickt wurde.
+     */
+    public function test_a_signs_category_unterkategorie_does_not_leak_the_solution_before_reveal(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $firstTask] = $this->onAdmin(function () {
+            $course = CourseDefinition::withoutGlobalScopes()->create([
+                'tenant_id' => null,
+                'code' => 'TEST-PRAXIS-'.uniqid(),
+                'name' => 'Test Praxistrainer',
+                'course_type' => 'full',
+                'status' => 'published',
+            ]);
+            $this->createdCourseIds[] = $course->id;
+
+            $asset = MediaAsset::create([
+                'asset_key' => 'test-praxis-image-'.uniqid(),
+                'media_type' => 'image',
+                'storage_path' => 'http://localhost/storage/question-media/praxistrainer/test-sign.png',
+            ]);
+            $this->createdMediaAssetIds[] = $asset->id;
+
+            $firstTask = PraxisTask::create([
+                'course_id' => $course->id,
+                'content_id' => 'TEST-PRAXIS-SIGN-1',
+                'kategorie' => 'Zeichen auf See',
+                'unterkategorie' => 'Geheimlösung-Ueberholverbot',
+                'frage' => 'Was bedeutet das dargestellte Schifffahrtszeichen?',
+                'antwort' => 'Geheimlösung-Ueberholverbot: zwei Pfeile mit rotem Schrägstrich.',
+                'media_asset_id' => $asset->id,
+                'sort_order' => 1,
+            ]);
+            PraxisTask::create([
+                'course_id' => $course->id,
+                'content_id' => 'TEST-PRAXIS-SIGN-2',
+                'kategorie' => 'Zeichen auf See',
+                'unterkategorie' => 'Geheimlösung-Geschwindigkeit',
+                'frage' => 'Was bedeutet das dargestellte Schifffahrtszeichen?',
+                'antwort' => 'Geheimlösung-Geschwindigkeit: Höchstgeschwindigkeit einhalten.',
+                'sort_order' => 2,
+            ]);
+
+            return [$course, $firstTask];
+        });
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $html = $this->actingAsInTenant($learner, $tenant)
+            ->get(route('praxistrainer.show', ['course' => $course, 'task' => $firstTask]))
+            ->assertOk()
+            ->getContent();
+
+        // Die andere Aufgabe wird auf dieser Seite nirgends "aufgelöst" --
+        // ihre unterkategorie darf deshalb überhaupt nicht im HTML stehen.
+        $this->assertStringNotContainsString('Geheimlösung-Geschwindigkeit', $html);
+
+        // Die aktuelle Aufgabe enthält ihre unterkategorie zwangsläufig
+        // INNERHALB der Musterlösung selbst (antwort beginnt im echten
+        // Katalog genauso, z. B. "Überholverbot: zwei Pfeile ..."). Alpine
+        // blendet den Musterlösung-Block nur per CSS aus, er steht trotzdem
+        // im HTML -- entscheidend ist deshalb nicht, OB die unterkategorie
+        // im HTML auftaucht, sondern DASS ihr erstes Auftreten erst NACH dem
+        // "Musterlösung anzeigen"-Button kommt (Titel, Aufgabenliste und der
+        // erste Bild-Alt-Text stehen davor im DOM).
+        $buttonPosition = strpos($html, 'Musterlösung anzeigen');
+        $this->assertNotFalse($buttonPosition, 'Button "Musterlösung anzeigen" nicht gefunden.');
+
+        $firstLeakPosition = strpos($html, 'Geheimlösung-Ueberholverbot');
+        $this->assertNotFalse($firstLeakPosition, 'Testvoraussetzung: die unterkategorie muss zumindest innerhalb der Musterlösung auftauchen.');
+        $this->assertGreaterThan(
+            $buttonPosition,
+            $firstLeakPosition,
+            'unterkategorie darf nur innerhalb des Musterlösung-Blocks stehen (Titel/Liste/Alt-Text davor sind ein Leak).'
         );
     }
 

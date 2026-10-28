@@ -111,6 +111,13 @@ class PraxisFormSubmission extends Model
      * Benachrichtigungsbox befüllt -- hier aber als eine einzelne Zeile
      * statt einer Liste, für die Übersichtstabelle.
      *
+     * Bug-Review (Zurückgezogene/abgesagte Termine erscheinen als "fix"):
+     * hier wurde bisher nur auf response === 'declined' geprüft, nicht auf
+     * 'withdrawn' (PraxisExamAppointmentService::withdraw()) oder
+     * 'cancelled' (::cancel()) -- beide fielen damit durch alle Prüfungen
+     * hindurch bis zum letzten return und erschienen fälschlich als fix
+     * zugesagt, obwohl in Wahrheit kein gültiger Termin mehr vorlag.
+     *
      * @return array{label: string, action_needed: bool}
      */
     public function nextStep(): array
@@ -121,7 +128,7 @@ class PraxisFormSubmission extends Model
             return ['label' => 'Prüfungstermin vorschlagen', 'action_needed' => true];
         }
 
-        if ($exam->response === 'declined') {
+        if (in_array($exam->response, ['declined', 'withdrawn', 'cancelled'], true)) {
             return ['label' => 'Prüfungstermin erneut vorschlagen', 'action_needed' => true];
         }
 
@@ -132,7 +139,7 @@ class PraxisFormSubmission extends Model
         foreach ($this->practiceSlotNumbers() as $slot) {
             $latest = $this->latestAppointmentForSlot($slot);
 
-            if ($latest && $latest->response === 'declined') {
+            if ($latest && in_array($latest->response, ['declined', 'withdrawn', 'cancelled'], true)) {
                 return ['label' => 'Termin erneut vorschlagen ('.$this->labelForSlot($slot).')', 'action_needed' => true];
             }
 

@@ -1,6 +1,6 @@
 <x-superadmin-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Neue Bootsschule anlegen</h2>
+        <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Neue Bootsschule anlegen</h1>
     </x-slot>
 
     <div class="max-w-lg bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6">
@@ -16,7 +16,7 @@
             <div>
                 <x-input-label for="slug" value="Subdomain (Slug)" />
                 <x-text-input id="slug" name="slug" type="text" class="mt-1 block w-full" :value="old('slug')" required placeholder="z. B. mueller" />
-                <p class="text-xs text-slate-400 mt-1">Erreichbar unter &lt;slug&gt;.{{ config('app.central_domain') }}</p>
+                <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Erreichbar unter &lt;slug&gt;.{{ config('app.central_domain') }}</p>
                 <x-input-error :messages="$errors->get('slug')" class="mt-2" />
             </div>
 
@@ -47,7 +47,7 @@
                 <div class="mt-4">
                     <x-input-label for="admin_email" value="E-Mail" />
                     <x-text-input id="admin_email" name="admin_email" type="email" class="mt-1 block w-full" :value="old('admin_email')" required />
-                    <p class="text-xs text-slate-400 mt-1">Erhält den Status "eingeladen" und kann sich per Passwort-Reset ein Passwort setzen.</p>
+                    <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Erhält den Status "eingeladen" und kann sich per Passwort-Reset ein Passwort setzen.</p>
                     <x-input-error :messages="$errors->get('admin_email')" class="mt-2" />
                 </div>
             </div>

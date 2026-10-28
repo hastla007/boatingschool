@@ -41,11 +41,17 @@ class PersonalDataExportService
                 'display_name' => $user->display_name,
                 'email' => $user->email,
                 'phone' => $user->phone,
-                'street' => $user->street,
-                'postal_code' => $user->postal_code,
-                'city' => $user->city,
-                'country' => $user->country,
-                'birthdate' => $user->birthdate?->toDateString(),
+                // Sicherheitsreview S3: diese Felder liegen seit Migration
+                // 000469 je Mitgliedschaft auf tenant_user, nicht mehr
+                // kontoweit auf app_user -- sonst hätte dieser PER-MANDANT
+                // gedachte Export (siehe Klassenkommentar) genau die
+                // kontoweit geteilten Werte einer ANDEREN Bootsschule
+                // exportiert.
+                'street' => $membership?->street,
+                'postal_code' => $membership?->postal_code,
+                'city' => $membership?->city,
+                'country' => $membership?->country,
+                'birthdate' => $membership?->birthdate?->toDateString(),
                 'locale' => $user->locale,
             ],
             'membership' => $membership ? [

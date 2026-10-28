@@ -1,3 +1,17 @@
+/* Bug-Review (Fonts von fonts.bunny.net ohne Einwilligung): die Schriften
+   wurden bisher per <link> aus layouts/app|guest|superadmin.blade.php direkt
+   von fonts.bunny.net geladen -- das lässt den Browser schon beim reinen
+   Seitenaufruf, vor jeder Einwilligung, eine Verbindung zu einem Drittanbieter
+   aufbauen (IP-Adresse/User-Agent). @fontsource liefert dieselben Schriften
+   (Figtree, Caveat) selbst gehostet als npm-Paket mit denselben Schnitten und
+   font-display: swap wie zuvor -- Vite bindet die woff2-Dateien beim Build
+   ein, es entsteht keine externe Verbindung mehr. */
+@import '@fontsource/figtree/400.css';
+@import '@fontsource/figtree/500.css';
+@import '@fontsource/figtree/600.css';
+@import '@fontsource/figtree/700.css';
+@import '@fontsource/caveat/600.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

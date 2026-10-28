@@ -1,11 +1,11 @@
 <x-app-layout>
     <x-slot name="header">
-        <div class="flex items-center gap-1 text-xs text-slate-400 mb-1">
+        <div class="flex items-center gap-1 text-xs text-slate-600 dark:text-slate-400 mb-1">
             <a href="{{ route('courses.show', $course) }}" class="hover:underline">{{ $course->name }}</a>
             <x-icon name="chevron-right" class="w-3 h-3" />
             <span>Praxis &amp; Prüfung</span>
         </div>
-        <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Praxis &amp; Prüfung</h2>
+        <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Praxis &amp; Prüfung</h1>
     </x-slot>
 
     @if ($state === 'unavailable')
@@ -22,7 +22,7 @@
                 Für die Buchung benötigst du mindestens <span class="font-semibold text-slate-700 dark:text-slate-200">{{ $threshold }}% Kursfortschritt</span>.
             </p>
             <div class="mt-6 w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2">
-                <div class="h-2 rounded-full" style="width: {{ min($percent, 100) }}%; background-color: var(--brand-secondary, #00A8A8)"></div>
+                <div class="h-2 rounded-full" style="width: {{ min($percent, 100) }}%; background-color: var(--brand-secondary, #007A7A)"></div>
             </div>
             <a href="{{ route('courses.show', $course) }}" class="inline-flex items-center justify-center mt-6 px-5 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
                 Weiterlernen
@@ -86,10 +86,10 @@
                                     <dd class="text-slate-800 dark:text-slate-200 font-medium">
                                         {{ $submission->data[$field['key'].'_pruefungsausschuss'] }}
                                         @if (! empty($submission->data[$field['key'].'_pruefungsausschuss_adresse']))
-                                            <span class="block text-xs text-slate-400 font-normal">{{ $submission->data[$field['key'].'_pruefungsausschuss_adresse'] }}</span>
+                                            <span class="block text-xs text-slate-600 dark:text-slate-400 font-normal">{{ $submission->data[$field['key'].'_pruefungsausschuss_adresse'] }}</span>
                                         @endif
                                         @if (! empty($submission->data[$field['key'].'_pruefungsausschuss_kurse']))
-                                            <span class="flex flex-wrap items-center gap-1 mt-1 text-xs text-slate-400 font-normal">
+                                            <span class="flex flex-wrap items-center gap-1 mt-1 text-xs text-slate-600 dark:text-slate-400 font-normal">
                                                 Zuständig für:
                                                 @foreach ($submission->data[$field['key'].'_pruefungsausschuss_kurse'] as $kursName)
                                                     <span @class([
@@ -150,7 +150,7 @@
                 <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 lg:sticky lg:top-6">
                     <h4 class="text-sm font-medium text-slate-600 dark:text-slate-300 px-2 pb-3">Prüfungsorte in deiner Nähe</h4>
                     <div id="pruefungsort-map" style="height: 420px; border-radius: 0.75rem;"></div>
-                    <p class="text-xs text-slate-400 px-2 pt-3">Klicke auf einen Marker, um den Ort im Formular auszuwählen.</p>
+                    <p class="text-xs text-slate-600 dark:text-slate-400 px-2 pt-3">Klicke auf einen Marker, um den Ort im Formular auszuwählen.</p>
                 </div>
             @endif
 
@@ -269,7 +269,7 @@
                         @endswitch
 
                         @if (! empty($field['help_text']))
-                            <p class="text-xs text-slate-400 mt-1">{{ $field['help_text'] }}</p>
+                            <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">{{ $field['help_text'] }}</p>
                         @endif
                         <x-input-error :messages="$errors->get($field['key'])" class="mt-2" />
                     </div>

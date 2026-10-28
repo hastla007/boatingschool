@@ -1,7 +1,7 @@
 <x-superadmin-layout>
     <x-slot name="header">
         <div class="flex items-center justify-between">
-            <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Praxisformulare</h2>
+            <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Praxisformulare</h1>
             <a href="{{ route('superadmin.praxis-form-templates.create') }}" class="px-4 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: #005FD7">
                 Neues Formular
             </a>
@@ -29,17 +29,18 @@
          initialisiert Direktiven nur innerhalb eines x-data-Teilbaums,
          das Formular wurde also ohne Rückfrage sofort abgeschickt. --}}
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden" x-data="{}">
+        <div class="overflow-x-auto">
         <table class="w-full text-sm">
             <tbody>
                 @forelse ($templates as $template)
                     <tr class="border-t border-slate-100 dark:border-slate-700 first:border-t-0 {{ $template->active ? '' : 'opacity-50' }}">
                         <td class="px-4 py-3 font-medium text-slate-700 dark:text-slate-200">
                             {{ $template->title }}
-                            <div class="text-xs text-slate-400">
+                            <div class="text-xs text-slate-600 dark:text-slate-400">
                                 Ab {{ $template->min_progress_percent }}% Kursfortschritt &middot; {{ count($template->fields) }} Feld(er)
                             </div>
                             @if (! empty($template->course_ids))
-                                <div class="text-xs text-slate-400 mt-0.5">
+                                <div class="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
                                     {{ collect($template->course_ids)->map(fn ($id) => $courses->get($id)?->name)->filter()->implode(', ') }}
                                 </div>
                             @endif
@@ -65,9 +66,10 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="3" class="px-4 py-3 text-slate-400">Noch keine Praxisformulare angelegt.</td></tr>
+                    <tr><td colspan="3" class="px-4 py-3 text-slate-600 dark:text-slate-400">Noch keine Praxisformulare angelegt.</td></tr>
                 @endforelse
             </tbody>
         </table>
+        </div>
     </div>
 </x-superadmin-layout>

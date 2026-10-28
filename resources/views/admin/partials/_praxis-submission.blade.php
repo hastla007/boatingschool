@@ -9,9 +9,9 @@
     <div class="flex items-start justify-between gap-4 mb-2">
         <div>
             <span class="text-sm font-medium text-slate-700 dark:text-slate-200">{{ $submission->course->name ?? '—' }}</span>
-            <span class="block text-xs text-slate-400">{{ $submission->template->title ?? 'Formular gelöscht' }}</span>
+            <span class="block text-xs text-slate-600 dark:text-slate-400">{{ $submission->template->title ?? 'Formular gelöscht' }}</span>
         </div>
-        <span class="text-xs text-slate-400 whitespace-nowrap">{{ \App\Support\GermanTime::format($submission->created_at, 'd.m.Y H:i') }}</span>
+        <span class="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">{{ \App\Support\GermanTime::format($submission->created_at, 'd.m.Y H:i') }}</span>
     </div>
     @if ($submission->template && ! empty($submission->template->fields))
         <dl class="divide-y divide-slate-100 dark:divide-slate-700 border-t border-slate-100 dark:border-slate-700 text-sm">
@@ -52,10 +52,10 @@
                             <dd class="text-slate-800 dark:text-slate-200 font-medium">
                                 {{ $submission->data[$field['key'].'_pruefungsausschuss'] }}
                                 @if (! empty($submission->data[$field['key'].'_pruefungsausschuss_adresse']))
-                                    <span class="block text-xs text-slate-400 font-normal">{{ $submission->data[$field['key'].'_pruefungsausschuss_adresse'] }}</span>
+                                    <span class="block text-xs text-slate-600 dark:text-slate-400 font-normal">{{ $submission->data[$field['key'].'_pruefungsausschuss_adresse'] }}</span>
                                 @endif
                                 @if (! empty($submission->data[$field['key'].'_pruefungsausschuss_kurse']))
-                                    <span class="flex flex-wrap items-center gap-1 mt-1 text-xs text-slate-400 font-normal">
+                                    <span class="flex flex-wrap items-center gap-1 mt-1 text-xs text-slate-600 dark:text-slate-400 font-normal">
                                         Zuständig für:
                                         @foreach ($submission->data[$field['key'].'_pruefungsausschuss_kurse'] as $kursName)
                                             <span @class([
@@ -100,27 +100,27 @@
 
         <div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700">
             <h4 class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">Weiteren Termin anlegen</h4>
-            <p class="text-xs text-slate-400 mb-2">
+            <p class="text-xs text-slate-600 dark:text-slate-400 mb-2">
                 Frei benannt und terminiert -- z. B. "Kleine Praxisstunde (1h)", "Große Praxisstunde (4h)", "Navigationsstunde" oder "Onlinekurs".
                 So viele wie nötig, keine feste Anzahl.
             </p>
             <form method="POST" action="{{ route('admin.praxis-form-submissions.exam-appointments.store', $submission) }}" class="flex flex-wrap items-end gap-2" x-data="{ location: '' }">
                 @csrf
                 <div>
-                    <label class="block text-xs text-slate-500 mb-1">Bezeichnung</label>
-                    <input type="text" name="label" placeholder="z. B. Navigationsstunde" required maxlength="255" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm w-56">
+                    <label for="praxis_label_{{ $submission->id }}" class="block text-xs text-slate-500 mb-1">Bezeichnung</label>
+                    <input type="text" id="praxis_label_{{ $submission->id }}" name="label" placeholder="z. B. Navigationsstunde" required maxlength="255" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm w-56">
                 </div>
                 <div>
-                    <label class="block text-xs text-slate-500 mb-1">Beginn</label>
-                    <input type="datetime-local" name="exam_date" required class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                    <label for="praxis_exam_date_{{ $submission->id }}" class="block text-xs text-slate-500 mb-1">Beginn</label>
+                    <input type="datetime-local" id="praxis_exam_date_{{ $submission->id }}" name="exam_date" required class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                 </div>
                 <div>
-                    <label class="block text-xs text-slate-500 mb-1">Ende (optional, z. B. 16:00-18:00 Uhr)</label>
-                    <input type="datetime-local" name="ends_at" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                    <label for="praxis_ends_at_{{ $submission->id }}" class="block text-xs text-slate-500 mb-1">Ende (optional, z. B. 16:00-18:00 Uhr)</label>
+                    <input type="datetime-local" id="praxis_ends_at_{{ $submission->id }}" name="ends_at" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                 </div>
                 <div>
-                    <label class="block text-xs text-slate-500 mb-1">Ort</label>
-                    <select name="location" x-model="location" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                    <label for="praxis_location_{{ $submission->id }}" class="block text-xs text-slate-500 mb-1">Ort</label>
+                    <select id="praxis_location_{{ $submission->id }}" name="location" x-model="location" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                         <option value="">&mdash;</option>
                         @foreach ($submissionLocations as $location)
                             <option value="{{ $location->id }}">
@@ -137,12 +137,12 @@
                     </select>
                 </div>
                 <div x-show="location === 'online'" style="display: none">
-                    <label class="block text-xs text-slate-500 mb-1">Link Onlinemeeting</label>
-                    <input type="url" name="online_meeting_url" placeholder="https://..." class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm w-56">
+                    <label for="praxis_online_meeting_url_{{ $submission->id }}" class="block text-xs text-slate-500 mb-1">Link Onlinemeeting</label>
+                    <input type="url" id="praxis_online_meeting_url_{{ $submission->id }}" name="online_meeting_url" placeholder="https://..." class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm w-56">
                 </div>
                 <div class="w-full">
-                    <label class="block text-xs text-slate-500 mb-1">Beschreibung (optional, für den Teilnehmer sichtbar)</label>
-                    <textarea name="description" rows="2" maxlength="2000" placeholder="z. B. Treffpunkt, Mitzubringendes, Ablauf ..." class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm"></textarea>
+                    <label for="praxis_description_{{ $submission->id }}" class="block text-xs text-slate-500 mb-1">Beschreibung (optional, für den Teilnehmer sichtbar)</label>
+                    <textarea id="praxis_description_{{ $submission->id }}" name="description" rows="2" maxlength="2000" placeholder="z. B. Treffpunkt, Mitzubringendes, Ablauf ..." class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm"></textarea>
                 </div>
                 <button type="submit" class="px-3 py-1.5 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
                     Vorschlagen
@@ -153,7 +153,7 @@
             @enderror
         </div>
     @else
-        <p class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700 text-xs text-slate-400">
+        <p class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-400">
             Weitere Termine (z. B. Praxisstunden, Navigationsstunde, Onlinekurs) können frei angelegt werden, sobald der Prüfungstermin fixiert ist.
         </p>
     @endif

@@ -1,7 +1,7 @@
 <x-superadmin-layout>
     <x-slot name="header">
         <div class="flex items-center justify-between">
-            <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Nutzer</h2>
+            <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Nutzer</h1>
             <a href="{{ route('superadmin.users.create') }}" class="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium hover:opacity-90 transition">
                 + Neuer Nutzer
             </a>
@@ -9,10 +9,12 @@
     </x-slot>
 
     <form method="GET" class="mb-4 max-w-sm">
-        <input type="search" name="q" value="{{ $search }}" placeholder="Name oder E-Mail suchen&hellip;" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+        <label for="user_search" class="sr-only">Name oder E-Mail suchen</label>
+        <input type="search" id="user_search" name="q" value="{{ $search }}" placeholder="Name oder E-Mail suchen&hellip;" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
     </form>
 
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
         <table class="w-full text-sm">
             <thead class="bg-slate-50 dark:bg-slate-700 text-slate-500 dark:text-slate-300 text-left">
                 <tr>
@@ -44,6 +46,7 @@
                 @endforeach
             </tbody>
         </table>
+        </div>
     </div>
 
     <div class="mt-4">{{ $users->links() }}</div>

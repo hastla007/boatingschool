@@ -10,6 +10,13 @@ class ModuleSeeder extends Seeder
     /**
      * Die sechs zentralen Inhaltsmodule laut Umsetzungskonzept, aus denen
      * sich alle elf Kursprodukte zusammensetzen.
+     *
+     * Bug-Review (Hoch, Folgefehler von CourseSeeder): dieser Seeder läuft
+     * in Produktion erneut, sobald ein neues Modul im Code dazukommt --
+     * updateOrCreate() überschrieb dabei bisher BEI JEDEM Lauf name/status
+     * JEDES bereits existierenden Moduls. firstOrCreate() lässt ein
+     * bereits existierendes Modul unberührt und erzeugt nur wirklich NEUE
+     * Module mit den Startwerten.
      */
     public function run(): void
     {
@@ -25,7 +32,7 @@ class ModuleSeeder extends Seeder
         ];
 
         foreach ($modules as $module) {
-            Module::updateOrCreate(
+            Module::firstOrCreate(
                 ['code' => $module['code']],
                 ['name' => $module['name'], 'status' => 'published']
             );

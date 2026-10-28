@@ -3,6 +3,14 @@
     $initialFields = old('fields', $template?->fields ?? []);
     if (is_array($initialFields)) {
         $initialFields = collect($initialFields)->map(fn ($f) => [
+            // Bug-Review F3: der bestehende Key muss ins Formular zurück,
+            // damit er beim Speichern wiederverwendet werden kann (siehe
+            // PraxisFormTemplateController::parseFields()) -- sonst leitet
+            // jedes Speichern ihn neu aus dem Label ab, und bestehende
+            // Anmeldungen (PraxisFormSubmission::data ist nach dem Key
+            // geschlüsselt) verlieren ihre Antworten aus der Sicht, sobald
+            // sich nur die Beschriftung ändert.
+            'key' => $f['key'] ?? null,
             'label' => $f['label'] ?? '',
             'type' => $f['type'] ?? 'text',
             'required' => ! empty($f['required']),
@@ -24,7 +32,7 @@
             <x-input-label for="min_progress_percent" value="Buchbar ab % Kursfortschritt" />
             <x-text-input id="min_progress_percent" name="min_progress_percent" type="number" min="0" max="100"
                           class="mt-1 block w-full" :value="old('min_progress_percent', $template?->min_progress_percent ?? 50)" required />
-            <p class="text-xs text-slate-400 mt-1">Vor Erreichen dieses Fortschritts sieht der Lerner nur eine Hürden-Meldung statt des Formulars.</p>
+            <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Vor Erreichen dieses Fortschritts sieht der Lerner nur eine Hürden-Meldung statt des Formulars.</p>
             <x-input-error :messages="$errors->get('min_progress_percent')" class="mt-2" />
         </div>
     </div>
@@ -35,13 +43,13 @@
                class="mt-0.5 rounded border-slate-300 dark:bg-slate-700 dark:border-slate-600">
         <span>
             Weist den Lerner im Formular auf die benötigte ärztliche Tauglichkeitsbescheinigung hin
-            <span class="block text-xs text-slate-400">Zeigt einen Hinweis mit Link zu den Tipps &amp; Tricks, blockiert die Anmeldung nicht.</span>
+            <span class="block text-xs text-slate-600 dark:text-slate-400">Zeigt einen Hinweis mit Link zu den Tipps &amp; Tricks, blockiert die Anmeldung nicht.</span>
         </span>
     </label>
 
     <div>
         <x-input-label value="Zugewiesene Kurse" />
-        <p class="text-xs text-slate-400 mt-1 mb-2">Ein Kurs kann nur einem aktiven Formular zugewiesen sein. Bereits vergebene Kurse sind ausgegraut.</p>
+        <p class="text-xs text-slate-600 dark:text-slate-400 mt-1 mb-2">Ein Kurs kann nur einem aktiven Formular zugewiesen sein. Bereits vergebene Kurse sind ausgegraut.</p>
         <div class="grid sm:grid-cols-2 gap-x-4 gap-y-1.5 max-h-56 overflow-y-auto border border-slate-200 dark:border-slate-600 rounded-lg p-3">
             @foreach ($courses as $course)
                 @php($isTaken = in_array($course->id, $assignedCourseIds, true))
@@ -61,11 +69,12 @@
 
     <div>
         <x-input-label value="Formularfelder" />
-        <p class="text-xs text-slate-400 mt-1 mb-2">Diese Felder füllt der Lerner aus, sobald er die Fortschritts-Hürde erreicht hat.</p>
+        <p class="text-xs text-slate-600 dark:text-slate-400 mt-1 mb-2">Diese Felder füllt der Lerner aus, sobald er die Fortschritts-Hürde erreicht hat.</p>
 
         <div class="space-y-3">
             <template x-for="(field, index) in fields" :key="index">
                 <div class="border border-slate-200 dark:border-slate-600 rounded-lg p-3 space-y-3">
+                    <input type="hidden" :name="'fields['+index+'][key]'" :value="field.key">
                     <div class="grid sm:grid-cols-[1fr_160px_auto] gap-3 items-start">
                         <div>
                             <label class="text-xs text-slate-500 dark:text-slate-400">Beschriftung</label>
@@ -96,7 +105,7 @@
                                   class="mt-0.5 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm"></textarea>
                     </div>
 
-                    <p x-show="field.type === 'location'" style="display: none" class="text-xs text-slate-400">
+                    <p x-show="field.type === 'location'" style="display: none" class="text-xs text-slate-600 dark:text-slate-400">
                         Die Auswahlmöglichkeiten pflegt jede Bootsschule selbst im Tab „Orte&quot; ihres Admin-Bereichs
                         (Praxis- und gekoppelter Prüfungsort).
                     </p>
@@ -118,7 +127,7 @@
         </div>
 
         <button type="button"
-                @click="fields.push({ label: '', type: 'text', required: false, options: '', help_text: '' })"
+                @click="fields.push({ key: null, label: '', type: 'text', required: false, options: '', help_text: '' })"
                 class="mt-3 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition">
             + Feld hinzufügen
         </button>

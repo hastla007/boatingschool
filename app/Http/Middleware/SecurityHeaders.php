@@ -45,12 +45,31 @@ class SecurityHeaders
 
         $response = $next($request);
 
+        // Bug-Review (Hoch): Fragen-/Praxis-/Logo-Bilder werden über
+        // MediaAsset::storagePath() als ABSOLUTE URL ausgeliefert, fest
+        // auf den in APP_URL konfigurierten Host verankert (config/
+        // filesystems.php: 'url' => env('APP_URL').'/storage'). Auf einer
+        // Bootsschul-Subdomain oder Custom Domain ist das ein ANDERER
+        // Origin als die aufgerufene Seite selbst -- img-src 'self' lässt
+        // nur den EIGENEN Origin zu, der Browser blockierte das Bild also
+        // unabhängig davon, dass der Server es korrekt auslieferte. Die
+        // Testsuite lief bisher immer unter genau einem Host (demselben
+        // wie APP_URL), weshalb das nie auffiel. Der aus APP_URL
+        // abgeleitete Origin wird deshalb zusätzlich erlaubt, unabhängig
+        // davon, von welchem Host die Seite selbst gerade aufgerufen wird.
+        $appOrigin = self::appUrlOrigin();
+
         $csp = implode('; ', [
             "default-src 'self'",
             "script-src 'self' 'nonce-{$nonce}' 'unsafe-eval'",
-            "style-src 'self' 'unsafe-inline' https://fonts.bunny.net",
-            "font-src 'self' https://fonts.bunny.net",
-            "img-src 'self' data: https://*.tile.openstreetmap.org",
+            // Bug-Review (Fonts von fonts.bunny.net ohne Einwilligung):
+            // Figtree/Caveat werden seit resources/css/app.css (@fontsource)
+            // selbst gehostet statt von fonts.bunny.net geladen -- die
+            // Freigabe dieses Drittanbieters in style-src/font-src wird
+            // dadurch nicht mehr benötigt.
+            "style-src 'self' 'unsafe-inline'",
+            "font-src 'self'",
+            "img-src 'self' data: https://*.tile.openstreetmap.org".($appOrigin ? " {$appOrigin}" : ''),
             "connect-src 'self'",
             "media-src 'self' https:",
             "object-src 'none'",
@@ -85,5 +104,26 @@ class SecurityHeaders
         }
 
         return $response;
+    }
+
+    /**
+     * @return string|null Schema+Host(+Port) aus APP_URL, oder null, wenn
+     *                     APP_URL nicht geparst werden kann.
+     */
+    private static function appUrlOrigin(): ?string
+    {
+        $parts = parse_url(config('app.url'));
+
+        if (! isset($parts['scheme'], $parts['host'])) {
+            return null;
+        }
+
+        $origin = $parts['scheme'].'://'.$parts['host'];
+
+        if (isset($parts['port'])) {
+            $origin .= ':'.$parts['port'];
+        }
+
+        return $origin;
     }
 }

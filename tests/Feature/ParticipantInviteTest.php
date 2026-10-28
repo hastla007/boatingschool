@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Coupon;
+use App\Models\TenantUser;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Tests\Feature\Concerns\InteractsWithTenants;
@@ -65,14 +66,18 @@ class ParticipantInviteTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $this->onAdmin(function () {
+        $this->onAdmin(function () use ($tenant) {
             $user = User::where('display_name', 'Neuer Teilnehmer')->first();
             $this->assertNotNull($user);
-            $this->assertSame('Marktplatz 14', $user->street);
-            $this->assertSame('4720', $user->postal_code);
-            $this->assertSame('Neumarkt', $user->city);
-            $this->assertSame('Österreich', $user->country);
-            $this->assertNull($user->birthdate);
+
+            // Sicherheitsreview S3: street/postal_code/city/country liegen
+            // seit Migration 000469 je Mitgliedschaft auf tenant_user.
+            $membership = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $user->id)->first();
+            $this->assertSame('Marktplatz 14', $membership->street);
+            $this->assertSame('4720', $membership->postal_code);
+            $this->assertSame('Neumarkt', $membership->city);
+            $this->assertSame('Österreich', $membership->country);
+            $this->assertNull($membership->birthdate);
             $this->deleteInvitedUser($user);
         });
     }
@@ -88,10 +93,12 @@ class ParticipantInviteTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $this->onAdmin(function () {
+        $this->onAdmin(function () use ($tenant) {
             $user = User::where('display_name', 'Teilnehmer Ohne Adresse')->first();
             $this->assertNotNull($user);
-            $this->assertNull($user->street);
+
+            $membership = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $user->id)->first();
+            $this->assertNull($membership->street);
             $this->deleteInvitedUser($user);
         });
     }

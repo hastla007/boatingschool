@@ -1,9 +1,11 @@
+{{-- Bug-Review (Du/Sie im Admin-Bereich gemischt): der restliche
+     Admin-Bereich siezt durchgehend. --}}
 <p class="text-slate-500 mb-6">
-    Hier kannst du frei formulierte Banner anlegen, die für einen anderen oder weiterführenden Kurs werben
-    (z. B. einen Ergänzungskurs). Überschrift, Beschreibungstext und Haken-Bullets schreibst du frei selbst,
+    Hier können Sie frei formulierte Banner anlegen, die für einen anderen oder weiterführenden Kurs werben
+    (z. B. einen Ergänzungskurs). Überschrift, Beschreibungstext und Haken-Bullets schreiben Sie frei selbst,
     Preis, Rabatt in % und Gutscheincode sind optional (reine Anzeigefelder &mdash; der Rabatt-VK wird daraus
-    automatisch berechnet), der Link führt zu deiner externen Angebotsseite. Ein Banner kann gleichzeitig auf
-    mehreren Kursseiten erscheinen &mdash; wähle dafür unten alle passenden Kurse aus. Optional blendest du den
+    automatisch berechnet), der Link führt zu Ihrer externen Angebotsseite. Ein Banner kann gleichzeitig auf
+    mehreren Kursseiten erscheinen &mdash; wählen Sie dafür unten alle passenden Kurse aus. Optional blenden Sie den
     Banner erst ab einem bestimmten Kursfortschritt ein (gilt dann für jeden ausgewählten Kurs einzeln).
 </p>
 

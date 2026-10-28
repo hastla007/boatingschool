@@ -86,6 +86,84 @@ class VideoCourseTest extends TestCase
         $page->assertSee('1 / 2 Lektionen', false);
     }
 
+    /**
+     * Bug-Review Oberfläche U8: Status-Text und CTA-Button standen bisher
+     * in einem "flex items-center justify-between" ohne flex-wrap -- bei
+     * 360px Breite reichte dafür bei "Zu den Fragen (N)" der Platz nicht,
+     * die Seite lief horizontal über.
+     */
+    public function test_the_action_row_stacks_the_cta_below_the_status_text_on_narrow_screens(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $firstLesson] = $this->makeIsolatedVideoCourse();
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/video/{$firstLesson->id}");
+
+        $response->assertOk();
+        $response->assertSee('flex flex-col sm:flex-row sm:items-center sm:justify-between', false);
+    }
+
+    /**
+     * Bug-Review (Mobil-Overflow Video/Praxistrainer): der U8-Fix oben
+     * betraf nur die Status-Text/CTA-Zeile -- der umgebende Grid-Container
+     * hatte unterhalb von lg: KEINE explizite grid-cols-1 und blieb damit
+     * content-based (shrink-to-fit). Das 800x450 Poster-Platzhalterbild
+     * (siehe VideoCourseController::posterUri()) zog die Spalte und damit
+     * die ganze Seite bei 360px auf über 800px breit, bevor das Video
+     * seine echten Metadaten geladen hatte.
+     */
+    public function test_the_layout_grid_has_an_explicit_single_column_below_the_desktop_breakpoint(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $firstLesson] = $this->makeIsolatedVideoCourse();
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/video/{$firstLesson->id}");
+
+        $response->assertOk();
+        $response->assertSee('grid grid-cols-1 lg:grid-cols-[280px_1fr]', false);
+    }
+
+    /**
+     * Bug-Review (Zurück-Pfeile ohne Beschriftung): der "Zurück zum Kurs"-
+     * Pfeil oben rechts besteht nur aus einem Icon ohne Text -- ohne
+     * aria-label hatte er keinen für Screenreader erkennbaren Namen.
+     */
+    public function test_the_back_to_course_link_has_an_accessible_label(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $firstLesson] = $this->makeIsolatedVideoCourse();
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/video/{$firstLesson->id}");
+
+        $response->assertOk();
+        $response->assertSee('aria-label="Zurück zum Kurs"', false);
+    }
+
+    /**
+     * Bug-Review (Fehlende H1-Überschriften): der header-Slot dieser Seite
+     * enthält nur eine Breadcrumb ohne jede Überschrift -- der eigentliche
+     * Seitentitel stand als <span> im Fließtext. Dieser <span> ist jetzt
+     * das h1 der Seite.
+     */
+    public function test_the_lesson_page_has_an_h1(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $firstLesson] = $this->makeIsolatedVideoCourse();
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/video/{$firstLesson->id}");
+
+        $response->assertOk();
+        $response->assertSee('<h1 class="flex-1 font-semibold text-slate-800 dark:text-white truncate">', false);
+    }
+
     public function test_lesson_step_gallery_is_shown_when_present(): void
     {
         $tenant = $this->createTestTenant();
@@ -151,6 +229,9 @@ class VideoCourseTest extends TestCase
         $quizPage = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/video/{$firstLesson->id}/questions/1");
         $quizPage->assertOk();
         $quizPage->assertSee($revision->question_text);
+        // Bug-Review (Zurück-Pfeile ohne Beschriftung): der "Zurück zur
+        // Lektion"-Pfeil besteht nur aus einem Icon ohne Text.
+        $quizPage->assertSee('aria-label="Zurück zur Lektion"', false);
 
         // Bug-Review N19: answer() leitet nach dem Speichern per Redirect auf
         // show() weiter (Post/Redirect/Get) statt die Rückmeldung direkt als
@@ -182,6 +263,9 @@ class VideoCourseTest extends TestCase
         $resultPage->assertSee($revision->question_text);
         // Alles richtig -> "Nur falsche Fragen erneut versuchen" ist nicht anklickbar.
         $resultPage->assertDontSee(route('video.quiz.show', ['course' => $course, 'lesson' => $firstLesson, 'position' => 1, 'questions' => $question->id]), false);
+        // Bug-Review (Zurück-Pfeile ohne Beschriftung): siehe oben, derselbe
+        // unbeschriftete Pfeil auf der Auswertungsseite.
+        $resultPage->assertSee('aria-label="Zurück zur Lektion"', false);
 
         $completeResponse = $this->actingAsInTenant($learner, $tenant)->post(
             "/courses/{$course->id}/video/{$firstLesson->id}/complete"

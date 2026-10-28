@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\AppRoleGrants;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -56,8 +57,10 @@ return new class extends Migration
         // Die App-Rolle wurde in einer früheren Migration per
         // GRANT ... ON ALL TABLES angelegt; für danach neu erstellte Tabellen
         // muss das explizit nachgezogen werden.
-        if (DB::selectOne("SELECT 1 FROM pg_roles WHERE rolname = 'boatingschool_app'")) {
-            DB::statement('GRANT SELECT, INSERT, UPDATE, DELETE ON video_module, video_lesson, video_progress TO boatingschool_app');
+        $appRole = AppRoleGrants::quotedRole();
+
+        if (AppRoleGrants::roleExistsOrWarn()) {
+            DB::statement("GRANT SELECT, INSERT, UPDATE, DELETE ON video_module, video_lesson, video_progress TO {$appRole}");
         }
     }
 

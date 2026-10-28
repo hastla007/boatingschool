@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\AppRoleGrants;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 
@@ -22,8 +23,10 @@ return new class extends Migration
         // Postgres-Fehler fehl, wenn die Rolle gar nicht existiert (z. B.
         // migrate:fresh auf einer frisch angelegten DB, bevor die App-Rolle
         // separat provisioniert wurde) -- analog zu 2024_02_01_000210/_000447.
-        if (DB::selectOne("SELECT 1 FROM pg_roles WHERE rolname = 'boatingschool_app'")) {
-            DB::statement('GRANT UPDATE (before_data, after_data) ON audit_log TO boatingschool_app');
+        $appRole = AppRoleGrants::quotedRole();
+
+        if (AppRoleGrants::roleExistsOrWarn()) {
+            DB::statement("GRANT UPDATE (before_data, after_data) ON audit_log TO {$appRole}");
         }
 
         // M7 definierte nur SELECT- und INSERT-Policies für audit_log -- ohne
@@ -40,8 +43,10 @@ return new class extends Migration
     {
         DB::statement('DROP POLICY IF EXISTS audit_log_update_isolation ON audit_log');
 
-        if (DB::selectOne("SELECT 1 FROM pg_roles WHERE rolname = 'boatingschool_app'")) {
-            DB::statement('REVOKE UPDATE (before_data, after_data) ON audit_log FROM boatingschool_app');
+        $appRole = AppRoleGrants::quotedRole();
+
+        if (AppRoleGrants::roleExistsOrWarn()) {
+            DB::statement("REVOKE UPDATE (before_data, after_data) ON audit_log FROM {$appRole}");
         }
     }
 };

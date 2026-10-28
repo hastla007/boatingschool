@@ -4,13 +4,16 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
+use App\Models\Coupon;
 use App\Models\CourseDefinition;
 use App\Models\Entitlement;
+use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
+use App\Services\CouponRedemptionService;
 use App\Services\EntitlementService;
 use App\Support\TenantContext;
-use Carbon\Carbon;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
@@ -22,21 +25,13 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class EntitlementController extends Controller
 {
-    public function store(Request $request, TenantContext $tenantContext, EntitlementService $entitlements): Response
+    public function store(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CouponRedemptionService $redemption): Response
     {
         $tenant = $tenantContext->tenant();
 
         $validated = $request->validate([
             'user_id' => ['required', 'uuid'],
             'course_id' => ['required', 'uuid'],
-            // Bug-Review B14 (Folgefehler): endOfValidityDay() normalisiert
-            // nur auf das Ende des gewählten Tages -- ein tatsächlich in der
-            // Vergangenheit liegendes Datum (nicht nur "heute") lag damit
-            // immer noch vor valid_from (jetzt) und verletzte weiterhin den
-            // DB-Check-Constraint (HTTP 500). after_or_equal:today lässt
-            // "heute" bewusst zu (siehe endOfValidityDay), weist aber jedes
-            // frühere Datum schon in der Validierung zurück.
-            'valid_until' => ['nullable', 'date', 'after_or_equal:today'],
         ]);
 
         $user = User::findOrFail($validated['user_id']);
@@ -46,23 +41,11 @@ class EntitlementController extends Controller
         // beliebige User-UUID (z. B. aus einer anderen Bootsschule) als
         // Teilnehmer dieser Bootsschule freischalten, und ein sitewide oder
         // mandantenseitig deaktivierter Kurs trotzdem freischalten.
+        // Bug-Review T8: "eurer"/"eure" ist die informelle ihr-Form -- der
+        // restliche Admin-Bereich siezt durchgehend.
         $isMember = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $user->id)->exists();
-        abort_unless($isMember, 404, 'Dieser Nutzer gehört nicht zu eurer Bootsschule.');
-        abort_unless($entitlements->isOfferable($tenant, $course), 404, 'Dieser Kurs ist für eure Bootsschule nicht verfügbar.');
-
-        $validUntil = $this->endOfValidityDay($validated['valid_until'] ?? null);
-
-        // Bug-Review B14 (Folgefehler): "heute" bestand die Validierung oben
-        // (after_or_equal:today, in UTC geprüft), aber endOfValidityDay()
-        // interpretiert den gewählten Tag in deutscher Zeit (siehe N18) --
-        // zwischen dem deutschen Tagesende (in UTC) und dem UTC-Tagesende
-        // (also etwa 22/23 bis 24 Uhr UTC) liefert "heute" trotzdem bereits
-        // ein in der Vergangenheit liegendes Ergebnis und verletzte
-        // weiterhin den DB-Check-Constraint (HTTP 500) statt einen
-        // Validierungsfehler zu liefern.
-        if ($validUntil && $validUntil->lte(now())) {
-            return back()->withErrors(['valid_until' => 'Das gewählte Datum liegt bereits in der Vergangenheit.']);
-        }
+        abort_unless($isMember, 404, 'Dieser Nutzer gehört nicht zu Ihrer Bootsschule.');
+        abort_unless($entitlements->isOfferable($tenant, $course), 404, 'Dieser Kurs ist für Ihre Bootsschule nicht verfügbar.');
 
         // Bug-Review B14: zwischen der Prüfung "noch nicht gebucht" und dem
         // eigentlichen INSERT lag kein Lock -- ein Doppelklick auf
@@ -71,18 +54,74 @@ class EntitlementController extends Controller
         // eine Zeile für diese Tenant/Nutzer/Kurs-Kombination (egal welchen
         // Status, z. B. eine zuvor widerrufene), wird sie reaktiviert statt
         // dupliziert.
-        return DB::transaction(function () use ($tenant, $user, $course, $validUntil, $request) {
+        //
+        // Bug-Review (Hoch): dieser "Kurs freischalten"-Weg legte bisher
+        // IMMER ein Entitlement an (source_type=manual, valid_until=null,
+        // also unbefristet), ohne jemals einen Coupon-Code zu verbrauchen --
+        // das Dropdown im Teilnehmer-Tab zeigt dabei aber ausdrücklich an,
+        // wie viele eigene, noch nicht eingelöste Codes die Bootsschule je
+        // Kurs besitzt ($freeCourseCouponCounts, AdminDashboardController),
+        // und deaktiviert die Option sogar bei 0 ("keine Codes"). Diese
+        // Anzeige suggerierte also einen Verbrauch, der nie stattfand: die
+        // Freischaltung blieb unbegrenzt oft kostenlos möglich, unabhängig
+        // vom tatsächlichen Code-Bestand. Ein verfügbarer, der Bootsschule
+        // gehörender Kurs-Coupon ist jetzt Voraussetzung und wird dabei
+        // verbraucht -- derselbe Mechanismus wie beim direkten
+        // "Code zuweisen" im Coupons-Tab (Admin\CouponController::assign)
+        // bzw. der Selbst-Einlösung (CouponRedeemController), nur ohne dass
+        // der Admin selbst erst einen konkreten Code heraussuchen muss.
+        // Bereits AKTIV freigeschaltete Kurse bleiben dabei bewusst ein
+        // kostenloser No-Op (Doppelklick-Schutz oben) -- nur eine
+        // Neuvergabe (oder Reaktivierung eines gesperrten/widerrufenen
+        // Zugangs) verbraucht einen Code.
+        return DB::transaction(function () use ($tenant, $user, $course, $request, $redemption) {
             DB::statement('SELECT pg_advisory_xact_lock(hashtext(?))', [$tenant->id.':'.$user->id.':'.$course->id]);
 
             $entitlement = Entitlement::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)->first();
+
+            if ($entitlement && $entitlement->status === 'active') {
+                return back()->with('status', 'Kurs freigeschaltet.');
+            }
+
+            // Bug-Review F1: analog zu CouponRedemptionService::
+            // redeemForRenewal() (Bug-Review R4-7) soll ein bewusst
+            // widerrufener Zugang nicht einfach durch einen neuen Code
+            // zurückkommen -- sonst ließe sich die bewusst HÄRTERE
+            // "Widerrufen"-Entscheidung (z. B. bei Betrug/Rückbuchung)
+            // allein dadurch unterlaufen, dass irgendwann wieder ein freier
+            // Code für diesen Kurs verfügbar ist. Dafür ist die eigene,
+            // ausdrückliche "Widerruf aufheben"-Aktion nötig (siehe update()).
+            if ($entitlement && $entitlement->status === 'revoked') {
+                return back()->withErrors(['course_id' => 'Der Zugang zu diesem Kurs wurde widerrufen und kann nicht einfach per neuem Code wiederhergestellt werden -- bitte zuerst den Widerruf bei der bestehenden Buchung aufheben.']);
+            }
+
+            // Bug-Review (Manuelle Freischaltung -- Code beliebig gewählt):
+            // ohne ORDER BY lieferte Postgres hier eine für den Admin nicht
+            // nachvollziehbare, letztlich zufällige Reihenfolge -- welcher
+            // der ggf. mehreren freien Codes für diesen Kurs verbraucht
+            // wird, war damit reiner Zufall. ->oldest() macht das
+            // deterministisch (der am längsten ungenutzte Code zuerst) und
+            // damit nachvollziehbar.
+            $coupon = Coupon::where('tenant_id', $tenant->id)
+                ->where('course_id', $course->id)
+                ->where('is_renewal', false)
+                ->whereNull('redeemed_at')
+                ->oldest()
+                ->lockForUpdate()
+                ->first();
+
+            if (! $coupon) {
+                return back()->withErrors(['course_id' => 'Für diesen Kurs ist kein freier Code mehr vorhanden.']);
+            }
+
             $before = $entitlement?->toArray();
 
             $attributes = [
                 'valid_from' => now(),
-                'valid_until' => $validUntil,
+                'valid_until' => now()->copy()->addDays($tenant->branding->course_validity_days),
                 'status' => 'active',
-                'source_type' => 'manual',
-                'source_reference' => 'admin:'.$request->user()->id,
+                'source_type' => 'coupon',
+                'source_reference' => $coupon->code,
             ];
 
             if ($entitlement) {
@@ -96,80 +135,216 @@ class EntitlementController extends Controller
                 ]);
             }
 
+            $coupon->update([
+                'redeemed_by_user_id' => $user->id,
+                'redeemed_tenant_id' => $tenant->id,
+                'redeemed_at' => now(),
+            ]);
+
+            // Bug-Review (Manuelle Freischaltung verliert gebündelte
+            // Zusatzprodukte): dieser Weg erzeugte das Entitlement bisher
+            // komplett losgelöst von CouponRedemptionService::
+            // redeemForCourse() -- bündelte der hier verbrauchte Coupon
+            // zusätzliche Produkte (z. B. "Lernplattform inkl.
+            // Willkommensbox", siehe coupon_option_product), gingen diese
+            // stillschweigend verloren, weil applyOptionProducts() nie
+            // aufgerufen wurde. Der Lerner hatte danach den Kurs, aber
+            // keines der mitgekauften Zusatzprodukte.
+            $redemption->applyOptionProducts($coupon, $tenant, $user);
+
             AuditLog::record($tenant->id, $request->user()->id, 'entitlement.create', 'entitlement', $entitlement->id, $before, $entitlement->fresh()->toArray());
 
             return back()->with('status', 'Kurs freigeschaltet.');
         });
     }
 
+    /**
+     * Bug-Review (Kostenlose Umgehungen -- Verlängern/Widerruf aufheben):
+     * "Verlängern" ließ bisher ein beliebiges, frei gewähltes Datum zu
+     * (auch weit in der Zukunft, z. B. 2099) -- völlig unabhängig von den
+     * eigens dafür verkauften Verlängerungscodes (is_renewal=true), die
+     * damit komplett umgangen wurden. "Widerruf aufheben" stellte einen
+     * bewusst entzogenen Zugang sogar ganz ohne jeden Code wieder her, was
+     * genau die in store() (Bug-Review F1) beschriebene härtere
+     * Widerrufen-Entscheidung im Ergebnis bedeutungslos machte: revoke()
+     * gefolgt von reactivate() kostete zusammen nichts, stellte den
+     * vollen Zugang aber wieder her. Beide Aktionen verbrauchen jetzt
+     * denselben Coupon-Mechanismus wie jede andere Freischaltung --
+     * "Verlängern" einen Verlängerungscode (analog zu
+     * CouponRedemptionService::redeemForRenewal()), "Widerruf aufheben"
+     * einen regulären Kurs-Code (analog zu store()). "Sperren"/
+     * "Entsperren" bleiben dagegen bewusst kostenlos: sie rühren
+     * valid_until nie an, ein entsperrter Zugang bekommt also nur die
+     * ohnehin schon bezahlte Restlaufzeit zurück, keinen zusätzlichen
+     * Wert.
+     */
     public function update(Request $request, TenantContext $tenantContext, Entitlement $entitlement): Response
     {
         abort_unless($entitlement->tenant_id === $tenantContext->id(), 404);
 
         $validated = $request->validate([
             'action' => ['required', 'in:extend,suspend,revoke,reactivate'],
-            // Bug-Review B14 (Folgefehler): siehe store() -- ohne diese
-            // Grenze führte "Verlängern" mit einem vergangenen Datum
-            // weiterhin zum CHECK-Constraint-Verstoß (HTTP 500).
-            'valid_until' => ['required_if:action,extend', 'nullable', 'date', 'after_or_equal:today'],
         ]);
 
-        $before = $entitlement->toArray();
+        $tenant = $tenantContext->tenant();
 
-        // Bug-Review B14 (Folgefehler): siehe store() -- derselbe schmale
-        // Zeitfenster-Fall (etwa 22/23 bis 24 Uhr UTC) führte auch hier
-        // trotz bestandener after_or_equal:today-Validierung weiterhin zum
-        // CHECK-Constraint-Verstoß (HTTP 500).
-        $validUntil = $validated['action'] === 'extend' ? $this->endOfValidityDay($validated['valid_until']) : null;
-        if ($validated['action'] === 'extend' && $validUntil->lte(now())) {
-            return back()->withErrors(['valid_until' => 'Das gewählte Datum liegt bereits in der Vergangenheit.']);
-        }
+        return DB::transaction(function () use ($validated, $entitlement, $tenant, $request) {
+            DB::statement('SELECT pg_advisory_xact_lock(hashtext(?))', [$tenant->id.':'.$entitlement->user_id.':'.$entitlement->course_id]);
+            $entitlement->refresh();
 
-        match ($validated['action']) {
-            // Bug-Review B14: ein reines Datum ("gültig bis heute") wurde
-            // bisher unverändert als valid_until gespeichert -- das
-            // entspricht Mitternacht, also dem BEGINN des Tages, nicht
-            // seinem Ende. Der Zugang endete damit schon am gewählten Tag
-            // selbst statt erst danach, und ein "bis heute" konnte sogar vor
-            // valid_from (jetzt) liegen und am CHECK-Constraint der
-            // Datenbank scheitern (HTTP 500). endOfValidityDay() verschiebt
-            // auf das Ende des gewählten Tages.
-            // Bug-Review N6: status wechselt nie automatisch zurück auf
-            // "active" (das erledigt nur ExpireEntitlements in Richtung
-            // "expired", nie umgekehrt) -- isCurrentlyActive() verlangt
-            // aber zwingend status=active, unabhängig von valid_until.
-            // Ohne das zusätzliche Update blieb ein bereits abgelaufener
-            // (status=expired) Zugang trotz neuem, in der Zukunft
-            // liegendem valid_until wirkungslos gesperrt.
-            'extend' => $entitlement->update(['valid_until' => $validUntil, 'status' => 'active']),
-            'suspend' => $entitlement->update(['status' => 'suspended']),
-            'revoke' => $entitlement->update(['status' => 'revoked']),
-            'reactivate' => $entitlement->update(['status' => 'active']),
-        };
+            $before = $entitlement->toArray();
 
-        AuditLog::record(
-            $tenantContext->id(), $request->user()->id, 'entitlement.'.$validated['action'],
-            'entitlement', $entitlement->id, $before, $entitlement->fresh()->toArray()
-        );
+            $error = match ($validated['action']) {
+                'extend' => $this->extend($entitlement, $tenant),
+                'suspend' => $this->suspend($entitlement),
+                'revoke' => $this->revoke($entitlement),
+                'reactivate' => $this->reactivate($entitlement, $tenant),
+            };
 
-        return back()->with('status', 'Entitlement aktualisiert.');
+            if ($error) {
+                return $error;
+            }
+
+            AuditLog::record(
+                $tenant->id, $request->user()->id, 'entitlement.'.$validated['action'],
+                'entitlement', $entitlement->id, $before, $entitlement->fresh()->toArray()
+            );
+
+            return back()->with('status', 'Entitlement aktualisiert.');
+        });
     }
 
     /**
-     * Ein über ein Datumsfeld gewähltes "gültig bis" bezeichnet den letzten
-     * Tag, an dem der Zugang noch bestehen soll -- gespeichert wird deshalb
-     * das Ende dieses Tages (23:59:59), nicht sein Beginn (Mitternacht).
-     * Siehe B14.
+     * Verlängert um tenant_branding.course_validity_days ab dem späteren
+     * von aktuellem valid_until und jetzt -- eine ungenutzte Restlaufzeit
+     * geht dadurch nicht verloren (analog zu CouponRedemptionService::
+     * redeemForRenewal()). unbefristete Zugänge (valid_until=null) lassen
+     * sich nicht weiter verlängern, da sie bereits keine Grenze haben.
      *
-     * Bug-Review N18: der Admin wählt diesen Tag im Datums-Feld in
-     * deutscher Zeit, aber Carbon::parse() interpretierte ihn ohne
-     * Zeitzonen-Angabe in APP_TIMEZONE (bewusst UTC, siehe GermanTime) --
-     * endOfDay() endete dadurch tatsächlich erst 1-2 Stunden nach
-     * Mitternacht deutscher Zeit des FOLGETAGS, statt wie beabsichtigt am
-     * Ende des gewählten Tages in deutscher Zeit.
+     * Bug-Review F1 (weiterhin gültig): der Status selbst bleibt dabei
+     * unberührt, außer er wechselt aus "expired" zurück zu "active" (Bug-
+     * Review N6) -- eine bewusste Sperrung oder ein Widerruf lässt sich
+     * dadurch weiterhin nicht allein durch eine neue Laufzeit aufheben.
      */
-    private function endOfValidityDay(?string $value): ?Carbon
+    private function extend(Entitlement $entitlement, Tenant $tenant): ?RedirectResponse
     {
-        return $value ? Carbon::parse($value, 'Europe/Berlin')->endOfDay()->setTimezone('UTC') : null;
+        // Bug-Review T5: ohne diese Prüfung verbrauchte "Verlängern" bei
+        // einem widerrufenen Zugang trotzdem einen vollwertigen
+        // Verlängerungscode und erweiterte valid_until -- der Status
+        // selbst bleibt laut Kommentar oben aber bewusst unberührt, außer
+        // er wechselt von "expired" zu "active" (Bug-Review N6). Bei
+        // status=revoked greift das nie, der Code verfiel also wirkungslos:
+        // der Zugang blieb weiterhin gesperrt, EntitlementService prüft
+        // status unabhängig von valid_until. Reaktivieren eines Widerrufs
+        // läuft stattdessen ausschließlich über die eigene
+        // "Widerruf aufheben"-Aktion (reactivate()), die dafür einen
+        // regulären Kurs-Code verlangt.
+        if ($entitlement->status === 'revoked') {
+            return back()->withErrors(['action' => 'Der Zugang zu diesem Kurs wurde widerrufen und lässt sich nicht einfach verlängern -- bitte zuerst den Widerruf aufheben.']);
+        }
+
+        if ($entitlement->valid_until === null) {
+            return back()->withErrors(['action' => 'Dieser Zugang ist bereits unbefristet gültig.']);
+        }
+
+        $coupon = Coupon::where('tenant_id', $tenant->id)
+            ->where('course_id', $entitlement->course_id)
+            ->where('is_renewal', true)
+            ->whereNull('redeemed_at')
+            ->oldest()
+            ->lockForUpdate()
+            ->first();
+
+        if (! $coupon) {
+            return back()->withErrors(['action' => 'Für diesen Kurs ist kein freier Verlängerungscode mehr vorhanden.']);
+        }
+
+        $base = $entitlement->valid_until->gt(now()) ? $entitlement->valid_until : now();
+
+        $entitlement->update([
+            'valid_until' => $base->copy()->addDays($tenant->branding->course_validity_days),
+            'status' => $entitlement->status === 'expired' ? 'active' : $entitlement->status,
+        ]);
+
+        $coupon->update([
+            'redeemed_by_user_id' => $entitlement->user_id,
+            'redeemed_tenant_id' => $tenant->id,
+            'redeemed_at' => now(),
+        ]);
+
+        return null;
+    }
+
+    /** Kostenloser, jederzeit rückgängig machbarer Zustand -- rührt valid_until nie an. */
+    private function suspend(Entitlement $entitlement): ?RedirectResponse
+    {
+        $entitlement->update(['status' => 'suspended']);
+
+        return null;
+    }
+
+    private function revoke(Entitlement $entitlement): ?RedirectResponse
+    {
+        $entitlement->update(['status' => 'revoked']);
+
+        return null;
+    }
+
+    /**
+     * "Entsperren" (status=suspended) bleibt kostenlos: die Sperrung hat
+     * nie valid_until verändert, es wird also kein zusätzlicher Zugang
+     * über das bereits Bezahlte hinaus gewährt, nur die Pause
+     * rückgängig gemacht. "Widerruf aufheben" (status=revoked) braucht
+     * dagegen einen vollwertigen Kurs-Code, genau wie eine Neuvergabe
+     * über store() -- inklusive frischer Laufzeit. Gebündelte
+     * Zusatzprodukte werden hier NICHT erneut vergeben, siehe
+     * Bug-Review-Kommentar unten.
+     */
+    private function reactivate(Entitlement $entitlement, Tenant $tenant): ?RedirectResponse
+    {
+        if ($entitlement->status !== 'revoked') {
+            $entitlement->update(['status' => 'active']);
+
+            return null;
+        }
+
+        $coupon = Coupon::where('tenant_id', $tenant->id)
+            ->where('course_id', $entitlement->course_id)
+            ->where('is_renewal', false)
+            ->whereNull('redeemed_at')
+            ->oldest()
+            ->lockForUpdate()
+            ->first();
+
+        if (! $coupon) {
+            return back()->withErrors(['action' => 'Für diesen Kurs ist kein freier Code mehr vorhanden, um den Widerruf aufzuheben.']);
+        }
+
+        $entitlement->update([
+            'valid_from' => now(),
+            'valid_until' => now()->copy()->addDays($tenant->branding->course_validity_days),
+            'status' => 'active',
+            'source_type' => 'coupon',
+            'source_reference' => $coupon->code,
+        ]);
+
+        $coupon->update([
+            'redeemed_by_user_id' => $entitlement->user_id,
+            'redeemed_tenant_id' => $tenant->id,
+            'redeemed_at' => now(),
+        ]);
+
+        // Bug-Review (Bezahlte Zusatzprodukte stillschweigend nicht
+        // angelegt): hier stand bisher applyOptionProducts($coupon, ...),
+        // um dasselbe gebündelte Zusatzprodukt (z. B. die Willkommensbox)
+        // erneut zu vergeben -- revoke() oben löscht aber nie die
+        // ProductPurchase-Zeile der ursprünglichen Einlösung, der Lerner
+        // besitzt das Produkt also bereits durchgehend über den gesamten
+        // Widerrufen/Aufheben-Zyklus. Der erneute Aufruf war daher nie
+        // nötig und legte (nach dem T6-Fix) wegen der dortigen, zu breiten
+        // Dopplungsprüfung sogar ein per ANDEREM Kurs/Coupon gebündeltes,
+        // aber zufällig gleiches Produkt fälschlich gar nicht erst an.
+
+        return null;
     }
 }

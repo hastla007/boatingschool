@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Superadmin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\Entitlement;
 use App\Models\ExamSession;
 use App\Models\ProductPurchase;
@@ -103,6 +104,16 @@ class UserController extends Controller
             "Einladungsmail neuer Nutzer {$user->id}"
         );
 
+        // Bug-Review (Superadmin-Audit-Lücken): das Anlegen eines Nutzers
+        // über diese plattformweite Seite wurde bisher gar nicht
+        // protokolliert, anders als z. B. das spätere Sperren/Freigeben
+        // über update() (Sicherheitsreview S4).
+        AuditLog::record($validated['tenant_id'] ?? null, $request->user()->id, 'superadmin.user.create', 'app_user', $user->id, null, [
+            'email' => $user->email,
+            'tenant_id' => $validated['tenant_id'] ?? null,
+            'role' => $validated['role'] ?? null,
+        ]);
+
         $status = $mailSent
             ? 'Nutzer angelegt.'
             : 'Nutzer angelegt, die Einladungsmail konnte aber nicht versendet werden -- bitte den Zugang über "Passwort vergessen" erneut anstoßen.';
@@ -128,7 +139,11 @@ class UserController extends Controller
             ->get(['tenant_id', 'question_id']);
 
         $results = $entitlements->map(function (Entitlement $entitlement) use ($masteredProgress) {
-            $questionIds = $entitlement->course->modules->flatMap(fn ($m) => $m->questions)->pluck('id')->unique();
+            // Bug-Review F7: eine deaktivierte Frage zählte hier weiter mit,
+            // obwohl sie nie "gefestigt" werden kann (siehe
+            // CourseProgressService::overallPercent, dessen Formel hier aus
+            // Performance-Gründen dupliziert ist).
+            $questionIds = $entitlement->course->modules->flatMap(fn ($m) => $m->questions)->where('active', true)->pluck('id')->unique();
             $total = max($questionIds->count(), 1);
             $mastered = $masteredProgress
                 ->where('tenant_id', $entitlement->tenant_id)
@@ -142,7 +157,16 @@ class UserController extends Controller
         });
 
         $examResults = ExamSession::where('user_id', $user->id)->where('status', 'evaluated')
-            ->with('course', 'paper')->orderByDesc('submitted_at')->get();
+            ->with('course', 'paper', 'questions.revision')->orderByDesc('submitted_at')->get();
+
+        // Bug-Review (FKN offene Fragen): siehe ExamController::result() --
+        // dieselbe Selbsteinschätzung-Transparenz auch für den Superadmin,
+        // der die Prüfungs-Historie eines Nutzers einsieht.
+        $examResults->each(function (ExamSession $session) {
+            $openTextQuestions = $session->questions->where('revision.question_type', 'open_text');
+            $session->openTextCount = $openTextQuestions->count();
+            $session->openTextCorrect = $openTextQuestions->where('correct', true)->count();
+        });
 
         $productPurchases = ProductPurchase::where('user_id', $user->id)->with('product', 'tenant')
             ->orderByDesc('created_at')->get();
@@ -154,12 +178,19 @@ class UserController extends Controller
             'examResults' => $examResults,
             'productPurchases' => $productPurchases,
             'tenants' => Tenant::orderBy('name')->get(),
-            'countries' => Countries::OPTIONS,
         ]);
     }
 
     public function update(Request $request, User $user): Response
     {
+        // Sicherheitsreview S3: street/postal_code/city/country/birthdate
+        // liegen seit Migration 000469 je Mitgliedschaft auf tenant_user,
+        // nicht mehr kontoweit auf app_user -- ein Konto kann bei mehreren
+        // Bootsschulen Mitglied sein, jede mit ihrer eigenen Kopie. Diese
+        // plattformweite Superadmin-Seite kennt keine einzelne Bootsschule,
+        // der sie eine Adresse zuordnen könnte; diese Felder editiert
+        // deshalb nur noch die jeweilige Bootsschule selbst (Profil/
+        // Teilnehmerverwaltung), nicht mehr der Superadmin.
         $validated = $request->validate([
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
@@ -168,10 +199,6 @@ class UserController extends Controller
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:app_user,email,'.$user->id],
             'status' => ['required', 'in:invited,active,suspended,closed'],
             'phone' => ['nullable', 'string', 'max:40'],
-            'street' => ['nullable', 'string', 'max:255'],
-            'postal_code' => ['nullable', 'string', 'max:20'],
-            'city' => ['nullable', 'string', 'max:255'],
-            'country' => ['nullable', 'string', 'in:'.implode(',', Countries::OPTIONS)],
             'is_superadmin' => ['sometimes', 'boolean'],
         ]);
 
@@ -188,9 +215,26 @@ class UserController extends Controller
             $user->email_verified_at = null;
         }
 
+        // Sicherheitsreview S4: Superadmin-Aktionen -- insbesondere Sperren
+        // (status) und das Erteilen/Entziehen von is_superadmin -- wurden
+        // bisher gar nicht protokolliert.
+        //
+        // Bug-Review (Superadmin-Audit-Lücken): email fehlte hier bisher --
+        // eine vom Superadmin an dieser Stelle geänderte E-Mail-Adresse
+        // (anders als die eigene, bestätigungspflichtige Änderung über
+        // ProfileController) wurde dadurch protokolliert, ohne dass
+        // nachvollziehbar war, WELCHE Adresse sich geändert hat.
+        $before = ['status' => $user->status, 'is_superadmin' => $user->is_superadmin, 'email' => $user->email];
+
         $wasActive = $user->status === 'active';
         $user->forceFill(['is_superadmin' => $isSuperadmin]);
         $user->update($validated);
+
+        AuditLog::record(null, $request->user()->id, 'superadmin.user.update', 'app_user', $user->id, $before, [
+            'status' => $validated['status'],
+            'is_superadmin' => $isSuperadmin,
+            'email' => $validated['email'],
+        ]);
 
         // Eine Sperrung soll sofort wirken, nicht erst wenn eine laufende
         // Session neu authentifiziert wird (Sicherheitsreview M1). Das
@@ -213,10 +257,21 @@ class UserController extends Controller
             'role' => ['required', 'in:owner,admin,instructor,staff,learner,support'],
         ]);
 
+        // Sicherheitsreview S4: eine über den Superadmin zugewiesene/
+        // geänderte Rolle (z. B. "owner" einer Bootsschule) wurde bisher gar
+        // nicht protokolliert.
+        $before = TenantUser::withoutGlobalScopes()
+            ->where('tenant_id', $validated['tenant_id'])->where('user_id', $user->id)
+            ->first()?->only(['role', 'status']);
+
         TenantUser::updateOrCreate(
             ['tenant_id' => $validated['tenant_id'], 'user_id' => $user->id],
             ['role' => $validated['role'], 'status' => 'active']
         );
+
+        AuditLog::record($validated['tenant_id'], $request->user()->id, 'superadmin.user.membership_update', 'tenant_user', $user->id, $before, [
+            'role' => $validated['role'], 'status' => 'active',
+        ]);
 
         return back()->with('status', 'Bootsschul-Zuordnung gespeichert.');
     }

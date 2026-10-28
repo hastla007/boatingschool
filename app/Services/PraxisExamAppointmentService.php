@@ -48,6 +48,15 @@ class PraxisExamAppointmentService
             throw new RuntimeException('Das Ende muss nach dem Beginn liegen.');
         }
 
+        // Bug-Review F4: exam_date wurde bisher nur als gültiges Datum
+        // validiert (siehe Admin\PraxisExamAppointmentController), nicht
+        // als ZUKÜNFTIGES -- ein Termin ließ sich damit auch für einen
+        // bereits vergangenen Zeitpunkt vorschlagen (und anschließend vom
+        // Lerner "annehmen").
+        if ($examDate->isPast()) {
+            throw new RuntimeException('Der Termin muss in der Zukunft liegen.');
+        }
+
         // Bug-Review N16: zwischen den Prüfungen unten (bereits fixiert?
         // noch ein Vorschlag offen? nächste freie Slot-Nummer?) und dem
         // eigentlichen INSERT lag kein Lock -- ein Doppelklick auf
@@ -81,6 +90,14 @@ class PraxisExamAppointmentService
                 throw new RuntimeException('Der Prüfungstermin muss zuerst fixiert werden, bevor weitere Termine vorgeschlagen werden können.');
             }
 
+            // Bug-Review F4: Zusatztermine (Praxisstunden, Navigationsstunde
+            // o. ä.) bauen inhaltlich auf dem fixierten Prüfungstermin auf --
+            // ohne diese Prüfung ließ sich trotzdem ein Zusatztermin VOR dem
+            // Prüfungstermin anlegen.
+            if ($examDate->lessThan($submission->confirmed_exam_date)) {
+                throw new RuntimeException('Dieser Termin darf nicht vor dem fixierten Prüfungstermin liegen.');
+            }
+
             if (trim((string) $label) === '') {
                 throw new RuntimeException('Bitte eine Bezeichnung für den Termin angeben.');
             }
@@ -94,9 +111,26 @@ class PraxisExamAppointmentService
                 }
 
                 $label = 'Prüfungstermin';
-            } elseif ($submission->isPracticeAppointmentConfirmed($slot)) {
-                throw new RuntimeException('Für diesen Termin liegt bereits eine Bestätigung vor.');
             } else {
+                // Bug-Review (Zusatztermine -- Prüfung über Parameter slot
+                // umgehbar): ein frei gewählter, bislang unbenutzter Slot > 0
+                // (z. B. slot=99 statt des vom Formular vorgesehenen leeren
+                // Werts) wurde hier bisher wie ein bereits BESTEHENDER
+                // Zusatztermin behandelt -- ohne jede der Prüfungen, die beim
+                // slot=null-Zweig oben für NEUE Zusatztermine gelten: dass der
+                // Prüfungstermin zuerst fixiert sein muss, dass der neue
+                // Termin nicht vor dem fixierten Prüfungstermin liegen darf,
+                // und dass eine Bezeichnung angegeben wird. Ein neuer
+                // Zusatztermin-Slot kann daher ausschließlich über slot =
+                // null entstehen; jeder andere Slot muss bereits existieren.
+                if ($submission->latestAppointmentForSlot($slot) === null) {
+                    throw new RuntimeException('Unbekannter Termin-Slot.');
+                }
+
+                if ($submission->isPracticeAppointmentConfirmed($slot)) {
+                    throw new RuntimeException('Für diesen Termin liegt bereits eine Bestätigung vor.');
+                }
+
                 $label = $submission->labelForSlot($slot) ?? $label;
             }
 
@@ -125,23 +159,124 @@ class PraxisExamAppointmentService
         ]);
     }
 
+    /**
+     * Bug-Review F4: zwei Tabs/Geräte, die beide "Annehmen"/"Ablehnen" auf
+     * denselben Terminvorschlag schicken, lasen hier bisher beide
+     * isPending() = true, bevor eine der beiden Anfragen überhaupt
+     * geschrieben hatte (klassisches Read-Then-Write-Race) -- die zweite
+     * Anfrage überschrieb die erste stillschweigend, ohne jeden Fehler.
+     * Bei "angenommen" gefolgt von "abgelehnt" blieb dadurch sogar
+     * praxis_form_submission.confirmed_exam_date gesetzt, während der
+     * Termin selbst als abgelehnt markiert war -- ein inkonsistenter
+     * Zustand. Der Advisory-Lock serialisiert das pro Termin (analog zu
+     * propose() oben, pro Anmeldung): die zweite Anfrage sieht nach dem
+     * Erwerb des Locks den von der ersten bereits geschriebenen Stand und
+     * bricht über die bestehende isPending()-Prüfung kontrolliert ab,
+     * statt ihn stillschweigend zu überschreiben.
+     */
     public function respond(PraxisExamAppointment $appointment, string $decision, ?string $comment): void
     {
-        if (! $appointment->isPending()) {
-            throw new RuntimeException('Zu diesem Terminvorschlag liegt bereits eine Rückmeldung vor.');
-        }
+        DB::transaction(function () use ($appointment, $decision, $comment) {
+            DB::statement('SELECT pg_advisory_xact_lock(hashtext(?))', [$appointment->id]);
+            $appointment->refresh();
 
-        $appointment->update([
-            'response' => $decision,
-            'response_comment' => $comment,
-            'responded_at' => now(),
-        ]);
+            if (! $appointment->isPending()) {
+                throw new RuntimeException('Zu diesem Terminvorschlag liegt bereits eine Rückmeldung vor.');
+            }
 
-        // Zusätzliche Termine (slot >= 1) brauchen keine eigene Spalte --
-        // ihr fixierter Termin wird direkt aus dem angenommenen Datensatz
-        // gelesen (siehe PraxisFormSubmission::isPracticeAppointmentConfirmed).
-        if ($decision === 'accepted' && $appointment->slot === 0) {
-            $appointment->submission->update(['confirmed_exam_date' => $appointment->exam_date]);
-        }
+            // Bug-Review F4: ein bereits verstrichener Termin ließ sich
+            // bisher trotzdem noch annehmen (ablehnen bleibt erlaubt -- das
+            // bringt unabhängig vom Zeitpunkt einen neuen Vorschlag an).
+            if ($decision === 'accepted' && $appointment->exam_date->isPast()) {
+                throw new RuntimeException('Dieser Termin liegt bereits in der Vergangenheit und kann nicht mehr angenommen werden -- bitte um einen neuen Vorschlag bitten.');
+            }
+
+            $appointment->update([
+                'response' => $decision,
+                'response_comment' => $comment,
+                'responded_at' => now(),
+            ]);
+
+            // Zusätzliche Termine (slot >= 1) brauchen keine eigene Spalte
+            // -- ihr fixierter Termin wird direkt aus dem angenommenen
+            // Datensatz gelesen (siehe PraxisFormSubmission::
+            // isPracticeAppointmentConfirmed).
+            if ($decision === 'accepted' && $appointment->slot === 0) {
+                $appointment->submission->update(['confirmed_exam_date' => $appointment->exam_date]);
+            }
+        });
+    }
+
+    /**
+     * Bug-Review F4: die Bootsschule konnte einen eigenen, noch offenen
+     * Vorschlag bisher nicht zurückziehen (z. B. bei einem Tippfehler im
+     * Datum oder einem inzwischen nicht mehr verfügbaren Ort) -- einzige
+     * Möglichkeit war, auf die Rückmeldung des Lerners zu warten. Ein
+     * zurückgezogener Vorschlag räumt die Runde verbraucht, genau wie eine
+     * echte Ablehnung durch den Lerner -- die nächste Runde kann sofort
+     * vorgeschlagen werden.
+     *
+     * Bug-Review (Zurückziehen/Absagen ungesperrt gegen Annehmen): anders
+     * als respond() lief diese Methode bisher ohne den Advisory-Lock aus
+     * respond() -- nimmt der Lerner einen Vorschlag an, während die
+     * Bootsschule praktisch gleichzeitig genau diesen Vorschlag zurückzieht,
+     * konnte isPending() hier noch den alten, noch ausstehenden Stand lesen
+     * und ihn anschließend auf "withdrawn" überschreiben, nachdem respond()
+     * ihn bereits als "accepted" samt confirmed_exam_date fixiert hatte --
+     * derselbe inkonsistente Zustand wie beim in respond() bereits
+     * behobenen Race, nur über zwei verschiedene Methoden statt zwei
+     * Aufrufe derselben. Derselbe Lock-Schlüssel (hashtext() über die
+     * Termin-ID) serialisiert withdraw() jetzt auch gegen respond().
+     */
+    public function withdraw(PraxisExamAppointment $appointment): void
+    {
+        DB::transaction(function () use ($appointment) {
+            DB::statement('SELECT pg_advisory_xact_lock(hashtext(?))', [$appointment->id]);
+            $appointment->refresh();
+
+            if (! $appointment->isPending()) {
+                throw new RuntimeException('Dieser Vorschlag wartet nicht mehr auf eine Rückmeldung.');
+            }
+
+            $appointment->update([
+                'response' => 'withdrawn',
+                'responded_at' => now(),
+            ]);
+        });
+    }
+
+    /**
+     * Bug-Review F4: ein bereits ANGENOMMENER (fixierter) Termin ließ sich
+     * nicht mehr absagen -- z. B. wenn der Prüfungsausschuss den Termin
+     * doch nicht wahrnehmen kann. Bei slot 0 (Prüfungstermin) wird dabei
+     * auch confirmed_exam_date wieder geleert, damit ein neuer
+     * Prüfungstermin vorgeschlagen werden kann (proposeLocked() lehnt
+     * slot 0 sonst ab, solange isExamDateConfirmed() noch zutrifft).
+     *
+     * Bug-Review (Zurückziehen/Absagen ungesperrt gegen Annehmen): siehe
+     * withdraw() oben -- dieselbe Lücke bestand hier gegenüber einer
+     * gleichzeitigen Ablehnung durch den Lerner (respond() mit
+     * "declined"): cancel() prüfte response auf einer womöglich bereits
+     * veralteten Kopie, bevor respond() seinen Lock überhaupt erwarb, und
+     * konnte den inzwischen abgelehnten Termin anschließend trotzdem auf
+     * "cancelled" setzen und confirmed_exam_date erneut (fälschlich)
+     * leeren. Derselbe Lock-Schlüssel wie in respond()/withdraw() oben.
+     */
+    public function cancel(PraxisExamAppointment $appointment): void
+    {
+        DB::transaction(function () use ($appointment) {
+            DB::statement('SELECT pg_advisory_xact_lock(hashtext(?))', [$appointment->id]);
+            $appointment->refresh();
+
+            if ($appointment->response !== 'accepted') {
+                throw new RuntimeException('Nur ein bereits angenommener Termin kann abgesagt werden.');
+            }
+
+            $appointment->update(['response' => 'cancelled']);
+
+            if ($appointment->slot === 0) {
+                $appointment->submission->update(['confirmed_exam_date' => null]);
+            }
+        });
     }
 }

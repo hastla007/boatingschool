@@ -19,7 +19,11 @@ class VerifySupportEmail extends Mailable
 
     public function build(): self
     {
-        return $this->subject('Bitte bestätige die Support-E-Mail für '.$this->tenantName)
+        // Bug-Review (Du/Sie im Admin-Bereich -- weitere Reste): die Mail
+        // geht an die Support-Adresse der Bootsschule, die der Admin selbst
+        // im Branding-Tab (siezt durchgehend) hinterlegt hat -- der Betreff
+        // duzte trotzdem.
+        return $this->subject('Bitte bestätigen Sie die Support-E-Mail für '.$this->tenantName)
             ->view('emails.verify-support-email');
     }
 }

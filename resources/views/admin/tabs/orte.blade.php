@@ -1,7 +1,11 @@
+{{-- Bug-Review (Du/Sie im Admin-Bereich gemischt): der restliche
+     Admin-Bereich (siehe tabs/dashboard.blade.php, tabs/branding.blade.php)
+     siezt durchgehend -- hier stand bisher als einzige Stelle die
+     Du-Form. --}}
 <p class="text-slate-500 mb-6">
-    Hier kannst du einen oder mehrere Orte für Praxis &amp; Prüfung anlegen. Dein Kunde wählt im Praxisformular
+    Hier können Sie einen oder mehrere Orte für Praxis &amp; Prüfung anlegen. Ihr Kunde wählt im Praxisformular
     immer den Praxisort &mdash; der zugehörige Prüfungsort ist fix daran gekoppelt (kann mit dem Praxisort
-    identisch sein, z. B. Kurs Binnen: Praxis an Ort X, Prüfung an Ort Y). Du kannst mehrere Orte für denselben
+    identisch sein, z. B. Kurs Binnen: Praxis an Ort X, Prüfung an Ort Y). Sie können mehrere Orte für denselben
     Kurs anlegen (z. B. bei mehreren Standorten) und einen Ort mehreren Kursen gleichzeitig zuweisen.
 </p>
 
@@ -11,13 +15,13 @@
             <div class="font-medium text-slate-700 dark:text-slate-200">
                 {{ $location->praxis_ort }}
                 @if ($location->pruefung_ort !== $location->praxis_ort)
-                    <span class="text-slate-400 font-normal">&middot; Prüfung: {{ $location->pruefung_ort }}</span>
+                    <span class="text-slate-600 dark:text-slate-400 font-normal">&middot; Prüfung: {{ $location->pruefung_ort }}</span>
                 @endif
                 @if ($location->hasTheorieOrt())
-                    <span class="text-slate-400 font-normal">&middot; Theorie: {{ $location->theorie_ort }}</span>
+                    <span class="text-slate-600 dark:text-slate-400 font-normal">&middot; Theorie: {{ $location->theorie_ort }}</span>
                 @endif
                 @if ($location->pruefungsausschuss)
-                    <span class="text-slate-400 font-normal">&middot; Prüfungsausschuss: {{ $location->pruefungsausschuss->label() }}</span>
+                    <span class="text-slate-600 dark:text-slate-400 font-normal">&middot; Prüfungsausschuss: {{ $location->pruefungsausschuss->label() }}</span>
                 @endif
             </div>
 

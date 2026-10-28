@@ -12,6 +12,24 @@ class CourseSeeder extends Seeder
      * Die elf globalen Kursdefinitionen laut "Course Logic"-Blatt der
      * zentralen Fragenbasis. Global = tenant_id NULL: jede Bootsschule kann
      * daraus ihre Angebote zusammenstellen, ohne Content zu duplizieren.
+     *
+     * Bug-Review (Hoch): dieser Seeder läuft nicht nur einmal auf einer
+     * frischen Installation, sondern wird in Produktion erneut ausgeführt,
+     * sobald ein neues Kursprodukt im Code dazukommt (die einzige Art, wie
+     * ein globaler Kurs hier entsteht). updateOrCreate() überschrieb dabei
+     * bisher BEI JEDEM Lauf name/course_type/status JEDES bereits
+     * existierenden Kurses auf genau diese festen Werte -- ein Kursstatus,
+     * den ein Superadmin über CourseEditorController::update() z. B. auf
+     * "archiviert" gesetzt hatte, sprang beim nächsten Reseed lautlos
+     * zurück auf "published". syncWithoutDetaching() für die Module lief
+     * ebenfalls immer erneut und FÜGTE jedes in der Liste oben genannte
+     * Modul wieder an -- ein per detachModule() bewusst entferntes Modul
+     * kam beim nächsten Reseed also ebenso lautlos zurück. firstOrCreate()
+     * lässt einen bereits existierenden Kurs (und seine Modulzuordnungen)
+     * vollständig unberührt und erzeugt nur wirklich NEUE Kurse mit den
+     * Startwerten -- genau das, was ein Reseed für neue Kursprodukte
+     * braucht, ohne spätere Superadmin-Änderungen an bereits vorhandenen
+     * Kursen zu überschreiben.
      */
     public function run(): void
     {
@@ -33,10 +51,14 @@ class CourseSeeder extends Seeder
         ];
 
         foreach ($courses as $definition) {
-            $course = CourseDefinition::withoutGlobalScopes()->updateOrCreate(
+            $course = CourseDefinition::withoutGlobalScopes()->firstOrCreate(
                 ['tenant_id' => null, 'code' => $definition['code']],
                 ['name' => $definition['name'], 'course_type' => $definition['type'], 'status' => 'published']
             );
+
+            if (! $course->wasRecentlyCreated) {
+                continue;
+            }
 
             foreach (array_values($definition['modules']) as $index => $moduleCode) {
                 $module = Module::where('code', $moduleCode)->firstOrFail();

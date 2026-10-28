@@ -17,6 +17,38 @@ return [
 
     'central_domain' => env('CENTRAL_DOMAIN', 'localhost'),
 
+    // Bug-Review (Hoch): bootstrap/app.php rief env('TRUSTED_PROXIES', '')
+    // bisher DIREKT auf, außerhalb jeder config/*.php-Datei. Nach dem in
+    // Produktion üblichen `php artisan config:cache` (Teil von `php
+    // artisan optimize`) überspringt Laravel das Laden der .env-Datei
+    // komplett -- env() außerhalb einer gecachten Config liefert dann
+    // IMMER den übergebenen Default, unabhängig vom tatsächlichen Wert in
+    // der .env. TRUSTED_PROXIES hätte sich dadurch nach jedem optimize
+    // unbemerkt selbst auf "kein Proxy vertrauenswürdig" zurückgesetzt:
+    // $request->secure() liefert dann nie mehr true (siehe SecurityHeaders,
+    // kein HSTS mehr) und $request->ip() liefert für JEDEN Nutzer hinter
+    // dem Reverse-Proxy dieselbe Proxy-Adresse -- die IP-basierten
+    // throttle-Limits (routes/auth.php) teilen sich damit plattformweit
+    // EINEN Zähler, zehn Fehlversuche eines beliebigen Angreifers sperren
+    // den Login für alle anderen Nutzer hinter demselben Proxy (Login-DoS).
+    // env() ist dagegen innerhalb von config/*.php-Dateien sicher: genau
+    // dieser Aufruf hier wird beim config:cache-Lauf aufgelöst und landet
+    // mit seinem tatsächlichen Wert in der gecachten Config, unabhängig
+    // davon, ob die .env auf einem späteren Request noch geladen wird.
+    'trusted_proxies' => env('TRUSTED_PROXIES', ''),
+
+    // Bug-Review (Hoch, eigener Fund): dieselbe config:cache-Falle wie bei
+    // trusted_proxies oben, hier für den automatisierten/skriptgesteuerten
+    // Anlegeweg von app:create-superadmin (siehe
+    // App\Console\Commands\CreateSuperAdmin::resolvePassword()). Ein
+    // direkter env('SUPERADMIN_PASSWORD')-Aufruf dort würde nach jedem
+    // `php artisan config:cache` nur noch null liefern, selbst wenn die
+    // Variable korrekt in der .env steht -- der Befehl fiele dann lautlos
+    // auf den interaktiven secret()-Prompt zurück, der in einem nicht-
+    // interaktiven Deployment-Skript (Docker-Entrypoint, CI, Ansible) ohne
+    // TTY nie etwas liefert.
+    'superadmin_password' => env('SUPERADMIN_PASSWORD'),
+
     // Sicherheitsreview M4: zusätzlicher expliziter Schalter für den
     // ?as_tenant=-Dev-Override (siehe ResolveTenant::resolveViaDevOverride).
     // Greift nur zusammen mit APP_ENV=local/testing UND einem Request von

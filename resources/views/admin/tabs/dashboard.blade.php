@@ -20,17 +20,17 @@
         </div>
         <div>
             <div class="font-medium text-slate-700 dark:text-slate-200">Teilnehmer verwalten</div>
-            <div class="text-xs text-slate-400">Einladen, Kurse freischalten</div>
+            <div class="text-xs text-slate-600 dark:text-slate-400">Einladen, Kurse freischalten</div>
         </div>
     </button>
     @if ($canManageTenant)
         <button type="button" @click="tab = 'branding'" class="text-left bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-3 hover:shadow-md transition">
-            <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="background-color: color-mix(in srgb, var(--brand-secondary, #00A8A8) 15%, white); color: var(--brand-secondary, #00A8A8)">
+            <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="background-color: color-mix(in srgb, var(--brand-secondary, #007A7A) 15%, white); color: var(--brand-secondary, #007A7A)">
                 <x-icon name="swatch" class="w-5 h-5" />
             </div>
             <div>
                 <div class="font-medium text-slate-700 dark:text-slate-200">Branding anpassen</div>
-                <div class="text-xs text-slate-400">Logo, Farben, Kontakt</div>
+                <div class="text-xs text-slate-600 dark:text-slate-400">Logo, Farben, Kontakt</div>
             </div>
         </button>
         <button type="button" @click="tab = 'courses'" class="text-left bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-3 hover:shadow-md transition">
@@ -39,7 +39,7 @@
             </div>
             <div>
                 <div class="font-medium text-slate-700 dark:text-slate-200">Kursauswahl</div>
-                <div class="text-xs text-slate-400">Kurse &amp; Webshop-Links je Kurs</div>
+                <div class="text-xs text-slate-600 dark:text-slate-400">Kurse &amp; Webshop-Links je Kurs</div>
             </div>
         </button>
         <button type="button" @click="tab = 'coupons'" class="text-left bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-3 hover:shadow-md transition">
@@ -48,7 +48,7 @@
             </div>
             <div>
                 <div class="font-medium text-slate-700 dark:text-slate-200">Coupon-Codes</div>
-                <div class="text-xs text-slate-400">Importieren, zuweisen, wer wann eingelöst hat</div>
+                <div class="text-xs text-slate-600 dark:text-slate-400">Importieren, zuweisen, wer wann eingelöst hat</div>
             </div>
         </button>
     @endif
@@ -56,7 +56,7 @@
 
 <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 mb-6">
     <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
-        <x-icon name="chart-bar" class="w-4 h-4 text-slate-400" /> Teilnehmer je Phase
+        <x-icon name="chart-bar" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Teilnehmer je Phase
     </h3>
     @php
         $phaseColors = [
@@ -81,7 +81,7 @@
                     <span class="w-2.5 h-2.5 rounded-full shrink-0 {{ $phaseColors[$phase['label']] }}"></span>
                     <div class="min-w-0">
                         <div class="text-slate-700 dark:text-slate-200 font-medium">{{ $phase['percent'] }}%</div>
-                        <div class="text-xs text-slate-400 truncate">{{ $phase['label'] }} ({{ $phase['count'] }})</div>
+                        <div class="text-xs text-slate-600 dark:text-slate-400 truncate">{{ $phase['label'] }} ({{ $phase['count'] }})</div>
                     </div>
                 </div>
             @endforeach
@@ -93,7 +93,7 @@
 
 <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 mb-6">
     <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
-        <x-icon name="chart-bar" class="w-4 h-4 text-slate-400" /> Kursfortschritt in der Lernphase
+        <x-icon name="chart-bar" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Kursfortschritt in der Lernphase
     </h3>
     @if ($learningPhaseLearnerCount > 0)
         @php
@@ -127,7 +127,7 @@
                 ></div>
             @endforeach
         </div>
-        <div class="flex gap-4 text-xs text-slate-400 text-center">
+        <div class="flex gap-4 text-xs text-slate-600 dark:text-slate-400 text-center">
             @foreach ($progressDistribution as $bucket)
                 <div class="flex-1">{{ $bucket['label'] }} <span class="text-slate-500">({{ $bucket['count'] }})</span></div>
             @endforeach
@@ -140,19 +140,19 @@
 <div class="grid lg:grid-cols-[2fr_3fr] gap-6">
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
         <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
-            <x-icon name="clipboard-document-check" class="w-4 h-4 text-slate-400" /> Kürzlich gebuchte Kurse &amp; Produkte
+            <x-icon name="clipboard-document-check" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Kürzlich gebuchte Kurse &amp; Produkte
         </h3>
         <div class="space-y-2 text-sm">
             @forelse ($recentBookings as $booking)
                 <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-2 last:border-0 last:pb-0">
                     <div>
                         <span class="text-slate-700 dark:text-slate-200 font-medium">{{ $booking['user'] }}</span>
-                        <span class="text-slate-400">&ndash; {{ $booking['label'] }}</span>
+                        <span class="text-slate-600 dark:text-slate-400">&ndash; {{ $booking['label'] }}</span>
                         @if ($booking['options']->isNotEmpty())
                             <span class="block text-xs text-indigo-600 dark:text-indigo-400 mt-0.5">+ {{ $booking['options']->implode(', ') }}</span>
                         @endif
                     </div>
-                    <span class="text-xs text-slate-400 whitespace-nowrap">{{ $booking['date']->format('d.m.Y') }}</span>
+                    <span class="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">{{ $booking['date']->format('d.m.Y') }}</span>
                 </div>
             @empty
                 <p class="text-slate-500">Keine Buchungen in den letzten 7 Tagen.</p>
@@ -162,13 +162,13 @@
 
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
         <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
-            <x-icon name="clock" class="w-4 h-4 text-slate-400" /> Letzte Aktivitäten
+            <x-icon name="clock" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Letzte Aktivitäten
         </h3>
         <div class="space-y-2 text-sm">
             @forelse ($recentActivity as $entry)
                 <div class="flex justify-between border-b border-slate-100 dark:border-slate-700 pb-2 last:border-0 last:pb-0">
                     <span class="text-slate-600 dark:text-slate-300">{{ $entry->description() }}</span>
-                    <span class="text-slate-400">{{ $entry->created_at->diffForHumans() }}</span>
+                    <span class="text-slate-600 dark:text-slate-400">{{ $entry->created_at->diffForHumans() }}</span>
                 </div>
             @empty
                 <p class="text-slate-500">Noch keine Aktivitäten protokolliert.</p>

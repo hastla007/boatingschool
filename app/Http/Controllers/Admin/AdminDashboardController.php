@@ -16,14 +16,16 @@ use App\Models\PraxisExamAppointment;
 use App\Models\PraxisFormSubmission;
 use App\Models\Product;
 use App\Models\ProductPurchase;
+use App\Models\Progress;
 use App\Models\Pruefungsausschuss;
 use App\Models\TenantAddon;
 use App\Models\TenantCourseDisabled;
 use App\Models\TenantCourseLocation;
 use App\Models\TenantUser;
-use App\Services\CourseProgressService;
+use App\Models\WillkommensboxOrder;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 /**
@@ -38,7 +40,7 @@ use Illuminate\View\View;
  */
 class AdminDashboardController extends Controller
 {
-    public function __invoke(Request $request, TenantContext $tenantContext, CourseProgressService $courseProgress): View
+    public function __invoke(Request $request, TenantContext $tenantContext): View
     {
         $tenant = $tenantContext->tenant();
 
@@ -199,12 +201,26 @@ class AdminDashboardController extends Controller
         // Schritten)? Bei mehreren aktiven Kurszugängen zählt der am
         // weitesten fortgeschrittene (derselbe Fortschrittswert wie auf
         // der Kursübersicht, siehe CourseProgressService::overallPercent).
+        // Bug-Review Betrieb B6 (dasselbe Muster wie Superadmin\UserController::
+        // show(), Bug-Review P1): overallPercent() lief hier einmal PRO
+        // Freischaltung JE Lerner in der Phase "Lernen" und lud dabei jedes
+        // Mal frisch sowohl die Modul-/Fragen-Relation des Kurses als auch
+        // die Progress-Tabelle nach -- bei 500 Lernenden wurde /admin
+        // dadurch mit hunderten zusätzlichen Queries spürbar langsam.
+        // Kurs-Module/-Fragen werden deshalb direkt mit eager-geladen,
+        // Progress einmal komplett geladen, und die Prozentzahl pro
+        // Freischaltung im Speicher berechnet -- exakt dieselbe Formel wie
+        // overallPercent().
         $learningEntitlementsByUser = Entitlement::where('tenant_id', $tenant->id)
             ->currentlyActive()
             ->whereIn('user_id', $learningPhaseLearnerIds)
-            ->with(['course', 'user'])
+            ->with(['course.modules.questions', 'user'])
             ->get()
             ->groupBy('user_id');
+        $learningMasteredProgress = Progress::where('tenant_id', $tenant->id)
+            ->whereIn('user_id', $learningPhaseLearnerIds)
+            ->where('learning_state', 'gefestigt')
+            ->get(['user_id', 'question_id']);
         $progressBuckets = ['0–20%' => 0, '21–40%' => 0, '41–60%' => 0, '61–80%' => 0, '81–100%' => 0];
         foreach ($learningPhaseLearnerIds as $learnerId) {
             $entitlementsForLearner = $learningEntitlementsByUser->get($learnerId) ?? collect();
@@ -214,7 +230,19 @@ class AdminDashboardController extends Controller
             }
             $percent = $entitlementsForLearner
                 ->filter(fn (Entitlement $e) => $e->course !== null)
-                ->map(fn (Entitlement $e) => $courseProgress->overallPercent($e->course, $tenant, $user))
+                ->map(function (Entitlement $e) use ($learningMasteredProgress) {
+                    // Bug-Review F7: siehe overallPercent() -- eine
+                    // deaktivierte Frage zählt hier nie als gefestigt, aber
+                    // weiter im Nenner mit.
+                    $questionIds = $e->course->modules->flatMap(fn ($m) => $m->questions)->where('active', true)->pluck('id')->unique();
+                    $total = max($questionIds->count(), 1);
+                    $mastered = $learningMasteredProgress
+                        ->where('user_id', $e->user_id)
+                        ->whereIn('question_id', $questionIds)
+                        ->count();
+
+                    return (int) round($mastered / $total * 100);
+                })
                 ->max() ?? 0;
             $bucket = match (true) {
                 $percent <= 20 => '0–20%',
@@ -247,12 +275,23 @@ class AdminDashboardController extends Controller
         // "nächste Seite" bei EINER Liste automatisch auch die ANDEREN
         // beiden Listen um (gleicher ?page=N-Parameter) statt nur die
         // gerade sichtbare.
+        // Bug-Review (Paginierung -- Teilnehmerliste nicht eindeutig
+        // sortiert): created_at ist nicht eindeutig -- mehrere Mitglieder
+        // können (z. B. durch einen gemeinsamen Import oder einfach
+        // dieselbe Sekunde) denselben Zeitstempel haben. Ohne ein
+        // eindeutiges Tie-Break-Kriterium ist die Reihenfolge gleicher
+        // Zeitstempel über verschiedene Abfragen (z. B. aufsteigend vs.
+        // absteigend) hinweg nicht garantiert konsistent, wodurch
+        // Paginierung Teilnehmer verdoppeln oder auslassen kann. user_id
+        // ist innerhalb eines Mandanten eindeutig (siehe
+        // zusammengesetzter Primärschlüssel (tenant_id, user_id)).
         $participants = TenantUser::with(['user.entitlements' => function ($q) use ($tenant) {
             $q->where('tenant_id', $tenant->id)->with('course');
         }])
             ->where('tenant_id', $tenant->id)
             ->where('role', 'learner')
             ->orderBy('created_at')
+            ->orderBy('user_id')
             ->paginate(25, ['*'], 'participants_page')
             ->withQueryString();
 
@@ -260,6 +299,7 @@ class AdminDashboardController extends Controller
             ->where('tenant_id', $tenant->id)
             ->where('role', 'learner')
             ->orderBy('created_at')
+            ->orderBy('user_id')
             ->get();
 
         // Sitewide deaktivierte Kurse (course_definition.site_enabled = false)
@@ -302,6 +342,15 @@ class AdminDashboardController extends Controller
             }
         }
 
+        // Bug-Review (Query-Parameter-Validierung): anmeldung_course landete
+        // ungeprüft in einem where('course_id', ...) gegen die uuid-Spalte
+        // praxis_form_submission.course_id -- derselbe Fehler wie bei
+        // anmeldung_from/anmeldung_to oben, nur mit UUID statt Datum als
+        // erwartetem Format.
+        if (($anmeldungFilters['anmeldung_course'] ?? '') !== '' && (! is_string($anmeldungFilters['anmeldung_course']) || ! Str::isUuid($anmeldungFilters['anmeldung_course']))) {
+            $anmeldungFilters['anmeldung_course'] = '';
+        }
+
         $praxisFormSubmissions = PraxisFormSubmission::where('tenant_id', $tenant->id)
             ->with(['user', 'course', 'template', 'examAppointments'])
             ->when(trim((string) ($anmeldungFilters['anmeldung_search'] ?? '')) !== '', function ($q) use ($anmeldungFilters) {
@@ -316,6 +365,34 @@ class AdminDashboardController extends Controller
             ->when(($anmeldungFilters['anmeldung_to'] ?? '') !== '', fn ($q) => $q->whereDate('created_at', '<=', $anmeldungFilters['anmeldung_to']))
             ->orderByDesc('created_at')
             ->paginate(20, ['*'], 'anmeldung_page')
+            ->withQueryString();
+
+        // Bug-Review F6: Willkommensbox-Bestellungen ließen sich bisher nur
+        // einzeln auf der Teilnehmer-Detailseite finden -- keine
+        // Gesamtübersicht über alle offenen/versendeten Bestellungen
+        // dieser Bootsschule.
+        // Bug-Review (Query-Parameter-Validierung): wb_search wird als
+        // String erwartet -- ein manipulierter Request mit
+        // ?wb_search[]=a lieferte stattdessen ein Array. Ein (string)-Cast
+        // darauf gäbe nur eine PHP-Warnung ("Array to string conversion"),
+        // ein trim() OHNE Cast scheiterte an demselben Array dagegen mit
+        // einem echten TypeError -- beides endete unbehandelt mit
+        // HTTP 500, auch beim bloßen Anzeigen in admin/tabs/willkommensbox.
+        // blade.php ({{ $willkommensboxFilters['wb_search'] ?? '' }}).
+        $rawWbSearch = $request->query('wb_search');
+        $willkommensboxSearch = is_string($rawWbSearch) ? trim($rawWbSearch) : '';
+        $willkommensboxFilters = ['wb_search' => $willkommensboxSearch];
+
+        $willkommensboxOrders = WillkommensboxOrder::where('tenant_id', $tenant->id)
+            ->with('user')
+            ->when($willkommensboxSearch !== '', function ($q) use ($willkommensboxSearch) {
+                $term = '%'.$willkommensboxSearch.'%';
+                $q->whereHas('user', fn ($q2) => $q2->where('display_name', 'ilike', $term)->orWhere('email', 'ilike', $term));
+            })
+            // Offene (noch nicht versendete) Bestellungen zuerst, darin neueste zuerst.
+            ->orderByRaw('shipped_at is null desc')
+            ->orderByDesc('created_at')
+            ->paginate(20, ['*'], 'wb_page')
             ->withQueryString();
 
         $disabledCourseIds = TenantCourseDisabled::where('tenant_id', $tenant->id)->pluck('course_id');
@@ -408,6 +485,9 @@ class AdminDashboardController extends Controller
             'tenantCourseLocations' => $tenantCourseLocations,
             'pruefungsausschuesse' => $pruefungsausschuesse,
             'anmeldungFilters' => $anmeldungFilters,
+            'willkommensboxOrders' => $willkommensboxOrders,
+            'willkommensboxFilters' => $willkommensboxFilters,
+            'willkommensboxLabelSizes' => $branding->enabledLabelSizes(),
             'disabledCourseIds' => $disabledCourseIds,
             'coupons' => $coupons,
             'couponSummary' => $couponSummary,

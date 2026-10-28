@@ -33,14 +33,29 @@ use App\Http\Controllers\TipController;
 use App\Http\Controllers\VideoCourseController;
 use App\Http\Controllers\VideoQuizController;
 use App\Http\Controllers\WillkommensboxController;
+use App\Support\TenantContext;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
+Route::get('/', function (TenantContext $tenantContext) {
     if (! auth()->check()) {
         return redirect()->route('login');
     }
 
-    return redirect()->route(auth()->user()->is_superadmin ? 'superadmin.dashboard' : 'dashboard');
+    $user = auth()->user();
+    if ($user->is_superadmin) {
+        return redirect()->route('superadmin.dashboard');
+    }
+
+    // Bug-Review Oberfläche U3: siehe AuthenticatedSessionController::
+    // store() -- dieselbe Weiche gilt auch hier, da redirect()->intended()
+    // nach einem Login einen vorher aufgerufenen "/" als intended URL
+    // speichert und diesen Handler hier dann erneut durchläuft.
+    $tenant = $tenantContext->tenant();
+    if ($tenant && in_array($user->roleForTenant($tenant), ['owner', 'admin', 'instructor'], true)) {
+        return redirect()->route('admin.dashboard');
+    }
+
+    return redirect()->route('dashboard');
 });
 
 Route::middleware(['auth', 'tenant.member', 'verified'])->group(function () {
@@ -90,6 +105,9 @@ Route::middleware(['auth', 'tenant.member', 'verified'])->group(function () {
     Route::post('/courses/{course}/exam/papers/{paper}', [ExamController::class, 'startPaper'])->name('exam.papers.start');
     Route::get('/exam-sessions/{examSession}', [ExamController::class, 'show'])->name('exam.show');
     Route::post('/exam-sessions/{examSession}/answers', [ExamController::class, 'answer'])->name('exam.answer');
+    // Bug-Review Oberfläche U9: Musterantwort offener Fragen wird erst hier
+    // ausgeliefert, statt bereits im initialen HTML von show() zu stehen.
+    Route::post('/exam-sessions/{examSession}/reveal', [ExamController::class, 'reveal'])->name('exam.reveal');
     Route::post('/exam-sessions/{examSession}/finish', [ExamController::class, 'finish'])->name('exam.finish');
     Route::get('/exam-sessions/{examSession}/result', [ExamController::class, 'result'])->name('exam.result');
 
@@ -125,7 +143,10 @@ Route::middleware(['auth', 'tenant.member', 'verified'])->group(function () {
     // beim Profil-Update, Coupon-Import oder Code-Einlösen (und umgekehrt).
     // Jede Stelle bekommt deshalb einen eigenen Prefix.
     Route::patch('/profile', [ProfileController::class, 'update'])->middleware('throttle:10,1,profile-update')->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+    // Bug-Review (Passwort-Throttle eingeloggter Nutzer): destroy() prüft
+    // ebenfalls das aktuelle Passwort (current_password) -- fehlte hier
+    // bisher als einzige der drei Profil-Routen, siehe profile-update oben.
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->middleware('throttle:10,1,profile-destroy')->name('profile.destroy');
     // DSGVO-Review D3: Auskunfts-/Mitnahmerecht (Art. 15/20).
     Route::get('/profile/export-data', [ProfileController::class, 'exportData'])->name('profile.export');
 
@@ -164,7 +185,18 @@ Route::middleware(['auth', 'tenant.role:owner,admin,instructor', 'verified'])->p
         ->middleware(['signed', 'throttle:6,1,support-email-verify'])->name('branding.support-email.verify');
 
     Route::get('/praxis-form-submissions/{submission}', [AdminPraxisFormSubmissionController::class, 'show'])->name('praxis-form-submissions.show');
+    // Bug-Review F6: die Formulardaten waren bisher nach dem Absenden rein
+    // lesend, und eine Anmeldung ließ sich nicht löschen (blockierte dann
+    // über den Unique-Index auch jede neue Anmeldung desselben Lerners).
+    Route::get('/praxis-form-submissions/{submission}/edit', [AdminPraxisFormSubmissionController::class, 'edit'])->name('praxis-form-submissions.edit');
+    Route::patch('/praxis-form-submissions/{submission}', [AdminPraxisFormSubmissionController::class, 'update'])->name('praxis-form-submissions.update');
+    Route::delete('/praxis-form-submissions/{submission}', [AdminPraxisFormSubmissionController::class, 'destroy'])->name('praxis-form-submissions.destroy');
     Route::post('/praxis-form-submissions/{submission}/exam-appointments', [AdminPraxisExamAppointmentController::class, 'store'])->name('praxis-form-submissions.exam-appointments.store');
+    // Bug-Review F4: es gab bisher keine Möglichkeit, einen eigenen,
+    // noch offenen Vorschlag zurückzuziehen oder einen bereits
+    // angenommenen Termin wieder abzusagen.
+    Route::patch('/praxis-form-submissions/{submission}/exam-appointments/{examAppointment}/withdraw', [AdminPraxisExamAppointmentController::class, 'withdraw'])->name('praxis-form-submissions.exam-appointments.withdraw');
+    Route::patch('/praxis-form-submissions/{submission}/exam-appointments/{examAppointment}/cancel', [AdminPraxisExamAppointmentController::class, 'cancel'])->name('praxis-form-submissions.exam-appointments.cancel');
 
     Route::patch('/willkommensbox-orders/{willkommensboxOrder}/ship', [WillkommensboxOrderController::class, 'ship'])->name('willkommensbox-orders.ship');
     Route::get('/willkommensbox-orders/{willkommensboxOrder}/label/{size}', [WillkommensboxLabelController::class, 'show'])->name('willkommensbox-orders.label');

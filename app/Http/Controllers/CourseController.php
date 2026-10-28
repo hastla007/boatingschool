@@ -156,9 +156,22 @@ class CourseController extends Controller
             ->filter(fn (array $group) => $group['moduleIds']->isNotEmpty())
             ->values();
 
-        $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id')->unique();
+        // Bug-Review F7: eine deaktivierte Frage taucht im Smarttrainer, im
+        // Favoriten-Fragenpool und in der Prüfung nicht mehr auf -- sie
+        // zählte hier aber weiter mit, sodass "gefestigt/offen" und der
+        // Gesamtfortschritt nie 100% erreichen konnten (siehe auch
+        // CourseProgressService::overallPercent).
+        $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->where('active', true)->pluck('id')->unique();
         $masteredCount = $progress->whereIn('question_id', $questionIds)->where('learning_state', 'gefestigt')->count();
-        $overallPercent = $this->courseMasteryPercent($course, $progress);
+        // Bug-Review (Gates vergleichen den gerundeten Wert):
+        // courseMasteryPercent() rundet für die Anzeige -- 49,5%
+        // gefestigte Fragen zeigten sich bisher als "50%" und erfüllten
+        // damit fälschlich eine Trigger-Schwelle von 50%. Die beiden
+        // Banner-Trigger unten vergleichen deshalb den ungerundeten
+        // $exactPercent, nur 'overallPercent' in der Anzeige bleibt
+        // gerundet.
+        $exactPercent = $this->courseMasteryExactPercent($course, $progress);
+        $overallPercent = (int) round($exactPercent);
 
         // Nur ein Banner pro Kursseite -- bei mehreren fürs aktuelle
         // Fortschritts-Niveau freigeschalteten Addons zählt die höchste
@@ -169,7 +182,7 @@ class CourseController extends Controller
             ->whereHas('addonTemplate', fn ($q) => $q->where('active', true))
             ->with('addonTemplate')
             ->get()
-            ->filter(fn ($tenantAddon) => $overallPercent >= $tenantAddon->trigger_percent)
+            ->filter(fn ($tenantAddon) => $exactPercent >= $tenantAddon->trigger_percent)
             ->sortByDesc('trigger_percent')
             ->first();
 
@@ -185,13 +198,18 @@ class CourseController extends Controller
             ->where('active', true)
             ->whereJsonContains('course_ids', $course->id)
             ->get()
-            ->filter(fn ($banner) => $overallPercent >= $banner->trigger_percent)
+            ->filter(fn ($banner) => $exactPercent >= $banner->trigger_percent)
             ->sortByDesc('trigger_percent')
             ->first();
 
         return view('courses.show', [
             'course' => $course,
             'overallPercent' => $overallPercent,
+            // Bug-Review T7: für den Praxis-&-Prüfung-Freischalt-Gate unten
+            // in courses.blade.php -- derselbe Grund wie bei $addonBanner/
+            // $coursePromoBanner oben (49,5%-Lücke durch den gerundeten
+            // Wert).
+            'exactPercent' => $exactPercent,
             'addonBanner' => $addonBanner,
             'coursePromoBanner' => $coursePromoBanner,
             'masteredCount' => $masteredCount,
@@ -215,10 +233,19 @@ class CourseController extends Controller
 
     private function courseMasteryPercent(CourseDefinition $course, Collection $progress): int
     {
-        $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id')->unique();
+        return (int) round($this->courseMasteryExactPercent($course, $progress));
+    }
+
+    /** Wie courseMasteryPercent(), aber ungerundet -- siehe Bug-Review (Gates vergleichen den gerundeten Wert) oben. */
+    private function courseMasteryExactPercent(CourseDefinition $course, Collection $progress): float
+    {
+        // Bug-Review F7: siehe oben -- eine deaktivierte Frage darf hier
+        // nicht mitzählen, sonst sind 100% nie erreichbar und die darauf
+        // aufbauenden Addon-/Banner-Freigaben bleiben dauerhaft gesperrt.
+        $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->where('active', true)->pluck('id')->unique();
         $total = max($questionIds->count(), 1);
         $mastered = $progress->whereIn('question_id', $questionIds)->where('learning_state', 'gefestigt')->count();
 
-        return (int) round($mastered / $total * 100);
+        return $mastered / $total * 100;
     }
 }

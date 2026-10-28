@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\Tenant;
+use App\Models\TenantBranding;
 use App\Support\TenantContext;
 use Closure;
 use Illuminate\Auth\SessionGuard;
@@ -106,7 +107,20 @@ class ResolveTenant
 
                 app()->instance('currentTenant', $tenant);
                 view()->share('currentTenant', $tenant);
-                view()->share('branding', $tenant->branding);
+
+                // Bug-Review Oberfläche U4: tenant_branding steht in der
+                // "strict"-Gruppe der RLS-Policies (Migration 000070, kein
+                // "tenant_id IS NULL"-Ausnahmefall) -- auf einer
+                // tenant-agnostischen Route bleibt app.current_tenant_id
+                // bewusst die Nil-UUID (R3-1), $tenant->branding fand über
+                // die App-Rolle deshalb nie eine Zeile und das Logo/die
+                // Farben/das Favicon blieben auf /login, /forgot-password
+                // usw. immer leer, obwohl der Kommentar oben genau das
+                // Gegenteil verspricht. Diese Abfrage dient rein der
+                // Darstellung (kein Datenzugriff im Sinne der RLS-Trennung)
+                // und läuft deshalb wie resolveViaCustomDomain() bewusst
+                // über die Owner-Verbindung.
+                view()->share('branding', TenantBranding::on('pgsql_admin')->find($tenant->id));
             }
 
             return $next($request);

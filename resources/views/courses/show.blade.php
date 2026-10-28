@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div class="flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400">
             <a href="{{ route('courses.index') }}" class="hover:underline">Kurse</a>
-            <x-icon name="chevron-right" class="w-3.5 h-3.5 text-slate-400" />
+            <x-icon name="chevron-right" class="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
             <span class="font-semibold text-slate-800 dark:text-slate-200">{{ $course->name }}</span>
         </div>
     </x-slot>
@@ -10,11 +10,11 @@
     <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 mb-6">
         <div>
             <h1 class="text-2xl font-bold text-slate-800 dark:text-white">{{ $course->name }}</h1>
-            <p class="text-sm text-slate-400 mt-0.5">Dein Lernbereich</p>
+            <p class="text-sm text-slate-600 dark:text-slate-400 mt-0.5">Dein Lernbereich</p>
         </div>
-        <div class="flex items-center gap-2 text-slate-400 dark:text-slate-500 text-xs text-right">
+        <div class="flex items-center gap-2 text-slate-600 dark:text-slate-400 dark:text-slate-500 text-xs text-right">
             <span class="leading-tight">Mehr Wissen.<br>Sicher auf dem Wasser.</span>
-            <x-icon name="anchor" class="w-5 h-5 shrink-0" style="color: var(--brand-secondary, #00A8A8)" />
+            <x-icon name="anchor" class="w-5 h-5 shrink-0" style="color: var(--brand-secondary, #007A7A)" />
         </div>
     </div>
 
@@ -27,7 +27,7 @@
              x-init="dismissed = (() => { try { return localStorage.getItem('addon-banner-dismissed-{{ $addonBanner->addon_template_id }}') === '1' } catch (e) { return false } })()"
              x-show="!dismissed"
              class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border-l-4 p-4 sm:p-5 mb-6 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5"
-             style="border-color: var(--brand-secondary, #00A8A8)">
+             style="border-color: var(--brand-secondary, #007A7A)">
             <div class="flex-1 min-w-0">
                 <div class="flex flex-wrap items-center gap-2 mb-1">
                     @if ($addonTemplate->badge_text)
@@ -37,7 +37,7 @@
                         </span>
                     @endif
                     @if ($addonTemplate->stat_text)
-                        <span class="text-xs text-slate-400 dark:text-slate-500">{{ $addonTemplate->stat_text }}</span>
+                        <span class="text-xs text-slate-600 dark:text-slate-400 dark:text-slate-500">{{ $addonTemplate->stat_text }}</span>
                     @endif
                 </div>
                 <h3 class="font-semibold text-slate-800 dark:text-white text-sm sm:text-base">{{ $addonTemplate->headline }}</h3>
@@ -45,7 +45,7 @@
                     <ul class="grid grid-cols-2 gap-x-4 gap-y-2 mt-2">
                         @foreach ($addonBullets as $bullet)
                             <li class="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-                                <x-icon name="check-circle" class="w-3.5 h-3.5 shrink-0" style="color: var(--brand-secondary, #00A8A8)" />
+                                <x-icon name="check-circle" class="w-3.5 h-3.5 shrink-0" style="color: var(--brand-secondary, #007A7A)" />
                                 {{ $bullet }}
                             </li>
                         @endforeach
@@ -62,7 +62,7 @@
                             @if ($addonBanner->price_label)
                                 <div class="flex items-center justify-end gap-2 flex-wrap">
                                     @if ($discountedPrice)
-                                        <span class="line-through text-slate-400 dark:text-slate-500">{{ $addonBanner->price_label }}</span>
+                                        <span class="line-through text-slate-600 dark:text-slate-400 dark:text-slate-500">{{ $addonBanner->price_label }}</span>
                                         <span class="font-semibold text-base" style="color: var(--brand-primary, #005FD7)">{{ $discountedPrice }}</span>
                                         <span class="inline-flex items-center text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
                                             &minus;{{ $addonBanner->discount_percent }}%
@@ -79,7 +79,7 @@
                     @endif
                     <button type="button"
                             @click="dismissed = true; (() => { try { localStorage.setItem('addon-banner-dismissed-{{ $addonBanner->addon_template_id }}', '1') } catch (e) {} })()"
-                            class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xl leading-none w-8 h-8 shrink-0 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+                            class="text-slate-600 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xl leading-none w-8 h-8 shrink-0 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition"
                             aria-label="Banner schließen">
                         &times;
                     </button>
@@ -98,7 +98,7 @@
              x-init="dismissed = (() => { try { return localStorage.getItem('course-promo-banner-dismissed-{{ $coursePromoBanner->id }}-{{ $course->id }}') === '1' } catch (e) { return false } })()"
              x-show="!dismissed"
              class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border-l-4 p-4 sm:p-5 mb-6 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5"
-             style="border-color: var(--brand-secondary, #00A8A8)">
+             style="border-color: var(--brand-secondary, #007A7A)">
             <div class="flex-1 min-w-0">
                 @if ($coursePromoBanner->headline)
                     <h3 class="font-semibold text-slate-800 dark:text-white text-sm sm:text-base">{{ $coursePromoBanner->headline }}</h3>
@@ -110,7 +110,7 @@
                     <ul class="grid grid-cols-2 gap-x-4 gap-y-2 mt-2">
                         @foreach ($coursePromoBanner->bullets as $bullet)
                             <li class="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-                                <x-icon name="check-circle" class="w-3.5 h-3.5 shrink-0" style="color: var(--brand-secondary, #00A8A8)" />
+                                <x-icon name="check-circle" class="w-3.5 h-3.5 shrink-0" style="color: var(--brand-secondary, #007A7A)" />
                                 {{ $bullet }}
                             </li>
                         @endforeach
@@ -127,7 +127,7 @@
                             @if ($coursePromoBanner->price_label)
                                 <div class="flex items-center justify-end gap-2 flex-wrap">
                                     @if ($promoDiscountedPrice)
-                                        <span class="line-through text-slate-400 dark:text-slate-500">{{ $coursePromoBanner->price_label }}</span>
+                                        <span class="line-through text-slate-600 dark:text-slate-400 dark:text-slate-500">{{ $coursePromoBanner->price_label }}</span>
                                         <span class="font-semibold text-base" style="color: var(--brand-primary, #005FD7)">{{ $promoDiscountedPrice }}</span>
                                         <span class="inline-flex items-center text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
                                             &minus;{{ $coursePromoBanner->discount_percent }}%
@@ -144,7 +144,7 @@
                     @endif
                     <button type="button"
                             @click="dismissed = true; (() => { try { localStorage.setItem('course-promo-banner-dismissed-{{ $coursePromoBanner->id }}-{{ $course->id }}', '1') } catch (e) {} })()"
-                            class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xl leading-none w-8 h-8 shrink-0 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition"
+                            class="text-slate-600 dark:text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xl leading-none w-8 h-8 shrink-0 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition"
                             aria-label="Banner schließen">
                         &times;
                     </button>
@@ -163,7 +163,7 @@
             <div class="flex flex-col gap-4">
                 @foreach ($comboVideoGroups as $group)
                     <a href="{{ route('video.index', $course) }}?kapitel={{ $group['moduleIds']->implode(',') }}" class="relative rounded-2xl p-5 text-white overflow-hidden hover:opacity-95 transition"
-                       style="background: linear-gradient(135deg, color-mix(in srgb, {{ $loop->first ? 'var(--brand-primary, #005FD7)' : 'var(--brand-secondary, #00A8A8)' }} 90%, #001233), color-mix(in srgb, {{ $loop->first ? 'var(--brand-primary, #005FD7)' : 'var(--brand-secondary, #00A8A8)' }} 45%, #001233));">
+                       style="background: linear-gradient(135deg, color-mix(in srgb, {{ $loop->first ? 'var(--brand-primary, #005FD7)' : 'var(--brand-secondary, #007A7A)' }} 90%, #001233), color-mix(in srgb, {{ $loop->first ? 'var(--brand-primary, #005FD7)' : 'var(--brand-secondary, #007A7A)' }} 45%, #001233));">
                         <svg class="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 800 200" preserveAspectRatio="xMidYMid slice" fill="none">
                             <path d="M-20,38 C130,20 280,55 430,35 S730,18 820,32" stroke="white" stroke-opacity="0.08" stroke-width="1.5" />
                             <path d="M-20,94 C140,110 300,75 460,97 S740,118 820,100" stroke="white" stroke-opacity="0.07" stroke-width="1.5" />
@@ -239,7 +239,7 @@
                 </div>
             </a>
         @else
-            <div class="rounded-2xl p-6 bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 text-sm">
+            <div class="rounded-2xl p-6 bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-400 text-sm">
                 Für diesen Kurs ist noch kein Videokurs hinterlegt.
             </div>
         @endif
@@ -250,7 +250,7 @@
                 <x-progress-ring :percent="$overallPercent" :size="80" :stroke="8" class="shrink-0" />
                 <div class="text-sm space-y-1.5 min-w-0">
                     <div class="flex items-center gap-1.5">
-                        <span class="w-2 h-2 rounded-full shrink-0" style="background-color: var(--brand-secondary, #00A8A8)"></span>
+                        <span class="w-2 h-2 rounded-full shrink-0" style="background-color: var(--brand-secondary, #007A7A)"></span>
                         <span class="text-slate-500 dark:text-slate-400">Gefestigt</span>
                         <span class="ml-auto font-semibold text-slate-700 dark:text-slate-200">{{ $masteredCount }}</span>
                     </div>
@@ -261,8 +261,8 @@
                     </div>
                 </div>
             </div>
-            <div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700 text-xs text-slate-400 flex items-center gap-1.5">
-                <x-icon name="anchor" class="w-3.5 h-3.5 shrink-0" style="color: var(--brand-secondary, #00A8A8)" />
+            <div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
+                <x-icon name="anchor" class="w-3.5 h-3.5 shrink-0" style="color: var(--brand-secondary, #007A7A)" />
                 Weiter so! Du bist auf einem guten Weg.
             </div>
         </a>
@@ -270,12 +270,12 @@
 
     <div class="flex items-end justify-between mb-3">
         <h3 class="font-semibold text-lg text-slate-800 dark:text-white">Lernbereiche</h3>
-        <span class="text-xs text-slate-400 hidden sm:inline">Wähle einen Bereich und lege los!</span>
+        <span class="text-xs text-slate-600 dark:text-slate-400 hidden sm:inline">Wähle einen Bereich und lege los!</span>
     </div>
 
     @php
-        $tileIconBg = 'background-color: color-mix(in srgb, var(--brand-secondary, #00A8A8) 15%, white)';
-        $tileIconColor = 'color: var(--brand-secondary, #00A8A8)';
+        $tileIconBg = 'background-color: color-mix(in srgb, var(--brand-secondary, #007A7A) 15%, white)';
+        $tileIconColor = 'color: var(--brand-secondary, #007A7A)';
     @endphp
     <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         <a href="{{ route('learning.overview', $course) }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-4 hover:shadow-md transition">
@@ -284,7 +284,7 @@
             </div>
             <div class="flex-1 min-w-0">
                 <div class="font-semibold text-slate-800 dark:text-white">Smart-Learning</div>
-                <div class="text-xs text-slate-400">Smarttrainer wählt die nächste Frage für dich</div>
+                <div class="text-xs text-slate-600 dark:text-slate-400">Smarttrainer wählt die nächste Frage für dich</div>
             </div>
             <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />
         </a>
@@ -296,9 +296,9 @@
                 </div>
                 <div class="flex-1 min-w-0">
                     <div class="font-semibold text-slate-800 dark:text-white">Knoten</div>
-                    <div class="text-xs text-slate-400 mb-1">{{ $knotenPercent }}% angesehen</div>
+                    <div class="text-xs text-slate-600 dark:text-slate-400 mb-1">{{ $knotenPercent }}% angesehen</div>
                     <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5">
-                        <div class="h-1.5 rounded-full" style="width: {{ $knotenPercent }}%; background-color: var(--brand-secondary, #00A8A8)"></div>
+                        <div class="h-1.5 rounded-full" style="width: {{ $knotenPercent }}%; background-color: var(--brand-secondary, #007A7A)"></div>
                     </div>
                 </div>
                 <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />
@@ -312,9 +312,9 @@
                 </div>
                 <div class="flex-1 min-w-0">
                     <div class="font-semibold text-slate-800 dark:text-white">Navigation</div>
-                    <div class="text-xs text-slate-400 mb-1">{{ $navigationPercent }}% angesehen</div>
+                    <div class="text-xs text-slate-600 dark:text-slate-400 mb-1">{{ $navigationPercent }}% angesehen</div>
                     <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5">
-                        <div class="h-1.5 rounded-full" style="width: {{ $navigationPercent }}%; background-color: var(--brand-secondary, #00A8A8)"></div>
+                        <div class="h-1.5 rounded-full" style="width: {{ $navigationPercent }}%; background-color: var(--brand-secondary, #007A7A)"></div>
                     </div>
                 </div>
                 <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />
@@ -327,7 +327,7 @@
             </div>
             <div class="flex-1 min-w-0">
                 <div class="font-semibold text-slate-800 dark:text-white">Prüfungssimulation</div>
-                <div class="text-xs text-slate-400">{{ $hasExam ? 'Bereit zum Starten' : 'Noch nicht freigegeben' }}</div>
+                <div class="text-xs text-slate-600 dark:text-slate-400">{{ $hasExam ? 'Bereit zum Starten' : 'Noch nicht freigegeben' }}</div>
             </div>
             <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />
         </a>
@@ -339,7 +339,7 @@
                 </div>
                 <div class="flex-1 min-w-0">
                     <div class="font-semibold text-slate-800 dark:text-white">Navigationsaufgaben</div>
-                    <div class="text-xs text-slate-400">Übung mit Musterlösung</div>
+                    <div class="text-xs text-slate-600 dark:text-slate-400">Übung mit Musterlösung</div>
                 </div>
                 <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />
             </a>
@@ -352,28 +352,38 @@
                 </div>
                 <div class="flex-1 min-w-0">
                     <div class="font-semibold text-slate-800 dark:text-white">Praxisvideos</div>
-                    <div class="text-xs text-slate-400 mb-1">{{ $praxisPercent }}% angesehen</div>
+                    <div class="text-xs text-slate-600 dark:text-slate-400 mb-1">{{ $praxisPercent }}% angesehen</div>
                     <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5">
-                        <div class="h-1.5 rounded-full" style="width: {{ $praxisPercent }}%; background-color: var(--brand-secondary, #00A8A8)"></div>
+                        <div class="h-1.5 rounded-full" style="width: {{ $praxisPercent }}%; background-color: var(--brand-secondary, #007A7A)"></div>
                     </div>
                 </div>
                 <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />
             </a>
         @endif
 
-        @if ($overallPercent >= $examReadinessThreshold)
+        {{-- Bug-Review T7: verglich bisher den gerundeten $overallPercent --
+             49,5% gefestigte Fragen zeigten sich als "50%" und schalteten
+             damit fälschlich eine Schwelle von genau 50% frei, obwohl der
+             tatsächliche Fortschritt noch knapp darunter lag. Dieselbe
+             Lücke wurde für die Addon-/Promo-Banner-Trigger oben im
+             Controller (Bug-Review "Gates vergleichen den gerundeten
+             Wert") bereits mit $exactPercent geschlossen -- diese Prüfung
+             hier blieb dabei übersehen. $overallPercent bleibt für die
+             reine Anzeige (Fortschrittsring, "X%/Y%" unten) weiterhin
+             gerundet. --}}
+        @if ($exactPercent >= $examReadinessThreshold)
             <a href="{{ route('praxis-pruefung.index', $course) }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-4 hover:shadow-md transition">
                 <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="{{ $tileIconBg }}">
                     <x-icon name="shield-check" class="w-5 h-5" style="{{ $tileIconColor }}" />
                 </div>
                 <div class="flex-1 min-w-0">
                     <div class="font-semibold text-slate-800 dark:text-white">Praxis &amp; Prüfung</div>
-                    <div class="text-xs text-slate-400">Jetzt buchbar</div>
+                    <div class="text-xs text-slate-600 dark:text-slate-400">Jetzt buchbar</div>
                 </div>
                 <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />
             </a>
         @else
-            <div class="bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-4 flex items-center gap-4 text-slate-400 dark:text-slate-500 cursor-not-allowed"
+            <div class="bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-4 flex items-center gap-4 text-slate-600 dark:text-slate-400 dark:text-slate-500 cursor-not-allowed"
                  title="Ab {{ $examReadinessThreshold }}% Kursfortschritt buchbar">
                 <div class="w-11 h-11 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center shrink-0">
                     <x-icon name="lock-closed" class="w-5 h-5 text-slate-300 dark:text-slate-600" />
@@ -389,7 +399,9 @@
     @php
         $waLink = ($branding && auth()->check()) ? \App\Support\WhatsAppLink::for($branding, auth()->user(), $course) : null;
         $showPhone = $branding && $branding->phone_support_enabled && $branding->phone;
-        $showEmail = $branding && $branding->email_support_enabled && $branding->support_email;
+        // Bug-Review F9: siehe courses/index.blade.php -- eine noch nicht
+        // bestätigte Support-E-Mail wurde hier bisher trotzdem angezeigt.
+        $showEmail = $branding && $branding->email_support_enabled && $branding->support_email && $branding->hasVerifiedSupportEmail();
         $hasContactDetails = $branding && ($showPhone || $showEmail || $branding->street || $branding->city || $branding->website);
     @endphp
     @if ($hasContactDetails || $waLink)
@@ -428,7 +440,7 @@
                         </a>
                     @endif
                     @if ($showPhone && $showEmail)
-                        <p class="text-sm text-slate-400 my-1">oder</p>
+                        <p class="text-sm text-slate-600 dark:text-slate-400 my-1">oder</p>
                     @endif
                     @if ($showEmail)
                         <a href="mailto:{{ $branding->support_email }}" class="block text-lg font-semibold whitespace-nowrap hover:opacity-80 transition" style="color: var(--brand-primary, #005FD7)">

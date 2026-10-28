@@ -1,6 +1,6 @@
 <x-superadmin-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Coupon-Codes</h2>
+        <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Coupon-Codes</h1>
     </x-slot>
 
     <div class="grid lg:grid-cols-3 gap-4 mb-6">
@@ -43,7 +43,7 @@
                             </label>
                         @endforeach
                     </div>
-                    <p class="text-xs text-slate-400 mt-1">Werden bei Einlösung zusätzlich zum Kurs als eigene Buchungen freigeschaltet.</p>
+                    <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Werden bei Einlösung zusätzlich zum Kurs als eigene Buchungen freigeschaltet.</p>
                     <x-input-error :messages="$errors->get('option_product_ids')" class="mt-2" />
                 </div>
                 <div>
@@ -54,7 +54,7 @@
                             <option value="{{ $tenant->id }}" @selected(old('tenant_id', request('tenant_id')) === $tenant->id)>{{ $tenant->name }}</option>
                         @endforeach
                     </select>
-                    <p class="text-xs text-slate-400 mt-1">Ist eine Bootsschule gewählt, kann der Code nur dort eingelöst werden.</p>
+                    <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Ist eine Bootsschule gewählt, kann der Code nur dort eingelöst werden.</p>
                 </div>
                 <div>
                     <x-input-label for="quantity" value="Anzahl (Batch-Generierung)" />
@@ -78,16 +78,19 @@
              Alle-auswählen/Export-Button taten nichts). --}}
         <div class="lg:col-span-2 bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5" x-data="{}">
             <form method="GET" class="flex flex-wrap gap-2 mb-4">
-                <input type="text" name="search" value="{{ $filters['search'] ?? '' }}"
+                <label for="coupon_search_sa" class="sr-only">Code, Kurs/Produkt, Bootsschule oder Nutzer suchen</label>
+                <input type="text" id="coupon_search_sa" name="search" value="{{ $filters['search'] ?? '' }}"
                        placeholder="Code, Kurs/Produkt, Bootsschule oder Nutzer suchen…"
                        class="flex-1 min-w-[220px] rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
-                <select name="tenant_id" @change="$el.form.submit()" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                <label for="coupon_tenant_id_sa" class="sr-only">Bootsschule filtern</label>
+                <select id="coupon_tenant_id_sa" name="tenant_id" @change="$el.form.submit()" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                     <option value="">Alle Bootsschulen</option>
                     @foreach ($tenants as $tenant)
                         <option value="{{ $tenant->id }}" @selected(($filters['tenant_id'] ?? null) === $tenant->id)>{{ $tenant->name }}</option>
                     @endforeach
                 </select>
-                <select name="status" @change="$el.form.submit()" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                <label for="coupon_status_sa" class="sr-only">Status filtern</label>
+                <select id="coupon_status_sa" name="status" @change="$el.form.submit()" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                     <option value="">Alle Status</option>
                     <option value="open" @selected(($filters['status'] ?? null) === 'open')>offen</option>
                     <option value="redeemed" @selected(($filters['status'] ?? null) === 'redeemed')>eingelöst</option>
@@ -116,8 +119,9 @@
                     </button>
                 </div>
 
+                <div class="overflow-x-auto">
                 <table class="w-full text-sm">
-                    <thead class="text-slate-400 text-left">
+                    <thead class="text-slate-600 dark:text-slate-400 text-left">
                         <tr>
                             <th class="py-1 w-6"></th>
                             <th class="py-1">Code</th>
@@ -165,6 +169,7 @@
                         @endforelse
                     </tbody>
                 </table>
+                </div>
             </form>
             <div class="mt-4">{{ $coupons->links() }}</div>
         </div>

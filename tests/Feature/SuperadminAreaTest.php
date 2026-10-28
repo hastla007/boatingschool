@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AuditLog;
 use App\Models\ContentAnswer;
 use App\Models\ContentQuestion;
 use App\Models\ContentQuestionRevision;
@@ -333,6 +334,7 @@ class SuperadminAreaTest extends TestCase
         $this->assertDatabaseHas('course_module', ['course_id' => $course->id, 'module_id' => $module->id]);
 
         $questionResponse = $this->actingAs($superadmin)->post("/superadmin/modules/{$module->id}/questions", [
+            'question_type' => 'single_choice',
             'question_text' => 'E2E: Was bedeutet Steuerbord?',
             'topic' => 'Navigation',
             'answers' => [
@@ -360,6 +362,7 @@ class SuperadminAreaTest extends TestCase
         $module = $this->existingModule('SRC');
 
         $this->actingAs($superadmin)->post("/superadmin/modules/{$module->id}/questions", [
+            'question_type' => 'single_choice',
             'question_text' => 'E2E: Revisionstest Frage',
             'answers' => ['A' => 'Antwort A', 'B' => 'Antwort B', 'C' => 'Antwort C', 'D' => 'Antwort D'],
             'correct' => 'A',
@@ -370,6 +373,7 @@ class SuperadminAreaTest extends TestCase
         $question = ContentQuestion::find($firstRevision->question_id);
 
         $updateResponse = $this->actingAs($superadmin)->patch("/superadmin/questions/{$question->id}", [
+            'question_type' => 'single_choice',
             'question_text' => 'E2E: Revisionstest Frage (bearbeitet)',
             'answers' => ['A' => 'Antwort A neu', 'B' => 'Antwort B', 'C' => 'Antwort C', 'D' => 'Antwort D'],
             'correct' => 'B',
@@ -414,6 +418,13 @@ class SuperadminAreaTest extends TestCase
         // der App-Verbindung, die hierfür kein Schreibrecht hat -- frisch
         // über DB::table() statt über das bereits gebundene Model aktualisieren.
         $this->onAdmin(fn () => DB::table('platform_setting')->update(['site_name' => 'Bootsführerschein-Lernplattform', 'support_email' => null, 'maintenance_mode' => false, 'maintenance_message' => null]));
+
+        // Bug-Review (Testdaten bleiben weiter liegen): SettingsController
+        // protokolliert bewusst immer mit tenant_id=null UND entity_id=null
+        // (plattformweite Einstellung, kein einzelner Entity) -- weder die
+        // automatische AuditLog-Aufräumung über einen Test-Tenant noch eine
+        // entity_id-Filterung greift hier.
+        $this->onAdmin(fn () => AuditLog::where('action', 'superadmin.settings.update')->where('actor_user_id', $superadmin->id)->delete());
     }
 
     public function test_superadmin_can_generate_a_single_and_a_batch_of_coupons_scoped_to_a_tenant(): void
@@ -571,6 +582,14 @@ class SuperadminAreaTest extends TestCase
         $response->assertDontSee('E2E-EXPORT-NOT-PICKED');
 
         $this->onAdmin(fn () => Coupon::whereIn('code', ['E2E-EXPORT-PICKED', 'E2E-EXPORT-NOT-PICKED'])->delete());
+
+        // Bug-Review (Testdaten bleiben weiter liegen): ohne tenant_id-Filter
+        // im Request protokolliert Superadmin\CouponController::export()
+        // bewusst mit tenant_id=null -- anders als beim Export-Test oben
+        // (der einen Tenant-Filter mitgibt und dessen Log-Zeile deshalb
+        // automatisch über den gelöschten Test-Tenant mit aufgeräumt wird)
+        // greift die automatische Aufräumung hier nicht.
+        $this->onAdmin(fn () => AuditLog::where('action', 'superadmin.coupon.export')->where('actor_user_id', $superadmin->id)->delete());
     }
 
     public function test_exporting_without_a_selection_fails_validation(): void

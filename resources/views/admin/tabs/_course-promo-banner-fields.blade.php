@@ -45,8 +45,8 @@
     </div>
 </div>
 <div>
-    <x-input-label :for="$prefix.'-offer_url'" value="Link zu deiner Angebotsseite" />
-    <x-text-input :id="$prefix.'-offer_url'" name="offer_url" type="url" placeholder="https://dein-webshop.de/angebot/..."
+    <x-input-label :for="$prefix.'-offer_url'" value="Link zu Ihrer Angebotsseite" />
+    <x-text-input :id="$prefix.'-offer_url'" name="offer_url" type="url" placeholder="https://ihr-webshop.de/angebot/..."
                   class="mt-1 block w-full" :value="old('offer_url', $banner?->offer_url)" />
     <x-input-error :messages="$errors->get('offer_url')" class="mt-2" />
 </div>

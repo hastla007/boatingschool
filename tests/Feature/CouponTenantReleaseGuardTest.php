@@ -41,13 +41,16 @@ class CouponTenantReleaseGuardTest extends TestCase
     }
 
     /**
-     * coupon.tenant_id ist bewusst nullOnDelete() -- ein Coupon überlebt die
-     * Löschung seiner zugewiesenen Bootsschule, statt mit ihr zu
-     * verschwinden. Diese FK-Kaskade löst intern dasselbe UPDATE aus wie der
-     * zu verhindernde Mass-Assignment-Fall und darf vom Trigger nicht
-     * blockiert werden.
+     * Bug-Review (Gelöschte Schule macht ihre Coupons plattformweit
+     * einlösbar): coupon.tenant_id ist nullOnDelete() -- ohne den
+     * tenant_delete_unredeemed_coupons-Trigger (Migration
+     * 2024_02_01_000473) hätte die FK-Kaskade einen noch nicht eingelösten
+     * Coupon beim Löschen seiner Bootsschule genau in den "unzugeordnet"-
+     * Zustand versetzt, den coupon_isolation für JEDE Bootsschule sichtbar
+     * und einlösbar macht. Der Trigger löscht solche Coupons jetzt vorher
+     * -- sie überleben die Schule nicht mehr.
      */
-    public function test_deleting_the_assigned_tenant_still_nulls_the_coupon_via_the_fk_cascade(): void
+    public function test_deleting_the_assigned_tenant_deletes_its_unredeemed_coupon_instead_of_releasing_it(): void
     {
         $tenant = $this->createTestTenant();
         $course = $this->existingCourse('SRC');
@@ -59,8 +62,36 @@ class CouponTenantReleaseGuardTest extends TestCase
 
         $this->cleanUpCreatedTenants();
 
+        $this->onAdmin(fn () => $this->assertNull(Coupon::find($coupon->id), 'Der nicht eingelöste Coupon hätte mit seiner Bootsschule gelöscht werden müssen, statt plattformweit einlösbar zu werden.'));
+    }
+
+    /**
+     * Ein bereits eingelöster Coupon ist Audit-Trail (redeemed_at schließt
+     * eine erneute Einlösung ohnehin aus) -- der Trigger löscht
+     * ausdrücklich nur WHERE redeemed_at IS NULL, die FK-Kaskade darf ihn
+     * weiterhin wie bisher nullen statt zu löschen.
+     */
+    public function test_deleting_the_assigned_tenant_keeps_an_already_redeemed_coupon_with_tenant_id_nulled(): void
+    {
+        $tenant = $this->createTestTenant();
+        $course = $this->existingCourse('SRC');
+        $coupon = $this->onAdmin(fn () => Coupon::create([
+            'code' => Coupon::generateUniqueCode(),
+            'course_id' => $course->id,
+            'tenant_id' => $tenant->id,
+            'redeemed_at' => now(),
+            'redeemed_tenant_id' => $tenant->id,
+        ]));
+
+        $this->cleanUpCreatedTenants();
+
         $this->onAdmin(function () use ($coupon) {
-            $this->assertNull($coupon->fresh()->tenant_id);
+            $fresh = $coupon->fresh();
+            $this->assertNotNull($fresh, 'Ein bereits eingelöster Coupon darf nicht gelöscht werden.');
+            $this->assertNull($fresh->tenant_id);
+            $this->assertNull($fresh->redeemed_tenant_id);
+            $this->assertNotNull($fresh->redeemed_at);
+
             Coupon::where('id', $coupon->id)->delete();
         });
     }

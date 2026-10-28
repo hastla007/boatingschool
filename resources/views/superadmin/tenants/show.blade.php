@@ -2,8 +2,8 @@
     <x-slot name="header">
         <div class="flex items-center justify-between">
             <div>
-                <div class="text-xs text-slate-400"><a href="{{ route('superadmin.tenants.index') }}" class="hover:underline">Bootsschulen</a></div>
-                <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">{{ $tenant->name }}</h2>
+                <div class="text-xs text-slate-600 dark:text-slate-400"><a href="{{ route('superadmin.tenants.index') }}" class="hover:underline">Bootsschulen</a></div>
+                <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">{{ $tenant->name }}</h1>
             </div>
             <span class="inline-block px-2 py-0.5 rounded-full text-xs {{ $tenant->status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500' }}">{{ $tenant->status }}</span>
         </div>
@@ -31,37 +31,39 @@
             </form>
 
             <div class="mt-5 pt-5 border-t border-slate-100 dark:border-slate-700 text-sm space-y-1.5">
-                <div class="flex justify-between"><span class="text-slate-400">Domain</span><span class="font-mono text-xs text-slate-600 dark:text-slate-300">{{ $tenant->slug }}.{{ config('app.central_domain') }}</span></div>
-                <div class="flex justify-between"><span class="text-slate-400">Support E-Mail</span><span class="text-slate-600 dark:text-slate-300">{{ $tenant->branding->support_email ?: '—' }}</span></div>
-                <div class="flex justify-between"><span class="text-slate-400">Website</span><span class="text-slate-600 dark:text-slate-300">{{ $tenant->branding->website ?: '—' }}</span></div>
-                <div class="flex justify-between"><span class="text-slate-400">Telefon</span><span class="text-slate-600 dark:text-slate-300">{{ $tenant->branding->phone ?: '—' }}</span></div>
-                <div class="flex justify-between"><span class="text-slate-400">Ansprechpartner</span><span class="text-slate-600 dark:text-slate-300">{{ trim(($tenant->branding->contact_first_name ?? '').' '.($tenant->branding->contact_last_name ?? '')) ?: '—' }}</span></div>
+                <div class="flex justify-between"><span class="text-slate-600 dark:text-slate-400">Domain</span><span class="font-mono text-xs text-slate-600 dark:text-slate-300">{{ $tenant->slug }}.{{ config('app.central_domain') }}</span></div>
+                <div class="flex justify-between"><span class="text-slate-600 dark:text-slate-400">Support E-Mail</span><span class="text-slate-600 dark:text-slate-300">{{ $tenant->branding->support_email ?: '—' }}</span></div>
+                <div class="flex justify-between"><span class="text-slate-600 dark:text-slate-400">Website</span><span class="text-slate-600 dark:text-slate-300">{{ $tenant->branding->website ?: '—' }}</span></div>
+                <div class="flex justify-between"><span class="text-slate-600 dark:text-slate-400">Telefon</span><span class="text-slate-600 dark:text-slate-300">{{ $tenant->branding->phone ?: '—' }}</span></div>
+                <div class="flex justify-between"><span class="text-slate-600 dark:text-slate-400">Ansprechpartner</span><span class="text-slate-600 dark:text-slate-300">{{ trim(($tenant->branding->contact_first_name ?? '').' '.($tenant->branding->contact_last_name ?? '')) ?: '—' }}</span></div>
             </div>
         </div>
 
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5 lg:col-span-2">
             <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
-                <x-icon name="users" class="w-4 h-4 text-slate-400" /> Nutzer &amp; Rollen
+                <x-icon name="users" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Nutzer &amp; Rollen
             </h3>
             <div class="space-y-2 text-sm max-h-80 overflow-y-auto">
                 @forelse ($memberships as $membership)
                     <a href="{{ route('superadmin.users.show', $membership->user) }}" class="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-2 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-700/50 -mx-1 px-1 rounded">
-                        <span class="text-slate-700 dark:text-slate-200">{{ $membership->user->name }} <span class="text-slate-400 font-normal">&middot; {{ $membership->user->email }}</span></span>
+                        <span class="text-slate-700 dark:text-slate-200">{{ $membership->user->name }} <span class="text-slate-600 dark:text-slate-400 font-normal">&middot; {{ $membership->user->email }}</span></span>
                         <span class="inline-block px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-xs">{{ $membership->role }}</span>
                     </a>
                 @empty
                     <p class="text-slate-500">Noch keine Nutzer.</p>
                 @endforelse
             </div>
+            <div class="mt-2">{{ $memberships->links() }}</div>
         </div>
     </div>
 
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5 mb-6">
         <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
-            <x-icon name="chart-bar" class="w-4 h-4 text-slate-400" /> Kursergebnisse
+            <x-icon name="chart-bar" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Kursergebnisse
         </h3>
+        <div class="overflow-x-auto">
         <table class="w-full text-sm">
-            <thead class="text-slate-400 text-left">
+            <thead class="text-slate-600 dark:text-slate-400 text-left">
                 <tr><th class="py-1">Nutzer</th><th class="py-1">Kurs</th><th class="py-1">Fortschritt</th></tr>
             </thead>
             <tbody>
@@ -76,17 +78,20 @@
                 @endforelse
             </tbody>
         </table>
+        </div>
+        <div class="mt-2">{{ $results->links() }}</div>
     </div>
 
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
         <div class="flex items-center justify-between mb-3">
             <h3 class="font-medium text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
-                <x-icon name="bookmark" class="w-4 h-4 text-slate-400" /> Coupon-Codes dieser Bootsschule
+                <x-icon name="bookmark" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Coupon-Codes dieser Bootsschule
             </h3>
             <a href="{{ route('superadmin.coupons.index', ['tenant_id' => $tenant->id]) }}" class="text-sm hover:underline" style="color: #005FD7">Im Coupon-Bereich verwalten &rarr;</a>
         </div>
+        <div class="overflow-x-auto">
         <table class="w-full text-sm">
-            <thead class="text-slate-400 text-left">
+            <thead class="text-slate-600 dark:text-slate-400 text-left">
                 <tr><th class="py-1">Code</th><th class="py-1">Kurs / Produkt</th><th class="py-1">Status</th></tr>
             </thead>
             <tbody>
@@ -109,5 +114,6 @@
                 @endforelse
             </tbody>
         </table>
+        </div>
     </div>
 </x-superadmin-layout>
