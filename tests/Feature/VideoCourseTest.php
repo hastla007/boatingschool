@@ -105,6 +105,28 @@ class VideoCourseTest extends TestCase
         $response->assertSee('flex flex-col sm:flex-row sm:items-center sm:justify-between', false);
     }
 
+    /**
+     * Bug-Review (Mobil-Overflow Video/Praxistrainer): der U8-Fix oben
+     * betraf nur die Status-Text/CTA-Zeile -- der umgebende Grid-Container
+     * hatte unterhalb von lg: KEINE explizite grid-cols-1 und blieb damit
+     * content-based (shrink-to-fit). Das 800x450 Poster-Platzhalterbild
+     * (siehe VideoCourseController::posterUri()) zog die Spalte und damit
+     * die ganze Seite bei 360px auf über 800px breit, bevor das Video
+     * seine echten Metadaten geladen hatte.
+     */
+    public function test_the_layout_grid_has_an_explicit_single_column_below_the_desktop_breakpoint(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $firstLesson] = $this->makeIsolatedVideoCourse();
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/video/{$firstLesson->id}");
+
+        $response->assertOk();
+        $response->assertSee('grid grid-cols-1 lg:grid-cols-[280px_1fr]', false);
+    }
+
     public function test_lesson_step_gallery_is_shown_when_present(): void
     {
         $tenant = $this->createTestTenant();

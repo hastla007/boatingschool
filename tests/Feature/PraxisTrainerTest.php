@@ -102,6 +102,29 @@ class PraxisTrainerTest extends TestCase
         $response->assertSee('flex flex-col sm:flex-row sm:items-center sm:justify-between', false);
     }
 
+    /**
+     * Bug-Review (Mobil-Overflow Video/Praxistrainer): der U8-Fix oben
+     * betraf nur den Seitenkopf -- der umgebende Grid-Container hatte
+     * unterhalb von lg: keine explizite grid-cols-1 und blieb damit
+     * content-based (shrink-to-fit). Ein langer Kategorien-/Aufgabenname
+     * in der Sidebar-Navigation zog die Spalte und damit die ganze Seite
+     * bei 360px in die Breite, da .truncate nur greift, wenn die Breite
+     * des Containers bereits feststeht.
+     */
+    public function test_the_layout_grid_has_an_explicit_single_column_below_the_desktop_breakpoint(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $firstTask] = $this->makeIsolatedPraxisTasks();
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $response = $this->actingAsInTenant($learner, $tenant)
+            ->get(route('praxistrainer.show', ['course' => $course, 'task' => $firstTask]));
+
+        $response->assertOk();
+        $response->assertSee('grid grid-cols-1 lg:grid-cols-[280px_1fr]', false);
+    }
+
     public function test_kategorie_query_param_scopes_the_praxistrainer_to_a_single_category(): void
     {
         $tenant = $this->createTestTenant();

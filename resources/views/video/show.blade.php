@@ -7,7 +7,14 @@
         </div>
     </x-slot>
 
-    <div class="grid lg:grid-cols-[280px_1fr] gap-4 items-start">
+    {{-- Bug-Review (Mobil-Overflow Video/Praxistrainer): ohne explizite
+         grid-cols-1 blieb die Spaltenbreite unterhalb von lg: content-based
+         (shrink-to-fit) -- das Poster-Platzhalterbild (800x450, siehe
+         VideoCourseController::posterUri()) zog die Spalte und damit die
+         ganze Seite bei 360px auf 800px+ breit, bevor das echte Video-
+         Element seine Metadaten geladen hatte. Der U8-Fix oben betraf nur
+         die beiden Flex-Zeilen, nicht diese Grid-Spaltenbreite. --}}
+    <div class="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4 items-start">
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-3 lg:sticky lg:top-4">
             <div class="flex items-center gap-2 px-1 mb-2">
                 <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style="background-color: color-mix(in srgb, var(--brand-primary, #005FD7) 12%, white)">

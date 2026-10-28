@@ -32,7 +32,15 @@
         </div>
     </x-slot>
 
-    <div class="grid lg:grid-cols-[280px_1fr] gap-4 items-start">
+    {{-- Bug-Review (Mobil-Overflow Video/Praxistrainer): ohne explizite
+         grid-cols-1 blieb die Spaltenbreite unterhalb von lg: content-based
+         (shrink-to-fit) -- ein langer Kategorien-/Aufgabenname in der
+         Sidebar-Navigation (siehe .flex-1.truncate unten) zog die Spalte
+         und damit die ganze Seite bei 360px in die Breite, da truncate nur
+         greift, wenn die Breite des Containers bereits feststeht. Der
+         U8-Fix oben betraf nur die Titel-/Statistik-Zeile im Header, nicht
+         diese Grid-Spaltenbreite. --}}
+    <div class="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4 items-start">
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-3 lg:sticky lg:top-4">
             <div class="flex items-center gap-2 px-1 mb-2">
                 <a href="{{ route('courses.show', $course) }}" class="w-7 h-7 rounded-full flex items-center justify-center text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 shrink-0">
