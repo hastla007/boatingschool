@@ -205,6 +205,11 @@ class CourseController extends Controller
         return view('courses.show', [
             'course' => $course,
             'overallPercent' => $overallPercent,
+            // Bug-Review T7: für den Praxis-&-Prüfung-Freischalt-Gate unten
+            // in courses.blade.php -- derselbe Grund wie bei $addonBanner/
+            // $coursePromoBanner oben (49,5%-Lücke durch den gerundeten
+            // Wert).
+            'exactPercent' => $exactPercent,
             'addonBanner' => $addonBanner,
             'coursePromoBanner' => $coursePromoBanner,
             'masteredCount' => $masteredCount,

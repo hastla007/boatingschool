@@ -361,7 +361,17 @@
             </a>
         @endif
 
-        @if ($overallPercent >= $examReadinessThreshold)
+        {{-- Bug-Review T7: verglich bisher den gerundeten $overallPercent --
+             49,5% gefestigte Fragen zeigten sich als "50%" und schalteten
+             damit fälschlich eine Schwelle von genau 50% frei, obwohl der
+             tatsächliche Fortschritt noch knapp darunter lag. Dieselbe
+             Lücke wurde für die Addon-/Promo-Banner-Trigger oben im
+             Controller (Bug-Review "Gates vergleichen den gerundeten
+             Wert") bereits mit $exactPercent geschlossen -- diese Prüfung
+             hier blieb dabei übersehen. $overallPercent bleibt für die
+             reine Anzeige (Fortschrittsring, "X%/Y%" unten) weiterhin
+             gerundet. --}}
+        @if ($exactPercent >= $examReadinessThreshold)
             <a href="{{ route('praxis-pruefung.index', $course) }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-4 hover:shadow-md transition">
                 <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="{{ $tileIconBg }}">
                     <x-icon name="shield-check" class="w-5 h-5" style="{{ $tileIconColor }}" />

@@ -141,6 +141,39 @@ class PraxisPruefungTest extends TestCase
         $response->assertSee(route('praxis-pruefung.index', $course), false);
     }
 
+    /**
+     * Bug-Review T7: courses.blade.php verglich die Freigabe für "Praxis &
+     * Prüfung" bisher gegen den GERUNDETEN $overallPercent -- 3 von 8
+     * Fragen gefestigt sind exakt 37,5%, round(37.5) rundet in PHP aber auf
+     * 38 auf. Eine Schule mit exam_readiness_threshold_percent=38 schaltete
+     * die Buchung dadurch fälschlich schon bei 37,5% echtem Fortschritt
+     * frei -- derselbe Rundungsfehler, der für die Addon-/Promo-Banner-
+     * Trigger bereits mit $exactPercent behoben wurde (siehe
+     * CourseProgressServiceTest::
+     * test_course_page_banner_is_not_shown_at_a_percentage_that_would_round_up_to_the_trigger),
+     * hier aber übersehen.
+     */
+    public function test_the_course_overview_does_not_unlock_the_tile_at_a_percentage_that_would_round_up_to_the_threshold(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, , $questionIds] = $this->makeIsolatedCourseWithQuestions(8);
+        $this->grantEntitlement($tenant, $learner, $course);
+        $this->completeRegistrationProfile($learner, $tenant);
+        $this->onAdmin(fn () => $tenant->branding->update(['exam_readiness_threshold_percent' => 38]));
+
+        // 3 von 8 Fragen gefestigt = exakt 37,5% -- liegt echt unter 38%.
+        $this->masterQuestions($tenant, $learner, array_slice($questionIds, 0, 3));
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
+
+        $response->assertOk();
+        $response->assertDontSee('Jetzt buchbar');
+        $response->assertDontSee(route('praxis-pruefung.index', $course), false);
+
+        $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/praxis-pruefung")->assertForbidden();
+    }
+
     private function masterQuestions($tenant, $learner, array $questionIds): void
     {
         $this->onAdmin(function () use ($tenant, $learner, $questionIds) {
