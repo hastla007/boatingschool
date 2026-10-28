@@ -78,7 +78,7 @@ class TenantController extends Controller
         // Transaktion -- schlug z. B. die TenantUser-Anlage fehl, blieben
         // Tenant/Branding/Admin-Konto als Daten-Fragment ohne Mitgliedschaft
         // zurück.
-        $tenant = DB::transaction(function () use ($validated) {
+        $tenant = DB::transaction(function () use ($validated, $request) {
             $tenant = Tenant::create([
                 'slug' => $validated['slug'],
                 'name' => $validated['name'],
@@ -101,6 +101,16 @@ class TenantController extends Controller
             ]);
 
             TenantUser::create(['tenant_id' => $tenant->id, 'user_id' => $admin->id, 'role' => 'owner', 'status' => 'active']);
+
+            // Bug-Review (Superadmin-Audit-Lücken): das Anlegen einer neuen
+            // Bootsschule wurde bisher gar nicht protokolliert, anders als
+            // die spätere Bearbeitung (update() unten).
+            AuditLog::record($tenant->id, $request->user()->id, 'superadmin.tenant.create', 'tenant', $tenant->id, null, [
+                'slug' => $tenant->slug,
+                'name' => $tenant->name,
+                'status' => $tenant->status,
+                'admin_email' => $admin->email,
+            ]);
 
             return $tenant;
         });

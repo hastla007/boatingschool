@@ -4,6 +4,9 @@ namespace Tests\Feature;
 
 use App\Models\AuditLog;
 use App\Models\Coupon;
+use App\Models\PlatformSetting;
+use App\Models\Tenant;
+use App\Models\User;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -14,6 +17,13 @@ use Tests\TestCase;
  * schrieben bisher keine AuditLog-Zeile -- im Unterschied zu den längst
  * bestehenden AuditLog::record()-Aufrufen für Bootsschul-Admin-Aktionen
  * (z. B. entitlement.*, coupon.redeem, participant.update).
+ *
+ * Bug-Review (Superadmin-Audit-Lücken): dieselbe Lücke bestand weiterhin
+ * beim Anlegen eines Nutzers/einer Bootsschule, beim Export von
+ * Coupon-Codes und bei einer vom Superadmin selbst geänderten
+ * E-Mail-Adresse. Erzeugte Codes stehen außerdem nicht mehr im Klartext
+ * im after_data-JSON (siehe AuditLogDescriptionTest für die zugehörige
+ * Anzeige-Seite im "Letzte Aktivitäten"-Feed der Bootsschule).
  */
 class SuperadminAuditLoggingTest extends TestCase
 {
@@ -146,7 +156,142 @@ class SuperadminAuditLoggingTest extends TestCase
             $this->assertNotNull($log);
             $this->assertSame($superadmin->id, $log->actor_user_id);
             $this->assertSame(2, $log->after_data['quantity']);
-            $this->assertCount(2, $log->after_data['codes']);
+            // Bug-Review (Codes im Klartext im Log): die erzeugten Codes
+            // selbst dürfen nicht mehr im after_data-JSON stehen.
+            $this->assertArrayNotHasKey('codes', $log->after_data);
+        });
+    }
+
+    public function test_creating_a_user_is_logged(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+
+        $response = $this->actingAs($superadmin)->post('/superadmin/users', [
+            'first_name' => 'Test',
+            'last_name' => 'Nutzer',
+            'email' => 'test-user-'.uniqid().'@example.test',
+        ]);
+
+        $response->assertRedirect();
+
+        $this->onAdmin(function () use ($superadmin) {
+            $user = User::where('email', 'like', 'test-user-%')->latest('created_at')->first();
+
+            $log = AuditLog::where('action', 'superadmin.user.create')->where('entity_id', $user->id)->first();
+
+            $this->assertNotNull($log);
+            $this->assertSame($superadmin->id, $log->actor_user_id);
+            $this->assertSame($user->email, $log->after_data['email']);
+
+            $user->delete();
+        });
+    }
+
+    public function test_creating_a_tenant_is_logged(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        $slug = 'test-schule-'.uniqid();
+
+        $response = $this->actingAs($superadmin)->post('/superadmin/tenants', [
+            'slug' => $slug,
+            'name' => 'Test Schule',
+            'status' => 'trial',
+            'admin_first_name' => 'Admin',
+            'admin_last_name' => 'Person',
+            'admin_email' => 'test-admin-'.uniqid().'@example.test',
+        ]);
+
+        $response->assertRedirect();
+
+        $this->onAdmin(function () use ($superadmin, $slug) {
+            $tenant = Tenant::where('slug', $slug)->firstOrFail();
+
+            $log = AuditLog::where('action', 'superadmin.tenant.create')->where('entity_id', $tenant->id)->first();
+
+            $this->assertNotNull($log);
+            $this->assertSame($superadmin->id, $log->actor_user_id);
+            $this->assertSame($slug, $log->after_data['slug']);
+
+            $admin = User::where('email', $log->after_data['admin_email'])->first();
+            $tenant->delete();
+            $admin?->delete();
+        });
+    }
+
+    public function test_exporting_coupon_codes_is_logged_without_the_codes_themselves(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        $course = $this->existingCourse('SRC');
+        $code = 'E2E-AUDIT-EXPORT-'.uniqid();
+        $this->createdCouponCodes[] = $code;
+        $coupon = $this->onAdmin(fn () => Coupon::create(['code' => $code, 'course_id' => $course->id]));
+
+        $response = $this->actingAs($superadmin)->post('/superadmin/coupons/export', [
+            'select_all' => '0',
+            'ids' => [$coupon->id],
+        ]);
+
+        $response->assertOk();
+
+        $this->onAdmin(function () use ($superadmin) {
+            $log = AuditLog::where('action', 'superadmin.coupon.export')->latest('id')->first();
+
+            $this->assertNotNull($log);
+            $this->assertSame($superadmin->id, $log->actor_user_id);
+            $this->assertSame(1, $log->after_data['count']);
+            $this->assertArrayNotHasKey('codes', $log->after_data);
+        });
+    }
+
+    public function test_changing_a_users_email_as_superadmin_is_logged(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        $tenant = $this->createTestTenant();
+        $user = $this->createTenantUser($tenant, 'learner');
+        $newEmail = 'changed-'.uniqid().'@example.test';
+
+        $this->actingAs($superadmin)->patch("/superadmin/users/{$user->id}", [
+            'first_name' => 'Test',
+            'last_name' => 'User',
+            'email' => $newEmail,
+            'status' => 'active',
+        ])->assertRedirect();
+
+        $this->onAdmin(function () use ($superadmin, $user, $newEmail) {
+            $log = AuditLog::where('action', 'superadmin.user.update')
+                ->where('entity_id', $user->id)->first();
+
+            $this->assertNotNull($log);
+            $this->assertSame($superadmin->id, $log->actor_user_id);
+            $this->assertSame($user->email, $log->before_data['email']);
+            $this->assertSame($newEmail, $log->after_data['email']);
+        });
+    }
+
+    public function test_updating_platform_settings_is_logged(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        // Bug-Review Betrieb B3: maintenance_mode ist eine global geteilte
+        // Singleton-Zeile (platform_setting, id = 1) -- dieser Test ändert
+        // ihn bewusst nicht, um die Test-DB nicht dauerhaft in den
+        // Wartungsmodus zu versetzen (siehe MaintenanceModeTest).
+        $originalSiteName = $this->onAdmin(fn () => PlatformSetting::current()->site_name);
+        $newSiteName = 'Geänderter Seitenname '.uniqid();
+
+        $this->actingAs($superadmin)->patch('/superadmin/settings', [
+            'site_name' => $newSiteName,
+            'support_email' => 'support-'.uniqid().'@example.test',
+        ])->assertRedirect();
+
+        $this->onAdmin(function () use ($superadmin, $originalSiteName, $newSiteName) {
+            $log = AuditLog::where('action', 'superadmin.settings.update')->latest('created_at')->first();
+
+            $this->assertNotNull($log);
+            $this->assertSame($superadmin->id, $log->actor_user_id);
+            $this->assertSame($originalSiteName, $log->before_data['site_name']);
+            $this->assertSame($newSiteName, $log->after_data['site_name']);
+
+            PlatformSetting::current()->update(['site_name' => $originalSiteName, 'support_email' => null]);
         });
     }
 }

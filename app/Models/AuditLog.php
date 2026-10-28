@@ -81,14 +81,22 @@ class AuditLog extends Model
         };
     }
 
+    /**
+     * Bug-Review (Codes im Klartext im Log): zeigte den eingelösten Code
+     * bisher im Klartext an -- dieser Satz landet direkt im "Letzte
+     * Aktivitäten"-Feed der Bootsschule (admin/tabs/dashboard.blade.php),
+     * sichtbar für jeden Admin/Owner. Der Kurs-/Produktname reicht aus,
+     * um die Aktion verständlich zu beschreiben, ohne den Code selbst
+     * preiszugeben.
+     */
     private function describeCouponRedeem(string $actorName): string
     {
         $coupon = Coupon::find($this->entity_id);
         $learnerId = $this->after_data['user_id'] ?? null;
         $learnerName = ($learnerId ? User::find($learnerId)?->name : null) ?? 'einem Teilnehmer';
         $courseOrProductName = $coupon?->course?->name ?? $coupon?->product?->name;
-        $what = $coupon?->code
-            ? 'den Code "'.$coupon->code.'"'.($courseOrProductName ? ' ('.$courseOrProductName.')' : '')
+        $what = $courseOrProductName
+            ? 'einen Code ('.$courseOrProductName.')'
             : 'einen Code';
 
         // Beim Selbst-Einlösen (/coupons/redeem) ist der Teilnehmer selbst

@@ -148,7 +148,11 @@ class AuditLogDescriptionTest extends TestCase
         $response = $this->actingAsInTenant($admin, $tenant)->get(route('admin.dashboard'));
 
         $response->assertOk();
-        $response->assertSee('Max Mustermann hat den Code "'.$code.'" ('.$course->name.') eingelöst.');
+        // Bug-Review (Codes im Klartext im Log): die Aktivitäten-Beschreibung
+        // selbst darf den eingelösten Code nicht mehr im Klartext nennen
+        // (die Seite zeigt den Code an anderer Stelle weiterhin legitim,
+        // z. B. in der eigenen Coupon-Verwaltung).
+        $response->assertSee('Max Mustermann hat einen Code ('.$course->name.') eingelöst.');
     }
 
     public function test_coupon_assigned_by_admin_is_described_with_actor_and_learner(): void
@@ -166,7 +170,9 @@ class AuditLogDescriptionTest extends TestCase
         $response = $this->actingAsInTenant($admin, $tenant)->get(route('admin.dashboard'));
 
         $response->assertOk();
-        $response->assertSee('Anna Meyer hat den Code "'.$code.'" ('.$course->name.') für Max Mustermann eingelöst.');
+        // Bug-Review (Codes im Klartext im Log): siehe Test oben --
+        // dieselbe Beschreibung, hier mit separatem Akteur.
+        $response->assertSee('Anna Meyer hat einen Code ('.$course->name.') für Max Mustermann eingelöst.');
     }
 
     public function test_praxis_appointment_proposal_is_described_in_german(): void

@@ -95,11 +95,19 @@ class CouponController extends Controller
         // kostenlose Freischaltungen, bis zu 500 pro Aufruf) wurde bisher
         // gar nicht protokolliert -- ein einziger Eintrag pro Batch statt
         // einem je Code, da ein Batch bis zu 500 Zeilen erzeugen könnte.
+        //
+        // Bug-Review (Codes im Klartext im Log): die erzeugten Codes
+        // selbst standen hier bisher unverschlüsselt im after_data-JSON --
+        // ist tenant_id gesetzt, erscheint dieser Eintrag über
+        // AdminDashboardController auch im "Letzte Aktivitäten"-Feed GENAU
+        // dieser Bootsschule. Die Codes stehen bereits unveränderlich in
+        // der coupon-Tabelle (abrufbar über diese Seite selbst); der
+        // Audit-Log-Eintrag braucht sie nicht zusätzlich, ungeschützt
+        // duplizieren.
         AuditLog::record($validated['tenant_id'] ?? null, $request->user()->id, 'superadmin.coupon.create', 'coupon', null, null, [
             'target' => $validated['target'],
             'quantity' => $quantity,
             'batch_label' => $batchLabel,
-            'codes' => $codes,
         ]);
 
         $message = $quantity === 1 ? 'Coupon-Code erzeugt.' : "{$quantity} Coupon-Codes erzeugt.";
@@ -137,6 +145,18 @@ class CouponController extends Controller
         } else {
             $codes = Coupon::whereIn('id', $validated['ids'])->orderByDesc('created_at')->pluck('code');
         }
+
+        // Bug-Review (Superadmin-Audit-Lücken): der Export von Coupon-Codes
+        // als Klartext-Download wurde bisher gar nicht protokolliert --
+        // anders als store() (Sicherheitsreview S4) wird hier bewusst NUR
+        // die Anzahl vermerkt, nicht die Codes selbst (die stehen bereits
+        // unveränderlich in der coupon-Tabelle; ein Audit-Log-Eintrag soll
+        // kein zweiter, ungeschützter Fundort für Klartext-Codes werden).
+        AuditLog::record($validated['tenant_id'] ?? null, $request->user()->id, 'superadmin.coupon.export', 'coupon', null, null, [
+            'count' => $codes->count(),
+            'select_all' => $request->boolean('select_all'),
+            'filters' => $request->only(['tenant_id', 'status', 'search']),
+        ]);
 
         $filename = 'coupon-codes-'.now()->format('Y-m-d_His').'.txt';
 

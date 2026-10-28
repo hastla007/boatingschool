@@ -104,6 +104,16 @@ class UserController extends Controller
             "Einladungsmail neuer Nutzer {$user->id}"
         );
 
+        // Bug-Review (Superadmin-Audit-Lücken): das Anlegen eines Nutzers
+        // über diese plattformweite Seite wurde bisher gar nicht
+        // protokolliert, anders als z. B. das spätere Sperren/Freigeben
+        // über update() (Sicherheitsreview S4).
+        AuditLog::record($validated['tenant_id'] ?? null, $request->user()->id, 'superadmin.user.create', 'app_user', $user->id, null, [
+            'email' => $user->email,
+            'tenant_id' => $validated['tenant_id'] ?? null,
+            'role' => $validated['role'] ?? null,
+        ]);
+
         $status = $mailSent
             ? 'Nutzer angelegt.'
             : 'Nutzer angelegt, die Einladungsmail konnte aber nicht versendet werden -- bitte den Zugang über "Passwort vergessen" erneut anstoßen.';
@@ -199,7 +209,13 @@ class UserController extends Controller
         // Sicherheitsreview S4: Superadmin-Aktionen -- insbesondere Sperren
         // (status) und das Erteilen/Entziehen von is_superadmin -- wurden
         // bisher gar nicht protokolliert.
-        $before = ['status' => $user->status, 'is_superadmin' => $user->is_superadmin];
+        //
+        // Bug-Review (Superadmin-Audit-Lücken): email fehlte hier bisher --
+        // eine vom Superadmin an dieser Stelle geänderte E-Mail-Adresse
+        // (anders als die eigene, bestätigungspflichtige Änderung über
+        // ProfileController) wurde dadurch protokolliert, ohne dass
+        // nachvollziehbar war, WELCHE Adresse sich geändert hat.
+        $before = ['status' => $user->status, 'is_superadmin' => $user->is_superadmin, 'email' => $user->email];
 
         $wasActive = $user->status === 'active';
         $user->forceFill(['is_superadmin' => $isSuperadmin]);
@@ -208,6 +224,7 @@ class UserController extends Controller
         AuditLog::record(null, $request->user()->id, 'superadmin.user.update', 'app_user', $user->id, $before, [
             'status' => $validated['status'],
             'is_superadmin' => $isSuperadmin,
+            'email' => $validated['email'],
         ]);
 
         // Eine Sperrung soll sofort wirken, nicht erst wenn eine laufende
