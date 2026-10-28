@@ -29,14 +29,29 @@ class WillkommensboxOrderController extends Controller
             'tracking_number' => ['nullable', 'string', 'max:255'],
         ]);
 
-        $willkommensboxOrder->update([
-            'shipped_at' => now(),
-            'tracking_number' => trim((string) ($validated['tracking_number'] ?? '')) ?: null,
-        ]);
+        // Bug-Review (Willkommensbox -- Doppelklick auf "Versendet" schickt
+        // zwei Mails): update() lief hier bisher unbedingt -- ein
+        // Doppelklick (oder zwei nahezu gleichzeitige Requests) markierte
+        // die Bestellung zweimal als versendet und verschickte dabei auch
+        // zweimal die Versandbestätigung an den Lerner. Die WHERE-Bedingung
+        // macht das UPDATE atomar und wirkungslos, sobald die Bestellung
+        // bereits versendet wurde.
+        $updated = WillkommensboxOrder::where('id', $willkommensboxOrder->id)
+            ->whereNull('shipped_at')
+            ->update([
+                'shipped_at' => now(),
+                'tracking_number' => trim((string) ($validated['tracking_number'] ?? '')) ?: null,
+            ]);
+
+        if ($updated === 0) {
+            return back()->with('status', 'Willkommensbox wurde bereits als versendet markiert.');
+        }
+
+        $willkommensboxOrder->refresh();
 
         AuditLog::record(
             $tenantContext->id(), $request->user()->id, 'willkommensbox-order.ship',
-            'willkommensbox_order', $willkommensboxOrder->id, null, $willkommensboxOrder->fresh()->toArray()
+            'willkommensbox_order', $willkommensboxOrder->id, null, $willkommensboxOrder->toArray()
         );
 
         // Bug-Review F5: im gesamten Ablauf von Praxis-Anmeldung, Terminen

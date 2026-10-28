@@ -576,6 +576,26 @@ class ParticipantDetailTest extends TestCase
         $response->assertDontSee('Keine offenen Aktionen.');
     }
 
+    /**
+     * Bug-Review (Willkommensbox -- Tab läuft auf dem Handy über): die
+     * Adresse- und die Willkommensbox-Karte liegen nebeneinander in einem
+     * grid-Container, der unterhalb von lg (z. B. 360px) bisher keine
+     * explizite Spaltenzahl hatte -- ohne grid-cols-1 bleibt die Breite
+     * content-based (shrink-to-fit) statt zu stapeln, wodurch beide Karten
+     * über den Viewport hinausliefen (derselbe Fehler wie Bug-Review P8).
+     */
+    public function test_the_detail_page_layout_grid_has_an_explicit_single_column_below_the_desktop_breakpoint(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+
+        $response = $this->actingAsInTenant($admin, $tenant)->get("/admin/participants/{$learner->id}");
+
+        $response->assertOk();
+        $response->assertSee('grid grid-cols-1 lg:grid-cols-2', false);
+    }
+
     public function test_detail_page_hides_the_shipping_notice_once_the_order_is_shipped(): void
     {
         $tenant = $this->createTestTenant();
@@ -712,6 +732,49 @@ class ParticipantDetailTest extends TestCase
         $response->assertRedirect();
 
         Notification::assertSentTo($learner, WillkommensboxOrderShipped::class);
+    }
+
+    /**
+     * Bug-Review (Willkommensbox -- Doppelklick auf "Versendet" schickt
+     * zwei Mails): ship() lief bisher unbedingt -- ein zweiter Request auf
+     * eine bereits versendete Bestellung (Doppelklick oder zwei nahezu
+     * gleichzeitige Requests) aktualisierte shipped_at erneut und
+     * verschickte die Versandbestätigung ein zweites Mal.
+     */
+    public function test_shipping_an_already_shipped_order_again_does_not_send_a_second_mail(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $this->grantWillkommensbox($tenant, $learner);
+        $order = $this->onAdmin(fn () => WillkommensboxOrder::create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $learner->id,
+            'street' => 'Lieferstraße 1',
+            'postal_code' => '12345',
+            'city' => 'Lieferstadt',
+            'country' => 'Deutschland',
+        ]));
+
+        $first = $this->actingAsInTenant($admin, $tenant)->patch("/admin/willkommensbox-orders/{$order->id}/ship", [
+            'tracking_number' => 'DHL1234567890',
+        ]);
+        $first->assertRedirect();
+        $firstShippedAt = $this->onAdmin(fn () => $order->fresh()->shipped_at);
+
+        Notification::fake();
+
+        $second = $this->actingAsInTenant($admin, $tenant)->patch("/admin/willkommensbox-orders/{$order->id}/ship", [
+            'tracking_number' => 'DHL-ZWEITER-VERSUCH',
+        ]);
+
+        $second->assertRedirect();
+        Notification::assertNothingSent();
+        $this->onAdmin(function () use ($order, $firstShippedAt) {
+            $fresh = $order->fresh();
+            $this->assertSame($firstShippedAt->format('Y-m-d H:i:s'), $fresh->shipped_at->format('Y-m-d H:i:s'));
+            $this->assertSame('DHL1234567890', $fresh->tracking_number);
+        });
     }
 
     public function test_admin_cannot_ship_a_willkommensbox_order_of_another_tenant(): void

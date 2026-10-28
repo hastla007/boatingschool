@@ -23,7 +23,12 @@
         </span>
     </div>
 
-    <div class="grid lg:grid-cols-2 gap-6 mb-6">
+    {{-- Bug-Review (Willkommensbox -- Tab läuft auf dem Handy über): ohne
+         grid-cols-1 bleibt die Spaltenbreite unterhalb von lg content-based
+         (shrink-to-fit) statt zu stapeln -- die beiden Karten liefen bei
+         360px nebeneinander über den Viewport hinaus (derselbe Fehler wie
+         Bug-Review P8 bei Video/Praxistrainer). --}}
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         @php($hasAddressData = $membership->street || $membership->postal_code || $membership->city || $membership->country || $membership->birthdate)
         @php($startInEditMode = ! $hasAddressData || $errors->hasAny(['street', 'postal_code', 'city', 'country', 'birthdate']))
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5" x-data="{ editing: {{ $startInEditMode ? 'true' : 'false' }} }">
