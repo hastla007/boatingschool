@@ -91,6 +91,9 @@ class DatabaseSeeder extends Seeder
             SrcExamPaperSeeder::class,
             UbiExamPaperSeeder::class,
             FknExamPaperSeeder::class,
+            // Nach allen *ExamPaperSeedern: ersetzt die von ExamPaperSeeder
+            // angehängten kleinen Basisfragen-Bilder.
+            ElwisQuestionImageSeeder::class,
             PraxisTrainerSeeder::class,
             ComboPraxisTrainerSeeder::class,
             PraxisFormTemplateSeeder::class,

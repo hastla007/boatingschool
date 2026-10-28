@@ -118,7 +118,11 @@ auf PostgreSQL, gemäß dem mitgelieferten technischen Konzept
   Fragenfamilie mehrfach vorkommt. Bilder aus
   `database/data/pruefungsboegen_bilder/` werden dabei direkt an die
   jeweilige Frage angehängt (`question_media`) und erscheinen dadurch überall,
-  wo diese Frage angezeigt wird (Smarttrainer, Prüfungssimulation). Dasselbe
+  wo diese Frage angezeigt wird (Smarttrainer, Prüfungssimulation). Die
+  Bilder der Basisfragen sowie aller SBF-Binnen- und Binnen-Segeln-Fragen
+  stammen aus dem ELWIS-Fragenkatalog Binnen (`database/data/elwis_bilder/`,
+  Zuordnung in `elwis_bilder.csv`, angehängt von `ElwisQuestionImageSeeder`)
+  und ersetzen dabei die kleineren Basisfragen-Bilder der See-Bögen. Dasselbe
   Muster (eigener Seeder je Kurs, feste statt zufällig gewürfelter Fragen)
   wurde inzwischen auch auf weitere Kurse übertragen (u. a. SRC, FKN, SBF
   Binnen, Kombikurse) – mit jeweils eigener Fragenzahl/-zusammensetzung laut
