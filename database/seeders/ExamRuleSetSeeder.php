@@ -29,7 +29,8 @@ use Illuminate\Support\Str;
  * Bestehensgrenze -- diese Plattform bewertet Fragen binär (richtig/
  * falsch, keine Teilpunkte), daher rechnerisch gleichwertig als 12 von
  * 15 (80%) übernommen, über ALLE 15 Fragen eines Bogens (siehe
- * ExamEvaluationService); Bearbeitungszeit 30 Minuten. Offene Fragen
+ * ExamEvaluationService); Bearbeitungszeit 30 Minuten. UBI hat amtlich
+ * 17 von 22 Fragen und 60 Minuten. Offene Fragen
  * (question_type=open_text) zählen dabei über ihre Selbsteinschätzung
  * mit in diese 15 ein (Bug-Review: ein früherer Stand schloss sie
  * komplett aus -- die amtlichen Bögen haben aber nur 9-10 Nicht-
@@ -66,8 +67,8 @@ class ExamRuleSetSeeder extends Seeder
         // amtlichen Bestehensgrenze (siehe $passingRuleOverrides unten)
         // gelten hier als verifiziert; alle anderen bleiben "draft", bis
         // jemand die echten Werte recherchiert und einträgt.
-        $verifiedCourses = ['ADD-BIN-SEGEL', 'SRC', 'FKN'];
-        $questionCountOverrides = ['ADD-SEE-TO-BIN' => 23, 'ADD-BIN-TO-SEE' => 23];
+        $verifiedCourses = ['ADD-BIN-SEGEL', 'SRC', 'FKN', 'UBI'];
+        $questionCountOverrides = ['ADD-SEE-TO-BIN' => 23, 'ADD-BIN-TO-SEE' => 23, 'UBI' => 22];
 
         // ADD-BIN-SEGEL ("Ergänzung Binnen → Segeln"): nur noch die 7
         // spezifischen Segelfragen je Bogen (kein allgemeiner Teil, keine
@@ -78,8 +79,14 @@ class ExamRuleSetSeeder extends Seeder
         // SRC ("SRC Vollkurs"): 19 von 24 Fragen müssen richtig
         // beantwortet werden (max. 5 Fehler), Bearbeitungszeit 30
         // Minuten.
-        $timeLimitOverrides = ['ADD-BIN-SEGEL' => 900, 'SRC' => 1800, 'FKN' => 1800];
-        $passingRuleOverrides = ['ADD-BIN-SEGEL' => ['min_correct_ratio' => 5 / 7], 'SRC' => ['min_correct_ratio' => 19 / 24], 'FKN' => ['min_correct_ratio' => 24 / 30]];
+        //
+        // UBI ("UBI Vollkurs"): 22 Fragen je Bogen, davon 17 richtig
+        // (BinSchSprFunkV), Bearbeitungszeit 60 Minuten. Bestehende
+        // Installationen stellt die Migration
+        // 2024_02_01_000474_verify_ubi_exam_rule_set um, da firstOrCreate()
+        // unten ein vorhandenes Regelwerk nicht anfasst.
+        $timeLimitOverrides = ['ADD-BIN-SEGEL' => 900, 'SRC' => 1800, 'FKN' => 1800, 'UBI' => 3600];
+        $passingRuleOverrides = ['ADD-BIN-SEGEL' => ['min_correct_ratio' => 5 / 7], 'SRC' => ['min_correct_ratio' => 19 / 24], 'FKN' => ['min_correct_ratio' => 24 / 30], 'UBI' => ['min_correct_ratio' => 17 / 22]];
 
         // Bug-Review (Hoch, Folgefehler von CourseSeeder): dieser Seeder
         // läuft in Produktion erneut, sobald ein neuer Kurs dazukommt --

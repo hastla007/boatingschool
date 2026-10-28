@@ -170,6 +170,14 @@ und werden bewusst als Fehler ausgewiesen, nicht stillschweigend
 übersprungen), legt die 8 Module und 14 Kursdefinitionen an und erzeugt
 zwei Demo-Bootsschulen.
 
+Die 130 UBI-Fragen entsprechen dem UBI-Gesamtfragenkatalog Stand Oktober
+2026 (ABVT Koblenz, gültig ab 01.10.2026; Zeilen mit `source_version`
+`2026-10`). Auf einer Installation mit dem bisherigen Katalog 08/2023 legt
+der Seed-Lauf für die 65 geänderten Fragen neue Revisionen an und
+veröffentlicht sie (`UbiCatalogUpdateSeeder`); die alte Fassung bleibt als
+`deprecated` erhalten, bereits gespeicherte Versuche verweisen weiter auf
+sie.
+
 ```bash
 php artisan serve
 ```
@@ -269,7 +277,7 @@ aktuell in einem Schritt) sowie fortgeschrittenes Spaced Repetition.
 **Wichtiger Hinweis zur Prüfungssimulation**: Die Prüfungsregelwerke
 (Fragenmix, Zeitlimit, Bestehensgrenze) sind für die meisten Kurse weiterhin
 als `draft`/unverifiziert markiert. Nur für Kurse mit echten, amtlichen
-Prüfungsbögen (ADD-BIN-SEGEL, SRC, FKN) ist zusätzlich eine tatsächlich aus
+Prüfungsbögen (ADD-BIN-SEGEL, SRC, FKN, UBI) ist zusätzlich eine tatsächlich aus
 der jeweiligen Prüfungsordnung belegte Bestehensgrenze eingetragen und das
 Regelwerk als verifiziert markiert (siehe `ExamRuleSetSeeder`) – für alle
 anderen Kurse müssen Zeitlimit/Fragenmix/Bestehensgrenze vor echtem

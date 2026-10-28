@@ -101,7 +101,13 @@ class ExamEvaluationService
                 'status' => 'evaluated',
                 'submitted_at' => now(),
                 'score' => $score,
-                'passed' => $score >= $minRatio,
+                // Gegen das ungerundete Verhältnis vergleichen: der auf 4
+                // Stellen gerundete score lag bei Grenzen wie 17/22
+                // (0,772727...) mit genau 17 Richtigen als 0,7727 knapp
+                // UNTER der Grenze -- bestanden wäre dann erst mit 18. Die
+                // Toleranz fängt Rundungsreste aus der JSON-Speicherung der
+                // passing_rule ab.
+                'passed' => $correctCount / $total >= $minRatio - 1e-9,
             ]);
         });
     }

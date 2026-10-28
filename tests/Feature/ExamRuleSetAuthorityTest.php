@@ -17,7 +17,7 @@ use Tests\TestCase;
  * weiterhin nur den generischen 75%-Platzhalter nutzte, statt einer
  * tatsächlich amtlichen, aus der Prüfungsordnung belegten
  * Bestehensgrenze. Nur Kurse mit einer explizit dokumentierten,
- * amtlichen Bestehensgrenze (ADD-BIN-SEGEL, SRC, FKN) dürfen verifiziert
+ * amtlichen Bestehensgrenze (ADD-BIN-SEGEL, SRC, FKN, UBI) dürfen verifiziert
  * sein.
  */
 class ExamRuleSetAuthorityTest extends TestCase
@@ -28,7 +28,7 @@ class ExamRuleSetAuthorityTest extends TestCase
         'SBF-SEE', 'SBF-BIN-MOTOR', 'SBF-SEE-BIN', 'ADD-SEE-TO-BIN', 'ADD-BIN-TO-SEE', 'SBF-BIN-SEGEL',
     ];
 
-    private const VERIFIED_COURSE_CODES_WITH_A_DOCUMENTED_OFFICIAL_THRESHOLD = ['ADD-BIN-SEGEL', 'SRC', 'FKN'];
+    private const VERIFIED_COURSE_CODES_WITH_A_DOCUMENTED_OFFICIAL_THRESHOLD = ['ADD-BIN-SEGEL', 'SRC', 'FKN', 'UBI'];
 
     protected function tearDown(): void
     {

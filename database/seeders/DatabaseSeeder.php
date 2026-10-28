@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
 
         $this->command->info('Importiere zentrale Fragenbasis ...');
         Artisan::call('content:import', [], $this->command->getOutput());
+        $this->call(UbiCatalogUpdateSeeder::class);
 
         $this->command->info('Importiere Richtig-/Falsch-Feedback ...');
         Artisan::call('content:import-feedback', [], $this->command->getOutput());
@@ -87,6 +88,7 @@ class DatabaseSeeder extends Seeder
             BinnenSegelnExamPaperSeeder::class,
             BinnenSegelnAddonExamPaperSeeder::class,
             SrcExamPaperSeeder::class,
+            UbiExamPaperSeeder::class,
             FknExamPaperSeeder::class,
             PraxisTrainerSeeder::class,
             ComboPraxisTrainerSeeder::class,
