@@ -118,7 +118,10 @@ class CouponController extends Controller
         $membership = TenantUser::where('user_id', $validated['user_id'])->first();
 
         if (! $membership) {
-            return back()->withErrors(['assign' => 'Dieser Nutzer gehört nicht zu eurer Bootsschule.']);
+            // Bug-Review (Du/Sie im Admin-Bereich -- weitere Reste): dieselbe
+            // Meldung wie in EntitlementController nutzte hier noch die
+            // informelle ihr-Form ("eurer" statt "Ihrer").
+            return back()->withErrors(['assign' => 'Dieser Nutzer gehört nicht zu Ihrer Bootsschule.']);
         }
 
         try {

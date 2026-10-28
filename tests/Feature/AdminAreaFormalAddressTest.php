@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Coupon;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -117,6 +118,36 @@ class AdminAreaFormalAddressTest extends TestCase
         $response->assertOk();
         $response->assertSee('Eigene Coupon-Codes bekommen Sie auf zwei Wegen', false);
         $response->assertDontSee('Eigene Coupon-Codes bekommt ihr auf zwei Wegen', false);
+    }
+
+    /**
+     * Bug-Review (Du/Sie im Admin-Bereich -- weitere Reste): dieselbe
+     * "eurer Bootsschule"-Formulierung wie beim T8-Fix oben, hier noch in
+     * Admin\CouponController::assign() stehen geblieben -- anders als bei
+     * der T8-Stelle in EntitlementController ist dieser Fehler über einen
+     * echten Request auslösbar (die Row-Level-Security auf "coupon"
+     * schränkt nur auf tenant_id IS NULL/eigener Mandant ein, nicht auf
+     * app_user, der Nutzer ist also sichtbar).
+     */
+    public function test_the_coupon_assignment_error_for_a_non_member_sizes_instead_of_the_informal_ihr_form(): void
+    {
+        $tenant = $this->createTestTenant();
+        $owner = $this->createTenantUser($tenant, 'owner');
+        $otherTenant = $this->createTestTenant();
+        $outsider = $this->createTenantUser($otherTenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $code = 'E2E-ASSIGN-SIE-'.uniqid();
+
+        $coupon = $this->onAdmin(fn () => Coupon::create(['code' => $code, 'course_id' => $course->id, 'tenant_id' => $tenant->id]));
+
+        $response = $this->actingAsInTenant($owner, $tenant)->post("/admin/coupons/{$coupon->id}/assign", [
+            'user_id' => $outsider->id,
+        ]);
+
+        $response->assertSessionHasErrors('assign');
+        $this->assertSame('Dieser Nutzer gehört nicht zu Ihrer Bootsschule.', session('errors')->first('assign'));
+
+        $this->onAdmin(fn () => Coupon::where('code', $code)->delete());
     }
 
     /**
