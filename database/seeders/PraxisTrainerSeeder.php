@@ -13,7 +13,9 @@ use Illuminate\Support\Facades\Storage;
  * database/data/sbf_see_praxistrainer.csv (Bilder in
  * database/data/praxistrainer_bilder/, vom Betreiber bereitgestellt).
  * Bilder werden wie bei den Prüfungsbögen (ExamPaperSeeder) lokal unter
- * storage/app/public/question-media abgelegt statt extern verlinkt.
+ * storage/app/public/question-media abgelegt statt extern verlinkt. Karten
+ * mit ELWIS-Gegenstück haben keine eigene Grafik mehr (leere Spalte
+ * bilddatei); ihr Bild setzt ElwisPraxisImageSeeder.
  */
 class PraxisTrainerSeeder extends Seeder
 {

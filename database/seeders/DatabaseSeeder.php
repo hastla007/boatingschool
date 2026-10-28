@@ -92,6 +92,7 @@ class DatabaseSeeder extends Seeder
             ElwisQuestionImageSeeder::class,
             PraxisTrainerSeeder::class,
             ComboPraxisTrainerSeeder::class,
+            ElwisPraxisImageSeeder::class,
             PraxisFormTemplateSeeder::class,
         ]);
 
