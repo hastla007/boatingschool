@@ -33,9 +33,24 @@ class TrustProxies extends BaseTrustProxies
 {
     protected function proxies()
     {
+        $configured = trim((string) config('app.trusted_proxies', ''));
+
+        // Bug-Review (TRUSTED_PROXIES=* funktioniert nicht): die
+        // Elternklasse erkennt "allen Proxys vertrauen" ausschließlich am
+        // LITERALEN String "*" (bzw. "**"), siehe Illuminate\Http\
+        // Middleware\TrustProxies::setTrustedProxyIpAddresses(). Der
+        // bisherige Code zerlegte den konfigurierten Wert aber immer
+        // bedingungslos per explode(',', ...) in ein Array -- aus "*" wurde
+        // dadurch das Array ['*'], das diesen Vergleich nie erfüllt (ein
+        // Array ist nie === '*'). Der Platzhalter muss deshalb VOR dem
+        // Zerlegen erkannt und unverändert als String durchgereicht werden.
+        if ($configured === '*' || $configured === '**') {
+            return $configured;
+        }
+
         $trustedProxies = array_values(array_filter(array_map(
             'trim',
-            explode(',', (string) config('app.trusted_proxies', ''))
+            explode(',', $configured)
         )));
 
         return $trustedProxies !== [] ? $trustedProxies : null;

@@ -54,4 +54,27 @@ class TrustedProxiesAppliedFromConfigTest extends TestCase
 
         $response->assertHeaderMissing('Strict-Transport-Security');
     }
+
+    /**
+     * Bug-Review (TRUSTED_PROXIES=* funktioniert nicht): proxies() zerlegte
+     * den konfigurierten Wert bisher bedingungslos per
+     * explode(',', ...) -- aus dem Platzhalter "*" ("allen Proxys
+     * vertrauen") wurde dadurch immer das Array ['*'] statt des von der
+     * Elternklasse (Illuminate\Http\Middleware\TrustProxies::
+     * setTrustedProxyIpAddresses()) erwarteten literalen Strings "*". Ein
+     * Array erfüllt deren Vergleich $trustedIps === '*' nie, jede beliebige
+     * Proxy-Adresse wurde dadurch wie eine NICHT vertraute behandelt.
+     */
+    public function test_a_wildcard_trusted_proxies_value_trusts_any_proxy_address(): void
+    {
+        $this->get('/login');
+
+        config(['app.trusted_proxies' => '*']);
+
+        $response = $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.5'])
+            ->withHeaders(['X-Forwarded-Proto' => 'https'])
+            ->get('/login');
+
+        $response->assertHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    }
 }
