@@ -37,12 +37,23 @@ class CreateSuperAdminCommandTest extends TestCase
      * sichtbar -- die Option wurde deshalb entfernt. Für automatisiertes/
      * skriptgesteuertes Anlegen (z. B. beim initialen Deployment) bleibt
      * die Umgebungsvariable SUPERADMIN_PASSWORD die einzige Ausnahme.
+     *
+     * Bug-Review (Hoch, eigener Fund): der Befehl liest den Wert jetzt über
+     * config('app.superadmin_password') statt direkt per env() (siehe
+     * CreateSuperAdmin::resolvePassword()) -- die Config ist beim Start
+     * dieses Testprozesses bereits einmalig geladen, ein putenv() danach
+     * würde config('app.superadmin_password') nicht mehr erreichen. config()
+     * wird deshalb hier zusätzlich direkt gesetzt, genau wie es jeder echte
+     * Request/Konsolenaufruf vor dem allerersten Zugriff auf diesen Wert
+     * täte (per .env bzw. echter Prozessumgebung, aus der env() in
+     * config/app.php beim Boot liest).
      */
     private function setSuperAdminPasswordEnv(?string $password): void
     {
         if ($password === null) {
             putenv('SUPERADMIN_PASSWORD');
             unset($_ENV['SUPERADMIN_PASSWORD'], $_SERVER['SUPERADMIN_PASSWORD']);
+            config(['app.superadmin_password' => null]);
 
             return;
         }
@@ -50,6 +61,7 @@ class CreateSuperAdminCommandTest extends TestCase
         putenv("SUPERADMIN_PASSWORD={$password}");
         $_ENV['SUPERADMIN_PASSWORD'] = $password;
         $_SERVER['SUPERADMIN_PASSWORD'] = $password;
+        config(['app.superadmin_password' => $password]);
     }
 
     public function test_it_creates_a_brand_new_superadmin_account(): void

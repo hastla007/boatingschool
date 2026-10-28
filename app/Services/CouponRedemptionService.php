@@ -72,7 +72,15 @@ class CouponRedemptionService
         // ohne dass der Nutzer einen Vorteil davon hatte. Eine Verlängerung
         // läuft über einen eigenen Verlängerungscode (redeemForRenewal).
         if ($this->entitlements->hasAccess($tenant, $user, $course)) {
-            throw new RuntimeException('Du hast diesen Kurs bereits freigeschaltet. Für eine Verlängerung wird ein Verlängerungscode benötigt.');
+            // Bug-Review (Du/Sie im Admin-Bereich -- weitere Reste): diese
+            // Methode läuft sowohl für die Selbst-Einlösung (CouponRedeem
+            // Controller, $actor === $user, Lernerbereich siezt bewusst
+            // nicht) als auch für Admin\CouponController::assign ($actor
+            // ist der Admin, $user der Lerner) -- die Du-Form war dort bis
+            // jetzt trotzdem fest eingebaut und erschien dem Admin.
+            throw new RuntimeException($actor->id === $user->id
+                ? 'Du hast diesen Kurs bereits freigeschaltet. Für eine Verlängerung wird ein Verlängerungscode benötigt.'
+                : 'Dieser Nutzer hat diesen Kurs bereits freigeschaltet. Für eine Verlängerung wird ein Verlängerungscode benötigt.');
         }
 
         $now = now();
@@ -141,7 +149,14 @@ class CouponRedemptionService
         // Admin-Aktion nötig (z. B. erneutes Freischalten über
         // Admin\EntitlementController oder ein neu zugewiesenes Entitlement).
         if ($entitlement && $entitlement->status === 'revoked') {
-            throw new RuntimeException('Der Zugang zu diesem Kurs wurde entzogen und kann nicht per Verlängerungscode reaktiviert werden. Bitte wende dich an deine Bootsschule.');
+            // Bug-Review (Du/Sie im Admin-Bereich -- weitere Reste): wie
+            // oben bei redeemForCourse() -- der Verweis "wende dich an
+            // deine Bootsschule" ergibt für den Admin selbst (der hier über
+            // assign() die Bootsschule IST) ohnehin keinen Sinn und entfällt
+            // in diesem Fall ganz, statt in die Sie-Form zu wechseln.
+            throw new RuntimeException($actor->id === $user->id
+                ? 'Der Zugang zu diesem Kurs wurde entzogen und kann nicht per Verlängerungscode reaktiviert werden. Bitte wende dich an deine Bootsschule.'
+                : 'Der Zugang zu diesem Kurs wurde entzogen und kann nicht per Verlängerungscode reaktiviert werden.');
         }
 
         if ($entitlement) {
@@ -196,8 +211,14 @@ class CouponRedemptionService
      * hat danach nur noch die größere Einheit gebucht, nicht beide
      * nebeneinander. Die Löschung läuft vor den Neuanlagen, damit das auch
      * gilt, wenn ein Code beide Praxiseinheiten gleichzeitig bündelt.
+     *
+     * Bug-Review (Manuelle Freischaltung verliert gebündelte Zusatzprodukte):
+     * public, damit Admin\EntitlementController::store() -- das selbst
+     * einen Coupon auswählt und verbraucht, statt über redeem() zu laufen --
+     * dieselbe Bündel-Logik anwenden kann, statt sie zu duplizieren oder
+     * (wie bisher) ganz zu übergehen.
      */
-    private function applyOptionProducts(Coupon $coupon, Tenant $tenant, User $user): void
+    public function applyOptionProducts(Coupon $coupon, Tenant $tenant, User $user): void
     {
         $options = $coupon->optionProducts;
 
@@ -219,6 +240,21 @@ class CouponRedemptionService
         }
 
         foreach ($options as $option) {
+            // Bug-Review (Bezahlte Zusatzprodukte stillschweigend nicht
+            // angelegt): der T6-Fix prüfte hier, ob der Lerner irgendeine
+            // ProductPurchase-Zeile für dasselbe Produkt schon besitzt,
+            // unabhängig von Kurs oder Coupon -- ein SBF-See-Code mit
+            // "1 Fahrstunde" gefolgt von einem SBF-Binnen-Code mit
+            // ebenfalls "1 Fahrstunde" vergab die zweite Fahrstunde
+            // dadurch nie. Das eigentliche T6-Problem (doppelte Vergabe
+            // beim "Widerruf aufheben") entstand, weil EntitlementController::
+            // reactivate() diese Methode für dieselbe, längst gebündelt
+            // besessene Zusatzleistung ein zweites Mal aufrief -- behoben
+            // dort direkt, indem reactivate() applyOptionProducts() gar
+            // nicht mehr aufruft (revoke() löscht die ProductPurchase-Zeile
+            // nie, der Lerner bleibt durchgehend Besitzer). Diese Methode
+            // legt Zusatzprodukte deshalb wieder wie ursprünglich
+            // bedingungslos an.
             ProductPurchase::create([
                 'tenant_id' => $tenant->id,
                 'user_id' => $user->id,

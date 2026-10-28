@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Superadmin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\Coupon;
 use App\Models\CourseDefinition;
 use App\Models\Product;
@@ -10,6 +11,7 @@ use App\Models\Tenant;
 use App\Support\GermanTime;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\Response;
@@ -89,6 +91,25 @@ class CouponController extends Controller
             $codes[] = $coupon->code;
         }
 
+        // Sicherheitsreview S4: die Erzeugung von Coupon-Codes (potenziell
+        // kostenlose Freischaltungen, bis zu 500 pro Aufruf) wurde bisher
+        // gar nicht protokolliert -- ein einziger Eintrag pro Batch statt
+        // einem je Code, da ein Batch bis zu 500 Zeilen erzeugen könnte.
+        //
+        // Bug-Review (Codes im Klartext im Log): die erzeugten Codes
+        // selbst standen hier bisher unverschlüsselt im after_data-JSON --
+        // ist tenant_id gesetzt, erscheint dieser Eintrag über
+        // AdminDashboardController auch im "Letzte Aktivitäten"-Feed GENAU
+        // dieser Bootsschule. Die Codes stehen bereits unveränderlich in
+        // der coupon-Tabelle (abrufbar über diese Seite selbst); der
+        // Audit-Log-Eintrag braucht sie nicht zusätzlich, ungeschützt
+        // duplizieren.
+        AuditLog::record($validated['tenant_id'] ?? null, $request->user()->id, 'superadmin.coupon.create', 'coupon', null, null, [
+            'target' => $validated['target'],
+            'quantity' => $quantity,
+            'batch_label' => $batchLabel,
+        ]);
+
         $message = $quantity === 1 ? 'Coupon-Code erzeugt.' : "{$quantity} Coupon-Codes erzeugt.";
 
         return back()->with('status', $message)->with('generatedCodes', $codes);
@@ -125,6 +146,18 @@ class CouponController extends Controller
             $codes = Coupon::whereIn('id', $validated['ids'])->orderByDesc('created_at')->pluck('code');
         }
 
+        // Bug-Review (Superadmin-Audit-Lücken): der Export von Coupon-Codes
+        // als Klartext-Download wurde bisher gar nicht protokolliert --
+        // anders als store() (Sicherheitsreview S4) wird hier bewusst NUR
+        // die Anzahl vermerkt, nicht die Codes selbst (die stehen bereits
+        // unveränderlich in der coupon-Tabelle; ein Audit-Log-Eintrag soll
+        // kein zweiter, ungeschützter Fundort für Klartext-Codes werden).
+        AuditLog::record($validated['tenant_id'] ?? null, $request->user()->id, 'superadmin.coupon.export', 'coupon', null, null, [
+            'count' => $codes->count(),
+            'select_all' => $request->boolean('select_all'),
+            'filters' => $request->only(['tenant_id', 'status', 'search']),
+        ]);
+
         $filename = 'coupon-codes-'.now()->format('Y-m-d_His').'.txt';
 
         return response($codes->implode("\n"), 200, [
@@ -138,7 +171,14 @@ class CouponController extends Controller
     {
         $term = trim((string) ($filters['search'] ?? ''));
 
-        return Coupon::when($filters['tenant_id'] ?? null, fn ($q, $tenantId) => $q->where('tenant_id', $tenantId))
+        // Bug-Review (Query-Parameter-Validierung): tenant_id kam ungeprüft
+        // aus der Query-String direkt in ein where('tenant_id', ...) gegen
+        // die uuid-Spalte coupon.tenant_id -- ein manipulierter, nicht-UUID-
+        // förmiger Wert ließ Postgres mit "invalid input syntax for type
+        // uuid" scheitern (HTTP 500) statt den Filter zu ignorieren.
+        $tenantIdFilter = is_string($filters['tenant_id'] ?? null) && Str::isUuid($filters['tenant_id']) ? $filters['tenant_id'] : null;
+
+        return Coupon::when($tenantIdFilter, fn ($q, $tenantId) => $q->where('tenant_id', $tenantId))
             ->when(($filters['status'] ?? null) === 'redeemed', fn ($q) => $q->whereNotNull('redeemed_at'))
             ->when(($filters['status'] ?? null) === 'open', fn ($q) => $q->whereNull('redeemed_at'))
             ->when($term !== '', function ($q) use ($term) {

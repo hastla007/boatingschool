@@ -97,7 +97,7 @@ class AdminDashboardMetricsTest extends TestCase
     private function assertStatTileValue(TestResponse $response, string $label, string $expectedValue): void
     {
         preg_match(
-            '/text-xl font-bold leading-tight[^>]*>([^<]*)<\/div>\s*<div class="text-xs text-slate-400 truncate">'.preg_quote($label, '/').'/',
+            '/text-xl font-bold leading-tight[^>]*>([^<]*)<\/div>\s*<div class="text-xs text-slate-600 dark:text-slate-400 truncate">'.preg_quote($label, '/').'/',
             $response->getContent(),
             $matches
         );
@@ -109,7 +109,7 @@ class AdminDashboardMetricsTest extends TestCase
     private function assertPhasePercent(TestResponse $response, string $label, int $count, int $percent): void
     {
         preg_match(
-            '/font-medium">(\d+)%<\/div>\s*<div class="text-xs text-slate-400 truncate">'.preg_quote($label, '/').' \((\d+)\)/s',
+            '/font-medium">(\d+)%<\/div>\s*<div class="text-xs text-slate-600 dark:text-slate-400 truncate">'.preg_quote($label, '/').' \((\d+)\)/s',
             $response->getContent(),
             $matches
         );

@@ -72,6 +72,10 @@ Route::middleware(['auth', 'superadmin', 'admin-db', 'verified'])->prefix('super
     Route::get('/questions/{question}/edit', [QuestionController::class, 'edit'])->name('questions.edit');
     Route::patch('/questions/{question}', [QuestionController::class, 'update'])->name('questions.update');
     Route::post('/questions/{question}/toggle-active', [QuestionController::class, 'toggleActive'])->name('questions.toggle-active');
+    // Bug-Review F8: eine vom Content-Import angelegte Revision im Status
+    // "review" erreichte Lerner bisher nie -- es gab keinen Weg, sie zu
+    // veröffentlichen.
+    Route::post('/question-revisions/{revision}/publish', [QuestionController::class, 'publishRevision'])->name('questions.revisions.publish');
 
     Route::get('/settings', [SettingsController::class, 'edit'])->name('settings.edit');
     Route::patch('/settings', [SettingsController::class, 'update'])->name('settings.update');

@@ -126,6 +126,48 @@ class AppRoleGrantHardeningTest extends TestCase
         });
     }
 
+    /**
+     * Bug-Review (App-Rolle darf in tenant schreiben/löschen): "tenant"
+     * trägt keine RLS-Policy (es IST die Mandantengrenze) -- bis zu diesem
+     * Fix war das pauschale GRANT aus 2024_02_01_000070 der einzige Schutz,
+     * und das erlaubte der App-Rolle uneingeschränktes INSERT/UPDATE/
+     * DELETE. Tenant::create()/->update()/->delete() laufen ausschließlich
+     * im Superadmin-Bereich über die Owner-Verbindung (siehe
+     * UseAdminDatabaseConnection), die App-Rolle braucht dieses
+     * Schreibrecht nirgends.
+     */
+    public function test_app_role_cannot_create_a_tenant(): void
+    {
+        $tenant = $this->createTestTenant();
+
+        $this->expectException(QueryException::class);
+        $this->expectExceptionMessageMatches('/permission denied for table tenant/');
+
+        $this->asTenant($tenant, function () {
+            DB::table('tenant')->insert([
+                'id' => (string) Str::uuid(),
+                'name' => 'Gehackte Bootsschule',
+                'slug' => 'gehackt-'.uniqid(),
+                'status' => 'active',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        });
+    }
+
+    /** Die Kaskade über rund 25 Fremdschlüssel macht ein ungeschütztes DELETE hier besonders riskant. */
+    public function test_app_role_cannot_delete_a_tenant(): void
+    {
+        $tenant = $this->createTestTenant();
+
+        $this->expectException(QueryException::class);
+        $this->expectExceptionMessageMatches('/permission denied for table tenant/');
+
+        $this->asTenant($tenant, function () use ($tenant) {
+            DB::table('tenant')->where('id', $tenant->id)->delete();
+        });
+    }
+
     public function test_exam_session_question_is_isolated_per_tenant(): void
     {
         $tenantA = $this->createTestTenant();

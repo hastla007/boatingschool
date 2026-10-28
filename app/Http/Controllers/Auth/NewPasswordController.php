@@ -82,9 +82,20 @@ class NewPasswordController extends Controller
         // If the password was successfully reset, we will redirect the user back to
         // the application's home authenticated view. If there is an error we can
         // redirect them back to where they came from with their error message.
+        //
+        // Sicherheitsreview S2: Password::reset() liefert bei unbekannter
+        // E-Mail-Adresse Password::INVALID_USER ("passwords.user"), bei
+        // bekannter Adresse mit falschem/abgelaufenem Token dagegen
+        // Password::INVALID_TOKEN ("passwords.token") -- zwei Übersetzungen
+        // mit unterschiedlichem Text (siehe lang/de/passwords.php). Ein
+        // Angreifer, der hier mit einer geratenen E-Mail-Adresse und einem
+        // beliebigen (ungültigen) Token postet, konnte allein an der Antwort
+        // ablesen, ob diese Adresse auf der Plattform registriert ist.
+        // Beide Fehlerfälle zeigen deshalb jetzt denselben Text, unabhängig
+        // davon, welchen der beiden Status Laravel zurückgegeben hat.
         return $status == Password::PASSWORD_RESET
                     ? redirect()->route('login')->with('status', __($status))
                     : back()->withInput($request->only('email'))
-                        ->withErrors(['email' => __($status)]);
+                        ->withErrors(['email' => __('passwords.token')]);
     }
 }

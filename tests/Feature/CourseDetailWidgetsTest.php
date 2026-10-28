@@ -220,6 +220,9 @@ class CourseDetailWidgetsTest extends TestCase
         $this->onAdmin(fn () => $tenant->branding->update([
             'support_email' => 'kontakt@e2e-bootsschule.test',
             'email_support_enabled' => true,
+            // Bug-Review F9: eine unbestätigte Support-E-Mail wird seither
+            // nicht mehr als Kontaktmöglichkeit angezeigt (siehe unten).
+            'support_email_verified_at' => now(),
         ]));
 
         $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
@@ -241,6 +244,7 @@ class CourseDetailWidgetsTest extends TestCase
             'phone_support_enabled' => true,
             'support_email' => 'kontakt@e2e-bootsschule.test',
             'email_support_enabled' => true,
+            'support_email_verified_at' => now(),
         ]));
 
         $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
@@ -283,6 +287,51 @@ class CourseDetailWidgetsTest extends TestCase
         ]));
 
         $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
+
+        $response->assertOk();
+        $response->assertDontSee('kontakt@e2e-bootsschule.test');
+    }
+
+    /**
+     * Bug-Review F9: eine noch nicht bestätigte Support-E-Mail (siehe
+     * SupportEmailVerificationController) wurde hier bisher trotzdem als
+     * Kontaktmöglichkeit angezeigt -- obwohl der Branding-Tab selbst sie
+     * schon als "noch nicht bestätigt" markiert.
+     */
+    public function test_unverified_support_email_is_hidden_on_the_course_detail_page(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $this->onAdmin(fn () => $tenant->branding->update([
+            'support_email' => 'kontakt@e2e-bootsschule.test',
+            'email_support_enabled' => true,
+            'support_email_verified_at' => null,
+        ]));
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
+
+        $response->assertOk();
+        $response->assertDontSee('kontakt@e2e-bootsschule.test');
+    }
+
+    /** Bug-Review F9: siehe oben -- gilt genauso für die Kursübersicht. */
+    public function test_unverified_support_email_is_hidden_on_the_course_overview_page(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $this->onAdmin(fn () => $tenant->branding->update([
+            'support_email' => 'kontakt@e2e-bootsschule.test',
+            'email_support_enabled' => true,
+            'support_email_verified_at' => null,
+        ]));
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get('/courses');
 
         $response->assertOk();
         $response->assertDontSee('kontakt@e2e-bootsschule.test');

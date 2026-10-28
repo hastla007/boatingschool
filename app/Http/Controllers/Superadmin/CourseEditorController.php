@@ -12,9 +12,22 @@ use Symfony\Component\HttpFoundation\Response;
 
 class CourseEditorController extends Controller
 {
+    /**
+     * Bug-Review (Superadmin-Seite gesperrte Kurse ohne published-Filter):
+     * die Liste zeigte bisher auch draft/archived-Kurse mit demselben
+     * funktional aussehenden "Sitewide"-Schalter (aktiv/deaktiviert) wie
+     * echte, angebotene Kurse -- ein solcher Kurs ist aber laut
+     * EntitlementService::isOfferable() (Bug-Review B21: status !==
+     * 'published' schließt Angebot/Zugriff IMMER aus, unabhängig von
+     * site_enabled) für keinen Mandanten je erreichbar, der "Sitewide"-
+     * Schalter also wirkungslos und irreführend. Die Liste zeigt jetzt nur
+     * noch tatsächlich angebotene (published) Kurse, für die "gesperrt"/
+     * "aktiv" überhaupt eine reale Bedeutung hat.
+     */
     public function index(): View
     {
         $courses = CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')
+            ->where('status', 'published')
             ->withCount('modules')->orderBy('name')->get();
 
         return view('superadmin.courses.index', ['courses' => $courses]);

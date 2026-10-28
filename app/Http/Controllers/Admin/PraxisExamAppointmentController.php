@@ -4,12 +4,16 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
+use App\Models\PraxisExamAppointment;
 use App\Models\PraxisFormSubmission;
 use App\Models\TenantCourseLocation;
+use App\Notifications\PraxisExamAppointmentUpdated;
 use App\Services\PraxisExamAppointmentService;
+use App\Support\BestEffortMail;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\Rule;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
@@ -87,6 +91,81 @@ class PraxisExamAppointmentController extends Controller
             'praxis_exam_appointment', $appointment->id, null, $appointment->toArray()
         );
 
+        // Bug-Review F5: im gesamten Ablauf von Praxis-Anmeldung, Terminen
+        // und Willkommensbox wurde bisher keine Mail verschickt -- der
+        // Lerner bemerkte einen neuen Terminvorschlag nur, wenn er von
+        // selbst wieder auf die Praxis-Seite seines Kurses sah.
+        BestEffortMail::send(
+            fn () => Notification::send($appointment->submission->user, new PraxisExamAppointmentUpdated($appointment, 'proposed')),
+            "Terminvorschlag {$appointment->id}"
+        );
+
         return back()->with('status', '"'.$appointment->label.'" vorgeschlagen (Runde '.$appointment->round.').');
+    }
+
+    /**
+     * Bug-Review F4: es gab bisher keine Möglichkeit, einen eigenen, noch
+     * offenen Vorschlag zurückzuziehen (z. B. bei einem Tippfehler im
+     * Datum).
+     */
+    public function withdraw(TenantContext $tenantContext, PraxisFormSubmission $submission, PraxisExamAppointment $examAppointment, PraxisExamAppointmentService $appointments): Response
+    {
+        abort_unless($submission->tenant_id === $tenantContext->id(), 404);
+        abort_unless($examAppointment->praxis_form_submission_id === $submission->id, 404);
+
+        $before = $examAppointment->toArray();
+
+        try {
+            $appointments->withdraw($examAppointment);
+        } catch (RuntimeException $e) {
+            return back()->withErrors(['exam_date' => $e->getMessage()]);
+        }
+
+        AuditLog::record(
+            $tenantContext->id(), request()->user()->id, 'praxis-exam-appointment.withdraw',
+            'praxis_exam_appointment', $examAppointment->id, $before, $examAppointment->fresh()->toArray()
+        );
+
+        // Bug-Review F5: siehe store() -- der Lerner bemerkte ein
+        // zurückgezogenes Angebot bisher nicht von selbst.
+        BestEffortMail::send(
+            fn () => Notification::send($examAppointment->submission->user, new PraxisExamAppointmentUpdated($examAppointment, 'withdrawn')),
+            "Terminrückzug {$examAppointment->id}"
+        );
+
+        return back()->with('status', 'Terminvorschlag zurückgezogen.');
+    }
+
+    /**
+     * Bug-Review F4: ein bereits angenommener (fixierter) Termin ließ sich
+     * nicht mehr absagen -- z. B. wenn der Prüfungsausschuss den Termin
+     * doch nicht wahrnehmen kann.
+     */
+    public function cancel(TenantContext $tenantContext, PraxisFormSubmission $submission, PraxisExamAppointment $examAppointment, PraxisExamAppointmentService $appointments): Response
+    {
+        abort_unless($submission->tenant_id === $tenantContext->id(), 404);
+        abort_unless($examAppointment->praxis_form_submission_id === $submission->id, 404);
+
+        $before = $examAppointment->toArray();
+
+        try {
+            $appointments->cancel($examAppointment);
+        } catch (RuntimeException $e) {
+            return back()->withErrors(['exam_date' => $e->getMessage()]);
+        }
+
+        AuditLog::record(
+            $tenantContext->id(), request()->user()->id, 'praxis-exam-appointment.cancel',
+            'praxis_exam_appointment', $examAppointment->id, $before, $examAppointment->fresh()->toArray()
+        );
+
+        // Bug-Review F5: siehe store() -- der Lerner bemerkte eine Absage
+        // eines bereits bestätigten Termins bisher nicht von selbst.
+        BestEffortMail::send(
+            fn () => Notification::send($examAppointment->submission->user, new PraxisExamAppointmentUpdated($examAppointment, 'cancelled')),
+            "Terminabsage {$examAppointment->id}"
+        );
+
+        return back()->with('status', 'Termin abgesagt.');
     }
 }

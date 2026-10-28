@@ -60,9 +60,29 @@ class ExamEvaluationService
                     $correctCount += $isCorrect ? 1 : 0;
                     $scoredTotal++;
                 } elseif ($type === 'open_text') {
-                    // Selbsteinschätzung fließt nicht in die Bestehensgrenze ein,
-                    // dient nur als Lernkarte (siehe self_assessed_known).
-                    $sq->update(['correct' => $withinTime && (bool) $sq->self_assessed_known]);
+                    // Bug-Review (Hoch): open_text floss hier bisher GAR NICHT
+                    // in $scoredTotal/$correctCount ein -- die Bestehensquote
+                    // bezog sich dadurch nur auf die automatisch auswertbaren
+                    // Fragen eines Bogens, nicht auf alle. Für FKN (siehe
+                    // ExamRuleSetSeeder/FknExamPaperSeeder: 15 Fragen/Bogen,
+                    // amtlich 24 von 30 Punkten = 12 von 15 binär) hatten die
+                    // amtlichen Prüfungsbögen aber nur 9-10 Nicht-open_text-
+                    // Fragen -- die dokumentierte 80%-Grenze (12 von 15) wurde
+                    // dadurch faktisch zu "8 von 9" bzw. "8 von 10" auf der
+                    // verbleibenden Teilmenge, abhängig vom jeweiligen Bogen,
+                    // statt wie beabsichtigt für ALLE 15 Fragen eines Bogens zu
+                    // gelten. Die Selbsteinschätzung bleibt zwar subjektiv
+                    // (kein automatisch geprüftes Freitext-Grading), ist aber
+                    // dieselbe Grundlage, auf der diese Plattform open_text
+                    // bereits überall sonst (Smarttrainer, Video-Quiz,
+                    // Mastery-Berechnung) bewertet -- die Prüfungssimulation
+                    // hier ist ohnehin nur ein Übungswerkzeug, nicht die echte,
+                    // amtliche Prüfung vor dem Prüfungsausschuss (siehe
+                    // Pruefungsausschuss-Model).
+                    $isCorrect = $withinTime && (bool) $sq->self_assessed_known;
+                    $sq->update(['correct' => $isCorrect]);
+                    $correctCount += $isCorrect ? 1 : 0;
+                    $scoredTotal++;
                 } else {
                     $correctAnswerId = $sq->revision->correctAnswer()?->id;
                     $selectedId = $withinTime ? $sq->selected_answer_id : null;

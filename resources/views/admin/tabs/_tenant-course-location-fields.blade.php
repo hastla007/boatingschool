@@ -71,7 +71,7 @@
                     <x-input-error :messages="$errors->get('praxis_lng')" class="mt-2" />
                 </div>
             </div>
-            <p class="text-xs text-slate-400">
+            <p class="text-xs text-slate-600 dark:text-slate-400">
                 Für die Karte im Praxisformular: Ort bei Google Maps suchen, Rechtsklick auf den Punkt &rarr; Koordinaten kopieren.
             </p>
         </div>
@@ -135,14 +135,14 @@
                 class="text-sm font-medium hover:underline" style="color: var(--brand-primary, #005FD7)">
             + Theorieort hinzufügen
         </button>
-        <p x-show="! theorieOrtEnabled" class="text-xs text-slate-400 mt-1">
+        <p x-show="! theorieOrtEnabled" class="text-xs text-slate-600 dark:text-slate-400 mt-1">
             Optional &mdash; z. B. wenn der Theorieteil eines Navigationskurses an einem anderen Ort als die Praxis stattfindet.
         </p>
 
         <div x-show="theorieOrtEnabled" style="display: none" class="space-y-3">
             <div class="flex items-center justify-between">
                 <x-input-label value="Theorieort (optional)" />
-                <button type="button" @click="theorieOrtEnabled = false" class="text-xs text-slate-400 hover:underline">
+                <button type="button" @click="theorieOrtEnabled = false" class="text-xs text-slate-600 dark:text-slate-400 hover:underline">
                     Entfernen
                 </button>
             </div>
@@ -197,7 +197,7 @@
 
     <div class="border-t border-slate-100 dark:border-slate-700 pt-4">
         <x-input-label :for="$prefix.'-pruefungsausschuss_id'" value="Prüfungsausschuss (optional)" />
-        <p class="text-xs text-slate-400 mt-1 mb-2">
+        <p class="text-xs text-slate-600 dark:text-slate-400 mt-1 mb-2">
             Zuständige Prüfungskommission für diesen Ort -- feste Adresse aus der bundesweiten DMYV-Liste.
         </p>
         <select id="{{ $prefix }}-pruefungsausschuss_id" name="pruefungsausschuss_id" x-model="pruefungsausschussId"

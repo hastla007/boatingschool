@@ -128,7 +128,20 @@ class CreateSuperAdmin extends Command
      */
     private function resolvePassword(): ?string
     {
-        if ($envPassword = env('SUPERADMIN_PASSWORD')) {
+        // Bug-Review (Hoch, eigener Fund): config('app.superadmin_password')
+        // statt eines direkten env()-Aufrufs für SUPERADMIN_PASSWORD --
+        // env() außerhalb einer config/*.php-Datei liefert nach `php
+        // artisan config:cache` (Teil
+        // des produktiv üblichen `optimize`) nur noch den Default (hier:
+        // null), weil Laravel die .env dann für JEDEN weiteren Prozess --
+        // auch einen späteren Konsolenbefehl wie diesen hier -- gar nicht
+        // mehr lädt. Genau der oben beschriebene automatisierte/
+        // skriptgesteuerte Anlegeweg (SUPERADMIN_PASSWORD aus der .env)
+        // wäre dadurch nach jedem optimize lautlos ausgefallen und auf den
+        // interaktiven secret()-Prompt zurückgefallen, der in einem nicht-
+        // interaktiven Deployment-Skript ohne TTY nie etwas liefert. Siehe
+        // config/app.php für die ausführliche Begründung.
+        if ($envPassword = config('app.superadmin_password')) {
             return $envPassword;
         }
 

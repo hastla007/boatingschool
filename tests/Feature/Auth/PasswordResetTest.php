@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Models\TenantBranding;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Notification;
@@ -152,5 +153,71 @@ class PasswordResetTest extends TestCase
         $this->assertSame($knownStatus, $unknownStatus);
         $this->assertSame($known->getStatusCode(), $unknown->getStatusCode());
         $this->assertSame($known->headers->get('Location'), $unknown->headers->get('Location'));
+    }
+
+    /**
+     * Sicherheitsreview S1: ResolveTenant::isTenantAgnosticRoute() erlaubt
+     * /forgot-password auf JEDEM vertrauten Host, auch der Custom Domain
+     * einer beliebigen Bootsschule. Ohne eigenen createUrlCallback verankert
+     * ResetPassword::resetUrl() den Link am Host GENAU DIESES Requests --
+     * wer später die DNS dieser Domain kontrolliert, kontrolliert damit
+     * jeden noch gültigen Reset-Link, unabhängig davon, wem das Konto
+     * gehört.
+     */
+    public function test_reset_link_is_anchored_to_the_central_domain_not_a_tenant_custom_domain(): void
+    {
+        Notification::fake();
+
+        $tenant = $this->createTestTenant();
+        $this->onAdmin(fn () => TenantBranding::where('tenant_id', $tenant->id)
+            ->update(['custom_domain' => 'kurse.bootsschule-test.de']));
+        $user = $this->createTenantUser($tenant);
+
+        $this->post('http://kurse.bootsschule-test.de/forgot-password', ['email' => $user->email]);
+
+        Notification::assertSentTo($user, ResetPassword::class, function ($notification) use ($user) {
+            $url = $notification->toMail($user)->actionUrl;
+
+            $this->assertStringStartsWith('http://'.config('app.central_domain').'/', $url);
+            $this->assertStringNotContainsString('kurse.bootsschule-test.de', $url);
+
+            return true;
+        });
+    }
+
+    /**
+     * Sicherheitsreview S2: Password::reset() liefert bei unbekannter
+     * E-Mail-Adresse ("passwords.user") einen anderen Text als bei einer
+     * bekannten Adresse mit ungültigem Token ("passwords.token") -- allein
+     * daran ließ sich ablesen, ob eine E-Mail-Adresse registriert ist.
+     */
+    public function test_reset_password_error_message_does_not_reveal_whether_the_email_is_registered(): void
+    {
+        $tenant = $this->createTestTenant();
+        $user = $this->createTenantUser($tenant);
+
+        $unknownEmail = $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/reset-password', [
+            'token' => 'invalid-token',
+            'email' => 'niemand-registriertes@example.test',
+            'password' => 'password1234',
+            'password_confirmation' => 'password1234',
+        ]);
+        $unknownEmail->assertSessionHasErrors('email');
+        // Muss VOR dem zweiten Request ausgelesen werden -- withErrors()
+        // flasht in dieselbe, über den Testlauf wiederverwendete
+        // Session-Instanz; ein Lesezugriff NACH dem zweiten post() sähe
+        // bereits dessen überschriebenen Inhalt statt des hier geprüften.
+        $unknownMessage = $unknownEmail->baseResponse->getSession()->get('errors')->get('email');
+
+        $knownEmail = $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/reset-password', [
+            'token' => 'invalid-token',
+            'email' => $user->email,
+            'password' => 'password1234',
+            'password_confirmation' => 'password1234',
+        ]);
+        $knownEmail->assertSessionHasErrors('email');
+        $knownMessage = $knownEmail->baseResponse->getSession()->get('errors')->get('email');
+
+        $this->assertSame($unknownMessage, $knownMessage);
     }
 }

@@ -1,10 +1,13 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex items-center gap-3">
-            <a href="{{ route('courses.show', $course) }}" class="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 shrink-0">
+            {{-- Bug-Review (Zurück-Pfeile ohne Beschriftung): nur ein Icon ohne
+                 Text -- ohne aria-label hatte dieser Link keinen für
+                 Screenreader erkennbaren Namen. --}}
+            <a href="{{ route('courses.show', $course) }}" aria-label="Zurück zum Kurs" class="w-8 h-8 rounded-full flex items-center justify-center text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 shrink-0">
                 <x-icon name="chevron-right" class="w-4 h-4 rotate-180" />
             </a>
-            <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">{{ $course->name }} &middot; Favoriten &amp; Fehler</h2>
+            <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">{{ $course->name }} &middot; Favoriten &amp; Fehler</h1>
         </div>
     </x-slot>
 
@@ -42,7 +45,8 @@
         <div x-show="newCollectionOpen" style="display: none" class="mb-4">
             <form method="POST" action="{{ route('favorite-collections.store', $course) }}" class="flex flex-wrap items-center gap-2">
                 @csrf
-                <input type="text" name="name" placeholder="Name der Collection" required maxlength="255"
+                <label for="new_collection_name" class="sr-only">Name der Collection</label>
+                <input type="text" id="new_collection_name" name="name" placeholder="Name der Collection" required maxlength="255"
                        class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm w-56">
                 <button type="submit" class="px-3 py-1.5 rounded-lg text-white text-xs font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
                     Anlegen
@@ -74,7 +78,8 @@
                 <form method="POST" action="{{ route('favorite-collections.update', $collection) }}" class="flex items-center gap-1.5">
                     @csrf
                     @method('PATCH')
-                    <input type="text" name="name" value="{{ $collection->name }}" maxlength="255"
+                    <label for="collection_name_{{ $collection->id }}" class="sr-only">Name der Collection</label>
+                    <input type="text" id="collection_name_{{ $collection->id }}" name="name" value="{{ $collection->name }}" maxlength="255"
                            class="text-sm rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 py-1">
                     <button type="submit" class="text-xs text-slate-500 hover:underline whitespace-nowrap">Umbenennen</button>
                 </form>
@@ -86,7 +91,7 @@
                         <button type="submit" class="text-xs text-rose-600 hover:underline whitespace-nowrap">Collection löschen</button>
                     </form>
                 @else
-                    <span class="text-xs text-slate-400">Standard-Collection -- kann nicht gelöscht werden</span>
+                    <span class="text-xs text-slate-600 dark:text-slate-400">Standard-Collection -- kann nicht gelöscht werden</span>
                 @endunless
             </div>
         @endforeach

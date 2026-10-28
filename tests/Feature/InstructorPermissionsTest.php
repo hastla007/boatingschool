@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\Coupon;
+use App\Models\Tenant;
+use App\Models\TenantUser;
 use App\Models\User;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -17,6 +19,15 @@ use Tests\TestCase;
 class InstructorPermissionsTest extends TestCase
 {
     use InteractsWithTenants;
+
+    /**
+     * Sicherheitsreview S3: street liegt seit Migration 000469 je
+     * Mitgliedschaft auf tenant_user, nicht mehr kontoweit auf app_user.
+     */
+    private function membershipStreet(Tenant $tenant, User $user): ?string
+    {
+        return $this->onAdmin(fn () => TenantUser::where('tenant_id', $tenant->id)->where('user_id', $user->id)->value('street'));
+    }
 
     /**
      * Bug-Review R4-J: die drei Coupon-Tests hier löschten ihren jeweils
@@ -205,7 +216,7 @@ class InstructorPermissionsTest extends TestCase
             'street' => 'Übernommen',
         ])->assertNotFound();
 
-        $this->assertSame('Admin-Straße 1', $admin->fresh()->street);
+        $this->assertSame('Admin-Straße 1', $this->membershipStreet($tenant, $admin));
     }
 
     public function test_instructor_can_still_view_and_edit_a_learners_data(): void
@@ -220,7 +231,7 @@ class InstructorPermissionsTest extends TestCase
             'street' => 'Lerner-Straße 1',
         ])->assertRedirect();
 
-        $this->assertSame('Lerner-Straße 1', $learner->fresh()->street);
+        $this->assertSame('Lerner-Straße 1', $this->membershipStreet($tenant, $learner));
     }
 
     public function test_owner_can_still_view_and_edit_an_admins_data(): void
@@ -235,7 +246,7 @@ class InstructorPermissionsTest extends TestCase
             'street' => 'Von Owner Geändert',
         ])->assertRedirect();
 
-        $this->assertSame('Von Owner Geändert', $admin->fresh()->street);
+        $this->assertSame('Von Owner Geändert', $this->membershipStreet($tenant, $admin));
     }
 
     /**
@@ -255,7 +266,7 @@ class InstructorPermissionsTest extends TestCase
             'street' => 'Übernommen',
         ])->assertNotFound();
 
-        $this->assertSame('Owner-Straße 1', $owner->fresh()->street);
+        $this->assertSame('Owner-Straße 1', $this->membershipStreet($tenant, $owner));
     }
 
     public function test_admin_cannot_edit_another_admins_data(): void
@@ -268,7 +279,7 @@ class InstructorPermissionsTest extends TestCase
             'street' => 'Übernommen',
         ])->assertNotFound();
 
-        $this->assertSame('Anderer-Admin-Straße 1', $otherAdmin->fresh()->street);
+        $this->assertSame('Anderer-Admin-Straße 1', $this->membershipStreet($tenant, $otherAdmin));
     }
 
     /**

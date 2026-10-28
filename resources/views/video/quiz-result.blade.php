@@ -1,13 +1,17 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex items-center gap-3">
+            {{-- Bug-Review (Zurück-Pfeile ohne Beschriftung): nur ein Icon ohne
+                 Text -- ohne aria-label hatte dieser Link keinen für
+                 Screenreader erkennbaren Namen. --}}
             <a href="{{ route('video.show', array_filter(['course' => $course, 'lesson' => $lesson, 'kapitel' => $moduleIds ? implode(',', $moduleIds) : null])) }}"
-               class="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 shrink-0">
+               aria-label="Zurück zur Lektion"
+               class="w-8 h-8 rounded-full flex items-center justify-center text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 shrink-0">
                 <x-icon name="chevron-right" class="w-4 h-4 rotate-180" />
             </a>
             <div class="flex-1">
-                <div class="text-xs text-slate-400">{{ $lesson->title }}</div>
-                <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Fragen zum Video</h2>
+                <div class="text-xs text-slate-600 dark:text-slate-400">{{ $lesson->title }}</div>
+                <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Fragen zum Video</h1>
             </div>
             <div class="text-sm text-slate-500 shrink-0">{{ $total }}/{{ $total }}</div>
         </div>
@@ -51,17 +55,17 @@
 
         <div class="flex flex-col items-center gap-3 pt-2">
             <a href="{{ route('video.quiz.show', array_filter(['course' => $course, 'lesson' => $lesson, 'position' => 1, 'kapitel' => $moduleIds ? implode(',', $moduleIds) : null])) }}"
-               class="w-full sm:w-auto sm:min-w-[20rem] text-center px-6 py-2.5 rounded-full text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-secondary, #00A8A8)">
+               class="w-full sm:w-auto sm:min-w-[20rem] text-center px-6 py-2.5 rounded-full text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-secondary, #007A7A)">
                 Alle Fragen erneut versuchen
             </a>
 
             @if ($wrongQuestionIds->isNotEmpty())
                 <a href="{{ route('video.quiz.show', array_filter(['course' => $course, 'lesson' => $lesson, 'position' => 1, 'kapitel' => $moduleIds ? implode(',', $moduleIds) : null, 'questions' => $wrongQuestionIds->implode(',')])) }}"
-                   class="w-full sm:w-auto sm:min-w-[20rem] text-center px-6 py-2.5 rounded-full text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-secondary, #00A8A8)">
+                   class="w-full sm:w-auto sm:min-w-[20rem] text-center px-6 py-2.5 rounded-full text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-secondary, #007A7A)">
                     Nur falsche Fragen erneut versuchen
                 </a>
             @else
-                <span class="w-full sm:w-auto sm:min-w-[20rem] text-center px-6 py-2.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-400 text-sm font-medium cursor-not-allowed">
+                <span class="w-full sm:w-auto sm:min-w-[20rem] text-center px-6 py-2.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 text-sm font-medium cursor-not-allowed">
                     Nur falsche Fragen erneut versuchen
                 </span>
             @endif

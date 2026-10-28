@@ -5,7 +5,7 @@
 
     <div class="mb-6">
         <h1 class="text-2xl font-bold text-slate-800 dark:text-white">Deine Angebote von {{ $tenant->name }}</h1>
-        <p class="text-sm text-slate-400 mt-0.5">Alle Upgrades und Kursempfehlungen, die aktuell für dich verfügbar sind &mdash; auch wenn du einen Banner auf einer Kursseite einmal weggeklickt hast, findest du ihn hier wieder.</p>
+        <p class="text-sm text-slate-600 dark:text-slate-400 mt-0.5">Alle Upgrades und Kursempfehlungen, die aktuell für dich verfügbar sind &mdash; auch wenn du einen Banner auf einer Kursseite einmal weggeklickt hast, findest du ihn hier wieder.</p>
     </div>
 
     <div class="space-y-8">
@@ -25,7 +25,7 @@
                             $discountedPrice = $addon->discountedPriceLabel();
                         @endphp
                         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border-l-4 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5"
-                             style="border-color: var(--brand-secondary, #00A8A8)">
+                             style="border-color: var(--brand-secondary, #007A7A)">
                             <div class="flex-1 min-w-0">
                                 <div class="flex flex-wrap items-center gap-2 mb-1">
                                     @if ($addonTemplate->badge_text)
@@ -35,7 +35,7 @@
                                         </span>
                                     @endif
                                     @if ($addonTemplate->stat_text)
-                                        <span class="text-xs text-slate-400 dark:text-slate-500">{{ $addonTemplate->stat_text }}</span>
+                                        <span class="text-xs text-slate-600 dark:text-slate-400 dark:text-slate-500">{{ $addonTemplate->stat_text }}</span>
                                     @endif
                                 </div>
                                 <h3 class="font-semibold text-slate-800 dark:text-white text-sm sm:text-base">{{ $addonTemplate->headline }}</h3>
@@ -43,7 +43,7 @@
                                     <ul class="grid grid-cols-2 gap-x-4 gap-y-2 mt-2">
                                         @foreach ($addonBullets as $bullet)
                                             <li class="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-                                                <x-icon name="check-circle" class="w-3.5 h-3.5 shrink-0" style="color: var(--brand-secondary, #00A8A8)" />
+                                                <x-icon name="check-circle" class="w-3.5 h-3.5 shrink-0" style="color: var(--brand-secondary, #007A7A)" />
                                                 {{ $bullet }}
                                             </li>
                                         @endforeach
@@ -56,7 +56,7 @@
                                         @if ($addon->price_label)
                                             <div class="flex items-center justify-end gap-2 flex-wrap">
                                                 @if ($discountedPrice)
-                                                    <span class="line-through text-slate-400 dark:text-slate-500">{{ $addon->price_label }}</span>
+                                                    <span class="line-through text-slate-600 dark:text-slate-400 dark:text-slate-500">{{ $addon->price_label }}</span>
                                                     <span class="font-semibold text-base" style="color: var(--brand-primary, #005FD7)">{{ $discountedPrice }}</span>
                                                     <span class="inline-flex items-center text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
                                                         &minus;{{ $addon->discount_percent }}%
@@ -95,7 +95,7 @@
                     @foreach ($promoBanners as $banner)
                         @php($bannerDiscountedPrice = $banner->discountedPriceLabel())
                         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border-l-4 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5"
-                             style="border-color: var(--brand-secondary, #00A8A8)">
+                             style="border-color: var(--brand-secondary, #007A7A)">
                             <div class="flex-1 min-w-0">
                                 @if ($banner->headline)
                                     <h3 class="font-semibold text-slate-800 dark:text-white text-sm sm:text-base">{{ $banner->headline }}</h3>
@@ -107,7 +107,7 @@
                                     <ul class="grid grid-cols-2 gap-x-4 gap-y-2 mt-2">
                                         @foreach ($banner->bullets as $bullet)
                                             <li class="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-                                                <x-icon name="check-circle" class="w-3.5 h-3.5 shrink-0" style="color: var(--brand-secondary, #00A8A8)" />
+                                                <x-icon name="check-circle" class="w-3.5 h-3.5 shrink-0" style="color: var(--brand-secondary, #007A7A)" />
                                                 {{ $bullet }}
                                             </li>
                                         @endforeach
@@ -120,7 +120,7 @@
                                         @if ($banner->price_label)
                                             <div class="flex items-center justify-end gap-2 flex-wrap">
                                                 @if ($bannerDiscountedPrice)
-                                                    <span class="line-through text-slate-400 dark:text-slate-500">{{ $banner->price_label }}</span>
+                                                    <span class="line-through text-slate-600 dark:text-slate-400 dark:text-slate-500">{{ $banner->price_label }}</span>
                                                     <span class="font-semibold text-base" style="color: var(--brand-primary, #005FD7)">{{ $bannerDiscountedPrice }}</span>
                                                     <span class="inline-flex items-center text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
                                                         &minus;{{ $banner->discount_percent }}%

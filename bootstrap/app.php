@@ -7,6 +7,8 @@ use App\Http\Middleware\EnsureTenantMembership;
 use App\Http\Middleware\EnsureTenantRole;
 use App\Http\Middleware\ResolveTenant;
 use App\Http\Middleware\SecurityHeaders;
+use App\Http\Middleware\TrustHosts;
+use App\Http\Middleware\TrustProxies;
 use App\Http\Middleware\UseAdminDatabaseConnection;
 use App\Support\TrustedHosts;
 use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
@@ -37,12 +39,25 @@ return Application::configure(basePath: dirname(__DIR__))
         // "*": sonst ließe sich X-Forwarded-For von jedem beliebigen
         // Client fälschen, was sowohl diesen M4-Check als auch die
         // IP-basierten throttle-Limits (routes/auth.php) aushebeln würde.
-        $trustedProxies = array_values(array_filter(array_map(
-            'trim',
-            explode(',', (string) env('TRUSTED_PROXIES', ''))
-        )));
-
-        $middleware->trustProxies(at: $trustedProxies !== [] ? $trustedProxies : null);
+        //
+        // Bug-Review T1: der frühere Aufruf $middleware->trustProxies(at: ...)
+        // hier an dieser Stelle wirkte bei ECHTEN Requests nie, nicht nur
+        // bei Artisan-Befehlen -- at() setzt eine STATISCHE Eigenschaft
+        // beim Boot, dieser Callback läuft aber über afterResolving
+        // (HttpKernel::class, ...) VOR LoadConfiguration, für jeden
+        // frischen php-fpm-Worker ebenso wie für die Konsole. Die
+        // app()->bound('config')-Absicherung verhinderte zwar den
+        // BindingResolutionException-Absturz, config('app.trusted_proxies')
+        // lieferte dadurch aber auch bei einem echten Request immer nur
+        // den sicheren Leerstring-Default -- TRUSTED_PROXIES aus der .env
+        // erreichte at() praktisch nie. App\Http\Middleware\TrustProxies
+        // löst das, indem sie proxies() überschreibt und config() dort
+        // erst bei JEDEM Request aus handle() heraus liest (siehe die
+        // Klasse für die Details) -- zu diesem Zeitpunkt ist
+        // LoadConfiguration garantiert bereits durchlaufen. Analog zu
+        // TrustHosts unten reicht dafür $middleware->replace(), ein
+        // zusätzlicher trustProxies(at: ...)-Aufruf ist nicht mehr nötig.
+        $middleware->replace(Illuminate\Http\Middleware\TrustProxies::class, TrustProxies::class);
 
         // Bug-Review R3-2/R4-A: ohne trustHosts() vertraut Laravel jedem
         // Host-Header blind -- route()/url() erzeugen absolute URLs (z. B.
@@ -77,6 +92,14 @@ return Application::configure(basePath: dirname(__DIR__))
         // Pattern"). Ein echtes Closure-Objekt ist dagegen kein Array und
         // nimmt zuverlässig den is_callable-Zweig.
         $middleware->trustHosts(at: TrustedHosts::patterns(...), subdomains: false);
+
+        // Bug-Review Betrieb: tauscht die von trustHosts() oben fest
+        // verdrahtete Illuminate\Http\Middleware\TrustHosts gegen unsere
+        // eigene Unterklasse, die /up (Health-Check) von der Host-
+        // Validierung ausnimmt -- siehe App\Http\Middleware\TrustHosts für
+        // die ausführliche Begründung (Load-Balancer-Probes senden den
+        // Host-Header oft als rohe IP).
+        $middleware->replace(Illuminate\Http\Middleware\TrustHosts::class, TrustHosts::class);
 
         $middleware->web(append: [
             SecurityHeaders::class,

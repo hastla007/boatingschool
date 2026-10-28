@@ -9,6 +9,7 @@ use App\Models\ContentQuestionRevision;
 use App\Models\Module;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -18,6 +19,17 @@ use Symfony\Component\HttpFoundation\Response;
  * neue, unveränderliche Revision statt die bestehende zu überschreiben; die
  * bisherige veröffentlichte Revision wird dabei auf "deprecated" gesetzt,
  * damit publishedRevision() genau eine aktuelle Fassung liefert.
+ *
+ * Bug-Review (Hoch): store()/update() setzten question_type bisher immer
+ * hart auf 'single_choice' und validateQuestion() verlangte zwingend genau
+ * die Antworten A-D plus ein "correct" -- unabhängig vom TATSÄCHLICHEN Typ
+ * der bearbeiteten Frage. Jede Bearbeitung einer multi_choice- oder
+ * open_text-Frage (siehe FknSknContentSeeder, 151 FKN/SKN-Fragen) erzeugte
+ * dadurch eine neue Revision, die deren echte Antwortstruktur (mehrere
+ * richtige Antworten bzw. eine Musterantwort ohne Auswahlmöglichkeiten)
+ * durch genau 4 Single-Choice-Antworten ersetzte. question_type kommt jetzt
+ * aus dem Formular (bei einer bestehenden Frage unveränderlich, siehe View)
+ * und steuert typabhängig sowohl Validierung als auch Antwort-Speicherung.
  */
 class QuestionController extends Controller
 {
@@ -35,7 +47,7 @@ class QuestionController extends Controller
 
     public function store(Request $request, Module $module): Response
     {
-        $validated = $this->validateQuestion($request);
+        $validated = $this->validateQuestion($request, null);
 
         DB::transaction(function () use ($validated, $module) {
             $question = ContentQuestion::create([
@@ -46,19 +58,7 @@ class QuestionController extends Controller
                 'active' => true,
             ]);
 
-            $revision = ContentQuestionRevision::create([
-                'question_id' => $question->id,
-                'revision_no' => 1,
-                'question_type' => 'single_choice',
-                'question_text' => $validated['question_text'],
-                'feedback_correct' => $validated['feedback_correct'] ?? null,
-                'feedback_incorrect' => $validated['feedback_incorrect'] ?? null,
-                'topic' => $validated['topic'] ?? null,
-                'subtopic' => $validated['subtopic'] ?? null,
-                'smartmodus_kategorie' => $validated['smartmodus_kategorie'] ?? null,
-                'editorial_status' => 'published',
-                'rights_status' => 'licensed',
-            ]);
+            $revision = ContentQuestionRevision::create($this->revisionAttributes($question, 1, $validated));
 
             $this->storeAnswers($revision, $validated);
 
@@ -73,41 +73,66 @@ class QuestionController extends Controller
         $revision = $question->publishedRevision() ?? $question->revisions()->orderByDesc('revision_no')->first();
         $revision?->loadMissing('answers');
 
-        return view('superadmin.questions.edit', ['question' => $question, 'revision' => $revision]);
+        // Bug-Review F8: wenn eine neuere "review"-Revision (siehe
+        // ImportContentQuestions) existiert, bearbeitet das Formular oben
+        // trotzdem weiterhin die aktuell veröffentlichte Fassung -- die
+        // Vorschau hier zeigt den ausstehenden Entwurf separat an, damit er
+        // sichtbar bleibt und veröffentlicht werden kann, statt beim
+        // nächsten Speichern unbemerkt verwaist zu bleiben.
+        $pendingReview = $question->pendingReviewRevision();
+        $pendingReview?->loadMissing('answers');
+
+        $latest = $question->revisions()->orderByDesc('revision_no')->first();
+
+        return view('superadmin.questions.edit', [
+            'question' => $question,
+            'revision' => $revision,
+            'pendingReview' => $pendingReview,
+            'nextRevisionNo' => ($latest?->revision_no ?? 0) + 1,
+        ]);
     }
 
     public function update(Request $request, ContentQuestion $question): Response
     {
-        $validated = $this->validateQuestion($request);
+        $latest = $question->revisions()->orderByDesc('revision_no')->first();
+        // Bug-Review T3: die vom Editor-Formular bearbeitete Fassung ist
+        // (siehe edit() oben) die VERÖFFENTLICHTE Revision, nicht
+        // notwendigerweise $latest -- ImportContentQuestions (Bug-Review
+        // F8) kann eine neuere "review"-Revision mit höherer revision_no
+        // anlegen, während der Superadmin noch die ältere, veröffentlichte
+        // Fassung im Formular offen hat. $latest bleibt bewusst nur für die
+        // nächste revision_no maßgeblich (verhindert eine Kollision mit
+        // einer wartenden Review-Revision); für den question_type-Abgleich
+        // und die Medien-Übernahme unten zählt dagegen, was im Formular
+        // tatsächlich angezeigt und bearbeitet wurde.
+        $editing = $question->publishedRevision() ?? $latest;
+        $validated = $this->validateQuestion($request, $editing?->question_type);
 
-        DB::transaction(function () use ($validated, $question) {
-            $latest = $question->revisions()->orderByDesc('revision_no')->first();
+        DB::transaction(function () use ($validated, $question, $latest, $editing) {
+            // Bug-Review (Fragen-Editor verliert Metadaten): official_number
+            // liegt auf content_question, nicht auf der Revision -- bisher
+            // wurde es hier nie aktualisiert (nur store() setzte es, einmalig
+            // bei der Anlage), und das Formular zeigte das Feld bei einer
+            // bestehenden Frage gar nicht erst an.
+            $question->update(['official_number' => $validated['official_number'] ?? null]);
 
             $question->revisions()->where('editorial_status', 'published')->update(['editorial_status' => 'deprecated']);
 
-            $revision = ContentQuestionRevision::create([
-                'question_id' => $question->id,
-                'revision_no' => $latest ? $latest->revision_no + 1 : 1,
-                'question_type' => 'single_choice',
-                'question_text' => $validated['question_text'],
-                'feedback_correct' => $validated['feedback_correct'] ?? null,
-                'feedback_incorrect' => $validated['feedback_incorrect'] ?? null,
-                'topic' => $validated['topic'] ?? null,
-                'subtopic' => $validated['subtopic'] ?? null,
-                'smartmodus_kategorie' => $validated['smartmodus_kategorie'] ?? null,
-                'editorial_status' => 'published',
-                'rights_status' => 'licensed',
-            ]);
+            $revision = ContentQuestionRevision::create($this->revisionAttributes($question, $latest ? $latest->revision_no + 1 : 1, $validated));
 
             $this->storeAnswers($revision, $validated);
 
-            // Bug-Review B13: eine neue Revision begann bisher immer ohne
-            // Medien -- ein Bild verschwand dadurch von der Frage, sobald
-            // sie das nächste Mal bearbeitet wurde, auch ohne dass sich am
-            // Bild selbst etwas geändert hat. Bestehende Medienzuordnungen
-            // der Vorgänger-Revision werden deshalb übernommen.
-            if ($latest) {
-                foreach ($latest->media as $media) {
+            // Bug-Review B13 (Folgefehler T3): eine neue Revision begann
+            // bisher immer ohne Medien -- ein Bild verschwand dadurch von
+            // der Frage, sobald sie das nächste Mal bearbeitet wurde, auch
+            // ohne dass sich am Bild selbst etwas geändert hat. Bestehende
+            // Medienzuordnungen werden deshalb übernommen -- von $editing
+            // (der im Formular bearbeiteten, veröffentlichten Fassung),
+            // nicht von $latest: eine wartende Review-Revision kann andere
+            // oder gar keine Medien tragen, deren Übernahme hier das Bild
+            // der tatsächlich bearbeiteten Fassung unbemerkt ersetzt hätte.
+            if ($editing) {
+                foreach ($editing->media as $media) {
                     $revision->media()->attach($media->id, ['role' => $media->pivot->role, 'sort_order' => $media->pivot->sort_order]);
                 }
             }
@@ -123,10 +148,81 @@ class QuestionController extends Controller
         return back()->with('status', $question->active ? 'Frage aktiviert.' : 'Frage deaktiviert.');
     }
 
-    /** @return array<string, mixed> */
-    private function validateQuestion(Request $request): array
+    /**
+     * Bug-Review F8: eine von ImportContentQuestions bei einem geänderten
+     * Reimport angelegte Revision im Status "review" erreichte Lerner
+     * bisher nie -- es gab keinen Weg, sie zu veröffentlichen.
+     */
+    public function publishRevision(ContentQuestionRevision $revision): Response
     {
-        return $request->validate([
+        abort_unless($revision->editorial_status === 'review', 404);
+
+        // Bug-Review (Veröffentlichen einer Import-Revision verliert
+        // Feedback/Bilder): ImportContentQuestions prüft beim Anlegen einer
+        // neuen "review"-Revision nur die insgesamt letzte Revision der
+        // Frage, nicht gezielt nach einer dort schon wartenden, noch nicht
+        // veröffentlichten "review"-Revision -- zwei Reimports in Folge
+        // können deshalb zwei "review"-Revisionen stapeln, ohne die ältere
+        // zu verwerfen. Ein noch offener Link auf die ältere davon durfte
+        // sie bisher trotzdem veröffentlichen und damit die inzwischen
+        // neuere "review"-Revision verwaist (nie mehr erreichbar) zurück-
+        // lassen. Veröffentlichbar ist deshalb nur noch die Revision mit
+        // der tatsächlich höchsten revision_no dieser Frage.
+        $isLatest = $revision->revision_no === $revision->question->revisions()->max('revision_no');
+        abort_unless($isLatest, 409, 'Für diese Frage liegt inzwischen eine neuere Fassung vor -- bitte die Seite neu laden.');
+
+        DB::transaction(function () use ($revision) {
+            $published = ContentQuestionRevision::where('question_id', $revision->question_id)
+                ->where('editorial_status', 'published')
+                ->first();
+
+            if ($published) {
+                // Bug-Review (Veröffentlichen einer Import-Revision verliert
+                // Feedback/Bilder): ImportContentQuestions setzt auf einer
+                // neuen "review"-Revision nie feedback_correct/
+                // feedback_incorrect und hängt auch kein Bild an (beides
+                // sind reine Editor-Felder) -- ohne das hier genau wie
+                // update() (Bug-Review B13) von der bisher veröffentlichten
+                // Fassung zu übernehmen, würde das Veröffentlichen einer
+                // solchen Import-Revision beides stillschweigend löschen.
+                $revision->update([
+                    'feedback_correct' => $revision->feedback_correct ?? $published->feedback_correct,
+                    'feedback_incorrect' => $revision->feedback_incorrect ?? $published->feedback_incorrect,
+                ]);
+
+                foreach ($published->media as $media) {
+                    $revision->media()->attach($media->id, ['role' => $media->pivot->role, 'sort_order' => $media->pivot->sort_order]);
+                }
+
+                $published->update(['editorial_status' => 'deprecated']);
+            }
+
+            $revision->update(['editorial_status' => 'published']);
+        });
+
+        return back()->with('status', 'Fassung veröffentlicht.');
+    }
+
+    /**
+     * $existingType ist der Fragetyp der bisherigen Revision (null beim
+     * Anlegen) -- der eingereichte question_type muss bei einer
+     * BESTEHENDEN Frage exakt diesem entsprechen, da die View ihn nur als
+     * verstecktes Feld mitsendet und ein nachträglicher Typwechsel die
+     * Antwortstruktur der Frage grundlegend ändern würde (siehe
+     * Klassen-Docblock).
+     *
+     * @return array<string, mixed>
+     */
+    private function validateQuestion(Request $request, ?string $existingType): array
+    {
+        $typeRules = ['required', 'in:single_choice,multi_choice,open_text'];
+
+        if ($existingType) {
+            $typeRules[] = "in:{$existingType}";
+        }
+
+        $base = $request->validate([
+            'question_type' => $typeRules,
             'question_text' => ['required', 'string'],
             'feedback_correct' => ['nullable', 'string'],
             'feedback_incorrect' => ['nullable', 'string'],
@@ -134,6 +230,62 @@ class QuestionController extends Controller
             'subtopic' => ['nullable', 'string', 'max:255'],
             'smartmodus_kategorie' => ['nullable', 'string', 'max:255'],
             'official_number' => ['nullable', 'string', 'max:60'],
+            // Bug-Review (Fragen-Editor verliert Metadaten): diese Felder
+            // bestückt der Import (ImportContentQuestions/FknSknContentSeeder)
+            // bereits -- das Editor-Formular kannte sie bisher gar nicht,
+            // jede Bearbeitung nullte sie dadurch auf der neuen Revision.
+            'competency' => ['nullable', 'string', 'max:255'],
+            'image_required' => ['nullable', 'boolean'],
+            'source_catalog' => ['nullable', 'string', 'max:120'],
+            'source_version' => ['nullable', 'string', 'max:80'],
+            'source_page' => ['nullable', 'string', 'max:40'],
+            'source_question_id' => ['nullable', 'string', 'max:255'],
+            'valid_from' => ['nullable', 'date'],
+            'valid_to' => ['nullable', 'date', 'after_or_equal:valid_from'],
+        ]);
+
+        // $request->boolean() statt des rohen validierten Werts: eine nicht
+        // angehakte Checkbox fehlt im Request komplett (liefert hier null
+        // statt false), eine angehakte käme als String "1" an.
+        $base['image_required'] = $request->boolean('image_required');
+
+        return $base + match ($base['question_type']) {
+            'single_choice' => $this->validateSingleChoice($request),
+            'multi_choice' => $this->validateMultiChoice($request),
+            'open_text' => $request->validate(['model_answer' => ['required', 'string']]),
+        };
+    }
+
+    /** @return array<string, mixed> */
+    private function revisionAttributes(ContentQuestion $question, int $revisionNo, array $validated): array
+    {
+        return [
+            'question_id' => $question->id,
+            'revision_no' => $revisionNo,
+            'question_type' => $validated['question_type'],
+            'question_text' => $validated['question_text'],
+            'feedback_correct' => $validated['feedback_correct'] ?? null,
+            'feedback_incorrect' => $validated['feedback_incorrect'] ?? null,
+            'topic' => $validated['topic'] ?? null,
+            'subtopic' => $validated['subtopic'] ?? null,
+            'smartmodus_kategorie' => $validated['smartmodus_kategorie'] ?? null,
+            'competency' => $validated['competency'] ?? null,
+            'image_required' => $validated['image_required'] ?? false,
+            'source_catalog' => $validated['source_catalog'] ?? null,
+            'source_version' => $validated['source_version'] ?? null,
+            'source_page' => $validated['source_page'] ?? null,
+            'source_question_id' => $validated['source_question_id'] ?? null,
+            'valid_from' => $validated['valid_from'] ?? null,
+            'valid_to' => $validated['valid_to'] ?? null,
+            'editorial_status' => 'published',
+            'rights_status' => 'licensed',
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function validateSingleChoice(Request $request): array
+    {
+        return $request->validate([
             'answers' => ['required', 'array'],
             'answers.A' => ['required', 'string'],
             'answers.B' => ['required', 'string'],
@@ -143,7 +295,47 @@ class QuestionController extends Controller
         ]);
     }
 
+    /** @return array<string, mixed> */
+    private function validateMultiChoice(Request $request): array
+    {
+        $validated = $request->validate([
+            'multi_answers' => ['required', 'array'],
+            'multi_answers.*.text' => ['nullable', 'string'],
+            'multi_correct' => ['nullable', 'array'],
+            'multi_correct.*' => ['string'],
+        ]);
+
+        $nonEmpty = collect($validated['multi_answers'])->filter(fn ($a) => trim((string) ($a['text'] ?? '')) !== '');
+
+        if ($nonEmpty->count() < 2) {
+            throw ValidationException::withMessages(['multi_answers' => 'Mindestens zwei Antwortoptionen sind erforderlich.']);
+        }
+
+        $correctKeys = array_map('strval', $validated['multi_correct'] ?? []);
+
+        if ($nonEmpty->keys()->map('strval')->intersect($correctKeys)->isEmpty()) {
+            throw ValidationException::withMessages(['multi_correct' => 'Mindestens eine Antwort muss als richtig markiert sein.']);
+        }
+
+        return $validated;
+    }
+
     private function storeAnswers(ContentQuestionRevision $revision, array $validated): void
+    {
+        match ($validated['question_type']) {
+            'single_choice' => $this->storeSingleChoiceAnswers($revision, $validated),
+            'multi_choice' => $this->storeMultiChoiceAnswers($revision, $validated),
+            'open_text' => ContentAnswer::create([
+                'revision_id' => $revision->id,
+                'answer_key' => 'MODEL',
+                'answer_text' => $validated['model_answer'],
+                'is_correct' => true,
+                'sort_order' => 1,
+            ]),
+        };
+    }
+
+    private function storeSingleChoiceAnswers(ContentQuestionRevision $revision, array $validated): void
     {
         foreach (['A', 'B', 'C', 'D'] as $index => $key) {
             ContentAnswer::create([
@@ -153,6 +345,30 @@ class QuestionController extends Controller
                 'is_correct' => $key === $validated['correct'],
                 'sort_order' => $index + 1,
             ]);
+        }
+    }
+
+    private function storeMultiChoiceAnswers(ContentQuestionRevision $revision, array $validated): void
+    {
+        $correctKeys = array_map('strval', $validated['multi_correct'] ?? []);
+        $position = 0;
+
+        foreach ($validated['multi_answers'] as $index => $answer) {
+            $text = trim((string) ($answer['text'] ?? ''));
+
+            if ($text === '') {
+                continue;
+            }
+
+            ContentAnswer::create([
+                'revision_id' => $revision->id,
+                'answer_key' => chr(ord('A') + $position),
+                'answer_text' => $text,
+                'is_correct' => in_array((string) $index, $correctKeys, true),
+                'sort_order' => $position + 1,
+            ]);
+
+            $position++;
         }
     }
 }

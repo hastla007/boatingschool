@@ -70,18 +70,27 @@ class LearningService
                 'response_time_ms' => $responseTimeMs,
             ]);
 
-            $progress = Progress::lockForUpdate()->firstOrNew([
+            // Bug-Review (Doppelklick-Race): firstOrNew() + lockForUpdate() sperrt
+            // nur bereits existierende Zeilen -- beim allerersten Attempt zu einer
+            // Frage existiert noch keine progress-Zeile, also sperrt SELECT ... FOR
+            // UPDATE nichts (TOCTOU). Zwei nahezu gleichzeitige Requests (z. B.
+            // Doppelklick) sahen beide exists() === false und versuchten beide ein
+            // INSERT -- das zweite verletzte den Primary Key (tenant_id, user_id,
+            // question_id) mit einer unbehandelten QueryException (HTTP 500).
+            // insertOrIgnore() legt die Zeile notfalls schon vorher an (ON CONFLICT
+            // DO NOTHING), sodass der anschließende SELECT ... FOR UPDATE garantiert
+            // etwas zum Sperren vorfindet.
+            Progress::query()->insertOrIgnore([
                 'tenant_id' => $tenant->id,
                 'user_id' => $user->id,
                 'question_id' => $revision->question_id,
             ]);
 
-            if (! $progress->exists) {
-                $progress->fill([
-                    'attempt_count' => 0, 'correct_count' => 0, 'incorrect_count' => 0,
-                    'current_streak' => 0, 'mastery_score' => 0, 'learning_state' => 'neu',
-                ]);
-            }
+            $progress = Progress::lockForUpdate()->where([
+                'tenant_id' => $tenant->id,
+                'user_id' => $user->id,
+                'question_id' => $revision->question_id,
+            ])->first();
 
             $this->mastery->apply($progress, $correct, now());
             $progress->save();

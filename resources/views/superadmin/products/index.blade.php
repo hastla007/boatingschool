@@ -1,6 +1,6 @@
 <x-superadmin-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Produkte</h2>
+        <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Produkte</h1>
     </x-slot>
 
     <div class="grid lg:grid-cols-3 gap-4">
@@ -23,6 +23,7 @@
         </div>
 
         <div class="lg:col-span-2 bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead class="bg-slate-50 dark:bg-slate-700 text-slate-500 dark:text-slate-300 text-left">
                     <tr>
@@ -56,6 +57,7 @@
                     @endforelse
                 </tbody>
             </table>
+            </div>
         </div>
     </div>
 </x-superadmin-layout>

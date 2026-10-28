@@ -101,7 +101,11 @@ class SuperadminVideoLessonEditorTest extends TestCase
 
         $this->actingAs($superadmin)->get("/superadmin/video-lessons/{$lesson->id}")
             ->assertOk()
-            ->assertSee('in 1 Kopie dieser Lektion übernehmen');
+            ->assertSee('in 1 Kopie dieser Lektion übernehmen')
+            // Bewusst nicht vorausgewählt: solange alle Lektionen dieselbe
+            // Platzhalter-URL tragen, findet die Erkennung auch gespiegelte
+            // Lektionen eigenständig verkaufter Vollkurse.
+            ->assertDontSee('name="apply_to_copies" value="1" checked', false);
 
         $response = $this->actingAs($superadmin)->patch("/superadmin/video-lessons/{$lesson->id}", [
             'title' => 'Ankern',

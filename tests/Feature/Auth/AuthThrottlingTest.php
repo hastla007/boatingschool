@@ -75,4 +75,33 @@ class AuthThrottlingTest extends TestCase
 
         $response->assertStatus(429);
     }
+
+    /**
+     * Sicherheitsreview S2: POST /reset-password hatte als einzige sensible
+     * Route in dieser Gruppe gar keine throttle-Middleware -- unbegrenzt
+     * viele Token-/E-Mail-Kombinationen pro IP waren möglich.
+     */
+    public function test_reset_password_submission_is_rate_limited_per_ip(): void
+    {
+        $tenant = $this->createTestTenant();
+
+        for ($i = 0; $i < 10; $i++) {
+            $response = $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/reset-password', [
+                'token' => 'invalid-token',
+                'email' => 'nope-'.$i.'@example.test',
+                'password' => 'password1234',
+                'password_confirmation' => 'password1234',
+            ]);
+            $this->assertNotEquals(429, $response->status());
+        }
+
+        $response = $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/reset-password', [
+            'token' => 'invalid-token',
+            'email' => 'one-more@example.test',
+            'password' => 'password1234',
+            'password_confirmation' => 'password1234',
+        ]);
+
+        $response->assertStatus(429);
+    }
 }

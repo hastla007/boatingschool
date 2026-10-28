@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AuditLog;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Auth\Notifications\ResetPassword;
@@ -135,6 +136,14 @@ class TenantCreationAndInviteEmailTest extends TestCase
 
             $this->assertSame('invited', $user->status);
             Notification::assertSentTo($user, ResetPassword::class);
+
+            // Bug-Review (Testdaten bleiben weiter liegen): ohne
+            // 'tenant_id' im Request (dieser Nutzer bekommt keine
+            // Mitgliedschaft) protokolliert Superadmin\UserController::
+            // store() bewusst mit tenant_id=null -- die automatische
+            // AuditLog-Aufräumung über einen Test-Tenant greift hier also
+            // nicht.
+            AuditLog::where('action', 'superadmin.user.create')->where('entity_id', $user->id)->delete();
         });
     }
 

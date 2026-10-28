@@ -30,11 +30,6 @@ class User extends Authenticatable implements MustVerifyEmail
         'external_identity',
         'email_verified_at',
         'phone',
-        'street',
-        'postal_code',
-        'city',
-        'country',
-        'birthdate',
     ];
 
     protected $hidden = [
@@ -48,14 +43,31 @@ class User extends Authenticatable implements MustVerifyEmail
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_superadmin' => 'boolean',
-            'birthdate' => 'date',
         ];
     }
 
-    /** Ob Adresse und Geburtsdatum vollständig im Profil hinterlegt sind (siehe Praxisformular-Gate). */
-    public function hasCompleteRegistrationProfile(): bool
+    /**
+     * Ob Adresse und Geburtsdatum für DIESE Bootsschule vollständig im Profil
+     * hinterlegt sind (siehe Praxisformular-Gate).
+     *
+     * Sicherheitsreview S3: diese Felder standen bisher direkt auf app_user
+     * -- EINE einzige, kontoweite Kopie, unabhängig davon, bei wie vielen
+     * Bootsschulen das Konto Mitglied ist. Schule A sah und änderte damit
+     * dieselbe Adresse/dasselbe Geburtsdatum, die Schule B für ihre eigene
+     * Prüfungsanmeldung verwendet. Die Felder liegen deshalb jetzt auf
+     * tenant_user (siehe Migration 000469) -- je Mitgliedschaft eine eigene
+     * Kopie.
+     */
+    public function hasCompleteRegistrationProfile(Tenant $tenant): bool
     {
-        return $this->street && $this->postal_code && $this->city && $this->country && $this->birthdate;
+        $membership = $this->tenantMemberships()->where('tenant_id', $tenant->id)->first();
+
+        return (bool) ($membership
+            && $membership->street
+            && $membership->postal_code
+            && $membership->city
+            && $membership->country
+            && $membership->birthdate);
     }
 
     /** Ob dieser Nutzer bei dieser Bootsschule "Lernplattform (inkl. Willkommensbox)" eingelöst hat. */

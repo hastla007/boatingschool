@@ -45,7 +45,19 @@ return [
             'port' => env('MAIL_PORT', 2525),
             'username' => env('MAIL_USERNAME'),
             'password' => env('MAIL_PASSWORD'),
-            'timeout' => null,
+            // Bug-Review Betrieb: Illuminate\Mail\MailManager::
+            // configureSmtpTransport() ruft $stream->setTimeout(...) nur
+            // auf, wenn isset($config['timeout']) true ist -- isset() auf
+            // einem vorhandenen, aber NULL-wertigen Array-Eintrag liefert
+            // in PHP immer false, der bisherige Wert 'timeout' => null
+            // wirkte also nie. Ohne gesetztes Timeout fällt Symfony Mailers
+            // SocketStream auf PHPs default_socket_timeout zurück (i. d. R.
+            // 60 Sekunden) -- ist der Mailserver nicht erreichbar (down,
+            // falsche Firewall-Regel, ...), hängt dadurch JEDER Request mit
+            // Mailversand (auch die über BestEffortMail best-effort
+            // abgesicherten) für die volle Dauer, bevor der Fehler überhaupt
+            // zuschlägt.
+            'timeout' => env('MAIL_TIMEOUT', 5),
             'local_domain' => env('MAIL_EHLO_DOMAIN', parse_url(env('APP_URL', 'http://localhost'), PHP_URL_HOST)),
         ],
 

@@ -71,9 +71,29 @@ class PraxisFormTemplateController extends Controller
 
     public function toggleActive(PraxisFormTemplate $praxisFormTemplate): Response
     {
-        $praxisFormTemplate->update(['active' => ! $praxisFormTemplate->active]);
+        $activating = ! $praxisFormTemplate->active;
 
-        return back()->with('status', $praxisFormTemplate->active ? 'Praxisformular aktiviert.' : 'Praxisformular deaktiviert.');
+        // Bug-Review F3: store()/update() lehnen über conflictingCourses()
+        // ab, wenn ein Kurs bereits einem anderen AKTIVEN Formular
+        // zugewiesen ist -- dieser Umschalter prüfte das bisher gar nicht.
+        // Ein Formular A (Kurs X) ließ sich deaktivieren, Formular B
+        // (ebenfalls Kurs X) anlegen/aktivieren, und A anschließend über
+        // genau diesen Umschalter wieder aktivieren -- ohne jede Prüfung
+        // waren damit zwei aktive Formulare für denselben Kurs gleichzeitig
+        // zuständig.
+        if ($activating) {
+            $conflicts = $this->conflictingCourses($praxisFormTemplate->course_ids ?? [], $praxisFormTemplate->id);
+
+            if ($conflicts->isNotEmpty()) {
+                return back()->withErrors([
+                    'template' => 'Dieses Formular kann nicht aktiviert werden -- diese Kurse sind bereits einem anderen aktiven Formular zugewiesen: '.$conflicts->implode(', ').'.',
+                ]);
+            }
+        }
+
+        $praxisFormTemplate->update(['active' => $activating]);
+
+        return back()->with('status', $activating ? 'Praxisformular aktiviert.' : 'Praxisformular deaktiviert.');
     }
 
     public function destroy(PraxisFormTemplate $praxisFormTemplate): Response
@@ -105,6 +125,11 @@ class PraxisFormTemplateController extends Controller
             'course_ids' => ['nullable', 'array'],
             'course_ids.*' => ['uuid', 'exists:course_definition,id'],
             'fields' => ['nullable', 'array'],
+            // Bug-Review F3: der Key kommt, wenn vorhanden, aus einem
+            // versteckten Formularfeld (siehe _form.blade.php) -- die
+            // Zeichenklasse entspricht genau dem, was parseFields() selbst
+            // per Str::slug(..., '_') erzeugt.
+            'fields.*.key' => ['nullable', 'string', 'regex:/^[a-z0-9_]+$/'],
             'fields.*.label' => ['required_with:fields', 'string', 'max:255'],
             'fields.*.type' => ['required_with:fields', 'in:text,textarea,date,select,radio,checkbox,location'],
             'fields.*.required' => ['nullable', 'boolean'],
@@ -163,8 +188,21 @@ class PraxisFormTemplateController extends Controller
             ->filter(fn ($f) => trim((string) ($f['label'] ?? '')) !== '')
             ->values()
             ->map(function ($f) use (&$used) {
-                $key = Str::slug($f['label'], '_');
-                $key = $key !== '' ? $key : 'feld';
+                // Bug-Review F3: ein bereits bestehender Key (aus dem
+                // versteckten Formularfeld, siehe _form.blade.php) wird
+                // wiederverwendet statt bei JEDEM Speichern neu aus dem
+                // aktuellen Label abgeleitet zu werden -- sonst verlieren
+                // bestehende Anmeldungen (PraxisFormSubmission::data ist
+                // nach genau diesem Key geschlüsselt) ihre Antworten aus
+                // der Sicht, sobald sich nur die Beschriftung ändert (auch
+                // bei einer reinen Tippfehlerkorrektur). Nur ein wirklich
+                // NEUES Feld (ohne mitgeschickten Key) bekommt einen frisch
+                // aus dem Label abgeleiteten Key.
+                $key = trim((string) ($f['key'] ?? ''));
+                if ($key === '') {
+                    $key = Str::slug($f['label'], '_');
+                    $key = $key !== '' ? $key : 'feld';
+                }
                 $base = $key;
                 $i = 2;
                 while (in_array($key, $used, true)) {

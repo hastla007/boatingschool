@@ -11,6 +11,7 @@ use App\Support\TenantContext;
 use App\Support\VideoCourseLessons;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -123,7 +124,19 @@ class VideoCourseController extends Controller
     {
         $raw = $request->query('kapitel');
 
-        return $raw ? array_values(array_filter(explode(',', $raw))) : null;
+        if (! is_string($raw) || $raw === '') {
+            return null;
+        }
+
+        // Bug-Review (Query-Parameter-Validierung): ungefilterte IDs landeten direkt in einem
+        // whereIn('id', ...) gegen die uuid-Spalte video_module.id -- ein
+        // manipulierter Wert wie "foo" löste dort einen Postgres-Fehler
+        // ("invalid input syntax for type uuid") aus, der als unbehandelte
+        // QueryException mit HTTP 500 endete, statt das Kapitel-Filter
+        // einfach zu ignorieren.
+        $ids = array_values(array_filter(array_map('trim', explode(',', $raw)), fn ($id) => Str::isUuid($id)));
+
+        return $ids !== [] ? $ids : null;
     }
 
     /** @return Collection<string, VideoProgress> */

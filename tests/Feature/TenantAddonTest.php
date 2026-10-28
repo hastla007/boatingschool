@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\AddonTemplate;
 use App\Models\TenantAddon;
+use Illuminate\Support\Str;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -83,6 +84,54 @@ class TenantAddonTest extends TestCase
                 'trigger_course_id' => $course->id,
                 'trigger_percent' => 30,
                 'offer_url' => 'https://shop.example.test/grosses-paket',
+            ]);
+        });
+    }
+
+    /**
+     * Bug-Review (Query-Parameter-Validierung): die Schlüssel des
+     * addons-Arrays (Vorlagen-IDs) kamen bisher ungeprüft direkt in ein
+     * where(...)/insert gegen die uuid-Spalte tenant_addon.
+     * addon_template_id -- ein manipulierter, nicht-UUID-förmiger
+     * Schlüssel löste "invalid input syntax for type uuid" aus, ein
+     * UUID-förmiger, aber nicht existierender Schlüssel eine verletzte
+     * Fremdschlüssel-Zwangsbedingung. Beides endete als unbehandelte
+     * QueryException mit HTTP 500.
+     */
+    public function test_a_manipulated_non_uuid_addon_key_is_ignored_instead_of_a_500(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+
+        $response = $this->actingAsInTenant($admin, $tenant)->patch('/admin/addons', [
+            'addons' => [
+                'not-a-real-uuid' => ['active' => '1'],
+            ],
+        ]);
+
+        $response->assertRedirect();
+        $this->asTenant($tenant, function () use ($tenant) {
+            $this->assertSame(0, TenantAddon::where('tenant_id', $tenant->id)->count());
+        });
+    }
+
+    public function test_a_manipulated_uuid_shaped_but_nonexistent_addon_key_is_ignored_instead_of_a_500(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $bogusId = (string) Str::uuid();
+
+        $response = $this->actingAsInTenant($admin, $tenant)->patch('/admin/addons', [
+            'addons' => [
+                $bogusId => ['active' => '1'],
+            ],
+        ]);
+
+        $response->assertRedirect();
+        $this->asTenant($tenant, function () use ($tenant, $bogusId) {
+            $this->assertDatabaseMissing('tenant_addon', [
+                'tenant_id' => $tenant->id,
+                'addon_template_id' => $bogusId,
             ]);
         });
     }
@@ -194,6 +243,55 @@ class TenantAddonTest extends TestCase
             'tenant_id' => $tenant->id,
             'addon_template_id' => $template->id,
         ]));
+    }
+
+    /**
+     * Bug-Review F2: AddonController::update() iterierte bisher über ALLE
+     * Vorlagen (AddonTemplate::pluck('id')), nicht nur die aktiven -- das
+     * Formular (siehe admin/tabs/addons.blade.php) rendert aber nur Zeilen
+     * für aktive Vorlagen (AdminDashboardController). Deaktivierte der
+     * Superadmin eine Vorlage, fehlte ihre ID im nächsten Request komplett,
+     * $active fiel auf false zurück, und die eigene Konfiguration der
+     * Bootsschule (Gutscheincode, Preis, Bullets, Trigger, Link) wurde
+     * beim NÄCHSTEN Speichern gelöscht -- unabhängig davon, ob die Schule
+     * überhaupt etwas an diesem Addon ändern wollte.
+     */
+    public function test_disabling_a_template_in_superadmin_does_not_delete_the_tenants_existing_addon_configuration(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $template = $this->createTestTemplate();
+        $course = $this->existingCourse('SRC');
+
+        $this->actingAsInTenant($admin, $tenant)->patch('/admin/addons', [
+            'addons' => [
+                $template->id => [
+                    'active' => '1',
+                    'coupon_code' => 'SOMMER25',
+                    'trigger_course_id' => $course->id,
+                    'trigger_percent' => '30',
+                    'offer_url' => 'https://shop.example.test/grosses-paket',
+                ],
+            ],
+        ])->assertRedirect();
+
+        // Superadmin deaktiviert die Vorlage -- das Formular zeigt sie
+        // danach gar nicht mehr an (AdminDashboardController filtert auf
+        // active=true), ein erneutes Speichern enthält deshalb keine Zeile
+        // mehr dafür.
+        $this->onAdmin(fn () => $template->update(['active' => false]));
+
+        $response = $this->actingAsInTenant($admin, $tenant)->patch('/admin/addons', ['addons' => []]);
+        $response->assertRedirect();
+
+        $this->asTenant($tenant, function () use ($tenant, $template) {
+            $this->assertDatabaseHas('tenant_addon', [
+                'tenant_id' => $tenant->id,
+                'addon_template_id' => $template->id,
+                'active' => true,
+                'coupon_code' => 'SOMMER25',
+            ]);
+        });
     }
 
     public function test_addons_tab_lists_active_templates(): void

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Superadmin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\PlatformSetting;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -26,7 +27,19 @@ class SettingsController extends Controller
 
         $validated['maintenance_mode'] = $request->boolean('maintenance_mode');
 
-        PlatformSetting::current()->update($validated);
+        $settings = PlatformSetting::current();
+        // Bug-Review (Superadmin-Audit-Lücken): die plattformweiten
+        // Website-Einstellungen -- insbesondere der Wartungsmodus, der
+        // die gesamte Plattform für alle Mandanten sperrt (siehe
+        // EnforceMaintenanceMode) -- wurden bisher gar nicht protokolliert.
+        $before = $settings->only(['site_name', 'support_email', 'maintenance_mode', 'maintenance_message']);
+        $settings->update($validated);
+        // Bug-Review (Superadmin-Audit-Lücken): entity_id ist eine uuid-
+        // Spalte, platform_setting.id dagegen die klassische Integer-Zeile
+        // "1" des Singletons (siehe PlatformSetting::current()) -- anders
+        // als bei den sonstigen AuditLog::record()-Aufrufen gibt es hier
+        // keine passende uuid, entity_id bleibt deshalb null.
+        AuditLog::record(null, $request->user()->id, 'superadmin.settings.update', 'platform_setting', null, $before, $validated);
 
         return back()->with('status', 'Website-Einstellungen gespeichert.');
     }

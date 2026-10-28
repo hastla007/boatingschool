@@ -1,6 +1,6 @@
 <x-guest-layout>
     <h2 class="text-xl font-bold text-slate-800 dark:text-white mb-1">Passwort vergessen</h2>
-    <p class="text-sm text-slate-400 mb-6">
+    <p class="text-sm text-slate-600 dark:text-slate-400 mb-6">
         Kein Problem. Gib deine E-Mail-Adresse ein, wir senden dir einen Link zum Zurücksetzen.
     </p>
 

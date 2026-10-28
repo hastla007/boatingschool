@@ -39,7 +39,11 @@
 @if ($waLink && ! $isCoursesIndex && ! $isFooterWhatsappPage && ! $isExamPapersPage)
     <a href="{{ $waLink }}" target="_blank" rel="noopener"
        class="fixed bottom-[135px] right-5 z-40 inline-flex items-center gap-2 pl-3 pr-4 py-3 rounded-full shadow-lg text-white text-sm font-medium hover:opacity-90 transition max-w-[calc(100vw-2.5rem)]"
-       style="background-color: #25D366"
+       {{-- Bug-Review Oberfläche U6: #25D366 (WhatsApp-Logo-Grün) erreicht mit
+            weißer Schrift/Icon nur 2,0:1 Kontrast -- #075E54 (WhatsApp-
+            eigenes dunkles Markengrün, z. B. aus der App-Kopfzeile) kommt
+            auf rechnerisch 7,7:1. --}}
+       style="background-color: #075E54"
        title="WhatsApp Support - {{ $currentTenant->name }}">
         <x-whatsapp-icon class="w-6 h-6 shrink-0" />
         <span class="hidden sm:inline truncate">{{ $currentTenant->name }}</span>

@@ -45,4 +45,21 @@ class PraxisTask extends Model
     {
         return in_array($this->kategorie, self::CATEGORIES_WHERE_IMAGE_IS_THE_SOLUTION, true);
     }
+
+    /**
+     * Bug-Review (Hoch): Seitentitel, Aufgabenliste und Bild-Alt-Text fielen
+     * bisher auf unterkategorie zurück, sobald es gesetzt war -- in genau
+     * den Kategorien, in denen imageBelongsToSolution() false liefert ("Was
+     * bedeutet das dargestellte Zeichen/Signal/Feuer?"), IST unterkategorie
+     * aber die Lösung selbst (z. B. "Überholverbot", "Festfeuer",
+     * "Maschinenfahrzeug unter 50 m, von vorn") -- sie stand damit VOR dem
+     * Klick auf "Musterlösung anzeigen" bereits sichtbar da. In den übrigen
+     * Kategorien ("Führe den Knoten/das Manöver X vor ...") nennt die Frage
+     * unterkategorie bereits selbst, ein Anzeigen dort verrät nichts
+     * Zusätzliches.
+     */
+    public function unterkategorieIsSafeToDisplayBeforeReveal(): bool
+    {
+        return $this->imageBelongsToSolution();
+    }
 }

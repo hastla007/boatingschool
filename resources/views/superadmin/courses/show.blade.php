@@ -1,8 +1,8 @@
 <x-superadmin-layout>
     <x-slot name="header">
         <div>
-            <div class="text-xs text-slate-400"><a href="{{ route('superadmin.courses.index') }}" class="hover:underline">Kurse</a></div>
-            <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">{{ $course->name }}</h2>
+            <div class="text-xs text-slate-600 dark:text-slate-400"><a href="{{ route('superadmin.courses.index') }}" class="hover:underline">Kurse</a></div>
+            <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">{{ $course->name }}</h1>
         </div>
     </x-slot>
 
@@ -33,7 +33,7 @@
                         <input type="checkbox" name="site_enabled" value="1" @checked(old('site_enabled', $course->site_enabled)) class="rounded border-slate-300">
                         Sitewide für alle Bootsschulen verfügbar
                     </label>
-                    <p class="text-xs text-slate-400 mt-1">Deaktiviert kann keine Bootsschule diesen Kurs anbieten, auch nicht mit bereits vergebenem Zugang.</p>
+                    <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Deaktiviert kann keine Bootsschule diesen Kurs anbieten, auch nicht mit bereits vergebenem Zugang.</p>
                 </div>
                 <button type="submit" class="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium hover:opacity-90 transition">Speichern</button>
             </form>
@@ -46,7 +46,7 @@
                     <div class="flex items-center justify-between border border-slate-100 dark:border-slate-700 rounded-xl px-3 py-2 text-sm">
                         <a href="{{ route('superadmin.questions.index', $module) }}" class="text-slate-700 dark:text-slate-200 hover:underline">{{ $module->name }}</a>
                         <div class="flex items-center gap-3">
-                            <span class="text-xs text-slate-400">{{ $module->questions_count }} Fragen</span>
+                            <span class="text-xs text-slate-600 dark:text-slate-400">{{ $module->questions_count }} Fragen</span>
                             <form method="POST" action="{{ route('superadmin.courses.modules.detach', [$course, $module]) }}">
                                 @csrf
                                 @method('DELETE')
@@ -62,7 +62,8 @@
             @if ($availableModules->isNotEmpty())
                 <form method="POST" action="{{ route('superadmin.courses.modules.attach', $course) }}" class="flex gap-2">
                     @csrf
-                    <select name="module_id" required class="flex-1 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                    <label for="attach_module_id" class="sr-only">Modul zuordnen</label>
+                    <select id="attach_module_id" name="module_id" required class="flex-1 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                         @foreach ($availableModules as $module)
                             <option value="{{ $module->id }}">{{ $module->name }}</option>
                         @endforeach
@@ -81,7 +82,7 @@
                         <span class="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">{{ $placeholderCount }} von {{ $course->videoModules->flatMap->lessons->count() }} Lektionen mit Platzhaltervideo</span>
                     @endif
                 </div>
-                <p class="text-xs text-slate-400 mb-3">Pro Lektion lassen sich Titel, Video-URL und Dauer pflegen sowie Fragen aus der zentralen Fragenbasis als "Zu den Fragen"-Quiz nach dem Video hinterlegen.</p>
+                <p class="text-xs text-slate-600 dark:text-slate-400 mb-3">Pro Lektion lassen sich Titel, Video-URL und Dauer pflegen sowie Fragen aus der zentralen Fragenbasis als "Zu den Fragen"-Quiz nach dem Video hinterlegen.</p>
                 <div class="space-y-4">
                     @foreach ($course->videoModules as $videoModule)
                         <div>
@@ -95,7 +96,7 @@
                                             @if ($lesson->isPlaceholder())
                                                 <span class="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">Platzhalter</span>
                                             @endif
-                                            <span class="text-xs text-slate-400">{{ $lesson->questions_count }} {{ $lesson->questions_count === 1 ? 'Frage' : 'Fragen' }}</span>
+                                            <span class="text-xs text-slate-600 dark:text-slate-400">{{ $lesson->questions_count }} {{ $lesson->questions_count === 1 ? 'Frage' : 'Fragen' }}</span>
                                         </span>
                                     </a>
                                 @endforeach

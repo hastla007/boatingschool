@@ -219,6 +219,44 @@ class CouponManagementTest extends TestCase
         $courseShow->assertOk();
     }
 
+    /**
+     * Bug-Review (/admin zu schwer): die Nutzerliste für "Zuweisen" stand
+     * bisher einmal PRO Coupon-Zeile im HTML -- bei 500 Lernenden und 50
+     * Coupons ergab das 25.000+ <option>-Elemente (4,8 MB HTML). Die
+     * Optionen stehen jetzt nur noch einmal in einer versteckten Vorlage
+     * und werden per Skript in jede Zeile geklont, statt sie serverseitig
+     * zu duplizieren.
+     */
+    public function test_the_assign_dropdown_options_are_not_duplicated_per_coupon_row(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner', ['display_name' => 'Eindeutiger Testname']);
+        $course = $this->existingCourse('SRC');
+
+        $codes = [];
+        for ($i = 0; $i < 3; $i++) {
+            $code = 'E2E-NODUP-'.$i.'-'.uniqid();
+            $codes[] = $code;
+            $this->createdCodes[] = $code;
+        }
+        $this->onAdmin(function () use ($codes, $course, $tenant) {
+            foreach ($codes as $code) {
+                Coupon::create(['code' => $code, 'course_id' => $course->id, 'tenant_id' => $tenant->id]);
+            }
+        });
+
+        $response = $this->actingAsInTenant($admin, $tenant)->get(route('admin.dashboard', ['tab' => 'coupons']));
+
+        $response->assertOk();
+        $optionCount = substr_count($response->getContent(), '>Eindeutiger Testname</option>');
+        $this->assertSame(
+            1,
+            $optionCount,
+            'Die Option für den Lernenden darf nur einmal im HTML stehen (versteckte Vorlage), nicht einmal pro Coupon-Zeile.'
+        );
+    }
+
     public function test_admin_cannot_assign_a_code_to_a_user_outside_their_tenant(): void
     {
         $tenantA = $this->createTestTenant();

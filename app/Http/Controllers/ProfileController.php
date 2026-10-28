@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Http\Requests\ProfileUpdateRequest;
 use App\Models\Entitlement;
 use App\Models\ProductPurchase;
+use App\Models\TenantUser;
 use App\Notifications\ConfirmPendingEmail;
+use App\Notifications\EmailChangeRequested;
 use App\Services\AccountErasureService;
 use App\Services\PersonalDataExportService;
 use App\Support\BestEffortMail;
@@ -15,8 +17,10 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Redirect;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class ProfileController extends Controller
@@ -64,8 +68,15 @@ class ProfileController extends Controller
 
         $bookings = $entitlements->concat($productPurchases)->sortByDesc('date')->values();
 
+        // Sicherheitsreview S3: Adresse/Geburtsdatum liegen jetzt je
+        // Mitgliedschaft auf tenant_user statt kontoweit auf app_user --
+        // 'tenant.member' (routes/web.php) garantiert hier eine aktive
+        // Mitgliedschaft für den aktuellen Mandanten.
+        $membership = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $user->id)->first();
+
         return view('profile.edit', [
             'user' => $user,
+            'membership' => $membership,
             'bookings' => $bookings,
         ]);
     }
@@ -79,21 +90,47 @@ class ProfileController extends Controller
      * eintragen und sie sofort für sein Konto nutzen, ohne sie je besessen
      * zu haben.
      */
-    public function update(ProfileUpdateRequest $request): RedirectResponse
+    public function update(ProfileUpdateRequest $request, TenantContext $tenantContext): RedirectResponse
     {
+        $tenant = $tenantContext->tenant();
         $user = $request->user();
         $validated = $request->validated();
 
         $newEmail = $validated['email'];
         unset($validated['email']);
 
+        $emailChanged = strcasecmp($newEmail, $user->email) !== 0;
+
+        // Bug-Review (E-Mail-Änderung ohne Passwortprüfung): eine laufende
+        // Session allein reichte bisher, um die E-Mail-Adresse zu ändern --
+        // genauso sensibel wie die Kontolöschung (destroy() unten), die das
+        // aktuelle Passwort längst verlangt. Nur beim tatsächlichen Wechsel
+        // der Adresse erneut abgefragt, nicht bei einem reinen Namens-/
+        // Adress-Update.
+        if ($emailChanged) {
+            $request->validateWithBag('emailChange', [
+                'current_password' => ['required', 'current_password'],
+            ]);
+        }
+
+        // Sicherheitsreview S3: street/postal_code/city/country/birthdate
+        // liegen jetzt je Mitgliedschaft auf tenant_user statt kontoweit auf
+        // app_user (siehe Migration 000469) -- nur first_name/last_name/
+        // phone bleiben Konto-Identität und landen weiter auf $user.
+        $addressFields = array_intersect_key($validated, array_flip(['street', 'postal_code', 'city', 'country', 'birthdate']));
+        $validated = array_diff_key($validated, $addressFields);
+
         $user->fill($validated);
         $user->display_name = trim($validated['first_name'].' '.$validated['last_name']);
         $user->save();
 
+        if ($addressFields !== []) {
+            TenantUser::where('tenant_id', $tenant->id)->where('user_id', $user->id)->update($addressFields);
+        }
+
         $status = 'Profil gespeichert.';
 
-        if (strcasecmp($newEmail, $user->email) !== 0) {
+        if ($emailChanged) {
             $user->forceFill(['pending_email' => $newEmail])->save();
 
             // Bug-Review H2 (Folgefehler, kritisch): $user->notify(...)
@@ -114,6 +151,18 @@ class ProfileController extends Controller
             $mailSent = BestEffortMail::send(
                 fn () => Notification::route('mail', $newEmail)->notify(new ConfirmPendingEmail($user->id, $newEmail)),
                 "Bestätigungsmail neue E-Mail-Adresse Nutzer {$user->id}"
+            );
+
+            // Bug-Review (E-Mail-Änderung ohne Hinweis an die alte Adresse):
+            // $user->email ist an dieser Stelle noch die BISHERIGE Adresse
+            // (erst confirmEmail() übernimmt pending_email) -- $user->notify()
+            // geht also absichtlich genau an sie, nicht an $newEmail. Der
+            // Versand ist best effort: ein SMTP-Fehler hier soll das
+            // eigentliche Profil-Speichern (oben bereits erfolgt) nicht als
+            // Fehler erscheinen lassen.
+            BestEffortMail::send(
+                fn () => $user->notify(new EmailChangeRequested($newEmail)),
+                "Hinweis an alte E-Mail-Adresse Nutzer {$user->id}"
             );
 
             $status = $mailSent
@@ -153,11 +202,26 @@ class ProfileController extends Controller
         // UNIQUE-Constraint auf app_user.email greift dann hier, bisher
         // ungefangen als HTTP 500 statt einer verständlichen Meldung.
         try {
+            // Bug-Review (Sessions überleben den E-Mail-Wechsel): weder
+            // remember_token noch andere laufende Sitzungen wurden hier
+            // bisher angerührt -- anders als beim Passwortwechsel
+            // (PasswordController, Sicherheitsreview M1/N6) blieb eine
+            // bereits kompromittierte Sitzung (oder deren "Angemeldet
+            // bleiben"-Cookie) über den E-Mail-Wechsel hinweg einfach
+            // weiter gültig. remember_token wird deshalb genauso mitgeändert,
+            // und alle anderen Sitzungen dieses Kontos werden beendet; die
+            // eigene, gerade genutzte Sitzung bleibt bewusst aktiv.
             $user->forceFill([
                 'email' => $user->pending_email,
                 'pending_email' => null,
                 'email_verified_at' => now(),
+                'remember_token' => Str::random(60),
             ])->save();
+
+            DB::table('sessions')
+                ->where('user_id', $user->id)
+                ->where('id', '!=', $request->session()->getId())
+                ->delete();
         } catch (UniqueConstraintViolationException) {
             // fresh() statt $user direkt: forceFill() oben hat "email" im
             // Model bereits auf den fremden Wert gesetzt, obwohl der

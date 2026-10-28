@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Tenant;
 use App\Models\TenantInvitation;
 use App\Models\User;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
 use RuntimeException;
@@ -116,7 +117,13 @@ class MailFailureDoesNotBlockRequestTest extends TestCase
 
     public function test_changing_the_profile_email_still_succeeds_when_the_confirmation_mail_fails(): void
     {
-        Notification::shouldReceive('send')->once()->andThrow(new RuntimeException('SMTP down'));
+        // Bug-Review (E-Mail-Änderung ohne Hinweis an die alte Adresse):
+        // seit EmailChangeRequested geht beim Adresswechsel eine zweite,
+        // ebenfalls best-effort versendete Mail an die alte Adresse --
+        // ->once() würde ab dem zweiten Notification::send()-Aufruf scheitern,
+        // obwohl hier gerade beide Fehlschläge unabhängig abgefangen werden
+        // sollen.
+        Notification::shouldReceive('send')->andThrow(new RuntimeException('SMTP down'));
 
         $tenant = $this->createTestTenant();
         $user = $this->createTenantUser($tenant, 'learner', ['first_name' => 'Test', 'last_name' => 'User']);
@@ -126,6 +133,7 @@ class MailFailureDoesNotBlockRequestTest extends TestCase
             'first_name' => 'Test',
             'last_name' => 'User',
             'email' => $newEmail,
+            'current_password' => 'password',
         ]);
 
         $response->assertRedirect();
@@ -162,6 +170,46 @@ class MailFailureDoesNotBlockRequestTest extends TestCase
             $this->assertNotNull($user, 'Konto wurde trotz Mail-Fehler nicht gespeichert.');
             $this->createdUserIds[] = $user->id;
         });
+    }
+
+    /**
+     * Bug-Review F9: SupportEmailVerificationController::sendVerificationMail()
+     * rief Mail::to(...)->send(...) bisher direkt und ungefangen auf -- ein
+     * SMTP-Fehler ergab HTTP 500, egal ob der Request vom erneuten Senden
+     * des Bestätigungslinks oder von einem Branding-Update (das die
+     * Support-E-Mail geändert hat) ausgelöst wurde.
+     */
+    public function test_resending_the_support_email_verification_link_still_succeeds_when_the_mail_fails(): void
+    {
+        Mail::shouldReceive('to')->once()->andThrow(new RuntimeException('SMTP down'));
+
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $this->onAdmin(fn () => $tenant->branding->update(['support_email' => 'support@example.test']));
+
+        $response = $this->actingAsInTenant($admin, $tenant)->post('/admin/branding/support-email/verification-notification');
+
+        $response->assertRedirect();
+        $this->assertFalse($response->isServerError());
+        $response->assertSessionHas('status', fn ($status) => str_contains($status, 'konnte nicht versendet werden'));
+    }
+
+    public function test_updating_the_branding_still_succeeds_when_the_support_email_verification_mail_fails(): void
+    {
+        Mail::shouldReceive('to')->once()->andThrow(new RuntimeException('SMTP down'));
+
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+
+        $response = $this->actingAsInTenant($admin, $tenant)->patch('/admin/branding', [
+            'support_email' => 'neue-support-adresse@example.test',
+            'exam_readiness_threshold_percent' => 50,
+        ]);
+
+        $response->assertRedirect();
+        $this->assertFalse($response->isServerError());
+        $response->assertSessionHas('status', fn ($status) => str_contains($status, 'Branding aktualisiert') && str_contains($status, 'nicht versendet'));
+        $this->onAdmin(fn () => $this->assertSame('neue-support-adresse@example.test', $tenant->branding->fresh()->support_email));
     }
 
     public function test_requesting_a_password_reset_link_still_returns_success_when_the_mail_fails(): void

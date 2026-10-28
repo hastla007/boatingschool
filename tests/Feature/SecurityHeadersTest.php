@@ -38,6 +38,23 @@ class SecurityHeadersTest extends TestCase
     }
 
     /**
+     * Bug-Review (Fonts von fonts.bunny.net ohne Einwilligung): Figtree/
+     * Caveat kamen bisher per <link> direkt von fonts.bunny.net -- ein
+     * Drittanbieter-Request schon beim reinen Seitenaufruf, vor jeder
+     * Einwilligung. Die Schriften werden jetzt selbst gehostet (siehe
+     * resources/css/app.css, @fontsource) -- weder im Markup noch in der
+     * CSP darf fonts.bunny.net noch auftauchen.
+     */
+    public function test_no_page_loads_fonts_from_a_third_party(): void
+    {
+        $response = $this->get('/login');
+
+        $response->assertOk();
+        $response->assertDontSee('fonts.bunny.net', false);
+        $this->assertStringNotContainsString('fonts.bunny.net', $response->headers->get('Content-Security-Policy'));
+    }
+
+    /**
      * Bug-Review R4-1: SecurityHeaders stand bisher ohne eigenen
      * Prioritätseintrag nur per append() in der web-Gruppe -- Laravel
      * reiht nicht priorisierte Middleware hinter jede explizit
@@ -97,6 +114,35 @@ class SecurityHeadersTest extends TestCase
         // dieses eine Paket. Jetzt per npm/Vite gebündelt, unpkg.com ist
         // nirgends mehr nötig.
         $this->assertStringNotContainsString('unpkg.com', $csp);
+    }
+
+    /**
+     * Bug-Review (Hoch): MediaAsset::storagePath() liefert eine ABSOLUTE,
+     * fest auf den APP_URL-Host verankerte URL (config/filesystems.php,
+     * 'url' => env('APP_URL').'/storage') -- auf einer Bootsschul-
+     * Subdomain oder Custom Domain ist das ein ANDERER Origin als die
+     * aufgerufene Seite. img-src 'self' allein ließ nur den EIGENEN
+     * Origin zu, der Browser blockierte Fragen-/Praxis-/Logo-Bilder dort
+     * unabhängig davon, dass der Server sie korrekt auslieferte -- die
+     * Testsuite lief bisher immer unter genau dem APP_URL-Host, weshalb
+     * das nie auffiel.
+     */
+    public function test_the_content_security_policy_allows_images_from_the_app_url_host_on_any_requested_host(): void
+    {
+        $csp = $this->get('http://schule-a.example.test/login')->headers->get('Content-Security-Policy');
+
+        $appHost = parse_url(config('app.url'), PHP_URL_HOST);
+        $this->assertNotSame(
+            'schule-a.example.test',
+            $appHost,
+            'Testvoraussetzung: der aufgerufene Host muss sich vom APP_URL-Host unterscheiden, sonst prüft dieser Test nichts.'
+        );
+
+        $this->assertStringContainsString(
+            $appHost,
+            $csp,
+            'img-src muss den APP_URL-Host auch dann erlauben, wenn die Seite selbst über einen ANDEREN Host aufgerufen wird -- sonst werden Fragen-/Praxis-/Logo-Bilder dort vom Browser blockiert.'
+        );
     }
 
     /**

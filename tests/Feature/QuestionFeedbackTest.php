@@ -125,6 +125,7 @@ class QuestionFeedbackTest extends TestCase
         $module = $this->existingModule('SRC');
 
         $create = $this->actingAs($superadmin)->post("/superadmin/modules/{$module->id}/questions", [
+            'question_type' => 'single_choice',
             'question_text' => 'E2E: Feedback-Testfrage',
             'answers' => ['A' => 'Antwort A', 'B' => 'Antwort B', 'C' => 'Antwort C', 'D' => 'Antwort D'],
             'correct' => 'A',

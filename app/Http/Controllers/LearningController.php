@@ -13,6 +13,7 @@ use App\Models\PraxisProgress;
 use App\Models\Progress;
 use App\Services\CourseProgressService;
 use App\Services\EntitlementService;
+use App\Services\ExamEvaluationService;
 use App\Services\LearningService;
 use App\Services\SmarttrainerService;
 use App\Support\TenantContext;
@@ -95,7 +96,7 @@ class LearningController extends Controller
         }
         $topic = $request->query('topic');
         $moduleId = $request->query('module');
-        $questionIds = $this->parseQuestionIds($request->query('questions'));
+        $questionIds = $this->parseQuestionIds($this->questionsQueryParam($request));
 
         if ($mode === 'favorites') {
             $courseQuestionIds = $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id')->unique();
@@ -130,7 +131,7 @@ class LearningController extends Controller
             'mode' => $mode,
             'topic' => $topic,
             'moduleId' => $moduleId,
-            'questionsParam' => $request->query('questions'),
+            'questionsParam' => $this->questionsQueryParam($request),
             'isFavorite' => $isFavorite,
             'startedAt' => now()->valueOf(),
             'answered' => false,
@@ -147,6 +148,7 @@ class LearningController extends Controller
         TenantContext $tenantContext,
         EntitlementService $entitlements,
         LearningService $learningService,
+        ExamEvaluationService $examEvaluation,
         CourseDefinition $course,
     ) {
         $tenant = $tenantContext->tenant();
@@ -202,13 +204,35 @@ class LearningController extends Controller
         // werden (Sicherheitsreview M2) -- sonst ließe sich die richtige
         // Antwort über die sofortige Rückmeldung hier einsehen und danach in
         // der noch offenen Prüfung eintragen.
-        $isPartOfRunningExam = ExamSession::where('tenant_id', $tenant->id)
+        //
+        // Bug-Review (Hoch): die Prüfung fragte bisher nur status='running'
+        // ab, ohne die Zeit zu berücksichtigen -- eine Prüfungssession bleibt
+        // in der DB aber so lange "running", bis sie ausgewertet wird
+        // (ExamController::show()/answer()/finish() tun das NUR, wenn der
+        // Nutzer die Prüfungsseite selbst erneut aufruft). Ließ ein Nutzer
+        // eine zeitlich abgelaufene Prüfung einfach liegen, ohne sie noch
+        // einmal zu öffnen, blieb jede ihrer Fragen hier PERMANENT gesperrt
+        // (409), auch lange nach Ablauf der Prüfungszeit -- der Smarttrainer
+        // zeigte dieselbe gesperrte Frage dann immer wieder erneut an. Eine
+        // abgelaufene Session wird deshalb jetzt genau wie in ExamController
+        // sofort ausgewertet (statt die Antwort hier anzunehmen UND
+        // gleichzeitig zu blockieren), statt weiterhin als blockierend zu
+        // gelten.
+        $runningExamSessions = ExamSession::where('tenant_id', $tenant->id)
             ->where('user_id', $user->id)
             ->where('status', 'running')
             ->whereHas('questions', fn ($q) => $q->where('question_id', $revision->question_id))
-            ->exists();
+            ->get();
 
-        abort_if($isPartOfRunningExam, 409, 'Diese Frage ist Teil einer laufenden Prüfung und kann währenddessen nicht im Lernmodus bearbeitet werden.');
+        foreach ($runningExamSessions as $runningExamSession) {
+            if ($examEvaluation->timeExpired($runningExamSession)) {
+                $examEvaluation->evaluate($runningExamSession);
+
+                continue;
+            }
+
+            abort(409, 'Diese Frage ist Teil einer laufenden Prüfung und kann währenddessen nicht im Lernmodus bearbeitet werden.');
+        }
 
         $selectedAnswer = null;
         $selectedAnswers = null;
@@ -242,7 +266,7 @@ class LearningController extends Controller
             'mode' => $validated['mode'],
             'topic' => $request->query('topic'),
             'module' => $request->query('module'),
-            'questions' => $request->query('questions'),
+            'questions' => $this->questionsQueryParam($request),
         ]));
     }
 
@@ -276,7 +300,7 @@ class LearningController extends Controller
             'mode' => $mode,
             'topic' => $request->query('topic'),
             'moduleId' => $request->query('module'),
-            'questionsParam' => $request->query('questions'),
+            'questionsParam' => $this->questionsQueryParam($request),
             'isFavorite' => $isFavorite,
             'startedAt' => now()->valueOf(),
             'answered' => true,
@@ -295,5 +319,21 @@ class LearningController extends Controller
         }
 
         return array_values(array_filter(explode(',', $questions)));
+    }
+
+    /**
+     * Bug-Review (Query-Parameter-Validierung): ?questions=a,b wird als
+     * String erwartet (siehe parseQuestionIds()) -- ein manipulierter
+     * Request mit ?questions[]=a&questions[]=b liefert von Laravel aus
+     * stattdessen ein Array, das array_filter(explode(',', ...)) mit
+     * einem TypeError scheitern ließ, unbehandelt mit HTTP 500. Analog zu
+     * VideoCourseController::parseModuleIds() wird ein nicht-string-
+     * förmiger Wert hier einfach ignoriert statt weitergereicht.
+     */
+    private function questionsQueryParam(Request $request): ?string
+    {
+        $raw = $request->query('questions');
+
+        return is_string($raw) ? $raw : null;
     }
 }

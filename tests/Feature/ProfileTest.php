@@ -5,7 +5,10 @@ namespace Tests\Feature;
 use App\Models\Entitlement;
 use App\Models\Product;
 use App\Models\ProductPurchase;
+use App\Models\TenantUser;
 use App\Notifications\ConfirmPendingEmail;
+use App\Notifications\EmailChangeRequested;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\URL;
 use Tests\Feature\Concerns\InteractsWithTenants;
@@ -25,6 +28,37 @@ class ProfileTest extends TestCase
         $response->assertOk();
     }
 
+    /**
+     * Bug-Review Betrieb U1: die Breeze-Standardseite (Profil, Passwort
+     * ändern, Konto löschen) blieb bislang unübersetzt -- __('Profile'),
+     * __('Save'), __('Delete Account') usw. gaben ohne passenden Eintrag in
+     * lang/de.json einfach den rohen englischen Schlüssel zurück. Die Seite
+     * ist jetzt vollständig deutsch, durchgängig im Du-Ton (passend zum
+     * Rest des Profils, z. B. "Deine Buchungen").
+     */
+    public function test_profile_page_is_fully_german_not_the_untranslated_breeze_default(): void
+    {
+        $tenant = $this->createTestTenant();
+        $user = $this->createTenantUser($tenant);
+
+        $response = $this->actingAsInTenant($user, $tenant)->get('/profile');
+
+        $response->assertOk();
+        $response->assertSee('Profildaten');
+        $response->assertSee('Passwort ändern');
+        $response->assertSee('Konto löschen');
+        $response->assertSee('Speichern');
+        $response->assertSee('Aktuelles Passwort');
+        $response->assertSee('Neues Passwort');
+
+        $content = $response->getContent();
+        $this->assertStringNotContainsString('Profile Information', $content);
+        $this->assertStringNotContainsString('Update Password', $content);
+        $this->assertStringNotContainsString('Delete Account', $content);
+        $this->assertStringNotContainsString('Current Password', $content);
+        $this->assertStringNotContainsString('Save', $content);
+    }
+
     public function test_profile_information_can_be_updated(): void
     {
         $tenant = $this->createTestTenant();
@@ -38,6 +72,7 @@ class ProfileTest extends TestCase
             'first_name' => 'Test',
             'last_name' => 'User',
             'email' => $newEmail,
+            'current_password' => 'password',
             'phone' => '+49 30 1234567',
             'street' => 'Hafenstraße 1',
             'postal_code' => '12345',
@@ -53,10 +88,14 @@ class ProfileTest extends TestCase
         $this->assertSame('User', $user->last_name);
         $this->assertSame('Test User', $user->name);
         $this->assertSame('+49 30 1234567', $user->phone);
-        $this->assertSame('Hafenstraße 1', $user->street);
-        $this->assertSame('12345', $user->postal_code);
-        $this->assertSame('Hamburg', $user->city);
-        $this->assertSame('Deutschland', $user->country);
+
+        // Sicherheitsreview S3: street/postal_code/city/country liegen seit
+        // Migration 000469 je Mitgliedschaft auf tenant_user.
+        $membership = $this->onAdmin(fn () => TenantUser::where('tenant_id', $tenant->id)->where('user_id', $user->id)->first());
+        $this->assertSame('Hafenstraße 1', $membership->street);
+        $this->assertSame('12345', $membership->postal_code);
+        $this->assertSame('Hamburg', $membership->city);
+        $this->assertSame('Deutschland', $membership->country);
 
         // Eine geänderte E-Mail-Adresse wird erst nach Bestätigung über den
         // zugeschickten Link live geschaltet (Sicherheitsreview H2) -- bis
@@ -76,6 +115,11 @@ class ProfileTest extends TestCase
             ConfirmPendingEmail::class,
             fn ($notification, $channels, $notifiable) => $notifiable->routes['mail'] === $newEmail
         );
+
+        // Bug-Review (E-Mail-Änderung ohne Hinweis an die alte Adresse): der
+        // Besitzer der bisherigen Adresse muss von der Änderung erfahren --
+        // unabhängig von der Bestätigungsmail an die neue Adresse oben.
+        Notification::assertSentTo($user, EmailChangeRequested::class);
     }
 
     public function test_a_changed_email_takes_effect_only_after_confirmation(): void
@@ -88,6 +132,7 @@ class ProfileTest extends TestCase
             'first_name' => 'Test',
             'last_name' => 'User',
             'email' => $newEmail,
+            'current_password' => 'password',
         ])->assertSessionHasNoErrors();
 
         $user->refresh();
@@ -109,6 +154,54 @@ class ProfileTest extends TestCase
         $this->assertNotNull($user->email_verified_at);
     }
 
+    /**
+     * Bug-Review (Sessions überleben den E-Mail-Wechsel): anders als beim
+     * Passwortwechsel (PasswordChangeSecurityTest, Sicherheitsreview
+     * M1/N6) blieben remember_token und andere laufende Sitzungen bisher
+     * unangetastet -- eine bereits kompromittierte Sitzung (oder deren
+     * "Angemeldet bleiben"-Cookie) überlebte den E-Mail-Wechsel einfach
+     * weiter.
+     */
+    public function test_confirming_a_changed_email_rotates_the_remember_token_and_ends_other_sessions(): void
+    {
+        $tenant = $this->createTestTenant();
+        $user = $this->createTenantUser($tenant, 'learner', ['remember_token' => 'original-remember-token']);
+        $newEmail = 'updated-'.uniqid().'@example.test';
+
+        $this->actingAsInTenant($user, $tenant)->patch('/profile', [
+            'first_name' => 'Test',
+            'last_name' => 'User',
+            'email' => $newEmail,
+            'current_password' => 'password',
+        ])->assertSessionHasNoErrors();
+
+        $otherSessionId = 'other-device-session-'.uniqid();
+        $this->onAdmin(fn () => DB::table('sessions')->insert([
+            'id' => $otherSessionId,
+            'user_id' => $user->id,
+            'payload' => base64_encode('test'),
+            'last_activity' => now()->timestamp,
+        ]));
+
+        $url = URL::temporarySignedRoute(
+            'profile.email.confirm',
+            now()->addMinutes(60),
+            ['id' => $user->id, 'hash' => sha1($newEmail)]
+        );
+
+        $response = $this->actingAsInTenant($user, $tenant)->get($url);
+
+        $response->assertRedirect(route('profile.edit'));
+
+        $this->onAdmin(function () use ($user, $otherSessionId) {
+            $this->assertNotSame('original-remember-token', $user->fresh()->remember_token);
+            $this->assertDatabaseMissing('sessions', ['id' => $otherSessionId]);
+        });
+
+        // Die eigene, gerade genutzte Sitzung bleibt bewusst aktiv.
+        $this->assertAuthenticatedAs($user->fresh());
+    }
+
     public function test_an_invalid_confirmation_hash_does_not_change_the_email(): void
     {
         $tenant = $this->createTestTenant();
@@ -119,6 +212,7 @@ class ProfileTest extends TestCase
             'first_name' => 'Test',
             'last_name' => 'User',
             'email' => $newEmail,
+            'current_password' => 'password',
         ]);
 
         $url = URL::temporarySignedRoute(
@@ -162,6 +256,7 @@ class ProfileTest extends TestCase
             'first_name' => 'Test',
             'last_name' => 'User',
             'email' => $existing->email,
+            'current_password' => 'password',
         ]);
 
         $takenResponse->assertSessionHasNoErrors();
@@ -174,6 +269,7 @@ class ProfileTest extends TestCase
             'first_name' => 'Test',
             'last_name' => 'User',
             'email' => 'ganz-neu-'.uniqid().'@example.test',
+            'current_password' => 'password',
         ]);
 
         $availableResponse->assertSessionHasNoErrors();
@@ -260,7 +356,11 @@ class ProfileTest extends TestCase
         ]);
 
         $response->assertSessionHasNoErrors()->assertRedirect('/profile');
-        $this->assertSame('1990-05-20', $user->refresh()->birthdate->format('Y-m-d'));
+
+        // Sicherheitsreview S3: birthdate liegt seit Migration 000469 je
+        // Mitgliedschaft auf tenant_user.
+        $membership = $this->onAdmin(fn () => TenantUser::where('tenant_id', $tenant->id)->where('user_id', $user->id)->first());
+        $this->assertSame('1990-05-20', $membership->birthdate->format('Y-m-d'));
     }
 
     public function test_birthdate_must_be_in_the_past(): void
@@ -379,6 +479,61 @@ class ProfileTest extends TestCase
         ]);
 
         $response->assertSessionHasErrors('country');
+    }
+
+    /**
+     * Bug-Review (E-Mail-Änderung ohne Passwortprüfung): eine laufende
+     * Session allein durfte bisher die Login-E-Mail-Adresse ändern, ohne
+     * das aktuelle Passwort erneut einzugeben -- genauso sensibel wie die
+     * Kontolöschung weiter unten, die das längst verlangt.
+     */
+    public function test_changing_the_email_requires_the_current_password(): void
+    {
+        $tenant = $this->createTestTenant();
+        $user = $this->createTenantUser($tenant);
+        $newEmail = 'updated-'.uniqid().'@example.test';
+
+        $response = $this->actingAsInTenant($user, $tenant)->patch('/profile', [
+            'first_name' => 'Test',
+            'last_name' => 'User',
+            'email' => $newEmail,
+        ]);
+
+        $response->assertSessionHasErrorsIn('emailChange', 'current_password');
+        $this->assertNull($user->fresh()->pending_email);
+    }
+
+    public function test_changing_the_email_rejects_an_incorrect_current_password(): void
+    {
+        $tenant = $this->createTestTenant();
+        $user = $this->createTenantUser($tenant);
+        $newEmail = 'updated-'.uniqid().'@example.test';
+
+        $response = $this->actingAsInTenant($user, $tenant)->patch('/profile', [
+            'first_name' => 'Test',
+            'last_name' => 'User',
+            'email' => $newEmail,
+            'current_password' => 'wrong-password',
+        ]);
+
+        $response->assertSessionHasErrorsIn('emailChange', 'current_password');
+        $this->assertNull($user->fresh()->pending_email);
+    }
+
+    /** Ein reines Namens-/Adress-Update ohne E-Mail-Änderung soll weiter kein Passwort verlangen. */
+    public function test_updating_other_fields_without_changing_the_email_does_not_require_the_current_password(): void
+    {
+        $tenant = $this->createTestTenant();
+        $user = $this->createTenantUser($tenant);
+
+        $response = $this->actingAsInTenant($user, $tenant)->patch('/profile', [
+            'first_name' => 'Neuer',
+            'last_name' => 'Name',
+            'email' => $user->email,
+        ]);
+
+        $response->assertSessionHasNoErrors()->assertRedirect('/profile');
+        $this->assertSame('Neuer', $user->fresh()->first_name);
     }
 
     public function test_user_can_delete_their_account(): void

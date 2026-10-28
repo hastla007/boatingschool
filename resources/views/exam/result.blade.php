@@ -1,6 +1,6 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Prüfungsergebnis</h2>
+        <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Prüfungsergebnis</h1>
     </x-slot>
 
     <div class="max-w-2xl mx-auto space-y-6">
@@ -11,22 +11,31 @@
             <div class="text-2xl font-bold {{ $examSession->passed ? 'text-emerald-600' : 'text-rose-500' }}">
                 {{ $examSession->passed ? 'Bestanden' : 'Nicht bestanden' }}
             </div>
-            @php $scored = $questions->filter(fn ($q) => $q->revision->question_type !== 'open_text'); @endphp
-            <div class="text-slate-500 mt-1">{{ (int) round($examSession->score * 100) }}% richtig &middot; {{ $scored->where('correct', true)->count() }}/{{ $scored->count() }} Fragen</div>
-            @if ($questions->count() > $scored->count())
-                <div class="text-xs text-slate-400 mt-1">zzgl. {{ $questions->count() - $scored->count() }} offene Lernkarten-Fragen (nicht bewertet)</div>
+            {{-- Bug-Review (Hoch): open_text-Fragen zählten hier bisher nicht
+                 zur Quote (siehe ExamEvaluationService) -- diese Anzeige wies
+                 sie deshalb separat als "nicht bewertet" aus. Sie fließen
+                 jetzt wie jede andere Frage in $examSession->score ein. --}}
+            <div class="text-slate-500 mt-1">{{ (int) round($examSession->score * 100) }}% richtig &middot; {{ $questions->where('correct', true)->count() }}/{{ $questions->count() }} Fragen</div>
+            @if ($openTextCount > 0)
+                {{-- Bug-Review (FKN offene Fragen): die Quote oben enthält
+                     Punkte aus offenen Fragen, die per Selbsteinschätzung
+                     (nicht automatisch) bewertet wurden -- dieser Hinweis
+                     macht das transparent, statt es unausgewiesen zu lassen. --}}
+                <div class="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    Davon {{ $openTextCorrect }}/{{ $openTextCount }} Punkte aus offenen Fragen durch Selbsteinschätzung (keine automatische Prüfung).
+                </div>
             @endif
         </div>
 
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
             <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
-                <x-icon name="chart-bar" class="w-4 h-4 text-slate-400" /> Themenanalyse
+                <x-icon name="chart-bar" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Themenanalyse
             </h3>
             <div class="space-y-2">
                 @foreach ($topicBreakdown as $topic => $stats)
                     <div class="flex justify-between text-sm">
                         <span class="text-slate-600 dark:text-slate-300">{{ $topic }}</span>
-                        <span class="text-slate-400">{{ $stats['correct'] }}/{{ $stats['total'] }}</span>
+                        <span class="text-slate-600 dark:text-slate-400">{{ $stats['correct'] }}/{{ $stats['total'] }}</span>
                     </div>
                 @endforeach
             </div>
@@ -40,11 +49,11 @@
                         <div class="border-l-4 border-rose-400 pl-3">
                             <div class="text-slate-700 dark:text-slate-200 text-sm">{{ $item->revision->question_text }}</div>
                             @if ($item->revision->question_type === 'multi_choice')
-                                <div class="text-xs text-slate-400">Richtige Antworten: {{ $item->revision->correctAnswers()->pluck('answer_text')->implode('; ') }}</div>
+                                <div class="text-xs text-slate-600 dark:text-slate-400">Richtige Antworten: {{ $item->revision->correctAnswers()->pluck('answer_text')->implode('; ') }}</div>
                             @elseif ($item->revision->question_type === 'open_text')
-                                <div class="text-xs text-slate-400">Musterantwort: {{ $item->revision->correctAnswer()?->answer_text }}</div>
+                                <div class="text-xs text-slate-600 dark:text-slate-400">Musterantwort: {{ $item->revision->correctAnswer()?->answer_text }}</div>
                             @else
-                                <div class="text-xs text-slate-400">Richtige Antwort: {{ $item->revision->correctAnswer()?->answer_text }}</div>
+                                <div class="text-xs text-slate-600 dark:text-slate-400">Richtige Antwort: {{ $item->revision->correctAnswer()?->answer_text }}</div>
                             @endif
                         </div>
                     @endforeach
@@ -60,11 +69,11 @@
                         <div class="border-l-4 border-amber-400 pl-3">
                             <div class="text-slate-700 dark:text-slate-200 text-sm">{{ $item->revision->question_text }}</div>
                             @if ($item->revision->question_type === 'multi_choice')
-                                <div class="text-xs text-slate-400">Richtige Antworten: {{ $item->revision->correctAnswers()->pluck('answer_text')->implode('; ') }}</div>
+                                <div class="text-xs text-slate-600 dark:text-slate-400">Richtige Antworten: {{ $item->revision->correctAnswers()->pluck('answer_text')->implode('; ') }}</div>
                             @elseif ($item->revision->question_type === 'open_text')
-                                <div class="text-xs text-slate-400">Musterantwort: {{ $item->revision->correctAnswer()?->answer_text }}</div>
+                                <div class="text-xs text-slate-600 dark:text-slate-400">Musterantwort: {{ $item->revision->correctAnswer()?->answer_text }}</div>
                             @else
-                                <div class="text-xs text-slate-400">Richtige Antwort: {{ $item->revision->correctAnswer()?->answer_text }}</div>
+                                <div class="text-xs text-slate-600 dark:text-slate-400">Richtige Antwort: {{ $item->revision->correctAnswer()?->answer_text }}</div>
                             @endif
                         </div>
                     @endforeach

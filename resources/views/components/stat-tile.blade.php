@@ -22,6 +22,6 @@
     </div>
     <div class="min-w-0">
         <div @class(["text-xl font-bold leading-tight", $valueClasses])>{{ $value }}</div>
-        <div class="text-xs text-slate-400 truncate">{{ $label }}</div>
+        <div class="text-xs text-slate-600 dark:text-slate-400 truncate">{{ $label }}</div>
     </div>
 </div>

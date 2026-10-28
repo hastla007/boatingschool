@@ -1,8 +1,8 @@
 <x-superadmin-layout>
     <x-slot name="header">
         <div>
-            <div class="text-xs text-slate-400"><a href="{{ route('superadmin.tips.index') }}" class="hover:underline">Tipps & Tricks</a></div>
-            <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Kategorien</h2>
+            <div class="text-xs text-slate-600 dark:text-slate-400"><a href="{{ route('superadmin.tips.index') }}" class="hover:underline">Tipps & Tricks</a></div>
+            <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Kategorien</h1>
         </div>
     </x-slot>
 
@@ -34,6 +34,7 @@
             @if ($errors->has('category'))
                 <div class="px-4 py-3 bg-red-50 text-red-700 text-sm border-b border-red-100">{{ $errors->first('category') }}</div>
             @endif
+            <div class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead class="bg-slate-50 dark:bg-slate-700 text-slate-500 dark:text-slate-300 text-left">
                     <tr>
@@ -48,10 +49,12 @@
                         @php($formId = 'category-form-'.$category->id)
                         <tr class="border-t border-slate-100 dark:border-slate-700">
                             <td class="px-4 py-2">
-                                <input form="{{ $formId }}" type="text" name="name" value="{{ $category->name }}" class="block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm" required>
+                                <label for="{{ $formId }}-name" class="sr-only">Name der Kategorie</label>
+                                <input form="{{ $formId }}" id="{{ $formId }}-name" type="text" name="name" value="{{ $category->name }}" class="block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm" required>
                             </td>
                             <td class="px-4 py-2">
-                                <input form="{{ $formId }}" type="number" name="sort_order" value="{{ $category->sort_order }}" class="block w-20 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                                <label for="{{ $formId }}-sort-order" class="sr-only">Reihenfolge</label>
+                                <input form="{{ $formId }}" id="{{ $formId }}-sort-order" type="number" name="sort_order" value="{{ $category->sort_order }}" class="block w-20 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                             </td>
                             <td class="px-4 py-2 text-slate-500">{{ $category->tips_count }}</td>
                             <td class="px-4 py-2 text-right whitespace-nowrap">
@@ -72,6 +75,7 @@
                     @endforelse
                 </tbody>
             </table>
+            </div>
         </div>
     </div>
 </x-superadmin-layout>

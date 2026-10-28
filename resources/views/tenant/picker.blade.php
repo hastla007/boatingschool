@@ -21,13 +21,13 @@
                         <x-icon name="academic-cap" class="w-4 h-4" />
                     </div>
                     <span class="font-medium text-slate-700 dark:text-slate-100 flex-1">{{ $tenant->name }}</span>
-                    <span class="text-xs text-slate-400">{{ $tenant->slug }}.{{ config('app.central_domain') }}</span>
+                    <span class="text-xs text-slate-600 dark:text-slate-400">{{ $tenant->slug }}.{{ config('app.central_domain') }}</span>
                 </a>
             @empty
                 <p class="text-slate-500 text-sm p-4">Noch keine Bootsschule angelegt.</p>
             @endforelse
         </div>
-        <p class="text-xs text-slate-400 text-center mt-6">
+        <p class="text-xs text-slate-600 dark:text-slate-400 text-center mt-6">
             Produktiv wird jede Bootsschule über ihre eigene Subdomain oder Domain erreicht.
         </p>
     </div>

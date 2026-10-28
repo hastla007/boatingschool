@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Coupon;
 use App\Models\TenantCourseDisabled;
 use App\Models\User;
 use Tests\Feature\Concerns\InteractsWithTenants;
@@ -18,9 +19,20 @@ class CrossTenantAccountAccessTest extends TestCase
 {
     use InteractsWithTenants;
 
+    private array $createdCodes = [];
+
     protected function tearDown(): void
     {
         $this->cleanUpCreatedTenantsAndUsers();
+
+        // Coupon.tenant_id ist nullOnDelete, nicht kaskadierend -- ohne
+        // dieses Aufräumen bliebe der hier angelegte Code als verwaister
+        // (tenant_id=NULL) Datensatz dauerhaft stehen.
+        $this->onAdmin(function () {
+            foreach ($this->createdCodes as $code) {
+                Coupon::where('code', $code)->delete();
+            }
+        });
 
         parent::tearDown();
     }
@@ -112,6 +124,9 @@ class CrossTenantAccountAccessTest extends TestCase
         $admin = $this->createTenantUser($tenant, 'owner');
         $learner = $this->createTenantUser($tenant, 'learner');
         $course = $this->existingCourse('SRC');
+        $code = 'TEST-CROSS-ENT-'.uniqid();
+        $this->createdCodes[] = $code;
+        $this->onAdmin(fn () => Coupon::create(['code' => $code, 'course_id' => $course->id, 'tenant_id' => $tenant->id]));
 
         $response = $this->actingAsInTenant($admin, $tenant)->post('/admin/entitlements', [
             'user_id' => $learner->id,

@@ -20,7 +20,10 @@ class TenantSeeder extends Seeder
                 'name' => 'Bootsschule Müller',
                 'branding' => [
                     'primary_color' => '#005FD7',
-                    'secondary_color' => '#00A8A8',
+                    // Bug-Review Oberfläche U6: #00A8A8 erreichte mit weißer
+                    // Buttonschrift nur 2,9:1 Kontrast (WCAG AA verlangt
+                    // 4,5:1) -- siehe TenantBranding::secondaryColorOrDefault().
+                    'secondary_color' => '#007A7A',
                     'support_email' => 'info@bootsschule-mueller.de',
                     'legal_name' => 'Bootsschule Müller GmbH',
                 ],

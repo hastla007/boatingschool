@@ -3,6 +3,11 @@
 namespace Tests\Feature;
 
 use App\Models\AddonTemplate;
+use App\Models\ContentQuestion;
+use App\Models\ContentQuestionRevision;
+use App\Models\CourseDefinition;
+use App\Models\Module;
+use App\Models\PraxisFormSubmission;
 use App\Models\PraxisFormTemplate;
 use App\Models\Pruefungsausschuss;
 use App\Models\Tip;
@@ -32,8 +37,19 @@ class AlpineConfirmationScopeTest extends TestCase
 
     private array $createdPruefungsausschussIds = [];
 
+    private array $createdModuleIds = [];
+
+    private array $createdQuestionIds = [];
+
+    private array $createdCourseIds = [];
+
     protected function tearDown(): void
     {
+        // Erst Tenants (kaskadiert praxis_form_submission weg), dann die
+        // Vorlage selbst -- sonst verletzt das Löschen der Vorlage die
+        // Fremdschlüsselbindung einer noch existierenden Anmeldung.
+        $this->cleanUpCreatedTenantsAndUsers();
+
         $this->onAdmin(function () {
             foreach ($this->createdTipIds as $id) {
                 Tip::where('id', $id)->delete();
@@ -48,9 +64,16 @@ class AlpineConfirmationScopeTest extends TestCase
             foreach ($this->createdPruefungsausschussIds as $id) {
                 Pruefungsausschuss::where('id', $id)->delete();
             }
+            foreach ($this->createdModuleIds as $id) {
+                Module::where('id', $id)->delete();
+            }
+            foreach ($this->createdQuestionIds as $id) {
+                ContentQuestion::where('id', $id)->delete();
+            }
+            foreach ($this->createdCourseIds as $id) {
+                CourseDefinition::withoutGlobalScopes()->where('id', $id)->delete();
+            }
         });
-
-        $this->cleanUpCreatedTenantsAndUsers();
 
         parent::tearDown();
     }
@@ -183,5 +206,134 @@ class AlpineConfirmationScopeTest extends TestCase
         $xDataPos = strpos($html, 'x-data="{}"');
         $togglePos = strpos($html, 'couponExport.toggleSelectAll');
         $this->assertLessThan($togglePos, $xDataPos, 'x-data="{}" steht erst NACH dem Export-Kästchen -- die Direktive liegt außerhalb jedes Alpine-Scopes.');
+    }
+
+    /**
+     * Bug-Review (Lösch-Rückfragen von CSP blockiert): anders als die
+     * oben getesteten Seiten nutzte diese Löschbestätigung bisher gar
+     * keine Alpine-Direktive, sondern ein rohes onsubmit="return
+     * confirm(...)" -- ein klassischer Inline-Event-Handler, den die CSP
+     * (Bug-Review M9) ohne 'unsafe-inline' im script-src grundsätzlich
+     * blockiert. Die Rückfrage erschien nie, die Anmeldung wurde beim
+     * Klick sofort gelöscht.
+     */
+    public function test_praxis_form_submission_delete_confirmation_is_inside_an_alpine_scope(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+
+        $course = $this->onAdmin(function () {
+            $course = CourseDefinition::withoutGlobalScopes()->create([
+                'tenant_id' => null,
+                'code' => 'TEST-CSP-'.uniqid(),
+                'name' => 'Test-Kurs für CSP-Rückfrage',
+                'course_type' => 'full',
+                'status' => 'published',
+            ]);
+            $this->createdCourseIds[] = $course->id;
+
+            return $course;
+        });
+
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $template = $this->onAdmin(function () use ($course) {
+            $template = PraxisFormTemplate::create([
+                'title' => 'CSP-Test-Formular',
+                'min_progress_percent' => 0,
+                'course_ids' => [$course->id],
+                'fields' => [],
+                'active' => true,
+            ]);
+            $this->createdTemplateIds[] = $template->id;
+
+            return $template;
+        });
+
+        $submission = $this->onAdmin(fn () => PraxisFormSubmission::create([
+            'tenant_id' => $tenant->id,
+            'course_id' => $course->id,
+            'user_id' => $learner->id,
+            'praxis_form_template_id' => $template->id,
+            'data' => [],
+        ]));
+
+        $response = $this->actingAsInTenant($admin, $tenant)->get(route('admin.praxis-form-submissions.edit', $submission));
+
+        $response->assertOk();
+        $html = $response->getContent();
+
+        $this->assertStringNotContainsString('onsubmit="return confirm', $html, 'Es steckt weiterhin ein von der CSP blockierter Inline-Handler im Markup.');
+        $this->assertConfirmIsInsideAnAlpineScope($html, "confirm('Diese Anmeldung wirklich unwiderruflich löschen?");
+    }
+
+    /**
+     * Bug-Review (Lösch-Rückfragen von CSP blockiert): dieselbe Lücke wie
+     * oben, hier aber als onclick="return confirm(...)" auf dem Button
+     * statt onsubmit= auf dem Formular -- die veröffentlichte Fassung
+     * ersetzt dabei unwiderruflich die bisher veröffentlichte (siehe
+     * publishRevision()), die Rückfrage entfiel aber komplett.
+     */
+    public function test_question_edit_page_publish_confirmation_is_inside_an_alpine_scope(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        [$question] = $this->makeQuestionWithPendingReviewForAlpineTest();
+
+        $response = $this->actingAs($superadmin)->get(route('superadmin.questions.edit', $question));
+
+        $response->assertOk();
+        $html = $response->getContent();
+
+        $this->assertStringNotContainsString('onclick="return confirm', $html, 'Es steckt weiterhin ein von der CSP blockierter Inline-Handler im Markup.');
+        $this->assertConfirmIsInsideAnAlpineScope($html, "confirm('Diese Fassung jetzt veröffentlichen?");
+    }
+
+    /** Dieselbe Veröffentlichen-Rückfrage, hier in der Fragenliste statt der Bearbeitungsseite. */
+    public function test_question_index_page_publish_confirmation_is_inside_an_alpine_scope(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        [, $module] = $this->makeQuestionWithPendingReviewForAlpineTest();
+
+        $response = $this->actingAs($superadmin)->get(route('superadmin.questions.index', $module));
+
+        $response->assertOk();
+        $html = $response->getContent();
+
+        $this->assertStringNotContainsString('onclick="return confirm', $html, 'Es steckt weiterhin ein von der CSP blockierter Inline-Handler im Markup.');
+        $this->assertConfirmIsInsideAnAlpineScope($html, "confirm('Die Review-Fassung dieser Frage jetzt veröffentlichen?");
+    }
+
+    /** @return array{0: ContentQuestion, 1: Module} */
+    private function makeQuestionWithPendingReviewForAlpineTest(): array
+    {
+        return $this->onAdmin(function () {
+            $module = Module::create(['code' => 'TEST-CSP-MOD-'.uniqid(), 'name' => 'Test Modul CSP', 'version' => '1', 'status' => 'published']);
+            $this->createdModuleIds[] = $module->id;
+
+            $question = ContentQuestion::create(['content_id' => 'TEST-CSP-Q-'.uniqid(), 'language' => 'de-DE', 'active' => true]);
+            $this->createdQuestionIds[] = $question->id;
+            $module->questions()->attach($question->id, ['required' => true]);
+
+            ContentQuestionRevision::create([
+                'question_id' => $question->id,
+                'revision_no' => 1,
+                'question_type' => 'single_choice',
+                'question_text' => 'Alte Fassung',
+                'editorial_status' => 'published',
+                'rights_status' => 'licensed',
+            ]);
+
+            ContentQuestionRevision::create([
+                'question_id' => $question->id,
+                'revision_no' => 2,
+                'question_type' => 'single_choice',
+                'question_text' => 'Neue Fassung aus Reimport',
+                'editorial_status' => 'review',
+                'rights_status' => 'review',
+            ]);
+
+            return [$question, $module];
+        });
     }
 }

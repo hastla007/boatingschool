@@ -1,18 +1,21 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex items-center gap-3">
-            <a href="{{ route('courses.show', $course) }}" class="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 shrink-0">
+            {{-- Bug-Review (Zurück-Pfeile ohne Beschriftung): nur ein Icon ohne
+                 Text -- ohne aria-label hatte dieser Link keinen für
+                 Screenreader erkennbaren Namen. --}}
+            <a href="{{ route('courses.show', $course) }}" aria-label="Zurück zum Kurs" class="w-8 h-8 rounded-full flex items-center justify-center text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 shrink-0">
                 <x-icon name="chevron-right" class="w-4 h-4 rotate-180" />
             </a>
             <x-icon name="light-bulb" class="w-6 h-6 text-amber-400" />
-            <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Smart-Learning</h2>
+            <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Smart-Learning</h1>
         </div>
     </x-slot>
 
     <div class="max-w-3xl mx-auto space-y-4">
         <div class="flex items-center gap-3">
             <div class="flex-1 bg-slate-100 dark:bg-slate-700 rounded-full h-2">
-                <div class="h-2 rounded-full" style="width: {{ $overallPercent }}%; background-color: var(--brand-secondary, #00A8A8)"></div>
+                <div class="h-2 rounded-full" style="width: {{ $overallPercent }}%; background-color: var(--brand-secondary, #007A7A)"></div>
             </div>
             <span class="text-sm font-medium text-slate-600 dark:text-slate-300 shrink-0">{{ $overallPercent }}%</span>
         </div>
@@ -39,8 +42,8 @@
                     <button type="button" x-on:click="open = !open"
                             class="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
                         <span class="flex-1 font-medium text-slate-700 dark:text-slate-200">{{ $group['module']->name }}</span>
-                        <span class="text-xs text-slate-400 shrink-0">{{ $group['mastered'] }}/{{ $group['total'] }} &middot; {{ $group['percent'] }}%</span>
-                        <x-icon name="chevron-right" class="w-4 h-4 text-slate-400 shrink-0 transition-transform" x-bind:class="open ? 'rotate-90' : ''" />
+                        <span class="text-xs text-slate-600 dark:text-slate-400 shrink-0">{{ $group['mastered'] }}/{{ $group['total'] }} &middot; {{ $group['percent'] }}%</span>
+                        <x-icon name="chevron-right" class="w-4 h-4 text-slate-600 dark:text-slate-400 shrink-0 transition-transform" x-bind:class="open ? 'rotate-90' : ''" />
                     </button>
                     <div x-show="open" x-transition class="px-4 pb-4 grid sm:grid-cols-2 gap-2">
                         @foreach ($group['topics'] as $topicEntry)
@@ -49,7 +52,7 @@
                                 <x-progress-ring :percent="$topicEntry['percent']" :size="40" :stroke="4" class="shrink-0" />
                                 <div class="flex-1 min-w-0">
                                     <div class="text-sm font-medium truncate text-slate-800 dark:text-white">{{ $topicEntry['topic'] }}</div>
-                                    <div class="text-xs text-slate-400">{{ $topicEntry['mastered'] }}/{{ $topicEntry['total'] }} Fragen</div>
+                                    <div class="text-xs text-slate-600 dark:text-slate-400">{{ $topicEntry['mastered'] }}/{{ $topicEntry['total'] }} Fragen</div>
                                 </div>
                                 <x-icon name="light-bulb" class="w-4 h-4 text-slate-300 shrink-0" />
                             </a>
@@ -63,7 +66,7 @@
                     <button type="button" x-on:click="open = !open"
                             class="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
                         <span class="flex-1 font-medium text-slate-700 dark:text-slate-200">Trainer für die praktische Prüfung SBF</span>
-                        <x-icon name="chevron-right" class="w-4 h-4 text-slate-400 shrink-0 transition-transform" x-bind:class="open ? 'rotate-90' : ''" />
+                        <x-icon name="chevron-right" class="w-4 h-4 text-slate-600 dark:text-slate-400 shrink-0 transition-transform" x-bind:class="open ? 'rotate-90' : ''" />
                     </button>
                     <div x-show="open" x-transition class="px-4 pb-4 grid sm:grid-cols-2 gap-2">
                         @foreach ($praxisCategories as $entry)
@@ -72,7 +75,7 @@
                                 <x-progress-ring :percent="$entry['percent']" :size="40" :stroke="4" class="shrink-0" />
                                 <div class="flex-1 min-w-0">
                                     <div class="text-sm font-medium truncate text-slate-800 dark:text-white">{{ $entry['kategorie'] }}</div>
-                                    <div class="text-xs text-slate-400">{{ $entry['mastered'] }}/{{ $entry['total'] }} Fragen</div>
+                                    <div class="text-xs text-slate-600 dark:text-slate-400">{{ $entry['mastered'] }}/{{ $entry['total'] }} Fragen</div>
                                 </div>
                                 <x-icon name="light-bulb" class="w-4 h-4 text-slate-300 shrink-0" />
                             </a>

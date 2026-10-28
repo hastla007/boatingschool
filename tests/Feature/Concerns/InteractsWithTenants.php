@@ -146,7 +146,15 @@ trait InteractsWithTenants
 
     protected function createTenantUser(Tenant $tenant, string $role = 'learner', array $attributes = []): User
     {
-        return $this->onAdmin(function () use ($tenant, $role, $attributes) {
+        // Sicherheitsreview S3: street/postal_code/city/country/birthdate
+        // liegen seit Migration 000469 je Mitgliedschaft auf tenant_user,
+        // nicht mehr kontoweit auf app_user -- $attributes darf sie der
+        // Bequemlichkeit halber trotzdem wie bisher an einem Aufruf
+        // übergeben, sie landen hier nur auf der anderen Tabelle.
+        $membershipFields = array_intersect_key($attributes, array_flip(['street', 'postal_code', 'city', 'country', 'birthdate']));
+        $attributes = array_diff_key($attributes, $membershipFields);
+
+        return $this->onAdmin(function () use ($tenant, $role, $attributes, $membershipFields) {
             // forceCreate statt create(): is_superadmin ist bewusst nicht
             // $fillable (Sicherheitsreview N4), Testfixtures dürfen es trotzdem
             // gezielt setzen können (siehe NavigationMenuTest).
@@ -158,7 +166,9 @@ trait InteractsWithTenants
                 'email_verified_at' => now(),
             ], $attributes));
 
-            TenantUser::create(['tenant_id' => $tenant->id, 'user_id' => $user->id, 'role' => $role, 'status' => 'active']);
+            TenantUser::create(array_merge([
+                'tenant_id' => $tenant->id, 'user_id' => $user->id, 'role' => $role, 'status' => 'active',
+            ], $membershipFields));
 
             $this->createdUserIds[] = $user->id;
 
@@ -167,23 +177,26 @@ trait InteractsWithTenants
     }
 
     /**
-     * Füllt Adresse + Geburtsdatum, damit der User das Profil-Gate vor der
-     * Praxisformular-Anmeldung passiert (siehe
+     * Füllt Adresse + Geburtsdatum der Mitgliedschaft bei $tenant, damit der
+     * User das Profil-Gate vor der Praxisformular-Anmeldung passiert (siehe
      * User::hasCompleteRegistrationProfile, PraxisPruefungController).
+     *
+     * Sicherheitsreview S3: diese Felder liegen seit Migration 000469 je
+     * Mitgliedschaft auf tenant_user, nicht mehr kontoweit auf app_user.
      */
-    protected function completeRegistrationProfile(User $user): User
+    protected function completeRegistrationProfile(User $user, Tenant $tenant): User
     {
-        return $this->onAdmin(function () use ($user) {
-            $user->update([
+        $this->onAdmin(function () use ($user, $tenant) {
+            TenantUser::where('tenant_id', $tenant->id)->where('user_id', $user->id)->update([
                 'street' => 'Teststraße 1',
                 'postal_code' => '12345',
                 'city' => 'Teststadt',
                 'country' => 'Deutschland',
                 'birthdate' => '1990-01-01',
             ]);
-
-            return $user->fresh();
         });
+
+        return $user->fresh();
     }
 
     protected function grantEntitlement(Tenant $tenant, User $user, CourseDefinition $course): Entitlement

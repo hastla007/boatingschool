@@ -118,12 +118,22 @@ class ImportContentFeedback extends Command
             return;
         }
 
-        DB::transaction(function () use ($revision, $feedbackCorrect, $feedbackIncorrect) {
+        DB::transaction(function () use ($question, $revision, $feedbackCorrect, $feedbackIncorrect) {
             $revision->update(['editorial_status' => 'deprecated']);
+
+            // Bug-Review F8: revision_no + 1 der veröffentlichten Revision
+            // kollidierte mit dem Unique-Index (question_id, revision_no),
+            // sobald bereits eine neuere, noch unveröffentlichte Revision im
+            // Status "review" existierte (siehe ImportContentQuestions) --
+            // die dadurch ausgelöste, unabgefangene QueryException brach
+            // den gesamten Feedback-Import ab, statt nur diese eine Zeile
+            // zu überspringen. max() über ALLE Revisionen der Frage
+            // vermeidet die Kollision.
+            $nextRevisionNo = $question->revisions()->max('revision_no') + 1;
 
             $newRevision = ContentQuestionRevision::create([
                 'question_id' => $revision->question_id,
-                'revision_no' => $revision->revision_no + 1,
+                'revision_no' => $nextRevisionNo,
                 'question_type' => $revision->question_type,
                 'question_text' => $revision->question_text,
                 'feedback_correct' => $feedbackCorrect,

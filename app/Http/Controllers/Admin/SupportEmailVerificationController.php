@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Mail\VerifySupportEmail;
 use App\Models\Tenant;
+use App\Support\BestEffortMail;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
@@ -29,9 +30,11 @@ class SupportEmailVerificationController extends Controller
             return back();
         }
 
-        static::sendVerificationMail($tenant);
+        $mailSent = static::sendVerificationMail($tenant);
 
-        return back()->with('status', 'support-email-verification-link-sent');
+        return back()->with('status', $mailSent
+            ? 'support-email-verification-link-sent'
+            : 'Die Bestätigungs-Mail konnte nicht versendet werden -- bitte später erneut versuchen.');
     }
 
     public function verify(Request $request, TenantContext $tenantContext, Tenant $tenant): Response
@@ -57,7 +60,15 @@ class SupportEmailVerificationController extends Controller
         return redirect()->route('admin.dashboard', ['tab' => 'branding'])->with('status', 'Support-E-Mail bestätigt.');
     }
 
-    public static function sendVerificationMail(Tenant $tenant): void
+    /**
+     * Bug-Review F9: Mail::to(...)->send(...) lief hier bisher synchron und
+     * ungefangen -- ein SMTP-Fehler ergab HTTP 500, obwohl beim Aufruf aus
+     * BrandingController::update() das eigentliche Branding-Update (inkl.
+     * der neuen Support-E-Mail) bereits erfolgreich gespeichert war. Siehe
+     * BestEffortMail (Bug-Review B31) für denselben Mechanismus an anderer
+     * Stelle dieser App.
+     */
+    public static function sendVerificationMail(Tenant $tenant): bool
     {
         $branding = $tenant->branding;
 
@@ -67,6 +78,9 @@ class SupportEmailVerificationController extends Controller
             ['tenant' => $tenant->id, 'hash' => sha1($branding->support_email)]
         );
 
-        Mail::to($branding->support_email)->send(new VerifySupportEmail($tenant->name, $verificationUrl));
+        return BestEffortMail::send(
+            fn () => Mail::to($branding->support_email)->send(new VerifySupportEmail($tenant->name, $verificationUrl)),
+            "Support-E-Mail-Bestätigung Bootsschule {$tenant->id}"
+        );
     }
 }
