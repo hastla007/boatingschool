@@ -436,12 +436,22 @@ class ExamController extends Controller
                 'correct' => $rows->where('correct', true)->count(),
             ]);
 
+        // Bug-Review (FKN offene Fragen): offene Fragen (open_text) fließen
+        // seit Bug-Review "Hoch" oben per Selbsteinschätzung in die Quote
+        // ein -- ohne automatische Freitext-Prüfung bleibt das manipulierbar
+        // (siehe ExamEvaluationService). Das Ergebnis weist deshalb jetzt
+        // aus, wie viele der erreichten Punkte auf Selbsteinschätzung
+        // beruhen, statt das stillschweigend in der Gesamtquote zu verstecken.
+        $openTextQuestions = $questions->where('revision.question_type', 'open_text');
+
         return view('exam.result', [
             'examSession' => $examSession,
             'questions' => $questions,
             'wrong' => $wrong,
             'unanswered' => $unanswered,
             'topicBreakdown' => $topicBreakdown,
+            'openTextCount' => $openTextQuestions->count(),
+            'openTextCorrect' => $openTextQuestions->where('correct', true)->count(),
         ]);
     }
 

@@ -157,7 +157,16 @@ class UserController extends Controller
         });
 
         $examResults = ExamSession::where('user_id', $user->id)->where('status', 'evaluated')
-            ->with('course', 'paper')->orderByDesc('submitted_at')->get();
+            ->with('course', 'paper', 'questions.revision')->orderByDesc('submitted_at')->get();
+
+        // Bug-Review (FKN offene Fragen): siehe ExamController::result() --
+        // dieselbe Selbsteinschätzung-Transparenz auch für den Superadmin,
+        // der die Prüfungs-Historie eines Nutzers einsieht.
+        $examResults->each(function (ExamSession $session) {
+            $openTextQuestions = $session->questions->where('revision.question_type', 'open_text');
+            $session->openTextCount = $openTextQuestions->count();
+            $session->openTextCorrect = $openTextQuestions->where('correct', true)->count();
+        });
 
         $productPurchases = ProductPurchase::where('user_id', $user->id)->with('product', 'tenant')
             ->orderByDesc('created_at')->get();

@@ -63,7 +63,7 @@ class ProgressController extends Controller
             ->where('user_id', $user->id)
             ->where('course_id', $course->id)
             ->where('status', 'evaluated')
-            ->with('course', 'paper', 'questions')
+            ->with('course', 'paper', 'questions.revision')
             ->orderByDesc('submitted_at')
             ->get();
 
@@ -81,6 +81,13 @@ class ProgressController extends Controller
             // (null == false wäre wahr) -- whereStrict erzwingt ===, auch wenn
             // bei status=evaluated correct für jede Frage bereits gesetzt ist.
             $session->wrongQuestionIds = $session->questions->whereStrict('correct', false)->pluck('question_id')->values();
+
+            // Bug-Review (FKN offene Fragen): siehe ExamController::result() --
+            // dieselbe Selbsteinschätzung-Transparenz auch hier, wo die
+            // eigene Prüfungs-Historie dauerhaft einsehbar bleibt.
+            $openTextQuestions = $session->questions->where('revision.question_type', 'open_text');
+            $session->openTextCount = $openTextQuestions->count();
+            $session->openTextCorrect = $openTextQuestions->where('correct', true)->count();
         });
 
         return view('learning.progress', [

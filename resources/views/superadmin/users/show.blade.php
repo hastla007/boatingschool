@@ -150,6 +150,10 @@
                                     <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full {{ $session->passed ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700' }}">
                                         {{ (int) round($session->score * 100) }}% &middot; {{ $session->passed ? 'Bestanden' : 'Nicht bestanden' }}
                                     </span>
+                                    @if ($session->openTextCount > 0)
+                                        {{-- Bug-Review (FKN offene Fragen): siehe exam/result.blade.php. --}}
+                                        <div class="text-xs text-slate-500 mt-0.5">{{ $session->openTextCorrect }}/{{ $session->openTextCount }} Punkte durch Selbsteinschätzung</div>
+                                    @endif
                                 </td>
                                 <td class="py-1.5 text-slate-500">{{ \App\Support\GermanTime::format($session->submitted_at, 'd.m.Y H:i') }}</td>
                             </tr>

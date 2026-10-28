@@ -55,6 +55,12 @@
                                 {{ $session->displayLabel }}
                             </div>
                             <div class="text-xs text-slate-600 dark:text-slate-400">{{ \App\Support\GermanTime::format($session->submitted_at, 'd.m.Y H:i') }}</div>
+                            @if ($session->openTextCount > 0)
+                                {{-- Bug-Review (FKN offene Fragen): siehe exam/result.blade.php --
+                                     dieselbe Selbsteinschätzung-Transparenz in der dauerhaften
+                                     Prüfungs-Historie. --}}
+                                <div class="text-xs text-slate-500 dark:text-slate-400">{{ $session->openTextCorrect }}/{{ $session->openTextCount }} Punkte aus offenen Fragen durch Selbsteinschätzung</div>
+                            @endif
                         </div>
                         <div class="flex items-center gap-3 shrink-0">
                             <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">{{ (int) round($session->score * 100) }}%</span>

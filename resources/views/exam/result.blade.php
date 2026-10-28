@@ -16,6 +16,15 @@
                  sie deshalb separat als "nicht bewertet" aus. Sie fließen
                  jetzt wie jede andere Frage in $examSession->score ein. --}}
             <div class="text-slate-500 mt-1">{{ (int) round($examSession->score * 100) }}% richtig &middot; {{ $questions->where('correct', true)->count() }}/{{ $questions->count() }} Fragen</div>
+            @if ($openTextCount > 0)
+                {{-- Bug-Review (FKN offene Fragen): die Quote oben enthält
+                     Punkte aus offenen Fragen, die per Selbsteinschätzung
+                     (nicht automatisch) bewertet wurden -- dieser Hinweis
+                     macht das transparent, statt es unausgewiesen zu lassen. --}}
+                <div class="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    Davon {{ $openTextCorrect }}/{{ $openTextCount }} Punkte aus offenen Fragen durch Selbsteinschätzung (keine automatische Prüfung).
+                </div>
+            @endif
         </div>
 
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
