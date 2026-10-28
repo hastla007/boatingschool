@@ -9,7 +9,7 @@ use App\Models\ExamBlueprint;
 use App\Models\ExamPaper;
 use App\Models\ExamRuleSet;
 use App\Models\ExamSession;
-use Database\Seeders\UbiCatalogUpdateSeeder;
+use Database\Seeders\CatalogUpdateSeeder;
 use Illuminate\Support\Facades\DB;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -58,7 +58,7 @@ class UbiCatalog2026Test extends TestCase
             // Frische Installation: alle 130 aus dem Katalog 2026-10. Nach
             // einem Update behalten die 65 inhaltlich unveränderten Fragen
             // ihre bisherige Revision (und damit deren Herkunftsangabe).
-            $fromNewCatalog = $questions->filter(fn ($q) => $q->publishedRevision()->source_version === UbiCatalogUpdateSeeder::SOURCE_VERSION)->count();
+            $fromNewCatalog = $questions->filter(fn ($q) => $q->publishedRevision()->source_version === CatalogUpdateSeeder::UBI_2026_10)->count();
             $this->assertGreaterThanOrEqual(65, $fromNewCatalog);
 
             $q4 = ContentQuestion::where('content_role', 'ubi_official')->where('official_number', '4')->firstOrFail()->publishedRevision();
@@ -96,13 +96,13 @@ class UbiCatalog2026Test extends TestCase
 
             return [
                 $make(1, 'published', '2026-09', 'Erklärung zur alten Antwort'),
-                $make(2, 'review', UbiCatalogUpdateSeeder::SOURCE_VERSION),
+                $make(2, 'review', CatalogUpdateSeeder::UBI_2026_10),
             ];
         });
 
-        $this->onAdmin(fn () => (new UbiCatalogUpdateSeeder)->run());
+        $this->onAdmin(fn () => (new CatalogUpdateSeeder)->run());
         // Zweiter Lauf: idempotent.
-        $this->onAdmin(fn () => (new UbiCatalogUpdateSeeder)->run());
+        $this->onAdmin(fn () => (new CatalogUpdateSeeder)->run());
 
         $this->onAdmin(function () use ($old, $new) {
             $this->assertSame('deprecated', $old->fresh()->editorial_status);
@@ -134,7 +134,7 @@ class UbiCatalog2026Test extends TestCase
             ]);
         });
 
-        $this->onAdmin(fn () => (new UbiCatalogUpdateSeeder)->run());
+        $this->onAdmin(fn () => (new CatalogUpdateSeeder)->run());
 
         $this->assertSame('review', $this->onAdmin(fn () => $review->fresh()->editorial_status));
     }

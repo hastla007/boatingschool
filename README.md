@@ -118,11 +118,12 @@ auf PostgreSQL, gemäß dem mitgelieferten technischen Konzept
   Fragenfamilie mehrfach vorkommt. Bilder aus
   `database/data/pruefungsboegen_bilder/` werden dabei direkt an die
   jeweilige Frage angehängt (`question_media`) und erscheinen dadurch überall,
-  wo diese Frage angezeigt wird (Smarttrainer, Prüfungssimulation). Die
-  Bilder der Basisfragen sowie aller SBF-Binnen- und Binnen-Segeln-Fragen
-  stammen aus dem ELWIS-Fragenkatalog Binnen (`database/data/elwis_bilder/`,
-  Zuordnung in `elwis_bilder.csv`, angehängt von `ElwisQuestionImageSeeder`)
-  und ersetzen dabei die kleineren Basisfragen-Bilder der See-Bögen. Dasselbe
+  wo diese Frage angezeigt wird (Smarttrainer, Prüfungssimulation). Alle
+  Fragenbilder der SBF-Kurse (Basis, See, Binnen, Binnen Segeln) stammen
+  inzwischen von ELWIS (Fragenkatalog Binnen online, Fragenkatalog See als
+  PDF Stand August 2023; `database/data/elwis_bilder/`, Zuordnung in
+  `elwis_bilder.csv`, angehängt von `ElwisQuestionImageSeeder`) und ersetzen
+  dabei die oben genannten Bilder der See-Bögen. Dasselbe
   Muster (eigener Seeder je Kurs, feste statt zufällig gewürfelter Fragen)
   wurde inzwischen auch auf weitere Kurse übertragen (u. a. SRC, FKN, SBF
   Binnen, Kombikurse) – mit jeweils eigener Fragenzahl/-zusammensetzung laut
@@ -178,7 +179,7 @@ Die 130 UBI-Fragen entsprechen dem UBI-Gesamtfragenkatalog Stand Oktober
 2026 (ABVT Koblenz, gültig ab 01.10.2026; Zeilen mit `source_version`
 `2026-10`). Auf einer Installation mit dem bisherigen Katalog 08/2023 legt
 der Seed-Lauf für die 65 geänderten Fragen neue Revisionen an und
-veröffentlicht sie (`UbiCatalogUpdateSeeder`); die alte Fassung bleibt als
+veröffentlicht sie (`CatalogUpdateSeeder`); die alte Fassung bleibt als
 `deprecated` erhalten, bereits gespeicherte Versuche verweisen weiter auf
 sie. Die Ergänzung SRC → UBI nutzt nur die 79 Fragen des amtlichen
 Ergänzungskatalogs (Modul `UBI_ERG`, dieselben Fragen wie im Modul `UBI`)

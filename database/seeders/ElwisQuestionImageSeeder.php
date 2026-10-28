@@ -10,9 +10,16 @@ use Illuminate\Support\Facades\Storage;
 
 /**
  * Bilder aus den Fragenkatalogen auf ELWIS (Fragenkatalog Binnen:
- * Basisfragen, Spezifische Fragen Binnen, Segeln), siehe
- * database/data/elwis_bilder.csv:
+ * Basisfragen, Spezifische Fragen Binnen, Segeln; Fragenkatalog See als
+ * PDF, Stand August 2023), siehe database/data/elwis_bilder.csv:
  *
+ * - SBF See (72 spezifische Fragen, 75 verschiedene Bilder): ersetzt die
+ *   bisherigen Bilder von bootsfuehrerscheinpruefung.de. Alle 85
+ *   bisherigen Zuordnungen waren pixelgleich mit einem Bild aus dem
+ *   ELWIS-PDF und sind darüber eindeutig zugeordnet. Drei 4x-Fassungen
+ *   (PDF-Bild 25, 69, 80) waren im Paket leer und sind aus dem Original
+ *   genauso (4x LANCZOS) neu erzeugt; die Schallsignale zu 116, 117 und
+ *   140 sind neu gezeichnet (auch vierfach unter 64 px hoch).
  * - SBF Binnen (56 Fragen) und SBF Binnen Segeln 295: bisher ohne Bild,
  *   obwohl image_required -- die Binnen-Prüfungsbogen-CSVs haben keine
  *   Bilderspalte (siehe AuditMissingRequiredImages).
@@ -26,7 +33,7 @@ use Illuminate\Support\Facades\Storage;
  * 27x8 px) sind auch vierfach noch zu klein und wurden in 64 px Höhe neu
  * gezeichnet. Die Fragen 192 und 193 nutzen auf ELWIS dieselbe Grafik.
  *
- * Der Alternativtext ist bewusst neutral ("Abbildung zu Frage N"): die
+ * Der Alternativtext ist bewusst neutral ("Abbildung zur Frage"): die
  * ELWIS-Bildbeschreibungen nennen oft die richtige Antwort.
  *
  * Die Bilder hängen an der jeweils veröffentlichten Revision; eine neue
@@ -98,13 +105,18 @@ class ElwisQuestionImageSeeder extends Seeder
             Storage::disk('public')->put($storagePath, $contents);
         }
 
-        return MediaAsset::firstOrCreate(
+        // Eine Datei kann mehreren Fragen gehören (z. B. dasselbe
+        // Schallsignal in SBF See 118-121) -- daher ein gemeinsames Asset
+        // und ein Alternativtext ohne Fragennummer. updateOrCreate: die
+        // Assets gehören ausschließlich diesem Seeder, Metadaten sollen bei
+        // einer Korrektur der CSV nachgezogen werden.
+        return MediaAsset::updateOrCreate(
             ['asset_key' => 'elwis/'.$row['datei']],
             [
                 'media_type' => 'image',
                 'storage_path' => $storagePath,
                 'mime_type' => 'image/png',
-                'alt_text' => 'Abbildung zu Frage '.$row['fragen_nr'],
+                'alt_text' => 'Abbildung zur Frage',
                 'source' => 'ELWIS (Wasserstraßen- und Schifffahrtsverwaltung des Bundes): '.$row['quelle'],
                 'rights_status' => 'review',
             ]

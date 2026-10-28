@@ -18,7 +18,7 @@ class DatabaseSeeder extends Seeder
 
         $this->command->info('Importiere zentrale Fragenbasis ...');
         Artisan::call('content:import', [], $this->command->getOutput());
-        $this->call(UbiCatalogUpdateSeeder::class);
+        $this->call(CatalogUpdateSeeder::class);
 
         $this->command->info('Importiere Richtig-/Falsch-Feedback ...');
         Artisan::call('content:import-feedback', [], $this->command->getOutput());
@@ -28,16 +28,12 @@ class DatabaseSeeder extends Seeder
         $this->call([
             CourseSeeder::class,
             UbiErgaenzungSeeder::class,
-            // Bug-Review Betrieb B5: ExamPaperSeeder (hängt Bilder aus den
-            // Prüfungsbögen, z. B. "Lichter-Frage-93-gif.png", an
-            // content_question_revision -- siehe question_media) muss vor
-            // VideoLessonQuestionSeeder laufen, da dessen LESSON_QUESTIONS
-            // einige mehrdeutige Fragen über genau dieses Bild statt über
-            // den Fragetext identifizieren. ExamPaperSeeder selbst braucht
-            // nur ContentQuestion (Content-Import) und die Kursdefinition
-            // -- unabhängig von jedem Video-/Lektions-Seeder -- und kann
-            // deshalb gefahrlos vorgezogen werden, statt seinen gesamten
-            // Exam*Seeder-Themenblock (unten) zu verschieben.
+            // Bug-Review Betrieb B5: ExamPaperSeeder lief hier vor
+            // VideoLessonQuestionSeeder, weil dessen LESSON_QUESTIONS
+            // mehrdeutige Fragen früher über die von ExamPaperSeeder
+            // angehängten Bilder identifizierten. Seit den ELWIS-Bildern
+            // (ElwisQuestionImageSeeder ersetzt sie) geschieht das über die
+            // Katalognummer; die Reihenfolge schadet nicht und bleibt.
             ExamPaperSeeder::class,
             VideoCourseSeeder::class,
             // Bug-Review Betrieb B5: SeemannschaftVideoSeeder muss vor

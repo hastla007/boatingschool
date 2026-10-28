@@ -76,7 +76,7 @@ class ContentQuestionRevision extends Model
      * Veröffentlichen einer solchen Import-Revision beides stillschweigend
      * löschen. $inheritEditorialContent = false überspringt das bewusst,
      * wenn die neue Fassung inhaltlich eine andere Frage sein kann (neuer
-     * amtlicher Katalog, siehe UbiCatalogUpdateSeeder) -- dort würde eine
+     * amtlicher Katalog, siehe CatalogUpdateSeeder) -- dort würde eine
      * zur alten Antwort geschriebene Erklärung bzw. ein altes Bild falsch.
      */
     public function publish(bool $inheritEditorialContent = true): void

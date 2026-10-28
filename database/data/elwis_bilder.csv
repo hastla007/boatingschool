@@ -77,3 +77,88 @@ SBF_BINNEN;204;1;sbf_binnen_204_1.png;75;360x240;Hinweiszeichen E.3 - Hinweis au
 SBF_BINNEN;243;1;sbf_binnen_243_1.png;76;788x352;Empfohlene Durchfahrt mit Gegenverkehr und seitlicher Begrenzung der erlaubten Brückendurchfahrt;https://www.elwis.de/DE/Sportschifffahrt/Sportbootfuehrerscheine/Fragenkatalog-Binnen/Spezifische-Fragen-Binnen/Bild-Frage-243.gif?__blob=normal&v=1
 SBF_BINNEN;244;1;sbf_binnen_244_1.png;77;240x168;Verbotszeichen A.1 Tafelzeichen - Verbot der Durchfahrt;https://www.elwis.de/DE/Schifffahrtsrecht/Binnenschifffahrtsrecht/Grafiken/Anlage-07/Verbotszeichen-A01-Tafeln.gif?__blob=normal&v=2
 SBF_BINNEN_SEGELN;295;1;sbf_binnen_segeln_295_1.png;78;744x568;1 Wende, 2 Halse, 3 Q-Wende;https://www.elwis.de/DE/Sportschifffahrt/Sportbootfuehrerscheine/Fragenkatalog-Binnen/Spezifische-Fragen-Segeln/Bild-Frage-295.gif?__blob=normal&v=1
+SBF_SEE;91;1;sbf_see_pdfbild_021.png;PDF-Bild 21;528x408;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 27
+SBF_SEE;92;1;sbf_see_pdfbild_022.png;PDF-Bild 22;516x416;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 27
+SBF_SEE;93;1;sbf_see_pdfbild_023.png;PDF-Bild 23;704x384;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 28
+SBF_SEE;94;1;sbf_see_pdfbild_024.png;PDF-Bild 24;820x344;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 28
+SBF_SEE;97;1;sbf_see_pdfbild_025.png;PDF-Bild 25 (4x neu erzeugt, im Paket leer);716x424;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 29
+SBF_SEE;98;1;sbf_see_pdfbild_026.png;PDF-Bild 26;724x392;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 29
+SBF_SEE;99;1;sbf_see_pdfbild_027.png;PDF-Bild 27;856x472;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 30
+SBF_SEE;102;1;sbf_see_pdfbild_028.png;PDF-Bild 28;860x404;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 30
+SBF_SEE;103;1;sbf_see_pdfbild_029.png;PDF-Bild 29;528x416;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 31
+SBF_SEE;104;1;sbf_see_pdfbild_030.png;PDF-Bild 30;520x416;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 31
+SBF_SEE;105;1;sbf_see_pdfbild_031.png;PDF-Bild 31;620x448;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 32
+SBF_SEE;106;1;sbf_see_pdfbild_032.png;PDF-Bild 32;844x404;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 32
+SBF_SEE;107;1;sbf_see_pdfbild_033.png;PDF-Bild 33;852x440;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 32
+SBF_SEE;108;1;sbf_see_pdfbild_034.png;PDF-Bild 34;840x424;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 33
+SBF_SEE;109;1;sbf_see_pdfbild_035.png;PDF-Bild 35;844x448;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 33
+SBF_SEE;110;1;sbf_see_pdfbild_036.png;PDF-Bild 36;860x444;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 33
+SBF_SEE;111;1;sbf_see_pdfbild_037.png;PDF-Bild 37;848x392;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 34
+SBF_SEE;112;1;sbf_see_pdfbild_038.png;PDF-Bild 38;852x420;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 34
+SBF_SEE;115;1;sbf_see_pdfbild_039.png;PDF-Bild 39;844x420;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 35
+SBF_SEE;116;1;sbf_see_pdfbild_003.png;neu gezeichnet (Vorlage PDF-Bild 3);128x64;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 35
+SBF_SEE;117;1;sbf_see_pdfbild_040.png;neu gezeichnet (Vorlage PDF-Bild 40);256x64;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 36
+SBF_SEE;118;1;sbf_see_pdfbild_041.png;PDF-Bild 41;220x88;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 36
+SBF_SEE;119;1;sbf_see_pdfbild_041.png;PDF-Bild 41;220x88;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 36
+SBF_SEE;119;2;sbf_see_pdfbild_042.png;PDF-Bild 42;280x76;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 36
+SBF_SEE;120;1;sbf_see_pdfbild_041.png;PDF-Bild 41;220x88;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 36
+SBF_SEE;120;2;sbf_see_pdfbild_043.png;PDF-Bild 43;224x76;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 37
+SBF_SEE;120;3;sbf_see_pdfbild_044.png;PDF-Bild 44;208x76;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 37
+SBF_SEE;121;1;sbf_see_pdfbild_041.png;PDF-Bild 41;220x88;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 36
+SBF_SEE;121;2;sbf_see_pdfbild_043.png;PDF-Bild 43;224x76;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 37
+SBF_SEE;121;3;sbf_see_pdfbild_044.png;PDF-Bild 44;208x76;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 37
+SBF_SEE;122;1;sbf_see_pdfbild_045.png;PDF-Bild 45;320x452;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 38
+SBF_SEE;123;1;sbf_see_pdfbild_045.png;PDF-Bild 45;320x452;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 38
+SBF_SEE;123;2;sbf_see_pdfbild_046.png;PDF-Bild 46;308x440;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 38
+SBF_SEE;124;1;sbf_see_pdfbild_044.png;PDF-Bild 44;208x76;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 37
+SBF_SEE;124;2;sbf_see_pdfbild_041.png;PDF-Bild 41;220x88;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 36
+SBF_SEE;124;3;sbf_see_pdfbild_043.png;PDF-Bild 43;224x76;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 37
+SBF_SEE;133;1;sbf_see_pdfbild_047.png;PDF-Bild 47;856x404;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 41
+SBF_SEE;134;1;sbf_see_pdfbild_048.png;PDF-Bild 48;816x416;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 41
+SBF_SEE;140;1;sbf_see_pdfbild_049.png;neu gezeichnet (Vorlage PDF-Bild 49);270x64;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 43
+SBF_SEE;141;1;sbf_see_pdfbild_044.png;PDF-Bild 44;208x76;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 37
+SBF_SEE;148;1;sbf_see_pdfbild_050.png;PDF-Bild 50;840x460;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 45
+SBF_SEE;149;1;sbf_see_pdfbild_051.png;PDF-Bild 51;824x428;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 46
+SBF_SEE;150;1;sbf_see_pdfbild_052.png;PDF-Bild 52;860x464;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 46
+SBF_SEE;151;1;sbf_see_pdfbild_053.png;PDF-Bild 53;828x416;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 47
+SBF_SEE;154;1;sbf_see_pdfbild_054.png;PDF-Bild 54;840x428;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 48
+SBF_SEE;162;1;sbf_see_pdfbild_055.png;PDF-Bild 55;332x148;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 50
+SBF_SEE;176;1;sbf_see_pdfbild_056.png;PDF-Bild 56;240x236;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 54
+SBF_SEE;177;1;sbf_see_pdfbild_057.png;PDF-Bild 57;284x452;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 54
+SBF_SEE;177;2;sbf_see_pdfbild_058.png;PDF-Bild 58;276x448;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 54
+SBF_SEE;178;1;sbf_see_pdfbild_059.png;PDF-Bild 59;252x80;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 55
+SBF_SEE;179;1;sbf_see_pdfbild_060.png;PDF-Bild 60;264x428;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 55
+SBF_SEE;180;1;sbf_see_pdfbild_061.png;PDF-Bild 61;308x232;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 55
+SBF_SEE;182;1;sbf_see_pdfbild_062.png;PDF-Bild 62;924x584;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 56
+SBF_SEE;184;1;sbf_see_pdfbild_063.png;PDF-Bild 63;316x392;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 57
+SBF_SEE;184;2;sbf_see_pdfbild_064.png;PDF-Bild 64;324x480;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 57
+SBF_SEE;184;3;sbf_see_pdfbild_065.png;PDF-Bild 65;544x436;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 57
+SBF_SEE;185;1;sbf_see_pdfbild_066.png;PDF-Bild 66;508x448;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 57
+SBF_SEE;186;1;sbf_see_pdfbild_067.png;PDF-Bild 67;272x80;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 58
+SBF_SEE;187;1;sbf_see_pdfbild_068.png;PDF-Bild 68;280x452;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 58
+SBF_SEE;187;2;sbf_see_pdfbild_069.png;PDF-Bild 69 (4x neu erzeugt, im Paket leer);280x452;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 58
+SBF_SEE;188;1;sbf_see_pdfbild_070.png;PDF-Bild 70;596x76;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 59
+SBF_SEE;189;1;sbf_see_pdfbild_071.png;PDF-Bild 71;284x452;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 59
+SBF_SEE;189;2;sbf_see_pdfbild_072.png;PDF-Bild 72;280x448;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 59
+SBF_SEE;190;1;sbf_see_pdfbild_073.png;PDF-Bild 73;368x564;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 59
+SBF_SEE;191;1;sbf_see_pdfbild_074.png;PDF-Bild 74;340x600;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 60
+SBF_SEE;192;1;sbf_see_pdfbild_075.png;PDF-Bild 75;436x528;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 60
+SBF_SEE;193;1;sbf_see_pdfbild_076.png;PDF-Bild 76;852x528;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 61
+SBF_SEE;194;1;sbf_see_pdfbild_077.png;PDF-Bild 77;1264x548;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 61
+SBF_SEE;195;1;sbf_see_pdfbild_078.png;PDF-Bild 78;484x632;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 61
+SBF_SEE;196;1;sbf_see_pdfbild_079.png;PDF-Bild 79;464x620;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 62
+SBF_SEE;200;1;sbf_see_pdfbild_080.png;PDF-Bild 80 (4x neu erzeugt, im Paket leer);944x556;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 63
+SBF_SEE;201;1;sbf_see_pdfbild_081.png;PDF-Bild 81;932x540;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 63
+SBF_SEE;202;1;sbf_see_pdfbild_082.png;PDF-Bild 82;948x548;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 64
+SBF_SEE;203;1;sbf_see_pdfbild_083.png;PDF-Bild 83;896x528;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 64
+SBF_SEE;204;1;sbf_see_pdfbild_084.png;PDF-Bild 84;1076x268;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 65
+SBF_SEE;205;1;sbf_see_pdfbild_085.png;PDF-Bild 85;1072x304;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 65
+SBF_SEE;206;1;sbf_see_pdfbild_086.png;PDF-Bild 86;1120x292;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 65
+SBF_SEE;207;1;sbf_see_pdfbild_087.png;PDF-Bild 87;1096x304;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 66
+SBF_SEE;208;1;sbf_see_pdfbild_088.png;PDF-Bild 88;932x560;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 66
+SBF_SEE;260;1;sbf_see_pdfbild_089.png;PDF-Bild 89;364x424;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 79
+SBF_SEE;265;1;sbf_see_pdfbild_090.png;PDF-Bild 90;892x580;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 80
+SBF_SEE;266;1;sbf_see_pdfbild_091.png;PDF-Bild 91;828x576;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 81
+SBF_SEE;282;1;sbf_see_pdfbild_092.png;PDF-Bild 92;584x80;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 84
+SBF_SEE;284;1;sbf_see_pdfbild_094.png;PDF-Bild 94;336x688;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 86
+SBF_SEE;285;1;sbf_see_pdfbild_095.png;PDF-Bild 95;660x528;;ELWIS Fragenkatalog See (PDF, Stand August 2023), Seite 86
