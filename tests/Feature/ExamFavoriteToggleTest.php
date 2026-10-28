@@ -81,9 +81,18 @@ class ExamFavoriteToggleTest extends TestCase
         $response = $this->actingAsInTenant($learner, $tenant)
             ->postJson("/favorites/{$question->question_id}", ['context' => 'exam', 'course_id' => $course->id]);
 
-        // back() liefert unabhängig vom Accept-Header einen Redirect --
-        // genau das, was fetch() im Browser transparent weiterverfolgt.
-        $response->assertRedirect();
+        // Bug-Review T2: back() lieferte hier bis dahin unabhängig vom
+        // Accept-Header einen Redirect -- bei einem 301/302 ersetzt
+        // fetch() beim automatischen Folgen des Redirects die Methode aber
+        // nur für POST durch GET (WHATWG Fetch "HTTP-redirect fetch"); das
+        // Redirect-Ziel (die Prüfungsseite selbst) hat ohnehin keine
+        // DELETE-Route (siehe das DELETE-Pendant unten in diesem Bereich),
+        // und selbst für den POST-Fall hier ist response.ok in
+        // toggleFavorite() der einzige Signalweg -- ein zusätzlicher
+        // Redirect ist für den fetch()-Aufruf witzlos. FavoriteController
+        // liefert jetzt stattdessen 204 No Content, wenn der Request (wie
+        // dieser) application/json akzeptiert.
+        $response->assertNoContent();
         $this->asTenant($tenant, function () use ($tenant, $learner, $question) {
             $this->assertDatabaseHas('favorite', [
                 'tenant_id' => $tenant->id,

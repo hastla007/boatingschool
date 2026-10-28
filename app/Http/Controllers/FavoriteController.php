@@ -154,6 +154,27 @@ class FavoriteController extends Controller
 
         $collections->ensureInDefault($tenant, $request->user(), $course, $question->id, $context);
 
+        // Bug-Review T2: der Favoriten-Button in der Prüfungssimulation
+        // (siehe Bug-Review B29 in exam/question.blade.php) ruft diese
+        // Route per fetch() mit Accept: application/json auf, um die noch
+        // nicht abgeschickte Antwortauswahl im Hauptformular nicht durch
+        // eine Seitennavigation zu verlieren. back() lieferte dafür aber
+        // IMMER einen 302 auf die vorherige URL, unabhängig vom
+        // Accept-Header -- und bei einem 301/302 ersetzt fetch() die
+        // Methode beim automatischen Folgen des Redirects nur für POST
+        // durch GET (WHATWG Fetch "HTTP-redirect fetch"), bei DELETE
+        // bleibt die Methode DELETE. Das Redirect-Ziel (die Prüfungsseite
+        // selbst) hat aber keine DELETE-Route -- der zweite, vom Browser
+        // automatisch nachgeschickte Request landete deshalb auf 405, was
+        // response.ok in toggleFavorite() auf false setzte und den
+        // Button-Zustand nie umschaltete. Das klassische Formular in
+        // learning/_favorite-card.blade.php erwartet dagegen weiterhin
+        // eine echte Seitennavigation (back()) -- wantsJson() unterscheidet
+        // beide Aufrufer anhand des von ihnen gesendeten Accept-Headers.
+        if ($request->wantsJson()) {
+            return response()->noContent();
+        }
+
         return back();
     }
 
@@ -169,6 +190,14 @@ class FavoriteController extends Controller
             ->delete();
 
         $collections->detachFromAllCollections($tenant, $request->user(), $question->id, $context);
+
+        // Bug-Review T2: siehe ausführlichen Kommentar in store() oben --
+        // dieselbe DELETE-folgt-302-als-DELETE-Problematik betrifft diese
+        // Route sogar noch direkter, da toggleFavorite() hierfür selbst
+        // bereits mit method: 'DELETE' aufruft.
+        if ($request->wantsJson()) {
+            return response()->noContent();
+        }
 
         return back();
     }

@@ -54,9 +54,12 @@ class LearningFavoriteToggleTest extends TestCase
         $response = $this->actingAsInTenant($learner, $tenant)
             ->postJson("/favorites/{$question->id}", ['context' => 'smart_learning', 'course_id' => $course->id]);
 
-        // back() liefert unabhängig vom Accept-Header einen Redirect --
-        // genau das, was fetch() im Browser transparent weiterverfolgt.
-        $response->assertRedirect();
+        // Bug-Review T2: back() lieferte hier bis dahin unabhängig vom
+        // Accept-Header einen Redirect (siehe ausführlicher Kommentar in
+        // ExamFavoriteToggleTest sowie in FavoriteController::store()).
+        // FavoriteController liefert jetzt stattdessen 204 No Content,
+        // wenn der Request (wie dieser) application/json akzeptiert.
+        $response->assertNoContent();
         $this->asTenant($tenant, function () use ($tenant, $learner, $question) {
             $this->assertDatabaseHas('favorite', [
                 'tenant_id' => $tenant->id,
