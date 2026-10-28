@@ -359,12 +359,22 @@ class AdminDashboardController extends Controller
         // einzeln auf der Teilnehmer-Detailseite finden -- keine
         // Gesamtübersicht über alle offenen/versendeten Bestellungen
         // dieser Bootsschule.
-        $willkommensboxFilters = $request->only(['wb_search']);
+        // Bug-Review (Query-Parameter-Validierung): wb_search wird als
+        // String erwartet -- ein manipulierter Request mit
+        // ?wb_search[]=a lieferte stattdessen ein Array. Ein (string)-Cast
+        // darauf gäbe nur eine PHP-Warnung ("Array to string conversion"),
+        // ein trim() OHNE Cast scheiterte an demselben Array dagegen mit
+        // einem echten TypeError -- beides endete unbehandelt mit
+        // HTTP 500, auch beim bloßen Anzeigen in admin/tabs/willkommensbox.
+        // blade.php ({{ $willkommensboxFilters['wb_search'] ?? '' }}).
+        $rawWbSearch = $request->query('wb_search');
+        $willkommensboxSearch = is_string($rawWbSearch) ? trim($rawWbSearch) : '';
+        $willkommensboxFilters = ['wb_search' => $willkommensboxSearch];
 
         $willkommensboxOrders = WillkommensboxOrder::where('tenant_id', $tenant->id)
             ->with('user')
-            ->when(trim((string) ($willkommensboxFilters['wb_search'] ?? '')) !== '', function ($q) use ($willkommensboxFilters) {
-                $term = '%'.trim($willkommensboxFilters['wb_search']).'%';
+            ->when($willkommensboxSearch !== '', function ($q) use ($willkommensboxSearch) {
+                $term = '%'.$willkommensboxSearch.'%';
                 $q->whereHas('user', fn ($q2) => $q2->where('display_name', 'ilike', $term)->orWhere('email', 'ilike', $term));
             })
             // Offene (noch nicht versendete) Bestellungen zuerst, darin neueste zuerst.

@@ -96,7 +96,7 @@ class LearningController extends Controller
         }
         $topic = $request->query('topic');
         $moduleId = $request->query('module');
-        $questionIds = $this->parseQuestionIds($request->query('questions'));
+        $questionIds = $this->parseQuestionIds($this->questionsQueryParam($request));
 
         if ($mode === 'favorites') {
             $courseQuestionIds = $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id')->unique();
@@ -131,7 +131,7 @@ class LearningController extends Controller
             'mode' => $mode,
             'topic' => $topic,
             'moduleId' => $moduleId,
-            'questionsParam' => $request->query('questions'),
+            'questionsParam' => $this->questionsQueryParam($request),
             'isFavorite' => $isFavorite,
             'startedAt' => now()->valueOf(),
             'answered' => false,
@@ -266,7 +266,7 @@ class LearningController extends Controller
             'mode' => $validated['mode'],
             'topic' => $request->query('topic'),
             'module' => $request->query('module'),
-            'questions' => $request->query('questions'),
+            'questions' => $this->questionsQueryParam($request),
         ]));
     }
 
@@ -300,7 +300,7 @@ class LearningController extends Controller
             'mode' => $mode,
             'topic' => $request->query('topic'),
             'moduleId' => $request->query('module'),
-            'questionsParam' => $request->query('questions'),
+            'questionsParam' => $this->questionsQueryParam($request),
             'isFavorite' => $isFavorite,
             'startedAt' => now()->valueOf(),
             'answered' => true,
@@ -319,5 +319,21 @@ class LearningController extends Controller
         }
 
         return array_values(array_filter(explode(',', $questions)));
+    }
+
+    /**
+     * Bug-Review (Query-Parameter-Validierung): ?questions=a,b wird als
+     * String erwartet (siehe parseQuestionIds()) -- ein manipulierter
+     * Request mit ?questions[]=a&questions[]=b liefert von Laravel aus
+     * stattdessen ein Array, das array_filter(explode(',', ...)) mit
+     * einem TypeError scheitern ließ, unbehandelt mit HTTP 500. Analog zu
+     * VideoCourseController::parseModuleIds() wird ein nicht-string-
+     * förmiger Wert hier einfach ignoriert statt weitergereicht.
+     */
+    private function questionsQueryParam(Request $request): ?string
+    {
+        $raw = $request->query('questions');
+
+        return is_string($raw) ? $raw : null;
     }
 }

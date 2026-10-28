@@ -228,7 +228,12 @@ class VideoQuizController extends Controller
 
         $raw = $request->query('questions');
 
-        if (! $raw) {
+        // Bug-Review (Query-Parameter-Validierung): ?questions=a,b wird als
+        // String erwartet -- ein manipulierter Request mit
+        // ?questions[]=a&questions[]=b liefert von Laravel aus stattdessen
+        // ein Array, das explode(',', ...) mit einem TypeError scheitern
+        // ließ, unbehandelt mit HTTP 500.
+        if (! is_string($raw) || $raw === '') {
             return $activeQuestions->values();
         }
 
@@ -243,7 +248,13 @@ class VideoQuizController extends Controller
     {
         $raw = $request->query('kapitel');
 
-        return $raw ? array_values(array_filter(explode(',', $raw))) : null;
+        // Bug-Review (Query-Parameter-Validierung): derselbe Fehler wie bei
+        // resolveQuestions() oben -- ein manipulierter Request mit
+        // ?kapitel[]=a&kapitel[]=b liefert ein Array statt eines Strings,
+        // das explode(',', ...) mit einem TypeError scheitern ließ
+        // (VideoCourseController::parseModuleIds() wurde bereits dagegen
+        // abgesichert, diese zweite, eigene Kopie hier noch nicht).
+        return is_string($raw) && $raw !== '' ? array_values(array_filter(explode(',', $raw))) : null;
     }
 
     private function nextLesson(CourseDefinition $course, VideoLesson $lesson, ?array $moduleIds): ?VideoLesson
