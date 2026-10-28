@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AddonTemplate;
 use App\Models\AuditLog;
 use App\Models\TenantAddon;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -55,7 +57,22 @@ class AddonController extends Controller
         // das Löschen hier war nie nötig, um das durchzusetzen. Nur noch die
         // tatsächlich im Formular enthaltenen (= aktiven) Vorlagen werden
         // deshalb überhaupt berührt.
-        $templateIds = $rows->keys();
+        // Bug-Review (Query-Parameter-Validierung): die Schlüssel des
+        // addons-Arrays (Vorlagen-IDs) kamen bisher ungeprüft aus dem
+        // Request direkt in where('addon_template_id', ...) bzw. ein
+        // Insert gegen die uuid-Spalte tenant_addon.addon_template_id --
+        // ein manipulierter, nicht-UUID-förmiger Schlüssel ließ Postgres
+        // mit "invalid input syntax for type uuid" scheitern, ein
+        // UUID-förmiger, aber nicht existierender Schlüssel mit einer
+        // verletzten Fremdschlüssel-Zwangsbedingung. Beides endete als
+        // unbehandelte QueryException mit HTTP 500, statt den Schlüssel
+        // einfach zu ignorieren (analog zu VideoCourseController::
+        // parseModuleIds()).
+        $existingTemplateIds = AddonTemplate::whereIn('id', $rows->keys()->filter(fn ($id) => is_string($id) && Str::isUuid($id))->values())
+            ->pluck('id')
+            ->map(fn ($id) => (string) $id);
+
+        $templateIds = $rows->keys()->intersect($existingTemplateIds);
 
         foreach ($templateIds as $templateId) {
             $row = $rows->get($templateId, []);
