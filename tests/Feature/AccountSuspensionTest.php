@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AuditLog;
 use App\Models\TenantUser;
 use Illuminate\Support\Facades\DB;
 use Tests\Feature\Concerns\InteractsWithTenants;
@@ -207,6 +208,14 @@ class AccountSuspensionTest extends TestCase
 
         $response->assertRedirect();
         $this->assertDatabaseMissing('sessions', ['user_id' => $user->id]);
+
+        // Bug-Review (Testdaten bleiben weiter liegen): Superadmin\
+        // UserController::update() protokolliert bewusst immer mit
+        // tenant_id=null (plattformweite Aktion) -- cleanUpCreatedTenants()
+        // löscht AuditLog-Zeilen aber ausschließlich über tenant_id, jede
+        // hier ausgelöste superadmin.user.update-Zeile blieb deshalb nach
+        // jedem Testlauf dauerhaft (verwaist) stehen.
+        $this->onAdmin(fn () => AuditLog::where('action', 'superadmin.user.update')->where('entity_id', $user->id)->delete());
     }
 
     /**
@@ -230,6 +239,8 @@ class AccountSuspensionTest extends TestCase
 
         $response->assertRedirect();
         $this->assertNotSame('original-remember-token', $user->fresh()->remember_token);
+
+        $this->onAdmin(fn () => AuditLog::where('action', 'superadmin.user.update')->where('entity_id', $user->id)->delete());
     }
 
     public function test_suspending_an_already_inactive_user_does_not_touch_their_remember_me_cookie_again(): void
@@ -247,5 +258,7 @@ class AccountSuspensionTest extends TestCase
 
         $response->assertRedirect();
         $this->assertSame('still-the-same-token', $user->fresh()->remember_token);
+
+        $this->onAdmin(fn () => AuditLog::where('action', 'superadmin.user.update')->where('entity_id', $user->id)->delete());
     }
 }

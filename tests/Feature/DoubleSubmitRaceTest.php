@@ -41,6 +41,15 @@ class DoubleSubmitRaceTest extends TestCase
             foreach ($this->createdCourseIds as $id) {
                 CourseDefinition::withoutGlobalScopes()->whereKey($id)->delete();
             }
+
+            // Bug-Review (Testdaten bleiben weiter liegen): $createdTemplateIds
+            // wurde in createAppointmentSubmission() befüllt, aber hier nie
+            // ausgelesen -- praxis_form_template hat kein tenant_id (globale,
+            // kursgebundene Vorlage), die Zeile überlebte das Löschen des
+            // Test-Tenants und -Kurses deshalb dauerhaft.
+            foreach ($this->createdTemplateIds as $id) {
+                PraxisFormTemplate::where('id', $id)->delete();
+            }
         });
 
         parent::tearDown();

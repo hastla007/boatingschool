@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AuditLog;
 use App\Models\Coupon;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -75,5 +76,12 @@ class CouponExportMalformedRequestTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('B26-EXPORT-TEST');
+
+        // Bug-Review (Testdaten bleiben weiter liegen): ohne tenant_id im
+        // Request protokolliert Superadmin\CouponController::export()
+        // bewusst mit tenant_id=null -- die automatische AuditLog-
+        // Aufräumung über einen Test-Tenant greift hier nicht, da dieser
+        // Test gar keinen Tenant anlegt.
+        $this->onAdmin(fn () => AuditLog::where('action', 'superadmin.coupon.export')->where('actor_user_id', $superadmin->id)->delete());
     }
 }

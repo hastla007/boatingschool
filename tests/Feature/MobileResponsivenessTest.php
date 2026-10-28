@@ -25,7 +25,11 @@ class MobileResponsivenessTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->cleanUpCreatedUsers();
+        // Bug-Review (Testdaten bleiben weiter liegen): räumte bisher nur
+        // die per createSuperAdmin() angelegten Nutzer auf -- der über
+        // createTestTenant() angelegte Test-Tenant (siehe unten) blieb
+        // dadurch dauerhaft stehen.
+        $this->cleanUpCreatedTenantsAndUsers();
 
         parent::tearDown();
     }
