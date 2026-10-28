@@ -225,6 +225,27 @@ class CouponRedemptionService
         }
 
         foreach ($options as $option) {
+            // Bug-Review T6: ohne diese Prüfung legte ein erneuter Aufruf
+            // mit einem ANDEREN Coupon-Code (z. B. EntitlementController::
+            // reactivate() beim "Widerruf aufheben", das bewusst einen
+            // frischen Code verbraucht) für dasselbe gebündelte Produkt
+            // eine ZWEITE ProductPurchase-Zeile an -- der Unique-Index
+            // product_purchase_coupon_source_unique (source_type,
+            // source_reference, product_id) verhindert das nicht, weil
+            // jede Zeile einen anderen source_reference (Coupon-Code)
+            // trägt. Der Lerner sah das Zusatzprodukt dadurch doppelt
+            // (Profil "Deine Buchungen", Admin-Teilnehmerliste), und
+            // Auswertungen, die ProductPurchase-Zeilen zählen, wiesen die
+            // Buchung doppelt aus.
+            $alreadyOwned = ProductPurchase::where('tenant_id', $tenant->id)
+                ->where('user_id', $user->id)
+                ->where('product_id', $option->id)
+                ->exists();
+
+            if ($alreadyOwned) {
+                continue;
+            }
+
             ProductPurchase::create([
                 'tenant_id' => $tenant->id,
                 'user_id' => $user->id,

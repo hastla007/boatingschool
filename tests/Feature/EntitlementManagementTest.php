@@ -6,6 +6,7 @@ use App\Models\Coupon;
 use App\Models\CourseDefinition;
 use App\Models\Entitlement;
 use App\Models\Product;
+use App\Models\ProductPurchase;
 use App\Models\Tenant;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -516,6 +517,63 @@ class EntitlementManagementTest extends TestCase
         $this->assertSame('coupon', $entitlement->source_type);
         $this->assertSame($coupon->code, $entitlement->source_reference);
         $this->assertNotNull($this->onAdmin(fn () => $coupon->fresh()->redeemed_at));
+    }
+
+    /**
+     * Bug-Review T6: CouponRedemptionService::applyOptionProducts() legte
+     * für jedes gebündelte Zusatzprodukt bisher IMMER eine neue
+     * product_purchase-Zeile an, ohne zu prüfen, ob der Lerner dieses
+     * Produkt schon besitzt. Der Unique-Index
+     * product_purchase_coupon_source_unique (source_type, source_reference,
+     * product_id) griff dabei nicht, weil "Widerruf aufheben" bewusst einen
+     * FRISCHEN, bisher unbenutzten Code verbraucht (source_reference also
+     * ein anderer Coupon-Code als beim ursprünglichen Kauf). Ein Zyklus aus
+     * Widerrufen + Widerruf aufheben legte das gebündelte Produkt (hier die
+     * Willkommensbox) dadurch ein zweites Mal an.
+     */
+    public function test_undoing_a_revocation_does_not_duplicate_an_already_owned_bundled_option_product(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $willkommensbox = $this->onAdmin(fn () => Product::where('code', 'LERNPLATTFORM-WB')->firstOrFail());
+
+        $firstCoupon = $this->makeCourseCoupon($tenant, $course);
+        $this->onAdmin(fn () => $firstCoupon->optionProducts()->attach($willkommensbox->id));
+
+        $grant = $this->actingAsInTenant($admin, $tenant)->post('/admin/entitlements', [
+            'user_id' => $learner->id,
+            'course_id' => $course->id,
+        ]);
+        $grant->assertSessionHasNoErrors();
+        $entitlement = $this->asTenant($tenant, fn () => Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->where('course_id', $course->id)->first());
+
+        $this->actingAsInTenant($admin, $tenant)->patch(route('admin.entitlements.update', $entitlement), [
+            'action' => 'revoke',
+        ])->assertRedirect();
+
+        $secondCoupon = $this->makeCourseCoupon($tenant, $course);
+        $this->onAdmin(fn () => $secondCoupon->optionProducts()->attach($willkommensbox->id));
+
+        $undo = $this->actingAsInTenant($admin, $tenant)->patch(route('admin.entitlements.update', $entitlement), [
+            'action' => 'reactivate',
+        ]);
+        $undo->assertSessionHasNoErrors();
+
+        $this->onAdmin(function () use ($tenant, $learner, $willkommensbox, $secondCoupon) {
+            // Der zweite Code gilt trotzdem als eingelöst -- nur die
+            // doppelte Produktzeile wird vermieden, nicht der Code
+            // geschont.
+            $this->assertNotNull($secondCoupon->fresh()->redeemed_at);
+
+            $purchases = ProductPurchase::where('tenant_id', $tenant->id)
+                ->where('user_id', $learner->id)
+                ->where('product_id', $willkommensbox->id)
+                ->get();
+
+            $this->assertCount(1, $purchases, 'Die Willkommensbox darf nach Widerruf + Widerruf aufheben nur einmal vorhanden sein.');
+        });
     }
 
     public function test_an_instructor_does_not_see_the_extend_or_suspend_controls(): void
