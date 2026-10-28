@@ -13,7 +13,7 @@ auf PostgreSQL, gemäß dem mitgelieferten technischen Konzept
 - **Multi-Tenancy**: jede Bootsschule ist ein `tenant`, aufgelöst per
   Subdomain (`{slug}.CENTRAL_DOMAIN`) oder Custom Domain
   (`app/Http/Middleware/ResolveTenant.php`). Mandantengebundene Tabellen
-  (inzwischen über 25, u. a. `tenant_branding`, `tenant_user`,
+  (inzwischen 25, u. a. `tenant_branding`, `tenant_user`,
   `entitlement`, `attempt`, `progress`, `favorite`, `exam_session`,
   `exam_session_question`, `coupon`, `audit_log`, `app_user`) sind
   zusätzlich per **Postgres Row-Level-Security** abgesichert – ein
@@ -161,7 +161,7 @@ php artisan db:seed --database=pgsql_admin --force
 
 Der Seed-Lauf importiert automatisch die mitgelieferte zentrale
 Fragenbasis (`database/data/zentrale_fragenbasis.xlsx`, 838 Zeilen, davon
-821 importierbar – 17 Zeilen sind freie Kartenaufgaben ohne A–D-Antworten
+823 importierbar – 15 Zeilen sind freie Kartenaufgaben ohne A–D-Antworten
 und werden bewusst als Fehler ausgewiesen, nicht stillschweigend
 übersprungen), legt die 8 Module und 14 Kursdefinitionen an und erzeugt
 zwei Demo-Bootsschulen.
