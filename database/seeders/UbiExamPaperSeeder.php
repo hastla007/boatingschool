@@ -2,52 +2,78 @@
 
 namespace Database\Seeders;
 
-use App\Models\ContentQuestion;
 use App\Models\CourseDefinition;
 use App\Models\ExamPaper;
 use App\Models\ExamPaperQuestion;
+use App\Models\Module;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Die 12 amtlichen Übungsfragebögen für den UBI Vollkurs (UBI), je 22
- * Fragen (Bestehensgrenze 17/22, Zeitlimit 60 Minuten -- siehe
- * ExamRuleSetSeeder). Quelle: ABVT Koblenz, "Fragenverteilung / Prüfung
- * UKW-Sprechfunkzeugnis (UBI)", Stand Oktober 2026 (ubi_uebungsboegen.csv,
- * abgeglichen mit den Lösungsbögen derselben Ausgabe): je Bogen 5 Fragen
- * aus Teil I, 5 aus II, 4 aus III, 4 aus IV und 4 aus V des
- * Gesamtfragenkatalogs. Die Antwortreihenfolge der gedruckten Bögen wird
- * nicht übernommen, die Prüfungssimulation mischt die Antworten selbst.
- * Die praktische Prüfung (Sprechfunkverkehr am Gerät) ist nicht Teil
- * dieser Online-Simulation.
+ * Die amtlichen Übungsfragebögen des ABVT Koblenz, Stand Oktober 2026,
+ * jeweils abgeglichen mit den Lösungsbögen derselben Ausgabe:
  *
- * Alle 12 Bögen entstehen in einer Transaktion und nur, wenn alle 264
- * Katalognummern auflösbar sind -- ein Bogen mit weniger als 22 Fragen
- * würde die Bestehensgrenze verfälschen.
+ * - UBI Vollkurs (UBI): 12 Bögen à 22 Fragen laut "Fragenverteilung /
+ *   Prüfung UKW-Sprechfunkzeugnis (UBI)" (ubi_uebungsboegen.csv), je 5
+ *   Fragen aus Teil I, 5 aus II, 4 aus III, 4 aus IV und 4 aus V;
+ *   Bestehensgrenze 17/22, 60 Minuten (siehe ExamRuleSetSeeder).
+ * - Ergänzung SRC → UBI (ADD-UBI-TO-SRC): 12 Bögen à 10 Fragen laut
+ *   "Fragenverteilung / Ergänzungsprüfung Seefunkzeugnisse auf UBI"
+ *   (ubi_ergaenzung_uebungsboegen.csv), je 2 Fragen pro Teil, alle aus dem
+ *   Ergänzungskatalog (Modul UBI_ERG). Der Lösungsbogen 7 nennt für Frage
+ *   3 die Katalognummer [26] -- der Übungsbogen selbst, die
+ *   Fragenverteilung und die angegebene Lösung a) gehören aber zu Frage
+ *   36 (26 ist auch nicht Teil des Ergänzungskatalogs); übernommen ist 36.
+ *
+ * Die CSVs nennen Nummern des UBI-Gesamtfragenkatalogs. Die
+ * Antwortreihenfolge der gedruckten Bögen wird nicht übernommen, die
+ * Prüfungssimulation mischt die Antworten selbst. Die praktische Prüfung
+ * (Sprechfunkverkehr am Gerät) ist nicht Teil dieser Online-Simulation.
+ *
+ * Die Bögen eines Kurses entstehen in einer Transaktion und nur, wenn
+ * alle Katalognummern auflösbar sind -- ein unvollständiger Bogen würde
+ * die Bestehensgrenze verfälschen.
  */
 class UbiExamPaperSeeder extends Seeder
 {
+    private const PAPERS = [
+        'UBI' => ['file' => 'ubi_uebungsboegen.csv', 'module' => 'UBI'],
+        'ADD-UBI-TO-SRC' => ['file' => 'ubi_ergaenzung_uebungsboegen.csv', 'module' => 'UBI_ERG'],
+    ];
+
     public function run(): void
     {
-        $course = CourseDefinition::withoutGlobalScopes()->where('code', 'UBI')->whereNull('tenant_id')->first();
+        foreach (self::PAPERS as $courseCode => $config) {
+            $this->seedCourse($courseCode, $config['file'], $config['module']);
+        }
+    }
+
+    private function seedCourse(string $courseCode, string $file, string $moduleCode): void
+    {
+        $course = CourseDefinition::withoutGlobalScopes()->where('code', $courseCode)->whereNull('tenant_id')->first();
 
         if (! $course || $course->examPapers()->exists()) {
             return;
         }
 
-        $csvPath = database_path('data/ubi_uebungsboegen.csv');
+        $csvPath = database_path('data/'.$file);
         if (! file_exists($csvPath)) {
             return;
         }
 
-        $questionIds = ContentQuestion::where('content_role', 'ubi_official')->pluck('id', 'official_number');
+        // Nur Fragen des Kursmoduls: eine Katalognummer außerhalb des
+        // Ergänzungskatalogs wäre ein Datenfehler, kein Bogeninhalt.
+        $module = Module::where('code', $moduleCode)->first();
+        $questionIds = $module
+            ? $module->questions()->where('content_role', 'ubi_official')->pluck('content_question.id', 'official_number')
+            : collect();
         $rows = [];
 
         foreach ($this->readCsv($csvPath) as $row) {
             $officialNumber = trim($row['Fragenkatalog-Nr.']);
 
             if (! isset($questionIds[$officialNumber])) {
-                $this->command?->warn("UBI-Übungsbögen übersprungen: Katalogfrage {$officialNumber} fehlt.");
+                $this->command?->warn("Übungsbögen für {$courseCode} übersprungen: Katalogfrage {$officialNumber} fehlt im Modul {$moduleCode}.");
 
                 return;
             }

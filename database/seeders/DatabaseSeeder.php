@@ -27,6 +27,7 @@ class DatabaseSeeder extends Seeder
 
         $this->call([
             CourseSeeder::class,
+            UbiErgaenzungSeeder::class,
             // Bug-Review Betrieb B5: ExamPaperSeeder (hängt Bilder aus den
             // Prüfungsbögen, z. B. "Lichter-Frage-93-gif.png", an
             // content_question_revision -- siehe question_media) muss vor

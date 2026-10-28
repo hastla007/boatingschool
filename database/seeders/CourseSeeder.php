@@ -44,7 +44,7 @@ class CourseSeeder extends Seeder
             ['code' => 'SRC', 'name' => 'SRC Vollkurs', 'type' => 'full', 'modules' => ['SRC']],
             ['code' => 'UBI', 'name' => 'UBI Vollkurs', 'type' => 'full', 'modules' => ['UBI']],
             ['code' => 'SRC-UBI', 'name' => 'SRC & UBI Kombikurs', 'type' => 'combo', 'modules' => ['SRC', 'UBI']],
-            ['code' => 'ADD-UBI-TO-SRC', 'name' => 'Ergänzung SRC → UBI', 'type' => 'addon', 'modules' => ['UBI']],
+            ['code' => 'ADD-UBI-TO-SRC', 'name' => 'Ergänzung SRC → UBI', 'type' => 'addon', 'modules' => ['UBI_ERG']],
             ['code' => 'SKN', 'name' => 'SKN Vollkurs', 'type' => 'full', 'modules' => ['SKN']],
             ['code' => 'FKN', 'name' => 'FKN Vollkurs', 'type' => 'full', 'modules' => ['FKN']],
             ['code' => 'ADD-FKN-TO-SKN', 'name' => 'Ergänzung FKN → SKN', 'type' => 'addon', 'modules' => ['SKN']],

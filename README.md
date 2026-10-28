@@ -167,7 +167,7 @@ Der Seed-Lauf importiert automatisch die mitgelieferte zentrale
 Fragenbasis (`database/data/zentrale_fragenbasis.xlsx`, 838 Zeilen, davon
 823 importierbar – 15 Zeilen sind freie Kartenaufgaben ohne A–D-Antworten
 und werden bewusst als Fehler ausgewiesen, nicht stillschweigend
-übersprungen), legt die 8 Module und 14 Kursdefinitionen an und erzeugt
+übersprungen), legt die 9 Module und 14 Kursdefinitionen an und erzeugt
 zwei Demo-Bootsschulen.
 
 Die 130 UBI-Fragen entsprechen dem UBI-Gesamtfragenkatalog Stand Oktober
@@ -176,7 +176,10 @@ Die 130 UBI-Fragen entsprechen dem UBI-Gesamtfragenkatalog Stand Oktober
 der Seed-Lauf für die 65 geänderten Fragen neue Revisionen an und
 veröffentlicht sie (`UbiCatalogUpdateSeeder`); die alte Fassung bleibt als
 `deprecated` erhalten, bereits gespeicherte Versuche verweisen weiter auf
-sie.
+sie. Die Ergänzung SRC → UBI nutzt nur die 79 Fragen des amtlichen
+Ergänzungskatalogs (Modul `UBI_ERG`, dieselben Fragen wie im Modul `UBI`)
+und hat 12 Übungsbögen à 10 Fragen; ihre Bestehensgrenze ist noch nicht
+hinterlegt, das Regelwerk bleibt deshalb `draft`.
 
 ```bash
 php artisan serve
