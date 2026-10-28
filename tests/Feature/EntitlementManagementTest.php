@@ -7,8 +7,6 @@ use App\Models\CourseDefinition;
 use App\Models\Entitlement;
 use App\Models\Product;
 use App\Models\Tenant;
-use App\Support\GermanTime;
-use Illuminate\Support\Carbon;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -59,42 +57,57 @@ class EntitlementManagementTest extends TestCase
         ]));
     }
 
-    public function test_extending_an_entitlement_with_a_date_in_the_past_returns_a_validation_error_instead_of_crashing(): void
+    private function makeRenewalCoupon(Tenant $tenant, CourseDefinition $course): Coupon
     {
-        $tenant = $this->createTestTenant();
-        $admin = $this->createTenantUser($tenant, 'owner');
-        $learner = $this->createTenantUser($tenant, 'learner');
-        $course = $this->existingCourse('SRC');
-        $entitlement = $this->grantEntitlement($tenant, $learner, $course);
-
-        $response = $this->actingAsInTenant($admin, $tenant)->patch("/admin/entitlements/{$entitlement->id}", [
-            'action' => 'extend',
-            'valid_until' => now()->subDays(2)->format('Y-m-d'),
-        ]);
-
-        $response->assertSessionHasErrors('valid_until');
-        $this->assertFalse($response->isServerError());
+        return $this->onAdmin(fn () => Coupon::create([
+            'code' => 'TEST-ENT-RENEW-'.uniqid(),
+            'course_id' => $course->id,
+            'tenant_id' => $tenant->id,
+            'is_renewal' => true,
+        ]));
     }
 
-    public function test_extending_an_entitlement_valid_until_today_between_11pm_and_midnight_utc_returns_a_validation_error_instead_of_crashing(): void
+    /**
+     * Bug-Review (Kostenlose Umgehungen -- Verlängern): ein frei
+     * wählbares Datum existiert nicht mehr -- "Verlängern" verbraucht
+     * jetzt einen Verlängerungscode und erweitert um
+     * tenant_branding.course_validity_days ab dem späteren von aktuellem
+     * valid_until und jetzt.
+     */
+    public function test_extending_without_an_available_renewal_coupon_fails_with_a_clear_error(): void
     {
-        $this->travelTo(Carbon::parse('2026-01-15 23:30:00', 'UTC'));
-
         $tenant = $this->createTestTenant();
         $admin = $this->createTenantUser($tenant, 'owner');
         $learner = $this->createTenantUser($tenant, 'learner');
         $course = $this->existingCourse('SRC');
         $entitlement = $this->grantEntitlement($tenant, $learner, $course);
-        $originalValidUntil = $entitlement->valid_until;
+        $this->onAdmin(fn () => Entitlement::where('id', $entitlement->id)->update(['valid_until' => now()->addDays(5)]));
 
         $response = $this->actingAsInTenant($admin, $tenant)->patch("/admin/entitlements/{$entitlement->id}", [
             'action' => 'extend',
-            'valid_until' => '2026-01-15',
         ]);
 
-        $response->assertSessionHasErrors('valid_until');
-        $this->assertFalse($response->isServerError());
-        $this->assertEquals($originalValidUntil, $entitlement->fresh()->valid_until);
+        $response->assertSessionHasErrors('action');
+        $this->assertTrue($entitlement->fresh()->valid_until->isSameDay(now()->addDays(5)));
+    }
+
+    public function test_extending_an_unlimited_entitlement_is_rejected_without_consuming_a_coupon(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        // grantEntitlement() legt bewusst KEIN valid_until an (unbefristet).
+        $entitlement = $this->grantEntitlement($tenant, $learner, $course);
+        $coupon = $this->makeRenewalCoupon($tenant, $course);
+
+        $response = $this->actingAsInTenant($admin, $tenant)->patch("/admin/entitlements/{$entitlement->id}", [
+            'action' => 'extend',
+        ]);
+
+        $response->assertSessionHasErrors('action');
+        $this->assertNull($entitlement->fresh()->valid_until);
+        $this->assertNull($this->onAdmin(fn () => $coupon->fresh()->redeemed_at));
     }
 
     /**
@@ -120,10 +133,10 @@ class EntitlementManagementTest extends TestCase
             'valid_from' => now()->subDays(400),
             'valid_until' => now()->subDays(30),
         ]));
+        $this->makeRenewalCoupon($tenant, $course);
 
         $response = $this->actingAsInTenant($admin, $tenant)->patch("/admin/entitlements/{$entitlement->id}", [
             'action' => 'extend',
-            'valid_until' => now()->addDays(365)->format('Y-m-d'),
         ]);
 
         $response->assertSessionHasNoErrors();
@@ -131,6 +144,8 @@ class EntitlementManagementTest extends TestCase
         $fresh = $this->onAdmin(fn () => $entitlement->fresh());
         $this->assertSame('active', $fresh->status);
         $this->assertTrue($fresh->isCurrentlyActive());
+        $days = $this->onAdmin(fn () => $tenant->branding->course_validity_days);
+        $this->assertTrue($fresh->valid_until->isSameDay(now()->addDays($days)));
 
         $access = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
         $access->assertOk();
@@ -341,6 +356,9 @@ class EntitlementManagementTest extends TestCase
         $learner = $this->createTenantUser($tenant, 'learner');
         $course = $this->existingCourse('SRC');
         $entitlement = $this->grantEntitlement($tenant, $learner, $course);
+        $originalValidUntil = now()->addDays(5);
+        $this->onAdmin(fn () => Entitlement::where('id', $entitlement->id)->update(['valid_until' => $originalValidUntil]));
+        $this->makeRenewalCoupon($tenant, $course);
 
         $detail = $this->actingAsInTenant($admin, $tenant)->get("/admin/participants/{$learner->id}");
         $detail->assertOk();
@@ -348,16 +366,15 @@ class EntitlementManagementTest extends TestCase
         $detail->assertSee('Verlängern');
         $detail->assertSee('Sperren');
 
-        $newValidUntil = now()->addDays(10)->format('Y-m-d');
         $extend = $this->actingAsInTenant($admin, $tenant)->patch(route('admin.entitlements.update', $entitlement), [
             'action' => 'extend',
-            'valid_until' => $newValidUntil,
         ]);
         $extend->assertRedirect();
+        $extend->assertSessionHasNoErrors();
 
         $entitlement = $this->asTenant($tenant, fn () => Entitlement::find($entitlement->id));
-        $this->assertTrue($entitlement->valid_until->isSameDay(now()->addDays(10)));
-        $this->assertSame('23', GermanTime::format($entitlement->valid_until, 'H'));
+        $days = $this->onAdmin(fn () => $tenant->branding->course_validity_days);
+        $this->assertTrue($entitlement->valid_until->isSameDay($originalValidUntil->copy()->addDays($days)));
 
         $suspend = $this->actingAsInTenant($admin, $tenant)->patch(route('admin.entitlements.update', $entitlement), [
             'action' => 'suspend',
@@ -366,6 +383,19 @@ class EntitlementManagementTest extends TestCase
 
         $entitlement = $this->asTenant($tenant, fn () => Entitlement::find($entitlement->id));
         $this->assertSame('suspended', $entitlement->status);
+
+        // Bug-Review (Kostenlose Umgehungen -- Entsperren): "Entsperren"
+        // rührt valid_until nie an und gewährt damit keinen zusätzlichen
+        // Wert über die ohnehin schon bezahlte Restlaufzeit hinaus --
+        // bleibt deshalb bewusst kostenlos, ganz ohne Code.
+        $unsuspend = $this->actingAsInTenant($admin, $tenant)->patch(route('admin.entitlements.update', $entitlement), [
+            'action' => 'reactivate',
+        ]);
+        $unsuspend->assertRedirect();
+        $unsuspend->assertSessionHasNoErrors();
+
+        $entitlement = $this->asTenant($tenant, fn () => Entitlement::find($entitlement->id));
+        $this->assertSame('active', $entitlement->status);
     }
 
     /**
@@ -381,18 +411,20 @@ class EntitlementManagementTest extends TestCase
         $learner = $this->createTenantUser($tenant, 'learner');
         $course = $this->existingCourse('SRC');
         $entitlement = $this->grantEntitlement($tenant, $learner, $course);
-        $this->onAdmin(fn () => Entitlement::where('id', $entitlement->id)->update(['status' => 'suspended']));
+        $originalValidUntil = now()->addDays(5);
+        $this->onAdmin(fn () => Entitlement::where('id', $entitlement->id)->update(['status' => 'suspended', 'valid_until' => $originalValidUntil]));
+        $this->makeRenewalCoupon($tenant, $course);
 
         $response = $this->actingAsInTenant($admin, $tenant)->patch(route('admin.entitlements.update', $entitlement), [
             'action' => 'extend',
-            'valid_until' => now()->addDays(10)->format('Y-m-d'),
         ]);
 
         $response->assertSessionHasNoErrors();
 
         $fresh = $this->asTenant($tenant, fn () => Entitlement::find($entitlement->id));
         $this->assertSame('suspended', $fresh->status);
-        $this->assertTrue($fresh->valid_until->isSameDay(now()->addDays(10)));
+        $days = $this->onAdmin(fn () => $tenant->branding->course_validity_days);
+        $this->assertTrue($fresh->valid_until->isSameDay($originalValidUntil->copy()->addDays($days)));
     }
 
     /**
@@ -408,11 +440,11 @@ class EntitlementManagementTest extends TestCase
         $learner = $this->createTenantUser($tenant, 'learner');
         $course = $this->existingCourse('SRC');
         $entitlement = $this->grantEntitlement($tenant, $learner, $course);
-        $this->onAdmin(fn () => Entitlement::where('id', $entitlement->id)->update(['status' => 'revoked']));
+        $this->onAdmin(fn () => Entitlement::where('id', $entitlement->id)->update(['status' => 'revoked', 'valid_until' => now()->addDays(5)]));
+        $this->makeRenewalCoupon($tenant, $course);
 
         $response = $this->actingAsInTenant($admin, $tenant)->patch(route('admin.entitlements.update', $entitlement), [
             'action' => 'extend',
-            'valid_until' => now()->addDays(10)->format('Y-m-d'),
         ]);
 
         $response->assertSessionHasNoErrors();
@@ -425,6 +457,11 @@ class EntitlementManagementTest extends TestCase
      * Bug-Review F1: es gab bisher keine Oberfläche für "Widerrufen" -- nur
      * "Verlängern"/"Sperren" waren über die Teilnehmerseite erreichbar,
      * obwohl der Controller die Aktion längst unterstützt.
+     *
+     * Bug-Review (Kostenlose Umgehungen -- Widerruf aufheben): "Widerruf
+     * aufheben" verbraucht jetzt wie eine Neuvergabe einen regulären
+     * Kurs-Code -- revoke() gefolgt von reactivate() ist nicht länger
+     * zusammen kostenlos.
      */
     public function test_admin_can_revoke_and_then_undo_the_revocation_through_the_participant_page(): void
     {
@@ -449,13 +486,24 @@ class EntitlementManagementTest extends TestCase
         $detailAfterRevoke = $this->actingAsInTenant($admin, $tenant)->get("/admin/participants/{$learner->id}");
         $detailAfterRevoke->assertSee('Widerruf aufheben');
 
+        $undoWithoutCoupon = $this->actingAsInTenant($admin, $tenant)->patch(route('admin.entitlements.update', $entitlement), [
+            'action' => 'reactivate',
+        ]);
+        $undoWithoutCoupon->assertSessionHasErrors('action');
+        $this->assertSame('revoked', $this->asTenant($tenant, fn () => Entitlement::find($entitlement->id))->status);
+
+        $coupon = $this->makeCourseCoupon($tenant, $course);
         $undo = $this->actingAsInTenant($admin, $tenant)->patch(route('admin.entitlements.update', $entitlement), [
             'action' => 'reactivate',
         ]);
         $undo->assertRedirect();
+        $undo->assertSessionHasNoErrors();
 
         $entitlement = $this->asTenant($tenant, fn () => Entitlement::find($entitlement->id));
         $this->assertSame('active', $entitlement->status);
+        $this->assertSame('coupon', $entitlement->source_type);
+        $this->assertSame($coupon->code, $entitlement->source_reference);
+        $this->assertNotNull($this->onAdmin(fn () => $coupon->fresh()->redeemed_at));
     }
 
     public function test_an_instructor_does_not_see_the_extend_or_suspend_controls(): void

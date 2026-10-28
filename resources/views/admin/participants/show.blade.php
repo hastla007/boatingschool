@@ -147,7 +147,7 @@
                                 {{-- Bug-Review B14: Verlängern/Sperren gab es bisher nur im
                                      Controller (EntitlementController::update), ohne jede
                                      Oberfläche dafür. --}}
-                                <div class="mt-1" x-data="{ showExtend: false }">
+                                <div class="mt-1">
                                     <div class="flex items-center justify-end gap-1">
                                         @if (in_array($booking['status'], ['active', 'suspended'], true))
                                             <form method="POST" action="{{ route('admin.entitlements.update', $booking['entitlement_id']) }}">
@@ -174,7 +174,14 @@
                                                 </button>
                                             </form>
                                         @elseif ($booking['status'] === 'revoked')
-                                            <form method="POST" action="{{ route('admin.entitlements.update', $booking['entitlement_id']) }}">
+                                            {{-- Bug-Review (Kostenlose Umgehungen -- Widerruf
+                                                 aufheben): stellte bisher den vollen Zugang ohne
+                                                 jeden Code wieder her -- zusammen mit revoke()
+                                                 kostenlos, was die bewusst härtere
+                                                 Widerrufen-Entscheidung im Ergebnis bedeutungslos
+                                                 machte. --}}
+                                            <form method="POST" action="{{ route('admin.entitlements.update', $booking['entitlement_id']) }}"
+                                                  title="Verbraucht einen eigenen Code für diesen Kurs.">
                                                 @csrf
                                                 @method('PATCH')
                                                 <input type="hidden" name="action" value="reactivate">
@@ -183,17 +190,23 @@
                                                 </button>
                                             </form>
                                         @endif
-                                        <button type="button" @click="showExtend = ! showExtend" class="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-[11px] whitespace-nowrap">
-                                            Verlängern
-                                        </button>
+                                        {{-- Bug-Review (Kostenlose Umgehungen -- Verlängern): ein
+                                             frei wählbares Datum (auch beliebig weit in der Zukunft,
+                                             z. B. 2099) umging die eigens dafür verkauften
+                                             Verlängerungscodes vollständig. "Verlängern" verbraucht
+                                             jetzt wie jede andere Freischaltung einen Code und
+                                             erweitert die Laufzeit um die übliche Gültigkeitsdauer --
+                                             kein frei wählbares Datum mehr. --}}
+                                        <form method="POST" action="{{ route('admin.entitlements.update', $booking['entitlement_id']) }}"
+                                              title="Verbraucht einen eigenen Verlängerungscode für diesen Kurs.">
+                                            @csrf
+                                            @method('PATCH')
+                                            <input type="hidden" name="action" value="extend">
+                                            <button type="submit" class="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-[11px] whitespace-nowrap">
+                                                Verlängern
+                                            </button>
+                                        </form>
                                     </div>
-                                    <form method="POST" action="{{ route('admin.entitlements.update', $booking['entitlement_id']) }}" x-show="showExtend" style="display: none" class="mt-1 flex items-center justify-end gap-1">
-                                        @csrf
-                                        @method('PATCH')
-                                        <input type="hidden" name="action" value="extend">
-                                        <input type="date" name="valid_until" value="{{ $booking['valid_until']?->format('Y-m-d') }}" required class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-[11px] py-0.5">
-                                        <button type="submit" class="px-2 py-0.5 rounded-lg text-white text-[11px]" style="background-color: var(--brand-primary, #005FD7)">Speichern</button>
-                                    </form>
                                 </div>
                             @endif
                         </div>
