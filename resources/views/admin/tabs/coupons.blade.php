@@ -80,6 +80,22 @@
             <a href="{{ route('admin.dashboard', ['tab' => 'coupons']) }}" class="text-sm text-slate-500 hover:underline self-center">Filter zurücksetzen</a>
         @endif
     </form>
+    {{-- Bug-Review (/admin zu schwer): die Nutzerliste für "Zuweisen" stand
+         bisher komplett innerhalb der @forelse-Schleife unten -- bei 500
+         Lernenden und 50 Coupons auf einer Seite ergab das 50 identische
+         <select>-Listen mit je 500 <option>-Elementen (25.000+ insgesamt,
+         4,8 MB HTML). Die Optionen stehen jetzt nur noch EINMAL in dieser
+         versteckten Vorlage (außerhalb der <table>, da <select> dort kein
+         gültiges Kindelement ist) und werden per Skript unten in jedes
+         <select> der Zeilen geklont, statt sie serverseitig zu duplizieren. --}}
+    @if ($coupons->contains(fn ($c) => ! $c->isRedeemed() && $c->tenant_id === $tenant->id))
+        <select id="coupon-assign-options-template" hidden aria-hidden="true">
+            <option value="">Nutzer wählen…</option>
+            @foreach ($allParticipants as $membership)
+                <option value="{{ $membership->user_id }}">{{ $membership->user->name }}</option>
+            @endforeach
+        </select>
+    @endif
     <div class="overflow-x-auto">
     <table class="w-full text-sm">
         <thead class="bg-slate-50 dark:bg-slate-700 text-slate-500 dark:text-slate-300 text-left">
@@ -116,11 +132,8 @@
                         @if (! $coupon->isRedeemed() && $coupon->tenant_id === $tenant->id)
                             <form method="POST" action="{{ route('admin.coupons.assign', $coupon) }}" class="flex gap-1">
                                 @csrf
-                                <select name="user_id" required aria-label="Nutzer für Coupon {{ $coupon->code }} wählen" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs">
+                                <select name="user_id" required aria-label="Nutzer für Coupon {{ $coupon->code }} wählen" class="js-coupon-assign-select rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs">
                                     <option value="">Nutzer wählen…</option>
-                                    @foreach ($allParticipants as $membership)
-                                        <option value="{{ $membership->user_id }}">{{ $membership->user->name }}</option>
-                                    @endforeach
                                 </select>
                                 <button type="submit" class="px-3 py-1 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-xs whitespace-nowrap">Zuweisen</button>
                             </form>
@@ -143,6 +156,18 @@
     </div>
     <div class="p-4">{{ $coupons->links() }}</div>
 </div>
+
+<script nonce="{{ $cspNonce }}">
+    (function () {
+        const source = document.getElementById('coupon-assign-options-template');
+        if (! source) {
+            return;
+        }
+        document.querySelectorAll('.js-coupon-assign-select').forEach((select) => {
+            select.innerHTML = source.innerHTML;
+        });
+    })();
+</script>
 
 @if ($errors->has('assign'))
     <p class="text-rose-600 text-sm mt-3">{{ $errors->first('assign') }}</p>
