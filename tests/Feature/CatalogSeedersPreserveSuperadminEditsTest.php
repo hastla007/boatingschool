@@ -7,10 +7,12 @@ use App\Models\ExamBlueprint;
 use App\Models\ExamRuleSet;
 use App\Models\Module;
 use App\Models\PraxisFormTemplate;
+use App\Models\Pruefungsausschuss;
 use Database\Seeders\CourseSeeder;
 use Database\Seeders\ExamRuleSetSeeder;
 use Database\Seeders\ModuleSeeder;
 use Database\Seeders\PraxisFormTemplateSeeder;
+use Database\Seeders\PruefungsausschussSeeder;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -30,6 +32,12 @@ use Tests\TestCase;
  * Eintrag unberührt und erzeugt nur wirklich neue Einträge -- genau das,
  * was ein Reseed für neue Katalogeinträge braucht, ohne spätere
  * Superadmin-Änderungen an bereits vorhandenen Einträgen zu überschreiben.
+ *
+ * Bug-Review (Seeder überschreibt Superadmin-Änderungen): PruefungsausschussSeeder
+ * wurde beim ursprünglichen Fix oben übersehen -- läuft erneut, sobald die
+ * DMYV-Liste aktualisiert wird, und überschrieb bis dahin dieselben
+ * mutable Attribute (Adresse, Telefon, Sprechzeiten, ...) jedes bereits
+ * existierenden Prüfungsausschusses bei jedem Lauf.
  *
  * Jeder Test mutiert hier einen von der Testsuite bereits angelegten,
  * dauerhaften Katalogeintrag (kein RefreshDatabase/DatabaseTransactions in
@@ -159,6 +167,24 @@ class CatalogSeedersPreserveSuperadminEditsTest extends TestCase
             (new PraxisFormTemplateSeeder)->run();
 
             $this->assertSame(99, $template->fresh()->min_progress_percent);
+        });
+    }
+
+    public function test_reseeding_pruefungsausschuesse_does_not_reset_an_address_corrected_by_a_superadmin(): void
+    {
+        $this->onAdmin(function () {
+            $pa = Pruefungsausschuss::where('kommission', 'Prüfungszentrum NRW')->firstOrFail();
+            $originalTelefon = $pa->telefon;
+            $originalStadt = $pa->stadt;
+
+            $pa->forceFill(['telefon' => '+49 000 000 0000', 'stadt' => 'Korrigierte Stadt'])->save();
+            $this->restore[] = fn () => $pa->forceFill(['telefon' => $originalTelefon, 'stadt' => $originalStadt])->save();
+
+            (new PruefungsausschussSeeder)->run();
+
+            $fresh = $pa->fresh();
+            $this->assertSame('+49 000 000 0000', $fresh->telefon, 'Ein erneuter Seed darf eine vom Superadmin korrigierte Telefonnummer nicht zurücksetzen.');
+            $this->assertSame('Korrigierte Stadt', $fresh->stadt);
         });
     }
 }
