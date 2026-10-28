@@ -6,10 +6,8 @@ use App\Models\ContentQuestion;
 use App\Models\CourseDefinition;
 use App\Models\ExamPaper;
 use App\Models\ExamPaperQuestion;
-use App\Models\MediaAsset;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 
 /**
  * Die 15 amtlichen Prüfungsbögen für SBF See, importiert aus
@@ -20,10 +18,9 @@ use Illuminate\Support\Facades\Storage;
  * Kombination mit der Fragenfamilie ("Basisfragen" vs. "Spezifische Fragen
  * See" aus der Tags-Spalte), da dieselbe Katalognummer je nach Familie
  * mehrfach vorkommt (z. B. Basis-Frage 8 und SRC-Frage 8 sind verschiedene
- * Fragen). Bilder, die in den Prüfungsbögen verwendet werden, werden dabei
- * gleich an die jeweilige Frage angehängt (question_media), sodass sie
- * überall erscheinen, wo diese Frage angezeigt wird (Smarttrainer,
- * Prüfungssimulation, Navigationsaufgaben-ähnliche Ansichten).
+ * Fragen). Die Spalte "Bilddateien im ZIP" wird nicht mehr ausgewertet: die
+ * Fragenbilder kommen von ELWIS (ElwisQuestionImageSeeder), die früher von
+ * hier angehängten Bilder von bootsfuehrerscheinpruefung.de sind entfernt.
  */
 class ExamPaperSeeder extends Seeder
 {
@@ -83,7 +80,6 @@ class ExamPaperSeeder extends Seeder
                     'position' => $position,
                 ]);
 
-                $this->attachImages($question, $row['Bilddateien im ZIP'] ?? '');
             }
         });
     }
@@ -113,55 +109,6 @@ class ExamPaperSeeder extends Seeder
         }
 
         return null;
-    }
-
-    private function attachImages(ContentQuestion $question, string $imagesCell): void
-    {
-        $filenames = array_filter(array_map('trim', explode(';', $imagesCell)));
-
-        if (empty($filenames)) {
-            return;
-        }
-
-        $revision = $question->publishedRevision();
-        if (! $revision) {
-            return;
-        }
-
-        foreach ($filenames as $index => $imagePath) {
-            $filename = basename($imagePath);
-            $sourcePath = database_path('data/pruefungsboegen_bilder/'.$filename);
-
-            // Bug-Review (Hoch): ein fehlendes Bild wurde hier bisher
-            // lautlos übersprungen -- die einzige Spur blieb eine per
-            // Ad-hoc-SQL auffindbare, aber nirgends sichtbare Lücke (siehe
-            // AuditMissingRequiredImages). Eine Warnung macht das beim
-            // nächsten Seed-Lauf wenigstens im Konsolen-Output sichtbar.
-            if (! file_exists($sourcePath)) {
-                $this->command?->warn("Bilddatei fehlt, Frage {$question->official_number}: {$filename}");
-
-                continue;
-            }
-
-            $storagePath = 'question-media/'.$filename;
-            if (! Storage::disk('public')->exists($storagePath)) {
-                Storage::disk('public')->put($storagePath, file_get_contents($sourcePath));
-            }
-
-            $asset = MediaAsset::firstOrCreate(
-                ['asset_key' => $filename],
-                [
-                    'media_type' => 'image',
-                    'storage_path' => Storage::disk('public')->url($storagePath),
-                    'mime_type' => 'image/png',
-                    'source' => 'bootsfuehrerscheinpruefung.de',
-                ]
-            );
-
-            if (! $revision->media()->where('media_asset_id', $asset->id)->exists()) {
-                $revision->media()->attach($asset->id, ['role' => 'question', 'sort_order' => $index + 1]);
-            }
-        }
     }
 
     /** @return iterable<array<string, string>> */

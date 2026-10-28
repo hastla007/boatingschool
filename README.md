@@ -115,15 +115,14 @@ auf PostgreSQL, gemäß dem mitgelieferten technischen Konzept
   (= `content_question.official_number`), eindeutig erst in Kombination mit
   der Fragenfamilie aus der Tags-Spalte ("Basisfragen" → `shared_basis`,
   "Spezifische Fragen See" → `see_specific`), da dieselbe Katalognummer je
-  Fragenfamilie mehrfach vorkommt. Bilder aus
-  `database/data/pruefungsboegen_bilder/` werden dabei direkt an die
-  jeweilige Frage angehängt (`question_media`) und erscheinen dadurch überall,
-  wo diese Frage angezeigt wird (Smarttrainer, Prüfungssimulation). Alle
-  Fragenbilder der SBF-Kurse (Basis, See, Binnen, Binnen Segeln) stammen
-  inzwischen von ELWIS (Fragenkatalog Binnen online, Fragenkatalog See als
-  PDF Stand August 2023; `database/data/elwis_bilder/`, Zuordnung in
-  `elwis_bilder.csv`, angehängt von `ElwisQuestionImageSeeder`) und ersetzen
-  dabei die oben genannten Bilder der See-Bögen. Dasselbe
+  Fragenfamilie mehrfach vorkommt. Alle Fragenbilder der SBF-Kurse (Basis,
+  See, Binnen, Binnen Segeln) stammen von ELWIS (Fragenkatalog Binnen
+  online, Fragenkatalog See als PDF Stand August 2023;
+  `database/data/elwis_bilder/`, Zuordnung in `elwis_bilder.csv`), hängen
+  direkt an der jeweiligen Frage (`question_media`, `ElwisQuestionImageSeeder`)
+  und erscheinen dadurch überall, wo diese Frage angezeigt wird (Smarttrainer,
+  Prüfungssimulation). Die früheren Bilder aus den Bögen von
+  bootsfuehrerscheinpruefung.de sind entfernt. Dasselbe
   Muster (eigener Seeder je Kurs, feste statt zufällig gewürfelter Fragen)
   wurde inzwischen auch auf weitere Kurse übertragen (u. a. SRC, FKN, SBF
   Binnen, Kombikurse) – mit jeweils eigener Fragenzahl/-zusammensetzung laut

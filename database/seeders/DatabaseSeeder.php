@@ -87,8 +87,8 @@ class DatabaseSeeder extends Seeder
             SrcExamPaperSeeder::class,
             UbiExamPaperSeeder::class,
             FknExamPaperSeeder::class,
-            // Nach allen *ExamPaperSeedern: ersetzt die von ExamPaperSeeder
-            // angehängten kleinen Basisfragen-Bilder.
+            // Nach allen *ExamPaperSeedern: hängt die ELWIS-Bilder an und
+            // entfernt die früheren Bilder von bootsfuehrerscheinpruefung.de.
             ElwisQuestionImageSeeder::class,
             PraxisTrainerSeeder::class,
             ComboPraxisTrainerSeeder::class,

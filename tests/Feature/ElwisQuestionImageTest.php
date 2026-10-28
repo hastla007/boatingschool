@@ -2,10 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Models\ContentQuestion;
 use App\Models\ContentQuestionRevision;
+use App\Models\MediaAsset;
 use App\Models\Module;
 use Database\Seeders\ElwisQuestionImageSeeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -16,6 +19,23 @@ use Tests\TestCase;
 class ElwisQuestionImageTest extends TestCase
 {
     use InteractsWithTenants;
+
+    private ?string $fakeQuestionId = null;
+
+    protected function tearDown(): void
+    {
+        $this->onAdmin(function () {
+            if ($this->fakeQuestionId) {
+                $revisionIds = ContentQuestionRevision::where('question_id', $this->fakeQuestionId)->pluck('id');
+                DB::table('question_media')->whereIn('revision_id', $revisionIds)->delete();
+                ContentQuestionRevision::whereIn('id', $revisionIds)->delete();
+                ContentQuestion::where('id', $this->fakeQuestionId)->delete();
+            }
+            MediaAsset::where('asset_key', 'like', 'TEST-LEGACY-%')->delete();
+        });
+
+        parent::tearDown();
+    }
 
     public function test_every_binnen_and_basis_question_that_requires_an_image_has_one(): void
     {
@@ -111,6 +131,49 @@ class ElwisQuestionImageTest extends TestCase
             $this->assertStringContainsString("dreimaliges Geben –\u{00A0}–\u{00A0}–\u{00A0}·\u{00A0}·\u{00A0}·\u{00A0}–\u{00A0}–\u{00A0}– per Licht oder Ton", $answers['D']->answer_text);
             $this->assertTrue($answers['A']->is_correct);
         });
+    }
+
+    public function test_no_image_from_bootsfuehrerscheinpruefung_remains(): void
+    {
+        $this->assertSame(0, $this->onAdmin(fn () => MediaAsset::where('source', ElwisQuestionImageSeeder::LEGACY_SOURCE)->count()));
+        $this->assertDirectoryDoesNotExist(database_path('data/pruefungsboegen_bilder'));
+    }
+
+    public function test_cleanup_removes_unused_legacy_assets_but_keeps_those_in_revision_history(): void
+    {
+        [$unused, $kept] = $this->onAdmin(function () {
+            $make = function (string $name) {
+                Storage::disk('public')->put('question-media/'.$name, 'x');
+
+                return MediaAsset::create([
+                    'asset_key' => $name, 'media_type' => 'image', 'storage_path' => 'question-media/'.$name,
+                    'mime_type' => 'image/png', 'source' => ElwisQuestionImageSeeder::LEGACY_SOURCE,
+                ]);
+            };
+            $unused = $make('TEST-LEGACY-'.uniqid().'.png');
+            $kept = $make('TEST-LEGACY-'.uniqid().'.png');
+
+            $question = ContentQuestion::create(['content_id' => 'TEST-LEGACY-Q-'.uniqid(), 'official_number' => 'TEST-1', 'language' => 'de-DE', 'active' => true]);
+            $this->fakeQuestionId = $question->id;
+            $revision = ContentQuestionRevision::create([
+                'question_id' => $question->id, 'revision_no' => 1, 'question_type' => 'single_choice',
+                'question_text' => 'Alte Fassung?', 'editorial_status' => 'deprecated', 'rights_status' => 'review',
+            ]);
+            $revision->media()->attach($kept->id, ['role' => 'question', 'sort_order' => 1]);
+
+            (new ElwisQuestionImageSeeder)->run();
+
+            return [$unused, $kept];
+        });
+
+        $this->onAdmin(function () use ($unused, $kept) {
+            $this->assertNull(MediaAsset::find($unused->id));
+            $this->assertFalse(Storage::disk('public')->exists('question-media/'.$unused->asset_key));
+            $this->assertNotNull(MediaAsset::find($kept->id));
+            $this->assertTrue(Storage::disk('public')->exists('question-media/'.$kept->asset_key));
+        });
+
+        $this->onAdmin(fn () => Storage::disk('public')->delete('question-media/'.$kept->asset_key));
     }
 
     public function test_seeder_is_idempotent(): void

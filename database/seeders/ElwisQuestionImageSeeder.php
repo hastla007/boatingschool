@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Storage;
  * PDF, Stand August 2023), siehe database/data/elwis_bilder.csv:
  *
  * - SBF See (72 spezifische Fragen, 75 verschiedene Bilder): ersetzt die
- *   bisherigen Bilder von bootsfuehrerscheinpruefung.de. Alle 85
+ *   früheren Bilder von bootsfuehrerscheinpruefung.de. Alle 85
  *   bisherigen Zuordnungen waren pixelgleich mit einem Bild aus dem
  *   ELWIS-PDF und sind darüber eindeutig zugeordnet. Drei 4x-Fassungen
  *   (PDF-Bild 25, 69, 80) waren im Paket leer und sind aus dem Original
@@ -23,7 +23,7 @@ use Illuminate\Support\Facades\Storage;
  * - SBF Binnen (56 Fragen) und SBF Binnen Segeln 295: bisher ohne Bild,
  *   obwohl image_required -- die Binnen-Prüfungsbogen-CSVs haben keine
  *   Bilderspalte (siehe AuditMissingRequiredImages).
- * - Basisfragen 4, 5, 16-30: ersetzt die bisherigen Bilder aus den
+ * - Basisfragen 4, 5, 16-30: ersetzt die früheren Bilder aus den
  *   SBF-See-Prüfungsbögen (ExamPaperSeeder). Die waren pixelgleich mit den
  *   ELWIS-Originalen, aber nur 12-115 px groß.
  *
@@ -36,6 +36,10 @@ use Illuminate\Support\Facades\Storage;
  * Der Alternativtext ist bewusst neutral ("Abbildung zur Frage"): die
  * ELWIS-Bildbeschreibungen nennen oft die richtige Antwort.
  *
+ * Danach werden die nicht mehr verwendeten Bilder von
+ * bootsfuehrerscheinpruefung.de samt Datei entfernt (siehe
+ * removeUnusedLegacyAssets()); ExamPaperSeeder hängt keine mehr an.
+ *
  * Die Bilder hängen an der jeweils veröffentlichten Revision; eine neue
  * Revision übernimmt sie (ContentQuestionRevision::publish(),
  * QuestionController::update()). Idempotent: eine Frage, deren Bilder
@@ -43,6 +47,8 @@ use Illuminate\Support\Facades\Storage;
  */
 class ElwisQuestionImageSeeder extends Seeder
 {
+    public const LEGACY_SOURCE = 'bootsfuehrerscheinpruefung.de';
+
     public function run(): void
     {
         foreach ($this->groupedRows() as $key => $rows) {
@@ -71,6 +77,27 @@ class ElwisQuestionImageSeeder extends Seeder
                     $revision->media()->attach($assetId, ['role' => 'question', 'sort_order' => $index + 1]);
                 }
             });
+        }
+
+        $this->removeUnusedLegacyAssets();
+    }
+
+    /**
+     * Die von ExamPaperSeeder früher angehängten Bilder von
+     * bootsfuehrerscheinpruefung.de: nach dem Austausch hängen sie an keiner
+     * Revision mehr und werden samt Datei entfernt. Ein Asset, das noch an
+     * irgendeiner (auch alten) Revision hängt, bleibt -- sonst fehlte das
+     * Bild in der Historie eines damaligen Versuchs.
+     */
+    private function removeUnusedLegacyAssets(): void
+    {
+        $unused = MediaAsset::where('source', self::LEGACY_SOURCE)
+            ->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from('question_media')->whereColumn('question_media.media_asset_id', 'media_asset.id'))
+            ->get();
+
+        foreach ($unused as $asset) {
+            Storage::disk('public')->delete($asset->getRawOriginal('storage_path'));
+            $asset->delete();
         }
     }
 
