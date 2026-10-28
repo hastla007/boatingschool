@@ -8,6 +8,7 @@ use App\Http\Middleware\EnsureTenantRole;
 use App\Http\Middleware\ResolveTenant;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\TrustHosts;
+use App\Http\Middleware\TrustProxies;
 use App\Http\Middleware\UseAdminDatabaseConnection;
 use App\Support\TrustedHosts;
 use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
@@ -39,32 +40,24 @@ return Application::configure(basePath: dirname(__DIR__))
         // Client fälschen, was sowohl diesen M4-Check als auch die
         // IP-basierten throttle-Limits (routes/auth.php) aushebeln würde.
         //
-        // Bug-Review (Hoch, eigener Fund): config('app.trusted_proxies')
-        // statt eines direkten env()-Aufrufs für TRUSTED_PROXIES -- env()
-        // außerhalb einer config/*.php-Datei liefert nach `php artisan
-        // config:cache`
-        // (Teil des produktiv üblichen `optimize`) immer nur den Default,
-        // weil Laravel die .env dann gar nicht mehr lädt. Siehe
-        // config/app.php für die ausführliche Begründung.
-        //
-        // Upgrade Laravel 11 -> 12: ApplicationBuilder::withMiddleware()
-        // ruft diesen Callback jetzt zusätzlich sofort bei der Auflösung
-        // des ConsoleKernel auf (siehe Illuminate\Foundation\Configuration\
-        // ApplicationBuilder::withMiddleware(), "afterResolving(ConsoleKernel::class, ...)"),
-        // und das passiert für Artisan-Befehle VOR LoadConfiguration -- die
-        // 'config'-Bindung existiert im Container zu diesem Zeitpunkt noch
-        // nicht, config() würde dort mit einer BindingResolutionException
-        // abbrechen (jeder Artisan-Aufruf, nicht nur HTTP-Requests, wäre
-        // betroffen). TRUSTED_PROXIES/TrustProxies betreffen ohnehin nur
-        // echte HTTP-Requests -- für den frühen Konsolen-Aufruf reicht der
-        // sichere Leerstring-Default (= "keinem Proxy vertrauen", identisch
-        // zum bisherigen Verhalten ohne gesetzte Variable).
-        $trustedProxies = array_values(array_filter(array_map(
-            'trim',
-            explode(',', app()->bound('config') ? (string) config('app.trusted_proxies', '') : '')
-        )));
-
-        $middleware->trustProxies(at: $trustedProxies !== [] ? $trustedProxies : null);
+        // Bug-Review T1: der frühere Aufruf $middleware->trustProxies(at: ...)
+        // hier an dieser Stelle wirkte bei ECHTEN Requests nie, nicht nur
+        // bei Artisan-Befehlen -- at() setzt eine STATISCHE Eigenschaft
+        // beim Boot, dieser Callback läuft aber über afterResolving
+        // (HttpKernel::class, ...) VOR LoadConfiguration, für jeden
+        // frischen php-fpm-Worker ebenso wie für die Konsole. Die
+        // app()->bound('config')-Absicherung verhinderte zwar den
+        // BindingResolutionException-Absturz, config('app.trusted_proxies')
+        // lieferte dadurch aber auch bei einem echten Request immer nur
+        // den sicheren Leerstring-Default -- TRUSTED_PROXIES aus der .env
+        // erreichte at() praktisch nie. App\Http\Middleware\TrustProxies
+        // löst das, indem sie proxies() überschreibt und config() dort
+        // erst bei JEDEM Request aus handle() heraus liest (siehe die
+        // Klasse für die Details) -- zu diesem Zeitpunkt ist
+        // LoadConfiguration garantiert bereits durchlaufen. Analog zu
+        // TrustHosts unten reicht dafür $middleware->replace(), ein
+        // zusätzlicher trustProxies(at: ...)-Aufruf ist nicht mehr nötig.
+        $middleware->replace(Illuminate\Http\Middleware\TrustProxies::class, TrustProxies::class);
 
         // Bug-Review R3-2/R4-A: ohne trustHosts() vertraut Laravel jedem
         // Host-Header blind -- route()/url() erzeugen absolute URLs (z. B.
