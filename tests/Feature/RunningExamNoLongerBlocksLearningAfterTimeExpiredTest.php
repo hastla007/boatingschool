@@ -27,6 +27,31 @@ class RunningExamNoLongerBlocksLearningAfterTimeExpiredTest extends TestCase
 {
     use InteractsWithTenants;
 
+    // Bug-Review (Tests lassen Daten liegen -- veröffentlichte Regelwerke
+    // auf dem echten Kurs SBF-SEE): dieser Klasse fehlte bisher jede
+    // tearDown() -- jeder der vier Tests legte über startExamSession() ein
+    // veröffentlichtes ExamRuleSet auf dem ECHTEN, geteilten SBF-SEE-Kurs an
+    // (course_id gehört zum Kurs, nicht zum Tenant, und wird daher NICHT
+    // durch das Löschen des Test-Tenants kaskadiert) und ließ es dort
+    // dauerhaft stehen -- ebenso die über createTestTenant()/
+    // createTenantUser() angelegten Tenants/Nutzer.
+    private array $createdRuleSetIds = [];
+
+    protected function tearDown(): void
+    {
+        $this->cleanUpCreatedTenants();
+
+        $this->onAdmin(function () {
+            foreach ($this->createdRuleSetIds as $id) {
+                ExamRuleSet::where('id', $id)->delete();
+            }
+        });
+
+        $this->cleanUpCreatedUsers();
+
+        parent::tearDown();
+    }
+
     private function startExamSession(Tenant $tenant, User $learner, $course, $question, $revision, \DateTimeInterface $startedAt): ExamSession
     {
         return $this->onAdmin(function () use ($tenant, $learner, $course, $question, $revision, $startedAt) {
@@ -37,6 +62,7 @@ class RunningExamNoLongerBlocksLearningAfterTimeExpiredTest extends TestCase
                 'passing_rule' => ['min_correct_ratio' => 0.75],
                 'status' => 'published',
             ]);
+            $this->createdRuleSetIds[] = $ruleSet->id;
 
             $session = ExamSession::create([
                 'tenant_id' => $tenant->id,
