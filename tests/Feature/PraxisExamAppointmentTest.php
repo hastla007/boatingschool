@@ -565,6 +565,37 @@ class PraxisExamAppointmentTest extends TestCase
     }
 
     /**
+     * Bug-Review (Zusatztermine -- Prüfung über Parameter slot umgehbar):
+     * das Formular für einen NEUEN Zusatztermin sendet slot gar nicht mit
+     * (siehe proposeLocked(), $slot === null) -- ein manipulierter
+     * slot-Parameter mit einer noch nie verwendeten Slot-Nummer > 0 (hier
+     * 99) wurde bisher wie ein bereits bestehender Zusatztermin behandelt
+     * und umging damit alle Prüfungen, die für neue Zusatztermine gelten:
+     * dass der Prüfungstermin zuerst fixiert sein muss, dass der neue
+     * Termin nicht vor dem fixierten Prüfungstermin liegen darf, und dass
+     * eine Bezeichnung angegeben wird.
+     */
+    public function test_a_manipulated_unused_slot_number_cannot_bypass_the_checks_for_new_additional_appointments(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $submission = $this->createSubmission($tenant, $learner);
+
+        // Der Prüfungstermin ist bewusst NOCH NICHT fixiert -- ohne die
+        // Prüfung wäre das kein Hindernis für den manipulierten Slot.
+        $response = $this->actingAsInTenant($admin, $tenant)->post(
+            "/admin/praxis-form-submissions/{$submission->id}/exam-appointments",
+            ['exam_date' => now()->addMonth()->format('Y-m-d H:i'), 'slot' => 99]
+        );
+
+        $response->assertSessionHasErrors('exam_date');
+        $this->onAdmin(function () use ($submission) {
+            $this->assertSame(0, PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->count());
+        });
+    }
+
+    /**
      * Bug-Review F4: ein eigener, noch offener Vorschlag ließ sich bisher
      * nicht zurückziehen -- einzige Möglichkeit war, auf die Rückmeldung
      * des Lerners zu warten.

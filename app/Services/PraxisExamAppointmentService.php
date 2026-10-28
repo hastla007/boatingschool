@@ -111,9 +111,26 @@ class PraxisExamAppointmentService
                 }
 
                 $label = 'Prüfungstermin';
-            } elseif ($submission->isPracticeAppointmentConfirmed($slot)) {
-                throw new RuntimeException('Für diesen Termin liegt bereits eine Bestätigung vor.');
             } else {
+                // Bug-Review (Zusatztermine -- Prüfung über Parameter slot
+                // umgehbar): ein frei gewählter, bislang unbenutzter Slot > 0
+                // (z. B. slot=99 statt des vom Formular vorgesehenen leeren
+                // Werts) wurde hier bisher wie ein bereits BESTEHENDER
+                // Zusatztermin behandelt -- ohne jede der Prüfungen, die beim
+                // slot=null-Zweig oben für NEUE Zusatztermine gelten: dass der
+                // Prüfungstermin zuerst fixiert sein muss, dass der neue
+                // Termin nicht vor dem fixierten Prüfungstermin liegen darf,
+                // und dass eine Bezeichnung angegeben wird. Ein neuer
+                // Zusatztermin-Slot kann daher ausschließlich über slot =
+                // null entstehen; jeder andere Slot muss bereits existieren.
+                if ($submission->latestAppointmentForSlot($slot) === null) {
+                    throw new RuntimeException('Unbekannter Termin-Slot.');
+                }
+
+                if ($submission->isPracticeAppointmentConfirmed($slot)) {
+                    throw new RuntimeException('Für diesen Termin liegt bereits eine Bestätigung vor.');
+                }
+
                 $label = $submission->labelForSlot($slot) ?? $label;
             }
 
