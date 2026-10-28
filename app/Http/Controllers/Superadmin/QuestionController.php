@@ -95,9 +95,20 @@ class QuestionController extends Controller
     public function update(Request $request, ContentQuestion $question): Response
     {
         $latest = $question->revisions()->orderByDesc('revision_no')->first();
-        $validated = $this->validateQuestion($request, $latest?->question_type);
+        // Bug-Review T3: die vom Editor-Formular bearbeitete Fassung ist
+        // (siehe edit() oben) die VERÖFFENTLICHTE Revision, nicht
+        // notwendigerweise $latest -- ImportContentQuestions (Bug-Review
+        // F8) kann eine neuere "review"-Revision mit höherer revision_no
+        // anlegen, während der Superadmin noch die ältere, veröffentlichte
+        // Fassung im Formular offen hat. $latest bleibt bewusst nur für die
+        // nächste revision_no maßgeblich (verhindert eine Kollision mit
+        // einer wartenden Review-Revision); für den question_type-Abgleich
+        // und die Medien-Übernahme unten zählt dagegen, was im Formular
+        // tatsächlich angezeigt und bearbeitet wurde.
+        $editing = $question->publishedRevision() ?? $latest;
+        $validated = $this->validateQuestion($request, $editing?->question_type);
 
-        DB::transaction(function () use ($validated, $question, $latest) {
+        DB::transaction(function () use ($validated, $question, $latest, $editing) {
             // Bug-Review (Fragen-Editor verliert Metadaten): official_number
             // liegt auf content_question, nicht auf der Revision -- bisher
             // wurde es hier nie aktualisiert (nur store() setzte es, einmalig
@@ -111,13 +122,17 @@ class QuestionController extends Controller
 
             $this->storeAnswers($revision, $validated);
 
-            // Bug-Review B13: eine neue Revision begann bisher immer ohne
-            // Medien -- ein Bild verschwand dadurch von der Frage, sobald
-            // sie das nächste Mal bearbeitet wurde, auch ohne dass sich am
-            // Bild selbst etwas geändert hat. Bestehende Medienzuordnungen
-            // der Vorgänger-Revision werden deshalb übernommen.
-            if ($latest) {
-                foreach ($latest->media as $media) {
+            // Bug-Review B13 (Folgefehler T3): eine neue Revision begann
+            // bisher immer ohne Medien -- ein Bild verschwand dadurch von
+            // der Frage, sobald sie das nächste Mal bearbeitet wurde, auch
+            // ohne dass sich am Bild selbst etwas geändert hat. Bestehende
+            // Medienzuordnungen werden deshalb übernommen -- von $editing
+            // (der im Formular bearbeiteten, veröffentlichten Fassung),
+            // nicht von $latest: eine wartende Review-Revision kann andere
+            // oder gar keine Medien tragen, deren Übernahme hier das Bild
+            // der tatsächlich bearbeiteten Fassung unbemerkt ersetzt hätte.
+            if ($editing) {
+                foreach ($editing->media as $media) {
                     $revision->media()->attach($media->id, ['role' => $media->pivot->role, 'sort_order' => $media->pivot->sort_order]);
                 }
             }
