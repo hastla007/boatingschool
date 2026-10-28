@@ -37,7 +37,7 @@ return new class extends Migration
             USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid)
             WITH CHECK (tenant_id = current_setting('app.current_tenant_id', true)::uuid)");
 
-        $appRole = AppRoleGrants::role();
+        $appRole = AppRoleGrants::quotedRole();
 
         if (AppRoleGrants::roleExistsOrWarn()) {
             DB::statement("GRANT SELECT, INSERT, UPDATE, DELETE ON willkommensbox_order TO {$appRole}");

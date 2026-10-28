@@ -38,7 +38,7 @@ return new class extends Migration
         // App-Rolle separat provisioniert wurde) -- anders als die GRANTs
         // in anderen Migrationen (siehe 2024_02_01_000210, _000447) prüfte
         // diese Migration das bisher nirgends.
-        $appRole = AppRoleGrants::role();
+        $appRole = AppRoleGrants::quotedRole();
 
         if (AppRoleGrants::roleExistsOrWarn()) {
             foreach ($this->globalContentTables as $table) {
@@ -107,7 +107,7 @@ return new class extends Migration
             WITH CHECK (tenant_id IS NULL OR tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid)");
 
         // Bug-Review M7 (Folgefehler): siehe Kommentar in up().
-        $appRole = AppRoleGrants::role();
+        $appRole = AppRoleGrants::quotedRole();
 
         if (AppRoleGrants::roleExistsOrWarn()) {
             DB::statement("REVOKE ALL ON migrations FROM {$appRole}");

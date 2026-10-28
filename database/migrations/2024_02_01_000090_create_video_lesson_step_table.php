@@ -26,7 +26,7 @@ return new class extends Migration
             $table->timestampTz('created_at')->useCurrent();
         });
 
-        $appRole = AppRoleGrants::role();
+        $appRole = AppRoleGrants::quotedRole();
 
         if (AppRoleGrants::roleExistsOrWarn()) {
             DB::statement("GRANT SELECT, INSERT, UPDATE, DELETE ON video_lesson_step TO {$appRole}");

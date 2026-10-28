@@ -47,7 +47,7 @@ return new class extends Migration
         // Nur lesend für die Laufzeitrolle -- die Liste ist fest vorgegeben
         // und wird ausschließlich über Migrations/Seeder (Owner-Verbindung)
         // gepflegt, nie von der Bootsschule selbst.
-        $appRole = AppRoleGrants::role();
+        $appRole = AppRoleGrants::quotedRole();
 
         if (AppRoleGrants::roleExistsOrWarn()) {
             DB::statement("GRANT SELECT ON pruefungsausschuss TO {$appRole}");

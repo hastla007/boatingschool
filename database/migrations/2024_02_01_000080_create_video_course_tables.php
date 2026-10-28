@@ -57,7 +57,7 @@ return new class extends Migration
         // Die App-Rolle wurde in einer früheren Migration per
         // GRANT ... ON ALL TABLES angelegt; für danach neu erstellte Tabellen
         // muss das explizit nachgezogen werden.
-        $appRole = AppRoleGrants::role();
+        $appRole = AppRoleGrants::quotedRole();
 
         if (AppRoleGrants::roleExistsOrWarn()) {
             DB::statement("GRANT SELECT, INSERT, UPDATE, DELETE ON video_module, video_lesson, video_progress TO {$appRole}");

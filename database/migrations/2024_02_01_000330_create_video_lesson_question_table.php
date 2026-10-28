@@ -25,7 +25,7 @@ return new class extends Migration
         });
         DB::statement('CREATE INDEX idx_video_lesson_question_question ON video_lesson_question(question_id)');
 
-        $appRole = AppRoleGrants::role();
+        $appRole = AppRoleGrants::quotedRole();
 
         if (AppRoleGrants::roleExistsOrWarn()) {
             DB::statement("GRANT SELECT, INSERT, UPDATE, DELETE ON video_lesson_question TO {$appRole}");

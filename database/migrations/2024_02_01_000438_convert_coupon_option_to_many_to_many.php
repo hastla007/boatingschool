@@ -25,7 +25,7 @@ return new class extends Migration
             $table->primary(['coupon_id', 'product_id']);
         });
 
-        $appRole = AppRoleGrants::role();
+        $appRole = AppRoleGrants::quotedRole();
 
         if (AppRoleGrants::roleExistsOrWarn()) {
             DB::statement("GRANT SELECT, INSERT, UPDATE, DELETE ON coupon_option_product TO {$appRole}");

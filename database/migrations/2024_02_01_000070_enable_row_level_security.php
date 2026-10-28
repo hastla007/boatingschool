@@ -53,7 +53,7 @@ return new class extends Migration
         // Die Rolle selbst wird von Infra/Ops vorab angelegt (CREATE ROLE
         // erfordert CREATEROLE, das die Migrations-Rolle bewusst nicht hat);
         // hier werden ihr nur die laufenden Rechte auf die Tabellen erteilt.
-        $appRole = AppRoleGrants::role();
+        $appRole = AppRoleGrants::quotedRole();
 
         if (AppRoleGrants::roleExistsOrWarn()) {
             DB::statement('GRANT CONNECT ON DATABASE '.DB::getDatabaseName().' TO '.$appRole);

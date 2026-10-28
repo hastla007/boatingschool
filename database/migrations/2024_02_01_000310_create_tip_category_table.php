@@ -23,7 +23,7 @@ return new class extends Migration
             $table->timestampsTz();
         });
 
-        $appRole = AppRoleGrants::role();
+        $appRole = AppRoleGrants::quotedRole();
 
         if (AppRoleGrants::roleExistsOrWarn()) {
             DB::statement("GRANT SELECT, INSERT, UPDATE, DELETE ON tip_category TO {$appRole}");

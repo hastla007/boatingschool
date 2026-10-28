@@ -31,7 +31,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        $appRole = AppRoleGrants::role();
+        $appRole = AppRoleGrants::quotedRole();
 
         if (AppRoleGrants::roleExistsOrWarn()) {
             DB::statement("REVOKE INSERT, UPDATE, DELETE ON tenant FROM {$appRole}");
@@ -40,7 +40,7 @@ return new class extends Migration
 
     public function down(): void
     {
-        $appRole = AppRoleGrants::role();
+        $appRole = AppRoleGrants::quotedRole();
 
         if (AppRoleGrants::roleExistsOrWarn()) {
             DB::statement("GRANT SELECT, INSERT, UPDATE, DELETE ON tenant TO {$appRole}");

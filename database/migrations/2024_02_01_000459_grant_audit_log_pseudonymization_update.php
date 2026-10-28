@@ -23,7 +23,7 @@ return new class extends Migration
         // Postgres-Fehler fehl, wenn die Rolle gar nicht existiert (z. B.
         // migrate:fresh auf einer frisch angelegten DB, bevor die App-Rolle
         // separat provisioniert wurde) -- analog zu 2024_02_01_000210/_000447.
-        $appRole = AppRoleGrants::role();
+        $appRole = AppRoleGrants::quotedRole();
 
         if (AppRoleGrants::roleExistsOrWarn()) {
             DB::statement("GRANT UPDATE (before_data, after_data) ON audit_log TO {$appRole}");
@@ -43,7 +43,7 @@ return new class extends Migration
     {
         DB::statement('DROP POLICY IF EXISTS audit_log_update_isolation ON audit_log');
 
-        $appRole = AppRoleGrants::role();
+        $appRole = AppRoleGrants::quotedRole();
 
         if (AppRoleGrants::roleExistsOrWarn()) {
             DB::statement("REVOKE UPDATE (before_data, after_data) ON audit_log FROM {$appRole}");

@@ -33,6 +33,24 @@ class AppRoleGrants
         return (string) config('database.connections.pgsql.username');
     }
 
+    /**
+     * Bug-Review (Rollenname in AppRoleGrants nicht in Anführungszeichen):
+     * role() wurde in allen GRANT/REVOKE-Migrationen bisher UNQUOTED in das
+     * Rollen-Identifier an TO/FROM interpoliert -- ein Rollenname mit
+     * Großbuchstaben oder Sonderzeichen (z. B. laut einer von der
+     * Namenskonvention abweichenden DB_USERNAME-Vorgabe eines gemanagten
+     * Postgres-Dienstes) wird von Postgres ohne doppelte Anführungszeichen
+     * aber auf Kleinschreibung gefaltet bzw. als Syntaxfehler abgelehnt --
+     * GRANT/REVOKE griff dann nie, exakt wie beim in der Klassendoc
+     * beschriebenen Symptom (stillschweigend übersprungen, erst später
+     * "permission denied"). Liefert den Rollennamen als sicher zu
+     * interpolierendes, doppelt angeführtes SQL-Identifier.
+     */
+    public static function quotedRole(): string
+    {
+        return '"'.str_replace('"', '""', static::role()).'"';
+    }
+
     public static function roleExistsOrWarn(): bool
     {
         if (DB::selectOne('SELECT 1 FROM pg_roles WHERE rolname = ?', [static::role()])) {

@@ -31,7 +31,7 @@ return new class extends Migration
             ['id' => DB::raw('gen_random_uuid()'), 'code' => 'FAHRSTUNDE-2-EH', 'name' => 'Fahrstunde 2 EH', 'active' => true, 'created_at' => now()],
         ]);
 
-        $appRole = AppRoleGrants::role();
+        $appRole = AppRoleGrants::quotedRole();
 
         if (AppRoleGrants::roleExistsOrWarn()) {
             DB::statement("GRANT SELECT, INSERT, UPDATE, DELETE ON product TO {$appRole}");

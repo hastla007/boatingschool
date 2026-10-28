@@ -30,7 +30,7 @@ return new class extends Migration
             'updated_at' => now(),
         ]);
 
-        $appRole = AppRoleGrants::role();
+        $appRole = AppRoleGrants::quotedRole();
 
         if (AppRoleGrants::roleExistsOrWarn()) {
             DB::statement("GRANT SELECT, INSERT, UPDATE, DELETE ON platform_setting TO {$appRole}");

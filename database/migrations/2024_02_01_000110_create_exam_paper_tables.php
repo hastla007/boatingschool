@@ -44,7 +44,7 @@ return new class extends Migration
             $table->foreign('paper_id')->references('id')->on('exam_paper');
         });
 
-        $appRole = AppRoleGrants::role();
+        $appRole = AppRoleGrants::quotedRole();
 
         if (AppRoleGrants::roleExistsOrWarn()) {
             DB::statement("GRANT SELECT, INSERT, UPDATE, DELETE ON exam_paper, exam_paper_question TO {$appRole}");
