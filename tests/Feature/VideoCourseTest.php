@@ -145,6 +145,25 @@ class VideoCourseTest extends TestCase
         $response->assertSee('aria-label="Zurück zum Kurs"', false);
     }
 
+    /**
+     * Bug-Review (Fehlende H1-Überschriften): der header-Slot dieser Seite
+     * enthält nur eine Breadcrumb ohne jede Überschrift -- der eigentliche
+     * Seitentitel stand als <span> im Fließtext. Dieser <span> ist jetzt
+     * das h1 der Seite.
+     */
+    public function test_the_lesson_page_has_an_h1(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $firstLesson] = $this->makeIsolatedVideoCourse();
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/video/{$firstLesson->id}");
+
+        $response->assertOk();
+        $response->assertSee('<h1 class="flex-1 font-semibold text-slate-800 dark:text-white truncate">', false);
+    }
+
     public function test_lesson_step_gallery_is_shown_when_present(): void
     {
         $tenant = $this->createTestTenant();

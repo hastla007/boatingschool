@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div>
             <div class="text-xs text-slate-600 dark:text-slate-400"><a href="{{ route('superadmin.pruefungsausschuesse.index') }}" class="hover:underline">Prüfungsausschüsse</a></div>
-            <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Prüfungsausschuss bearbeiten</h2>
+            <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Prüfungsausschuss bearbeiten</h1>
         </div>
     </x-slot>
 

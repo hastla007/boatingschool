@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div class="flex items-center justify-between">
             <div>
-                <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Prüfungsausschüsse</h2>
+                <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Prüfungsausschüsse</h1>
                 <p class="text-xs text-slate-600 dark:text-slate-400 mt-0.5">Feste, plattformweite Adressen -- Bootsschulen können sie im Orte-Tab einem Praxisort zuordnen.</p>
             </div>
             <a href="{{ route('superadmin.pruefungsausschuesse.create') }}" class="px-4 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: #005FD7">

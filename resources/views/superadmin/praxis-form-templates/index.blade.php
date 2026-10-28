@@ -1,7 +1,7 @@
 <x-superadmin-layout>
     <x-slot name="header">
         <div class="flex items-center justify-between">
-            <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Praxisformulare</h2>
+            <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Praxisformulare</h1>
             <a href="{{ route('superadmin.praxis-form-templates.create') }}" class="px-4 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: #005FD7">
                 Neues Formular
             </a>

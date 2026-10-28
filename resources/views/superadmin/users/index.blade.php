@@ -1,7 +1,7 @@
 <x-superadmin-layout>
     <x-slot name="header">
         <div class="flex items-center justify-between">
-            <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Nutzer</h2>
+            <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Nutzer</h1>
             <a href="{{ route('superadmin.users.create') }}" class="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium hover:opacity-90 transition">
                 + Neuer Nutzer
             </a>

@@ -5,7 +5,7 @@
             <x-icon name="chevron-right" class="w-3 h-3" />
             <span>Praxis &amp; Prüfung</span>
         </div>
-        <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Praxis &amp; Prüfung</h2>
+        <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Praxis &amp; Prüfung</h1>
     </x-slot>
 
     @if ($state === 'unavailable')

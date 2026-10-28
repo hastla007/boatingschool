@@ -3,7 +3,7 @@
         <div class="flex items-center justify-between">
             <div>
                 <div class="text-xs text-slate-600 dark:text-slate-400"><a href="{{ route('superadmin.tenants.index') }}" class="hover:underline">Bootsschulen</a></div>
-                <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">{{ $tenant->name }}</h2>
+                <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">{{ $tenant->name }}</h1>
             </div>
             <span class="inline-block px-2 py-0.5 rounded-full text-xs {{ $tenant->status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500' }}">{{ $tenant->status }}</span>
         </div>

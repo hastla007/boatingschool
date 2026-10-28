@@ -8,7 +8,7 @@
                 <x-icon name="chevron-right" class="w-3 h-3" />
                 <span>{{ $lesson->module->title }}</span>
             </div>
-            <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">{{ $lesson->title }}</h2>
+            <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">{{ $lesson->title }}</h1>
         </div>
     </x-slot>
 

@@ -8,7 +8,7 @@
                 <x-icon name="chevron-right" class="w-4 h-4 rotate-180" />
             </a>
             <x-icon name="light-bulb" class="w-6 h-6 text-amber-400" />
-            <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Smart-Learning</h2>
+            <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Smart-Learning</h1>
         </div>
     </x-slot>
 

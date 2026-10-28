@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div>
             <div class="text-xs text-slate-600 dark:text-slate-400"><a href="{{ route('superadmin.addon-templates.index') }}" class="hover:underline">Addon-Vorlagen</a></div>
-            <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Addon-Vorlage bearbeiten</h2>
+            <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Addon-Vorlage bearbeiten</h1>
         </div>
     </x-slot>
 

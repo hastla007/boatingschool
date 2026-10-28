@@ -9,7 +9,7 @@
                         <span>{{ $revision->smartmodus_kategorie ?: $revision->topic }}</span>
                     @endif
                 </div>
-                <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">{{ $revision->subtopic ?? $revision->topic ?? 'Frage' }}</h2>
+                <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">{{ $revision->subtopic ?? $revision->topic ?? 'Frage' }}</h1>
             </div>
             <div class="flex flex-wrap gap-1 text-xs">
                 @foreach (['smarttrainer' => ['Smarttrainer', 'bolt'], 'new' => ['Neu', 'star'], 'wrong' => ['Falsch', 'x-circle'], 'favorites' => ['Favoriten', 'star']] as $key => [$label, $icon])

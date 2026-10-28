@@ -5,9 +5,9 @@
             <x-icon name="chevron-right" class="w-3 h-3" />
             <span>Navigationsaufgaben</span>
         </div>
-        <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200 flex items-center gap-2">
+        <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200 flex items-center gap-2">
             <x-icon name="compass" class="w-5 h-5 text-slate-600 dark:text-slate-400" /> Navigationsaufgaben
-        </h2>
+        </h1>
     </x-slot>
 
     <div class="max-w-3xl mx-auto space-y-4">

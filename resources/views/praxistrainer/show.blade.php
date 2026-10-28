@@ -24,9 +24,9 @@
                      schon im Seitentitel, bevor "Musterlösung anzeigen"
                      überhaupt geklickt wurde. Siehe
                      PraxisTask::unterkategorieIsSafeToDisplayBeforeReveal(). --}}
-                <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">
+                <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">
                     {{ $task->unterkategorieIsSafeToDisplayBeforeReveal() ? ($task->unterkategorie ?? $task->kategorie) : $task->kategorie }}
-                </h2>
+                </h1>
             </div>
             <div class="text-sm text-slate-500 shrink-0">{{ $completedCount }} / {{ $totalCount }} Aufgaben &middot; {{ $percent }}%</div>
         </div>

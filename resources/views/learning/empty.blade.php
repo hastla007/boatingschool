@@ -1,6 +1,6 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">{{ $course->name }}</h2>
+        <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">{{ $course->name }}</h1>
     </x-slot>
 
     <div class="max-w-xl mx-auto bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-8 text-center">

@@ -3,7 +3,7 @@
         <div class="flex items-center justify-between">
             <div>
                 <div class="text-xs text-slate-600 dark:text-slate-400"><a href="{{ route('superadmin.modules.index') }}" class="hover:underline">Module</a></div>
-                <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">{{ $module->name }} &middot; Fragen</h2>
+                <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">{{ $module->name }} &middot; Fragen</h1>
             </div>
             <a href="{{ route('superadmin.questions.create', $module) }}" class="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium hover:opacity-90 transition">+ Neue Frage</a>
         </div>

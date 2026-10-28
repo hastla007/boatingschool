@@ -11,7 +11,7 @@
             </a>
             <div class="flex-1">
                 <div class="text-xs text-slate-600 dark:text-slate-400">{{ $lesson->title }}</div>
-                <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Fragen zum Video</h2>
+                <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Fragen zum Video</h1>
             </div>
             <div class="text-sm text-slate-500 shrink-0">{{ $total }}/{{ $total }}</div>
         </div>

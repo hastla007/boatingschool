@@ -1,6 +1,6 @@
 <x-superadmin-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Neuen Kurs anlegen</h2>
+        <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Neuen Kurs anlegen</h1>
     </x-slot>
 
     <div class="max-w-lg bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6">

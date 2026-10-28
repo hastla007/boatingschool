@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex items-center justify-between">
-            <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Prüfungssimulation</h2>
+            <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Prüfungssimulation</h1>
             <div class="text-sm text-slate-500 flex items-center gap-1.5">
                 <x-icon name="clipboard-document-check" class="w-4 h-4 text-slate-600 dark:text-slate-400" />
                 Frage {{ $current->position }} von {{ $total }}

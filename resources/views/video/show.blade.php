@@ -20,7 +20,10 @@
                 <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style="background-color: color-mix(in srgb, var(--brand-primary, #005FD7) 12%, white)">
                     <x-icon name="book-open" class="w-4 h-4" style="color: var(--brand-primary, #005FD7)" />
                 </div>
-                <span class="flex-1 font-semibold text-slate-800 dark:text-white truncate">{{ $sectionLabel }}</span>
+                {{-- Bug-Review (Fehlende H1-Überschriften): das header-Slot
+                     oben enthält nur eine Breadcrumb ohne Überschrift -- hier,
+                     nicht dort, steht der eigentliche, sichtbare Seitentitel. --}}
+                <h1 class="flex-1 font-semibold text-slate-800 dark:text-white truncate">{{ $sectionLabel }}</h1>
                 {{-- Bug-Review (Zurück-Pfeile ohne Beschriftung): nur ein Icon
                      ohne Text -- ohne aria-label hatte dieser Link keinen für
                      Screenreader erkennbaren Namen. --}}

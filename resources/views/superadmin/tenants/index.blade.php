@@ -1,7 +1,7 @@
 <x-superadmin-layout>
     <x-slot name="header">
         <div class="flex items-center justify-between">
-            <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Bootsschulen</h2>
+            <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Bootsschulen</h1>
             <a href="{{ route('superadmin.tenants.create') }}" class="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium hover:opacity-90 transition">
                 + Neue Bootsschule
             </a>

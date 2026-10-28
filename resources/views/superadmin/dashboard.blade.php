@@ -1,6 +1,6 @@
 <x-superadmin-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Superadmin-Dashboard</h2>
+        <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Superadmin-Dashboard</h1>
     </x-slot>
 
     <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">

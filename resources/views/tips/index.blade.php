@@ -1,6 +1,6 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Tipps & Tricks</h2>
+        <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Tipps & Tricks</h1>
     </x-slot>
 
     @if ($categories->isEmpty())

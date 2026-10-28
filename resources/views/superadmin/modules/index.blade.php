@@ -1,7 +1,7 @@
 <x-superadmin-layout>
     <x-slot name="header">
         <div class="flex items-center justify-between">
-            <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Module</h2>
+            <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Module</h1>
             <a href="{{ route('superadmin.courses.index') }}" class="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition">Zu den Kursen</a>
         </div>
     </x-slot>
