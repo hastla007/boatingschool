@@ -155,7 +155,8 @@
                                 <div class="mt-1">
                                     <div class="flex items-center justify-end gap-1">
                                         @if (in_array($booking['status'], ['active', 'suspended'], true))
-                                            <form method="POST" action="{{ route('admin.entitlements.update', $booking['entitlement_id']) }}">
+                                            <form method="POST" action="{{ route('admin.entitlements.update', $booking['entitlement_id']) }}"
+                                                  @submit="if ({{ $booking['status'] === 'active' ? 'true' : 'false' }} && ! confirm('Diesen Zugang wirklich sperren?')) $event.preventDefault()">
                                                 @csrf
                                                 @method('PATCH')
                                                 <input type="hidden" name="action" value="{{ $booking['status'] === 'active' ? 'suspend' : 'reactivate' }}">

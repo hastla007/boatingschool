@@ -135,7 +135,8 @@
                                      Admin-Bereich siezt durchgehend. --}}
                                 <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">aktiv (Sie)</span>
                             @else
-                                <form method="POST" action="{{ route('admin.participants.membership.update', $membership->user_id) }}" class="flex items-center gap-2">
+                                <form method="POST" action="{{ route('admin.participants.membership.update', $membership->user_id) }}" class="flex items-center gap-2"
+                                      @submit="if ({{ $membership->status === 'active' ? 'true' : 'false' }} && ! confirm('Dieses Konto wirklich sperren?')) $event.preventDefault()">
                                     @csrf
                                     @method('PATCH')
                                     <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full {{ $membership->status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700' }}">

@@ -47,7 +47,8 @@
                         <a href="{{ route('superadmin.questions.index', $module) }}" class="text-slate-700 dark:text-slate-200 hover:underline">{{ $module->name }}</a>
                         <div class="flex items-center gap-3">
                             <span class="text-xs text-slate-600 dark:text-slate-400">{{ $module->questions_count }} Fragen</span>
-                            <form method="POST" action="{{ route('superadmin.courses.modules.detach', [$course, $module]) }}">
+                            <form method="POST" action="{{ route('superadmin.courses.modules.detach', [$course, $module]) }}"
+                                  @submit="if (! confirm('Dieses Modul wirklich aus dem Kurs entfernen?')) $event.preventDefault()">
                                 @csrf
                                 @method('DELETE')
                                 <button type="submit" class="text-xs text-rose-500 hover:underline">Entfernen</button>
