@@ -348,6 +348,32 @@
             <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />
         </a>
 
+        {{-- Funkscheine: Praxis-Prüfungssimulation (SRC/UBI) und mündliche Prüfung (nur SRC: Seefunktexte, Vokabeln). --}}
+        @if ($funkCatalogs)
+            <a href="{{ route('funk.praxis.index', $course) }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-4 hover:shadow-md transition">
+                <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="{{ $tileIconBg }}">
+                    <x-icon name="signal" class="w-5 h-5" style="{{ $tileIconColor }}" />
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="font-semibold text-slate-800 dark:text-white">Praxis-Prüfungssimulation</div>
+                    <div class="text-xs text-slate-600 dark:text-slate-400">Notalarm, Meldungen und Funkgerät üben</div>
+                </div>
+                <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />
+            </a>
+            @if (in_array('SRC', $funkCatalogs, true))
+                <a href="{{ route('funk.oral.index', $course) }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-4 hover:shadow-md transition">
+                    <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="{{ $tileIconBg }}">
+                        <x-icon name="microphone" class="w-5 h-5" style="{{ $tileIconColor }}" />
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="font-semibold text-slate-800 dark:text-white">Mündliche Prüfung</div>
+                        <div class="text-xs text-slate-600 dark:text-slate-400">Seefunktexte und Vokabeln (Englisch)</div>
+                    </div>
+                    <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />
+                </a>
+            @endif
+        @endif
+
         @if ($hasNavigationTasks)
             <a href="{{ route('exam.navigation.index', $course) }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-4 hover:shadow-md transition">
                 <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="{{ $tileIconBg }}">

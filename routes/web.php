@@ -20,6 +20,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExamController;
 use App\Http\Controllers\FavoriteCollectionController;
 use App\Http\Controllers\FavoriteController;
+use App\Http\Controllers\FunkTrainingController;
 use App\Http\Controllers\LearningController;
 use App\Http\Controllers\NavigationTaskController;
 use App\Http\Controllers\OffersController;
@@ -103,6 +104,15 @@ Route::middleware(['auth', 'tenant.member', 'verified'])->group(function () {
     Route::get('/courses/{course}/exam', [ExamController::class, 'intro'])->name('exam.intro');
     Route::post('/courses/{course}/exam', [ExamController::class, 'start'])->name('exam.start');
     Route::post('/courses/{course}/exam/papers/{paper}', [ExamController::class, 'startPaper'])->name('exam.papers.start');
+
+    Route::get('/courses/{course}/funk/praxis', [FunkTrainingController::class, 'praxisIndex'])->name('funk.praxis.index');
+    Route::get('/courses/{course}/funk/praxis/{catalog}/{number}', [FunkTrainingController::class, 'praxisShow'])->name('funk.praxis.show')->whereIn('catalog', ['SRC', 'UBI'])->whereNumber('number');
+    Route::post('/courses/{course}/funk/praxis/{catalog}/{number}', [FunkTrainingController::class, 'praxisEvaluate'])->name('funk.praxis.evaluate')->whereIn('catalog', ['SRC', 'UBI'])->whereNumber('number');
+    Route::post('/courses/{course}/funk/{type}/{catalog}/{number}/erledigt', [FunkTrainingController::class, 'toggleCompleted'])->name('funk.completed')->whereIn('type', ['praxis', 'text'])->whereIn('catalog', ['SRC', 'UBI'])->whereNumber('number');
+    Route::get('/courses/{course}/funk/muendlich', [FunkTrainingController::class, 'oralIndex'])->name('funk.oral.index');
+    Route::get('/courses/{course}/funk/muendlich/{catalog}/texte/{number}', [FunkTrainingController::class, 'textShow'])->name('funk.oral.text')->whereIn('catalog', ['SRC', 'UBI'])->whereNumber('number');
+    Route::post('/courses/{course}/funk/muendlich/{catalog}/texte/{number}', [FunkTrainingController::class, 'textEvaluate'])->name('funk.oral.text.evaluate')->whereIn('catalog', ['SRC', 'UBI'])->whereNumber('number');
+    Route::post('/courses/{course}/funk/muendlich/{catalog}/vokabeln', [FunkTrainingController::class, 'vocabAnswer'])->name('funk.oral.vocab')->whereIn('catalog', ['SRC', 'UBI']);
     Route::get('/exam-sessions/{examSession}', [ExamController::class, 'show'])->name('exam.show');
     Route::post('/exam-sessions/{examSession}/answers', [ExamController::class, 'answer'])->name('exam.answer');
     // Bug-Review Oberfläche U9: Musterantwort offener Fragen wird erst hier
