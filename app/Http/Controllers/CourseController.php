@@ -13,6 +13,8 @@ use App\Models\TenantCourseDisabled;
 use App\Models\VideoProgress;
 use App\Services\EntitlementService;
 use App\Support\ComboVideoGroups;
+use App\Support\ExamRegistration;
+use App\Support\FunkTraining;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -149,6 +151,7 @@ class CourseController extends Controller
 
                 return [
                     'label' => $group['label'],
+                    'motif' => $group['motif'],
                     'moduleIds' => $modules->pluck('id')->values(),
                     'percent' => $modules->isNotEmpty() ? $chapterPercent($modules->pluck('id')->all()) : 0,
                 ];
@@ -218,6 +221,8 @@ class CourseController extends Controller
             'videoPercent' => $videoTotal > 0 ? (int) round($videoCompleted / $videoTotal * 100) : 0,
             'comboVideoGroups' => $comboVideoGroups,
             'hasExam' => $course->hasStartableExam(),
+            'funkCatalogs' => FunkTraining::catalogsFor($course),
+            'selfExamRegistration' => ExamRegistration::isSelf($tenant, $course),
             'hasNavigationTasks' => $course->navigationTasks()->exists(),
             'knotenModuleId' => $knotenModule?->id,
             'knotenPercent' => $knotenModule ? $chapterPercent([$knotenModule->id]) : 0,

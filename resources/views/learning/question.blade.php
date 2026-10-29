@@ -150,7 +150,13 @@
                         @if ($answered)
                             <div class="mt-4 rounded-xl p-4 flex items-start gap-2 {{ $correct ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300' }}">
                                 <x-icon :name="$correct ? 'check-circle' : 'x-circle'" class="w-5 h-5 shrink-0 mt-0.5" />
-                                <strong>{{ $correct ? 'Als gewusst markiert.' : 'Als nicht gewusst markiert.' }}</strong>
+                                <div>
+                                    <strong>{{ $correct ? 'Als gewusst markiert.' : 'Als nicht gewusst markiert.' }}</strong>
+                                    @php $feedback = $correct ? $revision->feedback_correct : $revision->feedback_incorrect; @endphp
+                                    @if ($feedback)
+                                        <div class="text-sm mt-2 whitespace-pre-line">{{ $feedback }}</div>
+                                    @endif
+                                </div>
                             </div>
                             <div class="flex items-center justify-between mt-4">
                                 <button type="button" @click="toggleFavorite($el)" data-favorite="{{ $isFavorite ? '1' : '0' }}" data-question-id="{{ $revision->question_id }}" class="favorite-toggle inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">

@@ -71,7 +71,9 @@ class TrustedProxyDevOverrideTest extends TestCase
             ->get('/dashboard');
 
         $response->assertOk();
-        $response->assertSee('Weiterlernen');
+        // Kurs-Banner des Dashboards ("<Kursname> · ..."), unabhängig davon,
+        // ob es zum Videokurs, zur Prüfung oder zum Smarttrainer führt.
+        $response->assertSee('SRC Vollkurs ·');
     }
 
     public function test_an_untrusted_proxy_address_is_still_not_honored(): void
@@ -91,6 +93,6 @@ class TrustedProxyDevOverrideTest extends TestCase
             ->withSession(['dev_tenant_slug' => $tenant->slug])
             ->get('/dashboard');
 
-        $response->assertDontSee('Weiterlernen');
+        $response->assertDontSee('SRC Vollkurs ·');
     }
 }

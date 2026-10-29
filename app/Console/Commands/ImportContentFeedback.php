@@ -51,6 +51,11 @@ class ImportContentFeedback extends Command
         // ImportContentQuestions über die Owner-Verbindung.
         config(['database.default' => 'pgsql_admin']);
 
+        // Der DatabaseSeeder ruft den Befehl für mehrere Dateien auf derselben
+        // Instanz auf -- Zähler und Fehler je Lauf neu beginnen.
+        $this->updated = $this->unchanged = $this->skipped = 0;
+        $this->errors = [];
+
         $path = base_path($this->argument('path'));
         if (! is_file($path)) {
             $this->error("Datei nicht gefunden: {$path}");
@@ -201,10 +206,15 @@ class ImportContentFeedback extends Command
         return trim($text);
     }
 
-    /** Entfernt die führende "Richtig ist: „...“"-Zeile, die die App bereits als "Richtige Antwort: ..." anzeigt. */
+    /**
+     * Entfernt die führende "Richtig ist: „...“"-Zeile, die die App bereits als
+     * "Richtige Antwort: ..." anzeigt. Die Zeile endet am Zeilenende, nicht am
+     * ersten „““ -- Antworten mit eigenen Anführungszeichen (z. B. „An alle
+     * Funkstellen“) ließen sonst einen Antwortrest vor der Erklärung stehen.
+     */
     private function stripLeadingCorrectAnswerLine(string $text): string
     {
-        return trim(preg_replace('/^Richtig ist: „[^“]*“\s*/u', '', $text, 1));
+        return trim(preg_replace('/^Richtig ist: „.*?“[ \t]*(?:\R|$)/su', '', $text, 1));
     }
 
     /** @return iterable<int, array<string, string>> */

@@ -11,6 +11,7 @@ use App\Services\CourseProgressService;
 use App\Services\EntitlementService;
 use App\Services\PraxisFormDataResolver;
 use App\Support\BestEffortMail;
+use App\Support\ExamRegistration;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -40,6 +41,7 @@ class PraxisFormSubmissionController extends Controller
         $user = $request->user();
 
         abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Für diesen Kurs liegt kein aktives Entitlement vor.');
+        abort_if(ExamRegistration::isSelf($tenant, $course), 404, 'Für diesen Kurs meldest du dich selbst zur Prüfung an.');
 
         $template = PraxisFormTemplate::where('active', true)
             ->whereJsonContains('course_ids', $course->id)

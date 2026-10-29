@@ -44,6 +44,12 @@ use Illuminate\Database\Seeder;
  *   veröffentlicht; die übersprungene 10/2026-Revision wird "deprecated".
  *   Hat ein Superadmin die Frage im Editor korrigiert, bleibt die
  *   Korrektur zur Freigabe im Status "review" liegen.
+ * - SRC-Korrekturen (source_version "2026-09-korr"): an Antwort D von 60
+ *   SRC-Fragen hing die Fußzeile des amtlichen PDFs ("Gesamtfragenkatalog
+ *   für das ... (SRC, Short Range Certificate)", einmal samt
+ *   Kapitelüberschrift). Der Sinn bleibt gleich: Feedback, Bilder und
+ *   Lernfortschritt werden übernommen, solange die importierte Fassung
+ *   2026-09 veröffentlicht ist; eine Editor-Korrektur bleibt unberührt.
  *
  * Idempotent: ohne wartende Revision tut ein erneuter Lauf nichts.
  */
@@ -55,10 +61,13 @@ class CatalogUpdateSeeder extends Seeder
 
     public const UBI_2026_10_KORR = '2026-10-korr';
 
+    public const SRC_2026_09_KORR = '2026-09-korr';
+
     private const UPDATES = [
         ['content_role' => 'ubi_official', 'source_version' => self::UBI_2026_10, 'inherit_editorial_content' => false],
         ['content_role' => 'see_specific', 'source_version' => self::SEE_2023_08_ELWIS, 'inherit_editorial_content' => true],
         ['content_role' => 'ubi_official', 'source_version' => self::UBI_2026_10_KORR, 'inherit_editorial_content' => true, 'reset_progress' => false, 'correction_of' => self::UBI_2026_10],
+        ['content_role' => 'src_official', 'source_version' => self::SRC_2026_09_KORR, 'inherit_editorial_content' => true, 'reset_progress' => false, 'correction_of' => '2026-09'],
     ];
 
     public function run(): void

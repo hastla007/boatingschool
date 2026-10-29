@@ -14,8 +14,10 @@ use Illuminate\Database\Seeder;
  * damit ein einzelnes Entitlement auf den Kombikurs für beide
  * Teilprüfungen reicht. SRC bekommt Offset 0 (Bogen 1-12, amtlich, siehe
  * SrcExamPaperSeeder), UBI Offset 100 (Bogen 101-112, amtliche
- * Übungsfragebögen 10/2026, siehe UbiExamPaperSeeder) -- Rückübersetzung
- * in der UI über App\Support\ComboExamGroups.
+ * Übungsfragebögen 10/2026, siehe UbiExamPaperSeeder) und die
+ * UBI-Ergänzungsbögen Offset 200 (Bogen 201-212) -- wer beide Scheine in
+ * einem Prüfungsdurchlauf ablegt, schreibt SRC plus UBI-Ergänzungsbogen.
+ * Rückübersetzung in der UI über App\Support\ComboExamGroups.
  *
  * Das eigene Regelwerk des Kombikurses bleibt draft: es hat nur eine
  * passing_rule und ein Zeitlimit, die beiden Teilprüfungen haben aber
@@ -31,15 +33,21 @@ class SrcUbiComboExamPaperSeeder extends Seeder
     private const SOURCES = [
         ['course' => 'SRC', 'offset' => 0],
         ['course' => 'UBI', 'offset' => 100],
+        ['course' => 'ADD-UBI-TO-SRC', 'offset' => 200],
     ];
 
     public function run(): void
     {
         $combo = CourseDefinition::withoutGlobalScopes()->where('code', 'SRC-UBI')->whereNull('tenant_id')->first();
 
-        if (! $combo || $combo->examPapers()->exists()) {
+        if (! $combo) {
             return;
         }
+
+        // Je Bogen statt je Kurs prüfen: auf bestehenden Installationen
+        // kommt so die später ergänzte Gruppe UBI-Ergänzung (201-212) dazu,
+        // ohne die vorhandenen Bögen anzufassen.
+        $existing = $combo->examPapers()->pluck('paper_number')->all();
 
         foreach (self::SOURCES as $source) {
             $sourceCourse = CourseDefinition::withoutGlobalScopes()->where('code', $source['course'])->whereNull('tenant_id')->first();
@@ -49,6 +57,10 @@ class SrcUbiComboExamPaperSeeder extends Seeder
             }
 
             foreach ($sourceCourse->examPapers()->with('paperQuestions')->get() as $sourcePaper) {
+                if (in_array($sourcePaper->paper_number + $source['offset'], $existing, true)) {
+                    continue;
+                }
+
                 $paper = ExamPaper::create([
                     'course_id' => $combo->id,
                     'paper_number' => $sourcePaper->paper_number + $source['offset'],

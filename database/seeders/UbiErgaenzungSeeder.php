@@ -11,8 +11,8 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Ergänzung SRC → UBI (ADD-UBI-TO-SRC) auf den amtlichen
- * Ergänzungskatalog beschränken: die 79 Fragen aus
+ * Ergänzung SRC → UBI (ADD-UBI-TO-SRC) und Kombikurs SRC & UBI auf den
+ * amtlichen Ergänzungskatalog beschränken: die 79 Fragen aus
  * ubi_ergaenzung_katalog.php bilden das Modul UBI_ERG (dieselben
  * content_question-Zeilen wie im Modul UBI, keine Kopien -- Lernfortschritt
  * und Revisionen bleiben gemeinsam).
@@ -29,6 +29,14 @@ use Illuminate\Support\Facades\DB;
  */
 class UbiErgaenzungSeeder extends Seeder
 {
+    /**
+     * Kurse, deren UBI-Teil auf den Ergänzungskatalog beschränkt ist: die
+     * Ergänzung selbst und der Kombikurs SRC & UBI -- wer beide Scheine in
+     * einem Prüfungsdurchlauf ablegt, schreibt SRC plus UBI-Ergänzungsbogen
+     * (die vollen UBI-Bögen bleiben in dessen Prüfungsbögen zum Üben).
+     */
+    private const COURSES = ['ADD-UBI-TO-SRC', 'SRC-UBI'];
+
     public function run(): void
     {
         $catalog = include database_path('data/ubi_ergaenzung_katalog.php');
@@ -53,20 +61,23 @@ class UbiErgaenzungSeeder extends Seeder
             }
             $module->questions()->syncWithoutDetaching($pivot);
 
-            $course = CourseDefinition::withoutGlobalScopes()->where('code', 'ADD-UBI-TO-SRC')->whereNull('tenant_id')->first();
             $fullModule = Module::where('code', 'UBI')->first();
 
-            if (! $course || ! $fullModule || ! $course->modules()->whereKey($fullModule->id)->exists()) {
-                return;
+            foreach (self::COURSES as $code) {
+                $course = CourseDefinition::withoutGlobalScopes()->where('code', $code)->whereNull('tenant_id')->first();
+
+                if (! $course || ! $fullModule || ! $course->modules()->whereKey($fullModule->id)->exists()) {
+                    continue;
+                }
+
+                $sortOrder = $course->modules()->whereKey($fullModule->id)->first()->pivot->sort_order;
+                $course->modules()->detach($fullModule->id);
+                $course->modules()->syncWithoutDetaching([$module->id => ['sort_order' => $sortOrder, 'required' => true]]);
+
+                ExamBlueprint::whereIn('rule_set_id', ExamRuleSet::where('course_id', $course->id)->pluck('id'))
+                    ->where('module_id', $fullModule->id)
+                    ->delete();
             }
-
-            $sortOrder = $course->modules()->whereKey($fullModule->id)->first()->pivot->sort_order;
-            $course->modules()->detach($fullModule->id);
-            $course->modules()->syncWithoutDetaching([$module->id => ['sort_order' => $sortOrder, 'required' => true]]);
-
-            ExamBlueprint::whereIn('rule_set_id', ExamRuleSet::where('course_id', $course->id)->pluck('id'))
-                ->where('module_id', $fullModule->id)
-                ->delete();
         });
     }
 }
