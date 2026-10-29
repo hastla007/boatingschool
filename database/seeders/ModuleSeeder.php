@@ -27,6 +27,9 @@ class ModuleSeeder extends Seeder
             ['code' => 'SBF_BINNEN_SEGELN', 'name' => 'SBF Binnen Segeln (Zusatzmodul)'],
             ['code' => 'SRC', 'name' => 'SRC Seefunk'],
             ['code' => 'UBI', 'name' => 'UBI Binnenfunk'],
+            // Teilmenge von UBI (79 Fragen, amtlicher Ergänzungskatalog),
+            // befüllt von UbiErgaenzungSeeder.
+            ['code' => 'UBI_ERG', 'name' => 'UBI Ergänzung (für Inhaber eines Seefunkzeugnisses)'],
             ['code' => 'SKN', 'name' => 'SKN'],
             ['code' => 'FKN', 'name' => 'FKN'],
         ];

@@ -125,20 +125,20 @@ class VideoLessonQuestionSeeder extends Seeder
                 'Was für eine Laterne kann ein Segelfahrzeug von weniger als 20 m Länge anstelle der Seitenlichter und des Hecklichtes führen?',
             ],
             'Spezialfälle' => [
-                ['media' => 'Lichter-Frage-93-gif.png'],
-                ['media' => 'Lichter-Frage-107-gif.png'],
-                ['media' => 'Lichter-Frage-105-gif.png'],
-                ['media' => 'Lichter-Frage-108-gif.png'],
-                ['media' => 'Lichter-Frage-110-gif.png'],
-                ['media' => 'Lichter-Frage-111-gif.png'],
+                ['see_specific' => '93'],
+                ['see_specific' => '107'],
+                ['see_specific' => '105'],
+                ['see_specific' => '108'],
+                ['see_specific' => '110'],
+                ['see_specific' => '111'],
             ],
             'Signalkörper und Flaggen' => [
                 'Was bedeutet es, wenn jedes Fahrzeug eines Schleppverbandes einen schwarzen Rhombus führt?',
-                ['media' => 'Signalkoerper-Frage-99-gif.png'],
-                ['media' => 'Signalkoerper-Frage-104-gif.png'],
-                ['media' => 'Signalkoerper-Frage-106-gif.png'],
-                ['media' => 'Signalkoerper-Frage-109-gif.png'],
-                ['media' => 'Signalkoerper-Frage-112-gif.png'],
+                ['see_specific' => '99'],
+                ['see_specific' => '104'],
+                ['see_specific' => '106'],
+                ['see_specific' => '109'],
+                ['see_specific' => '112'],
             ],
         ],
         'Leuchtfeuer und Tonnen' => [
@@ -203,9 +203,12 @@ class VideoLessonQuestionSeeder extends Seeder
     }
 
     /**
-     * @param  array<int, string|array{media: string}>  $questions  Fragetext, oder
-     *                                                              ['media' => '...'] um bei mehrdeutigem (mehrfach verwendetem)
-     *                                                              Fragetext über den Dateinamen des zugehörigen Bildes zu identifizieren.
+     * @param  array<int, string|array{see_specific: string}>  $questions  Fragetext, oder
+     *                                                                     ['see_specific' => 'Nr.'] um bei mehrdeutigem (mehrfach
+     *                                                                     verwendetem) Fragetext über die Katalognummer der
+     *                                                                     See-Frage zu identifizieren. Früher über den
+     *                                                                     Dateinamen des Bildes, der seit den ELWIS-Bildern
+     *                                                                     (ElwisQuestionImageSeeder) nicht mehr existiert.
      */
     private function attachQuestions(VideoLesson $lesson, array $questions): void
     {
@@ -217,7 +220,7 @@ class VideoLessonQuestionSeeder extends Seeder
             $query = ContentQuestionRevision::where('editorial_status', 'published');
 
             $revision = is_array($question)
-                ? $query->whereHas('media', fn ($q) => $q->where('storage_path', 'ilike', '%'.$question['media']))->first()
+                ? $query->whereHas('question', fn ($q) => $q->where('content_role', 'see_specific')->where('official_number', $question['see_specific']))->first()
                 : $query->where('question_text', $question)->first();
 
             if ($revision) {
@@ -226,7 +229,7 @@ class VideoLessonQuestionSeeder extends Seeder
                 continue;
             }
 
-            $identifier = is_array($question) ? "Bild '{$question['media']}'" : "Text '{$question}'";
+            $identifier = is_array($question) ? "SBF-See-Frage {$question['see_specific']}" : "Text '{$question}'";
             $this->command?->warn("VideoLessonQuestionSeeder: Keine veröffentlichte Frage für {$identifier} (Lektion '{$lesson->title}') gefunden -- nicht angehängt.");
         }
     }

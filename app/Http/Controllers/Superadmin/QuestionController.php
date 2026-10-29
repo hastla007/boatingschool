@@ -171,34 +171,7 @@ class QuestionController extends Controller
         $isLatest = $revision->revision_no === $revision->question->revisions()->max('revision_no');
         abort_unless($isLatest, 409, 'Für diese Frage liegt inzwischen eine neuere Fassung vor -- bitte die Seite neu laden.');
 
-        DB::transaction(function () use ($revision) {
-            $published = ContentQuestionRevision::where('question_id', $revision->question_id)
-                ->where('editorial_status', 'published')
-                ->first();
-
-            if ($published) {
-                // Bug-Review (Veröffentlichen einer Import-Revision verliert
-                // Feedback/Bilder): ImportContentQuestions setzt auf einer
-                // neuen "review"-Revision nie feedback_correct/
-                // feedback_incorrect und hängt auch kein Bild an (beides
-                // sind reine Editor-Felder) -- ohne das hier genau wie
-                // update() (Bug-Review B13) von der bisher veröffentlichten
-                // Fassung zu übernehmen, würde das Veröffentlichen einer
-                // solchen Import-Revision beides stillschweigend löschen.
-                $revision->update([
-                    'feedback_correct' => $revision->feedback_correct ?? $published->feedback_correct,
-                    'feedback_incorrect' => $revision->feedback_incorrect ?? $published->feedback_incorrect,
-                ]);
-
-                foreach ($published->media as $media) {
-                    $revision->media()->attach($media->id, ['role' => $media->pivot->role, 'sort_order' => $media->pivot->sort_order]);
-                }
-
-                $published->update(['editorial_status' => 'deprecated']);
-            }
-
-            $revision->update(['editorial_status' => 'published']);
-        });
+        $revision->publish();
 
         return back()->with('status', 'Fassung veröffentlicht.');
     }

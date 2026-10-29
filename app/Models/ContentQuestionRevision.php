@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class ContentQuestionRevision extends Model
 {
@@ -60,5 +61,47 @@ class ContentQuestionRevision extends Model
     public function correctAnswers(): Collection
     {
         return $this->answers->where('is_correct', true)->values();
+    }
+
+    /**
+     * Veröffentlicht diese Revision und setzt die bisher veröffentlichte
+     * Fassung derselben Frage auf "deprecated".
+     *
+     * Bug-Review (Veröffentlichen einer Import-Revision verliert
+     * Feedback/Bilder): ImportContentQuestions setzt auf einer neuen
+     * "review"-Revision nie feedback_correct/feedback_incorrect und hängt
+     * auch kein Bild an (beides sind reine Editor-Felder) -- ohne das hier
+     * genau wie QuestionController::update() (Bug-Review B13) von der
+     * bisher veröffentlichten Fassung zu übernehmen, würde das
+     * Veröffentlichen einer solchen Import-Revision beides stillschweigend
+     * löschen. $inheritEditorialContent = false überspringt das bewusst,
+     * wenn die neue Fassung inhaltlich eine andere Frage sein kann (neuer
+     * amtlicher Katalog, siehe CatalogUpdateSeeder) -- dort würde eine
+     * zur alten Antwort geschriebene Erklärung bzw. ein altes Bild falsch.
+     */
+    public function publish(bool $inheritEditorialContent = true): void
+    {
+        DB::transaction(function () use ($inheritEditorialContent) {
+            $published = self::where('question_id', $this->question_id)
+                ->where('editorial_status', 'published')
+                ->first();
+
+            if ($published) {
+                if ($inheritEditorialContent) {
+                    $this->update([
+                        'feedback_correct' => $this->feedback_correct ?? $published->feedback_correct,
+                        'feedback_incorrect' => $this->feedback_incorrect ?? $published->feedback_incorrect,
+                    ]);
+
+                    foreach ($published->media as $media) {
+                        $this->media()->attach($media->id, ['role' => $media->pivot->role, 'sort_order' => $media->pivot->sort_order]);
+                    }
+                }
+
+                $published->update(['editorial_status' => 'deprecated']);
+            }
+
+            $this->update(['editorial_status' => 'published']);
+        });
     }
 }

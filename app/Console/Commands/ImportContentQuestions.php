@@ -181,8 +181,13 @@ class ImportContentQuestions extends Command
                     'competency' => $canonical['competency'] ?: null,
                     'smartmodus_kategorie' => $canonical['smartmodus_kategorie'] ?: null,
                     'image_required' => $canonical['image_required'],
-                    'source_catalog' => 'Zentrale Fragenbasis SBF/SRC/UBI',
-                    'source_version' => '2026-09',
+                    // Optionale Spalten source_catalog/source_version: eine
+                    // aus einem neueren amtlichen Katalog aktualisierte Zeile
+                    // (z. B. UBI, Stand Oktober 2026) belegt ihre Herkunft
+                    // selbst, statt pauschal als Stand der Fragenbasis 09/2026
+                    // zu gelten.
+                    'source_catalog' => trim((string) ($row['source_catalog'] ?? '')) ?: 'Zentrale Fragenbasis SBF/SRC/UBI',
+                    'source_version' => trim((string) ($row['source_version'] ?? '')) ?: '2026-09',
                     'source_question_id' => $canonical['source_question_id'] ?: null,
                     // Publish direkt für den Prototyp-Bootstrap; produktiv würde
                     // eine neue Revision im Status "review" auf fachliche

@@ -115,10 +115,14 @@ auf PostgreSQL, gemäß dem mitgelieferten technischen Konzept
   (= `content_question.official_number`), eindeutig erst in Kombination mit
   der Fragenfamilie aus der Tags-Spalte ("Basisfragen" → `shared_basis`,
   "Spezifische Fragen See" → `see_specific`), da dieselbe Katalognummer je
-  Fragenfamilie mehrfach vorkommt. Bilder aus
-  `database/data/pruefungsboegen_bilder/` werden dabei direkt an die
-  jeweilige Frage angehängt (`question_media`) und erscheinen dadurch überall,
-  wo diese Frage angezeigt wird (Smarttrainer, Prüfungssimulation). Dasselbe
+  Fragenfamilie mehrfach vorkommt. Alle Fragenbilder der SBF-Kurse (Basis,
+  See, Binnen, Binnen Segeln) stammen von ELWIS (Fragenkatalog Binnen
+  online, Fragenkatalog See als PDF Stand August 2023;
+  `database/data/elwis_bilder/`, Zuordnung in `elwis_bilder.csv`), hängen
+  direkt an der jeweiligen Frage (`question_media`, `ElwisQuestionImageSeeder`)
+  und erscheinen dadurch überall, wo diese Frage angezeigt wird (Smarttrainer,
+  Prüfungssimulation). Die früheren Bilder aus den Bögen von
+  bootsfuehrerscheinpruefung.de sind entfernt. Dasselbe
   Muster (eigener Seeder je Kurs, feste statt zufällig gewürfelter Fragen)
   wurde inzwischen auch auf weitere Kurse übertragen (u. a. SRC, FKN, SBF
   Binnen, Kombikurse) – mit jeweils eigener Fragenzahl/-zusammensetzung laut
@@ -167,8 +171,19 @@ Der Seed-Lauf importiert automatisch die mitgelieferte zentrale
 Fragenbasis (`database/data/zentrale_fragenbasis.xlsx`, 838 Zeilen, davon
 823 importierbar – 15 Zeilen sind freie Kartenaufgaben ohne A–D-Antworten
 und werden bewusst als Fehler ausgewiesen, nicht stillschweigend
-übersprungen), legt die 8 Module und 14 Kursdefinitionen an und erzeugt
+übersprungen), legt die 9 Module und 14 Kursdefinitionen an und erzeugt
 zwei Demo-Bootsschulen.
+
+Die 130 UBI-Fragen entsprechen dem UBI-Gesamtfragenkatalog Stand Oktober
+2026 (ABVT Koblenz, gültig ab 01.10.2026; Zeilen mit `source_version`
+`2026-10`). Auf einer Installation mit dem bisherigen Katalog 08/2023 legt
+der Seed-Lauf für die 65 geänderten Fragen neue Revisionen an und
+veröffentlicht sie (`CatalogUpdateSeeder`); die alte Fassung bleibt als
+`deprecated` erhalten, bereits gespeicherte Versuche verweisen weiter auf
+sie. Die Ergänzung SRC → UBI nutzt nur die 79 Fragen des amtlichen
+Ergänzungskatalogs (Modul `UBI_ERG`, dieselben Fragen wie im Modul `UBI`)
+und hat 12 Übungsbögen à 10 Fragen; ihre Bestehensgrenze ist noch nicht
+hinterlegt, das Regelwerk bleibt deshalb `draft`.
 
 ```bash
 php artisan serve
@@ -269,7 +284,7 @@ aktuell in einem Schritt) sowie fortgeschrittenes Spaced Repetition.
 **Wichtiger Hinweis zur Prüfungssimulation**: Die Prüfungsregelwerke
 (Fragenmix, Zeitlimit, Bestehensgrenze) sind für die meisten Kurse weiterhin
 als `draft`/unverifiziert markiert. Nur für Kurse mit echten, amtlichen
-Prüfungsbögen (ADD-BIN-SEGEL, SRC, FKN) ist zusätzlich eine tatsächlich aus
+Prüfungsbögen (ADD-BIN-SEGEL, SRC, FKN, UBI) ist zusätzlich eine tatsächlich aus
 der jeweiligen Prüfungsordnung belegte Bestehensgrenze eingetragen und das
 Regelwerk als verifiziert markiert (siehe `ExamRuleSetSeeder`) – für alle
 anderen Kurse müssen Zeitlimit/Fragenmix/Bestehensgrenze vor echtem
