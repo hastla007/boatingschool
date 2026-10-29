@@ -48,13 +48,24 @@
                 </p>
             @elseif ($course->code === 'SBF-SEE-BIN')
                 <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                    Hier findest Du alle 30 offiziellen Prüfungsbögen &mdash; 15 für SBF See und 15 für SBF Binnen, jeweils mit
-                    30 Multiple-Choice-Fragen (7 allgemeine Basisfragen und 23 kursspezifische Fragen). Die Bögen haben immer
-                    die gleiche Zusammensetzung, sodass Du Dich gezielt und effizient auf beide Prüfungen vorbereiten kannst.
+                    Hier findest Du alle 30 offiziellen Prüfungsbögen &mdash; 15 für SBF See mit 30 Multiple-Choice-Fragen
+                    (7 allgemeine Basisfragen und 23 Fragen See) und 15 für SBF Binnen mit den 23 Fragen Binnen. Legst Du beide
+                    Prüfungen am selben Tag ab, werden die Basisfragen nur einmal geprüft. Die Bögen haben immer die gleiche
+                    Zusammensetzung, sodass Du Dich gezielt und effizient auf beide Prüfungen vorbereiten kannst.
                 </p>
                 <p class="text-xs text-slate-600 dark:text-slate-400 mt-3">
                     Hinweis: Die Zuordnung der Fragen zu den einzelnen Bögen entspricht den amtlichen Prüfungsbögen
                     (Quelle: seeundbinnen.de).
+                </p>
+            @elseif ($course->code === 'SRC-UBI')
+                <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                    Hier findest Du die offiziellen Prüfungsbögen für <strong>SRC und UBI</strong>, getrennt nach Funkschein,
+                    damit Du gezielt üben kannst. Legst Du beide Scheine in einem Prüfungsdurchlauf ab, sind für Dich die
+                    Bögen <strong>SRC</strong> und <strong>UBI-Ergänzung</strong> relevant &mdash; der UBI-Ergänzungsbogen
+                    ersetzt dann den vollständigen UBI-Bogen.
+                </p>
+                <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed mt-2">
+                    Die Fragen kommen genau so in der Prüfung dran, und die Bögen haben immer die gleiche Zusammensetzung.
                 </p>
             @elseif (isset($fullCourseCopy[$course->code]))
                 @php $copy = $fullCourseCopy[$course->code]; @endphp

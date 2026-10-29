@@ -29,6 +29,7 @@ class ComboExamGroups
         'SRC-UBI' => [
             ['label' => 'SRC', 'course' => 'SRC', 'min' => 1, 'max' => 12, 'offset' => 0],
             ['label' => 'UBI', 'course' => 'UBI', 'min' => 101, 'max' => 112, 'offset' => 100],
+            ['label' => 'UBI-Ergänzung', 'course' => 'ADD-UBI-TO-SRC', 'min' => 201, 'max' => 212, 'offset' => 200],
         ],
     ];
 

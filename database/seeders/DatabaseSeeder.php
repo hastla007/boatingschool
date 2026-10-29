@@ -68,6 +68,7 @@ class DatabaseSeeder extends Seeder
             BinnenSegelnVideoCourseSeeder::class,
             BinnenSegelnAddonVideoCourseSeeder::class,
             FknSknVideoCourseSeeder::class,
+            FunkVideoCourseSeeder::class,
             BinnenKnotenVideoSeeder::class,
             BinnenLessonQuestionSeeder::class,
             BinnenSegelnLessonQuestionSeeder::class,

@@ -149,6 +149,7 @@ class CourseController extends Controller
 
                 return [
                     'label' => $group['label'],
+                    'motif' => $group['motif'],
                     'moduleIds' => $modules->pluck('id')->values(),
                     'percent' => $modules->isNotEmpty() ? $chapterPercent($modules->pluck('id')->all()) : 0,
                 ];

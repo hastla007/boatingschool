@@ -14,22 +14,20 @@ use Tests\TestCase;
  */
 class UbiSrcUbiExamPaperSeederTest extends TestCase
 {
-    public function test_src_ubi_combo_mirrors_all_12_src_papers_and_all_12_ubi_papers(): void
+    public function test_src_ubi_combo_mirrors_the_src_ubi_and_ubi_addon_papers(): void
     {
-        $combo = CourseDefinition::withoutGlobalScopes()->where('code', 'SRC-UBI')->whereNull('tenant_id')->firstOrFail();
-        $src = CourseDefinition::withoutGlobalScopes()->where('code', 'SRC')->whereNull('tenant_id')->firstOrFail();
-        $ubi = CourseDefinition::withoutGlobalScopes()->where('code', 'UBI')->whereNull('tenant_id')->firstOrFail();
+        $course = fn (string $code) => CourseDefinition::withoutGlobalScopes()->where('code', $code)->whereNull('tenant_id')->firstOrFail();
+        $comboPapers = $course('SRC-UBI')->examPapers;
+        $this->assertCount(36, $comboPapers);
 
-        $comboPapers = $combo->examPapers;
-        $this->assertCount(24, $comboPapers);
+        $groups = [
+            [$comboPapers->filter(fn ($p) => $p->paper_number <= 12), $course('SRC'), 0],
+            [$comboPapers->filter(fn ($p) => $p->paper_number >= 101 && $p->paper_number <= 112), $course('UBI'), 100],
+            [$comboPapers->filter(fn ($p) => $p->paper_number >= 201), $course('ADD-UBI-TO-SRC'), 200],
+        ];
 
-        $srcMirrored = $comboPapers->filter(fn ($p) => $p->paper_number <= 12);
-        $ubiMirrored = $comboPapers->filter(fn ($p) => $p->paper_number >= 101);
-
-        $this->assertCount(12, $srcMirrored);
-        $this->assertCount(12, $ubiMirrored);
-
-        foreach ([[$srcMirrored, $src, 0], [$ubiMirrored, $ubi, 100]] as [$mirrored, $sourceCourse, $offset]) {
+        foreach ($groups as [$mirrored, $sourceCourse, $offset]) {
+            $this->assertCount(12, $mirrored, "{$sourceCourse->code}-Bögen im Kombikurs");
             foreach ($mirrored as $paper) {
                 $sourcePaper = $sourceCourse->examPapers->firstWhere('paper_number', $paper->paper_number - $offset);
                 $this->assertNotNull($sourcePaper, "Kein {$sourceCourse->code}-Quellbogen für Nr. {$paper->paper_number}");
@@ -57,5 +55,6 @@ class UbiSrcUbiExamPaperSeederTest extends TestCase
         $this->assertSame(['label' => 'UBI', 'displayNumber' => 12], ComboExamGroups::infoFor('SRC-UBI', 112));
         $this->assertNull(ComboExamGroups::infoFor('SRC-UBI', 50));
         $this->assertNull(ComboExamGroups::infoFor('SRC-UBI', 200));
+        $this->assertSame(['label' => 'UBI-Ergänzung', 'displayNumber' => 3], ComboExamGroups::infoFor('SRC-UBI', 203));
     }
 }

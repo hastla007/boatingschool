@@ -170,7 +170,23 @@
                             <path d="M-20,156 C160,140 320,168 480,150 S760,134 820,153" stroke="white" stroke-opacity="0.06" stroke-width="1.5" />
                             <text x="565" y="30" fill="white" fill-opacity="0.16" font-size="14" font-family="sans-serif">12</text>
                             <text x="565" y="175" fill="white" fill-opacity="0.14" font-size="14" font-family="sans-serif">28</text>
-                            @if ($loop->first)
+                            @if ($group['motif'] === 'antenna')
+                                <g transform="translate(680,100)" stroke="white" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle r="58" stroke-opacity="0.10" />
+                                    <path d="M0,-30 L-26,52 M0,-30 L26,52 M-16,20 L16,20 M-9,-2 L9,-2 M-21,36 L21,36" stroke-opacity="0.20" stroke-width="2" />
+                                    <circle cy="-36" r="6" stroke-opacity="0.22" stroke-width="2" />
+                                    <path d="M-20,-52 A26,26 0 0,0 -20,-20 M20,-52 A26,26 0 0,1 20,-20" stroke-opacity="0.18" stroke-width="2" />
+                                    <path d="M-34,-64 A44,44 0 0,0 -34,-8 M34,-64 A44,44 0 0,1 34,-8" stroke-opacity="0.12" stroke-width="2" />
+                                </g>
+                            @elseif ($group['motif'] === 'radio')
+                                <g transform="translate(680,100)" stroke="white" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle r="58" stroke-opacity="0.10" />
+                                    <rect x="-20" y="-30" width="40" height="78" rx="8" stroke-opacity="0.20" stroke-width="2" />
+                                    <path d="M10,-30 L10,-62" stroke-opacity="0.20" stroke-width="3" />
+                                    <rect x="-12" y="-20" width="24" height="16" rx="2" stroke-opacity="0.18" stroke-width="2" />
+                                    <path d="M-10,8 L10,8 M-10,18 L10,18 M-10,28 L10,28 M-10,38 L10,38" stroke-opacity="0.16" stroke-width="2" />
+                                </g>
+                            @elseif ($group['motif'] === 'compass')
                                 <g transform="translate(680,100)" stroke="white">
                                     <circle r="58" stroke-opacity="0.10" fill="none" />
                                     <circle r="44" stroke-opacity="0.13" fill="none" />
