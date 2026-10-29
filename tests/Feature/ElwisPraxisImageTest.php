@@ -26,7 +26,7 @@ class ElwisPraxisImageTest extends TestCase
             }
 
             $this->assertSame('elwis/sbf_see_pdfbild_077.png', PraxisTask::where('content_id', 'PRAXIS-0049')->firstOrFail()->media->asset_key);
-            $this->assertSame(86, PraxisTask::whereHas('media', fn ($q) => $q->where('asset_key', 'like', 'elwis/%'))->count());
+            $this->assertSame(146, PraxisTask::whereHas('media', fn ($q) => $q->where('asset_key', 'like', 'elwis/%'))->count());
         });
     }
 
@@ -49,7 +49,7 @@ class ElwisPraxisImageTest extends TestCase
                 ->count();
 
             $this->assertSame(0, $unused);
-            $this->assertSame(65, MediaAsset::where('source', 'SBF See Praxistrainer')->count());
+            $this->assertSame(68, MediaAsset::where('source', 'SBF See Praxistrainer')->count());
             $this->assertFileDoesNotExist(database_path('data/praxistrainer_bilder/praxis-0035_zeichen_auf_see.png'));
         });
     }

@@ -8,7 +8,8 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Storage;
 
 /**
- * Praxistrainer (SBF See und der gespiegelte Kombikurs): 43 Karten zeigen
+ * Praxistrainer (SBF See, der gespiegelte Kombikurs und SBF Binnen, Karten
+ * "PRAXIS-BIN-…"): die zugeordneten Karten zeigen
  * statt der eigenen, schematischen Grafik das ELWIS-Bild, das dasselbe
  * Zeichen, Licht oder Schallsignal im amtlichen Fragenkatalog zeigt
  * (database/data/praxistrainer_elwis_bilder.csv). Es ist dasselbe Asset wie
