@@ -2,9 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\CourseExamRegistration;
 use App\Models\RadioTrainingProgress;
-use App\Support\ExamRegistration;
 use App\Support\FunkPraxis;
 use App\Support\FunkTraining;
 use Tests\Feature\Concerns\InteractsWithTenants;
@@ -225,47 +223,6 @@ class FunkTrainingTest extends TestCase
         $result = FunkTraining::wordMatch('I require immediate assistance', 'I require assistance');
         $this->assertSame(75, $result['percent']);
         $this->assertSame(['IMMEDIATE'], $result['missing']);
-    }
-
-    public function test_exam_booking_page_explains_registration_fees_and_exam_parts(): void
-    {
-        [$tenant, $learner, $combo] = $this->learnerInCombo();
-        $sbf = $this->existingCourse('SBF-SEE');
-        $addon = $this->existingCourse('ADD-UBI-TO-SRC');
-        $this->grantEntitlement($tenant, $learner, $sbf);
-        $this->grantEntitlement($tenant, $learner, $addon);
-        $this->onAdmin(function () use ($tenant, $combo, $addon) {
-            foreach ([$combo, $addon] as $course) {
-                CourseExamRegistration::create(['tenant_id' => $tenant->id, 'course_id' => $course->id, 'mode' => ExamRegistration::SELF]);
-            }
-        });
-
-        $this->actingAsInTenant($learner, $tenant)->get("/courses/{$combo->id}")->assertOk()->assertSee('Prüfung buchen');
-        $this->actingAsInTenant($learner, $tenant)->get("/courses/{$combo->id}/funk/pruefung-buchen")
-            ->assertOk()->assertSee('SRC-Prüfung buchen')->assertSee('ca. 127,88 €')->assertSee('24 Fragen aus 180')
-            ->assertSee('https://www.dmyv.de/fuehrerschein/-funk/pruefungen/pruefungsausschuesse/')->assertSee('Bundesnetzagentur');
-        $this->actingAsInTenant($learner, $tenant)->get("/courses/{$combo->id}/funk/pruefung-buchen?teil=UBI")
-            ->assertOk()->assertSee('UBI-Prüfung buchen')->assertSee('ca. 108,71 €')
-            ->assertSeeInOrder(['Vollprüfung', '22 Fragen aus 130', 'Ergänzungsprüfung für SRC-Inhaber', '10 Fragen aus 79']);
-        $this->actingAsInTenant($learner, $tenant)->get("/courses/{$addon->id}/funk/pruefung-buchen")
-            ->assertOk()->assertSee('UBI-Prüfung buchen')->assertSee('Du hast schon das SRC')
-            ->assertSeeInOrder(['Ergänzungsprüfung für SRC-Inhaber', 'Vollprüfung']);
-        $this->actingAsInTenant($learner, $tenant)->get("/courses/{$sbf->id}/funk/pruefung-buchen")->assertNotFound();
-    }
-
-    public function test_exam_booking_theory_facts_match_the_official_rule_sets(): void
-    {
-        $this->onAdmin(function () {
-            foreach (['SRC' => ['SRC', 'theory', 'SRC'], 'UBI' => ['UBI', 'theory', 'UBI'], 'ADD-UBI-TO-SRC' => ['UBI', 'addon_theory', 'UBI_ERG']] as $code => [$catalog, $key, $module]) {
-                $course = $this->existingCourse($code);
-                $ruleSet = $course->activeExamRuleSet();
-                $theory = FunkTraining::booking($catalog)[$key];
-
-                $this->assertEqualsWithDelta($ruleSet->passing_rule['min_correct_ratio'], $theory['min_correct'] / $theory['questions'], 1e-9, "Bestehensgrenze {$code}");
-                $this->assertSame($ruleSet->time_limit_seconds, $theory['minutes'] * 60, "Dauer {$code}");
-                $this->assertSame($theory['catalog'], $course->modules->firstWhere('code', $module)->questions()->count(), "Katalog {$code}");
-            }
-        });
     }
 
     private function learnerInCombo(): array

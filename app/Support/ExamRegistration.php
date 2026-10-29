@@ -14,8 +14,7 @@ use App\Models\Tenant;
  *   "Praxis & Prüfung" (PraxisPruefungController). Standard.
  * - SELF: der Teilnehmer selbst -- er sieht stattdessen die Seite
  *   "Prüfung buchen" mit Anmeldeweg, Gebühren und Ablauf des jeweiligen
- *   Kurses. Nur für Kurse, für die es eine solche Seite gibt (bislang die
- *   Funkscheine, siehe database/data/funk_pruefung.php).
+ *   Kurses (ExamBooking). Nur für Kurse, für die es eine solche Seite gibt.
  */
 class ExamRegistration
 {
@@ -25,7 +24,7 @@ class ExamRegistration
 
     public static function hasSelfPage(CourseDefinition $course): bool
     {
-        return FunkTraining::catalogsFor($course) !== [];
+        return ExamBooking::pagesFor($course) !== [];
     }
 
     public static function modeFor(Tenant $tenant, CourseDefinition $course): string

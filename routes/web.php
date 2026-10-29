@@ -17,6 +17,7 @@ use App\Http\Controllers\Admin\WillkommensboxOrderController;
 use App\Http\Controllers\CouponRedeemController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ExamBookingController;
 use App\Http\Controllers\ExamController;
 use App\Http\Controllers\FavoriteCollectionController;
 use App\Http\Controllers\FavoriteController;
@@ -109,7 +110,6 @@ Route::middleware(['auth', 'tenant.member', 'verified'])->group(function () {
     Route::get('/courses/{course}/funk/praxis/{catalog}/{number}', [FunkTrainingController::class, 'praxisShow'])->name('funk.praxis.show')->whereIn('catalog', ['SRC', 'UBI'])->whereNumber('number');
     Route::post('/courses/{course}/funk/praxis/{catalog}/{number}', [FunkTrainingController::class, 'praxisEvaluate'])->name('funk.praxis.evaluate')->whereIn('catalog', ['SRC', 'UBI'])->whereNumber('number');
     Route::post('/courses/{course}/funk/{type}/{catalog}/{number}/erledigt', [FunkTrainingController::class, 'toggleCompleted'])->name('funk.completed')->whereIn('type', ['praxis', 'text', 'aufnahme', 'abgabe'])->whereIn('catalog', ['SRC', 'UBI'])->whereNumber('number');
-    Route::get('/courses/{course}/funk/pruefung-buchen', [FunkTrainingController::class, 'booking'])->name('funk.booking');
     Route::get('/courses/{course}/funk/muendlich', [FunkTrainingController::class, 'oralIndex'])->name('funk.oral.index');
     Route::get('/courses/{course}/funk/muendlich/{catalog}/texte/{number}', [FunkTrainingController::class, 'textShow'])->name('funk.oral.text')->whereIn('catalog', ['SRC', 'UBI'])->whereNumber('number');
     Route::post('/courses/{course}/funk/muendlich/{catalog}/texte/{number}', [FunkTrainingController::class, 'textEvaluate'])->name('funk.oral.text.evaluate')->whereIn('catalog', ['SRC', 'UBI'])->whereNumber('number');
@@ -132,6 +132,7 @@ Route::middleware(['auth', 'tenant.member', 'verified'])->group(function () {
     Route::post('/courses/{course}/praxistrainer/{task}/complete', [PraxisTrainerController::class, 'complete'])->name('praxistrainer.complete');
 
     Route::get('/courses/{course}/praxis-pruefung', [PraxisPruefungController::class, 'index'])->name('praxis-pruefung.index');
+    Route::get('/courses/{course}/pruefung-buchen', [ExamBookingController::class, 'show'])->name('exam-booking');
     Route::post('/courses/{course}/praxis-pruefung', [PraxisFormSubmissionController::class, 'store'])->name('praxis-pruefung.store');
     Route::post('/courses/{course}/praxis-pruefung/exam-appointments/{examAppointment}/respond', [PraxisExamAppointmentController::class, 'respond'])->name('praxis-pruefung.exam-appointments.respond');
 

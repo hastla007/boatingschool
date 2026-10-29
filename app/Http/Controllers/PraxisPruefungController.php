@@ -31,7 +31,7 @@ class PraxisPruefungController extends Controller
 
         // Teilnehmer meldet sich selbst an (ExamRegistration::SELF): statt des Termintools die Seite "Prüfung buchen".
         if (ExamRegistration::isSelf($tenant, $course)) {
-            return redirect()->route('funk.booking', $course);
+            return redirect()->route('exam-booking', $course);
         }
 
         // Bug-Review (Gates vergleichen den gerundeten Wert):

@@ -422,7 +422,7 @@
         {{-- Prüfungsanmeldung (App\Support\ExamRegistration): meldet sich der Teilnehmer selbst an,
              ersetzt "Prüfung buchen" das Termintool "Praxis & Prüfung" der Bootsschule. --}}
         @if ($selfExamRegistration)
-            <a href="{{ route('funk.booking', $course) }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-4 hover:shadow-md transition">
+            <a href="{{ route('exam-booking', $course) }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-4 hover:shadow-md transition">
                 <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="{{ $tileIconBg }}">
                     <x-icon name="calendar-days" class="w-5 h-5" style="{{ $tileIconColor }}" />
                 </div>

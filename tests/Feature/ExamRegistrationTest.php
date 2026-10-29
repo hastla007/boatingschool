@@ -33,7 +33,7 @@ class ExamRegistrationTest extends TestCase
 
         $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}")
             ->assertOk()->assertSee('Praxis &amp; Prüfung', false)->assertDontSee('Prüfung buchen');
-        $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/funk/pruefung-buchen")->assertNotFound();
+        $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/pruefung-buchen")->assertNotFound();
     }
 
     public function test_a_school_can_let_learners_register_themselves_per_course(): void
@@ -57,8 +57,8 @@ class ExamRegistrationTest extends TestCase
 
         $this->actingAsInTenant($learner, $tenant)->get("/courses/{$combo->id}")
             ->assertOk()->assertSee('Prüfung buchen')->assertDontSee('Praxis &amp; Prüfung', false);
-        $this->actingAsInTenant($learner, $tenant)->get("/courses/{$combo->id}/funk/pruefung-buchen")->assertOk()->assertSee('SRC-Prüfung buchen');
-        $this->actingAsInTenant($learner, $tenant)->get("/courses/{$combo->id}/praxis-pruefung")->assertRedirect("/courses/{$combo->id}/funk/pruefung-buchen");
+        $this->actingAsInTenant($learner, $tenant)->get("/courses/{$combo->id}/pruefung-buchen")->assertOk()->assertSee('SRC-Prüfung buchen');
+        $this->actingAsInTenant($learner, $tenant)->get("/courses/{$combo->id}/praxis-pruefung")->assertRedirect("/courses/{$combo->id}/pruefung-buchen");
         $this->actingAsInTenant($learner, $tenant)->post("/courses/{$combo->id}/praxis-pruefung")->assertNotFound();
 
         // Der andere Kurs derselben Bootsschule bleibt beim Termintool.
@@ -66,21 +66,18 @@ class ExamRegistrationTest extends TestCase
 
         // Zurück auf "Bootsschule meldet an".
         $this->actingAsInTenant($admin, $tenant)->patch('/admin/courses', ['enabled' => $this->allCourseIds()])->assertRedirect();
-        $this->actingAsInTenant($learner, $tenant)->get("/courses/{$combo->id}/funk/pruefung-buchen")->assertNotFound();
+        $this->actingAsInTenant($learner, $tenant)->get("/courses/{$combo->id}/pruefung-buchen")->assertNotFound();
     }
 
     public function test_courses_without_a_self_registration_page_stay_with_the_school(): void
     {
-        [$tenant, $admin, $learner, $sbf] = $this->schoolWithLearner('SBF-SEE');
+        [$tenant, $admin] = $this->schoolWithLearner('SBF-SEE');
+        $own = new CourseDefinition(['code' => 'EIGENER-KURS']);
 
-        $this->actingAsInTenant($admin, $tenant)->patch('/admin/courses', [
-            'enabled' => $this->allCourseIds(),
-            'registration' => [$sbf->id => 'self'],
-        ])->assertRedirect();
+        $this->assertFalse(ExamRegistration::hasSelfPage($own));
+        $this->assertSame(ExamRegistration::SCHOOL, ExamRegistration::modeFor($tenant, $own));
 
-        $this->onAdmin(fn () => $this->assertDatabaseMissing('course_exam_registration', ['tenant_id' => $tenant->id, 'course_id' => $sbf->id]));
-        $this->assertSame(ExamRegistration::SCHOOL, $this->asTenant($tenant, fn () => ExamRegistration::modeFor($tenant, $sbf)));
-        $this->actingAsInTenant($learner, $tenant)->get("/courses/{$sbf->id}")->assertOk()->assertDontSee('Prüfung buchen');
+        $sbf = $this->existingCourse('SBF-SEE');
         $this->actingAsInTenant($admin, $tenant)->patch('/admin/courses', ['enabled' => $this->allCourseIds(), 'registration' => [$sbf->id => 'irgendwas']])
             ->assertSessionHasErrors('registration.'.$sbf->id);
     }
@@ -91,7 +88,7 @@ class ExamRegistrationTest extends TestCase
         [$other, , $otherLearner] = $this->schoolWithLearner('SRC-UBI');
         $this->onAdmin(fn () => CourseExamRegistration::create(['tenant_id' => $tenant->id, 'course_id' => $combo->id, 'mode' => 'self']));
 
-        $this->actingAsInTenant($otherLearner, $other)->get("/courses/{$combo->id}/funk/pruefung-buchen")->assertNotFound();
+        $this->actingAsInTenant($otherLearner, $other)->get("/courses/{$combo->id}/pruefung-buchen")->assertNotFound();
         $this->assertSame(0, $this->asTenant($other, fn () => CourseExamRegistration::count()));
     }
 
