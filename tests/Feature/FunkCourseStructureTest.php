@@ -184,4 +184,24 @@ class FunkCourseStructureTest extends TestCase
             }
         });
     }
+
+    public function test_every_radio_question_is_quizzed_after_exactly_one_video_lesson(): void
+    {
+        $this->onAdmin(function () {
+            // Kurs => [Zahl der Quizfragen, Modul, aus dem sie stammen dürfen].
+            foreach (['SRC' => [180, ['SRC']], 'UBI' => [130, ['UBI']], 'ADD-UBI-TO-SRC' => [79, ['UBI_ERG']], 'SRC-UBI' => [259, ['SRC', 'UBI_ERG']]] as $code => [$expected, $modules]) {
+                $course = $this->existingCourse($code);
+                $quizIds = DB::table('video_lesson_question')
+                    ->join('video_lesson', 'video_lesson.id', '=', 'video_lesson_question.video_lesson_id')
+                    ->join('video_module', 'video_module.id', '=', 'video_lesson.video_module_id')
+                    ->where('video_module.course_id', $course->id)
+                    ->pluck('video_lesson_question.question_id');
+                $allowed = $course->modules()->whereIn('code', $modules)->get()->flatMap(fn ($m) => $m->questions->pluck('id'))->unique();
+
+                $this->assertCount($expected, $quizIds, "Quizfragen {$code}");
+                $this->assertSame($quizIds->count(), $quizIds->unique()->count(), "Doppelte Quizfrage in {$code}");
+                $this->assertSame([], $quizIds->diff($allowed)->values()->all(), "Fremde Quizfrage in {$code}");
+            }
+        });
+    }
 }
