@@ -279,6 +279,13 @@ class QuestionController extends Controller
             'valid_to' => $validated['valid_to'] ?? null,
             'editorial_status' => 'published',
             'rights_status' => 'licensed',
+            // Bug-Review (Seed überschreibt UBI-Korrekturen aus dem Editor):
+            // markiert diese Revision als vom Fragen-Editor angelegt, damit
+            // ImportContentQuestions beim Diff gegen die zuletzt IMPORTIERTE
+            // Fassung vergleicht statt gegen eine fachlich bereits
+            // korrigierte Editor-Revision (siehe Migration
+            // add_edited_by_superadmin_to_content_question_revision).
+            'edited_by_superadmin' => true,
         ];
     }
 

@@ -22,13 +22,14 @@ class ContentQuestionRevision extends Model
         'subtopic', 'competency', 'smartmodus_kategorie', 'image_required', 'source_catalog', 'source_version',
         'source_page', 'source_question_id', 'editorial_status', 'rights_status',
         'rights_owner', 'license_reference', 'valid_from', 'valid_to',
-        'reviewed_by', 'reviewed_at',
+        'reviewed_by', 'reviewed_at', 'edited_by_superadmin',
     ];
 
     protected function casts(): array
     {
         return [
             'image_required' => 'boolean',
+            'edited_by_superadmin' => 'boolean',
             'valid_from' => 'date',
             'valid_to' => 'date',
             'reviewed_at' => 'datetime',

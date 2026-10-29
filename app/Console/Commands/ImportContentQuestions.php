@@ -166,8 +166,27 @@ class ImportContentQuestions extends Command
             );
 
             $latestRevision = $question->revisions()->orderByDesc('revision_no')->first();
+            // Bug-Review (Seed überschreibt UBI-Korrekturen aus dem Editor):
+            // der Diff gegen "die letzte Revision" verglich bisher auch
+            // gegen eine vom Fragen-Editor angelegte Revision (siehe
+            // Superadmin\QuestionController::update()) -- hat ein
+            // Superadmin eine fehlerhafte Frage korrigiert, ohne dass die
+            // Excel-Quelle seitdem denselben Fehler behoben hätte, wich der
+            // unveränderte Excel-Text zwangsläufig von der korrigierten
+            // Editor-Fassung ab und legte bei jedem Reimport erneut eine
+            // "review"-Revision mit dem alten, falschen Text an. Diese
+            // Revision wartete dann als Draft, dessen Veröffentlichung die
+            // Korrektur des Superadmins wieder verworfen hätte. Der Diff
+            // läuft deshalb jetzt gezielt gegen die zuletzt tatsächlich
+            // IMPORTIERTE Fassung (edited_by_superadmin = false) -- eine
+            // seitdem vom Editor vorgenommene Korrektur bleibt davon
+            // unberührt, solange die Excel-Quelle selbst unverändert ist.
+            $lastImportedRevision = $question->revisions()
+                ->where('edited_by_superadmin', false)
+                ->orderByDesc('revision_no')
+                ->first();
 
-            if ($latestRevision && $this->hashRevision($latestRevision) === $canonicalHash) {
+            if ($lastImportedRevision && $this->hashRevision($lastImportedRevision) === $canonicalHash) {
                 $this->unchanged++;
                 $revisionForModule = $latestRevision;
             } else {
