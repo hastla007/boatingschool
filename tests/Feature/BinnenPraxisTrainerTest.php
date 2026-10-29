@@ -81,4 +81,19 @@ class BinnenPraxisTrainerTest extends TestCase
         $this->actingAsInTenant($learner, $tenant)->get("/courses/{$addon->id}")->assertOk()->assertSee('Navigationsaufgaben');
         $this->actingAsInTenant($learner, $tenant)->get(route('exam.navigation.index', $addon))->assertOk();
     }
+
+    public function test_binnen_to_see_addon_trains_only_the_see_mandatory_manoeuvres(): void
+    {
+        $this->onAdmin(function () {
+            $tasks = $this->existingCourse('ADD-BIN-TO-SEE')->praxisTasks;
+
+            $this->assertSame(
+                ['Rettungsmanöver unter Maschine', 'Anlegen unter Maschine', 'Ablegen unter Maschine', 'Steuern nach Kompass', 'Peilen'],
+                $tasks->pluck('unterkategorie')->all()
+            );
+            $this->assertSame(['Pflichtmanöver'], $tasks->pluck('kategorie')->unique()->values()->all());
+            $this->assertSame('PRAXIS-0004-BIN-SEE', $tasks[3]->content_id);
+            $this->assertSame(PraxisTask::where('content_id', 'PRAXIS-0004')->value('media_asset_id'), $tasks[3]->media_asset_id);
+        });
+    }
 }

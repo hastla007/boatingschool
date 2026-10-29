@@ -169,7 +169,7 @@ return [
                     'parts' => [['module' => 'SBF_SEE', 'of' => 23, 'min' => 18]],
                     'minutes' => 50,
                     'extra' => 'Dazu die Navigationsaufgabe in der Seekarte: mindestens 7 von 9 Punkten.',
-                    'note' => 'Du hast schon den SBF Binnen: Die Basisfragen entfallen, und Teile der praktischen Prüfung werden angerechnet. Welche, sagt dir dein Prüfungsausschuss.',
+                    'note' => 'Du hast schon den SBF Binnen: Die Basisfragen entfallen, und in der praktischen Prüfung fährst du nur die fünf Pflichtmanöver – Rettungsmanöver, An- und Ablegen, Steuern nach Kompass und Peilen.',
                 ],
             ],
             'exam_parts' => [
@@ -181,7 +181,7 @@ return [
                 'Wie läuft der Prüfungstag ab?' => 'Du legst den Fragebogen und die Navigationsaufgabe ab und fährst die praktische Prüfung unter Motor. Theorie und Praxis können am selben Tag oder an verschiedenen Tagen stattfinden; das legt dein Prüfungsausschuss fest.',
             ] + $sbfFaq + $faq['fee']('SBF See', '148,38 €') + $faq['online'] + [
                 'Ab welchem Alter darf ich die Prüfung machen?' => 'Das Mindestalter ist 16 Jahre. Zur Prüfung kannst du schon mit 15 Jahren und 9 Monaten antreten; den Führerschein bekommst du dann ab dem 16. Geburtstag.',
-                'Ich habe schon den SBF Binnen – was muss ich noch machen?' => 'Eine Ergänzungsprüfung: 23 See-Fragen ohne Basisfragen und die Navigationsaufgabe. Teile der praktischen Prüfung werden angerechnet.',
+                'Ich habe schon den SBF Binnen – was muss ich noch machen?' => 'Eine Ergänzungsprüfung: 23 See-Fragen ohne Basisfragen und die Navigationsaufgabe. In der praktischen Prüfung fährst du nur die Pflichtmanöver; Knoten und die übrigen Manöver entfallen.',
             ],
         ],
 
