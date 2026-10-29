@@ -14,11 +14,14 @@
  * Prüfungsbögen" wie bei FKN -- der Katalog dient als Lernkatalog
  * (Smart-Learning / Fragen üben).
  *
- * Anmerkung: Frage 08 übernimmt im Original-Dokument wortgleich die
- * Fragestellung von Frage 07 ("...Seenot-Handfackel..."), obwohl die
- * Antwortoptionen sich inhaltlich auf das Seenot-Rauchsignal beziehen
- * -- offensichtlich ein Redaktionsversehen im amtlichen Katalog, hier
- * wortgetreu übernommen statt stillschweigend korrigiert.
+ * Bug-Review (SKN-Frage 8 fälschlich "Seenot-Handfackel"): Frage 08
+ * übernahm im amtlichen Original-Dokument wortgleich die Fragestellung
+ * von Frage 07 ("...Seenot-Handfackel..."), obwohl sich die Antwort-
+ * optionen inhaltlich auf das Seenot-Rauchsignal beziehen -- ein
+ * Redaktionsversehen des amtlichen Katalogs, das hier zunächst
+ * wortgetreu übernommen wurde. Auf ausdrücklichen Nutzerwunsch jetzt
+ * korrigiert, analog zur inhaltsgleichen FKN-Frage (fkn_catalog.php,
+ * Frage 7), die bereits korrekt "...Seenot-Rauchsignals..." lautet.
  */
 return [
     1 => ['type' => 'open_text', 'q' => 'Was versteht man unter pyrotechnischen Seenotsignalen?', 'a' => 'Notsignale, die mit Hilfe explosionsgefährlicher Stoffe ausgelöst werden.'],
@@ -40,7 +43,7 @@ return [
         ['t' => 'Die brennende Fackel nach Luv waagerecht so halten, dass versprühter Abbrand keine Verletzungen (Hand, Augen) verursacht oder das Boot/Schiff beschädigt.', 'c' => false],
         ['t' => 'Gebrauchsanweisung beachten.', 'c' => true],
     ]],
-    8 => ['type' => 'multi_choice', 'q' => 'Was ist sicherheitstechnisch bei der Verwendung einer Seenot-Handfackel zu beachten?', 'options' => [
+    8 => ['type' => 'multi_choice', 'q' => 'Was ist sicherheitstechnisch bei der Verwendung eines Seenot-Rauchsignals zu beachten?', 'options' => [
         ['t' => 'Rauchsignale nur am Tage und bei geringen Windstärken verwenden.', 'c' => true],
         ['t' => 'Die Anzündung erfolgt durch eine Reißschnur, die unter einer abschraubbaren Schutzkappe liegt.', 'c' => true],
         ['t' => 'Nach der Zündung ist das Rauchsignal zur Leeseite außenbords zu werfen.', 'c' => true],
