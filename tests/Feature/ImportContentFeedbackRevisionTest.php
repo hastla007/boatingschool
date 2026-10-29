@@ -172,4 +172,65 @@ class ImportContentFeedbackRevisionTest extends TestCase
             $this->assertSame('Falsch-Text.', $newRevision->feedback_incorrect);
         });
     }
+
+    /**
+     * Bug-Review (Seed überschreibt Feedback-Text aus dem Editor): die
+     * veröffentlichte Revision kann vom Fragen-Editor stammen und dort
+     * bereits ein eigenes Feedback tragen -- ein Reimport der CSV durfte
+     * dieses nicht verwerfen. Ein noch LEERES Feld wird dagegen weiterhin
+     * aus der CSV befüllt.
+     */
+    public function test_reimporting_feedback_does_not_overwrite_feedback_already_entered_by_a_superadmin(): void
+    {
+        $contentId = 'TEST-W2-'.uniqid();
+
+        [$question, $editorRevision] = $this->onAdmin(function () use ($contentId) {
+            $module = Module::create(['code' => 'TEST-W2-MOD-'.uniqid(), 'name' => 'Test Modul W2', 'version' => '1', 'status' => 'published']);
+            $this->createdModuleIds[] = $module->id;
+
+            $question = ContentQuestion::create(['content_id' => $contentId, 'language' => 'de-DE', 'active' => true]);
+            $this->createdQuestionIds[] = $question->id;
+            $module->questions()->attach($question->id, ['required' => true]);
+
+            $editorRevision = ContentQuestionRevision::create([
+                'question_id' => $question->id,
+                'revision_no' => 1,
+                'question_type' => 'single_choice',
+                'question_text' => 'W2 Testfrage',
+                'feedback_correct' => 'Vom Superadmin korrigierter Erklärtext.',
+                'feedback_incorrect' => null,
+                'editorial_status' => 'published',
+                'rights_status' => 'licensed',
+                'edited_by_superadmin' => true,
+            ]);
+            ContentAnswer::create(['revision_id' => $editorRevision->id, 'answer_key' => 'A', 'answer_text' => 'Richtig', 'is_correct' => true, 'sort_order' => 1]);
+            ContentAnswer::create(['revision_id' => $editorRevision->id, 'answer_key' => 'B', 'answer_text' => 'Falsch', 'is_correct' => false, 'sort_order' => 2]);
+
+            return [$question, $editorRevision];
+        });
+
+        $this->csvPath = storage_path('app/test-w2-feedback-'.uniqid().'.csv');
+        file_put_contents($this->csvPath, implode(';', ['content_id', 'feedback_correct', 'feedback_incorrect'])."\n"
+            .implode(';', [$contentId, 'Richtig. Veralteter CSV-Text, der nicht übernommen werden darf.', 'Falsch. Neuer Falsch-Text aus der CSV.'])."\n");
+
+        Artisan::call('content:import-feedback', ['path' => 'storage/app/'.basename($this->csvPath)]);
+
+        $this->onAdmin(function () use ($question, $editorRevision) {
+            $editorRevision->refresh();
+            $this->assertSame('deprecated', $editorRevision->editorial_status);
+
+            $newRevision = $question->publishedRevision();
+            $this->assertNotSame($editorRevision->id, $newRevision->id);
+            $this->assertSame(
+                'Vom Superadmin korrigierter Erklärtext.',
+                $newRevision->feedback_correct,
+                'Ein vom Editor bereits gesetztes Feedback darf ein CSV-Reimport nicht überschreiben.'
+            );
+            $this->assertSame(
+                'Neuer Falsch-Text aus der CSV.',
+                $newRevision->feedback_incorrect,
+                'Ein noch leeres Feedback-Feld soll weiterhin aus der CSV befüllt werden.'
+            );
+        });
+    }
 }

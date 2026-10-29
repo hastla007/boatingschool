@@ -112,6 +112,21 @@ class ImportContentFeedback extends Command
         $feedbackCorrect = $feedbackCorrect ?: null;
         $feedbackIncorrect = $feedbackIncorrect ?: null;
 
+        // Bug-Review (Seed überschreibt Feedback-Text aus dem Editor): die
+        // veröffentlichte Revision kann -- genau wie bei ImportContentQuestions
+        // (siehe edited_by_superadmin) -- von einem Superadmin über den
+        // Fragen-Editor angelegt worden sein, der dort auch eigene Feedback-
+        // Texte eingetragen hat. Ein Reimport dieser CSV verglich bisher nur
+        // gegen den aktuellen Wert und überschrieb dabei auch eine schon
+        // gesetzte Editor-Fassung mit dem (ggf. veralteten) CSV-Text. Bei
+        // einer Editor-Revision wird deshalb nur noch befüllt, was dort noch
+        // LEER ist -- ein bereits vom Superadmin eingetragener Text bleibt
+        // unangetastet.
+        if ($revision->edited_by_superadmin) {
+            $feedbackCorrect = $revision->feedback_correct ?? $feedbackCorrect;
+            $feedbackIncorrect = $revision->feedback_incorrect ?? $feedbackIncorrect;
+        }
+
         if ($revision->feedback_correct === $feedbackCorrect && $revision->feedback_incorrect === $feedbackIncorrect) {
             $this->unchanged++;
 
