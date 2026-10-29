@@ -134,11 +134,11 @@ Richtig ist: „An den Pegeln und ausgewiesenen Hochwassermarken.“
 Den Wasserstand zeigen Pegel an; ausgewiesene Hochwassermarken am Ufer markieren, wann eine bestimmte Hochwasserstufe erreicht ist. Einsenkungsmarken am Rumpf zeigen nur, wie tief ein Fahrzeug eintaucht, nicht den Wasserstand."
 "SBF-BIN-0092";"Richtig.
 
-Geschwindigkeitsbeschränkung und Fahrverbot für Fahrzeuge ohne Sprechfunk. Ab Hochwassermarke I sind Deiche und Ufer durchweicht und empfindlich gegen Wellenschlag, deshalb wird die Geschwindigkeit beschränkt. Wer kein Sprechfunkgerät an Bord hat, kann Warnungen und Anweisungen nicht empfangen und darf daher nicht fahren.";"Falsch.
+Geschwindigkeitsbeschränkung und Fahrverbot für Fahrzeuge ohne Sprechfunk. Ab Hochwassermarke I reicht das Wasser bis an Deiche und Ufer, die durch Wellenschlag leicht beschädigt werden; deshalb wird die Geschwindigkeit beschränkt. Ohne Sprechfunk könnte ein Fahrzeug Warnungen und Anweisungen nicht empfangen und darf daher nicht fahren. Eingestellt wird die Schifffahrt erst bei Marke II.";"Falsch.
 
 Richtig ist: „Geschwindigkeitsbeschränkung und Fahrverbot für Fahrzeuge ohne Sprechfunk.“
 
-Ab Hochwassermarke I sind Deiche und Ufer durchweicht und empfindlich gegen Wellenschlag, deshalb wird die Geschwindigkeit beschränkt. Wer kein Sprechfunkgerät an Bord hat, kann Warnungen und Anweisungen nicht empfangen und darf daher nicht fahren."
+Ab Hochwassermarke I reicht das Wasser bis an Deiche und Ufer, die durch Wellenschlag leicht beschädigt werden; deshalb wird die Geschwindigkeit beschränkt. Ohne Sprechfunk könnte ein Fahrzeug Warnungen und Anweisungen nicht empfangen und darf daher nicht fahren. Eingestellt wird die Schifffahrt erst bei Marke II."
 "SBF-BIN-0093";"Richtig.
 
 Einstellung der Schifffahrt. Bei Hochwassermarke II wird die Schifffahrt eingestellt, weil Strömung, Treibgut und verringerte Brückendurchfahrtshöhen dann zu gefährlich sind und Wellenschlag die Deiche gefährden würde. Merkhilfe: Marke I bringt Beschränkungen, Marke II stoppt den Verkehr.";"Falsch.
@@ -239,11 +239,11 @@ Richtig ist: „Mit einem gelben Döpper.“
 Ein Döpper ist ein Schwimmkörper über dem Anker, der dessen Lage an der Wasseroberfläche anzeigt. Gelb ist gewählt, weil diese Farbe auf dem Wasser auffällt und nicht mit der roten oder grünen Fahrrinnenbezeichnung verwechselt wird."
 "SBF-BIN-0107";"Richtig.
 
-Liegestelle für Fahrzeuge mit explosiven Stoffen, für Kleinfahrzeuge verboten. Die blaue Tafel mit dem weißen Dreieck bezeichnet eine Liegestelle; die Zahl der blauen Kegel zeigt die Gefahrgutklasse. Drei Kegel stehen wie bei der Schiffsbezeichnung für explosive Stoffe, die den größten Abstand erfordern – Kleinfahrzeuge dürfen hier deshalb nicht liegen.";"Falsch.
+Liegestelle für Fahrzeuge mit explosiven Stoffen, für Kleinfahrzeuge verboten. Die blaue Tafel bezeichnet eine Liegestelle; die blauen Kegel darin zeigen, für welche Gefahrgutfahrzeuge sie bestimmt ist. Drei Kegel stehen wie bei der Schiffsbezeichnung für explosive Stoffe mit dem größten Sicherheitsabstand – Kleinfahrzeuge dürfen dort nicht liegen.";"Falsch.
 
 Richtig ist: „Liegestelle für Fahrzeuge mit explosiven Stoffen, für Kleinfahrzeuge verboten.“
 
-Die blaue Tafel mit dem weißen Dreieck bezeichnet eine Liegestelle; die Zahl der blauen Kegel zeigt die Gefahrgutklasse. Drei Kegel stehen wie bei der Schiffsbezeichnung für explosive Stoffe, die den größten Abstand erfordern – Kleinfahrzeuge dürfen hier deshalb nicht liegen."
+Die blaue Tafel bezeichnet eine Liegestelle; die blauen Kegel darin zeigen, für welche Gefahrgutfahrzeuge sie bestimmt ist. Drei Kegel stehen wie bei der Schiffsbezeichnung für explosive Stoffe mit dem größten Sicherheitsabstand – Kleinfahrzeuge dürfen dort nicht liegen."
 "SBF-BIN-0108";"Richtig.
 
 Liegestelle für Fahrzeuge ohne gefährliche Güter, auch für Kleinfahrzeuge. Blaue Tafeln geben eine Liegestelle frei. Weil keine blauen Kegel abgebildet sind, die Liegestellen für Fahrzeuge mit gefährlichen Gütern kennzeichnen, gilt sie für Fahrzeuge ohne gefährliche Güter und damit auch für Kleinfahrzeuge.";"Falsch.
@@ -253,11 +253,11 @@ Richtig ist: „Liegestelle für Fahrzeuge ohne gefährliche Güter, auch für K
 Blaue Tafeln geben eine Liegestelle frei. Weil keine blauen Kegel abgebildet sind, die Liegestellen für Fahrzeuge mit gefährlichen Gütern kennzeichnen, gilt sie für Fahrzeuge ohne gefährliche Güter und damit auch für Kleinfahrzeuge."
 "SBF-BIN-0109";"Richtig.
 
-Auf Schifffahrtskanälen und Schleusenkanälen. Schifffahrtskanäle und Schleusenkanäle sind schmal und werden stark befahren, ein liegendes Fahrzeug würde dort den Verkehr behindern. Deshalb gilt hier das Liegeverbot auch ohne Tafelzeichen; an anderen Stellen muss ein Liegeverbot ausdrücklich angezeigt werden.";"Falsch.
+Auf Schifffahrtskanälen und Schleusenkanälen. Schifffahrtskanäle und Schleusenkanäle sind schmal und stark befahren, ein liegendes Fahrzeug würde dort den Verkehr behindern; deshalb gilt das Liegeverbot auch ohne Tafelzeichen. Bei Brücken und Hochspannungsleitungen gilt das allgemeine Liegeverbot darunter, nicht davor oder dahinter.";"Falsch.
 
 Richtig ist: „Auf Schifffahrtskanälen und Schleusenkanälen.“
 
-Schifffahrtskanäle und Schleusenkanäle sind schmal und werden stark befahren, ein liegendes Fahrzeug würde dort den Verkehr behindern. Deshalb gilt hier das Liegeverbot auch ohne Tafelzeichen; an anderen Stellen muss ein Liegeverbot ausdrücklich angezeigt werden."
+Schifffahrtskanäle und Schleusenkanäle sind schmal und stark befahren, ein liegendes Fahrzeug würde dort den Verkehr behindern; deshalb gilt das Liegeverbot auch ohne Tafelzeichen. Bei Brücken und Hochspannungsleitungen gilt das allgemeine Liegeverbot darunter, nicht davor oder dahinter."
 "SBF-BIN-0110";"Richtig.
 
 Empfohlene Durchfahrtsöffnung, Durchfahrt in beide Richtungen erlaubt. Gelbe Rauten an Brücken sind Empfehlungen, keine Gebote. Eine einzelne gelbe Raute, wie hier über der Brückenöffnung, empfiehlt die Durchfahrt und lässt Gegenverkehr zu. Merkhilfe: eine Raute für beide Richtungen, zwei Rauten für eine Richtung.";"Falsch.
@@ -477,11 +477,11 @@ Richtig ist: „Es hält Kurs und Geschwindigkeit bei.“
 Kleinfahrzeuge mit Maschinenantrieb müssen Kleinfahrzeugen unter Segel ausweichen. Der Segler ist Kurshalter und muss Kurs und Geschwindigkeit beibehalten, damit der Ausweichpflichtige sein Manöver sicher planen kann – jede eigene Änderung würde ihn verwirren."
 "SBF-BIN-0141";"Richtig.
 
-Es hält Kurs und Geschwindigkeit bei. Topplicht und Seitenlichter zeigen hier ein Fahrzeug, das kein Kleinfahrzeug ist. Kleinfahrzeuge müssen allen anderen Fahrzeugen ausweichen, deshalb ist das größere Fahrzeug Kurshalter und behält Kurs und Geschwindigkeit bei.";"Falsch.
+Es hält Kurs und Geschwindigkeit bei. Entscheidend ist, dass ein Fahrzeug, das kein Kleinfahrzeug ist, auf ein Kleinfahrzeug trifft; die Lichter allein verraten das nicht sicher, denn auch Kleinfahrzeuge mit Maschinenantrieb führen Topplicht und Seitenlichter. Kleinfahrzeuge müssen allen anderen Fahrzeugen ausweichen, deshalb behält das größere Fahrzeug Kurs und Geschwindigkeit bei.";"Falsch.
 
 Richtig ist: „Es hält Kurs und Geschwindigkeit bei.“
 
-Topplicht und Seitenlichter zeigen hier ein Fahrzeug, das kein Kleinfahrzeug ist. Kleinfahrzeuge müssen allen anderen Fahrzeugen ausweichen, deshalb ist das größere Fahrzeug Kurshalter und behält Kurs und Geschwindigkeit bei."
+Entscheidend ist, dass ein Fahrzeug, das kein Kleinfahrzeug ist, auf ein Kleinfahrzeug trifft; die Lichter allein verraten das nicht sicher, denn auch Kleinfahrzeuge mit Maschinenantrieb führen Topplicht und Seitenlichter. Kleinfahrzeuge müssen allen anderen Fahrzeugen ausweichen, deshalb behält das größere Fahrzeug Kurs und Geschwindigkeit bei."
 "SBF-BIN-0142";"Richtig.
 
 Es muss ausweichen. Ein Segelsurfer gilt als Kleinfahrzeug unter Segel. Kleinfahrzeuge mit Maschinenantrieb müssen Kleinfahrzeugen unter Segel ausweichen – auch einem Surfbrett.";"Falsch.
@@ -1149,11 +1149,11 @@ Richtig ist: „Ab 10 cbm Wasserverdrängung.“
 Für die Eintragungspflicht ins Binnenschiffsregister kommt es auf die Wasserverdrängung an, nicht auf die Länge. Die Grenze liegt bei 10 Kubikmetern."
 "SBF-BIN-0237";"Richtig.
 
-Er muss die Geschwindigkeit anpassen und soweit wie möglich in der Fahrwassermitte bleiben, gegebenenfalls besondere Geschwindigkeitsbegrenzungen und Fahrtbeschränkungen beachten. In Ufernähe gefährden Wellenschlag die aufgeweichten Deiche und Ufer, außerdem drohen überflutete Hindernisse. Die Fahrwassermitte ist daher am sichersten; zusätzlich angeordnete Beschränkungen gelten unbedingt.";"Falsch.
+Er muss die Geschwindigkeit anpassen und soweit wie möglich in der Fahrwassermitte bleiben, gegebenenfalls besondere Geschwindigkeitsbegrenzungen und Fahrtbeschränkungen beachten. In Ufernähe gefährdet der Wellenschlag die aufgeweichten Deiche und Ufer, außerdem drohen dort überflutete Hindernisse. Die Fahrwassermitte ist daher am sichersten; zusätzlich angeordnete Geschwindigkeitsbegrenzungen und Fahrtbeschränkungen gelten unbedingt.";"Falsch.
 
 Richtig ist: „Er muss die Geschwindigkeit anpassen und soweit wie möglich in der Fahrwassermitte bleiben, gegebenenfalls besondere Geschwindigkeitsbegrenzungen und Fahrtbeschränkungen beachten.“
 
-In Ufernähe gefährden Wellenschlag die aufgeweichten Deiche und Ufer, außerdem drohen überflutete Hindernisse. Die Fahrwassermitte ist daher am sichersten; zusätzlich angeordnete Beschränkungen gelten unbedingt."
+In Ufernähe gefährdet der Wellenschlag die aufgeweichten Deiche und Ufer, außerdem drohen dort überflutete Hindernisse. Die Fahrwassermitte ist daher am sichersten; zusätzlich angeordnete Geschwindigkeitsbegrenzungen und Fahrtbeschränkungen gelten unbedingt."
 "SBF-BIN-0238";"Richtig.
 
 Er hat die Fahrt unverzüglich einzustellen. Ab der Hochwassermarke II ist die Schifffahrt eingestellt. Strömung, Treibgut und die Gefahr für Deiche sind dann zu groß; bei Hochwassermarke I gelten erst Beschränkungen wie eine angepasste Geschwindigkeit.";"Falsch.
@@ -1583,11 +1583,11 @@ Richtig ist: „Wende.“
 Das Luvwant hält den Mast gegen den Winddruck. Durch eine Wende kommt der Wind sofort von der anderen Seite: Das intakte Want trägt jetzt die Last, das gebrochene liegt entlastet in Lee. Eine Halse würde länger dauern und den Mast stärker belasten."
 "SBF-SEGEL-0299";"Richtig.
 
-Abfallen auf Vorwindkurs. Am Wind zieht das dicht geholte Großsegel den Mast nach achtern, nur das Vorstag hält dagegen. Auf Vorwindkurs drückt der Wind von achtern den Mast nach vorn und entlastet so die Bruchstelle, bis ein Ersatz angebracht ist.";"Falsch.
+Abfallen auf Vorwindkurs. Am Wind zieht das dicht geholte Großsegel den Mast nach achtern, und nur das Vorstag hält dagegen. Auf Vorwindkurs drückt der Wind von achtern den Mast nach vorn; er wird dann vom intakten Achterstag bzw. den Wanten gehalten, bis ein Ersatz für das Vorstag angebracht ist.";"Falsch.
 
 Richtig ist: „Abfallen auf Vorwindkurs.“
 
-Am Wind zieht das dicht geholte Großsegel den Mast nach achtern, nur das Vorstag hält dagegen. Auf Vorwindkurs drückt der Wind von achtern den Mast nach vorn und entlastet so die Bruchstelle, bis ein Ersatz angebracht ist."
+Am Wind zieht das dicht geholte Großsegel den Mast nach achtern, und nur das Vorstag hält dagegen. Auf Vorwindkurs drückt der Wind von achtern den Mast nach vorn; er wird dann vom intakten Achterstag bzw. den Wanten gehalten, bis ein Ersatz für das Vorstag angebracht ist."
 "SBF-SEGEL-0300";"Richtig.
 
 Durch die Fock oder ein Fall. Fock und Fall reichen beide vom Masttopp bis zum Bug, also den gleichen Weg wie das Vorstag. Ein Fall wird am Bugbeschlag angeschlagen und durchgesetzt; eine gesetzte Fock übernimmt mit dem Vorliek die Last. Das Großfall wird für das Großsegel gebraucht, eine Schot reicht nicht bis zum Topp.";"Falsch.
@@ -1653,11 +1653,11 @@ Richtig ist: „Funkverkehr, der der Allgemeinheit zum Austausch von Nachrichten
 Öffentlicher Funkverkehr steht wie das Telefonnetz jedem offen, z. B. für Gespräche von Bord ins Festnetz über eine Küstenfunkstelle. Auch er unterliegt dem Fernmeldegeheimnis; mit Verschlüsselung oder einer Abhörpflicht hat der Begriff nichts zu tun."
 "SRC-0009";"Richtig.
 
-Vertrag mit einer Abrechnungsgesellschaft. Öffentlicher Funkverkehr, etwa Telefonieren über Küstenfunkstellen, kostet Gebühren – deshalb braucht man eine Abrechnungsgesellschaft (AAIC), die diese abrechnet. Zuteilung, zugelassenes Gerät und Funkzeugnis braucht man für jeden Funkverkehr, sie sind also keine zusätzliche Voraussetzung.";"Falsch.
+Vertrag mit einer Abrechnungsgesellschaft. Öffentlicher Funkverkehr, etwa Telefonieren über Küstenfunkstellen, ist gebührenpflichtig – deshalb braucht man eine Abrechnungsgesellschaft, die die Gebühren abrechnet und über ihren Kenncode (AAIC) identifiziert wird. Zuteilung, zugelassenes Gerät und Funkzeugnis braucht man für jeden Funkverkehr, sie sind also keine zusätzliche Voraussetzung.";"Falsch.
 
 Richtig ist: „Vertrag mit einer Abrechnungsgesellschaft“
 
-Öffentlicher Funkverkehr, etwa Telefonieren über Küstenfunkstellen, kostet Gebühren – deshalb braucht man eine Abrechnungsgesellschaft (AAIC), die diese abrechnet. Zuteilung, zugelassenes Gerät und Funkzeugnis braucht man für jeden Funkverkehr, sie sind also keine zusätzliche Voraussetzung."
+Öffentlicher Funkverkehr, etwa Telefonieren über Küstenfunkstellen, ist gebührenpflichtig – deshalb braucht man eine Abrechnungsgesellschaft, die die Gebühren abrechnet und über ihren Kenncode (AAIC) identifiziert wird. Zuteilung, zugelassenes Gerät und Funkzeugnis braucht man für jeden Funkverkehr, sie sind also keine zusätzliche Voraussetzung."
 "SRC-0010";"Richtig.
 
 Individuelle Benachrichtigung oder Abhören von Sammelanrufen. Küstenfunkstellen benachrichtigen Seefunkstellen entweder direkt oder verlesen zu festen Zeiten Sammelanrufe (Verkehrslisten) mit den Schiffen, für die Nachrichten vorliegen. Deshalb sollte man diese Sendungen abhören. NAVTEX dient nur Sicherheitsinformationen, nicht dem privaten Nachrichtenverkehr.";"Falsch.
@@ -1884,11 +1884,11 @@ Richtig ist: „Seefunkstelle an Bord eines deutschen Schiffes, eingetragen in e
 Rufzeichen aus vier Buchstaben, beginnend mit D für Deutschland, sind typische Unterscheidungssignale von im Seeschiffsregister eingetragenen Schiffen. Sie dienen zugleich als Rufzeichen der Seefunkstelle an Bord."
 "SRC-0042";"Richtig.
 
-im Telekommunikationsgesetz (TKG). Das Telekommunikationsgesetz schützt die Vertraulichkeit von Nachrichten: Wer Funkverkehr mithört, der nicht für ihn bestimmt ist, darf den Inhalt nicht weitergeben oder verwerten. Die VO Funk regelt internationale Frequenz- und Betriebsfragen, die SchSV die Schiffssicherheit.";"Falsch.
+im Telekommunikationsgesetz (TKG). Das TKG schützt die Vertraulichkeit von Nachrichten: Funkverkehr, der nicht für die eigene Funkstelle bestimmt ist, darf nicht abgehört werden, und unbeabsichtigt Mitgehörtes darf weder inhaltlich noch seinem Vorliegen nach weitergegeben werden. Die VO Funk regelt internationale Frequenz- und Betriebsfragen, die SchSV die Schiffssicherheit.";"Falsch.
 
 Richtig ist: „im Telekommunikationsgesetz (TKG)“
 
-Das Telekommunikationsgesetz schützt die Vertraulichkeit von Nachrichten: Wer Funkverkehr mithört, der nicht für ihn bestimmt ist, darf den Inhalt nicht weitergeben oder verwerten. Die VO Funk regelt internationale Frequenz- und Betriebsfragen, die SchSV die Schiffssicherheit."
+Das TKG schützt die Vertraulichkeit von Nachrichten: Funkverkehr, der nicht für die eigene Funkstelle bestimmt ist, darf nicht abgehört werden, und unbeabsichtigt Mitgehörtes darf weder inhaltlich noch seinem Vorliegen nach weitergegeben werden. Die VO Funk regelt internationale Frequenz- und Betriebsfragen, die SchSV die Schiffssicherheit."
 "SRC-0043";"Richtig.
 
 Alle Personen, die eine Seefunkstelle beaufsichtigen, bedienen oder Kenntnis über öffentlichen Nachrichtenaustausch erlangt haben. Die Pflicht trifft jeden, der mit der Funkstelle zu tun hat oder auf diesem Weg von fremden Nachrichten erfährt – nicht nur die Besatzung oder ausdrücklich verpflichtete Personen. Das Fernmeldegeheimnis gilt kraft Gesetzes, ohne besondere Belehrung.";"Falsch.
@@ -1912,11 +1912,11 @@ Richtig ist: „das CE-Zeichen“
 Mit dem CE-Zeichen erklärt der Hersteller, dass das Gerät die EU-Anforderungen an Funkanlagen erfüllt; erst dann darf es in Verkehr gebracht werden. GS- und VDE-Zeichen sind freiwillige Prüfzeichen, und eine Seriennummer sagt nichts über die Konformität aus."
 "SRC-0046";"Richtig.
 
-mit einer umschaltbaren „Kombi-Anlage für Seefunkdienst und Binnenschifffahrtsfunk“ oder einer zusätzlichen Sprechfunkanlage für den Binnenschifffahrtsfunk ausgerüstet werden. Seefunk und Binnenschifffahrtsfunk sind getrennte Funkdienste mit eigenen Regeln; im Binnenfunk wird z. B. statt DSC die ATIS-Kennung ausgesendet. Ein Gerät muss daher zwischen beiden Diensten umschaltbar sein, oder man braucht eine separate Binnenfunkanlage.";"Falsch.
+mit einer umschaltbaren „Kombi-Anlage für Seefunkdienst und Binnenschifffahrtsfunk“ oder einer zusätzlichen Sprechfunkanlage für den Binnenschifffahrtsfunk ausgerüstet werden. Seefunk und Binnenschifffahrtsfunk sind getrennte Funkdienste mit eigenen Regeln; im Binnenfunk ist DSC nicht zugelassen, stattdessen wird die ATIS-Kennung ausgesendet. Ein Gerät muss daher zwischen beiden Diensten umschaltbar sein, oder man braucht eine separate Binnenfunkanlage.";"Falsch.
 
 Richtig ist: „mit einer umschaltbaren „Kombi-Anlage für Seefunkdienst und Binnenschifffahrtsfunk“ oder einer zusätzlichen Sprechfunkanlage für den Binnenschifffahrtsfunk ausgerüstet werden“
 
-Seefunk und Binnenschifffahrtsfunk sind getrennte Funkdienste mit eigenen Regeln; im Binnenfunk wird z. B. statt DSC die ATIS-Kennung ausgesendet. Ein Gerät muss daher zwischen beiden Diensten umschaltbar sein, oder man braucht eine separate Binnenfunkanlage."
+Seefunk und Binnenschifffahrtsfunk sind getrennte Funkdienste mit eigenen Regeln; im Binnenfunk ist DSC nicht zugelassen, stattdessen wird die ATIS-Kennung ausgesendet. Ein Gerät muss daher zwischen beiden Diensten umschaltbar sein, oder man braucht eine separate Binnenfunkanlage."
 "SRC-0047";"Richtig.
 
 120 Stunden. Betriebsdauer = Kapazität ÷ Stromaufnahme, also 60 Ah ÷ 0,5 A. Das ist ein Überschlagswert: In der Praxis sollte eine Batterie nicht vollständig entladen werden.";"Falsch.
@@ -2087,11 +2087,11 @@ Richtig ist: „Beschränkt Gültiges Funkbetriebszeugnis (Short Range Certifica
 Für die Teilnahme am GMDSS über UKW, also auch für die DSC-Alarmierung, ist das SRC das Mindestzeugnis. Das frühere allgemeine Sprechfunkzeugnis berechtigt nicht zur GMDSS-Teilnahme, das UBI gilt nur im Binnenschifffahrtsfunk, und das GOC ist ein höheres Berufszeugnis."
 "SRC-0071";"Richtig.
 
-Mobiler Seefunkdienst auf Ultrakurzwelle (UKW/VHF). „Short Range“ heißt: nur UKW mit seiner begrenzten, etwa sichtweitenbezogenen Reichweite. Für Grenz- und Kurzwelle sowie Satellitenfunk braucht man das LRC (Long Range Certificate).";"Falsch.
+Mobiler Seefunkdienst auf Ultrakurzwelle (UKW/VHF). „Short Range“ heißt: nur UKW, dessen Reichweite wegen der quasioptischen Ausbreitung etwa auf den Funkhorizont begrenzt ist. Für Grenz- und Kurzwelle sowie Satellitenfunk braucht man das LRC (Long Range Certificate).";"Falsch.
 
 Richtig ist: „Mobiler Seefunkdienst auf Ultrakurzwelle (UKW/VHF)“
 
-„Short Range“ heißt: nur UKW mit seiner begrenzten, etwa sichtweitenbezogenen Reichweite. Für Grenz- und Kurzwelle sowie Satellitenfunk braucht man das LRC (Long Range Certificate)."
+„Short Range“ heißt: nur UKW, dessen Reichweite wegen der quasioptischen Ausbreitung etwa auf den Funkhorizont begrenzt ist. Für Grenz- und Kurzwelle sowie Satellitenfunk braucht man das LRC (Long Range Certificate)."
 "SRC-0072";"Richtig.
 
 Gegensprechen auf zwei Frequenzen. Beim Duplex-Betrieb wird auf einer Frequenz gesendet und auf einer anderen empfangen, sodass beide Seiten wie am Telefon gleichzeitig sprechen können. Dafür ist eine Duplex-Anlage nötig.";"Falsch.
@@ -2262,11 +2262,11 @@ Richtig ist: „Dringlichkeitsmeldung“
 PAN PAN, dreimal gesprochen, kündigt eine Meldung an, die vor allem anderen Verkehr außer dem Notverkehr Vorrang hat. Sie betrifft die Sicherheit eines Fahrzeugs oder einer Person, etwa einen medizinischen Notfall oder Hilfe bei einem Maschinenausfall."
 "SRC-0096";"Richtig.
 
-Ankündigung per Digitalen Selektivruf (DSC) auf Kanal 70 und Aussendung der Dringlichkeitsmeldung im Sprechfunk auf Kanal 16. Im GMDSS ruft DSC auf Kanal 70 die Empfänger zuerst digital, sodass das Gerät auch bei einer leiser gestellten Wache Alarm gibt. Die eigentliche Meldung folgt dann im Sprechfunk auf Kanal 16, damit möglichst viele Funkstellen sie hören.";"Falsch.
+Ankündigung per Digitalen Selektivruf (DSC) auf Kanal 70 und Aussendung der Dringlichkeitsmeldung im Sprechfunk auf Kanal 16. Der DSC-Anruf auf Kanal 70 löst beim Empfänger automatisch einen Alarmton aus, auch wenn niemand den Lautsprecher abhört. Die Meldung selbst folgt im Sprechfunk auf Kanal 16, denn auf Kanal 70 ist kein Sprechfunk erlaubt, und Dringlichkeitsmeldungen werden – anders als Sicherheitsmeldungen – nicht auf einen Schiff-Schiff-Kanal verlegt.";"Falsch.
 
 Richtig ist: „Ankündigung per Digitalen Selektivruf (DSC) auf Kanal 70 und Aussendung der Dringlichkeitsmeldung im Sprechfunk auf Kanal 16“
 
-Im GMDSS ruft DSC auf Kanal 70 die Empfänger zuerst digital, sodass das Gerät auch bei einer leiser gestellten Wache Alarm gibt. Die eigentliche Meldung folgt dann im Sprechfunk auf Kanal 16, damit möglichst viele Funkstellen sie hören."
+Der DSC-Anruf auf Kanal 70 löst beim Empfänger automatisch einen Alarmton aus, auch wenn niemand den Lautsprecher abhört. Die Meldung selbst folgt im Sprechfunk auf Kanal 16, denn auf Kanal 70 ist kein Sprechfunk erlaubt, und Dringlichkeitsmeldungen werden – anders als Sicherheitsmeldungen – nicht auf einen Schiff-Schiff-Kanal verlegt."
 "SRC-0097";"Richtig.
 
 Die nachfolgende Meldung ist dringend und betrifft die Sicherheit einer mobilen Einheit oder einer Person. „URGENCY“ ist die englische Bezeichnung der Dringlichkeitsstufe im DSC und entspricht PAN PAN im Sprechfunk. Notalarme heißen im DSC „DISTRESS“, Sicherheitsmeldungen wie Wetterwarnungen „SAFETY“.";"Falsch.
@@ -2283,11 +2283,11 @@ Richtig ist: „An alle Funkstellen oder an eine bestimmte Funkstelle“
 Wie dringend eine Meldung ist, hängt nicht vom Empfänger ab. Sie kann an alle Funkstellen gehen, wenn viele helfen sollen, oder an eine bestimmte Funkstelle, etwa bei einer funkärztlichen Beratung. Eine Begrenzung auf das Seegebiet A1 oder auf Küstenfunkstellen gibt es nicht."
 "SRC-0099";"Richtig.
 
-Dringlichkeitsmeldung muss durch eine Meldung an alle Funkstellen aufgehoben werden. Wer allen Funkstellen gemeldet hat, dass Hilfe nötig sein könnte, muss allen auch sagen, dass die Lage erledigt ist. Sonst bleiben andere Fahrzeuge in Bereitschaft oder suchen weiter. SILENCE FINI beendet nur den Notverkehr.";"Falsch.
+Dringlichkeitsmeldung muss durch eine Meldung an alle Funkstellen aufgehoben werden. Wer eine Dringlichkeitsmeldung an alle Funkstellen gerichtet hat, muss auch allen mitteilen, dass der Fall erledigt ist, sonst bleiben andere Fahrzeuge in Bereitschaft oder suchen weiter. Das gilt für jeden Dringlichkeitsfall, nicht nur bei „Mensch über Bord“. SILENCE FINI beendet dagegen nur den Notverkehr.";"Falsch.
 
 Richtig ist: „Dringlichkeitsmeldung muss durch eine Meldung an alle Funkstellen aufgehoben werden“
 
-Wer allen Funkstellen gemeldet hat, dass Hilfe nötig sein könnte, muss allen auch sagen, dass die Lage erledigt ist. Sonst bleiben andere Fahrzeuge in Bereitschaft oder suchen weiter. SILENCE FINI beendet nur den Notverkehr."
+Wer eine Dringlichkeitsmeldung an alle Funkstellen gerichtet hat, muss auch allen mitteilen, dass der Fall erledigt ist, sonst bleiben andere Fahrzeuge in Bereitschaft oder suchen weiter. Das gilt für jeden Dringlichkeitsfall, nicht nur bei „Mensch über Bord“. SILENCE FINI beendet dagegen nur den Notverkehr."
 "SRC-0100";"Richtig.
 
 SECURITE. SECURITE (gesprochen etwa „sekürité“, dreimal) ist die dritte Vorrangstufe nach MAYDAY und PAN PAN. Mit ihr beginnen Warnungen zur Sicherheit der Schifffahrt.";"Falsch.
@@ -2451,18 +2451,18 @@ Richtig ist: „Landessprache der Funkstelle“
 Auf 490 kHz senden die Stationen in der Landessprache, in Deutschland also auf Deutsch. Englisch ist die Sprache auf der internationalen NAVTEX-Frequenz 518 kHz."
 "SRC-0123";"Richtig.
 
-4 Stunden. Die NAVTEX-Stationen bekommen feste Sendezeiten im Wechsel, damit sie sich auf derselben Frequenz nicht stören. Wichtige Warnungen können zusätzlich sofort außer der Reihe gesendet werden.";"Falsch.
+4 Stunden. Alle NAVTEX-Stationen eines Gebiets teilen sich dieselbe Frequenz und senden deshalb nacheinander in festen Zeitfenstern, die sich alle vier Stunden wiederholen, also sechsmal am Tag. Wichtige Warnungen wie SAR-Meldungen oder Sturmwarnungen werden zusätzlich sofort nach Eingang ausgesendet.";"Falsch.
 
 Richtig ist: „4 Stunden“
 
-Die NAVTEX-Stationen bekommen feste Sendezeiten im Wechsel, damit sie sich auf derselben Frequenz nicht stören. Wichtige Warnungen können zusätzlich sofort außer der Reihe gesendet werden."
+Alle NAVTEX-Stationen eines Gebiets teilen sich dieselbe Frequenz und senden deshalb nacheinander in festen Zeitfenstern, die sich alle vier Stunden wiederholen, also sechsmal am Tag. Wichtige Warnungen wie SAR-Meldungen oder Sturmwarnungen werden zusätzlich sofort nach Eingang ausgesendet."
 "SRC-0124";"Richtig.
 
-International festgelegtes Vorhersage- und Seewarngebiet. Die Weltmeere sind in NAVAREAs aufgeteilt, die international festgelegt sind. Für jedes Gebiet verbreitet ein Koordinator Navigations- und Wetterwarnungen. Die Seegebiete A1 bis A4 sind etwas anderes: Sie hängen von der Reichweite der Funkanlagen im GMDSS ab.";"Falsch.
+International festgelegtes Vorhersage- und Seewarngebiet. Die Weltmeere sind in international festgelegte NAVAREAs aufgeteilt; für jedes Gebiet verbreitet ein Koordinator die Navigationswarnungen, und die gleich abgegrenzten METAREAs dienen den Wetterwarnungen und -vorhersagen. Die Seegebiete A1 bis A4 sind etwas anderes: Sie richten sich nach der Reichweite der GMDSS-Funkanlagen.";"Falsch.
 
 Richtig ist: „International festgelegtes Vorhersage- und Seewarngebiet“
 
-Die Weltmeere sind in NAVAREAs aufgeteilt, die international festgelegt sind. Für jedes Gebiet verbreitet ein Koordinator Navigations- und Wetterwarnungen. Die Seegebiete A1 bis A4 sind etwas anderes: Sie hängen von der Reichweite der Funkanlagen im GMDSS ab."
+Die Weltmeere sind in international festgelegte NAVAREAs aufgeteilt; für jedes Gebiet verbreitet ein Koordinator die Navigationswarnungen, und die gleich abgegrenzten METAREAs dienen den Wetterwarnungen und -vorhersagen. Die Seegebiete A1 bis A4 sind etwas anderes: Sie richten sich nach der Reichweite der GMDSS-Funkanlagen."
 "SRC-0125";"Richtig.
 
 Suche und Rettung. SAR ist die Abkürzung für das englische „Search and Rescue“. Gemeint sind alle Maßnahmen, mit denen Menschen in Seenot gesucht und gerettet werden. EPIRB (Seenotfunkbake) und SART (Radartransponder) sind Geräte, die dabei helfen.";"Falsch.
@@ -2472,11 +2472,11 @@ Richtig ist: „Suche und Rettung“
 SAR ist die Abkürzung für das englische „Search and Rescue“. Gemeint sind alle Maßnahmen, mit denen Menschen in Seenot gesucht und gerettet werden. EPIRB (Seenotfunkbake) und SART (Radartransponder) sind Geräte, die dabei helfen."
 "SRC-0126";"Richtig.
 
-Koordinierung der im Seenotfall zur Verfügung stehenden Kräfte und Abwicklung des Notverkehrs. Das RCC (Rescue Co-ordination Centre) ist die Leitstelle für einen Seenotfall. Es steuert alle Rettungsmittel wie Schiffe, Rettungskreuzer und Hubschrauber und leitet den Notverkehr. Es betreibt nicht selbst die Rettungsstationen.";"Falsch.
+Koordinierung der im Seenotfall zur Verfügung stehenden Kräfte und Abwicklung des Notverkehrs. Das RCC (Rescue Co-ordination Centre) ist die Leitstelle im Seenotfall. Es setzt alle verfügbaren Rettungsmittel wie Schiffe, Rettungskreuzer und Hubschrauber ein, stimmt sie ab und leitet den Notverkehr. Das Bereithalten der Rettungseinheiten und die Satellitenalarmierung sind nicht seine Aufgabe.";"Falsch.
 
 Richtig ist: „Koordinierung der im Seenotfall zur Verfügung stehenden Kräfte und Abwicklung des Notverkehrs“
 
-Das RCC (Rescue Co-ordination Centre) ist die Leitstelle für einen Seenotfall. Es steuert alle Rettungsmittel wie Schiffe, Rettungskreuzer und Hubschrauber und leitet den Notverkehr. Es betreibt nicht selbst die Rettungsstationen."
+Das RCC (Rescue Co-ordination Centre) ist die Leitstelle im Seenotfall. Es setzt alle verfügbaren Rettungsmittel wie Schiffe, Rettungskreuzer und Hubschrauber ein, stimmt sie ab und leitet den Notverkehr. Das Bereithalten der Rettungseinheiten und die Satellitenalarmierung sind nicht seine Aufgabe."
 "SRC-0127";"Richtig.
 
 Koordinierung der im Seenotfall zur Verfügung stehenden Kräfte. Das MRCC ist ein Rettungsleitzentrum für die See. In Deutschland ist das MRCC Bremen der DGzRS zuständig. Es entscheidet, welche Einheiten zum Einsatz fahren, und stimmt ihren Einsatz ab, damit die Rettung schnell und ohne Doppelarbeit abläuft.";"Falsch.
@@ -2493,11 +2493,11 @@ Richtig ist: „Funkverkehr vor Ort im Seenotfall“
 „On-Scene“ bedeutet „vor Ort“. Gemeint ist der Funkverkehr direkt am Unfallort zwischen dem Havaristen und den Rettungseinheiten, meist auf UKW. Mit Hafenfunk oder Behördenfunk hat er nichts zu tun."
 "SRC-0129";"Richtig.
 
-Leitung der Such- und Rettungsmaßnahmen vor Ort. Der OSC wird für die Leitung am Einsatzort bestimmt, meist vom MRCC. Er stimmt Such- und Rettungsmaßnahmen der Einheiten vor Ort ab und hält Verbindung zum MRCC. Welche Kanäle dabei genutzt werden, legt er nicht fest, denn sie sind vorgegeben.";"Falsch.
+Leitung der Such- und Rettungsmaßnahmen vor Ort. Der OSC wird meist vom MRCC bestimmt und leitet die Such- und Rettungsmaßnahmen am Einsatzort. Er teilt den Einheiten vor Ort ihre Aufgaben zu und hält Verbindung zur Seenotleitung. DSC-Kanäle muss er nicht festlegen, denn DSC läuft auf UKW ohnehin nur auf Kanal 70.";"Falsch.
 
 Richtig ist: „Leitung der Such- und Rettungsmaßnahmen vor Ort“
 
-Der OSC wird für die Leitung am Einsatzort bestimmt, meist vom MRCC. Er stimmt Such- und Rettungsmaßnahmen der Einheiten vor Ort ab und hält Verbindung zum MRCC. Welche Kanäle dabei genutzt werden, legt er nicht fest, denn sie sind vorgegeben."
+Der OSC wird meist vom MRCC bestimmt und leitet die Such- und Rettungsmaßnahmen am Einsatzort. Er teilt den Einheiten vor Ort ihre Aufgaben zu und hält Verbindung zur Seenotleitung. DSC-Kanäle muss er nicht festlegen, denn DSC läuft auf UKW ohnehin nur auf Kanal 70."
 "SRC-0130";"Richtig.
 
 Funkverkehr zwischen dem Schiff in Not und den Fahrzeugen, die Hilfe leisten sowie dem Schiff in Not und dem Fahrzeug, das die Suche und Rettung koordiniert. Beim Funkverkehr vor Ort sprechen Havarist, Helfer und Koordinator direkt miteinander, damit Informationen ohne Umwege ankommen. Die Verbindung zur Küstenfunkstelle oder zum MRCC gehört zur übergeordneten Koordinierung und nicht dazu.";"Falsch.
@@ -2507,11 +2507,11 @@ Richtig ist: „Funkverkehr zwischen dem Schiff in Not und den Fahrzeugen, die H
 Beim Funkverkehr vor Ort sprechen Havarist, Helfer und Koordinator direkt miteinander, damit Informationen ohne Umwege ankommen. Die Verbindung zur Küstenfunkstelle oder zum MRCC gehört zur übergeordneten Koordinierung und nicht dazu."
 "SRC-0131";"Richtig.
 
-Fahrzeugführer. Ein Notalarm setzt große Rettungsmaßnahmen in Gang. Deshalb entscheidet der Fahrzeugführer, der die Verantwortung trägt, ob eine Notmeldung gesendet wird. Die Rettungsleitstelle reagiert auf Notmeldungen, sie löst sie für ein Schiff nicht aus.";"Falsch.
+Fahrzeugführer. Ein Notalarm setzt große Rettungsmaßnahmen in Gang. Deshalb darf er nur auf Veranlassung des Fahrzeugführers gesendet werden, der die Verantwortung für Schiff und Besatzung trägt. Crewmitglieder oder der Rudergänger senden ihn auf dessen Anweisung, und die Rettungsleitstelle koordiniert erst nach dem Eingang des Notalarms.";"Falsch.
 
 Richtig ist: „Fahrzeugführer“
 
-Ein Notalarm setzt große Rettungsmaßnahmen in Gang. Deshalb entscheidet der Fahrzeugführer, der die Verantwortung trägt, ob eine Notmeldung gesendet wird. Die Rettungsleitstelle reagiert auf Notmeldungen, sie löst sie für ein Schiff nicht aus."
+Ein Notalarm setzt große Rettungsmaßnahmen in Gang. Deshalb darf er nur auf Veranlassung des Fahrzeugführers gesendet werden, der die Verantwortung für Schiff und Besatzung trägt. Crewmitglieder oder der Rudergänger senden ihn auf dessen Anweisung, und die Rettungsleitstelle koordiniert erst nach dem Eingang des Notalarms."
 "SRC-0132";"Richtig.
 
 Kanal 70. Im GMDSS gehen Alarme zuerst digital per DSC auf Kanal 70 hinaus. Nur wenn alle DSC-Stationen den Kanal ständig überwachen, kommt ein Notalarm überall sicher und automatisch an.";"Falsch.
@@ -2640,18 +2640,18 @@ Richtig ist: „Betriebsverfahren des mobilen Seefunkdienstes“
 Im Einsatz über See arbeiten SAR-Hubschrauber mit Seefunkgeräten und halten sich an die Regeln des Seefunks. So können Schiffe mit ihnen sprechen, ohne die Regeln des Flugfunks zu kennen."
 "SRC-0150";"Richtig.
 
-Handbuch “Suche und Rettung”. Das Handbuch „Suche und Rettung“ ist die deutsche Fassung der internationalen Vorgaben für die Suche und Rettung auf See. Es beschreibt einheitliche Verfahren, Abkürzungen und Redewendungen, mit denen sich Schiffe, Flugzeuge und Rettungsleitstellen im Notfall verständigen.";"Falsch.
+Handbuch “Suche und Rettung”. Das Handbuch „Suche und Rettung“ beruht auf den internationalen Vorgaben für Suche und Rettung auf See. Es beschreibt einheitliche Verfahren, Abkürzungen und Redewendungen, mit denen sich Schiffe, Luftfahrzeuge und Rettungsleitstellen im Notfall verständigen.";"Falsch.
 
 Richtig ist: „Handbuch “Suche und Rettung”“
 
-Das Handbuch „Suche und Rettung“ ist die deutsche Fassung der internationalen Vorgaben für die Suche und Rettung auf See. Es beschreibt einheitliche Verfahren, Abkürzungen und Redewendungen, mit denen sich Schiffe, Flugzeuge und Rettungsleitstellen im Notfall verständigen."
+Das Handbuch „Suche und Rettung“ beruht auf den internationalen Vorgaben für Suche und Rettung auf See. Es beschreibt einheitliche Verfahren, Abkürzungen und Redewendungen, mit denen sich Schiffe, Luftfahrzeuge und Rettungsleitstellen im Notfall verständigen."
 "SRC-0151";"Richtig.
 
-UKW-Bereich. Mit SAR-Einheiten wie Rettungskreuzern und Hubschraubern spricht man vor Ort auf den UKW-Seefunkkanälen, die alle Beteiligten an Bord haben. UHF-, MW- und VLF-Bereich gehören nicht zum Seefunk auf UKW, mit dem ein SRC-Inhaber arbeitet.";"Falsch.
+UKW-Bereich. SAR-Einheiten wie Seenotrettungskreuzer und SAR-Hubschrauber haben UKW-Seefunkgeräte an Bord, damit sie vor Ort mit jedem Schiff sprechen können, etwa auf Kanal 16 und 06. Für Sportboote mit SRC ist UKW ohnehin der maßgebliche Seefunkbereich; UHF und VLF dienen nicht dem Seefunkverkehr mit SAR-Einheiten.";"Falsch.
 
 Richtig ist: „UKW-Bereich“
 
-Mit SAR-Einheiten wie Rettungskreuzern und Hubschraubern spricht man vor Ort auf den UKW-Seefunkkanälen, die alle Beteiligten an Bord haben. UHF-, MW- und VLF-Bereich gehören nicht zum Seefunk auf UKW, mit dem ein SRC-Inhaber arbeitet."
+SAR-Einheiten wie Seenotrettungskreuzer und SAR-Hubschrauber haben UKW-Seefunkgeräte an Bord, damit sie vor Ort mit jedem Schiff sprechen können, etwa auf Kanal 16 und 06. Für Sportboote mit SRC ist UKW ohnehin der maßgebliche Seefunkbereich; UHF und VLF dienen nicht dem Seefunkverkehr mit SAR-Einheiten."
 "SRC-0152";"Richtig.
 
 des Seefunkdienstes. SAR-Hubschrauber nutzen beim Funkverkehr mit Schiffen das Verfahren und die Kanäle des Seefunks. So ist die Verständigung mit jedem Schiff möglich, das eine normale UKW-Anlage hat.";"Falsch.
@@ -2661,11 +2661,11 @@ Richtig ist: „des Seefunkdienstes“
 SAR-Hubschrauber nutzen beim Funkverkehr mit Schiffen das Verfahren und die Kanäle des Seefunks. So ist die Verständigung mit jedem Schiff möglich, das eine normale UKW-Anlage hat."
 "SRC-0153";"Richtig.
 
-Kanal 16, Kanal 06. Kanal 16 dient dem ersten Anruf und dem Notverkehr, Kanal 06 der Abstimmung zwischen Schiff und Luftfahrzeug während des Einsatzes. Kanal 70 ist nur für DSC vorgesehen, Sprechfunk ist dort nicht möglich.";"Falsch.
+Kanal 16, Kanal 06. Kanal 16 dient dem ersten Anruf und dem Notverkehr, Kanal 06 der Abstimmung zwischen Schiff und Luftfahrzeug während des Einsatzes. Kanal 70 ist ausschließlich für DSC vorgesehen, Sprechfunk ist dort nicht zulässig.";"Falsch.
 
 Richtig ist: „Kanal 16, Kanal 06“
 
-Kanal 16 dient dem ersten Anruf und dem Notverkehr, Kanal 06 der Abstimmung zwischen Schiff und Luftfahrzeug während des Einsatzes. Kanal 70 ist nur für DSC vorgesehen, Sprechfunk ist dort nicht möglich."
+Kanal 16 dient dem ersten Anruf und dem Notverkehr, Kanal 06 der Abstimmung zwischen Schiff und Luftfahrzeug während des Einsatzes. Kanal 70 ist ausschließlich für DSC vorgesehen, Sprechfunk ist dort nicht zulässig."
 "SRC-0154";"Richtig.
 
 Zweikanal-Überwachung (Dual Watch). Bei Dual Watch prüft das UKW-Gerät abwechselnd Kanal 16 und einen zweiten Kanal. So kann man mit dem Hubschrauber auf Kanal 06 sprechen und verpasst trotzdem keine Meldung auf Kanal 16. Dafür braucht man weder ein zweites Gerät noch muss man von Hand umschalten.";"Falsch.
@@ -2689,11 +2689,11 @@ Richtig ist: „Ankündigung mittels Digitalen Selektivrufs (DSC) auf Kanal 70, 
 Der Notverkehr auf Kanal 16 hat Vorrang und darf nicht gestört werden. Deshalb kündigt man nur kurz an, digital auf Kanal 70 und im Sprechfunk in einer Pause auf Kanal 16. Die eigentliche Meldung sendet man dann auf einem Schiff-Schiff-Kanal."
 "SRC-0157";"Richtig.
 
-a. Gerät umgehend zurücksetzen b. Wenn möglich, den Fehlalarm per DSC zurücknehmen c. Mit Meldung auf Kanal 16 „An alle Funkstellen“ den Fehlalarm zurücknehmen. Wenn ein Notalarm irrtümlich ausgelöst wurde, sollen keine Rettungskräfte ausrücken. Durch das Zurücksetzen wiederholt das Gerät den Alarm nicht automatisch, bleibt aber eingeschaltet. So kann man den Alarm, wenn möglich, per DSC zurücknehmen und auf Kanal 16 allen Funkstellen melden, dass es ein Fehlalarm war.";"Falsch.
+a. Gerät umgehend zurücksetzen b. Wenn möglich, den Fehlalarm per DSC zurücknehmen c. Mit Meldung auf Kanal 16 „An alle Funkstellen“ den Fehlalarm zurücknehmen. Das Zurücksetzen stoppt die automatische Wiederholung des Alarms, das Gerät bleibt aber eingeschaltet. So kann man den Fehlalarm, wenn das Gerät es erlaubt, per DSC zurücknehmen und auf Kanal 16 allen Funkstellen melden, damit keine Rettungskräfte ausrücken. Kanal 13 ist dafür falsch, er dient der Verständigung zwischen Schiffsbrücken.";"Falsch.
 
 Richtig ist: „a. Gerät umgehend zurücksetzen b. Wenn möglich, den Fehlalarm per DSC zurücknehmen c. Mit Meldung auf Kanal 16 „An alle Funkstellen“ den Fehlalarm zurücknehmen“
 
-Wenn ein Notalarm irrtümlich ausgelöst wurde, sollen keine Rettungskräfte ausrücken. Durch das Zurücksetzen wiederholt das Gerät den Alarm nicht automatisch, bleibt aber eingeschaltet. So kann man den Alarm, wenn möglich, per DSC zurücknehmen und auf Kanal 16 allen Funkstellen melden, dass es ein Fehlalarm war."
+Das Zurücksetzen stoppt die automatische Wiederholung des Alarms, das Gerät bleibt aber eingeschaltet. So kann man den Fehlalarm, wenn das Gerät es erlaubt, per DSC zurücknehmen und auf Kanal 16 allen Funkstellen melden, damit keine Rettungskräfte ausrücken. Kanal 13 ist dafür falsch, er dient der Verständigung zwischen Schiffsbrücken."
 "SRC-0158";"Richtig.
 
 UKW-Empfänger. Ein reiner UKW-Empfänger kann nur empfangen und weder Alarm geben noch Signale zur Ortung senden. SART, EPIRB und Handsprechfunkgeräte senden dagegen und helfen so, Schiffbrüchige zu finden.";"Falsch.
@@ -2710,11 +2710,11 @@ Richtig ist: „SART, EPIRB“
 Die EPIRB alarmiert über Satellit und sendet ein Signal, mit dem die Position bestimmt und angepeilt werden kann. Der SART macht das Überlebensfahrzeug auf dem Radar sichtbar. NAVTEX und EGC verbreiten nur Informationen, und DSC dient der Alarmierung, nicht der Ortung."
 "SRC-0160";"Richtig.
 
-Im äußeren Decksbereich. Die EPIRB muss frei aufschwimmen können, wenn das Schiff sinkt, und braucht freie Sicht zum Himmel, damit sie die Satelliten erreicht. Unter Deck oder in der Backskiste würde sie mit dem Boot untergehen oder abgeschirmt.";"Falsch.
+Im äußeren Decksbereich. Die EPIRB muss frei aufschwimmen können, wenn das Schiff sinkt, und braucht freie Sicht zum Himmel, damit sie die Satelliten erreicht. Unter Deck oder in der Backskiste würde sie mit dem Boot untergehen oder wäre abgeschirmt.";"Falsch.
 
 Richtig ist: „Im äußeren Decksbereich“
 
-Die EPIRB muss frei aufschwimmen können, wenn das Schiff sinkt, und braucht freie Sicht zum Himmel, damit sie die Satelliten erreicht. Unter Deck oder in der Backskiste würde sie mit dem Boot untergehen oder abgeschirmt."
+Die EPIRB muss frei aufschwimmen können, wenn das Schiff sinkt, und braucht freie Sicht zum Himmel, damit sie die Satelliten erreicht. Unter Deck oder in der Backskiste würde sie mit dem Boot untergehen oder wäre abgeschirmt."
 "SRC-0161";"Richtig.
 
 Nur im Notfall. Jede Aussendung einer EPIRB wird über Satellit als echter Alarm an die Seenotleitung gemeldet und kann einen Rettungseinsatz auslösen. Zum Prüfen dient die eingebaute Testfunktion nach Herstellerangaben, bei der kein Alarm gesendet wird.";"Falsch.
@@ -2752,11 +2752,11 @@ Richtig ist: „Wenige Minuten“
 Geostationäre Satelliten und Satelliten auf mittlerer Umlaufbahn empfangen das 406-MHz-Signal fast überall sofort. Deshalb erreicht der Alarm die Seenotleitung meist nach wenigen Minuten."
 "SRC-0166";"Richtig.
 
-Bis zu 4 Stunden. Ohne GPS wird die Position nur mit Satelliten auf niedriger Umlaufbahn (LEOSAR) über den Dopplereffekt bestimmt. Unter ungünstigen Bedingungen muss man auf den Überflug eines solchen Satelliten warten, was entsprechend lange dauern kann.";"Falsch.
+Bis zu 4 Stunden. Ohne GPS kann ein geostationärer Satellit die Position der Bake nicht bestimmen. Sie wird dann über den Dopplereffekt beim Überflug umlaufender Satelliten (LEOSAR) ermittelt, und unter ungünstigen Bedingungen muss man auf einen solchen Überflug warten.";"Falsch.
 
 Richtig ist: „Bis zu 4 Stunden“
 
-Ohne GPS wird die Position nur mit Satelliten auf niedriger Umlaufbahn (LEOSAR) über den Dopplereffekt bestimmt. Unter ungünstigen Bedingungen muss man auf den Überflug eines solchen Satelliten warten, was entsprechend lange dauern kann."
+Ohne GPS kann ein geostationärer Satellit die Position der Bake nicht bestimmen. Sie wird dann über den Dopplereffekt beim Überflug umlaufender Satelliten (LEOSAR) ermittelt, und unter ungünstigen Bedingungen muss man auf einen solchen Überflug warten."
 "SRC-0167";"Richtig.
 
 Es müssen Überflüge der umlaufenden COSPAS-SARSAT-Satelliten (LEOSAR) abgewartet werden. LEOSAR-Satelliten kreisen auf niedriger Bahn um die Erde und sehen jeweils nur einen Teil von ihr. Aus der Dopplerverschiebung beim Überflug bestimmen sie den Ort der Bake. Fliegt gerade keiner über das Notgebiet, muss man warten, und Seegang oder Wetter spielen dabei keine Rolle.";"Falsch.
@@ -2843,11 +2843,11 @@ Richtig ist: „Meldung, die mit SILENCE FINI abschließt“
 SILENCE FINI, gesprochen etwa „siläns fini“, bedeutet „Funkstille beendet“. Damit sind die Kanäle wieder frei für normalen Funkverkehr. SILENCE MAYDAY verlangt dagegen Funkstille, und „OVER AND OUT“ ist kein Ausdruck aus dem Seefunk."
 "SRC-0179";"Richtig.
 
-Aussendung von Ortungsfunksignalen, die im Seenotfall das Auffinden des verunglückten Fahrzeuges mittels Radar erleichtern sollen. Der SART ist ein aktiver Sender, der auf Radarimpulse antwortet und erzeugt so eine typische Linie aus Punkten auf dem Radar. Ein Radarreflektor wirft die Strahlen dagegen nur passiv zurück. Der SART sendet keine Position über UKW oder Satellit, das macht die EPIRB.";"Falsch.
+Aussendung von Ortungsfunksignalen, die im Seenotfall das Auffinden des verunglückten Fahrzeuges mittels Radar erleichtern sollen. Der SART ist ein aktiver Sender, der auf Radarimpulse antwortet und so eine typische Linie aus Punkten auf dem Radarbild erzeugt. Ein Radarreflektor wirft die Strahlen dagegen nur passiv zurück. Der SART sendet keine Position über UKW oder Satellit, das macht die EPIRB.";"Falsch.
 
 Richtig ist: „Aussendung von Ortungsfunksignalen, die im Seenotfall das Auffinden des verunglückten Fahrzeuges mittels Radar erleichtern sollen“
 
-Der SART ist ein aktiver Sender, der auf Radarimpulse antwortet und erzeugt so eine typische Linie aus Punkten auf dem Radar. Ein Radarreflektor wirft die Strahlen dagegen nur passiv zurück. Der SART sendet keine Position über UKW oder Satellit, das macht die EPIRB."
+Der SART ist ein aktiver Sender, der auf Radarimpulse antwortet und so eine typische Linie aus Punkten auf dem Radarbild erzeugt. Ein Radarreflektor wirft die Strahlen dagegen nur passiv zurück. Der SART sendet keine Position über UKW oder Satellit, das macht die EPIRB."
 "SRC-0180";"Richtig.
 
 Alarmierung und Kennzeichnung der Notposition. Die EPIRB alarmiert die Seenotleitung über COSPAS-SARSAT mit Kennung und Position. Über ihr 121,5-MHz-Signal finden Rettungseinheiten vor Ort den Havaristen (Homing). Sprechen kann man über sie nicht, und für die Ortung per Radar ist der SART zuständig.";"Falsch.
@@ -2878,11 +2878,11 @@ Richtig ist: „Regionale Vereinbarung über den Binnenschifffahrtsfunk (RAINWAT
 RAINWAT ist die regionale Vereinbarung europäischer Staaten über den Binnenschifffahrtsfunk; auf ihr beruht das Handbuch Binnenschifffahrtsfunk. SOLAS betrifft die Seeschifffahrt, die BinSchSprFunkV ist eine rein nationale Verordnung."
 "UBI-0004";"Richtig.
 
-Maximal 10 Sekunden. Testsendungen belegen einen Kanal und können laufenden Funkverkehr stören. Sie sind nicht verboten, müssen aber so kurz wie möglich bleiben.";"Falsch.
+Maximal 10 Sekunden. Testsendungen sind nicht verboten, belegen aber den Kanal und können laufenden Funkverkehr stören. Deshalb ist ihre Dauer eng begrenzt, Mindestzeiten gibt es nicht; zudem müssen sie den Rufnamen der Funkstelle und das Wort „Test“ enthalten.";"Falsch.
 
 Richtig ist: „Maximal 10 Sekunden“
 
-Testsendungen belegen einen Kanal und können laufenden Funkverkehr stören. Sie sind nicht verboten, müssen aber so kurz wie möglich bleiben."
+Testsendungen sind nicht verboten, belegen aber den Kanal und können laufenden Funkverkehr stören. Deshalb ist ihre Dauer eng begrenzt, Mindestzeiten gibt es nicht; zudem müssen sie den Rufnamen der Funkstelle und das Wort „Test“ enthalten."
 "UBI-0005";"Richtig.
 
 Landfunkstelle des Verkehrskreises Nautische Information. Revierzentralen wie Duisburg oder Oberwesel sind ortsfeste Landfunkstellen der Wasserstraßen- und Schifffahrtsverwaltung. Sie informieren im Verkehrskreis Nautische Information über die Verkehrslage und koordinieren im Notfall.";"Falsch.
@@ -2927,11 +2927,11 @@ Richtig ist: „Bundeswasserstraßen der Zonen 1 bis 2“
 Die Zonen 1 und 2 sind seewärts gelegene Bereiche der Bundeswasserstraßen, etwa Flussmündungen, in denen Binnen- und Seeschifffahrt zusammentreffen. Damit dort auch mit Seefunkstellen gesprochen werden kann, gilt der UBI hier zusätzlich für den Seefunk."
 "UBI-0011";"Richtig.
 
-Prüfungsausschüsse des Deutschen Motoryachtverbandes e. V. (DMYV) und des Deutschen Segler-Verbandes e. V. (DSV). DMYV und DSV sind vom Bund mit der Abnahme der Prüfungen und der Ausstellung der Zeugnisse beauftragt, vor allem für die Sport- und Freizeitschifffahrt. Behörden wie BNetzA oder WSA stellen den UBI nicht aus.";"Falsch.
+Prüfungsausschüsse des Deutschen Motoryachtverbandes e. V. (DMYV) und des Deutschen Segler-Verbandes e. V. (DSV). DMYV und DSV sind vom Bund beauftragt, die UBI-Prüfungen abzunehmen und die Zeugnisse auszustellen, vor allem für die Sport- und Freizeitschifffahrt. Die anderen Antworten nennen nur Behördenpaare, nicht die beauftragten Prüfungsausschüsse der Verbände.";"Falsch.
 
 Richtig ist: „Prüfungsausschüsse des Deutschen Motoryachtverbandes e. V. (DMYV) und des Deutschen Segler-Verbandes e. V. (DSV)“
 
-DMYV und DSV sind vom Bund mit der Abnahme der Prüfungen und der Ausstellung der Zeugnisse beauftragt, vor allem für die Sport- und Freizeitschifffahrt. Behörden wie BNetzA oder WSA stellen den UBI nicht aus."
+DMYV und DSV sind vom Bund beauftragt, die UBI-Prüfungen abzunehmen und die Zeugnisse auszustellen, vor allem für die Sport- und Freizeitschifffahrt. Die anderen Antworten nennen nur Behördenpaare, nicht die beauftragten Prüfungsausschüsse der Verbände."
 "UBI-0012";"Richtig.
 
 UKW-Sprechfunkzeugnis für den Binnenschifffahrtsfunk (UBI). GMDSS ist das weltweite Seenot- und Sicherheitsfunksystem der Seeschifffahrt, das auf DSC aufbaut. Der UBI gilt nur für den Binnenschifffahrtsfunk, in dem DSC nicht zulässig ist; SRC, LRC und GOC sind dagegen GMDSS-Zeugnisse.";"Falsch.
@@ -3200,11 +3200,11 @@ Richtig ist: „Das Funkgerät muss zugelassen oder für die Teilnahme am Binnen
 Nur so ist sichergestellt, dass das Gerät die Anforderungen des Binnenschifffahrtsfunks erfüllt, etwa ATIS und automatische Leistungsreduzierung. Eine TÜV-Prüfung ist nicht vorgesehen, und die BinSchSprFunkV regelt die Zeugnisse, nicht die Geräte."
 "UBI-0050";"Richtig.
 
-größer ist die Reichweite. Weil UKW sich quasioptisch ausbreitet, vergrößert eine höhere Antenne den Funkhorizont und damit die Reichweite.";"Falsch.
+größer ist die Reichweite. Weil UKW sich quasioptisch ausbreitet, vergrößert eine höhere Antenne den Funkhorizont und damit die Reichweite. Die Gefährdung von Personen durch elektromagnetische Felder nimmt dabei eher ab, weil der Abstand zur Antenne wächst.";"Falsch.
 
 Richtig ist: „größer ist die Reichweite“
 
-Weil UKW sich quasioptisch ausbreitet, vergrößert eine höhere Antenne den Funkhorizont und damit die Reichweite."
+Weil UKW sich quasioptisch ausbreitet, vergrößert eine höhere Antenne den Funkhorizont und damit die Reichweite. Die Gefährdung von Personen durch elektromagnetische Felder nimmt dabei eher ab, weil der Abstand zur Antenne wächst."
 "UBI-0051";"Richtig.
 
 umgehend erneuert werden. Durch einen beschädigten Mantel dringt Feuchtigkeit in das Koaxialkabel, was zu Korrosion und Leistungsverlust führt und die Reichweite verringert. Ein Stromkabel ist kein Ersatz, weil es nicht für Hochfrequenz ausgelegt ist.";"Falsch.
@@ -3382,18 +3382,18 @@ Richtig ist: „15 und 17“
 Für den Funkverkehr an Bord sind die Kanäle 15 und 17 vorgesehen. 72 und 77 dienen Nachrichten sozialer Art, Kanal 16 ist der Not- und Anrufkanal des Seefunks."
 "UBI-0076";"Richtig.
 
-Nein. Für Kleinfahrzeuge sind im Binnenschifffahrtsfunk grundsätzlich keine Handfunkgeräte zugelassen. Daran ändern weder eine zusätzliche Festanlage noch die Fahrt im Verband etwas.";"Falsch.
+Nein. Für Kleinfahrzeuge sind im Binnenschifffahrtsfunk grundsätzlich keine Handfunkgeräte zugelassen, auch nicht für den Funkverkehr an Bord, von dem Kleinfahrzeuge ausgeschlossen sind. Daran ändern weder eine zusätzliche Festanlage noch die Fahrt im Verband etwas.";"Falsch.
 
 Richtig ist: „Nein“
 
-Für Kleinfahrzeuge sind im Binnenschifffahrtsfunk grundsätzlich keine Handfunkgeräte zugelassen. Daran ändern weder eine zusätzliche Festanlage noch die Fahrt im Verband etwas."
+Für Kleinfahrzeuge sind im Binnenschifffahrtsfunk grundsätzlich keine Handfunkgeräte zugelassen, auch nicht für den Funkverkehr an Bord, von dem Kleinfahrzeuge ausgeschlossen sind. Daran ändern weder eine zusätzliche Festanlage noch die Fahrt im Verband etwas."
 "UBI-0077";"Richtig.
 
-Kleinfahrzeuge. Funkverkehr an Bord ist für Abstimmungen auf größeren Schiffen und in Verbänden gedacht, etwa zwischen Steuerhaus und Vorschiff. Kleinfahrzeuge sind davon ausgenommen.";"Falsch.
+Kleinfahrzeuge. Funkverkehr an Bord dient der Abstimmung auf größeren Schiffen und in Schlepp- oder Schubverbänden, etwa zwischen Steuerhaus und Vorschiff. Auf einem Kleinfahrzeug sind die Wege kurz, die Verständigung gelingt ohne Funk.";"Falsch.
 
 Richtig ist: „Kleinfahrzeuge“
 
-Funkverkehr an Bord ist für Abstimmungen auf größeren Schiffen und in Verbänden gedacht, etwa zwischen Steuerhaus und Vorschiff. Kleinfahrzeuge sind davon ausgenommen."
+Funkverkehr an Bord dient der Abstimmung auf größeren Schiffen und in Schlepp- oder Schubverbänden, etwa zwischen Steuerhaus und Vorschiff. Auf einem Kleinfahrzeug sind die Wege kurz, die Verständigung gelingt ohne Funk."
 "UBI-0078";"Richtig.
 
 Schiffsname und Rufzeichen (verbal) und ggf. automatisierte ATIS-Kennung. Schiffsname und Rufzeichen machen die Funkstelle für den Gesprächspartner hörbar eindeutig; ATIS kennzeichnet die Aussendung zusätzlich technisch. Die MMSI gehört zum Seefunk, nicht zum Binnenschifffahrtsfunk.";"Falsch.
@@ -3613,11 +3613,11 @@ Richtig ist: „Hinweis auf den Nautischen Informationsfunk (NIF) auf UKW-Kanal 
 Blaue Tafeln mit weißer Schrift sind Hinweiszeichen, keine Gebote. Sie zeigen an, dass auf dem angegebenen Kanal eine Funkstelle der Nautischen Information erreichbar ist."
 "UBI-0109";"Richtig.
 
-Revierzentralen. Revierzentralen überblicken ihr Revier, sind direkt über UKW erreichbar und können Rettungsmaßnahmen sofort koordinieren und Hilfe alarmieren.";"Falsch.
+Revierzentralen. Revierzentralen überblicken ihr Revier, sind direkt über UKW erreichbar und können Rettungsmaßnahmen sofort koordinieren und Hilfe alarmieren. Rettungsleitstellen nehmen dagegen nicht am Binnenschifffahrtsfunk teil.";"Falsch.
 
 Richtig ist: „Revierzentralen“
 
-Revierzentralen überblicken ihr Revier, sind direkt über UKW erreichbar und können Rettungsmaßnahmen sofort koordinieren und Hilfe alarmieren."
+Revierzentralen überblicken ihr Revier, sind direkt über UKW erreichbar und können Rettungsmaßnahmen sofort koordinieren und Hilfe alarmieren. Rettungsleitstellen nehmen dagegen nicht am Binnenschifffahrtsfunk teil."
 "UBI-0110";"Richtig.
 
 Notverkehr, Dringlichkeitsverkehr, Sicherheitsverkehr, Routineverkehr. Merkhilfe: MAYDAY vor PAN PAN vor SECURITE. Erst unmittelbare Gefahr, dann dringende Lagen ohne unmittelbare Gefahr, dann Warnungen, zuletzt Routine.";"Falsch.
@@ -3802,14 +3802,14 @@ Orangefarbener Rauch ist nur bei Tageslicht zu sehen, und starker Wind drückt i
 Orangefarbener Rauch ist nur bei Tageslicht zu sehen, und starker Wind drückt ihn flach und verweht ihn. Die Schutzkappe verhindert, dass das Signal versehentlich zündet. Nach Lee geworfen zieht der Rauch vom eigenen Boot weg und behindert die Besatzung nicht."
 "FKN-0008";"Richtig.
 
-Signal- und Fallschirmraketen alarmieren über große Entfernung. Handfackeln und Rauchsignale zeigen aus der Nähe die genaue Position. Rauchtöpfe und bengalische Feuer sind keine zugelassenen Seenotsignale.";"Falsch.
+Signal- und Fallschirmraketen alarmieren über große Entfernung, Handfackeln und Rauchsignale zeigen aus der Nähe die genaue Position. Rauchtöpfe und bengalische Feuer aus dem Feuerwerks- oder Veranstaltungsbereich sind keine als Seenotsignal zugelassenen Mittel und können verwechselt oder übersehen werden.";"Falsch.
 
-Signal- und Fallschirmraketen alarmieren über große Entfernung. Handfackeln und Rauchsignale zeigen aus der Nähe die genaue Position. Rauchtöpfe und bengalische Feuer sind keine zugelassenen Seenotsignale."
+Signal- und Fallschirmraketen alarmieren über große Entfernung, Handfackeln und Rauchsignale zeigen aus der Nähe die genaue Position. Rauchtöpfe und bengalische Feuer aus dem Feuerwerks- oder Veranstaltungsbereich sind keine als Seenotsignal zugelassenen Mittel und können verwechselt oder übersehen werden."
 "FKN-0009";"Richtig.
 
-Rauch ist nachts nicht zu sehen und brennt nur wenige Minuten. Deshalb zündet man ihn erst, wenn Retter in Sicht sind: So weisen Schiffe oder Hubschrauber zur genauen Position, und der Rauch zeigt zugleich die Windrichtung.";"Falsch.
+Rauch ist nachts nicht zu sehen und hält nur wenige Minuten an. Deshalb zündet man ihn erst, wenn Retter in Sicht sind: So weist er Schiffe oder Hubschrauber zur genauen Position ein und zeigt ihnen zugleich die Windrichtung.";"Falsch.
 
-Rauch ist nachts nicht zu sehen und brennt nur wenige Minuten. Deshalb zündet man ihn erst, wenn Retter in Sicht sind: So weisen Schiffe oder Hubschrauber zur genauen Position, und der Rauch zeigt zugleich die Windrichtung."
+Rauch ist nachts nicht zu sehen und hält nur wenige Minuten an. Deshalb zündet man ihn erst, wenn Retter in Sicht sind: So weist er Schiffe oder Hubschrauber zur genauen Position ein und zeigt ihnen zugleich die Windrichtung."
 "FKN-0010";"Richtig.
 
 Rote Leuchtsignale sind international, nach den Kollisionsverhütungsregeln, als Notsignal festgelegt und werden überall so verstanden. Weiße oder grüne Signale gelten nicht als Notsignal.";"Falsch.
@@ -3842,9 +3842,9 @@ Kühl und trocken gelagert altern die Signale langsamer. Der verschlossene Metal
 Kühl und trocken gelagert altern die Signale langsamer. Der verschlossene Metallbehälter schützt vor mechanischer Beschädigung und verhindert, dass Unbefugte oder Kinder auf dem unbeaufsichtigten Boot an die Munition gelangen."
 "FKN-0016";"Richtig.
 
-Fällt die Packung über Bord oder muss sie in die Rettungsinsel mitgenommen werden, schwimmt sie und hält den Inhalt trocken und einsatzfähig. Außerdem stehen auf ihr meist Gebrauchsanweisung und Verfallsdatum.";"Falsch.
+Fällt die Packung über Bord oder wird sie in die Rettungsinsel mitgenommen, schwimmt sie und hält die Signale trocken. Das ist wichtig, weil Feuchtigkeit pyrotechnische Sätze unbrauchbar machen und zu Versagern führen kann.";"Falsch.
 
-Fällt die Packung über Bord oder muss sie in die Rettungsinsel mitgenommen werden, schwimmt sie und hält den Inhalt trocken und einsatzfähig. Außerdem stehen auf ihr meist Gebrauchsanweisung und Verfallsdatum."
+Fällt die Packung über Bord oder wird sie in die Rettungsinsel mitgenommen, schwimmt sie und hält die Signale trocken. Das ist wichtig, weil Feuchtigkeit pyrotechnische Sätze unbrauchbar machen und zu Versagern führen kann."
 "FKN-0017";"Richtig.
 
 Die Waffenbesitzkarte erlaubt den Erwerb und Besitz, also das Ausüben der tatsächlichen Gewalt. Die Munition muss eigens eingetragen sein. Wer die Signalpistole an Land in der Öffentlichkeit führen will, braucht einen Waffenschein; die Waffenbesitzkarte genügt dafür nicht.";"Falsch.
@@ -3877,9 +3877,9 @@ P1-Gegenstände wie Handfackeln haben ein geringeres Gefahrenpotenzial. Die klei
 P1-Gegenstände wie Handfackeln haben ein geringeres Gefahrenpotenzial. Die kleinen Signalgeber mit geringer Steighöhe sind keine Schusswaffen und fallen nicht unter das Waffengesetz. Deshalb ist für beide ab 18 Jahren keine Erlaubnis nötig, anders als für P2-Raketen."
 "FKN-0023";"Richtig.
 
-P2-Signale haben einen starken Treibsatz und eine große Steighöhe und sind entsprechend gefährlicher. Wer sie erwirbt, muss deshalb Fachkunde nachweisen; der Befreiungsvermerk im Führerschein bzw. der Fachkundenachweis belegt sie. P1-Signale sind ab 18 Jahren frei erhältlich.";"Falsch.
+Raketen der Unterklasse P2 haben einen starken Treibsatz und große Steighöhe, P2 insgesamt also ein höheres Gefahrenpotenzial. Wer sie erwirbt, muss deshalb Fachkunde nachweisen, die der Befreiungsvermerk im Führerschein bzw. der Fachkundenachweis belegt. P1-Signale sind ab 18 Jahren frei erhältlich.";"Falsch.
 
-P2-Signale haben einen starken Treibsatz und eine große Steighöhe und sind entsprechend gefährlicher. Wer sie erwirbt, muss deshalb Fachkunde nachweisen; der Befreiungsvermerk im Führerschein bzw. der Fachkundenachweis belegt sie. P1-Signale sind ab 18 Jahren frei erhältlich."
+Raketen der Unterklasse P2 haben einen starken Treibsatz und große Steighöhe, P2 insgesamt also ein höheres Gefahrenpotenzial. Wer sie erwirbt, muss deshalb Fachkunde nachweisen, die der Befreiungsvermerk im Führerschein bzw. der Fachkundenachweis belegt. P1-Signale sind ab 18 Jahren frei erhältlich."
 "FKN-0024";"Richtig.
 
 Munition für die Signalpistole Kaliber 4 fällt unter das Waffengesetz, der Befreiungsvermerk gilt dagegen nur für sprengstoffrechtliche P2-Signale. Und auch wer die Waffe in der Waffenbesitzkarte stehen hat, darf die Munition erst kaufen, wenn ihr Erwerb dort ausdrücklich eingetragen ist.";"Falsch.
@@ -3942,9 +3942,9 @@ Weil die Fackel nur kurz brennt, zündet man sie erst, wenn Retter in Sichtweite
 Weil die Fackel nur kurz brennt, zündet man sie erst, wenn Retter in Sichtweite sind. Sie dient dann dazu, die genaue Position anzuzeigen."
 "FKN-0036";"Richtig.
 
-Die Verzögerung des Anzünders lässt Zeit, das Signal sicher nach Lee über Bord zu werfen. Die Rauchentwicklung ist begrenzt, darum erst zünden, wenn Hilfe in Sicht ist.";"Falsch.
+Die Verzögerung des Anzünders lässt Zeit, das Signal sicher nach Lee über Bord zu werfen. Weil die Rauchdauer begrenzt ist, erst zünden, wenn Hilfe in Sicht ist.";"Falsch.
 
-Die Verzögerung des Anzünders lässt Zeit, das Signal sicher nach Lee über Bord zu werfen. Die Rauchentwicklung ist begrenzt, darum erst zünden, wenn Hilfe in Sicht ist."
+Die Verzögerung des Anzünders lässt Zeit, das Signal sicher nach Lee über Bord zu werfen. Weil die Rauchdauer begrenzt ist, erst zünden, wenn Hilfe in Sicht ist."
 "FKN-0037";"Richtig.
 
 Die Fallschirmrakete steigt hoch und ist dadurch weit zu sehen; für die genaue Position ist sie zu ungenau. Die Handfackel brennt dicht über dem Wasser und zeigt den Helfern in der Nähe die exakte Position, auch am Tag.";"Falsch.
@@ -3957,9 +3957,9 @@ Je höher das Signal steht, desto größer ist die Sichtweite, weil es über die
 Je höher das Signal steht, desto größer ist die Sichtweite, weil es über die Kimm hinaus zu sehen ist. Wegen dieser Steighöhe muss das Schussfeld frei sein."
 "FKN-0039";"Richtig.
 
-Leucht- und Brandsätze enthalten ihren eigenen Sauerstoffträger und brauchen keine Luft zum Brennen. Deshalb lassen sie sich auch mit Wasser nicht löschen, auch nicht, wenn sie an Deck fallen.";"Falsch.
+Leucht- und Brandsätze enthalten ihren eigenen Sauerstoffträger und brauchen keine Luft zum Brennen. Deshalb lassen sie sich auch an Deck nicht mit Wasser löschen und brennen weiter, bis der Satz verbraucht ist.";"Falsch.
 
-Leucht- und Brandsätze enthalten ihren eigenen Sauerstoffträger und brauchen keine Luft zum Brennen. Deshalb lassen sie sich auch mit Wasser nicht löschen, auch nicht, wenn sie an Deck fallen."
+Leucht- und Brandsätze enthalten ihren eigenen Sauerstoffträger und brauchen keine Luft zum Brennen. Deshalb lassen sie sich auch an Deck nicht mit Wasser löschen und brennen weiter, bis der Satz verbraucht ist."
 "FKN-0040";"Richtig.
 
 Werden explosionsgefährliche Stoffe hergestellt oder bearbeitet, droht eine Explosion. Ein veränderter Gegenstand verliert seine Zulassung und funktioniert unberechenbar. Die Fachkunde berechtigt nur zum Erwerb und zur Verwendung, nicht zur Bearbeitung.";"Falsch.
@@ -4067,9 +4067,9 @@ Ohne diese Ausnahme bräuchte jeder Charterer eine eigene Waffenbesitzkarte, und
 Ohne diese Ausnahme bräuchte jeder Charterer eine eigene Waffenbesitzkarte, und die Signalpistole wäre an Bord nicht sinnvoll nutzbar. Der Charterer übt die Gewalt nach den Weisungen des Überlassers aus; die Erlaubnis bleibt beim Eigner bzw. Überlasser."
 "FKN-0061";"Richtig.
 
-P2-Signale haben das höhere Gefahrenpotenzial, etwa durch große Steighöhe und starken Treibsatz. Erwerben darf sie deshalb nur, wer Fachkunde nachweist, etwa mit dem Fachkundenachweis oder dem Befreiungsvermerk im Führerschein; P1-Signale wie Handfackeln sind ab 18 Jahren frei.";"Falsch.
+P2-Signale haben das höhere Gefahrenpotenzial, Raketen etwa durch starken Treibsatz und große Steighöhe. Erwerben darf sie deshalb nur, wer Fachkunde nachweist, etwa mit dem Fachkundenachweis oder dem Befreiungsvermerk im Führerschein; P1-Signale wie Handfackeln sind ab 18 Jahren frei.";"Falsch.
 
-P2-Signale haben das höhere Gefahrenpotenzial, etwa durch große Steighöhe und starken Treibsatz. Erwerben darf sie deshalb nur, wer Fachkunde nachweist, etwa mit dem Fachkundenachweis oder dem Befreiungsvermerk im Führerschein; P1-Signale wie Handfackeln sind ab 18 Jahren frei."
+P2-Signale haben das höhere Gefahrenpotenzial, Raketen etwa durch starken Treibsatz und große Steighöhe. Erwerben darf sie deshalb nur, wer Fachkunde nachweist, etwa mit dem Fachkundenachweis oder dem Befreiungsvermerk im Führerschein; P1-Signale wie Handfackeln sind ab 18 Jahren frei."
 "FKN-0062";"Richtig.
 
 Die BAM ist für explosionsgefährliche Stoffe und pyrotechnische Gegenstände zuständig; ihr Zeichen mit der Unterklasse (z. B. P1, P2) steht auf jedem zugelassenen Signal. Die PTB prüft dagegen die Bauart von Waffen wie SRS-Waffen.";"Falsch.
@@ -4082,9 +4082,9 @@ Pyrotechnisch bedeutet, dass Licht, Rauch oder Knall durch die chemische Umsetzu
 Pyrotechnisch bedeutet, dass Licht, Rauch oder Knall durch die chemische Umsetzung eines explosionsgefährlichen Satzes entstehen, nicht elektrisch. Deshalb gelten für Erwerb, Lagerung und Umgang die besonderen Vorschriften des Waffen- bzw. Sprengstoffrechts."
 "SKN-0002";"Richtig.
 
-Entscheidend ist der Zweck: Pyrotechnische Munition soll signalisieren, nicht treffen. Trotzdem können Leuchtgeschosse durch Hitze und Aufprall schwere Verletzungen und Brände verursachen, weshalb sie dem Waffenrecht unterliegt.";"Falsch.
+Entscheidend ist der Zweck: Pyrotechnische Munition soll signalisieren, nicht treffen. Weil sie aus Schusswaffen wie der Signalpistole verschossen wird, unterliegt sie dem Waffenrecht; durch Hitze und Aufprall können Leuchtgeschosse dennoch schwere Verletzungen und Brände verursachen.";"Falsch.
 
-Entscheidend ist der Zweck: Pyrotechnische Munition soll signalisieren, nicht treffen. Trotzdem können Leuchtgeschosse durch Hitze und Aufprall schwere Verletzungen und Brände verursachen, weshalb sie dem Waffenrecht unterliegt."
+Entscheidend ist der Zweck: Pyrotechnische Munition soll signalisieren, nicht treffen. Weil sie aus Schusswaffen wie der Signalpistole verschossen wird, unterliegt sie dem Waffenrecht; durch Hitze und Aufprall können Leuchtgeschosse dennoch schwere Verletzungen und Brände verursachen."
 "SKN-0003";"Richtig.
 
 „Nicht außergewöhnliche Beanspruchung“ heißt: Schon alltägliche Einwirkungen wie Stoß, Reibung, Hitze oder Funken können die Reaktion auslösen. Darum sind vorsichtige Handhabung und eine trockene, kühle, geschützte Lagerung so wichtig.";"Falsch.
@@ -4097,9 +4097,9 @@ Merkhilfe: Die PTB lässt Signalwaffen (Abschussgeräte) zu, die BAM die pyrotec
 Merkhilfe: Die PTB lässt Signalwaffen (Abschussgeräte) zu, die BAM die pyrotechnischen Signale selbst. Nur geprüfte und zugelassene Mittel bieten die Gewähr, dass sie im Ernstfall zuverlässig und ohne unnötige Gefahr für den Benutzer funktionieren."
 "SKN-0005";"Richtig.
 
-In beiden Fällen zündet zunächst ein Anzündsatz, der dann den Signalsatz entzündet. Der Reibkopf wird wie ein Streichholz angerissen, beim Reißzünder genügt der Zug an der Reißschnur.";"Falsch.
+Der Reibkopf wird wie ein Streichholz an einer Reibfläche angerissen und entzündet den Leuchtsatz direkt. Beim heute üblichen Reißzünder genügt der Zug an der Reißschnur: Der Draht reibt durch den Anzündsatz, der dann den Signalsatz zündet. Luntenzünder sind bei Handfackeln nicht gebräuchlich.";"Falsch.
 
-In beiden Fällen zündet zunächst ein Anzündsatz, der dann den Signalsatz entzündet. Der Reibkopf wird wie ein Streichholz angerissen, beim Reißzünder genügt der Zug an der Reißschnur."
+Der Reibkopf wird wie ein Streichholz an einer Reibfläche angerissen und entzündet den Leuchtsatz direkt. Beim heute üblichen Reißzünder genügt der Zug an der Reißschnur: Der Draht reibt durch den Anzündsatz, der dann den Signalsatz zündet. Luntenzünder sind bei Handfackeln nicht gebräuchlich."
 "SKN-0006";"Richtig.
 
 Notsignale lösen Such- und Rettungseinsätze aus, die Personal und Mittel binden. Wer sie ohne Notlage, etwa als Feuerwerk, abbrennt, begeht Missbrauch von Notzeichen und kann damit Hilfe für echte Notfälle verzögern.";"Falsch.
@@ -4112,14 +4112,14 @@ In Lee wehen Funken, heiße Schlacke und Rauch vom Körper und vom Boot weg; in 
 In Lee wehen Funken, heiße Schlacke und Rauch vom Körper und vom Boot weg; in Luv würden sie zurück ins Gesicht und auf Deck oder Segel geweht. Da Zündung und Handhabung je nach Hersteller verschieden sind, sollte die Gebrauchsanweisung schon vor dem Ernstfall bekannt sein."
 "SKN-0008";"Richtig.
 
-Orangefarbener Rauch ist nur bei Tageslicht gut erkennbar, und starker Wind drückt ihn flach übers Wasser und verweht ihn schnell. Das gezündete Rauchsignal wird in Lee außenbords geworfen, damit der dichte, heiße Rauch nicht über das eigene Boot zieht.";"Falsch.
+Orangefarbener Rauch ist nur bei Tageslicht gut zu sehen, starker Wind drückt ihn flach übers Wasser und verweht ihn. Die Schutzkappe über der Reißschnur verhindert ein versehentliches Anzünden; nach der Zündung kommt das Signal in Lee außenbords, damit der Rauch vom Boot wegzieht.";"Falsch.
 
-Orangefarbener Rauch ist nur bei Tageslicht gut erkennbar, und starker Wind drückt ihn flach übers Wasser und verweht ihn schnell. Das gezündete Rauchsignal wird in Lee außenbords geworfen, damit der dichte, heiße Rauch nicht über das eigene Boot zieht."
+Orangefarbener Rauch ist nur bei Tageslicht gut zu sehen, starker Wind drückt ihn flach übers Wasser und verweht ihn. Die Schutzkappe über der Reißschnur verhindert ein versehentliches Anzünden; nach der Zündung kommt das Signal in Lee außenbords, damit der Rauch vom Boot wegzieht."
 "SKN-0009";"Richtig.
 
-Signalraketen und Fallschirmraketen machen auf große Entfernung auf die Notlage aufmerksam, Handfackeln und Rauchsignale zeigen nahen Helfern die genaue Position. Rauchtöpfe und Bengalische Feuer sind keine zugelassenen Seenotsignalmittel.";"Falsch.
+Signalraketen und Fallschirmraketen machen auf große Entfernung auf die Notlage aufmerksam, Handfackeln und Rauchsignale zeigen nahen Helfern die genaue Position. Bengalische Feuer sind Feuerwerk und kein Seenotsignal; verwendet werden nur die anerkannten, von der BAM zugelassenen Signalmittel.";"Falsch.
 
-Signalraketen und Fallschirmraketen machen auf große Entfernung auf die Notlage aufmerksam, Handfackeln und Rauchsignale zeigen nahen Helfern die genaue Position. Rauchtöpfe und Bengalische Feuer sind keine zugelassenen Seenotsignalmittel."
+Signalraketen und Fallschirmraketen machen auf große Entfernung auf die Notlage aufmerksam, Handfackeln und Rauchsignale zeigen nahen Helfern die genaue Position. Bengalische Feuer sind Feuerwerk und kein Seenotsignal; verwendet werden nur die anerkannten, von der BAM zugelassenen Signalmittel."
 "SKN-0010";"Richtig.
 
 Mit einem aus der Signalpistole verschossenen Leinenträger lässt sich eine dünne Leine zu einem anderen Fahrzeug übergeben, etwa um eine Schleppverbindung herzustellen. Der Einsatz als Startpistole ist keine Notsignalgebung und braucht daher eine Schießerlaubnis; Feuerwerk ist kein zulässiger Zweck.";"Falsch.
@@ -4152,9 +4152,9 @@ Feuchtigkeit macht Zünd- und Leuchtsätze unzuverlässig, Hitze beschleunigt ih
 Feuchtigkeit macht Zünd- und Leuchtsätze unzuverlässig, Hitze beschleunigt ihre chemische Alterung, und Beschädigungen können zu Versagern oder unbeabsichtigter Zündung führen. Deshalb kühl, trocken und geschützt lagern und regelmäßig kontrollieren."
 "SKN-0016";"Richtig.
 
-Überlagerte Signale enthalten weiterhin explosionsgefährliche Stoffe und reagieren unter Umständen unberechenbar; im Hausmüll gefährden sie Entsorger und Anlagen. Ein Abbrennen als Feuerwerk wäre Missbrauch von Notzeichen.";"Falsch.
+Überlagerte Signale enthalten weiterhin explosionsgefährliche Stoffe und reagieren unter Umständen unberechenbar; im Hausmüll gefährden sie Entsorger und Anlagen. Handel und Delaborierbetriebe haben Erlaubnis und Fachwissen zur sicheren Vernichtung. Als Feuerwerk abgebrannt, würden sie als Notsignal verstanden und könnten einen Rettungseinsatz auslösen.";"Falsch.
 
-Überlagerte Signale enthalten weiterhin explosionsgefährliche Stoffe und reagieren unter Umständen unberechenbar; im Hausmüll gefährden sie Entsorger und Anlagen. Ein Abbrennen als Feuerwerk wäre Missbrauch von Notzeichen."
+Überlagerte Signale enthalten weiterhin explosionsgefährliche Stoffe und reagieren unter Umständen unberechenbar; im Hausmüll gefährden sie Entsorger und Anlagen. Handel und Delaborierbetriebe haben Erlaubnis und Fachwissen zur sicheren Vernichtung. Als Feuerwerk abgebrannt, würden sie als Notsignal verstanden und könnten einen Rettungseinsatz auslösen."
 "SKN-0017";"Richtig.
 
 Die Verbrauchsdauer legt der Hersteller für das jeweilige Produkt fest, daher gibt es keine pauschale Frist ab Kauf oder Herstellung. Nach Ablauf des aufgedruckten Datums ist die zuverlässige Funktion nicht mehr gewährleistet.";"Falsch.
