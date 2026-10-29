@@ -7,6 +7,7 @@ use App\Models\ContentAnswer;
 use App\Models\ContentQuestion;
 use App\Models\ContentQuestionRevision;
 use App\Models\Module;
+use App\Models\Progress;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -136,6 +137,8 @@ class QuestionController extends Controller
                     $revision->media()->attach($media->id, ['role' => $media->pivot->role, 'sort_order' => $media->pivot->sort_order]);
                 }
             }
+
+            $this->resetProgressIfContentChanged($editing, $revision);
         });
 
         return redirect()->route('superadmin.questions.edit', $question)->with('status', 'Neue Fassung gespeichert.');
@@ -197,10 +200,50 @@ class QuestionController extends Controller
                 $published->update(['editorial_status' => 'deprecated']);
             }
 
+            $this->resetProgressIfContentChanged($published, $revision);
+
             $revision->update(['editorial_status' => 'published']);
         });
 
         return back()->with('status', 'Fassung veröffentlicht.');
+    }
+
+    /**
+     * Bug-Review (Lernfortschritt bei ersetzten Fragen): wird eine neue
+     * Revision veröffentlicht, deren Fragetext oder Antworten sich
+     * tatsächlich geändert haben (z. B. eine korrigierte UBI-Frage mit
+     * zuvor fehlenden oder falschen Antwortoptionen), blieb der bisherige
+     * Mastery-Fortschritt (progress.learning_state) jedes Lerners
+     * unverändert auf dem Stand der ALTEN Frage stehen -- "gefestigt"
+     * anhand von Antworten, die mit der neuen Fassung gar nichts mehr zu
+     * tun haben. Betroffen sind nur noch offene (ungelöste) Lernfragen;
+     * bereits gemachte Attempt-Datensätze bleiben als historischer Beleg
+     * unangetastet (siehe ContentImportTest). Reine Metadaten-/Feedback-
+     * Änderungen (z. B. ImportContentFeedback) lösen das bewusst NICHT
+     * aus, da sich Frage und Antworten dabei inhaltlich nicht ändern.
+     */
+    private function resetProgressIfContentChanged(?ContentQuestionRevision $old, ContentQuestionRevision $new): void
+    {
+        if (! $old || ! $this->questionContentChanged($old, $new)) {
+            return;
+        }
+
+        Progress::where('question_id', $new->question_id)->delete();
+    }
+
+    private function questionContentChanged(ContentQuestionRevision $old, ContentQuestionRevision $new): bool
+    {
+        if ($old->question_text !== $new->question_text) {
+            return true;
+        }
+
+        $normalize = fn (ContentQuestionRevision $revision) => $revision->answers()
+            ->orderBy('answer_key')
+            ->get(['answer_key', 'answer_text', 'is_correct'])
+            ->map(fn ($answer) => [$answer->answer_key, $answer->answer_text, $answer->is_correct])
+            ->all();
+
+        return $normalize($old) !== $normalize($new);
     }
 
     /**

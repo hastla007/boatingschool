@@ -2,10 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\Models\Attempt;
+use App\Models\ContentAnswer;
 use App\Models\ContentQuestion;
 use App\Models\ContentQuestionRevision;
 use App\Models\MediaAsset;
 use App\Models\Module;
+use App\Models\Progress;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -27,6 +30,13 @@ class ContentQuestionReviewPublishingTest extends TestCase
 
     protected function tearDown(): void
     {
+        // Bug-Review (Lernfortschritt bei ersetzten Fragen): muss vor dem
+        // Löschen der Frage selbst laufen -- ein per Test angelegter
+        // Attempt verweist per Fremdschlüssel auf content_question und
+        // blockiert dessen Löschung sonst (siehe Testfall "...resets
+        // learner progress but keeps attempts").
+        $this->cleanUpCreatedTenantsAndUsers();
+
         $this->onAdmin(function () {
             foreach ($this->createdModuleIds as $id) {
                 Module::where('id', $id)->delete();
@@ -38,8 +48,6 @@ class ContentQuestionReviewPublishingTest extends TestCase
                 MediaAsset::where('id', $id)->delete();
             }
         });
-
-        $this->cleanUpCreatedUsers();
 
         parent::tearDown();
     }
@@ -92,6 +100,56 @@ class ContentQuestionReviewPublishingTest extends TestCase
             $this->assertSame('published', $review->fresh()->editorial_status);
             $this->assertSame($review->id, $question->publishedRevision()->id);
             $this->assertSame('Neue Fassung aus Reimport', $question->publishedRevision()->question_text);
+        });
+    }
+
+    /**
+     * Bug-Review (Lernfortschritt bei ersetzten Fragen): die neue Fassung
+     * oben hat einen anderen Fragetext -- bisheriger Mastery-Fortschritt
+     * eines Lerners für die ALTE Fassung muss deshalb auf "neu"
+     * zurückgesetzt werden. Ein bereits dokumentierter Attempt bleibt dabei
+     * als historischer Beleg unangetastet.
+     */
+    public function test_publishing_a_revision_with_changed_content_resets_learner_progress_but_keeps_attempts(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        [, $question, $published, $review] = $this->makeQuestionWithPendingReview();
+
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+
+        $answer = $this->onAdmin(fn () => ContentAnswer::create([
+            'revision_id' => $published->id, 'answer_key' => 'A', 'answer_text' => 'Richtig', 'is_correct' => true, 'sort_order' => 1,
+        ]));
+
+        $this->onAdmin(fn () => Progress::create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $learner->id,
+            'question_id' => $question->id,
+            'learning_state' => 'gefestigt',
+            'attempt_count' => 3,
+            'correct_count' => 3,
+            'current_streak' => 3,
+        ]));
+
+        $attempt = $this->onAdmin(fn () => Attempt::create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $learner->id,
+            'question_id' => $question->id,
+            'revision_id' => $published->id,
+            'selected_answer_id' => $answer->id,
+            'correct' => true,
+            'context' => 'smarttrainer',
+        ]));
+
+        $this->actingAs($superadmin)->post(route('superadmin.questions.revisions.publish', $review))->assertRedirect();
+
+        $this->onAdmin(function () use ($tenant, $learner, $question, $attempt) {
+            $this->assertDatabaseMissing('progress', [
+                'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'question_id' => $question->id,
+            ]);
+
+            $this->assertTrue(Attempt::whereKey($attempt->id)->exists(), 'Ein historischer Attempt darf durch die Veröffentlichung nicht verschwinden.');
         });
     }
 
