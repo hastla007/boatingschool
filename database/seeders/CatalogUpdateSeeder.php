@@ -50,6 +50,12 @@ use Illuminate\Database\Seeder;
  *   Kapitelüberschrift). Der Sinn bleibt gleich: Feedback, Bilder und
  *   Lernfortschritt werden übernommen, solange die importierte Fassung
  *   2026-09 veröffentlicht ist; eine Editor-Korrektur bleibt unberührt.
+ * - Zweite Korrektur SRC und UBI (source_version "2026-09-korr2" bzw.
+ *   "2026-10-korr2"): die amtliche Nummer am Ende jeder Frage ("… ? [53]")
+ *   ist entfernt, sie stand als Rest des PDFs im Fragetext (bei Nr. 44 und
+ *   57 zudem abgeschnitten). Feedback, Bilder und Lernfortschritt bleiben,
+ *   wenn eine der früheren Fassungen derselben Ausgabe veröffentlicht ist
+ *   (correction_of darf mehrere Fassungen nennen).
  *
  * Idempotent: ohne wartende Revision tut ein erneuter Lauf nichts.
  */
@@ -63,11 +69,17 @@ class CatalogUpdateSeeder extends Seeder
 
     public const SRC_2026_09_KORR = '2026-09-korr';
 
+    public const SRC_2026_09_KORR2 = '2026-09-korr2';
+
+    public const UBI_2026_10_KORR2 = '2026-10-korr2';
+
     private const UPDATES = [
         ['content_role' => 'ubi_official', 'source_version' => self::UBI_2026_10, 'inherit_editorial_content' => false],
         ['content_role' => 'see_specific', 'source_version' => self::SEE_2023_08_ELWIS, 'inherit_editorial_content' => true],
         ['content_role' => 'ubi_official', 'source_version' => self::UBI_2026_10_KORR, 'inherit_editorial_content' => true, 'reset_progress' => false, 'correction_of' => self::UBI_2026_10],
         ['content_role' => 'src_official', 'source_version' => self::SRC_2026_09_KORR, 'inherit_editorial_content' => true, 'reset_progress' => false, 'correction_of' => '2026-09'],
+        ['content_role' => 'src_official', 'source_version' => self::SRC_2026_09_KORR2, 'inherit_editorial_content' => true, 'reset_progress' => false, 'correction_of' => ['2026-09', self::SRC_2026_09_KORR]],
+        ['content_role' => 'ubi_official', 'source_version' => self::UBI_2026_10_KORR2, 'inherit_editorial_content' => true, 'reset_progress' => false, 'correction_of' => [self::UBI_2026_10, self::UBI_2026_10_KORR]],
     ];
 
     public function run(): void
@@ -84,19 +96,23 @@ class CatalogUpdateSeeder extends Seeder
                 $resetProgress = $update['reset_progress'] ?? true;
 
                 if (isset($update['correction_of'])) {
+                    $correctionOf = (array) $update['correction_of'];
                     $published = $question->revisions()->where('editorial_status', 'published')->first();
 
                     if ($published?->edited_by_superadmin) {
                         continue;
                     }
 
-                    if ($published?->source_version !== $update['correction_of']) {
+                    if (! in_array($published?->source_version, $correctionOf, true)) {
                         $inherit = false;
                         $resetProgress = true;
-                        $question->revisions()->where('editorial_status', 'review')
-                            ->where('source_version', $update['correction_of'])
-                            ->update(['editorial_status' => 'deprecated']);
                     }
+
+                    // Ältere, noch wartende Fassungen derselben Ausgabe ersetzt die Korrektur.
+                    $question->revisions()->where('editorial_status', 'review')
+                        ->whereKeyNot($latest->id)
+                        ->whereIn('source_version', $correctionOf)
+                        ->update(['editorial_status' => 'deprecated']);
                 }
 
                 $latest->publish(inheritEditorialContent: $inherit, resetProgressOnContentChange: $resetProgress);

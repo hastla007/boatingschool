@@ -62,11 +62,13 @@ class UbiCatalog2026Test extends TestCase
             // Frische Installation: alle 130 aus dem Katalog 2026-10. Nach
             // einem Update behalten die 65 inhaltlich unveränderten Fragen
             // ihre bisherige Revision (und damit deren Herkunftsangabe).
-            $fromNewCatalog = $questions->filter(fn ($q) => $q->publishedRevision()->source_version === CatalogUpdateSeeder::UBI_2026_10)->count();
+            // (Die Korrekturen derselben Ausgabe zählen dazu.)
+            $edition = [CatalogUpdateSeeder::UBI_2026_10, CatalogUpdateSeeder::UBI_2026_10_KORR, CatalogUpdateSeeder::UBI_2026_10_KORR2];
+            $fromNewCatalog = $questions->filter(fn ($q) => in_array($q->publishedRevision()->source_version, $edition, true))->count();
             $this->assertGreaterThanOrEqual(65, $fromNewCatalog);
 
             $q4 = ContentQuestion::where('content_role', 'ubi_official')->where('official_number', '4')->firstOrFail()->publishedRevision();
-            $this->assertSame('Wie lange dürfen Testsendungen dauern? [4]', $q4->question_text);
+            $this->assertSame('Wie lange dürfen Testsendungen dauern?', $q4->question_text);
             $this->assertSame('Maximal 10 Sekunden', $q4->correctAnswer()->answer_text);
 
             // Kapitelgrenze IV/V hat sich verschoben: 108 gehört jetzt zu "Sprechfunk".

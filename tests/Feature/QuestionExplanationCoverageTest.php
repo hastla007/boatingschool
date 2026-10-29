@@ -106,4 +106,51 @@ class QuestionExplanationCoverageTest extends TestCase
             }
         });
     }
+
+    public function test_radio_questions_no_longer_end_with_their_official_number(): void
+    {
+        $this->onAdmin(function () {
+            $numbered = ContentQuestionRevision::where('editorial_status', 'published')
+                ->whereHas('question', fn ($q) => $q->whereIn('content_role', ['src_official', 'ubi_official']))
+                ->whereRaw("question_text ~ '\\[[0-9]+\\]\\s*$'")
+                ->count();
+
+            $this->assertSame(0, $numbered);
+        });
+    }
+
+    public function test_second_correction_replaces_an_earlier_correction_and_keeps_feedback_and_progress(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+
+        $this->onAdmin(function () use ($tenant, $learner) {
+            $question = ContentQuestion::create(['content_id' => 'TEST-SRC-KORR2-'.uniqid(), 'official_number' => '9994', 'content_role' => 'src_official', 'language' => 'de-DE', 'active' => true]);
+            $make = fn (int $no, string $status, string $version, ?string $feedback) => ContentQuestionRevision::create([
+                'question_id' => $question->id, 'revision_no' => $no, 'question_type' => 'single_choice', 'question_text' => 'Testfrage? [53]',
+                'feedback_correct' => $feedback, 'source_version' => $version, 'editorial_status' => $status, 'rights_status' => 'review',
+            ]);
+            $published = $make(1, 'published', CatalogUpdateSeeder::SRC_2026_09_KORR, 'Erklärung');
+            $waiting = $make(2, 'review', '2026-09', null);
+            $correction = $make(3, 'review', CatalogUpdateSeeder::SRC_2026_09_KORR2, null);
+            Progress::create([
+                'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'question_id' => $question->id,
+                'attempt_count' => 3, 'correct_count' => 3, 'current_streak' => 3, 'mastery_score' => 1, 'learning_state' => 'gefestigt',
+            ]);
+
+            try {
+                (new CatalogUpdateSeeder)->run();
+
+                $this->assertSame('deprecated', $published->fresh()->editorial_status);
+                $this->assertSame('deprecated', $waiting->fresh()->editorial_status);
+                $this->assertSame('published', $correction->fresh()->editorial_status);
+                $this->assertSame('Erklärung', $correction->fresh()->feedback_correct);
+                $this->assertSame(1, Progress::where('question_id', $question->id)->count());
+            } finally {
+                Progress::where('question_id', $question->id)->delete();
+                $question->revisions()->delete();
+                $question->delete();
+            }
+        });
+    }
 }
