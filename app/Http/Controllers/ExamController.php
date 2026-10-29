@@ -488,6 +488,7 @@ class ExamController extends Controller
             'topicBreakdown' => $topicBreakdown,
             'openTextCount' => $openTextQuestions->count(),
             'openTextCorrect' => $openTextQuestions->where('correct', true)->count(),
+            'partResults' => $examSession->ruleSet->partResults($questions),
         ]);
     }
 

@@ -17,15 +17,18 @@ use Tests\TestCase;
  * weiterhin nur den generischen 75%-Platzhalter nutzte, statt einer
  * tatsächlich amtlichen, aus der Prüfungsordnung belegten
  * Bestehensgrenze. Nur Kurse mit einer explizit dokumentierten,
- * amtlichen Bestehensgrenze (ADD-BIN-SEGEL, SRC, FKN, UBI) dürfen verifiziert
- * sein.
+ * amtlichen Bestehensgrenze dürfen verifiziert sein.
  */
 class ExamRuleSetAuthorityTest extends TestCase
 {
     use InteractsWithTenants;
 
     private const UNVERIFIED_COURSE_CODES = [
-        'SBF-SEE', 'SBF-BIN-MOTOR', 'SBF-SEE-BIN', 'ADD-SEE-TO-BIN', 'ADD-BIN-TO-SEE', 'SBF-BIN-SEGEL',
+        // SBF-BIN-SEGEL: die genannte Grenze (20/25 aus 4+14+7) passt
+        // nicht zu den 37-Fragen-Bögen; SKN/ADD-FKN-TO-SKN: keine Bögen
+        // und kein Zeitlimit. SBF-SEE-BIN: wie SRC-UBI unten, die Bögen
+        // laufen nach ihren Teilkursen.
+        'SBF-BIN-SEGEL', 'SBF-SEE-BIN', 'SKN', 'ADD-FKN-TO-SKN',
         // SRC-UBI: ein Regelwerk je Kurs kann die beiden amtlichen Grenzen
         // der Teilprüfungen (SRC 19/24, UBI 17/22) nicht gleichzeitig
         // abbilden -- die Bögen laufen nach dem Regelwerk ihres Teilkurses,
@@ -33,7 +36,9 @@ class ExamRuleSetAuthorityTest extends TestCase
         'SRC-UBI',
     ];
 
-    private const VERIFIED_COURSE_CODES_WITH_A_DOCUMENTED_OFFICIAL_THRESHOLD = ['ADD-BIN-SEGEL', 'SRC', 'FKN', 'UBI'];
+    private const VERIFIED_COURSE_CODES_WITH_A_DOCUMENTED_OFFICIAL_THRESHOLD = [
+        'ADD-BIN-SEGEL', 'SRC', 'FKN', 'UBI', 'SBF-SEE', 'SBF-BIN-MOTOR', 'ADD-SEE-TO-BIN', 'ADD-BIN-TO-SEE', 'ADD-UBI-TO-SRC',
+    ];
 
     protected function tearDown(): void
     {
@@ -60,7 +65,7 @@ class ExamRuleSetAuthorityTest extends TestCase
     {
         $tenant = $this->createTestTenant();
         $learner = $this->createTenantUser($tenant, 'learner');
-        $course = $this->existingCourse('SBF-SEE');
+        $course = $this->existingCourse('SBF-BIN-SEGEL');
         $this->grantEntitlement($tenant, $learner, $course);
         $paper = $this->onAdmin(fn () => ExamPaper::where('course_id', $course->id)->firstOrFail());
 
@@ -81,7 +86,7 @@ class ExamRuleSetAuthorityTest extends TestCase
     {
         $tenant = $this->createTestTenant();
         $learner = $this->createTenantUser($tenant, 'learner');
-        $course = $this->existingCourse('SBF-SEE');
+        $course = $this->existingCourse('SBF-BIN-SEGEL');
         $this->grantEntitlement($tenant, $learner, $course);
         $paper = $this->onAdmin(fn () => ExamPaper::where('course_id', $course->id)->orderBy('paper_number')->firstOrFail());
 

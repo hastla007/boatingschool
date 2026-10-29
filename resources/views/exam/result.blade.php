@@ -25,6 +25,20 @@
                     Davon {{ $openTextCorrect }}/{{ $openTextCount }} Punkte aus offenen Fragen durch Selbsteinschätzung (keine automatische Prüfung).
                 </div>
             @endif
+            @if ($partResults !== [])
+                {{-- Amtliche Teilgrenzen: jeder Teil muss für sich bestanden sein. --}}
+                <div class="mt-3 flex flex-wrap justify-center gap-2">
+                    @foreach ($partResults as $part)
+                        <span class="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium {{ $part['passed'] ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300' }}">
+                            <x-icon :name="$part['passed'] ? 'check-circle' : 'x-circle'" class="w-4 h-4" />
+                            {{ $part['label'] }}: {{ $part['correct'] }}/{{ $part['total'] }} (mind. {{ $part['min_correct'] }}/{{ $part['of'] }})
+                        </span>
+                    @endforeach
+                </div>
+            @endif
+            @if ($examSession->ruleSet->note())
+                <div class="text-xs text-slate-500 dark:text-slate-400 mt-2">{{ $examSession->ruleSet->note() }}</div>
+            @endif
         </div>
 
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">

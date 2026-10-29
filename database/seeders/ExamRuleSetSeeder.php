@@ -67,8 +67,14 @@ class ExamRuleSetSeeder extends Seeder
         // amtlichen Bestehensgrenze (siehe $passingRuleOverrides unten)
         // gelten hier als verifiziert; alle anderen bleiben "draft", bis
         // jemand die echten Werte recherchiert und einträgt.
-        $verifiedCourses = ['ADD-BIN-SEGEL', 'SRC', 'FKN', 'UBI'];
-        $questionCountOverrides = ['ADD-SEE-TO-BIN' => 23, 'ADD-BIN-TO-SEE' => 23, 'UBI' => 22];
+        $verifiedCourses = ['ADD-BIN-SEGEL', 'SRC', 'FKN', 'UBI', 'SBF-SEE', 'SBF-BIN-MOTOR', 'ADD-SEE-TO-BIN', 'ADD-BIN-TO-SEE', 'ADD-UBI-TO-SRC'];
+        // Fragen je Modul für die Zufallsprüfung, wie im amtlichen Bogen
+        // (ein Wert gilt für jedes Modul des Kurses).
+        $questionCountOverrides = [
+            'ADD-SEE-TO-BIN' => 23, 'ADD-BIN-TO-SEE' => 23, 'UBI' => 22, 'ADD-UBI-TO-SRC' => 10,
+            'SBF-SEE' => ['SBF_BASIS' => 7, 'SBF_SEE' => 23],
+            'SBF-BIN-MOTOR' => ['SBF_BASIS' => 7, 'SBF_BINNEN' => 23],
+        ];
 
         // ADD-BIN-SEGEL ("Ergänzung Binnen → Segeln"): nur noch die 7
         // spezifischen Segelfragen je Bogen (kein allgemeiner Teil, keine
@@ -85,8 +91,46 @@ class ExamRuleSetSeeder extends Seeder
         // Installationen stellt die Migration
         // 2024_02_01_000474_verify_ubi_exam_rule_set um, da firstOrCreate()
         // unten ein vorhandenes Regelwerk nicht anfasst.
-        $timeLimitOverrides = ['ADD-BIN-SEGEL' => 900, 'SRC' => 1800, 'FKN' => 1800, 'UBI' => 3600];
-        $passingRuleOverrides = ['ADD-BIN-SEGEL' => ['min_correct_ratio' => 5 / 7], 'SRC' => ['min_correct_ratio' => 19 / 24], 'FKN' => ['min_correct_ratio' => 24 / 30], 'UBI' => ['min_correct_ratio' => 17 / 22]];
+        //
+        // SBF See: Basisfragen 5 von 7 UND spezifische Fragen See 18 von 23
+        // (je Teil, siehe ExamRuleSet::partResults()), 60 Minuten; die
+        // Navigationsaufgabe (7 von 9 Punkten) gehört amtlich dazu, wird
+        // hier aber nicht automatisch bewertet. SBF Binnen (Motor): Basis
+        // 5/7 UND Binnen 18/23, 45 Minuten. Ergänzung See -> Binnen:
+        // Binnen 18/23, 35 Minuten. Ergänzung Binnen -> See: See 18/23,
+        // 50 Minuten, plus Navigationsaufgabe. Ergänzung SRC -> UBI:
+        // UBI-Ergänzungsbogen 8 von 10, 30 Minuten. Bestehende
+        // Installationen stellt die Migration
+        // 2024_02_01_000477_verify_sbf_and_addon_exam_rule_sets um.
+        $timeLimitOverrides = [
+            'ADD-BIN-SEGEL' => 900, 'SRC' => 1800, 'FKN' => 1800, 'UBI' => 3600,
+            'SBF-SEE' => 3600, 'SBF-BIN-MOTOR' => 2700, 'ADD-SEE-TO-BIN' => 2100, 'ADD-BIN-TO-SEE' => 3000, 'ADD-UBI-TO-SRC' => 1800,
+        ];
+        $navigationNote = 'Zur amtlichen Prüfung gehört zusätzlich die Navigationsaufgabe (mindestens 7 von 9 Punkten); sie wird hier nicht automatisch bewertet.';
+        $passingRuleOverrides = [
+            'ADD-BIN-SEGEL' => ['min_correct_ratio' => 5 / 7],
+            'SRC' => ['min_correct_ratio' => 19 / 24],
+            'FKN' => ['min_correct_ratio' => 24 / 30],
+            'UBI' => ['min_correct_ratio' => 17 / 22],
+            'SBF-SEE' => [
+                'min_correct_ratio' => 23 / 30,
+                'parts' => [
+                    ['module' => 'SBF_BASIS', 'label' => 'Basisfragen', 'min_correct' => 5, 'of' => 7],
+                    ['module' => 'SBF_SEE', 'label' => 'See', 'min_correct' => 18, 'of' => 23],
+                ],
+                'note' => $navigationNote,
+            ],
+            'SBF-BIN-MOTOR' => [
+                'min_correct_ratio' => 23 / 30,
+                'parts' => [
+                    ['module' => 'SBF_BASIS', 'label' => 'Basisfragen', 'min_correct' => 5, 'of' => 7],
+                    ['module' => 'SBF_BINNEN', 'label' => 'Binnen', 'min_correct' => 18, 'of' => 23],
+                ],
+            ],
+            'ADD-SEE-TO-BIN' => ['min_correct_ratio' => 18 / 23],
+            'ADD-BIN-TO-SEE' => ['min_correct_ratio' => 18 / 23, 'note' => $navigationNote],
+            'ADD-UBI-TO-SRC' => ['min_correct_ratio' => 8 / 10],
+        ];
 
         // Bug-Review (Hoch, Folgefehler von CourseSeeder): dieser Seeder
         // läuft in Produktion erneut, sobald ein neuer Kurs dazukommt --
@@ -117,7 +161,8 @@ class ExamRuleSetSeeder extends Seeder
             );
 
             foreach ($course->modules as $module) {
-                $questionCount = $questionCountOverrides[$course->code] ?? $questionsPerModule;
+                $override = $questionCountOverrides[$course->code] ?? $questionsPerModule;
+                $questionCount = is_array($override) ? ($override[$module->code] ?? $questionsPerModule) : $override;
 
                 ExamBlueprint::firstOrCreate(
                     ['rule_set_id' => $ruleSet->id, 'module_id' => $module->id],

@@ -76,7 +76,7 @@ class SrcUbiComboExamTest extends TestCase
         $course = $this->onAdmin(fn () => $this->existingCourse('SRC-UBI'));
 
         $this->assertTrue($this->onAdmin(fn () => $course->hasStartableExam()));
-        $this->assertFalse($this->onAdmin(fn () => $this->existingCourse('SBF-SEE-BIN')->hasStartableExam()));
+        $this->assertFalse($this->onAdmin(fn () => $this->existingCourse('SBF-BIN-SEGEL')->hasStartableExam()));
     }
 
     public function test_combo_own_rule_set_stays_draft_so_the_random_exam_is_still_blocked(): void
@@ -88,20 +88,6 @@ class SrcUbiComboExamTest extends TestCase
 
         $this->assertFalse($this->onAdmin(fn () => ExamRuleSet::where('course_id', $course->id)->firstOrFail()->isVerified()));
         $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam")->assertStatus(409);
-    }
-
-    public function test_sbf_combo_papers_stay_blocked_because_their_part_courses_are_unverified(): void
-    {
-        $tenant = $this->createTestTenant();
-        $learner = $this->createTenantUser($tenant, 'learner');
-        $course = $this->existingCourse('SBF-SEE-BIN');
-        $this->grantEntitlement($tenant, $learner, $course);
-
-        foreach ([1, 101] as $paperNumber) {
-            $paper = $this->onAdmin(fn () => ExamPaper::where('course_id', $course->id)->where('paper_number', $paperNumber)->firstOrFail());
-
-            $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam/papers/{$paper->id}")->assertStatus(409);
-        }
     }
 
     private function takeComboPaper(int $paperNumber, int $expectedQuestions, int $correct): ExamSession

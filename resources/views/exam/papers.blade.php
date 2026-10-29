@@ -145,13 +145,15 @@
         @endunless
         @foreach ($groupedStats as $groupLabel => $statsInGroup)
             <div>
-                @php($groupRuleSet = $groupLabel ? $statsInGroup->first()['ruleSet'] : null)
+                {{-- In Kombikursen wird jede Bogengruppe nach dem Regelwerk ihres Teilkurses bewertet. --}}
+                @php($groupRuleSet = $statsInGroup->first()['ruleSet'])
                 <h4 class="font-medium text-slate-700 dark:text-slate-200 {{ $groupRuleSet ? 'mb-1' : 'mb-3' }}">{{ $groupLabel ?: $course->name }}</h4>
                 @if ($groupRuleSet)
-                    {{-- Kombikurs: jede Bogengruppe wird nach dem Regelwerk ihres Teilkurses bewertet. --}}
-                    @php($groupTotal = $statsInGroup->first()['total'])
                     <p class="text-xs text-slate-600 dark:text-slate-400 mb-3">
-                        Bestanden ab {{ (int) ceil(($groupRuleSet->passing_rule['min_correct_ratio'] ?? 0.75) * $groupTotal - 1e-9) }} von {{ $groupTotal }} richtigen Antworten{{ $groupRuleSet->time_limit_seconds ? ' · '.intdiv($groupRuleSet->time_limit_seconds, 60).' Minuten' : '' }}
+                        {{ $groupRuleSet->passingSummary($statsInGroup->first()['total']) }}
+                        @if ($groupRuleSet->note())
+                            <span class="block mt-0.5">{{ $groupRuleSet->note() }}</span>
+                        @endif
                     </p>
                 @endif
                 <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">

@@ -113,6 +113,10 @@ class ExamEvaluationService
             $total = max($scoredTotal, 1);
             $score = round($correctCount / $total, 4);
             $minRatio = $examSession->ruleSet->passing_rule['min_correct_ratio'] ?? 0.75;
+            // Amtliche Teilgrenzen (z. B. SBF See: Basis 5/7 UND See
+            // 18/23) gelten zusätzlich zur Gesamtquote, siehe
+            // ExamRuleSet::partResults().
+            $partsPassed = collect($examSession->ruleSet->partResults($questions))->every('passed');
 
             $examSession->update([
                 'status' => 'evaluated',
@@ -124,7 +128,7 @@ class ExamEvaluationService
                 // UNTER der Grenze -- bestanden wäre dann erst mit 18. Die
                 // Toleranz fängt Rundungsreste aus der JSON-Speicherung der
                 // passing_rule ab.
-                'passed' => $correctCount / $total >= $minRatio - 1e-9,
+                'passed' => $correctCount / $total >= $minRatio - 1e-9 && $partsPassed,
             ]);
         });
     }
