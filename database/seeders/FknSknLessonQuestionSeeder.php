@@ -37,7 +37,14 @@ class FknSknLessonQuestionSeeder extends Seeder
         'Kennzeichnung, Haltbarkeit, Aufbewahrung und Entsorgung' => [14, 15, 16, 17, 19, 24, 25, 49],
         'Versager und praktische Prüfung mit FKN-Signalmitteln' => [59, 60, 73, 74, 84, 87],
         'SKN-Zusatz: Waffenrecht, Signalpistole und Munition' => [20, 22, 23, 27, 29, 30, 32, 33, 34, 38, 39],
-        'SKN-Zusatz: praktische Prüfungsvorbereitung Signalpistole' => [48, 50, 51, 55, 56, 57, 58, 73, 77, 81, 82, 83, 85, 86],
+        // Bug-Review (Y6: SKN-Fragen 57 und 73 doppelt zugeordnet): 57
+        // ("Wie hoch steigen Seenotsignalraketen...") gehört bereits zu
+        // "Sicherer Einsatz von Raketen, Handfackeln und Rauchsignalen",
+        // 73 ("...Patrone in der Signalpistole...nicht gezündet...")
+        // bereits zu "Versager und praktische Prüfung mit
+        // FKN-Signalmitteln" -- beide standen hier zusätzlich ein zweites
+        // Mal, wodurch dieselbe Frage im SKN-Videoquiz zweimal auftauchte.
+        'SKN-Zusatz: praktische Prüfungsvorbereitung Signalpistole' => [48, 50, 51, 55, 56, 58, 77, 81, 82, 83, 85, 86],
     ];
 
     public function run(): void
