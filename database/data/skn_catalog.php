@@ -219,7 +219,7 @@ return [
         ['t' => '30 bis 60 Sekunden.', 'c' => true],
     ]],
     52 => ['type' => 'open_text', 'q' => 'Beschreiben Sie den allgemeinen Aufbau eines Seenot-Rauchsignals!', 'a' => 'In einem Behälter befindet sich ein Anzünder (meist Reißzünder) mit Verzögerung, der einen pyrotechnischen Satz anzündet, der dann bis zu 4 Minuten lang orangefarbenen Rauch abgibt.'],
-    53 => ['type' => 'multi_choice', 'q' => 'Fallschirmsignalraketen und Handfackeln sind bei klarem Wetter unterschiedlich weit zu sehen. Welche Aussage/n ist/sind richtig.', 'options' => [
+    53 => ['type' => 'multi_choice', 'q' => 'Fallschirmsignalraketen und Handfackeln sind bei klarem Wetter unterschiedlich weit zu sehen. Welche Aussage/n ist/sind richtig?', 'options' => [
         ['t' => 'Fallschirmsignalraketen werden verwendet, um weit entfernte Helfer auf eine Notlage aufmerksam zu machen und grob in die Richtung einzuweisen.', 'c' => true],
         ['t' => 'Handfackeln werden verwendet, um die genaue Position bei Annäherung kenntlich zu machen.', 'c' => true],
         ['t' => 'Handfackeln sind ausschließlich Nachts zu verwenden.', 'c' => false],
@@ -245,7 +245,7 @@ return [
         ['t' => 'Ja, ich muss die Signalwaffe dann aber durch ein Beschussamt neu beschießen lassen.', 'c' => false],
         ['t' => 'Ja, sofern der Rohrinnendurchmesser um mindestens dreizehntel (3/10) Millimeter größer ist als das Munitionskaliber und zudem das Rohr eine Wandstärke von mindestens 2 Millimetern aufweist und gasdicht ist.', 'c' => false],
     ]],
-    59 => ['type' => 'multi_choice', 'q' => 'Brennen pyrotechnische Geschosse weiter, wenn Sie ins Wasser fallen?', 'options' => [
+    59 => ['type' => 'multi_choice', 'q' => 'Brennen pyrotechnische Geschosse weiter, wenn sie ins Wasser fallen?', 'options' => [
         ['t' => 'Nein', 'c' => false],
         ['t' => 'Nur, wenn es sich um militärische Munition handelt.', 'c' => false],
         ['t' => 'Ja', 'c' => true],
