@@ -36,12 +36,12 @@
                         <td class="px-4 py-2 text-slate-500">{{ $user->email }}</td>
                         <td class="px-4 py-2 text-slate-500">
                             @forelse ($user->tenantMemberships as $membership)
-                                <span class="inline-block px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-xs mb-1">{{ $membership->tenant->name }} ({{ $membership->role }})</span>
+                                <span class="inline-block px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-xs mb-1">{{ $membership->tenant->name }} ({{ \App\Support\StatusLabels::tenantRole($membership->role) }})</span>
                             @empty
                                 <span class="text-slate-300">keine</span>
                             @endforelse
                         </td>
-                        <td class="px-4 py-2 text-slate-500">{{ $user->status }}</td>
+                        <td class="px-4 py-2 text-slate-500">{{ \App\Support\StatusLabels::userStatus($user->status) }}</td>
                     </tr>
                 @endforeach
             </tbody>

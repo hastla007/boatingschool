@@ -5,7 +5,7 @@
                 <div class="text-xs text-slate-600 dark:text-slate-400"><a href="{{ route('superadmin.tenants.index') }}" class="hover:underline">Bootsschulen</a></div>
                 <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">{{ $tenant->name }}</h1>
             </div>
-            <span class="inline-block px-2 py-0.5 rounded-full text-xs {{ $tenant->status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500' }}">{{ $tenant->status }}</span>
+            <span class="inline-block px-2 py-0.5 rounded-full text-xs {{ $tenant->status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500' }}">{{ \App\Support\StatusLabels::tenantStatus($tenant->status) }}</span>
         </div>
     </x-slot>
 
@@ -47,7 +47,7 @@
                 @forelse ($memberships as $membership)
                     <a href="{{ route('superadmin.users.show', $membership->user) }}" class="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-2 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-700/50 -mx-1 px-1 rounded">
                         <span class="text-slate-700 dark:text-slate-200">{{ $membership->user->name }} <span class="text-slate-600 dark:text-slate-400 font-normal">&middot; {{ $membership->user->email }}</span></span>
-                        <span class="inline-block px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-xs">{{ $membership->role }}</span>
+                        <span class="inline-block px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-xs">{{ \App\Support\StatusLabels::tenantRole($membership->role) }}</span>
                     </a>
                 @empty
                     <p class="text-slate-500">Noch keine Nutzer.</p>

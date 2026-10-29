@@ -198,6 +198,10 @@ return [
         'tenant_id' => 'Bootsschule',
         'course_id' => 'Kurs',
         'logo' => 'Logo',
+        'slug' => 'Slug',
+        'admin_first_name' => 'Vorname',
+        'admin_last_name' => 'Nachname',
+        'admin_email' => 'E-Mail-Adresse',
     ],
 
 ];

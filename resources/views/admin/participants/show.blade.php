@@ -19,7 +19,7 @@
             <div class="text-sm text-slate-500">{{ $participant->email }}</div>
         </div>
         <span class="ms-auto inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500">
-            {{ $participant->status }}
+            {{ \App\Support\StatusLabels::userStatus($participant->status) }}
         </span>
     </div>
 

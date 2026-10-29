@@ -90,7 +90,7 @@
                     <td class="px-4 py-2 text-slate-500">
                         @forelse ($membership->user->entitlements as $entitlement)
                             <span class="inline-block px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-xs mb-1">
-                                {{ $entitlement->course->name }} ({{ $entitlement->status }})
+                                {{ $entitlement->course->name }} ({{ \App\Support\StatusLabels::entitlementStatus($entitlement->status) }})
                             </span>
                         @empty
                             <span class="text-slate-600 dark:text-slate-400">keine</span>

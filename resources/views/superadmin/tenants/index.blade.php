@@ -27,7 +27,7 @@
                         </td>
                         <td class="px-4 py-2 text-slate-500 font-mono text-xs">{{ $tenant->slug }}</td>
                         <td class="px-4 py-2">
-                            <span class="inline-block px-2 py-0.5 rounded-full text-xs {{ $tenant->status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500' }}">{{ $tenant->status }}</span>
+                            <span class="inline-block px-2 py-0.5 rounded-full text-xs {{ $tenant->status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500' }}">{{ \App\Support\StatusLabels::tenantStatus($tenant->status) }}</span>
                         </td>
                         <td class="px-4 py-2 text-slate-500">{{ $tenant->tenant_users_count }}</td>
                     </tr>

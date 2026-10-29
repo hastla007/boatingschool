@@ -66,7 +66,7 @@
                     @forelse ($memberships as $membership)
                         <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-2 last:border-0">
                             <a href="{{ route('superadmin.tenants.show', $membership->tenant) }}" class="text-slate-700 dark:text-slate-200 hover:underline">{{ $membership->tenant->name }}</a>
-                            <span class="inline-block px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-xs">{{ $membership->role }}</span>
+                            <span class="inline-block px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-xs">{{ \App\Support\StatusLabels::tenantRole($membership->role) }}</span>
                         </div>
                     @empty
                         <p class="text-slate-500">Noch keine Bootsschule zugeordnet.</p>
