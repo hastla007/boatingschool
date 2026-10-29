@@ -77,6 +77,18 @@ class FunkTraining
         return $cache[$catalog];
     }
 
+    /**
+     * Seite "Prüfung buchen" eines Teils: Anmeldung, Gebühr, Prüfungsteile, häufige Fragen.
+     *
+     * @return array<string, mixed>
+     */
+    public static function booking(string $catalog): array
+    {
+        static $data = null;
+
+        return ($data ??= include database_path('data/funk_pruefung.php'))[$catalog];
+    }
+
     /** Internationale Buchstabiertafel mit Aussprache (ITU). */
     public const ALPHABET = [
         'A' => ['Alfa', 'AL-FA'], 'B' => ['Bravo', 'BRA-WO'], 'C' => ['Charlie', 'TSCHAR-LI'], 'D' => ['Delta', 'DEL-TA'],

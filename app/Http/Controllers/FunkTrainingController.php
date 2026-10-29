@@ -41,6 +41,20 @@ class FunkTrainingController extends Controller
         ]);
     }
 
+    public function booking(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course): View
+    {
+        $catalog = $this->authorizeCatalog($request, $tenantContext, $entitlements, $course, $request->query('teil'));
+
+        return view('funk.booking', [
+            'course' => $course,
+            'catalogs' => FunkTraining::catalogsFor($course),
+            'catalog' => $catalog,
+            'info' => FunkTraining::booking($catalog),
+            // UBI-Ergänzung für SRC-Inhaber: die verkürzte Prüfung zuerst zeigen.
+            'addonFirst' => $course->code === 'ADD-UBI-TO-SRC',
+        ]);
+    }
+
     public function praxisShow(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course, string $catalog, int $number): View
     {
         $this->authorizeCatalog($request, $tenantContext, $entitlements, $course, $catalog, strict: true);
