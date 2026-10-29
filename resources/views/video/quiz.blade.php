@@ -34,6 +34,7 @@
         @if ($revision->question_type === 'multi_choice')
             <form method="POST" action="{{ route('video.quiz.answer', $linkParams(['position' => $position])) }}" x-data="{ selected: {{ json_encode($selectedAnswerIds ?? []) }} }">
                 @csrf
+                <input type="hidden" name="revision_id" value="{{ $revision->id }}">
                 @unless ($answered)
                     <p class="text-xs text-slate-600 dark:text-slate-400 mb-2">Mehrfachauswahl &mdash; mindestens eine Antwort ist richtig.</p>
                 @endunless
@@ -97,6 +98,7 @@
                         @unless ($answered)
                             <form method="POST" action="{{ route('video.quiz.answer', $linkParams(['position' => $position])) }}" class="flex justify-end gap-2 mt-6">
                                 @csrf
+                                <input type="hidden" name="revision_id" value="{{ $revision->id }}">
                                 <button type="submit" name="known" value="0" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-rose-300 text-rose-600 text-sm font-medium hover:bg-rose-50 dark:hover:bg-rose-900/20 transition">
                                     Nicht gewusst
                                 </button>
@@ -111,6 +113,7 @@
         @else
             <form method="POST" action="{{ route('video.quiz.answer', $linkParams(['position' => $position])) }}" x-data="{ selected: {{ $selectedAnswerId ? "'{$selectedAnswerId}'" : 'null' }} }">
                 @csrf
+                <input type="hidden" name="revision_id" value="{{ $revision->id }}">
 
                 <div class="space-y-2">
                     @foreach ($revision->answers as $answer)

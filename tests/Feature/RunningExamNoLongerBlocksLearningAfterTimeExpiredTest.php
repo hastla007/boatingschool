@@ -185,7 +185,7 @@ class RunningExamNoLongerBlocksLearningAfterTimeExpiredTest extends TestCase
         $answer = $revision->answers->first();
         $response = $this->actingAsInTenant($learner, $tenant)->post(
             "/courses/{$course->id}/video/{$lesson->id}/questions/1",
-            ['answer_id' => $answer->id]
+            ['revision_id' => $revision->id, 'answer_id' => $answer->id]
         );
 
         $response->assertStatus(409);
@@ -206,7 +206,7 @@ class RunningExamNoLongerBlocksLearningAfterTimeExpiredTest extends TestCase
         $answer = $revision->answers->first();
         $response = $this->actingAsInTenant($learner, $tenant)->followingRedirects()->post(
             "/courses/{$course->id}/video/{$lesson->id}/questions/1",
-            ['answer_id' => $answer->id]
+            ['revision_id' => $revision->id, 'answer_id' => $answer->id]
         );
 
         $response->assertOk();
