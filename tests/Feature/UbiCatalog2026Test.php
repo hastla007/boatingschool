@@ -10,6 +10,8 @@ use App\Models\ExamPaper;
 use App\Models\ExamRuleSet;
 use App\Models\ExamSession;
 use App\Models\Progress;
+use App\Models\Tenant;
+use App\Models\User;
 use Database\Seeders\CatalogUpdateSeeder;
 use Illuminate\Support\Facades\DB;
 use Tests\Feature\Concerns\InteractsWithTenants;
@@ -172,6 +174,125 @@ class UbiCatalog2026Test extends TestCase
         $this->onAdmin(fn () => (new CatalogUpdateSeeder)->run());
 
         $this->assertSame('review', $this->onAdmin(fn () => $review->fresh()->editorial_status));
+    }
+
+    public function test_catalog_carries_the_corrections_from_the_official_practice_papers(): void
+    {
+        $this->onAdmin(function () {
+            $revision = fn (string $no) => ContentQuestion::where('content_role', 'ubi_official')->where('official_number', $no)->firstOrFail()->publishedRevision();
+
+            $this->assertStringContainsString('des Bundes - das „UKW-Sprechfunkzeugnis', $revision('11')->question_text);
+            $this->assertSame(
+                'Nachrichten, die eine wichtige nautische Warnnachricht oder eine dringende medizinische Meldung beinhalten',
+                $revision('127')->answers->firstWhere('answer_key', 'D')->answer_text
+            );
+            // Nr. 51 "gegen eindringende Feuchtigkeit" ist korrekt und bleibt.
+            $this->assertStringContainsString('eindringende Feuchtigkeit', $revision('51')->answers->firstWhere('answer_key', 'D')->answer_text);
+
+            foreach (ContentQuestion::where('content_role', 'ubi_official')->get() as $question) {
+                $published = $question->publishedRevision();
+
+                foreach ([$published->question_text, ...$published->answers->pluck('answer_text')] as $text) {
+                    $this->assertTrue(\Normalizer::isNormalized($text, \Normalizer::FORM_C), "UBI {$question->official_number}: zerlegte Umlaute in \"{$text}\".");
+                }
+            }
+        });
+    }
+
+    public function test_correction_keeps_feedback_media_and_progress_when_the_2026_edition_is_published(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+
+        $this->onAdmin(function () use ($tenant, $learner) {
+            [$question, $published, $correction] = $this->fakeQuestionWith([
+                [1, 'published', CatalogUpdateSeeder::UBI_2026_10, 'Nachricht oder eindringende Meldung?', 'Erklärung'],
+                [2, 'review', CatalogUpdateSeeder::UBI_2026_10_KORR, 'Nachricht oder eine dringende Meldung?', null],
+            ]);
+            $this->learnerMastered($tenant, $learner, $question);
+
+            (new CatalogUpdateSeeder)->run();
+
+            $this->assertSame('deprecated', $published->fresh()->editorial_status);
+            $this->assertSame('published', $correction->fresh()->editorial_status);
+            $this->assertSame('Erklärung', $correction->fresh()->feedback_correct);
+            $this->assertSame(1, Progress::where('question_id', $question->id)->count());
+        });
+    }
+
+    public function test_correction_replaces_an_older_edition_like_the_2026_update_itself(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+
+        $this->onAdmin(function () use ($tenant, $learner) {
+            // Installation, auf der 10/2026 noch auf Freigabe wartet: die
+            // Korrektur ersetzt direkt die alte Frage (Nr. 93 ist eine der
+            // 16 ersetzten), altes Feedback passt dann nicht mehr.
+            [$question, $old, $waiting, $correction] = $this->fakeQuestionWith([
+                [1, 'published', '2026-09', 'Wozu dienen die Kanäle 72 und 77?', 'Erklärung zur alten Frage'],
+                [2, 'review', CatalogUpdateSeeder::UBI_2026_10, 'Wie kündigt man einem Bunkerboot an…?', null],
+                [3, 'review', CatalogUpdateSeeder::UBI_2026_10_KORR, 'Wie kündigt man einem Bunkerboot an, dass…?', null],
+            ]);
+            $this->learnerMastered($tenant, $learner, $question);
+
+            (new CatalogUpdateSeeder)->run();
+
+            $this->assertSame('deprecated', $old->fresh()->editorial_status);
+            $this->assertSame('deprecated', $waiting->fresh()->editorial_status);
+            $this->assertSame('published', $correction->fresh()->editorial_status);
+            $this->assertNull($correction->fresh()->feedback_correct);
+            $this->assertSame(0, Progress::where('question_id', $question->id)->count());
+        });
+    }
+
+    public function test_correction_does_not_override_a_superadmin_edit(): void
+    {
+        $this->onAdmin(function () {
+            [, $edited, $correction] = $this->fakeQuestionWith([
+                [1, 'published', CatalogUpdateSeeder::UBI_2026_10, 'Im Editor korrigiert?', null, true],
+                [2, 'review', CatalogUpdateSeeder::UBI_2026_10_KORR, 'Aus dem Katalog korrigiert?', null],
+            ]);
+
+            (new CatalogUpdateSeeder)->run();
+
+            $this->assertSame('published', $edited->fresh()->editorial_status);
+            $this->assertSame('review', $correction->fresh()->editorial_status);
+        });
+    }
+
+    /** @return array{0: ContentQuestion, ...} Frage, gefolgt von ihren Revisionen in Reihenfolge. */
+    private function fakeQuestionWith(array $revisions): array
+    {
+        $question = ContentQuestion::create([
+            'content_id' => 'TEST-UBI-KORR-'.uniqid(),
+            'official_number' => '9996',
+            'content_role' => 'ubi_official',
+            'language' => 'de-DE',
+            'active' => true,
+        ]);
+        $this->fakeQuestionId = $question->id;
+
+        $created = [$question];
+        foreach ($revisions as $revision) {
+            [$no, $status, $version, $text, $feedback] = $revision;
+            $created[] = ContentQuestionRevision::create([
+                'question_id' => $question->id, 'revision_no' => $no, 'question_type' => 'single_choice',
+                'question_text' => $text, 'feedback_correct' => $feedback, 'source_version' => $version,
+                'editorial_status' => $status, 'rights_status' => 'review',
+                'edited_by_superadmin' => $revision[5] ?? false,
+            ]);
+        }
+
+        return $created;
+    }
+
+    private function learnerMastered(Tenant $tenant, User $learner, ContentQuestion $question): void
+    {
+        Progress::create([
+            'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'question_id' => $question->id,
+            'attempt_count' => 3, 'correct_count' => 3, 'current_streak' => 3, 'mastery_score' => 1, 'learning_state' => 'gefestigt',
+        ]);
     }
 
     public function test_ubi_has_the_12_official_practice_papers_with_22_questions_each(): void

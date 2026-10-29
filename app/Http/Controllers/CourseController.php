@@ -217,7 +217,7 @@ class CourseController extends Controller
             'hasVideoCourse' => $videoTotal > 0,
             'videoPercent' => $videoTotal > 0 ? (int) round($videoCompleted / $videoTotal * 100) : 0,
             'comboVideoGroups' => $comboVideoGroups,
-            'hasExam' => (bool) $course->activeExamRuleSet(),
+            'hasExam' => $course->hasStartableExam(),
             'hasNavigationTasks' => $course->navigationTasks()->exists(),
             'knotenModuleId' => $knotenModule?->id,
             'knotenPercent' => $knotenModule ? $chapterPercent([$knotenModule->id]) : 0,

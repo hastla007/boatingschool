@@ -56,8 +56,14 @@ class ExamController extends Controller
         // Übersicht zeigte die "Bogen N"-Start-Buttons aber unverändert an,
         // ein Klick führte also ins Leere statt den Kurs klar als noch
         // nicht freigegeben zu kennzeichnen (analog zu exam/intro.blade.php).
-        $ruleSet = $course->activeExamRuleSet();
-        $isVerified = $ruleSet && $ruleSet->isVerified();
+        // In Kombikursen gilt das je Bogengruppe, mit dem Regelwerk des
+        // jeweiligen Teilkurses (siehe CourseDefinition::examRuleSetForPaper()).
+        $ruleSetsBySource = [];
+        $ruleSetFor = function ($paper) use ($course, &$ruleSetsBySource) {
+            $key = ComboExamGroups::sourceCourseFor($course->code, $paper->paper_number) ?? '';
+
+            return $ruleSetsBySource[$key] ??= ['ruleSet' => $course->examRuleSetForPaper($paper)];
+        };
 
         $paperIds = $papers->pluck('id');
 
@@ -69,10 +75,11 @@ class ExamController extends Controller
             ->unique('paper_id')
             ->keyBy('paper_id');
 
-        $paperStats = $papers->map(function ($paper) use ($latestEvaluatedSessions, $course) {
+        $paperStats = $papers->map(function ($paper) use ($latestEvaluatedSessions, $course, $ruleSetFor) {
             $session = $latestEvaluatedSessions->get($paper->id);
             $total = $paper->paperQuestions()->count();
             $comboInfo = ComboExamGroups::infoFor($course->code, $paper->paper_number);
+            $ruleSet = $ruleSetFor($paper)['ruleSet'];
 
             return [
                 'paper' => $paper,
@@ -82,8 +89,11 @@ class ExamController extends Controller
                 'total' => $total,
                 'group' => $comboInfo['label'] ?? null,
                 'displayNumber' => $comboInfo['displayNumber'] ?? $paper->paper_number,
+                'startable' => (bool) $ruleSet,
+                'ruleSet' => $ruleSet,
             ];
         });
+        $isVerified = $paperStats->contains('startable', true);
 
         $attemptedStats = $paperStats->filter(fn ($s) => $s['attempted']);
         $overallPercent = $attemptedStats->isNotEmpty() ? (int) round($attemptedStats->avg('percent')) : 0;
@@ -115,7 +125,11 @@ class ExamController extends Controller
         abort_unless($entitlements->hasAccess($tenant, $user, $course), 403);
         abort_unless($paper->course_id === $course->id, 404);
 
-        $ruleSet = $course->activeExamRuleSet();
+        // Kombikurse: der Bogen läuft nach dem Regelwerk seines Teilkurses
+        // (Bestehensgrenze und Zeitlimit), die Session verweist auf genau
+        // dieses Regelwerk -- ExamEvaluationService und Zeitlimit-Prüfung
+        // lesen es von dort.
+        $ruleSet = $course->examRuleSetForPaper($paper);
         abort_unless($ruleSet && $ruleSet->isVerified(), 409, 'Für diesen Kurs liegt noch kein fachlich freigegebenes Prüfungsregelwerk vor.');
 
         // Bug-Review B4: der alte Ablauf prüfte erst (lesend), ob bereits
