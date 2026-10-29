@@ -37,12 +37,28 @@ class AccountErasureService
     public function leaveTenant(User $user, Tenant $tenant): void
     {
         DB::transaction(function () use ($user, $tenant) {
+            // Bug-Review (Kontolöschung hinterlässt personenbezogene Daten im
+            // Admin-Protokoll): WillkommensboxOrderController::ship() und
+            // PraxisFormSubmissionController protokollieren die komplette
+            // Lieferadresse bzw. die Formulardaten als JSON in audit_log --
+            // mit actor_user_id des handelnden ADMINS, nicht des Lerners, und
+            // entity_type/entity_id der Bestellung/Anmeldung selbst. Die
+            // bisherige pseudonymizeAuditLogFor() kannte nur actor_user_id,
+            // entity_type=app_user und entity_type=tenant_invitation -- diese
+            // beiden Entitäten trafen darauf nie zu und überlebten die
+            // Löschung der zugehörigen Zeilen (siehe tenantScopedModels())
+            // unverändert im Protokoll. Die IDs müssen VOR dem Löschen unten
+            // eingesammelt werden, da sie nach dem DELETE nicht mehr über die
+            // Tabelle selbst auflösbar sind.
+            $willkommensboxOrderIds = WillkommensboxOrder::where('tenant_id', $tenant->id)->where('user_id', $user->id)->pluck('id')->all();
+            $praxisFormSubmissionIds = PraxisFormSubmission::where('tenant_id', $tenant->id)->where('user_id', $user->id)->pluck('id')->all();
+
             foreach ($this->tenantScopedModels() as $model) {
                 $model::where('tenant_id', $tenant->id)->where('user_id', $user->id)->delete();
             }
 
             $invitationIds = $this->deleteInvitationsFor($tenant, $user);
-            $this->pseudonymizeAuditLogFor($tenant, $user, $invitationIds);
+            $this->pseudonymizeAuditLogFor($tenant, $user, $invitationIds, $willkommensboxOrderIds, $praxisFormSubmissionIds);
 
             TenantUser::where('tenant_id', $tenant->id)->where('user_id', $user->id)->delete();
         });
@@ -158,11 +174,13 @@ class AccountErasureService
      * die E-Mail-Adresse im JSON überlebte deshalb auch jede Löschung.
      *
      * @param  list<string>  $invitationIds
+     * @param  list<string>  $willkommensboxOrderIds
+     * @param  list<string>  $praxisFormSubmissionIds
      */
-    private function pseudonymizeAuditLogFor(Tenant $tenant, User $user, array $invitationIds): void
+    private function pseudonymizeAuditLogFor(Tenant $tenant, User $user, array $invitationIds, array $willkommensboxOrderIds = [], array $praxisFormSubmissionIds = []): void
     {
         AuditLog::where('tenant_id', $tenant->id)
-            ->where(function ($query) use ($user, $invitationIds) {
+            ->where(function ($query) use ($user, $invitationIds, $willkommensboxOrderIds, $praxisFormSubmissionIds) {
                 $query->where('actor_user_id', $user->id)
                     ->orWhere(function ($inner) use ($user) {
                         $inner->where('entity_type', 'app_user')->where('entity_id', $user->id);
@@ -170,6 +188,16 @@ class AccountErasureService
                     ->when($invitationIds !== [], function ($query) use ($invitationIds) {
                         $query->orWhere(function ($inner) use ($invitationIds) {
                             $inner->where('entity_type', 'tenant_invitation')->whereIn('entity_id', $invitationIds);
+                        });
+                    })
+                    ->when($willkommensboxOrderIds !== [], function ($query) use ($willkommensboxOrderIds) {
+                        $query->orWhere(function ($inner) use ($willkommensboxOrderIds) {
+                            $inner->where('entity_type', 'willkommensbox_order')->whereIn('entity_id', $willkommensboxOrderIds);
+                        });
+                    })
+                    ->when($praxisFormSubmissionIds !== [], function ($query) use ($praxisFormSubmissionIds) {
+                        $query->orWhere(function ($inner) use ($praxisFormSubmissionIds) {
+                            $inner->where('entity_type', 'praxis_form_submission')->whereIn('entity_id', $praxisFormSubmissionIds);
                         });
                     });
             })
