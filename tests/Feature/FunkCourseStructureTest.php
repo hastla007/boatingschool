@@ -179,7 +179,7 @@ class FunkCourseStructureTest extends TestCase
         $this->assertSame(array_keys(FunkVideoCourseSeeder::UBI_CHAPTERS), $groups['UBI']['chapters']);
 
         $this->onAdmin(function () {
-            foreach (['SRC' => 6, 'UBI' => 7, 'ADD-UBI-TO-SRC' => 7, 'SRC-UBI' => 13] as $code => $chapters) {
+            foreach (['SRC' => 6, 'UBI' => 6, 'ADD-UBI-TO-SRC' => 6, 'SRC-UBI' => 12] as $code => $chapters) {
                 $this->assertSame($chapters, VideoModule::where('course_id', $this->existingCourse($code)->id)->count(), "Videokapitel {$code}");
             }
         });

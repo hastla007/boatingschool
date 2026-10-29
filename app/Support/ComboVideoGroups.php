@@ -26,11 +26,11 @@ class ComboVideoGroups
         'SRC-UBI' => [
             ['label' => 'SRC', 'motif' => 'antenna', 'chapters' => [
                 'Einführung in das SRC', 'Technik und Funkgerät', 'Routineverkehr im Alltag', 'Notverkehr – MAYDAY',
-                'Dringlichkeit und Sicherheit – PAN PAN und SECURITE', 'Prüfung und Vorbereitung',
+                'Dringlichkeit und Sicherheit – PAN PAN und SECURITE', 'Zulassung und Prüfungsvorbereitung',
             ]],
             ['label' => 'UBI', 'motif' => 'radio', 'chapters' => [
-                'Einführung in das UBI', 'Funkanlage im Binnenfunk', 'Verkehrskreise und Kanäle', 'Sprechfunk im Alltag',
-                'Notverkehr im Binnenfunk', 'Dringlichkeit und Sicherheit im Binnenfunk', 'UBI-Prüfung und Vorbereitung',
+                'Einführung in das UBI', 'Technik: Kanäle und Funkanlage', 'Verkehrskreise und Reviere im Alltag',
+                'Rangfolge und Notverkehr im Binnenfunk', 'Dringlichkeit und Sicherheit im Binnenfunk', 'UBI-Abschluss und Prüfungsvorbereitung',
             ]],
         ],
     ];
