@@ -160,6 +160,16 @@ class FunkTrainingTest extends TestCase
         $this->actingAsInTenant($learner, $tenant)->get("/courses/{$combo->id}/funk/muendlich/SRC/texte/1")->assertNotFound();
     }
 
+    public function test_every_vocabulary_has_a_unique_key_and_german_term(): void
+    {
+        $entries = collect(FunkTraining::vocabulary('SRC'))->flatten(1);
+
+        $this->assertGreaterThanOrEqual(380, $entries->count());
+        $this->assertSame($entries->count(), $entries->pluck('key')->unique()->count(), 'Zwei Vokabeln teilen sich einen Fortschrittsschlüssel.');
+        $this->assertSame($entries->count(), $entries->pluck('de')->unique()->count(), 'Ein deutscher Begriff steht doppelt in der Liste.');
+        $this->assertContains("radio operator's certificate", $entries->pluck('en')->all());
+    }
+
     public function test_word_match_ignores_case_and_punctuation(): void
     {
         $result = FunkTraining::wordMatch('Mayday, this is Kormoran.', 'MAYDAY this is kormoran');
