@@ -65,7 +65,21 @@ class SmarttrainerService
         $candidates = match ($mode) {
             'new' => $questions->filter(fn ($q) => ! $progressByQuestion->has($q->id)),
             'wrong' => $questions->filter(fn ($q) => $this->wasLastWrong($progressByQuestion->get($q->id))),
-            'topic' => $topic ? $questions->filter(fn ($q) => $this->questionTopic($q) === $topic) : $questions,
+            // Bug-Review (Kachel "Sonstiges" zeigt "keine Fragen"): die
+            // Themen-Kachel auf der Kursübersicht (CourseProgressService::
+            // moduleKategorieBreakdown()) gruppiert Fragen ohne
+            // smartmodus_kategorie/topic unter dem Label "Sonstiges" --
+            // questionTopic() liefert für genau diese Fragen aber null statt
+            // "Sonstiges". Ein Klick auf diese Kachel (?topic=Sonstiges)
+            // verglich bisher null === 'Sonstiges', was nie zutrifft, und
+            // filterte dadurch ALLE Fragen heraus, obwohl die Kachel eine
+            // Anzahl > 0 zeigte (z. B. bei FKN/SKN, deren Fragen kein Thema
+            // haben). Der Vergleich wendet hier denselben Fallback an wie
+            // die Kachel-Gruppierung, statt questionTopic() selbst global zu
+            // ändern (das würde auch score()'s "Schwaches Thema"-Gewichtung
+            // für themenlose Fragen beeinflussen, was außerhalb dieses Bugs
+            // liegt).
+            'topic' => $topic ? $questions->filter(fn ($q) => ($this->questionTopic($q) ?: 'Sonstiges') === $topic) : $questions,
             default => $questions,
         };
 
