@@ -35,6 +35,23 @@ class ExamEvaluationService
         }
 
         DB::transaction(function () use ($examSession) {
+            // Bug-Review (Zwei gleichzeitige Prüfungsauswertungen stören
+            // sich): refresh() allein lockt nichts -- zwei fast gleichzeitig
+            // ausgelöste Auswertungen derselben Session (z. B. "Abgeben" und
+            // der serverseitige Zeit-Timeout aus answer(), siehe
+            // ExamController) konnten beide status==='evaluated' als false
+            // lesen, bevor eine von beiden committet hatte, und liefen dann
+            // beide durch die Auswertung -- inklusive zweimaligem
+            // $sessionQuestion->update() unten. Der Lock läuft bewusst über
+            // den rohen Query-Builder (DB::table()), nicht über eine
+            // zusätzliche Eloquent-Abfrage auf dem ExamSession-Model: eine
+            // zweite Model-Abfrage würde den globalen Tenant-Scope
+            // (BelongsToTenant) erneut auswerten und könnte je nach
+            // Kontext (Konsole vs. Web-Request) von der bereits geladenen
+            // $examSession-Instanz abweichen. DB::table() umgeht das, ohne
+            // am anschließenden refresh() (unverändert gegenüber vorher)
+            // etwas zu ändern.
+            DB::table('exam_session')->where('id', $examSession->id)->lockForUpdate()->first();
             $examSession->refresh();
 
             if ($examSession->status === 'evaluated') {
