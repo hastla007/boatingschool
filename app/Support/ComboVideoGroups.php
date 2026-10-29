@@ -30,7 +30,7 @@ class ComboVideoGroups
             ]],
             ['label' => 'UBI', 'motif' => 'radio', 'chapters' => [
                 'Einführung in das UBI', 'Technik: Kanäle und Funkanlage', 'Verkehrskreise und Reviere im Alltag',
-                'Rangfolge und Notverkehr im Binnenfunk', 'Dringlichkeit und Sicherheit im Binnenfunk', 'UBI-Abschluss und Prüfungsvorbereitung',
+                'Notverkehr im Binnenfunk – MAYDAY', 'Dringlichkeit und Sicherheit im Binnenfunk', 'UBI-Abschluss und Prüfungsvorbereitung',
             ]],
         ],
     ];

@@ -91,27 +91,25 @@ class FunkVideoCourseSeeder extends Seeder
             ['Die Funkanlage: ATIS, Sendeleistung und Bedienung', 391],
         ],
         'Verkehrskreise und Reviere im Alltag' => [
-            ['Die Verkehrskreise im Überblick', 362],
-            ['Schiff – Schiff', 284],
-            ['Nautische Information', 311],
-            ['Schiff – Hafenbehörde', 246],
-            ['Funkverkehr an Bord', 173],
-            ['Sprechregeln und Buchstabiertafel im Binnenfunk', 338],
+            ['Die Verkehrskreise im Binnenfunk', 514],
+            ['Funkstellen: wer gehört in welchen Verkehrskreis?', 287],
+            ['Nautische Information im Revieralltag', 421],
+            ['Rangfolge der Meldungen', 473],
         ],
-        'Rangfolge und Notverkehr im Binnenfunk' => [
-            ['Rangfolge der Meldungen', 227],
-            ['Wann ist es ein Notfall?', 198],
-            ['Notmeldung absetzen (MAYDAY)', 436],
-            ['Notverkehr bestätigen und weiterleiten', 352],
+        'Notverkehr im Binnenfunk – MAYDAY' => [
+            ['Sprechregeln, Buchstabiertafel und Anruf', 588],
+            ['Notfall auf dem Binnenrevier: die Notmeldung (MAYDAY)', 451],
+            ['Notmeldungen richtig bestätigen', 309],
+            ['MAYDAY RELAY: die Rettungskette weitergeben', 357],
+            ['Notverkehr offiziell beenden', 201],
         ],
         'Dringlichkeit und Sicherheit im Binnenfunk' => [
-            ['PAN PAN: die Dringlichkeitsmeldung', 341],
-            ['SECURITE: die Sicherheitsmeldung', 296],
+            ['PAN PAN: Dringlichkeitsverkehr sicher abwickeln', 398],
+            ['SECURITE: Gefahren im Funk richtig melden', 373],
         ],
         'UBI-Abschluss und Prüfungsvorbereitung' => [
-            ['Ablauf der UBI-Prüfung', 238],
-            ['Textaufnahme und Textabgabe üben', 364],
-            ['Typische Fehler in der praktischen Prüfung', 271],
+            ['Zusammenfassung: alles Wichtige für die Prüfung', 280],
+            ['Funkpraxis: Textaufnahme, Textabgabe und Funkgespräche', 711],
         ],
     ];
 
