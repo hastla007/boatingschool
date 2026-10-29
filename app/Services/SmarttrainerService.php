@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\ContentQuestion;
 use App\Models\CourseDefinition;
+use App\Models\ExamSession;
 use App\Models\Progress;
 use App\Models\Tenant;
 use App\Models\User;
@@ -18,6 +19,8 @@ use Illuminate\Support\Collection;
  */
 class SmarttrainerService
 {
+    public function __construct(private ExamEvaluationService $examEvaluation) {}
+
     public function nextQuestion(Tenant $tenant, User $user, CourseDefinition $course, string $mode = 'smarttrainer', ?string $topic = null, ?string $moduleId = null, ?array $questionIds = null): ?array
     {
         $course->loadMissing(['modules.questions.revisions' => function ($query) {
@@ -29,6 +32,19 @@ class SmarttrainerService
         // (content_question.active) wurde hier weiter als Kandidat
         // ausgespielt -- active=true schließt sie von der Auswahl aus.
         $questions = $modules->flatMap(fn ($module) => $module->questions)->unique('id')->where('active', true);
+
+        // Bug-Review (Smarttrainer blockiert während laufender Prüfung):
+        // storeAttempt() (LearningController) lehnt eine Antwort auf eine
+        // Frage ab, die Teil einer noch laufenden (nicht abgelaufenen)
+        // Prüfungssession dieses Nutzers ist (Sicherheitsreview M2) -- hier
+        // bot nextQuestion() genau so eine Frage bisher trotzdem aktiv als
+        // nächste Lernfrage an, und schlug dann erst beim anschließenden
+        // Abschicken der Antwort mit 409 fehl, statt direkt eine andere
+        // Frage auszuspielen.
+        $blockedQuestionIds = $this->runningExamQuestionIds($tenant, $user);
+        if ($blockedQuestionIds->isNotEmpty()) {
+            $questions = $questions->reject(fn ($question) => $blockedQuestionIds->contains($question->id));
+        }
 
         if ($questionIds !== null) {
             $questions = $questions->whereIn('id', $questionIds);
@@ -100,6 +116,18 @@ class SmarttrainerService
     private function wasLastWrong(?Progress $progress): bool
     {
         return $progress && $progress->attempt_count > 0 && $progress->current_streak === 0;
+    }
+
+    /** @return Collection<int, string> */
+    private function runningExamQuestionIds(Tenant $tenant, User $user): Collection
+    {
+        return ExamSession::where('tenant_id', $tenant->id)
+            ->where('user_id', $user->id)
+            ->where('status', 'running')
+            ->with('questions')
+            ->get()
+            ->reject(fn (ExamSession $session) => $this->examEvaluation->timeExpired($session))
+            ->flatMap(fn (ExamSession $session) => $session->questions->pluck('question_id'));
     }
 
     private function questionTopic(ContentQuestion $question): ?string

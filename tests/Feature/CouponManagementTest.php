@@ -480,6 +480,51 @@ class CouponManagementTest extends TestCase
         ]));
     }
 
+    /**
+     * Bug-Review (Widerrufener Zugang kommt mit neuem Kurscode zurück):
+     * EntitlementService::hasAccess() (CouponRedemptionService::
+     * redeemForCourse()) erkennt nur AKTIVEN Zugang -- ein bewusst
+     * entzogener ("revoked", siehe Admin\EntitlementController) Zugang
+     * zählt dort nicht als Zugang, sodass ein ganz normaler (neuer)
+     * Kurscode für denselben Kurs bisher klaglos ein zweites, aktives
+     * Entitlement anlegte. RenewalCodeTest::
+     * test_redeeming_a_renewal_code_does_not_reactivate_a_revoked_entitlement
+     * deckt denselben Schutz bereits für Verlängerungscodes ab (Bug-Review
+     * R4-7) -- hier für den regulären Kurscode-Pfad.
+     */
+    public function test_redeeming_a_regular_course_code_does_not_reactivate_a_revoked_entitlement(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+
+        $this->onAdmin(fn () => Entitlement::create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $learner->id,
+            'course_id' => $course->id,
+            'status' => 'revoked',
+            'source_type' => 'coupon',
+            'valid_from' => now()->subDays(30),
+            'valid_until' => now()->addDays(300),
+        ]));
+
+        $code = 'E2E-REVOKED-NEW-CODE';
+        $this->createdCodes[] = $code;
+        $this->onAdmin(fn () => Coupon::create(['code' => $code, 'course_id' => $course->id, 'tenant_id' => $tenant->id]));
+
+        $response = $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', ['code' => $code]);
+
+        $response->assertSessionHasErrors('code');
+
+        $this->onAdmin(function () use ($tenant, $learner, $course) {
+            $this->assertSame(1, Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
+                ->where('course_id', $course->id)->count(), 'Der entzogene Zugang darf nicht durch ein zweites Entitlement unterlaufen werden.');
+        });
+
+        $freshCoupon = $this->onAdmin(fn () => Coupon::where('code', $code)->first());
+        $this->assertFalse($freshCoupon->isRedeemed(), 'Der Code wurde trotz abgelehnter Einlösung verbraucht.');
+    }
+
     public function test_redeeming_a_grosse_praxiseinheit_option_replaces_an_existing_kleine_praxiseinheit(): void
     {
         $tenant = $this->createTestTenant();

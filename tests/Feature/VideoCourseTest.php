@@ -238,7 +238,7 @@ class VideoCourseTest extends TestCase
         // POST-Antwort zu rendern -- followingRedirects() folgt dem hier.
         $answerResponse = $this->actingAsInTenant($learner, $tenant)->followingRedirects()->post(
             "/courses/{$course->id}/video/{$firstLesson->id}/questions/1",
-            ['answer_id' => $correctAnswer->id]
+            ['revision_id' => $revision->id, 'answer_id' => $correctAnswer->id]
         );
         $answerResponse->assertOk();
         $answerResponse->assertSee('Richtig!');
@@ -294,11 +294,11 @@ class VideoCourseTest extends TestCase
         $learner = $this->createTenantUser($tenant, 'learner');
         [$course, $firstLesson] = $this->makeIsolatedVideoCourse();
         $this->grantEntitlement($tenant, $learner, $course);
-        [$question, , $correctAnswer] = $this->attachIsolatedQuestion($firstLesson);
+        [$question, $revision, $correctAnswer] = $this->attachIsolatedQuestion($firstLesson);
 
         $answerResponse = $this->actingAsInTenant($learner, $tenant)->post(
             "/courses/{$course->id}/video/{$firstLesson->id}/questions/1",
-            ['answer_id' => $correctAnswer->id]
+            ['revision_id' => $revision->id, 'answer_id' => $correctAnswer->id]
         );
         $answerResponse->assertRedirect("/courses/{$course->id}/video/{$firstLesson->id}/questions/1");
 
@@ -334,7 +334,7 @@ class VideoCourseTest extends TestCase
 
         $this->actingAsInTenant($learner, $tenant)->post(
             "/courses/{$course->id}/video/{$firstLesson->id}/questions/1",
-            ['answer_id' => $wrongAnswer->id]
+            ['revision_id' => $revision->id, 'answer_id' => $wrongAnswer->id]
         );
 
         $resultPage = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/video/{$firstLesson->id}/questions/result");
@@ -349,7 +349,7 @@ class VideoCourseTest extends TestCase
 
         $retryAnswer = $this->actingAsInTenant($learner, $tenant)->followingRedirects()->post(
             "/courses/{$course->id}/video/{$firstLesson->id}/questions/1?questions={$question->id}",
-            ['answer_id' => $correctAnswer->id]
+            ['revision_id' => $revision->id, 'answer_id' => $correctAnswer->id]
         );
         $retryAnswer->assertOk();
         $retryAnswer->assertSee('Richtig!');
@@ -379,7 +379,7 @@ class VideoCourseTest extends TestCase
 
         $response = $this->actingAsInTenant($learner, $tenant)->post(
             "/courses/{$course->id}/video/{$firstLesson->id}/questions/1",
-            ['answer_id' => $correctAnswer->id]
+            ['revision_id' => $revision->id, 'answer_id' => $correctAnswer->id]
         );
 
         $response->assertStatus(409);
@@ -405,11 +405,112 @@ class VideoCourseTest extends TestCase
 
         $response = $this->actingAsInTenant($learner, $tenant)->followingRedirects()->post(
             "/courses/{$course->id}/video/{$firstLesson->id}/questions/1",
-            ['answer_id' => $correctAnswer->id]
+            ['revision_id' => $revision->id, 'answer_id' => $correctAnswer->id]
         );
 
         $response->assertOk();
         $response->assertSee('Richtig!');
+    }
+
+    /**
+     * Bug-Review (Fragenversion ändert sich zwischen Anzeige und Antwort):
+     * answer() löste die Revision bisher -- wie show() -- einfach erneut
+     * über publishedRevision() auf. Veröffentlichte ein Superadmin
+     * zwischen der Anzeige und dem Abschicken des Formulars eine neue
+     * Fassung dieser Frage, wichen die vom Lerner übermittelten
+     * answer_ids (aus der ALTEN, zum Anzeigezeitpunkt angezeigten
+     * Fassung) von der inzwischen aktuellen Revision ab. Bei multi_choice
+     * (ContentAnswer::whereIn()->get() statt firstOrFail()) blieb die
+     * Auswahl dadurch STILLSCHWEIGEND leer -- eine tatsächlich korrekt
+     * beantwortete Frage wurde ohne jeden Fehler als komplett falsch
+     * verbucht. revision_id kommt jetzt als eigenes Formularfeld aus
+     * genau der Fassung, die show() tatsächlich angezeigt hat, und muss
+     * weiterhin veröffentlicht sein -- eine inzwischen überholte Fassung
+     * führt zu einer klaren Ablehnung statt einer stillen Falschbewertung.
+     */
+    public function test_answering_against_a_revision_that_has_since_been_replaced_does_not_silently_mis_grade_the_correct_answer(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $firstLesson] = $this->makeIsolatedVideoCourse();
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        [$question, $oldRevision, $oldCorrectAnswer] = $this->onAdmin(function () use ($firstLesson) {
+            $question = ContentQuestion::create([
+                'content_id' => 'TEST-VQ-MC-'.uniqid(),
+                'language' => 'de-DE',
+                'active' => true,
+            ]);
+            $this->createdQuestionIds[] = $question->id;
+
+            $revision = ContentQuestionRevision::create([
+                'question_id' => $question->id,
+                'revision_no' => 1,
+                'question_type' => 'multi_choice',
+                'question_text' => 'E2E Video-Quiz: Welche Farben zeigt eine Steuerbordtonne?',
+                'editorial_status' => 'published',
+                'rights_status' => 'licensed',
+            ]);
+
+            $correctAnswer = ContentAnswer::create([
+                'revision_id' => $revision->id, 'answer_key' => 'A', 'answer_text' => 'Grün', 'is_correct' => true, 'sort_order' => 1,
+            ]);
+            ContentAnswer::create([
+                'revision_id' => $revision->id, 'answer_key' => 'B', 'answer_text' => 'Rot', 'is_correct' => false, 'sort_order' => 2,
+            ]);
+
+            $firstLesson->questions()->attach($question->id, ['sort_order' => 1]);
+
+            return [$question, $revision, $correctAnswer];
+        });
+
+        // Der Lerner ruft die Frage auf -- show() liefert die alte
+        // Fassung samt ihrer revision_id als verstecktes Formularfeld.
+        $show = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/video/{$firstLesson->id}/questions/1");
+        $show->assertOk();
+        $show->assertSee($oldRevision->id, false);
+
+        // Ein Superadmin veröffentlicht in der Zwischenzeit eine neue
+        // Fassung mit einer völlig anderen Antwort-ID für dieselbe Frage
+        // -- genau wie publishRevision() es tut, wird die alte Fassung
+        // dabei "deprecated" (vgl. die Datenbank-Regel aus W5: höchstens
+        // eine veröffentlichte Revision pro Frage).
+        $this->onAdmin(function () use ($oldRevision, $question) {
+            $oldRevision->update(['editorial_status' => 'deprecated']);
+
+            $newRevision = ContentQuestionRevision::create([
+                'question_id' => $question->id,
+                'revision_no' => 2,
+                'question_type' => 'multi_choice',
+                'question_text' => $oldRevision->question_text,
+                'editorial_status' => 'published',
+                'rights_status' => 'licensed',
+            ]);
+            ContentAnswer::create(['revision_id' => $newRevision->id, 'answer_key' => 'A', 'answer_text' => 'Grün', 'is_correct' => true, 'sort_order' => 1]);
+            ContentAnswer::create(['revision_id' => $newRevision->id, 'answer_key' => 'B', 'answer_text' => 'Blau', 'is_correct' => false, 'sort_order' => 2]);
+        });
+
+        // Der Lerner sendet jetzt sein (noch von der alten Seite stammendes)
+        // Formular ab: die alte revision_id und die dort tatsächlich
+        // richtige answer_id.
+        $response = $this->actingAsInTenant($learner, $tenant)->post(
+            "/courses/{$course->id}/video/{$firstLesson->id}/questions/1",
+            ['revision_id' => $oldRevision->id, 'answer_ids' => [$oldCorrectAnswer->id]]
+        );
+
+        // Die inzwischen überholte Fassung wird klar abgelehnt (404),
+        // statt die eigentlich richtige Antwort stillschweigend gegen die
+        // neue Fassung als falsch zu werten.
+        $response->assertStatus(404);
+        $this->asTenant($tenant, function () use ($tenant, $learner, $question, $course) {
+            $this->assertDatabaseMissing('attempt', [
+                'tenant_id' => $tenant->id,
+                'user_id' => $learner->id,
+                'question_id' => $question->id,
+                'course_id' => $course->id,
+                'context' => 'video_quiz',
+            ]);
+        });
     }
 
     private function startRunningExamSessionWithQuestion(

@@ -136,6 +136,8 @@ class QuestionController extends Controller
                     $revision->media()->attach($media->id, ['role' => $media->pivot->role, 'sort_order' => $media->pivot->sort_order]);
                 }
             }
+
+            $revision->resetProgressIfContentChangedFrom($editing);
         });
 
         return redirect()->route('superadmin.questions.edit', $question)->with('status', 'Neue Fassung gespeichert.');
@@ -252,6 +254,13 @@ class QuestionController extends Controller
             'valid_to' => $validated['valid_to'] ?? null,
             'editorial_status' => 'published',
             'rights_status' => 'licensed',
+            // Bug-Review (Seed überschreibt UBI-Korrekturen aus dem Editor):
+            // markiert diese Revision als vom Fragen-Editor angelegt, damit
+            // ImportContentQuestions beim Diff gegen die zuletzt IMPORTIERTE
+            // Fassung vergleicht statt gegen eine fachlich bereits
+            // korrigierte Editor-Revision (siehe Migration
+            // add_edited_by_superadmin_to_content_question_revision).
+            'edited_by_superadmin' => true,
         ];
     }
 

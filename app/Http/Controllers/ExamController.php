@@ -325,45 +325,67 @@ class ExamController extends Controller
             ->whereNull('answered_at')->with('revision')->firstOrFail();
         $type = $sessionQuestion->revision->question_type;
 
-        // Keine Sofortauflösung: correct wird erst bei finish() befüllt.
-        if ($type === 'multi_choice') {
-            abort_if(empty($validated['answer_ids']), 422, 'Bitte mindestens eine Antwort auswählen.');
-            $answerIds = ContentAnswer::where('revision_id', $sessionQuestion->revision_id)
-                ->whereIn('id', $validated['answer_ids'])->pluck('id');
-            abort_if($answerIds->count() !== count($validated['answer_ids']), 422);
+        // Bug-Review (Zwei gleichzeitige Prüfungsauswertungen stören sich):
+        // der abort_if()-Check oben liest den Status, BEVOR die Antwort
+        // unten gespeichert wird -- lief währenddessen eine Auswertung
+        // (finish() oder der Zeit-Timeout-Zweig oben, siehe
+        // ExamEvaluationService::evaluate()) nebenläufig durch, konnte eine
+        // Antwort noch auf eine Frage geschrieben werden, die bereits
+        // bewertet wurde (correct stand damit auf dem Stand VOR dieser
+        // Antwort fest, die Antwort selbst wirkte nie auf die Bewertung).
+        // Die exam_session-Zeile wird deshalb jetzt gesperrt, bis eine
+        // nebenläufige Auswertung committet hat, und der Status danach
+        // erneut geprüft -- evaluate() sperrt dieselbe Zeile, die beiden
+        // serialisieren sich also gegenseitig.
+        DB::transaction(function () use ($examSession, $sessionQuestion, $type, $validated) {
+            // DB::table() statt einer zweiten Eloquent-Abfrage auf dem
+            // ExamSession-Model: vermeidet, dass der globale Tenant-Scope
+            // (BelongsToTenant) dabei erneut ausgewertet wird (siehe
+            // ExamEvaluationService::evaluate()).
+            DB::table('exam_session')->where('id', $examSession->id)->lockForUpdate()->first();
+            $examSession->refresh();
+            abort_if($examSession->status !== 'running', 409);
 
-            $sessionQuestion->update([
-                'selected_answer_id' => null,
-                'selected_answer_ids' => $answerIds->values()->all(),
-                'answered_at' => now(),
-            ]);
-        } elseif ($type === 'open_text') {
-            abort_if(! array_key_exists('known', $validated) || $validated['known'] === null, 422, 'Bitte Selbsteinschätzung angeben.');
+            // Keine Sofortauflösung: correct wird erst bei finish() befüllt.
+            if ($type === 'multi_choice') {
+                abort_if(empty($validated['answer_ids']), 422, 'Bitte mindestens eine Antwort auswählen.');
+                $answerIds = ContentAnswer::where('revision_id', $sessionQuestion->revision_id)
+                    ->whereIn('id', $validated['answer_ids'])->pluck('id');
+                abort_if($answerIds->count() !== count($validated['answer_ids']), 422);
 
-            // Bug-Review Oberfläche U9: self_assessed_known entscheidet
-            // direkt über "correct" bei finish() (siehe ExamEvaluationService)
-            // -- ohne diese Prüfung konnte ein per Devtools nachgebauter
-            // Request mit known=1 jede offene Frage als gewusst zählen
-            // lassen, ohne die Musterantwort je abgerufen zu haben.
-            // reveal() setzt revealed_at erst, wenn die Antwort tatsächlich
-            // ausgeliefert wurde.
-            abort_unless($sessionQuestion->revealed_at, 422, 'Bitte zuerst die Musterantwort anzeigen.');
+                $sessionQuestion->update([
+                    'selected_answer_id' => null,
+                    'selected_answer_ids' => $answerIds->values()->all(),
+                    'answered_at' => now(),
+                ]);
+            } elseif ($type === 'open_text') {
+                abort_if(! array_key_exists('known', $validated) || $validated['known'] === null, 422, 'Bitte Selbsteinschätzung angeben.');
 
-            $sessionQuestion->update([
-                'self_assessed_known' => (bool) $validated['known'],
-                'answered_at' => now(),
-            ]);
-        } else {
-            abort_if(empty($validated['answer_id']), 422, 'Bitte eine Antwort auswählen.');
-            $answer = ContentAnswer::where('id', $validated['answer_id'])
-                ->where('revision_id', $sessionQuestion->revision_id)
-                ->firstOrFail();
+                // Bug-Review Oberfläche U9: self_assessed_known entscheidet
+                // direkt über "correct" bei finish() (siehe ExamEvaluationService)
+                // -- ohne diese Prüfung konnte ein per Devtools nachgebauter
+                // Request mit known=1 jede offene Frage als gewusst zählen
+                // lassen, ohne die Musterantwort je abgerufen zu haben.
+                // reveal() setzt revealed_at erst, wenn die Antwort tatsächlich
+                // ausgeliefert wurde.
+                abort_unless($sessionQuestion->revealed_at, 422, 'Bitte zuerst die Musterantwort anzeigen.');
 
-            $sessionQuestion->update([
-                'selected_answer_id' => $answer->id,
-                'answered_at' => now(),
-            ]);
-        }
+                $sessionQuestion->update([
+                    'self_assessed_known' => (bool) $validated['known'],
+                    'answered_at' => now(),
+                ]);
+            } else {
+                abort_if(empty($validated['answer_id']), 422, 'Bitte eine Antwort auswählen.');
+                $answer = ContentAnswer::where('id', $validated['answer_id'])
+                    ->where('revision_id', $sessionQuestion->revision_id)
+                    ->firstOrFail();
+
+                $sessionQuestion->update([
+                    'selected_answer_id' => $answer->id,
+                    'answered_at' => now(),
+                ]);
+            }
+        });
 
         return redirect()->route('exam.show', $examSession);
     }

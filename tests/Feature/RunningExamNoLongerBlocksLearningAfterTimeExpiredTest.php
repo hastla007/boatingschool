@@ -106,6 +106,30 @@ class RunningExamNoLongerBlocksLearningAfterTimeExpiredTest extends TestCase
         $response->assertStatus(409);
     }
 
+    /**
+     * Bug-Review (Smarttrainer blockiert während laufender Prüfung):
+     * nextQuestion() bot eine Frage, die Teil dieser laufenden Session
+     * ist, bisher trotzdem aktiv als nächste Lernfrage an -- storeAttempt()
+     * lehnte die anschließend eingereichte Antwort dann mit 409 ab (siehe
+     * Test oben), statt von vornherein eine andere Frage auszuspielen.
+     */
+    public function test_smarttrainer_leaves_a_question_from_a_genuinely_running_exam_out_of_the_selection(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SBF-SEE');
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $module = $this->existingModule('SBF_BASIS');
+        [$question, $revision] = $this->anyPublishedQuestionIn($module);
+        $this->startExamSession($tenant, $learner, $course, $question, $revision, now());
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/learn?mode=smarttrainer");
+
+        $response->assertOk();
+        $response->assertViewHas('revision', fn ($shown) => $shown->question_id !== $question->id);
+    }
+
     public function test_smarttrainer_no_longer_blocks_a_question_from_an_exam_whose_time_limit_has_expired(): void
     {
         $tenant = $this->createTestTenant();
@@ -161,7 +185,7 @@ class RunningExamNoLongerBlocksLearningAfterTimeExpiredTest extends TestCase
         $answer = $revision->answers->first();
         $response = $this->actingAsInTenant($learner, $tenant)->post(
             "/courses/{$course->id}/video/{$lesson->id}/questions/1",
-            ['answer_id' => $answer->id]
+            ['revision_id' => $revision->id, 'answer_id' => $answer->id]
         );
 
         $response->assertStatus(409);
@@ -182,7 +206,7 @@ class RunningExamNoLongerBlocksLearningAfterTimeExpiredTest extends TestCase
         $answer = $revision->answers->first();
         $response = $this->actingAsInTenant($learner, $tenant)->followingRedirects()->post(
             "/courses/{$course->id}/video/{$lesson->id}/questions/1",
-            ['answer_id' => $answer->id]
+            ['revision_id' => $revision->id, 'answer_id' => $answer->id]
         );
 
         $response->assertOk();

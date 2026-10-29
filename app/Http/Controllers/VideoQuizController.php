@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ContentAnswer;
 use App\Models\ContentQuestion;
+use App\Models\ContentQuestionRevision;
 use App\Models\CourseDefinition;
 use App\Models\ExamSession;
 use App\Models\VideoLesson;
@@ -78,8 +79,31 @@ class VideoQuizController extends Controller
         $questions = $this->resolveQuestions($lesson, $request);
         abort_unless($position >= 1 && $position <= $questions->count(), 404);
 
-        $revision = $questions[$position - 1]->publishedRevision();
-        abort_if(! $revision, 404);
+        $validated = $request->validate([
+            'revision_id' => ['required', 'uuid'],
+            'answer_id' => ['nullable', 'uuid'],
+            'answer_ids' => ['nullable', 'array'],
+            'answer_ids.*' => ['uuid'],
+            'known' => ['nullable', 'boolean'],
+        ]);
+
+        // Bug-Review (Fragenversion ändert sich zwischen Anzeige und
+        // Antwort): bisher wurde hier -- wie in show() -- einfach erneut
+        // die AKTUELL veröffentlichte Revision zur Position aufgelöst. Hat
+        // ein Superadmin zwischen der Anzeige (show()) und dem Absenden
+        // dieses Formulars eine neue Revision veröffentlicht, wich die
+        // beim Antworten verwendete Fassung von der tatsächlich
+        // angezeigten ab -- bei multi_choice (whereIn()->get() statt
+        // firstOrFail()) blieb die Antwortauswahl dadurch STILLSCHWEIGEND
+        // leer (keine der übermittelten answer_ids gehört zur neuen
+        // Revision), die Antwort zählte unbemerkt als komplett falsch.
+        // revision_id kommt jetzt -- wie bei LearningController::
+        // storeAttempt() -- als eigenes Formularfeld aus genau der
+        // Fassung, die show() tatsächlich angezeigt hat.
+        $revision = ContentQuestionRevision::where('id', $validated['revision_id'])
+            ->where('question_id', $questions[$position - 1]->id)
+            ->where('editorial_status', 'published')
+            ->firstOrFail();
 
         // Bug-Review N13: viele Fragen aus dem Katalog stecken unverändert
         // auch in amtlichen Prüfungsbögen. Ohne diese Prüfung konnte ein
@@ -112,13 +136,6 @@ class VideoQuizController extends Controller
 
             abort(409, 'Diese Frage ist Teil einer laufenden Prüfung und kann hier aktuell nicht beantwortet werden.');
         }
-
-        $validated = $request->validate([
-            'answer_id' => ['nullable', 'uuid'],
-            'answer_ids' => ['nullable', 'array'],
-            'answer_ids.*' => ['uuid'],
-            'known' => ['nullable', 'boolean'],
-        ]);
 
         $selectedAnswer = null;
         $selectedAnswers = null;
