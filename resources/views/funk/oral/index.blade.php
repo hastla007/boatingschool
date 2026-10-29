@@ -13,13 +13,6 @@
             'active' => $catalog,
         ])
 
-        @if ($catalog === 'UBI')
-            <x-funk-info>
-                Die UBI-Prüfung hat keinen englischen Teil: Mitschreiben, Übersetzen und Vokabeln gehören nur zum SRC.
-                Die Sprechfunkverfahren auf den Binnenschifffahrtsstraßen übst du in der
-                <a href="{{ route('funk.praxis.index', ['course' => $course, 'teil' => 'UBI']) }}" class="font-semibold underline">Praxis-Prüfungssimulation</a>.
-            </x-funk-info>
-        @else
             @include('funk._tabs', [
                 'tabs' => ['Seefunktexte' => $tabUrl(['modul' => 'texte']), 'Vokabeln' => $tabUrl(['modul' => 'vokabeln'])],
                 'active' => $modul === 'texte' ? 'Seefunktexte' : 'Vokabeln',
@@ -118,7 +111,6 @@
                     @endforeach
                 @endif
             @endif
-        @endif
     </div>
 
     @include('funk._speech')

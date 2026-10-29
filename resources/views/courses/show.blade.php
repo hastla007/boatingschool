@@ -348,7 +348,7 @@
             <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />
         </a>
 
-        {{-- Funkscheine: Praxis-Prüfungssimulation (SRC/UBI) und mündliche Prüfung (nur SRC: Seefunktexte, Vokabeln). --}}
+        {{-- Funkscheine: Praxis-Prüfungssimulation und mündliche Prüfung (SRC: Seefunktexte, Vokabeln; UBI: Aufnahme, Abgabe, Buchstabiertafel). --}}
         @if ($funkCatalogs)
             <a href="{{ route('funk.praxis.index', $course) }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-4 hover:shadow-md transition">
                 <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="{{ $tileIconBg }}">
@@ -360,14 +360,20 @@
                 </div>
                 <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />
             </a>
-            @if (in_array('SRC', $funkCatalogs, true))
+            @php
+                $oralParts = array_filter([
+                    in_array('SRC', $funkCatalogs, true) ? 'Seefunktexte und Vokabeln' : null,
+                    in_array('UBI', $funkCatalogs, true) ? 'Aufnahme, Abgabe, Buchstabiertafel' : null,
+                ]);
+            @endphp
+            @if ($oralParts)
                 <a href="{{ route('funk.oral.index', $course) }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-4 hover:shadow-md transition">
                     <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="{{ $tileIconBg }}">
                         <x-icon name="microphone" class="w-5 h-5" style="{{ $tileIconColor }}" />
                     </div>
                     <div class="flex-1 min-w-0">
                         <div class="font-semibold text-slate-800 dark:text-white">Mündliche Prüfung</div>
-                        <div class="text-xs text-slate-600 dark:text-slate-400">Seefunktexte und Vokabeln (Englisch)</div>
+                        <div class="text-xs text-slate-600 dark:text-slate-400">{{ implode(' · ', $oralParts) }}</div>
                     </div>
                     <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />
                 </a>

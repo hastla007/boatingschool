@@ -149,14 +149,12 @@ class FunkTrainingTest extends TestCase
             ->assertOk()->assertSee('1 / '.collect(FunkTraining::vocabulary('SRC'))->flatten(1)->count().' Vokabeln gelernt');
     }
 
-    public function test_oral_exam_explains_the_missing_parts(): void
+    public function test_src_oral_exam_explains_the_missing_official_texts(): void
     {
         [$tenant, $learner, $combo] = $this->learnerInCombo();
 
         $this->actingAsInTenant($learner, $tenant)->get("/courses/{$combo->id}/funk/muendlich")
             ->assertOk()->assertSee('Seefunktexte')->assertSee('werden hier ergänzt, sobald sie');
-        $this->actingAsInTenant($learner, $tenant)->get("/courses/{$combo->id}/funk/muendlich?teil=UBI")
-            ->assertOk()->assertSee('Die UBI-Prüfung hat keinen englischen Teil');
         $this->actingAsInTenant($learner, $tenant)->get("/courses/{$combo->id}/funk/muendlich/SRC/texte/1")->assertNotFound();
     }
 
@@ -168,6 +166,36 @@ class FunkTrainingTest extends TestCase
         $this->assertSame($entries->count(), $entries->pluck('key')->unique()->count(), 'Zwei Vokabeln teilen sich einen Fortschrittsschlüssel.');
         $this->assertSame($entries->count(), $entries->pluck('de')->unique()->count(), 'Ein deutscher Begriff steht doppelt in der Liste.');
         $this->assertContains("radio operator's certificate", $entries->pluck('en')->all());
+    }
+
+    public function test_ubi_oral_exam_has_dictation_read_out_and_spelling_alphabet(): void
+    {
+        [$tenant, $learner, $combo] = $this->learnerInCombo();
+        $dictation = FunkTraining::ubiTexts('aufnahme')[1];
+
+        $this->actingAsInTenant($learner, $tenant)->get("/courses/{$combo->id}/funk/muendlich?teil=UBI")
+            ->assertOk()->assertSee('Textaufnahme')->assertSee('0 von '.count(FunkTraining::ubiTexts('aufnahme')).' erledigt');
+        $this->actingAsInTenant($learner, $tenant)->get("/courses/{$combo->id}/funk/muendlich?teil=UBI&modul=buchstabiertafel")
+            ->assertOk()->assertSee('Juliett')->assertSee('Zwo');
+
+        $this->actingAsInTenant($learner, $tenant)->post("/courses/{$combo->id}/funk/muendlich/UBI/aufnahme/1", ['transcript' => 'Revierzentrale Duisburg hier ist Motorboot Seeschwalbe'])
+            ->assertRedirect("/courses/{$combo->id}/funk/muendlich/UBI/aufnahme/1?auswertung=1");
+        $this->actingAsInTenant($learner, $tenant)->get("/courses/{$combo->id}/funk/muendlich/UBI/aufnahme/1?auswertung=1")
+            ->assertOk()->assertSee('% der Wörter getroffen')->assertSee($dictation['text']);
+
+        $this->actingAsInTenant($learner, $tenant)->get("/courses/{$combo->id}/funk/muendlich/UBI/abgabe/1")
+            ->assertOk()->assertSee('KORMORAN (Kilo Oscar Romeo Mike Oscar Romeo Alfa November)')->assertSee('712 (Sieben Eins Zwo)');
+
+        $this->actingAsInTenant($learner, $tenant)->post("/courses/{$combo->id}/funk/abgabe/UBI/1/erledigt")->assertRedirect();
+        $this->actingAsInTenant($learner, $tenant)->get("/courses/{$combo->id}/funk/muendlich?teil=UBI&modul=abgabe")->assertSee('1 von 8 erledigt');
+        $this->actingAsInTenant($learner, $tenant)->post("/courses/{$combo->id}/funk/abgabe/SRC/1/erledigt")->assertNotFound();
+    }
+
+    public function test_spelling_uses_the_international_alphabet_and_single_digits(): void
+    {
+        $this->assertSame('Kilo Echo Lima Lima Echo Romeo', FunkTraining::spellGerman('Keller'));
+        $this->assertSame('Zwo Null Vier', FunkTraining::spellGerman('204'));
+        $this->assertSame('Mike Oscar Echo Whiskey Echo', FunkTraining::spellGerman('Möwe'));
     }
 
     public function test_word_match_ignores_case_and_punctuation(): void

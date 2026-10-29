@@ -91,14 +91,20 @@ class FunkTrainingController extends Controller
     public function toggleCompleted(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course, string $type, string $catalog, int $number): Response
     {
         $this->authorizeCatalog($request, $tenantContext, $entitlements, $course, $catalog, strict: true);
-        abort_unless(in_array($type, [RadioTrainingProgress::TYPE_PRAXIS, RadioTrainingProgress::TYPE_TEXT], true), 404);
 
-        $items = $type === RadioTrainingProgress::TYPE_PRAXIS ? FunkPraxis::tasks($catalog) : FunkTraining::texts($catalog);
+        // praxis: Praxisaufgabe; text: SRC-Seefunktext; aufnahme/abgabe: UBI-Funktext.
+        $items = match ($type) {
+            'praxis' => FunkPraxis::tasks($catalog),
+            'text' => FunkTraining::texts($catalog),
+            'aufnahme', 'abgabe' => $catalog === 'UBI' ? FunkTraining::ubiTexts($type) : [],
+            default => [],
+        };
         abort_unless(isset($items[$number]), 404);
         $key = $items[$number]['key'];
+        $itemType = $type === 'praxis' ? RadioTrainingProgress::TYPE_PRAXIS : RadioTrainingProgress::TYPE_TEXT;
 
-        $current = $this->progress($tenantContext, $request, $type, [$key])->get($key);
-        $this->store($tenantContext, $request, $type, $key, ['completed' => ! $current?->completed]);
+        $current = $this->progress($tenantContext, $request, $itemType, [$key])->get($key);
+        $this->store($tenantContext, $request, $itemType, $key, ['completed' => ! $current?->completed]);
 
         return back();
     }
@@ -106,6 +112,11 @@ class FunkTrainingController extends Controller
     public function oralIndex(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course): View
     {
         $catalog = $this->authorizeCatalog($request, $tenantContext, $entitlements, $course, $request->query('teil'));
+
+        if ($catalog === 'UBI') {
+            return $this->ubiOralIndex($request, $tenantContext, $course);
+        }
+
         $modul = $request->query('modul') === 'vokabeln' ? 'vokabeln' : 'texte';
         $ansicht = $request->query('ansicht') === 'uebersicht' ? 'uebersicht' : 'quiz';
 
@@ -186,6 +197,58 @@ class FunkTrainingController extends Controller
         $this->store($tenantContext, $request, RadioTrainingProgress::TYPE_TEXT, $text['key'], ['answers' => $answers]);
 
         return redirect()->route('funk.oral.text', ['course' => $course, 'catalog' => $catalog, 'number' => $number, 'richtung' => $validated['richtung'], 'auswertung' => 1]);
+    }
+
+    private function ubiOralIndex(Request $request, TenantContext $tenantContext, CourseDefinition $course): View
+    {
+        $modul = in_array($request->query('modul'), ['abgabe', 'buchstabiertafel'], true) ? $request->query('modul') : 'aufnahme';
+        $texts = $modul === 'buchstabiertafel' ? [] : FunkTraining::ubiTexts($modul);
+
+        return view('funk.oral.ubi-index', [
+            'course' => $course,
+            'catalogs' => FunkTraining::catalogsFor($course),
+            'catalog' => 'UBI',
+            'modul' => $modul,
+            'texts' => $texts,
+            'completed' => $this->progress($tenantContext, $request, RadioTrainingProgress::TYPE_TEXT, array_column($texts, 'key'))
+                ->filter(fn ($p) => $p->completed)->keys()->all(),
+        ]);
+    }
+
+    /** UBI-Aufnahme (mitschreiben) bzw. -Abgabe (vorlesen und buchstabieren). */
+    public function ubiTextShow(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course, string $modul, int $number): View
+    {
+        $this->authorizeCatalog($request, $tenantContext, $entitlements, $course, 'UBI', strict: true);
+        $texts = FunkTraining::ubiTexts($modul);
+        abort_unless(isset($texts[$number]), 404);
+        $text = $texts[$number];
+
+        $progress = $this->progress($tenantContext, $request, RadioTrainingProgress::TYPE_TEXT, [$text['key']])->get($text['key']);
+        $transcript = $progress?->answers['transcript'] ?? '';
+
+        return view('funk.oral.ubi-text', [
+            'course' => $course,
+            'catalogs' => FunkTraining::catalogsFor($course),
+            'modul' => $modul,
+            'text' => $text,
+            'total' => count($texts),
+            'previous' => isset($texts[$number - 1]) ? $number - 1 : null,
+            'next' => isset($texts[$number + 1]) ? $number + 1 : null,
+            'transcript' => $transcript,
+            'completed' => (bool) $progress?->completed,
+            'evaluation' => $modul === 'aufnahme' && $request->boolean('auswertung') && $transcript !== '' ? FunkTraining::wordMatch($text['text'], $transcript) : null,
+        ]);
+    }
+
+    public function ubiTextEvaluate(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course, int $number): Response
+    {
+        $this->authorizeCatalog($request, $tenantContext, $entitlements, $course, 'UBI', strict: true);
+        $text = FunkTraining::ubiTexts('aufnahme')[$number] ?? abort(404);
+        $validated = $request->validate(['transcript' => ['required', 'string', 'max:5000']]);
+
+        $this->store($tenantContext, $request, RadioTrainingProgress::TYPE_TEXT, $text['key'], ['answers' => ['transcript' => $validated['transcript']]]);
+
+        return redirect()->route('funk.oral.ubi', ['course' => $course, 'modul' => 'aufnahme', 'number' => $number, 'auswertung' => 1]);
     }
 
     /** Vokabel-Quiz: "gewusst" erhöht die Serie, "nicht gewusst" setzt sie zurück; nach 3x in Folge gilt sie als gelernt. */

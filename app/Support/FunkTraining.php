@@ -67,6 +67,51 @@ class FunkTraining
         return $cache[$catalog];
     }
 
+    /** Internationale Buchstabiertafel mit Aussprache (ITU). */
+    public const ALPHABET = [
+        'A' => ['Alfa', 'AL-FA'], 'B' => ['Bravo', 'BRA-WO'], 'C' => ['Charlie', 'TSCHAR-LI'], 'D' => ['Delta', 'DEL-TA'],
+        'E' => ['Echo', 'ECK-O'], 'F' => ['Foxtrot', 'FOX-TROTT'], 'G' => ['Golf', 'GOLF'], 'H' => ['Hotel', 'HO-TELL'],
+        'I' => ['India', 'IN-DI-A'], 'J' => ['Juliett', 'DSCHU-LI-ETT'], 'K' => ['Kilo', 'KI-LO'], 'L' => ['Lima', 'LI-MA'],
+        'M' => ['Mike', 'MEIK'], 'N' => ['November', 'NO-WEMM-BER'], 'O' => ['Oscar', 'OSS-KAR'], 'P' => ['Papa', 'PA-PA'],
+        'Q' => ['Quebec', 'KI-BECK'], 'R' => ['Romeo', 'RO-MI-O'], 'S' => ['Sierra', 'SI-ER-RA'], 'T' => ['Tango', 'TANG-GO'],
+        'U' => ['Uniform', 'JU-NI-FORM'], 'V' => ['Victor', 'WICK-TAR'], 'W' => ['Whiskey', 'WISS-KI'], 'X' => ['X-ray', 'ECKS-REH'],
+        'Y' => ['Yankee', 'JENG-KI'], 'Z' => ['Zulu', 'SU-LU'],
+    ];
+
+    /** Ziffern im deutschen Sprechfunk ("zwo" statt "zwei", um Verwechslung mit "drei" zu vermeiden). */
+    public const DIGITS = ['Null', 'Eins', 'Zwo', 'Drei', 'Vier', 'Fünf', 'Sechs', 'Sieben', 'Acht', 'Neun'];
+
+    /**
+     * Übungstexte der mündlichen UBI-Prüfung (Aufnahme bzw. Abgabe).
+     *
+     * @return array<int, array{key: string, number: int, text?: string, lines?: list<string>}>
+     */
+    public static function ubiTexts(string $modul): array
+    {
+        static $cache = [];
+
+        if (! isset($cache[$modul])) {
+            $prefix = $modul === 'abgabe' ? 'ABG' : 'AUF';
+            $cache[$modul] = [];
+            foreach (array_values((include database_path('data/funk_ubi_texte.php'))[$modul] ?? []) as $index => $item) {
+                $number = $index + 1;
+                $cache[$modul][$number] = ['key' => sprintf('UBI-%s-%02d', $prefix, $number), 'number' => $number]
+                    + (is_array($item) ? ['lines' => $item] : ['text' => $item]);
+            }
+        }
+
+        return $cache[$modul];
+    }
+
+    /** Ein Wort buchstabiert: Buchstaben mit der Buchstabiertafel, Ziffern einzeln, z. B. "Kilo Echo Lima" bzw. "Sieben Eins Zwo". */
+    public static function spellGerman(string $word): string
+    {
+        $map = ['Ä' => 'AE', 'Ö' => 'OE', 'Ü' => 'UE', 'ß' => 'SS'];
+        $chars = str_split(strtr(mb_strtoupper($word), $map));
+
+        return implode(' ', array_filter(array_map(fn ($c) => ctype_digit($c) ? self::DIGITS[(int) $c] : (self::ALPHABET[$c][0] ?? null), $chars)));
+    }
+
     /**
      * Anteil der Wörter des Originals, die in der Eingabe vorkommen (ohne
      * Groß-/Kleinschreibung und Satzzeichen) -- eine grobe, ehrliche
