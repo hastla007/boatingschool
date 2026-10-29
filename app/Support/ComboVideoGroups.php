@@ -25,12 +25,12 @@ class ComboVideoGroups
         // Kapitel aus FunkVideoCourseSeeder.
         'SRC-UBI' => [
             ['label' => 'SRC', 'motif' => 'antenna', 'chapters' => [
-                'GMDSS und Seefunkdienst', 'Funkeinrichtungen an Bord', 'UKW-Sprechfunk', 'DSC – Digitaler Selektivruf',
-                'Betriebsverfahren im Seefunk', 'Seenotfunk: SAR, EPIRB und SART', 'NAVTEX',
+                'Einführung in das SRC', 'Technik und Funkgerät', 'Routineverkehr im Alltag', 'Notverkehr – MAYDAY',
+                'Dringlichkeit und Sicherheit – PAN PAN und SECURITE', 'Prüfung und Vorbereitung',
             ]],
             ['label' => 'UBI', 'motif' => 'radio', 'chapters' => [
-                'Binnenschifffahrtsfunk', 'Funkeinrichtungen und Schiffsfunkstellen', 'Verkehrskreise', 'Sprechfunk',
-                'Betriebsverfahren und Rangfolgen',
+                'Einführung in das UBI', 'Funkanlage im Binnenfunk', 'Verkehrskreise und Kanäle', 'Sprechfunk im Alltag',
+                'Notverkehr im Binnenfunk', 'Dringlichkeit und Sicherheit im Binnenfunk', 'UBI-Prüfung und Vorbereitung',
             ]],
         ],
     ];

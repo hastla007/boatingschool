@@ -203,15 +203,23 @@ class FunkTrainingController extends Controller
     {
         $modul = in_array($request->query('modul'), ['abgabe', 'buchstabiertafel'], true) ? $request->query('modul') : 'aufnahme';
         $texts = $modul === 'buchstabiertafel' ? [] : FunkTraining::ubiTexts($modul);
+        $alphabet = FunkTraining::vocabulary('UBI');
+        $alphabetProgress = $this->progress($tenantContext, $request, RadioTrainingProgress::TYPE_VOCAB, collect($alphabet)->flatten(1)->pluck('key')->all());
 
         return view('funk.oral.ubi-index', [
             'course' => $course,
             'catalogs' => FunkTraining::catalogsFor($course),
             'catalog' => 'UBI',
             'modul' => $modul,
+            'ansicht' => $request->query('ansicht') === 'uebersicht' ? 'uebersicht' : 'quiz',
             'texts' => $texts,
             'completed' => $this->progress($tenantContext, $request, RadioTrainingProgress::TYPE_TEXT, array_column($texts, 'key'))
                 ->filter(fn ($p) => $p->completed)->keys()->all(),
+            'vocabulary' => $alphabet,
+            'vocabLearned' => $alphabetProgress->filter(fn ($p) => $p->completed)->keys()->all(),
+            'vocabStreaks' => $alphabetProgress->map(fn ($p) => $p->streak)->all(),
+            'vocabTotal' => count(FunkTraining::ALPHABET),
+            'streakToLearn' => RadioTrainingProgress::VOCAB_STREAK_TO_LEARN,
         ]);
     }
 

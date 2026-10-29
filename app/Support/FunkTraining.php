@@ -34,13 +34,23 @@ class FunkTraining
     }
 
     /**
-     * Vokabeln eines Teils, nach Thema gruppiert.
+     * Vokabeln eines Teils, nach Thema gruppiert (UBI: Buchstabiertafel).
      *
-     * @return array<string, list<array{key: string, de: string, en: string}>>
+     * @return array<string, list<array{key: string, de: string, en: string, hint?: string}>>
      */
     public static function vocabulary(string $catalog): array
     {
         static $cache = [];
+
+        // UBI: die Buchstabiertafel als Karteikarten (Buchstabe -> Wort, Aussprache als Hinweis).
+        if ($catalog === 'UBI') {
+            return $cache[$catalog] ??= ['Buchstabiertafel' => array_map(fn (string $letter, array $entry) => [
+                'key' => sprintf('VOC-UBI-%s', $letter),
+                'de' => $letter,
+                'en' => $entry[0],
+                'hint' => $entry[1],
+            ], array_keys(self::ALPHABET), self::ALPHABET)];
+        }
 
         return $cache[$catalog] ??= collect((include database_path('data/funk_vokabeln.php'))[$catalog] ?? [])
             ->map(fn (array $entries) => array_map(fn (array $entry) => [

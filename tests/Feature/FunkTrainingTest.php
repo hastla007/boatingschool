@@ -176,7 +176,9 @@ class FunkTrainingTest extends TestCase
         $this->actingAsInTenant($learner, $tenant)->get("/courses/{$combo->id}/funk/muendlich?teil=UBI")
             ->assertOk()->assertSee('Textaufnahme')->assertSee('0 von '.count(FunkTraining::ubiTexts('aufnahme')).' erledigt');
         $this->actingAsInTenant($learner, $tenant)->get("/courses/{$combo->id}/funk/muendlich?teil=UBI&modul=buchstabiertafel")
-            ->assertOk()->assertSee('Juliett')->assertSee('Zwo');
+            ->assertOk()->assertSee('Quiz: Buchstabe → Wort')->assertSee('Juliett');
+        $this->actingAsInTenant($learner, $tenant)->get("/courses/{$combo->id}/funk/muendlich?teil=UBI&modul=buchstabiertafel&ansicht=uebersicht")
+            ->assertOk()->assertSee('0 / 26 Buchstaben gelernt')->assertSee('DSCHU-LI-ETT')->assertSee('Zwo');
 
         $this->actingAsInTenant($learner, $tenant)->post("/courses/{$combo->id}/funk/muendlich/UBI/aufnahme/1", ['transcript' => 'Revierzentrale Duisburg hier ist Motorboot Seeschwalbe'])
             ->assertRedirect("/courses/{$combo->id}/funk/muendlich/UBI/aufnahme/1?auswertung=1");
@@ -189,6 +191,21 @@ class FunkTrainingTest extends TestCase
         $this->actingAsInTenant($learner, $tenant)->post("/courses/{$combo->id}/funk/abgabe/UBI/1/erledigt")->assertRedirect();
         $this->actingAsInTenant($learner, $tenant)->get("/courses/{$combo->id}/funk/muendlich?teil=UBI&modul=abgabe")->assertSee('1 von 8 erledigt');
         $this->actingAsInTenant($learner, $tenant)->post("/courses/{$combo->id}/funk/abgabe/SRC/1/erledigt")->assertNotFound();
+    }
+
+    public function test_a_letter_of_the_spelling_alphabet_is_learned_after_three_correct_answers_in_a_row(): void
+    {
+        [$tenant, $learner, $combo] = $this->learnerInCombo();
+        $answer = fn (string $key) => $this->actingAsInTenant($learner, $tenant)
+            ->postJson("/courses/{$combo->id}/funk/muendlich/UBI/vokabeln", ['key' => $key, 'known' => true]);
+
+        $answer('VOC-UBI-Q');
+        $answer('VOC-UBI-Q');
+        $answer('VOC-UBI-Q')->assertJson(['streak' => 3, 'learned' => true, 'learnedCount' => 1]);
+        $answer('VOC-SRC-Q')->assertNotFound();
+
+        $this->actingAsInTenant($learner, $tenant)->get("/courses/{$combo->id}/funk/muendlich?teil=UBI&modul=buchstabiertafel&ansicht=uebersicht")
+            ->assertOk()->assertSee('1 / 26 Buchstaben gelernt');
     }
 
     public function test_spelling_uses_the_international_alphabet_and_single_digits(): void

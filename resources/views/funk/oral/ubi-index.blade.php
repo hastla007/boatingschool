@@ -19,30 +19,27 @@
 
         @if ($modul === 'buchstabiertafel')
             <x-funk-info>
-                Im Funk werden Namen, Rufzeichen und schwierige Wörter mit der internationalen Buchstabiertafel buchstabiert,
-                Zahlen Ziffer für Ziffer („zwo“ statt „zwei“). Tippe auf eine Zeile, um sie vorlesen zu lassen.
+                Internationale Buchstabiertafel: In der UBI-Prüfung buchstabierst du Schiffsnamen, Ortsnamen und schwierige Wörter
+                damit, Zahlen Ziffer für Ziffer („zwo“ statt „zwei“). Karte umdrehen, dann ehrlich einschätzen: Wusstest du das
+                Wort? {{ $streakToLearn }}&times; in Folge gewusst &rarr; gilt als gelernt und fliegt aus dem Quiz.
             </x-funk-info>
-            <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                @foreach (\App\Support\FunkTraining::ALPHABET as $letter => [$word, $pronunciation])
-                    <button type="button" x-data @click="funkSpeak(@js($word), 'de-DE')" class="flex items-center gap-3 rounded-xl bg-white dark:bg-slate-800 shadow-sm px-4 py-2.5 text-left hover:shadow-md transition">
-                        <span class="w-9 h-9 rounded-lg flex items-center justify-center font-bold text-white shrink-0" style="background-color: var(--brand-secondary, #007A7A)">{{ $letter }}</span>
-                        <span class="flex-1">
-                            <span class="block text-sm font-medium text-slate-800 dark:text-white">{{ $word }}</span>
-                            <span class="block text-xs text-slate-600 dark:text-slate-400">{{ $pronunciation }}</span>
-                        </span>
-                        <x-icon name="speaker-wave" class="w-4 h-4 text-slate-500 dark:text-slate-400" />
-                    </button>
-                @endforeach
-            </div>
-            <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Ziffern</h3>
-            <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                @foreach (\App\Support\FunkTraining::DIGITS as $digit => $word)
-                    <button type="button" x-data @click="funkSpeak(@js($word), 'de-DE')" class="flex items-center gap-3 rounded-xl bg-white dark:bg-slate-800 shadow-sm px-4 py-2.5 text-left hover:shadow-md transition">
-                        <span class="w-9 h-9 rounded-lg flex items-center justify-center font-bold text-white shrink-0" style="background-color: var(--brand-primary, #005FD7)">{{ $digit }}</span>
-                        <span class="text-sm font-medium text-slate-800 dark:text-white">{{ $word }}</span>
-                    </button>
-                @endforeach
-            </div>
+            @include('funk._vocab', [
+                'tabUrl' => fn (array $query) => route('funk.oral.index', array_merge(['course' => $course, 'teil' => 'UBI', 'modul' => 'buchstabiertafel'], $query)),
+                'answerUrl' => route('funk.oral.vocab', ['course' => $course, 'catalog' => 'UBI']),
+                'unit' => 'Buchstaben',
+                'quizLabel' => 'Quiz: Buchstabe → Wort',
+            ])
+            @if ($ansicht === 'uebersicht')
+                <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Ziffern</h3>
+                <div class="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                    @foreach (\App\Support\FunkTraining::DIGITS as $digit => $word)
+                        <button type="button" x-data @click="funkSpeak(@js($word), 'de-DE')" class="flex items-center gap-3 rounded-xl bg-white dark:bg-slate-800 shadow-sm px-4 py-2.5 text-left hover:shadow-md transition">
+                            <span class="w-9 h-9 rounded-lg flex items-center justify-center font-bold text-white shrink-0" style="background-color: var(--brand-primary, #005FD7)">{{ $digit }}</span>
+                            <span class="text-sm font-medium text-slate-800 dark:text-white">{{ $word }}</span>
+                        </button>
+                    @endforeach
+                </div>
+            @endif
         @else
             <x-funk-info>
                 @if ($modul === 'aufnahme')
