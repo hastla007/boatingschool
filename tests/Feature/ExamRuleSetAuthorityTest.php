@@ -26,6 +26,11 @@ class ExamRuleSetAuthorityTest extends TestCase
 
     private const UNVERIFIED_COURSE_CODES = [
         'SBF-SEE', 'SBF-BIN-MOTOR', 'SBF-SEE-BIN', 'ADD-SEE-TO-BIN', 'ADD-BIN-TO-SEE', 'SBF-BIN-SEGEL',
+        // UBI/SRC-UBI: siehe UbiExamPaperSeeder -- die Bestehensgrenze (17/22)
+        // ist zwar eine echte, belegte Zahl, die Bogen-ZUSAMMENSETZUNG aber
+        // vorläufig/nicht amtlich, bis eine echte amtliche Zusammenstellung
+        // vorliegt.
+        'UBI', 'SRC-UBI',
     ];
 
     private const VERIFIED_COURSE_CODES_WITH_A_DOCUMENTED_OFFICIAL_THRESHOLD = ['ADD-BIN-SEGEL', 'SRC', 'FKN'];

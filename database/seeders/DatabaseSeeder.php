@@ -87,6 +87,8 @@ class DatabaseSeeder extends Seeder
             BinnenSegelnExamPaperSeeder::class,
             BinnenSegelnAddonExamPaperSeeder::class,
             SrcExamPaperSeeder::class,
+            UbiExamPaperSeeder::class,
+            SrcUbiComboExamPaperSeeder::class,
             FknExamPaperSeeder::class,
             PraxisTrainerSeeder::class,
             ComboPraxisTrainerSeeder::class,

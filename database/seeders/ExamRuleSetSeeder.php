@@ -69,6 +69,12 @@ class ExamRuleSetSeeder extends Seeder
         $verifiedCourses = ['ADD-BIN-SEGEL', 'SRC', 'FKN'];
         $questionCountOverrides = ['ADD-SEE-TO-BIN' => 23, 'ADD-BIN-TO-SEE' => 23];
 
+        // UBI ("UBI Vollkurs"): die Bestehensgrenze (17 von 22 Fragen, 60
+        // Minuten) ist eine echte, belegte Zahl aus der Prüfungsordnung --
+        // die Bogen-ZUSAMMENSETZUNG selbst ist aber vorläufig/nicht amtlich
+        // (siehe UbiExamPaperSeeder), UBI bleibt deshalb bewusst NICHT in
+        // $verifiedCourses, bis die echte amtliche Zusammenstellung vorliegt.
+
         // ADD-BIN-SEGEL ("Ergänzung Binnen → Segeln"): nur noch die 7
         // spezifischen Segelfragen je Bogen (kein allgemeiner Teil, keine
         // Basisfragen, da bei vorhandenem SBF Binnen bereits geprüft) --
@@ -78,8 +84,8 @@ class ExamRuleSetSeeder extends Seeder
         // SRC ("SRC Vollkurs"): 19 von 24 Fragen müssen richtig
         // beantwortet werden (max. 5 Fehler), Bearbeitungszeit 30
         // Minuten.
-        $timeLimitOverrides = ['ADD-BIN-SEGEL' => 900, 'SRC' => 1800, 'FKN' => 1800];
-        $passingRuleOverrides = ['ADD-BIN-SEGEL' => ['min_correct_ratio' => 5 / 7], 'SRC' => ['min_correct_ratio' => 19 / 24], 'FKN' => ['min_correct_ratio' => 24 / 30]];
+        $timeLimitOverrides = ['ADD-BIN-SEGEL' => 900, 'SRC' => 1800, 'FKN' => 1800, 'UBI' => 3600];
+        $passingRuleOverrides = ['ADD-BIN-SEGEL' => ['min_correct_ratio' => 5 / 7], 'SRC' => ['min_correct_ratio' => 19 / 24], 'FKN' => ['min_correct_ratio' => 24 / 30], 'UBI' => ['min_correct_ratio' => 17 / 22]];
 
         // Bug-Review (Hoch, Folgefehler von CourseSeeder): dieser Seeder
         // läuft in Produktion erneut, sobald ein neuer Kurs dazukommt --

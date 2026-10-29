@@ -17,6 +17,10 @@ class ComboExamGroups
             ['label' => 'SBF See', 'min' => 1, 'max' => 15, 'offset' => 0],
             ['label' => 'SBF Binnen', 'min' => 101, 'max' => 115, 'offset' => 100],
         ],
+        'SRC-UBI' => [
+            ['label' => 'SRC', 'min' => 1, 'max' => 12, 'offset' => 0],
+            ['label' => 'UBI', 'min' => 101, 'max' => 106, 'offset' => 100],
+        ],
     ];
 
     /** Gruppeninfo (label, Anzeigenummer) für einen gegebenen Prüfungsbogen, oder null außerhalb eines Kombikurses. */
