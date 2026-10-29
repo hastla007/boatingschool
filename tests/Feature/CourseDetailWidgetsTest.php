@@ -45,7 +45,7 @@ class CourseDetailWidgetsTest extends TestCase
         $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
 
         $response->assertOk();
-        $response->assertDontSee('Fragen? Kontaktiere Deine Bootsschule!');
+        $response->assertDontSee('Fragen? Kontaktiere deine Bootsschule!');
     }
 
     public function test_contact_widget_shows_phone_and_address_when_configured(): void
@@ -67,7 +67,7 @@ class CourseDetailWidgetsTest extends TestCase
         $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
 
         $response->assertOk();
-        $response->assertSee('Fragen? Kontaktiere Deine Bootsschule!');
+        $response->assertSee('Fragen? Kontaktiere deine Bootsschule!');
         $response->assertSee('+49 40 1234567');
         $response->assertSee('Hafenstraße 1');
         $response->assertSee('20457 Hamburg');
@@ -207,7 +207,7 @@ class CourseDetailWidgetsTest extends TestCase
         $response->assertOk();
         $response->assertDontSee('+49 40 1234567');
         $response->assertDontSee('Ruf uns einfach an!');
-        $response->assertSee('Wir sind gerne für Dich da!');
+        $response->assertSee('Wir sind gerne für dich da!');
     }
 
     public function test_support_email_is_shown_when_email_support_is_enabled(): void
@@ -349,7 +349,7 @@ class CourseDetailWidgetsTest extends TestCase
         $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
 
         $response->assertOk();
-        $response->assertSee('Wir sind gerne für Dich da!');
+        $response->assertSee('Wir sind gerne für dich da!');
         $response->assertSee('captain-phone.webp', false);
     }
 

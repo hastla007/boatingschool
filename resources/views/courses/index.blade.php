@@ -112,7 +112,7 @@
                                 </a>
                             @else
                                 <div class="text-xs text-slate-600 dark:text-slate-400 mt-2 inline-flex items-center gap-1">
-                                    <x-icon name="lock-closed" class="w-3.5 h-3.5" /> Bitte Verlängerungscode bei Deiner Bootsschule anfragen!
+                                    <x-icon name="lock-closed" class="w-3.5 h-3.5" /> Bitte Verlängerungscode bei deiner Bootsschule anfragen!
                                 </div>
                             @endif
                         @elseif ($webshopUrl)

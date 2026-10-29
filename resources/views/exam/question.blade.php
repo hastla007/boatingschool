@@ -69,7 +69,7 @@
                  genau diesen Endpunkt abgerufen wurde, bevor "Gewusst"/
                  "Nicht gewusst" angenommen wird). --}}
             <div x-data="{ revealed: false, answerText: '' }">
-                <p class="text-xs text-slate-600 dark:text-slate-400 mb-2">Offene Frage &mdash; keine Antwortoptionen. Schätze selbst ein, ob Du die Antwort wusstest.</p>
+                <p class="text-xs text-slate-600 dark:text-slate-400 mb-2">Offene Frage &mdash; keine Antwortoptionen. Schätze selbst ein, ob du die Antwort wusstest.</p>
 
                 <template x-if="!revealed">
                     <button type="button"

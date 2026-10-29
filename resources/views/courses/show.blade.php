@@ -433,7 +433,7 @@
                 </div>
 
                 <div class="flex-1 text-center sm:self-center">
-                    <h3 class="font-semibold text-slate-800 dark:text-white text-lg mb-3">Fragen? Kontaktiere Deine Bootsschule!</h3>
+                    <h3 class="font-semibold text-slate-800 dark:text-white text-lg mb-3">Fragen? Kontaktiere deine Bootsschule!</h3>
                     @if ($showPhone)
                         <a href="tel:{{ preg_replace('/\s+/', '', $branding->phone) }}" class="block text-3xl font-bold whitespace-nowrap hover:opacity-80 transition" style="color: var(--brand-primary, #005FD7)">
                             {{ $branding->phone }}
@@ -463,7 +463,7 @@
                     @else
                         <div class="flex flex-col items-center text-center gap-2 shrink-0 sm:w-56 sm:self-center">
                             <img src="{{ asset('images/captain-phone.webp') }}" alt="Kapitän am Telefon" class="w-[12.5rem] h-[12.5rem] object-contain -scale-x-100">
-                            <span class="text-xs text-slate-500 dark:text-slate-400">Wir sind gerne für Dich da!</span>
+                            <span class="text-xs text-slate-500 dark:text-slate-400">Wir sind gerne für dich da!</span>
                         </div>
                     @endif
                 @endif

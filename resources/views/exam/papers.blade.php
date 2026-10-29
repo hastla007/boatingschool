@@ -37,10 +37,10 @@
             @if (isset($addonCopy[$course->code]))
                 @php $copy = $addonCopy[$course->code]; @endphp
                 <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                    Hier findest Du alle {{ $paperStats->count() }} offiziellen Ergänzungsbögen für den Kurs „{{ $copy['kurs'] }}&quot;. Die
-                    Bögen haben immer die gleiche Zusammensetzung, sodass Du Dich gezielt und effizient vorbereiten kannst.
+                    Hier findest du alle {{ $paperStats->count() }} offiziellen Ergänzungsbögen für den Kurs „{{ $copy['kurs'] }}&quot;. Die
+                    Bögen haben immer die gleiche Zusammensetzung, sodass du dich gezielt und effizient vorbereiten kannst.
                     Jeder Prüfungsbogen enthält 23 Multiple-Choice-Fragen aus dem Bereich {{ $copy['bereich'] }} &mdash; die 7 allgemeinen
-                    Basisfragen entfallen, da diese mit Deinem vorhandenen {{ $copy['vorhanden'] }} bereits geprüft wurden.
+                    Basisfragen entfallen, da diese mit deinem vorhandenen {{ $copy['vorhanden'] }} bereits geprüft wurden.
                 </p>
                 <p class="text-xs text-slate-600 dark:text-slate-400 mt-3">
                     Hinweis: Die Zuordnung der Fragen zu den einzelnen Bögen entspricht den amtlichen Ergänzungsbögen
@@ -48,9 +48,9 @@
                 </p>
             @elseif ($course->code === 'SBF-SEE-BIN')
                 <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                    Hier findest Du alle 30 offiziellen Prüfungsbögen &mdash; 15 für SBF See und 15 für SBF Binnen, jeweils mit
+                    Hier findest du alle 30 offiziellen Prüfungsbögen &mdash; 15 für SBF See und 15 für SBF Binnen, jeweils mit
                     30 Multiple-Choice-Fragen (7 allgemeine Basisfragen und 23 kursspezifische Fragen). Die Bögen haben immer
-                    die gleiche Zusammensetzung, sodass Du Dich gezielt und effizient auf beide Prüfungen vorbereiten kannst.
+                    die gleiche Zusammensetzung, sodass du dich gezielt und effizient auf beide Prüfungen vorbereiten kannst.
                 </p>
                 <p class="text-xs text-slate-600 dark:text-slate-400 mt-3">
                     Hinweis: Die Zuordnung der Fragen zu den einzelnen Bögen entspricht den amtlichen Prüfungsbögen
@@ -59,12 +59,12 @@
             @elseif (isset($fullCourseCopy[$course->code]))
                 @php $copy = $fullCourseCopy[$course->code]; @endphp
                 <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                    Hier findest Du alle {{ $paperStats->count() }} offiziellen Prüfungsbögen für diesen Kurs. Die
-                    Bögen haben immer die gleiche Zusammensetzung, sodass Du Dich gezielt und effizient vorbereiten kannst.
+                    Hier findest du alle {{ $paperStats->count() }} offiziellen Prüfungsbögen für diesen Kurs. Die
+                    Bögen haben immer die gleiche Zusammensetzung, sodass du dich gezielt und effizient vorbereiten kannst.
                     Jeder Prüfungsbogen enthält 30 Multiple-Choice-Fragen &mdash; 7 allgemeine Basisfragen und 23 spezifische
                     Fragen aus dem Bereich {{ $copy['bereich'] }}.
                     @if ($hasNavigationTasks)
-                        Außerdem kommt in der Prüfung eine Navigationsaufgabe vor. Diese findest Du im Bereich
+                        Außerdem kommt in der Prüfung eine Navigationsaufgabe vor. Diese findest du im Bereich
                         <a href="{{ route('exam.navigation.index', $course) }}" class="inline-flex items-center px-2 py-0.5 rounded-md text-white text-xs font-medium" style="background-color: var(--brand-primary, #005FD7)">Navigation Prüfungssimulation</a>.
                     @endif
                 </p>
@@ -74,8 +74,8 @@
                 </p>
             @elseif ($course->code === 'SBF-BIN-SEGEL')
                 <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                    Hier findest Du alle {{ $paperStats->count() }} offiziellen Prüfungsbögen für die Kombiprüfung SBF Binnen unter Segel. Die
-                    Bögen haben immer die gleiche Zusammensetzung, sodass Du Dich gezielt und effizient vorbereiten kannst.
+                    Hier findest du alle {{ $paperStats->count() }} offiziellen Prüfungsbögen für die Kombiprüfung SBF Binnen unter Segel. Die
+                    Bögen haben immer die gleiche Zusammensetzung, sodass du dich gezielt und effizient vorbereiten kannst.
                     Jeder Prüfungsbogen enthält 37 Multiple-Choice-Fragen &mdash; 7 allgemeine Basisfragen, 23 spezifische Fragen
                     Binnen und 7 spezifische Segelfragen.
                 </p>
@@ -85,8 +85,8 @@
                 </p>
             @elseif ($course->code === 'SRC')
                 <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                    Hier findest Du alle {{ $paperStats->count() }} offiziellen Prüfungsbögen für den SRC Vollkurs. Die Bögen haben immer
-                    die gleiche Zusammensetzung, sodass Du Dich gezielt und effizient vorbereiten kannst. Jeder Prüfungsbogen enthält 24
+                    Hier findest du alle {{ $paperStats->count() }} offiziellen Prüfungsbögen für den SRC Vollkurs. Die Bögen haben immer
+                    die gleiche Zusammensetzung, sodass du dich gezielt und effizient vorbereiten kannst. Jeder Prüfungsbogen enthält 24
                     Multiple-Choice-Fragen, Bearbeitungszeit 30 Minuten, Bestehensgrenze 19 von 24 Fragen (max. 5 Fehler).
                 </p>
                 <p class="text-xs text-slate-600 dark:text-slate-400 mt-3">
@@ -95,7 +95,7 @@
                 </p>
             @elseif ($course->code === 'FKN')
                 <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                    Hier findest Du alle {{ $paperStats->count() }} offiziellen Prüfungsbögen für den FKN Vollkurs (Fachkundenachweis für
+                    Hier findest du alle {{ $paperStats->count() }} offiziellen Prüfungsbögen für den FKN Vollkurs (Fachkundenachweis für
                     Seenotsignalmittel). Jeder Prüfungsbogen enthält 15 Fragen &mdash; teils Mehrfachauswahl-Fragen, teils offene Fragen ohne
                     Antwortoptionen (als Lernkarte mit Musterantwort). Bearbeitungszeit 30 Minuten, Bestehensgrenze 24 von 30 Punkten
                     (amtlich mit Teilpunkten bewertet; hier vereinfacht als 12 von 15 Fragen richtig, da die offenen Fragen als
@@ -106,8 +106,8 @@
                 </p>
             @elseif ($course->code === 'ADD-BIN-SEGEL')
                 <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                    Hier findest Du alle {{ $paperStats->count() }} offiziellen Prüfungsbögen für die Ergänzungsprüfung „Binnen &rarr; Segeln&quot;. Da Du
-                    Deinen SBF Binnen bereits besitzt, entfallen der allgemeine Teil und die Basisfragen &mdash; jeder Bogen enthält nur noch
+                    Hier findest du alle {{ $paperStats->count() }} offiziellen Prüfungsbögen für die Ergänzungsprüfung „Binnen &rarr; Segeln&quot;. Da du
+                    deinen SBF Binnen bereits besitzt, entfallen der allgemeine Teil und die Basisfragen &mdash; jeder Bogen enthält nur noch
                     7 spezifische Segelfragen. Du musst mindestens 5 der 7 Fragen richtig beantworten, die Bearbeitungszeit beträgt 15 Minuten.
                 </p>
                 <p class="text-xs text-slate-600 dark:text-slate-400 mt-3">
