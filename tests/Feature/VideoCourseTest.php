@@ -368,6 +368,16 @@ class VideoCourseTest extends TestCase
      * aufrufen und sich die dort sofort angezeigte richtige Antwort
      * verraten lassen.
      */
+    /**
+     * Bug-Review X10 (Folgefehler): VideoQuizController::resolveQuestions()
+     * schließt eine blockierte Frage jetzt bereits aus der Auswahl aus,
+     * statt sie erst beim Abschicken mit 409 abzulehnen (siehe
+     * RunningExamNoLongerBlocksLearningAfterTimeExpiredTest) -- Position 1
+     * existiert für diese isolierte Lektion mit nur dieser einen,
+     * blockierten Frage daher nicht mehr, der Request liefert 404. Die
+     * eigentlich geschützte Eigenschaft (es wird nie ein Attempt für die
+     * blockierte Frage gespeichert) bleibt unverändert bestehen.
+     */
     public function test_a_question_from_a_running_exam_cannot_be_answered_in_the_video_quiz(): void
     {
         $tenant = $this->createTestTenant();
@@ -382,7 +392,7 @@ class VideoCourseTest extends TestCase
             ['revision_id' => $revision->id, 'answer_id' => $correctAnswer->id]
         );
 
-        $response->assertStatus(409);
+        $response->assertStatus(404);
         $this->asTenant($tenant, function () use ($tenant, $learner, $question, $course) {
             $this->assertDatabaseMissing('attempt', [
                 'tenant_id' => $tenant->id,

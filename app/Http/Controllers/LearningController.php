@@ -119,8 +119,19 @@ class LearningController extends Controller
             // Bug-Review B12); hier zusätzlich auf eine existierende
             // veröffentlichte Revision, da genau das hier (anders als bei
             // Smarttrainer) sonst erst nach der Auswahl geprüft wird.
+            //
+            // Bug-Review X10 (Favoriten zeigen Fragen aus laufender
+            // Prüfung): storeAttempt() lehnt eine Antwort auf eine Frage
+            // ab, die Teil einer noch laufenden Prüfungssession dieses
+            // Nutzers ist (siehe unten) -- der Favoriten-Modus bot genau
+            // so eine Frage bisher trotzdem aktiv an und scheiterte erst
+            // beim anschließenden Abschicken mit 409, analog zur bereits
+            // für den Smarttrainer behobenen Bug-Review "Smarttrainer
+            // blockiert während laufender Prüfung".
+            $blockedQuestionIds = $smarttrainer->runningExamQuestionIds($tenant, $user);
             $next = ContentQuestion::whereIn('id', $favoriteIds)
                 ->where('active', true)
+                ->when($blockedQuestionIds->isNotEmpty(), fn ($query) => $query->whereNotIn('id', $blockedQuestionIds))
                 ->whereHas('revisions', fn ($query) => $query->where('editorial_status', 'published'))
                 ->inRandomOrder()
                 ->first();

@@ -7,6 +7,8 @@ use App\Models\ContentQuestion;
 use App\Models\ContentQuestionRevision;
 use App\Models\CourseDefinition;
 use App\Models\ExamSession;
+use App\Models\Tenant;
+use App\Models\User;
 use App\Models\VideoLesson;
 use App\Services\EntitlementService;
 use App\Services\ExamEvaluationService;
@@ -26,12 +28,15 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class VideoQuizController extends Controller
 {
-    public function show(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course, VideoLesson $lesson, int $position): View
+    public function show(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, ExamEvaluationService $examEvaluation, CourseDefinition $course, VideoLesson $lesson, int $position): View
     {
-        abort_unless($entitlements->hasAccess($tenantContext->tenant(), $request->user(), $course), 403);
+        $tenant = $tenantContext->tenant();
+        $user = $request->user();
+
+        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403);
         abort_unless($lesson->module->course_id === $course->id, 404);
 
-        $questions = $this->resolveQuestions($lesson, $request);
+        $questions = $this->resolveQuestions($lesson, $request, $tenant, $user, $examEvaluation);
         abort_if($questions->isEmpty(), 404);
         abort_unless($position >= 1 && $position <= $questions->count(), 404);
 
@@ -76,7 +81,7 @@ class VideoQuizController extends Controller
         abort_unless($entitlements->hasAccess($tenant, $user, $course), 403);
         abort_unless($lesson->module->course_id === $course->id, 404);
 
-        $questions = $this->resolveQuestions($lesson, $request);
+        $questions = $this->resolveQuestions($lesson, $request, $tenant, $user, $examEvaluation);
         abort_unless($position >= 1 && $position <= $questions->count(), 404);
 
         $validated = $request->validate([
@@ -194,7 +199,7 @@ class VideoQuizController extends Controller
     /** Übersicht aller Fragen des (ggf. gefilterten) Durchlaufs mit der
      * jeweils letzten Antwort -- Endpunkt des "Auswertung anzeigen"-Buttons
      * nach der letzten Frage. */
-    public function result(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course, VideoLesson $lesson): View
+    public function result(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, ExamEvaluationService $examEvaluation, CourseDefinition $course, VideoLesson $lesson): View
     {
         $tenant = $tenantContext->tenant();
         $user = $request->user();
@@ -202,7 +207,7 @@ class VideoQuizController extends Controller
         abort_unless($entitlements->hasAccess($tenant, $user, $course), 403);
         abort_unless($lesson->module->course_id === $course->id, 404);
 
-        $questions = $this->resolveQuestions($lesson, $request);
+        $questions = $this->resolveQuestions($lesson, $request, $tenant, $user, $examEvaluation);
         abort_if($questions->isEmpty(), 404);
 
         $answers = $request->session()->get("video_quiz.{$lesson->id}", []);
@@ -235,13 +240,30 @@ class VideoQuizController extends Controller
         ]);
     }
 
-    /** @return Collection<int, ContentQuestion> */
-    private function resolveQuestions(VideoLesson $lesson, Request $request): Collection
+    /**
+     * Bug-Review X10 (Video-Quiz zeigt Fragen aus laufender Prüfung,
+     * Absenden schlägt fehl): answer() lehnt eine Antwort auf eine Frage
+     * ab, die Teil einer noch laufenden Prüfungssession dieses Nutzers ist
+     * (siehe unten in answer()) -- die Fragenauswahl hier bot genau so
+     * eine Frage bisher trotzdem aktiv an und scheiterte erst beim
+     * anschließenden Abschicken mit 409. Alle drei Aufrufer (show(),
+     * answer(), result()) müssen dieselbe gefilterte Liste erhalten, da
+     * sonst $position in answer()/show() auf unterschiedliche Fragen
+     * zeigen würde.
+     *
+     * @return Collection<int, ContentQuestion>
+     */
+    private function resolveQuestions(VideoLesson $lesson, Request $request, Tenant $tenant, User $user, ExamEvaluationService $examEvaluation): Collection
     {
         // Bug-Review B12 (Folgefehler): eine im Superadmin deaktivierte
         // Frage wurde hier -- im Gegensatz zu Smarttrainer und Prüfung --
         // trotzdem noch im Video-Quiz ausgespielt.
         $activeQuestions = $lesson->questions->where('active', true);
+
+        $blockedQuestionIds = $this->runningExamQuestionIds($tenant, $user, $examEvaluation);
+        if ($blockedQuestionIds->isNotEmpty()) {
+            $activeQuestions = $activeQuestions->reject(fn ($question) => $blockedQuestionIds->contains($question->id));
+        }
 
         $raw = $request->query('questions');
 
@@ -259,6 +281,25 @@ class VideoQuizController extends Controller
         return $activeQuestions->whereIn('id', $ids)
             ->sortBy(fn ($question) => array_search($question->id, $ids, true))
             ->values();
+    }
+
+    /**
+     * Analog zu SmarttrainerService::runningExamQuestionIds() -- eine
+     * abgelaufene, aber noch nicht ausgewertete Session blockiert nicht
+     * mehr (siehe Bug-Review "Hoch, Folgefehler von LearningController"
+     * oben in answer()).
+     *
+     * @return Collection<int, string>
+     */
+    private function runningExamQuestionIds(Tenant $tenant, User $user, ExamEvaluationService $examEvaluation): Collection
+    {
+        return ExamSession::where('tenant_id', $tenant->id)
+            ->where('user_id', $user->id)
+            ->where('status', 'running')
+            ->with('questions')
+            ->get()
+            ->reject(fn (ExamSession $session) => $examEvaluation->timeExpired($session))
+            ->flatMap(fn (ExamSession $session) => $session->questions->pluck('question_id'));
     }
 
     private function parseModuleIds(Request $request): ?array

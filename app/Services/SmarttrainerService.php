@@ -132,8 +132,16 @@ class SmarttrainerService
         return $progress && $progress->attempt_count > 0 && $progress->current_streak === 0;
     }
 
-    /** @return Collection<int, string> */
-    private function runningExamQuestionIds(Tenant $tenant, User $user): Collection
+    /**
+     * Bug-Review X10 (Favoriten/Video-Quiz zeigen Fragen aus laufender
+     * Prüfung): public, damit LearningController (Favoriten-Modus) und
+     * VideoQuizController dieselbe Sperre wie nextQuestion() oben
+     * anwenden können, statt eine blockierte Frage erst auszuspielen und
+     * erst beim Abschicken mit 409 abzulehnen.
+     *
+     * @return Collection<int, string>
+     */
+    public function runningExamQuestionIds(Tenant $tenant, User $user): Collection
     {
         return ExamSession::where('tenant_id', $tenant->id)
             ->where('user_id', $user->id)
