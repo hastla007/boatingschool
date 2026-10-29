@@ -16,10 +16,22 @@ use Illuminate\Database\Seeder;
  * zugeordneten Quizfragen (video_lesson_question). Das Kapitel "Knoten"
  * entfällt, da es bereits Teil von SBF Binnen ist, das Voraussetzung für
  * diesen Ergänzungskurs ist.
+ *
+ * Bug-Review (Ergänzungskurs stellt Basisfragen außerhalb des Prüfungs-
+ * umfangs): die Bestehensgrenze für "Ergänzung Binnen → See" prüft laut
+ * Prüfungsordnung nur See (18/23) und Navigation (7/9) -- die Basis wurde
+ * bereits bei SBF Binnen geprüft und ist hier kein Prüfungsgegenstand
+ * mehr. Fragen aus dem Modul SBF_BASIS (z. B. in "Einführung in den
+ * Sportbootführerschein"/"Seemannschaft") wurden trotzdem mitgespiegelt,
+ * da Fragen hier pro Lektion wortgleich mit SBF-SEE kopiert wurden, ohne
+ * ihr Modul zu berücksichtigen -- sie werden jetzt beim Spiegeln
+ * ausgeschlossen.
  */
 class AddBinToSeeVideoCourseSeeder extends Seeder
 {
     private const EXCLUDED_CHAPTERS = ['Knoten'];
+
+    private const EXCLUDED_QUESTION_MODULE = 'SBF_BASIS';
 
     public function run(): void
     {
@@ -34,7 +46,7 @@ class AddBinToSeeVideoCourseSeeder extends Seeder
 
         $sourceModules = $sbfSee->videoModules()
             ->whereNotIn('title', self::EXCLUDED_CHAPTERS)
-            ->with(['lessons.steps', 'lessons.questions'])
+            ->with(['lessons.steps', 'lessons.questions.modules'])
             ->get();
 
         foreach ($sourceModules as $sourceModule) {
@@ -64,6 +76,10 @@ class AddBinToSeeVideoCourseSeeder extends Seeder
                 }
 
                 foreach ($sourceLesson->questions as $sourceQuestion) {
+                    if ($sourceQuestion->modules->pluck('code')->contains(self::EXCLUDED_QUESTION_MODULE)) {
+                        continue;
+                    }
+
                     $lesson->questions()->attach($sourceQuestion->id, [
                         'sort_order' => $sourceQuestion->pivot->sort_order,
                     ]);
