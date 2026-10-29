@@ -175,6 +175,25 @@ class QuestionController extends Controller
         abort_unless($isLatest, 409, 'Für diese Frage liegt inzwischen eine neuere Fassung vor -- bitte die Seite neu laden.');
 
         DB::transaction(function () use ($revision) {
+            // Bug-Review (Doppelklick auf "Veröffentlichen" verursacht
+            // Fehler 500): zwei nahezu gleichzeitige Klicks bestanden beide
+            // die obigen Prüfungen (editorial_status war für beide noch
+            // "review", da keiner committet hatte) und liefen parallel in
+            // diese Transaktion ein. Die Zeile der Frage wird deshalb
+            // gesperrt, bis die jeweils andere Transaktion committet hat --
+            // danach liest dieser Code den tatsächlichen Stand erneut:
+            // bereits veröffentlicht durch den ersten Klick wird hier
+            // klaglos beendet, statt die Medien-Übernahme unten ein
+            // zweites Mal für dieselbe (revision_id, media_asset_id, role)
+            // laufen zu lassen -- das verletzte bisher deren Primärschlüssel
+            // und endete in einer unabgefangenen QueryException (HTTP 500).
+            ContentQuestion::whereKey($revision->question_id)->lockForUpdate()->first();
+            $revision->refresh();
+
+            if ($revision->editorial_status !== 'review') {
+                return;
+            }
+
             $published = ContentQuestionRevision::where('question_id', $revision->question_id)
                 ->where('editorial_status', 'published')
                 ->first();
