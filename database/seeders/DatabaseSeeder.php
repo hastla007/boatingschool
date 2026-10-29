@@ -25,6 +25,12 @@ class DatabaseSeeder extends Seeder
 
         $this->call(FknSknContentSeeder::class);
 
+        // Erklärungen für die übrigen Kataloge (SBF Binnen, Segeln, SRC, UBI,
+        // FKN, SKN) -- nach FknSknContentSeeder, der FKN/SKN erst anlegt.
+        // Idempotent wie der Import oben, läuft also auch auf bestehenden
+        // Installationen beim nächsten db:seed.
+        Artisan::call('content:import-feedback', ['path' => 'database/data/fragen_erklaerungen.csv'], $this->command->getOutput());
+
         $this->call([
             CourseSeeder::class,
             UbiErgaenzungSeeder::class,
