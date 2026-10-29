@@ -28,7 +28,8 @@ class ExamRuleSetAuthorityTest extends TestCase
         'SBF-SEE', 'SBF-BIN-MOTOR', 'SBF-SEE-BIN', 'ADD-SEE-TO-BIN', 'ADD-BIN-TO-SEE', 'SBF-BIN-SEGEL',
         // SRC-UBI: ein Regelwerk je Kurs kann die beiden amtlichen Grenzen
         // der Teilprüfungen (SRC 19/24, UBI 17/22) nicht gleichzeitig
-        // abbilden, siehe SrcUbiComboExamPaperSeeder.
+        // abbilden -- die Bögen laufen nach dem Regelwerk ihres Teilkurses,
+        // siehe SrcUbiComboExamTest.
         'SRC-UBI',
     ];
 

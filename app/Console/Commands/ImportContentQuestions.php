@@ -8,6 +8,7 @@ use App\Models\ContentQuestionRevision;
 use App\Models\Module;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Normalizer;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
 /**
@@ -97,7 +98,7 @@ class ImportContentQuestions extends Command
     private function importRow(array $row, int $lineNumber): void
     {
         $contentId = trim((string) ($row['content_id'] ?? ''));
-        $questionText = trim((string) ($row['question'] ?? ''));
+        $questionText = $this->text($row['question'] ?? '');
         $moduleValue = trim((string) ($row['module'] ?? ''));
 
         if ($contentId === '' || $questionText === '') {
@@ -121,10 +122,10 @@ class ImportContentQuestions extends Command
         }
 
         $answers = [
-            'A' => trim((string) ($row['answer_a'] ?? '')),
-            'B' => trim((string) ($row['answer_b'] ?? '')),
-            'C' => trim((string) ($row['answer_c'] ?? '')),
-            'D' => trim((string) ($row['answer_d'] ?? '')),
+            'A' => $this->text($row['answer_a'] ?? ''),
+            'B' => $this->text($row['answer_b'] ?? ''),
+            'C' => $this->text($row['answer_c'] ?? ''),
+            'D' => $this->text($row['answer_d'] ?? ''),
         ];
         $correctKey = strtoupper(trim((string) ($row['correct_answer'] ?? '')));
 
@@ -249,6 +250,19 @@ class ImportContentQuestions extends Command
         ];
 
         return md5(json_encode($canonical));
+    }
+
+    /**
+     * Aus PDFs kopierte Texte enthalten Umlaute teils zerlegt ("u" +
+     * kombinierendes Trema U+0308 statt "ü", so im UBI-Katalog 10/2026) --
+     * sieht gleich aus, findet bei einer Textsuche nach "ü" aber nichts.
+     * NFC setzt sie wieder zu einem Zeichen zusammen.
+     */
+    private function text(mixed $value): string
+    {
+        $text = trim((string) $value);
+
+        return Normalizer::normalize($text, Normalizer::FORM_C) ?: $text;
     }
 
     private function parseBool(mixed $value): bool

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\ComboExamGroups;
 use App\Support\TenantContext;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -95,6 +96,44 @@ class CourseDefinition extends Model
             ->where(fn ($q) => $q->whereNull('valid_until')->orWhere('valid_until', '>=', $today))
             ->orderByDesc('valid_from')
             ->first();
+    }
+
+    /**
+     * Regelwerk, nach dem ein Versuch mit diesem Prüfungsbogen läuft. In
+     * Kombikursen stammen die Bögen aus mehreren Teilkursen mit
+     * verschiedenen amtlichen Grenzen (SRC-UBI: SRC 19/24 in 30 Minuten,
+     * UBI 17/22 in 60 Minuten) -- ein einzelnes Regelwerk des Kombikurses
+     * kann das nicht abbilden, ein Bogen nutzt deshalb das freigegebene
+     * Regelwerk seines Teilkurses (siehe ComboExamGroups). null, solange
+     * der Teilkurs kein freigegebenes Regelwerk hat.
+     */
+    public function examRuleSetForPaper(ExamPaper $paper): ?ExamRuleSet
+    {
+        $sourceCode = ComboExamGroups::sourceCourseFor($this->code, $paper->paper_number);
+
+        if ($sourceCode === null) {
+            return $this->activeExamRuleSet();
+        }
+
+        return static::where('code', $sourceCode)->whereNull('tenant_id')->first()?->activeExamRuleSet();
+    }
+
+    /** Lässt sich in diesem Kurs ein Prüfungsversuch starten (eigenes Regelwerk oder ein Bogen eines freigegebenen Teilkurses)? */
+    public function hasStartableExam(): bool
+    {
+        if ($this->activeExamRuleSet()) {
+            return true;
+        }
+
+        foreach (ComboExamGroups::GROUPS[$this->code] ?? [] as $group) {
+            $source = static::where('code', $group['course'])->whereNull('tenant_id')->first();
+
+            if ($source?->activeExamRuleSet() && $this->examPapers()->whereBetween('paper_number', [$group['min'], $group['max']])->exists()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public function isGlobal(): bool

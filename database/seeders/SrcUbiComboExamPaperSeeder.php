@@ -17,11 +17,11 @@ use Illuminate\Database\Seeder;
  * Übungsfragebögen 10/2026, siehe UbiExamPaperSeeder) -- Rückübersetzung
  * in der UI über App\Support\ComboExamGroups.
  *
- * Das Regelwerk des Kombikurses bleibt draft: es hat nur eine passing_rule
- * und ein Zeitlimit, die beiden Teilprüfungen haben aber verschiedene
- * amtliche Grenzen (SRC 19/24 in 30 Minuten, UBI 17/22 in 60 Minuten).
- * Bis die Bewertung je Bogen-Gruppe die Grenze des jeweiligen Teilkurses
- * verwendet, wird hier nicht freigeschaltet.
+ * Das eigene Regelwerk des Kombikurses bleibt draft: es hat nur eine
+ * passing_rule und ein Zeitlimit, die beiden Teilprüfungen haben aber
+ * verschiedene amtliche Grenzen (SRC 19/24 in 30 Minuten, UBI 17/22 in 60
+ * Minuten). Die Bögen selbst laufen deshalb nach dem freigegebenen
+ * Regelwerk ihres Teilkurses (siehe CourseDefinition::examRuleSetForPaper()).
  *
  * Muss nach SrcExamPaperSeeder UND UbiExamPaperSeeder laufen (siehe
  * DatabaseSeeder), da beide Quell-Bögen bereits existieren müssen.

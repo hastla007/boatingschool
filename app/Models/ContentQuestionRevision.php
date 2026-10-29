@@ -80,9 +80,9 @@ class ContentQuestionRevision extends Model
      * amtlicher Katalog, siehe CatalogUpdateSeeder) -- dort würde eine
      * zur alten Antwort geschriebene Erklärung bzw. ein altes Bild falsch.
      */
-    public function publish(bool $inheritEditorialContent = true): void
+    public function publish(bool $inheritEditorialContent = true, bool $resetProgressOnContentChange = true): void
     {
-        DB::transaction(function () use ($inheritEditorialContent) {
+        DB::transaction(function () use ($inheritEditorialContent, $resetProgressOnContentChange) {
             // Bug-Review (Doppelklick auf "Veröffentlichen" verursacht
             // Fehler 500): zwei nahezu gleichzeitige Aufrufe bestanden beide
             // die Prüfungen des Aufrufers (editorial_status war für beide
@@ -118,7 +118,9 @@ class ContentQuestionRevision extends Model
                 $published->update(['editorial_status' => 'deprecated']);
             }
 
-            $this->resetProgressIfContentChangedFrom($published);
+            if ($resetProgressOnContentChange) {
+                $this->resetProgressIfContentChangedFrom($published);
+            }
 
             $this->update(['editorial_status' => 'published']);
         });
