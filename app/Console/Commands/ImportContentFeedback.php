@@ -51,6 +51,11 @@ class ImportContentFeedback extends Command
         // ImportContentQuestions über die Owner-Verbindung.
         config(['database.default' => 'pgsql_admin']);
 
+        // Der DatabaseSeeder ruft den Befehl für mehrere Dateien auf derselben
+        // Instanz auf -- Zähler und Fehler je Lauf neu beginnen.
+        $this->updated = $this->unchanged = $this->skipped = 0;
+        $this->errors = [];
+
         $path = base_path($this->argument('path'));
         if (! is_file($path)) {
             $this->error("Datei nicht gefunden: {$path}");
