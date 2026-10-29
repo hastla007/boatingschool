@@ -9,10 +9,13 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Storage;
 
 /**
- * Praxistrainer für die praktische SBF-See-Prüfung, importiert aus
- * database/data/sbf_see_praxistrainer.csv (Bilder in
+ * Praxistrainer für die praktische Prüfung SBF See und SBF Binnen
+ * (Antriebsmaschine), importiert aus database/data/sbf_see_praxistrainer.csv
+ * bzw. sbf_binnen_praxistrainer.csv (Bilder in
  * database/data/praxistrainer_bilder/, im Stil der ELWIS-Bilder gezeichnet;
- * SVG-Quellen in database/data/praxistrainer_bilder_svg/).
+ * SVG-Quellen in database/data/praxistrainer_bilder_svg/). Binnen nutzt für
+ * Manöver, Knoten und Sicherheit dieselben Grafiken wie See (gleiches
+ * Asset); der Asset-Quellname bleibt daher "SBF See Praxistrainer".
  * Bilder werden wie bei den Prüfungsbögen (ExamPaperSeeder) lokal unter
  * storage/app/public/question-media abgelegt statt extern verlinkt. Karten
  * mit ELWIS-Gegenstück haben keine eigene Grafik mehr (leere Spalte
@@ -20,16 +23,24 @@ use Illuminate\Support\Facades\Storage;
  */
 class PraxisTrainerSeeder extends Seeder
 {
+    /** Kurs-Code => CSV in database/data. */
+    private const COURSES = [
+        'SBF-SEE' => 'sbf_see_praxistrainer.csv',
+        'SBF-BIN-MOTOR' => 'sbf_binnen_praxistrainer.csv',
+    ];
+
     public function run(): void
     {
-        $course = CourseDefinition::withoutGlobalScopes()->where('code', 'SBF-SEE')->whereNull('tenant_id')->first();
-
-        if (! $course || $course->praxisTasks()->exists()) {
-            return;
+        foreach (self::COURSES as $code => $file) {
+            $this->seedCourse($code, database_path('data/'.$file));
         }
+    }
 
-        $csvPath = database_path('data/sbf_see_praxistrainer.csv');
-        if (! file_exists($csvPath)) {
+    private function seedCourse(string $code, string $csvPath): void
+    {
+        $course = CourseDefinition::withoutGlobalScopes()->where('code', $code)->whereNull('tenant_id')->first();
+
+        if (! $course || $course->praxisTasks()->exists() || ! file_exists($csvPath)) {
             return;
         }
 

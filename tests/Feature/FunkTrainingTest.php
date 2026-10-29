@@ -149,13 +149,45 @@ class FunkTrainingTest extends TestCase
             ->assertOk()->assertSee('1 / '.collect(FunkTraining::vocabulary('SRC'))->flatten(1)->count().' Vokabeln gelernt');
     }
 
-    public function test_src_oral_exam_explains_the_missing_official_texts(): void
+    public function test_src_oral_exam_has_seefunktexte_to_dictate_and_translate(): void
     {
         [$tenant, $learner, $combo] = $this->learnerInCombo();
+        $texts = FunkTraining::texts('SRC');
+        $text = $texts[2];
+
+        $this->assertCount(27, $texts);
+        $this->assertSame(['land', 'see'], collect($texts)->pluck('richtung')->unique()->sort()->values()->all());
 
         $this->actingAsInTenant($learner, $tenant)->get("/courses/{$combo->id}/funk/muendlich")
-            ->assertOk()->assertSee('Seefunktexte')->assertSee('werden hier ergänzt, sobald sie');
-        $this->actingAsInTenant($learner, $tenant)->get("/courses/{$combo->id}/funk/muendlich/SRC/texte/1")->assertNotFound();
+            ->assertOk()->assertSee('27 Übungstexte')->assertSee('0 von 27 erledigt');
+        $this->actingAsInTenant($learner, $tenant)->get("/courses/{$combo->id}/funk/muendlich/SRC/texte/2?richtung=en-de")
+            ->assertOk()->assertSee('Seefunktext 2')->assertSee('See → Land / Schiff → Schiff')->assertSee($text['en']);
+
+        $this->actingAsInTenant($learner, $tenant)->post("/courses/{$combo->id}/funk/muendlich/SRC/texte/2", [
+            'richtung' => 'en-de',
+            'transcript' => 'Motor yacht Seeadler in position 54-26N 010-48E fire in engine room',
+            'translation' => 'Motoryacht Seeadler auf Position 54-26N 010-48E, Feuer im Maschinenraum',
+        ])->assertRedirect("/courses/{$combo->id}/funk/muendlich/SRC/texte/2?richtung=en-de&auswertung=1");
+        $this->actingAsInTenant($learner, $tenant)->get("/courses/{$combo->id}/funk/muendlich/SRC/texte/2?richtung=en-de&auswertung=1")
+            ->assertOk()->assertSee('% der Wörter getroffen')->assertSee($text['de']);
+
+        $this->actingAsInTenant($learner, $tenant)->post("/courses/{$combo->id}/funk/text/SRC/2/erledigt")->assertRedirect();
+        $this->actingAsInTenant($learner, $tenant)->get("/courses/{$combo->id}/funk/muendlich")->assertSee('1 von 27 erledigt');
+        $this->actingAsInTenant($learner, $tenant)->get("/courses/{$combo->id}/funk/muendlich/SRC/texte/28")->assertNotFound();
+    }
+
+    public function test_every_seefunktext_has_both_languages_and_a_unique_text(): void
+    {
+        $texts = collect(FunkTraining::texts('SRC'));
+
+        foreach ($texts as $number => $text) {
+            $this->assertNotSame('', trim($text['de']), "Text {$number} ohne deutschen Text.");
+            $this->assertNotSame('', trim($text['en']), "Text {$number} ohne englischen Text.");
+            $this->assertContains($text['richtung'], ['land', 'see'], "Text {$number} ohne Richtung.");
+        }
+
+        $this->assertSame($texts->count(), $texts->pluck('de')->unique()->count());
+        $this->assertSame($texts->count(), $texts->pluck('en')->unique()->count());
     }
 
     public function test_every_vocabulary_has_a_unique_key_and_german_term(): void

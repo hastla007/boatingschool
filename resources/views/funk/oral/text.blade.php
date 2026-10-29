@@ -15,6 +15,9 @@
             </a>
             <h2 class="font-semibold text-lg text-slate-800 dark:text-white">Seefunktext {{ $text['number'] }}</h2>
             <span class="text-xs rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-0.5">{{ $text['number'] }} / {{ $total }}</span>
+            @isset($text['richtung'])
+                <span class="text-xs rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-0.5">{{ $text['richtung'] === 'land' ? 'Land → See' : 'See → Land / Schiff → Schiff' }}</span>
+            @endisset
             <form method="POST" action="{{ route('funk.completed', ['course' => $course, 'type' => 'text', 'catalog' => $catalog, 'number' => $text['number']]) }}" class="sm:ml-auto">
                 @csrf
                 <button type="submit" class="inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm font-medium transition {{ $completed ? 'text-white border-transparent' : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600 hover:bg-slate-50' }}"
