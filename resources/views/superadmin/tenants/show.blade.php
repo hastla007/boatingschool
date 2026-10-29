@@ -5,7 +5,7 @@
                 <div class="text-xs text-slate-600 dark:text-slate-400"><a href="{{ route('superadmin.tenants.index') }}" class="hover:underline">Bootsschulen</a></div>
                 <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">{{ $tenant->name }}</h1>
             </div>
-            <span class="inline-block px-2 py-0.5 rounded-full text-xs {{ $tenant->status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500' }}">{{ \App\Support\StatusLabels::tenantStatus($tenant->status) }}</span>
+            <span class="inline-block px-2 py-0.5 rounded-full text-xs {{ $tenant->status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500 dark:text-slate-400' }}">{{ \App\Support\StatusLabels::tenantStatus($tenant->status) }}</span>
         </div>
     </x-slot>
 
@@ -50,7 +50,7 @@
                         <span class="inline-block px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-xs">{{ \App\Support\StatusLabels::tenantRole($membership->role) }}</span>
                     </a>
                 @empty
-                    <p class="text-slate-500">Noch keine Nutzer.</p>
+                    <p class="text-slate-500 dark:text-slate-400">Noch keine Nutzer.</p>
                 @endforelse
             </div>
             <div class="mt-2">{{ $memberships->links() }}</div>
@@ -70,11 +70,11 @@
                 @forelse ($results as $result)
                     <tr class="border-t border-slate-100 dark:border-slate-700">
                         <td class="py-1.5">{{ $result['entitlement']->user->name }}</td>
-                        <td class="py-1.5 text-slate-500">{{ $result['entitlement']->course->name }}</td>
-                        <td class="py-1.5 text-slate-500">{{ $result['percent'] }}%</td>
+                        <td class="py-1.5 text-slate-500 dark:text-slate-400">{{ $result['entitlement']->course->name }}</td>
+                        <td class="py-1.5 text-slate-500 dark:text-slate-400">{{ $result['percent'] }}%</td>
                     </tr>
                 @empty
-                    <tr><td colspan="3" class="py-3 text-slate-500">Noch keine Kurszugänge.</td></tr>
+                    <tr><td colspan="3" class="py-3 text-slate-500 dark:text-slate-400">Noch keine Kurszugänge.</td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -98,10 +98,10 @@
                 @forelse ($coupons->take(10) as $coupon)
                     <tr class="border-t border-slate-100 dark:border-slate-700">
                         <td class="py-1.5 font-mono text-xs">{{ $coupon->code }}</td>
-                        <td class="py-1.5 text-slate-500">{{ $coupon->redeemableName() }}</td>
+                        <td class="py-1.5 text-slate-500 dark:text-slate-400">{{ $coupon->redeemableName() }}</td>
                         <td class="py-1.5">
                             @if ($coupon->isRedeemed())
-                                <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500">
+                                <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">
                                     eingelöst von {{ $coupon->redeemedBy?->name }}
                                 </span>
                             @else
@@ -110,7 +110,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="3" class="py-3 text-slate-500">Noch keine Codes für diese Bootsschule.</td></tr>
+                    <tr><td colspan="3" class="py-3 text-slate-500 dark:text-slate-400">Noch keine Codes für diese Bootsschule.</td></tr>
                 @endforelse
             </tbody>
         </table>

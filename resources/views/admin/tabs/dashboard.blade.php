@@ -1,4 +1,4 @@
-<p class="text-slate-500 mb-6">Hier sehen Sie die wichtigsten Informationen Ihrer Bootsschule.</p>
+<p class="text-slate-500 dark:text-slate-400 mb-6">Hier sehen Sie die wichtigsten Informationen Ihrer Bootsschule.</p>
 
 <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
     <x-stat-tile icon="users" :value="$learnerCount" label="Teilnehmer" tone="brand" />
@@ -87,7 +87,7 @@
             @endforeach
         </div>
     @else
-        <p class="text-slate-500">Noch keine Teilnehmer.</p>
+        <p class="text-slate-500 dark:text-slate-400">Noch keine Teilnehmer.</p>
     @endif
 </div>
 
@@ -129,11 +129,11 @@
         </div>
         <div class="flex gap-4 text-xs text-slate-600 dark:text-slate-400 text-center">
             @foreach ($progressDistribution as $bucket)
-                <div class="flex-1">{{ $bucket['label'] }} <span class="text-slate-500">({{ $bucket['count'] }})</span></div>
+                <div class="flex-1">{{ $bucket['label'] }} <span class="text-slate-500 dark:text-slate-400">({{ $bucket['count'] }})</span></div>
             @endforeach
         </div>
     @else
-        <p class="text-slate-500">Aktuell keine Teilnehmer in der Lernphase.</p>
+        <p class="text-slate-500 dark:text-slate-400">Aktuell keine Teilnehmer in der Lernphase.</p>
     @endif
 </div>
 
@@ -155,7 +155,7 @@
                     <span class="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">{{ $booking['date']->format('d.m.Y') }}</span>
                 </div>
             @empty
-                <p class="text-slate-500">Keine Buchungen in den letzten 7 Tagen.</p>
+                <p class="text-slate-500 dark:text-slate-400">Keine Buchungen in den letzten 7 Tagen.</p>
             @endforelse
         </div>
     </div>
@@ -171,7 +171,7 @@
                     <span class="text-slate-600 dark:text-slate-400">{{ $entry->created_at->diffForHumans() }}</span>
                 </div>
             @empty
-                <p class="text-slate-500">Noch keine Aktivitäten protokolliert.</p>
+                <p class="text-slate-500 dark:text-slate-400">Noch keine Aktivitäten protokolliert.</p>
             @endforelse
         </div>
     </div>

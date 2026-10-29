@@ -35,7 +35,7 @@
                                         </span>
                                     @endif
                                     @if ($addonTemplate->stat_text)
-                                        <span class="text-xs text-slate-600 dark:text-slate-400 dark:text-slate-500">{{ $addonTemplate->stat_text }}</span>
+                                        <span class="text-xs text-slate-600 dark:text-slate-400">{{ $addonTemplate->stat_text }}</span>
                                     @endif
                                 </div>
                                 <h3 class="font-semibold text-slate-800 dark:text-white text-sm sm:text-base">{{ $addonTemplate->headline }}</h3>
@@ -56,7 +56,7 @@
                                         @if ($addon->price_label)
                                             <div class="flex items-center justify-end gap-2 flex-wrap">
                                                 @if ($discountedPrice)
-                                                    <span class="line-through text-slate-600 dark:text-slate-400 dark:text-slate-500">{{ $addon->price_label }}</span>
+                                                    <span class="line-through text-slate-600 dark:text-slate-400">{{ $addon->price_label }}</span>
                                                     <span class="font-semibold text-base" style="color: var(--brand-primary, #005FD7)">{{ $discountedPrice }}</span>
                                                     <span class="inline-flex items-center text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
                                                         &minus;{{ $addon->discount_percent }}%
@@ -120,7 +120,7 @@
                                         @if ($banner->price_label)
                                             <div class="flex items-center justify-end gap-2 flex-wrap">
                                                 @if ($bannerDiscountedPrice)
-                                                    <span class="line-through text-slate-600 dark:text-slate-400 dark:text-slate-500">{{ $banner->price_label }}</span>
+                                                    <span class="line-through text-slate-600 dark:text-slate-400">{{ $banner->price_label }}</span>
                                                     <span class="font-semibold text-base" style="color: var(--brand-primary, #005FD7)">{{ $bannerDiscountedPrice }}</span>
                                                     <span class="inline-flex items-center text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
                                                         &minus;{{ $banner->discount_percent }}%

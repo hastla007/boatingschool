@@ -13,14 +13,14 @@
                 <div class="text-xs text-slate-600 dark:text-slate-400">{{ $lesson->title }}</div>
                 <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Fragen zum Video</h1>
             </div>
-            <div class="text-sm text-slate-500 shrink-0">{{ $total }}/{{ $total }}</div>
+            <div class="text-sm text-slate-500 dark:text-slate-400 shrink-0">{{ $total }}/{{ $total }}</div>
         </div>
     </x-slot>
 
     <div class="max-w-2xl mx-auto space-y-4">
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 text-center">
             <h3 class="text-lg font-semibold text-slate-800 dark:text-white">Auswertung</h3>
-            <p class="text-sm text-slate-500 mt-1">Du hast {{ $correctCount }} von {{ $total }} Fragen richtig beantwortet!</p>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Du hast {{ $correctCount }} von {{ $total }} Fragen richtig beantwortet!</p>
         </div>
 
         @foreach ($reviews as $review)

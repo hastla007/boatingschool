@@ -39,8 +39,8 @@
                         <td class="px-4 py-2 max-w-md">
                             <a href="{{ route('superadmin.questions.edit', $question) }}" class="text-slate-700 dark:text-slate-200 hover:underline line-clamp-2">{{ $revision?->question_text ?? '(keine Fassung)' }}</a>
                         </td>
-                        <td class="px-4 py-2 text-slate-500">{{ $revision?->smartmodus_kategorie ?: $revision?->topic }}</td>
-                        <td class="px-4 py-2 text-slate-500">
+                        <td class="px-4 py-2 text-slate-500 dark:text-slate-400">{{ $revision?->smartmodus_kategorie ?: $revision?->topic }}</td>
+                        <td class="px-4 py-2 text-slate-500 dark:text-slate-400">
                             {{ $question->active ? 'aktiv' : 'deaktiviert' }}
                             @if ($pendingReview)
                                 <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[11px] font-medium bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 ms-1">Review ausstehend</span>
@@ -55,7 +55,7 @@
                             @endif
                             <form method="POST" action="{{ route('superadmin.questions.toggle-active', $question) }}" class="inline">
                                 @csrf
-                                <button type="submit" class="text-xs text-slate-500 hover:underline">{{ $question->active ? 'Deaktivieren' : 'Aktivieren' }}</button>
+                                <button type="submit" class="text-xs text-slate-500 dark:text-slate-400 hover:underline">{{ $question->active ? 'Deaktivieren' : 'Aktivieren' }}</button>
                             </form>
                         </td>
                     </tr>

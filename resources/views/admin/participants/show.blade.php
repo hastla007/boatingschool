@@ -3,7 +3,7 @@
         <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Teilnehmer</h2>
     </x-slot>
 
-    <a href="{{ route('admin.dashboard', ['tab' => 'participants']) }}" class="text-sm text-slate-500 hover:underline inline-block mb-4">&larr; Zurück zu Teilnehmer</a>
+    <a href="{{ route('admin.dashboard', ['tab' => 'participants']) }}" class="text-sm text-slate-500 dark:text-slate-400 hover:underline inline-block mb-4">&larr; Zurück zu Teilnehmer</a>
 
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5 mb-6 flex items-center gap-4">
         <div class="w-12 h-12 rounded-full flex items-center justify-center text-white text-lg font-semibold shrink-0" style="background-color: var(--brand-primary, #005FD7)">
@@ -16,9 +16,9 @@
         </div>
         <div>
             <div class="text-lg font-semibold text-slate-800 dark:text-white">{{ $participant->name }}</div>
-            <div class="text-sm text-slate-500">{{ $participant->email }}</div>
+            <div class="text-sm text-slate-500 dark:text-slate-400">{{ $participant->email }}</div>
         </div>
-        <span class="ms-auto inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500">
+        <span class="ms-auto inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">
             {{ \App\Support\StatusLabels::userStatus($participant->status) }}
         </span>
     </div>
@@ -39,19 +39,19 @@
             <div x-show="! editing" style="display: none">
                 <dl class="text-sm space-y-1.5">
                     <div class="flex justify-between gap-4">
-                        <dt class="text-slate-500">Straße</dt>
+                        <dt class="text-slate-500 dark:text-slate-400">Straße</dt>
                         <dd class="text-slate-800 dark:text-slate-200 text-end">{{ $membership->street ?? '—' }}</dd>
                     </div>
                     <div class="flex justify-between gap-4">
-                        <dt class="text-slate-500">PLZ / Stadt</dt>
+                        <dt class="text-slate-500 dark:text-slate-400">PLZ / Stadt</dt>
                         <dd class="text-slate-800 dark:text-slate-200 text-end">{{ trim(($membership->postal_code ?? '').' '.($membership->city ?? '')) ?: '—' }}</dd>
                     </div>
                     <div class="flex justify-between gap-4">
-                        <dt class="text-slate-500">Land</dt>
+                        <dt class="text-slate-500 dark:text-slate-400">Land</dt>
                         <dd class="text-slate-800 dark:text-slate-200 text-end">{{ $membership->country ?? '—' }}</dd>
                     </div>
                     <div class="flex justify-between gap-4">
-                        <dt class="text-slate-500">Geburtsdatum</dt>
+                        <dt class="text-slate-500 dark:text-slate-400">Geburtsdatum</dt>
                         <dd class="text-slate-800 dark:text-slate-200 text-end">{{ $membership->birthdate?->format('d.m.Y') ?? 'noch nicht angegeben' }}</dd>
                     </div>
                 </dl>
@@ -67,21 +67,21 @@
                 @csrf
                 @method('PATCH')
                 <div>
-                    <label for="participant_street" class="block text-xs text-slate-500 mb-1">Straße &amp; Hausnummer</label>
+                    <label for="participant_street" class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Straße &amp; Hausnummer</label>
                     <input type="text" id="participant_street" name="street" value="{{ old('street', $membership->street) }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                 </div>
                 <div class="grid grid-cols-2 gap-2">
                     <div>
-                        <label for="participant_postal_code" class="block text-xs text-slate-500 mb-1">PLZ</label>
+                        <label for="participant_postal_code" class="block text-xs text-slate-500 dark:text-slate-400 mb-1">PLZ</label>
                         <input type="text" id="participant_postal_code" name="postal_code" value="{{ old('postal_code', $membership->postal_code) }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                     </div>
                     <div>
-                        <label for="participant_city" class="block text-xs text-slate-500 mb-1">Wohnort</label>
+                        <label for="participant_city" class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Wohnort</label>
                         <input type="text" id="participant_city" name="city" value="{{ old('city', $membership->city) }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                     </div>
                 </div>
                 <div>
-                    <label for="participant_country" class="block text-xs text-slate-500 mb-1">Land</label>
+                    <label for="participant_country" class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Land</label>
                     <select id="participant_country" name="country" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                         <option value="">Land wählen&hellip;</option>
                         @foreach (\App\Support\Countries::OPTIONS as $countryOption)
@@ -90,7 +90,7 @@
                     </select>
                 </div>
                 <div>
-                    <label for="participant_birthdate" class="block text-xs text-slate-500 mb-1">Geburtsdatum</label>
+                    <label for="participant_birthdate" class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Geburtsdatum</label>
                     <input type="date" id="participant_birthdate" name="birthdate" value="{{ old('birthdate', $membership->birthdate?->format('Y-m-d')) }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                 </div>
                 <x-input-error :messages="$errors->get('street')" class="mt-1" />
@@ -137,7 +137,7 @@
                         <div>
                             <span class="text-sm text-slate-700 dark:text-slate-200">{{ $booking['label'] }}</span>
                             @if ($booking['status'])
-                                <span class="inline-block ms-1 px-1.5 py-0.5 rounded-full text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-500">{{ $booking['status'] }}</span>
+                                <span class="inline-block ms-1 px-1.5 py-0.5 rounded-full text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">{{ $booking['status'] }}</span>
                             @endif
                             <span class="block text-xs text-slate-600 dark:text-slate-400">
                                 {{ $booking['source_type'] === 'coupon' ? 'Code '.$booking['source_reference'] : 'Manuell freigeschaltet' }}
@@ -240,32 +240,32 @@
                 </h3>
                 <dl class="text-sm space-y-1.5 mb-3">
                     <div class="flex justify-between gap-4">
-                        <dt class="text-slate-500">Straße</dt>
+                        <dt class="text-slate-500 dark:text-slate-400">Straße</dt>
                         <dd class="text-slate-800 dark:text-slate-200 text-end">{{ $willkommensboxOrder->street }}</dd>
                     </div>
                     <div class="flex justify-between gap-4">
-                        <dt class="text-slate-500">PLZ / Stadt</dt>
+                        <dt class="text-slate-500 dark:text-slate-400">PLZ / Stadt</dt>
                         <dd class="text-slate-800 dark:text-slate-200 text-end">{{ $willkommensboxOrder->postal_code }} {{ $willkommensboxOrder->city }}</dd>
                     </div>
                     <div class="flex justify-between gap-4">
-                        <dt class="text-slate-500">Land</dt>
+                        <dt class="text-slate-500 dark:text-slate-400">Land</dt>
                         <dd class="text-slate-800 dark:text-slate-200 text-end">{{ $willkommensboxOrder->country }}</dd>
                     </div>
                     @if ($willkommensboxOrder->note)
                         <div class="flex justify-between gap-4">
-                            <dt class="text-slate-500">Notiz</dt>
+                            <dt class="text-slate-500 dark:text-slate-400">Notiz</dt>
                             <dd class="text-slate-800 dark:text-slate-200 text-end">{{ $willkommensboxOrder->note }}</dd>
                         </div>
                     @endif
                     <div class="flex justify-between gap-4">
-                        <dt class="text-slate-500">Bestellt am</dt>
+                        <dt class="text-slate-500 dark:text-slate-400">Bestellt am</dt>
                         <dd class="text-slate-800 dark:text-slate-200 text-end">{{ $willkommensboxOrder->created_at->format('d.m.Y') }}</dd>
                     </div>
                 </dl>
 
                 @if (! empty($willkommensboxLabelSizes))
                     <div class="flex flex-wrap items-center gap-2 mb-3">
-                        <span class="text-xs text-slate-500">Versandlabel:</span>
+                        <span class="text-xs text-slate-500 dark:text-slate-400">Versandlabel:</span>
                         @foreach ($willkommensboxLabelSizes as $size)
                             <a href="{{ route('admin.willkommensbox-orders.label', [$willkommensboxOrder, $size]) }}"
                                class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-300 dark:border-slate-600 text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition">
@@ -293,7 +293,7 @@
                         @csrf
                         @method('PATCH')
                         <div>
-                            <label for="wb_tracking_number" class="block text-xs text-slate-500 mb-1">Trackingnummer (optional)</label>
+                            <label for="wb_tracking_number" class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Trackingnummer (optional)</label>
                             <input type="text" id="wb_tracking_number" name="tracking_number" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                         </div>
                         <button type="submit" class="px-3 py-1.5 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">

@@ -7,7 +7,7 @@
 
         @if ($courses->isEmpty())
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 text-center">
-                <x-icon name="life-buoy" class="w-8 h-8 mx-auto text-slate-300 mb-2" />
+                <x-icon name="life-buoy" class="w-8 h-8 mx-auto text-slate-600 dark:text-slate-400 mb-2" />
                 <p class="text-slate-600 dark:text-slate-300">Für dich ist noch kein Kurs freigeschaltet.</p>
                 <p class="text-sm text-slate-600 dark:text-slate-400 mt-1">Bitte wende dich an deine Bootsschule, um Zugang zu erhalten.</p>
             </div>

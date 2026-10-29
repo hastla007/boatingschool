@@ -183,7 +183,7 @@ class CouponManagementTest extends TestCase
         $response = $this->actingAsInTenant($admin, $tenant)->get('/admin');
 
         $response->assertOk();
-        $pattern = '/'.preg_quote($course->name, '/').'.*?text-emerald-600 font-medium">2<.*?text-slate-500">1</s';
+        $pattern = '/'.preg_quote($course->name, '/').'.*?text-emerald-600 font-medium">2<.*?text-slate-500 dark:text-slate-400">1</s';
         $this->assertMatchesRegularExpression($pattern, $response->getContent());
     }
 

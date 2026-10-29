@@ -1,4 +1,4 @@
-<p class="text-slate-500 mb-6">Passen Sie das Erscheinungsbild Ihrer Bootsschule an.</p>
+<p class="text-slate-500 dark:text-slate-400 mb-6">Passen Sie das Erscheinungsbild Ihrer Bootsschule an.</p>
 
 <form id="send-support-email-verification" method="POST" action="{{ route('admin.branding.support-email.send') }}">
     @csrf
@@ -16,7 +16,7 @@
                     @if ($branding->logo_asset_id && $branding->logoAsset)
                         <img src="{{ $branding->logoAsset->storage_path }}" alt="Logo" class="w-full h-full object-contain">
                     @else
-                        <x-icon name="anchor" class="w-7 h-7 text-slate-300" />
+                        <x-icon name="anchor" class="w-7 h-7 text-slate-600 dark:text-slate-400" />
                     @endif
                 </div>
                 <label class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-sm text-slate-600 dark:text-slate-300 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition">
@@ -39,7 +39,7 @@
                     @if ($branding->favicon_asset_id && $branding->faviconAsset)
                         <img src="{{ $branding->faviconAsset->storage_path }}" alt="Favicon" class="w-full h-full object-contain">
                     @else
-                        <x-icon name="anchor" class="w-5 h-5 text-slate-300" />
+                        <x-icon name="anchor" class="w-5 h-5 text-slate-600 dark:text-slate-400" />
                     @endif
                 </div>
                 <label class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-sm text-slate-600 dark:text-slate-300 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700 transition">

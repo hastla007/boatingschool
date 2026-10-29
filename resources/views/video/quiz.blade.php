@@ -16,7 +16,7 @@
                 <div class="text-xs text-slate-600 dark:text-slate-400">{{ $lesson->title }}</div>
                 <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Fragen zum Video</h1>
             </div>
-            <div class="text-sm text-slate-500 shrink-0">{{ $position }}/{{ $total }}</div>
+            <div class="text-sm text-slate-500 dark:text-slate-400 shrink-0">{{ $position }}/{{ $total }}</div>
         </div>
     </x-slot>
 

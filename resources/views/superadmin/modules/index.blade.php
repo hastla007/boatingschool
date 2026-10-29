@@ -45,8 +45,8 @@
                             <td class="px-4 py-2">
                                 <a href="{{ route('superadmin.questions.index', $module) }}" class="font-medium text-slate-700 dark:text-slate-200 hover:underline">{{ $module->name }}</a>
                             </td>
-                            <td class="px-4 py-2 text-slate-500 font-mono text-xs">{{ $module->code }}</td>
-                            <td class="px-4 py-2 text-slate-500">{{ $module->questions_count }}</td>
+                            <td class="px-4 py-2 text-slate-500 dark:text-slate-400 font-mono text-xs">{{ $module->code }}</td>
+                            <td class="px-4 py-2 text-slate-500 dark:text-slate-400">{{ $module->questions_count }}</td>
                         </tr>
                     @endforeach
                 </tbody>

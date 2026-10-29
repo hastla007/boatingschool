@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div class="flex items-center justify-between">
             <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Prüfungssimulation</h1>
-            <div class="text-sm text-slate-500 flex items-center gap-1.5">
+            <div class="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
                 <x-icon name="clipboard-document-check" class="w-4 h-4 text-slate-600 dark:text-slate-400" />
                 Frage {{ $current->position }} von {{ $total }}
                 @if (! is_null($remainingSeconds))
@@ -46,7 +46,7 @@
                 </div>
 
                 <div class="flex items-center justify-between mt-6">
-                    <button type="button" @click="toggleFavorite($el)" data-favorite="{{ $isFavorite ? '1' : '0' }}" data-question-id="{{ $current->question_id }}" class="favorite-toggle inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
+                    <button type="button" @click="toggleFavorite($el)" data-favorite="{{ $isFavorite ? '1' : '0' }}" data-question-id="{{ $current->question_id }}" class="favorite-toggle inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 dark:text-slate-400 hover:text-amber-500' }}">
                         <x-icon name="star" class="w-4 h-4" /> <span class="favorite-label">{{ $isFavorite ? 'Favorit' : 'Als Favorit speichern' }}</span>
                     </button>
                     <button type="submit" x-bind:disabled="selected.length === 0" class="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-40 hover:opacity-90 transition"
@@ -102,7 +102,7 @@
                                  btn.dataset.favorite warf sofort einen
                                  TypeError, bevor der fetch()-Aufruf überhaupt
                                  feuerte -- ein Klick speicherte nichts. --}}
-                            <button type="button" @click="toggleFavorite($el)" data-favorite="{{ $isFavorite ? '1' : '0' }}" data-question-id="{{ $current->question_id }}" class="favorite-toggle inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
+                            <button type="button" @click="toggleFavorite($el)" data-favorite="{{ $isFavorite ? '1' : '0' }}" data-question-id="{{ $current->question_id }}" class="favorite-toggle inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 dark:text-slate-400 hover:text-amber-500' }}">
                                 <x-icon name="star" class="w-4 h-4" /> <span class="favorite-label">{{ $isFavorite ? 'Favorit' : 'Als Favorit speichern' }}</span>
                             </button>
                             <div class="flex gap-2">
@@ -132,7 +132,7 @@
                 </div>
 
                 <div class="flex items-center justify-between mt-6">
-                    <button type="button" @click="toggleFavorite($el)" data-favorite="{{ $isFavorite ? '1' : '0' }}" data-question-id="{{ $current->question_id }}" class="favorite-toggle inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 hover:text-amber-500' }}">
+                    <button type="button" @click="toggleFavorite($el)" data-favorite="{{ $isFavorite ? '1' : '0' }}" data-question-id="{{ $current->question_id }}" class="favorite-toggle inline-flex items-center gap-1.5 text-sm {{ $isFavorite ? 'text-amber-500' : 'text-slate-500 dark:text-slate-400 hover:text-amber-500' }}">
                         <x-icon name="star" class="w-4 h-4" /> <span class="favorite-label">{{ $isFavorite ? 'Favorit' : 'Als Favorit speichern' }}</span>
                     </button>
                     <button type="submit" x-bind:disabled="!selected" class="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-40 hover:opacity-90 transition"
@@ -171,6 +171,7 @@
                 btn.dataset.favorite = nowFavorite ? '1' : '0';
                 btn.classList.toggle('text-amber-500', nowFavorite);
                 btn.classList.toggle('text-slate-500', ! nowFavorite);
+                btn.classList.toggle('dark:text-slate-400', ! nowFavorite);
                 btn.classList.toggle('hover:text-amber-500', ! nowFavorite);
                 btn.querySelector('.favorite-label').textContent = nowFavorite ? 'Favorit' : 'Als Favorit speichern';
             });

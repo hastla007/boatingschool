@@ -33,15 +33,15 @@
                                 <span class="ml-1 inline-block px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 text-[10px] font-semibold uppercase">Superadmin</span>
                             @endif
                         </td>
-                        <td class="px-4 py-2 text-slate-500">{{ $user->email }}</td>
-                        <td class="px-4 py-2 text-slate-500">
+                        <td class="px-4 py-2 text-slate-500 dark:text-slate-400">{{ $user->email }}</td>
+                        <td class="px-4 py-2 text-slate-500 dark:text-slate-400">
                             @forelse ($user->tenantMemberships as $membership)
                                 <span class="inline-block px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-xs mb-1">{{ $membership->tenant->name }} ({{ \App\Support\StatusLabels::tenantRole($membership->role) }})</span>
                             @empty
                                 <span class="text-slate-300">keine</span>
                             @endforelse
                         </td>
-                        <td class="px-4 py-2 text-slate-500">{{ \App\Support\StatusLabels::userStatus($user->status) }}</td>
+                        <td class="px-4 py-2 text-slate-500 dark:text-slate-400">{{ \App\Support\StatusLabels::userStatus($user->status) }}</td>
                     </tr>
                 @endforeach
             </tbody>

@@ -69,7 +69,7 @@
                             <span class="inline-block px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-xs">{{ \App\Support\StatusLabels::tenantRole($membership->role) }}</span>
                         </div>
                     @empty
-                        <p class="text-slate-500">Noch keine Bootsschule zugeordnet.</p>
+                        <p class="text-slate-500 dark:text-slate-400">Noch keine Bootsschule zugeordnet.</p>
                     @endforelse
                 </div>
                 <form method="POST" action="{{ route('superadmin.users.memberships.store', $user) }}" class="flex gap-2">
@@ -101,11 +101,11 @@
                         @forelse ($results as $result)
                             <tr class="border-t border-slate-100 dark:border-slate-700">
                                 <td class="py-1.5">{{ $result['entitlement']->course->name }}</td>
-                                <td class="py-1.5 text-slate-500">{{ $result['entitlement']->tenant->name }}</td>
-                                <td class="py-1.5 text-slate-500">{{ $result['percent'] }}%</td>
+                                <td class="py-1.5 text-slate-500 dark:text-slate-400">{{ $result['entitlement']->tenant->name }}</td>
+                                <td class="py-1.5 text-slate-500 dark:text-slate-400">{{ $result['percent'] }}%</td>
                             </tr>
                         @empty
-                            <tr><td colspan="3" class="py-3 text-slate-500">Noch keine Kurszugänge.</td></tr>
+                            <tr><td colspan="3" class="py-3 text-slate-500 dark:text-slate-400">Noch keine Kurszugänge.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
@@ -123,12 +123,12 @@
                         @forelse ($productPurchases as $purchase)
                             <tr class="border-t border-slate-100 dark:border-slate-700">
                                 <td class="py-1.5">{{ $purchase->product->name }}</td>
-                                <td class="py-1.5 text-slate-500">{{ $purchase->tenant->name }}</td>
-                                <td class="py-1.5 text-slate-500">{{ $purchase->source_type === 'coupon' ? 'Coupon '.$purchase->source_reference : $purchase->source_type }}</td>
-                                <td class="py-1.5 text-slate-500">{{ \App\Support\GermanTime::format($purchase->created_at, 'd.m.Y H:i') }}</td>
+                                <td class="py-1.5 text-slate-500 dark:text-slate-400">{{ $purchase->tenant->name }}</td>
+                                <td class="py-1.5 text-slate-500 dark:text-slate-400">{{ $purchase->source_type === 'coupon' ? 'Coupon '.$purchase->source_reference : $purchase->source_type }}</td>
+                                <td class="py-1.5 text-slate-500 dark:text-slate-400">{{ \App\Support\GermanTime::format($purchase->created_at, 'd.m.Y H:i') }}</td>
                             </tr>
                         @empty
-                            <tr><td colspan="4" class="py-3 text-slate-500">Noch keine Produkte gekauft.</td></tr>
+                            <tr><td colspan="4" class="py-3 text-slate-500 dark:text-slate-400">Noch keine Produkte gekauft.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
@@ -152,13 +152,13 @@
                                     </span>
                                     @if ($session->openTextCount > 0)
                                         {{-- Bug-Review (FKN offene Fragen): siehe exam/result.blade.php. --}}
-                                        <div class="text-xs text-slate-500 mt-0.5">{{ $session->openTextCorrect }}/{{ $session->openTextCount }} Punkte durch Selbsteinschätzung</div>
+                                        <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{{ $session->openTextCorrect }}/{{ $session->openTextCount }} Punkte durch Selbsteinschätzung</div>
                                     @endif
                                 </td>
-                                <td class="py-1.5 text-slate-500">{{ \App\Support\GermanTime::format($session->submitted_at, 'd.m.Y H:i') }}</td>
+                                <td class="py-1.5 text-slate-500 dark:text-slate-400">{{ \App\Support\GermanTime::format($session->submitted_at, 'd.m.Y H:i') }}</td>
                             </tr>
                         @empty
-                            <tr><td colspan="3" class="py-3 text-slate-500">Noch keine Prüfungssimulation abgelegt.</td></tr>
+                            <tr><td colspan="3" class="py-3 text-slate-500 dark:text-slate-400">Noch keine Prüfungssimulation abgelegt.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

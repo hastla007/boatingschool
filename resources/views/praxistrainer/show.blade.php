@@ -28,7 +28,7 @@
                     {{ $task->unterkategorieIsSafeToDisplayBeforeReveal() ? ($task->unterkategorie ?? $task->kategorie) : $task->kategorie }}
                 </h1>
             </div>
-            <div class="text-sm text-slate-500 shrink-0">{{ $completedCount }} / {{ $totalCount }} Aufgaben &middot; {{ $percent }}%</div>
+            <div class="text-sm text-slate-500 dark:text-slate-400 shrink-0">{{ $completedCount }} / {{ $totalCount }} Aufgaben &middot; {{ $percent }}%</div>
         </div>
     </x-slot>
 

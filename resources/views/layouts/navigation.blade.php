@@ -164,7 +164,7 @@
         <div class="pt-4 pb-1 border-t border-slate-200 dark:border-slate-600">
             <div class="px-4">
                 <div class="font-medium text-base text-slate-800 dark:text-slate-200">{{ Auth::user()->name }}</div>
-                <div class="font-medium text-sm text-slate-500">{{ Auth::user()->email }}</div>
+                <div class="font-medium text-sm text-slate-500 dark:text-slate-400">{{ Auth::user()->email }}</div>
             </div>
             <div class="mt-3 space-y-1">
                 <x-responsive-nav-link :href="route('profile.edit')">Profil</x-responsive-nav-link>

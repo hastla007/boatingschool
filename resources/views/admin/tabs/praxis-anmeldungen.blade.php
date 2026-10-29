@@ -1,6 +1,6 @@
 {{-- Bug-Review (Du/Sie im Admin-Bereich gemischt): der restliche
      Admin-Bereich siezt durchgehend. --}}
-<p class="text-slate-500 mb-6">
+<p class="text-slate-500 dark:text-slate-400 mb-6">
     Anmeldungen zu „Praxis &amp; Prüfung&quot;, die Lerner über ein ihnen zugewiesenes Praxisformular abgeschickt haben.
     Diese Daten dienen Ihnen als Grundlage für die Anmeldung bei der Prüfungskommission. Klicken Sie auf eine Anmeldung für die Details.
 </p>
@@ -31,7 +31,7 @@
         </div>
         <button type="submit" class="px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-sm">Suchen</button>
         @if (($anmeldungFilters['anmeldung_search'] ?? '') !== '' || ($anmeldungFilters['anmeldung_course'] ?? '') !== '' || ($anmeldungFilters['anmeldung_from'] ?? '') !== '' || ($anmeldungFilters['anmeldung_to'] ?? '') !== '')
-            <a href="{{ route('admin.dashboard', ['tab' => 'praxis-anmeldungen']) }}" class="text-sm text-slate-500 hover:underline self-center">Filter zurücksetzen</a>
+            <a href="{{ route('admin.dashboard', ['tab' => 'praxis-anmeldungen']) }}" class="text-sm text-slate-500 dark:text-slate-400 hover:underline self-center">Filter zurücksetzen</a>
         @endif
     </form>
     <div class="overflow-x-auto">
@@ -70,13 +70,13 @@
                             'bg-slate-100 text-slate-500 dark:bg-slate-700/50 dark:text-slate-400' => ! $nextStep['action_needed'] && ! str_starts_with($nextStep['label'], 'Prüfungstermin fix'),
                         ])>{{ $nextStep['label'] }}</span>
                     </td>
-                    <td class="px-4 py-2 text-slate-500 text-xs whitespace-nowrap">{{ \App\Support\GermanTime::format($submission->created_at, 'd.m.Y H:i') }}</td>
+                    <td class="px-4 py-2 text-slate-500 dark:text-slate-400 text-xs whitespace-nowrap">{{ \App\Support\GermanTime::format($submission->created_at, 'd.m.Y H:i') }}</td>
                     <td class="px-4 py-2 text-right whitespace-nowrap">
                         <a href="{{ route('admin.praxis-form-submissions.show', $submission) }}" class="text-xs hover:underline" style="color: var(--brand-primary, #005FD7)">Details &rarr;</a>
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="5" class="px-4 py-3 text-slate-500">
+                <tr><td colspan="5" class="px-4 py-3 text-slate-500 dark:text-slate-400">
                     @if (array_filter($anmeldungFilters))
                         Keine Anmeldungen gefunden, die zu diesem Filter passen.
                     @else

@@ -3,7 +3,7 @@
         <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Praxis-Anmeldung bearbeiten</h2>
     </x-slot>
 
-    <a href="{{ route('admin.praxis-form-submissions.show', $submission) }}" class="text-sm text-slate-500 hover:underline inline-block mb-4">&larr; Zurück zur Anmeldung</a>
+    <a href="{{ route('admin.praxis-form-submissions.show', $submission) }}" class="text-sm text-slate-500 dark:text-slate-400 hover:underline inline-block mb-4">&larr; Zurück zur Anmeldung</a>
 
     {{-- Bug-Review (Lösch-Rückfragen von CSP blockiert): onsubmit="return
          confirm(...)" ist ein klassischer Inline-Event-Handler und wird von

@@ -56,7 +56,7 @@
                         </div>
                     </div>
                 @empty
-                    <p class="text-slate-500 text-sm">Noch keine Module zugeordnet.</p>
+                    <p class="text-slate-500 dark:text-slate-400 text-sm">Noch keine Module zugeordnet.</p>
                 @endforelse
             </div>
 

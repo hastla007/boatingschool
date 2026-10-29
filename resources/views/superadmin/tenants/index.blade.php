@@ -25,11 +25,11 @@
                         <td class="px-4 py-2">
                             <a href="{{ route('superadmin.tenants.show', $tenant) }}" class="font-medium text-slate-700 dark:text-slate-200 hover:underline">{{ $tenant->name }}</a>
                         </td>
-                        <td class="px-4 py-2 text-slate-500 font-mono text-xs">{{ $tenant->slug }}</td>
+                        <td class="px-4 py-2 text-slate-500 dark:text-slate-400 font-mono text-xs">{{ $tenant->slug }}</td>
                         <td class="px-4 py-2">
-                            <span class="inline-block px-2 py-0.5 rounded-full text-xs {{ $tenant->status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500' }}">{{ \App\Support\StatusLabels::tenantStatus($tenant->status) }}</span>
+                            <span class="inline-block px-2 py-0.5 rounded-full text-xs {{ $tenant->status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500 dark:text-slate-400' }}">{{ \App\Support\StatusLabels::tenantStatus($tenant->status) }}</span>
                         </td>
-                        <td class="px-4 py-2 text-slate-500">{{ $tenant->tenant_users_count }}</td>
+                        <td class="px-4 py-2 text-slate-500 dark:text-slate-400">{{ $tenant->tenant_users_count }}</td>
                     </tr>
                 @endforeach
             </tbody>

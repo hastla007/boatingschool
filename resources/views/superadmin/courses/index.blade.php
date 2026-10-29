@@ -28,10 +28,10 @@
                         <td class="px-4 py-2">
                             <a href="{{ route('superadmin.courses.show', $course) }}" class="font-medium text-slate-700 dark:text-slate-200 hover:underline">{{ $course->name }}</a>
                         </td>
-                        <td class="px-4 py-2 text-slate-500 font-mono text-xs">{{ $course->code }}</td>
-                        <td class="px-4 py-2 text-slate-500">{{ $course->course_type }}</td>
+                        <td class="px-4 py-2 text-slate-500 dark:text-slate-400 font-mono text-xs">{{ $course->code }}</td>
+                        <td class="px-4 py-2 text-slate-500 dark:text-slate-400">{{ $course->course_type }}</td>
                         <td class="px-4 py-2">
-                            <span class="inline-block px-2 py-0.5 rounded-full text-xs {{ $course->status === 'published' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500' }}">{{ \App\Support\StatusLabels::courseStatus($course->status) }}</span>
+                            <span class="inline-block px-2 py-0.5 rounded-full text-xs {{ $course->status === 'published' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500 dark:text-slate-400' }}">{{ \App\Support\StatusLabels::courseStatus($course->status) }}</span>
                         </td>
                         <td class="px-4 py-2">
                             @if ($course->site_enabled)
@@ -40,7 +40,7 @@
                                 <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-rose-50 text-rose-700">deaktiviert</span>
                             @endif
                         </td>
-                        <td class="px-4 py-2 text-slate-500">{{ $course->modules_count }}</td>
+                        <td class="px-4 py-2 text-slate-500 dark:text-slate-400">{{ $course->modules_count }}</td>
                     </tr>
                 @endforeach
             </tbody>
