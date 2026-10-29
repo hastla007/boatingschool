@@ -61,7 +61,7 @@ class FunkTraining
             ->all();
     }
 
-    /** @return array<int, array{key: string, number: int, de: string, en: string}> */
+    /** @return array<int, array{key: string, number: int, richtung: string, de: string, en: string}> */
     public static function texts(string $catalog): array
     {
         static $cache = [];

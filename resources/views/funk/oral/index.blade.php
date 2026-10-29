@@ -19,16 +19,12 @@
             ])
 
             @if ($modul === 'texte')
-                @if (count($texts) === 0)
+                @if (count($texts) > 0)
                     <x-funk-info>
-                        In der Prüfung liest der Prüfer einen der amtlichen Seefunktexte vor; du schreibst mit und übersetzt ihn
-                        (Deutsch &rarr; Englisch bzw. Englisch &rarr; Deutsch). Die amtlichen Texte werden hier ergänzt, sobald sie
-                        vorliegen. Bis dahin hilft dir der Vokabeltrainer bei den Begriffen, die in den Texten vorkommen.
-                    </x-funk-info>
-                @else
-                    <x-funk-info>
-                        Es gibt {{ count($texts) }} amtliche Seefunktexte; in der Prüfung kommen davon zwei vor. Übe alle: anhören,
-                        mitschreiben, übersetzen. {{ count($textsCompleted) }} von {{ count($texts) }} erledigt.
+                        In der Prüfung liest der Prüfer zwei Seefunktexte vor: einen englischen, den du ins Deutsche übersetzt, und
+                        einen deutschen, den du ins Englische übersetzt. Diese {{ count($texts) }} Übungstexte sind wie die amtlichen
+                        aufgebaut &ndash; Seenot, Dringlichkeit, Sicherheit &ndash; und nutzen dieselben Formulierungen. Übe alle:
+                        anhören, mitschreiben, übersetzen. {{ count($textsCompleted) }} von {{ count($texts) }} erledigt.
                     </x-funk-info>
                     <div class="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-9 gap-3">
                         @foreach ($texts as $text)
