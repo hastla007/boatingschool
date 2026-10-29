@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\MediaAsset;
 use App\Models\PraxisTask;
 use Database\Seeders\ElwisPraxisImageSeeder;
+use Illuminate\Support\Facades\Storage;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -51,6 +52,27 @@ class ElwisPraxisImageTest extends TestCase
             $this->assertSame(65, MediaAsset::where('source', 'SBF See Praxistrainer')->count());
             $this->assertFileDoesNotExist(database_path('data/praxistrainer_bilder/praxis-0035_zeichen_auf_see.png'));
         });
+    }
+
+    public function test_redrawn_card_graphics_replace_an_outdated_stored_file(): void
+    {
+        $path = 'question-media/praxistrainer/praxis-0013_seemannsknoten.png';
+        $current = file_get_contents(database_path('data/praxistrainer_bilder/praxis-0013_seemannsknoten.png'));
+
+        $this->onAdmin(function () use ($path, $current) {
+            Storage::disk('public')->put($path, 'alte dunkelblaue Grafik');
+            (new ElwisPraxisImageSeeder)->run();
+
+            $this->assertSame($current, Storage::disk('public')->get($path));
+        });
+    }
+
+    public function test_redrawn_graphics_have_svg_sources(): void
+    {
+        foreach (glob(database_path('data/praxistrainer_bilder/*.png')) as $png) {
+            $this->assertFileExists(database_path('data/praxistrainer_bilder_svg/'.basename($png, '.png').'.svg'));
+            $this->assertSame([1200, 800], array_slice(getimagesize($png), 0, 2), basename($png));
+        }
     }
 
     public function test_seeder_is_idempotent(): void

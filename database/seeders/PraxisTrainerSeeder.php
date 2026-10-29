@@ -11,7 +11,8 @@ use Illuminate\Support\Facades\Storage;
 /**
  * Praxistrainer für die praktische SBF-See-Prüfung, importiert aus
  * database/data/sbf_see_praxistrainer.csv (Bilder in
- * database/data/praxistrainer_bilder/, vom Betreiber bereitgestellt).
+ * database/data/praxistrainer_bilder/, im Stil der ELWIS-Bilder gezeichnet;
+ * SVG-Quellen in database/data/praxistrainer_bilder_svg/).
  * Bilder werden wie bei den Prüfungsbögen (ExamPaperSeeder) lokal unter
  * storage/app/public/question-media abgelegt statt extern verlinkt. Karten
  * mit ELWIS-Gegenstück haben keine eigene Grafik mehr (leere Spalte
