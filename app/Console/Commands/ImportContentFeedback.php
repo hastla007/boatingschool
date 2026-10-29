@@ -206,10 +206,15 @@ class ImportContentFeedback extends Command
         return trim($text);
     }
 
-    /** Entfernt die führende "Richtig ist: „...“"-Zeile, die die App bereits als "Richtige Antwort: ..." anzeigt. */
+    /**
+     * Entfernt die führende "Richtig ist: „...“"-Zeile, die die App bereits als
+     * "Richtige Antwort: ..." anzeigt. Die Zeile endet am Zeilenende, nicht am
+     * ersten „““ -- Antworten mit eigenen Anführungszeichen (z. B. „An alle
+     * Funkstellen“) ließen sonst einen Antwortrest vor der Erklärung stehen.
+     */
     private function stripLeadingCorrectAnswerLine(string $text): string
     {
-        return trim(preg_replace('/^Richtig ist: „[^“]*“\s*/u', '', $text, 1));
+        return trim(preg_replace('/^Richtig ist: „.*?“[ \t]*(?:\R|$)/su', '', $text, 1));
     }
 
     /** @return iterable<int, array<string, string>> */

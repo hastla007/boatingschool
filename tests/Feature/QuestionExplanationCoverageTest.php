@@ -52,6 +52,12 @@ class QuestionExplanationCoverageTest extends TestCase
                 ->count();
 
             $this->assertSame(0, $offending);
+
+            // Kein Antwortrest vor der Erklärung (Antworten mit eigenen Anführungszeichen, z. B. SRC-0044).
+            $fragments = ContentQuestionRevision::where('editorial_status', 'published')
+                ->whereRaw("feedback_incorrect ~ '^[a-zäöüß“]'")
+                ->count();
+            $this->assertSame(0, $fragments);
         });
     }
 
