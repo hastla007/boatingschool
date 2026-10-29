@@ -9,6 +9,7 @@ use App\Models\CourseDefinition;
 use App\Models\Progress;
 use App\Models\Tenant;
 use App\Models\User;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -38,8 +39,43 @@ class LearningService
         ?int $responseTimeMs,
         ?Collection $selectedAnswers = null,
         ?bool $selfAssessedKnown = null,
+        ?int $startedAtMs = null,
     ): Attempt {
-        return DB::transaction(function () use ($tenant, $user, $revision, $selectedAnswer, $context, $course, $responseTimeMs, $selectedAnswers, $selfAssessedKnown) {
+        try {
+            return $this->recordAttemptOnce($tenant, $user, $revision, $selectedAnswer, $context, $course, $responseTimeMs, $selectedAnswers, $selfAssessedKnown, $startedAtMs);
+        } catch (UniqueConstraintViolationException) {
+            // Bug-Review X11 (Doppelklick auf "Antworten" zählt doppelt,
+            // Frage zu schnell "gefestigt"): startedAtMs identifiziert genau
+            // den einen Seitenaufruf, aus dem dieses Formular stammt (siehe
+            // LearningController::show(), 'startedAt' => now()->valueOf())
+            // -- ein echter Doppelklick sendet denselben Wert zweimal und
+            // verletzt den Unique-Index attempt_started_at_ms_idempotency_
+            // unique. Statt den zweiten Request einen eigenen Attempt
+            // anlegen und current_streak/mastery_score ein zweites Mal
+            // erhöhen zu lassen, wird hier einfach der bereits durch den
+            // ersten Request gespeicherte Attempt zurückgegeben.
+            return Attempt::where([
+                'tenant_id' => $tenant->id,
+                'user_id' => $user->id,
+                'revision_id' => $revision->id,
+                'started_at_ms' => $startedAtMs,
+            ])->latest('created_at')->firstOrFail();
+        }
+    }
+
+    private function recordAttemptOnce(
+        Tenant $tenant,
+        User $user,
+        ContentQuestionRevision $revision,
+        ?ContentAnswer $selectedAnswer,
+        string $context,
+        ?CourseDefinition $course,
+        ?int $responseTimeMs,
+        ?Collection $selectedAnswers,
+        ?bool $selfAssessedKnown,
+        ?int $startedAtMs,
+    ): Attempt {
+        return DB::transaction(function () use ($tenant, $user, $revision, $selectedAnswer, $context, $course, $responseTimeMs, $selectedAnswers, $selfAssessedKnown, $startedAtMs) {
             $type = $revision->question_type;
             $selectedAnswerIds = null;
 
@@ -68,6 +104,7 @@ class LearningService
                 'correct' => $correct,
                 'context' => $context,
                 'response_time_ms' => $responseTimeMs,
+                'started_at_ms' => $startedAtMs,
             ]);
 
             // Bug-Review (Doppelklick-Race): firstOrNew() + lockForUpdate() sperrt

@@ -22,6 +22,7 @@ class Attempt extends Model
     protected $fillable = [
         'tenant_id', 'user_id', 'question_id', 'revision_id', 'course_id',
         'selected_answer_id', 'selected_answer_ids', 'correct', 'context', 'response_time_ms',
+        'started_at_ms',
     ];
 
     protected function casts(): array

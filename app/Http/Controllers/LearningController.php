@@ -281,7 +281,7 @@ class LearningController extends Controller
         }
 
         $attempt = $learningService->recordAttempt(
-            $tenant, $user, $revision, $selectedAnswer, $validated['mode'], $course, $responseTimeMs, $selectedAnswers, $selfAssessedKnown
+            $tenant, $user, $revision, $selectedAnswer, $validated['mode'], $course, $responseTimeMs, $selectedAnswers, $selfAssessedKnown, $validated['started_at_ms'] ?? null
         );
 
         // Bug-Review B20: dieser Handler rendert die beantwortete Frage
