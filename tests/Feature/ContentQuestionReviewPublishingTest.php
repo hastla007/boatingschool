@@ -2,10 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Models\Attempt;
+use App\Models\ContentAnswer;
 use App\Models\ContentQuestion;
 use App\Models\ContentQuestionRevision;
 use App\Models\MediaAsset;
 use App\Models\Module;
+use App\Models\Progress;
+use PDO;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -27,6 +31,13 @@ class ContentQuestionReviewPublishingTest extends TestCase
 
     protected function tearDown(): void
     {
+        // Bug-Review (Lernfortschritt bei ersetzten Fragen): muss vor dem
+        // Löschen der Frage selbst laufen -- ein per Test angelegter
+        // Attempt verweist per Fremdschlüssel auf content_question und
+        // blockiert dessen Löschung sonst (siehe Testfall "...resets
+        // learner progress but keeps attempts").
+        $this->cleanUpCreatedTenantsAndUsers();
+
         $this->onAdmin(function () {
             foreach ($this->createdModuleIds as $id) {
                 Module::where('id', $id)->delete();
@@ -38,8 +49,6 @@ class ContentQuestionReviewPublishingTest extends TestCase
                 MediaAsset::where('id', $id)->delete();
             }
         });
-
-        $this->cleanUpCreatedUsers();
 
         parent::tearDown();
     }
@@ -92,6 +101,137 @@ class ContentQuestionReviewPublishingTest extends TestCase
             $this->assertSame('published', $review->fresh()->editorial_status);
             $this->assertSame($review->id, $question->publishedRevision()->id);
             $this->assertSame('Neue Fassung aus Reimport', $question->publishedRevision()->question_text);
+        });
+    }
+
+    /**
+     * Bug-Review (Lernfortschritt bei ersetzten Fragen): die neue Fassung
+     * oben hat einen anderen Fragetext -- bisheriger Mastery-Fortschritt
+     * eines Lerners für die ALTE Fassung muss deshalb auf "neu"
+     * zurückgesetzt werden. Ein bereits dokumentierter Attempt bleibt dabei
+     * als historischer Beleg unangetastet.
+     */
+    public function test_publishing_a_revision_with_changed_content_resets_learner_progress_but_keeps_attempts(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        [, $question, $published, $review] = $this->makeQuestionWithPendingReview();
+
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+
+        $answer = $this->onAdmin(fn () => ContentAnswer::create([
+            'revision_id' => $published->id, 'answer_key' => 'A', 'answer_text' => 'Richtig', 'is_correct' => true, 'sort_order' => 1,
+        ]));
+
+        $this->onAdmin(fn () => Progress::create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $learner->id,
+            'question_id' => $question->id,
+            'learning_state' => 'gefestigt',
+            'attempt_count' => 3,
+            'correct_count' => 3,
+            'current_streak' => 3,
+        ]));
+
+        $attempt = $this->onAdmin(fn () => Attempt::create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $learner->id,
+            'question_id' => $question->id,
+            'revision_id' => $published->id,
+            'selected_answer_id' => $answer->id,
+            'correct' => true,
+            'context' => 'smarttrainer',
+        ]));
+
+        $this->actingAs($superadmin)->post(route('superadmin.questions.revisions.publish', $review))->assertRedirect();
+
+        $this->onAdmin(function () use ($tenant, $learner, $question, $attempt) {
+            $this->assertDatabaseMissing('progress', [
+                'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'question_id' => $question->id,
+            ]);
+
+            $this->assertTrue(Attempt::whereKey($attempt->id)->exists(), 'Ein historischer Attempt darf durch die Veröffentlichung nicht verschwinden.');
+        });
+    }
+
+    /**
+     * Bug-Review (Doppelklick auf "Veröffentlichen" verursacht Fehler 500):
+     * zwei nahezu gleichzeitige Klicks bestehen beide die Prüfungen vor
+     * der Transaktion (editorial_status war für beide noch "review"), und
+     * laufen parallel in die Medien-Übernahme -- derselbe
+     * (revision_id, media_asset_id, role)-Primärschlüssel wurde dadurch
+     * zweimal eingefügt. Um das ohne künstlich "unecht" zu testen (ein
+     * rein sequenzieller zweiter Request würde die bereits committete
+     * erste Veröffentlichung einfach vorfinden und den Fehler NICHT
+     * reproduzieren, siehe DoubleSubmitRaceTest), simuliert ein echter
+     * Kindprozess (pcntl_fork) eine zweite, genau wie der echte Code
+     * ablaufende Veröffentlichung, die die Frage-Zeile sperrt und absichtlich
+     * kurz offen hält, bevor sie committet -- exakt das Zeitfenster, das
+     * ein Doppelklick erzeugt.
+     */
+    public function test_double_clicking_publish_does_not_cause_http_500(): void
+    {
+        if (! function_exists('pcntl_fork') || ! function_exists('posix_kill')) {
+            $this->markTestSkipped('pcntl/posix-Erweiterung nicht verfügbar.');
+        }
+
+        $superadmin = $this->createSuperAdmin();
+        [, $question, $published, $review] = $this->makeQuestionWithPendingReview();
+
+        $media = $this->onAdmin(function () use ($published) {
+            $media = MediaAsset::create([
+                'asset_key' => 'test-w5-image-'.uniqid(),
+                'media_type' => 'image',
+                'storage_path' => '/images/test-w5.png',
+                'status' => 'published',
+            ]);
+            $this->createdMediaAssetIds[] = $media->id;
+            $published->media()->attach($media->id, ['role' => 'question', 'sort_order' => 1]);
+
+            return $media;
+        });
+
+        $adminConfig = config('database.connections.pgsql_admin');
+
+        $pid = pcntl_fork();
+
+        if ($pid === 0) {
+            // Kindprozess: fährt exakt denselben Ablauf wie
+            // publishRevision() -- Frage-Zeile sperren, Medien übernehmen,
+            // alte Fassung deprecaten, neue veröffentlichen -- hält die
+            // Transaktion aber absichtlich offen, bevor sie committet.
+            try {
+                $dsn = sprintf('pgsql:host=%s;port=%s;dbname=%s', $adminConfig['host'], $adminConfig['port'], $adminConfig['database']);
+                $pdo = new PDO($dsn, $adminConfig['username'], $adminConfig['password']);
+                $pdo->beginTransaction();
+                $pdo->prepare('SELECT id FROM content_question WHERE id = :q FOR UPDATE')->execute(['q' => $question->id]);
+                $pdo->prepare('INSERT INTO question_media (revision_id, media_asset_id, role, sort_order) VALUES (:r, :m, :role, 1)')
+                    ->execute(['r' => $review->id, 'm' => $media->id, 'role' => 'question']);
+                $pdo->prepare("UPDATE content_question_revision SET editorial_status = 'deprecated' WHERE id = :id")->execute(['id' => $published->id]);
+                $pdo->query('SELECT pg_sleep(0.4)');
+                $pdo->prepare("UPDATE content_question_revision SET editorial_status = 'published' WHERE id = :id")->execute(['id' => $review->id]);
+                $pdo->commit();
+            } finally {
+                posix_kill(posix_getpid(), SIGKILL);
+            }
+        }
+
+        // Dem Kindprozess Zeit geben, die Frage-Zeile zu sperren und die
+        // Medien-Zuordnung (noch uncommittet) einzufügen, bevor der echte
+        // Request genau in dieses Zeitfenster trifft.
+        usleep(150_000);
+
+        $response = $this->actingAs($superadmin)->post(route('superadmin.questions.revisions.publish', $review));
+
+        pcntl_waitpid($pid, $status);
+
+        $response->assertStatus(302);
+        $response->assertSessionHasNoErrors();
+
+        $this->onAdmin(function () use ($question, $review) {
+            $this->assertSame('published', $review->fresh()->editorial_status);
+            $this->assertSame($review->id, $question->publishedRevision()->id);
+            $this->assertSame(1, \DB::table('question_media')->where('revision_id', $review->id)->count(), 'Die Medienzuordnung darf nicht doppelt eingefügt worden sein.');
         });
     }
 

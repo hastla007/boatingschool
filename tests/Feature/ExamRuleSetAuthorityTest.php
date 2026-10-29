@@ -26,6 +26,10 @@ class ExamRuleSetAuthorityTest extends TestCase
 
     private const UNVERIFIED_COURSE_CODES = [
         'SBF-SEE', 'SBF-BIN-MOTOR', 'SBF-SEE-BIN', 'ADD-SEE-TO-BIN', 'ADD-BIN-TO-SEE', 'SBF-BIN-SEGEL',
+        // SRC-UBI: ein Regelwerk je Kurs kann die beiden amtlichen Grenzen
+        // der Teilprüfungen (SRC 19/24, UBI 17/22) nicht gleichzeitig
+        // abbilden, siehe SrcUbiComboExamPaperSeeder.
+        'SRC-UBI',
     ];
 
     private const VERIFIED_COURSE_CODES_WITH_A_DOCUMENTED_OFFICIAL_THRESHOLD = ['ADD-BIN-SEGEL', 'SRC', 'FKN', 'UBI'];

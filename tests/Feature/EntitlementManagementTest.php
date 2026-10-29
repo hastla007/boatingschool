@@ -8,6 +8,7 @@ use App\Models\Entitlement;
 use App\Models\Product;
 use App\Models\ProductPurchase;
 use App\Models\Tenant;
+use PDO;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -317,6 +318,74 @@ class EntitlementManagementTest extends TestCase
         $entitlement = $this->asTenant($tenant, fn () => Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
             ->where('course_id', $course->id)->firstOrFail());
         $this->assertSame($older->code, $entitlement->source_reference);
+    }
+
+    /**
+     * Bug-Review (Gleichzeitige Code-Zuweisung meldet "kein Code frei"):
+     * ->oldest()->lockForUpdate() sperrte bisher genau die eine (älteste)
+     * Zeile, die ORDER BY + LIMIT 1 auswählt. Weist ein zweiter Admin
+     * nahezu gleichzeitig denselben Kurs zu, während ein anderer Prozess
+     * diese älteste Zeile bereits gesperrt hält, wartete die zweite
+     * Transaktion bisher auf exakt diese eine Zeile -- und bekam danach
+     * "kein Code frei" zurück, obwohl ein zweiter, jüngerer Code längst
+     * frei war. Um das ohne künstlich "unecht" zu testen (ein rein
+     * sequenzieller zweiter Request würde die inzwischen freigegebene
+     * Zeile einfach vorfinden, siehe DoubleSubmitRaceTest), hält ein
+     * echter Kindprozess (pcntl_fork) die älteste Zeile per SELECT ... FOR
+     * UPDATE offen, während der eigentliche Request läuft.
+     */
+    public function test_granting_access_while_the_oldest_coupon_is_locked_by_another_process_uses_the_next_free_one(): void
+    {
+        if (! function_exists('pcntl_fork') || ! function_exists('posix_kill')) {
+            $this->markTestSkipped('pcntl/posix-Erweiterung nicht verfügbar.');
+        }
+
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+
+        $older = $this->onAdmin(fn () => Coupon::create([
+            'code' => 'TEST-ENT-LOCKED-'.uniqid(), 'course_id' => $course->id, 'tenant_id' => $tenant->id, 'created_at' => now()->subDay(),
+        ]));
+        $this->createdCouponIds[] = $older->id;
+        $newer = $this->makeCourseCoupon($tenant, $course);
+
+        $adminConfig = config('database.connections.pgsql_admin');
+
+        $pid = pcntl_fork();
+
+        if ($pid === 0) {
+            try {
+                $dsn = sprintf('pgsql:host=%s;port=%s;dbname=%s', $adminConfig['host'], $adminConfig['port'], $adminConfig['database']);
+                $pdo = new PDO($dsn, $adminConfig['username'], $adminConfig['password']);
+                $pdo->beginTransaction();
+                $pdo->prepare('SELECT id FROM coupon WHERE id = :id FOR UPDATE')->execute(['id' => $older->id]);
+                $pdo->query('SELECT pg_sleep(0.4)');
+                $pdo->commit();
+            } finally {
+                posix_kill(posix_getpid(), SIGKILL);
+            }
+        }
+
+        // Dem Kindprozess Zeit geben, die älteste Coupon-Zeile zu sperren,
+        // bevor der eigentliche Request genau in dieses Zeitfenster trifft.
+        usleep(150_000);
+
+        $response = $this->actingAsInTenant($admin, $tenant)->post('/admin/entitlements', [
+            'user_id' => $learner->id,
+            'course_id' => $course->id,
+        ]);
+
+        pcntl_waitpid($pid, $status);
+
+        $response->assertSessionHasNoErrors();
+
+        $this->asTenant($tenant, function () use ($tenant, $learner, $course, $newer) {
+            $entitlement = Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
+                ->where('course_id', $course->id)->firstOrFail();
+            $this->assertSame($newer->code, $entitlement->source_reference, 'Die Zuweisung muss auf den noch freien, jüngeren Code ausweichen statt auf den gesperrten ältesten zu warten.');
+        });
     }
 
     public function test_granting_access_again_reactivates_a_previously_suspended_entitlement_instead_of_duplicating(): void

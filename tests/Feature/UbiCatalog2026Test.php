@@ -9,6 +9,7 @@ use App\Models\ExamBlueprint;
 use App\Models\ExamPaper;
 use App\Models\ExamRuleSet;
 use App\Models\ExamSession;
+use App\Models\Progress;
 use Database\Seeders\CatalogUpdateSeeder;
 use Illuminate\Support\Facades\DB;
 use Tests\Feature\Concerns\InteractsWithTenants;
@@ -31,6 +32,7 @@ class UbiCatalog2026Test extends TestCase
 
         if ($this->fakeQuestionId) {
             $this->onAdmin(function () {
+                Progress::where('question_id', $this->fakeQuestionId)->delete();
                 $revisionIds = ContentQuestionRevision::where('question_id', $this->fakeQuestionId)->pluck('id');
                 ContentAnswer::whereIn('revision_id', $revisionIds)->delete();
                 ContentQuestionRevision::whereIn('id', $revisionIds)->delete();
@@ -108,6 +110,39 @@ class UbiCatalog2026Test extends TestCase
             $this->assertSame('deprecated', $old->fresh()->editorial_status);
             $this->assertSame('published', $new->fresh()->editorial_status);
             $this->assertNull($new->fresh()->feedback_correct);
+        });
+    }
+
+    public function test_update_seeder_resets_progress_when_the_question_content_changed(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+
+        $this->onAdmin(function () use ($tenant, $learner) {
+            $question = ContentQuestion::create([
+                'content_id' => 'TEST-UBI-UPDATE-'.uniqid(),
+                'official_number' => '9997',
+                'content_role' => 'ubi_official',
+                'language' => 'de-DE',
+                'active' => true,
+            ]);
+            $this->fakeQuestionId = $question->id;
+
+            foreach ([[1, 'published', '2026-09', 'Alte Frage?'], [2, 'review', CatalogUpdateSeeder::UBI_2026_10, 'Ersetzte Frage?']] as [$no, $status, $version, $text]) {
+                ContentQuestionRevision::create([
+                    'question_id' => $question->id, 'revision_no' => $no, 'question_type' => 'single_choice',
+                    'question_text' => $text, 'source_version' => $version, 'editorial_status' => $status, 'rights_status' => 'review',
+                ]);
+            }
+
+            Progress::create([
+                'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'question_id' => $question->id,
+                'attempt_count' => 3, 'correct_count' => 3, 'current_streak' => 3, 'mastery_score' => 1, 'learning_state' => 'gefestigt',
+            ]);
+
+            (new CatalogUpdateSeeder)->run();
+
+            $this->assertSame(0, Progress::where('question_id', $question->id)->count());
         });
     }
 

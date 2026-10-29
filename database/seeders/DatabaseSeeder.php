@@ -86,6 +86,7 @@ class DatabaseSeeder extends Seeder
             BinnenSegelnAddonExamPaperSeeder::class,
             SrcExamPaperSeeder::class,
             UbiExamPaperSeeder::class,
+            SrcUbiComboExamPaperSeeder::class,
             FknExamPaperSeeder::class,
             // Nach allen *ExamPaperSeedern: hängt die ELWIS-Bilder an und
             // entfernt die früheren Bilder von bootsfuehrerscheinpruefung.de.

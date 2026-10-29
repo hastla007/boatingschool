@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Attempt;
 use App\Models\ContentQuestion;
+use App\Models\ContentQuestionRevision;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -93,6 +94,52 @@ class ContentImportTest extends TestCase
         $attempt->refresh();
         $this->assertSame($revision1->id, $attempt->revision_id);
         $this->assertSame('Ursprünglicher Fragetext?', $revision1->fresh()->question_text);
+    }
+
+    /**
+     * Bug-Review (Seed überschreibt UBI-Korrekturen aus dem Editor): ohne
+     * Fix verglich der Import gegen die Revision mit der höchsten
+     * revision_no -- hier die vom Superadmin korrigierte, veröffentlichte
+     * Fassung -- und legte bei unverändertem Excel-Text trotzdem eine neue
+     * "review"-Revision mit dem ALTEN, unkorrigierten Text an, deren
+     * Veröffentlichung die Korrektur wieder verworfen hätte.
+     */
+    public function test_reimporting_unchanged_data_after_a_superadmin_correction_creates_no_stale_review_draft(): void
+    {
+        $this->existingModule('SBF_BASIS');
+        $this->writeFixture('Ursprünglicher Fragetext?', 'A');
+        $this->runImport();
+
+        $question = ContentQuestion::where('content_id', 'TEST-IMPORT-0001')->firstOrFail();
+        $imported = $question->revisions()->firstOrFail();
+
+        $corrected = $this->onAdmin(function () use ($question, $imported) {
+            $imported->update(['editorial_status' => 'deprecated']);
+
+            return ContentQuestionRevision::create([
+                'question_id' => $question->id,
+                'revision_no' => $imported->revision_no + 1,
+                'question_type' => 'single_choice',
+                'question_text' => 'Korrigierter Fragetext (vom Superadmin)?',
+                'topic' => $imported->topic,
+                'subtopic' => $imported->subtopic,
+                'competency' => $imported->competency,
+                'smartmodus_kategorie' => $imported->smartmodus_kategorie,
+                'image_required' => $imported->image_required,
+                'source_question_id' => $imported->source_question_id,
+                'editorial_status' => 'published',
+                'rights_status' => 'licensed',
+                'edited_by_superadmin' => true,
+            ]);
+        });
+
+        $this->runImport();
+
+        $this->assertSame(2, $question->revisions()->count(), 'Ein unveränderter Reimport darf nach einer Editor-Korrektur keine weitere Revision anlegen.');
+        $this->assertNull($question->pendingReviewRevision(), 'Es darf kein Review-Entwurf entstehen, der die Editor-Korrektur bei Veröffentlichung verwerfen würde.');
+        $fresh = $corrected->fresh();
+        $this->assertSame('published', $fresh->editorial_status);
+        $this->assertSame('Korrigierter Fragetext (vom Superadmin)?', $fresh->question_text);
     }
 
     private function writeFixture(string $questionText, string $correctAnswer): void

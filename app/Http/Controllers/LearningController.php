@@ -103,8 +103,28 @@ class LearningController extends Controller
             $favoriteIds = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)
                 ->where('context', Favorite::CONTEXT_SMART_LEARNING)
                 ->whereIn('question_id', $courseQuestionIds)->pluck('question_id');
-            $questionId = $favoriteIds->isNotEmpty() ? $favoriteIds->random() : null;
-            $next = $questionId ? ['question' => ContentQuestion::find($questionId), 'reason' => 'Favorit'] : null;
+
+            // Bug-Review (Deaktivierte Favoriten führen zu Endlosschleife):
+            // ein als Favorit markierte Frage bleibt es auch, wenn ein
+            // Superadmin sie später deaktiviert (content_question.active)
+            // oder ihre einzige Revision (noch) nicht veröffentlicht ist --
+            // diese Auswahl hier zog bisher trotzdem jede Favoriten-ID ohne
+            // Prüfung in Betracht. Landete $favoriteIds->random() dabei
+            // (z. B. weil es der einzige verbliebene Favorit ist) immer
+            // wieder auf genau dieser kaputten Frage, endete jeder Aufruf
+            // dieser Seite im abort_if() weiter unten (keine veröffentlichte
+            // Fassung) -- ohne je einen funktionierenden Favoriten oder die
+            // "keine Favoriten"-Ansicht zu erreichen. SmarttrainerService::
+            // nextQuestion() filtert bereits analog auf active=true (siehe
+            // Bug-Review B12); hier zusätzlich auf eine existierende
+            // veröffentlichte Revision, da genau das hier (anders als bei
+            // Smarttrainer) sonst erst nach der Auswahl geprüft wird.
+            $next = ContentQuestion::whereIn('id', $favoriteIds)
+                ->where('active', true)
+                ->whereHas('revisions', fn ($query) => $query->where('editorial_status', 'published'))
+                ->inRandomOrder()
+                ->first();
+            $next = $next ? ['question' => $next, 'reason' => 'Favorit'] : null;
         } else {
             $next = $smarttrainer->nextQuestion($tenant, $user, $course, $mode, $topic, $moduleId, $questionIds);
         }

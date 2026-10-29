@@ -6,6 +6,7 @@ use App\Models\Coupon;
 use App\Models\ExamRuleSet;
 use App\Models\ExamSession;
 use App\Models\ExamSessionQuestion;
+use App\Models\Product;
 use App\Support\TenantContext;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
@@ -28,6 +29,8 @@ class AppRoleGrantHardeningTest extends TestCase
 
     private array $createdRuleSetIds = [];
 
+    private array $createdProductIds = [];
+
     protected function tearDown(): void
     {
         // Reihenfolge wichtig: exam_session referenziert rule_set_id (wird
@@ -38,6 +41,10 @@ class AppRoleGrantHardeningTest extends TestCase
         $this->onAdmin(function () {
             foreach ($this->createdRuleSetIds as $id) {
                 ExamRuleSet::where('id', $id)->delete();
+            }
+
+            foreach ($this->createdProductIds as $id) {
+                Product::where('id', $id)->delete();
             }
         });
 
@@ -214,6 +221,43 @@ class AppRoleGrantHardeningTest extends TestCase
         app(TenantContext::class)->set($tenantA);
 
         $visible = DB::table('exam_session_question')->where('exam_session_id', $sessionB->id)->get();
+
+        $this->assertCount(0, $visible);
+    }
+
+    /**
+     * Bug-Review (Coupon-Nebentabelle ohne DB-Lock pro Bootsschule):
+     * coupon_option_product hatte bislang keine eigene RLS-Policy -- anders
+     * als coupon selbst (coupon_isolation) war die Zuordnung der gebündelten
+     * Zusatzprodukte zu einem Coupon tabellenweit für jede Bootsschule
+     * sichtbar, sobald eine Abfrage sie direkt statt über einen JOIN auf
+     * coupon ansprach. Die neue Policy verweist mangels eigener tenant_id
+     * auf die Mandantengrenze der referenzierten coupon-Zeile.
+     */
+    public function test_coupon_option_product_is_isolated_per_tenant(): void
+    {
+        $tenantB = $this->createTestTenant();
+        $course = $this->existingCourse('SRC');
+
+        $couponB = $this->onAdmin(function () use ($tenantB, $course) {
+            $product = Product::create(['code' => 'TEST-W11-'.uniqid(), 'name' => 'Testprodukt W11', 'active' => true]);
+            $this->createdProductIds[] = $product->id;
+
+            $coupon = Coupon::create([
+                'code' => 'TESTW11-'.uniqid(),
+                'course_id' => $course->id,
+                'is_renewal' => false,
+                'tenant_id' => $tenantB->id,
+            ]);
+            $coupon->optionProducts()->attach($product->id);
+
+            return $coupon;
+        });
+
+        $tenantA = $this->createTestTenant();
+        app(TenantContext::class)->set($tenantA);
+
+        $visible = DB::table('coupon_option_product')->where('coupon_id', $couponB->id)->get();
 
         $this->assertCount(0, $visible);
     }

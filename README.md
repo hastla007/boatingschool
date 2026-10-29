@@ -183,7 +183,10 @@ veröffentlicht sie (`CatalogUpdateSeeder`); die alte Fassung bleibt als
 sie. Die Ergänzung SRC → UBI nutzt nur die 79 Fragen des amtlichen
 Ergänzungskatalogs (Modul `UBI_ERG`, dieselben Fragen wie im Modul `UBI`)
 und hat 12 Übungsbögen à 10 Fragen; ihre Bestehensgrenze ist noch nicht
-hinterlegt, das Regelwerk bleibt deshalb `draft`.
+hinterlegt, das Regelwerk bleibt deshalb `draft`. Der Kombikurs SRC & UBI
+übernimmt die 12 SRC- und die 12 UBI-Bögen (Nr. 1–12 und 101–112); sein
+Regelwerk bleibt ebenfalls `draft`, weil ein Regelwerk die beiden
+verschiedenen Grenzen (SRC 19/24, UBI 17/22) nicht abbilden kann.
 
 ```bash
 php artisan serve

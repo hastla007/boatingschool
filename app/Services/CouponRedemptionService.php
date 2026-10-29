@@ -66,6 +66,27 @@ class CouponRedemptionService
             throw new RuntimeException('Dieser Kurs ist aktuell nicht verfügbar.');
         }
 
+        // Bug-Review (Widerrufener Zugang kommt mit neuem Kurscode zurück):
+        // hasAccess() unten erkennt nur AKTIVEN Zugang -- ein per Admin\
+        // EntitlementController bewusst entzogener ("revoked") Zugang zählt
+        // dort nicht als Zugang, sodass ein ganz normaler (neuer) Kurscode
+        // für denselben Kurs bisher klaglos ein zweites, aktives Entitlement
+        // anlegte. redeemForRenewal() (siehe Bug-Review R4-7) schützt
+        // Verlängerungscodes bereits davor, einen entzogenen Zugang so zu
+        // unterlaufen -- derselbe Schutz fehlte hier für den regulären
+        // Kurscode-Pfad.
+        $revoked = Entitlement::where('tenant_id', $tenant->id)
+            ->where('user_id', $user->id)
+            ->where('course_id', $course->id)
+            ->where('status', 'revoked')
+            ->exists();
+
+        if ($revoked) {
+            throw new RuntimeException($actor->id === $user->id
+                ? 'Der Zugang zu diesem Kurs wurde entzogen und kann nicht per Code reaktiviert werden. Bitte wende dich an deine Bootsschule.'
+                : 'Der Zugang zu diesem Kurs wurde entzogen und kann nicht per Code reaktiviert werden.');
+        }
+
         // Bug-Review B10: ohne diese Prüfung verbrauchte ein Nutzer, der den
         // Kurs schon freigeschaltet hat, trotzdem den Code und erhielt ein
         // zweites, redundantes Entitlement -- der Code war damit verloren,

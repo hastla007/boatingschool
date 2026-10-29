@@ -102,12 +102,25 @@ class EntitlementController extends Controller
             // wird, war damit reiner Zufall. ->oldest() macht das
             // deterministisch (der am längsten ungenutzte Code zuerst) und
             // damit nachvollziehbar.
+            // Bug-Review (Gleichzeitige Code-Zuweisung meldet "kein Code
+            // frei"): ->oldest()->lockForUpdate() sperrt genau DIE eine
+            // Zeile, die ORDER BY + LIMIT 1 auswählt. Weisen zwei Admins
+            // nahezu gleichzeitig denselben Kurs zu und sind mehrere Codes
+            // frei, wartet die zweite Transaktion bisher auf exakt diese
+            // eine (schon vom ersten Admin gesperrte) Zeile -- nach deren
+            // Commit erfüllt sie wegen des inzwischen gesetzten redeemed_at
+            // die WHERE-Bedingung nicht mehr, Postgres schließt sie über
+            // EvalPlanQual einfach aus, ohne automatisch zur nächstältesten
+            // freien Zeile weiterzurücken: das Ergebnis ist 0 Zeilen, obwohl
+            // ein zweiter freier Code längst existierte. SKIP LOCKED lässt
+            // die zweite Transaktion stattdessen direkt die nächste, noch
+            // ungesperrte freie Zeile wählen.
             $coupon = Coupon::where('tenant_id', $tenant->id)
                 ->where('course_id', $course->id)
                 ->where('is_renewal', false)
                 ->whereNull('redeemed_at')
                 ->oldest()
-                ->lockForUpdate()
+                ->lock('for update skip locked')
                 ->first();
 
             if (! $coupon) {
@@ -247,12 +260,14 @@ class EntitlementController extends Controller
             return back()->withErrors(['action' => 'Dieser Zugang ist bereits unbefristet gültig.']);
         }
 
+        // Bug-Review (Gleichzeitige Code-Zuweisung meldet "kein Code frei"):
+        // siehe grant() oben -- SKIP LOCKED statt lockForUpdate().
         $coupon = Coupon::where('tenant_id', $tenant->id)
             ->where('course_id', $entitlement->course_id)
             ->where('is_renewal', true)
             ->whereNull('redeemed_at')
             ->oldest()
-            ->lockForUpdate()
+            ->lock('for update skip locked')
             ->first();
 
         if (! $coupon) {
@@ -308,12 +323,14 @@ class EntitlementController extends Controller
             return null;
         }
 
+        // Bug-Review (Gleichzeitige Code-Zuweisung meldet "kein Code frei"):
+        // siehe grant() oben -- SKIP LOCKED statt lockForUpdate().
         $coupon = Coupon::where('tenant_id', $tenant->id)
             ->where('course_id', $entitlement->course_id)
             ->where('is_renewal', false)
             ->whereNull('redeemed_at')
             ->oldest()
-            ->lockForUpdate()
+            ->lock('for update skip locked')
             ->first();
 
         if (! $coupon) {
