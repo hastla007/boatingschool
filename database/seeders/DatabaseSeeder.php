@@ -80,6 +80,7 @@ class DatabaseSeeder extends Seeder
             BinnenSegelnLessonQuestionSeeder::class,
             BinnenSegelnAddonLessonQuestionSeeder::class,
             FknSknLessonQuestionSeeder::class,
+            FunkLessonQuestionSeeder::class,
             AddSeeToBinVideoCourseSeeder::class,
             AddBinToSeeVideoCourseSeeder::class,
             NavigationTaskSeeder::class,
