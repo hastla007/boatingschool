@@ -10,10 +10,13 @@ use Illuminate\Database\Seeder;
 /**
  * Prüfungsbögen für den Kombikurs "SBF See & Binnen" (SBF-SEE-BIN):
  * die bestehenden, bereits amtlich geprüften 15 Bögen von SBF-SEE und
- * SBF-BIN-MOTOR werden unter der eigenen Kurs-ID des Kombikurses
- * gespiegelt (exam_paper hängt an course_id, nicht an course_module),
- * da ein einzelnes Entitlement auf den Kombikurs für beide Teilprüfungen
- * reichen soll. Da paper_number je Kurs eindeutig sein muss, bekommen
+ * ADD-SEE-TO-BIN werden unter der eigenen Kurs-ID des Kombikurses
+ * gespiegelt. Für den Binnen-Teil die Ergänzungsbögen (23 Binnen-Fragen)
+ * statt der vollen SBF-Binnen-Bögen: werden beide Bereiche am selben Tag
+ * geprüft, kommen die Basisfragen nur einmal dran (im See-Teil). Bestehende
+ * Installationen stellt die Migration 000477 um. Gespiegelt wird, weil
+ * exam_paper an course_id hängt (nicht an course_module) und ein einzelnes
+ * Entitlement auf den Kombikurs für beide Teilprüfungen reichen soll. Da paper_number je Kurs eindeutig sein muss, bekommen
  * SBF-Binnen-Bögen einen Offset von 100 (Bogen 1 → paper_number 101);
  * siehe App\Support\ComboExamGroups für die Rückübersetzung in der UI.
  */
@@ -21,7 +24,7 @@ class ComboExamPaperSeeder extends Seeder
 {
     private const SOURCES = [
         ['course' => 'SBF-SEE', 'offset' => 0],
-        ['course' => 'SBF-BIN-MOTOR', 'offset' => 100],
+        ['course' => 'ADD-SEE-TO-BIN', 'offset' => 100],
     ];
 
     public function run(): void

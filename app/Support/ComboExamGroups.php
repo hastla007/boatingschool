@@ -15,14 +15,16 @@ namespace App\Support;
  * Teilkurses (Bestehensgrenze und Zeitlimit, siehe
  * CourseDefinition::examRuleSetForPaper()), da die Teilprüfungen
  * verschiedene amtliche Grenzen haben (z. B. SRC 19/24 in 30 Minuten,
- * UBI 17/22 in 60 Minuten).
+ * UBI 17/22 in 60 Minuten). Im Kombikurs SBF See & Binnen kommen die
+ * Basisfragen nur einmal dran (im See-Teil), die Binnen-Bögen sind
+ * deshalb die 23 Binnen-Fragen der Ergänzung See -> Binnen.
  */
 class ComboExamGroups
 {
     public const GROUPS = [
         'SBF-SEE-BIN' => [
             ['label' => 'SBF See', 'course' => 'SBF-SEE', 'min' => 1, 'max' => 15, 'offset' => 0],
-            ['label' => 'SBF Binnen', 'course' => 'SBF-BIN-MOTOR', 'min' => 101, 'max' => 115, 'offset' => 100],
+            ['label' => 'SBF Binnen', 'course' => 'ADD-SEE-TO-BIN', 'min' => 101, 'max' => 115, 'offset' => 100],
         ],
         'SRC-UBI' => [
             ['label' => 'SRC', 'course' => 'SRC', 'min' => 1, 'max' => 12, 'offset' => 0],
