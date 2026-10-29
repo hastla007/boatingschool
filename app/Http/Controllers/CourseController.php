@@ -13,6 +13,7 @@ use App\Models\TenantCourseDisabled;
 use App\Models\VideoProgress;
 use App\Services\EntitlementService;
 use App\Support\ComboVideoGroups;
+use App\Support\ExamRegistration;
 use App\Support\FunkTraining;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
@@ -221,6 +222,7 @@ class CourseController extends Controller
             'comboVideoGroups' => $comboVideoGroups,
             'hasExam' => $course->hasStartableExam(),
             'funkCatalogs' => FunkTraining::catalogsFor($course),
+            'selfExamRegistration' => ExamRegistration::isSelf($tenant, $course),
             'hasNavigationTasks' => $course->navigationTasks()->exists(),
             'knotenModuleId' => $knotenModule?->id,
             'knotenPercent' => $knotenModule ? $chapterPercent([$knotenModule->id]) : 0,

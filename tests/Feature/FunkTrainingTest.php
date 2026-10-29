@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\CourseExamRegistration;
 use App\Models\RadioTrainingProgress;
+use App\Support\ExamRegistration;
 use App\Support\FunkPraxis;
 use App\Support\FunkTraining;
 use Tests\Feature\Concerns\InteractsWithTenants;
@@ -232,6 +234,11 @@ class FunkTrainingTest extends TestCase
         $addon = $this->existingCourse('ADD-UBI-TO-SRC');
         $this->grantEntitlement($tenant, $learner, $sbf);
         $this->grantEntitlement($tenant, $learner, $addon);
+        $this->onAdmin(function () use ($tenant, $combo, $addon) {
+            foreach ([$combo, $addon] as $course) {
+                CourseExamRegistration::create(['tenant_id' => $tenant->id, 'course_id' => $course->id, 'mode' => ExamRegistration::SELF]);
+            }
+        });
 
         $this->actingAsInTenant($learner, $tenant)->get("/courses/{$combo->id}")->assertOk()->assertSee('Prüfung buchen');
         $this->actingAsInTenant($learner, $tenant)->get("/courses/{$combo->id}/funk/pruefung-buchen")

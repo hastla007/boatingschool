@@ -348,7 +348,7 @@
             <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />
         </a>
 
-        {{-- Funkscheine: Praxis-Prüfungssimulation, Prüfung buchen und mündliche Prüfung (SRC: Seefunktexte, Vokabeln; UBI: Aufnahme, Abgabe, Buchstabiertafel). --}}
+        {{-- Funkscheine: Praxis-Prüfungssimulation und mündliche Prüfung (SRC: Seefunktexte, Vokabeln; UBI: Aufnahme, Abgabe, Buchstabiertafel). --}}
         @if ($funkCatalogs)
             <a href="{{ route('funk.praxis.index', $course) }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-4 hover:shadow-md transition">
                 <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="{{ $tileIconBg }}">
@@ -378,16 +378,6 @@
                     <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />
                 </a>
             @endif
-            <a href="{{ route('funk.booking', $course) }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-4 hover:shadow-md transition">
-                <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="{{ $tileIconBg }}">
-                    <x-icon name="calendar-days" class="w-5 h-5" style="{{ $tileIconColor }}" />
-                </div>
-                <div class="flex-1 min-w-0">
-                    <div class="font-semibold text-slate-800 dark:text-white">Prüfung buchen</div>
-                    <div class="text-xs text-slate-600 dark:text-slate-400">Anmeldung, Kosten und Ablauf</div>
-                </div>
-                <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />
-            </a>
         @endif
 
         @if ($hasNavigationTasks)
@@ -429,7 +419,20 @@
              hier blieb dabei übersehen. $overallPercent bleibt für die
              reine Anzeige (Fortschrittsring, "X%/Y%" unten) weiterhin
              gerundet. --}}
-        @if ($exactPercent >= $examReadinessThreshold)
+        {{-- Prüfungsanmeldung (App\Support\ExamRegistration): meldet sich der Teilnehmer selbst an,
+             ersetzt "Prüfung buchen" das Termintool "Praxis & Prüfung" der Bootsschule. --}}
+        @if ($selfExamRegistration)
+            <a href="{{ route('funk.booking', $course) }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-4 hover:shadow-md transition">
+                <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="{{ $tileIconBg }}">
+                    <x-icon name="calendar-days" class="w-5 h-5" style="{{ $tileIconColor }}" />
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="font-semibold text-slate-800 dark:text-white">Prüfung buchen</div>
+                    <div class="text-xs text-slate-600 dark:text-slate-400">Anmeldung, Kosten und Ablauf</div>
+                </div>
+                <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />
+            </a>
+        @elseif ($exactPercent >= $examReadinessThreshold)
             <a href="{{ route('praxis-pruefung.index', $course) }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-4 hover:shadow-md transition">
                 <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="{{ $tileIconBg }}">
                     <x-icon name="shield-check" class="w-5 h-5" style="{{ $tileIconColor }}" />

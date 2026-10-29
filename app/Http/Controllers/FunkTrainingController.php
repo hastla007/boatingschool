@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\CourseDefinition;
 use App\Models\RadioTrainingProgress;
 use App\Services\EntitlementService;
+use App\Support\ExamRegistration;
 use App\Support\FunkPraxis;
 use App\Support\FunkTraining;
 use App\Support\TenantContext;
@@ -44,6 +45,8 @@ class FunkTrainingController extends Controller
     public function booking(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course): View
     {
         $catalog = $this->authorizeCatalog($request, $tenantContext, $entitlements, $course, $request->query('teil'));
+        // Meldet die Bootsschule an (Termintool), gibt es diese Seite für den Kurs nicht.
+        abort_unless(ExamRegistration::isSelf($tenantContext->tenant(), $course), 404);
 
         return view('funk.booking', [
             'course' => $course,

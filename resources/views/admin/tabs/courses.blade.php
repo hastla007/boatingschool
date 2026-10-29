@@ -8,6 +8,12 @@
     Kauf-Link hinterlegen &mdash; der ersetzt auf der Kursübersicht für Lernende ohne Zugang dann den
     Standardhinweis durch einen „Jetzt kaufen"-Button.
 </p>
+<p class="text-slate-500 mb-6">
+    Je Kurs legen Sie außerdem die <strong>Prüfungsanmeldung</strong> fest: Entweder melden Sie Ihre Teilnehmer an
+    (Termintool „Praxis &amp; Prüfung"), oder die Teilnehmer melden sich selbst beim Prüfungsausschuss an und sehen
+    dafür die Seite „Prüfung buchen" mit Anmeldeweg, Gebühren und Ablauf des jeweiligen Kurses. Die Selbstanmeldung
+    steht für Kurse zur Wahl, für die es eine solche Seite gibt.
+</p>
 
 <div class="max-w-4xl bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6">
     <form method="POST" action="{{ route('admin.courses.update') }}" class="space-y-4">
@@ -67,6 +73,23 @@
                            :class="{ 'opacity-50': ! enabled }"
                            class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                     <x-input-error :messages="$errors->get('links.'.$course->id)" class="mt-1" />
+                </div>
+                @php
+                    $selfPossible = \App\Support\ExamRegistration::hasSelfPage($course);
+                    $registration = old('registration.'.$course->id, $examRegistrations->get($course->id, \App\Support\ExamRegistration::SCHOOL));
+                @endphp
+                <div class="sm:w-72 shrink-0">
+                    <label for="registration-{{ $course->id }}" class="sr-only">Prüfungsanmeldung {{ $course->name }}</label>
+                    <select id="registration-{{ $course->id }}" name="registration[{{ $course->id }}]" @disabled(! $selfPossible)
+                            @unless ($selfPossible) title="Für diesen Kurs gibt es noch keine Seite zur Selbstanmeldung." @endunless
+                            :class="{ 'opacity-50': ! enabled }"
+                            class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm disabled:opacity-60">
+                        <option value="school" @selected($registration === 'school')>Anmeldung durch die Bootsschule</option>
+                        @if ($selfPossible)
+                            <option value="self" @selected($registration === 'self')>Teilnehmer meldet sich selbst an</option>
+                        @endif
+                    </select>
+                    <x-input-error :messages="$errors->get('registration.'.$course->id)" class="mt-1" />
                 </div>
             </div>
         @empty

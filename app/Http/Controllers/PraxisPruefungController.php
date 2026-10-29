@@ -9,7 +9,9 @@ use App\Models\TenantAddon;
 use App\Models\TenantCourseLocation;
 use App\Services\CourseProgressService;
 use App\Services\EntitlementService;
+use App\Support\ExamRegistration;
 use App\Support\TenantContext;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -21,11 +23,16 @@ class PraxisPruefungController extends Controller
         EntitlementService $entitlements,
         CourseProgressService $courseProgress,
         CourseDefinition $course,
-    ): View {
+    ): View|RedirectResponse {
         $tenant = $tenantContext->tenant();
         $user = $request->user();
 
         abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Für diesen Kurs liegt kein aktives Entitlement vor.');
+
+        // Teilnehmer meldet sich selbst an (ExamRegistration::SELF): statt des Termintools die Seite "Prüfung buchen".
+        if (ExamRegistration::isSelf($tenant, $course)) {
+            return redirect()->route('funk.booking', $course);
+        }
 
         // Bug-Review (Gates vergleichen den gerundeten Wert):
         // overallPercent() rundet für die Anzeige -- 49,5% gefestigte

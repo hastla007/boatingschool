@@ -8,6 +8,7 @@ use App\Models\Attempt;
 use App\Models\AuditLog;
 use App\Models\Coupon;
 use App\Models\CourseDefinition;
+use App\Models\CourseExamRegistration;
 use App\Models\CoursePromoBanner;
 use App\Models\CourseWebshopLink;
 use App\Models\Entitlement;
@@ -315,6 +316,7 @@ class AdminDashboardController extends Controller
         $branding = $tenant->branding;
 
         $webshopLinks = CourseWebshopLink::where('tenant_id', $tenant->id)->pluck('url', 'course_id');
+        $examRegistrations = CourseExamRegistration::where('tenant_id', $tenant->id)->pluck('mode', 'course_id');
 
         $addonTemplates = AddonTemplate::where('active', true)->orderBy('sort_order')->orderBy('title')->get();
         $tenantAddons = TenantAddon::where('tenant_id', $tenant->id)->get()->keyBy('addon_template_id');
@@ -478,6 +480,7 @@ class AdminDashboardController extends Controller
             'productPurchases' => $productPurchases,
             'branding' => $branding,
             'webshopLinks' => $webshopLinks,
+            'examRegistrations' => $examRegistrations,
             'addonTemplates' => $addonTemplates,
             'tenantAddons' => $tenantAddons,
             'coursePromoBanners' => $coursePromoBanners,
