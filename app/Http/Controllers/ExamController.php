@@ -334,6 +334,20 @@ class ExamController extends Controller
     public function answer(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, ExamEvaluationService $examEvaluation, ExamSession $examSession): Response
     {
         $this->authorizeSession($request, $tenantContext, $entitlements, $examSession);
+
+        // Bug-Review (AA4: Prüfung nach Ablauf der Zeit zeigt englische
+        // Fehlerseite): wer nach Zeitablauf noch antwortet, erreicht diese
+        // Methode oft ein zweites Mal (Doppelklick, oder der Browser hatte
+        // die Seite bereits neu geladen) -- die Session steht dann schon auf
+        // "evaluated" (siehe timeExpired()-Zweig unten bzw. finish()). Statt
+        // dafür bisher ein nacktes abort(409) ohne eigene errors/409.blade.php
+        // zu zeigen (Laravels generische, englische Fallback-Fehlerseite),
+        // landet der Lernende jetzt direkt beim längst fertigen Ergebnis --
+        // genau das, was er nach Ablauf der Zeit sehen will.
+        if ($examSession->status === 'evaluated') {
+            return redirect()->route('exam.result', $examSession);
+        }
+
         abort_if($examSession->status !== 'running', 409);
 
         // Serverseitig prüfen statt nur der Weiterleitung in show() zu
@@ -344,7 +358,8 @@ class ExamController extends Controller
         if ($examEvaluation->timeExpired($examSession)) {
             $examEvaluation->evaluate($examSession);
 
-            abort(409, 'Die Prüfungszeit ist abgelaufen.');
+            return redirect()->route('exam.result', $examSession)
+                ->with('status', 'Die Prüfungszeit ist abgelaufen -- hier ist dein Ergebnis.');
         }
 
         $validated = $request->validate([
