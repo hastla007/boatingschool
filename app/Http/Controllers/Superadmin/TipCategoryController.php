@@ -21,7 +21,7 @@ class TipCategoryController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255', 'unique:tip_category,name'],
-            'sort_order' => ['nullable', 'integer'],
+            'sort_order' => ['nullable', 'integer', 'min:0', 'max:999999'],
         ]);
 
         TipCategory::create([
@@ -36,7 +36,7 @@ class TipCategoryController extends Controller
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255', 'unique:tip_category,name,'.$tipCategory->id],
-            'sort_order' => ['nullable', 'integer'],
+            'sort_order' => ['nullable', 'integer', 'min:0', 'max:999999'],
         ]);
 
         $tipCategory->update([

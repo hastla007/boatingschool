@@ -69,7 +69,7 @@ class AddonTemplateController extends Controller
             'headline' => ['required', 'string', 'max:255'],
             'bullets' => ['nullable', 'string'],
             'cta_label' => ['required', 'string', 'max:255'],
-            'sort_order' => ['nullable', 'integer'],
+            'sort_order' => ['nullable', 'integer', 'min:0', 'max:999999'],
         ]);
 
         $validated['bullets'] = array_values(array_filter(array_map(

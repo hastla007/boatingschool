@@ -199,6 +199,7 @@ return [
         'course_id' => 'Kurs',
         'logo' => 'Logo',
         'slug' => 'Slug',
+        'sort_order' => 'Sortierzahl',
         'admin_first_name' => 'Vorname',
         'admin_last_name' => 'Nachname',
         'admin_email' => 'E-Mail-Adresse',
