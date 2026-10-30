@@ -3,9 +3,12 @@
 namespace Tests\Feature;
 
 use App\Models\Entitlement;
+use App\Models\PraxisFormSubmission;
+use App\Models\PraxisFormTemplate;
 use App\Models\Product;
 use App\Models\ProductPurchase;
 use App\Models\TenantUser;
+use App\Models\WillkommensboxOrder;
 use App\Notifications\ConfirmPendingEmail;
 use App\Notifications\EmailChangeRequested;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +20,24 @@ use Tests\TestCase;
 class ProfileTest extends TestCase
 {
     use InteractsWithTenants;
+
+    private array $createdTemplateIds = [];
+
+    protected function tearDown(): void
+    {
+        // Muss vor dem Löschen der Vorlage laufen: cleanUpCreatedTenantsAndUsers()
+        // kaskadiert die Anmeldung (praxis_form_submission) weg, die sonst
+        // per Fremdschlüssel noch auf die Vorlage zeigt (siehe PersonalDataExportTest).
+        $this->cleanUpCreatedTenantsAndUsers();
+
+        $this->onAdmin(function () {
+            foreach ($this->createdTemplateIds as $id) {
+                PraxisFormTemplate::where('id', $id)->delete();
+            }
+        });
+
+        parent::tearDown();
+    }
 
     public function test_profile_page_is_displayed(): void
     {
@@ -411,6 +432,54 @@ class ProfileTest extends TestCase
         $response->assertSee('TEST-CODE-1234');
         $response->assertSee($product->name);
         $response->assertSee('TEST-CODE-5678');
+    }
+
+    /**
+     * Bug-Review BB7: "Deine Buchungen" zeigte bisher ausschließlich
+     * Kurszugänge/Zusatzprodukte (über Coupon/Admin freigeschaltet) --
+     * eine Willkommensbox-Bestellung und eine Praxisformular-Anmeldung
+     * sind aber ebenso selbst getätigte Buchungen und fehlten hier
+     * vollständig, obwohl beide bereits im DSGVO-Export
+     * (PersonalDataExportService) als personenbezogene Daten gelten.
+     */
+    public function test_profile_page_lists_willkommensbox_orders_and_praxis_form_submissions_as_bookings(): void
+    {
+        $tenant = $this->createTestTenant();
+        $user = $this->createTenantUser($tenant);
+        $course = $this->existingCourse('SRC');
+
+        $this->onAdmin(fn () => WillkommensboxOrder::create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $user->id,
+            'street' => 'Lieferstraße 1',
+            'postal_code' => '12345',
+            'city' => 'Lieferstadt',
+            'country' => 'Deutschland',
+        ]));
+
+        $template = $this->onAdmin(fn () => PraxisFormTemplate::create([
+            'title' => 'E2E Buchungsliste-Formular',
+            'min_progress_percent' => 0,
+            'course_ids' => [$course->id],
+            'fields' => [],
+            'active' => true,
+        ]));
+        $this->createdTemplateIds[] = $template->id;
+
+        $this->onAdmin(fn () => PraxisFormSubmission::create([
+            'tenant_id' => $tenant->id,
+            'course_id' => $course->id,
+            'user_id' => $user->id,
+            'praxis_form_template_id' => $template->id,
+            'data' => [],
+        ]));
+
+        $response = $this->actingAsInTenant($user, $tenant)->get('/profile');
+
+        $response->assertOk();
+        $response->assertSee('Willkommensbox');
+        $response->assertSee('Praxisformular');
+        $response->assertSee($course->name);
     }
 
     public function test_profile_update_redirects_back_to_a_given_safe_return_url(): void

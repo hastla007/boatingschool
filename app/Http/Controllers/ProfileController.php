@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
 use App\Models\Entitlement;
+use App\Models\PraxisFormSubmission;
 use App\Models\ProductPurchase;
 use App\Models\TenantUser;
+use App\Models\WillkommensboxOrder;
 use App\Notifications\ConfirmPendingEmail;
 use App\Notifications\EmailChangeRequested;
 use App\Services\AccountErasureService;
@@ -66,7 +68,33 @@ class ProfileController extends Controller
                 'date' => $p->created_at,
             ]);
 
-        $bookings = $entitlements->concat($productPurchases)->sortByDesc('date')->values();
+        // Bug-Review (BB7: Buchungsliste im Profil unvollständig): "Deine
+        // Buchungen" zeigte bisher ausschließlich Kurszugänge/Zusatzprodukte
+        // (beides über Coupon/Admin "freigeschaltet") -- die Willkommensbox-
+        // Bestellung und eine Praxisformular-Anmeldung sind aber ebenso
+        // selbst getätigte Buchungen (siehe PersonalDataExportService, wo
+        // beide bereits als personenbezogene Daten exportiert werden) und
+        // fehlten hier völlig, obwohl ein Lerner sie hier erwarten würde.
+        $willkommensboxOrders = WillkommensboxOrder::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+            ->orderByDesc('created_at')->get()
+            ->map(fn (WillkommensboxOrder $o) => [
+                'label' => 'Willkommensbox',
+                'source_type' => 'self',
+                'source_reference' => null,
+                'date' => $o->created_at,
+            ]);
+
+        $praxisFormSubmissions = PraxisFormSubmission::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+            ->with('course')->orderByDesc('created_at')->get()
+            ->map(fn (PraxisFormSubmission $s) => [
+                'label' => 'Praxisformular'.($s->course?->name ? ' — '.$s->course->name : ''),
+                'source_type' => 'self',
+                'source_reference' => null,
+                'date' => $s->created_at,
+            ]);
+
+        $bookings = $entitlements->concat($productPurchases)->concat($willkommensboxOrders)->concat($praxisFormSubmissions)
+            ->sortByDesc('date')->values();
 
         // Sicherheitsreview S3: Adresse/Geburtsdatum liegen jetzt je
         // Mitgliedschaft auf tenant_user statt kontoweit auf app_user --
