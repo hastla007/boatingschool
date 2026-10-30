@@ -231,6 +231,19 @@ class ImportContentFeedbackRevisionTest extends TestCase
                 $newRevision->feedback_incorrect,
                 'Ein noch leeres Feedback-Feld soll weiterhin aus der CSV befüllt werden.'
             );
+
+            // Bug-Review (AA8: Feedback-Import löscht die Markierung "vom
+            // Superadmin korrigiert"): die neue Revision übernimmt denselben
+            // question_text wie die Editor-Revision unverändert (siehe oben)
+            // -- ohne edited_by_superadmin=true fortzuschreiben, hielt
+            // ImportContentQuestions (siehe dessen "zuletzt importierte
+            // Fassung"-Diff) diese neue Revision beim nächsten Excel-
+            // Reimport fälschlich für eine unkorrigierte und böte dort erneut
+            // den alten, falschen Excel-Text an.
+            $this->assertTrue(
+                $newRevision->edited_by_superadmin,
+                'Die neue Revision muss die Markierung "vom Superadmin korrigiert" von der Editor-Revision übernehmen.'
+            );
         });
     }
 }
