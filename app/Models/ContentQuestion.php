@@ -42,16 +42,26 @@ class ContentQuestion extends Model
      * Reimport eine neue Revision im Status "review" an (siehe dort), statt
      * sie wie Superadmin\QuestionController::update() direkt zu
      * veröffentlichen -- bisher gab es aber keine Stelle, die eine solche
-     * Revision überhaupt je veröffentlicht. Da eine neue Revision immer mit
-     * revision_no = (bisher höchste) + 1 angelegt wird, ist eine
-     * "review"-Revision -- falls vorhanden -- immer zugleich die Revision
-     * mit der höchsten revision_no.
+     * Revision überhaupt je veröffentlicht.
+     *
+     * Bug-Review (AA9: Wartende Import-Änderung verschwindet): früher wurde
+     * dafür angenommen, eine "review"-Revision sei -- da revision_no stets
+     * aufsteigend vergeben wird -- immer zugleich die insgesamt letzte
+     * Revision der Frage. Speichert der Superadmin aber über den Editor
+     * (QuestionController::update()), während eine solche Revision noch auf
+     * Freigabe wartet, legt das eine NEUE, bereits veröffentlichte Revision
+     * mit einer noch höheren revision_no an, ohne die wartende Review-
+     * Revision anzutasten (siehe dortiger Bug-Review T3) -- diese Annahme
+     * galt dann nicht mehr, und die wartende Revision verschwand dadurch
+     * unbemerkt und dauerhaft aus der Vorschau sowie aus der Fragenliste.
+     * Gesucht wird deshalb gezielt nach dem Status, nicht nach der Position.
      */
     public function pendingReviewRevision(): ?ContentQuestionRevision
     {
-        $latest = $this->revisions()->orderByDesc('revision_no')->first();
-
-        return $latest && $latest->editorial_status === 'review' ? $latest : null;
+        return $this->revisions()
+            ->where('editorial_status', 'review')
+            ->orderByDesc('revision_no')
+            ->first();
     }
 
     public function modules(): BelongsToMany

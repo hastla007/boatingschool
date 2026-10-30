@@ -169,10 +169,24 @@ class QuestionController extends Controller
         // zu verwerfen. Ein noch offener Link auf die ältere davon durfte
         // sie bisher trotzdem veröffentlichen und damit die inzwischen
         // neuere "review"-Revision verwaist (nie mehr erreichbar) zurück-
-        // lassen. Veröffentlichbar ist deshalb nur noch die Revision mit
-        // der tatsächlich höchsten revision_no dieser Frage.
-        $isLatest = $revision->revision_no === $revision->question->revisions()->max('revision_no');
-        abort_unless($isLatest, 409, 'Für diese Frage liegt inzwischen eine neuere Fassung vor -- bitte die Seite neu laden.');
+        // lassen.
+        //
+        // Bug-Review (AA9: Wartende Import-Änderung verschwindet): die
+        // Prüfung verglich bisher gegen die höchste revision_no ÜBER ALLE
+        // Revisionen -- speichert der Superadmin über den Editor, während
+        // diese Review-Revision noch wartet (siehe QuestionController::
+        // update(), T3), entsteht dadurch eine neue, bereits veröffentlichte
+        // Revision mit einer noch höheren revision_no. Die wartende Review-
+        // Revision galt damit fälschlich ebenfalls als "veraltet" und ließ
+        // sich nie mehr veröffentlichen -- der Hinweistext ("Seite neu
+        // laden") half nicht, da sich daran auch nach einem Neuladen nichts
+        // ändert. Maßgeblich ist deshalb nur, ob eine NEUERE Review-Revision
+        // (aus einem zweiten Reimport) existiert, nicht ein inzwischen vom
+        // Editor unabhängig veröffentlichter Stand.
+        $isLatestReview = $revision->revision_no === $revision->question->revisions()
+            ->where('editorial_status', 'review')
+            ->max('revision_no');
+        abort_unless($isLatestReview, 409, 'Für diese Frage liegt inzwischen eine neuere Fassung vor -- bitte die Seite neu laden.');
 
         DB::transaction(function () use ($revision) {
             // Bug-Review (Doppelklick auf "Veröffentlichen" verursacht

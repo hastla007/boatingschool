@@ -142,6 +142,90 @@ class QuestionEditorMediaFromPublishedRevisionTest extends TestCase
             // sonst anfassen.
             $reviewRevision->refresh();
             $this->assertSame('review', $reviewRevision->editorial_status);
+
+            // Bug-Review (AA9: Wartende Import-Änderung verschwindet): die
+            // Review-Revision hat jetzt eine KLEINERE revision_no als die
+            // soeben vom Editor angelegte veröffentlichte Revision (2 < 3)
+            // -- pendingReviewRevision() darf sie deshalb nicht für
+            // "veraltet" halten und muss sie weiterhin liefern, statt sie
+            // für immer unsichtbar werden zu lassen.
+            $this->assertNotNull(
+                $question->pendingReviewRevision(),
+                'Die wartende Review-Revision darf nach einem Editor-Speichern nicht unsichtbar werden.'
+            );
+            $this->assertSame($reviewRevision->id, $question->pendingReviewRevision()->id);
+        });
+    }
+
+    /**
+     * Bug-Review (AA9: Wartende Import-Änderung verschwindet): auch
+     * publishRevision() verglich die Review-Revision bisher gegen die
+     * insgesamt höchste revision_no der Frage -- nach einem Editor-
+     * Speichern (siehe Testfall oben) war das die neue veröffentlichte
+     * Fassung, nicht mehr die Review-Revision selbst, und die Veröffent-
+     * lichung schlug deshalb dauerhaft mit 409 fehl, auch nach einem erneuten
+     * Laden der Seite (der Hinweistext half also nicht).
+     */
+    public function test_a_pending_review_revision_can_still_be_published_after_the_editor_saves_a_new_revision(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+
+        [$question, , $reviewRevision] = $this->onAdmin(function () {
+            $module = Module::create(['code' => 'TEST-AA9-MOD-'.uniqid(), 'name' => 'Test Modul AA9', 'version' => '1', 'status' => 'published']);
+            $this->createdModuleIds[] = $module->id;
+
+            $question = ContentQuestion::create(['content_id' => 'TEST-AA9-Q-'.uniqid(), 'language' => 'de-DE', 'active' => true]);
+            $this->createdQuestionIds[] = $question->id;
+            $module->questions()->attach($question->id, ['required' => true]);
+
+            $published = ContentQuestionRevision::create([
+                'question_id' => $question->id,
+                'revision_no' => 1,
+                'question_type' => 'single_choice',
+                'question_text' => 'Alte Fassung',
+                'editorial_status' => 'published',
+                'rights_status' => 'licensed',
+            ]);
+            ContentAnswer::create(['revision_id' => $published->id, 'answer_key' => 'A', 'answer_text' => 'Richtig', 'is_correct' => true, 'sort_order' => 1]);
+            ContentAnswer::create(['revision_id' => $published->id, 'answer_key' => 'B', 'answer_text' => 'Falsch', 'is_correct' => false, 'sort_order' => 2]);
+            ContentAnswer::create(['revision_id' => $published->id, 'answer_key' => 'C', 'answer_text' => 'Falsch', 'is_correct' => false, 'sort_order' => 3]);
+            ContentAnswer::create(['revision_id' => $published->id, 'answer_key' => 'D', 'answer_text' => 'Falsch', 'is_correct' => false, 'sort_order' => 4]);
+
+            $review = ContentQuestionRevision::create([
+                'question_id' => $question->id,
+                'revision_no' => 2,
+                'question_type' => 'single_choice',
+                'question_text' => 'Neue Fassung aus Reimport',
+                'editorial_status' => 'review',
+                'rights_status' => 'review',
+            ]);
+            ContentAnswer::create(['revision_id' => $review->id, 'answer_key' => 'A', 'answer_text' => 'Richtig', 'is_correct' => true, 'sort_order' => 1]);
+            ContentAnswer::create(['revision_id' => $review->id, 'answer_key' => 'B', 'answer_text' => 'Falsch', 'is_correct' => false, 'sort_order' => 2]);
+            ContentAnswer::create(['revision_id' => $review->id, 'answer_key' => 'C', 'answer_text' => 'Falsch', 'is_correct' => false, 'sort_order' => 3]);
+            ContentAnswer::create(['revision_id' => $review->id, 'answer_key' => 'D', 'answer_text' => 'Falsch', 'is_correct' => false, 'sort_order' => 4]);
+
+            return [$question, $published, $review];
+        });
+
+        // Der Superadmin bearbeitet die veröffentlichte Fassung über den
+        // Editor, ohne die wartende Review-Revision zu beachten -- das legt
+        // eine weitere, noch höher nummerierte veröffentlichte Revision an.
+        $this->actingAs($superadmin)->patch("/superadmin/questions/{$question->id}", [
+            'question_type' => 'single_choice',
+            'question_text' => 'Alte Fassung (vom Editor überarbeitet)',
+            'answers' => ['A' => 'Richtig', 'B' => 'Falsch', 'C' => 'Falsch', 'D' => 'Falsch'],
+            'correct' => 'A',
+        ])->assertRedirect(route('superadmin.questions.edit', $question));
+
+        $response = $this->actingAs($superadmin)->post(route('superadmin.questions.revisions.publish', $reviewRevision));
+
+        $response->assertRedirect();
+        $response->assertSessionHasNoErrors();
+
+        $this->onAdmin(function () use ($question, $reviewRevision) {
+            $reviewRevision->refresh();
+            $this->assertSame('published', $reviewRevision->editorial_status);
+            $this->assertSame($reviewRevision->id, $question->publishedRevision()->id);
         });
     }
 }

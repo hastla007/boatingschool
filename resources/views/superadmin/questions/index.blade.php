@@ -30,11 +30,20 @@
             <tbody>
                 @foreach ($questions as $question)
                     @php($revision = $question->revisions->firstWhere('editorial_status', 'published') ?? $question->revisions->first())
-                    {{-- Bug-Review F8: eine Revision im Status "review" (siehe
-                         ImportContentQuestions) ist dank aufsteigender
-                         revision_no immer die zuletzt angelegte, also die
-                         erste in dieser absteigend sortierten Liste. --}}
-                    @php($pendingReview = $question->revisions->first()?->editorial_status === 'review' ? $question->revisions->first() : null)
+                    {{-- Bug-Review (AA9: Wartende Import-Änderung
+                         verschwindet): eine Revision im Status "review"
+                         (siehe ImportContentQuestions) war früher dank
+                         aufsteigender revision_no immer die zuletzt
+                         angelegte, also die erste in dieser absteigend
+                         sortierten Liste -- hat der Superadmin die Frage
+                         über den Editor gespeichert, während diese Review-
+                         Revision noch wartete, entstand aber eine noch
+                         neuere, bereits veröffentlichte Revision (siehe
+                         QuestionController::update(), T3), und die wartende
+                         Review-Revision verschwand dadurch unbemerkt aus
+                         dieser Liste. Gesucht wird deshalb gezielt nach dem
+                         Status, nicht nach der Position. --}}
+                    @php($pendingReview = $question->revisions->where('editorial_status', 'review')->sortByDesc('revision_no')->first())
                     <tr class="border-t border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 {{ $question->active ? '' : 'opacity-50' }}">
                         <td class="px-4 py-2 max-w-md">
                             <a href="{{ route('superadmin.questions.edit', $question) }}" class="text-slate-700 dark:text-slate-200 hover:underline line-clamp-2">{{ $revision?->question_text ?? '(keine Fassung)' }}</a>
