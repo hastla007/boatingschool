@@ -83,7 +83,17 @@ class ExamController extends Controller
         // "correct" sonst per boolean-Cast in true/false um (count(*)=2
         // wurde dadurch zu true), weil Eloquent den Cast anhand des
         // Attributnamens anwendet, nicht anhand der tatsächlichen Query.
+        // Bug-Review (BB1: Prüfungskacheln zeigen "x/24" trotz deaktivierter
+        // Frage): startPaper() spielt eine deaktivierte Frage (content_
+        // question.active) gar nicht erst aus (siehe B12-Kommentar dort),
+        // die Übersicht zählte für die Sollzahl je Bogen hier aber
+        // unverändert alle exam_paper_question-Zeilen mit, unabhängig vom
+        // Aktiv-Status der referenzierten Frage -- die Kachel zeigte z. B.
+        // "22/24", obwohl die tatsächlich gestellte Prüfung nur 22 Fragen
+        // umfasste. Nur aktive Fragen zählen jetzt zur Sollzahl.
         $totalsByPaper = ExamPaperQuestion::whereIn('exam_paper_id', $paperIds)
+            ->join('content_question', 'content_question.id', '=', 'exam_paper_question.question_id')
+            ->where('content_question.active', true)
             ->selectRaw('exam_paper_id, count(*) as total_count')
             ->groupBy('exam_paper_id')
             ->pluck('total_count', 'exam_paper_id');
