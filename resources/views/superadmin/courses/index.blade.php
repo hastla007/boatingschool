@@ -41,7 +41,7 @@
                                  ein aktiv/deaktiviert-Badge weiterhin fälschlich
                                  eine reale Bedeutung suggeriert. --}}
                             @if ($course->status !== 'published')
-                                <span class="text-xs text-slate-400 dark:text-slate-500">–</span>
+                                <span class="text-xs text-slate-500 dark:text-slate-400">–</span>
                             @elseif ($course->site_enabled)
                                 <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">aktiv</span>
                             @else
