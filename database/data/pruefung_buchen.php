@@ -207,12 +207,13 @@ return [
                 ],
                 'segel' => [
                     'label' => 'Vollprüfung unter Segel',
-                    'course' => null,
+                    'course' => 'SBF-BIN-SEGEL',
                     'parts' => [
-                        ['module' => 'SBF_BASIS', 'label' => 'Basisfragen', 'of' => 7],
-                        ['module' => 'SBF_BINNEN', 'label' => 'Binnen-Fragen', 'of' => 23],
-                        ['module' => 'SBF_BINNEN_SEGELN', 'label' => 'Segelfragen', 'of' => 7],
+                        ['module' => 'SBF_BASIS', 'label' => 'Basisfragen', 'of' => 7, 'min' => 5],
+                        ['module' => 'SBF_BINNEN', 'label' => 'Binnen-Fragen', 'of' => 23, 'min' => 18],
+                        ['module' => 'SBF_BINNEN_SEGELN', 'label' => 'Segelfragen', 'of' => 7, 'min' => 5],
                     ],
+                    'minutes' => 60,
                     'note' => 'Für den SBF Binnen unter Segel kommen zum Fragebogen 7 Segelfragen hinzu, und die praktische Prüfung findet unter Segel statt. Das Mindestalter ist 14 Jahre.',
                 ],
                 'addon' => [
