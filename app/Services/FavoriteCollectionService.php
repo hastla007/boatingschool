@@ -137,6 +137,31 @@ class FavoriteCollectionService
                 'context' => $context,
             ]);
         } else {
+            // Bug-Review (Favoriten gehen beim Wechsel zwischen zwei Kursen
+            // verloren): favorite trägt bewusst KEIN course_id (eine von
+            // mehreren Kursen genutzte Frage, z. B. über ein gemeinsames
+            // Modul wie bei SBF-SEE/SBF-SEE-BIN oder SRC/SRC-UBI, hat einen
+            // EINZIGEN geteilten Favorite-Datensatz), aber jeder Kurs hat
+            // seine eigenen Collections. Wurde die Frage hier -- in NUR
+            // einem der beiden Kurse -- aus allen Collections entfernt,
+            // löschte diese Zeile bisher den Favoriten global, auch wenn er
+            // im ANDEREN Kurs weiterhin einsortiert war. Der Favorit wird
+            // jetzt nur entfernt, wenn er in KEINEM Kurs dieses Nutzers mehr
+            // einsortiert ist.
+            $allOwnCollectionIds = FavoriteCollection::where('tenant_id', $tenant->id)
+                ->where('user_id', $user->id)
+                ->pluck('id');
+
+            $stillAssignedElsewhere = FavoriteCollectionItem::where('tenant_id', $tenant->id)
+                ->where('question_id', $questionId)
+                ->where('context', $context)
+                ->whereIn('favorite_collection_id', $allOwnCollectionIds)
+                ->exists();
+
+            if ($stillAssignedElsewhere) {
+                return;
+            }
+
             Favorite::where('tenant_id', $tenant->id)
                 ->where('user_id', $user->id)
                 ->where('question_id', $questionId)
