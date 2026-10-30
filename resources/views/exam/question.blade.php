@@ -123,7 +123,7 @@
                 <input type="hidden" name="position" value="{{ $current->position }}">
 
                 <div class="space-y-2">
-                    @foreach ($current->revision->answers as $answer)
+                    @foreach ($current->revision->answersInDisplayOrderFor(auth()->id()) as $answer)
                         <label class="flex items-center gap-3 border border-slate-200 dark:border-slate-600 hover:border-slate-400 rounded-xl px-4 py-3 cursor-pointer transition">
                             <input type="radio" name="answer_id" value="{{ $answer->id }}" x-model="selected" class="shrink-0">
                             <span class="text-slate-700 dark:text-slate-200">{{ $answer->answer_text }}</span>

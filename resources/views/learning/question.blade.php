@@ -191,7 +191,7 @@
                 <input type="hidden" name="started_at_ms" value="{{ $startedAt }}">
 
                 <div class="space-y-2">
-                    @foreach ($revision->answers as $answer)
+                    @foreach ($revision->answersInDisplayOrderFor(auth()->id()) as $answer)
                         @php
                             $state = 'border-slate-200 dark:border-slate-600 hover:border-slate-400';
                             $showCorrectIcon = false;

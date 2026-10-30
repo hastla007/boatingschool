@@ -28,7 +28,12 @@
             <div class="rounded-2xl p-5 {{ $review['correct'] ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'bg-rose-50 dark:bg-rose-900/20' }}">
                 <h4 class="text-center font-medium text-slate-800 dark:text-white mb-4">{{ $revision->question_text }}</h4>
                 <div class="space-y-2">
-                    @foreach ($revision->answers as $answer)
+                    {{-- Bug-Review (Antwortreihenfolge bei Einfachauswahl-Fragen immer
+                         identisch): die Auswertung muss dieselbe, pro Lernendem
+                         gemischte Reihenfolge zeigen wie die Quizseite selbst, sonst
+                         wandert die richtige Antwort hier sichtbar an eine andere
+                         Position als während der Beantwortung. --}}
+                    @foreach (($revision->question_type === 'single_choice' ? $revision->answersInDisplayOrderFor(auth()->id()) : $revision->answers) as $answer)
                         @php
                             $state = 'bg-white dark:bg-slate-800 border-transparent';
                             $icon = null;
