@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\ContentQuestion;
 use App\Models\PraxisTask;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -35,6 +36,22 @@ class SegelnFknSknPraxisTrainerTest extends TestCase
             $this->assertSame([], $tasks->where('aufgabentyp', 'Bildfrage')->filter(fn ($task) => ! $task->media)->pluck('content_id')->values()->all());
             $this->assertSame('elwis/sbf_binnen_segeln_295_1.png', $tasks->firstWhere('unterkategorie', 'Manöver im Kursverlauf')->media->asset_key);
             $this->assertSame('elwis/sbf_binnen_185_1.png', $tasks->firstWhere('unterkategorie', 'Wind von Backbord')->media->asset_key);
+        });
+    }
+
+    public function test_the_q_wende_is_explained_as_a_tack_instead_of_a_gybe(): void
+    {
+        // Bug-Review (Q-Wende verkehrt herum erklärt): Im ELWIS-Bild zu Frage
+        // 295 dreht das Boot an Punkt 3 über den Wind statt vor dem Wind --
+        // die Q-Wende ersetzt die Halse, nicht die Wende.
+        $this->onAdmin(function () {
+            $revision = ContentQuestion::where('content_id', 'SBF-SEGEL-0295')->firstOrFail()->publishedRevision();
+            $card = PraxisTask::where('content_id', 'PRAXIS-SEGEL-0012')->firstOrFail();
+
+            foreach ([$revision->feedback_correct, $revision->feedback_incorrect, $card->erklaerung] as $text) {
+                $this->assertStringContainsString('Statt zu halsen, luvt das Boot an, wendet', $text);
+                $this->assertStringNotContainsString('eine Halse fährt statt einer Wende', $text);
+            }
         });
     }
 
