@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\ContentQuestion;
 use App\Models\CourseDefinition;
 use App\Models\VideoLesson;
+use Database\Seeders\Concerns\SeedsLessonQuizOnce;
 use Illuminate\Database\Seeder;
 
 /**
@@ -19,9 +20,24 @@ use Illuminate\Database\Seeder;
  * wären. Einstiegslektionen (Kapitel "Einstieg und Prüfungsüberblick")
  * sowie "Alkohol und Fahrtüchtigkeit" (kein passender Fragenkatalog-
  * Eintrag) bleiben bewusst ohne Quiz.
+ *
+ * Bug-Review (Quizfragen in falscher Lektion): "Mensch über Bord" zeigte
+ * nur SBF-BASIS-0042 (Quickstopp = Unterbrechung von Zündung/Kraftstoff,
+ * also Motortechnik) -- der Binnen-Katalog hat keine MOB-Frage, die
+ * Lektion bleibt daher ohne Quiz. 188 (Segler gegen Segler, Lee vor Luv)
+ * stand unter "Berufsschifffahrt und Kleinfahrzeuge" und gehört wie die
+ * bisher unbenutzten 185/186/187/189 (Ausweichregeln Segler gegen Segler)
+ * zu "Segelfahrzeuge im Verkehr". 60 (Seeventile schließen/Hauptschalter
+ * aus beim Verlassen des Fahrzeugs) passt zum Festmachen unter "An- und
+ * Ablegen" statt zu "Tauwerk und Ausrüstung"; 272/273 (Killen schädigt
+ * das Tuch, Segelschäden sofort reparieren) zur Segelpflege unter
+ * "Segelteile und Tauwerk" statt zum Trimm. Bestehende Installationen
+ * korrigiert die Migration 2024_02_01_000502.
  */
 class BinnenSegelnLessonQuestionSeeder extends Seeder
 {
+    use SeedsLessonQuizOnce;
+
     /** @var array<string, array<string, array<int, int>>> Kapitel => Lektion => [official_number, content_role]. */
     private const LESSON_QUESTIONS = [
         'Grundlagen und Sicherheit' => [
@@ -30,17 +46,15 @@ class BinnenSegelnLessonQuestionSeeder extends Seeder
             'Verhalten in Notfällen' => [190, 210, 211, 212],
         ],
         'Seemannschaft auf Binnengewässern' => [
-            'An- und Ablegen' => [35, 40, 48, 61],
+            'An- und Ablegen' => [35, 40, 48, 61, 60],
             'Ankern' => [39],
             'Schleusen' => [117, 118, 119, 245],
-            'Mensch über Bord' => [42],
-            'Tauwerk und Ausrüstung' => [60],
         ],
         'Verkehrsregeln und Ausweichen' => [
             'Grundregeln' => [144, 174, 175, 176],
             'Begegnung und Überholen' => [36, 37, 180],
-            'Segelfahrzeuge im Verkehr' => [140, 143, 179, 184],
-            'Berufsschifffahrt und Kleinfahrzeuge' => [34, 177, 181, 188],
+            'Segelfahrzeuge im Verkehr' => [140, 143, 179, 184, 185, 186, 187, 188, 189],
+            'Berufsschifffahrt und Kleinfahrzeuge' => [34, 177, 181],
         ],
         'Schifffahrtszeichen und Signale' => [
             'Tafeln und Zeichen' => [17, 18, 107, 156],
@@ -57,13 +71,13 @@ class BinnenSegelnLessonQuestionSeeder extends Seeder
         'Segeln: Boot, Rigg und Stabilität' => [
             'Jolle, Kielboot und Kimmkieler' => [254, 255, 256],
             'Form- und Gewichtsstabilität' => [258, 259, 260, 261, 262],
-            'Segelteile und Tauwerk' => [267, 268, 269, 270, 271],
+            'Segelteile und Tauwerk' => [267, 268, 269, 270, 271, 272, 273],
             'Ruder und Schwert' => [257, 282, 283, 296],
         ],
         'Segeln: Wind, Kurse und Trimm' => [
             'Wahrer und scheinbarer Wind' => [274, 275, 276],
             'Amwind-, Halbwind- und Vorwindkurs' => [277, 278, 279, 285],
-            'Segeltrimm bei leichtem und starkem Wind' => [272, 273, 286, 287, 288, 289, 290],
+            'Segeltrimm bei leichtem und starkem Wind' => [286, 287, 288, 289, 290],
             'Luv- und Leegierigkeit' => [291, 292, 293],
         ],
         'Segelmanöver und besondere Situationen' => [
@@ -92,18 +106,14 @@ class BinnenSegelnLessonQuestionSeeder extends Seeder
 
             foreach ($lessons as $lessonTitle => $officialNumbers) {
                 $lesson = $chapter->lessons()->where('title', $lessonTitle)->first();
-                $this->attachQuestions($lesson, $officialNumbers);
+                $this->seedQuizOnce($lesson, fn (VideoLesson $lesson) => $this->attachQuestions($lesson, $officialNumbers));
             }
         }
     }
 
     /** @param int[] $officialNumbers */
-    private function attachQuestions(?VideoLesson $lesson, array $officialNumbers): void
+    private function attachQuestions(VideoLesson $lesson, array $officialNumbers): void
     {
-        if (! $lesson || $lesson->questions()->exists()) {
-            return;
-        }
-
         foreach ($officialNumbers as $sortOrder => $officialNumber) {
             $contentRole = $officialNumber <= 72 ? 'shared_basis' : ($officialNumber <= 253 ? 'binnen_specific' : 'segel_specific');
 

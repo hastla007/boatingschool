@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\ContentQuestionRevision;
 use App\Models\CourseDefinition;
 use App\Models\VideoLesson;
+use Database\Seeders\Concerns\SeedsLessonQuizOnce;
 use Illuminate\Database\Seeder;
 
 /**
@@ -15,6 +16,10 @@ use Illuminate\Database\Seeder;
  */
 class VideoLessonQuestionSeeder extends Seeder
 {
+    // Bug-Review (Seeder-Idempotenz Videoquiz): einmal geseedete Lektionen
+    // (quiz_seeded_at) bleiben unangetastet, siehe SeedsLessonQuizOnce.
+    use SeedsLessonQuizOnce;
+
     /** @var array<string, array<int, string>> Kapitel => Lektion => Fragetexte, je Teilkurs. */
     private const LESSON_QUESTIONS = [
         'Einführung in den Sportbootführerschein' => [
@@ -115,9 +120,12 @@ class VideoLessonQuestionSeeder extends Seeder
                 'Was sind "Verkehrstrennungsgebiete"?',
                 'Wie sind Verkehrstrennungsgebiete zu befahren?',
             ],
+            // Per Katalognummer statt Fragetext: der Text hat sich mit der
+            // Korrektur der leeren Klammern (BB10) geändert, die Suche nach
+            // dem alten Text fand auf einer Neuinstallation nichts mehr.
             'Schallsignale' => [
-                'Wie lang ist die Dauer eines kurzen Tons ( )?',
-                'Wie lang ist die Dauer eines langen Tons ( )?',
+                ['shared_basis' => '4'],
+                ['shared_basis' => '5'],
             ],
         ],
         'Lichter und Signale' => [
@@ -197,30 +205,26 @@ class VideoLessonQuestionSeeder extends Seeder
                     continue;
                 }
 
-                $this->attachQuestions($lesson, $questionTexts);
+                $this->seedQuizOnce($lesson, fn (VideoLesson $lesson) => $this->attachQuestions($lesson, $questionTexts));
             }
         }
     }
 
     /**
-     * @param  array<int, string|array{see_specific: string}>  $questions  Fragetext, oder
-     *                                                                     ['see_specific' => 'Nr.'] um bei mehrdeutigem (mehrfach
-     *                                                                     verwendetem) Fragetext über die Katalognummer der
-     *                                                                     See-Frage zu identifizieren. Früher über den
-     *                                                                     Dateinamen des Bildes, der seit den ELWIS-Bildern
-     *                                                                     (ElwisQuestionImageSeeder) nicht mehr existiert.
+     * @param  array<int, string|array<string, string>>  $questions  Fragetext, oder
+     *                                                               [content_role => 'Nr.'] (z. B. ['see_specific' => '93']),
+     *                                                               um eine Frage über ihre Katalognummer zu identifizieren
+     *                                                               (bei mehrdeutigem oder später korrigiertem Fragetext). Früher über den
+     *                                                               Dateinamen des Bildes, der seit den ELWIS-Bildern
+     *                                                               (ElwisQuestionImageSeeder) nicht mehr existiert.
      */
     private function attachQuestions(VideoLesson $lesson, array $questions): void
     {
-        if ($lesson->questions()->exists()) {
-            return;
-        }
-
         foreach ($questions as $sortOrder => $question) {
             $query = ContentQuestionRevision::where('editorial_status', 'published');
 
             $revision = is_array($question)
-                ? $query->whereHas('question', fn ($q) => $q->where('content_role', 'see_specific')->where('official_number', $question['see_specific']))->first()
+                ? $query->whereHas('question', fn ($q) => $q->where('content_role', array_key_first($question))->where('official_number', reset($question)))->first()
                 : $query->where('question_text', $question)->first();
 
             if ($revision) {

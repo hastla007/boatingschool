@@ -7,6 +7,7 @@ use App\Models\VideoLesson;
 use App\Models\VideoLessonStep;
 use App\Models\VideoModule;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Das Knotenpaket (siehe VideoCourseSeeder) ist keine SBF-See-spezifische
@@ -17,12 +18,25 @@ use Illuminate\Database\Seeder;
  */
 class BinnenKnotenVideoSeeder extends Seeder
 {
+    private const MARKER = 'BinnenKnotenVideoSeeder:knoten';
+
     public function run(): void
     {
         $binnen = CourseDefinition::withoutGlobalScopes()->where('code', 'SBF-BIN-MOTOR')->whereNull('tenant_id')->first();
         $sbfSee = CourseDefinition::withoutGlobalScopes()->where('code', 'SBF-SEE')->whereNull('tenant_id')->first();
 
-        if (! $binnen || ! $sbfSee || $binnen->videoModules()->where('title', 'Knoten')->exists()) {
+        if (! $binnen || ! $sbfSee || DB::table('seed_marker')->where('key', self::MARKER)->exists()) {
+            return;
+        }
+
+        // Bug-Review (Seeder legt umbenannte Kapitel erneut an): das Kapitel
+        // wurde nur am Titel "Knoten" wiedererkannt -- ein vom Superadmin
+        // umbenanntes oder gelöschtes Kapitel kopierte der nächste db:seed
+        // erneut. Wie SeemannschaftVideoSeeder merkt sich der Seeder jetzt
+        // dauerhaft (seed_marker), dass er gelaufen ist.
+        if ($binnen->videoModules()->where('title', 'Knoten')->exists()) {
+            DB::table('seed_marker')->insertOrIgnore(['key' => self::MARKER, 'seeded_at' => now()]);
+
             return;
         }
 
@@ -57,5 +71,7 @@ class BinnenKnotenVideoSeeder extends Seeder
                 ]);
             }
         }
+
+        DB::table('seed_marker')->insertOrIgnore(['key' => self::MARKER, 'seeded_at' => now()]);
     }
 }

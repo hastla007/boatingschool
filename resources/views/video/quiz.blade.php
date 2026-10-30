@@ -16,7 +16,7 @@
                 <div class="text-xs text-slate-600 dark:text-slate-400">{{ $lesson->title }}</div>
                 <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Fragen zum Video</h1>
             </div>
-            <div class="text-sm text-slate-500 shrink-0">{{ $position }}/{{ $total }}</div>
+            <div class="text-sm text-slate-500 dark:text-slate-400 shrink-0">{{ $position }}/{{ $total }}</div>
         </div>
     </x-slot>
 
@@ -35,6 +35,7 @@
             <form method="POST" action="{{ route('video.quiz.answer', $linkParams(['position' => $position])) }}" x-data="{ selected: {{ json_encode($selectedAnswerIds ?? []) }} }">
                 @csrf
                 <input type="hidden" name="revision_id" value="{{ $revision->id }}">
+                <input type="hidden" name="started_at_ms" value="{{ $startedAt }}">
                 @unless ($answered)
                     <p class="text-xs text-slate-600 dark:text-slate-400 mb-2">Mehrfachauswahl &mdash; mindestens eine Antwort ist richtig.</p>
                 @endunless
@@ -81,7 +82,7 @@
             </form>
         @elseif ($revision->question_type === 'open_text')
             <div x-data="{ revealed: {{ $answered ? 'true' : 'false' }} }">
-                <p class="text-xs text-slate-600 dark:text-slate-400 mb-2">Offene Frage &mdash; keine Antwortoptionen. Schätze selbst ein, ob Du die Antwort wusstest.</p>
+                <p class="text-xs text-slate-600 dark:text-slate-400 mb-2">Offene Frage &mdash; keine Antwortoptionen. Schätze selbst ein, ob du die Antwort wusstest.</p>
 
                 <template x-if="!revealed">
                     <button type="button" @click="revealed = true" class="w-full px-5 py-3 rounded-xl border border-slate-200 dark:border-slate-600 text-sm font-medium text-slate-600 dark:text-slate-200 hover:border-slate-400 transition">
@@ -99,6 +100,7 @@
                             <form method="POST" action="{{ route('video.quiz.answer', $linkParams(['position' => $position])) }}" class="flex justify-end gap-2 mt-6">
                                 @csrf
                                 <input type="hidden" name="revision_id" value="{{ $revision->id }}">
+                <input type="hidden" name="started_at_ms" value="{{ $startedAt }}">
                                 <button type="submit" name="known" value="0" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-rose-300 text-rose-600 text-sm font-medium hover:bg-rose-50 dark:hover:bg-rose-900/20 transition">
                                     Nicht gewusst
                                 </button>
@@ -114,9 +116,10 @@
             <form method="POST" action="{{ route('video.quiz.answer', $linkParams(['position' => $position])) }}" x-data="{ selected: {{ $selectedAnswerId ? "'{$selectedAnswerId}'" : 'null' }} }">
                 @csrf
                 <input type="hidden" name="revision_id" value="{{ $revision->id }}">
+                <input type="hidden" name="started_at_ms" value="{{ $startedAt }}">
 
                 <div class="space-y-2">
-                    @foreach ($revision->answers as $answer)
+                    @foreach ($revision->answersInDisplayOrderFor(auth()->id()) as $answer)
                         @php
                             $state = 'border-slate-200 dark:border-slate-600 hover:border-slate-400';
                             $showCorrectIcon = false;

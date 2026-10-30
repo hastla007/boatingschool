@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\ContentAnswer;
+use App\Models\ContentQuestion;
 use App\Models\CourseDefinition;
 use App\Models\ExamPaper;
+use App\Models\ExamPaperQuestion;
 use App\Models\ExamSession;
 use App\Models\ExamSessionQuestion;
 use App\Models\Favorite;
@@ -75,9 +77,42 @@ class ExamController extends Controller
             ->unique('paper_id')
             ->keyBy('paper_id');
 
-        $paperStats = $papers->map(function ($paper) use ($latestEvaluatedSessions, $course, $ruleSetFor) {
+        // Bug-Review (Langsame Prüfungsübersicht): für jeden Bogen eine
+        // eigene COUNT-Query auf paperQuestions() und für jeden bereits
+        // ausgewerteten Versuch eine eigene COUNT-Query auf
+        // questions()->where('correct', true) ergaben bei N Bögen bis zu
+        // 2N zusätzliche Round-Trips -- bei einem Kombikurs mit vielen
+        // Bögen (z. B. SBF-SEE-BIN) war die Seite dadurch spürbar langsam.
+        // Beide Zählungen laufen jetzt als je eine gruppierte
+        // Aggregat-Query vorab.
+        // Die Aggregat-Spalte darf nicht "total"/"correct" o. ä. heißen, wie
+        // eine echte Modell-Spalte -- ExamSessionQuestion::casts() wandelt
+        // "correct" sonst per boolean-Cast in true/false um (count(*)=2
+        // wurde dadurch zu true), weil Eloquent den Cast anhand des
+        // Attributnamens anwendet, nicht anhand der tatsächlichen Query.
+        // Bug-Review (BB1: Prüfungskacheln zeigen "x/24" trotz deaktivierter
+        // Frage): startPaper() spielt eine deaktivierte Frage (content_
+        // question.active) gar nicht erst aus (siehe B12-Kommentar dort),
+        // die Übersicht zählte für die Sollzahl je Bogen hier aber
+        // unverändert alle exam_paper_question-Zeilen mit, unabhängig vom
+        // Aktiv-Status der referenzierten Frage -- die Kachel zeigte z. B.
+        // "22/24", obwohl die tatsächlich gestellte Prüfung nur 22 Fragen
+        // umfasste. Nur aktive Fragen zählen jetzt zur Sollzahl.
+        $totalsByPaper = ExamPaperQuestion::whereIn('exam_paper_id', $paperIds)
+            ->join('content_question', 'content_question.id', '=', 'exam_paper_question.question_id')
+            ->whereIn('content_question.id', ContentQuestion::query()->currentlyValid()->select('id'))
+            ->selectRaw('exam_paper_id, count(*) as total_count')
+            ->groupBy('exam_paper_id')
+            ->pluck('total_count', 'exam_paper_id');
+
+        $correctBySession = ExamSessionQuestion::whereIn('exam_session_id', $latestEvaluatedSessions->pluck('id'))
+            ->where('correct', true)
+            ->selectRaw('exam_session_id, count(*) as correct_count')
+            ->groupBy('exam_session_id')
+            ->pluck('correct_count', 'exam_session_id');
+
+        $paperStats = $papers->map(function ($paper) use ($latestEvaluatedSessions, $course, $ruleSetFor, $totalsByPaper, $correctBySession) {
             $session = $latestEvaluatedSessions->get($paper->id);
-            $total = $paper->paperQuestions()->count();
             $comboInfo = ComboExamGroups::infoFor($course->code, $paper->paper_number);
             $ruleSet = $ruleSetFor($paper)['ruleSet'];
 
@@ -85,8 +120,8 @@ class ExamController extends Controller
                 'paper' => $paper,
                 'attempted' => (bool) $session,
                 'percent' => $session ? (int) round($session->score * 100) : 0,
-                'correct' => $session ? $session->questions()->where('correct', true)->count() : 0,
-                'total' => $total,
+                'correct' => $session ? $correctBySession->get($session->id, 0) : 0,
+                'total' => $totalsByPaper->get($paper->id, 0),
                 'group' => $comboInfo['label'] ?? null,
                 'displayNumber' => $comboInfo['displayNumber'] ?? $paper->paper_number,
                 'startable' => (bool) $ruleSet,
@@ -100,7 +135,20 @@ class ExamController extends Controller
 
         // Favoriten sind kursgebunden: nur Fragen zählen, die tatsächlich zu
         // diesem Kurs gehören, damit jeder Kurs seine eigenen Favoriten hat.
-        $courseQuestionIds = $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id')->unique();
+        //
+        // Bug-Review (Favoritenzähler zählt deaktivierte Fragen): analog zu
+        // LearningController (BB2) zählen nur aktuell gültige Fragen (active,
+        // veröffentlichte Revision) -- eine deaktivierte Frage kann nie
+        // "gefestigt" werden und hielt den Zähler sonst dauerhaft zurück.
+        // Bug-Review (SRC-UBI): zum Kurs gehören auch die Fragen seiner
+        // Prüfungsbögen (siehe FavoriteController::courseQuestionIds()),
+        // sonst fehlten z. B. die UBI-Bogenfragen im Kombikurs SRC-UBI.
+        $courseQuestionIds = ContentQuestion::whereIn('id', $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id')
+            ->merge(ExamPaperQuestion::whereIn('exam_paper_id', $paperIds)->pluck('question_id'))
+            ->unique()
+            ->values())
+            ->currentlyValid()
+            ->pluck('id');
         $favoriteIds = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)
             ->where('context', Favorite::CONTEXT_EXAM)
             ->whereIn('question_id', $courseQuestionIds)->pluck('question_id');
@@ -172,6 +220,11 @@ class ExamController extends Controller
             ]);
 
             $position = 1;
+            // Bug-Review (BB16-Rest: feste Bögen ignorierten "Gültig ab/bis"):
+            // wie die deaktivierte Frage (B12) wird auch eine Frage außerhalb
+            // ihres Gültigkeitsfensters nicht ausgespielt.
+            $paper->loadMissing('paperQuestions.question');
+            $validQuestionIds = ContentQuestion::currentlyValidIds($paper->paperQuestions->pluck('question'))->flip();
             foreach ($paper->paperQuestions as $paperQuestion) {
                 // Bug-Review B12 (Folgefehler): eine nach dem Anlegen des
                 // Bogens im Superadmin deaktivierte Frage (content_question.
@@ -179,7 +232,7 @@ class ExamController extends Controller
                 // zusammengestellten Prüfung in start() -- trotzdem noch
                 // ausgespielt. Positionen werden deshalb neu durchnummeriert,
                 // statt Lücken zu lassen.
-                if (! $paperQuestion->question->active) {
+                if (! $validQuestionIds->has($paperQuestion->question_id)) {
                     continue;
                 }
 
@@ -203,6 +256,21 @@ class ExamController extends Controller
         $tenant = $tenantContext->tenant();
         $user = $request->user();
         abort_unless($entitlements->hasAccess($tenant, $user, $course), 403);
+
+        // Bug-Review (Zufallsprüfung bei SRC/FKN hat nur 10 statt 24/15
+        // Fragen): intro() zeigt für einen Kurs mit echten Prüfungsbögen
+        // (examPapers) ausschließlich papersOverview() -- exam/intro.blade.php
+        // mit dem Formular auf diese Route wird für einen solchen Kurs nie
+        // gerendert, die Route blieb aber live erreichbar. Bei SRC/FKN griff
+        // dieser Weg auf ein offenbar aus der Zeit vor den echten,
+        // offiziellen Prüfungsbögen stammendes ExamRuleSet-Blueprint zurück,
+        // das nur 10 statt der echten 24 (SRC) bzw. 15 (FKN) Fragen pro Bogen
+        // zusammenstellte -- nur über einen direkten POST-Aufruf erreichbar,
+        // ohne jeden UI-Link. Für einen Kurs mit echten Prüfungsbögen ist die
+        // zufällig zusammengestellte Prüfung kein gültiger, zweiter Weg,
+        // sondern veraltet; sie bleibt deshalb jetzt auf Kurse ohne eigene
+        // Prüfungsbögen beschränkt (analog zur Verzweigung in intro()).
+        abort_if($course->examPapers()->exists(), 409, 'Für diesen Kurs gibt es feste Prüfungsbögen -- die zufällig zusammengestellte Prüfung ist hier nicht verfügbar.');
 
         $ruleSet = $course->activeExamRuleSet();
         abort_unless($ruleSet && $ruleSet->isVerified(), 409, 'Für diesen Kurs liegt noch kein fachlich freigegebenes Prüfungsregelwerk vor.');
@@ -241,9 +309,10 @@ class ExamController extends Controller
                 // Bug-Review B12: eine im Superadmin deaktivierte Frage
                 // (content_question.active) konnte hier trotzdem in eine
                 // zufällig zusammengestellte Prüfung geraten.
+                // Bug-Review BB16 ("Gültig ab"/"Gültig bis" wirkungslos):
+                // dieselbe Lücke bestand für valid_from/valid_to.
                 $questions = $blueprint->module->questions()
-                    ->where('active', true)
-                    ->whereHas('revisions', fn ($q) => $q->where('editorial_status', 'published'))
+                    ->currentlyValid()
                     ->inRandomOrder()
                     ->take($blueprint->question_count)
                     ->get();
@@ -309,6 +378,20 @@ class ExamController extends Controller
     public function answer(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, ExamEvaluationService $examEvaluation, ExamSession $examSession): Response
     {
         $this->authorizeSession($request, $tenantContext, $entitlements, $examSession);
+
+        // Bug-Review (AA4: Prüfung nach Ablauf der Zeit zeigt englische
+        // Fehlerseite): wer nach Zeitablauf noch antwortet, erreicht diese
+        // Methode oft ein zweites Mal (Doppelklick, oder der Browser hatte
+        // die Seite bereits neu geladen) -- die Session steht dann schon auf
+        // "evaluated" (siehe timeExpired()-Zweig unten bzw. finish()). Statt
+        // dafür bisher ein nacktes abort(409) ohne eigene errors/409.blade.php
+        // zu zeigen (Laravels generische, englische Fallback-Fehlerseite),
+        // landet der Lernende jetzt direkt beim längst fertigen Ergebnis --
+        // genau das, was er nach Ablauf der Zeit sehen will.
+        if ($examSession->status === 'evaluated') {
+            return redirect()->route('exam.result', $examSession);
+        }
+
         abort_if($examSession->status !== 'running', 409);
 
         // Serverseitig prüfen statt nur der Weiterleitung in show() zu
@@ -319,11 +402,12 @@ class ExamController extends Controller
         if ($examEvaluation->timeExpired($examSession)) {
             $examEvaluation->evaluate($examSession);
 
-            abort(409, 'Die Prüfungszeit ist abgelaufen.');
+            return redirect()->route('exam.result', $examSession)
+                ->with('status', 'Die Prüfungszeit ist abgelaufen -- hier ist dein Ergebnis.');
         }
 
         $validated = $request->validate([
-            'position' => ['required', 'integer'],
+            'position' => ['required', 'integer', 'min:1', 'max:1000'],
             'answer_id' => ['nullable', 'uuid'],
             'answer_ids' => ['nullable', 'array'],
             'answer_ids.*' => ['uuid'],
@@ -420,7 +504,7 @@ class ExamController extends Controller
         abort_if($examSession->status !== 'running', 409);
 
         $validated = $request->validate([
-            'position' => ['required', 'integer'],
+            'position' => ['required', 'integer', 'min:1', 'max:1000'],
         ]);
 
         $sessionQuestion = $examSession->questions()->where('position', $validated['position'])

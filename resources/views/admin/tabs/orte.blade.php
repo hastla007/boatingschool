@@ -2,7 +2,7 @@
      Admin-Bereich (siehe tabs/dashboard.blade.php, tabs/branding.blade.php)
      siezt durchgehend -- hier stand bisher als einzige Stelle die
      Du-Form. --}}
-<p class="text-slate-500 mb-6">
+<p class="text-slate-500 dark:text-slate-400 mb-6">
     Hier können Sie einen oder mehrere Orte für Praxis &amp; Prüfung anlegen. Ihr Kunde wählt im Praxisformular
     immer den Praxisort &mdash; der zugehörige Prüfungsort ist fix daran gekoppelt (kann mit dem Praxisort
     identisch sein, z. B. Kurs Binnen: Praxis an Ort X, Prüfung an Ort Y). Sie können mehrere Orte für denselben
@@ -66,7 +66,7 @@
                         <button type="submit" class="px-5 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
                             Ort anlegen
                         </button>
-                        <button type="button" @click="showCreateForm = false" class="text-sm text-slate-500 hover:underline">
+                        <button type="button" @click="showCreateForm = false" class="text-sm text-slate-500 dark:text-slate-400 hover:underline">
                             Abbrechen
                         </button>
                     </div>

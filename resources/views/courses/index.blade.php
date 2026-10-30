@@ -58,7 +58,7 @@
     @endif
 
     @if ($courses->isEmpty() && $lockedCourses->isEmpty())
-        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 text-center text-slate-500">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 text-center text-slate-500 dark:text-slate-400">
             Noch keine Kurse verfügbar.
         </div>
     @else
@@ -81,7 +81,7 @@
                         <div class="font-semibold text-slate-800 dark:text-white">{{ $entry['course']->name }}</div>
                         <div class="text-xs text-slate-600 dark:text-slate-400 mt-1">{{ $entry['course']->modules->pluck('name')->join(' · ') }}</div>
                         <div class="text-xs text-slate-600 dark:text-slate-400 mt-2">
-                            Freigeschaltet am {{ $entry['entitlement']->valid_from->format('d.m.Y') }}
+                            Freigeschaltet am {{ \App\Support\GermanTime::format($entry['entitlement']->valid_from, 'd.m.Y') }}
                         </div>
                     </div>
                 </a>
@@ -112,7 +112,7 @@
                                 </a>
                             @else
                                 <div class="text-xs text-slate-600 dark:text-slate-400 mt-2 inline-flex items-center gap-1">
-                                    <x-icon name="lock-closed" class="w-3.5 h-3.5" /> Bitte Verlängerungscode bei Deiner Bootsschule anfragen!
+                                    <x-icon name="lock-closed" class="w-3.5 h-3.5" /> Bitte Verlängerungscode bei deiner Bootsschule anfragen!
                                 </div>
                             @endif
                         @elseif ($webshopUrl)
@@ -172,7 +172,7 @@
 
                 @if ($waLink)
                     <a href="{{ $waLink }}" target="_blank" rel="noopener"
-                       class="shrink-0 text-2xl leading-tight text-center text-slate-600 dark:text-slate-400 dark:text-slate-500 hover:opacity-80 transition sm:ml-8"
+                       class="shrink-0 text-2xl leading-tight text-center text-slate-600 dark:text-slate-400 hover:opacity-80 transition sm:ml-8"
                        style="font-family: 'Caveat', cursive;">
                         Oder einfach<br>via WhatsApp!
                     </a>

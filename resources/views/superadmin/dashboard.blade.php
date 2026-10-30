@@ -70,7 +70,7 @@
                     <span class="text-slate-600 dark:text-slate-400">{{ $tenant->tenant_users_count }} Nutzer</span>
                 </a>
             @empty
-                <p class="text-slate-500">Noch keine Bootsschulen angelegt.</p>
+                <p class="text-slate-500 dark:text-slate-400">Noch keine Bootsschulen angelegt.</p>
             @endforelse
         </div>
     </div>

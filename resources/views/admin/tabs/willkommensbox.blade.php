@@ -5,7 +5,7 @@
 --}}
 {{-- Bug-Review (Du/Sie im Admin-Bereich gemischt): der restliche
      Admin-Bereich siezt durchgehend. --}}
-<p class="text-slate-500 mb-6">
+<p class="text-slate-500 dark:text-slate-400 mb-6">
     Bestellungen der Willkommensbox Ihrer Lerner. Offene Bestellungen stehen oben.
 </p>
 
@@ -18,7 +18,7 @@
                class="flex-1 min-w-[220px] rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
         <button type="submit" class="px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-sm">Suchen</button>
         @if (($willkommensboxFilters['wb_search'] ?? '') !== '')
-            <a href="{{ route('admin.dashboard', ['tab' => 'willkommensbox']) }}" class="text-sm text-slate-500 hover:underline self-center">Filter zurücksetzen</a>
+            <a href="{{ route('admin.dashboard', ['tab' => 'willkommensbox']) }}" class="text-sm text-slate-500 dark:text-slate-400 hover:underline self-center">Filter zurücksetzen</a>
         @endif
     </form>
     <div class="overflow-x-auto">
@@ -44,11 +44,12 @@
                         </a>
                     </td>
                     <td class="px-4 py-2 text-slate-600 dark:text-slate-300">{{ $order->street }}, {{ $order->postal_code }} {{ $order->city }}</td>
-                    <td class="px-4 py-2 text-slate-500 text-xs whitespace-nowrap">{{ \App\Support\GermanTime::format($order->created_at, 'd.m.Y H:i') }}</td>
+                    <td class="px-4 py-2 text-slate-500 dark:text-slate-400 text-xs whitespace-nowrap">{{ \App\Support\GermanTime::format($order->created_at, 'd.m.Y H:i') }}</td>
                     <td class="px-4 py-2">
                         @if ($order->isShipped())
                             <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
-                                Versendet {{ $order->shipped_at->format('d.m.Y') }}
+                                {{-- Bug-Review (Admin-Datumsangaben in UTC): deutsche Zeit wie created_at links daneben. --}}
+                                Versendet {{ \App\Support\GermanTime::format($order->shipped_at, 'd.m.Y') }}
                                 @if ($order->tracking_number)
                                     &middot; {{ $order->tracking_number }}
                                 @endif
@@ -77,7 +78,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="5" class="px-4 py-3 text-slate-500">
+                <tr><td colspan="5" class="px-4 py-3 text-slate-500 dark:text-slate-400">
                     @if (array_filter($willkommensboxFilters))
                         Keine Bestellungen gefunden, die zu diesem Filter passen.
                     @else

@@ -261,4 +261,49 @@ class AppRoleGrantHardeningTest extends TestCase
 
         $this->assertCount(0, $visible);
     }
+
+    /**
+     * Bug-Review (Datenbank-Absicherung, drei zusätzliche Härtungslücken --
+     * Protokollzeilen ohne Schule): audit_log_select_isolation ließ bislang
+     * zusätzlich zur eigenen Zeile auch jede Zeile mit tenant_id IS NULL
+     * durch (anders als course_definition/coupon ist das bei audit_log aber
+     * keine absichtlich geteilte Plattform-Zeile, sondern eine verwaiste
+     * Zeile einer gelöschten Schule). Nur das Fehlen dieser Ausnahme ist
+     * hier beobachtbar und per Stash verifizierbar -- die begleitende
+     * Härtung von app_user_update_isolation (WITH CHECK statt bloßem
+     * `true`) und app_user_delete_isolation (USING statt `true`) ändert
+     * dagegen nachweislich kein beobachtbares Verhalten: Postgres verlangt
+     * für UPDATE/DELETE ohnehin zusätzlich Sichtbarkeit über die
+     * SELECT-Policy der Tabelle (siehe AccountErasureService::
+     * leaveTenant()), ein Update/Delete auf eine fremde, nicht sichtbare
+     * app_user-Zeile betraf schon vor dieser Migration nachweislich 0
+     * Zeilen -- ein Test dafür würde unabhängig vom Fix immer grün sein und
+     * damit keine echte Regression abdecken.
+     */
+    public function test_audit_log_rows_without_a_tenant_are_not_visible_from_another_tenants_context(): void
+    {
+        $tenant = $this->createTestTenant();
+        $id = (string) Str::uuid();
+
+        $this->onAdmin(function () use ($id) {
+            DB::table('audit_log')->insert([
+                'id' => $id,
+                'tenant_id' => null,
+                'action' => 'test.orphaned_platform_row',
+                'entity_type' => 'tenant',
+                'entity_id' => (string) Str::uuid(),
+                'created_at' => now(),
+            ]);
+        });
+
+        app(TenantContext::class)->set($tenant);
+
+        $visible = DB::table('audit_log')->where('id', $id)->get();
+
+        $this->assertCount(0, $visible);
+
+        $this->onAdmin(function () use ($id) {
+            DB::table('audit_log')->where('id', $id)->delete();
+        });
+    }
 }

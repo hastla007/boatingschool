@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ContentQuestion;
 use App\Models\CourseDefinition;
 use App\Models\CoursePromoBanner;
 use App\Models\CourseWebshopLink;
@@ -55,8 +56,17 @@ class CourseController extends Controller
 
         $disabledCourseIds = TenantCourseDisabled::where('tenant_id', $tenant->id)->pluck('course_id');
 
+        // Bug-Review (BB5: Entwurfskurse erscheinen für Lernende als
+        // kaufbare Kacheln): ein Kurs im Status "draft" (noch nicht vom
+        // Superadmin veröffentlicht, siehe AA15) erschien hier bisher
+        // trotzdem als gesperrte, kaufbare Kachel -- site_enabled und
+        // status sind unabhängige Schalter (site_enabled steuert nur, ob
+        // der Kurs plattformweit überhaupt existiert, status den
+        // redaktionellen Veröffentlichungsstand). Nur veröffentlichte
+        // Kurse dürfen Lernenden angeboten werden.
         $lockedCourses = CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')
             ->where('site_enabled', true)
+            ->where('status', 'published')
             ->whereNotIn('id', $disabledCourseIds)
             ->orderBy('name')
             ->get()
@@ -164,7 +174,8 @@ class CourseController extends Controller
         // zählte hier aber weiter mit, sodass "gefestigt/offen" und der
         // Gesamtfortschritt nie 100% erreichen konnten (siehe auch
         // CourseProgressService::overallPercent).
-        $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->where('active', true)->pluck('id')->unique();
+        // Bug-Review BB16: dieselbe Lücke bestand für valid_from/valid_to.
+        $questionIds = ContentQuestion::currentlyValidIds($course->modules->flatMap(fn ($m) => $m->questions));
         $masteredCount = $progress->whereIn('question_id', $questionIds)->where('learning_state', 'gefestigt')->count();
         // Bug-Review (Gates vergleichen den gerundeten Wert):
         // courseMasteryPercent() rundet für die Anzeige -- 49,5%
@@ -222,7 +233,11 @@ class CourseController extends Controller
             'comboVideoGroups' => $comboVideoGroups,
             'hasExam' => $course->hasStartableExam(),
             'funkCatalogs' => FunkTraining::catalogsFor($course),
-            'selfExamRegistration' => ExamRegistration::isSelf($tenant, $course),
+            // Bug-Review (Umstellung auf Selbstanmeldung): wer schon eine
+            // Praxis-Anmeldung hat, behält das Termintool (Termine,
+            // Antworten) -- siehe ExamRegistration::usesAppointmentTool().
+            'selfExamRegistration' => ! ExamRegistration::usesAppointmentTool($tenant, $course, $request->user()),
+            'hasPraxisSubmission' => ExamRegistration::hasSubmission($tenant, $course, $request->user()),
             'hasNavigationTasks' => $course->navigationTasks()->exists(),
             'knotenModuleId' => $knotenModule?->id,
             'knotenPercent' => $knotenModule ? $chapterPercent([$knotenModule->id]) : 0,
@@ -247,7 +262,8 @@ class CourseController extends Controller
         // Bug-Review F7: siehe oben -- eine deaktivierte Frage darf hier
         // nicht mitzählen, sonst sind 100% nie erreichbar und die darauf
         // aufbauenden Addon-/Banner-Freigaben bleiben dauerhaft gesperrt.
-        $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->where('active', true)->pluck('id')->unique();
+        // Bug-Review BB16: dieselbe Lücke bestand für valid_from/valid_to.
+        $questionIds = ContentQuestion::currentlyValidIds($course->modules->flatMap(fn ($m) => $m->questions));
         $total = max($questionIds->count(), 1);
         $mastered = $progress->whereIn('question_id', $questionIds)->where('learning_state', 'gefestigt')->count();
 

@@ -106,16 +106,59 @@ class CouponRedemptionService
 
         $now = now();
 
-        $entitlement = Entitlement::create([
-            'tenant_id' => $tenant->id,
-            'user_id' => $user->id,
-            'course_id' => $coupon->course_id,
-            'valid_from' => $now,
-            'valid_until' => $now->copy()->addDays($tenant->branding->course_validity_days),
-            'status' => 'active',
-            'source_type' => 'coupon',
-            'source_reference' => $coupon->code,
-        ]);
+        // Bug-Review (Gutschein umgeht Sperre): hasAccess() oben erkennt nur
+        // AKTIVEN Zugang -- ein per Admin\EntitlementController::suspend()
+        // gesperrtes ("suspended") Entitlement zählt dort nicht als Zugang
+        // (genau wie "revoked"), sodass ein ganz normaler (neuer) Kurscode
+        // für denselben Kurs bisher klaglos ein ZWEITES, aktives Entitlement
+        // anlegte, statt das gesperrte zu reaktivieren -- die Sperre selbst
+        // blieb zwar unverändert in der DB stehen, griff aber nicht mehr,
+        // weil das neue Entitlement parallel vollen Zugang gewährte. Anders
+        // als "revoked" ist "suspended" laut EntitlementController::suspend()
+        // ausdrücklich ein "kostenloser, jederzeit rückgängig machbarer
+        // Zustand" -- ein Code darf ihn also aufheben, muss dafür aber das
+        // BESTEHENDE Entitlement reaktivieren statt ein zweites anzulegen
+        // (analog zu redeemForRenewal() oben).
+        $suspended = Entitlement::where('tenant_id', $tenant->id)
+            ->where('user_id', $user->id)
+            ->where('course_id', $course->id)
+            ->where('status', 'suspended')
+            ->first();
+
+        if ($suspended) {
+            // Bug-Review (Gutschein verkürzt gesperrten Zugang): valid_until
+            // wurde hier bisher stur auf heute + Kurslaufzeit gesetzt -- lief
+            // der gesperrte Zugang noch länger (z. B. bereits verlängert oder
+            // vom Admin großzügiger gesetzt), verlor der Lerner durch das
+            // Einlösen eines Codes Restlaufzeit. Es gilt deshalb das spätere
+            // der beiden Enddaten; ein unbefristeter Zugang (null) bleibt
+            // unbefristet.
+            $newValidUntil = $now->copy()->addDays($tenant->branding->course_validity_days);
+            $validUntil = $suspended->valid_until === null
+                ? null
+                : ($suspended->valid_until->greaterThan($newValidUntil) ? $suspended->valid_until : $newValidUntil);
+
+            $suspended->update([
+                'valid_from' => $now,
+                'valid_until' => $validUntil,
+                'status' => 'active',
+                'source_type' => 'coupon',
+                'source_reference' => $coupon->code,
+            ]);
+
+            $entitlement = $suspended;
+        } else {
+            $entitlement = Entitlement::create([
+                'tenant_id' => $tenant->id,
+                'user_id' => $user->id,
+                'course_id' => $coupon->course_id,
+                'valid_from' => $now,
+                'valid_until' => $now->copy()->addDays($tenant->branding->course_validity_days),
+                'status' => 'active',
+                'source_type' => 'coupon',
+                'source_reference' => $coupon->code,
+            ]);
+        }
 
         $this->applyOptionProducts($coupon, $tenant, $user);
 
@@ -180,15 +223,29 @@ class CouponRedemptionService
                 : 'Der Zugang zu diesem Kurs wurde entzogen und kann nicht per Verlängerungscode reaktiviert werden.');
         }
 
+        // Bug-Review (AA6: Verlängerungscode bei unbefristetem Zugang
+        // wirkungslos): ein bereits AKTIVER, unbefristeter Zugang (valid_
+        // until=null) ändert sich durch diesen Code in keiner Weise (siehe
+        // $newValidUntil-Fall unten, status bleibt "active") -- der Code
+        // wurde trotzdem verbraucht und die Erfolgsmeldung sprach fälschlich
+        // von "verlängert". Ein SUSPENDIERTER unbefristeter Zugang bleibt
+        // davon bewusst ausgenommen: dort hebt derselbe Code die Sperre auf
+        // (status -> active) -- ein echter, gewollter Effekt (siehe Test
+        // "does_not_shorten_an_unlimited_entitlement" sowie der
+        // $newValidUntil-Kommentar unten), der weiterhin einen Code kosten
+        // soll.
+        if ($entitlement && $entitlement->status === 'active' && $entitlement->valid_until === null) {
+            throw new RuntimeException('Dieser Zugang ist bereits unbefristet gültig.');
+        }
+
         if ($entitlement) {
-            // Bug-Review N5: valid_until=null bedeutet unbefristeten Zugang
-            // (siehe EntitlementService::isOfferable/hasAccess) -- ohne
-            // diese Ausnahme wurde ein unbefristeter Zugang hier auf
-            // now()+course_validity_days (z. B. 1 Jahr) VERKÜRZT, statt den
-            // Zugang nur zurückzubringen bzw. zu verlängern. Unbefristet
-            // bleibt unbefristet; nur ein bereits befristeter (laufender
-            // oder abgelaufener) Zugang bekommt ein neues, verlängertes
-            // valid_until.
+            // valid_until=null (unbefristet) bleibt unbefristet -- ohne diese
+            // Ausnahme wurde ein unbefristeter Zugang hier auf now()+
+            // course_validity_days (z. B. 1 Jahr) VERKÜRZT, statt den Zugang
+            // nur zurückzubringen (Bug-Review N5). Ein bereits befristeter
+            // (laufender oder abgelaufener) Zugang bekommt ein neues,
+            // verlängertes valid_until ab dem späteren von jetzt/aktuellem
+            // Ablauf, damit eine ungenutzte Restlaufzeit nicht verloren geht.
             $newValidUntil = $entitlement->valid_until === null
                 ? null
                 : ($entitlement->valid_until->gt($now) ? $entitlement->valid_until : $now)->copy()->addDays($days);

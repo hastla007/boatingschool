@@ -1,6 +1,6 @@
 {{-- Bug-Review (Du/Sie im Admin-Bereich gemischt): der restliche
      Admin-Bereich siezt durchgehend. --}}
-<p class="text-slate-500 mb-6">
+<p class="text-slate-500 dark:text-slate-400 mb-6">
     Wählen Sie aus, welche Kurse Ihre Bootsschule anbietet. Abgewählte Kurse verschwinden für Ihre Lernenden
     vollständig aus der Kursübersicht &mdash; auch wenn bereits ein Zugang dafür besteht. Kurse, die der
     Plattform-Betreiber sitewide deaktiviert hat, erscheinen hier nicht und können nicht aktiviert werden.
@@ -8,7 +8,7 @@
     Kauf-Link hinterlegen &mdash; der ersetzt auf der Kursübersicht für Lernende ohne Zugang dann den
     Standardhinweis durch einen „Jetzt kaufen"-Button.
 </p>
-<p class="text-slate-500 mb-6">
+<p class="text-slate-500 dark:text-slate-400 mb-6">
     Je Kurs legen Sie außerdem die <strong>Prüfungsanmeldung</strong> fest: Entweder melden Sie Ihre Teilnehmer an
     (Termintool „Praxis &amp; Prüfung"), oder die Teilnehmer melden sich selbst beim Prüfungsausschuss an und sehen
     dafür die Seite „Prüfung buchen" mit Anmeldeweg, Gebühren und Ablauf des jeweiligen Kurses. Die Selbstanmeldung
@@ -93,7 +93,7 @@
                 </div>
             </div>
         @empty
-            <p class="text-slate-500 text-sm">Aktuell sind keine Kurse sitewide verfügbar.</p>
+            <p class="text-slate-500 dark:text-slate-400 text-sm">Aktuell sind keine Kurse sitewide verfügbar.</p>
         @endforelse
 
         @if ($courses->isNotEmpty())

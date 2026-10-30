@@ -7,11 +7,14 @@ use App\Models\ContentQuestion;
 use App\Models\ContentQuestionRevision;
 use App\Models\CourseDefinition;
 use App\Models\Module;
+use App\Models\PraxisExamAppointment;
 use App\Models\PraxisFormSubmission;
 use App\Models\PraxisFormTemplate;
 use App\Models\Pruefungsausschuss;
+use App\Models\Tenant;
 use App\Models\Tip;
 use App\Models\TipCategory;
+use App\Models\User;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -64,29 +67,97 @@ class AlpineConfirmationScopeTest extends TestCase
             foreach ($this->createdPruefungsausschussIds as $id) {
                 Pruefungsausschuss::where('id', $id)->delete();
             }
+            // Kurse vor Modulen: course_module kaskadiert nur über course_id.
+            foreach ($this->createdCourseIds as $id) {
+                CourseDefinition::withoutGlobalScopes()->where('id', $id)->delete();
+            }
             foreach ($this->createdModuleIds as $id) {
                 Module::where('id', $id)->delete();
             }
             foreach ($this->createdQuestionIds as $id) {
                 ContentQuestion::where('id', $id)->delete();
             }
-            foreach ($this->createdCourseIds as $id) {
-                CourseDefinition::withoutGlobalScopes()->where('id', $id)->delete();
-            }
         });
 
         parent::tearDown();
     }
 
-    /** Die confirm()-Direktive muss innerhalb (also NACH dem öffnenden Tag) eines x-data-Bereichs liegen. */
+    /**
+     * Bug-Review (confirm() ohne Alpine-Scope): die frühere Prüfung
+     * verglich nur strpos('x-data') < strpos(needle) -- das x-data der
+     * Layout-<nav> (Superadmin) bzw. eines längst geschlossenen <div>
+     * (Teilnehmer-Detailseite) stand zwar VOR der Direktive im HTML, war
+     * aber kein Vorfahre, die Rückfrage blieb trotzdem wirkungslos. Jetzt
+     * wird das HTML geparst und für JEDE confirm()-Direktive der Seite
+     * geprüft, dass sie selbst oder ein Vorfahre x-data trägt.
+     */
     private function assertConfirmIsInsideAnAlpineScope(string $html, string $needle): void
     {
-        $this->assertStringContainsString($needle, $html, 'Erwarteter Direktiven-Aufruf nicht im HTML gefunden.');
-        $this->assertStringContainsString('x-data', $html, 'Seite besitzt gar keinen x-data-Bereich -- die Direktive wird von Alpine nie initialisiert.');
+        $directives = $this->alpineDirectivesMatching($html, fn (string $value) => str_contains($value, 'confirm('));
 
-        $xDataPos = strpos($html, 'x-data');
-        $needlePos = strpos($html, $needle);
-        $this->assertLessThan($needlePos, $xDataPos, 'x-data steht erst NACH der Direktive -- sie liegt außerhalb jedes Alpine-Scopes.');
+        $this->assertNotEmpty(
+            array_filter($directives, fn (array $directive) => str_contains($directive['value'], $needle)),
+            'Erwarteter Direktiven-Aufruf nicht im HTML gefunden: '.$needle
+        );
+        $this->assertDirectivesAreScoped($directives);
+    }
+
+    /** @param  list<array{value: string, scoped: bool}>  $directives */
+    private function assertDirectivesAreScoped(array $directives): void
+    {
+        foreach ($directives as $directive) {
+            $this->assertTrue($directive['scoped'], 'Direktive liegt außerhalb jedes x-data-Bereichs und wird von Alpine nie initialisiert: '.$directive['value']);
+        }
+    }
+
+    /**
+     * Alle Alpine-Event-Direktiven (@event bzw. x-on:event), deren Wert
+     * $matches erfüllt, jeweils mit der Info, ob das Element selbst oder
+     * ein Vorfahre x-data trägt.
+     *
+     * @return list<array{value: string, scoped: bool}>
+     */
+    private function alpineDirectivesMatching(string $html, callable $matches): array
+    {
+        // libxml verwirft Attributnamen mit "@" -- vor dem Parsen in die
+        // gleichwertige Langform x-on: umschreiben.
+        $html = preg_replace('/(\s)@([a-zA-Z][\w.:-]*)=/', '$1x-on:$2=', $html);
+
+        $document = new \DOMDocument;
+        $previous = libxml_use_internal_errors(true);
+        $document->loadHTML('<?xml encoding="utf-8">'.$html);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previous);
+
+        $xpath = new \DOMXPath($document);
+        $found = [];
+        foreach ($xpath->query('//*[@*]') as $element) {
+            foreach ($element->attributes as $attribute) {
+                if (! str_starts_with($attribute->nodeName, 'x-on:') || ! $matches($attribute->nodeValue)) {
+                    continue;
+                }
+                $found[] = [
+                    'value' => $attribute->nodeValue,
+                    'scoped' => $xpath->query('ancestor-or-self::*[@x-data]', $element)->length > 0,
+                ];
+            }
+        }
+
+        return $found;
+    }
+
+    /** Selbsttest: die DOM-Prüfung erkennt ein x-data, das VOR der Direktive steht, aber kein Vorfahre ist. */
+    public function test_the_scope_check_rejects_an_x_data_that_is_only_a_preceding_sibling(): void
+    {
+        $outside = '<nav x-data="{ open: false }"></nav><form @submit="if (! confirm(\'Wirklich?\')) $event.preventDefault()"></form>';
+        $inside = '<div x-data="{}"><form x-on:submit="if (! confirm(\'Wirklich?\')) $event.preventDefault()"></form></div>';
+        $onSelf = '<form x-data="{}" @submit="if (! confirm(\'Wirklich?\')) $event.preventDefault()"></form>';
+
+        $isConfirm = fn (string $value) => str_contains($value, 'confirm(');
+
+        $this->assertSame([['value' => "if (! confirm('Wirklich?')) \$event.preventDefault()", 'scoped' => false]], $this->alpineDirectivesMatching($outside, $isConfirm));
+        $this->assertTrue($this->alpineDirectivesMatching($inside, $isConfirm)[0]['scoped']);
+        $this->assertTrue($this->alpineDirectivesMatching($onSelf, $isConfirm)[0]['scoped']);
     }
 
     public function test_pruefungsausschuss_delete_confirmation_is_inside_an_alpine_scope(): void
@@ -200,12 +271,9 @@ class AlpineConfirmationScopeTest extends TestCase
         $response->assertOk();
         $html = $response->getContent();
 
-        $this->assertStringContainsString('couponExport.toggleSelectAll', $html);
-        $this->assertStringContainsString('x-data="{}"', $html);
-
-        $xDataPos = strpos($html, 'x-data="{}"');
-        $togglePos = strpos($html, 'couponExport.toggleSelectAll');
-        $this->assertLessThan($togglePos, $xDataPos, 'x-data="{}" steht erst NACH dem Export-Kästchen -- die Direktive liegt außerhalb jedes Alpine-Scopes.');
+        $directives = $this->alpineDirectivesMatching($html, fn (string $value) => str_contains($value, 'couponExport.toggleSelectAll'));
+        $this->assertNotEmpty($directives, 'Export-Kästchen nicht im HTML gefunden.');
+        $this->assertDirectivesAreScoped($directives);
     }
 
     /**
@@ -302,6 +370,137 @@ class AlpineConfirmationScopeTest extends TestCase
 
         $this->assertStringNotContainsString('onclick="return confirm', $html, 'Es steckt weiterhin ein von der CSP blockierter Inline-Handler im Markup.');
         $this->assertConfirmIsInsideAnAlpineScope($html, "confirm('Die Review-Fassung dieser Frage jetzt veröffentlichen?");
+    }
+
+    /**
+     * Bug-Review (confirm() ohne Alpine-Scope): das Superadmin-Layout trägt
+     * x-data nur auf der <nav> -- "Modul aus dem Kurs entfernen" lief ohne
+     * Rückfrage durch.
+     */
+    public function test_superadmin_course_module_detach_confirmation_is_inside_an_alpine_scope(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        $course = $this->onAdmin(function () {
+            $module = Module::create(['code' => 'TEST-CSP-DETACH-'.uniqid(), 'name' => 'Test Modul Entfernen', 'version' => '1', 'status' => 'published']);
+            $this->createdModuleIds[] = $module->id;
+
+            $course = CourseDefinition::withoutGlobalScopes()->create([
+                'tenant_id' => null,
+                'code' => 'TEST-CSP-DETACH-'.uniqid(),
+                'name' => 'Test-Kurs Modul entfernen',
+                'course_type' => 'full',
+                'status' => 'draft',
+            ]);
+            $this->createdCourseIds[] = $course->id;
+            $course->modules()->attach($module->id, ['sort_order' => 1]);
+
+            return $course;
+        });
+
+        $response = $this->actingAs($superadmin)->get(route('superadmin.courses.show', $course));
+
+        $response->assertOk();
+        $this->assertConfirmIsInsideAnAlpineScope($response->getContent(), "confirm('Dieses Modul wirklich aus dem Kurs entfernen?");
+    }
+
+    /**
+     * Bug-Review (confirm() ohne Alpine-Scope): Sperren/Widerrufen eines
+     * Zugangs sowie "Zurückziehen" eines Terminvorschlags (Komponente
+     * admin.praxis-appointment-slot) auf der Teilnehmer-Detailseite lagen
+     * hinter dem einzigen, längst geschlossenen x-data-Bereich.
+     */
+    public function test_participant_detail_page_confirmations_are_inside_an_alpine_scope(): void
+    {
+        [$tenant, $admin, $learner, $submission] = $this->makeSubmissionWithPendingAppointmentForAlpineTest();
+
+        $response = $this->actingAsInTenant($admin, $tenant)->get(route('admin.participants.show', $learner));
+
+        $response->assertOk();
+        $html = $response->getContent();
+        $this->assertConfirmIsInsideAnAlpineScope($html, "confirm('Diesen Zugang wirklich sperren?");
+        $this->assertConfirmIsInsideAnAlpineScope($html, "confirm('Diesen Zugang wirklich widerrufen?");
+        $this->assertConfirmIsInsideAnAlpineScope($html, "confirm('Diesen Terminvorschlag wirklich zurückziehen?");
+        $this->assertNotNull($submission);
+    }
+
+    /** Dieselbe Komponente auf praxis-form-submissions/show, hier mit bereits bestätigtem Termin ("Absagen"). */
+    public function test_praxis_submission_page_appointment_confirmations_are_inside_an_alpine_scope(): void
+    {
+        [$tenant, $admin, , $submission] = $this->makeSubmissionWithPendingAppointmentForAlpineTest();
+
+        $pending = $this->actingAsInTenant($admin, $tenant)->get(route('admin.praxis-form-submissions.show', $submission));
+        $pending->assertOk();
+        $this->assertConfirmIsInsideAnAlpineScope($pending->getContent(), "confirm('Diesen Terminvorschlag wirklich zurückziehen?");
+
+        $this->onAdmin(fn () => PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->update(['response' => 'accepted']));
+
+        $accepted = $this->actingAsInTenant($admin, $tenant)->get(route('admin.praxis-form-submissions.show', $submission));
+        $accepted->assertOk();
+        $this->assertConfirmIsInsideAnAlpineScope($accepted->getContent(), "confirm('Diesen Termin wirklich absagen?");
+    }
+
+    /** Admin-Dashboard: die Tabs (Teilnehmer, Orte, Banner) hängen im x-data des Tab-Umschalters. */
+    public function test_admin_dashboard_confirmations_are_inside_an_alpine_scope(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $this->createTenantUser($tenant, 'learner');
+
+        $response = $this->actingAsInTenant($admin, $tenant)->get(route('admin.dashboard', ['tab' => 'participants']));
+
+        $response->assertOk();
+        $this->assertConfirmIsInsideAnAlpineScope($response->getContent(), "confirm('Dieses Konto wirklich sperren?");
+    }
+
+    /** @return array{0: Tenant, 1: User, 2: User, 3: PraxisFormSubmission} */
+    private function makeSubmissionWithPendingAppointmentForAlpineTest(): array
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+
+        $course = $this->onAdmin(function () {
+            $course = CourseDefinition::withoutGlobalScopes()->create([
+                'tenant_id' => null,
+                'code' => 'TEST-CSP-APPT-'.uniqid(),
+                'name' => 'Test-Kurs für Termin-Rückfrage',
+                'course_type' => 'full',
+                'status' => 'published',
+            ]);
+            $this->createdCourseIds[] = $course->id;
+
+            return $course;
+        });
+
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $template = $this->onAdmin(function () use ($course) {
+            $template = PraxisFormTemplate::create([
+                'title' => 'CSP-Termin-Formular',
+                'min_progress_percent' => 0,
+                'course_ids' => [$course->id],
+                'fields' => [],
+                'active' => true,
+            ]);
+            $this->createdTemplateIds[] = $template->id;
+
+            return $template;
+        });
+
+        $submission = $this->onAdmin(fn () => PraxisFormSubmission::create([
+            'tenant_id' => $tenant->id,
+            'course_id' => $course->id,
+            'user_id' => $learner->id,
+            'praxis_form_template_id' => $template->id,
+            'data' => [],
+        ]));
+
+        $this->actingAsInTenant($admin, $tenant)->post(
+            route('admin.praxis-form-submissions.exam-appointments.store', $submission),
+            ['exam_date' => now()->addWeek()->format('Y-m-d\TH:i'), 'slot' => 0]
+        )->assertSessionHasNoErrors();
+
+        return [$tenant, $admin, $learner, $submission];
     }
 
     /** @return array{0: ContentQuestion, 1: Module} */

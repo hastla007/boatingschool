@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\CourseDefinition;
 use App\Models\ExamRuleSet;
 use App\Models\Module;
+use Carbon\Carbon;
 use Illuminate\Database\QueryException;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -37,6 +38,10 @@ class CourseAndRuleSetIntegrityTest extends TestCase
                 CourseDefinition::withoutGlobalScopes()->where('id', $id)->delete();
             }
         });
+
+        // Bug-Review B14 (Folgefehler): travelTo() friert die Zeit über das
+        // Testende hinaus ein, wenn hier nicht zurückgesetzt wird.
+        $this->travelBack();
 
         parent::tearDown();
     }
@@ -151,6 +156,42 @@ class CourseAndRuleSetIntegrityTest extends TestCase
         });
 
         $this->assertSame($current->id, $course->activeExamRuleSet()->id);
+    }
+
+    /**
+     * Bug-Review (Datumsgrenze nachts nach UTC statt deutscher Zeit):
+     * activeExamRuleSet() verglich valid_from/valid_until bisher gegen
+     * now()->toDateString() -- in UTC. Kurz nach deutscher Mitternacht
+     * (hier: 23:30 UTC, bereits 00:30 CET) ist das Server-"heute" noch
+     * der deutsche Vortag, ein ab heute (deutscher Zeit) gültiges
+     * Regelwerk galt dadurch 1-2 Stunden zu lange als "noch nicht
+     * wirksam".
+     */
+    public function test_a_rule_set_valid_from_todays_german_date_is_active_shortly_after_german_midnight_even_though_utc_is_still_yesterday(): void
+    {
+        $this->travelTo(Carbon::parse('2026-01-15 23:30:00', 'UTC'));
+
+        [$course, $module] = $this->makeIsolatedCourseWithModule();
+
+        $ruleSet = $this->onAdmin(function () use ($course) {
+            $ruleSet = ExamRuleSet::create([
+                'course_id' => $course->id,
+                'version' => 'german-midnight-'.uniqid(),
+                // In deutscher Zeit ist es zum eingefrorenen Zeitpunkt
+                // bereits der 16.01.2026 (00:30 CET).
+                'valid_from' => '2026-01-16',
+                'time_limit_seconds' => 3600,
+                'passing_rule' => ['min_correct_ratio' => 0.75],
+                'status' => 'published',
+                'verified_at' => now(),
+            ]);
+            $this->createdRuleSetIds[] = $ruleSet->id;
+
+            return $ruleSet;
+        });
+
+        $this->assertNotNull($course->activeExamRuleSet());
+        $this->assertSame($ruleSet->id, $course->activeExamRuleSet()->id);
     }
 
     public function test_a_duplicate_global_course_code_is_rejected(): void

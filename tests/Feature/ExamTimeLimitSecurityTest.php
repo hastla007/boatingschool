@@ -9,6 +9,7 @@ use App\Models\ExamSession;
 use App\Models\ExamSessionQuestion;
 use App\Models\Tenant;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -25,6 +26,9 @@ class ExamTimeLimitSecurityTest extends TestCase
 
     private array $createdRuleSetIds = [];
 
+    /** @var array{course_id: string, module_id: string}|null */
+    private ?array $attachedCourseModule = null;
+
     protected function tearDown(): void
     {
         $this->cleanUpCreatedTenants();
@@ -33,6 +37,10 @@ class ExamTimeLimitSecurityTest extends TestCase
             foreach ($this->createdRuleSetIds as $id) {
                 ExamRuleSet::where('id', $id)->delete();
             }
+
+            if ($this->attachedCourseModule) {
+                DB::table('course_module')->where($this->attachedCourseModule)->delete();
+            }
         });
 
         $this->cleanUpCreatedUsers();
@@ -40,6 +48,14 @@ class ExamTimeLimitSecurityTest extends TestCase
         parent::tearDown();
     }
 
+    /**
+     * Bug-Review (AA4: Prüfung nach Ablauf der Zeit zeigt englische
+     * Fehlerseite): dieser Zweig antwortete bisher mit einem nackten
+     * abort(409) ohne eigene errors/409.blade.php -- Laravels generische,
+     * englische Fallback-Fehlerseite statt des längst fertigen Ergebnisses.
+     * answer() leitet nach dem automatischen Auswerten jetzt stattdessen
+     * direkt zu exam.result weiter.
+     */
     public function test_answering_after_the_time_limit_is_rejected_and_the_session_is_auto_finished(): void
     {
         [$tenant, $learner, $course] = $this->setUpVerifiedExamCourse(timeLimitSeconds: 60);
@@ -62,7 +78,7 @@ class ExamTimeLimitSecurityTest extends TestCase
             'answer_id' => $answer->id,
         ]);
 
-        $response->assertStatus(409);
+        $response->assertRedirect(route('exam.result', $session));
         $this->asTenant($tenant, function () use ($session, $question) {
             $this->assertSame('evaluated', ExamSession::find($session->id)->status);
             $this->assertDatabaseHas('exam_session_question', [
@@ -71,6 +87,15 @@ class ExamTimeLimitSecurityTest extends TestCase
                 'answered_at' => null,
             ]);
         });
+
+        // Ein zweiter, danach eintreffender Request (Doppelklick, bereits
+        // veraltete Seite) trifft auf status=evaluated und landet ebenfalls
+        // direkt beim Ergebnis statt erneut auf einer Fehlerseite.
+        $second = $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/answers", [
+            'position' => $question->position,
+            'answer_id' => $answer->id,
+        ]);
+        $second->assertRedirect(route('exam.result', $session));
     }
 
     public function test_an_already_answered_question_cannot_be_answered_again(): void
@@ -184,11 +209,23 @@ class ExamTimeLimitSecurityTest extends TestCase
     {
         $tenant = $this->createTestTenant();
         $learner = $this->createTenantUser($tenant, 'learner');
-        $course = $this->existingCourse('UBI');
+        $course = $this->existingCourse('SKN');
         $this->grantEntitlement($tenant, $learner, $course);
 
         $module = $this->existingModule('UBI');
         $reviewer = $this->createTenantUser($tenant, 'admin');
+
+        // SKN hat keine festen Prüfungsbögen (nur dort ist die zufällige
+        // Prüfung erlaubt), ihr Modul enthält aber auch Freitext-/
+        // Mehrfachauswahl-Fragen. Die Prüfung zieht deshalb aus dem
+        // UBI-Modul (nur Einfachauswahl); damit die Frage auch im Lernmodus/
+        // bei Favoriten als Kursinhalt gilt, hängt das UBI-Modul für die
+        // Dauer des Tests zusätzlich am Kurs.
+        $this->onAdmin(function () use ($course, $module) {
+            if (DB::table('course_module')->insertOrIgnore(['course_id' => $course->id, 'module_id' => $module->id, 'sort_order' => 99])) {
+                $this->attachedCourseModule = ['course_id' => $course->id, 'module_id' => $module->id];
+            }
+        });
 
         $this->onAdmin(function () use ($course, $module, $reviewer, $timeLimitSeconds) {
             $ruleSet = ExamRuleSet::create([

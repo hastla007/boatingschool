@@ -340,4 +340,84 @@ class ContentQuestionReviewPublishingTest extends TestCase
         $response->assertSee('Neue Fassung aus Reimport');
         $response->assertSee(route('superadmin.questions.revisions.publish', $review));
     }
+
+    /**
+     * Bug-Review (AA9: Wartende Import-Änderung verschwindet): die
+     * Fragenliste bestimmte die wartende Review-Revision bisher ebenfalls
+     * über "ist die insgesamt letzte Revision dieser Frage" -- speichert der
+     * Superadmin zwischendurch über den Editor (siehe
+     * QuestionEditorMediaFromPublishedRevisionTest), entsteht dadurch eine
+     * neue, noch höher nummerierte veröffentlichte Revision, und das
+     * "Review ausstehend"-Badge samt Veröffentlichen-Link verschwand dadurch
+     * unbemerkt aus der Liste, obwohl die Review-Revision selbst unverändert
+     * weiter auf Freigabe wartete.
+     */
+    public function test_question_list_still_shows_the_pending_review_badge_after_the_editor_saves_a_new_revision(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        [$module, $question, , $review] = $this->makeQuestionWithPendingReview();
+
+        $this->actingAs($superadmin)->patch("/superadmin/questions/{$question->id}", [
+            'question_type' => 'single_choice',
+            'question_text' => 'Alte Fassung (vom Editor überarbeitet)',
+            'answers' => ['A' => 'Richtig', 'B' => 'Falsch', 'C' => 'Falsch', 'D' => 'Falsch'],
+            'correct' => 'A',
+        ])->assertRedirect(route('superadmin.questions.edit', $question));
+
+        $response = $this->actingAs($superadmin)->get(route('superadmin.questions.index', $module));
+
+        $response->assertOk();
+        $response->assertSee('Review ausstehend');
+        $response->assertSee(route('superadmin.questions.revisions.publish', $review));
+    }
+
+    public function test_edit_page_warns_when_the_pending_review_is_older_than_an_editor_change_and_it_can_be_discarded(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        [, $question, , $review] = $this->makeQuestionWithPendingReview();
+
+        $this->actingAs($superadmin)->patch("/superadmin/questions/{$question->id}", [
+            'question_type' => 'single_choice',
+            'question_text' => 'Alte Fassung (vom Editor überarbeitet)',
+            'answers' => ['A' => 'Richtig', 'B' => 'Falsch', 'C' => 'Falsch', 'D' => 'Falsch'],
+            'correct' => 'A',
+        ])->assertRedirect(route('superadmin.questions.edit', $question));
+
+        $this->actingAs($superadmin)->get(route('superadmin.questions.edit', $question))
+            ->assertOk()
+            ->assertSee('ist neuer und wurde im Editor geändert')
+            ->assertSee(route('superadmin.questions.revisions.discard', $review));
+
+        $this->actingAs($superadmin)->post(route('superadmin.questions.revisions.discard', $review))->assertRedirect();
+
+        $this->onAdmin(function () use ($question, $review) {
+            $this->assertSame('deprecated', $review->fresh()->editorial_status);
+            $this->assertSame('Alte Fassung (vom Editor überarbeitet)', $question->fresh()->publishedRevision()->question_text);
+            $this->assertNull($question->fresh()->pendingReviewRevision());
+        });
+    }
+
+    public function test_publishing_an_older_review_over_a_newer_editor_version_needs_explicit_confirmation(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        [, $question, , $review] = $this->makeQuestionWithPendingReview();
+
+        $this->actingAs($superadmin)->patch("/superadmin/questions/{$question->id}", [
+            'question_type' => 'single_choice',
+            'question_text' => 'Neuere Editor-Fassung',
+            'answers' => ['A' => 'Richtig', 'B' => 'Falsch', 'C' => 'Falsch', 'D' => 'Falsch'],
+            'correct' => 'A',
+        ]);
+
+        // Knopf in der Fragenliste (ohne Bestätigung): abgelehnt, zur
+        // Bearbeitungsseite mit Hinweis.
+        $this->actingAs($superadmin)->post(route('superadmin.questions.revisions.publish', $review))
+            ->assertRedirect(route('superadmin.questions.edit', $question))
+            ->assertSessionHasErrors('revision');
+        $this->onAdmin(fn () => $this->assertSame('Neuere Editor-Fassung', $question->fresh()->publishedRevision()->question_text));
+
+        // Von der Bearbeitungsseite mit ausdrücklicher Bestätigung.
+        $this->actingAs($superadmin)->post(route('superadmin.questions.revisions.publish', $review), ['overwrite_newer' => 1])->assertRedirect();
+        $this->onAdmin(fn () => $this->assertSame('published', $review->fresh()->editorial_status));
+    }
 }

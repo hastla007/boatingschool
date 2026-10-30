@@ -6,8 +6,10 @@ use App\Models\CourseDefinition;
 use App\Models\PraxisExamAppointment;
 use App\Models\Tenant;
 use App\Notifications\PraxisExamAppointmentResponded;
+use App\Services\EntitlementService;
 use App\Services\PraxisExamAppointmentService;
 use App\Support\BestEffortMail;
+use App\Support\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Notification;
 use RuntimeException;
@@ -22,7 +24,7 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class PraxisExamAppointmentController extends Controller
 {
-    public function respond(Request $request, CourseDefinition $course, PraxisExamAppointment $examAppointment, PraxisExamAppointmentService $appointments): Response
+    public function respond(Request $request, TenantContext $tenantContext, CourseDefinition $course, PraxisExamAppointment $examAppointment, PraxisExamAppointmentService $appointments, EntitlementService $entitlements): Response
     {
         $user = $request->user();
 
@@ -34,6 +36,16 @@ class PraxisExamAppointmentController extends Controller
             $examAppointment->submission->user_id === $user->id && $examAppointment->submission->course_id === $course->id,
             404
         );
+
+        // Bug-Review (Prüfungstermin bestätigbar trotz bereits entzogenem
+        // Kurszugang): PraxisPruefungController prüft das Entitlement nur
+        // beim Aufruf der Seite (siehe dort, EntitlementService::
+        // hasAccess()) -- ein Admin kann den Kurszugang aber JEDERZEIT
+        // zwischen Seitenaufruf und Absenden widerrufen (siehe W3/T5 für
+        // dasselbe Muster bei der Coupon-Einlösung). respond() selbst
+        // prüfte das nie, sodass ein Lerner einen Terminvorschlag auch
+        // nach einem Widerruf noch annehmen oder ablehnen konnte.
+        abort_unless($entitlements->hasAccess($tenantContext->tenant(), $user, $course), 403, 'Für diesen Kurs liegt kein aktives Entitlement mehr vor.');
 
         $validated = $request->validate([
             'decision' => ['required', 'in:accepted,declined'],

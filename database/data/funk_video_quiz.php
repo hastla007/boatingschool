@@ -7,6 +7,16 @@
  * Stoff sie gehört; Kapitel- und Lektionstitel wie in FunkVideoCourseSeeder.
  * Lektionen ohne passende Katalogfrage (z. B. „Praktische Prüfung am
  * Funkgerät“) fehlen hier und haben kein Quiz.
+ *
+ * Bug-Review (Quizfragen in falscher Lektion): SRC-0059 (Kennzeichnung
+ * einer DSC-Seefunkstelle: Name, Rufzeichen, MMSI) stand unter „Sprechregeln
+ * und Buchstabiertafel“, SRC-0086 (Schiffstagebuch) unter „Rangfolge im
+ * Seefunk“, SRC-0006 (BSH-Veröffentlichung „Funkdienst für die Klein- und
+ * Sportschifffahrt“) unter „Ablauf der SRC-Prüfung“; UBI-0018…0021
+ * (Abhörverbot/Fernmeldegeheimnis) unter „Sprechregeln, Buchstabiertafel
+ * und Anruf“, UBI-0120 (SILENCE MAYDAY = Funkstille gebieten) unter
+ * „Notverkehr offiziell beenden“. Bestehende Installationen korrigiert
+ * die Migration 2024_02_01_000502.
  */
 return [
     'SRC' => [
@@ -23,11 +33,11 @@ return [
             'Kanal 16, 70 und Arbeitskanäle' => ['SRC-0108', 'SRC-0107', 'SRC-0058', 'SRC-0132', 'SRC-0110', 'SRC-0109', 'SRC-0112'],
             'Bedienelemente der UKW-Seefunkanlage' => ['SRC-0051', 'SRC-0104', 'SRC-0034', 'SRC-0045', 'SRC-0046'],
             'Antenne, Stromversorgung und Sendeleistung' => ['SRC-0037', 'SRC-0081', 'SRC-0082', 'SRC-0049', 'SRC-0050', 'SRC-0048', 'SRC-0047'],
-            'MMSI und der DSC-Controller' => ['SRC-0053', 'SRC-0054', 'SRC-0055', 'SRC-0061', 'SRC-0064', 'SRC-0067', 'SRC-0062', 'SRC-0065', 'SRC-0066'],
+            'MMSI und der DSC-Controller' => ['SRC-0053', 'SRC-0054', 'SRC-0055', 'SRC-0061', 'SRC-0064', 'SRC-0067', 'SRC-0062', 'SRC-0065', 'SRC-0066', 'SRC-0059'],
         ],
         'Routineverkehr im Alltag' => [
-            'Sprechregeln und Buchstabiertafel' => ['SRC-0115', 'SRC-0059'],
-            'Rechtliche Regeln im Seefunk' => ['SRC-0004', 'SRC-0005', 'SRC-0042', 'SRC-0043', 'SRC-0044', 'SRC-0084', 'SRC-0039'],
+            'Sprechregeln und Buchstabiertafel' => ['SRC-0115'],
+            'Rechtliche Regeln im Seefunk' => ['SRC-0004', 'SRC-0005', 'SRC-0042', 'SRC-0043', 'SRC-0044', 'SRC-0084', 'SRC-0039', 'SRC-0086', 'SRC-0006'],
             'DSC-Routineanruf von Schiff zu Schiff' => ['SRC-0075', 'SRC-0103', 'SRC-0111'],
             'Revier- und Hafenfunk' => ['SRC-0008', 'SRC-0009', 'SRC-0087', 'SRC-0088', 'SRC-0089', 'SRC-0091', 'SRC-0092', 'SRC-0090', 'SRC-0010', 'SRC-0011'],
             'Funkprobe und Testanruf' => ['SRC-0105', 'SRC-0114', 'SRC-0113'],
@@ -49,7 +59,7 @@ return [
         'Dringlichkeit und Sicherheit – PAN PAN und SECURITE' => [
             'PAN PAN: die Dringlichkeitsmeldung' => ['SRC-0094', 'SRC-0095', 'SRC-0093', 'SRC-0098', 'SRC-0057', 'SRC-0097', 'SRC-0099'],
             'Funkärztliche Beratung (MEDICO)' => ['SRC-0023', 'SRC-0096'],
-            'Rangfolge im Seefunk' => ['SRC-0085', 'SRC-0086'],
+            'Rangfolge im Seefunk' => ['SRC-0085'],
             'SECURITE: Gefahren richtig melden' => ['SRC-0100', 'SRC-0101', 'SRC-0102'],
             'Vorrang: wann du trotz Funkstille senden darfst' => ['SRC-0139', 'SRC-0156'],
             'MSI: nautische Warnnachrichten für Skipper' => ['SRC-0016', 'SRC-0018', 'SRC-0017', 'SRC-0124'],
@@ -58,7 +68,6 @@ return [
         'Zulassung und Prüfungsvorbereitung' => [
             'Zulassung und Anmeldung zur Prüfung' => ['SRC-0070', 'SRC-0071'],
             'Nach der Prüfung: Zuteilungsurkunde und MMSI' => ['SRC-0028', 'SRC-0030', 'SRC-0031', 'SRC-0063', 'SRC-0029', 'SRC-0032', 'SRC-0033', 'SRC-0038', 'SRC-0040', 'SRC-0041'],
-            'Ablauf der SRC-Prüfung' => ['SRC-0006'],
             'Englische Seefunktexte und Vokabeln' => ['SRC-0020', 'SRC-0150'],
         ],
     ],
@@ -66,7 +75,7 @@ return [
         'Einführung in das UBI' => [
             'Willkommen zum UKW-Sprechfunkzeugnis für den Binnenschifffahrtsfunk' => ['UBI-0009', 'UBI-0011', 'UBI-0008', 'UBI-0010', 'UBI-0027', 'UBI-0030'],
             'Die Binnenschifffahrtsstraßen und das RAINWAT' => ['UBI-0001', 'UBI-0002', 'UBI-0003', 'UBI-0014', 'UBI-0080', 'UBI-0036', 'UBI-0083', 'UBI-0015', 'UBI-0016', 'UBI-0017'],
-            'Binnenfunk: wer funkt, was ist erlaubt?' => ['UBI-0025', 'UBI-0026', 'UBI-0049', 'UBI-0028', 'UBI-0034', 'UBI-0031', 'UBI-0029', 'UBI-0033', 'UBI-0035', 'UBI-0037', 'UBI-0038'],
+            'Binnenfunk: wer funkt, was ist erlaubt?' => ['UBI-0025', 'UBI-0026', 'UBI-0049', 'UBI-0028', 'UBI-0034', 'UBI-0031', 'UBI-0029', 'UBI-0033', 'UBI-0035', 'UBI-0037', 'UBI-0038', 'UBI-0018', 'UBI-0019', 'UBI-0020', 'UBI-0021'],
         ],
         'Technik: Kanäle und Funkanlage' => [
             'Kanäle im Binnenschifffahrtsfunk' => ['UBI-0022', 'UBI-0052', 'UBI-0023', 'UBI-0024', 'UBI-0091', 'UBI-0089', 'UBI-0090', 'UBI-0092', 'UBI-0084', 'UBI-0085', 'UBI-0086', 'UBI-0087'],
@@ -79,11 +88,11 @@ return [
             'Rangfolge der Meldungen' => ['UBI-0110', 'UBI-0130'],
         ],
         'Notverkehr im Binnenfunk – MAYDAY' => [
-            'Sprechregeln, Buchstabiertafel und Anruf' => ['UBI-0082', 'UBI-0096', 'UBI-0097', 'UBI-0098', 'UBI-0004', 'UBI-0104', 'UBI-0105', 'UBI-0018', 'UBI-0019', 'UBI-0020', 'UBI-0021'],
-            'Notfall auf dem Binnenrevier: die Notmeldung (MAYDAY)' => ['UBI-0112', 'UBI-0111', 'UBI-0113', 'UBI-0114', 'UBI-0115'],
+            'Sprechregeln, Buchstabiertafel und Anruf' => ['UBI-0082', 'UBI-0096', 'UBI-0097', 'UBI-0098', 'UBI-0004', 'UBI-0104', 'UBI-0105'],
+            'Notfall auf dem Binnenrevier: die Notmeldung (MAYDAY)' => ['UBI-0112', 'UBI-0111', 'UBI-0113', 'UBI-0114', 'UBI-0115', 'UBI-0120'],
             'Notmeldungen richtig bestätigen' => ['UBI-0116', 'UBI-0117'],
             'MAYDAY RELAY: die Rettungskette weitergeben' => ['UBI-0118', 'UBI-0109'],
-            'Notverkehr offiziell beenden' => ['UBI-0120', 'UBI-0119'],
+            'Notverkehr offiziell beenden' => ['UBI-0119'],
         ],
         'Dringlichkeit und Sicherheit im Binnenfunk' => [
             'PAN PAN: Dringlichkeitsverkehr sicher abwickeln' => ['UBI-0121', 'UBI-0122', 'UBI-0123', 'UBI-0124', 'UBI-0125'],

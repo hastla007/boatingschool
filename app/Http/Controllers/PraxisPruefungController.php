@@ -30,8 +30,35 @@ class PraxisPruefungController extends Controller
         abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Für diesen Kurs liegt kein aktives Entitlement vor.');
 
         // Teilnehmer meldet sich selbst an (ExamRegistration::SELF): statt des Termintools die Seite "Prüfung buchen".
-        if (ExamRegistration::isSelf($tenant, $course)) {
+        //
+        // Bug-Review (Umstellung auf Selbstanmeldung): nur Teilnehmer OHNE
+        // bisherige Praxis-Anmeldung -- wer schon eine abgeschickt hat,
+        // behält Anmeldung, Prüfungstermine und Antworten darauf (siehe
+        // ExamRegistration::usesAppointmentTool()). Neue Anmeldungen bleiben
+        // gesperrt (PraxisFormSubmissionController::store()).
+        if (! ExamRegistration::usesAppointmentTool($tenant, $course, $user)) {
             return redirect()->route('exam-booking', $course);
+        }
+
+        if (ExamRegistration::isSelf($tenant, $course)) {
+            $submission = PraxisFormSubmission::where('tenant_id', $tenant->id)
+                ->where('user_id', $user->id)
+                ->where('course_id', $course->id)
+                ->with('examAppointments.location')
+                ->first();
+            $template = $submission->template
+                ?? PraxisFormTemplate::where('active', true)->whereJsonContains('course_ids', $course->id)->first();
+
+            if (! $template) {
+                return redirect()->route('exam-booking', $course);
+            }
+
+            return view('praxis-pruefung.index', [
+                'course' => $course,
+                'state' => 'submitted',
+                'template' => $template,
+                'submission' => $submission,
+            ]);
         }
 
         // Bug-Review (Gates vergleichen den gerundeten Wert):

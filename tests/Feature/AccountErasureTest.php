@@ -67,6 +67,51 @@ class AccountErasureTest extends TestCase
         $this->assertNull($user->fresh());
     }
 
+    /**
+     * Bug-Review (AA7: Inhaber löscht sein Konto -- Schule ohne Inhaber):
+     * der einzige Inhaber darf sein Konto nicht löschen -- die Schule stünde
+     * danach ohne Inhaber da, und Admin\ParticipantController::update()/
+     * updateMembership() verlangen für jede Nicht-Lerner-Mitgliedschaft
+     * ausdrücklich role === 'owner', sodass sich keine Rolle mehr ändern
+     * ließe (nur noch der Superadmin könnte eingreifen).
+     */
+    public function test_the_sole_owner_cannot_delete_their_account(): void
+    {
+        $tenant = $this->createTestTenant();
+        $owner = $this->createTenantUser($tenant, 'owner');
+
+        $response = $this->actingAsInTenant($owner, $tenant)->delete('/profile', [
+            'password' => 'password',
+        ]);
+
+        $response->assertSessionHasErrors('owner', null, 'userDeletion');
+        $this->assertNotNull($owner->fresh());
+        $this->onAdmin(fn () => $this->assertDatabaseHas('tenant_user', ['tenant_id' => $tenant->id, 'user_id' => $owner->id, 'role' => 'owner']));
+
+        $this->createdUserIds[] = $owner->id;
+    }
+
+    /**
+     * Gegenprobe zum Test oben: mit einem zweiten aktiven Inhaber bleibt die
+     * Schule nach der Löschung weiterhin führungsfähig -- die Sperre greift
+     * deshalb nicht.
+     */
+    public function test_an_owner_can_delete_their_account_if_another_active_owner_remains(): void
+    {
+        $tenant = $this->createTestTenant();
+        $owner = $this->createTenantUser($tenant, 'owner');
+        $coOwner = $this->createTenantUser($tenant, 'owner');
+
+        $response = $this->actingAsInTenant($owner, $tenant)->delete('/profile', [
+            'password' => 'password',
+        ]);
+
+        $response->assertSessionHasNoErrors();
+        $this->assertNull($owner->fresh());
+
+        $this->createdUserIds[] = $coOwner->id;
+    }
+
     public function test_leaving_a_tenant_removes_that_tenants_learning_data_but_not_a_second_tenants(): void
     {
         $tenantA = $this->createTestTenant();

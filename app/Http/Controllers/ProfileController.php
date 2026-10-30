@@ -4,13 +4,16 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
 use App\Models\Entitlement;
+use App\Models\PraxisFormSubmission;
 use App\Models\ProductPurchase;
 use App\Models\TenantUser;
+use App\Models\WillkommensboxOrder;
 use App\Notifications\ConfirmPendingEmail;
 use App\Notifications\EmailChangeRequested;
 use App\Services\AccountErasureService;
 use App\Services\PersonalDataExportService;
 use App\Support\BestEffortMail;
+use App\Support\StatusLabels;
 use App\Support\TenantContext;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
@@ -50,11 +53,23 @@ class ProfileController extends Controller
         // tatsächlich eingelösten Code.
         $entitlements = Entitlement::where('tenant_id', $tenant->id)->where('user_id', $user->id)
             ->with('course')->orderByDesc('valid_from')->get()
+            //
+            // Bug-Review (Buchungsliste im Profil): ein per Verlängerungscode
+            // eingelöster Zugang (source_type 'coupon_renewal', siehe
+            // CouponRedemptionService) fiel in der View bisher auf "Von
+            // deiner Bootsschule freigeschaltet" zurück -- er wird jetzt wie
+            // 'coupon' (mit Code) angezeigt. Außerdem fehlte jeder Hinweis
+            // darauf, ob der Zugang noch gilt: der Status erscheint jetzt auf
+            // Deutsch, ein zeitlich abgelaufener, aber (noch) nicht vom
+            // Ablauf-Command umgestellter Zugang bereits als "abgelaufen".
             ->map(fn (Entitlement $e) => [
                 'label' => $e->course->name ?? '—',
-                'source_type' => $e->source_type,
+                'source_type' => $e->source_type === 'coupon_renewal' ? 'coupon' : $e->source_type,
                 'source_reference' => $e->source_reference,
                 'date' => $e->valid_from,
+                'status' => StatusLabels::entitlementStatus(
+                    $e->status === 'active' && $e->valid_until !== null && $e->valid_until <= now() ? 'expired' : $e->status
+                ),
             ]);
 
         $productPurchases = ProductPurchase::where('tenant_id', $tenant->id)->where('user_id', $user->id)
@@ -66,7 +81,33 @@ class ProfileController extends Controller
                 'date' => $p->created_at,
             ]);
 
-        $bookings = $entitlements->concat($productPurchases)->sortByDesc('date')->values();
+        // Bug-Review (BB7: Buchungsliste im Profil unvollständig): "Deine
+        // Buchungen" zeigte bisher ausschließlich Kurszugänge/Zusatzprodukte
+        // (beides über Coupon/Admin "freigeschaltet") -- die Willkommensbox-
+        // Bestellung und eine Praxisformular-Anmeldung sind aber ebenso
+        // selbst getätigte Buchungen (siehe PersonalDataExportService, wo
+        // beide bereits als personenbezogene Daten exportiert werden) und
+        // fehlten hier völlig, obwohl ein Lerner sie hier erwarten würde.
+        $willkommensboxOrders = WillkommensboxOrder::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+            ->orderByDesc('created_at')->get()
+            ->map(fn (WillkommensboxOrder $o) => [
+                'label' => 'Willkommensbox',
+                'source_type' => 'self',
+                'source_reference' => null,
+                'date' => $o->created_at,
+            ]);
+
+        $praxisFormSubmissions = PraxisFormSubmission::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+            ->with('course')->orderByDesc('created_at')->get()
+            ->map(fn (PraxisFormSubmission $s) => [
+                'label' => 'Praxisformular'.($s->course?->name ? ' — '.$s->course->name : ''),
+                'source_type' => 'self',
+                'source_reference' => null,
+                'date' => $s->created_at,
+            ]);
+
+        $bookings = $entitlements->concat($productPurchases)->concat($willkommensboxOrders)->concat($praxisFormSubmissions)
+            ->sortByDesc('date')->values();
 
         // Sicherheitsreview S3: Adresse/Geburtsdatum liegen jetzt je
         // Mitgliedschaft auf tenant_user statt kontoweit auf app_user --
@@ -276,6 +317,30 @@ class ProfileController extends Controller
 
         $user = $request->user();
         $tenant = $tenantContext->tenant();
+
+        // Bug-Review (AA7: Inhaber löscht sein Konto -- Schule ohne
+        // Inhaber): leaveTenant() entfernt die Mitgliedschaft unabhängig
+        // von der Rolle -- löschte sich der einzige Inhaber ("owner") einer
+        // Bootsschule selbst, stand die Schule danach ganz ohne Inhaber da.
+        // Rollen lassen sich dann nicht mehr ändern: Admin\
+        // ParticipantController::update()/updateMembership() verlangen für
+        // jede Nicht-Lerner-Mitgliedschaft ausdrücklich role === 'owner'
+        // (siehe dortige Bug-Review N11), ohne verbleibenden Inhaber kann
+        // das also niemand mehr erfüllen -- nur noch der Superadmin könnte
+        // über Superadmin\UserController::addMembership() eingreifen. Der
+        // Inhaber kann sein Konto deshalb nicht löschen, solange er der
+        // einzige ist.
+        if ($user->roleForTenant($tenant) === 'owner') {
+            $hasOtherOwner = TenantUser::where('tenant_id', $tenant->id)
+                ->where('role', 'owner')
+                ->where('status', 'active')
+                ->where('user_id', '!=', $user->id)
+                ->exists();
+
+            if (! $hasOtherOwner) {
+                return back()->withErrors(['owner' => 'Du bist der einzige Inhaber dieser Bootsschule und kannst dein Konto deshalb nicht löschen. Bitte übertrage die Inhaberschaft zuerst -- wende dich dafür an unseren Support.'], 'userDeletion');
+            }
+        }
 
         Auth::logout();
 

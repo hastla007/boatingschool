@@ -1,6 +1,6 @@
 {{-- Bug-Review (Du/Sie im Admin-Bereich gemischt): der restliche
      Admin-Bereich siezt durchgehend. --}}
-<p class="text-slate-500 mb-6">
+<p class="text-slate-500 dark:text-slate-400 mb-6">
     Hier können Sie vorgefertigte Addon-Banner aktivieren, mit denen Sie Kursteilnehmern ein Upgrade oder
     Zusatzpaket anbieten. Für jedes aktivierte Addon hinterlegen Sie Ihren Gutscheincode und Preis
     (beides reine Anzeigefelder &mdash; der Verkauf läuft über Ihren eigenen Webshop), optional einen
@@ -10,7 +10,7 @@
 </p>
 
 @if ($addonTemplates->isEmpty())
-    <div class="max-w-2xl bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 text-slate-500">
+    <div class="max-w-2xl bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 text-slate-500 dark:text-slate-400">
         Es sind aktuell keine Addon-Vorlagen verfügbar.
     </div>
 @else

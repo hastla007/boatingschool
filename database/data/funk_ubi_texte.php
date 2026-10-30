@@ -17,7 +17,10 @@ return [
         'Revierzentrale Duisburg, hier ist Motorboot Seeschwalbe. Ich befinde mich bei Rhein-Kilometer 781 in der Talfahrt. Ich habe Maschinenausfall und liege sicher vor Anker. Ich erbitte Schlepphilfe. Bitte kommen.',
         'An alle Funkstellen, hier ist Sportboot Lachs. Bei Mosel-Kilometer 128 treibt eine vertriebene Tonne in der Fahrrinne. Bitte vorsichtig fahren. Ende.',
         'Schleuse, hier ist Motorboot Kranich. Ich komme zu Berg und möchte mich zur nächsten Schleusung anmelden. Länge acht Meter, Breite drei Meter. Bitte kommen.',
-        'Motorschiff Hansestadt, hier ist Sportboot Eule. Ich bin Bergfahrer bei Rhein-Kilometer 554 und halte mich am rechten Ufer. Begegnung Backbord an Backbord. Bitte kommen.',
+        // Bug-Review (Begegnung): ein Bergfahrer am rechten Ufer begegnet
+        // Steuerbord an Steuerbord; für "Backbord an Backbord" hält er sich
+        // am linken Ufer (vorher widersprüchlich "rechten Ufer").
+        'Motorschiff Hansestadt, hier ist Sportboot Eule. Ich bin Bergfahrer bei Rhein-Kilometer 554 und halte mich am linken Ufer. Begegnung Backbord an Backbord. Bitte kommen.',
         'Marina Rheinbogen, hier ist Motoryacht Biber. Ich erbitte einen Liegeplatz für zwei Nächte. Länge zwölf Meter, Tiefgang ein Meter zwanzig. Ankunft gegen siebzehn Uhr. Bitte kommen.',
         'An alle Funkstellen, hier ist Motorboot Falke. Bei Main-Kilometer 210 ist ein Sportboot gesunken und ragt am linken Ufer in die Fahrrinne. Bitte Abstand halten. Ende.',
         'Revierzentrale Oberwesel, hier ist Segelboot Libelle. Ich erbitte den aktuellen Wasserstand am Pegel Kaub. Bitte kommen.',

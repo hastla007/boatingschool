@@ -20,7 +20,7 @@ class CouponController extends Controller
 {
     public function index(Request $request): View
     {
-        $filters = $request->only(['tenant_id', 'status', 'search']);
+        $filters = $this->filters($request);
 
         $coupons = $this->filteredCoupons($filters)
             ->with('course', 'product', 'optionProducts', 'tenant', 'redeemedBy', 'redeemedTenant')
@@ -140,7 +140,7 @@ class CouponController extends Controller
         ]);
 
         if ($request->boolean('select_all')) {
-            $filters = $request->only(['tenant_id', 'status', 'search']);
+            $filters = $this->filters($request);
             $codes = $this->filteredCoupons($filters)->orderByDesc('created_at')->pluck('code');
         } else {
             $codes = Coupon::whereIn('id', $validated['ids'])->orderByDesc('created_at')->pluck('code');
@@ -155,7 +155,7 @@ class CouponController extends Controller
         AuditLog::record($validated['tenant_id'] ?? null, $request->user()->id, 'superadmin.coupon.export', 'coupon', null, null, [
             'count' => $codes->count(),
             'select_all' => $request->boolean('select_all'),
-            'filters' => $request->only(['tenant_id', 'status', 'search']),
+            'filters' => $this->filters($request),
         ]);
 
         $filename = 'coupon-codes-'.now()->format('Y-m-d_His').'.txt';
@@ -166,10 +166,22 @@ class CouponController extends Controller
         ]);
     }
 
+    /**
+     * Bug-Review (Array-Werte in der Adresszeile): nur Zeichenketten
+     * übernehmen -- ?search[]=x landete sonst als Array im Suchfeld der
+     * Ansicht (htmlspecialchars(), HTTP 500).
+     *
+     * @return array{tenant_id?: string, status?: string, search?: string}
+     */
+    private function filters(Request $request): array
+    {
+        return array_filter($request->only(['tenant_id', 'status', 'search']), 'is_string');
+    }
+
     /** @param  array{tenant_id?: string, status?: string, search?: string}  $filters */
     private function filteredCoupons(array $filters): Builder
     {
-        $term = trim((string) ($filters['search'] ?? ''));
+        $term = trim($filters['search'] ?? '');
 
         // Bug-Review (Query-Parameter-Validierung): tenant_id kam ungeprüft
         // aus der Query-String direkt in ein where('tenant_id', ...) gegen

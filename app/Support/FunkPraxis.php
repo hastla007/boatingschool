@@ -70,7 +70,7 @@ class FunkPraxis
     /** SRC: Grund für die Aufhebung einer Dringlichkeitsmeldung. */
     private const SRC_CANCEL_REASONS = [
         'engine' => ['Inzwischen läuft die Maschine wieder', 'In the meantime the engine is running again', 'MY ENGINE IS RUNNING AGAIN'],
-        'tow' => ['Inzwischen hat ein Seenotrettungsboot Sie in Schlepp genommen', 'In the meantime a rescue boat has taken you in tow', 'I AM NOW UNDER TOW'],
+        'tow' => ['Inzwischen hat ein Seenotrettungsboot dich in Schlepp genommen', 'In the meantime a rescue boat has taken you in tow', 'I AM NOW UNDER TOW'],
     ];
 
     /** SRC: Gefahren für eine Sicherheitsmeldung. */
@@ -88,8 +88,8 @@ class FunkPraxis
         'berth' => ['einen gemeinsamen Liegeplatz in Helgoland absprechen', 'arrange a berth together in Helgoland', 'I WILL ARRIVE IN HELGOLAND AT ABOUT 1700 UTC, CAN I MOOR ALONGSIDE YOU'],
         'weather' => ['nach dem aktuellen Wetter in ihrem Seegebiet fragen', 'ask about the current weather in their area', 'WHAT IS THE WEATHER LIKE IN YOUR AREA'],
         'radio_check' => ['eine Funkprobe (Radio check) machen', 'carry out a radio check', 'RADIO CHECK, HOW DO YOU READ ME'],
-        'eta' => ['Ihre voraussichtliche Ankunftszeit in Kiel mitteilen', 'inform them of your estimated time of arrival in Kiel', 'MY ESTIMATED TIME OF ARRIVAL IN KIEL IS 1600 UTC'],
-        'impeller' => ['fragen, ob sie einen Ersatz-Impeller für Ihren Motor an Bord hat', 'ask whether they have a spare impeller for your engine on board', 'DO YOU HAVE A SPARE IMPELLER ON BOARD'],
+        'eta' => ['deine voraussichtliche Ankunftszeit in Kiel mitteilen', 'inform them of your estimated time of arrival in Kiel', 'MY ESTIMATED TIME OF ARRIVAL IN KIEL IS 1600 UTC'],
+        'impeller' => ['fragen, ob sie einen Ersatz-Impeller für deinen Motor an Bord hat', 'ask whether they have a spare impeller for your engine on board', 'DO YOU HAVE A SPARE IMPELLER ON BOARD'],
     ];
 
     /** UBI: Notlagen -- Situation, Meldung, Prüfwörter. */
@@ -106,11 +106,11 @@ class FunkPraxis
 
     /** UBI: Dringlichkeitsfälle -- Situation, Meldung, erbetene Hilfe, Prüfwörter. */
     private const UBI_PROBLEMS = [
-        'engine' => ['Maschinenausfall, Sie liegen sicher vor Anker, es besteht keine unmittelbare Gefahr', 'MASCHINENAUSFALL, ICH LIEGE VOR ANKER', 'ERBITTE SCHLEPPHILFE', 'MASCHINE|MOTOR'],
+        'engine' => ['Maschinenausfall, du liegst sicher vor Anker, es besteht keine unmittelbare Gefahr', 'MASCHINENAUSFALL, ICH LIEGE VOR ANKER', 'ERBITTE SCHLEPPHILFE', 'MASCHINE|MOTOR'],
         'rudder' => ['Ruderschaden, das Boot ist nur noch eingeschränkt manövrierfähig, es besteht keine unmittelbare Gefahr', 'RUDERSCHADEN, ICH BIN NUR EINGESCHRÄNKT MANÖVRIERFÄHIG', 'ERBITTE SCHLEPPHILFE', 'RUDER'],
         'injury' => ['ein Crewmitglied hat sich am Bein verletzt (nicht lebensbedrohlich) und muss kurzfristig ärztlich versorgt werden', 'EINE PERSON AM BEIN VERLETZT, NICHT LEBENSBEDROHLICH', 'ERBITTE ÄRZTLICHE HILFE AN DER NÄCHSTEN ANLEGESTELLE', 'VERLETZ|BEIN'],
-        'propeller' => ['eine Leine hat sich in der Schraube verfangen, Sie treiben langsam am Ufer entlang, es besteht keine unmittelbare Gefahr', 'LEINE IN DER SCHRAUBE, ICH BIN MANÖVRIERUNFÄHIG', 'ERBITTE SCHLEPPHILFE', 'SCHRAUBE|LEINE|PROPELLER'],
-        'fuel' => ['kein Treibstoff mehr, Sie liegen am Ufer fest, es besteht keine unmittelbare Gefahr', 'KEIN TREIBSTOFF MEHR, ICH LIEGE AM UFER FEST', 'ERBITTE SCHLEPPHILFE ODER TREIBSTOFF', 'TREIBSTOFF|KRAFTSTOFF|DIESEL|BENZIN'],
+        'propeller' => ['eine Leine hat sich in der Schraube verfangen, du treibst langsam am Ufer entlang, es besteht keine unmittelbare Gefahr', 'LEINE IN DER SCHRAUBE, ICH BIN MANÖVRIERUNFÄHIG', 'ERBITTE SCHLEPPHILFE', 'SCHRAUBE|LEINE|PROPELLER'],
+        'fuel' => ['kein Treibstoff mehr, du liegst am Ufer fest, es besteht keine unmittelbare Gefahr', 'KEIN TREIBSTOFF MEHR, ICH LIEGE AM UFER FEST', 'ERBITTE SCHLEPPHILFE ODER TREIBSTOFF', 'TREIBSTOFF|KRAFTSTOFF|DIESEL|BENZIN'],
         'scald' => ['ein Crewmitglied hat sich die Hand verbrüht (nicht lebensbedrohlich) und muss ärztlich versorgt werden', 'EINE PERSON HAT SICH DIE HAND VERBRÜHT, NICHT LEBENSBEDROHLICH', 'ERBITTE ÄRZTLICHE HILFE AN DER NÄCHSTEN ANLEGESTELLE', 'VERBR|HAND'],
     ];
 
@@ -187,7 +187,7 @@ class FunkPraxis
     private static function buildSrc(array $s): array
     {
         $own = $s['vessel'];
-        $intro = sprintf('Sie sind mit der %s %s, Rufzeichen %s, MMSI %s, um %s UTC auf Position %s.', $s['type'] === 'sail' ? 'Segelyacht' : 'Motoryacht', $own, $s['callsign'], $s['mmsi'], $s['time'], self::posText($s['pos']));
+        $intro = sprintf('Du bist mit der %s %s, Rufzeichen %s, MMSI %s, um %s UTC auf Position %s.', $s['type'] === 'sail' ? 'Segelyacht' : 'Motoryacht', $own, $s['callsign'], $s['mmsi'], $s['time'], self::posText($s['pos']));
         $introEn = sprintf('You are on the %s %s, call sign %s, MMSI %s, at %s UTC in position %s.', $s['type'] === 'sail' ? 'sailing yacht' : 'motor yacht', $own, $s['callsign'], $s['mmsi'], $s['time'], self::posText($s['pos']));
         $identity = [self::times($own, 3), self::spell($s['callsign']), 'MMSI '.$s['mmsi']];
         $persons = $s['persons'] ?? 0;
@@ -195,7 +195,7 @@ class FunkPraxis
         switch ($s['kind']) {
             case 'distress':
                 [$de, $en, $msg, $dsc, $kw] = self::SRC_NATURES[$s['nature']];
-                $situation = "{$intro} ".self::ucfirst($de).". {$persons} Personen an Bord. Senden Sie den Notalarm und die Notmeldung!";
+                $situation = "{$intro} ".self::ucfirst($de).". {$persons} Personen an Bord. Sende den Notalarm und die Notmeldung!";
                 $situationEn = "{$introEn} ".ucfirst($en).". {$persons} persons on board. Send the distress alert and the distress message!";
                 $message = ['MAYDAY MAYDAY MAYDAY', 'THIS IS', ...$identity, 'MAYDAY', "{$own} ".self::spell($s['callsign'])." MMSI {$s['mmsi']}", 'MY POSITION '.self::posSpoken($s['pos'])." AT {$s['time']} UTC", $msg, 'I REQUIRE IMMEDIATE ASSISTANCE', "{$persons} PERSONS ON BOARD", 'OVER'];
 
@@ -220,7 +220,7 @@ class FunkPraxis
             case 'relay':
                 $d = $s['distressed'];
                 [$de, $en, $msg, $dsc, $kw] = self::SRC_NATURES[$d['nature']];
-                $situation = "{$intro} Um {$d['time']} UTC hören Sie auf Kanal 16 die Notmeldung der Yacht {$d['vessel']}, Rufzeichen {$d['callsign']}, MMSI {$d['mmsi']}, auf Position ".self::posText($d['pos']).": {$de}, {$d['persons']} Personen an Bord. Niemand bestätigt die Notmeldung, auch nicht Bremen Rescue Radio. Sie selbst können nicht helfen. Leiten Sie die Notmeldung weiter!";
+                $situation = "{$intro} Um {$d['time']} UTC hörst du auf Kanal 16 die Notmeldung der Yacht {$d['vessel']}, Rufzeichen {$d['callsign']}, MMSI {$d['mmsi']}, auf Position ".self::posText($d['pos']).": {$de}, {$d['persons']} Personen an Bord. Niemand bestätigt die Notmeldung, auch nicht Bremen Rescue Radio. Du selbst kannst nicht helfen. Leite die Notmeldung weiter!";
                 $situationEn = "{$introEn} At {$d['time']} UTC you hear the distress message of the yacht {$d['vessel']}, call sign {$d['callsign']}, MMSI {$d['mmsi']}, in position ".self::posText($d['pos']).": {$en}, {$d['persons']} persons on board. Nobody acknowledges, not even Bremen Rescue Radio. You cannot help yourself. Relay the distress message!";
                 $message = ['MAYDAY RELAY MAYDAY RELAY MAYDAY RELAY', self::times(self::BREMEN_RESCUE['name'], 3), 'THIS IS', ...$identity, "FOLLOWING RECEIVED FROM {$d['vessel']} ".self::spell($d['callsign'])." MMSI {$d['mmsi']} AT {$d['time']} UTC", "MAYDAY {$d['vessel']} ".self::spell($d['callsign'])." MMSI {$d['mmsi']}", 'POSITION '.self::posSpoken($d['pos']), $msg, 'REQUIRES IMMEDIATE ASSISTANCE', "{$d['persons']} PERSONS ON BOARD", 'OVER'];
 
@@ -249,7 +249,7 @@ class FunkPraxis
             case 'acknowledge':
                 $d = $s['distressed'];
                 [$de, $en, , , $kw] = self::SRC_NATURES[$d['nature']];
-                $situation = "{$intro} Ihr DSC-Controller empfängt einen Notalarm der Yacht {$d['vessel']}, MMSI {$d['mmsi']}: {$de}, Position ".self::posText($d['pos']).". Bremen Rescue Radio hat den Alarm auch nach angemessener Wartezeit nicht bestätigt. Sie sind {$s['distance']} Seemeilen entfernt und können helfen. Bestätigen Sie den Empfang!";
+                $situation = "{$intro} Dein DSC-Controller empfängt einen Notalarm der Yacht {$d['vessel']}, MMSI {$d['mmsi']}: {$de}, Position ".self::posText($d['pos']).". Bremen Rescue Radio hat den Alarm auch nach angemessener Wartezeit nicht bestätigt. Du bist {$s['distance']} Seemeilen entfernt und kannst helfen. Bestätige den Empfang!";
                 $situationEn = "{$introEn} Your DSC controller receives a distress alert from the yacht {$d['vessel']}, MMSI {$d['mmsi']}: {$en}, position ".self::posText($d['pos']).". Bremen Rescue Radio has not acknowledged the alert after a reasonable time. You are {$s['distance']} nautical miles away and able to help. Acknowledge receipt!";
                 $message = ['MAYDAY', self::times($d['vessel'], 3), 'THIS IS', self::times($own, 3), self::spell($s['callsign']), 'RECEIVED MAYDAY', 'MY POSITION '.self::posSpoken($s['pos']).", I AM {$s['distance']} NAUTICAL MILES FROM YOUR POSITION AND PROCEEDING TO ASSIST", 'OVER'];
 
@@ -272,7 +272,7 @@ class FunkPraxis
                 );
 
             case 'false_alert':
-                $situation = "{$intro} Beim Reinigen der Funkanlage haben Sie um {$s['alert_time']} UTC versehentlich einen DSC-Notalarm ausgelöst. Heben Sie den Fehlalarm auf!";
+                $situation = "{$intro} Beim Reinigen der Funkanlage hast du um {$s['alert_time']} UTC versehentlich einen DSC-Notalarm ausgelöst. Hebe den Fehlalarm auf!";
                 $situationEn = "{$introEn} While cleaning the radio you accidentally sent a DSC distress alert at {$s['alert_time']} UTC. Cancel the false alert!";
                 $message = ['ALL STATIONS ALL STATIONS ALL STATIONS', 'THIS IS', ...$identity, 'POSITION '.self::posSpoken($s['pos']), "CANCEL MY DISTRESS ALERT OF {$s['alert_time']} UTC", 'OVER'];
 
@@ -297,7 +297,7 @@ class FunkPraxis
 
             case 'urgency':
                 [$de, $en, $msg, $assist, $kw] = self::SRC_PROBLEMS[$s['problem']];
-                $situation = "{$intro} ".self::ucfirst($de).". {$persons} Personen an Bord. Senden Sie die erforderliche Meldung!";
+                $situation = "{$intro} ".self::ucfirst($de).". {$persons} Personen an Bord. Sende die erforderliche Meldung!";
                 $situationEn = "{$introEn} ".ucfirst($en).". {$persons} persons on board. Send the appropriate message!";
                 $message = ['PAN PAN PAN PAN PAN PAN', 'ALL STATIONS ALL STATIONS ALL STATIONS', 'THIS IS', ...$identity, 'MY POSITION '.self::posSpoken($s['pos'])." AT {$s['time']} UTC", $msg, $assist, "{$persons} PERSONS ON BOARD", 'OVER'];
 
@@ -322,7 +322,7 @@ class FunkPraxis
             case 'urgency_cancel':
                 [$de, $en] = self::SRC_PROBLEMS[$s['problem']];
                 [$reasonDe, $reasonEn, $reasonMsg] = self::SRC_CANCEL_REASONS[$s['reason']];
-                $situation = "{$intro} Um {$s['urgency_time']} UTC haben Sie eine Dringlichkeitsmeldung an alle Funkstellen gesendet ({$de}). {$reasonDe}. Heben Sie die Dringlichkeitsmeldung auf!";
+                $situation = "{$intro} Um {$s['urgency_time']} UTC hast du eine Dringlichkeitsmeldung an alle Funkstellen gesendet ({$de}). {$reasonDe}. Hebe die Dringlichkeitsmeldung auf!";
                 $situationEn = "{$introEn} At {$s['urgency_time']} UTC you sent an urgency message to all stations ({$en}). {$reasonEn}. Cancel the urgency message!";
                 $message = ['PAN PAN PAN PAN PAN PAN', 'ALL STATIONS ALL STATIONS ALL STATIONS', 'THIS IS', ...$identity, "CANCEL MY URGENCY MESSAGE OF {$s['urgency_time']} UTC", $reasonMsg, 'OUT'];
 
@@ -344,7 +344,7 @@ class FunkPraxis
 
             case 'safety':
                 [$de, $en, $msg, $kw] = self::SRC_HAZARDS[$s['hazard']];
-                $situation = "{$intro} Sie sichten {$de} auf Position ".self::posText($s['hazard_pos']).', eine Gefahr für die Schifffahrt. Senden Sie die erforderliche Meldung!';
+                $situation = "{$intro} Du sichtest {$de} auf Position ".self::posText($s['hazard_pos']).', eine Gefahr für die Schifffahrt. Sende die erforderliche Meldung!';
                 $situationEn = "{$introEn} You sight {$en} in position ".self::posText($s['hazard_pos']).', a danger to navigation. Send the appropriate message!';
                 $message = ['SECURITE SECURITE SECURITE', 'ALL STATIONS ALL STATIONS ALL STATIONS', 'THIS IS', ...$identity, 'NAVIGATIONAL WARNING', "{$msg} IN POSITION ".self::posSpoken($s['hazard_pos'])." AT {$s['time']} UTC", 'DANGER TO NAVIGATION', 'OUT'];
 
@@ -369,7 +369,7 @@ class FunkPraxis
             case 'routine':
                 $c = $s['called'];
                 [$de, $en, $msg] = self::SRC_TOPICS[$s['topic']];
-                $situation = "{$intro} Sie möchten mit der Yacht {$c['vessel']}, Rufzeichen {$c['callsign']}, MMSI {$c['mmsi']}, {$de}. Stellen Sie die Verbindung her (Arbeitskanal {$s['channel']})!";
+                $situation = "{$intro} Du möchtest mit der Yacht {$c['vessel']}, Rufzeichen {$c['callsign']}, MMSI {$c['mmsi']}, {$de}. Stelle die Verbindung her (Arbeitskanal {$s['channel']})!";
                 $situationEn = "{$introEn} You want to {$en} with the yacht {$c['vessel']}, call sign {$c['callsign']}, MMSI {$c['mmsi']}. Establish contact (working channel {$s['channel']})!";
                 $message = [self::times($c['vessel'], 2), 'THIS IS', self::times($own, 2), self::spell($s['callsign']), $msg, 'OVER'];
 
@@ -435,7 +435,7 @@ class FunkPraxis
     {
         $own = $s['vessel'];
         $where = self::ubiWhere($s['where']);
-        $intro = sprintf('Sie sind mit dem %s „%s“, Rufzeichen %s, %s.', $s['type'], self::title($own), $s['callsign'], $where['text']);
+        $intro = sprintf('Du bist mit dem %s „%s“, Rufzeichen %s, %s.', $s['type'], self::title($own), $s['callsign'], $where['text']);
         $identity = [self::times($own, 3), self::spell($s['callsign'], 'de')];
         $persons = $s['persons'] ?? 0;
         $nif = 'Kanal des Verkehrskreises Nautische Information für diesen Streckenabschnitt (Handbuch Binnenschifffahrtsfunk bzw. blaues Tafelzeichen „UKW …“); Sendeleistung auf 25 W erhöhen – das ist nur in diesem Verkehrskreis zulässig. Kanal 10 sendet automatisch mit höchstens 1 W.';
@@ -447,7 +447,7 @@ class FunkPraxis
         switch ($s['kind']) {
             case 'distress':
                 [$de, $msg, $kw] = self::UBI_NATURES[$s['nature']];
-                $situation = "{$intro} ".self::ucfirst($de).". {$persons} Personen an Bord. Leiten Sie den notwendigen Funkverkehr ein!";
+                $situation = "{$intro} ".self::ucfirst($de).". {$persons} Personen an Bord. Leite den notwendigen Funkverkehr ein!";
                 $message = ['MAYDAY MAYDAY MAYDAY', 'HIER IST', ...$identity, "MAYDAY {$own} ".self::spell($s['callsign'], 'de'), 'POSITION '.$where['spoken'], $msg, "{$persons} PERSONEN AN BORD", 'ERBITTE SOFORTIGE HILFE', 'OVER'];
 
                 return self::ubiTask($situation,
@@ -468,7 +468,7 @@ class FunkPraxis
             case 'relay':
                 $d = $s['distressed'];
                 [$de, $msg, $kw] = self::UBI_NATURES[$d['nature']];
-                $situation = "{$intro} Sie hören auf Kanal 10 die Notmeldung vom {$d['type']} „".self::title($d['vessel'])."“, Rufzeichen {$d['callsign']}, {$where['near']}: {$de}, {$d['persons']} Personen an Bord. Niemand antwortet. Sie können selbst nicht helfen. Leiten Sie die Notmeldung weiter!";
+                $situation = "{$intro} Du hörst auf Kanal 10 die Notmeldung vom {$d['type']} „".self::title($d['vessel'])."“, Rufzeichen {$d['callsign']}, {$where['near']}: {$de}, {$d['persons']} Personen an Bord. Niemand antwortet. Du kannst selbst nicht helfen. Leite die Notmeldung weiter!";
                 $message = ['MAYDAY RELAY MAYDAY RELAY MAYDAY RELAY', 'HIER IST', ...$identity, "MAYDAY {$d['vessel']} ".self::spell($d['callsign'], 'de'), 'POSITION '.$where['spoken'], $msg, "{$d['persons']} PERSONEN AN BORD", 'OVER'];
 
                 return self::ubiTask($situation,
@@ -492,7 +492,7 @@ class FunkPraxis
 
             case 'urgency':
                 [$de, $msg, $assist, $kw] = self::UBI_PROBLEMS[$s['problem']];
-                $situation = "{$intro} ".self::ucfirst($de).". {$persons} Personen an Bord. Leiten Sie den notwendigen Funkverkehr ein!";
+                $situation = "{$intro} ".self::ucfirst($de).". {$persons} Personen an Bord. Leite den notwendigen Funkverkehr ein!";
                 $message = ['PAN PAN PAN PAN PAN PAN', 'HIER IST', ...$identity, 'POSITION '.$where['spoken'], $msg, $assist, "{$persons} PERSONEN AN BORD", 'OVER'];
 
                 return self::ubiTask($situation,
@@ -515,7 +515,7 @@ class FunkPraxis
 
             case 'urgency_cancel':
                 [$de] = self::UBI_PROBLEMS[$s['problem']];
-                $situation = "{$intro} Um {$s['urgency_time']} Uhr haben Sie eine Dringlichkeitsmeldung gesendet ({$de}). Inzwischen ist das Problem behoben. Heben Sie die Dringlichkeitsmeldung auf!";
+                $situation = "{$intro} Um {$s['urgency_time']} Uhr hast du eine Dringlichkeitsmeldung gesendet ({$de}). Inzwischen ist das Problem behoben. Hebe die Dringlichkeitsmeldung auf!";
                 $message = ['PAN PAN PAN PAN PAN PAN', 'HIER IST', ...$identity, "MEINE DRINGLICHKEITSMELDUNG VON {$s['urgency_time']} UHR IST AUFGEHOBEN", 'DAS PROBLEM IST BEHOBEN', 'OVER'];
 
                 return self::ubiTask($situation,
@@ -536,7 +536,7 @@ class FunkPraxis
 
             case 'safety':
                 [$de, $msg, $kw] = self::UBI_HAZARDS[$s['hazard']];
-                $situation = "{$intro} Sie sichten {$de}. Das ist eine Gefahr für die Schifffahrt. Leiten Sie den notwendigen Funkverkehr ein!";
+                $situation = "{$intro} Du sichtest {$de}. Das ist eine Gefahr für die Schifffahrt. Leite den notwendigen Funkverkehr ein!";
                 $message = ['SECURITE SECURITE SECURITE', 'AN ALLE FUNKSTELLEN AN ALLE FUNKSTELLEN AN ALLE FUNKSTELLEN', 'HIER IST', ...$identity, "{$msg} BEI ".$where['spoken'], 'GEFAHR FÜR DIE SCHIFFFAHRT', 'ENDE'];
 
                 return self::ubiTask($situation,
@@ -580,39 +580,49 @@ class FunkPraxis
         throw new \InvalidArgumentException("Unbekannte UBI-Aufgabenart {$s['kind']}");
     }
 
+    /**
+     * Bug-Review (Anrede/Begegnung): Situationstexte duzen den Lerner wie
+     * die übrige Oberfläche (vorher "Sie sind mit …", "Senden Sie …"); der
+     * Wortlaut der Funkmeldungen selbst (z. B. "ICH MÖCHTE SIE … ÜBERHOLEN"
+     * an das andere Fahrzeug) bleibt förmlich. "meeting": ein Bergfahrer
+     * hat das rechte Ufer (in Fließrichtung gesehen) an seiner
+     * Backbordseite -- hält er sich dort, begegnet er dem Talfahrer
+     * Steuerbord an Steuerbord. Für die angesagte Begegnung Backbord an
+     * Backbord hält er sich am linken Ufer (vorher widersprüchlich).
+     */
     private const UBI_ROUTINE = [
         'lock' => [
-            'called' => 'SCHLEUSE', 'situation' => 'Sie möchten sich bei der vor Ihnen liegenden Schleuse zur Schleusung anmelden. An der Einfahrt steht ein Tafelzeichen „UKW {channel}“. Stellen Sie die Verbindung her!',
+            'called' => 'SCHLEUSE', 'situation' => 'Du möchtest dich bei der vor dir liegenden Schleuse zur Schleusung anmelden. An der Einfahrt steht ein Tafelzeichen „UKW {channel}“. Stelle die Verbindung her!',
             'message' => 'ICH MÖCHTE MICH ZUR SCHLEUSUNG ANMELDEN, LÄNGE 10 METER',
             'circle' => 'Nautische Information (Schleuse).', 'circle_label' => 'Nautische Information', 'circle_pattern' => 'NAUTISCH|\bNIF\b|SCHLEUSE',
             'radio' => 'Kanal {channel} laut Tafelzeichen', 'radio_label' => 'Kanal {channel}', 'radio_pattern' => '',
         ],
         'bridge' => [
-            'called' => 'HUBBRÜCKE', 'situation' => 'Sie möchten sich zur Durchfahrt der vor Ihnen liegenden Hubbrücke anmelden. Ein Tafelzeichen weist auf „UKW {channel}“ hin. Stellen Sie die Verbindung her!',
+            'called' => 'HUBBRÜCKE', 'situation' => 'Du möchtest dich zur Durchfahrt der vor dir liegenden Hubbrücke anmelden. Ein Tafelzeichen weist auf „UKW {channel}“ hin. Stelle die Verbindung her!',
             'message' => 'ICH MÖCHTE DIE BRÜCKE PASSIEREN, BITTE UM ÖFFNUNG',
             'circle' => 'Nautische Information (Brückenfunkstelle).', 'circle_label' => 'Nautische Information', 'circle_pattern' => 'NAUTISCH|\bNIF\b|BRÜCKE',
             'radio' => 'Kanal {channel} laut Tafelzeichen', 'radio_label' => 'Kanal {channel}', 'radio_pattern' => '',
         ],
         'harbour' => [
-            'called' => 'MARINA', 'situation' => 'Sie möchten bei der „{called}“ einen Liegeplatz für die Nacht anfragen. Die Marina ist laut Handbuch auf Kanal {channel} erreichbar. Stellen Sie die Verbindung her!',
+            'called' => 'MARINA', 'situation' => 'Du möchtest bei der „{called}“ einen Liegeplatz für die Nacht anfragen. Die Marina ist laut Handbuch auf Kanal {channel} erreichbar. Stelle die Verbindung her!',
             'message' => 'ICH ERBITTE EINEN LIEGEPLATZ FÜR EINE NACHT, LÄNGE 10 METER',
             'circle' => 'Schiff–Hafenbehörde.', 'circle_label' => 'Schiff–Hafenbehörde', 'circle_pattern' => 'HAFEN',
             'radio' => 'Kanal {channel}, Sendeleistung 1 W', 'radio_label' => 'Kanal {channel}', 'radio_pattern' => '',
         ],
         'meeting' => [
-            'called' => 'HANSESTADT', 'situation' => 'Vor Ihnen kommt das Motorschiff „{called}“ zu Tal. Sie möchten die Begegnung absprechen (Sie halten sich am rechten Ufer). Stellen Sie die Verbindung her!',
-            'message' => 'ICH BIN BERGFAHRER, ICH HALTE MICH AM RECHTEN UFER, BEGEGNUNG BACKBORD AN BACKBORD',
+            'called' => 'HANSESTADT', 'situation' => 'Vor dir kommt das Motorschiff „{called}“ zu Tal. Du möchtest die Begegnung absprechen (du hältst dich am linken Ufer). Stelle die Verbindung her!',
+            'message' => 'ICH BIN BERGFAHRER, ICH HALTE MICH AM LINKEN UFER, BEGEGNUNG BACKBORD AN BACKBORD',
             'circle' => 'Schiff–Schiff.', 'circle_label' => 'Schiff–Schiff', 'circle_pattern' => 'SCHIFF ?SCHIFF',
             'radio' => 'Kanal 10, Sendeleistung automatisch höchstens 1 W', 'radio_label' => 'Kanal 10', 'radio_pattern' => '(?<!\d)10(?!\d)',
         ],
         'overtake' => [
-            'called' => 'RHEINLAND', 'situation' => 'Sie möchten den vor Ihnen fahrenden Schubverband „{called}“ überholen und das Manöver absprechen. Stellen Sie die Verbindung her!',
+            'called' => 'RHEINLAND', 'situation' => 'Du möchtest den vor dir fahrenden Schubverband „{called}“ überholen und das Manöver absprechen. Stelle die Verbindung her!',
             'message' => 'ICH MÖCHTE SIE AN BACKBORD ÜBERHOLEN, BITTE BESTÄTIGEN',
             'circle' => 'Schiff–Schiff.', 'circle_label' => 'Schiff–Schiff', 'circle_pattern' => 'SCHIFF ?SCHIFF',
             'radio' => 'Kanal 10, Sendeleistung automatisch höchstens 1 W', 'radio_label' => 'Kanal 10', 'radio_pattern' => '(?<!\d)10(?!\d)',
         ],
         'water_level' => [
-            'called' => 'REVIERZENTRALE', 'situation' => 'Sie möchten bei der zuständigen Revierzentrale die aktuellen Wasserstände für Ihre weitere Fahrt erfragen. Stellen Sie die Verbindung her!',
+            'called' => 'REVIERZENTRALE', 'situation' => 'Du möchtest bei der zuständigen Revierzentrale die aktuellen Wasserstände für deine weitere Fahrt erfragen. Stelle die Verbindung her!',
             'message' => 'ERBITTE DIE AKTUELLEN WASSERSTÄNDE FÜR MEINE WEITERE FAHRT',
             'circle' => 'Nautische Information (Revierzentrale).', 'circle_label' => 'Nautische Information', 'circle_pattern' => 'NAUTISCH|\bNIF\b|REVIERZENTRALE',
             'radio' => 'Kanal des Verkehrskreises Nautische Information für diesen Streckenabschnitt (Handbuch Binnenschifffahrtsfunk)', 'radio_label' => 'Kanal der Nautischen Information', 'radio_pattern' => '(?<!\d)(18|19|20|21|22|78|79|80|81|82)(?!\d)|KANAL|HANDBUCH',

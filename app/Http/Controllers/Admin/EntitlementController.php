@@ -79,7 +79,24 @@ class EntitlementController extends Controller
 
             $entitlement = Entitlement::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)->first();
 
-            if ($entitlement && $entitlement->status === 'active') {
+            // Bug-Review (AA14: Abgelaufener Zugang nicht sofort neu
+            // freischaltbar): dieser Doppelklick-Schutz prüfte bisher nur
+            // status === 'active', nicht aber valid_until -- ein Zugang,
+            // dessen Gültigkeit bereits verstrichen ist, trägt in der
+            // Datenbank aber so lange weiter status=active, bis der
+            // stündliche app:expire-entitlements-Scheduler (siehe dessen
+            // Command) ihn auf 'expired' umstellt (Entitlement::
+            // scopeCurrentlyActive() prüft valid_until deshalb bewusst
+            // unabhängig vom Status). Ein Admin, der genau in diesem
+            // Zeitfenster erneut freischalten wollte, bekam fälschlich
+            // sofort "Kurs freigeschaltet" zurück, ohne dass Laufzeit oder
+            // Coupon tatsächlich angefasst wurden -- der Lerner blieb bis
+            // zum nächsten Scheduler-Lauf gesperrt.
+            $isCurrentlyActive = $entitlement
+                && $entitlement->status === 'active'
+                && ($entitlement->valid_until === null || $entitlement->valid_until->isFuture());
+
+            if ($isCurrentlyActive) {
                 return back()->with('status', 'Kurs freigeschaltet.');
             }
 

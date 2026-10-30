@@ -107,19 +107,19 @@
             <form method="POST" action="{{ route('admin.praxis-form-submissions.exam-appointments.store', $submission) }}" class="flex flex-wrap items-end gap-2" x-data="{ location: '' }">
                 @csrf
                 <div>
-                    <label for="praxis_label_{{ $submission->id }}" class="block text-xs text-slate-500 mb-1">Bezeichnung</label>
+                    <label for="praxis_label_{{ $submission->id }}" class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Bezeichnung</label>
                     <input type="text" id="praxis_label_{{ $submission->id }}" name="label" placeholder="z. B. Navigationsstunde" required maxlength="255" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm w-56">
                 </div>
                 <div>
-                    <label for="praxis_exam_date_{{ $submission->id }}" class="block text-xs text-slate-500 mb-1">Beginn</label>
+                    <label for="praxis_exam_date_{{ $submission->id }}" class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Beginn</label>
                     <input type="datetime-local" id="praxis_exam_date_{{ $submission->id }}" name="exam_date" required class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                 </div>
                 <div>
-                    <label for="praxis_ends_at_{{ $submission->id }}" class="block text-xs text-slate-500 mb-1">Ende (optional, z. B. 16:00-18:00 Uhr)</label>
+                    <label for="praxis_ends_at_{{ $submission->id }}" class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Ende (optional, z. B. 16:00-18:00 Uhr)</label>
                     <input type="datetime-local" id="praxis_ends_at_{{ $submission->id }}" name="ends_at" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                 </div>
                 <div>
-                    <label for="praxis_location_{{ $submission->id }}" class="block text-xs text-slate-500 mb-1">Ort</label>
+                    <label for="praxis_location_{{ $submission->id }}" class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Ort</label>
                     <select id="praxis_location_{{ $submission->id }}" name="location" x-model="location" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                         <option value="">&mdash;</option>
                         @foreach ($submissionLocations as $location)
@@ -137,11 +137,11 @@
                     </select>
                 </div>
                 <div x-show="location === 'online'" style="display: none">
-                    <label for="praxis_online_meeting_url_{{ $submission->id }}" class="block text-xs text-slate-500 mb-1">Link Onlinemeeting</label>
+                    <label for="praxis_online_meeting_url_{{ $submission->id }}" class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Link Onlinemeeting</label>
                     <input type="url" id="praxis_online_meeting_url_{{ $submission->id }}" name="online_meeting_url" placeholder="https://..." class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm w-56">
                 </div>
                 <div class="w-full">
-                    <label for="praxis_description_{{ $submission->id }}" class="block text-xs text-slate-500 mb-1">Beschreibung (optional, für den Teilnehmer sichtbar)</label>
+                    <label for="praxis_description_{{ $submission->id }}" class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Beschreibung (optional, für den Teilnehmer sichtbar)</label>
                     <textarea id="praxis_description_{{ $submission->id }}" name="description" rows="2" maxlength="2000" placeholder="z. B. Treffpunkt, Mitzubringendes, Ablauf ..." class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm"></textarea>
                 </div>
                 <button type="submit" class="px-3 py-1.5 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">

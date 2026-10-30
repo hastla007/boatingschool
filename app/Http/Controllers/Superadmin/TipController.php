@@ -81,7 +81,7 @@ class TipController extends Controller
             'category_id' => ['required', 'uuid', 'exists:tip_category,id'],
             'title' => ['required', 'string', 'max:255'],
             'body' => ['required', 'string'],
-            'sort_order' => ['nullable', 'integer'],
+            'sort_order' => ['nullable', 'integer', 'min:0', 'max:999999'],
             'pdf' => ['nullable', 'file', 'mimes:pdf', 'max:10240'],
         ]);
 

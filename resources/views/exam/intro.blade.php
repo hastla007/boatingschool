@@ -10,17 +10,17 @@
             </span>
             <span class="w-8 h-px bg-slate-200 dark:bg-slate-700"></span>
             <span class="flex items-center gap-1.5">
-                <span class="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 flex items-center justify-center text-[11px]">2</span> Prüfung
+                <span class="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 flex items-center justify-center text-[11px]">2</span> Prüfung
             </span>
             <span class="w-8 h-px bg-slate-200 dark:bg-slate-700"></span>
             <span class="flex items-center gap-1.5">
-                <span class="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 flex items-center justify-center text-[11px]">3</span> Ergebnis
+                <span class="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 flex items-center justify-center text-[11px]">3</span> Ergebnis
             </span>
         </div>
 
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6">
             @if (! $ruleSet)
-                <p class="text-slate-500">Für diesen Kurs liegt noch kein Prüfungsregelwerk vor.</p>
+                <p class="text-slate-500 dark:text-slate-400">Für diesen Kurs liegt noch kein Prüfungsregelwerk vor.</p>
             @elseif (! $ruleSet->isVerified())
                 <div class="rounded-xl bg-amber-50 border border-amber-200 text-amber-700 dark:bg-amber-900/30 dark:border-amber-800 dark:text-amber-300 px-4 py-3 text-sm flex items-start gap-2">
                     <x-icon name="lock-closed" class="w-5 h-5 shrink-0 mt-0.5" />

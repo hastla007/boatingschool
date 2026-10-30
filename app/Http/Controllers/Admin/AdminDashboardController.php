@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AddonTemplate;
 use App\Models\Attempt;
 use App\Models\AuditLog;
+use App\Models\ContentQuestion;
 use App\Models\Coupon;
 use App\Models\CourseDefinition;
 use App\Models\CourseExamRegistration;
@@ -25,6 +26,7 @@ use App\Models\TenantCourseLocation;
 use App\Models\TenantUser;
 use App\Models\WillkommensboxOrder;
 use App\Support\TenantContext;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
@@ -223,6 +225,13 @@ class AdminDashboardController extends Controller
             ->where('learning_state', 'gefestigt')
             ->get(['user_id', 'question_id']);
         $progressBuckets = ['0–20%' => 0, '21–40%' => 0, '41–60%' => 0, '61–80%' => 0, '81–100%' => 0];
+        // Bug-Review BB16 (Folgefehler): isCurrentlyValid() fragt pro Frage
+        // einmal die veröffentlichte Revision ab -- über viele Lernende
+        // desselben Kurses hinweg summierte sich das wieder zu dem N+1, das
+        // Bug-Review Betrieb B6 oben bereits für active=false behoben hatte.
+        // Die gültigen IDs werden deshalb pro Kurs nur einmal (nicht pro
+        // Lerner) über ContentQuestion::currentlyValidIds() berechnet.
+        $validQuestionIdsByCourse = [];
         foreach ($learningPhaseLearnerIds as $learnerId) {
             $entitlementsForLearner = $learningEntitlementsByUser->get($learnerId) ?? collect();
             $user = $entitlementsForLearner->first()?->user;
@@ -231,11 +240,14 @@ class AdminDashboardController extends Controller
             }
             $percent = $entitlementsForLearner
                 ->filter(fn (Entitlement $e) => $e->course !== null)
-                ->map(function (Entitlement $e) use ($learningMasteredProgress) {
+                ->map(function (Entitlement $e) use ($learningMasteredProgress, &$validQuestionIdsByCourse) {
                     // Bug-Review F7: siehe overallPercent() -- eine
                     // deaktivierte Frage zählt hier nie als gefestigt, aber
                     // weiter im Nenner mit.
-                    $questionIds = $e->course->modules->flatMap(fn ($m) => $m->questions)->where('active', true)->pluck('id')->unique();
+                    // Bug-Review BB16: dieselbe Lücke bestand für valid_from/valid_to.
+                    $questionIds = $validQuestionIdsByCourse[$e->course_id] ??= ContentQuestion::currentlyValidIds(
+                        $e->course->modules->flatMap(fn ($m) => $m->questions)
+                    );
                     $total = max($questionIds->count(), 1);
                     $mastered = $learningMasteredProgress
                         ->where('user_id', $e->user_id)
@@ -326,7 +338,12 @@ class AdminDashboardController extends Controller
         $tenantCourseLocations = TenantCourseLocation::where('tenant_id', $tenant->id)->with('pruefungsausschuss')->orderBy('sort_order')->get();
         $pruefungsausschuesse = Pruefungsausschuss::orderBy('sort_order')->get();
 
-        $anmeldungFilters = $request->only(['anmeldung_search', 'anmeldung_course', 'anmeldung_from', 'anmeldung_to']);
+        // Bug-Review (Array-Query-Parameter): wie bei wb_search unten kam
+        // z. B. ?anmeldung_search[]=a als Array an -- trim()/
+        // isValidCalendarDate() scheiterten daran mit einem TypeError
+        // (HTTP 500), ebenso das Anzeigen im Filterformular. Nicht-string-
+        // förmige Werte gelten deshalb als nicht gesetzt.
+        $anmeldungFilters = array_map(fn ($value) => is_string($value) ? $value : '', $request->only(['anmeldung_search', 'anmeldung_course', 'anmeldung_from', 'anmeldung_to']));
 
         // Bug-Review N21 (Folgefehler): anmeldung_from/anmeldung_to kamen
         // bisher ungeprüft aus der Query-String direkt in whereDate() --
@@ -363,8 +380,21 @@ class AdminDashboardController extends Controller
                 });
             })
             ->when(($anmeldungFilters['anmeldung_course'] ?? '') !== '', fn ($q) => $q->where('course_id', $anmeldungFilters['anmeldung_course']))
-            ->when(($anmeldungFilters['anmeldung_from'] ?? '') !== '', fn ($q) => $q->whereDate('created_at', '>=', $anmeldungFilters['anmeldung_from']))
-            ->when(($anmeldungFilters['anmeldung_to'] ?? '') !== '', fn ($q) => $q->whereDate('created_at', '<=', $anmeldungFilters['anmeldung_to']))
+            // Bug-Review (AA12: Datumsfilter Praxis-Anmeldungen rechnet nach
+            // UTC): created_at ist ein Zeitstempel (kein reines Datum) und
+            // wird wie überall in dieser App in UTC gespeichert (APP_TIMEZONE
+            // bleibt bewusst UTC, siehe App\Support\GermanTime) -- whereDate()
+            // verglich bisher direkt gegen den in der UTC-Spalte stehenden
+            // Kalendertag. Eine zwischen Mitternacht und ca. 1-2 Uhr
+            // deutscher Zeit eingegangene Anmeldung trägt dadurch in der
+            // Spalte noch den VORTAG: anmeldung_from=heute ließ sie
+            // fälschlich verschwinden, anmeldung_to=gestern zeigte sie
+            // fälschlich noch an. Die Filtergrenzen werden deshalb -- analog
+            // zu Admin\PraxisExamAppointmentController::store() -- als
+            // deutsches Kalenderdatum interpretiert und erst für den
+            // Vergleich nach UTC umgerechnet.
+            ->when(($anmeldungFilters['anmeldung_from'] ?? '') !== '', fn ($q) => $q->where('created_at', '>=', Carbon::parse($anmeldungFilters['anmeldung_from'], 'Europe/Berlin')->startOfDay()->setTimezone('UTC')))
+            ->when(($anmeldungFilters['anmeldung_to'] ?? '') !== '', fn ($q) => $q->where('created_at', '<=', Carbon::parse($anmeldungFilters['anmeldung_to'], 'Europe/Berlin')->endOfDay()->setTimezone('UTC')))
             ->orderByDesc('created_at')
             ->paginate(20, ['*'], 'anmeldung_page')
             ->withQueryString();
@@ -399,7 +429,8 @@ class AdminDashboardController extends Controller
 
         $disabledCourseIds = TenantCourseDisabled::where('tenant_id', $tenant->id)->pluck('course_id');
 
-        $couponFilters = $request->only(['coupon_search', 'coupon_status', 'coupon_type']);
+        // Bug-Review (Array-Query-Parameter): siehe $anmeldungFilters oben.
+        $couponFilters = array_map(fn ($value) => is_string($value) ? $value : '', $request->only(['coupon_search', 'coupon_status', 'coupon_type']));
 
         $coupons = Coupon::with('course', 'product', 'redeemedBy')
             ->where(fn ($q) => $q->where('tenant_id', $tenant->id)->orWhere('redeemed_tenant_id', $tenant->id))

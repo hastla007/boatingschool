@@ -175,7 +175,7 @@ class CourseValidityTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Zugang abgelaufen');
-        $response->assertSee('Bitte Verlängerungscode bei Deiner Bootsschule anfragen!');
+        $response->assertSee('Bitte Verlängerungscode bei deiner Bootsschule anfragen!');
         $response->assertDontSee('Verlängerungs-Code kaufen');
     }
 
@@ -208,7 +208,7 @@ class CourseValidityTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Zugang abgelaufen');
-        $response->assertSee('Bitte Verlängerungscode bei Deiner Bootsschule anfragen!');
+        $response->assertSee('Bitte Verlängerungscode bei deiner Bootsschule anfragen!');
     }
 
     public function test_a_still_valid_course_does_not_show_the_renewal_note(): void
@@ -222,6 +222,6 @@ class CourseValidityTest extends TestCase
 
         $response->assertOk();
         $response->assertDontSee('Zugang abgelaufen');
-        $response->assertDontSee('Bitte Verlängerungscode bei Deiner Bootsschule anfragen!');
+        $response->assertDontSee('Bitte Verlängerungscode bei deiner Bootsschule anfragen!');
     }
 }

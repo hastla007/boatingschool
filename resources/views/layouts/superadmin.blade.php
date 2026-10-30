@@ -30,16 +30,40 @@
                 konnte dadurch keine der 11 Sektionen erreichen außer der,
                 auf der er gerade zufällig stand. Der Hamburger-Umschalter
                 unten übernimmt dasselbe, bereits bewährte Alpine-Muster.
+
+                Bug-Review (Superadmin-Menü läuft bei 1024-1439px über,
+                "Abmelden" nicht sichtbar): der Schwellenwert "md" (768px)
+                aus dem Fix oben reichte für die 11 Navigationspunkte plus
+                Nutzername und "Abmelden" in einer Zeile nicht annähernd aus
+                -- zwischen 768px und etwa 1440px lief die Zeile über und
+                schob "Abmelden" (als letztes Element) aus dem sichtbaren
+                Bereich. "2xl" (1536px) ist der nächste Tailwind-Standard-
+                Breakpoint, der für alle 11 Punkte plus Nutzerblock sicher
+                breit genug ist; darunter greift durchgehend das ohnehin
+                bereits vorhandene Hamburger-Menü, das "Abmelden" immer
+                enthält.
+
+                Bug-Review (Superadmin-Menü passt auch ab 1536px nicht):
+                Logo + 11 Punkte + Nutzerblock brauchen mit Figtree rund
+                1400px, der Container war aber weiterhin "max-w-7xl"
+                (1280px minus Innenabstand = 1216px Inhaltsbreite) -- auch
+                oberhalb des 2xl-Breakpoints lief die Zeile also über und
+                "Abmelden" rutschte aus dem Bild. Die Navigationsleiste nutzt
+                jetzt "max-w-screen-2xl" (1536px, passend zum 2xl-
+                Breakpoint, ab dem sie überhaupt erst einzeilig erscheint),
+                einen etwas engeren Abstand nach dem Logo und whitespace-nowrap, damit kein
+                Menüpunkt umbricht; ein langer Nutzername wird gekürzt statt
+                "Abmelden" zu verdrängen.
             --}}
             <nav x-data="{ open: false }" class="bg-slate-900 text-slate-200">
-                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div class="flex justify-between h-16 items-center">
-                        <div class="flex items-center gap-8">
+                <div class="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div class="flex justify-between h-16 items-center gap-4">
+                        <div class="flex items-center gap-6 min-w-0">
                             <a href="{{ route('superadmin.dashboard') }}" class="flex items-center gap-2 shrink-0 font-bold text-white">
                                 <x-icon name="shield-check" class="w-5 h-5 text-amber-400" />
                                 Superadmin
                             </a>
-                            <div class="hidden md:flex gap-1 text-sm">
+                            <div class="hidden 2xl:flex gap-1 text-sm whitespace-nowrap">
                                 <a href="{{ route('superadmin.dashboard') }}" class="px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.dashboard') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Dashboard</a>
                                 <a href="{{ route('superadmin.tenants.index') }}" class="px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.tenants.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Bootsschulen</a>
                                 <a href="{{ route('superadmin.users.index') }}" class="px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.users.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Nutzer</a>
@@ -53,14 +77,14 @@
                                 <a href="{{ route('superadmin.settings.edit') }}" class="px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.settings.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Website</a>
                             </div>
                         </div>
-                        <div class="hidden md:flex items-center gap-4 text-sm">
-                            <span class="text-slate-600 dark:text-slate-400">{{ Auth::user()->name }}</span>
+                        <div class="hidden 2xl:flex items-center gap-4 text-sm shrink-0 whitespace-nowrap">
+                            <span class="text-slate-300 truncate max-w-[10rem]" title="{{ Auth::user()->name }}">{{ Auth::user()->name }}</span>
                             <form method="POST" action="{{ route('logout') }}">
                                 @csrf
                                 <button type="submit" class="text-slate-300 hover:text-white">Abmelden</button>
                             </form>
                         </div>
-                        <div class="-me-2 flex items-center md:hidden">
+                        <div class="-me-2 flex items-center 2xl:hidden">
                             {{-- Bug-Review Oberfläche U7: siehe layouts/navigation.blade.php -- derselbe
                                  Hamburger ohne erkennbaren Namen, ohne aria-expanded/aria-controls und
                                  ohne sichtbaren Fokusring. --}}
@@ -74,7 +98,7 @@
                     </div>
                 </div>
 
-                <div id="superadmin-mobile-menu" :class="{'block': open, 'hidden': ! open}" class="hidden md:hidden border-t border-slate-800">
+                <div id="superadmin-mobile-menu" :class="{'block': open, 'hidden': ! open}" class="hidden 2xl:hidden border-t border-slate-800">
                     <div class="px-2 pt-2 pb-3 space-y-1">
                         <a href="{{ route('superadmin.dashboard') }}" class="block px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.dashboard') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Dashboard</a>
                         <a href="{{ route('superadmin.tenants.index') }}" class="block px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.tenants.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Bootsschulen</a>

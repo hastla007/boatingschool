@@ -18,7 +18,7 @@ class PraxisTrainerController extends Controller
     {
         abort_unless($entitlements->hasAccess($tenantContext->tenant(), $request->user(), $course), 403);
 
-        $kategorie = $request->query('kategorie');
+        $kategorie = $this->kategorieQueryParam($request);
         $tasks = $this->orderedTasks($course, $kategorie);
         abort_if($tasks->isEmpty(), 404, 'Für diesen Kurs ist noch kein Praxistrainer hinterlegt.');
 
@@ -32,7 +32,7 @@ class PraxisTrainerController extends Controller
     {
         abort_unless($entitlements->hasAccess($tenantContext->tenant(), $request->user(), $course), 403);
 
-        $kategorie = $request->query('kategorie');
+        $kategorie = $this->kategorieQueryParam($request);
         $tasks = $this->orderedTasks($course, $kategorie);
         abort_unless($tasks->contains('id', $task->id), 404, 'Diese Aufgabe gehört nicht zu diesem Kapitel.');
 
@@ -62,7 +62,7 @@ class PraxisTrainerController extends Controller
         $user = $request->user();
         abort_unless($entitlements->hasAccess($tenant, $user, $course), 403);
 
-        $kategorie = $request->query('kategorie');
+        $kategorie = $this->kategorieQueryParam($request);
         $tasks = $this->orderedTasks($course, $kategorie);
         abort_unless($tasks->contains('id', $task->id), 404);
 
@@ -79,6 +79,23 @@ class PraxisTrainerController extends Controller
             $next ? ['course' => $course, 'task' => $next] : ['course' => $course],
             $query
         ));
+    }
+
+    /**
+     * Bug-Review (Abstürze durch manipulierte Werte in der Adresszeile):
+     * ?kategorie wird als einfacher String erwartet (siehe orderedTasks())
+     * -- ein manipulierter Request mit ?kategorie[]=x lieferte von Laravel
+     * aus stattdessen ein Array, das orderedTasks()'s typisierten
+     * ?string-Parameter mit einem TypeError scheitern ließ, unbehandelt
+     * mit HTTP 500. Analog zur bereits bestehenden Absicherung in
+     * LearningController::questionsQueryParam() wird ein nicht-string-
+     * Wert hier auf null normalisiert statt durchgereicht.
+     */
+    private function kategorieQueryParam(Request $request): ?string
+    {
+        $raw = $request->query('kategorie');
+
+        return is_string($raw) ? $raw : null;
     }
 
     /** @return Collection<int, PraxisTask> */

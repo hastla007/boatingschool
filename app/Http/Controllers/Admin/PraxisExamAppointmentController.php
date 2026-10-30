@@ -10,6 +10,7 @@ use App\Models\TenantCourseLocation;
 use App\Notifications\PraxisExamAppointmentUpdated;
 use App\Services\PraxisExamAppointmentService;
 use App\Support\BestEffortMail;
+use App\Support\ExamRegistration;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -32,6 +33,16 @@ class PraxisExamAppointmentController extends Controller
     public function store(Request $request, TenantContext $tenantContext, PraxisFormSubmission $submission, PraxisExamAppointmentService $appointments): Response
     {
         abort_unless($submission->tenant_id === $tenantContext->id(), 404);
+
+        // Bug-Review (Umstellung auf Selbstanmeldung): steht der Kurs auf
+        // "Teilnehmer meldet sich selbst an", bucht der Teilnehmer seinen
+        // Prüfungstermin selbst -- ein neuer Terminvorschlag der Bootsschule
+        // wäre widersprüchlich (und erschien bisher nur noch Teilnehmern,
+        // die das Termintool überhaupt noch sehen). Bestehende Termine und
+        // Antworten bleiben unberührt.
+        if ($submission->course && ExamRegistration::isSelf($tenantContext->tenant(), $submission->course)) {
+            return back()->withErrors(['exam_date' => 'Für diesen Kurs melden sich die Teilnehmer selbst zur Prüfung an (Einstellung im Tab „Kurse“). Neue Terminvorschläge sind deshalb nicht möglich.']);
+        }
 
         $locationIds = TenantCourseLocation::where('tenant_id', $tenantContext->id())
             ->whereJsonContains('course_ids', $submission->course_id)

@@ -37,23 +37,23 @@
                     @forelse ($products as $product)
                         <tr class="border-t border-slate-100 dark:border-slate-700 {{ $product->active ? '' : 'opacity-50' }}">
                             <td class="px-4 py-2 font-medium text-slate-700 dark:text-slate-200">{{ $product->name }}</td>
-                            <td class="px-4 py-2 text-slate-500 font-mono text-xs">{{ $product->code }}</td>
+                            <td class="px-4 py-2 text-slate-500 dark:text-slate-400 font-mono text-xs">{{ $product->code }}</td>
                             <td class="px-4 py-2">
                                 @if ($product->active)
                                     <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">aktiv</span>
                                 @else
-                                    <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">deaktiviert</span>
+                                    <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 dark:text-slate-400">deaktiviert</span>
                                 @endif
                             </td>
                             <td class="px-4 py-2 text-right">
                                 <form method="POST" action="{{ route('superadmin.products.toggle-active', $product) }}">
                                     @csrf
-                                    <button type="submit" class="text-xs text-slate-500 hover:underline">{{ $product->active ? 'Deaktivieren' : 'Aktivieren' }}</button>
+                                    <button type="submit" class="text-xs text-slate-500 dark:text-slate-400 hover:underline">{{ $product->active ? 'Deaktivieren' : 'Aktivieren' }}</button>
                                 </form>
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="4" class="px-4 py-3 text-slate-500">Noch keine Produkte angelegt.</td></tr>
+                        <tr><td colspan="4" class="px-4 py-3 text-slate-500 dark:text-slate-400">Noch keine Produkte angelegt.</td></tr>
                     @endforelse
                 </tbody>
             </table>

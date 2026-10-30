@@ -6,7 +6,12 @@
     $locations ??= collect();
 @endphp
 
-<div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700">
+{{-- Bug-Review (confirm() ohne Alpine-Scope): diese Komponente wird auf der
+     Teilnehmer-Detailseite und auf praxis-form-submissions/show außerhalb jedes
+     x-data-Bereichs gerendert -- die @submit-Rückfragen bei "Absagen" und
+     "Zurückziehen" wurden dort nie initialisiert. Eigener Scope hier, damit sie
+     unabhängig von der einbindenden Seite immer greifen. --}}
+<div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700" x-data="{}">
     <h4 class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">{{ $label }}</h4>
 
     @if ($confirmedAppointment)
@@ -65,17 +70,17 @@
                 @csrf
                 <input type="hidden" name="slot" value="{{ $appointmentSlot }}">
                 <div>
-                    <label for="slot_exam_date_{{ $submission->id }}_{{ $appointmentSlot }}" class="block text-xs text-slate-500 mb-1">
+                    <label for="slot_exam_date_{{ $submission->id }}_{{ $appointmentSlot }}" class="block text-xs text-slate-500 dark:text-slate-400 mb-1">
                         {{ $latestAppointment ? 'Neuen Termin vorschlagen (Runde '.($latestAppointment->round + 1).')' : 'Termin vorschlagen' }}
                     </label>
                     <input type="datetime-local" id="slot_exam_date_{{ $submission->id }}_{{ $appointmentSlot }}" name="exam_date" required class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                 </div>
                 <div>
-                    <label for="slot_ends_at_{{ $submission->id }}_{{ $appointmentSlot }}" class="block text-xs text-slate-500 mb-1">Ende (optional, z. B. für 16:00-18:00 Uhr)</label>
+                    <label for="slot_ends_at_{{ $submission->id }}_{{ $appointmentSlot }}" class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Ende (optional, z. B. für 16:00-18:00 Uhr)</label>
                     <input type="datetime-local" id="slot_ends_at_{{ $submission->id }}_{{ $appointmentSlot }}" name="ends_at" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                 </div>
                 <div>
-                    <label for="slot_location_{{ $submission->id }}_{{ $appointmentSlot }}" class="block text-xs text-slate-500 mb-1">Ort</label>
+                    <label for="slot_location_{{ $submission->id }}_{{ $appointmentSlot }}" class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Ort</label>
                     <select id="slot_location_{{ $submission->id }}_{{ $appointmentSlot }}" name="location" x-model="location" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                         <option value="">&mdash;</option>
                         @foreach ($locations as $location)
@@ -93,11 +98,11 @@
                     </select>
                 </div>
                 <div x-show="location === 'online'" style="display: none">
-                    <label for="slot_online_meeting_url_{{ $submission->id }}_{{ $appointmentSlot }}" class="block text-xs text-slate-500 mb-1">Link Onlinemeeting</label>
+                    <label for="slot_online_meeting_url_{{ $submission->id }}_{{ $appointmentSlot }}" class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Link Onlinemeeting</label>
                     <input type="url" id="slot_online_meeting_url_{{ $submission->id }}_{{ $appointmentSlot }}" name="online_meeting_url" placeholder="https://..." class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm w-56">
                 </div>
                 <div class="w-full">
-                    <label for="slot_description_{{ $submission->id }}_{{ $appointmentSlot }}" class="block text-xs text-slate-500 mb-1">Beschreibung (optional, für den Teilnehmer sichtbar)</label>
+                    <label for="slot_description_{{ $submission->id }}_{{ $appointmentSlot }}" class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Beschreibung (optional, für den Teilnehmer sichtbar)</label>
                     <textarea id="slot_description_{{ $submission->id }}_{{ $appointmentSlot }}" name="description" rows="2" maxlength="2000" placeholder="z. B. Treffpunkt, Mitzubringendes, Ablauf ..." class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm"></textarea>
                 </div>
                 <button type="submit" class="px-3 py-1.5 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
@@ -115,7 +120,7 @@
             @foreach ($appointmentsForSlot as $appointment)
                 <div class="text-xs text-slate-600 dark:text-slate-400">
                     Runde {{ $appointment->round }}: {{ $appointment->formattedRange() }} Uhr
-                    <span class="inline-block px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500">
+                    <span class="inline-block px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">
                         {{ ['pending' => 'offen', 'accepted' => 'angenommen', 'declined' => 'abgelehnt', 'withdrawn' => 'zurückgezogen', 'cancelled' => 'abgesagt'][$appointment->response] ?? $appointment->response }}
                     </span>
                     @if ($appointment->locationLabel())

@@ -15,7 +15,7 @@
                  zur Quote (siehe ExamEvaluationService) -- diese Anzeige wies
                  sie deshalb separat als "nicht bewertet" aus. Sie fließen
                  jetzt wie jede andere Frage in $examSession->score ein. --}}
-            <div class="text-slate-500 mt-1">{{ (int) round($examSession->score * 100) }}% richtig &middot; {{ $questions->where('correct', true)->count() }}/{{ $questions->count() }} Fragen</div>
+            <div class="text-slate-500 dark:text-slate-400 mt-1">{{ (int) round($examSession->score * 100) }}% richtig &middot; {{ $questions->where('correct', true)->count() }}/{{ $questions->count() }} Fragen</div>
             @if ($openTextCount > 0)
                 {{-- Bug-Review (FKN offene Fragen): die Quote oben enthält
                      Punkte aus offenen Fragen, die per Selbsteinschätzung

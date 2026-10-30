@@ -83,7 +83,7 @@
                         </form>
                     </div>
                 @empty
-                    <p class="text-slate-500 text-sm">Noch keine Fragen zugeordnet.</p>
+                    <p class="text-slate-500 dark:text-slate-400 text-sm">Noch keine Fragen zugeordnet.</p>
                 @endforelse
             </div>
         </div>
@@ -109,7 +109,7 @@
                             </form>
                         </div>
                     @empty
-                        <p class="text-slate-500 text-sm">Keine veröffentlichten Fragen gefunden.</p>
+                        <p class="text-slate-500 dark:text-slate-400 text-sm">Keine veröffentlichten Fragen gefunden.</p>
                     @endforelse
                 </div>
             @endif

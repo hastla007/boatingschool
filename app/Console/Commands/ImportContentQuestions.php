@@ -7,6 +7,7 @@ use App\Models\ContentQuestion;
 use App\Models\ContentQuestionRevision;
 use App\Models\Module;
 use Illuminate\Console\Command;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Normalizer;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -33,6 +34,9 @@ class ImportContentQuestions extends Command
         'SRC' => 'SRC',
         'UBI' => 'UBI',
     ];
+
+    /** @var Collection<int, string>|null */
+    private ?Collection $importModuleIds = null;
 
     private int $imported = 0;
 
@@ -229,7 +233,23 @@ class ImportContentQuestions extends Command
                 $latestRevision ? $this->revised++ : $this->imported++;
             }
 
-            $module->questions()->syncWithoutDetaching([$question->id => ['required' => true]]);
+            // Bug-Review BB18: syncWithoutDetaching() auf $module->questions()
+            // hängte die Frage zwar an das in dieser Zeile genannte Modul an,
+            // ließ eine Zuordnung zu einem FRÜHEREN Modul (geänderter
+            // Modulwert bei gleichbleibender content_id) aber unberührt
+            // stehen -- die Frage erschien danach doppelt. sync() von der
+            // FRAGE aus (statt vom Modul aus) ersetzt alle ihre
+            // Modulzuordnungen durch genau dieses eine Modul, ohne andere
+            // Fragen im alten Modul anzutasten.
+            //
+            // Ersetzt werden aber nur Zuordnungen zu Modulen, die dieser
+            // Import selbst verwaltet ($moduleMap): Module anderer Seeder
+            // (z. B. UBI_ERG aus UbiErgaenzungSeeder, das 79 UBI-Fragen
+            // zusätzlich trägt) bleiben unangetastet -- ein reiner
+            // Excel-Reimport hätte den UBI-Ergänzungskurs sonst geleert.
+            $otherImportModuleIds = $this->importModuleIds()->reject(fn ($id) => $id === $module->id);
+            $question->modules()->detach($otherImportModuleIds->all());
+            $question->modules()->syncWithoutDetaching([$module->id => ['required' => true]]);
         });
     }
 
@@ -250,6 +270,12 @@ class ImportContentQuestions extends Command
         ];
 
         return md5(json_encode($canonical));
+    }
+
+    /** @return Collection<int, string> IDs der Module aus $moduleMap. */
+    private function importModuleIds(): Collection
+    {
+        return $this->importModuleIds ??= Module::whereIn('code', array_values($this->moduleMap))->pluck('id');
     }
 
     /**

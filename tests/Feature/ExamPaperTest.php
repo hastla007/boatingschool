@@ -86,6 +86,72 @@ class ExamPaperTest extends TestCase
         $overview->assertSee('2/2', false);
     }
 
+    /**
+     * Bug-Review BB1: startPaper() spielt eine deaktivierte Frage gar nicht
+     * erst aus (Bug-Review B12), die Sollzahl der Kachel ("x/total") zählte
+     * bislang aber unverändert alle exam_paper_question-Zeilen, egal ob die
+     * referenzierte Frage noch aktiv ist -- die Kachel zeigte z. B. "0/2",
+     * obwohl die Prüfung bei einer deaktivierten Frage tatsächlich nur 1
+     * Frage umfasst.
+     */
+    public function test_overview_tile_excludes_deactivated_questions_from_the_total(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $paper, $questions] = $this->makeIsolatedExamPaper();
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        // makeIsolatedExamPaper() nutzt echte, geteilte Fragen aus dem
+        // SBF_BASIS-Modul (kein Testdaten-Duplikat) -- der Aktiv-Status wird
+        // deshalb nach dem Test zwingend zurückgesetzt, damit andere Tests
+        // (z. B. dieselbe Methode in einem anderen Testfall) dieselben zwei
+        // Fragen weiterhin aktiv vorfinden.
+        $deactivated = $questions->first();
+        $this->onAdmin(fn () => $deactivated->update(['active' => false]));
+
+        try {
+            $overview = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/exam");
+            $overview->assertOk();
+            $overview->assertSee('0/1', false);
+            $overview->assertDontSee('0/2', false);
+        } finally {
+            $this->onAdmin(fn () => $deactivated->update(['active' => true]));
+        }
+    }
+
+    public function test_a_question_outside_its_validity_window_is_not_served_nor_counted(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $paper, $questions] = $this->makeIsolatedExamPaper();
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        // Wie oben: echte, geteilte Frage -- Gültigkeit danach zurücksetzen.
+        $expired = $questions->first()->publishedRevision();
+        $previousValidTo = $expired->valid_to;
+        $this->onAdmin(fn () => $expired->update(['valid_to' => now()->subDays(3)->toDateString()]));
+
+        try {
+            $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/exam")
+                ->assertOk()->assertSee('0/1', false);
+
+            $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam/papers/{$paper->id}");
+            $session = $this->asTenant($tenant, fn () => ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail());
+            $served = $this->asTenant($tenant, fn () => $session->questions()->pluck('question_id')->all());
+
+            $this->assertNotContains($questions->first()->id, $served);
+            $this->assertCount(1, $served);
+
+            // Positionen sind klein -- eine riesige Zahl ist ein
+            // Validierungsfehler statt eines Datenbankfehlers (HTTP 500).
+            $this->actingAsInTenant($learner, $tenant)
+                ->post("/exam-sessions/{$session->id}/answers", ['position' => 99999999999])
+                ->assertSessionHasErrors('position');
+        } finally {
+            $this->onAdmin(fn () => $expired->update(['valid_to' => $previousValidTo]));
+        }
+    }
+
     public function test_starting_the_same_paper_again_resumes_the_running_session_instead_of_duplicating(): void
     {
         $tenant = $this->createTestTenant();

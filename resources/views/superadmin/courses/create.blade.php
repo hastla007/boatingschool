@@ -19,14 +19,19 @@
             </div>
             <div>
                 <x-input-label for="course_type" value="Kurstyp" />
-                <x-text-input id="course_type" name="course_type" type="text" class="mt-1 block w-full" :value="old('course_type', 'full')" required />
+                {{-- Bug-Review (englische Optionen in Superadmin-Dropdowns): angezeigt wird das deutsche Label (StatusLabels), übermittelt weiterhin der rohe Wert. --}}
+                <select id="course_type" name="course_type" required class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                    @foreach (\App\Support\StatusLabels::courseTypeOptions(old('course_type')) as $value => $label)
+                        <option value="{{ $value }}" @selected(old('course_type', 'full') === $value)>{{ $label }}</option>
+                    @endforeach
+                </select>
             </div>
             <div>
                 <x-input-label for="status" value="Status" />
                 <select id="status" name="status" class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
-                    <option value="draft" selected>draft</option>
-                    <option value="published">published</option>
-                    <option value="archived">archived</option>
+                    @foreach (\App\Support\StatusLabels::courseStatusOptions() as $value => $label)
+                        <option value="{{ $value }}" @selected(old('status', 'draft') === $value)>{{ $label }}</option>
+                    @endforeach
                 </select>
             </div>
             <div class="pt-2 border-t border-slate-100 dark:border-slate-700">

@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\WillkommensboxOrder;
+use App\Notifications\Concerns\EscapesMarkdown;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
@@ -15,7 +16,7 @@ use Illuminate\Notifications\Notification;
  */
 class WillkommensboxOrderPlaced extends Notification
 {
-    use Queueable;
+    use EscapesMarkdown, Queueable;
 
     public function __construct(private readonly WillkommensboxOrder $order) {}
 
@@ -27,12 +28,18 @@ class WillkommensboxOrderPlaced extends Notification
 
     public function toMail(mixed $notifiable): MailMessage
     {
-        $learnerName = $this->order->user->name ?? 'Ein Teilnehmer';
+        // Bug-Review (Markdown-Injection über Name/Lieferadresse): Name und
+        // Lieferadresse sind vom Lerner frei befüllbar und landeten bisher
+        // ungeschützt in einer Markdown-Zeile -- "[Hier bestätigen](https://...)"
+        // als Straße erschien in der Admin-Mail als klickbarer Link (siehe
+        // EscapesMarkdown).
+        $learnerName = self::escapeMarkdown($this->order->user->name ?? 'Ein Teilnehmer');
+        $address = self::escapeMarkdown($this->order->street.', '.$this->order->postal_code.' '.$this->order->city.', '.$this->order->country);
 
         return (new MailMessage)
             ->subject('Neue Willkommensbox-Bestellung')
             ->line("{$learnerName} hat eine Willkommensbox bestellt.")
-            ->line('Lieferadresse: '.$this->order->street.', '.$this->order->postal_code.' '.$this->order->city.', '.$this->order->country)
+            ->line('Lieferadresse: '.$address)
             ->action('Zur Teilnehmer-Übersicht', route('admin.participants.show', $this->order->user_id));
     }
 }

@@ -185,7 +185,9 @@ return [
             ['Windstärke', 'wind force'],
             ['Windrichtung', 'wind direction'],
             ['Böen', 'gusts'],
-            ['Sturm', 'storm'],
+            // Bug-Review (Vokabeln): im Seewetterbericht ist "Sturm" (Bft 8-9) "gale";
+            // "storm" bezeichnet erst den schweren Sturm ab Bft 10.
+            ['Sturm', 'gale'],
             ['Seegang', 'sea state'],
             ['schwere See', 'rough sea'],
             ['Dünung', 'swell'],
@@ -320,7 +322,8 @@ return [
             ['Brandbekämpfung', 'fire fighting'],
             ['Lenzpumpe', 'bilge pump'],
             ['in Schlepp nehmen', 'to take in tow'],
-            ['Leegerküste', 'lee shore'],
+            // Bug-Review (Vokabeln): seemännisch "Legerwall" (vorher "Leegerküste").
+            ['Legerwall', 'lee shore'],
             ['Ölverschmutzung', 'oil pollution'],
             ['Ölteppich', 'oil slick'],
         ],

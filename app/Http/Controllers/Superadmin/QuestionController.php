@@ -155,7 +155,7 @@ class QuestionController extends Controller
      * Reimport angelegte Revision im Status "review" erreichte Lerner
      * bisher nie -- es gab keinen Weg, sie zu veröffentlichen.
      */
-    public function publishRevision(ContentQuestionRevision $revision): Response
+    public function publishRevision(Request $request, ContentQuestionRevision $revision): Response
     {
         abort_unless($revision->editorial_status === 'review', 404);
 
@@ -168,14 +168,55 @@ class QuestionController extends Controller
         // zu verwerfen. Ein noch offener Link auf die ältere davon durfte
         // sie bisher trotzdem veröffentlichen und damit die inzwischen
         // neuere "review"-Revision verwaist (nie mehr erreichbar) zurück-
-        // lassen. Veröffentlichbar ist deshalb nur noch die Revision mit
-        // der tatsächlich höchsten revision_no dieser Frage.
-        $isLatest = $revision->revision_no === $revision->question->revisions()->max('revision_no');
-        abort_unless($isLatest, 409, 'Für diese Frage liegt inzwischen eine neuere Fassung vor -- bitte die Seite neu laden.');
+        // lassen.
+        //
+        // Bug-Review (AA9: Wartende Import-Änderung verschwindet): die
+        // Prüfung verglich bisher gegen die höchste revision_no ÜBER ALLE
+        // Revisionen -- speichert der Superadmin über den Editor, während
+        // diese Review-Revision noch wartet (siehe QuestionController::
+        // update(), T3), entsteht dadurch eine neue, bereits veröffentlichte
+        // Revision mit einer noch höheren revision_no. Die wartende Review-
+        // Revision galt damit fälschlich ebenfalls als "veraltet" und ließ
+        // sich nie mehr veröffentlichen -- der Hinweistext ("Seite neu
+        // laden") half nicht, da sich daran auch nach einem Neuladen nichts
+        // ändert. Maßgeblich ist deshalb nur, ob eine NEUERE Review-Revision
+        // (aus einem zweiten Reimport) existiert, nicht ein inzwischen vom
+        // Editor unabhängig veröffentlichter Stand.
+        $isLatestReview = $revision->revision_no === $revision->question->revisions()
+            ->where('editorial_status', 'review')
+            ->max('revision_no');
+        abort_unless($isLatestReview, 409, 'Für diese Frage liegt inzwischen eine neuere Fassung vor -- bitte die Seite neu laden.');
+
+        // Bug-Review (AA9-Folgefehler): ist die veröffentlichte Fassung
+        // neuer als diese wartende Import-Fassung (Editor-Änderung danach),
+        // würde die Freigabe sie stillschweigend ersetzen. Das geht nur mit
+        // ausdrücklicher Bestätigung von der Bearbeitungsseite, die davor
+        // warnt (Feld overwrite_newer) -- nicht über den Knopf in der Liste.
+        $published = $revision->question->publishedRevision();
+        if ($published && $published->revision_no > $revision->revision_no && ! $request->boolean('overwrite_newer')) {
+            return redirect()->route('superadmin.questions.edit', $revision->question)
+                ->withErrors(['revision' => 'Die veröffentlichte Fassung ist neuer als diese Import-Fassung. Bitte hier prüfen: veröffentlichen ersetzt die neuere Fassung, sonst verwerfen.']);
+        }
 
         $revision->publish();
 
         return back()->with('status', 'Fassung veröffentlicht.');
+    }
+
+    /**
+     * Bug-Review (AA9-Folgefehler: Freigabe einer älteren Import-Fassung
+     * verwirft eine neuere Editor-Fassung): wartet eine Import-Revision,
+     * während die Frage im Editor schon neu gespeichert wurde, ersetzt ihre
+     * Freigabe die neuere Editor-Fassung. Die Bearbeitungsseite warnt davor;
+     * ist die Import-Änderung überholt, lässt sie sich hier verwerfen.
+     */
+    public function discardRevision(ContentQuestionRevision $revision): Response
+    {
+        abort_unless($revision->editorial_status === 'review', 404);
+
+        $revision->update(['editorial_status' => 'deprecated']);
+
+        return back()->with('status', 'Wartende Fassung verworfen.');
     }
 
     /**

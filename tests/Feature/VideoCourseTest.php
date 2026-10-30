@@ -324,6 +324,35 @@ class VideoCourseTest extends TestCase
         });
     }
 
+    public function test_a_double_submitted_answer_counts_only_once(): void
+    {
+        // Bug-Review X11 (Video-Quiz): ein Doppelklick schickte dieselbe
+        // Antwort zweimal ab und zählte doppelt für die Festigung. Der vom
+        // Server gerenderte started_at_ms macht den zweiten POST wirkungslos.
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $firstLesson] = $this->makeIsolatedVideoCourse();
+        $this->grantEntitlement($tenant, $learner, $course);
+        [$question, $revision, $correctAnswer] = $this->attachIsolatedQuestion($firstLesson);
+
+        $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/video/{$firstLesson->id}/questions/1")
+            ->assertOk()->assertSee('name="started_at_ms"', false);
+
+        $payload = ['revision_id' => $revision->id, 'answer_id' => $correctAnswer->id, 'started_at_ms' => now()->valueOf()];
+        $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/video/{$firstLesson->id}/questions/1", $payload)->assertRedirect();
+        $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/video/{$firstLesson->id}/questions/1", $payload)->assertRedirect();
+
+        $this->asTenant($tenant, function () use ($tenant, $learner, $question) {
+            $this->assertSame(1, Attempt::where('tenant_id', $tenant->id)
+                ->where('user_id', $learner->id)->where('question_id', $question->id)->where('context', 'video_quiz')->count());
+        });
+
+        // Ein unsinniger Zeitstempel ist ein Validierungsfehler, keine Fehlerseite.
+        $this->actingAsInTenant($learner, $tenant)
+            ->post("/courses/{$course->id}/video/{$firstLesson->id}/questions/1", ['revision_id' => $revision->id, 'answer_id' => $correctAnswer->id, 'started_at_ms' => -9223372036854775807])
+            ->assertSessionHasErrors('started_at_ms');
+    }
+
     public function test_the_result_page_lets_the_learner_retry_only_the_wrong_questions(): void
     {
         $tenant = $this->createTestTenant();
@@ -368,6 +397,16 @@ class VideoCourseTest extends TestCase
      * aufrufen und sich die dort sofort angezeigte richtige Antwort
      * verraten lassen.
      */
+    /**
+     * Bug-Review X10 (Folgefehler): VideoQuizController::resolveQuestions()
+     * schließt eine blockierte Frage jetzt bereits aus der Auswahl aus,
+     * statt sie erst beim Abschicken mit 409 abzulehnen (siehe
+     * RunningExamNoLongerBlocksLearningAfterTimeExpiredTest) -- Position 1
+     * existiert für diese isolierte Lektion mit nur dieser einen,
+     * blockierten Frage daher nicht mehr, der Request liefert 404. Die
+     * eigentlich geschützte Eigenschaft (es wird nie ein Attempt für die
+     * blockierte Frage gespeichert) bleibt unverändert bestehen.
+     */
     public function test_a_question_from_a_running_exam_cannot_be_answered_in_the_video_quiz(): void
     {
         $tenant = $this->createTestTenant();
@@ -382,7 +421,7 @@ class VideoCourseTest extends TestCase
             ['revision_id' => $revision->id, 'answer_id' => $correctAnswer->id]
         );
 
-        $response->assertStatus(409);
+        $response->assertStatus(404);
         $this->asTenant($tenant, function () use ($tenant, $learner, $question, $course) {
             $this->assertDatabaseMissing('attempt', [
                 'tenant_id' => $tenant->id,
@@ -424,9 +463,9 @@ class VideoCourseTest extends TestCase
      * Auswahl dadurch STILLSCHWEIGEND leer -- eine tatsächlich korrekt
      * beantwortete Frage wurde ohne jeden Fehler als komplett falsch
      * verbucht. revision_id kommt jetzt als eigenes Formularfeld aus
-     * genau der Fassung, die show() tatsächlich angezeigt hat, und muss
-     * weiterhin veröffentlicht sein -- eine inzwischen überholte Fassung
-     * führt zu einer klaren Ablehnung statt einer stillen Falschbewertung.
+     * genau der Fassung, die show() tatsächlich angezeigt hat; bewertet
+     * wird gegen genau diese Fassung, auch wenn sie inzwischen überholt
+     * ist (siehe AnswerSurvivesNewRevisionTest).
      */
     public function test_answering_against_a_revision_that_has_since_been_replaced_does_not_silently_mis_grade_the_correct_answer(): void
     {
@@ -498,17 +537,21 @@ class VideoCourseTest extends TestCase
             ['revision_id' => $oldRevision->id, 'answer_ids' => [$oldCorrectAnswer->id]]
         );
 
-        // Die inzwischen überholte Fassung wird klar abgelehnt (404),
-        // statt die eigentlich richtige Antwort stillschweigend gegen die
-        // neue Fassung als falsch zu werten.
-        $response->assertStatus(404);
-        $this->asTenant($tenant, function () use ($tenant, $learner, $question, $course) {
-            $this->assertDatabaseMissing('attempt', [
+        // Bug-Review (Antwort geht verloren, wenn die Frage zwischendurch
+        // ersetzt wurde): die Antwort wird gegen die tatsächlich angezeigte
+        // (inzwischen überholte) Fassung bewertet -- die richtige Antwort
+        // zählt als richtig, statt mit einer Fehlerseite verloren zu gehen
+        // oder gegen die neue Fassung als falsch gewertet zu werden.
+        $response->assertRedirect();
+        $this->asTenant($tenant, function () use ($tenant, $learner, $question, $course, $oldRevision) {
+            $this->assertDatabaseHas('attempt', [
                 'tenant_id' => $tenant->id,
                 'user_id' => $learner->id,
                 'question_id' => $question->id,
                 'course_id' => $course->id,
                 'context' => 'video_quiz',
+                'revision_id' => $oldRevision->id,
+                'correct' => true,
             ]);
         });
     }

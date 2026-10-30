@@ -175,6 +175,22 @@ class ImportContentFeedback extends Command
                 'valid_to' => $revision->valid_to,
                 'reviewed_by' => $revision->reviewed_by,
                 'reviewed_at' => $revision->reviewed_at,
+                // Bug-Review (AA8: Feedback-Import löscht die Markierung
+                // "vom Superadmin korrigiert"): ohne dieses Feld fiel die
+                // neue Revision beim Spaltendefault wieder auf false zurück
+                // -- selbst wenn ihr question_text wortgleich von einer per
+                // Fragen-Editor korrigierten Revision übernommen wurde
+                // (siehe $question_text oben). ImportContentQuestions wählt
+                // als "zuletzt importierte Fassung" (Diff-Basis für den
+                // nächsten Excel-Reimport) ausdrücklich NUR Revisionen mit
+                // edited_by_superadmin=false (siehe dortiger Bug-Review
+                // "Seed überschreibt UBI-Korrekturen aus dem Editor") -- die
+                // hier neu angelegte Revision wurde also fälschlich wieder
+                // als unkorrigiert betrachtet, der nächste Excel-Import
+                // verglich erneut gegen den unveränderten (alten, falschen)
+                // Excel-Text und legte eine neue Review-Revision mit genau
+                // diesem Text an.
+                'edited_by_superadmin' => $revision->edited_by_superadmin,
             ]);
 
             foreach ($revision->answers as $answer) {

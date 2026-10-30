@@ -8,7 +8,7 @@
         </div>
     </x-slot>
 
-    <p class="text-slate-500 mb-6 max-w-3xl">
+    <p class="text-slate-500 dark:text-slate-400 mb-6 max-w-3xl">
         Formulare für die Anmeldung zu „Praxis &amp; Prüfung&quot;. Jeder zugewiesene Kurs zeigt seinen Lernern dieses
         Formular, sobald der konfigurierte Kursfortschritt erreicht ist &mdash; vorher erscheint nur eine Hürden-Meldung.
         Ein Kurs kann nur einem aktiven Formular gleichzeitig zugewiesen sein.
@@ -49,14 +49,14 @@
                             @if ($template->active)
                                 <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">aktiv</span>
                             @else
-                                <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">deaktiviert</span>
+                                <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 dark:text-slate-400">deaktiviert</span>
                             @endif
                         </td>
                         <td class="px-4 py-3 text-right whitespace-nowrap">
-                            <a href="{{ route('superadmin.praxis-form-templates.edit', $template) }}" class="text-xs text-slate-500 hover:underline">Bearbeiten</a>
+                            <a href="{{ route('superadmin.praxis-form-templates.edit', $template) }}" class="text-xs text-slate-500 dark:text-slate-400 hover:underline">Bearbeiten</a>
                             <form method="POST" action="{{ route('superadmin.praxis-form-templates.toggle-active', $template) }}" class="inline">
                                 @csrf
-                                <button type="submit" class="ml-3 text-xs text-slate-500 hover:underline">{{ $template->active ? 'Deaktivieren' : 'Aktivieren' }}</button>
+                                <button type="submit" class="ml-3 text-xs text-slate-500 dark:text-slate-400 hover:underline">{{ $template->active ? 'Deaktivieren' : 'Aktivieren' }}</button>
                             </form>
                             <form method="POST" action="{{ route('superadmin.praxis-form-templates.destroy', $template) }}" class="inline" @submit="if (! confirm('Dieses Formular wirklich löschen?')) $event.preventDefault()">
                                 @csrf

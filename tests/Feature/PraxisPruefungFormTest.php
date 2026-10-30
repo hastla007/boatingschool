@@ -336,6 +336,52 @@ class PraxisPruefungFormTest extends TestCase
     }
 
     /**
+     * Bug-Review (AA11: Komma in Formularfeld-Option blockiert Absenden):
+     * PraxisFormDataResolver::rulesFor() baute die "in:"-Regel für select/
+     * radio-Felder bisher als EINEN String aus den Optionen zusammen --
+     * Laravel zerlegt eine solche Regel selbst wieder am Komma, um die
+     * erlaubten Werte zu erhalten. Enthielt eine vom Superadmin frei
+     * eingegebene Option selbst ein Komma, zerfiel sie dadurch serverseitig
+     * in mehrere, keine davon dem tatsächlich angebotenen und ausgewählten
+     * Wert entsprechend -- das Absenden schlug immer mit einem für den
+     * Lerner unverständlichen Validierungsfehler fehl.
+     */
+    public function test_submitting_a_radio_option_containing_a_comma_succeeds(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course] = $this->makeIsolatedCourseWithQuestions(2);
+        $this->grantEntitlement($tenant, $learner, $course);
+        $this->completeRegistrationProfile($learner, $tenant);
+        $this->masterAllQuestions($tenant, $learner, $course);
+        $template = $this->createTemplate([
+            'course_ids' => [$course->id],
+            'min_progress_percent' => 10,
+            'fields' => [
+                ['key' => 'telefonnummer', 'label' => 'Telefonnummer', 'type' => 'text', 'required' => true, 'options' => [], 'help_text' => null],
+                ['key' => 'ort_auswahl', 'label' => 'Prüfungsort', 'type' => 'radio', 'required' => true, 'options' => ['Hamburg, Hafen', 'Kiel'], 'help_text' => null],
+            ],
+        ]);
+
+        $response = $this->actingAsInTenant($learner, $tenant)->post(route('praxis-pruefung.store', $course), [
+            'telefonnummer' => '+49 170 1234567',
+            'ort_auswahl' => 'Hamburg, Hafen',
+        ]);
+
+        $response->assertSessionHasNoErrors();
+        $response->assertRedirect(route('praxis-pruefung.index', $course));
+
+        $this->onAdmin(function () use ($tenant, $learner, $course, $template) {
+            $this->assertDatabaseHas('praxis_form_submission', [
+                'tenant_id' => $tenant->id,
+                'user_id' => $learner->id,
+                'course_id' => $course->id,
+                'praxis_form_template_id' => $template->id,
+            ]);
+        });
+    }
+
+    /**
      * Bug-Review F5: im gesamten Ablauf von Praxis-Anmeldung, Terminen und
      * Willkommensbox wurde bisher keine Mail verschickt -- eine Bootsschule
      * bemerkte eine neue Praxis-Anmeldung nur, wenn jemand aktiv im

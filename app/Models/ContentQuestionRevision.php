@@ -58,6 +58,33 @@ class ContentQuestionRevision extends Model
         return $this->answers->firstWhere('is_correct', true);
     }
 
+    /**
+     * Bug-Review (Antwortreihenfolge bei Einfachauswahl-Fragen immer
+     * identisch): answers() behält unverändert die sort_order aus dem
+     * Import bei -- und im Quellkatalog steht die richtige Antwort fast
+     * immer an erster Stelle (823 von 838 Einfachauswahl-Fragen haben
+     * correct_answer=A in zentrale_fragenbasis.xlsx). Lernende merken sich
+     * dadurch "immer die erste Antwort" statt des Inhalts, und die
+     * Prüfungssimulation verliert jede Aussagekraft. Mischt die
+     * Darstellungsreihenfolge pro Lernendem und Antwort deterministisch
+     * (Hash aus Nutzer-ID + Antwort-ID) -- stabil bei jedem Neuladen und
+     * während der laufenden Prüfung, aber unterschiedlich zwischen
+     * Lernenden, sodass sich keine feste Reihenfolge einprägen lässt.
+     * sort_order selbst (und damit answers()) bleibt unverändert, da es
+     * u. a. vom Fragen-Editor und von hashRevision() für den
+     * Import-Vergleich genutzt wird.
+     */
+    public function answersInDisplayOrderFor(?string $userId): Collection
+    {
+        if (! $userId) {
+            return $this->answers;
+        }
+
+        return $this->answers
+            ->sortBy(fn (ContentAnswer $answer) => md5($userId.'|'.$answer->id))
+            ->values();
+    }
+
     /** @return Collection<int, ContentAnswer> */
     public function correctAnswers(): Collection
     {

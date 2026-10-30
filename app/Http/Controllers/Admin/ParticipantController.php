@@ -387,6 +387,10 @@ class ParticipantController extends Controller
                 'display_name' => $validated['name'],
                 'password' => Hash::make(Str::random(32)),
                 'status' => 'invited',
+                // Bug-Review (Superadmin-Nutzerseite zeigt leere
+                // Namensfelder): first_name/last_name blieben hier bisher
+                // unbesetzt, siehe User::splitDisplayName().
+                ...User::splitDisplayName($validated['name']),
             ]);
 
             // Sicherheitsreview S3: Adresse liegt jetzt auf der Mitgliedschaft

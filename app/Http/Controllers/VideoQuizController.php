@@ -7,6 +7,8 @@ use App\Models\ContentQuestion;
 use App\Models\ContentQuestionRevision;
 use App\Models\CourseDefinition;
 use App\Models\ExamSession;
+use App\Models\Tenant;
+use App\Models\User;
 use App\Models\VideoLesson;
 use App\Services\EntitlementService;
 use App\Services\ExamEvaluationService;
@@ -15,6 +17,7 @@ use App\Support\TenantContext;
 use App\Support\VideoCourseLessons;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -26,12 +29,15 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class VideoQuizController extends Controller
 {
-    public function show(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course, VideoLesson $lesson, int $position): View
+    public function show(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, ExamEvaluationService $examEvaluation, CourseDefinition $course, VideoLesson $lesson, int $position): View
     {
-        abort_unless($entitlements->hasAccess($tenantContext->tenant(), $request->user(), $course), 403);
+        $tenant = $tenantContext->tenant();
+        $user = $request->user();
+
+        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403);
         abort_unless($lesson->module->course_id === $course->id, 404);
 
-        $questions = $this->resolveQuestions($lesson, $request);
+        $questions = $this->resolveQuestions($lesson, $request, $tenant, $user, $examEvaluation);
         abort_if($questions->isEmpty(), 404);
         abort_unless($position >= 1 && $position <= $questions->count(), 404);
 
@@ -54,10 +60,14 @@ class VideoQuizController extends Controller
             && $justAnswered['questionId'] === $revision->question_id;
 
         return view('video.quiz', [
+            // Bug-Review X11 (Video-Quiz): wie im Lernmodus macht der vom
+            // Server gerenderte Zeitpunkt einen doppelt abgeschickten
+            // Antwort-POST idempotent (Unique-Index auf started_at_ms).
+            'startedAt' => now()->valueOf(),
             'course' => $course,
             'lesson' => $lesson,
             'moduleIds' => $moduleIds,
-            'questionsParam' => $request->query('questions'),
+            'questionsParam' => is_string($request->query('questions')) ? $request->query('questions') : null,
             'position' => $position,
             'total' => $questions->count(),
             'revision' => $revision,
@@ -76,7 +86,7 @@ class VideoQuizController extends Controller
         abort_unless($entitlements->hasAccess($tenant, $user, $course), 403);
         abort_unless($lesson->module->course_id === $course->id, 404);
 
-        $questions = $this->resolveQuestions($lesson, $request);
+        $questions = $this->resolveQuestions($lesson, $request, $tenant, $user, $examEvaluation);
         abort_unless($position >= 1 && $position <= $questions->count(), 404);
 
         $validated = $request->validate([
@@ -85,6 +95,7 @@ class VideoQuizController extends Controller
             'answer_ids' => ['nullable', 'array'],
             'answer_ids.*' => ['uuid'],
             'known' => ['nullable', 'boolean'],
+            'started_at_ms' => ['nullable', 'integer', 'min:0', 'max:'.intdiv(PHP_INT_MAX, 2)],
         ]);
 
         // Bug-Review (Fragenversion ändert sich zwischen Anzeige und
@@ -100,9 +111,17 @@ class VideoQuizController extends Controller
         // revision_id kommt jetzt -- wie bei LearningController::
         // storeAttempt() -- als eigenes Formularfeld aus genau der
         // Fassung, die show() tatsächlich angezeigt hat.
+        //
+        // Bug-Review (Antwort geht bei neuer Revision verloren): genau in
+        // diesem Fall ist die angezeigte Fassung inzwischen "deprecated"
+        // -- der Filter auf 'published' ließ den POST dann mit 404 scheitern
+        // und die Antwort ging verloren. Analog zu LearningController::
+        // storeAttempt() wird eine abgelöste Fassung derselben (weiterhin
+        // gültigen, siehe resolveQuestions()) Frage angenommen und gegen
+        // genau diese Fassung bewertet.
         $revision = ContentQuestionRevision::where('id', $validated['revision_id'])
             ->where('question_id', $questions[$position - 1]->id)
-            ->where('editorial_status', 'published')
+            ->whereIn('editorial_status', ['published', 'deprecated'])
             ->firstOrFail();
 
         // Bug-Review N13: viele Fragen aus dem Katalog stecken unverändert
@@ -153,7 +172,7 @@ class VideoQuizController extends Controller
         }
 
         $attempt = $learningService->recordAttempt(
-            $tenant, $user, $revision, $selectedAnswer, 'video_quiz', $course, null, $selectedAnswers, $selfAssessedKnown
+            $tenant, $user, $revision, $selectedAnswer, 'video_quiz', $course, null, $selectedAnswers, $selfAssessedKnown, $validated['started_at_ms'] ?? null
         );
 
         // Die Auswertungsseite liest den Ausgang je Frage aus der Session
@@ -180,8 +199,8 @@ class VideoQuizController extends Controller
             'course' => $course,
             'lesson' => $lesson,
             'position' => $position,
-            'questions' => $request->query('questions'),
-            'kapitel' => $request->query('kapitel'),
+            'questions' => is_string($request->query('questions')) ? $request->query('questions') : null,
+            'kapitel' => ($moduleIds = $this->parseModuleIds($request)) ? implode(',', $moduleIds) : null,
         ]))->with('videoQuizAnswered', [
             'lessonId' => $lesson->id,
             'questionId' => $revision->question_id,
@@ -194,7 +213,7 @@ class VideoQuizController extends Controller
     /** Übersicht aller Fragen des (ggf. gefilterten) Durchlaufs mit der
      * jeweils letzten Antwort -- Endpunkt des "Auswertung anzeigen"-Buttons
      * nach der letzten Frage. */
-    public function result(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course, VideoLesson $lesson): View
+    public function result(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, ExamEvaluationService $examEvaluation, CourseDefinition $course, VideoLesson $lesson): View
     {
         $tenant = $tenantContext->tenant();
         $user = $request->user();
@@ -202,7 +221,7 @@ class VideoQuizController extends Controller
         abort_unless($entitlements->hasAccess($tenant, $user, $course), 403);
         abort_unless($lesson->module->course_id === $course->id, 404);
 
-        $questions = $this->resolveQuestions($lesson, $request);
+        $questions = $this->resolveQuestions($lesson, $request, $tenant, $user, $examEvaluation);
         abort_if($questions->isEmpty(), 404);
 
         $answers = $request->session()->get("video_quiz.{$lesson->id}", []);
@@ -235,13 +254,31 @@ class VideoQuizController extends Controller
         ]);
     }
 
-    /** @return Collection<int, ContentQuestion> */
-    private function resolveQuestions(VideoLesson $lesson, Request $request): Collection
+    /**
+     * Bug-Review X10 (Video-Quiz zeigt Fragen aus laufender Prüfung,
+     * Absenden schlägt fehl): answer() lehnt eine Antwort auf eine Frage
+     * ab, die Teil einer noch laufenden Prüfungssession dieses Nutzers ist
+     * (siehe unten in answer()) -- die Fragenauswahl hier bot genau so
+     * eine Frage bisher trotzdem aktiv an und scheiterte erst beim
+     * anschließenden Abschicken mit 409. Alle drei Aufrufer (show(),
+     * answer(), result()) müssen dieselbe gefilterte Liste erhalten, da
+     * sonst $position in answer()/show() auf unterschiedliche Fragen
+     * zeigen würde.
+     *
+     * @return Collection<int, ContentQuestion>
+     */
+    private function resolveQuestions(VideoLesson $lesson, Request $request, Tenant $tenant, User $user, ExamEvaluationService $examEvaluation): Collection
     {
         // Bug-Review B12 (Folgefehler): eine im Superadmin deaktivierte
         // Frage wurde hier -- im Gegensatz zu Smarttrainer und Prüfung --
         // trotzdem noch im Video-Quiz ausgespielt.
-        $activeQuestions = $lesson->questions->where('active', true);
+        // Bug-Review BB16: dieselbe Lücke bestand für valid_from/valid_to.
+        $activeQuestions = ContentQuestion::filterCurrentlyValid($lesson->questions);
+
+        $blockedQuestionIds = $this->runningExamQuestionIds($tenant, $user, $examEvaluation);
+        if ($blockedQuestionIds->isNotEmpty()) {
+            $activeQuestions = $activeQuestions->reject(fn ($question) => $blockedQuestionIds->contains($question->id));
+        }
 
         $raw = $request->query('questions');
 
@@ -261,6 +298,25 @@ class VideoQuizController extends Controller
             ->values();
     }
 
+    /**
+     * Analog zu SmarttrainerService::runningExamQuestionIds() -- eine
+     * abgelaufene, aber noch nicht ausgewertete Session blockiert nicht
+     * mehr (siehe Bug-Review "Hoch, Folgefehler von LearningController"
+     * oben in answer()).
+     *
+     * @return Collection<int, string>
+     */
+    private function runningExamQuestionIds(Tenant $tenant, User $user, ExamEvaluationService $examEvaluation): Collection
+    {
+        return ExamSession::where('tenant_id', $tenant->id)
+            ->where('user_id', $user->id)
+            ->where('status', 'running')
+            ->with('questions')
+            ->get()
+            ->reject(fn (ExamSession $session) => $examEvaluation->timeExpired($session))
+            ->flatMap(fn (ExamSession $session) => $session->questions->pluck('question_id'));
+    }
+
     private function parseModuleIds(Request $request): ?array
     {
         $raw = $request->query('kapitel');
@@ -271,7 +327,19 @@ class VideoQuizController extends Controller
         // das explode(',', ...) mit einem TypeError scheitern ließ
         // (VideoCourseController::parseModuleIds() wurde bereits dagegen
         // abgesichert, diese zweite, eigene Kopie hier noch nicht).
-        return is_string($raw) && $raw !== '' ? array_values(array_filter(explode(',', $raw))) : null;
+        if (! is_string($raw) || $raw === '') {
+            return null;
+        }
+
+        // Bug-Review (Query-Parameter-Validierung): wie in
+        // VideoCourseController::parseModuleIds() landeten ungefilterte IDs
+        // (über VideoCourseLessons::ordered()) in einem whereIn() gegen die
+        // uuid-Spalte video_module.id -- ?kapitel=foo endete dort mit
+        // "invalid input syntax for type uuid" als HTTP 500. Nicht-UUIDs
+        // werden deshalb verworfen.
+        $ids = array_values(array_filter(array_map('trim', explode(',', $raw)), fn ($id) => Str::isUuid($id)));
+
+        return $ids !== [] ? $ids : null;
     }
 
     private function nextLesson(CourseDefinition $course, VideoLesson $lesson, ?array $moduleIds): ?VideoLesson

@@ -43,6 +43,15 @@ class PraxisFormTemplateController extends Controller
     {
         $validated = $this->validateTemplate($request);
 
+        // Bug-Review (AA13: Deaktiviertes Praxis-Formular wird beim
+        // Bearbeiten aktiv): validateTemplate() setzte active früher
+        // selbst auf true -- geteilt mit update(), überschrieb das dort
+        // den tatsächlichen (ggf. deaktivierten) Status bei jeder
+        // Bearbeitung. Nur ein wirklich NEUES Formular startet aktiv;
+        // update() lässt active jetzt unverändert -- dafür ist allein
+        // toggleActive() da.
+        $validated['active'] = true;
+
         PraxisFormTemplate::create($validated);
 
         return redirect()->route('superadmin.praxis-form-templates.index')->with('status', 'Praxisformular angelegt.');
@@ -152,7 +161,6 @@ class PraxisFormTemplateController extends Controller
             'requires_tauglichkeit' => (bool) ($validated['requires_tauglichkeit'] ?? false),
             'course_ids' => $courseIds,
             'fields' => $this->parseFields($validated['fields'] ?? []),
-            'active' => true,
         ];
     }
 

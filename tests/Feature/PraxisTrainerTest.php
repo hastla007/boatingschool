@@ -160,6 +160,33 @@ class PraxisTrainerTest extends TestCase
         $response->assertSee('0 / 1 Aufgaben', false);
     }
 
+    /**
+     * Bug-Review X9 (Abstürze durch manipulierte Werte in der Adresszeile):
+     * ?kategorie[]=x statt ?kategorie=x lieferte ein Array, das
+     * orderedTasks()'s typisiertem ?string-Parameter mit einem TypeError
+     * unbehandelt als HTTP 500 entging -- in index(), show() und
+     * complete() gleichermaßen.
+     */
+    public function test_array_valued_kategorie_query_param_does_not_crash(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $taskA] = $this->makeIsolatedPraxisTasksWithTwoCategories();
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $this->actingAsInTenant($learner, $tenant)
+            ->get("/courses/{$course->id}/praxistrainer?kategorie[]=x")
+            ->assertOk();
+
+        $this->actingAsInTenant($learner, $tenant)
+            ->get(route('praxistrainer.show', ['course' => $course, 'task' => $taskA]).'?kategorie[]=x')
+            ->assertOk();
+
+        $this->actingAsInTenant($learner, $tenant)
+            ->post("/courses/{$course->id}/praxistrainer/{$taskA->id}/complete?kategorie[]=x")
+            ->assertRedirect();
+    }
+
     public function test_image_is_hidden_before_reveal_for_knots_but_shown_upfront_for_signs(): void
     {
         $tenant = $this->createTestTenant();

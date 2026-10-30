@@ -24,7 +24,7 @@
                     <span class="text-xs text-slate-600 dark:text-slate-400">{{ $tenant->slug }}.{{ config('app.central_domain') }}</span>
                 </a>
             @empty
-                <p class="text-slate-500 text-sm p-4">Noch keine Bootsschule angelegt.</p>
+                <p class="text-slate-500 dark:text-slate-400 text-sm p-4">Noch keine Bootsschule angelegt.</p>
             @endforelse
         </div>
         <p class="text-xs text-slate-600 dark:text-slate-400 text-center mt-6">

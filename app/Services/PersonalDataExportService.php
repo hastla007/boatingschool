@@ -7,11 +7,13 @@ use App\Models\Entitlement;
 use App\Models\ExamSession;
 use App\Models\Favorite;
 use App\Models\FavoriteCollection;
+use App\Models\FavoriteCollectionItem;
 use App\Models\PraxisExamAppointment;
 use App\Models\PraxisFormSubmission;
 use App\Models\PraxisProgress;
 use App\Models\ProductPurchase;
 use App\Models\Progress;
+use App\Models\RadioTrainingProgress;
 use App\Models\Tenant;
 use App\Models\TenantInvitation;
 use App\Models\TenantUser;
@@ -40,6 +42,11 @@ class PersonalDataExportService
                 'last_name' => $user->last_name,
                 'display_name' => $user->display_name,
                 'email' => $user->email,
+                // Bug-Review (Datenexport unvollständig): eine noch nicht
+                // bestätigte neue E-Mail-Adresse (siehe Migration 000454,
+                // ProfileController) ist ebenso ein über den Nutzer
+                // gespeichertes personenbezogenes Datum wie die aktuelle.
+                'pending_email' => $user->pending_email,
                 'phone' => $user->phone,
                 // Sicherheitsreview S3: diese Felder liegen seit Migration
                 // 000469 je Mitgliedschaft auf tenant_user, nicht mehr
@@ -117,6 +124,19 @@ class PersonalDataExportService
                     'course_id' => $c->course_id,
                     'is_default' => $c->is_default,
                 ])->all(),
+            // Bug-Review (BB7: Datenexport unvollständig): favorite_collections
+            // listet bisher nur die selbst benannten Sammlungen, nicht aber,
+            // welche Fragen der Lerner tatsächlich in sie einsortiert hat
+            // (favorite_collection_item) -- genau diese Zuordnung ist der
+            // eigentliche, selbst erstellte Inhalt einer Sammlung.
+            'favorite_collection_items' => FavoriteCollectionItem::where('tenant_id', $tenant->id)
+                ->whereIn('favorite_collection_id', FavoriteCollection::where('tenant_id', $tenant->id)->where('user_id', $user->id)->pluck('id'))
+                ->get()
+                ->map(fn (FavoriteCollectionItem $i) => [
+                    'favorite_collection_id' => $i->favorite_collection_id,
+                    'question_id' => $i->question_id,
+                    'context' => $i->context,
+                ])->all(),
             'praxis_form_submissions' => PraxisFormSubmission::where('tenant_id', $tenant->id)->where('user_id', $user->id)
                 ->orderBy('created_at')->get()
                 ->map(fn (PraxisFormSubmission $s) => [
@@ -149,12 +169,34 @@ class PersonalDataExportService
                     'completed' => $p->completed,
                     'last_position_seconds' => $p->last_position_seconds,
                 ])->all(),
+            // Bug-Review (Funk-Training fehlt im Datenexport): answers enthält
+            // die zuletzt ausgewerteten freien Eingaben/Mitschriften des
+            // Lerners (siehe Migration 2024_02_01_000479) -- die Tabelle kam
+            // nach diesem Export hinzu und fehlte darin bisher vollständig.
+            'radio_training_progress' => RadioTrainingProgress::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+                ->orderBy('item_type')->orderBy('item_key')->get()
+                ->map(fn (RadioTrainingProgress $p) => [
+                    'item_type' => $p->item_type,
+                    'item_key' => $p->item_key,
+                    'completed' => $p->completed,
+                    'streak' => $p->streak,
+                    'answers' => $p->answers,
+                    'updated_at' => $p->updated_at?->toIso8601String(),
+                ])->all(),
             'willkommensbox_orders' => WillkommensboxOrder::where('tenant_id', $tenant->id)->where('user_id', $user->id)
                 ->orderBy('created_at')->get()
                 ->map(fn (WillkommensboxOrder $o) => [
                     'street' => $o->street,
                     'postal_code' => $o->postal_code,
                     'city' => $o->city,
+                    // Bug-Review (Datenexport unvollständig): Land, freie
+                    // Anmerkung des Lerners sowie Versanddatum und
+                    // Sendungsnummer (siehe Migration 000442) fehlten hier
+                    // bisher, obwohl sie zur selben Bestellung gehören.
+                    'country' => $o->country,
+                    'note' => $o->note,
+                    'shipped_at' => $o->shipped_at?->toIso8601String(),
+                    'tracking_number' => $o->tracking_number,
                     'created_at' => $o->created_at?->toIso8601String(),
                 ])->all(),
             // DSGVO-Review D3 (Folgefehler): eine Einladung an eine bereits

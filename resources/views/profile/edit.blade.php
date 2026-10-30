@@ -17,7 +17,7 @@
                 <div class="max-w-xl">
                     <header>
                         <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">Deine Buchungen</h2>
-                        <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Kurse und Zusatzleistungen, die du oder deine Bootsschule bei uns freigeschaltet habt.</p>
+                        <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Kurse und Zusatzleistungen, die du oder deine Bootsschule bei uns freigeschaltet habt, sowie deine eigenen Bestellungen und Anmeldungen.</p>
                     </header>
 
                     <div class="mt-4 space-y-2">
@@ -25,14 +25,24 @@
                             <div class="flex items-center justify-between border-b border-gray-100 dark:border-gray-700 pb-2 last:border-0">
                                 <div>
                                     <span class="text-sm text-gray-700 dark:text-gray-200">{{ $booking['label'] }}</span>
-                                    <span class="block text-xs text-gray-400">
-                                        {{ $booking['source_type'] === 'coupon' ? 'Code '.$booking['source_reference'] : 'Von deiner Bootsschule freigeschaltet' }}
+                                    <span class="block text-xs text-slate-500 dark:text-slate-400">
+                                        @if ($booking['source_type'] === 'coupon')
+                                            Code {{ $booking['source_reference'] }}
+                                        @elseif ($booking['source_type'] === 'self')
+                                            Von dir gebucht
+                                        @else
+                                            Von deiner Bootsschule freigeschaltet
+                                        @endif
+                                        @isset($booking['status'])
+                                            · {{ $booking['status'] }}
+                                        @endisset
                                     </span>
                                 </div>
-                                <span class="text-xs text-gray-400 whitespace-nowrap">{{ $booking['date']?->format('d.m.Y') }}</span>
+                                {{-- Bug-Review (Datum in UTC): ein kurz nach Mitternacht deutscher Zeit freigeschalteter Zugang zeigte sonst noch den Vortag. --}}
+                                <span class="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">{{ \App\Support\GermanTime::format($booking['date'], 'd.m.Y') }}</span>
                             </div>
                         @empty
-                            <p class="text-sm text-gray-500">Noch keine Buchungen.</p>
+                            <p class="text-sm text-slate-500 dark:text-slate-400">Noch keine Buchungen.</p>
                         @endforelse
                     </div>
                 </div>

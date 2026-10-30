@@ -56,9 +56,10 @@ class ParticipantInviteTest extends TestCase
         $tenant = $this->createTestTenant();
         $admin = $this->createTenantUser($tenant, 'owner');
 
+        $email = 'neuer-teilnehmer-'.uniqid().'@example.test';
         $response = $this->actingAsInTenant($admin, $tenant)->post('/admin/participants/invite', [
             'name' => 'Neuer Teilnehmer',
-            'email' => 'neuer-teilnehmer-'.uniqid().'@example.test',
+            'email' => $email,
             'street' => 'Marktplatz 14',
             'postal_code' => '4720',
             'city' => 'Neumarkt',
@@ -66,8 +67,16 @@ class ParticipantInviteTest extends TestCase
         ]);
 
         $response->assertRedirect();
-        $this->onAdmin(function () use ($tenant) {
-            $user = User::where('display_name', 'Neuer Teilnehmer')->first();
+        // Bug-Review Testisolation: mehrere Tests in anderen Dateien
+        // (TenantCreationAndInviteEmailTest, MailFailureDoesNotBlockRequestTest)
+        // laden ebenfalls einen Teilnehmer mit demselben display_name
+        // "Neuer Teilnehmer" ein -- ohne tenant_id/E-Mail-Filter konnte
+        // first() je nach Ausführungsreihenfolge/Datenlayout einen FREMDEN
+        // Nutzer treffen (keine passende Mitgliedschaft -> Zugriff auf
+        // null). Die hier eindeutige E-Mail-Adresse identifiziert
+        // zuverlässig genau den in diesem Test angelegten Nutzer.
+        $this->onAdmin(function () use ($tenant, $email) {
+            $user = User::where('email', $email)->first();
             $this->assertNotNull($user);
 
             // Sicherheitsreview S3: street/postal_code/city/country liegen

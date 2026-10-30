@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\AddonTemplate;
+use App\Models\TenantAddon;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -108,6 +109,33 @@ class AddonTemplateTest extends TestCase
 
         $response->assertRedirect();
         $this->assertDatabaseMissing('addon_template', ['id' => $template->id]);
+    }
+
+    /**
+     * Bug-Review BB19: tenant_addon.addon_template_id kaskadiert beim
+     * Löschen der Vorlage -- ohne Schutz riss das stillschweigend auch die
+     * individuelle Konfiguration (Coupon, Preistext, Trigger-Kurs/-Schwelle)
+     * jeder Bootsschule mit, die das Addon aktiviert hatte.
+     */
+    public function test_superadmin_cannot_delete_a_template_still_configured_by_a_school(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        $template = $this->createTestTemplate();
+        $tenant = $this->createTestTenant();
+
+        $this->onAdmin(fn () => TenantAddon::create([
+            'tenant_id' => $tenant->id,
+            'addon_template_id' => $template->id,
+            'active' => true,
+        ]));
+
+        $response = $this->actingAs($superadmin)->delete("/superadmin/addon-templates/{$template->id}");
+
+        $response->assertSessionHasErrors('addonTemplate');
+        $this->assertDatabaseHas('addon_template', ['id' => $template->id]);
+        $this->assertTrue($this->onAdmin(fn () => TenantAddon::where('tenant_id', $tenant->id)
+            ->where('addon_template_id', $template->id)
+            ->exists()));
     }
 
     public function test_addon_templates_index_lists_templates(): void

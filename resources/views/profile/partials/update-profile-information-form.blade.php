@@ -49,7 +49,7 @@
         <div>
             <x-input-label for="current_password_for_email" value="Aktuelles Passwort" />
             <x-text-input id="current_password_for_email" name="current_password" type="password" class="mt-1 block w-full" autocomplete="current-password" />
-            <p class="text-xs text-gray-400 mt-1">Nur nötig, wenn du deine E-Mail-Adresse änderst.</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Nur nötig, wenn du deine E-Mail-Adresse änderst.</p>
             <x-input-error class="mt-2" :messages="$errors->emailChange->get('current_password')" />
 
             @if ($user instanceof \Illuminate\Contracts\Auth\MustVerifyEmail && ! $user->hasVerifiedEmail())
@@ -81,7 +81,7 @@
             <x-input-label for="birthdate" value="Geburtsdatum" />
             <x-text-input id="birthdate" name="birthdate" type="date" class="mt-1 block w-full"
                           :value="old('birthdate', $membership->birthdate?->format('Y-m-d'))" autocomplete="bday" />
-            <p class="text-xs text-gray-400 mt-1">Wird u. a. für die Anmeldung zu Praxis &amp; Prüfung benötigt.</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Wird u. a. für die Anmeldung zu Praxis &amp; Prüfung benötigt.</p>
             <x-input-error class="mt-2" :messages="$errors->get('birthdate')" />
         </div>
 
