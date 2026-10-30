@@ -29,7 +29,7 @@
                             <a href="{{ route('superadmin.courses.show', $course) }}" class="font-medium text-slate-700 dark:text-slate-200 hover:underline">{{ $course->name }}</a>
                         </td>
                         <td class="px-4 py-2 text-slate-500 dark:text-slate-400 font-mono text-xs">{{ $course->code }}</td>
-                        <td class="px-4 py-2 text-slate-500 dark:text-slate-400">{{ $course->course_type }}</td>
+                        <td class="px-4 py-2 text-slate-500 dark:text-slate-400">{{ \App\Support\StatusLabels::courseType($course->course_type) }}</td>
                         <td class="px-4 py-2">
                             <span class="inline-block px-2 py-0.5 rounded-full text-xs {{ $course->status === 'published' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500 dark:text-slate-400' }}">{{ \App\Support\StatusLabels::courseStatus($course->status) }}</span>
                         </td>

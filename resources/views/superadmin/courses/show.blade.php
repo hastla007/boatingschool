@@ -18,13 +18,18 @@
                 </div>
                 <div>
                     <x-input-label for="course_type" value="Kurstyp" />
-                    <x-text-input id="course_type" name="course_type" type="text" class="mt-1 block w-full" :value="old('course_type', $course->course_type)" required />
+                    {{-- Bug-Review (englische Optionen in Superadmin-Dropdowns): angezeigt wird das deutsche Label (StatusLabels), übermittelt weiterhin der rohe Wert. --}}
+                    <select id="course_type" name="course_type" required class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                        @foreach (\App\Support\StatusLabels::courseTypeOptions(old('course_type', $course->course_type)) as $value => $label)
+                            <option value="{{ $value }}" @selected(old('course_type', $course->course_type) === $value)>{{ $label }}</option>
+                        @endforeach
+                    </select>
                 </div>
                 <div>
                     <x-input-label for="status" value="Status" />
                     <select id="status" name="status" class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
-                        @foreach (['draft', 'published', 'archived'] as $option)
-                            <option value="{{ $option }}" @selected(old('status', $course->status) === $option)>{{ $option }}</option>
+                        @foreach (\App\Support\StatusLabels::courseStatusOptions() as $option => $label)
+                            <option value="{{ $option }}" @selected(old('status', $course->status) === $option)>{{ $label }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -47,7 +52,11 @@
                         <a href="{{ route('superadmin.questions.index', $module) }}" class="text-slate-700 dark:text-slate-200 hover:underline">{{ $module->name }}</a>
                         <div class="flex items-center gap-3">
                             <span class="text-xs text-slate-600 dark:text-slate-400">{{ $module->questions_count }} Fragen</span>
+                            {{-- Bug-Review (confirm() ohne Alpine-Scope): das Superadmin-Layout hat
+                                 x-data nur auf der <nav>, Alpine initialisierte @submit hier also
+                                 nie -- das Modul wurde ohne Rückfrage sofort entfernt. --}}
                             <form method="POST" action="{{ route('superadmin.courses.modules.detach', [$course, $module]) }}"
+                                  x-data="{}"
                                   @submit="if (! confirm('Dieses Modul wirklich aus dem Kurs entfernen?')) $event.preventDefault()">
                                 @csrf
                                 @method('DELETE')

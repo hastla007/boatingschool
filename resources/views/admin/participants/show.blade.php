@@ -150,12 +150,17 @@
                             @endif
                         </div>
                         <div class="text-end">
-                            <span class="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">{{ $booking['date']?->format('d.m.Y') }}</span>
+                            {{-- Bug-Review (Admin-Datumsangaben in UTC): valid_from/created_at sind UTC-Zeitstempel -- kurz nach Mitternacht deutscher Zeit stand hier sonst noch der Vortag. --}}
+                            <span class="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">{{ \App\Support\GermanTime::format($booking['date'], 'd.m.Y') }}</span>
                             @if ($canManageTenant && $booking['entitlement_id'])
                                 {{-- Bug-Review B14: Verlängern/Sperren gab es bisher nur im
                                      Controller (EntitlementController::update), ohne jede
                                      Oberfläche dafür. --}}
-                                <div class="mt-1">
+                                {{-- Bug-Review (confirm() ohne Alpine-Scope): der einzige x-data-Bereich
+                                     dieser Seite (Adresse bearbeiten) endet weiter oben -- ohne eigenes
+                                     x-data griffen die @submit-Rückfragen für Sperren/Widerrufen nie,
+                                     der Zugang wurde beim Klick sofort gesperrt bzw. widerrufen. --}}
+                                <div class="mt-1" x-data="{}">
                                     <div class="flex items-center justify-end gap-1">
                                         @if (in_array($booking['status'], ['active', 'suspended'], true))
                                             <form method="POST" action="{{ route('admin.entitlements.update', $booking['entitlement_id']) }}"
@@ -262,7 +267,7 @@
                     @endif
                     <div class="flex justify-between gap-4">
                         <dt class="text-slate-500 dark:text-slate-400">Bestellt am</dt>
-                        <dd class="text-slate-800 dark:text-slate-200 text-end">{{ $willkommensboxOrder->created_at->format('d.m.Y') }}</dd>
+                        <dd class="text-slate-800 dark:text-slate-200 text-end">{{ \App\Support\GermanTime::format($willkommensboxOrder->created_at, 'd.m.Y') }}</dd>
                     </div>
                 </dl>
 
@@ -282,7 +287,7 @@
                 @if ($willkommensboxOrder->isShipped())
                     <div class="flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 rounded-lg px-3 py-2">
                         <x-icon name="check-circle" class="w-4 h-4 shrink-0" />
-                        Versendet am {{ $willkommensboxOrder->shipped_at->format('d.m.Y') }}
+                        Versendet am {{ \App\Support\GermanTime::format($willkommensboxOrder->shipped_at, 'd.m.Y') }}
                         @if ($willkommensboxOrder->tracking_number)
                             &middot; Tracking: {{ $willkommensboxOrder->tracking_number }}
                         @endif

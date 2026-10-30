@@ -36,7 +36,7 @@
                     </div>
                     <div>
                         <x-input-label for="last_name" value="Nachname" />
-                        <x-text-input id="last_name" name="last_name" type="text" class="mt-1 block w-full" :value="old('last_name', $guessedName['last_name'])" required />
+                        <x-text-input id="last_name" name="last_name" type="text" class="mt-1 block w-full" :value="old('last_name', $guessedName['last_name'])" />
                     </div>
                 </div>
                 <div>
@@ -59,8 +59,9 @@
                 <div>
                     <x-input-label for="status" value="Status" />
                     <select id="status" name="status" class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
-                        @foreach (['invited', 'active', 'suspended', 'closed'] as $option)
-                            <option value="{{ $option }}" @selected(old('status', $user->status) === $option)>{{ $option }}</option>
+                        {{-- Bug-Review (englische Optionen in Superadmin-Dropdowns): angezeigt wird das deutsche Label (StatusLabels), übermittelt weiterhin der rohe Wert. --}}
+                        @foreach (\App\Support\StatusLabels::userStatusOptions() as $option => $label)
+                            <option value="{{ $option }}" @selected(old('status', $user->status) === $option)>{{ $label }}</option>
                         @endforeach
                     </select>
                 </div>
@@ -98,8 +99,8 @@
                     </select>
                     <label for="membership_role" class="sr-only">Rolle</label>
                     <select id="membership_role" name="role" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs">
-                        @foreach (['learner', 'staff', 'instructor', 'admin', 'owner', 'support'] as $role)
-                            <option value="{{ $role }}">{{ $role }}</option>
+                        @foreach (\App\Support\StatusLabels::tenantRoleOptions() as $role => $label)
+                            <option value="{{ $role }}">{{ $label }}</option>
                         @endforeach
                     </select>
                     <button type="submit" class="px-3 py-1 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-xs shrink-0">Zuordnen</button>

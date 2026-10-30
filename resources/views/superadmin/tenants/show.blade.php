@@ -22,8 +22,9 @@
                 <div>
                     <x-input-label for="status" value="Status" />
                     <select id="status" name="status" class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
-                        @foreach (['trial', 'active', 'suspended', 'closed'] as $option)
-                            <option value="{{ $option }}" @selected(old('status', $tenant->status) === $option)>{{ $option }}</option>
+                        {{-- Bug-Review (englische Optionen in Superadmin-Dropdowns): angezeigt wird das deutsche Label (StatusLabels), übermittelt weiterhin der rohe Wert. --}}
+                        @foreach (\App\Support\StatusLabels::tenantStatusOptions() as $option => $label)
+                            <option value="{{ $option }}" @selected(old('status', $tenant->status) === $option)>{{ $label }}</option>
                         @endforeach
                     </select>
                 </div>

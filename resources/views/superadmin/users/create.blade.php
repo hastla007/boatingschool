@@ -41,8 +41,9 @@
                     <div>
                         <x-input-label for="role" value="Rolle" />
                         <select id="role" name="role" class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
-                            @foreach (['learner', 'staff', 'instructor', 'admin', 'owner', 'support'] as $role)
-                                <option value="{{ $role }}">{{ $role }}</option>
+                            {{-- Bug-Review (englische Optionen in Superadmin-Dropdowns): angezeigt wird das deutsche Label (StatusLabels), übermittelt weiterhin der rohe Wert. --}}
+                            @foreach (\App\Support\StatusLabels::tenantRoleOptions() as $role => $label)
+                                <option value="{{ $role }}" @selected(old('role') === $role)>{{ $label }}</option>
                             @endforeach
                         </select>
                     </div>

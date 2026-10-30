@@ -48,7 +48,8 @@
                     <td class="px-4 py-2">
                         @if ($order->isShipped())
                             <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
-                                Versendet {{ $order->shipped_at->format('d.m.Y') }}
+                                {{-- Bug-Review (Admin-Datumsangaben in UTC): deutsche Zeit wie created_at links daneben. --}}
+                                Versendet {{ \App\Support\GermanTime::format($order->shipped_at, 'd.m.Y') }}
                                 @if ($order->tracking_number)
                                     &middot; {{ $order->tracking_number }}
                                 @endif

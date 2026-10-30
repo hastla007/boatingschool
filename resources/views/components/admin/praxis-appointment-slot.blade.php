@@ -6,7 +6,12 @@
     $locations ??= collect();
 @endphp
 
-<div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700">
+{{-- Bug-Review (confirm() ohne Alpine-Scope): diese Komponente wird auf der
+     Teilnehmer-Detailseite und auf praxis-form-submissions/show außerhalb jedes
+     x-data-Bereichs gerendert -- die @submit-Rückfragen bei "Absagen" und
+     "Zurückziehen" wurden dort nie initialisiert. Eigener Scope hier, damit sie
+     unabhängig von der einbindenden Seite immer greifen. --}}
+<div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700" x-data="{}">
     <h4 class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">{{ $label }}</h4>
 
     @if ($confirmedAppointment)

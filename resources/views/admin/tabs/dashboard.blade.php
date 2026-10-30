@@ -152,7 +152,8 @@
                             <span class="block text-xs text-indigo-600 dark:text-indigo-400 mt-0.5">+ {{ $booking['options']->implode(', ') }}</span>
                         @endif
                     </div>
-                    <span class="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">{{ $booking['date']->format('d.m.Y') }}</span>
+                    {{-- Bug-Review (Admin-Datumsangaben in UTC): deutsche Zeit wie im restlichen Admin-Bereich (GermanTime). --}}
+                    <span class="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">{{ \App\Support\GermanTime::format($booking['date'], 'd.m.Y') }}</span>
                 </div>
             @empty
                 <p class="text-slate-500 dark:text-slate-400">Keine Buchungen in den letzten 7 Tagen.</p>
