@@ -58,7 +58,7 @@ class BinnenPraxisTrainerTest extends TestCase
         $this->grantEntitlement($tenant, $learner, $course);
 
         $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/learn/overview")
-            ->assertOk()->assertSee('Trainer für die praktische Prüfung SBF')->assertSee('Schallzeichen Binnen');
+            ->assertOk()->assertSee('Trainer für die praktische Prüfung')->assertSee('Schallzeichen Binnen');
         $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/praxistrainer?kategorie=Pflichtmanöver")
             ->assertOk()->assertSee('Rettungsmanöver unter Maschine')->assertSee('gegen den Strom');
     }

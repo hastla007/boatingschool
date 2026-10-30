@@ -9,9 +9,9 @@ use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Storage;
 
 /**
- * Praxistrainer für die praktische Prüfung SBF See und SBF Binnen
- * (Antriebsmaschine), importiert aus database/data/sbf_see_praxistrainer.csv
- * bzw. sbf_binnen_praxistrainer.csv (Bilder in
+ * Praxistrainer für die praktische Prüfung SBF See, SBF Binnen
+ * (Antriebsmaschine), SBF Binnen unter Segel, FKN und SKN, importiert aus
+ * database/data/*_praxistrainer.csv (Bilder in
  * database/data/praxistrainer_bilder/, im Stil der ELWIS-Bilder gezeichnet;
  * SVG-Quellen in database/data/praxistrainer_bilder_svg/). Binnen nutzt für
  * Manöver, Knoten und Sicherheit dieselben Grafiken wie See (gleiches
@@ -27,6 +27,13 @@ class PraxisTrainerSeeder extends Seeder
     private const COURSES = [
         'SBF-SEE' => 'sbf_see_praxistrainer.csv',
         'SBF-BIN-MOTOR' => 'sbf_binnen_praxistrainer.csv',
+        // Nur die Segel-eigenen Karten; die übrigen Binnen-Karten (Zeichen,
+        // Knoten, Sicherheit) spiegelt ComboPraxisTrainerSeeder hinzu.
+        'SBF-BIN-SEGEL' => 'sbf_binnen_segeln_praxistrainer.csv',
+        'FKN' => 'fkn_praxistrainer.csv',
+        // Nur Signalpistole, Munition Kaliber 4 und Waffenrecht; die
+        // FKN-Karten spiegelt ComboPraxisTrainerSeeder hinzu.
+        'SKN' => 'skn_praxistrainer.csv',
     ];
 
     public function run(): void
