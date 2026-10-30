@@ -214,6 +214,21 @@ class ExamController extends Controller
         $user = $request->user();
         abort_unless($entitlements->hasAccess($tenant, $user, $course), 403);
 
+        // Bug-Review (Zufallsprüfung bei SRC/FKN hat nur 10 statt 24/15
+        // Fragen): intro() zeigt für einen Kurs mit echten Prüfungsbögen
+        // (examPapers) ausschließlich papersOverview() -- exam/intro.blade.php
+        // mit dem Formular auf diese Route wird für einen solchen Kurs nie
+        // gerendert, die Route blieb aber live erreichbar. Bei SRC/FKN griff
+        // dieser Weg auf ein offenbar aus der Zeit vor den echten,
+        // offiziellen Prüfungsbögen stammendes ExamRuleSet-Blueprint zurück,
+        // das nur 10 statt der echten 24 (SRC) bzw. 15 (FKN) Fragen pro Bogen
+        // zusammenstellte -- nur über einen direkten POST-Aufruf erreichbar,
+        // ohne jeden UI-Link. Für einen Kurs mit echten Prüfungsbögen ist die
+        // zufällig zusammengestellte Prüfung kein gültiger, zweiter Weg,
+        // sondern veraltet; sie bleibt deshalb jetzt auf Kurse ohne eigene
+        // Prüfungsbögen beschränkt (analog zur Verzweigung in intro()).
+        abort_if($course->examPapers()->exists(), 409, 'Für diesen Kurs gibt es feste Prüfungsbögen -- die zufällig zusammengestellte Prüfung ist hier nicht verfügbar.');
+
         $ruleSet = $course->activeExamRuleSet();
         abort_unless($ruleSet && $ruleSet->isVerified(), 409, 'Für diesen Kurs liegt noch kein fachlich freigegebenes Prüfungsregelwerk vor.');
 
