@@ -54,6 +54,16 @@ class AddonTemplateController extends Controller
 
     public function destroy(AddonTemplate $addonTemplate): Response
     {
+        // Bug-Review BB19: tenant_addon.addon_template_id kaskadiert beim
+        // Löschen der Vorlage (siehe Migration create_tenant_addon_table) --
+        // ohne diese Prüfung riss das Löschen stillschweigend auch die
+        // individuellen Einstellungen (Gutscheincode, Preistext, Trigger-Kurs
+        // und -Schwelle) jeder Bootsschule mit, die das Addon konfiguriert
+        // hatte, ohne Rückfrage.
+        if ($addonTemplate->tenantAddons()->exists()) {
+            return back()->withErrors(['addonTemplate' => 'Diese Vorlage ist noch bei mindestens einer Bootsschule konfiguriert und kann nicht gelöscht werden.']);
+        }
+
         $addonTemplate->delete();
 
         return redirect()->route('superadmin.addon-templates.index')->with('status', 'Addon-Vorlage gelöscht.');
