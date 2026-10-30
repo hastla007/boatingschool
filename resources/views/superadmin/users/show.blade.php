@@ -13,14 +13,30 @@
                 @csrf
                 @method('PATCH')
 
+                @php
+                    // Bug-Review (Superadmin-Nutzerseite zeigt leere
+                    // Namensfelder): first_name/last_name blieben bei
+                    // Nutzern, die sich selbst registriert oder eine
+                    // Einladung angenommen haben, bisher unbesetzt (siehe
+                    // User::splitDisplayName()) -- diese, als required
+                    // geführten, Felder zeigten dadurch leer an, obwohl
+                    // display_name längst einen Namen enthält. Nur zur
+                    // Vorbefüllung wird hier -- sofern noch nicht gesetzt --
+                    // derselbe Vorschlag wie bei Neuanlagen abgeleitet; die
+                    // Spalten selbst ändern sich dadurch nicht.
+                    $guessedName = ($user->first_name === null && $user->last_name === null)
+                        ? \App\Models\User::splitDisplayName($user->name)
+                        : ['first_name' => $user->first_name, 'last_name' => $user->last_name];
+                @endphp
+
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <x-input-label for="first_name" value="Vorname" />
-                        <x-text-input id="first_name" name="first_name" type="text" class="mt-1 block w-full" :value="old('first_name', $user->first_name)" required />
+                        <x-text-input id="first_name" name="first_name" type="text" class="mt-1 block w-full" :value="old('first_name', $guessedName['first_name'])" required />
                     </div>
                     <div>
                         <x-input-label for="last_name" value="Nachname" />
-                        <x-text-input id="last_name" name="last_name" type="text" class="mt-1 block w-full" :value="old('last_name', $user->last_name)" required />
+                        <x-text-input id="last_name" name="last_name" type="text" class="mt-1 block w-full" :value="old('last_name', $guessedName['last_name'])" required />
                     </div>
                 </div>
                 <div>
