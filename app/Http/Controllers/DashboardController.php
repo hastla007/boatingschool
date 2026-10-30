@@ -38,7 +38,8 @@ class DashboardController extends Controller
             // eigene, von CourseProgressService losgelöste Berechnung
             // (für die Weiterlernen-Banner-Logik unten) hatte den F7-Fix
             // nie mitbekommen.
-            $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->where('active', true)->pluck('id')->unique();
+            // Bug-Review BB16: dieselbe Lücke bestand für valid_from/valid_to.
+            $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->filter(fn ($q) => $q->isCurrentlyValid())->pluck('id')->unique();
             $courseProgress = $progressStats->whereIn('question_id', $questionIds);
             $mastered = $courseProgress->where('learning_state', 'gefestigt')->count();
             $total = max($questionIds->count(), 1);

@@ -28,7 +28,8 @@ class ProgressController extends Controller
         // zählte hier aber weiter im Nenner mit -- diese eigene, von
         // CourseProgressService losgelöste Zählung hatte den F7-Fix nie
         // mitbekommen.
-        $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->where('active', true)->pluck('id')->unique();
+        // Bug-Review BB16: dieselbe Lücke bestand für valid_from/valid_to.
+        $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->filter(fn ($q) => $q->isCurrentlyValid())->pluck('id')->unique();
 
         $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)
             ->whereIn('question_id', $questionIds)->get();

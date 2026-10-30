@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Superadmin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
+use App\Models\ContentQuestion;
 use App\Models\Coupon;
 use App\Models\Entitlement;
 use App\Models\Progress;
@@ -174,10 +175,20 @@ class TenantController extends Controller
             ->where('learning_state', 'gefestigt')
             ->get(['user_id', 'question_id']);
 
-        $results = $entitlementsPage->getCollection()->map(function (Entitlement $entitlement) use ($masteredProgress) {
+        // Bug-Review BB16 (Folgefehler): isCurrentlyValid() fragt pro Frage
+        // einmal die veröffentlichte Revision ab -- über viele Freischaltungen
+        // desselben Kurses hinweg summierte sich das wieder zu dem N+1, das
+        // Bug-Review Betrieb B6 oben bereits für active=false behoben hatte.
+        // Die gültigen IDs werden deshalb pro Kurs nur einmal (nicht pro
+        // Freischaltung) über ContentQuestion::currentlyValidIds() berechnet.
+        $validQuestionIdsByCourse = [];
+        $results = $entitlementsPage->getCollection()->map(function (Entitlement $entitlement) use ($masteredProgress, &$validQuestionIdsByCourse) {
             // Bug-Review F7: siehe overallPercent() -- eine deaktivierte
             // Frage zählt hier nie als gefestigt, aber weiter im Nenner mit.
-            $questionIds = $entitlement->course->modules->flatMap(fn ($m) => $m->questions)->where('active', true)->pluck('id')->unique();
+            // Bug-Review BB16: dieselbe Lücke bestand für valid_from/valid_to.
+            $questionIds = $validQuestionIdsByCourse[$entitlement->course_id] ??= ContentQuestion::currentlyValidIds(
+                $entitlement->course->modules->flatMap(fn ($m) => $m->questions)
+            );
             $total = max($questionIds->count(), 1);
             $mastered = $masteredProgress
                 ->where('user_id', $entitlement->user_id)

@@ -258,7 +258,8 @@ class VideoQuizController extends Controller
         // Bug-Review B12 (Folgefehler): eine im Superadmin deaktivierte
         // Frage wurde hier -- im Gegensatz zu Smarttrainer und Prüfung --
         // trotzdem noch im Video-Quiz ausgespielt.
-        $activeQuestions = $lesson->questions->where('active', true);
+        // Bug-Review BB16: dieselbe Lücke bestand für valid_from/valid_to.
+        $activeQuestions = $lesson->questions->filter(fn ($q) => $q->isCurrentlyValid());
 
         $blockedQuestionIds = $this->runningExamQuestionIds($tenant, $user, $examEvaluation);
         if ($blockedQuestionIds->isNotEmpty()) {

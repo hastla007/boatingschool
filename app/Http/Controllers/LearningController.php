@@ -47,7 +47,7 @@ class LearningController extends Controller
         // Favoriten-Nenner mit, wodurch "X/Y gemeistert" dauerhaft hinter
         // dem tatsächlich erreichbaren Fortschritt zurückblieb, analog zum
         // bereits gefixten Gesamtfortschritt-Nenner in CourseProgressService.
-        $courseQuestionIds = $course->modules->flatMap(fn ($m) => $m->questions)->where('active', true)->pluck('id')->unique();
+        $courseQuestionIds = $course->modules->flatMap(fn ($m) => $m->questions)->filter(fn ($q) => $q->isCurrentlyValid())->pluck('id')->unique();
         $favoriteIds = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)
             ->where('context', Favorite::CONTEXT_SMART_LEARNING)
             ->whereIn('question_id', $courseQuestionIds)->pluck('question_id');
@@ -107,7 +107,7 @@ class LearningController extends Controller
         $questionIds = $this->parseQuestionIds($this->questionsQueryParam($request));
 
         if ($mode === 'favorites') {
-            $courseQuestionIds = $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id')->unique();
+            $courseQuestionIds = $course->modules->flatMap(fn ($m) => $m->questions)->filter(fn ($q) => $q->isCurrentlyValid())->pluck('id')->unique();
             $favoriteIds = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)
                 ->where('context', Favorite::CONTEXT_SMART_LEARNING)
                 ->whereIn('question_id', $courseQuestionIds)->pluck('question_id');
@@ -138,9 +138,8 @@ class LearningController extends Controller
             // blockiert während laufender Prüfung".
             $blockedQuestionIds = $smarttrainer->runningExamQuestionIds($tenant, $user);
             $next = ContentQuestion::whereIn('id', $favoriteIds)
-                ->where('active', true)
+                ->currentlyValid()
                 ->when($blockedQuestionIds->isNotEmpty(), fn ($query) => $query->whereNotIn('id', $blockedQuestionIds))
-                ->whereHas('revisions', fn ($query) => $query->where('editorial_status', 'published'))
                 ->inRandomOrder()
                 ->first();
             $next = $next ? ['question' => $next, 'reason' => 'Favorit'] : null;
@@ -228,9 +227,15 @@ class LearningController extends Controller
         // Auswahl im Smarttrainer/Prüfung/Video-Quiz, die solche Fragen
         // konsequent ausblendet, nahm storeAttempt eine direkt per
         // revision_id eingereichte deaktivierte Frage trotzdem an.
+        //
+        // Bug-Review BB16 ("Gültig ab"/"Gültig bis" wirkungslos): dieselbe
+        // Lücke bestand für valid_from/valid_to -- eine außerhalb ihres
+        // Gültigkeitsfensters liegende Frage ließ sich hier weiterhin
+        // beantworten, obwohl sie an keiner Auswahl-Stelle mehr angeboten
+        // wird.
         $revision = ContentQuestionRevision::where('id', $validated['revision_id'])
             ->where('editorial_status', 'published')
-            ->whereHas('question', fn ($q) => $q->where('active', true))
+            ->whereHas('question', fn ($q) => $q->currentlyValid())
             ->firstOrFail();
 
         // Sicherheitsregel laut api_spec.md: question_id/revision_id müssen zu

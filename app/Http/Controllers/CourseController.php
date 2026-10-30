@@ -170,7 +170,8 @@ class CourseController extends Controller
         // zählte hier aber weiter mit, sodass "gefestigt/offen" und der
         // Gesamtfortschritt nie 100% erreichen konnten (siehe auch
         // CourseProgressService::overallPercent).
-        $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->where('active', true)->pluck('id')->unique();
+        // Bug-Review BB16: dieselbe Lücke bestand für valid_from/valid_to.
+        $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->filter(fn ($q) => $q->isCurrentlyValid())->pluck('id')->unique();
         $masteredCount = $progress->whereIn('question_id', $questionIds)->where('learning_state', 'gefestigt')->count();
         // Bug-Review (Gates vergleichen den gerundeten Wert):
         // courseMasteryPercent() rundet für die Anzeige -- 49,5%
@@ -251,7 +252,8 @@ class CourseController extends Controller
         // Bug-Review F7: siehe oben -- eine deaktivierte Frage darf hier
         // nicht mitzählen, sonst sind 100% nie erreichbar und die darauf
         // aufbauenden Addon-/Banner-Freigaben bleiben dauerhaft gesperrt.
-        $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->where('active', true)->pluck('id')->unique();
+        // Bug-Review BB16: dieselbe Lücke bestand für valid_from/valid_to.
+        $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->filter(fn ($q) => $q->isCurrentlyValid())->pluck('id')->unique();
         $total = max($questionIds->count(), 1);
         $mastered = $progress->whereIn('question_id', $questionIds)->where('learning_state', 'gefestigt')->count();
 

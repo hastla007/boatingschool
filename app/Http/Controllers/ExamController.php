@@ -276,9 +276,10 @@ class ExamController extends Controller
                 // Bug-Review B12: eine im Superadmin deaktivierte Frage
                 // (content_question.active) konnte hier trotzdem in eine
                 // zufällig zusammengestellte Prüfung geraten.
+                // Bug-Review BB16 ("Gültig ab"/"Gültig bis" wirkungslos):
+                // dieselbe Lücke bestand für valid_from/valid_to.
                 $questions = $blueprint->module->questions()
-                    ->where('active', true)
-                    ->whereHas('revisions', fn ($q) => $q->where('editorial_status', 'published'))
+                    ->currentlyValid()
                     ->inRandomOrder()
                     ->take($blueprint->question_count)
                     ->get();

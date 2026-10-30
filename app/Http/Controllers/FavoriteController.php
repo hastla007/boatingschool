@@ -49,7 +49,8 @@ class FavoriteController extends Controller
         // Frage blieb hier trotzdem als Favorit/Fehler sichtbar und
         // anklickbar, obwohl sie im Lernmodus und in der Prüfung längst
         // ausgeschlossen ist.
-        $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->where('active', true)->pluck('id')->unique();
+        // Bug-Review BB16: dieselbe Lücke bestand für valid_from/valid_to.
+        $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->filter(fn ($q) => $q->isCurrentlyValid())->pluck('id')->unique();
 
         $smartFavorites = Favorite::with('question.revisions')
             ->where('tenant_id', $tenant->id)->where('user_id', $user->id)

@@ -31,7 +31,8 @@ class SmarttrainerService
         // Bug-Review B12: eine im Superadmin deaktivierte Frage
         // (content_question.active) wurde hier weiter als Kandidat
         // ausgespielt -- active=true schließt sie von der Auswahl aus.
-        $questions = $modules->flatMap(fn ($module) => $module->questions)->unique('id')->where('active', true);
+        // Bug-Review BB16: dieselbe Lücke bestand für valid_from/valid_to.
+        $questions = $modules->flatMap(fn ($module) => $module->questions)->unique('id')->filter(fn ($q) => $q->isCurrentlyValid());
 
         // Bug-Review (Smarttrainer blockiert während laufender Prüfung):
         // storeAttempt() (LearningController) lehnt eine Antwort auf eine
