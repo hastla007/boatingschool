@@ -213,6 +213,40 @@ class RenewalCodeTest extends TestCase
     }
 
     /**
+     * Bug-Review (AA6: Verlängerungscode bei unbefristetem Zugang
+     * wirkungslos): anders als beim Test oben (Zugang war SUSPENDIERT, die
+     * Reaktivierung ist ein echter Effekt) ändert sich hier NICHTS -- der
+     * Zugang ist bereits aktiv UND unbefristet. Der Code durfte deshalb
+     * nicht verbraucht werden, und die Fehlermeldung muss dieselbe sein wie
+     * bei Admin\EntitlementController::extend() für denselben Fall.
+     */
+    public function test_redeeming_a_renewal_code_on_an_already_active_unlimited_entitlement_is_rejected_without_consuming_the_code(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+
+        $this->onAdmin(fn () => Entitlement::create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $learner->id,
+            'course_id' => $course->id,
+            'status' => 'active',
+            'source_type' => 'coupon',
+            'valid_from' => now()->subDays(400),
+            'valid_until' => null,
+        ]));
+
+        $coupon = $this->makeRenewalCoupon($course, $tenant);
+
+        $response = $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', ['code' => $coupon->code]);
+
+        $response->assertSessionHasErrors('code');
+
+        $freshCoupon = $this->onAdmin(fn () => Coupon::where('code', $coupon->code)->first());
+        $this->assertFalse($freshCoupon->isRedeemed(), 'Der Code wurde verbraucht, obwohl der Zugang bereits unbefristet aktiv war.');
+    }
+
+    /**
      * Bug-Review R4-7: anders als "suspended" (siehe Test oben -- bewusst
      * gewollt, siehe CouponRedemptionService::redeemForRenewal()-Kommentar)
      * ist "revoked" die bewusst HÄRTERE Admin-Entscheidung (z. B. bei

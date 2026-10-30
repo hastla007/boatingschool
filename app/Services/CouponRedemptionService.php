@@ -211,15 +211,29 @@ class CouponRedemptionService
                 : 'Der Zugang zu diesem Kurs wurde entzogen und kann nicht per Verlängerungscode reaktiviert werden.');
         }
 
+        // Bug-Review (AA6: Verlängerungscode bei unbefristetem Zugang
+        // wirkungslos): ein bereits AKTIVER, unbefristeter Zugang (valid_
+        // until=null) ändert sich durch diesen Code in keiner Weise (siehe
+        // $newValidUntil-Fall unten, status bleibt "active") -- der Code
+        // wurde trotzdem verbraucht und die Erfolgsmeldung sprach fälschlich
+        // von "verlängert". Ein SUSPENDIERTER unbefristeter Zugang bleibt
+        // davon bewusst ausgenommen: dort hebt derselbe Code die Sperre auf
+        // (status -> active) -- ein echter, gewollter Effekt (siehe Test
+        // "does_not_shorten_an_unlimited_entitlement" sowie der
+        // $newValidUntil-Kommentar unten), der weiterhin einen Code kosten
+        // soll.
+        if ($entitlement && $entitlement->status === 'active' && $entitlement->valid_until === null) {
+            throw new RuntimeException('Dieser Zugang ist bereits unbefristet gültig.');
+        }
+
         if ($entitlement) {
-            // Bug-Review N5: valid_until=null bedeutet unbefristeten Zugang
-            // (siehe EntitlementService::isOfferable/hasAccess) -- ohne
-            // diese Ausnahme wurde ein unbefristeter Zugang hier auf
-            // now()+course_validity_days (z. B. 1 Jahr) VERKÜRZT, statt den
-            // Zugang nur zurückzubringen bzw. zu verlängern. Unbefristet
-            // bleibt unbefristet; nur ein bereits befristeter (laufender
-            // oder abgelaufener) Zugang bekommt ein neues, verlängertes
-            // valid_until.
+            // valid_until=null (unbefristet) bleibt unbefristet -- ohne diese
+            // Ausnahme wurde ein unbefristeter Zugang hier auf now()+
+            // course_validity_days (z. B. 1 Jahr) VERKÜRZT, statt den Zugang
+            // nur zurückzubringen (Bug-Review N5). Ein bereits befristeter
+            // (laufender oder abgelaufener) Zugang bekommt ein neues,
+            // verlängertes valid_until ab dem späteren von jetzt/aktuellem
+            // Ablauf, damit eine ungenutzte Restlaufzeit nicht verloren geht.
             $newValidUntil = $entitlement->valid_until === null
                 ? null
                 : ($entitlement->valid_until->gt($now) ? $entitlement->valid_until : $now)->copy()->addDays($days);
