@@ -257,6 +257,14 @@ class AccountErasureService
             ->where('entity_id', $user->id)
             ->where(fn ($query) => $query->whereNull('tenant_id')->orWhere('tenant_id', '!=', $leftTenant->id))
             ->update(['before_data' => null, 'after_data' => null]));
+
+        // Bug-Review (E-Mail im Protokoll der Schul-Anlage): beim Anlegen
+        // einer Bootsschule protokolliert Superadmin\TenantController die
+        // E-Mail des Inhabers (entity_type "tenant") -- dieser Eintrag
+        // betrifft nicht das Nutzerkonto und blieb deshalb stehen.
+        $this->onAdminConnection(fn () => AuditLog::where('action', 'superadmin.tenant.create')
+            ->whereRaw("after_data->>'admin_email' = ?", [$user->email])
+            ->update(['after_data' => DB::raw("after_data - 'admin_email'")]));
     }
 
     private function deleteAccountEntirely(User $user): void

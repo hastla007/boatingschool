@@ -222,7 +222,7 @@ class LearningController extends Controller
             // (LearningController::show(), 'startedAt' => now()->valueOf());
             // die Dauer wird unten aus der Differenz zur eigenen Uhr bei
             // Eingang berechnet, unabhängig von der Client-Uhr.
-            'started_at_ms' => ['nullable', 'integer'],
+            'started_at_ms' => ['nullable', 'integer', 'min:0', 'max:'.intdiv(PHP_INT_MAX, 2)],
         ]);
 
         $responseTimeMs = isset($validated['started_at_ms'])

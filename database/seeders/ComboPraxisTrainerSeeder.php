@@ -56,7 +56,7 @@ class ComboPraxisTrainerSeeder extends Seeder
             // Karten eines späteren Quellkurses folgen hinter denen des
             // vorherigen, statt sich über sort_order mit ihnen zu mischen.
             $sortOffset = 0;
-            $coveredKategorien = [];
+            $coveredKarten = [];
 
             foreach ($sources as [$sourceCode, $suffix, $kategorie]) {
                 $source = $this->globalCourse($sourceCode);
@@ -65,14 +65,17 @@ class ComboPraxisTrainerSeeder extends Seeder
                     continue;
                 }
 
-                // Kategorien, die eine frühere Quelle schon liefert
-                // (Pflichtmanöver, Knoten, sonstige Manöver, Sicherheit),
-                // nicht ein zweites Mal: im Kombikurs stünden "Anlegen unter
-                // Maschine" usw. sonst doppelt. Von SBF Binnen kommen damit
-                // nur die Binnen-eigenen Kategorien (Schallzeichen,
-                // Tafelzeichen, Brücken und Schleusen, Lichter, Fahrrinne).
-                $this->mirror($source, $target, $suffix, $kategorie, $sortOffset, $coveredKategorien);
-                $coveredKategorien = array_merge($coveredKategorien, $source->praxisTasks()->reorder()->distinct()->pluck('kategorie')->all());
+                // Karten, die eine frühere Quelle schon liefert (gleiche
+                // Kategorie und Unterkategorie: Pflichtmanöver, Knoten,
+                // sonstige Manöver, Sicherheit), nicht ein zweites Mal: im
+                // Kombikurs stünden "Anlegen unter Maschine" usw. sonst
+                // doppelt. Von SBF Binnen kommen damit die Binnen-eigenen
+                // Kategorien und Binnen-eigene Karten wie "Sog und
+                // Wellenschlag" oder "Großschifffahrt".
+                $this->mirror($source, $target, $suffix, $kategorie, $sortOffset, $coveredKarten);
+                foreach ($source->praxisTasks()->get(['kategorie', 'unterkategorie']) as $task) {
+                    $coveredKarten[self::cardKey($task->kategorie, $task->unterkategorie)] = true;
+                }
                 $sortOffset += (int) $source->praxisTasks()->max('sort_order');
             }
         }
@@ -83,15 +86,27 @@ class ComboPraxisTrainerSeeder extends Seeder
         return CourseDefinition::withoutGlobalScopes()->where('code', $code)->whereNull('tenant_id')->first();
     }
 
-    /** @param  list<string>  $skipKategorien */
-    private function mirror(CourseDefinition $source, CourseDefinition $target, string $suffix, ?string $kategorie, int $sortOffset, array $skipKategorien): void
+    /**
+     * Gleiche Karte trotz anderer Wortstellung ("Wind und Strom" / "Strom
+     * und Wind"): Vergleich über die sortierten Wörter.
+     */
+    private static function cardKey(string $kategorie, ?string $unterkategorie): string
+    {
+        $words = preg_split('/\s+/u', mb_strtolower((string) $unterkategorie), -1, PREG_SPLIT_NO_EMPTY);
+        sort($words);
+
+        return $kategorie.'|'.implode(' ', $words);
+    }
+
+    /** @param  array<string, true>  $skipKarten */
+    private function mirror(CourseDefinition $source, CourseDefinition $target, string $suffix, ?string $kategorie, int $sortOffset, array $skipKarten): void
     {
         $existing = $target->praxisTasks()->pluck('content_id')->flip();
 
         $tasks = $source->praxisTasks()
             ->when($kategorie, fn ($q) => $q->where('kategorie', $kategorie))
-            ->when($skipKategorien, fn ($q) => $q->whereNotIn('kategorie', $skipKategorien))
-            ->get();
+            ->get()
+            ->reject(fn (PraxisTask $task) => isset($skipKarten[self::cardKey($task->kategorie, $task->unterkategorie)]));
 
         foreach ($tasks as $sourceTask) {
             if ($existing->has($sourceTask->content_id.$suffix)) {

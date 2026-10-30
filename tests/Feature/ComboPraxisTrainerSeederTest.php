@@ -27,10 +27,14 @@ class ComboPraxisTrainerSeederTest extends TestCase
         $this->onAdmin(function () {
             $tasks = $this->existingCourse('SBF-SEE-BIN')->praxisTasks()->get();
 
-            $this->assertCount(108 + 87, $tasks);
-            $this->assertCount(87, $tasks->filter(fn ($task) => str_starts_with($task->content_id, 'PRAXIS-BIN-') && str_ends_with($task->content_id, '-SEE-BIN')));
+            $this->assertCount(108 + 89, $tasks);
+            $this->assertCount(89, $tasks->filter(fn ($task) => str_starts_with($task->content_id, 'PRAXIS-BIN-') && str_ends_with($task->content_id, '-SEE-BIN')));
             $this->assertCount(5, $tasks->where('kategorie', 'Pflichtmanöver'), 'Pflichtmanöver nur einmal (aus SBF See).');
             $this->assertCount(9, $tasks->where('kategorie', 'Seemannsknoten'));
+            // Binnen-eigene Sicherheitskarten kommen dazu, gleiche nicht doppelt.
+            $this->assertTrue($tasks->contains('content_id', 'PRAXIS-BIN-0115-SEE-BIN'));
+            $this->assertTrue($tasks->contains('content_id', 'PRAXIS-BIN-0116-SEE-BIN'));
+            $this->assertCount(12, $tasks->where('kategorie', 'Sicherheit und Crew'));
             $this->assertSame($tasks->count(), $tasks->pluck('content_id')->unique()->count());
 
             // Binnen-Karten folgen hinter den See-Karten.
@@ -58,7 +62,7 @@ class ComboPraxisTrainerSeederTest extends TestCase
             (new ComboPraxisTrainerSeeder)->run();
             (new ElwisPraxisImageSeeder)->run();
 
-            $this->assertSame(195, $combo->praxisTasks()->count());
+            $this->assertSame(197, $combo->praxisTasks()->count());
             $this->assertSame(5, $this->existingCourse('ADD-BIN-TO-SEE')->praxisTasks()->count());
             $this->assertSame(
                 PraxisTask::where('content_id', 'PRAXIS-BIN-0018')->value('media_asset_id'),

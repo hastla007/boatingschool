@@ -128,9 +128,17 @@ class AccountErasureCoversAppointmentAuditPlatformAuditAndRadioTrainingTest exte
         $this->createdAuditLogIds = $platformLogIds;
         $this->assertCount(2, $platformLogIds);
 
+        // Protokoll der Schul-Anlage mit der E-Mail des (späteren) Inhabers.
+        $tenantCreateLog = $this->onAdmin(fn () => AuditLog::record($tenant->id, $superadmin->id, 'superadmin.tenant.create', 'tenant', $tenant->id, null, [
+            'slug' => $tenant->slug, 'name' => $tenant->name, 'status' => $tenant->status, 'admin_email' => $email,
+        ]));
+        $this->createdAuditLogIds[] = $tenantCreateLog->id;
+
         $this->actingAsInTenant($learner->fresh(), $tenant)->delete('/profile', ['password' => 'password'])->assertRedirect('/');
 
-        $this->onAdmin(function () use ($learner, $platformLogIds, $email) {
+        $this->onAdmin(function () use ($learner, $platformLogIds, $email, $tenantCreateLog, $tenant) {
+            $this->assertEquals(['slug' => $tenant->slug, 'name' => $tenant->name, 'status' => $tenant->status], AuditLog::find($tenantCreateLog->id)->after_data);
+
             $this->assertNull(User::find($learner->id), 'Das Konto sollte vollständig gelöscht sein.');
 
             foreach (AuditLog::whereIn('id', $platformLogIds)->get() as $log) {

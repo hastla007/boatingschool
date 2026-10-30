@@ -23,7 +23,8 @@ class VideoLessonController extends Controller
     {
         $lesson->load(['module.course', 'questions.revisions']);
 
-        $query = trim((string) $request->query('q', ''));
+        // Bug-Review (Array-Werte in der Adresszeile): ?q[]=x ergab "Array to string conversion" (HTTP 500).
+        $query = is_string($request->query('q')) ? trim($request->query('q')) : '';
         $results = collect();
 
         if ($query !== '') {

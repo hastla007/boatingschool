@@ -60,6 +60,10 @@ class VideoQuizController extends Controller
             && $justAnswered['questionId'] === $revision->question_id;
 
         return view('video.quiz', [
+            // Bug-Review X11 (Video-Quiz): wie im Lernmodus macht der vom
+            // Server gerenderte Zeitpunkt einen doppelt abgeschickten
+            // Antwort-POST idempotent (Unique-Index auf started_at_ms).
+            'startedAt' => now()->valueOf(),
             'course' => $course,
             'lesson' => $lesson,
             'moduleIds' => $moduleIds,
@@ -91,6 +95,7 @@ class VideoQuizController extends Controller
             'answer_ids' => ['nullable', 'array'],
             'answer_ids.*' => ['uuid'],
             'known' => ['nullable', 'boolean'],
+            'started_at_ms' => ['nullable', 'integer', 'min:0', 'max:'.intdiv(PHP_INT_MAX, 2)],
         ]);
 
         // Bug-Review (Fragenversion ändert sich zwischen Anzeige und
@@ -167,7 +172,7 @@ class VideoQuizController extends Controller
         }
 
         $attempt = $learningService->recordAttempt(
-            $tenant, $user, $revision, $selectedAnswer, 'video_quiz', $course, null, $selectedAnswers, $selfAssessedKnown
+            $tenant, $user, $revision, $selectedAnswer, 'video_quiz', $course, null, $selectedAnswers, $selfAssessedKnown, $validated['started_at_ms'] ?? null
         );
 
         // Die Auswertungsseite liest den Ausgang je Frage aus der Session

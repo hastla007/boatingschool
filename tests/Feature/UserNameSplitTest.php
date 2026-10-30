@@ -115,4 +115,27 @@ class UserNameSplitTest extends TestCase
         $response->assertSee('value="Gast"', false);
         $response->assertSee('value="Lernender"', false);
     }
+
+    public function test_superadmin_can_save_an_account_with_a_one_word_name(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        $learner = $this->onAdmin(fn () => User::create([
+            'display_name' => 'Cher',
+            'email' => 'cher-'.uniqid().'@example.test',
+            'password' => 'irrelevant',
+            'status' => 'active',
+        ]));
+
+        $this->actingAs($superadmin)->patch(route('superadmin.users.update', $learner), [
+            'first_name' => 'Cher',
+            'last_name' => '',
+            'email' => $learner->email,
+            'status' => 'suspended',
+        ])->assertSessionHasNoErrors();
+
+        $this->onAdmin(function () use ($learner) {
+            $this->assertSame('suspended', $learner->fresh()->status);
+            $this->assertSame('Cher', $learner->fresh()->display_name);
+        });
+    }
 }

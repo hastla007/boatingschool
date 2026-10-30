@@ -27,7 +27,8 @@ class UserController extends Controller
 {
     public function index(Request $request): View
     {
-        $search = trim((string) $request->query('q'));
+        // Bug-Review (Array-Werte in der Adresszeile): ?q[]=x ergab "Array to string conversion" (HTTP 500).
+        $search = is_string($request->query('q')) ? trim($request->query('q')) : '';
 
         $users = User::with('tenantMemberships.tenant')
             ->when($search !== '', fn ($q) => $q->where(fn ($q2) => $q2
@@ -196,7 +197,10 @@ class UserController extends Controller
         // Teilnehmerverwaltung), nicht mehr der Superadmin.
         $validated = $request->validate([
             'first_name' => ['required', 'string', 'max:255'],
-            'last_name' => ['required', 'string', 'max:255'],
+            // Bug-Review (Konten mit einteiligem Namen): Bestandskonten
+            // haben teils nur display_name ("Cher") -- ein Pflicht-Nachname
+            // machte jede Änderung (auch nur des Status) unmöglich.
+            'last_name' => ['nullable', 'string', 'max:255'],
             // Bug-Review R4-6: siehe store() oben -- dieselbe fehlende
             // 'lowercase'-Regel wie dort.
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:app_user,email,'.$user->id],
@@ -205,7 +209,7 @@ class UserController extends Controller
             'is_superadmin' => ['sometimes', 'boolean'],
         ]);
 
-        $validated['display_name'] = trim($validated['first_name'].' '.$validated['last_name']);
+        $validated['display_name'] = trim($validated['first_name'].' '.($validated['last_name'] ?? ''));
 
         // is_superadmin ist bewusst nicht $fillable (Sicherheitsreview N4) --
         // Mass-Assignment-Falle für künftigen Code, der versehentlich

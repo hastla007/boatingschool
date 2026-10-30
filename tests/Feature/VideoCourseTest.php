@@ -324,6 +324,35 @@ class VideoCourseTest extends TestCase
         });
     }
 
+    public function test_a_double_submitted_answer_counts_only_once(): void
+    {
+        // Bug-Review X11 (Video-Quiz): ein Doppelklick schickte dieselbe
+        // Antwort zweimal ab und zählte doppelt für die Festigung. Der vom
+        // Server gerenderte started_at_ms macht den zweiten POST wirkungslos.
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $firstLesson] = $this->makeIsolatedVideoCourse();
+        $this->grantEntitlement($tenant, $learner, $course);
+        [$question, $revision, $correctAnswer] = $this->attachIsolatedQuestion($firstLesson);
+
+        $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/video/{$firstLesson->id}/questions/1")
+            ->assertOk()->assertSee('name="started_at_ms"', false);
+
+        $payload = ['revision_id' => $revision->id, 'answer_id' => $correctAnswer->id, 'started_at_ms' => now()->valueOf()];
+        $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/video/{$firstLesson->id}/questions/1", $payload)->assertRedirect();
+        $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/video/{$firstLesson->id}/questions/1", $payload)->assertRedirect();
+
+        $this->asTenant($tenant, function () use ($tenant, $learner, $question) {
+            $this->assertSame(1, Attempt::where('tenant_id', $tenant->id)
+                ->where('user_id', $learner->id)->where('question_id', $question->id)->where('context', 'video_quiz')->count());
+        });
+
+        // Ein unsinniger Zeitstempel ist ein Validierungsfehler, keine Fehlerseite.
+        $this->actingAsInTenant($learner, $tenant)
+            ->post("/courses/{$course->id}/video/{$firstLesson->id}/questions/1", ['revision_id' => $revision->id, 'answer_id' => $correctAnswer->id, 'started_at_ms' => -9223372036854775807])
+            ->assertSessionHasErrors('started_at_ms');
+    }
+
     public function test_the_result_page_lets_the_learner_retry_only_the_wrong_questions(): void
     {
         $tenant = $this->createTestTenant();

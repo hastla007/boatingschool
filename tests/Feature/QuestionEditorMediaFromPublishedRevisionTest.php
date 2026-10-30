@@ -217,7 +217,9 @@ class QuestionEditorMediaFromPublishedRevisionTest extends TestCase
             'correct' => 'A',
         ])->assertRedirect(route('superadmin.questions.edit', $question));
 
-        $response = $this->actingAs($superadmin)->post(route('superadmin.questions.revisions.publish', $reviewRevision));
+        // Die Bearbeitungsseite warnt davor, dass die Freigabe die neuere
+        // Editor-Fassung ersetzt, und sendet die Bestätigung mit.
+        $response = $this->actingAs($superadmin)->post(route('superadmin.questions.revisions.publish', $reviewRevision), ['overwrite_newer' => 1]);
 
         $response->assertRedirect();
         $response->assertSessionHasNoErrors();
