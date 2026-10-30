@@ -25,14 +25,37 @@
          Button plus scrollIntoView() beim Laden UND bei jedem Tab-Wechsel
          bringt den jeweils aktiven Button zuverlässig in den sichtbaren
          Bereich. --}}
+    {{-- Bug-Review BB15 (Admin-Pagination verliert aktiven Reiter beim
+         Seitenwechsel): die Pagination-Links in den Tabs (Teilnehmer,
+         Praxis-Anmeldungen, Willkommensbox, Coupon-Codes) werden
+         serverseitig mit withQueryString() gerendert -- das übernimmt nur
+         die Query-Parameter des GERADE AUSGEFÜHRTEN Requests. Der
+         Tab-Wechsel selbst läuft aber rein clientseitig über
+         history.replaceState() (siehe $watch unten), ohne eigenen Request:
+         wechselt man z. B. von "Dashboard" zu "Teilnehmer" und klickt dann
+         auf "nächste Seite", enthält der beim ersten Laden gerenderte Link
+         noch kein tab=participants, die Navigation landet auf einer neuen
+         Seite ohne tab-Parameter, und der aktive Reiter springt zurück auf
+         "Dashboard". syncPaginationLinksTab() schreibt den aktuellen
+         tab-Wert bei jedem Wechsel (und beim initialen Laden) in jeden
+         Pagination-Link innerhalb dieses Tab-Bereichs. --}}
     <div x-data="{ tab: new URLSearchParams(window.location.search).get('tab') || 'dashboard' }"
          x-init="
+             const syncPaginationLinksTab = (value) => {
+                 $el.querySelectorAll('a[href*=\'_page=\']').forEach((link) => {
+                     const linkUrl = new URL(link.href);
+                     linkUrl.searchParams.set('tab', value);
+                     link.href = linkUrl.toString();
+                 });
+             };
              $watch('tab', (value) => {
                  const url = new URL(window.location);
                  url.searchParams.set('tab', value);
                  window.history.replaceState({}, '', url);
+                 syncPaginationLinksTab(value);
                  $nextTick(() => $el.querySelector(`[data-tab='${value}']`)?.scrollIntoView({ inline: 'nearest', block: 'nearest' }));
              });
+             syncPaginationLinksTab(tab);
              $nextTick(() => $el.querySelector(`[data-tab='${tab}']`)?.scrollIntoView({ inline: 'nearest', block: 'nearest' }));
          ">
         <div class="flex gap-1 mb-6 border-b border-slate-200 dark:border-slate-700 overflow-x-auto">
