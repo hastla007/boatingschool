@@ -21,6 +21,19 @@ class PruefungsausschussSeeder extends Seeder
             return;
         }
 
+        // Bug-Review (Seeder holt gelöschte Prüfungsausschüsse zurück):
+        // db:seed läuft bei jedem Deploy erneut -- firstOrCreate() auf
+        // kommission+standorttyp legte dabei jeden vom Superadmin
+        // (Superadmin\PruefungsausschussController) gelöschten Eintrag
+        // wieder an und duplizierte jeden umbenannten. Die CSV ist nur die
+        // Erstbestückung: sobald die Tabelle Einträge enthält, gehört die
+        // Liste dem Superadmin. Eine spätere Aktualisierung der DMYV-Liste
+        // muss deshalb gezielt (Migration/Superadmin) eingespielt werden,
+        // nicht über diesen Seeder.
+        if (Pruefungsausschuss::query()->exists()) {
+            return;
+        }
+
         $handle = fopen($path, 'rb');
         // UTF-8-BOM am Dateianfang abstreifen, sonst landet es im ersten
         // Spaltennamen ("kommission") und bricht die Header-Zuordnung.

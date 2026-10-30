@@ -32,7 +32,7 @@ class SmarttrainerService
         // (content_question.active) wurde hier weiter als Kandidat
         // ausgespielt -- active=true schließt sie von der Auswahl aus.
         // Bug-Review BB16: dieselbe Lücke bestand für valid_from/valid_to.
-        $questions = $modules->flatMap(fn ($module) => $module->questions)->unique('id')->filter(fn ($q) => $q->isCurrentlyValid());
+        $questions = ContentQuestion::filterCurrentlyValid($modules->flatMap(fn ($module) => $module->questions)->unique('id'));
 
         // Bug-Review (Smarttrainer blockiert während laufender Prüfung):
         // storeAttempt() (LearningController) lehnt eine Antwort auf eine

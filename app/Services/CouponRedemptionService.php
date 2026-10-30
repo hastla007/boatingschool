@@ -126,9 +126,21 @@ class CouponRedemptionService
             ->first();
 
         if ($suspended) {
+            // Bug-Review (Gutschein verkürzt gesperrten Zugang): valid_until
+            // wurde hier bisher stur auf heute + Kurslaufzeit gesetzt -- lief
+            // der gesperrte Zugang noch länger (z. B. bereits verlängert oder
+            // vom Admin großzügiger gesetzt), verlor der Lerner durch das
+            // Einlösen eines Codes Restlaufzeit. Es gilt deshalb das spätere
+            // der beiden Enddaten; ein unbefristeter Zugang (null) bleibt
+            // unbefristet.
+            $newValidUntil = $now->copy()->addDays($tenant->branding->course_validity_days);
+            $validUntil = $suspended->valid_until === null
+                ? null
+                : ($suspended->valid_until->greaterThan($newValidUntil) ? $suspended->valid_until : $newValidUntil);
+
             $suspended->update([
                 'valid_from' => $now,
-                'valid_until' => $now->copy()->addDays($tenant->branding->course_validity_days),
+                'valid_until' => $validUntil,
                 'status' => 'active',
                 'source_type' => 'coupon',
                 'source_reference' => $coupon->code,

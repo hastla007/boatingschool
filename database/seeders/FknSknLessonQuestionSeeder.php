@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\ContentQuestion;
 use App\Models\CourseDefinition;
 use App\Models\VideoLesson;
+use Database\Seeders\Concerns\SeedsLessonQuizOnce;
 use Illuminate\Database\Seeder;
 
 /**
@@ -20,6 +21,10 @@ use Illuminate\Database\Seeder;
  */
 class FknSknLessonQuestionSeeder extends Seeder
 {
+    // Bug-Review (Seeder-Idempotenz Videoquiz): einmal geseedete Lektionen
+    // (quiz_seeded_at) bleiben unangetastet, siehe SeedsLessonQuizOnce.
+    use SeedsLessonQuizOnce;
+
     /** @var array<string, int[]> Lektionstitel => FKN-Fragenkatalog-Nummern. */
     private const FKN_QUESTIONS = [
         'Rechtliche Grundlagen und Begriffe' => [1, 2, 45, 46, 47],
@@ -84,7 +89,7 @@ class FknSknLessonQuestionSeeder extends Seeder
                 $officialNumbers = $lessonQuestions[$lesson->title] ?? null;
 
                 if ($officialNumbers) {
-                    $this->attachQuestions($lesson, $contentRole, $officialNumbers);
+                    $this->seedQuizOnce($lesson, fn (VideoLesson $lesson) => $this->attachQuestions($lesson, $contentRole, $officialNumbers));
                 }
             }
         }
@@ -93,10 +98,6 @@ class FknSknLessonQuestionSeeder extends Seeder
     /** @param int[] $officialNumbers */
     private function attachQuestions(VideoLesson $lesson, string $contentRole, array $officialNumbers): void
     {
-        if ($lesson->questions()->exists()) {
-            return;
-        }
-
         foreach ($officialNumbers as $sortOrder => $officialNumber) {
             $question = ContentQuestion::where('official_number', (string) $officialNumber)
                 ->where('content_role', $contentRole)

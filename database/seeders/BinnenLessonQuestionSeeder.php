@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\ContentQuestionRevision;
 use App\Models\CourseDefinition;
 use App\Models\VideoLesson;
+use Database\Seeders\Concerns\SeedsLessonQuizOnce;
 use Illuminate\Database\Seeder;
 
 /**
@@ -17,6 +18,10 @@ use Illuminate\Database\Seeder;
  */
 class BinnenLessonQuestionSeeder extends Seeder
 {
+    // Bug-Review (Seeder-Idempotenz Videoquiz): einmal geseedete Lektionen
+    // (quiz_seeded_at) bleiben unangetastet, siehe SeedsLessonQuizOnce.
+    use SeedsLessonQuizOnce;
+
     /** @var array<string, array<int, string>> Kapitel => Lektion => Fragetexte. */
     private const LESSON_QUESTIONS = [
         'Grundlagen' => [
@@ -81,8 +86,20 @@ class BinnenLessonQuestionSeeder extends Seeder
                 ['question' => 'Was bedeutet dieses Schallsignal?', 'correct_answer' => 'Überholen an der Backbordseite des Vorausfahrenden.'],
                 'Was ist eine Folge sehr kurzer Töne?',
             ],
+            // Bug-Review (Quizfragen in falscher Lektion): hier stand nur
+            // SBF-BIN-0190 (gekenterte Jolle -- Crew zählen, am Boot
+            // festhalten), keine Signalfrage. Jetzt die Not- und
+            // Manövrierunfähigkeitszeichen: 0170 (vier kurze Töne, rote
+            // Flagge/rotes Licht schwenken), 0210 (wiederholte lange Töne),
+            // 0211 (Kreisen einer roten Flagge), 0250/0251 (optisches Zeichen
+            // statt vier kurzer Töne bei Tag/Nacht). Bestehende
+            // Installationen korrigiert die Migration 2024_02_01_000502.
             'Notfallsignale' => [
-                'Was ist vorrangig zu beachten, wenn eine Jolle gekentert ist und sie nicht wieder aufgerichtet werden kann?',
+                'Welche Schallsignale bzw. Zeichen sind zu geben, wenn das Boot manövrierunfähig geworden ist?',
+                'Welches optische Zeichen kann am Tage anstelle von vier kurzen Tönen gegeben werden?',
+                'Welches optische Zeichen kann in der Nacht oder bei verminderter Sicht anstelle von vier kurzen Tönen gegeben werden?',
+                'Welches Schallsignal ist zu geben, wenn in einer Notsituation Hilfe gebraucht wird?',
+                'Welche Bedeutung hat am Tag das Kreisen einer roten Flagge auf einem Wasserfahrzeug?',
             ],
         ],
         'Bootsführung und Bordtechnik' => [
@@ -157,7 +174,7 @@ class BinnenLessonQuestionSeeder extends Seeder
 
                 foreach ($lessons as $lessonTitle => $questionTexts) {
                     $lesson = $chapter->lessons()->where('title', $lessonTitle)->first();
-                    $this->attachQuestions($lesson, $questionTexts);
+                    $this->seedQuizOnce($lesson, fn (VideoLesson $lesson) => $this->attachQuestions($lesson, $questionTexts));
                 }
             }
         }
@@ -171,12 +188,8 @@ class BinnenLessonQuestionSeeder extends Seeder
      *                                                                                                              um stattdessen über den Text der richtigen Antwort zu identifizieren
      *                                                                                                              (für bildbasierte Fragen ohne hinterlegtes Bild in der Fragenbasis).
      */
-    private function attachQuestions(?VideoLesson $lesson, array $questions): void
+    private function attachQuestions(VideoLesson $lesson, array $questions): void
     {
-        if (! $lesson || $lesson->questions()->exists()) {
-            return;
-        }
-
         foreach ($questions as $sortOrder => $question) {
             $query = ContentQuestionRevision::where('editorial_status', 'published');
 

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ContentQuestion;
 use App\Models\CourseDefinition;
 use App\Models\ExamSession;
 use App\Models\Progress;
@@ -29,7 +30,7 @@ class ProgressController extends Controller
         // CourseProgressService losgelöste Zählung hatte den F7-Fix nie
         // mitbekommen.
         // Bug-Review BB16: dieselbe Lücke bestand für valid_from/valid_to.
-        $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->filter(fn ($q) => $q->isCurrentlyValid())->pluck('id')->unique();
+        $questionIds = ContentQuestion::currentlyValidIds($course->modules->flatMap(fn ($m) => $m->questions));
 
         $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)
             ->whereIn('question_id', $questionIds)->get();

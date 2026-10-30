@@ -98,7 +98,7 @@ class ExpireAbandonedExamSessionsTest extends TestCase
     {
         $tenant = $this->createTestTenant();
         $learner = $this->createTenantUser($tenant, 'learner');
-        $course = $this->existingCourse('ADD-UBI-TO-SRC');
+        $course = $this->existingCourse('SKN');
         $this->grantEntitlement($tenant, $learner, $course);
 
         $module = $this->existingModule('UBI');

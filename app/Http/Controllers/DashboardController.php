@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ContentQuestion;
 use App\Models\Progress;
 use App\Models\VideoProgress;
 use App\Services\EntitlementService;
@@ -39,7 +40,7 @@ class DashboardController extends Controller
             // (für die Weiterlernen-Banner-Logik unten) hatte den F7-Fix
             // nie mitbekommen.
             // Bug-Review BB16: dieselbe Lücke bestand für valid_from/valid_to.
-            $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->filter(fn ($q) => $q->isCurrentlyValid())->pluck('id')->unique();
+            $questionIds = ContentQuestion::currentlyValidIds($course->modules->flatMap(fn ($m) => $m->questions));
             $courseProgress = $progressStats->whereIn('question_id', $questionIds);
             $mastered = $courseProgress->where('learning_state', 'gefestigt')->count();
             $total = max($questionIds->count(), 1);
@@ -61,7 +62,14 @@ class DashboardController extends Controller
             // exam.intro-Seite, die nur "noch kein Regelwerk verfügbar"
             // zeigte -- eine Sackgasse statt des versprochenen nächsten
             // Schritts.
-            $examAvailable = $course->examPapers()->exists() || ($course->activeExamRuleSet()?->isVerified() ?? false);
+            //
+            // Bug-Review (Folgefehler BB4): "hat Prüfungsbögen" allein
+            // reichte nicht -- ein Kurs mit Bögen, aber nur einem Entwurfs-
+            // Regelwerk (z. B. SBF-BIN-SEGEL), zeigte auf der Bogenübersicht
+            // keinen einzigen startbaren Bogen. hasStartableExam() prüft wie
+            // ExamController (startPaper()/papersOverview()) das freigegebene
+            // Regelwerk des Kurses bzw. bei Kombikursen das des Teilkurses.
+            $examAvailable = $course->hasStartableExam();
 
             $bannerMode = match (true) {
                 ! $videoComplete => 'video',

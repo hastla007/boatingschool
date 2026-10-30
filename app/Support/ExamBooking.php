@@ -28,12 +28,19 @@ class ExamBooking
         return self::data()['courses'][$course->code] ?? [];
     }
 
-    /** Gewählte Seite aus der Query (?teil=SBF-BIN), sonst die erste des Kurses. */
-    public static function selectedPage(CourseDefinition $course, ?string $requested): ?string
+    /**
+     * Gewählte Seite aus der Query (?teil=SBF-BIN), sonst die erste des Kurses.
+     *
+     * Bug-Review (Array-Query-Parameter): ?teil[]=x kam als Array an und
+     * scheiterte am ?string-Typ (bzw. am (string)-Cast, "Array to string
+     * conversion") mit HTTP 500 -- ein nicht-string-förmiger Wert gilt
+     * deshalb als nicht gesetzt.
+     */
+    public static function selectedPage(CourseDefinition $course, mixed $requested): ?string
     {
         $pages = self::pagesFor($course);
 
-        return array_key_exists((string) $requested, $pages) ? $requested : array_key_first($pages);
+        return is_string($requested) && array_key_exists($requested, $pages) ? $requested : array_key_first($pages);
     }
 
     /** @return array<string, mixed> */

@@ -13,6 +13,7 @@ use App\Notifications\EmailChangeRequested;
 use App\Services\AccountErasureService;
 use App\Services\PersonalDataExportService;
 use App\Support\BestEffortMail;
+use App\Support\StatusLabels;
 use App\Support\TenantContext;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
@@ -52,11 +53,23 @@ class ProfileController extends Controller
         // tatsächlich eingelösten Code.
         $entitlements = Entitlement::where('tenant_id', $tenant->id)->where('user_id', $user->id)
             ->with('course')->orderByDesc('valid_from')->get()
+            //
+            // Bug-Review (Buchungsliste im Profil): ein per Verlängerungscode
+            // eingelöster Zugang (source_type 'coupon_renewal', siehe
+            // CouponRedemptionService) fiel in der View bisher auf "Von
+            // deiner Bootsschule freigeschaltet" zurück -- er wird jetzt wie
+            // 'coupon' (mit Code) angezeigt. Außerdem fehlte jeder Hinweis
+            // darauf, ob der Zugang noch gilt: der Status erscheint jetzt auf
+            // Deutsch, ein zeitlich abgelaufener, aber (noch) nicht vom
+            // Ablauf-Command umgestellter Zugang bereits als "abgelaufen".
             ->map(fn (Entitlement $e) => [
                 'label' => $e->course->name ?? '—',
-                'source_type' => $e->source_type,
+                'source_type' => $e->source_type === 'coupon_renewal' ? 'coupon' : $e->source_type,
                 'source_reference' => $e->source_reference,
                 'date' => $e->valid_from,
+                'status' => StatusLabels::entitlementStatus(
+                    $e->status === 'active' && $e->valid_until !== null && $e->valid_until <= now() ? 'expired' : $e->status
+                ),
             ]);
 
         $productPurchases = ProductPurchase::where('tenant_id', $tenant->id)->where('user_id', $user->id)

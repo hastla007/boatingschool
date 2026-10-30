@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\ContentQuestionRevision;
 use App\Models\CourseDefinition;
 use App\Models\VideoLesson;
+use Database\Seeders\Concerns\SeedsLessonQuizOnce;
 use Illuminate\Database\Seeder;
 
 /**
@@ -15,6 +16,10 @@ use Illuminate\Database\Seeder;
  */
 class VideoLessonQuestionSeeder extends Seeder
 {
+    // Bug-Review (Seeder-Idempotenz Videoquiz): einmal geseedete Lektionen
+    // (quiz_seeded_at) bleiben unangetastet, siehe SeedsLessonQuizOnce.
+    use SeedsLessonQuizOnce;
+
     /** @var array<string, array<int, string>> Kapitel => Lektion => Fragetexte, je Teilkurs. */
     private const LESSON_QUESTIONS = [
         'Einführung in den Sportbootführerschein' => [
@@ -197,7 +202,7 @@ class VideoLessonQuestionSeeder extends Seeder
                     continue;
                 }
 
-                $this->attachQuestions($lesson, $questionTexts);
+                $this->seedQuizOnce($lesson, fn (VideoLesson $lesson) => $this->attachQuestions($lesson, $questionTexts));
             }
         }
     }
@@ -212,10 +217,6 @@ class VideoLessonQuestionSeeder extends Seeder
      */
     private function attachQuestions(VideoLesson $lesson, array $questions): void
     {
-        if ($lesson->questions()->exists()) {
-            return;
-        }
-
         foreach ($questions as $sortOrder => $question) {
             $query = ContentQuestionRevision::where('editorial_status', 'published');
 

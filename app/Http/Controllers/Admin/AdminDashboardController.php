@@ -338,7 +338,12 @@ class AdminDashboardController extends Controller
         $tenantCourseLocations = TenantCourseLocation::where('tenant_id', $tenant->id)->with('pruefungsausschuss')->orderBy('sort_order')->get();
         $pruefungsausschuesse = Pruefungsausschuss::orderBy('sort_order')->get();
 
-        $anmeldungFilters = $request->only(['anmeldung_search', 'anmeldung_course', 'anmeldung_from', 'anmeldung_to']);
+        // Bug-Review (Array-Query-Parameter): wie bei wb_search unten kam
+        // z. B. ?anmeldung_search[]=a als Array an -- trim()/
+        // isValidCalendarDate() scheiterten daran mit einem TypeError
+        // (HTTP 500), ebenso das Anzeigen im Filterformular. Nicht-string-
+        // förmige Werte gelten deshalb als nicht gesetzt.
+        $anmeldungFilters = array_map(fn ($value) => is_string($value) ? $value : '', $request->only(['anmeldung_search', 'anmeldung_course', 'anmeldung_from', 'anmeldung_to']));
 
         // Bug-Review N21 (Folgefehler): anmeldung_from/anmeldung_to kamen
         // bisher ungeprüft aus der Query-String direkt in whereDate() --
@@ -424,7 +429,8 @@ class AdminDashboardController extends Controller
 
         $disabledCourseIds = TenantCourseDisabled::where('tenant_id', $tenant->id)->pluck('course_id');
 
-        $couponFilters = $request->only(['coupon_search', 'coupon_status', 'coupon_type']);
+        // Bug-Review (Array-Query-Parameter): siehe $anmeldungFilters oben.
+        $couponFilters = array_map(fn ($value) => is_string($value) ? $value : '', $request->only(['coupon_search', 'coupon_status', 'coupon_type']));
 
         $coupons = Coupon::with('course', 'product', 'redeemedBy')
             ->where(fn ($q) => $q->where('tenant_id', $tenant->id)->orWhere('redeemed_tenant_id', $tenant->id))

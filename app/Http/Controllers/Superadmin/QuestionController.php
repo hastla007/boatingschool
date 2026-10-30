@@ -193,6 +193,22 @@ class QuestionController extends Controller
     }
 
     /**
+     * Bug-Review (AA9-Folgefehler: Freigabe einer älteren Import-Fassung
+     * verwirft eine neuere Editor-Fassung): wartet eine Import-Revision,
+     * während die Frage im Editor schon neu gespeichert wurde, ersetzt ihre
+     * Freigabe die neuere Editor-Fassung. Die Bearbeitungsseite warnt davor;
+     * ist die Import-Änderung überholt, lässt sie sich hier verwerfen.
+     */
+    public function discardRevision(ContentQuestionRevision $revision): Response
+    {
+        abort_unless($revision->editorial_status === 'review', 404);
+
+        $revision->update(['editorial_status' => 'deprecated']);
+
+        return back()->with('status', 'Wartende Fassung verworfen.');
+    }
+
+    /**
      * $existingType ist der Fragetyp der bisherigen Revision (null beim
      * Anlegen) -- der eingereichte question_type muss bei einer
      * BESTEHENDEN Frage exakt diesem entsprechen, da die View ihn nur als

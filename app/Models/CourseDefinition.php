@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Collection;
 
 class CourseDefinition extends Model
 {
@@ -70,6 +71,35 @@ class CourseDefinition extends Model
     public function examPapers(): HasMany
     {
         return $this->hasMany(ExamPaper::class, 'course_id')->orderBy('sort_order');
+    }
+
+    /**
+     * IDs aller Fragen, die zum Kurs gehören: Modulfragen plus die Fragen
+     * seiner Prüfungsbögen. Bug-Review (SRC & UBI: Fragen der UBI-Bögen
+     * gehören nicht zum Kurs): der Kombikurs lernt bewusst nur SRC und die
+     * UBI-Ergänzung, seine UBI-Bögen 101-112 fragen aber den vollen
+     * UBI-Katalog ab -- Favoriten, Collections und "Falsche Fragen erneut
+     * lernen" müssen auch diese Fragen als Kursinhalt akzeptieren.
+     *
+     * @return Collection<int, string>
+     */
+    public function contentQuestionIds(): Collection
+    {
+        $this->loadMissing('modules.questions');
+
+        return $this->modules->flatMap(fn ($module) => $module->questions)->pluck('id')
+            ->merge($this->examPaperQuestionIds())
+            ->unique()
+            ->values();
+    }
+
+    /** @return Collection<int, string> IDs der Fragen aller Prüfungsbögen des Kurses. */
+    public function examPaperQuestionIds(): Collection
+    {
+        return ExamPaperQuestion::whereIn('exam_paper_id', ExamPaper::where('course_id', $this->id)->select('id'))
+            ->pluck('question_id')
+            ->unique()
+            ->values();
     }
 
     public function praxisTasks(): HasMany

@@ -17,6 +17,7 @@ use App\Support\TenantContext;
 use App\Support\VideoCourseLessons;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -62,7 +63,7 @@ class VideoQuizController extends Controller
             'course' => $course,
             'lesson' => $lesson,
             'moduleIds' => $moduleIds,
-            'questionsParam' => $request->query('questions'),
+            'questionsParam' => is_string($request->query('questions')) ? $request->query('questions') : null,
             'position' => $position,
             'total' => $questions->count(),
             'revision' => $revision,
@@ -105,9 +106,17 @@ class VideoQuizController extends Controller
         // revision_id kommt jetzt -- wie bei LearningController::
         // storeAttempt() -- als eigenes Formularfeld aus genau der
         // Fassung, die show() tatsächlich angezeigt hat.
+        //
+        // Bug-Review (Antwort geht bei neuer Revision verloren): genau in
+        // diesem Fall ist die angezeigte Fassung inzwischen "deprecated"
+        // -- der Filter auf 'published' ließ den POST dann mit 404 scheitern
+        // und die Antwort ging verloren. Analog zu LearningController::
+        // storeAttempt() wird eine abgelöste Fassung derselben (weiterhin
+        // gültigen, siehe resolveQuestions()) Frage angenommen und gegen
+        // genau diese Fassung bewertet.
         $revision = ContentQuestionRevision::where('id', $validated['revision_id'])
             ->where('question_id', $questions[$position - 1]->id)
-            ->where('editorial_status', 'published')
+            ->whereIn('editorial_status', ['published', 'deprecated'])
             ->firstOrFail();
 
         // Bug-Review N13: viele Fragen aus dem Katalog stecken unverändert
@@ -185,8 +194,8 @@ class VideoQuizController extends Controller
             'course' => $course,
             'lesson' => $lesson,
             'position' => $position,
-            'questions' => $request->query('questions'),
-            'kapitel' => $request->query('kapitel'),
+            'questions' => is_string($request->query('questions')) ? $request->query('questions') : null,
+            'kapitel' => ($moduleIds = $this->parseModuleIds($request)) ? implode(',', $moduleIds) : null,
         ]))->with('videoQuizAnswered', [
             'lessonId' => $lesson->id,
             'questionId' => $revision->question_id,
@@ -259,7 +268,7 @@ class VideoQuizController extends Controller
         // Frage wurde hier -- im Gegensatz zu Smarttrainer und Prüfung --
         // trotzdem noch im Video-Quiz ausgespielt.
         // Bug-Review BB16: dieselbe Lücke bestand für valid_from/valid_to.
-        $activeQuestions = $lesson->questions->filter(fn ($q) => $q->isCurrentlyValid());
+        $activeQuestions = ContentQuestion::filterCurrentlyValid($lesson->questions);
 
         $blockedQuestionIds = $this->runningExamQuestionIds($tenant, $user, $examEvaluation);
         if ($blockedQuestionIds->isNotEmpty()) {
@@ -313,7 +322,19 @@ class VideoQuizController extends Controller
         // das explode(',', ...) mit einem TypeError scheitern ließ
         // (VideoCourseController::parseModuleIds() wurde bereits dagegen
         // abgesichert, diese zweite, eigene Kopie hier noch nicht).
-        return is_string($raw) && $raw !== '' ? array_values(array_filter(explode(',', $raw))) : null;
+        if (! is_string($raw) || $raw === '') {
+            return null;
+        }
+
+        // Bug-Review (Query-Parameter-Validierung): wie in
+        // VideoCourseController::parseModuleIds() landeten ungefilterte IDs
+        // (über VideoCourseLessons::ordered()) in einem whereIn() gegen die
+        // uuid-Spalte video_module.id -- ?kapitel=foo endete dort mit
+        // "invalid input syntax for type uuid" als HTTP 500. Nicht-UUIDs
+        // werden deshalb verworfen.
+        $ids = array_values(array_filter(array_map('trim', explode(',', $raw)), fn ($id) => Str::isUuid($id)));
+
+        return $ids !== [] ? $ids : null;
     }
 
     private function nextLesson(CourseDefinition $course, VideoLesson $lesson, ?array $moduleIds): ?VideoLesson

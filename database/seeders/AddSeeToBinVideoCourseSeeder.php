@@ -6,6 +6,7 @@ use App\Models\CourseDefinition;
 use App\Models\VideoLesson;
 use App\Models\VideoLessonStep;
 use App\Models\VideoModule;
+use Database\Seeders\Concerns\SeedsLessonQuizOnce;
 use Illuminate\Database\Seeder;
 
 /**
@@ -28,6 +29,8 @@ use Illuminate\Database\Seeder;
  */
 class AddSeeToBinVideoCourseSeeder extends Seeder
 {
+    use SeedsLessonQuizOnce;
+
     private const EXCLUDED_CHAPTERS = ['Knoten'];
 
     private const EXCLUDED_QUESTION_MODULE = 'SBF_BASIS';
@@ -82,6 +85,13 @@ class AddSeeToBinVideoCourseSeeder extends Seeder
                     $lesson->questions()->attach($sourceQuestion->id, [
                         'sort_order' => $sourceQuestion->pivot->sort_order,
                     ]);
+                }
+
+                // Bug-Review (Seeder-Idempotenz Videoquiz): kopiertes Quiz
+                // gilt als geseedet, damit kein *LessonQuestionSeeder es nach
+                // einem Leeren durch den Superadmin erneut befüllt.
+                if ($lesson->questions()->exists()) {
+                    self::markQuizSeeded($lesson);
                 }
             }
         }

@@ -6,6 +6,7 @@ use App\Models\CourseDefinition;
 use App\Models\VideoLesson;
 use App\Models\VideoModule;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Einzelne Kapitel von SBF See hatten bisher weniger Lektionen, als es für
@@ -14,6 +15,16 @@ use Illuminate\Database\Seeder;
  * einem öffentlichen Platzhaltervideo, bis echtes, lizenziertes
  * Kursmaterial vorliegt -- wie bei den übrigen Kapiteln. NEW_CHAPTERS legt
  * dafür ggf. fehlende Kapitel direkt vor einem bestehenden Referenzkapitel an.
+ *
+ * Bug-Review (Seeder-Idempotenz Videolektionen): db:seed läuft auf
+ * bestehenden Installationen erneut. Kapitel und Lektionen wurden bisher
+ * nur über ihren TITEL wiedererkannt -- eine vom Superadmin umbenannte
+ * (oder gelöschte) Lektion legte der nächste Lauf deshalb erneut an, samt
+ * Quiz durch VideoLessonQuestionSeeder. Jetzt merkt sich seed_marker
+ * (Migration 2024_02_01_000501) dauerhaft je Kapitel/Lektion, dass dieser
+ * Seeder sie schon einmal angelegt hat; danach fasst er sie nie wieder an,
+ * egal wie sie inzwischen heißen. Neu hinzugefügte Einträge in
+ * NEW_CHAPTERS/EXTRA_LESSONS werden weiterhin einmalig angelegt.
  */
 class SeemannschaftVideoSeeder extends Seeder
 {
@@ -73,6 +84,12 @@ class SeemannschaftVideoSeeder extends Seeder
         $this->createMissingChapters($sbfSee);
 
         foreach (self::EXTRA_LESSONS as $chapterTitle => $lessons) {
+            $pending = array_filter($lessons, fn (array $lesson) => ! self::isSeeded(self::lessonKey($chapterTitle, $lesson[0])));
+
+            if ($pending === []) {
+                continue;
+            }
+
             $chapter = $sbfSee->videoModules()->where('title', $chapterTitle)->first();
 
             if (! $chapter) {
@@ -81,45 +98,69 @@ class SeemannschaftVideoSeeder extends Seeder
 
             $nextSortOrder = (int) $chapter->lessons()->max('sort_order');
 
-            foreach ($lessons as [$title, $duration]) {
-                if ($chapter->lessons()->where('title', $title)->exists()) {
-                    continue;
+            foreach ($pending as [$title, $duration]) {
+                if (! $chapter->lessons()->where('title', $title)->exists()) {
+                    $nextSortOrder++;
+                    VideoLesson::create([
+                        'video_module_id' => $chapter->id,
+                        'title' => $title,
+                        'video_url' => self::PLACEHOLDER_VIDEO,
+                        'duration_seconds' => $duration,
+                        'sort_order' => $nextSortOrder,
+                    ]);
                 }
 
-                $nextSortOrder++;
-                VideoLesson::create([
-                    'video_module_id' => $chapter->id,
-                    'title' => $title,
-                    'video_url' => self::PLACEHOLDER_VIDEO,
-                    'duration_seconds' => $duration,
-                    'sort_order' => $nextSortOrder,
-                ]);
+                self::markSeeded(self::lessonKey($chapterTitle, $title));
             }
         }
+    }
+
+    public static function chapterKey(string $chapterTitle): string
+    {
+        return "SeemannschaftVideoSeeder|SBF-SEE|Kapitel|{$chapterTitle}";
+    }
+
+    public static function lessonKey(string $chapterTitle, string $lessonTitle): string
+    {
+        return "SeemannschaftVideoSeeder|SBF-SEE|Lektion|{$chapterTitle}|{$lessonTitle}";
+    }
+
+    private static function isSeeded(string $key): bool
+    {
+        return DB::table('seed_marker')->where('key', $key)->exists();
+    }
+
+    private static function markSeeded(string $key): void
+    {
+        DB::table('seed_marker')->insertOrIgnore(['key' => $key, 'seeded_at' => now()]);
     }
 
     private function createMissingChapters(CourseDefinition $sbfSee): void
     {
         foreach (self::NEW_CHAPTERS as [$chapterTitle, $beforeTitle]) {
-            if ($sbfSee->videoModules()->where('title', $chapterTitle)->exists()) {
+            if (self::isSeeded(self::chapterKey($chapterTitle))) {
                 continue;
             }
 
-            $before = $sbfSee->videoModules()->where('title', $beforeTitle)->first();
+            if (! $sbfSee->videoModules()->where('title', $chapterTitle)->exists()) {
+                $before = $sbfSee->videoModules()->where('title', $beforeTitle)->first();
 
-            if (! $before) {
-                continue;
+                if (! $before) {
+                    continue;
+                }
+
+                $sbfSee->videoModules()
+                    ->where('sort_order', '>', $before->sort_order)
+                    ->increment('sort_order');
+
+                VideoModule::create([
+                    'course_id' => $sbfSee->id,
+                    'title' => $chapterTitle,
+                    'sort_order' => $before->sort_order + 1,
+                ]);
             }
 
-            $sbfSee->videoModules()
-                ->where('sort_order', '>', $before->sort_order)
-                ->increment('sort_order');
-
-            VideoModule::create([
-                'course_id' => $sbfSee->id,
-                'title' => $chapterTitle,
-                'sort_order' => $before->sort_order + 1,
-            ]);
+            self::markSeeded(self::chapterKey($chapterTitle));
         }
     }
 }

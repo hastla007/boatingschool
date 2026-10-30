@@ -26,7 +26,16 @@ class ElwisPraxisImageTest extends TestCase
             }
 
             $this->assertSame('elwis/sbf_see_pdfbild_077.png', PraxisTask::where('content_id', 'PRAXIS-0049')->firstOrFail()->media->asset_key);
-            $this->assertSame(146, PraxisTask::whereHas('media', fn ($q) => $q->where('asset_key', 'like', 'elwis/%'))->count());
+            // Bug-Review (Kombikurs ohne Binnen-Praxiskarten): 43 See-Karten in
+            // SBF-SEE und SBF-SEE-BIN sowie 60 Binnen-Karten in SBF-BIN-MOTOR
+            // und (gespiegelt, "PRAXIS-BIN-…-SEE-BIN") in SBF-SEE-BIN --
+            // gespiegelt werden nur Binnen-eigene Kategorien, alle 60 Karten
+            // mit ELWIS-Bild gehören dazu.
+            $this->assertSame(206, PraxisTask::whereHas('media', fn ($q) => $q->where('asset_key', 'like', 'elwis/%'))->count());
+            $this->assertSame(
+                PraxisTask::where('content_id', 'PRAXIS-BIN-0018')->value('media_asset_id'),
+                PraxisTask::where('content_id', 'PRAXIS-BIN-0018-SEE-BIN')->value('media_asset_id')
+            );
         });
     }
 

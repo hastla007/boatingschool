@@ -136,8 +136,11 @@
                     <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-2 last:border-0 last:pb-0">
                         <div>
                             <span class="text-sm text-slate-700 dark:text-slate-200">{{ $booking['label'] }}</span>
+                            {{-- Bug-Review (Teilnehmer-Detail zeigt englischen Status): $booking['status'] bleibt
+                                 für die Formular-Logik unten der rohe Enumwert ("active"), angezeigt wird das
+                                 deutsche Label (siehe StatusLabels). --}}
                             @if ($booking['status'])
-                                <span class="inline-block ms-1 px-1.5 py-0.5 rounded-full text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">{{ $booking['status'] }}</span>
+                                <span class="inline-block ms-1 px-1.5 py-0.5 rounded-full text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">{{ \App\Support\StatusLabels::entitlementStatus($booking['status']) }}</span>
                             @endif
                             <span class="block text-xs text-slate-600 dark:text-slate-400">
                                 {{ $booking['source_type'] === 'coupon' ? 'Code '.$booking['source_reference'] : 'Manuell freigeschaltet' }}

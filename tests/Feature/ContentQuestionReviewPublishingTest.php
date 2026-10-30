@@ -370,4 +370,30 @@ class ContentQuestionReviewPublishingTest extends TestCase
         $response->assertSee('Review ausstehend');
         $response->assertSee(route('superadmin.questions.revisions.publish', $review));
     }
+
+    public function test_edit_page_warns_when_the_pending_review_is_older_than_an_editor_change_and_it_can_be_discarded(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        [, $question, , $review] = $this->makeQuestionWithPendingReview();
+
+        $this->actingAs($superadmin)->patch("/superadmin/questions/{$question->id}", [
+            'question_type' => 'single_choice',
+            'question_text' => 'Alte Fassung (vom Editor überarbeitet)',
+            'answers' => ['A' => 'Richtig', 'B' => 'Falsch', 'C' => 'Falsch', 'D' => 'Falsch'],
+            'correct' => 'A',
+        ])->assertRedirect(route('superadmin.questions.edit', $question));
+
+        $this->actingAs($superadmin)->get(route('superadmin.questions.edit', $question))
+            ->assertOk()
+            ->assertSee('ist neuer und wurde im Editor geändert')
+            ->assertSee(route('superadmin.questions.revisions.discard', $review));
+
+        $this->actingAs($superadmin)->post(route('superadmin.questions.revisions.discard', $review))->assertRedirect();
+
+        $this->onAdmin(function () use ($question, $review) {
+            $this->assertSame('deprecated', $review->fresh()->editorial_status);
+            $this->assertSame('Alte Fassung (vom Editor überarbeitet)', $question->fresh()->publishedRevision()->question_text);
+            $this->assertNull($question->fresh()->pendingReviewRevision());
+        });
+    }
 }

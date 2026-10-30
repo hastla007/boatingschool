@@ -59,30 +59,33 @@ class UbiSrcUbiExamPaperSeederTest extends TestCase
     }
 
     /**
-     * Bug-Review (AA2: SRC & UBI Kombikurs -- Fragen der UBI-Prüfungsbögen
-     * gehören nicht zum Kurs): UbiExamPaperSeeder/SrcUbiComboExamPaperSeeder
-     * sind zwar korrekt, erreichen eine bereits provisionierte Installation
-     * aber nur über einen erneuten db:seed-Lauf (siehe Bug-Review B5) --
-     * Migration 2024_02_01_000484 holt beide Ergebnisse direkt nach. Diese
-     * beiden Assertions sind die eigentliche Beobachtung aus dem Bug-Report:
-     * jede im SRC-UBI-Kombikurs referenzierte UBI-Prüfungsbogen-Frage muss
-     * auch über das UBI-Modul technisch Kursinhalt des Kombikurses sein
-     * (Favoriten-Stern/"Falsche Fragen erneut lernen" hängen am Modul-Scope,
-     * nicht am Prüfungsbogen).
+     * Bug-Review (AA2, überholt): diese Assertion erwartete früher 6
+     * UBI-Bögen und dass jede UBI-Bogenfrage über das Modul UBI zum
+     * Kombikurs gehört. Seit bf57170 lernt der Kombikurs bewusst nur SRC und
+     * die UBI-Ergänzung (259 statt 310 Fragen), spiegelt aber weiterhin die
+     * zwölf UBI-Vollkurs-Bögen 101-112 und die zwölf Ergänzungsbögen
+     * 201-212. Ein Teil der UBI-Bogenfragen liegt damit gewollt außerhalb
+     * des Modul-Scopes -- Favoriten-Stern und "Falsche Fragen erneut
+     * lernen" behandeln die Fragen der Prüfungsbögen eines Kurses deshalb
+     * als Kursinhalt (siehe SrcUbiPaperQuestionsBelongToCourseTest).
      */
-    public function test_every_ubi_paper_question_in_the_combo_also_belongs_to_the_combos_module_scope(): void
+    public function test_src_ubi_combo_learns_src_and_ubi_addon_but_keeps_the_full_ubi_papers(): void
     {
         $combo = CourseDefinition::withoutGlobalScopes()->where('code', 'SRC-UBI')->whereNull('tenant_id')->firstOrFail();
 
-        $ubiPapers = $combo->examPapers->filter(fn ($p) => $p->paper_number >= 101);
-        $this->assertCount(6, $ubiPapers, 'Der SRC-UBI-Kombikurs muss alle 6 gespiegelten UBI-Prüfungsbögen (101-106) haben.');
+        $this->assertSame(['SRC', 'UBI_ERG'], $combo->modules()->pluck('code')->all());
 
-        $courseQuestionIds = $combo->modules->flatMap(fn ($m) => $m->questions)->pluck('id');
+        $ubiPapers = $combo->examPapers->filter(fn ($p) => $p->paper_number >= 101 && $p->paper_number <= 112);
+        $addonPapers = $combo->examPapers->filter(fn ($p) => $p->paper_number >= 201 && $p->paper_number <= 212);
+        $this->assertCount(12, $ubiPapers);
+        $this->assertCount(12, $addonPapers);
+
+        $moduleQuestionIds = $combo->modules->flatMap(fn ($m) => $m->questions)->pluck('id');
         $ubiPaperQuestionIds = $ubiPapers->flatMap(fn ($p) => $p->paperQuestions->pluck('question_id'))->unique();
+        $addonPaperQuestionIds = $addonPapers->flatMap(fn ($p) => $p->paperQuestions->pluck('question_id'))->unique();
 
-        $this->assertCount(130, $ubiPaperQuestionIds, 'Alle 130 ubi_official-Fragen müssen über die 6 Bögen referenziert sein.');
-
-        $missing = $ubiPaperQuestionIds->diff($courseQuestionIds);
-        $this->assertCount(0, $missing, 'UBI-Prüfungsbogen-Fragen fehlen im Modul-Scope des SRC-UBI-Kombikurses (Favoriten-Stern/"Falsche Fragen erneut lernen" funktionieren für sie nicht).');
+        $this->assertCount(130, $ubiPaperQuestionIds, 'Alle 130 ubi_official-Fragen müssen über die 12 UBI-Bögen referenziert sein.');
+        $this->assertCount(0, $addonPaperQuestionIds->diff($moduleQuestionIds), 'Die Ergänzungsbögen bestehen nur aus Fragen des Moduls UBI_ERG.');
+        $this->assertNotEmpty($ubiPaperQuestionIds->diff($moduleQuestionIds), 'Die UBI-Vollkurs-Bögen enthalten bewusst auch Fragen außerhalb von SRC/UBI_ERG.');
     }
 }

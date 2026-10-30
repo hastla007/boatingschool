@@ -10,40 +10,94 @@ use Illuminate\Database\Seeder;
  * Praxis-Prüfungstrainer für den Kombikurs "SBF See & Binnen" und die
  * Ergänzung Binnen -> See: wie Video- und Navigationsinhalte hängen
  * Praxisaufgaben am course_id des jeweiligen Kurses (siehe
- * ComboVideoCourseSeeder/ComboNavigationTaskSeeder). SBF-Sees Aufgaben
- * werden daher unter der eigenen Kurs-ID gespiegelt, inklusive Verweis auf
- * bereits vorhandene Bild-Assets (keine Dateiduplikate nötig). Inhaber des
- * SBF Binnen (Antriebsmaschine) fahren für SBF See praktisch nur die
- * Pflichtmanöver (SpFV Anlage 4) -- die Ergänzung bekommt nur diese.
+ * ComboVideoCourseSeeder/ComboNavigationTaskSeeder). Die Aufgaben von
+ * SBF See und SBF Binnen (Antriebsmaschine) werden daher unter der eigenen
+ * Kurs-ID gespiegelt, inklusive Verweis auf bereits vorhandene Bild-Assets
+ * (keine Dateiduplikate nötig). Inhaber des SBF Binnen (Antriebsmaschine)
+ * fahren für SBF See praktisch nur die Pflichtmanöver (SpFV Anlage 4) --
+ * die Ergänzung bekommt nur diese.
+ *
+ * Idempotent: fehlende Spiegelkarten werden ergänzt, vorhandene bleiben
+ * unverändert (ElwisPraxisImageSeeder setzt deren Bilder danach über das
+ * content_id-Präfix, z. B. "PRAXIS-BIN-0001-%").
  */
 class ComboPraxisTrainerSeeder extends Seeder
 {
-    /** Kurs-Code => [Suffix der content_id, nur diese Kategorie (null = alle)]. */
+    /**
+     * Kurs-Code => Liste von [Quellkurs-Code, Suffix der content_id, nur
+     * diese Kategorie (null = alle)], in Anzeigereihenfolge.
+     *
+     * Bug-Review (Kombikurs ohne Binnen-Praxiskarten): SBF-SEE-BIN bekam
+     * bisher nur die 108 SBF-See-Karten, die 116 SBF-Binnen-Karten
+     * (PRAXIS-BIN-*) fehlten, obwohl der Kombikurs auch auf die praktische
+     * Binnen-Prüfung vorbereitet. Außerdem brach run() ab, sobald der
+     * Zielkurs überhaupt Karten hatte -- bestehende Installationen hätten
+     * die Binnen-Karten so nie erhalten.
+     */
     private const TARGETS = [
-        'SBF-SEE-BIN' => ['-SEE-BIN', null],
-        'ADD-BIN-TO-SEE' => ['-BIN-SEE', 'Pflichtmanöver'],
+        'SBF-SEE-BIN' => [
+            ['SBF-SEE', '-SEE-BIN', null],
+            ['SBF-BIN-MOTOR', '-SEE-BIN', null],
+        ],
+        'ADD-BIN-TO-SEE' => [
+            ['SBF-SEE', '-BIN-SEE', 'Pflichtmanöver'],
+        ],
     ];
 
     public function run(): void
     {
-        $sbfSee = CourseDefinition::withoutGlobalScopes()->where('code', 'SBF-SEE')->whereNull('tenant_id')->first();
+        foreach (self::TARGETS as $code => $sources) {
+            $target = $this->globalCourse($code);
 
-        if (! $sbfSee) {
-            return;
-        }
+            if (! $target) {
+                continue;
+            }
 
-        foreach (self::TARGETS as $code => [$suffix, $kategorie]) {
-            $target = CourseDefinition::withoutGlobalScopes()->where('code', $code)->whereNull('tenant_id')->first();
+            // Karten eines späteren Quellkurses folgen hinter denen des
+            // vorherigen, statt sich über sort_order mit ihnen zu mischen.
+            $sortOffset = 0;
+            $coveredKategorien = [];
 
-            if ($target && ! $target->praxisTasks()->exists()) {
-                $this->mirror($sbfSee, $target, $suffix, $kategorie);
+            foreach ($sources as [$sourceCode, $suffix, $kategorie]) {
+                $source = $this->globalCourse($sourceCode);
+
+                if (! $source) {
+                    continue;
+                }
+
+                // Kategorien, die eine frühere Quelle schon liefert
+                // (Pflichtmanöver, Knoten, sonstige Manöver, Sicherheit),
+                // nicht ein zweites Mal: im Kombikurs stünden "Anlegen unter
+                // Maschine" usw. sonst doppelt. Von SBF Binnen kommen damit
+                // nur die Binnen-eigenen Kategorien (Schallzeichen,
+                // Tafelzeichen, Brücken und Schleusen, Lichter, Fahrrinne).
+                $this->mirror($source, $target, $suffix, $kategorie, $sortOffset, $coveredKategorien);
+                $coveredKategorien = array_merge($coveredKategorien, $source->praxisTasks()->reorder()->distinct()->pluck('kategorie')->all());
+                $sortOffset += (int) $source->praxisTasks()->max('sort_order');
             }
         }
     }
 
-    private function mirror(CourseDefinition $sbfSee, CourseDefinition $target, string $suffix, ?string $kategorie): void
+    private function globalCourse(string $code): ?CourseDefinition
     {
-        foreach ($sbfSee->praxisTasks()->when($kategorie, fn ($q) => $q->where('kategorie', $kategorie))->get() as $sourceTask) {
+        return CourseDefinition::withoutGlobalScopes()->where('code', $code)->whereNull('tenant_id')->first();
+    }
+
+    /** @param  list<string>  $skipKategorien */
+    private function mirror(CourseDefinition $source, CourseDefinition $target, string $suffix, ?string $kategorie, int $sortOffset, array $skipKategorien): void
+    {
+        $existing = $target->praxisTasks()->pluck('content_id')->flip();
+
+        $tasks = $source->praxisTasks()
+            ->when($kategorie, fn ($q) => $q->where('kategorie', $kategorie))
+            ->when($skipKategorien, fn ($q) => $q->whereNotIn('kategorie', $skipKategorien))
+            ->get();
+
+        foreach ($tasks as $sourceTask) {
+            if ($existing->has($sourceTask->content_id.$suffix)) {
+                continue;
+            }
+
             PraxisTask::create([
                 'course_id' => $target->id,
                 'content_id' => $sourceTask->content_id.$suffix,
@@ -57,7 +111,7 @@ class ComboPraxisTrainerSeeder extends Seeder
                 'media_asset_id' => $sourceTask->media_asset_id,
                 'quelle' => $sourceTask->quelle,
                 'quellen_url' => $sourceTask->quellen_url,
-                'sort_order' => $sourceTask->sort_order,
+                'sort_order' => $sourceTask->sort_order + $sortOffset,
             ]);
         }
     }

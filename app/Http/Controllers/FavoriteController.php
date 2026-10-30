@@ -13,6 +13,7 @@ use App\Services\EntitlementService;
 use App\Services\FavoriteCollectionService;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -44,13 +45,14 @@ class FavoriteController extends Controller
 
         abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Für diesen Kurs liegt kein aktives Entitlement vor.');
 
-        $course->loadMissing('modules.questions');
         // Bug-Review B12 (Folgefehler): eine im Superadmin deaktivierte
         // Frage blieb hier trotzdem als Favorit/Fehler sichtbar und
         // anklickbar, obwohl sie im Lernmodus und in der Prüfung längst
         // ausgeschlossen ist.
         // Bug-Review BB16: dieselbe Lücke bestand für valid_from/valid_to.
-        $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->filter(fn ($q) => $q->isCurrentlyValid())->pluck('id')->unique();
+        // Bug-Review (SRC-UBI: Fragen der Prüfungsbögen gehören nicht zum
+        // Kurs): siehe courseQuestionIds().
+        $questionIds = ContentQuestion::whereIn('id', $this->courseQuestionIds($course))->currentlyValid()->pluck('id');
 
         $smartFavorites = Favorite::with('question.revisions')
             ->where('tenant_id', $tenant->id)->where('user_id', $user->id)
@@ -101,6 +103,17 @@ class FavoriteController extends Controller
                     ->where('course_id', $course->id);
             })
             ->where('correct', false)
+            // Bug-Review (Fehlerliste zeigt deaktivierte Fragen): anders als
+            // alle übrigen Listen dieser Seite war "Meine Fehler" der
+            // Prüfungsfragen nicht auf aktuell gültige Fragen (active,
+            // veröffentlichte Revision im Gültigkeitsfenster) beschränkt --
+            // eine inzwischen deaktivierte Frage belegte weiter einen der
+            // 20 Plätze. Gefiltert VOR dem limit(), damit die Liste
+            // trotzdem bis zu 20 gültige Fragen zeigt. Bewusst nicht auf
+            // $questionIds (Kursinhalt), sondern nur auf Gültigkeit: die
+            // Prüfungssessions dieses Kurses bestimmen selbst, welche
+            // Fragen dazugehören.
+            ->whereIn('question_id', ContentQuestion::query()->currentlyValid()->select('id'))
             ->selectRaw('question_id, max(answered_at) as last_wrong_at')
             ->groupBy('question_id')
             ->orderByDesc('last_wrong_at')
@@ -161,9 +174,7 @@ class FavoriteController extends Controller
         abort_unless($course, 404);
         abort_unless($entitlements->hasAccess($tenant, $request->user(), $course), 403, 'Für diesen Kurs liegt kein aktives Entitlement vor.');
 
-        $course->loadMissing('modules.questions');
-        $courseQuestionIds = $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id');
-        abort_unless($courseQuestionIds->contains($question->id), 403, 'Frage gehört nicht zum berechtigten Kurs.');
+        abort_unless($this->courseQuestionIds($course)->contains($question->id), 403, 'Frage gehört nicht zum berechtigten Kurs.');
 
         Favorite::firstOrCreate([
             'tenant_id' => $tenant->id,
@@ -220,6 +231,23 @@ class FavoriteController extends Controller
         }
 
         return back();
+    }
+
+    /**
+     * Bug-Review (SRC-UBI: Favoriten-Stern 403 für UBI-Bogenfragen): der
+     * Kombikurs SRC-UBI lernt bewusst nur die Module SRC und UBI_ERG
+     * (siehe UbiErgaenzungSeeder), spiegelt aber auch die zwölf UBI-
+     * Vollkurs-Bögen 101-112 (SrcUbiComboExamPaperSeeder), deren Fragen
+     * aus dem Modul UBI stammen. Der Modul-Scope allein lehnte den
+     * Favoriten-Stern auf genau diesen Fragen mit 403 ab und blendete sie
+     * auf der Favoritenseite aus. Zum Kurs gehören deshalb die Fragen
+     * seiner Module UND seiner Prüfungsbögen.
+     *
+     * @return Collection<int, string>
+     */
+    private function courseQuestionIds(CourseDefinition $course): Collection
+    {
+        return $course->contentQuestionIds();
     }
 
     private function resolveContext(Request $request): string

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\ContentQuestion;
 use App\Models\CourseDefinition;
 use App\Models\Module;
 use App\Models\Progress;
@@ -48,7 +49,7 @@ class CourseProgressService
         // und die darauf aufbauenden Freigaben (Praxisformular,
         // Willkommensbox, Addon-/Banner-Empfehlungen) blieben gesperrt.
         // Bug-Review BB16: dieselbe Lücke bestand für valid_from/valid_to.
-        $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->filter(fn ($q) => $q->isCurrentlyValid())->pluck('id')->unique();
+        $questionIds = ContentQuestion::currentlyValidIds($course->modules->flatMap(fn ($m) => $m->questions));
         $total = max($questionIds->count(), 1);
 
         $mastered = Progress::where('tenant_id', $tenant->id)
@@ -83,7 +84,7 @@ class CourseProgressService
             // Frage zählte hier ebenfalls weiter mit, obwohl sie nie
             // "gefestigt" werden kann.
             // Bug-Review BB16: dieselbe Lücke bestand für valid_from/valid_to.
-            $activeQuestions = $module->questions->filter(fn ($q) => $q->isCurrentlyValid());
+            $activeQuestions = ContentQuestion::filterCurrentlyValid($module->questions);
 
             $topics = $activeQuestions
                 ->groupBy(function ($q) {

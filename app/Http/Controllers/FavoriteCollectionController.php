@@ -82,9 +82,9 @@ class FavoriteCollectionController extends Controller
         // FavoriteController::store().
         abort_unless($entitlements->hasAccess($tenant, $request->user(), $course), 403, 'Für diesen Kurs liegt kein aktives Entitlement vor.');
 
-        $course->loadMissing('modules.questions');
-        $courseQuestionIds = $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id');
-        abort_unless($courseQuestionIds->contains($question->id), 403, 'Frage gehört nicht zum berechtigten Kurs.');
+        // Modulfragen plus Fragen der Prüfungsbögen (siehe
+        // CourseDefinition::contentQuestionIds()).
+        abort_unless($course->contentQuestionIds()->contains($question->id), 403, 'Frage gehört nicht zum berechtigten Kurs.');
 
         $validated = $request->validate([
             'context' => ['required', 'in:'.Favorite::CONTEXT_SMART_LEARNING.','.Favorite::CONTEXT_EXAM],

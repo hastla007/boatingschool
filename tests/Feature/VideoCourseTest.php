@@ -434,9 +434,9 @@ class VideoCourseTest extends TestCase
      * Auswahl dadurch STILLSCHWEIGEND leer -- eine tatsächlich korrekt
      * beantwortete Frage wurde ohne jeden Fehler als komplett falsch
      * verbucht. revision_id kommt jetzt als eigenes Formularfeld aus
-     * genau der Fassung, die show() tatsächlich angezeigt hat, und muss
-     * weiterhin veröffentlicht sein -- eine inzwischen überholte Fassung
-     * führt zu einer klaren Ablehnung statt einer stillen Falschbewertung.
+     * genau der Fassung, die show() tatsächlich angezeigt hat; bewertet
+     * wird gegen genau diese Fassung, auch wenn sie inzwischen überholt
+     * ist (siehe AnswerSurvivesNewRevisionTest).
      */
     public function test_answering_against_a_revision_that_has_since_been_replaced_does_not_silently_mis_grade_the_correct_answer(): void
     {
@@ -508,17 +508,21 @@ class VideoCourseTest extends TestCase
             ['revision_id' => $oldRevision->id, 'answer_ids' => [$oldCorrectAnswer->id]]
         );
 
-        // Die inzwischen überholte Fassung wird klar abgelehnt (404),
-        // statt die eigentlich richtige Antwort stillschweigend gegen die
-        // neue Fassung als falsch zu werten.
-        $response->assertStatus(404);
-        $this->asTenant($tenant, function () use ($tenant, $learner, $question, $course) {
-            $this->assertDatabaseMissing('attempt', [
+        // Bug-Review (Antwort geht verloren, wenn die Frage zwischendurch
+        // ersetzt wurde): die Antwort wird gegen die tatsächlich angezeigte
+        // (inzwischen überholte) Fassung bewertet -- die richtige Antwort
+        // zählt als richtig, statt mit einer Fehlerseite verloren zu gehen
+        // oder gegen die neue Fassung als falsch gewertet zu werden.
+        $response->assertRedirect();
+        $this->asTenant($tenant, function () use ($tenant, $learner, $question, $course, $oldRevision) {
+            $this->assertDatabaseHas('attempt', [
                 'tenant_id' => $tenant->id,
                 'user_id' => $learner->id,
                 'question_id' => $question->id,
                 'course_id' => $course->id,
                 'context' => 'video_quiz',
+                'revision_id' => $oldRevision->id,
+                'correct' => true,
             ]);
         });
     }

@@ -146,6 +146,22 @@ class ContentQuestion extends Model
      */
     public static function currentlyValidIds(Collection $questions): Collection
     {
+        return self::filterCurrentlyValid($questions)->pluck('id')->unique();
+    }
+
+    /**
+     * Bug-Review (BB16-Folgefehler, Seiten mit hunderten Abfragen):
+     * isCurrentlyValid() lädt pro Frage die veröffentlichte Revision -- in
+     * den Fragen-Collections eines Kurses (Dashboard, Kursseite,
+     * Lernübersicht, Smarttrainer ...) waren das bei SBF See & Binnen über
+     * 1.000 Abfragen pro Seitenaufruf. Diese Variante filtert eine bereits
+     * geladene Collection mit genau einer Abfrage.
+     *
+     * @param  Collection<int, ContentQuestion>  $questions
+     * @return Collection<int, ContentQuestion>
+     */
+    public static function filterCurrentlyValid(Collection $questions): Collection
+    {
         $active = $questions->where('active', true)->unique('id');
         $today = now()->setTimezone('Europe/Berlin')->toDateString();
 
@@ -170,6 +186,6 @@ class ContentQuestion extends Model
             }
 
             return true;
-        })->pluck('id')->unique();
+        })->values();
     }
 }

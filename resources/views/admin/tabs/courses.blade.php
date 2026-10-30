@@ -8,7 +8,7 @@
     Kauf-Link hinterlegen &mdash; der ersetzt auf der Kursübersicht für Lernende ohne Zugang dann den
     Standardhinweis durch einen „Jetzt kaufen"-Button.
 </p>
-<p class="text-slate-500 mb-6">
+<p class="text-slate-500 dark:text-slate-400 mb-6">
     Je Kurs legen Sie außerdem die <strong>Prüfungsanmeldung</strong> fest: Entweder melden Sie Ihre Teilnehmer an
     (Termintool „Praxis &amp; Prüfung"), oder die Teilnehmer melden sich selbst beim Prüfungsausschuss an und sehen
     dafür die Seite „Prüfung buchen" mit Anmeldeweg, Gebühren und Ablauf des jeweiligen Kurses. Die Selbstanmeldung

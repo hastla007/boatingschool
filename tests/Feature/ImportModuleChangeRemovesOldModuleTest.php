@@ -71,6 +71,26 @@ class ImportModuleChangeRemovesOldModuleTest extends TestCase
         $this->assertFalse($basis->questions()->where('question_id', $question->id)->exists());
     }
 
+    public function test_a_reimport_keeps_modules_that_another_seeder_manages(): void
+    {
+        // Module außerhalb der Excel-Zuordnung (UBI_ERG trägt 79 UBI-Fragen
+        // zusätzlich, siehe UbiErgaenzungSeeder) darf ein Reimport nicht
+        // entfernen.
+        $basis = $this->existingModule('SBF_BASIS');
+        $ubiErg = $this->existingModule('UBI_ERG');
+
+        $this->writeFixture('Basis');
+        $this->runImport();
+
+        $question = ContentQuestion::where('content_id', 'TEST-MODULE-SWITCH-0001')->firstOrFail();
+        $this->onAdmin(fn () => DB::table('module_content')->insert(['module_id' => $ubiErg->id, 'question_id' => $question->id, 'required' => true]));
+
+        $this->runImport();
+
+        $moduleIds = $question->modules()->pluck('module.id')->sort()->values()->all();
+        $this->assertSame(collect([$basis->id, $ubiErg->id])->sort()->values()->all(), $moduleIds);
+    }
+
     private function writeFixture(string $module): void
     {
         $this->fixturePath = storage_path('framework/testing/module-switch-import-test.xlsx');

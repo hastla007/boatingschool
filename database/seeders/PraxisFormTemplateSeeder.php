@@ -159,6 +159,23 @@ class PraxisFormTemplateSeeder extends Seeder
             return;
         }
 
+        // Bug-Review (Seeder dupliziert umbenannte Formulare): firstOrCreate()
+        // erkennt ein bestehendes Formular nur an seinem Titel -- hatte ein
+        // Superadmin es seitdem umbenannt, legte der nächste db:seed beim
+        // Deploy ein zweites, aktives Formular mit dem alten Titel für
+        // dieselben Kurse an (zwei aktive Formulare je Kurs, entgegen der
+        // Exklusivität aus dem Klassenkommentar). Ist einem der Kurse schon
+        // IRGENDEIN Formular zugewiesen -- egal unter welchem Titel und auch
+        // ein bewusst deaktiviertes --, gilt dieser Kurs als bereits
+        // eingerichtet und bleibt unberührt. Ein wirklich neuer Kurs bzw. ein
+        // neues Formular im Code wird weiterhin angelegt.
+        $alreadyAssigned = PraxisFormTemplate::query()->get(['id', 'course_ids'])
+            ->contains(fn (PraxisFormTemplate $template) => array_intersect($template->course_ids ?? [], $courseIds) !== []);
+
+        if ($alreadyAssigned) {
+            return;
+        }
+
         PraxisFormTemplate::firstOrCreate(
             ['title' => $title],
             [

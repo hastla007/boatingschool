@@ -81,7 +81,7 @@
                         <div class="font-semibold text-slate-800 dark:text-white">{{ $entry['course']->name }}</div>
                         <div class="text-xs text-slate-600 dark:text-slate-400 mt-1">{{ $entry['course']->modules->pluck('name')->join(' · ') }}</div>
                         <div class="text-xs text-slate-600 dark:text-slate-400 mt-2">
-                            Freigeschaltet am {{ $entry['entitlement']->valid_from->format('d.m.Y') }}
+                            Freigeschaltet am {{ \App\Support\GermanTime::format($entry['entitlement']->valid_from, 'd.m.Y') }}
                         </div>
                     </div>
                 </a>

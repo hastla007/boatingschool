@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ContentAnswer;
+use App\Models\ContentQuestion;
 use App\Models\CourseDefinition;
 use App\Models\ExamPaper;
 use App\Models\ExamPaperQuestion;
@@ -134,7 +135,20 @@ class ExamController extends Controller
 
         // Favoriten sind kursgebunden: nur Fragen zählen, die tatsächlich zu
         // diesem Kurs gehören, damit jeder Kurs seine eigenen Favoriten hat.
-        $courseQuestionIds = $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id')->unique();
+        //
+        // Bug-Review (Favoritenzähler zählt deaktivierte Fragen): analog zu
+        // LearningController (BB2) zählen nur aktuell gültige Fragen (active,
+        // veröffentlichte Revision) -- eine deaktivierte Frage kann nie
+        // "gefestigt" werden und hielt den Zähler sonst dauerhaft zurück.
+        // Bug-Review (SRC-UBI): zum Kurs gehören auch die Fragen seiner
+        // Prüfungsbögen (siehe FavoriteController::courseQuestionIds()),
+        // sonst fehlten z. B. die UBI-Bogenfragen im Kombikurs SRC-UBI.
+        $courseQuestionIds = ContentQuestion::whereIn('id', $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id')
+            ->merge(ExamPaperQuestion::whereIn('exam_paper_id', $paperIds)->pluck('question_id'))
+            ->unique()
+            ->values())
+            ->currentlyValid()
+            ->pluck('id');
         $favoriteIds = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)
             ->where('context', Favorite::CONTEXT_EXAM)
             ->whereIn('question_id', $courseQuestionIds)->pluck('question_id');

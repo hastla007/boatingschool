@@ -76,6 +76,7 @@ Route::middleware(['auth', 'superadmin', 'admin-db', 'verified'])->prefix('super
     // "review" erreichte Lerner bisher nie -- es gab keinen Weg, sie zu
     // veröffentlichen.
     Route::post('/question-revisions/{revision}/publish', [QuestionController::class, 'publishRevision'])->name('questions.revisions.publish');
+    Route::post('/question-revisions/{revision}/discard', [QuestionController::class, 'discardRevision'])->name('questions.revisions.discard');
 
     Route::get('/settings', [SettingsController::class, 'edit'])->name('settings.edit');
     Route::patch('/settings', [SettingsController::class, 'update'])->name('settings.update');

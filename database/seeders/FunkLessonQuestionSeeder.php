@@ -5,6 +5,8 @@ namespace Database\Seeders;
 use App\Models\ContentQuestion;
 use App\Models\CourseDefinition;
 use App\Models\Module;
+use App\Models\VideoLesson;
+use Database\Seeders\Concerns\SeedsLessonQuizOnce;
 use Illuminate\Database\Seeder;
 
 /**
@@ -13,10 +15,16 @@ use Illuminate\Database\Seeder;
  * Stoff sie gehört (database/data/funk_video_quiz.php). Die UBI-Lektionen
  * der UBI-Ergänzung und des Kombikurses SRC & UBI zeigen nur die Fragen des
  * Ergänzungskatalogs (Modul UBI_ERG), die diese Kurse auch lernen.
- * Idempotent: eine Lektion, die schon Fragen hat, bleibt unverändert.
+ * Idempotent: eine Lektion, deren Quiz schon einmal geseedet wurde
+ * (quiz_seeded_at) oder die schon Fragen hat, bleibt unverändert.
  */
 class FunkLessonQuestionSeeder extends Seeder
 {
+    // Bug-Review (Seeder-Idempotenz Videoquiz): vorher nur "hat noch keine
+    // Fragen" -- vom Superadmin geleerte Quizze kamen zurück, siehe
+    // SeedsLessonQuizOnce.
+    use SeedsLessonQuizOnce;
+
     /** Kurs => [[Katalog in funk_video_quiz.php, nur Fragen dieses Moduls (oder null)], ...]. */
     private const COURSES = [
         'SRC' => [['SRC', null]],
@@ -47,14 +55,12 @@ class FunkLessonQuestionSeeder extends Seeder
                     foreach ($lessons as $lessonTitle => $contentIds) {
                         $lesson = $chapter?->lessons()->where('title', $lessonTitle)->first();
 
-                        if (! $lesson || $lesson->questions()->exists()) {
-                            continue;
-                        }
-
                         $ids = collect($contentIds)->map(fn ($id) => $questionIds[$id] ?? null)->filter()
                             ->filter(fn ($id) => $allowed === null || isset($allowed[$id]))->values();
 
-                        $lesson->questions()->sync($ids->mapWithKeys(fn ($id, $i) => [$id => ['sort_order' => $i + 1]])->all());
+                        $this->seedQuizOnce($lesson, fn (VideoLesson $lesson) => $lesson->questions()->sync(
+                            $ids->mapWithKeys(fn ($id, $i) => [$id => ['sort_order' => $i + 1]])->all()
+                        ));
                     }
                 }
             }

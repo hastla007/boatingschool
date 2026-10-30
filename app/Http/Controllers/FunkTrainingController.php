@@ -26,7 +26,7 @@ class FunkTrainingController extends Controller
 {
     public function praxisIndex(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course): View
     {
-        $catalog = $this->authorizeCatalog($request, $tenantContext, $entitlements, $course, $request->query('teil'));
+        $catalog = $this->authorizeCatalog($request, $tenantContext, $entitlements, $course, $this->teilQueryParam($request));
         $tasks = FunkPraxis::tasks($catalog);
         $completed = $this->progress($tenantContext, $request, RadioTrainingProgress::TYPE_PRAXIS, array_column($tasks, 'key'))
             ->filter(fn ($p) => $p->completed)->keys()->all();
@@ -111,7 +111,7 @@ class FunkTrainingController extends Controller
 
     public function oralIndex(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course): View
     {
-        $catalog = $this->authorizeCatalog($request, $tenantContext, $entitlements, $course, $request->query('teil'));
+        $catalog = $this->authorizeCatalog($request, $tenantContext, $entitlements, $course, $this->teilQueryParam($request));
 
         if ($catalog === 'UBI') {
             return $this->ubiOralIndex($request, $tenantContext, $course);
@@ -291,6 +291,19 @@ class FunkTrainingController extends Controller
         abort_if($selected === null || ($strict && $selected !== $catalog), 404);
 
         return $selected;
+    }
+
+    /**
+     * Bug-Review (Array-Query-Parameter): ?teil[]=x lieferte ein Array, das
+     * authorizeCatalog(?string ...) mit einem TypeError (HTTP 500)
+     * quittierte -- ein nicht-string-förmiger Wert gilt als nicht gesetzt
+     * (Standard-Teil des Kurses).
+     */
+    private function teilQueryParam(Request $request): ?string
+    {
+        $raw = $request->query('teil');
+
+        return is_string($raw) ? $raw : null;
     }
 
     /** @return Collection<string, RadioTrainingProgress> */

@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\PraxisExamAppointment;
+use App\Notifications\Concerns\EscapesMarkdown;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
@@ -15,7 +16,7 @@ use Illuminate\Notifications\Notification;
  */
 class PraxisExamAppointmentResponded extends Notification
 {
-    use Queueable;
+    use EscapesMarkdown, Queueable;
 
     public function __construct(private readonly PraxisExamAppointment $appointment) {}
 
@@ -27,7 +28,10 @@ class PraxisExamAppointmentResponded extends Notification
 
     public function toMail(mixed $notifiable): MailMessage
     {
-        $learnerName = $this->appointment->submission->user->name ?? 'Ein Teilnehmer';
+        // Bug-Review (Markdown-Injection über den Namen): der Name ist vom
+        // Lerner frei wählbar (Profil/Registrierung) und landet hier ebenso
+        // in einer Markdown-Zeile wie der Kommentar unten.
+        $learnerName = self::escapeMarkdown($this->appointment->submission->user->name ?? 'Ein Teilnehmer');
         $verb = $this->appointment->response === 'accepted' ? 'angenommen' : 'abgelehnt';
 
         $message = (new MailMessage)
@@ -39,20 +43,5 @@ class PraxisExamAppointmentResponded extends Notification
         }
 
         return $message->action('Anmeldung ansehen', route('admin.participants.show', $this->appointment->submission->user_id));
-    }
-
-    /**
-     * Bug-Review (Phishing-Link via Prüfungstermin-Kommentar in Admin-
-     * E-Mail einschleusbar): MailMessage::line() rendert über Laravels
-     * Markdown-Mailvorlage -- ein Lerner konnte im freien Kommentarfeld
-     * echte Markdown-Linksyntax ("[Text](https://...)") oder eine bloße
-     * URL hinterlegen, die in der an die Bootsschule verschickten E-Mail
-     * als klickbarer Link dargestellt wurde. Backslash-Escaping aller
-     * CommonMark-Sonderzeichen neutralisiert das: der Kommentar erscheint
-     * weiterhin wortgetreu, aber ausschließlich als Fließtext.
-     */
-    private static function escapeMarkdown(string $text): string
-    {
-        return preg_replace('/([\\\\`*_{}\[\]()#+\-.!|>~])/', '\\\\$1', $text);
     }
 }

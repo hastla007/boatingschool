@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\PraxisFormSubmission;
+use App\Notifications\Concerns\EscapesMarkdown;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
@@ -16,7 +17,7 @@ use Illuminate\Notifications\Notification;
  */
 class PraxisFormSubmissionReceived extends Notification
 {
-    use Queueable;
+    use EscapesMarkdown, Queueable;
 
     public function __construct(private readonly PraxisFormSubmission $submission) {}
 
@@ -28,7 +29,9 @@ class PraxisFormSubmissionReceived extends Notification
 
     public function toMail(mixed $notifiable): MailMessage
     {
-        $learnerName = $this->submission->user->name ?? 'Ein Teilnehmer';
+        // Bug-Review (Markdown-Injection über den Namen): siehe
+        // EscapesMarkdown -- der Name ist vom Lerner frei wählbar.
+        $learnerName = self::escapeMarkdown($this->submission->user->name ?? 'Ein Teilnehmer');
         $courseName = $this->submission->course->name ?? 'einen Kurs';
 
         return (new MailMessage)

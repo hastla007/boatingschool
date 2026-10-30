@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\ContentQuestion;
 use App\Models\CourseDefinition;
 use App\Models\VideoLesson;
+use Database\Seeders\Concerns\SeedsLessonQuizOnce;
 use Illuminate\Database\Seeder;
 
 /**
@@ -17,6 +18,10 @@ use Illuminate\Database\Seeder;
  */
 class BinnenSegelnAddonLessonQuestionSeeder extends Seeder
 {
+    // Bug-Review (Seeder-Idempotenz Videoquiz): einmal geseedete Lektionen
+    // (quiz_seeded_at) bleiben unangetastet, siehe SeedsLessonQuizOnce.
+    use SeedsLessonQuizOnce;
+
     /** @var array<string, array<string, array<int, int>>> Kapitel => Lektion => [official_number]. */
     private const LESSON_QUESTIONS = [
         'Segelboot und Stabilität' => [
@@ -67,18 +72,14 @@ class BinnenSegelnAddonLessonQuestionSeeder extends Seeder
 
             foreach ($lessons as $lessonTitle => $officialNumbers) {
                 $lesson = $chapter->lessons()->where('title', $lessonTitle)->first();
-                $this->attachQuestions($lesson, $officialNumbers);
+                $this->seedQuizOnce($lesson, fn (VideoLesson $lesson) => $this->attachQuestions($lesson, $officialNumbers));
             }
         }
     }
 
     /** @param int[] $officialNumbers */
-    private function attachQuestions(?VideoLesson $lesson, array $officialNumbers): void
+    private function attachQuestions(VideoLesson $lesson, array $officialNumbers): void
     {
-        if (! $lesson || $lesson->questions()->exists()) {
-            return;
-        }
-
         foreach ($officialNumbers as $sortOrder => $officialNumber) {
             $question = ContentQuestion::where('official_number', (string) $officialNumber)
                 ->where('content_role', 'segel_specific')

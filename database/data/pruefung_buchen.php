@@ -255,7 +255,7 @@ return [
             'deadline' => 'Unterlagen und Gebühr reichst du rechtzeitig vor dem Termin ein; die Frist nennt dir dein Prüfungsausschuss.',
             'documents' => [
                 'Ausgefüllter und unterschriebener Antrag',
-                'Kopie deines Sportbootführerscheins See oder Binnen (oder eines anderen anerkannten Befähigungsnachweises)',
+                'Kopie deines Sportbootführerscheins See oder Binnen (oder eines anderen anerkannten Befähigungsnachweises) – legst du die SBF-Prüfung gleichzeitig ab, gib das im Antrag an',
                 'Bei Minderjährigen: Einverständnis eines Erziehungsberechtigten',
             ],
             'variants' => [
@@ -272,7 +272,7 @@ return [
                 ['key' => 'praxis', 'title' => 'Praxis', 'icon' => 'flag', 'link' => null, 'text' => 'Sicherer Umgang mit Seenotsignalmitteln: Signalmittel erkennen, richtig halten und auslösen, Verhalten bei Versagern. Die Aufgaben wählt der Prüfer aus.'],
             ],
             'faq' => [
-                'Brauche ich dafür einen Bootsführerschein?' => 'Ja. Zur FKN-Prüfung musst du einen Sportbootführerschein See oder Binnen (oder einen anderen anerkannten Befähigungsnachweis) haben und am Prüfungstag mindestens 16 Jahre alt sein.',
+                'Brauche ich dafür einen Bootsführerschein?' => 'Ja: Entweder hast du schon einen Sportbootführerschein See oder Binnen (oder einen anderen anerkannten Befähigungsnachweis), oder du legst die SBF-Prüfung gleichzeitig mit der FKN-Prüfung ab. Am Prüfungstag musst du mindestens 16 Jahre alt sein.',
                 'Wann habe ich bestanden?' => 'Im Fragebogen brauchst du mindestens 24 von 30 Punkten; dazu kommt der praktische Teil.',
             ] + $faq['fee']('FKN', '29 €') + $faq['online'] + [
                 'FKN oder SKN – was brauche ich?' => 'Für Handfackeln, Raketen und Rauchsignale reicht der FKN. Für eine Signalpistole brauchst du den Sachkundenachweis (SKN).',

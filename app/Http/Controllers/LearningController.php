@@ -9,6 +9,7 @@ use App\Models\ContentQuestionRevision;
 use App\Models\CourseDefinition;
 use App\Models\ExamSession;
 use App\Models\Favorite;
+use App\Models\Module;
 use App\Models\PraxisProgress;
 use App\Models\Progress;
 use App\Services\CourseProgressService;
@@ -18,6 +19,7 @@ use App\Services\LearningService;
 use App\Services\SmarttrainerService;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
 
 class LearningController extends Controller
@@ -47,7 +49,7 @@ class LearningController extends Controller
         // Favoriten-Nenner mit, wodurch "X/Y gemeistert" dauerhaft hinter
         // dem tatsächlich erreichbaren Fortschritt zurückblieb, analog zum
         // bereits gefixten Gesamtfortschritt-Nenner in CourseProgressService.
-        $courseQuestionIds = $course->modules->flatMap(fn ($m) => $m->questions)->filter(fn ($q) => $q->isCurrentlyValid())->pluck('id')->unique();
+        $courseQuestionIds = ContentQuestion::currentlyValidIds($course->modules->flatMap(fn ($m) => $m->questions));
         $favoriteIds = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)
             ->where('context', Favorite::CONTEXT_SMART_LEARNING)
             ->whereIn('question_id', $courseQuestionIds)->pluck('question_id');
@@ -102,12 +104,17 @@ class LearningController extends Controller
         if (! in_array($mode, ['smarttrainer', 'new', 'wrong', 'topic', 'favorites'], true)) {
             $mode = 'smarttrainer';
         }
-        $topic = $request->query('topic');
-        $moduleId = $request->query('module');
+        // Bug-Review (Array-Query-Parameter): ?topic[]=x bzw. ?module[]=x
+        // lieferte ein Array, das nextQuestion(?string ...) mit einem
+        // TypeError (HTTP 500) quittierte -- nicht-string-förmige Werte
+        // gelten jetzt als nicht gesetzt (siehe stringQueryParam()).
+        $topic = $this->stringQueryParam($request, 'topic');
+        $moduleId = $this->stringQueryParam($request, 'module');
         $questionIds = $this->parseQuestionIds($this->questionsQueryParam($request));
 
         if ($mode === 'favorites') {
-            $courseQuestionIds = $course->modules->flatMap(fn ($m) => $m->questions)->filter(fn ($q) => $q->isCurrentlyValid())->pluck('id')->unique();
+            // Gültigkeit prüft die Auswahl unten (currentlyValid()) ohnehin.
+            $courseQuestionIds = $this->courseQuestionIds($course);
             $favoriteIds = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)
                 ->where('context', Favorite::CONTEXT_SMART_LEARNING)
                 ->whereIn('question_id', $courseQuestionIds)->pluck('question_id');
@@ -144,7 +151,8 @@ class LearningController extends Controller
                 ->first();
             $next = $next ? ['question' => $next, 'reason' => 'Favorit'] : null;
         } else {
-            $next = $smarttrainer->nextQuestion($tenant, $user, $course, $mode, $topic, $moduleId, $questionIds);
+            $learningCourse = $questionIds !== null ? $this->withExamPaperQuestions($course, $questionIds) : $course;
+            $next = $smarttrainer->nextQuestion($tenant, $user, $learningCourse, $mode, $topic, $moduleId, $questionIds);
         }
 
         if (! $next) {
@@ -233,15 +241,22 @@ class LearningController extends Controller
         // Gültigkeitsfensters liegende Frage ließ sich hier weiterhin
         // beantworten, obwohl sie an keiner Auswahl-Stelle mehr angeboten
         // wird.
+        //
+        // Bug-Review (Antwort geht bei neuer Revision verloren): wurde
+        // zwischen Anzeige und Abschicken eine neue Fassung derselben Frage
+        // veröffentlicht, ist die angezeigte Revision inzwischen
+        // "deprecated" -- der POST mit ihrer revision_id endete bisher mit
+        // 404, die Antwort war verloren. Eine abgelöste Fassung einer
+        // weiterhin gültigen Frage wird deshalb ebenfalls angenommen und
+        // gegen genau diese (angezeigte) Fassung bewertet.
         $revision = ContentQuestionRevision::where('id', $validated['revision_id'])
-            ->where('editorial_status', 'published')
+            ->whereIn('editorial_status', ['published', 'deprecated'])
             ->whereHas('question', fn ($q) => $q->currentlyValid())
             ->firstOrFail();
 
         // Sicherheitsregel laut api_spec.md: question_id/revision_id müssen zu
         // Content gehören, der für den Kurs des Nutzers tatsächlich freigegeben ist.
-        $courseQuestionIds = $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id');
-        abort_unless($courseQuestionIds->contains($revision->question_id), 403, 'Frage gehört nicht zum berechtigten Kurs.');
+        abort_unless($this->courseQuestionIds($course)->contains($revision->question_id), 403, 'Frage gehört nicht zum berechtigten Kurs.');
 
         // Eine Frage, die gerade Teil einer laufenden Prüfungssession dieses
         // Nutzers ist, darf währenddessen nicht im Lernmodus bearbeitet
@@ -308,8 +323,8 @@ class LearningController extends Controller
             'course' => $course,
             'attempt' => $attempt,
             'mode' => $validated['mode'],
-            'topic' => $request->query('topic'),
-            'module' => $request->query('module'),
+            'topic' => $this->stringQueryParam($request, 'topic'),
+            'module' => $this->stringQueryParam($request, 'module'),
             'questions' => $this->questionsQueryParam($request),
         ]));
     }
@@ -342,8 +357,8 @@ class LearningController extends Controller
             'revision' => $revision,
             'reason' => null,
             'mode' => $mode,
-            'topic' => $request->query('topic'),
-            'moduleId' => $request->query('module'),
+            'topic' => $this->stringQueryParam($request, 'topic'),
+            'moduleId' => $this->stringQueryParam($request, 'module'),
             'questionsParam' => $this->questionsQueryParam($request),
             'isFavorite' => $isFavorite,
             'startedAt' => now()->valueOf(),
@@ -354,6 +369,55 @@ class LearningController extends Controller
             'streak' => $progress?->current_streak ?? 0,
             'mastered' => $progress?->learning_state === 'gefestigt',
         ]);
+    }
+
+    /**
+     * Bug-Review (SRC-UBI: Fragen der Prüfungsbögen gehören nicht zum
+     * Kurs): der Kombikurs SRC-UBI lernt bewusst nur die Module SRC und
+     * UBI_ERG (siehe UbiErgaenzungSeeder), spiegelt aber auch die zwölf
+     * UBI-Vollkurs-Bögen 101-112, deren Fragen aus dem Modul UBI stammen.
+     * storeAttempt() lehnte eine Antwort auf genau diese Fragen mit 403 ab
+     * (z. B. aus "Falsche Fragen erneut lernen" oder einem Prüfungs-
+     * Favoriten). Zum Kurs gehören deshalb die Fragen seiner Module UND
+     * seiner Prüfungsbögen -- analog zu FavoriteController.
+     *
+     * @return Collection<int, string>
+     */
+    private function courseQuestionIds(CourseDefinition $course): Collection
+    {
+        return $course->contentQuestionIds();
+    }
+
+    /**
+     * "Falsche Fragen erneut lernen" (?questions=...) übergibt die falsch
+     * beantworteten Fragen einer Prüfung -- SmarttrainerService::
+     * nextQuestion() wählt aber nur unter den Modulfragen des Kurses aus
+     * und übersprang Bogenfragen außerhalb der Module (siehe
+     * courseQuestionIds()) stillschweigend. Nur für diese explizit
+     * angefragten Fragen bekommt eine Kopie des Kurses ein zusätzliches,
+     * nicht gespeichertes Modul mit genau diesen Bogenfragen; der normale
+     * Lernmodus bleibt beim Modulinhalt des Kurses.
+     *
+     * @param  list<string>  $questionIds
+     */
+    private function withExamPaperQuestions(CourseDefinition $course, array $questionIds): CourseDefinition
+    {
+        $moduleQuestionIds = $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id');
+        $extraIds = $course->examPaperQuestionIds()->intersect($questionIds)->diff($moduleQuestionIds);
+
+        if ($extraIds->isEmpty()) {
+            return $course;
+        }
+
+        $paperModule = new Module(['code' => 'EXAM_PAPERS', 'name' => 'Prüfungsbögen']);
+        $paperModule->setRelation('questions', ContentQuestion::whereIn('id', $extraIds)
+            ->with(['revisions' => fn ($q) => $q->where('editorial_status', 'published')->orderByDesc('revision_no')])
+            ->get());
+
+        $scopedCourse = clone $course;
+        $scopedCourse->setRelation('modules', $course->modules->concat([$paperModule]));
+
+        return $scopedCourse;
     }
 
     private function parseQuestionIds(?string $questions): ?array
@@ -376,7 +440,12 @@ class LearningController extends Controller
      */
     private function questionsQueryParam(Request $request): ?string
     {
-        $raw = $request->query('questions');
+        return $this->stringQueryParam($request, 'questions');
+    }
+
+    private function stringQueryParam(Request $request, string $key): ?string
+    {
+        $raw = $request->query($key);
 
         return is_string($raw) ? $raw : null;
     }

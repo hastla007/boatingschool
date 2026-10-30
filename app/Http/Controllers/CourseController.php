@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ContentQuestion;
 use App\Models\CourseDefinition;
 use App\Models\CoursePromoBanner;
 use App\Models\CourseWebshopLink;
@@ -174,7 +175,7 @@ class CourseController extends Controller
         // Gesamtfortschritt nie 100% erreichen konnten (siehe auch
         // CourseProgressService::overallPercent).
         // Bug-Review BB16: dieselbe Lücke bestand für valid_from/valid_to.
-        $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->filter(fn ($q) => $q->isCurrentlyValid())->pluck('id')->unique();
+        $questionIds = ContentQuestion::currentlyValidIds($course->modules->flatMap(fn ($m) => $m->questions));
         $masteredCount = $progress->whereIn('question_id', $questionIds)->where('learning_state', 'gefestigt')->count();
         // Bug-Review (Gates vergleichen den gerundeten Wert):
         // courseMasteryPercent() rundet für die Anzeige -- 49,5%
@@ -232,7 +233,11 @@ class CourseController extends Controller
             'comboVideoGroups' => $comboVideoGroups,
             'hasExam' => $course->hasStartableExam(),
             'funkCatalogs' => FunkTraining::catalogsFor($course),
-            'selfExamRegistration' => ExamRegistration::isSelf($tenant, $course),
+            // Bug-Review (Umstellung auf Selbstanmeldung): wer schon eine
+            // Praxis-Anmeldung hat, behält das Termintool (Termine,
+            // Antworten) -- siehe ExamRegistration::usesAppointmentTool().
+            'selfExamRegistration' => ! ExamRegistration::usesAppointmentTool($tenant, $course, $request->user()),
+            'hasPraxisSubmission' => ExamRegistration::hasSubmission($tenant, $course, $request->user()),
             'hasNavigationTasks' => $course->navigationTasks()->exists(),
             'knotenModuleId' => $knotenModule?->id,
             'knotenPercent' => $knotenModule ? $chapterPercent([$knotenModule->id]) : 0,
@@ -258,7 +263,7 @@ class CourseController extends Controller
         // nicht mitzählen, sonst sind 100% nie erreichbar und die darauf
         // aufbauenden Addon-/Banner-Freigaben bleiben dauerhaft gesperrt.
         // Bug-Review BB16: dieselbe Lücke bestand für valid_from/valid_to.
-        $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->filter(fn ($q) => $q->isCurrentlyValid())->pluck('id')->unique();
+        $questionIds = ContentQuestion::currentlyValidIds($course->modules->flatMap(fn ($m) => $m->questions));
         $total = max($questionIds->count(), 1);
         $mastered = $progress->whereIn('question_id', $questionIds)->where('learning_state', 'gefestigt')->count();
 

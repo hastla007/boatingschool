@@ -8,10 +8,12 @@ use App\Models\Entitlement;
 use App\Models\ExamSession;
 use App\Models\Favorite;
 use App\Models\FavoriteCollection;
+use App\Models\PraxisExamAppointment;
 use App\Models\PraxisFormSubmission;
 use App\Models\PraxisProgress;
 use App\Models\ProductPurchase;
 use App\Models\Progress;
+use App\Models\RadioTrainingProgress;
 use App\Models\Tenant;
 use App\Models\TenantInvitation;
 use App\Models\TenantUser;
@@ -52,13 +54,23 @@ class AccountErasureService
             // Tabelle selbst auflösbar sind.
             $willkommensboxOrderIds = WillkommensboxOrder::where('tenant_id', $tenant->id)->where('user_id', $user->id)->pluck('id')->all();
             $praxisFormSubmissionIds = PraxisFormSubmission::where('tenant_id', $tenant->id)->where('user_id', $user->id)->pluck('id')->all();
+            // Bug-Review (Kontolöschung hinterlässt Prüfungstermine im
+            // Admin-Protokoll): PraxisExamAppointmentController protokolliert
+            // propose/withdraw/cancel mit entity_type=praxis_exam_appointment
+            // und dem vollständigen Termin als JSON -- inklusive des freien
+            // response_comment des Lerners, sobald er auf den Vorschlag
+            // geantwortet hat. Die Termine verschwinden per ON DELETE CASCADE
+            // mit der Anmeldung (siehe tenantScopedModels()), ihre IDs müssen
+            // deshalb ebenfalls vorher eingesammelt werden.
+            $praxisExamAppointmentIds = $praxisFormSubmissionIds === [] ? [] : PraxisExamAppointment::where('tenant_id', $tenant->id)
+                ->whereIn('praxis_form_submission_id', $praxisFormSubmissionIds)->pluck('id')->all();
 
             foreach ($this->tenantScopedModels() as $model) {
                 $model::where('tenant_id', $tenant->id)->where('user_id', $user->id)->delete();
             }
 
             $invitationIds = $this->deleteInvitationsFor($tenant, $user);
-            $this->pseudonymizeAuditLogFor($tenant, $user, $invitationIds, $willkommensboxOrderIds, $praxisFormSubmissionIds);
+            $this->pseudonymizeAuditLogFor($tenant, $user, $invitationIds, $willkommensboxOrderIds, $praxisFormSubmissionIds, $praxisExamAppointmentIds);
 
             TenantUser::where('tenant_id', $tenant->id)->where('user_id', $user->id)->delete();
         });
@@ -98,6 +110,7 @@ class AccountErasureService
             // für mandantenunabhängige Routen) -- ohne die Verbindung zu
             // wechseln und damit ohne das Deadlock-Risiko von M5.
             $this->tenantContext->clear();
+            $this->pseudonymizePlatformAuditLogFor($user, $tenant);
             $this->deleteAccountEntirely($user);
         }
     }
@@ -129,6 +142,12 @@ class AccountErasureService
             ProductPurchase::class,
             PraxisProgress::class,
             VideoProgress::class,
+            // Bug-Review (Funk-Training fehlt in Löschung): answers enthält
+            // freie Mitschriften/Eingaben des Lerners (siehe Migration
+            // 2024_02_01_000479) -- die Tabelle kam nach dieser Liste hinzu
+            // und blieb beim Verlassen einer Bootsschule bisher stehen (nur
+            // die vollständige Kontolöschung räumte sie per FK-Kaskade ab).
+            RadioTrainingProgress::class,
             WillkommensboxOrder::class,
             // Kaskadiert praxis_exam_appointment weg (ON DELETE CASCADE).
             PraxisFormSubmission::class,
@@ -176,11 +195,12 @@ class AccountErasureService
      * @param  list<string>  $invitationIds
      * @param  list<string>  $willkommensboxOrderIds
      * @param  list<string>  $praxisFormSubmissionIds
+     * @param  list<string>  $praxisExamAppointmentIds
      */
-    private function pseudonymizeAuditLogFor(Tenant $tenant, User $user, array $invitationIds, array $willkommensboxOrderIds = [], array $praxisFormSubmissionIds = []): void
+    private function pseudonymizeAuditLogFor(Tenant $tenant, User $user, array $invitationIds, array $willkommensboxOrderIds = [], array $praxisFormSubmissionIds = [], array $praxisExamAppointmentIds = []): void
     {
         AuditLog::where('tenant_id', $tenant->id)
-            ->where(function ($query) use ($user, $invitationIds, $willkommensboxOrderIds, $praxisFormSubmissionIds) {
+            ->where(function ($query) use ($user, $invitationIds, $willkommensboxOrderIds, $praxisFormSubmissionIds, $praxisExamAppointmentIds) {
                 $query->where('actor_user_id', $user->id)
                     ->orWhere(function ($inner) use ($user) {
                         $inner->where('entity_type', 'app_user')->where('entity_id', $user->id);
@@ -199,9 +219,44 @@ class AccountErasureService
                         $query->orWhere(function ($inner) use ($praxisFormSubmissionIds) {
                             $inner->where('entity_type', 'praxis_form_submission')->whereIn('entity_id', $praxisFormSubmissionIds);
                         });
+                    })
+                    ->when($praxisExamAppointmentIds !== [], function ($query) use ($praxisExamAppointmentIds) {
+                        $query->orWhere(function ($inner) use ($praxisExamAppointmentIds) {
+                            $inner->where('entity_type', 'praxis_exam_appointment')->whereIn('entity_id', $praxisExamAppointmentIds);
+                        });
                     });
             })
             ->update(['before_data' => null, 'after_data' => null]);
+    }
+
+    /**
+     * Bug-Review (Kontolöschung hinterlässt E-Mail im Superadmin-Protokoll):
+     * Superadmin\UserController protokolliert superadmin.user.create (ohne
+     * Bootsschul-Zuordnung) und superadmin.user.update mit tenant_id NULL
+     * und der E-Mail-Adresse im JSON -- pseudonymizeAuditLogFor() oben
+     * arbeitet bewusst nur auf dem verlassenen Mandanten und erfasste diese
+     * plattformweiten Zeilen nie, die Adresse überlebte also auch die
+     * vollständige Löschung des Kontos. Nur bei der vollständigen Löschung
+     * relevant: solange das Konto bei einer anderen Bootsschule weiter
+     * besteht, bleibt auch sein plattformweiter Audit-Trail berechtigt.
+     *
+     * RLS (audit_log_update_isolation, siehe 000459/000483) lässt Zeilen
+     * ohne tenant_id auf der App-Verbindung grundsätzlich nicht zu -- das
+     * Update läuft deshalb über die Owner-Verbindung. Der verlassene
+     * Mandant ist dabei ausdrücklich ausgeschlossen: dessen Zeilen hat
+     * pseudonymizeAuditLogFor() bereits in der noch offenen Request-
+     * Transaktion gesperrt, die Owner-Verbindung (andere Postgres-Session)
+     * müsste darauf warten -- derselbe Deadlock wie in Sicherheitsreview M5.
+     * Aus demselben Grund muss dieser Aufruf VOR deleteAccountEntirely()
+     * laufen: dessen app_user-DELETE setzt per ON DELETE SET NULL
+     * actor_user_id auf audit_log-Zeilen und sperrt sie damit ebenfalls.
+     */
+    private function pseudonymizePlatformAuditLogFor(User $user, Tenant $leftTenant): void
+    {
+        $this->onAdminConnection(fn () => AuditLog::where('entity_type', 'app_user')
+            ->where('entity_id', $user->id)
+            ->where(fn ($query) => $query->whereNull('tenant_id')->orWhere('tenant_id', '!=', $leftTenant->id))
+            ->update(['before_data' => null, 'after_data' => null]));
     }
 
     private function deleteAccountEntirely(User $user): void

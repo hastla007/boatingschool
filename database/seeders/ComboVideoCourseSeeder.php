@@ -6,6 +6,7 @@ use App\Models\CourseDefinition;
 use App\Models\VideoLesson;
 use App\Models\VideoLessonStep;
 use App\Models\VideoModule;
+use Database\Seeders\Concerns\SeedsLessonQuizOnce;
 use Illuminate\Database\Seeder;
 
 /**
@@ -32,6 +33,8 @@ use Illuminate\Database\Seeder;
  */
 class ComboVideoCourseSeeder extends Seeder
 {
+    use SeedsLessonQuizOnce;
+
     private const PLACEHOLDER_VIDEO = 'https://www.w3schools.com/html/mov_bbb.mp4';
 
     public function run(): void
@@ -75,6 +78,13 @@ class ComboVideoCourseSeeder extends Seeder
                     $lesson->questions()->attach($sourceQuestion->id, [
                         'sort_order' => $sourceQuestion->pivot->sort_order,
                     ]);
+                }
+
+                // Bug-Review (Seeder-Idempotenz Videoquiz): kopiertes Quiz
+                // gilt als geseedet, damit kein *LessonQuestionSeeder es nach
+                // einem Leeren durch den Superadmin erneut befüllt.
+                if ($lesson->questions()->exists()) {
+                    self::markQuizSeeded($lesson);
                 }
             }
         }

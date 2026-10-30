@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Superadmin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
+use App\Models\ContentQuestion;
 use App\Models\Entitlement;
 use App\Models\ExamSession;
 use App\Models\ProductPurchase;
@@ -13,6 +14,7 @@ use App\Models\TenantUser;
 use App\Models\User;
 use App\Support\BestEffortMail;
 use App\Support\Countries;
+use App\Support\StatusLabels;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -144,7 +146,7 @@ class UserController extends Controller
             // CourseProgressService::overallPercent, dessen Formel hier aus
             // Performance-Gründen dupliziert ist).
             // Bug-Review BB16: dieselbe Lücke bestand für valid_from/valid_to.
-            $questionIds = $entitlement->course->modules->flatMap(fn ($m) => $m->questions)->filter(fn ($q) => $q->isCurrentlyValid())->pluck('id')->unique();
+            $questionIds = ContentQuestion::currentlyValidIds($entitlement->course->modules->flatMap(fn ($m) => $m->questions));
             $total = max($questionIds->count(), 1);
             $mastered = $masteredProgress
                 ->where('tenant_id', $entitlement->tenant_id)
@@ -261,19 +263,42 @@ class UserController extends Controller
         // Sicherheitsreview S4: eine über den Superadmin zugewiesene/
         // geänderte Rolle (z. B. "owner" einer Bootsschule) wurde bisher gar
         // nicht protokolliert.
-        $before = TenantUser::withoutGlobalScopes()
+        $existing = TenantUser::withoutGlobalScopes()
             ->where('tenant_id', $validated['tenant_id'])->where('user_id', $user->id)
-            ->first()?->only(['role', 'status']);
+            ->first();
+        $before = $existing?->only(['role', 'status']);
 
-        TenantUser::updateOrCreate(
-            ['tenant_id' => $validated['tenant_id'], 'user_id' => $user->id],
-            ['role' => $validated['role'], 'status' => 'active']
-        );
+        // Bug-Review (Superadmin-Rollenänderung hebt Sperre der Bootsschule
+        // auf): updateOrCreate() setzte bisher auch bei einer BESTEHENDEN
+        // Mitgliedschaft status=active -- eine reine Rollenänderung über
+        // dieses Formular (es fragt nur Bootsschule + Rolle ab) hob damit
+        // stillschweigend eine von der Bootsschule verhängte Sperre
+        // (suspended) oder Entfernung (closed) wieder auf, ohne dass das im
+        // Formular erkennbar war. Eine neue Mitgliedschaft startet weiterhin
+        // aktiv; eine bestehende behält ihren Status, nur die Rolle ändert
+        // sich -- das Entsperren bleibt eine bewusste Entscheidung der
+        // Bootsschule (Admin\ParticipantController::updateMembership()).
+        if ($existing) {
+            $existing->update(['role' => $validated['role']]);
+            $status = $existing->status;
+        } else {
+            TenantUser::create([
+                'tenant_id' => $validated['tenant_id'],
+                'user_id' => $user->id,
+                'role' => $validated['role'],
+                'status' => 'active',
+            ]);
+            $status = 'active';
+        }
 
         AuditLog::record($validated['tenant_id'], $request->user()->id, 'superadmin.user.membership_update', 'tenant_user', $user->id, $before, [
-            'role' => $validated['role'], 'status' => 'active',
+            'role' => $validated['role'], 'status' => $status,
         ]);
 
-        return back()->with('status', 'Bootsschul-Zuordnung gespeichert.');
+        $message = $status === 'active'
+            ? 'Bootsschul-Zuordnung gespeichert.'
+            : 'Rolle gespeichert. Die Mitgliedschaft bleibt '.StatusLabels::userStatus($status).' -- entsperren kann sie nur die Bootsschule selbst.';
+
+        return back()->with('status', $message);
     }
 }

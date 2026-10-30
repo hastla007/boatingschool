@@ -101,10 +101,10 @@ class ExamAccessRevocationTest extends TestCase
      * Bug-Review (Zufallsprüfung bei SRC/FKN hat nur 10 statt 24/15 Fragen):
      * SRC hat inzwischen echte Prüfungsbögen, die zufällig zusammengestellte
      * Prüfung (start()) ist dafür nicht mehr erreichbar (409) -- dieser Test
-     * braucht aber genau diesen Weg und nutzt deshalb den Ergänzungskurs
-     * ADD-UBI-TO-SRC (nutzt das UBI-Modul, dessen Fragen alle single_choice
-     * sind), der noch keine eigenen Prüfungsbögen hat, mit einem eigenen,
-     * isoliert verifizierten Rule Set.
+     * braucht aber genau diesen Weg und nutzt deshalb SKN, das keine
+     * eigenen Prüfungsbögen hat (ADD-UBI-TO-SRC hat inzwischen die zwölf
+     * UBI-Ergänzungsbögen), mit einem eigenen, isoliert verifizierten Rule
+     * Set, das aus dem UBI-Modul zieht (nur single_choice-Fragen).
      *
      * @return array{0: Tenant, 1: User, 2: CourseDefinition}
      */
@@ -112,7 +112,7 @@ class ExamAccessRevocationTest extends TestCase
     {
         $tenant = $this->createTestTenant();
         $learner = $this->createTenantUser($tenant, 'learner');
-        $course = $this->existingCourse('ADD-UBI-TO-SRC');
+        $course = $this->existingCourse('SKN');
 
         $module = $this->existingModule('UBI');
         $reviewer = $this->createTenantUser($tenant, 'admin');

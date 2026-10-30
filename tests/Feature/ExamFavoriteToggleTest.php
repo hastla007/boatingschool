@@ -9,6 +9,7 @@ use App\Models\ExamSession;
 use App\Models\Favorite;
 use App\Models\Tenant;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -26,6 +27,9 @@ class ExamFavoriteToggleTest extends TestCase
 
     private array $createdRuleSetIds = [];
 
+    /** @var array{course_id: string, module_id: string}|null */
+    private ?array $attachedCourseModule = null;
+
     protected function tearDown(): void
     {
         $this->cleanUpCreatedTenants();
@@ -33,6 +37,10 @@ class ExamFavoriteToggleTest extends TestCase
         $this->onAdmin(function () {
             foreach ($this->createdRuleSetIds as $id) {
                 ExamRuleSet::where('id', $id)->delete();
+            }
+
+            if ($this->attachedCourseModule) {
+                DB::table('course_module')->where($this->attachedCourseModule)->delete();
             }
         });
 
@@ -137,11 +145,23 @@ class ExamFavoriteToggleTest extends TestCase
     {
         $tenant = $this->createTestTenant();
         $learner = $this->createTenantUser($tenant, 'learner');
-        $course = $this->existingCourse('ADD-UBI-TO-SRC');
+        $course = $this->existingCourse('SKN');
         $this->grantEntitlement($tenant, $learner, $course);
 
         $module = $this->existingModule('UBI');
         $reviewer = $this->createTenantUser($tenant, 'admin');
+
+        // SKN hat keine festen Prüfungsbögen (nur dort ist die zufällige
+        // Prüfung erlaubt), ihr Modul enthält aber auch Freitext-/
+        // Mehrfachauswahl-Fragen. Die Prüfung zieht deshalb aus dem
+        // UBI-Modul (nur Einfachauswahl); damit die Frage auch im Lernmodus/
+        // bei Favoriten als Kursinhalt gilt, hängt das UBI-Modul für die
+        // Dauer des Tests zusätzlich am Kurs.
+        $this->onAdmin(function () use ($course, $module) {
+            if (DB::table('course_module')->insertOrIgnore(['course_id' => $course->id, 'module_id' => $module->id, 'sort_order' => 99])) {
+                $this->attachedCourseModule = ['course_id' => $course->id, 'module_id' => $module->id];
+            }
+        });
 
         $this->onAdmin(function () use ($course, $module, $reviewer) {
             $ruleSet = ExamRuleSet::create([
