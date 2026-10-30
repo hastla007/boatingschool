@@ -223,7 +223,15 @@ class ImportContentQuestions extends Command
                 $latestRevision ? $this->revised++ : $this->imported++;
             }
 
-            $module->questions()->syncWithoutDetaching([$question->id => ['required' => true]]);
+            // Bug-Review BB18: syncWithoutDetaching() auf $module->questions()
+            // hängte die Frage zwar an das in dieser Zeile genannte Modul an,
+            // ließ eine Zuordnung zu einem FRÜHEREN Modul (geänderter
+            // Modulwert bei gleichbleibender content_id) aber unberührt
+            // stehen -- die Frage erschien danach doppelt. sync() von der
+            // FRAGE aus (statt vom Modul aus) ersetzt alle ihre
+            // Modulzuordnungen durch genau dieses eine Modul, ohne andere
+            // Fragen im alten Modul anzutasten.
+            $question->modules()->sync([$module->id => ['required' => true]]);
         });
     }
 
