@@ -14,20 +14,28 @@ class CourseEditorController extends Controller
 {
     /**
      * Bug-Review (Superadmin-Seite gesperrte Kurse ohne published-Filter):
-     * die Liste zeigte bisher auch draft/archived-Kurse mit demselben
+     * die Liste zeigte früher auch draft/archived-Kurse mit demselben
      * funktional aussehenden "Sitewide"-Schalter (aktiv/deaktiviert) wie
      * echte, angebotene Kurse -- ein solcher Kurs ist aber laut
      * EntitlementService::isOfferable() (Bug-Review B21: status !==
      * 'published' schließt Angebot/Zugriff IMMER aus, unabhängig von
      * site_enabled) für keinen Mandanten je erreichbar, der "Sitewide"-
-     * Schalter also wirkungslos und irreführend. Die Liste zeigt jetzt nur
-     * noch tatsächlich angebotene (published) Kurse, für die "gesperrt"/
-     * "aktiv" überhaupt eine reale Bedeutung hat.
+     * Schalter also wirkungslos und irreführend.
+     *
+     * Bug-Review (AA15: Entwurf/archivierte Kurse verschwinden aus
+     * Superadmin-Liste): der damalige Fix filterte dafür die komplette
+     * Liste auf status=published -- show()/update() unterstützen weiterhin
+     * jeden Status, aber ohne einen Eintrag HIER gibt es keinen Weg mehr
+     * zu ihnen: ein neu angelegter Entwurf war vor seiner ersten
+     * Veröffentlichung nie erreichbar, ein zurückgezogener (archivierter)
+     * Kurs blieb für immer unauffindbar, auch um ihn erneut zu
+     * veröffentlichen. Die Liste zeigt deshalb wieder jeden Status --
+     * die "Sitewide"-Spalte selbst bleibt aber (siehe index.blade.php)
+     * weiterhin nur für tatsächlich veröffentlichte Kurse aussagekräftig.
      */
     public function index(): View
     {
         $courses = CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')
-            ->where('status', 'published')
             ->withCount('modules')->orderBy('name')->get();
 
         return view('superadmin.courses.index', ['courses' => $courses]);

@@ -14,11 +14,14 @@
  * Prüfungsbögen" wie bei FKN -- der Katalog dient als Lernkatalog
  * (Smart-Learning / Fragen üben).
  *
- * Anmerkung: Frage 08 übernimmt im Original-Dokument wortgleich die
- * Fragestellung von Frage 07 ("...Seenot-Handfackel..."), obwohl die
- * Antwortoptionen sich inhaltlich auf das Seenot-Rauchsignal beziehen
- * -- offensichtlich ein Redaktionsversehen im amtlichen Katalog, hier
- * wortgetreu übernommen statt stillschweigend korrigiert.
+ * Bug-Review (SKN-Frage 8 fälschlich "Seenot-Handfackel"): Frage 08
+ * übernahm im amtlichen Original-Dokument wortgleich die Fragestellung
+ * von Frage 07 ("...Seenot-Handfackel..."), obwohl sich die Antwort-
+ * optionen inhaltlich auf das Seenot-Rauchsignal beziehen -- ein
+ * Redaktionsversehen des amtlichen Katalogs, das hier zunächst
+ * wortgetreu übernommen wurde. Auf ausdrücklichen Nutzerwunsch jetzt
+ * korrigiert, analog zur inhaltsgleichen FKN-Frage (fkn_catalog.php,
+ * Frage 7), die bereits korrekt "...Seenot-Rauchsignals..." lautet.
  */
 return [
     1 => ['type' => 'open_text', 'q' => 'Was versteht man unter pyrotechnischen Seenotsignalen?', 'a' => 'Notsignale, die mit Hilfe explosionsgefährlicher Stoffe ausgelöst werden.'],
@@ -40,7 +43,7 @@ return [
         ['t' => 'Die brennende Fackel nach Luv waagerecht so halten, dass versprühter Abbrand keine Verletzungen (Hand, Augen) verursacht oder das Boot/Schiff beschädigt.', 'c' => false],
         ['t' => 'Gebrauchsanweisung beachten.', 'c' => true],
     ]],
-    8 => ['type' => 'multi_choice', 'q' => 'Was ist sicherheitstechnisch bei der Verwendung einer Seenot-Handfackel zu beachten?', 'options' => [
+    8 => ['type' => 'multi_choice', 'q' => 'Was ist sicherheitstechnisch bei der Verwendung eines Seenot-Rauchsignals zu beachten?', 'options' => [
         ['t' => 'Rauchsignale nur am Tage und bei geringen Windstärken verwenden.', 'c' => true],
         ['t' => 'Die Anzündung erfolgt durch eine Reißschnur, die unter einer abschraubbaren Schutzkappe liegt.', 'c' => true],
         ['t' => 'Nach der Zündung ist das Rauchsignal zur Leeseite außenbords zu werfen.', 'c' => true],
@@ -204,8 +207,14 @@ return [
         ['t' => 'Steighöhe mindestens 100 m, Leuchtdauer mindestens 10 Sekunden.', 'c' => false],
         ['t' => 'Steighöhe mindestens 50 m, Leuchtdauer mindestens 50 Sekunden.', 'c' => false],
     ]],
-    49 => ['type' => 'open_text', 'q' => 'Woran erkennen Sie an einem pyrotechnischen Notsignal, um welche Unterklasse es sich handelt?', 'a' => 'Am Zulassungszeichen: BAM-PT1 oder BAM-PT2.'],
-    50 => ['type' => 'multi_choice', 'q' => 'Wer darf pyrotechnische Notsignale der Klasse T verwenden?', 'options' => [
+    // Bug-Review (AA18: SKN-Fragen 49/50 nennen veraltete Klassen): die
+    // Zulassungsklassen "PT1/PT2" und "Klasse T" stammen aus der 1. SprengV
+    // vor der Reform 2010 (Umsetzung der EU-Pyrotechnik-Richtlinie
+    // 2007/23/EG) -- seitdem gelten die Klassen "P1/P2". Das inhaltlich
+    // identische FKN-Gegenstück (FKN-0033/0034) verwendet bereits korrekt
+    // "BAM-P 1 oder BAM-P 2" bzw. "Klasse P".
+    49 => ['type' => 'open_text', 'q' => 'Woran erkennen Sie an einem pyrotechnischen Notsignal, um welche Unterklasse es sich handelt?', 'a' => 'Am Zulassungszeichen: BAM-P 1 oder BAM-P 2.'],
+    50 => ['type' => 'multi_choice', 'q' => 'Wer darf pyrotechnische Notsignale der Klasse P verwenden?', 'options' => [
         ['t' => 'Jeder, der damit anzeigen will, dass ein Seenotfall vorliegt, d. h. unter anderem, dass Gefahr für Leib oder Leben der Besatzung und daher die Notwendigkeit zur Hilfe besteht.', 'c' => true],
         ['t' => 'An Silvester dürfen die Signale uneingeschränkt verwendet werden.', 'c' => false],
         ['t' => 'Jeder, der damit anzeigen will, dass ein Seenotfall vorliegt, obwohl keine Notwendigkeit zur Hilfe mehr besteht.', 'c' => false],
@@ -216,7 +225,7 @@ return [
         ['t' => '30 bis 60 Sekunden.', 'c' => true],
     ]],
     52 => ['type' => 'open_text', 'q' => 'Beschreiben Sie den allgemeinen Aufbau eines Seenot-Rauchsignals!', 'a' => 'In einem Behälter befindet sich ein Anzünder (meist Reißzünder) mit Verzögerung, der einen pyrotechnischen Satz anzündet, der dann bis zu 4 Minuten lang orangefarbenen Rauch abgibt.'],
-    53 => ['type' => 'multi_choice', 'q' => 'Fallschirmsignalraketen und Handfackeln sind bei klarem Wetter unterschiedlich weit zu sehen. Welche Aussage/n ist/sind richtig.', 'options' => [
+    53 => ['type' => 'multi_choice', 'q' => 'Fallschirmsignalraketen und Handfackeln sind bei klarem Wetter unterschiedlich weit zu sehen. Welche Aussage/n ist/sind richtig?', 'options' => [
         ['t' => 'Fallschirmsignalraketen werden verwendet, um weit entfernte Helfer auf eine Notlage aufmerksam zu machen und grob in die Richtung einzuweisen.', 'c' => true],
         ['t' => 'Handfackeln werden verwendet, um die genaue Position bei Annäherung kenntlich zu machen.', 'c' => true],
         ['t' => 'Handfackeln sind ausschließlich Nachts zu verwenden.', 'c' => false],
@@ -242,7 +251,7 @@ return [
         ['t' => 'Ja, ich muss die Signalwaffe dann aber durch ein Beschussamt neu beschießen lassen.', 'c' => false],
         ['t' => 'Ja, sofern der Rohrinnendurchmesser um mindestens dreizehntel (3/10) Millimeter größer ist als das Munitionskaliber und zudem das Rohr eine Wandstärke von mindestens 2 Millimetern aufweist und gasdicht ist.', 'c' => false],
     ]],
-    59 => ['type' => 'multi_choice', 'q' => 'Brennen pyrotechnische Geschosse weiter, wenn Sie ins Wasser fallen?', 'options' => [
+    59 => ['type' => 'multi_choice', 'q' => 'Brennen pyrotechnische Geschosse weiter, wenn sie ins Wasser fallen?', 'options' => [
         ['t' => 'Nein', 'c' => false],
         ['t' => 'Nur, wenn es sich um militärische Munition handelt.', 'c' => false],
         ['t' => 'Ja', 'c' => true],

@@ -8,7 +8,7 @@
             <x-icon name="bookmark" class="w-6 h-6 text-amber-500" />
         </div>
         <h3 class="font-medium text-slate-800 dark:text-white mb-1">Coupon-Code einlösen</h3>
-        <p class="text-sm text-slate-500 mb-4">Hast du einen Code von deiner Bootsschule erhalten? Gib ihn hier ein, um den Kurs oder das Produkt freizuschalten.</p>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mb-4">Hast du einen Code von deiner Bootsschule erhalten? Gib ihn hier ein, um den Kurs oder das Produkt freizuschalten.</p>
 
         <form method="POST" action="{{ route('coupons.redeem.store') }}" class="space-y-3">
             @csrf

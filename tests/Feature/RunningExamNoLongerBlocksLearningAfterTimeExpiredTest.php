@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\ExamRuleSet;
 use App\Models\ExamSession;
 use App\Models\ExamSessionQuestion;
+use App\Models\Favorite;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Models\VideoLesson;
@@ -155,6 +156,48 @@ class RunningExamNoLongerBlocksLearningAfterTimeExpiredTest extends TestCase
         $this->assertSame('evaluated', $this->onAdmin(fn () => $session->fresh()->status), 'Eine abgelaufene Session muss nebenbei ausgewertet werden, statt weiterhin als blockierend zu gelten.');
     }
 
+    /**
+     * Bug-Review X10 (Favoriten zeigen Fragen aus laufender Prüfung,
+     * Absenden schlägt fehl): storeAttempt() lehnt eine Antwort auf eine
+     * Frage ab, die Teil einer noch laufenden Prüfungssession dieses
+     * Nutzers ist (siehe Test oben) -- der Favoriten-Modus bot genau so
+     * eine Frage bisher trotzdem aktiv an und scheiterte erst beim
+     * anschließenden Abschicken mit 409, analog zum bereits für den
+     * Smarttrainer behobenen Bug-Review "Smarttrainer blockiert während
+     * laufender Prüfung". Die Auswahl hier erfolgt über inRandomOrder(),
+     * daher ist der EINZIGE Favorit in diesem Test blockiert: ohne Fix
+     * bleibt er trotzdem der einzige -- und damit immer gewählte --
+     * Kandidat (siehe Test unten), mit Fix bleibt kein Kandidat mehr
+     * übrig und die "keine Favoriten"-Ansicht erscheint, analog zur
+     * bereits bestehenden Bug-Review "Deaktivierte Favoriten führen zu
+     * Endlosschleife" für denselben Sonderfall (einziger Favorit
+     * ausgeschlossen).
+     */
+    public function test_favorites_leave_a_question_from_a_genuinely_running_exam_out_of_the_selection(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SBF-SEE');
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $module = $this->existingModule('SBF_BASIS');
+        [$blockedQuestion, $blockedRevision] = $this->anyPublishedQuestionIn($module);
+
+        $this->onAdmin(fn () => Favorite::create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $learner->id,
+            'question_id' => $blockedQuestion->id,
+            'context' => Favorite::CONTEXT_SMART_LEARNING,
+        ]));
+
+        $this->startExamSession($tenant, $learner, $course, $blockedQuestion, $blockedRevision, now());
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/learn?mode=favorites");
+
+        $response->assertOk();
+        $response->assertViewIs('learning.empty');
+    }
+
     private function findLessonWithQuestions($course): VideoLesson
     {
         return $this->onAdmin(function () use ($course) {
@@ -170,6 +213,59 @@ class RunningExamNoLongerBlocksLearningAfterTimeExpiredTest extends TestCase
         });
     }
 
+    private function findLessonWithAtLeastTwoQuestions($course): VideoLesson
+    {
+        return $this->onAdmin(function () use ($course) {
+            foreach ($course->videoModules()->with('lessons.questions')->get() as $module) {
+                foreach ($module->lessons as $lesson) {
+                    if ($lesson->questions->count() >= 2) {
+                        return $lesson;
+                    }
+                }
+            }
+
+            throw new \RuntimeException('Kein Video-Kapitel mit mindestens 2 Fragen gefunden.');
+        });
+    }
+
+    /**
+     * Bug-Review X10 (Video-Quiz zeigt Fragen aus laufender Prüfung,
+     * Absenden schlägt fehl): resolveQuestions() bot eine Frage, die Teil
+     * dieser laufenden Session ist, bisher trotzdem aktiv im Video-Quiz an
+     * -- answer() lehnte die anschließend eingereichte Antwort dann mit
+     * 409 ab (siehe Test oben), statt von vornherein eine andere Frage
+     * auszuspielen.
+     */
+    public function test_video_quiz_leaves_a_question_from_a_genuinely_running_exam_out_of_the_selection(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SBF-SEE');
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $lesson = $this->findLessonWithAtLeastTwoQuestions($course);
+        $blockedQuestion = $this->onAdmin(fn () => $lesson->questions->first());
+        $blockedRevision = $this->onAdmin(fn () => $blockedQuestion->publishedRevision()->load('answers'));
+        $this->startExamSession($tenant, $learner, $course, $blockedQuestion, $blockedRevision, now());
+
+        $response = $this->actingAsInTenant($learner, $tenant)
+            ->get("/courses/{$course->id}/video/{$lesson->id}/questions/1");
+
+        $response->assertOk();
+        $response->assertViewHas('revision', fn ($shown) => $shown->question_id !== $blockedQuestion->id);
+    }
+
+    /**
+     * Bug-Review X10 (Folgefehler): resolveQuestions() schließt eine
+     * blockierte Frage jetzt bereits aus der Auswahl aus (siehe
+     * test_video_quiz_leaves_a_question_from_a_genuinely_running_exam_out_of_the_selection()
+     * oben) -- ein Request für genau diese (nun nicht mehr existierende)
+     * Position liefert deshalb 404 statt des früheren 409 aus answer()'s
+     * explizitem Sicherheitsnetz, das für eine so gefilterte Liste nicht
+     * mehr erreichbar ist. Die eigentlich geschützte Eigenschaft (es wird
+     * nie ein Attempt für die blockierte Frage gespeichert) bleibt
+     * unverändert bestehen.
+     */
     public function test_video_quiz_still_blocks_a_question_from_a_genuinely_running_exam(): void
     {
         $tenant = $this->createTestTenant();
@@ -188,7 +284,7 @@ class RunningExamNoLongerBlocksLearningAfterTimeExpiredTest extends TestCase
             ['revision_id' => $revision->id, 'answer_id' => $answer->id]
         );
 
-        $response->assertStatus(409);
+        $response->assertStatus(404);
     }
 
     public function test_video_quiz_no_longer_blocks_a_question_from_an_exam_whose_time_limit_has_expired(): void

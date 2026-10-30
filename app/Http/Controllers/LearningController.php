@@ -39,7 +39,15 @@ class LearningController extends Controller
 
         // Favoriten sind kursgebunden: nur Fragen zählen, die tatsächlich zu
         // diesem Kurs gehören, damit jeder Kurs seine eigenen Favoriten hat.
-        $courseQuestionIds = $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id')->unique();
+        //
+        // Bug-Review (BB2: Favoriten zählen deaktivierte Fragen mit): eine
+        // im Superadmin deaktivierte Frage (content_question.active) taucht
+        // im Smarttrainer nicht mehr auf (siehe F7) und kann deshalb nie
+        // "gefestigt" werden -- zählte aber bisher weiter im
+        // Favoriten-Nenner mit, wodurch "X/Y gemeistert" dauerhaft hinter
+        // dem tatsächlich erreichbaren Fortschritt zurückblieb, analog zum
+        // bereits gefixten Gesamtfortschritt-Nenner in CourseProgressService.
+        $courseQuestionIds = $course->modules->flatMap(fn ($m) => $m->questions)->filter(fn ($q) => $q->isCurrentlyValid())->pluck('id')->unique();
         $favoriteIds = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)
             ->where('context', Favorite::CONTEXT_SMART_LEARNING)
             ->whereIn('question_id', $courseQuestionIds)->pluck('question_id');
@@ -99,7 +107,7 @@ class LearningController extends Controller
         $questionIds = $this->parseQuestionIds($this->questionsQueryParam($request));
 
         if ($mode === 'favorites') {
-            $courseQuestionIds = $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id')->unique();
+            $courseQuestionIds = $course->modules->flatMap(fn ($m) => $m->questions)->filter(fn ($q) => $q->isCurrentlyValid())->pluck('id')->unique();
             $favoriteIds = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)
                 ->where('context', Favorite::CONTEXT_SMART_LEARNING)
                 ->whereIn('question_id', $courseQuestionIds)->pluck('question_id');
@@ -119,9 +127,19 @@ class LearningController extends Controller
             // Bug-Review B12); hier zusätzlich auf eine existierende
             // veröffentlichte Revision, da genau das hier (anders als bei
             // Smarttrainer) sonst erst nach der Auswahl geprüft wird.
+            //
+            // Bug-Review X10 (Favoriten zeigen Fragen aus laufender
+            // Prüfung): storeAttempt() lehnt eine Antwort auf eine Frage
+            // ab, die Teil einer noch laufenden Prüfungssession dieses
+            // Nutzers ist (siehe unten) -- der Favoriten-Modus bot genau
+            // so eine Frage bisher trotzdem aktiv an und scheiterte erst
+            // beim anschließenden Abschicken mit 409, analog zur bereits
+            // für den Smarttrainer behobenen Bug-Review "Smarttrainer
+            // blockiert während laufender Prüfung".
+            $blockedQuestionIds = $smarttrainer->runningExamQuestionIds($tenant, $user);
             $next = ContentQuestion::whereIn('id', $favoriteIds)
-                ->where('active', true)
-                ->whereHas('revisions', fn ($query) => $query->where('editorial_status', 'published'))
+                ->currentlyValid()
+                ->when($blockedQuestionIds->isNotEmpty(), fn ($query) => $query->whereNotIn('id', $blockedQuestionIds))
                 ->inRandomOrder()
                 ->first();
             $next = $next ? ['question' => $next, 'reason' => 'Favorit'] : null;
@@ -209,9 +227,15 @@ class LearningController extends Controller
         // Auswahl im Smarttrainer/Prüfung/Video-Quiz, die solche Fragen
         // konsequent ausblendet, nahm storeAttempt eine direkt per
         // revision_id eingereichte deaktivierte Frage trotzdem an.
+        //
+        // Bug-Review BB16 ("Gültig ab"/"Gültig bis" wirkungslos): dieselbe
+        // Lücke bestand für valid_from/valid_to -- eine außerhalb ihres
+        // Gültigkeitsfensters liegende Frage ließ sich hier weiterhin
+        // beantworten, obwohl sie an keiner Auswahl-Stelle mehr angeboten
+        // wird.
         $revision = ContentQuestionRevision::where('id', $validated['revision_id'])
             ->where('editorial_status', 'published')
-            ->whereHas('question', fn ($q) => $q->where('active', true))
+            ->whereHas('question', fn ($q) => $q->currentlyValid())
             ->firstOrFail();
 
         // Sicherheitsregel laut api_spec.md: question_id/revision_id müssen zu
@@ -270,7 +294,7 @@ class LearningController extends Controller
         }
 
         $attempt = $learningService->recordAttempt(
-            $tenant, $user, $revision, $selectedAnswer, $validated['mode'], $course, $responseTimeMs, $selectedAnswers, $selfAssessedKnown
+            $tenant, $user, $revision, $selectedAnswer, $validated['mode'], $course, $responseTimeMs, $selectedAnswers, $selfAssessedKnown, $validated['started_at_ms'] ?? null
         );
 
         // Bug-Review B20: dieser Handler rendert die beantwortete Frage

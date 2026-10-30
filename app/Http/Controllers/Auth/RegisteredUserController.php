@@ -92,6 +92,10 @@ class RegisteredUserController extends Controller
                 // Routen zugänglich sind (siehe Sicherheitsreview H2) -- die
                 // Registered-Event-Listener (AppServiceProvider) verschickt
                 // dafür automatisch die Verifizierungs-Mail.
+                // Bug-Review (Superadmin-Nutzerseite zeigt leere
+                // Namensfelder): first_name/last_name blieben hier bisher
+                // unbesetzt, siehe User::splitDisplayName().
+                ...User::splitDisplayName($request->name),
             ]);
 
             TenantUser::create([

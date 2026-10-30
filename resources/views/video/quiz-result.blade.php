@@ -13,14 +13,14 @@
                 <div class="text-xs text-slate-600 dark:text-slate-400">{{ $lesson->title }}</div>
                 <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Fragen zum Video</h1>
             </div>
-            <div class="text-sm text-slate-500 shrink-0">{{ $total }}/{{ $total }}</div>
+            <div class="text-sm text-slate-500 dark:text-slate-400 shrink-0">{{ $total }}/{{ $total }}</div>
         </div>
     </x-slot>
 
     <div class="max-w-2xl mx-auto space-y-4">
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 text-center">
             <h3 class="text-lg font-semibold text-slate-800 dark:text-white">Auswertung</h3>
-            <p class="text-sm text-slate-500 mt-1">Du hast {{ $correctCount }} von {{ $total }} Fragen richtig beantwortet!</p>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Du hast {{ $correctCount }} von {{ $total }} Fragen richtig beantwortet!</p>
         </div>
 
         @foreach ($reviews as $review)
@@ -28,7 +28,12 @@
             <div class="rounded-2xl p-5 {{ $review['correct'] ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'bg-rose-50 dark:bg-rose-900/20' }}">
                 <h4 class="text-center font-medium text-slate-800 dark:text-white mb-4">{{ $revision->question_text }}</h4>
                 <div class="space-y-2">
-                    @foreach ($revision->answers as $answer)
+                    {{-- Bug-Review (Antwortreihenfolge bei Einfachauswahl-Fragen immer
+                         identisch): die Auswertung muss dieselbe, pro Lernendem
+                         gemischte Reihenfolge zeigen wie die Quizseite selbst, sonst
+                         wandert die richtige Antwort hier sichtbar an eine andere
+                         Position als während der Beantwortung. --}}
+                    @foreach (($revision->question_type === 'single_choice' ? $revision->answersInDisplayOrderFor(auth()->id()) : $revision->answers) as $answer)
                         @php
                             $state = 'bg-white dark:bg-slate-800 border-transparent';
                             $icon = null;

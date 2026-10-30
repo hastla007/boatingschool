@@ -93,6 +93,39 @@ class User extends Authenticatable implements MustVerifyEmail
         $this->attributes['display_name'] = $value;
     }
 
+    /**
+     * Bug-Review (Superadmin-Nutzerseite zeigt leere Namensfelder):
+     * first_name/last_name (Migration 000170) wurden bislang nur gesetzt,
+     * wenn ein Superadmin einen Nutzer direkt anlegt/bearbeitet, eine
+     * Bootsschule einen Admin anlegt (Superadmin\TenantController::store())
+     * oder der Nutzer selbst sein Profil ausfüllt (ProfileController) --
+     * Selbstregistrierung (RegisteredUserController) und Einladung
+     * (Admin\ParticipantController::store()) fragen aber nur EIN
+     * "Name"-Feld ab und setzten bisher ausschließlich display_name.
+     * first_name/last_name blieben dadurch für praktisch jeden so
+     * angelegten Nutzer leer -- die Superadmin-Bearbeitungsseite zeigte
+     * diese (dort als required geführten) Felder entsprechend leer an, der
+     * Superadmin musste vor jeder anderen Änderung erst den ihm unbekannten
+     * Namen selbst eintippen. Beide Stellen leiten first_name/last_name
+     * jetzt beim Anlegen aus demselben einzelnen Namensfeld ab.
+     *
+     * @return array{first_name: string, last_name: ?string}
+     */
+    public static function splitDisplayName(string $name): array
+    {
+        $name = trim($name);
+        $lastSpace = strrpos($name, ' ');
+
+        if ($lastSpace === false) {
+            return ['first_name' => $name, 'last_name' => null];
+        }
+
+        return [
+            'first_name' => trim(substr($name, 0, $lastSpace)),
+            'last_name' => trim(substr($name, $lastSpace + 1)),
+        ];
+    }
+
     public function tenantMemberships(): HasMany
     {
         return $this->hasMany(TenantUser::class, 'user_id');

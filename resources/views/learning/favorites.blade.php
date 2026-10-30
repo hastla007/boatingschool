@@ -13,9 +13,9 @@
 
     <div x-data="{ section: '{{ $activeTab }}', smartView: 'favorites', examView: 'favorites', selectedCollection: null, newCollectionOpen: false }">
         <div class="flex gap-1 mb-4 border-b border-slate-200 dark:border-slate-700">
-            <button @click="section = 'smart'" :class="section === 'smart' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500'"
+            <button @click="section = 'smart'" :class="section === 'smart' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
                     :style="section === 'smart' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm transition">Smart-Learning</button>
-            <button @click="section = 'exam'" :class="section === 'exam' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500'"
+            <button @click="section = 'exam'" :class="section === 'exam' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
                     :style="section === 'exam' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm transition">Prüfungsfragen</button>
         </div>
 
@@ -37,7 +37,7 @@
                 </button>
             @endforeach
             <button @click="newCollectionOpen = ! newCollectionOpen"
-                    class="px-3 py-1 rounded-full text-xs font-medium border border-dashed border-slate-300 dark:border-slate-600 text-slate-500 hover:border-slate-400 dark:hover:border-slate-500 transition">
+                    class="px-3 py-1 rounded-full text-xs font-medium border border-dashed border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-slate-400 dark:hover:border-slate-500 transition">
                 + Neue Collection
             </button>
         </div>
@@ -81,7 +81,7 @@
                     <label for="collection_name_{{ $collection->id }}" class="sr-only">Name der Collection</label>
                     <input type="text" id="collection_name_{{ $collection->id }}" name="name" value="{{ $collection->name }}" maxlength="255"
                            class="text-sm rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 py-1">
-                    <button type="submit" class="text-xs text-slate-500 hover:underline whitespace-nowrap">Umbenennen</button>
+                    <button type="submit" class="text-xs text-slate-500 dark:text-slate-400 hover:underline whitespace-nowrap">Umbenennen</button>
                 </form>
                 @unless ($collection->is_default)
                     <form method="POST" action="{{ route('favorite-collections.destroy', $collection) }}"
@@ -102,9 +102,9 @@
         <div x-show="section === 'smart'">
             <div x-data="{}" class="mb-2">
                 <div class="flex gap-1 mb-4 border-b border-slate-100 dark:border-slate-700">
-                    <button @click="smartView = 'favorites'" :class="smartView === 'favorites' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500'"
+                    <button @click="smartView = 'favorites'" :class="smartView === 'favorites' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
                             :style="smartView === 'favorites' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm transition">Meine Favoriten</button>
-                    <button @click="smartView = 'errors'" :class="smartView === 'errors' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500'"
+                    <button @click="smartView = 'errors'" :class="smartView === 'errors' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
                             :style="smartView === 'errors' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm transition">Meine Fehler</button>
                 </div>
             </div>
@@ -121,7 +121,7 @@
                         'assignedCollectionIds' => $smartItemCollections->get($favorite->question_id, []),
                     ])
                 @empty
-                    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 text-center text-slate-500 text-sm">
+                    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 text-center text-slate-500 dark:text-slate-400 text-sm">
                         Noch keine Favoriten gespeichert.
                     </div>
                 @endforelse
@@ -139,7 +139,7 @@
                         'assignedCollectionIds' => $smartItemCollections->get($question->id, []),
                     ])
                 @empty
-                    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 text-center text-slate-500 text-sm">
+                    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 text-center text-slate-500 dark:text-slate-400 text-sm">
                         Bisher keine falsch beantworteten Fragen.
                     </div>
                 @endforelse
@@ -149,9 +149,9 @@
         <div x-show="section === 'exam'" style="display: none">
             <div class="mb-2">
                 <div class="flex gap-1 mb-4 border-b border-slate-100 dark:border-slate-700">
-                    <button @click="examView = 'favorites'" :class="examView === 'favorites' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500'"
+                    <button @click="examView = 'favorites'" :class="examView === 'favorites' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
                             :style="examView === 'favorites' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm transition">Meine Favoriten</button>
-                    <button @click="examView = 'errors'" :class="examView === 'errors' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500'"
+                    <button @click="examView = 'errors'" :class="examView === 'errors' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
                             :style="examView === 'errors' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm transition">Meine Fehler</button>
                 </div>
             </div>
@@ -168,7 +168,7 @@
                         'assignedCollectionIds' => $examItemCollections->get($favorite->question_id, []),
                     ])
                 @empty
-                    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 text-center text-slate-500 text-sm">
+                    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 text-center text-slate-500 dark:text-slate-400 text-sm">
                         Noch keine Favoriten gespeichert.
                     </div>
                 @endforelse
@@ -186,7 +186,7 @@
                         'assignedCollectionIds' => $examItemCollections->get($question->id, []),
                     ])
                 @empty
-                    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 text-center text-slate-500 text-sm">
+                    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 text-center text-slate-500 dark:text-slate-400 text-sm">
                         Bisher keine falsch beantworteten Fragen.
                     </div>
                 @endforelse

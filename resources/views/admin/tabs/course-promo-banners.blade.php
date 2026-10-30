@@ -1,6 +1,6 @@
 {{-- Bug-Review (Du/Sie im Admin-Bereich gemischt): der restliche
      Admin-Bereich siezt durchgehend. --}}
-<p class="text-slate-500 mb-6">
+<p class="text-slate-500 dark:text-slate-400 mb-6">
     Hier können Sie frei formulierte Banner anlegen, die für einen anderen oder weiterführenden Kurs werben
     (z. B. einen Ergänzungskurs). Überschrift, Beschreibungstext und Haken-Bullets schreiben Sie frei selbst,
     Preis, Rabatt in % und Gutscheincode sind optional (reine Anzeigefelder &mdash; der Rabatt-VK wird daraus
@@ -66,7 +66,7 @@
                     <button type="submit" class="px-5 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
                         Banner anlegen
                     </button>
-                    <button type="button" @click="showCreateForm = false" class="text-sm text-slate-500 hover:underline">
+                    <button type="button" @click="showCreateForm = false" class="text-sm text-slate-500 dark:text-slate-400 hover:underline">
                         Abbrechen
                     </button>
                 </div>

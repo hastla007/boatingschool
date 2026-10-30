@@ -84,10 +84,24 @@ class CourseDefinition extends Model
      * wirksames Regelwerk konnte trotzdem als "aktuell gültig" ausgewählt
      * werden, sobald es das mit dem spätesten valid_from unter den
      * published+verifizierten war.
+     *
+     * Bug-Review (Datumsgrenze nachts nach UTC statt deutscher Zeit):
+     * valid_from/valid_until sind reine 'date'-Spalten (kein Zeitanteil) --
+     * ein Superadmin trägt sie als deutsches Kalenderdatum ein. now()
+     * läuft serverseitig weiterhin in UTC (siehe App\Support\GermanTime,
+     * APP_TIMEZONE bleibt bewusst UTC), toDateString() lieferte damit
+     * zwischen Mitternacht und ca. 1-2 Uhr deutscher Zeit noch den
+     * VORTAG: ein Regelwerk mit valid_from = heute wurde dadurch erst 1-2
+     * Stunden zu spät aktiv, ein ablaufendes blieb 1-2 Stunden zu lange
+     * gültig. Die Umrechnung auf deutsche Zeit passiert deshalb -- anders
+     * als bei GermanTime::format(), das ausschließlich für die Anzeige
+     * gespeicherter Zeitstempel gedacht ist -- hier gezielt VOR dem
+     * Herunterbrechen auf das Kalenderdatum, nicht an den gespeicherten
+     * Zeitstempeln selbst.
      */
     public function activeExamRuleSet(): ?ExamRuleSet
     {
-        $today = now()->toDateString();
+        $today = now()->setTimezone('Europe/Berlin')->toDateString();
 
         return $this->examRuleSets()
             ->where('status', 'published')

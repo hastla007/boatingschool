@@ -7,6 +7,7 @@ use App\Models\Entitlement;
 use App\Models\ExamSession;
 use App\Models\Favorite;
 use App\Models\FavoriteCollection;
+use App\Models\FavoriteCollectionItem;
 use App\Models\PraxisExamAppointment;
 use App\Models\PraxisFormSubmission;
 use App\Models\PraxisProgress;
@@ -116,6 +117,19 @@ class PersonalDataExportService
                     'name' => $c->name,
                     'course_id' => $c->course_id,
                     'is_default' => $c->is_default,
+                ])->all(),
+            // Bug-Review (BB7: Datenexport unvollständig): favorite_collections
+            // listet bisher nur die selbst benannten Sammlungen, nicht aber,
+            // welche Fragen der Lerner tatsächlich in sie einsortiert hat
+            // (favorite_collection_item) -- genau diese Zuordnung ist der
+            // eigentliche, selbst erstellte Inhalt einer Sammlung.
+            'favorite_collection_items' => FavoriteCollectionItem::where('tenant_id', $tenant->id)
+                ->whereIn('favorite_collection_id', FavoriteCollection::where('tenant_id', $tenant->id)->where('user_id', $user->id)->pluck('id'))
+                ->get()
+                ->map(fn (FavoriteCollectionItem $i) => [
+                    'favorite_collection_id' => $i->favorite_collection_id,
+                    'question_id' => $i->question_id,
+                    'context' => $i->context,
                 ])->all(),
             'praxis_form_submissions' => PraxisFormSubmission::where('tenant_id', $tenant->id)->where('user_id', $user->id)
                 ->orderBy('created_at')->get()

@@ -38,14 +38,14 @@
                                     @if ($tip->active)
                                         <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">aktiv</span>
                                     @else
-                                        <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">deaktiviert</span>
+                                        <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 dark:text-slate-400">deaktiviert</span>
                                     @endif
                                 </td>
                                 <td class="px-4 py-3 text-right whitespace-nowrap">
-                                    <a href="{{ route('superadmin.tips.edit', $tip) }}" class="text-xs text-slate-500 hover:underline">Bearbeiten</a>
+                                    <a href="{{ route('superadmin.tips.edit', $tip) }}" class="text-xs text-slate-500 dark:text-slate-400 hover:underline">Bearbeiten</a>
                                     <form method="POST" action="{{ route('superadmin.tips.toggle-active', $tip) }}" class="inline">
                                         @csrf
-                                        <button type="submit" class="ml-3 text-xs text-slate-500 hover:underline">{{ $tip->active ? 'Deaktivieren' : 'Aktivieren' }}</button>
+                                        <button type="submit" class="ml-3 text-xs text-slate-500 dark:text-slate-400 hover:underline">{{ $tip->active ? 'Deaktivieren' : 'Aktivieren' }}</button>
                                     </form>
                                     <form method="POST" action="{{ route('superadmin.tips.destroy', $tip) }}" class="inline" @submit="if (! confirm('Diesen Tipp wirklich löschen?')) $event.preventDefault()">
                                         @csrf
@@ -62,7 +62,7 @@
                 </div>
             </div>
         @empty
-            <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 text-slate-500">
+            <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 text-slate-500 dark:text-slate-400">
                 Noch keine Kategorien angelegt. <a href="{{ route('superadmin.tips.categories.index') }}" class="underline">Jetzt anlegen</a>.
             </div>
         @endforelse

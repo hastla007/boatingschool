@@ -2,7 +2,7 @@
      die zahlreichen "Du/Sie im Admin-Bereich gemischt"-Fixes), dieser
      Absatz nutzte bisher als einzige Stelle hier die informelle
      ihr-Form. --}}
-<p class="text-slate-500 mb-6">
+<p class="text-slate-500 dark:text-slate-400 mb-6">
     Eigene Coupon-Codes bekommen Sie auf zwei Wegen: entweder teilt Ihnen der Plattform-Betreiber welche zu, oder Sie
     übernehmen Codes, die Sie einzeln oder im Bulk über einen externen Webshop gekauft haben, per Import in Ihren
     Bestand.
@@ -48,10 +48,10 @@
                     <tr class="border-t border-slate-100 dark:border-slate-700">
                         <td class="px-4 py-2 text-slate-700 dark:text-slate-200">{{ $row->name }}</td>
                         <td class="px-4 py-2 text-emerald-600 font-medium">{{ $row->free }}</td>
-                        <td class="px-4 py-2 text-slate-500">{{ $row->used }}</td>
+                        <td class="px-4 py-2 text-slate-500 dark:text-slate-400">{{ $row->used }}</td>
                     </tr>
                 @empty
-                    <tr><td colspan="3" class="px-4 py-3 text-slate-500">Noch keine eigenen Codes vorhanden.</td></tr>
+                    <tr><td colspan="3" class="px-4 py-3 text-slate-500 dark:text-slate-400">Noch keine eigenen Codes vorhanden.</td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -81,7 +81,7 @@
         </select>
         <button type="submit" class="px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-sm">Suchen</button>
         @if (($couponFilters['coupon_search'] ?? '') !== '' || ($couponFilters['coupon_status'] ?? '') !== '' || ($couponFilters['coupon_type'] ?? '') !== '')
-            <a href="{{ route('admin.dashboard', ['tab' => 'coupons']) }}" class="text-sm text-slate-500 hover:underline self-center">Filter zurücksetzen</a>
+            <a href="{{ route('admin.dashboard', ['tab' => 'coupons']) }}" class="text-sm text-slate-500 dark:text-slate-400 hover:underline self-center">Filter zurücksetzen</a>
         @endif
     </form>
     {{-- Bug-Review (/admin zu schwer): die Nutzerliste für "Zuweisen" stand
@@ -125,13 +125,13 @@
                     <td class="px-4 py-2 text-slate-600 dark:text-slate-300">{{ $coupon->redeemableName() }}</td>
                     <td class="px-4 py-2">
                         @if ($coupon->isRedeemed())
-                            <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500">eingelöst</span>
+                            <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">eingelöst</span>
                         @else
                             <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">offen</span>
                         @endif
                     </td>
-                    <td class="px-4 py-2 text-slate-500">{{ $coupon->redeemedBy?->name ?? '—' }}</td>
-                    <td class="px-4 py-2 text-slate-500 text-xs">{{ \App\Support\GermanTime::format($coupon->redeemed_at, 'd.m.Y H:i') ?? '—' }}</td>
+                    <td class="px-4 py-2 text-slate-500 dark:text-slate-400">{{ $coupon->redeemedBy?->name ?? '—' }}</td>
+                    <td class="px-4 py-2 text-slate-500 dark:text-slate-400 text-xs">{{ \App\Support\GermanTime::format($coupon->redeemed_at, 'd.m.Y H:i') ?? '—' }}</td>
                     <td class="px-4 py-2">
                         @if (! $coupon->isRedeemed() && $coupon->tenant_id === $tenant->id)
                             <form method="POST" action="{{ route('admin.coupons.assign', $coupon) }}" class="flex gap-1">
@@ -142,12 +142,12 @@
                                 <button type="submit" class="px-3 py-1 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-xs whitespace-nowrap">Zuweisen</button>
                             </form>
                         @else
-                            <span class="text-slate-300">—</span>
+                            <span class="text-slate-300 dark:text-slate-600">—</span>
                         @endif
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="7" class="px-4 py-3 text-slate-500">
+                <tr><td colspan="7" class="px-4 py-3 text-slate-500 dark:text-slate-400">
                     @if (array_filter($couponFilters))
                         Keine Codes gefunden, die zu diesem Filter passen.
                     @else

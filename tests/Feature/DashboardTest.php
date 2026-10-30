@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\ContentQuestion;
 use App\Models\CourseDefinition;
+use App\Models\Module;
 use App\Models\Progress;
 use App\Models\VideoProgress;
 use App\Support\VideoCourseLessons;
@@ -21,6 +23,10 @@ class DashboardTest extends TestCase
 
     private array $createdCourseIds = [];
 
+    private array $createdModuleIds = [];
+
+    private array $createdQuestionIds = [];
+
     protected function tearDown(): void
     {
         $this->cleanUpCreatedTenantsAndUsers();
@@ -28,6 +34,12 @@ class DashboardTest extends TestCase
         $this->onAdmin(function () {
             foreach ($this->createdCourseIds as $id) {
                 CourseDefinition::withoutGlobalScopes()->where('id', $id)->delete();
+            }
+            foreach ($this->createdModuleIds as $id) {
+                Module::where('id', $id)->delete();
+            }
+            foreach ($this->createdQuestionIds as $id) {
+                ContentQuestion::where('id', $id)->delete();
             }
         });
 
@@ -202,5 +214,77 @@ class DashboardTest extends TestCase
         $response->assertSee('Prüfungsaufgaben');
         $response->assertSee(route('exam.intro', $course));
         $response->assertDontSee('Smarttrainer wählt die nächste Frage für dich');
+    }
+
+    /**
+     * Bug-Review BB4: ein Kurs ohne feste Prüfungsbögen UND ohne
+     * fachlich freigegebenes Regelwerk hat überhaupt keine funktionierende
+     * Prüfungssimulation -- exam.intro zeigt für ihn nur "noch kein
+     * Regelwerk verfügbar". Der Weiterlernen-Banner darf trotz hoher
+     * Mastery-Quote (>90%) deshalb nicht zur Prüfung führen, sondern muss
+     * beim Smarttrainer bleiben.
+     */
+    public function test_banner_does_not_offer_the_exam_for_a_course_without_any_exam_at_all(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+
+        [$course, $questionIds] = $this->onAdmin(function () {
+            $course = CourseDefinition::withoutGlobalScopes()->create([
+                'tenant_id' => null,
+                'code' => 'TEST-DASH-'.uniqid(),
+                'name' => 'Test-Kurs ohne Prüfung',
+                'course_type' => 'full',
+                'status' => 'published',
+            ]);
+            $this->createdCourseIds[] = $course->id;
+
+            $module = Module::create([
+                'code' => 'TEST-DASH-MODULE-'.uniqid(),
+                'name' => 'Testmodul',
+                'version' => '1',
+                'status' => 'published',
+            ]);
+            $this->createdModuleIds[] = $module->id;
+            $course->modules()->attach($module->id, ['sort_order' => 1, 'required' => true]);
+
+            $questionIds = [];
+            for ($i = 0; $i < 2; $i++) {
+                $question = ContentQuestion::create(['content_id' => 'TEST-DASH-Q-'.uniqid(), 'language' => 'de-DE', 'active' => true]);
+                $this->createdQuestionIds[] = $question->id;
+                $questionIds[] = $question->id;
+                $module->questions()->attach($question->id, ['sort_order' => $i + 1, 'required' => true]);
+            }
+
+            return [$course, $questionIds];
+        });
+
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $this->onAdmin(function () use ($tenant, $learner, $questionIds) {
+            foreach ($questionIds as $questionId) {
+                Progress::create([
+                    'tenant_id' => $tenant->id,
+                    'user_id' => $learner->id,
+                    'question_id' => $questionId,
+                    'attempt_count' => 3,
+                    'correct_count' => 3,
+                    'incorrect_count' => 0,
+                    'current_streak' => 3,
+                    'mastery_score' => 1,
+                    'learning_state' => 'gefestigt',
+                    'first_seen_at' => now(),
+                    'last_seen_at' => now(),
+                    'last_correct_at' => now(),
+                ]);
+            }
+        });
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get('/dashboard');
+
+        $response->assertOk();
+        $response->assertDontSee('Prüfungsaufgaben');
+        $response->assertDontSee(route('exam.intro', $course));
+        $response->assertSee('Smarttrainer wählt die nächste Frage für dich');
     }
 }

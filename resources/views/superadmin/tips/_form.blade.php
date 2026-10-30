@@ -38,7 +38,7 @@
 <div>
     <x-input-label for="pdf" value="PDF-Anhang (optional)" />
     @if ($tip?->pdfAsset)
-        <p class="text-xs text-slate-500 mb-1">
+        <p class="text-xs text-slate-500 dark:text-slate-400 mb-1">
             Aktuell hinterlegt: <a href="{{ $tip->pdfAsset->storage_path }}" target="_blank" class="text-blue-600 hover:underline">PDF ansehen</a> — beim Hochladen einer neuen Datei wird diese ersetzt.
         </p>
     @endif

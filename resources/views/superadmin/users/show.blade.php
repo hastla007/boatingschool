@@ -13,14 +13,30 @@
                 @csrf
                 @method('PATCH')
 
+                @php
+                    // Bug-Review (Superadmin-Nutzerseite zeigt leere
+                    // Namensfelder): first_name/last_name blieben bei
+                    // Nutzern, die sich selbst registriert oder eine
+                    // Einladung angenommen haben, bisher unbesetzt (siehe
+                    // User::splitDisplayName()) -- diese, als required
+                    // geführten, Felder zeigten dadurch leer an, obwohl
+                    // display_name längst einen Namen enthält. Nur zur
+                    // Vorbefüllung wird hier -- sofern noch nicht gesetzt --
+                    // derselbe Vorschlag wie bei Neuanlagen abgeleitet; die
+                    // Spalten selbst ändern sich dadurch nicht.
+                    $guessedName = ($user->first_name === null && $user->last_name === null)
+                        ? \App\Models\User::splitDisplayName($user->name)
+                        : ['first_name' => $user->first_name, 'last_name' => $user->last_name];
+                @endphp
+
                 <div class="grid grid-cols-2 gap-3">
                     <div>
                         <x-input-label for="first_name" value="Vorname" />
-                        <x-text-input id="first_name" name="first_name" type="text" class="mt-1 block w-full" :value="old('first_name', $user->first_name)" required />
+                        <x-text-input id="first_name" name="first_name" type="text" class="mt-1 block w-full" :value="old('first_name', $guessedName['first_name'])" required />
                     </div>
                     <div>
                         <x-input-label for="last_name" value="Nachname" />
-                        <x-text-input id="last_name" name="last_name" type="text" class="mt-1 block w-full" :value="old('last_name', $user->last_name)" required />
+                        <x-text-input id="last_name" name="last_name" type="text" class="mt-1 block w-full" :value="old('last_name', $guessedName['last_name'])" required />
                     </div>
                 </div>
                 <div>
@@ -66,10 +82,10 @@
                     @forelse ($memberships as $membership)
                         <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-2 last:border-0">
                             <a href="{{ route('superadmin.tenants.show', $membership->tenant) }}" class="text-slate-700 dark:text-slate-200 hover:underline">{{ $membership->tenant->name }}</a>
-                            <span class="inline-block px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-xs">{{ $membership->role }}</span>
+                            <span class="inline-block px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-xs">{{ \App\Support\StatusLabels::tenantRole($membership->role) }}</span>
                         </div>
                     @empty
-                        <p class="text-slate-500">Noch keine Bootsschule zugeordnet.</p>
+                        <p class="text-slate-500 dark:text-slate-400">Noch keine Bootsschule zugeordnet.</p>
                     @endforelse
                 </div>
                 <form method="POST" action="{{ route('superadmin.users.memberships.store', $user) }}" class="flex gap-2">
@@ -101,11 +117,11 @@
                         @forelse ($results as $result)
                             <tr class="border-t border-slate-100 dark:border-slate-700">
                                 <td class="py-1.5">{{ $result['entitlement']->course->name }}</td>
-                                <td class="py-1.5 text-slate-500">{{ $result['entitlement']->tenant->name }}</td>
-                                <td class="py-1.5 text-slate-500">{{ $result['percent'] }}%</td>
+                                <td class="py-1.5 text-slate-500 dark:text-slate-400">{{ $result['entitlement']->tenant->name }}</td>
+                                <td class="py-1.5 text-slate-500 dark:text-slate-400">{{ $result['percent'] }}%</td>
                             </tr>
                         @empty
-                            <tr><td colspan="3" class="py-3 text-slate-500">Noch keine Kurszugänge.</td></tr>
+                            <tr><td colspan="3" class="py-3 text-slate-500 dark:text-slate-400">Noch keine Kurszugänge.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
@@ -123,12 +139,12 @@
                         @forelse ($productPurchases as $purchase)
                             <tr class="border-t border-slate-100 dark:border-slate-700">
                                 <td class="py-1.5">{{ $purchase->product->name }}</td>
-                                <td class="py-1.5 text-slate-500">{{ $purchase->tenant->name }}</td>
-                                <td class="py-1.5 text-slate-500">{{ $purchase->source_type === 'coupon' ? 'Coupon '.$purchase->source_reference : $purchase->source_type }}</td>
-                                <td class="py-1.5 text-slate-500">{{ \App\Support\GermanTime::format($purchase->created_at, 'd.m.Y H:i') }}</td>
+                                <td class="py-1.5 text-slate-500 dark:text-slate-400">{{ $purchase->tenant->name }}</td>
+                                <td class="py-1.5 text-slate-500 dark:text-slate-400">{{ $purchase->source_type === 'coupon' ? 'Coupon '.$purchase->source_reference : $purchase->source_type }}</td>
+                                <td class="py-1.5 text-slate-500 dark:text-slate-400">{{ \App\Support\GermanTime::format($purchase->created_at, 'd.m.Y H:i') }}</td>
                             </tr>
                         @empty
-                            <tr><td colspan="4" class="py-3 text-slate-500">Noch keine Produkte gekauft.</td></tr>
+                            <tr><td colspan="4" class="py-3 text-slate-500 dark:text-slate-400">Noch keine Produkte gekauft.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
@@ -152,13 +168,13 @@
                                     </span>
                                     @if ($session->openTextCount > 0)
                                         {{-- Bug-Review (FKN offene Fragen): siehe exam/result.blade.php. --}}
-                                        <div class="text-xs text-slate-500 mt-0.5">{{ $session->openTextCorrect }}/{{ $session->openTextCount }} Punkte durch Selbsteinschätzung</div>
+                                        <div class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{{ $session->openTextCorrect }}/{{ $session->openTextCount }} Punkte durch Selbsteinschätzung</div>
                                     @endif
                                 </td>
-                                <td class="py-1.5 text-slate-500">{{ \App\Support\GermanTime::format($session->submitted_at, 'd.m.Y H:i') }}</td>
+                                <td class="py-1.5 text-slate-500 dark:text-slate-400">{{ \App\Support\GermanTime::format($session->submitted_at, 'd.m.Y H:i') }}</td>
                             </tr>
                         @empty
-                            <tr><td colspan="3" class="py-3 text-slate-500">Noch keine Prüfungssimulation abgelegt.</td></tr>
+                            <tr><td colspan="3" class="py-3 text-slate-500 dark:text-slate-400">Noch keine Prüfungssimulation abgelegt.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

@@ -11,7 +11,7 @@
             <input type="email" id="invite_email" name="email" placeholder="E-Mail" required class="flex-1 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
         </div>
         <div x-data="{ showAddress: false }">
-            <button type="button" @click="showAddress = ! showAddress" class="text-xs text-slate-500 hover:underline">
+            <button type="button" @click="showAddress = ! showAddress" class="text-xs text-slate-500 dark:text-slate-400 hover:underline">
                 <span x-show="! showAddress">+ Adresse hinterlegen (optional)</span>
                 <span x-show="showAddress" style="display: none">&minus; Adresse ausblenden</span>
             </button>
@@ -35,7 +35,7 @@
             </p>
         </div>
         <div x-data="{ showCode: {{ $errors->has('code') ? 'true' : 'false' }} }">
-            <button type="button" @click="showCode = ! showCode" class="text-xs text-slate-500 hover:underline">
+            <button type="button" @click="showCode = ! showCode" class="text-xs text-slate-500 dark:text-slate-400 hover:underline">
                 <span x-show="! showCode" @if ($errors->has('code')) style="display: none" @endif>+ Code zuweisen (optional)</span>
                 <span x-show="showCode" @unless ($errors->has('code')) style="display: none" @endunless>&minus; Code ausblenden</span>
             </button>
@@ -86,17 +86,17 @@
                             <span class="text-slate-700 dark:text-slate-200">{{ $membership->user->name }}</span>
                         </a>
                     </td>
-                    <td class="px-4 py-2 text-slate-500">{{ $membership->user->email }}</td>
-                    <td class="px-4 py-2 text-slate-500">
+                    <td class="px-4 py-2 text-slate-500 dark:text-slate-400">{{ $membership->user->email }}</td>
+                    <td class="px-4 py-2 text-slate-500 dark:text-slate-400">
                         @forelse ($membership->user->entitlements as $entitlement)
                             <span class="inline-block px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-xs mb-1">
-                                {{ $entitlement->course->name }} ({{ $entitlement->status }})
+                                {{ $entitlement->course->name }} ({{ \App\Support\StatusLabels::entitlementStatus($entitlement->status) }})
                             </span>
                         @empty
                             <span class="text-slate-600 dark:text-slate-400">keine</span>
                         @endforelse
                     </td>
-                    <td class="px-4 py-2 text-slate-500">
+                    <td class="px-4 py-2 text-slate-500 dark:text-slate-400">
                         @forelse ($productPurchases->get($membership->user_id, collect()) as $purchase)
                             <span class="inline-block px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-xs mb-1">
                                 {{ $purchase->product->name }}
@@ -135,7 +135,8 @@
                                      Admin-Bereich siezt durchgehend. --}}
                                 <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">aktiv (Sie)</span>
                             @else
-                                <form method="POST" action="{{ route('admin.participants.membership.update', $membership->user_id) }}" class="flex items-center gap-2">
+                                <form method="POST" action="{{ route('admin.participants.membership.update', $membership->user_id) }}" class="flex items-center gap-2"
+                                      @submit="if ({{ $membership->status === 'active' ? 'true' : 'false' }} && ! confirm('Dieses Konto wirklich sperren?')) $event.preventDefault()">
                                     @csrf
                                     @method('PATCH')
                                     <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full {{ $membership->status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700' }}">

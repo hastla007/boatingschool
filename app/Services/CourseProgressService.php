@@ -47,7 +47,8 @@ class CourseProgressService
         // werden konnte, waren 100% Kursfortschritt dauerhaft unerreichbar,
         // und die darauf aufbauenden Freigaben (Praxisformular,
         // Willkommensbox, Addon-/Banner-Empfehlungen) blieben gesperrt.
-        $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->where('active', true)->pluck('id')->unique();
+        // Bug-Review BB16: dieselbe Lücke bestand für valid_from/valid_to.
+        $questionIds = $course->modules->flatMap(fn ($m) => $m->questions)->filter(fn ($q) => $q->isCurrentlyValid())->pluck('id')->unique();
         $total = max($questionIds->count(), 1);
 
         $mastered = Progress::where('tenant_id', $tenant->id)
@@ -81,7 +82,8 @@ class CourseProgressService
             // Bug-Review F7: siehe overallPercent() -- eine deaktivierte
             // Frage zählte hier ebenfalls weiter mit, obwohl sie nie
             // "gefestigt" werden kann.
-            $activeQuestions = $module->questions->where('active', true);
+            // Bug-Review BB16: dieselbe Lücke bestand für valid_from/valid_to.
+            $activeQuestions = $module->questions->filter(fn ($q) => $q->isCurrentlyValid());
 
             $topics = $activeQuestions
                 ->groupBy(function ($q) {

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\FavoriteCollection;
+use App\Models\FavoriteCollectionItem;
 use App\Models\PraxisExamAppointment;
 use App\Models\PraxisFormSubmission;
 use App\Models\PraxisFormTemplate;
@@ -134,13 +135,23 @@ class PersonalDataExportTest extends TestCase
                 'response' => 'accepted',
             ]);
 
-            FavoriteCollection::create([
+            $collection = FavoriteCollection::create([
                 'tenant_id' => $tenant->id,
                 'user_id' => $learner->id,
                 'course_id' => $course->id,
                 'name' => 'Meine schwierigen Fragen',
                 'is_default' => false,
                 'sort_order' => 1,
+            ]);
+
+            $module = $course->modules->first();
+            $question = $module->questions()->first();
+
+            FavoriteCollectionItem::create([
+                'tenant_id' => $tenant->id,
+                'favorite_collection_id' => $collection->id,
+                'question_id' => $question->id,
+                'context' => FavoriteCollectionItem::CONTEXT_SMART_LEARNING,
             ]);
         });
 
@@ -153,6 +164,12 @@ class PersonalDataExportTest extends TestCase
 
         $this->assertCount(1, $data['favorite_collections']);
         $this->assertSame('Meine schwierigen Fragen', $data['favorite_collections'][0]['name']);
+
+        // Bug-Review BB7: nicht nur die Sammlung selbst (ihr Name), sondern
+        // auch, welche Fragen tatsächlich in sie einsortiert wurden, gehört
+        // zum Auskunftsrecht.
+        $this->assertCount(1, $data['favorite_collection_items']);
+        $this->assertSame(FavoriteCollectionItem::CONTEXT_SMART_LEARNING, $data['favorite_collection_items'][0]['context']);
 
         $this->createdUserIds[] = $learner->id;
     }

@@ -143,7 +143,8 @@ class UserController extends Controller
             // obwohl sie nie "gefestigt" werden kann (siehe
             // CourseProgressService::overallPercent, dessen Formel hier aus
             // Performance-Gründen dupliziert ist).
-            $questionIds = $entitlement->course->modules->flatMap(fn ($m) => $m->questions)->where('active', true)->pluck('id')->unique();
+            // Bug-Review BB16: dieselbe Lücke bestand für valid_from/valid_to.
+            $questionIds = $entitlement->course->modules->flatMap(fn ($m) => $m->questions)->filter(fn ($q) => $q->isCurrentlyValid())->pluck('id')->unique();
             $total = max($questionIds->count(), 1);
             $mastered = $masteredProgress
                 ->where('tenant_id', $entitlement->tenant_id)

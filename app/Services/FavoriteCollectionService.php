@@ -112,7 +112,15 @@ class FavoriteCollectionService
             ->where('course_id', $course->id)
             ->pluck('id');
 
-        $targetIds = array_values(array_intersect($collectionIds, $ownCollectionIds->all()));
+        // Bug-Review (Doppelte Sammlungs-IDs führen zu einer Fehlerseite):
+        // der Controller validiert collection_ids.* nur auf "uuid", nicht
+        // auf Eindeutigkeit -- array_intersect() behält Duplikate aus
+        // $collectionIds bei. Ohne array_unique() landete dieselbe
+        // Collection-ID zweimal in $targetIds, der zweite create() unten
+        // verletzte dann den aus (favorite_collection_id, question_id,
+        // context) bestehenden Primärschlüssel von favorite_collection_item
+        // und führte zu einer unbehandelten DB-Exception (500).
+        $targetIds = array_values(array_unique(array_intersect($collectionIds, $ownCollectionIds->all())));
 
         FavoriteCollectionItem::where('tenant_id', $tenant->id)
             ->where('question_id', $questionId)
@@ -137,6 +145,31 @@ class FavoriteCollectionService
                 'context' => $context,
             ]);
         } else {
+            // Bug-Review (Favoriten gehen beim Wechsel zwischen zwei Kursen
+            // verloren): favorite trägt bewusst KEIN course_id (eine von
+            // mehreren Kursen genutzte Frage, z. B. über ein gemeinsames
+            // Modul wie bei SBF-SEE/SBF-SEE-BIN oder SRC/SRC-UBI, hat einen
+            // EINZIGEN geteilten Favorite-Datensatz), aber jeder Kurs hat
+            // seine eigenen Collections. Wurde die Frage hier -- in NUR
+            // einem der beiden Kurse -- aus allen Collections entfernt,
+            // löschte diese Zeile bisher den Favoriten global, auch wenn er
+            // im ANDEREN Kurs weiterhin einsortiert war. Der Favorit wird
+            // jetzt nur entfernt, wenn er in KEINEM Kurs dieses Nutzers mehr
+            // einsortiert ist.
+            $allOwnCollectionIds = FavoriteCollection::where('tenant_id', $tenant->id)
+                ->where('user_id', $user->id)
+                ->pluck('id');
+
+            $stillAssignedElsewhere = FavoriteCollectionItem::where('tenant_id', $tenant->id)
+                ->where('question_id', $questionId)
+                ->where('context', $context)
+                ->whereIn('favorite_collection_id', $allOwnCollectionIds)
+                ->exists();
+
+            if ($stillAssignedElsewhere) {
+                return;
+            }
+
             Favorite::where('tenant_id', $tenant->id)
                 ->where('user_id', $user->id)
                 ->where('question_id', $questionId)

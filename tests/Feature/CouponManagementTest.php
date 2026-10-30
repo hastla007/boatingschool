@@ -183,7 +183,7 @@ class CouponManagementTest extends TestCase
         $response = $this->actingAsInTenant($admin, $tenant)->get('/admin');
 
         $response->assertOk();
-        $pattern = '/'.preg_quote($course->name, '/').'.*?text-emerald-600 font-medium">2<.*?text-slate-500">1</s';
+        $pattern = '/'.preg_quote($course->name, '/').'.*?text-emerald-600 font-medium">2<.*?text-slate-500 dark:text-slate-400">1</s';
         $this->assertMatchesRegularExpression($pattern, $response->getContent());
     }
 
@@ -523,6 +523,58 @@ class CouponManagementTest extends TestCase
 
         $freshCoupon = $this->onAdmin(fn () => Coupon::where('code', $code)->first());
         $this->assertFalse($freshCoupon->isRedeemed(), 'Der Code wurde trotz abgelehnter Einlösung verbraucht.');
+    }
+
+    /**
+     * Bug-Review (AA3: Gutschein umgeht Sperre): anders als "revoked" (siehe
+     * Test oben) darf ein per Admin\EntitlementController::suspend()
+     * gesperrtes ("suspended") Entitlement durch einen neuen Kurscode
+     * durchaus wieder aktiv werden -- die Sperrung ist laut deren Docblock
+     * ausdrücklich ein "kostenloser, jederzeit rückgängig machbarer
+     * Zustand". hasAccess() erkennt aber nur AKTIVEN Zugang, sodass
+     * redeemForCourse() bisher trotzdem ein ZWEITES, eigenständiges
+     * Entitlement anlegte, statt das gesperrte zu reaktivieren -- die
+     * Sperre blieb unangetastet in der DB stehen, griff aber nicht mehr,
+     * weil das neue Entitlement parallel vollen Zugang gewährte
+     * ("es entsteht ein zweiter Zugang"). Analog zu
+     * test_granting_access_again_reactivates_a_previously_suspended_entitlement_instead_of_duplicating
+     * in EntitlementManagementTest (dort für den Admin-"Kurs
+     * freischalten"-Weg), hier für den Selbst-Einlöse-Pfad.
+     */
+    public function test_redeeming_a_regular_course_code_reactivates_a_suspended_entitlement_instead_of_duplicating(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+
+        $suspended = $this->onAdmin(fn () => Entitlement::create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $learner->id,
+            'course_id' => $course->id,
+            'status' => 'suspended',
+            'source_type' => 'coupon',
+            'valid_from' => now()->subDays(30),
+            'valid_until' => now()->addDays(300),
+        ]));
+
+        $code = 'E2E-SUSPENDED-NEW-CODE';
+        $this->createdCodes[] = $code;
+        $this->onAdmin(fn () => Coupon::create(['code' => $code, 'course_id' => $course->id, 'tenant_id' => $tenant->id]));
+
+        $response = $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', ['code' => $code]);
+
+        $response->assertSessionHasNoErrors();
+        $response->assertRedirect(route('courses.show', $course));
+
+        $this->onAdmin(function () use ($tenant, $learner, $course, $suspended) {
+            $entitlements = Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->where('course_id', $course->id)->get();
+            $this->assertCount(1, $entitlements, 'Die Einlösung muss das gesperrte Entitlement reaktivieren statt ein zweites anzulegen.');
+            $this->assertSame($suspended->id, $entitlements->first()->id);
+            $this->assertSame('active', $entitlements->first()->status);
+        });
+
+        $freshCoupon = $this->onAdmin(fn () => Coupon::where('code', $code)->first());
+        $this->assertTrue($freshCoupon->isRedeemed(), 'Der Code muss beim Aufheben der Sperre verbraucht werden.');
     }
 
     public function test_redeeming_a_grosse_praxiseinheit_option_replaces_an_existing_kleine_praxiseinheit(): void

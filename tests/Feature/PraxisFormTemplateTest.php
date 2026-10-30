@@ -266,6 +266,40 @@ class PraxisFormTemplateTest extends TestCase
         $this->assertDatabaseHas('praxis_form_template', ['id' => $template->id, 'title' => 'E2E Formular (aktualisiert)', 'min_progress_percent' => 60]);
     }
 
+    /**
+     * Bug-Review (AA13: Deaktiviertes Praxis-Formular wird beim Bearbeiten
+     * aktiv): validateTemplate() setzte active bisher unabhängig vom
+     * tatsächlichen Status immer auf true -- store() UND update() teilen
+     * sich diese Methode, eine reine Tippfehlerkorrektur an einem zuvor
+     * bewusst deaktivierten Formular aktivierte es dadurch ungewollt wieder
+     * (allein toggleActive() soll den Status ändern).
+     */
+    public function test_editing_a_deactivated_template_keeps_it_deactivated(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        $course = $this->makeIsolatedCourse();
+        $template = $this->trackTemplate($this->onAdmin(fn () => PraxisFormTemplate::create([
+            'title' => 'E2E Deaktiviertes Formular',
+            'min_progress_percent' => 50,
+            'course_ids' => [$course->id],
+            'fields' => [],
+            'active' => false,
+        ])));
+
+        $response = $this->actingAs($superadmin)->patch("/superadmin/praxis-form-templates/{$template->id}", [
+            'title' => 'E2E Deaktiviertes Formular (korrigiert)',
+            'min_progress_percent' => 50,
+            'course_ids' => [$course->id],
+        ]);
+
+        $response->assertRedirect();
+        $this->assertDatabaseHas('praxis_form_template', [
+            'id' => $template->id,
+            'title' => 'E2E Deaktiviertes Formular (korrigiert)',
+            'active' => false,
+        ]);
+    }
+
     public function test_superadmin_can_enable_the_tauglichkeit_hint(): void
     {
         $superadmin = $this->createSuperAdmin();

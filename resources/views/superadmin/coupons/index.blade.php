@@ -97,7 +97,7 @@
                 </select>
                 <button type="submit" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-sm">Suchen</button>
                 @if (! empty($filters['tenant_id']) || ! empty($filters['status']) || ! empty($filters['search']))
-                    <a href="{{ route('superadmin.coupons.index') }}" class="text-sm text-slate-500 hover:underline self-center">Filter zurücksetzen</a>
+                    <a href="{{ route('superadmin.coupons.index') }}" class="text-sm text-slate-500 dark:text-slate-400 hover:underline self-center">Filter zurücksetzen</a>
                 @endif
             </form>
 
@@ -109,7 +109,7 @@
                 <input type="hidden" name="select_all" id="select-all-input" value="0">
 
                 <div class="flex items-center justify-between mb-2">
-                    <label class="flex items-center gap-2 text-sm text-slate-500">
+                    <label class="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
                         <input type="checkbox" id="select-all-checkbox" @change="couponExport.toggleSelectAll($el.checked)">
                         Alle {{ $coupons->total() }} gefilterten Codes auswählen
                     </label>
@@ -140,7 +140,7 @@
                                     <input type="checkbox" name="ids[]" value="{{ $coupon->id }}" class="coupon-row-checkbox" @change="couponExport.updateButton()">
                                 </td>
                                 <td class="py-1.5 font-mono text-xs">{{ $coupon->code }}</td>
-                                <td class="py-1.5 text-slate-500">
+                                <td class="py-1.5 text-slate-500 dark:text-slate-400">
                                     <span class="inline-block px-2 py-0.5 rounded-full text-xs {{ $coupon->isForProduct() ? 'bg-indigo-50 text-indigo-700' : ($coupon->isForRenewal() ? 'bg-amber-50 text-amber-700' : 'bg-slate-100 text-slate-600') }}">
                                         {{ $coupon->isForProduct() ? 'Produkt' : ($coupon->isForRenewal() ? 'Verlängerung' : 'Kurs') }}
                                     </span>
@@ -151,21 +151,21 @@
                                         <span class="block text-xs text-indigo-600 dark:text-indigo-400">+ {{ $coupon->optionProducts->pluck('name')->implode(', ') }}</span>
                                     @endif
                                 </td>
-                                <td class="py-1.5 text-slate-500">{{ $coupon->tenant?->name ?? '—' }}</td>
-                                <td class="py-1.5 text-slate-500 text-xs">{{ \App\Support\GermanTime::format($coupon->created_at, 'd.m.Y H:i') ?? '—' }}</td>
+                                <td class="py-1.5 text-slate-500 dark:text-slate-400">{{ $coupon->tenant?->name ?? '—' }}</td>
+                                <td class="py-1.5 text-slate-500 dark:text-slate-400 text-xs">{{ \App\Support\GermanTime::format($coupon->created_at, 'd.m.Y H:i') ?? '—' }}</td>
                                 <td class="py-1.5">
                                     @if ($coupon->isRedeemed())
-                                        <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500">
+                                        <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">
                                             eingelöst &middot; {{ $coupon->redeemedBy?->name }} ({{ $coupon->redeemedTenant?->name }})
                                         </span>
                                     @else
                                         <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">offen</span>
                                     @endif
                                 </td>
-                                <td class="py-1.5 text-slate-500 text-xs">{{ \App\Support\GermanTime::format($coupon->redeemed_at, 'd.m.Y H:i') ?? '—' }}</td>
+                                <td class="py-1.5 text-slate-500 dark:text-slate-400 text-xs">{{ \App\Support\GermanTime::format($coupon->redeemed_at, 'd.m.Y H:i') ?? '—' }}</td>
                             </tr>
                         @empty
-                            <tr><td colspan="8" class="py-3 text-slate-500">Keine Codes gefunden.</td></tr>
+                            <tr><td colspan="8" class="py-3 text-slate-500 dark:text-slate-400">Keine Codes gefunden.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

@@ -57,4 +57,32 @@ class UbiSrcUbiExamPaperSeederTest extends TestCase
         $this->assertNull(ComboExamGroups::infoFor('SRC-UBI', 200));
         $this->assertSame(['label' => 'UBI-Ergänzung', 'displayNumber' => 3], ComboExamGroups::infoFor('SRC-UBI', 203));
     }
+
+    /**
+     * Bug-Review (AA2: SRC & UBI Kombikurs -- Fragen der UBI-Prüfungsbögen
+     * gehören nicht zum Kurs): UbiExamPaperSeeder/SrcUbiComboExamPaperSeeder
+     * sind zwar korrekt, erreichen eine bereits provisionierte Installation
+     * aber nur über einen erneuten db:seed-Lauf (siehe Bug-Review B5) --
+     * Migration 2024_02_01_000484 holt beide Ergebnisse direkt nach. Diese
+     * beiden Assertions sind die eigentliche Beobachtung aus dem Bug-Report:
+     * jede im SRC-UBI-Kombikurs referenzierte UBI-Prüfungsbogen-Frage muss
+     * auch über das UBI-Modul technisch Kursinhalt des Kombikurses sein
+     * (Favoriten-Stern/"Falsche Fragen erneut lernen" hängen am Modul-Scope,
+     * nicht am Prüfungsbogen).
+     */
+    public function test_every_ubi_paper_question_in_the_combo_also_belongs_to_the_combos_module_scope(): void
+    {
+        $combo = CourseDefinition::withoutGlobalScopes()->where('code', 'SRC-UBI')->whereNull('tenant_id')->firstOrFail();
+
+        $ubiPapers = $combo->examPapers->filter(fn ($p) => $p->paper_number >= 101);
+        $this->assertCount(6, $ubiPapers, 'Der SRC-UBI-Kombikurs muss alle 6 gespiegelten UBI-Prüfungsbögen (101-106) haben.');
+
+        $courseQuestionIds = $combo->modules->flatMap(fn ($m) => $m->questions)->pluck('id');
+        $ubiPaperQuestionIds = $ubiPapers->flatMap(fn ($p) => $p->paperQuestions->pluck('question_id'))->unique();
+
+        $this->assertCount(130, $ubiPaperQuestionIds, 'Alle 130 ubi_official-Fragen müssen über die 6 Bögen referenziert sein.');
+
+        $missing = $ubiPaperQuestionIds->diff($courseQuestionIds);
+        $this->assertCount(0, $missing, 'UBI-Prüfungsbogen-Fragen fehlen im Modul-Scope des SRC-UBI-Kombikurses (Favoriten-Stern/"Falsche Fragen erneut lernen" funktionieren für sie nicht).');
+    }
 }

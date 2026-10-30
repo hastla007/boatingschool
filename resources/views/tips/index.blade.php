@@ -4,7 +4,7 @@
     </x-slot>
 
     @if ($categories->isEmpty())
-        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 text-center text-slate-500">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 text-center text-slate-500 dark:text-slate-400">
             Noch keine Tipps & Tricks verfügbar.
         </div>
     @else

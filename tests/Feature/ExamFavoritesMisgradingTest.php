@@ -66,7 +66,7 @@ class ExamFavoritesMisgradingTest extends TestCase
     {
         $tenant = $this->createTestTenant();
         $learner = $this->createTenantUser($tenant, 'learner');
-        $course = $this->existingCourse('UBI');
+        $course = $this->existingCourse('ADD-UBI-TO-SRC');
         $this->grantEntitlement($tenant, $learner, $course);
 
         $module = $this->existingModule('UBI');

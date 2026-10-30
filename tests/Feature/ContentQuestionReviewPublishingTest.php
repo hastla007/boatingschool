@@ -340,4 +340,34 @@ class ContentQuestionReviewPublishingTest extends TestCase
         $response->assertSee('Neue Fassung aus Reimport');
         $response->assertSee(route('superadmin.questions.revisions.publish', $review));
     }
+
+    /**
+     * Bug-Review (AA9: Wartende Import-Änderung verschwindet): die
+     * Fragenliste bestimmte die wartende Review-Revision bisher ebenfalls
+     * über "ist die insgesamt letzte Revision dieser Frage" -- speichert der
+     * Superadmin zwischendurch über den Editor (siehe
+     * QuestionEditorMediaFromPublishedRevisionTest), entsteht dadurch eine
+     * neue, noch höher nummerierte veröffentlichte Revision, und das
+     * "Review ausstehend"-Badge samt Veröffentlichen-Link verschwand dadurch
+     * unbemerkt aus der Liste, obwohl die Review-Revision selbst unverändert
+     * weiter auf Freigabe wartete.
+     */
+    public function test_question_list_still_shows_the_pending_review_badge_after_the_editor_saves_a_new_revision(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        [$module, $question, , $review] = $this->makeQuestionWithPendingReview();
+
+        $this->actingAs($superadmin)->patch("/superadmin/questions/{$question->id}", [
+            'question_type' => 'single_choice',
+            'question_text' => 'Alte Fassung (vom Editor überarbeitet)',
+            'answers' => ['A' => 'Richtig', 'B' => 'Falsch', 'C' => 'Falsch', 'D' => 'Falsch'],
+            'correct' => 'A',
+        ])->assertRedirect(route('superadmin.questions.edit', $question));
+
+        $response = $this->actingAs($superadmin)->get(route('superadmin.questions.index', $module));
+
+        $response->assertOk();
+        $response->assertSee('Review ausstehend');
+        $response->assertSee(route('superadmin.questions.revisions.publish', $review));
+    }
 }

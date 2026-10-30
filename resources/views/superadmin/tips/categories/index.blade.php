@@ -56,13 +56,13 @@
                                 <label for="{{ $formId }}-sort-order" class="sr-only">Reihenfolge</label>
                                 <input form="{{ $formId }}" id="{{ $formId }}-sort-order" type="number" name="sort_order" value="{{ $category->sort_order }}" class="block w-20 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                             </td>
-                            <td class="px-4 py-2 text-slate-500">{{ $category->tips_count }}</td>
+                            <td class="px-4 py-2 text-slate-500 dark:text-slate-400">{{ $category->tips_count }}</td>
                             <td class="px-4 py-2 text-right whitespace-nowrap">
                                 <form id="{{ $formId }}" method="POST" action="{{ route('superadmin.tips.categories.update', $category) }}" class="inline">
                                     @csrf
                                     @method('PATCH')
                                 </form>
-                                <button type="submit" form="{{ $formId }}" class="text-xs text-slate-500 hover:underline">Speichern</button>
+                                <button type="submit" form="{{ $formId }}" class="text-xs text-slate-500 dark:text-slate-400 hover:underline">Speichern</button>
                                 <form method="POST" action="{{ route('superadmin.tips.categories.destroy', $category) }}" class="inline" @submit="if (! confirm('Diese Kategorie wirklich löschen?')) $event.preventDefault()">
                                     @csrf
                                     @method('DELETE')
@@ -71,7 +71,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="4" class="px-4 py-3 text-slate-500">Noch keine Kategorien angelegt.</td></tr>
+                        <tr><td colspan="4" class="px-4 py-3 text-slate-500 dark:text-slate-400">Noch keine Kategorien angelegt.</td></tr>
                     @endforelse
                 </tbody>
             </table>

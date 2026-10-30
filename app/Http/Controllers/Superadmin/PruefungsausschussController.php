@@ -82,7 +82,7 @@ class PruefungsausschussController extends Controller
             'website' => ['nullable', 'string', 'max:255'],
             'sprechzeiten' => ['nullable', 'string', 'max:255'],
             'hinweis' => ['nullable', 'string', 'max:2000'],
-            'sort_order' => ['nullable', 'integer'],
+            'sort_order' => ['nullable', 'integer', 'min:0', 'max:999999'],
             'course_ids' => ['nullable', 'array'],
             'course_ids.*' => ['uuid', 'exists:course_definition,id'],
         ]);

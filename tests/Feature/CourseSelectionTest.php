@@ -197,6 +197,34 @@ class CourseSelectionTest extends TestCase
         $this->onAdmin(fn () => $this->assertDatabaseMissing('entitlement', ['tenant_id' => $tenant->id, 'course_id' => $course->id]));
     }
 
+    /**
+     * Bug-Review BB5: site_enabled und status sind unabhängige Schalter --
+     * site_enabled steuert, ob ein Kurs plattformweit überhaupt existiert,
+     * status den redaktionellen Veröffentlichungsstand (siehe AA15, das den
+     * umgekehrten Fehler für die Superadmin-Liste behob). Ein site-enabled,
+     * aber noch nicht veröffentlichter (status=draft) Kurs darf Lernenden
+     * nicht als gesperrte, kaufbare Kachel angeboten werden.
+     */
+    public function test_a_draft_course_does_not_appear_as_a_purchasable_tile(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+
+        $course = $this->onAdmin(fn () => CourseDefinition::withoutGlobalScopes()->create([
+            'tenant_id' => null,
+            'code' => 'CST-'.uniqid(),
+            'name' => 'Noch nicht veröffentlichter Testkurs',
+            'course_type' => 'full',
+            'status' => 'draft',
+            'site_enabled' => true,
+        ]));
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get('/courses');
+
+        $response->assertOk();
+        $response->assertDontSee('Noch nicht veröffentlichter Testkurs');
+    }
+
     public function test_a_non_superadmin_cannot_toggle_the_sitewide_switch(): void
     {
         $tenant = $this->createTestTenant();

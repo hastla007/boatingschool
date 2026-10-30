@@ -35,9 +35,24 @@ class PraxisExamAppointmentResponded extends Notification
             ->line("{$learnerName} hat den Termin \"{$this->appointment->label}\" ({$this->appointment->formattedRange()} Uhr) {$verb}.");
 
         if ($this->appointment->response_comment) {
-            $message->line('Kommentar: "'.$this->appointment->response_comment.'"');
+            $message->line('Kommentar: "'.self::escapeMarkdown($this->appointment->response_comment).'"');
         }
 
         return $message->action('Anmeldung ansehen', route('admin.participants.show', $this->appointment->submission->user_id));
+    }
+
+    /**
+     * Bug-Review (Phishing-Link via Prüfungstermin-Kommentar in Admin-
+     * E-Mail einschleusbar): MailMessage::line() rendert über Laravels
+     * Markdown-Mailvorlage -- ein Lerner konnte im freien Kommentarfeld
+     * echte Markdown-Linksyntax ("[Text](https://...)") oder eine bloße
+     * URL hinterlegen, die in der an die Bootsschule verschickten E-Mail
+     * als klickbarer Link dargestellt wurde. Backslash-Escaping aller
+     * CommonMark-Sonderzeichen neutralisiert das: der Kommentar erscheint
+     * weiterhin wortgetreu, aber ausschließlich als Fließtext.
+     */
+    private static function escapeMarkdown(string $text): string
+    {
+        return preg_replace('/([\\\\`*_{}\[\]()#+\-.!|>~])/', '\\\\$1', $text);
     }
 }

@@ -12,7 +12,7 @@
             <h1 class="text-2xl font-bold text-slate-800 dark:text-white">{{ $course->name }}</h1>
             <p class="text-sm text-slate-600 dark:text-slate-400 mt-0.5">Dein Lernbereich</p>
         </div>
-        <div class="flex items-center gap-2 text-slate-600 dark:text-slate-400 dark:text-slate-500 text-xs text-right">
+        <div class="flex items-center gap-2 text-slate-600 dark:text-slate-400 text-xs text-right">
             <span class="leading-tight">Mehr Wissen.<br>Sicher auf dem Wasser.</span>
             <x-icon name="anchor" class="w-5 h-5 shrink-0" style="color: var(--brand-secondary, #007A7A)" />
         </div>
@@ -37,7 +37,7 @@
                         </span>
                     @endif
                     @if ($addonTemplate->stat_text)
-                        <span class="text-xs text-slate-600 dark:text-slate-400 dark:text-slate-500">{{ $addonTemplate->stat_text }}</span>
+                        <span class="text-xs text-slate-600 dark:text-slate-400">{{ $addonTemplate->stat_text }}</span>
                     @endif
                 </div>
                 <h3 class="font-semibold text-slate-800 dark:text-white text-sm sm:text-base">{{ $addonTemplate->headline }}</h3>
@@ -62,7 +62,7 @@
                             @if ($addonBanner->price_label)
                                 <div class="flex items-center justify-end gap-2 flex-wrap">
                                     @if ($discountedPrice)
-                                        <span class="line-through text-slate-600 dark:text-slate-400 dark:text-slate-500">{{ $addonBanner->price_label }}</span>
+                                        <span class="line-through text-slate-600 dark:text-slate-400">{{ $addonBanner->price_label }}</span>
                                         <span class="font-semibold text-base" style="color: var(--brand-primary, #005FD7)">{{ $discountedPrice }}</span>
                                         <span class="inline-flex items-center text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
                                             &minus;{{ $addonBanner->discount_percent }}%
@@ -127,7 +127,7 @@
                             @if ($coursePromoBanner->price_label)
                                 <div class="flex items-center justify-end gap-2 flex-wrap">
                                     @if ($promoDiscountedPrice)
-                                        <span class="line-through text-slate-600 dark:text-slate-400 dark:text-slate-500">{{ $coursePromoBanner->price_label }}</span>
+                                        <span class="line-through text-slate-600 dark:text-slate-400">{{ $coursePromoBanner->price_label }}</span>
                                         <span class="font-semibold text-base" style="color: var(--brand-primary, #005FD7)">{{ $promoDiscountedPrice }}</span>
                                         <span class="inline-flex items-center text-[11px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
                                             &minus;{{ $coursePromoBanner->discount_percent }}%
@@ -444,7 +444,7 @@
                 <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />
             </a>
         @else
-            <div class="bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-4 flex items-center gap-4 text-slate-600 dark:text-slate-400 dark:text-slate-500 cursor-not-allowed"
+            <div class="bg-slate-50 dark:bg-slate-800/60 rounded-2xl p-4 flex items-center gap-4 text-slate-600 dark:text-slate-400 cursor-not-allowed"
                  title="Ab {{ $examReadinessThreshold }}% Kursfortschritt buchbar">
                 <div class="w-11 h-11 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center shrink-0">
                     <x-icon name="lock-closed" class="w-5 h-5 text-slate-300 dark:text-slate-600" />
@@ -485,7 +485,7 @@
                     @endif
                     @if ($branding->street || $branding->city)
                         <p class="w-full text-sm font-semibold text-slate-700 dark:text-slate-200 text-center mt-4">{{ $currentTenant->name }}</p>
-                        <p class="w-full text-sm text-slate-500 text-center">
+                        <p class="w-full text-sm text-slate-500 dark:text-slate-400 text-center">
                             @if ($branding->street) {{ $branding->street }}<br> @endif
                             @if ($branding->postal_code || $branding->city) {{ trim($branding->postal_code.' '.$branding->city) }} @endif
                             @if ($branding->country) &middot; {{ $branding->country }} @endif
@@ -494,7 +494,7 @@
                 </div>
 
                 <div class="flex-1 text-center sm:self-center">
-                    <h3 class="font-semibold text-slate-800 dark:text-white text-lg mb-3">Fragen? Kontaktiere Deine Bootsschule!</h3>
+                    <h3 class="font-semibold text-slate-800 dark:text-white text-lg mb-3">Fragen? Kontaktiere deine Bootsschule!</h3>
                     @if ($showPhone)
                         <a href="tel:{{ preg_replace('/\s+/', '', $branding->phone) }}" class="block text-3xl font-bold whitespace-nowrap hover:opacity-80 transition" style="color: var(--brand-primary, #005FD7)">
                             {{ $branding->phone }}
@@ -524,7 +524,7 @@
                     @else
                         <div class="flex flex-col items-center text-center gap-2 shrink-0 sm:w-56 sm:self-center">
                             <img src="{{ asset('images/captain-phone.webp') }}" alt="Kapitän am Telefon" class="w-[12.5rem] h-[12.5rem] object-contain -scale-x-100">
-                            <span class="text-xs text-slate-500 dark:text-slate-400">Wir sind gerne für Dich da!</span>
+                            <span class="text-xs text-slate-500 dark:text-slate-400">Wir sind gerne für dich da!</span>
                         </div>
                     @endif
                 @endif
@@ -535,7 +535,7 @@
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
         <div class="text-center sm:text-left">
             <h3 class="font-semibold text-slate-800 dark:text-white text-lg">Lerne auch auf deinem Handy!</h3>
-            <p class="text-sm text-slate-500 mt-1">Unsere App ist bald verfügbar &mdash; lerne unterwegs, wo und wann du willst.</p>
+            <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Unsere App ist bald verfügbar &mdash; lerne unterwegs, wo und wann du willst.</p>
         </div>
         <div class="flex items-center gap-3 shrink-0">
             <span class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 text-white opacity-60 cursor-not-allowed whitespace-nowrap" title="Bald verfügbar auf dem App Store">

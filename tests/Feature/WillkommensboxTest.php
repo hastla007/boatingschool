@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\ContentQuestion;
 use App\Models\CourseDefinition;
+use App\Models\Entitlement;
 use App\Models\Module;
 use App\Models\Product;
 use App\Models\ProductPurchase;
@@ -360,6 +361,39 @@ class WillkommensboxTest extends TestCase
 
         $response->assertForbidden();
         $this->onAdmin(fn () => $this->assertDatabaseMissing('willkommensbox_order', ['tenant_id' => $tenant->id, 'user_id' => $learner->id]));
+    }
+
+    /**
+     * Bug-Review BB6: progressExactPercent() stützt sich auf
+     * EntitlementService::activeCourses() und liefert 0, sobald kein
+     * Kurszugang mehr aktiv ist -- nach dem zeitlichen Ablauf des
+     * Entitlements rutschte der Fortschritt unter die Schwelle, und die
+     * Seite zeigte wieder den "locked"-Zustand statt der längst
+     * bestehenden Bestellbestätigung.
+     */
+    public function test_confirmation_stays_visible_after_the_course_access_expires(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $this->grantWillkommensbox($tenant, $learner);
+        $this->setThreshold($tenant, 50);
+        [$course, $questionIds] = $this->makeIsolatedCourseWithQuestions(4);
+        $this->grantEntitlement($tenant, $learner, $course);
+        $this->masterQuestions($tenant, $learner, $questionIds);
+
+        $this->actingAsInTenant($learner, $tenant)->post('/willkommensbox', [
+            'street' => 'Lieferstraße 1', 'postal_code' => '12345', 'city' => 'Lieferstadt', 'country' => 'Deutschland',
+        ])->assertRedirect(route('willkommensbox.index'));
+
+        $this->onAdmin(fn () => Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)
+            ->where('course_id', $course->id)->update(['valid_from' => now()->subDays(2), 'valid_until' => now()->subDay()]));
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get('/willkommensbox');
+
+        $response->assertOk();
+        $response->assertSee('Lieferstraße 1');
+        $response->assertSee('bestellt');
+        $response->assertDontSee('Jetzt bestellen');
     }
 
     public function test_default_threshold_of_zero_does_not_gate_the_order(): void

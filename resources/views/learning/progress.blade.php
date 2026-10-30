@@ -40,7 +40,7 @@
                     </div>
                 </a>
             @empty
-                <p class="text-slate-500 text-sm">Noch keine Lernaktivität vorhanden.</p>
+                <p class="text-slate-500 dark:text-slate-400 text-sm">Noch keine Lernaktivität vorhanden.</p>
             @endforelse
         </div>
     </div>
@@ -93,7 +93,7 @@
                     </div>
                 </div>
             @empty
-                <p class="text-slate-500 text-sm">Noch keine abgeschlossene Prüfungssimulation vorhanden.</p>
+                <p class="text-slate-500 dark:text-slate-400 text-sm">Noch keine abgeschlossene Prüfungssimulation vorhanden.</p>
             @endforelse
         </div>
     </div>

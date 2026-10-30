@@ -1,6 +1,6 @@
 {{-- Bug-Review (Du/Sie im Admin-Bereich gemischt): der restliche
      Admin-Bereich siezt durchgehend. --}}
-<p class="text-slate-500 mb-6">
+<p class="text-slate-500 dark:text-slate-400 mb-6">
     Wählen Sie aus, welche Kurse Ihre Bootsschule anbietet. Abgewählte Kurse verschwinden für Ihre Lernenden
     vollständig aus der Kursübersicht &mdash; auch wenn bereits ein Zugang dafür besteht. Kurse, die der
     Plattform-Betreiber sitewide deaktiviert hat, erscheinen hier nicht und können nicht aktiviert werden.
@@ -93,7 +93,7 @@
                 </div>
             </div>
         @empty
-            <p class="text-slate-500 text-sm">Aktuell sind keine Kurse sitewide verfügbar.</p>
+            <p class="text-slate-500 dark:text-slate-400 text-sm">Aktuell sind keine Kurse sitewide verfügbar.</p>
         @endforelse
 
         @if ($courses->isNotEmpty())

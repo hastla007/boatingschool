@@ -38,6 +38,23 @@ class WillkommensboxController extends Controller
 
         abort_unless($user->hasWillkommensboxAccess($tenant), 403, 'Die Willkommensbox ist für dich aktuell nicht freigeschaltet.');
 
+        // Bug-Review (BB6: Bestätigung verschwindet bei abgelaufenem
+        // Zugang): eine bereits aufgegebene Bestellung muss unabhängig vom
+        // aktuellen Kursfortschritt sichtbar bleiben -- der Fortschritts-
+        // Schwellenwert ist nur eine Hürde VOR der erstmaligen Bestellung.
+        // progressExactPercent() stützt sich auf activeCourses() und
+        // liefert 0, sobald kein Kurszugang mehr aktiv ist (abgelaufenes
+        // Entitlement); der Schwellenvergleich lief bisher aber VOR der
+        // Suche nach einer bestehenden Bestellung und zeigte in diesem
+        // Fall fälschlich wieder den "locked"-Zustand statt der
+        // Bestätigung, obwohl die Bestellung (WillkommensboxOrder) längst
+        // unverändert in der Datenbank steht.
+        $order = WillkommensboxOrder::where('tenant_id', $tenant->id)->where('user_id', $user->id)->first();
+
+        if ($order) {
+            return view('willkommensbox.index', ['state' => 'submitted', 'order' => $order]);
+        }
+
         // Bug-Review (Gates vergleichen den gerundeten Wert): siehe
         // store() unten -- das Gate vergleicht den ungerundeten Wert,
         // nur die Anzeige im "locked"-Zustand nutzt den gerundeten.
@@ -46,12 +63,6 @@ class WillkommensboxController extends Controller
 
         if ($exactPercent < $threshold) {
             return view('willkommensbox.index', ['state' => 'locked', 'percent' => (int) round($exactPercent), 'threshold' => $threshold]);
-        }
-
-        $order = WillkommensboxOrder::where('tenant_id', $tenant->id)->where('user_id', $user->id)->first();
-
-        if ($order) {
-            return view('willkommensbox.index', ['state' => 'submitted', 'order' => $order]);
         }
 
         // Sicherheitsreview S3: Adresse-Vorbefüllung kommt jetzt aus der

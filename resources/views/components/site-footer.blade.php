@@ -16,7 +16,7 @@
         )
         : null;
 @endphp
-<footer class="py-6 text-xs text-slate-600 dark:text-slate-400 dark:text-slate-500">
+<footer class="py-6 text-xs text-slate-600 dark:text-slate-400">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 {{ $inlineWaLink ? 'flex flex-col sm:flex-row items-center sm:justify-between gap-3' : 'text-center' }}">
         <div class="text-center {{ $inlineWaLink ? 'sm:text-left' : '' }}">
             <p class="flex items-center justify-center {{ $inlineWaLink ? 'sm:justify-start' : '' }} gap-1">
