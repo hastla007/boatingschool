@@ -277,6 +277,30 @@ class ProfileController extends Controller
         $user = $request->user();
         $tenant = $tenantContext->tenant();
 
+        // Bug-Review (AA7: Inhaber löscht sein Konto -- Schule ohne
+        // Inhaber): leaveTenant() entfernt die Mitgliedschaft unabhängig
+        // von der Rolle -- löschte sich der einzige Inhaber ("owner") einer
+        // Bootsschule selbst, stand die Schule danach ganz ohne Inhaber da.
+        // Rollen lassen sich dann nicht mehr ändern: Admin\
+        // ParticipantController::update()/updateMembership() verlangen für
+        // jede Nicht-Lerner-Mitgliedschaft ausdrücklich role === 'owner'
+        // (siehe dortige Bug-Review N11), ohne verbleibenden Inhaber kann
+        // das also niemand mehr erfüllen -- nur noch der Superadmin könnte
+        // über Superadmin\UserController::addMembership() eingreifen. Der
+        // Inhaber kann sein Konto deshalb nicht löschen, solange er der
+        // einzige ist.
+        if ($user->roleForTenant($tenant) === 'owner') {
+            $hasOtherOwner = TenantUser::where('tenant_id', $tenant->id)
+                ->where('role', 'owner')
+                ->where('status', 'active')
+                ->where('user_id', '!=', $user->id)
+                ->exists();
+
+            if (! $hasOtherOwner) {
+                return back()->withErrors(['owner' => 'Du bist der einzige Inhaber dieser Bootsschule und kannst dein Konto deshalb nicht löschen. Bitte übertrage die Inhaberschaft zuerst -- wende dich dafür an unseren Support.'], 'userDeletion');
+            }
+        }
+
         Auth::logout();
 
         $erasure->leaveTenant($user, $tenant);

@@ -27,6 +27,8 @@
                 Sobald dein Konto gelöscht ist, werden alle zugehörigen Daten unwiderruflich entfernt. Gib dein Passwort ein, um die Löschung zu bestätigen.
             </p>
 
+            <x-input-error :messages="$errors->userDeletion->get('owner')" class="mt-4" />
+
             <div class="mt-6">
                 <x-input-label for="password" value="Passwort" class="sr-only" />
 
