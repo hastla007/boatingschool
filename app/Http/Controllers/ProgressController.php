@@ -7,6 +7,7 @@ use App\Models\ExamSession;
 use App\Models\Progress;
 use App\Services\CourseProgressService;
 use App\Services\EntitlementService;
+use App\Support\ComboExamGroups;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -76,7 +77,21 @@ class ProgressController extends Controller
         });
 
         $examResults->each(function (ExamSession $session) use ($randomOrdinals) {
-            $session->displayLabel = 'Prüfungsbogen Nr. '.($session->paper->paper_number ?? $randomOrdinals[$session->id]);
+            // Bug-Review (Prüfungshistorie im Kombikurs zeigt rohe Bogen-Nr.):
+            // ein Bogen eines Kombikurses (z. B. SBF-SEE-BIN) trägt intern die
+            // paper_number des gespiegelten Teilkurses samt Offset (z. B. 101
+            // für den ersten Binnen-Bogen) -- exam/papers.blade.php löst das
+            // bereits über ComboExamGroups::infoFor() in eine Teilkurs-
+            // Anzeigenummer auf, diese Historie zeigte die rohe Zahl aber
+            // unverändert an ("Prüfungsbogen Nr. 101" statt "SBF Binnen --
+            // Prüfungsbogen Nr. 1").
+            $comboInfo = $session->paper
+                ? ComboExamGroups::infoFor($session->course->code, $session->paper->paper_number)
+                : null;
+            $displayNumber = $comboInfo['displayNumber'] ?? $session->paper->paper_number ?? $randomOrdinals[$session->id];
+            $session->displayLabel = $comboInfo
+                ? $comboInfo['label'].' – Prüfungsbogen Nr. '.$displayNumber
+                : 'Prüfungsbogen Nr. '.$displayNumber;
             // Bug-Review B2: Collection::where() vergleicht standardmäßig lose
             // (null == false wäre wahr) -- whereStrict erzwingt ===, auch wenn
             // bei status=evaluated correct für jede Frage bereits gesetzt ist.
