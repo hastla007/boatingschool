@@ -53,8 +53,17 @@ class CourseController extends Controller
 
         $disabledCourseIds = TenantCourseDisabled::where('tenant_id', $tenant->id)->pluck('course_id');
 
+        // Bug-Review (BB5: Entwurfskurse erscheinen für Lernende als
+        // kaufbare Kacheln): ein Kurs im Status "draft" (noch nicht vom
+        // Superadmin veröffentlicht, siehe AA15) erschien hier bisher
+        // trotzdem als gesperrte, kaufbare Kachel -- site_enabled und
+        // status sind unabhängige Schalter (site_enabled steuert nur, ob
+        // der Kurs plattformweit überhaupt existiert, status den
+        // redaktionellen Veröffentlichungsstand). Nur veröffentlichte
+        // Kurse dürfen Lernenden angeboten werden.
         $lockedCourses = CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')
             ->where('site_enabled', true)
+            ->where('status', 'published')
             ->whereNotIn('id', $disabledCourseIds)
             ->orderBy('name')
             ->get()
