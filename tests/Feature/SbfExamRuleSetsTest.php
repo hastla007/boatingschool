@@ -15,7 +15,8 @@ use Tests\TestCase;
 /**
  * Amtliche Bestehensgrenzen je Prüfungsteil: SBF See (Basis 5/7 UND See
  * 18/23, 60 Minuten), SBF Binnen (Basis 5/7 UND Binnen 18/23, 45
- * Minuten), Ergänzung See -> Binnen (18/23, 35 Minuten), Ergänzung
+ * Minuten), SBF Binnen unter Segel (Basis 5/7, Binnen 18/23 und Segeln
+ * 5/7, 60 Minuten), Ergänzung See -> Binnen (18/23, 35 Minuten), Ergänzung
  * Binnen -> See (18/23, 50 Minuten), UBI-Ergänzung (8/10, 30 Minuten)
  * und der Kombikurs SBF See & Binnen, dessen Binnen-Bögen die Basisfragen
  * nicht wiederholen.
@@ -48,6 +49,40 @@ class SbfExamRuleSetsTest extends TestCase
         $this->assertSame(2700, $session->ruleSet->time_limit_seconds);
 
         $this->assertFalse($this->takePaper('SBF-BIN-MOTOR', 1, ['SBF_BASIS' => 4, 'SBF_BINNEN' => 23])->passed);
+    }
+
+    public function test_sbf_binnen_unter_segel_needs_all_three_parts_in_60_minutes(): void
+    {
+        $session = $this->takePaper('SBF-BIN-SEGEL', 1, ['SBF_BASIS' => 5, 'SBF_BINNEN' => 18, 'SBF_BINNEN_SEGELN' => 5]);
+        $this->assertTrue($session->passed);
+        $this->assertSame(3600, $session->ruleSet->time_limit_seconds);
+        // 33 von 37 richtig reichen nicht, wenn die Segelfragen unter 5/7 liegen.
+        $this->assertFalse($this->takePaper('SBF-BIN-SEGEL', 2, ['SBF_BASIS' => 7, 'SBF_BINNEN' => 22, 'SBF_BINNEN_SEGELN' => 4])->passed);
+        $this->assertFalse($this->takePaper('SBF-BIN-SEGEL', 3, ['SBF_BASIS' => 4, 'SBF_BINNEN' => 23, 'SBF_BINNEN_SEGELN' => 7])->passed);
+    }
+
+    public function test_migration_releases_the_sbf_binnen_unter_segel_placeholder(): void
+    {
+        $migration = require database_path('migrations/2024_02_01_000561_verify_sbf_binnen_segel_exam_rule_set.php');
+
+        $this->onAdmin(function () use ($migration) {
+            $ruleSet = ExamRuleSet::where('course_id', $this->existingCourse('SBF-BIN-SEGEL')->id)->firstOrFail();
+
+            DB::beginTransaction();
+            try {
+                $ruleSet->update(['time_limit_seconds' => 3600, 'passing_rule' => ['min_correct_ratio' => 0.75], 'status' => 'draft', 'verified_by' => null, 'verified_at' => null]);
+                ExamBlueprint::where('rule_set_id', $ruleSet->id)->update(['question_count' => 10]);
+
+                $migration->up();
+
+                $ruleSet->refresh();
+                $this->assertTrue($ruleSet->isVerified());
+                $this->assertSame(['SBF_BASIS', 'SBF_BINNEN', 'SBF_BINNEN_SEGELN'], array_column($ruleSet->passing_rule['parts'], 'module'));
+                $this->assertEqualsCanonicalizing([7, 23, 7], ExamBlueprint::where('rule_set_id', $ruleSet->id)->pluck('question_count')->all());
+            } finally {
+                DB::rollBack();
+            }
+        });
     }
 
     public function test_addon_papers_use_their_official_single_thresholds(): void

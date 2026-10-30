@@ -24,11 +24,11 @@ class ExamRuleSetAuthorityTest extends TestCase
     use InteractsWithTenants;
 
     private const UNVERIFIED_COURSE_CODES = [
-        // SBF-BIN-SEGEL: die genannte Grenze (20/25 aus 4+14+7) passt
-        // nicht zu den 37-Fragen-Bögen; SKN/ADD-FKN-TO-SKN: keine Bögen
-        // und kein Zeitlimit. SBF-SEE-BIN: wie SRC-UBI unten, die Bögen
-        // laufen nach ihren Teilkursen.
-        'SBF-BIN-SEGEL', 'SBF-SEE-BIN', 'SKN', 'ADD-FKN-TO-SKN',
+        // SKN/ADD-FKN-TO-SKN: keine Bögen und kein Zeitlimit. SBF-SEE-BIN:
+        // wie SRC-UBI unten, die Bögen laufen nach ihren Teilkursen.
+        // (SBF-BIN-SEGEL ist seit Migration 000561 mit Basis 5/7, Binnen
+        // 18/23 und Segeln 5/7 freigegeben.)
+        'SBF-SEE-BIN', 'SKN', 'ADD-FKN-TO-SKN',
         // SRC-UBI: ein Regelwerk je Kurs kann die beiden amtlichen Grenzen
         // der Teilprüfungen (SRC 19/24, UBI 17/22) nicht gleichzeitig
         // abbilden -- die Bögen laufen nach dem Regelwerk ihres Teilkurses,
@@ -37,7 +37,7 @@ class ExamRuleSetAuthorityTest extends TestCase
     ];
 
     private const VERIFIED_COURSE_CODES_WITH_A_DOCUMENTED_OFFICIAL_THRESHOLD = [
-        'ADD-BIN-SEGEL', 'SRC', 'FKN', 'UBI', 'SBF-SEE', 'SBF-BIN-MOTOR', 'ADD-SEE-TO-BIN', 'ADD-BIN-TO-SEE', 'ADD-UBI-TO-SRC',
+        'ADD-BIN-SEGEL', 'SRC', 'FKN', 'UBI', 'SBF-SEE', 'SBF-BIN-MOTOR', 'SBF-BIN-SEGEL', 'ADD-SEE-TO-BIN', 'ADD-BIN-TO-SEE', 'ADD-UBI-TO-SRC',
     ];
 
     protected function tearDown(): void
@@ -69,10 +69,11 @@ class ExamRuleSetAuthorityTest extends TestCase
         $this->grantEntitlement($tenant, $learner, $course);
         $paper = $this->onAdmin(fn () => ExamPaper::where('course_id', $course->id)->firstOrFail());
 
-        $response = $this->actingAsInTenant($learner, $tenant)
-            ->post("/courses/{$course->id}/exam/papers/{$paper->id}");
-
-        $response->assertStatus(409);
+        $this->withUnverifiedRuleSet($course, function () use ($learner, $tenant, $course, $paper) {
+            $this->actingAsInTenant($learner, $tenant)
+                ->post("/courses/{$course->id}/exam/papers/{$paper->id}")
+                ->assertStatus(409);
+        });
     }
 
     /**
@@ -90,11 +91,32 @@ class ExamRuleSetAuthorityTest extends TestCase
         $this->grantEntitlement($tenant, $learner, $course);
         $paper = $this->onAdmin(fn () => ExamPaper::where('course_id', $course->id)->orderBy('paper_number')->firstOrFail());
 
-        $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/exam");
+        $this->withUnverifiedRuleSet($course, function () use ($learner, $tenant, $course, $paper) {
+            $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/exam");
 
-        $response->assertOk();
-        $response->assertSee('noch nicht freigegeben');
-        $response->assertDontSee(route('exam.papers.start', ['course' => $course, 'paper' => $paper]), false);
+            $response->assertOk();
+            $response->assertSee('noch nicht freigegeben');
+            $response->assertDontSee(route('exam.papers.start', ['course' => $course, 'paper' => $paper]), false);
+        });
+    }
+
+    /**
+     * Kein Kurs mit amtlichen Bögen ist mehr unverifiziert -- die Sperre
+     * wird deshalb an SBF Binnen unter Segel mit vorübergehend auf "draft"
+     * zurückgesetztem Regelwerk geprüft.
+     */
+    private function withUnverifiedRuleSet(CourseDefinition $course, callable $callback): void
+    {
+        $ruleSet = $this->onAdmin(fn () => ExamRuleSet::where('course_id', $course->id)->firstOrFail());
+        $original = $ruleSet->only(['status', 'verified_by', 'verified_at']);
+
+        $this->onAdmin(fn () => ExamRuleSet::whereKey($ruleSet->id)->update(['status' => 'draft', 'verified_by' => null, 'verified_at' => null]));
+
+        try {
+            $callback();
+        } finally {
+            $this->onAdmin(fn () => ExamRuleSet::whereKey($ruleSet->id)->update($original));
+        }
     }
 
     public function test_papers_overview_still_shows_the_start_buttons_for_a_verified_course(): void

@@ -67,13 +67,14 @@ class ExamRuleSetSeeder extends Seeder
         // amtlichen Bestehensgrenze (siehe $passingRuleOverrides unten)
         // gelten hier als verifiziert; alle anderen bleiben "draft", bis
         // jemand die echten Werte recherchiert und einträgt.
-        $verifiedCourses = ['ADD-BIN-SEGEL', 'SRC', 'FKN', 'UBI', 'SBF-SEE', 'SBF-BIN-MOTOR', 'ADD-SEE-TO-BIN', 'ADD-BIN-TO-SEE', 'ADD-UBI-TO-SRC'];
+        $verifiedCourses = ['ADD-BIN-SEGEL', 'SRC', 'FKN', 'UBI', 'SBF-SEE', 'SBF-BIN-MOTOR', 'SBF-BIN-SEGEL', 'ADD-SEE-TO-BIN', 'ADD-BIN-TO-SEE', 'ADD-UBI-TO-SRC'];
         // Fragen je Modul für die Zufallsprüfung, wie im amtlichen Bogen
         // (ein Wert gilt für jedes Modul des Kurses).
         $questionCountOverrides = [
             'ADD-SEE-TO-BIN' => 23, 'ADD-BIN-TO-SEE' => 23, 'UBI' => 22, 'ADD-UBI-TO-SRC' => 10,
             'SBF-SEE' => ['SBF_BASIS' => 7, 'SBF_SEE' => 23],
             'SBF-BIN-MOTOR' => ['SBF_BASIS' => 7, 'SBF_BINNEN' => 23],
+            'SBF-BIN-SEGEL' => ['SBF_BASIS' => 7, 'SBF_BINNEN' => 23, 'SBF_BINNEN_SEGELN' => 7],
         ];
 
         // ADD-BIN-SEGEL ("Ergänzung Binnen → Segeln"): nur noch die 7
@@ -96,7 +97,10 @@ class ExamRuleSetSeeder extends Seeder
         // (je Teil, siehe ExamRuleSet::partResults()), 60 Minuten; die
         // Navigationsaufgabe (7 von 9 Punkten) gehört amtlich dazu, wird
         // hier aber nicht automatisch bewertet. SBF Binnen (Motor): Basis
-        // 5/7 UND Binnen 18/23, 45 Minuten. Ergänzung See -> Binnen:
+        // 5/7 UND Binnen 18/23, 45 Minuten. SBF Binnen unter Segel: dieselben
+        // Grenzen wie Motor plus Segeln 5/7 wie die Ergänzung Binnen ->
+        // Segeln, jeder Teil für sich, 60 Minuten (vom Betreiber festgelegt,
+        // Migration 2024_02_01_000561). Ergänzung See -> Binnen:
         // Binnen 18/23, 35 Minuten. Ergänzung Binnen -> See: See 18/23,
         // 50 Minuten, plus Navigationsaufgabe. Ergänzung SRC -> UBI:
         // UBI-Ergänzungsbogen 8 von 10, 30 Minuten. Bestehende
@@ -104,7 +108,7 @@ class ExamRuleSetSeeder extends Seeder
         // 2024_02_01_000477_verify_sbf_and_addon_exam_rule_sets um.
         $timeLimitOverrides = [
             'ADD-BIN-SEGEL' => 900, 'SRC' => 1800, 'FKN' => 1800, 'UBI' => 3600,
-            'SBF-SEE' => 3600, 'SBF-BIN-MOTOR' => 2700, 'ADD-SEE-TO-BIN' => 2100, 'ADD-BIN-TO-SEE' => 3000, 'ADD-UBI-TO-SRC' => 1800,
+            'SBF-SEE' => 3600, 'SBF-BIN-MOTOR' => 2700, 'SBF-BIN-SEGEL' => 3600, 'ADD-SEE-TO-BIN' => 2100, 'ADD-BIN-TO-SEE' => 3000, 'ADD-UBI-TO-SRC' => 1800,
         ];
         $navigationNote = 'Zur amtlichen Prüfung gehört zusätzlich die Navigationsaufgabe (mindestens 7 von 9 Punkten); sie wird hier nicht automatisch bewertet.';
         $passingRuleOverrides = [
@@ -125,6 +129,14 @@ class ExamRuleSetSeeder extends Seeder
                 'parts' => [
                     ['module' => 'SBF_BASIS', 'label' => 'Basisfragen', 'min_correct' => 5, 'of' => 7],
                     ['module' => 'SBF_BINNEN', 'label' => 'Binnen', 'min_correct' => 18, 'of' => 23],
+                ],
+            ],
+            'SBF-BIN-SEGEL' => [
+                'min_correct_ratio' => 28 / 37,
+                'parts' => [
+                    ['module' => 'SBF_BASIS', 'label' => 'Basisfragen', 'min_correct' => 5, 'of' => 7],
+                    ['module' => 'SBF_BINNEN', 'label' => 'Binnen', 'min_correct' => 18, 'of' => 23],
+                    ['module' => 'SBF_BINNEN_SEGELN', 'label' => 'Segeln', 'min_correct' => 5, 'of' => 7],
                 ],
             ],
             'ADD-SEE-TO-BIN' => ['min_correct_ratio' => 18 / 23],

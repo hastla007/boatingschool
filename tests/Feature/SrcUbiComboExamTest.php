@@ -76,7 +76,7 @@ class SrcUbiComboExamTest extends TestCase
         $course = $this->onAdmin(fn () => $this->existingCourse('SRC-UBI'));
 
         $this->assertTrue($this->onAdmin(fn () => $course->hasStartableExam()));
-        $this->assertFalse($this->onAdmin(fn () => $this->existingCourse('SBF-BIN-SEGEL')->hasStartableExam()));
+        $this->assertFalse($this->onAdmin(fn () => $this->existingCourse('SKN')->hasStartableExam()));
     }
 
     public function test_combo_own_rule_set_stays_draft_so_the_random_exam_is_still_blocked(): void
