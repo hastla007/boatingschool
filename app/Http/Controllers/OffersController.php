@@ -26,8 +26,17 @@ class OffersController extends Controller
         $user = $request->user();
 
         $courses = $entitlements->activeCourses($tenant, $user);
+        // Bug-Review (BB3: "Angebote"-Seite rundet anders als die
+        // Kursseite): CourseController::show() vergleicht Addon-/Banner-
+        // Trigger gegen den UNGERUNDETEN Fortschritt (courseMasteryExactPercent(),
+        // siehe Bug-Review "Gates vergleichen den gerundeten Wert") -- hier
+        // wurde für denselben Vergleich bisher overallPercent() (gerundet)
+        // verwendet. Bei einem Fortschritt knapp unter einer Trigger-
+        // Schwelle (z. B. 49,6% exakt, Trigger 50%) zeigte die Kursseite
+        // das Angebot folgerichtig noch nicht, die "Angebote"-Seite aber
+        // bereits (round(49,6) = 50 >= 50).
         $percentByCourseId = $courses->mapWithKeys(fn ($course) => [
-            $course->id => $progressService->overallPercent($course, $tenant, $user),
+            $course->id => $progressService->exactPercent($course, $tenant, $user),
         ]);
         $courseIds = $courses->pluck('id');
 
