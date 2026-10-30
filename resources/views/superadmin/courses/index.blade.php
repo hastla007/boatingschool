@@ -34,7 +34,15 @@
                             <span class="inline-block px-2 py-0.5 rounded-full text-xs {{ $course->status === 'published' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500 dark:text-slate-400' }}">{{ \App\Support\StatusLabels::courseStatus($course->status) }}</span>
                         </td>
                         <td class="px-4 py-2">
-                            @if ($course->site_enabled)
+                            {{-- Bug-Review (Superadmin-Seite gesperrte Kurse ohne
+                                 published-Filter): der Schalter wirkt laut
+                                 EntitlementService::isOfferable() nur bei
+                                 status=published -- bei Entwurf/archiviert hätte
+                                 ein aktiv/deaktiviert-Badge weiterhin fälschlich
+                                 eine reale Bedeutung suggeriert. --}}
+                            @if ($course->status !== 'published')
+                                <span class="text-xs text-slate-400 dark:text-slate-500">–</span>
+                            @elseif ($course->site_enabled)
                                 <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">aktiv</span>
                             @else
                                 <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-rose-50 text-rose-700">deaktiviert</span>
