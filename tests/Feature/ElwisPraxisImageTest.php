@@ -30,8 +30,10 @@ class ElwisPraxisImageTest extends TestCase
             // SBF-SEE und SBF-SEE-BIN sowie 60 Binnen-Karten in SBF-BIN-MOTOR
             // und (gespiegelt, "PRAXIS-BIN-…-SEE-BIN") in SBF-SEE-BIN --
             // gespiegelt werden nur Binnen-eigene Kategorien, alle 60 Karten
-            // mit ELWIS-Bild gehören dazu.
-            $this->assertSame(206, PraxisTask::whereHas('media', fn ($q) => $q->where('asset_key', 'like', 'elwis/%'))->count());
+            // mit ELWIS-Bild gehören dazu. Dazu kommen dieselben 60 Binnen-Karten
+            // in SBF Binnen unter Segel ("…-SEGEL") und je 7 Segel-Karten in
+            // SBF-BIN-SEGEL und ADD-BIN-SEGEL.
+            $this->assertSame(206 + 60 + 7 + 7, PraxisTask::whereHas('media', fn ($q) => $q->where('asset_key', 'like', 'elwis/%'))->count());
             $this->assertSame(
                 PraxisTask::where('content_id', 'PRAXIS-BIN-0018')->value('media_asset_id'),
                 PraxisTask::where('content_id', 'PRAXIS-BIN-0018-SEE-BIN')->value('media_asset_id')
