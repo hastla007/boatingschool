@@ -1,5 +1,15 @@
 @php
-    $revision = $question->publishedRevision();
+    // Bug-Review (Langsame Favoriten-Seite): publishedRevision() fragt
+    // IMMER frisch die Datenbank ab, auch wenn die revisions-Relation
+    // bereits eager geladen ist (FavoriteController::renderFavorites() lädt
+    // sie über with('question.revisions')/with('revisions')) -- bei vielen
+    // Favoriten/Fehlern auf einer Seite (dieses @include läuft einmal pro
+    // Karte) ergab das eine zusätzliche Query pro Karte. Ist die Relation
+    // bereits geladen, wird die veröffentlichte Revision jetzt direkt
+    // daraus bestimmt statt erneut nachzuladen.
+    $revision = $question->relationLoaded('revisions')
+        ? $question->revisions->where('editorial_status', 'published')->sortByDesc('revision_no')->first()
+        : $question->publishedRevision();
 @endphp
 <div x-show="selectedCollection === null || {{ \Illuminate\Support\Js::from($assignedCollectionIds) }}.includes(selectedCollection)"
      class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-3">

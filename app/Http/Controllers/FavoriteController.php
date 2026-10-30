@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Attempt;
 use App\Models\ContentQuestion;
 use App\Models\CourseDefinition;
-use App\Models\ExamSession;
+use App\Models\ExamSessionQuestion;
 use App\Models\Favorite;
 use App\Models\FavoriteCollection;
 use App\Models\FavoriteCollectionItem;
@@ -57,11 +57,23 @@ class FavoriteController extends Controller
             ->whereIn('question_id', $questionIds)
             ->latest('created_at')->get();
 
+        // Bug-Review (Langsame Favoriten-Seite): bisher wurden ALLE jemals
+        // falsch beantworteten Attempts bzw. ALLE Prüfungssessions dieses
+        // Kurses samt ihrer Fragen vollständig geladen, nur um daraus in
+        // PHP die letzten 20 eindeutigen Fragen-IDs herauszufiltern -- bei
+        // Lernenden mit viel Historie (häufige Wiederholungen, mehrfach
+        // abgelegte Prüfungen) wuchs das unbegrenzt mit der Zeit und machte
+        // die Seite immer langsamer. GROUP BY + MAX(Zeitstempel) liefert
+        // "letzter Fehler pro Frage" direkt aus der Datenbank, ORDER BY +
+        // LIMIT übernehmen die Sortierung/Begrenzung ebenfalls dort.
         $smartWrongQuestionIds = Attempt::where('tenant_id', $tenant->id)->where('user_id', $user->id)
             ->where('correct', false)
             ->whereIn('question_id', $questionIds)
-            ->orderByDesc('created_at')
-            ->pluck('question_id')->unique()->take(20);
+            ->selectRaw('question_id, max(created_at) as last_wrong_at')
+            ->groupBy('question_id')
+            ->orderByDesc('last_wrong_at')
+            ->limit(20)
+            ->pluck('question_id');
 
         $smartWrongQuestions = ContentQuestion::with('revisions')->whereIn('id', $smartWrongQuestionIds)->get();
 
@@ -74,18 +86,25 @@ class FavoriteController extends Controller
         // "Meine Fehler" für Prüfungsfragen stammt aus den tatsächlichen
         // Prüfungssimulationen dieses Kurses (exam_session_question), nicht
         // aus den Smart-Learning-Attempts.
-        $examWrongQuestionIds = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $user->id)
-            ->where('course_id', $course->id)
-            ->with('questions')
-            ->get()
-            ->flatMap->questions
-            // Bug-Review B2: Collection::where() vergleicht standardmäßig
-            // lose -- correct ist bei noch unbeantworteten Fragen NULL, und
-            // null == false ist in PHP wahr. Unbeantwortete Fragen zählten
-            // dadurch fälschlich als "Fehler". whereStrict erzwingt ===.
-            ->whereStrict('correct', false)
-            ->sortByDesc('answered_at')
-            ->pluck('question_id')->unique()->take(20);
+        //
+        // Bug-Review B2: Collection::where() vergleicht standardmäßig lose
+        // -- correct ist bei noch unbeantworteten Fragen NULL, und
+        // null == false ist in PHP wahr. where('correct', false) auf der
+        // DB-Spalte (boolean, kein lose vergleichendes PHP-NULL) filtert
+        // unbeantwortete Fragen hier korrekt heraus.
+        $examWrongQuestionIds = ExamSessionQuestion::where('tenant_id', $tenant->id)
+            ->whereIn('exam_session_id', function ($query) use ($tenant, $user, $course) {
+                $query->select('id')->from('exam_session')
+                    ->where('tenant_id', $tenant->id)
+                    ->where('user_id', $user->id)
+                    ->where('course_id', $course->id);
+            })
+            ->where('correct', false)
+            ->selectRaw('question_id, max(answered_at) as last_wrong_at')
+            ->groupBy('question_id')
+            ->orderByDesc('last_wrong_at')
+            ->limit(20)
+            ->pluck('question_id');
 
         $examWrongQuestions = ContentQuestion::with('revisions')->whereIn('id', $examWrongQuestionIds)->get();
 

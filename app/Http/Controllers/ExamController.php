@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\ContentAnswer;
 use App\Models\CourseDefinition;
 use App\Models\ExamPaper;
+use App\Models\ExamPaperQuestion;
 use App\Models\ExamSession;
 use App\Models\ExamSessionQuestion;
 use App\Models\Favorite;
@@ -69,17 +70,40 @@ class ExamController extends Controller
             ->unique('paper_id')
             ->keyBy('paper_id');
 
-        $paperStats = $papers->map(function ($paper) use ($latestEvaluatedSessions, $course) {
+        // Bug-Review (Langsame Prüfungsübersicht): für jeden Bogen eine
+        // eigene COUNT-Query auf paperQuestions() und für jeden bereits
+        // ausgewerteten Versuch eine eigene COUNT-Query auf
+        // questions()->where('correct', true) ergaben bei N Bögen bis zu
+        // 2N zusätzliche Round-Trips -- bei einem Kombikurs mit vielen
+        // Bögen (z. B. SBF-SEE-BIN) war die Seite dadurch spürbar langsam.
+        // Beide Zählungen laufen jetzt als je eine gruppierte
+        // Aggregat-Query vorab.
+        // Die Aggregat-Spalte darf nicht "total"/"correct" o. ä. heißen, wie
+        // eine echte Modell-Spalte -- ExamSessionQuestion::casts() wandelt
+        // "correct" sonst per boolean-Cast in true/false um (count(*)=2
+        // wurde dadurch zu true), weil Eloquent den Cast anhand des
+        // Attributnamens anwendet, nicht anhand der tatsächlichen Query.
+        $totalsByPaper = ExamPaperQuestion::whereIn('exam_paper_id', $paperIds)
+            ->selectRaw('exam_paper_id, count(*) as total_count')
+            ->groupBy('exam_paper_id')
+            ->pluck('total_count', 'exam_paper_id');
+
+        $correctBySession = ExamSessionQuestion::whereIn('exam_session_id', $latestEvaluatedSessions->pluck('id'))
+            ->where('correct', true)
+            ->selectRaw('exam_session_id, count(*) as correct_count')
+            ->groupBy('exam_session_id')
+            ->pluck('correct_count', 'exam_session_id');
+
+        $paperStats = $papers->map(function ($paper) use ($latestEvaluatedSessions, $course, $totalsByPaper, $correctBySession) {
             $session = $latestEvaluatedSessions->get($paper->id);
-            $total = $paper->paperQuestions()->count();
             $comboInfo = ComboExamGroups::infoFor($course->code, $paper->paper_number);
 
             return [
                 'paper' => $paper,
                 'attempted' => (bool) $session,
                 'percent' => $session ? (int) round($session->score * 100) : 0,
-                'correct' => $session ? $session->questions()->where('correct', true)->count() : 0,
-                'total' => $total,
+                'correct' => $session ? $correctBySession->get($session->id, 0) : 0,
+                'total' => $totalsByPaper->get($paper->id, 0),
                 'group' => $comboInfo['label'] ?? null,
                 'displayNumber' => $comboInfo['displayNumber'] ?? $paper->paper_number,
             ];
