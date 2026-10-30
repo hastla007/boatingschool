@@ -207,8 +207,14 @@ return [
         ['t' => 'Steighöhe mindestens 100 m, Leuchtdauer mindestens 10 Sekunden.', 'c' => false],
         ['t' => 'Steighöhe mindestens 50 m, Leuchtdauer mindestens 50 Sekunden.', 'c' => false],
     ]],
-    49 => ['type' => 'open_text', 'q' => 'Woran erkennen Sie an einem pyrotechnischen Notsignal, um welche Unterklasse es sich handelt?', 'a' => 'Am Zulassungszeichen: BAM-PT1 oder BAM-PT2.'],
-    50 => ['type' => 'multi_choice', 'q' => 'Wer darf pyrotechnische Notsignale der Klasse T verwenden?', 'options' => [
+    // Bug-Review (AA18: SKN-Fragen 49/50 nennen veraltete Klassen): die
+    // Zulassungsklassen "PT1/PT2" und "Klasse T" stammen aus der 1. SprengV
+    // vor der Reform 2010 (Umsetzung der EU-Pyrotechnik-Richtlinie
+    // 2007/23/EG) -- seitdem gelten die Klassen "P1/P2". Das inhaltlich
+    // identische FKN-Gegenstück (FKN-0033/0034) verwendet bereits korrekt
+    // "BAM-P 1 oder BAM-P 2" bzw. "Klasse P".
+    49 => ['type' => 'open_text', 'q' => 'Woran erkennen Sie an einem pyrotechnischen Notsignal, um welche Unterklasse es sich handelt?', 'a' => 'Am Zulassungszeichen: BAM-P 1 oder BAM-P 2.'],
+    50 => ['type' => 'multi_choice', 'q' => 'Wer darf pyrotechnische Notsignale der Klasse P verwenden?', 'options' => [
         ['t' => 'Jeder, der damit anzeigen will, dass ein Seenotfall vorliegt, d. h. unter anderem, dass Gefahr für Leib oder Leben der Besatzung und daher die Notwendigkeit zur Hilfe besteht.', 'c' => true],
         ['t' => 'An Silvester dürfen die Signale uneingeschränkt verwendet werden.', 'c' => false],
         ['t' => 'Jeder, der damit anzeigen will, dass ein Seenotfall vorliegt, obwohl keine Notwendigkeit zur Hilfe mehr besteht.', 'c' => false],
