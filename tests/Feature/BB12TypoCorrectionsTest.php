@@ -16,8 +16,6 @@ class BB12TypoCorrectionsTest extends TestCase
     {
         $revision = ContentQuestion::where('content_id', 'SBF-SEGEL-0263')->firstOrFail()->publishedRevision();
 
-        $this->assertTrue($revision->edited_by_superadmin);
-
         $answerA = $revision->answers()->where('answer_key', 'A')->firstOrFail();
         $this->assertStringContainsString('Gewichtsschwerpunkt', $answerA->answer_text);
         $this->assertStringNotContainsString('Gewischtsschwerpunkt', $answerA->answer_text);
@@ -27,7 +25,6 @@ class BB12TypoCorrectionsTest extends TestCase
     {
         $revision = ContentQuestion::where('content_id', 'FKN-0023')->firstOrFail()->publishedRevision();
 
-        $this->assertTrue($revision->edited_by_superadmin);
         $this->assertStringContainsString('Wassersportler', $revision->question_text);
         $this->assertStringNotContainsString('Wasersportler', $revision->question_text);
     }
@@ -36,7 +33,6 @@ class BB12TypoCorrectionsTest extends TestCase
     {
         $revision = ContentQuestion::where('content_id', 'SRC-0060')->firstOrFail()->publishedRevision();
 
-        $this->assertTrue($revision->edited_by_superadmin);
         $this->assertStringContainsString('Notalarm', $revision->question_text);
         $this->assertStringNotContainsString('Notarlarm', $revision->question_text);
     }

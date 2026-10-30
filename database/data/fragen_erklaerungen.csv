@@ -1331,9 +1331,9 @@ Richtig ist: „Durch Ausreiten bzw. durch Benutzung der Trapezeinrichtung.“
 Formstabile Boote haben keinen Ballast, den man verlagern könnte. Die Crew ist das bewegliche Gewicht: Je weiter sie nach Luv hinaussitzt oder im Trapez hängt, desto länger wird der Hebelarm und desto größer das aufrichtende Moment."
 "SBF-SEGEL-0263";"Richtig.
 
-Es nimmt anfangs zu bis zu einem Maximum, von da wieder ab, bis Auftriebs- und Gewischtsschwerpunkt übereinander liegen, anschließend kentert die Jolle. Bei zunehmender Krängung wandert der Auftriebsschwerpunkt zunächst nach Lee und der Hebelarm wächst. Ab einem bestimmten Winkel wird er wieder kürzer. Liegen beide Schwerpunkte übereinander, fehlt jedes aufrichtende Moment – das ist der Kenterpunkt.";"Falsch.
+Es nimmt anfangs zu bis zu einem Maximum, von da wieder ab, bis Auftriebs- und Gewichtsschwerpunkt übereinander liegen, anschließend kentert die Jolle. Bei zunehmender Krängung wandert der Auftriebsschwerpunkt zunächst nach Lee und der Hebelarm wächst. Ab einem bestimmten Winkel wird er wieder kürzer. Liegen beide Schwerpunkte übereinander, fehlt jedes aufrichtende Moment – das ist der Kenterpunkt.";"Falsch.
 
-Richtig ist: „Es nimmt anfangs zu bis zu einem Maximum, von da wieder ab, bis Auftriebs- und Gewischtsschwerpunkt übereinander liegen, anschließend kentert die Jolle.“
+Richtig ist: „Es nimmt anfangs zu bis zu einem Maximum, von da wieder ab, bis Auftriebs- und Gewichtsschwerpunkt übereinander liegen, anschließend kentert die Jolle.“
 
 Bei zunehmender Krängung wandert der Auftriebsschwerpunkt zunächst nach Lee und der Hebelarm wächst. Ab einem bestimmten Winkel wird er wieder kürzer. Liegen beide Schwerpunkte übereinander, fehlt jedes aufrichtende Moment – das ist der Kenterpunkt."
 "SBF-SEGEL-0264";"Richtig.
@@ -3172,9 +3172,9 @@ Richtig ist: „Automatisches Schiffsidentifizierungs- und Überwachungssystem, 
 AIS sendet laufend Daten wie Name, Position, Kurs und Ziel über UKW-Datenkanäle und macht Schiffe für andere Schiffe und Landstellen elektronisch sichtbar. Nicht verwechseln mit ATIS, das nur die Sprechfunkaussendung kennzeichnet."
 "UBI-0046";"Richtig.
 
-Statische Informationen (z. B. Schiffsname), dynamische Informationen (z. B.  Kurs) und reisebezogene Informationen (z. B. Bestimmungsort). Statisch sind unveränderliche Schiffsdaten, dynamisch die laufend wechselnden Bewegungsdaten wie Position, Kurs und Geschwindigkeit, reisebezogen etwa Ziel oder Ladung. Notalarme oder dringende Meldungen gehören nicht zu diesen drei Kategorien.";"Falsch.
+Statische Informationen (z. B. Schiffsname), dynamische Informationen (z. B. Kurs) und reisebezogene Informationen (z. B. Bestimmungsort). Statisch sind unveränderliche Schiffsdaten, dynamisch die laufend wechselnden Bewegungsdaten wie Position, Kurs und Geschwindigkeit, reisebezogen etwa Ziel oder Ladung. Notalarme oder dringende Meldungen gehören nicht zu diesen drei Kategorien.";"Falsch.
 
-Richtig ist: „Statische Informationen (z. B. Schiffsname), dynamische Informationen (z. B.  Kurs) und reisebezogene Informationen (z. B. Bestimmungsort)“
+Richtig ist: „Statische Informationen (z. B. Schiffsname), dynamische Informationen (z. B. Kurs) und reisebezogene Informationen (z. B. Bestimmungsort)“
 
 Statisch sind unveränderliche Schiffsdaten, dynamisch die laufend wechselnden Bewegungsdaten wie Position, Kurs und Geschwindigkeit, reisebezogen etwa Ziel oder Ladung. Notalarme oder dringende Meldungen gehören nicht zu diesen drei Kategorien."
 "UBI-0047";"Richtig.
@@ -3291,16 +3291,16 @@ Richtig ist: „Segelyacht Robbe DA 5005“
 Am Schiff-Schiff-Verkehr nehmen nur Schiffsfunkstellen teil, erkennbar am Schiffsnamen mit Rufzeichen. Schleuse und Revierzentrale gehören zur Nautischen Information, der Hafen zur Hafenbehörde."
 "UBI-0063";"Richtig.
 
-Funkverkehr zwischen Schiffsfunkstellen und Funkstellen der Behörden, denen  der Betrieb der Bundeswasserstraßen obliegt. Nautische Information verbindet Schiffe mit den Stellen der Wasserstraßenverwaltung, etwa Revierzentralen, Schleusen oder Brücken. Funkstellen der Hafenbehörden bilden einen eigenen Verkehrskreis.";"Falsch.
+Funkverkehr zwischen Schiffsfunkstellen und Funkstellen der Behörden, denen der Betrieb der Bundeswasserstraßen obliegt. Nautische Information verbindet Schiffe mit den Stellen der Wasserstraßenverwaltung, etwa Revierzentralen, Schleusen oder Brücken. Funkstellen der Hafenbehörden bilden einen eigenen Verkehrskreis.";"Falsch.
 
-Richtig ist: „Funkverkehr zwischen Schiffsfunkstellen und Funkstellen der Behörden, denen  der Betrieb der Bundeswasserstraßen obliegt“
+Richtig ist: „Funkverkehr zwischen Schiffsfunkstellen und Funkstellen der Behörden, denen der Betrieb der Bundeswasserstraßen obliegt“
 
 Nautische Information verbindet Schiffe mit den Stellen der Wasserstraßenverwaltung, etwa Revierzentralen, Schleusen oder Brücken. Funkstellen der Hafenbehörden bilden einen eigenen Verkehrskreis."
 "UBI-0064";"Richtig.
 
-Nachrichten über den Zustand der Wasserstraßen, über Verkehrsberatung und  zur Verkehrslenkung. Die Wasserstraßenverwaltung informiert über Wasserstände, Sperrungen und Verkehrslage und lenkt den Verkehr, etwa an Schleusen. Liegeplätze gehören zur Hafenbehörde, schiffsbetriebliche Angelegenheiten zum Funkverkehr an Bord.";"Falsch.
+Nachrichten über den Zustand der Wasserstraßen, über Verkehrsberatung und zur Verkehrslenkung. Die Wasserstraßenverwaltung informiert über Wasserstände, Sperrungen und Verkehrslage und lenkt den Verkehr, etwa an Schleusen. Liegeplätze gehören zur Hafenbehörde, schiffsbetriebliche Angelegenheiten zum Funkverkehr an Bord.";"Falsch.
 
-Richtig ist: „Nachrichten über den Zustand der Wasserstraßen, über Verkehrsberatung und  zur Verkehrslenkung“
+Richtig ist: „Nachrichten über den Zustand der Wasserstraßen, über Verkehrsberatung und zur Verkehrslenkung“
 
 Die Wasserstraßenverwaltung informiert über Wasserstände, Sperrungen und Verkehrslage und lenkt den Verkehr, etwa an Schleusen. Liegeplätze gehören zur Hafenbehörde, schiffsbetriebliche Angelegenheiten zum Funkverkehr an Bord."
 "UBI-0065";"Richtig.
@@ -3368,9 +3368,9 @@ Richtig ist: „Funkverkehr an Bord eines Schiffes oder innerhalb einer Gruppe v
 Der Bordfunk verbindet etwa Steuerhaus und Vorschiff beim Anlegen oder die Fahrzeuge eines Schlepp- oder Schubverbands. Er bleibt auf das eigene Schiff bzw. den eigenen Verband beschränkt."
 "UBI-0074";"Richtig.
 
-Nachrichten über schiffsbetriebliche Angelegenheiten sowie bei Anweisungen  für das Arbeiten mit Leinen und für das Ankern. Typische Bordfunkgespräche sind Anweisungen vom Steuerhaus an die Decksmannschaft beim Festmachen oder Ankern. Nachrichten an andere Schiffe oder Landstellen gehören in die übrigen Verkehrskreise.";"Falsch.
+Nachrichten über schiffsbetriebliche Angelegenheiten sowie bei Anweisungen für das Arbeiten mit Leinen und für das Ankern. Typische Bordfunkgespräche sind Anweisungen vom Steuerhaus an die Decksmannschaft beim Festmachen oder Ankern. Nachrichten an andere Schiffe oder Landstellen gehören in die übrigen Verkehrskreise.";"Falsch.
 
-Richtig ist: „Nachrichten über schiffsbetriebliche Angelegenheiten sowie bei Anweisungen  für das Arbeiten mit Leinen und für das Ankern“
+Richtig ist: „Nachrichten über schiffsbetriebliche Angelegenheiten sowie bei Anweisungen für das Arbeiten mit Leinen und für das Ankern“
 
 Typische Bordfunkgespräche sind Anweisungen vom Steuerhaus an die Decksmannschaft beim Festmachen oder Ankern. Nachrichten an andere Schiffe oder Landstellen gehören in die übrigen Verkehrskreise."
 "UBI-0075";"Richtig.

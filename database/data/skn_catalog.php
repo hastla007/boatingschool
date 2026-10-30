@@ -165,7 +165,7 @@ return [
     35 => ['type' => 'multi_choice', 'q' => 'Welche pyrotechnischen Seenotsignale können erlaubnisfrei erworben, aufbewahrt und verwendet werden von Personen, die das 18. Lebensjahr vollendet haben?', 'options' => [
         ['t' => 'Die der Unterklasse P1, d.h. „Handfackeln rot" und bestimmte Rauchsignale, Abschussgeräte ohne Schusswaffeneigenschaft.', 'c' => true],
         ['t' => 'Seenotsignalgeber mit einer Steighöhe von bis etwa 60 Metern (Signalgeber und ihre Munition, die nicht dem WaffG unterliegen)', 'c' => true],
-        ['t' => 'Die der Unterklasse T2, d.h. „Signalraketen rot", „Fallschirmsignalraketen rot" und bestimmte Rauchsignale.', 'c' => false],
+        ['t' => 'Die der Unterklasse P2, d.h. „Signalraketen rot", „Fallschirmsignalraketen rot" und bestimmte Rauchsignale.', 'c' => false],
     ]],
     36 => ['type' => 'open_text', 'q' => 'Welche erlaubnispflichtigen pyrotechnischen Seenotsignale dürfen Wassersportler mit einem im Führerschein eingedruckten Befreiungsvermerk bzw. Sachkundenachweis erwerben?', 'a' => 'Die der Unterklasse P2, d.h. „Signalraketen rot", „Fallschirmsignalraketen rot" und bestimmte Rauchsignale.'],
     37 => ['type' => 'open_text', 'q' => 'Bis zu welchem Alter ist vom Antragsteller auf erstmalige Erteilung einer waffenrechtlichen Genehmigung zum Erwerb einer Signalpistole Kaliber 4 (26,5 mm) stets ein ärztliches oder fachpsychologisches Zeugnis beizubringen?', 'a' => 'Bis zur Vollendung des 25. Lebensjahres.'],

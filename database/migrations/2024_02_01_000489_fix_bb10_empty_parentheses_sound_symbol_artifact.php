@@ -16,8 +16,23 @@ use Illuminate\Database\Migrations\Migration;
  * Information mehr trägt und ohne Risiko einer inhaltlich falschen
  * Ersatz-Vermutung entfernt werden kann.
  *
- * Analog zu BB8/BB9 legt diese Migration pro betroffener Frage eine neue,
- * als edited_by_superadmin markierte Revision an.
+ * Ebenso SBF-SEE-0140 "(mindestens )" (im PDF fünf Punkte, siehe Bild
+ * und Erklärung) und das Leerzeichen vor dem Fragezeichen in
+ * SBF-SEE-0118/0119.
+ *
+ * Analog zu BB8/BB9 legt diese Migration pro betroffener Frage eine neue
+ * Revision an.
+ *
+ * Bug-Review (Korrektur nur per Migration): Migrationen laufen vor
+ * db:seed -- auf einer Neuinstallation fanden sie keine Fragen vor, und der
+ * anschließende Import brachte die fehlerhaften Texte zurück. Die
+ * Korrektur steht deshalb jetzt auch in der Quelle (zentrale_fragenbasis.xlsx,
+ * fkn_catalog.php, Erklärungs-CSVs); diese Migration holt sie nur für
+ * bestehende Installationen nach. Die neue Revision ist NICHT als
+ * edited_by_superadmin markiert: ihr Text entspricht der korrigierten
+ * Quelle, ein späterer content:import sieht sie als unverändert, und
+ * amtliche Katalogkorrekturen (CatalogUpdateSeeder, z. B. SRC/UBI
+ * "korr2") werden nicht mehr blockiert.
  */
 return new class extends Migration
 {
@@ -32,6 +47,9 @@ return new class extends Migration
             'SBF-SEE-0117' => [
                 'Sie hören bei verminderter Sicht mindestens alle zwei Minuten zwei aufeinander folgende lange Töne mit der Pfeife ( ). Welches Fahrzeug gibt dieses Signal?' => 'Sie hören bei verminderter Sicht mindestens alle zwei Minuten zwei aufeinander folgende lange Töne mit der Pfeife. Welches Fahrzeug gibt dieses Signal?',
             ],
+            'SBF-SEE-0118' => [' kurz, kurz ?' => ' kurz, kurz?'],
+            'SBF-SEE-0119' => [' kurz, kurz, kurz ?' => ' kurz, kurz, kurz?'],
+            'SBF-SEE-0140' => ['Welche Bedeutung hat folgendes Schallsignal? (mindestens )' => 'Welche Bedeutung hat folgendes Schallsignal (mindestens fünf kurze Töne)?'],
         ];
     }
 
@@ -86,7 +104,7 @@ return new class extends Migration
             'valid_to' => $published->valid_to,
             'editorial_status' => 'published',
             'rights_status' => $published->rights_status,
-            'edited_by_superadmin' => true,
+            'edited_by_superadmin' => false,
         ]);
 
         foreach ($published->answers()->orderBy('sort_order')->get() as $answer) {
@@ -104,37 +122,10 @@ return new class extends Migration
         }
     }
 
-    public function down(): void
-    {
-        foreach (array_keys($this->fixes()) as $contentId) {
-            $this->revertFix($contentId);
-        }
-    }
-
-    private function revertFix(string $contentId): void
-    {
-        $question = ContentQuestion::where('content_id', $contentId)->first();
-
-        if (! $question) {
-            return;
-        }
-
-        $corrected = $question->revisions()
-            ->where('editorial_status', 'published')
-            ->where('edited_by_superadmin', true)
-            ->orderByDesc('revision_no')
-            ->first();
-
-        $previous = $question->revisions()
-            ->where('revision_no', '<', $corrected?->revision_no ?? 0)
-            ->orderByDesc('revision_no')
-            ->first();
-
-        if (! $corrected || ! $previous) {
-            return;
-        }
-
-        $corrected->delete();
-        $previous->update(['editorial_status' => 'published']);
-    }
+    /**
+     * Datenkorrektur ohne Rückweg: die korrigierte Revision kann bereits
+     * beantwortet sein (attempt.revision_id), ein Zurückdrehen würde
+     * Lernfortschritt verwerfen.
+     */
+    public function down(): void {}
 };

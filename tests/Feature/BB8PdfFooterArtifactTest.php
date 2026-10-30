@@ -19,8 +19,6 @@ class BB8PdfFooterArtifactTest extends TestCase
         $question = ContentQuestion::where('content_id', 'SBF-SEE-0075')->firstOrFail();
         $revision = $question->publishedRevision();
 
-        $this->assertTrue($revision->edited_by_superadmin);
-
         $answerC = $revision->answers()->where('answer_key', 'C')->firstOrFail();
 
         $this->assertStringEndsWith('Betriebsart S1 (Dauerbetrieb).', $answerC->answer_text);

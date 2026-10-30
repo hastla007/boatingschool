@@ -18,9 +18,19 @@ use Illuminate\Database\Migrations\Migration;
  * UBI-Fragen.
  *
  * Wie bei BB8/BB9/BB10 legt die Migration pro betroffener Frage eine
- * neue, als edited_by_superadmin markierte Revision an -- beschränkt auf
- * genau die Fragen, die der Sweep tatsächlich als betroffen identifiziert
- * hat, damit down() gezielt nur diese Revisionen zurücknimmt.
+ * neue Revision an -- beschränkt auf genau die Fragen, die der Sweep
+ * tatsächlich als betroffen identifiziert hat.
+ *
+ * Bug-Review (Korrektur nur per Migration): Migrationen laufen vor
+ * db:seed -- auf einer Neuinstallation fanden sie keine Fragen vor, und der
+ * anschließende Import brachte die fehlerhaften Texte zurück. Die
+ * Korrektur steht deshalb jetzt auch in der Quelle (zentrale_fragenbasis.xlsx,
+ * fkn_catalog.php, Erklärungs-CSVs); diese Migration holt sie nur für
+ * bestehende Installationen nach. Die neue Revision ist NICHT als
+ * edited_by_superadmin markiert: ihr Text entspricht der korrigierten
+ * Quelle, ein späterer content:import sieht sie als unverändert, und
+ * amtliche Katalogkorrekturen (CatalogUpdateSeeder, z. B. SRC/UBI
+ * "korr2") werden nicht mehr blockiert.
  */
 return new class extends Migration
 {
@@ -100,7 +110,7 @@ return new class extends Migration
                 'valid_to' => $published->valid_to,
                 'editorial_status' => 'published',
                 'rights_status' => $published->rights_status,
-                'edited_by_superadmin' => true,
+                'edited_by_superadmin' => false,
             ]);
 
             foreach ($answers as $answer) {
@@ -119,26 +129,10 @@ return new class extends Migration
         }
     }
 
-    public function down(): void
-    {
-        foreach (ContentQuestion::whereIn('content_id', $this->affectedContentIds())->get() as $question) {
-            $corrected = $question->revisions()
-                ->where('editorial_status', 'published')
-                ->where('edited_by_superadmin', true)
-                ->orderByDesc('revision_no')
-                ->first();
-
-            $previous = $question->revisions()
-                ->where('revision_no', '<', $corrected?->revision_no ?? 0)
-                ->orderByDesc('revision_no')
-                ->first();
-
-            if (! $corrected || ! $previous) {
-                continue;
-            }
-
-            $corrected->delete();
-            $previous->update(['editorial_status' => 'published']);
-        }
-    }
+    /**
+     * Datenkorrektur ohne Rückweg: die korrigierte Revision kann bereits
+     * beantwortet sein (attempt.revision_id), ein Zurückdrehen würde
+     * Lernfortschritt verwerfen.
+     */
+    public function down(): void {}
 };

@@ -13,14 +13,20 @@ use Illuminate\Database\Migrations\Migration;
  * Fragen See" -- die laufende Kopf-/Fußzeile der Quell-PDF, die beim
  * ursprünglichen Import des zentralen Fragenkatalogs (zentrale_
  * fragenbasis.xlsx) versehentlich mit in den Zellentext übernommen wurde.
- * Analog zum bereits etablierten Muster für Editor-Korrekturen (siehe
- * Migration add_edited_by_superadmin_to_content_question_revision sowie
- * Bug-Review "Seed überschreibt UBI-Korrekturen aus dem Editor") legt
- * diese Migration eine neue, als edited_by_superadmin markierte Revision
- * an, statt die bestehende Revision/Antwort direkt zu verändern -- ein
- * künftiger content:import-Lauf gegen eine unveränderte Excel-Quelle
- * erzeugt dadurch höchstens eine wartende Review-Revision statt die
- * Korrektur stillschweigend wieder zu verwerfen.
+ * Die Migration legt eine neue Revision an, statt die bestehende
+ * Revision/Antwort direkt zu verändern (beantwortete Revisionen bleiben
+ * unverändert).
+ *
+ * Bug-Review (Korrektur nur per Migration): Migrationen laufen vor
+ * db:seed -- auf einer Neuinstallation fanden sie keine Fragen vor, und der
+ * anschließende Import brachte die fehlerhaften Texte zurück. Die
+ * Korrektur steht deshalb jetzt auch in der Quelle (zentrale_fragenbasis.xlsx,
+ * fkn_catalog.php, Erklärungs-CSVs); diese Migration holt sie nur für
+ * bestehende Installationen nach. Die neue Revision ist NICHT als
+ * edited_by_superadmin markiert: ihr Text entspricht der korrigierten
+ * Quelle, ein späterer content:import sieht sie als unverändert, und
+ * amtliche Katalogkorrekturen (CatalogUpdateSeeder, z. B. SRC/UBI
+ * "korr2") werden nicht mehr blockiert.
  */
 return new class extends Migration
 {
@@ -70,7 +76,7 @@ return new class extends Migration
             'valid_to' => $published->valid_to,
             'editorial_status' => 'published',
             'rights_status' => $published->rights_status,
-            'edited_by_superadmin' => true,
+            'edited_by_superadmin' => false,
         ]);
 
         foreach ($answers as $answer) {
@@ -92,30 +98,10 @@ return new class extends Migration
         }
     }
 
-    public function down(): void
-    {
-        $question = ContentQuestion::where('content_id', 'SBF-SEE-0075')->first();
-
-        if (! $question) {
-            return;
-        }
-
-        $corrected = $question->revisions()
-            ->where('editorial_status', 'published')
-            ->where('edited_by_superadmin', true)
-            ->orderByDesc('revision_no')
-            ->first();
-
-        $previous = $question->revisions()
-            ->where('revision_no', '<', $corrected?->revision_no ?? 0)
-            ->orderByDesc('revision_no')
-            ->first();
-
-        if (! $corrected || ! $previous) {
-            return;
-        }
-
-        $corrected->delete();
-        $previous->update(['editorial_status' => 'published']);
-    }
+    /**
+     * Datenkorrektur ohne Rückweg: die korrigierte Revision kann bereits
+     * beantwortet sein (attempt.revision_id), ein Zurückdrehen würde
+     * Lernfortschritt verwerfen.
+     */
+    public function down(): void {}
 };

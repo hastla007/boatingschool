@@ -36,6 +36,16 @@ return new class extends Migration
             ->whereIn('revision_id', $revisionIds)
             ->where('answer_text', 'Am Zulassungszeichen: BAM-PT1 oder BAM-PT2.')
             ->update(['answer_text' => 'Am Zulassungszeichen: BAM-P 1 oder BAM-P 2.']);
+
+        // SKN-0035, Antwort C (falsch): ebenfalls die alte Unterklasse "T2";
+        // das FKN-Gegenstück (FKN-0022) sagt bereits "P2".
+        DB::table('content_answer')
+            ->whereIn('revision_id', DB::table('content_question_revision')
+                ->join('content_question', 'content_question.id', '=', 'content_question_revision.question_id')
+                ->where('content_question.content_id', 'SKN-0035')
+                ->pluck('content_question_revision.id'))
+            ->where('answer_text', 'Die der Unterklasse T2, d.h. „Signalraketen rot", „Fallschirmsignalraketen rot" und bestimmte Rauchsignale.')
+            ->update(['answer_text' => 'Die der Unterklasse P2, d.h. „Signalraketen rot", „Fallschirmsignalraketen rot" und bestimmte Rauchsignale.']);
     }
 
     public function down(): void

@@ -16,7 +16,6 @@ class BB10EmptyParenthesesSoundSymbolTest extends TestCase
     {
         $revision = ContentQuestion::where('content_id', 'SBF-BASIS-0004')->firstOrFail()->publishedRevision();
 
-        $this->assertTrue($revision->edited_by_superadmin);
         $this->assertSame('Wie lang ist die Dauer eines kurzen Tons?', $revision->question_text);
     }
 
@@ -24,7 +23,6 @@ class BB10EmptyParenthesesSoundSymbolTest extends TestCase
     {
         $revision = ContentQuestion::where('content_id', 'SBF-BASIS-0005')->firstOrFail()->publishedRevision();
 
-        $this->assertTrue($revision->edited_by_superadmin);
         $this->assertSame('Wie lang ist die Dauer eines langen Tons?', $revision->question_text);
     }
 
@@ -32,7 +30,6 @@ class BB10EmptyParenthesesSoundSymbolTest extends TestCase
     {
         $revision = ContentQuestion::where('content_id', 'SBF-SEE-0116')->firstOrFail()->publishedRevision();
 
-        $this->assertTrue($revision->edited_by_superadmin);
         $this->assertStringNotContainsString('( )', $revision->question_text);
         $this->assertStringContainsString('mit der Pfeife. Welches Fahrzeug', $revision->question_text);
     }
@@ -41,7 +38,6 @@ class BB10EmptyParenthesesSoundSymbolTest extends TestCase
     {
         $revision = ContentQuestion::where('content_id', 'SBF-SEE-0117')->firstOrFail()->publishedRevision();
 
-        $this->assertTrue($revision->edited_by_superadmin);
         $this->assertStringNotContainsString('( )', $revision->question_text);
         $this->assertStringContainsString('mit der Pfeife. Welches Fahrzeug', $revision->question_text);
     }

@@ -106,7 +106,7 @@ return [
         ['t' => 'Seenotsignalgeber mit einer Steighöhe von bis etwa 60 Metern (Signalgeber und ihre Munition, die nicht dem WaffG unterliegen)', 'c' => true],
         ['t' => 'Die der Unterklasse P2, d.h. „Signalraketen rot", „Fallschirmsignalraketen rot" und bestimmte Rauchsignale.', 'c' => false],
     ]],
-    23 => ['type' => 'open_text', 'q' => 'Welche erlaubnispflichtigen pyrotechnischen Seenotsignale dürfen Wasersportler mit einem im Führerschein eingedruckten Befreiungsvermerk bzw. Sachkundenachweis erwerben?', 'a' => 'Die der Unterklasse P2, d.h. „Signalraketen rot", „Fallschirmsignalraketen rot" und bestimmte Rauchsignale.'],
+    23 => ['type' => 'open_text', 'q' => 'Welche erlaubnispflichtigen pyrotechnischen Seenotsignale dürfen Wassersportler mit einem im Führerschein eingedruckten Befreiungsvermerk bzw. Sachkundenachweis erwerben?', 'a' => 'Die der Unterklasse P2, d.h. „Signalraketen rot", „Fallschirmsignalraketen rot" und bestimmte Rauchsignale.'],
     24 => ['type' => 'multi_choice', 'q' => 'Darf mit einem Bootsführerschein mit eingetragenem Befreiungsvermerk nach dem Waffen- und Sprengstoffgesetz Seenotsignalmunition im Kaliber 4 erworben werden?', 'options' => [
         ['t' => 'Nein, hierfür ist eine Waffenbesitzkarte mit eingetragener Munitionserwerbsberechtigung für das Kaliber 4 erforderlich.', 'c' => true],
         ['t' => 'Nein, hierfür ist eine Waffenbesitzkarte mit einer eingetragenen Signalwaffe im Kaliber 4 erforderlich.', 'c' => false],

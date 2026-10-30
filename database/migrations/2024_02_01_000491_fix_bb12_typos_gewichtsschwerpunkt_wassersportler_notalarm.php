@@ -12,8 +12,20 @@ use Illuminate\Database\Migrations\Migration;
  * - FKN-0023, Fragetext: "Wasersportler" statt "Wassersportler".
  * - SRC-0060, Fragetext: "Notarlarm" statt "Notalarm".
  *
- * Wie bei BB8-BB11 legt die Migration pro betroffener Frage eine neue,
- * als edited_by_superadmin markierte Revision an.
+ * Wie bei BB8-BB11 legt die Migration pro betroffener Frage eine neue
+ * Revision an; der Tippfehler wird dabei auch in den Erklärungstexten
+ * korrigiert.
+ *
+ * Bug-Review (Korrektur nur per Migration): Migrationen laufen vor
+ * db:seed -- auf einer Neuinstallation fanden sie keine Fragen vor, und der
+ * anschließende Import brachte die fehlerhaften Texte zurück. Die
+ * Korrektur steht deshalb jetzt auch in der Quelle (zentrale_fragenbasis.xlsx,
+ * fkn_catalog.php, Erklärungs-CSVs); diese Migration holt sie nur für
+ * bestehende Installationen nach. Die neue Revision ist NICHT als
+ * edited_by_superadmin markiert: ihr Text entspricht der korrigierten
+ * Quelle, ein späterer content:import sieht sie als unverändert, und
+ * amtliche Katalogkorrekturen (CatalogUpdateSeeder, z. B. SRC/UBI
+ * "korr2") werden nicht mehr blockiert.
  */
 return new class extends Migration
 {
@@ -62,7 +74,14 @@ return new class extends Migration
 
         $answers = $published->answers()->orderBy('sort_order')->get();
         $answerTexts = [];
-        $needsFix = $newQuestionText !== $published->question_text;
+        // Derselbe Tippfehler steht auch in den Erklärungen (z. B.
+        // SBF-SEGEL-0263) -- alle Ersetzungen dieser Frage gelten dort mit.
+        $feedbackReplacements = array_merge($questionTextReplacements, ...array_values($answerReplacements));
+        $newFeedbackCorrect = $published->feedback_correct === null ? null : strtr($published->feedback_correct, $feedbackReplacements);
+        $newFeedbackIncorrect = $published->feedback_incorrect === null ? null : strtr($published->feedback_incorrect, $feedbackReplacements);
+        $needsFix = $newQuestionText !== $published->question_text
+            || $newFeedbackCorrect !== $published->feedback_correct
+            || $newFeedbackIncorrect !== $published->feedback_incorrect;
 
         foreach ($answers as $answer) {
             $replacements = $answerReplacements[$answer->answer_key] ?? [];
@@ -87,8 +106,8 @@ return new class extends Migration
             'revision_no' => $latestRevisionNo + 1,
             'question_type' => $published->question_type,
             'question_text' => $newQuestionText,
-            'feedback_correct' => $published->feedback_correct,
-            'feedback_incorrect' => $published->feedback_incorrect,
+            'feedback_correct' => $newFeedbackCorrect,
+            'feedback_incorrect' => $newFeedbackIncorrect,
             'topic' => $published->topic,
             'subtopic' => $published->subtopic,
             'smartmodus_kategorie' => $published->smartmodus_kategorie,
@@ -102,7 +121,7 @@ return new class extends Migration
             'valid_to' => $published->valid_to,
             'editorial_status' => 'published',
             'rights_status' => $published->rights_status,
-            'edited_by_superadmin' => true,
+            'edited_by_superadmin' => false,
         ]);
 
         foreach ($answers as $answer) {
@@ -120,37 +139,10 @@ return new class extends Migration
         }
     }
 
-    public function down(): void
-    {
-        foreach (array_keys($this->fixes()) as $contentId) {
-            $this->revertFix($contentId);
-        }
-    }
-
-    private function revertFix(string $contentId): void
-    {
-        $question = ContentQuestion::where('content_id', $contentId)->first();
-
-        if (! $question) {
-            return;
-        }
-
-        $corrected = $question->revisions()
-            ->where('editorial_status', 'published')
-            ->where('edited_by_superadmin', true)
-            ->orderByDesc('revision_no')
-            ->first();
-
-        $previous = $question->revisions()
-            ->where('revision_no', '<', $corrected?->revision_no ?? 0)
-            ->orderByDesc('revision_no')
-            ->first();
-
-        if (! $corrected || ! $previous) {
-            return;
-        }
-
-        $corrected->delete();
-        $previous->update(['editorial_status' => 'published']);
-    }
+    /**
+     * Datenkorrektur ohne Rückweg: die korrigierte Revision kann bereits
+     * beantwortet sein (attempt.revision_id), ein Zurückdrehen würde
+     * Lernfortschritt verwerfen.
+     */
+    public function down(): void {}
 };

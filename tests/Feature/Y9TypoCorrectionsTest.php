@@ -16,10 +16,9 @@ use Tests\TestCase;
  *   (sie = sie, Plural) -- muss klein geschrieben werden.
  * - SBF-SEGEL-0274: "wärend" statt "während".
  *
- * Die im selben Bug-Report genannte "Leegerküste" ließ sich trotz
- * gründlicher Suche (question_text/feedback_correct/feedback_incorrect
- * aller Fragen, praxis_task, tip, navigation_task, alle CSV-/PHP-
- * Katalogquellen) an keiner Stelle im Code finden -- nicht erfunden.
+ * Die im selben Bug-Report genannte "Leegerküste" stand in den
+ * Funk-Vokabeln (database/data/funk_vokabeln.php) und heißt dort jetzt
+ * "Legerwall" (siehe FunkAndElwisTextCorrectionsTest).
  */
 class Y9TypoCorrectionsTest extends TestCase
 {
