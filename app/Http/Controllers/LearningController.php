@@ -39,7 +39,15 @@ class LearningController extends Controller
 
         // Favoriten sind kursgebunden: nur Fragen zählen, die tatsächlich zu
         // diesem Kurs gehören, damit jeder Kurs seine eigenen Favoriten hat.
-        $courseQuestionIds = $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id')->unique();
+        //
+        // Bug-Review (BB2: Favoriten zählen deaktivierte Fragen mit): eine
+        // im Superadmin deaktivierte Frage (content_question.active) taucht
+        // im Smarttrainer nicht mehr auf (siehe F7) und kann deshalb nie
+        // "gefestigt" werden -- zählte aber bisher weiter im
+        // Favoriten-Nenner mit, wodurch "X/Y gemeistert" dauerhaft hinter
+        // dem tatsächlich erreichbaren Fortschritt zurückblieb, analog zum
+        // bereits gefixten Gesamtfortschritt-Nenner in CourseProgressService.
+        $courseQuestionIds = $course->modules->flatMap(fn ($m) => $m->questions)->where('active', true)->pluck('id')->unique();
         $favoriteIds = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)
             ->where('context', Favorite::CONTEXT_SMART_LEARNING)
             ->whereIn('question_id', $courseQuestionIds)->pluck('question_id');
