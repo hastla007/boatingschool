@@ -106,16 +106,47 @@ class CouponRedemptionService
 
         $now = now();
 
-        $entitlement = Entitlement::create([
-            'tenant_id' => $tenant->id,
-            'user_id' => $user->id,
-            'course_id' => $coupon->course_id,
-            'valid_from' => $now,
-            'valid_until' => $now->copy()->addDays($tenant->branding->course_validity_days),
-            'status' => 'active',
-            'source_type' => 'coupon',
-            'source_reference' => $coupon->code,
-        ]);
+        // Bug-Review (Gutschein umgeht Sperre): hasAccess() oben erkennt nur
+        // AKTIVEN Zugang -- ein per Admin\EntitlementController::suspend()
+        // gesperrtes ("suspended") Entitlement zählt dort nicht als Zugang
+        // (genau wie "revoked"), sodass ein ganz normaler (neuer) Kurscode
+        // für denselben Kurs bisher klaglos ein ZWEITES, aktives Entitlement
+        // anlegte, statt das gesperrte zu reaktivieren -- die Sperre selbst
+        // blieb zwar unverändert in der DB stehen, griff aber nicht mehr,
+        // weil das neue Entitlement parallel vollen Zugang gewährte. Anders
+        // als "revoked" ist "suspended" laut EntitlementController::suspend()
+        // ausdrücklich ein "kostenloser, jederzeit rückgängig machbarer
+        // Zustand" -- ein Code darf ihn also aufheben, muss dafür aber das
+        // BESTEHENDE Entitlement reaktivieren statt ein zweites anzulegen
+        // (analog zu redeemForRenewal() oben).
+        $suspended = Entitlement::where('tenant_id', $tenant->id)
+            ->where('user_id', $user->id)
+            ->where('course_id', $course->id)
+            ->where('status', 'suspended')
+            ->first();
+
+        if ($suspended) {
+            $suspended->update([
+                'valid_from' => $now,
+                'valid_until' => $now->copy()->addDays($tenant->branding->course_validity_days),
+                'status' => 'active',
+                'source_type' => 'coupon',
+                'source_reference' => $coupon->code,
+            ]);
+
+            $entitlement = $suspended;
+        } else {
+            $entitlement = Entitlement::create([
+                'tenant_id' => $tenant->id,
+                'user_id' => $user->id,
+                'course_id' => $coupon->course_id,
+                'valid_from' => $now,
+                'valid_until' => $now->copy()->addDays($tenant->branding->course_validity_days),
+                'status' => 'active',
+                'source_type' => 'coupon',
+                'source_reference' => $coupon->code,
+            ]);
+        }
 
         $this->applyOptionProducts($coupon, $tenant, $user);
 
