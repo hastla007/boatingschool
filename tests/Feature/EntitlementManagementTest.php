@@ -200,6 +200,47 @@ class EntitlementManagementTest extends TestCase
     }
 
     /**
+     * Bug-Review (AA14: Abgelaufener Zugang nicht sofort neu freischaltbar):
+     * der Doppelklick-Schutz oben prüfte bisher nur status === 'active' --
+     * ein Zugang, dessen valid_until bereits verstrichen ist, trägt in der
+     * Datenbank aber so lange weiter status=active, bis der stündliche
+     * app:expire-entitlements-Scheduler ihn auf 'expired' umstellt. Ein
+     * Admin, der genau in diesem Zeitfenster erneut freischalten wollte,
+     * bekam fälschlich sofort "Kurs freigeschaltet" zurück, ohne dass
+     * Laufzeit oder Coupon tatsächlich angefasst wurden.
+     */
+    public function test_granting_access_to_an_already_calendar_expired_but_not_yet_flagged_entitlement_actually_renews_it(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $coupon = $this->makeCourseCoupon($tenant, $course);
+
+        $entitlement = $this->onAdmin(fn () => Entitlement::create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $learner->id,
+            'course_id' => $course->id,
+            'status' => 'active',
+            'source_type' => 'manual',
+            'valid_from' => now()->subDays(60),
+            'valid_until' => now()->subDay(),
+        ]));
+
+        $response = $this->actingAsInTenant($admin, $tenant)->post('/admin/entitlements', [
+            'user_id' => $learner->id,
+            'course_id' => $course->id,
+        ]);
+
+        $response->assertRedirect();
+        $response->assertSessionHasNoErrors();
+
+        $fresh = $this->onAdmin(fn () => $entitlement->fresh());
+        $this->assertTrue($fresh->valid_until->isFuture(), 'Der Zugang muss sofort wieder gültig sein, nicht erst nach dem nächsten Scheduler-Lauf.');
+        $this->assertNotNull($this->onAdmin(fn () => $coupon->fresh()->redeemed_at));
+    }
+
+    /**
      * Bug-Review (Hoch): store() verlangt jetzt einen verfügbaren Coupon --
      * ohne einen angelegten Coupon muss die Freischaltung mit einem
      * Validierungsfehler abgelehnt werden statt (wie vor dem Fix) immer
