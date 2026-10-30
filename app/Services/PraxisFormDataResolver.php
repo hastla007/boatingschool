@@ -6,6 +6,7 @@ use App\Models\CourseDefinition;
 use App\Models\PraxisFormTemplate;
 use App\Models\TenantCourseLocation;
 use Illuminate\Support\Collection;
+use Illuminate\Validation\Rule;
 
 /**
  * Validierungsregeln und Datenauflösung für ein ausgefülltes Praxisformular
@@ -29,12 +30,25 @@ class PraxisFormDataResolver
             $rules[$key] = match ($field['type']) {
                 'date' => [...$base, 'date'],
                 'checkbox' => $required ? ['required', 'accepted'] : ['nullable', 'boolean'],
-                'select', 'radio' => [...$base, 'in:'.implode(',', $field['options'] ?? [])],
+                // Bug-Review (AA11: Komma in Formularfeld-Option blockiert
+                // Absenden): die "in:"-Regel wurde hier bisher als EIN
+                // String aus den Optionen zusammengesetzt -- Laravel
+                // zerlegt eine solche Regel selbst wieder am Komma, um die
+                // einzelnen erlaubten Werte zu erhalten. Enthielt eine vom
+                // Superadmin frei eingegebene Option selbst ein Komma (z. B.
+                // "Hamburg, Hafen"), wurde daraus serverseitig fälschlich
+                // ZWEI erlaubte Werte ("Hamburg" und " Hafen") statt des
+                // einen tatsächlich angebotenen -- die Auswahl genau dieser
+                // Option bestand die Validierung dann nie, das Absenden
+                // schlug mit einem Fehler fehl, den der Lerner nicht
+                // nachvollziehen konnte. Rule::in() übergibt die Optionen
+                // als Array und zerlegt dabei nichts am Komma.
+                'select', 'radio' => [...$base, Rule::in($field['options'] ?? [])],
                 'textarea' => [...$base, 'string', 'max:2000'],
                 // Ohne hinterlegte Orte (siehe TenantCourseLocation) gibt es
                 // nichts auszuwählen -- das Feld entfällt dann serverseitig
                 // genauso wie in der Ansicht.
-                'location' => $locations->isEmpty() ? ['nullable'] : [...$base, 'uuid', 'in:'.$locations->pluck('id')->implode(',')],
+                'location' => $locations->isEmpty() ? ['nullable'] : [...$base, 'uuid', Rule::in($locations->pluck('id')->all())],
                 default => [...$base, 'string', 'max:255'],
             };
         }
