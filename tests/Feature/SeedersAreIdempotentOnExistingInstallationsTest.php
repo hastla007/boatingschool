@@ -69,18 +69,22 @@ class SeedersAreIdempotentOnExistingInstallationsTest extends TestCase
         });
     }
 
-    public function test_a_missing_praxis_form_for_unassigned_courses_is_still_seeded(): void
+    public function test_a_praxis_form_new_in_the_code_is_still_seeded_but_a_deleted_one_stays_deleted(): void
     {
         $this->inRolledBackAdminTransaction(function () {
-            // Ein im Code neu hinzugekommenes Formular (hier simuliert durch
-            // Entfernen eines bestehenden) muss weiterhin angelegt werden.
             PraxisFormTemplate::where('title', 'Anmeldung Pyroschein-Prüfung')->whereDoesntHave('submissions')->delete();
             if (PraxisFormTemplate::where('title', 'Anmeldung Pyroschein-Prüfung')->exists()) {
                 $this->markTestSkipped('Formular hat Anmeldungen und lässt sich hier nicht entfernen.');
             }
 
+            // Vom Superadmin gelöscht: der Seeder hat es schon einmal
+            // angelegt (seed_marker) und legt es nicht wieder an.
             app(PraxisFormTemplateSeeder::class)->run();
+            $this->assertFalse(PraxisFormTemplate::where('title', 'Anmeldung Pyroschein-Prüfung')->exists());
 
+            // Neu im Code (noch nie angelegt, kein Marker): wird angelegt.
+            DB::table('seed_marker')->where('key', 'PraxisFormTemplateSeeder:Anmeldung Pyroschein-Prüfung')->delete();
+            app(PraxisFormTemplateSeeder::class)->run();
             $this->assertTrue(PraxisFormTemplate::where('title', 'Anmeldung Pyroschein-Prüfung')->exists());
         });
     }

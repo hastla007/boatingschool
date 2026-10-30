@@ -24,6 +24,7 @@
             <div class="bg-sky-50 dark:bg-sky-900/20 border border-sky-100 dark:border-sky-900/40 rounded-xl px-4 py-3 text-sm text-sky-900 dark:text-sky-200 space-y-2" x-data="{}">
                 <p class="font-medium">Es liegt eine noch nicht veröffentlichte Fassung (Revision {{ $pendingReview->revision_no }}) vor, z. B. aus einem erneuten Content-Import:</p>
                 <p class="italic">{{ $pendingReview->question_text }}</p>
+                <x-input-error :messages="$errors->get('revision')" />
                 @php($publishedRevision = $question->publishedRevision())
                 @if ($publishedRevision && $publishedRevision->revision_no > $pendingReview->revision_no)
                     <p class="font-medium text-amber-800 dark:text-amber-300">
@@ -34,6 +35,9 @@
                 <div class="flex flex-wrap gap-2">
                     <form method="POST" action="{{ route('superadmin.questions.revisions.publish', $pendingReview) }}">
                         @csrf
+                        @if ($publishedRevision && $publishedRevision->revision_no > $pendingReview->revision_no)
+                            <input type="hidden" name="overwrite_newer" value="1">
+                        @endif
                         <button type="submit" class="px-3 py-1.5 rounded-lg text-white text-xs font-medium hover:opacity-90 transition" style="background-color: #005FD7" @click="if (! confirm('Diese Fassung jetzt veröffentlichen?')) $event.preventDefault()">
                             Diese Fassung veröffentlichen
                         </button>

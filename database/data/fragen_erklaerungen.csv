@@ -547,9 +547,9 @@ Richtig ist: „Schwimmendes Gerät bei der Arbeit. Vorbeifahrt an der grünen S
 Die zwei grünen Doppelkegel sind die Tagbezeichnung für die freie Seite, der rote Ball sperrt die Seite zum Ufer. Eine Pflicht, Wellenschlag zu vermeiden, wird erst durch rot-weiße Zeichen angezeigt."
 "SBF-BIN-0151";"Richtig.
 
-Schwimmendes Gerät bei der Arbeit. Vorbeifahrt an der Seite mit dem grün-weiß-grünen Tafelzeichen gestattet; rot-weiß- rote Seite gesperrt. Statt Ball und Doppelkegel zeigt das Gerät hier Tafelzeichen: Grün-weiß-grün gibt die Durchfahrt frei, rot-weiß-rot sperrt die Seite zum Ufer. Rot-weiße Zeichen, die Schutz vor Wellenschlag verlangen, sind hier nicht gesetzt.";"Falsch.
+Schwimmendes Gerät bei der Arbeit. Vorbeifahrt an der Seite mit dem grün-weiß-grünen Tafelzeichen gestattet; rot-weiß-rote Seite gesperrt. Statt Ball und Doppelkegel zeigt das Gerät hier Tafelzeichen: Grün-weiß-grün gibt die Durchfahrt frei, rot-weiß-rot sperrt die Seite zum Ufer. Rot-weiße Zeichen, die Schutz vor Wellenschlag verlangen, sind hier nicht gesetzt.";"Falsch.
 
-Richtig ist: „Schwimmendes Gerät bei der Arbeit. Vorbeifahrt an der Seite mit dem grün-weiß-grünen Tafelzeichen gestattet; rot-weiß- rote Seite gesperrt.“
+Richtig ist: „Schwimmendes Gerät bei der Arbeit. Vorbeifahrt an der Seite mit dem grün-weiß-grünen Tafelzeichen gestattet; rot-weiß-rote Seite gesperrt.“
 
 Statt Ball und Doppelkegel zeigt das Gerät hier Tafelzeichen: Grün-weiß-grün gibt die Durchfahrt frei, rot-weiß-rot sperrt die Seite zum Ufer. Rot-weiße Zeichen, die Schutz vor Wellenschlag verlangen, sind hier nicht gesetzt."
 "SBF-BIN-0152";"Richtig.
@@ -2682,9 +2682,9 @@ Richtig ist: „Kanal 16“
 Über Kanal 16 läuft der Notverkehr, und meist ruft der Hubschrauber dort zuerst an. Der Havarist bleibt deshalb auf Kanal 16 empfangsbereit, bis die Verbindung steht. Dann kann für die Abstimmung auf Kanal 06 gewechselt werden."
 "SRC-0156";"Richtig.
 
-Ankündigung mittels Digitalen Selektivrufs (DSC) auf Kanal 70, Ankündigung während einer Pause im Notverkehr auf Kanal 16, Aussendung der Meldung auf einem Schiff- Schiff-Kanal. Der Notverkehr auf Kanal 16 hat Vorrang und darf nicht gestört werden. Deshalb kündigt man nur kurz an, digital auf Kanal 70 und im Sprechfunk in einer Pause auf Kanal 16. Die eigentliche Meldung sendet man dann auf einem Schiff-Schiff-Kanal.";"Falsch.
+Ankündigung mittels Digitalen Selektivrufs (DSC) auf Kanal 70, Ankündigung während einer Pause im Notverkehr auf Kanal 16, Aussendung der Meldung auf einem Schiff-Schiff-Kanal. Der Notverkehr auf Kanal 16 hat Vorrang und darf nicht gestört werden. Deshalb kündigt man nur kurz an, digital auf Kanal 70 und im Sprechfunk in einer Pause auf Kanal 16. Die eigentliche Meldung sendet man dann auf einem Schiff-Schiff-Kanal.";"Falsch.
 
-Richtig ist: „Ankündigung mittels Digitalen Selektivrufs (DSC) auf Kanal 70, Ankündigung während einer Pause im Notverkehr auf Kanal 16, Aussendung der Meldung auf einem Schiff- Schiff-Kanal“
+Richtig ist: „Ankündigung mittels Digitalen Selektivrufs (DSC) auf Kanal 70, Ankündigung während einer Pause im Notverkehr auf Kanal 16, Aussendung der Meldung auf einem Schiff-Schiff-Kanal“
 
 Der Notverkehr auf Kanal 16 hat Vorrang und darf nicht gestört werden. Deshalb kündigt man nur kurz an, digital auf Kanal 70 und im Sprechfunk in einer Pause auf Kanal 16. Die eigentliche Meldung sendet man dann auf einem Schiff-Schiff-Kanal."
 "SRC-0157";"Richtig.
@@ -2857,9 +2857,9 @@ Richtig ist: „Alarmierung und Kennzeichnung der Notposition“
 Die EPIRB alarmiert die Seenotleitung über COSPAS-SARSAT mit Kennung und Position. Über ihr 121,5-MHz-Signal finden Rettungseinheiten vor Ort den Havaristen (Homing). Sprechen kann man über sie nicht, und für die Ortung per Radar ist der SART zuständig."
 "UBI-0001";"Richtig.
 
-Internationaler mobiler UKW/VHF- Sprechfunkdienst auf Binnenschifffahrtsstraßen. Der Binnenschifffahrtsfunk ist ein eigener Funkdienst mit beweglichen Funkstellen an Bord, nicht bloß ein Verfahren. International ist er, weil er über die RAINWAT-Vereinbarung grenzüberschreitend einheitlich auf den europäischen Binnenwasserstraßen geregelt ist.";"Falsch.
+Internationaler mobiler UKW/VHF-Sprechfunkdienst auf Binnenschifffahrtsstraßen. Der Binnenschifffahrtsfunk ist ein eigener Funkdienst mit beweglichen Funkstellen an Bord, nicht bloß ein Verfahren. International ist er, weil er über die RAINWAT-Vereinbarung grenzüberschreitend einheitlich auf den europäischen Binnenwasserstraßen geregelt ist.";"Falsch.
 
-Richtig ist: „Internationaler mobiler UKW/VHF- Sprechfunkdienst auf Binnenschifffahrtsstraßen“
+Richtig ist: „Internationaler mobiler UKW/VHF-Sprechfunkdienst auf Binnenschifffahrtsstraßen“
 
 Der Binnenschifffahrtsfunk ist ein eigener Funkdienst mit beweglichen Funkstellen an Bord, nicht bloß ein Verfahren. International ist er, weil er über die RAINWAT-Vereinbarung grenzüberschreitend einheitlich auf den europäischen Binnenwasserstraßen geregelt ist."
 "UBI-0002";"Richtig.

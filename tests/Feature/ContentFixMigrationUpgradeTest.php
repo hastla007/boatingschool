@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\ContentQuestion;
 use App\Models\ContentQuestionRevision;
+use App\Models\VideoLesson;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -36,6 +37,26 @@ class ContentFixMigrationUpgradeTest extends TestCase
             $this->assertSame('Welche Bedeutung hat folgendes Schallsignal (mindestens fünf kurze Töne)?', $see0140->question_text);
             $this->assertStringNotContainsString('Gewischt', $segel0263->feedback_correct.$segel0263->feedback_incorrect);
             $this->assertFalse($src0099->edited_by_superadmin);
+
+            // Die Erklärungen zitieren die richtige Antwort -- auch dort
+            // keine alten Artefakte mehr.
+            foreach (['SBF-BIN-0151' => '- rote', 'SRC-0156' => 'Schiff- Schiff', 'UBI-0001' => 'VHF- Sprech', 'SBF-SEE-0124' => 'kurz .'] as $contentId => $artefact) {
+                $revision = ContentQuestion::where('content_id', $contentId)->firstOrFail()->publishedRevision();
+                $this->assertStringNotContainsString($artefact, $revision->feedback_correct.$revision->feedback_incorrect, $contentId);
+            }
+        });
+    }
+
+    public function test_the_sound_signal_lesson_keeps_its_quiz_after_the_text_correction(): void
+    {
+        // VideoLessonQuestionSeeder suchte SBF-BASIS-0004/0005 über den alten
+        // Fragetext "( )" -- seit der Korrektur über die Katalognummer.
+        $this->onAdmin(function () {
+            $lesson = VideoLesson::where('title', 'Schallsignale')
+                ->whereHas('module', fn ($q) => $q->where('title', 'Berufsschifffahrt')->whereHas('course', fn ($c) => $c->where('code', 'SBF-SEE')->whereNull('tenant_id')))
+                ->firstOrFail();
+
+            $this->assertEqualsCanonicalizing(['SBF-BASIS-0004', 'SBF-BASIS-0005'], $lesson->questions()->pluck('content_id')->all());
         });
     }
 

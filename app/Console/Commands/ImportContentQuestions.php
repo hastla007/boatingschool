@@ -272,18 +272,18 @@ class ImportContentQuestions extends Command
         return md5(json_encode($canonical));
     }
 
-    /**
-     * Aus PDFs kopierte Texte enthalten Umlaute teils zerlegt ("u" +
-     * kombinierendes Trema U+0308 statt "ü", so im UBI-Katalog 10/2026) --
-     * sieht gleich aus, findet bei einer Textsuche nach "ü" aber nichts.
-     * NFC setzt sie wieder zu einem Zeichen zusammen.
-     */
     /** @return Collection<int, string> IDs der Module aus $moduleMap. */
     private function importModuleIds(): Collection
     {
         return $this->importModuleIds ??= Module::whereIn('code', array_values($this->moduleMap))->pluck('id');
     }
 
+    /**
+     * Aus PDFs kopierte Texte enthalten Umlaute teils zerlegt ("u" +
+     * kombinierendes Trema U+0308 statt "ü", so im UBI-Katalog 10/2026) --
+     * sieht gleich aus, findet bei einer Textsuche nach "ü" aber nichts.
+     * NFC setzt sie wieder zu einem Zeichen zusammen.
+     */
     private function text(mixed $value): string
     {
         $text = trim((string) $value);

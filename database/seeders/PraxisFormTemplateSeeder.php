@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\CourseDefinition;
 use App\Models\PraxisFormTemplate;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Demo-/Startbestückung der Praxisformulare (siehe PraxisFormTemplate):
@@ -172,9 +173,20 @@ class PraxisFormTemplateSeeder extends Seeder
         $alreadyAssigned = PraxisFormTemplate::query()->get(['id', 'course_ids'])
             ->contains(fn (PraxisFormTemplate $template) => array_intersect($template->course_ids ?? [], $courseIds) !== []);
 
-        if ($alreadyAssigned) {
+        // Bug-Review (gelöschtes Formular kommt zurück): löscht ein
+        // Superadmin ein Formular, ist danach keinem Kurs mehr eines
+        // zugewiesen -- der nächste db:seed legte es wieder an. seed_marker
+        // (siehe SeemannschaftVideoSeeder) merkt sich dauerhaft, dass dieses
+        // Formular schon einmal angelegt wurde.
+        $marker = 'PraxisFormTemplateSeeder:'.$title;
+
+        if ($alreadyAssigned || DB::table('seed_marker')->where('key', $marker)->exists()) {
+            DB::table('seed_marker')->insertOrIgnore(['key' => $marker, 'seeded_at' => now()]);
+
             return;
         }
+
+        DB::table('seed_marker')->insertOrIgnore(['key' => $marker, 'seeded_at' => now()]);
 
         PraxisFormTemplate::firstOrCreate(
             ['title' => $title],

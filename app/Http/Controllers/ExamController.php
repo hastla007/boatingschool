@@ -100,7 +100,7 @@ class ExamController extends Controller
         // umfasste. Nur aktive Fragen zählen jetzt zur Sollzahl.
         $totalsByPaper = ExamPaperQuestion::whereIn('exam_paper_id', $paperIds)
             ->join('content_question', 'content_question.id', '=', 'exam_paper_question.question_id')
-            ->where('content_question.active', true)
+            ->whereIn('content_question.id', ContentQuestion::query()->currentlyValid()->select('id'))
             ->selectRaw('exam_paper_id, count(*) as total_count')
             ->groupBy('exam_paper_id')
             ->pluck('total_count', 'exam_paper_id');
@@ -220,6 +220,11 @@ class ExamController extends Controller
             ]);
 
             $position = 1;
+            // Bug-Review (BB16-Rest: feste Bögen ignorierten "Gültig ab/bis"):
+            // wie die deaktivierte Frage (B12) wird auch eine Frage außerhalb
+            // ihres Gültigkeitsfensters nicht ausgespielt.
+            $paper->loadMissing('paperQuestions.question');
+            $validQuestionIds = ContentQuestion::currentlyValidIds($paper->paperQuestions->pluck('question'))->flip();
             foreach ($paper->paperQuestions as $paperQuestion) {
                 // Bug-Review B12 (Folgefehler): eine nach dem Anlegen des
                 // Bogens im Superadmin deaktivierte Frage (content_question.
@@ -227,7 +232,7 @@ class ExamController extends Controller
                 // zusammengestellten Prüfung in start() -- trotzdem noch
                 // ausgespielt. Positionen werden deshalb neu durchnummeriert,
                 // statt Lücken zu lassen.
-                if (! $paperQuestion->question->active) {
+                if (! $validQuestionIds->has($paperQuestion->question_id)) {
                     continue;
                 }
 
@@ -402,7 +407,7 @@ class ExamController extends Controller
         }
 
         $validated = $request->validate([
-            'position' => ['required', 'integer'],
+            'position' => ['required', 'integer', 'min:1', 'max:1000'],
             'answer_id' => ['nullable', 'uuid'],
             'answer_ids' => ['nullable', 'array'],
             'answer_ids.*' => ['uuid'],
@@ -499,7 +504,7 @@ class ExamController extends Controller
         abort_if($examSession->status !== 'running', 409);
 
         $validated = $request->validate([
-            'position' => ['required', 'integer'],
+            'position' => ['required', 'integer', 'min:1', 'max:1000'],
         ]);
 
         $sessionQuestion = $examSession->questions()->where('position', $validated['position'])

@@ -396,4 +396,28 @@ class ContentQuestionReviewPublishingTest extends TestCase
             $this->assertNull($question->fresh()->pendingReviewRevision());
         });
     }
+
+    public function test_publishing_an_older_review_over_a_newer_editor_version_needs_explicit_confirmation(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        [, $question, , $review] = $this->makeQuestionWithPendingReview();
+
+        $this->actingAs($superadmin)->patch("/superadmin/questions/{$question->id}", [
+            'question_type' => 'single_choice',
+            'question_text' => 'Neuere Editor-Fassung',
+            'answers' => ['A' => 'Richtig', 'B' => 'Falsch', 'C' => 'Falsch', 'D' => 'Falsch'],
+            'correct' => 'A',
+        ]);
+
+        // Knopf in der Fragenliste (ohne Bestätigung): abgelehnt, zur
+        // Bearbeitungsseite mit Hinweis.
+        $this->actingAs($superadmin)->post(route('superadmin.questions.revisions.publish', $review))
+            ->assertRedirect(route('superadmin.questions.edit', $question))
+            ->assertSessionHasErrors('revision');
+        $this->onAdmin(fn () => $this->assertSame('Neuere Editor-Fassung', $question->fresh()->publishedRevision()->question_text));
+
+        // Von der Bearbeitungsseite mit ausdrücklicher Bestätigung.
+        $this->actingAs($superadmin)->post(route('superadmin.questions.revisions.publish', $review), ['overwrite_newer' => 1])->assertRedirect();
+        $this->onAdmin(fn () => $this->assertSame('published', $review->fresh()->editorial_status));
+    }
 }

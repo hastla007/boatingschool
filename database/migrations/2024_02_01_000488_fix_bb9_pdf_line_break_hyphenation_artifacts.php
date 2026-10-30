@@ -134,7 +134,14 @@ return new class extends Migration
 
         $answers = $published->answers()->orderBy('sort_order')->get();
         $answerTexts = [];
-        $needsFix = $newQuestionText !== $published->question_text;
+        // Die Erklärungen zitieren die richtige Antwort ("Richtig ist: …") --
+        // dieselben Ersetzungen gelten dort mit.
+        $feedbackReplacements = array_merge($questionTextReplacements, ...array_values($answerReplacements));
+        $newFeedbackCorrect = $published->feedback_correct === null ? null : strtr($published->feedback_correct, $feedbackReplacements);
+        $newFeedbackIncorrect = $published->feedback_incorrect === null ? null : strtr($published->feedback_incorrect, $feedbackReplacements);
+        $needsFix = $newQuestionText !== $published->question_text
+            || $newFeedbackCorrect !== $published->feedback_correct
+            || $newFeedbackIncorrect !== $published->feedback_incorrect;
 
         foreach ($answers as $answer) {
             $replacements = $answerReplacements[$answer->answer_key] ?? [];
@@ -159,8 +166,8 @@ return new class extends Migration
             'revision_no' => $latestRevisionNo + 1,
             'question_type' => $published->question_type,
             'question_text' => $newQuestionText,
-            'feedback_correct' => $published->feedback_correct,
-            'feedback_incorrect' => $published->feedback_incorrect,
+            'feedback_correct' => $newFeedbackCorrect,
+            'feedback_incorrect' => $newFeedbackIncorrect,
             'topic' => $published->topic,
             'subtopic' => $published->subtopic,
             'smartmodus_kategorie' => $published->smartmodus_kategorie,

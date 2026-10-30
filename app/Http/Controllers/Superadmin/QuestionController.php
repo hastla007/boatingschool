@@ -155,7 +155,7 @@ class QuestionController extends Controller
      * Reimport angelegte Revision im Status "review" erreichte Lerner
      * bisher nie -- es gab keinen Weg, sie zu veröffentlichen.
      */
-    public function publishRevision(ContentQuestionRevision $revision): Response
+    public function publishRevision(Request $request, ContentQuestionRevision $revision): Response
     {
         abort_unless($revision->editorial_status === 'review', 404);
 
@@ -186,6 +186,17 @@ class QuestionController extends Controller
             ->where('editorial_status', 'review')
             ->max('revision_no');
         abort_unless($isLatestReview, 409, 'Für diese Frage liegt inzwischen eine neuere Fassung vor -- bitte die Seite neu laden.');
+
+        // Bug-Review (AA9-Folgefehler): ist die veröffentlichte Fassung
+        // neuer als diese wartende Import-Fassung (Editor-Änderung danach),
+        // würde die Freigabe sie stillschweigend ersetzen. Das geht nur mit
+        // ausdrücklicher Bestätigung von der Bearbeitungsseite, die davor
+        // warnt (Feld overwrite_newer) -- nicht über den Knopf in der Liste.
+        $published = $revision->question->publishedRevision();
+        if ($published && $published->revision_no > $revision->revision_no && ! $request->boolean('overwrite_newer')) {
+            return redirect()->route('superadmin.questions.edit', $revision->question)
+                ->withErrors(['revision' => 'Die veröffentlichte Fassung ist neuer als diese Import-Fassung. Bitte hier prüfen: veröffentlichen ersetzt die neuere Fassung, sonst verwerfen.']);
+        }
 
         $revision->publish();
 
