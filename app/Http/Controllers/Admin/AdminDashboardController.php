@@ -24,6 +24,7 @@ use App\Models\TenantCourseLocation;
 use App\Models\TenantUser;
 use App\Models\WillkommensboxOrder;
 use App\Support\TenantContext;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
@@ -361,8 +362,21 @@ class AdminDashboardController extends Controller
                 });
             })
             ->when(($anmeldungFilters['anmeldung_course'] ?? '') !== '', fn ($q) => $q->where('course_id', $anmeldungFilters['anmeldung_course']))
-            ->when(($anmeldungFilters['anmeldung_from'] ?? '') !== '', fn ($q) => $q->whereDate('created_at', '>=', $anmeldungFilters['anmeldung_from']))
-            ->when(($anmeldungFilters['anmeldung_to'] ?? '') !== '', fn ($q) => $q->whereDate('created_at', '<=', $anmeldungFilters['anmeldung_to']))
+            // Bug-Review (AA12: Datumsfilter Praxis-Anmeldungen rechnet nach
+            // UTC): created_at ist ein Zeitstempel (kein reines Datum) und
+            // wird wie überall in dieser App in UTC gespeichert (APP_TIMEZONE
+            // bleibt bewusst UTC, siehe App\Support\GermanTime) -- whereDate()
+            // verglich bisher direkt gegen den in der UTC-Spalte stehenden
+            // Kalendertag. Eine zwischen Mitternacht und ca. 1-2 Uhr
+            // deutscher Zeit eingegangene Anmeldung trägt dadurch in der
+            // Spalte noch den VORTAG: anmeldung_from=heute ließ sie
+            // fälschlich verschwinden, anmeldung_to=gestern zeigte sie
+            // fälschlich noch an. Die Filtergrenzen werden deshalb -- analog
+            // zu Admin\PraxisExamAppointmentController::store() -- als
+            // deutsches Kalenderdatum interpretiert und erst für den
+            // Vergleich nach UTC umgerechnet.
+            ->when(($anmeldungFilters['anmeldung_from'] ?? '') !== '', fn ($q) => $q->where('created_at', '>=', Carbon::parse($anmeldungFilters['anmeldung_from'], 'Europe/Berlin')->startOfDay()->setTimezone('UTC')))
+            ->when(($anmeldungFilters['anmeldung_to'] ?? '') !== '', fn ($q) => $q->where('created_at', '<=', Carbon::parse($anmeldungFilters['anmeldung_to'], 'Europe/Berlin')->endOfDay()->setTimezone('UTC')))
             ->orderByDesc('created_at')
             ->paginate(20, ['*'], 'anmeldung_page')
             ->withQueryString();

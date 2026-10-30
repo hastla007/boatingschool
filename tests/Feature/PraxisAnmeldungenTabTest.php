@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\PraxisExamAppointment;
 use App\Models\PraxisFormSubmission;
 use App\Models\PraxisFormTemplate;
+use Illuminate\Support\Carbon;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -172,6 +173,55 @@ class PraxisAnmeldungenTabTest extends TestCase
         $response->assertOk();
         $response->assertSee(route('admin.praxis-form-submissions.show', $newSubmission));
         $response->assertDontSee(route('admin.praxis-form-submissions.show', $oldSubmission));
+    }
+
+    /**
+     * Bug-Review (AA12: Datumsfilter Praxis-Anmeldungen rechnet nach UTC):
+     * created_at wird wie überall in dieser App in UTC gespeichert
+     * (APP_TIMEZONE bleibt bewusst UTC). Eine zwischen Mitternacht und ca.
+     * 1-2 Uhr deutscher Zeit eingegangene Anmeldung trägt in der Spalte
+     * deshalb noch den VORTAG -- ein ungefiltert nach UTC vergleichendes
+     * whereDate() ließ sie beim Filtern auf genau diesen (deutschen)
+     * Kalendertag fälschlich verschwinden.
+     */
+    public function test_date_filter_uses_the_german_calendar_day_not_the_utc_stored_date(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner', ['display_name' => 'Mitternachts-Anmeldung']);
+        $course = $this->existingCourse('SRC');
+
+        $template = $this->onAdmin(function () {
+            $template = PraxisFormTemplate::create([
+                'title' => 'E2E Formular',
+                'min_progress_percent' => 0,
+                'course_ids' => [],
+                'fields' => [],
+                'active' => true,
+            ]);
+            $this->createdTemplateIds[] = $template->id;
+
+            return $template;
+        });
+
+        $submission = $this->onAdmin(function () use ($tenant, $learner, $course, $template) {
+            $submission = PraxisFormSubmission::create([
+                'tenant_id' => $tenant->id, 'course_id' => $course->id, 'user_id' => $learner->id,
+                'praxis_form_template_id' => $template->id, 'data' => [],
+            ]);
+            // 15.01.2026, 23:30 UTC == 16.01.2026, 00:30 Uhr deutscher Zeit
+            // (CET, kein Sommerzeit-Zweifel im Januar) -- für den Lerner und
+            // die Bootsschule fand die Anmeldung also am 16. statt.
+            $submission->created_at = Carbon::create(2026, 1, 15, 23, 30, 0, 'UTC');
+            $submission->save();
+
+            return $submission;
+        });
+
+        $response = $this->actingAsInTenant($admin, $tenant)->get('/admin?tab=praxis-anmeldungen&anmeldung_from=2026-01-16&anmeldung_to=2026-01-16');
+
+        $response->assertOk();
+        $response->assertSee(route('admin.praxis-form-submissions.show', $submission));
     }
 
     /**
