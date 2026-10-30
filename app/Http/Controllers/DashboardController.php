@@ -51,9 +51,20 @@ class DashboardController extends Controller
             $videoComplete = $videoLessons->isEmpty()
                 || $videoLessons->every(fn ($lesson) => $videoProgressStats->has($lesson->id));
 
+            // Bug-Review (BB4: Dashboard empfiehlt Prüfung ohne
+            // Prüfungsbögen): wie ExamController::intro() -- ein Kurs hat
+            // nur dann tatsächlich eine Prüfungssimulation, wenn er feste
+            // Prüfungsbögen hat ODER ein fachlich freigegebenes Regelwerk
+            // für die zufällig zusammengestellte Prüfung vorliegt. Ohne
+            // beides landete der "Prüfungsaufgaben"-Banner auf einer
+            // exam.intro-Seite, die nur "noch kein Regelwerk verfügbar"
+            // zeigte -- eine Sackgasse statt des versprochenen nächsten
+            // Schritts.
+            $examAvailable = $course->examPapers()->exists() || ($course->activeExamRuleSet()?->isVerified() ?? false);
+
             $bannerMode = match (true) {
                 ! $videoComplete => 'video',
-                $percent > self::EXAM_READY_PERCENT => 'exam',
+                $percent > self::EXAM_READY_PERCENT && $examAvailable => 'exam',
                 default => 'smart',
             };
 
