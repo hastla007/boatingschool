@@ -4,22 +4,23 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { DEVICE } from '../devices/icm323.js';
-import { createIcM323 } from '../devices/icm323.js';
+import { DEVICE, createIcM323 } from '../devices/icm323.js';
+import { DEVICE as DEVICE_503, createIcM503 } from '../devices/icm503.js';
 import { createLessonRun } from '../lessons.js';
 import { examLessons, lessonAvailable, prepareLesson } from '../devices/index.js';
 
 const data = JSON.parse(execFileSync('php', ['-r', 'echo json_encode(require "database/data/geraetesimulation.php");'], { encoding: 'utf8' }));
 const lesson = (key) => data.lessons.find((l) => l.key === key);
 
-test('every lesson available on the IC-M323 gets help and a target that exists on that radio', () => {
-    const valid = new Set([...DEVICE.keys, ...DEVICE.knobs, 'ptt']);
-    for (const original of data.lessons.filter((l) => lessonAvailable(l, 'ic-m323'))) {
-        for (const [i, step] of prepareLesson(original, 'ic-m323').steps.entries()) {
+for (const [deviceKey, device] of [['ic-m323', DEVICE], ['ic-m503', DEVICE_503]]) test(`every lesson available on the ${deviceKey} gets help and a target that exists on that radio`, () => {
+    const valid = new Set([...device.keys, ...device.knobs, 'ptt']);
+    for (const original of data.lessons.filter((l) => lessonAvailable(l, deviceKey))) {
+        for (const [i, step] of prepareLesson(original, deviceKey).steps.entries()) {
             const ok = step.target === null || step.target.startsWith('sk:') || valid.has(step.target);
             assert.ok(ok, `${original.key} Schritt ${i}: Ziel ${step.target}`);
             assert.ok(step.help, `${original.key} Schritt ${i}: keine Hilfe`);
-            if (! step.speech) assert.doesNotMatch(step.help, /\bDIAL\b|H\/L gedrückt|Kanalwahlknopf/, `${original.key} Schritt ${i}: Hilfe des IC-M505`);
+            if (! step.speech && deviceKey === 'ic-m323') assert.doesNotMatch(step.help, /\bDIAL\b|H\/L gedrückt|Kanalwahlknopf/, `${original.key} Schritt ${i}: Hilfe des IC-M505`);
+            if (! step.speech && deviceKey === 'ic-m503') assert.doesNotMatch(step.help, /\bMENU\b|16\/C|Kanalwahlknopf|Softkey/, `${original.key} Schritt ${i}: Hilfe eines anderen Geräts`);
         }
     }
 });
@@ -130,4 +131,111 @@ test('IC-M323 lesson: Testanruf', () => {
     p.fire();
     p.soft('ALARM OFF');
     assert.equal(p.run.status().done, true);
+});
+
+function play503(key) {
+    let now = 0;
+    const events = [];
+    const radio = createIcM503({ own: data.ship, clock: () => now, emit: (e) => events.push(e), addressBook: data.address_book, directory: data.directory });
+    const timers = [];
+    const voices = [];
+    const prepared = prepareLesson(lesson(key), 'ic-m503');
+    const run = createLessonRun(prepared, { schedule: (fn) => timers.push(fn), receive: (c) => radio.receive(c), say: (v) => { const r = radio.hear(v); voices.push({ ...v, ...r }); return r; } });
+    radio.setup(prepared.start);
+    events.length = 0;
+    const speech = [];
+    const pump = () => { while (events.length) { const e = events.shift(); const p = run.handle(e); if (p && ! p.miss) speech.push(p); } };
+    const wait = (ms) => { for (let t = 0; t < ms; t += 100) { now += 100; radio.tick(); } pump(); };
+    const press = (k, ms = 100) => { radio.keyDown(k); wait(ms); radio.keyUp(k); pump(); };
+    const pick = (item) => { for (let i = 0; i < 20 && radio.display().ds.items[radio.display().ds.cursor] !== item; i++) press('dsDown'); press('dsEnt'); };
+    const send = () => { press('dsCall'); press('dsEnt'); };
+    const fire = () => { timers.splice(0).forEach((fn) => fn()); pump(); };
+    const speak = (t) => { radio.pttDown(); radio.pttUp(); radio.spoken(t); pump(); };
+    run.start();
+
+    return { radio, run, press, pick, send, fire, speak, speech, voices, wait };
+}
+
+test('IC-M503 lesson: Einzelanruf with CALL+ENT and ENT on the acknowledgement', () => {
+    const p = play503('einzelanruf');
+    assert.equal(p.run.status().target, 'dsCall');
+    p.press('dsCall');
+    p.pick('Individual call');
+    p.pick('MOEWE');
+    p.pick('Routine');
+    while (p.radio.display().ds.lines[1].trim() !== 'CH 72') p.press('dsUp');
+    p.press('dsEnt');
+    p.send();
+    p.wait(1600);
+    assert.equal(p.run.status().target, 'dsEnt');
+    p.fire();
+    p.press('dsClr');
+    p.press('dsEnt');
+    assert.equal(p.radio.state.channel, 72);
+    assert.equal(p.run.status().index, 2);
+});
+
+test('IC-M503 lesson: Notalarm senden with the DS-100', () => {
+    const p = play503('notalarm-senden');
+    p.press('dsCall');
+    p.pick('Distress setting');
+    p.pick('Flooding');
+    for (const d of '541000752') p.press(`d${d}`);
+    p.press('dsEnt');
+    for (const d of '1230') p.press(`d${d}`);
+    p.press('dsEnt');
+    p.press('distressCover');
+    p.radio.keyDown('distress');
+    p.wait(5100);
+    p.radio.keyUp('distress');
+    p.wait(1600);
+    assert.equal(p.radio.state.channel, 16);
+    p.fire();
+    p.press('dsClr');
+    assert.equal(p.run.status().done, true);
+});
+
+test('IC-M503 lessons: Fehlalarm (CLR sends the cancel), Küstenfunkstelle (coast station sets channel 26)', () => {
+    const f = play503('fehlalarm-aufheben');
+    f.press('dsClr');
+    assert.equal(f.run.status().index, 1);
+
+    const k = play503('kuestenfunkstelle');
+    k.press('dsCall');
+    k.pick('Individual call');
+    k.pick('NORDSEE RADIO');
+    k.pick('Routine');
+    k.send();
+    k.wait(1600);
+    k.fire();
+    k.press('dsClr');
+    k.press('dsEnt');
+    assert.equal(k.radio.state.channel, 26);
+    assert.equal(k.run.status().index, 2);
+});
+
+test('IC-M503 lesson: Zwei- und Dreikanalwache with the Set mode', () => {
+    const p = play503('zweikanalwache');
+    p.press('dual');
+    p.fire();
+    assert.equal(p.voices.at(-1).heard, true);
+    p.press('dual');
+    p.press('power');
+    p.radio.keyDown('ch16');
+    p.press('power');
+    p.radio.keyUp('ch16');
+    p.press('ch16');
+    p.press('ch16');
+    p.radio.turn('channel', 1);
+    p.wait(100);
+    p.press('power');
+    p.press('dual');
+    assert.equal(p.run.status().done, true);
+});
+
+test('IC-M503: position request lesson hidden, series b uses Küstenfunkstelle instead', () => {
+    assert.equal(lessonAvailable(lesson('position-polling'), 'ic-m503'), false);
+    assert.equal(lessonAvailable(lesson('testanruf'), 'ic-m503'), false);
+    const b = { lessons: data.exams.b, substitutes: data.exam_meta.b.substitutes };
+    assert.ok(examLessons(b, 'ic-m503').includes('kuestenfunkstelle'));
 });

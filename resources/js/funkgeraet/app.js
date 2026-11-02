@@ -204,7 +204,7 @@ export function mount(root, config) {
         // Taste in der Mitte eines Drehknopfs (ENTER bzw. VOL/SQL-Kappe): das
         // Mausrad dreht dort den Knopf.
         const wheel = DEVICES[deviceKey].wheel;
-        device.svg.querySelector(`[data-key="${wheel.key}"]`)?.addEventListener('wheel', (e) => { e.preventDefault(); turnKnob(wheel.knob, e.deltaY < 0 ? 1 : -1); }, { passive: false });
+        if (wheel.key) device.svg.querySelector(`[data-key="${wheel.key}"]`)?.addEventListener('wheel', (e) => { e.preventDefault(); turnKnob(wheel.knob, e.deltaY < 0 ? 1 : -1); }, { passive: false });
 
         device.svg.querySelectorAll('[data-knob]').forEach((node) => {
             const knob = node.dataset.knob;
