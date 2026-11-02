@@ -67,7 +67,7 @@ class GeraetesimulationController extends Controller
     {
         $this->authorizeCourse($request, $tenantContext, $entitlements, $course);
         $validated = $request->validate([
-            'lesson' => ['required', 'string', Rule::in(array_column(Geraetesimulation::data()['lessons'], 'key'))],
+            'lesson' => ['required', 'string', Rule::in(Geraetesimulation::lessonKeys(Geraetesimulation::catalogsFor($course)))],
             'step' => ['required', 'integer', 'min:0', 'max:50'],
             'text' => ['required', 'string', 'max:2000'],
         ]);
@@ -82,12 +82,15 @@ class GeraetesimulationController extends Controller
     {
         $this->authorizeCourse($request, $tenantContext, $entitlements, $course);
         $validated = $request->validate([
-            'lesson' => ['required', 'string', Rule::in(array_column(Geraetesimulation::data()['lessons'], 'key'))],
+            'lesson' => ['required', 'string', Rule::in(Geraetesimulation::lessonKeys(Geraetesimulation::catalogsFor($course)))],
             'level' => ['required', 'integer', 'min:1', 'max:3'],
             'device' => ['sometimes', 'string', Rule::in(Geraetesimulation::deviceKeys())],
         ]);
+        $device = $validated['device'] ?? Geraetesimulation::DEVICE;
+        // Auf diesem Gerät ausgeblendete Lektionen (z. B. Positionsabfrage am IC-M323).
+        abort_unless(Geraetesimulation::lessonAvailable(Geraetesimulation::lesson($validated['lesson']), $device), 422, 'Diese Lektion gibt es auf diesem Gerät nicht.');
 
-        $key = Geraetesimulation::progressKey($validated['lesson'], $validated['device'] ?? Geraetesimulation::DEVICE);
+        $key = Geraetesimulation::progressKey($validated['lesson'], $device);
         $attributes = ['tenant_id' => $tenantContext->id(), 'user_id' => $request->user()->id, 'item_type' => RadioTrainingProgress::TYPE_DEVICE, 'item_key' => $key];
         $current = RadioTrainingProgress::where($attributes)->first();
         // Die beste Stufe bleibt: ein späterer Durchgang mit Hilfe senkt sie nicht.
@@ -101,8 +104,9 @@ class GeraetesimulationController extends Controller
     /**
      * Ende einer Prüfungsreihe: speichert das beste Ergebnis (bestandene
      * Aufgaben) und gibt die Musterlösungen aller Aufgaben zurück. Die
-     * Lösungen gibt es erst hier, damit sie während der Prüfung nicht im
-     * Browser stehen.
+     * Lösungen stehen nicht in den Lektionsdaten der Seite, sondern kommen
+     * erst nach der Prüfung von hier. Das Ergebnis meldet der Browser; es
+     * ist ein Übungsstand für die Lernenden selbst, kein amtlicher Nachweis.
      */
     public function exam(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course): JsonResponse
     {

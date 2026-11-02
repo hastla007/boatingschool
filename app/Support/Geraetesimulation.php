@@ -147,6 +147,30 @@ class Geraetesimulation
      *
      * @return list<string>
      */
+    /**
+     * Lektion auf diesem Gerät sichtbar (Feld "devices", mit der
+     * "like"-Regel wie in resources/js/funkgeraet/devices/index.js).
+     */
+    public static function lessonAvailable(array $lesson, string $device = self::DEVICE): bool
+    {
+        if (! isset($lesson['devices'])) {
+            return true;
+        }
+        $like = collect(self::data()['devices'])->firstWhere('key', $device)['like'] ?? null;
+
+        return in_array($device, $lesson['devices'], true) || ($like !== null && in_array($like, $lesson['devices'], true));
+    }
+
+    /**
+     * Schlüssel der Lektionen, die ein Kurs mit diesen Funkscheinen sieht.
+     *
+     * @return list<string>
+     */
+    public static function lessonKeys(array $catalogs): array
+    {
+        return array_column(self::lessonsForBrowser($catalogs), 'key');
+    }
+
     public static function examLessons(string $series, string $device = self::DEVICE): array
     {
         $exam = self::exams()[$series];

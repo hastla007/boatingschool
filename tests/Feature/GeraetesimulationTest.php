@@ -82,6 +82,11 @@ class GeraetesimulationTest extends TestCase
         $this->assertSame(['SRC', 'UBI'], $both['catalogs']);
         $this->assertCount(count(Geraetesimulation::data()['lessons']), $both['lessons']);
 
+        // Lernstand und Bewertung nur für Lektionen der eigenen Funkscheine.
+        $this->actingAsInTenant($learner, $tenant)->postJson("/courses/{$courses['SRC']->id}/funk/geraetesimulation/fortschritt", ['lesson' => 'binnen-atis', 'level' => 3])->assertStatus(422);
+        $this->actingAsInTenant($learner, $tenant)->postJson("/courses/{$courses['SRC']->id}/funk/geraetesimulation/bewerten", ['lesson' => 'binnen-sicherheit', 'step' => 0, 'text' => 'Securite'])->assertStatus(422);
+        $this->actingAsInTenant($learner, $tenant)->postJson("/courses/{$courses['UBI']->id}/funk/geraetesimulation/fortschritt", ['lesson' => 'binnen-atis', 'level' => 3])->assertOk();
+
         // UBI-Kurs: keine SRC-Prüfung speichern.
         $this->actingAsInTenant($learner, $tenant)->postJson("/courses/{$courses['UBI']->id}/funk/geraetesimulation/pruefung", ['series' => 'a', 'passed' => []])->assertStatus(422);
         $this->actingAsInTenant($learner, $tenant)->postJson("/courses/{$courses['UBI']->id}/funk/geraetesimulation/pruefung", ['series' => 'ubi-voll', 'passed' => ['binnen-notmeldung']])
@@ -206,6 +211,10 @@ class GeraetesimulationTest extends TestCase
         $this->actingAsInTenant($admin, $tenant)->postJson("{$base}/fortschritt", ['lesson' => 'einzelanruf', 'level' => 3, 'device' => 'ic-m323'])->assertOk();
         $this->actingAsInTenant($admin, $tenant)->postJson("{$base}/fortschritt", ['lesson' => 'einzelanruf', 'level' => 1])->assertOk();
         $this->actingAsInTenant($admin, $tenant)->postJson("{$base}/fortschritt", ['lesson' => 'einzelanruf', 'level' => 1, 'device' => 'ic-m999'])->assertStatus(422);
+        // Auf dem Gerät ausgeblendete Lektionen (auch über "like") nimmt der Server nicht an.
+        $this->actingAsInTenant($admin, $tenant)->postJson("{$base}/fortschritt", ['lesson' => 'position-polling', 'level' => 3, 'device' => 'ic-m330'])->assertStatus(422);
+        $this->actingAsInTenant($admin, $tenant)->postJson("{$base}/fortschritt", ['lesson' => 'testanruf', 'level' => 3])->assertStatus(422);
+        $this->actingAsInTenant($admin, $tenant)->postJson("{$base}/fortschritt", ['lesson' => 'testanruf', 'level' => 3, 'device' => 'ic-m423'])->assertOk();
 
         $config = $this->actingAsInTenant($admin, $tenant)->get($base)->assertOk()->viewData('config');
         $this->assertSame(['ic-m505', 'ic-m323', 'ic-m423', 'ic-m503', 'ic-m330'], array_column($config['devices'], 'key'));
