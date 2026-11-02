@@ -157,4 +157,57 @@ class FknSknOfficialRulesTest extends TestCase
             }
         });
     }
+
+    public function test_skn_questions_23_79_and_80_follow_the_bva_catalog_2024(): void
+    {
+        $this->onAdmin(function () {
+            $answers = fn (string $id) => ContentQuestion::where('content_id', $id)->firstOrFail()->publishedRevision()->answers()->orderBy('sort_order')->pluck('answer_text', 'answer_key');
+
+            $this->assertSame('Eine Aufbewahrung an Bord ist nur mit einer speziellen behördlichen Erlaubnis möglich.', $answers('SKN-0023')['A']);
+            $this->assertStringStartsWith('Eine Aufbewahrung an Land in einem Behältnis der Sicherheitsstufe DIN/EN 1143-1', $answers('SKN-0023')['B']);
+            $this->assertSame('Feuerwehrleute.', $answers('SKN-0079')['B']);
+            $this->assertStringContainsString('nach den Weisungen des berechtigten Überlassers', $answers('SKN-0079')['C']);
+            $this->assertStringContainsString('Schengen-Raum', $answers('SKN-0080')['MODEL']);
+            $this->assertStringContainsString('4. Drittstaaten', $answers('SKN-0080')['MODEL']);
+            $this->assertStringContainsString('Schengen-Staaten', PraxisTask::where('content_id', 'PRAXIS-SKN-0021')->value('antwort'));
+        });
+    }
+
+    public function test_an_existing_install_gets_the_bva_wording_without_an_editor_mark(): void
+    {
+        $this->onAdmin(function () {
+            $question = ContentQuestion::where('content_id', 'SKN-0079')->firstOrFail();
+            $published = $question->publishedRevision();
+            $old = ['B' => 'Polizeibeamten.', 'C' => 'Charterern von seegehenden Wasserfahrzeugen, sofern der Besitz über die Waffe nach Weisungen des Überlassers erfolgt.'];
+            $current = $published->answers()->whereIn('answer_key', array_keys($old))->pluck('answer_text', 'answer_key');
+            $card = PraxisTask::where('content_id', 'PRAXIS-SKN-0021')->firstOrFail();
+
+            try {
+                foreach ($old as $key => $text) {
+                    $published->answers()->where('answer_key', $key)->update(['answer_text' => $text]);
+                }
+                PraxisTask::whereKey($card->id)->update(['antwort' => 'im europäischen Ausland (alt)']);
+
+                $this->runMigration('000566');
+
+                $fixed = $question->fresh()->publishedRevision();
+                $this->assertNotSame($published->id, $fixed->id);
+                $this->assertSame($current->all(), $fixed->answers()->whereIn('answer_key', array_keys($old))->pluck('answer_text', 'answer_key')->all());
+                $this->assertSame($published->answers()->where('is_correct', true)->pluck('answer_key')->all(), $fixed->answers()->where('is_correct', true)->pluck('answer_key')->all());
+                $this->assertFalse($fixed->edited_by_superadmin);
+                $this->assertSame($card->antwort, $card->fresh()->antwort);
+            } finally {
+                $question->revisions()->where('revision_no', '>', $published->revision_no)->each(function ($revision) {
+                    $revision->answers()->delete();
+                    $revision->media()->detach();
+                    $revision->delete();
+                });
+                foreach ($current as $key => $text) {
+                    $published->answers()->where('answer_key', $key)->update(['answer_text' => $text]);
+                }
+                ContentQuestionRevision::whereKey($published->id)->update(['editorial_status' => 'published']);
+                PraxisTask::whereKey($card->id)->update(['antwort' => $card->antwort]);
+            }
+        });
+    }
 }
