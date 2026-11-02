@@ -239,7 +239,10 @@ return [
         ['t' => 'Signalwaffen (SRS-Waffen), die das Bauartzulassungszeichen „PTB Kreis" (Physikalisch-Technische Bundesanstalt) tragen.', 'c' => false],
     ]],
     60 => ['type' => 'open_text', 'q' => 'Welche Ausnahme von den waffenrechtlichen Erlaubnispflichten für Waffen und Munition betrifft den Charterer einer seegehenden Yacht?', 'a' => 'Der Charterer darf ohne waffenrechtliche Erlaubnis die tatsächliche Gewalt über eine an Bord befindliche Signalpistole im Kaliber 4 (26,5 mm) und die dazugehörige Munition ausüben.'],
-    61 => ['type' => 'open_text', 'q' => 'Welche pyrotechnischen Handsignale für den Seenotfall sind erlaubnispflichtig?', 'a' => 'Handsignale der Unterklasse P2 („Signalraketen rot", „Fallschirmsignalraketen rot" und „Rauchsignale orange")'],
+    // Rauchtöpfe gibt es seit Langem nur noch als P1; der amtliche Katalog
+    // (Stand 01/2020) nennt hier noch „Rauchsignale orange" unter P2, eine
+    // Überarbeitung durch das Bundesverwaltungsamt ist angekündigt.
+    61 => ['type' => 'open_text', 'q' => 'Welche pyrotechnischen Handsignale für den Seenotfall sind erlaubnispflichtig?', 'a' => 'Handsignale der Unterklasse P2 („Signalraketen rot", „Fallschirmsignalraketen rot"). Rauchsignale (Rauchtöpfe) gibt es heute nur noch als P1; sie sind erlaubnisfrei.'],
     62 => ['type' => 'multi_choice', 'q' => 'Welche Behörde prüft pyrotechnische Seenotsignale und lässt sie zu?', 'options' => [
         ['t' => 'Die Physikalisch-Technische Bundesanstalt (PTB).', 'c' => false],
         ['t' => 'Die Bundesanstalt für Materialforschung und -prüfung (BAM).', 'c' => true],
