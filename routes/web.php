@@ -22,6 +22,7 @@ use App\Http\Controllers\ExamController;
 use App\Http\Controllers\FavoriteCollectionController;
 use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\FunkTrainingController;
+use App\Http\Controllers\GeraetesimulationController;
 use App\Http\Controllers\LearningController;
 use App\Http\Controllers\NavigationTaskController;
 use App\Http\Controllers\OffersController;
@@ -111,6 +112,9 @@ Route::middleware(['auth', 'tenant.member', 'verified'])->group(function () {
     Route::post('/courses/{course}/funk/praxis/{catalog}/{number}', [FunkTrainingController::class, 'praxisEvaluate'])->name('funk.praxis.evaluate')->whereIn('catalog', ['SRC', 'UBI'])->whereNumber('number');
     Route::post('/courses/{course}/funk/{type}/{catalog}/{number}/erledigt', [FunkTrainingController::class, 'toggleCompleted'])->name('funk.completed')->whereIn('type', ['praxis', 'text', 'aufnahme', 'abgabe'])->whereIn('catalog', ['SRC', 'UBI'])->whereNumber('number');
     Route::get('/courses/{course}/funk/muendlich', [FunkTrainingController::class, 'oralIndex'])->name('funk.oral.index');
+    Route::get('/courses/{course}/funk/geraetesimulation', [GeraetesimulationController::class, 'index'])->name('funk.device.index');
+    Route::post('/courses/{course}/funk/geraetesimulation/bewerten', [GeraetesimulationController::class, 'evaluate'])->name('funk.device.evaluate')->middleware('throttle:60,1');
+    Route::post('/courses/{course}/funk/geraetesimulation/fortschritt', [GeraetesimulationController::class, 'progress'])->name('funk.device.progress');
     Route::get('/courses/{course}/funk/muendlich/{catalog}/texte/{number}', [FunkTrainingController::class, 'textShow'])->name('funk.oral.text')->whereIn('catalog', ['SRC', 'UBI'])->whereNumber('number');
     Route::post('/courses/{course}/funk/muendlich/{catalog}/texte/{number}', [FunkTrainingController::class, 'textEvaluate'])->name('funk.oral.text.evaluate')->whereIn('catalog', ['SRC', 'UBI'])->whereNumber('number');
     Route::get('/courses/{course}/funk/muendlich/UBI/{modul}/{number}', [FunkTrainingController::class, 'ubiTextShow'])->name('funk.oral.ubi')->whereIn('modul', ['aufnahme', 'abgabe'])->whereNumber('number');

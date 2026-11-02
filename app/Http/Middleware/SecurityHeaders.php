@@ -82,7 +82,10 @@ class SecurityHeaders
         $response->headers->set('X-Content-Type-Options', 'nosniff');
         $response->headers->set('X-Frame-Options', 'DENY');
         $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
-        $response->headers->set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+        // Mikrofon nur für die eigene Seite: Spracherkennung im Funk-Training
+        // (Diktat, Sprechtaste der Gerätesimulation); microphone=() hatte sie
+        // vollständig blockiert. Kamera und Standort bleiben gesperrt.
+        $response->headers->set('Permissions-Policy', 'camera=(), microphone=(self), geolocation=()');
 
         // Bug-Review R4-J: $request->secure() spiegelt nur die
         // tatsächliche TLS-Verbindung, die PHP selbst sieht -- hinter

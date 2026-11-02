@@ -115,8 +115,8 @@ return [
         ['t' => 'In einem Stahlblechschrank mit Schwenkriegelschloss.', 'c' => false],
     ]],
     23 => ['type' => 'multi_choice', 'q' => 'Wie ist eine Signalpistole im Kaliber 4 (26,5 mm) aufzubewahren, wenn sich die Yacht im Winterlager befindet?', 'options' => [
-        ['t' => 'Eine Aufbewahrung an Bord ist nur mit einer speziellen behördlichen Erlaubnis möglich, ein Behältnis das der Sicherheitsstufe B oder dem Widerstandsgrad 0 entspricht, reicht nicht aus.', 'c' => true],
-        ['t' => 'In einem Behältnis der Sicherheitsstufe DIN/EN 1143-1 Widerstandsgrad 0 oder I. Bei Fortführung einer Nutzung eines Behältnisses der Sicherheitsstufe B nach VDMA 24992, die vor dem 06.07.2017 begründet werden, kann dieses Behältnis weitergenutzt werden.', 'c' => true],
+        ['t' => 'Eine Aufbewahrung an Bord ist nur mit einer speziellen behördlichen Erlaubnis möglich.', 'c' => true],
+        ['t' => 'Eine Aufbewahrung an Land in einem Behältnis der Sicherheitsstufe DIN/EN 1143-1 Widerstandsgrad 0 oder I. Bei Fortführung einer Nutzung eines Behältnisses der Sicherheitsstufe B nach VDMA 24992, die vor dem 06.07.2017 begründet werden, kann dieses Behältnis weitergenutzt werden.', 'c' => true],
         ['t' => 'In einem Stahlblechschrank mit Schwenkriegelschloss.', 'c' => false],
     ]],
     24 => ['type' => 'multi_choice', 'q' => 'Wie ist an Land erlaubnispflichtige Munition aufzubewahren?', 'options' => [
@@ -321,10 +321,10 @@ return [
     ]],
     79 => ['type' => 'multi_choice', 'q' => 'Wem dürfen Sie ohne Erlaubnis die Signalpistole im Kaliber 4 (26,5 mm) nebst Munition vorübergehend überlassen?', 'options' => [
         ['t' => 'Volljährigen Personen meines Vertrauens zur sicheren Aufbewahrung.', 'c' => false],
-        ['t' => 'Polizeibeamten.', 'c' => false],
-        ['t' => 'Charterern von seegehenden Wasserfahrzeugen, sofern der Besitz über die Waffe nach Weisungen des Überlassers erfolgt.', 'c' => true],
+        ['t' => 'Feuerwehrleute.', 'c' => false],
+        ['t' => 'Charterern von seegehenden Wasserfahrzeugen, sofern der Besitz über die Waffe nach den Weisungen des berechtigten Überlassers erfolgt.', 'c' => true],
     ]],
-    80 => ['type' => 'open_text', 'q' => 'Welche Dokumente sind bei Besitz einer Signalpistole im Kaliber 4 (26,5 mm) in deutschen und europäischen Gewässern, sowie in den Gewässern anderer Länder an Bord mitzuführen?', 'a' => "1. Personalausweis oder Pass,\n2. Waffenbesitzkarte,\n3. im europäischen Ausland: Europäischer Feuerwaffenpass, ggf. Einfuhrgenehmigung,\n4. andere Länder: ggf. Einfuhrgenehmigung."],
+    80 => ['type' => 'open_text', 'q' => 'Welche Dokumente sind bei Besitz einer Signalpistole im Kaliber 4 (26,5 mm) in deutschen und europäischen Gewässern, sowie in den Gewässern anderer Länder an Bord mitzuführen?', 'a' => "1. Personalausweis oder Pass,\n2. Waffenbesitzkarte,\n3. in EU-Mitgliedstaaten und Nicht-EU-Staaten, die zum Schengen-Raum gehören: Europäischer Feuerwaffenpass, ggf. Einfuhrgenehmigung,\n4. Drittstaaten: ggf. Einfuhrgenehmigung."],
     81 => ['type' => 'multi_choice', 'q' => 'Darf an Silvester mit Signalmunition Kaliber 4 (26,5 mm) geschossen werden?', 'options' => [
         ['t' => 'Ja, aber nur durch den Erlaubnisinhaber selbst innerhalb der amtlich zugelassenen „Abbrennzeit" (meist 18.00 – 02.00 Uhr), wenn keine brennbaren Objekte in der Nähe sind.', 'c' => false],
         ['t' => 'Ja, aber nur wie unter a) beschrieben. Zusätzlich muss der Schütze Inhaber des Kleinen Waffenscheins sein.', 'c' => false],

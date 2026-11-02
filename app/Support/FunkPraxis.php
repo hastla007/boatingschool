@@ -174,6 +174,30 @@ class FunkPraxis
         return ['fields' => $fields, 'passed' => $passed, 'total' => $total];
     }
 
+    /**
+     * Aufgabe zu einer einzelnen Szenario-Beschreibung im Format von
+     * database/data/funk_praxis_aufgaben.php -- für die Gerätesimulation, die
+     * die Prüfpunkte der Meldung (Feld "message") für Gesprochenes nutzt.
+     */
+    public static function scenario(string $catalog, array $spec): array
+    {
+        return ['catalog' => $catalog, 'kind' => $spec['kind']] + ($catalog === 'SRC' ? self::buildSrc($spec) : self::buildUbi($spec));
+    }
+
+    /**
+     * Prüft einen Text gegen Prüfpunkte [Bezeichnung, regulärer Ausdruck, Mindestanzahl].
+     *
+     * @param  list<array{0: string, 1: string, 2: int}>  $checks
+     * @return array{checks: list<array{label: string, ok: bool}>, passed: bool}
+     */
+    public static function checkText(array $checks, string $text): array
+    {
+        $normalized = self::normalize($text);
+        $results = array_map(fn ($check) => ['label' => $check[0], 'ok' => preg_match_all('/'.$check[1].'/u', $normalized) >= $check[2]], $checks);
+
+        return ['checks' => $results, 'passed' => $results !== [] && ! in_array(false, array_column($results, 'ok'), true)];
+    }
+
     public static function normalize(string $text): string
     {
         $text = mb_strtoupper($text);

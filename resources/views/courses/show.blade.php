@@ -378,6 +378,19 @@
                     <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />
                 </a>
             @endif
+            {{-- Gerätesimulation (Beta, Stufe 1 IC-M505): Sichtbarkeit nach config('funk.geraetesimulation'). --}}
+            @if (\App\Support\Geraetesimulation::availableFor(auth()->user(), $course))
+                <a href="{{ route('funk.device.index', $course) }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-4 hover:shadow-md transition">
+                    <div class="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style="{{ $tileIconBg }}">
+                        <x-icon name="signal" class="w-5 h-5" style="{{ $tileIconColor }}" />
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="font-semibold text-slate-800 dark:text-white">Gerätesimulation <span class="ml-1 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200 text-[10px] font-semibold px-1.5 py-0.5 align-middle">Beta</span></div>
+                        <div class="text-xs text-slate-600 dark:text-slate-400">Funkgerät {{ \App\Support\Geraetesimulation::DEVICE_NAME }} bedienen</div>
+                    </div>
+                    <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />
+                </a>
+            @endif
         @endif
 
         @if ($hasNavigationTasks)
