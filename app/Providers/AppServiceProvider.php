@@ -2,10 +2,12 @@
 
 namespace App\Providers;
 
+use App\Support\CanonicalUrl;
 use App\Support\TenantContext;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Auth\Listeners\SendEmailVerificationNotification;
 use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Foundation\Events\DiagnosingHealth;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -38,6 +40,7 @@ class AppServiceProvider extends ServiceProvider
         $this->registerUuidRoutePatterns();
         $this->configurePasswordPolicy();
         $this->configurePasswordResetUrl();
+        $this->configureVerifyEmailUrl();
         $this->configureHealthCheck();
     }
 
@@ -80,6 +83,22 @@ class AppServiceProvider extends ServiceProvider
      * damit er mit der tatsächlichen Routendefinition (routes/auth.php)
      * übereinstimmt.
      */
+    /**
+     * Sicherheitsreview S1 (Rest): der Bestätigungslink der E-Mail-Adresse
+     * hing wie früher der Reset-Link vom Host des Requests ab
+     * (email/verification-notification ist tenant-agnostisch, also auch
+     * über jede Custom Domain erreichbar). Er wird deshalb wie der
+     * Reset-Link immer auf der zentralen Domain erzeugt.
+     */
+    private function configureVerifyEmailUrl(): void
+    {
+        VerifyEmail::createUrlUsing(fn ($notifiable) => CanonicalUrl::temporarySignedRoute(
+            'verification.verify',
+            now()->addMinutes(config('auth.verification.expire', 60)),
+            ['id' => $notifiable->getKey(), 'hash' => sha1($notifiable->getEmailForVerification())],
+        ));
+    }
+
     private function configurePasswordResetUrl(): void
     {
         ResetPassword::createUrlUsing(function ($notifiable, string $token) {

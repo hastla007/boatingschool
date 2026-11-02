@@ -146,9 +146,19 @@ class EntitlementController extends Controller
 
             $before = $entitlement?->toArray();
 
+            // Review (Freischalten verkürzt gesperrten Zugang): wie bei der
+            // Selbst-Einlösung (CouponRedemptionService::redeemForCourse)
+            // gilt das spätere Enddatum; unbefristet bleibt unbefristet.
+            $newValidUntil = now()->copy()->addDays($tenant->branding->course_validity_days);
+            $validUntil = match (true) {
+                $entitlement?->status === 'suspended' && $entitlement->valid_until === null => null,
+                $entitlement?->status === 'suspended' && $entitlement->valid_until->greaterThan($newValidUntil) => $entitlement->valid_until,
+                default => $newValidUntil,
+            };
+
             $attributes = [
                 'valid_from' => now(),
-                'valid_until' => now()->copy()->addDays($tenant->branding->course_validity_days),
+                'valid_until' => $validUntil,
                 'status' => 'active',
                 'source_type' => 'coupon',
                 'source_reference' => $coupon->code,
@@ -335,6 +345,12 @@ class EntitlementController extends Controller
     private function reactivate(Entitlement $entitlement, Tenant $tenant): ?RedirectResponse
     {
         if ($entitlement->status !== 'revoked') {
+            // Review: ein gesperrter Zugang, dessen Laufzeit inzwischen
+            // abgelaufen ist, würde sonst "aktiv" angezeigt, ohne Zugang zu
+            // geben (und stündlich wieder auf abgelaufen gesetzt).
+            if ($entitlement->valid_until !== null && $entitlement->valid_until->isPast()) {
+                return back()->withErrors(['action' => 'Die Laufzeit dieses Zugangs ist bereits abgelaufen -- bitte über „Kurs freischalten“ neu vergeben.']);
+            }
             $entitlement->update(['status' => 'active']);
 
             return null;

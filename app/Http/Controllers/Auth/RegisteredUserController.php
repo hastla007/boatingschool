@@ -14,6 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\Rules;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -62,6 +63,12 @@ class RegisteredUserController extends Controller
         // Duplikat-Erkennung muss aber bewusst plattformweit suchen (das ist
         // ihr ganzer Zweck), deshalb hier explizit über die RLS-freie
         // Owner-Verbindung.
+        // Sicherheitsreview (Mail-Flut): je Empfängeradresse höchstens eine
+        // Mail pro Stunde aus der Registrierung, egal von wie vielen IPs.
+        // Beide Zweige zählen gegen dasselbe Limit, damit eine
+        // übersprungene Mail kein Zeit-Orakel für bestehende Konten ist.
+        $mailKey = 'registration-mail:'.sha1(strtolower($request->email));
+
         if (User::on('pgsql_admin')->where('email', $request->email)->exists()) {
             // Bug-Review M3 (Folgefehler): ein verworfener Dummy-Hash gleicht
             // die Laufzeit an den Erfolgsfall an (der dort unten erzeugte
@@ -74,10 +81,13 @@ class RegisteredUserController extends Controller
             // allein gleicht dessen Laufzeit nicht an, ein SMTP-Roundtrip
             // dominiert jede lokale Rechenzeit deutlich. Dieser Versand hat
             // zugleich einen echten Zweck (siehe DuplicateRegistrationAttempt).
-            BestEffortMail::send(
-                fn () => Notification::route('mail', $request->email)->notify(new DuplicateRegistrationAttempt),
-                'Hinweismail Registrierungsversuch auf bestehendes Konto'
-            );
+            if (! RateLimiter::tooManyAttempts($mailKey, 1)) {
+                RateLimiter::hit($mailKey, 3600);
+                BestEffortMail::send(
+                    fn () => Notification::route('mail', $request->email)->notify(new DuplicateRegistrationAttempt),
+                    'Hinweismail Registrierungsversuch auf bestehendes Konto'
+                );
+            }
 
             return back()->withInput($request->except('password', 'password_confirmation'))->with('status', $status);
         }
@@ -114,6 +124,7 @@ class RegisteredUserController extends Controller
         // angelegt war. Analog zu den bereits auf BestEffortMail
         // umgestellten Stellen (Bug-Review B31) wird ein Fehler nur noch
         // geloggt, die Registrierung selbst schlägt dadurch nicht mehr fehl.
+        RateLimiter::hit($mailKey, 3600);
         BestEffortMail::send(
             fn () => event(new Registered($user)),
             "Verifizierungsmail Registrierung {$user->id}"

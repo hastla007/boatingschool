@@ -162,7 +162,7 @@ class FunkPraxis
             $results = [];
 
             foreach ($field['checks'] as [$label, $pattern, $min]) {
-                $ok = preg_match_all('/'.$pattern.'/u', $text) >= $min;
+                $ok = preg_match_all('/'.self::fold($pattern).'/u', $text) >= $min;
                 $results[] = ['label' => $label, 'ok' => $ok];
                 $passed += $ok ? 1 : 0;
                 $total++;
@@ -193,17 +193,27 @@ class FunkPraxis
     public static function checkText(array $checks, string $text): array
     {
         $normalized = self::normalize($text);
-        $results = array_map(fn ($check) => ['label' => $check[0], 'ok' => preg_match_all('/'.$check[1].'/u', $normalized) >= $check[2]], $checks);
+        $results = array_map(fn ($check) => ['label' => $check[0], 'ok' => preg_match_all('/'.self::fold($check[1]).'/u', $normalized) >= $check[2]], $checks);
 
         return ['checks' => $results, 'passed' => $results !== [] && ! in_array(false, array_column($results, 'ok'), true)];
     }
 
     public static function normalize(string $text): string
     {
-        $text = mb_strtoupper($text);
+        $text = self::fold(mb_strtoupper($text));
         $text = preg_replace('/[^\p{L}\p{N}]+/u', ' ', $text);
 
         return ' '.trim($text).' ';
+    }
+
+    /**
+     * Review: Umlaute als AE/OE/UE (und ß als SS), in Eingabe UND Prüfmuster
+     * gleich -- sonst fiel „STRANDLÄUFER“ gegen „STRANDLAEUFER“ durch bzw.
+     * umgekehrt.
+     */
+    private static function fold(string $text): string
+    {
+        return strtr($text, ['Ä' => 'AE', 'Ö' => 'OE', 'Ü' => 'UE', 'ẞ' => 'SS', 'ß' => 'SS']);
     }
 
     // --- SRC ---------------------------------------------------------------
@@ -464,7 +474,8 @@ class FunkPraxis
         $persons = $s['persons'] ?? 0;
         $nif = 'Kanal des Verkehrskreises Nautische Information für diesen Streckenabschnitt (Handbuch Binnenschifffahrtsfunk bzw. blaues Tafelzeichen „UKW …“); Sendeleistung auf 25 W erhöhen – das ist nur in diesem Verkehrskreis zulässig. Kanal 10 sendet automatisch mit höchstens 1 W.';
         $nifChecks = [
-            ['Kanal der Nautischen Information', '(?<!\d)(18|19|20|21|22|78|79|80|81|82)(?!\d)|KANAL|HANDBUCH|TAFEL', 1],
+            // Review: ein bloßes „Kanal“ (z. B. „Kanal 16“) zählte bisher als richtig.
+            ['Kanal der Nautischen Information', '(?<!\d)(18|19|20|21|22|78|79|80|81|82)(?!\d)|HANDBUCH|TAFEL', 1],
             ['Sendeleistung 25 W', '(?<!\d)25(?!\d)', 1],
         ];
 
@@ -649,7 +660,7 @@ class FunkPraxis
             'called' => 'REVIERZENTRALE', 'situation' => 'Du möchtest bei der zuständigen Revierzentrale die aktuellen Wasserstände für deine weitere Fahrt erfragen. Stelle die Verbindung her!',
             'message' => 'ERBITTE DIE AKTUELLEN WASSERSTÄNDE FÜR MEINE WEITERE FAHRT',
             'circle' => 'Nautische Information (Revierzentrale).', 'circle_label' => 'Nautische Information', 'circle_pattern' => 'NAUTISCH|\bNIF\b|REVIERZENTRALE',
-            'radio' => 'Kanal des Verkehrskreises Nautische Information für diesen Streckenabschnitt (Handbuch Binnenschifffahrtsfunk)', 'radio_label' => 'Kanal der Nautischen Information', 'radio_pattern' => '(?<!\d)(18|19|20|21|22|78|79|80|81|82)(?!\d)|KANAL|HANDBUCH',
+            'radio' => 'Kanal des Verkehrskreises Nautische Information für diesen Streckenabschnitt (Handbuch Binnenschifffahrtsfunk)', 'radio_label' => 'Kanal der Nautischen Information', 'radio_pattern' => '(?<!\d)(18|19|20|21|22|78|79|80|81|82)(?!\d)|HANDBUCH',
         ],
     ];
 
@@ -783,11 +794,11 @@ class FunkPraxis
         return '(?<!\d)0?'.$channel.'(?!\d)';
     }
 
+    // Review: Uhrzeit und Position auch Ziffer für Ziffer gesprochen
+    // („ONE SIX ONE EIGHT“, „FIVE FOUR DEGREES“), wie Rufzeichen und MMSI.
     private static function timePattern(string $time): string
     {
-        $time = str_replace(':', '', $time);
-
-        return '(?<!\d)'.substr($time, 0, 2).' ?'.substr($time, 2, 2).'(?!\d)';
+        return self::digitsPattern(str_replace(':', '', $time));
     }
 
     /** Position als "54°11'N 007°55'E". */
@@ -807,7 +818,12 @@ class FunkPraxis
     /** Die vier Zahlen der Position in dieser Reihenfolge, dazwischen beliebiger Text. */
     private static function posPattern(array $p): string
     {
-        $n = fn (int $v) => '(?<!\d)0{0,2}'.$v.'(?!\d)';
+        // Zahl mit bis zu zwei führenden Nullen, als Ziffern oder Zahlwörter.
+        $n = function (int $v): string {
+            $digits = array_map(fn ($d) => '(?:'.self::digitAlternatives((int) $d).')', str_split((string) $v));
+
+            return '(?<![\dA-Z])(?:(?:'.self::digitAlternatives(0).') ?){0,2}'.implode(' ?', $digits).'(?!\d)';
+        };
 
         return $n($p[0]).'.{0,40}?'.$n($p[1]).'.{0,60}?'.$n($p[3]).'.{0,40}?'.$n($p[4]);
     }
