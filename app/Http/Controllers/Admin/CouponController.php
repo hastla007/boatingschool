@@ -7,6 +7,7 @@ use App\Models\Coupon;
 use App\Models\TenantUser;
 use App\Services\CouponRedemptionService;
 use App\Support\TenantContext;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
@@ -124,9 +125,18 @@ class CouponController extends Controller
             return back()->withErrors(['assign' => 'Dieser Nutzer gehört nicht zu Ihrer Bootsschule.']);
         }
 
+        // Review: keinen Code an ein gesperrtes bzw. beendetes Mitglied verbrauchen.
+        if ($membership->status !== 'active') {
+            return back()->withErrors(['assign' => 'Dieses Mitglied ist nicht aktiv -- ein Code würde ungenutzt verbraucht.']);
+        }
+
         try {
             $redemption->redeem($coupon, $tenant, $membership->user, $request->user());
         } catch (RuntimeException $e) {
+            // Review: Datenbankfehler (QueryException ist auch eine
+            // RuntimeException) nicht als Formularfehler mit SQL anzeigen.
+            throw_if($e instanceof QueryException, $e);
+
             return back()->withErrors(['assign' => $e->getMessage()]);
         }
 

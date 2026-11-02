@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Coupon;
 use App\Services\CouponRedemptionService;
 use App\Support\TenantContext;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use RuntimeException;
@@ -49,6 +50,10 @@ class CouponRedeemController extends Controller
         try {
             $result = $redemption->redeem($coupon, $tenant, $user);
         } catch (RuntimeException $e) {
+            // Review: Datenbankfehler (QueryException ist auch eine
+            // RuntimeException) nicht als Formularfehler mit SQL anzeigen.
+            throw_if($e instanceof QueryException, $e);
+
             return back()->withErrors(['code' => $e->getMessage()])->withInput();
         }
 

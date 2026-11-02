@@ -245,7 +245,7 @@ class QuestionController extends Controller
             'topic' => ['nullable', 'string', 'max:255'],
             'subtopic' => ['nullable', 'string', 'max:255'],
             'smartmodus_kategorie' => ['nullable', 'string', 'max:255'],
-            'official_number' => ['nullable', 'string', 'max:60'],
+            'official_number' => ['nullable', 'string', 'max:40'], // Spalte varchar(40)
             // Bug-Review (Fragen-Editor verliert Metadaten): diese Felder
             // bestückt der Import (ImportContentQuestions/FknSknContentSeeder)
             // bereits -- das Editor-Formular kannte sie bisher gar nicht,

@@ -12,6 +12,7 @@ use App\Services\PraxisExamAppointmentService;
 use App\Support\BestEffortMail;
 use App\Support\ExamRegistration;
 use App\Support\TenantContext;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Notification;
@@ -94,6 +95,10 @@ class PraxisExamAppointmentController extends Controller
                 $validated['description'] ?? null,
             );
         } catch (RuntimeException $e) {
+            // Review: Datenbankfehler (QueryException ist auch eine
+            // RuntimeException) nicht als Formularfehler mit SQL anzeigen.
+            throw_if($e instanceof QueryException, $e);
+
             return back()->withErrors(['exam_date' => $e->getMessage()]);
         }
 
@@ -129,6 +134,10 @@ class PraxisExamAppointmentController extends Controller
         try {
             $appointments->withdraw($examAppointment);
         } catch (RuntimeException $e) {
+            // Review: Datenbankfehler (QueryException ist auch eine
+            // RuntimeException) nicht als Formularfehler mit SQL anzeigen.
+            throw_if($e instanceof QueryException, $e);
+
             return back()->withErrors(['exam_date' => $e->getMessage()]);
         }
 
@@ -162,6 +171,10 @@ class PraxisExamAppointmentController extends Controller
         try {
             $appointments->cancel($examAppointment);
         } catch (RuntimeException $e) {
+            // Review: Datenbankfehler (QueryException ist auch eine
+            // RuntimeException) nicht als Formularfehler mit SQL anzeigen.
+            throw_if($e instanceof QueryException, $e);
+
             return back()->withErrors(['exam_date' => $e->getMessage()]);
         }
 

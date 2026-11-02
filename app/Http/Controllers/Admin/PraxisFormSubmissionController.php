@@ -84,7 +84,10 @@ class PraxisFormSubmissionController extends Controller
         $data = $dataResolver->resolveLocationFields($template, $locations, $validated, $dataResolver->allCourses());
 
         $before = $submission->toArray();
-        $submission->update(['data' => $data]);
+        // Review: Felder, die das Bearbeitungsformular nicht (mehr) zeigt --
+        // z. B. ein inzwischen gelöschter Ort oder ein aus der Vorlage
+        // entferntes Feld --, bleiben erhalten statt still zu verschwinden.
+        $submission->update(['data' => array_merge($submission->data ?? [], $data)]);
 
         AuditLog::record(
             $tenantContext->id(), $request->user()->id, 'praxis-form-submission.update',

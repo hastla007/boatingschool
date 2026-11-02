@@ -18,6 +18,7 @@ use App\Services\CouponRedemptionService;
 use App\Support\BestEffortMail;
 use App\Support\Countries;
 use App\Support\TenantContext;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -138,14 +139,16 @@ class ParticipantController extends Controller
             $examAppointments = $submission->appointmentsForSlot(0);
             if ($examAppointments->isEmpty()) {
                 $items->push(['course' => $course, 'label' => 'Prüfungstermin', 'reason' => 'Neue Anmeldung -- bitte Prüfungstermin vorschlagen.']);
-            } elseif ($examAppointments->last()->response === 'declined') {
-                $items->push(['course' => $course, 'label' => 'Prüfungstermin', 'reason' => 'Vorschlag abgelehnt -- bitte neuen Termin vorschlagen.']);
+            } elseif (in_array($examAppointments->last()->response, ['declined', 'withdrawn', 'cancelled'], true)) {
+                // Review: wie PraxisFormSubmission::nextStep() -- auch nach
+                // Zurückziehen bzw. Absage braucht es einen neuen Vorschlag.
+                $items->push(['course' => $course, 'label' => 'Prüfungstermin', 'reason' => $examAppointments->last()->response === 'declined' ? 'Vorschlag abgelehnt -- bitte neuen Termin vorschlagen.' : 'Termin zurückgezogen bzw. abgesagt -- bitte neuen Termin vorschlagen.']);
             }
 
             foreach ($submission->practiceSlotNumbers() as $slot) {
                 $latest = $submission->appointmentsForSlot($slot)->last();
-                if ($latest && $latest->response === 'declined') {
-                    $items->push(['course' => $course, 'label' => $submission->labelForSlot($slot), 'reason' => 'Vorschlag abgelehnt -- bitte neuen Termin vorschlagen.']);
+                if ($latest && in_array($latest->response, ['declined', 'withdrawn', 'cancelled'], true)) {
+                    $items->push(['course' => $course, 'label' => $submission->labelForSlot($slot), 'reason' => $latest->response === 'declined' ? 'Vorschlag abgelehnt -- bitte neuen Termin vorschlagen.' : 'Termin zurückgezogen bzw. abgesagt -- bitte neuen Termin vorschlagen.']);
                 }
             }
 
@@ -462,6 +465,10 @@ class ParticipantController extends Controller
         try {
             $redemption->redeem($coupon, $tenant, $user, $request->user());
         } catch (RuntimeException $e) {
+            // Review: Datenbankfehler (QueryException ist auch eine
+            // RuntimeException) nicht als Formularfehler mit SQL anzeigen.
+            throw_if($e instanceof QueryException, $e);
+
             return back()->withErrors(['code' => $e->getMessage()])->with('status', $status);
         }
 
