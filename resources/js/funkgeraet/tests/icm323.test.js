@@ -48,7 +48,7 @@ test('power with the knob held one second; turning without pressing sets the vol
     r.press('knob', 1200);
     assert.equal(r.radio.state.power, true);
     r.radio.turn('dial', 6);
-    assert.equal(r.last('volume').level, 6);
+    assert.equal(r.last('volume').level, 3); // 6 von 20 Stufen = 3 in den Stufen der Lektionen
     r.press('knob');
     assert.equal(r.radio.display().window.label, 'SQL:');
     r.radio.turn('dial', -4);

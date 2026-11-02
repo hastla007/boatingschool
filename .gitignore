@@ -22,3 +22,6 @@ yarn-error.log
 /.vscode
 /.zed
 /.claude
+
+# Temporäre Testseiten (Browser-Checks) nicht einchecken
+/public/*.html

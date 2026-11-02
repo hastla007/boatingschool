@@ -264,3 +264,50 @@ test('IC-M423: CH/WX instead of CHAN, longer softkey ring, 16/C on the handset; 
     assert.equal(medico.goal.kind, 'all_ships');
     assert.ok(createIcM323);
 });
+
+// Review der Gerätelogik: Regressionstests über alle Geräte.
+import { createIcM330 } from '../devices/icm330.js';
+import { createIcM505 } from '../devices/icm505.js';
+import { stepIntership } from '../channels.js';
+
+const FACTORIES = { 'ic-m505': createIcM505, 'ic-m323': createIcM323, 'ic-m503': createIcM503, 'ic-m330': createIcM330 };
+function rig(deviceKey, start = {}) {
+    let now = 0;
+    const events = [];
+    const radio = FACTORIES[deviceKey]({ own: data.ship, clock: () => now, emit: (e) => events.push(e), addressBook: data.address_book, directory: data.directory });
+    radio.setup({ power: true, vol: 5, sql: 3, channel: 16, position: [54, 10, 'N', 7, 52, 'E'], utc: '12:30', ...start });
+    const wait = (ms) => { for (let t = 0; t < ms; t += 100) { now += 100; radio.tick(); } };
+    const press = (k, ms = 100) => { radio.keyDown(k); wait(ms); radio.keyUp(k); };
+
+    return { radio, events, wait, press };
+}
+
+for (const deviceKey of Object.keys(FACTORIES)) {
+    test(`${deviceKey}: switched off, a waiting distress alert is not repeated; DSC is ignored in ATIS; a call does not break the DISTRESS hold`, () => {
+        const off = rig(deviceKey, { distressWaiting: 'Undesignated' });
+        const powerKey = deviceKey === 'ic-m505' || deviceKey === 'ic-m503' ? 'power' : 'knob';
+        off.press(powerKey, 1200);
+        assert.equal(off.radio.state.power, false);
+        off.events.length = 0;
+        off.wait(5 * 60 * 1000);
+        assert.equal(off.events.filter((e) => e.type === 'dsc_sent').length, 0);
+
+        const atis = rig(deviceKey, { group: 'ATIS', channel: 10 });
+        assert.equal(atis.radio.receive({ type: 'distress', from: { name: 'SEESTERN', mmsi: '211555000' } }), false);
+        assert.equal(atis.radio.state.channel, 10);
+
+        const hold = rig(deviceKey);
+        hold.press('distressCover');
+        hold.radio.keyDown('distress');
+        hold.wait(1000);
+        hold.radio.receive({ type: 'all_ships', from: data.address_book[1], channel: 16, category: 'Urgency' });
+        hold.wait(6000);
+        hold.radio.keyUp('distress');
+        assert.equal(hold.events.filter((e) => e.type === 'dsc_sent' && e.kind === 'distress').length, 1);
+    });
+}
+
+test('DSC traffic channels skip channel 70 and duplex channels', () => {
+    assert.equal(stepIntership(69, 1), 71);
+    assert.equal(stepIntership(17, 1), 67);
+});

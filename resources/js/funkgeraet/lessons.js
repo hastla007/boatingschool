@@ -34,6 +34,11 @@ function same(expected, actual) {
     return expected === actual;
 }
 
+// Wohin ein Funkspruch gehört: Kanal, ggf. Kanalgruppe und Sendeleistung.
+export function missLabel({ channel, group = null, highPower = null }) {
+    return `Kanal ${channel}${group === 'ATIS' ? ' in der Kanalgruppe ATIS' : ''}${highPower === true ? ' mit 25 W' : highPower === false ? ' mit 1 W' : ''}`;
+}
+
 export function matchesGoal(goal, event) {
     return Object.entries(goal).every(([key, expected]) => same(expected, valueAt(event, key)));
 }
@@ -63,7 +68,13 @@ export function createLessonRun(lesson, { level = 1, exam = false, schedule = (f
         const stepIndex = index;
         attempts = 0;
         if (step?.receive) {
-            schedule(() => { if (! done && index === stepIndex) receive(step.receive.call); }, step.receive.delay_ms ?? 0);
+            // receive() meldet false, wenn das Gerät den Anruf nicht annehmen
+            // konnte (z. B. ausgeschaltet): dann später noch einmal.
+            const deliver = () => {
+                if (done || index !== stepIndex) return;
+                if (receive(step.receive.call) === false) schedule(deliver, VOICE_REPEAT_MS);
+            };
+            schedule(deliver, step.receive.delay_ms ?? 0);
         }
         for (const voice of [step?.voice ?? []].flat()) {
             schedule(() => speak(stepIndex, voice), voice.delay_ms ?? 0);
@@ -114,15 +125,17 @@ export function createLessonRun(lesson, { level = 1, exam = false, schedule = (f
         handle(event) {
             if (done) return null;
             const step = lesson.steps[index];
+            // Solange ein Funkspruch beim Server liegt, zählt kein weiterer.
+            if (pendingSpeech && event.type === 'spoken') return null;
 
             if (! matchesGoal(step.goal, event)) {
                 // Funkspruch auf dem falschen Kanal bzw. mit falscher
                 // Sendeleistung: im Prüfungsmodus ein Fehlversuch.
                 if (step.speech && event.type === 'spoken') {
-                    const miss = { miss: true, stepIndex: index, expected: { channel: step.goal.channel ?? null, highPower: step.goal.highPower ?? null } };
+                    const miss = { miss: true, stepIndex: index, expected: { channel: step.goal.channel ?? null, highPower: step.goal.highPower ?? null, group: step.goal.group ?? null } };
                     if (exam) {
                         attempts++;
-                        const label = `Kanal ${miss.expected.channel}${miss.expected.highPower === true ? ' mit 25 W' : miss.expected.highPower === false ? ' mit 1 W' : ''}`;
+                        const label = missLabel(miss.expected);
                         const record = { stepIndex: index, passed: false, checks: [{ label, ok: false }], text: event.text, attempt: attempts };
                         const last = results.findIndex((r) => r.stepIndex === index);
                         if (last >= 0) results[last] = record;
@@ -169,6 +182,13 @@ export function createLessonRun(lesson, { level = 1, exam = false, schedule = (f
             } else {
                 notify();
             }
+        },
+        // Die Bewertung ist fehlgeschlagen (Server, Netz): kein Fehlversuch,
+        // der Funkspruch kann noch einmal gesendet werden.
+        speechError(stepIndex) {
+            if (! pendingSpeech || pendingSpeech.index !== stepIndex) return;
+            pendingSpeech = null;
+            notify();
         },
         // Prüfungsmodus: Aufgabe ohne Lösung beenden.
         giveUp() {

@@ -62,7 +62,7 @@ export function hintM503(step) {
         case 'watch':
             return goal.mode === 'off' ? h('DUAL erneut drücken.', 'dual') : h('DUAL am Funkgerät drücken (aus dem Set-Modus vorher mit POWER heraus).', 'dual');
         case 'set_mode':
-            return h('POWER (aus), dann 16 gedrückt halten und POWER drücken. Mit 16 zum Punkt „DUAL/TRI“, dann den Knopf CHANNEL drehen, bis t- erscheint.', 'power');
+            return h('POWER (aus), dann 16 gedrückt halten und POWER drücken (mit der Maus: 16 mit gedrückter Umschalttaste anklicken, dann POWER). Mit 16 zum Punkt „DUAL/TRI“, dann den Knopf CHANNEL drehen, bis t- erscheint.', 'power');
         case 'tag':
             return h('Kanal mit CHANNEL wählen, SCAN/TAG eine Sekunde gedrückt halten.', 'scan');
         case 'scan':
@@ -72,7 +72,7 @@ export function hintM503(step) {
         case 'address_added':
             return h('DS-100: CALL, „Set-up“, „Address ID“, „Add an address ID“, die 9 Ziffern über das Tastenfeld, ENT.', 'dsCall');
         case 'group':
-            return h(`HI/LO gedrückt halten und DIAL drücken, bis ${goal.group} im Display steht.`, 'hl');
+            return h(`HI/LO gedrückt halten und DIAL drücken, bis ${goal.group} im Display steht. Mit der Maus: HI/LO mit gedrückter Umschalttaste anklicken (bleibt gedrückt), dann DIAL.`, 'hl');
         case 'ch16_unavailable':
             return h('16 drücken: Im Binnenfunk gibt es keinen Kanal 16.', 'ch16');
         case 'dsc_blocked':

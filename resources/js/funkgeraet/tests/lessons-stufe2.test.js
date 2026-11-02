@@ -312,3 +312,37 @@ test('lesson: MEDICO via an urgency individual call to Bremen Rescue', () => {
     p.speak('Pan pan Bremen Rescue Radio this is Kormoran medical advice over');
     assert.equal(p.speech[0].stepIndex, 2);
 });
+
+// Review: zweiter Funkspruch während der Bewertung, Serverfehler, Anruf bei
+// ausgeschaltetem Gerät, Kanalgruppe im Hinweis.
+test('lesson run: a second transmission while one is checked is ignored; a server error is no attempt', async () => {
+    const { createLessonRun: create, missLabel } = await import('../lessons.js');
+    const lesson = { key: 'x', steps: [{ goal: { type: 'spoken', channel: 16 }, speech: true }] };
+    const run = create(lesson, { exam: true, schedule: () => {} });
+    run.start();
+    const first = run.handle({ type: 'spoken', channel: 16, text: 'falsch' });
+    assert.equal(first.stepIndex, 0);
+    assert.equal(run.handle({ type: 'spoken', channel: 16, text: 'richtig' }), null);
+    run.speechError(0);
+    assert.equal(run.status().awaitingSpeech, false);
+    assert.equal(run.status().attemptsLeft, 2);
+    assert.ok(run.handle({ type: 'spoken', channel: 16, text: 'noch einmal' }));
+    assert.equal(missLabel({ channel: 18, group: 'ATIS', highPower: true }), 'Kanal 18 in der Kanalgruppe ATIS mit 25 W');
+});
+
+test('lesson run: a DSC call the radio could not take (switched off) is delivered again later', async () => {
+    const { createLessonRun: create, VOICE_REPEAT_MS } = await import('../lessons.js');
+    const timers = [];
+    let on = false;
+    const delivered = [];
+    const lesson = { key: 'x', steps: [{ goal: { type: 'alarm_stopped' }, receive: { delay_ms: 2000, call: { type: 'individual' } } }] };
+    const run = create(lesson, { schedule: (fn, ms) => timers.push([fn, ms]), receive: (call) => { if (! on) return false; delivered.push(call); return true; } });
+    run.start();
+    const [fn] = timers.shift();
+    fn();
+    assert.equal(delivered.length, 0);
+    assert.equal(timers[0][1], VOICE_REPEAT_MS);
+    on = true;
+    timers.shift()[0]();
+    assert.equal(delivered.length, 1);
+});

@@ -6,7 +6,7 @@
 // Lektionen prüfen. Uhrzeit kommt von außen (clock), damit Tests
 // Haltedauern ohne Warten durchspielen können.
 
-import { CHANNEL_GROUPS, channelInfo, stepChannel } from '../channels.js';
+import { CHANNEL_GROUPS, channelInfo, stepChannel, stepIntership } from '../channels.js';
 
 export const NATURES = ['Undesignated', 'Explosion', 'Flooding', 'Collision', 'Grounding', 'Capsizing', 'Sinking', 'Adrift', 'Abandoning', 'Piracy', 'MOB'];
 
@@ -156,7 +156,8 @@ export function createIcM505({ own, clock = () => Date.now(), emit = () => {}, a
     }
 
     function powerOff() {
-        Object.assign(s, { power: false, tx: false, menu: null, editor: null, call: null, incoming: null, cover: false });
+        // Ausschalten beendet auch einen laufenden Notalarm (keine Wiederholung).
+        Object.assign(s, { power: false, tx: false, menu: null, editor: null, call: null, incoming: null, cover: false, distress: null });
         setScreen('off');
         event('power', { on: false });
     }
@@ -468,6 +469,11 @@ export function createIcM505({ own, clock = () => Date.now(), emit = () => {}, a
         // Arbeitskanal bzw. öffnet die Antwort auf einen Einzelanruf.
         if (s.incoming && s.screen === 'received' && (key === 'clr' || key === 'enter')) {
             const i = s.incoming;
+            // ENTER ohne vorheriges CLR schaltet den Alarm mit ab.
+            if (key === 'enter' && ! i.silenced) {
+                i.silenced = true;
+                event('alarm_stopped', { call: i.type });
+            }
             if (key === 'clr' && ! i.silenced) {
                 i.silenced = true;
                 event('alarm_stopped', { call: i.type });
@@ -692,7 +698,7 @@ export function createIcM505({ own, clock = () => Date.now(), emit = () => {}, a
 
             if (key === 'distress') {
                 if (s.screen === 'distressHold') {
-                    setScreen(s.distressHold.from === 'distressReady' ? 'distressReady' : 'normal');
+                    setScreen(s.distressHold.from ?? 'normal');
                     event('distress_released_early', { heldMs: clock() - p.t0 });
                 }
                 s.distressHold = null;
@@ -729,7 +735,7 @@ export function createIcM505({ own, clock = () => Date.now(), emit = () => {}, a
             } else if (s.screen === 'callCategory') {
                 s.cursor = Math.max(0, Math.min(CATEGORIES.length - 1, s.cursor + steps));
             } else if (s.screen === 'callChannel') {
-                s.call.channel = stepChannel('INT', s.call.channel, Math.sign(steps));
+                s.call.channel = stepIntership(s.call.channel, Math.sign(steps));
             } else if (s.screen === 'ackAction') {
                 s.cursor = Math.max(0, Math.min(1, s.cursor + steps));
             } else if (s.screen === 'setMode') {
@@ -806,13 +812,22 @@ export function createIcM505({ own, clock = () => Date.now(), emit = () => {}, a
                 s.channel = s.scan.list[s.scan.index];
             }
 
-            if (s.distress?.waiting && now >= s.distress.nextAt) {
+            if (s.power && s.distress?.waiting && now >= s.distress.nextAt) {
                 sendDistress(true);
             }
         },
         // Eingehender DSC-Anruf einer Gegenstation (Lektion oder Freies Üben).
         receive(call) {
-            if (! s.power) return;
+            // Aus oder im Binnenmodus (ATIS, DSC gesperrt): kein Empfang.
+            if (! s.power || s.group === 'ATIS') return false;
+            // Während DISTRESS gehalten wird, unterbricht kein Anruf den
+            // Notalarm; der Anruf steht im Log.
+            if (s.screen === 'distressHold') {
+                s.received.unshift({ ...call, at: clock() });
+                event('dsc_received', { call });
+
+                return true;
+            }
             if (s.scan) stopScan();
             s.received.unshift({ ...call, at: clock() });
             if (call.type === 'individual') s.ackable = call;

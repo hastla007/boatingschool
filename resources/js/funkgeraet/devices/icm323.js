@@ -11,7 +11,7 @@
 // wird in Ereignissen mit den Namen des IC-M505 gemeldet ("nature"), die
 // Anzeige des IC-M323 steht in "label".
 
-import { CHANNEL_GROUPS, channelInfo, stepChannel } from '../channels.js';
+import { CHANNEL_GROUPS, channelInfo, stepChannel, stepIntership } from '../channels.js';
 import { NATURES } from './icm505.js';
 
 export const NATURE_LABELS = ['Undesignated', 'Fire,Explosion', 'Flooding', 'Collision', 'Grounding', 'Capsizing', 'Sinking', 'Adrift', 'Abandoning ship', 'Piracy', 'Man Overboard'];
@@ -179,6 +179,9 @@ export function createIcM323({ own, clock = () => Date.now(), emit = () => {}, a
     function softkeys() {
         switch (s.screen) {
             case 'off':
+            case 'callTx':
+            case 'distressHold':
+            case 'distressSent':
                 return ['', '', '', ''];
             case 'menu':
                 return s.menu.list === 'idList' ? ['ADD', 'EDIT', 'DEL', 'EXIT'] : ['EXIT', 'BACK', '', 'ENT'];
@@ -754,6 +757,14 @@ export function createIcM323({ own, clock = () => Date.now(), emit = () => {}, a
                 const c = s.call;
                 c.action = s.cursor === 1 ? 'unable' : 'able';
                 if (c.action === 'unable') c.channel = null;
+                if (s.cursor === 2) {
+                    // Propose New Channel: Arbeitskanal wählen, dann CALL.
+                    c.channel = c.channel ?? 8;
+                    c.channelLabel = 'Intership CH';
+                    c.back = () => setScreen('ackChoice');
+                    setScreen('callChannel');
+                    break;
+                }
                 setScreen('callConfirm');
                 break;
             }
@@ -800,7 +811,7 @@ export function createIcM323({ own, clock = () => Date.now(), emit = () => {}, a
         if (key === 'mic16') key = 'ch16';
         if (key === 'menu') {
             if (s.screen === 'menu' || s.screen === 'editor') backToNormal();
-            else if (! ['rcvdAlarm', 'ackAlarm', 'distressHold', 'distressSent'].includes(s.screen)) openMain();
+            else if (! ['rcvdAlarm', 'ackAlarm', 'distressHold', 'distressSent', 'callTx'].includes(s.screen)) openMain();
 
             return;
         }
@@ -842,7 +853,7 @@ export function createIcM323({ own, clock = () => Date.now(), emit = () => {}, a
             return;
         }
         if (s.screen === 'callChannel') {
-            if (key === 'up' || key === 'down') s.call.channel = stepChannel('INT', s.call.channel, key === 'up' ? 1 : -1);
+            if (key === 'up' || key === 'down') s.call.channel = stepIntership(s.call.channel, key === 'up' ? 1 : -1);
 
             return;
         }
@@ -887,7 +898,7 @@ export function createIcM323({ own, clock = () => Date.now(), emit = () => {}, a
     function longPress(key) {
         if (key === 'knob') {
             if (s.power) {
-                Object.assign(s, { power: false, tx: false, menu: null, editor: null, call: null, incoming: null, cover: false, scan: null, watch: 'off' });
+                Object.assign(s, { power: false, tx: false, menu: null, editor: null, call: null, incoming: null, cover: false, scan: null, watch: 'off', distress: null });
                 setScreen('off');
                 event('power', { on: false });
             } else {
@@ -937,7 +948,7 @@ export function createIcM323({ own, clock = () => Date.now(), emit = () => {}, a
             if (! p) return;
             if (key === 'distress') {
                 if (s.screen === 'distressHold') {
-                    setScreen(s.distressHold.from === 'distressConfirm' ? 'distressConfirm' : 'normal');
+                    setScreen(s.distressHold.from ?? 'normal');
                     event('distress_released_early', { heldMs: clock() - p.t0 });
                 }
                 s.distressHold = null;
@@ -956,7 +967,7 @@ export function createIcM323({ own, clock = () => Date.now(), emit = () => {}, a
             } else if (s.screen === 'editor') {
                 editorTurn(steps);
             } else if (s.screen === 'callChannel') {
-                s.call.channel = stepChannel('INT', s.call.channel, Math.sign(steps));
+                s.call.channel = stepIntership(s.call.channel, Math.sign(steps));
             } else if (s.knobMode === 'sql' && clock() < s.windowUntil) {
                 s.windowUntil = clock() + WINDOW_MS;
                 s.sql = Math.max(0, Math.min(10, s.sql + steps));
@@ -970,7 +981,8 @@ export function createIcM323({ own, clock = () => Date.now(), emit = () => {}, a
                 s.knobMode = 'vol';
                 s.windowUntil = clock() + WINDOW_MS;
                 s.vol = Math.max(0, Math.min(20, s.vol + steps));
-                event('volume', { level: s.vol });
+                // Ereignis in den Stufen der Lektionen (0–10, wie IC-M505).
+                event('volume', { level: s.vol / 2 });
             }
         },
         pttDown() {
@@ -1014,6 +1026,8 @@ export function createIcM323({ own, clock = () => Date.now(), emit = () => {}, a
                 sendDistress();
             }
             if (s.screen === 'distressSent' && now - s.screenSince >= TRANSMIT_MS) {
+                // Nach dem Senden auf Kanal 70 hört das Gerät wieder Kanal 16.
+                setChannel(16, { work: false });
                 setScreen('distressWait');
             }
             if (s.screen === 'callTx' && now - s.screenSince >= TRANSMIT_MS) {
@@ -1037,7 +1051,7 @@ export function createIcM323({ own, clock = () => Date.now(), emit = () => {}, a
                 s.scan.index = (s.scan.index + 1) % s.scan.list.length;
                 s.channel = s.scan.list[s.scan.index];
             }
-            if (s.distress?.waiting && now >= s.distress.nextAt) {
+            if (s.power && s.distress?.waiting && now >= s.distress.nextAt) {
                 sendDistress(true);
             }
             if (s.knobMode !== 'vol' && now >= s.windowUntil && s.screen === 'normal') {
@@ -1045,13 +1059,24 @@ export function createIcM323({ own, clock = () => Date.now(), emit = () => {}, a
             }
         },
         receive(call) {
-            if (! s.power) return;
+            // Aus oder im Binnenmodus (ATIS, DSC gesperrt): kein Empfang.
+            if (! s.power || s.group === 'ATIS') return false;
+            // Während DISTRESS gehalten wird, unterbricht kein Anruf den
+            // Notalarm; der Anruf steht im Log.
+            if (s.screen === 'distressHold') {
+                s.received.unshift({ ...call, at: clock() });
+                event('dsc_received', { call });
+
+                return true;
+            }
             if (s.scan) stopScan();
             s.received.unshift({ ...call, at: clock() });
             event('dsc_received', { call });
 
             // Antworten auf eigene Anrufe bzw. den eigenen Notalarm.
             if (call.type === 'distress_ack' && s.distress?.waiting) {
+                // Die Bestätigung beendet die automatische Wiederholung.
+                s.distress.waiting = false;
                 s.incoming = call;
                 setScreen('ackAlarm');
 
