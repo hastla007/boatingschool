@@ -29,7 +29,7 @@ class SecurityHeadersTest extends TestCase
         $response->assertHeader('X-Content-Type-Options', 'nosniff');
         $response->assertHeader('X-Frame-Options', 'DENY');
         $response->assertHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-        $response->assertHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+        $response->assertHeader('Permissions-Policy', 'camera=(), microphone=(self), geolocation=()');
         $response->assertHeader('Content-Security-Policy');
         $csp = $response->headers->get('Content-Security-Policy');
         $this->assertStringContainsString("frame-ancestors 'none'", $csp);

@@ -69,6 +69,11 @@ jobs:
           npm ci
           npm run build
 
+      # Gerätelogik und Lektionen der Gerätesimulation (node --test, ohne
+      # Browser); die Lektionen liest der Test per PHP aus database/data.
+      - name: JavaScript tests
+        run: npm test
+
       - name: Copy environment file
         run: cp .env.example .env
 

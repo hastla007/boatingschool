@@ -17,6 +17,9 @@ class RadioTrainingProgress extends Model
 
     public const TYPE_VOCAB = 'vocab';
 
+    /** Gerätesimulation: item_key "<gerät>:<lektion>", answers.level = beste Stufe. */
+    public const TYPE_DEVICE = 'geraet';
+
     /** So oft in Folge gewusst, gilt eine Vokabel als gelernt. */
     public const VOCAB_STREAK_TO_LEARN = 3;
 
