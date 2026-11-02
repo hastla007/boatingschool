@@ -6,7 +6,7 @@ use App\Models\CourseDefinition;
 use App\Models\User;
 
 /**
- * Gerätesimulation Funk, Stufe 1: Lektionen und Übungsschiff aus
+ * Gerätesimulation Funk, Stufen 1 und 2: Lektionen, Prüfungsreihen und Übungsschiff aus
  * database/data/geraetesimulation.php. Der Browser bekommt die Lektionen ohne
  * die Prüfpunkte für Gesprochenes; die prüft der Server (evaluate) mit den
  * Regeln der Praxis-Prüfungssimulation (FunkPraxis).
@@ -17,7 +17,7 @@ class Geraetesimulation
 
     public const DEVICE_NAME = 'Icom IC-M505';
 
-    /** @return array{ship: array, address_book: list<array>, lessons: list<array>} */
+    /** @return array{ship: array, address_book: list<array>, directory: list<array>, exams: array<string, list<string>>, lessons: list<array>} */
     public static function data(): array
     {
         static $data = null;
@@ -91,5 +91,38 @@ class Geraetesimulation
     public static function progressKey(string $lessonKey): string
     {
         return self::DEVICE.':'.$lessonKey;
+    }
+
+    public static function examKey(string $series): string
+    {
+        return self::DEVICE.':pruefung-'.$series;
+    }
+
+    /**
+     * Musterlösungen der Funksprüche einer Lektion, in Schrittfolge. Bei
+     * Szenarien die Meldung aus FunkPraxis, sonst "solution" des Schritts.
+     *
+     * @return list<string>
+     */
+    public static function solutions(string $lessonKey): array
+    {
+        $solutions = [];
+
+        foreach (self::lesson($lessonKey)['steps'] ?? [] as $step) {
+            $speech = $step['speech'] ?? null;
+
+            if (! $speech) {
+                continue;
+            }
+
+            if (isset($speech['scenario'])) {
+                $task = FunkPraxis::scenario('SRC', $speech['scenario']);
+                $solutions[] = collect($task['fields'])->firstWhere('name', 'message')['solution'];
+            } else {
+                $solutions[] = $speech['solution'];
+            }
+        }
+
+        return $solutions;
     }
 }
