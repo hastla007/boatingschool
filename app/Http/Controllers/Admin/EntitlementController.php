@@ -81,7 +81,11 @@ class EntitlementController extends Controller
         return DB::transaction(function () use ($tenant, $user, $course, $request, $redemption) {
             DB::statement('SELECT pg_advisory_xact_lock(hashtext(?))', [$tenant->id.':'.$user->id.':'.$course->id]);
 
-            $entitlement = Entitlement::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)->first();
+            // Review: gibt es (aus Altbeständen) mehrere Zeilen, zählt die
+            // aktive bzw. die mit dem spätesten Enddatum -- nicht eine
+            // zufällige abgelaufene, für die sonst ein Code verbraucht würde.
+            $entitlement = Entitlement::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)
+                ->orderByRaw("status = 'active' desc")->orderByRaw('valid_until desc nulls first')->first();
 
             // Bug-Review (AA14: Abgelaufener Zugang nicht sofort neu
             // freischaltbar): dieser Doppelklick-Schutz prüfte bisher nur

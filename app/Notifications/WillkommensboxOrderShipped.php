@@ -16,9 +16,7 @@ use Illuminate\Notifications\Notification;
 class WillkommensboxOrderShipped extends Notification
 {
     // Review: Sendungsnummer kommt von der Schule -- kein Markdown-Link in der Mail.
-    use EscapesMarkdown;
-
-    use Queueable;
+    use EscapesMarkdown, Queueable;
 
     public function __construct(private readonly WillkommensboxOrder $order) {}
 
