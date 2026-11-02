@@ -106,3 +106,13 @@ function dscHint(goal, step) {
             return { help: step.help, target: step.target };
     }
 }
+
+// IC-M423: gleiche Bedienung, der Rücksprung-Softkey heißt CH/WX.
+export function hintM423(step) {
+    const hint = hintM323(step);
+
+    return {
+        help: hint.help?.replace(/Softkey CHAN\b/g, 'Softkey CH/WX'),
+        target: hint.target === 'sk:CHAN' ? 'sk:CH/WX' : hint.target,
+    };
+}

@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Gerätesimulation Funk, Stufen 1–5 (IC-M505, IC-M323, IC-M503 mit DS-100; Seefunk und Binnenfunk): Übungsschiff,
+ * Gerätesimulation Funk, Stufen 1–5 (IC-M505, IC-M323, IC-M423, IC-M503 mit DS-100; Seefunk und Binnenfunk): Übungsschiff,
  * Gegenstationen, Lektionen und die Reihen des Prüfungsmodus. Die Lektionen
  * gehen als JSON an den Browser (Lektionssteuerung in
  * resources/js/funkgeraet/lessons.js); dieselbe Datei liefert dem Server die
@@ -68,6 +68,8 @@ return [
     'devices' => [
         ['key' => 'ic-m505', 'name' => 'Icom IC-M505'],
         ['key' => 'ic-m323', 'name' => 'Icom IC-M323'],
+        // Wie IC-M323 (Lektions-Anpassungen, Ausblendungen, Ersatzaufgaben).
+        ['key' => 'ic-m423', 'name' => 'Icom IC-M423', 'like' => 'ic-m323'],
         ['key' => 'ic-m503', 'name' => 'Icom IC-M503 + DS-100'],
     ],
 

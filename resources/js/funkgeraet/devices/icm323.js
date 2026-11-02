@@ -33,6 +33,15 @@ const SCAN_STEP = 500;
 const POSITION_STALE = 4 * 60 * 60 * 1000;
 
 const RING = ['SCAN', 'DW', 'HI/LO', 'CHAN', 'LO/DX', 'AQUA', '★', 'NAME', 'BKLT', 'LOG'];
+// IC-M423 (GE): längere Softkey-Leiste; der Rücksprung heißt CH/WX.
+const RING_M423 = ['SCAN', 'DW', 'HI/LO', 'CH/WX', 'PA', 'RX', 'HORN', 'INCM', 'LO/DX', 'AQUA', '★', 'NAME', 'BKLT', 'LOG'];
+
+export const DEVICE_M423 = {
+    key: 'ic-m423',
+    name: 'Icom IC-M423',
+    keys: ['distressCover', 'distress', 'up', 'down', 'left', 'right', 'enter', 'menu', 'clr', 'ch16', 'knob', 'soft1', 'soft2', 'soft3', 'soft4', 'micUp', 'micDown', 'micHiLo', 'mic16'],
+    knobs: ['dial'],
+};
 const MAIN_MENU = ['DSC Calls', 'DSC Settings', 'Radio Settings', 'Configuration', 'MMSI/GPS Info'];
 const DSC_SETTINGS = ['Position Input', 'Individual ID', 'Group ID', 'Individual ACK', 'Position ACK', 'Test ACK', 'CH 16 Switch', 'Alarm', 'CH 70 SQL Level', 'DSC Loop Test'];
 const RADIO_SETTINGS = ['Scan Type', 'Scan Timer', 'Dual/Tri-Watch', 'CHAN Group'];
@@ -64,7 +73,15 @@ function formatPosition(pos) {
     return [`${pad(latD)}°${latM.toFixed(4).padStart(7, '0')}${ns}`, `${pad(lonD, 3)}°${lonM.toFixed(4).padStart(7, '0')}${ew}`];
 }
 
-export function createIcM323({ own, clock = () => Date.now(), emit = () => {}, addressBook = [], directory = [] } = {}) {
+// Das IC-M423 ist laut Anleitung in Menüs, DSC und Notalarm gleich
+// aufgebaut; es unterscheidet sich in der Softkey-Leiste und der
+// 16/C-Taste am Hörer (variant "ic-m423").
+export function createIcM423(options = {}) {
+    return createIcM323({ ...options, variant: 'ic-m423' });
+}
+
+export function createIcM323({ own, clock = () => Date.now(), emit = () => {}, addressBook = [], directory = [], variant = 'ic-m323' } = {}) {
+    const ring = variant === 'ic-m423' ? RING_M423 : RING;
     const s = {
         power: false,
         vol: 0,
@@ -194,7 +211,7 @@ export function createIcM323({ own, clock = () => Date.now(), emit = () => {}, a
             case 'cancelReport':
                 return ['EXIT', '', '', 'FINISH'];
             default:
-                return [0, 1, 2, 3].map((i) => RING[(s.ring + i) % RING.length]);
+                return [0, 1, 2, 3].map((i) => ring[(s.ring + i) % ring.length]);
         }
     }
 
@@ -222,6 +239,7 @@ export function createIcM323({ own, clock = () => Date.now(), emit = () => {}, a
                 toggleHighPower();
                 break;
             case 'CHAN':
+            case 'CH/WX':
                 setChannel(s.workChannel);
                 break;
             case '★': {
@@ -779,6 +797,7 @@ export function createIcM323({ own, clock = () => Date.now(), emit = () => {}, a
 
             return;
         }
+        if (key === 'mic16') key = 'ch16';
         if (key === 'menu') {
             if (s.screen === 'menu' || s.screen === 'editor') backToNormal();
             else if (! ['rcvdAlarm', 'ackAlarm', 'distressHold', 'distressSent'].includes(s.screen)) openMain();
@@ -847,7 +866,7 @@ export function createIcM323({ own, clock = () => Date.now(), emit = () => {}, a
                 break;
             case 'left':
             case 'right':
-                s.ring = (s.ring + (key === 'right' ? 1 : -1) + RING.length) % RING.length;
+                s.ring = (s.ring + (key === 'right' ? 1 : -1) + ring.length) % ring.length;
                 event('softkeys', { labels: softkeys() });
                 break;
             case 'micUp':
@@ -881,7 +900,7 @@ export function createIcM323({ own, clock = () => Date.now(), emit = () => {}, a
             return;
         }
         if (! s.power) return;
-        if (key === 'ch16' && s.screen === 'normal') {
+        if ((key === 'ch16' || key === 'mic16') && s.screen === 'normal') {
             if (s.channel !== 16 && s.channel !== s.callChannel[s.group]) s.workChannel = s.channel;
             setChannel(s.callChannel[s.group], { work: false });
             s.onCall = true;
@@ -985,7 +1004,7 @@ export function createIcM323({ own, clock = () => Date.now(), emit = () => {}, a
             const now = clock();
             for (const [key, p] of Object.entries(pressed)) {
                 if (key === 'distress' || p.long) continue;
-                if (now - p.t0 >= LONG && (key === 'knob' || key === 'ch16')) {
+                if (now - p.t0 >= LONG && (key === 'knob' || key === 'ch16' || key === 'mic16')) {
                     p.long = true;
                     longPress(key);
                 }

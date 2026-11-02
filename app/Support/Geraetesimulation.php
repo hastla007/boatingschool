@@ -150,8 +150,11 @@ class Geraetesimulation
     public static function examLessons(string $series, string $device = self::DEVICE): array
     {
         $exam = self::exams()[$series];
+        // Ein Gerät mit "like" übernimmt die Ersatzaufgaben des verwandten Geräts.
+        $like = collect(self::data()['devices'])->firstWhere('key', $device)['like'] ?? null;
+        $substitutes = $exam['substitutes'][$device] ?? ($like ? $exam['substitutes'][$like] ?? [] : []);
 
-        return array_map(fn ($lesson) => $exam['substitutes'][$device][$lesson] ?? $lesson, $exam['lessons']);
+        return array_map(fn ($lesson) => $substitutes[$lesson] ?? $lesson, $exam['lessons']);
     }
 
     /**
