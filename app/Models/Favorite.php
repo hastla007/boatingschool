@@ -25,6 +25,14 @@ class Favorite extends Model
 
     protected $fillable = ['tenant_id', 'user_id', 'question_id', 'context'];
 
+    // Review (Datenexport 500): created_at setzt die Datenbank (keine
+    // Eloquent-Timestamps); ohne Cast war es ein String und der DSGVO-Export
+    // brach mit "toIso8601String() on string" ab.
+    protected function casts(): array
+    {
+        return ['created_at' => 'datetime'];
+    }
+
     public function question(): BelongsTo
     {
         return $this->belongsTo(ContentQuestion::class, 'question_id');

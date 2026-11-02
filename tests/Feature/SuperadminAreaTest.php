@@ -146,8 +146,14 @@ class SuperadminAreaTest extends TestCase
     public function test_login_redirects_a_superadmin_on_a_tenant_subdomain_to_the_central_login(): void
     {
         $superadmin = $this->createSuperAdmin(['email' => 'super-login-subdomain-test@platform.test']);
+        // Eine echte Bootsschul-Subdomain: unbekannte Subdomains liefern
+        // inzwischen „Bootsschule nicht gefunden“ (Review-Runde 3).
+        $tenant = $this->createTestTenant();
+        // Hostnamen sind immer kleingeschrieben, echte Slugs ebenso.
+        $slug = strtolower($tenant->slug);
+        $this->onAdmin(fn () => Tenant::where('id', $tenant->id)->update(['slug' => $slug]));
 
-        $response = $this->post('http://schule-a.example.test/login', [
+        $response = $this->post('http://'.$slug.'.'.config('app.central_domain').'/login', [
             'email' => 'super-login-subdomain-test@platform.test',
             'password' => 'password',
         ]);

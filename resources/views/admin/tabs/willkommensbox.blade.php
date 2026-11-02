@@ -21,7 +21,8 @@
             <a href="{{ route('admin.dashboard', ['tab' => 'willkommensbox']) }}" class="text-sm text-slate-500 dark:text-slate-400 hover:underline self-center">Filter zurücksetzen</a>
         @endif
     </form>
-    <div class="overflow-x-auto">
+    {{-- relative: hält die absolut positionierten sr-only-Labels im Scrollbereich (sonst 498px breite Seite am Handy). --}}
+    <div class="overflow-x-auto relative">
     <table class="w-full text-sm">
         <thead class="bg-slate-50 dark:bg-slate-700 text-slate-500 dark:text-slate-300 text-left">
             <tr>

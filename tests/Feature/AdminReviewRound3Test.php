@@ -193,4 +193,10 @@ class AdminReviewRound3Test extends TestCase
             $this->onAdmin(fn () => Coupon::where('id', $coupon->id)->delete());
         }
     }
+
+    public function test_the_login_on_an_unknown_school_subdomain_says_school_not_found(): void
+    {
+        $this->get('http://unbekannte-schule.'.config('app.central_domain').'/login')->assertNotFound();
+        $this->get('http://'.config('app.central_domain').'/login')->assertOk();
+    }
 }
