@@ -57,6 +57,7 @@ export const DEVICES = {
 };
 
 const likeOf = (deviceKey) => DEVICES[deviceKey]?.like ?? null;
+const shortName = (deviceKey) => DEVICES[deviceKey].name.replace(/^Icom /, '');
 
 export function lessonAvailable(lesson, deviceKey) {
     return ! lesson.devices || lesson.devices.includes(deviceKey) || lesson.devices.includes(likeOf(deviceKey));
@@ -68,8 +69,12 @@ export function prepareLesson(lesson, deviceKey) {
     return {
         ...lesson,
         steps: lesson.steps.map((step) => {
-            const override = step.device?.[deviceKey] ?? step.device?.[likeOf(deviceKey)] ?? {};
+            const own = step.device?.[deviceKey];
+            const inherited = ! own && step.device?.[likeOf(deviceKey)];
+            const override = own ?? inherited ?? {};
             const merged = { ...step, ...override };
+            // Vom verwandten Gerät übernommene Texte nennen dessen Namen.
+            if (inherited && merged.text) merged.text = merged.text.replaceAll(shortName(likeOf(deviceKey)), shortName(deviceKey));
             if (! device?.hint || 'help' in override) return merged;
             // Funksprüche behalten ihren Wortlaut als Hilfe.
             if (merged.speech) return { ...merged, target: 'ptt' };

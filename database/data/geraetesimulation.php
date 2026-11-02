@@ -277,7 +277,7 @@ return [
             'intro' => 'Du möchtest von der Küstenfunkstelle Nordsee Radio (MMSI 002119999) den Wetterbericht für die Deutsche Bucht erfragen. Ruf sie per DSC (Routine) und schlag Kanal 26 vor.',
             'start' => $start,
             'steps' => [
-                ['text' => 'Sende einen Einzelanruf (Routine) an Nordsee Radio mit Kanal 26.', 'target' => 'menu', 'help' => 'MENU, „Individual Call“, „NORDSEE RADIO“, „Routine“, Kanal 26, ENTER zum Senden.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '002119999', 'category' => 'Routine', 'channel' => 26],
+                ['text' => 'Sende einen Einzelanruf (Routine) an Nordsee Radio mit Kanal 26.', 'address_name' => 'NORDSEE RADIO', 'target' => 'menu', 'help' => 'MENU, „Individual Call“, „NORDSEE RADIO“, „Routine“, Kanal 26, ENTER zum Senden.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '002119999', 'category' => 'Routine', 'channel' => 26],
                     'device' => [
                         'ic-m323' => ['text' => 'Sende einen Einzelanruf an Nordsee Radio. Den Kanal bestimmt am IC-M323 die Küstenfunkstelle.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '002119999']],
                         'ic-m330' => ['text' => 'Sende einen Einzelanruf an Nordsee Radio. Den Kanal bestimmt am IC-M330 die Küstenfunkstelle.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '002119999']],
@@ -296,7 +296,7 @@ return [
             'start' => $start,
             'steps' => [
                 ['text' => 'Sende einen Gruppenanruf (Routine) an FLOTILLE mit Kanal 69.', 'target' => 'menu', 'help' => 'MENU, „Group Call“, „FLOTILLE“, „Routine“, Kanal 69, ENTER zum Senden.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'group', 'address.name' => 'FLOTILLE', 'category' => 'Routine', 'channel' => 69]],
-                ['text' => 'Warte, bis das Gerät auf Kanal 69 schaltet.', 'target' => null, 'help' => 'Nach etwa 2 Sekunden oder mit CLR.', 'goal' => ['type' => 'channel', 'channel' => 69]],
+                ['text' => 'Warte, bis das Gerät auf Kanal 69 schaltet.', 'target' => null, 'help' => 'Nach etwa 2 Sekunden schaltet das Gerät von selbst um.', 'goal' => ['type' => 'channel', 'channel' => 69]],
                 ['text' => 'Sprich die Yachten der Flottille auf Kanal 69 an.', 'target' => 'ptt', 'help' => '„All yachts of flotilla, this is Kormoran, we meet in Helgoland at 1700 UTC, over.“', 'goal' => ['type' => 'spoken', 'channel' => 69], 'speech' => ['checks' => [['Anruf an die Flottille', 'FLOTILL|ALL YACHTS', 1], $thisIs, $kormoran, $over], 'solution' => 'DSC: Group Call an FLOTILLE (021100001), Routine, Kanal 69. Sprechfunk auf Kanal 69: All yachts of flotilla, this is Kormoran, we meet in Helgoland at 1700 UTC, over.']],
             ],
         ],
@@ -308,7 +308,7 @@ return [
             'start' => $start,
             'steps' => [
                 ['text' => 'Nimm die Seestern ins Adressbuch auf.', 'target' => 'menu', 'help' => 'MENU, „Set up“, „Add:INDV ID“, die 9 Ziffern eingeben (Knopf drehen, 16/C weiter), ENTER.', 'goal' => ['type' => 'address_added', 'mmsi' => '211555000']],
-                ['text' => 'Ruf die Seestern aus dem Adressbuch an: Routine, Kanal 77.', 'target' => 'menu', 'help' => 'MENU, „Individual Call“, „SEESTERN“, „Routine“, Kanal 77, ENTER zum Senden.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '211555000', 'category' => 'Routine', 'channel' => 77]],
+                ['text' => 'Ruf die Seestern aus dem Adressbuch an: Routine, Kanal 77.', 'address_name' => 'SEESTERN', 'target' => 'menu', 'help' => 'MENU, „Individual Call“, „SEESTERN“, „Routine“, Kanal 77, ENTER zum Senden.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '211555000', 'category' => 'Routine', 'channel' => 77]],
                 $waitForAck + ['goal' => ['type' => 'channel', 'channel' => 77], 'receive' => ['delay_ms' => 4000, 'call' => ['type' => 'individual_ack', 'from' => $seestern]]],
             ],
         ],
@@ -331,7 +331,7 @@ return [
             'devices' => ['ic-m323'],
             'unit' => 'DSC-Routine',
             'title' => 'Testanruf',
-            'intro' => 'Mit einem DSC-Testanruf prüfst du, ob dein DSC-Controller sendet. Am IC-M323 ist die Kategorie fest „Safety“. Testanrufe nur, wenn nötig: Sie belegen Kanal 70.',
+            'intro' => 'Mit einem DSC-Testanruf prüfst du, ob dein DSC-Controller sendet. Die Kategorie des Testanrufs ist fest „Safety“. Testanrufe nur, wenn nötig: Sie belegen Kanal 70.',
             'start' => $start,
             'steps' => [
                 ['text' => 'Sende einen Testanruf an die Möwe.', 'target' => 'menu', 'help' => 'MENU, „DSC Calls“, „Test Call“, „MOEWE“, ENT, Softkey CALL.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'test', 'address.name' => 'MOEWE']],
@@ -569,7 +569,7 @@ return [
             'intro' => 'Melde Nordsee Radio deine voraussichtliche Ankunftszeit in Helgoland (1700 UTC): DSC-Einzelanruf (Routine, Kanal 26), Gespräch, Ende.',
             'start' => $start,
             'steps' => [
-                ['text' => 'Ruf Nordsee Radio per DSC: Routine, Kanal 26.', 'target' => 'menu', 'help' => 'MENU, „Individual Call“, „NORDSEE RADIO“, „Routine“, Kanal 26, senden.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '002119999', 'category' => 'Routine', 'channel' => 26],
+                ['text' => 'Ruf Nordsee Radio per DSC: Routine, Kanal 26.', 'address_name' => 'NORDSEE RADIO', 'target' => 'menu', 'help' => 'MENU, „Individual Call“, „NORDSEE RADIO“, „Routine“, Kanal 26, senden.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '002119999', 'category' => 'Routine', 'channel' => 26],
                     'device' => [
                         'ic-m323' => ['text' => 'Ruf Nordsee Radio per DSC. Den Kanal bestimmt am IC-M323 die Küstenfunkstelle.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '002119999']],
                         'ic-m330' => ['text' => 'Ruf Nordsee Radio per DSC. Den Kanal bestimmt am IC-M330 die Küstenfunkstelle.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '002119999']],

@@ -86,7 +86,7 @@ export function hintM330(step) {
 }
 
 function dscHint(goal, step) {
-    const name = goal['address.name'] ?? goal['address.mmsi'] ?? '';
+    const name = goal['address.name'] ?? step.address_name ?? goal['address.mmsi'] ?? '';
     const ch = goal.channel ? two(goal.channel) : null;
     const form = 'Softkey OTHER DSC (Seite 1)';
     const address = `„Address“, ENT, „${name}“, ENT`;
