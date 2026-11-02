@@ -270,11 +270,11 @@ return [
             ],
             'exam_parts' => [
                 ['key' => 'theory', 'title' => 'Theorie', 'icon' => 'document-text', 'link' => 'exam', 'text' => 'Fragebogen aus dem amtlichen Katalog, teils mit mehreren richtigen Antworten, teils mit freier Antwort: Sprengstoffrecht, Arten der Seenotsignalmittel, Lagerung und sichere Verwendung.'],
-                ['key' => 'praxis', 'title' => 'Praxis', 'icon' => 'flag', 'link' => null, 'text' => 'Sicherer Umgang mit Seenotsignalmitteln: Signalmittel erkennen, richtig halten und auslösen, Verhalten bei Versagern. Die Aufgaben wählt der Prüfer aus.'],
+                ['key' => 'praxis', 'title' => 'Praxis', 'icon' => 'flag', 'link' => null, 'text' => 'Vier Aufgaben: Fallschirmsignalrakete (rot), Rauchfackel (orange) oder Handfackel (rot) und Rauchsignal (orange) bestimmen und handhaben, dazu das Verhalten bei Versagern. 3 von 4 Aufgaben müssen richtig sein.'],
             ],
             'faq' => [
                 'Brauche ich dafür einen Bootsführerschein?' => 'Ja: Entweder hast du schon einen Sportbootführerschein See oder Binnen (oder einen anderen anerkannten Befähigungsnachweis), oder du legst die SBF-Prüfung gleichzeitig mit der FKN-Prüfung ab. Am Prüfungstag musst du mindestens 16 Jahre alt sein.',
-                'Wann habe ich bestanden?' => 'Im Fragebogen brauchst du mindestens 24 von 30 Punkten; dazu kommt der praktische Teil.',
+                'Wann habe ich bestanden?' => 'Im Fragebogen (15 Fragen, 30 Minuten) brauchst du mindestens 24 von 30 Punkten, in der Praxis 3 von 4 Aufgaben.',
             ] + $faq['fee']('FKN', '29 €') + $faq['online'] + [
                 'FKN oder SKN – was brauche ich?' => 'Für Handfackeln, Raketen und Rauchsignale reicht der FKN. Für eine Signalpistole brauchst du den Sachkundenachweis (SKN).',
                 'Was passiert, wenn ich nicht bestehe?' => 'Du kannst die Prüfung wiederholen. Wann und wie, sagt dir dein Prüfungsausschuss.',
@@ -297,8 +297,10 @@ return [
             'variants' => [
                 'full' => [
                     'label' => 'Prüfung',
-                    'course' => null,
-                    'parts' => [['module' => 'SKN']],
+                    'course' => 'SKN',
+                    'parts' => [['module' => 'SKN', 'of' => 18, 'min' => 13]],
+                    'pass' => 'mind. 26 von 36 Punkten (2 Punkte je vollständig richtiger Antwort)',
+                    'minutes' => 60,
                 ],
                 'addon' => [
                     'label' => 'Für FKN-Inhaber',
@@ -308,14 +310,15 @@ return [
                 ],
             ],
             'exam_parts' => [
-                ['key' => 'theory', 'title' => 'Theorie', 'icon' => 'document-text', 'link' => 'exam', 'text' => 'Fragebogen aus dem amtlichen Fragenkatalog der Sachkundeprüfung, Kapitel „Not- und Seenotsignalmittel“: Waffen- und Sprengstoffrecht, Signalpistole und Munition, sichere Handhabung. Umfang und Bestehensgrenze nennt dir dein Prüfungsausschuss.'],
-                ['key' => 'praxis', 'title' => 'Praxis', 'icon' => 'flag', 'link' => null, 'text' => 'Sicherer Umgang mit Signalpistole und Seenotsignalmitteln, Unterscheiden der Munition, Verhalten bei Versagern.'],
+                ['key' => 'theory', 'title' => 'Theorie', 'icon' => 'document-text', 'link' => 'exam', 'text' => 'Fragebogen mit 18 Fragen aus dem amtlichen Fragenkatalog der Sachkundeprüfung, Kapitel „Not- und Seenotsignalmittel“: Waffen- und Sprengstoffrecht, Signalpistole und Munition, sichere Handhabung. 60 Minuten, bestanden ab 26 von 36 Punkten.'],
+                ['key' => 'praxis', 'title' => 'Praxis', 'icon' => 'flag', 'link' => null, 'text' => 'Zwei Prüfer, vier Übungen aus: Fallschirmsignalrakete, Handfackel, Rauchfackel, Rauchtopf, Signalpistole und Verhalten bei Versagern. 3 von 4 Übungen müssen richtig sein.'],
             ],
             'faq' => [
-                'Brauche ich dafür einen Bootsführerschein?' => 'Nein. Für den SKN musst du mindestens 18 Jahre alt sein; ein Bootsführerschein ist nicht nötig.',
+                'Brauche ich dafür einen Bootsführerschein?' => 'Nein. Für den SKN musst du am Prüfungstag mindestens 18 Jahre alt sein; ein Bootsführerschein ist nicht nötig.',
+                'Wann habe ich bestanden?' => 'Im Fragebogen (18 Fragen, 60 Minuten) brauchst du mindestens 26 von 36 Punkten, in der Praxis 3 von 4 Übungen.',
             ] + $faq['fee']('SKN', '48 €') + $faq['online'] + [
                 'FKN oder SKN – was brauche ich?' => 'Für Handfackeln, Raketen und Rauchsignale reicht der FKN. Für eine Signalpistole brauchst du den SKN; für deren Besitz zusätzlich eine Erlaubnis der Waffenbehörde.',
-                'Was passiert, wenn ich nicht bestehe?' => 'Du kannst die Prüfung wiederholen. Wann und wie, sagt dir dein Prüfungsausschuss.',
+                'Was passiert, wenn ich nicht bestehe?' => 'Du kannst die Prüfung frühestens 14 Tage nach der erfolglosen Prüfung wiederholen. Den Termin stimmst du mit deinem Prüfungsausschuss ab.',
             ],
         ],
     ],

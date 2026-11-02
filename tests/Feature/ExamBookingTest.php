@@ -60,7 +60,7 @@ class ExamBookingTest extends TestCase
         $this->actingAsInTenant($learner, $tenant)->get("/courses/{$fkn->id}/pruefung-buchen")
             ->assertOk()->assertSee('FKN-Prüfung buchen')->assertSee('mind. 24 von 30 Punkten')->assertSee('15 Fragen aus 62');
         $this->actingAsInTenant($learner, $tenant)->get("/courses/{$skn->id}/pruefung-buchen")
-            ->assertOk()->assertSee('SKN-Prüfung buchen')->assertSee('18 Jahre')->assertDontSee('Bestanden:');
+            ->assertOk()->assertSee('SKN-Prüfung buchen')->assertSee('18 Jahre')->assertSee('mind. 26 von 36 Punkten')->assertSee('18 Fragen aus 89')->assertSee('3 von 4 Übungen');
     }
 
     public function test_every_catalogue_course_has_a_page_and_every_variant_is_used(): void
