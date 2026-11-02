@@ -71,6 +71,7 @@ return [
         // Wie IC-M323 (Lektions-Anpassungen, Ausblendungen, Ersatzaufgaben).
         ['key' => 'ic-m423', 'name' => 'Icom IC-M423', 'like' => 'ic-m323'],
         ['key' => 'ic-m503', 'name' => 'Icom IC-M503 + DS-100'],
+        ['key' => 'ic-m330', 'name' => 'Icom IC-M330', 'like' => 'ic-m323'],
     ],
 
     'ship' => $ship + ['label' => 'Segelyacht Kormoran', 'atis' => '9211234721'],
@@ -279,6 +280,7 @@ return [
                 ['text' => 'Sende einen Einzelanruf (Routine) an Nordsee Radio mit Kanal 26.', 'target' => 'menu', 'help' => 'MENU, „Individual Call“, „NORDSEE RADIO“, „Routine“, Kanal 26, ENTER zum Senden.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '002119999', 'category' => 'Routine', 'channel' => 26],
                     'device' => [
                         'ic-m323' => ['text' => 'Sende einen Einzelanruf an Nordsee Radio. Den Kanal bestimmt am IC-M323 die Küstenfunkstelle.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '002119999']],
+                        'ic-m330' => ['text' => 'Sende einen Einzelanruf an Nordsee Radio. Den Kanal bestimmt am IC-M330 die Küstenfunkstelle.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '002119999']],
                         'ic-m503' => ['text' => 'Sende einen Einzelanruf (Routine) an Nordsee Radio. Den Kanal bestimmt am DS-100 die Küstenfunkstelle.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '002119999', 'category' => 'Routine']],
                     ]],
                 $waitForAck + ['goal' => ['type' => 'channel', 'channel' => 26], 'receive' => ['delay_ms' => 4000, 'call' => ['type' => 'individual_ack', 'from' => $nordseeRadio, 'channel' => 26]]],
@@ -497,6 +499,7 @@ return [
                     // Am IC-M323 ist der Einzelanruf fest Routine: Dringlichkeit per Anruf an alle ankündigen.
                     'device' => [
                         'ic-m323' => ['text' => 'Kündige die Dringlichkeitsmeldung per DSC an: Anruf an alle mit der Kategorie „Urgency“ (am IC-M323 ist der Einzelanruf fest Routine).', 'goal' => ['type' => 'dsc_sent', 'kind' => 'all_ships', 'category' => 'Urgency']],
+                        'ic-m330' => ['text' => 'Kündige die Dringlichkeitsmeldung per DSC an: Anruf an alle mit der Kategorie „Urgency“ (am IC-M330 bietet nur der Anruf an alle die Kategorie Urgency).', 'goal' => ['type' => 'dsc_sent', 'kind' => 'all_ships', 'category' => 'Urgency']],
                         'ic-m503' => ['text' => 'Sende einen Einzelanruf an Bremen Rescue mit der Kategorie „Urgency“. Den Kanal bestimmt am DS-100 die Küstenfunkstelle.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '002111240', 'category' => 'Urgency']],
                     ]],
                 $waitForAck + ['goal' => ['type' => 'dsc_received', 'call.type' => 'individual_ack'], 'receive' => ['delay_ms' => 3000, 'call' => ['type' => 'individual_ack', 'from' => $bremenRescue]],
@@ -569,6 +572,7 @@ return [
                 ['text' => 'Ruf Nordsee Radio per DSC: Routine, Kanal 26.', 'target' => 'menu', 'help' => 'MENU, „Individual Call“, „NORDSEE RADIO“, „Routine“, Kanal 26, senden.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '002119999', 'category' => 'Routine', 'channel' => 26],
                     'device' => [
                         'ic-m323' => ['text' => 'Ruf Nordsee Radio per DSC. Den Kanal bestimmt am IC-M323 die Küstenfunkstelle.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '002119999']],
+                        'ic-m330' => ['text' => 'Ruf Nordsee Radio per DSC. Den Kanal bestimmt am IC-M330 die Küstenfunkstelle.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '002119999']],
                         'ic-m503' => ['text' => 'Ruf Nordsee Radio per DSC (Routine). Den Kanal bestimmt am DS-100 die Küstenfunkstelle.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '002119999', 'category' => 'Routine']],
                     ]],
                 $waitForAck + ['goal' => ['type' => 'channel', 'channel' => 26], 'receive' => ['delay_ms' => 4000, 'call' => ['type' => 'individual_ack', 'from' => $nordseeRadio, 'channel' => 26]]],
