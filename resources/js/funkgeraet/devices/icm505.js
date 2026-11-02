@@ -1,4 +1,4 @@
-// Gerätelogik Icom IC-M505 (Stufe 1 der Gerätesimulation). Nachgebildet nach
+// Gerätelogik Icom IC-M505 (Stufen 1 und 2 der Gerätesimulation). Nachgebildet nach
 // dem Geräteprofil aus der Bedienungsanleitung: Tasten mit Druckdauer (kurz,
 // 1 s, 3 s, DISTRESS 5 s), H/L als Umschalttaste, Display und DSC-Menü.
 // Reine Logik ohne DOM: die Oberfläche ruft keyDown/keyUp/turn/tick auf und
@@ -17,11 +17,35 @@ const VERY_LONG = 3000;
 const DISTRESS_HOLD = 5000;
 const DISTRESS_REPEAT = 4 * 60 * 1000;
 const AUTO_RETURN = 2000;
+const SCAN_STEP = 500;
+// Manuell eingegebene Position und UTC gelten als veraltet nach 4 Stunden
+// („??“ blinkt im Display).
+const POSITION_STALE = 4 * 60 * 60 * 1000;
 
 const MAIN_MENU = ['Position Input', 'Individual Call', 'Group Call', 'All Ships Call', 'Position Request', 'Position Report', 'Polling Request', 'Received Calls', 'Distress Setting', 'Set up', 'Exit'];
+const SET_MODE = ['Scan Type', 'Scan Timer', 'Dual/Tri', 'Beep', 'Contrast', 'Exit'];
 const SETUP_MENU = ['Add:INDV ID', 'Add:Group ID', 'DEL:INDV ID', 'DEL:Group ID', 'Offset Time', 'MMSI Check', 'Auto ACK', 'NMEA Output', 'Exit'];
-// In Stufe 1 bedienbar; die übrigen Menüpunkte folgen in Stufe 2.
-const AVAILABLE = new Set(['Position Input', 'Individual Call', 'All Ships Call', 'Received Calls', 'Distress Setting', 'Set up', 'Exit', 'MMSI Check']);
+// Bedienbare Menüpunkte; Position Report, Offset Time, Auto ACK und NMEA
+// Output braucht keine Lektion und meldet „menu_unavailable“.
+const AVAILABLE = new Set([
+    'Position Input', 'Individual Call', 'Individual ACK', 'Group Call', 'All Ships Call', 'Position Request', 'Position Reply',
+    'Polling Request', 'Polling Reply', 'Received Calls', 'Distress Setting', 'Set up', 'Exit', 'MMSI Check', 'Add:INDV ID', 'Add:Group ID',
+]);
+
+const CALL_TITLES = {
+    individual: 'Individual Call', group: 'Group Call', all_ships: 'All Ships Call', individual_ack: 'Individual ACK',
+    position_request: 'Position Request', position_reply: 'Position Reply', polling_request: 'Polling Request', polling_reply: 'Polling Reply',
+};
+
+const RECEIVED_TITLES = {
+    individual_ack: 'INDV ACK', distress_ack: 'DistressACK', distress: 'Distress', distress_relay: 'DistressRLY', individual: 'Individual',
+    all_ships: 'All Ships', geographic: 'Geographic', group: 'Group', position_request: 'POS Request', position_reply: 'POS Reply',
+    polling_request: 'POLL REQ', polling_reply: 'POLL Reply',
+};
+
+// Anrufe, auf die der Gerätenutzer mit ENTER auf den vorgeschlagenen
+// Arbeitskanal geht (Profil, „Anrufe empfangen“).
+const CHANNEL_ON_ENTER = new Set(['group', 'all_ships', 'geographic']);
 
 export const DEVICE = {
     key: 'ic-m505',
@@ -41,7 +65,10 @@ export function formatPosition(pos) {
     return [`${pad(latD)}°${latM.toFixed(3).padStart(6, '0')}${ns}`, `${pad(lonD, 3)}°${lonM.toFixed(3).padStart(6, '0')}${ew}`];
 }
 
-export function createIcM505({ own, clock = () => Date.now(), emit = () => {}, addressBook = [] } = {}) {
+// addressBook: Einträge {name, mmsi, group?}; directory: bekannte Stationen,
+// deren Namen das Gerät nach „Add:INDV ID“ anzeigt (im echten Gerät tippt
+// man den Namen ein).
+export function createIcM505({ own, clock = () => Date.now(), emit = () => {}, addressBook = [], directory = [] } = {}) {
     const s = {
         power: false,
         vol: 0,
@@ -66,6 +93,16 @@ export function createIcM505({ own, clock = () => Date.now(), emit = () => {}, a
         received: [],
         incoming: null,
         screenSince: 0,
+        book: addressBook.filter((a) => ! a.group).map((a) => ({ ...a })),
+        groups: addressBook.filter((a) => a.group).map((a) => ({ ...a })),
+        // Letzter Einzelanruf, auf den mit „Individual ACK“ geantwortet
+        // werden kann, und offene Positions- bzw. Polling-Abfragen.
+        ackable: null,
+        replyTo: { position: null, polling: null },
+        watchMode: 'dual',
+        scan: null,
+        tags: new Set(),
+        positionSetAt: null,
     };
     const pressed = {};
 
@@ -74,7 +111,15 @@ export function createIcM505({ own, clock = () => Date.now(), emit = () => {}, a
     const event = (type, data = {}) => emit({ type, at: clock(), ...data, radio: snapshot() });
 
     function snapshot() {
-        return { power: s.power, group: s.group, channel: s.channel, highPower: effectiveHighPower(), vol: s.vol, sql: s.sql, screen: s.screen, watch: s.watch, nature: NATURES[s.nature], position: s.position, utc: s.utc, coverOpen: s.cover, tx: s.tx };
+        return {
+            power: s.power, group: s.group, channel: s.channel, highPower: effectiveHighPower(), vol: s.vol, sql: s.sql, screen: s.screen, watch: s.watch,
+            nature: NATURES[s.nature], position: s.position, utc: s.utc, coverOpen: s.cover, tx: s.tx, scanning: Boolean(s.scan), tags: [...s.tags].sort((a, b) => a - b),
+            addressBook: s.book.map((a) => a.mmsi), groups: s.groups.map((a) => a.mmsi), positionStale: positionStale(),
+        };
+    }
+
+    function positionStale() {
+        return Boolean(s.position && s.positionSetAt !== null && clock() - s.positionSetAt > POSITION_STALE);
     }
 
     function current() {
@@ -93,6 +138,7 @@ export function createIcM505({ own, clock = () => Date.now(), emit = () => {}, a
     }
 
     function setChannel(channel, { work = true, group = s.group } = {}) {
+        if (s.scan) stopScan();
         s.group = group;
         s.channel = channel;
         s.onCall = false;
@@ -135,7 +181,13 @@ export function createIcM505({ own, clock = () => Date.now(), emit = () => {}, a
     // Ohne angeschlossenen GPS-Empfänger steht „Position Input“ im Menü; die
     // Simulation hat keinen GPS-Empfänger.
     function mainMenuItems() {
-        return MAIN_MENU;
+        const items = [...MAIN_MENU];
+        const after = (anchor, item) => items.splice(items.indexOf(anchor) + 1, 0, item);
+        if (s.ackable) after('Individual Call', 'Individual ACK');
+        if (s.replyTo.polling) after('Polling Request', 'Polling Reply');
+        if (s.replyTo.position) after('Position Report', 'Position Reply');
+
+        return items;
     }
 
     function closeToNormal() {
@@ -175,9 +227,31 @@ export function createIcM505({ own, clock = () => Date.now(), emit = () => {}, a
                 startEditor('position');
                 break;
             case 'Individual Call':
-                s.call = { kind: 'individual' };
+            case 'Group Call':
+            case 'Position Request':
+            case 'Polling Request':
+                s.call = { kind: { 'Individual Call': 'individual', 'Group Call': 'group', 'Position Request': 'position_request', 'Polling Request': 'polling_request' }[item] };
                 s.cursor = 0;
                 setScreen('callAddress');
+                break;
+            case 'Individual ACK':
+                s.call = { kind: 'individual_ack', address: s.ackable.from, channel: s.ackable.channel ?? null, category: s.ackable.category ?? 'Routine' };
+                s.cursor = 0;
+                setScreen('ackAction');
+                break;
+            case 'Position Reply':
+                s.call = { kind: 'position_reply', address: s.replyTo.position, position: s.position, utc: s.utc };
+                setScreen('callReady');
+                break;
+            case 'Polling Reply':
+                s.call = { kind: 'polling_reply', address: s.replyTo.polling };
+                setScreen('callReady');
+                break;
+            case 'Add:INDV ID':
+                startEditor('addIndv');
+                break;
+            case 'Add:Group ID':
+                startEditor('addGroup');
                 break;
             case 'All Ships Call':
                 s.call = { kind: 'all_ships' };
@@ -198,6 +272,8 @@ export function createIcM505({ own, clock = () => Date.now(), emit = () => {}, a
             position: { title: 'Input Position', template: '##°##.###N ###°##.###E', next: 'utc' },
             utc: { title: 'Input UTC Time', template: '##:##', next: null },
             mmsi: { title: 'Input 9 digits', template: '#########', next: 'category' },
+            addIndv: { title: 'Input ID (9 digits)', template: '#########', next: null },
+            addGroup: { title: 'Input Group ID', template: '#########', next: null },
         };
         const t = templates[kind];
         const chars = t.template.split('').map((c) => (c === '#' ? '0' : c));
@@ -228,6 +304,7 @@ export function createIcM505({ own, clock = () => Date.now(), emit = () => {}, a
         if (e.kind === 'position') {
             const m = text.match(/^(\d\d)°(\d\d\.\d\d\d)([NS]) (\d\d\d)°(\d\d\.\d\d\d)([EW])$/);
             s.position = [Number(m[1]), Number(m[2]), m[3], Number(m[4]), Number(m[5]), m[6]];
+            s.positionSetAt = clock();
             event('position_set', { position: s.position });
             startEditor('utc');
         } else if (e.kind === 'utc') {
@@ -235,17 +312,42 @@ export function createIcM505({ own, clock = () => Date.now(), emit = () => {}, a
             event('utc_set', { utc: s.utc });
             closeToNormal();
         } else if (e.kind === 'mmsi') {
-            s.call.address = { name: null, mmsi: text };
+            s.call.address = { name: directory.find((d) => d.mmsi === text)?.name ?? null, mmsi: text };
             s.editor = null;
             s.cursor = 0;
-            setScreen('callCategory');
+            afterAddress();
+        } else if (e.kind === 'addIndv' || e.kind === 'addGroup') {
+            const group = e.kind === 'addGroup';
+            // Gruppen-MMSI beginnen mit 0, Schiffs-MMSI nicht.
+            if (group !== text.startsWith('0') || (! group && text.startsWith('00'))) {
+                event('address_invalid', { mmsi: text, group });
+
+                return;
+            }
+            const list = group ? s.groups : s.book;
+            const name = directory.find((d) => d.mmsi === text)?.name ?? `ID ${text}`;
+            if (! list.some((a) => a.mmsi === text)) list.push({ name, mmsi: text, ...(group ? { group: true } : {}) });
+            event('address_added', { mmsi: text, name, group });
+            s.editor = null;
+            openMenu('Set up', SETUP_MENU, ['Select Item', mainMenuItems()]);
         }
     }
 
     // --- DSC-Anrufe --------------------------------------------------------
 
+    function addressList() {
+        return s.call?.kind === 'group' ? s.groups : s.book;
+    }
+
     function callAddressItems() {
-        return ['Manual Input', ...addressBook.map((a) => a.name)];
+        return ['Manual Input', ...addressList().map((a) => a.name)];
+    }
+
+    function afterAddress() {
+        const c = s.call;
+        s.cursor = 0;
+        if (c.kind === 'position_request' || c.kind === 'polling_request') setScreen('callReady');
+        else setScreen('callCategory');
     }
 
     function chooseCallStep() {
@@ -257,25 +359,50 @@ export function createIcM505({ own, clock = () => Date.now(), emit = () => {}, a
 
                 return;
             }
-            c.address = addressBook[s.cursor - 1];
-            s.cursor = 0;
-            setScreen('callCategory');
+            c.address = addressList()[s.cursor - 1];
+            afterAddress();
         } else if (s.screen === 'callCategory') {
             c.category = CATEGORIES[s.cursor];
             s.cursor = 0;
-            if (c.kind === 'individual') {
+            if (c.kind === 'individual' || c.kind === 'group') {
                 c.channel = 8;
                 setScreen('callChannel');
             } else {
                 setScreen('callReady');
             }
+        } else if (s.screen === 'ackAction') {
+            c.action = s.cursor === 0 ? 'able' : 'unable';
+            if (c.action === 'unable') c.channel = null;
+            setScreen('callReady');
         } else if (s.screen === 'callChannel') {
             setScreen('callReady');
         } else if (s.screen === 'callReady') {
-            event('dsc_sent', { kind: c.kind, address: c.address ?? null, category: c.category, channel: c.channel ?? null });
+            event('dsc_sent', { kind: c.kind, address: c.address ?? null, category: c.category ?? null, channel: c.channel ?? null, action: c.action ?? null });
+            if (c.kind === 'individual_ack') s.ackable = null;
+            if (c.kind === 'position_reply') s.replyTo.position = null;
+            if (c.kind === 'polling_reply') s.replyTo.polling = null;
             setScreen('callTx');
-            if (c.kind === 'individual') c.waiting = true;
+            if (['individual', 'position_request', 'polling_request'].includes(c.kind)) c.waiting = true;
         }
+    }
+
+    // --- Suchlauf und Wache ------------------------------------------------
+
+    function startScan() {
+        if (! s.tags.size) {
+            event('scan_blocked', { reason: 'no_tag' });
+
+            return;
+        }
+        s.watch = 'off';
+        s.scan = { list: [...s.tags].sort((a, b) => a - b), index: -1, last: clock(), from: s.channel };
+        event('scan', { running: true, channels: s.scan.list });
+    }
+
+    function stopScan() {
+        if (! s.scan) return;
+        s.scan = null;
+        event('scan', { running: false, channel: s.channel });
     }
 
     // --- Notalarm ----------------------------------------------------------
@@ -299,7 +426,31 @@ export function createIcM505({ own, clock = () => Date.now(), emit = () => {}, a
 
     function shortPress(key) {
         if (! s.power) {
-            if (key === 'power') powerOn();
+            if (key === 'power') {
+                powerOn();
+                // Einschalten bei gedrückter 16•C öffnet den Set-Modus.
+                if (pressed.ch16) {
+                    pressed.ch16.combo = true;
+                    s.cursor = 0;
+                    setScreen('setMode');
+                    event('set_mode', { open: true });
+                }
+            }
+
+            return;
+        }
+
+        if (s.screen === 'setMode') {
+            const item = SET_MODE[s.cursor];
+            if (key === 'clr' || (key === 'enter' && item === 'Exit')) {
+                event('set_mode', { open: false });
+                closeToNormal();
+            } else if (key === 'enter' && item === 'Dual/Tri') {
+                s.watchMode = s.watchMode === 'dual' ? 'tri' : 'dual';
+                event('set_mode', { item, value: s.watchMode });
+            } else if (key === 'enter' && item === 'Scan Type') {
+                event('set_mode', { item, value: 'Priority' });
+            }
 
             return;
         }
@@ -307,6 +458,45 @@ export function createIcM505({ own, clock = () => Date.now(), emit = () => {}, a
         if (key === 'distressCover') {
             s.cover = ! s.cover;
             event('cover', { open: s.cover });
+
+            return;
+        }
+
+        // Empfangener Anruf: CLR schaltet erst den Alarmton ab, ein zweites
+        // CLR verlässt die Anzeige; ENTER geht auf den vorgeschlagenen
+        // Arbeitskanal bzw. öffnet die Antwort auf einen Einzelanruf.
+        if (s.incoming && s.screen === 'received' && (key === 'clr' || key === 'enter')) {
+            const i = s.incoming;
+            if (key === 'clr' && ! i.silenced) {
+                i.silenced = true;
+                event('alarm_stopped', { call: i.type });
+
+                return;
+            }
+            if (key === 'enter' && i.type === 'individual') {
+                i.silenced = true;
+                s.incoming = null;
+                s.call = { kind: 'individual_ack', address: i.from, channel: i.channel ?? null, category: i.category ?? 'Routine' };
+                s.cursor = 0;
+                setScreen('ackAction');
+
+                return;
+            }
+            if (key === 'enter' && CHANNEL_ON_ENTER.has(i.type) && i.channel) {
+                s.incoming = null;
+                closeToNormal();
+                setChannel(i.channel);
+                event('call_accepted', { call: i.type, channel: i.channel });
+
+                return;
+            }
+            if (key === 'enter' && i.type === 'position_reply') {
+                event('position_info', { from: i.from, position: i.position ?? null });
+
+                return;
+            }
+            s.incoming = null;
+            setScreen(s.distress?.waiting ? 'distressWait' : 'normal');
 
             return;
         }
@@ -355,6 +545,7 @@ export function createIcM505({ own, clock = () => Date.now(), emit = () => {}, a
             case 'callCategory':
             case 'callChannel':
             case 'callReady':
+            case 'ackAction':
                 if (key === 'enter') chooseCallStep();
                 else if (key === 'clr') { s.call = null; closeToNormal(); }
 
@@ -379,7 +570,9 @@ export function createIcM505({ own, clock = () => Date.now(), emit = () => {}, a
                 setChannel(16, { work: false });
                 break;
             case 'dial':
-                if (s.watch !== 'off') {
+                if (s.scan) {
+                    stopScan();
+                } else if (s.watch !== 'off') {
                     s.watch = 'off';
                     event('watch', { mode: 'off' });
                 } else {
@@ -400,13 +593,14 @@ export function createIcM505({ own, clock = () => Date.now(), emit = () => {}, a
                 setChannel(stepChannel(s.group, s.channel, key === 'micUp' ? 1 : -1));
                 break;
             case 'scan':
-                event('scan', { running: true });
+                if (s.scan) stopScan();
+                else startScan();
                 break;
         }
     }
 
     function longPress(key) {
-        if (! s.power) return;
+        if (! s.power || s.screen === 'setMode') return;
 
         switch (key) {
             case 'power':
@@ -419,12 +613,17 @@ export function createIcM505({ own, clock = () => Date.now(), emit = () => {}, a
                 event('call_channel', { channel: s.callChannel[s.group] });
                 break;
             case 'dial':
-                s.watch = 'dual';
-                event('watch', { mode: s.watch });
+                if (s.scan) stopScan();
+                s.watch = s.watchMode;
+                event('watch', { mode: s.watch, channel: s.channel });
                 break;
-            case 'scan':
-                event('tag', { channel: s.channel });
+            case 'scan': {
+                const on = ! s.tags.has(s.channel);
+                if (on) s.tags.add(s.channel);
+                else s.tags.delete(s.channel);
+                event('tag', { channel: s.channel, on });
                 break;
+            }
             case 'clr':
                 if (s.screen === 'editor' && s.editor.kind !== 'mmsi') {
                     s.editor.chars = s.editor.chars.map((c) => (/\d/.test(c) ? '0' : c));
@@ -517,6 +716,10 @@ export function createIcM505({ own, clock = () => Date.now(), emit = () => {}, a
                 s.cursor = Math.max(0, Math.min(CATEGORIES.length - 1, s.cursor + steps));
             } else if (s.screen === 'callChannel') {
                 s.call.channel = stepChannel('INT', s.call.channel, Math.sign(steps));
+            } else if (s.screen === 'ackAction') {
+                s.cursor = Math.max(0, Math.min(1, s.cursor + steps));
+            } else if (s.screen === 'setMode') {
+                s.cursor = Math.max(0, Math.min(SET_MODE.length - 1, s.cursor + steps));
             } else if (s.screen === 'normal' || s.screen === 'distressWait') {
                 const direction = Math.sign(steps);
                 for (let i = 0; i < Math.abs(steps); i++) setChannel(stepChannel(s.group, s.channel, direction));
@@ -529,6 +732,7 @@ export function createIcM505({ own, clock = () => Date.now(), emit = () => {}, a
 
                 return false;
             }
+            if (s.scan) stopScan();
             s.tx = true;
             event('tx_start', { channel: s.channel, group: s.group, highPower: effectiveHighPower() });
 
@@ -566,10 +770,23 @@ export function createIcM505({ own, clock = () => Date.now(), emit = () => {}, a
                 event('channel', { channel: 16, group: s.group, auto: true });
             }
 
+            if (s.screen === 'callTx' && s.call?.waiting && s.call.kind !== 'individual' && now - s.screenSince >= AUTO_RETURN) {
+                // Positions- und Polling-Abfrage: nach 2 s zurück, die Antwort
+                // kommt später als eigener Empfang.
+                s.call = null;
+                closeToNormal();
+            }
+
             if (s.screen === 'callTx' && s.call && ! s.call.waiting && now - s.screenSince >= AUTO_RETURN) {
                 if (s.call.channel) setChannel(s.call.channel);
                 s.call = null;
                 closeToNormal();
+            }
+
+            if (s.scan && now - s.scan.last >= SCAN_STEP) {
+                s.scan.last = now;
+                s.scan.index = (s.scan.index + 1) % s.scan.list.length;
+                s.channel = s.scan.list[s.scan.index];
             }
 
             if (s.distress?.waiting && now >= s.distress.nextAt) {
@@ -579,7 +796,11 @@ export function createIcM505({ own, clock = () => Date.now(), emit = () => {}, a
         // Eingehender DSC-Anruf einer Gegenstation (Lektion oder Freies Üben).
         receive(call) {
             if (! s.power) return;
+            if (s.scan) stopScan();
             s.received.unshift({ ...call, at: clock() });
+            if (call.type === 'individual') s.ackable = call;
+            if (call.type === 'position_request') s.replyTo.position = call.from;
+            if (call.type === 'polling_request') s.replyTo.polling = call.from;
 
             if (call.type === 'distress_ack' && s.distress?.waiting) {
                 s.distress.waiting = false;
@@ -591,16 +812,45 @@ export function createIcM505({ own, clock = () => Date.now(), emit = () => {}, a
             if (call.type === 'individual_ack' && s.call?.waiting) {
                 const channel = s.call.channel;
                 s.call = null;
-                setChannel(channel);
+                if (call.action !== 'unable') setChannel(channel);
             }
+            if ((call.type === 'position_reply' || call.type === 'polling_reply') && s.call?.waiting) s.call = null;
 
             if (['distress_ack', 'distress', 'distress_relay'].includes(call.type)) {
+                if (s.channel !== 16) s.workChannel = s.channel;
                 s.channel = 16;
             }
 
             s.incoming = { ...call, silenced: false };
             setScreen('received');
             event('dsc_received', { call });
+        },
+        // Sprechfunk einer Gegenstation auf einem Kanal: hörbar nur, wenn das
+        // Gerät an ist, auf dem Kanal steht (oder ihn per Wache bzw.
+        // Suchlauf überwacht), die Lautstärke offen ist und die Rauschsperre
+        // nicht zu weit zugedreht. Der Grund geht an die Oberfläche
+        // (Freies Üben erklärt, warum nichts zu hören war).
+        hear(voice) {
+            const result = (heard, reason = null) => {
+                event('voice', { heard, reason, from: voice.from ?? null, channel: voice.channel, text: voice.text });
+
+                return { heard, reason };
+            };
+            if (! s.power) return result(false, 'off');
+            let listening = s.channel === voice.channel;
+            if (! listening && s.watch !== 'off' && (voice.channel === 16 || (s.watch === 'tri' && voice.channel === s.callChannel[s.group]))) {
+                listening = true;
+            }
+            if (! listening && s.scan && s.scan.list.includes(voice.channel)) {
+                stopScan();
+                s.channel = voice.channel;
+                listening = true;
+            }
+            if (! listening) return result(false, 'channel');
+            if (s.vol === 0) return result(false, 'volume');
+            if (squelchState() === 'tight' && ! voice.strong) return result(false, 'squelch');
+
+            return result(true);
         },
         holdProgress() {
             if (s.screen !== 'distressHold' || ! s.distressHold) return null;
@@ -611,9 +861,11 @@ export function createIcM505({ own, clock = () => Date.now(), emit = () => {}, a
         // Ausgangslage einer Lektion.
         setup(start = {}) {
             if (start.power) powerOn();
-            for (const key of ['vol', 'sql', 'group', 'channel', 'highPower', 'position', 'utc']) {
+            for (const key of ['vol', 'sql', 'group', 'channel', 'highPower', 'position', 'utc', 'watchMode']) {
                 if (key in start) s[key] = start[key];
             }
+            if (start.position) s.positionSetAt = clock();
+            if (start.tags) s.tags = new Set(start.tags);
             if ('channel' in start) s.workChannel = start.channel;
             if ('nature' in start) s.nature = NATURES.indexOf(start.nature);
             if (start.distressWaiting) {
@@ -644,12 +896,14 @@ export function createIcM505({ own, clock = () => Date.now(), emit = () => {}, a
             },
             channel: pad(s.channel),
             channelName: ch?.name ?? '',
-            watch: s.watch === 'dual' ? 'DUAL 16' : s.watch === 'tri' ? 'TRI 16' : null,
+            watch: s.scan ? 'PRI-SCAN 16' : s.watch === 'dual' ? 'DUAL 16' : s.watch === 'tri' ? 'TRI 16' : null,
+            tag: s.tags.has(s.channel),
             lines: [],
             panel: null,
         };
-        const position = formatPosition(s.position);
-        const timeLine = s.utc ? `UTC ${s.utc}` : 'No Time';
+        const stale = positionStale() ? '??' : '';
+        const position = formatPosition(s.position)?.map((line) => stale + line);
+        const timeLine = s.utc ? `${stale}UTC ${s.utc}` : 'No Time';
         const posLines = position ?? ['No Position'];
 
         switch (s.screen) {
@@ -669,12 +923,16 @@ export function createIcM505({ own, clock = () => Date.now(), emit = () => {}, a
                 return { ...base, panel: { title: '--DSC Menu--', subtitle: 'Select Address', items: callAddressItems(), cursor: s.cursor, footer: '<CLR→Exit / ENT→OK>' } };
             case 'callCategory':
                 return { ...base, panel: { title: '--DSC Menu--', subtitle: 'Select Category', items: CATEGORIES, cursor: s.cursor, footer: '<CLR→Exit / ENT→OK>' } };
+            case 'setMode':
+                return { ...base, panel: { title: '--Set Mode--', subtitle: SET_MODE[s.cursor] === 'Dual/Tri' ? (s.watchMode === 'dual' ? 'Dualwatch' : 'Tri-watch') : '', items: SET_MODE, cursor: s.cursor, footer: '<CLR→Exit / ENT→OK>' } };
+            case 'ackAction':
+                return { ...base, panel: { title: '--DSC Menu--', subtitle: 'Select Action', items: ['Able to Comply', 'Unable to Comply'], cursor: s.cursor, footer: '<CLR→Exit / ENT→OK>' } };
             case 'callChannel':
                 return { ...base, panel: { title: '--DSC Menu--', subtitle: 'Select Traffic CH', lines: [pad(s.call.channel)], footer: '<CLR→Exit / ENT→OK>' } };
             case 'callReady':
-                return { ...base, panel: { title: '--DSC Menu--', subtitle: s.call.kind === 'individual' ? 'Individual Call Ready' : 'All Ships Call Ready', lines: [], footer: '<CLR→Exit / ENT→OK>' } };
+                return { ...base, panel: { title: '--DSC Menu--', subtitle: `${CALL_TITLES[s.call.kind]} Ready`, lines: s.call.address ? [s.call.address.name ?? s.call.address.mmsi] : [], footer: '<CLR→Exit / ENT→OK>' } };
             case 'callTx':
-                return { ...base, panel: { title: '--DSC Menu--', subtitle: s.call.kind === 'individual' ? 'Individual Call' : 'All Ships Call', lines: s.call.waiting ? ['TX Complete', 'Now Waiting for ACK'] : ['TX Complete'], blink: s.call.waiting, footer: '<CLR→Exit>' } };
+                return { ...base, panel: { title: '--DSC Menu--', subtitle: CALL_TITLES[s.call.kind], lines: s.call.waiting ? ['TX Complete', 'Now Waiting for ACK'] : ['TX Complete'], blink: s.call.waiting, footer: '<CLR→Exit>' } };
             case 'distressReady':
                 return { ...base, lines: [`Nature: ${NATURES[s.nature]}`, 'Push DISTRESS', 'for 5 sec.'] };
             case 'distressHold':
@@ -685,8 +943,11 @@ export function createIcM505({ own, clock = () => Date.now(), emit = () => {}, a
                 return { ...base, lines: ['Wait ACK', '<CLR→', 'Cancel ACK>'] };
             case 'received': {
                 const i = s.incoming;
-                const titles = { individual_ack: 'INDV ACK', distress_ack: 'DistressACK', distress: 'Distress', distress_relay: 'DistressRLY', individual: 'Individual', all_ships: 'All Ships', geographic: 'Geographic', group: 'Group' };
-                return { ...base, lines: ['Received', titles[i.type] ?? i.type, `<${i.from?.name ?? i.from?.mmsi ?? ''}`, i.silenced ? '' : '<CLR→ Beep Off>'], alarm: ! i.silenced };
+                const title = RECEIVED_TITLES[i.type] ?? i.type;
+                const detail = i.type === 'individual_ack' && i.action === 'unable' ? 'Unable to Comply' : i.nature ?? i.category ?? '';
+                const hint = i.silenced ? (i.type === 'individual' ? '<ENT→ACK>' : CHANNEL_ON_ENTER.has(i.type) && i.channel ? `<ENT→CH ${pad(i.channel)}>` : '<CLR→Exit>') : '<CLR→ Beep Off>';
+
+                return { ...base, lines: ['Received', title, `${i.from?.name ?? i.from?.mmsi ?? ''}`, detail, hint].filter((l) => l !== ''), alarm: ! i.silenced };
             }
             default:
                 return { ...base, lines: [...posLines, timeLine] };

@@ -73,7 +73,48 @@ class GeraetesimulationTest extends TestCase
                 $this->assertIsBool($step['speech']);
             }
         }
-        $this->assertCount(8, Geraetesimulation::data()['lessons']);
+        $this->assertGreaterThanOrEqual(30, count(Geraetesimulation::data()['lessons']));
+        $json = json_encode(Geraetesimulation::lessonsForBrowser());
+        $this->assertStringNotContainsString('"checks"', $json);
+        $this->assertStringNotContainsString('"solution"', $json);
+        $this->assertStringNotContainsString('"scenario"', $json);
+    }
+
+    public function test_every_model_solution_passes_its_own_checks(): void
+    {
+        foreach (Geraetesimulation::data()['lessons'] as $lesson) {
+            $solutions = Geraetesimulation::solutions($lesson['key']);
+            $speechSteps = array_keys(array_filter($lesson['steps'], fn ($step) => isset($step['speech'])));
+            $this->assertCount(count($speechSteps), $solutions, $lesson['key']);
+
+            foreach ($speechSteps as $i => $stepIndex) {
+                // DSC-Vorspann („DSC: … Sprechfunk auf Kanal 72: “) gehört nicht zum Funkspruch.
+                $text = preg_replace('/^.*Sprechfunk auf Kanal \d+: /s', '', $solutions[$i]);
+                $result = Geraetesimulation::evaluate($lesson['key'], $stepIndex, $text);
+                $this->assertTrue($result['passed'], "{$lesson['key']} Schritt {$stepIndex}: ".json_encode(array_filter($result['checks'], fn ($c) => ! $c['ok'])));
+            }
+        }
+    }
+
+    public function test_the_exam_stores_the_best_result_and_returns_the_model_solutions(): void
+    {
+        [$tenant, $admin, $course] = $this->superadminLearner();
+        $url = "/courses/{$course->id}/funk/geraetesimulation/pruefung";
+        $series = Geraetesimulation::data()['exams']['a'];
+
+        $this->actingAsInTenant($admin, $tenant)->postJson($url, ['series' => 'a', 'passed' => array_slice($series, 0, 5)])
+            ->assertOk()->assertJson(['passed' => 5, 'total' => 7, 'best' => 5])
+            ->assertJsonPath('solutions.notverkehr-beenden.0', fn ($text) => str_contains($text, 'seelonce feenee'))
+            ->assertJsonPath('solutions.notalarm-senden', []);
+        $this->actingAsInTenant($admin, $tenant)->postJson($url, ['series' => 'a', 'passed' => ['einzelanruf', 'gibt-es-nicht']])
+            ->assertOk()->assertJson(['passed' => 1, 'best' => 5]);
+        $this->actingAsInTenant($admin, $tenant)->postJson($url, ['series' => 'x', 'passed' => []])->assertStatus(422);
+
+        $this->actingAsInTenant($admin, $tenant)->get("/courses/{$course->id}/funk/geraetesimulation")
+            ->assertOk()->assertSee('"best":5', false);
+        $row = $this->onAdmin(fn () => RadioTrainingProgress::where('user_id', $admin->id)->where('item_key', 'ic-m505:pruefung-a')->sole());
+        $this->assertSame(['einzelanruf'], $row->answers['last']);
+        $this->assertFalse($row->completed);
     }
 
     public function test_a_spoken_distress_message_is_scored_with_the_praxis_rules(): void
