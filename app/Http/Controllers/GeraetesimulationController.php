@@ -33,8 +33,8 @@ class GeraetesimulationController extends Controller
             ->get()
             ->keyBy(fn ($p) => substr($p->item_key, strlen(Geraetesimulation::DEVICE) + 1));
         $progress = $rows->reject(fn ($p, $key) => str_starts_with($key, 'pruefung-'))->map(fn ($p) => (int) ($p->answers['level'] ?? 0));
-        $exams = collect($data['exams'])->map(fn ($lessons, $series) => [
-            'lessons' => $lessons,
+        $catalogs = Geraetesimulation::catalogsFor($course);
+        $exams = collect(Geraetesimulation::exams($catalogs))->map(fn ($exam, $series) => $exam + [
             'best' => $rows->get('pruefung-'.$series)?->answers['best'] ?? null,
         ]);
 
@@ -45,7 +45,8 @@ class GeraetesimulationController extends Controller
                 'ship' => $data['ship'],
                 'addressBook' => $data['address_book'],
                 'directory' => $data['directory'],
-                'lessons' => Geraetesimulation::lessonsForBrowser(),
+                'catalogs' => $catalogs,
+                'lessons' => Geraetesimulation::lessonsForBrowser($catalogs),
                 'progress' => $progress,
                 'exams' => $exams,
                 'speechLang' => 'en-GB',
@@ -101,7 +102,7 @@ class GeraetesimulationController extends Controller
     public function exam(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course): JsonResponse
     {
         $this->authorizeCourse($request, $tenantContext, $entitlements, $course);
-        $exams = Geraetesimulation::data()['exams'];
+        $exams = array_map(fn ($exam) => $exam['lessons'], Geraetesimulation::exams(Geraetesimulation::catalogsFor($course)));
         $validated = $request->validate([
             'series' => ['required', 'string', Rule::in(array_keys($exams))],
             'passed' => ['present', 'array'],

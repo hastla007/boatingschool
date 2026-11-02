@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Gerätesimulation Funk, Stufen 1 und 2 (IC-M505, Seefunk): Übungsschiff,
+ * Gerätesimulation Funk, Stufen 1–3 (IC-M505, Seefunk und Binnenfunk): Übungsschiff,
  * Gegenstationen, Lektionen und die Reihen des Prüfungsmodus. Die Lektionen
  * gehen als JSON an den Browser (Lektionssteuerung in
  * resources/js/funkgeraet/lessons.js); dieselbe Datei liefert dem Server die
@@ -17,8 +17,14 @@
  * mit den Prüfpunkten der Meldung eines Praxis-Szenarios ("scenario", Format
  * wie database/data/funk_praxis_aufgaben.php, siehe FunkPraxis::scenario()).
  *
+ * Lektionen mit "catalog" => 'UBI' sind Binnenfunk: Kanalgruppe ATIS,
+ * deutsche Funksprüche ("lang" de-DE), Szenarien aus dem UBI-Teil der
+ * Praxis-Prüfungssimulation. Ohne "catalog" gilt Seefunk (SRC).
+ *
  * Namen, Rufzeichen und MMSI der Yachten sind erfunden, ebenso die
- * Küstenfunkstelle „Nordsee Radio“; Bremen Rescue Radio ist die echte
+ * Küstenfunkstelle „Nordsee Radio“, die ATIS-Kennung und die Kanäle der
+ * Schleuse und der Revierzentrale (Beispiele wie im Handbuch
+ * Binnenschifffahrtsfunk); Bremen Rescue Radio ist die echte
  * Küstenfunkstelle wie in der Praxis-Prüfungssimulation.
  */
 $ship = ['vessel' => 'KORMORAN', 'callsign' => 'DH4721', 'mmsi' => '211472100', 'type' => 'sail'];
@@ -42,18 +48,42 @@ $start = ['power' => true, 'vol' => 5, 'sql' => 3, 'channel' => 16];
 $startWithPosition = ['position' => [54, 10.0, 'N', 7, 52.0, 'E'], 'utc' => '12:30'] + $start;
 $waitForAck = ['text' => 'Warte auf die Bestätigung. Das Gerät stellt dann den Arbeitskanal ein.', 'target' => null, 'help' => 'Nichts drücken.'];
 
+// Binnenfunk: dasselbe Boot auf dem Rhein, Funkgerät im Binnenmodus (ATIS).
+$inland = ['vessel' => 'KORMORAN', 'callsign' => 'DH4721', 'type' => 'Segelboot'];
+$rhein = ['waterway' => 'Rhein', 'km' => 552, 'direction' => 'Talfahrt'];
+$binnenStart = ['power' => true, 'vol' => 5, 'sql' => 3, 'group' => 'ATIS', 'channel' => 10, 'highPower' => false];
+$ubi = ['catalog' => 'UBI', 'lang' => 'de-DE'];
+$hierIst = ['HIER IST', '\bHIER IST\b|\bTHIS IS\b', 1];
+$kommen = ['Abschluss KOMMEN', '\b(KOMMEN|OVER)\b', 1];
+$ende = ['Abschluss ENDE', '\b(ENDE|OUT)\b', 1];
+$revierzentrale = 'REVIERZENTRALE OBERWESEL';
+$eisvogelMayday = 'Mayday, Mayday, Mayday, hier ist Eisvogel, Eisvogel, Eisvogel, Delta Alfa Zwo Acht Drei Null. Mayday Eisvogel, Delta Alfa Zwo Acht Drei Null, Position Rhein Kilometer 553, starke Schlagseite, das Boot droht zu kentern, 4 Personen an Bord, erbitte sofortige Hilfe. Kommen.';
+$eisvogel = ['vessel' => 'EISVOGEL', 'callsign' => 'DA2830', 'type' => 'Segelboot', 'nature' => 'capsize', 'persons' => 4];
+
 return [
-    'ship' => $ship + ['label' => 'Segelyacht Kormoran'],
+    'ship' => $ship + ['label' => 'Segelyacht Kormoran', 'atis' => '9211234721'],
 
     'address_book' => [$moewe, $bremenRescue, $nordseeRadio, $flotilla],
 
     // Bekannte Stationen: Name nach „Add:INDV ID“ und bei Handeingabe der MMSI.
     'directory' => [$moewe, $seestern, $albatros, $bremenRescue, $nordseeRadio],
 
-    // Prüfungsmodus Seefunk: je vier Pflichtaufgaben (1–4) und drei sonstige.
+    // Prüfungsmodus. Seefunk: je vier Pflichtaufgaben (1–4) und drei
+    // sonstige. Binnenfunk wie im dritten Prüfungsteil: Gerät zu Beginn aus
+    // und in der Kanalgruppe INT; Vollprüfung zwei Fallbeispiele,
+    // Ergänzungsprüfung (mit SRC) ein Fall aus Not, Dringlichkeit oder
+    // Sicherheit und ein Routineanruf.
     'exams' => [
         'a' => ['notalarm-senden', 'notmeldung-sprechen', 'notverkehr-beenden', 'dringlichkeit', 'einzelanruf', 'kuestenfunkstelle', 'medico'],
         'b' => ['notalarm-empfangen', 'mayday-relay', 'fehlalarm-aufheben', 'sicherheit', 'einzelanruf-annehmen', 'gruppenanruf', 'position-polling'],
+        'ubi-voll' => ['binnen-notmeldung', 'binnen-sicherheit'],
+        'ubi-ergaenzung' => ['binnen-dringlichkeit', 'binnen-schleuse'],
+    ],
+    'exam_meta' => [
+        'a' => ['title' => 'SRC Reihe a', 'catalog' => 'SRC'],
+        'b' => ['title' => 'SRC Reihe b', 'catalog' => 'SRC'],
+        'ubi-voll' => ['title' => 'UBI Vollprüfung', 'catalog' => 'UBI', 'start' => ['power' => false, 'vol' => 5, 'sql' => 3, 'group' => 'INT', 'channel' => 16, 'highPower' => false]],
+        'ubi-ergaenzung' => ['title' => 'UBI Ergänzungsprüfung (mit SRC)', 'catalog' => 'UBI', 'start' => ['power' => false, 'vol' => 5, 'sql' => 3, 'group' => 'INT', 'channel' => 16, 'highPower' => false]],
     ],
 
     'lessons' => [
@@ -502,6 +532,199 @@ return [
                 $waitForAck + ['goal' => ['type' => 'channel', 'channel' => 26], 'receive' => ['delay_ms' => 4000, 'call' => ['type' => 'individual_ack', 'from' => $nordseeRadio]]],
                 ['text' => 'Melde dich auf Kanal 26 und nenne dein Anliegen.', 'target' => 'ptt', 'help' => '„Nordsee Radio, this is Kormoran, DH4721, my estimated time of arrival in Helgoland is 1700 UTC, over.“', 'goal' => ['type' => 'spoken', 'channel' => 26], 'speech' => ['checks' => [['Küstenfunkstelle Nordsee Radio', 'NORDSEE', 1], $thisIs, $kormoran, ['Ankunftszeit', 'ARRIVAL|\bETA\b|ANKUNFT', 1], ['Uhrzeit 1700', '1700|17 00|ONE SEVEN ZERO ZERO|SEVENTEEN HUNDRED', 1], $over], 'solution' => 'Nordsee Radio, this is Kormoran, Delta Hotel Four Seven Two One, my estimated time of arrival in Helgoland is one seven zero zero UTC, over.']],
                 ['text' => 'Hör die Antwort.', 'target' => null, 'help' => 'Nur zuhören.', 'goal' => ['type' => 'voice', 'heard' => true, 'from' => 'NORDSEE RADIO'], 'voice' => ['delay_ms' => 2000, 'from' => 'NORDSEE RADIO', 'channel' => 26, 'text' => 'Kormoran, this is Nordsee Radio, received, your estimated time of arrival Helgoland one seven zero zero. Out.']],
+            ],
+        ],
+
+        // --- Binnen 1 Gerät im Binnenfunk ------------------------------------
+        $ubi + [
+            'key' => 'binnen-atis',
+            'unit' => 'Binnen: Gerät',
+            'title' => 'Binnenmodus (ATIS) einstellen',
+            'intro' => 'Auf Binnenschifffahrtsstraßen funkst du im Binnenmodus, der Kanalgruppe ATIS. Dort gibt es keinen Kanal 16 und kein DSC; außer in der Nautischen Information sendet das Gerät automatisch mit 1 W und hängt nach jedem Funkspruch die ATIS-Kennung an.',
+            'start' => ['power' => false, 'vol' => 5, 'sql' => 3, 'group' => 'INT', 'channel' => 16, 'highPower' => false],
+            'steps' => [
+                ['text' => 'Schalte das Funkgerät ein.', 'target' => 'power', 'help' => 'POWER kurz drücken.', 'goal' => ['type' => 'power', 'on' => true]],
+                ['text' => 'Schalte auf die Kanalgruppe ATIS.', 'target' => 'hl', 'help' => 'H/L gedrückt halten und DIAL drücken, bis ATIS im Display steht.', 'goal' => ['type' => 'group', 'group' => 'ATIS']],
+                ['text' => 'Versuche, Kanal 16 zu wählen.', 'target' => 'ch16', 'help' => '16/C drücken: Im Binnenfunk gibt es keinen Kanal 16.', 'goal' => ['type' => 'ch16_unavailable']],
+                ['text' => 'Versuche, das DSC-Menü zu öffnen.', 'target' => 'menu', 'help' => 'MENU drücken: DSC ist im Binnenfunk nicht zugelassen.', 'goal' => ['type' => 'dsc_blocked', 'key' => 'menu']],
+                ['text' => 'Wähle Kanal 10, den ersten Kanal im Verkehrskreis Schiff-Schiff.', 'target' => 'channel', 'help' => 'Kanalwahlknopf drehen, bis 10 im Display steht.', 'goal' => ['type' => 'channel', 'channel' => 10, 'group' => 'ATIS']],
+                ['text' => 'Versuche, auf 25 W zu schalten.', 'target' => 'hl', 'help' => 'H/L drücken: Auf Kanal 10 sendet das Gerät höchstens mit 1 W.', 'goal' => ['type' => 'power_level_blocked', 'channel' => 10]],
+                ['text' => 'Wähle Kanal 18 (Nautische Information) und schalte auf 25 W.', 'target' => 'hl', 'help' => 'Kanal 18 einstellen, dann H/L drücken, bis 25W im Display steht. 25 W sind nur in der Nautischen Information zulässig.', 'goal' => ['type' => 'power_level', 'high' => true, 'channel' => 18]],
+            ],
+        ],
+        $ubi + [
+            'key' => 'binnen-verkehrskreise',
+            'unit' => 'Binnen: Gerät',
+            'title' => 'Verkehrskreise und Testsendung',
+            'intro' => 'Die Kanäle gehören zu Verkehrskreisen: Schiff-Schiff (10, 08, 72, 77), Schiff-Hafen (11–14, 71) und Nautische Information (18–28, 73, 78, 80, 82, 84). Das Display zeigt den Verkehrskreis unter der Kanalnummer.',
+            'start' => $binnenStart,
+            'steps' => [
+                ['text' => 'Stelle einen Kanal des Verkehrskreises Schiff-Hafen ein.', 'target' => 'channel', 'help' => 'Zum Beispiel Kanal 11; im Display steht SHIP-PORT.', 'goal' => ['type' => 'channel', 'group' => 'ATIS', 'circle' => 'Schiff-Hafen']],
+                ['text' => 'Stelle einen Kanal der Nautischen Information ein.', 'target' => 'channel', 'help' => 'Zum Beispiel Kanal 18; im Display steht NAUT INFO.', 'goal' => ['type' => 'channel', 'group' => 'ATIS', 'circle' => 'Nautische Information']],
+                ['text' => 'Geh zurück auf Kanal 10 und sende eine Testsendung: höchstens 10 Sekunden, mit dem Wort „Test“ und deiner Kennung.', 'target' => 'ptt', 'help' => '„Kormoran, Delta Hotel Vier Sieben Zwo Eins, Test.“ Nach dem Loslassen sendet das Gerät die ATIS-Kennung.', 'goal' => ['type' => 'spoken', 'channel' => 10, 'group' => 'ATIS'], 'speech' => ['checks' => [['Wort „Test“', '\bTEST\b', 1], ['Kennung (Name oder Rufzeichen)', '\bKORMORAN\b|DH ?4721|DELTA HOTEL', 1]], 'solution' => 'Kormoran, Delta Hotel Vier Sieben Zwo Eins, Test.']],
+            ],
+        ],
+
+        // --- Binnen 2 Funkverkehr --------------------------------------------
+        $ubi + [
+            'key' => 'binnen-schleuse',
+            'unit' => 'Binnen: Funkverkehr',
+            'title' => 'Anruf an eine Schleuse',
+            'intro' => 'Du fährst auf dem Neckar bei Kilometer 63 zu Berg auf eine Schleuse zu. An der Einfahrt steht das Tafelzeichen „UKW 20“. Melde dich zur Schleusung an (Länge 10 Meter).',
+            'start' => $binnenStart,
+            'steps' => [
+                ['text' => 'Stelle den Kanal vom Tafelzeichen ein.', 'target' => 'channel', 'help' => 'Kanal 20 einstellen.', 'goal' => ['type' => 'channel', 'channel' => 20, 'group' => 'ATIS']],
+                ['text' => 'Melde dich bei der Schleuse an.', 'target' => 'ptt', 'help' => '„Schleuse, Schleuse, hier ist Kormoran, Kormoran, Delta Hotel Vier Sieben Zwo Eins, ich möchte mich zur Schleusung anmelden, Länge 10 Meter, kommen.“', 'goal' => ['type' => 'spoken', 'channel' => 20, 'group' => 'ATIS'], 'speech' => ['scenario' => $inland + ['where' => ['waterway' => 'Neckar', 'km' => 63, 'direction' => 'Bergfahrt'], 'kind' => 'routine', 'topic' => 'lock', 'channel' => 20]]],
+                ['text' => 'Hör die Antwort der Schleuse.', 'target' => null, 'help' => 'Nur zuhören.', 'goal' => ['type' => 'voice', 'heard' => true, 'from' => 'SCHLEUSE'], 'voice' => ['delay_ms' => 2000, 'from' => 'SCHLEUSE', 'channel' => 20, 'lang' => 'de-DE', 'text' => 'Kormoran, hier Schleuse. Einfahrt in etwa zehn Minuten, achten Sie auf das grüne Licht. Ende.']],
+            ],
+        ],
+        $ubi + [
+            'key' => 'binnen-begegnung',
+            'unit' => 'Binnen: Funkverkehr',
+            'title' => 'Begegnung absprechen',
+            'intro' => 'Du fährst auf dem Rhein bei Kilometer 848 zu Berg und hältst dich am linken Ufer. Vor dir kommt das Motorschiff Hansestadt zu Tal. Sprich die Begegnung auf Kanal 10 ab.',
+            'start' => $binnenStart,
+            'steps' => [
+                ['text' => 'Ruf die Hansestadt auf Kanal 10.', 'target' => 'ptt', 'help' => '„Hansestadt, Hansestadt, hier ist Kormoran, Kormoran, Delta Hotel Vier Sieben Zwo Eins, ich bin Bergfahrer, ich halte mich am linken Ufer, Begegnung Backbord an Backbord, kommen.“', 'goal' => ['type' => 'spoken', 'channel' => 10, 'group' => 'ATIS'], 'speech' => ['scenario' => $inland + ['where' => ['waterway' => 'Rhein', 'km' => 848, 'direction' => 'Bergfahrt'], 'kind' => 'routine', 'topic' => 'meeting']]],
+                ['text' => 'Hör die Antwort.', 'target' => null, 'help' => 'Nur zuhören.', 'goal' => ['type' => 'voice', 'heard' => true, 'from' => 'HANSESTADT'], 'voice' => ['delay_ms' => 2000, 'from' => 'HANSESTADT', 'channel' => 10, 'lang' => 'de-DE', 'text' => 'Kormoran, hier Hansestadt. Begegnung Backbord an Backbord, verstanden. Ende.']],
+            ],
+        ],
+        $ubi + [
+            'key' => 'binnen-privat',
+            'unit' => 'Binnen: Funkverkehr',
+            'title' => 'Gespräch privater Art',
+            'intro' => 'Gespräche privater Art gehören nicht auf Kanal 10, sondern auf die Kanäle 72 oder 77 im Verkehrskreis Schiff-Schiff.',
+            'start' => $binnenStart,
+            'steps' => [
+                ['text' => 'Hör zu: Die Möwe ruft dich auf Kanal 10.', 'target' => null, 'help' => 'Nur zuhören.', 'goal' => ['type' => 'voice', 'heard' => true, 'from' => 'MOEWE'], 'voice' => ['delay_ms' => 1500, 'from' => 'MOEWE', 'channel' => 10, 'lang' => 'de-DE', 'text' => 'Kormoran, Kormoran, hier Möwe, Möwe. Für ein privates Gespräch auf Kanal 77. Kommen.']],
+                ['text' => 'Wechsle auf Kanal 77.', 'target' => 'channel', 'help' => 'Kanalwahlknopf auf 77 drehen.', 'goal' => ['type' => 'channel', 'channel' => 77, 'group' => 'ATIS']],
+                ['text' => 'Melde dich auf Kanal 77 bei der Möwe.', 'target' => 'ptt', 'help' => '„Möwe, hier ist Kormoran, kommen.“', 'goal' => ['type' => 'spoken', 'channel' => 77, 'group' => 'ATIS'], 'speech' => ['checks' => [$moeweCheck, $hierIst, $kormoran, $kommen], 'solution' => 'Möwe, hier ist Kormoran, kommen.']],
+            ],
+        ],
+        $ubi + [
+            'key' => 'binnen-revierzentrale',
+            'unit' => 'Binnen: Funkverkehr',
+            'title' => 'Revierzentrale und Kanal nachschlagen',
+            'intro' => 'Du bist auf dem Rhein bei Kilometer 552 zu Tal und möchtest die aktuellen Wasserstände erfragen. Laut Handbuch Binnenschifffahrtsfunk ist für diesen Abschnitt die Revierzentrale Oberwesel zuständig, Nautische Information auf Kanal 18 (Beispiel).',
+            'start' => $binnenStart,
+            'steps' => [
+                ['text' => 'Stelle den Kanal der Revierzentrale ein.', 'target' => 'channel', 'help' => 'Kanal 18 einstellen.', 'goal' => ['type' => 'channel', 'channel' => 18, 'group' => 'ATIS']],
+                ['text' => 'Frag die Revierzentrale nach den Wasserständen.', 'target' => 'ptt', 'help' => '„Revierzentrale, Revierzentrale, hier ist Kormoran, Kormoran, Delta Hotel Vier Sieben Zwo Eins, erbitte die aktuellen Wasserstände für meine weitere Fahrt, kommen.“', 'goal' => ['type' => 'spoken', 'channel' => 18, 'group' => 'ATIS'], 'speech' => ['scenario' => $inland + ['where' => $rhein, 'kind' => 'routine', 'topic' => 'water_level']]],
+                ['text' => 'Hör die Antwort.', 'target' => null, 'help' => 'Nur zuhören.', 'goal' => ['type' => 'voice', 'heard' => true, 'from' => $revierzentrale], 'voice' => ['delay_ms' => 2000, 'from' => $revierzentrale, 'channel' => 18, 'lang' => 'de-DE', 'text' => 'Kormoran, hier Revierzentrale Oberwesel. Pegel Kaub zwei Meter zehn, fallend. Ende.']],
+            ],
+        ],
+
+        // --- Binnen 3 Notverkehr ---------------------------------------------
+        $ubi + [
+            'key' => 'binnen-notmeldung',
+            'unit' => 'Binnen: Notverkehr',
+            'title' => 'Notmeldung',
+            'intro' => 'Wassereinbruch nach einer Grundberührung auf dem Rhein bei Kilometer 552, Talfahrt: Das Boot sinkt, 2 Personen an Bord. Ruf die Revierzentrale Oberwesel in der Nautischen Information (Kanal 18) mit 25 W.',
+            'start' => $binnenStart,
+            'steps' => [
+                ['text' => 'Sprich die Notmeldung auf Kanal 18 mit 25 W.', 'target' => 'ptt', 'help' => 'Kanal 18 wählen, H/L auf 25 W, dann: MAYDAY (dreimal), hier ist Kormoran (dreimal), Delta Hotel Vier Sieben Zwo Eins, MAYDAY Kormoran …, Position Rhein Kilometer 552, Talfahrt, Wassereinbruch nach Grundberührung, das Boot sinkt, 2 Personen an Bord, erbitte sofortige Hilfe, kommen.', 'goal' => ['type' => 'spoken', 'channel' => 18, 'group' => 'ATIS', 'highPower' => true], 'speech' => ['scenario' => $inland + ['where' => $rhein, 'kind' => 'distress', 'nature' => 'flooding', 'persons' => 2]]],
+                ['text' => 'Hör die Antwort der Revierzentrale.', 'target' => null, 'help' => 'Nur zuhören.', 'goal' => ['type' => 'voice', 'heard' => true, 'from' => $revierzentrale], 'voice' => ['delay_ms' => 2500, 'from' => $revierzentrale, 'channel' => 18, 'lang' => 'de-DE', 'text' => 'Mayday Kormoran, Kormoran, Kormoran, hier Revierzentrale Oberwesel. Mayday empfangen. Die Wasserschutzpolizei ist unterwegs. Kommen.']],
+            ],
+        ],
+        $ubi + [
+            'key' => 'binnen-notmeldung-empfangen',
+            'unit' => 'Binnen: Notverkehr',
+            'title' => 'Notmeldung empfangen und bestätigen',
+            'intro' => 'Im Verkehrskreis Schiff-Schiff bestätigt ein Schiff in der Nähe die Notmeldung. Du bist kurz vor dem Segelboot Eisvogel und kannst helfen.',
+            'start' => $binnenStart,
+            'steps' => [
+                ['text' => 'Hör die Notmeldung auf Kanal 10.', 'target' => null, 'help' => 'Nur zuhören und mitschreiben.', 'goal' => ['type' => 'voice', 'heard' => true, 'from' => 'EISVOGEL'], 'voice' => ['delay_ms' => 1500, 'from' => 'EISVOGEL', 'channel' => 10, 'lang' => 'de-DE', 'text' => $eisvogelMayday]],
+                ['text' => 'Bestätige die Notmeldung.', 'target' => 'ptt', 'help' => '„Mayday Eisvogel, Eisvogel, Eisvogel, hier ist Kormoran, Kormoran, Kormoran, Delta Hotel Vier Sieben Zwo Eins, Mayday empfangen, ich komme zu Hilfe, kommen.“', 'goal' => ['type' => 'spoken', 'channel' => 10, 'group' => 'ATIS'], 'speech' => ['checks' => [
+                    ['MAYDAY', '\bMAYDAY\b', 1],
+                    ['Fahrzeug in Not dreimal (Eisvogel)', '\bEISVOGEL\b', 3],
+                    $hierIst,
+                    $kormoran,
+                    ['MAYDAY EMPFANGEN', 'EMPFANGEN|RECEIVED', 1],
+                    $kommen,
+                ], 'solution' => 'Mayday Eisvogel, Eisvogel, Eisvogel, hier ist Kormoran, Kormoran, Kormoran, Delta Hotel Vier Sieben Zwo Eins, Mayday empfangen, ich komme zu Hilfe, kommen.']],
+            ],
+        ],
+        $ubi + [
+            'key' => 'binnen-relay',
+            'unit' => 'Binnen: Notverkehr',
+            'title' => 'Notmeldung weiterleiten',
+            'intro' => 'Du hörst auf Kanal 10 die Notmeldung des Segelboots Eisvogel. Niemand antwortet, und du kannst selbst nicht helfen. Leite die Notmeldung an die Revierzentrale Oberwesel weiter (Kanal 18, 25 W).',
+            'start' => $binnenStart,
+            'steps' => [
+                ['text' => 'Hör die Notmeldung auf Kanal 10.', 'target' => null, 'help' => 'Nur zuhören und mitschreiben.', 'goal' => ['type' => 'voice', 'heard' => true, 'from' => 'EISVOGEL'], 'voice' => ['delay_ms' => 1500, 'from' => 'EISVOGEL', 'channel' => 10, 'lang' => 'de-DE', 'text' => $eisvogelMayday]],
+                ['text' => 'Leite die Notmeldung auf Kanal 18 mit 25 W weiter.', 'target' => 'ptt', 'help' => 'MAYDAY RELAY (dreimal), hier ist Kormoran (dreimal), Delta Hotel Vier Sieben Zwo Eins, MAYDAY Eisvogel, Delta Alfa Zwo Acht Drei Null, Position Rhein Kilometer 552, starke Schlagseite, das Boot droht zu kentern, 4 Personen an Bord, kommen.', 'goal' => ['type' => 'spoken', 'channel' => 18, 'group' => 'ATIS', 'highPower' => true], 'speech' => ['scenario' => $inland + ['where' => $rhein, 'kind' => 'relay', 'distressed' => $eisvogel]]],
+            ],
+        ],
+        $ubi + [
+            'key' => 'binnen-funkstille',
+            'unit' => 'Binnen: Notverkehr',
+            'title' => 'Funkstille und Ende des Notverkehrs',
+            'intro' => 'Die Kormoran ist in Not, du führst auf Kanal 18 den Notverkehr mit der Revierzentrale. Eine Yacht stört mit einer Routinefrage.',
+            'start' => ['channel' => 18, 'highPower' => true] + $binnenStart,
+            'steps' => [
+                ['text' => 'Hör, wer stört.', 'target' => null, 'help' => 'Nur zuhören.', 'goal' => ['type' => 'voice', 'heard' => true, 'from' => 'ALBATROS'], 'voice' => ['delay_ms' => 1500, 'from' => 'ALBATROS', 'channel' => 18, 'lang' => 'de-DE', 'text' => 'Revierzentrale, hier Albatros, wie ist der Pegel in Kaub? Kommen.']],
+                ['text' => 'Gebiete Funkstille.', 'target' => 'ptt', 'help' => '„Albatros, hier ist Kormoran, Silence Mayday.“', 'goal' => ['type' => 'spoken', 'channel' => 18, 'group' => 'ATIS'], 'speech' => ['checks' => [['SILENCE MAYDAY', 'SILENCE MAYDAY|SEELONCE MAYDAY', 1], $kormoran], 'solution' => 'Albatros, hier ist Kormoran, Silence Mayday.']],
+                ['text' => 'Die Wasserschutzpolizei hat deine Crew übernommen, die Gefahr ist vorbei. Beende den Notverkehr um 14:20 Uhr.', 'target' => 'ptt', 'help' => 'MAYDAY, an alle Funkstellen (dreimal), hier ist Kormoran (dreimal), Delta Hotel Vier Sieben Zwo Eins, 14 Uhr 20, Kormoran, Silence fini, Ende.', 'goal' => ['type' => 'spoken', 'channel' => 18, 'group' => 'ATIS'], 'speech' => ['checks' => [
+                    ['MAYDAY', '\bMAYDAY\b', 1],
+                    ['AN ALLE FUNKSTELLEN dreimal', 'AN ALLE FUNKSTELLEN|ALL STATIONS', 3],
+                    $hierIst,
+                    ['Name dreimal (Kormoran)', '\bKORMORAN\b', 3],
+                    ['Uhrzeit (14:20 Uhr)', '1420|14 20|14 UHR 20|VIERZEHN UHR ZWANZIG', 1],
+                    ['SILENCE FINI', 'SILENCE FINI|SEELONCE FEENEE|SILENCE FEENEE', 1],
+                    $ende,
+                ], 'solution' => 'Mayday, an alle Funkstellen, an alle Funkstellen, an alle Funkstellen, hier ist Kormoran, Kormoran, Kormoran, Delta Hotel Vier Sieben Zwo Eins, 14 Uhr 20, Kormoran, Silence fini, Ende.']],
+            ],
+        ],
+        $ubi + [
+            'key' => 'binnen-notmeldung-nif',
+            'unit' => 'Binnen: Notverkehr',
+            'title' => 'Wer bestätigt in der Nautischen Information?',
+            'intro' => 'In der Nautischen Information bestätigt die Revierzentrale oder Schleuse eine Notmeldung, nicht ein Schiff in der Nähe. Hör auf Kanal 18 mit und halte Funkstille.',
+            'start' => ['channel' => 18] + $binnenStart,
+            'steps' => [
+                ['text' => 'Hör die Notmeldung auf Kanal 18.', 'target' => null, 'help' => 'Nur zuhören, nicht selbst bestätigen.', 'goal' => ['type' => 'voice', 'heard' => true, 'from' => 'ALBATROS'], 'voice' => ['delay_ms' => 1500, 'from' => 'ALBATROS', 'channel' => 18, 'lang' => 'de-DE', 'text' => 'Mayday, Mayday, Mayday, hier ist Albatros, Albatros, Albatros, Delta India Sechs Null Null Sieben. Mayday Albatros, Position Rhein Kilometer 549, Feuer in der Kajüte, 3 Personen an Bord, erbitte sofortige Hilfe. Kommen.']],
+                ['text' => 'Hör, wer bestätigt.', 'target' => null, 'help' => 'Nur zuhören.', 'goal' => ['type' => 'voice', 'heard' => true, 'from' => $revierzentrale], 'voice' => ['delay_ms' => 3000, 'from' => $revierzentrale, 'channel' => 18, 'lang' => 'de-DE', 'text' => 'Mayday Albatros, Albatros, Albatros, hier Revierzentrale Oberwesel. Mayday empfangen. Feuerwehr und Wasserschutzpolizei sind alarmiert. Kommen.']],
+            ],
+        ],
+
+        // --- Binnen 4 Dringlichkeit und Sicherheit ---------------------------
+        $ubi + [
+            'key' => 'binnen-dringlichkeit',
+            'unit' => 'Binnen: Dringlichkeit und Sicherheit',
+            'title' => 'Dringlichkeitsmeldung',
+            'intro' => 'Maschinenausfall auf dem Rhein bei Kilometer 552, Talfahrt; du liegst sicher vor Anker, keine unmittelbare Gefahr. 2 Personen an Bord. Bitte die Revierzentrale Oberwesel (Kanal 18, 25 W) um Schlepphilfe.',
+            'start' => $binnenStart,
+            'steps' => [
+                ['text' => 'Sprich die Dringlichkeitsmeldung auf Kanal 18 mit 25 W.', 'target' => 'ptt', 'help' => 'PAN PAN (dreimal), hier ist Kormoran (dreimal), Delta Hotel Vier Sieben Zwo Eins, Position Rhein Kilometer 552, Talfahrt, Maschinenausfall, ich liege vor Anker, erbitte Schlepphilfe, 2 Personen an Bord, kommen.', 'goal' => ['type' => 'spoken', 'channel' => 18, 'group' => 'ATIS', 'highPower' => true], 'speech' => ['scenario' => $inland + ['where' => $rhein, 'kind' => 'urgency', 'problem' => 'engine', 'persons' => 2]]],
+                ['text' => 'Hör die Antwort der Revierzentrale.', 'target' => null, 'help' => 'Nur zuhören.', 'goal' => ['type' => 'voice', 'heard' => true, 'from' => $revierzentrale], 'voice' => ['delay_ms' => 2500, 'from' => $revierzentrale, 'channel' => 18, 'lang' => 'de-DE', 'text' => 'Pan Pan Kormoran, hier Revierzentrale Oberwesel. Verstanden, ein Schlepper ist informiert. Kommen.']],
+            ],
+        ],
+        $ubi + [
+            'key' => 'binnen-dringlichkeit-aufheben',
+            'unit' => 'Binnen: Dringlichkeit und Sicherheit',
+            'title' => 'Dringlichkeitsmeldung aufheben',
+            'intro' => 'Um 14:05 Uhr hast du der Revierzentrale Oberwesel einen Maschinenausfall gemeldet. Inzwischen läuft die Maschine wieder. Hebe die Dringlichkeitsmeldung auf Kanal 18 auf.',
+            'start' => ['channel' => 18, 'highPower' => true] + $binnenStart,
+            'steps' => [
+                ['text' => 'Hebe die Dringlichkeitsmeldung auf.', 'target' => 'ptt', 'help' => 'PAN PAN (dreimal), hier ist Kormoran (dreimal), Delta Hotel Vier Sieben Zwo Eins, meine Dringlichkeitsmeldung von 14:05 Uhr ist aufgehoben, das Problem ist behoben, kommen.', 'goal' => ['type' => 'spoken', 'channel' => 18, 'group' => 'ATIS'], 'speech' => ['scenario' => $inland + ['where' => $rhein, 'kind' => 'urgency_cancel', 'problem' => 'engine', 'urgency_time' => '14:05']]],
+            ],
+        ],
+        $ubi + [
+            'key' => 'binnen-sicherheit',
+            'unit' => 'Binnen: Dringlichkeit und Sicherheit',
+            'title' => 'Sicherheitsmeldung und Rücknahme',
+            'intro' => 'Du sichtest auf dem Rhein bei Kilometer 552 einen großen treibenden Baumstamm in der Fahrrinne. Warne alle Funkstellen auf Kanal 10.',
+            'start' => $binnenStart,
+            'steps' => [
+                ['text' => 'Sprich die Sicherheitsmeldung auf Kanal 10.', 'target' => 'ptt', 'help' => 'SECURITE (dreimal), an alle Funkstellen (dreimal), hier ist Kormoran (dreimal), Delta Hotel Vier Sieben Zwo Eins, treibender Baumstamm in der Fahrrinne bei Rhein Kilometer 552, Gefahr für die Schifffahrt, Ende.', 'goal' => ['type' => 'spoken', 'channel' => 10, 'group' => 'ATIS'], 'speech' => ['scenario' => $inland + ['where' => $rhein, 'kind' => 'safety', 'hazard' => 'tree']]],
+                ['text' => 'Ein Arbeitsboot hat den Baumstamm geborgen. Nimm die Sicherheitsmeldung zurück.', 'target' => 'ptt', 'help' => 'SECURITE (dreimal), an alle Funkstellen, hier ist Kormoran, Delta Hotel Vier Sieben Zwo Eins, meine Sicherheitsmeldung ist aufgehoben, der Baumstamm ist geborgen, Ende.', 'goal' => ['type' => 'spoken', 'channel' => 10, 'group' => 'ATIS'], 'speech' => ['checks' => [
+                    ['SECURITE dreimal', 'SECURIT', 3],
+                    ['AN ALLE FUNKSTELLEN', 'AN ALLE FUNKSTELLEN|ALL STATIONS', 1],
+                    $hierIst,
+                    $kormoran,
+                    ['Hinweis auf die Rücknahme', 'AUFGEHOBEN|AUFHEB|ZURÜCK|GEBORGEN', 1],
+                    $ende,
+                ], 'solution' => 'Securite, Securite, Securite, an alle Funkstellen, hier ist Kormoran, Delta Hotel Vier Sieben Zwo Eins, meine Sicherheitsmeldung ist aufgehoben, der Baumstamm ist geborgen, Ende.']],
             ],
         ],
     ],

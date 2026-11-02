@@ -16,9 +16,12 @@ const MISSED = {
     off: () => 'Dein Gerät ist aus – nichts zu hören.',
     channel: (voice, radio) => `Auf Kanal ${voice.channel} wurde gesprochen, dein Gerät steht auf Kanal ${radio.state.channel}.`,
     volume: () => 'Die Lautstärke ist ganz zugedreht.',
+    group: (voice, radio) => (voice.group === 'ATIS' ? `Das war Binnenfunk (Kanalgruppe ATIS), dein Gerät steht in der Kanalgruppe ${radio.state.group}.` : 'Das war Seefunk, dein Gerät steht im Binnenmodus (ATIS).'),
     squelch: () => 'Die Rauschsperre ist zu weit zugedreht – schwache Stationen werden weggedrückt.',
 };
 const START = { power: true, vol: 5, sql: 3, channel: 16, position: [54, 10.0, 'N', 7, 52.0, 'E'], utc: '12:30' };
+const START_INLAND = { power: true, vol: 5, sql: 3, group: 'ATIS', channel: 10, highPower: false };
+const SERVICES = { SRC: 'Seefunk', UBI: 'Binnenfunk' };
 
 function h(tag, attrs = {}, ...children) {
     const node = document.createElement(tag);
@@ -53,6 +56,11 @@ export function mount(root, config) {
     const progress = { ...(config.progress ?? {}) };
     const exams = config.exams ?? {};
     const lessonByKey = Object.fromEntries(config.lessons.map((l) => [l.key, l]));
+    const catalogs = config.catalogs ?? ['SRC'];
+    // Ausgangslage für Freies Üben und den Start: Seefunk, in reinen
+    // Binnenkursen der Binnenmodus.
+    const defaultStart = catalogs.includes('SRC') ? START : START_INLAND;
+    const speechLang = () => run?.lesson.lang ?? config.speechLang ?? 'en-GB';
     let mode = 'lessons';
     let run = null;
     let lastSpeech = null;
@@ -111,12 +119,12 @@ export function mount(root, config) {
     }
 
     const pitches = {};
-    function speakAloud(text, from) {
+    function speakAloud(text, from, lang = 'en-GB') {
         const synth = window.speechSynthesis;
         if (! synth || ! window.SpeechSynthesisUtterance) return;
         const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'en-GB';
-        const voice = synth.getVoices().find((v) => v.lang === 'en-GB') ?? synth.getVoices().find((v) => v.lang?.startsWith('en'));
+        utterance.lang = lang;
+        const voice = synth.getVoices().find((v) => v.lang === lang) ?? synth.getVoices().find((v) => v.lang?.startsWith(lang.slice(0, 2)));
         if (voice) utterance.voice = voice;
         // Jede Gegenstation klingt etwas anders.
         pitches[from] ??= 0.8 + (Object.keys(pitches).length % 4) * 0.15;
@@ -133,10 +141,11 @@ export function mount(root, config) {
 
     // Eine Gegenstation spricht: hörbar nach den Regeln der Gerätelogik.
     function say(voice) {
+        if (! voice.group && run) voice = { ...voice, group: run.lesson.catalog === 'UBI' ? 'ATIS' : 'INT' };
         const result = radio.hear(voice);
         if (result.heard) {
             addLog({ who: voice.from, channel: voice.channel, text: voice.text });
-            speakAloud(voice.text, voice.from);
+            speakAloud(voice.text, voice.from, voice.lang ?? speechLang());
         } else {
             const showHint = mode === 'free' || (mode === 'lessons' && run && run.level <= 2);
             if (showHint) addLog({ hint: MISSED[result.reason](voice, radio) });
@@ -225,7 +234,7 @@ export function mount(root, config) {
         transcript.textContent = 'Sendet … sprich jetzt.';
         if (Recognition) {
             recognition = new Recognition();
-            recognition.lang = config.speechLang ?? 'en-GB';
+            recognition.lang = speechLang();
             recognition.continuous = true;
             recognition.interimResults = true;
             recognition.onresult = (event) => {
@@ -412,7 +421,9 @@ export function mount(root, config) {
 
     function startExamTask() {
         const lesson = lessonByKey[exam.lessons[exam.index]];
-        startRun(lesson, { exam: true, level: 3 });
+        // Binnenprüfung: Gerät zu Beginn aus und in der Kanalgruppe INT.
+        const start = exams[exam.series].start;
+        startRun(start ? { ...lesson, start } : lesson, { exam: true, level: 3 });
     }
 
     function recordExamTask(status) {
@@ -438,13 +449,14 @@ export function mount(root, config) {
     function examPanel() {
         if (! exam) {
             return h('div', { class: 'space-y-3' },
-                h('p', { class: 'text-slate-600 dark:text-slate-300' }, 'Aufgaben wie in der praktischen SRC-Prüfung: am Stück, ohne Hilfe, zwei Versuche je Funkspruch. Am Ende siehst du jede Aufgabe mit erfüllten und fehlenden Prüfpunkten und der Musterlösung.'),
+                h('p', { class: 'text-slate-600 dark:text-slate-300' }, 'Aufgaben wie in der praktischen Prüfung: am Stück, ohne Hilfe, zwei Versuche je Funkspruch. Am Ende siehst du jede Aufgabe mit erfüllten und fehlenden Prüfpunkten und der Musterlösung.'),
+                catalogs.includes('UBI') ? h('p', { class: 'text-xs text-slate-500 dark:text-slate-400' }, 'UBI: Das Gerät ist zu Beginn aus und steht in der Kanalgruppe INT – einschalten und auf ATIS stellen gehört zur Aufgabe.') : null,
                 Object.entries(exams).map(([series, info]) => h('div', { class: 'p-3 rounded-lg border border-slate-200 dark:border-slate-700 space-y-2' },
                     h('div', { class: 'flex items-center gap-2' },
-                        h('span', { class: 'font-semibold text-slate-800 dark:text-white flex-1' }, `Reihe ${series}`),
+                        h('span', { class: 'font-semibold text-slate-800 dark:text-white flex-1' }, info.title ?? `Reihe ${series}`),
                         info.best !== null && info.best !== undefined ? h('span', { class: 'text-xs text-slate-500' }, `bestes Ergebnis ${info.best} von ${info.lessons.length}`) : null),
                     h('ol', { class: 'list-decimal pl-5 text-xs text-slate-600 dark:text-slate-300' }, info.lessons.map((key) => h('li', {}, lessonByKey[key]?.title ?? key))),
-                    button(`Reihe ${series} starten`, () => startExam(series), 'font-semibold'),
+                    button(`${info.title ?? `Reihe ${series}`} starten`, () => startExam(series), 'font-semibold'),
                 )),
             );
         }
@@ -456,7 +468,7 @@ export function mount(root, config) {
         const last = exam.index === exam.lessons.length - 1;
 
         return h('div', { class: 'space-y-3' },
-            h('p', { class: 'text-xs text-slate-500 dark:text-slate-400' }, `Reihe ${exam.series} · Aufgabe ${exam.index + 1} von ${exam.lessons.length}`),
+            h('p', { class: 'text-xs text-slate-500 dark:text-slate-400' }, `${exams[exam.series].title ?? `Reihe ${exam.series}`} · Aufgabe ${exam.index + 1} von ${exam.lessons.length}`),
             h('h2', { class: 'font-semibold text-base text-slate-800 dark:text-white' }, lesson.title),
             h('p', { class: 'text-slate-700 dark:text-slate-200' }, lesson.intro),
             status.done
@@ -478,7 +490,7 @@ export function mount(root, config) {
         if (s.loading) return h('p', { class: 'text-slate-500' }, 'Prüfung wird ausgewertet …');
 
         return h('div', { class: 'space-y-3' },
-            h('h2', { class: 'font-semibold text-base text-slate-800 dark:text-white' }, `Reihe ${exam.series}: ${s.passed} von ${s.total} Aufgaben bestanden`),
+            h('h2', { class: 'font-semibold text-base text-slate-800 dark:text-white' }, `${exams[exam.series].title ?? `Reihe ${exam.series}`}: ${s.passed} von ${s.total} Aufgaben bestanden`),
             s.error ? h('p', { class: 'text-red-700 dark:text-red-300' }, 'Das Ergebnis konnte nicht gespeichert werden; die Musterlösungen fehlen deshalb.') : null,
             exam.lessons.map((key, i) => {
                 const task = exam.tasks[key];
@@ -499,7 +511,7 @@ export function mount(root, config) {
 
     // --- Freies Üben ----------------------------------------------------------
     function startFree() {
-        freshRadio(START);
+        freshRadio(defaultStart);
         timeOffset = 0;
         run = null;
         free = createFreePractice({ ship: config.ship, schedule, receive: (call) => { radio.receive(call); render(); }, say, radio: () => radio });
@@ -512,7 +524,7 @@ export function mount(root, config) {
 
         return h('div', { class: 'space-y-3' },
             h('p', { class: 'text-slate-600 dark:text-slate-300' }, 'Löse Ereignisse aus und reagiere frei darauf. Freies Üben zählt nicht zum Fortschritt.'),
-            FREE_EVENTS.map((group) => h('div', { class: 'space-y-1' },
+            FREE_EVENTS.filter((group) => catalogs.includes(group.catalog)).map((group) => h('div', { class: 'space-y-1' },
                 h('h3', { class: 'text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400' }, group.title),
                 h('div', { class: 'flex flex-wrap gap-1' }, group.items.map((item) => button(item.label, () => { ensureAudio(); free.trigger(item.key); render(); }))),
             )),
@@ -522,7 +534,7 @@ export function mount(root, config) {
                     button('+5 Minuten', () => jump(5 * 60 * 1000)),
                     button('+4 Stunden', () => jump(4 * 60 * 60 * 1000 + 60 * 1000))),
             ),
-            h('p', { class: 'text-xs text-slate-500 dark:text-slate-400' }, 'Eigene Anrufe: Möwe, Seestern und Nordsee Radio antworten auf deine DSC-Anrufe und Funksprüche, Bremen Rescue auf einen Notalarm.'),
+            catalogs.includes('SRC') ? h('p', { class: 'text-xs text-slate-500 dark:text-slate-400' }, 'Eigene Anrufe im Seefunk: Möwe, Seestern und Nordsee Radio antworten auf deine DSC-Anrufe und Funksprüche, Bremen Rescue auf einen Notalarm. Im Binnenfunk wird nur abgehört; Gespräche mit Antwort übst du in den Lektionen.') : null,
             button('Neu starten', startFree),
         );
     }
@@ -543,7 +555,7 @@ export function mount(root, config) {
         free = null;
         clearTimers();
         if (mode === 'free') startFree();
-        else freshRadio(START);
+        else freshRadio(defaultStart);
         renderSidebar();
         render();
     }
@@ -551,8 +563,8 @@ export function mount(root, config) {
     function renderSidebar() {
         sidebar.replaceChildren(
             h('div', { class: 'text-xs text-slate-600 dark:text-slate-400' },
-                h('div', { class: 'font-semibold text-slate-800 dark:text-white text-sm' }, `${config.device} · Seefunk`),
-                `${config.ship.label} · Rufzeichen ${config.ship.callsign} · MMSI ${config.ship.mmsi}`),
+                h('div', { class: 'font-semibold text-slate-800 dark:text-white text-sm' }, `${config.device} · ${catalogs.map((c) => SERVICES[c]).join(' und ')}`),
+                [config.ship.label, `Rufzeichen ${config.ship.callsign}`, catalogs.includes('SRC') ? `MMSI ${config.ship.mmsi}` : null, catalogs.includes('UBI') && config.ship.atis ? `ATIS ${config.ship.atis}` : null].filter(Boolean).join(' · ')),
             h('div', { class: 'flex gap-1', role: 'tablist' }, Object.entries(MODES).map(([key, label]) => h('button', {
                 type: 'button',
                 role: 'tab',
@@ -567,7 +579,7 @@ export function mount(root, config) {
                     h('li', {}, 'Tasten anklicken oder antippen; DISTRESS, POWER (Aus), DIAL (Wache) und SCAN (TAG) gedrückt halten.'),
                     h('li', {}, 'Drehknöpfe mit dem Mausrad, durch Ziehen nach oben/unten oder mit den Pfeiltasten.'),
                     h('li', {}, 'Den großen Knopf drücken = ENTER.'),
-                    h('li', {}, 'H/L gedrückt halten und DIAL drücken: Kanalgruppe wechseln. 16/C gedrückt halten und POWER drücken: Set-Modus.'),
+                    h('li', {}, 'H/L gedrückt halten und DIAL drücken: Kanalgruppe wechseln (INT, ATIS für den Binnenfunk, DSC). 16/C gedrückt halten und POWER drücken: Set-Modus.'),
                     h('li', {}, 'Sprechtaste am Hörer oder Leertaste gedrückt halten und sprechen; ohne Spracherkennung den Funkspruch eintippen.'),
                     h('li', {}, 'Gegenstationen sprechen mit der Stimme des Browsers; mitlesen kannst du im Funkverkehr unter dem Gerät.'),
                 ),
@@ -603,7 +615,7 @@ export function mount(root, config) {
         render();
     }, 100);
 
-    radio.setup(START);
+    radio.setup(defaultStart);
     renderSidebar();
     renderLog();
     render();

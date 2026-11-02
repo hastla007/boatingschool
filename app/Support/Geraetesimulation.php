@@ -6,7 +6,7 @@ use App\Models\CourseDefinition;
 use App\Models\User;
 
 /**
- * Gerätesimulation Funk, Stufen 1 und 2: Lektionen, Prüfungsreihen und Übungsschiff aus
+ * Gerätesimulation Funk, Stufen 1–3 (Seefunk und Binnenfunk): Lektionen, Prüfungsreihen und Übungsschiff aus
  * database/data/geraetesimulation.php. Der Browser bekommt die Lektionen ohne
  * die Prüfpunkte für Gesprochenes; die prüft der Server (evaluate) mit den
  * Regeln der Praxis-Prüfungssimulation (FunkPraxis).
@@ -17,7 +17,7 @@ class Geraetesimulation
 
     public const DEVICE_NAME = 'Icom IC-M505';
 
-    /** @return array{ship: array, address_book: list<array>, directory: list<array>, exams: array<string, list<string>>, lessons: list<array>} */
+    /** @return array{ship: array, address_book: list<array>, directory: list<array>, exams: array<string, list<string>>, exam_meta: array<string, array>, lessons: list<array>} */
     public static function data(): array
     {
         static $data = null;
@@ -25,10 +25,21 @@ class Geraetesimulation
         return $data ??= include database_path('data/geraetesimulation.php');
     }
 
-    /** Sichtbar für diesen Nutzer und Kurs? Stufe 1 ist Seefunk (SRC). */
+    /** Funkscheine des Kurses, die die Gerätesimulation abdeckt (SRC, UBI). */
+    public static function catalogsFor(CourseDefinition $course): array
+    {
+        return array_values(array_intersect(['SRC', 'UBI'], FunkTraining::catalogsFor($course)));
+    }
+
+    public static function catalogOf(array $lesson): string
+    {
+        return $lesson['catalog'] ?? 'SRC';
+    }
+
+    /** Sichtbar für diesen Nutzer und Kurs? Seefunk (SRC) und Binnenfunk (UBI). */
     public static function availableFor(?User $user, CourseDefinition $course): bool
     {
-        if (! in_array('SRC', FunkTraining::catalogsFor($course), true)) {
+        if (! self::catalogsFor($course)) {
             return false;
         }
 
@@ -50,8 +61,11 @@ class Geraetesimulation
         return null;
     }
 
-    /** Lektionen für den Browser: Gesprochenes nur als Kennzeichen, ohne Prüfpunkte. */
-    public static function lessonsForBrowser(): array
+    /**
+     * Lektionen für den Browser: Gesprochenes nur als Kennzeichen, ohne
+     * Prüfpunkte; mit $catalogs nur die Lektionen dieser Funkscheine.
+     */
+    public static function lessonsForBrowser(?array $catalogs = null): array
     {
         return array_map(function (array $lesson) {
             $lesson['steps'] = array_map(function (array $step) {
@@ -61,7 +75,29 @@ class Geraetesimulation
             }, $lesson['steps']);
 
             return $lesson;
-        }, self::data()['lessons']);
+        }, array_values(array_filter(self::data()['lessons'], fn ($lesson) => $catalogs === null || in_array(self::catalogOf($lesson), $catalogs, true))));
+    }
+
+    /**
+     * Prüfungsreihen der Funkscheine mit Titel, Lektionen und ggf. eigener
+     * Ausgangslage des Geräts.
+     *
+     * @return array<string, array{title: string, catalog: string, lessons: list<string>, start: ?array}>
+     */
+    public static function exams(?array $catalogs = null): array
+    {
+        $data = self::data();
+        $exams = [];
+
+        foreach ($data['exams'] as $series => $lessons) {
+            $meta = $data['exam_meta'][$series];
+
+            if ($catalogs === null || in_array($meta['catalog'], $catalogs, true)) {
+                $exams[$series] = ['title' => $meta['title'], 'catalog' => $meta['catalog'], 'lessons' => $lessons, 'start' => $meta['start'] ?? null];
+            }
+        }
+
+        return $exams;
     }
 
     /**
@@ -71,7 +107,8 @@ class Geraetesimulation
      */
     public static function evaluate(string $lessonKey, int $stepIndex, string $text): ?array
     {
-        $speech = self::lesson($lessonKey)['steps'][$stepIndex]['speech'] ?? null;
+        $lesson = self::lesson($lessonKey);
+        $speech = $lesson['steps'][$stepIndex]['speech'] ?? null;
 
         if (! $speech) {
             return null;
@@ -80,7 +117,7 @@ class Geraetesimulation
         $checks = $speech['checks'] ?? null;
 
         if (isset($speech['scenario'])) {
-            $task = FunkPraxis::scenario('SRC', $speech['scenario']);
+            $task = FunkPraxis::scenario(self::catalogOf($lesson), $speech['scenario']);
             $message = collect($task['fields'])->firstWhere('name', 'message');
             $checks = $message['checks'];
         }
@@ -107,8 +144,9 @@ class Geraetesimulation
     public static function solutions(string $lessonKey): array
     {
         $solutions = [];
+        $lesson = self::lesson($lessonKey);
 
-        foreach (self::lesson($lessonKey)['steps'] ?? [] as $step) {
+        foreach ($lesson['steps'] ?? [] as $step) {
             $speech = $step['speech'] ?? null;
 
             if (! $speech) {
@@ -116,7 +154,7 @@ class Geraetesimulation
             }
 
             if (isset($speech['scenario'])) {
-                $task = FunkPraxis::scenario('SRC', $speech['scenario']);
+                $task = FunkPraxis::scenario(self::catalogOf($lesson), $speech['scenario']);
                 $solutions[] = collect($task['fields'])->firstWhere('name', 'message')['solution'];
             } else {
                 $solutions[] = $speech['solution'];
