@@ -61,6 +61,16 @@ export function channelInfo(group, number) {
     return CHANNEL_GROUPS[group].find((c) => c.number === number) ?? null;
 }
 
+// Arbeitskanal für DSC-Anrufe (Intership/ITU CH): nur Simplexkanäle, auf
+// denen gesendet werden darf (nicht Kanal 70, keine Duplexkanäle).
+export function stepIntership(number, direction) {
+    const list = CHANNEL_GROUPS.INT.filter((c) => ! c.receiveOnly && ! c.duplex);
+    const index = list.findIndex((c) => c.number === number);
+    const next = (index + direction + list.length) % list.length;
+
+    return list[index === -1 ? 0 : next].number;
+}
+
 export function stepChannel(group, number, direction) {
     const list = CHANNEL_GROUPS[group];
     const index = list.findIndex((c) => c.number === number);

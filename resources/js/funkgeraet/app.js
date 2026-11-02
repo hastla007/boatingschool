@@ -419,11 +419,11 @@ export function mount(root, config) {
         const lesson = prepareLesson(original, deviceKey);
         freshRadio(lesson.start);
         run = createLessonRun(lesson, { ...options, schedule, receive: (call) => {
-            if (! radio.state.power) return false;
-            radio.receive(call);
+            // false: Gerät aus bzw. im Binnenmodus – die Lektion ruft später erneut.
+            const taken = radio.receive(call) !== false;
             render();
 
-            return true;
+            return taken;
         }, say });
         run.onChange((status) => {
             if (status.done && ! options.exam) finishLesson(lesson, options.level);

@@ -16,7 +16,7 @@
 // Individual ACK steht auf Manual, Position-/Polling-/Test-ACK auf Auto,
 // CH Auto SW auf Accept (10 s), ATIS sperrt die DSC-Funktionen.
 
-import { CHANNEL_GROUPS, channelInfo, stepChannel } from '../channels.js';
+import { CHANNEL_GROUPS, channelInfo, stepChannel, stepIntership } from '../channels.js';
 import { NATURES } from './icm505.js';
 
 export const NATURE_LABELS_M330 = ['Undesignated', 'Fire/Explosion', 'Flooding', 'Collision', 'Grounding', 'Capsizing', 'Sinking', 'Adrift', 'Abandoning', 'Piracy', 'MOB'];
@@ -1007,7 +1007,7 @@ export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, a
     }
 
     function stepEdit(direction) {
-        s.call.channel = stepChannel('INT', s.call.channel, direction);
+        s.call.channel = stepIntership(s.call.channel, direction);
     }
 
     function shortPress(key) {
@@ -1133,7 +1133,7 @@ export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, a
     function longPress(key) {
         if (key === 'knob') {
             if (s.power) {
-                Object.assign(s, { power: false, tx: false, menu: null, editor: null, form: null, call: null, incoming: null, cover: false, scan: null, watch: 'off', window: null });
+                Object.assign(s, { power: false, tx: false, menu: null, editor: null, form: null, call: null, incoming: null, cover: false, scan: null, watch: 'off', window: null, distress: null });
                 // Manuelle Position und Zeit gehen beim Ausschalten verloren.
                 Object.assign(s, { position: null, utc: null, positionSetAt: null });
                 setScreen('off');
@@ -1149,11 +1149,6 @@ export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, a
         }
         if (! s.power) return;
         if ((key === 'ch16' || key === 'mic16') && s.screen === 'normal') {
-            if (s.group === 'ATIS') {
-                event('ch16_unavailable', { group: s.group, key });
-
-                return;
-            }
             if (s.channel !== 16 && s.channel !== s.callChannel[s.group]) s.workChannel = s.channel;
             setChannel(s.callChannel[s.group], { work: false });
             s.onCall = true;
@@ -1190,8 +1185,7 @@ export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, a
             if (! p) return;
             if (key === 'distress') {
                 if (s.screen === 'distressHold') {
-                    const from = s.distressHold?.from;
-                    setScreen(['distressMenu', 'distressWait', 'distressResend'].includes(from) ? from : 'normal');
+                    setScreen(s.distressHold?.from ?? 'normal');
                     event('distress_released_early', { heldMs: clock() - p.t0 });
                 }
                 s.distressHold = null;
@@ -1218,7 +1212,8 @@ export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, a
                 s.window = 'vol';
                 s.windowUntil = clock() + WINDOW_MS;
                 s.vol = Math.max(0, Math.min(20, s.vol + steps));
-                event('volume', { level: s.vol });
+                // Ereignis in den Stufen der Lektionen (0–10, wie IC-M505).
+                event('volume', { level: s.vol / 2 });
             }
         },
         pttDown() {
@@ -1275,19 +1270,30 @@ export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, a
                 s.scan.index = (s.scan.index + 1) % s.scan.list.length;
                 s.channel = s.scan.list[s.scan.index];
             }
-            if (s.distress?.waiting && now >= s.distress.nextAt) {
+            if (s.power && s.distress?.waiting && now >= s.distress.nextAt) {
                 sendDistress(true);
             }
             if (s.window && now >= s.windowUntil) s.window = null;
         },
         receive(call) {
-            if (! s.power) return;
+            // Aus oder im Binnenmodus (ATIS, DSC gesperrt): kein Empfang.
+            if (! s.power || s.group === 'ATIS') return false;
+            // Während DISTRESS gehalten wird, unterbricht kein Anruf den
+            // Notalarm; der Anruf steht im Log.
+            if (s.screen === 'distressHold') {
+                s.received.unshift({ ...call, at: clock() });
+                event('dsc_received', { call });
+
+                return true;
+            }
             if (s.scan) stopScan();
             s.received.unshift({ ...call, at: clock() });
             event('dsc_received', { call });
 
             // Antworten auf eigene Anrufe bzw. den eigenen Notalarm.
             if (call.type === 'distress_ack' && s.distress?.waiting) {
+                // Die Bestätigung beendet die automatische Wiederholung.
+                s.distress.waiting = false;
                 s.incoming = call;
                 setScreen('ackAlarm');
 

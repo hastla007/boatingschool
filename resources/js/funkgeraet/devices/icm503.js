@@ -14,7 +14,7 @@
 // wird mit den Namen des IC-M505 gemeldet ("nature"), die Anzeige des DS-100
 // steht in "label".
 
-import { CHANNEL_GROUPS, channelInfo, stepChannel } from '../channels.js';
+import { CHANNEL_GROUPS, channelInfo, stepChannel, stepIntership } from '../channels.js';
 import { NATURES } from './icm505.js';
 
 export const DS100_NATURES = ['Undesignated', 'Fire,Explosion', 'Flooding', 'Collision', 'Grounding', 'Capsizing', 'Sinking', 'Disable adrift', 'Abandoning ship', 'Piracy attack', 'Man overboard', 'EPIRB emission'];
@@ -168,6 +168,8 @@ export function createIcM503({ own, clock = () => Date.now(), emit = () => {}, a
             if (key === 'ch16') s.setCursor = (s.setCursor + 1) % SET_MODE.length;
             if (key === 'power') {
                 s.setMode = false;
+                // Nach dem Set-Modus ist der DS-100 betriebsbereit.
+                setDs('standby');
                 event('set_mode', { open: false });
             }
 
@@ -503,6 +505,11 @@ export function createIcM503({ own, clock = () => Date.now(), emit = () => {}, a
                 return;
             }
             if (key === 'dsEnt') {
+                // ENT ohne vorheriges CLR schaltet den Alarm mit ab.
+                if (! i.silenced) {
+                    i.silenced = true;
+                    event('alarm_stopped', { call: i.type });
+                }
                 if (i.type === 'individual') {
                     i.silenced = true;
                     s.incoming = null;
@@ -559,7 +566,7 @@ export function createIcM503({ own, clock = () => Date.now(), emit = () => {}, a
                 else if (key === 'dsClr') { s.call = null; standby(); }
                 break;
             case 'callChannel':
-                if (key === 'dsUp' || key === 'dsDown') s.call.channel = stepChannel('INT', s.call.channel, key === 'dsUp' ? 1 : -1);
+                if (key === 'dsUp' || key === 'dsDown') s.call.channel = stepIntership(s.call.channel, key === 'dsUp' ? 1 : -1);
                 else if (key === 'dsEnt') setDs('callReady');
                 else if (key === 'dsClr') { s.call = null; standby(); }
                 break;
@@ -637,7 +644,7 @@ export function createIcM503({ own, clock = () => Date.now(), emit = () => {}, a
             if (! p) return;
             if (key === 'distress') {
                 if (s.ds === 'distressHold') {
-                    setDs(s.distressHold.from === 'distressReady' ? 'distressReady' : 'standby');
+                    setDs(s.distressHold.from ?? 'standby');
                     event('distress_released_early', { heldMs: clock() - p.t0 });
                 }
                 s.distressHold = null;
@@ -664,7 +671,7 @@ export function createIcM503({ own, clock = () => Date.now(), emit = () => {}, a
                 } else if (s.setMode) {
                     radioShort('power');
                 } else {
-                    Object.assign(s, { power: false, tx: false, menu: null, editor: null, call: null, incoming: null, cover: false, scan: null, watch: 'off' });
+                    Object.assign(s, { power: false, tx: false, menu: null, editor: null, call: null, incoming: null, cover: false, scan: null, watch: 'off', distress: null });
                     setDs('off');
                     event('power', { on: false });
                 }
@@ -757,12 +764,21 @@ export function createIcM503({ own, clock = () => Date.now(), emit = () => {}, a
                 s.scan.index = (s.scan.index + 1) % s.scan.list.length;
                 s.channel = s.scan.list[s.scan.index];
             }
-            if (s.distress?.waiting && now >= s.distress.nextAt) {
+            if (s.power && s.distress?.waiting && now >= s.distress.nextAt) {
                 sendDistress(true);
             }
         },
         receive(call) {
-            if (! s.power) return;
+            // Aus oder im Binnenmodus (ATIS, DSC gesperrt): kein Empfang.
+            if (! s.power || s.group === 'ATIS') return false;
+            // Während DISTRESS gehalten wird, unterbricht kein Anruf den
+            // Notalarm; der Anruf steht im Log.
+            if (s.ds === 'distressHold') {
+                s.received.unshift({ ...call, at: clock() });
+                event('dsc_received', { call });
+
+                return true;
+            }
             if (s.scan) stopScan();
             s.received.unshift({ ...call, at: clock() });
 
