@@ -15,6 +15,7 @@ const byMmsi = Object.fromEntries(Object.values(STATIONS).map((s) => [s.mmsi, s]
 export const FREE_EVENTS = [
     {
         title: 'Rufe empfangen',
+        catalog: 'SRC',
         items: [
             { key: 'distress', label: 'Notalarm eines Schiffs in der Nähe' },
             { key: 'individual', label: 'Einzelanruf (Routine, Kanal 72)' },
@@ -27,9 +28,21 @@ export const FREE_EVENTS = [
     },
     {
         title: 'Sprechfunk der Gegenstationen',
+        catalog: 'SRC',
         items: [
             { key: 'ship72', label: 'Schiff spricht auf Kanal 72' },
             { key: 'coast16', label: 'Küstenfunkstelle spricht auf Kanal 16' },
+        ],
+    },
+    {
+        // Binnenfunk ohne DSC: nur Abhören (Konzept, Freies Üben).
+        title: 'Binnenfunk (Abhören, Kanalgruppe ATIS)',
+        catalog: 'UBI',
+        items: [
+            { key: 'inlandMeeting', label: 'Schiff ruft dich zur Begegnung (Kanal 10)' },
+            { key: 'inlandMob', label: 'Notmeldung Mann über Bord (Kanal 10)' },
+            { key: 'inlandCentreCalls', label: 'Revierzentrale ruft dich (Kanal 18)' },
+            { key: 'inlandCentreSafety', label: 'Sicherheitsmeldung der Revierzentrale (Kanal 18)' },
         ],
     },
 ];
@@ -75,6 +88,18 @@ export function createFreePractice({ ship, schedule, receive, say, radio }) {
         },
         ship72() {
             voice(STATIONS.MOEWE, 72, 'Seestern, Seestern, this is Moewe. We are anchoring north of the dune, are you joining us? Over.', 0);
+        },
+        inlandMeeting() {
+            schedule(() => say({ from: 'HANSESTADT', channel: 10, lang: 'de-DE', group: 'ATIS', text: `${own}, ${own}, hier Hansestadt. Ich bin Talfahrer bei Kilometer 551, Begegnung Steuerbord an Steuerbord. Kommen.` }), 0);
+        },
+        inlandMob() {
+            schedule(() => say({ from: 'EISVOGEL', channel: 10, lang: 'de-DE', group: 'ATIS', text: 'Mayday, Mayday, Mayday, hier ist Eisvogel, Eisvogel, Eisvogel. Mayday Eisvogel, Rhein Kilometer 553, Mensch über Bord, die Person treibt ab, 3 Personen an Bord, erbitte sofortige Hilfe. Kommen.' }), 0);
+        },
+        inlandCentreCalls() {
+            schedule(() => say({ from: 'REVIERZENTRALE OBERWESEL', channel: 18, lang: 'de-DE', group: 'ATIS', text: `${own}, ${own}, hier Revierzentrale Oberwesel. Bitte melden Sie Ihre Position. Kommen.` }), 0);
+        },
+        inlandCentreSafety() {
+            schedule(() => say({ from: 'REVIERZENTRALE OBERWESEL', channel: 18, lang: 'de-DE', group: 'ATIS', text: 'Securite, Securite, Securite. An alle Funkstellen, hier Revierzentrale Oberwesel. Treibgut in der Fahrrinne bei Rhein Kilometer 554. Ende.' }), 0);
         },
         coast16() {
             voice(STATIONS['BREMEN RESCUE'], 16, 'All stations, all stations, all stations, this is Bremen Rescue Radio. Search and rescue exercise in progress off Helgoland. Out.', 0);

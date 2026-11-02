@@ -54,16 +54,51 @@ class GeraetesimulationTest extends TestCase
         $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/funk/geraetesimulation")->assertOk();
     }
 
-    public function test_courses_without_maritime_radio_have_no_device_simulation(): void
+    public function test_each_radio_course_gets_the_lessons_and_exams_of_its_certificates(): void
     {
         config(['funk.geraetesimulation' => 'all']);
         $tenant = $this->createTestTenant();
         $learner = $this->createTenantUser($tenant, 'learner');
-        $ubi = $this->existingCourse('UBI');
-        $this->grantEntitlement($tenant, $learner, $ubi);
+        $courses = [];
+        foreach (['SRC', 'UBI', 'SRC-UBI'] as $code) {
+            $courses[$code] = $this->existingCourse($code);
+            $this->grantEntitlement($tenant, $learner, $courses[$code]);
+        }
 
-        $this->actingAsInTenant($learner, $tenant)->get("/courses/{$ubi->id}/funk/geraetesimulation")->assertNotFound();
+        $config = fn (string $code) => $this->actingAsInTenant($learner, $tenant)
+            ->get("/courses/{$courses[$code]->id}/funk/geraetesimulation")->assertOk()->viewData('config');
+
+        $ubi = $config('UBI');
+        $this->assertSame(['UBI'], $ubi['catalogs']);
+        $this->assertSame(['UBI'], array_values(array_unique(array_map(fn ($l) => $l['catalog'] ?? 'SRC', $ubi['lessons']))));
+        $this->assertSame(['ubi-voll', 'ubi-ergaenzung'], array_keys($ubi['exams']->all()));
+
+        $src = $config('SRC');
+        $this->assertSame(['SRC'], $src['catalogs']);
+        $this->assertNotContains('UBI', array_map(fn ($l) => $l['catalog'] ?? 'SRC', $src['lessons']));
+        $this->assertSame(['a', 'b'], array_keys($src['exams']->all()));
+
+        $both = $config('SRC-UBI');
+        $this->assertSame(['SRC', 'UBI'], $both['catalogs']);
+        $this->assertCount(count(Geraetesimulation::data()['lessons']), $both['lessons']);
+
+        // UBI-Kurs: keine SRC-Prüfung speichern.
+        $this->actingAsInTenant($learner, $tenant)->postJson("/courses/{$courses['UBI']->id}/funk/geraetesimulation/pruefung", ['series' => 'a', 'passed' => []])->assertStatus(422);
+        $this->actingAsInTenant($learner, $tenant)->postJson("/courses/{$courses['UBI']->id}/funk/geraetesimulation/pruefung", ['series' => 'ubi-voll', 'passed' => ['binnen-notmeldung']])
+            ->assertOk()->assertJson(['passed' => 1, 'total' => 2])
+            ->assertJsonPath('solutions.binnen-notmeldung.0', fn ($text) => str_contains($text, 'MAYDAY'));
+
         $this->assertFalse(Geraetesimulation::availableFor($learner, $this->existingCourse('SBF-SEE')));
+    }
+
+    public function test_inland_radio_messages_are_scored_with_the_ubi_rules(): void
+    {
+        $result = Geraetesimulation::evaluate('binnen-notmeldung', 0, 'Mayday Mayday Mayday hier ist Kormoran Kormoran Kormoran');
+        $labels = array_column($result['checks'], 'label');
+
+        $this->assertFalse($result['passed']);
+        $this->assertContains('HIER IST', $labels);
+        $this->assertContains('Position', $labels);
     }
 
     public function test_the_browser_gets_no_speech_checks(): void

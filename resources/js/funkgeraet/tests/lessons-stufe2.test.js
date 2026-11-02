@@ -64,7 +64,7 @@ test('every lesson has steps with a goal, and exam series only use existing less
         for (const step of l.steps) assert.ok(step.goal?.type, `${l.key}: Schritt ohne Ziel`);
     }
     for (const [series, keys] of Object.entries(data.exams)) {
-        assert.equal(keys.length, 7, series);
+        assert.equal(keys.length, data.exam_meta[series].catalog === 'SRC' ? 7 : 2, series);
         for (const key of keys) assert.ok(lesson(key), `${series}: ${key}`);
     }
 });

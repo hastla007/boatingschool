@@ -1,4 +1,4 @@
-// Gerätelogik Icom IC-M505 (Stufen 1 und 2 der Gerätesimulation). Nachgebildet nach
+// Gerätelogik Icom IC-M505 (Stufen 1–3 der Gerätesimulation). Nachgebildet nach
 // dem Geräteprofil aus der Bedienungsanleitung: Tasten mit Druckdauer (kurz,
 // 1 s, 3 s, DISTRESS 5 s), H/L als Umschalttaste, Display und DSC-Menü.
 // Reine Logik ohne DOM: die Oberfläche ruft keyDown/keyUp/turn/tick auf und
@@ -115,6 +115,7 @@ export function createIcM505({ own, clock = () => Date.now(), emit = () => {}, a
             power: s.power, group: s.group, channel: s.channel, highPower: effectiveHighPower(), vol: s.vol, sql: s.sql, screen: s.screen, watch: s.watch,
             nature: NATURES[s.nature], position: s.position, utc: s.utc, coverOpen: s.cover, tx: s.tx, scanning: Boolean(s.scan), tags: [...s.tags].sort((a, b) => a - b),
             addressBook: s.book.map((a) => a.mmsi), groups: s.groups.map((a) => a.mmsi), positionStale: positionStale(),
+            circle: current()?.circle ?? null,
         };
     }
 
@@ -143,7 +144,7 @@ export function createIcM505({ own, clock = () => Date.now(), emit = () => {}, a
         s.channel = channel;
         s.onCall = false;
         if (work && channel !== 16 && channel !== s.callChannel[s.group]) s.workChannel = channel;
-        event('channel', { channel, group });
+        event('channel', { channel, group, circle: channelInfo(group, channel)?.circle ?? null });
     }
 
     // --- Ein/Aus, Lautstärke, Rauschsperre --------------------------------
@@ -561,6 +562,13 @@ export function createIcM505({ own, clock = () => Date.now(), emit = () => {}, a
                 break;
         }
 
+        // Binnenmodus (Kanalgruppe ATIS): kein DSC und kein Kanal 16.
+        if (s.group === 'ATIS' && (key === 'menu' || key === 'ch16')) {
+            event(key === 'menu' ? 'dsc_blocked' : 'ch16_unavailable', { group: s.group, key });
+
+            return;
+        }
+
         switch (key) {
             case 'menu':
                 openMenu('Select Item', mainMenuItems());
@@ -661,6 +669,12 @@ export function createIcM505({ own, clock = () => Date.now(), emit = () => {}, a
                 return;
             }
 
+            if (key === 'distress' && s.power && s.group === 'ATIS') {
+                event('dsc_blocked', { group: s.group, key });
+
+                return;
+            }
+
             if (key === 'distress' && s.power) {
                 if (! s.cover) {
                     event('distress_covered');
@@ -742,10 +756,13 @@ export function createIcM505({ own, clock = () => Date.now(), emit = () => {}, a
             if (! s.tx) return;
             s.tx = false;
             event('tx_end', { channel: s.channel, group: s.group, highPower: effectiveHighPower() });
+            // Im Binnenmodus hängt das Gerät nach jedem Loslassen der
+            // Sprechtaste die ATIS-Kennung an.
+            if (s.group === 'ATIS') event('atis_sent', { id: own?.atis ?? null, channel: s.channel, circle: current()?.circle ?? null });
         },
         // Erkannter Text eines Funkspruchs (Spracherkennung oder Tipp-Eingabe).
         spoken(text, channel = s.channel) {
-            event('spoken', { text, channel, group: s.group, highPower: effectiveHighPower() });
+            event('spoken', { text, channel, group: s.group, highPower: effectiveHighPower(), circle: current()?.circle ?? null });
         },
         tick() {
             const now = clock();
@@ -837,6 +854,8 @@ export function createIcM505({ own, clock = () => Date.now(), emit = () => {}, a
                 return { heard, reason };
             };
             if (! s.power) return result(false, 'off');
+            // Binnenfunk (ATIS) und Seefunk (INT/DSC) sind getrennte Dienste.
+            if (voice.group && (voice.group === 'ATIS') !== (s.group === 'ATIS')) return result(false, 'group');
             let listening = s.channel === voice.channel;
             if (! listening && s.watch !== 'off' && (voice.channel === 16 || (s.watch === 'tri' && voice.channel === s.callChannel[s.group]))) {
                 listening = true;
@@ -893,6 +912,7 @@ export function createIcM505({ own, clock = () => Date.now(), emit = () => {}, a
                 group: s.group,
                 dup: Boolean(ch?.duplex),
                 call: Boolean(s.onCall),
+                atis: s.group === 'ATIS',
             },
             channel: pad(s.channel),
             channelName: ch?.name ?? '',
