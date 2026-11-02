@@ -174,6 +174,8 @@ export function mount(root, config) {
     // Eingerastete Tasten (Zweitasten-Bedienung mit der Maus: Umschalttaste +
     // Klick hält z. B. H/L gedrückt, bis die nächste Taste losgelassen wird).
     const latched = new Map();
+    // Loslass-Funktionen der gerade gedrückten Tasten (Fensterwechsel).
+    const heldKeys = new Set();
     const showLatch = (node, on) => {
         node.style.filter = on ? 'brightness(1.8)' : '';
         node.setAttribute('aria-pressed', on ? 'true' : 'false');
@@ -195,6 +197,7 @@ export function mount(root, config) {
     function mountDevice() {
         deviceBox.replaceChildren();
         latched.clear();
+        heldKeys.clear();
         device = DEVICES[deviceKey].render(deviceBox);
         const latchKeys = DEVICES[deviceKey].latch ?? [];
         device.svg.querySelectorAll('[data-key]').forEach((node) => {
@@ -217,18 +220,20 @@ export function mount(root, config) {
             const press = () => {
                 ensureAudio();
                 held = true;
+                heldKeys.add(release);
                 if (key === 'ptt') pttDown();
                 else radio.keyDown(key);
                 render();
             };
-            const release = () => {
+            function release() {
                 if (! held) return;
                 held = false;
+                heldKeys.delete(release);
                 if (key === 'ptt') pttUp();
                 else radio.keyUp(key);
                 if (key !== 'ptt' && latched.size) releaseLatched();
                 render();
-            };
+            }
             node.addEventListener('pointerdown', (e) => {
                 e.preventDefault();
                 if ((e.shiftKey || e.ctrlKey) && latchKeys.includes(key)) {
@@ -300,6 +305,7 @@ export function mount(root, config) {
     // Fenster verliert den Fokus: Sprechtaste und gedrückte Tasten loslassen.
     window.addEventListener('blur', () => {
         if (spacePtt) { spacePtt = false; pttUp(); }
+        [...heldKeys].forEach((release) => release());
         if (latched.size) releaseLatched();
         render();
     });

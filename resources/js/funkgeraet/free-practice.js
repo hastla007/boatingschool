@@ -53,7 +53,8 @@ export function createFreePractice({ ship, schedule, receive, say, radio }) {
     // viele Funksprüche schon gewechselt wurden.
     let talk = null;
 
-    const voice = (station, channel, text, delay = 2500) => schedule(() => say({ from: station.name, channel, text }), delay);
+    // Gegenstationen im Seefunk: im Binnenmodus (ATIS) nicht zu hören.
+    const voice = (station, channel, text, delay = 2500) => schedule(() => say({ from: station.name, channel, text, group: 'INT' }), delay);
 
     function startTalk(station, channel) {
         talk = { station, channel, turns: 0 };

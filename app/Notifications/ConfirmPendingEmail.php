@@ -2,10 +2,10 @@
 
 namespace App\Notifications;
 
+use App\Support\CanonicalUrl;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
-use Illuminate\Support\Facades\URL;
 
 /**
  * Bestätigt eine neue, im Profil eingetragene E-Mail-Adresse, bevor sie
@@ -41,10 +41,12 @@ class ConfirmPendingEmail extends Notification
 
     public function toMail(mixed $notifiable): MailMessage
     {
-        $url = URL::temporarySignedRoute(
+        // Kanonischer Host statt des Request-Hosts (Custom Domain), siehe CanonicalUrl.
+        $url = CanonicalUrl::temporarySignedRoute(
             'profile.email.confirm',
             now()->addMinutes(60),
-            ['id' => $this->userId, 'hash' => sha1($this->pendingEmail)]
+            ['id' => $this->userId, 'hash' => sha1($this->pendingEmail)],
+            app()->bound('currentTenant') ? app('currentTenant') : null,
         );
 
         return (new MailMessage)

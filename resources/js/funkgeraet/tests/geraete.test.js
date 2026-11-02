@@ -311,3 +311,13 @@ test('DSC traffic channels skip channel 70 and duplex channels', () => {
     assert.equal(stepIntership(69, 1), 71);
     assert.equal(stepIntership(17, 1), 67);
 });
+
+test('coast stations allow duplex traffic channels (IC-M505 Küstenfunkstelle, channel 26); off-list start moves to the next channel', () => {
+    assert.equal(stepIntership(25, 1, { coast: true }), 26);
+    assert.equal(stepIntership(26, 1), 67);
+    assert.equal(stepIntership(26, -1), 17);
+    // Vom IC-M323 übernommene Texte nennen das eigene Gerät.
+    assert.match(prepareLesson(lesson('kuestenfunkstelle'), 'ic-m423').steps[0].text, /IC-M423/);
+    assert.doesNotMatch(prepareLesson(lesson('kuestenfunkstelle'), 'ic-m423').steps[0].help, /IC-M323/);
+    assert.match(prepareLesson(lesson('kuestenfunkstelle'), 'ic-m330').steps[0].help, /NORDSEE RADIO/);
+});

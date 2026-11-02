@@ -123,7 +123,9 @@ class ExamTimeLimitSecurityTest extends TestCase
             'answer_id' => $otherAnswer->id,
         ]);
 
-        $retry->assertNotFound();
+        // Doppelklick bzw. nachgebauter Request: kein 404 mitten in der
+        // Prüfung, aber die erste Antwort bleibt unverändert.
+        $retry->assertRedirect(route('exam.show', $session));
         $this->asTenant($tenant, function () use ($session, $question, $firstAnswer) {
             $this->assertDatabaseHas('exam_session_question', [
                 'exam_session_id' => $session->id,

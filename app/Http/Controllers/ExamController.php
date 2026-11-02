@@ -420,7 +420,14 @@ class ExamController extends Controller
         // gezielt nachgebauten Request mit alter position. Das wird hier
         // unterbunden (Sicherheitsreview M2).
         $sessionQuestion = $examSession->questions()->where('position', $validated['position'])
-            ->whereNull('answered_at')->with('revision')->firstOrFail();
+            ->whereNull('answered_at')->with('revision')->first();
+        // Review (Doppelklick auf „Weiter“): der zweite, gleiche Request kam
+        // bisher als 404 mitten in der Prüfung an. Die erste Antwort ist
+        // gespeichert und bleibt unverändert; weiter geht es mit der
+        // nächsten offenen Frage.
+        if (! $sessionQuestion) {
+            return redirect()->route('exam.show', $examSession);
+        }
         $type = $sessionQuestion->revision->question_type;
 
         // Bug-Review (Zwei gleichzeitige Prüfungsauswertungen stören sich):
@@ -508,7 +515,14 @@ class ExamController extends Controller
         ]);
 
         $sessionQuestion = $examSession->questions()->where('position', $validated['position'])
-            ->whereNull('answered_at')->with('revision')->firstOrFail();
+            ->whereNull('answered_at')->with('revision')->first();
+        // Review (Doppelklick auf „Weiter“): der zweite, gleiche Request kam
+        // bisher als 404 mitten in der Prüfung an. Die erste Antwort ist
+        // gespeichert und bleibt unverändert; weiter geht es mit der
+        // nächsten offenen Frage.
+        if (! $sessionQuestion) {
+            return redirect()->route('exam.show', $examSession);
+        }
 
         abort_unless($sessionQuestion->revision->question_type === 'open_text', 422);
 

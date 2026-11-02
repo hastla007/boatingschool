@@ -61,14 +61,20 @@ export function channelInfo(group, number) {
     return CHANNEL_GROUPS[group].find((c) => c.number === number) ?? null;
 }
 
-// Arbeitskanal für DSC-Anrufe (Intership/ITU CH): nur Simplexkanäle, auf
-// denen gesendet werden darf (nicht Kanal 70, keine Duplexkanäle).
-export function stepIntership(number, direction) {
-    const list = CHANNEL_GROUPS.INT.filter((c) => ! c.receiveOnly && ! c.duplex);
+// Arbeitskanal für DSC-Anrufe (Intership/ITU CH): Kanäle, auf denen
+// gesendet werden darf (nicht Kanal 70), für Schiff-Schiff nur Simplex.
+// coast: Anruf an eine Küstenfunkstelle, deren Kanäle sind Duplex.
+export function stepIntership(number, direction, { coast = false } = {}) {
+    const list = CHANNEL_GROUPS.INT.filter((c) => ! c.receiveOnly && (coast || ! c.duplex));
     const index = list.findIndex((c) => c.number === number);
-    const next = (index + direction + list.length) % list.length;
+    if (index === -1) {
+        // Nicht in der Liste (z. B. Duplexkanal): nächster Kanal in Drehrichtung.
+        const ahead = direction > 0 ? list.find((c) => c.number > number) : [...list].reverse().find((c) => c.number < number);
 
-    return list[index === -1 ? 0 : next].number;
+        return (ahead ?? list[direction > 0 ? 0 : list.length - 1]).number;
+    }
+
+    return list[(index + direction + list.length) % list.length].number;
 }
 
 export function stepChannel(group, number, direction) {

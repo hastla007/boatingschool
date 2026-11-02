@@ -42,9 +42,9 @@ export function hintM323(step) {
         case 'mmsi_checked':
             return h('MENU, „MMSI/GPS Info“ wählen (Drehknopf oder ▲/▼) und ENT.', 'menu');
         case 'position_set':
-            return h('MENU, „DSC Settings“, „Position Input“, ENT. Ziffer mit dem Drehknopf wählen, ENT übernimmt und rückt weiter; nach der letzten Stelle ENT (FINISH).', 'menu');
+            return h('MENU, „DSC Settings“, „Position Input“, ENT. Ziffer mit dem Drehknopf wählen, ENT übernimmt und rückt weiter; ENT auf der letzten Stelle schließt ab.', 'menu');
         case 'utc_set':
-            return h('Ziffern mit dem Drehknopf wählen, ENT übernimmt; nach der letzten Stelle ENT (FINISH).', 'dial');
+            return h('Ziffern mit dem Drehknopf wählen, ENT übernimmt; ENT auf der letzten Stelle schließt ab.', 'dial');
         case 'nature_selected':
             return h(`MENU, „DSC Calls“, „Distress Call“, „${natureLabel(goal.nature)}“ wählen und ENT.`, 'menu');
         case 'cover':
@@ -83,7 +83,7 @@ export function hintM323(step) {
 }
 
 function dscHint(goal, step) {
-    const name = goal['address.name'] ?? goal['address.mmsi'] ?? '';
+    const name = goal['address.name'] ?? step.address_name ?? goal['address.mmsi'] ?? '';
     const ch = goal.channel ? String(goal.channel).padStart(2, '0') : null;
 
     switch (goal.kind) {
@@ -112,7 +112,7 @@ export function hintM423(step) {
     const hint = hintM323(step);
 
     return {
-        help: hint.help?.replace(/Softkey CHAN\b/g, 'Softkey CH/WX'),
+        help: hint.help?.replace(/Softkey CHAN\b/g, 'Softkey CH/WX').replace(/IC-M323/g, 'IC-M423'),
         target: hint.target === 'sk:CHAN' ? 'sk:CH/WX' : hint.target,
     };
 }

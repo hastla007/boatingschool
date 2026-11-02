@@ -456,6 +456,31 @@ class EntitlementManagementTest extends TestCase
         $this->assertSame('active', $entitlement->status);
     }
 
+    public function test_granting_access_to_a_suspended_entitlement_keeps_the_longer_term(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $this->makeCourseCoupon($tenant, $course);
+        $this->actingAsInTenant($admin, $tenant)->post('/admin/entitlements', ['user_id' => $learner->id, 'course_id' => $course->id]);
+        $entitlement = $this->asTenant($tenant, fn () => Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->where('course_id', $course->id)->firstOrFail());
+        $longer = now()->addYears(5)->startOfDay();
+        $this->onAdmin(fn () => Entitlement::where('id', $entitlement->id)->update(['status' => 'suspended', 'valid_until' => $longer]));
+
+        $this->makeCourseCoupon($tenant, $course);
+        $this->actingAsInTenant($admin, $tenant)->post('/admin/entitlements', ['user_id' => $learner->id, 'course_id' => $course->id])->assertSessionHasNoErrors();
+        $fresh = $this->asTenant($tenant, fn () => Entitlement::find($entitlement->id));
+        $this->assertSame('active', $fresh->status);
+        $this->assertTrue($fresh->valid_until->equalTo($longer), 'Die längere Restlaufzeit darf nicht verkürzt werden.');
+
+        // Unbefristet bleibt unbefristet.
+        $this->onAdmin(fn () => Entitlement::where('id', $entitlement->id)->update(['status' => 'suspended', 'valid_until' => null]));
+        $this->makeCourseCoupon($tenant, $course);
+        $this->actingAsInTenant($admin, $tenant)->post('/admin/entitlements', ['user_id' => $learner->id, 'course_id' => $course->id])->assertSessionHasNoErrors();
+        $this->assertNull($this->asTenant($tenant, fn () => Entitlement::find($entitlement->id))->valid_until);
+    }
+
     /**
      * Bug-Review F1: anders als "suspended" (siehe Test oben) soll ein
      * bewusst widerrufener ("revoked") Zugang nicht einfach durch einen

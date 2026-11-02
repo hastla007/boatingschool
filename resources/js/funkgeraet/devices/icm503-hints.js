@@ -83,7 +83,7 @@ export function hintM503(step) {
 }
 
 function dscHint(goal, step) {
-    const name = goal['address.name'] ?? goal['address.mmsi'] ?? '';
+    const name = goal['address.name'] ?? step.address_name ?? goal['address.mmsi'] ?? '';
     const ch = goal.channel ? String(goal.channel).padStart(2, '0') : null;
     const cat = goal.category ?? 'Routine';
 
@@ -97,7 +97,7 @@ function dscHint(goal, step) {
         case 'all_ships':
             return { help: `DS-100: CALL, „All ships call“, „${cat}“, ENT (Kanal 16 automatisch); ${SEND}.`, target: 'dsCall' };
         case 'individual_ack':
-            return { help: 'CLR (Ton aus), dann ENT am DS-100, „Able to comply“ wählen, ENT.', target: 'dsEnt' };
+            return { help: 'ENT am DS-100 (nicht noch einmal CLR), „Able to comply“ wählen, ENT.', target: 'dsEnt' };
         default:
             return { help: step.help, target: step.target };
     }

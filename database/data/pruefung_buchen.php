@@ -223,6 +223,14 @@ return [
                     'minutes' => 35,
                     'note' => 'Du hast schon den SBF See: Die Basisfragen entfallen, und die praktische Prüfung unter Antriebsmaschine wird in der Regel angerechnet.',
                 ],
+                'combo' => [
+                    'label' => 'Binnen-Teil bei gemeinsamer Prüfung See und Binnen',
+                    // Regelwerk der Binnen-Bögen des Kombikurses (wie die Ergänzung).
+                    'course' => 'ADD-SEE-TO-BIN',
+                    'parts' => [['module' => 'SBF_BINNEN', 'of' => 23, 'min' => 18]],
+                    'minutes' => 35,
+                    'note' => 'Legst du SBF See und SBF Binnen zusammen ab, kommen die Basisfragen nur einmal dran, im See-Teil. Für Binnen bleiben die 23 Binnen-Fragen.',
+                ],
                 'segel-addon' => [
                     'label' => 'Ergänzung Segeln für SBF-Binnen-Inhaber',
                     'course' => 'ADD-BIN-SEGEL',
@@ -335,7 +343,9 @@ return [
         'SBF-BIN-SEGEL' => ['SBF-BIN' => 'segel'],
         'ADD-BIN-SEGEL' => ['SBF-BIN' => 'segel-addon'],
         'ADD-SEE-TO-BIN' => ['SBF-BIN' => 'addon'],
-        'SBF-SEE-BIN' => ['SBF-SEE' => 'full', 'SBF-BIN' => 'motor'],
+        // Review: die Binnen-Bögen des Kombikurses sind die 23 Binnen-Fragen ohne
+        // Basisfragen (die kommen nur einmal, im See-Teil).
+        'SBF-SEE-BIN' => ['SBF-SEE' => 'full', 'SBF-BIN' => 'combo'],
         'FKN' => ['FKN' => 'full'],
         'SKN' => ['SKN' => 'full'],
         'ADD-FKN-TO-SKN' => ['SKN' => 'addon'],

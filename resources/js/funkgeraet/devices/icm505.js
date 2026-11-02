@@ -735,7 +735,7 @@ export function createIcM505({ own, clock = () => Date.now(), emit = () => {}, a
             } else if (s.screen === 'callCategory') {
                 s.cursor = Math.max(0, Math.min(CATEGORIES.length - 1, s.cursor + steps));
             } else if (s.screen === 'callChannel') {
-                s.call.channel = stepIntership(s.call.channel, Math.sign(steps));
+                s.call.channel = stepIntership(s.call.channel, Math.sign(steps), { coast: Boolean(s.call.address?.mmsi?.startsWith('00')) });
             } else if (s.screen === 'ackAction') {
                 s.cursor = Math.max(0, Math.min(1, s.cursor + steps));
             } else if (s.screen === 'setMode') {

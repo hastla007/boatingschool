@@ -3,10 +3,10 @@
 namespace App\Notifications;
 
 use App\Models\TenantInvitation;
+use App\Support\CanonicalUrl;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
-use Illuminate\Support\Facades\URL;
 
 /**
  * Einladung zu einer Bootsschule für eine E-Mail-Adresse, die schon einen
@@ -31,10 +31,12 @@ class TenantInvitationNotification extends Notification
 
     public function toMail(mixed $notifiable): MailMessage
     {
-        $url = URL::temporarySignedRoute(
+        // Subdomain der Bootsschule statt des Request-Hosts (Custom Domain), siehe CanonicalUrl.
+        $url = CanonicalUrl::temporarySignedRoute(
             'invitations.accept',
             now()->addDays(7),
-            ['invitation' => $this->invitation->id, 'hash' => sha1($this->invitation->email)]
+            ['invitation' => $this->invitation->id, 'hash' => sha1($this->invitation->email)],
+            $this->invitation->tenant,
         );
 
         $tenantName = $this->invitation->tenant->name ?? 'einer Bootsschule';
