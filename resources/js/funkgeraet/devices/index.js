@@ -4,22 +4,27 @@
 // ersetzt Hilfetext und Markierung durch die Hilfen des Geräts.
 
 import { createIcM505 } from './icm505.js';
-import { createIcM323 } from './icm323.js';
-import { hintM323 } from './icm323-hints.js';
+import { createIcM323, createIcM423 } from './icm323.js';
+import { hintM323, hintM423 } from './icm323-hints.js';
 import { createIcM503 } from './icm503.js';
 import { hintM503 } from './icm503-hints.js';
 import { renderDevice } from '../ui/device-svg.js';
-import { renderDeviceM323 } from '../ui/device-svg-m323.js';
+import { renderDeviceM323, renderDeviceM423 } from '../ui/device-svg-m323.js';
 import { renderDeviceM503 } from '../ui/device-svg-m503.js';
 
 export const DEVICES = {
     'ic-m505': { key: 'ic-m505', name: 'Icom IC-M505', create: createIcM505, render: renderDevice, hint: null, wheel: { key: 'enter', knob: 'channel' } },
     'ic-m323': { key: 'ic-m323', name: 'Icom IC-M323', create: createIcM323, render: renderDeviceM323, hint: hintM323, wheel: { key: 'knob', knob: 'dial' } },
+    // "like": Lektions-Anpassungen, Ausblendungen und Ersatzaufgaben gelten
+    // wie für dieses Gerät, solange keine eigenen angegeben sind.
+    'ic-m423': { key: 'ic-m423', name: 'Icom IC-M423', like: 'ic-m323', create: createIcM423, render: renderDeviceM423, hint: hintM423, wheel: { key: 'knob', knob: 'dial' } },
     'ic-m503': { key: 'ic-m503', name: 'Icom IC-M503 + DS-100', create: createIcM503, render: renderDeviceM503, hint: hintM503, wheel: { key: null, knob: 'channel' } },
 };
 
+const likeOf = (deviceKey) => DEVICES[deviceKey]?.like ?? null;
+
 export function lessonAvailable(lesson, deviceKey) {
-    return ! lesson.devices || lesson.devices.includes(deviceKey);
+    return ! lesson.devices || lesson.devices.includes(deviceKey) || lesson.devices.includes(likeOf(deviceKey));
 }
 
 export function prepareLesson(lesson, deviceKey) {
@@ -28,7 +33,7 @@ export function prepareLesson(lesson, deviceKey) {
     return {
         ...lesson,
         steps: lesson.steps.map((step) => {
-            const override = step.device?.[deviceKey] ?? {};
+            const override = step.device?.[deviceKey] ?? step.device?.[likeOf(deviceKey)] ?? {};
             const merged = { ...step, ...override };
             if (! device?.hint || 'help' in override) return merged;
             // Funksprüche behalten ihren Wortlaut als Hilfe.
@@ -43,5 +48,7 @@ export function prepareLesson(lesson, deviceKey) {
 // Lektionen einer Prüfungsreihe für ein Gerät (Ersatz für Aufgaben, die das
 // Gerät nicht kann).
 export function examLessons(exam, deviceKey) {
-    return exam.lessons.map((key) => exam.substitutes?.[deviceKey]?.[key] ?? key);
+    const substitutes = exam.substitutes?.[deviceKey] ?? exam.substitutes?.[likeOf(deviceKey)] ?? {};
+
+    return exam.lessons.map((key) => substitutes[key] ?? key);
 }

@@ -31,8 +31,14 @@ function key(svg, { id, x, y, w = 70, h = 40, label, round = false, color = KEY,
     return g;
 }
 
-export function renderDeviceM323(container) {
-    const svg = el('svg', { viewBox: '0 0 1000 560', role: 'group', 'aria-label': 'Funkgerät IC-M323 (Nachbildung)', style: 'width:100%;height:auto;user-select:none;-webkit-user-select:none' });
+// Das IC-M423 nutzt dieselbe Zeichnung mit eigener Beschriftung und
+// zusätzlicher 16/C-Taste am Hörer.
+export function renderDeviceM423(container) {
+    return renderDeviceM323(container, { model: 'IC-M423', title: 'VHF MARINE TRANSCEIVER  IC-M423', mic16: true });
+}
+
+export function renderDeviceM323(container, { model = 'IC-M323', title = 'VHF MARINE TRANSCEIVER  IC-M323', mic16 = false } = {}) {
+    const svg = el('svg', { viewBox: '0 0 1000 560', role: 'group', 'aria-label': `Funkgerät ${model} (Nachbildung)`, style: 'width:100%;height:auto;user-select:none;-webkit-user-select:none' });
     container.appendChild(svg);
 
     // Hörer
@@ -45,10 +51,11 @@ export function renderDeviceM323(container) {
     key(svg, { id: 'micUp', x: 132, y: 380, w: 38, h: 34, label: '▲', size: 16 });
     key(svg, { id: 'micDown', x: 132, y: 420, w: 38, h: 34, label: '▼', size: 16 });
     key(svg, { id: 'micHiLo', x: 182, y: 398, w: 48, h: 36, label: 'H/L', size: 15, ariaLabel: 'HI/LO am Hörer' });
+    if (mic16) key(svg, { id: 'mic16', x: 182, y: 444, w: 48, h: 32, label: '16/C', size: 12, color: '#1d5fbf', ariaLabel: '16/C am Hörer' });
 
     // Gehäuse
     el('rect', { x: 270, y: 60, width: 710, height: 440, rx: 34, fill: BODY, stroke: '#101215', 'stroke-width': 4 }, svg);
-    el('text', { x: 615, y: 92, 'text-anchor': 'middle', 'font-size': 18, 'font-weight': 700, fill: '#d6dae0', 'letter-spacing': 2, 'font-family': 'Arial, sans-serif' }, svg, 'VHF MARINE TRANSCEIVER  IC-M323');
+    el('text', { x: 615, y: 92, 'text-anchor': 'middle', 'font-size': 18, 'font-weight': 700, fill: '#d6dae0', 'letter-spacing': 2, 'font-family': 'Arial, sans-serif' }, svg, title);
     for (let i = 0; i < 9; i++) el('rect', { x: 296, y: 120 + i * 18, width: 70, height: 7, rx: 3, fill: '#16181b' }, svg);
 
     // DISTRESS mit Klappe

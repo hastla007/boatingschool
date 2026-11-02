@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { DEVICE, createIcM323 } from '../devices/icm323.js';
+import { DEVICE, DEVICE_M423, createIcM323, createIcM423 } from '../devices/icm323.js';
 import { DEVICE as DEVICE_503, createIcM503 } from '../devices/icm503.js';
 import { createLessonRun } from '../lessons.js';
 import { examLessons, lessonAvailable, prepareLesson } from '../devices/index.js';
@@ -12,14 +12,14 @@ import { examLessons, lessonAvailable, prepareLesson } from '../devices/index.js
 const data = JSON.parse(execFileSync('php', ['-r', 'echo json_encode(require "database/data/geraetesimulation.php");'], { encoding: 'utf8' }));
 const lesson = (key) => data.lessons.find((l) => l.key === key);
 
-for (const [deviceKey, device] of [['ic-m323', DEVICE], ['ic-m503', DEVICE_503]]) test(`every lesson available on the ${deviceKey} gets help and a target that exists on that radio`, () => {
+for (const [deviceKey, device] of [['ic-m323', DEVICE], ['ic-m423', DEVICE_M423], ['ic-m503', DEVICE_503]]) test(`every lesson available on the ${deviceKey} gets help and a target that exists on that radio`, () => {
     const valid = new Set([...device.keys, ...device.knobs, 'ptt']);
     for (const original of data.lessons.filter((l) => lessonAvailable(l, deviceKey))) {
         for (const [i, step] of prepareLesson(original, deviceKey).steps.entries()) {
             const ok = step.target === null || step.target.startsWith('sk:') || valid.has(step.target);
             assert.ok(ok, `${original.key} Schritt ${i}: Ziel ${step.target}`);
             assert.ok(step.help, `${original.key} Schritt ${i}: keine Hilfe`);
-            if (! step.speech && deviceKey === 'ic-m323') assert.doesNotMatch(step.help, /\bDIAL\b|H\/L gedrückt|Kanalwahlknopf/, `${original.key} Schritt ${i}: Hilfe des IC-M505`);
+            if (! step.speech && deviceKey !== 'ic-m503') assert.doesNotMatch(step.help, /\bDIAL\b|H\/L gedrückt|Kanalwahlknopf/, `${original.key} Schritt ${i}: Hilfe des IC-M505`);
             if (! step.speech && deviceKey === 'ic-m503') assert.doesNotMatch(step.help, /\bMENU\b|16\/C|Kanalwahlknopf|Softkey/, `${original.key} Schritt ${i}: Hilfe eines anderen Geräts`);
         }
     }
@@ -238,4 +238,29 @@ test('IC-M503: position request lesson hidden, series b uses Küstenfunkstelle i
     assert.equal(lessonAvailable(lesson('testanruf'), 'ic-m503'), false);
     const b = { lessons: data.exams.b, substitutes: data.exam_meta.b.substitutes };
     assert.ok(examLessons(b, 'ic-m503').includes('kuestenfunkstelle'));
+});
+
+test('IC-M423: CH/WX instead of CHAN, longer softkey ring, 16/C on the handset; inherits IC-M323 lesson rules', () => {
+    let now = 0;
+    const events = [];
+    const radio = createIcM423({ own: data.ship, clock: () => now, emit: (e) => events.push(e), addressBook: data.address_book });
+    radio.setup({ power: true, vol: 5, sql: 3, channel: 72 });
+    const press = (k) => { radio.keyDown(k); radio.keyUp(k); };
+    assert.deepEqual(radio.display().softkeys, ['SCAN', 'DW', 'HI/LO', 'CH/WX']);
+    press('mic16');
+    assert.equal(radio.state.channel, 16);
+    press('soft4');
+    assert.equal(radio.state.channel, 72);
+    press('right');
+    assert.deepEqual(radio.display().softkeys, ['DW', 'HI/LO', 'CH/WX', 'PA']);
+
+    assert.equal(lessonAvailable(lesson('testanruf'), 'ic-m423'), true);
+    assert.equal(lessonAvailable(lesson('position-polling'), 'ic-m423'), false);
+    const b = { lessons: data.exams.b, substitutes: data.exam_meta.b.substitutes };
+    assert.ok(examLessons(b, 'ic-m423').includes('testanruf'));
+    const back = prepareLesson(lesson('geraet-bedienen'), 'ic-m423').steps.at(-1);
+    assert.equal(back.target, 'sk:CH/WX');
+    const medico = prepareLesson(lesson('medico'), 'ic-m423').steps[0];
+    assert.equal(medico.goal.kind, 'all_ships');
+    assert.ok(createIcM323);
 });
