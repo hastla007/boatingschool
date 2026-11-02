@@ -8,9 +8,12 @@ import { createIcM323, createIcM423 } from './icm323.js';
 import { hintM323, hintM423 } from './icm323-hints.js';
 import { createIcM503 } from './icm503.js';
 import { hintM503 } from './icm503-hints.js';
+import { createIcM330 } from './icm330.js';
+import { hintM330 } from './icm330-hints.js';
 import { renderDevice } from '../ui/device-svg.js';
 import { renderDeviceM323, renderDeviceM423 } from '../ui/device-svg-m323.js';
 import { renderDeviceM503 } from '../ui/device-svg-m503.js';
+import { renderDeviceM330 } from '../ui/device-svg-m330.js';
 
 export const DEVICES = {
     'ic-m505': { key: 'ic-m505', name: 'Icom IC-M505', create: createIcM505, render: renderDevice, hint: null, wheel: { key: 'enter', knob: 'channel' } },
@@ -19,6 +22,10 @@ export const DEVICES = {
     // wie für dieses Gerät, solange keine eigenen angegeben sind.
     'ic-m423': { key: 'ic-m423', name: 'Icom IC-M423', like: 'ic-m323', create: createIcM423, render: renderDeviceM423, hint: hintM423, wheel: { key: 'knob', knob: 'dial' } },
     'ic-m503': { key: 'ic-m503', name: 'Icom IC-M503 + DS-100', create: createIcM503, render: renderDeviceM503, hint: hintM503, wheel: { key: null, knob: 'channel' } },
+    // DSC Klasse D wie das IC-M323 (kein Senden von Positions-/Polling-
+    // Abfragen, dafür Testanruf); Bedienung über Softkey-Seiten und das
+    // Formular OTHER DSC.
+    'ic-m330': { key: 'ic-m330', name: 'Icom IC-M330', like: 'ic-m323', create: createIcM330, render: renderDeviceM330, hint: hintM330, wheel: { key: 'knob', knob: 'dial' } },
 };
 
 const likeOf = (deviceKey) => DEVICES[deviceKey]?.like ?? null;

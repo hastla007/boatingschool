@@ -146,7 +146,7 @@ class GeraetesimulationTest extends TestCase
         $this->actingAsInTenant($admin, $tenant)->postJson($url, ['series' => 'x', 'passed' => []])->assertStatus(422);
 
         $this->actingAsInTenant($admin, $tenant)->get("/courses/{$course->id}/funk/geraetesimulation")
-            ->assertOk()->assertSee('"best":{"ic-m505":5,"ic-m323":null,"ic-m423":null,"ic-m503":null}', false);
+            ->assertOk()->assertSee('"best":{"ic-m505":5,"ic-m323":null,"ic-m423":null,"ic-m503":null,"ic-m330":null}', false);
         $row = $this->onAdmin(fn () => RadioTrainingProgress::where('user_id', $admin->id)->where('item_key', 'ic-m505:pruefung-a')->sole());
         $this->assertSame(['einzelanruf'], $row->answers['last']);
         $this->assertFalse($row->completed);
@@ -208,9 +208,10 @@ class GeraetesimulationTest extends TestCase
         $this->actingAsInTenant($admin, $tenant)->postJson("{$base}/fortschritt", ['lesson' => 'einzelanruf', 'level' => 1, 'device' => 'ic-m999'])->assertStatus(422);
 
         $config = $this->actingAsInTenant($admin, $tenant)->get($base)->assertOk()->viewData('config');
-        $this->assertSame(['ic-m505', 'ic-m323', 'ic-m423', 'ic-m503'], array_column($config['devices'], 'key'));
-        // Das IC-M423 übernimmt die Ersatzaufgaben des IC-M323.
+        $this->assertSame(['ic-m505', 'ic-m323', 'ic-m423', 'ic-m503', 'ic-m330'], array_column($config['devices'], 'key'));
+        // IC-M423 und IC-M330 übernehmen die Ersatzaufgaben des IC-M323.
         $this->assertContains('testanruf', Geraetesimulation::examLessons('b', 'ic-m423'));
+        $this->assertContains('testanruf', Geraetesimulation::examLessons('b', 'ic-m330'));
         $this->assertSame(3, $config['progress']['ic-m323']['einzelanruf']);
         $this->assertSame(1, $config['progress']['ic-m505']['einzelanruf']);
 
