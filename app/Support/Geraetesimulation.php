@@ -82,7 +82,7 @@ class Geraetesimulation
      * Prüfungsreihen der Funkscheine mit Titel, Lektionen und ggf. eigener
      * Ausgangslage des Geräts.
      *
-     * @return array<string, array{title: string, catalog: string, lessons: list<string>, start: ?array}>
+     * @return array<string, array{title: string, catalog: string, lessons: list<string>, start: ?array, substitutes: array}>
      */
     public static function exams(?array $catalogs = null): array
     {
@@ -93,7 +93,7 @@ class Geraetesimulation
             $meta = $data['exam_meta'][$series];
 
             if ($catalogs === null || in_array($meta['catalog'], $catalogs, true)) {
-                $exams[$series] = ['title' => $meta['title'], 'catalog' => $meta['catalog'], 'lessons' => $lessons, 'start' => $meta['start'] ?? null];
+                $exams[$series] = ['title' => $meta['title'], 'catalog' => $meta['catalog'], 'lessons' => $lessons, 'start' => $meta['start'] ?? null, 'substitutes' => $meta['substitutes'] ?? []];
             }
         }
 
@@ -125,14 +125,33 @@ class Geraetesimulation
         return FunkPraxis::checkText($checks, $text);
     }
 
-    public static function progressKey(string $lessonKey): string
+    /** @return list<string> Gerätekennungen, z. B. ic-m505, ic-m323. */
+    public static function deviceKeys(): array
     {
-        return self::DEVICE.':'.$lessonKey;
+        return array_column(self::data()['devices'], 'key');
     }
 
-    public static function examKey(string $series): string
+    public static function progressKey(string $lessonKey, string $device = self::DEVICE): string
     {
-        return self::DEVICE.':pruefung-'.$series;
+        return $device.':'.$lessonKey;
+    }
+
+    public static function examKey(string $series, string $device = self::DEVICE): string
+    {
+        return $device.':pruefung-'.$series;
+    }
+
+    /**
+     * Lektionen einer Prüfungsreihe für ein Gerät; Aufgaben, die das Gerät
+     * nicht kann, sind ersetzt ("substitutes").
+     *
+     * @return list<string>
+     */
+    public static function examLessons(string $series, string $device = self::DEVICE): array
+    {
+        $exam = self::exams()[$series];
+
+        return array_map(fn ($lesson) => $exam['substitutes'][$device][$lesson] ?? $lesson, $exam['lessons']);
     }
 
     /**

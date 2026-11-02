@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Gerätesimulation Funk, Stufen 1–3 (IC-M505, Seefunk und Binnenfunk): Übungsschiff,
+ * Gerätesimulation Funk, Stufen 1–4 (IC-M505 und IC-M323, Seefunk und Binnenfunk): Übungsschiff,
  * Gegenstationen, Lektionen und die Reihen des Prüfungsmodus. Die Lektionen
  * gehen als JSON an den Browser (Lektionssteuerung in
  * resources/js/funkgeraet/lessons.js); dieselbe Datei liefert dem Server die
@@ -9,7 +9,11 @@
  *
  * Ein Schritt nennt sein Ziel als Ereignis der Gerätelogik ("goal") -- nicht
  * die Tastenfolge. "target" ist das Bedienteil, das die Schritt-Hilfe
- * markiert, "help" der Hilfetext; beides gilt für das IC-M505. "receive" ist
+ * markiert, "help" der Hilfetext; beides gilt für das IC-M505, für weitere
+ * Geräte entstehen Hilfe und Markierung aus dem Ziel (resources/js/
+ * funkgeraet/devices). "devices" an einer Lektion beschränkt sie auf diese
+ * Geräte; "device" an einem Schritt passt ihn für ein Gerät an, z. B. wenn
+ * das IC-M323 beim Einzelanruf nur die Kategorie Routine kennt. "receive" ist
  * ein DSC-Anruf, "voice" Sprechfunk einer Gegenstation (Browserstimme, bis
  * Sprecheraufnahmen vorliegen). Schritte mit "speech" werden serverseitig
  * geprüft: entweder mit eigenen Prüfpunkten ("checks": [Bezeichnung,
@@ -61,6 +65,11 @@ $eisvogelMayday = 'Mayday, Mayday, Mayday, hier ist Eisvogel, Eisvogel, Eisvogel
 $eisvogel = ['vessel' => 'EISVOGEL', 'callsign' => 'DA2830', 'type' => 'Segelboot', 'nature' => 'capsize', 'persons' => 4];
 
 return [
+    'devices' => [
+        ['key' => 'ic-m505', 'name' => 'Icom IC-M505'],
+        ['key' => 'ic-m323', 'name' => 'Icom IC-M323'],
+    ],
+
     'ship' => $ship + ['label' => 'Segelyacht Kormoran', 'atis' => '9211234721'],
 
     'address_book' => [$moewe, $bremenRescue, $nordseeRadio, $flotilla],
@@ -81,7 +90,8 @@ return [
     ],
     'exam_meta' => [
         'a' => ['title' => 'SRC Reihe a', 'catalog' => 'SRC'],
-        'b' => ['title' => 'SRC Reihe b', 'catalog' => 'SRC'],
+        // Positionsabfrage und Polling kann das IC-M323 nicht senden.
+        'b' => ['title' => 'SRC Reihe b', 'catalog' => 'SRC', 'substitutes' => ['ic-m323' => ['position-polling' => 'testanruf']]],
         'ubi-voll' => ['title' => 'UBI Vollprüfung', 'catalog' => 'UBI', 'start' => ['power' => false, 'vol' => 5, 'sql' => 3, 'group' => 'INT', 'channel' => 16, 'highPower' => false]],
         'ubi-ergaenzung' => ['title' => 'UBI Ergänzungsprüfung (mit SRC)', 'catalog' => 'UBI', 'start' => ['power' => false, 'vol' => 5, 'sql' => 3, 'group' => 'INT', 'channel' => 16, 'highPower' => false]],
     ],
@@ -263,8 +273,9 @@ return [
             'intro' => 'Du möchtest von der Küstenfunkstelle Nordsee Radio (MMSI 002119999) den Wetterbericht für die Deutsche Bucht erfragen. Ruf sie per DSC (Routine) und schlag Kanal 26 vor.',
             'start' => $start,
             'steps' => [
-                ['text' => 'Sende einen Einzelanruf (Routine) an Nordsee Radio mit Kanal 26.', 'target' => 'menu', 'help' => 'MENU, „Individual Call“, „NORDSEE RADIO“, „Routine“, Kanal 26, ENTER zum Senden.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '002119999', 'category' => 'Routine', 'channel' => 26]],
-                $waitForAck + ['goal' => ['type' => 'channel', 'channel' => 26], 'receive' => ['delay_ms' => 4000, 'call' => ['type' => 'individual_ack', 'from' => $nordseeRadio]]],
+                ['text' => 'Sende einen Einzelanruf (Routine) an Nordsee Radio mit Kanal 26.', 'target' => 'menu', 'help' => 'MENU, „Individual Call“, „NORDSEE RADIO“, „Routine“, Kanal 26, ENTER zum Senden.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '002119999', 'category' => 'Routine', 'channel' => 26],
+                    'device' => ['ic-m323' => ['text' => 'Sende einen Einzelanruf an Nordsee Radio. Den Kanal bestimmt am IC-M323 die Küstenfunkstelle.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '002119999']]]],
+                $waitForAck + ['goal' => ['type' => 'channel', 'channel' => 26], 'receive' => ['delay_ms' => 4000, 'call' => ['type' => 'individual_ack', 'from' => $nordseeRadio, 'channel' => 26]]],
                 ['text' => 'Ruf Nordsee Radio auf Kanal 26 und frag nach dem Wetterbericht.', 'target' => 'ptt', 'help' => '„Nordsee Radio, this is Kormoran, DH4721, request weather forecast for the German Bight, over.“', 'goal' => ['type' => 'spoken', 'channel' => 26], 'speech' => ['checks' => [['Küstenfunkstelle Nordsee Radio', 'NORDSEE', 1], $thisIs, $kormoran, ['Anliegen Wetterbericht', 'WEATHER|WETTER|FORECAST', 1], $over], 'solution' => 'DSC: Individual Call an NORDSEE RADIO (002119999), Routine, Kanal 26. Sprechfunk auf Kanal 26: Nordsee Radio, this is Kormoran, Delta Hotel Four Seven Two One, request weather forecast for the German Bight, over.']],
                 ['text' => 'Hör die Antwort.', 'target' => null, 'help' => 'Nur zuhören.', 'goal' => ['type' => 'voice', 'heard' => true, 'from' => 'NORDSEE RADIO'], 'voice' => ['delay_ms' => 2000, 'from' => 'NORDSEE RADIO', 'channel' => 26, 'text' => 'Kormoran, this is Nordsee Radio. German Bight: west four to five, sea state three, good visibility. Over.']],
             ],
@@ -295,6 +306,7 @@ return [
         ],
         [
             'key' => 'position-polling',
+            'devices' => ['ic-m505'],
             'unit' => 'DSC-Routine',
             'title' => 'Positionsabfrage und Polling',
             'intro' => 'Frag per DSC die Position der Möwe ab. Danach prüft Bremen Rescue per Polling, ob du erreichbar bist: Beantworte die Abfrage.',
@@ -303,6 +315,20 @@ return [
                 ['text' => 'Sende eine Positionsabfrage an die Möwe.', 'target' => 'menu', 'help' => 'MENU, „Position Request“, „MOEWE“, ENTER, ENTER zum Senden.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'position_request', 'address.name' => 'MOEWE']],
                 ['text' => 'Die Antwort kommt gleich. Schalte den Ton aus und lass dir die Position anzeigen.', 'target' => 'enter', 'help' => 'CLR schaltet den Ton aus, ENTER zeigt die Position.', 'goal' => ['type' => 'position_info'], 'receive' => ['delay_ms' => 3000, 'call' => ['type' => 'position_reply', 'from' => $moewe, 'position' => [54, 12, 'N', 7, 40, 'E']]]],
                 ['text' => 'Bremen Rescue sendet ein Polling. Beantworte es.', 'target' => 'menu', 'help' => 'CLR (Ton aus), CLR, dann MENU, „Polling Reply“, ENTER zum Senden.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'polling_reply'], 'receive' => ['delay_ms' => 1500, 'call' => ['type' => 'polling_request', 'from' => $bremenRescue]]],
+            ],
+        ],
+
+        [
+            'key' => 'testanruf',
+            'devices' => ['ic-m323'],
+            'unit' => 'DSC-Routine',
+            'title' => 'Testanruf',
+            'intro' => 'Mit einem DSC-Testanruf prüfst du, ob dein DSC-Controller sendet. Am IC-M323 ist die Kategorie fest „Safety“. Testanrufe nur, wenn nötig: Sie belegen Kanal 70.',
+            'start' => $start,
+            'steps' => [
+                ['text' => 'Sende einen Testanruf an die Möwe.', 'target' => 'menu', 'help' => 'MENU, „DSC Calls“, „Test Call“, „MOEWE“, ENT, Softkey CALL.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'test', 'address.name' => 'MOEWE']],
+                ['text' => 'Warte auf die Bestätigung.', 'target' => null, 'help' => 'Nichts drücken.', 'goal' => ['type' => 'dsc_received', 'call.type' => 'test_ack'], 'receive' => ['delay_ms' => 3000, 'call' => ['type' => 'test_ack', 'from' => $moewe]]],
+                ['text' => 'Schalte den Signalton aus.', 'target' => 'clr', 'help' => 'Softkey ALARM OFF.', 'goal' => ['type' => 'alarm_stopped']],
             ],
         ],
 
@@ -340,7 +366,7 @@ return [
             'unit' => 'Notverkehr',
             'title' => 'Notalarm empfangen und per Sprechfunk bestätigen',
             'pruefung' => '1.b',
-            'intro' => 'Dein Gerät empfängt einen Notalarm der Yacht Seestern. Hör auf Kanal 16 mit. Bestätigt keine Küstenfunkstelle, bestätigst du selbst per Sprechfunk – am IC-M505 gibt es keine DSC-Bestätigung. Du bist 4 Seemeilen entfernt.',
+            'intro' => 'Dein Gerät empfängt einen Notalarm der Yacht Seestern. Hör auf Kanal 16 mit. Bestätigt keine Küstenfunkstelle, bestätigst du selbst per Sprechfunk – eine DSC-Bestätigung können Sportbootgeräte wie dieses nicht senden. Du bist 4 Seemeilen entfernt.',
             'start' => ['channel' => 72] + $startWithPosition,
             'steps' => [
                 ['text' => 'Warte auf den Alarm und schalte den Alarmton aus.', 'target' => 'clr', 'help' => 'Das Gerät schaltet selbst auf Kanal 16. CLR schaltet den Ton aus.', 'goal' => ['type' => 'alarm_stopped', 'call' => 'distress'], 'receive' => ['delay_ms' => 1500, 'call' => ['type' => 'distress', 'from' => $seestern, 'nature' => 'Flooding', 'position' => [54, 14, 'N', 7, 48, 'E']]]],
@@ -353,7 +379,7 @@ return [
             'unit' => 'Notverkehr',
             'title' => 'Notmeldung weiterleiten (MAYDAY RELAY)',
             'pruefung' => '2.b',
-            'intro' => 'Du hörst die Notmeldung der Seestern. Niemand bestätigt, auch nicht Bremen Rescue. Du kannst selbst nicht helfen: Leite die Notmeldung per Sprechfunk an Bremen Rescue weiter – am IC-M505 gibt es kein DSC-Relay.',
+            'intro' => 'Du hörst die Notmeldung der Seestern. Niemand bestätigt, auch nicht Bremen Rescue. Du kannst selbst nicht helfen: Leite die Notmeldung per Sprechfunk an Bremen Rescue weiter – ein DSC-Relay können Sportbootgeräte wie dieses nicht senden.',
             'start' => $startWithPosition,
             'steps' => [
                 ['text' => 'Hör die Notmeldung der Seestern.', 'target' => null, 'help' => 'Nur zuhören und mitschreiben.', 'goal' => ['type' => 'voice', 'heard' => true, 'from' => 'SEESTERN'], 'voice' => ['delay_ms' => 1500, 'from' => 'SEESTERN', 'channel' => 16, 'text' => $seesternMayday]],
@@ -461,8 +487,11 @@ return [
             'intro' => 'Ein Crewmitglied hat hohes Fieber und starke Bauchschmerzen, keine akute Lebensgefahr. Bitte über Bremen Rescue um funkärztliche Beratung: DSC-Einzelanruf mit Kategorie „Urgency“, Folgekanal 16, dann Dringlichkeitsmeldung. 2 Personen an Bord, 13:30 UTC.',
             'start' => ['utc' => '13:30'] + $startWithPosition,
             'steps' => [
-                ['text' => 'Sende einen Einzelanruf an Bremen Rescue mit der Kategorie „Urgency“ und Kanal 16.', 'target' => 'menu', 'help' => 'MENU, „Individual Call“, „BREMEN RESCUE“, „Urgency“, Kanal 16, ENTER zum Senden.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '002111240', 'category' => 'Urgency', 'channel' => 16]],
-                $waitForAck + ['goal' => ['type' => 'dsc_received', 'call.type' => 'individual_ack'], 'receive' => ['delay_ms' => 3000, 'call' => ['type' => 'individual_ack', 'from' => $bremenRescue]]],
+                ['text' => 'Sende einen Einzelanruf an Bremen Rescue mit der Kategorie „Urgency“ und Kanal 16.', 'target' => 'menu', 'help' => 'MENU, „Individual Call“, „BREMEN RESCUE“, „Urgency“, Kanal 16, ENTER zum Senden.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '002111240', 'category' => 'Urgency', 'channel' => 16],
+                    // Am IC-M323 ist der Einzelanruf fest Routine: Dringlichkeit per Anruf an alle ankündigen.
+                    'device' => ['ic-m323' => ['text' => 'Kündige die Dringlichkeitsmeldung per DSC an: Anruf an alle mit der Kategorie „Urgency“ (am IC-M323 ist der Einzelanruf fest Routine).', 'goal' => ['type' => 'dsc_sent', 'kind' => 'all_ships', 'category' => 'Urgency']]]],
+                $waitForAck + ['goal' => ['type' => 'dsc_received', 'call.type' => 'individual_ack'], 'receive' => ['delay_ms' => 3000, 'call' => ['type' => 'individual_ack', 'from' => $bremenRescue]],
+                    'device' => ['ic-m323' => ['text' => 'Das Gerät schaltet nach dem Anruf auf Kanal 16.', 'goal' => ['type' => 'channel', 'channel' => 16], 'receive' => null]]],
                 ['text' => 'Sprich die Dringlichkeitsmeldung an Bremen Rescue auf Kanal 16.', 'target' => 'ptt', 'help' => 'PAN PAN (dreimal), Bremen Rescue Radio (dreimal), this is Kormoran (dreimal), DH4721, MMSI 211472100, my position … at 1330 UTC, one crew member with high fever and severe abdominal pain, I require medical advice, 2 persons on board, over.', 'goal' => ['type' => 'spoken', 'channel' => 16], 'speech' => ['scenario' => $ship + ['pos' => $position, 'time' => '1330', 'kind' => 'urgency', 'problem' => 'advice', 'persons' => 2]]],
                 ['text' => 'Hör die Antwort von Bremen Rescue.', 'target' => null, 'help' => 'Nur zuhören.', 'goal' => ['type' => 'voice', 'heard' => true, 'from' => 'BREMEN RESCUE'], 'voice' => ['delay_ms' => 2500, 'from' => 'BREMEN RESCUE', 'channel' => 16, 'text' => 'Kormoran, this is Bremen Rescue Radio. I will connect you with the medical advice service. Stand by on channel one six. Over.']],
             ],
@@ -528,8 +557,9 @@ return [
             'intro' => 'Melde Nordsee Radio deine voraussichtliche Ankunftszeit in Helgoland (1700 UTC): DSC-Einzelanruf (Routine, Kanal 26), Gespräch, Ende.',
             'start' => $start,
             'steps' => [
-                ['text' => 'Ruf Nordsee Radio per DSC: Routine, Kanal 26.', 'target' => 'menu', 'help' => 'MENU, „Individual Call“, „NORDSEE RADIO“, „Routine“, Kanal 26, senden.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '002119999', 'category' => 'Routine', 'channel' => 26]],
-                $waitForAck + ['goal' => ['type' => 'channel', 'channel' => 26], 'receive' => ['delay_ms' => 4000, 'call' => ['type' => 'individual_ack', 'from' => $nordseeRadio]]],
+                ['text' => 'Ruf Nordsee Radio per DSC: Routine, Kanal 26.', 'target' => 'menu', 'help' => 'MENU, „Individual Call“, „NORDSEE RADIO“, „Routine“, Kanal 26, senden.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '002119999', 'category' => 'Routine', 'channel' => 26],
+                    'device' => ['ic-m323' => ['text' => 'Ruf Nordsee Radio per DSC. Den Kanal bestimmt am IC-M323 die Küstenfunkstelle.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '002119999']]]],
+                $waitForAck + ['goal' => ['type' => 'channel', 'channel' => 26], 'receive' => ['delay_ms' => 4000, 'call' => ['type' => 'individual_ack', 'from' => $nordseeRadio, 'channel' => 26]]],
                 ['text' => 'Melde dich auf Kanal 26 und nenne dein Anliegen.', 'target' => 'ptt', 'help' => '„Nordsee Radio, this is Kormoran, DH4721, my estimated time of arrival in Helgoland is 1700 UTC, over.“', 'goal' => ['type' => 'spoken', 'channel' => 26], 'speech' => ['checks' => [['Küstenfunkstelle Nordsee Radio', 'NORDSEE', 1], $thisIs, $kormoran, ['Ankunftszeit', 'ARRIVAL|\bETA\b|ANKUNFT', 1], ['Uhrzeit 1700', '1700|17 00|ONE SEVEN ZERO ZERO|SEVENTEEN HUNDRED', 1], $over], 'solution' => 'Nordsee Radio, this is Kormoran, Delta Hotel Four Seven Two One, my estimated time of arrival in Helgoland is one seven zero zero UTC, over.']],
                 ['text' => 'Hör die Antwort.', 'target' => null, 'help' => 'Nur zuhören.', 'goal' => ['type' => 'voice', 'heard' => true, 'from' => 'NORDSEE RADIO'], 'voice' => ['delay_ms' => 2000, 'from' => 'NORDSEE RADIO', 'channel' => 26, 'text' => 'Kormoran, this is Nordsee Radio, received, your estimated time of arrival Helgoland one seven zero zero. Out.']],
             ],

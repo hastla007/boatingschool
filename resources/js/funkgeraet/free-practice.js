@@ -113,9 +113,15 @@ export function createFreePractice({ ship, schedule, receive, say, radio }) {
             switch (event.kind) {
                 case 'individual':
                     if (station) {
-                        schedule(() => receive({ type: 'individual_ack', from: station }), 4000);
-                        startTalk(station, event.channel ?? 16);
+                        // Ohne vorgeschlagenen Kanal (Küstenfunkstelle am
+                        // IC-M323) nennt die Gegenstelle den Kanal.
+                        const channel = event.channel ?? (station.mmsi.startsWith('00') ? 26 : 72);
+                        schedule(() => receive({ type: 'individual_ack', from: station, channel }), 4000);
+                        startTalk(station, channel);
                     }
+                    break;
+                case 'test':
+                    if (station) schedule(() => receive({ type: 'test_ack', from: station }), 3000);
                     break;
                 case 'individual_ack':
                     if (talk?.awaitingAck && event.action === 'able') {
