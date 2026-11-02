@@ -23,6 +23,7 @@ export function hintM323(step) {
                 ? h('Den Drehknopf kurz drücken, bis „SQL:“ erscheint, dann ganz nach links drehen (OPEN).', 'knob')
                 : h('Im SQL-Fenster (Drehknopf kurz drücken) langsam nach rechts drehen, bis das Rauschen gerade verschwindet.', 'knob');
         case 'channel':
+            if (step.receive?.call?.type === 'individual_ack') return h('Nach der Bestätigung Softkey ALARM OFF: Das Gerät stellt den Arbeitskanal ein.', 'sk:ALARM OFF');
             if (goal.circle) return h(`Mit ▲/▼ einen Kanal des Verkehrskreises ${goal.circle} wählen.`, 'up');
             if (step.target === 'dial') return h('Softkey CHAN drücken: zurück zum vorherigen Betriebskanal.', 'sk:CHAN');
             if (goal.channel === 16) return h('16/C kurz drücken.', 'ch16');

@@ -6,12 +6,16 @@
 import { createIcM505 } from './icm505.js';
 import { createIcM323 } from './icm323.js';
 import { hintM323 } from './icm323-hints.js';
+import { createIcM503 } from './icm503.js';
+import { hintM503 } from './icm503-hints.js';
 import { renderDevice } from '../ui/device-svg.js';
 import { renderDeviceM323 } from '../ui/device-svg-m323.js';
+import { renderDeviceM503 } from '../ui/device-svg-m503.js';
 
 export const DEVICES = {
     'ic-m505': { key: 'ic-m505', name: 'Icom IC-M505', create: createIcM505, render: renderDevice, hint: null, wheel: { key: 'enter', knob: 'channel' } },
     'ic-m323': { key: 'ic-m323', name: 'Icom IC-M323', create: createIcM323, render: renderDeviceM323, hint: hintM323, wheel: { key: 'knob', knob: 'dial' } },
+    'ic-m503': { key: 'ic-m503', name: 'Icom IC-M503 + DS-100', create: createIcM503, render: renderDeviceM503, hint: hintM503, wheel: { key: null, knob: 'channel' } },
 };
 
 export function lessonAvailable(lesson, deviceKey) {
