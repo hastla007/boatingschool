@@ -77,6 +77,22 @@ class AuditLog extends Model
             $this->action === 'tenant-course-locations.create' => "{$actorName} hat einen Praxis-/Prüfungsort angelegt.",
             $this->action === 'tenant-course-locations.update' => "{$actorName} hat einen Praxis-/Prüfungsort aktualisiert.",
             $this->action === 'tenant-course-locations.delete' => "{$actorName} hat einen Praxis-/Prüfungsort gelöscht.",
+            // Review-Runde 3: bisher als roher Schlüssel angezeigt.
+            $this->action === 'coupon.redeem_renewal' => "{$actorName} hat einen Verlängerungscode eingelöst.",
+            $this->action === 'exam-registration.update' => "{$actorName} hat die Prüfungsanmeldung je Kurs aktualisiert.",
+            $this->action === 'invitation.accept' => "{$actorName} hat eine Einladung angenommen.",
+            $this->action === 'praxis-exam-appointment.withdraw' => "{$actorName} hat einen Terminvorschlag zurückgezogen.",
+            $this->action === 'praxis-exam-appointment.cancel' => "{$actorName} hat einen bestätigten Termin abgesagt.",
+            $this->action === 'praxis-form-submission.update' => "{$actorName} hat eine Praxis-Anmeldung bearbeitet.",
+            $this->action === 'praxis-form-submission.delete' => "{$actorName} hat eine Praxis-Anmeldung gelöscht.",
+            $this->action === 'superadmin.coupon.create' => "{$actorName} hat Codes angelegt.",
+            $this->action === 'superadmin.coupon.export' => "{$actorName} hat Codes exportiert.",
+            $this->action === 'superadmin.settings.update' => "{$actorName} hat Plattform-Einstellungen geändert.",
+            $this->action === 'superadmin.tenant.create' => "{$actorName} hat eine Bootsschule angelegt.",
+            $this->action === 'superadmin.tenant.update' => "{$actorName} hat eine Bootsschule geändert.",
+            $this->action === 'superadmin.user.create' => "{$actorName} hat ein Nutzerkonto angelegt.",
+            $this->action === 'superadmin.user.update' => "{$actorName} hat ein Nutzerkonto geändert.",
+            $this->action === 'superadmin.user.membership_update' => "{$actorName} hat eine Mitgliedschaft geändert.",
             default => "{$actorName}: {$this->action}",
         };
     }

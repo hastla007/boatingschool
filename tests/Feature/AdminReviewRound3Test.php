@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AuditLog;
 use App\Models\Coupon;
 use App\Models\CourseDefinition;
 use App\Models\Entitlement;
@@ -198,5 +199,13 @@ class AdminReviewRound3Test extends TestCase
     {
         $this->get('http://unbekannte-schule.'.config('app.central_domain').'/login')->assertNotFound();
         $this->get('http://'.config('app.central_domain').'/login')->assertOk();
+    }
+
+    public function test_dashboard_activity_has_readable_texts_for_every_school_action(): void
+    {
+        foreach (['coupon.redeem_renewal', 'exam-registration.update', 'invitation.accept', 'praxis-exam-appointment.withdraw', 'praxis-exam-appointment.cancel', 'praxis-form-submission.update', 'praxis-form-submission.delete'] as $action) {
+            $text = (new AuditLog(['action' => $action]))->description();
+            $this->assertStringNotContainsString($action, $text, $action);
+        }
     }
 }
