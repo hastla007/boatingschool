@@ -187,9 +187,9 @@ return [
         ['t' => 'Signalmunition im Kaliber 4', 'c' => false],
     ]],
     44 => ['type' => 'multi_choice', 'q' => 'Welche pyrotechnischen Gegenstände (Zulassungsklasse) unterliegen dem Waffengesetz?', 'options' => [
-        ['t' => 'BAM P 1.', 'c' => false],
-        ['t' => 'BAM PM 1.', 'c' => true],
-        ['t' => 'BAM PM II.', 'c' => true],
+        ['t' => 'BAM P I', 'c' => false],
+        ['t' => 'BAM PM I', 'c' => true],
+        ['t' => 'BAM PM II', 'c' => true],
     ]],
     45 => ['type' => 'open_text', 'q' => 'Was regelt das Sprengstoffgesetz?', 'a' => 'Den Umgang und den Verkehr mit sowie die Einfuhr und die Durchfuhr von explosionsgefährlichen Stoffen und Sprengzubehör.'],
     46 => ['type' => 'open_text', 'q' => 'Welche Bestimmung regelt den Einsatz von Notsignalen auf See?', 'a' => 'Kollisionsverhütungsregeln (KVR; Regel 37).'],
@@ -219,8 +219,8 @@ return [
     ]],
     55 => ['type' => 'multi_choice', 'q' => 'Wem dürfen Sie die Signalpistole im Kaliber 4 (26,5 mm) nebst Munition ohne Erlaubnis vorübergehend überlassen?', 'options' => [
         ['t' => 'Volljährigen Personen meines Vertrauens zur sicheren Aufbewahrung.', 'c' => false],
-        ['t' => 'Polizeibeamten.', 'c' => false],
-        ['t' => 'Charterern von seegehenden Wasserfahrzeugen, sofern der Besitz über die Waffe nach Weisungen des Überlassers erfolgt.', 'c' => true],
+        ['t' => 'Feuerwehrleute.', 'c' => false],
+        ['t' => 'Charterern von seegehenden Wasserfahrzeugen, sofern der Besitz über die Waffe nach den Weisungen des berechtigten Überlassers erfolgt.', 'c' => true],
     ]],
     56 => ['type' => 'multi_choice', 'q' => 'Wer darf während der Fahrt auf einem Gewässer oder See die Signalwaffe am Körper tragen (führen)?', 'options' => [
         ['t' => 'Jedes Besatzungsmitglied.', 'c' => false],
@@ -236,7 +236,7 @@ return [
     59 => ['type' => 'multi_choice', 'q' => 'Für den Erwerb und Besitz welcher Signalwaffe benötigen Sie eine Erlaubnis der zuständigen Behörde?', 'options' => [
         ['t' => 'Signalpistole Kaliber 4 (26,5 mm).', 'c' => true],
         ['t' => 'Für Signalwaffen (SRS-Waffen), die kein Bauartzulassungszeichen „PTB im Kreis" (Physikalisch-Technische Bundesanstalt) tragen.', 'c' => true],
-        ['t' => 'Signalwaffen (SRS-Waffen), die das Bauartzulassungszeichen „PTB Kreis" (Physikalisch-Technische Bundesanstalt) tragen.', 'c' => false],
+        ['t' => 'Signalwaffen (SRS-Waffen), die das Bauartzulassungszeichen „PTB im Kreis" (Physikalisch-Technische Bundesanstalt) tragen.', 'c' => false],
     ]],
     60 => ['type' => 'open_text', 'q' => 'Welche Ausnahme von den waffenrechtlichen Erlaubnispflichten für Waffen und Munition betrifft den Charterer einer seegehenden Yacht?', 'a' => 'Der Charterer darf ohne waffenrechtliche Erlaubnis die tatsächliche Gewalt über eine an Bord befindliche Signalpistole im Kaliber 4 (26,5 mm) und die dazugehörige Munition ausüben.'],
     // Rauchtöpfe gibt es seit Langem nur noch als P1; der amtliche Katalog

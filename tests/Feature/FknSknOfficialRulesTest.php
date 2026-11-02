@@ -210,4 +210,48 @@ class FknSknOfficialRulesTest extends TestCase
             }
         });
     }
+
+    public function test_fkn_questions_shared_with_the_bva_catalog_use_its_wording(): void
+    {
+        $this->onAdmin(function () {
+            $answers = fn (string $id) => ContentQuestion::where('content_id', $id)->firstOrFail()->publishedRevision()->answers()->orderBy('sort_order')->pluck('answer_text', 'answer_key');
+
+            $this->assertSame(['A' => 'BAM P I', 'B' => 'BAM PM I', 'C' => 'BAM PM II'], $answers('FKN-0044')->all());
+            $this->assertSame('Feuerwehrleute.', $answers('FKN-0055')['B']);
+            $this->assertStringContainsString('„PTB im Kreis"', $answers('FKN-0059')['C']);
+        });
+    }
+
+    public function test_an_existing_fkn_install_gets_the_bva_wording(): void
+    {
+        $this->onAdmin(function () {
+            $question = ContentQuestion::where('content_id', 'FKN-0044')->firstOrFail();
+            $published = $question->publishedRevision();
+            $current = $published->answers()->pluck('answer_text', 'answer_key');
+
+            try {
+                foreach (['A' => 'BAM P 1.', 'B' => 'BAM PM 1.', 'C' => 'BAM PM II.'] as $key => $text) {
+                    $published->answers()->where('answer_key', $key)->update(['answer_text' => $text]);
+                }
+
+                $this->runMigration('000567');
+                $this->runMigration('000567');
+
+                $fixed = $question->fresh()->publishedRevision();
+                $this->assertSame($published->revision_no + 1, $fixed->revision_no);
+                $this->assertSame($current->sort()->all(), $fixed->answers()->pluck('answer_text', 'answer_key')->sort()->all());
+                $this->assertFalse($fixed->edited_by_superadmin);
+            } finally {
+                $question->revisions()->where('revision_no', '>', $published->revision_no)->each(function ($revision) {
+                    $revision->answers()->delete();
+                    $revision->media()->detach();
+                    $revision->delete();
+                });
+                foreach ($current as $key => $text) {
+                    $published->answers()->where('answer_key', $key)->update(['answer_text' => $text]);
+                }
+                ContentQuestionRevision::whereKey($published->id)->update(['editorial_status' => 'published']);
+            }
+        });
+    }
 }
