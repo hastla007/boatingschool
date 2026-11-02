@@ -83,16 +83,25 @@ class SingleChoiceAnswerOrderShuffledTest extends TestCase
         $course = $this->existingCourse('SBF-SEE');
         $courseQuestionIds = $this->onAdmin(fn () => $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id')->unique());
 
+        // Die Mischung hängt von Nutzer-ID und Antwort-IDs ab; die Antwort-IDs
+        // entstehen beim Seeden neu. Für eine einzelne Frage kann die
+        // gemischte Reihenfolge daher zufällig der natürlichen gleichen
+        // (bei vier Antworten etwa 1 von 24 Läufen) -- deshalb unter den
+        // passenden Fragen eine wählen, bei der sie sich für diesen Nutzer
+        // unterscheidet.
+        $learnerId = '11111111-1111-1111-1111-111111111111';
         $revision = $this->onAdmin(fn () => ContentQuestionRevision::where('question_type', 'single_choice')
             ->where('editorial_status', 'published')
             ->whereHas('answers', fn ($q) => $q->where('sort_order', 1)->where('is_correct', true))
             ->whereIn('question_id', $courseQuestionIds)
-            ->first());
-        $this->assertNotNull($revision, 'Es muss eine veröffentlichte SBF-SEE-Einfachauswahl-Frage mit korrekter Antwort an sort_order=1 geben.');
-        $revision->load('answers');
+            ->with('answers')
+            ->limit(50)
+            ->get()
+            ->first(fn ($candidate) => $candidate->answersInDisplayOrderFor($learnerId)->pluck('id')->all() !== $candidate->answers->pluck('id')->all()));
+        $this->assertNotNull($revision, 'Es muss eine veröffentlichte SBF-SEE-Einfachauswahl-Frage mit korrekter Antwort an sort_order=1 geben, deren gemischte Reihenfolge sich von der natürlichen unterscheidet.');
 
         $tenant = $this->createTestTenant();
-        $learner = $this->createTenantUser($tenant, 'learner', ['id' => '11111111-1111-1111-1111-111111111111']);
+        $learner = $this->createTenantUser($tenant, 'learner', ['id' => $learnerId]);
         $this->grantEntitlement($tenant, $learner, $course);
 
         $expected = $revision->answersInDisplayOrderFor($learner->id)->pluck('id')->all();
