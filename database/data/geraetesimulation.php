@@ -225,7 +225,7 @@ return [
                 ['text' => 'Starte die Zweikanalwache auf Kanal 72.', 'target' => 'dial', 'help' => 'DIAL eine Sekunde gedrückt halten. Im Display steht DUAL 16.', 'goal' => ['type' => 'watch', 'mode' => 'dual']],
                 ['text' => 'Hör mit: Auf Kanal 16 sendet Bremen Rescue Radio.', 'target' => null, 'help' => 'Nur zuhören.', 'goal' => ['type' => 'voice', 'heard' => true, 'from' => 'BREMEN RESCUE'], 'voice' => ['delay_ms' => 2000, 'from' => 'BREMEN RESCUE', 'channel' => 16, 'text' => 'Securite, securite, securite. All stations, all stations, all stations. This is Bremen Rescue Radio. Navigational warning: buoy Elbe One unlit. Out.']],
                 ['text' => 'Beende die Zweikanalwache.', 'target' => 'dial', 'help' => 'DIAL kurz drücken.', 'goal' => ['type' => 'watch', 'mode' => 'off']],
-                ['text' => 'Stelle im Set-Modus die Dreikanalwache ein.', 'target' => 'power', 'help' => 'POWER eine Sekunde halten (aus), dann 16/C gedrückt halten und POWER drücken. „Dual/Tri“ wählen und ENTER, bis Tri-watch angezeigt wird.', 'goal' => ['type' => 'set_mode', 'item' => 'Dual/Tri', 'value' => 'tri']],
+                ['text' => 'Stelle im Set-Modus die Dreikanalwache ein.', 'target' => 'power', 'help' => 'POWER eine Sekunde halten (aus), dann 16/C gedrückt halten und POWER drücken (mit der Maus: 16/C mit gedrückter Umschalttaste anklicken, dann POWER). „Dual/Tri“ wählen und ENTER, bis Tri-watch angezeigt wird.', 'goal' => ['type' => 'set_mode', 'item' => 'Dual/Tri', 'value' => 'tri']],
                 ['text' => 'Verlasse den Set-Modus und starte die Dreikanalwache.', 'target' => 'dial', 'help' => 'CLR, dann DIAL eine Sekunde halten. Im Display steht TRI 16.', 'goal' => ['type' => 'watch', 'mode' => 'tri']],
             ],
         ],
@@ -590,7 +590,7 @@ return [
             'start' => ['power' => false, 'vol' => 5, 'sql' => 3, 'group' => 'INT', 'channel' => 16, 'highPower' => false],
             'steps' => [
                 ['text' => 'Schalte das Funkgerät ein.', 'target' => 'power', 'help' => 'POWER kurz drücken.', 'goal' => ['type' => 'power', 'on' => true]],
-                ['text' => 'Schalte auf die Kanalgruppe ATIS.', 'target' => 'hl', 'help' => 'H/L gedrückt halten und DIAL drücken, bis ATIS im Display steht.', 'goal' => ['type' => 'group', 'group' => 'ATIS']],
+                ['text' => 'Schalte auf die Kanalgruppe ATIS.', 'target' => 'hl', 'help' => 'H/L gedrückt halten und DIAL drücken, bis ATIS im Display steht. Mit der Maus: H/L mit gedrückter Umschalttaste anklicken (bleibt gedrückt), dann DIAL.', 'goal' => ['type' => 'group', 'group' => 'ATIS']],
                 ['text' => 'Versuche, Kanal 16 zu wählen.', 'target' => 'ch16', 'help' => '16/C drücken: Im Binnenfunk gibt es keinen Kanal 16.', 'goal' => ['type' => 'ch16_unavailable']],
                 ['text' => 'Versuche, das DSC-Menü zu öffnen.', 'target' => 'menu', 'help' => 'MENU drücken: DSC ist im Binnenfunk nicht zugelassen.', 'goal' => ['type' => 'dsc_blocked', 'key' => 'menu']],
                 ['text' => 'Wähle Kanal 10, den ersten Kanal im Verkehrskreis Schiff-Schiff.', 'target' => 'channel', 'help' => 'Kanalwahlknopf drehen, bis 10 im Display steht.', 'goal' => ['type' => 'channel', 'channel' => 10, 'group' => 'ATIS']],

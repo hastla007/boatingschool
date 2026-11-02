@@ -75,7 +75,7 @@ export function renderDevice(container) {
     // Display
     el('rect', { x: 382, y: 92, width: 406, height: 236, rx: 14, fill: '#15171a' }, svg);
     el('rect', { x: 392, y: 102, width: 386, height: 216, rx: 8, fill: LCD }, svg);
-    const lcd = el('g', { 'font-family': MONO, fill: LCD_INK, 'aria-live': 'polite' }, svg);
+    const lcd = el('g', { 'font-family': MONO, fill: LCD_INK }, svg);
 
     // Tasten rechts
     el('rect', { x: 820, y: 84, width: 130, height: 92, rx: 12, fill: '#7a0d12', stroke: '#0f1114', 'stroke-width': 3 }, svg);

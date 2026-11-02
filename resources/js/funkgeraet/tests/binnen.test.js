@@ -126,7 +126,7 @@ test('lesson: Notmeldung needs channel 18 with 25 W, a call on channel 10 is a m
     const miss = r.run.handle({ type: 'spoken', channel: 10, group: 'ATIS', highPower: false, text: 'Mayday', radio: {} });
     misses.push(miss);
     assert.equal(misses[0].miss, true);
-    assert.deepEqual(misses[0].expected, { channel: 18, highPower: true });
+    assert.deepEqual(misses[0].expected, { channel: 18, group: 'ATIS', highPower: true });
     r.to(18);
     r.press('hl');
     r.speak('Mayday Mayday Mayday hier ist Kormoran');

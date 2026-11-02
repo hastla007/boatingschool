@@ -6,7 +6,7 @@
 // Sprachausgabe des Browsers, bis Sprecheraufnahmen vorliegen.
 
 import { DEVICES, examLessons, lessonAvailable, prepareLesson } from './devices/index.js';
-import { createLessonRun, EXAM_ATTEMPTS } from './lessons.js';
+import { createLessonRun, EXAM_ATTEMPTS, missLabel } from './lessons.js';
 import { createFreePractice, FREE_EVENTS } from './free-practice.js';
 
 const LEVEL_LABELS = { 1: 'Mit Hilfe', 2: 'Nur Hinweis', 3: 'Allein' };
@@ -171,34 +171,87 @@ export function mount(root, config) {
         render();
     };
 
+    // Eingerastete Tasten (Zweitasten-Bedienung mit der Maus: Umschalttaste +
+    // Klick hält z. B. H/L gedrückt, bis die nächste Taste losgelassen wird).
+    const latched = new Map();
+    const showLatch = (node, on) => {
+        node.style.filter = on ? 'brightness(1.8)' : '';
+        node.setAttribute('aria-pressed', on ? 'true' : 'false');
+    };
+    function releaseLatched() {
+        for (const [key, node] of latched) {
+            radio.keyUp(key);
+            showLatch(node, false);
+        }
+        latched.clear();
+    }
+    // Neues Gerät bzw. neue Gerätelogik: nichts mehr gedrückt.
+    function forgetLatched() {
+        latched.forEach((node) => showLatch(node, false));
+        latched.clear();
+    }
+
     // Zeichnet das gewählte Gerät und hängt die Bedienung an seine Teile.
     function mountDevice() {
         deviceBox.replaceChildren();
+        latched.clear();
         device = DEVICES[deviceKey].render(deviceBox);
+        const latchKeys = DEVICES[deviceKey].latch ?? [];
         device.svg.querySelectorAll('[data-key]').forEach((node) => {
             const key = node.dataset.key;
-            const down = (e) => {
-                e.preventDefault();
+            // Gedrückt per Zeiger bzw. Tastatur; beim Fokuswechsel loslassen.
+            let held = false;
+            node.style.touchAction = 'none';
+            const toggleLatch = () => {
+                if (latched.has(key)) {
+                    latched.delete(key);
+                    radio.keyUp(key);
+                    showLatch(node, false);
+                } else {
+                    radio.keyDown(key);
+                    latched.set(key, node);
+                    showLatch(node, true);
+                }
+                render();
+            };
+            const press = () => {
                 ensureAudio();
-                node.setPointerCapture?.(e.pointerId);
+                held = true;
                 if (key === 'ptt') pttDown();
                 else radio.keyDown(key);
                 render();
             };
-            const up = () => {
+            const release = () => {
+                if (! held) return;
+                held = false;
                 if (key === 'ptt') pttUp();
                 else radio.keyUp(key);
+                if (key !== 'ptt' && latched.size) releaseLatched();
                 render();
             };
-            node.addEventListener('pointerdown', down);
-            node.addEventListener('pointerup', up);
-            node.addEventListener('pointercancel', up);
+            node.addEventListener('pointerdown', (e) => {
+                e.preventDefault();
+                if ((e.shiftKey || e.ctrlKey) && latchKeys.includes(key)) {
+                    ensureAudio();
+                    toggleLatch();
+
+                    return;
+                }
+                node.setPointerCapture?.(e.pointerId);
+                press();
+            });
+            node.addEventListener('pointerup', release);
+            node.addEventListener('pointercancel', release);
             node.addEventListener('keydown', (e) => {
-                if ((e.key === 'Enter' || e.key === ' ') && ! e.repeat) { e.preventDefault(); key === 'ptt' ? pttDown() : radio.keyDown(key); render(); }
+                if ((e.key !== 'Enter' && e.key !== ' ') || e.repeat) return;
+                e.preventDefault();
+                if (e.shiftKey && latchKeys.includes(key)) toggleLatch();
+                else press();
             });
             node.addEventListener('keyup', (e) => {
-                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); key === 'ptt' ? pttUp() : radio.keyUp(key); render(); }
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); release(); }
             });
+            node.addEventListener('blur', release);
         });
 
         // Taste in der Mitte eines Drehknopfs (ENTER bzw. VOL/SQL-Kappe): das
@@ -228,16 +281,27 @@ export function mount(root, config) {
     }
     mountDevice();
 
-    // Leertaste als Sprechtaste, solange kein Eingabefeld den Fokus hat.
+    // Leertaste als Sprechtaste, solange kein Bedienelement den Fokus hat.
+    let spacePtt = false;
     document.addEventListener('keydown', (e) => {
-        if (e.code !== 'Space' || e.repeat || e.target.closest('input, textarea, button, [data-key], [data-knob]')) return;
+        if (e.code !== 'Space' || e.repeat || e.target.closest('input, textarea, select, button, summary, a, [role="tab"], [data-key], [data-knob]')) return;
         e.preventDefault();
+        ensureAudio();
+        spacePtt = true;
         pttDown();
     });
     document.addEventListener('keyup', (e) => {
-        if (e.code !== 'Space' || e.target.closest('input, textarea, button, [data-key], [data-knob]')) return;
+        // Losgelassen wird auch, wenn der Fokus inzwischen woanders ist.
+        if (e.code !== 'Space' || ! spacePtt) return;
         e.preventDefault();
+        spacePtt = false;
         pttUp();
+    });
+    // Fenster verliert den Fokus: Sprechtaste und gedrückte Tasten loslassen.
+    window.addEventListener('blur', () => {
+        if (spacePtt) { spacePtt = false; pttUp(); }
+        if (latched.size) releaseLatched();
+        render();
     });
 
     // --- Sprechtaste und Spracherkennung ------------------------------------
@@ -268,8 +332,14 @@ export function mount(root, config) {
     function pttUp() {
         if (! radio.state.tx) return;
         radio.pttUp();
+        // Die Spracherkennung liefert erst später: der Funkspruch gehört zu
+        // dieser Übung, diesem Gerät und dem Kanal beim Loslassen.
+        const sentRun = run;
+        const sentRadio = radio;
+        const channel = radio.state.channel;
         const finish = () => {
-            if (heard.trim()) transmit(heard.trim());
+            if (run !== sentRun || radio !== sentRadio) return;
+            if (heard.trim()) transmit(heard.trim(), channel);
             else if (! Recognition) transcript.textContent = 'Dieser Browser hat keine Spracherkennung – tippe den Funkspruch unten ein.';
             render();
         };
@@ -282,9 +352,9 @@ export function mount(root, config) {
         }
     }
 
-    function transmit(text) {
-        addLog({ who: 'Du', channel: radio.state.channel, text, own: true });
-        radio.spoken(text);
+    function transmit(text, channel = radio.state.channel) {
+        addLog({ who: 'Du', channel, text, own: true });
+        radio.spoken(text, channel);
     }
 
     function sendTyped() {
@@ -328,6 +398,7 @@ export function mount(root, config) {
             if (current !== run) return;
             lastSpeech = { stepIndex, checking: false, error: true, checks: [] };
             // Ein Serverfehler ist kein Fehlversuch: der Schritt bleibt offen.
+            current.speechError(stepIndex);
         }
         renderSidebar();
     }
@@ -335,6 +406,7 @@ export function mount(root, config) {
     function freshRadio(start) {
         if (radio.state.tx) pttUp();
         clearTimers();
+        forgetLatched();
         radio = makeRadio();
         radio.setup(start);
         lastSpeech = null;
@@ -346,7 +418,13 @@ export function mount(root, config) {
     function startRun(original, options) {
         const lesson = prepareLesson(original, deviceKey);
         freshRadio(lesson.start);
-        run = createLessonRun(lesson, { ...options, schedule, receive: (call) => { radio.receive(call); render(); }, say });
+        run = createLessonRun(lesson, { ...options, schedule, receive: (call) => {
+            if (! radio.state.power) return false;
+            radio.receive(call);
+            render();
+
+            return true;
+        }, say });
         run.onChange((status) => {
             if (status.done && ! options.exam) finishLesson(lesson, options.level);
             if (status.done && options.exam) recordExamTask(status);
@@ -407,7 +485,7 @@ export function mount(root, config) {
         const miss = lastMiss && lastMiss.stepIndex === status.index && ! status.done ? lastMiss : null;
 
         return h('div', { class: 'space-y-1' },
-            miss ? h('p', { class: 'text-red-700 dark:text-red-300' }, `Dieser Funkspruch gehört auf Kanal ${miss.expected.channel}${miss.expected.highPower === true ? ' mit 25 W' : miss.expected.highPower === false ? ' mit 1 W' : ''}.`) : null,
+            miss ? h('p', { class: 'text-red-700 dark:text-red-300' }, `Dieser Funkspruch gehört auf ${missLabel(miss.expected)}.`) : null,
             speech?.checking ? h('p', { class: 'text-slate-500' }, 'Funkspruch wird geprüft …') : null,
             speech?.error ? h('p', { class: 'text-red-700 dark:text-red-300' }, 'Die Prüfung ist fehlgeschlagen. Bitte noch einmal senden.') : null,
             (speech?.checks ?? []).map((c) => h('p', { class: c.ok ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300' }, `${c.ok ? '✓' : '✗'} ${c.label}`)),
@@ -454,18 +532,23 @@ export function mount(root, config) {
     }
 
     async function finishExam() {
-        const passed = Object.entries(exam.tasks).filter(([, t]) => t.passed).map(([key]) => key);
+        // Die Antwort kann kommen, wenn längst eine andere Prüfung oder ein
+        // anderes Gerät gewählt ist: dann nur speichern, nichts anzeigen.
+        const current = exam;
+        const device = deviceKey;
+        const passed = Object.entries(current.tasks).filter(([, t]) => t.passed).map(([key]) => key);
         run = null;
         clearTimers();
-        exam.summary = { loading: true };
+        current.summary = { loading: true };
         renderSidebar();
         try {
-            exam.summary = await postJson(config.urls.exam, { series: exam.series, passed, device: deviceKey });
-            exams[exam.series].best = { ...(exams[exam.series].best ?? {}), [deviceKey]: exam.summary.best };
+            const summary = await postJson(config.urls.exam, { series: current.series, passed, device });
+            exams[current.series].best = { ...(exams[current.series].best ?? {}), [device]: summary.best };
+            current.summary = summary;
         } catch {
-            exam.summary = { error: true, passed: passed.length, total: exam.lessons.length };
+            current.summary = { error: true, passed: passed.length, total: current.lessons.length };
         }
-        renderSidebar();
+        if (exam === current) renderSidebar();
     }
 
     function examPanel() {
@@ -501,7 +584,8 @@ export function mount(root, config) {
                     status.awaitingSpeech ? h('p', { class: 'text-slate-500' }, 'Funkspruch wird geprüft …') : null,
                     h('p', { class: 'text-xs text-slate-500 dark:text-slate-400' }, `Versuche für den nächsten Funkspruch: ${status.attemptsLeft} von ${EXAM_ATTEMPTS}`),
                     lastMiss && lastMiss.stepIndex === status.index ? h('p', { class: 'text-red-700 dark:text-red-300' }, 'Falscher Kanal oder falsche Sendeleistung – das war ein Fehlversuch.') : null,
-                    lastSpeech && ! lastSpeech.checking && ! lastSpeech.passed && lastSpeech.stepIndex === status.index ? h('p', { class: 'text-red-700 dark:text-red-300' }, 'Funkspruch unvollständig – das war ein Fehlversuch.') : null,
+                    lastSpeech && ! lastSpeech.checking && ! lastSpeech.passed && ! lastSpeech.error && lastSpeech.stepIndex === status.index ? h('p', { class: 'text-red-700 dark:text-red-300' }, 'Funkspruch unvollständig – das war ein Fehlversuch.') : null,
+                    lastSpeech?.error && lastSpeech.stepIndex === status.index ? h('p', { class: 'text-red-700 dark:text-red-300' }, 'Die Prüfung des Funkspruchs ist fehlgeschlagen – kein Fehlversuch. Bitte noch einmal senden.') : null,
                     button('Aufgabe aufgeben', () => run.giveUp())),
             button('Prüfung abbrechen', () => { exam = null; run = null; clearTimers(); renderSidebar(); render(); }, 'mt-2'),
         );
@@ -617,10 +701,7 @@ export function mount(root, config) {
             h('details', { class: 'text-xs text-slate-600 dark:text-slate-400' },
                 h('summary', { class: 'cursor-pointer font-semibold' }, 'Hilfe zur Bedienung'),
                 h('ul', { class: 'list-disc pl-4 mt-2 space-y-1' },
-                    h('li', {}, 'Tasten anklicken oder antippen; DISTRESS, POWER (Aus), DIAL (Wache) und SCAN (TAG) gedrückt halten.'),
-                    h('li', {}, 'Drehknöpfe mit dem Mausrad, durch Ziehen nach oben/unten oder mit den Pfeiltasten.'),
-                    h('li', {}, 'Den großen Knopf drücken = ENTER.'),
-                    h('li', {}, 'H/L gedrückt halten und DIAL drücken: Kanalgruppe wechseln (INT, ATIS für den Binnenfunk, DSC). 16/C gedrückt halten und POWER drücken: Set-Modus.'),
+                    (DEVICES[deviceKey].controls ?? []).map((text) => h('li', {}, text)),
                     h('li', {}, 'Sprechtaste am Hörer oder Leertaste gedrückt halten und sprechen; ohne Spracherkennung den Funkspruch eintippen.'),
                     h('li', {}, 'Gegenstationen sprechen mit der Stimme des Browsers; mitlesen kannst du im Funkverkehr unter dem Gerät.'),
                 ),
