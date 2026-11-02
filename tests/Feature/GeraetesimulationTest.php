@@ -146,7 +146,7 @@ class GeraetesimulationTest extends TestCase
         $this->actingAsInTenant($admin, $tenant)->postJson($url, ['series' => 'x', 'passed' => []])->assertStatus(422);
 
         $this->actingAsInTenant($admin, $tenant)->get("/courses/{$course->id}/funk/geraetesimulation")
-            ->assertOk()->assertSee('"best":5', false);
+            ->assertOk()->assertSee('"best":{"ic-m505":5,"ic-m323":null}', false);
         $row = $this->onAdmin(fn () => RadioTrainingProgress::where('user_id', $admin->id)->where('item_key', 'ic-m505:pruefung-a')->sole());
         $this->assertSame(['einzelanruf'], $row->answers['last']);
         $this->assertFalse($row->completed);
@@ -196,5 +196,29 @@ class GeraetesimulationTest extends TestCase
         $definition = $this->onAdmin(fn () => DB::selectOne("select pg_get_constraintdef(oid) as def from pg_constraint where conrelid = 'radio_training_progress'::regclass and contype = 'c' and pg_get_constraintdef(oid) like '%item_type%'"));
 
         $this->assertStringContainsString("'geraet'", $definition->def);
+    }
+
+    public function test_progress_and_exams_are_kept_per_device(): void
+    {
+        [$tenant, $admin, $course] = $this->superadminLearner();
+        $base = "/courses/{$course->id}/funk/geraetesimulation";
+
+        $this->actingAsInTenant($admin, $tenant)->postJson("{$base}/fortschritt", ['lesson' => 'einzelanruf', 'level' => 3, 'device' => 'ic-m323'])->assertOk();
+        $this->actingAsInTenant($admin, $tenant)->postJson("{$base}/fortschritt", ['lesson' => 'einzelanruf', 'level' => 1])->assertOk();
+        $this->actingAsInTenant($admin, $tenant)->postJson("{$base}/fortschritt", ['lesson' => 'einzelanruf', 'level' => 1, 'device' => 'ic-m999'])->assertStatus(422);
+
+        $config = $this->actingAsInTenant($admin, $tenant)->get($base)->assertOk()->viewData('config');
+        $this->assertSame(['ic-m505', 'ic-m323'], array_column($config['devices'], 'key'));
+        $this->assertSame(3, $config['progress']['ic-m323']['einzelanruf']);
+        $this->assertSame(1, $config['progress']['ic-m505']['einzelanruf']);
+
+        // Reihe b am IC-M323: Testanruf statt Positionsabfrage und Polling.
+        $this->actingAsInTenant($admin, $tenant)->postJson("{$base}/pruefung", ['series' => 'b', 'device' => 'ic-m323', 'passed' => ['testanruf', 'position-polling']])
+            ->assertOk()->assertJson(['passed' => 1, 'total' => 7])
+            ->assertJsonPath('solutions.testanruf', [])
+            ->assertJsonMissingPath('solutions.position-polling');
+        $config = $this->actingAsInTenant($admin, $tenant)->get($base)->viewData('config');
+        $this->assertSame(1, $config['exams']['b']['best']['ic-m323']);
+        $this->assertNull($config['exams']['b']['best']['ic-m505']);
     }
 }

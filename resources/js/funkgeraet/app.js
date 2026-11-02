@@ -5,10 +5,9 @@
 // Regeln wie die Praxis-Prüfungssimulation. Gegenstationen sprechen mit der
 // Sprachausgabe des Browsers, bis Sprecheraufnahmen vorliegen.
 
-import { createIcM505 } from './devices/icm505.js';
+import { DEVICES, examLessons, lessonAvailable, prepareLesson } from './devices/index.js';
 import { createLessonRun, EXAM_ATTEMPTS } from './lessons.js';
 import { createFreePractice, FREE_EVENTS } from './free-practice.js';
-import { renderDevice } from './ui/device-svg.js';
 
 const LEVEL_LABELS = { 1: 'Mit Hilfe', 2: 'Nur Hinweis', 3: 'Allein' };
 const MODES = { lessons: 'Lektionen', exam: 'Prüfung', free: 'Freies Üben' };
@@ -53,7 +52,17 @@ async function postJson(url, body) {
 const button = (label, onclick, extra = '') => h('button', { type: 'button', class: `text-xs px-2 py-1 rounded border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 ${extra}`, onclick }, label);
 
 export function mount(root, config) {
-    const progress = { ...(config.progress ?? {}) };
+    // Gerätewahl: zuletzt gewähltes Gerät (nur Komfort, darf fehlen).
+    const deviceList = (config.devices ?? [{ key: 'ic-m505', name: 'Icom IC-M505' }]).filter((d) => DEVICES[d.key]);
+    let deviceKey = deviceList[0].key;
+    try {
+        const saved = window.localStorage.getItem('geraetesimulation.device');
+        if (deviceList.some((d) => d.key === saved)) deviceKey = saved;
+    } catch { /* ohne Speicher: erstes Gerät */ }
+    const progressByDevice = Object.fromEntries(deviceList.map((d) => [d.key, { ...(config.progress?.[d.key] ?? {}) }]));
+    const progressOf = () => progressByDevice[deviceKey];
+    const deviceName = () => DEVICES[deviceKey].name;
+    const visibleLessons = () => config.lessons.filter((l) => lessonAvailable(l, deviceKey));
     const exams = config.exams ?? {};
     const lessonByKey = Object.fromEntries(config.lessons.map((l) => [l.key, l]));
     const catalogs = config.catalogs ?? ['SRC'];
@@ -82,7 +91,7 @@ export function mount(root, config) {
     };
     const clearTimers = () => { timers.forEach(clearTimeout); timers.clear(); window.speechSynthesis?.cancel(); };
 
-    const makeRadio = () => createIcM505({ own: config.ship, addressBook: config.addressBook, directory: config.directory ?? [], clock, emit: (event) => onRadioEvent(event) });
+    const makeRadio = () => DEVICES[deviceKey].create({ own: config.ship, addressBook: config.addressBook, directory: config.directory ?? [], clock, emit: (event) => onRadioEvent(event) });
     let radio = makeRadio();
 
     // --- Aufbau ---------------------------------------------------------------
@@ -100,7 +109,7 @@ export function mount(root, config) {
             sidebar,
         ),
     );
-    const device = renderDevice(deviceBox);
+    let device = null;
 
     // --- Ton und Stimmen ------------------------------------------------------
     const ensureAudio = () => {
@@ -156,59 +165,68 @@ export function mount(root, config) {
     }
 
     // --- Bedienung ------------------------------------------------------------
-    device.svg.querySelectorAll('[data-key]').forEach((node) => {
-        const key = node.dataset.key;
-        const down = (e) => {
-            e.preventDefault();
-            ensureAudio();
-            node.setPointerCapture?.(e.pointerId);
-            if (key === 'ptt') pttDown();
-            else radio.keyDown(key);
-            render();
-        };
-        const up = () => {
-            if (key === 'ptt') pttUp();
-            else radio.keyUp(key);
-            render();
-        };
-        node.addEventListener('pointerdown', down);
-        node.addEventListener('pointerup', up);
-        node.addEventListener('pointercancel', up);
-        node.addEventListener('keydown', (e) => {
-            if ((e.key === 'Enter' || e.key === ' ') && ! e.repeat) { e.preventDefault(); key === 'ptt' ? pttDown() : radio.keyDown(key); render(); }
-        });
-        node.addEventListener('keyup', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); key === 'ptt' ? pttUp() : radio.keyUp(key); render(); }
-        });
-    });
-
     const turnKnob = (knob, steps) => {
         radio.turn(knob, steps);
         if (knob === 'channel') device.rotateChannel(steps);
         render();
     };
-    // ENTER sitzt in der Mitte des Kanalknopfs: das Mausrad dreht dort den Knopf.
-    device.svg.querySelector('[data-key="enter"]')?.addEventListener('wheel', (e) => { e.preventDefault(); turnKnob('channel', e.deltaY < 0 ? 1 : -1); }, { passive: false });
 
-    device.svg.querySelectorAll('[data-knob]').forEach((node) => {
-        const knob = node.dataset.knob;
-        const turn = (steps) => turnKnob(knob, steps);
-        let startY = null;
-        node.addEventListener('wheel', (e) => { e.preventDefault(); turn(e.deltaY < 0 ? 1 : -1); }, { passive: false });
-        node.addEventListener('pointerdown', (e) => { ensureAudio(); startY = e.clientY; node.setPointerCapture?.(e.pointerId); });
-        node.addEventListener('pointermove', (e) => {
-            if (startY === null) return;
-            const steps = Math.trunc((startY - e.clientY) / 18);
-            if (steps !== 0) { turn(steps); startY -= steps * 18; }
+    // Zeichnet das gewählte Gerät und hängt die Bedienung an seine Teile.
+    function mountDevice() {
+        deviceBox.replaceChildren();
+        device = DEVICES[deviceKey].render(deviceBox);
+        device.svg.querySelectorAll('[data-key]').forEach((node) => {
+            const key = node.dataset.key;
+            const down = (e) => {
+                e.preventDefault();
+                ensureAudio();
+                node.setPointerCapture?.(e.pointerId);
+                if (key === 'ptt') pttDown();
+                else radio.keyDown(key);
+                render();
+            };
+            const up = () => {
+                if (key === 'ptt') pttUp();
+                else radio.keyUp(key);
+                render();
+            };
+            node.addEventListener('pointerdown', down);
+            node.addEventListener('pointerup', up);
+            node.addEventListener('pointercancel', up);
+            node.addEventListener('keydown', (e) => {
+                if ((e.key === 'Enter' || e.key === ' ') && ! e.repeat) { e.preventDefault(); key === 'ptt' ? pttDown() : radio.keyDown(key); render(); }
+            });
+            node.addEventListener('keyup', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); key === 'ptt' ? pttUp() : radio.keyUp(key); render(); }
+            });
         });
-        const end = () => { startY = null; };
-        node.addEventListener('pointerup', end);
-        node.addEventListener('pointercancel', end);
-        node.addEventListener('keydown', (e) => {
-            if (e.key === 'ArrowUp' || e.key === 'ArrowRight') { e.preventDefault(); turn(1); }
-            if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') { e.preventDefault(); turn(-1); }
+
+        // Taste in der Mitte eines Drehknopfs (ENTER bzw. VOL/SQL-Kappe): das
+        // Mausrad dreht dort den Knopf.
+        const wheel = DEVICES[deviceKey].wheel;
+        device.svg.querySelector(`[data-key="${wheel.key}"]`)?.addEventListener('wheel', (e) => { e.preventDefault(); turnKnob(wheel.knob, e.deltaY < 0 ? 1 : -1); }, { passive: false });
+
+        device.svg.querySelectorAll('[data-knob]').forEach((node) => {
+            const knob = node.dataset.knob;
+            const turn = (steps) => turnKnob(knob, steps);
+            let startY = null;
+            node.addEventListener('wheel', (e) => { e.preventDefault(); turn(e.deltaY < 0 ? 1 : -1); }, { passive: false });
+            node.addEventListener('pointerdown', (e) => { ensureAudio(); startY = e.clientY; node.setPointerCapture?.(e.pointerId); });
+            node.addEventListener('pointermove', (e) => {
+                if (startY === null) return;
+                const steps = Math.trunc((startY - e.clientY) / 18);
+                if (steps !== 0) { turn(steps); startY -= steps * 18; }
+            });
+            const end = () => { startY = null; };
+            node.addEventListener('pointerup', end);
+            node.addEventListener('pointercancel', end);
+            node.addEventListener('keydown', (e) => {
+                if (e.key === 'ArrowUp' || e.key === 'ArrowRight') { e.preventDefault(); turn(1); }
+                if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') { e.preventDefault(); turn(-1); }
+            });
         });
-    });
+    }
+    mountDevice();
 
     // Leertaste als Sprechtaste, solange kein Eingabefeld den Fokus hat.
     document.addEventListener('keydown', (e) => {
@@ -325,7 +343,8 @@ export function mount(root, config) {
         renderLog();
     }
 
-    function startRun(lesson, options) {
+    function startRun(original, options) {
+        const lesson = prepareLesson(original, deviceKey);
         freshRadio(lesson.start);
         run = createLessonRun(lesson, { ...options, schedule, receive: (call) => { radio.receive(call); render(); }, say });
         run.onChange((status) => {
@@ -341,22 +360,25 @@ export function mount(root, config) {
 
     // --- Lektionen ------------------------------------------------------------
     async function finishLesson(lesson, level) {
+        const progress = progressOf();
         progress[lesson.key] = Math.max(progress[lesson.key] ?? 0, level);
-        try { await postJson(config.urls.progress, { lesson: lesson.key, level }); } catch { /* Fortschritt bleibt lokal sichtbar */ }
+        try { await postJson(config.urls.progress, { lesson: lesson.key, level, device: deviceKey }); } catch { /* Fortschritt bleibt lokal sichtbar */ }
         renderSidebar();
     }
 
     function lessonList() {
+        const progress = progressOf();
+        const lessons = visibleLessons();
         const units = [];
-        for (const lesson of config.lessons) {
+        for (const lesson of lessons) {
             let unit = units.find((u) => u.name === lesson.unit);
             if (! unit) units.push(unit = { name: lesson.unit, lessons: [] });
             unit.lessons.push(lesson);
         }
-        const solo = config.lessons.filter((l) => (progress[l.key] ?? 0) >= 3).length;
+        const solo = lessons.filter((l) => (progress[l.key] ?? 0) >= 3).length;
 
         return h('div', { class: 'space-y-3' },
-            h('p', { class: 'text-xs text-slate-600 dark:text-slate-400' }, `Am IC-M505: ${solo} von ${config.lessons.length} selbst geschafft`),
+            h('p', { class: 'text-xs text-slate-600 dark:text-slate-400' }, `Am ${deviceName()}: ${solo} von ${lessons.length} selbst geschafft`),
             units.map((unit) => h('details', { class: 'group', open: unit.lessons.some((l) => (progress[l.key] ?? 0) < 3) ? true : null },
                 h('summary', { class: 'cursor-pointer text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1' },
                     `${unit.name} · ${unit.lessons.filter((l) => (progress[l.key] ?? 0) >= 3).length}/${unit.lessons.length}`),
@@ -415,7 +437,7 @@ export function mount(root, config) {
 
     // --- Prüfungsmodus --------------------------------------------------------
     function startExam(series) {
-        exam = { series, lessons: exams[series].lessons, index: 0, tasks: {}, summary: null };
+        exam = { series, lessons: examLessons(exams[series], deviceKey), index: 0, tasks: {}, summary: null };
         startExamTask();
     }
 
@@ -438,8 +460,8 @@ export function mount(root, config) {
         exam.summary = { loading: true };
         renderSidebar();
         try {
-            exam.summary = await postJson(config.urls.exam, { series: exam.series, passed });
-            exams[exam.series].best = exam.summary.best;
+            exam.summary = await postJson(config.urls.exam, { series: exam.series, passed, device: deviceKey });
+            exams[exam.series].best = { ...(exams[exam.series].best ?? {}), [deviceKey]: exam.summary.best };
         } catch {
             exam.summary = { error: true, passed: passed.length, total: exam.lessons.length };
         }
@@ -454,8 +476,8 @@ export function mount(root, config) {
                 Object.entries(exams).map(([series, info]) => h('div', { class: 'p-3 rounded-lg border border-slate-200 dark:border-slate-700 space-y-2' },
                     h('div', { class: 'flex items-center gap-2' },
                         h('span', { class: 'font-semibold text-slate-800 dark:text-white flex-1' }, info.title ?? `Reihe ${series}`),
-                        info.best !== null && info.best !== undefined ? h('span', { class: 'text-xs text-slate-500' }, `bestes Ergebnis ${info.best} von ${info.lessons.length}`) : null),
-                    h('ol', { class: 'list-decimal pl-5 text-xs text-slate-600 dark:text-slate-300' }, info.lessons.map((key) => h('li', {}, lessonByKey[key]?.title ?? key))),
+                        info.best?.[deviceKey] !== null && info.best?.[deviceKey] !== undefined ? h('span', { class: 'text-xs text-slate-500' }, `bestes Ergebnis ${info.best[deviceKey]} von ${info.lessons.length}`) : null),
+                    h('ol', { class: 'list-decimal pl-5 text-xs text-slate-600 dark:text-slate-300' }, examLessons(info, deviceKey).map((key) => h('li', {}, lessonByKey[key]?.title ?? key))),
                     button(`${info.title ?? `Reihe ${series}`} starten`, () => startExam(series), 'font-semibold'),
                 )),
             );
@@ -547,6 +569,22 @@ export function mount(root, config) {
     }
 
     // --- Seitenleiste ---------------------------------------------------------
+    function switchDevice(next) {
+        if (next === deviceKey || ! DEVICES[next]) return;
+        deviceKey = next;
+        try { window.localStorage.setItem('geraetesimulation.device', next); } catch { /* egal */ }
+        run = null;
+        exam = null;
+        free = null;
+        clearTimers();
+        radio = makeRadio();
+        mountDevice();
+        if (mode === 'free') startFree();
+        else freshRadio(defaultStart);
+        renderSidebar();
+        render();
+    }
+
     function switchMode(next) {
         if (next === mode) return;
         mode = next;
@@ -563,8 +601,11 @@ export function mount(root, config) {
     function renderSidebar() {
         sidebar.replaceChildren(
             h('div', { class: 'text-xs text-slate-600 dark:text-slate-400' },
-                h('div', { class: 'font-semibold text-slate-800 dark:text-white text-sm' }, `${config.device} · ${catalogs.map((c) => SERVICES[c]).join(' und ')}`),
+                h('div', { class: 'font-semibold text-slate-800 dark:text-white text-sm' }, `${deviceName()} · ${catalogs.map((c) => SERVICES[c]).join(' und ')}`),
                 [config.ship.label, `Rufzeichen ${config.ship.callsign}`, catalogs.includes('SRC') ? `MMSI ${config.ship.mmsi}` : null, catalogs.includes('UBI') && config.ship.atis ? `ATIS ${config.ship.atis}` : null].filter(Boolean).join(' · ')),
+            deviceList.length > 1 ? h('label', { class: 'flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300' }, 'Gerät',
+                h('select', { class: 'flex-1 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs py-1', 'aria-label': 'Funkgerät wählen', onchange: (e) => switchDevice(e.target.value) },
+                    deviceList.map((d) => h('option', { value: d.key, selected: d.key === deviceKey ? true : null }, d.name)))) : null,
             h('div', { class: 'flex gap-1', role: 'tablist' }, Object.entries(MODES).map(([key, label]) => h('button', {
                 type: 'button',
                 role: 'tab',

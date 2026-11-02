@@ -26,22 +26,26 @@ class GeraetesimulationController extends Controller
         $this->authorizeCourse($request, $tenantContext, $entitlements, $course);
         $data = Geraetesimulation::data();
 
+        // Lernstand je Gerät: "ic-m505:<lektion>", "ic-m323:pruefung-a" …
+        $devices = Geraetesimulation::deviceKeys();
         $rows = RadioTrainingProgress::where('tenant_id', $tenantContext->id())
             ->where('user_id', $request->user()->id)
             ->where('item_type', RadioTrainingProgress::TYPE_DEVICE)
-            ->where('item_key', 'like', Geraetesimulation::DEVICE.':%')
+            ->where(fn ($q) => collect($devices)->each(fn ($device) => $q->orWhere('item_key', 'like', $device.':%')))
             ->get()
-            ->keyBy(fn ($p) => substr($p->item_key, strlen(Geraetesimulation::DEVICE) + 1));
-        $progress = $rows->reject(fn ($p, $key) => str_starts_with($key, 'pruefung-'))->map(fn ($p) => (int) ($p->answers['level'] ?? 0));
+            ->keyBy('item_key');
+        $progress = collect($devices)->mapWithKeys(fn ($device) => [$device => $rows
+            ->filter(fn ($p, $key) => str_starts_with($key, $device.':') && ! str_contains($key, ':pruefung-'))
+            ->mapWithKeys(fn ($p, $key) => [substr($key, strlen($device) + 1) => (int) ($p->answers['level'] ?? 0)])]);
         $catalogs = Geraetesimulation::catalogsFor($course);
         $exams = collect(Geraetesimulation::exams($catalogs))->map(fn ($exam, $series) => $exam + [
-            'best' => $rows->get('pruefung-'.$series)?->answers['best'] ?? null,
+            'best' => collect($devices)->mapWithKeys(fn ($device) => [$device => $rows->get(Geraetesimulation::examKey($series, $device))?->answers['best'] ?? null]),
         ]);
 
         return view('funk.geraetesimulation', [
             'course' => $course,
             'config' => [
-                'device' => Geraetesimulation::DEVICE_NAME,
+                'devices' => $data['devices'],
                 'ship' => $data['ship'],
                 'addressBook' => $data['address_book'],
                 'directory' => $data['directory'],
@@ -80,9 +84,10 @@ class GeraetesimulationController extends Controller
         $validated = $request->validate([
             'lesson' => ['required', 'string', Rule::in(array_column(Geraetesimulation::data()['lessons'], 'key'))],
             'level' => ['required', 'integer', 'min:1', 'max:3'],
+            'device' => ['sometimes', 'string', Rule::in(Geraetesimulation::deviceKeys())],
         ]);
 
-        $key = Geraetesimulation::progressKey($validated['lesson']);
+        $key = Geraetesimulation::progressKey($validated['lesson'], $validated['device'] ?? Geraetesimulation::DEVICE);
         $attributes = ['tenant_id' => $tenantContext->id(), 'user_id' => $request->user()->id, 'item_type' => RadioTrainingProgress::TYPE_DEVICE, 'item_key' => $key];
         $current = RadioTrainingProgress::where($attributes)->first();
         // Die beste Stufe bleibt: ein späterer Durchgang mit Hilfe senkt sie nicht.
@@ -102,16 +107,18 @@ class GeraetesimulationController extends Controller
     public function exam(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course): JsonResponse
     {
         $this->authorizeCourse($request, $tenantContext, $entitlements, $course);
-        $exams = array_map(fn ($exam) => $exam['lessons'], Geraetesimulation::exams(Geraetesimulation::catalogsFor($course)));
+        $exams = Geraetesimulation::exams(Geraetesimulation::catalogsFor($course));
         $validated = $request->validate([
             'series' => ['required', 'string', Rule::in(array_keys($exams))],
+            'device' => ['sometimes', 'string', Rule::in(Geraetesimulation::deviceKeys())],
             'passed' => ['present', 'array'],
             'passed.*' => ['string', 'distinct'],
         ]);
-        $lessons = $exams[$validated['series']];
+        $device = $validated['device'] ?? Geraetesimulation::DEVICE;
+        $lessons = Geraetesimulation::examLessons($validated['series'], $device);
         $passed = array_values(array_intersect($lessons, $validated['passed']));
 
-        $key = Geraetesimulation::examKey($validated['series']);
+        $key = Geraetesimulation::examKey($validated['series'], $device);
         $attributes = ['tenant_id' => $tenantContext->id(), 'user_id' => $request->user()->id, 'item_type' => RadioTrainingProgress::TYPE_DEVICE, 'item_key' => $key];
         $current = RadioTrainingProgress::where($attributes)->first();
         $best = max((int) ($current?->answers['best'] ?? 0), count($passed));
