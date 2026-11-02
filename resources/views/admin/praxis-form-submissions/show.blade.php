@@ -17,7 +17,7 @@
             <div class="text-sm text-slate-500 dark:text-slate-400">{{ $submission->user->email }}</div>
         </div>
         <a href="{{ route('admin.praxis-form-submissions.edit', $submission) }}" class="ms-auto text-xs text-slate-500 dark:text-slate-400 hover:underline whitespace-nowrap shrink-0">Bearbeiten</a>
-        <a href="{{ route('admin.participants.show', $submission->user) }}" class="text-xs text-slate-500 dark:text-slate-400 hover:underline whitespace-nowrap shrink-0">Teilnehmerprofil &rarr;</a>
+        <a href="{{ route('admin.participants.show', $submission->user) }}" class="text-xs text-slate-500 dark:text-slate-400 hover:underline whitespace-nowrap">Teilnehmerprofil &rarr;</a>
     </div>
 
     <div class="max-w-2xl bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">

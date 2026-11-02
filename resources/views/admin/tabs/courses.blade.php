@@ -68,7 +68,7 @@
                     <span class="text-sm text-slate-700 dark:text-slate-200">{{ $course->name }}</span>
                 </label>
                 <div class="flex-1">
-                    <input type="url" name="links[{{ $course->id }}]" placeholder="https://ihr-webshop.de/produkt/... (optional)"
+                    <input type="url" name="links[{{ $course->id }}]" aria-label="Webshop-Link für {{ $course->name }}" placeholder="https://ihr-webshop.de/produkt/... (optional)"
                            value="{{ old('links.'.$course->id, $webshopLinks->get($course->id)) }}"
                            :class="{ 'opacity-50': ! enabled }"
                            class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">

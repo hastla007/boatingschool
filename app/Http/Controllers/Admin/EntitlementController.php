@@ -43,8 +43,12 @@ class EntitlementController extends Controller
         // mandantenseitig deaktivierter Kurs trotzdem freischalten.
         // Bug-Review T8: "eurer"/"eure" ist die informelle ihr-Form -- der
         // restliche Admin-Bereich siezt durchgehend.
-        $isMember = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $user->id)->exists();
-        abort_unless($isMember, 404, 'Dieser Nutzer gehört nicht zu Ihrer Bootsschule.');
+        $membership = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $user->id)->first();
+        abort_unless($membership, 404, 'Dieser Nutzer gehört nicht zu Ihrer Bootsschule.');
+        // Review: keinen Code an ein gesperrtes bzw. beendetes Mitglied verbrauchen.
+        if ($membership->status !== 'active') {
+            return back()->withErrors(['course_id' => 'Dieses Mitglied ist nicht aktiv -- ein Code würde ungenutzt verbraucht.']);
+        }
         abort_unless($entitlements->isOfferable($tenant, $course), 404, 'Dieser Kurs ist für Ihre Bootsschule nicht verfügbar.');
 
         // Bug-Review B14: zwischen der Prüfung "noch nicht gebucht" und dem
@@ -77,7 +81,11 @@ class EntitlementController extends Controller
         return DB::transaction(function () use ($tenant, $user, $course, $request, $redemption) {
             DB::statement('SELECT pg_advisory_xact_lock(hashtext(?))', [$tenant->id.':'.$user->id.':'.$course->id]);
 
-            $entitlement = Entitlement::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)->first();
+            // Review: gibt es (aus Altbeständen) mehrere Zeilen, zählt die
+            // aktive bzw. die mit dem spätesten Enddatum -- nicht eine
+            // zufällige abgelaufene, für die sonst ein Code verbraucht würde.
+            $entitlement = Entitlement::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)
+                ->orderByRaw("status = 'active' desc")->orderByRaw('valid_until desc nulls first')->first();
 
             // Bug-Review (AA14: Abgelaufener Zugang nicht sofort neu
             // freischaltbar): dieser Doppelklick-Schutz prüfte bisher nur
@@ -320,6 +328,12 @@ class EntitlementController extends Controller
     /** Kostenloser, jederzeit rückgängig machbarer Zustand -- rührt valid_until nie an. */
     private function suspend(Entitlement $entitlement): ?RedirectResponse
     {
+        // Review: nur ein aktiver Zugang lässt sich sperren -- sonst ließe
+        // sich ein widerrufener Zugang über „Sperren“ und danach das
+        // kostenlose „Entsperren“ ohne Code wiederherstellen.
+        if ($entitlement->status !== 'active') {
+            return back()->withErrors(['action' => 'Sperren geht nur bei einem aktiven Zugang.']);
+        }
         $entitlement->update(['status' => 'suspended']);
 
         return null;

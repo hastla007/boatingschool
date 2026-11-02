@@ -106,7 +106,8 @@
                         @endforelse
                     </td>
                     <td class="px-4 py-2">
-                        @php($bookedCourseIds = $membership->user->entitlements->pluck('course_id')->all())
+                        {{-- Review: abgelaufene Zugänge (auch gesperrt und inzwischen abgelaufen) lassen sich hier neu freischalten; aktive, widerrufene und gesperrte mit Restlaufzeit haben eigene Aktionen. --}}
+                        @php($bookedCourseIds = $membership->user->entitlements->filter(fn ($e) => $e->status === 'revoked' || (in_array($e->status, ['active', 'suspended'], true) && ($e->valid_until === null || $e->valid_until->isFuture())))->pluck('course_id')->all())
                         @php($unbookedCourses = $courses->whereNotIn('id', $bookedCourseIds))
                         @if (! $canManageTenant)
                             <span class="text-slate-300 dark:text-slate-600 text-xs">—</span>

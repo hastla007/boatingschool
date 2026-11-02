@@ -9,6 +9,7 @@ use App\Models\FavoriteCollection;
 use App\Services\EntitlementService;
 use App\Services\FavoriteCollectionService;
 use App\Support\TenantContext;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
@@ -37,6 +38,10 @@ class FavoriteCollectionController extends Controller
         try {
             $collections->create($tenant, $request->user(), $course, $validated['name']);
         } catch (RuntimeException $e) {
+            // Review: Datenbankfehler (QueryException ist auch eine
+            // RuntimeException) nicht als Formularfehler mit SQL anzeigen.
+            throw_if($e instanceof QueryException, $e);
+
             return back()->withErrors(['name' => $e->getMessage()]);
         }
 
@@ -52,6 +57,10 @@ class FavoriteCollectionController extends Controller
         try {
             $collections->rename($favoriteCollection, $validated['name']);
         } catch (RuntimeException $e) {
+            // Review: Datenbankfehler (QueryException ist auch eine
+            // RuntimeException) nicht als Formularfehler mit SQL anzeigen.
+            throw_if($e instanceof QueryException, $e);
+
             return back()->withErrors(['name' => $e->getMessage()]);
         }
 
@@ -65,6 +74,10 @@ class FavoriteCollectionController extends Controller
         try {
             $collections->delete($favoriteCollection);
         } catch (RuntimeException $e) {
+            // Review: Datenbankfehler (QueryException ist auch eine
+            // RuntimeException) nicht als Formularfehler mit SQL anzeigen.
+            throw_if($e instanceof QueryException, $e);
+
             return back()->withErrors(['collection' => $e->getMessage()]);
         }
 

@@ -10,6 +10,7 @@ use App\Services\EntitlementService;
 use App\Services\PraxisExamAppointmentService;
 use App\Support\BestEffortMail;
 use App\Support\TenantContext;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Notification;
 use RuntimeException;
@@ -55,6 +56,10 @@ class PraxisExamAppointmentController extends Controller
         try {
             $appointments->respond($examAppointment, $validated['decision'], $validated['comment'] ?? null);
         } catch (RuntimeException $e) {
+            // Review: Datenbankfehler (QueryException ist auch eine
+            // RuntimeException) nicht als Formularfehler mit SQL anzeigen.
+            throw_if($e instanceof QueryException, $e);
+
             return back()->withErrors(['decision' => $e->getMessage()]);
         }
 

@@ -120,7 +120,7 @@
                 </div>
                 <div>
                     <label for="praxis_location_{{ $submission->id }}" class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Ort</label>
-                    <select id="praxis_location_{{ $submission->id }}" name="location" x-model="location" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                    <select id="praxis_location_{{ $submission->id }}" name="location" x-model="location" class="w-full max-w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                         <option value="">&mdash;</option>
                         @foreach ($submissionLocations as $location)
                             <option value="{{ $location->id }}">

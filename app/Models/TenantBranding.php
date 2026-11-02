@@ -91,6 +91,27 @@ class TenantBranding extends Model
     }
 
     /**
+     * Review-Runde 3 (Kontrast): Schriftfarbe auf der Primärfarbe -- weiß,
+     * solange das mindestens 4,5:1 erreicht, sonst dunkel, wenn das besser
+     * lesbar ist (z. B. #0EA5E9: weiß nur 2,8:1). Als --brand-on-primary in
+     * den Layouts gesetzt, siehe resources/css/app.css.
+     */
+    public function onPrimaryColor(): string
+    {
+        $hex = ltrim($this->primaryColorOrDefault(), '#');
+        $channel = function (string $pair): float {
+            $c = hexdec($pair) / 255;
+
+            return $c <= 0.03928 ? $c / 12.92 : (($c + 0.055) / 1.055) ** 2.4;
+        };
+        $luminance = 0.2126 * $channel(substr($hex, 0, 2)) + 0.7152 * $channel(substr($hex, 2, 2)) + 0.0722 * $channel(substr($hex, 4, 2));
+        $onWhite = 1.05 / ($luminance + 0.05);
+        $onDark = ($luminance + 0.05) / (0.0080 + 0.05); // #0F172A
+
+        return $onWhite >= 4.5 || $onWhite >= $onDark ? '#ffffff' : '#0f172a';
+    }
+
+    /**
      * Bug-Review Oberfläche U6: #00A8A8 (der bisherige Standard- und
      * Neuanlage-Wert, siehe Superadmin\TenantController::store() und
      * TenantSeeder) erreicht mit weißer Buttonschrift nur 2,9:1 -- WCAG AA

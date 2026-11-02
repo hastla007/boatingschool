@@ -78,12 +78,12 @@
                     <div class="grid sm:grid-cols-[1fr_160px_auto] gap-3 items-start">
                         <div>
                             <label class="text-xs text-slate-500 dark:text-slate-400">Beschriftung</label>
-                            <input type="text" :name="'fields['+index+'][label]'" x-model="field.label" placeholder="z. B. Telefonnummer"
+                            <input type="text" :name="'fields['+index+'][label]'" aria-label="Beschriftung" x-model="field.label" placeholder="z. B. Telefonnummer"
                                    class="mt-0.5 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                         </div>
                         <div>
                             <label class="text-xs text-slate-500 dark:text-slate-400">Typ</label>
-                            <select :name="'fields['+index+'][type]'" x-model="field.type"
+                            <select :name="'fields['+index+'][type]'" aria-label="Typ" x-model="field.type"
                                     class="mt-0.5 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                                 <option value="text">Text</option>
                                 <option value="textarea">Mehrzeiliger Text</option>
@@ -101,7 +101,7 @@
 
                     <div x-show="field.type === 'select' || field.type === 'radio'" style="display: none">
                         <label class="text-xs text-slate-500 dark:text-slate-400">Optionen (eine Zeile pro Option)</label>
-                        <textarea :name="'fields['+index+'][options]'" x-model="field.options" rows="3"
+                        <textarea :name="'fields['+index+'][options]'" aria-label="Optionen (eine Zeile pro Option)" x-model="field.options" rows="3"
                                   class="mt-0.5 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm"></textarea>
                     </div>
 
@@ -112,7 +112,7 @@
 
                     <div>
                         <label class="text-xs text-slate-500 dark:text-slate-400">Hilfetext (optional)</label>
-                        <input type="text" :name="'fields['+index+'][help_text]'" x-model="field.help_text"
+                        <input type="text" :name="'fields['+index+'][help_text]'" aria-label="Hilfetext" x-model="field.help_text"
                                class="mt-0.5 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                     </div>
 

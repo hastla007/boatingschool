@@ -55,7 +55,9 @@ class AdminDashboardController extends Controller
         // vermeidet nur unbedienbare Formulare für einen Instructor.
         $canManageTenant = $request->user()->isAdminFor($tenant);
 
-        $learnerIds = TenantUser::where('tenant_id', $tenant->id)->where('role', 'learner')->pluck('user_id');
+        // Review-Runde 3: nur aktive Mitglieder -- gesperrte bzw.
+        // ausgetretene zählten bisher in Teilnehmerzahl und Statistiken mit.
+        $learnerIds = TenantUser::where('tenant_id', $tenant->id)->where('role', 'learner')->where('status', 'active')->pluck('user_id');
         $learnerCount = $learnerIds->count();
         // Bug-Review B15: status wechselt nie automatisch auf "expired" --
         // ein reines status=active zählte abgelaufene Freischaltungen

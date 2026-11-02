@@ -3,7 +3,7 @@
         <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Coupon-Codes</h1>
     </x-slot>
 
-    <div class="grid lg:grid-cols-3 gap-4 mb-6">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
             <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3">Codes erzeugen</h3>
             <form method="POST" action="{{ route('superadmin.coupons.store') }}" class="space-y-3"

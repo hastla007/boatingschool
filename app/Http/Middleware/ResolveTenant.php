@@ -92,6 +92,14 @@ class ResolveTenant
         }
 
         if ($this->isTenantAgnosticRoute($request)) {
+            // Review-Runde 3: auf einer unbekannten Subdomain bzw. Domain
+            // (keine Bootsschule, nicht die zentrale Domain) zeigte /login
+            // eine scheinbar funktionierende Anmeldeseite, deren Links dann
+            // auf „Bootsschule nicht gefunden“ führten.
+            if (! $tenant && $request->getHost() !== config('app.central_domain')) {
+                return response()->view('tenant.not-found', [], 404);
+            }
+
             if ($tenant) {
                 // Bug-Review "Gesperrte Schule": diese Prüfung griff bisher
                 // nur im NICHT-agnostischen Zweig unten -- auf der Subdomain

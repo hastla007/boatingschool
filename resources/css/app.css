@@ -15,3 +15,23 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Review-Runde 3 (Kontrast): Buttons in der Primärfarbe der Bootsschule
+   bekommen die lesbare Schriftfarbe (TenantBranding::onPrimaryColor), statt
+   fest weiß -- bei hellen Primärfarben war weiße Schrift kaum lesbar. */
+:root {
+    --brand-on-primary: #ffffff;
+}
+
+.text-white[style*="background-color: var(--brand-primary"] {
+    color: var(--brand-on-primary) !important;
+}
+
+/* Im Dunkelmodus ist Text in der Primärfarbe auf dunklem Grund zu blass
+   (z. B. 2,5:1 bei #005FD7 auf slate-800): aufgehellte Variante. Elemente
+   mit weißem Hintergrund behalten die Originalfarbe. */
+@media (prefers-color-scheme: dark) {
+    [style^="color: var(--brand-primary"]:not(.bg-white) {
+        color: color-mix(in srgb, var(--brand-primary, #005FD7) 55%, white) !important;
+    }
+}

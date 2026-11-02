@@ -31,17 +31,23 @@ trait HasDiscountedPriceLabel
 
     private function parsePriceAmount(string $label): ?float
     {
-        if (! preg_match('/[\d.,]+/', $label, $matches)) {
+        // Review: die Zahl muss mit einer Ziffer beginnen (sonst traf schon
+        // der Punkt in „inkl.“), und „1.299 €“ ist deutsches Tausender-
+        // format, nicht 1,299 €.
+        if (! preg_match('/\d[\d.,]*/', $label, $matches)) {
             return null;
         }
 
-        $number = $matches[0];
+        $number = rtrim($matches[0], '.,');
 
         if (str_contains($number, ',') && str_contains($number, '.')) {
             $number = str_replace('.', '', $number);
             $number = str_replace(',', '.', $number);
         } elseif (str_contains($number, ',')) {
             $number = str_replace(',', '.', $number);
+        } elseif (preg_match('/^\d{1,3}(\.\d{3})+$/', $number)) {
+            // Punkt mit genau drei Ziffern dahinter: Tausenderpunkt.
+            $number = str_replace('.', '', $number);
         }
 
         return is_numeric($number) ? (float) $number : null;

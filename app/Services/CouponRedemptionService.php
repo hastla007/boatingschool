@@ -119,10 +119,16 @@ class CouponRedemptionService
         // Zustand" -- ein Code darf ihn also aufheben, muss dafür aber das
         // BESTEHENDE Entitlement reaktivieren statt ein zweites anzulegen
         // (analog zu redeemForRenewal() oben).
+        // Review (doppelte Buchung nach Ablauf): auch ein abgelaufener Zugang
+        // (status expired, oder noch active mit verstrichenem Enddatum, bevor
+        // der stündliche Job lief) wird reaktiviert statt eine zweite Zeile
+        // für denselben Kurs anzulegen. hasAccess() oben hat einen
+        // aktuell gültigen Zugang bereits ausgeschlossen.
         $suspended = Entitlement::where('tenant_id', $tenant->id)
             ->where('user_id', $user->id)
             ->where('course_id', $course->id)
-            ->where('status', 'suspended')
+            ->whereIn('status', ['suspended', 'expired', 'active'])
+            ->orderByRaw('valid_until desc nulls first')
             ->first();
 
         if ($suspended) {

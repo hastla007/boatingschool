@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Models\ContentQuestion;
+use App\Models\Favorite;
 use App\Models\FavoriteCollection;
 use App\Models\FavoriteCollectionItem;
 use App\Models\PraxisExamAppointment;
@@ -58,6 +60,21 @@ class PersonalDataExportTest extends TestCase
         $this->assertSame('learner', $data['membership']['role']);
         $this->assertCount(1, $data['entitlements']);
         $this->assertSame($course->name, $data['entitlements'][0]['course']);
+    }
+
+    public function test_the_export_works_with_favorites(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $this->grantEntitlement($tenant, $learner, $course);
+        $question = $this->onAdmin(fn () => ContentQuestion::query()->first());
+        $this->onAdmin(fn () => Favorite::create(['tenant_id' => $tenant->id, 'user_id' => $learner->id, 'question_id' => $question->id, 'context' => Favorite::CONTEXT_SMART_LEARNING]));
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get('/profile/export-data')->assertOk();
+        $favorite = json_decode($response->getContent(), true)['favorites'][0];
+        $this->assertSame($question->id, $favorite['question_id']);
+        $this->assertNotNull($favorite['created_at']);
     }
 
     public function test_the_export_only_contains_data_from_the_current_tenant(): void

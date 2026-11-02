@@ -27,6 +27,7 @@
                 :root {
                     --brand-primary: {{ $branding->primaryColorOrDefault() }};
                     --brand-secondary: {{ $branding->secondaryColorOrDefault() }};
+                    --brand-on-primary: {{ $branding->onPrimaryColor() }};
                 }
             </style>
         @endif

@@ -35,13 +35,14 @@
                 :root {
                     --brand-primary: {{ $branding->primaryColorOrDefault() }};
                     --brand-secondary: {{ $branding->secondaryColorOrDefault() }};
+                    --brand-on-primary: {{ $branding->onPrimaryColor() }};
                 }
             </style>
         @endif
 
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
-    <body class="font-sans antialiased">
+    <body class="font-sans antialiased text-slate-900 dark:text-slate-200">
         {{-- Bug-Review Oberfläche U7: kein Skip-Link -- ein Tastatur-/
              Screenreader-Nutzer musste bisher die gesamte Navigation
              (inkl. Kurse-Untermenü) durchtaben, um zum eigentlichen
