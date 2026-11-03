@@ -168,6 +168,8 @@ export function mount(root, config) {
                     h('p', { class: 'font-semibold' }, `Hinweis: ${DEVICES[deviceKey].name} ist ein Handfunkgerät`),
                     h('p', {}, 'In der praktischen Prüfung (SRC und UBI) wird an einer Feststation geprüft. Für Not-, Dringlichkeits- und Sicherheitsmeldungen wird dort volle Leistung mit „25 W“ verlangt – auch wenn du am Handfunkgerät übst. Die Lektionen und der Prüfungsmodus bleiben deshalb bei „25 W“; am Handfunkgerät wählst du dafür HI (das Gerät sendet höchstens 6 W).'),
                     h('p', {}, 'Für die Prüfungsvorbereitung übe besser an einem der fest eingebauten Geräte (IC-M505, IC-M323, IC-M423, IC-M503 + DS-100, IC-M330): Sie entsprechen den Geräten in den meisten Prüfungen.'),
+                    // Rechtslage im Binnenfunk (Deutschland), nur in Kursen mit UBI.
+                    courseCatalogs.includes('UBI') ? h('p', {}, h('strong', { class: 'font-semibold' }, 'Binnenfunk: '), 'Auf deutschen Binnenwasserstraßen sind Handfunkgeräte auf Kleinfahrzeugen (Sportbooten unter 20 m) nicht zugelassen. Wer dort am Funkverkehr teilnimmt, braucht eine fest eingebaute UKW-Anlage mit ATIS. Handfunkgeräte sind binnen nur auf größeren Schiffen und nur im Verkehrskreis „Funkverkehr an Bord“ erlaubt. Die Binnenfunk-Lektionen am Handfunkgerät üben deshalb nur die Bedienung.') : null,
                 ),
                 h('button', { type: 'button', class: 'text-xs underline shrink-0', onclick: () => { handheldNoteClosed = true; showHandheldNote(); } }, 'Ausblenden'),
             ),
