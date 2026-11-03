@@ -161,7 +161,10 @@ export function renderDeviceM503(container) {
 
     // Kabeldurchführung mit Hörerkabel (ohne Funktion)
     const [gx, gy] = R(517, 386);
-    el('path', { d: `M${gx} ${gy} C ${gx + 4} ${gy + 30}, ${gx + 10} ${gy + 40}, ${gx + 12} 400`, fill: 'none', stroke: '#1d1f22', 'stroke-width': 13 }, svg);
+    el('path', { d: `M${gx + 3} ${gy + 50} C ${gx + 6} ${gy + 62}, ${gx + 9} ${gy + 70}, ${gx + 11} 402`, fill: 'none', stroke: '#141517', 'stroke-width': 12 }, svg);
+    // Knickschutz mit Rillen wie bei den anderen Geräten
+    el('path', { d: `M${gx - 11} ${gy + 10} L ${gx - 8} ${gy + 56} L ${gx + 13} ${gy + 56} L ${gx + 12} ${gy + 10} Z`, fill: '#1a1b1e', stroke: '#0b0c0d', 'stroke-width': 1.5 }, svg);
+    for (let i = 0; i < 4; i++) el('line', { x1: gx - 10, y1: gy + 28 + i * 7, x2: gx + 12, y2: gy + 28 + i * 7, stroke: '#3a3c41', 'stroke-width': 2 }, svg);
     el('circle', { cx: gx, cy: gy, r: 26, fill: 'url(#m503-knob)', stroke: '#121315', 'stroke-width': 2 }, svg);
     el('circle', { cx: gx, cy: gy, r: 13, fill: '#1d1f22' }, svg);
 

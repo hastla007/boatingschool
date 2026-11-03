@@ -189,15 +189,19 @@ export function renderDevice(container) {
     const [ex, ey] = P(606, 474);
     el('text', { x: ex, y: ey, 'text-anchor': 'middle', 'font-size': 16, 'font-weight': 700, fill: KEY_TEXT, 'font-family': SANS }, svg, 'ENTER');
 
-    // Mikrofonbuchse (ohne Funktion)
+    // Mikrofonbuchse mit eingestecktem Hörerkabel (ohne Funktion): Stecker mit
+    // geriffelter Überwurfmutter, Knickschutz mit Rillen, Kabel nach unten.
     const [mx, my] = P(705, 446);
+    el('path', { d: `M${mx} ${my + 60} C ${mx + 2} ${my + 76}, ${mx + 4} 548, ${mx + 5} 562`, fill: 'none', stroke: '#141517', 'stroke-width': 13 }, svg);
+    el('path', { d: `M${mx - 13} ${my + 14} L ${mx - 10} ${my + 66} L ${mx + 12} ${my + 66} L ${mx + 15} ${my + 14} Z`, fill: '#1a1b1e', stroke: '#0b0c0d', 'stroke-width': 1.5 }, svg);
+    for (let i = 0; i < 5; i++) el('line', { x1: mx - 12, y1: my + 30 + i * 8, x2: mx + 13, y2: my + 30 + i * 8, stroke: '#3a3c41', 'stroke-width': 2 }, svg);
     el('circle', { cx: mx, cy: my, r: S(38), fill: 'url(#m505-metal)', stroke: '#2b2d31', 'stroke-width': 2 }, svg);
-    el('circle', { cx: mx, cy: my, r: S(26), fill: '#2a2c30', stroke: '#8d9097', 'stroke-width': 2 }, svg);
-    for (let i = 0; i < 8; i++) {
-        const a = (i * 45) * Math.PI / 180;
-        el('circle', { cx: mx + Math.sin(a) * 13, cy: my - Math.cos(a) * 13, r: 2.6, fill: '#d6c48a' }, svg);
+    el('circle', { cx: mx, cy: my, r: S(27), fill: '#1c1d20', stroke: '#0b0c0d', 'stroke-width': 2 }, svg);
+    for (let i = 0; i < 24; i++) {
+        const a = (i * 15) * Math.PI / 180;
+        el('line', { x1: mx + Math.sin(a) * S(21), y1: my - Math.cos(a) * S(21), x2: mx + Math.sin(a) * S(26), y2: my - Math.cos(a) * S(26), stroke: '#3e4146', 'stroke-width': 2 }, svg);
     }
-    el('circle', { cx: mx, cy: my, r: 3, fill: '#d6c48a' }, svg);
+    el('circle', { cx: mx, cy: my, r: S(17), fill: '#26282c', stroke: '#0b0c0d', 'stroke-width': 1.5 }, svg);
 
     // Hörer vor der linken Gehäusekante
     drawHandset(svg, { prefix: 'm505', model: 'round', x: 30, y: 34, scale: 1.15, bottom: 560 });
