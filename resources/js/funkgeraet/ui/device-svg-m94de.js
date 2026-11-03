@@ -1,9 +1,10 @@
-// Zeichnung des Handfunkgeräts IC-M94DE (SVG) im Stil der Fotos, ohne
-// Herstellerlogo und mit gekürzter Antenne: links die Vorderansicht
-// (Display, drei Softkeys, MENU, CLR, Steuerkreuz mit ENT, VOL/SQL, 16/C,
-// Lautsprecher; Sprechtaste und Ein/Aus-Taste an der linken Seite), rechts
-// die Rückseite oben mit DISTRESS unter der roten Schutzkappe. Tasten und
-// Display leuchten bei eingeschaltetem Gerät. Gleiche Schnittstelle wie
+// Zeichnung des Handfunkgeräts IC-M94DE (SVG), auf gute Bedienbarkeit
+// ausgelegt statt fotogetreu, ohne Herstellerlogo und mit gekürzter Antenne:
+// links die Vorderansicht mit großem Display, großen Softkeys, MENU, CLR,
+// Steuerkreuz mit ENT, VOL/SQL, 16/C und kleinem Lautsprecher; Sprechtaste
+// und Ein/Aus-Taste groß an der linken Seite. Rechts die ganze Rückseite mit
+// DISTRESS unter der roten Schutzkappe, Gürtelclip und Akkudeckel. Tasten
+// und Display leuchten bei eingeschaltetem Gerät. Gleiche Schnittstelle wie
 // device-svg.js; ein Ziel "sk:LABEL" markiert den Softkey mit dieser
 // Beschriftung bzw. die Blättertaste zur richtigen Seite.
 
@@ -18,10 +19,8 @@ const PRINT = '#e4e6ea';
 const RIM = { on: '#f4ddb0', off: '#3a3c41' };
 const LABEL = { on: '#fff6e2', off: '#8c9097' };
 
-// Vorderansicht: Fotopunkte auf die Zeichenfläche (Gehäuse x 160–482).
-const F = (px, py) => [160 + (px - 287) * 1.88, 10 + (py - 455) * 1.88];
-// Rückseite oben: Fotopunkte auf die Zeichenfläche (ab x 560).
-const B = (px, py) => [560 + (px - 273) * 1.6, 120 + (py - 488) * 1.6];
+// Zeichenfläche 1000 × 940: Vorderansicht x 90–515, Rückseite x 610–950.
+const F = (x, y) => [x, y];
 
 // Die Anzeige wird in einer Fläche von 220 × 233 geschrieben und in das
 // Display eingepasst.
@@ -106,72 +105,55 @@ function fields(labels) {
 }
 
 export function renderDeviceM94DE(container) {
-    const svg = el('svg', { viewBox: '0 0 1000 880', role: 'group', 'aria-label': 'Handfunkgerät IC-M94DE (Nachbildung), Vorderansicht und Rückseite', style: 'width:100%;height:auto;user-select:none;-webkit-user-select:none' });
+    const svg = el('svg', { viewBox: '0 0 1000 940', role: 'group', 'aria-label': 'Handfunkgerät IC-M94DE (Nachbildung), Vorder- und Rückseite', style: 'width:100%;height:auto;user-select:none;-webkit-user-select:none' });
     container.appendChild(svg);
     defs(svg);
     const light = createBacklight();
 
     // --- Vorderansicht ---------------------------------------------------------
-    // Gekürzte Antenne und Buchsenabdeckung oben
-    const [ax1] = F(392, 0);
-    const [ax2] = F(405, 0);
-    el('rect', { x: ax1, y: 8, width: ax2 - ax1, height: 60, rx: (ax2 - ax1) / 2, fill: 'url(#m94-antenna)', stroke: '#0b0c0d', 'stroke-width': 1.5 }, svg);
-    const [bx1, by1] = F(383, 472);
-    const [bx2] = F(415, 0);
-    el('path', { d: `M${bx1 + 10} ${by1} L ${bx2 - 10} ${by1} L ${bx2} 120 L ${bx1} 120 Z`, fill: 'url(#m94-antenna)', stroke: '#0b0c0d', 'stroke-width': 1.5 }, svg);
-    for (let i = 0; i < 5; i++) el('line', { x1: bx1 + 4, y1: by1 + 14 + i * 10, x2: bx2 - 4, y2: by1 + 14 + i * 10, stroke: '#4a4d52', 'stroke-width': 1.2 }, svg);
-    const [kx1, ky1] = F(327, 497);
-    const [kx2] = F(362, 0);
-    el('rect', { x: kx1, y: ky1, width: kx2 - kx1, height: 40, rx: 10, fill: 'url(#m94-knob)', stroke: '#0b0c0d', 'stroke-width': 1.5 }, svg);
-    for (let i = 0; i < 9; i++) el('line', { x1: kx1 + 6 + i * ((kx2 - kx1 - 12) / 8), y1: ky1 + 3, x2: kx1 + 6 + i * ((kx2 - kx1 - 12) / 8), y2: ky1 + 15, stroke: '#0b0c0d', 'stroke-width': 1.5 }, svg);
+    // Gekürzte Antenne rechts, Buchsenabdeckung links oben
+    el('rect', { x: 398, y: 8, width: 26, height: 70, rx: 13, fill: 'url(#m94-antenna)', stroke: '#0b0c0d', 'stroke-width': 1.5 }, svg);
+    el('path', { d: 'M388 70 L 434 70 L 446 112 L 376 112 Z', fill: 'url(#m94-antenna)', stroke: '#0b0c0d', 'stroke-width': 1.5 }, svg);
+    for (let i = 0; i < 4; i++) el('line', { x1: 384, y1: 80 + i * 8, x2: 438, y2: 80 + i * 8, stroke: '#4a4d52', 'stroke-width': 1.2 }, svg);
+    el('rect', { x: 200, y: 64, width: 70, height: 44, rx: 11, fill: 'url(#m94-knob)', stroke: '#0b0c0d', 'stroke-width': 1.5 }, svg);
+    for (let i = 0; i < 10; i++) el('line', { x1: 208 + i * 6, y1: 68, x2: 208 + i * 6, y2: 82, stroke: '#0b0c0d', 'stroke-width': 1.5 }, svg);
 
-    // Sprechtaste und Ein/Aus-Taste an der linken Seite
-    const [px1, py1] = F(279, 562);
-    const [px2, py2] = F(291, 652);
+    // Große Sprechtaste und Ein/Aus-Taste an der linken Seite
     const ptt = control(svg, { 'data-key': 'ptt', 'aria-label': 'Sprechtaste (PTT) gedrückt halten' });
-    el('rect', { x: px1, y: py1, width: px2 - px1, height: py2 - py1, rx: 9, fill: 'url(#m94-side)', stroke: '#0b0c0d', 'stroke-width': 2, filter: 'url(#m94-shadow)' }, ptt);
-    for (let i = 0; i < 9; i++) el('rect', { x: px1 + 4, y: py1 + 22 + i * 14, width: 8, height: 3, rx: 1.5, fill: '#44474c', 'pointer-events': 'none' }, ptt);
-    el('text', { x: px1 - 4, y: py1 + 2, 'text-anchor': 'end', 'font-size': 13, 'font-weight': 700, fill: '#6b6e74', 'font-family': SANS }, svg, 'PTT');
-    const [wx1, wy1] = F(280, 662);
-    const [wx2, wy2] = F(291, 690);
+    el('rect', { x: 86, y: 220, width: 60, height: 250, rx: 20, fill: 'url(#m94-side)', stroke: '#0b0c0d', 'stroke-width': 2.5, filter: 'url(#m94-shadow)' }, ptt);
+    for (let i = 0; i < 12; i++) el('rect', { x: 94, y: 252 + i * 16, width: 22, height: 4, rx: 2, fill: '#44474c', 'pointer-events': 'none' }, ptt);
     const power = control(svg, { 'data-key': 'power', 'aria-label': 'Ein/Aus (1 Sekunde halten)' });
-    el('rect', { x: wx1, y: wy1, width: wx2 - wx1, height: wy2 - wy1, rx: 7, fill: 'url(#m94-side)', stroke: '#0b0c0d', 'stroke-width': 2, filter: 'url(#m94-shadow)' }, power);
-    el('text', { x: wx1 - 4, y: (wy1 + wy2) / 2 + 5, 'text-anchor': 'end', 'font-size': 15, 'font-weight': 700, fill: '#6b6e74', 'font-family': SANS }, svg, '⏻');
+    el('rect', { x: 86, y: 500, width: 60, height: 86, rx: 16, fill: 'url(#m94-side)', stroke: '#0b0c0d', 'stroke-width': 2.5, filter: 'url(#m94-shadow)' }, power);
+    el('text', { x: 107, y: 552, 'text-anchor': 'middle', 'font-size': 24, 'font-weight': 700, fill: '#9a9ea6', 'font-family': SANS, 'pointer-events': 'none' }, power, '⏻');
 
     // Gehäuse mit hellerem Seitenrand und dunkler Front
-    const [gx1, gy1] = F(287, 512);
-    const [gx2, gy2] = F(458, 912);
-    el('rect', { x: gx1, y: gy1, width: gx2 - gx1, height: gy2 - gy1, rx: 56, fill: 'url(#m94-body)', stroke: '#0b0c0d', 'stroke-width': 3, filter: 'url(#m94-bodyshadow)' }, svg);
-    const [fx1, fy1] = F(298, 532);
-    const [fx2, fy2] = F(447, 902);
-    el('rect', { x: fx1, y: fy1, width: fx2 - fx1, height: fy2 - fy1, rx: 44, fill: 'url(#m94-face)', stroke: '#0b0c0d', 'stroke-width': 2 }, svg);
+    el('rect', { x: 126, y: 104, width: 392, height: 818, rx: 72, fill: 'url(#m94-body)', stroke: '#0b0c0d', 'stroke-width': 3, filter: 'url(#m94-bodyshadow)' }, svg);
+    el('rect', { x: 142, y: 120, width: 360, height: 786, rx: 60, fill: 'url(#m94-face)', stroke: '#0b0c0d', 'stroke-width': 2 }, svg);
 
-    // Display mit Rahmen
-    const [dx1, dy1] = F(315, 562);
-    const [dx2, dy2] = F(433, 687);
-    el('rect', { x: dx1, y: dy1, width: dx2 - dx1, height: dy2 - dy1, rx: 14, fill: 'url(#m94-bezel)', stroke: '#050506', 'stroke-width': 2 }, svg);
-    const [lx1, ly1] = F(320, 568);
-    const [lx2, ly2] = F(428, 682);
-    const lcdBox = { x: lx1, y: ly1, width: lx2 - lx1, height: ly2 - ly1 };
-    light.add(el('rect', { ...lcdBox, rx: 6, fill: 'url(#m94-lcd)' }, svg), { fill: 'url(#m94-lcd)' }, { fill: '#5b6066' });
+    el('text', { x: 98, y: 210, 'text-anchor': 'middle', 'font-size': 18, 'font-weight': 700, fill: '#6b6e74', 'font-family': SANS }, svg, 'PTT');
+
+    // Großes Display mit Rahmen
+    el('rect', { x: 162, y: 146, width: 320, height: 352, rx: 18, fill: 'url(#m94-bezel)', stroke: '#050506', 'stroke-width': 2 }, svg);
+    const lcdBox = { x: 172, y: 156, width: 300, height: 318 };
+    light.add(el('rect', { ...lcdBox, rx: 8, fill: 'url(#m94-lcd)' }, svg), { fill: 'url(#m94-lcd)' }, { fill: '#5b6066' });
     const k = lcdBox.width / LCD_W;
     const lcd = el('g', { 'font-family': MONO, fill: LCD_INK, transform: `translate(${lcdBox.x} ${lcdBox.y}) scale(${k})` }, svg);
-    const [mx, my] = F(374, 698);
-    el('text', { x: mx, y: my, 'text-anchor': 'middle', 'font-size': 17, 'font-weight': 700, fill: PRINT, 'font-family': SANS, 'letter-spacing': 1 }, svg, 'IC-M94DE');
+    el('text', { x: 322, y: 491, 'text-anchor': 'middle', 'font-size': 15, 'font-weight': 700, fill: PRINT, 'font-family': SANS, 'letter-spacing': 1 }, svg, 'IC-M94DE');
 
-    // Softkeys
-    const softkeys = [[322, 352], [359, 389], [395, 425]].map(([a, b], i) => key(svg, light, `soft${i + 1}`, [a, 704], [b, 719], '', { ariaLabel: `Softkey ${i + 1}`, bar: true, rx: 12 }));
+    // Softkeys groß unter den Feldern im Display
+    const softkeys = [[172, 266], [275, 369], [378, 472]].map(([a, b], i) => key(svg, light, `soft${i + 1}`, [a, 510], [b, 558], '', { ariaLabel: `Softkey ${i + 1}`, bar: true, rx: 14 }));
 
     // MENU, CLR, VOL/SQL, 16/C
-    key(svg, light, 'menu', [313, 727], [345, 746], 'MENU', { size: 14, rx: 12 });
-    key(svg, light, 'clr', [401, 725], [432, 746], ['CLR', '⚿'], { ariaLabel: 'CLR (1 Sekunde: Tastensperre)', size: 13, rx: 12 });
-    key(svg, light, 'volsql', [313, 752], [347, 773], ['VOL', 'SQL'], { ariaLabel: 'VOL/SQL (1×: Lautstärke, 2×: Rauschsperre, 1 Sekunde: Monitor)', size: 13, rx: 12 });
-    key(svg, light, 'ch16', [400, 755], [432, 776], '16/C', { ariaLabel: '16/C: Kanal 16, 1 Sekunde Anrufkanal', size: 16, rx: 12, fill: 'url(#m94-blue)', ink: '#ffffff' });
+    key(svg, light, 'menu', [160, 578], [246, 638], 'MENU', { size: 19, rx: 16 });
+    key(svg, light, 'clr', [398, 578], [484, 638], ['CLR', '⚿'], { ariaLabel: 'CLR (1 Sekunde: Tastensperre)', size: 17, rx: 16 });
+    key(svg, light, 'volsql', [160, 654], [246, 714], ['VOL', 'SQL'], { ariaLabel: 'VOL/SQL (1×: Lautstärke, 2×: Rauschsperre, 1 Sekunde: Monitor)', size: 17, rx: 16 });
+    key(svg, light, 'ch16', [398, 654], [484, 714], '16/C', { ariaLabel: '16/C: Kanal 16, 1 Sekunde Anrufkanal', size: 21, rx: 16, fill: 'url(#m94-blue)', ink: '#ffffff' });
 
-    // Steuerkreuz ▲▼◄► als Ring mit ENT in der Mitte
-    const [cx, cy] = F(373, 748);
-    const R = 44;
-    const r = 19;
+    // Großes Steuerkreuz ▲▼◄► als Ring mit ENT in der Mitte
+    const cx = 322;
+    const cy = 646;
+    const R = 72;
+    const r = 30;
     el('circle', { cx, cy, r: R + 4, fill: '#0b0c0d' }, svg);
     const wedge = (id, angle, glyph, ariaLabel) => {
         const a1 = (angle - 44) * Math.PI / 180;
@@ -185,7 +167,7 @@ export function renderDeviceM94DE(container) {
         const seg = el('path', { d: `M${o1x} ${o1y} A ${R} ${R} 0 0 1 ${o2x} ${o2y} L ${i2x} ${i2y} A ${r + 3} ${r + 3} 0 0 0 ${i1x} ${i1y} Z`, fill: 'url(#m94-key)', stroke: RIM.on, 'stroke-width': 1.6 }, g);
         light.add(seg, { stroke: RIM.on }, { stroke: RIM.off });
         const [gx, gy] = pt((R + r) / 2 + 1, angle * Math.PI / 180);
-        const t = el('text', { x: gx, y: gy + 5, 'text-anchor': 'middle', 'font-size': 13, 'font-weight': 700, 'font-family': SANS, fill: LABEL.on, filter: 'url(#m94-glow)', 'pointer-events': 'none' }, g, glyph);
+        const t = el('text', { x: gx, y: gy + 5, 'text-anchor': 'middle', 'font-size': 20, 'font-weight': 700, 'font-family': SANS, fill: LABEL.on, filter: 'url(#m94-glow)', 'pointer-events': 'none' }, g, glyph);
         light.add(t, { fill: LABEL.on, filter: 'url(#m94-glow)' }, { fill: LABEL.off, filter: null });
     };
     wedge('up', 0, '▲', 'Kanal auf / ▲');
@@ -196,51 +178,48 @@ export function renderDeviceM94DE(container) {
     el('circle', { cx, cy, r, fill: 'url(#m94-key)', stroke: '#0b0c0d', 'stroke-width': 1.5 }, enter);
     light.add(el('circle', { cx, cy, r: r - 6, fill: '#1d5fbf', 'fill-opacity': 0.85, 'pointer-events': 'none' }, enter), { 'fill-opacity': 0.85 }, { 'fill-opacity': 0.25 });
 
-    // Lautsprecher mit Mikrofon
-    for (const py of [803, 817, 831, 845, 859, 873]) {
-        const [sx1, sy] = F(306, py);
-        const [sx2] = F(441, 0);
-        el('rect', { x: sx1, y: sy - 5, width: sx2 - sx1, height: 10, rx: 5, fill: '#0e0f11' }, svg);
-        el('line', { x1: sx1 + 5, y1: sy + 6.5, x2: sx2 - 5, y2: sy + 6.5, stroke: '#55585e', 'stroke-opacity': 0.6, 'stroke-width': 1.2 }, svg);
+    // Kleiner Lautsprecher mit Mikrofon
+    el('text', { x: 172, y: 752, 'font-size': 11, 'font-weight': 700, fill: '#6b6e74', 'font-family': SANS }, svg, 'MIC');
+    for (let i = 0; i < 5; i++) {
+        const y = 772 + i * 24;
+        const inset = i === 4 ? 30 : 0;
+        el('rect', { x: 176 + inset, y, width: 292 - inset * 2, height: 11, rx: 5.5, fill: '#0e0f11' }, svg);
+        el('line', { x1: 182 + inset, y1: y + 12.5, x2: 462 - inset, y2: y + 12.5, stroke: '#55585e', 'stroke-opacity': 0.6, 'stroke-width': 1.2 }, svg);
     }
-    const [micX, micY] = F(312, 796);
-    el('text', { x: micX, y: micY, 'font-size': 10, 'font-weight': 700, fill: '#6b6e74', 'font-family': SANS }, svg, 'MIC');
 
-    // --- Rückseite oben mit DISTRESS ---------------------------------------------
-    const [rx0] = B(273, 0);
-    const [rx1] = B(455, 0);
-    el('text', { x: (rx0 + rx1) / 2, y: 40, 'text-anchor': 'middle', 'font-size': 18, 'font-weight': 700, fill: '#64748b', 'font-family': SANS }, svg, 'Rückseite (oben)');
-    const [bax1] = B(312, 0);
-    const [bax2] = B(352, 0);
-    el('rect', { x: bax1 + 8, y: 66, width: bax2 - bax1 - 16, height: 40, rx: 10, fill: 'url(#m94-antenna)', stroke: '#0b0c0d', 'stroke-width': 1.5 }, svg);
-    el('path', { d: `M${bax1 + 6} 100 L ${bax2 - 6} 100 L ${bax2} 156 L ${bax1} 156 Z`, fill: 'url(#m94-antenna)', stroke: '#0b0c0d', 'stroke-width': 1.5 }, svg);
-    const [bkx1, bky1] = B(372, 488);
-    const [bkx2] = B(410, 0);
-    el('rect', { x: bkx1, y: bky1, width: bkx2 - bkx1, height: 34, rx: 9, fill: 'url(#m94-knob)', stroke: '#0b0c0d', 'stroke-width': 1.5 }, svg);
-    const [rby] = B(0, 508);
-    const [, rbBottom] = B(0, 660);
-    el('path', { d: `M${rx0} ${rbBottom} L ${rx0} ${rby + 40} Q ${rx0} ${rby} ${rx0 + 40} ${rby} L ${rx1 - 40} ${rby} Q ${rx1} ${rby} ${rx1} ${rby + 40} L ${rx1} ${rbBottom}`, fill: 'url(#m94-back)', stroke: '#0b0c0d', 'stroke-width': 3 }, svg);
-    // Die Ansicht endet hier (Schnittkante gestrichelt).
-    el('line', { x1: rx0, y1: rbBottom, x2: rx1, y2: rbBottom, stroke: '#94a3b8', 'stroke-width': 2, 'stroke-dasharray': '8 6' }, svg);
-    for (const hx of [300, 420]) {
-        const [hcx, hcy] = B(hx, 520);
-        el('circle', { cx: hcx, cy: hcy, r: 12, fill: '#111214' }, svg);
-    }
-    const [fr1x, fr1y] = B(331, 517);
-    const [fr2x, fr2y] = B(391, 582);
-    el('rect', { x: fr1x, y: fr1y, width: fr2x - fr1x, height: fr2y - fr1y, rx: 8, fill: '#1c1d20', stroke: '#6a6d73', 'stroke-width': 1.5 }, svg);
-    const [cl1x, cl1y] = B(352, 586);
-    const [cl2x, cl2y] = B(378, 634);
-    el('rect', { x: cl1x, y: cl1y, width: cl2x - cl1x, height: cl2y - cl1y, rx: 4, fill: '#141517', stroke: '#55585e', 'stroke-width': 1 }, svg);
-    const [db1x, db1y] = B(345, 527);
-    const [db2x, db2y] = B(377, 570);
+    // --- Ganze Rückseite mit DISTRESS, Gürtelclip und Akkudeckel ----------------
+    el('text', { x: 780, y: 40, 'text-anchor': 'middle', 'font-size': 20, 'font-weight': 700, fill: '#64748b', 'font-family': SANS }, svg, 'Rückseite');
+    // Von hinten: Antenne links, Buchsenabdeckung rechts
+    el('rect', { x: 680, y: 60, width: 22, height: 60, rx: 11, fill: 'url(#m94-antenna)', stroke: '#0b0c0d', 'stroke-width': 1.5 }, svg);
+    el('path', { d: 'M671 112 L 711 112 L 721 148 L 661 148 Z', fill: 'url(#m94-antenna)', stroke: '#0b0c0d', 'stroke-width': 1.5 }, svg);
+    el('rect', { x: 820, y: 108, width: 60, height: 38, rx: 10, fill: 'url(#m94-knob)', stroke: '#0b0c0d', 'stroke-width': 1.5 }, svg);
+    // Seitentasten von hinten (rechts, ohne Funktion)
+    el('rect', { x: 930, y: 270, width: 22, height: 210, rx: 9, fill: 'url(#m94-side)', stroke: '#0b0c0d', 'stroke-width': 2 }, svg);
+    el('rect', { x: 930, y: 506, width: 22, height: 74, rx: 8, fill: 'url(#m94-side)', stroke: '#0b0c0d', 'stroke-width': 2 }, svg);
+    el('rect', { x: 610, y: 140, width: 334, height: 782, rx: 64, fill: 'url(#m94-back)', stroke: '#0b0c0d', 'stroke-width': 3, filter: 'url(#m94-bodyshadow)' }, svg);
+    for (const hx of [656, 898]) el('circle', { cx: hx, cy: 184, r: 13, fill: '#111214' }, svg);
+    // Gürtelclip-Schiene unter DISTRESS
+    el('rect', { x: 752, y: 342, width: 50, height: 92, rx: 6, fill: '#141517', stroke: '#55585e', 'stroke-width': 1.2 }, svg);
+    for (const y of [370, 406]) el('circle', { cx: 777, cy: y, r: 4, fill: '#3a3c41' }, svg);
+    // Akkudeckel mit Verriegelung unten
+    el('path', { d: 'M640 470 Q 640 440 670 440 L 884 440 Q 914 440 914 470 L 914 840 Q 914 896 858 896 L 696 896 Q 640 896 640 840 Z', fill: '#202226', stroke: '#0b0c0d', 'stroke-width': 2 }, svg);
+    el('path', { d: 'M652 480 Q 652 452 680 452 L 874 452 Q 902 452 902 480', fill: 'none', stroke: '#55585e', 'stroke-opacity': 0.6, 'stroke-width': 1.5 }, svg);
+    el('rect', { x: 750, y: 862, width: 56, height: 22, rx: 5, fill: '#141517', stroke: '#55585e', 'stroke-width': 1.2 }, svg);
+    el('text', { x: 777, y: 680, 'text-anchor': 'middle', 'font-size': 14, 'font-weight': 700, fill: '#55585e', 'font-family': SANS }, svg, 'Akkudeckel');
+    // DISTRESS unter der roten Schutzkappe (groß)
+    el('rect', { x: 712, y: 196, width: 130, height: 110, rx: 12, fill: '#1c1d20', stroke: '#6a6d73', 'stroke-width': 1.5 }, svg);
+    const db1x = 724;
+    const db1y = 214;
+    const db2x = 830;
+    const db2y = 294;
     const distress = control(svg, { 'data-key': 'distress', 'aria-label': 'DISTRESS (3 Sekunden halten)' });
-    el('rect', { x: db1x, y: db1y, width: db2x - db1x, height: db2y - db1y, rx: 6, fill: 'url(#m94-red)', stroke: '#5b080d', 'stroke-width': 2 }, distress);
-    el('text', { x: (db1x + db2x) / 2, y: (db1y + db2y) / 2 + 5, 'text-anchor': 'middle', 'font-size': 12, 'font-weight': 700, fill: '#ffffff', 'font-family': SANS, 'pointer-events': 'none' }, distress, 'DISTRESS');
+    el('rect', { x: db1x, y: db1y, width: db2x - db1x, height: db2y - db1y, rx: 8, fill: 'url(#m94-red)', stroke: '#5b080d', 'stroke-width': 2 }, distress);
+    el('text', { x: (db1x + db2x) / 2, y: (db1y + db2y) / 2 + 6, 'text-anchor': 'middle', 'font-size': 17, 'font-weight': 700, fill: '#ffffff', 'font-family': SANS, 'pointer-events': 'none' }, distress, 'DISTRESS');
     const cover = control(svg, { 'data-key': 'distressCover', 'aria-label': 'Schutzkappe der DISTRESS-Taste' });
-    const coverClosed = { y: db1y - 8, height: db2y - db1y + 18 };
-    const coverOpen = { y: db1y - 44, height: 30 };
-    const coverLid = el('rect', { x: db1x - 6, ...coverClosed, width: db2x - db1x + 12, rx: 8, fill: '#e2333d', 'fill-opacity': 0.55, stroke: '#9b1219', 'stroke-width': 2 }, cover);
+    const coverClosed = { y: db1y - 12, height: db2y - db1y + 24 };
+    const coverOpen = { y: db1y - 56, height: 38 };
+    const coverLid = el('rect', { x: db1x - 10, ...coverClosed, width: db2x - db1x + 20, rx: 10, fill: '#e2333d', 'fill-opacity': 0.55, stroke: '#9b1219', 'stroke-width': 2 }, cover);
+    el('text', { x: 777, y: 328, 'text-anchor': 'middle', 'font-size': 12, 'font-weight': 700, fill: '#94a3b8', 'font-family': SANS }, svg, 'Schutzkappe antippen');
 
     const highlight = el('rect', { fill: 'none', stroke: '#e3b505', 'stroke-width': 4, 'stroke-dasharray': '10 6', rx: 14, visibility: 'hidden', 'pointer-events': 'none' }, svg);
 
