@@ -219,7 +219,6 @@ export function renderDeviceM94DE(container) {
     const coverClosed = { y: db1y - 12, height: db2y - db1y + 24 };
     const coverOpen = { y: db1y - 56, height: 38 };
     const coverLid = el('rect', { x: db1x - 10, ...coverClosed, width: db2x - db1x + 20, rx: 10, fill: '#e2333d', 'fill-opacity': 0.55, stroke: '#9b1219', 'stroke-width': 2 }, cover);
-    el('text', { x: 777, y: 328, 'text-anchor': 'middle', 'font-size': 12, 'font-weight': 700, fill: '#94a3b8', 'font-family': SANS }, svg, 'Schutzkappe antippen');
 
     const highlight = el('rect', { fill: 'none', stroke: '#e3b505', 'stroke-width': 4, 'stroke-dasharray': '10 6', rx: 14, visibility: 'hidden', 'pointer-events': 'none' }, svg);
 
