@@ -77,7 +77,7 @@ const RECEIVED = {
 };
 const DISTRESS_TYPES = new Set(['distress', 'distress_relay', 'distress_ack']);
 // Empfangene Anrufe mit Kanalautomatik (CH SWITCH TIMER 30 s).
-const AUTO_SWITCH = new Set(['distress', 'distress_relay', 'group', 'all_ships', 'geographic']);
+const AUTO_SWITCH = new Set(['distress', 'distress_relay', 'distress_ack', 'group', 'all_ships', 'geographic']);
 const EDITORS = {
     postm: { title: 'POSITION/TIME', template: '##°##.####N###°##.####E##:##', row: '0123456789NSEW' },
     mmsi: { title: 'MMSI', template: '#########', row: '0123456789' },
@@ -179,6 +179,9 @@ export function createHx891({ own, clock = () => Date.now(), emit = () => {}, ad
 
     function setChannel(channel, { work = true } = {}) {
         if (s.scan) stopScan();
+        // Jeder Kanalwechsel beendet 16/S und den Zweitkanal; die Taste
+        // 16/S setzt den Zustand danach selbst.
+        s.special = null;
         s.channel = channel;
         if (work && channel !== PRIORITY_CHANNEL && channel !== SUB_CHANNEL) s.workChannel = channel;
         event('channel', { channel, group: s.group, circle: channelInfo(s.group, channel)?.circle ?? null });
@@ -235,7 +238,7 @@ export function createHx891({ own, clock = () => Date.now(), emit = () => {}, ad
             case 'ackAlarm':
                 return ['STOP ALARM', 'STOP ALARM', 'STOP ALARM'];
             case 'rcvdAction':
-                return ['ACCEPT', s.incoming?.paused ? 'RESUME' : 'PAUSE', 'QUIT'];
+                return AUTO_SWITCH.has(s.incoming?.type) ? ['ACCEPT', s.incoming?.paused ? 'RESUME' : 'PAUSE', 'QUIT'] : ['', '', 'QUIT'];
             case 'rcvdRespond':
                 return ['ABLE', 'UNABLE', 'QUIT'];
             case 'ackConfirm':
@@ -352,6 +355,7 @@ export function createHx891({ own, clock = () => Date.now(), emit = () => {}, ad
             case 'CHG CH':
                 s.call.chFor = 'ack';
                 s.call.manual = false;
+                s.call.back = () => setScreen('ackConfirm');
                 s.cursor = 0;
                 setScreen('chList');
                 break;
@@ -761,7 +765,8 @@ export function createHx891({ own, clock = () => Date.now(), emit = () => {}, ad
         const text = e.chars.join('');
         if (e.kind === 'postm') {
             const m = text.match(/^(\d\d)°(\d\d\.\d{4})([NS])(\d\d\d)°(\d\d\.\d{4})([EW])(\d\d):(\d\d)$/);
-            if (! m || Number(m[7]) > 23 || Number(m[8]) > 59) {
+            const bad = ! m || Number(m[1]) > 90 || Number(m[2]) >= 60 || Number(m[4]) > 180 || Number(m[5]) >= 60 || Number(m[7]) > 23 || Number(m[8]) > 59;
+            if (bad) {
                 event('input_invalid', { field: 'position' });
 
                 return;
@@ -946,14 +951,15 @@ export function createHx891({ own, clock = () => Date.now(), emit = () => {}, ad
 
     function shortPress(key) {
         if (! s.power) return;
-        if (s.locked) {
-            event('key_locked', { key });
-
-            return;
-        }
+        // Die Notklappe ist mechanisch: Sie öffnet auch bei Tastensperre.
         if (key === 'distressCover') {
             s.cover = ! s.cover;
             event('cover', { open: s.cover });
+
+            return;
+        }
+        if (s.locked) {
+            event('key_locked', { key });
 
             return;
         }
@@ -1048,8 +1054,8 @@ export function createHx891({ own, clock = () => Date.now(), emit = () => {}, ad
                     setChannel(s.workChannel);
                 } else {
                     if (s.channel !== 16) s.workChannel = s.channel;
-                    s.special = '16';
                     setChannel(16, { work: false });
+                    s.special = '16';
                 }
                 break;
             case 'up':
@@ -1115,8 +1121,8 @@ export function createHx891({ own, clock = () => Date.now(), emit = () => {}, ad
         }
         if (key === 'ch16' && (s.screen === 'normal' || s.screen === 'distressWait')) {
             if (! s.special && s.channel !== 16) s.workChannel = s.channel;
-            s.special = 'sub';
             setChannel(SUB_CHANNEL, { work: false });
+            s.special = 'sub';
             event('call_channel', { channel: SUB_CHANNEL });
         }
     }
@@ -1404,7 +1410,7 @@ export function createHx891({ own, clock = () => Date.now(), emit = () => {}, ad
                 return panel(TITLES[c.kind], [...callLines(c), elapsed(c.sentAt), '', 'Waiting for ACK'], { blink: true });
             case 'callDone':
                 if (c?.unable) return panel(TITLES[c.kind], [...callLines(c), '', 'Unable to comply']);
-                if (c?.kind === 'individual_ack') return panel(RECEIVED.individual, [...callLines(c), '', 'Connected']);
+                if (c?.kind === 'individual_ack') return panel(RECEIVED.individual, [...callLines(c), '', c.action === 'unable' ? 'Unable to comply' : 'Connected']);
                 return panel(TITLES[c?.kind] ?? 'DSC CALL', [...callLines(c), c?.sentAt ? elapsed(c.sentAt) : '', '', ['individual', 'test'].includes(c?.kind) ? 'ACK received' : 'Transmitted'].filter((l, i, a) => l || a[i + 1]));
             case 'ackAlarm': {
                 const i = s.incoming;

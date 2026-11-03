@@ -629,6 +629,14 @@ export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, a
                 break;
             case 'Channel Group':
                 openSelect('CHANNEL GROUP', GROUPS, (group) => {
+                    // Solange der Notalarm auf Bestätigung wartet, bleibt das
+                    // Gerät im Seefunk (DSC und Kanal 16).
+                    if (group !== s.group && s.distress?.waiting) {
+                        event('group_blocked', { group, reason: 'distress' });
+                        openRadioSettings();
+
+                        return;
+                    }
                     const ch = channelInfo(group, s.channel) ? s.channel : CHANNEL_GROUPS[group][0].number;
                     setChannel(ch, { group });
                     event('group', { group });
@@ -898,17 +906,24 @@ export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, a
         const text = e.chars.join('');
         const { then, back: backFn } = e;
 
+        // Unmögliche Werte (Breite über 90°, Länge über 180°, Minuten ab 60,
+        // Uhrzeit über 23:59) übernimmt das Gerät nicht.
+        const invalid = (field) => event('input_invalid', { field });
         if (e.kind === 'lat') {
             const m = text.match(/^(\d\d)°(\d\d\.\d{4})([NS])$/);
+            if (! m || Number(m[1]) > 90 || Number(m[2]) >= 60) return invalid('position');
             s.pendingLat = [Number(m[1]), Number(m[2]), m[3]];
             startEditor('lon', backFn, then);
         } else if (e.kind === 'lon') {
             const m = text.match(/^(\d\d\d)°(\d\d\.\d{4})([EW])$/);
+            if (! m || Number(m[1]) > 180 || Number(m[2]) >= 60) return invalid('position');
             s.position = [...s.pendingLat, Number(m[1]), Number(m[2]), m[3]];
             s.positionSetAt = clock();
             event('position_set', { position: s.position });
             startEditor('utc', backFn, then);
         } else if (e.kind === 'utc') {
+            const m = text.match(/^(\d\d):(\d\d)$/);
+            if (! m || Number(m[1]) > 23 || Number(m[2]) > 59) return invalid('utc');
             s.utc = text;
             event('utc_set', { utc: s.utc });
             s.editor = null;
@@ -1153,7 +1168,9 @@ export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, a
 
                 return;
             }
-            if (windowOpen() && s.screen === 'normal' && ['up', 'down', 'left', 'right', 'enter', 'clr'].includes(key)) {
+            // Lautstärke/Rauschsperre in jedem Bildschirm, auch beim Warten auf
+            // die Bestätigung des Notalarms (▲/▼ wechseln dann nicht den Kanal).
+            if (windowOpen() && ['up', 'down', 'left', 'right', 'enter', 'clr'].includes(key)) {
                 if (key === 'enter' || key === 'clr') s.window = null;
                 else adjustWindow(key === 'up' || key === 'right' ? 1 : -1);
 
@@ -1285,7 +1302,7 @@ export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, a
     function longPress(key) {
         if (key === 'knob' || (handheld && key === 'power')) {
             if (s.power) {
-                Object.assign(s, { power: false, tx: false, menu: null, editor: null, form: null, call: null, incoming: null, cover: false, scan: null, watch: 'off', window: null, distress: null, monitor: false });
+                Object.assign(s, { power: false, tx: false, menu: null, editor: null, form: null, call: null, incoming: null, cover: false, scan: null, watch: 'off', window: null, distress: null, monitor: false, locked: false });
                 // Manuelle Position und Zeit gehen beim Ausschalten verloren.
                 Object.assign(s, { position: null, utc: null, positionSetAt: null });
                 setScreen('off');
@@ -1583,7 +1600,7 @@ export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, a
             window: null,
             alarm: false,
         };
-        if (normalScreen && s.window && clock() < s.windowUntil) {
+        if ((normalScreen || handheld) && s.window && clock() < s.windowUntil) {
             base.window = s.window === 'sql' ? { label: 'SQL:', value: String(s.sql), level: s.sql / 10 } : { label: 'Volume:', value: String(s.vol), level: s.vol / 20 };
         }
         const panel = (title, lines = [], extra = {}) => ({ ...base, panel: { title, lines, ...extra } });
