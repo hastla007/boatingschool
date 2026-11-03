@@ -146,10 +146,10 @@ export function renderDeviceM330(container) {
     el('rect', { x: 210, y: 364, width: 748, height: 6, rx: 3, fill: '#6a6d73', 'fill-opacity': 0.45 }, svg);
 
     // Lautsprecherschlitze
-    el('rect', { x: 197, y: 63, width: 214, height: 190, rx: 18, fill: '#1f2023', stroke: '#101113', 'stroke-width': 1.5 }, svg);
+    el('rect', { x: 199, y: 63, width: 186, height: 190, rx: 18, fill: '#1f2023', stroke: '#101113', 'stroke-width': 1.5 }, svg);
     for (const cy of [96.1, 127.2, 157.6, 188.7, 219.7]) {
-        el('rect', { x: 226, y: cy - 8.5, width: 186, height: 17, rx: 8.5, fill: '#0f1012' }, svg);
-        el('line', { x1: 232, y1: cy + 9.5, x2: 410, y2: cy + 9.5, stroke: '#6a6d73', 'stroke-opacity': 0.55, 'stroke-width': 1.6 }, svg);
+        el('rect', { x: 222, y: cy - 8.5, width: 144, height: 17, rx: 8.5, fill: '#0f1012' }, svg);
+        el('line', { x1: 228, y1: cy + 9.5, x2: 360, y2: cy + 9.5, stroke: '#6a6d73', 'stroke-opacity': 0.55, 'stroke-width': 1.6 }, svg);
     }
 
     // Display mit Rahmen und Typenzeile; Striche zu den Softkeys
