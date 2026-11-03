@@ -59,6 +59,7 @@ function defs(svg) {
     grad('m323-slot', [[0, '#5b5e64'], [0.25, '#0f1012'], [1, '#1a1b1e']], { x1: 0, x2: 1, y1: 0, y2: 0 });
     grad('m323-red', [[0, '#e0353f'], [1, '#8e0f16']]);
     grad('m323-blue', [[0, '#4a8fea'], [1, '#1b54b0']]);
+    grad('m323-mickey', [[0, '#a3a5a9'], [0.5, '#8a8c90'], [1, '#6a6c70']]);
     grad('m323-hinge', [[0, '#c4c7cc'], [1, '#5f6268']]);
     grad('m323-handset', [[0, '#3d4045'], [0.55, '#2a2c30'], [1, '#18191c']], { x1: 0, x2: 1, y1: 0, y2: 0 });
     radial('m323-knob', [[0, '#3f4247'], [0.75, '#1f2023'], [1, '#111214']]);
@@ -132,22 +133,28 @@ export function renderDeviceM323(container, { model = 'IC-M323', mic16 = false }
     defs(svg);
     const light = createBacklight();
 
-    // Hörer mit runder Sprechmuschel
-    el('path', { d: 'M30 104 Q30 26 92 26 Q154 26 154 104 L158 344 Q158 404 92 404 Q26 404 26 344 Z', fill: 'url(#m323-handset)', stroke: '#0c0d0e', 'stroke-width': 3 }, svg);
-    el('circle', { cx: 92, cy: 120, r: 56, fill: 'url(#m323-grill)', stroke: '#0c0d0e', 'stroke-width': 2 }, svg);
-    for (let i = -4; i <= 4; i++) {
-        const dy = i * 11;
-        const half = Math.sqrt(48 * 48 - dy * dy) - 4;
-        el('rect', { x: 92 - half, y: 120 + dy - 3, width: half * 2, height: 6, rx: 3, fill: '#0e0f11' }, svg);
+    // Hörer wie das Original: abgerundet, oben die runde Sprechmuschel mit
+    // Schlitzen, darunter die grauen Tasten ▲/▼ (versetzt) und HI/LO
+    // (IC-M423 zusätzlich 16/C); Sprechtaste an der Seite, Kabel unten.
+    el('path', { d: 'M92 22 C 150 22 162 58 162 118 L 158 348 Q 156 404 92 404 Q 28 404 26 348 L 22 118 C 22 58 34 22 92 22 Z', fill: 'url(#m323-handset)', stroke: '#0c0d0e', 'stroke-width': 3 }, svg);
+    el('path', { d: 'M30 300 L 30 348 Q 32 394 92 394 Q 152 394 154 348 L 154 300', fill: 'none', stroke: '#55585e', 'stroke-opacity': 0.6, 'stroke-width': 2 }, svg);
+    el('circle', { cx: 92, cy: 108, r: 62, fill: '#26282b', stroke: '#0c0d0e', 'stroke-width': 2 }, svg);
+    el('circle', { cx: 92, cy: 108, r: 54, fill: 'url(#m323-grill)', stroke: '#45484d', 'stroke-width': 1.5 }, svg);
+    for (let i = -3; i <= 3; i++) {
+        const dy = i * 13;
+        const half = Math.sqrt(46 * 46 - dy * dy) - 3;
+        el('rect', { x: 92 - half, y: 108 + dy - 4, width: half * 2, height: 8, rx: 4, fill: '#0b0c0d' }, svg);
+        el('line', { x1: 92 - half + 3, y1: 108 + dy + 5, x2: 92 + half - 3, y2: 108 + dy + 5, stroke: '#4f5258', 'stroke-opacity': 0.6, 'stroke-width': 1 }, svg);
     }
     const ptt = el('g', { 'data-key': 'ptt', tabindex: '0', role: 'button', 'aria-label': 'Sprechtaste (PTT) gedrückt halten', class: 'fg-control', style: 'cursor:pointer' }, svg);
-    el('rect', { x: 8, y: 140, width: 22, height: 110, rx: 8, fill: '#1d1f22', stroke: '#0c0d0e', 'stroke-width': 3 }, ptt);
-    el('text', { x: 4, y: 133, 'font-size': 12, 'font-weight': 700, fill: '#4a4d53', 'font-family': SANS }, svg, 'PTT');
-    micKey(svg, 'micUp', [42, 236, 42, 40], '△', 'Kanal auf am Hörer');
-    micKey(svg, 'micDown', [42, 282, 42, 40], '▽', 'Kanal ab am Hörer');
-    el('text', { x: 119, y: 252, 'text-anchor': 'middle', 'font-size': 10, 'font-weight': 700, fill: '#9a9ea6', 'font-family': SANS }, svg, 'HI/LO');
-    micKey(svg, 'micHiLo', [98, 258, 42, 38], '', 'HI/LO am Hörer');
-    if (mic16) micKey(svg, 'mic16', [98, 306, 42, 34], '16/C', '16/C am Hörer', { color: 'url(#m323-blue)', ink: '#ffffff', size: 12 });
+    el('rect', { x: 6, y: 140, width: 20, height: 110, rx: 8, fill: '#1d1f22', stroke: '#0c0d0e', 'stroke-width': 3 }, ptt);
+    el('text', { x: 3, y: 133, 'font-size': 12, 'font-weight': 700, fill: '#4a4d53', 'font-family': SANS }, svg, 'PTT');
+    const grey = { color: 'url(#m323-mickey)', ink: '#4a4c50', size: 13 };
+    micKey(svg, 'micUp', [36, 196, 42, 36], '△', 'Kanal auf am Hörer', grey);
+    micKey(svg, 'micDown', [50, 240, 42, 36], '▽', 'Kanal ab am Hörer', grey);
+    el('text', { x: 124, y: 238, 'text-anchor': 'middle', 'font-size': 10, 'font-weight': 700, fill: '#9a9ea6', 'font-family': SANS }, svg, 'HI/LO');
+    micKey(svg, 'micHiLo', [104, 244, 40, 36], '', 'HI/LO am Hörer', grey);
+    if (mic16) micKey(svg, 'mic16', [104, 292, 40, 32], '16/C', '16/C am Hörer', { color: 'url(#m323-blue)', ink: '#ffffff', size: 12 });
 
     // Gehäuse mit unterer Leiste
     const [bx1, by1] = Q(130, 395);

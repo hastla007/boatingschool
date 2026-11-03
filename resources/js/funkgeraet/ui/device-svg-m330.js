@@ -123,21 +123,28 @@ export function renderDeviceM330(container) {
     defs(svg);
     const light = createBacklight();
 
-    // Hörer
-    el('path', { d: 'M30 92 Q30 22 92 22 Q154 22 154 92 L160 330 Q160 386 92 386 Q24 386 24 330 Z', fill: 'url(#m330-handset)', stroke: '#0c0d0e', 'stroke-width': 3 }, svg);
-    el('path', { d: 'M40 92 Q40 32 92 32 Q144 32 144 92', fill: 'none', stroke: '#ffffff', 'stroke-opacity': 0.08, 'stroke-width': 2 }, svg);
-    for (let i = 0; i < 6; i++) el('rect', { x: 50, y: 64 + i * 20, width: 84, height: 9, rx: 4.5, fill: '#121315', stroke: '#4a4d52', 'stroke-opacity': 0.4, 'stroke-width': 1 }, svg);
+    // Hörer wie das Original: eiförmig, oben breiter, Sprechschlitze im
+    // oberen Teil, darunter HI/LO, die Wippe ▲/▼ und 16/C; Sprechtaste an
+    // der Seite, Kabel unten.
+    const body = 'M92 20 C 148 20 164 64 162 132 L 153 344 Q 149 402 92 402 Q 35 402 31 344 L 22 132 C 20 64 36 20 92 20 Z';
+    el('path', { d: body, fill: 'url(#m330-handset)', stroke: '#0c0d0e', 'stroke-width': 3 }, svg);
+    el('path', { d: 'M92 30 C 140 30 153 70 151 132 L 143 340 Q 139 390 92 390 Q 45 390 41 340 L 33 132 C 31 70 44 30 92 30 Z', fill: 'none', stroke: '#4a4d53', 'stroke-opacity': 0.55, 'stroke-width': 1.5 }, svg);
+    for (let i = 0; i < 6; i++) {
+        const y = 62 + i * 21;
+        el('rect', { x: 50, y, width: 84, height: 10, rx: 5, fill: '#0f1012' }, svg);
+        el('line', { x1: 54, y1: y + 11.5, x2: 130, y2: y + 11.5, stroke: '#4f5258', 'stroke-opacity': 0.7, 'stroke-width': 1.2 }, svg);
+    }
     const ptt = el('g', { 'data-key': 'ptt', tabindex: '0', role: 'button', 'aria-label': 'Sprechtaste (PTT) gedrückt halten', class: 'fg-control', style: 'cursor:pointer' }, svg);
-    el('rect', { x: 8, y: 120, width: 22, height: 110, rx: 8, fill: '#1d1f22', stroke: '#0c0d0e', 'stroke-width': 3 }, ptt);
-    el('text', { x: 4, y: 113, 'font-size': 12, 'font-weight': 700, fill: '#4a4d53', 'font-family': SANS }, svg, 'PTT');
-    el('text', { x: 56, y: 214, 'text-anchor': 'middle', 'font-size': 10, 'font-weight': 700, fill: '#9a9ea6', 'font-family': SANS }, svg, 'HI/LO');
-    micKey(svg, 'micHiLo', [36, 220, 40, 36], '', 'HI/LO am Hörer');
-    // Wippe ▲/▼ als ein Bauteil mit zwei Hälften
-    el('rect', { x: 82, y: 210, width: 38, height: 94, rx: 17, fill: '#0c0d0e' }, svg);
-    micKey(svg, 'micUp', [84, 212, 34, 44], '△', 'Kanal auf am Hörer', 15);
-    micKey(svg, 'micDown', [84, 258, 34, 44], '▽', 'Kanal ab am Hörer', 15);
-    el('text', { x: 136, y: 262, 'text-anchor': 'middle', 'font-size': 10, 'font-weight': 700, fill: '#9a9ea6', 'font-family': SANS }, svg, '16/C');
-    micKey(svg, 'mic16', [120, 268, 32, 36], '', '16/C am Hörer');
+    el('rect', { x: 6, y: 130, width: 20, height: 110, rx: 8, fill: '#1d1f22', stroke: '#0c0d0e', 'stroke-width': 3 }, ptt);
+    el('text', { x: 3, y: 123, 'font-size': 12, 'font-weight': 700, fill: '#4a4d53', 'font-family': SANS }, svg, 'PTT');
+    el('text', { x: 53, y: 232, 'text-anchor': 'middle', 'font-size': 10, 'font-weight': 700, fill: '#9a9ea6', 'font-family': SANS }, svg, 'HI/LO');
+    micKey(svg, 'micHiLo', [34, 238, 38, 32], '', 'HI/LO am Hörer');
+    // Wippe ▲/▼ als ovales Bauteil mit zwei Hälften
+    el('rect', { x: 76, y: 226, width: 40, height: 90, rx: 20, fill: '#0c0d0e' }, svg);
+    micKey(svg, 'micUp', [78, 228, 36, 42], '△', 'Kanal auf am Hörer', 17);
+    micKey(svg, 'micDown', [78, 272, 36, 42], '▽', 'Kanal ab am Hörer', 17);
+    el('text', { x: 137, y: 232, 'text-anchor': 'middle', 'font-size': 10, 'font-weight': 700, fill: '#9a9ea6', 'font-family': SANS }, svg, '16/C');
+    micKey(svg, 'mic16', [120, 238, 36, 32], '', '16/C am Hörer');
 
     // Gehäuse
     el('rect', { x: 180, y: 25, width: 808, height: 352, rx: 38, fill: 'url(#m330-frame)', stroke: '#0d0e10', 'stroke-width': 3 }, svg);
@@ -169,7 +176,7 @@ export function renderDeviceM330(container) {
 
     // Kabeldurchführung mit Kabel zum Hörer
     const [gx, gy] = Q(140, 400);
-    el('path', { d: `M${gx} ${gy} C ${gx - 20} ${gy + 60}, ${gx - 70} ${gy + 112}, 150 404 C 120 406, 96 402, 92 386`, fill: 'none', stroke: '#141517', 'stroke-width': 10, 'stroke-dasharray': '3 2' }, svg);
+    el('path', { d: `M${gx} ${gy} C ${gx - 20} ${gy + 60}, ${gx - 70} ${gy + 112}, 150 406 C 120 408, 98 406, 92 402`, fill: 'none', stroke: '#141517', 'stroke-width': 10, 'stroke-dasharray': '3 2' }, svg);
     el('path', { d: `M${gx - 14} ${gy + 6} L ${gx - 34} ${gy + 58} L ${gx - 14} ${gy + 64} L ${gx + 8} ${gy + 12} Z`, fill: '#1a1b1e', stroke: '#0b0c0d', 'stroke-width': 1.5 }, svg);
     for (let i = 0; i < 5; i++) el('line', { x1: gx - 14 - i * 4, y1: gy + 16 + i * 9, x2: gx + 4 - i * 4, y2: gy + 22 + i * 9, stroke: '#3a3c41', 'stroke-width': 2 }, svg);
     el('circle', { cx: gx, cy: gy, r: 30, fill: 'url(#m330-gland)', stroke: '#0b0c0d', 'stroke-width': 2 }, svg);
