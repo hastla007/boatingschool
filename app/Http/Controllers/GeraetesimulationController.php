@@ -27,9 +27,10 @@ class GeraetesimulationController extends Controller
         $data = Geraetesimulation::data();
 
         // Lernstand je Gerät: "ic-m505:<lektion>", "ic-m323:pruefung-a" …
-        // Nur Geräte, die einen Funkschein des Kurses abdecken.
+        // Geräte, die einen Funkschein des Kurses abdecken; Handfunkgeräte
+        // auch im reinen Binnenkurs (gesperrt angezeigt, mit Begründung).
         $catalogs = Geraetesimulation::catalogsFor($course);
-        $deviceList = Geraetesimulation::devicesFor($catalogs);
+        $deviceList = Geraetesimulation::devicesFor($catalogs, withHandhelds: true);
         $devices = array_column($deviceList, 'key');
         $rows = RadioTrainingProgress::where('tenant_id', $tenantContext->id())
             ->where('user_id', $request->user()->id)

@@ -58,12 +58,9 @@ function play(key) {
     return { radio, run, press, soft, pick, type, fire, speak, speech, voices, wait, pump, prepared, events };
 }
 
-test('HX891BT/E: Seefunk and Binnenfunk, position request and test call available, own lesson texts', () => {
-    assert.deepEqual(deviceCatalogs('hx891bte'), ['SRC', 'UBI']);
-    assert.ok(data.lessons.filter((l) => l.catalog === 'UBI').every((l) => lessonAvailable(l, 'hx891bte')));
-    for (const series of ['ubi-voll', 'ubi-ergaenzung']) {
-        assert.deepEqual(examLessons({ lessons: data.exams[series], substitutes: data.exam_meta[series].substitutes }, 'hx891bte'), data.exams[series]);
-    }
+test('HX891BT/E: nur Seefunk (Binnenfunk am Handfunkgerät gesperrt), position request and test call available, own lesson texts', () => {
+    assert.deepEqual(deviceCatalogs('hx891bte'), ['SRC']);
+    assert.ok(data.lessons.filter((l) => l.catalog === 'UBI').every((l) => ! lessonAvailable(l, 'hx891bte')));
     assert.equal(lessonAvailable(lesson('position-polling'), 'hx891bte'), true);
     assert.equal(lessonAvailable(lesson('testanruf'), 'hx891bte'), true);
     const b = { lessons: data.exams.b, substitutes: data.exam_meta.b.substitutes };
@@ -76,7 +73,6 @@ test('HX891BT/E: Seefunk and Binnenfunk, position request and test call availabl
 
 test('HX891BT/E lessons get help and targets that exist on the radio', () => {
     const contextLabels = ['BACK', 'SELECT', 'FINISH', 'POS/TM', 'NATURE', 'YES', 'NO', 'QUIT', 'STOP ALARM', 'ACCEPT', 'PAUSE', 'ABLE', 'UNABLE', 'CANCEL', 'OK', 'TRIPLE WATCH'];
-    assert.ok(data.lessons.some((l) => l.catalog === 'UBI' && lessonAvailable(l, 'hx891bte')), 'Binnenfunk-Lektionen werden mitgeprüft');
     const labels = new Set([...PAGES_HX.flat(), ...contextLabels]);
     const valid = new Set([...DEVICE_HX891.keys]);
     for (const original of data.lessons.filter((l) => lessonAvailable(l, 'hx891bte'))) {
@@ -430,7 +426,7 @@ test('HX891BT/E lessons: Dringlichkeit (ALL SHIPS URGENCY), MEDICO, Gebietsanruf
     assert.equal(g.run.status().index, 2);
 });
 
-test('HX891BT/E Binnenfunk: CH SETUP > CH GROUP ATIS, kein Kanal 16, DSC gesperrt, 1 W, HI in der Nautischen Information', () => {
+test('HX891BT/E Gerätelogik ATIS (in der Bootsschule gesperrt): CH SETUP > CH GROUP ATIS, kein Kanal 16, DSC gesperrt, 1 W, HI in der Nautischen Information', () => {
     const p = play('binnen-atis');
     p.press('power', 1200);
     assert.equal(p.run.status().target, 'menu');
@@ -458,7 +454,7 @@ test('HX891BT/E Binnenfunk: CH SETUP > CH GROUP ATIS, kein Kanal 16, DSC gesperr
     assert.equal(p.radio.display().status.power, 'HI');
 });
 
-test('HX891BT/E Binnenfunk: Wache und Suchlauf gesperrt, ATIS-Kennung beim Loslassen, kein DSC-Empfang', () => {
+test('HX891BT/E Gerätelogik ATIS (in der Bootsschule gesperrt): Wache und Suchlauf gesperrt, ATIS-Kennung beim Loslassen, kein DSC-Empfang', () => {
     let now = 0;
     const events = [];
     const radio = createHx891({ own: data.ship, clock: () => now, emit: (e) => events.push(e) });
@@ -476,46 +472,4 @@ test('HX891BT/E Binnenfunk: Wache und Suchlauf gesperrt, ATIS-Kennung beim Losla
     assert.equal(radio.hear({ channel: 10, from: 'X', group: 'INT' }).heard, false);
     radio.keyDown('distress');
     assert.ok(events.some((e) => e.type === 'dsc_blocked' && e.key === 'distress'));
-});
-
-test('HX891BT/E Binnenfunk: Verkehrskreise und die UBI-Prüfung (Gerät aus, INTL)', () => {
-    const v = play('binnen-verkehrskreise');
-    while (v.radio.state.circle !== 'Schiff-Hafen') v.press('up');
-    assert.equal(v.run.status().index, 1);
-    while (v.radio.state.circle !== 'Nautische Information') v.press('up');
-    assert.equal(v.run.status().index, 2);
-
-    const prepared = prepareLesson({ ...lesson('binnen-notmeldung'), start: data.exam_meta['ubi-voll'].start }, 'hx891bte');
-    let now = 0;
-    const events = [];
-    const radio = createHx891({ own: data.ship, clock: () => now, emit: (e) => events.push(e) });
-    radio.setup(prepared.start);
-    assert.equal(radio.state.power, false);
-    assert.equal(radio.state.group, 'INT');
-    const run = createLessonRun(prepared, { exam: true, level: 3, schedule: () => {}, receive: () => {}, say: () => ({ heard: true }) });
-    run.start();
-    const press = (k, ms = 100) => { radio.keyDown(k); for (let t = 0; t < ms; t += 100) { now += 100; radio.tick(); } radio.keyUp(k); };
-    const pick = (item) => {
-        const p = radio.display().panel;
-        const target = p.items.findIndex((i) => i.startsWith(item));
-        while (radio.display().panel.cursor < target) press('down');
-        press(`soft${radio.display().softkeys.indexOf('SELECT') + 1}`);
-    };
-    press('power', 1200);
-    press('menu', 1100);
-    pick('CH SETUP');
-    pick('CH GROUP');
-    pick('ATIS');
-    press('clr');
-    while (radio.state.channel !== 18) press('up');
-    while (! radio.display().softkeys.includes('TX PWR')) press('right');
-    press(`soft${radio.display().softkeys.indexOf('TX PWR') + 1}`);
-    assert.equal(radio.display().status.power, 'HI');
-    events.length = 0;
-    radio.pttDown();
-    radio.pttUp();
-    radio.spoken('Mayday Mayday Mayday hier ist Kormoran');
-    const speech = [];
-    while (events.length) { const r = run.handle(events.shift()); if (r && ! r.miss) speech.push(r); }
-    assert.equal(speech.length, 1, 'Funkspruch auf Kanal 18 mit HI im ATIS-Betrieb zählt');
 });

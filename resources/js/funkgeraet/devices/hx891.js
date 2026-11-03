@@ -98,7 +98,10 @@ function formatPosition(pos) {
 
 const nameOf = (address) => address?.name ?? address?.mmsi ?? '';
 
-export function createHx891({ own, clock = () => Date.now(), emit = () => {}, addressBook = [], directory = [] } = {}) {
+// inland: false sperrt die Kanalgruppe ATIS (Binnenfunk). Die Bootsschule
+// lässt Binnenfunk am Handfunkgerät nicht üben: Auf Sportbooten ist es in
+// Deutschland verboten. Statt umzuschalten meldet das Gerät inland_blocked.
+export function createHx891({ own, clock = () => Date.now(), emit = () => {}, addressBook = [], directory = [], inland = true } = {}) {
     const s = {
         power: false,
         vol: 0,
@@ -514,6 +517,12 @@ export function createHx891({ own, clock = () => Date.now(), emit = () => {}, ad
                 break;
             case 'CH GROUP':
                 openList('CH GROUP', ['INTL', 'ATIS'], (label) => {
+                    if (label === 'ATIS' && ! inland) {
+                        event('inland_blocked', { group: 'ATIS' });
+                        openChSetup();
+
+                        return;
+                    }
                     setGroup(label === 'ATIS' ? 'ATIS' : 'INT');
                     openChSetup();
                 }, openChSetup, s.group === 'ATIS' ? 1 : 0);
@@ -1324,6 +1333,7 @@ export function createHx891({ own, clock = () => Date.now(), emit = () => {}, ad
             for (const key of ['group', 'channel', 'position', 'utc', 'watchMode', 'vol', 'sql']) {
                 if (key in start) s[key] = start[key];
             }
+            if (! inland && s.group === 'ATIS') Object.assign(s, { group: 'INT', channel: 16 });
             if ('highPower' in start) s.txPower = start.highPower ? 'HI' : 'LO';
             if ('channel' in start) s.workChannel = start.channel;
             if (start.position) s.positionSetAt = clock();

@@ -133,7 +133,9 @@ export function createIcM94DE(options = {}) {
     return createIcM330({ ...options, variant: 'ic-m94de' });
 }
 
-export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, addressBook = [], directory = [], variant = 'ic-m330' } = {}) {
+// inland: false sperrt die Kanalgruppe ATIS (Binnenfunk am Handfunkgerät,
+// siehe createHx891); das Gerät meldet dann inland_blocked.
+export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, addressBook = [], directory = [], variant = 'ic-m330', inland = true } = {}) {
     // Handfunkgerät IC-M94DE: drei Softkeys, Tasten statt Drehknopf.
     const handheld = variant === 'ic-m94de';
     const PAGES = handheld ? PAGES_M94DE : PAGES_M330;
@@ -631,6 +633,12 @@ export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, a
                 openSelect('CHANNEL GROUP', GROUPS, (group) => {
                     // Solange der Notalarm auf Bestätigung wartet, bleibt das
                     // Gerät im Seefunk (DSC und Kanal 16).
+                    if (group === 'ATIS' && ! inland) {
+                        event('inland_blocked', { group });
+                        openRadioSettings();
+
+                        return;
+                    }
                     if (group !== s.group && s.distress?.waiting) {
                         event('group_blocked', { group, reason: 'distress' });
                         openRadioSettings();
@@ -1543,6 +1551,7 @@ export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, a
             for (const key of ['group', 'channel', 'highPower', 'position', 'utc', 'watchMode']) {
                 if (key in start) s[key] = start[key];
             }
+            if (! inland && s.group === 'ATIS') Object.assign(s, { group: 'INT', channel: 16 });
             // 20 Lautstärkestufen; die Lektionen nennen die Stufen des
             // IC-M505 (0–10).
             if ('vol' in start) s.vol = start.vol * 2;

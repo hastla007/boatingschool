@@ -189,3 +189,40 @@ test('IC-M94DE: power off clears the key lock', () => {
     assert.equal(h.radio.state.power, true);
     assert.equal(h.d().locked, false);
 });
+
+test('Handfunkgeräte: mit inland: false lässt sich ATIS nicht wählen, das Gerät meldet inland_blocked und bleibt bei INT', () => {
+    for (const device of ['hx891bte', 'ic-m94de']) {
+        let now = 1_000_000;
+        const events = [];
+        const create = device === 'hx891bte' ? createHx891 : createIcM94DE;
+        const radio = create({ own: data.ship, clock: () => now, emit: (e) => events.push(e), inland: false });
+        // Auch eine Ausgangslage mit ATIS führt nicht in den Binnenfunk.
+        radio.setup({ power: true, vol: 5, sql: 3, group: 'ATIS', channel: 10 });
+        assert.equal(radio.state.group, 'INT', device);
+        const d = () => radio.display();
+        const press = (k, ms = 100) => { radio.keyDown(k); for (let t = 0; t < ms; t += 100) { now += 100; radio.tick(); } radio.keyUp(k); };
+        const pick = (item) => {
+            const p = d().panel;
+            const index = p.items.findIndex((i) => i === item || i.startsWith(item));
+            assert.ok(index >= 0, `${item} nicht in ${p.items}`);
+            for (let i = p.cursor; i < index; i++) press('down');
+            for (let i = p.cursor; i > index; i--) press('up');
+            if (device === 'hx891bte') press(`soft${d().softkeys.indexOf('SELECT') + 1}`);
+            else press('enter');
+        };
+        if (device === 'hx891bte') {
+            press('menu', 1100);
+            pick('CH SETUP');
+            pick('CH GROUP');
+        } else {
+            press('menu');
+            pick('Settings');
+            pick('Radio');
+            pick('Channel Group');
+        }
+        pick('ATIS');
+        assert.equal(radio.state.group, 'INT', device);
+        assert.ok(events.some((e) => e.type === 'inland_blocked' && e.group === 'ATIS'), device);
+        assert.ok(! events.some((e) => e.type === 'group'), device);
+    }
+});

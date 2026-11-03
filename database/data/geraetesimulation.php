@@ -72,10 +72,13 @@ return [
         ['key' => 'ic-m423', 'name' => 'Icom IC-M423', 'like' => 'ic-m323'],
         ['key' => 'ic-m503', 'name' => 'Icom IC-M503 + DS-100'],
         ['key' => 'ic-m330', 'name' => 'Icom IC-M330', 'like' => 'ic-m323'],
-        // Handfunkgerät mit der DSC- und ATIS-Bedienung des IC-M330.
-        ['key' => 'ic-m94de', 'name' => 'Icom IC-M94DE', 'like' => 'ic-m330'],
-        // Handfunkgerät DSC Klasse H (mit Positionsabfrage und Testanruf), Binnenfunk über CH GROUP ATIS.
-        ['key' => 'hx891bte', 'name' => 'Standard Horizon HX891BT/E'],
+        // Handfunkgeräte nur für den Seefunk: Binnenfunk mit dem
+        // Handfunkgerät ist auf Sportbooten in Deutschland verboten; in
+        // Binnenkursen zeigt der Browser sie gesperrt mit der Begründung.
+        // Handfunkgerät mit der DSC-Bedienung des IC-M330.
+        ['key' => 'ic-m94de', 'name' => 'Icom IC-M94DE', 'like' => 'ic-m330', 'catalogs' => ['SRC'], 'handheld' => true],
+        // Handfunkgerät DSC Klasse H (mit Positionsabfrage und Testanruf).
+        ['key' => 'hx891bte', 'name' => 'Standard Horizon HX891BT/E', 'catalogs' => ['SRC'], 'handheld' => true],
     ],
 
     'ship' => $ship + ['label' => 'Segelyacht Kormoran', 'atis' => '9211234721'],

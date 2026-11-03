@@ -133,7 +133,7 @@ class Geraetesimulation
 
     /**
      * Funkscheine, die ein Gerät abdeckt (ohne Angabe „catalogs“ Seefunk
-     * und Binnenfunk; derzeit gilt das für alle Geräte).
+     * und Binnenfunk; die Handfunkgeräte nur Seefunk).
      *
      * @return list<string>
      */
@@ -143,13 +143,16 @@ class Geraetesimulation
     }
 
     /**
-     * Geräte, die mindestens einen der Funkscheine abdecken.
+     * Geräte, die mindestens einen der Funkscheine abdecken; mit
+     * $withHandhelds auch Handfunkgeräte, die keinen abdecken (der Browser
+     * zeigt sie gesperrt und erklärt, warum Binnenfunk damit verboten ist).
      *
      * @return list<array>
      */
-    public static function devicesFor(array $catalogs): array
+    public static function devicesFor(array $catalogs, bool $withHandhelds = false): array
     {
-        return array_values(array_filter(self::data()['devices'], fn ($device) => array_intersect($catalogs, self::deviceCatalogs($device['key'])) !== []));
+        return array_values(array_filter(self::data()['devices'], fn ($device) => array_intersect($catalogs, self::deviceCatalogs($device['key'])) !== []
+            || ($withHandhelds && $catalogs !== [] && ($device['handheld'] ?? false))));
     }
 
     /**

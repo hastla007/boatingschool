@@ -35,6 +35,7 @@ const STYLE = `
 .fg-root:fullscreen .fg-sidebar, .fg-root.fg-pseudo-full .fg-sidebar { max-height: calc(100vh - 5.5rem); overflow-y: auto; }
 @keyframes fg-blink { 50% { opacity: 0.25; } }
 .fg-blink { animation: fg-blink 1s steps(1) infinite; }
+.fg-locked svg { filter: grayscale(1); opacity: 0.35; }
 `;
 
 function addStyle() {
@@ -84,12 +85,14 @@ const button = (label, onclick, extra = '') => h('button', { type: 'button', cla
 
 export function mount(root, config) {
     // Gerätewahl: zuletzt gewähltes Gerät (nur Komfort, darf fehlen).
-    // Funkscheine des Kurses; je Gerät nur die, die das Gerät abdeckt (das
-    // IC-M94DE vorerst nur Seefunk). Geräte ohne passenden Funkschein fehlen.
+    // Funkscheine des Kurses; je Gerät nur die, die das Gerät abdeckt (die
+    // Handfunkgeräte nur Seefunk). Geräte ohne passenden Funkschein fehlen –
+    // außer Handfunkgeräten: Sie erscheinen gesperrt mit der Begründung.
     const courseCatalogs = config.catalogs ?? ['SRC'];
     const deviceList = (config.devices ?? [{ key: 'ic-m505', name: 'Icom IC-M505' }])
-        .filter((d) => DEVICES[d.key] && courseCatalogs.some((c) => deviceCatalogs(d.key).includes(c)));
-    let deviceKey = deviceList[0].key;
+        .filter((d) => DEVICES[d.key] && (DEVICES[d.key].handheld || courseCatalogs.some((c) => deviceCatalogs(d.key).includes(c))));
+    // Zu Beginn ein Gerät, das sich bedienen lässt.
+    let deviceKey = (deviceList.find((d) => courseCatalogs.some((c) => deviceCatalogs(d.key).includes(c))) ?? deviceList[0]).key;
     try {
         const saved = window.localStorage.getItem('geraetesimulation.device');
         if (deviceList.some((d) => d.key === saved)) deviceKey = saved;
@@ -128,11 +131,21 @@ export function mount(root, config) {
     };
     const clearTimers = () => { timers.forEach(clearTimeout); timers.clear(); window.speechSynthesis?.cancel(); };
 
-    const makeRadio = () => DEVICES[deviceKey].create({ own: config.ship, addressBook: config.addressBook, directory: config.directory ?? [], clock, emit: (event) => onRadioEvent(event) });
+    // Handfunkgeräte: kein Binnenfunk (ATIS lässt sich nicht wählen).
+    const makeRadio = () => DEVICES[deviceKey].create({ own: config.ship, addressBook: config.addressBook, directory: config.directory ?? [], clock, emit: (event) => onRadioEvent(event), inland: deviceCatalogs(deviceKey).includes('UBI') });
     let radio = makeRadio();
 
     // --- Aufbau ---------------------------------------------------------------
     const deviceBox = h('div', { class: 'fg-device bg-slate-100 dark:bg-slate-900 rounded-2xl p-3 sm:p-5' });
+    // Gesperrtes Handfunkgerät: Gerät ausgegraut und nicht bedienbar, darüber
+    // ein Schloss-Schild; die Begründung steht im Kasten über dem Gerät.
+    const lockBadge = h('div', { class: 'hidden absolute inset-0 flex items-center justify-center p-4 pointer-events-none' },
+        h('div', { class: 'max-w-sm text-center rounded-xl bg-white/95 dark:bg-slate-800/95 shadow-lg border border-red-200 dark:border-red-800 px-4 py-3' },
+            h('p', { class: 'text-2xl', 'aria-hidden': 'true' }, '🔒'),
+            h('p', { class: 'font-semibold text-red-800 dark:text-red-200' }, 'Binnenfunk mit dem Handfunkgerät nicht erlaubt'),
+            h('p', { class: 'text-xs text-slate-600 dark:text-slate-300 mt-1' }, 'Auf Sportbooten in Deutschland verboten – Begründung oben.')));
+    const deviceWrap = h('div', { class: 'relative' }, deviceBox, lockBadge);
+    const inlandCard = h('div', { class: 'hidden mb-3 p-4 rounded-lg border border-red-200 bg-red-50 text-red-950 dark:border-red-800 dark:bg-red-950/40 dark:text-red-50 text-sm space-y-2', role: 'alert' });
     const sidebar = h('aside', { class: 'fg-sidebar bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 space-y-4 text-sm' });
     const typeBox = h('form', { class: 'mt-3 flex gap-2', onsubmit: (e) => { e.preventDefault(); sendTyped(); } },
         h('input', { type: 'text', name: 'spruch', class: 'flex-1 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm', placeholder: 'Funkspruch eintippen (statt sprechen)', 'aria-label': 'Funkspruch eintippen' }),
@@ -159,26 +172,80 @@ export function mount(root, config) {
     let handheldNoteClosed = false;
     const handheldNote = h('div', { class: 'hidden mb-3 p-3 rounded-lg border border-sky-200 bg-sky-50 text-sky-900 dark:border-sky-800 dark:bg-sky-900/30 dark:text-sky-100 text-sm', role: 'note' });
     function showHandheldNote() {
-        const show = Boolean(DEVICES[deviceKey].handheld) && ! handheldNoteClosed;
+        const show = Boolean(DEVICES[deviceKey].handheld) && ! handheldNoteClosed && ! locked();
         handheldNote.classList.toggle('hidden', ! show);
         if (! show) return;
         handheldNote.replaceChildren(
             h('div', { class: 'flex items-start gap-2' },
                 h('div', { class: 'flex-1 space-y-1' },
                     h('p', { class: 'font-semibold' }, `Hinweis: ${DEVICES[deviceKey].name} ist ein Handfunkgerät`),
-                    h('p', {}, 'In der praktischen Prüfung (SRC und UBI) wird an einer Feststation geprüft. Für Not-, Dringlichkeits- und Sicherheitsmeldungen wird dort volle Leistung mit „25 W“ verlangt – auch wenn du am Handfunkgerät übst. Die Lektionen und der Prüfungsmodus bleiben deshalb bei „25 W“; am Handfunkgerät wählst du dafür HI (das Gerät sendet höchstens 6 W).'),
+                    h('p', {}, 'In der praktischen SRC-Prüfung wird an einer Feststation geprüft. Für Not-, Dringlichkeits- und Sicherheitsmeldungen wird dort volle Leistung mit „25 W“ verlangt – auch wenn du am Handfunkgerät übst. Die Lektionen und der Prüfungsmodus bleiben deshalb bei „25 W“; am Handfunkgerät wählst du dafür HI (das Gerät sendet höchstens 6 W).'),
                     h('p', {}, 'Für die Prüfungsvorbereitung übe besser an einem der fest eingebauten Geräte (IC-M505, IC-M323, IC-M423, IC-M503 + DS-100, IC-M330): Sie entsprechen den Geräten in den meisten Prüfungen.'),
-                    // Rechtslage im Binnenfunk (Deutschland), nur in Kursen mit UBI.
-                    courseCatalogs.includes('UBI') ? h('p', {}, h('strong', { class: 'font-semibold' }, 'Binnenfunk: '), 'Auf deutschen Binnenwasserstraßen sind Handfunkgeräte auf Kleinfahrzeugen (Sportbooten unter 20 m) nicht zugelassen. Wer dort am Funkverkehr teilnimmt, braucht eine fest eingebaute UKW-Anlage mit ATIS. Handfunkgeräte sind binnen nur auf größeren Schiffen und nur im Verkehrskreis „Funkverkehr an Bord“ erlaubt. Die Binnenfunk-Lektionen am Handfunkgerät üben deshalb nur die Bedienung.') : null,
+                    // Binnenfunk (Deutschland): am Handfunkgerät gesperrt.
+                    courseCatalogs.includes('UBI') ? h('p', {}, h('strong', { class: 'font-semibold' }, 'Binnenfunk: '), 'Am Handfunkgerät gesperrt – auf Sportbooten ist Binnenfunk mit dem Handfunkgerät in Deutschland verboten. Binnenfunk-Lektionen und die UBI-Prüfung übst du an einem fest eingebauten Gerät.') : null,
                 ),
                 h('button', { type: 'button', class: 'text-xs underline shrink-0', onclick: () => { handheldNoteClosed = true; showHandheldNote(); } }, 'Ausblenden'),
             ),
         );
     }
+    // --- Binnenfunk am Handfunkgerät gesperrt ------------------------------
+    // Im reinen Binnenkurs ist das Handfunkgerät ganz gesperrt. Im Seefunk
+    // erscheint der Kasten, wenn jemand ATIS wählen will oder „Warum?“ antippt.
+    let inlandInfo = null; // null | 'atis' | 'info'
+    const lockedByCourse = () => catalogs().length === 0;
+    const locked = () => lockedByCourse() || inlandInfo !== null;
+    const fixedDevices = () => deviceList.filter((d) => ! DEVICES[d.key]?.handheld && deviceCatalogs(d.key).includes('UBI'));
+    function showInlandLock() {
+        const on = locked();
+        deviceBox.classList.toggle('fg-locked', on);
+        deviceBox.inert = on;
+        typeBox.inert = on;
+        typeBox.classList.toggle('opacity-40', on);
+        pttNote.classList.toggle('opacity-40', on);
+        lockBadge.classList.toggle('hidden', ! on);
+        inlandCard.classList.toggle('hidden', ! on);
+        handheldNote.classList.toggle('hidden', on || ! DEVICES[deviceKey].handheld || handheldNoteClosed);
+        if (! on) return;
+        if (radio.state.tx) pttUp();
+        const name = deviceName();
+        const intro = lockedByCourse()
+            ? `Dieser Kurs bereitet auf den Binnenfunk (UBI) vor. Binnenfunk mit einem Handfunkgerät ist auf Sportbooten in Deutschland nicht erlaubt – deshalb ist das ${name} hier gesperrt. Übe an einem fest eingebauten Gerät:`
+            : inlandInfo === 'atis'
+                ? `Du wolltest die Kanalgruppe ATIS (Binnenfunk) einstellen. Binnenfunk mit einem Handfunkgerät ist auf Sportbooten in Deutschland nicht erlaubt – das ${name} bleibt im Seefunk (INT). Den Binnenfunk übst du an einem fest eingebauten Gerät:`
+                : `Binnenfunk-Lektionen und die UBI-Prüfung gibt es am ${name} nicht: Binnenfunk mit einem Handfunkgerät ist auf Sportbooten in Deutschland nicht erlaubt. Den Binnenfunk übst du an einem fest eingebauten Gerät:`;
+        const point = (title, text) => h('li', {}, h('strong', { class: 'font-semibold' }, `${title}: `), text);
+        inlandCard.replaceChildren(
+            h('p', { class: 'font-semibold text-base' }, '🔒 Binnenfunk am Handfunkgerät: auf Sportbooten verboten'),
+            h('p', {}, intro),
+            h('div', { class: 'flex flex-wrap gap-2' },
+                fixedDevices().map((d) => h('button', { type: 'button', class: 'text-xs font-medium px-3 py-1.5 rounded-full bg-white text-slate-800 border border-slate-300 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600', onclick: () => switchDevice(d.key) }, d.name.replace(/^Icom /, ''))),
+                lockedByCourse() ? null : h('button', { type: 'button', class: 'text-xs font-medium px-3 py-1.5 rounded-full bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900', onclick: () => { inlandInfo = null; showInlandLock(); renderSidebar(); } }, `Verstanden – Seefunk am ${name.replace(/^(Icom|Standard Horizon) /, '')} weiter üben`)),
+            h('ul', { class: 'list-disc pl-5 space-y-1' },
+                point('Verbot', 'Auf deutschen Binnenschifffahrtsstraßen sind UKW-Handfunkgeräte auf Kleinfahrzeugen (Sportboote unter 20 m Länge) im Binnenschifffahrtsfunk nicht zugelassen.'),
+                point('Was vorgeschrieben ist', 'Wer binnen am Funkverkehr teilnimmt – freiwillig oder weil es vorgeschrieben ist, etwa an Schleusen oder bei bestimmten Schlechtwetterregeln –, braucht eine fest eingebaute UKW-Anlage mit automatischer Senderkennung (ATIS) und das UBI.'),
+                point('Einzige Ausnahme', 'Schiffe über 20 m dürfen Handfunkgeräte benutzen, aber nur im Verkehrskreis „Funkverkehr an Bord“ (z. B. Absprachen zwischen Brücke und Vorschiff beim Ankern) und mit höchstens 1 W. Für Schleusen, Brücken und Revierzentralen (Nautische Information) sind sie nie zugelassen.'),
+                point('Grundlage', 'Regionale Vereinbarung über den Binnenschifffahrtsfunk (RAINWAT); in Deutschland teilt die Bundesnetzagentur die Frequenzen zu. RAINWAT erlaubt den Staaten inzwischen, Handfunkgeräte für Sportboote freizugeben – Deutschland hält aber, anders als etwa die Niederlande, am Verbot fest.'),
+                point('Warum', 'Die Kanäle sollen für die Berufsschifffahrt und Sicherheitsmeldungen frei bleiben. Ein Handfunkgerät sendet aus geringer Höhe: Binnen (Ufer, Bebauung, Berge) ist es schlecht zu verstehen, blockiert den Kanal im Nahbereich aber trotzdem.'),
+                point('Prüfung', 'Die praktische UBI-Prüfung findet an einer fest eingebauten Anlage statt (Notmeldung mit „25 W“).'),
+                point('Seefunk', `Auf See ist ein Handfunkgerät als Haupt- oder Zweitgerät erlaubt.${catalogs().includes('SRC') ? ` Den Seefunk (SRC) übst du am ${name} weiter.` : ''}`),
+            ),
+            h('details', {},
+                h('summary', { class: 'cursor-pointer font-semibold' }, 'Die Verkehrskreise im Binnenfunk'),
+                h('table', { class: 'mt-2 w-full text-xs' },
+                    h('thead', {}, h('tr', { class: 'text-left' }, h('th', { class: 'pr-2 py-1' }, 'Verkehrskreis'), h('th', { class: 'pr-2 py-1' }, 'Wer spricht mit wem'), h('th', { class: 'py-1' }, 'Für Sportboote'))),
+                    h('tbody', {}, [
+                        ['Schiff – Schiff', 'Absprachen zwischen Booten und Schiffen, z. B. beim Überholen', 'sehr wichtig'],
+                        ['Nautische Information', 'Revierzentralen, Schleusen und Brücken', 'sehr wichtig'],
+                        ['Schiff – Hafenbehörde', 'Hafenmeister und Behörden an Land', 'wichtig beim Einlaufen'],
+                        ['Funkverkehr an Bord', 'Absprachen auf dem eigenen Schiff (nur über 20 m)', 'ohne Bedeutung – nur hier wären Handfunkgeräte erlaubt'],
+                        ['Öffentlicher Nachrichtenaustausch', 'Verbindung ins Telefonnetz', 'praktisch bedeutungslos'],
+                    ].map((row) => h('tr', { class: 'border-t border-red-200 dark:border-red-800 align-top' }, row.map((cell) => h('td', { class: 'pr-2 py-1' }, cell))))))),
+        );
+    }
     const stepLine = h('p', { class: 'hidden mb-2 px-3 py-2 rounded-lg bg-amber-50 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100 text-sm', 'aria-live': 'polite' });
     const toolbar = h('div', { class: 'flex items-center justify-end gap-2 mb-3' }, lessonsButton, fullButton);
     const grid = h('div', {},
-        h('div', {}, handheldNote, stepLine, deviceBox, pttNote, typeBox, transcript, radioLog),
+        h('div', {}, handheldNote, inlandCard, stepLine, deviceWrap, pttNote, typeBox, transcript, radioLog),
         sidebar,
     );
     root.replaceChildren(toolbar, grid);
@@ -430,7 +497,7 @@ export function mount(root, config) {
     let spacePtt = false;
     document.addEventListener('keydown', (e) => {
         if (e.code !== 'Space') return;
-        if (e.target.closest('input, textarea, select, [contenteditable="true"], [data-key], [data-knob]')) return;
+        if (e.target.closest('input, textarea, select, [contenteditable="true"], [data-key], [data-knob]') || locked()) return;
         e.preventDefault();
         if (e.repeat) return;
         ensureAudio();
@@ -458,8 +525,9 @@ export function mount(root, config) {
     let heard = '';
 
     function pttDown() {
-        // Schon auf Sendung (Maus und Leertaste zugleich): nichts doppelt starten.
-        if (radio.state.tx || recognition) return;
+        // Schon auf Sendung (Maus und Leertaste zugleich): nichts doppelt
+        // starten. Gesperrtes Handfunkgerät: nicht senden.
+        if (radio.state.tx || recognition || locked()) return;
         showPtt(true);
         if (! radio.pttDown()) { render(); return; }
         window.speechSynthesis?.cancel();
@@ -512,7 +580,7 @@ export function mount(root, config) {
     function sendTyped() {
         const input = typeBox.querySelector('input');
         const text = input.value.trim();
-        if (! text) return;
+        if (! text || locked()) return;
         if (radio.pttDown()) {
             radio.pttUp();
             transcript.textContent = text;
@@ -524,6 +592,11 @@ export function mount(root, config) {
 
     // --- Ereignisse ---------------------------------------------------------
     function onRadioEvent(event) {
+        if (event.type === 'inland_blocked') {
+            inlandInfo = 'atis';
+            showInlandLock();
+            renderSidebar();
+        }
         if (event.type === 'dsc_received' || event.type === 'dsc_sent') beep(2100, 200);
         if (mode === 'free' && free) free.handle(event);
         if (! run) return;
@@ -811,7 +884,7 @@ export function mount(root, config) {
         try { window.localStorage.setItem('geraetesimulation.device', next); } catch { /* egal */ }
         // Bei jedem Wechsel auf ein Handfunkgerät erscheint der Hinweis wieder.
         handheldNoteClosed = false;
-        showHandheldNote();
+        inlandInfo = null;
         run = null;
         exam = null;
         free = null;
@@ -827,6 +900,8 @@ export function mount(root, config) {
         showPtt(false);
         radio = makeRadio();
         mountDevice();
+        showHandheldNote();
+        showInlandLock();
         if (mode === 'free') startFree();
         else freshRadio(defaultStart());
         renderSidebar();
@@ -846,11 +921,20 @@ export function mount(root, config) {
         render();
     }
 
+    // Kurs mit Binnenfunk am Handfunkgerät: Binnenfunk fehlt, mit Begründung.
+    function inlandSideNote() {
+        if (! DEVICES[deviceKey].handheld || ! courseCatalogs.includes('UBI') || mode === 'free' || run || exam) return null;
+
+        return h('p', { class: 'p-2 rounded-lg bg-red-50 text-red-900 dark:bg-red-950/40 dark:text-red-100 text-xs' },
+            `🔒 ${mode === 'exam' ? 'UBI-Prüfungen' : 'Binnenfunk-Lektionen'} sind am Handfunkgerät gesperrt. `,
+            h('button', { type: 'button', class: 'underline font-semibold', onclick: () => { inlandInfo = 'info'; showInlandLock(); renderSidebar(); } }, 'Warum?'));
+    }
+
     function renderSidebar() {
         showStepLine();
         sidebar.replaceChildren(
             h('div', { class: 'text-xs text-slate-600 dark:text-slate-400' },
-                h('div', { class: 'font-semibold text-slate-800 dark:text-white text-sm' }, `${deviceName()} · ${catalogs().map((c) => SERVICES[c]).join(' und ')}`),
+                h('div', { class: 'font-semibold text-slate-800 dark:text-white text-sm' }, `${deviceName()} · ${lockedByCourse() ? 'Binnenfunk gesperrt' : catalogs().map((c) => SERVICES[c]).join(' und ')}`),
                 [config.ship.label, `Rufzeichen ${config.ship.callsign}`, catalogs().includes('SRC') ? `MMSI ${config.ship.mmsi}` : null, catalogs().includes('UBI') && config.ship.atis ? `ATIS ${config.ship.atis}` : null].filter(Boolean).join(' · ')),
             deviceList.length > 1 ? h('label', { class: 'flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300' }, 'Gerät',
                 h('select', { class: 'flex-1 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs py-1', 'aria-label': 'Funkgerät wählen', onchange: (e) => switchDevice(e.target.value) },
@@ -862,7 +946,9 @@ export function mount(root, config) {
                 class: `flex-1 text-xs px-2 py-1.5 rounded-lg ${mode === key ? 'bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900' : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200'}`,
                 onclick: () => switchMode(key),
             }, label))),
-            mode === 'lessons' ? (run ? lessonPanel() : lessonList()) : mode === 'exam' ? examPanel() : freePanel(),
+            lockedByCourse()
+                ? h('p', { class: 'p-3 rounded-lg bg-red-50 text-red-900 dark:bg-red-950/40 dark:text-red-100 text-xs' }, `Am ${deviceName()} gibt es in diesem Kurs nichts zu üben: Binnenfunk mit dem Handfunkgerät ist auf Sportbooten verboten. Wähle oben ein fest eingebautes Gerät.`)
+                : h('div', { class: 'space-y-3' }, inlandSideNote(), mode === 'lessons' ? (run ? lessonPanel() : lessonList()) : mode === 'exam' ? examPanel() : freePanel()),
             h('details', { class: 'text-xs text-slate-600 dark:text-slate-400' },
                 h('summary', { class: 'cursor-pointer font-semibold' }, 'Hilfe zur Bedienung'),
                 h('ul', { class: 'list-disc pl-4 mt-2 space-y-1' },
@@ -905,6 +991,7 @@ export function mount(root, config) {
     radio.setup(defaultStart());
     showLayout();
     showHandheldNote();
+    showInlandLock();
     renderSidebar();
     renderLog();
     render();

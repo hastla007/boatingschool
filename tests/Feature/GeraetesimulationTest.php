@@ -72,9 +72,15 @@ class GeraetesimulationTest extends TestCase
 
         $ubi = $config('UBI');
         $this->assertSame(['UBI'], $ubi['catalogs']);
-        // Die Handfunkgeräte gibt es im Seefunk und im Binnenfunk.
+        // Handfunkgeräte nur für den Seefunk: Im reinen Binnenkurs stehen sie
+        // in der Liste (der Browser zeigt sie gesperrt mit der Begründung).
         $this->assertContains('ic-m94de', array_column($ubi['devices'], 'key'));
         $this->assertContains('hx891bte', array_column($ubi['devices'], 'key'));
+        $this->assertSame(['SRC'], Geraetesimulation::deviceCatalogs('hx891bte'));
+        $this->assertSame(['SRC'], Geraetesimulation::deviceCatalogs('ic-m94de'));
+        $page = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$courses['UBI']->id}/funk/geraetesimulation")->assertOk();
+        $page->assertSee('Den Binnenfunk übst du nur an den fest eingebauten Geräten', false);
+        $page->assertSee('IC-M505, IC-M323, IC-M423, IC-M503 + DS-100 und IC-M330 den Binnenfunk', false);
         $this->assertContains('ic-m94de', array_column($config('SRC')['devices'], 'key'));
         $this->assertSame(['UBI'], array_values(array_unique(array_map(fn ($l) => $l['catalog'] ?? 'SRC', $ubi['lessons']))));
         $this->assertSame(['ubi-voll', 'ubi-ergaenzung'], array_keys($ubi['exams']->all()));
@@ -92,12 +98,13 @@ class GeraetesimulationTest extends TestCase
         $this->actingAsInTenant($learner, $tenant)->postJson("/courses/{$courses['SRC']->id}/funk/geraetesimulation/fortschritt", ['lesson' => 'binnen-atis', 'level' => 3])->assertStatus(422);
         $this->actingAsInTenant($learner, $tenant)->postJson("/courses/{$courses['SRC']->id}/funk/geraetesimulation/bewerten", ['lesson' => 'binnen-sicherheit', 'step' => 0, 'text' => 'Securite'])->assertStatus(422);
         $this->actingAsInTenant($learner, $tenant)->postJson("/courses/{$courses['UBI']->id}/funk/geraetesimulation/fortschritt", ['lesson' => 'binnen-atis', 'level' => 3])->assertOk();
-        // Binnenfunk-Lektionen und -Prüfungen auch an den Handfunkgeräten.
-        $this->actingAsInTenant($learner, $tenant)->postJson("/courses/{$courses['SRC-UBI']->id}/funk/geraetesimulation/fortschritt", ['lesson' => 'binnen-atis', 'level' => 3, 'device' => 'ic-m94de'])->assertOk();
-        $this->actingAsInTenant($learner, $tenant)->postJson("/courses/{$courses['UBI']->id}/funk/geraetesimulation/fortschritt", ['lesson' => 'binnen-atis', 'level' => 2, 'device' => 'hx891bte'])->assertOk();
+        // Binnenfunk am Handfunkgerät ist auf Sportbooten verboten: keine
+        // Binnenfunk-Lektionen und keine UBI-Prüfung an den Handfunkgeräten.
+        $this->actingAsInTenant($learner, $tenant)->postJson("/courses/{$courses['SRC-UBI']->id}/funk/geraetesimulation/fortschritt", ['lesson' => 'binnen-atis', 'level' => 3, 'device' => 'ic-m94de'])->assertStatus(422);
+        $this->actingAsInTenant($learner, $tenant)->postJson("/courses/{$courses['UBI']->id}/funk/geraetesimulation/fortschritt", ['lesson' => 'binnen-atis', 'level' => 2, 'device' => 'hx891bte'])->assertStatus(422);
         $this->actingAsInTenant($learner, $tenant)->postJson("/courses/{$courses['SRC-UBI']->id}/funk/geraetesimulation/fortschritt", ['lesson' => 'einzelanruf', 'level' => 3, 'device' => 'ic-m94de'])->assertOk();
-        $this->actingAsInTenant($learner, $tenant)->postJson("/courses/{$courses['SRC-UBI']->id}/funk/geraetesimulation/pruefung", ['series' => 'ubi-voll', 'device' => 'ic-m94de', 'passed' => ['binnen-notmeldung']])->assertOk()->assertJson(['passed' => 1, 'total' => 2]);
-        $this->actingAsInTenant($learner, $tenant)->postJson("/courses/{$courses['UBI']->id}/funk/geraetesimulation/pruefung", ['series' => 'ubi-ergaenzung', 'device' => 'hx891bte', 'passed' => ['binnen-dringlichkeit', 'binnen-schleuse']])->assertOk()->assertJson(['passed' => 2, 'total' => 2]);
+        $this->actingAsInTenant($learner, $tenant)->postJson("/courses/{$courses['SRC-UBI']->id}/funk/geraetesimulation/pruefung", ['series' => 'ubi-voll', 'device' => 'ic-m94de', 'passed' => ['binnen-notmeldung']])->assertStatus(422);
+        $this->actingAsInTenant($learner, $tenant)->postJson("/courses/{$courses['UBI']->id}/funk/geraetesimulation/pruefung", ['series' => 'ubi-ergaenzung', 'device' => 'hx891bte', 'passed' => ['binnen-dringlichkeit', 'binnen-schleuse']])->assertStatus(422);
         $this->actingAsInTenant($learner, $tenant)->postJson("/courses/{$courses['SRC-UBI']->id}/funk/geraetesimulation/pruefung", ['series' => 'b', 'device' => 'ic-m94de', 'passed' => ['testanruf']])->assertOk()->assertJson(['passed' => 1]);
 
         // UBI-Kurs: keine SRC-Prüfung speichern.
@@ -243,8 +250,8 @@ class GeraetesimulationTest extends TestCase
         $this->assertTrue(Geraetesimulation::lessonAvailable(Geraetesimulation::lesson('position-polling'), 'hx891bte'));
         $this->assertTrue(Geraetesimulation::lessonAvailable(Geraetesimulation::lesson('testanruf'), 'hx891bte'));
         $this->assertSame(Geraetesimulation::data()['exams']['b'], Geraetesimulation::examLessons('b', 'hx891bte'));
-        $this->assertTrue(Geraetesimulation::lessonAvailable(Geraetesimulation::lesson('binnen-atis'), 'hx891bte'));
-        $this->assertTrue(Geraetesimulation::lessonAvailable(Geraetesimulation::lesson('binnen-atis'), 'ic-m94de'));
+        $this->assertFalse(Geraetesimulation::lessonAvailable(Geraetesimulation::lesson('binnen-atis'), 'hx891bte'));
+        $this->assertFalse(Geraetesimulation::lessonAvailable(Geraetesimulation::lesson('binnen-atis'), 'ic-m94de'));
         $this->assertSame(3, $config['progress']['ic-m323']['einzelanruf']);
         $this->assertSame(1, $config['progress']['ic-m505']['einzelanruf']);
 
