@@ -54,7 +54,7 @@ const BODY = {
 BODY.roundGrey = BODY.round;
 
 // Sprechtaste je Bauform: [Oberkante, Länge] im Raster.
-const PTT = { round: [62, 112], roundGrey: [62, 112], egg: [66, 196] };
+const PTT = { round: [50, 104], roundGrey: [50, 104], egg: [30, 160] };
 
 const LABELS = {
     ptt: 'Sprechtaste (PTT) gedrückt halten',
@@ -84,20 +84,20 @@ export function drawHandset(svg, { prefix, model, x: ox, y: oy, scale: k, bottom
     rect(80, 366, 40, 40, { rx: 8, fill: '#1c1d20', stroke: '#0b0c0d', 'stroke-width': 1.5 }, svg);
     for (let i = 0; i < 5; i++) rect(80, 372 + i * 7, 40, 2.5, { fill: '#3a3c41' }, svg);
 
+    // Große Sprechtaste an der linken Seite, im oberen Teil des Mikrofons
+    // und so lang wie beim jeweiligen Modell. Sie liegt hinter dem Gehäuse
+    // und schaut nur seitlich heraus, steht also nicht ins Mikrofon.
+    const [pttTop, pttLength] = PTT[model];
+    const ptt = group('ptt');
+    rect(-22, pttTop, 38, pttLength, { rx: 13, fill: `url(#${p}-ptt)`, stroke: '#0b0c0d', 'stroke-width': 2.5, filter: `url(#${p}-kshadow)` }, ptt);
+    const grips = Math.floor((pttLength - 36) / 13);
+    for (let i = 0; i < grips; i++) rect(-17, pttTop + (pttLength - (grips - 1) * 13) / 2 - 1.5 + i * 13, 12, 3, { rx: 1.5, fill: '#44474c', 'pointer-events': 'none' }, ptt);
+    text(-6, pttTop - 8, 'PTT', 13, { fill: '#6b6e74' });
+
     // Gehäuse
     const path = BODY[model];
     el('path', { d: path, transform: `translate(${ox} ${oy}) scale(${k})`, fill: `url(#${p}-body)`, stroke: '#0b0c0d', 'stroke-width': 3 / k, filter: `url(#${p}-shadow)` }, svg);
     el('path', { d: path, transform: `translate(${ox + 7 * k} ${oy + 7 * k}) scale(${k * 0.93})`, fill: 'none', stroke: '#ffffff', 'stroke-opacity': 0.07, 'stroke-width': 2 / k }, svg);
-
-    // Große Sprechtaste an der linken Seite, so lang wie beim jeweiligen
-    // Mikrofon: beim runden Modell neben der Sprechmuschel, beim eiförmigen
-    // über Schlitze und Tasten.
-    const [pttTop, pttLength] = PTT[model];
-    const ptt = group('ptt');
-    rect(-14, pttTop, 32, pttLength, { rx: 14, fill: `url(#${p}-ptt)`, stroke: '#0b0c0d', 'stroke-width': 2.5, filter: `url(#${p}-kshadow)` }, ptt);
-    const grips = Math.floor((pttLength - 40) / 14);
-    for (let i = 0; i < grips; i++) rect(-8, pttTop + (pttLength - (grips - 1) * 14) / 2 - 1.5 + i * 14, 14, 3, { rx: 1.5, fill: '#44474c', 'pointer-events': 'none' }, ptt);
-    text(2, pttTop - 8, 'PTT', 13, { fill: '#6b6e74' });
 
     // Sprechmuschel bzw. Sprechschlitze
     if (model === 'egg') {

@@ -200,7 +200,7 @@ export function renderDevice(container) {
     el('circle', { cx: mx, cy: my, r: 3, fill: '#d6c48a' }, svg);
 
     // Hörer vor der linken Gehäusekante
-    drawHandset(svg, { prefix: 'm505', model: 'round', x: 24, y: 34, scale: 1.15, bottom: 560 });
+    drawHandset(svg, { prefix: 'm505', model: 'round', x: 30, y: 34, scale: 1.15, bottom: 560 });
 
     // Hintergrundbeleuchtung: Display und beleuchtete Tasten
     const light = createBacklight();
