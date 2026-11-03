@@ -228,11 +228,13 @@ export function mount(root, config) {
         stepLine.classList.toggle('hidden', ! status);
         if (! status) return;
         const where = exam ? `Aufgabe ${exam.index + 1} von ${exam.lessons.length}` : `Schritt ${Math.min(status.index + 1, status.total)} von ${status.total}`;
-        stepLine.replaceChildren(
-            h('strong', { class: 'font-semibold' }, `${run.lesson.title} · ${status.done ? 'fertig' : where}: `),
-            status.done ? (status.failed ? 'Aufgabe nicht bestanden.' : 'Geschafft.') : status.text ?? '',
-            status.help ? h('span', { class: 'block text-xs mt-1 opacity-80' }, status.help) : null,
-        );
+        // In der Prüfung verrät die Zeile die Schritte nicht.
+        const text = status.done ? (status.failed ? 'Aufgabe nicht bestanden.' : 'Geschafft.') : exam ? '' : status.text ?? '';
+        stepLine.replaceChildren(...[
+            h('strong', { class: 'font-semibold' }, `${run.lesson.title} · ${status.done ? 'fertig' : where}${text ? ': ' : ''}`),
+            text,
+            ! exam && status.help ? h('span', { class: 'block text-xs mt-1 opacity-80' }, status.help) : null,
+        ].filter((child) => child !== null && child !== ''));
     }
     let device = null;
 
@@ -456,6 +458,8 @@ export function mount(root, config) {
     let heard = '';
 
     function pttDown() {
+        // Schon auf Sendung (Maus und Leertaste zugleich): nichts doppelt starten.
+        if (radio.state.tx || recognition) return;
         showPtt(true);
         if (! radio.pttDown()) { render(); return; }
         window.speechSynthesis?.cancel();
@@ -812,6 +816,15 @@ export function mount(root, config) {
         exam = null;
         free = null;
         clearTimers();
+        // Laufende Sendung abbrechen: Spracherkennung beenden, Sprechtaste los.
+        if (recognition) {
+            recognition.onresult = null;
+            recognition.onend = null;
+            try { recognition.stop(); } catch { /* egal */ }
+            recognition = null;
+        }
+        spacePtt = false;
+        showPtt(false);
         radio = makeRadio();
         mountDevice();
         if (mode === 'free') startFree();

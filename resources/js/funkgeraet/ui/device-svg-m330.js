@@ -312,6 +312,7 @@ export function renderDeviceM330(container) {
         // Nicht sichtbar: die Blättertaste in Richtung der richtigen Seite.
         const pages = display.pages;
         const page = pages?.labels.findIndex((labels) => labels.includes(label)) ?? -1;
+        if (page < 0) return null;
         const direction = page >= 0 && page < pages.current ? 'left' : 'right';
 
         return svg.querySelector(`[data-key="${direction}"]`);
