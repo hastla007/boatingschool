@@ -5,7 +5,11 @@
 // HI/LO, DIMMER, POWER, VOL/SQL, Kanalwahlknopf, Kabeldurchführung.
 // DS-100: Display, Zifferntastatur, Pfeiltasten, DISTRESS unter roter
 // Klappe, CLR/CALL/ENT. Anordnung wie am Original, ohne Herstellerlogo; links
-// der Hörer mit Sprechtaste. Gleiche Schnittstelle wie device-svg.js.
+// der Hörer mit Sprechtaste. Eingeschaltet leuchten Tasten und Displays
+// (Hintergrundbeleuchtung), ausgeschaltet bleiben sie dunkel. Gleiche
+// Schnittstelle wie device-svg.js.
+
+import { createBacklight } from './backlight.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const KEY_TEXT = '#1c1408';
@@ -13,6 +17,14 @@ const LABEL = '#d9dce1';
 const LCD_INK = '#2b1806';
 const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
 const SANS = 'Arial, Helvetica, sans-serif';
+// Beleuchtet / unbeleuchtet je markiertem Teil (data-lit).
+const LIT = {
+    face: [{ fill: 'url(#m503-key)', stroke: '#5a3b20' }, { fill: 'url(#m503-key-off)', stroke: '#141518' }],
+    gloss: [{ 'fill-opacity': 0.22 }, { 'fill-opacity': 0.06 }],
+    label: [{ fill: KEY_TEXT }, { fill: '#9a9ea6' }],
+    sub: [{ fill: '#fbd3a6' }, { fill: '#8c9097' }],
+    lcd: [{ fill: 'url(#m503-lcd)' }, { fill: '#4b4840' }],
+};
 
 // Koordinaten der Frontansicht auf die Zeichenfläche: Funkgerät ab x 170,
 // DS-100 ab x 742, beide ab y 10.
@@ -42,6 +54,7 @@ function defs(svg) {
     grad('m503-face', [[0, '#55585e'], [0.15, '#45484e'], [0.7, '#36383d'], [1, '#2b2d31']]);
     grad('m503-strip', [[0, '#5d6067'], [1, '#3f4247']]);
     grad('m503-key', [[0, '#fbd3a6'], [0.55, '#f0b27a'], [1, '#d8925a']]);
+    grad('m503-key-off', [[0, '#4a4d53'], [0.5, '#34363b'], [1, '#25272b']]);
     grad('m503-bezel', [[0, '#26282c'], [1, '#141517']]);
     grad('m503-lcd', [[0, '#f7b24d'], [0.55, '#f29d33'], [1, '#e6892a']]);
     grad('m503-red', [[0, '#d9333d'], [1, '#8e0f16']]);
@@ -58,13 +71,13 @@ function key(svg, id, [x1, y1], [x2, y2], label, { sub = null, size = 13, ariaLa
     const w = x2 - x1;
     const h = y2 - y1;
     const g = el('g', { 'data-key': id, tabindex: '0', role: 'button', 'aria-label': ariaLabel ?? label, class: 'fg-control', style: 'cursor:pointer' }, svg);
-    el('rect', { x: x1, y: y1, width: w, height: h, rx: 7, fill: 'url(#m503-key)', stroke: '#5a3b20', 'stroke-width': 1.6, filter: 'url(#m503-shadow)' }, g);
-    el('rect', { x: x1 + 3, y: y1 + 2, width: w - 6, height: h * 0.4, rx: 5, fill: '#ffffff', 'fill-opacity': 0.22, 'pointer-events': 'none' }, g);
+    el('rect', { x: x1, y: y1, width: w, height: h, rx: 7, fill: 'url(#m503-key)', stroke: '#5a3b20', 'stroke-width': 1.6, filter: 'url(#m503-shadow)', 'data-lit': 'face' }, g);
+    el('rect', { x: x1 + 3, y: y1 + 2, width: w - 6, height: h * 0.4, rx: 5, fill: '#ffffff', 'fill-opacity': 0.22, 'pointer-events': 'none', 'data-lit': 'gloss' }, g);
     const ty = sub ? y1 + h * 0.52 : y1 + h / 2 + size * 0.36;
-    el('text', { x: x1 + w / 2, y: ty, 'text-anchor': 'middle', 'font-size': size, 'font-weight': 700, fill: KEY_TEXT, 'font-family': SANS, 'pointer-events': 'none' }, g, label);
+    el('text', { x: x1 + w / 2, y: ty, 'text-anchor': 'middle', 'font-size': size, 'font-weight': 700, fill: KEY_TEXT, 'font-family': SANS, 'pointer-events': 'none', 'data-lit': 'label' }, g, label);
     if (sub) {
         el('rect', { x: x1 + w / 2 - 13, y: ty + 3, width: 26, height: subSize + 3, rx: 1.5, fill: '#3a2a18', 'pointer-events': 'none' }, g);
-        el('text', { x: x1 + w / 2, y: ty + subSize + 3.5, 'text-anchor': 'middle', 'font-size': subSize, 'font-weight': 700, fill: '#fbd3a6', 'font-family': SANS, 'pointer-events': 'none' }, g, sub);
+        el('text', { x: x1 + w / 2, y: ty + subSize + 3.5, 'text-anchor': 'middle', 'font-size': subSize, 'font-weight': 700, fill: '#fbd3a6', 'font-family': SANS, 'pointer-events': 'none', 'data-lit': 'sub' }, g, sub);
     }
 
     return g;
@@ -98,7 +111,7 @@ function housing(svg, [x1, y1], [x2, y2], title, [tx1, tx2]) {
 
 function lcdPanel(svg, [bx1, by1], [bx2, by2], [lx1, ly1], [lx2, ly2]) {
     el('rect', { x: bx1, y: by1, width: bx2 - bx1, height: by2 - by1, rx: 8, fill: 'url(#m503-bezel)', stroke: '#0d0e10', 'stroke-width': 1.5 }, svg);
-    el('rect', { x: lx1, y: ly1, width: lx2 - lx1, height: ly2 - ly1, rx: 4, fill: 'url(#m503-lcd)' }, svg);
+    el('rect', { x: lx1, y: ly1, width: lx2 - lx1, height: ly2 - ly1, rx: 4, fill: 'url(#m503-lcd)', 'data-lit': 'lcd' }, svg);
     el('text', { x: (bx1 + bx2) / 2, y: by2 - 3.5, 'text-anchor': 'middle', 'font-size': 7.5, 'font-weight': 700, fill: '#d0d3d8', 'font-family': SANS, 'letter-spacing': 0.6 }, svg, 'WATER RESISTANT');
 
     return { x: lx1, y: ly1, w: lx2 - lx1, h: ly2 - ly1 };
@@ -133,7 +146,7 @@ export function renderDeviceM503(container) {
     const ch16 = el('g', { 'data-key': 'ch16', tabindex: '0', role: 'button', 'aria-label': 'Kanal 16 (gehalten: Set-Modus beim Einschalten)', class: 'fg-control', style: 'cursor:pointer' }, svg);
     const [fx1, fy1] = R(468, 143);
     const [fx2, fy2] = R(534, 203);
-    el('rect', { x: fx1, y: fy1, width: fx2 - fx1, height: fy2 - fy1, rx: 9, fill: 'url(#m503-key)', stroke: '#5a3b20', 'stroke-width': 1.6, filter: 'url(#m503-shadow)' }, ch16);
+    el('rect', { x: fx1, y: fy1, width: fx2 - fx1, height: fy2 - fy1, rx: 9, fill: 'url(#m503-key)', stroke: '#5a3b20', 'stroke-width': 1.6, filter: 'url(#m503-shadow)', 'data-lit': 'face' }, ch16);
     el('rect', { x: fx1 + 9, y: fy1 + 9, width: fx2 - fx1 - 18, height: fy2 - fy1 - 18, rx: 6, fill: 'url(#m503-blue)', stroke: '#1d4a99', 'stroke-width': 1.2 }, ch16);
     el('text', { x: (fx1 + fx2) / 2, y: (fy1 + fy2) / 2 + 6, 'text-anchor': 'middle', 'font-size': 17, 'font-weight': 700, fill: '#ffffff', 'font-family': SANS, 'pointer-events': 'none' }, ch16, '16');
 
@@ -205,6 +218,9 @@ export function renderDeviceM503(container) {
     el('rect', { x: (l1x + l2x) / 2 - 11, y: l1y - 7, width: 22, height: 13, fill: '#3c3f44' }, svg);
     el('text', { x: (l1x + l2x) / 2, y: l1y + 3.5, 'text-anchor': 'middle', 'font-size': 9.5, 'font-weight': 700, fill: LABEL, 'font-family': SANS }, svg, 'TX');
 
+    const light = createBacklight();
+    svg.querySelectorAll('[data-lit]').forEach((node) => light.add(node, ...LIT[node.dataset.lit]));
+
     const highlight = el('rect', { fill: 'none', stroke: '#e3b505', 'stroke-width': 3.5, 'stroke-dasharray': '9 5', rx: 10, visibility: 'hidden', 'pointer-events': 'none' }, svg);
     let channelAngle = 0;
 
@@ -270,6 +286,7 @@ export function renderDeviceM503(container) {
     return {
         svg,
         update(display, radioState, target) {
+            light.set(display.on);
             drawRadio(display);
             drawDs(display);
             setKnob(vol, radioState.vol);

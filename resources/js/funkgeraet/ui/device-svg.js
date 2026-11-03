@@ -5,7 +5,10 @@
 // ENTER, 16/C und Mikrofonbuchse; ohne Halterung und ohne Herstellerlogo.
 // Daneben der Hörer mit Sprechtaste. Jedes Bedienteil trägt data-key bzw.
 // data-knob; die Oberfläche (app.js) hängt die Bedienung daran. Die
-// Anzeige wird live in die Displayfläche geschrieben.
+// Anzeige wird live in die Displayfläche geschrieben. Eingeschaltet leuchten
+// die Tasten am Gerät und das Display (Hintergrundbeleuchtung).
+
+import { createBacklight, glowFilter } from './backlight.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 
@@ -24,6 +27,10 @@ const LCD = '#f4a23a';
 const LCD_INK = '#2b1806';
 const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
 const SANS = 'Arial, Helvetica, sans-serif';
+const LIT = {
+    label: [{ fill: '#fff1d2', filter: 'url(#m505-glow)' }, { fill: '#9a9ea6', filter: null }],
+    rim: [{ stroke: '#f4ddb0' }, { stroke: '#141518' }],
+};
 
 // Koordinaten aus der Frontansicht (Foto, Gerät ohne Halterung) auf die
 // Zeichenfläche: Gehäuse x 205–980, y 32–530.
@@ -52,13 +59,15 @@ function defs(svg) {
     radial('m505-metal', [[0, '#f1f2f4'], [0.6, '#b9bcc2'], [1, '#7b7f86']], { cx: '40%', cy: '35%', r: '70%' });
     const shadow = el('filter', { id: 'm505-shadow', x: '-10%', y: '-10%', width: '130%', height: '130%' }, d);
     el('feDropShadow', { dx: 0, dy: 2, stdDeviation: 1.6, 'flood-color': '#000', 'flood-opacity': 0.55 }, shadow);
+    glowFilter(d, 'm505-glow', NS, 1.4);
 }
 
-function key(svg, { id, x, y, w, h, label, sub = null, ariaLabel = null, size = 17 }) {
+// Taste; lit: beleuchtete Taste am Gerät (Rand und Beschriftung leuchten).
+function key(svg, { id, x, y, w, h, label, sub = null, ariaLabel = null, size = 17, lit = false }) {
     const g = el('g', { 'data-key': id, tabindex: '0', role: 'button', 'aria-label': ariaLabel ?? label, class: 'fg-control', style: 'cursor:pointer' }, svg);
-    el('rect', { x, y, width: w, height: h, rx: 9, fill: 'url(#m505-key)', stroke: '#141518', 'stroke-width': 2, filter: 'url(#m505-shadow)' }, g);
+    el('rect', { x, y, width: w, height: h, rx: 9, fill: 'url(#m505-key)', stroke: lit ? LIT.rim[0].stroke : '#141518', 'stroke-width': 2, filter: 'url(#m505-shadow)', ...(lit ? { 'data-lit': 'rim' } : {}) }, g);
     el('rect', { x: x + 3, y: y + 2, width: w - 6, height: h / 2 - 2, rx: 7, fill: '#ffffff', 'fill-opacity': 0.06, 'pointer-events': 'none' }, g);
-    el('text', { x: x + w / 2, y: y + h / 2 + size * 0.36, 'text-anchor': 'middle', 'font-size': size, 'font-weight': 700, fill: KEY_TEXT, 'font-family': SANS, 'pointer-events': 'none' }, g, label);
+    el('text', { x: x + w / 2, y: y + h / 2 + size * 0.36, 'text-anchor': 'middle', 'font-size': size, 'font-weight': 700, fill: KEY_TEXT, 'font-family': SANS, 'pointer-events': 'none', ...(lit ? { ...LIT.label[0], 'data-lit': 'label' } : {}) }, g, label);
     if (sub) el('text', { x: x + w / 2, y: y - 8, 'text-anchor': 'middle', 'font-size': 13, 'font-weight': 700, fill: LABEL, 'font-family': SANS, 'pointer-events': 'none' }, svg, sub);
 
     return g;
@@ -69,7 +78,7 @@ function photoKey(svg, id, [px1, py1], [px2, py2], label, options = {}) {
     const [x1, y1] = P(px1, py1);
     const [x2, y2] = P(px2, py2);
 
-    return key(svg, { id, x: x1, y: y1, w: x2 - x1, h: y2 - y1, label, ...options });
+    return key(svg, { id, x: x1, y: y1, w: x2 - x1, h: y2 - y1, label, lit: true, ...options });
 }
 
 function knob(svg, { id, cx, cy, r, label, ariaLabel }) {
@@ -130,7 +139,7 @@ export function renderDevice(container) {
     const [lx1, ly1] = P(305, 95);
     const [lx2, ly2] = P(622, 272);
     const lcdBox = { x: lx1, y: ly1, width: lx2 - lx1, height: ly2 - ly1 };
-    el('rect', { ...lcdBox, rx: 8, fill: 'url(#m505-lcd)' }, svg);
+    const lcdLight = el('rect', { ...lcdBox, rx: 8, fill: 'url(#m505-lcd)' }, svg);
     el('text', { x: (bx1 + bx2) / 2, y: by2 - 9, 'text-anchor': 'middle', 'font-size': 13, 'font-weight': 700, 'font-style': 'italic', fill: '#c9ccd1', 'font-family': SANS, 'letter-spacing': 1 }, svg, 'WATERPROOF');
     // Die Anzeige ist für eine Fläche von 386 × 216 ab (392, 102) geschrieben
     // und wird in die Displayfläche eingepasst.
@@ -202,6 +211,11 @@ export function renderDevice(container) {
     }
     el('circle', { cx: mx, cy: my, r: 3, fill: '#d6c48a' }, svg);
 
+    // Hintergrundbeleuchtung: Display und beleuchtete Tasten
+    const light = createBacklight();
+    light.add(lcdLight, { fill: 'url(#m505-lcd)' }, { fill: '#4b4840' });
+    svg.querySelectorAll('[data-lit]').forEach((node) => light.add(node, ...LIT[node.dataset.lit]));
+
     const highlight = el('rect', { fill: 'none', stroke: '#e3b505', 'stroke-width': 4, 'stroke-dasharray': '10 6', rx: 14, visibility: 'hidden', 'pointer-events': 'none' }, svg);
 
     function setKnob(k, level) {
@@ -217,6 +231,7 @@ export function renderDevice(container) {
 
     function drawDisplay(d) {
         lcd.replaceChildren();
+        light.set(d.on);
         if (! d.on) return;
         const st = d.status;
         text(404, 126, [st.tx ? 'TX' : st.busy ? 'BUSY' : '', st.power].filter(Boolean).join(' '), { 'font-size': 17 });

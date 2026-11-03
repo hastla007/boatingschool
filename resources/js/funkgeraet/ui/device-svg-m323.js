@@ -4,6 +4,9 @@
 // ▲▼◀▶ mit ENT, MENU, CLEAR, 16/C und der Drehknopf VOL/SQL·PWR. Keine
 // Fotos oder Herstellergrafiken. Gleiche Schnittstelle wie device-svg.js;
 // ein Ziel "sk:LABEL" markiert den Softkey mit dieser Beschriftung.
+// Eingeschaltet leuchten die Tasten am Gerät und das Display.
+
+import { createBacklight, glowFilter } from './backlight.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const BODY = '#26292e';
@@ -12,6 +15,11 @@ const KEY_TEXT = '#f2f4f7';
 const LCD = '#c3cdb0';
 const LCD_INK = '#1e2717';
 const MONO = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+const LIT = {
+    label: [{ fill: '#fff1d2', filter: 'url(#m323-glow)' }, { fill: '#9a9ea6', filter: null }],
+    rim: [{ stroke: '#f4ddb0' }, { stroke: '#0f1114' }],
+    lcd: [{ fill: LCD }, { fill: '#4a4d45' }],
+};
 
 function el(name, attrs = {}, parent = null, text = null) {
     const node = document.createElementNS(NS, name);
@@ -22,11 +30,13 @@ function el(name, attrs = {}, parent = null, text = null) {
     return node;
 }
 
-function key(svg, { id, x, y, w = 70, h = 40, label, round = false, color = KEY, size = 17, ariaLabel = null }) {
+// lit: beleuchtete Taste am Gerät (Rand und Beschriftung leuchten).
+function key(svg, { id, x, y, w = 70, h = 40, label, round = false, color = KEY, size = 17, ariaLabel = null, lit = true }) {
     const g = el('g', { 'data-key': id, tabindex: '0', role: 'button', 'aria-label': ariaLabel ?? label, class: 'fg-control', style: 'cursor:pointer' }, svg);
-    if (round) el('circle', { cx: x, cy: y, r: w / 2, fill: color, stroke: '#0f1114', 'stroke-width': 3 }, g);
-    else el('rect', { x, y, width: w, height: h, rx: 9, fill: color, stroke: '#0f1114', 'stroke-width': 3 }, g);
-    el('text', { x: round ? x : x + w / 2, y: (round ? y : y + h / 2) + 6, 'text-anchor': 'middle', 'font-size': size, 'font-weight': 700, fill: KEY_TEXT, 'font-family': 'Arial, sans-serif', 'pointer-events': 'none' }, g, label);
+    const rim = lit ? { stroke: LIT.rim[0].stroke, 'data-lit': 'rim' } : { stroke: '#0f1114' };
+    if (round) el('circle', { cx: x, cy: y, r: w / 2, fill: color, 'stroke-width': 3, ...rim }, g);
+    else el('rect', { x, y, width: w, height: h, rx: 9, fill: color, 'stroke-width': 3, ...rim }, g);
+    el('text', { x: round ? x : x + w / 2, y: (round ? y : y + h / 2) + 6, 'text-anchor': 'middle', 'font-size': size, 'font-weight': 700, fill: KEY_TEXT, 'font-family': 'Arial, sans-serif', 'pointer-events': 'none', ...(lit ? { ...LIT.label[0], 'data-lit': 'label' } : {}) }, g, label);
 
     return g;
 }
@@ -40,6 +50,7 @@ export function renderDeviceM423(container) {
 export function renderDeviceM323(container, { model = 'IC-M323', title = 'VHF MARINE TRANSCEIVER  IC-M323', mic16 = false } = {}) {
     const svg = el('svg', { viewBox: '0 0 1000 560', role: 'group', 'aria-label': `Funkgerät ${model} (Nachbildung)`, style: 'width:100%;height:auto;user-select:none;-webkit-user-select:none' });
     container.appendChild(svg);
+    glowFilter(el('defs', {}, svg), 'm323-glow', NS, 1.4);
 
     // Hörer
     el('path', { d: 'M110 470 C 110 520, 190 530, 240 500', fill: 'none', stroke: '#15171a', 'stroke-width': 10 }, svg);
@@ -48,10 +59,10 @@ export function renderDeviceM323(container, { model = 'IC-M323', title = 'VHF MA
     const ptt = el('g', { 'data-key': 'ptt', tabindex: '0', role: 'button', 'aria-label': 'Sprechtaste (PTT)', class: 'fg-control', style: 'cursor:pointer' }, svg);
     el('rect', { x: 88, y: 270, width: 24, height: 110, rx: 9, fill: '#1b1d21', stroke: '#0f1114', 'stroke-width': 3 }, ptt);
     el('text', { x: 100, y: 262, 'text-anchor': 'middle', 'font-size': 14, 'font-weight': 700, fill: '#333', 'font-family': 'Arial, sans-serif' }, svg, 'PTT');
-    key(svg, { id: 'micUp', x: 132, y: 380, w: 38, h: 34, label: '▲', size: 16 });
-    key(svg, { id: 'micDown', x: 132, y: 420, w: 38, h: 34, label: '▼', size: 16 });
-    key(svg, { id: 'micHiLo', x: 182, y: 398, w: 48, h: 36, label: 'H/L', size: 15, ariaLabel: 'HI/LO am Hörer' });
-    if (mic16) key(svg, { id: 'mic16', x: 182, y: 444, w: 48, h: 32, label: '16/C', size: 12, color: '#1d5fbf', ariaLabel: '16/C am Hörer' });
+    key(svg, { id: 'micUp', x: 132, y: 380, w: 38, h: 34, label: '▲', size: 16, lit: false });
+    key(svg, { id: 'micDown', x: 132, y: 420, w: 38, h: 34, label: '▼', size: 16, lit: false });
+    key(svg, { id: 'micHiLo', x: 182, y: 398, w: 48, h: 36, label: 'H/L', size: 15, ariaLabel: 'HI/LO am Hörer', lit: false });
+    if (mic16) key(svg, { id: 'mic16', x: 182, y: 444, w: 48, h: 32, label: '16/C', size: 12, color: '#1d5fbf', ariaLabel: '16/C am Hörer', lit: false });
 
     // Gehäuse
     el('rect', { x: 270, y: 60, width: 710, height: 440, rx: 34, fill: BODY, stroke: '#101215', 'stroke-width': 4 }, svg);
@@ -67,7 +78,7 @@ export function renderDeviceM323(container, { model = 'IC-M323', title = 'VHF MA
 
     // Display
     el('rect', { x: 400, y: 108, width: 410, height: 250, rx: 12, fill: '#15171a' }, svg);
-    el('rect', { x: 412, y: 118, width: 386, height: 230, rx: 6, fill: LCD }, svg);
+    el('rect', { x: 412, y: 118, width: 386, height: 230, rx: 6, fill: LCD, 'data-lit': 'lcd' }, svg);
     const lcd = el('g', { 'font-family': MONO, fill: LCD_INK }, svg);
 
     // Softkeys
@@ -82,7 +93,7 @@ export function renderDeviceM323(container, { model = 'IC-M323', title = 'VHF MA
     key(svg, { id: 'enter', x: 864, y: 162, w: 60, h: 50, label: 'ENT', size: 15 });
     key(svg, { id: 'menu', x: 830, y: 284, w: 64, h: 38, label: 'MENU', size: 15 });
     key(svg, { id: 'clr', x: 902, y: 284, w: 64, h: 38, label: 'CLEAR', size: 13 });
-    key(svg, { id: 'ch16', x: 760, y: 440, w: 64, round: true, label: '16/C', size: 18, color: '#1d5fbf' });
+    key(svg, { id: 'ch16', x: 760, y: 440, w: 64, round: true, label: '16/C', size: 18, color: '#1d5fbf', lit: false });
 
     // Drehknopf VOL/SQL·PWR: Ring drehen, Kappe drücken
     const ring = el('g', { 'data-knob': 'dial', tabindex: '0', role: 'slider', 'aria-label': 'Drehknopf VOL/SQL', class: 'fg-control', style: 'cursor:ns-resize;touch-action:none' }, svg);
@@ -91,6 +102,9 @@ export function renderDeviceM323(container, { model = 'IC-M323', title = 'VHF MA
     const cap = el('g', { 'data-key': 'knob', tabindex: '0', role: 'button', 'aria-label': 'Drehknopf drücken (kurz: Lautstärke/Rauschsperre/Kanal, 1 Sekunde: Ein/Aus)', class: 'fg-control', style: 'cursor:pointer' }, svg);
     el('circle', { cx: 890, cy: 410, r: 24, fill: '#2a2d32', stroke: '#0f1114', 'stroke-width': 2 }, cap);
     el('text', { x: 890, y: 486, 'text-anchor': 'middle', 'font-size': 14, 'font-weight': 700, fill: KEY_TEXT, 'font-family': 'Arial, sans-serif' }, svg, 'VOL/SQL • PWR');
+
+    const light = createBacklight();
+    svg.querySelectorAll('[data-lit]').forEach((node) => light.add(node, ...LIT[node.dataset.lit]));
 
     const highlight = el('rect', { fill: 'none', stroke: '#e3b505', 'stroke-width': 4, 'stroke-dasharray': '10 6', rx: 14, visibility: 'hidden', 'pointer-events': 'none' }, svg);
 
@@ -101,6 +115,7 @@ export function renderDeviceM323(container, { model = 'IC-M323', title = 'VHF MA
     function drawDisplay(d) {
         lcd.replaceChildren();
         softTexts.forEach((t, i) => { t.textContent = d.softkeys?.[i] ?? ''; });
+        light.set(d.on);
         if (! d.on) return;
         const st = d.status;
         text(422, 138, [st.tx ? 'TX' : st.busy ? 'BUSY' : '', st.power, st.group, st.dup ? 'DUP' : '', st.tag ? '★' : ''].filter(Boolean).join('  '), { 'font-size': 15 });
