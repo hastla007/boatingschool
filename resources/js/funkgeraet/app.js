@@ -104,7 +104,7 @@ export function mount(root, config) {
     // Kurze Bedienhilfe zur Sprechtaste direkt unter dem Gerät.
     const pttNote = h('p', { class: 'mt-2 text-xs text-slate-600 dark:text-slate-400' },
         h('strong', { class: 'font-semibold' }, 'Sprechtaste (PTT): '),
-        'am Hörer mit der Maus gedrückt halten oder die Leertaste halten. Solange sie gedrückt ist, leuchtet sie rot.');
+        'am Hörer mit der Maus gedrückt halten oder die Leertaste halten.');
     const transcript = h('p', { class: 'mt-2 text-xs text-slate-600 dark:text-slate-400 min-h-[1rem]', 'aria-live': 'polite' });
     const radioLog = h('div', { class: 'mt-3 rounded-xl bg-white dark:bg-slate-800 shadow-sm p-3 text-xs space-y-1', 'aria-live': 'polite' });
     root.replaceChildren(
