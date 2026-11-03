@@ -101,11 +101,15 @@ export function mount(root, config) {
         h('input', { type: 'text', name: 'spruch', class: 'flex-1 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm', placeholder: 'Funkspruch eintippen (statt sprechen)', 'aria-label': 'Funkspruch eintippen' }),
         h('button', { type: 'submit', class: 'px-3 py-2 rounded-lg bg-slate-800 text-white text-sm' }, 'Senden'),
     );
+    // Kurze Bedienhilfe zur Sprechtaste direkt unter dem Gerät.
+    const pttNote = h('p', { class: 'mt-2 text-xs text-slate-600 dark:text-slate-400' },
+        h('strong', { class: 'font-semibold' }, 'Sprechtaste (PTT): '),
+        'am Hörer mit der Maus gedrückt halten oder die Leertaste halten. Solange sie gedrückt ist, leuchtet sie rot.');
     const transcript = h('p', { class: 'mt-2 text-xs text-slate-600 dark:text-slate-400 min-h-[1rem]', 'aria-live': 'polite' });
     const radioLog = h('div', { class: 'mt-3 rounded-xl bg-white dark:bg-slate-800 shadow-sm p-3 text-xs space-y-1', 'aria-live': 'polite' });
     root.replaceChildren(
         h('div', { class: 'grid lg:grid-cols-[minmax(0,1fr)_22rem] gap-4' },
-            h('div', {}, deviceBox, typeBox, transcript, radioLog),
+            h('div', {}, deviceBox, pttNote, typeBox, transcript, radioLog),
             sidebar,
         ),
     );
@@ -176,6 +180,16 @@ export function mount(root, config) {
     const latched = new Map();
     // Loslass-Funktionen der gerade gedrückten Tasten (Fensterwechsel).
     const heldKeys = new Set();
+    // Sprechtaste sichtbar gedrückt (rot), egal ob per Maus oder Leertaste.
+    function showPtt(on) {
+        const node = device?.svg.querySelector('[data-key="ptt"]');
+        const body = node?.querySelector('rect');
+        if (! body) return;
+        body.style.fill = on ? '#dc2626' : '';
+        body.style.stroke = on ? '#7f1d1d' : '';
+        body.style.filter = on ? 'drop-shadow(0 0 6px rgba(239, 68, 68, 0.85))' : '';
+        node.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
     const showLatch = (node, on) => {
         node.style.filter = on ? 'brightness(1.8)' : '';
         node.setAttribute('aria-pressed', on ? 'true' : 'false');
@@ -286,11 +300,15 @@ export function mount(root, config) {
     }
     mountDevice();
 
-    // Leertaste als Sprechtaste, solange kein Bedienelement den Fokus hat.
+    // Leertaste als Sprechtaste, außer beim Tippen und auf einem Bedienteil
+    // des Geräts (dort drückt die Leertaste dieses Teil). Auch wenn gerade ein
+    // Button den Fokus hat, sendet die Leertaste; Buttons gehen mit Enter.
     let spacePtt = false;
     document.addEventListener('keydown', (e) => {
-        if (e.code !== 'Space' || e.repeat || e.target.closest('input, textarea, select, button, summary, a, [role="tab"], [data-key], [data-knob]')) return;
+        if (e.code !== 'Space') return;
+        if (e.target.closest('input, textarea, select, [contenteditable="true"], [data-key], [data-knob]')) return;
         e.preventDefault();
+        if (e.repeat) return;
         ensureAudio();
         spacePtt = true;
         pttDown();
@@ -316,6 +334,7 @@ export function mount(root, config) {
     let heard = '';
 
     function pttDown() {
+        showPtt(true);
         if (! radio.pttDown()) { render(); return; }
         window.speechSynthesis?.cancel();
         heard = '';
@@ -336,6 +355,7 @@ export function mount(root, config) {
     }
 
     function pttUp() {
+        showPtt(false);
         if (! radio.state.tx) return;
         radio.pttUp();
         // Die Spracherkennung liefert erst später: der Funkspruch gehört zu
