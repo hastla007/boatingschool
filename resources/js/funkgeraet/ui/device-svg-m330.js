@@ -196,7 +196,7 @@ export function renderDeviceM330(container) {
     el('circle', { cx: kx, cy: ky, r: 27, fill: 'url(#m330-cap)', stroke: '#0b0c0d', 'stroke-width': 1.5 }, cap);
 
     // Hörer vor der linken Gehäusekante
-    drawHandset(svg, { prefix: 'm330', model: 'egg', x: 50, y: 14, scale: 0.86, bottom: 410 });
+    drawHandset(svg, { prefix: 'm330', model: 'egg', x: 32, y: 18, scale: 0.95, bottom: 410 });
 
     const highlight = el('rect', { fill: 'none', stroke: '#e3b505', 'stroke-width': 4, 'stroke-dasharray': '10 6', rx: 14, visibility: 'hidden', 'pointer-events': 'none' }, svg);
 

@@ -5,9 +5,10 @@
 //                (IC-M503, IC-M505)
 //   roundGrey  – runde Sprechmuschel, graue Tasten ▲/▼ versetzt und HI/LO,
 //                beim IC-M423 zusätzlich 16/C (IC-M323, IC-M423)
-//   egg        – oben breit mit großen Rundungen, zu den Tasten hin schmaler
-//                und unten rund; Sprechschlitze oben, HI/LO, ovale Wippe ▲/▼
-//                und 16/C in einer abgesetzten Tastenmulde (IC-M330)
+//   egg        – IC-M330: breit, oben mit großen Rundungen, nach unten zum
+//                Kabel hin schmaler; Front mit Rand, sechs gerade
+//                Sprechschlitze, darunter HI/LO, die hohe Wippe ▲/▼ und 16/C
+//                auf einer Höhe; kurze Sprechtaste oben links
 // Gezeichnet wird in einem Raster von 200 × 420, das mit place() an die
 // Stelle der Zeichenfläche gesetzt wird; die Tasten tragen data-key wie
 // zuvor (ptt, micUp, micDown, micHiLo, mic16).
@@ -49,12 +50,14 @@ function defs(svg, p) {
 
 const BODY = {
     round: 'M100 8 C 166 8 192 52 192 110 C 192 160 180 192 172 232 L 160 330 Q 154 374 100 376 Q 46 374 40 330 L 28 232 C 20 192 8 160 8 110 C 8 52 34 8 100 8 Z',
-    egg: 'M50 8 L 150 8 Q 200 8 200 62 L 187 250 C 185 336 152 378 100 378 C 48 378 15 336 13 250 L 0 62 Q 0 8 50 8 Z',
+    egg: 'M42 6 L 158 6 C 190 6 200 40 200 88 C 200 150 172 228 142 266 Q 124 290 100 290 Q 76 290 58 266 C 28 228 0 150 0 88 C 0 40 10 6 42 6 Z',
 };
 BODY.roundGrey = BODY.round;
+// Unterkante des Gehäuses je Bauform (dort sitzt der Knickschutz).
+const BASE = { round: 376, roundGrey: 376, egg: 290 };
 
 // Sprechtaste je Bauform: [Oberkante, Länge] im Raster.
-const PTT = { round: [50, 104], roundGrey: [50, 104], egg: [30, 160] };
+const PTT = { round: [50, 104], roundGrey: [50, 104], egg: [12, 76] };
 
 const LABELS = {
     ptt: 'Sprechtaste (PTT) gedrückt halten',
@@ -80,9 +83,10 @@ export function drawHandset(svg, { prefix, model, x: ox, y: oy, scale: k, bottom
     const group = (id) => el('g', { 'data-key': id, tabindex: '0', role: 'button', 'aria-label': LABELS[id], class: 'fg-control', style: 'cursor:pointer' }, svg);
 
     // Kabel gerade nach unten, Knickschutz mit Rillen
-    el('path', { d: `M${X(100)} ${Y(400)} C ${X(100)} ${Y(430)}, ${X(98)} ${bottom - 30}, ${X(96)} ${bottom + 2}`, fill: 'none', stroke: '#141517', 'stroke-width': 15 * k, 'stroke-linecap': 'butt' }, svg);
-    rect(80, 366, 40, 40, { rx: 8, fill: '#1c1d20', stroke: '#0b0c0d', 'stroke-width': 1.5 }, svg);
-    for (let i = 0; i < 5; i++) rect(80, 372 + i * 7, 40, 2.5, { fill: '#3a3c41' }, svg);
+    const base = BASE[model];
+    el('path', { d: `M${X(100)} ${Y(base + 24)} C ${X(100)} ${Y(base + 54)}, ${X(98)} ${bottom - 30}, ${X(96)} ${bottom + 2}`, fill: 'none', stroke: '#141517', 'stroke-width': 15 * k, 'stroke-linecap': 'butt' }, svg);
+    rect(80, base - 10, 40, 40, { rx: 8, fill: '#1c1d20', stroke: '#0b0c0d', 'stroke-width': 1.5 }, svg);
+    for (let i = 0; i < 5; i++) rect(80, base - 4 + i * 7, 40, 2.5, { fill: '#3a3c41' }, svg);
 
     // Große Sprechtaste an der linken Seite, im oberen Teil des Mikrofons
     // und so lang wie beim jeweiligen Modell. Sie liegt hinter dem Gehäuse
@@ -101,18 +105,13 @@ export function drawHandset(svg, { prefix, model, x: ox, y: oy, scale: k, bottom
 
     // Sprechmuschel bzw. Sprechschlitze
     if (model === 'egg') {
-        // Erhabene Front innerhalb des Gehäuserands
-        el('path', { d: path, transform: `translate(${ox + 12 * k} ${oy + 11 * k}) scale(${k * 0.88})`, fill: '#2b2d31', stroke: '#0b0c0d', 'stroke-opacity': 0.8, 'stroke-width': 1.5 / k }, svg);
-        // Sprechschlitze als leicht gebogene Bögen wie am Original
-        for (let i = 0; i < 6; i++) {
-            const y = 62 + i * 25;
-            const half = 70 - i * 4;
-            const arc = (dy) => `M${X(100 - half)} ${Y(y + dy)} Q ${X(100)} ${Y(y + dy + 7)} ${X(100 + half)} ${Y(y + dy)}`;
-            el('path', { d: arc(0), fill: 'none', stroke: '#0e0f11', 'stroke-width': 12 * k, 'stroke-linecap': 'round' }, svg);
-            el('path', { d: arc(8), fill: 'none', stroke: '#55585e', 'stroke-opacity': 0.55, 'stroke-width': 1.2 }, svg);
-        }
-        // abgesetzte Tastenmulde
-        el('path', { d: 'M24 234 Q 24 216 42 216 L 158 216 Q 176 216 176 234 L 174 282 C 171 332 143 360 100 360 C 57 360 29 332 26 282 Z', transform: `translate(${ox} ${oy}) scale(${k})`, fill: '#ffffff', 'fill-opacity': 0.03, stroke: '#55585e', 'stroke-opacity': 0.55, 'stroke-width': 1.5 / k }, svg);
+        // Front innerhalb des Gehäuserands
+        el('path', { d: path, transform: `translate(${ox + 12 * k} ${oy + 14 * k}) scale(${k * 0.88})`, fill: '#26282c', stroke: '#0b0c0d', 'stroke-opacity': 0.8, 'stroke-width': 1.5 / k }, svg);
+        // Sechs gerade Sprechschlitze mit hellem Rand
+        [[56, 37, 172], [75, 37, 174], [94, 38, 174], [113, 38, 173], [132, 40, 171], [151, 48, 160]].forEach(([y, x1, x2]) => {
+            rect(x1, y - 3.5, x2 - x1, 7, { rx: 3.5, fill: '#0d0e10' }, svg);
+            el('line', { x1: X(x1 + 3), y1: Y(y - 4.5), x2: X(x2 - 3), y2: Y(y - 4.5), stroke: '#5a5d63', 'stroke-opacity': 0.7, 'stroke-width': 1.2 }, svg);
+        });
     } else {
         el('circle', { cx: X(100), cy: Y(110), r: 82 * k, fill: '#232528', stroke: '#0b0c0d', 'stroke-width': 2 }, svg);
         el('circle', { cx: X(100), cy: Y(110), r: 72 * k, fill: `url(#${p}-grill)`, stroke: '#4a4d52', 'stroke-width': 1.5 }, svg);
@@ -151,11 +150,12 @@ export function drawHandset(svg, { prefix, model, x: ox, y: oy, scale: k, bottom
         key('micHiLo', [108, 258, 44, 38], grey);
         if (mic16) key('mic16', [108, 304, 44, 34], { fill: `url(#${p}-blue)`, ink: '#ffffff', glyph: '16/C', size: 13, rx: 9 });
     } else {
-        // Versetzt wie am Original: HI/LO links unten, 16/C rechts oben.
-        rocker([78, 224, 44, 118]);
-        text(52, 268, 'HI/LO', 12);
-        key('micHiLo', [30, 276, 44, 40], { rx: 13 });
-        text(148, 230, '16/C', 12);
-        key('mic16', [126, 238, 44, 40], { rx: 13 });
+        // Wie am Original: HI/LO und 16/C auf einer Höhe, dazwischen die
+        // hohe Wippe.
+        rocker([84, 180, 36, 74]);
+        text(60, 188, 'HI/LO', 10);
+        key('micHiLo', [42, 194, 36, 32], { rx: 9 });
+        text(148, 188, '16/C', 10);
+        key('mic16', [130, 194, 36, 32], { rx: 9 });
     }
 }
