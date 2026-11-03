@@ -50,8 +50,12 @@ return new class extends Migration
                 continue;
             }
 
-            $correct = str_replace($old, $new, (string) $published->feedback_correct);
-            $incorrect = str_replace($old, $new, (string) $published->feedback_incorrect);
+            // Steht der neue Wortlaut schon da (Import aus der korrigierten
+            // CSV, zweiter Lauf), nichts tun: Bei SRC-0042 enthält der neue
+            // Text den alten, der Hinweis käme sonst doppelt.
+            $fix = fn (string $text): string => str_contains($text, $new) ? $text : str_replace($old, $new, $text);
+            $correct = $fix((string) $published->feedback_correct);
+            $incorrect = $fix((string) $published->feedback_incorrect);
             if ($correct === (string) $published->feedback_correct && $incorrect === (string) $published->feedback_incorrect) {
                 continue;
             }

@@ -132,8 +132,8 @@ class Geraetesimulation
     }
 
     /**
-     * Funkscheine, die ein Gerät abdeckt (ohne Angabe Seefunk und
-     * Binnenfunk; das IC-M94DE vorerst nur Seefunk).
+     * Funkscheine, die ein Gerät abdeckt (ohne Angabe „catalogs“ Seefunk
+     * und Binnenfunk; derzeit gilt das für alle Geräte).
      *
      * @return list<string>
      */

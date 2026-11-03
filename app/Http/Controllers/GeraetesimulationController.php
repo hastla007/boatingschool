@@ -121,7 +121,7 @@ class GeraetesimulationController extends Controller
             'passed.*' => ['string', 'distinct'],
         ]);
         $device = $validated['device'] ?? Geraetesimulation::DEVICE;
-        // Prüfungsreihe eines Funkscheins, den das Gerät abdeckt (z. B. kein UBI am IC-M94DE).
+        // Prüfungsreihe eines Funkscheins, den das Gerät abdeckt (Angabe „catalogs“ in den Gerätedaten).
         abort_unless(in_array($exams[$validated['series']]['catalog'], Geraetesimulation::deviceCatalogs($device), true), 422, 'Diese Prüfung gibt es auf diesem Gerät nicht.');
         $lessons = Geraetesimulation::examLessons($validated['series'], $device);
         $passed = array_values(array_intersect($lessons, $validated['passed']));

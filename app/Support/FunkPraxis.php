@@ -830,18 +830,28 @@ class FunkPraxis
     /** Die vier Zahlen der Position in dieser Reihenfolge, dazwischen beliebiger Text. */
     private static function posPattern(array $p): string
     {
-        // Zahl mit bis zu zwei führenden Nullen, als Ziffern (auch direkt
-        // hinter N/E: „N54“) oder als Zahlwörter, danach keine weitere
-        // Ziffer -- „FIVE FOUR … ZERO ZERO SEVEN TWO“ ist nicht 007.
-        $n = function (int $v): string {
-            $words = array_map(fn ($d) => '(?:'.self::digitWords((int) $d).')\\b', str_split((string) $v));
-            $numeric = '(?<!\\d)0{0,2}'.$v;
-            $spoken = '(?<![A-Z])(?:(?:'.self::digitWords(0).')\\b ?){0,2}'.implode(' ?', $words);
+        // Jede Ziffer als Ziffer oder Zahlwort, mit oder ohne Leerzeichen
+        // („54“, „5 4“, „FIVE FOUR“), auch direkt hinter N/E („N54“).
+        $digit = fn (int $d): string => '(?:'.$d.'|\\b(?:'.self::digitWords($d).')\\b)';
+        $seq = fn (string $digits): string => implode(' ?', array_map(fn ($d) => $digit((int) $d), str_split($digits)));
+        $widths = [2, 2, 3, 2];
+        $values = [$p[0], $p[1], $p[3], $p[4]];
+        $full = fn (int $i): string => sprintf('%0'.$widths[$i].'d', $values[$i]);
 
-            return '(?:'.$numeric.'|'.$spoken.')'.self::noFurtherDigit();
+        // Danach folgt keine weitere Ziffer -- „ZERO ZERO SEVEN TWO“ ist
+        // nicht 007. Ausnahme: Die Zahl steht vollständig (zwei bzw. drei
+        // Stellen) und direkt danach beginnt die nächste Zahl der Position
+        // („FIVE FOUR ONE ZERO NORTH“).
+        $n = function (int $i) use ($digit, $seq, $values, $full): string {
+            $flexible = '(?:'.$digit(0).' ?){0,2}'.$seq((string) $values[$i]).self::noFurtherDigit();
+            if ($i === 3) {
+                return '(?<!\\d)'.$flexible;
+            }
+
+            return '(?<!\\d)(?:'.$flexible.'|'.$seq($full($i)).'(?= ?'.$digit((int) $full($i + 1)[0]).'))';
         };
 
-        return $n($p[0]).'.{0,40}?'.$n($p[1]).'.{0,60}?'.$n($p[3]).'.{0,40}?'.$n($p[4]);
+        return $n(0).'.{0,40}?'.$n(1).'.{0,60}?'.$n(2).'.{0,40}?'.$n(3);
     }
 
     private static function personsPattern(int $persons): string

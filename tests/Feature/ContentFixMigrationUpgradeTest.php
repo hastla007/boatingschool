@@ -88,4 +88,22 @@ class ContentFixMigrationUpgradeTest extends TestCase
             }
         });
     }
+
+    public function test_the_round_4_explanation_fix_does_not_add_the_note_twice(): void
+    {
+        // Review-Runde 5: Bei SRC-0042 enthält der neue Text den alten. Ist
+        // die Erklärung schon korrigiert (Import aus der korrigierten CSV),
+        // darf die Migration den Hinweis nicht ein zweites Mal anhängen.
+        $this->onAdmin(function () {
+            $question = ContentQuestion::where('content_id', 'SRC-0042')->firstOrFail();
+            $published = $question->publishedRevision();
+            $this->assertSame(1, substr_count($published->feedback_correct, 'Hinweis: Der amtliche Katalog'));
+
+            $this->runMigration('000570');
+
+            $after = $question->fresh()->publishedRevision();
+            $this->assertSame($published->id, $after->id);
+            $this->assertSame(1, substr_count($after->feedback_correct, 'Hinweis: Der amtliche Katalog'));
+        });
+    }
 }
