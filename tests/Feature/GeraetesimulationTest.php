@@ -48,7 +48,9 @@ class GeraetesimulationTest extends TestCase
         [$adminTenant, $admin] = $this->superadminLearner();
         $this->actingAsInTenant($admin, $adminTenant)->get("/courses/{$course->id}")->assertOk()->assertSee('Gerätesimulation');
         $this->actingAsInTenant($admin, $adminTenant)->get("/courses/{$course->id}/funk/geraetesimulation")
-            ->assertOk()->assertSee('data-geraetesimulation-config', false)->assertSee('Icom IC-M505');
+            ->assertOk()->assertSee('data-geraetesimulation-config', false)->assertSee('Icom IC-M505')
+            // Aufzählung der Geräte: Hersteller nur einmal, Komma und „und“ am Schluss.
+            ->assertSee('an den Funkgeräten Icom IC-M505, IC-M323, IC-M423, IC-M503 + DS-100 und IC-M330 den')->assertDontSee('Icom IC-M505 und Icom');
 
         config(['funk.geraetesimulation' => 'all']);
         $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/funk/geraetesimulation")->assertOk();

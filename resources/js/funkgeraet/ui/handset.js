@@ -5,8 +5,9 @@
 //                (IC-M503, IC-M505)
 //   roundGrey  – runde Sprechmuschel, graue Tasten ▲/▼ versetzt und HI/LO,
 //                beim IC-M423 zusätzlich 16/C (IC-M323, IC-M423)
-//   egg        – eiförmig mit Sprechschlitzen, HI/LO, ovale Wippe ▲/▼ und
-//                16/C (IC-M330)
+//   egg        – oben breit mit großen Rundungen, zu den Tasten hin schmaler
+//                und unten rund; Sprechschlitze oben, HI/LO, ovale Wippe ▲/▼
+//                und 16/C in einer abgesetzten Tastenmulde (IC-M330)
 // Gezeichnet wird in einem Raster von 200 × 420, das mit place() an die
 // Stelle der Zeichenfläche gesetzt wird; die Tasten tragen data-key wie
 // zuvor (ptt, micUp, micDown, micHiLo, mic16).
@@ -48,7 +49,7 @@ function defs(svg, p) {
 
 const BODY = {
     round: 'M100 8 C 166 8 192 52 192 110 C 192 160 180 192 172 232 L 160 330 Q 154 374 100 376 Q 46 374 40 330 L 28 232 C 20 192 8 160 8 110 C 8 52 34 8 100 8 Z',
-    egg: 'M100 8 C 168 8 192 64 190 140 L 178 330 Q 172 376 100 376 Q 28 376 22 330 L 10 140 C 8 64 32 8 100 8 Z',
+    egg: 'M50 8 L 150 8 Q 200 8 200 62 L 180 236 C 177 332 148 378 100 378 C 52 378 23 332 20 236 L 0 62 Q 0 8 50 8 Z',
 };
 BODY.roundGrey = BODY.round;
 
@@ -100,11 +101,16 @@ export function drawHandset(svg, { prefix, model, x: ox, y: oy, scale: k, bottom
 
     // Sprechmuschel bzw. Sprechschlitze
     if (model === 'egg') {
+        // Sprechschlitze als leicht gebogene Bögen wie am Original
         for (let i = 0; i < 6; i++) {
-            const y = 58 + i * 22;
-            rect(42, y, 116, 11, { rx: 5.5, fill: '#0e0f11' }, svg);
-            el('line', { x1: X(46), y1: Y(y + 12.5), x2: X(154), y2: Y(y + 12.5), stroke: '#55585e', 'stroke-opacity': 0.6, 'stroke-width': 1.2 }, svg);
+            const y = 62 + i * 25;
+            const half = 70 - i * 4;
+            const arc = (dy) => `M${X(100 - half)} ${Y(y + dy)} Q ${X(100)} ${Y(y + dy + 7)} ${X(100 + half)} ${Y(y + dy)}`;
+            el('path', { d: arc(0), fill: 'none', stroke: '#0e0f11', 'stroke-width': 12 * k, 'stroke-linecap': 'round' }, svg);
+            el('path', { d: arc(8), fill: 'none', stroke: '#55585e', 'stroke-opacity': 0.55, 'stroke-width': 1.2 }, svg);
         }
+        // abgesetzte Tastenmulde
+        el('path', { d: 'M30 232 Q 30 216 46 216 L 154 216 Q 170 216 170 232 L 167 276 C 163 326 138 356 100 356 C 62 356 37 326 33 276 Z', transform: `translate(${ox} ${oy}) scale(${k})`, fill: '#ffffff', 'fill-opacity': 0.03, stroke: '#55585e', 'stroke-opacity': 0.55, 'stroke-width': 1.5 / k }, svg);
     } else {
         el('circle', { cx: X(100), cy: Y(110), r: 82 * k, fill: '#232528', stroke: '#0b0c0d', 'stroke-width': 2 }, svg);
         el('circle', { cx: X(100), cy: Y(110), r: 72 * k, fill: `url(#${p}-grill)`, stroke: '#4a4d52', 'stroke-width': 1.5 }, svg);
@@ -143,10 +149,10 @@ export function drawHandset(svg, { prefix, model, x: ox, y: oy, scale: k, bottom
         key('micHiLo', [108, 258, 44, 38], grey);
         if (mic16) key('mic16', [108, 304, 44, 34], { fill: `url(#${p}-blue)`, ink: '#ffffff', glyph: '16/C', size: 13, rx: 9 });
     } else {
-        text(50, 238, 'HI/LO', 13);
-        key('micHiLo', [28, 246, 46, 40], { rx: 10 });
-        rocker([80, 226, 40, 112]);
-        text(150, 238, '16/C', 13);
-        key('mic16', [126, 246, 46, 40], { rx: 10 });
+        text(58, 240, 'HI/LO', 12);
+        key('micHiLo', [38, 248, 40, 40], { rx: 10 });
+        rocker([82, 228, 36, 112]);
+        text(142, 240, '16/C', 12);
+        key('mic16', [122, 248, 40, 40], { rx: 10 });
     }
 }
