@@ -72,6 +72,8 @@ return [
         ['key' => 'ic-m423', 'name' => 'Icom IC-M423', 'like' => 'ic-m323'],
         ['key' => 'ic-m503', 'name' => 'Icom IC-M503 + DS-100'],
         ['key' => 'ic-m330', 'name' => 'Icom IC-M330', 'like' => 'ic-m323'],
+        // Handfunkgerät mit der DSC-Bedienung des IC-M330; vorerst nur Seefunk.
+        ['key' => 'ic-m94de', 'name' => 'Icom IC-M94DE', 'like' => 'ic-m330', 'catalogs' => ['SRC']],
     ],
 
     'ship' => $ship + ['label' => 'Segelyacht Kormoran', 'atis' => '9211234721'],

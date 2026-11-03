@@ -131,6 +131,45 @@ class Geraetesimulation
         return array_column(self::data()['devices'], 'key');
     }
 
+    /**
+     * Funkscheine, die ein Gerät abdeckt (ohne Angabe Seefunk und
+     * Binnenfunk; das IC-M94DE vorerst nur Seefunk).
+     *
+     * @return list<string>
+     */
+    public static function deviceCatalogs(string $device): array
+    {
+        return collect(self::data()['devices'])->firstWhere('key', $device)['catalogs'] ?? ['SRC', 'UBI'];
+    }
+
+    /**
+     * Geräte, die mindestens einen der Funkscheine abdecken.
+     *
+     * @return list<array>
+     */
+    public static function devicesFor(array $catalogs): array
+    {
+        return array_values(array_filter(self::data()['devices'], fn ($device) => array_intersect($catalogs, self::deviceCatalogs($device['key'])) !== []));
+    }
+
+    /**
+     * Das Gerät und seine Vorbilder ("like", auch über mehrere Stufen), wie
+     * lineage() in resources/js/funkgeraet/devices/index.js.
+     *
+     * @return list<string>
+     */
+    public static function lineage(string $device): array
+    {
+        $devices = collect(self::data()['devices'])->keyBy('key');
+        $chain = [];
+
+        for ($key = $device; $key !== null && $devices->has($key) && ! in_array($key, $chain, true); $key = $devices[$key]['like'] ?? null) {
+            $chain[] = $key;
+        }
+
+        return $chain;
+    }
+
     public static function progressKey(string $lessonKey, string $device = self::DEVICE): string
     {
         return $device.':'.$lessonKey;
@@ -153,12 +192,14 @@ class Geraetesimulation
      */
     public static function lessonAvailable(array $lesson, string $device = self::DEVICE): bool
     {
+        if (! in_array(self::catalogOf($lesson), self::deviceCatalogs($device), true)) {
+            return false;
+        }
         if (! isset($lesson['devices'])) {
             return true;
         }
-        $like = collect(self::data()['devices'])->firstWhere('key', $device)['like'] ?? null;
 
-        return in_array($device, $lesson['devices'], true) || ($like !== null && in_array($like, $lesson['devices'], true));
+        return array_intersect(self::lineage($device), $lesson['devices']) !== [];
     }
 
     /**
@@ -174,9 +215,9 @@ class Geraetesimulation
     public static function examLessons(string $series, string $device = self::DEVICE): array
     {
         $exam = self::exams()[$series];
-        // Ein Gerät mit "like" übernimmt die Ersatzaufgaben des verwandten Geräts.
-        $like = collect(self::data()['devices'])->firstWhere('key', $device)['like'] ?? null;
-        $substitutes = $exam['substitutes'][$device] ?? ($like ? $exam['substitutes'][$like] ?? [] : []);
+        // Ein Gerät mit "like" übernimmt die Ersatzaufgaben des Vorbilds.
+        $source = collect(self::lineage($device))->first(fn ($key) => isset($exam['substitutes'][$key]));
+        $substitutes = $source ? $exam['substitutes'][$source] : [];
 
         return array_map(fn ($lesson) => $substitutes[$lesson] ?? $lesson, $exam['lessons']);
     }

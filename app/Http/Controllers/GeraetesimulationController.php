@@ -27,7 +27,10 @@ class GeraetesimulationController extends Controller
         $data = Geraetesimulation::data();
 
         // Lernstand je Gerät: "ic-m505:<lektion>", "ic-m323:pruefung-a" …
-        $devices = Geraetesimulation::deviceKeys();
+        // Nur Geräte, die einen Funkschein des Kurses abdecken.
+        $catalogs = Geraetesimulation::catalogsFor($course);
+        $deviceList = Geraetesimulation::devicesFor($catalogs);
+        $devices = array_column($deviceList, 'key');
         $rows = RadioTrainingProgress::where('tenant_id', $tenantContext->id())
             ->where('user_id', $request->user()->id)
             ->where('item_type', RadioTrainingProgress::TYPE_DEVICE)
@@ -37,7 +40,6 @@ class GeraetesimulationController extends Controller
         $progress = collect($devices)->mapWithKeys(fn ($device) => [$device => $rows
             ->filter(fn ($p, $key) => str_starts_with($key, $device.':') && ! str_contains($key, ':pruefung-'))
             ->mapWithKeys(fn ($p, $key) => [substr($key, strlen($device) + 1) => (int) ($p->answers['level'] ?? 0)])]);
-        $catalogs = Geraetesimulation::catalogsFor($course);
         $exams = collect(Geraetesimulation::exams($catalogs))->map(fn ($exam, $series) => $exam + [
             'best' => collect($devices)->mapWithKeys(fn ($device) => [$device => $rows->get(Geraetesimulation::examKey($series, $device))?->answers['best'] ?? null]),
         ]);
@@ -45,7 +47,7 @@ class GeraetesimulationController extends Controller
         return view('funk.geraetesimulation', [
             'course' => $course,
             'config' => [
-                'devices' => $data['devices'],
+                'devices' => $deviceList,
                 'ship' => $data['ship'],
                 'addressBook' => $data['address_book'],
                 'directory' => $data['directory'],
@@ -119,6 +121,8 @@ class GeraetesimulationController extends Controller
             'passed.*' => ['string', 'distinct'],
         ]);
         $device = $validated['device'] ?? Geraetesimulation::DEVICE;
+        // Prüfungsreihe eines Funkscheins, den das Gerät abdeckt (z. B. kein UBI am IC-M94DE).
+        abort_unless(in_array($exams[$validated['series']]['catalog'], Geraetesimulation::deviceCatalogs($device), true), 422, 'Diese Prüfung gibt es auf diesem Gerät nicht.');
         $lessons = Geraetesimulation::examLessons($validated['series'], $device);
         $passed = array_values(array_intersect($lessons, $validated['passed']));
 

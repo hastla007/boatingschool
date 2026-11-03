@@ -5,7 +5,7 @@
 // Regeln wie die Praxis-Prüfungssimulation. Gegenstationen sprechen mit der
 // Sprachausgabe des Browsers, bis Sprecheraufnahmen vorliegen.
 
-import { DEVICES, examLessons, lessonAvailable, prepareLesson } from './devices/index.js';
+import { DEVICES, deviceCatalogs, deviceText, examLessons, lessonAvailable, prepareLesson } from './devices/index.js';
 import { createLessonRun, EXAM_ATTEMPTS, missLabel } from './lessons.js';
 import { createFreePractice, FREE_EVENTS } from './free-practice.js';
 
@@ -53,7 +53,11 @@ const button = (label, onclick, extra = '') => h('button', { type: 'button', cla
 
 export function mount(root, config) {
     // Gerätewahl: zuletzt gewähltes Gerät (nur Komfort, darf fehlen).
-    const deviceList = (config.devices ?? [{ key: 'ic-m505', name: 'Icom IC-M505' }]).filter((d) => DEVICES[d.key]);
+    // Funkscheine des Kurses; je Gerät nur die, die das Gerät abdeckt (das
+    // IC-M94DE vorerst nur Seefunk). Geräte ohne passenden Funkschein fehlen.
+    const courseCatalogs = config.catalogs ?? ['SRC'];
+    const deviceList = (config.devices ?? [{ key: 'ic-m505', name: 'Icom IC-M505' }])
+        .filter((d) => DEVICES[d.key] && courseCatalogs.some((c) => deviceCatalogs(d.key).includes(c)));
     let deviceKey = deviceList[0].key;
     try {
         const saved = window.localStorage.getItem('geraetesimulation.device');
@@ -65,10 +69,12 @@ export function mount(root, config) {
     const visibleLessons = () => config.lessons.filter((l) => lessonAvailable(l, deviceKey));
     const exams = config.exams ?? {};
     const lessonByKey = Object.fromEntries(config.lessons.map((l) => [l.key, l]));
-    const catalogs = config.catalogs ?? ['SRC'];
+    const catalogs = () => courseCatalogs.filter((c) => deviceCatalogs(deviceKey).includes(c));
     // Ausgangslage für Freies Üben und den Start: Seefunk, in reinen
     // Binnenkursen der Binnenmodus.
-    const defaultStart = catalogs.includes('SRC') ? START : START_INLAND;
+    const defaultStart = () => (catalogs().includes('SRC') ? START : START_INLAND);
+    // Prüfungsreihen der Funkscheine, die das gewählte Gerät abdeckt.
+    const visibleExams = () => Object.entries(exams).filter(([, info]) => catalogs().includes(info.catalog ?? 'SRC'));
     const speechLang = () => run?.lesson.lang ?? config.speechLang ?? 'en-GB';
     let mode = 'lessons';
     let run = null;
@@ -102,9 +108,11 @@ export function mount(root, config) {
         h('button', { type: 'submit', class: 'px-3 py-2 rounded-lg bg-slate-800 text-white text-sm' }, 'Senden'),
     );
     // Kurze Bedienhilfe zur Sprechtaste direkt unter dem Gerät.
-    const pttNote = h('p', { class: 'mt-2 text-xs text-slate-600 dark:text-slate-400' },
+    const pttNote = h('p', { class: 'mt-2 text-xs text-slate-600 dark:text-slate-400' });
+    const pttWhere = () => DEVICES[deviceKey].pttWhere ?? 'am Hörer';
+    const showPttNote = () => pttNote.replaceChildren(
         h('strong', { class: 'font-semibold' }, 'Sprechtaste (PTT): '),
-        'am Hörer mit der Maus gedrückt halten oder die Leertaste halten.');
+        `${pttWhere()} mit der Maus gedrückt halten oder die Leertaste halten.`);
     const transcript = h('p', { class: 'mt-2 text-xs text-slate-600 dark:text-slate-400 min-h-[1rem]', 'aria-live': 'polite' });
     const radioLog = h('div', { class: 'mt-3 rounded-xl bg-white dark:bg-slate-800 shadow-sm p-3 text-xs space-y-1', 'aria-live': 'polite' });
     root.replaceChildren(
@@ -213,6 +221,7 @@ export function mount(root, config) {
         latched.clear();
         heldKeys.clear();
         device = DEVICES[deviceKey].render(deviceBox);
+        showPttNote();
         const latchKeys = DEVICES[deviceKey].latch ?? [];
         device.svg.querySelectorAll('[data-key]').forEach((node) => {
             const key = node.dataset.key;
@@ -492,7 +501,7 @@ export function mount(root, config) {
                     return h('div', { class: 'py-2 border-b border-slate-100 dark:border-slate-700' },
                         h('div', { class: 'flex items-center gap-2' },
                             h('span', { class: `w-3 h-3 rounded-full ${best >= 3 ? 'bg-emerald-500' : best > 0 ? 'bg-amber-400' : 'border border-slate-400'}`, 'aria-hidden': 'true' }),
-                            h('span', { class: 'flex-1 font-medium text-slate-800 dark:text-slate-100' }, lesson.title),
+                            h('span', { class: 'flex-1 font-medium text-slate-800 dark:text-slate-100' }, deviceText(lesson.title, deviceKey)),
                             lesson.pruefung ? h('span', { class: 'text-[11px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300' }, `Prüfung ${lesson.pruefung}`) : null,
                         ),
                         h('div', { class: 'flex gap-1 mt-1 pl-5' }, [1, 2, 3].map((level) => h('button', {
@@ -581,12 +590,12 @@ export function mount(root, config) {
         if (! exam) {
             return h('div', { class: 'space-y-3' },
                 h('p', { class: 'text-slate-600 dark:text-slate-300' }, 'Aufgaben wie in der praktischen Prüfung: am Stück, ohne Hilfe, zwei Versuche je Funkspruch. Am Ende siehst du jede Aufgabe mit erfüllten und fehlenden Prüfpunkten und der Musterlösung.'),
-                catalogs.includes('UBI') ? h('p', { class: 'text-xs text-slate-500 dark:text-slate-400' }, 'UBI: Das Gerät ist zu Beginn aus und steht in der Kanalgruppe INT – einschalten und auf ATIS stellen gehört zur Aufgabe.') : null,
-                Object.entries(exams).map(([series, info]) => h('div', { class: 'p-3 rounded-lg border border-slate-200 dark:border-slate-700 space-y-2' },
+                catalogs().includes('UBI') ? h('p', { class: 'text-xs text-slate-500 dark:text-slate-400' }, 'UBI: Das Gerät ist zu Beginn aus und steht in der Kanalgruppe INT – einschalten und auf ATIS stellen gehört zur Aufgabe.') : null,
+                visibleExams().map(([series, info]) => h('div', { class: 'p-3 rounded-lg border border-slate-200 dark:border-slate-700 space-y-2' },
                     h('div', { class: 'flex items-center gap-2' },
                         h('span', { class: 'font-semibold text-slate-800 dark:text-white flex-1' }, info.title ?? `Reihe ${series}`),
                         info.best?.[deviceKey] !== null && info.best?.[deviceKey] !== undefined ? h('span', { class: 'text-xs text-slate-500' }, `bestes Ergebnis ${info.best[deviceKey]} von ${info.lessons.length}`) : null),
-                    h('ol', { class: 'list-decimal pl-5 text-xs text-slate-600 dark:text-slate-300' }, examLessons(info, deviceKey).map((key) => h('li', {}, lessonByKey[key]?.title ?? key))),
+                    h('ol', { class: 'list-decimal pl-5 text-xs text-slate-600 dark:text-slate-300' }, examLessons(info, deviceKey).map((key) => h('li', {}, deviceText(lessonByKey[key]?.title ?? key, deviceKey)))),
                     button(`${info.title ?? `Reihe ${series}`} starten`, () => startExam(series), 'font-semibold'),
                 )),
             );
@@ -629,7 +638,7 @@ export function mount(root, config) {
                 const solutions = s.solutions?.[key] ?? [];
 
                 return h('details', { class: 'p-2 rounded-lg border border-slate-200 dark:border-slate-700' },
-                    h('summary', { class: `cursor-pointer font-medium ${task?.passed ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300'}` }, `${task?.passed ? '✓' : '✗'} ${i + 1}. ${lessonByKey[key]?.title ?? key}`),
+                    h('summary', { class: `cursor-pointer font-medium ${task?.passed ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300'}` }, `${task?.passed ? '✓' : '✗'} ${i + 1}. ${deviceText(lessonByKey[key]?.title ?? key, deviceKey)}`),
                     (task?.results ?? []).map((r) => h('div', { class: 'mt-2 space-y-0.5' },
                         r.text ? h('p', { class: 'text-xs italic text-slate-500' }, `„${r.text}“`) : null,
                         r.checks.map((c) => h('p', { class: `text-xs ${c.ok ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300'}` }, `${c.ok ? '✓' : '✗'} ${c.label}`)))),
@@ -643,7 +652,7 @@ export function mount(root, config) {
 
     // --- Freies Üben ----------------------------------------------------------
     function startFree() {
-        freshRadio(defaultStart);
+        freshRadio(defaultStart());
         timeOffset = 0;
         run = null;
         free = createFreePractice({ ship: config.ship, schedule, receive: (call) => { radio.receive(call); render(); }, say, radio: () => radio });
@@ -656,7 +665,7 @@ export function mount(root, config) {
 
         return h('div', { class: 'space-y-3' },
             h('p', { class: 'text-slate-600 dark:text-slate-300' }, 'Löse Ereignisse aus und reagiere frei darauf. Freies Üben zählt nicht zum Fortschritt.'),
-            FREE_EVENTS.filter((group) => catalogs.includes(group.catalog)).map((group) => h('div', { class: 'space-y-1' },
+            FREE_EVENTS.filter((group) => catalogs().includes(group.catalog)).map((group) => h('div', { class: 'space-y-1' },
                 h('h3', { class: 'text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400' }, group.title),
                 h('div', { class: 'flex flex-wrap gap-1' }, group.items.map((item) => button(item.label, () => { ensureAudio(); free.trigger(item.key); render(); }))),
             )),
@@ -666,7 +675,7 @@ export function mount(root, config) {
                     button('+5 Minuten', () => jump(5 * 60 * 1000)),
                     button('+4 Stunden', () => jump(4 * 60 * 60 * 1000 + 60 * 1000))),
             ),
-            catalogs.includes('SRC') ? h('p', { class: 'text-xs text-slate-500 dark:text-slate-400' }, 'Eigene Anrufe im Seefunk: Möwe, Seestern und Nordsee Radio antworten auf deine DSC-Anrufe und Funksprüche, Bremen Rescue auf einen Notalarm. Im Binnenfunk wird nur abgehört; Gespräche mit Antwort übst du in den Lektionen.') : null,
+            catalogs().includes('SRC') ? h('p', { class: 'text-xs text-slate-500 dark:text-slate-400' }, `Eigene Anrufe im Seefunk: Möwe, Seestern und Nordsee Radio antworten auf deine DSC-Anrufe und Funksprüche, Bremen Rescue auf einen Notalarm.${catalogs().includes('UBI') ? ' Im Binnenfunk wird nur abgehört; Gespräche mit Antwort übst du in den Lektionen.' : ''}`) : null,
             button('Neu starten', startFree),
         );
     }
@@ -690,7 +699,7 @@ export function mount(root, config) {
         radio = makeRadio();
         mountDevice();
         if (mode === 'free') startFree();
-        else freshRadio(defaultStart);
+        else freshRadio(defaultStart());
         renderSidebar();
         render();
     }
@@ -703,7 +712,7 @@ export function mount(root, config) {
         free = null;
         clearTimers();
         if (mode === 'free') startFree();
-        else freshRadio(defaultStart);
+        else freshRadio(defaultStart());
         renderSidebar();
         render();
     }
@@ -711,8 +720,8 @@ export function mount(root, config) {
     function renderSidebar() {
         sidebar.replaceChildren(
             h('div', { class: 'text-xs text-slate-600 dark:text-slate-400' },
-                h('div', { class: 'font-semibold text-slate-800 dark:text-white text-sm' }, `${deviceName()} · ${catalogs.map((c) => SERVICES[c]).join(' und ')}`),
-                [config.ship.label, `Rufzeichen ${config.ship.callsign}`, catalogs.includes('SRC') ? `MMSI ${config.ship.mmsi}` : null, catalogs.includes('UBI') && config.ship.atis ? `ATIS ${config.ship.atis}` : null].filter(Boolean).join(' · ')),
+                h('div', { class: 'font-semibold text-slate-800 dark:text-white text-sm' }, `${deviceName()} · ${catalogs().map((c) => SERVICES[c]).join(' und ')}`),
+                [config.ship.label, `Rufzeichen ${config.ship.callsign}`, catalogs().includes('SRC') ? `MMSI ${config.ship.mmsi}` : null, catalogs().includes('UBI') && config.ship.atis ? `ATIS ${config.ship.atis}` : null].filter(Boolean).join(' · ')),
             deviceList.length > 1 ? h('label', { class: 'flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300' }, 'Gerät',
                 h('select', { class: 'flex-1 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs py-1', 'aria-label': 'Funkgerät wählen', onchange: (e) => switchDevice(e.target.value) },
                     deviceList.map((d) => h('option', { value: d.key, selected: d.key === deviceKey ? true : null }, d.name)))) : null,
@@ -728,7 +737,7 @@ export function mount(root, config) {
                 h('summary', { class: 'cursor-pointer font-semibold' }, 'Hilfe zur Bedienung'),
                 h('ul', { class: 'list-disc pl-4 mt-2 space-y-1' },
                     (DEVICES[deviceKey].controls ?? []).map((text) => h('li', {}, text)),
-                    h('li', {}, 'Sprechtaste am Hörer oder Leertaste gedrückt halten und sprechen; ohne Spracherkennung den Funkspruch eintippen.'),
+                    h('li', {}, `Sprechtaste ${pttWhere()} oder Leertaste gedrückt halten und sprechen; ohne Spracherkennung den Funkspruch eintippen.`),
                     h('li', {}, 'Gegenstationen sprechen mit der Stimme des Browsers; mitlesen kannst du im Funkverkehr unter dem Gerät.'),
                 ),
             ),
@@ -763,7 +772,7 @@ export function mount(root, config) {
         render();
     }, 100);
 
-    radio.setup(defaultStart);
+    radio.setup(defaultStart());
     renderSidebar();
     renderLog();
     render();
