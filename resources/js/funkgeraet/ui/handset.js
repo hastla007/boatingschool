@@ -49,7 +49,7 @@ function defs(svg, p) {
 
 const BODY = {
     round: 'M100 8 C 166 8 192 52 192 110 C 192 160 180 192 172 232 L 160 330 Q 154 374 100 376 Q 46 374 40 330 L 28 232 C 20 192 8 160 8 110 C 8 52 34 8 100 8 Z',
-    egg: 'M50 8 L 150 8 Q 200 8 200 62 L 180 236 C 177 332 148 378 100 378 C 52 378 23 332 20 236 L 0 62 Q 0 8 50 8 Z',
+    egg: 'M50 8 L 150 8 Q 200 8 200 62 L 187 250 C 185 336 152 378 100 378 C 48 378 15 336 13 250 L 0 62 Q 0 8 50 8 Z',
 };
 BODY.roundGrey = BODY.round;
 
@@ -101,6 +101,8 @@ export function drawHandset(svg, { prefix, model, x: ox, y: oy, scale: k, bottom
 
     // Sprechmuschel bzw. Sprechschlitze
     if (model === 'egg') {
+        // Erhabene Front innerhalb des Gehäuserands
+        el('path', { d: path, transform: `translate(${ox + 12 * k} ${oy + 11 * k}) scale(${k * 0.88})`, fill: '#2b2d31', stroke: '#0b0c0d', 'stroke-opacity': 0.8, 'stroke-width': 1.5 / k }, svg);
         // Sprechschlitze als leicht gebogene Bögen wie am Original
         for (let i = 0; i < 6; i++) {
             const y = 62 + i * 25;
@@ -110,7 +112,7 @@ export function drawHandset(svg, { prefix, model, x: ox, y: oy, scale: k, bottom
             el('path', { d: arc(8), fill: 'none', stroke: '#55585e', 'stroke-opacity': 0.55, 'stroke-width': 1.2 }, svg);
         }
         // abgesetzte Tastenmulde
-        el('path', { d: 'M30 232 Q 30 216 46 216 L 154 216 Q 170 216 170 232 L 167 276 C 163 326 138 356 100 356 C 62 356 37 326 33 276 Z', transform: `translate(${ox} ${oy}) scale(${k})`, fill: '#ffffff', 'fill-opacity': 0.03, stroke: '#55585e', 'stroke-opacity': 0.55, 'stroke-width': 1.5 / k }, svg);
+        el('path', { d: 'M24 234 Q 24 216 42 216 L 158 216 Q 176 216 176 234 L 174 282 C 171 332 143 360 100 360 C 57 360 29 332 26 282 Z', transform: `translate(${ox} ${oy}) scale(${k})`, fill: '#ffffff', 'fill-opacity': 0.03, stroke: '#55585e', 'stroke-opacity': 0.55, 'stroke-width': 1.5 / k }, svg);
     } else {
         el('circle', { cx: X(100), cy: Y(110), r: 82 * k, fill: '#232528', stroke: '#0b0c0d', 'stroke-width': 2 }, svg);
         el('circle', { cx: X(100), cy: Y(110), r: 72 * k, fill: `url(#${p}-grill)`, stroke: '#4a4d52', 'stroke-width': 1.5 }, svg);
@@ -149,10 +151,11 @@ export function drawHandset(svg, { prefix, model, x: ox, y: oy, scale: k, bottom
         key('micHiLo', [108, 258, 44, 38], grey);
         if (mic16) key('mic16', [108, 304, 44, 34], { fill: `url(#${p}-blue)`, ink: '#ffffff', glyph: '16/C', size: 13, rx: 9 });
     } else {
-        text(58, 240, 'HI/LO', 12);
-        key('micHiLo', [38, 248, 40, 40], { rx: 10 });
-        rocker([82, 228, 36, 112]);
-        text(142, 240, '16/C', 12);
-        key('mic16', [122, 248, 40, 40], { rx: 10 });
+        // Versetzt wie am Original: HI/LO links unten, 16/C rechts oben.
+        rocker([78, 224, 44, 118]);
+        text(52, 268, 'HI/LO', 12);
+        key('micHiLo', [30, 276, 44, 40], { rx: 13 });
+        text(148, 230, '16/C', 12);
+        key('mic16', [126, 238, 44, 40], { rx: 13 });
     }
 }
