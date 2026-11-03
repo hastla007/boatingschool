@@ -132,16 +132,16 @@ export function drawHandset(svg, { prefix, model, x: ox, y: oy, scale: k, bottom
     };
 
     if (model === 'round') {
-        rocker([40, 236, 48, 104]);
-        text(136, 262, 'HI/LO', 15);
-        key('micHiLo', [108, 270, 56, 40], { rx: 10 });
+        rocker([50, 228, 42, 92]);
+        text(128, 254, 'HI/LO', 14);
+        key('micHiLo', [104, 262, 48, 36], { rx: 10 });
     } else if (model === 'roundGrey') {
         const grey = { fill: `url(#${p}-grey)`, ink: '#45474b', rx: 9 };
-        key('micUp', [34, 232, 52, 44], { ...grey, glyph: '△' });
-        key('micDown', [52, 284, 52, 44], { ...grey, glyph: '▽' });
-        text(142, 254, 'HI/LO', 14);
-        key('micHiLo', [116, 262, 52, 42], grey);
-        if (mic16) key('mic16', [116, 314, 52, 38], { fill: `url(#${p}-blue)`, ink: '#ffffff', glyph: '16/C', size: 15, rx: 9 });
+        key('micUp', [40, 226, 46, 40], { ...grey, glyph: '△' });
+        key('micDown', [56, 274, 46, 40], { ...grey, glyph: '▽' });
+        text(130, 250, 'HI/LO', 13);
+        key('micHiLo', [108, 258, 44, 38], grey);
+        if (mic16) key('mic16', [108, 304, 44, 34], { fill: `url(#${p}-blue)`, ink: '#ffffff', glyph: '16/C', size: 13, rx: 9 });
     } else {
         text(50, 238, 'HI/LO', 13);
         key('micHiLo', [28, 246, 46, 40], { rx: 10 });
