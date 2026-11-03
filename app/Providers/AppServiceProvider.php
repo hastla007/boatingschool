@@ -87,8 +87,8 @@ class AppServiceProvider extends ServiceProvider
      * Sicherheitsreview S1 (Rest): der Bestätigungslink der E-Mail-Adresse
      * hing wie früher der Reset-Link vom Host des Requests ab
      * (email/verification-notification ist tenant-agnostisch, also auch
-     * über jede Custom Domain erreichbar). Er wird deshalb wie der
-     * Reset-Link immer auf der zentralen Domain erzeugt.
+     * über jede Custom Domain erreichbar). Er wird deshalb auf der
+     * Subdomain der Schule bzw. der zentralen Domain erzeugt.
      */
     private function configureVerifyEmailUrl(): void
     {
@@ -96,6 +96,10 @@ class AppServiceProvider extends ServiceProvider
             'verification.verify',
             now()->addMinutes(config('auth.verification.expire', 60)),
             ['id' => $notifiable->getKey(), 'hash' => sha1($notifiable->getEmailForVerification())],
+            // Review-Runde 4: auf der Subdomain der Schule, auf der sich die
+            // Person registriert hat und angemeldet ist (das Sitzungs-Cookie
+            // gilt nur dort) -- nur die Custom Domain wird vermieden.
+            app()->bound('currentTenant') ? app('currentTenant') : null,
         ));
     }
 

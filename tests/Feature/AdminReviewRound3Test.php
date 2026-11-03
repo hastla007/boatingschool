@@ -208,4 +208,34 @@ class AdminReviewRound3Test extends TestCase
             $this->assertStringNotContainsString($action, $text, $action);
         }
     }
+
+    public function test_changing_the_location_drops_the_old_locations_details(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->onAdmin(function () {
+            $c = CourseDefinition::withoutGlobalScopes()->create(['tenant_id' => null, 'code' => 'R4-'.uniqid(), 'name' => 'R4', 'course_type' => 'full', 'status' => 'published']);
+            $this->courseIds[] = $c->id;
+
+            return $c;
+        });
+        $a = $this->onAdmin(fn () => TenantCourseLocation::create(['tenant_id' => $tenant->id, 'course_ids' => [$course->id], 'praxis_ort' => 'Hafen A', 'pruefung_ort' => 'Pruef A', 'theorie_ort' => 'Theorie A']));
+        $b = $this->onAdmin(fn () => TenantCourseLocation::create(['tenant_id' => $tenant->id, 'course_ids' => [$course->id], 'praxis_ort' => 'Hafen B', 'pruefung_ort' => 'Pruef B']));
+        $template = $this->onAdmin(function () use ($course) {
+            $t = PraxisFormTemplate::create(['title' => 'R4', 'min_progress_percent' => 0, 'course_ids' => [$course->id], 'active' => true,
+                'fields' => [['key' => 'ort', 'label' => 'Ort', 'type' => 'location', 'required' => true, 'options' => [], 'help_text' => null]]]);
+            $this->templateIds[] = $t->id;
+
+            return $t;
+        });
+        $submission = $this->onAdmin(fn () => PraxisFormSubmission::create(['tenant_id' => $tenant->id, 'course_id' => $course->id, 'user_id' => $learner->id, 'praxis_form_template_id' => $template->id,
+            'data' => ['ort' => 'Hafen A', 'ort_location_id' => $a->id, 'ort_theorieort' => 'Theorie A', 'ort_theorieort_adresse' => 'Str A']]));
+
+        $this->actingAsInTenant($admin, $tenant)->patch(route('admin.praxis-form-submissions.update', $submission), ['ort' => $b->id])->assertRedirect();
+        $data = $this->onAdmin(fn () => PraxisFormSubmission::find($submission->id)->data);
+        $this->assertSame('Hafen B', $data['ort']);
+        $this->assertArrayNotHasKey('ort_theorieort', $data);
+        $this->assertArrayNotHasKey('ort_theorieort_adresse', $data);
+    }
 }

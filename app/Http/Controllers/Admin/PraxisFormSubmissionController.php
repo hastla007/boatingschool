@@ -87,7 +87,18 @@ class PraxisFormSubmissionController extends Controller
         // Review: Felder, die das Bearbeitungsformular nicht (mehr) zeigt --
         // z. B. ein inzwischen gelöschter Ort oder ein aus der Vorlage
         // entferntes Feld --, bleiben erhalten statt still zu verschwinden.
-        $submission->update(['data' => array_merge($submission->data ?? [], $data)]);
+        // Review-Runde 4: wurde ein Ortsfeld neu gesetzt, fallen alle davon
+        // abgeleiteten Angaben des alten Orts weg (<key>_theorieort,
+        // <key>_pruefungsausschuss* …), sonst stünden Angaben zweier Orte
+        // nebeneinander.
+        $old = $submission->data ?? [];
+        foreach ($template->fields ?? [] as $field) {
+            $key = $field['key'] ?? null;
+            if (($field['type'] ?? null) === 'location' && $key !== null && array_key_exists($key, $data)) {
+                $old = array_filter($old, fn ($name) => $name !== $key && ! str_starts_with((string) $name, $key.'_'), ARRAY_FILTER_USE_KEY);
+            }
+        }
+        $submission->update(['data' => array_merge($old, $data)]);
 
         AuditLog::record(
             $tenantContext->id(), $request->user()->id, 'praxis-form-submission.update',

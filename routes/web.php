@@ -113,9 +113,9 @@ Route::middleware(['auth', 'tenant.member', 'verified'])->group(function () {
     Route::post('/courses/{course}/funk/{type}/{catalog}/{number}/erledigt', [FunkTrainingController::class, 'toggleCompleted'])->name('funk.completed')->whereIn('type', ['praxis', 'text', 'aufnahme', 'abgabe'])->whereIn('catalog', ['SRC', 'UBI'])->where('number', '[0-9]{1,4}');
     Route::get('/courses/{course}/funk/muendlich', [FunkTrainingController::class, 'oralIndex'])->name('funk.oral.index');
     Route::get('/courses/{course}/funk/geraetesimulation', [GeraetesimulationController::class, 'index'])->name('funk.device.index');
-    Route::post('/courses/{course}/funk/geraetesimulation/bewerten', [GeraetesimulationController::class, 'evaluate'])->name('funk.device.evaluate')->middleware('throttle:60,1');
-    Route::post('/courses/{course}/funk/geraetesimulation/fortschritt', [GeraetesimulationController::class, 'progress'])->name('funk.device.progress')->middleware('throttle:60,1');
-    Route::post('/courses/{course}/funk/geraetesimulation/pruefung', [GeraetesimulationController::class, 'exam'])->name('funk.device.exam')->middleware('throttle:60,1');
+    Route::post('/courses/{course}/funk/geraetesimulation/bewerten', [GeraetesimulationController::class, 'evaluate'])->name('funk.device.evaluate')->middleware('throttle:60,1,geraet-bewerten');
+    Route::post('/courses/{course}/funk/geraetesimulation/fortschritt', [GeraetesimulationController::class, 'progress'])->name('funk.device.progress')->middleware('throttle:60,1,geraet-fortschritt');
+    Route::post('/courses/{course}/funk/geraetesimulation/pruefung', [GeraetesimulationController::class, 'exam'])->name('funk.device.exam')->middleware('throttle:60,1,geraet-pruefung');
     Route::get('/courses/{course}/funk/muendlich/{catalog}/texte/{number}', [FunkTrainingController::class, 'textShow'])->name('funk.oral.text')->whereIn('catalog', ['SRC', 'UBI'])->where('number', '[0-9]{1,4}');
     Route::post('/courses/{course}/funk/muendlich/{catalog}/texte/{number}', [FunkTrainingController::class, 'textEvaluate'])->name('funk.oral.text.evaluate')->whereIn('catalog', ['SRC', 'UBI'])->where('number', '[0-9]{1,4}');
     Route::get('/courses/{course}/funk/muendlich/UBI/{modul}/{number}', [FunkTrainingController::class, 'ubiTextShow'])->name('funk.oral.ubi')->whereIn('modul', ['aufnahme', 'abgabe'])->where('number', '[0-9]{1,4}');

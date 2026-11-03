@@ -14,7 +14,7 @@
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
             <p class="text-sm text-slate-500 dark:text-slate-400 mb-3">
                 Hier findest du alle {{ $tasks->count() }} Navigationsaufgaben für den Sportbootführerschein See als Übung
-                mit direkt einsehbarer Musterlösung &mdash; anders als in der Prüfungssimulation gibt es hier sofortes Feedback zum Selbststudium.
+                mit direkt einsehbarer Musterlösung &mdash; anders als in der Prüfungssimulation gibt es hier sofortiges Feedback zum Selbststudium.
             </p>
             <div class="flex flex-wrap gap-2">
                 @foreach ($tasks as $item)

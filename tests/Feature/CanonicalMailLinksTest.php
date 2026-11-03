@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Tenant;
 use App\Models\TenantBranding;
 use App\Models\User;
 use App\Notifications\ConfirmPendingEmail;
@@ -21,10 +22,13 @@ class CanonicalMailLinksTest extends TestCase
 {
     use InteractsWithTenants;
 
-    public function test_the_verification_link_points_to_the_central_domain_and_works_there(): void
+    public function test_the_verification_link_points_to_the_school_subdomain_and_works_there(): void
     {
         Notification::fake();
         $tenant = $this->createTestTenant();
+        // Hostnamen sind kleingeschrieben, echte Slugs ebenso.
+        $this->onAdmin(fn () => Tenant::where('id', $tenant->id)->update(['slug' => strtolower($tenant->slug)]));
+        $tenant->slug = strtolower($tenant->slug);
         $this->onAdmin(fn () => TenantBranding::where('tenant_id', $tenant->id)->update(['custom_domain' => 'stale.example-school.de']));
         $user = $this->createTenantUser($tenant, 'learner', ['email_verified_at' => null]);
 
@@ -36,7 +40,7 @@ class CanonicalMailLinksTest extends TestCase
 
             return true;
         });
-        $this->assertStringStartsWith('http://'.config('app.central_domain').'/verify-email/', $url);
+        $this->assertStringStartsWith('http://'.$tenant->slug.'.'.config('app.central_domain').'/verify-email/', $url);
         $this->actingAs($user)->get($url)->assertRedirect();
         $this->assertNotNull($this->onAdmin(fn () => User::find($user->id)->email_verified_at));
     }

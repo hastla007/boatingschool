@@ -139,17 +139,19 @@ class FunkTraining
     public static function wordMatch(string $original, string $input): array
     {
         $expected = self::dictationWords($original);
+        // Für die Anzeige „Fehlt“: dieselben Wörter mit Umlauten statt AE/OE/UE.
+        $display = self::dictationWords($original, forDisplay: true);
         $givenWords = self::dictationWords($input);
         $given = array_count_values($givenWords);
         $hits = 0;
         $missing = [];
 
-        foreach ($expected as $word) {
+        foreach ($expected as $i => $word) {
             if (($given[$word] ?? 0) > 0) {
                 $given[$word]--;
                 $hits++;
             } else {
-                $missing[] = $word;
+                $missing[] = $display[$i] ?? $word;
             }
         }
 
@@ -160,7 +162,7 @@ class FunkTraining
     }
 
     /** @return list<string> */
-    private static function dictationWords(string $text): array
+    private static function dictationWords(string $text, bool $forDisplay = false): array
     {
         static $digitWords = null;
         $digitWords ??= (function () {
@@ -179,12 +181,14 @@ class FunkTraining
 
         // Bindestrich zwischen Buchstaben verbindet ein Wort.
         $text = preg_replace('/(?<=\p{L})-(?=\p{L})/u', '', $text);
-        $text = FunkPraxis::normalize($text);
+        $text = $forDisplay
+            ? ' '.trim(preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtoupper($text))).' '
+            : FunkPraxis::normalize($text);
         // Buchstaben und Ziffern trennen, Zahlen in einzelne Ziffern zerlegen.
         $text = preg_replace('/(?<=\d)(?=\p{L})|(?<=\p{L})(?=\d)/u', ' ', $text);
         $text = preg_replace('/(?<=\d)(?=\d)/', ' ', $text);
         $words = array_values(array_filter(explode(' ', trim($text)), fn ($w) => $w !== ''));
 
-        return array_map(fn ($w) => $digitWords[$w] ?? $w, $words);
+        return $forDisplay ? $words : array_map(fn ($w) => $digitWords[$w] ?? $w, $words);
     }
 }

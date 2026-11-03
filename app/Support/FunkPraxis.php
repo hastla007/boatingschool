@@ -475,7 +475,7 @@ class FunkPraxis
         $nif = 'Kanal des Verkehrskreises Nautische Information für diesen Streckenabschnitt (Handbuch Binnenschifffahrtsfunk bzw. blaues Tafelzeichen „UKW …“); Sendeleistung auf 25 W erhöhen – das ist nur in diesem Verkehrskreis zulässig. Kanal 10 sendet automatisch mit höchstens 1 W.';
         $nifChecks = [
             // Review: ein bloßes „Kanal“ (z. B. „Kanal 16“) zählte bisher als richtig.
-            ['Kanal der Nautischen Information', '(?<!\d)(18|19|20|21|22|78|79|80|81|82)(?!\d)|HANDBUCH|TAFEL', 1],
+            ['Kanal der Nautischen Information', '(?<!\d)(18|19|20|21|22|78|79|80|81|82)(?!\d)|NAUTISCH|\bNIF\b|HANDBUCH|TAFEL', 1],
             ['Sendeleistung 25 W', '(?<!\d)25(?!\d)', 1],
         ];
 
@@ -660,7 +660,7 @@ class FunkPraxis
             'called' => 'REVIERZENTRALE', 'situation' => 'Du möchtest bei der zuständigen Revierzentrale die aktuellen Wasserstände für deine weitere Fahrt erfragen. Stelle die Verbindung her!',
             'message' => 'ERBITTE DIE AKTUELLEN WASSERSTÄNDE FÜR MEINE WEITERE FAHRT',
             'circle' => 'Nautische Information (Revierzentrale).', 'circle_label' => 'Nautische Information', 'circle_pattern' => 'NAUTISCH|\bNIF\b|REVIERZENTRALE',
-            'radio' => 'Kanal des Verkehrskreises Nautische Information für diesen Streckenabschnitt (Handbuch Binnenschifffahrtsfunk)', 'radio_label' => 'Kanal der Nautischen Information', 'radio_pattern' => '(?<!\d)(18|19|20|21|22|78|79|80|81|82)(?!\d)|HANDBUCH',
+            'radio' => 'Kanal des Verkehrskreises Nautische Information für diesen Streckenabschnitt (Handbuch Binnenschifffahrtsfunk)', 'radio_label' => 'Kanal der Nautischen Information', 'radio_pattern' => '(?<!\d)(18|19|20|21|22|78|79|80|81|82)(?!\d)|NAUTISCH|\bNIF\b|HANDBUCH',
         ],
     ];
 
@@ -760,9 +760,21 @@ class FunkPraxis
         return implode(' ', array_map(fn ($c) => ctype_digit($c) ? $digits[(int) $c] : self::NATO[$c], str_split(strtoupper($callsign))));
     }
 
+    // Review-Runde 4: Zahlwörter nur als ganzes Wort („SEVENTEEN“ ist keine 7).
     private static function digitAlternatives(int $digit): string
     {
-        return implode('|', array_merge([(string) $digit, self::DIGITS_EN[$digit], self::DIGITS_DE[$digit]], self::DIGIT_ALIASES[$digit] ?? []));
+        return $digit.'|(?:'.self::digitWords($digit).')\\b';
+    }
+
+    private static function digitWords(int $digit): string
+    {
+        return implode('|', array_merge([self::DIGITS_EN[$digit], self::DIGITS_DE[$digit]], self::DIGIT_ALIASES[$digit] ?? []));
+    }
+
+    /** Danach folgt keine weitere Ziffer (als Zahl oder Zahlwort). */
+    private static function noFurtherDigit(): string
+    {
+        return '(?!\\d)(?! ?(?:'.implode('|', array_map(fn ($d) => self::digitWords($d), range(0, 9))).')\\b)';
     }
 
     /** Erkennt das Rufzeichen zusammengeschrieben, mit Leerzeichen oder buchstabiert. */
@@ -786,7 +798,7 @@ class FunkPraxis
 
     private static function digitsPattern(string $digits): string
     {
-        return '(?<!\d)'.implode(' ?', array_map(fn ($d) => '(?:'.self::digitAlternatives((int) $d).')', str_split($digits))).'(?!\d)';
+        return '(?<!\d)'.implode(' ?', array_map(fn ($d) => '(?:'.self::digitAlternatives((int) $d).')', str_split($digits))).self::noFurtherDigit();
     }
 
     private static function channelPattern(int $channel): string
@@ -818,11 +830,15 @@ class FunkPraxis
     /** Die vier Zahlen der Position in dieser Reihenfolge, dazwischen beliebiger Text. */
     private static function posPattern(array $p): string
     {
-        // Zahl mit bis zu zwei führenden Nullen, als Ziffern oder Zahlwörter.
+        // Zahl mit bis zu zwei führenden Nullen, als Ziffern (auch direkt
+        // hinter N/E: „N54“) oder als Zahlwörter, danach keine weitere
+        // Ziffer -- „FIVE FOUR … ZERO ZERO SEVEN TWO“ ist nicht 007.
         $n = function (int $v): string {
-            $digits = array_map(fn ($d) => '(?:'.self::digitAlternatives((int) $d).')', str_split((string) $v));
+            $words = array_map(fn ($d) => '(?:'.self::digitWords((int) $d).')\\b', str_split((string) $v));
+            $numeric = '(?<!\\d)0{0,2}'.$v;
+            $spoken = '(?<![A-Z])(?:(?:'.self::digitWords(0).')\\b ?){0,2}'.implode(' ?', $words);
 
-            return '(?<![\dA-Z])(?:(?:'.self::digitAlternatives(0).') ?){0,2}'.implode(' ?', $digits).'(?!\d)';
+            return '(?:'.$numeric.'|'.$spoken.')'.self::noFurtherDigit();
         };
 
         return $n($p[0]).'.{0,40}?'.$n($p[1]).'.{0,60}?'.$n($p[3]).'.{0,40}?'.$n($p[4]);

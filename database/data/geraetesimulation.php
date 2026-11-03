@@ -274,10 +274,11 @@ return [
             'key' => 'kuestenfunkstelle',
             'unit' => 'DSC-Routine',
             'title' => 'Anruf an eine Küstenfunkstelle',
-            'intro' => 'Du möchtest von der Küstenfunkstelle Nordsee Radio (MMSI 002119999) den Wetterbericht für die Deutsche Bucht erfragen. Ruf sie per DSC (Routine) und schlag Kanal 26 vor.',
+            'intro' => 'Du möchtest von der Küstenfunkstelle Nordsee Radio (MMSI 002119999) den Wetterbericht für die Deutsche Bucht erfragen. Ruf sie per DSC (Routine); den Arbeitskanal weist die Küstenfunkstelle in ihrer Bestätigung zu.',
             'start' => $start,
             'steps' => [
-                ['text' => 'Sende einen Einzelanruf (Routine) an Nordsee Radio mit Kanal 26.', 'address_name' => 'NORDSEE RADIO', 'target' => 'menu', 'help' => 'MENU, „Individual Call“, „NORDSEE RADIO“, „Routine“, Kanal 26, ENTER zum Senden.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '002119999', 'category' => 'Routine', 'channel' => 26],
+                // Review-Runde 4: den Arbeitskanal weist die Küstenfunkstelle zu (SRC-Frage 90), nicht die Yacht.
+                ['text' => 'Sende einen Einzelanruf (Routine) an Nordsee Radio.', 'address_name' => 'NORDSEE RADIO', 'target' => 'menu', 'help' => 'MENU, „Individual Call“, „NORDSEE RADIO“, „Routine“, den angezeigten Kanal mit ENTER übernehmen, ENTER zum Senden. Den Arbeitskanal weist Nordsee Radio in der Bestätigung zu.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '002119999', 'category' => 'Routine'],
                     'device' => [
                         'ic-m323' => ['text' => 'Sende einen Einzelanruf an Nordsee Radio. Den Kanal bestimmt am IC-M323 die Küstenfunkstelle.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '002119999']],
                         'ic-m330' => ['text' => 'Sende einen Einzelanruf an Nordsee Radio. Den Kanal bestimmt am IC-M330 die Küstenfunkstelle.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '002119999']],
@@ -566,10 +567,10 @@ return [
             'key' => 'szenario-kuestenfunkstelle',
             'unit' => 'Prüfungsszenarien',
             'title' => 'Gespräch mit einer Küstenfunkstelle',
-            'intro' => 'Melde Nordsee Radio deine voraussichtliche Ankunftszeit in Helgoland (1700 UTC): DSC-Einzelanruf (Routine, Kanal 26), Gespräch, Ende.',
+            'intro' => 'Melde Nordsee Radio deine voraussichtliche Ankunftszeit in Helgoland (1700 UTC): DSC-Einzelanruf (Routine; Nordsee Radio weist den Arbeitskanal zu), Gespräch, Ende.',
             'start' => $start,
             'steps' => [
-                ['text' => 'Ruf Nordsee Radio per DSC: Routine, Kanal 26.', 'address_name' => 'NORDSEE RADIO', 'target' => 'menu', 'help' => 'MENU, „Individual Call“, „NORDSEE RADIO“, „Routine“, Kanal 26, senden.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '002119999', 'category' => 'Routine', 'channel' => 26],
+                ['text' => 'Ruf Nordsee Radio per DSC (Routine).', 'address_name' => 'NORDSEE RADIO', 'target' => 'menu', 'help' => 'MENU, „Individual Call“, „NORDSEE RADIO“, „Routine“, den angezeigten Kanal mit ENTER übernehmen, senden. Den Arbeitskanal weist Nordsee Radio in der Bestätigung zu.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '002119999', 'category' => 'Routine'],
                     'device' => [
                         'ic-m323' => ['text' => 'Ruf Nordsee Radio per DSC. Den Kanal bestimmt am IC-M323 die Küstenfunkstelle.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '002119999']],
                         'ic-m330' => ['text' => 'Ruf Nordsee Radio per DSC. Den Kanal bestimmt am IC-M330 die Küstenfunkstelle.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '002119999']],
@@ -698,7 +699,9 @@ return [
             'start' => $binnenStart,
             'steps' => [
                 ['text' => 'Hör die Notmeldung auf Kanal 10.', 'target' => null, 'help' => 'Nur zuhören und mitschreiben.', 'goal' => ['type' => 'voice', 'heard' => true, 'from' => 'EISVOGEL'], 'voice' => ['delay_ms' => 1500, 'from' => 'EISVOGEL', 'channel' => 10, 'lang' => 'de-DE', 'text' => $eisvogelMayday]],
-                ['text' => 'Leite die Notmeldung auf Kanal 18 mit 25 W weiter.', 'target' => 'ptt', 'help' => 'MAYDAY RELAY (dreimal), hier ist Kormoran (dreimal), Delta Hotel Vier Sieben Zwo Eins, MAYDAY Eisvogel, Delta Alfa Zwo Acht Drei Null, Position Rhein Kilometer 552, starke Schlagseite, das Boot droht zu kentern, 4 Personen an Bord, kommen.', 'goal' => ['type' => 'spoken', 'channel' => 18, 'group' => 'ATIS', 'highPower' => true], 'speech' => ['scenario' => $inland + ['where' => $rhein, 'kind' => 'relay', 'distressed' => $eisvogel]]],
+                ['text' => 'Leite die Notmeldung auf Kanal 18 mit 25 W weiter.', 'target' => 'ptt', 'help' => 'MAYDAY RELAY (dreimal), hier ist Kormoran (dreimal), Delta Hotel Vier Sieben Zwo Eins, MAYDAY Eisvogel, Delta Alfa Zwo Acht Drei Null, Position Rhein Kilometer 553, starke Schlagseite, das Boot droht zu kentern, 4 Personen an Bord, kommen.', 'goal' => ['type' => 'spoken', 'channel' => 18, 'group' => 'ATIS', 'highPower' => true],
+                    // Review-Runde 4: weitergeleitet wird die Position der Eisvogel (km 553), nicht die eigene.
+                    'speech' => ['scenario' => $inland + ['where' => ['waterway' => 'Rhein', 'km' => 553], 'kind' => 'relay', 'distressed' => $eisvogel]]],
             ],
         ],
         $ubi + [

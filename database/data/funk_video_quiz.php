@@ -17,6 +17,11 @@
  * und Anruf“, UBI-0120 (SILENCE MAYDAY = Funkstille gebieten) unter
  * „Notverkehr offiziell beenden“. Bestehende Installationen korrigiert
  * die Migration 2024_02_01_000502.
+ *
+ * Review-Runde 4: SRC-0171/0172 (EPIRB-Wartung) standen unter „Fehlalarm
+ * richtig aufheben“, SRC-0113/0114 (Anruf einer Küstenfunkstelle) unter
+ * „Funkprobe und Testanruf“ -- korrigiert, für bestehende Installationen per
+ * Migration 2024_02_01_000571.
  */
 return [
     'SRC' => [
@@ -39,8 +44,8 @@ return [
             'Sprechregeln und Buchstabiertafel' => ['SRC-0115'],
             'Rechtliche Regeln im Seefunk' => ['SRC-0004', 'SRC-0005', 'SRC-0042', 'SRC-0043', 'SRC-0044', 'SRC-0084', 'SRC-0039', 'SRC-0086', 'SRC-0006'],
             'DSC-Routineanruf von Schiff zu Schiff' => ['SRC-0075', 'SRC-0103', 'SRC-0111'],
-            'Revier- und Hafenfunk' => ['SRC-0008', 'SRC-0009', 'SRC-0087', 'SRC-0088', 'SRC-0089', 'SRC-0091', 'SRC-0092', 'SRC-0090', 'SRC-0010', 'SRC-0011'],
-            'Funkprobe und Testanruf' => ['SRC-0105', 'SRC-0114', 'SRC-0113'],
+            'Revier- und Hafenfunk' => ['SRC-0008', 'SRC-0009', 'SRC-0087', 'SRC-0088', 'SRC-0089', 'SRC-0091', 'SRC-0092', 'SRC-0090', 'SRC-0010', 'SRC-0011', 'SRC-0113', 'SRC-0114'],
+            'Funkprobe und Testanruf' => ['SRC-0105'],
         ],
         'Notverkehr – MAYDAY' => [
             'Wann ist es ein Notfall? Die MAYDAY-Meldung' => ['SRC-0133', 'SRC-0134', 'SRC-0135', 'SRC-0136', 'SRC-0131', 'SRC-0138', 'SRC-0137'],
@@ -52,8 +57,8 @@ return [
             'SEELONCE MAYDAY: Funkstille im Notverkehr' => ['SRC-0145', 'SRC-0146'],
             'SAR: Rettung aus der Luft' => ['SRC-0125', 'SRC-0151', 'SRC-0149', 'SRC-0152', 'SRC-0153', 'SRC-0155', 'SRC-0154'],
             'SEELONCE FEENEE: Ende des Notverkehrs' => ['SRC-0178'],
-            'Fehlalarm richtig aufheben' => ['SRC-0157', 'SRC-0171', 'SRC-0172'],
-            'EPIRB: Notalarm über Satellit' => ['SRC-0180', 'SRC-0161', 'SRC-0160', 'SRC-0162', 'SRC-0163', 'SRC-0164', 'SRC-0169', 'SRC-0165', 'SRC-0166', 'SRC-0167', 'SRC-0168', 'SRC-0170'],
+            'Fehlalarm richtig aufheben' => ['SRC-0157'],
+            'EPIRB: Notalarm über Satellit' => ['SRC-0180', 'SRC-0161', 'SRC-0160', 'SRC-0162', 'SRC-0163', 'SRC-0164', 'SRC-0169', 'SRC-0165', 'SRC-0166', 'SRC-0167', 'SRC-0168', 'SRC-0170', 'SRC-0171', 'SRC-0172'],
             'SART und AIS-SART: gefunden werden' => ['SRC-0159', 'SRC-0179', 'SRC-0174', 'SRC-0173', 'SRC-0019', 'SRC-0158'],
         ],
         'Dringlichkeit und Sicherheit – PAN PAN und SECURITE' => [
