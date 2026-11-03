@@ -22,6 +22,37 @@ const START = { power: true, vol: 5, sql: 3, channel: 16, position: [54, 10.0, '
 const START_INLAND = { power: true, vol: 5, sql: 3, group: 'ATIS', channel: 10, highPower: false };
 const SERVICES = { SRC: 'Seefunk', UBI: 'Binnenfunk' };
 
+// Darstellung, die Tailwind-Klassen nicht abdecken: Vollbild (echt über die
+// Fullscreen-API oder ersatzweise als fester Rahmen), Gerät an die
+// Fensterhöhe angepasst, blinkende Displayzeilen.
+const STYLE = `
+.fg-root:fullscreen, .fg-root.fg-pseudo-full { background: #f1f5f9; overflow-y: auto; padding: 1rem 1.25rem; }
+.fg-root.fg-pseudo-full { position: fixed; inset: 0; z-index: 60; }
+@media (prefers-color-scheme: dark) { .fg-root:fullscreen, .fg-root.fg-pseudo-full { background: #0f172a; } }
+.fg-root:fullscreen .fg-device svg, .fg-root.fg-pseudo-full .fg-device svg { max-height: calc(100vh - 9rem); }
+.fg-root.fg-wide .fg-device svg { max-height: calc(100vh - 11rem); }
+.fg-root:fullscreen .fg-device, .fg-root.fg-pseudo-full .fg-device { min-height: calc(100vh - 12rem); display: flex; align-items: center; justify-content: center; }
+.fg-root:fullscreen .fg-sidebar, .fg-root.fg-pseudo-full .fg-sidebar { max-height: calc(100vh - 5.5rem); overflow-y: auto; }
+@keyframes fg-blink { 50% { opacity: 0.25; } }
+.fg-blink { animation: fg-blink 1s steps(1) infinite; }
+`;
+
+function addStyle() {
+    if (document.getElementById('fg-style')) return;
+    const style = document.createElement('style');
+    style.id = 'fg-style';
+    style.textContent = STYLE;
+    document.head.appendChild(style);
+}
+
+// Merken, ob die Lektionen ausgeblendet sind (nur Komfort, darf fehlen).
+function readPref(key, fallback) {
+    try { return window.localStorage.getItem(key) ?? fallback; } catch { return fallback; }
+}
+function writePref(key, value) {
+    try { window.localStorage.setItem(key, value); } catch { /* egal */ }
+}
+
 function h(tag, attrs = {}, ...children) {
     const node = document.createElement(tag);
     for (const [key, value] of Object.entries(attrs)) {
@@ -115,12 +146,73 @@ export function mount(root, config) {
         `${pttWhere()} mit der Maus gedrückt halten oder die Leertaste halten.`);
     const transcript = h('p', { class: 'mt-2 text-xs text-slate-600 dark:text-slate-400 min-h-[1rem]', 'aria-live': 'polite' });
     const radioLog = h('div', { class: 'mt-3 rounded-xl bg-white dark:bg-slate-800 shadow-sm p-3 text-xs space-y-1', 'aria-live': 'polite' });
-    root.replaceChildren(
-        h('div', { class: 'grid lg:grid-cols-[minmax(0,1fr)_22rem] gap-4' },
-            h('div', {}, deviceBox, pttNote, typeBox, transcript, radioLog),
-            sidebar,
-        ),
+    // Leiste über dem Gerät: Lektionen ein-/ausblenden und Vollbild. Beides
+    // geht auch im Vollbild; ausgeblendet zeigt eine Zeile den aktuellen Schritt.
+    addStyle();
+    root.classList.add('fg-root');
+    let lessonsHidden = readPref('geraetesimulation.lessons', 'shown') === 'hidden';
+    const pill = (active) => `inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border ${active ? 'bg-slate-800 text-white border-slate-800 dark:bg-slate-200 dark:text-slate-900 dark:border-slate-200' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-700'}`;
+    const lessonsButton = h('button', { type: 'button', onclick: () => setLessonsHidden(! lessonsHidden) });
+    const fullButton = h('button', { type: 'button', onclick: () => toggleFull() });
+    const stepLine = h('p', { class: 'hidden mb-2 px-3 py-2 rounded-lg bg-amber-50 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100 text-sm', 'aria-live': 'polite' });
+    const toolbar = h('div', { class: 'flex items-center justify-end gap-2 mb-3' }, lessonsButton, fullButton);
+    const grid = h('div', {},
+        h('div', {}, stepLine, deviceBox, pttNote, typeBox, transcript, radioLog),
+        sidebar,
     );
+    root.replaceChildren(toolbar, grid);
+
+    const isFull = () => document.fullscreenElement === root || root.classList.contains('fg-pseudo-full');
+    function showLayout() {
+        grid.className = lessonsHidden ? 'grid gap-4' : 'grid lg:grid-cols-[minmax(0,1fr)_22rem] gap-4';
+        sidebar.classList.toggle('hidden', lessonsHidden);
+        root.classList.toggle('fg-wide', lessonsHidden);
+        lessonsButton.className = pill(! lessonsHidden);
+        lessonsButton.setAttribute('aria-pressed', lessonsHidden ? 'false' : 'true');
+        lessonsButton.replaceChildren(h('span', { 'aria-hidden': 'true' }, '☰'), lessonsHidden ? 'Lektionen einblenden' : 'Lektionen ausblenden');
+        fullButton.className = pill(false);
+        fullButton.replaceChildren(h('span', { 'aria-hidden': 'true' }, '⛶'), isFull() ? 'Vollbild beenden' : 'Vollbild');
+        showStepLine();
+    }
+    function setLessonsHidden(hidden) {
+        lessonsHidden = hidden;
+        writePref('geraetesimulation.lessons', hidden ? 'hidden' : 'shown');
+        showLayout();
+    }
+    function toggleFull() {
+        if (document.fullscreenElement === root) {
+            document.exitFullscreen?.();
+        } else if (root.classList.contains('fg-pseudo-full')) {
+            root.classList.remove('fg-pseudo-full');
+            showLayout();
+        } else if (document.fullscreenEnabled && root.requestFullscreen) {
+            // Ohne Fullscreen-API (z. B. iPhone): fester Rahmen über der Seite.
+            root.requestFullscreen().catch(() => { root.classList.add('fg-pseudo-full'); showLayout(); });
+        } else {
+            root.classList.add('fg-pseudo-full');
+            showLayout();
+        }
+    }
+    document.addEventListener('fullscreenchange', showLayout);
+    // Ersatz-Vollbild mit Esc beenden.
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && root.classList.contains('fg-pseudo-full')) {
+            root.classList.remove('fg-pseudo-full');
+            showLayout();
+        }
+    });
+    // Aktueller Schritt, solange die Lektionen ausgeblendet sind.
+    function showStepLine() {
+        const status = lessonsHidden && run ? run.status() : null;
+        stepLine.classList.toggle('hidden', ! status);
+        if (! status) return;
+        const where = exam ? `Aufgabe ${exam.index + 1} von ${exam.lessons.length}` : `Schritt ${Math.min(status.index + 1, status.total)} von ${status.total}`;
+        stepLine.replaceChildren(
+            h('strong', { class: 'font-semibold' }, `${run.lesson.title} · ${status.done ? 'fertig' : where}: `),
+            status.done ? (status.failed ? 'Aufgabe nicht bestanden.' : 'Geschafft.') : status.text ?? '',
+            status.help ? h('span', { class: 'block text-xs mt-1 opacity-80' }, status.help) : null,
+        );
+    }
     let device = null;
 
     // --- Ton und Stimmen ------------------------------------------------------
@@ -718,6 +810,7 @@ export function mount(root, config) {
     }
 
     function renderSidebar() {
+        showStepLine();
         sidebar.replaceChildren(
             h('div', { class: 'text-xs text-slate-600 dark:text-slate-400' },
                 h('div', { class: 'font-semibold text-slate-800 dark:text-white text-sm' }, `${deviceName()} · ${catalogs().map((c) => SERVICES[c]).join(' und ')}`),
@@ -773,6 +866,7 @@ export function mount(root, config) {
     }, 100);
 
     radio.setup(defaultStart());
+    showLayout();
     renderSidebar();
     renderLog();
     render();
