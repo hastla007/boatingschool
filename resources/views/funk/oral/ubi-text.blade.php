@@ -48,7 +48,8 @@
                     <label for="transcript" class="font-medium text-slate-800 dark:text-white block mb-2">Mitschreiben</label>
                     <textarea id="transcript" name="transcript" rows="5" placeholder="Hör dir den Text an und schreib ihn hier mit …" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">{{ old('transcript', $transcript) }}</textarea>
                     @error('transcript')
-                        <p class="mt-1 text-sm text-rose-600">Schreib zuerst mit, dann kannst du auswerten.</p>
+                        {{-- Review-Runde 4: „zu lang“ nicht als „Schreib zuerst mit“ melden. --}}
+                        <p class="mt-1 text-sm text-rose-600">{{ trim((string) old('transcript')) === '' ? 'Schreib zuerst mit, dann kannst du auswerten.' : $message }}</p>
                     @enderror
                     @if ($evaluation)
                         <div class="mt-3 text-sm font-medium text-slate-700 dark:text-slate-200">{{ $evaluation['percent'] }}&nbsp;% der Wörter getroffen</div>

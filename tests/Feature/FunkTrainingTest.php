@@ -254,6 +254,12 @@ class FunkTrainingTest extends TestCase
 
         $result = FunkTraining::wordMatch('I require immediate assistance', 'I require assistance');
         $this->assertSame(75, $result['percent']);
+
+        // Review-Runde 4: Positionen, Rufzeichen, Zahlwörter, Bindestriche, zusätzliche Wörter.
+        $this->assertSame(100, FunkTraining::wordMatch('Position 53-59N 008-14E, DH4718', "position 53°59' N 008°14' E, DH 4718")['percent']);
+        $this->assertSame(100, FunkTraining::wordMatch('acht Meter, drei Meter', '8 Meter, 3 Meter')['percent']);
+        $this->assertSame(100, FunkTraining::wordMatch('bei Rhein-Kilometer 553', 'bei Rheinkilometer 553')['percent']);
+        $this->assertSame(50, FunkTraining::wordMatch('Mayday Kormoran', 'Mayday Kormoran Mayday Kormoran')['percent']);
         $this->assertSame(['IMMEDIATE'], $result['missing']);
     }
 

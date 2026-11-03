@@ -100,26 +100,26 @@ Route::middleware(['auth', 'tenant.member', 'verified'])->group(function () {
     Route::post('/courses/{course}/video/{lesson}/complete', [VideoCourseController::class, 'complete'])->name('video.complete');
 
     Route::get('/courses/{course}/video/{lesson}/questions/result', [VideoQuizController::class, 'result'])->name('video.quiz.result');
-    Route::get('/courses/{course}/video/{lesson}/questions/{position}', [VideoQuizController::class, 'show'])->name('video.quiz.show')->where('position', '[0-9]+');
-    Route::post('/courses/{course}/video/{lesson}/questions/{position}', [VideoQuizController::class, 'answer'])->name('video.quiz.answer')->where('position', '[0-9]+');
+    Route::get('/courses/{course}/video/{lesson}/questions/{position}', [VideoQuizController::class, 'show'])->name('video.quiz.show')->where('position', '[0-9]{1,4}');
+    Route::post('/courses/{course}/video/{lesson}/questions/{position}', [VideoQuizController::class, 'answer'])->name('video.quiz.answer')->where('position', '[0-9]{1,4}');
 
     Route::get('/courses/{course}/exam', [ExamController::class, 'intro'])->name('exam.intro');
     Route::post('/courses/{course}/exam', [ExamController::class, 'start'])->name('exam.start');
     Route::post('/courses/{course}/exam/papers/{paper}', [ExamController::class, 'startPaper'])->name('exam.papers.start');
 
     Route::get('/courses/{course}/funk/praxis', [FunkTrainingController::class, 'praxisIndex'])->name('funk.praxis.index');
-    Route::get('/courses/{course}/funk/praxis/{catalog}/{number}', [FunkTrainingController::class, 'praxisShow'])->name('funk.praxis.show')->whereIn('catalog', ['SRC', 'UBI'])->whereNumber('number');
-    Route::post('/courses/{course}/funk/praxis/{catalog}/{number}', [FunkTrainingController::class, 'praxisEvaluate'])->name('funk.praxis.evaluate')->whereIn('catalog', ['SRC', 'UBI'])->whereNumber('number');
-    Route::post('/courses/{course}/funk/{type}/{catalog}/{number}/erledigt', [FunkTrainingController::class, 'toggleCompleted'])->name('funk.completed')->whereIn('type', ['praxis', 'text', 'aufnahme', 'abgabe'])->whereIn('catalog', ['SRC', 'UBI'])->whereNumber('number');
+    Route::get('/courses/{course}/funk/praxis/{catalog}/{number}', [FunkTrainingController::class, 'praxisShow'])->name('funk.praxis.show')->whereIn('catalog', ['SRC', 'UBI'])->where('number', '[0-9]{1,4}');
+    Route::post('/courses/{course}/funk/praxis/{catalog}/{number}', [FunkTrainingController::class, 'praxisEvaluate'])->name('funk.praxis.evaluate')->whereIn('catalog', ['SRC', 'UBI'])->where('number', '[0-9]{1,4}');
+    Route::post('/courses/{course}/funk/{type}/{catalog}/{number}/erledigt', [FunkTrainingController::class, 'toggleCompleted'])->name('funk.completed')->whereIn('type', ['praxis', 'text', 'aufnahme', 'abgabe'])->whereIn('catalog', ['SRC', 'UBI'])->where('number', '[0-9]{1,4}');
     Route::get('/courses/{course}/funk/muendlich', [FunkTrainingController::class, 'oralIndex'])->name('funk.oral.index');
     Route::get('/courses/{course}/funk/geraetesimulation', [GeraetesimulationController::class, 'index'])->name('funk.device.index');
     Route::post('/courses/{course}/funk/geraetesimulation/bewerten', [GeraetesimulationController::class, 'evaluate'])->name('funk.device.evaluate')->middleware('throttle:60,1');
     Route::post('/courses/{course}/funk/geraetesimulation/fortschritt', [GeraetesimulationController::class, 'progress'])->name('funk.device.progress')->middleware('throttle:60,1');
     Route::post('/courses/{course}/funk/geraetesimulation/pruefung', [GeraetesimulationController::class, 'exam'])->name('funk.device.exam')->middleware('throttle:60,1');
-    Route::get('/courses/{course}/funk/muendlich/{catalog}/texte/{number}', [FunkTrainingController::class, 'textShow'])->name('funk.oral.text')->whereIn('catalog', ['SRC', 'UBI'])->whereNumber('number');
-    Route::post('/courses/{course}/funk/muendlich/{catalog}/texte/{number}', [FunkTrainingController::class, 'textEvaluate'])->name('funk.oral.text.evaluate')->whereIn('catalog', ['SRC', 'UBI'])->whereNumber('number');
-    Route::get('/courses/{course}/funk/muendlich/UBI/{modul}/{number}', [FunkTrainingController::class, 'ubiTextShow'])->name('funk.oral.ubi')->whereIn('modul', ['aufnahme', 'abgabe'])->whereNumber('number');
-    Route::post('/courses/{course}/funk/muendlich/UBI/aufnahme/{number}', [FunkTrainingController::class, 'ubiTextEvaluate'])->name('funk.oral.ubi.evaluate')->whereNumber('number');
+    Route::get('/courses/{course}/funk/muendlich/{catalog}/texte/{number}', [FunkTrainingController::class, 'textShow'])->name('funk.oral.text')->whereIn('catalog', ['SRC', 'UBI'])->where('number', '[0-9]{1,4}');
+    Route::post('/courses/{course}/funk/muendlich/{catalog}/texte/{number}', [FunkTrainingController::class, 'textEvaluate'])->name('funk.oral.text.evaluate')->whereIn('catalog', ['SRC', 'UBI'])->where('number', '[0-9]{1,4}');
+    Route::get('/courses/{course}/funk/muendlich/UBI/{modul}/{number}', [FunkTrainingController::class, 'ubiTextShow'])->name('funk.oral.ubi')->whereIn('modul', ['aufnahme', 'abgabe'])->where('number', '[0-9]{1,4}');
+    Route::post('/courses/{course}/funk/muendlich/UBI/aufnahme/{number}', [FunkTrainingController::class, 'ubiTextEvaluate'])->name('funk.oral.ubi.evaluate')->where('number', '[0-9]{1,4}');
     Route::post('/courses/{course}/funk/muendlich/{catalog}/vokabeln', [FunkTrainingController::class, 'vocabAnswer'])->name('funk.oral.vocab')->whereIn('catalog', ['SRC', 'UBI']);
     Route::get('/exam-sessions/{examSession}', [ExamController::class, 'show'])->name('exam.show');
     Route::post('/exam-sessions/{examSession}/answers', [ExamController::class, 'answer'])->name('exam.answer');
@@ -135,6 +135,7 @@ Route::middleware(['auth', 'tenant.member', 'verified'])->group(function () {
     Route::get('/courses/{course}/praxistrainer', [PraxisTrainerController::class, 'index'])->name('praxistrainer.index');
     Route::get('/courses/{course}/praxistrainer/{task}', [PraxisTrainerController::class, 'show'])->name('praxistrainer.show');
     Route::post('/courses/{course}/praxistrainer/{task}/complete', [PraxisTrainerController::class, 'complete'])->name('praxistrainer.complete');
+    Route::post('/courses/{course}/praxistrainer/{task}/reopen', [PraxisTrainerController::class, 'reopen'])->name('praxistrainer.reopen');
 
     Route::get('/courses/{course}/praxis-pruefung', [PraxisPruefungController::class, 'index'])->name('praxis-pruefung.index');
     Route::get('/courses/{course}/pruefung-buchen', [ExamBookingController::class, 'show'])->name('exam-booking');

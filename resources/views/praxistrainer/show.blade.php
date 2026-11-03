@@ -109,7 +109,13 @@
                     <p class="text-xs text-slate-600 dark:text-slate-400">Quelle: {{ $task->quelle }}</p>
                 @endif
 
-                <div class="flex items-center justify-end pt-2">
+                <div class="flex flex-wrap items-center justify-end gap-3 pt-2">
+                    @if ($progress[$task->id]->completed ?? false)
+                        <form method="POST" action="{{ route('praxistrainer.reopen', array_filter(['course' => $course, 'task' => $task, 'kategorie' => $kategorie])) }}">
+                            @csrf
+                            <button type="submit" class="text-sm text-slate-600 dark:text-slate-300 hover:underline">Nicht mehr als gemeistert zählen</button>
+                        </form>
+                    @endif
                     <form method="POST" action="{{ route('praxistrainer.complete', array_filter(['course' => $course, 'task' => $task, 'kategorie' => $kategorie])) }}">
                         @csrf
                         <button type="submit" class="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">

@@ -87,9 +87,10 @@
                 </div>
             @endforeach
 
-            @error('answers')
-                <p class="text-sm text-rose-600">{{ $message }}</p>
-            @enderror
+            {{-- Review-Runde 4: Fehler einzelner Felder (answers.message …) erscheinen auch. --}}
+            @if ($errors->any())
+                <p class="text-sm text-rose-600">{{ $errors->first() }}</p>
+            @endif
 
             <div class="flex flex-wrap items-center gap-3">
                 <button type="submit" :disabled="! filled" class="inline-flex items-center gap-1.5 rounded-lg px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed"
