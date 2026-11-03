@@ -30,6 +30,7 @@ export function hintHx891(step) {
                 : h('SQL drücken, dann CH▲ Schritt für Schritt, bis das Rauschen gerade verschwindet.', 'sql');
         case 'channel':
             if (step.receive?.call?.type === 'individual_ack') return h('Nichts drücken: Mit der Bestätigung stellt das Gerät den Arbeitskanal selbst ein.', null);
+            if (goal.circle) return h(`Mit CH▲/CH▼ einen Kanal des Verkehrskreises ${goal.circle} wählen; der Verkehrskreis steht unter der Kanalnummer.`, 'up');
             if (step.target === 'dial') return h('16/S erneut drücken: zurück zum vorherigen Arbeitskanal.', 'ch16');
             if (goal.channel === 16) return h('16/S kurz drücken.', 'ch16');
             if (step.target === null) return h(step.help, null);
@@ -79,6 +80,12 @@ export function hintHx891(step) {
             return h('Nur zuhören. Hörst du nichts, prüfe Kanal, Lautstärke und Rauschsperre; nach einem empfangenen Notalarm geht es mit ACCEPT auf Kanal 16.', null);
         case 'address_added':
             return h(`MENU/SET eine Sekunde halten (SETUP), „DSC SETUP“, „INDIVIDUAL DIR.“, „ADD“; „MMSI“ wählen, die 9 Ziffern eingeben (${typing}), FINISH, dann „SAVE“ und SELECT. Den Namen übernimmt die Übung aus der MMSI.`, 'menu');
+        case 'group':
+            return h(`MENU/SET eine Sekunde halten (SETUP), „CH SETUP“, „CH GROUP“, „${goal.group === 'ATIS' ? 'ATIS' : 'INTL'}“, jeweils SELECT. Im Display steht dann ${goal.group === 'ATIS' ? 'ATIS' : 'INTL'}.`, 'menu');
+        case 'ch16_unavailable':
+            return h('16/S drücken: Im Binnenfunk gibt es keinen Kanal 16.', 'ch16');
+        case 'dsc_blocked':
+            return h('MENU/SET drücken, „DSC CALL“ wählen und SELECT: DSC ist im Binnenfunk gesperrt.', 'menu');
         default:
             return h(step.help, step.target);
     }

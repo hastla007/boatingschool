@@ -51,6 +51,7 @@ CONTROLS.hx891bte = [
     'Drei Softkeys auf Seiten: mit ◀/▶ blättern (Seite 1 DUAL WATCH, Seite 2 TX PWR und SCAN MEMORY, Seite 3 SCAN …).',
     'MENU/SET öffnet das Menü (DSC CALL, MMSI/POS INFO …), 1 Sekunde gehalten SETUP; CH▲/CH▼ wählen, Softkey SELECT weiter, BACK zurück, CLR zum Funkbetrieb. Ein Alarm verstummt mit einer beliebigen Taste. 🔑 1 Sekunde = Tastensperre.',
     'DISTRESS sitzt an der Seite unter der roten Klappe (Ansicht rechts): Klappe öffnen, DISTRESS 3 Sekunden halten.',
+    'Binnenfunk: SETUP, „CH SETUP“, „CH GROUP“, „ATIS“. Dort gibt es keinen Kanal 16, kein DSC und keine Zwei-/Dreikanalwache.',
 ];
 CONTROLS['ic-m94de'] = [
     'Ein/Aus-Taste links am Gerät 1 Sekunde halten. Die Sprechtaste (PTT) sitzt links darüber.',
@@ -73,12 +74,12 @@ export const DEVICES = {
     // Abfragen, dafür Testanruf); Bedienung über Softkey-Seiten und das
     // Formular OTHER DSC.
     'ic-m330': { key: 'ic-m330', name: 'Icom IC-M330', like: 'ic-m323', create: createIcM330, render: renderDeviceM330, hint: hintM330, wheel: { key: 'knob', knob: 'dial' }, controls: CONTROLS['ic-m330'] },
-    // Handfunkgerät mit der DSC-Bedienung des IC-M330; vorerst nur Seefunk.
+    // Handfunkgerät mit der DSC- und ATIS-Bedienung des IC-M330.
     // texts: Angaben in Lektionstexten, die für dieses Gerät anders lauten.
     // Handfunkgerät eines anderen Herstellers (DSC Klasse H, mit
-    // Positionsabfrage und Testanruf); vorerst nur Seefunk.
-    hx891bte: { key: 'hx891bte', name: 'Standard Horizon HX891BT/E', catalogs: ['SRC'], create: createHx891, render: renderDeviceHx891, hint: hintHx891, wheel: { key: null, knob: null }, controls: CONTROLS.hx891bte, pttWhere: 'links am Gerät', texts: [['25 W', '6 W'], ['25W', 'HI']] },
-    'ic-m94de': { key: 'ic-m94de', name: 'Icom IC-M94DE', like: 'ic-m330', catalogs: ['SRC'], create: createIcM94DE, render: renderDeviceM94DE, hint: hintM94DE, wheel: { key: null, knob: null }, controls: CONTROLS['ic-m94de'], pttWhere: 'links am Gerät', texts: [['25 W', '6 W'], ['25W', 'HI']] },
+    // Positionsabfrage und Testanruf; Binnenfunk über CH GROUP ATIS).
+    hx891bte: { key: 'hx891bte', name: 'Standard Horizon HX891BT/E', create: createHx891, render: renderDeviceHx891, hint: hintHx891, wheel: { key: null, knob: null }, controls: CONTROLS.hx891bte, pttWhere: 'links am Gerät', texts: [['25 W', '6 W'], ['25W', 'HI']] },
+    'ic-m94de': { key: 'ic-m94de', name: 'Icom IC-M94DE', like: 'ic-m330', create: createIcM94DE, render: renderDeviceM94DE, hint: hintM94DE, wheel: { key: null, knob: null }, controls: CONTROLS['ic-m94de'], pttWhere: 'links am Gerät', texts: [['25 W', '6 W'], ['25W', 'HI']] },
 };
 
 const shortName = (deviceKey) => DEVICES[deviceKey].name.replace(/^(Icom|Standard Horizon) /, '');

@@ -61,10 +61,13 @@ function play(key) {
     return { radio, run, press, soft, pick, type, channel, fire, speak, speech, voices, wait, pump, prepared, events };
 }
 
-test('IC-M94DE: only Seefunk, lessons and exam rules of the IC-M330 and IC-M323 (like chain)', () => {
+test('IC-M94DE: Seefunk and Binnenfunk, lessons and exam rules of the IC-M330 and IC-M323 (like chain)', () => {
     assert.deepEqual(lineage('ic-m94de'), ['ic-m94de', 'ic-m330', 'ic-m323']);
-    assert.deepEqual(deviceCatalogs('ic-m94de'), ['SRC']);
-    assert.ok(data.lessons.filter((l) => l.catalog === 'UBI').every((l) => ! lessonAvailable(l, 'ic-m94de')));
+    assert.deepEqual(deviceCatalogs('ic-m94de'), ['SRC', 'UBI']);
+    assert.ok(data.lessons.filter((l) => l.catalog === 'UBI').every((l) => lessonAvailable(l, 'ic-m94de')));
+    for (const series of ['ubi-voll', 'ubi-ergaenzung']) {
+        assert.deepEqual(examLessons({ lessons: data.exams[series], substitutes: data.exam_meta[series].substitutes }, 'ic-m94de'), data.exams[series]);
+    }
     assert.equal(lessonAvailable(lesson('testanruf'), 'ic-m94de'), true);
     assert.equal(lessonAvailable(lesson('position-polling'), 'ic-m94de'), false);
     const b = { lessons: data.exams.b, substitutes: data.exam_meta.b.substitutes };
@@ -280,4 +283,69 @@ test('IC-M94DE lessons: Notalarm senden (DTRS, DISTRESS on the back), Fehlalarm 
     assert.equal(r.radio.state.channel, 16);
     r.fire();
     assert.equal(r.voices.at(-1).heard, true);
+});
+
+test('IC-M94DE Binnenfunk: ATIS über Settings > Radio > Channel Group, kein Kanal 16, DSC gesperrt, 1 W, HI in der Nautischen Information', () => {
+    const p = play('binnen-atis');
+    p.press('power', 1200);
+    assert.equal(p.run.status().target, 'menu');
+    p.press('menu');
+    p.pick('Settings');
+    p.pick('Radio');
+    p.pick('Channel Group');
+    p.pick('ATIS');
+    assert.equal(p.run.status().index, 2);
+    p.press('menu');
+    p.press('ch16');
+    assert.equal(p.run.status().index, 3);
+    p.press('menu');
+    p.pick('Compose Other');
+    assert.equal(p.run.status().index, 4);
+    p.press('menu');
+    while (p.radio.state.channel !== 10) p.press('up');
+    p.soft('HI/LO');
+    assert.equal(p.run.status().index, 6);
+    while (p.radio.state.channel !== 18) p.press('up');
+    p.soft('HI/LO');
+    assert.equal(p.run.status().done, true);
+    assert.equal(p.radio.receive({ type: 'distress', from: data.address_book[0] }), false, 'im Binnenfunk kein DSC-Empfang');
+});
+
+test('IC-M94DE Binnenfunk: Verkehrskreise, Notmeldung mit HI aus der UBI-Prüfung (Gerät aus, INT)', () => {
+    const v = play('binnen-verkehrskreise');
+    while (v.radio.state.circle !== 'Schiff-Hafen') v.press('up');
+    assert.equal(v.run.status().index, 1);
+    while (v.radio.state.circle !== 'Nautische Information') v.press('up');
+    assert.equal(v.run.status().index, 2);
+
+    const prepared = prepareLesson({ ...lesson('binnen-notmeldung'), start: data.exam_meta['ubi-voll'].start }, 'ic-m94de');
+    let now = 0;
+    const events = [];
+    const radio = createIcM94DE({ own: data.ship, clock: () => now, emit: (e) => events.push(e) });
+    radio.setup(prepared.start);
+    assert.equal(radio.state.power, false);
+    assert.equal(radio.state.group, 'INT');
+    const run = createLessonRun(prepared, { exam: true, level: 3, schedule: () => {}, receive: () => {}, say: () => ({ heard: true }) });
+    run.start();
+    const pump = () => { while (events.length) run.handle(events.shift()); };
+    const press = (k, ms = 100) => { radio.keyDown(k); for (let t = 0; t < ms; t += 100) { now += 100; radio.tick(); } radio.keyUp(k); pump(); };
+    press('power', 1200);
+    press('menu');
+    for (const item of ['Settings', 'Radio', 'Channel Group', 'ATIS']) {
+        const items = radio.display().panel.items;
+        const target = items.findIndex((i) => i.startsWith(item));
+        while (radio.display().panel.cursor < target) press('down');
+        press('enter');
+    }
+    press('menu');
+    while (radio.state.channel !== 18) press('up');
+    for (let i = 0; i < 4 && ! radio.display().softkeys.includes('HI/LO'); i++) press('right');
+    press(`soft${radio.display().softkeys.indexOf('HI/LO') + 1}`);
+    radio.pttDown();
+    radio.pttUp();
+    assert.ok(events.some((e) => e.type === 'atis_sent'), 'ATIS-Kennung beim Loslassen');
+    radio.spoken('Mayday Mayday Mayday hier ist Kormoran');
+    const speech = [];
+    while (events.length) { const r = run.handle(events.shift()); if (r && ! r.miss) speech.push(r); }
+    assert.equal(speech.length, 1, 'Funkspruch auf Kanal 18 mit HI im ATIS-Betrieb zählt');
 });

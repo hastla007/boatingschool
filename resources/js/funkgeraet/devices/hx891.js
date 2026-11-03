@@ -13,9 +13,15 @@
 // (ab Werk AUTO), Position Reply und Polling antworten automatisch, ein
 // Testanruf wird automatisch bestätigt, bei einer Küstenfunkstelle (MMSI
 // 00…) entfällt die Kanalwahl, nach dem Notalarm hört das Gerät auf
-// Kanal 16, Kanalgruppe INTL (nur Seefunk).
+// Kanal 16.
+//
+// Binnenfunk: SETUP > CH SETUP > CH GROUP „ATIS“ (europäische Version).
+// Dann Binnenkanäle mit 1 W außerhalb der Nautischen Information,
+// ATIS-Kennung beim Loslassen der Sprechtaste (Kennung vorgegeben, kein
+// ATIS SETUP in der Übung), kein Kanal 16 bzw. Zweitkanal, DSC und
+// Zwei-/Dreikanalwache und Suchlauf gesperrt.
 
-import { channelInfo, stepChannel } from '../channels.js';
+import { CHANNEL_GROUPS, channelInfo, stepChannel } from '../channels.js';
 import { NATURES } from './icm505.js';
 
 export const NATURE_LABELS_HX = ['UNDESIGNATED', 'FIRE,EXPLOSION', 'FLOODING', 'COLLISION', 'GROUNDING', 'CAPSIZING', 'SINKING', 'ADRIFT', 'ABANDONING', 'PIRACY', 'MOB'];
@@ -52,6 +58,7 @@ const DSC_CALL = ['INDIVIDUAL', 'GROUP', 'ALL SHIPS', 'POS REQUEST', 'POS REPORT
 const SETUP = ['CONFIGURATION', 'CH SETUP', 'DSC SETUP', 'GPS SETUP', 'ATIS SETUP', 'BLUETOOTH SETUP', 'RESET'];
 const CH_SETUP = ['CH GROUP', 'SCAN MEMORY', 'SCAN TYPE', 'SCAN RESUME', 'MULTI WATCH', 'PRIORITY CH', 'SUB CH', 'CH NAME', 'NOISE CANCEL', 'SCRAMBLER', 'VOX', 'AF PITCH'];
 const DSC_SETUP = ['INDIVIDUAL DIR.', 'INDIVIDUAL REPLY', 'INDIVIDUAL ACK', 'INDIVIDUAL RING', 'POSITION REPLY', 'GROUP DIR.', 'AUTO POS POLLING', 'AUTO POS TIME', 'CH SWITCH TIMER', 'NO ACT TIMER', 'POS FIX WAIT', 'DSC BEEP'];
+const GROUP_LABELS = { INT: 'INTL', ATIS: 'ATIS' };
 const AVAILABLE = new Set([
     'DSC CALL', 'CH', 'MMSI/POS INFO', 'INDIVIDUAL', 'GROUP', 'ALL SHIPS', 'POS REQUEST', 'POS REPORT', 'DIST ALERT MSG', 'DSC LOG', 'DSC TEST',
     'CH SETUP', 'DSC SETUP', 'CH GROUP', 'SCAN TYPE', 'MULTI WATCH', 'INDIVIDUAL DIR.', 'INDIVIDUAL REPLY', 'RECEIVED', 'TRANSMITTED',
@@ -158,7 +165,7 @@ export function createHx891({ own, clock = () => Date.now(), emit = () => {}, ad
         return {
             power: s.power, group: s.group, channel: s.channel, highPower: effectiveHighPower(), vol: s.vol, sql: s.sql, screen: s.screen, watch: s.watch,
             nature: NATURES[s.nature], position: s.position, utc: s.utc, coverOpen: s.cover, tx: s.tx, scanning: Boolean(s.scan), tags: [...s.tags].sort((a, b) => a - b),
-            addressBook: s.book.map((a) => a.mmsi), groups: s.groups.map((a) => a.mmsi), positionStale: positionStale(), circle: null,
+            addressBook: s.book.map((a) => a.mmsi), groups: s.groups.map((a) => a.mmsi), positionStale: positionStale(), circle: current()?.circle ?? null,
             knobMode: s.window === 'sql' ? 'sql' : 'vol', page: s.page, softkeys: softkeys(), locked: s.locked, txPower: s.txPower,
         };
     }
@@ -174,7 +181,7 @@ export function createHx891({ own, clock = () => Date.now(), emit = () => {}, ad
         if (s.scan) stopScan();
         s.channel = channel;
         if (work && channel !== PRIORITY_CHANNEL && channel !== SUB_CHANNEL) s.workChannel = channel;
-        event('channel', { channel, group: s.group, circle: null });
+        event('channel', { channel, group: s.group, circle: channelInfo(s.group, channel)?.circle ?? null });
     }
 
     function squelchState() {
@@ -257,6 +264,10 @@ export function createHx891({ own, clock = () => Date.now(), emit = () => {}, ad
         switch (label) {
             case 'DUAL WATCH':
             case 'TRIPLE WATCH':
+                if (s.group === 'ATIS') {
+                    event('watch_blocked', { group: s.group });
+                    break;
+                }
                 if (s.watch !== 'off') {
                     s.watch = 'off';
                     event('watch', { mode: 'off' });
@@ -277,7 +288,8 @@ export function createHx891({ own, clock = () => Date.now(), emit = () => {}, ad
                 break;
             }
             case 'SCAN':
-                if (s.scan) stopScan();
+                if (s.group === 'ATIS') event('watch_blocked', { group: s.group, scan: true });
+                else if (s.scan) stopScan();
                 else startScan();
                 break;
             case 'BACK':
@@ -349,6 +361,20 @@ export function createHx891({ own, clock = () => Date.now(), emit = () => {}, ad
             default:
                 event('softkey_unavailable', { label });
         }
+    }
+
+    // Kanalgruppe wechseln: Seefunk (INTL) bzw. Binnenfunk (ATIS).
+    function setGroup(group) {
+        if (s.scan) stopScan();
+        if (group === 'ATIS' && s.watch !== 'off') {
+            s.watch = 'off';
+            event('watch', { mode: 'off' });
+        }
+        s.group = group;
+        s.special = null;
+        const ch = channelInfo(group, s.channel) ? s.channel : CHANNEL_GROUPS[group][0].number;
+        setChannel(ch);
+        event('group', { group });
     }
 
     function changePower() {
@@ -431,6 +457,10 @@ export function createHx891({ own, clock = () => Date.now(), emit = () => {}, ad
 
         switch (item) {
             case 'DSC CALL':
+                if (s.group === 'ATIS') {
+                    event('dsc_blocked', { group: s.group, key: 'menu' });
+                    break;
+                }
                 openDscCall();
                 break;
             case 'CH':
@@ -479,7 +509,10 @@ export function createHx891({ own, clock = () => Date.now(), emit = () => {}, ad
                 openDscSetup();
                 break;
             case 'CH GROUP':
-                openList('CH GROUP', ['INTL'], () => openChSetup(), openChSetup);
+                openList('CH GROUP', ['INTL', 'ATIS'], (label) => {
+                    setGroup(label === 'ATIS' ? 'ATIS' : 'INT');
+                    openChSetup();
+                }, openChSetup, s.group === 'ATIS' ? 1 : 0);
                 break;
             case 'SCAN TYPE':
                 openList('SCAN TYPE', ['PRIORITY', 'MEMORY'], (label) => {
@@ -1000,6 +1033,13 @@ export function createHx891({ own, clock = () => Date.now(), emit = () => {}, ad
             return;
         }
 
+        // Binnenfunk (ATIS): kein Kanal 16.
+        if (s.group === 'ATIS' && key === 'ch16') {
+            event('ch16_unavailable', { group: s.group, key });
+
+            return;
+        }
+
         switch (key) {
             case 'ch16':
                 if (s.special) {
@@ -1068,6 +1108,11 @@ export function createHx891({ own, clock = () => Date.now(), emit = () => {}, ad
 
             return;
         }
+        if (key === 'ch16' && s.group === 'ATIS') {
+            event('ch16_unavailable', { group: s.group, key });
+
+            return;
+        }
         if (key === 'ch16' && (s.screen === 'normal' || s.screen === 'distressWait')) {
             if (! s.special && s.channel !== 16) s.workChannel = s.channel;
             s.special = 'sub';
@@ -1085,6 +1130,11 @@ export function createHx891({ own, clock = () => Date.now(), emit = () => {}, ad
         keyDown(key) {
             pressed[key] = { t0: clock(), long: false };
             if (key === 'distress' && s.power) {
+                if (s.group === 'ATIS') {
+                    event('dsc_blocked', { group: s.group, key });
+
+                    return;
+                }
                 if (! s.cover) {
                     event('distress_covered');
 
@@ -1133,9 +1183,10 @@ export function createHx891({ own, clock = () => Date.now(), emit = () => {}, ad
             if (! s.tx) return;
             s.tx = false;
             event('tx_end', { channel: s.channel, group: s.group, highPower: effectiveHighPower() });
+            if (s.group === 'ATIS') event('atis_sent', { id: own?.atis ?? null, channel: s.channel, circle: current()?.circle ?? null });
         },
         spoken(text, channel = s.channel) {
-            event('spoken', { text, channel, group: s.group, highPower: effectiveHighPower(), circle: null });
+            event('spoken', { text, channel, group: s.group, highPower: effectiveHighPower(), circle: current()?.circle ?? null });
         },
         tick() {
             const now = clock();
@@ -1175,7 +1226,8 @@ export function createHx891({ own, clock = () => Date.now(), emit = () => {}, ad
             if (s.window && now >= s.windowUntil) s.window = null;
         },
         receive(call) {
-            if (! s.power) return false;
+            // Aus oder im Binnenfunk (ATIS, DSC gesperrt): kein Empfang.
+            if (! s.power || s.group === 'ATIS') return false;
             if (s.scan) stopScan();
             s.received.unshift({ ...call, at: clock() });
             event('dsc_received', { call });
@@ -1237,7 +1289,7 @@ export function createHx891({ own, clock = () => Date.now(), emit = () => {}, ad
                 return { heard, reason };
             };
             if (! s.power) return result(false, 'off');
-            if (voice.group === 'ATIS') return result(false, 'group');
+            if (voice.group && (voice.group === 'ATIS') !== (s.group === 'ATIS')) return result(false, 'group');
             let listening = s.channel === voice.channel;
             if (! listening && s.watch !== 'off' && (voice.channel === PRIORITY_CHANNEL || (s.watch === 'tri' && voice.channel === SUB_CHANNEL))) listening = true;
             if (! listening && s.scan && s.scan.list.includes(voice.channel)) {
@@ -1263,7 +1315,7 @@ export function createHx891({ own, clock = () => Date.now(), emit = () => {}, ad
                 setScreen('normal');
                 event('power', { on: true });
             }
-            for (const key of ['channel', 'position', 'utc', 'watchMode', 'vol', 'sql']) {
+            for (const key of ['group', 'channel', 'position', 'utc', 'watchMode', 'vol', 'sql']) {
                 if (key in start) s[key] = start[key];
             }
             if ('highPower' in start) s.txPower = start.highPower ? 'HI' : 'LO';
@@ -1295,7 +1347,8 @@ export function createHx891({ own, clock = () => Date.now(), emit = () => {}, ad
                 busy: squelchState() === 'noise' || Boolean(s.incoming && ! s.incoming.silenced),
                 tx: s.tx,
                 power: powerLabel(),
-                group: 'INTL',
+                group: GROUP_LABELS[s.group] ?? s.group,
+                atis: s.group === 'ATIS',
                 dup: Boolean(ch?.duplex),
                 tag: s.tags.has(s.channel),
                 mail: s.unread > 0,
@@ -1304,7 +1357,7 @@ export function createHx891({ own, clock = () => Date.now(), emit = () => {}, ad
             },
             mmsi: own?.mmsi ?? null,
             channel: pad(s.channel),
-            priority: s.channel === PRIORITY_CHANNEL,
+            priority: s.channel === PRIORITY_CHANNEL && s.group !== 'ATIS',
             sub: s.special === 'sub',
             channelName: ch?.name ?? '',
             watch: s.watch === 'dual' ? 'DW' : s.watch === 'tri' ? 'TW' : null,
