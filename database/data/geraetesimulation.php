@@ -74,6 +74,8 @@ return [
         ['key' => 'ic-m330', 'name' => 'Icom IC-M330', 'like' => 'ic-m323'],
         // Handfunkgerät mit der DSC-Bedienung des IC-M330; vorerst nur Seefunk.
         ['key' => 'ic-m94de', 'name' => 'Icom IC-M94DE', 'like' => 'ic-m330', 'catalogs' => ['SRC']],
+        // Handfunkgerät DSC Klasse H (mit Positionsabfrage und Testanruf); vorerst nur Seefunk.
+        ['key' => 'hx891bte', 'name' => 'Standard Horizon HX891BT/E', 'catalogs' => ['SRC']],
     ],
 
     'ship' => $ship + ['label' => 'Segelyacht Kormoran', 'atis' => '9211234721'],
@@ -284,6 +286,7 @@ return [
                     'device' => [
                         'ic-m323' => ['text' => 'Sende einen Einzelanruf an Nordsee Radio. Den Kanal bestimmt am IC-M323 die Küstenfunkstelle.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '002119999']],
                         'ic-m330' => ['text' => 'Sende einen Einzelanruf an Nordsee Radio. Den Kanal bestimmt am IC-M330 die Küstenfunkstelle.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '002119999']],
+                        'hx891bte' => ['text' => 'Sende einen Einzelanruf an Nordsee Radio. Den Kanal bestimmt am HX891BT/E die Küstenfunkstelle.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '002119999']],
                         'ic-m503' => ['text' => 'Sende einen Einzelanruf (Routine) an Nordsee Radio. Den Kanal bestimmt am DS-100 die Küstenfunkstelle.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '002119999', 'category' => 'Routine']],
                     ]],
                 $waitForAck + ['goal' => ['type' => 'channel', 'channel' => 26], 'receive' => ['delay_ms' => 4000, 'call' => ['type' => 'individual_ack', 'from' => $nordseeRadio, 'channel' => 26]]],
@@ -317,7 +320,7 @@ return [
         ],
         [
             'key' => 'position-polling',
-            'devices' => ['ic-m505'],
+            'devices' => ['ic-m505', 'hx891bte'],
             'unit' => 'DSC-Routine',
             'title' => 'Positionsabfrage und Polling',
             'intro' => 'Frag per DSC die Position der Möwe ab. Danach prüft Bremen Rescue per Polling, ob du erreichbar bist: Beantworte die Abfrage.',
@@ -331,7 +334,7 @@ return [
 
         [
             'key' => 'testanruf',
-            'devices' => ['ic-m323'],
+            'devices' => ['ic-m323', 'hx891bte'],
             'unit' => 'DSC-Routine',
             'title' => 'Testanruf',
             'intro' => 'Mit einem DSC-Testanruf prüfst du, ob dein DSC-Controller sendet. Die Kategorie des Testanrufs ist fest „Safety“. Testanrufe nur, wenn nötig: Sie belegen Kanal 70.',
@@ -503,10 +506,14 @@ return [
                     'device' => [
                         'ic-m323' => ['text' => 'Kündige die Dringlichkeitsmeldung per DSC an: Anruf an alle mit der Kategorie „Urgency“ (am IC-M323 ist der Einzelanruf fest Routine).', 'goal' => ['type' => 'dsc_sent', 'kind' => 'all_ships', 'category' => 'Urgency']],
                         'ic-m330' => ['text' => 'Kündige die Dringlichkeitsmeldung per DSC an: Anruf an alle mit der Kategorie „Urgency“ (am IC-M330 bietet nur der Anruf an alle die Kategorie Urgency).', 'goal' => ['type' => 'dsc_sent', 'kind' => 'all_ships', 'category' => 'Urgency']],
+                        'hx891bte' => ['text' => 'Kündige die Dringlichkeitsmeldung per DSC an: Anruf an alle mit der Kategorie „Urgency“ und Kanal 16 (am HX891BT/E ist der Einzelanruf fest Routine).', 'goal' => ['type' => 'dsc_sent', 'kind' => 'all_ships', 'category' => 'Urgency']],
                         'ic-m503' => ['text' => 'Sende einen Einzelanruf an Bremen Rescue mit der Kategorie „Urgency“. Den Kanal bestimmt am DS-100 die Küstenfunkstelle.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '002111240', 'category' => 'Urgency']],
                     ]],
                 $waitForAck + ['goal' => ['type' => 'dsc_received', 'call.type' => 'individual_ack'], 'receive' => ['delay_ms' => 3000, 'call' => ['type' => 'individual_ack', 'from' => $bremenRescue]],
-                    'device' => ['ic-m323' => ['text' => 'Das Gerät schaltet nach dem Anruf auf Kanal 16.', 'goal' => ['type' => 'channel', 'channel' => 16], 'receive' => null]]],
+                    'device' => [
+                        'ic-m323' => ['text' => 'Das Gerät schaltet nach dem Anruf auf Kanal 16.', 'goal' => ['type' => 'channel', 'channel' => 16], 'receive' => null],
+                        'hx891bte' => ['text' => 'Das Gerät schaltet nach dem Anruf auf Kanal 16.', 'goal' => ['type' => 'channel', 'channel' => 16], 'receive' => null],
+                    ]],
                 ['text' => 'Sprich die Dringlichkeitsmeldung an Bremen Rescue auf Kanal 16.', 'target' => 'ptt', 'help' => 'PAN PAN (dreimal), Bremen Rescue Radio (dreimal), this is Kormoran (dreimal), DH4721, MMSI 211472100, my position … at 1330 UTC, one crew member with high fever and severe abdominal pain, I require medical advice, 2 persons on board, over.', 'goal' => ['type' => 'spoken', 'channel' => 16], 'speech' => ['scenario' => $ship + ['pos' => $position, 'time' => '1330', 'kind' => 'urgency', 'problem' => 'advice', 'persons' => 2]]],
                 ['text' => 'Hör die Antwort von Bremen Rescue.', 'target' => null, 'help' => 'Nur zuhören.', 'goal' => ['type' => 'voice', 'heard' => true, 'from' => 'BREMEN RESCUE'], 'voice' => ['delay_ms' => 2500, 'from' => 'BREMEN RESCUE', 'channel' => 16, 'text' => 'Kormoran, this is Bremen Rescue Radio. I will connect you with the medical advice service. Stand by on channel one six. Over.']],
             ],
@@ -576,6 +583,7 @@ return [
                     'device' => [
                         'ic-m323' => ['text' => 'Ruf Nordsee Radio per DSC. Den Kanal bestimmt am IC-M323 die Küstenfunkstelle.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '002119999']],
                         'ic-m330' => ['text' => 'Ruf Nordsee Radio per DSC. Den Kanal bestimmt am IC-M330 die Küstenfunkstelle.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '002119999']],
+                        'hx891bte' => ['text' => 'Ruf Nordsee Radio per DSC. Den Kanal bestimmt am HX891BT/E die Küstenfunkstelle.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '002119999']],
                         'ic-m503' => ['text' => 'Ruf Nordsee Radio per DSC (Routine). Den Kanal bestimmt am DS-100 die Küstenfunkstelle.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'individual', 'address.mmsi' => '002119999', 'category' => 'Routine']],
                     ]],
                 $waitForAck + ['goal' => ['type' => 'channel', 'channel' => 26], 'receive' => ['delay_ms' => 4000, 'call' => ['type' => 'individual_ack', 'from' => $nordseeRadio, 'channel' => 26]]],

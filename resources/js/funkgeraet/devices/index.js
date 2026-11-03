@@ -11,11 +11,14 @@ import { hintM503 } from './icm503-hints.js';
 import { createIcM330, createIcM94DE } from './icm330.js';
 import { hintM330 } from './icm330-hints.js';
 import { hintM94DE } from './icm94de-hints.js';
+import { createHx891 } from './hx891.js';
+import { hintHx891 } from './hx891-hints.js';
 import { renderDevice } from '../ui/device-svg.js';
 import { renderDeviceM323, renderDeviceM423 } from '../ui/device-svg-m323.js';
 import { renderDeviceM503 } from '../ui/device-svg-m503.js';
 import { renderDeviceM330 } from '../ui/device-svg-m330.js';
 import { renderDeviceM94DE } from '../ui/device-svg-m94de.js';
+import { renderDeviceHx891 } from '../ui/device-svg-hx891.js';
 
 // Bedienhilfe je Gerät ("Hilfe zur Bedienung" in der Seitenleiste).
 const LATCH_HELP = 'Mit der Maus geht das so: die erste Taste mit gedrückter Umschalttaste anklicken (sie bleibt gedrückt), dann die zweite Taste.';
@@ -42,6 +45,13 @@ const CONTROLS = {
     ],
 };
 CONTROLS['ic-m423'] = CONTROLS['ic-m323'];
+CONTROLS.hx891bte = [
+    'Linke Seite: Ein/Aus 1 Sekunde halten, darunter die Sprechtaste (PTT) und SQL (drücken, dann CH▲/CH▼; 3 Sekunden halten = Monitor).',
+    'CH▲/CH▼ wählen den Kanal, VOL+/VOL− die Lautstärke. 16/S kurz = Kanal 16 (erneut drücken: zurück), 1 Sekunde = Zweitkanal 09.',
+    'Drei Softkeys auf Seiten: mit ◀/▶ blättern (Seite 1 DUAL WATCH, Seite 2 TX PWR und SCAN MEMORY, Seite 3 SCAN …).',
+    'MENU/SET öffnet das Menü (DSC CALL, MMSI/POS INFO …), 1 Sekunde gehalten SETUP; CH▲/CH▼ wählen, Softkey SELECT weiter, BACK zurück, CLR zum Funkbetrieb. Ein Alarm verstummt mit einer beliebigen Taste. 🔑 1 Sekunde = Tastensperre.',
+    'DISTRESS sitzt an der Seite unter der roten Klappe (Ansicht rechts): Klappe öffnen, DISTRESS 3 Sekunden halten.',
+];
 CONTROLS['ic-m94de'] = [
     'Ein/Aus-Taste links am Gerät 1 Sekunde halten. Die Sprechtaste (PTT) sitzt links darüber.',
     'VOL/SQL einmal drücken = Lautstärke, zweimal = Rauschsperre; mit ▲▼◀▶ einstellen, ENT übernimmt. VOL/SQL 1 Sekunde halten = Monitor.',
@@ -65,10 +75,13 @@ export const DEVICES = {
     'ic-m330': { key: 'ic-m330', name: 'Icom IC-M330', like: 'ic-m323', create: createIcM330, render: renderDeviceM330, hint: hintM330, wheel: { key: 'knob', knob: 'dial' }, controls: CONTROLS['ic-m330'] },
     // Handfunkgerät mit der DSC-Bedienung des IC-M330; vorerst nur Seefunk.
     // texts: Angaben in Lektionstexten, die für dieses Gerät anders lauten.
+    // Handfunkgerät eines anderen Herstellers (DSC Klasse H, mit
+    // Positionsabfrage und Testanruf); vorerst nur Seefunk.
+    hx891bte: { key: 'hx891bte', name: 'Standard Horizon HX891BT/E', catalogs: ['SRC'], create: createHx891, render: renderDeviceHx891, hint: hintHx891, wheel: { key: null, knob: null }, controls: CONTROLS.hx891bte, pttWhere: 'links am Gerät', texts: [['25 W', '6 W'], ['25W', 'HI']] },
     'ic-m94de': { key: 'ic-m94de', name: 'Icom IC-M94DE', like: 'ic-m330', catalogs: ['SRC'], create: createIcM94DE, render: renderDeviceM94DE, hint: hintM94DE, wheel: { key: null, knob: null }, controls: CONTROLS['ic-m94de'], pttWhere: 'links am Gerät', texts: [['25 W', '6 W'], ['25W', 'HI']] },
 };
 
-const shortName = (deviceKey) => DEVICES[deviceKey].name.replace(/^Icom /, '');
+const shortName = (deviceKey) => DEVICES[deviceKey].name.replace(/^(Icom|Standard Horizon) /, '');
 
 // Das Gerät und seine Vorbilder ("like", auch über mehrere Stufen), z. B.
 // ic-m94de → ic-m330 → ic-m323.
