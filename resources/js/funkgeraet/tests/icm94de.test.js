@@ -72,12 +72,13 @@ test('IC-M94DE: Seefunk and Binnenfunk, lessons and exam rules of the IC-M330 an
     assert.equal(lessonAvailable(lesson('position-polling'), 'ic-m94de'), false);
     const b = { lessons: data.exams.b, substitutes: data.exam_meta.b.substitutes };
     assert.ok(examLessons(b, 'ic-m94de').includes('testanruf'));
-    // Texte des IC-M330 nennen das IC-M94DE, die Sendeleistung lautet 6 W.
+    // Texte des IC-M330 nennen das IC-M94DE; die Lektionen bleiben bei „25 W“
+    // (Prüfung an der Feststation), die Hilfe nennt HI am Handfunkgerät.
     const coast = prepareLesson(lesson('kuestenfunkstelle'), 'ic-m94de').steps[0];
     assert.match(coast.text, /IC-M94DE/);
     const power = prepareLesson(lesson('sendeleistung'), 'ic-m94de');
-    assert.match(power.title, /6 W/);
-    assert.doesNotMatch(JSON.stringify(power.steps.map((s) => [s.text, s.help])), /25 ?W/);
+    assert.match(power.title, /25 W/);
+    assert.match(power.steps[3].help, /HI .*„25 W“/);
 });
 
 test('IC-M94DE lessons get help and targets that exist on the radio', () => {
@@ -89,7 +90,7 @@ test('IC-M94DE lessons get help and targets that exist on the radio', () => {
             const ok = step.target === null || (step.target.startsWith('sk:') ? labels.has(step.target.slice(3)) : valid.has(step.target));
             assert.ok(ok, `${original.key} Schritt ${i}: Ziel ${step.target}`);
             assert.ok(step.help, `${original.key} Schritt ${i}: keine Hilfe`);
-            if (! step.speech) assert.doesNotMatch(step.help, /Drehknopf|\bDIAL\b|H\/L gedrückt|DSC Calls|am Hörer|25 ?W|Softkey DISTRESS|„Radio Settings“|„DSC Settings“/, `${original.key} Schritt ${i}: Hilfe eines anderen Geräts`);
+            if (! step.speech) assert.doesNotMatch(step.help, /Drehknopf|\bDIAL\b|H\/L gedrückt|DSC Calls|am Hörer|Softkey DISTRESS|„Radio Settings“|„DSC Settings“/, `${original.key} Schritt ${i}: Hilfe eines anderen Geräts`);
         }
     }
 });

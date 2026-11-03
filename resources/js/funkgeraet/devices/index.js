@@ -74,12 +74,13 @@ export const DEVICES = {
     // Abfragen, dafür Testanruf); Bedienung über Softkey-Seiten und das
     // Formular OTHER DSC.
     'ic-m330': { key: 'ic-m330', name: 'Icom IC-M330', like: 'ic-m323', create: createIcM330, render: renderDeviceM330, hint: hintM330, wheel: { key: 'knob', knob: 'dial' }, controls: CONTROLS['ic-m330'] },
-    // Handfunkgerät mit der DSC- und ATIS-Bedienung des IC-M330.
-    // texts: Angaben in Lektionstexten, die für dieses Gerät anders lauten.
+    // handheld: Handfunkgerät (Hinweis zur Prüfung an der Feststation;
+    // Lektionstexte bleiben bei „25 W“, am Gerät heißt das HI).
     // Handfunkgerät eines anderen Herstellers (DSC Klasse H, mit
     // Positionsabfrage und Testanruf; Binnenfunk über CH GROUP ATIS).
-    hx891bte: { key: 'hx891bte', name: 'Standard Horizon HX891BT/E', create: createHx891, render: renderDeviceHx891, hint: hintHx891, wheel: { key: null, knob: null }, controls: CONTROLS.hx891bte, pttWhere: 'links am Gerät', texts: [['25 W', '6 W'], ['25W', 'HI']] },
-    'ic-m94de': { key: 'ic-m94de', name: 'Icom IC-M94DE', like: 'ic-m330', create: createIcM94DE, render: renderDeviceM94DE, hint: hintM94DE, wheel: { key: null, knob: null }, controls: CONTROLS['ic-m94de'], pttWhere: 'links am Gerät', texts: [['25 W', '6 W'], ['25W', 'HI']] },
+    hx891bte: { key: 'hx891bte', name: 'Standard Horizon HX891BT/E', create: createHx891, render: renderDeviceHx891, hint: hintHx891, wheel: { key: null, knob: null }, controls: CONTROLS.hx891bte, pttWhere: 'links am Gerät', handheld: true },
+    // Handfunkgerät mit der DSC- und ATIS-Bedienung des IC-M330.
+    'ic-m94de': { key: 'ic-m94de', name: 'Icom IC-M94DE', like: 'ic-m330', create: createIcM94DE, render: renderDeviceM94DE, hint: hintM94DE, wheel: { key: null, knob: null }, controls: CONTROLS['ic-m94de'], pttWhere: 'links am Gerät', handheld: true },
 };
 
 const shortName = (deviceKey) => DEVICES[deviceKey].name.replace(/^(Icom|Standard Horizon) /, '');

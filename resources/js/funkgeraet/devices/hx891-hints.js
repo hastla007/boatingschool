@@ -42,7 +42,7 @@ export function hintHx891(step) {
         case 'power_level_blocked':
             return h(`${page('TX PWR')}. Auf diesem Kanal bleibt es bei LO (1 W).`, 'sk:TX PWR');
         case 'power_level':
-            return h(`${goal.channel ? `Zuerst mit CH▲/CH▼ Kanal ${two(goal.channel)} wählen. ` : ''}${page('TX PWR')}, bis ${goal.high ? 'HI (6 W)' : 'MD (2 W) oder LO (1 W)'} oben im Display steht.`, 'sk:TX PWR');
+            return h(`${goal.channel ? `Zuerst mit CH▲/CH▼ Kanal ${two(goal.channel)} wählen. ` : ''}${page('TX PWR')}, bis ${goal.high ? 'HI' : 'MD (2 W) oder LO (1 W)'} oben im Display steht.${goal.high ? ' HI steht hier für die volle Leistung, die in der Prüfung an der Feststation „25 W“ heißt.' : ''}`, 'sk:TX PWR');
         case 'screen':
             return goal.screen === 'menu' ? h('MENU/SET kurz drücken.', 'menu') : h(step.help, null);
         case 'mmsi_checked':

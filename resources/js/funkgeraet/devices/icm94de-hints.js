@@ -41,7 +41,7 @@ export function hintM94DE(step) {
         case 'power_level_blocked':
             return h(`${page('HI/LO')}. Auf diesem Kanal bleibt es bei LO (1 W).`, 'sk:HI/LO');
         case 'power_level':
-            return h(`${goal.channel ? `Zuerst mit ▲/▼ Kanal ${two(goal.channel)} wählen. ` : ''}${page('HI/LO')}, bis ${goal.high ? 'HI (6 W)' : 'LO (1 W)'} im Display steht.`, 'sk:HI/LO');
+            return h(`${goal.channel ? `Zuerst mit ▲/▼ Kanal ${two(goal.channel)} wählen. ` : ''}${page('HI/LO')}, bis ${goal.high ? 'HI' : 'LO (1 W)'} im Display steht.${goal.high ? ' HI steht hier für die volle Leistung, die in der Prüfung an der Feststation „25 W“ heißt.' : ''}`, 'sk:HI/LO');
         case 'screen':
             return goal.screen === 'menu' ? h('MENU drücken.', 'menu') : h(step.help, null);
         case 'mmsi_checked':

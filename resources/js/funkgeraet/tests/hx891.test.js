@@ -69,7 +69,9 @@ test('HX891BT/E: Seefunk and Binnenfunk, position request and test call availabl
     const b = { lessons: data.exams.b, substitutes: data.exam_meta.b.substitutes };
     assert.deepEqual(examLessons(b, 'hx891bte'), data.exams.b);
     assert.match(prepareLesson(lesson('kuestenfunkstelle'), 'hx891bte').steps[0].text, /HX891BT\/E/);
-    assert.match(prepareLesson(lesson('sendeleistung'), 'hx891bte').title, /6 W/);
+    const power = prepareLesson(lesson('sendeleistung'), 'hx891bte');
+    assert.match(power.title, /25 W/);
+    assert.match(power.steps[3].help, /HI .*„25 W“/);
 });
 
 test('HX891BT/E lessons get help and targets that exist on the radio', () => {
@@ -82,7 +84,7 @@ test('HX891BT/E lessons get help and targets that exist on the radio', () => {
             const ok = step.target === null || (step.target.startsWith('sk:') ? labels.has(step.target.slice(3)) : valid.has(step.target));
             assert.ok(ok, `${original.key} Schritt ${i}: Ziel ${step.target}`);
             assert.ok(step.help, `${original.key} Schritt ${i}: keine Hilfe`);
-            if (! step.speech) assert.doesNotMatch(step.help, /Drehknopf|\bDIAL\b|H\/L|ENTER|\bENT\b|16\/C|25 ?W|Softkey DISTRESS|OTHER DSC|„Individual Call“/, `${original.key} Schritt ${i}: Hilfe eines anderen Geräts`);
+            if (! step.speech) assert.doesNotMatch(step.help, /Drehknopf|\bDIAL\b|H\/L|ENTER|\bENT\b|16\/C|Softkey DISTRESS|OTHER DSC|„Individual Call“/, `${original.key} Schritt ${i}: Hilfe eines anderen Geräts`);
         }
     }
 });

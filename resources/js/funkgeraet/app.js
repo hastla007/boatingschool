@@ -154,10 +154,29 @@ export function mount(root, config) {
     const pill = (active) => `inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border ${active ? 'bg-slate-800 text-white border-slate-800 dark:bg-slate-200 dark:text-slate-900 dark:border-slate-200' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-700'}`;
     const lessonsButton = h('button', { type: 'button', onclick: () => setLessonsHidden(! lessonsHidden) });
     const fullButton = h('button', { type: 'button', onclick: () => toggleFull() });
+    // Hinweis beim Wechsel auf ein Handfunkgerät: Die Prüfung findet an einer
+    // Feststation statt; Lektionen und Prüfung bleiben bei „25 W“.
+    let handheldNoteClosed = false;
+    const handheldNote = h('div', { class: 'hidden mb-3 p-3 rounded-lg border border-sky-200 bg-sky-50 text-sky-900 dark:border-sky-800 dark:bg-sky-900/30 dark:text-sky-100 text-sm', role: 'note' });
+    function showHandheldNote() {
+        const show = Boolean(DEVICES[deviceKey].handheld) && ! handheldNoteClosed;
+        handheldNote.classList.toggle('hidden', ! show);
+        if (! show) return;
+        handheldNote.replaceChildren(
+            h('div', { class: 'flex items-start gap-2' },
+                h('div', { class: 'flex-1 space-y-1' },
+                    h('p', { class: 'font-semibold' }, `Hinweis: ${DEVICES[deviceKey].name} ist ein Handfunkgerät`),
+                    h('p', {}, 'In der praktischen Prüfung (SRC und UBI) wird an einer Feststation geprüft. Für Not-, Dringlichkeits- und Sicherheitsmeldungen wird dort volle Leistung mit „25 W“ verlangt – auch wenn du am Handfunkgerät übst. Die Lektionen und der Prüfungsmodus bleiben deshalb bei „25 W“; am Handfunkgerät wählst du dafür HI (das Gerät sendet höchstens 6 W).'),
+                    h('p', {}, 'Für die Prüfungsvorbereitung übe besser an einem der fest eingebauten Geräte (IC-M505, IC-M323, IC-M423, IC-M503 + DS-100, IC-M330): Sie entsprechen den Geräten in den meisten Prüfungen.'),
+                ),
+                h('button', { type: 'button', class: 'text-xs underline shrink-0', onclick: () => { handheldNoteClosed = true; showHandheldNote(); } }, 'Ausblenden'),
+            ),
+        );
+    }
     const stepLine = h('p', { class: 'hidden mb-2 px-3 py-2 rounded-lg bg-amber-50 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100 text-sm', 'aria-live': 'polite' });
     const toolbar = h('div', { class: 'flex items-center justify-end gap-2 mb-3' }, lessonsButton, fullButton);
     const grid = h('div', {},
-        h('div', {}, stepLine, deviceBox, pttNote, typeBox, transcript, radioLog),
+        h('div', {}, handheldNote, stepLine, deviceBox, pttNote, typeBox, transcript, radioLog),
         sidebar,
     );
     root.replaceChildren(toolbar, grid);
@@ -784,6 +803,9 @@ export function mount(root, config) {
         if (next === deviceKey || ! DEVICES[next]) return;
         deviceKey = next;
         try { window.localStorage.setItem('geraetesimulation.device', next); } catch { /* egal */ }
+        // Bei jedem Wechsel auf ein Handfunkgerät erscheint der Hinweis wieder.
+        handheldNoteClosed = false;
+        showHandheldNote();
         run = null;
         exam = null;
         free = null;
@@ -867,6 +889,7 @@ export function mount(root, config) {
 
     radio.setup(defaultStart());
     showLayout();
+    showHandheldNote();
     renderSidebar();
     renderLog();
     render();
