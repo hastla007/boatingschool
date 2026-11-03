@@ -9,6 +9,7 @@
 // die Tasten am Gerät und das Display (Hintergrundbeleuchtung).
 
 import { createBacklight, glowFilter } from './backlight.js';
+import { drawHandset } from './handset.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 
@@ -53,7 +54,6 @@ function defs(svg) {
     grad('m505-bezel', [[0, '#2a2c30'], [1, '#18191c']]);
     grad('m505-lcd', [[0, '#f7b24d'], [0.55, '#f29d33'], [1, '#e6892a']]);
     grad('m505-red', [[0, '#d9333d'], [1, '#8e0f16']]);
-    grad('m505-handset', [[0, '#55595f'], [1, '#2e3035']], { x1: 0, x2: 1, y1: 0, y2: 0 });
     radial('m505-knob', [[0, '#55595f'], [0.7, '#2f3136'], [1, '#1c1d21']], { cx: '40%', cy: '35%', r: '65%' });
     radial('m505-cap', [[0, '#4d5056'], [1, '#26282c']], { cx: '40%', cy: '35%', r: '70%' });
     radial('m505-metal', [[0, '#f1f2f4'], [0.6, '#b9bcc2'], [1, '#7b7f86']], { cx: '40%', cy: '35%', r: '70%' });
@@ -104,18 +104,6 @@ export function renderDevice(container) {
     const svg = el('svg', { viewBox: '0 0 1000 560', role: 'group', 'aria-label': 'Funkgerät IC-M505 (Nachbildung)', style: 'width:100%;height:auto;user-select:none;-webkit-user-select:none' });
     container.appendChild(svg);
     defs(svg);
-
-    // Hörer mit Spiralkabel
-    el('path', { d: 'M100 470 C 95 525, 175 540, 215 470', fill: 'none', stroke: '#1d1f22', 'stroke-width': 9, 'stroke-dasharray': '3 2' }, svg);
-    const handset = el('g', {}, svg);
-    el('path', { d: 'M40 150 Q 95 95 150 150 L 165 420 Q 95 480 25 420 Z', fill: 'url(#m505-handset)', stroke: '#141518', 'stroke-width': 3 }, handset);
-    for (let i = 0; i < 6; i++) el('rect', { x: 55, y: 160 + i * 18, width: 85, height: 7, rx: 3.5, fill: '#1a1b1e' }, handset);
-    const ptt = el('g', { 'data-key': 'ptt', tabindex: '0', role: 'button', 'aria-label': 'Sprechtaste (PTT) gedrückt halten', class: 'fg-control', style: 'cursor:pointer' }, svg);
-    el('rect', { x: 14, y: 210, width: 22, height: 80, rx: 8, fill: '#25272b', stroke: '#141518', 'stroke-width': 3 }, ptt);
-    el('text', { x: 6, y: 205, 'font-size': 13, 'font-weight': 700, fill: '#3b3e44', 'font-family': SANS }, svg, 'PTT');
-    key(svg, { id: 'micUp', x: 52, y: 340, w: 40, h: 34, label: '▲', ariaLabel: 'Hörer Kanal auf', size: 15 });
-    key(svg, { id: 'micDown', x: 52, y: 378, w: 40, h: 34, label: '▼', ariaLabel: 'Hörer Kanal ab', size: 15 });
-    key(svg, { id: 'micHiLo', x: 102, y: 358, w: 48, h: 34, label: 'H/L', sub: 'HI/LO', ariaLabel: 'Hörer Sendeleistung HI/LO', size: 15 });
 
     // Gehäuse mit Typenleiste
     el('rect', { x: 205, y: 32, width: 775, height: 498, rx: 34, fill: 'url(#m505-body)', stroke: '#1b1c1f', 'stroke-width': 3 }, svg);
@@ -210,6 +198,9 @@ export function renderDevice(container) {
         el('circle', { cx: mx + Math.sin(a) * 13, cy: my - Math.cos(a) * 13, r: 2.6, fill: '#d6c48a' }, svg);
     }
     el('circle', { cx: mx, cy: my, r: 3, fill: '#d6c48a' }, svg);
+
+    // Hörer vor der linken Gehäusekante
+    drawHandset(svg, { prefix: 'm505', model: 'round', x: 24, y: 34, scale: 1.15, bottom: 560 });
 
     // Hintergrundbeleuchtung: Display und beleuchtete Tasten
     const light = createBacklight();

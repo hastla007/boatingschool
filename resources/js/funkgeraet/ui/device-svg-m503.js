@@ -10,6 +10,7 @@
 // Schnittstelle wie device-svg.js.
 
 import { createBacklight } from './backlight.js';
+import { drawHandset } from './handset.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const KEY_TEXT = '#1c1408';
@@ -59,7 +60,6 @@ function defs(svg) {
     grad('m503-lcd', [[0, '#f7b24d'], [0.55, '#f29d33'], [1, '#e6892a']]);
     grad('m503-red', [[0, '#d9333d'], [1, '#8e0f16']]);
     grad('m503-blue', [[0, '#5d97f0'], [1, '#2e6ad6']]);
-    grad('m503-handset', [[0, '#55595f'], [1, '#2e3035']], { x1: 0, x2: 1, y1: 0, y2: 0 });
     radial('m503-knob', [[0, '#55595f'], [0.7, '#2f3136'], [1, '#1c1d21']]);
     radial('m503-cap', [[0, '#4d5056'], [1, '#26282c']]);
     const shadow = el('filter', { id: 'm503-shadow', x: '-10%', y: '-10%', width: '130%', height: '130%' }, d);
@@ -121,17 +121,6 @@ export function renderDeviceM503(container) {
     const svg = el('svg', { viewBox: '0 0 1300 400', role: 'group', 'aria-label': 'Funkgerät IC-M503 mit DSC-Controller DS-100 (Nachbildung)', style: 'width:100%;height:auto;user-select:none;-webkit-user-select:none' });
     container.appendChild(svg);
     defs(svg);
-
-    // Hörer mit Spiralkabel (links)
-    el('path', { d: 'M70 330 C 70 385, 130 392, 172 360', fill: 'none', stroke: '#1d1f22', 'stroke-width': 7, 'stroke-dasharray': '3 2' }, svg);
-    el('path', { d: 'M30 92 Q 72 50 118 92 L 130 318 Q 74 360 18 318 Z', fill: 'url(#m503-handset)', stroke: '#141518', 'stroke-width': 2.5 }, svg);
-    for (let i = 0; i < 6; i++) el('rect', { x: 44, y: 102 + i * 14, width: 64, height: 5.5, rx: 2.7, fill: '#1a1b1e' }, svg);
-    const ptt = el('g', { 'data-key': 'ptt', tabindex: '0', role: 'button', 'aria-label': 'Sprechtaste (PTT)', class: 'fg-control', style: 'cursor:pointer' }, svg);
-    el('rect', { x: 2, y: 130, width: 28, height: 90, rx: 9, fill: '#25272b', stroke: '#141518', 'stroke-width': 2.5 }, ptt);
-    el('text', { x: 16, y: 123, 'text-anchor': 'middle', 'font-size': 11, 'font-weight': 700, fill: '#3b3e44', 'font-family': SANS }, svg, 'PTT');
-    key(svg, 'micUp', [34, 232], [76, 266], '▲', { ariaLabel: 'Hörer Kanal auf', size: 13 });
-    key(svg, 'micDown', [34, 272], [76, 306], '▼', { ariaLabel: 'Hörer Kanal ab', size: 13 });
-    key(svg, 'micHiLo', [80, 252], [126, 286], 'HI/LO', { ariaLabel: 'HI/LO am Hörer', size: 10.5 });
 
     // --- IC-M503 ---------------------------------------------------------------
     housing(svg, R(30, 75), R(590, 435), 'VHF MARINE      IC-M503', [R(242, 0)[0], R(428, 0)[0]]);
@@ -217,6 +206,9 @@ export function renderDeviceM503(container) {
     el('line', { x1: l1x, y1: l1y, x2: l2x, y2: l1y, stroke: LABEL, 'stroke-width': 1.5 }, svg);
     el('rect', { x: (l1x + l2x) / 2 - 11, y: l1y - 7, width: 22, height: 13, fill: '#3c3f44' }, svg);
     el('text', { x: (l1x + l2x) / 2, y: l1y + 3.5, 'text-anchor': 'middle', 'font-size': 9.5, 'font-weight': 700, fill: LABEL, 'font-family': SANS }, svg, 'TX');
+
+    // Hörer vor der linken Gehäusekante
+    drawHandset(svg, { prefix: 'm503', model: 'round', x: 50, y: 14, scale: 0.88, bottom: 400 });
 
     const light = createBacklight();
     svg.querySelectorAll('[data-lit]').forEach((node) => light.add(node, ...LIT[node.dataset.lit]));

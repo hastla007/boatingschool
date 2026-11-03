@@ -10,6 +10,7 @@
 // Ziel "sk:LABEL" markiert den Softkey mit dieser Beschriftung.
 
 import { createBacklight, glowFilter } from './backlight.js';
+import { drawHandset } from './handset.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const LCD_INK = '#2b1806';
@@ -59,13 +60,10 @@ function defs(svg) {
     grad('m323-slot', [[0, '#5b5e64'], [0.25, '#0f1012'], [1, '#1a1b1e']], { x1: 0, x2: 1, y1: 0, y2: 0 });
     grad('m323-red', [[0, '#e0353f'], [1, '#8e0f16']]);
     grad('m323-blue', [[0, '#4a8fea'], [1, '#1b54b0']]);
-    grad('m323-mickey', [[0, '#a3a5a9'], [0.5, '#8a8c90'], [1, '#6a6c70']]);
     grad('m323-hinge', [[0, '#c4c7cc'], [1, '#5f6268']]);
-    grad('m323-handset', [[0, '#3d4045'], [0.55, '#2a2c30'], [1, '#18191c']], { x1: 0, x2: 1, y1: 0, y2: 0 });
     radial('m323-knob', [[0, '#3f4247'], [0.75, '#1f2023'], [1, '#111214']]);
     radial('m323-cap', [[0, '#383b40'], [1, '#17181b']]);
     radial('m323-gland', [[0, '#3a3c40'], [1, '#121315']]);
-    radial('m323-grill', [[0, '#2c2e32'], [1, '#18191b']]);
     const shadow = el('filter', { id: 'm323-shadow', x: '-15%', y: '-15%', width: '140%', height: '140%' }, d);
     el('feDropShadow', { dx: 0, dy: 1.5, stdDeviation: 1.3, 'flood-color': '#000', 'flood-opacity': 0.6 }, shadow);
     glowFilter(d, 'm323-glow', NS, 1.4);
@@ -99,16 +97,6 @@ function key(svg, light, id, a, b, label, { ariaLabel = null, size = 13, rx = 9,
     return g;
 }
 
-// Taste am Hörer (unbeleuchtet).
-function micKey(svg, id, [x, y, w, h], glyph, ariaLabel, { rx = 8, color = 'url(#m323-key)', ink = '#8c9097', size = 14 } = {}) {
-    const g = el('g', { 'data-key': id, tabindex: '0', role: 'button', 'aria-label': ariaLabel, class: 'fg-control', style: 'cursor:pointer' }, svg);
-    el('rect', { x, y, width: w, height: h, rx, fill: color, stroke: '#0c0d0e', 'stroke-width': 2, filter: 'url(#m323-shadow)' }, g);
-    el('rect', { x: x + 3, y: y + 2, width: w - 6, height: h * 0.35, rx: rx - 3, fill: '#ffffff', 'fill-opacity': 0.07, 'pointer-events': 'none' }, g);
-    if (glyph) el('text', { x: x + w / 2, y: y + h / 2 + size * 0.36, 'text-anchor': 'middle', 'font-size': size, 'font-weight': 700, fill: ink, 'font-family': SANS, 'pointer-events': 'none' }, g, glyph);
-
-    return g;
-}
-
 // Benachbarte gleiche Beschriftungen bilden ein breites Feld.
 function fields(labels) {
     const out = [];
@@ -132,29 +120,6 @@ export function renderDeviceM323(container, { model = 'IC-M323', mic16 = false }
     container.appendChild(svg);
     defs(svg);
     const light = createBacklight();
-
-    // Hörer wie das Original: abgerundet, oben die runde Sprechmuschel mit
-    // Schlitzen, darunter die grauen Tasten ▲/▼ (versetzt) und HI/LO
-    // (IC-M423 zusätzlich 16/C); Sprechtaste an der Seite, Kabel unten.
-    el('path', { d: 'M92 22 C 150 22 162 58 162 118 L 158 348 Q 156 404 92 404 Q 28 404 26 348 L 22 118 C 22 58 34 22 92 22 Z', fill: 'url(#m323-handset)', stroke: '#0c0d0e', 'stroke-width': 3 }, svg);
-    el('path', { d: 'M30 300 L 30 348 Q 32 394 92 394 Q 152 394 154 348 L 154 300', fill: 'none', stroke: '#55585e', 'stroke-opacity': 0.6, 'stroke-width': 2 }, svg);
-    el('circle', { cx: 92, cy: 108, r: 62, fill: '#26282b', stroke: '#0c0d0e', 'stroke-width': 2 }, svg);
-    el('circle', { cx: 92, cy: 108, r: 54, fill: 'url(#m323-grill)', stroke: '#45484d', 'stroke-width': 1.5 }, svg);
-    for (let i = -3; i <= 3; i++) {
-        const dy = i * 13;
-        const half = Math.sqrt(46 * 46 - dy * dy) - 3;
-        el('rect', { x: 92 - half, y: 108 + dy - 4, width: half * 2, height: 8, rx: 4, fill: '#0b0c0d' }, svg);
-        el('line', { x1: 92 - half + 3, y1: 108 + dy + 5, x2: 92 + half - 3, y2: 108 + dy + 5, stroke: '#4f5258', 'stroke-opacity': 0.6, 'stroke-width': 1 }, svg);
-    }
-    const ptt = el('g', { 'data-key': 'ptt', tabindex: '0', role: 'button', 'aria-label': 'Sprechtaste (PTT) gedrückt halten', class: 'fg-control', style: 'cursor:pointer' }, svg);
-    el('rect', { x: 6, y: 140, width: 20, height: 110, rx: 8, fill: '#1d1f22', stroke: '#0c0d0e', 'stroke-width': 3 }, ptt);
-    el('text', { x: 3, y: 133, 'font-size': 12, 'font-weight': 700, fill: '#4a4d53', 'font-family': SANS }, svg, 'PTT');
-    const grey = { color: 'url(#m323-mickey)', ink: '#4a4c50', size: 13 };
-    micKey(svg, 'micUp', [36, 196, 42, 36], '△', 'Kanal auf am Hörer', grey);
-    micKey(svg, 'micDown', [50, 240, 42, 36], '▽', 'Kanal ab am Hörer', grey);
-    el('text', { x: 124, y: 238, 'text-anchor': 'middle', 'font-size': 10, 'font-weight': 700, fill: '#9a9ea6', 'font-family': SANS }, svg, 'HI/LO');
-    micKey(svg, 'micHiLo', [104, 244, 40, 36], '', 'HI/LO am Hörer', grey);
-    if (mic16) micKey(svg, 'mic16', [104, 292, 40, 32], '16/C', '16/C am Hörer', { color: 'url(#m323-blue)', ink: '#ffffff', size: 12 });
 
     // Gehäuse mit unterer Leiste
     const [bx1, by1] = Q(130, 395);
@@ -195,9 +160,9 @@ export function renderDeviceM323(container, { model = 'IC-M323', mic16 = false }
     // Softkeys
     const softkeys = [[397, 467], [478, 547], [560, 630], [641, 711]].map(([a, b], i) => key(svg, light, `soft${i + 1}`, [a, 692], [b, 740], '', { ariaLabel: `Softkey ${i + 1}`, bar: true, rx: 11 }));
 
-    // Kabeldurchführung mit Kabel zum Hörer
+    // Kabeldurchführung mit Kabel
     const [gx, gy] = Q(207, 685);
-    el('path', { d: `M${gx} ${gy} C ${gx - 20} ${gy + 60}, ${gx - 70} ${gy + 118}, 150 422 C 118 424, 94 418, 92 404`, fill: 'none', stroke: '#141517', 'stroke-width': 10, 'stroke-dasharray': '3 2' }, svg);
+    el('path', { d: `M${gx - 26} ${gy + 64} C ${gx - 32} ${gy + 84}, ${gx - 36} ${gy + 104}, ${gx - 38} 432`, fill: 'none', stroke: '#141517', 'stroke-width': 12 }, svg);
     el('path', { d: `M${gx - 16} ${gy + 6} L ${gx - 38} ${gy + 62} L ${gx - 16} ${gy + 68} L ${gx + 8} ${gy + 12} Z`, fill: '#1a1b1e', stroke: '#0b0c0d', 'stroke-width': 1.5 }, svg);
     for (let i = 0; i < 5; i++) el('line', { x1: gx - 16 - i * 4, y1: gy + 18 + i * 9, x2: gx + 4 - i * 4, y2: gy + 24 + i * 9, stroke: '#3a3c41', 'stroke-width': 2 }, svg);
     el('circle', { cx: gx, cy: gy, r: 34, fill: 'url(#m323-gland)', stroke: '#0b0c0d', 'stroke-width': 2 }, svg);
@@ -253,6 +218,9 @@ export function renderDeviceM323(container, { model = 'IC-M323', mic16 = false }
     const cap = el('g', { 'data-key': 'knob', tabindex: '0', role: 'button', 'aria-label': 'Drehknopf drücken (kurz: Lautstärke/Rauschsperre/Kanal, 1 Sekunde: Ein/Aus)', class: 'fg-control', style: 'cursor:pointer' }, svg);
     el('circle', { cx: kx, cy: ky, r: 26, fill: 'url(#m323-cap)', stroke: '#0b0c0d', 'stroke-width': 1.5 }, cap);
     for (const [ox, oy] of [[0, 0], [-7, -4], [7, -4], [-7, 5], [7, 5], [0, -9], [0, 9]]) el('circle', { cx: kx + ox, cy: ky + oy, r: 1.6, fill: '#0b0c0d', 'pointer-events': 'none' }, cap);
+
+    // Hörer vor der linken Gehäusekante
+    drawHandset(svg, { prefix: 'm323', model: 'roundGrey', x: 44, y: 14, scale: 0.9, bottom: 430, mic16 });
 
     const highlight = el('rect', { fill: 'none', stroke: '#e3b505', 'stroke-width': 4, 'stroke-dasharray': '10 6', rx: 14, visibility: 'hidden', 'pointer-events': 'none' }, svg);
 

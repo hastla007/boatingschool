@@ -10,6 +10,7 @@
 // Beschriftung bzw. die Blättertaste zur richtigen Seite.
 
 import { createBacklight, glowFilter } from './backlight.js';
+import { drawHandset } from './handset.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const LCD_INK = '#2b1806';
@@ -58,7 +59,6 @@ function defs(svg) {
     grad('m330-red', [[0, '#e0353f'], [1, '#8e0f16']]);
     grad('m330-blue', [[0, '#4a8fea'], [1, '#1b54b0']]);
     grad('m330-hinge', [[0, '#c4c7cc'], [1, '#5f6268']]);
-    grad('m330-handset', [[0, '#3d4045'], [0.55, '#2a2c30'], [1, '#18191c']], { x1: 0, x2: 1, y1: 0, y2: 0 });
     radial('m330-knob', [[0, '#3f4247'], [0.75, '#1f2023'], [1, '#111214']]);
     radial('m330-cap', [[0, '#383b40'], [1, '#17181b']]);
     radial('m330-gland', [[0, '#3a3c40'], [1, '#121315']]);
@@ -95,16 +95,6 @@ function key(svg, light, id, a, b, label, { ariaLabel = null, size = 13, rx = 9,
     return g;
 }
 
-// Taste am Hörer (unbeleuchtet).
-function micKey(svg, id, [x, y, w, h], glyph, ariaLabel, rx = 8) {
-    const g = el('g', { 'data-key': id, tabindex: '0', role: 'button', 'aria-label': ariaLabel, class: 'fg-control', style: 'cursor:pointer' }, svg);
-    el('rect', { x, y, width: w, height: h, rx, fill: 'url(#m330-key)', stroke: '#0c0d0e', 'stroke-width': 2, filter: 'url(#m330-shadow)' }, g);
-    el('rect', { x: x + 3, y: y + 2, width: w - 6, height: h * 0.35, rx: rx - 3, fill: '#ffffff', 'fill-opacity': 0.07, 'pointer-events': 'none' }, g);
-    if (glyph) el('text', { x: x + w / 2, y: y + h / 2 + 5, 'text-anchor': 'middle', 'font-size': 14, 'font-weight': 700, fill: '#8c9097', 'font-family': SANS, 'pointer-events': 'none' }, g, glyph);
-
-    return g;
-}
-
 // Benachbarte gleiche Beschriftungen bilden ein breites Feld.
 function fields(labels) {
     const out = [];
@@ -122,29 +112,6 @@ export function renderDeviceM330(container) {
     container.appendChild(svg);
     defs(svg);
     const light = createBacklight();
-
-    // Hörer wie das Original: eiförmig, oben breiter, Sprechschlitze im
-    // oberen Teil, darunter HI/LO, die Wippe ▲/▼ und 16/C; Sprechtaste an
-    // der Seite, Kabel unten.
-    const body = 'M92 20 C 148 20 164 64 162 132 L 153 344 Q 149 402 92 402 Q 35 402 31 344 L 22 132 C 20 64 36 20 92 20 Z';
-    el('path', { d: body, fill: 'url(#m330-handset)', stroke: '#0c0d0e', 'stroke-width': 3 }, svg);
-    el('path', { d: 'M92 30 C 140 30 153 70 151 132 L 143 340 Q 139 390 92 390 Q 45 390 41 340 L 33 132 C 31 70 44 30 92 30 Z', fill: 'none', stroke: '#4a4d53', 'stroke-opacity': 0.55, 'stroke-width': 1.5 }, svg);
-    for (let i = 0; i < 6; i++) {
-        const y = 62 + i * 21;
-        el('rect', { x: 50, y, width: 84, height: 10, rx: 5, fill: '#0f1012' }, svg);
-        el('line', { x1: 54, y1: y + 11.5, x2: 130, y2: y + 11.5, stroke: '#4f5258', 'stroke-opacity': 0.7, 'stroke-width': 1.2 }, svg);
-    }
-    const ptt = el('g', { 'data-key': 'ptt', tabindex: '0', role: 'button', 'aria-label': 'Sprechtaste (PTT) gedrückt halten', class: 'fg-control', style: 'cursor:pointer' }, svg);
-    el('rect', { x: 6, y: 130, width: 20, height: 110, rx: 8, fill: '#1d1f22', stroke: '#0c0d0e', 'stroke-width': 3 }, ptt);
-    el('text', { x: 3, y: 123, 'font-size': 12, 'font-weight': 700, fill: '#4a4d53', 'font-family': SANS }, svg, 'PTT');
-    el('text', { x: 53, y: 232, 'text-anchor': 'middle', 'font-size': 10, 'font-weight': 700, fill: '#9a9ea6', 'font-family': SANS }, svg, 'HI/LO');
-    micKey(svg, 'micHiLo', [34, 238, 38, 32], '', 'HI/LO am Hörer');
-    // Wippe ▲/▼ als ovales Bauteil mit zwei Hälften
-    el('rect', { x: 76, y: 226, width: 40, height: 90, rx: 20, fill: '#0c0d0e' }, svg);
-    micKey(svg, 'micUp', [78, 228, 36, 42], '△', 'Kanal auf am Hörer', 17);
-    micKey(svg, 'micDown', [78, 272, 36, 42], '▽', 'Kanal ab am Hörer', 17);
-    el('text', { x: 137, y: 232, 'text-anchor': 'middle', 'font-size': 10, 'font-weight': 700, fill: '#9a9ea6', 'font-family': SANS }, svg, '16/C');
-    micKey(svg, 'mic16', [120, 238, 36, 32], '', '16/C am Hörer');
 
     // Gehäuse
     el('rect', { x: 180, y: 25, width: 808, height: 352, rx: 38, fill: 'url(#m330-frame)', stroke: '#0d0e10', 'stroke-width': 3 }, svg);
@@ -174,9 +141,9 @@ export function renderDeviceM330(container) {
     // Softkeys
     const softkeys = [[385, 480], [503, 598], [620, 715], [735, 832]].map(([a, b], i) => key(svg, light, `soft${i + 1}`, [a, 418], [b, 475], '', { ariaLabel: `Softkey ${i + 1}`, bar: true, rx: 11 }));
 
-    // Kabeldurchführung mit Kabel zum Hörer
+    // Kabeldurchführung mit Kabel
     const [gx, gy] = Q(140, 400);
-    el('path', { d: `M${gx} ${gy} C ${gx - 20} ${gy + 60}, ${gx - 70} ${gy + 112}, 150 406 C 120 408, 98 406, 92 402`, fill: 'none', stroke: '#141517', 'stroke-width': 10, 'stroke-dasharray': '3 2' }, svg);
+    el('path', { d: `M${gx - 24} ${gy + 60} C ${gx - 30} ${gy + 80}, ${gx - 34} ${gy + 100}, ${gx - 36} 412`, fill: 'none', stroke: '#141517', 'stroke-width': 12 }, svg);
     el('path', { d: `M${gx - 14} ${gy + 6} L ${gx - 34} ${gy + 58} L ${gx - 14} ${gy + 64} L ${gx + 8} ${gy + 12} Z`, fill: '#1a1b1e', stroke: '#0b0c0d', 'stroke-width': 1.5 }, svg);
     for (let i = 0; i < 5; i++) el('line', { x1: gx - 14 - i * 4, y1: gy + 16 + i * 9, x2: gx + 4 - i * 4, y2: gy + 22 + i * 9, stroke: '#3a3c41', 'stroke-width': 2 }, svg);
     el('circle', { cx: gx, cy: gy, r: 30, fill: 'url(#m330-gland)', stroke: '#0b0c0d', 'stroke-width': 2 }, svg);
@@ -227,6 +194,9 @@ export function renderDeviceM330(container) {
     const pointer = el('line', { x1: kx, y1: ky - 33, x2: kx, y2: ky - 44, stroke: '#cfd2d7', 'stroke-width': 3, 'stroke-linecap': 'round' }, ring);
     const cap = el('g', { 'data-key': 'knob', tabindex: '0', role: 'button', 'aria-label': 'Drehknopf drücken (1×: Lautstärke, 2×: Rauschsperre, 1 Sekunde: Ein/Aus)', class: 'fg-control', style: 'cursor:pointer' }, svg);
     el('circle', { cx: kx, cy: ky, r: 27, fill: 'url(#m330-cap)', stroke: '#0b0c0d', 'stroke-width': 1.5 }, cap);
+
+    // Hörer vor der linken Gehäusekante
+    drawHandset(svg, { prefix: 'm330', model: 'egg', x: 50, y: 14, scale: 0.86, bottom: 410 });
 
     const highlight = el('rect', { fill: 'none', stroke: '#e3b505', 'stroke-width': 4, 'stroke-dasharray': '10 6', rx: 14, visibility: 'hidden', 'pointer-events': 'none' }, svg);
 
