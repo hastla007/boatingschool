@@ -57,7 +57,7 @@ BODY.roundGrey = BODY.round;
 const BASE = { round: 376, roundGrey: 376, egg: 290 };
 
 // Sprechtaste je Bauform: [Oberkante, Länge] im Raster.
-const PTT = { round: [50, 104], roundGrey: [50, 104], egg: [12, 76] };
+const PTT = { round: [50, 104], roundGrey: [50, 104], egg: [12, 124] };
 
 const LABELS = {
     ptt: 'Sprechtaste (PTT) gedrückt halten',

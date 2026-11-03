@@ -208,7 +208,7 @@ export function renderDeviceM503(container) {
     el('text', { x: (l1x + l2x) / 2, y: l1y + 3.5, 'text-anchor': 'middle', 'font-size': 9.5, 'font-weight': 700, fill: LABEL, 'font-family': SANS }, svg, 'TX');
 
     // Hörer vor der linken Gehäusekante
-    drawHandset(svg, { prefix: 'm503', model: 'round', x: 50, y: 14, scale: 0.88, bottom: 400 });
+    drawHandset(svg, { prefix: 'm503', model: 'round', x: 24, y: 4, scale: 0.96, bottom: 400 });
 
     const light = createBacklight();
     svg.querySelectorAll('[data-lit]').forEach((node) => light.add(node, ...LIT[node.dataset.lit]));

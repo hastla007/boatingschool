@@ -220,7 +220,7 @@ export function renderDeviceM323(container, { model = 'IC-M323', mic16 = false }
     for (const [ox, oy] of [[0, 0], [-7, -4], [7, -4], [-7, 5], [7, 5], [0, -9], [0, 9]]) el('circle', { cx: kx + ox, cy: ky + oy, r: 1.6, fill: '#0b0c0d', 'pointer-events': 'none' }, cap);
 
     // Hörer vor der linken Gehäusekante
-    drawHandset(svg, { prefix: 'm323', model: 'roundGrey', x: 44, y: 14, scale: 0.9, bottom: 430, mic16 });
+    drawHandset(svg, { prefix: 'm323', model: 'roundGrey', x: 24, y: 12, scale: 0.97, bottom: 430, mic16 });
 
     const highlight = el('rect', { fill: 'none', stroke: '#e3b505', 'stroke-width': 4, 'stroke-dasharray': '10 6', rx: 14, visibility: 'hidden', 'pointer-events': 'none' }, svg);
 
