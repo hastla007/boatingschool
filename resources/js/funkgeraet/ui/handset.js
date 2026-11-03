@@ -50,7 +50,7 @@ function defs(svg, p) {
 
 const BODY = {
     round: 'M100 8 C 166 8 192 52 192 110 C 192 160 180 192 172 232 L 160 330 Q 154 374 100 376 Q 46 374 40 330 L 28 232 C 20 192 8 160 8 110 C 8 52 34 8 100 8 Z',
-    egg: 'M42 6 L 158 6 C 190 6 200 40 200 88 C 200 150 172 228 142 266 Q 124 290 100 290 Q 76 290 58 266 C 28 228 0 150 0 88 C 0 40 10 6 42 6 Z',
+    egg: 'M42 6 L 158 6 C 190 6 200 40 200 88 C 200 140 196 180 188 200 C 178 232 160 262 140 276 Q 122 290 100 290 Q 78 290 60 276 C 40 262 22 232 12 200 C 4 180 0 140 0 88 C 0 40 10 6 42 6 Z',
 };
 BODY.roundGrey = BODY.round;
 // Unterkante des Gehäuses je Bauform (dort sitzt der Knickschutz).
@@ -106,7 +106,7 @@ export function drawHandset(svg, { prefix, model, x: ox, y: oy, scale: k, bottom
     // Sprechmuschel bzw. Sprechschlitze
     if (model === 'egg') {
         // Front innerhalb des Gehäuserands
-        el('path', { d: path, transform: `translate(${ox + 12 * k} ${oy + 14 * k}) scale(${k * 0.88})`, fill: '#26282c', stroke: '#0b0c0d', 'stroke-opacity': 0.8, 'stroke-width': 1.5 / k }, svg);
+        el('path', { d: path, transform: `translate(${ox + 8 * k} ${oy + 9 * k}) scale(${k * 0.92})`, fill: '#26282c', stroke: '#0b0c0d', 'stroke-opacity': 0.8, 'stroke-width': 1.5 / k }, svg);
         // Sechs gerade Sprechschlitze mit hellem Rand
         [[56, 37, 172], [75, 37, 174], [94, 38, 174], [113, 38, 173], [132, 40, 171], [151, 48, 160]].forEach(([y, x1, x2]) => {
             rect(x1, y - 3.5, x2 - x1, 7, { rx: 3.5, fill: '#0d0e10' }, svg);
@@ -152,10 +152,10 @@ export function drawHandset(svg, { prefix, model, x: ox, y: oy, scale: k, bottom
     } else {
         // Wie am Original: HI/LO und 16/C auf einer Höhe, dazwischen die
         // hohe Wippe.
-        rocker([84, 180, 36, 74]);
-        text(60, 188, 'HI/LO', 10);
-        key('micHiLo', [42, 194, 36, 32], { rx: 9 });
-        text(148, 188, '16/C', 10);
-        key('mic16', [130, 194, 36, 32], { rx: 9 });
+        rocker([83, 180, 34, 74]);
+        text(57, 188, 'HI/LO', 10);
+        key('micHiLo', [40, 194, 34, 32], { rx: 9 });
+        text(143, 188, '16/C', 10);
+        key('mic16', [126, 194, 34, 32], { rx: 9 });
     }
 }
