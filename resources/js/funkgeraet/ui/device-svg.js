@@ -2,7 +2,7 @@
 // Typenleiste, Lautsprecherschlitze links, orange beleuchtetes Display mit
 // „WATERPROOF“, DISTRESS unter roter Klappe und MENU/CLR/HAIL/IC rechts,
 // POWER/H/L/SCAN/DIAL unten, VOL/SQL-Regler, großer Kanalwahlknopf mit
-// ENTER, 16/C und Mikrofonbuchse; ohne Halterung und ohne Herstellerlogo.
+// ENTER, 16/C und Kabeldurchführung; ohne Halterung und ohne Herstellerlogo.
 // Daneben der Hörer mit Sprechtaste. Jedes Bedienteil trägt data-key bzw.
 // data-knob; die Oberfläche (app.js) hängt die Bedienung daran. Die
 // Anzeige wird live in die Displayfläche geschrieben. Eingeschaltet leuchten
@@ -189,19 +189,14 @@ export function renderDevice(container) {
     const [ex, ey] = P(606, 474);
     el('text', { x: ex, y: ey, 'text-anchor': 'middle', 'font-size': 16, 'font-weight': 700, fill: KEY_TEXT, 'font-family': SANS }, svg, 'ENTER');
 
-    // Mikrofonbuchse mit eingestecktem Hörerkabel (ohne Funktion): Stecker mit
-    // geriffelter Überwurfmutter, Knickschutz mit Rillen, Kabel nach unten.
+    // Kabeldurchführung mit Hörerkabel wie bei den anderen Geräten (ohne
+    // Funktion): Gummitülle, Knickschutz mit Rillen schräg nach unten, Kabel.
     const [mx, my] = P(705, 446);
-    el('path', { d: `M${mx} ${my + 60} C ${mx + 2} ${my + 76}, ${mx + 4} 548, ${mx + 5} 562`, fill: 'none', stroke: '#141517', 'stroke-width': 13 }, svg);
-    el('path', { d: `M${mx - 13} ${my + 14} L ${mx - 10} ${my + 66} L ${mx + 12} ${my + 66} L ${mx + 15} ${my + 14} Z`, fill: '#1a1b1e', stroke: '#0b0c0d', 'stroke-width': 1.5 }, svg);
-    for (let i = 0; i < 5; i++) el('line', { x1: mx - 12, y1: my + 30 + i * 8, x2: mx + 13, y2: my + 30 + i * 8, stroke: '#3a3c41', 'stroke-width': 2 }, svg);
-    el('circle', { cx: mx, cy: my, r: S(38), fill: 'url(#m505-metal)', stroke: '#2b2d31', 'stroke-width': 2 }, svg);
-    el('circle', { cx: mx, cy: my, r: S(27), fill: '#1c1d20', stroke: '#0b0c0d', 'stroke-width': 2 }, svg);
-    for (let i = 0; i < 24; i++) {
-        const a = (i * 15) * Math.PI / 180;
-        el('line', { x1: mx + Math.sin(a) * S(21), y1: my - Math.cos(a) * S(21), x2: mx + Math.sin(a) * S(26), y2: my - Math.cos(a) * S(26), stroke: '#3e4146', 'stroke-width': 2 }, svg);
-    }
-    el('circle', { cx: mx, cy: my, r: S(17), fill: '#26282c', stroke: '#0b0c0d', 'stroke-width': 1.5 }, svg);
+    el('path', { d: `M${mx - 26} ${my + 64} C ${mx - 32} ${my + 84}, ${mx - 36} 545, ${mx - 38} 562`, fill: 'none', stroke: '#141517', 'stroke-width': 13 }, svg);
+    el('path', { d: `M${mx - 15} ${my + 6} L ${mx - 37} ${my + 62} L ${mx - 15} ${my + 68} L ${mx + 9} ${my + 13} Z`, fill: '#1a1b1e', stroke: '#0b0c0d', 'stroke-width': 1.5 }, svg);
+    for (let i = 0; i < 5; i++) el('line', { x1: mx - 15 - i * 4, y1: my + 17 + i * 9.5, x2: mx + 4 - i * 4, y2: my + 23 + i * 9.5, stroke: '#3a3c41', 'stroke-width': 2 }, svg);
+    el('circle', { cx: mx, cy: my, r: S(32), fill: 'url(#m505-knob)', stroke: '#0b0c0d', 'stroke-width': 2 }, svg);
+    el('circle', { cx: mx, cy: my, r: S(21), fill: '#1a1b1e', stroke: '#4a4d52', 'stroke-width': 1.5 }, svg);
 
     // Hörer vor der linken Gehäusekante
     drawHandset(svg, { prefix: 'm505', model: 'round', x: 30, y: 34, scale: 1.15, bottom: 560 });
