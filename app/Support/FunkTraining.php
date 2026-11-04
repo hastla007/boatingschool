@@ -128,28 +128,67 @@ class FunkTraining
      * Rückmeldung für Mitschrift und Übersetzung, keine Bewertung wie in der
      * Prüfung.
      *
+     * Review-Runde 4: Zahlen zählen Ziffer für Ziffer und als Zahlwort
+     * gleich („4718“, „4 7 1 8“, „vier sieben eins acht“), Buchstaben und
+     * Ziffern werden getrennt („59N“ = „59 N“), Bindestrich-Wörter zusammen-
+     * gezogen („Rhein-Kilometer“ = „Rheinkilometer“). Zusätzliche Wörter
+     * senken den Wert: geteilt wird durch die längere der beiden Wortlisten.
+     *
      * @return array{percent: int, missing: list<string>}
      */
     public static function wordMatch(string $original, string $input): array
     {
-        $words = fn (string $text) => array_values(array_filter(explode(' ', trim(FunkPraxis::normalize($text)))));
-        $expected = $words($original);
-        $given = array_count_values($words($input));
+        $expected = self::dictationWords($original);
+        // Für die Anzeige „Fehlt“: dieselben Wörter mit Umlauten statt AE/OE/UE.
+        $display = self::dictationWords($original, forDisplay: true);
+        $givenWords = self::dictationWords($input);
+        $given = array_count_values($givenWords);
         $hits = 0;
         $missing = [];
 
-        foreach ($expected as $word) {
+        foreach ($expected as $i => $word) {
             if (($given[$word] ?? 0) > 0) {
                 $given[$word]--;
                 $hits++;
             } else {
-                $missing[] = $word;
+                $missing[] = $display[$i] ?? $word;
             }
         }
 
         return [
-            'percent' => $expected ? (int) round($hits / count($expected) * 100) : 0,
+            'percent' => $expected ? (int) round($hits / max(count($expected), count($givenWords)) * 100) : 0,
             'missing' => array_values(array_unique($missing)),
         ];
+    }
+
+    /** @return list<string> */
+    private static function dictationWords(string $text, bool $forDisplay = false): array
+    {
+        static $digitWords = null;
+        $digitWords ??= (function () {
+            $map = [];
+            foreach ([
+                ['ZERO', 'NULL'], ['ONE', 'EINS', 'EIN'], ['TWO', 'ZWO', 'ZWEI'], ['THREE', 'DREI'], ['FOUR', 'FOWER', 'VIER'],
+                ['FIVE', 'FIFE', 'FUENF'], ['SIX', 'SECHS'], ['SEVEN', 'SIEBEN'], ['EIGHT', 'ACHT'], ['NINE', 'NINER', 'NEUN'],
+            ] as $digit => $names) {
+                foreach ($names as $name) {
+                    $map[$name] = (string) $digit;
+                }
+            }
+
+            return $map;
+        })();
+
+        // Bindestrich zwischen Buchstaben verbindet ein Wort.
+        $text = preg_replace('/(?<=\p{L})-(?=\p{L})/u', '', $text);
+        $text = $forDisplay
+            ? ' '.trim(preg_replace('/[^\p{L}\p{N}]+/u', ' ', mb_strtoupper($text))).' '
+            : FunkPraxis::normalize($text);
+        // Buchstaben und Ziffern trennen, Zahlen in einzelne Ziffern zerlegen.
+        $text = preg_replace('/(?<=\d)(?=\p{L})|(?<=\p{L})(?=\d)/u', ' ', $text);
+        $text = preg_replace('/(?<=\d)(?=\d)/', ' ', $text);
+        $words = array_values(array_filter(explode(' ', trim($text)), fn ($w) => $w !== ''));
+
+        return $forDisplay ? $words : array_map(fn ($w) => $digitWords[$w] ?? $w, $words);
     }
 }

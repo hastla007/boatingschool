@@ -267,7 +267,15 @@ class VideoQuizController extends Controller
      *
      * @return Collection<int, ContentQuestion>
      */
-    private function resolveQuestions(VideoLesson $lesson, Request $request, Tenant $tenant, User $user, ExamEvaluationService $examEvaluation): Collection
+    /**
+     * Fragen, die das Quiz dieser Lektion gerade wirklich ausspielen kann.
+     * Review-Runde 4: die Lektionsseite entschied bisher anhand ALLER
+     * zugeordneten Fragen zwischen „Zu den Fragen“ und „Abschließen“ -- waren
+     * alle deaktiviert, abgelaufen, ohne veröffentlichte Fassung oder Teil
+     * einer laufenden Prüfung, führte „Zu den Fragen“ auf 404 und die
+     * Lektion ließ sich nie abschließen.
+     */
+    public static function playableQuestions(VideoLesson $lesson, Tenant $tenant, User $user, ExamEvaluationService $examEvaluation): Collection
     {
         // Bug-Review B12 (Folgefehler): eine im Superadmin deaktivierte
         // Frage wurde hier -- im Gegensatz zu Smarttrainer und Prüfung --
@@ -275,10 +283,23 @@ class VideoQuizController extends Controller
         // Bug-Review BB16: dieselbe Lücke bestand für valid_from/valid_to.
         $activeQuestions = ContentQuestion::filterCurrentlyValid($lesson->questions);
 
-        $blockedQuestionIds = $this->runningExamQuestionIds($tenant, $user, $examEvaluation);
+        // Ohne veröffentlichte Fassung lässt sich eine Frage nicht anzeigen
+        // (show() bricht dort mit 404 ab) -- gar nicht erst ausspielen.
+        $published = ContentQuestionRevision::where('editorial_status', 'published')
+            ->whereIn('question_id', $activeQuestions->pluck('id'))->pluck('question_id');
+        $activeQuestions = $activeQuestions->filter(fn ($question) => $published->contains($question->id));
+
+        $blockedQuestionIds = self::runningExamQuestionIds($tenant, $user, $examEvaluation);
         if ($blockedQuestionIds->isNotEmpty()) {
             $activeQuestions = $activeQuestions->reject(fn ($question) => $blockedQuestionIds->contains($question->id));
         }
+
+        return $activeQuestions->values();
+    }
+
+    private function resolveQuestions(VideoLesson $lesson, Request $request, Tenant $tenant, User $user, ExamEvaluationService $examEvaluation): Collection
+    {
+        $activeQuestions = self::playableQuestions($lesson, $tenant, $user, $examEvaluation);
 
         $raw = $request->query('questions');
 
@@ -306,7 +327,7 @@ class VideoQuizController extends Controller
      *
      * @return Collection<int, string>
      */
-    private function runningExamQuestionIds(Tenant $tenant, User $user, ExamEvaluationService $examEvaluation): Collection
+    private static function runningExamQuestionIds(Tenant $tenant, User $user, ExamEvaluationService $examEvaluation): Collection
     {
         return ExamSession::where('tenant_id', $tenant->id)
             ->where('user_id', $user->id)

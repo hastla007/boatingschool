@@ -15,6 +15,13 @@
 // Routine, bei einer Küstenfunkstelle (MMSI 00…) entfällt die Kanalwahl,
 // Individual ACK steht auf Manual, Position-/Polling-/Test-ACK auf Auto,
 // CH Auto SW auf Accept (10 s), ATIS sperrt die DSC-Funktionen.
+//
+// Variante "ic-m94de": Handfunkgerät Icom IC-M94DE (deutsche Version) mit
+// derselben DSC-Bedienung (Compose Distress, Compose Other, Empfang), aber
+// drei Softkeys auf sechs Seiten (DTRS/OTHER DSC/UNREAD …), Ein/Aus-Taste
+// (1 s), VOL/SQL-Taste (1× Lautstärke, 2× Rauschsperre, Einstellen mit
+// ▲▼◄►, 1 s Monitor), Tastensperre (CLR 1 s), Menü mit „Settings“
+// (Radio, DSC) und Sendeleistung HI/LO (6 W/1 W). Keine Hörertasten.
 
 import { CHANNEL_GROUPS, channelInfo, stepChannel, stepIntership } from '../channels.js';
 import { NATURES } from './icm505.js';
@@ -26,6 +33,38 @@ export const DEVICE_M330 = {
     name: 'Icom IC-M330',
     keys: ['distressCover', 'distress', 'up', 'down', 'left', 'right', 'enter', 'menu', 'clr', 'ch16', 'knob', 'soft1', 'soft2', 'soft3', 'soft4', 'micUp', 'micDown', 'micHiLo', 'mic16'],
     knobs: ['dial'],
+};
+
+export const DEVICE_M94DE = {
+    key: 'ic-m94de',
+    name: 'Icom IC-M94DE',
+    keys: ['distressCover', 'distress', 'up', 'down', 'left', 'right', 'enter', 'menu', 'clr', 'ch16', 'power', 'volsql', 'soft1', 'soft2', 'soft3'],
+    knobs: [],
+};
+
+// Softkey-Seiten des IC-M94DE nach der Anleitung (S. 6).
+export const PAGES_M94DE = [
+    ['DTRS', 'OTHER DSC', 'UNREAD'],
+    ['SCAN', 'DW', 'CH'],
+    ['HI/LO', 'AIS', 'WPT'],
+    ['NAV', 'MOB', 'AQUA'],
+    ['★', 'NAME', 'BKLT'],
+    ['LOG', '', ''],
+];
+// Beschriftung am IC-M94DE ↔ Funktion in der gemeinsamen Logik.
+const M94_IN = { DTRS: 'DISTRESS', CH: 'CHAN', UNREAD: 'LOG', IGNORE: 'IGN', ACCEPT: 'ACPT' };
+const M94_OUT = { IGN: 'IGNORE', ACPT: 'ACCEPT', DISTRESS: 'DTRS', CHAN: 'CH' };
+// Menü des IC-M94DE (S. 64) und die Namen in der gemeinsamen Logik.
+const MENU_M94 = {
+    main: ['Compose Distress', 'Compose Other', 'Unread List', 'AIS', 'Navigation', 'GPS', 'AquaQuake', 'DSC Log', 'Settings', 'Radio Info'],
+    settings: ['Configuration', 'Radio', 'DSC', 'AIS', 'Navigation'],
+    radio: ['Dual/Tri-Watch', 'Channel Group', 'Call Channel', 'Monitor', 'Favorite CH', 'RT Indicator', 'Channel Display', 'Scan Type', 'Scan Timer'],
+    dsc: ['Position Input', 'Individual ID', 'Group ID', 'Auto ACK', 'CH Auto Switch', 'DSC Switch', 'MOB Auto Set', 'Alarm Status', 'CH 70 SQL Level', 'DST at PW OFF', 'Loop Test'],
+    log: ['Received', 'Transmitted'],
+};
+const MENU_M94_ALIAS = {
+    'Compose Distress': 'Distress', 'Compose Other': 'Other DSC', Radio: 'Radio Settings', DSC: 'DSC Settings', 'Dual/Tri-Watch': 'Dual/Tri-watch',
+    Received: 'Received Call Log', Transmitted: 'Transmitted Call Log',
 };
 
 // Softkey-Seiten der Werksbelegung (deutsche Version, angenommen).
@@ -90,7 +129,19 @@ function formatPosition(pos) {
     return [`${pad(latD)}°${pad(Math.floor(latM))}${ns}`, `${pad(lonD, 3)}°${pad(Math.floor(lonM))}${ew}`];
 }
 
-export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, addressBook = [], directory = [] } = {}) {
+export function createIcM94DE(options = {}) {
+    return createIcM330({ ...options, variant: 'ic-m94de' });
+}
+
+// inland: false sperrt die Kanalgruppe ATIS (Binnenfunk am Handfunkgerät,
+// siehe createHx891); das Gerät meldet dann inland_blocked.
+export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, addressBook = [], directory = [], variant = 'ic-m330', inland = true } = {}) {
+    // Handfunkgerät IC-M94DE: drei Softkeys, Tasten statt Drehknopf.
+    const handheld = variant === 'ic-m94de';
+    const PAGES = handheld ? PAGES_M94DE : PAGES_M330;
+    const menus = handheld
+        ? { main: MENU_M94.main, radio: MENU_M94.radio, dsc: MENU_M94.dsc, log: MENU_M94.log, radioTitle: 'RADIO', dscTitle: 'DSC', logTitle: 'DSC LOG' }
+        : { main: MAIN_MENU, radio: RADIO_SETTINGS, dsc: DSC_SETTINGS, log: DSC_LOG, radioTitle: 'RADIO SETTINGS', dscTitle: 'DSC SETTINGS', logTitle: 'DSC LOG' };
     const s = {
         power: false,
         vol: 0,
@@ -128,6 +179,11 @@ export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, a
         groups: addressBook.filter((a) => a.group).map((a) => ({ ...a })),
         terminateFrom: null,
         onCall: false,
+        // IC-M94DE: Seite der Softkeys in Bildschirmen mit mehr als drei
+        // Funktionen, Tastensperre und Monitor (Rauschsperre offen).
+        subpage: 0,
+        locked: false,
+        monitor: false,
     };
     const pressed = {};
 
@@ -158,6 +214,7 @@ export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, a
         const changed = s.screen !== screen;
         s.screen = screen;
         s.screenSince = clock();
+        if (changed) s.subpage = 0;
         if (changed) event('screen', { screen });
     }
 
@@ -172,7 +229,7 @@ export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, a
 
     function squelchState() {
         if (! s.power) return 'off';
-        if (s.sql <= 0) return 'noise';
+        if (s.sql <= 0 || s.monitor) return 'noise';
         if (s.sql >= 7) return 'tight';
 
         return 'set';
@@ -195,10 +252,28 @@ export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, a
     // --- Softkeys ------------------------------------------------------------
 
     function pageLabels(index) {
-        return PAGES_M330[index].map((label) => (label === 'DW' && s.watchMode === 'tri' ? 'TW' : label));
+        return PAGES[index].map((label) => (label === 'DW' && s.watchMode === 'tri' ? 'TW' : label));
+    }
+
+    // IC-M94DE: Funktionen eines Bildschirms in Seiten zu drei Softkeys
+    // (breite Felder und leere Plätze fallen weg), Beschriftung wie am Gerät.
+    function screenPagesM94() {
+        const labels = [...new Set(softkeys330().filter(Boolean))].map((label) => M94_OUT[label] ?? label);
+        const pages = [];
+        for (let i = 0; i < labels.length; i += 3) pages.push([...labels.slice(i, i + 3), '', ''].slice(0, 3));
+
+        return pages.length ? pages : [['', '', '']];
     }
 
     function softkeys() {
+        if (! handheld) return softkeys330();
+        if (s.screen === 'normal' || s.screen === 'off') return s.screen === 'off' ? ['', '', ''] : pageLabels(s.page);
+        const pages = screenPagesM94();
+
+        return pages[Math.min(s.subpage, pages.length - 1)];
+    }
+
+    function softkeys330() {
         switch (s.screen) {
             case 'off':
             case 'callTx':
@@ -252,13 +327,14 @@ export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, a
             case 'gpsInfo':
                 return ['EXIT', 'BACK', '', ''];
             default:
-                return pageLabels(s.page);
+                return handheld ? ['', '', '', ''] : pageLabels(s.page);
         }
     }
 
     function softkey(index) {
-        const label = softkeys()[index];
-        if (! label) return;
+        const shown = softkeys()[index];
+        if (! shown) return;
+        const label = handheld ? M94_IN[shown] ?? shown : shown;
         event('softkey', { label });
 
         switch (label) {
@@ -418,11 +494,28 @@ export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, a
     }
 
     function openMain() {
-        openMenu('MENU', MAIN_MENU);
+        openMenu('MENU', menus.main);
     }
 
-    function openSub(title, items) {
-        openMenu(title, items, openMain);
+    function openSub(title, items, backFn = openMain) {
+        openMenu(title, items, backFn);
+    }
+
+    // IC-M94DE: Radio und DSC liegen unter „Settings“.
+    function openSettings() {
+        openSub('SETTINGS', MENU_M94.settings);
+    }
+
+    function openRadioSettings() {
+        openSub(menus.radioTitle, menus.radio, handheld ? openSettings : openMain);
+    }
+
+    function openDscSettings() {
+        openSub(menus.dscTitle, menus.dsc, handheld ? openSettings : openMain);
+    }
+
+    function openLogMenu() {
+        openSub(menus.logTitle, menus.log);
     }
 
     function openSelect(title, items, onSelect, backFn, cursor = 0) {
@@ -433,7 +526,7 @@ export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, a
 
     function openIdList(group) {
         const list = group ? s.groups : s.book;
-        openMenu(group ? 'GROUP ID' : 'INDIVIDUAL ID', list.length ? list.map((a) => a.name) : ['No ID'], () => openSub('DSC SETTINGS', DSC_SETTINGS), 'idList', group ? 'groups' : 'book');
+        openMenu(group ? 'GROUP ID' : 'INDIVIDUAL ID', list.length ? list.map((a) => a.name) : ['No ID'], () => openDscSettings(), 'idList', group ? 'groups' : 'book');
     }
 
     function back() {
@@ -478,16 +571,29 @@ export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, a
     }
 
     function chooseMenuItem() {
-        const item = s.menu.items[s.cursor];
+        const shown = s.menu.items[s.cursor];
         if (s.menu.list === 'select') {
-            s.menu.onSelect(item, s.cursor);
+            s.menu.onSelect(shown, s.cursor);
 
             return;
         }
         if (s.menu.list === 'log' || s.menu.list === 'idList') return;
+        const item = handheld ? MENU_M94_ALIAS[shown] ?? shown : shown;
 
+        if (handheld && item === 'Settings') {
+            event('menu', { item });
+            openSettings();
+
+            return;
+        }
+        if (handheld && item === 'Unread List') {
+            event('menu', { item });
+            openMenu('UNREAD LIST', receivedLines(), openMain, 'log');
+
+            return;
+        }
         if (! AVAILABLE.has(item)) {
-            event('menu_unavailable', { item });
+            event('menu_unavailable', { item: shown });
 
             return;
         }
@@ -504,13 +610,13 @@ export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, a
                 setScreen('gpsInfo');
                 break;
             case 'Radio Settings':
-                openSub('RADIO SETTINGS', RADIO_SETTINGS);
+                openRadioSettings();
                 break;
             case 'DSC Settings':
-                openSub('DSC SETTINGS', DSC_SETTINGS);
+                openDscSettings();
                 break;
             case 'DSC Log':
-                openSub('DSC LOG', DSC_LOG);
+                openLogMenu();
                 break;
             case 'Radio Info':
                 setScreen('radioInfo');
@@ -520,19 +626,33 @@ export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, a
                 openSelect('DUAL/TRI-WATCH', ['Dualwatch', 'Tri-watch'], (value) => {
                     s.watchMode = value === 'Tri-watch' ? 'tri' : 'dual';
                     event('set_mode', { item: 'Dual/Tri', value: s.watchMode });
-                    openSub('RADIO SETTINGS', RADIO_SETTINGS);
-                }, () => openSub('RADIO SETTINGS', RADIO_SETTINGS), s.watchMode === 'tri' ? 1 : 0);
+                    openRadioSettings();
+                }, () => openRadioSettings(), s.watchMode === 'tri' ? 1 : 0);
                 break;
             case 'Channel Group':
                 openSelect('CHANNEL GROUP', GROUPS, (group) => {
+                    // Solange der Notalarm auf Bestätigung wartet, bleibt das
+                    // Gerät im Seefunk (DSC und Kanal 16).
+                    if (group === 'ATIS' && ! inland) {
+                        event('inland_blocked', { group });
+                        openRadioSettings();
+
+                        return;
+                    }
+                    if (group !== s.group && s.distress?.waiting) {
+                        event('group_blocked', { group, reason: 'distress' });
+                        openRadioSettings();
+
+                        return;
+                    }
                     const ch = channelInfo(group, s.channel) ? s.channel : CHANNEL_GROUPS[group][0].number;
                     setChannel(ch, { group });
                     event('group', { group });
-                    openSub('RADIO SETTINGS', RADIO_SETTINGS);
-                }, () => openSub('RADIO SETTINGS', RADIO_SETTINGS), GROUPS.indexOf(s.group));
+                    openRadioSettings();
+                }, () => openRadioSettings(), GROUPS.indexOf(s.group));
                 break;
             case 'Position Input':
-                startEditor('lat', () => openSub('DSC SETTINGS', DSC_SETTINGS), 'settings');
+                startEditor('lat', () => openDscSettings(), 'settings');
                 break;
             case 'Individual ID':
                 openIdList(false);
@@ -541,10 +661,10 @@ export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, a
                 openIdList(true);
                 break;
             case 'Received Call Log':
-                openMenu('RCVD CALL LOG', receivedLines(), () => openSub('DSC LOG', DSC_LOG), 'log');
+                openMenu('RCVD CALL LOG', receivedLines(), () => openLogMenu(), 'log');
                 break;
             case 'Transmitted Call Log':
-                openMenu('TX CALL LOG', s.sent.length ? s.sent.slice(0, 8).map((k) => TX_TEXT[k] ?? k) : ['No Call'], () => openSub('DSC LOG', DSC_LOG), 'log');
+                openMenu('TX CALL LOG', s.sent.length ? s.sent.slice(0, 8).map((k) => TX_TEXT[k] ?? k) : ['No Call'], () => openLogMenu(), 'log');
                 break;
         }
     }
@@ -598,7 +718,7 @@ export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, a
     function formRows() {
         const f = s.form;
         const name = f.address ? (f.address.name ?? f.address.mmsi) : '---------';
-        const rows = [{ field: 'type', label: 'Type', value: TYPE_LABELS[f.type] }];
+        const rows = [{ field: 'type', label: handheld ? 'Message Type' : 'Type', value: TYPE_LABELS[f.type] }];
         if (f.type !== 'all_ships') rows.push({ field: 'address', label: 'Address', value: name });
         if (f.type === 'individual_ack') {
             rows.push({ field: 'comply', label: 'Comply', value: f.action === 'unable' ? 'Unable Comply' : 'Able Comply' });
@@ -794,22 +914,29 @@ export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, a
         const text = e.chars.join('');
         const { then, back: backFn } = e;
 
+        // Unmögliche Werte (Breite über 90°, Länge über 180°, Minuten ab 60,
+        // Uhrzeit über 23:59) übernimmt das Gerät nicht.
+        const invalid = (field) => event('input_invalid', { field });
         if (e.kind === 'lat') {
             const m = text.match(/^(\d\d)°(\d\d\.\d{4})([NS])$/);
+            if (! m || Number(m[1]) > 90 || Number(m[2]) >= 60) return invalid('position');
             s.pendingLat = [Number(m[1]), Number(m[2]), m[3]];
             startEditor('lon', backFn, then);
         } else if (e.kind === 'lon') {
             const m = text.match(/^(\d\d\d)°(\d\d\.\d{4})([EW])$/);
+            if (! m || Number(m[1]) > 180 || Number(m[2]) >= 60) return invalid('position');
             s.position = [...s.pendingLat, Number(m[1]), Number(m[2]), m[3]];
             s.positionSetAt = clock();
             event('position_set', { position: s.position });
             startEditor('utc', backFn, then);
         } else if (e.kind === 'utc') {
+            const m = text.match(/^(\d\d):(\d\d)$/);
+            if (! m || Number(m[1]) > 23 || Number(m[2]) > 59) return invalid('utc');
             s.utc = text;
             event('utc_set', { utc: s.utc });
             s.editor = null;
             if (then === 'distress') openDistressMenu();
-            else openSub('DSC SETTINGS', DSC_SETTINGS);
+            else openDscSettings();
         } else if (e.kind === 'indId' || e.kind === 'groupId') {
             if (e.kind === 'indId' && text.startsWith('0') && ! text.startsWith('00')) {
                 event('address_invalid', { mmsi: text, group: true });
@@ -1010,6 +1137,22 @@ export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, a
         s.call.channel = stepIntership(s.call.channel, direction);
     }
 
+    // IC-M94DE: im Lautstärke-/Rauschsperre-Fenster stellen ▲▼◄► ein.
+    function adjustWindow(direction) {
+        s.windowUntil = clock() + WINDOW_MS;
+        if (s.window === 'sql') {
+            s.sql = Math.max(0, Math.min(10, s.sql + direction));
+            event('squelch', { level: s.sql, state: squelchState() });
+        } else {
+            s.vol = Math.max(0, Math.min(20, s.vol + direction * 2));
+            event('volume', { level: s.vol / 2 });
+        }
+    }
+
+    function windowOpen() {
+        return Boolean(s.window && clock() < s.windowUntil);
+    }
+
     function shortPress(key) {
         if (! s.power) return;
 
@@ -1018,6 +1161,40 @@ export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, a
             event('cover', { open: s.cover });
 
             return;
+        }
+        if (handheld) {
+            // Tastensperre: nur Ein/Aus, Sprechtaste, DISTRESS und CLR (1 s).
+            if (s.locked) {
+                event('key_locked', { key });
+
+                return;
+            }
+            if (key === 'volsql') {
+                s.window = windowOpen() && s.window === 'vol' ? 'sql' : 'vol';
+                s.windowUntil = clock() + WINDOW_MS;
+                event('knob_mode', { mode: s.window });
+
+                return;
+            }
+            // Lautstärke/Rauschsperre in jedem Bildschirm, auch beim Warten auf
+            // die Bestätigung des Notalarms (▲/▼ wechseln dann nicht den Kanal).
+            if (windowOpen() && ['up', 'down', 'left', 'right', 'enter', 'clr'].includes(key)) {
+                if (key === 'enter' || key === 'clr') s.window = null;
+                else adjustWindow(key === 'up' || key === 'right' ? 1 : -1);
+
+                return;
+            }
+            // ◄/► blättern in Bildschirmen mit mehr als drei Softkey-Funktionen.
+            if ((key === 'left' || key === 'right') && ! ['normal', 'menu', 'dscForm', 'distressMenu', 'editor', 'channelSelect'].includes(s.screen)) {
+                const pages = screenPagesM94();
+                const next = Math.max(0, Math.min(pages.length - 1, s.subpage + (key === 'right' ? 1 : -1)));
+                if (next !== s.subpage) {
+                    s.subpage = next;
+                    event('softkeys', { labels: softkeys(), page: next });
+                }
+
+                return;
+            }
         }
         if (key.startsWith('soft')) {
             softkey(Number(key.slice(4)) - 1);
@@ -1118,7 +1295,7 @@ export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, a
             case 'left':
             case 'right': {
                 if (s.screen !== 'normal') break;
-                const page = Math.max(0, Math.min(PAGES_M330.length - 1, s.page + (key === 'right' ? 1 : -1)));
+                const page = Math.max(0, Math.min(PAGES.length - 1, s.page + (key === 'right' ? 1 : -1)));
                 if (page !== s.page) {
                     s.page = page;
                     event('softkeys', { labels: softkeys(), page });
@@ -1131,9 +1308,9 @@ export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, a
     }
 
     function longPress(key) {
-        if (key === 'knob') {
+        if (key === 'knob' || (handheld && key === 'power')) {
             if (s.power) {
-                Object.assign(s, { power: false, tx: false, menu: null, editor: null, form: null, call: null, incoming: null, cover: false, scan: null, watch: 'off', window: null, distress: null });
+                Object.assign(s, { power: false, tx: false, menu: null, editor: null, form: null, call: null, incoming: null, cover: false, scan: null, watch: 'off', window: null, distress: null, monitor: false, locked: false });
                 // Manuelle Position und Zeit gehen beim Ausschalten verloren.
                 Object.assign(s, { position: null, utc: null, positionSetAt: null });
                 setScreen('off');
@@ -1148,6 +1325,19 @@ export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, a
             return;
         }
         if (! s.power) return;
+        if (handheld && key === 'clr') {
+            s.locked = ! s.locked;
+            event('key_lock', { on: s.locked });
+
+            return;
+        }
+        if (handheld && s.locked) return;
+        if (handheld && key === 'volsql') {
+            s.monitor = true;
+            event('monitor', { on: true });
+
+            return;
+        }
         if ((key === 'ch16' || key === 'mic16') && s.screen === 'normal') {
             if (s.channel !== 16 && s.channel !== s.callChannel[s.group]) s.workChannel = s.channel;
             setChannel(s.callChannel[s.group], { work: false });
@@ -1192,7 +1382,14 @@ export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, a
 
                 return;
             }
-            if (p.long) return;
+            if (p.long) {
+                if (key === 'volsql' && s.monitor) {
+                    s.monitor = false;
+                    event('monitor', { on: false });
+                }
+
+                return;
+            }
             shortPress(key);
         },
         turn(knob, steps) {
@@ -1247,7 +1444,7 @@ export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, a
             const now = clock();
             for (const [key, p] of Object.entries(pressed)) {
                 if (key === 'distress' || p.long) continue;
-                if (now - p.t0 >= LONG && (key === 'knob' || key === 'ch16' || key === 'mic16')) {
+                if (now - p.t0 >= LONG && (key === 'knob' || key === 'ch16' || key === 'mic16' || (handheld && ['power', 'clr', 'volsql'].includes(key)))) {
                     p.long = true;
                     longPress(key);
                 }
@@ -1354,6 +1551,7 @@ export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, a
             for (const key of ['group', 'channel', 'highPower', 'position', 'utc', 'watchMode']) {
                 if (key in start) s[key] = start[key];
             }
+            if (! inland && s.group === 'ATIS') Object.assign(s, { group: 'INT', channel: 16 });
             // 20 Lautstärkestufen; die Lektionen nennen die Stufen des
             // IC-M505 (0–10).
             if ('vol' in start) s.vol = start.vol * 2;
@@ -1375,7 +1573,7 @@ export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, a
     // --- Display -------------------------------------------------------------------------
 
     function renderDisplay() {
-        if (! s.power) return { on: false, softkeys: ['', '', '', ''] };
+        if (! s.power) return { on: false, softkeys: handheld ? ['', '', ''] : ['', '', '', ''] };
         const ch = current();
         const stale = positionStale() ? '??' : '';
         const pos = formatPosition(s.position)?.map((l) => stale + l) ?? ['NO POSITION'];
@@ -1386,7 +1584,8 @@ export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, a
             status: {
                 busy: squelchState() === 'noise' || Boolean(s.incoming && ! s.incoming.silenced),
                 tx: s.tx,
-                power: effectiveHighPower() ? '25W' : '1W',
+                power: handheld ? (effectiveHighPower() ? 'HI' : 'LO') : effectiveHighPower() ? '25W' : '1W',
+                monitor: s.monitor,
                 group: s.group,
                 dup: Boolean(ch?.duplex),
                 call: Boolean(s.onCall),
@@ -1395,18 +1594,22 @@ export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, a
                 mail: s.received.length > 0,
             },
             mode: 'STBY',
+            mmsi: own?.mmsi ?? null,
             channel: pad(s.channel),
             channelName: ch?.name ?? '',
             watch: s.scan ? 'SCAN' : s.watch === 'dual' ? 'DW 16' : s.watch === 'tri' ? 'TW 16' : null,
             lines: [...pos, time],
             softkeys: softkeys(),
             // Seitenmarken ◂ ▸ nur in der Softkey-Leiste des Betriebsbildschirms.
-            pages: normalScreen ? { current: s.page, count: PAGES_M330.length, labels: PAGES_M330.map((_, i) => pageLabels(i)) } : null,
+            pages: normalScreen
+                ? { current: s.page, count: PAGES.length, labels: PAGES.map((_, i) => pageLabels(i)) }
+                : handheld && screenPagesM94().length > 1 ? { current: s.subpage, count: screenPagesM94().length, labels: screenPagesM94() } : null,
+            locked: s.locked,
             panel: null,
             window: null,
             alarm: false,
         };
-        if (normalScreen && s.window && clock() < s.windowUntil) {
+        if ((normalScreen || handheld) && s.window && clock() < s.windowUntil) {
             base.window = s.window === 'sql' ? { label: 'SQL:', value: String(s.sql), level: s.sql / 10 } : { label: 'Volume:', value: String(s.vol), level: s.vol / 20 };
         }
         const panel = (title, lines = [], extra = {}) => ({ ...base, panel: { title, lines, ...extra } });
@@ -1416,7 +1619,7 @@ export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, a
             const sec = Math.max(0, Math.floor((clock() - t0) / 1000));
             return `Elapsed: ${pad(Math.floor(sec / 3600))}:${pad(Math.floor(sec / 60) % 60)}:${pad(sec % 60)}`;
         };
-        const watt = `${effectiveHighPower() ? '25W' : '1W'}   ${pad(s.channel)}`;
+        const watt = `${handheld ? (effectiveHighPower() ? 'HI' : 'LO') : effectiveHighPower() ? '25W' : '1W'}   ${pad(s.channel)}`;
 
         switch (s.screen) {
             case 'menu':
@@ -1426,10 +1629,10 @@ export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, a
                 return panel(e.title, [e.label], { editor: { chars: e.chars, cursor: e.editable[e.pos], row: e.row, sel: e.sel } });
             }
             case 'dscForm': {
-                return panel('OTHER DSC', [], { items: formRows().map((r) => `${r.label}: ${r.value} ▸`), cursor: s.cursor });
+                return panel(handheld ? 'COMPOSE OTHER' : 'OTHER DSC', [], { items: formRows().map((r) => `${r.label}: ${r.value} ▸`), cursor: s.cursor });
             }
             case 'distressMenu':
-                return panel('DISTRESS', [], { note: 'Push [DISTRESS] for 3 sec', items: distressItems().map((i) => `${i} ▸`), cursor: s.cursor });
+                return panel(handheld ? 'COMPOSE DISTRESS' : 'DISTRESS', [], { note: 'Push [DISTRESS] for 3 sec', items: distressItems().map((i) => `${i} ▸`), cursor: s.cursor });
             case 'channelSelect':
                 return panel('CHANNEL', [`${c.channelLabel}:`, `▲▼  ${pad(c.channel)}`]);
             case 'radioInfo':

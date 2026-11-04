@@ -5,7 +5,7 @@
 // Regeln wie die Praxis-Prüfungssimulation. Gegenstationen sprechen mit der
 // Sprachausgabe des Browsers, bis Sprecheraufnahmen vorliegen.
 
-import { DEVICES, examLessons, lessonAvailable, prepareLesson } from './devices/index.js';
+import { DEVICES, deviceCatalogs, deviceText, examLessons, lessonAvailable, prepareLesson } from './devices/index.js';
 import { createLessonRun, EXAM_ATTEMPTS, missLabel } from './lessons.js';
 import { createFreePractice, FREE_EVENTS } from './free-practice.js';
 
@@ -21,6 +21,38 @@ const MISSED = {
 const START = { power: true, vol: 5, sql: 3, channel: 16, position: [54, 10.0, 'N', 7, 52.0, 'E'], utc: '12:30' };
 const START_INLAND = { power: true, vol: 5, sql: 3, group: 'ATIS', channel: 10, highPower: false };
 const SERVICES = { SRC: 'Seefunk', UBI: 'Binnenfunk' };
+
+// Darstellung, die Tailwind-Klassen nicht abdecken: Vollbild (echt über die
+// Fullscreen-API oder ersatzweise als fester Rahmen), Gerät an die
+// Fensterhöhe angepasst, blinkende Displayzeilen.
+const STYLE = `
+.fg-root:fullscreen, .fg-root.fg-pseudo-full { background: #f1f5f9; overflow-y: auto; padding: 1rem 1.25rem; }
+.fg-root.fg-pseudo-full { position: fixed; inset: 0; z-index: 60; }
+@media (prefers-color-scheme: dark) { .fg-root:fullscreen, .fg-root.fg-pseudo-full { background: #0f172a; } }
+.fg-root:fullscreen .fg-device svg, .fg-root.fg-pseudo-full .fg-device svg { max-height: calc(100vh - 9rem); }
+.fg-root.fg-wide .fg-device svg { max-height: calc(100vh - 11rem); }
+.fg-root:fullscreen .fg-device, .fg-root.fg-pseudo-full .fg-device { min-height: calc(100vh - 12rem); display: flex; align-items: center; justify-content: center; }
+.fg-root:fullscreen .fg-sidebar, .fg-root.fg-pseudo-full .fg-sidebar { max-height: calc(100vh - 5.5rem); overflow-y: auto; }
+@keyframes fg-blink { 50% { opacity: 0.25; } }
+.fg-blink { animation: fg-blink 1s steps(1) infinite; }
+.fg-locked svg { filter: grayscale(1); opacity: 0.35; }
+`;
+
+function addStyle() {
+    if (document.getElementById('fg-style')) return;
+    const style = document.createElement('style');
+    style.id = 'fg-style';
+    style.textContent = STYLE;
+    document.head.appendChild(style);
+}
+
+// Merken, ob die Lektionen ausgeblendet sind (nur Komfort, darf fehlen).
+function readPref(key, fallback) {
+    try { return window.localStorage.getItem(key) ?? fallback; } catch { return fallback; }
+}
+function writePref(key, value) {
+    try { window.localStorage.setItem(key, value); } catch { /* egal */ }
+}
 
 function h(tag, attrs = {}, ...children) {
     const node = document.createElement(tag);
@@ -53,8 +85,14 @@ const button = (label, onclick, extra = '') => h('button', { type: 'button', cla
 
 export function mount(root, config) {
     // Gerätewahl: zuletzt gewähltes Gerät (nur Komfort, darf fehlen).
-    const deviceList = (config.devices ?? [{ key: 'ic-m505', name: 'Icom IC-M505' }]).filter((d) => DEVICES[d.key]);
-    let deviceKey = deviceList[0].key;
+    // Funkscheine des Kurses; je Gerät nur die, die das Gerät abdeckt (die
+    // Handfunkgeräte nur Seefunk). Geräte ohne passenden Funkschein fehlen –
+    // außer Handfunkgeräten: Sie erscheinen gesperrt mit der Begründung.
+    const courseCatalogs = config.catalogs ?? ['SRC'];
+    const deviceList = (config.devices ?? [{ key: 'ic-m505', name: 'Icom IC-M505' }])
+        .filter((d) => DEVICES[d.key] && (DEVICES[d.key].handheld || courseCatalogs.some((c) => deviceCatalogs(d.key).includes(c))));
+    // Zu Beginn ein Gerät, das sich bedienen lässt.
+    let deviceKey = (deviceList.find((d) => courseCatalogs.some((c) => deviceCatalogs(d.key).includes(c))) ?? deviceList[0]).key;
     try {
         const saved = window.localStorage.getItem('geraetesimulation.device');
         if (deviceList.some((d) => d.key === saved)) deviceKey = saved;
@@ -65,10 +103,12 @@ export function mount(root, config) {
     const visibleLessons = () => config.lessons.filter((l) => lessonAvailable(l, deviceKey));
     const exams = config.exams ?? {};
     const lessonByKey = Object.fromEntries(config.lessons.map((l) => [l.key, l]));
-    const catalogs = config.catalogs ?? ['SRC'];
+    const catalogs = () => courseCatalogs.filter((c) => deviceCatalogs(deviceKey).includes(c));
     // Ausgangslage für Freies Üben und den Start: Seefunk, in reinen
     // Binnenkursen der Binnenmodus.
-    const defaultStart = catalogs.includes('SRC') ? START : START_INLAND;
+    const defaultStart = () => (catalogs().includes('SRC') ? START : START_INLAND);
+    // Prüfungsreihen der Funkscheine, die das gewählte Gerät abdeckt.
+    const visibleExams = () => Object.entries(exams).filter(([, info]) => catalogs().includes(info.catalog ?? 'SRC'));
     const speechLang = () => run?.lesson.lang ?? config.speechLang ?? 'en-GB';
     let mode = 'lessons';
     let run = null;
@@ -91,24 +131,178 @@ export function mount(root, config) {
     };
     const clearTimers = () => { timers.forEach(clearTimeout); timers.clear(); window.speechSynthesis?.cancel(); };
 
-    const makeRadio = () => DEVICES[deviceKey].create({ own: config.ship, addressBook: config.addressBook, directory: config.directory ?? [], clock, emit: (event) => onRadioEvent(event) });
+    // Handfunkgeräte: kein Binnenfunk (ATIS lässt sich nicht wählen).
+    const makeRadio = () => DEVICES[deviceKey].create({ own: config.ship, addressBook: config.addressBook, directory: config.directory ?? [], clock, emit: (event) => onRadioEvent(event), inland: deviceCatalogs(deviceKey).includes('UBI') });
     let radio = makeRadio();
 
     // --- Aufbau ---------------------------------------------------------------
     const deviceBox = h('div', { class: 'fg-device bg-slate-100 dark:bg-slate-900 rounded-2xl p-3 sm:p-5' });
+    // Gesperrtes Handfunkgerät: Gerät ausgegraut und nicht bedienbar, darüber
+    // ein Schloss-Schild; die Begründung steht im Kasten über dem Gerät.
+    const lockBadge = h('div', { class: 'hidden absolute inset-0 flex items-center justify-center p-4 pointer-events-none' },
+        h('div', { class: 'max-w-sm text-center rounded-xl bg-white/95 dark:bg-slate-800/95 shadow-lg border border-red-200 dark:border-red-800 px-4 py-3' },
+            h('p', { class: 'text-2xl', 'aria-hidden': 'true' }, '🔒'),
+            h('p', { class: 'font-semibold text-red-800 dark:text-red-200' }, 'Binnenfunk mit dem Handfunkgerät nicht erlaubt'),
+            h('p', { class: 'text-xs text-slate-600 dark:text-slate-300 mt-1' }, 'Auf Sportbooten in Deutschland verboten – Begründung oben.')));
+    const deviceWrap = h('div', { class: 'relative' }, deviceBox, lockBadge);
+    const inlandCard = h('div', { class: 'hidden mb-3 p-4 rounded-lg border border-red-200 bg-red-50 text-red-950 dark:border-red-800 dark:bg-red-950/40 dark:text-red-50 text-sm space-y-2', role: 'alert' });
     const sidebar = h('aside', { class: 'fg-sidebar bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 space-y-4 text-sm' });
     const typeBox = h('form', { class: 'mt-3 flex gap-2', onsubmit: (e) => { e.preventDefault(); sendTyped(); } },
         h('input', { type: 'text', name: 'spruch', class: 'flex-1 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm', placeholder: 'Funkspruch eintippen (statt sprechen)', 'aria-label': 'Funkspruch eintippen' }),
         h('button', { type: 'submit', class: 'px-3 py-2 rounded-lg bg-slate-800 text-white text-sm' }, 'Senden'),
     );
+    // Kurze Bedienhilfe zur Sprechtaste direkt unter dem Gerät.
+    const pttNote = h('p', { class: 'mt-2 text-xs text-slate-600 dark:text-slate-400' });
+    const pttWhere = () => DEVICES[deviceKey].pttWhere ?? 'am Hörer';
+    const showPttNote = () => pttNote.replaceChildren(
+        h('strong', { class: 'font-semibold' }, 'Sprechtaste (PTT): '),
+        `${pttWhere()} mit der Maus gedrückt halten oder die Leertaste halten.`);
     const transcript = h('p', { class: 'mt-2 text-xs text-slate-600 dark:text-slate-400 min-h-[1rem]', 'aria-live': 'polite' });
     const radioLog = h('div', { class: 'mt-3 rounded-xl bg-white dark:bg-slate-800 shadow-sm p-3 text-xs space-y-1', 'aria-live': 'polite' });
-    root.replaceChildren(
-        h('div', { class: 'grid lg:grid-cols-[minmax(0,1fr)_22rem] gap-4' },
-            h('div', {}, deviceBox, typeBox, transcript, radioLog),
-            sidebar,
-        ),
+    // Leiste über dem Gerät: Lektionen ein-/ausblenden und Vollbild. Beides
+    // geht auch im Vollbild; ausgeblendet zeigt eine Zeile den aktuellen Schritt.
+    addStyle();
+    root.classList.add('fg-root');
+    let lessonsHidden = readPref('geraetesimulation.lessons', 'shown') === 'hidden';
+    const pill = (active) => `inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full border ${active ? 'bg-slate-800 text-white border-slate-800 dark:bg-slate-200 dark:text-slate-900 dark:border-slate-200' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-700'}`;
+    const lessonsButton = h('button', { type: 'button', onclick: () => setLessonsHidden(! lessonsHidden) });
+    const fullButton = h('button', { type: 'button', onclick: () => toggleFull() });
+    // Hinweis beim Wechsel auf ein Handfunkgerät: Die Prüfung findet an einer
+    // Feststation statt; Lektionen und Prüfung bleiben bei „25 W“.
+    let handheldNoteClosed = false;
+    const handheldNote = h('div', { class: 'hidden mb-3 p-3 rounded-lg border border-sky-200 bg-sky-50 text-sky-900 dark:border-sky-800 dark:bg-sky-900/30 dark:text-sky-100 text-sm', role: 'note' });
+    function showHandheldNote() {
+        const show = Boolean(DEVICES[deviceKey].handheld) && ! handheldNoteClosed && ! locked();
+        handheldNote.classList.toggle('hidden', ! show);
+        if (! show) return;
+        handheldNote.replaceChildren(
+            h('div', { class: 'flex items-start gap-2' },
+                h('div', { class: 'flex-1 space-y-1' },
+                    h('p', { class: 'font-semibold' }, `Hinweis: ${DEVICES[deviceKey].name} ist ein Handfunkgerät`),
+                    h('p', {}, 'In der praktischen SRC-Prüfung wird an einer Feststation geprüft. Für Not-, Dringlichkeits- und Sicherheitsmeldungen wird dort volle Leistung mit „25 W“ verlangt – auch wenn du am Handfunkgerät übst. Die Lektionen und der Prüfungsmodus bleiben deshalb bei „25 W“; am Handfunkgerät wählst du dafür HI (das Gerät sendet höchstens 6 W).'),
+                    h('p', {}, 'Für die Prüfungsvorbereitung übe besser an einem der fest eingebauten Geräte (IC-M505, IC-M323, IC-M423, IC-M503 + DS-100, IC-M330): Sie entsprechen den Geräten in den meisten Prüfungen.'),
+                    // Binnenfunk (Deutschland): am Handfunkgerät gesperrt.
+                    courseCatalogs.includes('UBI') ? h('p', {}, h('strong', { class: 'font-semibold' }, 'Binnenfunk: '), 'Am Handfunkgerät gesperrt – auf Sportbooten ist Binnenfunk mit dem Handfunkgerät in Deutschland verboten. Binnenfunk-Lektionen und die UBI-Prüfung übst du an einem fest eingebauten Gerät.') : null,
+                ),
+                h('button', { type: 'button', class: 'text-xs underline shrink-0', onclick: () => { handheldNoteClosed = true; showHandheldNote(); } }, 'Ausblenden'),
+            ),
+        );
+    }
+    // --- Binnenfunk am Handfunkgerät gesperrt ------------------------------
+    // Im reinen Binnenkurs ist das Handfunkgerät ganz gesperrt. Im Seefunk
+    // erscheint der Kasten, wenn jemand ATIS wählen will oder „Warum?“ antippt.
+    let inlandInfo = null; // null | 'atis' | 'info'
+    const lockedByCourse = () => catalogs().length === 0;
+    const locked = () => lockedByCourse() || inlandInfo !== null;
+    const fixedDevices = () => deviceList.filter((d) => ! DEVICES[d.key]?.handheld && deviceCatalogs(d.key).includes('UBI'));
+    function showInlandLock() {
+        const on = locked();
+        deviceBox.classList.toggle('fg-locked', on);
+        deviceBox.inert = on;
+        typeBox.inert = on;
+        typeBox.classList.toggle('opacity-40', on);
+        pttNote.classList.toggle('opacity-40', on);
+        lockBadge.classList.toggle('hidden', ! on);
+        inlandCard.classList.toggle('hidden', ! on);
+        handheldNote.classList.toggle('hidden', on || ! DEVICES[deviceKey].handheld || handheldNoteClosed);
+        if (! on) return;
+        if (radio.state.tx) pttUp();
+        const name = deviceName();
+        const intro = lockedByCourse()
+            ? `Dieser Kurs bereitet auf den Binnenfunk (UBI) vor. Binnenfunk mit einem Handfunkgerät ist auf Sportbooten in Deutschland nicht erlaubt – deshalb ist das ${name} hier gesperrt. Übe an einem fest eingebauten Gerät:`
+            : inlandInfo === 'atis'
+                ? `Du wolltest die Kanalgruppe ATIS (Binnenfunk) einstellen. Binnenfunk mit einem Handfunkgerät ist auf Sportbooten in Deutschland nicht erlaubt – das ${name} bleibt im Seefunk (INT). Den Binnenfunk übst du an einem fest eingebauten Gerät:`
+                : `Binnenfunk-Lektionen und die UBI-Prüfung gibt es am ${name} nicht: Binnenfunk mit einem Handfunkgerät ist auf Sportbooten in Deutschland nicht erlaubt. Den Binnenfunk übst du an einem fest eingebauten Gerät:`;
+        const point = (title, text) => h('li', {}, h('strong', { class: 'font-semibold' }, `${title}: `), text);
+        inlandCard.replaceChildren(
+            h('p', { class: 'font-semibold text-base' }, '🔒 Binnenfunk am Handfunkgerät: auf Sportbooten verboten'),
+            h('p', {}, intro),
+            h('div', { class: 'flex flex-wrap gap-2' },
+                fixedDevices().map((d) => h('button', { type: 'button', class: 'text-xs font-medium px-3 py-1.5 rounded-full bg-white text-slate-800 border border-slate-300 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600', onclick: () => switchDevice(d.key) }, d.name.replace(/^Icom /, ''))),
+                lockedByCourse() ? null : h('button', { type: 'button', class: 'text-xs font-medium px-3 py-1.5 rounded-full bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900', onclick: () => { inlandInfo = null; showInlandLock(); renderSidebar(); } }, `Verstanden – Seefunk am ${name.replace(/^(Icom|Standard Horizon) /, '')} weiter üben`)),
+            h('ul', { class: 'list-disc pl-5 space-y-1' },
+                point('Verbot', 'Auf deutschen Binnenschifffahrtsstraßen sind UKW-Handfunkgeräte auf Kleinfahrzeugen (Sportboote unter 20 m Länge) im Binnenschifffahrtsfunk nicht zugelassen.'),
+                point('Was vorgeschrieben ist', 'Wer binnen am Funkverkehr teilnimmt – freiwillig oder weil es vorgeschrieben ist, etwa an Schleusen oder bei bestimmten Schlechtwetterregeln –, braucht eine fest eingebaute UKW-Anlage mit automatischer Senderkennung (ATIS) und das UBI.'),
+                point('Einzige Ausnahme', 'Schiffe über 20 m dürfen Handfunkgeräte benutzen, aber nur im Verkehrskreis „Funkverkehr an Bord“ (z. B. Absprachen zwischen Brücke und Vorschiff beim Ankern) und mit höchstens 1 W. Für Schleusen, Brücken und Revierzentralen (Nautische Information) sind sie nie zugelassen.'),
+                point('Grundlage', 'Regionale Vereinbarung über den Binnenschifffahrtsfunk (RAINWAT); in Deutschland teilt die Bundesnetzagentur die Frequenzen zu. RAINWAT erlaubt den Staaten inzwischen, Handfunkgeräte für Sportboote freizugeben – Deutschland hält aber, anders als etwa die Niederlande, am Verbot fest.'),
+                point('Warum', 'Die Kanäle sollen für die Berufsschifffahrt und Sicherheitsmeldungen frei bleiben. Ein Handfunkgerät sendet aus geringer Höhe: Binnen (Ufer, Bebauung, Berge) ist es schlecht zu verstehen, blockiert den Kanal im Nahbereich aber trotzdem.'),
+                point('Prüfung', 'Die praktische UBI-Prüfung findet an einer fest eingebauten Anlage statt (Notmeldung mit „25 W“).'),
+                point('Seefunk', `Auf See ist ein Handfunkgerät als Haupt- oder Zweitgerät erlaubt.${catalogs().includes('SRC') ? ` Den Seefunk (SRC) übst du am ${name} weiter.` : ''}`),
+            ),
+            h('details', {},
+                h('summary', { class: 'cursor-pointer font-semibold' }, 'Die Verkehrskreise im Binnenfunk'),
+                h('table', { class: 'mt-2 w-full text-xs' },
+                    h('thead', {}, h('tr', { class: 'text-left' }, h('th', { class: 'pr-2 py-1' }, 'Verkehrskreis'), h('th', { class: 'pr-2 py-1' }, 'Wer spricht mit wem'), h('th', { class: 'py-1' }, 'Für Sportboote'))),
+                    h('tbody', {}, [
+                        ['Schiff – Schiff', 'Absprachen zwischen Booten und Schiffen, z. B. beim Überholen', 'sehr wichtig'],
+                        ['Nautische Information', 'Revierzentralen, Schleusen und Brücken', 'sehr wichtig'],
+                        ['Schiff – Hafenbehörde', 'Hafenmeister und Behörden an Land', 'wichtig beim Einlaufen'],
+                        ['Funkverkehr an Bord', 'Absprachen auf dem eigenen Schiff (nur über 20 m)', 'ohne Bedeutung – nur hier wären Handfunkgeräte erlaubt'],
+                        ['Öffentlicher Nachrichtenaustausch', 'Verbindung ins Telefonnetz', 'praktisch bedeutungslos'],
+                    ].map((row) => h('tr', { class: 'border-t border-red-200 dark:border-red-800 align-top' }, row.map((cell) => h('td', { class: 'pr-2 py-1' }, cell))))))),
+        );
+    }
+    const stepLine = h('p', { class: 'hidden mb-2 px-3 py-2 rounded-lg bg-amber-50 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100 text-sm', 'aria-live': 'polite' });
+    const toolbar = h('div', { class: 'flex items-center justify-end gap-2 mb-3' }, lessonsButton, fullButton);
+    const grid = h('div', {},
+        h('div', {}, handheldNote, inlandCard, stepLine, deviceWrap, pttNote, typeBox, transcript, radioLog),
+        sidebar,
     );
+    root.replaceChildren(toolbar, grid);
+
+    const isFull = () => document.fullscreenElement === root || root.classList.contains('fg-pseudo-full');
+    function showLayout() {
+        grid.className = lessonsHidden ? 'grid gap-4' : 'grid lg:grid-cols-[minmax(0,1fr)_22rem] gap-4';
+        sidebar.classList.toggle('hidden', lessonsHidden);
+        root.classList.toggle('fg-wide', lessonsHidden);
+        lessonsButton.className = pill(! lessonsHidden);
+        lessonsButton.setAttribute('aria-pressed', lessonsHidden ? 'false' : 'true');
+        lessonsButton.replaceChildren(h('span', { 'aria-hidden': 'true' }, '☰'), lessonsHidden ? 'Lektionen einblenden' : 'Lektionen ausblenden');
+        fullButton.className = pill(false);
+        fullButton.replaceChildren(h('span', { 'aria-hidden': 'true' }, '⛶'), isFull() ? 'Vollbild beenden' : 'Vollbild');
+        showStepLine();
+    }
+    function setLessonsHidden(hidden) {
+        lessonsHidden = hidden;
+        writePref('geraetesimulation.lessons', hidden ? 'hidden' : 'shown');
+        showLayout();
+    }
+    function toggleFull() {
+        if (document.fullscreenElement === root) {
+            document.exitFullscreen?.();
+        } else if (root.classList.contains('fg-pseudo-full')) {
+            root.classList.remove('fg-pseudo-full');
+            showLayout();
+        } else if (document.fullscreenEnabled && root.requestFullscreen) {
+            // Ohne Fullscreen-API (z. B. iPhone): fester Rahmen über der Seite.
+            root.requestFullscreen().catch(() => { root.classList.add('fg-pseudo-full'); showLayout(); });
+        } else {
+            root.classList.add('fg-pseudo-full');
+            showLayout();
+        }
+    }
+    document.addEventListener('fullscreenchange', showLayout);
+    // Ersatz-Vollbild mit Esc beenden.
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && root.classList.contains('fg-pseudo-full')) {
+            root.classList.remove('fg-pseudo-full');
+            showLayout();
+        }
+    });
+    // Aktueller Schritt, solange die Lektionen ausgeblendet sind.
+    function showStepLine() {
+        const status = lessonsHidden && run ? run.status() : null;
+        stepLine.classList.toggle('hidden', ! status);
+        if (! status) return;
+        const where = exam ? `Aufgabe ${exam.index + 1} von ${exam.lessons.length}` : `Schritt ${Math.min(status.index + 1, status.total)} von ${status.total}`;
+        // In der Prüfung verrät die Zeile die Schritte nicht.
+        const text = status.done ? (status.failed ? 'Aufgabe nicht bestanden.' : 'Geschafft.') : exam ? '' : status.text ?? '';
+        stepLine.replaceChildren(...[
+            h('strong', { class: 'font-semibold' }, `${run.lesson.title} · ${status.done ? 'fertig' : where}${text ? ': ' : ''}`),
+            text,
+            ! exam && status.help ? h('span', { class: 'block text-xs mt-1 opacity-80' }, status.help) : null,
+        ].filter((child) => child !== null && child !== ''));
+    }
     let device = null;
 
     // --- Ton und Stimmen ------------------------------------------------------
@@ -176,6 +370,16 @@ export function mount(root, config) {
     const latched = new Map();
     // Loslass-Funktionen der gerade gedrückten Tasten (Fensterwechsel).
     const heldKeys = new Set();
+    // Sprechtaste sichtbar gedrückt (rot), egal ob per Maus oder Leertaste.
+    function showPtt(on) {
+        const node = device?.svg.querySelector('[data-key="ptt"]');
+        const body = node?.querySelector('rect');
+        if (! body) return;
+        body.style.fill = on ? '#dc2626' : '';
+        body.style.stroke = on ? '#7f1d1d' : '';
+        body.style.filter = on ? 'drop-shadow(0 0 6px rgba(239, 68, 68, 0.85))' : '';
+        node.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
     const showLatch = (node, on) => {
         node.style.filter = on ? 'brightness(1.8)' : '';
         node.setAttribute('aria-pressed', on ? 'true' : 'false');
@@ -199,6 +403,7 @@ export function mount(root, config) {
         latched.clear();
         heldKeys.clear();
         device = DEVICES[deviceKey].render(deviceBox);
+        showPttNote();
         const latchKeys = DEVICES[deviceKey].latch ?? [];
         device.svg.querySelectorAll('[data-key]').forEach((node) => {
             const key = node.dataset.key;
@@ -286,11 +491,15 @@ export function mount(root, config) {
     }
     mountDevice();
 
-    // Leertaste als Sprechtaste, solange kein Bedienelement den Fokus hat.
+    // Leertaste als Sprechtaste, außer beim Tippen und auf einem Bedienteil
+    // des Geräts (dort drückt die Leertaste dieses Teil). Auch wenn gerade ein
+    // Button den Fokus hat, sendet die Leertaste; Buttons gehen mit Enter.
     let spacePtt = false;
     document.addEventListener('keydown', (e) => {
-        if (e.code !== 'Space' || e.repeat || e.target.closest('input, textarea, select, button, summary, a, [role="tab"], [data-key], [data-knob]')) return;
+        if (e.code !== 'Space') return;
+        if (e.target.closest('input, textarea, select, [contenteditable="true"], [data-key], [data-knob]') || locked()) return;
         e.preventDefault();
+        if (e.repeat) return;
         ensureAudio();
         spacePtt = true;
         pttDown();
@@ -316,6 +525,10 @@ export function mount(root, config) {
     let heard = '';
 
     function pttDown() {
+        // Schon auf Sendung (Maus und Leertaste zugleich): nichts doppelt
+        // starten. Gesperrtes Handfunkgerät: nicht senden.
+        if (radio.state.tx || recognition || locked()) return;
+        showPtt(true);
         if (! radio.pttDown()) { render(); return; }
         window.speechSynthesis?.cancel();
         heard = '';
@@ -336,6 +549,7 @@ export function mount(root, config) {
     }
 
     function pttUp() {
+        showPtt(false);
         if (! radio.state.tx) return;
         radio.pttUp();
         // Die Spracherkennung liefert erst später: der Funkspruch gehört zu
@@ -366,7 +580,7 @@ export function mount(root, config) {
     function sendTyped() {
         const input = typeBox.querySelector('input');
         const text = input.value.trim();
-        if (! text) return;
+        if (! text || locked()) return;
         if (radio.pttDown()) {
             radio.pttUp();
             transcript.textContent = text;
@@ -378,6 +592,11 @@ export function mount(root, config) {
 
     // --- Ereignisse ---------------------------------------------------------
     function onRadioEvent(event) {
+        if (event.type === 'inland_blocked') {
+            inlandInfo = 'atis';
+            showInlandLock();
+            renderSidebar();
+        }
         if (event.type === 'dsc_received' || event.type === 'dsc_sent') beep(2100, 200);
         if (mode === 'free' && free) free.handle(event);
         if (! run) return;
@@ -472,7 +691,7 @@ export function mount(root, config) {
                     return h('div', { class: 'py-2 border-b border-slate-100 dark:border-slate-700' },
                         h('div', { class: 'flex items-center gap-2' },
                             h('span', { class: `w-3 h-3 rounded-full ${best >= 3 ? 'bg-emerald-500' : best > 0 ? 'bg-amber-400' : 'border border-slate-400'}`, 'aria-hidden': 'true' }),
-                            h('span', { class: 'flex-1 font-medium text-slate-800 dark:text-slate-100' }, lesson.title),
+                            h('span', { class: 'flex-1 font-medium text-slate-800 dark:text-slate-100' }, deviceText(lesson.title, deviceKey)),
                             lesson.pruefung ? h('span', { class: 'text-[11px] px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300' }, `Prüfung ${lesson.pruefung}`) : null,
                         ),
                         h('div', { class: 'flex gap-1 mt-1 pl-5' }, [1, 2, 3].map((level) => h('button', {
@@ -561,12 +780,12 @@ export function mount(root, config) {
         if (! exam) {
             return h('div', { class: 'space-y-3' },
                 h('p', { class: 'text-slate-600 dark:text-slate-300' }, 'Aufgaben wie in der praktischen Prüfung: am Stück, ohne Hilfe, zwei Versuche je Funkspruch. Am Ende siehst du jede Aufgabe mit erfüllten und fehlenden Prüfpunkten und der Musterlösung.'),
-                catalogs.includes('UBI') ? h('p', { class: 'text-xs text-slate-500 dark:text-slate-400' }, 'UBI: Das Gerät ist zu Beginn aus und steht in der Kanalgruppe INT – einschalten und auf ATIS stellen gehört zur Aufgabe.') : null,
-                Object.entries(exams).map(([series, info]) => h('div', { class: 'p-3 rounded-lg border border-slate-200 dark:border-slate-700 space-y-2' },
+                catalogs().includes('UBI') ? h('p', { class: 'text-xs text-slate-500 dark:text-slate-400' }, 'UBI: Das Gerät ist zu Beginn aus und steht in der Kanalgruppe INT – einschalten und auf ATIS stellen gehört zur Aufgabe.') : null,
+                visibleExams().map(([series, info]) => h('div', { class: 'p-3 rounded-lg border border-slate-200 dark:border-slate-700 space-y-2' },
                     h('div', { class: 'flex items-center gap-2' },
                         h('span', { class: 'font-semibold text-slate-800 dark:text-white flex-1' }, info.title ?? `Reihe ${series}`),
                         info.best?.[deviceKey] !== null && info.best?.[deviceKey] !== undefined ? h('span', { class: 'text-xs text-slate-500' }, `bestes Ergebnis ${info.best[deviceKey]} von ${info.lessons.length}`) : null),
-                    h('ol', { class: 'list-decimal pl-5 text-xs text-slate-600 dark:text-slate-300' }, examLessons(info, deviceKey).map((key) => h('li', {}, lessonByKey[key]?.title ?? key))),
+                    h('ol', { class: 'list-decimal pl-5 text-xs text-slate-600 dark:text-slate-300' }, examLessons(info, deviceKey).map((key) => h('li', {}, deviceText(lessonByKey[key]?.title ?? key, deviceKey)))),
                     button(`${info.title ?? `Reihe ${series}`} starten`, () => startExam(series), 'font-semibold'),
                 )),
             );
@@ -609,7 +828,7 @@ export function mount(root, config) {
                 const solutions = s.solutions?.[key] ?? [];
 
                 return h('details', { class: 'p-2 rounded-lg border border-slate-200 dark:border-slate-700' },
-                    h('summary', { class: `cursor-pointer font-medium ${task?.passed ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300'}` }, `${task?.passed ? '✓' : '✗'} ${i + 1}. ${lessonByKey[key]?.title ?? key}`),
+                    h('summary', { class: `cursor-pointer font-medium ${task?.passed ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300'}` }, `${task?.passed ? '✓' : '✗'} ${i + 1}. ${deviceText(lessonByKey[key]?.title ?? key, deviceKey)}`),
                     (task?.results ?? []).map((r) => h('div', { class: 'mt-2 space-y-0.5' },
                         r.text ? h('p', { class: 'text-xs italic text-slate-500' }, `„${r.text}“`) : null,
                         r.checks.map((c) => h('p', { class: `text-xs ${c.ok ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300'}` }, `${c.ok ? '✓' : '✗'} ${c.label}`)))),
@@ -623,7 +842,7 @@ export function mount(root, config) {
 
     // --- Freies Üben ----------------------------------------------------------
     function startFree() {
-        freshRadio(defaultStart);
+        freshRadio(defaultStart());
         timeOffset = 0;
         run = null;
         free = createFreePractice({ ship: config.ship, schedule, receive: (call) => { radio.receive(call); render(); }, say, radio: () => radio });
@@ -636,7 +855,7 @@ export function mount(root, config) {
 
         return h('div', { class: 'space-y-3' },
             h('p', { class: 'text-slate-600 dark:text-slate-300' }, 'Löse Ereignisse aus und reagiere frei darauf. Freies Üben zählt nicht zum Fortschritt.'),
-            FREE_EVENTS.filter((group) => catalogs.includes(group.catalog)).map((group) => h('div', { class: 'space-y-1' },
+            FREE_EVENTS.filter((group) => catalogs().includes(group.catalog)).map((group) => h('div', { class: 'space-y-1' },
                 h('h3', { class: 'text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400' }, group.title),
                 h('div', { class: 'flex flex-wrap gap-1' }, group.items.map((item) => button(item.label, () => { ensureAudio(); free.trigger(item.key); render(); }))),
             )),
@@ -646,7 +865,7 @@ export function mount(root, config) {
                     button('+5 Minuten', () => jump(5 * 60 * 1000)),
                     button('+4 Stunden', () => jump(4 * 60 * 60 * 1000 + 60 * 1000))),
             ),
-            catalogs.includes('SRC') ? h('p', { class: 'text-xs text-slate-500 dark:text-slate-400' }, 'Eigene Anrufe im Seefunk: Möwe, Seestern und Nordsee Radio antworten auf deine DSC-Anrufe und Funksprüche, Bremen Rescue auf einen Notalarm. Im Binnenfunk wird nur abgehört; Gespräche mit Antwort übst du in den Lektionen.') : null,
+            catalogs().includes('SRC') ? h('p', { class: 'text-xs text-slate-500 dark:text-slate-400' }, `Eigene Anrufe im Seefunk: Möwe, Seestern und Nordsee Radio antworten auf deine DSC-Anrufe und Funksprüche, Bremen Rescue auf einen Notalarm.${catalogs().includes('UBI') ? ' Im Binnenfunk wird nur abgehört; Gespräche mit Antwort übst du in den Lektionen.' : ''}`) : null,
             button('Neu starten', startFree),
         );
     }
@@ -663,14 +882,28 @@ export function mount(root, config) {
         if (next === deviceKey || ! DEVICES[next]) return;
         deviceKey = next;
         try { window.localStorage.setItem('geraetesimulation.device', next); } catch { /* egal */ }
+        // Bei jedem Wechsel auf ein Handfunkgerät erscheint der Hinweis wieder.
+        handheldNoteClosed = false;
+        inlandInfo = null;
         run = null;
         exam = null;
         free = null;
         clearTimers();
+        // Laufende Sendung abbrechen: Spracherkennung beenden, Sprechtaste los.
+        if (recognition) {
+            recognition.onresult = null;
+            recognition.onend = null;
+            try { recognition.stop(); } catch { /* egal */ }
+            recognition = null;
+        }
+        spacePtt = false;
+        showPtt(false);
         radio = makeRadio();
         mountDevice();
+        showHandheldNote();
+        showInlandLock();
         if (mode === 'free') startFree();
-        else freshRadio(defaultStart);
+        else freshRadio(defaultStart());
         renderSidebar();
         render();
     }
@@ -683,16 +916,26 @@ export function mount(root, config) {
         free = null;
         clearTimers();
         if (mode === 'free') startFree();
-        else freshRadio(defaultStart);
+        else freshRadio(defaultStart());
         renderSidebar();
         render();
     }
 
+    // Kurs mit Binnenfunk am Handfunkgerät: Binnenfunk fehlt, mit Begründung.
+    function inlandSideNote() {
+        if (! DEVICES[deviceKey].handheld || ! courseCatalogs.includes('UBI') || mode === 'free' || run || exam) return null;
+
+        return h('p', { class: 'p-2 rounded-lg bg-red-50 text-red-900 dark:bg-red-950/40 dark:text-red-100 text-xs' },
+            `🔒 ${mode === 'exam' ? 'UBI-Prüfungen' : 'Binnenfunk-Lektionen'} sind am Handfunkgerät gesperrt. `,
+            h('button', { type: 'button', class: 'underline font-semibold', onclick: () => { inlandInfo = 'info'; showInlandLock(); renderSidebar(); } }, 'Warum?'));
+    }
+
     function renderSidebar() {
+        showStepLine();
         sidebar.replaceChildren(
             h('div', { class: 'text-xs text-slate-600 dark:text-slate-400' },
-                h('div', { class: 'font-semibold text-slate-800 dark:text-white text-sm' }, `${deviceName()} · ${catalogs.map((c) => SERVICES[c]).join(' und ')}`),
-                [config.ship.label, `Rufzeichen ${config.ship.callsign}`, catalogs.includes('SRC') ? `MMSI ${config.ship.mmsi}` : null, catalogs.includes('UBI') && config.ship.atis ? `ATIS ${config.ship.atis}` : null].filter(Boolean).join(' · ')),
+                h('div', { class: 'font-semibold text-slate-800 dark:text-white text-sm' }, `${deviceName()} · ${lockedByCourse() ? 'Binnenfunk gesperrt' : catalogs().map((c) => SERVICES[c]).join(' und ')}`),
+                [config.ship.label, `Rufzeichen ${config.ship.callsign}`, catalogs().includes('SRC') ? `MMSI ${config.ship.mmsi}` : null, catalogs().includes('UBI') && config.ship.atis ? `ATIS ${config.ship.atis}` : null].filter(Boolean).join(' · ')),
             deviceList.length > 1 ? h('label', { class: 'flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300' }, 'Gerät',
                 h('select', { class: 'flex-1 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs py-1', 'aria-label': 'Funkgerät wählen', onchange: (e) => switchDevice(e.target.value) },
                     deviceList.map((d) => h('option', { value: d.key, selected: d.key === deviceKey ? true : null }, d.name)))) : null,
@@ -703,12 +946,14 @@ export function mount(root, config) {
                 class: `flex-1 text-xs px-2 py-1.5 rounded-lg ${mode === key ? 'bg-slate-800 text-white dark:bg-slate-200 dark:text-slate-900' : 'bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200'}`,
                 onclick: () => switchMode(key),
             }, label))),
-            mode === 'lessons' ? (run ? lessonPanel() : lessonList()) : mode === 'exam' ? examPanel() : freePanel(),
+            lockedByCourse()
+                ? h('p', { class: 'p-3 rounded-lg bg-red-50 text-red-900 dark:bg-red-950/40 dark:text-red-100 text-xs' }, `Am ${deviceName()} gibt es in diesem Kurs nichts zu üben: Binnenfunk mit dem Handfunkgerät ist auf Sportbooten verboten. Wähle oben ein fest eingebautes Gerät.`)
+                : h('div', { class: 'space-y-3' }, inlandSideNote(), mode === 'lessons' ? (run ? lessonPanel() : lessonList()) : mode === 'exam' ? examPanel() : freePanel()),
             h('details', { class: 'text-xs text-slate-600 dark:text-slate-400' },
                 h('summary', { class: 'cursor-pointer font-semibold' }, 'Hilfe zur Bedienung'),
                 h('ul', { class: 'list-disc pl-4 mt-2 space-y-1' },
                     (DEVICES[deviceKey].controls ?? []).map((text) => h('li', {}, text)),
-                    h('li', {}, 'Sprechtaste am Hörer oder Leertaste gedrückt halten und sprechen; ohne Spracherkennung den Funkspruch eintippen.'),
+                    h('li', {}, `Sprechtaste ${pttWhere()} oder Leertaste gedrückt halten und sprechen; ohne Spracherkennung den Funkspruch eintippen.`),
                     h('li', {}, 'Gegenstationen sprechen mit der Stimme des Browsers; mitlesen kannst du im Funkverkehr unter dem Gerät.'),
                 ),
             ),
@@ -743,7 +988,10 @@ export function mount(root, config) {
         render();
     }, 100);
 
-    radio.setup(defaultStart);
+    radio.setup(defaultStart());
+    showLayout();
+    showHandheldNote();
+    showInlandLock();
     renderSidebar();
     renderLog();
     render();

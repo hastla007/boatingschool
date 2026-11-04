@@ -82,6 +82,25 @@ class PraxisTrainerController extends Controller
     }
 
     /**
+     * Review-Runde 4: „Gemeistert“ ließ sich bisher nicht zurücknehmen --
+     * ein Fehlklick blieb dauerhaft im Fortschritt.
+     */
+    public function reopen(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course, PraxisTask $task): Response
+    {
+        $tenant = $tenantContext->tenant();
+        $user = $request->user();
+        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403);
+
+        $kategorie = $this->kategorieQueryParam($request);
+        abort_unless($this->orderedTasks($course, $kategorie)->contains('id', $task->id), 404);
+
+        PraxisProgress::where(['tenant_id' => $tenant->id, 'user_id' => $user->id, 'praxis_task_id' => $task->id])
+            ->update(['completed' => false, 'updated_at' => now()]);
+
+        return redirect()->route('praxistrainer.show', array_filter(['course' => $course, 'task' => $task, 'kategorie' => $kategorie]));
+    }
+
+    /**
      * Bug-Review (Abstürze durch manipulierte Werte in der Adresszeile):
      * ?kategorie wird als einfacher String erwartet (siehe orderedTasks())
      * -- ein manipulierter Request mit ?kategorie[]=x lieferte von Laravel

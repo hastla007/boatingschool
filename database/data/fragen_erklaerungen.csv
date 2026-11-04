@@ -1681,11 +1681,11 @@ Richtig ist: „Festgelegtes Seegebiet“
 Sea Areas sind im GMDSS festgelegte Seegebiete, die sich nach der Reichweite der Küsten- und Satellitenfunkdienste richten. Danach bestimmt sich, welche Funkausrüstung ein ausrüstungspflichtiges Schiff mitführen muss. Mit Seewarngebieten oder NAVTEX-Gebieten sind sie nicht gleichzusetzen."
 "SRC-0013";"Richtig.
 
-A1, A2, A3, A4. A1 ist die UKW-Reichweite einer Küstenfunkstelle mit DSC, A2 die Grenzwellen-Reichweite, A3 die Abdeckung durch Inmarsat-Satelliten und A4 der Rest, vor allem die Polargebiete. Je weiter draußen, desto umfangreicher ist die vorgeschriebene Funkausrüstung.";"Falsch.
+A1, A2, A3, A4. A1 ist die UKW-Reichweite einer Küstenfunkstelle mit DSC, A2 die Grenzwellen-Reichweite, A3 die Abdeckung durch einen anerkannten Satellitenfunkdienst (Inmarsat, inzwischen auch Iridium) und A4 der Rest, vor allem die Polargebiete. Je weiter draußen, desto umfangreicher ist die vorgeschriebene Funkausrüstung.";"Falsch.
 
 Richtig ist: „A1, A2, A3, A4“
 
-A1 ist die UKW-Reichweite einer Küstenfunkstelle mit DSC, A2 die Grenzwellen-Reichweite, A3 die Abdeckung durch Inmarsat-Satelliten und A4 der Rest, vor allem die Polargebiete. Je weiter draußen, desto umfangreicher ist die vorgeschriebene Funkausrüstung."
+A1 ist die UKW-Reichweite einer Küstenfunkstelle mit DSC, A2 die Grenzwellen-Reichweite, A3 die Abdeckung durch einen anerkannten Satellitenfunkdienst (Inmarsat, inzwischen auch Iridium) und A4 der Rest, vor allem die Polargebiete. Je weiter draußen, desto umfangreicher ist die vorgeschriebene Funkausrüstung."
 "SRC-0014";"Richtig.
 
 Seegebiet A1. A1 ist über die UKW-Sprechfunkreichweite einer Küstenfunkstelle mit ständiger DSC-Wache auf Kanal 70 definiert. A2 bezieht sich auf Grenzwelle, A3 auf die Inmarsat-Abdeckung, A4 auf die übrigen Gebiete.";"Falsch.
@@ -1884,11 +1884,11 @@ Richtig ist: „Seefunkstelle an Bord eines deutschen Schiffes, eingetragen in e
 Rufzeichen aus vier Buchstaben, beginnend mit D für Deutschland, sind typische Unterscheidungssignale von im Seeschiffsregister eingetragenen Schiffen. Sie dienen zugleich als Rufzeichen der Seefunkstelle an Bord."
 "SRC-0042";"Richtig.
 
-im Telekommunikationsgesetz (TKG). Das TKG schützt die Vertraulichkeit von Nachrichten: Funkverkehr, der nicht für die eigene Funkstelle bestimmt ist, darf nicht abgehört werden, und unbeabsichtigt Mitgehörtes darf weder inhaltlich noch seinem Vorliegen nach weitergegeben werden. Die VO Funk regelt internationale Frequenz- und Betriebsfragen, die SchSV die Schiffssicherheit.";"Falsch.
+im Telekommunikationsgesetz (TKG). Das TKG schützt die Vertraulichkeit von Nachrichten: Funkverkehr, der nicht für die eigene Funkstelle bestimmt ist, darf nicht abgehört werden, und unbeabsichtigt Mitgehörtes darf weder inhaltlich noch seinem Vorliegen nach weitergegeben werden. Die VO Funk regelt internationale Frequenz- und Betriebsfragen, die SchSV die Schiffssicherheit. Hinweis: Der amtliche Katalog nennt noch das TKG; heute stehen Fernmeldegeheimnis und Abhörverbot in §§ 3 und 5 des Telekommunikation-Digitale-Dienste-Datenschutz-Gesetzes (TDDDG).";"Falsch.
 
 Richtig ist: „im Telekommunikationsgesetz (TKG)“
 
-Das TKG schützt die Vertraulichkeit von Nachrichten: Funkverkehr, der nicht für die eigene Funkstelle bestimmt ist, darf nicht abgehört werden, und unbeabsichtigt Mitgehörtes darf weder inhaltlich noch seinem Vorliegen nach weitergegeben werden. Die VO Funk regelt internationale Frequenz- und Betriebsfragen, die SchSV die Schiffssicherheit."
+Das TKG schützt die Vertraulichkeit von Nachrichten: Funkverkehr, der nicht für die eigene Funkstelle bestimmt ist, darf nicht abgehört werden, und unbeabsichtigt Mitgehörtes darf weder inhaltlich noch seinem Vorliegen nach weitergegeben werden. Die VO Funk regelt internationale Frequenz- und Betriebsfragen, die SchSV die Schiffssicherheit. Hinweis: Der amtliche Katalog nennt noch das TKG; heute stehen Fernmeldegeheimnis und Abhörverbot in §§ 3 und 5 des Telekommunikation-Digitale-Dienste-Datenschutz-Gesetzes (TDDDG)."
 "SRC-0043";"Richtig.
 
 Alle Personen, die eine Seefunkstelle beaufsichtigen, bedienen oder Kenntnis über öffentlichen Nachrichtenaustausch erlangt haben. Die Pflicht trifft jeden, der mit der Funkstelle zu tun hat oder auf diesem Weg von fremden Nachrichten erfährt – nicht nur die Besatzung oder ausdrücklich verpflichtete Personen. Das Fernmeldegeheimnis gilt kraft Gesetzes, ohne besondere Belehrung.";"Falsch.
@@ -2535,11 +2535,11 @@ Richtig ist: „MAYDAY“
 Am dreimal gesprochenen MAYDAY erkennen alle Funkstellen sofort einen Notfall mit höchstem Vorrang. Erst danach nennt man den Schiffsnamen und die übrigen Angaben."
 "SRC-0135";"Richtig.
 
-Wenn ein Schiff oder eine Person von einer ernsten und unmittelbaren Gefahr bedroht ist und sofortige Hilfe benötigt. Ein MAYDAY ist nur gerechtfertigt, wenn Gefahr für Leib und Leben oder für das Schiff besteht, sie unmittelbar droht und sofort Hilfe nötig ist. Ist das Schiff nur manövrierbehindert oder braucht jemand ärztlichen Rat, ist das meist ein Dringlichkeitsfall (PAN PAN).";"Falsch.
+Wenn ein Schiff oder eine Person von einer ernsten und unmittelbaren Gefahr bedroht ist und sofortige Hilfe benötigt. Ein MAYDAY ist nur gerechtfertigt, wenn Gefahr für Leib und Leben oder für das Schiff besteht, sie unmittelbar droht und sofort Hilfe nötig ist. Ist das Schiff nur manövrierunfähig ohne unmittelbare Gefahr oder braucht jemand ärztlichen Rat, ist das meist ein Dringlichkeitsfall (PAN PAN).";"Falsch.
 
 Richtig ist: „Wenn ein Schiff oder eine Person von einer ernsten und unmittelbaren Gefahr bedroht ist und sofortige Hilfe benötigt“
 
-Ein MAYDAY ist nur gerechtfertigt, wenn Gefahr für Leib und Leben oder für das Schiff besteht, sie unmittelbar droht und sofort Hilfe nötig ist. Ist das Schiff nur manövrierbehindert oder braucht jemand ärztlichen Rat, ist das meist ein Dringlichkeitsfall (PAN PAN)."
+Ein MAYDAY ist nur gerechtfertigt, wenn Gefahr für Leib und Leben oder für das Schiff besteht, sie unmittelbar droht und sofort Hilfe nötig ist. Ist das Schiff nur manövrierunfähig ohne unmittelbare Gefahr oder braucht jemand ärztlichen Rat, ist das meist ein Dringlichkeitsfall (PAN PAN)."
 "SRC-0136";"Richtig.
 
 Notfall. Bei Lebensgefahr gilt die höchste Vorrangstufe. Dann löst man einen Notalarm aus und sendet MAYDAY. Dringlichkeit (PAN PAN) ist für Fälle ohne unmittelbare Lebensgefahr gedacht.";"Falsch.
@@ -2668,11 +2668,11 @@ Richtig ist: „Kanal 16, Kanal 06“
 Kanal 16 dient dem ersten Anruf und dem Notverkehr, Kanal 06 der Abstimmung zwischen Schiff und Luftfahrzeug während des Einsatzes. Kanal 70 ist ausschließlich für DSC vorgesehen, Sprechfunk ist dort nicht zulässig."
 "SRC-0154";"Richtig.
 
-Zweikanal-Überwachung (Dual Watch). Bei Dual Watch prüft das UKW-Gerät abwechselnd Kanal 16 und einen zweiten Kanal. So kann man mit dem Hubschrauber auf Kanal 06 sprechen und verpasst trotzdem keine Meldung auf Kanal 16. Dafür braucht man weder ein zweites Gerät noch muss man von Hand umschalten.";"Falsch.
+Zweikanal-Überwachung (Dual Watch). Bei Dual Watch prüft das UKW-Gerät abwechselnd Kanal 16 und einen zweiten Kanal. So kann man mit dem Hubschrauber auf Kanal 06 sprechen und hört Kanal 16 trotzdem mit Vorrang mit; während des eigenen Sendens oder langer Aussendungen auf dem zweiten Kanal kann allerdings etwas verloren gehen. Dafür braucht man weder ein zweites Gerät noch muss man von Hand umschalten.";"Falsch.
 
 Richtig ist: „Zweikanal-Überwachung (Dual Watch)“
 
-Bei Dual Watch prüft das UKW-Gerät abwechselnd Kanal 16 und einen zweiten Kanal. So kann man mit dem Hubschrauber auf Kanal 06 sprechen und verpasst trotzdem keine Meldung auf Kanal 16. Dafür braucht man weder ein zweites Gerät noch muss man von Hand umschalten."
+Bei Dual Watch prüft das UKW-Gerät abwechselnd Kanal 16 und einen zweiten Kanal. So kann man mit dem Hubschrauber auf Kanal 06 sprechen und hört Kanal 16 trotzdem mit Vorrang mit; während des eigenen Sendens oder langer Aussendungen auf dem zweiten Kanal kann allerdings etwas verloren gehen. Dafür braucht man weder ein zweites Gerät noch muss man von Hand umschalten."
 "SRC-0155";"Richtig.
 
 Kanal 16. Über Kanal 16 läuft der Notverkehr, und meist ruft der Hubschrauber dort zuerst an. Der Havarist bleibt deshalb auf Kanal 16 empfangsbereit, bis die Verbindung steht. Dann kann für die Abstimmung auf Kanal 06 gewechselt werden.";"Falsch.

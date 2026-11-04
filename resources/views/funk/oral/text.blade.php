@@ -58,7 +58,7 @@
                 <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
                     <label for="{{ $name }}" class="font-medium text-slate-800 dark:text-white block mb-2">{{ $label }}</label>
                     <textarea id="{{ $name }}" name="{{ $name }}" rows="5" placeholder="{{ $placeholder }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">{{ old($name, $answers[$name] ?? '') }}</textarea>
-                    @if ($evaluation)
+                    @if ($evaluation && $evaluation[$name])
                         @php $result = $evaluation[$name]; @endphp
                         <div class="mt-3 text-sm font-medium text-slate-700 dark:text-slate-200">{{ $result['percent'] }}&nbsp;% der Wörter getroffen</div>
                         @if ($result['missing'])
@@ -71,9 +71,10 @@
                     @endif
                 </div>
             @endforeach
-            @error('transcript')
-                <p class="text-sm text-rose-600">{{ $message }}</p>
-            @enderror
+            {{-- Review-Runde 4: alle Fehler zeigen (z. B. zu lange Übersetzung), nicht nur die der Mitschrift. --}}
+            @if ($errors->any())
+                <p class="text-sm text-rose-600">{{ $errors->first() }}</p>
+            @endif
             <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg px-5 py-2.5 text-sm font-semibold text-white" style="background-color: var(--brand-secondary, #007A7A)">
                 <x-icon name="check-circle" class="w-4 h-4" /> Auswerten
             </button>

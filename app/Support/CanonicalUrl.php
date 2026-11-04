@@ -17,6 +17,8 @@ use Illuminate\Support\Facades\URL;
  */
 class CanonicalUrl
 {
+    // Hinweis: das Schema (http/https) des fertigen Links übernimmt Laravel
+    // vom aktuellen Request; die Angabe hier gilt nur ohne Request.
     public static function root(?Tenant $tenant = null): string
     {
         $scheme = app()->environment('production') ? 'https' : 'http';

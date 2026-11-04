@@ -82,6 +82,21 @@ class PraxisTrainerTest extends TestCase
         $page->assertSee('1 / 2 Aufgaben', false);
     }
 
+    public function test_a_mastered_task_can_be_reopened(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $firstTask] = $this->makeIsolatedPraxisTasks();
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/praxistrainer/{$firstTask->id}/complete");
+        $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/praxistrainer/{$firstTask->id}")->assertSee('Nicht mehr als gemeistert zählen');
+        $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/praxistrainer/{$firstTask->id}/reopen")
+            ->assertRedirect(route('praxistrainer.show', ['course' => $course, 'task' => $firstTask]));
+
+        $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/praxistrainer")->assertSee('0 / 2 Aufgaben', false);
+    }
+
     /**
      * Bug-Review Oberfläche U8: der Seitenkopf (Titel + Fortschritts-
      * Statistik) stand bisher in einem "flex items-center justify-between"

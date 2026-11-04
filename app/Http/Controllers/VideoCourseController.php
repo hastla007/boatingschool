@@ -6,6 +6,7 @@ use App\Models\CourseDefinition;
 use App\Models\VideoLesson;
 use App\Models\VideoProgress;
 use App\Services\EntitlementService;
+use App\Services\ExamEvaluationService;
 use App\Support\ComboVideoGroups;
 use App\Support\TenantContext;
 use App\Support\VideoCourseLessons;
@@ -45,6 +46,9 @@ class VideoCourseController extends Controller
 
         $completedCount = $progress->filter(fn ($p) => $p->completed)->count();
         $lesson->load('steps', 'questions');
+        // Review-Runde 4: nur Fragen, die das Quiz auch ausspielen kann --
+        // sonst blieb die Lektion bei lauter deaktivierten Fragen offen.
+        $quizQuestions = VideoQuizController::playableQuestions($lesson, $tenantContext->tenant(), $request->user(), app(ExamEvaluationService::class));
 
         // Kombikurse zeigen im Player-Header den Namen des gerade aktiven
         // Teilkurses (z. B. "SBF See") statt des Kombikurs-Gesamtnamens.
@@ -61,6 +65,7 @@ class VideoCourseController extends Controller
         return view('video.show', [
             'course' => $course,
             'lesson' => $lesson,
+            'quizQuestionCount' => $quizQuestions->count(),
             'lessons' => $lessons,
             'progress' => $progress,
             'next' => $next,

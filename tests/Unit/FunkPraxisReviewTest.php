@@ -49,4 +49,28 @@ class FunkPraxisReviewTest extends TestCase
         $this->assertFalse($this->ok(FunkPraxis::evaluate(FunkPraxis::tasks('UBI')[8], ['radio' => 'Kanal 16']), 'radio', 'Kanal der Nautischen Information'));
         $this->assertTrue($this->ok(FunkPraxis::evaluate(FunkPraxis::tasks('UBI')[10], ['radio' => 'Kanal 18, 25 W']), 'radio', 'Kanal der Nautischen Information'));
     }
+
+    public function test_a_position_spoken_digit_by_digit_without_units_is_recognised(): void
+    {
+        // Review-Runde 5: Die Spracherkennung schreibt „five four“ oft als
+        // „5 4“; ohne „degrees“ folgen die Zahlen direkt aufeinander.
+        $pattern = '/'.(new \ReflectionMethod(FunkPraxis::class, 'posPattern'))->invoke(null, [54, 10, 'N', 7, 52, 'E']).'/u';
+        foreach ([
+            'MY POSITION 5 4 DEGREES 1 0 MINUTES NORTH 0 0 7 DEGREES 5 2 MINUTES EAST',
+            'POSITION FIVE FOUR ONE ZERO NORTH ZERO ZERO SEVEN FIVE TWO EAST',
+            'POSITION 54 DEGREES 1 0 MINUTES NORTH 7 DEGREES 52 MINUTES EAST',
+            'MY POSITION N54 10 E007 52',
+            "MY POSITION 54°10'N 007°52'E",
+        ] as $spoken) {
+            $this->assertMatchesRegularExpression($pattern, FunkPraxis::normalize($spoken), $spoken);
+        }
+        foreach ([
+            'POSITION FIVE FOUR DEGREES ONE ZERO MINUTES NORTH ZERO ZERO SEVEN TWO DEGREES FIVE TWO MINUTES EAST',
+            'POSITION 54 10 NORTH 72 52 EAST',
+            'POSITION FIVE FOUR ONE SEVEN NORTH ZERO ZERO SEVEN FIVE TWO EAST',
+            'POSITION FIVE FOUR SEVENTEEN NORTH SEVEN FIFTY TWO EAST',
+        ] as $wrong) {
+            $this->assertDoesNotMatchRegularExpression($pattern, FunkPraxis::normalize($wrong), $wrong);
+        }
+    }
 }

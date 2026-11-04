@@ -6,10 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Mail\VerifySupportEmail;
 use App\Models\Tenant;
 use App\Support\BestEffortMail;
+use App\Support\CanonicalUrl;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\URL;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -72,10 +72,12 @@ class SupportEmailVerificationController extends Controller
     {
         $branding = $tenant->branding;
 
-        $verificationUrl = URL::temporarySignedRoute(
+        // Review-Runde 4: Subdomain der Schule statt Request-Host (Custom Domain), siehe CanonicalUrl.
+        $verificationUrl = CanonicalUrl::temporarySignedRoute(
             'admin.branding.support-email.verify',
             now()->addMinutes(60),
-            ['tenant' => $tenant->id, 'hash' => sha1($branding->support_email)]
+            ['tenant' => $tenant->id, 'hash' => sha1($branding->support_email)],
+            $tenant,
         );
 
         return BestEffortMail::send(

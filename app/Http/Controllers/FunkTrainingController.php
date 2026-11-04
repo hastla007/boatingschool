@@ -154,9 +154,13 @@ class FunkTrainingController extends Controller
 
         $progress = $this->progress($tenantContext, $request, RadioTrainingProgress::TYPE_TEXT, [$text['key']])->get($text['key']);
         $answers = $progress?->answers[$direction] ?? [];
+        // Review-Runde 4: ein bewusst leer gelassenes Feld (erst mitschreiben,
+        // dann übersetzen) wird nicht mit 0 % bewertet und verrät nicht schon
+        // die Lösung.
+        $evaluate = fn (string $original, ?string $answer) => trim((string) $answer) !== '' ? FunkTraining::wordMatch($original, $answer) : null;
         $evaluation = $request->boolean('auswertung') && $answers ? [
-            'transcript' => FunkTraining::wordMatch($text[$from], $answers['transcript'] ?? ''),
-            'translation' => FunkTraining::wordMatch($text[$to], $answers['translation'] ?? ''),
+            'transcript' => $evaluate($text[$from], $answers['transcript'] ?? ''),
+            'translation' => $evaluate($text[$to], $answers['translation'] ?? ''),
         ] : null;
 
         return view('funk.oral.text', [

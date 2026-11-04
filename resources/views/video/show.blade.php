@@ -100,10 +100,10 @@
                         Noch nicht abgeschlossen
                     @endif
                 </span>
-                @if ($lesson->questions->isNotEmpty())
+                @if ($quizQuestionCount > 0)
                     <a href="{{ route('video.quiz.show', array_filter(['course' => $course, 'lesson' => $lesson, 'position' => 1, 'kapitel' => $moduleIds ? implode(',', $moduleIds) : null])) }}"
                        class="inline-flex items-center gap-1.5 px-5 py-2 rounded-full text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-secondary, #007A7A)">
-                        Zu den Fragen ({{ $lesson->questions->count() }}) <x-icon name="arrow-right" class="w-4 h-4" />
+                        Zu den Fragen ({{ $quizQuestionCount }}) <x-icon name="arrow-right" class="w-4 h-4" />
                     </a>
                 @else
                     <form method="POST" action="{{ route('video.complete', array_filter(['course' => $course, 'lesson' => $lesson, 'kapitel' => $moduleIds ? implode(',', $moduleIds) : null])) }}">

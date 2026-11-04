@@ -116,7 +116,9 @@ class EntitlementController extends Controller
             // allein dadurch unterlaufen, dass irgendwann wieder ein freier
             // Code für diesen Kurs verfügbar ist. Dafür ist die eigene,
             // ausdrückliche "Widerruf aufheben"-Aktion nötig (siehe update()).
-            if ($entitlement && $entitlement->status === 'revoked') {
+            // Review-Runde 4: bei mehreren Zeilen (Altbestand) zählt jede widerrufene.
+            $hasRevoked = Entitlement::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)->where('status', 'revoked')->exists();
+            if ($hasRevoked && ! $isCurrentlyActive) {
                 return back()->withErrors(['course_id' => 'Der Zugang zu diesem Kurs wurde widerrufen und kann nicht einfach per neuem Code wiederhergestellt werden -- bitte zuerst den Widerruf bei der bestehenden Buchung aufheben.']);
             }
 
