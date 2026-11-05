@@ -117,12 +117,26 @@ class Geraetesimulation
         $checks = $speech['checks'] ?? null;
 
         if (isset($speech['scenario'])) {
-            $task = FunkPraxis::scenario(self::catalogOf($lesson), $speech['scenario']);
-            $message = collect($task['fields'])->firstWhere('name', 'message');
+            $message = self::scenarioMessage($lesson, $speech);
             $checks = $message['checks'];
         }
 
         return FunkPraxis::checkText($checks, $text);
+    }
+
+    /**
+     * Meldung (Wortlaut und Prüfpunkte) aus einem Szenario des Praxistrainers;
+     * mit "part" nur ein Teil, z. B. bei SECURITE die Ankündigung auf Kanal 16
+     * ("announcement") oder die Meldung auf dem Arbeitskanal ("message").
+     *
+     * @return array{solution: string, checks: list<array{0: string, 1: string, 2: int}>}
+     */
+    private static function scenarioMessage(array $lesson, array $speech): array
+    {
+        $task = FunkPraxis::scenario(self::catalogOf($lesson), $speech['scenario']);
+        $message = collect($task['fields'])->firstWhere('name', 'message');
+
+        return isset($speech['part']) ? $message['parts'][$speech['part']] : $message;
     }
 
     /** @return list<string> Gerätekennungen, z. B. ic-m505, ic-m323. */
@@ -244,8 +258,7 @@ class Geraetesimulation
             }
 
             if (isset($speech['scenario'])) {
-                $task = FunkPraxis::scenario(self::catalogOf($lesson), $speech['scenario']);
-                $solutions[] = collect($task['fields'])->firstWhere('name', 'message')['solution'];
+                $solutions[] = self::scenarioMessage($lesson, $speech)['solution'];
             } else {
                 $solutions[] = $speech['solution'];
             }

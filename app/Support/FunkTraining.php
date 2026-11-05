@@ -54,7 +54,9 @@ class FunkTraining
 
         return $cache[$catalog] ??= collect((include database_path('data/funk_vokabeln.php'))[$catalog] ?? [])
             ->map(fn (array $entries) => array_map(fn (array $entry) => [
-                'key' => sprintf('VOC-%s-%s', $catalog, substr(md5($entry[0].'|'.$entry[1]), 0, 12)),
+                // Optional ein drittes Feld: früherer englischer Wortlaut, damit
+                // der Lernstand nach einer Korrektur erhalten bleibt.
+                'key' => sprintf('VOC-%s-%s', $catalog, substr(md5($entry[0].'|'.($entry[2] ?? $entry[1])), 0, 12)),
                 'de' => $entry[0],
                 'en' => $entry[1],
             ], $entries))

@@ -2752,18 +2752,18 @@ Richtig ist: „Wenige Minuten“
 Geostationäre Satelliten und Satelliten auf mittlerer Umlaufbahn empfangen das 406-MHz-Signal fast überall sofort. Deshalb erreicht der Alarm die Seenotleitung meist nach wenigen Minuten."
 "SRC-0166";"Richtig.
 
-Bis zu 4 Stunden. Ohne GPS kann ein geostationärer Satellit die Position der Bake nicht bestimmen. Sie wird dann über den Dopplereffekt beim Überflug umlaufender Satelliten (LEOSAR) ermittelt, und unter ungünstigen Bedingungen muss man auf einen solchen Überflug warten.";"Falsch.
+Bis zu 4 Stunden. Ohne GPS kann ein geostationärer Satellit die Position der Bake nicht bestimmen. Sie wird dann über den Dopplereffekt beim Überflug umlaufender Satelliten (LEOSAR) ermittelt, und unter ungünstigen Bedingungen muss man auf einen solchen Überflug warten. Hinweis: COSPAS-SARSAT wurde inzwischen um MEOSAR erweitert (Such- und Rettungsempfänger auf Satelliten mittlerer Umlaufbahn wie Galileo und GPS). Damit wird eine Bake meist schon nach wenigen Minuten weltweit geortet, auch ohne eigenes GPS. In der Prüfung gilt weiterhin die Antwort des amtlichen Fragenkatalogs.";"Falsch.
 
 Richtig ist: „Bis zu 4 Stunden“
 
-Ohne GPS kann ein geostationärer Satellit die Position der Bake nicht bestimmen. Sie wird dann über den Dopplereffekt beim Überflug umlaufender Satelliten (LEOSAR) ermittelt, und unter ungünstigen Bedingungen muss man auf einen solchen Überflug warten."
+Ohne GPS kann ein geostationärer Satellit die Position der Bake nicht bestimmen. Sie wird dann über den Dopplereffekt beim Überflug umlaufender Satelliten (LEOSAR) ermittelt, und unter ungünstigen Bedingungen muss man auf einen solchen Überflug warten. Hinweis: COSPAS-SARSAT wurde inzwischen um MEOSAR erweitert (Such- und Rettungsempfänger auf Satelliten mittlerer Umlaufbahn wie Galileo und GPS). Damit wird eine Bake meist schon nach wenigen Minuten weltweit geortet, auch ohne eigenes GPS. In der Prüfung gilt weiterhin die Antwort des amtlichen Fragenkatalogs."
 "SRC-0167";"Richtig.
 
-Es müssen Überflüge der umlaufenden COSPAS-SARSAT-Satelliten (LEOSAR) abgewartet werden. LEOSAR-Satelliten kreisen auf niedriger Bahn um die Erde und sehen jeweils nur einen Teil von ihr. Aus der Dopplerverschiebung beim Überflug bestimmen sie den Ort der Bake. Fliegt gerade keiner über das Notgebiet, muss man warten, und Seegang oder Wetter spielen dabei keine Rolle.";"Falsch.
+Es müssen Überflüge der umlaufenden COSPAS-SARSAT-Satelliten (LEOSAR) abgewartet werden. LEOSAR-Satelliten kreisen auf niedriger Bahn um die Erde und sehen jeweils nur einen Teil von ihr. Aus der Dopplerverschiebung beim Überflug bestimmen sie den Ort der Bake. Fliegt gerade keiner über das Notgebiet, muss man warten, und Seegang oder Wetter spielen dabei keine Rolle. Hinweis: COSPAS-SARSAT wurde inzwischen um MEOSAR erweitert (Such- und Rettungsempfänger auf Satelliten mittlerer Umlaufbahn wie Galileo und GPS). Damit wird eine Bake meist schon nach wenigen Minuten weltweit geortet, auch ohne eigenes GPS. In der Prüfung gilt weiterhin die Antwort des amtlichen Fragenkatalogs.";"Falsch.
 
 Richtig ist: „Es müssen Überflüge der umlaufenden COSPAS-SARSAT-Satelliten (LEOSAR) abgewartet werden“
 
-LEOSAR-Satelliten kreisen auf niedriger Bahn um die Erde und sehen jeweils nur einen Teil von ihr. Aus der Dopplerverschiebung beim Überflug bestimmen sie den Ort der Bake. Fliegt gerade keiner über das Notgebiet, muss man warten, und Seegang oder Wetter spielen dabei keine Rolle."
+LEOSAR-Satelliten kreisen auf niedriger Bahn um die Erde und sehen jeweils nur einen Teil von ihr. Aus der Dopplerverschiebung beim Überflug bestimmen sie den Ort der Bake. Fliegt gerade keiner über das Notgebiet, muss man warten, und Seegang oder Wetter spielen dabei keine Rolle. Hinweis: COSPAS-SARSAT wurde inzwischen um MEOSAR erweitert (Such- und Rettungsempfänger auf Satelliten mittlerer Umlaufbahn wie Galileo und GPS). Damit wird eine Bake meist schon nach wenigen Minuten weltweit geortet, auch ohne eigenes GPS. In der Prüfung gilt weiterhin die Antwort des amtlichen Fragenkatalogs."
 "SRC-0168";"Richtig.
 
 2 sm. Die Ortung über den Dopplereffekt mit 406 MHz ist auf etwa 2 sm genau. Dieser Suchbereich ist klein genug für SAR-Einheiten, die das 121,5-MHz-Signal dann bis zur genauen Position anpeilen. Mit GPS ist die Position deutlich genauer.";"Falsch.

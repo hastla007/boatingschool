@@ -27,13 +27,15 @@ function intChannels() {
     }));
 }
 
+// Verkehrskreise nach dem Handbuch Binnenschifffahrtsfunk und der
+// Prüfungspraxis (Vorgabe der Bootsschule): Schiff–Schiff 06, 08, 10, 72,
+// 77; Schiff–Hafen 11–14, 71, 74; Nautische Information 18–20, 22–28, 73,
+// 78–82, 84–86 (kein Kanal 21); Funkverkehr an Bord 15, 17.
 const ATIS_PLAN = [
-    [8, 'Schiff-Schiff'], [10, 'Schiff-Schiff'], [11, 'Schiff-Hafen'], [12, 'Schiff-Hafen'], [13, 'Schiff-Hafen'],
-    [14, 'Schiff-Hafen'], [15, 'An Bord'], [17, 'An Bord'], [18, 'Nautische Information'], [19, 'Nautische Information'],
-    [20, 'Nautische Information'], [22, 'Nautische Information'], [23, 'Nautische Information'], [24, 'Nautische Information'],
-    [25, 'Nautische Information'], [26, 'Nautische Information'], [27, 'Nautische Information'], [28, 'Nautische Information'],
-    [71, 'Schiff-Hafen'], [72, 'Schiff-Schiff'], [73, 'Nautische Information'], [77, 'Schiff-Schiff'], [78, 'Nautische Information'],
-    [80, 'Nautische Information'], [82, 'Nautische Information'], [84, 'Nautische Information'],
+    [6, 'Schiff-Schiff'], [8, 'Schiff-Schiff'], [10, 'Schiff-Schiff'], [72, 'Schiff-Schiff'], [77, 'Schiff-Schiff'],
+    [11, 'Schiff-Hafen'], [12, 'Schiff-Hafen'], [13, 'Schiff-Hafen'], [14, 'Schiff-Hafen'], [71, 'Schiff-Hafen'], [74, 'Schiff-Hafen'],
+    [15, 'An Bord'], [17, 'An Bord'],
+    ...[18, 19, 20, 22, 23, 24, 25, 26, 27, 28, 73, 78, 79, 80, 81, 82, 84, 85, 86].map((ch) => [ch, 'Nautische Information']),
 ];
 
 function atisChannels() {

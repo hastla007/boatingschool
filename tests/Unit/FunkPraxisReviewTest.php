@@ -73,4 +73,36 @@ class FunkPraxisReviewTest extends TestCase
             $this->assertDoesNotMatchRegularExpression($pattern, FunkPraxis::normalize($wrong), $wrong);
         }
     }
+
+    public function test_the_nautical_information_channels_follow_the_inland_radio_handbook(): void
+    {
+        // Review: Kanal 24 gehört zur Nautischen Information, Kanal 21 nicht;
+        // „25 W“ ist die Sendeleistung, nicht Kanal 25.
+        $nif = fn (string $radio) => $this->ok(FunkPraxis::evaluate(FunkPraxis::tasks('UBI')[8], ['radio' => $radio]), 'radio', 'Kanal der Nautischen Information');
+        foreach ([18, 22, 24, 28, 73, 79, 81, 84, 86] as $channel) {
+            $this->assertTrue($nif("Kanal {$channel}"), "Kanal {$channel}");
+        }
+        $this->assertFalse($nif('Kanal 21'));
+        $this->assertFalse($nif('Kanal 16, 25 W'));
+        $this->assertTrue($nif('Kanal 25, 25 W'));
+    }
+
+    public function test_inland_mayday_relay_and_pan_pan_are_addressed_to_the_revierzentrale(): void
+    {
+        $task = fn (string $kind) => collect(FunkPraxis::tasks('UBI'))->firstWhere('kind', $kind);
+        $message = fn (array $t) => collect($t['fields'])->firstWhere('name', 'message')['solution'];
+
+        $relay = $task('relay');
+        $this->assertStringContainsString('REVIERZENTRALE', $message($relay));
+        $this->assertTrue($this->ok(FunkPraxis::evaluate($relay, ['message' => $message($relay)]), 'message', 'An die Revierzentrale'));
+        // MAYDAY RELAY ungerichtet „an alle“ statt an die Revierzentrale: falsch.
+        $toAll = str_replace('REVIERZENTRALE REVIERZENTRALE REVIERZENTRALE', 'AN ALLE FUNKSTELLEN', $message($relay));
+        $this->assertFalse($this->ok(FunkPraxis::evaluate($relay, ['message' => $toAll]), 'message', 'An die Revierzentrale'));
+
+        // PAN PAN: an die Revierzentrale, ausnahmsweise an alle Funkstellen.
+        $urgency = $task('urgency');
+        $this->assertStringContainsString('REVIERZENTRALE', $message($urgency));
+        $this->assertTrue($this->ok(FunkPraxis::evaluate($urgency, ['message' => str_replace('REVIERZENTRALE REVIERZENTRALE REVIERZENTRALE', 'AN ALLE FUNKSTELLEN', $message($urgency))]), 'message', 'An die Revierzentrale'));
+        $this->assertFalse($this->ok(FunkPraxis::evaluate($urgency, ['message' => str_replace('REVIERZENTRALE REVIERZENTRALE REVIERZENTRALE', '', $message($urgency))]), 'message', 'An die Revierzentrale'));
+    }
 }

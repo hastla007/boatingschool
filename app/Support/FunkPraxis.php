@@ -74,6 +74,13 @@ class FunkPraxis
     ];
 
     /** SRC: Gefahren für eine Sicherheitsmeldung. */
+    // Kanäle der Nautischen Information im Binnenfunk (wie channels.js; ohne
+    // 21). „25 W“ ist die Sendeleistung, nicht Kanal 25.
+    private const NIF_CHANNELS_PATTERN = '(?<!\d)(18|19|20|22|23|24|25|26|27|28|73|78|79|80|81|82|84|85|86)(?!\d)(?! ?W\b| ?WATT)';
+
+    // Übliche Arbeitskanäle für eine Sicherheitsmeldung an alle (Schiff–Schiff).
+    private const SAFETY_WORK_CHANNELS = [6, 8, 67, 69, 72, 73, 77];
+
     private const SRC_HAZARDS = [
         'container' => ['einen treibenden Container', 'a drifting container', 'DRIFTING CONTAINER', 'CONTAINER'],
         'buoy' => ['eine vertriebene, unbeleuchtete Tonne', 'an unlit buoy that has drifted off its position', 'UNLIT BUOY ADRIFT', 'BUOY|TONNE'],
@@ -377,28 +384,45 @@ class FunkPraxis
                 );
 
             case 'safety':
+                // Sicherheitsmeldung an alle: auf Kanal 16 nur ankündigen,
+                // die Meldung selbst auf dem angekündigten Arbeitskanal (so
+                // erwarten es die Prüfer; Kanal 16 bleibt frei). Ohne
+                // vorgegebenen Kanal gilt jeder übliche Arbeitskanal.
                 [$de, $en, $msg, $kw] = self::SRC_HAZARDS[$s['hazard']];
+                $work = $s['work_channel'] ?? 6;
+                $workAlternatives = isset($s['work_channel']) ? [$work] : self::SAFETY_WORK_CHANNELS;
                 $situation = "{$intro} Du sichtest {$de} auf Position ".self::posText($s['hazard_pos']).', eine Gefahr für die Schifffahrt. Sende die erforderliche Meldung!';
                 $situationEn = "{$introEn} You sight {$en} in position ".self::posText($s['hazard_pos']).', a danger to navigation. Send the appropriate message!';
-                $message = ['SECURITE SECURITE SECURITE', 'ALL STATIONS ALL STATIONS ALL STATIONS', 'THIS IS', ...$identity, 'NAVIGATIONAL WARNING', "{$msg} IN POSITION ".self::posSpoken($s['hazard_pos'])." AT {$s['time']} UTC", 'DANGER TO NAVIGATION', 'OUT'];
+                $workSpoken = 'CHANNEL '.self::spell(sprintf('%02d', $work));
+                $announcement = ['SECURITE SECURITE SECURITE', 'ALL STATIONS ALL STATIONS ALL STATIONS', 'THIS IS', ...$identity, "LISTEN ON {$workSpoken}", 'OUT'];
+                $body = ['SECURITE SECURITE SECURITE', 'ALL STATIONS ALL STATIONS ALL STATIONS', 'THIS IS', ...$identity, 'NAVIGATIONAL WARNING', "{$msg} IN POSITION ".self::posSpoken($s['hazard_pos'])." AT {$s['time']} UTC", 'DANGER TO NAVIGATION', 'OUT'];
+                $head = [
+                    ['SECURITE dreimal', 'SECURIT', 3],
+                    ['ALL STATIONS dreimal', 'ALL STATIONS', 3],
+                    ['THIS IS', '\bTHIS IS\b|\bHIER IST\b', 1],
+                    ["Name dreimal ({$own})", self::word($own), 3],
+                    ['Rufzeichen', self::callsignPattern($s['callsign']), 1],
+                ];
+                $announce = ['Arbeitskanal angekündigt ('.implode(', ', array_map(fn ($c) => sprintf('%02d', $c), $workAlternatives)).')', '(?:CHANNEL|KANAL) (?:'.implode('|', array_map(fn ($c) => self::workChannelPattern($c), $workAlternatives)).')', 1];
+                $hazard = [['Art der Gefahr', $kw, 1], ['Position der Gefahr', self::posPattern($s['hazard_pos']), 1]];
+                $out = ['Abschluss OUT', self::OVER_OR_OUT, 1];
 
-                return self::srcTask($situation, $situationEn,
+                $task = self::srcTask($situation, $situationEn,
                     ['Sicherheitsverkehr – Sicherheitsmeldung (SECURITE)', [['Sicherheitsverkehr', 'SICHERHEIT|SAFETY|SECURIT', 1]]],
                     self::srcDscAllShips('Sicherheitsanruf (Safety)', 'Sicherheitsanruf (Safety)', 'SAFETY|SICHERHEIT'),
-                    ['Kanal 16 (Ankündigung), hohe Sendeleistung (25 W); längere Sicherheitsmeldungen auf einem Arbeitskanal, der in der Ankündigung genannt wird', [
-                        ['Kanal 16', '(?<!\d)16(?!\d)', 1],
+                    [sprintf('Kanal 16 nur für die Ankündigung, dann Wechsel auf den angekündigten Arbeitskanal (z. B. %02d) für die Meldung', $work), [
+                        ['Kanal 16 (Ankündigung)', '(?<!\d)16(?!\d)', 1],
+                        ['Arbeitskanal für die Meldung', implode('|', array_map(fn ($c) => self::channelPattern($c), $workAlternatives)), 1],
                     ]],
-                    [$message, [
-                        ['SECURITE dreimal', 'SECURIT', 3],
-                        ['ALL STATIONS dreimal', 'ALL STATIONS', 3],
-                        ['THIS IS', '\bTHIS IS\b|\bHIER IST\b', 1],
-                        ["Name dreimal ({$own})", self::word($own), 3],
-                        ['Rufzeichen', self::callsignPattern($s['callsign']), 1],
-                        ['Art der Gefahr', $kw, 1],
-                        ['Position der Gefahr', self::posPattern($s['hazard_pos']), 1],
-                        ['Abschluss OUT', self::OVER_OR_OUT, 1],
-                    ]]
+                    [[...$announcement, sprintf('– Wechsel auf Kanal %02d –', $work), ...$body], [...$head, $announce, ...$hazard, $out]]
                 );
+                // Die Gerätesimulation prüft Ankündigung und Meldung getrennt.
+                $task['fields'][3]['parts'] = [
+                    'announcement' => ['solution' => implode("\n", $announcement), 'checks' => [...$head, $announce, $out]],
+                    'message' => ['solution' => implode("\n", $body), 'checks' => [...$head, ...$hazard, $out]],
+                ];
+
+                return $task;
 
             case 'routine':
                 $c = $s['called'];
@@ -475,7 +499,7 @@ class FunkPraxis
         $nif = 'Kanal des Verkehrskreises Nautische Information für diesen Streckenabschnitt (Handbuch Binnenschifffahrtsfunk bzw. blaues Tafelzeichen „UKW …“); Sendeleistung auf 25 W erhöhen – das ist nur in diesem Verkehrskreis zulässig. Kanal 10 sendet automatisch mit höchstens 1 W.';
         $nifChecks = [
             // Review: ein bloßes „Kanal“ (z. B. „Kanal 16“) zählte bisher als richtig.
-            ['Kanal der Nautischen Information', '(?<!\d)(18|19|20|21|22|78|79|80|81|82)(?!\d)|NAUTISCH|\bNIF\b|HANDBUCH|TAFEL', 1],
+            ['Kanal der Nautischen Information', self::NIF_CHANNELS_PATTERN.'|NAUTISCH|\bNIF\b|HANDBUCH|TAFEL', 1],
             ['Sendeleistung 25 W', '(?<!\d)25(?!\d)', 1],
         ];
 
@@ -504,7 +528,10 @@ class FunkPraxis
                 $d = $s['distressed'];
                 [$de, $msg, $kw] = self::UBI_NATURES[$d['nature']];
                 $situation = "{$intro} Du hörst auf Kanal 10 die Notmeldung vom {$d['type']} „".self::title($d['vessel'])."“, Rufzeichen {$d['callsign']}, {$where['near']}: {$de}, {$d['persons']} Personen an Bord. Niemand antwortet. Du kannst selbst nicht helfen. Leite die Notmeldung weiter!";
-                $message = ['MAYDAY RELAY MAYDAY RELAY MAYDAY RELAY', 'HIER IST', ...$identity, "MAYDAY {$d['vessel']} ".self::spell($d['callsign'], 'de'), 'POSITION '.$where['spoken'], $msg, "{$d['persons']} PERSONEN AN BORD", 'OVER'];
+                // MAYDAY RELAY richtet sich im Binnenfunk zuerst gezielt an die
+                // Revierzentrale (sie alarmiert die Rettungskette), nicht an alle.
+                $station = $s['called'] ?? 'REVIERZENTRALE';
+                $message = ['MAYDAY RELAY MAYDAY RELAY MAYDAY RELAY', self::times($station, 3), 'HIER IST', ...$identity, "MAYDAY {$d['vessel']} ".self::spell($d['callsign'], 'de'), 'POSITION '.$where['spoken'], $msg, "{$d['persons']} PERSONEN AN BORD", 'OVER'];
 
                 return self::ubiTask($situation,
                     ['Notverkehr – Weiterleitung einer Notmeldung (MAYDAY RELAY)', [['Notverkehr', self::RANK_DISTRESS, 1], ['Weiterleitung (Relay)', 'RELAY|WEITERLEIT|WEITERGAB|WEITERGEB', 1]]],
@@ -514,6 +541,7 @@ class FunkPraxis
                     [$nif, $nifChecks],
                     [$message, [
                         ['MAYDAY RELAY dreimal', 'MAYDAY RELAY', 3],
+                        ['An die Revierzentrale gerichtet', self::UBI_STATION, 1],
                         ['HIER IST', '\bHIER IST\b|\bTHIS IS\b', 1],
                         ["Eigener Name ({$own})", self::word($own), 1],
                         ['Eigenes Rufzeichen', self::callsignPattern($s['callsign']), 1],
@@ -528,16 +556,20 @@ class FunkPraxis
             case 'urgency':
                 [$de, $msg, $assist, $kw] = self::UBI_PROBLEMS[$s['problem']];
                 $situation = "{$intro} ".self::ucfirst($de).". {$persons} Personen an Bord. Leite den notwendigen Funkverkehr ein!";
-                $message = ['PAN PAN PAN PAN PAN PAN', 'HIER IST', ...$identity, 'POSITION '.$where['spoken'], $msg, $assist, "{$persons} PERSONEN AN BORD", 'OVER'];
+                // PAN PAN im Binnenfunk an die zuständige Revierzentrale; an
+                // alle Funkstellen nur, wenn keine Feststation erreichbar ist.
+                $station = $s['called'] ?? 'REVIERZENTRALE';
+                $message = ['PAN PAN PAN PAN PAN PAN', self::times($station, 3), 'HIER IST', ...$identity, 'POSITION '.$where['spoken'], $msg, $assist, "{$persons} PERSONEN AN BORD", 'OVER'];
 
                 return self::ubiTask($situation,
                     ['Dringlichkeitsverkehr – Dringlichkeitsmeldung (PAN PAN)', [['Dringlichkeitsverkehr', self::RANK_URGENCY, 1]]],
-                    ['Nautische Information – die zuständige Revierzentrale; Schiffe in der Nähe zusätzlich über Kanal 10 (Schiff–Schiff).', [
+                    ['Nautische Information – an die zuständige Revierzentrale (sie koordiniert den Verkehr); an alle Funkstellen nur, wenn keine Feststation erreichbar ist oder Schiffe in der Nähe unmittelbar gefährdet sind.', [
                         ['Nautische Information (Revierzentrale) oder Schiff–Schiff', 'NAUTISCH|\bNIF\b|REVIERZENTRALE|SCHIFF ?SCHIFF', 1],
                     ]],
                     [$nif, $nifChecks],
                     [$message, [
                         ['PAN PAN dreimal', 'PAN PAN', 3],
+                        ['An die Revierzentrale gerichtet (sonst an alle Funkstellen)', self::UBI_STATION.'|AN ALLE FUNKSTELLEN', 1],
                         ['HIER IST', '\bHIER IST\b|\bTHIS IS\b', 1],
                         ["Name dreimal ({$own})", self::word($own), 3],
                         ['Rufzeichen', self::callsignPattern($s['callsign']), 1],
@@ -551,7 +583,8 @@ class FunkPraxis
             case 'urgency_cancel':
                 [$de] = self::UBI_PROBLEMS[$s['problem']];
                 $situation = "{$intro} Um {$s['urgency_time']} Uhr hast du eine Dringlichkeitsmeldung gesendet ({$de}). Inzwischen ist das Problem behoben. Hebe die Dringlichkeitsmeldung auf!";
-                $message = ['PAN PAN PAN PAN PAN PAN', 'HIER IST', ...$identity, "MEINE DRINGLICHKEITSMELDUNG VON {$s['urgency_time']} UHR IST AUFGEHOBEN", 'DAS PROBLEM IST BEHOBEN', 'OVER'];
+                $station = $s['called'] ?? 'REVIERZENTRALE';
+                $message = ['PAN PAN PAN PAN PAN PAN', self::times($station, 3), 'HIER IST', ...$identity, "MEINE DRINGLICHKEITSMELDUNG VON {$s['urgency_time']} UHR IST AUFGEHOBEN", 'DAS PROBLEM IST BEHOBEN', 'OVER'];
 
                 return self::ubiTask($situation,
                     ['Dringlichkeitsverkehr – Aufhebung einer Dringlichkeitsmeldung', [['Dringlichkeitsverkehr', self::RANK_URGENCY, 1], ['Aufhebung', 'AUFHEB|ZURÜCK|RÜCKNAHME|CANCEL', 1]]],
@@ -561,6 +594,7 @@ class FunkPraxis
                     [$nif, $nifChecks],
                     [$message, [
                         ['PAN PAN dreimal (gleiches Anrufschema)', 'PAN PAN', 3],
+                        ['An dieselbe Funkstelle wie die Dringlichkeitsmeldung', self::UBI_STATION.'|AN ALLE FUNKSTELLEN', 1],
                         ['HIER IST', '\bHIER IST\b|\bTHIS IS\b', 1],
                         ["Name dreimal ({$own})", self::word($own), 3],
                         ['Rufzeichen', self::callsignPattern($s['callsign']), 1],
@@ -660,7 +694,7 @@ class FunkPraxis
             'called' => 'REVIERZENTRALE', 'situation' => 'Du möchtest bei der zuständigen Revierzentrale die aktuellen Wasserstände für deine weitere Fahrt erfragen. Stelle die Verbindung her!',
             'message' => 'ERBITTE DIE AKTUELLEN WASSERSTÄNDE FÜR MEINE WEITERE FAHRT',
             'circle' => 'Nautische Information (Revierzentrale).', 'circle_label' => 'Nautische Information', 'circle_pattern' => 'NAUTISCH|\bNIF\b|REVIERZENTRALE',
-            'radio' => 'Kanal des Verkehrskreises Nautische Information für diesen Streckenabschnitt (Handbuch Binnenschifffahrtsfunk)', 'radio_label' => 'Kanal der Nautischen Information', 'radio_pattern' => '(?<!\d)(18|19|20|21|22|78|79|80|81|82)(?!\d)|NAUTISCH|\bNIF\b|HANDBUCH',
+            'radio' => 'Kanal des Verkehrskreises Nautische Information für diesen Streckenabschnitt (Handbuch Binnenschifffahrtsfunk)', 'radio_label' => 'Kanal der Nautischen Information', 'radio_pattern' => self::NIF_CHANNELS_PATTERN.'|NAUTISCH|\bNIF\b|HANDBUCH',
         ],
     ];
 
@@ -705,6 +739,9 @@ class FunkPraxis
     private const RANK_URGENCY = 'DRINGLICH|URGENCY|PAN PAN';
 
     private const OVER = '\b(OVER|KOMMEN)\b';
+
+    // Feststation im Binnenfunk, an die sich PAN PAN und MAYDAY RELAY richten.
+    private const UBI_STATION = 'REVIERZENTRALE|VERKEHRSZENTRALE|SCHLEUSE';
 
     private const OVER_OR_OUT = '\b(OVER|OUT|KOMMEN|ENDE)\b';
 
@@ -799,6 +836,12 @@ class FunkPraxis
     private static function digitsPattern(string $digits): string
     {
         return '(?<!\d)'.implode(' ?', array_map(fn ($d) => '(?:'.self::digitAlternatives((int) $d).')', str_split($digits))).self::noFurtherDigit();
+    }
+
+    /** Kanal als Zahl („06“, „6“) oder Ziffer für Ziffer gesprochen („ZERO SIX“). */
+    private static function workChannelPattern(int $channel): string
+    {
+        return self::channelPattern($channel).'|'.self::digitsPattern(sprintf('%02d', $channel)).'|'.self::digitsPattern((string) $channel);
     }
 
     private static function channelPattern(int $channel): string
