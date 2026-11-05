@@ -42,6 +42,8 @@ export const PAGES_HX = [
 ];
 
 const LONG = 1000;
+// Zustände, in denen das Gerät nicht empfängt (eigene Aussendung, DISTRESS halten).
+const BUSY = ['callTx', 'distressSent', 'distressHold'];
 const SQL_MONITOR = 3000;
 const DISTRESS_HOLD = 3000;
 const DISTRESS_REPEAT = 4 * 60 * 1000;
@@ -76,6 +78,8 @@ const RECEIVED = {
     polling_request: 'RX POLLING', test_call: 'RX DSC TEST', test_ack: 'RX TEST ACK',
 };
 const DISTRESS_TYPES = new Set(['distress', 'distress_relay', 'distress_ack']);
+// Bildschirme nach einem abgeschlossenen Vorgang; QUIT, CLR und MENU verlassen sie.
+const DONE_SCREENS = ['callDone', 'rcvdAccepted', 'cancelDone', 'distressAcked'];
 // Empfangene Anrufe mit Kanalautomatik (CH SWITCH TIMER 30 s).
 const AUTO_SWITCH = new Set(['distress', 'distress_relay', 'distress_ack', 'group', 'all_ships', 'geographic']);
 const EDITORS = {
@@ -172,6 +176,9 @@ export function createHx891({ own, clock = () => Date.now(), emit = () => {}, ad
             knobMode: s.window === 'sql' ? 'sql' : 'vol', page: s.page, softkeys: softkeys(), locked: s.locked, txPower: s.txPower,
         };
     }
+
+    // Anrufe, die während der eigenen Aussendung eintreffen.
+    let pending = [];
 
     function setScreen(screen) {
         const changed = s.screen !== screen;
@@ -692,6 +699,12 @@ export function createHx891({ own, clock = () => Date.now(), emit = () => {}, ad
         backToNormal();
     }
 
+    // Wie Softkey OK bzw. QUIT auf einem Abschlussbildschirm.
+    function leaveDone() {
+        if (s.screen === 'distressAcked' || s.screen === 'cancelDone') s.distress = null;
+        quit();
+    }
+
     function quit() {
         if (['rcvdAction', 'rcvdRespond'].includes(s.screen)) {
             // Anruf verworfen: Kanal bleibt, die Meldung steht im Log.
@@ -1013,9 +1026,15 @@ export function createHx891({ own, clock = () => Date.now(), emit = () => {}, ad
             return;
         }
         s.window = null;
+        // Abschlussbildschirme (gesendet, angenommen, aufgehoben, bestätigt)
+        // verlassen auch CLR und MENU, nicht nur der Softkey QUIT.
+        const done = DONE_SCREENS.includes(s.screen);
         if (key === 'menu') {
             if (['menu', 'editor', 'chList', 'confirm', 'mmsiInfo', 'distAlert', 'log'].includes(s.screen)) backToNormal();
-            else if (s.screen === 'normal' || s.screen === 'distressWait') openMain();
+            else if (done) {
+                leaveDone();
+                openMain();
+            } else if (s.screen === 'normal' || s.screen === 'distressWait') openMain();
 
             return;
         }
@@ -1029,6 +1048,8 @@ export function createHx891({ own, clock = () => Date.now(), emit = () => {}, ad
             if (['menu', 'editor', 'chList', 'confirm', 'mmsiInfo', 'distAlert', 'log', 'posInfo'].includes(s.screen)) {
                 s.call = null;
                 backToNormal();
+            } else if (done) {
+                leaveDone();
             }
 
             return;
@@ -1239,14 +1260,23 @@ export function createHx891({ own, clock = () => Date.now(), emit = () => {}, ad
                 sendDistress(true);
             }
             if (s.window && now >= s.windowUntil) s.window = null;
+            if (! s.power) pending = [];
+            if (pending.length && ! BUSY.includes(s.screen)) this.receive(pending.shift(), true);
         },
-        receive(call) {
+        receive(call, queued = false) {
             // Aus oder im Binnenfunk (ATIS, DSC gesperrt): kein Empfang.
             if (! s.power || s.group === 'ATIS') return false;
+            // Während das Gerät selbst sendet bzw. DISTRESS gehalten wird,
+            // geht kein Anruf verloren: Er kommt an, sobald das Gerät wieder
+            // empfängt (danach wie jeder andere Anruf, auch mit Kanalwechsel).
+            if (! queued && BUSY.includes(s.screen)) {
+                pending.push(call);
+
+                return true;
+            }
             if (s.scan) stopScan();
             s.received.unshift({ ...call, at: clock() });
             event('dsc_received', { call });
-            if (s.screen === 'distressHold') return true;
 
             // Antworten auf eigene Anrufe bzw. den eigenen Notalarm.
             if (call.type === 'distress_ack' && s.distress?.waiting) {

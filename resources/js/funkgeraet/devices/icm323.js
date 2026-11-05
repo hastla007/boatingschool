@@ -24,6 +24,8 @@ export const DEVICE = {
 };
 
 const LONG = 1000;
+// Zustände, in denen das Gerät nicht empfängt (eigene Aussendung, DISTRESS halten).
+const BUSY = ['callTx', 'distressSent', 'distressHold'];
 const DISTRESS_HOLD = 3000;
 const DISTRESS_REPEAT = 4 * 60 * 1000;
 const TRANSMIT_MS = 1000;
@@ -143,6 +145,9 @@ export function createIcM323({ own, clock = () => Date.now(), emit = () => {}, a
             knobMode: s.knobMode, softkeys: softkeys(),
         };
     }
+
+    // Anrufe, die während der eigenen Aussendung eintreffen.
+    let pending = [];
 
     function setScreen(screen) {
         const changed = s.screen !== screen;
@@ -1057,15 +1062,17 @@ export function createIcM323({ own, clock = () => Date.now(), emit = () => {}, a
             if (s.knobMode !== 'vol' && now >= s.windowUntil && s.screen === 'normal') {
                 s.knobMode = 'vol';
             }
+            if (! s.power) pending = [];
+            if (pending.length && ! BUSY.includes(s.screen)) this.receive(pending.shift(), true);
         },
-        receive(call) {
+        receive(call, queued = false) {
             // Aus oder im Binnenmodus (ATIS, DSC gesperrt): kein Empfang.
             if (! s.power || s.group === 'ATIS') return false;
-            // Während DISTRESS gehalten wird, unterbricht kein Anruf den
-            // Notalarm; der Anruf steht im Log.
-            if (s.screen === 'distressHold') {
-                s.received.unshift({ ...call, at: clock() });
-                event('dsc_received', { call });
+            // Während das Gerät selbst sendet bzw. DISTRESS gehalten wird,
+            // geht kein Anruf verloren: Er kommt an, sobald das Gerät wieder
+            // empfängt (danach wie jeder andere Anruf, auch mit Kanalwechsel).
+            if (! queued && BUSY.includes(s.screen)) {
+                pending.push(call);
 
                 return true;
             }

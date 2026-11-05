@@ -301,7 +301,30 @@ export function mount(root, config) {
             h('strong', { class: 'font-semibold' }, `${run.lesson.title} · ${status.done ? 'fertig' : where}${text ? ': ' : ''}`),
             text,
             ! exam && status.help ? h('span', { class: 'block text-xs mt-1 opacity-80' }, status.help) : null,
+            status.done ? stepLineActions() : null,
         ].filter((child) => child !== null && child !== ''));
+    }
+    // Fertig: wie geht es weiter? Dieselben Knöpfe wie in der Seitenleiste;
+    // was nur dort zu sehen ist (Auswertung, Lektionsliste), blendet sie ein.
+    function stepLineActions() {
+        const action = (label, onclick) => h('button', { type: 'button', class: 'text-xs font-semibold px-3 py-1 rounded-full bg-amber-900 text-amber-50 dark:bg-amber-100 dark:text-amber-950', onclick }, label);
+        const showLessons = () => setLessonsHidden(false);
+        let buttons;
+        if (exam) {
+            const last = exam.index === exam.lessons.length - 1;
+            buttons = [last
+                ? action('Prüfung auswerten', () => { showLessons(); finishExam(); })
+                : action('Nächste Aufgabe', () => { exam.index++; startExamTask(); })];
+        } else {
+            const lesson = run.lesson;
+            const level = run.level;
+            buttons = [
+                level < 3 ? action(`Weiter: ${LEVEL_LABELS[level + 1]}`, () => startRun(lesson, { level: level + 1 })) : null,
+                action('Alle Lektionen', () => { run = null; clearTimers(); showLessons(); renderSidebar(); render(); }),
+            ];
+        }
+
+        return h('span', { class: 'flex flex-wrap gap-2 mt-2' }, buttons);
     }
     let device = null;
 

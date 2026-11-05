@@ -226,3 +226,75 @@ test('Handfunkgeräte: mit inland: false lässt sich ATIS nicht wählen, das Ger
         assert.ok(! events.some((e) => e.type === 'group'), device);
     }
 });
+
+test('HX891BT/E: CLR und MENU verlassen Abschlussbildschirme wie QUIT', () => {
+    // Anruf an alle gesendet: „Transmitted“ (callDone), CLR führt zurück.
+    const h = radioOn('hx891bte');
+    h.press('menu');
+    h.pick('DSC CALL');
+    h.pick('ALL SHIPS');
+    h.pick('SAFETY');
+    h.pick('CH:16');
+    h.soft('YES');
+    h.wait(1200);
+    assert.equal(h.radio.state.screen, 'callDone');
+    h.press('clr');
+    assert.equal(h.radio.state.screen, 'normal');
+
+    // Angenommener Gruppenanruf (rcvdAccepted): MENU öffnet direkt das Menü.
+    const g = radioOn('hx891bte', { channel: 72 });
+    g.radio.receive({ type: 'group', from: moewe, category: 'Routine', channel: 69 });
+    g.soft('STOP ALARM');
+    g.soft('ACCEPT');
+    assert.equal(g.radio.state.screen, 'rcvdAccepted');
+    g.press('menu');
+    assert.equal(g.radio.state.screen, 'menu');
+    assert.equal(g.radio.state.channel, 69);
+
+    // Notalarm bestätigt (distressAcked): CLR beendet den Notalarm-Zustand.
+    const d = radioOn('hx891bte');
+    d.sendDistress();
+    d.radio.receive({ type: 'distress_ack', from: moewe });
+    d.soft('STOP ALARM');
+    assert.equal(d.radio.state.screen, 'distressAcked');
+    d.press('clr');
+    assert.equal(d.radio.state.screen, 'normal');
+    d.wait(5 * 60 * 1000);
+    assert.equal(d.sent().filter((e) => e.kind === 'distress').length, 1, 'keine Wiederholung des Notalarms');
+});
+
+test('Anruf während der eigenen Aussendung geht nicht verloren, der Kanalwechsel folgt danach', () => {
+    const h = radioOn('hx891bte', { channel: 72 });
+    h.press('menu');
+    h.pick('DSC CALL');
+    h.pick('ALL SHIPS');
+    h.pick('SAFETY');
+    h.pick('CH:16');
+    h.soft('YES');
+    assert.equal(h.radio.state.screen, 'callTx');
+    // Gruppenanruf genau während des Sendens.
+    h.radio.receive({ type: 'group', from: moewe, category: 'Routine', channel: 69 });
+    assert.equal(h.radio.state.screen, 'callTx', 'Aussendung läuft weiter');
+    h.wait(1500);
+    assert.equal(h.d().alarm, true, 'der Anruf kommt nach der Aussendung an');
+    h.soft('STOP ALARM');
+    h.soft('ACCEPT');
+    assert.equal(h.radio.state.channel, 69);
+});
+
+test('Bestätigung des Notalarms, während DISTRESS noch gehalten wird, beendet die Wiederholung', () => {
+    for (const device of ['hx891bte', 'ic-m94de']) {
+        const h = radioOn(device);
+        h.press('distressCover');
+        h.radio.keyDown('distress');
+        h.wait(1000);
+        h.radio.receive({ type: 'distress_ack', from: moewe });
+        h.wait(2200);
+        h.radio.keyUp('distress');
+        h.wait(3000);
+        assert.equal(h.sent().filter((e) => e.kind === 'distress').length, 1, device);
+        assert.ok(h.events.some((e) => e.type === 'dsc_received' && e.call.type === 'distress_ack'), device);
+        h.wait(5 * 60 * 1000);
+        assert.equal(h.sent().filter((e) => e.kind === 'distress').length, 1, `${device}: keine Wiederholung`);
+    }
+});
