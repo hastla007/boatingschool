@@ -57,6 +57,11 @@ class ImportContentQuestions extends Command
         // seit Sicherheitsreview M7 dort nur noch SELECT hat.
         config(['database.default' => 'pgsql_admin']);
 
+        // Mehrere Läufe auf derselben Instanz (Upload im Superadmin, Seeder):
+        // Zähler und Fehler je Lauf neu beginnen.
+        $this->imported = $this->unchanged = $this->revised = $this->skipped = 0;
+        $this->errors = [];
+
         $path = base_path($this->argument('path'));
         if (! is_file($path)) {
             $this->error("Datei nicht gefunden: {$path}");

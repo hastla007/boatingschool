@@ -137,6 +137,7 @@ Route::middleware(['auth', 'tenant.member', 'verified'])->group(function () {
 
     Route::get('/courses/{course}/exam/navigation', [NavigationTaskController::class, 'index'])->name('exam.navigation.index');
     Route::get('/courses/{course}/exam/navigation/{task}', [NavigationTaskController::class, 'show'])->name('exam.navigation.show');
+    Route::post('/courses/{course}/exam/navigation/{task}/questions/{question}', [NavigationTaskController::class, 'answer'])->name('exam.navigation.answer');
 
     Route::get('/courses/{course}/praxistrainer', [PraxisTrainerController::class, 'index'])->name('praxistrainer.index');
     Route::get('/courses/{course}/praxistrainer/{task}', [PraxisTrainerController::class, 'show'])->name('praxistrainer.show');

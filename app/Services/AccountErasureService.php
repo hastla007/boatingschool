@@ -8,6 +8,7 @@ use App\Models\Entitlement;
 use App\Models\ExamSession;
 use App\Models\Favorite;
 use App\Models\FavoriteCollection;
+use App\Models\NavigationProgress;
 use App\Models\PraxisExamAppointment;
 use App\Models\PraxisFormSubmission;
 use App\Models\PraxisProgress;
@@ -142,6 +143,7 @@ class AccountErasureService
             ProductPurchase::class,
             PraxisProgress::class,
             VideoProgress::class,
+            NavigationProgress::class,
             // Bug-Review (Funk-Training fehlt in Löschung): answers enthält
             // freie Mitschriften/Eingaben des Lerners (siehe Migration
             // 2024_02_01_000479) -- die Tabelle kam nach dieser Liste hinzu

@@ -3,16 +3,25 @@
 namespace App\Http\Controllers;
 
 use App\Models\CourseDefinition;
+use App\Models\NavigationProgress;
+use App\Models\NavigationQuestion;
 use App\Models\NavigationTask;
 use App\Services\EntitlementService;
+use App\Support\NavigationAnswer;
 use App\Support\TenantContext;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
 
 /**
  * Navigationsaufgaben-Trainer: Übungsmaterial mit sofort einsehbarer
  * Musterlösung, bewusst getrennt von der strengen Prüfungssimulation
  * (siehe ExamController), da hier "Sofortauflösung" gerade gewünscht ist.
+ *
+ * Eigene Antworten werden mit Toleranz geprüft, wenn die Musterlösung nur
+ * aus Messwerten besteht (NavigationAnswer); sonst bewertet sich der
+ * Lernende nach dem Aufdecken selbst. Der Stand wird je Teilfrage gemerkt.
  */
 class NavigationTaskController extends Controller
 {
@@ -30,15 +39,73 @@ class NavigationTaskController extends Controller
     {
         abort_unless($entitlements->hasAccess($tenantContext->tenant(), $request->user(), $course), 403);
 
-        $tasks = $course->navigationTasks;
+        $tasks = $course->navigationTasks->load('questions');
         abort_unless($tasks->contains('id', $task->id), 404, 'Diese Aufgabe gehört nicht zu diesem Kurs.');
 
-        $task->load('questions');
+        $task = $tasks->firstWhere('id', $task->id);
+        $progress = $this->progress($request, $tasks);
 
         return view('exam.navigation', [
             'course' => $course,
             'tasks' => $tasks,
             'task' => $task,
+            'progress' => $progress,
+            'taskStatus' => $tasks->mapWithKeys(fn (NavigationTask $t) => [$t->id => $this->taskStatus($t, $progress)]),
+            'autoCheck' => $task->questions->mapWithKeys(fn (NavigationQuestion $q) => [$q->id => NavigationAnswer::evaluate($q->answer_text, '')['auto']]),
         ]);
+    }
+
+    /**
+     * Eigene Antwort speichern (mit automatischer Prüfung, wo möglich),
+     * oder die Selbstbewertung nach dem Aufdecken der Musterlösung.
+     */
+    public function answer(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course, NavigationTask $task, NavigationQuestion $question): RedirectResponse
+    {
+        abort_unless($entitlements->hasAccess($tenantContext->tenant(), $request->user(), $course), 403);
+        abort_unless($task->course_id === $course->id && $question->navigation_task_id === $task->id, 404);
+
+        $data = $request->validate([
+            'answer' => ['nullable', 'string', 'max:500'],
+            'self' => ['nullable', 'in:richtig,falsch'],
+        ]);
+
+        $key = ['tenant_id' => $tenantContext->id(), 'user_id' => $request->user()->id, 'navigation_question_id' => $question->id];
+        $existing = NavigationProgress::where($key)->first();
+
+        if (isset($data['self'])) {
+            $values = ['answer' => $existing?->answer, 'correct' => $data['self'] === 'richtig'];
+        } else {
+            $given = trim((string) ($data['answer'] ?? ''));
+            if ($given === '') {
+                return back()->withErrors(['answer_'.$question->id => 'Bitte zuerst eine Antwort eingeben.'])->withFragment('frage-'.$question->question_number);
+            }
+            $result = NavigationAnswer::evaluate($question->answer_text, $given);
+            $values = ['answer' => $given, 'correct' => $result['correct']];
+        }
+
+        NavigationProgress::updateOrCreate($key, $values + ['updated_at' => now()]);
+
+        return redirect()->to(route('exam.navigation.show', ['course' => $course, 'task' => $task]).'#frage-'.$question->question_number);
+    }
+
+    /** @return Collection<string, NavigationProgress> Stand je Teilfrage (alle Aufgaben des Kurses). */
+    private function progress(Request $request, Collection $tasks): Collection
+    {
+        $questionIds = NavigationQuestion::whereIn('navigation_task_id', $tasks->pluck('id'))->pluck('id');
+
+        return NavigationProgress::where('user_id', $request->user()->id)->whereIn('navigation_question_id', $questionIds)
+            ->get()->keyBy('navigation_question_id');
+    }
+
+    /** 'done' (alle Teilfragen richtig), 'started' oder null. */
+    private function taskStatus(NavigationTask $task, Collection $progress): ?string
+    {
+        $ids = $task->questions->pluck('id');
+        $rows = $ids->map(fn ($id) => $progress->get($id))->filter();
+        if ($rows->isEmpty()) {
+            return null;
+        }
+
+        return $rows->count() === $ids->count() && $rows->every(fn ($p) => $p->correct === true) ? 'done' : 'started';
     }
 }

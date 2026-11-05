@@ -337,7 +337,8 @@ class ContentQuestionReviewPublishingTest extends TestCase
         $response = $this->actingAs($superadmin)->get(route('superadmin.questions.edit', $question));
 
         $response->assertOk();
-        $response->assertSee('Neue Fassung aus Reimport');
+        // Der Entwurf erscheint als Vergleich mit der veröffentlichten Fassung.
+        $response->assertSee('<ins>Neue</ins> Fassung<ins> aus Reimport</ins>', false);
         $response->assertSee(route('superadmin.questions.revisions.publish', $review));
     }
 
@@ -419,5 +420,24 @@ class ContentQuestionReviewPublishingTest extends TestCase
         // Von der Bearbeitungsseite mit ausdrücklicher Bestätigung.
         $this->actingAs($superadmin)->post(route('superadmin.questions.revisions.publish', $review), ['overwrite_newer' => 1])->assertRedirect();
         $this->onAdmin(fn () => $this->assertSame('published', $review->fresh()->editorial_status));
+    }
+
+    public function test_edit_page_compares_the_pending_revision_with_the_published_one(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        [, $question, $published, $review] = $this->makeQuestionWithPendingReview();
+        $this->onAdmin(function () use ($published, $review) {
+            foreach ([[$published, 'Rot', 'Grün'], [$review, 'Rot', 'Gelb']] as [$revision, $a, $b]) {
+                ContentAnswer::create(['revision_id' => $revision->id, 'answer_key' => 'A', 'answer_text' => $a, 'is_correct' => true, 'sort_order' => 1]);
+                ContentAnswer::create(['revision_id' => $revision->id, 'answer_key' => 'B', 'answer_text' => $b, 'is_correct' => false, 'sort_order' => 2]);
+            }
+        });
+
+        $page = $this->actingAs($superadmin)->get("/superadmin/questions/{$question->id}/edit")->assertOk();
+        $page->assertSee('Vergleich mit der veröffentlichten Revision 1');
+        $page->assertSee('<del>Alte</del><ins>Neue</ins> Fassung<ins> aus Reimport</ins>', false);
+        $page->assertSee('<del>Grün</del><ins>Gelb</ins>', false);
+        $page->assertSee('Unverändert: Erklärung (richtig)', false);
+        $page->assertSee('Antwort A', false);
     }
 }

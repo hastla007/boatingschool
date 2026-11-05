@@ -102,7 +102,14 @@ class CourseDefinition extends Model
             ->values();
     }
 
+    /** Aktive Praxistrainer-Karten (was Lernende sehen). */
     public function praxisTasks(): HasMany
+    {
+        return $this->allPraxisTasks()->where('active', true);
+    }
+
+    /** Alle Karten inkl. deaktivierter (Superadmin-Editor, Seeder). */
+    public function allPraxisTasks(): HasMany
     {
         return $this->hasMany(PraxisTask::class, 'course_id')->orderBy('sort_order');
     }

@@ -1,11 +1,14 @@
 <?php
 
 use App\Http\Controllers\Superadmin\AddonTemplateController;
+use App\Http\Controllers\Superadmin\ContentImportController;
 use App\Http\Controllers\Superadmin\CouponController;
 use App\Http\Controllers\Superadmin\CourseEditorController;
 use App\Http\Controllers\Superadmin\DashboardController;
 use App\Http\Controllers\Superadmin\ModuleController;
+use App\Http\Controllers\Superadmin\NavigationChartController;
 use App\Http\Controllers\Superadmin\PraxisFormTemplateController;
+use App\Http\Controllers\Superadmin\PraxisTaskController;
 use App\Http\Controllers\Superadmin\ProductController;
 use App\Http\Controllers\Superadmin\PruefungsausschussController;
 use App\Http\Controllers\Superadmin\QuestionController;
@@ -15,6 +18,7 @@ use App\Http\Controllers\Superadmin\TipCategoryController;
 use App\Http\Controllers\Superadmin\TipController;
 use App\Http\Controllers\Superadmin\UserController;
 use App\Http\Controllers\Superadmin\VideoLessonController;
+use App\Http\Controllers\Superadmin\VideoModuleController;
 use Illuminate\Support\Facades\Route;
 
 /**
@@ -60,10 +64,32 @@ Route::middleware(['auth', 'superadmin', 'admin-db', 'verified'])->prefix('super
     Route::post('/courses/{course}/modules', [CourseEditorController::class, 'attachModule'])->name('courses.modules.attach');
     Route::delete('/courses/{course}/modules/{module}', [CourseEditorController::class, 'detachModule'])->name('courses.modules.detach');
 
+    Route::get('/courses/{course}/navigation', [NavigationChartController::class, 'index'])->name('navigation.index');
+    Route::patch('/navigation-tasks/{task}/chart', [NavigationChartController::class, 'update'])->name('navigation.update');
+    Route::delete('/navigation-tasks/{task}/chart', [NavigationChartController::class, 'destroy'])->name('navigation.destroy');
+
+    Route::post('/courses/{course}/video-modules', [VideoModuleController::class, 'store'])->name('video-modules.store');
+    Route::patch('/video-modules/{module}', [VideoModuleController::class, 'update'])->name('video-modules.update');
+    Route::delete('/video-modules/{module}', [VideoModuleController::class, 'destroy'])->name('video-modules.destroy');
+    Route::post('/video-modules/{module}/move', [VideoModuleController::class, 'move'])->name('video-modules.move');
+    Route::post('/video-modules/{module}/lessons', [VideoModuleController::class, 'storeLesson'])->name('video-lessons.store');
+    Route::delete('/video-lessons/{lesson}', [VideoModuleController::class, 'destroyLesson'])->name('video-lessons.destroy');
+    Route::post('/video-lessons/{lesson}/move', [VideoModuleController::class, 'moveLesson'])->name('video-lessons.move');
+    Route::get('/courses/{course}/praxis-tasks', [PraxisTaskController::class, 'index'])->name('praxis-tasks.index');
+    Route::get('/courses/{course}/praxis-tasks/create', [PraxisTaskController::class, 'create'])->name('praxis-tasks.create');
+    Route::post('/courses/{course}/praxis-tasks', [PraxisTaskController::class, 'store'])->name('praxis-tasks.store');
+    Route::get('/praxis-tasks/{task}/edit', [PraxisTaskController::class, 'edit'])->name('praxis-tasks.edit');
+    Route::patch('/praxis-tasks/{task}', [PraxisTaskController::class, 'update'])->name('praxis-tasks.update');
+    Route::post('/praxis-tasks/{task}/toggle-active', [PraxisTaskController::class, 'toggleActive'])->name('praxis-tasks.toggle-active');
+
     Route::get('/video-lessons/{lesson}', [VideoLessonController::class, 'show'])->name('video-lessons.show');
     Route::patch('/video-lessons/{lesson}', [VideoLessonController::class, 'update'])->name('video-lessons.update');
     Route::post('/video-lessons/{lesson}/questions', [VideoLessonController::class, 'attachQuestion'])->name('video-lessons.questions.attach');
     Route::delete('/video-lessons/{lesson}/questions/{question}', [VideoLessonController::class, 'detachQuestion'])->name('video-lessons.questions.detach');
+
+    Route::get('/content-import', [ContentImportController::class, 'index'])->name('content-import.index');
+    Route::post('/content-import/questions', [ContentImportController::class, 'questions'])->name('content-import.questions');
+    Route::post('/content-import/feedback', [ContentImportController::class, 'feedback'])->name('content-import.feedback');
 
     Route::get('/modules', [ModuleController::class, 'index'])->name('modules.index');
     Route::post('/modules', [ModuleController::class, 'store'])->name('modules.store');

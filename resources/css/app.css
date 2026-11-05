@@ -35,3 +35,24 @@
         color: color-mix(in srgb, var(--brand-primary, #005FD7) 55%, white) !important;
     }
 }
+
+/* Revisions-Vergleich im Superadmin: entfernte und neue Wörter. */
+.revision-diff del {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+.revision-diff ins {
+    background-color: #dcfce7;
+    color: #166534;
+    text-decoration: none;
+}
+@media (prefers-color-scheme: dark) {
+    .revision-diff del {
+        background-color: rgb(127 29 29 / 0.5);
+        color: #fecaca;
+    }
+    .revision-diff ins {
+        background-color: rgb(20 83 45 / 0.5);
+        color: #bbf7d0;
+    }
+}

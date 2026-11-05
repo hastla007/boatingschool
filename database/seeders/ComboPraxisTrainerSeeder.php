@@ -107,10 +107,10 @@ class ComboPraxisTrainerSeeder extends Seeder
                 // Kategorien und Binnen-eigene Karten wie "Sog und
                 // Wellenschlag" oder "Großschifffahrt".
                 $this->mirror($source, $target, $suffix, $filter, $sortOffset, $coveredKarten);
-                foreach ($source->praxisTasks()->get(['kategorie', 'unterkategorie']) as $task) {
+                foreach ($source->allPraxisTasks()->get(['kategorie', 'unterkategorie']) as $task) {
                     $coveredKarten[self::cardKey($task->kategorie, $task->unterkategorie)] = true;
                 }
-                $sortOffset += (int) $source->praxisTasks()->max('sort_order');
+                $sortOffset += (int) $source->allPraxisTasks()->max('sort_order');
             }
         }
     }
@@ -138,9 +138,9 @@ class ComboPraxisTrainerSeeder extends Seeder
      */
     private function mirror(CourseDefinition $source, CourseDefinition $target, string $suffix, ?array $filter, int $sortOffset, array $skipKarten): void
     {
-        $existing = $target->praxisTasks()->pluck('content_id')->flip();
+        $existing = $target->allPraxisTasks()->pluck('content_id')->flip();
 
-        $tasks = $source->praxisTasks()
+        $tasks = $source->allPraxisTasks()
             ->when($filter['nur_kategorien'] ?? null, fn ($q, $kategorien) => $q->whereIn('kategorie', $kategorien))
             ->when($filter['ohne_kategorien'] ?? null, fn ($q, $kategorien) => $q->whereNotIn('kategorie', $kategorien))
             ->when($filter['ohne_karten'] ?? null, fn ($q, $karten) => $q->whereNotIn('unterkategorie', $karten))

@@ -3,8 +3,13 @@
 namespace Tests\Feature;
 
 use App\Models\CourseDefinition;
+use App\Models\NavigationProgress;
 use App\Models\NavigationQuestion;
 use App\Models\NavigationTask;
+use App\Services\AccountErasureService;
+use App\Services\PersonalDataExportService;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -62,10 +67,115 @@ class NavigationTaskTest extends TestCase
         $response->assertSee('090°');
     }
 
-    /** @return array{0: CourseDefinition, 1: NavigationTask} */
-    private function makeIsolatedNavigationTask(): array
+    public function test_own_answer_is_checked_with_tolerance_and_progress_shown(): void
     {
-        return $this->onAdmin(function () {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $task] = $this->makeIsolatedNavigationTask();
+        $this->grantEntitlement($tenant, $learner, $course);
+        $question = $this->onAdmin(fn () => $task->questions()->first());
+        $url = "/courses/{$course->id}/exam/navigation/{$task->id}/questions/{$question->id}";
+
+        $this->actingAsInTenant($learner, $tenant)->post($url, ['answer' => '095'])
+            ->assertRedirect(route('exam.navigation.show', ['course' => $course, 'task' => $task]).'#frage-1');
+        $progress = $this->onAdmin(fn () => NavigationProgress::where('user_id', $learner->id)->first());
+        $this->assertSame('095', $progress->answer);
+        $this->assertFalse($progress->correct);
+        $this->assertSame($tenant->id, $progress->tenant_id);
+
+        $this->actingAsInTenant($learner, $tenant)->post($url, ['answer' => '091°']);
+        $this->assertTrue($this->onAdmin(fn () => NavigationProgress::where('user_id', $learner->id)->first())->correct);
+
+        $page = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/exam/navigation/{$task->id}")->assertOk();
+        $page->assertSee('Richtig')->assertSee('value="091°"', false)->assertSee('1 von 1 Aufgaben vollständig richtig');
+
+        // Leere Antwort: Fehler, nichts überschrieben.
+        $this->actingAsInTenant($learner, $tenant)->post($url, ['answer' => ''])->assertSessionHasErrors('answer_'.$question->id);
+        $this->assertSame('091°', $this->onAdmin(fn () => NavigationProgress::where('user_id', $learner->id)->first())->answer);
+    }
+
+    public function test_descriptive_answers_are_self_assessed(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $task] = $this->makeIsolatedNavigationTask('Siehe Karte');
+        $this->grantEntitlement($tenant, $learner, $course);
+        $question = $this->onAdmin(fn () => $task->questions()->first());
+        $url = "/courses/{$course->id}/exam/navigation/{$task->id}/questions/{$question->id}";
+
+        $this->actingAsInTenant($learner, $tenant)->post($url, ['answer' => 'eingezeichnet']);
+        $this->assertNull($this->onAdmin(fn () => NavigationProgress::where('user_id', $learner->id)->first())->correct);
+        $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/exam/navigation/{$task->id}")->assertSee('Bitte selbst bewerten');
+
+        $this->actingAsInTenant($learner, $tenant)->post($url, ['self' => 'richtig']);
+        $progress = $this->onAdmin(fn () => NavigationProgress::where('user_id', $learner->id)->first());
+        $this->assertTrue($progress->correct);
+        $this->assertSame('eingezeichnet', $progress->answer, 'Selbstbewertung behält die Antwort');
+
+        // Datenexport.
+        $export = $this->onAdmin(fn () => app(PersonalDataExportService::class)->export($learner, $tenant));
+        $this->assertSame('eingezeichnet', $export['navigation_progress'][0]['answer']);
+    }
+
+    public function test_navigation_progress_is_erased_when_leaving_the_school(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $task] = $this->makeIsolatedNavigationTask();
+        $question = $this->onAdmin(fn () => $task->questions()->first());
+        $this->onAdmin(fn () => NavigationProgress::create(['tenant_id' => $tenant->id, 'user_id' => $learner->id, 'navigation_question_id' => $question->id, 'answer' => '090', 'correct' => true]));
+
+        $this->onAdmin(fn () => app(AccountErasureService::class)->leaveTenant($learner, $tenant));
+
+        $this->assertSame(0, $this->onAdmin(fn () => NavigationProgress::where('user_id', $learner->id)->count()));
+    }
+
+    public function test_question_from_another_task_is_rejected(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $task] = $this->makeIsolatedNavigationTask();
+        [, $otherTask] = $this->makeIsolatedNavigationTask();
+        $this->grantEntitlement($tenant, $learner, $course);
+        $foreign = $this->onAdmin(fn () => $otherTask->questions()->first());
+
+        $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam/navigation/{$task->id}/questions/{$foreign->id}", ['answer' => '090'])->assertNotFound();
+    }
+
+    public function test_superadmin_uploads_and_removes_a_chart_excerpt(): void
+    {
+        Storage::fake('public');
+        $superadmin = $this->createSuperAdmin();
+        [$course, $task] = $this->makeIsolatedNavigationTask();
+
+        $this->actingAs($superadmin)->get("/superadmin/courses/{$course->id}/navigation")->assertOk()->assertSee('Kein Kartenausschnitt');
+        $this->actingAs($superadmin)->patch("/superadmin/navigation-tasks/{$task->id}/chart", ['chart_caption' => 'ohne Bild'])->assertSessionHasErrors('chart');
+
+        $this->actingAs($superadmin)->patch("/superadmin/navigation-tasks/{$task->id}/chart", [
+            'chart' => UploadedFile::fake()->image('karte.png', 800, 600),
+            'chart_caption' => 'Ausschnitt mit freundlicher Genehmigung',
+        ])->assertSessionHasNoErrors();
+        $task = $this->onAdmin(fn () => $task->fresh());
+        Storage::disk('public')->assertExists($task->chart_image_path);
+        $this->assertSame('Ausschnitt mit freundlicher Genehmigung', $task->chart_caption);
+
+        // Lernende sehen den Ausschnitt mit Bildunterschrift.
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $this->grantEntitlement($tenant, $learner, $course);
+        $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/exam/navigation")
+            ->assertSee($task->chart_image_path)->assertSee('Ausschnitt mit freundlicher Genehmigung');
+
+        $path = $task->chart_image_path;
+        $this->actingAs($superadmin)->delete("/superadmin/navigation-tasks/{$task->id}/chart")->assertRedirect();
+        Storage::disk('public')->assertMissing($path);
+        $this->assertNull($this->onAdmin(fn () => $task->fresh())->chart_image_path);
+    }
+
+    /** @return array{0: CourseDefinition, 1: NavigationTask} */
+    private function makeIsolatedNavigationTask(string $answer = '090°'): array
+    {
+        return $this->onAdmin(function () use ($answer) {
             $course = CourseDefinition::withoutGlobalScopes()->create([
                 'tenant_id' => null,
                 'code' => 'TEST-NAV-'.uniqid(),
@@ -86,7 +196,7 @@ class NavigationTaskTest extends TestCase
                 'navigation_task_id' => $task->id,
                 'question_number' => 1,
                 'question_text' => 'Wie lautet der Testkurs?',
-                'answer_text' => '090°',
+                'answer_text' => $answer,
                 'sort_order' => 1,
             ]);
 

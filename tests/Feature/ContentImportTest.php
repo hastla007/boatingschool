@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Attempt;
 use App\Models\ContentQuestion;
 use App\Models\ContentQuestionRevision;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -140,6 +141,50 @@ class ContentImportTest extends TestCase
         $fresh = $corrected->fresh();
         $this->assertSame('published', $fresh->editorial_status);
         $this->assertSame('Korrigierter Fragetext (vom Superadmin)?', $fresh->question_text);
+    }
+
+    public function test_superadmin_uploads_the_excel_file_and_sees_a_report(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        $this->writeFixture('Hochgeladene Testfrage?', 'B');
+        $upload = fn () => new UploadedFile($this->fixturePath, 'fragen.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true);
+
+        $this->actingAs($superadmin)->get('/superadmin/content-import')->assertOk()->assertSee('Fragenbasis (Excel)');
+        $this->actingAs($superadmin)->post('/superadmin/content-import/questions', ['file' => $upload()])
+            ->assertRedirect('/superadmin/content-import')
+            ->assertSessionHas('import_report', fn ($r) => $r['ok'] && in_array('Importiert (neue Fragen): 1', $r['lines'], true));
+        $this->onAdmin(fn () => $this->assertSame('Hochgeladene Testfrage?', ContentQuestion::where('content_id', 'TEST-IMPORT-0001')->first()->publishedRevision()->question_text));
+
+        // Erneut mit geändertem Text: neue Fassung zur Prüfung, Bericht nennt sie.
+        $this->writeFixture('Geänderte Testfrage?', 'B');
+        $this->actingAs($superadmin)->post('/superadmin/content-import/questions', ['file' => $upload()])
+            ->assertSessionHas('import_report', fn ($r) => in_array('Neue Revision (Inhalt geändert): 1', $r['lines'], true));
+        $this->actingAs($superadmin)->get('/superadmin/content-import')->assertSee('Import abgeschlossen')->assertSee('Review ausstehend');
+
+        // Falsches Blatt: Fehlerbericht. Falscher Dateityp: Validierung.
+        $this->actingAs($superadmin)->post('/superadmin/content-import/questions', ['file' => $upload(), 'sheet' => 'Gibt es nicht'])
+            ->assertSessionHas('import_report', fn ($r) => ! $r['ok'] && str_contains($r['lines'][0], "Blatt 'Gibt es nicht'"));
+        $this->actingAs($superadmin)->post('/superadmin/content-import/questions', ['file' => UploadedFile::fake()->create('fragen.pdf', 10, 'application/pdf')])
+            ->assertSessionHasErrors('file');
+        $this->assertSame([], glob(storage_path('app/private/imports/*')) ?: [], 'hochgeladene Dateien werden nach dem Import gelöscht');
+    }
+
+    public function test_feedback_csv_upload_reports_skipped_rows(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        $csv = "content_id;feedback_correct;feedback_incorrect\nGIBT-ES-NICHT-0001;Richtig. Weil.;Falsch. Darum.\n";
+
+        $this->actingAs($superadmin)->post('/superadmin/content-import/feedback', ['file' => UploadedFile::fake()->createWithContent('feedback.csv', $csv)])
+            ->assertSessionHas('import_report', fn ($r) => $r['ok'] && in_array('Übersprungen/Fehler: 1', $r['lines'], true)
+                && collect($r['lines'])->contains(fn ($l) => str_starts_with($l, 'Zeile 2:')));
+    }
+
+    public function test_only_superadmins_may_import(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'admin');
+
+        $this->actingAsInTenant($admin, $tenant)->get('/superadmin/content-import')->assertForbidden();
     }
 
     private function writeFixture(string $questionText, string $correctAnswer): void
