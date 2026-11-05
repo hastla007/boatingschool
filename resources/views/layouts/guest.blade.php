@@ -84,6 +84,8 @@
 
                 @unless (request()->routeIs('login'))
                     <x-site-footer />
+                @else
+                    <x-legal-links class="pt-6 text-xs text-slate-600 dark:text-slate-400" />
                 @endunless
             </div>
         </div>

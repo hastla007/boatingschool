@@ -27,6 +27,7 @@
                 @endisset
             </p>
             <p>Copyright &copy; {{ now()->year }} XXX, Alle Rechte vorbehalten</p>
+            <x-legal-links class="mt-1 {{ $inlineWaLink ? 'sm:justify-start' : '' }}" />
         </div>
         @if ($inlineWaLink)
             <a href="{{ $inlineWaLink }}" target="_blank" rel="noopener"

@@ -30,6 +30,7 @@ class TenantBranding extends Model
         'website', 'exam_readiness_threshold_percent', 'willkommensbox_threshold_percent', 'whatsapp_enabled', 'whatsapp_phone', 'whatsapp_greeting',
         'label_size_a4', 'label_size_a5', 'label_size_a6',
         'course_validity_days', 'renewal_webshop_link',
+        'representative', 'register_entry', 'vat_id',
     ];
 
     protected function casts(): array

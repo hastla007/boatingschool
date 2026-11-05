@@ -153,6 +153,41 @@
             <x-input-error :messages="$errors->get('country')" class="mt-2" />
         </div>
 
+        {{-- Angaben für Impressum und Datenschutzerklärung (LegalPages). --}}
+        <div class="pt-2 border-t border-slate-100 dark:border-slate-700 space-y-3">
+            <div>
+                <span class="block text-sm font-medium text-slate-600 dark:text-slate-300">Impressum und Datenschutz</span>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    Aus diesen Angaben (Name, Anschrift, Ansprechpartner, Telefon, Support-E-Mail und den Feldern unten) entstehen
+                    automatisch eure Seiten <a href="{{ route('legal.show', 'impressum') }}" target="_blank" rel="noopener" class="underline">Impressum</a>
+                    und <a href="{{ route('legal.show', 'datenschutz') }}" target="_blank" rel="noopener" class="underline">Datenschutzerklärung</a>.
+                </p>
+            </div>
+            @php($missingImprint = \App\Support\LegalPages::missingImprintFields($branding))
+            @if ($missingImprint)
+                <p class="text-sm p-3 rounded-lg bg-amber-50 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">
+                    Für ein vollständiges Impressum fehlt noch: {{ implode(', ', $missingImprint) }}.
+                </p>
+            @endif
+            <div>
+                <label for="representative" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Vertretungsberechtigt (z. B. Inhaber, Geschäftsführer)</label>
+                <input type="text" id="representative" name="representative" placeholder="sonst gilt der Ansprechpartner" value="{{ old('representative', $branding->representative) }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                <x-input-error :messages="$errors->get('representative')" class="mt-2" />
+            </div>
+            <div class="grid sm:grid-cols-2 gap-4">
+                <div>
+                    <label for="register_entry" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Registereintrag (falls vorhanden)</label>
+                    <input type="text" id="register_entry" name="register_entry" placeholder="z. B. Amtsgericht Kiel, HRB 12345" value="{{ old('register_entry', $branding->register_entry) }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                    <x-input-error :messages="$errors->get('register_entry')" class="mt-2" />
+                </div>
+                <div>
+                    <label for="vat_id" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">USt-IdNr. (falls vorhanden)</label>
+                    <input type="text" id="vat_id" name="vat_id" placeholder="z. B. DE123456789" value="{{ old('vat_id', $branding->vat_id) }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                    <x-input-error :messages="$errors->get('vat_id')" class="mt-2" />
+                </div>
+            </div>
+        </div>
+
         <div class="pt-2 border-t border-slate-100 dark:border-slate-700">
             <label class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-2">Support via:</label>
             <div class="space-y-2 mb-3">
