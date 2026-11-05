@@ -88,6 +88,7 @@ Route::middleware(['auth', 'superadmin', 'admin-db', 'verified'])->prefix('super
     Route::get('/coupons', [CouponController::class, 'index'])->name('coupons.index');
     Route::post('/coupons', [CouponController::class, 'store'])->name('coupons.store');
     Route::post('/coupons/export', [CouponController::class, 'export'])->name('coupons.export');
+    Route::post('/coupons/void', [CouponController::class, 'void'])->name('coupons.void');
 
     Route::get('/tips/categories', [TipCategoryController::class, 'index'])->name('tips.categories.index');
     Route::post('/tips/categories', [TipCategoryController::class, 'store'])->name('tips.categories.store');

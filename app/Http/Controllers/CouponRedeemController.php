@@ -47,6 +47,11 @@ class CouponRedeemController extends Controller
             return back()->withErrors(['code' => 'Dieser Code ist ungültig oder wurde bereits eingelöst.'])->withInput();
         }
 
+        // Gesperrte (z. B. verlorene Charge) oder abgelaufene Codes.
+        if (! $coupon->isUsable()) {
+            return back()->withErrors(['code' => 'Dieser Code ist nicht mehr gültig.'])->withInput();
+        }
+
         try {
             $result = $redemption->redeem($coupon, $tenant, $user);
         } catch (RuntimeException $e) {

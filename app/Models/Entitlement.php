@@ -16,14 +16,28 @@ class Entitlement extends Model
 
     protected $fillable = [
         'tenant_id', 'user_id', 'course_id', 'valid_from', 'valid_until',
-        'status', 'source_type', 'source_reference',
+        'status', 'source_type', 'source_reference', 'expiry_reminded_at',
     ];
+
+    /** So viele Tage vor dem Ablauf warnen Kursübersicht und Erinnerungsmail. */
+    public const EXPIRY_WARNING_DAYS = 14;
+
+    protected static function booted(): void
+    {
+        // Neues Ablaufdatum (Verlängerung): wieder an den Ablauf erinnern.
+        static::saving(function (self $entitlement) {
+            if ($entitlement->isDirty('valid_until') && ! $entitlement->isDirty('expiry_reminded_at')) {
+                $entitlement->expiry_reminded_at = null;
+            }
+        });
+    }
 
     protected function casts(): array
     {
         return [
             'valid_from' => 'datetime',
             'valid_until' => 'datetime',
+            'expiry_reminded_at' => 'datetime',
         ];
     }
 
@@ -40,6 +54,13 @@ class Entitlement extends Model
     public function tenant(): BelongsTo
     {
         return $this->belongsTo(Tenant::class, 'tenant_id');
+    }
+
+    /** Aktiv und läuft innerhalb von EXPIRY_WARNING_DAYS ab. */
+    public function expiresSoon(): bool
+    {
+        return $this->isCurrentlyActive() && $this->valid_until !== null
+            && $this->valid_until <= now()->addDays(self::EXPIRY_WARNING_DAYS);
     }
 
     public function isCurrentlyActive(): bool
