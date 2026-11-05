@@ -116,6 +116,34 @@ class AccountErasureService
         }
     }
 
+    /**
+     * Konto vollständig löschen (Superadmin, z. B. auf DSGVO-Anfrage beim
+     * Plattformbetreiber): verlässt jede Bootsschule wie leaveTenant()
+     * (Lerndaten, Einladungen, Protokoll-Pseudonymisierung je Schule); mit
+     * der letzten Mitgliedschaft verschwindet das Konto. Konten ohne
+     * Mitgliedschaft werden direkt gelöscht.
+     */
+    public function deleteAccount(User $user): void
+    {
+        $tenantIds = $this->onAdminConnection(fn () => TenantUser::withoutGlobalScopes()->where('user_id', $user->id)->pluck('tenant_id')->all());
+
+        foreach ($tenantIds as $tenantId) {
+            $tenant = $this->onAdminConnection(fn () => Tenant::find($tenantId));
+            if ($tenant) {
+                $this->tenantContext->set($tenant);
+                $this->leaveTenant($user, $tenant);
+            }
+        }
+        $this->tenantContext->clear();
+
+        if ($tenantIds === []) {
+            $this->onAdminConnection(function () use ($user) {
+                AuditLog::where('entity_type', 'app_user')->where('entity_id', $user->id)->update(['before_data' => null, 'after_data' => null]);
+                $this->deleteAccountEntirely($user);
+            });
+        }
+    }
+
     private function onAdminConnection(callable $callback): mixed
     {
         $original = config('database.default');

@@ -36,7 +36,15 @@
                 <tbody>
                     @forelse ($products as $product)
                         <tr class="border-t border-slate-100 dark:border-slate-700 {{ $product->active ? '' : 'opacity-50' }}">
-                            <td class="px-4 py-2 font-medium text-slate-700 dark:text-slate-200">{{ $product->name }}</td>
+                            <td class="px-4 py-2">
+                                <form method="POST" action="{{ route('superadmin.products.update', $product) }}" class="flex gap-2">
+                                    @csrf
+                                    @method('PATCH')
+                                    <label for="product-name-{{ $product->id }}" class="sr-only">Name von {{ $product->code }}</label>
+                                    <input id="product-name-{{ $product->id }}" name="name" type="text" required maxlength="255" value="{{ $product->name }}" class="flex-1 min-w-40 rounded-lg border-slate-200 dark:bg-slate-700 dark:border-slate-600 text-sm font-medium">
+                                    <button type="submit" class="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-700 text-xs hover:bg-slate-200 dark:hover:bg-slate-600">Speichern</button>
+                                </form>
+                            </td>
                             <td class="px-4 py-2 text-slate-500 dark:text-slate-400 font-mono text-xs">{{ $product->code }}</td>
                             <td class="px-4 py-2">
                                 @if ($product->active)

@@ -1,22 +1,28 @@
 <?php
 
 use App\Http\Controllers\Superadmin\AddonTemplateController;
+use App\Http\Controllers\Superadmin\AuditLogController;
 use App\Http\Controllers\Superadmin\ContentImportController;
 use App\Http\Controllers\Superadmin\CouponController;
 use App\Http\Controllers\Superadmin\CourseEditorController;
 use App\Http\Controllers\Superadmin\DashboardController;
+use App\Http\Controllers\Superadmin\ExamRuleSetController;
+use App\Http\Controllers\Superadmin\MailTemplateController;
 use App\Http\Controllers\Superadmin\ModuleController;
 use App\Http\Controllers\Superadmin\NavigationChartController;
+use App\Http\Controllers\Superadmin\NavigationTaskEditorController;
 use App\Http\Controllers\Superadmin\PraxisFormTemplateController;
 use App\Http\Controllers\Superadmin\PraxisTaskController;
 use App\Http\Controllers\Superadmin\ProductController;
 use App\Http\Controllers\Superadmin\PruefungsausschussController;
 use App\Http\Controllers\Superadmin\QuestionController;
+use App\Http\Controllers\Superadmin\QuestionSearchController;
 use App\Http\Controllers\Superadmin\SettingsController;
 use App\Http\Controllers\Superadmin\SystemStatusController;
 use App\Http\Controllers\Superadmin\TenantController;
 use App\Http\Controllers\Superadmin\TipCategoryController;
 use App\Http\Controllers\Superadmin\TipController;
+use App\Http\Controllers\Superadmin\UserAccountController;
 use App\Http\Controllers\Superadmin\UserController;
 use App\Http\Controllers\Superadmin\VideoLessonController;
 use App\Http\Controllers\Superadmin\VideoModuleController;
@@ -56,6 +62,10 @@ Route::middleware(['auth', 'superadmin', 'admin-db', 'verified'])->prefix('super
     Route::get('/users/{user}', [UserController::class, 'show'])->name('users.show');
     Route::patch('/users/{user}', [UserController::class, 'update'])->name('users.update');
     Route::post('/users/{user}/memberships', [UserController::class, 'addMembership'])->name('users.memberships.store');
+    Route::patch('/users/{user}/memberships/{tenant}', [UserAccountController::class, 'updateMembership'])->name('users.memberships.update');
+    Route::delete('/users/{user}/memberships/{tenant}', [UserAccountController::class, 'destroyMembership'])->name('users.memberships.destroy');
+    Route::post('/users/{user}/two-factor/reset', [UserAccountController::class, 'resetTwoFactor'])->name('users.two-factor.reset');
+    Route::delete('/users/{user}', [UserAccountController::class, 'destroy'])->name('users.destroy');
 
     Route::get('/courses', [CourseEditorController::class, 'index'])->name('courses.index');
     Route::get('/courses/create', [CourseEditorController::class, 'create'])->name('courses.create');
@@ -64,8 +74,13 @@ Route::middleware(['auth', 'superadmin', 'admin-db', 'verified'])->prefix('super
     Route::patch('/courses/{course}', [CourseEditorController::class, 'update'])->name('courses.update');
     Route::post('/courses/{course}/modules', [CourseEditorController::class, 'attachModule'])->name('courses.modules.attach');
     Route::delete('/courses/{course}/modules/{module}', [CourseEditorController::class, 'detachModule'])->name('courses.modules.detach');
+    Route::post('/courses/{course}/modules/{module}/move', [CourseEditorController::class, 'moveModule'])->name('courses.modules.move');
 
+    Route::get('/courses/{course}/exam-rules', [ExamRuleSetController::class, 'index'])->name('exam-rules.index');
+    Route::patch('/exam-rule-sets/{ruleSet}', [ExamRuleSetController::class, 'update'])->name('exam-rules.update');
     Route::get('/courses/{course}/navigation', [NavigationChartController::class, 'index'])->name('navigation.index');
+    Route::get('/navigation-tasks/{task}/edit', [NavigationTaskEditorController::class, 'edit'])->name('navigation.tasks.edit');
+    Route::patch('/navigation-tasks/{task}', [NavigationTaskEditorController::class, 'update'])->name('navigation.tasks.update');
     Route::patch('/navigation-tasks/{task}/chart', [NavigationChartController::class, 'update'])->name('navigation.update');
     Route::delete('/navigation-tasks/{task}/chart', [NavigationChartController::class, 'destroy'])->name('navigation.destroy');
 
@@ -94,7 +109,9 @@ Route::middleware(['auth', 'superadmin', 'admin-db', 'verified'])->prefix('super
 
     Route::get('/modules', [ModuleController::class, 'index'])->name('modules.index');
     Route::post('/modules', [ModuleController::class, 'store'])->name('modules.store');
+    Route::patch('/modules/{module}', [ModuleController::class, 'update'])->name('modules.update');
 
+    Route::get('/questions/search', QuestionSearchController::class)->name('questions.search');
     Route::get('/modules/{module}/questions', [QuestionController::class, 'index'])->name('questions.index');
     Route::get('/modules/{module}/questions/create', [QuestionController::class, 'create'])->name('questions.create');
     Route::post('/modules/{module}/questions', [QuestionController::class, 'store'])->name('questions.store');
@@ -108,12 +125,16 @@ Route::middleware(['auth', 'superadmin', 'admin-db', 'verified'])->prefix('super
     Route::post('/question-revisions/{revision}/discard', [QuestionController::class, 'discardRevision'])->name('questions.revisions.discard');
 
     Route::get('/system', SystemStatusController::class)->name('system');
+    Route::get('/audit', [AuditLogController::class, 'index'])->name('audit.index');
 
+    Route::get('/mail-templates', [MailTemplateController::class, 'edit'])->name('mail-templates.edit');
+    Route::patch('/mail-templates', [MailTemplateController::class, 'update'])->name('mail-templates.update');
     Route::get('/settings', [SettingsController::class, 'edit'])->name('settings.edit');
     Route::patch('/settings', [SettingsController::class, 'update'])->name('settings.update');
 
     Route::get('/products', [ProductController::class, 'index'])->name('products.index');
     Route::post('/products', [ProductController::class, 'store'])->name('products.store');
+    Route::patch('/products/{product}', [ProductController::class, 'update'])->name('products.update');
     Route::post('/products/{product}/toggle-active', [ProductController::class, 'toggleActive'])->name('products.toggle-active');
 
     Route::get('/coupons', [CouponController::class, 'index'])->name('coupons.index');

@@ -52,6 +52,13 @@
                         <a href="{{ route('superadmin.questions.index', $module) }}" class="text-slate-700 dark:text-slate-200 hover:underline">{{ $module->name }}</a>
                         <div class="flex items-center gap-3">
                             <span class="text-xs text-slate-600 dark:text-slate-400">{{ $module->questions_count }} Fragen</span>
+                            @foreach (['up' => ['↑', 'Modul nach oben'], 'down' => ['↓', 'Modul nach unten']] as $direction => [$symbol, $label])
+                                <form method="POST" action="{{ route('superadmin.courses.modules.move', [$course, $module]) }}">
+                                    @csrf
+                                    <input type="hidden" name="direction" value="{{ $direction }}">
+                                    <button type="submit" class="w-6 h-6 inline-flex items-center justify-center rounded text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30" title="{{ $label }}" aria-label="{{ $label }}: {{ $module->name }}" @disabled($direction === 'up' ? $loop->parent->first : $loop->parent->last)>{{ $symbol }}</button>
+                                </form>
+                            @endforeach
                             {{-- Bug-Review (confirm() ohne Alpine-Scope): das Superadmin-Layout hat
                                  x-data nur auf der <nav>, Alpine initialisierte @submit hier also
                                  nie -- das Modul wurde ohne Rückfrage sofort entfernt. --}}
@@ -82,6 +89,14 @@
                 </form>
             @endif
         </div>
+
+        <a href="{{ route('superadmin.exam-rules.index', $course) }}" class="lg:col-span-3 bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5 flex items-center justify-between gap-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
+            <span>
+                <span class="block font-medium text-slate-700 dark:text-slate-200">Prüfungsregeln</span>
+                <span class="block text-xs text-slate-600 dark:text-slate-400">{{ $activeRuleSet ? $activeRuleSet->passingSummary((int) $activeRuleSet->blueprints->sum('question_count')) : 'kein freigegebenes Regelwerk – Prüfung nicht startbar' }}</span>
+            </span>
+            <x-icon name="chevron-right" class="w-4 h-4 text-slate-600 dark:text-slate-400" />
+        </a>
 
         <a href="{{ route('superadmin.praxis-tasks.index', $course) }}" class="lg:col-span-3 bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5 flex items-center justify-between gap-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
             <span>

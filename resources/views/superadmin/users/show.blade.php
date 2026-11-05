@@ -3,6 +3,10 @@
         <div>
             <div class="text-xs text-slate-600 dark:text-slate-400"><a href="{{ route('superadmin.users.index') }}" class="hover:underline">Nutzer</a></div>
             <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">{{ $user->name }}</h1>
+            <div class="text-xs mt-1 flex gap-3">
+                <a href="{{ route('superadmin.audit.index', ['actor' => $user->email]) }}" class="text-slate-600 dark:text-slate-400 hover:underline">Protokoll: Aktionen dieser Person</a>
+                <a href="{{ route('superadmin.audit.index', ['entity' => $user->id]) }}" class="text-slate-600 dark:text-slate-400 hover:underline">Protokoll: Änderungen am Konto</a>
+            </div>
         </div>
     </x-slot>
 
@@ -72,6 +76,35 @@
 
                 <button type="submit" class="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium hover:opacity-90 transition">Speichern</button>
             </form>
+
+            <div class="mt-5 pt-5 border-t border-slate-100 dark:border-slate-700 space-y-2 text-sm">
+                <h4 class="font-medium text-slate-700 dark:text-slate-200">Zwei-Faktor-Anmeldung</h4>
+                @if ($user->hasTwoFactor() || $user->two_factor_secret)
+                    <p class="text-slate-600 dark:text-slate-400">{{ $user->hasTwoFactor() ? 'Aktiv' : 'Eingerichtet, aber nicht bestätigt' }}. Zurücksetzen nur nach sicherer Identitätsprüfung (z. B. Rückruf).</p>
+                    <form method="POST" action="{{ route('superadmin.users.two-factor.reset', $user) }}" x-data="{}"
+                          @submit="if (! confirm('Zwei-Faktor-Anmeldung dieses Kontos wirklich zurücksetzen?')) $event.preventDefault()">
+                        @csrf
+                        <button type="submit" class="px-3 py-1.5 rounded-lg border border-amber-300 text-amber-800 dark:border-amber-700 dark:text-amber-200 text-xs font-medium hover:bg-amber-50 dark:hover:bg-amber-900/30">2FA zurücksetzen</button>
+                    </form>
+                @else
+                    <p class="text-slate-600 dark:text-slate-400">Nicht eingerichtet.</p>
+                @endif
+            </div>
+
+            @unless ($user->id === auth()->id())
+                <details class="mt-5 pt-5 border-t border-slate-100 dark:border-slate-700 text-sm" @if ($errors->has('confirm_email')) open @endif>
+                    <summary class="cursor-pointer font-medium text-rose-700 dark:text-rose-300">Konto löschen</summary>
+                    <p class="mt-2 text-slate-600 dark:text-slate-400">Löscht das Konto bei allen Bootsschulen samt Lernständen, Freischaltungen, Anmeldungen und Bestellungen. Das Protokoll wird pseudonymisiert. Nicht rückgängig zu machen.</p>
+                    <form method="POST" action="{{ route('superadmin.users.destroy', $user) }}" class="mt-2 space-y-2">
+                        @csrf
+                        @method('DELETE')
+                        <x-input-label for="confirm_email" value="Zur Bestätigung die E-Mail-Adresse eintippen" />
+                        <x-text-input id="confirm_email" name="confirm_email" type="text" class="block w-full" autocomplete="off" />
+                        <x-input-error :messages="$errors->get('confirm_email')" />
+                        <button type="submit" class="px-3 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-medium hover:opacity-90">Konto endgültig löschen</button>
+                    </form>
+                </details>
+            @endunless
         </div>
 
         <div class="lg:col-span-2 space-y-4">
@@ -79,11 +112,38 @@
                 <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
                     <x-icon name="swatch" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Bootsschul-Zuordnungen
                 </h3>
+                @error('membership')
+                    <p class="mb-3 text-sm text-red-700 dark:text-red-300">{{ $message }}</p>
+                @enderror
                 <div class="space-y-2 text-sm mb-4">
                     @forelse ($memberships as $membership)
-                        <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-2 last:border-0">
-                            <a href="{{ route('superadmin.tenants.show', $membership->tenant) }}" class="text-slate-700 dark:text-slate-200 hover:underline">{{ $membership->tenant->name }}</a>
-                            <span class="inline-block px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-xs">{{ \App\Support\StatusLabels::tenantRole($membership->role) }}</span>
+                        <div class="border-b border-slate-100 dark:border-slate-700 pb-2 last:border-0">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <a href="{{ route('superadmin.tenants.show', $membership->tenant) }}" class="flex-1 min-w-32 text-slate-700 dark:text-slate-200 hover:underline">{{ $membership->tenant->name }}</a>
+                                <form method="POST" action="{{ route('superadmin.users.memberships.update', [$user, $membership->tenant]) }}" class="flex flex-wrap items-center gap-2">
+                                    @csrf
+                                    @method('PATCH')
+                                    <label for="role-{{ $membership->tenant_id }}" class="sr-only">Rolle bei {{ $membership->tenant->name }}</label>
+                                    <select id="role-{{ $membership->tenant_id }}" name="role" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs">
+                                        @foreach (\App\Support\StatusLabels::tenantRoleOptions() as $role => $label)
+                                            <option value="{{ $role }}" @selected($membership->role === $role)>{{ $label }}</option>
+                                        @endforeach
+                                    </select>
+                                    <label for="mstatus-{{ $membership->tenant_id }}" class="sr-only">Status bei {{ $membership->tenant->name }}</label>
+                                    <select id="mstatus-{{ $membership->tenant_id }}" name="status" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs">
+                                        @foreach (['active', 'suspended', 'closed'] as $mstatus)
+                                            <option value="{{ $mstatus }}" @selected($membership->status === $mstatus)>{{ \App\Support\StatusLabels::userStatus($mstatus) }}</option>
+                                        @endforeach
+                                    </select>
+                                    <button type="submit" class="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-xs">Speichern</button>
+                                </form>
+                                <form method="POST" action="{{ route('superadmin.users.memberships.destroy', [$user, $membership->tenant]) }}" x-data="{}"
+                                      @submit="if (! confirm('{{ $memberships->count() === 1 ? 'Letzte Mitgliedschaft: Das Konto wird dabei komplett gelöscht. Fortfahren?' : 'Mitgliedschaft samt Lerndaten bei dieser Schule löschen?' }}')) $event.preventDefault()">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="text-xs text-rose-600 hover:underline">Entfernen</button>
+                                </form>
+                            </div>
                         </div>
                     @empty
                         <p class="text-slate-500 dark:text-slate-400">Noch keine Bootsschule zugeordnet.</p>
