@@ -12,6 +12,8 @@
         </div>
     </div>
 
+    @include('partials.platform-announcements')
+
     {{-- Bug-Review (Willkommensbox-Tab scrollt auf dem Handy seitlich): die
          Tab-Leiste scrollt bei vielen Tabs bereits korrekt horizontal
          (overflow-x-auto), startete bisher aber immer bei der

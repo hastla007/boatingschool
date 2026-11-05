@@ -20,7 +20,14 @@
                     @foreach ($team as $member)
                         @php($editable = $member->user_id !== auth()->id() && in_array($member->role, ['admin', 'instructor'], true) && ($isOwner || $member->role === 'instructor'))
                         <tr class="border-t border-slate-100 dark:border-slate-700">
-                            <td class="py-2 pr-4 text-slate-700 dark:text-slate-200">{{ $member->user->name }}{{ $member->user_id === auth()->id() ? ' (Sie)' : '' }}</td>
+                            <td class="py-2 pr-4 text-slate-700 dark:text-slate-200">
+                                {{ $member->user->name }}{{ $member->user_id === auth()->id() ? ' (Sie)' : '' }}
+                                @if ($member->user->hasTwoFactor())
+                                    <span class="ml-1 text-xs rounded-full px-1.5 py-0.5 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200" title="Zwei-Faktor-Anmeldung aktiv">2FA</span>
+                                @else
+                                    <span class="ml-1 text-xs rounded-full px-1.5 py-0.5 {{ $currentTenant->branding?->require_team_two_factor ? 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200' : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300' }}" title="Zwei-Faktor-Anmeldung nicht eingerichtet">ohne 2FA</span>
+                                @endif
+                            </td>
                             <td class="py-2 pr-4 text-slate-500 dark:text-slate-400">{{ $member->user->email }}</td>
                             <td class="py-2 pr-4">
                                 @if ($editable)
@@ -39,9 +46,24 @@
                                 @endif
                             </td>
                             <td class="py-2">
+                                @if ($member->role === 'instructor')
+                                    @php($assigned = $instructorCourses->get($member->user_id, collect()))
+                                    <details class="text-xs">
+                                        <summary class="cursor-pointer text-slate-600 dark:text-slate-300">{{ $assigned->isEmpty() ? 'Alle Kurse' : $assigned->count().' '.($assigned->count() === 1 ? 'Kurs' : 'Kurse') }}</summary>
+                                        <form method="POST" action="{{ route('admin.team.courses.update', $member->user_id) }}" class="mt-2 space-y-1">
+                                            @csrf
+                                            @method('PATCH')
+                                            @foreach ($courses as $course)
+                                                <label class="flex items-center gap-1.5"><input type="checkbox" name="course_ids[]" value="{{ $course->id }}" @checked($assigned->contains($course->id)) class="rounded border-slate-300"> {{ $course->name }}</label>
+                                            @endforeach
+                                            <p class="text-slate-600 dark:text-slate-400">Keine Auswahl: sieht alle Teilnehmer.</p>
+                                            <button type="submit" class="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600">Speichern</button>
+                                        </form>
+                                    </details>
+                                @endif
                                 @if ($isOwner && $member->role === 'admin' && $member->status === 'active')
-                                    <form method="POST" action="{{ route('admin.team.transfer-ownership', $member->user_id) }}"
-                                          onsubmit="return confirm('Inhaberschaft wirklich an {{ e($member->user->name) }} übergeben? Sie werden danach Admin.')">
+                                    <form method="POST" action="{{ route('admin.team.transfer-ownership', $member->user_id) }}" x-data="{}"
+                                          @submit="if (! confirm('Inhaberschaft wirklich an {{ addslashes($member->user->name) }} übergeben? Sie werden danach Admin.')) $event.preventDefault()">
                                         @csrf
                                         <button type="submit" class="px-2 py-1 rounded-lg bg-amber-50 text-amber-800 hover:bg-amber-100 dark:bg-amber-900/30 dark:text-amber-100 transition text-xs whitespace-nowrap">Inhaberschaft übergeben</button>
                                     </form>
@@ -59,6 +81,27 @@
                     @endforeach
                 </tbody>
             </table>
+        </div>
+
+        <div class="mb-4 rounded-xl border border-slate-100 dark:border-slate-700 p-3 text-sm">
+            @php($twoFactorRequired = (bool) $currentTenant->branding?->require_team_two_factor)
+            @php($withoutTwoFactor = $team->reject(fn ($m) => $m->user->hasTwoFactor())->count())
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <span class="text-slate-700 dark:text-slate-200">
+                    <strong>Zwei-Faktor-Anmeldung fürs Team:</strong> {{ $twoFactorRequired ? 'Pflicht' : 'freiwillig' }}
+                    <span class="text-xs text-slate-600 dark:text-slate-400">({{ $withoutTwoFactor }} von {{ $team->count() }} ohne 2FA)</span>
+                </span>
+                @if ($isOwner)
+                    <form method="POST" action="{{ route('admin.team.two-factor-policy') }}">
+                        @csrf
+                        @method('PATCH')
+                        <input type="hidden" name="require_team_two_factor" value="{{ $twoFactorRequired ? '0' : '1' }}">
+                        <button type="submit" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-xs">{{ $twoFactorRequired ? 'Pflicht aufheben' : 'Zur Pflicht machen' }}</button>
+                    </form>
+                @endif
+            </div>
+            <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Ist sie Pflicht, werden Team-Mitglieder ohne 2FA nach der Anmeldung zur Einrichtung geleitet und können den Admin-Bereich erst danach nutzen.</p>
+            <x-input-error :messages="$errors->get('two_factor')" class="mt-1" />
         </div>
 
         <form method="POST" action="{{ route('admin.team.invite') }}" class="flex flex-col sm:flex-row gap-2">
@@ -176,6 +219,7 @@
     <div class="w-full sm:w-auto sm:ml-auto flex flex-wrap gap-3 text-sm">
         <a href="{{ route('admin.inactive.index') }}" class="underline text-slate-700 dark:text-slate-200 hover:no-underline">Inaktive Lernende</a>
         @if ($canManageTenant)
+            <a href="{{ route('admin.renewals.index') }}" class="underline text-slate-700 dark:text-slate-200 hover:no-underline">Kurszugänge verlängern</a>
             <a href="{{ route('admin.participants.export', array_filter($participantFilters)) }}" class="underline text-slate-700 dark:text-slate-200 hover:no-underline">Als CSV exportieren</a>
         @endif
     </div>

@@ -30,7 +30,7 @@ class TenantBranding extends Model
         'website', 'exam_readiness_threshold_percent', 'willkommensbox_threshold_percent', 'whatsapp_enabled', 'whatsapp_phone', 'whatsapp_greeting',
         'label_size_a4', 'label_size_a5', 'label_size_a6',
         'course_validity_days', 'renewal_webshop_link',
-        'representative', 'register_entry', 'vat_id',
+        'representative', 'register_entry', 'vat_id', 'require_team_two_factor',
     ];
 
     protected function casts(): array
@@ -43,6 +43,7 @@ class TenantBranding extends Model
             'label_size_a4' => 'boolean',
             'label_size_a5' => 'boolean',
             'label_size_a6' => 'boolean',
+            'require_team_two_factor' => 'boolean',
         ];
     }
 

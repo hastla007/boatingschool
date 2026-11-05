@@ -4,6 +4,7 @@ use App\Http\Controllers\Admin\AddonController;
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Http\Controllers\Admin\AnnouncementController;
 use App\Http\Controllers\Admin\BrandingController;
+use App\Http\Controllers\Admin\BulkRenewalController;
 use App\Http\Controllers\Admin\CouponController as AdminCouponController;
 use App\Http\Controllers\Admin\CoursePromoBannerController;
 use App\Http\Controllers\Admin\CourseSelectionController;
@@ -206,7 +207,7 @@ Route::middleware(['auth', 'tenant.member', 'verified'])->group(function () {
 // Entitlements/Coupons verwalten und Branding ändern (Phishing-Risiko über
 // das Schul-Branding), ohne je nachgewiesen zu haben, dass die Adresse
 // tatsächlich ihm gehört.
-Route::middleware(['auth', 'tenant.role:owner,admin,instructor', 'verified'])->prefix('admin')->name('admin.')->group(function () {
+Route::middleware(['auth', 'tenant.role:owner,admin,instructor', 'verified', 'instructor.scope'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/', AdminDashboardController::class)->name('dashboard');
     // Bug-Review R3-8: ohne Throttle ließ sich dieser Endpoint beliebig oft
     // mit wechselnden E-Mail-Adressen aufrufen -- trotz identischer
@@ -253,6 +254,8 @@ Route::middleware(['auth', 'tenant.role:owner,admin,instructor', 'verified'])->p
 // Admin-Bereich entsprechend auch nicht bzw. nur lesend (siehe
 // admin/dashboard.blade.php, admin/tabs/orte.blade.php, $canManageTenant).
 Route::middleware(['auth', 'tenant.role:owner,admin', 'verified'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/renewals', [BulkRenewalController::class, 'index'])->name('renewals.index');
+    Route::post('/renewals', [BulkRenewalController::class, 'store'])->middleware('throttle:10,1,renewals')->name('renewals.store');
     Route::get('/announcements', [AnnouncementController::class, 'index'])->name('announcements.index');
     Route::post('/announcements', [AnnouncementController::class, 'store'])->middleware('throttle:10,1,announcements')->name('announcements.store');
     Route::delete('/announcements/{announcement}', [AnnouncementController::class, 'destroy'])->name('announcements.destroy');
@@ -273,6 +276,8 @@ Route::middleware(['auth', 'tenant.role:owner,admin', 'verified'])->prefix('admi
     Route::post('/team/invite', [TeamController::class, 'invite'])->middleware('throttle:10,1,team-invite')->name('team.invite');
     Route::patch('/team/{user}/role', [TeamController::class, 'updateRole'])->name('team.role.update');
     Route::post('/team/{user}/transfer-ownership', [TeamController::class, 'transferOwnership'])->name('team.transfer-ownership');
+    Route::patch('/team/{user}/courses', [TeamController::class, 'updateCourses'])->name('team.courses.update');
+    Route::patch('/team/two-factor-policy', [TeamController::class, 'twoFactorPolicy'])->name('team.two-factor-policy');
 
     Route::patch('/addons', [AddonController::class, 'update'])->name('addons.update');
 

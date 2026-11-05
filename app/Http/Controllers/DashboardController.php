@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ContentQuestion;
+use App\Models\PlatformAnnouncement;
 use App\Models\Progress;
 use App\Models\TenantAnnouncement;
 use App\Models\VideoProgress;
@@ -96,7 +97,12 @@ class DashboardController extends Controller
             ->where(fn ($q) => $q->whereNull('course_id')->orWhereIn('course_id', $courses->pluck('id')))
             ->orderByDesc('created_at')->limit(5)->get();
 
+        // Mitteilungen des Plattformbetreibers, die auch für Lernende gedacht sind.
+        $platformAnnouncements = PlatformAnnouncement::visible()->forTenant($tenant->id)
+            ->where('audience', 'all')->orderByDesc('created_at')->limit(3)->get();
+
         return view('dashboard', [
+            'platformAnnouncements' => $platformAnnouncements,
             'courses' => $courseSummaries,
             'announcements' => $announcements,
         ]);

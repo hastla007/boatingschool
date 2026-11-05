@@ -14,6 +14,8 @@ use App\Models\CoursePromoBanner;
 use App\Models\CourseWebshopLink;
 use App\Models\Entitlement;
 use App\Models\ExamSession;
+use App\Models\InstructorCourse;
+use App\Models\PlatformAnnouncement;
 use App\Models\PraxisExamAppointment;
 use App\Models\PraxisFormSubmission;
 use App\Models\Product;
@@ -26,6 +28,7 @@ use App\Models\TenantCourseLocation;
 use App\Models\TenantInvitation;
 use App\Models\TenantUser;
 use App\Models\WillkommensboxOrder;
+use App\Support\InstructorScope;
 use App\Support\ParticipantFilters;
 use App\Support\TenantContext;
 use Carbon\Carbon;
@@ -59,7 +62,11 @@ class AdminDashboardController extends Controller
 
         // Review-Runde 3: nur aktive Mitglieder -- gesperrte bzw.
         // ausgetretene zählten bisher in Teilnehmerzahl und Statistiken mit.
-        $learnerIds = TenantUser::where('tenant_id', $tenant->id)->where('role', 'learner')->where('status', 'active')->pluck('user_id');
+        // Ausbilder mit zugeordneten Kursen sehen nur ihre Lernenden (InstructorScope).
+        $visibleLearnerIds = InstructorScope::learnerIds($tenant, $request->user());
+        $scopeCourseIds = InstructorScope::courseIds($tenant, $request->user());
+        $learnerIds = TenantUser::where('tenant_id', $tenant->id)->where('role', 'learner')->where('status', 'active')
+            ->when($visibleLearnerIds !== null, fn ($q) => $q->whereIn('user_id', $visibleLearnerIds))->pluck('user_id');
         $learnerCount = $learnerIds->count();
         // Bug-Review B15: status wechselt nie automatisch auf "expired" --
         // ein reines status=active zählte abgelaufene Freischaltungen
@@ -307,7 +314,8 @@ class AdminDashboardController extends Controller
             $q->where('tenant_id', $tenant->id)->with('course');
         }])
             ->where('tenant_id', $tenant->id)
-            ->where('role', 'learner');
+            ->where('role', 'learner')
+            ->when($visibleLearnerIds !== null, fn ($q) => $q->whereIn('user_id', $visibleLearnerIds));
         $participants = ParticipantFilters::apply($participantsQuery, $tenant, $participantFilters)
             ->orderBy('created_at')
             ->orderBy('user_id')
@@ -391,6 +399,7 @@ class AdminDashboardController extends Controller
         }
 
         $praxisFormSubmissions = PraxisFormSubmission::where('tenant_id', $tenant->id)
+            ->when($scopeCourseIds !== null, fn ($q) => $q->whereIn('course_id', $scopeCourseIds))
             ->with(['user', 'course', 'template', 'examAppointments'])
             ->when(trim((string) ($anmeldungFilters['anmeldung_search'] ?? '')) !== '', function ($q) use ($anmeldungFilters) {
                 $term = '%'.trim($anmeldungFilters['anmeldung_search']).'%';
@@ -436,6 +445,7 @@ class AdminDashboardController extends Controller
         $willkommensboxFilters = ['wb_search' => $willkommensboxSearch];
 
         $willkommensboxOrders = WillkommensboxOrder::where('tenant_id', $tenant->id)
+            ->when($visibleLearnerIds !== null, fn ($q) => $q->whereIn('user_id', $visibleLearnerIds))
             ->with('user')
             ->when($willkommensboxSearch !== '', function ($q) use ($willkommensboxSearch) {
                 $term = '%'.$willkommensboxSearch.'%';
@@ -510,6 +520,7 @@ class AdminDashboardController extends Controller
             ->pluck('free_count', 'course_id');
 
         return view('admin.dashboard', [
+            'platformAnnouncements' => PlatformAnnouncement::visible()->forTenant($tenant->id)->orderByDesc('created_at')->limit(5)->get(),
             'tenant' => $tenant,
             'canManageTenant' => $canManageTenant,
             'learnerCount' => $learnerCount,
@@ -527,6 +538,7 @@ class AdminDashboardController extends Controller
             'learningPhaseLearnerCount' => $learningPhaseLearnerCount,
             'participants' => $participants,
             'team' => $team,
+            'instructorCourses' => InstructorCourse::where('tenant_id', $tenant->id)->get()->groupBy('user_id')->map(fn ($rows) => $rows->pluck('course_id')),
             'pendingTeamInvitations' => $pendingTeamInvitations,
             'allParticipants' => $allParticipants,
             'courses' => $courses,

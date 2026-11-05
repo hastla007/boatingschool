@@ -15,6 +15,7 @@ use BaconQrCode\Writer;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
@@ -79,6 +80,17 @@ class TwoFactorController extends Controller
     {
         $request->validate(['password' => ['required', 'current_password']]);
         $user = $request->user();
+
+        // 2FA-Pflicht fürs Team: wer im Team einer Schule mit Pflicht ist, kann sie nicht selbst abschalten
+        // (die Seite läuft ohne Mandanten-Kontext, daher über die Owner-Verbindung).
+        $required = DB::connection('pgsql_admin')->table('tenant_user')
+            ->join('tenant_branding', 'tenant_branding.tenant_id', '=', 'tenant_user.tenant_id')
+            ->where('tenant_user.user_id', $user->id)->where('tenant_user.status', 'active')->where('tenant_user.role', '!=', 'learner')
+            ->where('tenant_branding.require_team_two_factor', true)->exists();
+        if ($required) {
+            return back()->withErrors(['password' => 'Ihre Bootsschule verlangt die Zwei-Faktor-Anmeldung für das Team; sie lässt sich deshalb nicht abschalten.']);
+        }
+
         $user->forceFill(['two_factor_secret' => null, 'two_factor_recovery_codes' => null, 'two_factor_confirmed_at' => null])->save();
         $this->audit($user, 'two_factor.disable');
 

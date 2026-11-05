@@ -66,7 +66,7 @@
                             </a>
                             <div class="hidden 2xl:flex gap-1 text-sm whitespace-nowrap">
                                 <a href="{{ route('superadmin.dashboard') }}" class="px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.dashboard') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Dashboard</a>
-                                <a href="{{ route('superadmin.tenants.index') }}" class="px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.tenants.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Bootsschulen</a>
+                                <a href="{{ route('superadmin.tenants.index') }}" class="px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.tenants.*', 'superadmin.announcements.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Bootsschulen</a>
                                 <a href="{{ route('superadmin.users.index') }}" class="px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.users.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Nutzer</a>
                                 <a href="{{ route('superadmin.courses.index') }}" class="px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.courses.*', 'superadmin.modules.*', 'superadmin.questions.*', 'superadmin.video-lessons.*', 'superadmin.content-import.*', 'superadmin.navigation.*', 'superadmin.praxis-tasks.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Kurse</a>
                                 <a href="{{ route('superadmin.products.index') }}" class="px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.products.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Produkte</a>
@@ -105,7 +105,7 @@
                 <div id="superadmin-mobile-menu" :class="{'block': open, 'hidden': ! open}" class="hidden 2xl:hidden border-t border-slate-800">
                     <div class="px-2 pt-2 pb-3 space-y-1">
                         <a href="{{ route('superadmin.dashboard') }}" class="block px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.dashboard') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Dashboard</a>
-                        <a href="{{ route('superadmin.tenants.index') }}" class="block px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.tenants.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Bootsschulen</a>
+                        <a href="{{ route('superadmin.tenants.index') }}" class="block px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.tenants.*', 'superadmin.announcements.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Bootsschulen</a>
                         <a href="{{ route('superadmin.users.index') }}" class="block px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.users.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Nutzer</a>
                         <a href="{{ route('superadmin.courses.index') }}" class="block px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.courses.*', 'superadmin.modules.*', 'superadmin.questions.*', 'superadmin.video-lessons.*', 'superadmin.content-import.*', 'superadmin.navigation.*', 'superadmin.praxis-tasks.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Kurse</a>
                         <a href="{{ route('superadmin.products.index') }}" class="block px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.products.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Produkte</a>

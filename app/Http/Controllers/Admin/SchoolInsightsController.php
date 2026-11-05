@@ -10,6 +10,7 @@ use App\Models\ExamSession;
 use App\Models\User;
 use App\Services\CourseProgressService;
 use App\Services\LearnerOverview;
+use App\Support\InstructorScope;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,23 +19,28 @@ use Illuminate\View\View;
 /** Statistik der Bootsschule und vollständiges Protokoll. */
 class SchoolInsightsController extends Controller
 {
-    public function statistics(TenantContext $tenantContext, LearnerOverview $overview): View
+    public function statistics(Request $request, TenantContext $tenantContext, LearnerOverview $overview): View
     {
         $tenant = $tenantContext->tenant();
+        // Ausbilder mit zugeordneten Kursen: nur deren Lernende und Kurse.
+        $visible = InstructorScope::learnerIds($tenant, $request->user());
+        $scopeCourses = InstructorScope::courseIds($tenant, $request->user());
+        $learners = fn ($q, string $column = 'user_id') => $q->when($visible !== null, fn ($w) => $w->whereIn($column, $visible));
 
-        $activeLearners30 = Attempt::where('tenant_id', $tenant->id)->where('created_at', '>=', now()->subDays(30))->distinct()->count('user_id');
-        $answers30 = Attempt::where('tenant_id', $tenant->id)->where('created_at', '>=', now()->subDays(30))->count();
-        $withAccess = Entitlement::currentlyActive()->where('tenant_id', $tenant->id)->distinct()->count('user_id');
+        $activeLearners30 = $learners(Attempt::where('tenant_id', $tenant->id)->where('created_at', '>=', now()->subDays(30)))->distinct()->count('user_id');
+        $answers30 = $learners(Attempt::where('tenant_id', $tenant->id)->where('created_at', '>=', now()->subDays(30)))->count();
+        $withAccess = $learners(Entitlement::currentlyActive()->where('tenant_id', $tenant->id)->when($scopeCourses !== null, fn ($q) => $q->whereIn('course_id', $scopeCourses)))->distinct()->count('user_id');
 
         // Aktive Lernende je Monat (letzte 6 Monate).
         $months = collect(range(5, 0))->map(fn ($i) => now('Europe/Berlin')->startOfMonth()->subMonths($i));
-        $byMonth = Attempt::where('tenant_id', $tenant->id)->where('created_at', '>=', $months->first()->copy()->utc())
+        $byMonth = $learners(Attempt::where('tenant_id', $tenant->id))->where('created_at', '>=', $months->first()->copy()->utc())
             ->groupBy(DB::raw("to_char(created_at AT TIME ZONE 'Europe/Berlin', 'YYYY-MM')"))
             ->selectRaw("to_char(created_at AT TIME ZONE 'Europe/Berlin', 'YYYY-MM') as month, count(distinct user_id) as learners")
             ->pluck('learners', 'month');
         $monthly = $months->map(fn ($m) => ['label' => $m->locale('de')->translatedFormat('M Y'), 'learners' => (int) ($byMonth[$m->format('Y-m')] ?? 0)]);
 
-        $exams = ExamSession::where('exam_session.tenant_id', $tenant->id)->where('exam_session.status', 'evaluated')
+        $exams = $learners(ExamSession::where('exam_session.tenant_id', $tenant->id), 'exam_session.user_id')->where('exam_session.status', 'evaluated')
+            ->when($scopeCourses !== null, fn ($q) => $q->whereIn('exam_session.course_id', $scopeCourses))
             ->where('exam_session.submitted_at', '>=', now()->subDays(90))
             ->join('course_definition', 'course_definition.id', '=', 'exam_session.course_id')
             ->groupBy('course_definition.id', 'course_definition.name')
@@ -42,7 +48,7 @@ class SchoolInsightsController extends Controller
             ->orderByDesc('total')->get();
 
         // Durchschnittlicher Fortschritt und Prüfungsreife je Kurs (aktive Zugänge).
-        $courses = Entitlement::currentlyActive()->where('tenant_id', $tenant->id)->with('course', 'user')->get()
+        $courses = $learners(Entitlement::currentlyActive()->where('tenant_id', $tenant->id)->when($scopeCourses !== null, fn ($q) => $q->whereIn('course_id', $scopeCourses)))->with('course', 'user')->get()
             ->filter(fn ($e) => $e->course && $e->user)->groupBy('course_id')
             ->map(function ($group) use ($tenant, $overview) {
                 $course = $group->first()->course;

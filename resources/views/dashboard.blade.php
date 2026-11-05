@@ -5,6 +5,8 @@
             <p class="text-slate-500 dark:text-slate-400">Schön, dass du wieder da bist.</p>
         </div>
 
+        @include('partials.platform-announcements')
+
         @foreach ($announcements as $announcement)
             <div role="status" class="mb-4 rounded-2xl border border-sky-200 bg-sky-50 dark:bg-sky-900/30 dark:border-sky-800 px-4 py-3">
                 <div class="flex items-start gap-2">

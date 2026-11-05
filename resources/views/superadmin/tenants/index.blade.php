@@ -2,9 +2,14 @@
     <x-slot name="header">
         <div class="flex items-center justify-between">
             <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Bootsschulen</h1>
-            <a href="{{ route('superadmin.tenants.create') }}" class="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium hover:opacity-90 transition">
-                + Neue Bootsschule
-            </a>
+            <div class="flex flex-wrap items-center gap-2">
+                <a href="{{ route('superadmin.announcements.index') }}" class="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition">
+                    Mitteilung an alle Schulen
+                </a>
+                <a href="{{ route('superadmin.tenants.create') }}" class="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium hover:opacity-90 transition">
+                    + Neue Bootsschule
+                </a>
+            </div>
         </div>
     </x-slot>
 
