@@ -26,7 +26,9 @@ class TrustHosts extends BaseTrustHosts
 {
     public function handle(Request $request, $next)
     {
-        if ($request->is('up')) {
+        // /tls-check fragt Caddy über 127.0.0.1 ab (Host passt zu keinem
+        // Muster); der Controller lässt ohnehin nur lokale Anfragen zu.
+        if ($request->is('up') || $request->is('tls-check')) {
             return $next($request);
         }
 

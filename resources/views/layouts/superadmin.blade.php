@@ -75,6 +75,7 @@
                                 <a href="{{ route('superadmin.praxis-form-templates.index') }}" class="px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.praxis-form-templates.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Praxisformulare</a>
                                 <a href="{{ route('superadmin.pruefungsausschuesse.index') }}" class="px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.pruefungsausschuesse.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Prüfungsausschüsse</a>
                                 <a href="{{ route('superadmin.settings.edit') }}" class="px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.settings.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Website</a>
+                                <a href="{{ route('superadmin.system') }}" class="px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.system') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">System</a>
                                 <a href="{{ route('two-factor.show') }}" class="px-3 py-2 rounded-lg hover:bg-slate-800/60">2FA</a>
                             </div>
                         </div>
@@ -112,6 +113,7 @@
                         <a href="{{ route('superadmin.praxis-form-templates.index') }}" class="block px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.praxis-form-templates.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Praxisformulare</a>
                         <a href="{{ route('superadmin.pruefungsausschuesse.index') }}" class="block px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.pruefungsausschuesse.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Prüfungsausschüsse</a>
                         <a href="{{ route('superadmin.settings.edit') }}" class="block px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.settings.*') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">Website</a>
+                        <a href="{{ route('superadmin.system') }}" class="block px-3 py-2 rounded-lg {{ request()->routeIs('superadmin.system') ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/60' }}">System</a>
                         <a href="{{ route('two-factor.show') }}" class="block px-3 py-2 rounded-lg hover:bg-slate-800/60">Zwei-Faktor-Anmeldung</a>
                     </div>
                     <div class="pt-3 pb-3 border-t border-slate-800 px-5">

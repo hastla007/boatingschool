@@ -1,7 +1,9 @@
 <?php
 
+use App\Support\ProductionReadiness;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('inspire', function () {
@@ -40,3 +42,10 @@ Schedule::command('app:remind-expiring-entitlements')->dailyAt('09:00')->timezon
 // abgebrochene (nie wieder aufgerufene) Prüfungen dauerhaft auf "running"
 // stehen.
 Schedule::command('app:expire-abandoned-exam-sessions')->hourly()->onOneServer()->withoutOverlapping();
+
+// Go-live B2: tägliche Datensicherung (Datenbank und Uploads, siehe config/backup.php).
+Schedule::command('app:backup')->dailyAt('03:15')->timezone('Europe/Berlin')->onOneServer()->withoutOverlapping();
+
+// Go-live B5: Lebenszeichen des Schedulers für app:check-production.
+Schedule::call(fn () => Cache::forever(ProductionReadiness::SCHEDULER_HEARTBEAT_KEY, now()->timestamp))
+    ->everyMinute()->name('ops:scheduler-heartbeat')->onOneServer();

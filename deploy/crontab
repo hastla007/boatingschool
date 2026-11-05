@@ -1,0 +1,4 @@
+# Laravel-Scheduler: jede Minute (Fristen, Erinnerungen, DSGVO-Bereinigung,
+# tägliche Datensicherung um 03:15, Lebenszeichen für den Go-live-Check).
+# Einrichten mit `crontab -e` als Deploy-Benutzer; Pfad anpassen.
+* * * * * cd /var/www/boatingschool && php artisan schedule:run >> /dev/null 2>&1

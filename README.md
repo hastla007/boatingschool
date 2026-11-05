@@ -235,6 +235,12 @@ Geplante Kommandos:
   Review D3). Greift nur, wenn die jeweilige Frist bewusst per `.env`
   aktiviert wurde.
 
+- `app:backup` (täglich 03:15 Europe/Berlin) -- Datenbank-Dump und Uploads
+  nach `storage/app/backups/`, optional auf externen Speicher
+  (`BACKUP_DISK`), siehe `deploy/README.md`.
+- `ops:scheduler-heartbeat` (jede Minute) -- Lebenszeichen für den
+  Go-live-Check.
+
 `QUEUE_CONNECTION` steht in `.env`/`.env.example` auf `database` (Tabellen
 `jobs`/`failed_jobs`/`job_batches` existieren bereits), aktuell nutzt aber
 keine Klasse `ShouldQueue` -- der gesamte Mailversand (Passwort-Set-Link,
@@ -243,7 +249,15 @@ Einladung, E-Mail-Bestätigung) läuft bewusst synchron im Request über
 geloggt, bricht den Request aber nicht ab). Ein `php artisan queue:work`
 ist daher für den aktuellen Funktionsumfang nicht nötig; sobald ein
 künftiges Feature echte Queue-Jobs einführt, muss ein Worker-Prozess
-(z. B. per Supervisor) dauerhaft laufen.
+(Vorlage `deploy/supervisor-worker.conf`) dauerhaft laufen --
+`app:check-production` meldet hängende Jobs.
+
+### Produktivbetrieb
+
+Server-Vorlagen (Caddy/nginx, Cron, Worker), Deploy-Skript
+(`deploy/deploy.sh`), Datensicherung und Wiederherstellung sowie
+Überwachung beschreibt `deploy/README.md`. Offene Punkte zeigt
+`php artisan app:check-production` bzw. im Superadmin die Seite „System“.
 
 ## Tests
 

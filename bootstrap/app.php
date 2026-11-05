@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\TlsCheckController;
 use App\Http\Middleware\EnforceMaintenanceMode;
 use App\Http\Middleware\EnsureAccountIsActive;
 use App\Http\Middleware\EnsureSuperAdmin;
@@ -17,12 +18,20 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Foundation\Http\Middleware\HandlePrecognitiveRequests;
 use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Support\Facades\Route;
+use Sentry\Laravel\Integration;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
+        // Go-live B4: Prüf-Endpunkt für automatische Zertifikate (Caddy
+        // on-demand TLS) -- bewusst ohne web-Gruppe (keine Session, kein
+        // Mandant), siehe TlsCheckController.
+        then: function () {
+            Route::get('/tls-check', TlsCheckController::class)->name('tls-check');
+        },
     )
     ->withMiddleware(function (Middleware $middleware) {
         // Bug-Review M4 (Folgefehler): ohne eine vertrauenswürdige
@@ -169,5 +178,8 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
+        // Go-live B3: Fehler an Sentry melden -- nur aktiv, wenn
+        // SENTRY_LARAVEL_DSN gesetzt ist (siehe config/sentry.php).
+        Integration::handles($exceptions);
         //
     })->create();
