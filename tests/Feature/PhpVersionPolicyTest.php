@@ -33,10 +33,14 @@ class PhpVersionPolicyTest extends TestCase
         $this->assertSame('^8.3', $composerLock['platform']['php'] ?? null);
     }
 
-    public function test_the_ci_matrix_tests_against_php_83(): void
+    /** Die CI prüft die Mindestversion aus composer.json (8.3) und die aktuelle PHP-Version (8.5). */
+    public function test_the_ci_matrix_tests_the_minimum_and_the_latest_php_version(): void
     {
         $workflow = Yaml::parseFile(base_path('.github/workflows/tests.yml'));
+        $include = $workflow['jobs']['tests']['strategy']['matrix']['include'] ?? [];
 
-        $this->assertSame([8.3], $workflow['jobs']['tests']['strategy']['matrix']['php'] ?? null);
+        $this->assertSame([8.3, 8.5], array_column($include, 'php'));
+        $this->assertSame([16, 18], array_column($include, 'postgres'));
+        $this->assertSame('postgres:${{ matrix.postgres }}', $workflow['jobs']['tests']['services']['postgres']['image'] ?? null);
     }
 }
