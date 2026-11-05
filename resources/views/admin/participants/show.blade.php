@@ -23,6 +23,53 @@
         </span>
     </div>
 
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 mb-6">
+        <div class="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+            <h3 class="font-medium text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                <x-icon name="chart-bar" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Lernstand
+            </h3>
+            <span class="text-xs text-slate-600 dark:text-slate-400">
+                Zuletzt gelernt: {{ $learning['last_activity'] ? $learning['last_activity']->timezone('Europe/Berlin')->format('d.m.Y H:i') . ' (' . $learning['last_activity']->locale('de')->diffForHumans() . ')' : 'noch nie' }}
+            </span>
+        </div>
+        @forelse ($learning['courses'] as $row)
+            <div class="py-2 border-b border-slate-100 dark:border-slate-700 last:border-0">
+                <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
+                    <span class="text-slate-700 dark:text-slate-200">{{ $row['course']->name }}</span>
+                    <span class="flex items-center gap-2">
+                        <span class="font-medium text-slate-700 dark:text-slate-200">{{ $row['percent'] }} %</span>
+                        @if ($row['ready'])
+                            <span class="text-xs rounded-full px-2 py-0.5 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200">prüfungsreif</span>
+                        @else
+                            <span class="text-xs rounded-full px-2 py-0.5 bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200">prüfungsreif ab {{ $row['threshold'] }} %</span>
+                        @endif
+                    </span>
+                </div>
+                <div class="h-1.5 rounded-full bg-slate-100 dark:bg-slate-700 mt-1.5" role="progressbar" aria-valuenow="{{ $row['percent'] }}" aria-valuemin="0" aria-valuemax="100" aria-label="Fortschritt {{ $row['course']->name }}">
+                    <div class="h-1.5 rounded-full" style="width: {{ $row['percent'] }}%; background-color: var(--brand-primary, #005FD7)"></div>
+                </div>
+                @if ($row['valid_until'])
+                    <div class="text-xs text-slate-600 dark:text-slate-400 mt-1">Zugang bis {{ $row['valid_until']->timezone('Europe/Berlin')->format('d.m.Y') }} · {{ \App\Support\StatusLabels::entitlementStatus($row['status']) }}</div>
+                @endif
+            </div>
+        @empty
+            <p class="text-sm text-slate-600 dark:text-slate-400">Noch kein Kurs freigeschaltet.</p>
+        @endforelse
+
+        <h4 class="font-medium text-sm text-slate-700 dark:text-slate-200 mt-4 mb-2">Prüfungssimulation</h4>
+        @forelse ($learning['exams'] as $exam)
+            <div class="flex flex-wrap items-center justify-between gap-2 text-sm py-1">
+                <span class="text-slate-600 dark:text-slate-300">{{ $exam->submitted_at?->timezone('Europe/Berlin')->format('d.m.Y H:i') }} · {{ $exam->course?->name }}</span>
+                <span class="flex items-center gap-2">
+                    <span class="text-slate-700 dark:text-slate-200">{{ (int) round($exam->score * 100) }} %</span>
+                    <span class="text-xs rounded-full px-2 py-0.5 {{ $exam->passed ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200' : 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200' }}">{{ $exam->passed ? 'bestanden' : 'nicht bestanden' }}</span>
+                </span>
+            </div>
+        @empty
+            <p class="text-sm text-slate-600 dark:text-slate-400">Noch keine Prüfungssimulation abgeschlossen.</p>
+        @endforelse
+    </div>
+
     {{-- Bug-Review (Willkommensbox -- Tab läuft auf dem Handy über): ohne
          grid-cols-1 bleibt die Spaltenbreite unterhalb von lg content-based
          (shrink-to-fit) statt zu stapeln -- die beiden Karten liefen bei

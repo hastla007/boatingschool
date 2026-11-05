@@ -5,6 +5,19 @@
             <p class="text-slate-500 dark:text-slate-400">Schön, dass du wieder da bist.</p>
         </div>
 
+        @foreach ($announcements as $announcement)
+            <div role="status" class="mb-4 rounded-2xl border border-sky-200 bg-sky-50 dark:bg-sky-900/30 dark:border-sky-800 px-4 py-3">
+                <div class="flex items-start gap-2">
+                    <x-icon name="envelope" class="w-4 h-4 mt-0.5 shrink-0 text-sky-700 dark:text-sky-300" />
+                    <div class="min-w-0">
+                        <p class="font-medium text-sky-900 dark:text-sky-100">{{ $announcement->title }}</p>
+                        <p class="text-sm text-sky-900 dark:text-sky-100 whitespace-pre-line">{{ $announcement->body }}</p>
+                        <p class="text-xs text-sky-800 dark:text-sky-300 mt-1">{{ $announcement->created_at->timezone('Europe/Berlin')->format('d.m.Y') }}</p>
+                    </div>
+                </div>
+            </div>
+        @endforeach
+
         @if ($courses->isEmpty())
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 text-center">
                 <x-icon name="life-buoy" class="w-8 h-8 mx-auto text-slate-600 dark:text-slate-400 mb-2" />

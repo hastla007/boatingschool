@@ -19,6 +19,8 @@ class MailTemplates
         'entitlement_expiring' => ['label' => 'Kurszugang läuft bald ab', 'subject' => 'Dein Kurszugang läuft am {datum} ab', 'placeholders' => ['schule', 'kurs', 'datum']],
         'coupon_redeemed' => ['label' => 'Code eingelöst / Kurs freigeschaltet', 'subject' => 'Dein Kurs ist freigeschaltet', 'placeholders' => ['kurs']],
         'willkommensbox_shipped' => ['label' => 'Willkommensbox versendet', 'subject' => 'Deine Willkommensbox ist unterwegs', 'placeholders' => []],
+        'learning_reminder' => ['label' => 'Erinnerung ans Lernen (inaktive Lernende)', 'subject' => 'Weiterlernen bei {schule}', 'placeholders' => ['schule', 'tage']],
+        'announcement' => ['label' => 'Mitteilung der Bootsschule', 'subject' => '{titel}', 'placeholders' => ['schule', 'titel']],
         'praxis_appointment' => ['label' => 'Prüfungs-/Praxistermin vorgeschlagen, zurückgezogen oder abgesagt', 'subject' => 'Terminvorschlag: {termin}', 'placeholders' => ['termin']],
     ];
 

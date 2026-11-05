@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ContentQuestion;
 use App\Models\Progress;
+use App\Models\TenantAnnouncement;
 use App\Models\VideoProgress;
 use App\Services\EntitlementService;
 use App\Support\TenantContext;
@@ -90,8 +91,14 @@ class DashboardController extends Controller
             ];
         });
 
+        // Mitteilungen der Bootsschule: an alle oder an einen gebuchten Kurs.
+        $announcements = TenantAnnouncement::visible()
+            ->where(fn ($q) => $q->whereNull('course_id')->orWhereIn('course_id', $courses->pluck('id')))
+            ->orderByDesc('created_at')->limit(5)->get();
+
         return view('dashboard', [
             'courses' => $courseSummaries,
+            'announcements' => $announcements,
         ]);
     }
 }

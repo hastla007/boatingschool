@@ -26,6 +26,7 @@ use App\Models\TenantCourseLocation;
 use App\Models\TenantInvitation;
 use App\Models\TenantUser;
 use App\Models\WillkommensboxOrder;
+use App\Support\ParticipantFilters;
 use App\Support\TenantContext;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -301,11 +302,13 @@ class AdminDashboardController extends Controller
         // Paginierung Teilnehmer verdoppeln oder auslassen kann. user_id
         // ist innerhalb eines Mandanten eindeutig (siehe
         // zusammengesetzter Primärschlüssel (tenant_id, user_id)).
-        $participants = TenantUser::with(['user.entitlements' => function ($q) use ($tenant) {
+        $participantFilters = ParticipantFilters::fromRequest($request);
+        $participantsQuery = TenantUser::with(['user.entitlements' => function ($q) use ($tenant) {
             $q->where('tenant_id', $tenant->id)->with('course');
         }])
             ->where('tenant_id', $tenant->id)
-            ->where('role', 'learner')
+            ->where('role', 'learner');
+        $participants = ParticipantFilters::apply($participantsQuery, $tenant, $participantFilters)
             ->orderBy('created_at')
             ->orderBy('user_id')
             ->paginate(25, ['*'], 'participants_page')
@@ -527,6 +530,7 @@ class AdminDashboardController extends Controller
             'pendingTeamInvitations' => $pendingTeamInvitations,
             'allParticipants' => $allParticipants,
             'courses' => $courses,
+            'participantFilters' => $participantFilters,
             'productPurchases' => $productPurchases,
             'branding' => $branding,
             'webshopLinks' => $webshopLinks,
