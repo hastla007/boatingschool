@@ -105,10 +105,10 @@ class ElwisQuestionImageSeeder extends Seeder
     private function groupedRows(): array
     {
         $handle = fopen(database_path('data/elwis_bilder.csv'), 'r');
-        $header = fgetcsv($handle, 0, ';');
+        $header = fgetcsv($handle, 0, ';', '"', '\\');
         $groups = [];
 
-        while (($data = fgetcsv($handle, 0, ';')) !== false) {
+        while (($data = fgetcsv($handle, 0, ';', '"', '\\')) !== false) {
             $row = array_combine($header, $data);
             $groups[$row['modul'].'#'.$row['fragen_nr']][(int) $row['reihenfolge']] = $row;
         }

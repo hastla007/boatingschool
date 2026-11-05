@@ -112,10 +112,10 @@ class SegelnFknSknPraxisTrainerTest extends TestCase
     {
         foreach (['sbf_binnen_segeln_praxistrainer.csv' => 48, 'fkn_praxistrainer.csv' => 24, 'skn_praxistrainer.csv' => 22] as $file => $expected) {
             $handle = fopen(database_path('data/'.$file), 'r');
-            $header = fgetcsv($handle, 0, ';');
+            $header = fgetcsv($handle, 0, ';', '"', '\\');
             $header[0] = preg_replace('/^\xEF\xBB\xBF/', '', $header[0]);
             $rows = [];
-            while (($data = fgetcsv($handle, 0, ';')) !== false) {
+            while (($data = fgetcsv($handle, 0, ';', '"', '\\')) !== false) {
                 $this->assertCount(count($header), $data, $file.': '.($data[0] ?? '?'));
                 $rows[] = array_combine($header, $data);
             }

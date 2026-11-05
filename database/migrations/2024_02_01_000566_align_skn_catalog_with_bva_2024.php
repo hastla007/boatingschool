@@ -146,11 +146,11 @@ return new class extends Migration
     private function syncPraxisCard(string $id): void
     {
         $handle = fopen(database_path('data/skn_praxistrainer.csv'), 'r');
-        $header = fgetcsv($handle, 0, ';');
+        $header = fgetcsv($handle, 0, ';', '"', '\\');
         $header[0] = preg_replace('/^\xEF\xBB\xBF/', '', $header[0]);
         $row = null;
 
-        while (($data = fgetcsv($handle, 0, ';')) !== false) {
+        while (($data = fgetcsv($handle, 0, ';', '"', '\\')) !== false) {
             $candidate = array_combine($header, $data);
 
             if ($candidate['id'] === $id) {
