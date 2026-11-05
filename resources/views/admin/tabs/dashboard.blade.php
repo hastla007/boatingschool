@@ -175,5 +175,8 @@
                 <p class="text-slate-500 dark:text-slate-400">Noch keine Aktivitäten protokolliert.</p>
             @endforelse
         </div>
+        @if ($canManageTenant)
+            <a href="{{ route('admin.audit.index') }}" class="inline-block mt-3 text-xs underline text-slate-600 dark:text-slate-400 hover:no-underline">Gesamtes Protokoll</a>
+        @endif
     </div>
 </div>

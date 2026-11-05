@@ -9,22 +9,16 @@ use App\Models\Entitlement;
 use App\Models\PraxisFormSubmission;
 use App\Models\ProductPurchase;
 use App\Models\TenantCourseLocation;
-use App\Models\TenantInvitation;
 use App\Models\TenantUser;
 use App\Models\User;
 use App\Models\WillkommensboxOrder;
-use App\Notifications\TenantInvitationNotification;
 use App\Services\CouponRedemptionService;
-use App\Support\BestEffortMail;
+use App\Services\LearnerOverview;
+use App\Services\ParticipantInviter;
 use App\Support\Countries;
 use App\Support\TenantContext;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Notification;
-use Illuminate\Support\Facades\Password;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use RuntimeException;
@@ -40,7 +34,7 @@ class ParticipantController extends Controller
      * hier aus Admin-Sicht für einen bestimmten Teilnehmer der eigenen
      * Bootsschule.
      */
-    public function show(Request $request, TenantContext $tenantContext, User $user): View
+    public function show(Request $request, TenantContext $tenantContext, User $user, LearnerOverview $overview): View
     {
         $tenant = $tenantContext->tenant();
 
@@ -160,6 +154,11 @@ class ParticipantController extends Controller
         }
 
         return view('admin.participants.show', [
+            'learning' => [
+                'courses' => $overview->courses($tenant, $user),
+                'last_activity' => $overview->lastActivity($tenant, $user),
+                'exams' => $overview->examResults($tenant, $user),
+            ],
             'participant' => $user,
             'membership' => $membership,
             'canManageTenant' => $canManageTenant,
@@ -253,7 +252,7 @@ class ParticipantController extends Controller
         return back()->with('status', 'Mitgliedschaft aktualisiert.');
     }
 
-    public function invite(Request $request, TenantContext $tenantContext, CouponRedemptionService $redemption): Response
+    public function invite(Request $request, TenantContext $tenantContext, CouponRedemptionService $redemption, ParticipantInviter $inviter): Response
     {
         $tenant = $tenantContext->tenant();
         $validated = $request->validate([
@@ -325,54 +324,13 @@ class ParticipantController extends Controller
         // Mitglied dieser Bootsschule sind. Diese Erkennung muss aber
         // bewusst plattformweit suchen (das ist ihr ganzer Zweck), deshalb
         // hier explizit über die RLS-freie Owner-Verbindung.
-        $existingUser = User::on('pgsql_admin')->where('email', $validated['email'])->first();
+        $result = $inviter->invite($tenant, $request->user(), $validated['name'], $validated['email'], array_intersect_key($validated, array_flip(['street', 'postal_code', 'city', 'country'])));
 
-        if ($existingUser) {
-            $invitation = TenantInvitation::create([
-                'tenant_id' => $tenant->id,
-                'email' => $existingUser->email,
-                'role' => 'learner',
-                'invited_by_user_id' => $request->user()->id,
-            ]);
+        $status = $result['mail_sent']
+            ? 'Einladung verschickt.'
+            : 'Einladung angelegt, der Versand der E-Mail ist aber fehlgeschlagen -- bitte später erneut einladen.';
 
-            // Bug-Review B31: die Einladung ist zu diesem Zeitpunkt schon
-            // angelegt -- ein SMTP-Fehler beim Versand soll das nicht mehr
-            // als HTTP 500 melden, siehe BestEffortMail.
-            $mailSent = BestEffortMail::send(
-                fn () => Notification::route('mail', $existingUser->email)->notify(new TenantInvitationNotification($invitation)),
-                "Einladungsmail Bestandskonto {$invitation->id}"
-            );
-
-            AuditLog::record($tenant->id, $request->user()->id, 'participant.invite_pending', 'tenant_invitation', $invitation->id, null, [
-                'email' => $existingUser->email,
-            ]);
-
-            // Sicherheitsreview S-N3: "Für diese E-Mail-Adresse existiert
-            // bereits ein Konto" bestätigte dem einladenden Bootsschul-Admin
-            // direkt und unabhängig von jeder Beziehung zur Bootsschule, ob
-            // irgendwo auf der Plattform ein Konto zu dieser Adresse
-            // existiert -- missbrauchbar als Enumerations-Orakel über
-            // beliebig viele eingeladene Adressen (analog zu M3, nur über
-            // diesen authentifizierten Endpunkt statt Login/Passwort-
-            // vergessen). Die Formulierung beschreibt jetzt nur noch die
-            // tatsächliche Konsequenz (Mitgliedschaft erst nach Bestätigung
-            // durch die eingeladene Person), ohne das als "Konto existiert
-            // bereits" zu begründen.
-            //
-            // Bug-Review M3 (Folgefehler): die Formulierung allein hat das
-            // Orakel nicht geschlossen -- dieser Zweig (Konto existiert
-            // bereits irgendwo auf der Plattform) lieferte bisher einen
-            // ANDEREN Text als der Zweig unten (neues Konto), wodurch ein
-            // Bootsschul-Admin allein über den Rückgabetext weiter
-            // plattformweit prüfen konnte, ob zu einer beliebigen Adresse
-            // schon ein Konto existiert. Beide Zweige geben deshalb jetzt
-            // denselben Basistext zurück.
-            $status = 'Einladung verschickt.';
-
-            if (! $mailSent) {
-                $status = 'Einladung angelegt, der Versand der E-Mail ist aber fehlgeschlagen -- bitte später erneut einladen.';
-            }
-
+        if ($result['type'] === 'existing') {
             if ($codeRequiresAdmin) {
                 return back()->withErrors(['code' => 'Nur Owner/Admin können beim Einladen direkt einen Code zuweisen -- das geht sonst nach der Einladung über die Coupon-Codes-Verwaltung.'])->with('status', $status);
             }
@@ -384,56 +342,7 @@ class ParticipantController extends Controller
             return back()->with('status', $status);
         }
 
-        $user = DB::transaction(function () use ($validated, $tenant, $request) {
-            $user = User::create([
-                'email' => $validated['email'],
-                'display_name' => $validated['name'],
-                'password' => Hash::make(Str::random(32)),
-                'status' => 'invited',
-                // Bug-Review (Superadmin-Nutzerseite zeigt leere
-                // Namensfelder): first_name/last_name blieben hier bisher
-                // unbesetzt, siehe User::splitDisplayName().
-                ...User::splitDisplayName($validated['name']),
-            ]);
-
-            // Sicherheitsreview S3: Adresse liegt jetzt auf der Mitgliedschaft
-            // (tenant_user), nicht mehr kontoweit auf app_user -- siehe
-            // Migration 000469.
-            TenantUser::create([
-                'tenant_id' => $tenant->id,
-                'user_id' => $user->id,
-                'role' => 'learner',
-                'status' => 'active',
-                'street' => $validated['street'] ?? null,
-                'postal_code' => $validated['postal_code'] ?? null,
-                'city' => $validated['city'] ?? null,
-                'country' => $validated['country'] ?? null,
-            ]);
-
-            AuditLog::record($tenant->id, $request->user()->id, 'participant.invite', 'app_user', $user->id, null, [
-                'email' => $user->email,
-            ]);
-
-            return $user;
-        });
-
-        // Bug-Review B18: das neu angelegte Konto bekommt ein zufälliges,
-        // niemandem bekanntes Passwort -- ohne eine Mail dazu gab es keine
-        // Möglichkeit, sich je einzuloggen. Derselbe Passwort-Reset-Link
-        // wie bei "Passwort vergessen" setzt zugleich das erste Passwort.
-        // Bug-Review B31: der Teilnehmer ist zu diesem Zeitpunkt schon
-        // angelegt -- ein SMTP-Fehler beim Versand soll das nicht mehr als
-        // HTTP 500 melden, siehe BestEffortMail.
-        $mailSent = BestEffortMail::send(
-            fn () => Password::sendResetLink(['email' => $user->email]),
-            "Einladungsmail neuer Teilnehmer {$user->id}"
-        );
-
-        // Bug-Review M3 (Folgefehler): identischer Basistext wie im
-        // "Konto existiert bereits"-Zweig oben, siehe Kommentar dort.
-        $status = $mailSent
-            ? 'Einladung verschickt.'
-            : 'Einladung angelegt, der Versand der E-Mail ist aber fehlgeschlagen -- bitte später erneut einladen.';
+        $user = $result['user'];
 
         if ($code === '') {
             return back()->with('status', $status);

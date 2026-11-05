@@ -135,6 +135,53 @@
     </form>
 </div>
 
+<details class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 mb-6" @if ($errors->has('emails')) open @endif>
+    <summary class="cursor-pointer font-medium text-slate-700 dark:text-slate-200">Mehrere Teilnehmer auf einmal einladen</summary>
+    <form method="POST" action="{{ route('admin.participants.bulk-invite') }}" class="mt-3 space-y-2">
+        @csrf
+        <label for="bulk_emails" class="block text-sm text-slate-600 dark:text-slate-300">Eine Person pro Zeile: <span class="font-mono text-xs">Vorname Nachname, name@example.de</span> oder nur die E-Mail-Adresse (höchstens 100 Zeilen).</label>
+        <textarea id="bulk_emails" name="emails" rows="6" required class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm font-mono" placeholder="Max Mustermann, max@example.de&#10;erika@example.de">{{ old('emails') }}</textarea>
+        <x-input-error :messages="$errors->get('emails')" class="mt-1" />
+        <button type="submit" class="px-4 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">Alle einladen</button>
+    </form>
+</details>
+
+<form method="GET" action="{{ route('admin.dashboard') }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 mb-3 flex flex-wrap items-end gap-2">
+    <input type="hidden" name="tab" value="participants">
+    <div class="flex-1 min-w-48">
+        <label for="p_search" class="block text-xs text-slate-600 dark:text-slate-400 mb-1">Name oder E-Mail</label>
+        <input type="search" id="p_search" name="p_search" value="{{ $participantFilters['p_search'] }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+    </div>
+    <div>
+        <label for="p_course" class="block text-xs text-slate-600 dark:text-slate-400 mb-1">Kurs</label>
+        <select id="p_course" name="p_course" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+            <option value="">Alle Kurse</option>
+            @foreach ($courses as $course)
+                <option value="{{ $course->id }}" @selected($participantFilters['p_course'] === $course->id)>{{ $course->name }}</option>
+            @endforeach
+        </select>
+    </div>
+    <div>
+        <label for="p_status" class="block text-xs text-slate-600 dark:text-slate-400 mb-1">Status</label>
+        <select id="p_status" name="p_status" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+            <option value="">Alle</option>
+            <option value="active" @selected($participantFilters['p_status'] === 'active')>aktiv</option>
+            <option value="suspended" @selected($participantFilters['p_status'] === 'suspended')>gesperrt</option>
+        </select>
+    </div>
+    <button type="submit" class="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium hover:opacity-90">Filtern</button>
+    @if (\App\Support\ParticipantFilters::active($participantFilters))
+        <a href="{{ route('admin.dashboard', ['tab' => 'participants']) }}" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-sm">Zurücksetzen</a>
+    @endif
+    <div class="w-full sm:w-auto sm:ml-auto flex flex-wrap gap-3 text-sm">
+        <a href="{{ route('admin.inactive.index') }}" class="underline text-slate-700 dark:text-slate-200 hover:no-underline">Inaktive Lernende</a>
+        @if ($canManageTenant)
+            <a href="{{ route('admin.participants.export', array_filter($participantFilters)) }}" class="underline text-slate-700 dark:text-slate-200 hover:no-underline">Als CSV exportieren</a>
+        @endif
+    </div>
+</form>
+<p class="text-xs text-slate-600 dark:text-slate-400 mb-2">{{ $participants->total() }} {{ $participants->total() === 1 ? 'Teilnehmer' : 'Teilnehmer' }}{{ \App\Support\ParticipantFilters::active($participantFilters) ? ' gefunden' : '' }}</p>
+
 <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden">
     <div class="overflow-x-auto">
     <table class="w-full text-sm">

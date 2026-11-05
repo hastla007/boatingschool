@@ -26,13 +26,14 @@ class TenantUser extends Model
         'tenant_id', 'user_id', 'role', 'status',
         // Sicherheitsreview S3: Adresse/Geburtsdatum liegen je Mitgliedschaft
         // hier statt kontoweit auf app_user (siehe Migration 000469).
-        'street', 'postal_code', 'city', 'country', 'birthdate',
+        'street', 'postal_code', 'city', 'country', 'birthdate', 'reminded_at',
     ];
 
     protected function casts(): array
     {
         return [
             'birthdate' => 'date',
+            'reminded_at' => 'datetime',
         ];
     }
 

@@ -14,7 +14,7 @@ auf PostgreSQL, gemäß dem mitgelieferten technischen Konzept
   Pfad (`CENTRAL_DOMAIN/{slug}`, Standard, `ResolveTenantPath`), Subdomain
   (`{slug}.CENTRAL_DOMAIN`, optional mit `TENANT_URL_MODE=subdomain`) oder
   Custom Domain (`app/Http/Middleware/ResolveTenant.php`). Mandantengebundene Tabellen
-  (inzwischen 28, u. a. `tenant_branding`, `tenant_user`,
+  (inzwischen 29, u. a. `tenant_branding`, `tenant_user`,
   `entitlement`, `attempt`, `progress`, `favorite`, `exam_session`,
   `exam_session_question`, `coupon`, `audit_log`, `app_user`) sind
   zusätzlich per **Postgres Row-Level-Security** abgesichert – ein

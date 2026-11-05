@@ -2,14 +2,18 @@
 
 use App\Http\Controllers\Admin\AddonController;
 use App\Http\Controllers\Admin\AdminDashboardController;
+use App\Http\Controllers\Admin\AnnouncementController;
 use App\Http\Controllers\Admin\BrandingController;
 use App\Http\Controllers\Admin\CouponController as AdminCouponController;
 use App\Http\Controllers\Admin\CoursePromoBannerController;
 use App\Http\Controllers\Admin\CourseSelectionController;
 use App\Http\Controllers\Admin\EntitlementController;
+use App\Http\Controllers\Admin\InactiveLearnerController;
 use App\Http\Controllers\Admin\ParticipantController;
+use App\Http\Controllers\Admin\ParticipantToolsController;
 use App\Http\Controllers\Admin\PraxisExamAppointmentController as AdminPraxisExamAppointmentController;
 use App\Http\Controllers\Admin\PraxisFormSubmissionController as AdminPraxisFormSubmissionController;
+use App\Http\Controllers\Admin\SchoolInsightsController;
 use App\Http\Controllers\Admin\SupportEmailVerificationController;
 use App\Http\Controllers\Admin\TeamController;
 use App\Http\Controllers\Admin\TenantCourseLocationController;
@@ -211,6 +215,12 @@ Route::middleware(['auth', 'tenant.role:owner,admin,instructor', 'verified'])->p
     // Timing-Seitenkanal realistisch nutzbar, und jede beliebige echte
     // Adresse ließ sich unbegrenzt mit Einladungs-/Reset-Mails zuspammen.
     Route::post('/participants/invite', [ParticipantController::class, 'invite'])->middleware('throttle:10,1,participants-invite')->name('participants.invite');
+    Route::post('/participants/bulk-invite', [ParticipantToolsController::class, 'bulkInvite'])->middleware('throttle:5,1,participants-bulk-invite')->name('participants.bulk-invite');
+    Route::get('/inactive', [InactiveLearnerController::class, 'index'])->name('inactive.index');
+    Route::post('/inactive/remind', [InactiveLearnerController::class, 'remind'])->middleware('throttle:10,1,participants-remind')->name('inactive.remind');
+    Route::get('/statistics', [SchoolInsightsController::class, 'statistics'])->name('statistics');
+    // Vor participants/{user}, sonst fängt die Detailroute "export" ab; nur Inhaber/Admins (personenbezogene Daten).
+    Route::get('/participants/export', [ParticipantToolsController::class, 'export'])->middleware('tenant.role:owner,admin')->name('participants.export');
     Route::get('/participants/{user}', [ParticipantController::class, 'show'])->name('participants.show');
     Route::patch('/participants/{user}', [ParticipantController::class, 'update'])->name('participants.update');
     Route::get('/branding/support-email/verify/{tenant}/{hash}', [SupportEmailVerificationController::class, 'verify'])
@@ -243,6 +253,10 @@ Route::middleware(['auth', 'tenant.role:owner,admin,instructor', 'verified'])->p
 // Admin-Bereich entsprechend auch nicht bzw. nur lesend (siehe
 // admin/dashboard.blade.php, admin/tabs/orte.blade.php, $canManageTenant).
 Route::middleware(['auth', 'tenant.role:owner,admin', 'verified'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/announcements', [AnnouncementController::class, 'index'])->name('announcements.index');
+    Route::post('/announcements', [AnnouncementController::class, 'store'])->middleware('throttle:10,1,announcements')->name('announcements.store');
+    Route::delete('/announcements/{announcement}', [AnnouncementController::class, 'destroy'])->name('announcements.destroy');
+    Route::get('/audit', [SchoolInsightsController::class, 'audit'])->name('audit.index');
     Route::post('/entitlements', [EntitlementController::class, 'store'])->name('entitlements.store');
     Route::patch('/entitlements/{entitlement}', [EntitlementController::class, 'update'])->name('entitlements.update');
 

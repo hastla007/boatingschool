@@ -83,6 +83,12 @@
                 <button type="button" data-tab="course-promo-banners" @click="tab = 'course-promo-banners'" :class="tab === 'course-promo-banners' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
                         :style="tab === 'course-promo-banners' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Kursempfehlungen</button>
             @endif
+            {{-- Eigene Seiten (keine Tabs): Statistik, Mitteilungen, Protokoll. --}}
+            <a href="{{ route('admin.statistics') }}" class="px-4 py-2 text-sm whitespace-nowrap border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white">Statistik</a>
+            @if ($canManageTenant)
+                <a href="{{ route('admin.announcements.index') }}" class="px-4 py-2 text-sm whitespace-nowrap border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white">Mitteilungen</a>
+                <a href="{{ route('admin.audit.index') }}" class="px-4 py-2 text-sm whitespace-nowrap border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white">Protokoll</a>
+            @endif
         </div>
 
         <div x-show="tab === 'dashboard'">
