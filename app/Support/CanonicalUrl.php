@@ -22,9 +22,22 @@ class CanonicalUrl
     public static function root(?Tenant $tenant = null): string
     {
         $scheme = app()->environment('production') ? 'https' : 'http';
-        $host = config('app.central_domain');
 
-        return $scheme.'://'.($tenant ? $tenant->slug.'.'.$host : $host);
+        return $scheme.'://'.self::display($tenant);
+    }
+
+    /**
+     * Adresse ohne Schema, z. B. "lernen.example.de/mueller" (Pfad-Modus,
+     * Standard) oder "mueller.lernen.example.de" (TENANT_URL_MODE=subdomain).
+     */
+    public static function display(?Tenant $tenant = null): string
+    {
+        $host = config('app.central_domain');
+        if (! $tenant) {
+            return $host;
+        }
+
+        return config('app.tenant_url_mode') === 'subdomain' ? $tenant->slug.'.'.$host : $host.'/'.$tenant->slug;
     }
 
     /**

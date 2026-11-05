@@ -13,6 +13,7 @@ use App\Http\Controllers\Superadmin\ProductController;
 use App\Http\Controllers\Superadmin\PruefungsausschussController;
 use App\Http\Controllers\Superadmin\QuestionController;
 use App\Http\Controllers\Superadmin\SettingsController;
+use App\Http\Controllers\Superadmin\SystemStatusController;
 use App\Http\Controllers\Superadmin\TenantController;
 use App\Http\Controllers\Superadmin\TipCategoryController;
 use App\Http\Controllers\Superadmin\TipController;
@@ -105,6 +106,8 @@ Route::middleware(['auth', 'superadmin', 'admin-db', 'verified'])->prefix('super
     // veröffentlichen.
     Route::post('/question-revisions/{revision}/publish', [QuestionController::class, 'publishRevision'])->name('questions.revisions.publish');
     Route::post('/question-revisions/{revision}/discard', [QuestionController::class, 'discardRevision'])->name('questions.revisions.discard');
+
+    Route::get('/system', SystemStatusController::class)->name('system');
 
     Route::get('/settings', [SettingsController::class, 'edit'])->name('settings.edit');
     Route::patch('/settings', [SettingsController::class, 'update'])->name('settings.update');

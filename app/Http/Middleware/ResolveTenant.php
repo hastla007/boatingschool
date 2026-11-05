@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Models\Tenant;
 use App\Models\TenantBranding;
 use App\Support\TenantContext;
+use App\Support\TenantPath;
 use Closure;
 use Illuminate\Auth\SessionGuard;
 use Illuminate\Http\Request;
@@ -12,7 +13,8 @@ use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Löst den Mandanten serverseitig aus Subdomain oder Custom Domain auf
+ * Löst den Mandanten serverseitig aus Pfad (CENTRAL_DOMAIN/<slug>, siehe
+ * ResolveTenantPath), Subdomain oder Custom Domain auf
  * (api_spec.md: "Tenant wird serverseitig aus Domain/Subdomain ... aufgelöst").
  * In der lokalen Entwicklungsumgebung kann der Tenant zusätzlich per
  * Query-Parameter erzwungen werden, weil Wildcard-Subdomains hier nicht
@@ -59,7 +61,8 @@ class ResolveTenant
         app(TenantContext::class)->clear();
         $this->setCurrentUserIdForRls($request);
 
-        $tenant = $this->resolveViaCustomDomain($request)
+        $tenant = $this->resolveViaPath($request)
+            ?? $this->resolveViaCustomDomain($request)
             ?? $this->resolveViaDevOverride($request)
             ?? $this->resolveViaSubdomain($request);
 
@@ -87,7 +90,8 @@ class ResolveTenant
         // zentrale Domain, nicht auf eine beliebige, von Dritten (dem
         // jeweiligen Bootsschul-Betreiber) kontrollierte Subdomain/Custom
         // Domain -- unabhängig davon, ob dort überhaupt ein Tenant auflöst.
-        if ($this->isSuperadminRoute($request) && $request->getHost() !== config('app.central_domain')) {
+        // Pfad-Modus: auch nicht unter CENTRAL_DOMAIN/<slug>/superadmin.
+        if ($this->isSuperadminRoute($request) && ! TenantPath::isCentralRoot($request)) {
             return response()->view('tenant.not-found', [], 404);
         }
 
@@ -96,7 +100,7 @@ class ResolveTenant
             // (keine Bootsschule, nicht die zentrale Domain) zeigte /login
             // eine scheinbar funktionierende Anmeldeseite, deren Links dann
             // auf „Bootsschule nicht gefunden“ führten.
-            if (! $tenant && $request->getHost() !== config('app.central_domain')) {
+            if (! $tenant && ! TenantPath::isCentralRoot($request)) {
                 return response()->view('tenant.not-found', [], 404);
             }
 
@@ -135,7 +139,7 @@ class ResolveTenant
         }
 
         if (! $tenant) {
-            if ($request->getHost() === config('app.central_domain')) {
+            if (TenantPath::isCentralRoot($request)) {
                 // Sicherheitsreview N5: zeigte bislang auch suspended/closed/
                 // trial-Mandanten öffentlich mit Name und Slug an.
                 return response()->view('tenant.picker', [
@@ -246,6 +250,14 @@ class ResolveTenant
         // -Callback statt über eine Transaktionsgrenze, UND (siehe oben)
         // zusätzlich am Request-Start hier.
         DB::statement("SET app.current_user_id = '{$userId}'");
+    }
+
+    /** CENTRAL_DOMAIN/<slug> (Slug von ResolveTenantPath vor dem Routing erkannt). */
+    private function resolveViaPath(Request $request): ?Tenant
+    {
+        $slug = TenantPath::current($request);
+
+        return $slug ? Tenant::where('slug', $slug)->first() : null;
     }
 
     private function resolveViaCustomDomain(Request $request): ?Tenant

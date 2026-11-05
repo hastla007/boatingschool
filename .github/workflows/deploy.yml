@@ -1,0 +1,48 @@
+name: Deploy
+
+# Deploy per Knopfdruck (Actions → Deploy → Run workflow). Läuft nie
+# automatisch. Führt auf dem Server deploy/deploy.sh aus.
+#
+# Benötigte Repository-Secrets (Settings → Secrets and variables → Actions):
+#   DEPLOY_HOST         Hostname oder IP des Servers
+#   DEPLOY_USER         SSH-Benutzer (Deploy-Benutzer, nicht root)
+#   DEPLOY_SSH_KEY      privater SSH-Schlüssel (nur für diesen Zweck erzeugen)
+#   DEPLOY_KNOWN_HOSTS  Ausgabe von `ssh-keyscan <host>` (schützt vor fremden Servern)
+#   DEPLOY_PATH         App-Verzeichnis, z. B. /var/www/boatingschool
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch'
+        required: true
+        default: 'main'
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: SSH vorbereiten
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      - name: Deploy ausführen
+        env:
+          HOST: ${{ secrets.DEPLOY_HOST }}
+          USER: ${{ secrets.DEPLOY_USER }}
+          APP_PATH: ${{ secrets.DEPLOY_PATH }}
+          BRANCH: ${{ inputs.branch }}
+        run: |
+          case "$BRANCH" in (*[!A-Za-z0-9._/-]*|'') echo "Ungültiger Branch-Name"; exit 1;; esac
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$USER@$HOST" \
+            "cd '$APP_PATH' && ./deploy/deploy.sh '$BRANCH'"

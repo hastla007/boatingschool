@@ -11,8 +11,9 @@ auf PostgreSQL, gemäß dem mitgelieferten technischen Konzept
 
 - **Laravel 12 / Blade / Tailwind**, PostgreSQL 16.
 - **Multi-Tenancy**: jede Bootsschule ist ein `tenant`, aufgelöst per
-  Subdomain (`{slug}.CENTRAL_DOMAIN`) oder Custom Domain
-  (`app/Http/Middleware/ResolveTenant.php`). Mandantengebundene Tabellen
+  Pfad (`CENTRAL_DOMAIN/{slug}`, Standard, `ResolveTenantPath`), Subdomain
+  (`{slug}.CENTRAL_DOMAIN`, optional mit `TENANT_URL_MODE=subdomain`) oder
+  Custom Domain (`app/Http/Middleware/ResolveTenant.php`). Mandantengebundene Tabellen
   (inzwischen 28, u. a. `tenant_branding`, `tenant_user`,
   `entitlement`, `attempt`, `progress`, `favorite`, `exam_session`,
   `exam_session_question`, `coupon`, `audit_log`, `app_user`) sind
@@ -193,8 +194,8 @@ UBI 17/22, Ergänzung 8/10) nicht abbilden kann.
 php artisan serve
 ```
 
-Da produktiv jede Bootsschule über ihre eigene Subdomain läuft, aber lokal
-keine Wildcard-DNS existiert, gibt es einen Dev-Override:
+Jede Bootsschule ist auch lokal unter ihrem Pfad erreichbar, z. B.
+`http://localhost:8000/mueller/`. Zusätzlich gibt es einen Dev-Override:
 `http://localhost:8000/login?as_tenant=mueller` (nur aktiv in
 `APP_ENV=local|testing`). Auf der zentralen Domain ohne gewählten Tenant
 erscheint ein einfacher Bootsschul-Picker.
@@ -235,6 +236,12 @@ Geplante Kommandos:
   Review D3). Greift nur, wenn die jeweilige Frist bewusst per `.env`
   aktiviert wurde.
 
+- `app:backup` (täglich 03:15 Europe/Berlin) -- Datenbank-Dump und Uploads
+  nach `storage/app/backups/`, optional auf externen Speicher
+  (`BACKUP_DISK`), siehe `deploy/README.md`.
+- `ops:scheduler-heartbeat` (jede Minute) -- Lebenszeichen für den
+  Go-live-Check.
+
 `QUEUE_CONNECTION` steht in `.env`/`.env.example` auf `database` (Tabellen
 `jobs`/`failed_jobs`/`job_batches` existieren bereits), aktuell nutzt aber
 keine Klasse `ShouldQueue` -- der gesamte Mailversand (Passwort-Set-Link,
@@ -243,7 +250,15 @@ Einladung, E-Mail-Bestätigung) läuft bewusst synchron im Request über
 geloggt, bricht den Request aber nicht ab). Ein `php artisan queue:work`
 ist daher für den aktuellen Funktionsumfang nicht nötig; sobald ein
 künftiges Feature echte Queue-Jobs einführt, muss ein Worker-Prozess
-(z. B. per Supervisor) dauerhaft laufen.
+(Vorlage `deploy/supervisor-worker.conf`) dauerhaft laufen --
+`app:check-production` meldet hängende Jobs.
+
+### Produktivbetrieb
+
+Server-Vorlagen (Caddy/nginx, Cron, Worker), Deploy-Skript
+(`deploy/deploy.sh`), Datensicherung und Wiederherstellung sowie
+Überwachung beschreibt `deploy/README.md`. Offene Punkte zeigt
+`php artisan app:check-production` bzw. im Superadmin die Seite „System“.
 
 ## Tests
 

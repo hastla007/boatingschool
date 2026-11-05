@@ -17,6 +17,13 @@ return [
 
     'central_domain' => env('CENTRAL_DOMAIN', 'localhost'),
 
+    // Adresse einer Bootsschule ohne eigene Domain: "path" (Standard) =
+    // CENTRAL_DOMAIN/<slug>, "subdomain" = <slug>.CENTRAL_DOMAIN (braucht
+    // Wildcard-DNS und -Zertifikat). Aufgelöst werden immer alle Varianten
+    // (Pfad, Subdomain, eigene Domain); die Einstellung bestimmt, welche
+    // Adresse angezeigt und in E-Mails verlinkt wird.
+    'tenant_url_mode' => env('TENANT_URL_MODE', 'path'),
+
     // Bug-Review (Hoch): bootstrap/app.php rief env('TRUSTED_PROXIES', '')
     // bisher DIREKT auf, außerhalb jeder config/*.php-Datei. Nach dem in
     // Produktion üblichen `php artisan config:cache` (Teil von `php

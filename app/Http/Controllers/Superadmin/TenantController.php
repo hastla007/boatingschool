@@ -14,6 +14,7 @@ use App\Models\TenantUser;
 use App\Models\User;
 use App\Services\TenantOffboardingService;
 use App\Support\BestEffortMail;
+use App\Support\TenantPath;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -59,7 +60,8 @@ class TenantController extends Controller
                 'required', 'string', 'max:120',
                 'regex:/^[a-z0-9]+(-[a-z0-9]+)*$/',
                 'unique:tenant,slug',
-                Rule::notIn(self::RESERVED_SLUGS),
+                // Pfad-Modus: der Slug ist zugleich das erste Pfadsegment (CENTRAL_DOMAIN/<slug>).
+                Rule::notIn(array_merge(self::RESERVED_SLUGS, TenantPath::reservedSegments())),
             ],
             'name' => ['required', 'string', 'max:255'],
             'status' => ['required', 'in:trial,active,suspended,closed'],

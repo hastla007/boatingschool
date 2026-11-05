@@ -15,13 +15,13 @@
         </div>
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 space-y-2">
             @forelse ($tenants as $tenant)
-                <a href="{{ url('/') }}?as_tenant={{ $tenant->slug }}"
+                <a href="{{ \App\Support\CanonicalUrl::root($tenant) }}"
                    class="flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-slate-700 transition">
                     <div class="w-9 h-9 rounded-lg bg-blue-50 dark:bg-slate-700 flex items-center justify-center shrink-0 text-blue-600">
                         <x-icon name="academic-cap" class="w-4 h-4" />
                     </div>
                     <span class="font-medium text-slate-700 dark:text-slate-100 flex-1">{{ $tenant->name }}</span>
-                    <span class="text-xs text-slate-600 dark:text-slate-400">{{ $tenant->slug }}.{{ config('app.central_domain') }}</span>
+                    <span class="text-xs text-slate-600 dark:text-slate-400">{{ \App\Support\CanonicalUrl::display($tenant) }}</span>
                 </a>
             @empty
                 <p class="text-slate-500 dark:text-slate-400 text-sm p-4">Noch keine Bootsschule angelegt.</p>
