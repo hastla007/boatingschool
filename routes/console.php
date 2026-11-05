@@ -33,6 +33,8 @@ Schedule::command('app:prune-personal-data')->daily()->onOneServer()->withoutOve
 // Bug-Review B15: ohne diesen Lauf blieb entitlement.status für
 // abgelaufene Freischaltungen dauerhaft auf "active" stehen.
 Schedule::command('app:expire-entitlements')->hourly()->onOneServer()->withoutOverlapping();
+// Erinnerung vor dem Ablauf eines Kurszugangs (einmal je Ablaufdatum).
+Schedule::command('app:remind-expiring-entitlements')->dailyAt('09:00')->timezone('Europe/Berlin')->onOneServer()->withoutOverlapping();
 
 // Bug-Review B32: ohne diesen Lauf blieb exam_session.status für
 // abgebrochene (nie wieder aufgerufene) Prüfungen dauerhaft auf "running"

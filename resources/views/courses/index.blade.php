@@ -57,6 +57,24 @@
         </a>
     @endif
 
+    {{-- Vorwarnung: Zugang läuft in den nächsten Tagen ab (Entitlement::EXPIRY_WARNING_DAYS). --}}
+    @foreach ($courses->filter(fn ($entry) => $entry['entitlement']->expiresSoon()) as $entry)
+        <div class="flex flex-col sm:flex-row sm:items-center gap-3 rounded-2xl p-4 mb-5 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800">
+            <x-icon name="clock" class="w-5 h-5 text-amber-600 shrink-0" />
+            <div class="flex-1 text-sm text-amber-900 dark:text-amber-100">
+                Dein Zugang zu <strong>{{ $entry['course']->name }}</strong> läuft am
+                <strong>{{ \App\Support\GermanTime::format($entry['entitlement']->valid_until, 'd.m.Y') }}</strong> ab.
+                {{ $renewalWebshopLink ? 'Mit einem Verlängerungs-Code lernst du ohne Unterbrechung weiter.' : 'Für eine Verlängerung wende dich an deine Bootsschule.' }}
+            </div>
+            @if ($renewalWebshopLink)
+                <a href="{{ $renewalWebshopLink }}" target="_blank" rel="noopener"
+                   class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-xs font-medium hover:opacity-90 transition shrink-0" style="background-color: var(--brand-primary, #005FD7)">
+                    <x-icon name="arrow-right" class="w-3.5 h-3.5" /> Verlängerungs-Code kaufen
+                </a>
+            @endif
+        </div>
+    @endforeach
+
     @if ($courses->isEmpty() && $lockedCourses->isEmpty())
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 text-center text-slate-500 dark:text-slate-400">
             Noch keine Kurse verfügbar.
@@ -83,6 +101,11 @@
                         <div class="text-xs text-slate-600 dark:text-slate-400 mt-2">
                             Freigeschaltet am {{ \App\Support\GermanTime::format($entry['entitlement']->valid_from, 'd.m.Y') }}
                         </div>
+                        @if ($entry['entitlement']->valid_until)
+                            <div class="text-xs mt-1 {{ $entry['entitlement']->expiresSoon() ? 'text-amber-700 dark:text-amber-300 font-medium' : 'text-slate-600 dark:text-slate-400' }}">
+                                Gültig bis {{ \App\Support\GermanTime::format($entry['entitlement']->valid_until, 'd.m.Y') }}
+                            </div>
+                        @endif
                     </div>
                 </a>
             @endforeach

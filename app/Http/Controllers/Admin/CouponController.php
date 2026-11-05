@@ -72,6 +72,13 @@ class CouponController extends Controller
                 continue;
             }
 
+            // Gesperrte oder abgelaufene Codes gelten als nicht verfügbar.
+            if (! $coupon->isUsable()) {
+                $unavailable[] = $code;
+
+                continue;
+            }
+
             if ($coupon->tenant_id === $tenant->id) {
                 $alreadyOwned++;
 
@@ -110,7 +117,7 @@ class CouponController extends Controller
     public function assign(Request $request, TenantContext $tenantContext, Coupon $coupon, CouponRedemptionService $redemption): Response
     {
         $tenant = $tenantContext->tenant();
-        abort_unless($coupon->tenant_id === $tenant->id && ! $coupon->isRedeemed(), 404);
+        abort_unless($coupon->tenant_id === $tenant->id && $coupon->isUsable(), 404);
 
         $validated = $request->validate([
             'user_id' => ['required', 'uuid'],

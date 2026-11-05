@@ -18,6 +18,7 @@ class Coupon extends Model
     protected $fillable = [
         'code', 'course_id', 'product_id', 'is_renewal', 'tenant_id', 'batch_label', 'created_by_user_id',
         'redeemed_by_user_id', 'redeemed_tenant_id', 'redeemed_at',
+        'expires_at', 'voided_at', 'voided_by_user_id',
     ];
 
     protected function casts(): array
@@ -26,6 +27,8 @@ class Coupon extends Model
             'is_renewal' => 'boolean',
             'redeemed_at' => 'datetime',
             'created_at' => 'datetime',
+            'expires_at' => 'datetime',
+            'voided_at' => 'datetime',
         ];
     }
 
@@ -85,6 +88,40 @@ class Coupon extends Model
     public function isRedeemed(): bool
     {
         return $this->redeemed_at !== null;
+    }
+
+    public function isVoided(): bool
+    {
+        return $this->voided_at !== null;
+    }
+
+    public function isExpired(): bool
+    {
+        return $this->expires_at !== null && $this->expires_at->isPast();
+    }
+
+    /** Noch einlösbar: nicht eingelöst, nicht gesperrt, nicht abgelaufen. */
+    public function isUsable(): bool
+    {
+        return ! $this->isRedeemed() && ! $this->isVoided() && ! $this->isExpired();
+    }
+
+    /** offen | eingelöst | gesperrt | abgelaufen */
+    public function statusLabel(): string
+    {
+        return match (true) {
+            $this->isRedeemed() => 'eingelöst',
+            $this->isVoided() => 'gesperrt',
+            $this->isExpired() => 'abgelaufen',
+            default => 'offen',
+        };
+    }
+
+    /** Nur einlösbare Codes. */
+    public function scopeUsable($query)
+    {
+        return $query->whereNull('redeemed_at')->whereNull('voided_at')
+            ->where(fn ($q) => $q->whereNull('expires_at')->orWhere('expires_at', '>', now()));
     }
 
     /**

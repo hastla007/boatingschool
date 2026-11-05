@@ -92,7 +92,7 @@
          versteckten Vorlage (außerhalb der <table>, da <select> dort kein
          gültiges Kindelement ist) und werden per Skript unten in jedes
          <select> der Zeilen geklont, statt sie serverseitig zu duplizieren. --}}
-    @if ($coupons->contains(fn ($c) => ! $c->isRedeemed() && $c->tenant_id === $tenant->id))
+    @if ($coupons->contains(fn ($c) => $c->isUsable() && $c->tenant_id === $tenant->id))
         <select id="coupon-assign-options-template" hidden aria-hidden="true">
             <option value="">Nutzer wählen…</option>
             @foreach ($allParticipants as $membership)
@@ -124,16 +124,16 @@
                     </td>
                     <td class="px-4 py-2 text-slate-600 dark:text-slate-300">{{ $coupon->redeemableName() }}</td>
                     <td class="px-4 py-2">
-                        @if ($coupon->isRedeemed())
-                            <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">eingelöst</span>
+                        @if ($coupon->isUsable())
+                            <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">offen{{ $coupon->expires_at ? ' · bis '.\App\Support\GermanTime::format($coupon->expires_at, 'd.m.Y') : '' }}</span>
                         @else
-                            <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">offen</span>
+                            <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full {{ $coupon->isRedeemed() ? 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400' : 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-200' }}">{{ $coupon->statusLabel() }}</span>
                         @endif
                     </td>
                     <td class="px-4 py-2 text-slate-500 dark:text-slate-400">{{ $coupon->redeemedBy?->name ?? '—' }}</td>
                     <td class="px-4 py-2 text-slate-500 dark:text-slate-400 text-xs">{{ \App\Support\GermanTime::format($coupon->redeemed_at, 'd.m.Y H:i') ?? '—' }}</td>
                     <td class="px-4 py-2">
-                        @if (! $coupon->isRedeemed() && $coupon->tenant_id === $tenant->id)
+                        @if ($coupon->isUsable() && $coupon->tenant_id === $tenant->id)
                             <form method="POST" action="{{ route('admin.coupons.assign', $coupon) }}" class="flex gap-1">
                                 @csrf
                                 <select name="user_id" required aria-label="Nutzer für Coupon {{ $coupon->code }} wählen" class="js-coupon-assign-select rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs">

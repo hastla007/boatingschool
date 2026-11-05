@@ -65,6 +65,12 @@
                     <x-input-label for="batch_label" value="Bezeichnung (optional)" />
                     <x-text-input id="batch_label" name="batch_label" type="text" class="mt-1 block w-full" :value="old('batch_label')" placeholder="z. B. Kontingent Herbst 2026" />
                 </div>
+                <div>
+                    <x-input-label for="expires_on" value="Einlösbar bis (optional)" />
+                    <x-text-input id="expires_on" name="expires_on" type="date" class="mt-1 block w-full" :value="old('expires_on')" />
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Leer: unbegrenzt einlösbar. Danach gilt der Code als abgelaufen.</p>
+                    <x-input-error :messages="$errors->get('expires_on')" class="mt-2" />
+                </div>
                 <button type="submit" class="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium hover:opacity-90 transition">Code(s) erzeugen</button>
             </form>
         </div>
@@ -94,6 +100,8 @@
                     <option value="">Alle Status</option>
                     <option value="open" @selected(($filters['status'] ?? null) === 'open')>offen</option>
                     <option value="redeemed" @selected(($filters['status'] ?? null) === 'redeemed')>eingelöst</option>
+                    <option value="voided" @selected(($filters['status'] ?? null) === 'voided')>gesperrt</option>
+                    <option value="expired" @selected(($filters['status'] ?? null) === 'expired')>abgelaufen</option>
                 </select>
                 <button type="submit" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-sm">Suchen</button>
                 @if (! empty($filters['tenant_id']) || ! empty($filters['status']) || ! empty($filters['search']))
@@ -113,10 +121,18 @@
                         <input type="checkbox" id="select-all-checkbox" @change="couponExport.toggleSelectAll($el.checked)">
                         Alle {{ $coupons->total() }} gefilterten Codes auswählen
                     </label>
-                    <button type="submit" id="export-selected-btn" disabled
-                            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-sm disabled:opacity-40 disabled:cursor-not-allowed">
-                        <x-icon name="download" class="w-4 h-4" /> Ausgewählte exportieren (.txt)
-                    </button>
+                    <div class="flex items-center gap-2">
+                        <button type="submit" id="export-selected-btn" disabled
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-sm disabled:opacity-40 disabled:cursor-not-allowed">
+                            <x-icon name="download" class="w-4 h-4" /> Ausgewählte exportieren (.txt)
+                        </button>
+                        {{-- Sperrt nur noch nicht eingelöste Codes (z. B. verlorene Charge). --}}
+                        <button type="submit" id="void-selected-btn" disabled formaction="{{ route('superadmin.coupons.void') }}"
+                                onclick="return confirm('Ausgewählte, noch nicht eingelöste Codes sperren? Das lässt sich nicht rückgängig machen.')"
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-200 transition text-sm disabled:opacity-40 disabled:cursor-not-allowed">
+                            Ausgewählte sperren
+                        </button>
+                    </div>
                 </div>
 
                 <div class="overflow-x-auto">
@@ -158,8 +174,10 @@
                                         <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">
                                             eingelöst &middot; {{ $coupon->redeemedBy?->name }} ({{ $coupon->redeemedTenant?->name }})
                                         </span>
+                                    @elseif ($coupon->isUsable())
+                                        <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">offen{{ $coupon->expires_at ? ' · bis '.\App\Support\GermanTime::format($coupon->expires_at, 'd.m.Y') : '' }}</span>
                                     @else
-                                        <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">offen</span>
+                                        <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-200">{{ $coupon->statusLabel() }}</span>
                                     @endif
                                 </td>
                                 <td class="py-1.5 text-slate-500 dark:text-slate-400 text-xs">{{ \App\Support\GermanTime::format($coupon->redeemed_at, 'd.m.Y H:i') ?? '—' }}</td>
@@ -189,6 +207,7 @@
                 const selectAll = document.getElementById('select-all-checkbox').checked;
                 const anyChecked = selectAll || Array.from(document.querySelectorAll('.coupon-row-checkbox')).some((el) => el.checked);
                 document.getElementById('export-selected-btn').disabled = !anyChecked;
+                document.getElementById('void-selected-btn').disabled = !anyChecked;
             },
         };
     </script>

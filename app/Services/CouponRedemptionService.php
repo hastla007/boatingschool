@@ -10,6 +10,8 @@ use App\Models\Product;
 use App\Models\ProductPurchase;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Notifications\CouponRedeemed;
+use App\Support\BestEffortMail;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -32,7 +34,7 @@ class CouponRedemptionService
     {
         $actor ??= $user;
 
-        return DB::transaction(function () use ($coupon, $tenant, $user, $actor) {
+        $result = DB::transaction(function () use ($coupon, $tenant, $user, $actor) {
             // Zeile sperren und erst danach frisch lesen: verhindert, dass
             // zwei gleichzeitige Einlöse-Versuche desselben Codes (Self-
             // Service-Doppelklick, zwei Konten mit demselben Code, oder
@@ -45,6 +47,9 @@ class CouponRedemptionService
             if (! $locked || $locked->isRedeemed()) {
                 throw new RuntimeException('Dieser Code wurde bereits eingelöst.');
             }
+            if (! $locked->isUsable()) {
+                throw new RuntimeException('Dieser Code ist nicht mehr gültig (gesperrt oder abgelaufen).');
+            }
 
             $coupon = $locked;
 
@@ -56,6 +61,13 @@ class CouponRedemptionService
                 ? $this->redeemForProduct($coupon, $tenant, $user, $actor)
                 : $this->redeemForCourse($coupon, $tenant, $user, $actor);
         });
+
+        // Bestätigung an den Lernenden (auch bei Zuweisung durch die Schule),
+        // erst nach dem Commit und ohne den Vorgang bei einem Mailfehler
+        // abzubrechen.
+        BestEffortMail::send(fn () => $user->notify(new CouponRedeemed($result)), 'Coupon eingelöst '.$coupon->id);
+
+        return $result;
     }
 
     private function redeemForCourse(Coupon $coupon, Tenant $tenant, User $user, User $actor): array

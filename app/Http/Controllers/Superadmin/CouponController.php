@@ -11,6 +11,7 @@ use App\Models\Tenant;
 use App\Support\GermanTime;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -46,6 +47,8 @@ class CouponController extends Controller
             'tenant_id' => ['nullable', 'uuid', 'exists:tenant,id'],
             'quantity' => ['required', 'integer', 'min:1', 'max:500'],
             'batch_label' => ['nullable', 'string', 'max:255'],
+            // Optional: letzter Tag, an dem die Codes einlösbar sind.
+            'expires_on' => ['nullable', 'date', 'after_or_equal:today'],
         ]);
 
         [$type, $targetId] = array_pad(explode(':', $validated['target'], 2), 2, null);
@@ -72,6 +75,10 @@ class CouponController extends Controller
         // die intern genutzte UTC-Zeit.
         $batchLabel = ($validated['batch_label'] ?? null) ?: ($quantity > 1 ? 'Batch vom '.GermanTime::format(now(), 'd.m.Y H:i') : null);
 
+        $expiresAt = ! empty($validated['expires_on'])
+            ? Carbon::parse($validated['expires_on'], 'Europe/Berlin')->endOfDay()->utc()
+            : null;
+
         $codes = [];
         for ($i = 0; $i < $quantity; $i++) {
             $coupon = Coupon::create([
@@ -82,6 +89,7 @@ class CouponController extends Controller
                 'tenant_id' => $validated['tenant_id'] ?? null,
                 'batch_label' => $batchLabel,
                 'created_by_user_id' => $request->user()->id,
+                'expires_at' => $expiresAt,
             ]);
 
             if (! empty($optionProductIds)) {
@@ -167,6 +175,38 @@ class CouponController extends Controller
     }
 
     /**
+     * Ausgewählte (bzw. alle gefilterten) noch nicht eingelösten Codes
+     * sperren, z. B. bei einer verlorenen oder weitergegebenen Charge.
+     * Eingelöste Codes bleiben unberührt.
+     */
+    public function void(Request $request): Response
+    {
+        $validated = $request->validate([
+            'select_all' => ['nullable', 'boolean'],
+            'ids' => ['required_unless:select_all,1', 'array'],
+            'ids.*' => ['uuid'],
+            'tenant_id' => ['nullable', 'string'],
+            'status' => ['nullable', 'string'],
+            'search' => ['nullable', 'string'],
+        ]);
+
+        $query = $request->boolean('select_all')
+            ? $this->filteredCoupons($this->filters($request))
+            : Coupon::whereIn('id', $validated['ids']);
+
+        $count = $query->whereNull('redeemed_at')->whereNull('voided_at')
+            ->update(['voided_at' => now(), 'voided_by_user_id' => $request->user()->id]);
+
+        AuditLog::record($validated['tenant_id'] ?? null, $request->user()->id, 'superadmin.coupon.void', 'coupon', null, null, [
+            'count' => $count,
+            'select_all' => $request->boolean('select_all'),
+            'filters' => $this->filters($request),
+        ]);
+
+        return back()->with('status', $count === 1 ? '1 Code gesperrt.' : "{$count} Codes gesperrt.");
+    }
+
+    /**
      * Bug-Review (Array-Werte in der Adresszeile): nur Zeichenketten
      * übernehmen -- ?search[]=x landete sonst als Array im Suchfeld der
      * Ansicht (htmlspecialchars(), HTTP 500).
@@ -192,7 +232,9 @@ class CouponController extends Controller
 
         return Coupon::when($tenantIdFilter, fn ($q, $tenantId) => $q->where('tenant_id', $tenantId))
             ->when(($filters['status'] ?? null) === 'redeemed', fn ($q) => $q->whereNotNull('redeemed_at'))
-            ->when(($filters['status'] ?? null) === 'open', fn ($q) => $q->whereNull('redeemed_at'))
+            ->when(($filters['status'] ?? null) === 'open', fn ($q) => $q->usable())
+            ->when(($filters['status'] ?? null) === 'voided', fn ($q) => $q->whereNull('redeemed_at')->whereNotNull('voided_at'))
+            ->when(($filters['status'] ?? null) === 'expired', fn ($q) => $q->whereNull('redeemed_at')->whereNull('voided_at')->where('expires_at', '<=', now()))
             ->when($term !== '', function ($q) use ($term) {
                 $like = '%'.$term.'%';
                 $q->where(function ($q2) use ($like) {
