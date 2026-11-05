@@ -20,6 +20,8 @@ import { NATURES } from './icm505.js';
 export const DS100_NATURES = ['Undesignated', 'Fire,Explosion', 'Flooding', 'Collision', 'Grounding', 'Capsizing', 'Sinking', 'Disable adrift', 'Abandoning ship', 'Piracy attack', 'Man overboard', 'EPIRB emission'];
 // Index in NATURES (IC-M505) je Eintrag; EPIRB gibt es dort nicht.
 const NATURE_MAP = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 0];
+// Zustände, in denen das Gerät nicht empfängt (eigene Aussendung, DISTRESS halten).
+const BUSY = ['callTx', 'distressSent', 'distressHold'];
 
 export const DEVICE = {
     key: 'ic-m503',
@@ -119,6 +121,9 @@ export function createIcM503({ own, clock = () => Date.now(), emit = () => {}, a
             addressBook: s.book.map((a) => a.mmsi), groups: s.groups.map((a) => a.mmsi), positionStale: positionStale(), circle: current()?.circle ?? null,
         };
     }
+
+    // Anrufe, die während der eigenen Aussendung eintreffen.
+    let pending = [];
 
     function setDs(screen) {
         const changed = s.ds !== screen;
@@ -767,15 +772,17 @@ export function createIcM503({ own, clock = () => Date.now(), emit = () => {}, a
             if (s.power && s.distress?.waiting && now >= s.distress.nextAt) {
                 sendDistress(true);
             }
+            if (! s.power) pending = [];
+            if (pending.length && ! BUSY.includes(s.ds)) this.receive(pending.shift(), true);
         },
-        receive(call) {
+        receive(call, queued = false) {
             // Aus oder im Binnenmodus (ATIS, DSC gesperrt): kein Empfang.
             if (! s.power || s.group === 'ATIS') return false;
-            // Während DISTRESS gehalten wird, unterbricht kein Anruf den
-            // Notalarm; der Anruf steht im Log.
-            if (s.ds === 'distressHold') {
-                s.received.unshift({ ...call, at: clock() });
-                event('dsc_received', { call });
+            // Während das Gerät selbst sendet bzw. DISTRESS gehalten wird,
+            // geht kein Anruf verloren: Er kommt an, sobald das Gerät wieder
+            // empfängt (danach wie jeder andere Anruf, auch mit Kanalwechsel).
+            if (! queued && BUSY.includes(s.ds)) {
+                pending.push(call);
 
                 return true;
             }

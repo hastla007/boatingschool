@@ -261,6 +261,12 @@ class FunkTrainingTest extends TestCase
         $this->assertSame(100, FunkTraining::wordMatch('bei Rhein-Kilometer 553', 'bei Rheinkilometer 553')['percent']);
         $this->assertSame(50, FunkTraining::wordMatch('Mayday Kormoran', 'Mayday Kormoran Mayday Kormoran')['percent']);
         $this->assertSame(['IMMEDIATE'], $result['missing']);
+
+        // „Fehlt“ zeigt Zahlen am Stück: „16“ statt „1, 6“, „008“ statt „0, 0, 8“.
+        $this->assertSame(['16'], FunkTraining::wordMatch('Kanal 16 rufen', 'Kanal rufen')['missing']);
+        $this->assertSame(['16'], FunkTraining::wordMatch('Kanal 16 rufen', 'Kanal 1 rufen')['missing']);
+        $this->assertSame(['008', 'E'], FunkTraining::wordMatch('Position 53-59N 008-14E', 'Position 53 59 N 14')['missing']);
+        $this->assertSame(['KÜSTE'], FunkTraining::wordMatch('treibt auf die Küste zu', 'treibt auf die zu')['missing']);
     }
 
     private function learnerInCombo(): array

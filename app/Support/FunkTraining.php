@@ -141,8 +141,13 @@ class FunkTraining
     public static function wordMatch(string $original, string $input): array
     {
         $expected = self::dictationWords($original);
-        // Für die Anzeige „Fehlt“: dieselben Wörter mit Umlauten statt AE/OE/UE.
-        $display = self::dictationWords($original, forDisplay: true);
+        // Für die Anzeige „Fehlt“: dieselben Wörter mit Umlauten statt AE/OE/UE,
+        // Zahlen am Stück („16“ statt „1, 6“). Jede Ziffer einer Zahl zählt
+        // einzeln, zeigt aber auf die ganze Zahl.
+        $display = [];
+        foreach (self::dictationWords($original, forDisplay: true, splitDigits: false) as $unit) {
+            array_push($display, ...array_fill(0, ctype_digit($unit) ? strlen($unit) : 1, $unit));
+        }
         $givenWords = self::dictationWords($input);
         $given = array_count_values($givenWords);
         $hits = 0;
@@ -164,7 +169,7 @@ class FunkTraining
     }
 
     /** @return list<string> */
-    private static function dictationWords(string $text, bool $forDisplay = false): array
+    private static function dictationWords(string $text, bool $forDisplay = false, bool $splitDigits = true): array
     {
         static $digitWords = null;
         $digitWords ??= (function () {
@@ -188,7 +193,9 @@ class FunkTraining
             : FunkPraxis::normalize($text);
         // Buchstaben und Ziffern trennen, Zahlen in einzelne Ziffern zerlegen.
         $text = preg_replace('/(?<=\d)(?=\p{L})|(?<=\p{L})(?=\d)/u', ' ', $text);
-        $text = preg_replace('/(?<=\d)(?=\d)/', ' ', $text);
+        if ($splitDigits) {
+            $text = preg_replace('/(?<=\d)(?=\d)/', ' ', $text);
+        }
         $words = array_values(array_filter(explode(' ', trim($text)), fn ($w) => $w !== ''));
 
         return $forDisplay ? $words : array_map(fn ($w) => $digitWords[$w] ?? $w, $words);
