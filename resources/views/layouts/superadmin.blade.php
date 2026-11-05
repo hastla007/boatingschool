@@ -13,6 +13,7 @@
              mehr. --}}
 
         @vite(['resources/css/app.css', 'resources/js/app.js'])
+        @stack('head')
     </head>
     <body class="font-sans antialiased text-slate-900 dark:text-slate-200">
         {{-- Bug-Review Oberfläche U7: kein Skip-Link -- ein Tastatur-/

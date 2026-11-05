@@ -8,6 +8,7 @@ use App\Http\Middleware\EnsureTenantMembership;
 use App\Http\Middleware\EnsureTenantRole;
 use App\Http\Middleware\ResolveTenant;
 use App\Http\Middleware\ResolveTenantPath;
+use App\Http\Middleware\RestrictImpersonation;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\TrustHosts;
 use App\Http\Middleware\TrustProxies;
@@ -121,6 +122,8 @@ return Application::configure(basePath: dirname(__DIR__))
             EnforceMaintenanceMode::class,
             EnsureAccountIsActive::class,
             ResolveTenant::class,
+            // Support-Ansicht („Als Nutzer ansehen“) nur lesend, siehe RestrictImpersonation.
+            RestrictImpersonation::class,
         ]);
 
         // Bug-Review R4-1: SecurityHeaders stand bisher ohne eigenen

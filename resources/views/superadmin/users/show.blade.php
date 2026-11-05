@@ -112,6 +112,9 @@
                 <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
                     <x-icon name="swatch" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Bootsschul-Zuordnungen
                 </h3>
+                @error('impersonate')
+                    <p class="mb-3 text-sm text-red-700 dark:text-red-300">{{ $message }}</p>
+                @enderror
                 @error('membership')
                     <p class="mb-3 text-sm text-red-700 dark:text-red-300">{{ $message }}</p>
                 @enderror
@@ -137,6 +140,13 @@
                                     </select>
                                     <button type="submit" class="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-xs">Speichern</button>
                                 </form>
+                                @if ($membership->status === 'active' && $membership->tenant->status === 'active' && ! $user->is_superadmin && $user->status === 'active' && $user->id !== auth()->id())
+                                    <form method="POST" action="{{ route('superadmin.users.impersonate', [$user, $membership->tenant]) }}" x-data="{}"
+                                          @submit="if (! confirm('Als {{ addslashes($user->name) }} bei {{ addslashes($membership->tenant->name) }} ansehen? Die Ansicht ist nur lesend und wird protokolliert.')) $event.preventDefault()">
+                                        @csrf
+                                        <button type="submit" class="text-xs text-sky-700 dark:text-sky-300 hover:underline">Als Nutzer ansehen</button>
+                                    </form>
+                                @endif
                                 <form method="POST" action="{{ route('superadmin.users.memberships.destroy', [$user, $membership->tenant]) }}" x-data="{}"
                                       @submit="if (! confirm('{{ $memberships->count() === 1 ? 'Letzte Mitgliedschaft: Das Konto wird dabei komplett gelöscht. Fortfahren?' : 'Mitgliedschaft samt Lerndaten bei dieser Schule löschen?' }}')) $event.preventDefault()">
                                     @csrf

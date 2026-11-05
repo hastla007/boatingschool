@@ -33,6 +33,7 @@
         @endif
 
         @vite(['resources/css/app.css', 'resources/js/app.js'])
+        @stack('head')
     </head>
     <body class="font-sans text-slate-900 antialiased">
         {{-- Bug-Review Oberfläche U7: siehe layouts/app.blade.php -- fehlte
