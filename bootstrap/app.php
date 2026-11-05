@@ -1,7 +1,9 @@
 <?php
 
 use App\Http\Controllers\TlsCheckController;
+use App\Http\Middleware\EnforceInstructorScope;
 use App\Http\Middleware\EnforceMaintenanceMode;
+use App\Http\Middleware\EnforceTeamTwoFactor;
 use App\Http\Middleware\EnsureAccountIsActive;
 use App\Http\Middleware\EnsureSuperAdmin;
 use App\Http\Middleware\EnsureTenantMembership;
@@ -124,6 +126,8 @@ return Application::configure(basePath: dirname(__DIR__))
             ResolveTenant::class,
             // Support-Ansicht („Als Nutzer ansehen“) nur lesend, siehe RestrictImpersonation.
             RestrictImpersonation::class,
+            // 2FA-Pflicht fürs Team, siehe EnforceTeamTwoFactor.
+            EnforceTeamTwoFactor::class,
         ]);
 
         // Bug-Review R4-1: SecurityHeaders stand bisher ohne eigenen
@@ -184,6 +188,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'tenant.member' => EnsureTenantMembership::class,
             'superadmin' => EnsureSuperAdmin::class,
             'admin-db' => UseAdminDatabaseConnection::class,
+            'instructor.scope' => EnforceInstructorScope::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

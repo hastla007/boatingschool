@@ -11,6 +11,7 @@ use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
 use App\Services\CouponRedemptionService;
+use App\Services\EntitlementRenewal;
 use App\Services\EntitlementService;
 use App\Support\TenantContext;
 use Illuminate\Http\RedirectResponse;
@@ -264,67 +265,12 @@ class EntitlementController extends Controller
         });
     }
 
-    /**
-     * Verlängert um tenant_branding.course_validity_days ab dem späteren
-     * von aktuellem valid_until und jetzt -- eine ungenutzte Restlaufzeit
-     * geht dadurch nicht verloren (analog zu CouponRedemptionService::
-     * redeemForRenewal()). unbefristete Zugänge (valid_until=null) lassen
-     * sich nicht weiter verlängern, da sie bereits keine Grenze haben.
-     *
-     * Bug-Review F1 (weiterhin gültig): der Status selbst bleibt dabei
-     * unberührt, außer er wechselt aus "expired" zurück zu "active" (Bug-
-     * Review N6) -- eine bewusste Sperrung oder ein Widerruf lässt sich
-     * dadurch weiterhin nicht allein durch eine neue Laufzeit aufheben.
-     */
+    /** Verlängerung mit Verlängerungscode, siehe EntitlementRenewal. */
     private function extend(Entitlement $entitlement, Tenant $tenant): ?RedirectResponse
     {
-        // Bug-Review T5: ohne diese Prüfung verbrauchte "Verlängern" bei
-        // einem widerrufenen Zugang trotzdem einen vollwertigen
-        // Verlängerungscode und erweiterte valid_until -- der Status
-        // selbst bleibt laut Kommentar oben aber bewusst unberührt, außer
-        // er wechselt von "expired" zu "active" (Bug-Review N6). Bei
-        // status=revoked greift das nie, der Code verfiel also wirkungslos:
-        // der Zugang blieb weiterhin gesperrt, EntitlementService prüft
-        // status unabhängig von valid_until. Reaktivieren eines Widerrufs
-        // läuft stattdessen ausschließlich über die eigene
-        // "Widerruf aufheben"-Aktion (reactivate()), die dafür einen
-        // regulären Kurs-Code verlangt.
-        if ($entitlement->status === 'revoked') {
-            return back()->withErrors(['action' => 'Der Zugang zu diesem Kurs wurde widerrufen und lässt sich nicht einfach verlängern -- bitte zuerst den Widerruf aufheben.']);
-        }
+        $error = app(EntitlementRenewal::class)->extend($entitlement, $tenant);
 
-        if ($entitlement->valid_until === null) {
-            return back()->withErrors(['action' => 'Dieser Zugang ist bereits unbefristet gültig.']);
-        }
-
-        // Bug-Review (Gleichzeitige Code-Zuweisung meldet "kein Code frei"):
-        // siehe grant() oben -- SKIP LOCKED statt lockForUpdate().
-        $coupon = Coupon::where('tenant_id', $tenant->id)
-            ->where('course_id', $entitlement->course_id)
-            ->where('is_renewal', true)
-            ->whereNull('redeemed_at')
-            ->oldest()
-            ->lock('for update skip locked')
-            ->first();
-
-        if (! $coupon) {
-            return back()->withErrors(['action' => 'Für diesen Kurs ist kein freier Verlängerungscode mehr vorhanden.']);
-        }
-
-        $base = $entitlement->valid_until->gt(now()) ? $entitlement->valid_until : now();
-
-        $entitlement->update([
-            'valid_until' => $base->copy()->addDays($tenant->branding->course_validity_days),
-            'status' => $entitlement->status === 'expired' ? 'active' : $entitlement->status,
-        ]);
-
-        $coupon->update([
-            'redeemed_by_user_id' => $entitlement->user_id,
-            'redeemed_tenant_id' => $tenant->id,
-            'redeemed_at' => now(),
-        ]);
-
-        return null;
+        return $error ? back()->withErrors(['action' => $error]) : null;
     }
 
     /** Kostenloser, jederzeit rückgängig machbarer Zustand -- rührt valid_until nie an. */

@@ -9,6 +9,7 @@ use App\Models\TenantUser;
 use App\Notifications\LearningReminder;
 use App\Services\LearnerOverview;
 use App\Support\BestEffortMail;
+use App\Support\InstructorScope;
 use App\Support\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -69,8 +70,9 @@ class InactiveLearnerController extends Controller
     {
         $tenant = $tenantContext->tenant();
         $withAccess = Entitlement::currentlyActive()->where('tenant_id', $tenant->id)->distinct()->pluck('user_id');
+        $visible = InstructorScope::learnerIds($tenant, request()->user());
         $members = TenantUser::with('user')->where('tenant_id', $tenant->id)->where('role', 'learner')->where('status', 'active')
-            ->whereIn('user_id', $withAccess)->get()->filter(fn ($m) => $m->user && $m->user->status === 'active');
+            ->whereIn('user_id', $withAccess)->when($visible !== null, fn ($q) => $q->whereIn('user_id', $visible))->get()->filter(fn ($m) => $m->user && $m->user->status === 'active');
         $last = $overview->lastActivities($tenant, $members->pluck('user_id'));
         $cutoff = now()->subDays($days);
 

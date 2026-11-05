@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
+use App\Models\InstructorCourse;
 use App\Models\TenantInvitation;
 use App\Models\TenantUser;
 use App\Models\User;
@@ -139,5 +140,46 @@ class TeamController extends Controller
         AuditLog::record($tenant->id, $actor->id, 'team.transfer_ownership', 'tenant_user', $user->id, ['owner' => $actor->id], ['owner' => $user->id]);
 
         return back()->with('status', "{$user->name} ist jetzt Inhaber. Sie sind jetzt Admin.");
+    }
+
+    /** Kurse, für die ein Ausbilder zuständig ist (leer = alle Kurse der Schule). */
+    public function updateCourses(Request $request, TenantContext $tenantContext, User $user): Response
+    {
+        $tenant = $tenantContext->tenant();
+        $membership = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $user->id)->firstOrFail();
+        abort_unless($membership->role === 'instructor', 404);
+        $validated = $request->validate(['course_ids' => ['nullable', 'array'], 'course_ids.*' => ['uuid', 'exists:course_definition,id']]);
+
+        $courseIds = collect($validated['course_ids'] ?? [])->unique()->values();
+        $before = InstructorCourse::where('tenant_id', $tenant->id)->where('user_id', $user->id)->pluck('course_id')->all();
+        DB::transaction(function () use ($tenant, $user, $courseIds) {
+            InstructorCourse::where('tenant_id', $tenant->id)->where('user_id', $user->id)->whereNotIn('course_id', $courseIds)->delete();
+            foreach ($courseIds->diff(InstructorCourse::where('tenant_id', $tenant->id)->where('user_id', $user->id)->pluck('course_id')) as $courseId) {
+                InstructorCourse::create(['tenant_id' => $tenant->id, 'user_id' => $user->id, 'course_id' => $courseId]);
+            }
+        });
+        AuditLog::record($tenant->id, $request->user()->id, 'team.instructor_courses', 'tenant_user', $user->id, ['course_ids' => $before], ['course_ids' => $courseIds->all()]);
+
+        return back()->with('status', $courseIds->isEmpty()
+            ? 'Der Ausbilder sieht jetzt alle Teilnehmer.'
+            : 'Der Ausbilder sieht jetzt nur Teilnehmer der ausgewählten Kurse.');
+    }
+
+    /** 2FA-Pflicht fürs Team ein- oder ausschalten (nur der Inhaber). */
+    public function twoFactorPolicy(Request $request, TenantContext $tenantContext): Response
+    {
+        $tenant = $tenantContext->tenant();
+        abort_unless($request->user()->roleForTenant($tenant) === 'owner', 403, 'Nur der Inhaber kann die 2FA-Pflicht ändern.');
+        $required = $request->boolean('require_team_two_factor');
+        if ($required && ! $request->user()->hasTwoFactor()) {
+            return back()->withErrors(['two_factor' => 'Bitte richten Sie zuerst für Ihr eigenes Konto die Zwei-Faktor-Anmeldung ein.']);
+        }
+
+        $tenant->branding->update(['require_team_two_factor' => $required]);
+        AuditLog::record($tenant->id, $request->user()->id, 'team.two_factor_policy', 'tenant_branding', $tenant->id, null, ['required' => $required]);
+
+        return back()->with('status', $required
+            ? 'Zwei-Faktor-Anmeldung ist jetzt für alle Team-Mitglieder Pflicht.'
+            : 'Die 2FA-Pflicht fürs Team ist aufgehoben.');
     }
 }
