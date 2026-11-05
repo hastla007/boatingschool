@@ -7,6 +7,7 @@ use App\Http\Middleware\EnsureSuperAdmin;
 use App\Http\Middleware\EnsureTenantMembership;
 use App\Http\Middleware\EnsureTenantRole;
 use App\Http\Middleware\ResolveTenant;
+use App\Http\Middleware\ResolveTenantPath;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\TrustHosts;
 use App\Http\Middleware\TrustProxies;
@@ -67,6 +68,11 @@ return Application::configure(basePath: dirname(__DIR__))
         // TrustHosts unten reicht dafür $middleware->replace(), ein
         // zusätzlicher trustProxies(at: ...)-Aufruf ist nicht mehr nötig.
         $middleware->replace(Illuminate\Http\Middleware\TrustProxies::class, TrustProxies::class);
+
+        // Bootsschule unter CENTRAL_DOMAIN/<slug>: muss vor dem Routing
+        // laufen (globale Middleware), nach TrustProxies (Schema/Host
+        // hinter einem Proxy), siehe ResolveTenantPath.
+        $middleware->append(ResolveTenantPath::class);
 
         // Bug-Review R3-2/R4-A: ohne trustHosts() vertraut Laravel jedem
         // Host-Header blind -- route()/url() erzeugen absolute URLs (z. B.

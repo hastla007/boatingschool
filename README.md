@@ -11,8 +11,9 @@ auf PostgreSQL, gemäß dem mitgelieferten technischen Konzept
 
 - **Laravel 12 / Blade / Tailwind**, PostgreSQL 16.
 - **Multi-Tenancy**: jede Bootsschule ist ein `tenant`, aufgelöst per
-  Subdomain (`{slug}.CENTRAL_DOMAIN`) oder Custom Domain
-  (`app/Http/Middleware/ResolveTenant.php`). Mandantengebundene Tabellen
+  Pfad (`CENTRAL_DOMAIN/{slug}`, Standard, `ResolveTenantPath`), Subdomain
+  (`{slug}.CENTRAL_DOMAIN`, optional mit `TENANT_URL_MODE=subdomain`) oder
+  Custom Domain (`app/Http/Middleware/ResolveTenant.php`). Mandantengebundene Tabellen
   (inzwischen 28, u. a. `tenant_branding`, `tenant_user`,
   `entitlement`, `attempt`, `progress`, `favorite`, `exam_session`,
   `exam_session_question`, `coupon`, `audit_log`, `app_user`) sind
@@ -193,8 +194,8 @@ UBI 17/22, Ergänzung 8/10) nicht abbilden kann.
 php artisan serve
 ```
 
-Da produktiv jede Bootsschule über ihre eigene Subdomain läuft, aber lokal
-keine Wildcard-DNS existiert, gibt es einen Dev-Override:
+Jede Bootsschule ist auch lokal unter ihrem Pfad erreichbar, z. B.
+`http://localhost:8000/mueller/`. Zusätzlich gibt es einen Dev-Override:
 `http://localhost:8000/login?as_tenant=mueller` (nur aktiv in
 `APP_ENV=local|testing`). Auf der zentralen Domain ohne gewählten Tenant
 erscheint ein einfacher Bootsschul-Picker.

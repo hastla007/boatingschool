@@ -14,9 +14,9 @@
             </div>
 
             <div>
-                <x-input-label for="slug" value="Subdomain (Slug)" />
+                <x-input-label for="slug" value="Kurzname (Slug)" />
                 <x-text-input id="slug" name="slug" type="text" class="mt-1 block w-full" :value="old('slug')" required placeholder="z. B. mueller" />
-                <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Erreichbar unter &lt;slug&gt;.{{ config('app.central_domain') }}</p>
+                <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Erreichbar unter {{ config('app.tenant_url_mode') === 'subdomain' ? '<slug>.'.config('app.central_domain') : config('app.central_domain').'/<slug>' }}</p>
                 <x-input-error :messages="$errors->get('slug')" class="mt-2" />
             </div>
 

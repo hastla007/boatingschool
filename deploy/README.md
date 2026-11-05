@@ -19,8 +19,10 @@ Worker und Deploy-Skript in der Oberfläche ein.
 
 1. **Pakete**: PHP 8.3 mit `pgsql`, `mbstring`, `xml`, `zip`, `gd`, `intl`, `bcmath`, `curl`;
    PostgreSQL 16 (inkl. `pg_dump` derselben Version); Node 20; Composer; Caddy oder nginx.
-2. **DNS**: `lernen.example.de` und `*.lernen.example.de` (A/AAAA) auf den Server.
-   Eigene Domains der Schulen zeigen per CNAME auf `lernen.example.de`.
+2. **DNS**: `lernen.example.de` (A/AAAA) auf den Server. Die Schulen sind unter
+   `lernen.example.de/<slug>` erreichbar, ein Wildcard-Eintrag ist dafür nicht nötig.
+   Optional: `*.lernen.example.de` für Subdomains (`TENANT_URL_MODE=subdomain`), eigene
+   Domains der Schulen per CNAME auf `lernen.example.de`.
 3. **Datenbank**: Rollen und Datenbank wie im Haupt-README („Zwei DB-Rollen anlegen“),
    mit zufälligen Passwörtern (`openssl rand -base64 24`). Ein Pooler (PgBouncer)
    nur im Session-Modus.
@@ -89,13 +91,21 @@ php artisan optimize:clear && php artisan optimize && php artisan up
 **Einmal vor dem Start ausprobieren** (z. B. auf einem Testserver), damit im Ernstfall jeder
 Schritt sitzt.
 
-## 4. Zertifikate und eigene Domains
+## 4. Adressen, Zertifikate und eigene Domains
+
+Standard ist `lernen.example.de/<slug>` (`TENANT_URL_MODE=path`): ein Zertifikat für die
+zentrale Domain genügt, jede Schule hat trotzdem eine eigene Anmeldung (Cookies gelten nur
+für ihren Pfad). Der Slug kann keinen Namen eines App-Bereichs annehmen (`login`, `courses`,
+`superadmin` …); das prüft das Anlegen im Superadmin. Später auf Subdomains umsteigen:
+Wildcard-DNS und -Zertifikat einrichten, `TENANT_URL_MODE=subdomain` setzen. Die Pfad-Adressen
+funktionieren danach weiter.
 
 - **Caddy (empfohlen)**: holt Zertifikate automatisch beim ersten Aufruf einer Domain. Vorher
   fragt Caddy `/tls-check`, ob die Domain die zentrale Domain, die Subdomain einer aktiven Schule
   oder deren eingetragene eigene Domain ist; fremde Domains bekommen kein Zertifikat.
-- **nginx**: Wildcard-Zertifikat per DNS-Challenge für Haupt- und Subdomains; eigene Domains
-  der Schulen je einzeln per certbot.
+- **nginx**: Zertifikat für die zentrale Domain (`certbot --nginx -d lernen.example.de`);
+  nur für Subdomains ein Wildcard-Zertifikat per DNS-Challenge; eigene Domains der Schulen je
+  einzeln per certbot.
 
 ## 5. Überwachung
 

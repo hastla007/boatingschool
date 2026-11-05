@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Support\TenantContext;
+use App\Support\TenantPath;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -62,7 +63,7 @@ class AuthenticatedSessionController extends Controller
             // umgeleitet hätte) entfällt dafür -- stattdessen direkt
             // dorthin, mit einer erklärenden Meldung statt eines
             // verwirrenden Doppel-Redirects.
-            if ($request->getHost() !== config('app.central_domain')) {
+            if (! TenantPath::isCentralRoot($request)) {
                 return redirect()
                     ->to($this->centralDomainUrl($request, route('login', absolute: false)))
                     ->with('status', 'Der Superadmin-Bereich ist nur über die zentrale Domain erreichbar -- bitte melde dich hier noch einmal an.');

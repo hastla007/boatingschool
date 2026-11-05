@@ -4,8 +4,9 @@
 # /tls-check bestätigt hat, dass sie zu einer aktiven Bootsschule gehört.
 #
 # Ablage: /etc/caddy/Caddyfile; Pfade und PHP-Version anpassen.
-# DNS: A/AAAA für lernen.example.de und *.lernen.example.de auf den Server;
-# eigene Domains der Schulen zeigen per CNAME auf lernen.example.de.
+# DNS: A/AAAA für lernen.example.de auf den Server (Schulen standardmäßig
+# unter lernen.example.de/<slug>). Optional *.lernen.example.de für
+# Subdomains; eigene Domains der Schulen zeigen per CNAME auf lernen.example.de.
 # Hinweis: Let's Encrypt erlaubt 50 neue Zertifikate pro Woche und Domain --
 # bei sehr vielen neuen Schulen stattdessen ein Wildcard-Zertifikat per
 # DNS-Challenge verwenden (Caddy-Build mit DNS-Plugin des DNS-Anbieters).

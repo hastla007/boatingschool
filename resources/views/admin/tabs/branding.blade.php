@@ -81,7 +81,7 @@
 
         <div>
             <label for="tenant_domain" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Domain</label>
-            <input type="text" id="tenant_domain" value="{{ $tenant->slug }}.{{ config('app.central_domain') }}" disabled class="w-full rounded-lg border-slate-200 bg-slate-50 dark:bg-slate-700 text-sm text-slate-600 dark:text-slate-400">
+            <input type="text" id="tenant_domain" value="{{ \App\Support\CanonicalUrl::display($tenant) }}" disabled class="w-full rounded-lg border-slate-200 bg-slate-50 dark:bg-slate-700 text-sm text-slate-600 dark:text-slate-400">
         </div>
 
         <div>

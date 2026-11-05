@@ -24,6 +24,7 @@ class CanonicalMailLinksTest extends TestCase
 
     public function test_the_verification_link_points_to_the_school_subdomain_and_works_there(): void
     {
+        config(['app.tenant_url_mode' => 'subdomain']);
         Notification::fake();
         $tenant = $this->createTestTenant();
         // Hostnamen sind kleingeschrieben, echte Slugs ebenso.
@@ -47,6 +48,7 @@ class CanonicalMailLinksTest extends TestCase
 
     public function test_the_email_change_link_points_to_the_school_subdomain(): void
     {
+        config(['app.tenant_url_mode' => 'subdomain']);
         Notification::fake();
         $tenant = $this->createTestTenant();
         $this->onAdmin(fn () => TenantBranding::where('tenant_id', $tenant->id)->update(['custom_domain' => 'stale2.example-school.de']));

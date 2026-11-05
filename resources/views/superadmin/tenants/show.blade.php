@@ -35,9 +35,9 @@
                     <details class="mt-1 text-xs text-slate-600 dark:text-slate-400">
                         <summary class="cursor-pointer">So wird die Domain eingerichtet</summary>
                         <ol class="list-decimal pl-4 mt-1 space-y-1">
-                            <li>Die Bootsschule legt bei ihrem Domain-Anbieter einen CNAME-Eintrag an: <span class="font-mono">{{ old('custom_domain', $tenant->branding->custom_domain) ?: 'lernen.bootsschule-mueller.de' }}</span> → <span class="font-mono">{{ $tenant->slug }}.{{ config('app.central_domain') }}</span>.</li>
+                            <li>Die Bootsschule legt bei ihrem Domain-Anbieter einen CNAME-Eintrag an: <span class="font-mono">{{ old('custom_domain', $tenant->branding->custom_domain) ?: 'lernen.bootsschule-mueller.de' }}</span> → <span class="font-mono">{{ config('app.central_domain') }}</span>.</li>
                             <li>Auf dem Server wird für die Domain ein SSL-Zertifikat ausgestellt (z. B. Let's Encrypt) und sie im Webserver dieser App zugeordnet.</li>
-                            <li>Domain hier eintragen und speichern. Die Subdomain <span class="font-mono">{{ $tenant->slug }}.{{ config('app.central_domain') }}</span> bleibt zusätzlich erreichbar; Links in E-Mails zeigen immer auf sie.</li>
+                            <li>Domain hier eintragen und speichern. Die Adresse <span class="font-mono">{{ \App\Support\CanonicalUrl::display($tenant) }}</span> bleibt zusätzlich erreichbar; Links in E-Mails zeigen immer auf sie.</li>
                         </ol>
                     </details>
                 </div>
@@ -71,7 +71,7 @@
             </div>
 
             <div class="mt-5 pt-5 border-t border-slate-100 dark:border-slate-700 text-sm space-y-1.5">
-                <div class="flex justify-between"><span class="text-slate-600 dark:text-slate-400">Domain</span><span class="font-mono text-xs text-slate-600 dark:text-slate-300">{{ $tenant->slug }}.{{ config('app.central_domain') }}</span></div>
+                <div class="flex justify-between"><span class="text-slate-600 dark:text-slate-400">Domain</span><a href="{{ \App\Support\CanonicalUrl::root($tenant) }}" target="_blank" rel="noopener" class="font-mono text-xs text-slate-600 dark:text-slate-300 hover:underline">{{ \App\Support\CanonicalUrl::display($tenant) }}</a></div>
                 @if ($tenant->branding->custom_domain)
                     <div class="flex justify-between"><span class="text-slate-600 dark:text-slate-400">Eigene Domain</span><span class="font-mono text-xs text-slate-600 dark:text-slate-300">{{ $tenant->branding->custom_domain }}</span></div>
                 @endif
