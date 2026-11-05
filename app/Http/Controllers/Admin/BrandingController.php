@@ -34,6 +34,10 @@ class BrandingController extends Controller
             // Sicherheitsreview N1: auf http/https eingeschränkt, sonst
             // ließe die bloße "url"-Regel auch javascript:/data:-Schemata durch.
             'website' => ['nullable', 'url:http,https', 'max:255'],
+            // Angaben fürs Impressum (siehe LegalPages).
+            'representative' => ['nullable', 'string', 'max:255'],
+            'register_entry' => ['nullable', 'string', 'max:255'],
+            'vat_id' => ['nullable', 'string', 'max:40'],
             // Kein SVG: eine SVG-Datei kann <script> enthalten und wird vom
             // Browser als HTML/XML statt als reines Bild interpretiert --
             // über die Logo-URL wäre das gespeichertes XSS im Ursprung der

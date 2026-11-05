@@ -35,6 +35,12 @@
             <x-input-error :messages="$errors->get('password_confirmation')" class="mt-2" />
         </div>
 
+        {{-- Informationspflicht (Art. 13 DSGVO): Hinweis auf die Datenschutzerklärung. --}}
+        <p class="text-xs text-slate-500 dark:text-slate-400">
+            Informationen zur Verarbeitung deiner Daten findest du in der
+            <a href="{{ route('legal.show', 'datenschutz') }}" target="_blank" rel="noopener" class="underline">Datenschutzerklärung</a>.
+        </p>
+
         <button type="submit" class="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-white transition hover:opacity-90"
                 style="background-color: var(--brand-primary, #005FD7)">
             Registrieren

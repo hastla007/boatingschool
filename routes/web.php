@@ -24,6 +24,7 @@ use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\FunkTrainingController;
 use App\Http\Controllers\GeraetesimulationController;
 use App\Http\Controllers\LearningController;
+use App\Http\Controllers\LegalPageController;
 use App\Http\Controllers\NavigationTaskController;
 use App\Http\Controllers\OffersController;
 use App\Http\Controllers\PraxisExamAppointmentController;
@@ -60,6 +61,10 @@ Route::get('/', function (TenantContext $tenantContext) {
 
     return redirect()->route('dashboard');
 });
+
+// Impressum und Datenschutzerklärung der Bootsschule (öffentlich, aus der
+// zentralen Vorlage mit den Stammdaten der Schule, siehe LegalPages).
+Route::get('/{kind}', [LegalPageController::class, 'show'])->whereIn('kind', ['impressum', 'datenschutz'])->name('legal.show');
 
 Route::middleware(['auth', 'tenant.member', 'verified'])->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
