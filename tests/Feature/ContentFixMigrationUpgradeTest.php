@@ -106,4 +106,23 @@ class ContentFixMigrationUpgradeTest extends TestCase
             $this->assertSame(1, substr_count($after->feedback_correct, 'Hinweis: Der amtliche Katalog'));
         });
     }
+
+    public function test_the_meosar_note_is_added_once_to_src_0166_and_0167(): void
+    {
+        $this->onAdmin(function () {
+            foreach (['SRC-0166', 'SRC-0167'] as $contentId) {
+                $question = ContentQuestion::where('content_id', $contentId)->firstOrFail();
+                $published = $question->publishedRevision();
+                $this->assertSame(1, substr_count($published->feedback_correct, 'MEOSAR'), $contentId);
+                $this->assertSame(1, substr_count($published->feedback_incorrect, 'MEOSAR'), $contentId);
+            }
+
+            // Ein zweiter Lauf ändert nichts.
+            $this->runMigration('000572');
+            foreach (['SRC-0166', 'SRC-0167'] as $contentId) {
+                $after = ContentQuestion::where('content_id', $contentId)->firstOrFail()->publishedRevision();
+                $this->assertSame(1, substr_count($after->feedback_correct, 'MEOSAR'), $contentId);
+            }
+        });
+    }
 }

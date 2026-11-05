@@ -189,7 +189,10 @@ return [
             // "storm" bezeichnet erst den schweren Sturm ab Bft 10.
             ['Sturm', 'gale'],
             ['Seegang', 'sea state'],
-            ['schwere See', 'rough sea'],
+            // „schwere See“: in den Musterlösungen „heavy sea“, je nach Satz auch
+            // „heavy seas“ oder „rough sea“. Das dritte Feld hält den Lernstand
+            // der Karte (Schlüssel aus dem früheren Wortlaut).
+            ['schwere See', 'heavy sea (auch heavy seas, rough sea)', 'rough sea'],
             ['Dünung', 'swell'],
             ['Nebel', 'fog'],
             ['Sicht', 'visibility'],

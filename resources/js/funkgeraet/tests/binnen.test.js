@@ -133,14 +133,19 @@ test('lesson: Notmeldung needs channel 18 with 25 W, a call on channel 10 is a m
     assert.equal(r.speech.length, 1);
 });
 
-test('lesson: Funkstille und Ende des Notverkehrs has two spoken steps on channel 18', () => {
+test('lesson: Funkstille – die Revierzentrale, die den Notverkehr leitet, beendet ihn (SILENCE FINI)', () => {
     const r = rig(null, 'binnen-funkstille');
     r.fire();
     assert.equal(r.voices.at(-1).from, 'ALBATROS');
     r.speak('Albatros hier ist Kormoran Silence Mayday');
     r.run.speechResult(r.speech[0].stepIndex, true);
-    r.speak('Mayday an alle Funkstellen hier ist Kormoran Silence fini Ende');
+    r.speak('Revierzentrale Oberwesel hier ist Kormoran ich brauche keine Hilfe mehr kommen');
     assert.equal(r.speech[1].stepIndex, 2);
+    r.run.speechResult(r.speech[1].stepIndex, true);
+    r.fire();
+    assert.equal(r.voices.at(-1).from, 'REVIERZENTRALE OBERWESEL');
+    assert.match(r.voices.at(-1).text, /Silence fini/);
+    assert.equal(r.run.status().done, true);
 });
 
 test('lesson: in the Nautische Information the Revierzentrale acknowledges', () => {
