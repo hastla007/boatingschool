@@ -54,11 +54,11 @@ return new class extends Migration
     private function readCsv(string $path): array
     {
         $handle = fopen($path, 'r');
-        $header = fgetcsv($handle, 0, ';');
+        $header = fgetcsv($handle, 0, ';', '"', '\\');
         $header[0] = preg_replace('/^\xEF\xBB\xBF/', '', $header[0]);
         $rows = [];
 
-        while (($data = fgetcsv($handle, 0, ';')) !== false) {
+        while (($data = fgetcsv($handle, 0, ';', '"', '\\')) !== false) {
             $row = array_combine($header, $data);
             $rows[$row['id']] = $row;
         }

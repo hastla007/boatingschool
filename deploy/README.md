@@ -17,8 +17,10 @@ Worker und Deploy-Skript in der Oberfläche ein.
 
 ## 1. Erstinstallation
 
-1. **Pakete**: PHP 8.3 mit `pgsql`, `mbstring`, `xml`, `zip`, `gd`, `intl`, `bcmath`, `curl`;
-   PostgreSQL 16 (inkl. `pg_dump` derselben Version); Node 20; Composer; Caddy oder nginx.
+1. **Pakete**: PHP 8.3–8.5 mit `pgsql`, `mbstring`, `xml`, `zip`, `gd`, `intl`, `bcmath`, `curl`;
+   PostgreSQL 16–18 (inkl. `pg_dump` derselben Hauptversion wie der Server); Node 22 oder neuer;
+   Composer; Caddy oder nginx. Getestet: PHP 8.3 und 8.5, PostgreSQL 16 und 18, Node 22 und 26,
+   nginx 1.31 (Tests, Migrationen, Seed, Build, Datensicherung samt Wiederherstellung).
 2. **DNS**: `lernen.example.de` (A/AAAA) auf den Server. Die Schulen sind unter
    `lernen.example.de/<slug>` erreichbar, ein Wildcard-Eintrag ist dafür nicht nötig.
    Optional: `*.lernen.example.de` für Subdomains (`TENANT_URL_MODE=subdomain`), eigene

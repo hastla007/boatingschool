@@ -66,10 +66,10 @@ class FunkAndElwisTextCorrectionsTest extends TestCase
     public function test_elwis_description_of_binnen_164_names_the_overtaking_signal(): void
     {
         $handle = fopen(database_path('data/elwis_bilder.csv'), 'r');
-        $header = fgetcsv($handle, null, ';');
+        $header = fgetcsv($handle, null, ';', '"', '\\');
         $descriptions = [];
 
-        while (($row = fgetcsv($handle, null, ';')) !== false) {
+        while (($row = fgetcsv($handle, null, ';', '"', '\\')) !== false) {
             $row = array_combine($header, $row);
             $descriptions[$row['modul'].'-'.$row['fragen_nr']] = $row['elwis_beschreibung'];
         }

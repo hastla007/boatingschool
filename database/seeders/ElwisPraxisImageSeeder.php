@@ -30,9 +30,9 @@ class ElwisPraxisImageSeeder extends Seeder
     public function run(): void
     {
         $handle = fopen(database_path('data/praxistrainer_elwis_bilder.csv'), 'r');
-        $header = fgetcsv($handle, 0, ';');
+        $header = fgetcsv($handle, 0, ';', '"', '\\');
 
-        while (($data = fgetcsv($handle, 0, ';')) !== false) {
+        while (($data = fgetcsv($handle, 0, ';', '"', '\\')) !== false) {
             $row = array_combine($header, $data);
             $asset = MediaAsset::where('asset_key', 'elwis/'.$row['datei'])->first();
 

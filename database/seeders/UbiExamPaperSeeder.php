@@ -108,10 +108,10 @@ class UbiExamPaperSeeder extends Seeder
     private function readCsv(string $path): iterable
     {
         $handle = fopen($path, 'r');
-        $header = fgetcsv($handle, 0, ';');
+        $header = fgetcsv($handle, 0, ';', '"', '\\');
         $header[0] = preg_replace('/^\xEF\xBB\xBF/', '', $header[0]);
 
-        while (($data = fgetcsv($handle, 0, ';')) !== false) {
+        while (($data = fgetcsv($handle, 0, ';', '"', '\\')) !== false) {
             yield array_combine($header, $data);
         }
 

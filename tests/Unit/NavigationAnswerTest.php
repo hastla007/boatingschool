@@ -50,9 +50,9 @@ class NavigationAnswerTest extends TestCase
     public function test_every_real_model_answer_matches_itself(): void
     {
         $handle = fopen(__DIR__.'/../../database/data/sbf_see_navigationsaufgaben.csv', 'r');
-        fgetcsv($handle, null, ';');
+        fgetcsv($handle, null, ';', '"', '\\');
         $checked = 0;
-        while (($row = fgetcsv($handle, null, ';')) !== false) {
+        while (($row = fgetcsv($handle, null, ';', '"', '\\')) !== false) {
             $answer = $row[5];
             $result = NavigationAnswer::evaluate($answer, $answer);
             if ($result['auto']) {
