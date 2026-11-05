@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Models\PraxisExamAppointment;
 use App\Notifications\Concerns\EscapesMarkdown;
+use App\Support\MailTemplates;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
@@ -36,7 +37,7 @@ class PraxisExamAppointmentUpdated extends Notification
     {
         $courseUrl = route('praxis-pruefung.index', $this->appointment->submission->course_id);
 
-        return match ($this->action) {
+        $message = match ($this->action) {
             'proposed' => (new MailMessage)
                 ->subject('Terminvorschlag: '.$this->appointment->label)
                 ->line('Deine Bootsschule hat dir einen Termin vorgeschlagen: "'.self::escapeMarkdown($this->appointment->label).'" am '.$this->appointment->formattedRange().' Uhr.')
@@ -52,5 +53,11 @@ class PraxisExamAppointmentUpdated extends Notification
                 ->line('Du bekommst in Kürze einen neuen Vorschlag.')
                 ->action('Status ansehen', $courseUrl),
         };
+
+        // Eigener Betreff nur für Vorschläge; Einleitung/Schluss für alle drei Fälle.
+        $subject = $message->subject;
+        MailTemplates::apply($message, 'praxis_appointment', ['termin' => $this->appointment->label]);
+
+        return $this->action === 'proposed' ? $message : $message->subject($subject);
     }
 }

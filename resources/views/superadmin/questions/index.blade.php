@@ -9,6 +9,31 @@
         </div>
     </x-slot>
 
+    <details class="mb-4 bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 text-sm" @if ($errors->has('name')) open @endif>
+        <summary class="cursor-pointer font-medium text-slate-700 dark:text-slate-200">Modul bearbeiten <span class="font-normal text-xs text-slate-600 dark:text-slate-400">({{ $module->code }})</span></summary>
+        @if ($module->description)
+            <p class="mt-2 text-slate-600 dark:text-slate-400 whitespace-pre-line">{{ $module->description }}</p>
+        @endif
+        <form method="POST" action="{{ route('superadmin.modules.update', $module) }}" class="mt-3 grid sm:grid-cols-3 gap-3">
+            @csrf
+            @method('PATCH')
+            <div class="sm:col-span-2">
+                <x-input-label for="module-name" value="Name" />
+                <x-text-input id="module-name" name="name" type="text" class="mt-1 block w-full" :value="old('name', $module->name)" required />
+                <x-input-error :messages="$errors->get('name')" class="mt-1" />
+            </div>
+            <div>
+                <x-input-label for="module-version" value="Version / Stand" />
+                <x-text-input id="module-version" name="version" type="text" class="mt-1 block w-full" :value="old('version', $module->version)" />
+            </div>
+            <div class="sm:col-span-3">
+                <x-input-label for="module-description" value="Beschreibung (intern: Inhalt, Quelle, Stand)" />
+                <textarea id="module-description" name="description" rows="3" maxlength="5000" class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">{{ old('description', $module->description) }}</textarea>
+            </div>
+            <div><button type="submit" class="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium hover:opacity-90">Speichern</button></div>
+        </form>
+    </details>
+
     {{-- Bug-Review (Lösch-Rückfragen von CSP blockiert): onclick="return
          confirm(...)" ist ein Inline-Event-Handler und wird von der CSP
          (Bug-Review M9: script-src ohne 'unsafe-inline') blockiert -- die

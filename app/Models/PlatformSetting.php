@@ -12,11 +12,11 @@ class PlatformSetting extends Model
 
     const UPDATED_AT = 'updated_at';
 
-    protected $fillable = ['site_name', 'support_email', 'maintenance_mode', 'maintenance_message', 'imprint_template', 'privacy_template', 'operator_info'];
+    protected $fillable = ['site_name', 'support_email', 'maintenance_mode', 'maintenance_message', 'imprint_template', 'privacy_template', 'operator_info', 'mail_templates'];
 
     protected function casts(): array
     {
-        return ['maintenance_mode' => 'boolean'];
+        return ['maintenance_mode' => 'boolean', 'mail_templates' => 'array'];
     }
 
     public static function current(): self

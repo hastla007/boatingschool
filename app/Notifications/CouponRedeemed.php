@@ -6,6 +6,7 @@ use App\Models\CourseDefinition;
 use App\Models\Entitlement;
 use App\Models\Product;
 use App\Notifications\Concerns\EscapesMarkdown;
+use App\Support\MailTemplates;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
@@ -42,11 +43,16 @@ class CouponRedeemed extends Notification
 
         $name = self::escapeMarkdown($r['course']->name);
 
-        return (new MailMessage)
+        $message = (new MailMessage)
             ->subject($r['type'] === 'course_renewal' ? 'Dein Kurszugang wurde verlängert' : 'Dein Kurs ist freigeschaltet')
             ->line($r['type'] === 'course_renewal'
                 ? "Dein Zugang zu „{$name}“ wurde verlängert".($until ? " und gilt jetzt bis {$until}." : '.')
                 : "Der Kurs „{$name}“ ist jetzt für dich freigeschaltet".($until ? " und gilt bis {$until}." : '.'))
             ->action('Zum Kurs', route('courses.show', $r['course']));
+
+        // Verlängerungen behalten ihren eigenen Betreff; Einleitung/Schluss gelten für beide.
+        $template = MailTemplates::apply($message, 'coupon_redeemed', ['kurs' => $r['course']->name]);
+
+        return $r['type'] === 'course_renewal' ? $template->subject('Dein Kurszugang wurde verlängert') : $template;
     }
 }

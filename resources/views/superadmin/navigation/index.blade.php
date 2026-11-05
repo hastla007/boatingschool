@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div>
             <div class="text-xs text-slate-600 dark:text-slate-400"><a href="{{ route('superadmin.courses.show', $course) }}" class="hover:underline">{{ $course->name }}</a></div>
-            <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Navigationsaufgaben: Kartenausschnitte</h1>
+            <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Navigationsaufgaben</h1>
         </div>
     </x-slot>
 
@@ -16,7 +16,10 @@
             <div id="aufgabe-{{ $task->task_number }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5 scroll-mt-20">
                 <div class="flex items-start justify-between gap-3 mb-2">
                     <h3 class="font-medium text-slate-700 dark:text-slate-200">Aufgabe {{ $task->task_number }}</h3>
-                    <span class="text-xs text-slate-600 dark:text-slate-400 shrink-0">{{ $task->questions_count }} Teilfragen</span>
+                    <span class="flex items-center gap-3 shrink-0">
+                        <span class="text-xs text-slate-600 dark:text-slate-400">{{ $task->questions_count }} Teilfragen</span>
+                        <a href="{{ route('superadmin.navigation.tasks.edit', $task) }}" class="text-xs font-medium text-slate-700 dark:text-slate-200 underline hover:no-underline">Texte bearbeiten</a>
+                    </span>
                 </div>
                 <p class="text-sm text-slate-600 dark:text-slate-300 mb-3 line-clamp-3">{{ $task->scenario_text }}</p>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">

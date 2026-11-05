@@ -1,6 +1,9 @@
 <x-superadmin-layout>
     <x-slot name="header">
-        <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Website-Einstellungen</h1>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Website-Einstellungen</h1>
+            <a href="{{ route('superadmin.mail-templates.edit') }}" class="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition">Mailvorlagen</a>
+        </div>
     </x-slot>
 
     <div class="max-w-3xl bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6">

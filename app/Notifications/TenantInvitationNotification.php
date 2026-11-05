@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Models\TenantInvitation;
 use App\Support\CanonicalUrl;
+use App\Support\MailTemplates;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
@@ -41,11 +42,13 @@ class TenantInvitationNotification extends Notification
 
         $tenantName = $this->invitation->tenant->name ?? 'einer Bootsschule';
 
-        return (new MailMessage)
+        $message = (new MailMessage)
             ->subject('Einladung zu '.$tenantName)
             ->line("Für diese E-Mail-Adresse existiert bereits ein Konto auf der Plattform. {$tenantName} möchte dich als Teilnehmer hinzufügen.")
             ->line('Melde dich mit dieser E-Mail-Adresse an und bestätige die Einladung über den folgenden Link.')
             ->action('Einladung bestätigen', $url)
             ->line('Hast du diese Einladung nicht erwartet, kannst du diese Nachricht ignorieren -- ohne Bestätigung ändert sich nichts an deinem Konto.');
+
+        return MailTemplates::apply($message, 'invitation', ['schule' => $tenantName]);
     }
 }

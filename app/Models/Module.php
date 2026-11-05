@@ -14,7 +14,7 @@ class Module extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['code', 'name', 'version', 'status'];
+    protected $fillable = ['code', 'name', 'version', 'status', 'description'];
 
     public function questions(): BelongsToMany
     {

@@ -6,6 +6,7 @@ use App\Models\Entitlement;
 use App\Notifications\Concerns\EscapesMarkdown;
 use App\Support\CanonicalUrl;
 use App\Support\GermanTime;
+use App\Support\MailTemplates;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
@@ -41,13 +42,17 @@ class EntitlementExpiringSoon extends Notification
             ->line('Danach kannst du den Kurs nicht mehr nutzen, dein Lernstand bleibt aber erhalten.');
 
         if ($renewal) {
-            return $message
+            $message
                 ->action('Verlängerungs-Code kaufen', $renewal)
                 ->line('Den Verlängerungs-Code löst du danach in der Lernplattform ein: '.$root.route('coupons.redeem', [], false));
+        } else {
+            $message
+                ->line('Für eine Verlängerung wende dich bitte an deine Bootsschule.')
+                ->action('Zum Kurs', $root.route('courses.show', $this->entitlement->course, false));
         }
 
-        return $message
-            ->line('Für eine Verlängerung wende dich bitte an deine Bootsschule.')
-            ->action('Zum Kurs', $root.route('courses.show', $this->entitlement->course, false));
+        return MailTemplates::apply($message, 'entitlement_expiring', [
+            'schule' => $tenant->name, 'kurs' => $this->entitlement->course->name, 'datum' => $date,
+        ]);
     }
 }

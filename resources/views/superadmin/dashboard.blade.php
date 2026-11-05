@@ -59,6 +59,55 @@
         </a>
     </div>
 
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
+        <x-stat-tile icon="chart-bar" :value="$activeLearners" label="Aktive Lernende (30 Tage)" tone="success" />
+        <x-stat-tile icon="clock" :value="$expiringCount" label="Kurszugänge laufen in 14 Tagen ab" tone="warning" />
+        <x-stat-tile icon="swatch" :value="$inactiveTenants->count()" label="Aktive Schulen ohne Lernaktivität (30 Tage)" />
+    </div>
+
+    <div class="grid lg:grid-cols-2 gap-4 mb-6">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
+            <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
+                <x-icon name="clipboard-document-check" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Prüfungssimulation: Bestehensquote (90 Tage)
+            </h3>
+            <div class="space-y-2 text-sm">
+                @forelse ($examStats as $row)
+                    @php($rate = $row->total ? (int) round($row->passed / $row->total * 100) : 0)
+                    <div>
+                        <div class="flex justify-between text-slate-600 dark:text-slate-300">
+                            <span>{{ $row->name }}</span>
+                            <span>{{ $rate }} % <span class="text-xs text-slate-600 dark:text-slate-400">({{ $row->passed }} von {{ $row->total }})</span></span>
+                        </div>
+                        <div class="h-1.5 rounded-full bg-slate-100 dark:bg-slate-700 mt-1" role="presentation">
+                            <div class="h-1.5 rounded-full bg-emerald-500" style="width: {{ $rate }}%"></div>
+                        </div>
+                    </div>
+                @empty
+                    <p class="text-slate-500 dark:text-slate-400">Noch keine ausgewerteten Prüfungen.</p>
+                @endforelse
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
+            <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
+                <x-icon name="swatch" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Aktive Schulen ohne Lernaktivität (30 Tage)
+            </h3>
+            <div class="space-y-2 text-sm">
+                @forelse ($inactiveTenants->take(8) as $tenant)
+                    <a href="{{ route('superadmin.tenants.show', $tenant) }}" class="flex justify-between border-b border-slate-100 dark:border-slate-700 pb-2 last:border-0 last:pb-0 hover:text-slate-900 dark:hover:text-white">
+                        <span class="text-slate-600 dark:text-slate-300">{{ $tenant->name }}</span>
+                        <span class="text-slate-600 dark:text-slate-400">{{ $tenant->tenant_users_count }} Nutzer</span>
+                    </a>
+                @empty
+                    <p class="text-slate-500 dark:text-slate-400">Alle aktiven Schulen hatten Lernaktivität.</p>
+                @endforelse
+                @if ($inactiveTenants->count() > 8)
+                    <p class="text-xs text-slate-600 dark:text-slate-400">… und {{ $inactiveTenants->count() - 8 }} weitere</p>
+                @endif
+            </div>
+        </div>
+    </div>
+
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
         <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
             <x-icon name="clock" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Zuletzt angelegte Bootsschulen
@@ -67,7 +116,7 @@
             @forelse ($recentTenants as $tenant)
                 <a href="{{ route('superadmin.tenants.show', $tenant) }}" class="flex justify-between border-b border-slate-100 dark:border-slate-700 pb-2 last:border-0 last:pb-0 hover:text-slate-900 dark:hover:text-white">
                     <span class="text-slate-600 dark:text-slate-300">{{ $tenant->name }}</span>
-                    <span class="text-slate-600 dark:text-slate-400">{{ $tenant->tenant_users_count }} Nutzer</span>
+                    <span class="text-slate-600 dark:text-slate-400">{{ $tenant->tenant_users_count }} Nutzer · {{ $activeByTenant[$tenant->id] ?? 0 }} aktiv</span>
                 </a>
             @empty
                 <p class="text-slate-500 dark:text-slate-400">Noch keine Bootsschulen angelegt.</p>

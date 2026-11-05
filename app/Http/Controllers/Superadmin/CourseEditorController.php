@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\CourseDefinition;
 use App\Models\Module;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\Response;
@@ -78,6 +79,7 @@ class CourseEditorController extends Controller
         return view('superadmin.courses.show', [
             'course' => $course,
             'availableModules' => $availableModules,
+            'activeRuleSet' => $course->activeExamRuleSet()?->load('blueprints'),
             'praxisTaskCount' => $course->allPraxisTasks()->count(),
             'navigationTaskCount' => $course->navigationTasks()->count(),
             'navigationChartCount' => $course->navigationTasks()->whereNotNull('chart_image_path')->count(),
@@ -110,6 +112,27 @@ class CourseEditorController extends Controller
         ]);
 
         return back()->with('status', 'Modul zugeordnet.');
+    }
+
+    /** Reihenfolge der Module im Kurs (course_module.sort_order). */
+    public function moveModule(Request $request, CourseDefinition $course, Module $module): Response
+    {
+        $request->validate(['direction' => ['required', 'in:up,down']]);
+        $ids = $course->modules()->pluck('module.id')->values();
+        $index = $ids->search($module->id);
+        abort_if($index === false, 404);
+        $target = $request->input('direction') === 'up' ? $index - 1 : $index + 1;
+        if ($target >= 0 && $target < $ids->count()) {
+            $order = $ids->all();
+            [$order[$index], $order[$target]] = [$order[$target], $order[$index]];
+            DB::transaction(function () use ($course, $order) {
+                foreach ($order as $position => $id) {
+                    $course->modules()->updateExistingPivot($id, ['sort_order' => $position + 1]);
+                }
+            });
+        }
+
+        return back();
     }
 
     public function detachModule(CourseDefinition $course, Module $module): Response
