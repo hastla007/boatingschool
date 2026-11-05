@@ -12,6 +12,7 @@ use App\Models\Tenant;
 use App\Models\TenantBranding;
 use App\Models\TenantUser;
 use App\Models\User;
+use App\Services\TenantOffboardingService;
 use App\Support\BestEffortMail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -219,10 +220,39 @@ class TenantController extends Controller
 
     public function update(Request $request, Tenant $tenant): Response
     {
+        // Eigene Domain: Eingaben wie "https://Lernen.Example.de/" auf den
+        // reinen Hostnamen bringen.
+        $domain = strtolower(trim((string) $request->input('custom_domain', '')));
+        $domain = rtrim(preg_replace('#^https?://#', '', $domain), '/.');
+        $request->merge(['custom_domain' => $domain !== '' ? $domain : null]);
+        $central = strtolower((string) config('app.central_domain'));
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'status' => ['required', 'in:trial,active,suspended,closed'],
+            'custom_domain' => [
+                'nullable', 'string', 'max:253',
+                // Hostname mit mindestens einem Punkt, nur Buchstaben, Ziffern, Bindestriche.
+                'regex:/^(?=.{4,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/',
+                // Nicht die zentrale Domain oder eine ihrer Subdomains (die gehören der Plattform).
+                function ($attribute, $value, $fail) use ($central) {
+                    if ($value === $central || str_ends_with($value, '.'.$central)) {
+                        $fail('Die zentrale Domain und ihre Subdomains können nicht als eigene Domain eingetragen werden.');
+                    }
+                },
+                Rule::unique('tenant_branding', 'custom_domain')->ignore($tenant->id, 'tenant_id'),
+            ],
+        ], [
+            'custom_domain.regex' => 'Bitte nur den Hostnamen eintragen, z. B. lernen.bootsschule-mueller.de.',
+            'custom_domain.unique' => 'Diese Domain ist bereits einer anderen Bootsschule zugeordnet.',
         ]);
+
+        $domainBefore = $tenant->branding->custom_domain;
+        if ($domainBefore !== $validated['custom_domain']) {
+            $tenant->branding->update(['custom_domain' => $validated['custom_domain']]);
+            AuditLog::record($tenant->id, $request->user()->id, 'superadmin.tenant.custom_domain', 'tenant_branding', $tenant->id, ['custom_domain' => $domainBefore], ['custom_domain' => $validated['custom_domain']]);
+        }
+        unset($validated['custom_domain']);
 
         // Sicherheitsreview S4: Superadmin-Aktionen (hier insbesondere das
         // Sperren/Schließen einer ganzen Bootsschule, betrifft alle ihre
@@ -234,5 +264,33 @@ class TenantController extends Controller
         AuditLog::record($tenant->id, $request->user()->id, 'superadmin.tenant.update', 'tenant', $tenant->id, $before, $validated);
 
         return back()->with('status', 'Bootsschule aktualisiert.');
+    }
+
+    /** Vertragsende: alle Daten der Bootsschule als JSON (TenantOffboardingService). */
+    public function export(Request $request, Tenant $tenant, TenantOffboardingService $offboarding): Response
+    {
+        $data = $offboarding->export($tenant);
+        AuditLog::record($tenant->id, $request->user()->id, 'superadmin.tenant.export', 'tenant', $tenant->id, null, ['members' => count($data['members'])]);
+
+        return response()->json($data, 200, [
+            'Content-Disposition' => 'attachment; filename="bootsschule-'.$tenant->slug.'-'.now()->format('Y-m-d').'.json"',
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    }
+
+    /** Vertragsende: Bootsschule endgültig löschen (nur „geschlossen“, Bestätigung per Kurzname). */
+    public function destroy(Request $request, Tenant $tenant, TenantOffboardingService $offboarding): Response
+    {
+        $request->validate([
+            'confirm_slug' => ['required', 'string', Rule::in([$tenant->slug])],
+        ], ['confirm_slug.in' => 'Zur Bestätigung bitte genau den Kurznamen der Bootsschule eintippen.']);
+
+        if ($tenant->status !== 'closed') {
+            return back()->withErrors(['confirm_slug' => 'Bitte die Bootsschule zuerst auf „geschlossen“ setzen.']);
+        }
+
+        $result = $offboarding->delete($tenant, $request->user());
+
+        return redirect()->route('superadmin.tenants.index')->with('status',
+            "Bootsschule „{$tenant->name}“ gelöscht ({$result['members']} Mitglieder, davon {$result['deleted_accounts']} Konten ohne weitere Bootsschule entfernt).");
     }
 }

@@ -8,6 +8,7 @@ use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\Auth\RegisteredUserController;
+use App\Http\Controllers\Auth\TwoFactorController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use App\Http\Controllers\InvitationAcceptController;
 use App\Http\Controllers\ProfileController;
@@ -59,7 +60,19 @@ Route::middleware('guest')->group(function () {
         ->name('password.store');
 });
 
+// Zwei-Faktor-Anmeldung: Abfrage des Codes nach dem Passwort (noch nicht angemeldet).
+Route::middleware('guest')->group(function () {
+    Route::get('two-factor-challenge', [TwoFactorController::class, 'challenge'])->name('two-factor.challenge');
+    Route::post('two-factor-challenge', [TwoFactorController::class, 'verify'])->middleware('throttle:10,1,two-factor-challenge');
+});
+
 Route::middleware('auth')->group(function () {
+    // Zwei-Faktor-Anmeldung einrichten/abschalten (für jedes Konto, auch Superadmin).
+    Route::get('two-factor', [TwoFactorController::class, 'show'])->name('two-factor.show');
+    Route::post('two-factor/enable', [TwoFactorController::class, 'enable'])->name('two-factor.enable');
+    Route::post('two-factor/confirm', [TwoFactorController::class, 'confirm'])->middleware('throttle:10,1,two-factor-confirm')->name('two-factor.confirm');
+    Route::delete('two-factor', [TwoFactorController::class, 'disable'])->middleware('throttle:10,1,two-factor-disable')->name('two-factor.disable');
+
     Route::get('verify-email', EmailVerificationPromptController::class)
         ->name('verification.notice');
 

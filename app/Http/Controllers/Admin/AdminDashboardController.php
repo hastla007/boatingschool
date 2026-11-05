@@ -23,6 +23,7 @@ use App\Models\Pruefungsausschuss;
 use App\Models\TenantAddon;
 use App\Models\TenantCourseDisabled;
 use App\Models\TenantCourseLocation;
+use App\Models\TenantInvitation;
 use App\Models\TenantUser;
 use App\Models\WillkommensboxOrder;
 use App\Support\TenantContext;
@@ -310,6 +311,20 @@ class AdminDashboardController extends Controller
             ->paginate(25, ['*'], 'participants_page')
             ->withQueryString();
 
+        // Team: alle Mitglieder außer Lernenden, dazu offene Team-Einladungen.
+        $team = TenantUser::with('user')
+            ->where('tenant_id', $tenant->id)
+            ->where('role', '!=', 'learner')
+            ->orderByRaw("CASE role WHEN 'owner' THEN 0 WHEN 'admin' THEN 1 WHEN 'instructor' THEN 2 ELSE 3 END")
+            ->orderBy('created_at')
+            ->orderBy('user_id')
+            ->get();
+        $pendingTeamInvitations = TenantInvitation::where('tenant_id', $tenant->id)
+            ->where('role', '!=', 'learner')
+            ->whereNull('accepted_at')
+            ->orderByDesc('created_at')
+            ->get();
+
         $allParticipants = TenantUser::with('user')
             ->where('tenant_id', $tenant->id)
             ->where('role', 'learner')
@@ -508,6 +523,8 @@ class AdminDashboardController extends Controller
             'progressDistribution' => $progressDistribution,
             'learningPhaseLearnerCount' => $learningPhaseLearnerCount,
             'participants' => $participants,
+            'team' => $team,
+            'pendingTeamInvitations' => $pendingTeamInvitations,
             'allParticipants' => $allParticipants,
             'courses' => $courses,
             'productPurchases' => $productPurchases,

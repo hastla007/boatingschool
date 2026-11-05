@@ -27,6 +27,24 @@ class AuthenticatedSessionController extends Controller
     {
         $request->authenticate();
 
+        // Zwei-Faktor-Anmeldung: Passwort stimmt, aber angemeldet wird erst
+        // nach dem Code (TwoFactorChallengeController). Bis dahin merkt sich
+        // nur die Session, wer sich anmelden will.
+        $user = $request->user();
+        if ($user->hasTwoFactor()) {
+            Auth::guard('web')->logout();
+            $request->session()->regenerate();
+            $request->session()->put('two_factor.login', ['id' => $user->id, 'remember' => $request->boolean('remember'), 'at' => now()->timestamp]);
+
+            return redirect()->route('two-factor.challenge');
+        }
+
+        return $this->completeLogin($request, $tenantContext);
+    }
+
+    /** Nach Passwort (und ggf. zweitem Faktor): Session erneuern und weiterleiten. */
+    public function completeLogin(Request $request, TenantContext $tenantContext): RedirectResponse
+    {
         $request->session()->regenerate();
 
         if ($request->user()->is_superadmin) {
