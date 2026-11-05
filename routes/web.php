@@ -24,6 +24,7 @@ use App\Http\Controllers\FavoriteCollectionController;
 use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\FunkTrainingController;
 use App\Http\Controllers\GeraetesimulationController;
+use App\Http\Controllers\ImpersonationController;
 use App\Http\Controllers\LearningController;
 use App\Http\Controllers\LegalPageController;
 use App\Http\Controllers\NavigationTaskController;
@@ -66,6 +67,10 @@ Route::get('/', function (TenantContext $tenantContext) {
 // Impressum und Datenschutzerklärung der Bootsschule (öffentlich, aus der
 // zentralen Vorlage mit den Stammdaten der Schule, siehe LegalPages).
 Route::get('/{kind}', [LegalPageController::class, 'show'])->whereIn('kind', ['impressum', 'datenschutz'])->name('legal.show');
+
+// „Als Nutzer ansehen“ (Support): Einmal-Link des Superadmins einlösen bzw. beenden.
+Route::get('/impersonate/{token}', [ImpersonationController::class, 'consume'])->where('token', '[A-Za-z0-9]{48}')->middleware('throttle:20,1')->name('impersonate.consume');
+Route::post('/impersonate/stop', [ImpersonationController::class, 'stop'])->middleware('auth')->name('impersonate.stop');
 
 Route::middleware(['auth', 'tenant.member', 'verified'])->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');

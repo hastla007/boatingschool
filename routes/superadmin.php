@@ -7,6 +7,7 @@ use App\Http\Controllers\Superadmin\CouponController;
 use App\Http\Controllers\Superadmin\CourseEditorController;
 use App\Http\Controllers\Superadmin\DashboardController;
 use App\Http\Controllers\Superadmin\ExamRuleSetController;
+use App\Http\Controllers\Superadmin\ImpersonationController;
 use App\Http\Controllers\Superadmin\MailTemplateController;
 use App\Http\Controllers\Superadmin\ModuleController;
 use App\Http\Controllers\Superadmin\NavigationChartController;
@@ -64,6 +65,7 @@ Route::middleware(['auth', 'superadmin', 'admin-db', 'verified'])->prefix('super
     Route::post('/users/{user}/memberships', [UserController::class, 'addMembership'])->name('users.memberships.store');
     Route::patch('/users/{user}/memberships/{tenant}', [UserAccountController::class, 'updateMembership'])->name('users.memberships.update');
     Route::delete('/users/{user}/memberships/{tenant}', [UserAccountController::class, 'destroyMembership'])->name('users.memberships.destroy');
+    Route::post('/users/{user}/impersonate/{tenant}', [ImpersonationController::class, 'start'])->name('users.impersonate');
     Route::post('/users/{user}/two-factor/reset', [UserAccountController::class, 'resetTwoFactor'])->name('users.two-factor.reset');
     Route::delete('/users/{user}', [UserAccountController::class, 'destroy'])->name('users.destroy');
 

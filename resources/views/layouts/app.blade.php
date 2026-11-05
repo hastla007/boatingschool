@@ -48,6 +48,17 @@
              (inkl. Kurse-Untermenü) durchtaben, um zum eigentlichen
              Seiteninhalt zu gelangen. --}}
         <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-2 focus:left-2 focus:px-4 focus:py-2 focus:rounded-lg focus:bg-white focus:text-slate-900 focus:shadow-lg">Zum Hauptinhalt springen</a>
+        @if ($impersonation = \App\Support\Impersonation::current())
+            <div role="alert" class="sticky top-0 z-50 bg-red-700 text-white text-sm">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex flex-wrap items-center justify-between gap-2">
+                    <span><strong>Support-Ansicht:</strong> Du siehst die Plattform als {{ auth()->user()?->name }} ({{ auth()->user()?->email }}). Nur lesen, Änderungen sind gesperrt. Gestartet von {{ $impersonation['impersonator_name'] }}, endet spätestens {{ \Illuminate\Support\Carbon::createFromTimestamp($impersonation['started_at'] + \App\Support\Impersonation::MAX_MINUTES * 60)->timezone('Europe/Berlin')->format('H:i') }} Uhr.</span>
+                    <form method="POST" action="{{ route('impersonate.stop') }}">
+                        @csrf
+                        <button type="submit" class="px-3 py-1 rounded-lg bg-white text-red-800 font-semibold hover:bg-red-50">Support-Ansicht beenden</button>
+                    </form>
+                </div>
+            </div>
+        @endif
         <div class="min-h-screen bg-slate-50 dark:bg-slate-900">
             @include('layouts.navigation')
 
