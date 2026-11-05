@@ -42,10 +42,10 @@ class PruefungsausschussSeeder extends Seeder
             rewind($handle);
         }
 
-        $header = fgetcsv($handle);
+        $header = fgetcsv($handle, null, ',', '"', '\\');
         $sortOrder = 0;
 
-        while (($row = fgetcsv($handle)) !== false) {
+        while (($row = fgetcsv($handle, null, ',', '"', '\\')) !== false) {
             if (count($row) === 1 && trim((string) $row[0]) === '') {
                 continue;
             }

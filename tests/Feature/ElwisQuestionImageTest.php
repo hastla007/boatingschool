@@ -79,10 +79,10 @@ class ElwisQuestionImageTest extends TestCase
     public function test_image_files_are_large_enough_and_present(): void
     {
         $handle = fopen(database_path('data/elwis_bilder.csv'), 'r');
-        $header = fgetcsv($handle, 0, ';');
+        $header = fgetcsv($handle, 0, ';', '"', '\\');
         $count = 0;
 
-        while (($data = fgetcsv($handle, 0, ';')) !== false) {
+        while (($data = fgetcsv($handle, 0, ';', '"', '\\')) !== false) {
             $row = array_combine($header, $data);
             $path = database_path('data/elwis_bilder/'.$row['datei']);
 

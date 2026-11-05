@@ -237,11 +237,11 @@ class ImportContentFeedback extends Command
     private function readCsv(string $path): iterable
     {
         $handle = fopen($path, 'r');
-        $header = fgetcsv($handle, 0, ';');
+        $header = fgetcsv($handle, 0, ';', '"', '\\');
         $header[0] = preg_replace('/^\xEF\xBB\xBF/', '', $header[0]);
         $header = array_map('trim', $header);
 
-        while (($data = fgetcsv($handle, 0, ';')) !== false) {
+        while (($data = fgetcsv($handle, 0, ';', '"', '\\')) !== false) {
             yield array_combine($header, $data);
         }
 
