@@ -1,3 +1,86 @@
+@if ($canManageTenant)
+    {{-- Team der Bootsschule: Ausbilder/Admins einladen, Rollen ändern, Inhaberschaft übergeben (TeamController). --}}
+    @php($isOwner = auth()->user()->roleForTenant($currentTenant) === 'owner')
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 mb-6">
+        <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-1 flex items-center gap-1.5">
+            <x-icon name="users" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Team
+        </h3>
+        <p class="text-xs text-slate-600 dark:text-slate-400 mb-3">
+            Ausbilder sehen Teilnehmer und deren Lernstand, können aber keine Kurse freischalten und kein Branding ändern.
+            Admins können alles außer Admins verwalten. {{ $isOwner ? 'Als Inhaber können Sie Admins ernennen und die Inhaberschaft übergeben.' : 'Admins ernennt der Inhaber.' }}
+        </p>
+        <x-input-error :messages="$errors->get('team')" class="mb-2" />
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm mb-4">
+                <thead class="text-slate-500 dark:text-slate-300 text-left">
+                    <tr><th class="py-1 pr-4">Name</th><th class="py-1 pr-4">E-Mail</th><th class="py-1 pr-4">Rolle</th><th class="py-1"></th></tr>
+                </thead>
+                <tbody>
+                    @foreach ($team as $member)
+                        @php($editable = $member->user_id !== auth()->id() && in_array($member->role, ['admin', 'instructor'], true) && ($isOwner || $member->role === 'instructor'))
+                        <tr class="border-t border-slate-100 dark:border-slate-700">
+                            <td class="py-2 pr-4 text-slate-700 dark:text-slate-200">{{ $member->user->name }}{{ $member->user_id === auth()->id() ? ' (Sie)' : '' }}</td>
+                            <td class="py-2 pr-4 text-slate-500 dark:text-slate-400">{{ $member->user->email }}</td>
+                            <td class="py-2 pr-4">
+                                @if ($editable)
+                                    <form method="POST" action="{{ route('admin.team.role.update', $member->user_id) }}" class="flex items-center gap-1">
+                                        @csrf
+                                        @method('PATCH')
+                                        <select name="role" aria-label="Rolle von {{ $member->user->name }}" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs">
+                                            @foreach ($isOwner ? ['instructor', 'admin', 'learner'] : ['instructor', 'learner'] as $roleOption)
+                                                <option value="{{ $roleOption }}" @selected($member->role === $roleOption)>{{ \App\Support\StatusLabels::tenantRole($roleOption) }}</option>
+                                            @endforeach
+                                        </select>
+                                        <button type="submit" class="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-xs">Ändern</button>
+                                    </form>
+                                @else
+                                    <span class="inline-block px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-xs">{{ \App\Support\StatusLabels::tenantRole($member->role) }}</span>
+                                @endif
+                            </td>
+                            <td class="py-2">
+                                @if ($isOwner && $member->role === 'admin' && $member->status === 'active')
+                                    <form method="POST" action="{{ route('admin.team.transfer-ownership', $member->user_id) }}"
+                                          onsubmit="return confirm('Inhaberschaft wirklich an {{ e($member->user->name) }} übergeben? Sie werden danach Admin.')">
+                                        @csrf
+                                        <button type="submit" class="px-2 py-1 rounded-lg bg-amber-50 text-amber-800 hover:bg-amber-100 dark:bg-amber-900/30 dark:text-amber-100 transition text-xs whitespace-nowrap">Inhaberschaft übergeben</button>
+                                    </form>
+                                @endif
+                            </td>
+                        </tr>
+                    @endforeach
+                    @foreach ($pendingTeamInvitations as $invitation)
+                        <tr class="border-t border-slate-100 dark:border-slate-700 text-slate-500 dark:text-slate-400">
+                            <td class="py-2 pr-4 italic">eingeladen</td>
+                            <td class="py-2 pr-4">{{ $invitation->email }}</td>
+                            <td class="py-2 pr-4">{{ \App\Support\StatusLabels::tenantRole($invitation->role) }}</td>
+                            <td class="py-2 text-xs">wartet auf Bestätigung</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+
+        <form method="POST" action="{{ route('admin.team.invite') }}" class="flex flex-col sm:flex-row gap-2">
+            @csrf
+            <label for="team_name" class="sr-only">Name</label>
+            <input type="text" id="team_name" name="name" placeholder="Name" required value="{{ old('name') }}" class="flex-1 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+            <label for="team_email" class="sr-only">E-Mail</label>
+            <input type="email" id="team_email" name="email" placeholder="E-Mail" required class="flex-1 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+            <label for="team_role" class="sr-only">Rolle</label>
+            <select id="team_role" name="role" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                <option value="instructor">{{ \App\Support\StatusLabels::tenantRole('instructor') }}</option>
+                @if ($isOwner)
+                    <option value="admin">{{ \App\Support\StatusLabels::tenantRole('admin') }}</option>
+                @endif
+            </select>
+            <button type="submit" class="px-4 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">Ins Team einladen</button>
+        </form>
+        <x-input-error :messages="$errors->get('team_email')" class="mt-2" />
+        <x-input-error :messages="$errors->get('role')" class="mt-2" />
+    </div>
+@endif
+
 <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 mb-6">
     <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
         <x-icon name="envelope" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Teilnehmer einladen

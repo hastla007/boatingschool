@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\ParticipantController;
 use App\Http\Controllers\Admin\PraxisExamAppointmentController as AdminPraxisExamAppointmentController;
 use App\Http\Controllers\Admin\PraxisFormSubmissionController as AdminPraxisFormSubmissionController;
 use App\Http\Controllers\Admin\SupportEmailVerificationController;
+use App\Http\Controllers\Admin\TeamController;
 use App\Http\Controllers\Admin\TenantCourseLocationController;
 use App\Http\Controllers\Admin\WillkommensboxLabelController;
 use App\Http\Controllers\Admin\WillkommensboxOrderController;
@@ -247,6 +248,11 @@ Route::middleware(['auth', 'tenant.role:owner,admin', 'verified'])->prefix('admi
         ->middleware('throttle:6,1,support-email-send')->name('branding.support-email.send');
 
     Route::patch('/participants/{user}/membership', [ParticipantController::class, 'updateMembership'])->name('participants.membership.update');
+
+    // Team der Bootsschule (Ausbilder/Admins einladen, Rollen, Inhaberschaft).
+    Route::post('/team/invite', [TeamController::class, 'invite'])->middleware('throttle:10,1,team-invite')->name('team.invite');
+    Route::patch('/team/{user}/role', [TeamController::class, 'updateRole'])->name('team.role.update');
+    Route::post('/team/{user}/transfer-ownership', [TeamController::class, 'transferOwnership'])->name('team.transfer-ownership');
 
     Route::patch('/addons', [AddonController::class, 'update'])->name('addons.update');
 

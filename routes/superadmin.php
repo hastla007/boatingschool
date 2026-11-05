@@ -42,6 +42,8 @@ Route::middleware(['auth', 'superadmin', 'admin-db', 'verified'])->prefix('super
     Route::post('/tenants', [TenantController::class, 'store'])->name('tenants.store');
     Route::get('/tenants/{tenant}', [TenantController::class, 'show'])->name('tenants.show');
     Route::patch('/tenants/{tenant}', [TenantController::class, 'update'])->name('tenants.update');
+    Route::get('/tenants/{tenant}/export', [TenantController::class, 'export'])->name('tenants.export');
+    Route::delete('/tenants/{tenant}', [TenantController::class, 'destroy'])->name('tenants.destroy');
 
     Route::get('/users', [UserController::class, 'index'])->name('users.index');
     Route::get('/users/create', [UserController::class, 'create'])->name('users.create');

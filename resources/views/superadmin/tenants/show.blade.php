@@ -28,11 +28,53 @@
                         @endforeach
                     </select>
                 </div>
+                <div>
+                    <x-input-label for="custom_domain" value="Eigene Domain (optional)" />
+                    <x-text-input id="custom_domain" name="custom_domain" type="text" class="mt-1 block w-full font-mono text-sm" :value="old('custom_domain', $tenant->branding->custom_domain)" placeholder="lernen.bootsschule-mueller.de" />
+                    <x-input-error :messages="$errors->get('custom_domain')" class="mt-2" />
+                    <details class="mt-1 text-xs text-slate-600 dark:text-slate-400">
+                        <summary class="cursor-pointer">So wird die Domain eingerichtet</summary>
+                        <ol class="list-decimal pl-4 mt-1 space-y-1">
+                            <li>Die Bootsschule legt bei ihrem Domain-Anbieter einen CNAME-Eintrag an: <span class="font-mono">{{ old('custom_domain', $tenant->branding->custom_domain) ?: 'lernen.bootsschule-mueller.de' }}</span> → <span class="font-mono">{{ $tenant->slug }}.{{ config('app.central_domain') }}</span>.</li>
+                            <li>Auf dem Server wird für die Domain ein SSL-Zertifikat ausgestellt (z. B. Let's Encrypt) und sie im Webserver dieser App zugeordnet.</li>
+                            <li>Domain hier eintragen und speichern. Die Subdomain <span class="font-mono">{{ $tenant->slug }}.{{ config('app.central_domain') }}</span> bleibt zusätzlich erreichbar; Links in E-Mails zeigen immer auf sie.</li>
+                        </ol>
+                    </details>
+                </div>
                 <button type="submit" class="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium hover:opacity-90 transition">Speichern</button>
             </form>
 
+            {{-- Vertragsende: Export und endgültige Löschung (TenantOffboardingService). --}}
+            <div class="mt-5 pt-5 border-t border-slate-100 dark:border-slate-700 text-sm space-y-3">
+                <h4 class="font-medium text-slate-700 dark:text-slate-200">Vertragsende</h4>
+                <a href="{{ route('superadmin.tenants.export', $tenant) }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-xs">
+                    <x-icon name="download" class="w-4 h-4" /> Alle Daten exportieren (JSON)
+                </a>
+                @if ($tenant->status === 'closed')
+                    <form method="POST" action="{{ route('superadmin.tenants.destroy', $tenant) }}" class="space-y-2 p-3 rounded-lg bg-red-50 dark:bg-red-950/40"
+                          onsubmit="return confirm('Bootsschule endgültig löschen? Das lässt sich nicht rückgängig machen.')">
+                        @csrf
+                        @method('DELETE')
+                        <p class="text-xs text-red-900 dark:text-red-100">
+                            Löscht die Bootsschule mit allen Mitgliedschaften, Freischaltungen, Lernständen, Anmeldungen, Bestellungen,
+                            dem Protokoll sowie Logo und Favicon. Konten, die keiner anderen Bootsschule angehören, werden ebenfalls gelöscht.
+                            Vorher die Daten exportieren.
+                        </p>
+                        <x-input-label for="confirm_slug" value="Zur Bestätigung den Kurznamen eintippen: {{ $tenant->slug }}" />
+                        <x-text-input id="confirm_slug" name="confirm_slug" type="text" class="block w-full font-mono text-sm" autocomplete="off" />
+                        <x-input-error :messages="$errors->get('confirm_slug')" class="mt-1" />
+                        <button type="submit" class="px-3 py-1.5 rounded-lg bg-red-700 text-white text-xs font-medium hover:opacity-90 transition">Endgültig löschen</button>
+                    </form>
+                @else
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Löschen ist erst möglich, wenn der Status auf „geschlossen“ steht.</p>
+                @endif
+            </div>
+
             <div class="mt-5 pt-5 border-t border-slate-100 dark:border-slate-700 text-sm space-y-1.5">
                 <div class="flex justify-between"><span class="text-slate-600 dark:text-slate-400">Domain</span><span class="font-mono text-xs text-slate-600 dark:text-slate-300">{{ $tenant->slug }}.{{ config('app.central_domain') }}</span></div>
+                @if ($tenant->branding->custom_domain)
+                    <div class="flex justify-between"><span class="text-slate-600 dark:text-slate-400">Eigene Domain</span><span class="font-mono text-xs text-slate-600 dark:text-slate-300">{{ $tenant->branding->custom_domain }}</span></div>
+                @endif
                 <div class="flex justify-between"><span class="text-slate-600 dark:text-slate-400">Support E-Mail</span><span class="text-slate-600 dark:text-slate-300">{{ $tenant->branding->support_email ?: '—' }}</span></div>
                 <div class="flex justify-between"><span class="text-slate-600 dark:text-slate-400">Website</span><span class="text-slate-600 dark:text-slate-300">{{ $tenant->branding->website ?: '—' }}</span></div>
                 <div class="flex justify-between"><span class="text-slate-600 dark:text-slate-400">Telefon</span><span class="text-slate-600 dark:text-slate-300">{{ $tenant->branding->phone ?: '—' }}</span></div>

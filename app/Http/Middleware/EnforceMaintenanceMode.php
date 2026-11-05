@@ -50,6 +50,7 @@ class EnforceMaintenanceMode
             || $request->is('superadmin')
             || $request->is('superadmin/*')
             || $request->is('login')
+            || $request->is('two-factor-challenge')
             || $request->is('impressum')
             || $request->is('datenschutz')
             || $request->is('logout');

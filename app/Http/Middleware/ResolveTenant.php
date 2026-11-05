@@ -179,6 +179,8 @@ class ResolveTenant
         // unbestätigter Superadmin konnte sich damit auf der zentralen
         // Domain gar nicht mehr verifizieren.
         return $request->is('login') || $request->is('logout')
+            // Zwei-Faktor-Anmeldung: Abfrage und Einstellungen betreffen nur das eigene Konto.
+            || $request->is('two-factor') || $request->is('two-factor/*') || $request->is('two-factor-challenge')
             || $request->is('forgot-password') || $request->is('reset-password') || $request->is('reset-password/*')
             || $request->is('verify-email') || $request->is('verify-email/*') || $request->is('email/verification-notification')
             || $this->isSuperadminRoute($request);
