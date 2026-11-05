@@ -21,6 +21,7 @@ class MailTemplates
         'willkommensbox_shipped' => ['label' => 'Willkommensbox versendet', 'subject' => 'Deine Willkommensbox ist unterwegs', 'placeholders' => []],
         'learning_reminder' => ['label' => 'Erinnerung ans Lernen (inaktive Lernende)', 'subject' => 'Weiterlernen bei {schule}', 'placeholders' => ['schule', 'tage']],
         'announcement' => ['label' => 'Mitteilung der Bootsschule', 'subject' => '{titel}', 'placeholders' => ['schule', 'titel']],
+        'platform_announcement' => ['label' => 'Mitteilung des Plattformbetreibers an die Bootsschulen', 'subject' => '{titel}', 'placeholders' => ['plattform', 'schule', 'titel']],
         'praxis_appointment' => ['label' => 'Prüfungs-/Praxistermin vorgeschlagen, zurückgezogen oder abgesagt', 'subject' => 'Terminvorschlag: {termin}', 'placeholders' => ['termin']],
     ];
 

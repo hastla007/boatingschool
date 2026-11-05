@@ -12,6 +12,7 @@ use App\Http\Controllers\Superadmin\MailTemplateController;
 use App\Http\Controllers\Superadmin\ModuleController;
 use App\Http\Controllers\Superadmin\NavigationChartController;
 use App\Http\Controllers\Superadmin\NavigationTaskEditorController;
+use App\Http\Controllers\Superadmin\PlatformAnnouncementController;
 use App\Http\Controllers\Superadmin\PraxisFormTemplateController;
 use App\Http\Controllers\Superadmin\PraxisTaskController;
 use App\Http\Controllers\Superadmin\ProductController;
@@ -128,6 +129,10 @@ Route::middleware(['auth', 'superadmin', 'admin-db', 'verified'])->prefix('super
 
     Route::get('/system', SystemStatusController::class)->name('system');
     Route::get('/audit', [AuditLogController::class, 'index'])->name('audit.index');
+
+    Route::get('/announcements', [PlatformAnnouncementController::class, 'index'])->name('announcements.index');
+    Route::post('/announcements', [PlatformAnnouncementController::class, 'store'])->middleware('throttle:10,1,platform-announcements')->name('announcements.store');
+    Route::delete('/announcements/{announcement}', [PlatformAnnouncementController::class, 'destroy'])->name('announcements.destroy');
 
     Route::get('/mail-templates', [MailTemplateController::class, 'edit'])->name('mail-templates.edit');
     Route::patch('/mail-templates', [MailTemplateController::class, 'update'])->name('mail-templates.update');

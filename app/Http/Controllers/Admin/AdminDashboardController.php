@@ -15,6 +15,7 @@ use App\Models\CourseWebshopLink;
 use App\Models\Entitlement;
 use App\Models\ExamSession;
 use App\Models\InstructorCourse;
+use App\Models\PlatformAnnouncement;
 use App\Models\PraxisExamAppointment;
 use App\Models\PraxisFormSubmission;
 use App\Models\Product;
@@ -519,6 +520,7 @@ class AdminDashboardController extends Controller
             ->pluck('free_count', 'course_id');
 
         return view('admin.dashboard', [
+            'platformAnnouncements' => PlatformAnnouncement::visible()->forTenant($tenant->id)->orderByDesc('created_at')->limit(5)->get(),
             'tenant' => $tenant,
             'canManageTenant' => $canManageTenant,
             'learnerCount' => $learnerCount,
