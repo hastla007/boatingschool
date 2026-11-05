@@ -23,9 +23,9 @@
                  (Bug-Review R4-2), das hier bisher komplett fehlte. --}}
             <div class="bg-sky-50 dark:bg-sky-900/20 border border-sky-100 dark:border-sky-900/40 rounded-xl px-4 py-3 text-sm text-sky-900 dark:text-sky-200 space-y-2" x-data="{}">
                 <p class="font-medium">Es liegt eine noch nicht veröffentlichte Fassung (Revision {{ $pendingReview->revision_no }}) vor, z. B. aus einem erneuten Content-Import:</p>
-                <p class="italic">{{ $pendingReview->question_text }}</p>
-                <x-input-error :messages="$errors->get('revision')" />
                 @php($publishedRevision = $question->publishedRevision())
+                @include('superadmin.questions._revision-diff', ['from' => $publishedRevision, 'to' => $pendingReview])
+                <x-input-error :messages="$errors->get('revision')" />
                 @if ($publishedRevision && $publishedRevision->revision_no > $pendingReview->revision_no)
                     <p class="font-medium text-amber-800 dark:text-amber-300">
                         Achtung: Die veröffentlichte Fassung (Revision {{ $publishedRevision->revision_no }}) ist neuer und wurde im Editor geändert.

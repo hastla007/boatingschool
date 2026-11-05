@@ -47,7 +47,7 @@ class PraxisTrainerSeeder extends Seeder
     {
         $course = CourseDefinition::withoutGlobalScopes()->where('code', $code)->whereNull('tenant_id')->first();
 
-        if (! $course || $course->praxisTasks()->exists() || ! file_exists($csvPath)) {
+        if (! $course || $course->allPraxisTasks()->exists() || ! file_exists($csvPath)) {
             return;
         }
 

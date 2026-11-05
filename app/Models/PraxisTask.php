@@ -17,8 +17,13 @@ class PraxisTask extends Model
     protected $fillable = [
         'course_id', 'content_id', 'kategorie', 'unterkategorie', 'pruefungsbezug',
         'aufgabentyp', 'frage', 'antwort', 'erklaerung', 'media_asset_id',
-        'quelle', 'quellen_url', 'sort_order',
+        'quelle', 'quellen_url', 'sort_order', 'active',
     ];
+
+    protected function casts(): array
+    {
+        return ['active' => 'boolean'];
+    }
 
     /**
      * Kategorien, in denen die Aufgabe den Namen des Knotens/Manövers bereits

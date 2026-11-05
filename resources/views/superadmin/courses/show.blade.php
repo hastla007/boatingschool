@@ -83,38 +83,106 @@
             @endif
         </div>
 
-        @if ($course->videoModules->isNotEmpty())
-            <div class="lg:col-span-3 bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
-                @php($placeholderCount = $course->videoModules->flatMap->lessons->filter->isPlaceholder()->count())
-                <div class="flex items-center justify-between gap-3 mb-3">
-                    <h3 class="font-medium text-slate-700 dark:text-slate-200">Videokurs dieses Kurses</h3>
-                    @if ($placeholderCount > 0)
-                        <span class="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">{{ $placeholderCount }} von {{ $course->videoModules->flatMap->lessons->count() }} Lektionen mit Platzhaltervideo</span>
-                    @endif
-                </div>
-                <p class="text-xs text-slate-600 dark:text-slate-400 mb-3">Pro Lektion lassen sich Titel, Video-URL und Dauer pflegen sowie Fragen aus der zentralen Fragenbasis als "Zu den Fragen"-Quiz nach dem Video hinterlegen.</p>
-                <div class="space-y-4">
-                    @foreach ($course->videoModules as $videoModule)
-                        <div>
-                            <div class="text-sm font-semibold text-slate-700 dark:text-slate-200 mb-1.5">{{ $videoModule->title }}</div>
-                            <div class="space-y-1">
-                                @foreach ($videoModule->lessons as $lesson)
-                                    <a href="{{ route('superadmin.video-lessons.show', $lesson) }}"
-                                       class="flex items-center justify-between border border-slate-100 dark:border-slate-700 rounded-xl px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
-                                        <span class="text-slate-700 dark:text-slate-200">{{ $lesson->title }}</span>
-                                        <span class="flex items-center gap-2 shrink-0">
-                                            @if ($lesson->isPlaceholder())
-                                                <span class="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">Platzhalter</span>
-                                            @endif
-                                            <span class="text-xs text-slate-600 dark:text-slate-400">{{ $lesson->questions_count }} {{ $lesson->questions_count === 1 ? 'Frage' : 'Fragen' }}</span>
-                                        </span>
-                                    </a>
-                                @endforeach
-                            </div>
-                        </div>
-                    @endforeach
-                </div>
-            </div>
+        <a href="{{ route('superadmin.praxis-tasks.index', $course) }}" class="lg:col-span-3 bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5 flex items-center justify-between gap-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
+            <span>
+                <span class="block font-medium text-slate-700 dark:text-slate-200">Praxistrainer</span>
+                <span class="block text-xs text-slate-600 dark:text-slate-400">{{ $praxisTaskCount }} {{ $praxisTaskCount === 1 ? 'Karte' : 'Karten' }}: bearbeiten, neu anlegen, deaktivieren</span>
+            </span>
+            <x-icon name="chevron-right" class="w-4 h-4 text-slate-600 dark:text-slate-400" />
+        </a>
+
+        @if ($navigationTaskCount > 0)
+            <a href="{{ route('superadmin.navigation.index', $course) }}" class="lg:col-span-3 bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5 flex items-center justify-between gap-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
+                <span>
+                    <span class="block font-medium text-slate-700 dark:text-slate-200">Navigationsaufgaben</span>
+                    <span class="block text-xs text-slate-600 dark:text-slate-400">{{ $navigationTaskCount }} Aufgaben, {{ $navigationChartCount }} mit Kartenausschnitt</span>
+                </span>
+                <x-icon name="chevron-right" class="w-4 h-4 text-slate-600 dark:text-slate-400" />
+            </a>
         @endif
+
+        <div id="videokurs" class="lg:col-span-3 bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5 scroll-mt-20">
+            @php($placeholderCount = $course->videoModules->flatMap->lessons->filter->isPlaceholder()->count())
+            <div class="flex items-center justify-between gap-3 mb-3">
+                <h3 class="font-medium text-slate-700 dark:text-slate-200">Videokurs dieses Kurses</h3>
+                @if ($placeholderCount > 0)
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">{{ $placeholderCount }} von {{ $course->videoModules->flatMap->lessons->count() }} Lektionen mit Platzhaltervideo</span>
+                @endif
+            </div>
+            <p class="text-xs text-slate-600 dark:text-slate-400 mb-3">Kapitel und Lektionen anlegen, umsortieren und löschen. Pro Lektion lassen sich Titel, Video-URL und Dauer pflegen sowie Fragen aus der zentralen Fragenbasis als "Zu den Fragen"-Quiz nach dem Video hinterlegen.</p>
+            @error('video_module')
+                <p class="mb-3 text-sm text-red-700 dark:text-red-300">{{ $message }}</p>
+            @enderror
+            @php($moveButton = 'w-7 h-7 inline-flex items-center justify-center rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-30 disabled:hover:bg-transparent')
+            <div class="space-y-5">
+                @foreach ($course->videoModules as $videoModule)
+                    <div class="border border-slate-100 dark:border-slate-700 rounded-xl p-3">
+                        <div class="flex flex-wrap items-center gap-2 mb-2">
+                            <form method="POST" action="{{ route('superadmin.video-modules.update', $videoModule) }}" class="flex-1 min-w-48 flex gap-2">
+                                @csrf
+                                @method('PATCH')
+                                <label for="module-title-{{ $videoModule->id }}" class="sr-only">Kapiteltitel</label>
+                                <input id="module-title-{{ $videoModule->id }}" name="title" type="text" required maxlength="200" value="{{ $videoModule->title }}"
+                                       class="flex-1 min-w-0 rounded-lg border-slate-200 dark:bg-slate-700 dark:border-slate-600 text-sm font-semibold">
+                                <button type="submit" class="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-700 text-xs hover:bg-slate-200 dark:hover:bg-slate-600">Umbenennen</button>
+                            </form>
+                            @foreach (['up' => ['↑', 'Kapitel nach oben'], 'down' => ['↓', 'Kapitel nach unten']] as $direction => [$symbol, $label])
+                                <form method="POST" action="{{ route('superadmin.video-modules.move', $videoModule) }}">
+                                    @csrf
+                                    <input type="hidden" name="direction" value="{{ $direction }}">
+                                    <button type="submit" class="{{ $moveButton }}" title="{{ $label }}" aria-label="{{ $label }}: {{ $videoModule->title }}" @disabled($direction === 'up' ? $loop->parent->first : $loop->parent->last)>{{ $symbol }}</button>
+                                </form>
+                            @endforeach
+                            @if ($videoModule->lessons->isEmpty() && $course->videoModules->count() > 1)
+                                <form method="POST" action="{{ route('superadmin.video-modules.destroy', $videoModule) }}" x-data="{}"
+                                      @submit="if (! confirm('Leeres Kapitel löschen?')) $event.preventDefault()">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="text-xs text-rose-600 hover:underline">Kapitel löschen</button>
+                                </form>
+                            @endif
+                        </div>
+                        <div class="space-y-1">
+                            @foreach ($videoModule->lessons as $lesson)
+                                <div class="flex items-center gap-1 border border-slate-100 dark:border-slate-700 rounded-xl pl-3 pr-1 py-1 text-sm">
+                                    <a href="{{ route('superadmin.video-lessons.show', $lesson) }}" class="flex-1 min-w-0 py-1 text-slate-700 dark:text-slate-200 hover:underline truncate">{{ $lesson->title }}</a>
+                                    @if ($lesson->isPlaceholder())
+                                        <span class="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 shrink-0">Platzhalter</span>
+                                    @endif
+                                    <span class="text-xs text-slate-600 dark:text-slate-400 shrink-0 mx-1">{{ $lesson->questions_count }} {{ $lesson->questions_count === 1 ? 'Frage' : 'Fragen' }}</span>
+                                    @foreach (['up' => ['↑', 'Nach oben'], 'down' => ['↓', 'Nach unten']] as $direction => [$symbol, $label])
+                                        <form method="POST" action="{{ route('superadmin.video-lessons.move', $lesson) }}">
+                                            @csrf
+                                            <input type="hidden" name="direction" value="{{ $direction }}">
+                                            <button type="submit" class="{{ $moveButton }}" title="{{ $label }}" aria-label="{{ $label }}: {{ $lesson->title }}" @disabled($direction === 'up' ? $loop->parent->first : $loop->parent->last)>{{ $symbol }}</button>
+                                        </form>
+                                    @endforeach
+                                    <form method="POST" action="{{ route('superadmin.video-lessons.destroy', $lesson) }}" x-data="{}"
+                                          @submit="if (! confirm('Lektion „{{ addslashes($lesson->title) }}“ löschen? Der Lernstand aller Lernenden zu dieser Lektion geht verloren.')) $event.preventDefault()">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="{{ $moveButton }} text-rose-600" title="Lektion löschen" aria-label="Lektion löschen: {{ $lesson->title }}">✕</button>
+                                    </form>
+                                </div>
+                            @endforeach
+                        </div>
+                        <form method="POST" action="{{ route('superadmin.video-lessons.store', $videoModule) }}" class="mt-2 flex flex-wrap gap-2">
+                            @csrf
+                            <label for="new-lesson-{{ $videoModule->id }}" class="sr-only">Neue Lektion in {{ $videoModule->title }}</label>
+                            <input id="new-lesson-{{ $videoModule->id }}" name="title" type="text" required maxlength="200" placeholder="Neue Lektion: Titel"
+                                   class="flex-1 min-w-48 rounded-lg border-slate-200 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                            <button type="submit" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-sm shrink-0">Lektion anlegen</button>
+                        </form>
+                    </div>
+                @endforeach
+            </div>
+            <form method="POST" action="{{ route('superadmin.video-modules.store', $course) }}" class="mt-4 flex flex-wrap gap-2">
+                @csrf
+                <label for="new-video-module" class="sr-only">Neues Kapitel</label>
+                <input id="new-video-module" name="title" type="text" required maxlength="200" placeholder="Neues Kapitel: Titel"
+                       class="flex-1 min-w-48 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                <button type="submit" class="px-3 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium hover:opacity-90 transition shrink-0">Kapitel anlegen</button>
+            </form>
+        </div>
     </div>
 </x-superadmin-layout>

@@ -8,6 +8,7 @@ use App\Models\ExamSession;
 use App\Models\Favorite;
 use App\Models\FavoriteCollection;
 use App\Models\FavoriteCollectionItem;
+use App\Models\NavigationProgress;
 use App\Models\PraxisExamAppointment;
 use App\Models\PraxisFormSubmission;
 use App\Models\PraxisProgress;
@@ -162,6 +163,13 @@ class PersonalDataExportService
                 ->map(fn (PraxisProgress $p) => [
                     'praxis_task_id' => $p->praxis_task_id,
                     'completed' => $p->completed,
+                ])->all(),
+            'navigation_progress' => NavigationProgress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get()
+                ->map(fn (NavigationProgress $p) => [
+                    'navigation_question_id' => $p->navigation_question_id,
+                    'answer' => $p->answer,
+                    'correct' => $p->correct,
+                    'updated_at' => $p->updated_at?->toIso8601String(),
                 ])->all(),
             'video_progress' => VideoProgress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get()
                 ->map(fn (VideoProgress $p) => [

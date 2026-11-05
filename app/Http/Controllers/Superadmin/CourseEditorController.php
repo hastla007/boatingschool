@@ -78,6 +78,9 @@ class CourseEditorController extends Controller
         return view('superadmin.courses.show', [
             'course' => $course,
             'availableModules' => $availableModules,
+            'praxisTaskCount' => $course->allPraxisTasks()->count(),
+            'navigationTaskCount' => $course->navigationTasks()->count(),
+            'navigationChartCount' => $course->navigationTasks()->whereNotNull('chart_image_path')->count(),
         ]);
     }
 
