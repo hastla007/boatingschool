@@ -253,4 +253,41 @@ class ReviewRoundSixFixesTest extends TestCase
         $this->get("{$central}/impressum")->assertOk()->assertSee('Plattform Betreiber GmbH')->assertDontSee('Bitte wählen Sie Ihre Bootsschule');
         $this->get("{$central}/datenschutz")->assertOk()->assertDontSee('Bitte wählen Sie Ihre Bootsschule');
     }
+
+    public function test_single_renewal_double_click_uses_only_one_code(): void
+    {
+        $tenant = $this->createTestTenant();
+        $owner = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $entitlement = $this->grantEntitlement($tenant, $learner, $course);
+        $until = now()->addDays(10)->startOfSecond();
+        $this->onAdmin(function () use ($entitlement, $until, $tenant, $course) {
+            Entitlement::whereKey($entitlement->id)->update(['valid_from' => now()->subYear(), 'valid_until' => $until]);
+            foreach (range(1, 2) as $i) {
+                Coupon::create(['code' => 'ONE'.$i.strtoupper(substr(uniqid(), -10)), 'course_id' => $course->id, 'tenant_id' => $tenant->id, 'is_renewal' => true]);
+            }
+        });
+        $payload = ['action' => 'extend', 'seen_valid_until' => $until->timestamp];
+
+        $this->actingAsInTenant($owner, $tenant)->patch("/admin/entitlements/{$entitlement->id}", $payload)->assertSessionHas('status', 'Entitlement aktualisiert.');
+        $this->actingAsInTenant($owner, $tenant)->patch("/admin/entitlements/{$entitlement->id}", $payload)
+            ->assertSessionHas('status', 'Dieser Zugang wurde inzwischen schon verlängert oder geändert; es wurde kein weiterer Code verbraucht.');
+
+        $this->assertSame(1, $this->onAdmin(fn () => Coupon::where('tenant_id', $tenant->id)->where('is_renewal', true)->whereNotNull('redeemed_at')->count()));
+        $this->assertSame(1, $this->onAdmin(fn () => AuditLog::where('action', 'entitlement.extend')->where('entity_id', $entitlement->id)->count()));
+    }
+
+    public function test_participant_page_sends_the_shown_end_date_with_the_renewal(): void
+    {
+        $tenant = $this->createTestTenant();
+        $owner = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $entitlement = $this->grantEntitlement($tenant, $learner, $this->existingCourse('SRC'));
+        $until = now()->addDays(10)->startOfSecond();
+        $this->onAdmin(fn () => Entitlement::whereKey($entitlement->id)->update(['valid_from' => now()->subYear(), 'valid_until' => $until]));
+
+        $this->actingAsInTenant($owner, $tenant)->get("/admin/participants/{$learner->id}")->assertOk()
+            ->assertSee('name="seen_valid_until" value="'.$until->timestamp.'"', false);
+    }
 }
