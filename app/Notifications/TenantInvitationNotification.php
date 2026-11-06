@@ -44,7 +44,12 @@ class TenantInvitationNotification extends Notification
 
         $message = (new MailMessage)
             ->subject('Einladung zu '.$tenantName)
-            ->line("Für diese E-Mail-Adresse existiert bereits ein Konto auf der Plattform. {$tenantName} möchte dich als Teilnehmer hinzufügen.")
+            ->line("Für diese E-Mail-Adresse existiert bereits ein Konto auf der Plattform. {$tenantName} möchte dich ".match ($this->invitation->role) {
+                'owner' => 'als Inhaber',
+                'admin' => 'als Admin ins Team',
+                'instructor' => 'als Ausbilder ins Team',
+                default => 'als Teilnehmer',
+            }.' aufnehmen.')
             ->line('Melde dich mit dieser E-Mail-Adresse an und bestätige die Einladung über den folgenden Link.')
             ->action('Einladung bestätigen', $url)
             ->line('Hast du diese Einladung nicht erwartet, kannst du diese Nachricht ignorieren -- ohne Bestätigung ändert sich nichts an deinem Konto.');

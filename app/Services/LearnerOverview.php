@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\Attempt;
 use App\Models\CourseDefinition;
 use App\Models\Entitlement;
 use App\Models\ExamSession;
@@ -11,6 +10,7 @@ use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Lernstand von Teilnehmern für den Bootsschul-Admin: Fortschritt je
@@ -50,16 +50,32 @@ class LearnerOverview
 
     public function lastActivity(Tenant $tenant, User $user): ?Carbon
     {
-        $value = Attempt::where('tenant_id', $tenant->id)->where('user_id', $user->id)->max('created_at');
+        $value = $this->lastActivities($tenant, collect([$user->id]))->get($user->id);
 
         return $value ? Carbon::parse($value) : null;
     }
 
-    /** @return Collection<int, string|null> letzte Aktivität je Nutzer-ID (ein Query) */
+    /**
+     * Letzte Lernaktivität je Nutzer-ID (ein Query): Fragen beantwortet,
+     * Prüfungssimulation gestartet, Navigationsaufgabe bearbeitet oder
+     * Video gesehen -- nicht nur Antworten im Fragentrainer.
+     *
+     * @return Collection<int, string|null>
+     */
     public function lastActivities(Tenant $tenant, Collection $userIds): Collection
     {
-        return Attempt::where('tenant_id', $tenant->id)->whereIn('user_id', $userIds)
-            ->groupBy('user_id')->selectRaw('user_id, max(created_at) as last_at')->pluck('last_at', 'user_id');
+        if ($userIds->isEmpty()) {
+            return collect();
+        }
+        $source = fn (string $table, string $column) => DB::table($table)->where('tenant_id', $tenant->id)->whereIn('user_id', $userIds)
+            ->groupBy('user_id')->selectRaw("user_id, max({$column}) as last_at");
+        $union = $source('attempt', 'created_at')
+            ->unionAll($source('exam_session', 'started_at'))
+            ->unionAll($source('navigation_progress', 'updated_at'))
+            ->unionAll($source('video_progress', 'updated_at'));
+
+        return DB::query()->fromSub($union, 'activity')->groupBy('user_id')
+            ->selectRaw('user_id, max(last_at) as last_at')->pluck('last_at', 'user_id');
     }
 
     /** @return Collection<int, ExamSession> */

@@ -53,6 +53,10 @@ class NavigationTaskEditorController extends Controller
 
         DB::transaction(function () use ($targets, $validated, $rows, $task) {
             $original = $task->questions()->get()->keyBy('id');
+            // Bisherige Nummern merken: das Original wird in der Schleife
+            // umnummeriert, die Kopien müssen aber nach der alten Nummer
+            // zugeordnet werden.
+            $originalNumbers = $original->map(fn ($q) => $q->question_number);
             foreach ($targets as $target) {
                 $target->update(['scenario_text' => trim($validated['scenario_text']), 'hint' => trim((string) ($validated['hint'] ?? '')) ?: null]);
                 $existing = $target->questions()->get();
@@ -60,7 +64,7 @@ class NavigationTaskEditorController extends Controller
                 foreach ($rows as $row) {
                     $source = isset($row['id']) ? $original->get($row['id']) : null;
                     // Die passende Teilfrage der Kopie: gleiche Nummer wie das Original.
-                    $question = $source ? ($target->is($task) ? $source : $existing->firstWhere('question_number', $source->question_number)) : null;
+                    $question = $source ? ($target->is($task) ? $source : $existing->firstWhere('question_number', $originalNumbers[$source->id])) : null;
                     if (! empty($row['delete']) || trim((string) ($row['question_text'] ?? '')) === '') {
                         $question?->delete();
 

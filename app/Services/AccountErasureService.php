@@ -136,6 +136,16 @@ class AccountErasureService
         }
         $this->tenantContext->clear();
 
+        // Offene Einladungen an diese Adresse in anderen Schulen und die
+        // Protokolleinträge dazu (enthalten die E-Mail-Adresse).
+        $this->onAdminConnection(function () use ($user) {
+            $invitationIds = TenantInvitation::withoutGlobalScopes()->whereRaw('lower(email) = ?', [mb_strtolower($user->email)])->pluck('id');
+            if ($invitationIds->isNotEmpty()) {
+                AuditLog::where('entity_type', 'tenant_invitation')->whereIn('entity_id', $invitationIds)->update(['before_data' => null, 'after_data' => null]);
+                TenantInvitation::withoutGlobalScopes()->whereIn('id', $invitationIds)->delete();
+            }
+        });
+
         if ($tenantIds === []) {
             $this->onAdminConnection(function () use ($user) {
                 AuditLog::where('entity_type', 'app_user')->where('entity_id', $user->id)->update(['before_data' => null, 'after_data' => null]);

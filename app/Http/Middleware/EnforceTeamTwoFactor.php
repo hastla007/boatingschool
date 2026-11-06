@@ -36,6 +36,6 @@ class EnforceTeamTwoFactor
         }
 
         return redirect()->route('two-factor.show')
-            ->with('status', 'Ihre Bootsschule verlangt für das Team die Zwei-Faktor-Anmeldung. Bitte richten Sie sie jetzt ein.');
+            ->with('status', 'Deine Bootsschule verlangt für das Team die Zwei-Faktor-Anmeldung. Bitte richte sie jetzt ein.');
     }
 }

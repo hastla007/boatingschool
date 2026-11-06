@@ -52,7 +52,7 @@
                 </a>
                 @if ($tenant->status === 'closed')
                     <form method="POST" action="{{ route('superadmin.tenants.destroy', $tenant) }}" class="space-y-2 p-3 rounded-lg bg-red-50 dark:bg-red-950/40"
-                          onsubmit="return confirm('Bootsschule endgültig löschen? Das lässt sich nicht rückgängig machen.')">
+                          x-data="{}" @submit="if (! confirm('Bootsschule endgültig löschen? Das lässt sich nicht rückgängig machen.')) $event.preventDefault()">
                         @csrf
                         @method('DELETE')
                         <p class="text-xs text-red-900 dark:text-red-100">
@@ -130,7 +130,7 @@
             <h3 class="font-medium text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
                 <x-icon name="bookmark" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Coupon-Codes dieser Bootsschule
             </h3>
-            <a href="{{ route('superadmin.coupons.index', ['tenant_id' => $tenant->id]) }}" class="text-sm hover:underline" style="color: #005FD7">Im Coupon-Bereich verwalten &rarr;</a>
+            <a href="{{ route('superadmin.coupons.index', ['tenant_id' => $tenant->id]) }}" class="text-sm hover:underline text-blue-700 dark:text-blue-300">Im Coupon-Bereich verwalten &rarr;</a>
         </div>
         <div class="overflow-x-auto">
         <table class="w-full text-sm">

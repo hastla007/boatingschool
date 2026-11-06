@@ -32,7 +32,7 @@ class TwoFactorAuthenticationTest extends TestCase
         $tenant = $this->createTestTenant();
         $admin = $this->createTenantUser($tenant, 'owner');
 
-        $this->actingAsInTenant($admin, $tenant)->post('/two-factor/enable')->assertRedirect(route('two-factor.show'));
+        $this->actingAsInTenant($admin, $tenant)->post('/two-factor/enable', ['password' => 'password'])->assertRedirect(route('two-factor.show'));
         $secret = $this->fresh($admin)->two_factor_secret;
         $this->assertSame(32, strlen($secret));
         $this->assertFalse($this->fresh($admin)->hasTwoFactor(), 'erst nach Bestätigung aktiv');

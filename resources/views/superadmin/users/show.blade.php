@@ -159,10 +159,10 @@
                         <p class="text-slate-500 dark:text-slate-400">Noch keine Bootsschule zugeordnet.</p>
                     @endforelse
                 </div>
-                <form method="POST" action="{{ route('superadmin.users.memberships.store', $user) }}" class="flex gap-2">
+                <form method="POST" action="{{ route('superadmin.users.memberships.store', $user) }}" class="flex flex-wrap gap-2">
                     @csrf
                     <label for="membership_tenant_id" class="sr-only">Bootsschule</label>
-                    <select id="membership_tenant_id" name="tenant_id" required class="flex-1 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs">
+                    <select id="membership_tenant_id" name="tenant_id" required class="flex-1 min-w-0 basis-40 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs">
                         @foreach ($tenants as $tenant)
                             <option value="{{ $tenant->id }}">{{ $tenant->name }}</option>
                         @endforeach

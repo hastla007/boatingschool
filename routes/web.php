@@ -216,7 +216,7 @@ Route::middleware(['auth', 'tenant.role:owner,admin,instructor', 'verified', 'in
     // Timing-Seitenkanal realistisch nutzbar, und jede beliebige echte
     // Adresse ließ sich unbegrenzt mit Einladungs-/Reset-Mails zuspammen.
     Route::post('/participants/invite', [ParticipantController::class, 'invite'])->middleware('throttle:10,1,participants-invite')->name('participants.invite');
-    Route::post('/participants/bulk-invite', [ParticipantToolsController::class, 'bulkInvite'])->middleware('throttle:5,1,participants-bulk-invite')->name('participants.bulk-invite');
+    Route::post('/participants/bulk-invite', [ParticipantToolsController::class, 'bulkInvite'])->middleware(['tenant.role:owner,admin', 'throttle:5,1,participants-bulk-invite'])->name('participants.bulk-invite');
     Route::get('/inactive', [InactiveLearnerController::class, 'index'])->name('inactive.index');
     Route::post('/inactive/remind', [InactiveLearnerController::class, 'remind'])->middleware('throttle:10,1,participants-remind')->name('inactive.remind');
     Route::get('/statistics', [SchoolInsightsController::class, 'statistics'])->name('statistics');

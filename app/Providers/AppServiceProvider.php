@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Auth\TenantSessionGuard;
 use App\Support\CanonicalUrl;
 use App\Support\TenantContext;
 use Illuminate\Auth\Events\Registered;
@@ -10,6 +11,7 @@ use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Foundation\Events\DiagnosingHealth;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
@@ -31,6 +33,26 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Eigenes Remember-Cookie je Schule im Pfad-Modus (siehe TenantSessionGuard).
+        Auth::extend('session', function ($app, string $name, array $config) {
+            $guard = new TenantSessionGuard(
+                $name,
+                Auth::createUserProvider($config['provider'] ?? null),
+                $app['session.store'],
+                rehashOnLogin: $app['config']->get('hashing.rehash_on_login', true),
+                timeboxDuration: $app['config']->get('auth.timebox_duration', 200000),
+                hashKey: $app['config']->get('app.key'),
+            );
+            $guard->setCookieJar($app['cookie']);
+            $guard->setDispatcher($app['events']);
+            $guard->setRequest($app->refresh('request', $guard, 'setRequest'));
+            if (isset($config['remember'])) {
+                $guard->setRememberDuration($config['remember']);
+            }
+
+            return $guard;
+        });
+
         // Verschickt die Verifizierungs-Mail nach der Registrierung (User
         // implementiert MustVerifyEmail, siehe Sicherheitsreview H2) -- in
         // Laravel 11 ohne EventServiceProvider muss das explizit verdrahtet

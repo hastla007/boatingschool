@@ -98,6 +98,29 @@ class ExamRuleSet extends Model
         return $results;
     }
 
+    /**
+     * Bestehensquote als Bruch „x von y“ für das Bearbeitungsformular: die
+     * Fragenzahl des Bogens oder sonst der kleinste Nenner (bis 100), der
+     * die gespeicherte Quote exakt trifft (19/24 statt gerundet 8/10). So
+     * ändert unverändertes Speichern die Quote nicht.
+     *
+     * @return array{0: int, 1: int}
+     */
+    public function passingFraction(int $fallbackTotal): array
+    {
+        $ratio = (float) ($this->passing_rule['min_correct_ratio'] ?? 0.75);
+        $fallbackTotal = max(1, $fallbackTotal);
+        // Lieber die Fragenzahl des Bogens, wenn sie die Quote exakt trifft (15 von 20 statt 3 von 4).
+        foreach ([$fallbackTotal, ...range(1, 100)] as $of) {
+            $min = (int) round($ratio * $of);
+            if ($min >= 1 && abs($min / $of - $ratio) < 1e-9) {
+                return [$min, $of];
+            }
+        }
+
+        return [(int) ceil($ratio * $fallbackTotal - 1e-9), $fallbackTotal];
+    }
+
     /** Kurztext der Bestehensgrenze für einen Bogen mit $total Fragen, z. B. "Basisfragen 5/7 · See 18/23 · 60 Minuten". */
     public function passingSummary(int $total): string
     {

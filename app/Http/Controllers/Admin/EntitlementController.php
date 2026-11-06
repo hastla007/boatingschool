@@ -146,7 +146,7 @@ class EntitlementController extends Controller
             $coupon = Coupon::where('tenant_id', $tenant->id)
                 ->where('course_id', $course->id)
                 ->where('is_renewal', false)
-                ->whereNull('redeemed_at')
+                ->usable()
                 ->oldest()
                 ->lock('for update skip locked')
                 ->first();
@@ -323,7 +323,7 @@ class EntitlementController extends Controller
         $coupon = Coupon::where('tenant_id', $tenant->id)
             ->where('course_id', $entitlement->course_id)
             ->where('is_renewal', false)
-            ->whereNull('redeemed_at')
+            ->usable()
             ->oldest()
             ->lock('for update skip locked')
             ->first();

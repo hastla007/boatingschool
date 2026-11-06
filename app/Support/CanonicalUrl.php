@@ -22,8 +22,20 @@ class CanonicalUrl
     public static function root(?Tenant $tenant = null): string
     {
         $scheme = app()->environment('production') ? 'https' : 'http';
+        $display = self::display($tenant);
 
-        return $scheme.'://'.self::display($tenant);
+        // Lokal (php -S, Docker) läuft die App oft auf einem eigenen Port:
+        // den Port der aktuellen Anfrage übernehmen, sonst zeigen Links auf
+        // Port 80 ins Leere. In Produktion stehen 80/443 nie in der URL.
+        $request = app()->bound('request') ? request() : null;
+        $port = $request?->getPort();
+        if (! app()->environment('production') && $port && ! in_array((int) $port, [80, 443], true)
+            && strcasecmp($request->getHost(), (string) config('app.central_domain')) === 0) {
+            $host = (string) config('app.central_domain');
+            $display = preg_replace('/'.preg_quote($host, '/').'/i', $host.':'.$port, $display, 1);
+        }
+
+        return $scheme.'://'.$display;
     }
 
     /**

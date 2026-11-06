@@ -6,6 +6,7 @@ use App\Models\CourseDefinition;
 use App\Models\Entitlement;
 use App\Models\Product;
 use App\Notifications\Concerns\EscapesMarkdown;
+use App\Support\GermanTime;
 use App\Support\MailTemplates;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -32,7 +33,7 @@ class CouponRedeemed extends Notification
     public function toMail(mixed $notifiable): MailMessage
     {
         $r = $this->result;
-        $until = isset($r['entitlement']) ? $r['entitlement']->valid_until?->format('d.m.Y') : null;
+        $until = isset($r['entitlement']) ? GermanTime::format($r['entitlement']->valid_until, 'd.m.Y') : null;
 
         if ($r['type'] === 'product') {
             return (new MailMessage)

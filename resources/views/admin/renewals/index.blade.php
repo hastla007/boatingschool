@@ -6,6 +6,7 @@
     <a href="{{ route('admin.dashboard', ['tab' => 'participants']) }}" class="text-sm text-slate-600 dark:text-slate-400 hover:underline">&larr; Zurück zu Teilnehmer</a>
 
     <div class="mt-4 space-y-4">
+        @if ($courses->isNotEmpty())
         <form method="GET" action="{{ route('admin.renewals.index') }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex flex-wrap items-end gap-3">
             <div>
                 <label for="course_id" class="block text-xs text-slate-600 dark:text-slate-400 mb-1">Kurs</label>
@@ -30,6 +31,7 @@
             </label>
             <button type="submit" class="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium hover:opacity-90">Anzeigen</button>
         </form>
+        @endif
 
         @if ($courseId)
             <form method="POST" action="{{ route('admin.renewals.store') }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm" x-data="{ all: true }">
@@ -53,6 +55,7 @@
                     @forelse ($entitlements as $entitlement)
                         <li class="px-4 py-2 flex flex-wrap items-center gap-3 text-sm">
                             <input type="checkbox" name="entitlement_ids[]" value="{{ $entitlement->id }}" checked class="rounded border-slate-300" aria-label="{{ $entitlement->user->display_name ?? $entitlement->user->email }} verlängern">
+                            <input type="hidden" name="seen[{{ $entitlement->id }}]" value="{{ $entitlement->valid_until->timestamp }}">
                             <span class="flex-1 min-w-0">
                                 <span class="block text-slate-700 dark:text-slate-200">{{ $entitlement->user->display_name ?? $entitlement->user->email }}</span>
                                 <span class="block text-xs text-slate-600 dark:text-slate-400">{{ $entitlement->user->email }}</span>

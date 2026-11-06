@@ -161,6 +161,7 @@
         </div>
     </div>
 
+    @if ($canManageTenant)
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
         <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
             <x-icon name="clock" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Letzte Aktivitäten
@@ -179,4 +180,5 @@
             <a href="{{ route('admin.audit.index') }}" class="inline-block mt-3 text-xs underline text-slate-600 dark:text-slate-400 hover:no-underline">Gesamtes Protokoll</a>
         @endif
     </div>
+    @endif
 </div>

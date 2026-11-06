@@ -33,7 +33,10 @@ class ImpersonationController extends Controller
         $member = TenantUser::on('pgsql_admin')->withoutGlobalScopes()->where('tenant_id', $tenant->id)->where('user_id', $data['user_id'])->where('status', 'active')->exists();
         abort_unless($user && $member && $user->status === 'active' && ! $user->is_superadmin, 403);
 
-        Auth::guard('web')->logout();
+        // logoutCurrentDevice() statt logout(): logout() würde das
+        // „Angemeldet bleiben“-Token des bisher angemeldeten Kontos neu
+        // setzen und es damit auf allen Geräten abmelden.
+        Auth::guard('web')->logoutCurrentDevice();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
         Auth::guard('web')->login(User::findOrFail($user->id));
@@ -61,9 +64,7 @@ class ImpersonationController extends Controller
             $this->audit($impersonation['tenant_id'], $impersonation['impersonator_id'], 'superadmin.impersonate.stop', $userId);
         }
 
-        Auth::guard('web')->logout();
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
+        Impersonation::endSession($request);
 
         // Zwischenseite statt Redirect: die CSP (form-action 'self') blockiert Redirects nach einem Formular auf eine andere Domain.
         return response()->view('impersonation.ended', [

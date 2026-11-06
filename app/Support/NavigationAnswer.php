@@ -43,23 +43,38 @@ class NavigationAnswer
             $text = substr_replace($text, str_repeat(' ', strlen($m[0][0])), $m[0][1], strlen($m[0][0]));
         };
 
-        // Positionen: 54° 03,5' N 008° 06,9' E
-        if (preg_match_all("/(\d{1,2})(?:\s*°\s*|\s+)(\d{1,2}(?:[.,]\d+)?)\s*'?\s*([NS])\W{0,3}(\d{1,3})(?:\s*°\s*|\s+)(\d{1,2}(?:[.,]\d+)?)\s*'?\s*([EWO])/iu", $text, $all, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) {
+        // Positionen: 54° 03,5' N 008° 06,9' E oder N 54° 03,5' E 008° 06,9'
+        $deg = "(\d{1,2})(?:\s*°\s*|\s+)(\d{1,2}(?:[.,]\d+)?)\s*'?";
+        $lonDeg = "(\d{1,3})(?:\s*°\s*|\s+)(\d{1,2}(?:[.,]\d+)?)\s*'?";
+        $positionPatterns = [
+            'suffix' => "/{$deg}\s*([NS])\W{0,3}{$lonDeg}\s*([EWO])/iu",
+            'prefix' => "/\b([NS])\s*{$deg}\W{0,3}([EWO])\s*{$lonDeg}/iu",
+        ];
+        foreach ($positionPatterns as $style => $pattern) {
+            if (! preg_match_all($pattern, $text, $all, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) {
+                continue;
+            }
             foreach ($all as $m) {
-                $lat = ((int) $m[1][0] * 60 + self::num($m[2][0])) * (strtoupper($m[3][0]) === 'S' ? -1 : 1);
-                $lon = ((int) $m[4][0] * 60 + self::num($m[5][0])) * (strtoupper($m[6][0]) === 'W' ? -1 : 1);
+                [$latD, $latM, $ns, $lonD, $lonM, $ew] = $style === 'suffix'
+                    ? [$m[1][0], $m[2][0], $m[3][0], $m[4][0], $m[5][0], $m[6][0]]
+                    : [$m[2][0], $m[3][0], $m[1][0], $m[5][0], $m[6][0], $m[4][0]];
+                $lat = ((int) $latD * 60 + self::num($latM)) * (strtoupper($ns) === 'S' ? -1 : 1);
+                $lon = ((int) $lonD * 60 + self::num($lonM)) * (strtoupper($ew) === 'W' ? -1 : 1);
                 $found[] = ['pos' => $m[0][1], 'type' => 'position', 'value' => [$lat, $lon]];
                 $mask($m);
             }
         }
+        // Uhrzeit: „10:42“ immer, „10.42“ nur mit „Uhr“ -- sonst wäre eine
+        // Dezimalzahl wie „0.80 sm“ oder „5.25 kn“ eine Uhrzeit.
         $patterns = [
-            'time' => '/\b(\d{1,2})[:.](\d{2})\s*(?:uhr)?\b/iu',
-            'angle' => '/(\d{1,3}(?:[.,]\d+)?)\s*°/u',
-            'distance' => '/(\d+(?:[.,]\d+)?)\s*sm\b/iu',
-            'speed' => '/(\d+(?:[.,]\d+)?)\s*(?:kn|knoten)\b/iu',
-            'minutes' => '/(\d+(?:[.,]\d+)?)\s*min\b\.?/iu',
+            ['time', '/\b(\d{1,2}):(\d{2})\b(?:\s*uhr\b)?/iu'],
+            ['time', '/\b(\d{1,2})\.(\d{2})\s*uhr\b/iu'],
+            ['angle', '/(\d{1,3}(?:[.,]\d+)?)\s*°/u'],
+            ['distance', '/(\d+(?:[.,]\d+)?)\s*sm\b/iu'],
+            ['speed', '/(\d+(?:[.,]\d+)?)\s*(?:kn|knoten)\b/iu'],
+            ['minutes', '/(\d+(?:[.,]\d+)?)\s*min\b\.?/iu'],
         ];
-        foreach ($patterns as $type => $pattern) {
+        foreach ($patterns as [$type, $pattern]) {
             if ($type === 'time' && ! $lenient && ! preg_match('/uhr|\d{1,2}:\d{2}/iu', $text)) {
                 continue;
             }
@@ -97,6 +112,11 @@ class NavigationAnswer
      */
     private static function matches(array $expected, array $actual): bool
     {
+        // Genau so viele Werte wie erwartet: „074/076“ oder eine Zahlenreihe
+        // darf nicht durch Ausprobieren mehrerer Werte richtig werden.
+        if (count($actual) !== count($expected)) {
+            return false;
+        }
         $i = 0;
         foreach ($expected as $e) {
             $hit = false;
@@ -126,9 +146,19 @@ class NavigationAnswer
             return false;
         }
         if ($expected['type'] === 'angle') {
+            if ($value < 0 || $value > 360) {
+                return false;
+            }
             $diff = fmod(abs($expected['value'] - $value), 360);
 
             return min($diff, 360 - $diff) <= $tolerance;
+        }
+
+        if ($expected['type'] === 'time') {
+            // Über Mitternacht: 23:58 und 00:01 liegen 3 Minuten auseinander.
+            $diff = fmod(abs($expected['value'] - $value), 1440);
+
+            return min($diff, 1440 - $diff) <= $tolerance + 1e-9;
         }
 
         return abs($expected['value'] - $value) <= $tolerance + 1e-9;
