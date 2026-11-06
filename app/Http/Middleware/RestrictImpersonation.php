@@ -7,7 +7,6 @@ use App\Support\CanonicalUrl;
 use App\Support\Impersonation;
 use Closure;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -28,9 +27,16 @@ class RestrictImpersonation
 
         if (now()->timestamp - $impersonation['started_at'] > Impersonation::MAX_MINUTES * 60) {
             ImpersonationController::audit($impersonation['tenant_id'], $impersonation['impersonator_id'], 'superadmin.impersonate.expired', $request->user()?->id);
-            Auth::guard('web')->logout();
-            $request->session()->invalidate();
-            $request->session()->regenerateToken();
+            Impersonation::endSession($request);
+
+            return redirect()->away(CanonicalUrl::root().route('superadmin.dashboard', [], false));
+        }
+
+        // Abmelden in der Support-Ansicht beendet sie wie „Beenden“ (mit
+        // Protokoll), ohne das Konto auf anderen Geräten abzumelden.
+        if ($request->route()?->getName() === 'logout' && ! $request->isMethodSafe()) {
+            ImpersonationController::audit($impersonation['tenant_id'], $impersonation['impersonator_id'], 'superadmin.impersonate.stop', $request->user()?->id);
+            Impersonation::endSession($request);
 
             return redirect()->away(CanonicalUrl::root().route('superadmin.dashboard', [], false));
         }

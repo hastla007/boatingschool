@@ -31,6 +31,12 @@ class RemindExpiringEntitlements extends Command
             ->whereNotNull('valid_until')
             ->where('valid_until', '>', now())
             ->where('valid_until', '<=', now()->addDays(Entitlement::EXPIRY_WARNING_DAYS))
+            // Nur laufende Schulen und aktive Mitgliedschaften: wer gesperrt
+            // ist oder dessen Schule geschlossen wird, bekommt keine
+            // Aufforderung, einen Verlängerungscode zu kaufen.
+            ->whereHas('tenant', fn ($q) => $q->whereIn('status', ['active', 'trial']))
+            ->whereExists(fn ($q) => $q->from('tenant_user')->whereColumn('tenant_user.tenant_id', 'entitlement.tenant_id')
+                ->whereColumn('tenant_user.user_id', 'entitlement.user_id')->where('tenant_user.status', 'active'))
             ->chunkById(200, function ($entitlements) use (&$sent) {
                 foreach ($entitlements as $entitlement) {
                     if (! $entitlement->user || ! $entitlement->course || ! $entitlement->tenant) {

@@ -71,8 +71,10 @@ class AdminDashboardController extends Controller
         // Bug-Review B15: status wechselt nie automatisch auf "expired" --
         // ein reines status=active zählte abgelaufene Freischaltungen
         // weiter als aktiv. currentlyActive() prüft zusätzlich valid_until.
-        $activeEntitlements = Entitlement::where('tenant_id', $tenant->id)->currentlyActive()->count();
-        $recentActivity = AuditLog::where('tenant_id', $tenant->id)->latest('created_at')->take(10)->get();
+        $activeEntitlements = Entitlement::where('tenant_id', $tenant->id)->currentlyActive()
+            ->when($scopeCourseIds !== null, fn ($q) => $q->whereIn('course_id', $scopeCourseIds)->whereIn('user_id', $learnerIds))->count();
+        // Protokoll der ganzen Schule nur für Inhaber/Admins.
+        $recentActivity = $canManageTenant ? AuditLog::where('tenant_id', $tenant->id)->latest('created_at')->take(10)->get() : collect();
 
         // Info-Hinweis "Kürzlich gebuchte Kurse & Produkte" auf dem
         // Dashboard -- über alle Teilnehmer der Bootsschule hinweg, damit
@@ -82,6 +84,7 @@ class AdminDashboardController extends Controller
         $recentBookingsCutoff = now()->subDays(7);
         $recentProductPurchases = ProductPurchase::where('tenant_id', $tenant->id)
             ->where('created_at', '>=', $recentBookingsCutoff)
+            ->when($visibleLearnerIds !== null, fn ($q) => $q->whereIn('user_id', $visibleLearnerIds))
             ->with(['product', 'user'])->get();
 
         // Optionen, die ein Kurs-Coupon zusätzlich bündelt (z. B. "Kleine
@@ -93,6 +96,8 @@ class AdminDashboardController extends Controller
 
         $recentCourseBookings = Entitlement::where('tenant_id', $tenant->id)
             ->where('valid_from', '>=', $recentBookingsCutoff)
+            ->when($scopeCourseIds !== null, fn ($q) => $q->whereIn('course_id', $scopeCourseIds))
+            ->when($visibleLearnerIds !== null, fn ($q) => $q->whereIn('user_id', $visibleLearnerIds))
             ->with(['course', 'user'])->get()
             ->map(function (Entitlement $e) use ($optionsByCode, &$bundledProductIds) {
                 $options = $e->source_type === 'coupon' ? ($optionsByCode->get($e->source_reference) ?? collect()) : collect();
@@ -128,6 +133,7 @@ class AdminDashboardController extends Controller
 
         $recentExams = ExamSession::where('tenant_id', $tenant->id)
             ->where('status', 'evaluated')
+            ->when($scopeCourseIds !== null, fn ($q) => $q->whereIn('course_id', $scopeCourseIds)->whereIn('user_id', $learnerIds))
             ->where('created_at', '>=', now()->subDays(30))
             ->get();
         $examPassRate = $recentExams->isNotEmpty()
@@ -144,6 +150,8 @@ class AdminDashboardController extends Controller
             ->where('response', 'accepted')
             ->where('exam_date', '>=', $now)
             ->where('exam_date', '<=', $now->copy()->addDays(30))
+            ->when($scopeCourseIds !== null, fn ($q) => $q->whereIn('praxis_form_submission_id',
+                PraxisFormSubmission::where('tenant_id', $tenant->id)->whereIn('course_id', $scopeCourseIds)->select('id')))
             ->get(['exam_date']);
         $upcomingAppointmentsNext7Days = $upcomingAppointments->where('exam_date', '<=', $now->copy()->addDays(7))->count();
         $upcomingAppointmentsNext30Days = $upcomingAppointments->count();
@@ -490,7 +498,7 @@ class AdminDashboardController extends Controller
         // Kurs, damit sie nicht mit regulären Kurs-Freischalt-Codes
         // vermischt werden.
         $couponSummary = Coupon::where('tenant_id', $tenant->id)
-            ->selectRaw('course_id, product_id, is_renewal, count(*) filter (where redeemed_at is null) as free_count, count(*) filter (where redeemed_at is not null) as used_count')
+            ->selectRaw('course_id, product_id, is_renewal, count(*) filter (where redeemed_at is null and voided_at is null and (expires_at is null or expires_at > now())) as free_count, count(*) filter (where redeemed_at is not null) as used_count')
             ->groupBy('course_id', 'product_id', 'is_renewal')
             ->get()
             ->map(function ($row) {
@@ -514,7 +522,7 @@ class AdminDashboardController extends Controller
         $freeCourseCouponCounts = Coupon::where('tenant_id', $tenant->id)
             ->whereNotNull('course_id')
             ->where('is_renewal', false)
-            ->whereNull('redeemed_at')
+            ->usable()
             ->selectRaw('course_id, count(*) as free_count')
             ->groupBy('course_id')
             ->pluck('free_count', 'course_id');

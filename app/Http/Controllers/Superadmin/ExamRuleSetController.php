@@ -59,10 +59,18 @@ class ExamRuleSetController extends Controller
         if ($blueprints->pluck('module_id')->duplicates()->isNotEmpty()) {
             return back()->withErrors(['blueprints' => 'Jedes Modul nur einmal im Fragenmix.'])->withInput();
         }
+        if ($validated['status'] === 'published' && $blueprints->isEmpty()) {
+            return back()->withErrors(['blueprints' => 'Ein veröffentlichtes Regelwerk braucht mindestens ein Modul im Fragenmix.'])->withInput();
+        }
+        $blueprintModuleCodes = Module::whereIn('id', $blueprints->pluck('module_id'))->pluck('code');
         $parts = collect($validated['parts'] ?? [])->filter(fn ($p) => trim((string) ($p['label'] ?? '')) !== '');
         foreach ($parts as $part) {
             if (empty($part['module']) || ! isset($part['min_correct'], $part['of']) || $part['min_correct'] > $part['of']) {
                 return back()->withErrors(['parts' => "Prüfungsteil „{$part['label']}“: Modul sowie „x von y“ angeben (x höchstens y)."])->withInput();
+            }
+            // Ein Teil ohne Fragen im Bogen gilt als nicht bestanden -- dann könnte niemand bestehen.
+            if (! $blueprintModuleCodes->contains($part['module'])) {
+                return back()->withErrors(['parts' => "Prüfungsteil „{$part['label']}“: das Modul muss im Fragenmix vorkommen."])->withInput();
             }
         }
 

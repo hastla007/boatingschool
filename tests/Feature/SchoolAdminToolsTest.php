@@ -105,7 +105,7 @@ class SchoolAdminToolsTest extends TestCase
         $lines = implode("\n", ['Max Muster, bulk-max@example.test', 'bulk-erika@example.test', 'Lisa Lot <bulk-lisa@example.test>', 'kein-mail', $member->email, 'bulk-max@example.test']);
 
         $this->actingAsInTenant($admin, $tenant)->post('/admin/participants/bulk-invite', ['emails' => $lines])
-            ->assertSessionHas('status', fn ($s) => str_starts_with($s, '3 Einladungen verschickt.') && str_contains($s, 'kein-mail') && str_contains($s, 'bereits Teilnehmer'));
+            ->assertSessionHas('status', fn ($s) => str_starts_with($s, '3 Personen eingeladen.') && str_contains($s, 'kein-mail') && str_contains($s, 'bereits Teilnehmer'));
         $this->onAdmin(function () use ($tenant) {
             $max = User::where('email', 'bulk-max@example.test')->first();
             $this->assertSame('Max Muster', $max->display_name);

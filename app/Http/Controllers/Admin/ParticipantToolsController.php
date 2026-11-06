@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Entitlement;
+use App\Models\TenantInvitation;
 use App\Models\TenantUser;
 use App\Models\User;
 use App\Services\CourseProgressService;
@@ -16,6 +17,7 @@ use App\Support\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Validator;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -23,6 +25,9 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class ParticipantToolsController extends Controller
 {
     private const MAX_BULK = 100;
+
+    /** Höchstens so viele Sammel-Einladungen je Schule und Tag (Schutz vor Spam an fremde Adressen). */
+    private const MAX_BULK_PER_DAY = 300;
 
     public function bulkInvite(Request $request, TenantContext $tenantContext, ParticipantInviter $inviter): RedirectResponse
     {
@@ -34,13 +39,21 @@ class ParticipantToolsController extends Controller
             return back()->withErrors(['emails' => 'Höchstens '.self::MAX_BULK.' Zeilen auf einmal.'])->withInput();
         }
 
+        $dailyKey = 'bulk-invite:'.$tenant->id;
         $invited = 0;
+        $mailFailed = 0;
         $skipped = [];
         $seen = [];
+        $limitReached = false;
         foreach ($lines as $line) {
             [$name, $email] = $this->parseLine($line);
-            if ($email === null || Validator::make(['email' => $email], ['email' => ['email']])->fails()) {
+            if ($email === null || Validator::make(['email' => $email], ['email' => ['email', 'max:320']])->fails()) {
                 $skipped[] = "„{$line}“ (keine gültige E-Mail-Adresse)";
+
+                continue;
+            }
+            if (mb_strlen((string) $name) > 120) {
+                $skipped[] = "{$email} (Name zu lang)";
 
                 continue;
             }
@@ -55,12 +68,31 @@ class ParticipantToolsController extends Controller
 
                 continue;
             }
+            if (TenantInvitation::where('tenant_id', $tenant->id)->whereRaw('lower(email) = ?', [mb_strtolower($email)])->whereNull('accepted_at')->exists()) {
+                $skipped[] = "{$email} (bereits eingeladen)";
 
-            $inviter->invite($tenant, $request->user(), $name ?: strstr($email, '@', true), $email);
+                continue;
+            }
+            if (RateLimiter::tooManyAttempts($dailyKey, self::MAX_BULK_PER_DAY)) {
+                $limitReached = true;
+                break;
+            }
+            RateLimiter::hit($dailyKey, 86400);
+
+            $result = $inviter->invite($tenant, $request->user(), $name ?: strstr($email, '@', true), $email);
             $invited++;
+            if (! $result['mail_sent']) {
+                $mailFailed++;
+            }
         }
 
-        $status = $invited === 1 ? 'Eine Einladung verschickt.' : "{$invited} Einladungen verschickt.";
+        $status = $invited === 1 ? 'Eine Person eingeladen.' : "{$invited} Personen eingeladen.";
+        if ($mailFailed > 0) {
+            $status .= " Bei {$mailFailed} konnte die Einladungsmail nicht verschickt werden.";
+        }
+        if ($limitReached) {
+            $status .= ' Tageslimit von '.self::MAX_BULK_PER_DAY.' Sammel-Einladungen erreicht, die übrigen bitte morgen einladen.';
+        }
         if ($skipped !== []) {
             $status .= ' Übersprungen: '.implode(', ', array_slice($skipped, 0, 10)).(count($skipped) > 10 ? ' …' : '').'.';
         }
@@ -84,24 +116,31 @@ class ParticipantToolsController extends Controller
 
         return response()->streamDownload(function () use ($members, $last, $entitlements, $overview, $tenant) {
             $out = fopen('php://output', 'w');
+            // Formel-Injektion verhindern: von Lernenden gepflegte Texte wie
+            // „=HYPERLINK(…)“ würde Excel sonst als Formel ausführen.
+            $put = fn (array $row) => fputcsv($out, array_map(fn ($v) => is_string($v) && preg_match('/^[=+\-@\t\r]/', $v) ? "'".$v : $v, $row), ';', '"', '\\');
             fwrite($out, "\xEF\xBB\xBF");
-            fputcsv($out, ['Vorname', 'Nachname', 'E-Mail', 'Status', 'Teilnehmer seit', 'Zuletzt gelernt', 'Kurs', 'Zugang', 'Zugang bis', 'Fortschritt %', 'Prüfungsreif'], ';', '"', '\\');
+            $put(['Vorname', 'Nachname', 'E-Mail', 'Status', 'Teilnehmer seit', 'Zuletzt gelernt', 'Kurs', 'Zugang', 'Zugang bis', 'Fortschritt %', 'Prüfungsreif']);
             foreach ($members as $m) {
                 $base = [
-                    $m->user->first_name ?? '', $m->user->last_name ?? $m->user->name, $m->user->email,
+                    // Ohne gepflegten Vor-/Nachnamen den Anzeigenamen aufteilen (wie im Profil).
+                    ...array_values($m->user->first_name || $m->user->last_name
+                        ? ['first_name' => $m->user->first_name ?? '', 'last_name' => $m->user->last_name ?? '']
+                        : array_map(fn ($v) => $v ?? '', User::splitDisplayName((string) $m->user->name))),
+                    $m->user->email,
                     StatusLabels::userStatus($m->status), $m->created_at?->timezone('Europe/Berlin')->format('d.m.Y') ?? '',
                     isset($last[$m->user_id]) ? Carbon::parse($last[$m->user_id])->timezone('Europe/Berlin')->format('d.m.Y') : '',
                 ];
                 $rows = $entitlements->get($m->user_id, collect())->filter(fn ($e) => $e->course);
                 if ($rows->isEmpty()) {
-                    fputcsv($out, array_merge($base, ['', '', '', '', '']), ';', '"', '\\');
+                    $put(array_merge($base, ['', '', '', '', '']));
                 }
                 foreach ($rows as $e) {
                     $percent = app(CourseProgressService::class)->overallPercent($e->course, $tenant, $m->user);
-                    fputcsv($out, array_merge($base, [
+                    $put(array_merge($base, [
                         $e->course->name, StatusLabels::entitlementStatus($e->status), $e->valid_until?->timezone('Europe/Berlin')->format('d.m.Y') ?? '',
                         $percent, $percent >= $overview->threshold($tenant, $e->course) ? 'ja' : 'nein',
-                    ]), ';', '"', '\\');
+                    ]));
                 }
             }
             fclose($out);

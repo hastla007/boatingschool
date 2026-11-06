@@ -146,7 +146,7 @@ class EntitlementController extends Controller
             $coupon = Coupon::where('tenant_id', $tenant->id)
                 ->where('course_id', $course->id)
                 ->where('is_renewal', false)
-                ->whereNull('redeemed_at')
+                ->usable()
                 ->oldest()
                 ->lock('for update skip locked')
                 ->first();
@@ -235,6 +235,7 @@ class EntitlementController extends Controller
 
         $validated = $request->validate([
             'action' => ['required', 'in:extend,suspend,revoke,reactivate'],
+            'seen_valid_until' => ['nullable', 'integer'],
         ]);
 
         $tenant = $tenantContext->tenant();
@@ -242,6 +243,15 @@ class EntitlementController extends Controller
         return DB::transaction(function () use ($validated, $entitlement, $tenant, $request) {
             DB::statement('SELECT pg_advisory_xact_lock(hashtext(?))', [$tenant->id.':'.$entitlement->user_id.':'.$entitlement->course_id]);
             $entitlement->refresh();
+
+            // Doppelklick bzw. zweiter Admin: verlängert wird nur, wenn das
+            // Laufzeitende noch dem auf der Seite angezeigten entspricht --
+            // sonst würde ein zweiter Klick erneut verlängern und einen
+            // weiteren Verlängerungscode verbrauchen.
+            if ($validated['action'] === 'extend' && $request->filled('seen_valid_until')
+                && (int) $validated['seen_valid_until'] !== $entitlement->valid_until?->timestamp) {
+                return back()->with('status', 'Dieser Zugang wurde inzwischen schon verlängert oder geändert; es wurde kein weiterer Code verbraucht.');
+            }
 
             $before = $entitlement->toArray();
 
@@ -323,7 +333,7 @@ class EntitlementController extends Controller
         $coupon = Coupon::where('tenant_id', $tenant->id)
             ->where('course_id', $entitlement->course_id)
             ->where('is_renewal', false)
-            ->whereNull('redeemed_at')
+            ->usable()
             ->oldest()
             ->lock('for update skip locked')
             ->first();

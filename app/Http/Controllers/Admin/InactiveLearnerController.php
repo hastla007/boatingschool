@@ -51,18 +51,32 @@ class InactiveLearnerController extends Controller
             ->take(200);
 
         $sent = 0;
+        $failed = 0;
         foreach ($rows as $row) {
-            $daysSince = $row['last_activity'] ? (int) $row['last_activity']->diffInDays(now()) : null;
-            if (BestEffortMail::send(fn () => $row['membership']->user->notify(new LearningReminder($tenant, $daysSince)), 'Lernerinnerung '.$row['membership']->user_id)) {
-                $sent++;
+            $membership = $row['membership'];
+            // Erst bedingt vermerken (zwei Admins gleichzeitig: nur einer
+            // sendet), bei Mailfehler zurücksetzen, damit ein neuer Versuch
+            // nicht 7 Tage gesperrt ist.
+            $claimed = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $membership->user_id)
+                ->where(fn ($q) => $q->whereNull('reminded_at')->orWhere('reminded_at', '<', now()->subDays(self::REMINDER_COOLDOWN_DAYS)))
+                ->update(['reminded_at' => now()]);
+            if ($claimed === 0) {
+                continue;
             }
-            $row['membership']->update(['reminded_at' => now()]);
+            $daysSince = $row['last_activity'] ? (int) $row['last_activity']->diffInDays(now()) : null;
+            if (BestEffortMail::send(fn () => $membership->user->notify(new LearningReminder($tenant, $daysSince)), 'Lernerinnerung '.$membership->user_id)) {
+                $sent++;
+            } else {
+                $failed++;
+                TenantUser::where('tenant_id', $tenant->id)->where('user_id', $membership->user_id)->update(['reminded_at' => $membership->reminded_at]);
+            }
         }
 
         AuditLog::record($tenant->id, $request->user()->id, 'participants.remind_inactive', 'tenant_user', $request->input('user_id'), null, ['days' => $days, 'sent' => $sent]);
 
         return redirect()->route('admin.inactive.index', ['days' => $days])
-            ->with('status', $sent === 1 ? 'Eine Erinnerung verschickt.' : "{$sent} Erinnerungen verschickt.");
+            ->with('status', ($sent === 1 ? 'Eine Erinnerung verschickt.' : "{$sent} Erinnerungen verschickt.")
+                .($failed > 0 ? " {$failed} konnten nicht verschickt werden und lassen sich erneut versuchen." : ''));
     }
 
     /** @return Collection<int, array{membership: TenantUser, last_activity: ?Carbon, recently_reminded: bool}> */

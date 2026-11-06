@@ -49,8 +49,13 @@
             <button type="submit" class="w-full px-4 py-2.5 rounded-lg font-semibold text-white" style="background-color: var(--brand-primary, #005FD7)">Bestätigen und einschalten</button>
         </form>
     @else
-        <form method="POST" action="{{ route('two-factor.enable') }}">
+        <form method="POST" action="{{ route('two-factor.enable') }}" class="space-y-3">
             @csrf
+            <div>
+                <x-input-label for="enable-password" value="Zum Einrichten dein Passwort" />
+                <x-text-input id="enable-password" class="block mt-1 w-full" type="password" name="password" required autocomplete="current-password" />
+                <x-input-error :messages="$errors->get('password')" class="mt-2" />
+            </div>
             <button type="submit" class="w-full px-4 py-2.5 rounded-lg font-semibold text-white" style="background-color: var(--brand-primary, #005FD7)">Zwei-Faktor-Anmeldung einrichten</button>
         </form>
     @endif

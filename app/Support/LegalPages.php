@@ -123,6 +123,22 @@ MD;
     public static function html(string $kind, ?Tenant $tenant): string
     {
         $settings = PlatformSetting::query()->first();
+
+        // Zentrale Domain ohne Schule: Angaben des Plattformbetreibers.
+        if ($tenant === null) {
+            $operator = trim((string) ($settings?->operator_info ?? ''));
+            $values = ['schule' => $operator !== '' ? $operator : PlatformSetting::siteName(), 'email' => (string) ($settings?->support_email ?? '')]
+                + self::values(null, null, $settings);
+            $markdown = $kind === 'impressum'
+                ? self::fill("## Anbieter\n\n{betreiber}\n\n## Kontakt\n\nE-Mail: {email}", $values)
+                : self::fill($settings?->privacy_template ?: self::DEFAULT_DATENSCHUTZ, $values);
+            if (trim($markdown) === '') {
+                $markdown = 'Die Angaben des Betreibers werden noch ergänzt.';
+            }
+
+            return Str::markdown($markdown, ['html_input' => 'escape', 'allow_unsafe_links' => false]);
+        }
+
         $template = $kind === 'impressum'
             ? ($settings?->imprint_template ?: self::DEFAULT_IMPRESSUM)
             : ($settings?->privacy_template ?: self::DEFAULT_DATENSCHUTZ);

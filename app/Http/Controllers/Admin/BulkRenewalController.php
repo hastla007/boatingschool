@@ -51,18 +51,28 @@ class BulkRenewalController extends Controller
             'course_id' => ['required', 'uuid', Rule::in($this->courses($tenantContext)->pluck('id'))],
             'entitlement_ids' => ['required', 'array', 'max:500'],
             'entitlement_ids.*' => ['uuid'],
+            'seen' => ['nullable', 'array'],
+            'seen.*' => ['integer'],
         ], ['entitlement_ids.required' => 'Bitte mindestens einen Zugang auswählen.']);
 
         $entitlements = Entitlement::where('tenant_id', $tenant->id)->where('course_id', $validated['course_id'])
             ->whereIn('id', $validated['entitlement_ids'])->whereIn('status', ['active', 'expired'])->whereNotNull('valid_until')
             ->orderBy('valid_until')->get();
 
+        // Laufzeitende aus der Vorschau: hat sich ein Zugang seitdem
+        // geändert (Doppelklick, zweiter Admin, Einzel-Verlängerung), wird
+        // er übersprungen statt ein zweites Mal verlängert.
+        $seen = $validated['seen'] ?? [];
         $extended = 0;
+        $changed = 0;
         $withoutCode = 0;
-        foreach ($entitlements as $entitlement) {
-            $result = DB::transaction(function () use ($entitlement, $tenant, $renewal, $request) {
+        foreach ($entitlements->values() as $index => $entitlement) {
+            $result = DB::transaction(function () use ($entitlement, $tenant, $renewal, $request, $seen) {
                 DB::statement('SELECT pg_advisory_xact_lock(hashtext(?))', [$tenant->id.':'.$entitlement->user_id.':'.$entitlement->course_id]);
                 $entitlement->refresh();
+                if (isset($seen[$entitlement->id]) && (int) $seen[$entitlement->id] !== $entitlement->valid_until?->timestamp) {
+                    return 'changed';
+                }
                 $before = $entitlement->toArray();
                 $error = $renewal->extend($entitlement, $tenant);
                 if ($error === null) {
@@ -74,14 +84,19 @@ class BulkRenewalController extends Controller
             if ($result === null) {
                 $extended++;
             } elseif (str_contains($result, 'Verlängerungscode')) {
-                $withoutCode = $entitlements->count() - $extended;
+                $withoutCode = $entitlements->count() - $index;
                 break;
+            } else {
+                $changed++;
             }
         }
 
         $status = $extended === 1 ? 'Ein Zugang verlängert.' : "{$extended} Zugänge verlängert.";
         if ($withoutCode > 0) {
             $status .= " {$withoutCode} nicht verlängert: keine freien Verlängerungscodes mehr.";
+        }
+        if ($changed > 0) {
+            $status .= " {$changed} übersprungen: inzwischen schon verlängert oder geändert.";
         }
 
         return redirect()->route('admin.renewals.index', ['course_id' => $validated['course_id']])->with('status', $status);

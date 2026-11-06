@@ -267,12 +267,16 @@
                                              Oberfläche, "Widerruf aufheben" oben ist dort die einzig
                                              sinnvolle Aktion. --}}
                                         @if ($booking['status'] !== 'revoked')
+                                            {{-- Doppelklick-Schutz: Knopf nach dem Absenden gesperrt, und der Server
+                                                 verlängert nur, wenn das Laufzeitende noch dem angezeigten entspricht. --}}
                                             <form method="POST" action="{{ route('admin.entitlements.update', $booking['entitlement_id']) }}"
-                                                  title="Verbraucht einen eigenen Verlängerungscode für diesen Kurs.">
+                                                  title="Verbraucht einen eigenen Verlängerungscode für diesen Kurs."
+                                                  x-data="{ busy: false }" @submit="if (busy) { $event.preventDefault() } else { busy = true }">
                                                 @csrf
                                                 @method('PATCH')
                                                 <input type="hidden" name="action" value="extend">
-                                                <button type="submit" class="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-[11px] whitespace-nowrap">
+                                                <input type="hidden" name="seen_valid_until" value="{{ $booking['valid_until']?->timestamp ?? '' }}">
+                                                <button type="submit" :disabled="busy" class="disabled:opacity-50 px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-[11px] whitespace-nowrap">
                                                     Verlängern
                                                 </button>
                                             </form>

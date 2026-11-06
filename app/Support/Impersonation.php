@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 /**
  * „Als Nutzer ansehen“ (Support): der Superadmin meldet sich mit einem
@@ -33,6 +34,18 @@ class Impersonation
     public static function active(?Request $request = null): bool
     {
         return self::current($request) !== null;
+    }
+
+    /**
+     * Support-Ansicht beenden: abmelden nur in dieser Sitzung.
+     * logout() würde das „Angemeldet bleiben“-Token der Person neu setzen
+     * und sie damit auf allen ihren Geräten abmelden.
+     */
+    public static function endSession(Request $request): void
+    {
+        Auth::guard('web')->logoutCurrentDevice();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
     }
 
     public static function cacheKey(string $token): string

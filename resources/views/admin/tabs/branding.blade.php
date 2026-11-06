@@ -159,7 +159,7 @@
                 <span class="block text-sm font-medium text-slate-600 dark:text-slate-300">Impressum und Datenschutz</span>
                 <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
                     Aus diesen Angaben (Name, Anschrift, Ansprechpartner, Telefon, Support-E-Mail und den Feldern unten) entstehen
-                    automatisch eure Seiten <a href="{{ route('legal.show', 'impressum') }}" target="_blank" rel="noopener" class="underline">Impressum</a>
+                    automatisch Ihre Seiten <a href="{{ route('legal.show', 'impressum') }}" target="_blank" rel="noopener" class="underline">Impressum</a>
                     und <a href="{{ route('legal.show', 'datenschutz') }}" target="_blank" rel="noopener" class="underline">Datenschutzerklärung</a>.
                 </p>
             </div>
@@ -225,7 +225,7 @@
 
         <div class="pt-2 border-t border-slate-100 dark:border-slate-700">
             <label for="exam_readiness_threshold_percent" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Kursfortschritt-Voraussetzung für Prüfung &amp; Praxis</label>
-            <p class="text-xs text-slate-600 dark:text-slate-400 mb-2">Ab diesem Kursfortschritt darf ein Schüler die Kachel „Praxis &amp; Prüfung" auswählen, um Prüfung und Praxis bei Ihrer Bootsschule zu buchen.</p>
+            <p class="text-xs text-slate-600 dark:text-slate-400 mb-2">Ab diesem Kursfortschritt darf ein Schüler die Kachel „Praxis &amp; Prüfung" auswählen, um Prüfung und Praxis bei Ihrer Bootsschule zu buchen. Gibt das Praxisformular eines Kurses einen eigenen Mindestfortschritt vor, gilt für diesen Kurs dieser Wert.</p>
             <div class="flex items-center gap-2">
                 <input type="number" id="exam_readiness_threshold_percent" name="exam_readiness_threshold_percent" min="0" max="100"
                        value="{{ old('exam_readiness_threshold_percent', $branding->exam_readiness_threshold_percent) }}"

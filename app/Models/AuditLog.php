@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Impersonation;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 
@@ -34,6 +35,50 @@ class AuditLog extends Model
         ];
     }
 
+    /** Protokolltexte der neueren Aktionen (Satz nach dem Namen der handelnden Person). */
+    private const SIMPLE_DESCRIPTIONS = [
+        'entitlement.extend' => 'hat einen Kurszugang verlängert.',
+        'participants.export' => 'hat die Teilnehmerliste exportiert.',
+        'participants.remind_inactive' => 'hat inaktive Lernende ans Lernen erinnert.',
+        'announcement.create' => 'hat eine Mitteilung an Teilnehmer veröffentlicht.',
+        'announcement.delete' => 'hat eine Mitteilung an Teilnehmer gelöscht.',
+        'team.invite' => 'hat ein Teammitglied eingeladen.',
+        'team.invite_pending' => 'hat eine Team-Einladung an ein bestehendes Konto verschickt.',
+        'team.role_update' => 'hat die Rolle eines Teammitglieds geändert.',
+        'team.transfer_ownership' => 'hat die Inhaberschaft übergeben.',
+        'team.two_factor_policy' => 'hat die 2FA-Pflicht fürs Team geändert.',
+        'team.instructor_courses' => 'hat die Kurse eines Ausbilders festgelegt.',
+        'two_factor.enable' => 'hat die Zwei-Faktor-Anmeldung eingeschaltet.',
+        'two_factor.disable' => 'hat die Zwei-Faktor-Anmeldung ausgeschaltet.',
+        'superadmin.impersonate.start' => 'hat die Support-Ansicht („Als Nutzer ansehen“) gestartet.',
+        'superadmin.impersonate.stop' => 'hat die Support-Ansicht beendet.',
+        'superadmin.impersonate.expired' => '– Support-Ansicht nach Zeitablauf automatisch beendet.',
+        'superadmin.impersonate.blocked' => 'hat in der Support-Ansicht eine Änderung versucht (gesperrt).',
+        'superadmin.content_import' => 'hat Inhalte importiert.',
+        'superadmin.coupon.void' => 'hat Codes gesperrt.',
+        'superadmin.exam_rule_set.update' => 'hat Prüfungsregeln geändert.',
+        'superadmin.mail_templates.update' => 'hat Mailvorlagen geändert.',
+        'superadmin.module.update' => 'hat ein Modul geändert.',
+        'superadmin.navigation_chart.update' => 'hat eine Navigationskarte geändert.',
+        'superadmin.navigation_chart.delete' => 'hat eine Navigationskarte gelöscht.',
+        'superadmin.navigation_task.update' => 'hat eine Navigationsaufgabe geändert.',
+        'superadmin.platform_announcement.create' => 'hat eine Mitteilung an die Schulen veröffentlicht.',
+        'superadmin.platform_announcement.delete' => 'hat eine Mitteilung an die Schulen gelöscht.',
+        'superadmin.praxis_task.create' => 'hat eine Praxisaufgabe angelegt.',
+        'superadmin.praxis_task.update' => 'hat eine Praxisaufgabe geändert.',
+        'superadmin.product.update' => 'hat ein Produkt geändert.',
+        'superadmin.tenant.custom_domain' => 'hat die eigene Domain einer Bootsschule geändert.',
+        'superadmin.tenant.delete' => 'hat eine Bootsschule gelöscht.',
+        'superadmin.tenant.export' => 'hat die Daten einer Bootsschule exportiert.',
+        'superadmin.user.delete' => 'hat ein Nutzerkonto gelöscht.',
+        'superadmin.user.membership_delete' => 'hat eine Mitgliedschaft entfernt.',
+        'superadmin.user.two_factor_reset' => 'hat die Zwei-Faktor-Anmeldung eines Kontos zurückgesetzt.',
+        'superadmin.video_lesson.create' => 'hat eine Videolektion angelegt.',
+        'superadmin.video_lesson.delete' => 'hat eine Videolektion gelöscht.',
+        'superadmin.video_module.create' => 'hat ein Videokapitel angelegt.',
+        'superadmin.video_module.delete' => 'hat ein Videokapitel gelöscht.',
+    ];
+
     public static function record(
         ?string $tenantId,
         ?string $actorUserId,
@@ -43,6 +88,14 @@ class AuditLog extends Model
         ?array $before = null,
         ?array $after = null,
     ): self {
+        // Support-Ansicht: der Eintrag gehört dem Superadmin, nicht der
+        // Person, als die er die Plattform gerade ansieht.
+        $impersonation = Impersonation::current();
+        if ($impersonation && $actorUserId !== null && $actorUserId !== $impersonation['impersonator_id']) {
+            $after = ($after ?? []) + ['support_ansicht_als' => $actorUserId];
+            $actorUserId = $impersonation['impersonator_id'];
+        }
+
         return static::create([
             'tenant_id' => $tenantId,
             'actor_user_id' => $actorUserId,
@@ -93,6 +146,7 @@ class AuditLog extends Model
             $this->action === 'superadmin.user.create' => "{$actorName} hat ein Nutzerkonto angelegt.",
             $this->action === 'superadmin.user.update' => "{$actorName} hat ein Nutzerkonto geändert.",
             $this->action === 'superadmin.user.membership_update' => "{$actorName} hat eine Mitgliedschaft geändert.",
+            isset(self::SIMPLE_DESCRIPTIONS[$this->action]) => "{$actorName} ".self::SIMPLE_DESCRIPTIONS[$this->action],
             default => "{$actorName}: {$this->action}",
         };
     }

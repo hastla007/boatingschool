@@ -139,6 +139,10 @@ class ResolveTenant
         }
 
         if (! $tenant) {
+            // Impressum/Datenschutz der Plattform selbst (zentrale Domain ohne Schule).
+            if (TenantPath::isCentralRoot($request) && ($request->is('impressum') || $request->is('datenschutz'))) {
+                return $next($request);
+            }
             if (TenantPath::isCentralRoot($request)) {
                 // Sicherheitsreview N5: zeigte bislang auch suspended/closed/
                 // trial-Mandanten öffentlich mit Name und Slug an.

@@ -7,12 +7,14 @@ use App\Models\Attempt;
 use App\Models\AuditLog;
 use App\Models\Entitlement;
 use App\Models\ExamSession;
+use App\Models\TenantUser;
 use App\Models\User;
 use App\Services\CourseProgressService;
 use App\Services\LearnerOverview;
 use App\Support\InstructorScope;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
@@ -27,15 +29,30 @@ class SchoolInsightsController extends Controller
         $scopeCourses = InstructorScope::courseIds($tenant, $request->user());
         $learners = fn ($q, string $column = 'user_id') => $q->when($visible !== null, fn ($w) => $w->whereIn($column, $visible));
 
-        $activeLearners30 = $learners(Attempt::where('tenant_id', $tenant->id)->where('created_at', '>=', now()->subDays(30)))->distinct()->count('user_id');
-        $answers30 = $learners(Attempt::where('tenant_id', $tenant->id)->where('created_at', '>=', now()->subDays(30)))->count();
-        $withAccess = $learners(Entitlement::currentlyActive()->where('tenant_id', $tenant->id)->when($scopeCourses !== null, fn ($q) => $q->whereIn('course_id', $scopeCourses)))->distinct()->count('user_id');
+        // Basis: aktive Lernende (Mitgliedschaft) mit laufendem Kurszugang;
+        // „aktiv“ heißt irgendeine Lernaktivität (Fragen, Prüfungssimulation,
+        // Navigationsaufgaben, Videos), nicht nur Antworten im Fragentrainer.
+        $memberIds = TenantUser::where('tenant_id', $tenant->id)->where('role', 'learner')->where('status', 'active')->pluck('user_id');
+        $accessIds = $learners(Entitlement::currentlyActive()->where('tenant_id', $tenant->id)->whereIn('user_id', $memberIds)
+            ->when($scopeCourses !== null, fn ($q) => $q->whereIn('course_id', $scopeCourses)))->distinct()->pluck('user_id');
+        $withAccess = $accessIds->count();
+        $events = function ($since) use ($tenant, $memberIds, $learners) {
+            $source = fn (string $table, string $column) => $learners(DB::table($table)->where('tenant_id', $tenant->id)->whereIn('user_id', $memberIds))
+                ->where($column, '>=', $since)->selectRaw("user_id, {$column} as at");
+
+            return DB::query()->fromSub($source('attempt', 'created_at')
+                ->unionAll($source('exam_session', 'started_at'))
+                ->unionAll($source('navigation_progress', 'updated_at'))
+                ->unionAll($source('video_progress', 'updated_at')), 'activity');
+        };
+        $activeLearners30 = $events(now()->subDays(30))->whereIn('user_id', $accessIds)->distinct()->count('user_id');
+        $answers30 = $learners(Attempt::where('tenant_id', $tenant->id)->whereIn('user_id', $memberIds)->where('created_at', '>=', now()->subDays(30)))->count();
 
         // Aktive Lernende je Monat (letzte 6 Monate).
         $months = collect(range(5, 0))->map(fn ($i) => now('Europe/Berlin')->startOfMonth()->subMonths($i));
-        $byMonth = $learners(Attempt::where('tenant_id', $tenant->id))->where('created_at', '>=', $months->first()->copy()->utc())
-            ->groupBy(DB::raw("to_char(created_at AT TIME ZONE 'Europe/Berlin', 'YYYY-MM')"))
-            ->selectRaw("to_char(created_at AT TIME ZONE 'Europe/Berlin', 'YYYY-MM') as month, count(distinct user_id) as learners")
+        $byMonth = $events($months->first()->copy()->utc())
+            ->groupBy(DB::raw("to_char(at AT TIME ZONE 'Europe/Berlin', 'YYYY-MM')"))
+            ->selectRaw("to_char(at AT TIME ZONE 'Europe/Berlin', 'YYYY-MM') as month, count(distinct user_id) as learners")
             ->pluck('learners', 'month');
         $monthly = $months->map(fn ($m) => ['label' => $m->locale('de')->translatedFormat('M Y'), 'learners' => (int) ($byMonth[$m->format('Y-m')] ?? 0)]);
 
@@ -80,7 +97,9 @@ class SchoolInsightsController extends Controller
         }
         foreach (['from' => '>=', 'to' => '<='] as $key => $operator) {
             if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $filters[$key])) {
-                $query->where('created_at', $operator, $filters[$key].($key === 'from' ? ' 00:00:00' : ' 23:59:59'));
+                // Datum gilt in deutscher Zeit, gespeichert wird UTC.
+                $day = Carbon::parse($filters[$key], 'Europe/Berlin');
+                $query->where('created_at', $operator, ($key === 'from' ? $day->startOfDay() : $day->endOfDay())->utc());
             }
         }
 

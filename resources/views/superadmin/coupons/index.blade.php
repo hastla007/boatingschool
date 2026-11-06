@@ -128,7 +128,7 @@
                         </button>
                         {{-- Sperrt nur noch nicht eingelöste Codes (z. B. verlorene Charge). --}}
                         <button type="submit" id="void-selected-btn" disabled formaction="{{ route('superadmin.coupons.void') }}"
-                                onclick="return confirm('Ausgewählte, noch nicht eingelöste Codes sperren? Das lässt sich nicht rückgängig machen.')"
+                                x-data="{}" @click="if (! confirm('Ausgewählte, noch nicht eingelöste Codes sperren? Das lässt sich nicht rückgängig machen.')) $event.preventDefault()"
                                 class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 text-red-700 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-200 transition text-sm disabled:opacity-40 disabled:cursor-not-allowed">
                             Ausgewählte sperren
                         </button>

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\PlatformSetting;
 use App\Models\User;
+use App\Support\Impersonation;
 use App\Support\TenantContext;
 use App\Support\Totp;
 use BaconQrCode\Renderer\Image\SvgImageBackEnd;
@@ -35,7 +36,9 @@ class TwoFactorController extends Controller
     public function show(Request $request): View
     {
         $user = $request->user();
-        $pending = ! $user->hasTwoFactor() && $user->two_factor_secret;
+        // In der Support-Ansicht kein unbestätigtes Geheimnis zeigen: sonst
+        // kennt der Superadmin den zweiten Faktor, sobald die Person ihn bestätigt.
+        $pending = ! $user->hasTwoFactor() && $user->two_factor_secret && ! Impersonation::active($request);
 
         return view('auth.two-factor', [
             'enabled' => $user->hasTwoFactor(),
@@ -47,6 +50,9 @@ class TwoFactorController extends Controller
 
     public function enable(Request $request): RedirectResponse
     {
+        // Passwort nötig: wer nur eine fremde Sitzung hat, soll keinen
+        // eigenen zweiten Faktor einrichten und die Person aussperren können.
+        $request->validate(['password' => ['required', 'current_password']]);
         $user = $request->user();
         abort_if($user->hasTwoFactor(), 409);
         $user->forceFill(['two_factor_secret' => Totp::generateSecret(), 'two_factor_confirmed_at' => null, 'two_factor_recovery_codes' => null])->save();
@@ -88,7 +94,7 @@ class TwoFactorController extends Controller
             ->where('tenant_user.user_id', $user->id)->where('tenant_user.status', 'active')->where('tenant_user.role', '!=', 'learner')
             ->where('tenant_branding.require_team_two_factor', true)->exists();
         if ($required) {
-            return back()->withErrors(['password' => 'Ihre Bootsschule verlangt die Zwei-Faktor-Anmeldung für das Team; sie lässt sich deshalb nicht abschalten.']);
+            return back()->withErrors(['password' => 'Deine Bootsschule verlangt die Zwei-Faktor-Anmeldung für das Team; sie lässt sich deshalb nicht abschalten.']);
         }
 
         $user->forceFill(['two_factor_secret' => null, 'two_factor_recovery_codes' => null, 'two_factor_confirmed_at' => null])->save();
@@ -115,10 +121,13 @@ class TwoFactorController extends Controller
             return redirect()->route('login')->withErrors(['email' => 'Bitte erneut anmelden.']);
         }
 
+        // Versuch zählen, bevor der Code geprüft wird: sonst kämen parallele
+        // Anfragen alle an der Grenze vorbei, bevor ein Fehlversuch zählt.
         $key = 'two-factor:'.$user->id;
         if (RateLimiter::tooManyAttempts($key, 5)) {
             return back()->withErrors(['code' => 'Zu viele Versuche. Bitte in '.RateLimiter::availableIn($key).' Sekunden erneut versuchen.']);
         }
+        RateLimiter::hit($key, 300);
 
         $code = trim((string) $request->input('code', ''));
         $recovery = trim((string) $request->input('recovery_code', ''));
@@ -145,8 +154,6 @@ class TwoFactorController extends Controller
         }
 
         if (! $ok) {
-            RateLimiter::hit($key, 300);
-
             return back()->withErrors(['code' => 'Der Code stimmt nicht.']);
         }
 

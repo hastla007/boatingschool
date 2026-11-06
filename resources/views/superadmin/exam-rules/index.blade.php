@@ -22,6 +22,7 @@
             @php
                 $rule = $ruleSet->passing_rule ?? [];
                 $total = (int) $ruleSet->blueprints->sum('question_count') ?: 24;
+                [$fractionMin, $fractionOf] = $ruleSet->passingFraction($total);
                 $parts = array_values($rule['parts'] ?? []);
                 $parts[] = ['label' => '', 'module' => '', 'min_correct' => '', 'of' => ''];
                 $blueprintRows = $ruleSet->blueprints->map(fn ($b) => ['module_id' => $b->module_id, 'question_count' => $b->question_count])->all();
@@ -50,11 +51,12 @@
                     <div class="sm:col-span-2">
                         <x-input-label for="min-{{ $ruleSet->id }}" value="Bestanden ab … richtigen Antworten" />
                         <div class="flex items-center gap-2">
-                            <input id="min-{{ $ruleSet->id }}" name="min_correct" type="number" min="1" required value="{{ old('min_correct', (int) ceil(($rule['min_correct_ratio'] ?? 0.75) * $total - 1e-9)) }}" class="{{ $input }}">
+                            <input id="min-{{ $ruleSet->id }}" name="min_correct" type="number" min="1" required value="{{ old('min_correct', $fractionMin) }}" class="{{ $input }}">
                             <span class="mt-1 text-sm text-slate-600 dark:text-slate-400">von</span>
                             <label for="of-{{ $ruleSet->id }}" class="sr-only">Fragen gesamt</label>
-                            <input id="of-{{ $ruleSet->id }}" name="of" type="number" min="1" required value="{{ old('of', $total) }}" class="{{ $input }}">
+                            <input id="of-{{ $ruleSet->id }}" name="of" type="number" min="1" required value="{{ old('of', $fractionOf) }}" class="{{ $input }}">
                         </div>
+                        <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">Wird als Quote gespeichert und gilt für jede Bogenlänge.</p>
                     </div>
                     <div>
                         <x-input-label for="status-{{ $ruleSet->id }}" value="Status" />
@@ -65,44 +67,44 @@
                     </div>
                 </div>
 
-                <fieldset>
+                <fieldset class="min-w-0">
                     <legend class="text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Fragenmix (zufällige Prüfung, Fragen je Modul)</legend>
                     <div class="space-y-2">
                         @foreach ($blueprintRows as $i => $row)
                             <div class="flex gap-2">
                                 <label for="bp-module-{{ $ruleSet->id }}-{{ $i }}" class="sr-only">Modul</label>
-                                <select id="bp-module-{{ $ruleSet->id }}-{{ $i }}" name="blueprints[{{ $i }}][module_id]" class="flex-1 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                                <select id="bp-module-{{ $ruleSet->id }}-{{ $i }}" name="blueprints[{{ $i }}][module_id]" class="flex-1 min-w-0 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                                     <option value="">{{ $row['module_id'] ? '— entfernen —' : '— Modul hinzufügen —' }}</option>
                                     @foreach ($modules as $module)
                                         <option value="{{ $module->id }}" @selected($row['module_id'] === $module->id)>{{ $module->name }}</option>
                                     @endforeach
                                 </select>
                                 <label for="bp-count-{{ $ruleSet->id }}-{{ $i }}" class="sr-only">Anzahl Fragen</label>
-                                <input id="bp-count-{{ $ruleSet->id }}-{{ $i }}" name="blueprints[{{ $i }}][question_count]" type="number" min="1" value="{{ $row['question_count'] }}" placeholder="Anzahl" class="w-28 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                                <input id="bp-count-{{ $ruleSet->id }}-{{ $i }}" name="blueprints[{{ $i }}][question_count]" type="number" min="1" value="{{ $row['question_count'] }}" placeholder="Anzahl" class="w-24 shrink-0 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                             </div>
                         @endforeach
                     </div>
                     <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Feste Prüfungsbögen behalten ihre eigenen Fragen; der Mix gilt für zufällig zusammengestellte Prüfungen.</p>
                 </fieldset>
 
-                <fieldset>
+                <fieldset class="min-w-0">
                     <legend class="text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Prüfungsteile mit eigener Grenze (optional, z. B. Basisfragen 5 von 7)</legend>
                     <div class="space-y-2">
                         @foreach ($parts as $i => $part)
-                            <div class="grid grid-cols-6 gap-2">
+                            <div class="grid grid-cols-2 sm:grid-cols-6 gap-2">
                                 <label for="part-label-{{ $ruleSet->id }}-{{ $i }}" class="sr-only">Bezeichnung</label>
-                                <input id="part-label-{{ $ruleSet->id }}-{{ $i }}" name="parts[{{ $i }}][label]" value="{{ $part['label'] }}" placeholder="Bezeichnung" class="col-span-2 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                                <input id="part-label-{{ $ruleSet->id }}-{{ $i }}" name="parts[{{ $i }}][label]" value="{{ $part['label'] }}" placeholder="Bezeichnung" class="col-span-2 min-w-0 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                                 <label for="part-module-{{ $ruleSet->id }}-{{ $i }}" class="sr-only">Modul</label>
-                                <select id="part-module-{{ $ruleSet->id }}-{{ $i }}" name="parts[{{ $i }}][module]" class="col-span-2 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                                <select id="part-module-{{ $ruleSet->id }}-{{ $i }}" name="parts[{{ $i }}][module]" class="col-span-2 min-w-0 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                                     <option value="">— Modul —</option>
                                     @foreach ($modules as $module)
                                         <option value="{{ $module->code }}" @selected($part['module'] === $module->code)>{{ $module->name }}</option>
                                     @endforeach
                                 </select>
                                 <label for="part-min-{{ $ruleSet->id }}-{{ $i }}" class="sr-only">mindestens richtig</label>
-                                <input id="part-min-{{ $ruleSet->id }}-{{ $i }}" name="parts[{{ $i }}][min_correct]" type="number" min="0" value="{{ $part['min_correct'] }}" placeholder="x" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                                <input id="part-min-{{ $ruleSet->id }}-{{ $i }}" name="parts[{{ $i }}][min_correct]" type="number" min="0" value="{{ $part['min_correct'] }}" placeholder="x" class="min-w-0 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                                 <label for="part-of-{{ $ruleSet->id }}-{{ $i }}" class="sr-only">von</label>
-                                <input id="part-of-{{ $ruleSet->id }}-{{ $i }}" name="parts[{{ $i }}][of]" type="number" min="1" value="{{ $part['of'] }}" placeholder="von y" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                                <input id="part-of-{{ $ruleSet->id }}-{{ $i }}" name="parts[{{ $i }}][of]" type="number" min="1" value="{{ $part['of'] }}" placeholder="von y" class="min-w-0 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                             </div>
                         @endforeach
                     </div>

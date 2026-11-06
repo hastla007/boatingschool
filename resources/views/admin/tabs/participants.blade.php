@@ -160,6 +160,7 @@
                 Das Geburtsdatum muss der Teilnehmer für die Anmeldung zu Praxis &amp; Prüfung selbst im eigenen Profil angeben.
             </p>
         </div>
+        @if ($canManageTenant)
         <div x-data="{ showCode: {{ $errors->has('code') ? 'true' : 'false' }} }">
             <button type="button" @click="showCode = ! showCode" class="text-xs text-slate-500 dark:text-slate-400 hover:underline">
                 <span x-show="! showCode" @if ($errors->has('code')) style="display: none" @endif>+ Code zuweisen (optional)</span>
@@ -174,10 +175,12 @@
                 </p>
             </div>
         </div>
+        @endif
         <button type="submit" class="px-4 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">Einladen</button>
     </form>
 </div>
 
+@if ($canManageTenant)
 <details class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 mb-6" @if ($errors->has('emails')) open @endif>
     <summary class="cursor-pointer font-medium text-slate-700 dark:text-slate-200">Mehrere Teilnehmer auf einmal einladen</summary>
     <form method="POST" action="{{ route('admin.participants.bulk-invite') }}" class="mt-3 space-y-2">
@@ -188,6 +191,7 @@
         <button type="submit" class="px-4 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">Alle einladen</button>
     </form>
 </details>
+@endif
 
 <form method="GET" action="{{ route('admin.dashboard') }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 mb-3 flex flex-wrap items-end gap-2">
     <input type="hidden" name="tab" value="participants">
@@ -235,10 +239,12 @@
                 <th class="px-4 py-2">E-Mail</th>
                 <th class="px-4 py-2">Kurse</th>
                 <th class="px-4 py-2">Produkte</th>
+                @if ($canManageTenant)
                 <th class="px-4 py-2">
                     Kurs freischalten
                     <span class="block text-[11px] font-normal text-slate-500 dark:text-slate-400">verbraucht einen eigenen Code</span>
                 </th>
+                @endif
                 @if ($canManageTenant)
                     <th class="px-4 py-2">Status</th>
                 @endif
@@ -279,13 +285,12 @@
                             <span class="text-slate-600 dark:text-slate-400">keine</span>
                         @endforelse
                     </td>
+                    @if ($canManageTenant)
                     <td class="px-4 py-2">
                         {{-- Review: abgelaufene Zugänge (auch gesperrt und inzwischen abgelaufen) lassen sich hier neu freischalten; aktive, widerrufene und gesperrte mit Restlaufzeit haben eigene Aktionen. --}}
                         @php($bookedCourseIds = $membership->user->entitlements->filter(fn ($e) => $e->status === 'revoked' || (in_array($e->status, ['active', 'suspended'], true) && ($e->valid_until === null || $e->valid_until->isFuture())))->pluck('course_id')->all())
                         @php($unbookedCourses = $courses->whereNotIn('id', $bookedCourseIds))
-                        @if (! $canManageTenant)
-                            <span class="text-slate-300 dark:text-slate-600 text-xs">—</span>
-                        @elseif ($unbookedCourses->isNotEmpty())
+                        @if ($unbookedCourses->isNotEmpty())
                             <form method="POST" action="{{ route('admin.entitlements.store') }}" class="flex gap-1">
                                 @csrf
                                 <input type="hidden" name="user_id" value="{{ $membership->user_id }}">
@@ -303,6 +308,7 @@
                             <span class="text-slate-600 dark:text-slate-400 text-xs">alle Kurse gebucht</span>
                         @endif
                     </td>
+                    @endif
                     @if ($canManageTenant)
                         <td class="px-4 py-2">
                             @if ($membership->user_id === auth()->id())
