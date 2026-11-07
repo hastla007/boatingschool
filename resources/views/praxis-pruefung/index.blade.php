@@ -122,16 +122,14 @@
 
             <x-praxis-appointment-response :submission="$submission" :course="$course" :appointment-slot="0" label="Prüfungstermin" />
 
-            @if ($submission->isExamDateConfirmed())
-                @foreach ($submission->practiceSlotNumbers() as $practiceSlot)
-                    <x-praxis-appointment-response
-                        :submission="$submission"
-                        :course="$course"
-                        :appointment-slot="$practiceSlot"
-                        :label="$submission->labelForSlot($practiceSlot)"
-                    />
-                @endforeach
-            @endif
+            @foreach ($submission->practiceSlotNumbers() as $practiceSlot)
+                <x-praxis-appointment-response
+                    :submission="$submission"
+                    :course="$course"
+                    :appointment-slot="$practiceSlot"
+                    :label="$submission->labelForSlot($practiceSlot)"
+                />
+            @endforeach
         </div>
     @elseif ($state === 'form')
         @php($locationField = collect($template->fields)->firstWhere('type', 'location'))

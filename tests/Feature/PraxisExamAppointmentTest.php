@@ -312,7 +312,12 @@ class PraxisExamAppointmentTest extends TestCase
         $response->assertSee('Passt mir nicht');
     }
 
-    public function test_admin_cannot_create_a_new_appointment_before_the_exam_date_is_confirmed(): void
+    /**
+     * Review-Runde 8 (Entscheidung): Praxisstunden finden meist vor der
+     * Prüfung statt -- ein Zusatztermin geht auch ohne fixierten
+     * Prüfungstermin, und die/der Lernende sieht ihn zur Rückmeldung.
+     */
+    public function test_admin_can_create_an_additional_appointment_before_the_exam_date_is_confirmed(): void
     {
         $tenant = $this->createTestTenant();
         $admin = $this->createTenantUser($tenant, 'owner');
@@ -324,10 +329,12 @@ class PraxisExamAppointmentTest extends TestCase
             ['exam_date' => '2027-06-01 09:00', 'label' => 'Kleine Praxisstunde (1h)']
         );
 
-        $response->assertSessionHasErrors('exam_date');
+        $response->assertSessionHasNoErrors();
         $this->onAdmin(function () use ($submission) {
-            $this->assertSame(0, PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->where('slot', '>', 0)->count());
+            $this->assertSame(1, PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->where('slot', '>', 0)->count());
         });
+        $this->actingAsInTenant($learner, $tenant)->get(route('praxis-pruefung.index', $submission->course_id))
+            ->assertOk()->assertSee('Kleine Praxisstunde (1h)');
     }
 
     public function test_admin_must_provide_a_label_for_a_new_appointment(): void
@@ -448,23 +455,17 @@ class PraxisExamAppointmentTest extends TestCase
         });
     }
 
-    public function test_detail_page_shows_the_new_appointment_form_only_once_exam_date_is_confirmed(): void
+    public function test_detail_page_shows_the_new_appointment_form_even_before_the_exam_date_is_confirmed(): void
     {
         $tenant = $this->createTestTenant();
         $admin = $this->createTenantUser($tenant, 'owner');
         $learner = $this->createTenantUser($tenant, 'learner');
-        $submission = $this->createSubmission($tenant, $learner);
+        $this->createSubmission($tenant, $learner);
 
-        $before = $this->actingAsInTenant($admin, $tenant)->get("/admin/participants/{$learner->id}");
-        $before->assertOk();
-        $before->assertSee('können frei angelegt werden, sobald der Prüfungstermin fixiert ist.');
-
-        $this->confirmExamDate($tenant, $admin, $learner, $submission, '2027-06-01 09:00');
-
-        $after = $this->actingAsInTenant($admin, $tenant)->get("/admin/participants/{$learner->id}");
-        $after->assertOk();
-        $after->assertSee('Weiteren Termin anlegen');
-        $after->assertDontSee('können frei angelegt werden, sobald der Prüfungstermin fixiert ist.');
+        $page = $this->actingAsInTenant($admin, $tenant)->get("/admin/participants/{$learner->id}");
+        $page->assertOk();
+        $page->assertSee('Weiteren Termin anlegen');
+        $page->assertDontSee('sobald der Prüfungstermin fixiert ist');
     }
 
     public function test_detail_page_shows_a_freely_labeled_appointment_with_its_time_range(): void
@@ -538,13 +539,8 @@ class PraxisExamAppointmentTest extends TestCase
         $this->onAdmin(fn () => $this->assertDatabaseMissing('praxis_exam_appointment', ['praxis_form_submission_id' => $submission->id]));
     }
 
-    /**
-     * Bug-Review F4: ein Zusatztermin (Praxisstunde, Navigationsstunde o.
-     * ä.) baut inhaltlich auf dem fixierten Prüfungstermin auf -- ohne
-     * diese Prüfung ließ sich trotzdem ein Zusatztermin VOR dem
-     * Prüfungstermin anlegen.
-     */
-    public function test_admin_cannot_create_an_additional_appointment_before_the_confirmed_exam_date(): void
+    /** Review-Runde 8 (Entscheidung): ein Zusatztermin darf vor dem fixierten Prüfungstermin liegen. */
+    public function test_admin_can_create_an_additional_appointment_before_the_confirmed_exam_date(): void
     {
         $tenant = $this->createTestTenant();
         $admin = $this->createTenantUser($tenant, 'owner');
@@ -558,9 +554,9 @@ class PraxisExamAppointmentTest extends TestCase
             ['exam_date' => $examDate->copy()->subWeek()->format('Y-m-d H:i'), 'label' => 'Kleine Praxisstunde']
         );
 
-        $response->assertSessionHasErrors('exam_date');
+        $response->assertSessionHasNoErrors();
         $this->onAdmin(function () use ($submission) {
-            $this->assertSame(0, PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->where('slot', '>', 0)->count());
+            $this->assertSame(1, PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->where('slot', '>', 0)->count());
         });
     }
 
@@ -571,9 +567,8 @@ class PraxisExamAppointmentTest extends TestCase
      * slot-Parameter mit einer noch nie verwendeten Slot-Nummer > 0 (hier
      * 99) wurde bisher wie ein bereits bestehender Zusatztermin behandelt
      * und umging damit alle Prüfungen, die für neue Zusatztermine gelten:
-     * dass der Prüfungstermin zuerst fixiert sein muss, dass der neue
-     * Termin nicht vor dem fixierten Prüfungstermin liegen darf, und dass
-     * eine Bezeichnung angegeben wird.
+     * vor allem, dass eine Bezeichnung angegeben wird (die Sperren rund um
+     * den fixierten Prüfungstermin sind seit Review-Runde 8 entfallen).
      */
     public function test_a_manipulated_unused_slot_number_cannot_bypass_the_checks_for_new_additional_appointments(): void
     {
