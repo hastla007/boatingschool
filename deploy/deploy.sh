@@ -3,7 +3,7 @@
 # nicht als root):  ./deploy/deploy.sh [branch]
 #
 # Ablauf: Wartungsmodus → Code holen → Abhängigkeiten → Assets bauen →
-# Migrationen (Owner-Rolle) → Storage-Link → Caches → Wartungsmodus aus →
+# Migrationen (Owner-Rolle) → Inhalte (Seeder) → Storage-Link → Caches → Wartungsmodus aus →
 # Go-live-Check. Schlägt ein Schritt fehl, bleibt die Seite im
 # Wartungsmodus (sicherer als halb aktualisierter Code) -- Fehler beheben
 # und das Skript erneut starten, oder mit `php artisan up` zurück.
@@ -33,12 +33,20 @@ npm run build --silent
 step "Migrationen (Owner-Rolle)"
 php artisan migrate --database=pgsql_admin --force
 
+# Katalog-Updates (Fragen, Erklärungen, Navigation, Praxistrainer) kommen als
+# Seeder mit; die Seeder sind idempotent und lassen Superadmin-Korrekturen stehen.
+step "Inhalte aktualisieren (Seeder)"
+php artisan db:seed --database=pgsql_admin --force
+
 step "Storage-Link"
 [ -e public/storage ] || php artisan storage:link
 
 step "Caches"
 php artisan optimize
 php artisan queue:restart
+# Opcache leeren (bei opcache.validate_timestamps=0 sonst alter Code):
+# PHP_FPM_SERVICE=php8.3-fpm setzen, wenn der Deploy-Benutzer reloaden darf.
+if [ -n "${PHP_FPM_SERVICE:-}" ]; then sudo systemctl reload "$PHP_FPM_SERVICE"; fi
 
 step "Wartungsmodus aus"
 php artisan up

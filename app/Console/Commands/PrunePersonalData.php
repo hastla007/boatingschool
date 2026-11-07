@@ -94,6 +94,10 @@ class PrunePersonalData extends Command
         $cutoff = now()->subDays((int) $config['days']);
         $users = User::query()->where('is_superadmin', false)->where('created_at', '<', $cutoff)
             ->where(fn ($q) => $q->where('status', 'invited')->orWhereNull('email_verified_at'))
+            // Nie löschen: Konten mit (bezahltem/zugewiesenem) Kurszugang und
+            // Team-Mitglieder einer Schule -- dort entscheidet die Schule.
+            ->whereNotExists(fn ($q) => $q->from('entitlement')->whereColumn('entitlement.user_id', 'app_user.id'))
+            ->whereNotExists(fn ($q) => $q->from('tenant_user')->whereColumn('tenant_user.user_id', 'app_user.id')->where('tenant_user.role', '!=', 'learner'))
             ->get();
 
         if ($dryRun) {

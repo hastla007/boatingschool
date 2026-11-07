@@ -111,7 +111,7 @@ class CourseController extends Controller
         $user = $request->user();
 
         if (! $entitlements->hasAccess($tenant, $user, $course)) {
-            abort(403, 'Für diesen Kurs liegt kein aktives Entitlement vor.');
+            abort(403, 'Dein Zugang zu diesem Kurs ist abgelaufen oder nicht freigeschaltet.');
         }
 
         $course->load('modules.questions.revisions');

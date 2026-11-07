@@ -74,7 +74,8 @@ class SchoolInsightsController extends Controller
             ->map(function ($group) use ($tenant, $overview) {
                 $course = $group->first()->course;
                 $threshold = $overview->threshold($tenant, $course);
-                $percents = $group->map(fn ($e) => app(CourseProgressService::class)->overallPercent($course, $tenant, $e->user));
+                $byUser = app(CourseProgressService::class)->overallPercents($course, $tenant, $group->pluck('user_id'));
+                $percents = $group->map(fn ($e) => $byUser[$e->user_id] ?? 0);
 
                 return [
                     'name' => $course->name,

@@ -46,7 +46,7 @@ class PraxisExamAppointmentController extends Controller
         // dasselbe Muster bei der Coupon-Einlösung). respond() selbst
         // prüfte das nie, sodass ein Lerner einen Terminvorschlag auch
         // nach einem Widerruf noch annehmen oder ablehnen konnte.
-        abort_unless($entitlements->hasAccess($tenantContext->tenant(), $user, $course), 403, 'Für diesen Kurs liegt kein aktives Entitlement mehr vor.');
+        abort_unless($entitlements->hasAccess($tenantContext->tenant(), $user, $course), 403, 'Dein Zugang zu diesem Kurs ist abgelaufen oder nicht freigeschaltet.');
 
         $validated = $request->validate([
             'decision' => ['required', 'in:accepted,declined'],

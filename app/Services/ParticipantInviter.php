@@ -12,7 +12,6 @@ use App\Support\BestEffortMail;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
-use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 
@@ -42,7 +41,7 @@ class ParticipantInviter
 
     /**
      * @param  array{street?: ?string, postal_code?: ?string, city?: ?string, country?: ?string}  $address
-     * @return array{type: 'existing'|'new', mail_sent: bool, user: ?User, duplicate?: bool}
+     * @return array{type: 'existing'|'new', mail_sent: bool, user: ?User, duplicate?: bool, already_member?: bool, resent?: bool}
      */
     public function invite(Tenant $tenant, User $actor, string $name, string $email, array $address = []): array
     {
@@ -50,6 +49,26 @@ class ParticipantInviter
         $existingUser = User::on('pgsql_admin')->where('email', $email)->first();
 
         if ($existingUser) {
+            $membership = TenantUser::on('pgsql_admin')->withoutGlobalScopes()->where('tenant_id', $tenant->id)->where('user_id', $existingUser->id)->first();
+            if ($membership) {
+                // Schon in dieser Schule: noch nie angemeldet -> Link zum
+                // Passwort-Festlegen erneut schicken (der alte ist evtl.
+                // abgelaufen), sonst nichts verschicken.
+                if ($existingUser->status !== 'invited') {
+                    return ['type' => 'existing', 'mail_sent' => false, 'user' => null, 'already_member' => true];
+                }
+                // Höchstens drei neue Links je Person und Tag (Schutz vor Mail-Flut).
+                $resendKey = 'participant-invite-resend:'.$existingUser->id;
+                if (RateLimiter::tooManyAttempts($resendKey, 3)) {
+                    return ['type' => 'existing', 'mail_sent' => true, 'user' => null, 'duplicate' => true];
+                }
+                RateLimiter::hit($resendKey, 86400);
+                $mailSent = BestEffortMail::send(fn () => app(AccountSetupLink::class)->send($existingUser, $tenant, $membership->role), "Einladung erneut {$existingUser->id}");
+                AuditLog::record($tenant->id, $actor->id, 'participant.invite_resent', 'app_user', $existingUser->id, null, ['email' => $existingUser->email]);
+
+                return ['type' => 'existing', 'mail_sent' => $mailSent, 'user' => null, 'resent' => true];
+            }
+
             // Schutz vor Mail-Bombing: dieselbe Adresse höchstens einmal am Tag
             // anschreiben; eine offene Einladung (Link 7 Tage gültig) wird
             // wiederverwendet statt jedes Mal eine neue anzulegen.
@@ -106,7 +125,7 @@ class ParticipantInviter
         });
 
         $mailSent = BestEffortMail::send(
-            fn () => Password::sendResetLink(['email' => $user->email]),
+            fn () => app(AccountSetupLink::class)->send($user, $tenant, 'learner'),
             "Einladungsmail neuer Teilnehmer {$user->id}"
         );
 

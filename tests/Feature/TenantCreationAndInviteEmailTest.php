@@ -5,7 +5,7 @@ namespace Tests\Feature;
 use App\Models\AuditLog;
 use App\Models\Tenant;
 use App\Models\User;
-use Illuminate\Auth\Notifications\ResetPassword;
+use App\Notifications\AccountInvitation;
 use Illuminate\Support\Facades\Notification;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -60,7 +60,7 @@ class TenantCreationAndInviteEmailTest extends TestCase
             $admin = User::where('email', $email)->first();
             $this->createdUserIds[] = $admin->id;
 
-            Notification::assertSentTo($admin, ResetPassword::class);
+            Notification::assertSentTo($admin, AccountInvitation::class);
         });
     }
 
@@ -103,7 +103,7 @@ class TenantCreationAndInviteEmailTest extends TestCase
             $learner = User::where('email', $email)->first();
             $this->createdUserIds[] = $learner->id;
 
-            Notification::assertSentTo($learner, ResetPassword::class);
+            Notification::assertSentTo($learner, AccountInvitation::class);
         });
     }
 
@@ -135,7 +135,7 @@ class TenantCreationAndInviteEmailTest extends TestCase
             $this->createdUserIds[] = $user->id;
 
             $this->assertSame('invited', $user->status);
-            Notification::assertSentTo($user, ResetPassword::class);
+            Notification::assertSentTo($user, AccountInvitation::class);
 
             // Bug-Review (Testdaten bleiben weiter liegen): ohne
             // 'tenant_id' im Request (dieser Nutzer bekommt keine

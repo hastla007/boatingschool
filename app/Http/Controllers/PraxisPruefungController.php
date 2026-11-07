@@ -27,7 +27,7 @@ class PraxisPruefungController extends Controller
         $tenant = $tenantContext->tenant();
         $user = $request->user();
 
-        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Für diesen Kurs liegt kein aktives Entitlement vor.');
+        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Dein Zugang zu diesem Kurs ist abgelaufen oder nicht freigeschaltet.');
 
         // Teilnehmer meldet sich selbst an (ExamRegistration::SELF): statt des Termintools die Seite "Prüfung buchen".
         //

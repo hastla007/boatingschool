@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\ContentQuestion;
+use App\Models\Entitlement;
 use App\Models\PlatformAnnouncement;
 use App\Models\Progress;
 use App\Models\TenantAnnouncement;
@@ -101,7 +102,12 @@ class DashboardController extends Controller
         $platformAnnouncements = PlatformAnnouncement::visible()->forTenant($tenant->id)
             ->where('audience', 'all')->orderByDesc('created_at')->limit(3)->get();
 
+        // Abgelaufener Zugang: anderer Hinweis als „noch nie freigeschaltet“.
+        $hadAccess = $courses->isEmpty() && Entitlement::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+            ->whereIn('status', ['active', 'expired'])->whereNotNull('valid_until')->where('valid_until', '<=', now())->exists();
+
         return view('dashboard', [
+            'hadAccess' => $hadAccess,
             'platformAnnouncements' => $platformAnnouncements,
             'courses' => $courseSummaries,
             'announcements' => $announcements,

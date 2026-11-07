@@ -32,7 +32,7 @@ class FavoriteCollectionController extends Controller
         // Kurs (Route-Model-Binding akzeptiert jede existierende UUID) eine
         // Collection anlegen, auch ohne Entitlement dafür -- analog zur
         // bereits bestehenden Prüfung in FavoriteController::store().
-        abort_unless($entitlements->hasAccess($tenant, $request->user(), $course), 403, 'Für diesen Kurs liegt kein aktives Entitlement vor.');
+        abort_unless($entitlements->hasAccess($tenant, $request->user(), $course), 403, 'Dein Zugang zu diesem Kurs ist abgelaufen oder nicht freigeschaltet.');
 
         $validated = $request->validate(['name' => ['required', 'string', 'max:255']]);
 
@@ -106,7 +106,7 @@ class FavoriteCollectionController extends Controller
         // Frage, die gar nicht zu diesem Kurs gehört, trotzdem seiner
         // Collection zuordnen -- analog zur bereits bestehenden Prüfung in
         // FavoriteController::store().
-        abort_unless($entitlements->hasAccess($tenant, $request->user(), $course), 403, 'Für diesen Kurs liegt kein aktives Entitlement vor.');
+        abort_unless($entitlements->hasAccess($tenant, $request->user(), $course), 403, 'Dein Zugang zu diesem Kurs ist abgelaufen oder nicht freigeschaltet.');
 
         // Modulfragen plus Fragen der Prüfungsbögen (siehe
         // CourseDefinition::contentQuestionIds()).

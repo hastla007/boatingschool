@@ -1,10 +1,13 @@
 <x-guest-layout>
-    <h2 class="text-xl font-bold text-slate-800 dark:text-white mb-6">Neues Passwort vergeben</h2>
+    <h2 class="text-xl font-bold text-slate-800 dark:text-white mb-6">{{ $request->boolean('invite') ? 'Willkommen! Lege dein Passwort fest' : 'Neues Passwort vergeben' }}</h2>
 
     <form method="POST" action="{{ route('password.store') }}" class="space-y-4">
         @csrf
 
         <input type="hidden" name="token" value="{{ $request->route('token') }}">
+        @if ($request->boolean('invite'))
+            <input type="hidden" name="invite" value="1">
+        @endif
 
         <div>
             <x-input-label for="email" value="E-Mail-Adresse" />

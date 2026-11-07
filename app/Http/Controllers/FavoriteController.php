@@ -43,7 +43,7 @@ class FavoriteController extends Controller
         $tenant = $tenantContext->tenant();
         $user = $request->user();
 
-        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Für diesen Kurs liegt kein aktives Entitlement vor.');
+        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Dein Zugang zu diesem Kurs ist abgelaufen oder nicht freigeschaltet.');
 
         // Bug-Review B12 (Folgefehler): eine im Superadmin deaktivierte
         // Frage blieb hier trotzdem als Favorit/Fehler sichtbar und
@@ -184,7 +184,7 @@ class FavoriteController extends Controller
         // course_id eine fremde, nicht-globale Tenant-Kurs-ID trifft.
         $course = CourseDefinition::find($validated['course_id']);
         abort_unless($course, 404);
-        abort_unless($entitlements->hasAccess($tenant, $request->user(), $course), 403, 'Für diesen Kurs liegt kein aktives Entitlement vor.');
+        abort_unless($entitlements->hasAccess($tenant, $request->user(), $course), 403, 'Dein Zugang zu diesem Kurs ist abgelaufen oder nicht freigeschaltet.');
 
         abort_unless($this->courseQuestionIds($course)->contains($question->id), 403, 'Frage gehört nicht zum berechtigten Kurs.');
 

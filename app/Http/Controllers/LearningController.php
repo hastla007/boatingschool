@@ -29,7 +29,7 @@ class LearningController extends Controller
         $tenant = $tenantContext->tenant();
         $user = $request->user();
 
-        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Für diesen Kurs liegt kein aktives Entitlement vor.');
+        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Dein Zugang zu diesem Kurs ist abgelaufen oder nicht freigeschaltet.');
 
         $course->loadMissing('praxisTasks', 'modules.questions');
 
@@ -97,7 +97,7 @@ class LearningController extends Controller
         $tenant = $tenantContext->tenant();
         $user = $request->user();
 
-        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Für diesen Kurs liegt kein aktives Entitlement vor.');
+        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Dein Zugang zu diesem Kurs ist abgelaufen oder nicht freigeschaltet.');
 
         // Feste Positivliste statt eines beliebigen Query-Werts
         // (Sicherheitsreview M4) -- ein unbekannter Wert fällt auf den
@@ -337,7 +337,7 @@ class LearningController extends Controller
         $tenant = $tenantContext->tenant();
         $user = $request->user();
 
-        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Für diesen Kurs liegt kein aktives Entitlement vor.');
+        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Dein Zugang zu diesem Kurs ist abgelaufen oder nicht freigeschaltet.');
         abort_unless($attempt->user_id === $user->id, 403);
         abort_unless($attempt->course_id === $course->id, 404);
 

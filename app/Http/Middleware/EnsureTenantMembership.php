@@ -2,10 +2,12 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\TenantInvitation;
 use App\Models\TenantUser;
 use App\Support\TenantContext;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\URL;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -20,6 +22,19 @@ class EnsureTenantMembership
     {
         $tenant = app(TenantContext::class)->tenant();
         $user = $request->user();
+
+        // Offene Einladung in diese Schule (z. B. direkt nach der
+        // E-Mail-Bestätigung): zur Annahme weiterleiten statt „Kein Zugang“.
+        if ($user && $tenant && ! $user->roleForTenant($tenant) && $request->isMethod('GET') && $user->hasVerifiedEmail()) {
+            $invitation = TenantInvitation::on('pgsql_admin')->withoutGlobalScopes()->where('tenant_id', $tenant->id)
+                ->whereRaw('lower(email) = ?', [mb_strtolower($user->email)])->whereNull('accepted_at')
+                ->where('created_at', '>=', now()->subDays(7))->latest('created_at')->first();
+            if ($invitation) {
+                return redirect()->to(URL::temporarySignedRoute('invitations.accept', now()->addMinutes(10), [
+                    'invitation' => $invitation->id, 'hash' => sha1($invitation->email),
+                ]));
+            }
+        }
 
         if (! $user || ! $tenant || ! $user->roleForTenant($tenant)) {
             // Gesperrte oder beendete Mitgliedschaft: zur Seite „Meine Daten“

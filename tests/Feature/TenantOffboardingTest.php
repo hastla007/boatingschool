@@ -33,7 +33,7 @@ class TenantOffboardingTest extends TestCase
 
         $response = $this->actingAs($superadmin)->get("/superadmin/tenants/{$tenant->id}/export")->assertOk();
         $this->assertStringContainsString('attachment', $response->headers->get('Content-Disposition'));
-        $data = $response->json();
+        $data = json_decode($response->streamedContent(), true, flags: JSON_THROW_ON_ERROR);
         $this->assertSame('Export Schule', $data['tenant']['name']);
         $this->assertSame($learner->email, $data['members'][0]['data']['profile']['email']);
         $this->assertNotEmpty($data['members'][0]['data']['entitlements'] ?? $data['members'][0]['data']);

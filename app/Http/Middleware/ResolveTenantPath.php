@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Http\TenantPathRequest;
 use App\Support\TenantPath;
 use Closure;
 use Illuminate\Http\Request;
@@ -56,7 +57,7 @@ class ResolveTenantPath
             'PHP_SELF' => $script,
             'SCRIPT_FILENAME' => public_path('index.php'),
         ]);
-        $tenantRequest = $request->duplicate(null, null, null, null, null, $server);
+        $tenantRequest = TenantPathRequest::createFrom($request->duplicate(null, null, null, null, null, $server));
         $tenantRequest->attributes->set(TenantPath::ATTRIBUTE, $segment);
 
         // Assets (Vite-Build) liegen weiterhin unter der Domain-Wurzel.

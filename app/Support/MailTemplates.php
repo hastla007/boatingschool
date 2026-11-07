@@ -15,6 +15,7 @@ class MailTemplates
 {
     /** @var array<string, array{label: string, subject: string, placeholders: list<string>}> */
     public const DEFINITIONS = [
+        'account_invitation' => ['label' => 'Einladung mit neuem Konto (Passwort festlegen)', 'subject' => 'Einladung zu {schule}', 'placeholders' => ['schule', 'rolle']],
         'invitation' => ['label' => 'Einladung in eine Bootsschule (bestehendes Konto)', 'subject' => 'Einladung zu {schule}', 'placeholders' => ['schule']],
         'entitlement_expiring' => ['label' => 'Kurszugang läuft bald ab', 'subject' => 'Dein Kurszugang läuft am {datum} ab', 'placeholders' => ['schule', 'kurs', 'datum']],
         'coupon_redeemed' => ['label' => 'Code eingelöst / Kurs freigeschaltet', 'subject' => 'Dein Kurs ist freigeschaltet', 'placeholders' => ['kurs']],

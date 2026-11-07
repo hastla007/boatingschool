@@ -103,11 +103,15 @@ class ParticipantToolsController extends Controller
 
         $userIds = $members->pluck('user_id');
         $last = $overview->lastActivities($tenant, $userIds);
-        $entitlements = Entitlement::where('tenant_id', $tenant->id)->whereIn('user_id', $userIds)->with('course')->get()->groupBy('user_id');
+        $entitlementRows = Entitlement::where('tenant_id', $tenant->id)->whereIn('user_id', $userIds)->with('course')->get();
+        // Fortschritt je Kurs in einem Schritt (statt zwei Abfragen je Zeile).
+        $percents = $entitlementRows->filter(fn ($e) => $e->course)->groupBy('course_id')
+            ->map(fn ($group) => app(CourseProgressService::class)->overallPercents($group->first()->course, $tenant, $group->pluck('user_id')));
+        $entitlements = $entitlementRows->groupBy('user_id');
 
         AuditLog::record($tenant->id, $request->user()->id, 'participants.export', 'tenant_user', null, null, ['count' => $members->count(), 'filters' => array_filter($filters)]);
 
-        return response()->streamDownload(function () use ($members, $last, $entitlements, $overview, $tenant) {
+        return response()->streamDownload(function () use ($members, $last, $entitlements, $percents, $overview, $tenant) {
             $out = fopen('php://output', 'w');
             // Formel-Injektion verhindern: von Lernenden gepflegte Texte wie
             // „=HYPERLINK(…)“ würde Excel sonst als Formel ausführen.
@@ -129,7 +133,7 @@ class ParticipantToolsController extends Controller
                     $put(array_merge($base, ['', '', '', '', '']));
                 }
                 foreach ($rows as $e) {
-                    $percent = app(CourseProgressService::class)->overallPercent($e->course, $tenant, $m->user);
+                    $percent = $percents[$e->course_id][$m->user_id] ?? 0;
                     $put(array_merge($base, [
                         $e->course->name, StatusLabels::entitlementStatus($e->status), $e->valid_until?->timezone('Europe/Berlin')->format('d.m.Y') ?? '',
                         $percent, $percent >= $overview->threshold($tenant, $e->course) ? 'ja' : 'nein',

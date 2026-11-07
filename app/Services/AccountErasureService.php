@@ -112,9 +112,16 @@ class AccountErasureService
             // für mandantenunabhängige Routen) -- ohne die Verbindung zu
             // wechseln und damit ohne das Deadlock-Risiko von M5.
             $this->tenantContext->clear();
-            $this->pseudonymizePlatformAuditLogFor($user, $tenant);
-            $this->forgetOpenInvitations($user, $tenant->id);
-            $this->deleteAccountEntirely($user);
+            try {
+                $this->pseudonymizePlatformAuditLogFor($user, $tenant);
+                $this->forgetOpenInvitations($user, $tenant->id);
+                $this->deleteAccountEntirely($user);
+            } finally {
+                // Review-Runde 8: der restliche Request (z. B. der
+                // Protokolleintrag der Schule nach „Teilnehmer löschen“)
+                // läuft wieder im Kontext der Schule.
+                $this->tenantContext->set($tenant);
+            }
         }
     }
 

@@ -2,7 +2,6 @@
 
 namespace App\Support;
 
-use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
@@ -22,7 +21,9 @@ class BestEffortMail
 
             return true;
         } catch (Throwable $e) {
-            Log::error("Mailversand fehlgeschlagen: {$context}", ['exception' => $e]);
+            // report() statt nur Log::error: so landet ein Mailausfall auch im
+            // Fehlertracking (Sentry), nicht nur in der Logdatei.
+            report(new \RuntimeException("Mailversand fehlgeschlagen: {$context}", 0, $e));
 
             return false;
         }

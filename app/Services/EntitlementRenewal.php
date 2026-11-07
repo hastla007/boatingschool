@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Coupon;
 use App\Models\Entitlement;
 use App\Models\Tenant;
+use App\Support\AccessGrantedMail;
 
 /**
  * Kurszugang verlängern (Bootsschul-Admin, einzeln und als Sammelaktion):
@@ -53,6 +54,8 @@ class EntitlementRenewal
             'redeemed_tenant_id' => $tenant->id,
             'redeemed_at' => now(),
         ]);
+
+        AccessGrantedMail::afterCommit($entitlement, 'course_renewal');
 
         return null;
     }

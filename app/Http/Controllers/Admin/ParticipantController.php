@@ -353,6 +353,12 @@ class ParticipantController extends Controller
         if ($result['duplicate'] ?? false) {
             return back()->with('status', 'Diese Person wurde heute schon eingeladen; die Einladung ist weiter gültig.');
         }
+        if ($result['already_member'] ?? false) {
+            return back()->with('status', 'Diese Person ist bereits Teilnehmer Ihrer Bootsschule.');
+        }
+        if ($result['resent'] ?? false) {
+            return back()->with('status', $result['mail_sent'] ? 'Einladung erneut verschickt (neuer Link zum Passwort festlegen, 7 Tage gültig).' : 'Der Versand der Einladung ist fehlgeschlagen -- bitte später erneut versuchen.');
+        }
 
         $status = $result['mail_sent']
             ? 'Einladung verschickt.'

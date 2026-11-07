@@ -22,9 +22,12 @@ class LearnerOverview
 {
     public function __construct(private CourseProgressService $progress) {}
 
+    /** @var array<string, int> je Schule und Kurs (Exporte fragen sonst je Zeile neu ab) */
+    private array $thresholds = [];
+
     public function threshold(Tenant $tenant, CourseDefinition $course): int
     {
-        return (int) (PraxisFormTemplate::where('active', true)->whereJsonContains('course_ids', $course->id)->value('min_progress_percent')
+        return $this->thresholds[$tenant->id.':'.$course->id] ??= (int) (PraxisFormTemplate::where('active', true)->whereJsonContains('course_ids', $course->id)->value('min_progress_percent')
             ?? $tenant->branding?->exam_readiness_threshold_percent ?? 80);
     }
 

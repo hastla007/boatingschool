@@ -5,17 +5,18 @@ namespace App\Providers;
 use App\Auth\TenantSessionGuard;
 use App\Support\CanonicalUrl;
 use App\Support\TenantContext;
-use Illuminate\Auth\Events\Registered;
-use Illuminate\Auth\Listeners\SendEmailVerificationNotification;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
+use Illuminate\Contracts\Validation\UncompromisedVerifier;
 use Illuminate\Foundation\Events\DiagnosingHealth;
+use Illuminate\Http\Client\Factory;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Validation\NotPwnedVerifier;
 use Illuminate\Validation\Rules\Password;
 
 class AppServiceProvider extends ServiceProvider
@@ -26,6 +27,13 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(TenantContext::class);
+        // Passwort-Leak-Prüfung (api.pwnedpasswords.com): höchstens 5 s statt
+        // 30 s warten, wenn der Dienst nicht erreichbar ist (die Prüfung
+        // lässt das Passwort dann ohnehin zu).
+        // (extend statt singleton: der ValidationServiceProvider ist deferred
+        // und würde eine eigene Bindung beim ersten Gebrauch überschreiben.)
+        $this->app->extend(UncompromisedVerifier::class,
+            fn ($verifier, $app) => new NotPwnedVerifier($app[Factory::class], 5));
     }
 
     /**
@@ -53,11 +61,9 @@ class AppServiceProvider extends ServiceProvider
             return $guard;
         });
 
-        // Verschickt die Verifizierungs-Mail nach der Registrierung (User
-        // implementiert MustVerifyEmail, siehe Sicherheitsreview H2) -- in
-        // Laravel 11 ohne EventServiceProvider muss das explizit verdrahtet
-        // werden.
-        Event::listen(Registered::class, SendEmailVerificationNotification::class);
+        // Die Verifizierungs-Mail nach der Registrierung verdrahtet Laravel 12
+        // selbst (EventServiceProvider::configureEmailVerification); ein
+        // eigenes Event::listen() hier schickte sie doppelt.
 
         $this->registerUuidRoutePatterns();
         $this->configurePasswordPolicy();
@@ -128,9 +134,9 @@ class AppServiceProvider extends ServiceProvider
     private function configurePasswordResetUrl(): void
     {
         ResetPassword::createUrlUsing(function ($notifiable, string $token) {
-            $scheme = app()->environment('production') ? 'https' : 'http';
-
-            return $scheme.'://'.config('app.central_domain').route('password.reset', ['token' => $token], false).'?'.Arr::query([
+            // In einer Schule angefordert: Link unter der Adresse der Schule
+            // (Pfad-Modus /<slug>/, Port lokal), sonst zentral.
+            return CanonicalUrl::root(app(TenantContext::class)->tenant()).route('password.reset', ['token' => $token], false).'?'.Arr::query([
                 'email' => $notifiable->getEmailForPasswordReset(),
             ]);
         });

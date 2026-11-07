@@ -29,26 +29,44 @@ class TenantOffboardingService
     public function __construct(private PersonalDataExportService $personalData) {}
 
     /** @return array<string, mixed> */
-    public function export(Tenant $tenant): array
+    /**
+     * Schreibt den Export Stück für Stück (je Mitglied) über $write --
+     * große Schulen sprengten als ein einziges Array Speicher und Zeitlimit
+     * (Review-Runde 8: 3.000 Mitglieder ≈ 250 MB). Gibt die Mitgliederzahl zurück.
+     *
+     * @param  callable(string): void  $write
+     */
+    public function writeExport(Tenant $tenant, callable $write): int
     {
-        $members = TenantUser::with('user')->where('tenant_id', $tenant->id)->orderBy('created_at')->get();
+        $json = fn ($value) => json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+        $write('{"exported_at":'.$json(now()->toIso8601String())
+            .',"tenant":'.$json($tenant->only(['id', 'slug', 'name', 'status', 'created_at']))
+            .',"branding":'.$json((object) collect($tenant->branding?->toArray() ?? [])->except(['logo_asset_id', 'favicon_asset_id'])->all())
+            .',"members":[');
 
-        return [
-            'exported_at' => now()->toIso8601String(),
-            'tenant' => $tenant->only(['id', 'slug', 'name', 'status', 'created_at']),
-            'branding' => collect($tenant->branding?->toArray() ?? [])->except(['logo_asset_id', 'favicon_asset_id'])->all(),
-            'members' => $members->filter(fn ($m) => $m->user)->map(fn (TenantUser $m) => [
-                'role' => $m->role,
-                'status' => $m->status,
-                'member_since' => $m->created_at?->toIso8601String(),
-                // Alle personenbezogenen Daten je Mitglied wie beim Selbst-Export (Art. 15/20 DSGVO).
-                'data' => $this->personalData->export($m->user, $tenant),
-            ])->values()->all(),
-            'open_invitations' => TenantInvitation::where('tenant_id', $tenant->id)->whereNull('accepted_at')->get(['email', 'role', 'created_at'])->toArray(),
-            'coupons' => Coupon::where('tenant_id', $tenant->id)->with(['course:id,code', 'product:id,code'])->get()
+        $count = 0;
+        TenantUser::with('user')->where('tenant_id', $tenant->id)
+            ->lazyById(200, 'user_id')
+            ->each(function (TenantUser $m) use ($tenant, $write, $json, &$count) {
+                if (! $m->user) {
+                    return;
+                }
+                $write(($count++ > 0 ? ',' : '').$json([
+                    'role' => $m->role,
+                    'status' => $m->status,
+                    'member_since' => $m->created_at?->toIso8601String(),
+                    // Alle personenbezogenen Daten je Mitglied wie beim Selbst-Export (Art. 15/20 DSGVO).
+                    'data' => $this->personalData->export($m->user, $tenant),
+                ]));
+            });
+
+        $write('],"open_invitations":'.$json(TenantInvitation::where('tenant_id', $tenant->id)->whereNull('accepted_at')->get(['email', 'role', 'created_at'])->toArray())
+            .',"coupons":'.$json(Coupon::where('tenant_id', $tenant->id)->with(['course:id,code', 'product:id,code'])->get()
                 ->map(fn (Coupon $c) => ['code' => $c->code, 'course' => $c->course?->code, 'product' => $c->product?->code, 'status' => $c->statusLabel(), 'redeemed_at' => $c->redeemed_at?->toIso8601String()])
-                ->all(),
-        ];
+                ->all())
+            .'}');
+
+        return $count;
     }
 
     /**

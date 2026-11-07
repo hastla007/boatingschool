@@ -6,8 +6,8 @@ use App\Models\Coupon;
 use App\Models\Entitlement;
 use App\Models\TenantInvitation;
 use App\Models\User;
+use App\Notifications\AccountInvitation;
 use App\Notifications\TenantInvitationNotification;
-use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\URL;
 use Tests\Feature\Concerns\InteractsWithTenants;
@@ -181,7 +181,8 @@ class AccountSecurityTest extends TestCase
         // Der Angreifer versucht mit seinem eigenen, unverifizierten Konto anzunehmen.
         $response = $this->actingAsInTenant($attacker, $invitingTenant)->get($url);
 
-        $response->assertForbidden();
+        // Unbestätigtes Konto: erst zur E-Mail-Bestätigung, keine Mitgliedschaft.
+        $response->assertRedirect(route('verification.notice'));
         $this->asTenant($invitingTenant, function () use ($invitingTenant, $attacker) {
             $this->assertDatabaseMissing('tenant_user', [
                 'tenant_id' => $invitingTenant->id,
@@ -270,9 +271,11 @@ class AccountSecurityTest extends TestCase
         // erreichen.
         $this->post('/logout');
 
-        Notification::assertSentTo($user, ResetPassword::class, function ($notification) use ($user, $email, $tenant) {
+        Notification::assertSentTo($user, AccountInvitation::class, function ($notification) use ($user, $email, $tenant) {
+            $this->assertStringContainsString('invite=1', $notification->url);
             $response = $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/reset-password', [
-                'token' => $notification->token,
+                'invite' => '1',
+                'token' => basename(parse_url($notification->url, PHP_URL_PATH)),
                 'email' => $email,
                 'password' => 'password1234',
                 'password_confirmation' => 'password1234',

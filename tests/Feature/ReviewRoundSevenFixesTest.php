@@ -210,7 +210,7 @@ class ReviewRoundSevenFixesTest extends TestCase
         $course = $this->existingCourse('UBI');
 
         $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}")->assertForbidden()
-            ->assertSee('Für diesen Kurs liegt kein aktives Entitlement vor.');
+            ->assertSee('Dein Zugang zu diesem Kurs ist abgelaufen oder nicht freigeschaltet.');
     }
 
     public function test_legal_pages_drop_an_introduction_whose_value_is_empty(): void

@@ -94,9 +94,6 @@
                         Bestätigungslink erneut senden
                     </button>
                 </p>
-                @if (session('status') === 'support-email-verification-link-sent')
-                    <p class="mt-1 text-sm font-medium text-emerald-600 dark:text-emerald-400">Ein neuer Bestätigungslink wurde gesendet.</p>
-                @endif
             @elseif ($branding->support_email)
                 <p class="text-sm mt-2 text-emerald-600 dark:text-emerald-400 inline-flex items-center gap-1">
                     <x-icon name="check-circle" class="w-4 h-4" /> Bestätigt

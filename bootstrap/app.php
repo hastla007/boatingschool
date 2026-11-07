@@ -78,6 +78,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // hinter einem Proxy), siehe ResolveTenantPath.
         $middleware->append(ResolveTenantPath::class);
 
+        // Zertifikate für eigene Domains auch während eines Deploys
+        // (Wartungsmodus) ausstellen lassen.
+        $middleware->preventRequestsDuringMaintenance(except: ['tls-check']);
+
         // Bug-Review R3-2/R4-A: ohne trustHosts() vertraut Laravel jedem
         // Host-Header blind -- route()/url() erzeugen absolute URLs (z. B.
         // der Link in der Passwort-Reset-Mail) damit mit dem Host, den der

@@ -39,6 +39,7 @@ class AuditLog extends Model
     private const SIMPLE_DESCRIPTIONS = [
         'entitlement.extend' => 'hat einen Kurszugang verlängert.',
         'participants.export' => 'hat die Teilnehmerliste exportiert.',
+        'participant.invite_resent' => 'hat eine Einladung erneut verschickt.',
         'participant.remove' => 'hat eine teilnehmende Person samt Lerndaten gelöscht.',
         'profile.export' => 'hat die eigenen Daten heruntergeladen.',
         'participants.remind_inactive' => 'hat inaktive Lernende ans Lernen erinnert.',

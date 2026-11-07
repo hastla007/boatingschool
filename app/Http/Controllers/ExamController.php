@@ -626,6 +626,6 @@ class ExamController extends Controller
         // genau wie bei der Fortschrittsseite (ProgressController) gilt der
         // Zugriff auf einen Kurs nur, solange ein aktives Entitlement besteht.
         $course = $examSession->course;
-        abort_unless($course && $entitlements->hasAccess($tenantContext->tenant(), $request->user(), $course), 403, 'Für diesen Kurs liegt kein aktives Entitlement vor.');
+        abort_unless($course && $entitlements->hasAccess($tenantContext->tenant(), $request->user(), $course), 403, 'Dein Zugang zu diesem Kurs ist abgelaufen oder nicht freigeschaltet.');
     }
 }
