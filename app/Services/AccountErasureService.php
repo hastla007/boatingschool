@@ -342,6 +342,7 @@ class AccountErasureService
         // personenbezogene Daten stehen.
         DB::table('sessions')->where('user_id', $user->id)->delete();
         DB::table('password_reset_tokens')->where('email', $user->email)->delete();
+        DB::table('account_setup_tokens')->where('email', $user->email)->delete();
 
         // Sicherheitsreview M5 (Folgefehler): $user->delete() würde die von
         // Eloquent beim Hydrieren/Erstellen fest zugeordnete Verbindung des

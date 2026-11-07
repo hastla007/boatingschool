@@ -88,7 +88,7 @@
             <label for="support_email" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Support E-Mail</label>
             <input type="email" id="support_email" name="support_email" value="{{ old('support_email', $branding->support_email) }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
             @if ($branding->support_email && ! $branding->hasVerifiedSupportEmail())
-                <p class="text-sm mt-2 text-amber-600 dark:text-amber-400">
+                <p class="text-sm mt-2 text-amber-700 dark:text-amber-300">
                     Diese E-Mail-Adresse ist noch nicht bestätigt.
                     <button form="send-support-email-verification" class="underline hover:text-amber-700 dark:hover:text-amber-300">
                         Bestätigungslink erneut senden

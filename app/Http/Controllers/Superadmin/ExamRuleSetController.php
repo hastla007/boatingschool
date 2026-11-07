@@ -89,7 +89,8 @@ class ExamRuleSetController extends Controller
         // galt für andere Werte.
         $newBlueprints = Module::whereIn('id', $blueprints->pluck('module_id'))->pluck('code', 'id');
         $rulesChanged = (int) $ruleSet->time_limit_seconds !== $validated['time_limit_minutes'] * 60
-            || json_encode($ruleSet->passing_rule) !== json_encode($passingRule)
+            // Postgres (jsonb) ordnet Schlüssel um -- schlüsselsortiert vergleichen.
+            || self::normalized($ruleSet->passing_rule ?? []) != self::normalized($passingRule)
             || collect($before['blueprints'])->map(fn ($b) => $b[0].':'.$b[1])->sort()->values()->all()
                 !== $blueprints->map(fn ($b) => $newBlueprints[$b['module_id']].':'.(int) $b['question_count'])->sort()->values()->all();
         DB::transaction(function () use ($ruleSet, $validated, $passingRule, $verified, $blueprints, $request, $rulesChanged) {
@@ -112,5 +113,20 @@ class ExamRuleSetController extends Controller
         ]);
 
         return redirect()->route('superadmin.exam-rules.index', $ruleSet->course_id)->with('status', 'Prüfungsregeln gespeichert.');
+    }
+
+    /** Arrays rekursiv nach Schlüsseln sortiert, Zahlen als float (0.8 == 0.80). */
+    private static function normalized(mixed $value): mixed
+    {
+        if (is_array($value)) {
+            $value = array_map(self::normalized(...), $value);
+            if (! array_is_list($value)) {
+                ksort($value);
+            }
+
+            return $value;
+        }
+
+        return is_int($value) || is_float($value) ? (float) $value : $value;
     }
 }

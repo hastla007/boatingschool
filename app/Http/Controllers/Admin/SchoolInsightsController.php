@@ -65,7 +65,7 @@ class SchoolInsightsController extends Controller
             ->where('exam_session.submitted_at', '>=', now()->subDays(90))
             ->join('course_definition', 'course_definition.id', '=', 'exam_session.course_id')
             ->groupBy('course_definition.id', 'course_definition.name')
-            ->selectRaw('course_definition.name, count(*) as total, sum(case when exam_session.passed then 1 else 0 end) as passed, count(distinct exam_session.user_id) as learners')
+            ->selectRaw('course_definition.name, count(*) as total, sum(case when exam_session.passed then 1 else 0 end) as passed_count, count(distinct exam_session.user_id) as learners')
             ->orderByDesc('total')->get();
 
         // Durchschnittlicher Fortschritt und Prüfungsreife je Kurs (aktive Zugänge).

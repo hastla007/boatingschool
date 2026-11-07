@@ -56,7 +56,7 @@ class TenantOffboardingService
                     'status' => $m->status,
                     'member_since' => $m->created_at?->toIso8601String(),
                     // Alle personenbezogenen Daten je Mitglied wie beim Selbst-Export (Art. 15/20 DSGVO).
-                    'data' => $this->personalData->export($m->user, $tenant),
+                    'data' => $this->personalData->export($m->user, $tenant, forSchool: true),
                 ]));
             });
 
@@ -100,6 +100,7 @@ class TenantOffboardingService
                 AuditLog::where('entity_type', 'app_user')->where('entity_id', $user->id)->update(['before_data' => null, 'after_data' => null]);
                 DB::table('sessions')->where('user_id', $user->id)->delete();
                 DB::table('password_reset_tokens')->where('email', $user->email)->delete();
+                DB::table('account_setup_tokens')->where('email', $user->email)->delete();
                 DB::table('app_user')->where('id', $user->id)->delete();
             }
 

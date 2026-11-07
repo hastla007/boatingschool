@@ -21,10 +21,12 @@ class AccessGrantedMail
             if (! $entitlement?->user || ! $entitlement->course) {
                 return;
             }
-            BestEffortMail::send(
+            // Erst nach der Antwort an den Browser senden: bei einer
+            // Sammel-Verlängerung (bis zu 500 Zugänge) sonst Timeout.
+            \Illuminate\Support\defer(fn () => BestEffortMail::send(
                 fn () => $entitlement->user->notify(new CouponRedeemed(['type' => $type, 'course' => $entitlement->course, 'entitlement' => $entitlement])),
                 "Freischaltungsmail {$entitlement->id}"
-            );
+            ));
         });
     }
 }

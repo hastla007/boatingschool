@@ -67,4 +67,21 @@ class ExamRuleSetGovernanceTest extends TestCase
         $this->assertNotEquals($verifiedAt, $fresh->verified_at, 'geänderte Regeln gelten als neu geprüft');
         $this->assertSame($superadmin->id, $fresh->verified_by);
     }
+
+    /** Review-Runde 9: Speichern ohne Änderung lässt die fachliche Prüfung unverändert (jsonb ordnet Schlüssel um). */
+    public function test_saving_unchanged_rules_keeps_the_verification(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        $see = $this->existingCourse('SBF-SEE');
+        $seeRs = $this->onAdmin(fn () => ExamRuleSet::where('course_id', $see->id)->with('blueprints')->firstOrFail());
+        $this->snapshot($seeRs);
+        $this->actingAs($superadmin)->patch("/superadmin/exam-rule-sets/{$seeRs->id}", $this->form($seeRs, ['note' => 'Hinweis R9']))->assertSessionHasNoErrors();
+        $saved = $this->onAdmin(fn () => $seeRs->fresh(['blueprints']));
+
+        $other = $this->createSuperAdmin();
+        $this->actingAs($other)->patch("/superadmin/exam-rule-sets/{$seeRs->id}", $this->form($saved, ['note' => 'Hinweis R9']))->assertSessionHasNoErrors();
+        $again = $this->onAdmin(fn () => $seeRs->fresh());
+        $this->assertSame($superadmin->id, $again->verified_by);
+        $this->assertEquals($saved->verified_at, $again->verified_at);
+    }
 }

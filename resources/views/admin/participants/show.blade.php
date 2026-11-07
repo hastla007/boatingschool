@@ -208,14 +208,14 @@
                                      x-data griffen die @submit-Rückfragen für Sperren/Widerrufen nie,
                                      der Zugang wurde beim Klick sofort gesperrt bzw. widerrufen. --}}
                                 <div class="mt-1" x-data="{}">
-                                    <div class="flex items-center justify-end gap-1">
+                                    <div class="flex flex-wrap items-center justify-end gap-2">
                                         @if (in_array($booking['status'], ['active', 'suspended'], true))
                                             <form method="POST" action="{{ route('admin.entitlements.update', $booking['entitlement_id']) }}"
                                                   @submit="if ({{ $booking['status'] === 'active' ? 'true' : 'false' }} && ! confirm('Diesen Zugang wirklich sperren?')) $event.preventDefault()">
                                                 @csrf
                                                 @method('PATCH')
                                                 <input type="hidden" name="action" value="{{ $booking['status'] === 'active' ? 'suspend' : 'reactivate' }}">
-                                                <button type="submit" class="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-[11px] whitespace-nowrap">
+                                                <button type="submit" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-xs whitespace-nowrap">
                                                     {{ $booking['status'] === 'active' ? 'Sperren' : 'Entsperren' }}
                                                 </button>
                                             </form>
@@ -230,7 +230,7 @@
                                                 @csrf
                                                 @method('PATCH')
                                                 <input type="hidden" name="action" value="revoke">
-                                                <button type="submit" class="px-2 py-0.5 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/50 transition text-[11px] whitespace-nowrap">
+                                                <button type="submit" class="px-3 py-1.5 rounded-lg bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/50 transition text-xs whitespace-nowrap">
                                                     Widerrufen
                                                 </button>
                                             </form>
@@ -242,11 +242,12 @@
                                                  Widerrufen-Entscheidung im Ergebnis bedeutungslos
                                                  machte. --}}
                                             <form method="POST" action="{{ route('admin.entitlements.update', $booking['entitlement_id']) }}"
-                                                  title="Verbraucht einen eigenen Code für diesen Kurs.">
+                                                  title="Verbraucht einen eigenen Code für diesen Kurs."
+                                                  @submit="if (! confirm('Widerruf aufheben? Dafür wird ein freier Code dieses Kurses verbraucht.')) $event.preventDefault()">
                                                 @csrf
                                                 @method('PATCH')
                                                 <input type="hidden" name="action" value="reactivate">
-                                                <button type="submit" class="px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-[11px] whitespace-nowrap">
+                                                <button type="submit" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-xs whitespace-nowrap">
                                                     Widerruf aufheben
                                                 </button>
                                             </form>
@@ -271,12 +272,12 @@
                                                  verlängert nur, wenn das Laufzeitende noch dem angezeigten entspricht. --}}
                                             <form method="POST" action="{{ route('admin.entitlements.update', $booking['entitlement_id']) }}"
                                                   title="Verbraucht einen eigenen Verlängerungscode für diesen Kurs."
-                                                  x-data="{ busy: false }" @submit="if (busy) { $event.preventDefault() } else { busy = true }">
+                                                  x-data="{ busy: false }" @submit="if (busy || ! confirm('Zugang verlängern? Dafür wird ein freier Verlängerungscode verbraucht.')) { $event.preventDefault() } else { busy = true }">
                                                 @csrf
                                                 @method('PATCH')
                                                 <input type="hidden" name="action" value="extend">
                                                 <input type="hidden" name="seen_valid_until" value="{{ $booking['valid_until']?->timestamp ?? '' }}">
-                                                <button type="submit" :disabled="busy" class="disabled:opacity-50 px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-[11px] whitespace-nowrap">
+                                                <button type="submit" :disabled="busy" class="disabled:opacity-50 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-xs whitespace-nowrap">
                                                     Verlängern
                                                 </button>
                                             </form>

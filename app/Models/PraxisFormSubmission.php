@@ -62,14 +62,18 @@ class PraxisFormSubmission extends Model
 
     /**
      * Die vom Teilnehmer bereits angelegten zusätzlichen Terminreihen
-     * (slot >= 1), aufsteigend sortiert -- ihre Anzahl und Bezeichnung
+     * (slot >= 1), nach Termin sortiert -- ihre Anzahl und Bezeichnung
      * bestimmt die Bootsschule frei, es gibt kein festes Kontingent.
      *
      * @return array<int, int>
      */
     public function practiceSlotNumbers(): array
     {
-        return $this->examAppointments->where('slot', '>', 0)->pluck('slot')->unique()->sort()->values()->all();
+        // Nach Termin (jüngste Runde je Slot) statt nach Anlage-Reihenfolge,
+        // damit eine früher stattfindende Praxisstunde oben steht.
+        return $this->examAppointments->where('slot', '>', 0)->groupBy('slot')
+            ->map(fn ($rounds, $slot) => ['slot' => (int) $slot, 'at' => $rounds->sortBy('round')->last()->exam_date])
+            ->sortBy([['at', 'asc'], ['slot', 'asc']])->pluck('slot')->values()->all();
     }
 
     public function nextPracticeSlotNumber(): int
@@ -123,27 +127,28 @@ class PraxisFormSubmission extends Model
     public function nextStep(): array
     {
         $exam = $this->latestExamAppointment();
+        $needsNewProposal = fn (?PraxisExamAppointment $a) => $a && in_array($a->response, ['declined', 'withdrawn', 'cancelled'], true);
 
+        // Review-Runde 9: Zusatztermine gibt es auch vor bzw. ohne fixierten
+        // Prüfungstermin -- was die Schule tun muss, kommt vor allem, worauf
+        // sie nur wartet (egal in welchem Slot).
         if (! $exam) {
             return ['label' => 'Prüfungstermin vorschlagen', 'action_needed' => true];
         }
-
-        if (in_array($exam->response, ['declined', 'withdrawn', 'cancelled'], true)) {
+        if ($needsNewProposal($exam)) {
             return ['label' => 'Prüfungstermin erneut vorschlagen', 'action_needed' => true];
+        }
+        foreach ($this->practiceSlotNumbers() as $slot) {
+            if ($needsNewProposal($this->latestAppointmentForSlot($slot))) {
+                return ['label' => 'Termin erneut vorschlagen ('.$this->labelForSlot($slot).')', 'action_needed' => true];
+            }
         }
 
         if ($exam->isPending()) {
             return ['label' => 'Wartet auf Rückmeldung (Prüfungstermin)', 'action_needed' => false];
         }
-
         foreach ($this->practiceSlotNumbers() as $slot) {
-            $latest = $this->latestAppointmentForSlot($slot);
-
-            if ($latest && in_array($latest->response, ['declined', 'withdrawn', 'cancelled'], true)) {
-                return ['label' => 'Termin erneut vorschlagen ('.$this->labelForSlot($slot).')', 'action_needed' => true];
-            }
-
-            if ($latest && $latest->isPending()) {
+            if ($this->latestAppointmentForSlot($slot)?->isPending()) {
                 return ['label' => 'Wartet auf Rückmeldung ('.$this->labelForSlot($slot).')', 'action_needed' => false];
             }
         }

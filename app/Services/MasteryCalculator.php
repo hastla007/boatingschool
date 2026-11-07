@@ -13,8 +13,12 @@ use Carbon\Carbon;
  */
 class MasteryCalculator
 {
+    /** Mindestabstand vor der festigenden (dritten) richtigen Antwort nach einem Fehler. */
+    public const SPACING_MINUTES = 10;
+
     public function apply(Progress $progress, bool $correct, Carbon $now): void
     {
+        $previousSeenAt = $progress->last_seen_at;
         $progress->attempt_count++;
         $progress->first_seen_at ??= $now;
         $progress->last_seen_at = $now;
@@ -23,6 +27,14 @@ class MasteryCalculator
             $progress->correct_count++;
             $progress->current_streak++;
             $progress->last_correct_at = $now;
+            // Review-Runde 9: eine schon einmal falsch beantwortete Frage
+            // gilt erst als gefestigt, wenn die letzte richtige Antwort mit
+            // Abstand kommt -- dreimal direkt hintereinander nach dem Blick
+            // auf die Lösung ist noch kein Lernerfolg.
+            if ($progress->incorrect_count > 0 && $progress->current_streak >= 3 && $previousSeenAt
+                && Carbon::parse($previousSeenAt)->gt($now->copy()->subMinutes(self::SPACING_MINUTES))) {
+                $progress->current_streak = 2;
+            }
         } else {
             $progress->incorrect_count++;
             $progress->current_streak = 0;

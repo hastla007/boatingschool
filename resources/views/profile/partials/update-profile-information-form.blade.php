@@ -89,7 +89,7 @@
             <x-input-label value="Adresse" />
             <div class="grid sm:grid-cols-[2fr_1fr] gap-4 mt-1">
                 <div>
-                    <x-input-label for="street" value="Straße &amp; Hausnummer" class="sr-only" />
+                    <x-input-label for="street" value="Straße und Hausnummer" class="sr-only" />
                     <x-text-input id="street" name="street" type="text" placeholder="Straße & Hausnummer" class="block w-full" :value="old('street', $membership->street)" autocomplete="street-address" />
                     <x-input-error class="mt-2" :messages="$errors->get('street')" />
                 </div>

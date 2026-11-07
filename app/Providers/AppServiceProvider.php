@@ -136,7 +136,11 @@ class AppServiceProvider extends ServiceProvider
         ResetPassword::createUrlUsing(function ($notifiable, string $token) {
             // In einer Schule angefordert: Link unter der Adresse der Schule
             // (Pfad-Modus /<slug>/, Port lokal), sonst zentral.
-            return CanonicalUrl::root(app(TenantContext::class)->tenant()).route('password.reset', ['token' => $token], false).'?'.Arr::query([
+            // „Passwort vergessen“ ist mandantenunabhängig: dort setzt
+            // ResolveTenant nur currentTenant, nicht den TenantContext.
+            $tenant = app(TenantContext::class)->tenant() ?? (app()->bound('currentTenant') ? app('currentTenant') : null);
+
+            return CanonicalUrl::root($tenant).route('password.reset', ['token' => $token], false).'?'.Arr::query([
                 'email' => $notifiable->getEmailForPasswordReset(),
             ]);
         });

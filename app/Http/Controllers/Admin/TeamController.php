@@ -8,14 +8,13 @@ use App\Models\InstructorCourse;
 use App\Models\TenantInvitation;
 use App\Models\TenantUser;
 use App\Models\User;
-use App\Notifications\TenantInvitationNotification;
 use App\Services\AccountSetupLink;
+use App\Services\ParticipantInviter;
 use App\Support\BestEffortMail;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\Response;
@@ -56,16 +55,21 @@ class TeamController extends Controller
 
             // Bestehendes Konto: Einladung, die die Person selbst annimmt
             // (siehe ParticipantController::invite, Sicherheitsreview H2).
-            $invitation = TenantInvitation::create([
-                'tenant_id' => $tenant->id,
-                'email' => $existingUser->email,
-                'role' => $validated['role'],
-                'invited_by_user_id' => $request->user()->id,
-            ]);
-            $mailSent = BestEffortMail::send(
-                fn () => Notification::route('mail', $existingUser->email)->notify(new TenantInvitationNotification($invitation)),
-                "Team-Einladung Bestandskonto {$invitation->id}"
-            );
+            // Review-Runde 9: offene Einladung derselben Rolle wiederverwenden
+            // und je Adresse höchstens eine Mail am Tag (Schutz vor Mail-Flut).
+            if (! ParticipantInviter::mayMailAddress($tenant, $existingUser->email)) {
+                return back()->with('status', 'Diese Person wurde heute schon eingeladen; die Einladung ist weiter gültig.');
+            }
+            $invitation = TenantInvitation::where('tenant_id', $tenant->id)->where('role', $validated['role'])->whereNull('accepted_at')
+                ->whereRaw('lower(email) = ?', [mb_strtolower($existingUser->email)])->where('created_at', '>=', now()->subDays(7))
+                ->latest('created_at')->first()
+                ?? TenantInvitation::create([
+                    'tenant_id' => $tenant->id,
+                    'email' => $existingUser->email,
+                    'role' => $validated['role'],
+                    'invited_by_user_id' => $request->user()->id,
+                ]);
+            $mailSent = ParticipantInviter::sendExistingAccountInvitation($existingUser, $tenant, $invitation);
             AuditLog::record($tenant->id, $request->user()->id, 'team.invite_pending', 'tenant_invitation', $invitation->id, null, [
                 'email' => $existingUser->email, 'role' => $validated['role'],
             ]);

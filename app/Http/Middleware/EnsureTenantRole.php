@@ -21,7 +21,7 @@ class EnsureTenantRole
         $role = $user->roleForTenant($tenant);
 
         if (! $role || ! in_array($role, $roles, true)) {
-            abort(403, 'Für diese Bootsschule fehlt die erforderliche Rolle.');
+            abort(403, 'Dieser Bereich ist nur für das Team der Bootsschule.');
         }
 
         return $next($request);

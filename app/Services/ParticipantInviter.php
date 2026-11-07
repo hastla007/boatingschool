@@ -34,6 +34,37 @@ class ParticipantInviter
         return 'participant-invites:'.$tenant->id;
     }
 
+    /** Höchstens eine Einladungsmail je Adresse, Schule und Tag (zählt den Versuch mit). */
+    public static function mayMailAddress(Tenant $tenant, string $email): bool
+    {
+        $key = 'invite-mail:'.$tenant->id.':'.sha1(mb_strtolower($email));
+        if (RateLimiter::tooManyAttempts($key, 1)) {
+            return false;
+        }
+        RateLimiter::hit($key, 86400);
+
+        return true;
+    }
+
+    /**
+     * Einladung eines bestehenden Kontos verschicken. Hat das Konto noch nie
+     * ein Passwort festgelegt (status „invited“), kann es sich nicht anmelden
+     * -- dann statt „melde dich an“ der Link zum Passwort-Festlegen in die
+     * einladende Schule; die offene Einladung wird danach beim ersten Aufruf
+     * angenommen (EnsureTenantMembership).
+     */
+    public static function sendExistingAccountInvitation(User $user, Tenant $tenant, TenantInvitation $invitation): bool
+    {
+        if ($user->status === 'invited') {
+            return BestEffortMail::send(fn () => app(AccountSetupLink::class)->send($user, $tenant, $invitation->role), "Einladung (Passwort festlegen) {$invitation->id}");
+        }
+
+        return BestEffortMail::send(
+            fn () => Notification::route('mail', $user->email)->notify(new TenantInvitationNotification($invitation)),
+            "Einladungsmail Bestandskonto {$invitation->id}"
+        );
+    }
+
     public function limitReached(Tenant $tenant): bool
     {
         return RateLimiter::tooManyAttempts(self::dailyKey($tenant), self::DAILY_LIMIT);
@@ -75,7 +106,9 @@ class ParticipantInviter
             $open = TenantInvitation::where('tenant_id', $tenant->id)->where('role', 'learner')->whereNull('accepted_at')
                 ->whereRaw('lower(email) = ?', [mb_strtolower($existingUser->email)])->where('created_at', '>=', now()->subDays(7))
                 ->latest('created_at')->first();
-            if ($open && $open->created_at->gt(now()->subDay())) {
+            // Review-Runde 9: je Adresse und Schule höchstens eine Mail am Tag
+            // (auch an den Tagen 2–7 einer wiederverwendeten Einladung).
+            if (! self::mayMailAddress($tenant, $existingUser->email)) {
                 return ['type' => 'existing', 'mail_sent' => true, 'user' => null, 'duplicate' => true];
             }
             $invitation = $open ?? TenantInvitation::create([
@@ -85,10 +118,7 @@ class ParticipantInviter
                 'invited_by_user_id' => $actor->id,
             ]);
 
-            $mailSent = BestEffortMail::send(
-                fn () => Notification::route('mail', $existingUser->email)->notify(new TenantInvitationNotification($invitation)),
-                "Einladungsmail Bestandskonto {$invitation->id}"
-            );
+            $mailSent = self::sendExistingAccountInvitation($existingUser, $tenant, $invitation);
 
             AuditLog::record($tenant->id, $actor->id, 'participant.invite_pending', 'tenant_invitation', $invitation->id, null, [
                 'email' => $existingUser->email,

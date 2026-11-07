@@ -184,21 +184,24 @@ class AdminDashboardController extends Controller
             ->pluck('user_id')
             ->unique();
 
+        // Review-Runde 9: ein bestandener Simulationsbogen ist kein amtliches
+        // Prüfungsergebnis -- Phase „Probeprüfung bestanden“, und nach der
+        // Praxis-Anmeldung bzw. dem fixierten Termin (die weiter sind).
         $phaseCounts = [
-            'Geprüft' => 0,
             'Prüfungstermin fixiert' => 0,
             'Praxis angemeldet' => 0,
+            'Probeprüfung bestanden' => 0,
             'Lernen' => 0,
             'Nicht gestartet' => 0,
         ];
         $learningPhaseLearnerIds = [];
         foreach ($learnerIds as $learnerId) {
-            if ($passedExamUserIds->contains($learnerId)) {
-                $phaseCounts['Geprüft']++;
-            } elseif ($submissionsByUser->get($learnerId)?->contains(fn ($s) => $s->confirmed_exam_date !== null)) {
+            if ($submissionsByUser->get($learnerId)?->contains(fn ($s) => $s->confirmed_exam_date !== null)) {
                 $phaseCounts['Prüfungstermin fixiert']++;
             } elseif ($submissionsByUser->get($learnerId)?->isNotEmpty()) {
                 $phaseCounts['Praxis angemeldet']++;
+            } elseif ($passedExamUserIds->contains($learnerId)) {
+                $phaseCounts['Probeprüfung bestanden']++;
             } elseif ($activeEntitlementUserIds->contains($learnerId)) {
                 $phaseCounts['Lernen']++;
                 $learningPhaseLearnerIds[] = $learnerId;

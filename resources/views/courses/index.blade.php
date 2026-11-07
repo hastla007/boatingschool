@@ -114,7 +114,8 @@
                 @php($webshopUrl = $webshopLinks->get($course->id))
                 @php($image = $courseImages[$course->code] ?? null)
                 @php($isExpired = $expiredCourseIds->contains($course->id))
-                <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden {{ ($webshopUrl || ($isExpired && $renewalWebshopLink)) ? '' : 'opacity-70' }}">
+                {{-- Nur das Bild abdunkeln, nicht den Text (Kontrast). --}}
+                <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden {{ ($webshopUrl || ($isExpired && $renewalWebshopLink)) ? '' : '[&>div:first-child]:opacity-70' }}">
                     <div class="relative h-32 flex items-center justify-center {{ $image ? 'bg-cover bg-center' : 'bg-gradient-to-br from-slate-300 to-slate-400 dark:from-slate-700 dark:to-slate-600' }}"
                          @if ($image) style="background-image: url('{{ asset($image) }}')" @endif>
                         @if ($image)

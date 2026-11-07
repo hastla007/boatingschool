@@ -71,17 +71,21 @@ class PrunePersonalData extends Command
         $cache = Schema::hasTable('cache') ? DB::table('cache')->where('expiration', '<', now()->timestamp) : null;
         $resetMinutes = (int) config('auth.passwords.users.expire', 60);
         $resets = DB::table('password_reset_tokens')->where('created_at', '<', now()->subMinutes($resetMinutes));
+        // Einladungs-Links liegen in einer eigenen Tabelle mit eigener Frist (7 Tage).
+        $inviteMinutes = (int) config('auth.passwords.invites.expire', 60 * 24 * 7);
+        $invites = Schema::hasTable('account_setup_tokens')
+            ? DB::table('account_setup_tokens')->where('created_at', '<', now()->subMinutes($inviteMinutes)) : null;
 
         if ($dryRun) {
-            $this->line('Cache: '.($cache?->count() ?? 0).' abgelaufene Zeile(n), Passwort-Reset-Tokens: '.$resets->count().' abgelaufen -- würden gelöscht.');
+            $this->line('Cache: '.($cache?->count() ?? 0).' abgelaufene Zeile(n), Passwort-Reset-Tokens: '.$resets->count().', Einladungs-Links: '.($invites?->count() ?? 0).' abgelaufen -- würden gelöscht.');
 
             return;
         }
 
-        $this->line('Cache: '.($cache?->delete() ?? 0).' abgelaufene Zeile(n) gelöscht, Passwort-Reset-Tokens: '.$resets->delete().' gelöscht.');
+        $this->line('Cache: '.($cache?->delete() ?? 0).' abgelaufene Zeile(n) gelöscht, Passwort-Reset-Tokens: '.$resets->delete().', Einladungs-Links: '.($invites?->delete() ?? 0).' gelöscht.');
     }
 
-    /** Nie angenommene Einladungs-Konten und nie bestätigte Registrierungen nach der Frist löschen. */
+    /** Nie angenommene Einladungs-Konten (nie ein Passwort festgelegt) nach der Frist löschen. */
     private function pruneUnclaimedAccounts(bool $dryRun): void
     {
         $config = config('data_retention.unclaimed_accounts');
@@ -93,7 +97,12 @@ class PrunePersonalData extends Command
 
         $cutoff = now()->subDays((int) $config['days']);
         $users = User::query()->where('is_superadmin', false)->where('created_at', '<', $cutoff)
-            ->where(fn ($q) => $q->where('status', 'invited')->orWhereNull('email_verified_at'))
+            // Review-Runde 9: nur nie aktivierte Einladungs-Konten -- ein
+            // aktives Konto mit (z. B. nach Adressänderung) unbestätigter
+            // E-Mail bleibt; ein vor Kurzem neu verschickter Link zählt als
+            // neue Frist.
+            ->where('status', 'invited')
+            ->whereNotExists(fn ($q) => $q->from('account_setup_tokens')->whereColumn('account_setup_tokens.email', 'app_user.email')->where('account_setup_tokens.created_at', '>=', $cutoff))
             // Nie löschen: Konten mit (bezahltem/zugewiesenem) Kurszugang und
             // Team-Mitglieder einer Schule -- dort entscheidet die Schule.
             ->whereNotExists(fn ($q) => $q->from('entitlement')->whereColumn('entitlement.user_id', 'app_user.id'))

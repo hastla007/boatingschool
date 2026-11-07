@@ -115,7 +115,10 @@ class ParticipantToolsController extends Controller
             $out = fopen('php://output', 'w');
             // Formel-Injektion verhindern: von Lernenden gepflegte Texte wie
             // „=HYPERLINK(…)“ würde Excel sonst als Formel ausführen.
-            $put = fn (array $row) => fputcsv($out, array_map(fn ($v) => is_string($v) && preg_match('/^[=+\-@\t\r]/', $v) ? "'".$v : $v, $row), ';', '"', '\\');
+            // Review-Runde 9: ohne Escape-Zeichen (RFC 4180 wie Excel) -- mit
+            // '\\' ließ sich per \" eine eigene Zelle mit Formel einschleusen;
+            // die Prüfung sieht auch hinter führende Leerzeichen/Anführungszeichen.
+            $put = fn (array $row) => fputcsv($out, array_map(fn ($v) => is_string($v) && preg_match('/^[\s"\']*[=+\-@\t\r]/u', $v) ? "'".$v : $v, $row), ';', '"', '');
             fwrite($out, "\xEF\xBB\xBF");
             $put(['Vorname', 'Nachname', 'E-Mail', 'Status', 'Teilnehmer seit', 'Zuletzt gelernt', 'Kurs', 'Zugang', 'Zugang bis', 'Fortschritt %', 'Prüfungsreif']);
             foreach ($members as $m) {

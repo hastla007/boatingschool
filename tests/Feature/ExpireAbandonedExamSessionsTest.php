@@ -6,6 +6,7 @@ use App\Models\CourseDefinition;
 use App\Models\ExamBlueprint;
 use App\Models\ExamRuleSet;
 use App\Models\ExamSession;
+use App\Models\ExamSessionQuestion;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Support\Facades\Artisan;
@@ -42,6 +43,25 @@ class ExpireAbandonedExamSessionsTest extends TestCase
         parent::tearDown();
     }
 
+    /** Mindestens eine Antwort: sonst wird die Sitzung entfernt statt bewertet. */
+    private function answerOneQuestion(ExamSession $session): void
+    {
+        $this->onAdmin(fn () => ExamSessionQuestion::where('exam_session_id', $session->id)->where('position', 1)->update(['answered_at' => now()->subMinutes(40)]));
+    }
+
+    /** Review-Runde 9: eine abgebrochene Prüfung ohne jede Antwort ist kein Ergebnis und wird entfernt. */
+    public function test_an_abandoned_session_without_any_answer_is_removed(): void
+    {
+        [$tenant, $learner, $course] = $this->setUpExamCourse(timeLimitSeconds: 1800);
+        $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam");
+        $session = $this->asTenant($tenant, fn () => ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail());
+        $this->onAdmin(fn () => ExamSession::where('id', $session->id)->update(['started_at' => now()->subMinutes(31)]));
+
+        Artisan::call('app:expire-abandoned-exam-sessions');
+
+        $this->onAdmin(fn () => $this->assertNull(ExamSession::find($session->id)));
+    }
+
     public function test_an_abandoned_session_past_its_time_limit_is_evaluated(): void
     {
         [$tenant, $learner, $course] = $this->setUpExamCourse(timeLimitSeconds: 1800);
@@ -58,6 +78,7 @@ class ExpireAbandonedExamSessionsTest extends TestCase
         // statische Query-Builder-Stil baut dagegen bei jedem Aufruf neu
         // auf der gerade aktuellen Default-Verbindung auf.
         $this->onAdmin(fn () => ExamSession::where('id', $session->id)->update(['started_at' => now()->subMinutes(31)]));
+        $this->answerOneQuestion($session);
 
         Artisan::call('app:expire-abandoned-exam-sessions');
 
@@ -73,6 +94,7 @@ class ExpireAbandonedExamSessionsTest extends TestCase
         $session = $this->asTenant($tenant, fn () => ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail());
 
         $this->onAdmin(fn () => ExamSession::where('id', $session->id)->update(['started_at' => now()->subHours(25)]));
+        $this->answerOneQuestion($session);
 
         Artisan::call('app:expire-abandoned-exam-sessions');
 
