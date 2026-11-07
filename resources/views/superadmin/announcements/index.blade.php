@@ -49,7 +49,7 @@
                     <x-input-label for="audience" value="Sichtbar für" />
                     <select id="audience" name="audience" class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                         <option value="team" @selected(old('audience', 'team') === 'team')>Nur Schul-Teams</option>
-                        <option value="all" @selected(old('audience') === 'all')>Teams und Lernende</option>
+                        <option value="all" @selected(old('audience') === 'all')>Teams und Teilnehmer</option>
                     </select>
                 </div>
                 <div>
@@ -63,7 +63,7 @@
                 Zusätzlich per E-Mail an Inhaber und Admins (aktive Schulen)
             </label>
             <button type="submit" class="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium hover:opacity-90">Veröffentlichen</button>
-            <p class="text-xs text-slate-600 dark:text-slate-400">Die Mitteilung erscheint oben im Admin-Bereich der Schulen, bei „und Lernende“ auch im Lern-Dashboard. Lernende bekommen keine Mail.</p>
+            <p class="text-xs text-slate-600 dark:text-slate-400">Die Mitteilung erscheint oben im Admin-Bereich der Schulen, bei „und Teilnehmer“ auch im Lern-Dashboard. Teilnehmer bekommen keine Mail.</p>
         </form>
 
         <div class="lg:col-span-3 space-y-3">
@@ -78,7 +78,7 @@
                             <p class="text-xs text-slate-600 dark:text-slate-400">
                                 {{ $announcement->created_at->timezone('Europe/Berlin')->format('d.m.Y H:i') }} · {{ $announcement->author?->display_name ?? $announcement->author?->email ?? '—' }} ·
                                 {{ $names === null ? 'alle Schulen' : $names->implode(', ') }} ·
-                                {{ $announcement->audience === 'all' ? 'Teams und Lernende' : 'nur Teams' }}
+                                {{ $announcement->audience === 'all' ? 'Teams und Teilnehmer' : 'nur Teams' }}
                                 @if ($announcement->visible_until) · bis {{ $announcement->visible_until->format('d.m.Y') }} @endif
                                 @if ($announcement->emailed_at) · per Mail an {{ $announcement->emailed_count }} @endif
                                 @unless ($announcement->isVisible()) · abgelaufen @endunless

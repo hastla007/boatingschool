@@ -17,6 +17,7 @@ use App\Services\CouponRedemptionService;
 use App\Services\LearnerOverview;
 use App\Services\ParticipantInviter;
 use App\Support\Countries;
+use App\Support\ExamRegistration;
 use App\Support\TenantContext;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
@@ -111,8 +112,17 @@ class ParticipantController extends Controller
         // damit die Bootsschule bei mehreren Standorten auswählen kann, wo
         // ein Termin stattfindet -- nach Kurs gruppiert, da verschiedene
         // Anmeldungen unterschiedliche Kurse betreffen können.
+        // Kurse mit Selbst-Anmeldung zur Prüfung (noch ohne Termine): dort
+        // kann die Schule trotzdem Praxisstunden vorschlagen.
+        $selfBookingCourses = Entitlement::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+            ->whereIn('status', ['active', 'suspended'])->with('course')->get()->pluck('course')->filter()
+            ->unique('id')
+            ->reject(fn ($course) => $praxisFormSubmissions->contains('course_id', $course->id))
+            ->filter(fn ($course) => ExamRegistration::isSelf($tenant, $course))
+            ->values();
+
         $allLocations = TenantCourseLocation::where('tenant_id', $tenant->id)->orderBy('sort_order')->get();
-        $locationsByCourse = $praxisFormSubmissions->pluck('course_id')->unique()
+        $locationsByCourse = $praxisFormSubmissions->pluck('course_id')->concat($selfBookingCourses->pluck('id'))->unique()
             ->mapWithKeys(fn ($courseId) => [
                 $courseId => $allLocations->filter(fn (TenantCourseLocation $l) => in_array($courseId, $l->course_ids ?? [], true))->values(),
             ]);
@@ -132,7 +142,9 @@ class ParticipantController extends Controller
             $course = $submission->course->name ?? '—';
 
             $examAppointments = $submission->appointmentsForSlot(0);
-            if ($examAppointments->isEmpty()) {
+            if ($submission->isPracticeOnly()) {
+                // Prüfungstermin bucht der Teilnehmer selbst.
+            } elseif ($examAppointments->isEmpty()) {
                 $items->push(['course' => $course, 'label' => 'Prüfungstermin', 'reason' => 'Neue Anmeldung -- bitte Prüfungstermin vorschlagen.']);
             } elseif (in_array($examAppointments->last()->response, ['declined', 'withdrawn', 'cancelled'], true)) {
                 // Review: wie PraxisFormSubmission::nextStep() -- auch nach
@@ -165,6 +177,7 @@ class ParticipantController extends Controller
             'canManageTenant' => $canManageTenant,
             'bookings' => $bookings,
             'praxisFormSubmissions' => $praxisFormSubmissions,
+            'selfBookingCourses' => $selfBookingCourses,
             'locationsByCourse' => $locationsByCourse,
             'actionItems' => $actionItems,
             'willkommensboxOrder' => $willkommensboxOrder,

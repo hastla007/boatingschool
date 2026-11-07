@@ -42,7 +42,7 @@ class AuditLog extends Model
         'participant.invite_resent' => 'hat eine Einladung erneut verschickt.',
         'participant.remove' => 'hat eine teilnehmende Person samt Lerndaten gelöscht.',
         'profile.export' => 'hat die eigenen Daten heruntergeladen.',
-        'participants.remind_inactive' => 'hat inaktive Lernende ans Lernen erinnert.',
+        'participants.remind_inactive' => 'hat inaktive Teilnehmer ans Lernen erinnert.',
         'announcement.create' => 'hat eine Mitteilung an Teilnehmer veröffentlicht.',
         'announcement.delete' => 'hat eine Mitteilung an Teilnehmer gelöscht.',
         'team.invite' => 'hat ein Teammitglied eingeladen.',

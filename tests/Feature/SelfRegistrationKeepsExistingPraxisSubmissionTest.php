@@ -92,11 +92,16 @@ class SelfRegistrationKeepsExistingPraxisSubmissionTest extends TestCase
             ->assertOk()
             ->assertSee(route('exam-booking', $course), false);
 
-        // Neue Vorschläge lehnt der Admin-Bereich jetzt verständlich ab.
+        // Einen neuen Prüfungstermin schlägt die Schule nicht mehr vor,
+        // Praxisstunden (Zusatztermine) weiterhin (Entscheidung Runde 9).
+        $this->actingAsInTenant($admin, $tenant)->post(
+            "/admin/praxis-form-submissions/{$submission->id}/exam-appointments",
+            ['exam_date' => now()->addWeeks(2)->format('Y-m-d\TH:i'), 'slot' => 0]
+        )->assertSessionHasErrors('exam_date');
         $this->actingAsInTenant($admin, $tenant)->post(
             "/admin/praxis-form-submissions/{$submission->id}/exam-appointments",
             ['exam_date' => now()->addWeeks(2)->format('Y-m-d\TH:i'), 'label' => 'Zusatztermin']
-        )->assertSessionHasErrors('exam_date');
-        $this->assertSame(1, $this->onAdmin(fn () => PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->count()));
+        )->assertSessionHasNoErrors();
+        $this->assertSame(2, $this->onAdmin(fn () => PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->count()));
     }
 }

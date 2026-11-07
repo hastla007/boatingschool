@@ -63,6 +63,7 @@ class ExamRegistration
         return PraxisFormSubmission::where('tenant_id', $tenant->id)
             ->where('user_id', $user->id)
             ->where('course_id', $course->id)
+            ->registrations()
             ->exists();
     }
 }

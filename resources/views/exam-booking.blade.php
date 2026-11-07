@@ -32,6 +32,16 @@
             <x-funk-info>{{ $focus['note'] }}</x-funk-info>
         @endisset
 
+        {{-- Praxisstunden, die die Bootsschule vorgeschlagen hat (auch bei Selbst-Anmeldung zur Prüfung). --}}
+        @if ($practiceSubmission && $practiceSubmission->practiceSlotNumbers() !== [])
+            <section class="{{ $card }}">
+                <h3 class="{{ $heading }}"><x-icon name="calendar-days" class="w-5 h-5" style="color: var(--brand-secondary, #007A7A)" /> Termine deiner Bootsschule</h3>
+                @foreach ($practiceSubmission->practiceSlotNumbers() as $practiceSlot)
+                    <x-praxis-appointment-response :submission="$practiceSubmission" :course="$course" :appointment-slot="$practiceSlot" :label="$practiceSubmission->labelForSlot($practiceSlot)" />
+                @endforeach
+            </section>
+        @endif
+
         <section class="{{ $card }}">
             <h3 class="{{ $heading }}"><x-icon name="calendar-days" class="w-5 h-5" style="color: var(--brand-secondary, #007A7A)" /> Termin buchen</h3>
             <p class="text-sm text-slate-600 dark:text-slate-400 mb-4">

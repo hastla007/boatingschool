@@ -169,6 +169,7 @@ class AdminDashboardController extends Controller
             ->unique();
         $submissionsByUser = PraxisFormSubmission::where('tenant_id', $tenant->id)
             ->whereIn('user_id', $learnerIds)
+            ->registrations()
             ->get(['user_id', 'confirmed_exam_date'])
             ->groupBy('user_id');
         // Bug-Review N14: ExamController::start() legt ohne paper_id eine
@@ -413,7 +414,9 @@ class AdminDashboardController extends Controller
             $anmeldungFilters['anmeldung_course'] = '';
         }
 
+        // Nur echte Anmeldungen; Praxisstunden bei Selbst-Anmeldung stehen beim Teilnehmer.
         $praxisFormSubmissions = PraxisFormSubmission::where('tenant_id', $tenant->id)
+            ->registrations()
             ->when($scopeCourseIds !== null, fn ($q) => $q->whereIn('course_id', $scopeCourseIds))
             ->with(['user', 'course', 'template', 'examAppointments'])
             ->when(trim((string) ($anmeldungFilters['anmeldung_search'] ?? '')) !== '', function ($q) use ($anmeldungFilters) {

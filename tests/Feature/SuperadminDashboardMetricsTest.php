@@ -25,7 +25,7 @@ class SuperadminDashboardMetricsTest extends TestCase
         $this->onAdmin(fn () => Entitlement::where('id', $entitlement->id)->update(['valid_until' => now()->addDays(5)]));
 
         $page = $this->actingAs($superadmin)->get('/superadmin')->assertOk();
-        $page->assertSee('Aktive Lernende (30 Tage)')->assertSee('Bestehensquote')->assertSee('Kurszugänge laufen in 14 Tagen ab');
+        $page->assertSee('Aktive Teilnehmer (30 Tage)')->assertSee('Bestehensquote')->assertSee('Kurszugänge laufen in 14 Tagen ab');
         $page->assertSee($quiet->name);
         $page->assertViewHas('expiringCount', fn ($count) => $count >= 1);
         $page->assertViewHas('inactiveTenants', fn ($tenants) => $tenants->contains('id', $quiet->id));

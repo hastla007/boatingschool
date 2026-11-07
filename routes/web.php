@@ -242,6 +242,7 @@ Route::middleware(['auth', 'tenant.role:owner,admin,instructor', 'verified', 'in
     Route::patch('/praxis-form-submissions/{submission}', [AdminPraxisFormSubmissionController::class, 'update'])->name('praxis-form-submissions.update');
     Route::delete('/praxis-form-submissions/{submission}', [AdminPraxisFormSubmissionController::class, 'destroy'])->name('praxis-form-submissions.destroy');
     Route::post('/praxis-form-submissions/{submission}/exam-appointments', [AdminPraxisExamAppointmentController::class, 'store'])->name('praxis-form-submissions.exam-appointments.store');
+    Route::post('/participants/{user}/practice-appointments', [AdminPraxisExamAppointmentController::class, 'storeForParticipant'])->name('participants.practice-appointments.store');
     // Bug-Review F4: es gab bisher keine Möglichkeit, einen eigenen,
     // noch offenen Vorschlag zurückzuziehen oder einen bereits
     // angenommenen Termin wieder abzusagen.

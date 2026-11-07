@@ -99,7 +99,8 @@ class PraxisPruefungController extends Controller
             ->with('examAppointments.location')
             ->first();
 
-        if ($submission) {
+        // Nur Praxisstunden (aus der Selbst-Anmeldung): Anmeldeformular zeigen.
+        if ($submission && ! $submission->isPracticeOnly()) {
             return view('praxis-pruefung.index', [
                 'course' => $course,
                 'state' => 'submitted',

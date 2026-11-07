@@ -6,7 +6,7 @@
 {{-- Bug-Review (Du/Sie im Admin-Bereich gemischt): der restliche
      Admin-Bereich siezt durchgehend. --}}
 <p class="text-slate-500 dark:text-slate-400 mb-6">
-    Bestellungen der Willkommensbox Ihrer Lerner. Offene Bestellungen stehen oben.
+    Bestellungen der Willkommensbox Ihrer Teilnehmer. Offene Bestellungen stehen oben.
 </p>
 
 <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden">

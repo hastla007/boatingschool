@@ -3,7 +3,7 @@
      siezt durchgehend -- hier stand bisher als einzige Stelle die
      Du-Form. --}}
 <p class="text-slate-500 dark:text-slate-400 mb-6">
-    Hier können Sie einen oder mehrere Orte für Praxis &amp; Prüfung anlegen. Ihr Kunde wählt im Praxisformular
+    Hier können Sie einen oder mehrere Orte für Praxis &amp; Prüfung anlegen. Ihr Teilnehmer wählt im Praxisformular
     immer den Praxisort &mdash; der zugehörige Prüfungsort ist fix daran gekoppelt (kann mit dem Praxisort
     identisch sein, z. B. Kurs Binnen: Praxis an Ort X, Prüfung an Ort Y). Sie können mehrere Orte für denselben
     Kurs anlegen (z. B. bei mehreren Standorten) und einen Ort mehreren Kursen gleichzeitig zuweisen.

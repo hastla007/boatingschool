@@ -60,7 +60,7 @@
     </div>
 
     <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
-        <x-stat-tile icon="chart-bar" :value="$activeLearners" label="Aktive Lernende (30 Tage)" tone="success" />
+        <x-stat-tile icon="chart-bar" :value="$activeLearners" label="Aktive Teilnehmer (30 Tage)" tone="success" />
         <x-stat-tile icon="clock" :value="$expiringCount" label="Kurszugänge laufen in 14 Tagen ab" tone="warning" />
         <x-stat-tile icon="swatch" :value="$inactiveTenants->count()" label="Aktive Schulen ohne Lernaktivität (30 Tage)" />
     </div>

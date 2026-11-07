@@ -221,7 +221,7 @@
         <a href="{{ route('admin.dashboard', ['tab' => 'participants']) }}" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-sm">Zurücksetzen</a>
     @endif
     <div class="w-full sm:w-auto sm:ml-auto flex flex-wrap gap-3 text-sm">
-        <a href="{{ route('admin.inactive.index') }}" class="underline text-slate-700 dark:text-slate-200 hover:no-underline">Inaktive Lernende</a>
+        <a href="{{ route('admin.inactive.index') }}" class="underline text-slate-700 dark:text-slate-200 hover:no-underline">Inaktive Teilnehmer</a>
         @if ($canManageTenant)
             <a href="{{ route('admin.renewals.index') }}" class="underline text-slate-700 dark:text-slate-200 hover:no-underline">Kurszugänge verlängern</a>
             <a href="{{ route('admin.participants.export', array_filter($participantFilters)) }}" class="underline text-slate-700 dark:text-slate-200 hover:no-underline">Als CSV exportieren</a>

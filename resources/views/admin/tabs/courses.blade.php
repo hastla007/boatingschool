@@ -1,11 +1,11 @@
 {{-- Bug-Review (Du/Sie im Admin-Bereich gemischt): der restliche
      Admin-Bereich siezt durchgehend. --}}
 <p class="text-slate-500 dark:text-slate-400 mb-6">
-    Wählen Sie aus, welche Kurse Ihre Bootsschule anbietet. Abgewählte Kurse verschwinden für Ihre Lernenden
+    Wählen Sie aus, welche Kurse Ihre Bootsschule anbietet. Abgewählte Kurse verschwinden für Ihre Teilnehmer
     vollständig aus der Kursübersicht &mdash; auch wenn bereits ein Zugang dafür besteht. Kurse, die der
     Plattform-Betreiber sitewide deaktiviert hat, erscheinen hier nicht und können nicht aktiviert werden.
     Verkaufen Sie Kurszugänge über Ihren eigenen Webshop, können Sie hier optional gleich je Kurs einen
-    Kauf-Link hinterlegen &mdash; der ersetzt auf der Kursübersicht für Lernende ohne Zugang dann den
+    Kauf-Link hinterlegen &mdash; der ersetzt auf der Kursübersicht für Teilnehmer ohne Zugang dann den
     Standardhinweis durch einen „Jetzt kaufen"-Button.
 </p>
 <p class="text-slate-500 dark:text-slate-400 mb-6">

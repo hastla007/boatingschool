@@ -96,7 +96,7 @@ class SuperadminOptionLabelsAreGermanTest extends TestCase
 
         $create = $this->actingAs($superadmin)->get(route('superadmin.users.create'));
         $create->assertOk();
-        $create->assertSee('<option value="learner" >Lerner</option>', false);
+        $create->assertSee('<option value="learner" >Teilnehmer</option>', false);
         $create->assertSee('<option value="instructor" >Ausbilder</option>', false);
         $create->assertSee('<option value="owner" >Inhaber</option>', false);
         $create->assertDontSee('>learner</option>', false);

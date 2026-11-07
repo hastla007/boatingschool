@@ -177,7 +177,7 @@
         <x-input-label for="model_answer" value="Musterantwort (Rückseite der Lernkarte)" />
         <textarea id="model_answer" name="model_answer" rows="3"
                   class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">{{ $modelAnswer }}</textarea>
-        <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Dient nur als Lernkarte -- der Lerner schätzt selbst ein, ob er die Antwort wusste, fließt nicht automatisch in eine Auswertung ein.</p>
+        <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Dient nur als Lernkarte -- der Teilnehmer schätzt selbst ein, ob er die Antwort wusste, fließt nicht automatisch in eine Auswertung ein.</p>
         <x-input-error :messages="$errors->get('model_answer')" class="mt-2" />
     </div>
 

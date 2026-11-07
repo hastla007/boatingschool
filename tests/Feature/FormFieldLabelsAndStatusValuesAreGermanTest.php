@@ -71,7 +71,7 @@ class FormFieldLabelsAndStatusValuesAreGermanTest extends TestCase
         $response = $this->actingAs($superadmin)->get(route('superadmin.users.index'));
 
         $response->assertOk();
-        $response->assertSee('Lerner');
+        $response->assertSee('Teilnehmer');
         $response->assertDontSee('(learner)', false);
     }
 }

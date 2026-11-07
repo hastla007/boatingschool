@@ -100,8 +100,8 @@ class AdminAreaFormalAddressTest extends TestCase
         $response = $this->actingAsInTenant($owner, $tenant)->get(route('admin.dashboard', ['tab' => 'willkommensbox']));
 
         $response->assertOk();
-        $response->assertSee('Bestellungen der Willkommensbox Ihrer Lerner.');
-        $response->assertDontSee('Bestellungen der Willkommensbox deiner Lerner.');
+        $response->assertSee('Bestellungen der Willkommensbox Ihrer Teilnehmer.');
+        $response->assertDontSee('Bestellungen der Willkommensbox deiner Teilnehmer.');
     }
 
     /**

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\CourseExamRegistration;
 use App\Models\PraxisExamAppointment;
 use App\Models\PraxisFormSubmission;
 use App\Models\Progress;
@@ -178,5 +179,36 @@ class ReviewRoundNineFixesTest extends TestCase
 
         $this->actingAsInTenant($admin, $tenant)->get("/admin/participants/{$learner->id}")
             ->assertOk()->assertDontSee('>prüfungsreif<', false)->assertSee('prüfungsreif ab 80 %');
+    }
+
+    /** Entscheidung: auch bei Selbst-Anmeldung zur Prüfung schlägt die Schule Praxisstunden vor. */
+    public function test_the_school_proposes_practice_lessons_when_learners_book_the_exam_themselves(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SBF-SEE');
+        $this->grantEntitlement($tenant, $learner, $course);
+        $this->onAdmin(fn () => CourseExamRegistration::create(['tenant_id' => $tenant->id, 'course_id' => $course->id, 'mode' => 'self']));
+
+        $this->actingAsInTenant($admin, $tenant)->get("/admin/participants/{$learner->id}")->assertOk()->assertSee('Praxisstunden können Sie hier vorschlagen');
+        $this->actingAsInTenant($admin, $tenant)->post("/admin/participants/{$learner->id}/practice-appointments", [
+            'course_id' => $course->id, 'label' => 'Kleine Praxisstunde', 'exam_date' => now()->addWeek()->format('Y-m-d H:i'),
+        ])->assertSessionHasNoErrors();
+
+        $submission = $this->onAdmin(fn () => PraxisFormSubmission::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail());
+        $this->assertTrue($submission->isPracticeOnly());
+        $this->onAdmin(fn () => $this->assertSame(1, PraxisExamAppointment::where('praxis_form_submission_id', $submission->id)->where('slot', '>', 0)->count()));
+
+        // Kein Prüfungstermin-Vorschlag in diesem Modus.
+        $this->actingAsInTenant($admin, $tenant)->post("/admin/praxis-form-submissions/{$submission->id}/exam-appointments", [
+            'slot' => 0, 'exam_date' => now()->addMonth()->format('Y-m-d H:i'),
+        ])->assertSessionHasErrors('exam_date');
+
+        // Der Teilnehmer sieht den Termin auf „Prüfung buchen“ (kein Anmeldeformular nötig).
+        $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/praxis-pruefung")->assertRedirect(route('exam-booking', $course));
+        $this->actingAsInTenant($learner, $tenant)->get(route('exam-booking', $course))->assertOk()->assertSee('Kleine Praxisstunde')->assertSee('Termine deiner Bootsschule');
+        // Nicht in der Liste der Praxis-Anmeldungen.
+        $this->actingAsInTenant($admin, $tenant)->get('/admin?tab=praxis-anmeldungen')->assertOk()->assertDontSee('Wartet auf Rückmeldung (Kleine Praxisstunde)');
     }
 }

@@ -79,6 +79,7 @@ class PraxisExamAppointmentController extends Controller
             ? '"'.$examAppointment->label.'" bestätigt.'
             : 'Rückmeldung gespeichert -- deine Bootsschule schlägt dir einen neuen Termin vor.';
 
-        return redirect()->route('praxis-pruefung.index', $course)->with('status', $status);
+        // Praxisstunden bei Selbst-Anmeldung stehen auf „Prüfung buchen“.
+        return redirect()->route($examAppointment->submission->isPracticeOnly() ? 'exam-booking' : 'praxis-pruefung.index', $course)->with('status', $status);
     }
 }

@@ -131,7 +131,7 @@
                 </fieldset>
 
                 <div>
-                    <x-input-label for="note-{{ $ruleSet->id }}" value="Hinweis für Lernende (optional)" />
+                    <x-input-label for="note-{{ $ruleSet->id }}" value="Hinweis für Teilnehmer (optional)" />
                     <textarea id="note-{{ $ruleSet->id }}" name="note" rows="2" maxlength="1000" class="{{ $input }}">{{ $rule['note'] ?? '' }}</textarea>
                 </div>
 
