@@ -9,13 +9,13 @@ use App\Models\TenantInvitation;
 use App\Models\TenantUser;
 use App\Models\User;
 use App\Notifications\TenantInvitationNotification;
+use App\Services\AccountSetupLink;
 use App\Support\BestEffortMail;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
-use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\Response;
@@ -86,7 +86,7 @@ class TeamController extends Controller
                 return $user;
             });
             // Wie bei Teilnehmern: der Link zum Passwort setzen ist die Einladung.
-            $mailSent = BestEffortMail::send(fn () => Password::sendResetLink(['email' => $user->email]), "Team-Einladung neues Konto {$user->id}");
+            $mailSent = BestEffortMail::send(fn () => app(AccountSetupLink::class)->send($user, $tenant, $validated['role']), "Team-Einladung neues Konto {$user->id}");
         }
 
         // Gleicher Text für bestehendes und neues Konto (kein Konto-Orakel).

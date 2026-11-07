@@ -8,7 +8,13 @@
         'subtopic' => 'Unterthema',
         'smartmodus_kategorie' => 'Smartmodus-Kategorie',
     ];
-    $changed = collect($fields)->filter(fn ($label, $field) => ! $from || (string) $from->{$field} !== (string) $to->{$field});
+    // Beim Freigeben wird eine leere Erklärung aus der veröffentlichten
+    // Fassung übernommen -- aber nur, wenn die richtige Antwort gleich bleibt.
+    $correctOf = fn ($revision) => $revision ? $revision->answers->where('is_correct', true)->pluck('answer_text')->map(fn ($t) => mb_strtolower(trim($t)))->sort()->values()->all() : [];
+    $correctSame = $from && $correctOf($from) === $correctOf($to);
+    $inherited = fn ($field) => $correctSame && in_array($field, ['feedback_correct', 'feedback_incorrect'], true) && blank($to->{$field});
+    $changed = collect($fields)->filter(fn ($label, $field) => ! $from || ((string) $from->{$field} !== (string) $to->{$field} && ! $inherited($field)));
+    $feedbackDropped = $from && ! $correctSame && (filled($from->feedback_correct) || filled($from->feedback_incorrect)) && blank($to->feedback_correct) && blank($to->feedback_incorrect);
     $fromAnswers = $from ? $from->answers->keyBy('answer_key') : collect();
     $toAnswers = $to->answers->keyBy('answer_key');
     $answerKeys = $fromAnswers->keys()->merge($toAnswers->keys())->unique()->sort()->values();
@@ -17,6 +23,9 @@
         || (bool) optional($fromAnswers->get($key))->is_correct !== (bool) optional($toAnswers->get($key))->is_correct);
 @endphp
 <div class="revision-diff rounded-lg bg-white dark:bg-slate-800 border border-sky-100 dark:border-sky-900/40 divide-y divide-slate-100 dark:divide-slate-700 text-slate-700 dark:text-slate-200">
+    @if ($feedbackDropped)
+        <p class="px-3 py-2 text-xs text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-900/30">Die richtige Antwort hat sich geändert: die bisherige Erklärung wird nicht übernommen. Bitte nach dem Freigeben eine neue Erklärung eintragen.</p>
+    @endif
     <div class="px-3 py-2 text-xs text-slate-600 dark:text-slate-400 flex flex-wrap gap-x-4 gap-y-1">
         @if ($from)
             <span>Vergleich mit der veröffentlichten Revision {{ $from->revision_no }}</span>

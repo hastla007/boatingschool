@@ -77,6 +77,15 @@ Route::get('/{kind}', [LegalPageController::class, 'show'])->whereIn('kind', ['i
 Route::get('/impersonate/{token}', [ImpersonationController::class, 'consume'])->where('token', '[A-Za-z0-9]{48}')->middleware('throttle:20,1')->name('impersonate.consume');
 Route::post('/impersonate/stop', [ImpersonationController::class, 'stop'])->middleware('auth')->name('impersonate.stop');
 
+// Datenrechte (Art. 15/17/20 DSGVO): Export und Kontolöschung auch mit
+// gesperrter Mitgliedschaft, gesperrter Schule oder unbestätigter E-Mail
+// (siehe EnsureAnyTenantMembership und ResolveTenant::isDataRightsRoute()).
+Route::middleware(['auth', 'tenant.any-member'])->group(function () {
+    Route::get('/meine-daten', [ProfileController::class, 'dataRights'])->name('profile.data-rights');
+    Route::get('/profile/export-data', [ProfileController::class, 'exportData'])->middleware('throttle:5,1,profile-export')->name('profile.export');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->middleware('throttle:10,1,profile-destroy')->name('profile.destroy');
+});
+
 Route::middleware(['auth', 'tenant.member', 'verified'])->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
 
@@ -183,9 +192,7 @@ Route::middleware(['auth', 'tenant.member', 'verified'])->group(function () {
     // Bug-Review (Passwort-Throttle eingeloggter Nutzer): destroy() prüft
     // ebenfalls das aktuelle Passwort (current_password) -- fehlte hier
     // bisher als einzige der drei Profil-Routen, siehe profile-update oben.
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->middleware('throttle:10,1,profile-destroy')->name('profile.destroy');
     // DSGVO-Review D3: Auskunfts-/Mitnahmerecht (Art. 15/20).
-    Route::get('/profile/export-data', [ProfileController::class, 'exportData'])->name('profile.export');
 
     // Sicherheitsreview H3: ein eigener Code ist für den Kursbesuch gedacht
     // -- ein Instructor ist eine Lehrkraft, kein Kursteilnehmer, und sollte
@@ -254,6 +261,8 @@ Route::middleware(['auth', 'tenant.role:owner,admin,instructor', 'verified', 'in
 // Admin-Bereich entsprechend auch nicht bzw. nur lesend (siehe
 // admin/dashboard.blade.php, admin/tabs/orte.blade.php, $canManageTenant).
 Route::middleware(['auth', 'tenant.role:owner,admin', 'verified'])->prefix('admin')->name('admin.')->group(function () {
+    // Teilnehmer samt allen Lerndaten bei dieser Schule entfernen (Löschpflicht der Schule, Art. 17 DSGVO).
+    Route::delete('/participants/{user}/data', [ParticipantController::class, 'destroyData'])->middleware('throttle:10,1,participants-destroy')->name('participants.destroy-data');
     Route::get('/renewals', [BulkRenewalController::class, 'index'])->name('renewals.index');
     Route::post('/renewals', [BulkRenewalController::class, 'store'])->middleware('throttle:10,1,renewals')->name('renewals.store');
     Route::get('/announcements', [AnnouncementController::class, 'index'])->name('announcements.index');

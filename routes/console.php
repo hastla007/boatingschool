@@ -30,21 +30,21 @@ Artisan::command('inspire', function () {
 // eine ungewöhnlich lange Prune-/Expire-Abfrage bei viel Daten), startet
 // der nächste geplante Lauf trotzdem parallel dazu. withoutOverlapping()
 // verhindert genau das.
-Schedule::command('app:prune-personal-data')->daily()->onOneServer()->withoutOverlapping();
+Schedule::command('app:prune-personal-data')->daily()->onOneServer()->withoutOverlapping(180);
 
 // Bug-Review B15: ohne diesen Lauf blieb entitlement.status für
 // abgelaufene Freischaltungen dauerhaft auf "active" stehen.
-Schedule::command('app:expire-entitlements')->hourly()->onOneServer()->withoutOverlapping();
+Schedule::command('app:expire-entitlements')->hourly()->onOneServer()->withoutOverlapping(55);
 // Erinnerung vor dem Ablauf eines Kurszugangs (einmal je Ablaufdatum).
-Schedule::command('app:remind-expiring-entitlements')->dailyAt('09:00')->timezone('Europe/Berlin')->onOneServer()->withoutOverlapping();
+Schedule::command('app:remind-expiring-entitlements')->dailyAt('09:00')->timezone('Europe/Berlin')->onOneServer()->withoutOverlapping(180);
 
 // Bug-Review B32: ohne diesen Lauf blieb exam_session.status für
 // abgebrochene (nie wieder aufgerufene) Prüfungen dauerhaft auf "running"
 // stehen.
-Schedule::command('app:expire-abandoned-exam-sessions')->hourly()->onOneServer()->withoutOverlapping();
+Schedule::command('app:expire-abandoned-exam-sessions')->hourly()->onOneServer()->withoutOverlapping(55);
 
 // Go-live B2: tägliche Datensicherung (Datenbank und Uploads, siehe config/backup.php).
-Schedule::command('app:backup')->dailyAt('03:15')->timezone('Europe/Berlin')->onOneServer()->withoutOverlapping();
+Schedule::command('app:backup')->dailyAt('03:15')->timezone('Europe/Berlin')->onOneServer()->withoutOverlapping(180);
 
 // Go-live B5: Lebenszeichen des Schedulers für app:check-production.
 Schedule::call(fn () => Cache::forever(ProductionReadiness::SCHEDULER_HEARTBEAT_KEY, now()->timestamp))

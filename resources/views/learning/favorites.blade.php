@@ -38,15 +38,15 @@
             @endforeach
             <button @click="newCollectionOpen = ! newCollectionOpen"
                     class="px-3 py-1 rounded-full text-xs font-medium border border-dashed border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-slate-400 dark:hover:border-slate-500 transition">
-                + Neue Collection
+                + Neue Sammlung
             </button>
         </div>
 
         <div x-show="newCollectionOpen" style="display: none" class="mb-4">
             <form method="POST" action="{{ route('favorite-collections.store', $course) }}" class="flex flex-wrap items-center gap-2">
                 @csrf
-                <label for="new_collection_name" class="sr-only">Name der Collection</label>
-                <input type="text" id="new_collection_name" name="name" placeholder="Name der Collection" required maxlength="255"
+                <label for="new_collection_name" class="sr-only">Name der Sammlung</label>
+                <input type="text" id="new_collection_name" name="name" placeholder="Name der Sammlung" required maxlength="255"
                        class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm w-56">
                 <button type="submit" class="px-3 py-1.5 rounded-lg text-white text-xs font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
                     Anlegen
@@ -78,20 +78,20 @@
                 <form method="POST" action="{{ route('favorite-collections.update', $collection) }}" class="flex items-center gap-1.5">
                     @csrf
                     @method('PATCH')
-                    <label for="collection_name_{{ $collection->id }}" class="sr-only">Name der Collection</label>
+                    <label for="collection_name_{{ $collection->id }}" class="sr-only">Name der Sammlung</label>
                     <input type="text" id="collection_name_{{ $collection->id }}" name="name" value="{{ $collection->name }}" maxlength="255"
                            class="text-sm rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 py-1">
                     <button type="submit" class="text-xs text-slate-500 dark:text-slate-400 hover:underline whitespace-nowrap">Umbenennen</button>
                 </form>
                 @unless ($collection->is_default)
                     <form method="POST" action="{{ route('favorite-collections.destroy', $collection) }}"
-                          @submit="if (! confirm('Collection „' + collectionName + '“ wirklich löschen? Die enthaltenen Favoriten bleiben erhalten, nur die Einsortierung entfällt.')) $event.preventDefault()">
+                          @submit="if (! confirm('Sammlung „' + collectionName + '“ wirklich löschen? Die enthaltenen Favoriten bleiben erhalten, nur die Einsortierung entfällt.')) $event.preventDefault()">
                         @csrf
                         @method('DELETE')
-                        <button type="submit" class="text-xs text-rose-600 hover:underline whitespace-nowrap">Collection löschen</button>
+                        <button type="submit" class="text-xs text-rose-600 hover:underline whitespace-nowrap">Sammlung löschen</button>
                     </form>
                 @else
-                    <span class="text-xs text-slate-600 dark:text-slate-400">Standard-Collection -- kann nicht gelöscht werden</span>
+                    <span class="text-xs text-slate-600 dark:text-slate-400">Standard-Sammlung – kann nicht gelöscht werden</span>
                 @endunless
             </div>
         @endforeach
@@ -125,6 +125,15 @@
                         Noch keine Favoriten gespeichert.
                     </div>
                 @endforelse
+                @if ($smartFavorites->isNotEmpty())
+                    @php
+                        $filledCollections = $smartFavorites->flatMap(fn ($item) => $smartItemCollections->get($item->question_id, []))->unique()->values();
+                    @endphp
+                    <div x-show="selectedCollection !== null && ! {{ \Illuminate\Support\Js::from($filledCollections) }}.includes(selectedCollection)" style="display: none"
+                         class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 text-center text-slate-500 dark:text-slate-400 text-sm">
+                        In dieser Sammlung liegen hier noch keine Fragen.
+                    </div>
+                @endif
             </div>
 
             <div x-show="smartView === 'errors'" class="space-y-2" style="display: none">
@@ -143,6 +152,15 @@
                         Bisher keine falsch beantworteten Fragen.
                     </div>
                 @endforelse
+                @if ($smartWrongQuestions->isNotEmpty())
+                    @php
+                        $filledCollections = $smartWrongQuestions->flatMap(fn ($item) => $smartItemCollections->get($item->id, []))->unique()->values();
+                    @endphp
+                    <div x-show="selectedCollection !== null && ! {{ \Illuminate\Support\Js::from($filledCollections) }}.includes(selectedCollection)" style="display: none"
+                         class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 text-center text-slate-500 dark:text-slate-400 text-sm">
+                        In dieser Sammlung liegen hier noch keine Fragen.
+                    </div>
+                @endif
             </div>
         </div>
 
@@ -172,6 +190,15 @@
                         Noch keine Favoriten gespeichert.
                     </div>
                 @endforelse
+                @if ($examFavorites->isNotEmpty())
+                    @php
+                        $filledCollections = $examFavorites->flatMap(fn ($item) => $examItemCollections->get($item->question_id, []))->unique()->values();
+                    @endphp
+                    <div x-show="selectedCollection !== null && ! {{ \Illuminate\Support\Js::from($filledCollections) }}.includes(selectedCollection)" style="display: none"
+                         class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 text-center text-slate-500 dark:text-slate-400 text-sm">
+                        In dieser Sammlung liegen hier noch keine Fragen.
+                    </div>
+                @endif
             </div>
 
             <div x-show="examView === 'errors'" class="space-y-2" style="display: none">
@@ -190,6 +217,15 @@
                         Bisher keine falsch beantworteten Fragen.
                     </div>
                 @endforelse
+                @if ($examWrongQuestions->isNotEmpty())
+                    @php
+                        $filledCollections = $examWrongQuestions->flatMap(fn ($item) => $examItemCollections->get($item->id, []))->unique()->values();
+                    @endphp
+                    <div x-show="selectedCollection !== null && ! {{ \Illuminate\Support\Js::from($filledCollections) }}.includes(selectedCollection)" style="display: none"
+                         class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 text-center text-slate-500 dark:text-slate-400 text-sm">
+                        In dieser Sammlung liegen hier noch keine Fragen.
+                    </div>
+                @endif
             </div>
         </div>
     </div>

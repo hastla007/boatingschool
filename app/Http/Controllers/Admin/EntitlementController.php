@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Services\CouponRedemptionService;
 use App\Services\EntitlementRenewal;
 use App\Services\EntitlementService;
+use App\Support\AccessGrantedMail;
 use App\Support\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -204,6 +205,7 @@ class EntitlementController extends Controller
             $redemption->applyOptionProducts($coupon, $tenant, $user);
 
             AuditLog::record($tenant->id, $request->user()->id, 'entitlement.create', 'entitlement', $entitlement->id, $before, $entitlement->fresh()->toArray());
+            AccessGrantedMail::afterCommit($entitlement, 'course');
 
             return back()->with('status', 'Kurs freigeschaltet.');
         });
@@ -264,6 +266,9 @@ class EntitlementController extends Controller
 
             if ($error) {
                 return $error;
+            }
+            if ($validated['action'] === 'reactivate') {
+                AccessGrantedMail::afterCommit($entitlement, 'course');
             }
 
             AuditLog::record(

@@ -23,8 +23,17 @@
         @if ($courses->isEmpty())
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 text-center">
                 <x-icon name="life-buoy" class="w-8 h-8 mx-auto text-slate-600 dark:text-slate-400 mb-2" />
-                <p class="text-slate-600 dark:text-slate-300">Für dich ist noch kein Kurs freigeschaltet.</p>
-                <p class="text-sm text-slate-600 dark:text-slate-400 mt-1">Bitte wende dich an deine Bootsschule, um Zugang zu erhalten.</p>
+                @if ($hadAccess ?? false)
+                    <p class="text-slate-600 dark:text-slate-300">Dein Kurszugang ist abgelaufen.</p>
+                    <p class="text-sm text-slate-600 dark:text-slate-400 mt-1">Mit einem Verlängerungscode deiner Bootsschule lernst du mit deinem bisherigen Fortschritt weiter.</p>
+                    <div class="mt-3 flex flex-wrap justify-center gap-3 text-sm">
+                        <a href="{{ route('coupons.redeem') }}" class="underline text-slate-700 dark:text-slate-200">Code einlösen</a>
+                        <a href="{{ route('courses.index') }}" class="underline text-slate-700 dark:text-slate-200">Meine Kurse</a>
+                    </div>
+                @else
+                    <p class="text-slate-600 dark:text-slate-300">Für dich ist noch kein Kurs freigeschaltet.</p>
+                    <p class="text-sm text-slate-600 dark:text-slate-400 mt-1">Bitte wende dich an deine Bootsschule oder <a href="{{ route('coupons.redeem') }}" class="underline">löse einen Code ein</a>.</p>
+                @endif
             </div>
         @else
             {{-- Jeder gebuchte Kurs bekommt seinen eigenen "Weiterlernen"-Banner

@@ -29,7 +29,7 @@
         </h3>
         <div class="space-y-3">
             @forelse ($byTopic as $topic => $stats)
-                <a href="{{ route('learning.show', ['course' => $course, 'mode' => 'topic', 'module' => $stats['module']->id, 'topic' => $topic]) }}" class="block group">
+                <a href="{{ route('learning.show', array_filter(['course' => $course, 'mode' => 'topic', 'module' => $stats['module']?->id, 'topic' => $topic])) }}" class="block group">
                     <div class="flex justify-between text-sm mb-1">
                         <span class="text-slate-600 dark:text-slate-300 group-hover:underline">{{ $topic }}</span>
                         <span class="text-slate-600 dark:text-slate-400">{{ $stats['mastered'] }}/{{ $stats['total'] }} &middot; {{ $stats['percent'] }}%</span>

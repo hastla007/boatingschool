@@ -43,7 +43,7 @@ class FavoriteController extends Controller
         $tenant = $tenantContext->tenant();
         $user = $request->user();
 
-        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Für diesen Kurs liegt kein aktives Entitlement vor.');
+        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Dein Zugang zu diesem Kurs ist abgelaufen oder nicht freigeschaltet.');
 
         // Bug-Review B12 (Folgefehler): eine im Superadmin deaktivierte
         // Frage blieb hier trotzdem als Favorit/Fehler sichtbar und
@@ -124,10 +124,22 @@ class FavoriteController extends Controller
 
         // Default-Collection existiert ab dem ersten Aufruf der Seite, auch
         // wenn der Lerner noch nie etwas bewusst einsortiert hat.
-        $collectionService->defaultFor($tenant, $user, $course);
+        $default = $collectionService->defaultFor($tenant, $user, $course);
 
         $collections = FavoriteCollection::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)
             ->orderByDesc('is_default')->orderBy('sort_order')->orderBy('name')->get();
+
+        // Favoriten aus der Zeit vor den Sammlungen (oder sonst in keiner
+        // Sammlung) gehören in die Standard-Sammlung -- sonst zeigte der
+        // Filter „Favoriten“ sie nicht an.
+        $assigned = FavoriteCollectionItem::where('tenant_id', $tenant->id)->whereIn('favorite_collection_id', $collections->pluck('id'))
+            ->get(['question_id', 'context'])->map(fn ($i) => $i->context.'|'.$i->question_id)->flip();
+        $smartFavorites->map(fn ($f) => [Favorite::CONTEXT_SMART_LEARNING, $f->question_id])
+            ->concat($examFavorites->map(fn ($f) => [Favorite::CONTEXT_EXAM, $f->question_id]))
+            ->reject(fn ($pair) => $assigned->has($pair[0].'|'.$pair[1]))
+            ->map(fn ($pair) => ['tenant_id' => $tenant->id, 'favorite_collection_id' => $default->id, 'question_id' => $pair[1], 'context' => $pair[0]])
+            ->values()
+            ->whenNotEmpty(fn ($rows) => FavoriteCollectionItem::insertOrIgnore($rows->all()));
 
         $itemsByContext = FavoriteCollectionItem::where('tenant_id', $tenant->id)
             ->whereIn('favorite_collection_id', $collections->pluck('id'))
@@ -172,7 +184,7 @@ class FavoriteController extends Controller
         // course_id eine fremde, nicht-globale Tenant-Kurs-ID trifft.
         $course = CourseDefinition::find($validated['course_id']);
         abort_unless($course, 404);
-        abort_unless($entitlements->hasAccess($tenant, $request->user(), $course), 403, 'Für diesen Kurs liegt kein aktives Entitlement vor.');
+        abort_unless($entitlements->hasAccess($tenant, $request->user(), $course), 403, 'Dein Zugang zu diesem Kurs ist abgelaufen oder nicht freigeschaltet.');
 
         abort_unless($this->courseQuestionIds($course)->contains($question->id), 403, 'Frage gehört nicht zum berechtigten Kurs.');
 

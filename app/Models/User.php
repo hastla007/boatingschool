@@ -9,6 +9,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class User extends Authenticatable implements MustVerifyEmail
 {
@@ -145,6 +147,18 @@ class User extends Authenticatable implements MustVerifyEmail
     public function entitlements(): HasMany
     {
         return $this->hasMany(Entitlement::class, 'user_id');
+    }
+
+    /**
+     * Andere Anmeldungen beenden (nach 2FA-Änderungen oder einem
+     * Support-Reset): „Angemeldet bleiben“ ungültig machen und alle
+     * Sitzungen außer der angegebenen löschen.
+     */
+    public function endOtherSessions(?string $keepSessionId = null): void
+    {
+        $this->forceFill(['remember_token' => Str::random(60)])->save();
+        DB::table('sessions')->where('user_id', $this->id)
+            ->when($keepSessionId, fn ($q) => $q->where('id', '!=', $keepSessionId))->delete();
     }
 
     public function roleForTenant(?Tenant $tenant): ?string

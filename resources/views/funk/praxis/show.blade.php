@@ -22,7 +22,7 @@
             <span class="text-xs rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-0.5">{{ $task['number'] }} / {{ $total }}</span>
             <form method="POST" action="{{ route('funk.completed', ['course' => $course, 'type' => 'praxis', 'catalog' => $catalog, 'number' => $task['number']]) }}" class="sm:ml-auto">
                 @csrf
-                <button type="submit" class="inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm font-medium transition {{ $completed ? 'text-white border-transparent' : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600 hover:bg-slate-50' }}"
+                <button type="submit" class="inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm font-medium transition {{ $completed ? 'text-[color:var(--brand-on-secondary,#fff)] border-transparent' : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600 hover:bg-slate-50' }}"
                         @if ($completed) style="background-color: var(--brand-secondary, #007A7A)" @endif>
                     <x-icon name="check-circle" class="w-4 h-4" /> {{ $completed ? 'Erledigt' : 'Als erledigt markieren' }}
                 </button>
@@ -93,7 +93,7 @@
             @endif
 
             <div class="flex flex-wrap items-center gap-3">
-                <button type="submit" :disabled="! filled" class="inline-flex items-center gap-1.5 rounded-lg px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                <button type="submit" :disabled="! filled" class="inline-flex items-center gap-1.5 rounded-lg px-5 py-2.5 text-sm font-semibold text-[color:var(--brand-on-secondary,#fff)] disabled:opacity-50 disabled:cursor-not-allowed"
                         style="background-color: var(--brand-secondary, #007A7A)">
                     <x-icon name="check-circle" class="w-4 h-4" /> Auswerten
                 </button>
@@ -114,9 +114,9 @@
                 <span class="text-center rounded-xl border border-slate-100 dark:border-slate-800 py-2.5 text-sm text-slate-500 dark:text-slate-400">&larr; Vorherige</span>
             @endif
             @if ($next)
-                <a href="{{ route('funk.praxis.show', ['course' => $course, 'catalog' => $catalog, 'number' => $next]) }}" class="text-center rounded-xl py-2.5 text-sm font-semibold text-white hover:opacity-95" style="background-color: var(--brand-secondary, #007A7A)">Nächste &rarr;</a>
+                <a href="{{ route('funk.praxis.show', ['course' => $course, 'catalog' => $catalog, 'number' => $next]) }}" class="text-center rounded-xl py-2.5 text-sm font-semibold text-[color:var(--brand-on-secondary,#fff)] hover:opacity-95" style="background-color: var(--brand-secondary, #007A7A)">Nächste &rarr;</a>
             @else
-                <a href="{{ route('funk.praxis.index', ['course' => $course, 'teil' => $catalog]) }}" class="text-center rounded-xl py-2.5 text-sm font-semibold text-white hover:opacity-95" style="background-color: var(--brand-secondary, #007A7A)">Zur Übersicht</a>
+                <a href="{{ route('funk.praxis.index', ['course' => $course, 'teil' => $catalog]) }}" class="text-center rounded-xl py-2.5 text-sm font-semibold text-[color:var(--brand-on-secondary,#fff)] hover:opacity-95" style="background-color: var(--brand-secondary, #007A7A)">Zur Übersicht</a>
             @endif
         </div>
     </div>

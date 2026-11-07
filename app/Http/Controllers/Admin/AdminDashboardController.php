@@ -242,7 +242,13 @@ class AdminDashboardController extends Controller
         $learningMasteredProgress = Progress::where('tenant_id', $tenant->id)
             ->whereIn('user_id', $learningPhaseLearnerIds)
             ->where('learning_state', 'gefestigt')
-            ->get(['user_id', 'question_id']);
+            ->get(['user_id', 'question_id'])
+            // Review-Runde 8 (Betrieb): je Lerner einmal gruppieren statt
+            // pro Lerner die ganze Sammlung zu durchsuchen (Lernende ×
+            // gefestigte Fragen lief bei großen Schulen in den Timeout).
+            ->groupBy('user_id')
+            ->map(fn ($rows) => array_flip($rows->pluck('question_id')->all()));
+        $validQuestionSetByCourse = [];
         $progressBuckets = ['0–20%' => 0, '21–40%' => 0, '41–60%' => 0, '61–80%' => 0, '81–100%' => 0];
         // Bug-Review BB16 (Folgefehler): isCurrentlyValid() fragt pro Frage
         // einmal die veröffentlichte Revision ab -- über viele Lernende
@@ -259,7 +265,7 @@ class AdminDashboardController extends Controller
             }
             $percent = $entitlementsForLearner
                 ->filter(fn (Entitlement $e) => $e->course !== null)
-                ->map(function (Entitlement $e) use ($learningMasteredProgress, &$validQuestionIdsByCourse) {
+                ->map(function (Entitlement $e) use ($learningMasteredProgress, &$validQuestionIdsByCourse, &$validQuestionSetByCourse) {
                     // Bug-Review F7: siehe overallPercent() -- eine
                     // deaktivierte Frage zählt hier nie als gefestigt, aber
                     // weiter im Nenner mit.
@@ -268,10 +274,8 @@ class AdminDashboardController extends Controller
                         $e->course->modules->flatMap(fn ($m) => $m->questions)
                     );
                     $total = max($questionIds->count(), 1);
-                    $mastered = $learningMasteredProgress
-                        ->where('user_id', $e->user_id)
-                        ->whereIn('question_id', $questionIds)
-                        ->count();
+                    $validSet = $validQuestionSetByCourse[$e->course_id] ??= array_flip($questionIds->all());
+                    $mastered = count(array_intersect_key($learningMasteredProgress->get($e->user_id, []), $validSet));
 
                     return (int) round($mastered / $total * 100);
                 })
@@ -481,7 +485,10 @@ class AdminDashboardController extends Controller
                         ->orWhereHas('redeemedBy', fn ($q3) => $q3->where('display_name', 'ilike', $term));
                 });
             })
-            ->when(($couponFilters['coupon_status'] ?? null) === 'open', fn ($q) => $q->whereNull('redeemed_at'))
+            // „offen“ = noch einlösbar (wie die Bestandszahl oben), nicht nur „nicht eingelöst“.
+            ->when(($couponFilters['coupon_status'] ?? null) === 'open', fn ($q) => $q->usable())
+            ->when(($couponFilters['coupon_status'] ?? null) === 'voided', fn ($q) => $q->whereNull('redeemed_at')->whereNotNull('voided_at'))
+            ->when(($couponFilters['coupon_status'] ?? null) === 'expired', fn ($q) => $q->whereNull('redeemed_at')->whereNull('voided_at')->whereNotNull('expires_at')->where('expires_at', '<=', now()))
             ->when(($couponFilters['coupon_status'] ?? null) === 'redeemed', fn ($q) => $q->whereNotNull('redeemed_at'))
             ->when(($couponFilters['coupon_type'] ?? null) === 'course', fn ($q) => $q->whereNotNull('course_id')->where('is_renewal', false))
             ->when(($couponFilters['coupon_type'] ?? null) === 'product', fn ($q) => $q->whereNotNull('product_id'))

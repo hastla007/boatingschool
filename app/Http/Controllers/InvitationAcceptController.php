@@ -39,7 +39,10 @@ class InvitationAcceptController extends Controller
         }
 
         if (! $user->hasVerifiedEmail()) {
-            abort(403, 'Bitte bestätige zuerst deine E-Mail-Adresse, bevor du Einladungen annimmst.');
+            // Zur Bestätigungsseite (mit „erneut senden“); nach der Bestätigung
+            // führt EnsureTenantMembership automatisch zur offenen Einladung.
+            return redirect()->route('verification.notice')
+                ->with('status', 'Bitte bestätige zuerst deine E-Mail-Adresse, danach wird die Einladung automatisch angenommen.');
         }
 
         TenantUser::firstOrCreate(

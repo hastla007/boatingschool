@@ -13,6 +13,9 @@
         </div>
         <h1 class="text-xl font-bold text-slate-800 dark:text-white mb-2">Zugang derzeit nicht verfügbar</h1>
         <p class="text-slate-500 dark:text-slate-400">Der Zugang von {{ $tenant->name }} ist momentan gesperrt. Bitte wenden Sie sich an den Support.</p>
+        @auth
+            <p class="mt-4 text-sm"><a href="{{ route('profile.data-rights') }}" class="underline text-slate-700 dark:text-slate-200">Eigene Daten herunterladen oder Konto löschen</a></p>
+        @endauth
     </div>
 </body>
 </html>

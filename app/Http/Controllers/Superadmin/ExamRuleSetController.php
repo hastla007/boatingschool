@@ -84,13 +84,21 @@ class ExamRuleSetController extends Controller
         ], fn ($v) => $v !== null);
 
         $verified = $request->boolean('verified');
-        DB::transaction(function () use ($ruleSet, $validated, $passingRule, $verified, $blueprints, $request) {
+        // Geänderte Regeln (Zeit, Grenze, Teile, Fragenmix) gelten als neu
+        // geprüft durch die Person, die sie speichert -- die alte Prüfung
+        // galt für andere Werte.
+        $newBlueprints = Module::whereIn('id', $blueprints->pluck('module_id'))->pluck('code', 'id');
+        $rulesChanged = (int) $ruleSet->time_limit_seconds !== $validated['time_limit_minutes'] * 60
+            || json_encode($ruleSet->passing_rule) !== json_encode($passingRule)
+            || collect($before['blueprints'])->map(fn ($b) => $b[0].':'.$b[1])->sort()->values()->all()
+                !== $blueprints->map(fn ($b) => $newBlueprints[$b['module_id']].':'.(int) $b['question_count'])->sort()->values()->all();
+        DB::transaction(function () use ($ruleSet, $validated, $passingRule, $verified, $blueprints, $request, $rulesChanged) {
             $ruleSet->update([
                 'time_limit_seconds' => $validated['time_limit_minutes'] * 60,
                 'passing_rule' => $passingRule,
                 'status' => $validated['status'],
-                'verified_at' => $verified ? ($ruleSet->verified_at ?? now()) : null,
-                'verified_by' => $verified ? ($ruleSet->verified_by ?? $request->user()->id) : null,
+                'verified_at' => $verified ? ($rulesChanged ? now() : ($ruleSet->verified_at ?? now())) : null,
+                'verified_by' => $verified ? ($rulesChanged ? $request->user()->id : ($ruleSet->verified_by ?? $request->user()->id)) : null,
             ]);
             $ruleSet->blueprints()->whereNotIn('module_id', $blueprints->pluck('module_id'))->delete();
             foreach ($blueprints as $blueprint) {

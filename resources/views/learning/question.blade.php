@@ -275,7 +275,8 @@
             const wasFavorite = btn.dataset.favorite === '1';
             const csrf = document.querySelector('meta[name="csrf-token"]').content;
 
-            fetch('/favorites/' + btn.dataset.questionId, {
+            // url() statt „/favorites“: im Pfad-Modus liegt die Schule unter /<slug>/.
+            fetch(@js(url('/favorites')) + '/' + btn.dataset.questionId, {
                 method: wasFavorite ? 'DELETE' : 'POST',
                 headers: {
                     'X-CSRF-TOKEN': csrf,
@@ -284,7 +285,9 @@
                 },
                 body: JSON.stringify({ context: 'smart_learning', course_id: '{{ $course->id }}' }),
             }).then(function (response) {
-                if (! response.ok) {
+                // Nur die erwartete Antwort (204) gilt als gespeichert -- eine
+                // umgeleitete HTML-Seite (200) darf nicht „Favorit“ anzeigen.
+                if (response.status !== 204) {
                     return;
                 }
 

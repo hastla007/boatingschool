@@ -229,7 +229,7 @@
                                 </select>
                                 @break
                             @case('radio')
-                                <div class="mt-1 flex flex-wrap gap-4">
+                                <div class="mt-1 flex flex-wrap gap-4" role="radiogroup" aria-label="{{ $field['label'] }}">
                                     @foreach ($field['options'] as $option)
                                         <label class="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
                                             <input type="radio" name="{{ $field['key'] }}" value="{{ $option }}" @checked(old($field['key']) === $option) @if ($field['required']) required @endif

@@ -384,4 +384,24 @@
             <p class="text-sm text-slate-600 dark:text-slate-400">Noch keine Praxis-Anmeldung eingegangen.</p>
         @endforelse
     </div>
+
+    @if ($canManageTenant && ($membership->role ?? null) === 'learner')
+        <details class="mt-4 bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5" @if ($errors->has('confirm')) open @endif>
+            <summary class="cursor-pointer text-sm font-medium text-rose-700 dark:text-rose-300">Teilnehmer und alle Daten löschen</summary>
+            <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">
+                Entfernt die Person aus Ihrer Bootsschule und löscht Lernstand, Prüfungsversuche, Praxis-Anmeldungen, Termine und Bestellungen bei Ihnen.
+                Das lässt sich nicht rückgängig machen. Hat die Person keine weitere Bootsschule, wird auch ihr Konto gelöscht.
+            </p>
+            <form method="POST" action="{{ route('admin.participants.destroy-data', $participant ?? $user) }}" class="mt-3 flex flex-wrap items-end gap-2">
+                @csrf
+                @method('DELETE')
+                <div>
+                    <label for="confirm-delete" class="block text-xs text-slate-600 dark:text-slate-400 mb-1">Zur Bestätigung LÖSCHEN eintippen</label>
+                    <input id="confirm-delete" name="confirm" type="text" autocomplete="off" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                </div>
+                <button type="submit" class="px-3 py-2 rounded-lg bg-rose-600 text-white text-sm font-medium hover:bg-rose-700">Endgültig löschen</button>
+            </form>
+            <x-input-error :messages="$errors->get('confirm')" class="mt-1" />
+        </details>
+    @endif
 </x-app-layout>

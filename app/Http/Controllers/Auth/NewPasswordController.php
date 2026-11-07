@@ -41,7 +41,8 @@ class NewPasswordController extends Controller
         // Here we will attempt to reset the user's password. If it is successful we
         // will update the password on an actual user model and persist it to the
         // database. Otherwise we will parse the error and return the response.
-        $status = Password::reset(
+        // Einladungs-Links (AccountSetupLink) sind 7 Tage gültig: eigener Broker.
+        $status = Password::broker($request->boolean('invite') ? 'invites' : null)->reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
             function (User $user) use ($request) {
                 $user->forceFill([

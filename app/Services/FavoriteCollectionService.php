@@ -42,11 +42,11 @@ class FavoriteCollectionService
         $name = trim($name);
 
         if ($name === '') {
-            throw new RuntimeException('Bitte einen Namen für die Collection angeben.');
+            throw new RuntimeException('Bitte einen Namen für die Sammlung angeben.');
         }
 
         if (FavoriteCollection::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)->where('name', $name)->exists()) {
-            throw new RuntimeException('Eine Collection mit diesem Namen existiert bereits.');
+            throw new RuntimeException('Eine Sammlung mit diesem Namen existiert bereits.');
         }
 
         $nextSortOrder = (int) FavoriteCollection::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)->max('sort_order') + 1;
@@ -66,7 +66,7 @@ class FavoriteCollectionService
         $name = trim($name);
 
         if ($name === '') {
-            throw new RuntimeException('Bitte einen Namen für die Collection angeben.');
+            throw new RuntimeException('Bitte einen Namen für die Sammlung angeben.');
         }
 
         $exists = FavoriteCollection::where('tenant_id', $collection->tenant_id)
@@ -77,7 +77,7 @@ class FavoriteCollectionService
             ->exists();
 
         if ($exists) {
-            throw new RuntimeException('Eine Collection mit diesem Namen existiert bereits.');
+            throw new RuntimeException('Eine Sammlung mit diesem Namen existiert bereits.');
         }
 
         $collection->update(['name' => $name]);
@@ -86,7 +86,7 @@ class FavoriteCollectionService
     public function delete(FavoriteCollection $collection): void
     {
         if ($collection->is_default) {
-            throw new RuntimeException('Die Default-Collection kann nicht gelöscht werden.');
+            throw new RuntimeException('Die Standard-Sammlung kann nicht gelöscht werden.');
         }
 
         // Löscht nur die Zuordnung -- die zugrunde liegenden Favoriten

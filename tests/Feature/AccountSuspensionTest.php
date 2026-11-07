@@ -97,7 +97,9 @@ class AccountSuspensionTest extends TestCase
 
         $response = $this->actingAsInTenant($learner, $tenant)->get('/dashboard');
 
-        $response->assertForbidden();
+        // Kein Lernzugang mehr -- es bleibt nur „Meine Daten“ (Export/Löschung).
+        $response->assertRedirect(route('profile.data-rights'));
+        $this->actingAsInTenant($learner, $tenant)->getJson('/courses')->assertForbidden();
     }
 
     public function test_a_school_admin_can_suspend_and_reactivate_a_participant(): void
@@ -113,7 +115,7 @@ class AccountSuspensionTest extends TestCase
         $this->assertSame('suspended', $this->asTenant($tenant, fn () => TenantUser::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->value('status')));
 
         $blocked = $this->actingAsInTenant($learner, $tenant)->get('/dashboard');
-        $blocked->assertForbidden();
+        $blocked->assertRedirect(route('profile.data-rights'));
 
         $reactivate = $this->actingAsInTenant($admin, $tenant)->patch("/admin/participants/{$learner->id}/membership", [
             'status' => 'active',

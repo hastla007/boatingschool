@@ -5,6 +5,7 @@ use App\Http\Middleware\EnforceInstructorScope;
 use App\Http\Middleware\EnforceMaintenanceMode;
 use App\Http\Middleware\EnforceTeamTwoFactor;
 use App\Http\Middleware\EnsureAccountIsActive;
+use App\Http\Middleware\EnsureAnyTenantMembership;
 use App\Http\Middleware\EnsureSuperAdmin;
 use App\Http\Middleware\EnsureTenantMembership;
 use App\Http\Middleware\EnsureTenantRole;
@@ -76,6 +77,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // laufen (globale Middleware), nach TrustProxies (Schema/Host
         // hinter einem Proxy), siehe ResolveTenantPath.
         $middleware->append(ResolveTenantPath::class);
+
+        // Zertifikate für eigene Domains auch während eines Deploys
+        // (Wartungsmodus) ausstellen lassen.
+        $middleware->preventRequestsDuringMaintenance(except: ['tls-check']);
 
         // Bug-Review R3-2/R4-A: ohne trustHosts() vertraut Laravel jedem
         // Host-Header blind -- route()/url() erzeugen absolute URLs (z. B.
@@ -186,6 +191,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'tenant.role' => EnsureTenantRole::class,
             'tenant.member' => EnsureTenantMembership::class,
+            'tenant.any-member' => EnsureAnyTenantMembership::class,
             'superadmin' => EnsureSuperAdmin::class,
             'admin-db' => UseAdminDatabaseConnection::class,
             'instructor.scope' => EnforceInstructorScope::class,

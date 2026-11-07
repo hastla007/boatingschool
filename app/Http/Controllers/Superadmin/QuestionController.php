@@ -108,6 +108,12 @@ class QuestionController extends Controller
         $editing = $question->publishedRevision() ?? $latest;
         $validated = $this->validateQuestion($request, $editing?->question_type);
 
+        // Zwei Tabs bzw. zwei Personen: wurde die Frage seit dem Öffnen des
+        // Formulars schon neu gespeichert, nicht stillschweigend überschreiben.
+        if ($request->filled('base_revision_no') && (int) $request->input('base_revision_no') !== (int) $editing?->revision_no) {
+            return back()->withInput()->withErrors(['question_text' => 'Diese Frage wurde inzwischen von jemand anderem gespeichert (jetzt Revision '.$editing?->revision_no.'). Bitte die Seite neu laden und die Änderung erneut eintragen.']);
+        }
+
         DB::transaction(function () use ($validated, $question, $latest, $editing) {
             // Bug-Review (Fragen-Editor verliert Metadaten): official_number
             // liegt auf content_question, nicht auf der Revision -- bisher

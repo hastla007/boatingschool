@@ -112,7 +112,9 @@ class PraxisFormSubmissionController extends Controller
     {
         abort_unless($submission->tenant_id === $tenantContext->id(), 404);
 
-        $before = $submission->toArray();
+        // Ohne die Formulardaten (Name, Geburtsdatum, Anschrift): die Anmeldung
+        // ist gelöscht, das Protokoll soll sie nicht als Kopie aufbewahren.
+        $before = collect($submission->toArray())->except('data')->all();
         $submission->delete();
 
         AuditLog::record(

@@ -35,7 +35,7 @@
         <x-dropdown align="right" width="w-60">
             <x-slot name="trigger">
                 <button type="button" class="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-slate-100 dark:hover:bg-slate-700 transition text-slate-600 dark:text-slate-400"
-                        title="Collections">
+                        title="Sammlungen">
                     <x-icon name="bookmark" class="w-4 h-4" />
                 </button>
             </x-slot>
@@ -44,7 +44,7 @@
                     @csrf
                     @method('PUT')
                     <input type="hidden" name="context" value="{{ $context }}">
-                    <div class="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">In Collections einsortieren</div>
+                    <div class="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">In Sammlungen einsortieren</div>
                     <div class="space-y-1 max-h-48 overflow-y-auto">
                         @foreach ($collections as $collection)
                             <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">

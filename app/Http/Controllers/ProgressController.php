@@ -20,7 +20,7 @@ class ProgressController extends Controller
         $tenant = $tenantContext->tenant();
         $user = $request->user();
 
-        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Für diesen Kurs liegt kein aktives Entitlement vor.');
+        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Dein Zugang zu diesem Kurs ist abgelaufen oder nicht freigeschaltet.');
 
         $course->loadMissing('modules.questions');
         // Bug-Review (Fortschritt zählt deaktivierte Fragen): eine vom
@@ -57,7 +57,9 @@ class ProgressController extends Controller
                     'total' => $total,
                     'mastered' => $topicMastered,
                     'percent' => $total > 0 ? (int) round($topicMastered / $total * 100) : 0,
-                    'module' => $reference['module'],
+                    // Thema in mehreren Modulen: ohne Modul verlinken, sonst wären
+                    // die Fragen der anderen Module von der Kachel aus nicht erreichbar.
+                    'module' => $entries->pluck('module.id')->unique()->count() > 1 ? null : $reference['module'],
                 ];
             })
             ->sortBy('percent');

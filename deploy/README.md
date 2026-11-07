@@ -44,8 +44,12 @@ Worker und Deploy-Skript in der Oberfläche ein.
    php artisan optimize
    ```
    Danach als Superadmin anmelden und die Zwei-Faktor-Anmeldung einschalten.
-6. **Rechte**: `storage/` und `bootstrap/cache/` gehören dem Deploy-Benutzer, PHP-FPM läuft als
-   derselbe Benutzer (oder Gruppe mit Schreibrecht).
+6. **Rechte und PHP**: `storage/` und `bootstrap/cache/` gehören dem Deploy-Benutzer, PHP-FPM
+   läuft als derselbe Benutzer: Vorlage `deploy/php-fpm-pool.conf` (setzt auch Upload-Größe
+   25 MB, Speicher 512 MB und Laufzeit; die PHP-Standardwerte von 2 MB/128 MB/30 s reichen
+   für Importe und Exporte nicht).
+   Ausgehende Verbindungen braucht der Server zu: SMTP des Mailanbieters,
+   `api.pwnedpasswords.com` (Prüfung auf geleakte Passwörter), optional S3-Speicher und Sentry.
 7. **Webserver**: `Caddyfile` nach `/etc/caddy/Caddyfile` (oder `nginx.conf` + certbot), neu laden.
 8. **Cron**: Zeile aus `crontab` mit `crontab -e` als Deploy-Benutzer eintragen.
 9. **Prüfen**: `php artisan app:check-production` bzw. im Superadmin unter „System“.
@@ -60,6 +64,10 @@ cd /var/www/boatingschool && ./deploy/deploy.sh          # Branch main
 Oder in GitHub unter *Actions → Deploy → Run workflow* (Secrets siehe `deploy.yml`).
 Bei einem Fehler bleibt die Seite im Wartungsmodus; Ursache beheben und das Skript erneut
 starten. Zurück ohne Update: `php artisan up`.
+
+Das Skript spielt auch Inhaltsupdates ein (`db:seed`, idempotent; Korrekturen aus dem
+Superadmin bleiben erhalten). Darf der Deploy-Benutzer PHP-FPM neu laden, `PHP_FPM_SERVICE=php8.3-fpm`
+setzen (leert den Opcache).
 
 Migrationen sind nur vorwärts gedacht. Vor größeren Updates vorher `php artisan app:backup`.
 

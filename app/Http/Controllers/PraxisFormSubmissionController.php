@@ -40,7 +40,7 @@ class PraxisFormSubmissionController extends Controller
         $tenant = $tenantContext->tenant();
         $user = $request->user();
 
-        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Für diesen Kurs liegt kein aktives Entitlement vor.');
+        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Dein Zugang zu diesem Kurs ist abgelaufen oder nicht freigeschaltet.');
         abort_if(ExamRegistration::isSelf($tenant, $course), 404, 'Für diesen Kurs meldest du dich selbst zur Prüfung an.');
 
         $template = PraxisFormTemplate::where('active', true)

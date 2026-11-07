@@ -144,6 +144,13 @@
         @endif
     </div>
 
+    {{-- Vorzeitig abgeben: unbeantwortete Fragen zählen als falsch. --}}
+    <form method="POST" action="{{ route('exam.finish', $examSession) }}" class="max-w-2xl mx-auto mt-3 text-right" x-data="{}"
+          @submit="if (! confirm('Prüfung jetzt abgeben? {{ $total - $answered }} unbeantwortete {{ $total - $answered === 1 ? 'Frage zählt' : 'Fragen zählen' }} als falsch.')) $event.preventDefault()">
+        @csrf
+        <button type="submit" class="text-sm text-slate-600 dark:text-slate-400 underline hover:no-underline">Prüfung vorzeitig abgeben</button>
+    </form>
+
     <script nonce="{{ $cspNonce }}">
         // Bug-Review B29: ein Klick auf "Favorit" sendete bisher ein
         // verstecktes Formular ab und navigierte damit die gesamte Seite
@@ -154,7 +161,8 @@
             const wasFavorite = btn.dataset.favorite === '1';
             const csrf = document.querySelector('meta[name="csrf-token"]').content;
 
-            fetch('/favorites/' + btn.dataset.questionId, {
+            // url() statt „/favorites“: im Pfad-Modus liegt die Schule unter /<slug>/.
+            fetch(@js(url('/favorites')) + '/' + btn.dataset.questionId, {
                 method: wasFavorite ? 'DELETE' : 'POST',
                 headers: {
                     'X-CSRF-TOKEN': csrf,
@@ -163,7 +171,9 @@
                 },
                 body: JSON.stringify({ context: 'exam', course_id: '{{ $examSession->course_id }}' }),
             }).then(function (response) {
-                if (! response.ok) {
+                // Nur die erwartete Antwort (204) gilt als gespeichert -- eine
+                // umgeleitete HTML-Seite (200) darf nicht „Favorit“ anzeigen.
+                if (response.status !== 204) {
                     return;
                 }
 

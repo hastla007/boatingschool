@@ -12,13 +12,13 @@ use App\Models\Tenant;
 use App\Models\TenantBranding;
 use App\Models\TenantUser;
 use App\Models\User;
+use App\Services\AccountSetupLink;
 use App\Services\TenantOffboardingService;
 use App\Support\BestEffortMail;
 use App\Support\TenantPath;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\Response;
@@ -128,7 +128,7 @@ class TenantController extends Controller
         // angelegt -- ein SMTP-Fehler beim Versand soll das nicht mehr als
         // HTTP 500 melden, siehe BestEffortMail.
         $mailSent = BestEffortMail::send(
-            fn () => Password::sendResetLink(['email' => $validated['admin_email']]),
+            fn () => app(AccountSetupLink::class)->send(User::on('pgsql_admin')->where('email', $validated['admin_email'])->firstOrFail(), $tenant, 'owner'),
             "Einladungsmail neue Bootsschule {$tenant->id}"
         );
 
@@ -268,15 +268,31 @@ class TenantController extends Controller
         return back()->with('status', 'Bootsschule aktualisiert.');
     }
 
-    /** Vertragsende: alle Daten der Bootsschule als JSON (TenantOffboardingService). */
+    /** Vertragsende: alle Daten der Bootsschule als JSON (TenantOffboardingService), gestreamt. */
     public function export(Request $request, Tenant $tenant, TenantOffboardingService $offboarding): Response
     {
-        $data = $offboarding->export($tenant);
-        AuditLog::record($tenant->id, $request->user()->id, 'superadmin.tenant.export', 'tenant', $tenant->id, null, ['members' => count($data['members'])]);
+        AuditLog::record($tenant->id, $request->user()->id, 'superadmin.tenant.export', 'tenant', $tenant->id, null, [
+            'members' => TenantUser::where('tenant_id', $tenant->id)->count(),
+        ]);
 
-        return response()->json($data, 200, [
-            'Content-Disposition' => 'attachment; filename="bootsschule-'.$tenant->slug.'-'.now()->format('Y-m-d').'.json"',
-        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        // Der Stream läuft erst nach den Middlewares -- die Owner-Verbindung
+        // des Superadmin-Bereichs (UseAdminDatabaseConnection) ist dann schon
+        // zurückgesetzt und muss hier wieder gelten.
+        $connection = config('database.default');
+
+        return response()->streamDownload(function () use ($tenant, $offboarding, $connection) {
+            set_time_limit(0);
+            $previous = config('database.default');
+            config(['database.default' => $connection]);
+            try {
+                $offboarding->writeExport($tenant, function (string $chunk) {
+                    echo $chunk;
+                    flush();
+                });
+            } finally {
+                config(['database.default' => $previous]);
+            }
+        }, 'bootsschule-'.$tenant->slug.'-'.now()->format('Y-m-d').'.json', ['Content-Type' => 'application/json; charset=UTF-8']);
     }
 
     /** Vertragsende: Bootsschule endgültig löschen (nur „geschlossen“, Bestätigung per Kurzname). */

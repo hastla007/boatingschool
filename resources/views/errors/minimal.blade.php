@@ -67,6 +67,9 @@
             <p class="code">@yield('code')</p>
             <p class="message">@yield('message')</p>
             <p class="hint">@yield('hint')</p>
+            @hasSection('actions')
+                <p class="hint">@yield('actions')</p>
+            @endif
             <a class="back-link" href="{{ url('/') }}">Zur Startseite</a>
         </div>
     </body>

@@ -29,7 +29,7 @@ class LearningController extends Controller
         $tenant = $tenantContext->tenant();
         $user = $request->user();
 
-        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Für diesen Kurs liegt kein aktives Entitlement vor.');
+        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Dein Zugang zu diesem Kurs ist abgelaufen oder nicht freigeschaltet.');
 
         $course->loadMissing('praxisTasks', 'modules.questions');
 
@@ -49,10 +49,13 @@ class LearningController extends Controller
         // Favoriten-Nenner mit, wodurch "X/Y gemeistert" dauerhaft hinter
         // dem tatsächlich erreichbaren Fortschritt zurückblieb, analog zum
         // bereits gefixten Gesamtfortschritt-Nenner in CourseProgressService.
-        $courseQuestionIds = ContentQuestion::currentlyValidIds($course->modules->flatMap(fn ($m) => $m->questions));
+        // Dieselbe Fragenmenge wie Favoriten-Seite und Favoriten-Modus
+        // (inklusive Fragen der Prüfungsbögen), nur aktuell gültige.
         $favoriteIds = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)
             ->where('context', Favorite::CONTEXT_SMART_LEARNING)
-            ->whereIn('question_id', $courseQuestionIds)->pluck('question_id');
+            ->whereIn('question_id', $this->courseQuestionIds($course))
+            ->whereIn('question_id', ContentQuestion::query()->currentlyValid()->select('id'))
+            ->pluck('question_id');
 
         $praxisProgress = PraxisProgress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get();
         $praxisMastered = fn ($taskIds) => $praxisProgress->whereIn('praxis_task_id', $taskIds)->where('completed', true)->count();
@@ -94,7 +97,7 @@ class LearningController extends Controller
         $tenant = $tenantContext->tenant();
         $user = $request->user();
 
-        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Für diesen Kurs liegt kein aktives Entitlement vor.');
+        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Dein Zugang zu diesem Kurs ist abgelaufen oder nicht freigeschaltet.');
 
         // Feste Positivliste statt eines beliebigen Query-Werts
         // (Sicherheitsreview M4) -- ein unbekannter Wert fällt auf den
@@ -334,7 +337,7 @@ class LearningController extends Controller
         $tenant = $tenantContext->tenant();
         $user = $request->user();
 
-        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Für diesen Kurs liegt kein aktives Entitlement vor.');
+        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Dein Zugang zu diesem Kurs ist abgelaufen oder nicht freigeschaltet.');
         abort_unless($attempt->user_id === $user->id, 403);
         abort_unless($attempt->course_id === $course->id, 404);
 

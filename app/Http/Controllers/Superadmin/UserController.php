@@ -12,6 +12,7 @@ use App\Models\Progress;
 use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
+use App\Services\AccountSetupLink;
 use App\Support\BestEffortMail;
 use App\Support\Countries;
 use App\Support\StatusLabels;
@@ -103,7 +104,7 @@ class UserController extends Controller
         // bereits erfolgreich angelegten Nutzer nicht als HTTP 500 melden
         // (Bug-Review B31, siehe BestEffortMail).
         $mailSent = BestEffortMail::send(
-            fn () => Password::sendResetLink(['email' => $user->email]),
+            fn () => app(AccountSetupLink::class)->send($user, $user->tenantMemberships()->first()?->tenant, $user->is_superadmin ? 'superadmin' : ($user->tenantMemberships()->first()?->role ?? 'learner')),
             "Einladungsmail neuer Nutzer {$user->id}"
         );
 

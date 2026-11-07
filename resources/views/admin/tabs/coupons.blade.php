@@ -71,6 +71,8 @@
             <option value="">Alle Status</option>
             <option value="open" @selected(($couponFilters['coupon_status'] ?? null) === 'open')>offen</option>
             <option value="redeemed" @selected(($couponFilters['coupon_status'] ?? null) === 'redeemed')>eingelöst</option>
+            <option value="voided" @selected(($couponFilters['coupon_status'] ?? null) === 'voided')>gesperrt</option>
+            <option value="expired" @selected(($couponFilters['coupon_status'] ?? null) === 'expired')>abgelaufen</option>
         </select>
         <label for="coupon_type" class="sr-only">Typ filtern</label>
         <select id="coupon_type" name="coupon_type" @change="$el.form.submit()" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">

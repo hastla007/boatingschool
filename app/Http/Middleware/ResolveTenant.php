@@ -113,7 +113,7 @@ class ResolveTenant
                 // ohnehin an derselben Prüfung in Auth/LoginRequest o. ä.
                 // scheitert -- keine Daten wurden dadurch offengelegt, nur
                 // die falsche Seite angezeigt.
-                if ($tenant->status === 'closed' || $tenant->status === 'suspended') {
+                if (($tenant->status === 'closed' || $tenant->status === 'suspended') && ! $this->isDataRightsRoute($request)) {
                     return response()->view('tenant.suspended', ['tenant' => $tenant], 403);
                 }
 
@@ -154,7 +154,7 @@ class ResolveTenant
             return response()->view('tenant.not-found', [], 404);
         }
 
-        if ($tenant->status === 'closed' || $tenant->status === 'suspended') {
+        if (($tenant->status === 'closed' || $tenant->status === 'suspended') && ! $this->isDataRightsRoute($request)) {
             return response()->view('tenant.suspended', ['tenant' => $tenant], 403);
         }
 
@@ -164,6 +164,17 @@ class ResolveTenant
         view()->share('branding', $tenant->branding);
 
         return $next($request);
+    }
+
+    /**
+     * Auch bei gesperrter oder geschlossener Schule erreichbar: Abmelden,
+     * Impressum/Datenschutz und die Datenrechte (Export, Kontolöschung).
+     */
+    private function isDataRightsRoute(Request $request): bool
+    {
+        return $request->is('logout') || $request->is('impressum') || $request->is('datenschutz')
+            || $request->is('meine-daten') || $request->is('profile/export-data')
+            || ($request->is('profile') && $request->isMethod('DELETE'));
     }
 
     private function isTenantAgnosticRoute(Request $request): bool

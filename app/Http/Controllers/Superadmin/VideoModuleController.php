@@ -7,6 +7,7 @@ use App\Models\AuditLog;
 use App\Models\CourseDefinition;
 use App\Models\VideoLesson;
 use App\Models\VideoModule;
+use App\Support\ComboVideoGroups;
 use App\Support\SortOrder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -25,6 +26,12 @@ class VideoModuleController extends Controller
     public function store(Request $request, CourseDefinition $course): RedirectResponse
     {
         $validated = $request->validate(['title' => ['required', 'string', 'max:200']]);
+        // Kombikurse spiegeln ihre Kapitel aus den Teilkursen (ComboVideoCourseSeeder);
+        // ein nur hier angelegtes Kapitel hätte keine Kachel und wäre für Lernende nicht erreichbar.
+        if (isset(ComboVideoGroups::GROUPS[$course->code])) {
+            return redirect()->to(route('superadmin.courses.show', $course).'#videokurs')
+                ->withErrors(['video_module' => 'In Kombikursen werden die Kapitel aus den Teilkursen übernommen. Bitte das Kapitel im Teilkurs anlegen.']);
+        }
         $module = VideoModule::create([
             'course_id' => $course->id,
             'title' => $validated['title'],
@@ -38,9 +45,15 @@ class VideoModuleController extends Controller
     public function update(Request $request, VideoModule $module): RedirectResponse
     {
         $validated = $request->validate(['title' => ['required', 'string', 'max:200']]);
+        $back = route('superadmin.courses.show', $module->course_id).'#videokurs';
+        if ($validated['title'] !== $module->title && ComboVideoGroups::isProtectedChapter($module->title)) {
+            return redirect()->to($back)->withErrors(['video_module' => "Das Kapitel „{$module->title}“ ist mit einer eigenen Kachel bzw. mit Kombikursen verknüpft und kann nicht umbenannt werden."]);
+        }
+        $before = $module->title;
         $module->update($validated);
+        AuditLog::record(null, $request->user()->id, 'superadmin.video_module.update', 'video_module', $module->id, ['title' => $before], ['title' => $module->title]);
 
-        return redirect()->to(route('superadmin.courses.show', $module->course_id).'#videokurs')->with('status', 'Kapitel umbenannt.');
+        return redirect()->to($back)->with('status', 'Kapitel umbenannt.');
     }
 
     public function destroy(Request $request, VideoModule $module): RedirectResponse

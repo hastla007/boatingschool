@@ -36,7 +36,7 @@ class ExpireAbandonedExamSessions extends Command
         $expired = 0;
 
         foreach ($sessions as $session) {
-            $limit = $session->ruleSet->time_limit_seconds;
+            $limit = $session->effectiveRuleSet()->time_limit_seconds;
 
             $abandoned = $limit
                 ? $examEvaluation->timeExpired($session)

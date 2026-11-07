@@ -37,6 +37,8 @@
             <form method="POST" action="{{ route('admin.renewals.store') }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm" x-data="{ all: true }">
                 @csrf
                 <input type="hidden" name="course_id" value="{{ $courseId }}">
+                {{-- Laufzeitenden der Vorschau als ein Feld (viele Einzelfelder stoßen an max_input_vars). --}}
+                <input type="hidden" name="seen_json" value="{{ json_encode($entitlements->mapWithKeys(fn ($e) => [$e->id => $e->valid_until->timestamp])) }}">
                 <div class="p-4 border-b border-slate-100 dark:border-slate-700 flex flex-wrap items-center justify-between gap-3 text-sm">
                     <span class="text-slate-700 dark:text-slate-200">
                         {{ $entitlements->count() }} {{ $entitlements->count() === 1 ? 'Zugang' : 'Zugänge' }} ·
@@ -55,7 +57,6 @@
                     @forelse ($entitlements as $entitlement)
                         <li class="px-4 py-2 flex flex-wrap items-center gap-3 text-sm">
                             <input type="checkbox" name="entitlement_ids[]" value="{{ $entitlement->id }}" checked class="rounded border-slate-300" aria-label="{{ $entitlement->user->display_name ?? $entitlement->user->email }} verlängern">
-                            <input type="hidden" name="seen[{{ $entitlement->id }}]" value="{{ $entitlement->valid_until->timestamp }}">
                             <span class="flex-1 min-w-0">
                                 <span class="block text-slate-700 dark:text-slate-200">{{ $entitlement->user->display_name ?? $entitlement->user->email }}</span>
                                 <span class="block text-xs text-slate-600 dark:text-slate-400">{{ $entitlement->user->email }}</span>

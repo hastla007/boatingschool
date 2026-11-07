@@ -236,6 +236,10 @@ Geplante Kommandos:
   Review D3). Greift nur, wenn die jeweilige Frist bewusst per `.env`
   aktiviert wurde.
 
+- `app:remind-expiring-entitlements` (täglich 09:00 Europe/Berlin) --
+  E-Mail an Lernende, deren Kurszugang in den nächsten Tagen abläuft
+  (einmal je Ablaufdatum; scheitert der Versand, wird es beim nächsten
+  Lauf erneut versucht).
 - `app:backup` (täglich 03:15 Europe/Berlin) -- Datenbank-Dump und Uploads
   nach `storage/app/backups/`, optional auf externen Speicher
   (`BACKUP_DISK`), siehe `deploy/README.md`.

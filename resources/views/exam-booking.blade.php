@@ -45,7 +45,7 @@
                         <div class="text-xs text-slate-500 dark:text-slate-400">{{ $provider['full'] }}</div>
                         <p class="text-sm text-slate-600 dark:text-slate-300 mt-2 flex-1">{{ $provider['text'] }}</p>
                         <a href="{{ $provider['url'] }}" target="_blank" rel="noopener noreferrer"
-                           class="mt-3 self-start inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold text-white"
+                           class="mt-3 self-start inline-flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold text-[color:var(--brand-on-secondary,#fff)]"
                            style="background-color: var(--brand-secondary, #007A7A)">
                             Zum {{ $provider['name'] }} <x-icon name="arrow-top-right-on-square" class="w-4 h-4" />
                         </a>
@@ -64,7 +64,7 @@
                     ['Am Prüfungstag', 'Bring deinen Personalausweis oder Reisepass mit, dazu die Originale der eingereichten Nachweise.', null],
                 ] as $index => [$title, $text, $list])
                     <li class="flex gap-3">
-                        <span class="w-7 h-7 rounded-full flex items-center justify-center text-sm font-semibold text-white shrink-0" style="background-color: var(--brand-secondary, #007A7A)">{{ $index + 1 }}</span>
+                        <span class="w-7 h-7 rounded-full flex items-center justify-center text-sm font-semibold text-[color:var(--brand-on-secondary,#fff)] shrink-0" style="background-color: var(--brand-secondary, #007A7A)">{{ $index + 1 }}</span>
                         <div class="min-w-0">
                             <div class="font-medium text-slate-800 dark:text-white">{{ $title }}</div>
                             <p class="text-sm text-slate-600 dark:text-slate-400">{{ $text }}</p>

@@ -10,6 +10,7 @@ use App\Services\EntitlementService;
 use App\Services\FavoriteCollectionService;
 use App\Support\TenantContext;
 use Illuminate\Database\QueryException;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
@@ -31,13 +32,17 @@ class FavoriteCollectionController extends Controller
         // Kurs (Route-Model-Binding akzeptiert jede existierende UUID) eine
         // Collection anlegen, auch ohne Entitlement dafür -- analog zur
         // bereits bestehenden Prüfung in FavoriteController::store().
-        abort_unless($entitlements->hasAccess($tenant, $request->user(), $course), 403, 'Für diesen Kurs liegt kein aktives Entitlement vor.');
+        abort_unless($entitlements->hasAccess($tenant, $request->user(), $course), 403, 'Dein Zugang zu diesem Kurs ist abgelaufen oder nicht freigeschaltet.');
 
         $validated = $request->validate(['name' => ['required', 'string', 'max:255']]);
 
         try {
             $collections->create($tenant, $request->user(), $course, $validated['name']);
         } catch (RuntimeException $e) {
+            // Doppelklick: der zweite Request trifft den Unique-Index.
+            if ($e instanceof UniqueConstraintViolationException) {
+                return back()->withErrors(['name' => 'Eine Sammlung mit diesem Namen existiert bereits.']);
+            }
             // Review: Datenbankfehler (QueryException ist auch eine
             // RuntimeException) nicht als Formularfehler mit SQL anzeigen.
             throw_if($e instanceof QueryException, $e);
@@ -45,7 +50,7 @@ class FavoriteCollectionController extends Controller
             return back()->withErrors(['name' => $e->getMessage()]);
         }
 
-        return back()->with('status', 'Collection angelegt.');
+        return back()->with('status', 'Sammlung angelegt.');
     }
 
     public function update(Request $request, TenantContext $tenantContext, FavoriteCollection $favoriteCollection, FavoriteCollectionService $collections): Response
@@ -57,6 +62,10 @@ class FavoriteCollectionController extends Controller
         try {
             $collections->rename($favoriteCollection, $validated['name']);
         } catch (RuntimeException $e) {
+            // Doppelklick: der zweite Request trifft den Unique-Index.
+            if ($e instanceof UniqueConstraintViolationException) {
+                return back()->withErrors(['name' => 'Eine Sammlung mit diesem Namen existiert bereits.']);
+            }
             // Review: Datenbankfehler (QueryException ist auch eine
             // RuntimeException) nicht als Formularfehler mit SQL anzeigen.
             throw_if($e instanceof QueryException, $e);
@@ -64,7 +73,7 @@ class FavoriteCollectionController extends Controller
             return back()->withErrors(['name' => $e->getMessage()]);
         }
 
-        return back()->with('status', 'Collection umbenannt.');
+        return back()->with('status', 'Sammlung umbenannt.');
     }
 
     public function destroy(Request $request, TenantContext $tenantContext, FavoriteCollection $favoriteCollection, FavoriteCollectionService $collections): Response
@@ -74,6 +83,10 @@ class FavoriteCollectionController extends Controller
         try {
             $collections->delete($favoriteCollection);
         } catch (RuntimeException $e) {
+            // Doppelklick: der zweite Request trifft den Unique-Index.
+            if ($e instanceof UniqueConstraintViolationException) {
+                return back()->withErrors(['name' => 'Eine Sammlung mit diesem Namen existiert bereits.']);
+            }
             // Review: Datenbankfehler (QueryException ist auch eine
             // RuntimeException) nicht als Formularfehler mit SQL anzeigen.
             throw_if($e instanceof QueryException, $e);
@@ -81,7 +94,7 @@ class FavoriteCollectionController extends Controller
             return back()->withErrors(['collection' => $e->getMessage()]);
         }
 
-        return back()->with('status', 'Collection gelöscht.');
+        return back()->with('status', 'Sammlung gelöscht.');
     }
 
     public function sync(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course, ContentQuestion $question, FavoriteCollectionService $collections): Response
@@ -93,7 +106,7 @@ class FavoriteCollectionController extends Controller
         // Frage, die gar nicht zu diesem Kurs gehört, trotzdem seiner
         // Collection zuordnen -- analog zur bereits bestehenden Prüfung in
         // FavoriteController::store().
-        abort_unless($entitlements->hasAccess($tenant, $request->user(), $course), 403, 'Für diesen Kurs liegt kein aktives Entitlement vor.');
+        abort_unless($entitlements->hasAccess($tenant, $request->user(), $course), 403, 'Dein Zugang zu diesem Kurs ist abgelaufen oder nicht freigeschaltet.');
 
         // Modulfragen plus Fragen der Prüfungsbögen (siehe
         // CourseDefinition::contentQuestionIds()).
@@ -107,6 +120,6 @@ class FavoriteCollectionController extends Controller
 
         $collections->syncQuestion($tenant, $request->user(), $course, $question->id, $validated['context'], $validated['collection_ids'] ?? []);
 
-        return back()->with('status', 'Collections aktualisiert.');
+        return back()->with('status', 'Sammlungen aktualisiert.');
     }
 }

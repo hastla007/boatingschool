@@ -76,6 +76,11 @@ class ExamController extends Controller
             ->get()
             ->unique('paper_id')
             ->keyBy('paper_id');
+        // Angefangene Bögen (noch in der Zeit): Kachel zeigt „läuft – fortsetzen“.
+        $runningPaperIds = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+            ->whereIn('paper_id', $paperIds)->where('status', 'running')->get()
+            ->reject(fn ($session) => app(ExamEvaluationService::class)->timeExpired($session))
+            ->pluck('paper_id')->flip();
 
         // Bug-Review (Langsame Prüfungsübersicht): für jeden Bogen eine
         // eigene COUNT-Query auf paperQuestions() und für jeden bereits
@@ -110,8 +115,14 @@ class ExamController extends Controller
             ->selectRaw('exam_session_id, count(*) as correct_count')
             ->groupBy('exam_session_id')
             ->pluck('correct_count', 'exam_session_id');
+        // Fragenzahl des tatsächlich abgelegten Bogens: wird eine Frage später
+        // deaktiviert, zeigte die Kachel sonst z. B. „24/23“.
+        $questionCountBySession = ExamSessionQuestion::whereIn('exam_session_id', $latestEvaluatedSessions->pluck('id'))
+            ->selectRaw('exam_session_id, count(*) as question_count')
+            ->groupBy('exam_session_id')
+            ->pluck('question_count', 'exam_session_id');
 
-        $paperStats = $papers->map(function ($paper) use ($latestEvaluatedSessions, $course, $ruleSetFor, $totalsByPaper, $correctBySession) {
+        $paperStats = $papers->map(function ($paper) use ($latestEvaluatedSessions, $course, $ruleSetFor, $totalsByPaper, $correctBySession, $runningPaperIds, $questionCountBySession) {
             $session = $latestEvaluatedSessions->get($paper->id);
             $comboInfo = ComboExamGroups::infoFor($course->code, $paper->paper_number);
             $ruleSet = $ruleSetFor($paper)['ruleSet'];
@@ -119,9 +130,10 @@ class ExamController extends Controller
             return [
                 'paper' => $paper,
                 'attempted' => (bool) $session,
+                'running' => $runningPaperIds->has($paper->id),
                 'percent' => $session ? (int) round($session->score * 100) : 0,
                 'correct' => $session ? $correctBySession->get($session->id, 0) : 0,
-                'total' => $totalsByPaper->get($paper->id, 0),
+                'total' => $session ? (int) $questionCountBySession->get($session->id, 0) : $totalsByPaper->get($paper->id, 0),
                 'group' => $comboInfo['label'] ?? null,
                 'displayNumber' => $comboInfo['displayNumber'] ?? $paper->paper_number,
                 'startable' => (bool) $ruleSet,
@@ -214,6 +226,7 @@ class ExamController extends Controller
                 'user_id' => $user->id,
                 'course_id' => $course->id,
                 'rule_set_id' => $ruleSet->id,
+                'rule_snapshot' => ExamSession::snapshotOf($ruleSet),
                 'paper_id' => $paper->id,
                 'status' => 'running',
                 'started_at' => now(),
@@ -300,6 +313,7 @@ class ExamController extends Controller
                 'user_id' => $user->id,
                 'course_id' => $course->id,
                 'rule_set_id' => $ruleSet->id,
+                'rule_snapshot' => ExamSession::snapshotOf($ruleSet),
                 'status' => 'running',
                 'started_at' => now(),
             ]);
@@ -329,6 +343,10 @@ class ExamController extends Controller
                 }
             }
 
+            // Ohne gültige Fragen (z. B. alle Fragen eines Moduls deaktiviert)
+            // gäbe es eine leere Prüfung, die als „nicht bestanden“ zählt.
+            abort_if($position === 1, 409, 'Für diesen Kurs sind derzeit keine Prüfungsfragen verfügbar. Bitte wende dich an deine Bootsschule.');
+
             return redirect()->route('exam.show', $session);
         });
     }
@@ -357,8 +375,8 @@ class ExamController extends Controller
         // Mikrosekunden-Bruchteil -- das löste beim Rendern per gmdate()
         // eine Deprecation-Warnung aus ("Implicit conversion from float to
         // int loses precision"). (int) rundet hier zuverlässig ab.
-        $remainingSeconds = $examSession->ruleSet->time_limit_seconds
-            ? max(0, (int) ($examSession->ruleSet->time_limit_seconds - $examSession->started_at->diffInSeconds(now())))
+        $remainingSeconds = $examSession->effectiveRuleSet()->time_limit_seconds
+            ? max(0, (int) ($examSession->effectiveRuleSet()->time_limit_seconds - $examSession->started_at->diffInSeconds(now())))
             : null;
 
         $isFavorite = Favorite::where('tenant_id', $examSession->tenant_id)->where('user_id', $examSession->user_id)
@@ -450,6 +468,14 @@ class ExamController extends Controller
             DB::table('exam_session')->where('id', $examSession->id)->lockForUpdate()->first();
             $examSession->refresh();
             abort_if($examSession->status !== 'running', 409);
+
+            // Doppelklick oder zweiter Tab: die Sperre oben serialisiert beide
+            // Anfragen, die zweite sieht die schon gespeicherte Antwort und
+            // überschreibt sie nicht (die erste Antwort zählt).
+            // (Zusammengesetzter Schlüssel: direkt abfragen statt refresh().)
+            if ($examSession->questions()->where('position', $sessionQuestion->position)->whereNotNull('answered_at')->exists()) {
+                return;
+            }
 
             // Keine Sofortauflösung: correct wird erst bei finish() befüllt.
             if ($type === 'multi_choice') {
@@ -586,7 +612,7 @@ class ExamController extends Controller
             'topicBreakdown' => $topicBreakdown,
             'openTextCount' => $openTextQuestions->count(),
             'openTextCorrect' => $openTextQuestions->where('correct', true)->count(),
-            'partResults' => $examSession->ruleSet->partResults($questions),
+            'partResults' => $examSession->effectiveRuleSet()->partResults($questions),
         ]);
     }
 
@@ -600,6 +626,6 @@ class ExamController extends Controller
         // genau wie bei der Fortschrittsseite (ProgressController) gilt der
         // Zugriff auf einen Kurs nur, solange ein aktives Entitlement besteht.
         $course = $examSession->course;
-        abort_unless($course && $entitlements->hasAccess($tenantContext->tenant(), $request->user(), $course), 403, 'Für diesen Kurs liegt kein aktives Entitlement vor.');
+        abort_unless($course && $entitlements->hasAccess($tenantContext->tenant(), $request->user(), $course), 403, 'Dein Zugang zu diesem Kurs ist abgelaufen oder nicht freigeschaltet.');
     }
 }

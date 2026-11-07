@@ -12,6 +12,7 @@ use App\Models\TenantCourseLocation;
 use App\Models\TenantUser;
 use App\Models\User;
 use App\Models\WillkommensboxOrder;
+use App\Services\AccountErasureService;
 use App\Services\CouponRedemptionService;
 use App\Services\LearnerOverview;
 use App\Services\ParticipantInviter;
@@ -179,6 +180,25 @@ class ParticipantController extends Controller
      * korrigieren, z. B. wenn der Lerner sein Profil noch nicht selbst
      * vervollständigt hat.
      */
+    /**
+     * Lernende(n) samt Lerndaten, Anmeldungen, Bestellungen und Einladungen
+     * bei dieser Schule entfernen. Das Konto selbst verschwindet, wenn es
+     * keine weitere Mitgliedschaft hat (wie bei der Selbstlöschung).
+     */
+    public function destroyData(Request $request, TenantContext $tenantContext, User $user, AccountErasureService $erasure): Response
+    {
+        $tenant = $tenantContext->tenant();
+        $membership = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $user->id)->first();
+        abort_unless($membership && $membership->role === 'learner', 404);
+        $request->validate(['confirm' => ['required', 'in:LÖSCHEN']], ['confirm.in' => 'Bitte zur Bestätigung LÖSCHEN eintippen.']);
+
+        $name = $user->name;
+        $erasure->leaveTenant($user, $tenant);
+        AuditLog::record($tenant->id, $request->user()->id, 'participant.remove', 'tenant_user', null, null, null);
+
+        return redirect()->route('admin.dashboard', ['tab' => 'participants'])->with('status', "{$name} und alle Lerndaten bei dieser Bootsschule wurden gelöscht.");
+    }
+
     public function update(Request $request, TenantContext $tenantContext, User $user): Response
     {
         $tenant = $tenantContext->tenant();
@@ -324,7 +344,21 @@ class ParticipantController extends Controller
         // Mitglied dieser Bootsschule sind. Diese Erkennung muss aber
         // bewusst plattformweit suchen (das ist ihr ganzer Zweck), deshalb
         // hier explizit über die RLS-freie Owner-Verbindung.
+        if ($inviter->limitReached($tenant)) {
+            return back()->withErrors(['email' => 'Tageslimit von '.ParticipantInviter::DAILY_LIMIT.' Einladungen erreicht. Bitte morgen weiter einladen.'])->withInput();
+        }
+
         $result = $inviter->invite($tenant, $request->user(), $validated['name'], $validated['email'], array_intersect_key($validated, array_flip(['street', 'postal_code', 'city', 'country'])));
+
+        if ($result['duplicate'] ?? false) {
+            return back()->with('status', 'Diese Person wurde heute schon eingeladen; die Einladung ist weiter gültig.');
+        }
+        if ($result['already_member'] ?? false) {
+            return back()->with('status', 'Diese Person ist bereits Teilnehmer Ihrer Bootsschule.');
+        }
+        if ($result['resent'] ?? false) {
+            return back()->with('status', $result['mail_sent'] ? 'Einladung erneut verschickt (neuer Link zum Passwort festlegen, 7 Tage gültig).' : 'Der Versand der Einladung ist fehlgeschlagen -- bitte später erneut versuchen.');
+        }
 
         $status = $result['mail_sent']
             ? 'Einladung verschickt.'

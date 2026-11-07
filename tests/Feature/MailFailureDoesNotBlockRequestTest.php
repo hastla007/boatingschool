@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Tenant;
 use App\Models\TenantInvitation;
 use App\Models\User;
+use App\Services\AccountSetupLink;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
@@ -33,7 +34,7 @@ class MailFailureDoesNotBlockRequestTest extends TestCase
 
     public function test_creating_a_tenant_still_succeeds_when_the_invite_mail_fails(): void
     {
-        Password::shouldReceive('sendResetLink')->once()->andThrow(new RuntimeException('SMTP down'));
+        $this->mock(AccountSetupLink::class, fn ($mock) => $mock->shouldReceive('send')->once()->andThrow(new RuntimeException('SMTP down')));
 
         $superadmin = $this->createSuperAdmin();
         $slug = 'b31-schule-'.uniqid();
@@ -64,7 +65,7 @@ class MailFailureDoesNotBlockRequestTest extends TestCase
 
     public function test_inviting_a_new_participant_still_succeeds_when_the_invite_mail_fails(): void
     {
-        Password::shouldReceive('sendResetLink')->once()->andThrow(new RuntimeException('SMTP down'));
+        $this->mock(AccountSetupLink::class, fn ($mock) => $mock->shouldReceive('send')->once()->andThrow(new RuntimeException('SMTP down')));
 
         $tenant = $this->createTestTenant();
         $admin = $this->createTenantUser($tenant, 'owner');

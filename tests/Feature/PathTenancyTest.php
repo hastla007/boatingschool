@@ -2,9 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Http\Middleware\ResolveTenantPath;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Auth\Notifications\VerifyEmail;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Tests\Feature\Concerns\InteractsWithTenants;
@@ -41,6 +43,40 @@ class PathTenancyTest extends TestCase
         $tenant->slug = $slug;
 
         return $tenant;
+    }
+
+    /**
+     * Review-Runde 8: mit Routen-Cache (php artisan optimize) entfernt der
+     * kompilierte Abgleich den abschließenden Schrägstrich -- die
+     * Startseite /<slug>/ fand dann keine Route mehr (405).
+     */
+    public function test_the_school_root_matches_with_the_compiled_route_cache(): void
+    {
+        $tenant = $this->tenant('Cache Schule');
+        $captured = null;
+        (new ResolveTenantPath)->handle(
+            Request::create("{$this->central}/{$tenant->slug}/"),
+            function ($request) use (&$captured) {
+                $captured = $request;
+
+                return response('');
+            }
+        );
+
+        $this->assertSame('/'.$tenant->slug, $captured->getBaseUrl());
+        $this->assertSame('/', $captured->getPathInfo());
+        $compiled = app('router')->getRoutes()->toCompiledRouteCollection(app('router'), app());
+        $this->assertSame('/', $compiled->match($captured)->uri());
+        $this->assertSame('login', $compiled->match((function () use ($tenant) {
+            $r = null;
+            (new ResolveTenantPath)->handle(Request::create("{$this->central}/{$tenant->slug}/login"), function ($req) use (&$r) {
+                $r = $req;
+
+                return response('');
+            });
+
+            return $r;
+        })())->uri());
     }
 
     public function test_the_school_is_reachable_under_its_path_with_prefixed_links(): void

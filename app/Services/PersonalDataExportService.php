@@ -3,11 +3,14 @@
 namespace App\Services;
 
 use App\Models\Attempt;
+use App\Models\AuditLog;
+use App\Models\Coupon;
 use App\Models\Entitlement;
 use App\Models\ExamSession;
 use App\Models\Favorite;
 use App\Models\FavoriteCollection;
 use App\Models\FavoriteCollectionItem;
+use App\Models\InstructorCourse;
 use App\Models\NavigationProgress;
 use App\Models\PraxisExamAppointment;
 use App\Models\PraxisFormSubmission;
@@ -21,6 +24,7 @@ use App\Models\TenantUser;
 use App\Models\User;
 use App\Models\VideoProgress;
 use App\Models\WillkommensboxOrder;
+use Illuminate\Support\Facades\DB;
 
 /**
  * DSGVO-Review D3: Auskunfts-/Mitnahmerecht (Art. 15/20) -- bislang gab es
@@ -61,10 +65,16 @@ class PersonalDataExportService
                 'country' => $membership?->country,
                 'birthdate' => $membership?->birthdate?->toDateString(),
                 'locale' => $user->locale,
+                'account_created_at' => $user->created_at?->toIso8601String(),
+                'email_verified_at' => $user->email_verified_at?->toIso8601String(),
+                'two_factor_enabled' => $user->two_factor_confirmed_at !== null,
             ],
             'membership' => $membership ? [
                 'role' => $membership->role,
                 'status' => $membership->status,
+                'member_since' => $membership->created_at?->toIso8601String(),
+                'reminded_at' => $membership->reminded_at?->toIso8601String(),
+                'instructor_courses' => InstructorCourse::where('tenant_id', $tenant->id)->where('user_id', $user->id)->pluck('course_id')->all(),
             ] : null,
             'entitlements' => Entitlement::where('tenant_id', $tenant->id)->where('user_id', $user->id)
                 ->with('course')->orderBy('valid_from')->get()
@@ -75,7 +85,11 @@ class PersonalDataExportService
                     'source_reference' => $e->source_reference,
                     'valid_from' => $e->valid_from?->toIso8601String(),
                     'valid_until' => $e->valid_until?->toIso8601String(),
+                    'expiry_reminded_at' => $e->expiry_reminded_at?->toIso8601String(),
                 ])->all(),
+            'redeemed_codes' => Coupon::where('redeemed_tenant_id', $tenant->id)->where('redeemed_by_user_id', $user->id)
+                ->orderBy('redeemed_at')->get()
+                ->map(fn (Coupon $c) => ['code' => $c->code, 'redeemed_at' => $c->redeemed_at?->toIso8601String()])->all(),
             'product_purchases' => ProductPurchase::where('tenant_id', $tenant->id)->where('user_id', $user->id)
                 ->with('product')->orderBy('created_at')->get()
                 ->map(fn (ProductPurchase $p) => [
@@ -91,6 +105,8 @@ class PersonalDataExportService
                     'course_id' => $a->course_id,
                     'context' => $a->context,
                     'correct' => $a->correct,
+                    'selected_answer_id' => $a->selected_answer_id,
+                    'selected_answer_ids' => $a->selected_answer_ids,
                     'response_time_ms' => $a->response_time_ms,
                     'created_at' => $a->created_at?->toIso8601String(),
                 ])->all(),
@@ -99,6 +115,12 @@ class PersonalDataExportService
                     'question_id' => $p->question_id,
                     'learning_state' => $p->learning_state,
                     'current_streak' => $p->current_streak,
+                    'attempt_count' => $p->attempt_count,
+                    'correct_count' => $p->correct_count,
+                    'incorrect_count' => $p->incorrect_count,
+                    'mastery_score' => $p->mastery_score,
+                    'first_seen_at' => $p->first_seen_at?->toIso8601String(),
+                    'last_seen_at' => $p->last_seen_at?->toIso8601String(),
                 ])->all(),
             'exam_sessions' => ExamSession::where('tenant_id', $tenant->id)->where('user_id', $user->id)
                 ->orderBy('created_at')->get()
@@ -109,6 +131,15 @@ class PersonalDataExportService
                     'passed' => $s->passed,
                     'started_at' => $s->started_at?->toIso8601String(),
                     'submitted_at' => $s->submitted_at?->toIso8601String(),
+                    'answers' => $s->questions()->orderBy('position')->get()->map(fn ($q) => [
+                        'position' => $q->position,
+                        'question_id' => $q->question_id,
+                        'selected_answer_id' => $q->selected_answer_id,
+                        'selected_answer_ids' => $q->selected_answer_ids,
+                        'self_assessed_known' => $q->self_assessed_known,
+                        'correct' => $q->correct,
+                        'answered_at' => $q->answered_at?->toIso8601String(),
+                    ])->all(),
                 ])->all(),
             'favorites' => Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get()
                 ->map(fn (Favorite $f) => [
@@ -153,6 +184,10 @@ class PersonalDataExportService
                 ->orderBy('exam_date')->get()
                 ->map(fn (PraxisExamAppointment $a) => [
                     'label' => $a->label,
+                    'description' => $a->description,
+                    'round' => $a->round,
+                    'is_online' => $a->is_online,
+                    'online_meeting_url' => $a->online_meeting_url,
                     'exam_date' => $a->exam_date?->toIso8601String(),
                     'ends_at' => $a->ends_at?->toIso8601String(),
                     'response' => $a->response,
@@ -218,6 +253,25 @@ class PersonalDataExportService
                     'role' => $i->role,
                     'created_at' => $i->created_at?->toIso8601String(),
                     'accepted_at' => $i->accepted_at?->toIso8601String(),
+                ])->all(),
+            // Angemeldete Geräte (IP-Adresse, Browser) dieses Kontos.
+            'sessions' => DB::connection('pgsql_admin')->table('sessions')->where('user_id', $user->id)->orderByDesc('last_activity')->get()
+                ->map(fn ($row) => [
+                    'ip_address' => $row->ip_address,
+                    'user_agent' => $row->user_agent,
+                    'last_activity' => date(DATE_ATOM, (int) $row->last_activity),
+                ])->all(),
+            // Protokolleinträge dieser Bootsschule, die die Person betreffen.
+            'audit_log' => AuditLog::where('tenant_id', $tenant->id)
+                ->where(fn ($q) => $q->where('actor_user_id', $user->id)
+                    ->orWhere(fn ($i) => $i->where('entity_type', 'app_user')->where('entity_id', $user->id))
+                    ->orWhereRaw("before_data->>'user_id' = ?", [$user->id])
+                    ->orWhereRaw("after_data->>'user_id' = ?", [$user->id]))
+                ->orderBy('created_at')->get()
+                ->map(fn (AuditLog $l) => [
+                    'action' => $l->action,
+                    'by_this_person' => $l->actor_user_id === $user->id,
+                    'created_at' => $l->created_at?->toIso8601String(),
                 ])->all(),
         ];
     }

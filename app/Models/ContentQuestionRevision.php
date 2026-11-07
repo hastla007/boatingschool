@@ -131,11 +131,18 @@ class ContentQuestionRevision extends Model
                 ->first();
 
             if ($published) {
-                if ($inheritEditorialContent) {
+                // Erklärung nur übernehmen, wenn die richtige Antwort gleich
+                // geblieben ist -- sonst stünde dort „A ist richtig, weil …“,
+                // obwohl jetzt B richtig ist.
+                $correctOf = fn (self $revision) => $revision->answers()->where('is_correct', true)->pluck('answer_text')
+                    ->map(fn ($text) => mb_strtolower(trim($text)))->sort()->values()->all();
+                if ($inheritEditorialContent && $correctOf($this) === $correctOf($published)) {
                     $this->update([
                         'feedback_correct' => $this->feedback_correct ?? $published->feedback_correct,
                         'feedback_incorrect' => $this->feedback_incorrect ?? $published->feedback_incorrect,
                     ]);
+                }
+                if ($inheritEditorialContent) {
 
                     foreach ($published->media as $media) {
                         $this->media()->attach($media->id, ['role' => $media->pivot->role, 'sort_order' => $media->pivot->sort_order]);

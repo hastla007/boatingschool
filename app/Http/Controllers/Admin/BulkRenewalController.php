@@ -53,6 +53,7 @@ class BulkRenewalController extends Controller
             'entitlement_ids.*' => ['uuid'],
             'seen' => ['nullable', 'array'],
             'seen.*' => ['integer'],
+            'seen_json' => ['nullable', 'string', 'max:100000'],
         ], ['entitlement_ids.required' => 'Bitte mindestens einen Zugang auswählen.']);
 
         $entitlements = Entitlement::where('tenant_id', $tenant->id)->where('course_id', $validated['course_id'])
@@ -63,6 +64,10 @@ class BulkRenewalController extends Controller
         // geändert (Doppelklick, zweiter Admin, Einzel-Verlängerung), wird
         // er übersprungen statt ein zweites Mal verlängert.
         $seen = $validated['seen'] ?? [];
+        $fromJson = json_decode((string) ($validated['seen_json'] ?? ''), true);
+        if (is_array($fromJson)) {
+            $seen += array_filter($fromJson, fn ($v) => is_int($v));
+        }
         $extended = 0;
         $changed = 0;
         $withoutCode = 0;

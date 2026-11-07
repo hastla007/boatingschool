@@ -76,6 +76,7 @@ class TwoFactorController extends Controller
             'two_factor_recovery_codes' => array_map(fn ($c) => Hash::make($c), $codes),
         ])->save();
         $this->audit($user, 'two_factor.enable');
+        $user->endOtherSessions($request->session()->getId());
 
         // Die Codes nur dieses eine Mal im Klartext zeigen.
         return redirect()->route('two-factor.show')->with('two_factor.recovery_codes', $codes)
@@ -99,6 +100,7 @@ class TwoFactorController extends Controller
 
         $user->forceFill(['two_factor_secret' => null, 'two_factor_recovery_codes' => null, 'two_factor_confirmed_at' => null])->save();
         $this->audit($user, 'two_factor.disable');
+        $user->endOtherSessions($request->session()->getId());
 
         return redirect()->route('two-factor.show')->with('status', 'Zwei-Faktor-Anmeldung ist ausgeschaltet.');
     }

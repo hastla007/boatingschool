@@ -32,8 +32,9 @@ class SupportEmailVerificationController extends Controller
 
         $mailSent = static::sendVerificationMail($tenant);
 
+        // Klartext statt Schlüssel: die Statuszeile des Layouts zeigt den Wert direkt an.
         return back()->with('status', $mailSent
-            ? 'support-email-verification-link-sent'
+            ? 'Ein neuer Bestätigungslink für die Support-E-Mail wurde gesendet.'
             : 'Die Bestätigungs-Mail konnte nicht versendet werden -- bitte später erneut versuchen.');
     }
 

@@ -19,6 +19,37 @@ use Illuminate\Support\Collection;
  */
 class CourseProgressService
 {
+    /**
+     * overallPercent() für viele Lernende eines Kurses auf einmal (zwei
+     * Abfragen statt zwei je Lerner) -- für Statistik und Exporte.
+     *
+     * @param  iterable<string>  $userIds
+     * @return array<string, int> user_id => Prozent
+     */
+    public function overallPercents(CourseDefinition $course, Tenant $tenant, iterable $userIds): array
+    {
+        $userIds = collect($userIds)->unique()->values();
+        if ($userIds->isEmpty()) {
+            return [];
+        }
+        $course->loadMissing('modules.questions');
+        $questionIds = ContentQuestion::currentlyValidIds($course->modules->flatMap(fn ($m) => $m->questions));
+        $total = max($questionIds->count(), 1);
+
+        $mastered = [];
+        foreach ($userIds->chunk(2000) as $chunk) {
+            $mastered += Progress::where('tenant_id', $tenant->id)
+                ->whereIn('user_id', $chunk->all())
+                ->whereIn('question_id', $questionIds)
+                ->where('learning_state', 'gefestigt')
+                ->groupBy('user_id')
+                ->selectRaw('user_id, count(*) as mastered')
+                ->pluck('mastered', 'user_id')->all();
+        }
+
+        return $userIds->mapWithKeys(fn ($id) => [$id => (int) round(($mastered[$id] ?? 0) / $total * 100)])->all();
+    }
+
     public function overallPercent(CourseDefinition $course, Tenant $tenant, User $user): int
     {
         return (int) round($this->exactPercent($course, $tenant, $user));

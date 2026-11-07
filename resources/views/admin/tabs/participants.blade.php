@@ -265,6 +265,16 @@
                             </div>
                             <span class="text-slate-700 dark:text-slate-200">{{ $membership->user->name }}</span>
                         </a>
+                        @if ($membership->user->status === 'invited')
+                            {{-- Noch nie angemeldet: Link zum Passwort-Festlegen erneut schicken. --}}
+                            <form method="POST" action="{{ route('admin.participants.invite') }}" class="mt-1 ml-9 flex items-center gap-2 text-xs">
+                                @csrf
+                                <input type="hidden" name="name" value="{{ $membership->user->name }}">
+                                <input type="hidden" name="email" value="{{ $membership->user->email }}">
+                                <span class="rounded-full px-2 py-0.5 bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">eingeladen, noch nicht angemeldet</span>
+                                <button type="submit" class="underline text-slate-600 dark:text-slate-300">Einladung erneut senden</button>
+                            </form>
+                        @endif
                     </td>
                     <td class="px-4 py-2 text-slate-500 dark:text-slate-400">{{ $membership->user->email }}</td>
                     <td class="px-4 py-2 text-slate-500 dark:text-slate-400">
