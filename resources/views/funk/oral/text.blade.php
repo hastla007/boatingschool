@@ -20,7 +20,7 @@
             @endisset
             <form method="POST" action="{{ route('funk.completed', ['course' => $course, 'type' => 'text', 'catalog' => $catalog, 'number' => $text['number']]) }}" class="sm:ml-auto">
                 @csrf
-                <button type="submit" class="inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm font-medium transition {{ $completed ? 'text-white border-transparent' : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600 hover:bg-slate-50' }}"
+                <button type="submit" class="inline-flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-sm font-medium transition {{ $completed ? 'text-[color:var(--brand-on-secondary,#fff)] border-transparent' : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-300 dark:border-slate-600 hover:bg-slate-50' }}"
                         @if ($completed) style="background-color: var(--brand-secondary, #007A7A)" @endif>
                     <x-icon name="check-circle" class="w-4 h-4" /> {{ $completed ? 'Erledigt' : 'Als erledigt markieren' }}
                 </button>
@@ -40,7 +40,7 @@
 
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5 space-y-3">
             <div class="flex items-center gap-3">
-                <button type="button" x-data @click="funkSpeak(@js($text[$from]), '{{ $languages[$from][1] }}', 0.85)" class="w-11 h-11 rounded-full flex items-center justify-center text-white shrink-0" style="background-color: var(--brand-secondary, #007A7A)" aria-label="Text vorlesen">
+                <button type="button" x-data @click="funkSpeak(@js($text[$from]), '{{ $languages[$from][1] }}', 0.85)" class="w-11 h-11 rounded-full flex items-center justify-center text-[color:var(--brand-on-secondary,#fff)] shrink-0" style="background-color: var(--brand-secondary, #007A7A)" aria-label="Text vorlesen">
                     <x-icon name="play" class="w-5 h-5" />
                 </button>
                 <div class="text-sm text-slate-700 dark:text-slate-200">{{ $languages[$from][0] }} anhören <span class="text-slate-500 dark:text-slate-400">(Sprachausgabe deines Browsers)</span></div>
@@ -75,7 +75,7 @@
             @if ($errors->any())
                 <p class="text-sm text-rose-600">{{ $errors->first() }}</p>
             @endif
-            <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg px-5 py-2.5 text-sm font-semibold text-white" style="background-color: var(--brand-secondary, #007A7A)">
+            <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg px-5 py-2.5 text-sm font-semibold text-[color:var(--brand-on-secondary,#fff)]" style="background-color: var(--brand-secondary, #007A7A)">
                 <x-icon name="check-circle" class="w-4 h-4" /> Auswerten
             </button>
         </form>
@@ -87,9 +87,9 @@
                 <span class="text-center rounded-xl border border-slate-100 dark:border-slate-800 py-2.5 text-sm text-slate-500 dark:text-slate-400">&larr; Vorheriger</span>
             @endif
             @if ($next)
-                <a href="{{ route('funk.oral.text', ['course' => $course, 'catalog' => $catalog, 'number' => $next, 'richtung' => $direction]) }}" class="text-center rounded-xl py-2.5 text-sm font-semibold text-white hover:opacity-95" style="background-color: var(--brand-secondary, #007A7A)">Nächster &rarr;</a>
+                <a href="{{ route('funk.oral.text', ['course' => $course, 'catalog' => $catalog, 'number' => $next, 'richtung' => $direction]) }}" class="text-center rounded-xl py-2.5 text-sm font-semibold text-[color:var(--brand-on-secondary,#fff)] hover:opacity-95" style="background-color: var(--brand-secondary, #007A7A)">Nächster &rarr;</a>
             @else
-                <a href="{{ route('funk.oral.index', ['course' => $course, 'teil' => $catalog, 'modul' => 'texte']) }}" class="text-center rounded-xl py-2.5 text-sm font-semibold text-white hover:opacity-95" style="background-color: var(--brand-secondary, #007A7A)">Zur Übersicht</a>
+                <a href="{{ route('funk.oral.index', ['course' => $course, 'teil' => $catalog, 'modul' => 'texte']) }}" class="text-center rounded-xl py-2.5 text-sm font-semibold text-[color:var(--brand-on-secondary,#fff)] hover:opacity-95" style="background-color: var(--brand-secondary, #007A7A)">Zur Übersicht</a>
             @endif
         </div>
     </div>

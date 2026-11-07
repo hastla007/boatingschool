@@ -60,13 +60,13 @@
 
         <div class="flex flex-col items-center gap-3 pt-2">
             <a href="{{ route('video.quiz.show', array_filter(['course' => $course, 'lesson' => $lesson, 'position' => 1, 'kapitel' => $moduleIds ? implode(',', $moduleIds) : null])) }}"
-               class="w-full sm:w-auto sm:min-w-[20rem] text-center px-6 py-2.5 rounded-full text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-secondary, #007A7A)">
+               class="w-full sm:w-auto sm:min-w-[20rem] text-center px-6 py-2.5 rounded-full text-[color:var(--brand-on-secondary,#fff)] text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-secondary, #007A7A)">
                 Alle Fragen erneut versuchen
             </a>
 
             @if ($wrongQuestionIds->isNotEmpty())
                 <a href="{{ route('video.quiz.show', array_filter(['course' => $course, 'lesson' => $lesson, 'position' => 1, 'kapitel' => $moduleIds ? implode(',', $moduleIds) : null, 'questions' => $wrongQuestionIds->implode(',')])) }}"
-                   class="w-full sm:w-auto sm:min-w-[20rem] text-center px-6 py-2.5 rounded-full text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-secondary, #007A7A)">
+                   class="w-full sm:w-auto sm:min-w-[20rem] text-center px-6 py-2.5 rounded-full text-[color:var(--brand-on-secondary,#fff)] text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-secondary, #007A7A)">
                     Nur falsche Fragen erneut versuchen
                 </a>
             @else
@@ -78,7 +78,7 @@
             <form method="POST" action="{{ route('video.complete', array_filter(['course' => $course, 'lesson' => $lesson, 'kapitel' => $moduleIds ? implode(',', $moduleIds) : null])) }}" class="w-full sm:w-auto sm:min-w-[20rem]">
                 @csrf
                 <button type="submit" class="w-full text-center px-6 py-2.5 rounded-full text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
-                    Nächstes Kapitel
+                    {{ $next ? 'Nächstes Video' : 'Kurs abschließen' }}
                 </button>
             </form>
         </div>

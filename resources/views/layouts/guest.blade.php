@@ -28,6 +28,7 @@
                     --brand-primary: {{ $branding->primaryColorOrDefault() }};
                     --brand-secondary: {{ $branding->secondaryColorOrDefault() }};
                     --brand-on-primary: {{ $branding->onPrimaryColor() }};
+                    --brand-on-secondary: {{ $branding->onSecondaryColor() }};
                 }
             </style>
         @endif

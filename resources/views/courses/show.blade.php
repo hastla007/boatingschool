@@ -211,7 +211,7 @@
                             <div class="text-xs font-semibold tracking-wide uppercase text-white/80">{{ $loop->first ? 'Dein nächster Schritt' : 'Dein Teilkurs' }}</div>
                             <div class="font-bold text-lg mt-1">{{ $group['label'] }}</div>
                             <div class="text-white/70 text-sm">Dein Videokurs für {{ $group['label'] }}</div>
-                            <div class="text-white/90 text-sm mt-3">Kursfortschritt {{ $group['percent'] }}&nbsp;%</div>
+                            <div class="text-white/90 text-sm mt-3">Videofortschritt {{ $group['percent'] }}&nbsp;%</div>
                             <div class="w-full bg-white/20 rounded-full h-1.5 mt-1 max-w-xs">
                                 <div class="h-1.5 rounded-full bg-white" style="width: {{ $group['percent'] }}%"></div>
                             </div>
@@ -245,7 +245,7 @@
                     <div class="text-xs font-semibold tracking-wide uppercase text-white/80">Dein nächster Schritt</div>
                     <div class="font-bold text-xl mt-1">{{ $course->name }}</div>
                     <div class="text-white/70 text-sm">Dein Videokurs für {{ $course->name }}</div>
-                    <div class="text-white/90 text-sm mt-3">Kursfortschritt {{ $videoPercent }}&nbsp;%</div>
+                    <div class="text-white/90 text-sm mt-3">Videofortschritt {{ $videoPercent }}&nbsp;%</div>
                     <div class="w-full bg-white/20 rounded-full h-1.5 mt-1 max-w-xs">
                         <div class="h-1.5 rounded-full bg-white" style="width: {{ $videoPercent }}%"></div>
                     </div>
@@ -279,7 +279,7 @@
             </div>
             <div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
                 <x-icon name="anchor" class="w-3.5 h-3.5 shrink-0" style="color: var(--brand-secondary, #007A7A)" />
-                Weiter so! Du bist auf einem guten Weg.
+                {{ $masteredCount > 0 ? 'Weiter so! Du bist auf einem guten Weg.' : 'Leg los – im Smart-Learning festigst du deine ersten Fragen.' }}
             </div>
         </a>
     </div>

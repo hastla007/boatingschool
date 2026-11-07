@@ -181,7 +181,11 @@
                                         @endif
                                     </div>
                                     <div class="font-semibold">Bogen {{ $stat['displayNumber'] }}</div>
-                                    <div class="text-xs text-white/70">{{ $stat['correct'] }}/{{ $stat['total'] }}</div>
+                                    @if ($stat['running'])
+                                        <div class="text-xs font-medium text-amber-200">läuft &ndash; fortsetzen</div>
+                                    @else
+                                        <div class="text-xs text-white/70">{{ $stat['correct'] }}/{{ $stat['total'] }}</div>
+                                    @endif
                                 </button>
                             </form>
                         @else

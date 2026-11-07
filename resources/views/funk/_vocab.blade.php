@@ -31,7 +31,7 @@
                 </button>
                 <div x-show="flipped" x-cloak class="grid grid-cols-2 gap-3 w-full">
                     <button type="button" @click="answer(false)" :disabled="busy" class="rounded-xl border border-rose-200 bg-rose-50 text-rose-700 py-2.5 text-sm font-semibold hover:bg-rose-100 disabled:opacity-50">Nicht gewusst</button>
-                    <button type="button" @click="answer(true)" :disabled="busy" class="rounded-xl py-2.5 text-sm font-semibold text-white disabled:opacity-50" style="background-color: var(--brand-secondary, #007A7A)">Gewusst</button>
+                    <button type="button" @click="answer(true)" :disabled="busy" class="rounded-xl py-2.5 text-sm font-semibold text-[color:var(--brand-on-secondary,#fff)] disabled:opacity-50" style="background-color: var(--brand-secondary, #007A7A)">Gewusst</button>
                 </div>
             </div>
         </template>

@@ -197,10 +197,24 @@ MD;
     public static function fill(string $template, array $values): string
     {
         $lines = [];
-        foreach (preg_split('/\R/', $template) as $line) {
+        $source = preg_split('/\R/', $template);
+        $isEmpty = function (string $line) use ($values): bool {
             preg_match_all('/\{([a-z]+)\}/', $line, $m);
             $known = array_values(array_intersect($m[1], array_keys($values)));
-            if ($known !== [] && collect($known)->every(fn ($key) => trim($values[$key]) === '')) {
+
+            return $known !== [] && collect($known)->every(fn ($key) => trim($values[$key]) === '');
+        };
+        foreach ($source as $i => $line) {
+            if ($isEmpty($line)) {
+                continue;
+            }
+            // Einleitung mit Doppelpunkt, deren Angabe in der nächsten Zeile
+            // leer ist („… wird technisch betrieben von:“), entfällt mit.
+            $nextIndex = $i + 1;
+            while (isset($source[$nextIndex]) && trim($source[$nextIndex]) === '') {
+                $nextIndex++;
+            }
+            if (str_ends_with(rtrim($line), ':') && isset($source[$nextIndex]) && $isEmpty($source[$nextIndex])) {
                 continue;
             }
             // Mehrzeilige Werte (Anschrift, Betreiber) als harte Zeilenumbrüche.

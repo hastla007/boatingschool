@@ -36,8 +36,8 @@
                     @endforeach
                 </div>
             @endif
-            @if ($examSession->ruleSet->note())
-                <div class="text-xs text-slate-500 dark:text-slate-400 mt-2">{{ $examSession->ruleSet->note() }}</div>
+            @if ($examSession->effectiveRuleSet()->note())
+                <div class="text-xs text-slate-500 dark:text-slate-400 mt-2">{{ $examSession->effectiveRuleSet()->note() }}</div>
             @endif
         </div>
 

@@ -34,15 +34,15 @@
                         <x-icon name="clock" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Zeitlimit: {{ intdiv($ruleSet->time_limit_seconds, 60) }} Minuten
                     </li>
                     <li class="flex items-center gap-2">
-                        <x-icon name="clipboard-document-check" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Fragenmix: {{ $ruleSet->blueprints->sum('question_count') }} Fragen aus {{ $ruleSet->blueprints->count() }} Modul(en)
+                        <x-icon name="clipboard-document-check" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> {{ $ruleSet->blueprints->sum('question_count') }} zufällig ausgewählte Fragen
                     </li>
                     <li class="flex items-center gap-2">
                         <x-icon name="shield-check" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Bestehensgrenze: {{ (int) round(($ruleSet->passing_rule['min_correct_ratio'] ?? 0.75) * 100) }}%
                     </li>
                 </ul>
-                <p class="text-xs text-slate-600 dark:text-slate-400 mb-4">
-                    Hinweis: Dieses Regelwerk ist eine Demo-Verifizierung für Testzwecke und ersetzt keine amtliche Prüfungsordnung.
-                </p>
+                @if ($ruleSet->note())
+                    <p class="text-xs text-slate-600 dark:text-slate-400 mb-4">{{ $ruleSet->note() }}</p>
+                @endif
                 <form method="POST" action="{{ route('exam.start', $course) }}">
                     @csrf
                     <button type="submit" class="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg text-white font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">

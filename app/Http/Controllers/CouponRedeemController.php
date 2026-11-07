@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Coupon;
 use App\Services\CouponRedemptionService;
+use App\Support\GermanTime;
 use App\Support\TenantContext;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
@@ -68,7 +69,7 @@ class CouponRedeemController extends Controller
         }
 
         if ($result['type'] === 'course_renewal') {
-            $validUntil = $result['entitlement']->valid_until?->format('d.m.Y');
+            $validUntil = GermanTime::format($result['entitlement']->valid_until, 'd.m.Y');
 
             return redirect()->route('courses.show', $result['course'])
                 ->with('status', "Code eingelöst -- dein Zugang zu \"{$result['course']->name}\" wurde verlängert".($validUntil ? " bis {$validUntil}" : '').'!');

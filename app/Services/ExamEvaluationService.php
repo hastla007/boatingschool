@@ -16,7 +16,7 @@ class ExamEvaluationService
 {
     public function timeExpired(ExamSession $examSession): bool
     {
-        $limit = $examSession->ruleSet->time_limit_seconds;
+        $limit = $examSession->effectiveRuleSet()->time_limit_seconds;
 
         return $limit && $examSession->started_at->diffInSeconds(now()) > $limit;
     }
@@ -58,7 +58,7 @@ class ExamEvaluationService
                 return;
             }
 
-            $limit = $examSession->ruleSet->time_limit_seconds;
+            $limit = $examSession->effectiveRuleSet()->time_limit_seconds;
             $deadline = $limit ? $examSession->started_at->copy()->addSeconds($limit) : null;
 
             $questions = $examSession->questions()->with('revision.answers')->lockForUpdate()->get();
@@ -112,11 +112,11 @@ class ExamEvaluationService
 
             $total = max($scoredTotal, 1);
             $score = round($correctCount / $total, 4);
-            $minRatio = $examSession->ruleSet->passing_rule['min_correct_ratio'] ?? 0.75;
+            $minRatio = $examSession->effectiveRuleSet()->passing_rule['min_correct_ratio'] ?? 0.75;
             // Amtliche Teilgrenzen (z. B. SBF See: Basis 5/7 UND See
             // 18/23) gelten zusätzlich zur Gesamtquote, siehe
             // ExamRuleSet::partResults().
-            $partsPassed = collect($examSession->ruleSet->partResults($questions))->every('passed');
+            $partsPassed = collect($examSession->effectiveRuleSet()->partResults($questions))->every('passed');
 
             $examSession->update([
                 'status' => 'evaluated',

@@ -57,7 +57,9 @@ class ProgressController extends Controller
                     'total' => $total,
                     'mastered' => $topicMastered,
                     'percent' => $total > 0 ? (int) round($topicMastered / $total * 100) : 0,
-                    'module' => $reference['module'],
+                    // Thema in mehreren Modulen: ohne Modul verlinken, sonst wären
+                    // die Fragen der anderen Module von der Kachel aus nicht erreichbar.
+                    'module' => $entries->pluck('module.id')->unique()->count() > 1 ? null : $reference['module'],
                 ];
             })
             ->sortBy('percent');

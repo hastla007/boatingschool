@@ -88,7 +88,7 @@
                         @csrf
                         <label for="answer-{{ $question->id }}" class="sr-only">Deine Antwort zu Frage {{ $question->question_number }}</label>
                         <input id="answer-{{ $question->id }}" name="answer" type="text" maxlength="500" value="{{ $p?->answer }}"
-                               placeholder="{{ $auto ? 'z. B. 079° oder 6,1 sm' : 'Deine Antwort' }}"
+                               placeholder="{{ $auto ? \App\Support\NavigationAnswer::placeholder($question->answer_text) : 'Deine Antwort' }}"
                                class="w-full sm:w-auto sm:flex-1 min-w-0 rounded-lg border-slate-300 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 text-sm">
                         <button type="submit" class="rounded-lg px-3 py-2 text-sm font-medium text-white" style="background-color: var(--brand-primary, #005FD7)">
                             {{ $auto ? 'Prüfen' : 'Speichern' }}

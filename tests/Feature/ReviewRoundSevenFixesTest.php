@@ -5,13 +5,17 @@ namespace Tests\Feature;
 use App\Models\AuditLog;
 use App\Models\Coupon;
 use App\Models\Entitlement;
+use App\Models\ExamPaper;
+use App\Models\ExamSession;
 use App\Models\InstructorCourse;
 use App\Models\Tenant;
+use App\Models\TenantBranding;
 use App\Models\TenantInvitation;
 use App\Models\User;
 use App\Services\AccountErasureService;
 use App\Services\ParticipantInviter;
 use App\Support\CanonicalUrl;
+use App\Support\LegalPages;
 use App\Support\NavigationAnswer;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
@@ -167,5 +171,70 @@ class ReviewRoundSevenFixesTest extends TestCase
         $html = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}")->assertOk()->getContent();
         $this->assertStringContainsString('uppercase text-white/80">Dein nächster Schritt', $html);
         $this->assertStringNotContainsString('style="color: var(--brand-secondary, #6EE7E0)">Dein', $html);
+    }
+
+    public function test_favorite_toggle_uses_the_school_path_and_only_trusts_a_204(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $this->grantEntitlement($tenant, $learner, $course);
+
+        $html = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/learn")->assertOk()->getContent();
+        $this->assertStringNotContainsString("fetch('/favorites/'", $html);
+        $this->assertStringContainsString('response.status !== 204', $html);
+    }
+
+    public function test_exam_can_be_handed_in_early_and_a_running_paper_shows_continue(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $this->grantEntitlement($tenant, $learner, $course);
+        $paper = $this->onAdmin(fn () => ExamPaper::where('course_id', $course->id)->orderBy('paper_number')->firstOrFail());
+
+        $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam/papers/{$paper->id}")->assertRedirect();
+        $session = $this->onAdmin(fn () => ExamSession::where('user_id', $learner->id)->where('status', 'running')->firstOrFail());
+        $this->actingAsInTenant($learner, $tenant)->get("/exam-sessions/{$session->id}")->assertOk()
+            ->assertSee(route('exam.finish', $session), false)->assertSee('Prüfung vorzeitig abgeben');
+        $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/exam")->assertOk()->assertSee('läuft', false);
+
+        $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/finish")->assertRedirect(route('exam.result', $session));
+        $this->assertSame('evaluated', $this->onAdmin(fn () => $session->fresh()->status));
+    }
+
+    public function test_forbidden_page_shows_the_german_reason(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('UBI');
+
+        $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}")->assertForbidden()
+            ->assertSee('Für diesen Kurs liegt kein aktives Entitlement vor.');
+    }
+
+    public function test_legal_pages_drop_an_introduction_whose_value_is_empty(): void
+    {
+        $text = LegalPages::fill("Die Lernplattform wird betrieben von:\n\n{betreiber}\n\nWeiter", ['betreiber' => '']);
+        $this->assertStringNotContainsString('betrieben von:', $text);
+        $this->assertStringContainsString('Weiter', $text);
+    }
+
+    public function test_text_on_the_secondary_colour_stays_readable(): void
+    {
+        $light = new TenantBranding(['secondary_color' => '#FDE047']);
+        $dark = new TenantBranding(['secondary_color' => '#0B3D64']);
+        $this->assertSame('#0f172a', $light->onSecondaryColor());
+        $this->assertSame('#ffffff', $dark->onSecondaryColor());
+    }
+
+    public function test_navigation_placeholder_and_compact_positions(): void
+    {
+        $model = "53° 47,2' N 007° 29,1' E";
+        $this->assertStringContainsString('N 008°', NavigationAnswer::placeholder($model));
+        $this->assertSame('z. B. 079°, 6,1 sm', NavigationAnswer::placeholder('BV = 103° - 0,8 sm'));
+        foreach (["N53°47,2' E007°29,1'", "53°47,2'N007°29,1'E", 'N53 47,2 E7 29,1'] as $given) {
+            $this->assertTrue(NavigationAnswer::evaluate($model, $given)['correct'], $given);
+        }
     }
 }

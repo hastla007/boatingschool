@@ -100,7 +100,18 @@ class TenantBranding extends Model
      */
     public function onPrimaryColor(): string
     {
-        $hex = ltrim($this->primaryColorOrDefault(), '#');
+        return self::readableTextOn($this->primaryColorOrDefault());
+    }
+
+    /** Lesbare Schrift auf der Zweitfarbe (z. B. Knöpfe „Zu den Fragen“, Funk „Auswerten“). */
+    public function onSecondaryColor(): string
+    {
+        return self::readableTextOn($this->secondaryColorOrDefault());
+    }
+
+    private static function readableTextOn(string $color): string
+    {
+        $hex = ltrim($color, '#');
         $channel = function (string $pair): float {
             $c = hexdec($pair) / 255;
 

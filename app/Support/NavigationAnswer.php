@@ -37,6 +37,15 @@ class NavigationAnswer
         return ['auto' => true, 'correct' => self::matches($expected, $actual), 'expected' => $expected];
     }
 
+    /** Beispiel-Eingabe passend zu den Werten der Musterlösung (Platzhalter im Eingabefeld). */
+    public static function placeholder(string $model): string
+    {
+        $examples = ['position' => "54° 03,5' N 008° 06,9' E", 'angle' => '079°', 'distance' => '6,1 sm', 'speed' => '5,5 kn', 'time' => '14:30', 'minutes' => '12 min'];
+        $types = collect(self::measurements($model))->pluck('type')->unique()->filter(fn ($t) => isset($examples[$t]));
+
+        return $types->isEmpty() ? 'Deine Antwort' : 'z. B. '.$types->map(fn ($t) => $examples[$t])->implode(', ');
+    }
+
     /** @return list<array{type: string, value: float|array}> */
     public static function measurements(string $text, bool $lenient = false): array
     {
@@ -121,7 +130,8 @@ class NavigationAnswer
                 }
             }
         }
-        $text = preg_replace('/(?<![\p{L}\d])\p{L}+\d+\p{L}?(?![\p{L}\d])/u', ' ', $text);
+        // Namen mit Ziffern („TG15“), aber nicht Halbkugel plus Grad („N53“, „E007“).
+        $text = preg_replace('/(?<![\p{L}\d])(?![NSEWO]\d)\p{L}+\d+\p{L}?(?![\p{L}\d])/u', ' ', $text);
         // Zwischenwerte mit anderer Beschriftung als in der Lösung („rwK 231°,
         // Mw -2°, MgK 229°“ bei gefragtem MgK) zählen nicht mit.
         $modelLower = mb_strtolower($model);
