@@ -4,9 +4,13 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
+use App\Models\CourseDefinition;
 use App\Models\PraxisExamAppointment;
 use App\Models\PraxisFormSubmission;
+use App\Models\PraxisFormTemplate;
 use App\Models\TenantCourseLocation;
+use App\Models\TenantUser;
+use App\Models\User;
 use App\Notifications\PraxisExamAppointmentUpdated;
 use App\Services\PraxisExamAppointmentService;
 use App\Support\BestEffortMail;
@@ -15,6 +19,7 @@ use App\Support\TenantContext;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\Rule;
 use RuntimeException;
@@ -31,6 +36,37 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class PraxisExamAppointmentController extends Controller
 {
+    /**
+     * Praxisstunde für einen Teilnehmer, der sich selbst zur Prüfung anmeldet
+     * (keine Praxis-Anmeldung vorhanden): legt den Termin-Behälter an und
+     * schlägt den Termin wie gewohnt vor.
+     */
+    public function storeForParticipant(Request $request, TenantContext $tenantContext, User $user, PraxisExamAppointmentService $appointments): Response
+    {
+        $tenant = $tenantContext->tenant();
+        $courseId = (string) $request->input('course_id');
+        $course = CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')->find($courseId);
+        $isLearner = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('role', 'learner')->exists();
+        abort_unless($course && $isLearner && ExamRegistration::isSelf($tenant, $course), 404);
+
+        $template = PraxisFormTemplate::where('active', true)->whereJsonContains('course_ids', $course->id)->first();
+        if (! $template) {
+            return back()->withErrors(['exam_date' => 'Für diesen Kurs ist kein Praxisformular hinterlegt -- bitte an den Plattform-Support wenden.']);
+        }
+
+        $submission = DB::transaction(function () use ($tenant, $user, $course, $template) {
+            DB::statement('SELECT pg_advisory_xact_lock(hashtext(?))', [$tenant->id.':'.$user->id.':'.$course->id]);
+
+            return PraxisFormSubmission::firstOrCreate(
+                ['tenant_id' => $tenant->id, 'user_id' => $user->id, 'course_id' => $course->id],
+                ['praxis_form_template_id' => $template->id, 'data' => [PraxisFormSubmission::PRACTICE_ONLY_KEY => true]],
+            );
+        });
+        $request->request->remove('slot');
+
+        return $this->store($request, $tenantContext, $submission, $appointments);
+    }
+
     public function store(Request $request, TenantContext $tenantContext, PraxisFormSubmission $submission, PraxisExamAppointmentService $appointments): Response
     {
         abort_unless($submission->tenant_id === $tenantContext->id(), 404);
@@ -41,8 +77,10 @@ class PraxisExamAppointmentController extends Controller
         // wäre widersprüchlich (und erschien bisher nur noch Teilnehmern,
         // die das Termintool überhaupt noch sehen). Bestehende Termine und
         // Antworten bleiben unberührt.
-        if ($submission->course && ExamRegistration::isSelf($tenantContext->tenant(), $submission->course)) {
-            return back()->withErrors(['exam_date' => 'Für diesen Kurs melden sich die Teilnehmer selbst zur Prüfung an (Einstellung im Tab „Kurse“). Neue Terminvorschläge sind deshalb nicht möglich.']);
+        // Review-Runde 9 (Entscheidung): Praxisstunden und andere Zusatztermine
+        // schlägt die Schule auch dann vor -- gesperrt ist nur der Prüfungstermin.
+        if ($request->input('slot') !== null && (int) $request->input('slot') === 0 && $submission->course && ExamRegistration::isSelf($tenantContext->tenant(), $submission->course)) {
+            return back()->withErrors(['exam_date' => 'Für diesen Kurs melden sich die Teilnehmer selbst zur Prüfung an (Einstellung im Tab „Kurse“). Einen Prüfungstermin schlagen Sie deshalb nicht vor; Praxisstunden sind weiter möglich.']);
         }
 
         $locationIds = TenantCourseLocation::where('tenant_id', $tenantContext->id())

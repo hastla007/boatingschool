@@ -146,6 +146,10 @@ class PersonalDataExportService
                     'passed' => $s->passed,
                     'started_at' => $s->started_at?->toIso8601String(),
                     'submitted_at' => $s->submitted_at?->toIso8601String(),
+                    'navigation_points' => $s->navigation_points,
+                    'navigation_answers' => $s->navigationAnswers()->get()->map(fn ($a) => [
+                        'position' => $a->position, 'answer' => $a->answer, 'self_assessed_known' => $a->self_assessed_known, 'correct' => $a->correct,
+                    ])->all(),
                     'answers' => $s->questions()->orderBy('position')->get()->map(fn ($q) => [
                         'position' => $q->position,
                         'question_id' => $q->question_id,

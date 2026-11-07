@@ -9,7 +9,7 @@
     <div class="space-y-4">
         <div class="rounded-xl bg-amber-50 border border-amber-200 text-amber-800 dark:bg-amber-900/30 dark:border-amber-800 dark:text-amber-200 px-4 py-3 text-sm">
             Die Übungsseekarte 49 des BSH ist urheberrechtlich geschützt. Bitte nur Ausschnitte hochladen, für die eine Nutzungserlaubnis vorliegt,
-            und Quelle/Lizenz in der Bildunterschrift nennen. Ohne Ausschnitt sehen Lernende nur den Hinweis, dass sie die Karte im Fachhandel bekommen.
+            und Quelle/Lizenz in der Bildunterschrift nennen. Ohne Ausschnitt sehen Teilnehmer nur den Hinweis, dass sie die Karte im Fachhandel bekommen.
         </div>
 
         @foreach ($tasks as $task)

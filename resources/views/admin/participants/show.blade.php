@@ -382,8 +382,28 @@
                 'submissionLocations' => $locationsByCourse[$submission->course_id] ?? collect(),
             ])
         @empty
-            <p class="text-sm text-slate-600 dark:text-slate-400">Noch keine Praxis-Anmeldung eingegangen.</p>
+            @if ($selfBookingCourses->isEmpty())
+                <p class="text-sm text-slate-600 dark:text-slate-400">Noch keine Praxis-Anmeldung eingegangen.</p>
+            @endif
         @endforelse
+        {{-- Selbst-Anmeldung zur Prüfung: Praxisstunden schlägt die Schule trotzdem vor. --}}
+        @foreach ($selfBookingCourses as $selfCourse)
+            <div class="border-b border-slate-100 dark:border-slate-700 py-3 last:border-0">
+                <span class="text-sm font-medium text-slate-700 dark:text-slate-200">{{ $selfCourse->name }}</span>
+                <span class="block text-xs text-slate-600 dark:text-slate-400 mb-2">Zur Prüfung meldet sich der Teilnehmer selbst an. Praxisstunden können Sie hier vorschlagen.</span>
+                @include('admin.partials._praxis-new-appointment-form', [
+                    'action' => route('admin.participants.practice-appointments.store', $participant),
+                    'key' => 'self-'.$selfCourse->id,
+                    'locations' => $locationsByCourse[$selfCourse->id] ?? collect(),
+                    'courseId' => $selfCourse->id,
+                ])
+            </div>
+        @endforeach
+        @error('exam_date')
+            @if ($selfBookingCourses->isNotEmpty())
+                <p class="text-rose-600 text-xs mt-2">{{ $message }}</p>
+            @endif
+        @enderror
     </div>
 
     @if ($canManageTenant && ($membership->role ?? null) === 'learner')

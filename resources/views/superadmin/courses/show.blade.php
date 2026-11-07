@@ -10,7 +10,7 @@
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
             <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3">Stammdaten</h3>
             <form method="POST" action="{{ route('superadmin.courses.update', $course) }}" class="space-y-3" x-data="{ status: @js(old('status', $course->status)), site: @js((bool) old('site_enabled', $course->site_enabled)) }"
-                  @submit="if ({{ $activeLearnerCount }} > 0 && (status !== 'published' || ! site) && ! confirm('{{ $activeLearnerCount }} Lernende mit aktivem Zugang verlieren damit sofort den Zugriff auf diesen Kurs. Trotzdem speichern?')) $event.preventDefault()">
+                  @submit="if ({{ $activeLearnerCount }} > 0 && (status !== 'published' || ! site) && ! confirm('{{ $activeLearnerCount }} Teilnehmer mit aktivem Zugang verlieren damit sofort den Zugriff auf diesen Kurs. Trotzdem speichern?')) $event.preventDefault()">
                 @csrf
                 @method('PATCH')
                 <div>
@@ -175,7 +175,7 @@
                                         </form>
                                     @endforeach
                                     <form method="POST" action="{{ route('superadmin.video-lessons.destroy', $lesson) }}" x-data="{}"
-                                          @submit="if (! confirm('Lektion „{{ addslashes($lesson->title) }}“ löschen? Der Lernstand aller Lernenden zu dieser Lektion geht verloren.')) $event.preventDefault()">
+                                          @submit="if (! confirm('Lektion „{{ addslashes($lesson->title) }}“ löschen? Der Lernstand aller Teilnehmer zu dieser Lektion geht verloren.')) $event.preventDefault()">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" class="{{ $moveButton }} text-rose-600" title="Lektion löschen" aria-label="Lektion löschen: {{ $lesson->title }}">✕</button>

@@ -42,6 +42,20 @@ class SbfExamRuleSetsTest extends TestCase
         $this->assertTrue($this->takePaper('SBF-SEE', 1, ['SBF_BASIS' => 5, 'SBF_SEE' => 18])->passed);
     }
 
+    /** ELWIS: auch die Navigationsaufgabe muss für sich bestanden sein (mindestens 7 von 9). */
+    public function test_sbf_see_also_needs_7_of_9_points_in_the_navigation_task(): void
+    {
+        $failed = $this->takePaper('SBF-SEE', 3, ['SBF_BASIS' => 7, 'SBF_SEE' => 23], navigationCorrect: 6);
+        $this->assertFalse($failed->passed, 'Fragebogen fehlerfrei, Navigation nur 6/9');
+        $this->assertSame(6, $failed->navigation_points);
+
+        $passed = $this->takePaper('SBF-SEE', 3, ['SBF_BASIS' => 5, 'SBF_SEE' => 18], navigationCorrect: 7);
+        $this->assertTrue($passed->passed);
+        $this->assertSame(7, $passed->navigation_points);
+        // Zum Bogen 3 gehört die Navigationsaufgabe 3.
+        $this->assertSame(3, $this->onAdmin(fn () => ExamSession::with('navigationTask')->find($passed->id)->navigationTask->task_number));
+    }
+
     public function test_sbf_binnen_needs_basis_5_of_7_and_binnen_18_of_23_in_45_minutes(): void
     {
         $session = $this->takePaper('SBF-BIN-MOTOR', 1, ['SBF_BASIS' => 5, 'SBF_BINNEN' => 18]);
@@ -110,7 +124,7 @@ class SbfExamRuleSetsTest extends TestCase
         $response->assertSee('Nicht bestanden');
         $response->assertSee('Basisfragen: 4/7 (mind. 5/7)');
         $response->assertSee('See: 23/23 (mind. 18/23)');
-        $response->assertSee('Navigationsaufgabe (mindestens 7 von 9 Punkten)');
+        $response->assertSee('Navigation: 9/9 Punkte (mind. 7/9)');
     }
 
     public function test_papers_overview_shows_the_part_thresholds(): void
@@ -188,7 +202,7 @@ class SbfExamRuleSetsTest extends TestCase
      *
      * @param  array<string, int>  $correctPerModule
      */
-    private function takePaper(string $courseCode, int $paperNumber, array $correctPerModule, bool $withActors = false): ExamSession|array
+    private function takePaper(string $courseCode, int $paperNumber, array $correctPerModule, bool $withActors = false, int $navigationCorrect = 9): ExamSession|array
     {
         $tenant = $this->createTestTenant();
         $learner = $this->createTenantUser($tenant, 'learner');
@@ -226,6 +240,16 @@ class SbfExamRuleSetsTest extends TestCase
                 'position' => $sq->position,
                 'answer_id' => $answer->id,
             ]);
+        }
+
+        // Navigationsaufgabe (SBF See): die ersten $navigationCorrect Teilfragen
+        // mit der Musterlösung, die übrigen falsch beantworten.
+        $navAnswers = $this->asTenant($tenant, fn () => $session->fresh()->navigationAnswers()->with('question')->get());
+        if ($navAnswers->isNotEmpty()) {
+            $given = $navAnswers->mapWithKeys(fn ($a, $i) => [$a->navigation_question_id => $i < $navigationCorrect ? $a->question->answer_text : 'weiß nicht'])->all();
+            $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/navigation", ['answers' => $given])->assertRedirect();
+            $known = $navAnswers->mapWithKeys(fn ($a, $i) => [$a->id => $i < $navigationCorrect ? '1' : '0'])->all();
+            $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/navigation/assess", ['known' => $known]);
         }
 
         $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/finish")->assertRedirect();

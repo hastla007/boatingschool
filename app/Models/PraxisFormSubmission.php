@@ -55,6 +55,24 @@ class PraxisFormSubmission extends Model
         return $this->latestAppointmentForSlot(0);
     }
 
+    /**
+     * Kennzeichen im data-Feld: kein Anmeldeformular, nur ein Behälter für
+     * Praxisstunden der Schule, wenn sich die Teilnehmer selbst zur
+     * Prüfung anmelden (ExamRegistration::SELF).
+     */
+    public const PRACTICE_ONLY_KEY = '_nur_praxisstunden';
+
+    public function isPracticeOnly(): bool
+    {
+        return (bool) (($this->data ?? [])[self::PRACTICE_ONLY_KEY] ?? false);
+    }
+
+    /** Nur echte Praxis-Anmeldungen (ohne reine Praxisstunden-Behälter). */
+    public function scopeRegistrations($query)
+    {
+        return $query->whereRaw("(praxis_form_submission.data->>'".self::PRACTICE_ONLY_KEY."') is null");
+    }
+
     public function isExamDateConfirmed(): bool
     {
         return $this->confirmed_exam_date !== null;
@@ -132,6 +150,19 @@ class PraxisFormSubmission extends Model
         // Review-Runde 9: Zusatztermine gibt es auch vor bzw. ohne fixierten
         // Prüfungstermin -- was die Schule tun muss, kommt vor allem, worauf
         // sie nur wartet (egal in welchem Slot).
+        if ($this->isPracticeOnly()) {
+            foreach ($this->practiceSlotNumbers() as $slot) {
+                $latest = $this->latestAppointmentForSlot($slot);
+                if ($needsNewProposal($latest)) {
+                    return ['label' => 'Termin erneut vorschlagen ('.$this->labelForSlot($slot).')', 'action_needed' => true];
+                }
+                if ($latest?->isPending()) {
+                    return ['label' => 'Wartet auf Rückmeldung ('.$this->labelForSlot($slot).')', 'action_needed' => false];
+                }
+            }
+
+            return ['label' => 'Praxisstunden vereinbart', 'action_needed' => false];
+        }
         if (! $exam) {
             return ['label' => 'Prüfungstermin vorschlagen', 'action_needed' => true];
         }

@@ -102,19 +102,23 @@ Wir verwenden nur technisch notwendige Cookies (Anmeldung und Sicherheit), keine
 
 Wenn du einen Funkspruch einsprichst, nutzt die Gerätesimulation die Spracherkennung deines Browsers. Je nach Browser wird die Aufnahme dafür an den Anbieter des Browsers übertragen (z. B. Google bei Chrome). Das geschieht nur, solange du die Sprechtaste hältst. Du kannst den Funkspruch stattdessen auch eintippen.
 
-## 7. Empfänger
+## 7. Karten (OpenStreetMap)
+
+Bei der Anmeldung zur Praxisprüfung zeigt eine Karte die Prüfungsorte. Die Kartenkacheln lädt dein Browser von den Servern der OpenStreetMap Foundation (St John's Innovation Centre, Cowley Road, Cambridge, CB4 0WS, Vereinigtes Königreich). Dabei werden deine IP-Adresse und technische Angaben deines Browsers an OpenStreetMap übermittelt; Grundlage ist unser berechtigtes Interesse an einer übersichtlichen Ortsauswahl (Art. 6 Abs. 1 lit. f DSGVO). Für das Vereinigte Königreich besteht ein Angemessenheitsbeschluss der EU-Kommission. Mehr dazu: https://osmfoundation.org/wiki/Privacy_Policy. Den Prüfungsort kannst du auch ohne Karte aus der Liste wählen.
+
+## 8. Empfänger
 
 Deine Daten sehen die Bootsschule und der Betreiber der Plattform. Für Hosting und E-Mail-Versand setzen wir Dienstleister ein, die nach Art. 28 DSGVO an unsere Weisungen gebunden sind.
 
-## 8. Speicherdauer
+## 9. Speicherdauer
 
 Wir speichern deine Daten, solange dein Konto besteht. Danach löschen wir sie, soweit keine gesetzlichen Aufbewahrungspflichten entgegenstehen.
 
-## 9. Deine Rechte
+## 10. Deine Rechte
 
 Du hast das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung, Datenübertragbarkeit und Widerspruch (Art. 15 bis 21 DSGVO). Deine Daten kannst du im Profil selbst exportieren, dein Konto dort auch löschen. Außerdem kannst du dich bei einer Datenschutz-Aufsichtsbehörde beschweren.
 
-## 10. Kontakt
+## 11. Kontakt
 
 Fragen zum Datenschutz richtest du an: {email}
 MD;

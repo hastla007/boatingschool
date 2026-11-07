@@ -11,7 +11,7 @@
 
     <div class="space-y-4">
         <p class="text-sm text-slate-600 dark:text-slate-400">
-            {{ $activeCount }} aktive Karten. Deaktivierte Karten sehen Lernende nicht mehr; ihr Lernstand bleibt erhalten und sie lassen sich jederzeit wieder aktivieren.
+            {{ $activeCount }} aktive Karten. Deaktivierte Karten sehen Teilnehmer nicht mehr; ihr Lernstand bleibt erhalten und sie lassen sich jederzeit wieder aktivieren.
         </p>
 
         @forelse ($groups as $kategorie => $tasks)

@@ -7,14 +7,14 @@
 
     <div class="mt-4 space-y-4">
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <x-stat-tile icon="users" :value="$withAccess" label="Lernende mit aktivem Kurszugang" />
+            <x-stat-tile icon="users" :value="$withAccess" label="Teilnehmer mit aktivem Kurszugang" />
             <x-stat-tile icon="chart-bar" :value="$activeLearners30" label="Davon aktiv in den letzten 30 Tagen" tone="success" />
             <x-stat-tile icon="check-circle" :value="number_format($answers30, 0, ',', '.')" label="Beantwortete Fragen (30 Tage)" />
         </div>
 
         <div class="grid lg:grid-cols-2 gap-4">
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
-                <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3">Aktive Lernende je Monat</h3>
+                <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3">Aktive Teilnehmer je Monat</h3>
                 @php($max = max(1, $monthly->max('learners')))
                 <div class="space-y-2 text-sm">
                     @foreach ($monthly as $month)
@@ -52,7 +52,7 @@
             <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3">Kurse</h3>
             <table class="w-full text-sm">
                 <thead class="text-left text-slate-600 dark:text-slate-400">
-                    <tr><th class="py-1 pr-3 font-medium">Kurs</th><th class="py-1 pr-3 font-medium">Lernende</th><th class="py-1 pr-3 font-medium">Ø Fortschritt</th><th class="py-1 font-medium">Prüfungsreif</th></tr>
+                    <tr><th class="py-1 pr-3 font-medium">Kurs</th><th class="py-1 pr-3 font-medium">Teilnehmer</th><th class="py-1 pr-3 font-medium">Ø Fortschritt</th><th class="py-1 font-medium">Prüfungsreif</th></tr>
                 </thead>
                 <tbody>
                     @forelse ($courses as $row)

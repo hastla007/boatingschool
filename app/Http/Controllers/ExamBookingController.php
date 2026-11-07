@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\CourseDefinition;
+use App\Models\PraxisFormSubmission;
 use App\Services\EntitlementService;
 use App\Support\ExamBooking;
 use App\Support\ExamRegistration;
@@ -36,6 +37,9 @@ class ExamBookingController extends Controller
         ];
 
         return view('exam-booking', [
+            'practiceSubmission' => PraxisFormSubmission::where('tenant_id', $tenantContext->id())
+                ->where('user_id', $request->user()->id)->where('course_id', $course->id)
+                ->with('examAppointments.location')->first(),
             'course' => $course,
             'tabs' => collect($pages)->mapWithKeys(fn ($variant, $key) => [ExamBooking::page($key)['tab'] => route('exam-booking', ['course' => $course, 'teil' => $key])])->all(),
             'activeTab' => $page['tab'],

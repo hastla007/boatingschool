@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\ExamSession;
+use App\Support\NavigationAnswer;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -118,6 +119,29 @@ class ExamEvaluationService
             // ExamRuleSet::partResults().
             $partsPassed = collect($examSession->effectiveRuleSet()->partResults($questions))->every('passed');
 
+            // Navigationsaufgabe (SBF See): eigenes Teilminimum, z. B. 7 von 9
+            // Punkten -- ein guter Fragebogen gleicht sie nicht aus. Werte
+            // (Kurs, Zeit, Distanz, Position) prüft NavigationAnswer
+            // automatisch, sonst zählt die Selbsteinschätzung.
+            $navigationPoints = null;
+            $navigationPassed = true;
+            if ($examSession->hasNavigationPart()) {
+                $navigationPoints = 0;
+                foreach ($examSession->navigationAnswers()->with('question')->lockForUpdate()->get() as $answer) {
+                    $withinTime = ! $deadline || ! $answer->answered_at || $answer->answered_at->lte($deadline);
+                    $given = $withinTime ? trim((string) $answer->answer) : '';
+                    if ($given === '') {
+                        $isCorrect = false;
+                    } else {
+                        $result = NavigationAnswer::evaluate($answer->question->answer_text, $given);
+                        $isCorrect = $result['auto'] ? (bool) $result['correct'] : (bool) $answer->self_assessed_known;
+                    }
+                    $answer->update(['correct' => $isCorrect]);
+                    $navigationPoints += $isCorrect ? 1 : 0;
+                }
+                $navigationPassed = $navigationPoints >= $examSession->effectiveRuleSet()->navigationRule()['min_points'];
+            }
+
             $examSession->update([
                 'status' => 'evaluated',
                 'submitted_at' => now(),
@@ -128,7 +152,8 @@ class ExamEvaluationService
                 // UNTER der Grenze -- bestanden wäre dann erst mit 18. Die
                 // Toleranz fängt Rundungsreste aus der JSON-Speicherung der
                 // passing_rule ab.
-                'passed' => $correctCount / $total >= $minRatio - 1e-9 && $partsPassed,
+                'passed' => $correctCount / $total >= $minRatio - 1e-9 && $partsPassed && $navigationPassed,
+                'navigation_points' => $navigationPoints,
             ]);
         });
     }

@@ -43,7 +43,7 @@
                     <input id="a-{{ $i }}" name="questions[{{ $i }}][answer_text]" value="{{ $row['answer_text'] }}" placeholder="Musterlösung, z. B. rwK = 079°" class="block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                 </div>
             @endforeach
-            <p class="text-xs text-slate-600 dark:text-slate-400">Lösungen nur aus Messwerten (z. B. „rwK = 079°“, „6,1 sm“, „15:12 Uhr“) prüft die App automatisch mit Toleranz; alle anderen bewerten Lernende selbst. Entfernte Teilfragen löschen den Lernstand dazu.</p>
+            <p class="text-xs text-slate-600 dark:text-slate-400">Lösungen nur aus Messwerten (z. B. „rwK = 079°“, „6,1 sm“, „15:12 Uhr“) prüft die App automatisch mit Toleranz; alle anderen bewerten Teilnehmer selbst. Entfernte Teilfragen löschen den Lernstand dazu.</p>
         </fieldset>
 
         <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100 dark:border-slate-700">

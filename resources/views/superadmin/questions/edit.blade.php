@@ -10,7 +10,7 @@
 
         @if ($pendingReview)
             {{-- Bug-Review F8: eine vom Content-Import angelegte Revision im
-                 Status "review" erreichte Lerner bisher nie -- unten wird
+                 Status "review" erreichte Teilnehmer bisher nie -- unten wird
                  weiterhin die aktuell veröffentlichte Fassung bearbeitet,
                  damit der Entwurf hier sichtbar bleibt und gezielt
                  veröffentlicht werden kann. --}}

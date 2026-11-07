@@ -65,6 +65,7 @@ class PraxisFormSubmissionController extends Controller
         $existing = PraxisFormSubmission::where('tenant_id', $tenant->id)
             ->where('user_id', $user->id)
             ->where('course_id', $course->id)
+            ->registrations()
             ->exists();
 
         if ($existing) {
@@ -104,10 +105,18 @@ class PraxisFormSubmissionController extends Controller
             $stillExisting = PraxisFormSubmission::where('tenant_id', $tenant->id)
                 ->where('user_id', $user->id)
                 ->where('course_id', $course->id)
-                ->exists();
+                ->first();
 
-            if ($stillExisting) {
+            if ($stillExisting && ! $stillExisting->isPracticeOnly()) {
                 return null;
+            }
+
+            // Gab es schon Praxisstunden (Behälter aus der Selbst-Anmeldung),
+            // wird daraus die Anmeldung -- die Termine bleiben erhalten.
+            if ($stillExisting) {
+                $stillExisting->update(['praxis_form_template_id' => $template->id, 'data' => $data]);
+
+                return $stillExisting;
             }
 
             return PraxisFormSubmission::create([

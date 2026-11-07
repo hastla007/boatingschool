@@ -152,6 +152,8 @@ Route::middleware(['auth', 'tenant.member', 'verified'])->group(function () {
     // ausgeliefert, statt bereits im initialen HTML von show() zu stehen.
     Route::post('/exam-sessions/{examSession}/reveal', [ExamController::class, 'reveal'])->name('exam.reveal');
     Route::post('/exam-sessions/{examSession}/finish', [ExamController::class, 'finish'])->name('exam.finish');
+    Route::post('/exam-sessions/{examSession}/navigation', [ExamController::class, 'submitNavigation'])->name('exam.navigation-part.submit');
+    Route::post('/exam-sessions/{examSession}/navigation/assess', [ExamController::class, 'assessNavigation'])->name('exam.navigation-part.assess');
     Route::get('/exam-sessions/{examSession}/result', [ExamController::class, 'result'])->name('exam.result');
 
     Route::get('/courses/{course}/exam/navigation', [NavigationTaskController::class, 'index'])->name('exam.navigation.index');
@@ -242,6 +244,7 @@ Route::middleware(['auth', 'tenant.role:owner,admin,instructor', 'verified', 'in
     Route::patch('/praxis-form-submissions/{submission}', [AdminPraxisFormSubmissionController::class, 'update'])->name('praxis-form-submissions.update');
     Route::delete('/praxis-form-submissions/{submission}', [AdminPraxisFormSubmissionController::class, 'destroy'])->name('praxis-form-submissions.destroy');
     Route::post('/praxis-form-submissions/{submission}/exam-appointments', [AdminPraxisExamAppointmentController::class, 'store'])->name('praxis-form-submissions.exam-appointments.store');
+    Route::post('/participants/{user}/practice-appointments', [AdminPraxisExamAppointmentController::class, 'storeForParticipant'])->name('participants.practice-appointments.store');
     // Bug-Review F4: es gab bisher keine Möglichkeit, einen eigenen,
     // noch offenen Vorschlag zurückzuziehen oder einen bereits
     // angenommenen Termin wieder abzusagen.

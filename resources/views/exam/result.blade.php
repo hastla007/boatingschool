@@ -25,7 +25,8 @@
                     Davon {{ $openTextCorrect }}/{{ $openTextCount }} Punkte aus offenen Fragen durch Selbsteinschätzung (keine automatische Prüfung).
                 </div>
             @endif
-            @if ($partResults !== [])
+            @php($navRule = $examSession->hasNavigationPart() ? $examSession->effectiveRuleSet()->navigationRule() : null)
+            @if ($partResults !== [] || $navRule)
                 {{-- Amtliche Teilgrenzen: jeder Teil muss für sich bestanden sein. --}}
                 <div class="mt-3 flex flex-wrap justify-center gap-2">
                     @foreach ($partResults as $part)
@@ -34,12 +35,38 @@
                             {{ $part['label'] }}: {{ $part['correct'] }}/{{ $part['total'] }} (mind. {{ $part['min_correct'] }}/{{ $part['of'] }})
                         </span>
                     @endforeach
+                    @if ($navRule)
+                        @php($navPassed = (int) $examSession->navigation_points >= $navRule['min_points'])
+                        <span class="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium {{ $navPassed ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300' }}">
+                            <x-icon :name="$navPassed ? 'check-circle' : 'x-circle'" class="w-4 h-4" />
+                            Navigation: {{ (int) $examSession->navigation_points }}/{{ $examSession->navigationAnswers->count() }} Punkte (mind. {{ $navRule['min_points'] }}/{{ $navRule['of'] }})
+                        </span>
+                    @endif
                 </div>
             @endif
             @if ($examSession->effectiveRuleSet()->note())
                 <div class="text-xs text-slate-500 dark:text-slate-400 mt-2">{{ $examSession->effectiveRuleSet()->note() }}</div>
             @endif
         </div>
+
+        @if ($navRule)
+            <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
+                <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
+                    <x-icon name="compass" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Navigationsaufgabe {{ $examSession->navigationTask?->task_number }}
+                </h3>
+                <ul class="divide-y divide-slate-100 dark:divide-slate-700 text-sm">
+                    @foreach ($examSession->navigationAnswers()->with('question')->get() as $navAnswer)
+                        <li class="py-2">
+                            <div class="flex items-start justify-between gap-3">
+                                <span class="text-slate-700 dark:text-slate-200"><span class="font-medium">Frage {{ $navAnswer->question->question_number }}:</span> {{ $navAnswer->question->question_text }}</span>
+                                <span class="shrink-0 text-xs font-medium rounded-full px-2 py-0.5 {{ $navAnswer->correct ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200' : 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200' }}">{{ $navAnswer->correct ? 'Richtig' : 'Falsch' }}</span>
+                            </div>
+                            <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">Deine Antwort: {{ $navAnswer->answer ?? '—' }} &middot; Musterlösung: {{ $navAnswer->question->answer_text }}</p>
+                        </li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
 
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
             <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">

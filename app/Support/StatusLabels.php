@@ -69,7 +69,7 @@ class StatusLabels
         'admin' => 'Admin',
         'instructor' => 'Ausbilder',
         'staff' => 'Mitarbeiter',
-        'learner' => 'Lerner',
+        'learner' => 'Teilnehmer',
         'support' => 'Support',
     ];
 

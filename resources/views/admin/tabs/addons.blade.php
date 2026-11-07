@@ -1,7 +1,7 @@
 {{-- Bug-Review (Du/Sie im Admin-Bereich gemischt): der restliche
      Admin-Bereich siezt durchgehend. --}}
 <p class="text-slate-500 dark:text-slate-400 mb-6">
-    Hier können Sie vorgefertigte Addon-Banner aktivieren, mit denen Sie Kursteilnehmern ein Upgrade oder
+    Hier können Sie vorgefertigte Addon-Banner aktivieren, mit denen Sie Teilnehmern ein Upgrade oder
     Zusatzpaket anbieten. Für jedes aktivierte Addon hinterlegen Sie Ihren Gutscheincode und Preis
     (beides reine Anzeigefelder &mdash; der Verkauf läuft über Ihren eigenen Webshop), optional einen
     Rabatt in % (der rabattierte VK wird daraus automatisch berechnet und zusätzlich angezeigt), die

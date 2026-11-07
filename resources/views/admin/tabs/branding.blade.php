@@ -201,7 +201,7 @@
                     <span class="text-sm text-slate-600 dark:text-slate-300">WhatsApp</span>
                 </label>
             </div>
-            <p class="text-xs text-slate-600 dark:text-slate-400 mb-3">Wählen Sie frei, über welche Kanäle Schüler Sie im Kurs kontaktieren können. Die Support-E-Mail und Telefonnummer hinterlegen Sie oben.</p>
+            <p class="text-xs text-slate-600 dark:text-slate-400 mb-3">Wählen Sie frei, über welche Kanäle Teilnehmer Sie im Kurs kontaktieren können. Die Support-E-Mail und Telefonnummer hinterlegen Sie oben.</p>
 
             <div class="space-y-3">
                 <div>
@@ -214,7 +214,7 @@
                 <div>
                     <label for="whatsapp_greeting" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Standard-Begrüßungstext</label>
                     <textarea id="whatsapp_greeting" name="whatsapp_greeting" rows="2" placeholder="Hallo {name}, ich habe eine Frage zu {kurs}." class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">{{ old('whatsapp_greeting', $branding->whatsapp_greeting) }}</textarea>
-                    <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Der Text, den der Schüler vorausgefüllt in seinem Chatfenster sieht. Mit <code>{name}</code> und <code>{kurs}</code> werden Name und gebuchter Kurs automatisch eingesetzt, wenn möglich.</p>
+                    <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Der Text, den der Teilnehmer vorausgefüllt in seinem Chatfenster sieht. Mit <code>{name}</code> und <code>{kurs}</code> werden Name und gebuchter Kurs automatisch eingesetzt, wenn möglich.</p>
                     <x-input-error :messages="$errors->get('whatsapp_greeting')" class="mt-2" />
                 </div>
             </div>
@@ -222,7 +222,7 @@
 
         <div class="pt-2 border-t border-slate-100 dark:border-slate-700">
             <label for="exam_readiness_threshold_percent" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Kursfortschritt-Voraussetzung für Prüfung &amp; Praxis</label>
-            <p class="text-xs text-slate-600 dark:text-slate-400 mb-2">Ab diesem Kursfortschritt darf ein Schüler die Kachel „Praxis &amp; Prüfung" auswählen, um Prüfung und Praxis bei Ihrer Bootsschule zu buchen. Gibt das Praxisformular eines Kurses einen eigenen Mindestfortschritt vor, gilt für diesen Kurs dieser Wert.</p>
+            <p class="text-xs text-slate-600 dark:text-slate-400 mb-2">Ab diesem Kursfortschritt darf ein Teilnehmer die Kachel „Praxis &amp; Prüfung" auswählen, um Prüfung und Praxis bei Ihrer Bootsschule zu buchen. Gibt das Praxisformular eines Kurses einen eigenen Mindestfortschritt vor, gilt für diesen Kurs dieser Wert.</p>
             <div class="flex items-center gap-2">
                 <input type="number" id="exam_readiness_threshold_percent" name="exam_readiness_threshold_percent" min="0" max="100"
                        value="{{ old('exam_readiness_threshold_percent', $branding->exam_readiness_threshold_percent) }}"
@@ -242,7 +242,7 @@
 
         <div class="pt-2 border-t border-slate-100 dark:border-slate-700">
             <label for="willkommensbox_threshold_percent" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Kursfortschritt-Voraussetzung für Willkommensbox</label>
-            <p class="text-xs text-slate-600 dark:text-slate-400 mb-2">Ab diesem Kursfortschritt darf ein Schüler mit „Lernplattform (inkl. Willkommensbox)" die Willkommensbox bestellen. 0% = keine zusätzliche Voraussetzung.</p>
+            <p class="text-xs text-slate-600 dark:text-slate-400 mb-2">Ab diesem Kursfortschritt darf ein Teilnehmer mit „Lernplattform (inkl. Willkommensbox)" die Willkommensbox bestellen. 0% = keine zusätzliche Voraussetzung.</p>
             <div class="flex items-center gap-2">
                 <input type="number" id="willkommensbox_threshold_percent" name="willkommensbox_threshold_percent" min="0" max="100"
                        value="{{ old('willkommensbox_threshold_percent', $branding->willkommensbox_threshold_percent) }}"

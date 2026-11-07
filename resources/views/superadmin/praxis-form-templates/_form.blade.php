@@ -32,7 +32,7 @@
             <x-input-label for="min_progress_percent" value="Buchbar ab % Kursfortschritt" />
             <x-text-input id="min_progress_percent" name="min_progress_percent" type="number" min="0" max="100"
                           class="mt-1 block w-full" :value="old('min_progress_percent', $template?->min_progress_percent ?? 50)" required />
-            <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Vor Erreichen dieses Fortschritts sieht der Lerner nur eine Hürden-Meldung statt des Formulars.</p>
+            <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Vor Erreichen dieses Fortschritts sieht der Teilnehmer nur eine Hürden-Meldung statt des Formulars.</p>
             <x-input-error :messages="$errors->get('min_progress_percent')" class="mt-2" />
         </div>
     </div>
@@ -42,7 +42,7 @@
         <input type="checkbox" name="requires_tauglichkeit" value="1" @checked(old('requires_tauglichkeit', $template?->requires_tauglichkeit))
                class="mt-0.5 rounded border-slate-300 dark:bg-slate-700 dark:border-slate-600">
         <span>
-            Weist den Lerner im Formular auf die benötigte ärztliche Tauglichkeitsbescheinigung hin
+            Weist den Teilnehmer im Formular auf die benötigte ärztliche Tauglichkeitsbescheinigung hin
             <span class="block text-xs text-slate-600 dark:text-slate-400">Zeigt einen Hinweis mit Link zu den Tipps &amp; Tricks, blockiert die Anmeldung nicht.</span>
         </span>
     </label>
@@ -69,7 +69,7 @@
 
     <div>
         <x-input-label value="Formularfelder" />
-        <p class="text-xs text-slate-600 dark:text-slate-400 mt-1 mb-2">Diese Felder füllt der Lerner aus, sobald er die Fortschritts-Hürde erreicht hat.</p>
+        <p class="text-xs text-slate-600 dark:text-slate-400 mt-1 mb-2">Diese Felder füllt der Teilnehmer aus, sobald er die Fortschritts-Hürde erreicht hat.</p>
 
         <div class="space-y-3">
             <template x-for="(field, index) in fields" :key="index">

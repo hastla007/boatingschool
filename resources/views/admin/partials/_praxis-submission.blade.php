@@ -9,11 +9,11 @@
     <div class="flex items-start justify-between gap-4 mb-2">
         <div>
             <span class="text-sm font-medium text-slate-700 dark:text-slate-200">{{ $submission->course->name ?? '—' }}</span>
-            <span class="block text-xs text-slate-600 dark:text-slate-400">{{ $submission->template->title ?? 'Formular gelöscht' }}</span>
+            <span class="block text-xs text-slate-600 dark:text-slate-400">{{ $submission->isPracticeOnly() ? 'Praxisstunden -- zur Prüfung meldet sich der Teilnehmer selbst an' : ($submission->template->title ?? 'Formular gelöscht') }}</span>
         </div>
         <span class="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">{{ \App\Support\GermanTime::format($submission->created_at, 'd.m.Y H:i') }}</span>
     </div>
-    @if ($submission->template && ! empty($submission->template->fields))
+    @if (! $submission->isPracticeOnly() && $submission->template && ! empty($submission->template->fields))
         <dl class="divide-y divide-slate-100 dark:divide-slate-700 border-t border-slate-100 dark:border-slate-700 text-sm">
             @foreach ($submission->template->fields as $field)
                 <div class="py-2 grid grid-cols-2 gap-4">
@@ -86,7 +86,9 @@
         </dl>
     @endif
 
-    <x-admin.praxis-appointment-slot :submission="$submission" :appointment-slot="0" label="Prüfungstermin" :locations="$submissionLocations" />
+    @unless ($submission->isPracticeOnly())
+        <x-admin.praxis-appointment-slot :submission="$submission" :appointment-slot="0" label="Prüfungstermin" :locations="$submissionLocations" />
+    @endunless
 
     @foreach ($submission->practiceSlotNumbers() as $practiceSlot)
         <x-admin.praxis-appointment-slot
@@ -103,50 +105,12 @@
             Frei benannt und terminiert -- z. B. "Kleine Praxisstunde (1h)", "Große Praxisstunde (4h)", "Navigationsstunde" oder "Onlinekurs".
             So viele wie nötig, keine feste Anzahl, auch vor dem Prüfungstermin.
         </p>
-        <form method="POST" action="{{ route('admin.praxis-form-submissions.exam-appointments.store', $submission) }}" class="flex flex-wrap items-end gap-2" x-data="{ location: '' }">
-            @csrf
-            <div>
-                <label for="praxis_label_{{ $submission->id }}" class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Bezeichnung</label>
-                <input type="text" id="praxis_label_{{ $submission->id }}" name="label" placeholder="z. B. Navigationsstunde" required maxlength="255" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm w-56">
-            </div>
-            <div>
-                <label for="praxis_exam_date_{{ $submission->id }}" class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Beginn</label>
-                <input type="datetime-local" id="praxis_exam_date_{{ $submission->id }}" name="exam_date" required class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
-            </div>
-            <div>
-                <label for="praxis_ends_at_{{ $submission->id }}" class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Ende (optional, z. B. 16:00-18:00 Uhr)</label>
-                <input type="datetime-local" id="praxis_ends_at_{{ $submission->id }}" name="ends_at" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
-            </div>
-            <div>
-                <label for="praxis_location_{{ $submission->id }}" class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Ort</label>
-                <select id="praxis_location_{{ $submission->id }}" name="location" x-model="location" class="w-full max-w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
-                    <option value="">&mdash;</option>
-                    @foreach ($submissionLocations as $location)
-                        <option value="{{ $location->id }}">
-                            {{ $location->praxis_ort }}
-                            @if ($location->pruefung_ort !== $location->praxis_ort)
-                                (Prüfung: {{ $location->pruefung_ort }})
-                            @endif
-                            @if ($location->hasTheorieOrt())
-                                (Theorie: {{ $location->theorie_ort }})
-                            @endif
-                        </option>
-                    @endforeach
-                    <option value="online">Online</option>
-                </select>
-            </div>
-            <div x-show="location === 'online'" style="display: none">
-                <label for="praxis_online_meeting_url_{{ $submission->id }}" class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Link Onlinemeeting</label>
-                <input type="url" id="praxis_online_meeting_url_{{ $submission->id }}" name="online_meeting_url" placeholder="https://..." class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm w-56">
-            </div>
-            <div class="w-full">
-                <label for="praxis_description_{{ $submission->id }}" class="block text-xs text-slate-500 dark:text-slate-400 mb-1">Beschreibung (optional, für den Teilnehmer sichtbar)</label>
-                <textarea id="praxis_description_{{ $submission->id }}" name="description" rows="2" maxlength="2000" placeholder="z. B. Treffpunkt, Mitzubringendes, Ablauf ..." class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm"></textarea>
-            </div>
-            <button type="submit" class="px-3 py-1.5 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
-                Vorschlagen
-            </button>
-        </form>
+        @include('admin.partials._praxis-new-appointment-form', [
+            'action' => route('admin.praxis-form-submissions.exam-appointments.store', $submission),
+            'key' => $submission->id,
+            'locations' => $submissionLocations,
+            'courseId' => null,
+        ])
         @error('exam_date')
             <p class="text-rose-600 text-xs mt-2">{{ $message }}</p>
         @enderror
