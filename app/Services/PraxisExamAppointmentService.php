@@ -13,9 +13,9 @@ use RuntimeException;
  * Terminvorschlagsrunden zu einer Praxis-Anmeldung: die Bootsschule
  * schlägt einen Termin vor, der Lerner nimmt an oder lehnt ab -- bei
  * Ablehnung folgt eine neue Runde, bis ein Termin angenommen und damit
- * fixiert wird. Slot 0 ist dabei der Prüfungstermin selbst; ist dieser
- * fixiert, kann die Bootsschule beliebig viele zusätzliche, frei benannte
- * Termine anlegen (slot 1, 2, ..., z. B. "Kleine Praxisstunde (1h)" oder
+ * fixiert wird. Slot 0 ist dabei der Prüfungstermin selbst; unabhängig davon
+ * kann die Bootsschule beliebig viele zusätzliche, frei benannte
+ * Termine anlegen (auch vor der Prüfung) (slot 1, 2, ..., z. B. "Kleine Praxisstunde (1h)" oder
  * "Navigationsstunde") -- es gibt kein festes Kontingent, die Bootsschule
  * entscheidet selbst, wie viele sie braucht. Jeder Slot läuft dabei
  * genauso lange über beliebig viele Runden, bis er fixiert ist, und kann
@@ -86,18 +86,10 @@ class PraxisExamAppointmentService
         ?string $description,
     ): PraxisExamAppointment {
         if ($slot === null) {
-            if (! $submission->isExamDateConfirmed()) {
-                throw new RuntimeException('Der Prüfungstermin muss zuerst fixiert werden, bevor weitere Termine vorgeschlagen werden können.');
-            }
-
-            // Bug-Review F4: Zusatztermine (Praxisstunden, Navigationsstunde
-            // o. ä.) bauen inhaltlich auf dem fixierten Prüfungstermin auf --
-            // ohne diese Prüfung ließ sich trotzdem ein Zusatztermin VOR dem
-            // Prüfungstermin anlegen.
-            if ($examDate->lessThan($submission->confirmed_exam_date)) {
-                throw new RuntimeException('Dieser Termin darf nicht vor dem fixierten Prüfungstermin liegen.');
-            }
-
+            // Zusatztermine (Praxisstunden, Navigationsstunde o. ä.) finden
+            // meist VOR der Prüfung statt und dürfen deshalb auch ohne
+            // fixierten Prüfungstermin und vor ihm liegen (Entscheidung nach
+            // Review-Runde 8; die frühere Sperre aus Bug-Review F4 entfällt).
             if (trim((string) $label) === '') {
                 throw new RuntimeException('Bitte eine Bezeichnung für den Termin angeben.');
             }
@@ -123,6 +115,8 @@ class PraxisExamAppointmentService
                 // und dass eine Bezeichnung angegeben wird. Ein neuer
                 // Zusatztermin-Slot kann daher ausschließlich über slot =
                 // null entstehen; jeder andere Slot muss bereits existieren.
+                // (Die Prüfungen auf einen fixierten Prüfungstermin sind seit
+                // Review-Runde 8 entfallen, die Bezeichnung bleibt Pflicht.)
                 if ($submission->latestAppointmentForSlot($slot) === null) {
                     throw new RuntimeException('Unbekannter Termin-Slot.');
                 }
