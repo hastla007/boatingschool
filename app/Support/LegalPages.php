@@ -119,6 +119,29 @@ Du hast das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Vera
 Fragen zum Datenschutz richtest du an: {email}
 MD;
 
+    /**
+     * Datenschutzhinweis der zentralen Plattformseite (ohne Schule). Die
+     * Vorlage der Schulen passt hier nicht: dort ist die Bootsschule
+     * Verantwortliche und der Betreiber Auftragsverarbeiter.
+     */
+    private const PLATFORM_DATENSCHUTZ = <<<'MD'
+## Verantwortlich für diese Seite
+
+{betreiber}
+
+## Lernen bei deiner Bootsschule
+
+Die Lernplattform nutzt du über deine Bootsschule. Verantwortlich für deine Daten beim Lernen ist deine Bootsschule; ihre Datenschutzerklärung findest du unten auf jeder Seite deiner Bootsschule. Wir betreiben die Plattform in ihrem Auftrag.
+
+## Diese Seite
+
+Beim Aufruf dieser Seite werden technisch notwendige Daten (IP-Adresse, Zeitpunkt, aufgerufene Adresse) kurzzeitig in Server-Protokollen gespeichert, um den Betrieb und die Sicherheit zu gewährleisten. Es werden nur technisch notwendige Cookies gesetzt; es findet kein Tracking statt.
+
+## Kontakt
+
+Fragen zum Datenschutz richtest du an: {email}
+MD;
+
     /** Inhalt der Seite als HTML (Markdown aus der Vorlage, Platzhalter eingesetzt). */
     public static function html(string $kind, ?Tenant $tenant): string
     {
@@ -131,7 +154,7 @@ MD;
                 + self::values(null, null, $settings);
             $markdown = $kind === 'impressum'
                 ? self::fill("## Anbieter\n\n{betreiber}\n\n## Kontakt\n\nE-Mail: {email}", $values)
-                : self::fill($settings?->privacy_template ?: self::DEFAULT_DATENSCHUTZ, $values);
+                : self::fill(self::PLATFORM_DATENSCHUTZ, $values);
             if (trim($markdown) === '') {
                 $markdown = 'Die Angaben des Betreibers werden noch ergänzt.';
             }

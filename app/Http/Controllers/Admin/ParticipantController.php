@@ -324,7 +324,15 @@ class ParticipantController extends Controller
         // Mitglied dieser Bootsschule sind. Diese Erkennung muss aber
         // bewusst plattformweit suchen (das ist ihr ganzer Zweck), deshalb
         // hier explizit über die RLS-freie Owner-Verbindung.
+        if ($inviter->limitReached($tenant)) {
+            return back()->withErrors(['email' => 'Tageslimit von '.ParticipantInviter::DAILY_LIMIT.' Einladungen erreicht. Bitte morgen weiter einladen.'])->withInput();
+        }
+
         $result = $inviter->invite($tenant, $request->user(), $validated['name'], $validated['email'], array_intersect_key($validated, array_flip(['street', 'postal_code', 'city', 'country'])));
+
+        if ($result['duplicate'] ?? false) {
+            return back()->with('status', 'Diese Person wurde heute schon eingeladen; die Einladung ist weiter gültig.');
+        }
 
         $status = $result['mail_sent']
             ? 'Einladung verschickt.'

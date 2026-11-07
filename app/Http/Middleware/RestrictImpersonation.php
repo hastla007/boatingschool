@@ -29,7 +29,7 @@ class RestrictImpersonation
             ImpersonationController::audit($impersonation['tenant_id'], $impersonation['impersonator_id'], 'superadmin.impersonate.expired', $request->user()?->id);
             Impersonation::endSession($request);
 
-            return redirect()->away(CanonicalUrl::root().route('superadmin.dashboard', [], false));
+            return $this->leave($request);
         }
 
         // Abmelden in der Support-Ansicht beendet sie wie „Beenden“ (mit
@@ -38,7 +38,7 @@ class RestrictImpersonation
             ImpersonationController::audit($impersonation['tenant_id'], $impersonation['impersonator_id'], 'superadmin.impersonate.stop', $request->user()?->id);
             Impersonation::endSession($request);
 
-            return redirect()->away(CanonicalUrl::root().route('superadmin.dashboard', [], false));
+            return $this->leave($request);
         }
 
         if (! $request->isMethodSafe() && ! in_array($request->route()?->getName(), self::ALLOWED_ROUTES, true)) {
@@ -51,5 +51,18 @@ class RestrictImpersonation
         }
 
         return $next($request);
+    }
+
+    /**
+     * Zurück in den Superadmin-Bereich. Nach einem Formular (POST) über eine
+     * Zwischenseite statt Redirect: die CSP (form-action 'self') blockiert
+     * Redirects nach einem Formular auf eine andere Domain (Subdomain- bzw.
+     * eigene-Domain-Modus).
+     */
+    private function leave(Request $request): Response
+    {
+        $url = CanonicalUrl::root().route('superadmin.dashboard', [], false);
+
+        return $request->isMethodSafe() ? redirect()->away($url) : response()->view('impersonation.ended', ['url' => $url]);
     }
 }

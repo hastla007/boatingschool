@@ -16,6 +16,9 @@ class NavigationAnswer
     /** Toleranzen je Messwert. */
     public const TOLERANCE = ['angle' => 2.0, 'position' => 0.3, 'distance' => 0.2, 'speed' => 0.3, 'time' => 3.0, 'minutes' => 3.0];
 
+    /** Beschriftungen von Navigationswerten (Kurse, Peilungen, Missweisung, Ablenkung, Fahrt). */
+    private const NAV_LABELS = ['rwk', 'mgk', 'kdw', 'küg', 'kug', 'kük', 'kuk', 'bv', 'füg', 'fug', 'fdw', 'rwp', 'mgp', 'mw', 'abl', 'dev', 'kak', 'mak'];
+
     /** Wörter, die neben Messwerten in automatisch prüfbaren Lösungen vorkommen dürfen. */
     private const LABELS = ['rwk', 'mgk', 'rwp', 'mgp', 'kdw', 'kük', 'kuk', 'küg', 'kug', 'bv', 'füg', 'fug', 'fdw', 'uhr', 'gegen', 'um', 'ca', 'tonne', 'leuchttonne', 'n', 's', 'e', 'w', 'o'];
 
@@ -29,7 +32,7 @@ class NavigationAnswer
             return ['auto' => false, 'correct' => null, 'expected' => $expected];
         }
 
-        $actual = self::measurements($given, lenient: true);
+        $actual = self::measurements(self::withoutExtras($model, $given), lenient: true);
 
         return ['auto' => true, 'correct' => self::matches($expected, $actual), 'expected' => $expected];
     }
@@ -67,7 +70,7 @@ class NavigationAnswer
         // Uhrzeit: „10:42“ immer, „10.42“ nur mit „Uhr“ -- sonst wäre eine
         // Dezimalzahl wie „0.80 sm“ oder „5.25 kn“ eine Uhrzeit.
         $patterns = [
-            ['time', '/\b(\d{1,2}):(\d{2})\b(?:\s*uhr\b)?/iu'],
+            ['time', '/\b(\d{1,2}):(\d{2})(?!\d)(?:\s*uhr\b)?/iu'],
             ['time', '/\b(\d{1,2})\.(\d{2})\s*uhr\b/iu'],
             ['angle', '/(\d{1,3}(?:[.,]\d+)?)\s*°/u'],
             ['distance', '/(\d+(?:[.,]\d+)?)\s*sm\b/iu'],
@@ -89,12 +92,46 @@ class NavigationAnswer
         // Eigene Antwort ohne Einheit („074“, „6,1“): als Zahl ohne Typ.
         if ($lenient && preg_match_all('/(?<![\w,.])(\d+(?:[.,]\d+)?)(?![\w,.])/u', $text, $all, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) {
             foreach ($all as $m) {
-                $found[] = ['pos' => $m[0][1], 'type' => 'number', 'value' => self::num($m[1][0])];
+                // „14.30“ ohne „Uhr“ kann auch eine Uhrzeit sein (Minuten getrennt merken).
+                $clock = preg_match('/^(\d{1,2})[.,](\d{2})$/', $m[1][0], $c) && (int) $c[2] < 60 ? (int) $c[1] * 60 + (int) $c[2] : null;
+                $found[] = ['pos' => $m[0][1], 'type' => 'number', 'value' => self::num($m[1][0]), 'clock' => $clock];
             }
         }
         usort($found, fn ($a, $b) => $a['pos'] <=> $b['pos']);
 
-        return array_map(fn ($f) => ['type' => $f['type'], 'value' => $f['value']], $found);
+        return array_map(fn ($f) => array_filter(['type' => $f['type'], 'value' => $f['value'], 'clock' => $f['clock'] ?? null], fn ($v) => $v !== null), $found);
+    }
+
+    /**
+     * Zusätze in der eigenen Antwort ausblenden, die keine Messwerte der
+     * Lösung sind: Klammern („038° (MgK 035°)“), Tonnennamen aus der
+     * Musterlösung auch mit Leerzeichen („TG 15“, „A 2“, „4 a“), Namen mit
+     * Ziffern („TG15“) und Nummerierungen („Kurs 1: …“, „1) …“).
+     */
+    private static function withoutExtras(string $model, string $given): string
+    {
+        $text = preg_replace('/\([^)]*\)/u', ' ', $given);
+        preg_match_all('/"([^"]*)"|„([^“]*)“/u', $model, $quoted, PREG_SET_ORDER);
+        foreach ($quoted as $q) {
+            foreach (preg_split('/[\/,]/u', $q[2] ?? $q[1] ?: ($q[1] ?? '')) as $name) {
+                $parts = preg_split('/(?<=\p{L})(?=\d)|(?<=\d)(?=\p{L})|\s+/u', trim($name), -1, PREG_SPLIT_NO_EMPTY);
+                if ($parts !== [] && preg_match('/\d/u', $name)) {
+                    $pattern = implode('[\s\-]*', array_map(fn ($part) => preg_quote($part, '/'), $parts));
+                    $text = preg_replace('/(?<![\p{L}\d])'.$pattern.'(?![\p{L}\d])/iu', ' ', $text);
+                }
+            }
+        }
+        $text = preg_replace('/(?<![\p{L}\d])\p{L}+\d+\p{L}?(?![\p{L}\d])/u', ' ', $text);
+        // Zwischenwerte mit anderer Beschriftung als in der Lösung („rwK 231°,
+        // Mw -2°, MgK 229°“ bei gefragtem MgK) zählen nicht mit.
+        $modelLower = mb_strtolower($model);
+        foreach (self::NAV_LABELS as $label) {
+            if (! preg_match('/(?<!\p{L})'.preg_quote($label, '/').'(?!\p{L})/u', $modelLower)) {
+                $text = preg_replace('/(?<!\p{L})'.preg_quote($label, '/').'\s*[=:]?\s*[-+]?\d+(?:[.,]\d+)?\s*(?:°|sm\b|kn\b)?(?:\s*[EWO](?!\p{L}))?/iu', ' ', $text);
+            }
+        }
+
+        return preg_replace('/(?<![\d,.:])\d{1,2}[:)](?=\s)/u', ' ', $text);
     }
 
     private static function onlyLabelsLeft(string $model): bool
@@ -122,7 +159,8 @@ class NavigationAnswer
             $hit = false;
             for (; $i < count($actual); $i++) {
                 $a = $actual[$i];
-                if (($a['type'] === $e['type'] || ($a['type'] === 'number' && $e['type'] !== 'position')) && self::close($e, $a['value'])) {
+                $value = $e['type'] === 'time' && isset($a['clock']) ? $a['clock'] : $a['value'];
+                if (($a['type'] === $e['type'] || ($a['type'] === 'number' && $e['type'] !== 'position')) && self::close($e, $value)) {
                     $hit = true;
                     $i++;
                     break;

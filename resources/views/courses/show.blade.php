@@ -208,7 +208,7 @@
                             @endif
                         </svg>
                         <div class="relative">
-                            <div class="text-xs font-semibold tracking-wide uppercase" style="color: var(--brand-secondary, #6EE7E0)">{{ $loop->first ? 'Dein nächster Schritt' : 'Dein Teilkurs' }}</div>
+                            <div class="text-xs font-semibold tracking-wide uppercase text-white/80">{{ $loop->first ? 'Dein nächster Schritt' : 'Dein Teilkurs' }}</div>
                             <div class="font-bold text-lg mt-1">{{ $group['label'] }}</div>
                             <div class="text-white/70 text-sm">Dein Videokurs für {{ $group['label'] }}</div>
                             <div class="text-white/90 text-sm mt-3">Kursfortschritt {{ $group['percent'] }}&nbsp;%</div>
@@ -242,7 +242,7 @@
                     </g>
                 </svg>
                 <div class="relative">
-                    <div class="text-xs font-semibold tracking-wide uppercase" style="color: var(--brand-secondary, #6EE7E0)">Dein nächster Schritt</div>
+                    <div class="text-xs font-semibold tracking-wide uppercase text-white/80">Dein nächster Schritt</div>
                     <div class="font-bold text-xl mt-1">{{ $course->name }}</div>
                     <div class="text-white/70 text-sm">Dein Videokurs für {{ $course->name }}</div>
                     <div class="text-white/90 text-sm mt-3">Kursfortschritt {{ $videoPercent }}&nbsp;%</div>
@@ -464,7 +464,7 @@
                 </div>
                 <div class="flex-1 min-w-0">
                     <div class="font-semibold">Praxis &amp; Prüfung</div>
-                    <div class="text-xs">Ab {{ $examReadinessThreshold }}% Kursfortschritt &middot; {{ $overallPercent }}%/{{ $examReadinessThreshold }}%</div>
+                    <div class="text-xs">Ab {{ $examReadinessThreshold }}% Kursfortschritt &middot; du hast {{ $overallPercent }}%</div>
                 </div>
             </div>
         @endif

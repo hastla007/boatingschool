@@ -22,29 +22,30 @@ class CanonicalUrl
     public static function root(?Tenant $tenant = null): string
     {
         $scheme = app()->environment('production') ? 'https' : 'http';
-        $display = self::display($tenant);
+        $host = (string) config('app.central_domain');
 
         // Lokal (php -S, Docker) läuft die App oft auf einem eigenen Port:
-        // den Port der aktuellen Anfrage übernehmen, sonst zeigen Links auf
-        // Port 80 ins Leere. In Produktion stehen 80/443 nie in der URL.
+        // den Port der aktuellen Anfrage übernehmen (zentrale Domain oder
+        // Schul-Subdomain), sonst zeigen Links auf Port 80 ins Leere. In
+        // Produktion stehen 80/443 nie in der URL.
         $request = app()->bound('request') ? request() : null;
-        $port = $request?->getPort();
-        if (! app()->environment('production') && $port && ! in_array((int) $port, [80, 443], true)
-            && strcasecmp($request->getHost(), (string) config('app.central_domain')) === 0) {
-            $host = (string) config('app.central_domain');
-            $display = preg_replace('/'.preg_quote($host, '/').'/i', $host.':'.$port, $display, 1);
+        $port = (int) ($request?->getPort() ?? 0);
+        $requestHost = strtolower((string) $request?->getHost());
+        if (! app()->environment('production') && $port && ! in_array($port, [80, 443], true)
+            && ($requestHost === strtolower($host) || str_ends_with($requestHost, '.'.strtolower($host)))) {
+            $host .= ':'.$port;
         }
 
-        return $scheme.'://'.$display;
+        return $scheme.'://'.self::display($tenant, $host);
     }
 
     /**
      * Adresse ohne Schema, z. B. "lernen.example.de/mueller" (Pfad-Modus,
      * Standard) oder "mueller.lernen.example.de" (TENANT_URL_MODE=subdomain).
      */
-    public static function display(?Tenant $tenant = null): string
+    public static function display(?Tenant $tenant = null, ?string $host = null): string
     {
-        $host = config('app.central_domain');
+        $host ??= config('app.central_domain');
         if (! $tenant) {
             return $host;
         }

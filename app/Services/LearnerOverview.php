@@ -67,7 +67,9 @@ class LearnerOverview
         if ($userIds->isEmpty()) {
             return collect();
         }
-        $source = fn (string $table, string $column) => DB::table($table)->where('tenant_id', $tenant->id)->whereIn('user_id', $userIds)
+        // Ein Array-Parameter je Teilabfrage statt einzelner Platzhalter (Postgres erlaubt höchstens 65.535).
+        $ids = '{'.$userIds->implode(',').'}';
+        $source = fn (string $table, string $column) => DB::table($table)->where('tenant_id', $tenant->id)->whereRaw('user_id = any(?::uuid[])', [$ids])
             ->groupBy('user_id')->selectRaw("user_id, max({$column}) as last_at");
         $union = $source('attempt', 'created_at')
             ->unionAll($source('exam_session', 'started_at'))

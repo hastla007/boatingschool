@@ -112,6 +112,7 @@ class AccountErasureService
             // wechseln und damit ohne das Deadlock-Risiko von M5.
             $this->tenantContext->clear();
             $this->pseudonymizePlatformAuditLogFor($user, $tenant);
+            $this->forgetOpenInvitations($user, $tenant->id);
             $this->deleteAccountEntirely($user);
         }
     }
@@ -136,15 +137,7 @@ class AccountErasureService
         }
         $this->tenantContext->clear();
 
-        // Offene Einladungen an diese Adresse in anderen Schulen und die
-        // Protokolleinträge dazu (enthalten die E-Mail-Adresse).
-        $this->onAdminConnection(function () use ($user) {
-            $invitationIds = TenantInvitation::withoutGlobalScopes()->whereRaw('lower(email) = ?', [mb_strtolower($user->email)])->pluck('id');
-            if ($invitationIds->isNotEmpty()) {
-                AuditLog::where('entity_type', 'tenant_invitation')->whereIn('entity_id', $invitationIds)->update(['before_data' => null, 'after_data' => null]);
-                TenantInvitation::withoutGlobalScopes()->whereIn('id', $invitationIds)->delete();
-            }
-        });
+        $this->forgetOpenInvitations($user);
 
         if ($tenantIds === []) {
             $this->onAdminConnection(function () use ($user) {
@@ -152,6 +145,24 @@ class AccountErasureService
                 $this->deleteAccountEntirely($user);
             });
         }
+    }
+
+    /**
+     * Offene Einladungen an diese Adresse in allen (anderen) Schulen samt
+     * den Protokolldaten dazu (enthalten die E-Mail-Adresse). Die gerade
+     * verlassene Schule räumt leaveTenant() selbst auf (gleiche
+     * Transaktion), deshalb hier ausgenommen.
+     */
+    private function forgetOpenInvitations(User $user, ?string $exceptTenantId = null): void
+    {
+        $this->onAdminConnection(function () use ($user, $exceptTenantId) {
+            $invitationIds = TenantInvitation::withoutGlobalScopes()->whereRaw('lower(email) = ?', [mb_strtolower($user->email)])
+                ->when($exceptTenantId, fn ($q) => $q->where('tenant_id', '!=', $exceptTenantId))->pluck('id');
+            if ($invitationIds->isNotEmpty()) {
+                AuditLog::where('entity_type', 'tenant_invitation')->whereIn('entity_id', $invitationIds)->update(['before_data' => null, 'after_data' => null]);
+                TenantInvitation::withoutGlobalScopes()->whereIn('id', $invitationIds)->delete();
+            }
+        });
     }
 
     private function onAdminConnection(callable $callback): mixed

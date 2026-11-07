@@ -14,6 +14,7 @@ use App\Models\PlatformSetting;
 use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
+use App\Services\ParticipantInviter;
 use App\Support\NavigationAnswer;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -171,13 +172,13 @@ class ReviewRoundSixFixesTest extends TestCase
         $owner = $this->createTenantUser($tenant, 'owner');
         $instructor = $this->createTenantUser($tenant, 'instructor');
         $other = $this->createTenantUser($this->createTestTenant(), 'learner');
-        RateLimiter::clear('bulk-invite:'.$tenant->id);
+        RateLimiter::clear(ParticipantInviter::dailyKey($tenant));
 
         $this->actingAsInTenant($instructor, $tenant)->post('/admin/participants/bulk-invite', ['emails' => $other->email])->assertForbidden();
         $this->actingAsInTenant($owner, $tenant)->post('/admin/participants/bulk-invite', ['emails' => $other->email])
             ->assertSessionHas('status', 'Eine Person eingeladen.');
         $this->actingAsInTenant($owner, $tenant)->post('/admin/participants/bulk-invite', ['emails' => $other->email."\nName ".str_repeat('x', 200).' <lang@example.test>'])
-            ->assertSessionHas('status', fn ($s) => str_starts_with($s, '0 Personen eingeladen.') && str_contains($s, 'bereits eingeladen') && str_contains($s, 'Name zu lang'));
+            ->assertSessionHas('status', fn ($s) => str_starts_with($s, '0 Personen eingeladen.') && str_contains($s, 'heute schon eingeladen') && str_contains($s, 'Name zu lang'));
     }
 
     public function test_failed_reminder_mail_does_not_start_the_cooldown(): void
@@ -207,7 +208,7 @@ class ReviewRoundSixFixesTest extends TestCase
         auth()->logout();
         $this->flushSession();
         $this->get($link)->assertRedirect();
-        $this->post("{$central}/{$slug}/logout")->assertRedirect();
+        $this->post("{$central}/{$slug}/logout")->assertOk()->assertViewIs('impersonation.ended');
 
         $this->assertSame('ORIGINALTOKEN123', $this->onAdmin(fn () => User::find($learner->id))->remember_token);
         $this->assertTrue($this->onAdmin(fn () => AuditLog::where('action', 'superadmin.impersonate.stop')->where('entity_id', $learner->id)->exists()));

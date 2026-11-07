@@ -27,15 +27,19 @@ class SchoolInsightsController extends Controller
         // Ausbilder mit zugeordneten Kursen: nur deren Lernende und Kurse.
         $visible = InstructorScope::learnerIds($tenant, $request->user());
         $scopeCourses = InstructorScope::courseIds($tenant, $request->user());
-        $learners = fn ($q, string $column = 'user_id') => $q->when($visible !== null, fn ($w) => $w->whereIn($column, $visible));
+        // Ein Array-Parameter statt einer Liste einzelner Platzhalter (Postgres erlaubt höchstens 65.535).
+        $visibleArray = $visible === null ? null : '{'.$visible->implode(',').'}';
+        $learners = fn ($q, string $column = 'user_id') => $q->when($visibleArray !== null, fn ($w) => $w->whereRaw("{$column} = any(?::uuid[])", [$visibleArray]));
 
         // Basis: aktive Lernende (Mitgliedschaft) mit laufendem Kurszugang;
         // „aktiv“ heißt irgendeine Lernaktivität (Fragen, Prüfungssimulation,
         // Navigationsaufgaben, Videos), nicht nur Antworten im Fragentrainer.
-        $memberIds = TenantUser::where('tenant_id', $tenant->id)->where('role', 'learner')->where('status', 'active')->pluck('user_id');
+        // Als Unterabfragen statt ID-Listen: bei vielen Lernenden würde jede
+        // ID ein eigener Platzhalter (Postgres erlaubt höchstens 65.535).
+        $memberIds = TenantUser::where('tenant_id', $tenant->id)->where('role', 'learner')->where('status', 'active')->select('user_id');
         $accessIds = $learners(Entitlement::currentlyActive()->where('tenant_id', $tenant->id)->whereIn('user_id', $memberIds)
-            ->when($scopeCourses !== null, fn ($q) => $q->whereIn('course_id', $scopeCourses)))->distinct()->pluck('user_id');
-        $withAccess = $accessIds->count();
+            ->when($scopeCourses !== null, fn ($q) => $q->whereIn('course_id', $scopeCourses)))->select('user_id');
+        $withAccess = DB::query()->fromSub($accessIds, 'access')->distinct()->count('user_id');
         $events = function ($since) use ($tenant, $memberIds, $learners) {
             $source = fn (string $table, string $column) => $learners(DB::table($table)->where('tenant_id', $tenant->id)->whereIn('user_id', $memberIds))
                 ->where($column, '>=', $since)->selectRaw("user_id, {$column} as at");

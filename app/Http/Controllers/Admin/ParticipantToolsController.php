@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Entitlement;
-use App\Models\TenantInvitation;
 use App\Models\TenantUser;
 use App\Models\User;
 use App\Services\CourseProgressService;
@@ -17,7 +16,6 @@ use App\Support\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Validator;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -25,9 +23,6 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class ParticipantToolsController extends Controller
 {
     private const MAX_BULK = 100;
-
-    /** Höchstens so viele Sammel-Einladungen je Schule und Tag (Schutz vor Spam an fremde Adressen). */
-    private const MAX_BULK_PER_DAY = 300;
 
     public function bulkInvite(Request $request, TenantContext $tenantContext, ParticipantInviter $inviter): RedirectResponse
     {
@@ -39,7 +34,6 @@ class ParticipantToolsController extends Controller
             return back()->withErrors(['emails' => 'Höchstens '.self::MAX_BULK.' Zeilen auf einmal.'])->withInput();
         }
 
-        $dailyKey = 'bulk-invite:'.$tenant->id;
         $invited = 0;
         $mailFailed = 0;
         $skipped = [];
@@ -68,18 +62,17 @@ class ParticipantToolsController extends Controller
 
                 continue;
             }
-            if (TenantInvitation::where('tenant_id', $tenant->id)->whereRaw('lower(email) = ?', [mb_strtolower($email)])->whereNull('accepted_at')->exists()) {
-                $skipped[] = "{$email} (bereits eingeladen)";
-
-                continue;
-            }
-            if (RateLimiter::tooManyAttempts($dailyKey, self::MAX_BULK_PER_DAY)) {
+            if ($inviter->limitReached($tenant)) {
                 $limitReached = true;
                 break;
             }
-            RateLimiter::hit($dailyKey, 86400);
 
             $result = $inviter->invite($tenant, $request->user(), $name ?: strstr($email, '@', true), $email);
+            if ($result['duplicate'] ?? false) {
+                $skipped[] = "{$email} (heute schon eingeladen)";
+
+                continue;
+            }
             $invited++;
             if (! $result['mail_sent']) {
                 $mailFailed++;
@@ -91,7 +84,7 @@ class ParticipantToolsController extends Controller
             $status .= " Bei {$mailFailed} konnte die Einladungsmail nicht verschickt werden.";
         }
         if ($limitReached) {
-            $status .= ' Tageslimit von '.self::MAX_BULK_PER_DAY.' Sammel-Einladungen erreicht, die übrigen bitte morgen einladen.';
+            $status .= ' Tageslimit von '.ParticipantInviter::DAILY_LIMIT.' Einladungen erreicht, die übrigen bitte morgen einladen.';
         }
         if ($skipped !== []) {
             $status .= ' Übersprungen: '.implode(', ', array_slice($skipped, 0, 10)).(count($skipped) > 10 ? ' …' : '').'.';
