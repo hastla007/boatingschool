@@ -15,7 +15,7 @@
         <label for="anmeldung_course" class="sr-only">Kurs filtern</label>
         <select id="anmeldung_course" name="anmeldung_course" @change="$el.form.submit()" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
             <option value="">Alle Kurse</option>
-            @foreach ($courses as $course)
+            @foreach ($courses->whereNotIn('id', $disabledCourseIds) as $course)
                 <option value="{{ $course->id }}" @selected(($anmeldungFilters['anmeldung_course'] ?? '') === $course->id)>{{ $course->name }}</option>
             @endforeach
         </select>

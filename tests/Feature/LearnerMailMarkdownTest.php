@@ -18,6 +18,7 @@ class LearnerMailMarkdownTest extends TestCase
         $mail = (new WillkommensboxOrderShipped($order))->toMail(null);
         $line = collect($mail->introLines)->first(fn ($l) => str_starts_with($l, 'Sendungsnummer'));
 
-        $this->assertStringContainsString('\\[Sendung verfolgen\\]\\(https', $line);
+        // Escapte eckige Klammern genügen: ohne „[…]“ entsteht kein Link.
+        $this->assertStringContainsString('\\[Sendung verfolgen\\](https', $line);
     }
 }

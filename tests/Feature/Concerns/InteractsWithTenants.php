@@ -81,6 +81,7 @@ trait InteractsWithTenants
                 // Löschen des Nutzers selbst.
                 if ($user) {
                     DB::table('password_reset_tokens')->where('email', $user->email)->delete();
+                    DB::table('account_setup_tokens')->where('email', $user->email)->delete();
                 }
 
                 User::where('id', $id)->delete();

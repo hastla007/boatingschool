@@ -44,7 +44,9 @@ class AccountInvitation extends Notification
             ->line(self::escapeMarkdown($school).' hat für dich '.$roleText.' ein Konto auf der Lernplattform angelegt.')
             ->line('Lege jetzt dein Passwort fest, danach kannst du dich direkt anmelden.')
             ->action('Passwort festlegen', $this->url)
-            ->line('Der Link ist 7 Tage gültig. Ist er abgelaufen, bitte '.self::escapeMarkdown($school).' um eine neue Einladung oder nutze auf der Anmeldeseite „Passwort vergessen“.');
+            ->line($this->role === 'owner'
+                ? 'Der Link ist 7 Tage gültig. Ist er abgelaufen, nutze auf der Anmeldeseite „Passwort vergessen“ oder wende dich an den Plattform-Support.'
+                : 'Der Link ist 7 Tage gültig. Ist er abgelaufen, bitte '.self::escapeMarkdown($school).' um eine neue Einladung oder nutze auf der Anmeldeseite „Passwort vergessen“.');
 
         return MailTemplates::apply($message, 'account_invitation', ['schule' => $school, 'rolle' => trim(str_replace('als ', '', $roleText))]);
     }

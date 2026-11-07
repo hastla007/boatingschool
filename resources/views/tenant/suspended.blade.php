@@ -12,7 +12,15 @@
             <x-icon name="lock-closed" class="w-7 h-7 text-rose-400" />
         </div>
         <h1 class="text-xl font-bold text-slate-800 dark:text-white mb-2">Zugang derzeit nicht verfügbar</h1>
-        <p class="text-slate-500 dark:text-slate-400">Der Zugang von {{ $tenant->name }} ist momentan gesperrt. Bitte wenden Sie sich an den Support.</p>
+        @php($contact = $tenant->branding?->support_email)
+        @if ($tenant->status === 'closed')
+            <p class="text-slate-500 dark:text-slate-400">Die Lernplattform von {{ $tenant->name }} ist geschlossen.</p>
+        @else
+            <p class="text-slate-500 dark:text-slate-400">Die Lernplattform von {{ $tenant->name }} ist vorübergehend nicht erreichbar.</p>
+        @endif
+        @if ($contact)
+            <p class="mt-2 text-slate-500 dark:text-slate-400">Fragen? <a href="mailto:{{ $contact }}" class="underline">{{ $contact }}</a></p>
+        @endif
         @auth
             <p class="mt-4 text-sm"><a href="{{ route('profile.data-rights') }}" class="underline text-slate-700 dark:text-slate-200">Eigene Daten herunterladen oder Konto löschen</a></p>
         @endauth

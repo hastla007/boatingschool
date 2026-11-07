@@ -72,9 +72,16 @@
             @endisset
 
             <main id="main-content" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                @if (session('status'))
-                    <div class="mb-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 text-sm dark:bg-emerald-900/30 dark:border-emerald-800 dark:text-emerald-300">
-                        {{ session('status') }}
+                {{-- Laravels interne Statusschlüssel als Text statt roh anzeigen. --}}
+                @php($statusText = match (session('status')) {
+                    'password-updated' => 'Dein Passwort wurde geändert.',
+                    'profile-updated' => 'Deine Angaben wurden gespeichert.',
+                    'verification-link-sent' => 'Ein neuer Bestätigungslink wurde an deine E-Mail-Adresse gesendet.',
+                    default => session('status'),
+                })
+                @if ($statusText)
+                    <div role="status" class="mb-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 text-sm dark:bg-emerald-900/30 dark:border-emerald-800 dark:text-emerald-300">
+                        {{ $statusText }}
                     </div>
                 @endif
 
@@ -103,7 +110,7 @@
                      bereits angezeigten Meldungen also schon. --}}
                 @php($globalErrors = collect($errors->all())->reject(fn ($message) => \App\Support\ShownFormErrors::wasShown($message)))
                 @if ($globalErrors->isNotEmpty())
-                    <div class="mb-4 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 text-sm dark:bg-rose-900/30 dark:border-rose-800 dark:text-rose-300">
+                    <div role="alert" class="mb-4 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 text-sm dark:bg-rose-900/30 dark:border-rose-800 dark:text-rose-300">
                         <ul class="space-y-1">
                             @foreach ($globalErrors as $error)
                                 <li>{{ $error }}</li>

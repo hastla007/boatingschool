@@ -9,7 +9,7 @@
         <form method="GET" action="{{ route('admin.audit.index') }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 grid grid-cols-2 md:grid-cols-5 gap-3 items-end">
             <div>
                 <label for="action" class="block text-xs text-slate-600 dark:text-slate-400 mb-1">Aktion</label>
-                <input id="action" name="action" type="text" value="{{ $filters['action'] }}" placeholder="z. B. entitlement" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                <input id="action" name="action" type="text" value="{{ $filters['action'] }}" placeholder="z. B. participant oder coupon" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
             </div>
             <div>
                 <label for="actor" class="block text-xs text-slate-600 dark:text-slate-400 mb-1">Person (E-Mail)</label>

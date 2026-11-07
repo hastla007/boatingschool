@@ -460,7 +460,8 @@ class ExamController extends Controller
         // nebenläufige Auswertung committet hat, und der Status danach
         // erneut geprüft -- evaluate() sperrt dieselbe Zeile, die beiden
         // serialisieren sich also gegenseitig.
-        DB::transaction(function () use ($examSession, $sessionQuestion, $type, $validated) {
+        $expired = false;
+        DB::transaction(function () use ($examSession, $sessionQuestion, $type, $validated, $examEvaluation, &$expired) {
             // DB::table() statt einer zweiten Eloquent-Abfrage auf dem
             // ExamSession-Model: vermeidet, dass der globale Tenant-Scope
             // (BelongsToTenant) dabei erneut ausgewertet wird (siehe
@@ -468,6 +469,14 @@ class ExamController extends Controller
             DB::table('exam_session')->where('id', $examSession->id)->lockForUpdate()->first();
             $examSession->refresh();
             abort_if($examSession->status !== 'running', 409);
+            // Review-Runde 9: die Zeit kann zwischen der Prüfung oben und der
+            // Sperre abgelaufen sein -- dann zählt die Antwort nicht mehr
+            // (statt stillschweigend gespeichert und als falsch gewertet).
+            if ($examEvaluation->timeExpired($examSession)) {
+                $expired = true;
+
+                return;
+            }
 
             // Doppelklick oder zweiter Tab: die Sperre oben serialisiert beide
             // Anfragen, die zweite sieht die schon gespeicherte Antwort und
@@ -517,6 +526,13 @@ class ExamController extends Controller
                 ]);
             }
         });
+
+        if ($expired) {
+            $examEvaluation->evaluate($examSession);
+
+            return redirect()->route('exam.result', $examSession)
+                ->with('status', 'Die Prüfungszeit ist abgelaufen -- die letzte Antwort kam zu spät. Hier ist dein Ergebnis.');
+        }
 
         return redirect()->route('exam.show', $examSession);
     }

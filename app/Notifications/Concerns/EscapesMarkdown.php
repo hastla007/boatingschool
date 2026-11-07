@@ -22,6 +22,9 @@ trait EscapesMarkdown
 {
     protected static function escapeMarkdown(?string $text): string
     {
-        return preg_replace('/([\\\\`*_{}\[\]()#+\-.!|>~])/', '\\\\$1', (string) $text);
+        // Review-Runde 9: nur Zeichen, die mitten im Satz Markdown auslösen
+        // ([ ] für Links/Bilder, * _ ` für Hervorhebung, …) -- „(1h)“ oder
+        // „15.12.“ erschienen sonst mit Backslashes im Text-Teil der Mail.
+        return preg_replace('/([\\\\`*_{}\[\]#|>~])/', '\\\\$1', (string) $text);
     }
 }

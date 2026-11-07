@@ -35,7 +35,22 @@ use Illuminate\Support\Facades\DB;
  */
 class PersonalDataExportService
 {
-    public function export(User $user, Tenant $tenant): array
+    /**
+     * @param  bool  $forSchool  Export an die Schule (Vertragsende): ohne Sitzungen
+     *                           (gelten plattformweit, auch für andere Schulen) und ohne
+     *                           das Protokoll, das die Schule ohnehin selbst hat.
+     */
+    public function export(User $user, Tenant $tenant, bool $forSchool = false): array
+    {
+        $data = $this->collect($user, $tenant, $forSchool);
+        if ($forSchool) {
+            unset($data['sessions'], $data['audit_log']);
+        }
+
+        return $data;
+    }
+
+    private function collect(User $user, Tenant $tenant, bool $forSchool): array
     {
         $membership = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $user->id)->first();
 
@@ -255,14 +270,14 @@ class PersonalDataExportService
                     'accepted_at' => $i->accepted_at?->toIso8601String(),
                 ])->all(),
             // Angemeldete Geräte (IP-Adresse, Browser) dieses Kontos.
-            'sessions' => DB::connection('pgsql_admin')->table('sessions')->where('user_id', $user->id)->orderByDesc('last_activity')->get()
+            'sessions' => $forSchool ? [] : DB::connection('pgsql_admin')->table('sessions')->where('user_id', $user->id)->orderByDesc('last_activity')->get()
                 ->map(fn ($row) => [
                     'ip_address' => $row->ip_address,
                     'user_agent' => $row->user_agent,
                     'last_activity' => date(DATE_ATOM, (int) $row->last_activity),
                 ])->all(),
             // Protokolleinträge dieser Bootsschule, die die Person betreffen.
-            'audit_log' => AuditLog::where('tenant_id', $tenant->id)
+            'audit_log' => $forSchool ? [] : AuditLog::where('tenant_id', $tenant->id)
                 ->where(fn ($q) => $q->where('actor_user_id', $user->id)
                     ->orWhere(fn ($i) => $i->where('entity_type', 'app_user')->where('entity_id', $user->id))
                     ->orWhereRaw("before_data->>'user_id' = ?", [$user->id])

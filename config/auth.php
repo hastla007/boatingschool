@@ -102,9 +102,10 @@ return [
 
         // Einladung neuer Konten (Passwort festlegen): 7 Tage gültig statt 60
         // Minuten wie beim Zurücksetzen, siehe AccountSetupLink.
+        // Eigene Tabelle: ein normaler Reset-Token darf nicht als 7-Tage-Einladung gelten.
         'invites' => [
             'provider' => 'users',
-            'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
+            'table' => 'account_setup_tokens',
             'expire' => 60 * 24 * 7,
             'throttle' => 0,
         ],

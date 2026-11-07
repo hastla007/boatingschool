@@ -191,6 +191,10 @@ class ParticipantController extends Controller
         $membership = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $user->id)->first();
         abort_unless($membership && $membership->role === 'learner', 404);
         $request->validate(['confirm' => ['required', 'in:LÖSCHEN']], ['confirm.in' => 'Bitte zur Bestätigung LÖSCHEN eintippen.']);
+        // Plattform-Konten (Superadmin) löscht nur der Plattformbetreiber.
+        if ($user->is_superadmin) {
+            return back()->withErrors(['confirm' => 'Dieses Konto gehört zum Plattform-Support und kann hier nicht gelöscht werden. Bitte wenden Sie sich an den Support.']);
+        }
 
         $name = $user->name;
         $erasure->leaveTenant($user, $tenant);

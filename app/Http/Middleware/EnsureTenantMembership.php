@@ -25,7 +25,11 @@ class EnsureTenantMembership
 
         // Offene Einladung in diese Schule (z. B. direkt nach der
         // E-Mail-Bestätigung): zur Annahme weiterleiten statt „Kein Zugang“.
-        if ($user && $tenant && ! $user->roleForTenant($tenant) && $request->isMethod('GET') && $user->hasVerifiedEmail()) {
+        $hasMembershipRow = $user && $tenant && TenantUser::on('pgsql_admin')->withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)->where('user_id', $user->id)->exists();
+        // Nur ohne bestehende (z. B. gesperrte) Mitgliedschaft -- sonst würde
+        // die Einladung stillschweigend verbraucht, ohne etwas zu ändern.
+        if ($user && $tenant && ! $hasMembershipRow && $request->isMethod('GET') && $user->hasVerifiedEmail()) {
             $invitation = TenantInvitation::on('pgsql_admin')->withoutGlobalScopes()->where('tenant_id', $tenant->id)
                 ->whereRaw('lower(email) = ?', [mb_strtolower($user->email)])->whereNull('accepted_at')
                 ->where('created_at', '>=', now()->subDays(7))->latest('created_at')->first();
@@ -39,8 +43,7 @@ class EnsureTenantMembership
         if (! $user || ! $tenant || ! $user->roleForTenant($tenant)) {
             // Gesperrte oder beendete Mitgliedschaft: zur Seite „Meine Daten“
             // (Export und Kontolöschung bleiben möglich).
-            $formerMember = $user && $tenant && TenantUser::on('pgsql_admin')->withoutGlobalScopes()
-                ->where('tenant_id', $tenant->id)->where('user_id', $user->id)->exists();
+            $formerMember = $hasMembershipRow;
             if ($formerMember && $request->isMethod('GET') && ! $request->expectsJson()) {
                 return redirect()->route('profile.data-rights')
                     ->with('status', 'Dein Zugang zu dieser Bootsschule ist gesperrt. Deine Daten kannst du hier herunterladen oder dein Konto löschen.');

@@ -10,6 +10,7 @@ use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Contracts\Validation\UncompromisedVerifier;
 use Illuminate\Foundation\Events\DiagnosingHealth;
 use Illuminate\Http\Client\Factory;
+use Illuminate\Mail\Events\MessageSending;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -18,6 +19,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\NotPwnedVerifier;
 use Illuminate\Validation\Rules\Password;
+use Symfony\Component\Mime\Address;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -85,6 +87,17 @@ class AppServiceProvider extends ServiceProvider
      */
     private function configureHealthCheck(): void
     {
+        // Review-Runde 9: Antworten auf Mails einer Schule (Einladung,
+        // Terminvorschlag, Freischaltung …) gehen an deren bestätigte
+        // Support-Adresse statt an die Absenderadresse der Plattform.
+        Event::listen(MessageSending::class, function ($event) {
+            $tenant = app(TenantContext::class)->tenant() ?? (app()->bound('currentTenant') ? app('currentTenant') : null);
+            $branding = $tenant?->branding;
+            if ($branding?->support_email && $branding->support_email_verified_at && $event->message->getReplyTo() === []) {
+                $event->message->replyTo(new Address($branding->support_email, $tenant->name));
+            }
+        });
+
         Event::listen(DiagnosingHealth::class, function () {
             DB::connection()->getPdo();
         });
@@ -136,7 +149,11 @@ class AppServiceProvider extends ServiceProvider
         ResetPassword::createUrlUsing(function ($notifiable, string $token) {
             // In einer Schule angefordert: Link unter der Adresse der Schule
             // (Pfad-Modus /<slug>/, Port lokal), sonst zentral.
-            return CanonicalUrl::root(app(TenantContext::class)->tenant()).route('password.reset', ['token' => $token], false).'?'.Arr::query([
+            // „Passwort vergessen“ ist mandantenunabhängig: dort setzt
+            // ResolveTenant nur currentTenant, nicht den TenantContext.
+            $tenant = app(TenantContext::class)->tenant() ?? (app()->bound('currentTenant') ? app('currentTenant') : null);
+
+            return CanonicalUrl::root($tenant).route('password.reset', ['token' => $token], false).'?'.Arr::query([
                 'email' => $notifiable->getEmailForPasswordReset(),
             ]);
         });

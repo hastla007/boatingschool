@@ -60,7 +60,7 @@
     </h3>
     @php
         $phaseColors = [
-            'Geprüft' => 'bg-emerald-500',
+            'Probeprüfung bestanden' => 'bg-emerald-500',
             'Prüfungstermin fixiert' => 'bg-indigo-500',
             'Praxis angemeldet' => 'bg-amber-500',
             'Lernen' => 'bg-sky-500',

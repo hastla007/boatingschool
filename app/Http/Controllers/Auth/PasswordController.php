@@ -36,6 +36,11 @@ class PasswordController extends Controller
             'remember_token' => Str::random(60),
         ])->save();
 
+        // Review-Runde 9: offene Reset- und Einladungs-Links verlieren mit dem
+        // neuen Passwort ihre Gültigkeit.
+        DB::table('password_reset_tokens')->where('email', $request->user()->email)->delete();
+        DB::table('account_setup_tokens')->where('email', $request->user()->email)->delete();
+
         // Beendet alle anderen laufenden Sitzungen dieses Kontos (z. B. eines
         // Angreifers mit gestohlenen Zugangsdaten) -- die eigene, gerade
         // genutzte Sitzung bleibt bewusst aktiv (Sicherheitsreview N6, analog

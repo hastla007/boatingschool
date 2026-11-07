@@ -276,7 +276,15 @@ class EntitlementController extends Controller
                 'entitlement', $entitlement->id, $before, $entitlement->fresh()->toArray()
             );
 
-            return back()->with('status', 'Entitlement aktualisiert.');
+            $fresh = $entitlement->fresh();
+            $until = $fresh->valid_until ? ' bis '.$fresh->valid_until->timezone('Europe/Berlin')->format('d.m.Y') : '';
+
+            return back()->with('status', match ($validated['action']) {
+                'extend' => "Zugang verlängert{$until} (1 Verlängerungscode verbraucht).",
+                'suspend' => 'Zugang gesperrt.',
+                'revoke' => 'Zugang widerrufen.',
+                'reactivate' => $before['status'] === 'revoked' ? "Widerruf aufgehoben{$until} (1 Code verbraucht)." : 'Zugang entsperrt.',
+            });
         });
     }
 

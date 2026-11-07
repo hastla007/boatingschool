@@ -33,11 +33,11 @@
                 <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3">Prüfungssimulation (90 Tage)</h3>
                 <div class="space-y-2 text-sm">
                     @forelse ($exams as $row)
-                        @php($rate = $row->total ? (int) round($row->passed / $row->total * 100) : 0)
+                        @php($rate = $row->total ? (int) round($row->passed_count / $row->total * 100) : 0)
                         <div>
                             <div class="flex justify-between text-slate-600 dark:text-slate-300">
                                 <span>{{ $row->name }}</span>
-                                <span>{{ $rate }} % bestanden <span class="text-xs text-slate-600 dark:text-slate-400">({{ $row->passed }}/{{ $row->total }} Versuche, {{ $row->learners }} Personen)</span></span>
+                                <span>{{ $rate }} % bestanden <span class="text-xs text-slate-600 dark:text-slate-400">({{ (int) $row->passed_count }}/{{ $row->total }} {{ $row->total == 1 ? 'Versuch' : 'Versuche' }}, {{ $row->learners }} {{ $row->learners == 1 ? 'Person' : 'Personen' }})</span></span>
                             </div>
                             <div class="h-1.5 rounded-full bg-slate-100 dark:bg-slate-700 mt-1" role="presentation"><div class="h-1.5 rounded-full bg-emerald-500" style="width: {{ $rate }}%"></div></div>
                         </div>

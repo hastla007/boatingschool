@@ -23,7 +23,7 @@
                         @if ($field['type'] === 'checkbox')
                             {{ $value ? 'Ja' : 'Nein' }}
                         @else
-                            {{ $value ?: '—' }}
+                            {{ $field['type'] === 'date' && is_string($value) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) ? \Carbon\Carbon::parse($value)->format('d.m.Y') : ($value ?: '—') }}
                         @endif
                     </dd>
                 </div>

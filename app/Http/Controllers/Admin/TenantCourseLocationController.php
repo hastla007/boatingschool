@@ -61,6 +61,20 @@ class TenantCourseLocationController extends Controller
     /** @return array<string, mixed> */
     private function validateLocation(Request $request): array
     {
+        // Koordinaten wie man sie eintippt bzw. aus Google Maps kopiert:
+        // Dezimalkomma („54,3333“) und beide Werte in einem Feld („54.33, 10.15“).
+        foreach (['praxis', 'pruefung', 'theorie'] as $prefix) {
+            $lat = trim((string) $request->input("{$prefix}_lat"));
+            $lng = trim((string) $request->input("{$prefix}_lng"));
+            if (preg_match('/^(-?\d+(?:[.,]\d+)?)\s*[,;]\s+(-?\d+(?:[.,]\d+)?)$/', $lat, $m) && $lng === '') {
+                [$lat, $lng] = [$m[1], $m[2]];
+            }
+            $request->merge([
+                "{$prefix}_lat" => $lat === '' ? null : str_replace(',', '.', $lat),
+                "{$prefix}_lng" => $lng === '' ? null : str_replace(',', '.', $lng),
+            ]);
+        }
+
         $validated = $request->validate([
             'praxis_ort' => ['required', 'string', 'max:255'],
             'praxis_strasse' => ['nullable', 'string', 'max:255'],

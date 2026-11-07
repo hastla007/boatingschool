@@ -88,7 +88,7 @@
             <label for="support_email" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Support E-Mail</label>
             <input type="email" id="support_email" name="support_email" value="{{ old('support_email', $branding->support_email) }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
             @if ($branding->support_email && ! $branding->hasVerifiedSupportEmail())
-                <p class="text-sm mt-2 text-amber-600 dark:text-amber-400">
+                <p class="text-sm mt-2 text-amber-700 dark:text-amber-300">
                     Diese E-Mail-Adresse ist noch nicht bestätigt.
                     <button form="send-support-email-verification" class="underline hover:text-amber-700 dark:hover:text-amber-300">
                         Bestätigungslink erneut senden
@@ -230,6 +230,14 @@
                 <span class="text-sm text-slate-500 dark:text-slate-400">% Kursfortschritt</span>
             </div>
             <x-input-error :messages="$errors->get('exam_readiness_threshold_percent')" class="mt-2" />
+            @php($formThresholds = \App\Models\PraxisFormTemplate::where('active', true)->orderBy('title')->get(['title', 'min_progress_percent']))
+            @if ($formThresholds->isNotEmpty())
+                <p class="text-xs text-slate-600 dark:text-slate-400 mt-2">
+                    Tatsächlich gilt für Kurse mit Praxisformular der Wert des Formulars:
+                    {{ $formThresholds->map(fn ($t) => $t->title.' '.$t->min_progress_percent.' %')->implode(' · ') }}.
+                    Ihr Wert oben gilt für alle übrigen Kurse.
+                </p>
+            @endif
         </div>
 
         <div class="pt-2 border-t border-slate-100 dark:border-slate-700">

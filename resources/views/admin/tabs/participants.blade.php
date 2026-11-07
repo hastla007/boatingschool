@@ -53,7 +53,7 @@
                                         <form method="POST" action="{{ route('admin.team.courses.update', $member->user_id) }}" class="mt-2 space-y-1">
                                             @csrf
                                             @method('PATCH')
-                                            @foreach ($courses as $course)
+                                            @foreach ($courses->whereNotIn('id', $disabledCourseIds) as $course)
                                                 <label class="flex items-center gap-1.5"><input type="checkbox" name="course_ids[]" value="{{ $course->id }}" @checked($assigned->contains($course->id)) class="rounded border-slate-300"> {{ $course->name }}</label>
                                             @endforeach
                                             <p class="text-slate-600 dark:text-slate-400">Keine Auswahl: sieht alle Teilnehmer.</p>
@@ -203,7 +203,7 @@
         <label for="p_course" class="block text-xs text-slate-600 dark:text-slate-400 mb-1">Kurs</label>
         <select id="p_course" name="p_course" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
             <option value="">Alle Kurse</option>
-            @foreach ($courses as $course)
+            @foreach ($courses->whereNotIn('id', $disabledCourseIds) as $course)
                 <option value="{{ $course->id }}" @selected($participantFilters['p_course'] === $course->id)>{{ $course->name }}</option>
             @endforeach
         </select>
@@ -299,7 +299,8 @@
                     <td class="px-4 py-2">
                         {{-- Review: abgelaufene Zugänge (auch gesperrt und inzwischen abgelaufen) lassen sich hier neu freischalten; aktive, widerrufene und gesperrte mit Restlaufzeit haben eigene Aktionen. --}}
                         @php($bookedCourseIds = $membership->user->entitlements->filter(fn ($e) => $e->status === 'revoked' || (in_array($e->status, ['active', 'suspended'], true) && ($e->valid_until === null || $e->valid_until->isFuture())))->pluck('course_id')->all())
-                        @php($unbookedCourses = $courses->whereNotIn('id', $bookedCourseIds))
+                        {{-- Nur Kurse, die die Schule anbietet. --}}
+                        @php($unbookedCourses = $courses->whereNotIn('id', $disabledCourseIds)->whereNotIn('id', $bookedCourseIds))
                         @if ($unbookedCourses->isNotEmpty())
                             <form method="POST" action="{{ route('admin.entitlements.store') }}" class="flex gap-1">
                                 @csrf

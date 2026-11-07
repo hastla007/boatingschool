@@ -12,7 +12,10 @@
     <div class="grid lg:grid-cols-3 gap-4 mb-6">
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5 lg:col-span-1">
             <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3">Stammdaten</h3>
-            <form method="POST" action="{{ route('superadmin.tenants.update', $tenant) }}" class="space-y-3">
+            {{-- Sperren/Schließen trennt sofort alle Nutzer der Schule: nachfragen. --}}
+            <form method="POST" action="{{ route('superadmin.tenants.update', $tenant) }}" class="space-y-3"
+                  x-data="{ original: @js($tenant->status) }"
+                  @submit="const s = $el.querySelector('#status').value; if (s !== original && ['suspended', 'closed'].includes(s) && ! confirm('Bootsschule wirklich ' + (s === 'closed' ? 'schließen' : 'sperren') + '? Alle Lernenden und das Team verlieren sofort den Zugang.')) $event.preventDefault()">
                 @csrf
                 @method('PATCH')
                 <div>

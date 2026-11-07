@@ -96,7 +96,7 @@
                 </div>
 
                 @if ($answered)
-                    <div class="mt-4 rounded-xl p-4 flex items-start gap-2 {{ $correct ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300' }}">
+                    <div role="status" tabindex="-1" x-data x-init="$el.focus({ preventScroll: true })" class="mt-4 rounded-xl p-4 flex items-start gap-2 outline-none {{ $correct ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300' }}">
                         <x-icon :name="$correct ? 'check-circle' : 'x-circle'" class="w-5 h-5 shrink-0 mt-0.5" />
                         <div>
                             <strong>{{ $correct ? 'Richtig!' : 'Leider falsch.' }}</strong>
@@ -148,7 +148,7 @@
                         </div>
 
                         @if ($answered)
-                            <div class="mt-4 rounded-xl p-4 flex items-start gap-2 {{ $correct ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300' }}">
+                            <div role="status" tabindex="-1" x-data x-init="$el.focus({ preventScroll: true })" class="mt-4 rounded-xl p-4 flex items-start gap-2 outline-none {{ $correct ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300' }}">
                                 <x-icon :name="$correct ? 'check-circle' : 'x-circle'" class="w-5 h-5 shrink-0 mt-0.5" />
                                 <div>
                                     <strong>{{ $correct ? 'Als gewusst markiert.' : 'Als nicht gewusst markiert.' }}</strong>
@@ -226,7 +226,7 @@
                 </div>
 
                 @if ($answered)
-                    <div class="mt-4 rounded-xl p-4 flex items-start gap-2 {{ $correct ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300' }}">
+                    <div role="status" tabindex="-1" x-data x-init="$el.focus({ preventScroll: true })" class="mt-4 rounded-xl p-4 flex items-start gap-2 outline-none {{ $correct ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300' }}">
                         <x-icon :name="$correct ? 'check-circle' : 'x-circle'" class="w-5 h-5 shrink-0 mt-0.5" />
                         <div>
                             <strong>{{ $correct ? 'Richtig!' : 'Leider falsch.' }}</strong>

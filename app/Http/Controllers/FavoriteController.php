@@ -9,6 +9,7 @@ use App\Models\ExamSessionQuestion;
 use App\Models\Favorite;
 use App\Models\FavoriteCollection;
 use App\Models\FavoriteCollectionItem;
+use App\Models\Progress;
 use App\Services\EntitlementService;
 use App\Services\FavoriteCollectionService;
 use App\Support\TenantContext;
@@ -69,16 +70,22 @@ class FavoriteController extends Controller
         // die Seite immer langsamer. GROUP BY + MAX(Zeitstempel) liefert
         // "letzter Fehler pro Frage" direkt aus der Datenbank, ORDER BY +
         // LIMIT übernehmen die Sortierung/Begrenzung ebenfalls dort.
+        // Review-Runde 9: inzwischen gefestigte Fragen sind keine offenen Fehler mehr.
+        $masteredIds = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+            ->where('learning_state', 'gefestigt')->select('question_id');
         $smartWrongQuestionIds = Attempt::where('tenant_id', $tenant->id)->where('user_id', $user->id)
             ->where('correct', false)
             ->whereIn('question_id', $questionIds)
+            ->whereNotIn('question_id', $masteredIds)
             ->selectRaw('question_id, max(created_at) as last_wrong_at')
             ->groupBy('question_id')
             ->orderByDesc('last_wrong_at')
             ->limit(20)
             ->pluck('question_id');
 
-        $smartWrongQuestions = ContentQuestion::with('revisions')->whereIn('id', $smartWrongQuestionIds)->get();
+        // Reihenfolge „zuletzt falsch zuerst“ beibehalten (whereIn sortiert nicht).
+        $smartWrongQuestions = ContentQuestion::with('revisions')->whereIn('id', $smartWrongQuestionIds)->get()
+            ->sortBy(fn ($q) => $smartWrongQuestionIds->search($q->id))->values();
 
         $examFavorites = Favorite::with('question.revisions')
             ->where('tenant_id', $tenant->id)->where('user_id', $user->id)
@@ -114,13 +121,16 @@ class FavoriteController extends Controller
             // Prüfungssessions dieses Kurses bestimmen selbst, welche
             // Fragen dazugehören.
             ->whereIn('question_id', ContentQuestion::query()->currentlyValid()->select('id'))
+            ->whereNotIn('question_id', $masteredIds)
             ->selectRaw('question_id, max(answered_at) as last_wrong_at')
             ->groupBy('question_id')
-            ->orderByDesc('last_wrong_at')
+            // Unbeantwortet gebliebene Fragen (answered_at leer) ans Ende.
+            ->orderByRaw('max(answered_at) desc nulls last')
             ->limit(20)
             ->pluck('question_id');
 
-        $examWrongQuestions = ContentQuestion::with('revisions')->whereIn('id', $examWrongQuestionIds)->get();
+        $examWrongQuestions = ContentQuestion::with('revisions')->whereIn('id', $examWrongQuestionIds)->get()
+            ->sortBy(fn ($q) => $examWrongQuestionIds->search($q->id))->values();
 
         // Default-Collection existiert ab dem ersten Aufruf der Seite, auch
         // wenn der Lerner noch nie etwas bewusst einsortiert hat.

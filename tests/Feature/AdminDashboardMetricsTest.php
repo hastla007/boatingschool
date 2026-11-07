@@ -244,7 +244,7 @@ class AdminDashboardMetricsTest extends TestCase
         $this->assertPhasePercent($response, 'Lernen', 1, 20);
         $this->assertPhasePercent($response, 'Praxis angemeldet', 1, 20);
         $this->assertPhasePercent($response, 'Prüfungstermin fixiert', 1, 20);
-        $this->assertPhasePercent($response, 'Geprüft', 1, 20);
+        $this->assertPhasePercent($response, 'Probeprüfung bestanden', 1, 20);
     }
 
     /**
@@ -294,7 +294,7 @@ class AdminDashboardMetricsTest extends TestCase
         // Der einzige Lerner hat einen aktiven Kurszugang und keine
         // bestandene amtliche Prüfung -> bleibt in "Lernen", nicht "Geprüft".
         $this->assertPhasePercent($response, 'Lernen', 1, 100);
-        $this->assertPhasePercent($response, 'Geprüft', 0, 0);
+        $this->assertPhasePercent($response, 'Probeprüfung bestanden', 0, 0);
     }
 
     public function test_dashboard_shows_progress_distribution_for_learning_phase_learners(): void

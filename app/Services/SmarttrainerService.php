@@ -19,6 +19,9 @@ use Illuminate\Support\Collection;
  */
 class SmarttrainerService
 {
+    /** Eine eben beantwortete Frage frühestens nach dieser Zeit erneut (sofern es andere gibt). */
+    public const REPEAT_AFTER_MINUTES = 2;
+
     public function __construct(private ExamEvaluationService $examEvaluation) {}
 
     public function nextQuestion(Tenant $tenant, User $user, CourseDefinition $course, string $mode = 'smarttrainer', ?string $topic = null, ?string $moduleId = null, ?array $questionIds = null): ?array
@@ -88,16 +91,33 @@ class SmarttrainerService
             return null;
         }
 
+        // „Fehler wiederholen“ (?questions=…): eine dort inzwischen richtig
+        // beantwortete Frage ist erledigt -- sonst endete die Liste nie.
+        if ($questionIds !== null) {
+            $candidates = $candidates->reject(fn ($q) => ($p = $progressByQuestion->get($q->id)) && $p->attempt_count > 0 && $p->current_streak > 0);
+            if ($candidates->isEmpty()) {
+                return null;
+            }
+        }
+
         $ranked = $candidates
             ->map(function (ContentQuestion $question) use ($progressByQuestion, $topicAccuracy) {
-                [$score, $reason] = $this->score($question, $progressByQuestion->get($question->id), $topicAccuracy);
+                $progress = $progressByQuestion->get($question->id);
+                [$score, $reason] = $this->score($question, $progress, $topicAccuracy);
 
-                return ['question' => $question, 'score' => $score, 'reason' => $reason];
+                return ['question' => $question, 'score' => $score, 'reason' => $reason, 'seen' => $progress?->last_seen_at?->getTimestamp() ?? 0];
             })
-            ->sortByDesc('score')
+            // Gleiche Priorität: die am längsten nicht gesehene Frage zuerst
+            // (sonst kam bei lauter gefestigten Fragen immer dieselbe).
+            ->sort(fn ($a, $b) => [$b['score'], $a['seen']] <=> [$a['score'], $b['seen']])
             ->values();
 
-        $top = $ranked->first();
+        // Review-Runde 9: dieselbe Frage nicht direkt noch einmal zeigen --
+        // eine eben gesehene (z. B. gerade falsch beantwortete) Frage kommt
+        // erst nach anderen wieder dran, solange es andere gibt.
+        $recentCutoff = now()->subMinutes(self::REPEAT_AFTER_MINUTES)->getTimestamp();
+        $fresh = $ranked->filter(fn ($r) => $r['seen'] < $recentCutoff);
+        $top = ($fresh->isNotEmpty() ? $fresh : $ranked->sortBy('seen'))->first();
 
         return [
             'question' => $top['question'],
@@ -125,7 +145,7 @@ class SmarttrainerService
             return [$base + 150, "Schwaches Thema: {$topic}"];
         }
 
-        return [$base, 'Gefestigt, niedrige Priorität'];
+        return [$base, $progress->learning_state === 'gefestigt' ? 'Gefestigt, zur Wiederholung' : 'In Bearbeitung'];
     }
 
     private function wasLastWrong(?Progress $progress): bool

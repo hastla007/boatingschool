@@ -339,7 +339,10 @@ class ProfileController extends Controller
         // über Superadmin\UserController::addMembership() eingreifen. Der
         // Inhaber kann sein Konto deshalb nicht löschen, solange er der
         // einzige ist.
-        if ($user->roleForTenant($tenant) === 'owner') {
+        // Review-Runde 9: auch eine gesperrte Inhaber-Mitgliedschaft zählt
+        // (roleForTenant() kennt nur aktive).
+        $isOwner = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('role', 'owner')->exists();
+        if ($isOwner) {
             $hasOtherOwner = TenantUser::where('tenant_id', $tenant->id)
                 ->where('role', 'owner')
                 ->where('status', 'active')

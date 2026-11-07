@@ -46,11 +46,21 @@ class ExpireAbandonedExamSessions extends Command
                 continue;
             }
 
+            // Review-Runde 9: ohne eine einzige Antwort ist das kein Ergebnis
+            // (0 % „nicht bestanden“ verdrängte sonst das letzte echte Ergebnis
+            // auf der Bogen-Kachel und drückte die Bestehensquote der Schule).
+            if (! $session->questions()->where(fn ($q) => $q->whereNotNull('answered_at')->orWhereNotNull('revealed_at'))->exists()) {
+                $session->delete();
+                $expired++;
+
+                continue;
+            }
+
             $examEvaluation->evaluate($session);
             $expired++;
         }
 
-        $this->line("{$expired} abgebrochene Prüfungssession(s) ausgewertet.");
+        $this->line("{$expired} abgebrochene Prüfungssession(s) ausgewertet bzw. (ohne Antwort) entfernt.");
 
         return self::SUCCESS;
     }

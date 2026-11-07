@@ -271,7 +271,7 @@ class ReviewRoundSixFixesTest extends TestCase
         });
         $payload = ['action' => 'extend', 'seen_valid_until' => $until->timestamp];
 
-        $this->actingAsInTenant($owner, $tenant)->patch("/admin/entitlements/{$entitlement->id}", $payload)->assertSessionHas('status', 'Entitlement aktualisiert.');
+        $this->actingAsInTenant($owner, $tenant)->patch("/admin/entitlements/{$entitlement->id}", $payload)->assertSessionHas('status', fn ($s) => str_starts_with($s, 'Zugang verlängert'));
         $this->actingAsInTenant($owner, $tenant)->patch("/admin/entitlements/{$entitlement->id}", $payload)
             ->assertSessionHas('status', 'Dieser Zugang wurde inzwischen schon verlängert oder geändert; es wurde kein weiterer Code verbraucht.');
 
