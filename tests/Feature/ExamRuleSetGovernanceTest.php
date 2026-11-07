@@ -49,6 +49,8 @@ class ExamRuleSetGovernanceTest extends TestCase
             'status' => 'published', 'verified' => '1',
             'blueprints' => $rs->blueprints->map(fn ($b) => ['module_id' => $b->module_id, 'question_count' => $b->question_count])->values()->all(),
             'parts' => collect($rule['parts'] ?? [])->map(fn ($p) => ['label' => $p['label'], 'module' => $p['module'], 'min_correct' => $p['min_correct'], 'of' => $p['of']])->all(),
+            'navigation_min' => $rule['navigation']['min_points'] ?? null,
+            'navigation_of' => $rule['navigation']['of'] ?? null,
         ], $override);
     }
 

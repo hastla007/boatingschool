@@ -75,7 +75,9 @@
                     Jeder Prüfungsbogen enthält 30 Multiple-Choice-Fragen &mdash; 7 allgemeine Basisfragen und 23 spezifische
                     Fragen aus dem Bereich {{ $copy['bereich'] }}.
                     @if ($hasNavigationTasks)
-                        Außerdem kommt in der Prüfung eine Navigationsaufgabe vor. Diese findest du im Bereich
+                        Nach den Fragen folgt in jedem Bogen die Navigationsaufgabe mit derselben Nummer &ndash; sie muss für sich
+                        bestanden sein (mindestens 7 von 9 Punkten), alles zusammen in der Prüfungszeit. Zum Üben mit sofortiger
+                        Lösung findest du alle Aufgaben im Bereich
                         <a href="{{ route('exam.navigation.index', $course) }}" class="inline-flex items-center px-2 py-0.5 rounded-md text-white text-xs font-medium" style="background-color: var(--brand-primary, #005FD7)">Navigation Prüfungssimulation</a>.
                     @endif
                 </p>

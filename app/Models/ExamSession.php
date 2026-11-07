@@ -19,6 +19,7 @@ class ExamSession extends Model
     protected $fillable = [
         'tenant_id', 'user_id', 'course_id', 'rule_set_id', 'paper_id', 'status',
         'started_at', 'submitted_at', 'score', 'passed', 'rule_snapshot',
+        'navigation_task_id', 'navigation_submitted_at', 'navigation_points',
     ];
 
     protected function casts(): array
@@ -30,6 +31,8 @@ class ExamSession extends Model
             'created_at' => 'datetime',
             'score' => 'float',
             'passed' => 'boolean',
+            'navigation_submitted_at' => 'datetime',
+            'navigation_points' => 'integer',
         ];
     }
 
@@ -46,6 +49,22 @@ class ExamSession extends Model
     public function paper(): BelongsTo
     {
         return $this->belongsTo(ExamPaper::class, 'paper_id');
+    }
+
+    public function navigationTask(): BelongsTo
+    {
+        return $this->belongsTo(NavigationTask::class, 'navigation_task_id');
+    }
+
+    public function navigationAnswers(): HasMany
+    {
+        return $this->hasMany(ExamSessionNavigationAnswer::class, 'exam_session_id')->orderBy('position');
+    }
+
+    /** Gehört zu dieser Prüfung eine Navigationsaufgabe mit eigenem Mindestwert? */
+    public function hasNavigationPart(): bool
+    {
+        return $this->navigation_task_id !== null && $this->effectiveRuleSet()->navigationRule() !== null;
     }
 
     public function questions(): HasMany

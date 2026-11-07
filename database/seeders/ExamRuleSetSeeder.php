@@ -113,7 +113,9 @@ class ExamRuleSetSeeder extends Seeder
             'ADD-BIN-SEGEL' => 900, 'SRC' => 1800, 'FKN' => 1800, 'UBI' => 3600,
             'SBF-SEE' => 3600, 'SBF-BIN-MOTOR' => 2700, 'SBF-BIN-SEGEL' => 3600, 'SKN' => 3600, 'ADD-SEE-TO-BIN' => 2100, 'ADD-BIN-TO-SEE' => 3000, 'ADD-UBI-TO-SRC' => 1800,
         ];
-        $navigationNote = 'Zur amtlichen Prüfung gehört zusätzlich die Navigationsaufgabe (mindestens 7 von 9 Punkten); sie wird hier nicht automatisch bewertet.';
+        // Navigationsaufgabe als eigener Prüfungsteil: mindestens 7 von 9
+        // Punkten (ELWIS-Bewertungstabelle), siehe Migration 000587.
+        $navigation = ['min_points' => 7, 'of' => 9];
         $passingRuleOverrides = [
             'ADD-BIN-SEGEL' => ['min_correct_ratio' => 5 / 7],
             'SRC' => ['min_correct_ratio' => 19 / 24],
@@ -125,7 +127,7 @@ class ExamRuleSetSeeder extends Seeder
                     ['module' => 'SBF_BASIS', 'label' => 'Basisfragen', 'min_correct' => 5, 'of' => 7],
                     ['module' => 'SBF_SEE', 'label' => 'See', 'min_correct' => 18, 'of' => 23],
                 ],
-                'note' => $navigationNote,
+                'navigation' => $navigation,
             ],
             'SBF-BIN-MOTOR' => [
                 'min_correct_ratio' => 23 / 30,
@@ -143,7 +145,7 @@ class ExamRuleSetSeeder extends Seeder
                 ],
             ],
             'ADD-SEE-TO-BIN' => ['min_correct_ratio' => 18 / 23],
-            'ADD-BIN-TO-SEE' => ['min_correct_ratio' => 18 / 23, 'note' => $navigationNote],
+            'ADD-BIN-TO-SEE' => ['min_correct_ratio' => 18 / 23, 'navigation' => $navigation],
             'ADD-UBI-TO-SRC' => ['min_correct_ratio' => 8 / 10],
             'SKN' => ['min_correct_ratio' => 26 / 36],
         ];

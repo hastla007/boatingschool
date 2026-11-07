@@ -51,7 +51,10 @@ class ExamRuleSetController extends Controller
             'parts.*.module' => ['nullable', 'string', 'exists:module,code'],
             'parts.*.min_correct' => ['nullable', 'integer', 'min:0'],
             'parts.*.of' => ['nullable', 'integer', 'min:1'],
+            'navigation_min' => ['nullable', 'integer', 'min:0', 'max:50', 'required_with:navigation_of'],
+            'navigation_of' => ['nullable', 'integer', 'min:1', 'max:50', 'required_with:navigation_min', 'gte:navigation_min'],
         ], [
+            'navigation_of.gte' => 'Navigation: die Mindestpunktzahl kann nicht über der Gesamtpunktzahl liegen.',
             'min_correct.lte' => 'Die Bestehensgrenze kann nicht über der Fragenzahl liegen.',
         ]);
 
@@ -81,6 +84,9 @@ class ExamRuleSetController extends Controller
             'min_correct_ratio' => $validated['min_correct'] / $validated['of'],
             'parts' => $parts->map(fn ($p) => ['label' => trim($p['label']), 'module' => $p['module'], 'min_correct' => (int) $p['min_correct'], 'of' => (int) $p['of']])->values()->all() ?: null,
             'note' => trim((string) ($validated['note'] ?? '')) ?: null,
+            // Navigationsaufgabe als eigener Prüfungsteil (z. B. SBF See 7 von 9).
+            'navigation' => isset($validated['navigation_min'], $validated['navigation_of'])
+                ? ['min_points' => (int) $validated['navigation_min'], 'of' => (int) $validated['navigation_of']] : null,
         ], fn ($v) => $v !== null);
 
         $verified = $request->boolean('verified');

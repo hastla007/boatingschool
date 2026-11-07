@@ -42,6 +42,20 @@ class ExamRuleSet extends Model
         return $this->hasMany(ExamBlueprint::class, 'rule_set_id');
     }
 
+    /**
+     * Teilminimum der Navigationsaufgabe (SBF See: mindestens 7 von 9
+     * Punkten) oder null, wenn zur Prüfung keine Navigationsaufgabe gehört.
+     *
+     * @return array{min_points: int, of: int}|null
+     */
+    public function navigationRule(): ?array
+    {
+        $rule = $this->passing_rule['navigation'] ?? null;
+
+        return is_array($rule) && isset($rule['min_points'], $rule['of'])
+            ? ['min_points' => (int) $rule['min_points'], 'of' => (int) $rule['of']] : null;
+    }
+
     public function isVerified(): bool
     {
         return $this->status === 'published' && $this->verified_at !== null;

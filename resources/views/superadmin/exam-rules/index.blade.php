@@ -130,6 +130,19 @@
                     <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Bezeichnung leeren, um einen Teil zu entfernen.</p>
                 </fieldset>
 
+                <fieldset class="min-w-0">
+                    <legend class="text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Navigationsaufgabe als eigener Prüfungsteil (optional, z. B. SBF See 7 von 9 Punkten)</legend>
+                    <div class="flex items-center gap-2">
+                        <label for="nav-min-{{ $ruleSet->id }}" class="sr-only">mindestens Punkte</label>
+                        <input id="nav-min-{{ $ruleSet->id }}" name="navigation_min" type="number" min="0" max="50" value="{{ $rule['navigation']['min_points'] ?? '' }}" placeholder="x" class="w-24 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                        <span class="text-sm text-slate-600 dark:text-slate-400">von</span>
+                        <label for="nav-of-{{ $ruleSet->id }}" class="sr-only">Punkte gesamt</label>
+                        <input id="nav-of-{{ $ruleSet->id }}" name="navigation_of" type="number" min="1" max="50" value="{{ $rule['navigation']['of'] ?? '' }}" placeholder="y" class="w-24 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                        <span class="text-sm text-slate-600 dark:text-slate-400">Punkten</span>
+                    </div>
+                    <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Zum Bogen gehört dann die Navigationsaufgabe mit derselben Nummer (je Teilfrage ein Punkt). Leer lassen, wenn es keine gibt.</p>
+                </fieldset>
+
                 <div>
                     <x-input-label for="note-{{ $ruleSet->id }}" value="Hinweis für Teilnehmer (optional)" />
                     <textarea id="note-{{ $ruleSet->id }}" name="note" rows="2" maxlength="1000" class="{{ $input }}">{{ $rule['note'] ?? '' }}</textarea>

@@ -152,6 +152,8 @@ Route::middleware(['auth', 'tenant.member', 'verified'])->group(function () {
     // ausgeliefert, statt bereits im initialen HTML von show() zu stehen.
     Route::post('/exam-sessions/{examSession}/reveal', [ExamController::class, 'reveal'])->name('exam.reveal');
     Route::post('/exam-sessions/{examSession}/finish', [ExamController::class, 'finish'])->name('exam.finish');
+    Route::post('/exam-sessions/{examSession}/navigation', [ExamController::class, 'submitNavigation'])->name('exam.navigation-part.submit');
+    Route::post('/exam-sessions/{examSession}/navigation/assess', [ExamController::class, 'assessNavigation'])->name('exam.navigation-part.assess');
     Route::get('/exam-sessions/{examSession}/result', [ExamController::class, 'result'])->name('exam.result');
 
     Route::get('/courses/{course}/exam/navigation', [NavigationTaskController::class, 'index'])->name('exam.navigation.index');

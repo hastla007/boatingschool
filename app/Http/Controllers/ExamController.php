@@ -7,7 +7,9 @@ use App\Models\ContentQuestion;
 use App\Models\CourseDefinition;
 use App\Models\ExamPaper;
 use App\Models\ExamPaperQuestion;
+use App\Models\ExamRuleSet;
 use App\Models\ExamSession;
+use App\Models\ExamSessionNavigationAnswer;
 use App\Models\ExamSessionQuestion;
 use App\Models\Favorite;
 use App\Models\Progress;
@@ -260,6 +262,10 @@ class ExamController extends Controller
                 ]);
             }
 
+            // SBF See: Navigationsaufgabe mit derselben Nummer wie der Bogen
+            // als eigener Prüfungsteil (mindestens 7 von 9 Punkten).
+            $this->attachNavigationTask($session, $ruleSet, $course, $paper->paper_number);
+
             return redirect()->route('exam.show', $session);
         });
     }
@@ -351,6 +357,87 @@ class ExamController extends Controller
         });
     }
 
+    private function attachNavigationTask(ExamSession $session, ExamRuleSet $ruleSet, CourseDefinition $course, int $taskNumber): void
+    {
+        if ($ruleSet->navigationRule() === null) {
+            return;
+        }
+        $task = $course->navigationTasks()->where('task_number', $taskNumber)->with('questions')->first();
+        if (! $task || $task->questions->isEmpty()) {
+            return;
+        }
+        $session->update(['navigation_task_id' => $task->id]);
+        foreach ($task->questions->sortBy('question_number')->values() as $i => $question) {
+            ExamSessionNavigationAnswer::create([
+                'tenant_id' => $session->tenant_id,
+                'exam_session_id' => $session->id,
+                'navigation_question_id' => $question->id,
+                'position' => $i + 1,
+            ]);
+        }
+    }
+
+    /** Navigationsaufgabe der Prüfung: alle Teilantworten auf einmal abgeben. */
+    public function submitNavigation(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, ExamEvaluationService $examEvaluation, ExamSession $examSession): Response
+    {
+        $this->authorizeSession($request, $tenantContext, $entitlements, $examSession);
+        if ($examSession->status === 'evaluated') {
+            return redirect()->route('exam.result', $examSession);
+        }
+        abort_unless($examSession->status === 'running' && $examSession->hasNavigationPart(), 409);
+        $validated = $request->validate(['answers' => ['array'], 'answers.*' => ['nullable', 'string', 'max:500']]);
+
+        $expired = false;
+        DB::transaction(function () use ($examSession, $validated, $examEvaluation, &$expired) {
+            DB::table('exam_session')->where('id', $examSession->id)->lockForUpdate()->first();
+            $examSession->refresh();
+            abort_if($examSession->status !== 'running', 409);
+            if ($examEvaluation->timeExpired($examSession)) {
+                $expired = true;
+
+                return;
+            }
+            if ($examSession->navigation_submitted_at) {
+                return;
+            }
+            foreach ($examSession->navigationAnswers as $answer) {
+                $given = trim((string) ($validated['answers'][$answer->navigation_question_id] ?? ''));
+                $answer->update(['answer' => $given === '' ? null : $given, 'answered_at' => $given === '' ? null : now()]);
+            }
+            $examSession->update(['navigation_submitted_at' => now()]);
+        });
+
+        if ($expired) {
+            $examEvaluation->evaluate($examSession);
+
+            return redirect()->route('exam.result', $examSession)->with('status', 'Die Prüfungszeit ist abgelaufen -- hier ist dein Ergebnis.');
+        }
+
+        return redirect()->route('exam.show', $examSession);
+    }
+
+    /** Selbsteinschätzung der Teilfragen, die sich nicht automatisch prüfen lassen; danach Auswertung. */
+    public function assessNavigation(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, ExamEvaluationService $examEvaluation, ExamSession $examSession): Response
+    {
+        $this->authorizeSession($request, $tenantContext, $entitlements, $examSession);
+        if ($examSession->status === 'evaluated') {
+            return redirect()->route('exam.result', $examSession);
+        }
+        abort_unless($examSession->status === 'running' && $examSession->navigation_submitted_at, 409);
+        $validated = $request->validate(['known' => ['array'], 'known.*' => ['in:0,1']]);
+
+        DB::transaction(function () use ($examSession, $validated) {
+            DB::table('exam_session')->where('id', $examSession->id)->lockForUpdate()->first();
+            foreach ($examSession->navigationAnswers()->with('question')->get() as $answer) {
+                if ($answer->answer !== null && ! $answer->isAutoCheckable() && isset($validated['known'][$answer->id])) {
+                    $answer->update(['self_assessed_known' => $validated['known'][$answer->id] === '1']);
+                }
+            }
+        });
+
+        return $this->finish($request, $tenantContext, $entitlements, $examEvaluation, $examSession);
+    }
+
     public function show(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, ExamEvaluationService $examEvaluation, ExamSession $examSession): View|Response
     {
         $this->authorizeSession($request, $tenantContext, $entitlements, $examSession);
@@ -364,6 +451,25 @@ class ExamController extends Controller
         }
 
         $current = $examSession->questions()->whereNull('answered_at')->orderBy('position')->with('revision.answers', 'revision.media')->first();
+
+        if (! $current && $examSession->hasNavigationPart()) {
+            $remaining = $examSession->effectiveRuleSet()->time_limit_seconds
+                ? max(0, (int) ($examSession->effectiveRuleSet()->time_limit_seconds - $examSession->started_at->diffInSeconds(now())))
+                : null;
+            $answers = $examSession->navigationAnswers()->with('question')->get();
+            $toAssess = $answers->filter(fn ($a) => $a->answer !== null && ! $a->isAutoCheckable());
+            if (! $examSession->navigation_submitted_at || $toAssess->isNotEmpty()) {
+                return view('exam.navigation-part', [
+                    'examSession' => $examSession,
+                    'task' => $examSession->navigationTask,
+                    'answers' => $answers,
+                    'toAssess' => $toAssess,
+                    'step' => $examSession->navigation_submitted_at ? 'assess' : 'answer',
+                    'rule' => $examSession->effectiveRuleSet()->navigationRule(),
+                    'remainingSeconds' => $remaining,
+                ]);
+            }
+        }
 
         if (! $current) {
             return $this->finish($request, $tenantContext, $entitlements, $examEvaluation, $examSession);
