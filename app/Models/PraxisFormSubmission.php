@@ -150,18 +150,20 @@ class PraxisFormSubmission extends Model
         // Review-Runde 9: Zusatztermine gibt es auch vor bzw. ohne fixierten
         // Prüfungstermin -- was die Schule tun muss, kommt vor allem, worauf
         // sie nur wartet (egal in welchem Slot).
+        $practiceNeedsNewProposal = fn (?PraxisExamAppointment $a) => $a && $a->response === 'declined';
         if ($this->isPracticeOnly()) {
             foreach ($this->practiceSlotNumbers() as $slot) {
-                $latest = $this->latestAppointmentForSlot($slot);
-                if ($needsNewProposal($latest)) {
+                if ($practiceNeedsNewProposal($this->latestAppointmentForSlot($slot))) {
                     return ['label' => 'Termin erneut vorschlagen ('.$this->labelForSlot($slot).')', 'action_needed' => true];
                 }
-                if ($latest?->isPending()) {
+            }
+            foreach ($this->practiceSlotNumbers() as $slot) {
+                if ($this->latestAppointmentForSlot($slot)?->isPending()) {
                     return ['label' => 'Wartet auf Rückmeldung ('.$this->labelForSlot($slot).')', 'action_needed' => false];
                 }
             }
 
-            return ['label' => 'Praxisstunden vereinbart', 'action_needed' => false];
+            return ['label' => 'Praxisstunden', 'action_needed' => false];
         }
         if (! $exam) {
             return ['label' => 'Prüfungstermin vorschlagen', 'action_needed' => true];
@@ -170,7 +172,7 @@ class PraxisFormSubmission extends Model
             return ['label' => 'Prüfungstermin erneut vorschlagen', 'action_needed' => true];
         }
         foreach ($this->practiceSlotNumbers() as $slot) {
-            if ($needsNewProposal($this->latestAppointmentForSlot($slot))) {
+            if ($practiceNeedsNewProposal($this->latestAppointmentForSlot($slot))) {
                 return ['label' => 'Termin erneut vorschlagen ('.$this->labelForSlot($slot).')', 'action_needed' => true];
             }
         }

@@ -9,6 +9,7 @@ use App\Notifications\PraxisExamAppointmentResponded;
 use App\Services\EntitlementService;
 use App\Services\PraxisExamAppointmentService;
 use App\Support\BestEffortMail;
+use App\Support\ExamRegistration;
 use App\Support\TenantContext;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
@@ -80,6 +81,10 @@ class PraxisExamAppointmentController extends Controller
             : 'Rückmeldung gespeichert -- deine Bootsschule schlägt dir einen neuen Termin vor.';
 
         // Praxisstunden bei Selbst-Anmeldung stehen auf „Prüfung buchen“.
-        return redirect()->route($examAppointment->submission->isPracticeOnly() ? 'exam-booking' : 'praxis-pruefung.index', $course)->with('status', $status);
+        // Zurück dorthin, wo der Termin angezeigt wird: bei Selbst-Anmeldung
+        // ohne Anmeldung „Prüfung buchen“, sonst die Praxis-Seite.
+        $toBooking = ! ExamRegistration::usesAppointmentTool($tenantContext->tenant(), $course, $user);
+
+        return redirect()->route($toBooking ? 'exam-booking' : 'praxis-pruefung.index', $course)->with('status', $status);
     }
 }

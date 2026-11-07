@@ -9,7 +9,7 @@
     <div class="flex items-start justify-between gap-4 mb-2">
         <div>
             <span class="text-sm font-medium text-slate-700 dark:text-slate-200">{{ $submission->course->name ?? '—' }}</span>
-            <span class="block text-xs text-slate-600 dark:text-slate-400">{{ $submission->isPracticeOnly() ? 'Praxisstunden -- zur Prüfung meldet sich der Teilnehmer selbst an' : ($submission->template->title ?? 'Formular gelöscht') }}</span>
+            <span class="block text-xs text-slate-600 dark:text-slate-400">{{ $submission->isPracticeOnly() ? 'Praxisstunden (ohne Praxis-Anmeldung)' : ($submission->template->title ?? 'Formular gelöscht') }}</span>
         </div>
         <span class="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">{{ \App\Support\GermanTime::format($submission->created_at, 'd.m.Y H:i') }}</span>
     </div>
@@ -86,9 +86,12 @@
         </dl>
     @endif
 
-    @unless ($submission->isPracticeOnly())
+    @php($selfBooking = $submission->course && \App\Support\ExamRegistration::isSelf(app(\App\Support\TenantContext::class)->tenant(), $submission->course))
+    @if (! $submission->isPracticeOnly() && $selfBooking && $submission->appointmentsForSlot(0)->isEmpty())
+        <p class="mt-3 text-xs text-slate-600 dark:text-slate-400">Zur Prüfung meldet sich der Teilnehmer bei diesem Kurs selbst an; Praxisstunden können Sie unten vorschlagen.</p>
+    @elseif (! $submission->isPracticeOnly())
         <x-admin.praxis-appointment-slot :submission="$submission" :appointment-slot="0" label="Prüfungstermin" :locations="$submissionLocations" />
-    @endunless
+    @endif
 
     @foreach ($submission->practiceSlotNumbers() as $practiceSlot)
         <x-admin.praxis-appointment-slot

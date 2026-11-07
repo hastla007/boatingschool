@@ -42,7 +42,10 @@ class NewPasswordController extends Controller
         // will update the password on an actual user model and persist it to the
         // database. Otherwise we will parse the error and return the response.
         // Einladungs-Links (AccountSetupLink) sind 7 Tage gültig: eigener Broker.
-        $status = Password::broker($request->boolean('invite') ? 'invites' : null)->reset(
+        // Einladungs-Broker nur für Konten, die noch nie ein Passwort gesetzt haben.
+        $invited = $request->boolean('invite')
+            && User::on('pgsql_admin')->where('email', (string) $request->input('email'))->value('status') === 'invited';
+        $status = Password::broker($invited ? 'invites' : null)->reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
             function (User $user) use ($request) {
                 $user->forceFill([
@@ -75,6 +78,9 @@ class NewPasswordController extends Controller
                 // ein Passwort-Reset durch den rechtmäßigen Besitzer dessen
                 // aktive Sessions nicht beenden (Sicherheitsreview H2).
                 DB::table('sessions')->where('user_id', $user->id)->delete();
+                // Offene Reset- und Einladungslinks verlieren ihre Gültigkeit.
+                DB::table('password_reset_tokens')->where('email', $user->email)->delete();
+                DB::table('account_setup_tokens')->where('email', $user->email)->delete();
 
                 event(new PasswordReset($user));
             }

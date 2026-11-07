@@ -246,7 +246,7 @@ class SbfExamRuleSetsTest extends TestCase
         // mit der Musterlösung, die übrigen falsch beantworten.
         $navAnswers = $this->asTenant($tenant, fn () => $session->fresh()->navigationAnswers()->with('question')->get());
         if ($navAnswers->isNotEmpty()) {
-            $given = $navAnswers->mapWithKeys(fn ($a, $i) => [$a->navigation_question_id => $i < $navigationCorrect ? $a->question->answer_text : 'weiß nicht'])->all();
+            $given = $navAnswers->mapWithKeys(fn ($a, $i) => [$a->id => $i < $navigationCorrect ? $a->modelAnswer() : 'weiß nicht'])->all();
             $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/navigation", ['answers' => $given])->assertRedirect();
             $known = $navAnswers->mapWithKeys(fn ($a, $i) => [$a->id => $i < $navigationCorrect ? '1' : '0'])->all();
             $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/navigation/assess", ['known' => $known]);

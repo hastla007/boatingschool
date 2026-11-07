@@ -3,6 +3,13 @@
 namespace App\Providers;
 
 use App\Auth\TenantSessionGuard;
+use App\Notifications\AnnouncementPublished;
+use App\Notifications\CouponRedeemed;
+use App\Notifications\EntitlementExpiringSoon;
+use App\Notifications\LearningReminder;
+use App\Notifications\PraxisExamAppointmentUpdated;
+use App\Notifications\TenantInvitationNotification;
+use App\Notifications\WillkommensboxOrderShipped;
 use App\Support\CanonicalUrl;
 use App\Support\TenantContext;
 use Illuminate\Auth\Notifications\ResetPassword;
@@ -90,8 +97,21 @@ class AppServiceProvider extends ServiceProvider
         // Review-Runde 9: Antworten auf Mails einer Schule (Einladung,
         // Terminvorschlag, Freischaltung …) gehen an deren bestätigte
         // Support-Adresse statt an die Absenderadresse der Plattform.
-        Event::listen(MessageSending::class, function ($event) {
-            $tenant = app(TenantContext::class)->tenant() ?? (app()->bound('currentTenant') ? app('currentTenant') : null);
+        // Review-Runde 10: nur für Mails, die die Schule an ihre Teilnehmer
+        // schickt (Liste unten) -- nie für Konto- und Sicherheitsmails der
+        // Plattform (Passwort, Bestätigung, Registrierungsversuch …), sonst
+        // könnte eine Schule dort ihre eigene Antwortadresse unterbringen.
+        $schoolMails = [
+            TenantInvitationNotification::class, CouponRedeemed::class,
+            EntitlementExpiringSoon::class, LearningReminder::class,
+            PraxisExamAppointmentUpdated::class, AnnouncementPublished::class,
+            WillkommensboxOrderShipped::class,
+        ];
+        Event::listen(MessageSending::class, function ($event) use ($schoolMails) {
+            if (! in_array($event->data['__laravel_notification'] ?? null, $schoolMails, true)) {
+                return;
+            }
+            $tenant = app(TenantContext::class)->tenant();
             $branding = $tenant?->branding;
             if ($branding?->support_email && $branding->support_email_verified_at && $event->message->getReplyTo() === []) {
                 $event->message->replyTo(new Address($branding->support_email, $tenant->name));

@@ -3,10 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\CourseDefinition;
+use App\Models\ExamSession;
 use App\Models\NavigationProgress;
 use App\Models\NavigationQuestion;
 use App\Models\NavigationTask;
 use App\Services\EntitlementService;
+use App\Services\ExamEvaluationService;
 use App\Support\NavigationAnswer;
 use App\Support\TenantContext;
 use Illuminate\Http\RedirectResponse;
@@ -35,6 +37,15 @@ class NavigationTaskController extends Controller
         return $this->show($request, $tenantContext, $entitlements, $course, $tasks->first());
     }
 
+    /** Review-Runde 10: Lösungen der Aufgabe, die gerade in einer laufenden Prüfung dran ist, nicht zeigen. */
+    private function abortIfInRunningExam(Request $request, TenantContext $tenantContext, NavigationTask $task): void
+    {
+        $running = ExamSession::where('tenant_id', $tenantContext->id())->where('user_id', $request->user()->id)
+            ->where('status', 'running')->where('navigation_task_id', $task->id)->get()
+            ->contains(fn ($s) => ! app(ExamEvaluationService::class)->timeExpired($s));
+        abort_if($running, 409, 'Diese Navigationsaufgabe ist gerade Teil deiner laufenden Prüfungssimulation. Die Übung ist danach wieder verfügbar.');
+    }
+
     public function show(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course, NavigationTask $task): View
     {
         abort_unless($entitlements->hasAccess($tenantContext->tenant(), $request->user(), $course), 403);
@@ -43,6 +54,7 @@ class NavigationTaskController extends Controller
         abort_unless($tasks->contains('id', $task->id), 404, 'Diese Aufgabe gehört nicht zu diesem Kurs.');
 
         $task = $tasks->firstWhere('id', $task->id);
+        $this->abortIfInRunningExam($request, $tenantContext, $task);
         $progress = $this->progress($request, $tasks);
 
         return view('exam.navigation', [
@@ -63,6 +75,7 @@ class NavigationTaskController extends Controller
     {
         abort_unless($entitlements->hasAccess($tenantContext->tenant(), $request->user(), $course), 403);
         abort_unless($task->course_id === $course->id && $question->navigation_task_id === $task->id, 404);
+        $this->abortIfInRunningExam($request, $tenantContext, $task);
 
         $data = $request->validate([
             'answer' => ['nullable', 'string', 'max:500'],

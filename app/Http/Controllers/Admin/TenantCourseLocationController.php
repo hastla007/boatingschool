@@ -64,8 +64,13 @@ class TenantCourseLocationController extends Controller
         // Koordinaten wie man sie eintippt bzw. aus Google Maps kopiert:
         // Dezimalkomma („54,3333“) und beide Werte in einem Feld („54.33, 10.15“).
         foreach (['praxis', 'pruefung', 'theorie'] as $prefix) {
-            $lat = trim((string) $request->input("{$prefix}_lat"));
-            $lng = trim((string) $request->input("{$prefix}_lng"));
+            $rawLat = $request->input("{$prefix}_lat");
+            $rawLng = $request->input("{$prefix}_lng");
+            if (! is_scalar($rawLat ?? '') || ! is_scalar($rawLng ?? '')) {
+                continue; // Arrays o. Ä. lehnt die Validierung unten ab.
+            }
+            $lat = trim((string) $rawLat);
+            $lng = trim((string) $rawLng);
             if (preg_match('/^(-?\d+(?:[.,]\d+)?)\s*[,;]\s+(-?\d+(?:[.,]\d+)?)$/', $lat, $m) && $lng === '') {
                 [$lat, $lng] = [$m[1], $m[2]];
             }

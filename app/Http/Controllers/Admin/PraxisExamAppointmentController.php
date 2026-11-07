@@ -12,9 +12,11 @@ use App\Models\TenantCourseLocation;
 use App\Models\TenantUser;
 use App\Models\User;
 use App\Notifications\PraxisExamAppointmentUpdated;
+use App\Services\EntitlementService;
 use App\Services\PraxisExamAppointmentService;
 use App\Support\BestEffortMail;
 use App\Support\ExamRegistration;
+use App\Support\InstructorScope;
 use App\Support\TenantContext;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
@@ -48,6 +50,13 @@ class PraxisExamAppointmentController extends Controller
         $course = CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')->find($courseId);
         $isLearner = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('role', 'learner')->exists();
         abort_unless($course && $isLearner && ExamRegistration::isSelf($tenant, $course), 404);
+        // Ausbilder nur für ihre Kurse; nur mit gültigem Kurszugang (sonst
+        // könnte der Teilnehmer den Termin gar nicht sehen oder beantworten).
+        $scope = InstructorScope::courseIds($tenant, $request->user());
+        abort_unless($scope === null || $scope->contains($course->id), 404);
+        if (! app(EntitlementService::class)->hasAccess($tenant, $user, $course)) {
+            return back()->withErrors(['exam_date' => 'Der Teilnehmer hat für diesen Kurs keinen gültigen Zugang.']);
+        }
 
         $template = PraxisFormTemplate::where('active', true)->whereJsonContains('course_ids', $course->id)->first();
         if (! $template) {
@@ -64,7 +73,14 @@ class PraxisExamAppointmentController extends Controller
         });
         $request->request->remove('slot');
 
-        return $this->store($request, $tenantContext, $submission, $appointments);
+        $response = $this->store($request, $tenantContext, $submission, $appointments);
+        // Scheiterte der Vorschlag (z. B. Datum in der Vergangenheit), bleibt
+        // kein leerer Behälter zurück.
+        if ($submission->isPracticeOnly() && ! $submission->examAppointments()->exists()) {
+            $submission->delete();
+        }
+
+        return $response;
     }
 
     public function store(Request $request, TenantContext $tenantContext, PraxisFormSubmission $submission, PraxisExamAppointmentService $appointments): Response
@@ -79,6 +95,9 @@ class PraxisExamAppointmentController extends Controller
         // Antworten bleiben unberührt.
         // Review-Runde 9 (Entscheidung): Praxisstunden und andere Zusatztermine
         // schlägt die Schule auch dann vor -- gesperrt ist nur der Prüfungstermin.
+        if ($request->input('slot') !== null && (int) $request->input('slot') === 0 && $submission->isPracticeOnly()) {
+            return back()->withErrors(['exam_date' => 'Für reine Praxisstunden gibt es keinen Prüfungstermin.']);
+        }
         if ($request->input('slot') !== null && (int) $request->input('slot') === 0 && $submission->course && ExamRegistration::isSelf($tenantContext->tenant(), $submission->course)) {
             return back()->withErrors(['exam_date' => 'Für diesen Kurs melden sich die Teilnehmer selbst zur Prüfung an (Einstellung im Tab „Kurse“). Einen Prüfungstermin schlagen Sie deshalb nicht vor; Praxisstunden sind weiter möglich.']);
         }

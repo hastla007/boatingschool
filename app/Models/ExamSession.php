@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
 class ExamSession extends Model
 {
@@ -64,7 +65,31 @@ class ExamSession extends Model
     /** Gehört zu dieser Prüfung eine Navigationsaufgabe mit eigenem Mindestwert? */
     public function hasNavigationPart(): bool
     {
-        return $this->navigation_task_id !== null && $this->effectiveRuleSet()->navigationRule() !== null;
+        // Auch wenn die Aufgabe inzwischen gelöscht wurde: die festgehaltenen
+        // Antworten bleiben Teil der Prüfung.
+        return $this->effectiveRuleSet()->navigationRule() !== null
+            && ($this->navigation_task_id !== null || $this->navigationAnswers()->exists());
+    }
+
+    /** Nachfrist für die Abgabe der Navigation bzw. die Selbsteinschätzung nach Zeitablauf (Sekunden). */
+    public const NAVIGATION_SUBMIT_GRACE = 120;
+
+    public const NAVIGATION_ASSESS_GRACE = 900;
+
+    public function deadline(): ?Carbon
+    {
+        $limit = $this->effectiveRuleSet()->time_limit_seconds;
+
+        return $limit ? $this->started_at->copy()->addSeconds($limit) : null;
+    }
+
+    /** Navigation abgegeben, Selbsteinschätzung läuft noch (zählt nicht zur Prüfungszeit). */
+    public function inNavigationAssessment(): bool
+    {
+        $deadline = $this->deadline();
+
+        return $this->status === 'running' && $this->navigation_submitted_at !== null && $this->hasNavigationPart()
+            && (! $deadline || now()->lte($deadline->copy()->addSeconds(self::NAVIGATION_ASSESS_GRACE)));
     }
 
     public function questions(): HasMany

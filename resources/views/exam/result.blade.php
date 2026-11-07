@@ -39,7 +39,7 @@
                         @php($navPassed = (int) $examSession->navigation_points >= $navRule['min_points'])
                         <span class="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium {{ $navPassed ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300' }}">
                             <x-icon :name="$navPassed ? 'check-circle' : 'x-circle'" class="w-4 h-4" />
-                            Navigation: {{ (int) $examSession->navigation_points }}/{{ $examSession->navigationAnswers->count() }} Punkte (mind. {{ $navRule['min_points'] }}/{{ $navRule['of'] }})
+                            Navigation: {{ (int) $examSession->navigation_points }}/{{ $navRule['of'] }} Punkte (mind. {{ $navRule['min_points'] }}/{{ $navRule['of'] }})
                         </span>
                     @endif
                 </div>
@@ -56,12 +56,12 @@
                 </h3>
                 <ul class="divide-y divide-slate-100 dark:divide-slate-700 text-sm">
                     @foreach ($examSession->navigationAnswers()->with('question')->get() as $navAnswer)
-                        <li class="py-2">
+                        <li class="py-2 min-w-0">
                             <div class="flex items-start justify-between gap-3">
-                                <span class="text-slate-700 dark:text-slate-200"><span class="font-medium">Frage {{ $navAnswer->question->question_number }}:</span> {{ $navAnswer->question->question_text }}</span>
-                                <span class="shrink-0 text-xs font-medium rounded-full px-2 py-0.5 {{ $navAnswer->correct ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200' : 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200' }}">{{ $navAnswer->correct ? 'Richtig' : 'Falsch' }}</span>
+                                <span class="text-slate-700 dark:text-slate-200 break-words min-w-0"><span class="font-medium">Frage {{ $navAnswer->number() }}:</span> {{ $navAnswer->questionText() }}</span>
+                                <span class="shrink-0 text-xs font-medium rounded-full px-2 py-0.5 {{ $navAnswer->correct ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200' : 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200' }}">{{ $navAnswer->correct ? 'Richtig' : 'Falsch' }}{{ $navAnswer->correct && ($navAnswer->self_assessed_known && $navAnswer->autoResult() !== true) ? ' (selbst bewertet)' : '' }}</span>
                             </div>
-                            <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">Deine Antwort: {{ $navAnswer->answer ?? '—' }} &middot; Musterlösung: {{ $navAnswer->question->answer_text }}</p>
+                            <p class="mt-1 text-xs text-slate-600 dark:text-slate-400 break-all">Deine Antwort: {{ $navAnswer->answer ?? '—' }} &middot; Musterlösung: {{ $navAnswer->modelAnswer() }}</p>
                         </li>
                     @endforeach
                 </ul>
