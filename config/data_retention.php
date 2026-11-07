@@ -36,4 +36,12 @@ return [
         'days' => env('DATA_RETENTION_SESSIONS_DAYS', 30),
     ],
 
+    // Konten, die nie angenommen (status „invited“) bzw. deren E-Mail nie
+    // bestätigt wurde: können sich selbst nicht löschen und hätten sonst
+    // keine Frist.
+    'unclaimed_accounts' => [
+        'enabled' => env('DATA_RETENTION_UNCLAIMED_ACCOUNTS_ENABLED', true),
+        'days' => env('DATA_RETENTION_UNCLAIMED_ACCOUNTS_DAYS', 90),
+    ],
+
 ];

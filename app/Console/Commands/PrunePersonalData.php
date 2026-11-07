@@ -2,8 +2,11 @@
 
 namespace App\Console\Commands;
 
+use App\Models\User;
+use App\Services\AccountErasureService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * DSGVO-Review D3: es gab keinerlei Löschfristen für audit_log, attempt
@@ -27,6 +30,8 @@ class PrunePersonalData extends Command
         $dryRun = $this->option('dry-run');
 
         $this->pruneSessions($dryRun);
+        $this->pruneTechnicalLeftovers($dryRun);
+        $this->pruneUnclaimedAccounts($dryRun);
         $this->pruneTable('audit_log', 'created_at', 'audit_log', $dryRun);
         $this->pruneTable('attempt', 'created_at', 'attempt', $dryRun);
 
@@ -54,6 +59,54 @@ class PrunePersonalData extends Command
 
         $deleted = $query->delete();
         $this->line("Sessions: {$deleted} abgelaufene Zeile(n) gelöscht.");
+    }
+
+    /**
+     * Abgelaufene Cache-Zeilen (darunter Sperrzähler mit E-Mail und IP aus
+     * dem Login-Throttle -- der Datenbank-Cache räumt sie nie selbst ab) und
+     * abgelaufene Passwort-Reset-Tokens.
+     */
+    private function pruneTechnicalLeftovers(bool $dryRun): void
+    {
+        $cache = Schema::hasTable('cache') ? DB::table('cache')->where('expiration', '<', now()->timestamp) : null;
+        $resetMinutes = (int) config('auth.passwords.users.expire', 60);
+        $resets = DB::table('password_reset_tokens')->where('created_at', '<', now()->subMinutes($resetMinutes));
+
+        if ($dryRun) {
+            $this->line('Cache: '.($cache?->count() ?? 0).' abgelaufene Zeile(n), Passwort-Reset-Tokens: '.$resets->count().' abgelaufen -- würden gelöscht.');
+
+            return;
+        }
+
+        $this->line('Cache: '.($cache?->delete() ?? 0).' abgelaufene Zeile(n) gelöscht, Passwort-Reset-Tokens: '.$resets->delete().' gelöscht.');
+    }
+
+    /** Nie angenommene Einladungs-Konten und nie bestätigte Registrierungen nach der Frist löschen. */
+    private function pruneUnclaimedAccounts(bool $dryRun): void
+    {
+        $config = config('data_retention.unclaimed_accounts');
+        if (! ($config['enabled'] ?? false)) {
+            $this->line('Nie aktivierte Konten: Aufräumen deaktiviert (DATA_RETENTION_UNCLAIMED_ACCOUNTS_ENABLED).');
+
+            return;
+        }
+
+        $cutoff = now()->subDays((int) $config['days']);
+        $users = User::query()->where('is_superadmin', false)->where('created_at', '<', $cutoff)
+            ->where(fn ($q) => $q->where('status', 'invited')->orWhereNull('email_verified_at'))
+            ->get();
+
+        if ($dryRun) {
+            $this->line("Nie aktivierte Konten: {$users->count()} älter als {$config['days']} Tage würden gelöscht.");
+
+            return;
+        }
+
+        $erasure = app(AccountErasureService::class);
+        foreach ($users as $user) {
+            $erasure->deleteAccount($user);
+        }
+        $this->line("Nie aktivierte Konten: {$users->count()} gelöscht.");
     }
 
     private function pruneTable(string $configKey, string $dateColumn, string $table, bool $dryRun): void

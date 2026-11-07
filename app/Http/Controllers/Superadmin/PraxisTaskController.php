@@ -64,6 +64,7 @@ class PraxisTaskController extends Controller
     {
         $validated = $this->validated($request);
         $before = $task->only(['frage', 'antwort', 'kategorie', 'unterkategorie']);
+        $textBefore = $task->only(['frage', 'antwort', 'erklaerung']);
         $task->fill($this->fields($validated));
         if (isset($validated['sort_order'])) {
             $task->sort_order = $validated['sort_order'];
@@ -81,9 +82,19 @@ class PraxisTaskController extends Controller
         if ($oldAsset && $oldAsset !== $task->media_asset_id) {
             $this->deleteCustomAssetIfUnused($oldAsset);
         }
-        AuditLog::record(null, $request->user()->id, 'superadmin.praxis_task.update', 'praxis_task', $task->id, $before, $task->only(['frage', 'antwort', 'kategorie', 'unterkategorie']));
+        // Kopien in Kombikursen (content_id mit Zusatz, siehe
+        // ComboPraxisTrainerSeeder) mit unverändertem Text gleich mitkorrigieren;
+        // eigenständig geänderte Kopien bleiben unangetastet.
+        $copies = PraxisTask::where('id', '!=', $task->id)->where('content_id', 'like', addcslashes($task->content_id, '%_\\').'%')
+            ->where(fn ($q) => collect($textBefore)->each(fn ($value, $field) => $value === null ? $q->whereNull($field) : $q->where($field, $value)))
+            ->get();
+        foreach ($copies as $copy) {
+            $copy->update($task->only(['frage', 'antwort', 'erklaerung']));
+        }
+        AuditLog::record(null, $request->user()->id, 'superadmin.praxis_task.update', 'praxis_task', $task->id, $before, $task->only(['frage', 'antwort', 'kategorie', 'unterkategorie']) + ['copies' => $copies->count()]);
 
-        return redirect()->route('superadmin.praxis-tasks.index', $task->course_id)->with('status', 'Karte gespeichert.');
+        return redirect()->route('superadmin.praxis-tasks.index', $task->course_id)
+            ->with('status', 'Karte gespeichert'.($copies->isNotEmpty() ? ', auch in '.$copies->count().' Kopie(n) in Kombikursen.' : '.'));
     }
 
     public function toggleActive(Request $request, PraxisTask $task): RedirectResponse

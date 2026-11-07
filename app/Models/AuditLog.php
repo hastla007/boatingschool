@@ -39,6 +39,8 @@ class AuditLog extends Model
     private const SIMPLE_DESCRIPTIONS = [
         'entitlement.extend' => 'hat einen Kurszugang verlängert.',
         'participants.export' => 'hat die Teilnehmerliste exportiert.',
+        'participant.remove' => 'hat eine teilnehmende Person samt Lerndaten gelöscht.',
+        'profile.export' => 'hat die eigenen Daten heruntergeladen.',
         'participants.remind_inactive' => 'hat inaktive Lernende ans Lernen erinnert.',
         'announcement.create' => 'hat eine Mitteilung an Teilnehmer veröffentlicht.',
         'announcement.delete' => 'hat eine Mitteilung an Teilnehmer gelöscht.',
@@ -79,6 +81,9 @@ class AuditLog extends Model
         'superadmin.video_module.delete' => 'hat ein Videokapitel gelöscht.',
     ];
 
+    /** Zahl der in dieser Anfrage geschriebenen Einträge (siehe AuditSuperadminChanges). */
+    public static int $recordedThisRequest = 0;
+
     public static function record(
         ?string $tenantId,
         ?string $actorUserId,
@@ -95,6 +100,8 @@ class AuditLog extends Model
             $after = ($after ?? []) + ['support_ansicht_als' => $actorUserId];
             $actorUserId = $impersonation['impersonator_id'];
         }
+
+        static::$recordedThisRequest++;
 
         return static::create([
             'tenant_id' => $tenantId,
@@ -146,6 +153,7 @@ class AuditLog extends Model
             $this->action === 'superadmin.user.create' => "{$actorName} hat ein Nutzerkonto angelegt.",
             $this->action === 'superadmin.user.update' => "{$actorName} hat ein Nutzerkonto geändert.",
             $this->action === 'superadmin.user.membership_update' => "{$actorName} hat eine Mitgliedschaft geändert.",
+            $this->action === 'superadmin.change' => "{$actorName} hat im Superadmin-Bereich geändert: ".($this->after_data['route'] ?? '—').'.',
             isset(self::SIMPLE_DESCRIPTIONS[$this->action]) => "{$actorName} ".self::SIMPLE_DESCRIPTIONS[$this->action],
             default => "{$actorName}: {$this->action}",
         };

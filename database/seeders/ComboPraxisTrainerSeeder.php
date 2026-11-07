@@ -166,6 +166,8 @@ class ComboPraxisTrainerSeeder extends Seeder
                 'quelle' => $sourceTask->quelle,
                 'quellen_url' => $sourceTask->quellen_url,
                 'sort_order' => $sourceTask->sort_order + $sortOffset,
+                // Eine deaktivierte Karte (z. B. Entwurf) bleibt auch in der Kopie aus.
+                'active' => (bool) ($sourceTask->active ?? true),
             ]);
         }
     }

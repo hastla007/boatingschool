@@ -9,7 +9,8 @@
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
             <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3">Stammdaten</h3>
-            <form method="POST" action="{{ route('superadmin.courses.update', $course) }}" class="space-y-3">
+            <form method="POST" action="{{ route('superadmin.courses.update', $course) }}" class="space-y-3" x-data="{ status: @js(old('status', $course->status)), site: @js((bool) old('site_enabled', $course->site_enabled)) }"
+                  @submit="if ({{ $activeLearnerCount }} > 0 && (status !== 'published' || ! site) && ! confirm('{{ $activeLearnerCount }} Lernende mit aktivem Zugang verlieren damit sofort den Zugriff auf diesen Kurs. Trotzdem speichern?')) $event.preventDefault()">
                 @csrf
                 @method('PATCH')
                 <div>
@@ -27,7 +28,7 @@
                 </div>
                 <div>
                     <x-input-label for="status" value="Status" />
-                    <select id="status" name="status" class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                    <select id="status" name="status" x-model="status" class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                         @foreach (\App\Support\StatusLabels::courseStatusOptions() as $option => $label)
                             <option value="{{ $option }}" @selected(old('status', $course->status) === $option)>{{ $label }}</option>
                         @endforeach
@@ -35,7 +36,7 @@
                 </div>
                 <div class="pt-2 border-t border-slate-100 dark:border-slate-700">
                     <label class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-                        <input type="checkbox" name="site_enabled" value="1" @checked(old('site_enabled', $course->site_enabled)) class="rounded border-slate-300">
+                        <input type="checkbox" name="site_enabled" value="1" x-model="site" @checked(old('site_enabled', $course->site_enabled)) class="rounded border-slate-300">
                         Sitewide für alle Bootsschulen verfügbar
                     </label>
                     <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Deaktiviert kann keine Bootsschule diesen Kurs anbieten, auch nicht mit bereits vergebenem Zugang.</p>
@@ -46,6 +47,7 @@
 
         <div class="lg:col-span-2 bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
             <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3">Module dieses Kurses</h3>
+            <x-input-error :messages="$errors->get('module')" class="mb-2" />
             <div class="space-y-2 mb-4">
                 @forelse ($course->modules as $module)
                     <div class="flex items-center justify-between border border-slate-100 dark:border-slate-700 rounded-xl px-3 py-2 text-sm">

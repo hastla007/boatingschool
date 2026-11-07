@@ -52,6 +52,15 @@ class ComboVideoGroups
         ],
     ];
 
+    /** Kapitel mit eigener Kachel bzw. fester Kombikurs-Zuordnung: Umbenennen würde Kachel und Fortschritt lösen. */
+    public const SPECIAL_CHAPTERS = ['Knoten', 'Navigation', 'Praxisvideos (Motor)'];
+
+    public static function isProtectedChapter(string $title): bool
+    {
+        return in_array($title, self::SPECIAL_CHAPTERS, true)
+            || collect(self::GROUPS)->flatten(1)->contains(fn ($group) => in_array($title, $group['chapters'], true));
+    }
+
     /** Teilkurs-Label für ein gegebenes Videokapitel, oder null außerhalb eines Kombikurses. */
     public static function labelForChapter(string $courseCode, string $chapterTitle): ?string
     {

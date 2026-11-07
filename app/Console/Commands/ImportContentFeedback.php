@@ -127,9 +127,15 @@ class ImportContentFeedback extends Command
         // einer Editor-Revision wird deshalb nur noch befüllt, was dort noch
         // LEER ist -- ein bereits vom Superadmin eingetragener Text bleibt
         // unangetastet.
+        // Review-Runde 8: ein im Editor bewusst GELEERTER Text bleibt leer --
+        // „nur leere Felder befüllen“ brachte eine gelöschte, falsche
+        // Erklärung bei jedem Seed-Lauf wieder zurück. Befüllt wird ein leeres
+        // Feld nur noch mit einem Text, der in keiner früheren Fassung stand.
         if ($revision->edited_by_superadmin) {
-            $feedbackCorrect = $revision->feedback_correct ?? $feedbackCorrect;
-            $feedbackIncorrect = $revision->feedback_incorrect ?? $feedbackIncorrect;
+            $wasUsedBefore = fn (string $field, ?string $text) => $text !== null && ContentQuestionRevision::where('question_id', $revision->question_id)
+                ->where('id', '!=', $revision->id)->where($field, $text)->exists();
+            $feedbackCorrect = $revision->feedback_correct ?? ($wasUsedBefore('feedback_correct', $feedbackCorrect) ? null : $feedbackCorrect);
+            $feedbackIncorrect = $revision->feedback_incorrect ?? ($wasUsedBefore('feedback_incorrect', $feedbackIncorrect) ? null : $feedbackIncorrect);
         }
 
         if ($revision->feedback_correct === $feedbackCorrect && $revision->feedback_incorrect === $feedbackIncorrect) {
@@ -242,6 +248,11 @@ class ImportContentFeedback extends Command
         $header = array_map('trim', $header);
 
         while (($data = fgetcsv($handle, 0, ';', '"', '\\')) !== false) {
+            // Leerzeilen (fgetcsv liefert [null]) und Zeilen mit falscher
+            // Spaltenzahl überspringen statt mit einem ValueError abzubrechen.
+            if ($data === [null] || count($data) !== count($header)) {
+                continue;
+            }
             yield array_combine($header, $data);
         }
 

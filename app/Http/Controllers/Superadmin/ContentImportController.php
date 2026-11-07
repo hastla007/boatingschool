@@ -58,8 +58,15 @@ class ContentImportController extends Controller
         $relative = ltrim(Str::after($absolute, base_path()), '/');
 
         $output = new BufferedOutput;
+        $failure = null;
         try {
             $exitCode = Artisan::call($command, ['path' => $relative] + $options, $output);
+        } catch (\Throwable $e) {
+            // Abbruch mitten im Import: Bericht und Protokoll trotzdem
+            // schreiben, damit sichtbar ist, dass nur ein Teil übernommen wurde.
+            report($e);
+            $exitCode = 1;
+            $failure = 'Import abgebrochen ('.class_basename($e).'): '.Str::limit($e->getMessage(), 300).' -- Zeilen davor wurden bereits übernommen.';
         } finally {
             Storage::disk('local')->delete($stored);
         }
@@ -68,6 +75,7 @@ class ContentImportController extends Controller
             ->map(fn ($line) => rtrim($line))
             ->filter(fn ($line) => preg_match(self::REPORT_LINE, $line))
             ->map(fn ($line) => trim(str_replace(Storage::disk('local')->path(''), '', $line)))
+            ->when($failure, fn ($c) => $c->push($failure))
             ->values()->all();
 
         AuditLog::record(null, $request->user()->id, 'superadmin.content_import', 'content_question', null, null, [

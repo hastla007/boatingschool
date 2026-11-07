@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Superadmin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
+use App\Models\NavigationProgress;
 use App\Models\NavigationQuestion;
 use App\Models\NavigationTask;
 use Illuminate\Http\RedirectResponse;
@@ -72,6 +73,11 @@ class NavigationTaskEditorController extends Controller
                     }
                     $number++;
                     $values = ['question_number' => $number, 'sort_order' => $number, 'question_text' => trim($row['question_text']), 'answer_text' => trim($row['answer_text'])];
+                    // Geänderte Musterlösung: alte automatische Bewertungen gelten
+                    // nicht mehr (Antwort bleibt, wird beim nächsten Prüfen neu bewertet).
+                    if ($question && trim((string) $question->answer_text) !== $values['answer_text']) {
+                        NavigationProgress::withoutGlobalScopes()->where('navigation_question_id', $question->id)->update(['correct' => null]);
+                    }
                     $question ? $question->update($values) : NavigationQuestion::create($values + ['navigation_task_id' => $target->id]);
                 }
             }

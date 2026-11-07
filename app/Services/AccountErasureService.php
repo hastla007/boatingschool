@@ -8,6 +8,7 @@ use App\Models\Entitlement;
 use App\Models\ExamSession;
 use App\Models\Favorite;
 use App\Models\FavoriteCollection;
+use App\Models\InstructorCourse;
 use App\Models\NavigationProgress;
 use App\Models\PraxisExamAppointment;
 use App\Models\PraxisFormSubmission;
@@ -199,6 +200,9 @@ class AccountErasureService
             // und blieb beim Verlassen einer Bootsschule bisher stehen (nur
             // die vollständige Kontolöschung räumte sie per FK-Kaskade ab).
             RadioTrainingProgress::class,
+            // Kurszuordnung als Ausbilder: sonst käme sie bei einer späteren
+            // erneuten Einladung in dieselbe Schule ungewollt wieder.
+            InstructorCourse::class,
             WillkommensboxOrder::class,
             // Kaskadiert praxis_exam_appointment weg (ON DELETE CASCADE).
             PraxisFormSubmission::class,
@@ -220,11 +224,11 @@ class AccountErasureService
     private function deleteInvitationsFor(Tenant $tenant, User $user): array
     {
         $invitationIds = TenantInvitation::where('tenant_id', $tenant->id)
-            ->where('email', $user->email)
+            ->whereRaw('lower(email) = ?', [mb_strtolower($user->email)])
             ->pluck('id')
             ->all();
 
-        TenantInvitation::where('tenant_id', $tenant->id)->where('email', $user->email)->delete();
+        TenantInvitation::whereIn('id', $invitationIds)->delete();
 
         return $invitationIds;
     }
@@ -256,6 +260,12 @@ class AccountErasureService
                     ->orWhere(function ($inner) use ($user) {
                         $inner->where('entity_type', 'app_user')->where('entity_id', $user->id);
                     })
+                    // Einträge, deren Daten die Person enthalten (z. B. eine
+                    // vorher gelöschte Praxis-Anmeldung, Kurszugänge, Termine):
+                    // die IDs sind dann nicht mehr über die Tabellen auffindbar,
+                    // die user_id steht aber im JSON.
+                    ->orWhereRaw("before_data->>'user_id' = ?", [$user->id])
+                    ->orWhereRaw("after_data->>'user_id' = ?", [$user->id])
                     ->when($invitationIds !== [], function ($query) use ($invitationIds) {
                         $query->orWhere(function ($inner) use ($invitationIds) {
                             $inner->where('entity_type', 'tenant_invitation')->whereIn('entity_id', $invitationIds);

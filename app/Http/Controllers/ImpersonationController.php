@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AuditLog;
 use App\Models\TenantUser;
 use App\Models\User;
 use App\Support\CanonicalUrl;
@@ -75,6 +76,7 @@ class ImpersonationController extends Controller
     /** Protokoll auf der Owner-Verbindung, unabhängig vom aktuellen RLS-Kontext. */
     public static function audit(string $tenantId, string $impersonatorId, string $action, ?string $userId, ?array $after = null): void
     {
+        AuditLog::$recordedThisRequest++;
         DB::connection('pgsql_admin')->table('audit_log')->insert([
             'id' => (string) Str::uuid(),
             'tenant_id' => $tenantId,

@@ -12,8 +12,27 @@
     <div class="max-w-4xl space-y-4">
         <div class="rounded-xl bg-amber-50 border border-amber-200 text-amber-800 dark:bg-amber-900/30 dark:border-amber-800 dark:text-amber-200 px-4 py-3 text-sm">
             Eine Prüfungssimulation lässt sich nur mit einem <strong>veröffentlichten und als geprüft markierten</strong> Regelwerk starten.
-            Änderungen gelten sofort, auch für gerade laufende Versuche (Zeitlimit, Bewertung). Werte bitte mit der amtlichen Prüfungsordnung abgleichen.
+            Änderungen gelten für neu gestartete Prüfungen; laufende und abgeschlossene Versuche behalten die Regeln, unter denen sie begonnen wurden. Werte bitte mit der amtlichen Prüfungsordnung abgleichen.
         </div>
+        @php
+            $comboGroups = \App\Support\ComboExamGroups::GROUPS;
+            $usedByCombos = collect($comboGroups)->filter(fn ($groups) => collect($groups)->contains('course', $course->code))
+                ->map(fn ($groups) => collect($groups)->firstWhere('course', $course->code));
+        @endphp
+        @if (isset($comboGroups[$course->code]))
+            <div class="rounded-xl bg-sky-50 border border-sky-200 text-sky-900 dark:bg-sky-900/30 dark:border-sky-800 dark:text-sky-100 px-4 py-3 text-sm">
+                Kombikurs: Die Prüfungsbögen werden nach dem Regelwerk ihres Teilkurses bewertet
+                ({{ collect($comboGroups[$course->code])->map(fn ($g) => $g['label'].' → '.$g['course'])->implode(', ') }}).
+                Das Regelwerk hier gilt nur für zufällig zusammengestellte Prüfungen dieses Kurses.
+            </div>
+        @endif
+        @if ($usedByCombos->isNotEmpty())
+            <div class="rounded-xl bg-sky-50 border border-sky-200 text-sky-900 dark:bg-sky-900/30 dark:border-sky-800 dark:text-sky-100 px-4 py-3 text-sm">
+                Dieses Regelwerk gilt auch für Bögen in Kombikursen:
+                {{ $usedByCombos->map(fn ($g, $combo) => $combo.' (Bögen '.$g['min'].'–'.$g['max'].')')->implode(', ') }}.
+                Wird es zurückgezogen oder nicht mehr als geprüft markiert, lassen sich dort diese Bögen nicht mehr starten.
+            </div>
+        @endif
         @if ($errors->any())
             <div class="rounded-xl bg-red-50 border border-red-200 text-red-800 dark:bg-red-900/30 dark:border-red-800 dark:text-red-200 px-4 py-3 text-sm">{{ $errors->first() }}</div>
         @endif

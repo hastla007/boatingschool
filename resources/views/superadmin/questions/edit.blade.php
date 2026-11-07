@@ -55,6 +55,7 @@
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6">
             <form method="POST" action="{{ route('superadmin.questions.update', $question) }}" class="space-y-5">
                 @csrf
+                <input type="hidden" name="base_revision_no" value="{{ old('base_revision_no', ($publishedRevision ?? null)?->revision_no) }}">
                 @method('PATCH')
                 @include('superadmin.questions._form')
                 <button type="submit" class="px-5 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: #005FD7">

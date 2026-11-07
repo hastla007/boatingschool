@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\ProfileUpdateRequest;
+use App\Models\AuditLog;
 use App\Models\Entitlement;
 use App\Models\PraxisFormSubmission;
 use App\Models\ProductPurchase;
@@ -286,6 +287,8 @@ class ProfileController extends Controller
     {
         $tenant = $tenantContext->tenant();
         $data = $export->export($request->user(), $tenant);
+        // Nachvollziehbar, falls eine fremde Sitzung die Daten abruft.
+        AuditLog::record($tenant->id, $request->user()->id, 'profile.export', 'app_user', $request->user()->id, null, null);
 
         $filename = 'meine-daten-'.$tenant->slug.'-'.now()->format('Y-m-d').'.json';
 
@@ -309,6 +312,12 @@ class ProfileController extends Controller
      * entfernen (DSGVO-Review D1: jede Bootsschule ist ein eigener
      * datenschutzrechtlich Verantwortlicher).
      */
+    /** „Meine Daten“: Export und Kontolöschung, auch bei gesperrtem Zugang. */
+    public function dataRights(Request $request, TenantContext $tenantContext): View
+    {
+        return view('profile.data-rights', ['tenant' => $tenantContext->tenant()]);
+    }
+
     public function destroy(Request $request, TenantContext $tenantContext, AccountErasureService $erasure): RedirectResponse
     {
         $request->validateWithBag('userDeletion', [

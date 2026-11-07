@@ -28,6 +28,7 @@ use App\Http\Controllers\Superadmin\UserAccountController;
 use App\Http\Controllers\Superadmin\UserController;
 use App\Http\Controllers\Superadmin\VideoLessonController;
 use App\Http\Controllers\Superadmin\VideoModuleController;
+use App\Http\Middleware\AuditSuperadminChanges;
 use Illuminate\Support\Facades\Route;
 
 /**
@@ -47,7 +48,7 @@ use Illuminate\Support\Facades\Route;
  * beförderter Superadmin behielt damit plattformweiten Vollzugriff auf
  * ALLE Bootsschulen, ohne je die aktuelle Adresse bestätigt zu haben.
  */
-Route::middleware(['auth', 'superadmin', 'admin-db', 'verified'])->prefix('superadmin')->name('superadmin.')->group(function () {
+Route::middleware(['auth', 'superadmin', 'admin-db', 'verified', AuditSuperadminChanges::class])->prefix('superadmin')->name('superadmin.')->group(function () {
     Route::get('/', DashboardController::class)->name('dashboard');
 
     Route::get('/tenants', [TenantController::class, 'index'])->name('tenants.index');

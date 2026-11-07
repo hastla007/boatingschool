@@ -31,6 +31,8 @@ class UserAccountController extends Controller
 
         $user->forceFill(['two_factor_secret' => null, 'two_factor_recovery_codes' => null, 'two_factor_confirmed_at' => null])->save();
         AuditLog::record(null, $request->user()->id, 'superadmin.user.two_factor_reset', 'app_user', $user->id, null, null);
+        // Kontowiederherstellung: alle bestehenden Anmeldungen beenden.
+        $user->endOtherSessions();
         BestEffortMail::send(fn () => $user->notify(new TwoFactorResetBySupport), '2FA-Reset '.$user->id);
 
         return back()->with('status', 'Zwei-Faktor-Anmeldung zurückgesetzt. Die Person wurde per E-Mail informiert.');

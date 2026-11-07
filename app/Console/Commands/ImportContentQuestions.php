@@ -88,6 +88,11 @@ class ImportContentQuestions extends Command
         }
 
         $this->withProgressBar($rows, function ($row, $bar, $rowIndex) use ($header) {
+            // Leere bzw. zu kurze Zeilen auffüllen statt mit einem ValueError abzubrechen.
+            $row = array_slice(array_pad(array_values($row), count($header), null), 0, count($header));
+            if (collect($row)->filter(fn ($v) => $v !== null && trim((string) $v) !== '')->isEmpty()) {
+                return;
+            }
             $this->importRow(array_combine($header, $row), $rowIndex + 2);
         });
         $this->newLine(2);

@@ -343,6 +343,10 @@ class ExamController extends Controller
                 }
             }
 
+            // Ohne gültige Fragen (z. B. alle Fragen eines Moduls deaktiviert)
+            // gäbe es eine leere Prüfung, die als „nicht bestanden“ zählt.
+            abort_if($position === 1, 409, 'Für diesen Kurs sind derzeit keine Prüfungsfragen verfügbar. Bitte wende dich an deine Bootsschule.');
+
             return redirect()->route('exam.show', $session);
         });
     }

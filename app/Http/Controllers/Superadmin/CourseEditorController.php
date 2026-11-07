@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Superadmin;
 
 use App\Http\Controllers\Controller;
 use App\Models\CourseDefinition;
+use App\Models\Entitlement;
 use App\Models\Module;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -80,6 +81,8 @@ class CourseEditorController extends Controller
             'course' => $course,
             'availableModules' => $availableModules,
             'activeRuleSet' => $course->activeExamRuleSet()?->load('blueprints'),
+            // Für die Rückfrage beim Zurückziehen bzw. Deaktivieren des Kurses.
+            'activeLearnerCount' => Entitlement::withoutGlobalScopes()->currentlyActive()->where('course_id', $course->id)->distinct()->count('user_id'),
             'praxisTaskCount' => $course->allPraxisTasks()->count(),
             'navigationTaskCount' => $course->navigationTasks()->count(),
             'navigationChartCount' => $course->navigationTasks()->whereNotNull('chart_image_path')->count(),
@@ -137,6 +140,15 @@ class CourseEditorController extends Controller
 
     public function detachModule(CourseDefinition $course, Module $module): Response
     {
+        // Ein Modul, das der Fragenmix oder ein Prüfungsteil dieses Kurses
+        // noch nutzt, würde sonst weiter Prüfungsfragen liefern, obwohl es
+        // nicht mehr zum Kurs gehört.
+        $usedInRules = $course->examRuleSets()->with('blueprints')->get()->contains(fn ($ruleSet) => $ruleSet->blueprints->contains('module_id', $module->id)
+            || collect($ruleSet->passing_rule['parts'] ?? [])->contains('module', $module->code));
+        if ($usedInRules) {
+            return back()->withErrors(['module' => "Das Modul „{$module->name}“ wird noch in den Prüfungsregeln dieses Kurses verwendet. Bitte zuerst dort entfernen."]);
+        }
+
         $course->modules()->detach($module->id);
 
         return back()->with('status', 'Modul entfernt.');

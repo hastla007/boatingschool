@@ -5,6 +5,7 @@ use App\Http\Middleware\EnforceInstructorScope;
 use App\Http\Middleware\EnforceMaintenanceMode;
 use App\Http\Middleware\EnforceTeamTwoFactor;
 use App\Http\Middleware\EnsureAccountIsActive;
+use App\Http\Middleware\EnsureAnyTenantMembership;
 use App\Http\Middleware\EnsureSuperAdmin;
 use App\Http\Middleware\EnsureTenantMembership;
 use App\Http\Middleware\EnsureTenantRole;
@@ -186,6 +187,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'tenant.role' => EnsureTenantRole::class,
             'tenant.member' => EnsureTenantMembership::class,
+            'tenant.any-member' => EnsureAnyTenantMembership::class,
             'superadmin' => EnsureSuperAdmin::class,
             'admin-db' => UseAdminDatabaseConnection::class,
             'instructor.scope' => EnforceInstructorScope::class,
