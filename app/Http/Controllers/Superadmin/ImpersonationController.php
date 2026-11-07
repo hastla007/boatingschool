@@ -30,7 +30,7 @@ class ImpersonationController extends Controller
             $user->id === $request->user()->id => 'Das eigene Konto lässt sich nicht ansehen.',
             (bool) $user->is_superadmin => 'Superadmin-Konten lassen sich nicht ansehen.',
             $user->status !== 'active' => 'Nur aktive Konten lassen sich ansehen.',
-            $tenant->status !== 'active' => 'Die Bootsschule ist nicht aktiv.',
+            ! in_array($tenant->status, ['active', 'trial'], true) => 'Die Bootsschule ist nicht aktiv.',
             ! TenantUser::withoutGlobalScopes()->where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('status', 'active')->exists() => 'Die Person ist bei dieser Bootsschule nicht (mehr) aktiv.',
             default => null,
         };

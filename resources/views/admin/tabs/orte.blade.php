@@ -9,7 +9,7 @@
     Kurs anlegen (z. B. bei mehreren Standorten) und einen Ort mehreren Kursen gleichzeitig zuweisen.
 </p>
 
-<div class="space-y-6" x-data="{ showCreateForm: {{ $errors->has('praxis_ort') && old('_form') === 'create' ? 'true' : 'false' }} }">
+<div class="space-y-6" x-data="{ showCreateForm: {{ $errors->any() && old('_form') === 'create' ? 'true' : 'false' }} }">
     @foreach ($tenantCourseLocations as $location)
         <div class="max-w-2xl bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 space-y-4">
             <div class="font-medium text-slate-700 dark:text-slate-200">

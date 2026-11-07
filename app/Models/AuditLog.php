@@ -117,7 +117,9 @@ class AuditLog extends Model
 
     public function description(): string
     {
-        $actorName = ($this->actor_user_id ? User::find($this->actor_user_id)?->name : null) ?? 'System';
+        // Eigene Aktionen eines inzwischen gelöschten Kontos (actor pseudonymisiert).
+        $actorName = ($this->actor_user_id ? User::find($this->actor_user_id)?->name : null)
+            ?? (str_starts_with($this->action, 'profile.') ? 'Ein gelöschtes Konto' : 'System');
 
         return match (true) {
             $this->action === 'coupon.redeem' => $this->describeCouponRedeem($actorName),
@@ -200,8 +202,9 @@ class AuditLog extends Model
         $data = $this->after_data ?? $this->before_data ?? [];
         $learnerId = $data['user_id'] ?? null;
         $courseId = $data['course_id'] ?? null;
-        $learnerName = ($learnerId ? User::find($learnerId)?->name : null) ?? 'einem Teilnehmer';
-        $courseName = ($courseId ? CourseDefinition::withoutGlobalScopes()->find($courseId)?->name : null) ?? 'einen Kurs';
+        // Nach „für“ Akkusativ; ein gelöschter Kurs ohne Anführungszeichen.
+        $learnerName = ($learnerId ? User::find($learnerId)?->name : null) ?? 'einen Teilnehmer';
+        $courseName = $courseId ? CourseDefinition::withoutGlobalScopes()->find($courseId)?->name : null;
 
         $verb = match ($this->action) {
             'entitlement.create' => 'freigeschaltet',
@@ -212,16 +215,18 @@ class AuditLog extends Model
             default => 'geändert',
         };
 
-        return "{$actorName} hat den Kurs \"{$courseName}\" für {$learnerName} {$verb}.";
+        return $courseName
+            ? "{$actorName} hat den Kurs \"{$courseName}\" für {$learnerName} {$verb}."
+            : "{$actorName} hat einen Kurszugang für {$learnerName} {$verb}.";
     }
 
     private function describePraxisAppointmentPropose(string $actorName): string
     {
         $submissionId = $this->after_data['praxis_form_submission_id'] ?? null;
         $learnerName = ($submissionId ? PraxisFormSubmission::with('user')->find($submissionId)?->user?->name : null) ?? 'einem Teilnehmer';
-        $label = $this->after_data['label'] ?? 'einen Termin';
+        $label = $this->after_data['label'] ?? null;
 
-        return "{$actorName} hat {$learnerName} \"{$label}\" vorgeschlagen.";
+        return $label ? "{$actorName} hat {$learnerName} \"{$label}\" vorgeschlagen." : "{$actorName} hat {$learnerName} einen Termin vorgeschlagen.";
     }
 
     private function describeParticipantUpdate(string $actorName): string

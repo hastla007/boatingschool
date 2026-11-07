@@ -167,4 +167,16 @@ class ReviewRoundNineFixesTest extends TestCase
         $this->assertStringNotContainsString('203.0.113.77', $json);
         $this->onAdmin(fn () => DB::table('sessions')->where('user_id', $learner->id)->delete());
     }
+
+    public function test_the_readiness_label_and_the_praxis_gate_use_the_same_threshold(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $this->grantEntitlement($tenant, $learner, $this->existingCourse('SRC'));
+        $this->onAdmin(fn () => $tenant->branding()->update(['exam_readiness_threshold_percent' => 0]));
+
+        $this->actingAsInTenant($admin, $tenant)->get("/admin/participants/{$learner->id}")
+            ->assertOk()->assertDontSee('>prüfungsreif<', false)->assertSee('prüfungsreif ab 80 %');
+    }
 }

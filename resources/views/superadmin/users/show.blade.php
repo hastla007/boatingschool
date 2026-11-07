@@ -140,7 +140,7 @@
                                     </select>
                                     <button type="submit" class="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-xs">Speichern</button>
                                 </form>
-                                @if ($membership->status === 'active' && $membership->tenant->status === 'active' && ! $user->is_superadmin && $user->status === 'active' && $user->id !== auth()->id())
+                                @if ($membership->status === 'active' && in_array($membership->tenant->status, ['active', 'trial'], true) && ! $user->is_superadmin && $user->status === 'active' && $user->id !== auth()->id())
                                     <form method="POST" action="{{ route('superadmin.users.impersonate', [$user, $membership->tenant]) }}" x-data="{}"
                                           @submit="if (! confirm('Als {{ addslashes($user->name) }} bei {{ addslashes($membership->tenant->name) }} ansehen? Die Ansicht ist nur lesend und wird protokolliert.')) $event.preventDefault()">
                                         @csrf

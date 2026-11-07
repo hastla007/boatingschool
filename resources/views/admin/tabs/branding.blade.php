@@ -230,6 +230,14 @@
                 <span class="text-sm text-slate-500 dark:text-slate-400">% Kursfortschritt</span>
             </div>
             <x-input-error :messages="$errors->get('exam_readiness_threshold_percent')" class="mt-2" />
+            @php($formThresholds = \App\Models\PraxisFormTemplate::where('active', true)->orderBy('title')->get(['title', 'min_progress_percent']))
+            @if ($formThresholds->isNotEmpty())
+                <p class="text-xs text-slate-600 dark:text-slate-400 mt-2">
+                    Tatsächlich gilt für Kurse mit Praxisformular der Wert des Formulars:
+                    {{ $formThresholds->map(fn ($t) => $t->title.' '.$t->min_progress_percent.' %')->implode(' · ') }}.
+                    Ihr Wert oben gilt für alle übrigen Kurse.
+                </p>
+            @endif
         </div>
 
         <div class="pt-2 border-t border-slate-100 dark:border-slate-700">

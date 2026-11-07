@@ -28,7 +28,7 @@
         </div>
 
         <button type="submit" class="w-full px-4 py-2.5 rounded-lg font-semibold text-white transition hover:opacity-90" style="background-color: var(--brand-primary, #005FD7)">
-            Passwort zurücksetzen
+            {{ $request->boolean('invite') ? 'Passwort festlegen' : 'Passwort zurücksetzen' }}
         </button>
     </form>
 </x-guest-layout>
