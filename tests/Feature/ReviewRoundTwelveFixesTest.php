@@ -2,11 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Models\Coupon;
+use App\Models\Entitlement;
 use App\Models\ExamPaper;
 use App\Models\ExamSession;
 use App\Models\User;
 use App\Notifications\AccountInvitation;
 use App\Notifications\TwoFactorResetBySupport;
+use App\Services\AccountSetupLink;
 use App\Support\Totp;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
@@ -141,5 +144,48 @@ class ReviewRoundTwelveFixesTest extends TestCase
         $html = (string) (new AccountInvitation($tenant, 'staff', 'https://example.test/x'))->toMail($learner)->render();
         $this->assertStringContainsString('als Mitarbeiter', $html);
         $this->assertStringNotContainsString('href="https://evil.test"', $html);
+    }
+
+    public function test_a_coupon_typed_with_spaces_is_found(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $code = 'R12A-BCDE-FGHJ-KLMN';
+        $this->onAdmin(fn () => Coupon::create(['code' => $code, 'course_id' => $course->id, 'tenant_id' => $tenant->id]));
+
+        try {
+            $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', ['code' => 'r12a bcde fghj klmn'])->assertSessionHasNoErrors();
+            $this->assertTrue($this->onAdmin(fn () => Coupon::where('code', $code)->first()->isRedeemed()));
+        } finally {
+            $this->onAdmin(function () use ($code) {
+                Entitlement::where('source_reference', $code)->delete();
+                Coupon::where('code', $code)->delete();
+            });
+        }
+    }
+
+    public function test_an_expired_invitation_link_says_so_when_opened(): void
+    {
+        $tenant = $this->createTestTenant();
+        $user = $this->createTenantUser($tenant, 'learner', ['status' => 'invited']);
+
+        $this->withSession(['dev_tenant_slug' => $tenant->slug])
+            ->get('/reset-password/ungueltiger-token?email='.urlencode($user->email).'&invite=1')
+            ->assertOk()->assertSee('abgelaufen oder wurde schon benutzt');
+
+        $url = $this->onAdmin(fn () => app(AccountSetupLink::class)->url($user, $tenant));
+        $path = preg_replace('#^/'.preg_quote($tenant->slug, '#').'(?=/)#', '', parse_url($url, PHP_URL_PATH));
+        $this->withSession(['dev_tenant_slug' => $tenant->slug])->get($path.'?'.parse_url($url, PHP_URL_QUERY))
+            ->assertOk()->assertDontSee('abgelaufen oder wurde schon benutzt');
+    }
+
+    public function test_deleting_the_own_account_confirms_it(): void
+    {
+        $tenant = $this->createTestTenant();
+        $user = $this->createTenantUser($tenant, 'learner');
+
+        $this->actingAsInTenant($user, $tenant)->delete('/profile', ['password' => 'password'])
+            ->assertRedirect(route('login'))->assertSessionHas('status', fn ($s) => str_contains($s, 'gelöscht'));
     }
 }

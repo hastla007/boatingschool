@@ -104,6 +104,7 @@ class DashboardController extends Controller
                 'incorrect' => $courseProgress->sum('incorrect_count'),
                 'attempts' => $courseProgress->sum('attempt_count'),
                 'banner_mode' => $bannerMode,
+                'video_started' => $videoLessons->contains(fn ($lesson) => $videoProgressStats->has($lesson->id)),
             ];
         });
 

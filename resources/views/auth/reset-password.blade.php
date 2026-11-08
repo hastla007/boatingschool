@@ -1,6 +1,17 @@
 <x-guest-layout>
     <h2 class="text-xl font-bold text-slate-800 dark:text-white mb-6">{{ $request->boolean('invite') ? 'Willkommen! Lege dein Passwort fest' : 'Neues Passwort vergeben' }}</h2>
 
+    @if ($linkInvalid ?? false)
+        <div role="alert" class="mb-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 dark:bg-amber-900/30 dark:border-amber-800 dark:text-amber-100 px-4 py-3 text-sm">
+            Dieser Link ist abgelaufen oder wurde schon benutzt.
+            {{ $request->boolean('invite') ? 'Hast du dein Passwort schon festgelegt, melde dich einfach an. Sonst fordere über „Passwort vergessen“ einen neuen Link an oder bitte deine Bootsschule um eine neue Einladung.' : 'Fordere über „Passwort vergessen“ einen neuen Link an.' }}
+            <div class="mt-2 flex flex-wrap gap-4">
+                <a href="{{ route('login') }}" class="underline font-medium">Anmelden</a>
+                <a href="{{ route('password.request') }}" class="underline font-medium">Passwort vergessen</a>
+            </div>
+        </div>
+    @endif
+
     <form method="POST" action="{{ route('password.store') }}" class="space-y-4">
         @csrf
 

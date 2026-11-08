@@ -277,6 +277,8 @@
                     </div>
                 </div>
             </div>
+            {{-- Review-Runde 12: warum der Fortschritt anfangs bei 0 % bleibt. --}}
+            <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">Gefestigt ist eine Frage nach 3 richtigen Antworten in Folge.</p>
             <div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
                 <x-icon name="anchor" class="w-3.5 h-3.5 shrink-0" style="color: var(--brand-secondary, #007A7A)" />
                 {{ $masteredCount > 0 ? 'Weiter so! Du bist auf einem guten Weg.' : 'Leg los – im Smart-Learning festigst du deine ersten Fragen.' }}

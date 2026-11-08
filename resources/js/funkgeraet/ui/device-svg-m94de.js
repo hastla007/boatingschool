@@ -137,7 +137,7 @@ export function renderDeviceM94DE(container) {
     const lcdBox = { x: 172, y: 156, width: 300, height: 318 };
     light.add(el('rect', { ...lcdBox, rx: 8, fill: 'url(#m94-lcd)' }, svg), { fill: 'url(#m94-lcd)' }, { fill: '#5b6066' });
     const k = lcdBox.width / LCD_W;
-    const lcd = el('g', { 'font-family': MONO, fill: LCD_INK, transform: `translate(${lcdBox.x} ${lcdBox.y}) scale(${k})` }, svg);
+    const lcd = el('g', { 'data-lcd': '', 'font-family': MONO, fill: LCD_INK, transform: `translate(${lcdBox.x} ${lcdBox.y}) scale(${k})` }, svg);
     el('text', { x: 322, y: 491, 'text-anchor': 'middle', 'font-size': 15, 'font-weight': 700, fill: PRINT, 'font-family': SANS, 'letter-spacing': 1 }, svg, 'IC-M94DE');
 
     // Softkeys groß unter den Feldern im Display

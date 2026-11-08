@@ -78,9 +78,10 @@
                             <div class="text-sm text-slate-600 dark:text-slate-400">Dein Weg zum Bootsführerschein</div>
                         </div>
 
-                        <div id="main-content" class="bg-white dark:bg-slate-800 shadow-sm rounded-2xl px-6 py-8">
+                        {{-- Review-Runde 12: main-Landmark für Screenreader. --}}
+                        <main id="main-content" class="bg-white dark:bg-slate-800 shadow-sm rounded-2xl px-6 py-8">
                             {{ $slot }}
-                        </div>
+                        </main>
                     </div>
                 </div>
 

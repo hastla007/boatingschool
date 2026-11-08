@@ -134,7 +134,7 @@ class AccountErasureCoversAppointmentAuditPlatformAuditAndRadioTrainingTest exte
         ]));
         $this->createdAuditLogIds[] = $tenantCreateLog->id;
 
-        $this->actingAsInTenant($learner->fresh(), $tenant)->delete('/profile', ['password' => 'password'])->assertRedirect('/');
+        $this->actingAsInTenant($learner->fresh(), $tenant)->delete('/profile', ['password' => 'password'])->assertRedirect(route('login'));
 
         $this->onAdmin(function () use ($learner, $platformLogIds, $email, $tenantCreateLog, $tenant) {
             $this->assertEquals(['slug' => $tenant->slug, 'name' => $tenant->name, 'status' => $tenant->status], AuditLog::find($tenantCreateLog->id)->after_data);

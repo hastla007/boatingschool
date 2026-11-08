@@ -361,7 +361,7 @@ return [
             'start' => $start,
             'steps' => [
                 ['text' => 'Wähle im DSC-Menü die Art der Not „Flooding“.', 'target' => 'menu', 'help' => 'MENU, „Distress Setting“ wählen und ENTER, dann „Flooding“ und ENTER.', 'goal' => ['type' => 'nature_selected', 'nature' => 'Flooding']],
-                ['text' => 'Gib Position und Uhrzeit ein.', 'target' => 'channel', 'help' => 'Ziffern mit dem Kanalwahlknopf, weiter mit 16/C, bestätigen mit ENTER.', 'goal' => ['type' => 'utc_set', 'utc' => '12:30']],
+                ['text' => 'Gib Position und Uhrzeit ein.', 'target' => 'channel', 'help' => 'Ziffern mit dem Kanalwahlknopf, weiter mit 16/C, bestätigen mit ENTER.', 'goal' => ['type' => 'utc_set', 'utc' => '12:30', 'position' => $position]],
                 ['text' => 'Öffne die Schutzklappe der DISTRESS-Taste.', 'target' => 'distressCover', 'help' => 'Die rote Klappe antippen.', 'goal' => ['type' => 'cover', 'open' => true]],
                 ['text' => 'Sende den Notalarm.', 'target' => 'distress', 'help' => 'DISTRESS fünf Sekunden gedrückt halten, bis der Alarm gesendet ist.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'distress', 'nature' => 'Flooding']],
                 ['text' => 'Warte auf die Bestätigung einer Küstenfunkstelle. Das Gerät hört dazu Kanal 16 ab.', 'target' => null, 'help' => 'Nichts drücken: Die Bestätigung kommt gleich.', 'goal' => ['type' => 'dsc_received', 'call.type' => 'distress_ack'], 'receive' => ['delay_ms' => 5000, 'call' => ['type' => 'distress_ack', 'from' => $bremenRescue]]],
@@ -546,7 +546,7 @@ return [
             'intro' => 'Explosion im Motorraum, danach Feuer. 3 Personen an Bord, Position 54°10,000\'N 007°52,000\'E, 12:30 UTC. Notalarm mit Art der Not, Bestätigung abwarten, Notmeldung sprechen.',
             'start' => $start,
             'steps' => [
-                ['text' => 'Wähle die Art der Not „Explosion“ und gib Position und Uhrzeit ein.', 'target' => 'menu', 'help' => 'MENU, „Distress Setting“, „Explosion“, ENTER; Position und 12:30 eingeben.', 'goal' => ['type' => 'utc_set', 'utc' => '12:30']],
+                ['text' => 'Wähle die Art der Not „Explosion“ und gib Position und Uhrzeit ein.', 'target' => 'menu', 'help' => 'MENU, „Distress Setting“, „Explosion“, ENTER; Position und 12:30 eingeben.', 'goal' => ['type' => 'utc_set', 'utc' => '12:30', 'position' => $position]],
                 ['text' => 'Sende den Notalarm.', 'target' => 'distress', 'help' => 'Klappe öffnen, DISTRESS fünf Sekunden halten.', 'goal' => ['type' => 'dsc_sent', 'kind' => 'distress', 'nature' => 'Explosion']],
                 ['text' => 'Warte auf die Bestätigung und schalte den Alarmton aus.', 'target' => 'clr', 'help' => 'Nach „Received DistressACK“ CLR drücken.', 'goal' => ['type' => 'alarm_stopped', 'call' => 'distress_ack'], 'receive' => ['delay_ms' => 5000, 'call' => ['type' => 'distress_ack', 'from' => $bremenRescue]]],
                 ['text' => 'Sprich die Notmeldung auf Kanal 16.', 'target' => 'ptt', 'help' => 'MAYDAY (dreimal), this is Kormoran (dreimal), DH4721, MMSI 211472100, MAYDAY Kormoran …, my position … at 1230 UTC, explosion in the engine room, I am on fire, I require immediate assistance, 3 persons on board, over.', 'goal' => ['type' => 'spoken', 'channel' => 16], 'speech' => ['scenario' => $ship + ['pos' => $position, 'time' => '1230', 'kind' => 'distress', 'nature' => 'explosion', 'persons' => 3]]],

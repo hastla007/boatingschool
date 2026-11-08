@@ -66,7 +66,7 @@
                                     'href' => route('video.index', $courseSummary['course']),
                                     'icon' => 'play',
                                     'title' => 'Videokurs ansehen',
-                                    'subtitle' => $courseSummary['course']->name.' · Starte mit den Lernvideos',
+                                    'subtitle' => $courseSummary['course']->name.' · '.(($courseSummary['video_started'] ?? false) ? 'Weiter mit den Lernvideos' : 'Starte mit den Lernvideos'),
                                 ],
                                 'exam' => [
                                     'href' => route('exam.intro', $courseSummary['course']),

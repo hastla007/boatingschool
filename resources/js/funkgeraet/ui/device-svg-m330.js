@@ -136,7 +136,7 @@ export function renderDeviceM330(container) {
     const lcdBox = { x: lx1, y: ly1, width: lx2 - lx1, height: ly2 - ly1 };
     light.add(el('rect', { ...lcdBox, rx: 6, fill: 'url(#m330-lcd)' }, svg), { fill: 'url(#m330-lcd)' }, { fill: '#4b4840' });
     const k = lcdBox.width / LCD_W;
-    const lcd = el('g', { 'font-family': MONO, fill: LCD_INK, transform: `translate(${lcdBox.x} ${lcdBox.y}) scale(${k})` }, svg);
+    const lcd = el('g', { 'data-lcd': '', 'font-family': MONO, fill: LCD_INK, transform: `translate(${lcdBox.x} ${lcdBox.y}) scale(${k})` }, svg);
     for (const x of [456.2, 535.6, 620.6, 703.4]) el('line', { x1: x, y1: 270, x2: x, y2: 281, stroke: PRINT, 'stroke-width': 2.4, 'stroke-linecap': 'round' }, svg);
 
     // Softkeys

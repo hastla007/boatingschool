@@ -3,6 +3,10 @@
     <p class="text-sm text-slate-600 dark:text-slate-400 mb-6">{{ session('first_login') ? 'Willkommen! Melde dich mit deinem neuen Passwort an.' : 'Schön, dass du wieder da bist.' }}</p>
 
     <x-auth-session-status class="mb-4" :status="session('status')" />
+    @if (str_contains((string) session('url.intended'), 'verify-email/'))
+        {{-- Review-Runde 12: vom Bestätigungslink aus der Mail hierher geleitet. --}}
+        <p class="mb-4 rounded-lg bg-sky-50 border border-sky-200 text-sky-900 dark:bg-sky-900/30 dark:border-sky-800 dark:text-sky-100 px-3 py-2 text-sm">Melde dich an, um deine E-Mail-Adresse zu bestätigen.</p>
+    @endif
 
     @if (isset($currentTenant) && in_array($currentTenant->status, ['suspended', 'closed'], true))
         {{-- Gesperrte/geschlossene Schule: Anmelden nur noch für Datenauskunft und Kontolöschung. --}}

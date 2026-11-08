@@ -151,7 +151,7 @@ export function renderDeviceM323(container, { model = 'IC-M323', mic16 = false }
     const lcdBox = { x: lx1, y: ly1, width: lx2 - lx1, height: ly2 - ly1 };
     light.add(el('rect', { ...lcdBox, rx: 6, fill: 'url(#m323-lcd)' }, svg), { fill: 'url(#m323-lcd)' }, { fill: '#4b4840' });
     const k = lcdBox.width / LCD_W;
-    const lcd = el('g', { 'font-family': MONO, fill: LCD_INK, transform: `translate(${lcdBox.x} ${lcdBox.y}) scale(${k})` }, svg);
+    const lcd = el('g', { 'data-lcd': '', 'font-family': MONO, fill: LCD_INK, transform: `translate(${lcdBox.x} ${lcdBox.y}) scale(${k})` }, svg);
     for (const px of [437, 515, 595, 672]) {
         const [tx, ty1] = Q(px, 657);
         const [, ty2] = Q(px, 672);

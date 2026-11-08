@@ -242,13 +242,17 @@ export function mount(root, config) {
                     ].map((row) => h('tr', { class: 'border-t border-red-200 dark:border-red-800 align-top' }, row.map((cell) => h('td', { class: 'pr-2 py-1' }, cell))))))),
         );
     }
-    const stepLine = h('p', { class: 'hidden mb-2 px-3 py-2 rounded-lg bg-amber-50 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100 text-sm', 'aria-live': 'polite' });
+    const stepLine = h('p', { class: 'hidden mb-2 px-3 py-2 rounded-lg bg-amber-50 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100 text-sm' });
     const toolbar = h('div', { class: 'flex items-center justify-end gap-2 mb-3' }, lessonsButton, fullButton);
     const grid = h('div', {},
         h('div', {}, handheldNote, inlandCard, stepLine, deviceWrap, pttNote, typeBox, transcript, radioLog),
         sidebar,
     );
-    root.replaceChildren(toolbar, grid);
+    // Review-Runde 12: Ansagen für Screenreader -- Displaytext des Geräts und
+    // Schrittwechsel der Lektion (bleiben dauerhaft im DOM, nur der Text wechselt).
+    const lcdAnnouncer = h('div', { class: 'sr-only', 'aria-live': 'polite', 'aria-atomic': 'true' });
+    const stepAnnouncer = h('div', { class: 'sr-only', 'aria-live': 'polite', 'aria-atomic': 'true' });
+    root.replaceChildren(toolbar, grid, lcdAnnouncer, stepAnnouncer);
 
     const isFull = () => document.fullscreenElement === root || root.classList.contains('fg-pseudo-full');
     function showLayout() {
@@ -515,12 +519,13 @@ export function mount(root, config) {
     mountDevice();
 
     // Leertaste als Sprechtaste, außer beim Tippen und auf einem Bedienteil
-    // des Geräts (dort drückt die Leertaste dieses Teil). Auch wenn gerade ein
-    // Button den Fokus hat, sendet die Leertaste; Buttons gehen mit Enter.
+    // des Geräts (dort drückt die Leertaste dieses Teil). Review-Runde 12:
+    // auch nicht auf Buttons und Links -- dort drückt die Leertaste wie
+    // überall auf Webseiten den Button.
     let spacePtt = false;
     document.addEventListener('keydown', (e) => {
         if (e.code !== 'Space') return;
-        if (e.target.closest('input, textarea, select, [contenteditable="true"], [data-key], [data-knob]') || locked()) return;
+        if (e.target.closest('input, textarea, select, [contenteditable="true"], [data-key], [data-knob], button, a[href], summary') || locked()) return;
         e.preventDefault();
         if (e.repeat) return;
         ensureAudio();
@@ -682,6 +687,9 @@ export function mount(root, config) {
         run.start();
         renderSidebar();
         render();
+        // Review-Runde 12: Fokus zur Lektion statt zurück auf die Seite.
+        const heading = sidebar.querySelector('h2');
+        if (heading) { heading.setAttribute('tabindex', '-1'); heading.focus(); }
     }
 
     // --- Lektionen ------------------------------------------------------------
@@ -721,6 +729,7 @@ export function mount(root, config) {
                             type: 'button',
                             class: `text-[11px] px-2 py-1 rounded border ${best >= level ? 'border-emerald-500 text-emerald-700 dark:text-emerald-300' : 'border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300'} hover:bg-slate-50 dark:hover:bg-slate-700`,
                             onclick: () => startRun(lesson, { level }),
+                            'aria-label': `${deviceText(lesson.title, deviceKey)} – ${LEVEL_LABELS[level]}`,
                         }, LEVEL_LABELS[level]))),
                     );
                 }),
@@ -993,10 +1002,26 @@ export function mount(root, config) {
     }
 
     // --- Darstellung ----------------------------------------------------------
+    let lastLcdText = '';
+    let lcdTimer = null;
+    let lastStepKey = '';
     function render() {
         const display = radio.display();
         const status = run?.status();
         device.update(display, radio.state, status?.target ?? null);
+
+        const lcdText = [...deviceWrap.querySelectorAll('[data-lcd] text')].map((n) => n.textContent).join(' ').replace(/\s+/g, ' ').trim();
+        if (lcdText !== lastLcdText) {
+            lastLcdText = lcdText;
+            clearTimeout(lcdTimer);
+            // Kurz warten: beim Drehen am Knopf nur den Endstand ansagen.
+            lcdTimer = setTimeout(() => { lcdAnnouncer.textContent = lcdText ? `Display: ${lcdText}` : 'Display aus'; }, 600);
+        }
+        const stepKey = status ? `${run.lesson.key}|${status.index}|${status.done}` : '';
+        if (stepKey !== lastStepKey) {
+            lastStepKey = stepKey;
+            stepAnnouncer.textContent = ! status ? '' : status.done ? 'Lektion geschafft.' : `Schritt ${status.index + 1} von ${status.total}: ${status.text}`;
+        }
     }
 
     let lastBeep = 0;

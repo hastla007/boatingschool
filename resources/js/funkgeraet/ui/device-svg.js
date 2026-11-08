@@ -135,7 +135,7 @@ export function renderDevice(container) {
     const k = Math.min(lcdBox.width / 386, lcdBox.height / 216);
     const tx = lcdBox.x + (lcdBox.width - 386 * k) / 2 - 392 * k;
     const ty = lcdBox.y + (lcdBox.height - 216 * k) / 2 - 102 * k;
-    const lcd = el('g', { 'font-family': MONO, fill: LCD_INK, transform: `translate(${tx} ${ty}) scale(${k})` }, svg);
+    const lcd = el('g', { 'data-lcd': '', 'font-family': MONO, fill: LCD_INK, transform: `translate(${tx} ${ty}) scale(${k})` }, svg);
 
     // DISTRESS mit Klappe (oben rechts)
     const [dx1, dy1] = P(678, 58);

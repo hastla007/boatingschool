@@ -361,6 +361,7 @@ class ProfileController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return Redirect::to('/');
+        // Review-Runde 12: Bestätigung statt kommentarloser Anmeldeseite.
+        return redirect()->route('login')->with('status', 'Dein Konto bei dieser Bootsschule wurde gelöscht.');
     }
 }

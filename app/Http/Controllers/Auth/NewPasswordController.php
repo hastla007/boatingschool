@@ -22,7 +22,19 @@ class NewPasswordController extends Controller
      */
     public function create(Request $request): View
     {
-        return view('auth.reset-password', ['request' => $request]);
+        // Review-Runde 12: abgelaufene oder schon benutzte Links gleich beim
+        // Öffnen erkennen -- bisher kam die Meldung erst nach dem Eintippen
+        // des neuen Passworts (und sprach nur von „Zurücksetzen“).
+        $linkInvalid = false;
+        $email = $request->query('email');
+        $token = (string) $request->route('token');
+        if (is_string($email) && $email !== '') {
+            $user = User::on('pgsql_admin')->whereRaw('lower(email) = ?', [mb_strtolower($email)])->first();
+            $broker = $request->boolean('invite') && $user?->status === 'invited' ? 'invites' : null;
+            $linkInvalid = ! $user || ! Password::broker($broker)->tokenExists($user, $token);
+        }
+
+        return view('auth.reset-password', ['request' => $request, 'linkInvalid' => $linkInvalid]);
     }
 
     /**
