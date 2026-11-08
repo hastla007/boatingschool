@@ -116,7 +116,7 @@ class ReviewRoundTenFixesTest extends TestCase
         $taskId = $this->asTenant($tenant, fn () => ExamSession::find($session->id)->navigation_task_id);
 
         // Übung derselben Aufgabe ist während der Prüfung gesperrt.
-        $this->actingAsInTenant($learner, $tenant)->get(route('exam.navigation.show', ['course' => $course, 'task' => $taskId]))->assertStatus(409);
+        $this->actingAsInTenant($learner, $tenant)->get(route('exam.navigation.show', ['course' => $course, 'task' => $taskId]))->assertRedirect(route('exam.show', $session));
 
         // Superadmin löscht eine Teilfrage: die Antwort mit ihrer Musterlösung bleibt.
         $question = $this->onAdmin(fn () => NavigationQuestion::find($first->navigation_question_id));
@@ -235,5 +235,20 @@ class ReviewRoundTenFixesTest extends TestCase
         $this->assertAuthenticatedAs($learner);
         $this->withSession(['dev_tenant_slug' => $tenant->slug])->get('/meine-daten')->assertOk();
         $this->withSession(['dev_tenant_slug' => $tenant->slug])->get('/dashboard')->assertStatus(403)->assertSee('Eigene Daten herunterladen');
+    }
+
+    public function test_an_empty_navigation_answer_cannot_be_self_graded_as_correct(): void
+    {
+        [$tenant, $learner, , $session] = $this->startSeePaper(7);
+        $answers = $this->navAnswers($tenant, $session);
+        $empty = $answers->first(fn ($a) => ! $a->isChartDrawing() && ! $a->isAutoCheckable()) ?? $answers->first(fn ($a) => ! $a->isChartDrawing());
+
+        $given = $answers->mapWithKeys(fn ($a) => [$a->id => $a->id === $empty->id ? '' : $a->modelAnswer()])->all();
+        $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/navigation", ['answers' => $given]);
+        $this->actingAsInTenant($learner, $tenant)->get("/exam-sessions/{$session->id}")->assertSee('Keine Antwort');
+        $known = $answers->mapWithKeys(fn ($a) => [$a->id => '1'])->all();
+        $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/navigation/assess", ['known' => $known]);
+
+        $this->assertSame(8, $this->asTenant($tenant, fn () => ExamSession::find($session->id))->navigation_points);
     }
 }

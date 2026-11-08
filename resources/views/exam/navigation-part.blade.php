@@ -75,13 +75,13 @@
                         <p class="text-sm text-slate-700 dark:text-slate-200 break-words"><span class="font-medium">Frage {{ $answer->number() }}:</span> {{ $answer->questionText() }}</p>
                         <p class="mt-2 text-sm break-all"><span class="text-slate-500 dark:text-slate-400">Deine Antwort:</span> {{ $answer->answer ?? ($answer->isChartDrawing() ? 'in die Karte eingetragen' : '—') }}</p>
                         <p class="mt-1 text-sm rounded-lg bg-slate-50 dark:bg-slate-700/50 p-2 break-words"><span class="font-medium">Musterlösung:</span> {{ $answer->modelAnswer() }}</p>
-                        @if ($auto === true)
+                        @if ($answer->answer === null && ! $answer->isChartDrawing())
+                            <p class="mt-2 text-sm text-rose-700 dark:text-rose-300">Keine Antwort &ndash; zählt als falsch.</p>
+                        @elseif ($auto === true)
                             <p class="mt-2 text-sm text-emerald-700 dark:text-emerald-300">Automatisch geprüft: richtig.</p>
                         @elseif ($auto === false)
-                            <p class="mt-2 text-sm text-rose-700 dark:text-rose-300">Automatisch geprüft: nicht erkannt.</p>
-                            @if ($answer->answer !== null)
-                                <label class="mt-1 inline-flex items-center gap-2 text-sm"><input type="checkbox" name="known[{{ $answer->id }}]" value="1"> Meine Antwort ist trotzdem richtig (gleichwertig)</label>
-                            @endif
+                            <p class="mt-2 text-sm text-rose-700 dark:text-rose-300">Automatisch geprüft: weicht von der Musterlösung ab.</p>
+                            <label class="mt-1 inline-flex items-center gap-2 text-sm"><input type="checkbox" name="known[{{ $answer->id }}]" value="1"> Meine Antwort ist trotzdem richtig (gleichwertig)</label>
                         @else
                             <div class="mt-2 flex flex-wrap gap-4 text-sm">
                                 <label class="inline-flex items-center gap-2"><input type="radio" name="known[{{ $answer->id }}]" value="1" required> Richtig</label>
@@ -96,14 +96,32 @@
             </form>
         @endif
 
-        @if ($step === 'answer')
-            <form method="POST" action="{{ route('exam.finish', $examSession) }}" class="text-center" x-data="{}"
-                  @submit="if (! confirm('Prüfung jetzt vorzeitig abgeben? Die Navigationsaufgabe zählt dann mit 0 Punkten.')) $event.preventDefault()">
-                @csrf
-                <button type="submit" class="text-xs text-slate-600 dark:text-slate-400 underline">Prüfung vorzeitig abgeben</button>
-            </form>
-        @endif
+        {{-- Kein „vorzeitig abgeben“ in diesem Schritt: „Navigationsaufgabe abgeben“ gibt das Eingetragene ab
+             (der frühere Link warf die Antworten weg). --}}
     </div>
+
+    @if ($step === 'answer')
+        <script nonce="{{ $cspNonce }}">
+            // Review-Runde 10: Eingaben im Browser zwischenspeichern -- ein
+            // Neuladen oder Absturz kostet sonst die ganze Navigationsaufgabe.
+            (function () {
+                const form = document.getElementById('navigation-form');
+                const key = 'exam-nav-' + @js($examSession->id);
+                let saved = {};
+                try { saved = JSON.parse(localStorage.getItem(key) || '{}'); } catch (e) {}
+                form.querySelectorAll('input[type=text]').forEach(function (input) {
+                    if (saved[input.name] && ! input.value) input.value = saved[input.name];
+                    input.addEventListener('input', function () {
+                        saved[input.name] = input.value;
+                        try { localStorage.setItem(key, JSON.stringify(saved)); } catch (e) {}
+                    });
+                });
+                form.addEventListener('submit', function () {
+                    try { localStorage.removeItem(key); } catch (e) {}
+                });
+            })();
+        </script>
+    @endif
 
     @if ($step === 'answer' && ! is_null($remainingSeconds))
         <script nonce="{{ $cspNonce }}">

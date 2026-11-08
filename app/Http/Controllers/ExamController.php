@@ -424,7 +424,7 @@ class ExamController extends Controller
         if ($expired) {
             $examEvaluation->evaluate($examSession);
 
-            return redirect()->route('exam.result', $examSession)->with('status', 'Die Prüfungszeit ist abgelaufen -- hier ist dein Ergebnis.');
+            return redirect()->route('exam.result', $examSession)->with('status', 'Die Prüfungszeit ist abgelaufen – hier ist dein Ergebnis.');
         }
 
         return redirect()->route('exam.show', $examSession);
@@ -448,7 +448,9 @@ class ExamController extends Controller
                 $value = $validated['known'][$answer->id] ?? null;
                 // Freitext/Karte: Selbsteinschätzung; automatisch geprüft und als
                 // falsch erkannt: „trotzdem richtig (gleichwertig)“ möglich.
-                if (! $answer->isAutoCheckable()) {
+                if ($answer->answer === null && ! $answer->isChartDrawing()) {
+                    $answer->update(['self_assessed_known' => false]); // leer = falsch
+                } elseif (! $answer->isAutoCheckable()) {
                     $answer->update(['self_assessed_known' => $value === null ? null : $value === '1']);
                 } elseif ($answer->autoResult() === false) {
                     $answer->update(['self_assessed_known' => $value === '1' ? true : null]);
@@ -549,7 +551,7 @@ class ExamController extends Controller
             $examEvaluation->evaluate($examSession);
 
             return redirect()->route('exam.result', $examSession)
-                ->with('status', 'Die Prüfungszeit ist abgelaufen -- hier ist dein Ergebnis.');
+                ->with('status', 'Die Prüfungszeit ist abgelaufen – hier ist dein Ergebnis.');
         }
 
         $validated = $request->validate([
@@ -659,7 +661,7 @@ class ExamController extends Controller
             $examEvaluation->evaluate($examSession);
 
             return redirect()->route('exam.result', $examSession)
-                ->with('status', 'Die Prüfungszeit ist abgelaufen -- die letzte Antwort kam zu spät. Hier ist dein Ergebnis.');
+                ->with('status', 'Die Prüfungszeit ist abgelaufen – die letzte Antwort kam zu spät. Hier ist dein Ergebnis.');
         }
 
         return redirect()->route('exam.show', $examSession);

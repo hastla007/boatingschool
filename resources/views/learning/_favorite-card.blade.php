@@ -17,7 +17,7 @@
         <x-icon :name="$badgeIcon" class="w-5 h-5" />
     </div>
     <div class="min-w-0 flex-1">
-        <div class="text-slate-700 dark:text-slate-200 truncate">{{ $revision?->question_text }}</div>
+        <div class="text-slate-700 dark:text-slate-200 line-clamp-2 break-words">{{ $revision?->question_text }}</div>
         <div class="text-xs text-slate-600 dark:text-slate-400">{{ $revision?->topic }}</div>
     </div>
     <div class="flex items-center gap-1 shrink-0">

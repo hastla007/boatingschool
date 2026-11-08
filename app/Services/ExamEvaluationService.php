@@ -129,7 +129,7 @@ class ExamEvaluationService
                 $navigationPoints = 0;
                 foreach ($examSession->navigationAnswers()->with('question')->lockForUpdate()->get() as $answer) {
                     $withinTime = ! $deadline || ! $answer->answered_at || $answer->answered_at->lte($deadline);
-                    if (! $withinTime) {
+                    if (! $withinTime || ($answer->answer === null && ! $answer->isChartDrawing())) {
                         $isCorrect = false;
                     } elseif ($answer->isAutoCheckable()) {
                         // Automatisch geprüft; „gleichwertig“ kann der Teilnehmer

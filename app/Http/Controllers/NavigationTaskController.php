@@ -38,15 +38,20 @@ class NavigationTaskController extends Controller
     }
 
     /** Review-Runde 10: Lösungen der Aufgabe, die gerade in einer laufenden Prüfung dran ist, nicht zeigen. */
-    private function abortIfInRunningExam(Request $request, TenantContext $tenantContext, NavigationTask $task): void
+    private function runningExamWithTask(Request $request, TenantContext $tenantContext, NavigationTask $task): ?ExamSession
     {
-        $running = ExamSession::where('tenant_id', $tenantContext->id())->where('user_id', $request->user()->id)
+        return ExamSession::where('tenant_id', $tenantContext->id())->where('user_id', $request->user()->id)
             ->where('status', 'running')->where('navigation_task_id', $task->id)->get()
-            ->contains(fn ($s) => ! app(ExamEvaluationService::class)->timeExpired($s));
-        abort_if($running, 409, 'Diese Navigationsaufgabe ist gerade Teil deiner laufenden Prüfungssimulation. Die Übung ist danach wieder verfügbar.');
+            ->first(fn ($s) => ! app(ExamEvaluationService::class)->timeExpired($s));
     }
 
-    public function show(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course, NavigationTask $task): View
+    /** Review-Runde 10: Lösungen der Aufgabe, die gerade in einer laufenden Prüfung dran ist, nicht zeigen. */
+    private function abortIfInRunningExam(Request $request, TenantContext $tenantContext, NavigationTask $task): void
+    {
+        abort_if($this->runningExamWithTask($request, $tenantContext, $task) !== null, 409, 'Diese Navigationsaufgabe ist gerade Teil deiner laufenden Prüfungssimulation. Die Übung ist danach wieder verfügbar.');
+    }
+
+    public function show(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course, NavigationTask $task): View|RedirectResponse
     {
         abort_unless($entitlements->hasAccess($tenantContext->tenant(), $request->user(), $course), 403);
 
@@ -54,7 +59,10 @@ class NavigationTaskController extends Controller
         abort_unless($tasks->contains('id', $task->id), 404, 'Diese Aufgabe gehört nicht zu diesem Kurs.');
 
         $task = $tasks->firstWhere('id', $task->id);
-        $this->abortIfInRunningExam($request, $tenantContext, $task);
+        if ($running = $this->runningExamWithTask($request, $tenantContext, $task)) {
+            return redirect()->route('exam.show', $running)
+                ->with('status', 'Diese Navigationsaufgabe ist gerade Teil deiner laufenden Prüfung – die Übung ist danach wieder verfügbar.');
+        }
         $progress = $this->progress($request, $tasks);
 
         return view('exam.navigation', [

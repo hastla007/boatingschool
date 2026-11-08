@@ -61,7 +61,7 @@
                                 <span class="text-slate-700 dark:text-slate-200 break-words min-w-0"><span class="font-medium">Frage {{ $navAnswer->number() }}:</span> {{ $navAnswer->questionText() }}</span>
                                 <span class="shrink-0 text-xs font-medium rounded-full px-2 py-0.5 {{ $navAnswer->correct ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200' : 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-200' }}">{{ $navAnswer->correct ? 'Richtig' : 'Falsch' }}{{ $navAnswer->correct && ($navAnswer->self_assessed_known && $navAnswer->autoResult() !== true) ? ' (selbst bewertet)' : '' }}</span>
                             </div>
-                            <p class="mt-1 text-xs text-slate-600 dark:text-slate-400 break-all">Deine Antwort: {{ $navAnswer->answer ?? '—' }} &middot; Musterlösung: {{ $navAnswer->modelAnswer() }}</p>
+                            <p class="mt-1 text-xs text-slate-600 dark:text-slate-400 break-all">Deine Antwort: {{ $navAnswer->answer ?? ($navAnswer->isChartDrawing() ? 'in die Karte eingetragen' : '—') }} &middot; Musterlösung: {{ $navAnswer->modelAnswer() }}</p>
                         </li>
                     @endforeach
                 </ul>
