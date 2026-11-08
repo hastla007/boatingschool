@@ -8,7 +8,6 @@ use App\Models\NavigationProgress;
 use App\Models\NavigationQuestion;
 use App\Models\NavigationTask;
 use App\Services\EntitlementService;
-use App\Services\ExamEvaluationService;
 use App\Support\NavigationAnswer;
 use App\Support\TenantContext;
 use Illuminate\Http\RedirectResponse;
@@ -42,7 +41,13 @@ class NavigationTaskController extends Controller
     {
         return ExamSession::where('tenant_id', $tenantContext->id())->where('user_id', $request->user()->id)
             ->where('status', 'running')->where('navigation_task_id', $task->id)->get()
-            ->first(fn ($s) => ! app(ExamEvaluationService::class)->timeExpired($s));
+            // Review-Runde 11: auch während der Nachfrist für die Abgabe und
+            // der Selbsteinschätzung gesperrt.
+            ->first(function (ExamSession $s) {
+                $deadline = $s->deadline();
+
+                return ! $deadline || now()->lte($deadline->copy()->addSeconds(ExamSession::NAVIGATION_SUBMIT_GRACE)) || $s->inNavigationAssessment();
+            });
     }
 
     /** Review-Runde 10: Lösungen der Aufgabe, die gerade in einer laufenden Prüfung dran ist, nicht zeigen. */

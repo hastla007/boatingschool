@@ -110,7 +110,11 @@ class ParticipantController extends Controller
 
         $bookings = $entitlements->concat($standaloneProductPurchases)->sortByDesc('date')->values();
 
+        // Review-Runde 11: Ausbilder sehen nur Anmeldungen ihrer Kurse (wie
+        // die Einzelansicht der Anmeldung und das Dashboard).
+        $instructorCourses = InstructorScope::courseIds($tenant, $request->user());
         $praxisFormSubmissions = PraxisFormSubmission::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+            ->when($instructorCourses !== null, fn ($q) => $q->whereIn('course_id', $instructorCourses))
             ->with(['course', 'template', 'examAppointments.location'])->orderByDesc('created_at')->get();
 
         // Für das Termin-Vorschlagsformular je Anmeldung: die für den
@@ -120,7 +124,6 @@ class ParticipantController extends Controller
         // Anmeldungen unterschiedliche Kurse betreffen können.
         // Kurse mit Selbst-Anmeldung zur Prüfung (noch ohne Termine): dort
         // kann die Schule trotzdem Praxisstunden vorschlagen.
-        $instructorCourses = InstructorScope::courseIds($tenant, $request->user());
         $selfBookingCourses = Entitlement::where('tenant_id', $tenant->id)->where('user_id', $user->id)
             ->currentlyActive()->with('course')->get()->pluck('course')->filter()
             ->filter(fn ($course) => $instructorCourses === null || $instructorCourses->contains($course->id))
@@ -220,7 +223,7 @@ class ParticipantController extends Controller
         }
 
         $name = $user->name;
-        $erasure->leaveTenant($user, $tenant);
+        $erasure->leaveTenant($user, $tenant, forgetOtherSchoolsInvitations: false);
         AuditLog::record($tenant->id, $request->user()->id, 'participant.remove', 'tenant_user', null, null, null);
 
         return redirect()->route('admin.dashboard', ['tab' => 'participants'])->with('status', "{$name} und alle Lerndaten bei dieser Bootsschule wurden gelöscht.");

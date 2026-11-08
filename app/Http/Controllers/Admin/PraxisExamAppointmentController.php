@@ -73,14 +73,21 @@ class PraxisExamAppointmentController extends Controller
         });
         $request->request->remove('slot');
 
-        $response = $this->store($request, $tenantContext, $submission, $appointments);
-        // Scheiterte der Vorschlag (z. B. Datum in der Vergangenheit), bleibt
-        // kein leerer Behälter zurück.
-        if ($submission->isPracticeOnly() && ! $submission->examAppointments()->exists()) {
-            $submission->delete();
+        try {
+            return $this->store($request, $tenantContext, $submission, $appointments);
+        } finally {
+            // Scheiterte der Vorschlag (z. B. Datum in der Vergangenheit oder
+            // ein Eingabefehler), bleibt kein leerer Behälter zurück. Frisch
+            // unter der Sperre gelesen: hat der Teilnehmer inzwischen seine
+            // Praxis-Anmeldung abgeschickt, bleibt sie stehen.
+            DB::transaction(function () use ($tenant, $user, $course, $submission) {
+                DB::statement('SELECT pg_advisory_xact_lock(hashtext(?))', [$tenant->id.':'.$user->id.':'.$course->id]);
+                $fresh = PraxisFormSubmission::find($submission->id);
+                if ($fresh && $fresh->isPracticeOnly() && ! $fresh->examAppointments()->exists()) {
+                    $fresh->delete();
+                }
+            });
         }
-
-        return $response;
     }
 
     public function store(Request $request, TenantContext $tenantContext, PraxisFormSubmission $submission, PraxisExamAppointmentService $appointments): Response

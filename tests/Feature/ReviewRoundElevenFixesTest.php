@@ -2,10 +2,15 @@
 
 namespace Tests\Feature;
 
+use App\Models\CourseExamRegistration;
 use App\Models\ExamPaper;
 use App\Models\ExamSession;
+use App\Models\InstructorCourse;
+use App\Models\PraxisFormSubmission;
+use App\Models\PraxisFormTemplate;
 use App\Models\Product;
 use App\Models\Progress;
+use App\Models\TenantInvitation;
 use App\Models\User;
 use App\Services\AccountSetupLink;
 use App\Services\MasteryCalculator;
@@ -143,5 +148,70 @@ class ReviewRoundElevenFixesTest extends TestCase
         $this->travelTo($session->started_at->copy()->addSeconds(3600 + 300));
         Artisan::call('app:expire-abandoned-exam-sessions');
         $this->assertNotSame('running', $this->onAdmin(fn () => ExamSession::find($session->id)->status));
+    }
+
+    public function test_an_instructor_does_not_see_praxis_registrations_of_other_courses_on_the_participant_page(): void
+    {
+        $tenant = $this->createTestTenant();
+        $instructor = $this->createTenantUser($tenant, 'instructor');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $src = $this->existingCourse('SRC');
+        $see = $this->existingCourse('SBF-SEE');
+        $this->grantEntitlement($tenant, $learner, $src);
+        $this->grantEntitlement($tenant, $learner, $see);
+        $this->onAdmin(function () use ($tenant, $instructor, $learner, $src, $see) {
+            InstructorCourse::create(['tenant_id' => $tenant->id, 'user_id' => $instructor->id, 'course_id' => $src->id]);
+            PraxisFormSubmission::create([
+                'tenant_id' => $tenant->id, 'course_id' => $see->id, 'user_id' => $learner->id,
+                'praxis_form_template_id' => PraxisFormTemplate::query()->value('id'), 'data' => ['geburtsort' => 'GEHEIM-ORT-XYZ'],
+            ]);
+        });
+
+        $this->actingAsInTenant($instructor, $tenant)->get("/admin/participants/{$learner->id}")->assertOk()->assertDontSee('GEHEIM-ORT-XYZ');
+    }
+
+    public function test_the_practice_task_stays_locked_during_the_navigation_submit_grace(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SBF-SEE');
+        $this->grantEntitlement($tenant, $learner, $course);
+        $paper = $this->onAdmin(fn () => ExamPaper::where('course_id', $course->id)->where('paper_number', 2)->firstOrFail());
+        $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam/papers/{$paper->id}")->assertRedirect();
+        $session = $this->asTenant($tenant, fn () => ExamSession::where('user_id', $learner->id)->firstOrFail());
+
+        $this->travelTo($session->started_at->copy()->addSeconds(3600 + 30));
+        $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/exam/navigation/{$session->navigation_task_id}")
+            ->assertRedirect(route('exam.show', $session));
+    }
+
+    public function test_a_school_deleting_a_participant_keeps_other_schools_open_invitations(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $other = $this->createTestTenant('Andere Schule');
+        $this->onAdmin(fn () => TenantInvitation::create(['tenant_id' => $other->id, 'email' => $learner->email, 'role' => 'instructor']));
+
+        $this->actingAsInTenant($admin, $tenant)->delete("/admin/participants/{$learner->id}/data", ['confirm' => 'LÖSCHEN'])->assertRedirect();
+
+        $this->assertFalse($this->userExists($learner));
+        $this->onAdmin(fn () => $this->assertTrue(TenantInvitation::withoutGlobalScopes()->where('tenant_id', $other->id)->where('email', $learner->email)->exists()));
+    }
+
+    public function test_an_invalid_practice_proposal_leaves_no_empty_container(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SBF-SEE');
+        $this->grantEntitlement($tenant, $learner, $course);
+        $this->onAdmin(fn () => CourseExamRegistration::create(['tenant_id' => $tenant->id, 'course_id' => $course->id, 'mode' => 'self']));
+
+        $this->actingAsInTenant($admin, $tenant)->post("/admin/participants/{$learner->id}/practice-appointments", [
+            'course_id' => $course->id, 'label' => 'X', 'exam_date' => 'kein-datum',
+        ])->assertSessionHasErrors('exam_date');
+
+        $this->onAdmin(fn () => $this->assertFalse(PraxisFormSubmission::where('user_id', $learner->id)->exists()));
     }
 }
