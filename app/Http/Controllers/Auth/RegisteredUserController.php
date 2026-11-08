@@ -57,7 +57,7 @@ class RegisteredUserController extends Controller
         // ganz normal über "Anmelden" einloggen -- der signierte
         // Verifizierungs-Link in der E-Mail (siehe unten) greift dann über
         // die bestehende "auth"-Middleware (routes/auth.php) wie gewohnt.
-        $status = 'Fast fertig -- falls die Adresse neu ist, haben wir dir eine Bestätigungsmail geschickt; bitte melde dich an, um fortzufahren. Falls sie bereits bei uns registriert ist, melde dich stattdessen einfach an oder setze dein Passwort zurück.';
+        $status = 'Fast fertig – falls die Adresse neu ist, haben wir dir eine Bestätigungsmail geschickt; bitte melde dich an, um fortzufahren. Falls sie bereits bei uns registriert ist, melde dich stattdessen einfach an oder setze dein Passwort zurück.';
 
         // Sicherheitsreview M7: app_user hat jetzt RLS -- diese
         // Duplikat-Erkennung muss aber bewusst plattformweit suchen (das ist

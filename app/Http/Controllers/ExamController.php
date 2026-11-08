@@ -35,7 +35,7 @@ class ExamController extends Controller
     {
         $tenant = $tenantContext->tenant();
         $user = $request->user();
-        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403);
+        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Dein Zugang zu diesem Kurs ist abgelaufen oder nicht freigeschaltet.');
 
         $papers = $course->examPapers;
 
@@ -134,6 +134,10 @@ class ExamController extends Controller
                 'attempted' => (bool) $session,
                 'running' => $runningPaperIds->has($paper->id),
                 'percent' => $session ? (int) round($session->score * 100) : 0,
+                // Review-Runde 11: der Prozentwert zählt nur den Fragebogen --
+                // ohne Ergebnis wirkte ein an der Navigation gescheiterter Bogen
+                // mit 100 % wie bestanden.
+                'passed' => $session?->passed,
                 'correct' => $session ? $correctBySession->get($session->id, 0) : 0,
                 'total' => $session ? (int) $questionCountBySession->get($session->id, 0) : $totalsByPaper->get($paper->id, 0),
                 'group' => $comboInfo['label'] ?? null,
@@ -184,7 +188,7 @@ class ExamController extends Controller
     {
         $tenant = $tenantContext->tenant();
         $user = $request->user();
-        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403);
+        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Dein Zugang zu diesem Kurs ist abgelaufen oder nicht freigeschaltet.');
         abort_unless($paper->course_id === $course->id, 404);
 
         // Kombikurse: der Bogen läuft nach dem Regelwerk seines Teilkurses
@@ -274,7 +278,7 @@ class ExamController extends Controller
     {
         $tenant = $tenantContext->tenant();
         $user = $request->user();
-        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403);
+        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Dein Zugang zu diesem Kurs ist abgelaufen oder nicht freigeschaltet.');
 
         // Bug-Review (Zufallsprüfung bei SRC/FKN hat nur 10 statt 24/15
         // Fragen): intro() zeigt für einen Kurs mit echten Prüfungsbögen
@@ -289,7 +293,7 @@ class ExamController extends Controller
         // zufällig zusammengestellte Prüfung kein gültiger, zweiter Weg,
         // sondern veraltet; sie bleibt deshalb jetzt auf Kurse ohne eigene
         // Prüfungsbögen beschränkt (analog zur Verzweigung in intro()).
-        abort_if($course->examPapers()->exists(), 409, 'Für diesen Kurs gibt es feste Prüfungsbögen -- die zufällig zusammengestellte Prüfung ist hier nicht verfügbar.');
+        abort_if($course->examPapers()->exists(), 409, 'Für diesen Kurs gibt es feste Prüfungsbögen – die zufällig zusammengestellte Prüfung ist hier nicht verfügbar.');
 
         $ruleSet = $course->activeExamRuleSet();
         abort_unless($ruleSet && $ruleSet->isVerified(), 409, 'Für diesen Kurs liegt noch kein fachlich freigegebenes Prüfungsregelwerk vor.');
@@ -736,7 +740,8 @@ class ExamController extends Controller
         $wrong = $incorrect->whereNotNull('answered_at');
         $unanswered = $incorrect->whereNull('answered_at');
 
-        $topicBreakdown = $questions->groupBy(fn ($q) => $q->revision->topic ?? '—')
+        // Review-Runde 11: dieselben Themennamen wie im Lernstand.
+        $topicBreakdown = $questions->groupBy(fn ($q) => ($q->revision?->smartmodus_kategorie ?: $q->revision?->topic) ?? '—')
             ->map(fn ($rows) => [
                 'total' => $rows->count(),
                 'correct' => $rows->where('correct', true)->count(),

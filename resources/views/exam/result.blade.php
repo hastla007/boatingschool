@@ -16,6 +16,17 @@
                  sie deshalb separat als "nicht bewertet" aus. Sie fließen
                  jetzt wie jede andere Frage in $examSession->score ein. --}}
             <div class="text-slate-500 dark:text-slate-400 mt-1">{{ (int) round($examSession->score * 100) }}% richtig &middot; {{ $questions->where('correct', true)->count() }}/{{ $questions->count() }} Fragen</div>
+            @php
+                // Review-Runde 11: nach Zeitablauf ausgewertet -- sagen, warum.
+                $deadline = $examSession->deadline();
+                $endedAt = $examSession->navigation_submitted_at ?? $examSession->submitted_at;
+                $timedOut = $deadline && $endedAt && $endedAt->gte($deadline);
+            @endphp
+            @if ($timedOut)
+                <div class="mt-2 inline-flex items-center gap-1.5 rounded-full bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200 px-3 py-1 text-xs font-medium">
+                    <x-icon name="clock" class="w-4 h-4" /> Die Prüfungszeit war abgelaufen &ndash; nicht beantwortete Fragen zählen als falsch.
+                </div>
+            @endif
             @if ($openTextCount > 0)
                 {{-- Bug-Review (FKN offene Fragen): die Quote oben enthält
                      Punkte aus offenen Fragen, die per Selbsteinschätzung

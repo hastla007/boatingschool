@@ -20,7 +20,7 @@ class VideoCourseController extends Controller
 {
     public function index(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course): View|Response
     {
-        abort_unless($entitlements->hasAccess($tenantContext->tenant(), $request->user(), $course), 403);
+        abort_unless($entitlements->hasAccess($tenantContext->tenant(), $request->user(), $course), 403, 'Dein Zugang zu diesem Kurs ist abgelaufen oder nicht freigeschaltet.');
 
         $moduleIds = $this->parseModuleIds($request);
         $lessons = VideoCourseLessons::ordered($course, $moduleIds);
@@ -34,7 +34,7 @@ class VideoCourseController extends Controller
 
     public function show(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course, VideoLesson $lesson): View
     {
-        abort_unless($entitlements->hasAccess($tenantContext->tenant(), $request->user(), $course), 403);
+        abort_unless($entitlements->hasAccess($tenantContext->tenant(), $request->user(), $course), 403, 'Dein Zugang zu diesem Kurs ist abgelaufen oder nicht freigeschaltet.');
 
         $moduleIds = $this->parseModuleIds($request);
         $lessons = VideoCourseLessons::ordered($course, $moduleIds);
@@ -82,7 +82,7 @@ class VideoCourseController extends Controller
     {
         $tenant = $tenantContext->tenant();
         $user = $request->user();
-        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403);
+        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Dein Zugang zu diesem Kurs ist abgelaufen oder nicht freigeschaltet.');
 
         $moduleIds = $this->parseModuleIds($request);
         $lessons = VideoCourseLessons::ordered($course, $moduleIds);

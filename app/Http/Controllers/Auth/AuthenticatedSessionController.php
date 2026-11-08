@@ -66,7 +66,7 @@ class AuthenticatedSessionController extends Controller
             if (! TenantPath::isCentralRoot($request)) {
                 return redirect()
                     ->to($this->centralDomainUrl($request, route('login', absolute: false)))
-                    ->with('status', 'Der Superadmin-Bereich ist nur über die zentrale Domain erreichbar -- bitte melde dich hier noch einmal an.');
+                    ->with('status', 'Der Superadmin-Bereich ist nur über die zentrale Domain erreichbar – bitte melde dich hier noch einmal an.');
             }
 
             return redirect()->intended(route('superadmin.dashboard', absolute: false));

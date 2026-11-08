@@ -33,8 +33,8 @@ class DuplicateRegistrationAttempt extends Notification
     {
         return (new MailMessage)
             ->subject('Registrierungsversuch mit deiner E-Mail-Adresse')
-            ->line('Jemand hat versucht, mit dieser E-Mail-Adresse ein neues Konto zu registrieren -- für diese Adresse existiert aber bereits ein Konto.')
+            ->line('Jemand hat versucht, mit dieser E-Mail-Adresse ein neues Konto zu registrieren – für diese Adresse existiert aber bereits ein Konto.')
             ->line('Warst du das selbst? Dann melde dich einfach ganz normal an oder setze dein Passwort zurück, falls du es vergessen hast.')
-            ->line('Warst du das nicht, kannst du diese Nachricht ignorieren -- an deinem Konto wurde nichts verändert.');
+            ->line('Warst du das nicht, kannst du diese Nachricht ignorieren – an deinem Konto wurde nichts verändert.');
     }
 }

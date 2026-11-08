@@ -120,7 +120,7 @@ class UserController extends Controller
 
         $status = $mailSent
             ? 'Nutzer angelegt.'
-            : 'Nutzer angelegt, die Einladungsmail konnte aber nicht versendet werden -- bitte den Zugang über "Passwort vergessen" erneut anstoßen.';
+            : 'Nutzer angelegt, die Einladungsmail konnte aber nicht versendet werden – bitte den Zugang über "Passwort vergessen" erneut anstoßen.';
 
         return redirect()->route('superadmin.users.show', $user)->with('status', $status);
     }
@@ -302,7 +302,7 @@ class UserController extends Controller
 
         $message = $status === 'active'
             ? 'Bootsschul-Zuordnung gespeichert.'
-            : 'Rolle gespeichert. Die Mitgliedschaft bleibt '.StatusLabels::userStatus($status).' -- entsperren kann sie nur die Bootsschule selbst.';
+            : 'Rolle gespeichert. Die Mitgliedschaft bleibt '.StatusLabels::userStatus($status).' – entsperren kann sie nur die Bootsschule selbst.';
 
         return back()->with('status', $message);
     }

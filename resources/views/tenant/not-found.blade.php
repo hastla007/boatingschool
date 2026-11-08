@@ -12,7 +12,7 @@
             <x-icon name="compass" class="w-7 h-7 text-slate-600 dark:text-slate-400" />
         </div>
         <h1 class="text-xl font-bold text-slate-800 dark:text-white mb-2">Bootsschule nicht gefunden</h1>
-        <p class="text-slate-500 dark:text-slate-400">Unter dieser Adresse ist keine Bootsschule registriert. Bitte prüfen Sie den Link Ihrer Bootsschule.</p>
+        <p class="text-slate-500 dark:text-slate-400">Unter dieser Adresse ist keine Bootsschule registriert. Bitte prüfe den Link deiner Bootsschule.</p>
     </div>
 </body>
 </html>

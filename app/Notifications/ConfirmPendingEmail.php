@@ -53,6 +53,6 @@ class ConfirmPendingEmail extends Notification
             ->subject('Neue E-Mail-Adresse bestätigen')
             ->line('Für dein Konto wurde diese E-Mail-Adresse als neue Login-Adresse hinterlegt.')
             ->action('E-Mail-Adresse bestätigen', $url)
-            ->line('Hast du diese Änderung nicht selbst vorgenommen, kannst du diese Nachricht einfach ignorieren -- ohne Bestätigung ändert sich nichts an deinem Konto.');
+            ->line('Hast du diese Änderung nicht selbst vorgenommen, kannst du diese Nachricht einfach ignorieren – ohne Bestätigung ändert sich nichts an deinem Konto.');
     }
 }

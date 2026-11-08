@@ -34,7 +34,7 @@ class VideoQuizController extends Controller
         $tenant = $tenantContext->tenant();
         $user = $request->user();
 
-        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403);
+        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Dein Zugang zu diesem Kurs ist abgelaufen oder nicht freigeschaltet.');
         abort_unless($lesson->module->course_id === $course->id, 404);
 
         $questions = $this->resolveQuestions($lesson, $request, $tenant, $user, $examEvaluation);
@@ -83,7 +83,7 @@ class VideoQuizController extends Controller
         $tenant = $tenantContext->tenant();
         $user = $request->user();
 
-        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403);
+        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Dein Zugang zu diesem Kurs ist abgelaufen oder nicht freigeschaltet.');
         abort_unless($lesson->module->course_id === $course->id, 404);
 
         $questions = $this->resolveQuestions($lesson, $request, $tenant, $user, $examEvaluation);
@@ -218,7 +218,7 @@ class VideoQuizController extends Controller
         $tenant = $tenantContext->tenant();
         $user = $request->user();
 
-        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403);
+        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Dein Zugang zu diesem Kurs ist abgelaufen oder nicht freigeschaltet.');
         abort_unless($lesson->module->course_id === $course->id, 404);
 
         $questions = $this->resolveQuestions($lesson, $request, $tenant, $user, $examEvaluation);

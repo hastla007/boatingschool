@@ -289,7 +289,7 @@ class FunkTrainingController extends Controller
 
     private function authorizeCatalog(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course, ?string $catalog, bool $strict = false): string
     {
-        abort_unless($entitlements->hasAccess($tenantContext->tenant(), $request->user(), $course), 403);
+        abort_unless($entitlements->hasAccess($tenantContext->tenant(), $request->user(), $course), 403, 'Dein Zugang zu diesem Kurs ist abgelaufen oder nicht freigeschaltet.');
 
         $selected = FunkTraining::selectedCatalog($course, $catalog);
         abort_if($selected === null || ($strict && $selected !== $catalog), 404);

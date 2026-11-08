@@ -60,7 +60,7 @@ class PraxisExamAppointmentController extends Controller
 
         $template = PraxisFormTemplate::where('active', true)->whereJsonContains('course_ids', $course->id)->first();
         if (! $template) {
-            return back()->withErrors(['exam_date' => 'Für diesen Kurs ist kein Praxisformular hinterlegt -- bitte an den Plattform-Support wenden.']);
+            return back()->withErrors(['exam_date' => 'Für diesen Kurs ist kein Praxisformular hinterlegt – bitte an den Plattform-Support wenden.']);
         }
 
         $submission = DB::transaction(function () use ($tenant, $user, $course, $template) {

@@ -100,7 +100,7 @@ class TeamController extends Controller
         // Gleicher Text für bestehendes und neues Konto (kein Konto-Orakel).
         return back()->with('status', $mailSent
             ? 'Einladung verschickt.'
-            : 'Einladung angelegt, der Versand der E-Mail ist aber fehlgeschlagen -- bitte später erneut einladen.');
+            : 'Einladung angelegt, der Versand der E-Mail ist aber fehlgeschlagen – bitte später erneut einladen.');
     }
 
     public function updateRole(Request $request, TenantContext $tenantContext, User $user): Response

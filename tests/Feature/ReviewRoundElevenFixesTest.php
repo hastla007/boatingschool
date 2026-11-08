@@ -6,6 +6,7 @@ use App\Models\CourseExamRegistration;
 use App\Models\ExamPaper;
 use App\Models\ExamSession;
 use App\Models\InstructorCourse;
+use App\Models\NavigationTask;
 use App\Models\PraxisFormSubmission;
 use App\Models\PraxisFormTemplate;
 use App\Models\Product;
@@ -213,5 +214,39 @@ class ReviewRoundElevenFixesTest extends TestCase
         ])->assertSessionHasErrors('exam_date');
 
         $this->onAdmin(fn () => $this->assertFalse(PraxisFormSubmission::where('user_id', $learner->id)->exists()));
+    }
+
+    public function test_the_exam_navigation_part_hides_the_hint_and_uses_format_placeholders(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SBF-SEE');
+        $this->grantEntitlement($tenant, $learner, $course);
+        $paper = $this->onAdmin(fn () => ExamPaper::where('course_id', $course->id)->where('paper_number', 1)->firstOrFail());
+        $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam/papers/{$paper->id}")->assertRedirect();
+        $session = $this->asTenant($tenant, fn () => ExamSession::where('user_id', $learner->id)->firstOrFail());
+        foreach ($this->asTenant($tenant, fn () => $session->questions()->with('revision.answers')->get()) as $sq) {
+            $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/answers", [
+                'position' => $sq->position, 'answer_id' => $sq->revision->answers->firstWhere('is_correct', true)->id,
+            ]);
+        }
+        $hint = $this->onAdmin(fn () => NavigationTask::find($session->navigation_task_id)->hint);
+
+        $response = $this->actingAsInTenant($learner, $tenant)->get("/exam-sessions/{$session->id}")->assertOk()->assertSee('Format: 000°');
+        if ($hint) {
+            $response->assertDontSee($hint);
+        }
+        $response->assertDontSee('z. B. 079°');
+    }
+
+    public function test_the_dashboard_mentions_an_expired_course_next_to_active_ones(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $this->grantEntitlement($tenant, $learner, $this->existingCourse('SRC'));
+        $expired = $this->grantEntitlement($tenant, $learner, $see = $this->existingCourse('SBF-SEE'));
+        $this->onAdmin(fn () => DB::table('entitlement')->where('id', $expired->id)->update(['valid_from' => now()->subDays(30), 'valid_until' => now()->subDay()]));
+
+        $this->actingAsInTenant($learner, $tenant)->get('/dashboard')->assertOk()->assertSee('Abgelaufen: '.$see->name, false);
     }
 }

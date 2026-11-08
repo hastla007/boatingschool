@@ -2,8 +2,22 @@
     <div class="space-y-6">
         <div>
             <h1 class="text-2xl font-bold text-slate-800 dark:text-white">Hallo {{ explode(' ', Auth::user()->name)[0] }}!</h1>
-            <p class="text-slate-500 dark:text-slate-400">Schön, dass du wieder da bist.</p>
+            <p class="text-slate-500 dark:text-slate-400">{{ ($firstVisit ?? false) ? 'Willkommen! Schön, dass du da bist.' : 'Schön, dass du wieder da bist.' }}</p>
         </div>
+
+        @foreach ($expiringSoon ?? [] as $entitlement)
+            <div role="status" class="rounded-2xl border border-amber-200 bg-amber-50 dark:bg-amber-900/30 dark:border-amber-800 px-4 py-3 text-sm text-amber-900 dark:text-amber-100">
+                Dein Zugang zu „{{ $entitlement->course->name }}“ läuft am {{ \App\Support\GermanTime::format($entitlement->valid_until, 'd.m.Y') }} ab.
+                <a href="{{ route('coupons.redeem') }}" class="underline font-medium">Verlängerungscode einlösen</a>
+            </div>
+        @endforeach
+
+        @if (($expiredCourseNames ?? collect())->isNotEmpty())
+            <div role="status" class="rounded-2xl border border-slate-200 bg-slate-50 dark:bg-slate-800 dark:border-slate-700 px-4 py-3 text-sm text-slate-700 dark:text-slate-200">
+                Abgelaufen: {{ $expiredCourseNames->implode(', ') }}. Mit einem Verlängerungscode deiner Bootsschule lernst du mit deinem bisherigen Fortschritt weiter.
+                <a href="{{ route('coupons.redeem') }}" class="underline font-medium">Code einlösen</a>
+            </div>
+        @endif
 
         @include('partials.platform-announcements')
 

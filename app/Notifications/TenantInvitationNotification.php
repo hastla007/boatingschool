@@ -60,8 +60,8 @@ class TenantInvitationNotification extends Notification
             ->line($formal ? 'Melden Sie sich mit dieser E-Mail-Adresse an und bestätigen Sie die Einladung über den folgenden Link.' : 'Melde dich mit dieser E-Mail-Adresse an und bestätige die Einladung über den folgenden Link.')
             ->action('Einladung bestätigen', $url)
             ->line($formal
-                ? 'Haben Sie diese Einladung nicht erwartet, können Sie diese Nachricht ignorieren -- ohne Bestätigung ändert sich nichts an Ihrem Konto.'
-                : 'Hast du diese Einladung nicht erwartet, kannst du diese Nachricht ignorieren -- ohne Bestätigung ändert sich nichts an deinem Konto.');
+                ? 'Haben Sie diese Einladung nicht erwartet, können Sie diese Nachricht ignorieren – ohne Bestätigung ändert sich nichts an Ihrem Konto.'
+                : 'Hast du diese Einladung nicht erwartet, kannst du diese Nachricht ignorieren – ohne Bestätigung ändert sich nichts an deinem Konto.');
 
         return MailTemplates::apply($message, 'invitation', ['schule' => $tenantName]);
     }

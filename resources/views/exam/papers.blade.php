@@ -187,6 +187,9 @@
                                         <div class="text-xs font-medium text-amber-200">läuft &ndash; fortsetzen</div>
                                     @else
                                         <div class="text-xs text-white/70">{{ $stat['correct'] }}/{{ $stat['total'] }}</div>
+                                        @if ($stat['attempted'] && ! is_null($stat['passed']))
+                                            <div class="text-xs font-medium {{ $stat['passed'] ? 'text-emerald-300' : 'text-rose-300' }}">{{ $stat['passed'] ? 'bestanden' : 'nicht bestanden' }}</div>
+                                        @endif
                                     @endif
                                 </button>
                             </form>

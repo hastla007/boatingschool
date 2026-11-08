@@ -101,7 +101,10 @@ class NewPasswordController extends Controller
         // Beide Fehlerfälle zeigen deshalb jetzt denselben Text, unabhängig
         // davon, welchen der beiden Status Laravel zurückgegeben hat.
         return $status == Password::PASSWORD_RESET
-                    ? redirect()->route('login')->with('status', $request->boolean('invite') ? 'Dein Passwort ist festgelegt. Du kannst dich jetzt anmelden.' : __($status))
+                    // Review-Runde 11: E-Mail-Adresse vorausgefüllt, Begrüßung für Neue.
+                    ? redirect()->route('login')->withInput($request->only('email'))
+                        ->with('status', $request->boolean('invite') ? 'Dein Passwort ist festgelegt. Du kannst dich jetzt anmelden.' : __($status))
+                        ->with('first_login', $request->boolean('invite'))
                     : back()->withInput($request->only('email'))
                         ->withErrors(['email' => __('passwords.token')]);
     }

@@ -141,7 +141,7 @@ class BrandingController extends Controller
 
         $status = $mailSent
             ? 'Branding aktualisiert.'
-            : 'Branding aktualisiert, die Bestätigungs-Mail für die Support-Adresse konnte aber nicht versendet werden -- bitte über "Bestätigungslink erneut senden" noch einmal versuchen.';
+            : 'Branding aktualisiert, die Bestätigungs-Mail für die Support-Adresse konnte aber nicht versendet werden – bitte über "Bestätigungslink erneut senden" noch einmal versuchen.';
 
         return back()->with('status', $status);
     }

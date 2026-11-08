@@ -40,10 +40,13 @@ class NavigationAnswer
     /** Beispiel-Eingabe passend zu den Werten der Musterlösung (Platzhalter im Eingabefeld). */
     public static function placeholder(string $model): string
     {
-        $examples = ['position' => "54° 03,5' N 008° 06,9' E", 'angle' => '079°', 'distance' => '6,1 sm', 'speed' => '5,5 kn', 'time' => '14:30', 'minutes' => '12 min'];
-        $types = collect(self::measurements($model))->pluck('type')->unique()->filter(fn ($t) => isset($examples[$t]));
+        // Review-Runde 11: nur das Format, nie ein echter Wert -- feste
+        // Beispielwerte stimmten bei einigen Aufgaben genau mit der Lösung
+        // überein.
+        $formats = ['position' => "00° 00,0' N 000° 00,0' E", 'angle' => '000°', 'distance' => '0,0 sm', 'speed' => '0,0 kn', 'time' => 'hh:mm', 'minutes' => '00 min'];
+        $types = collect(self::measurements($model))->pluck('type')->unique()->filter(fn ($t) => isset($formats[$t]));
 
-        return $types->isEmpty() ? 'Deine Antwort' : 'z. B. '.$types->map(fn ($t) => $examples[$t])->implode(', ');
+        return $types->isEmpty() ? 'Deine Antwort' : 'Format: '.$types->map(fn ($t) => $formats[$t])->implode(', ');
     }
 
     /** @return list<array{type: string, value: float|array}> */

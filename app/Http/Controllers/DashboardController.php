@@ -24,7 +24,18 @@ class DashboardController extends Controller
         $tenant = $tenantContext->tenant();
         $user = $request->user();
 
-        $courses = $entitlements->activeCourses($tenant, $user);
+        $activeEntitlements = $entitlements->activeEntitlements($tenant, $user);
+        $courses = $activeEntitlements->map(fn (Entitlement $e) => $e->course)->unique('id')->values();
+
+        // Review-Runde 11: bald ablaufende und schon abgelaufene Kurse nicht
+        // stillschweigend verschwinden lassen.
+        $expiringSoon = $activeEntitlements->filter->expiresSoon()
+            ->reject(fn (Entitlement $e) => $activeEntitlements->contains(fn ($o) => $o->course_id === $e->course_id && ($o->valid_until === null || $o->valid_until > $e->valid_until)))
+            ->unique('course_id')->values();
+        $expiredCourseNames = Entitlement::with('course')->where('tenant_id', $tenant->id)->where('user_id', $user->id)
+            ->whereIn('status', ['active', 'expired'])->whereNotNull('valid_until')->where('valid_until', '<=', now())
+            ->whereNotIn('course_id', $courses->pluck('id'))->get()
+            ->pluck('course.name')->filter()->unique()->values();
 
         $progressStats = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get();
         $videoProgressStats = VideoProgress::where('tenant_id', $tenant->id)->where('user_id', $user->id)
@@ -108,6 +119,9 @@ class DashboardController extends Controller
 
         return view('dashboard', [
             'hadAccess' => $hadAccess,
+            'expiringSoon' => $expiringSoon,
+            'expiredCourseNames' => $courses->isEmpty() ? collect() : $expiredCourseNames,
+            'firstVisit' => $progressStats->isEmpty() && $videoProgressStats->isEmpty(),
             'platformAnnouncements' => $platformAnnouncements,
             'courses' => $courseSummaries,
             'announcements' => $announcements,

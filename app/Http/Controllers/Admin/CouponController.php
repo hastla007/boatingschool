@@ -134,7 +134,7 @@ class CouponController extends Controller
 
         // Review: keinen Code an ein gesperrtes bzw. beendetes Mitglied verbrauchen.
         if ($membership->status !== 'active') {
-            return back()->withErrors(['assign' => 'Dieses Mitglied ist nicht aktiv -- ein Code würde ungenutzt verbraucht.']);
+            return back()->withErrors(['assign' => 'Dieses Mitglied ist nicht aktiv – ein Code würde ungenutzt verbraucht.']);
         }
 
         try {

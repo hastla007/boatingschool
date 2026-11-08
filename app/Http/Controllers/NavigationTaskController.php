@@ -28,7 +28,7 @@ class NavigationTaskController extends Controller
 {
     public function index(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course): View
     {
-        abort_unless($entitlements->hasAccess($tenantContext->tenant(), $request->user(), $course), 403);
+        abort_unless($entitlements->hasAccess($tenantContext->tenant(), $request->user(), $course), 403, 'Dein Zugang zu diesem Kurs ist abgelaufen oder nicht freigeschaltet.');
 
         $tasks = $course->navigationTasks;
         abort_if($tasks->isEmpty(), 404, 'Für diesen Kurs sind noch keine Navigationsaufgaben hinterlegt.');
@@ -58,7 +58,7 @@ class NavigationTaskController extends Controller
 
     public function show(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course, NavigationTask $task): View|RedirectResponse
     {
-        abort_unless($entitlements->hasAccess($tenantContext->tenant(), $request->user(), $course), 403);
+        abort_unless($entitlements->hasAccess($tenantContext->tenant(), $request->user(), $course), 403, 'Dein Zugang zu diesem Kurs ist abgelaufen oder nicht freigeschaltet.');
 
         $tasks = $course->navigationTasks->load('questions');
         abort_unless($tasks->contains('id', $task->id), 404, 'Diese Aufgabe gehört nicht zu diesem Kurs.');
@@ -86,7 +86,7 @@ class NavigationTaskController extends Controller
      */
     public function answer(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course, NavigationTask $task, NavigationQuestion $question): RedirectResponse
     {
-        abort_unless($entitlements->hasAccess($tenantContext->tenant(), $request->user(), $course), 403);
+        abort_unless($entitlements->hasAccess($tenantContext->tenant(), $request->user(), $course), 403, 'Dein Zugang zu diesem Kurs ist abgelaufen oder nicht freigeschaltet.');
         abort_unless($task->course_id === $course->id && $question->navigation_task_id === $task->id, 404);
         $this->abortIfInRunningExam($request, $tenantContext, $task);
 

@@ -22,7 +22,7 @@ class EntitlementRenewal
     public function extend(Entitlement $entitlement, Tenant $tenant): ?string
     {
         if ($entitlement->status === 'revoked') {
-            return 'Der Zugang zu diesem Kurs wurde widerrufen und lässt sich nicht einfach verlängern -- bitte zuerst den Widerruf aufheben.';
+            return 'Der Zugang zu diesem Kurs wurde widerrufen und lässt sich nicht einfach verlängern – bitte zuerst den Widerruf aufheben.';
         }
 
         if ($entitlement->valid_until === null) {

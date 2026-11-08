@@ -182,7 +182,7 @@ class PraxisExamAppointmentService
             // bisher trotzdem noch annehmen (ablehnen bleibt erlaubt -- das
             // bringt unabhängig vom Zeitpunkt einen neuen Vorschlag an).
             if ($decision === 'accepted' && $appointment->exam_date->isPast()) {
-                throw new RuntimeException('Dieser Termin liegt bereits in der Vergangenheit und kann nicht mehr angenommen werden -- bitte um einen neuen Vorschlag bitten.');
+                throw new RuntimeException('Dieser Termin liegt bereits in der Vergangenheit und kann nicht mehr angenommen werden – bitte um einen neuen Vorschlag bitten.');
             }
 
             $appointment->update([

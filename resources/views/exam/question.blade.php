@@ -148,7 +148,7 @@
     <form method="POST" action="{{ route('exam.finish', $examSession) }}" class="max-w-2xl mx-auto mt-3 text-right" x-data="{}"
           @submit="if (! confirm('Prüfung jetzt abgeben? {{ $total - $answered }} unbeantwortete {{ $total - $answered === 1 ? 'Frage zählt' : 'Fragen zählen' }} als falsch.{{ $examSession->hasNavigationPart() ? ' Die Navigationsaufgabe zählt dann mit 0 Punkten.' : '' }}')) $event.preventDefault()">
         @csrf
-        <button type="submit" class="text-sm text-slate-600 dark:text-slate-400 underline hover:no-underline">Prüfung vorzeitig abgeben</button>
+        <button type="submit" class="text-sm text-slate-600 dark:text-slate-400 underline hover:no-underline py-2">Prüfung vorzeitig abgeben</button>
     </form>
 
     <script nonce="{{ $cspNonce }}">

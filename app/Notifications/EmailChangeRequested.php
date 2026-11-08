@@ -33,7 +33,7 @@ class EmailChangeRequested extends Notification
         return (new MailMessage)
             ->subject('Änderung deiner E-Mail-Adresse angefordert')
             ->line("Für dein Konto wurde eine Änderung der Login-E-Mail-Adresse zu {$this->newEmail} angefordert.")
-            ->line('Diese Adresse wird erst aktiv, wenn sie über einen an sie geschickten Link bestätigt wird -- bis dahin bleibt diese (bisherige) Adresse für den Login gültig.')
+            ->line('Diese Adresse wird erst aktiv, wenn sie über einen an sie geschickten Link bestätigt wird – bis dahin bleibt diese (bisherige) Adresse für den Login gültig.')
             ->line('Warst du das nicht selbst, ändere umgehend dein Passwort und wende dich an den Support deiner Bootsschule.');
     }
 }

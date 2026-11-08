@@ -78,7 +78,7 @@ class PraxisExamAppointmentController extends Controller
 
         $status = $validated['decision'] === 'accepted'
             ? '"'.$examAppointment->label.'" bestätigt.'
-            : 'Rückmeldung gespeichert -- deine Bootsschule schlägt dir einen neuen Termin vor.';
+            : 'Rückmeldung gespeichert – deine Bootsschule schlägt dir einen neuen Termin vor.';
 
         // Praxisstunden bei Selbst-Anmeldung stehen auf „Prüfung buchen“.
         // Zurück dorthin, wo der Termin angezeigt wird: bei Selbst-Anmeldung

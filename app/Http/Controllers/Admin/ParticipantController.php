@@ -156,11 +156,11 @@ class ParticipantController extends Controller
             if ($submission->isPracticeOnly() || ($submission->course && ExamRegistration::isSelf($tenant, $submission->course))) {
                 // Prüfungstermin bucht der Teilnehmer selbst.
             } elseif ($examAppointments->isEmpty()) {
-                $items->push(['course' => $course, 'label' => 'Prüfungstermin', 'reason' => 'Neue Anmeldung -- bitte Prüfungstermin vorschlagen.']);
+                $items->push(['course' => $course, 'label' => 'Prüfungstermin', 'reason' => 'Neue Anmeldung – bitte Prüfungstermin vorschlagen.']);
             } elseif (in_array($examAppointments->last()->response, ['declined', 'withdrawn', 'cancelled'], true)) {
                 // Review: wie PraxisFormSubmission::nextStep() -- auch nach
                 // Zurückziehen bzw. Absage braucht es einen neuen Vorschlag.
-                $items->push(['course' => $course, 'label' => 'Prüfungstermin', 'reason' => $examAppointments->last()->response === 'declined' ? 'Vorschlag abgelehnt -- bitte neuen Termin vorschlagen.' : 'Termin zurückgezogen bzw. abgesagt -- bitte neuen Termin vorschlagen.']);
+                $items->push(['course' => $course, 'label' => 'Prüfungstermin', 'reason' => $examAppointments->last()->response === 'declined' ? 'Vorschlag abgelehnt – bitte neuen Termin vorschlagen.' : 'Termin zurückgezogen bzw. abgesagt – bitte neuen Termin vorschlagen.']);
             }
 
             foreach ($submission->practiceSlotNumbers() as $slot) {
@@ -168,7 +168,7 @@ class ParticipantController extends Controller
                 // Zusatztermine: nur eine Ablehnung des Teilnehmers verlangt einen
                 // neuen Vorschlag; zieht die Schule selbst zurück, ist er erledigt.
                 if ($latest && $latest->response === 'declined') {
-                    $items->push(['course' => $course, 'label' => $submission->labelForSlot($slot), 'reason' => 'Vorschlag abgelehnt -- bitte neuen Termin vorschlagen.']);
+                    $items->push(['course' => $course, 'label' => $submission->labelForSlot($slot), 'reason' => 'Vorschlag abgelehnt – bitte neuen Termin vorschlagen.']);
                 }
             }
 
@@ -176,7 +176,7 @@ class ParticipantController extends Controller
         });
 
         if ($willkommensboxOrder && ! $willkommensboxOrder->isShipped()) {
-            $actionItems->push(['course' => 'Willkommensbox', 'label' => 'Versand', 'reason' => 'Bestellung eingegangen -- bitte Willkommensbox versenden.']);
+            $actionItems->push(['course' => 'Willkommensbox', 'label' => 'Versand', 'reason' => 'Bestellung eingegangen – bitte Willkommensbox versenden.']);
         }
 
         return view('admin.participants.show', [
@@ -387,20 +387,20 @@ class ParticipantController extends Controller
             return back()->with('status', 'Diese Person ist bereits Teilnehmer Ihrer Bootsschule.');
         }
         if ($result['resent'] ?? false) {
-            return back()->with('status', $result['mail_sent'] ? 'Einladung erneut verschickt (neuer Link zum Passwort festlegen, 7 Tage gültig).' : 'Der Versand der Einladung ist fehlgeschlagen -- bitte später erneut versuchen.');
+            return back()->with('status', $result['mail_sent'] ? 'Einladung erneut verschickt (neuer Link zum Passwort festlegen, 7 Tage gültig).' : 'Der Versand der Einladung ist fehlgeschlagen – bitte später erneut versuchen.');
         }
 
         $status = $result['mail_sent']
             ? 'Einladung verschickt.'
-            : 'Einladung angelegt, der Versand der E-Mail ist aber fehlgeschlagen -- bitte später erneut einladen.';
+            : 'Einladung angelegt, der Versand der E-Mail ist aber fehlgeschlagen – bitte später erneut einladen.';
 
         if ($result['type'] === 'existing') {
             if ($codeRequiresAdmin) {
-                return back()->withErrors(['code' => 'Nur Owner/Admin können beim Einladen direkt einen Code zuweisen -- das geht sonst nach der Einladung über die Coupon-Codes-Verwaltung.'])->with('status', $status);
+                return back()->withErrors(['code' => 'Nur Owner/Admin können beim Einladen direkt einen Code zuweisen – das geht sonst nach der Einladung über die Coupon-Codes-Verwaltung.'])->with('status', $status);
             }
 
             if ($code !== '') {
-                $status .= ' Ein angegebener Code wird dabei nicht automatisch zugewiesen -- das geht nach der Bestätigung über die Coupon-Codes-Verwaltung.';
+                $status .= ' Ein angegebener Code wird dabei nicht automatisch zugewiesen – das geht nach der Bestätigung über die Coupon-Codes-Verwaltung.';
             }
 
             return back()->with('status', $status);
@@ -421,7 +421,7 @@ class ParticipantController extends Controller
         // genau wie bei einem ungültigen Code unten wird nur die
         // Code-Zuweisung abgelehnt, nicht die ganze Einladung.
         if ($codeRequiresAdmin) {
-            return back()->withErrors(['code' => 'Nur Owner/Admin können beim Einladen direkt einen Code zuweisen -- das geht sonst nach der Einladung über die Coupon-Codes-Verwaltung.'])->with('status', $status);
+            return back()->withErrors(['code' => 'Nur Owner/Admin können beim Einladen direkt einen Code zuweisen – das geht sonst nach der Einladung über die Coupon-Codes-Verwaltung.'])->with('status', $status);
         }
 
         // Eine fehlgeschlagene Code-Zuweisung soll die bereits erfolgte

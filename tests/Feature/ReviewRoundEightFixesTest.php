@@ -144,7 +144,11 @@ class ReviewRoundEightFixesTest extends TestCase
         $this->grantEntitlement($tenant, $withCourse, $this->existingCourse('SRC'));
         $owner = $this->createTenantUser($tenant, 'owner', ['status' => 'invited']);
         $fresh = $this->createTenantUser($tenant, 'learner', ['status' => 'invited']);
-        $this->onAdmin(fn () => User::whereIn('id', [$stale->id, $withCourse->id, $owner->id])->update(['created_at' => now()->subDays(120)]));
+        $this->onAdmin(function () use ($stale, $withCourse, $owner) {
+            User::whereIn('id', [$stale->id, $withCourse->id, $owner->id])->update(['created_at' => now()->subDays(120)]);
+            // Review-Runde 11: eine frische Mitgliedschaft schützt das Konto -- hier ist auch sie alt.
+            TenantUser::whereIn('user_id', [$stale->id, $withCourse->id, $owner->id])->update(['created_at' => now()->subDays(120)]);
+        });
 
         Artisan::call('app:prune-personal-data');
 

@@ -208,8 +208,8 @@ class ProfileController extends Controller
             );
 
             $status = $mailSent
-                ? 'Profil gespeichert. Bitte bestätige deine neue E-Mail-Adresse über den Link, den wir dir geschickt haben -- bis dahin bleibt deine bisherige Adresse aktiv.'
-                : 'Profil gespeichert. Die Bestätigungsmail für deine neue E-Mail-Adresse konnte aber nicht versendet werden -- bitte versuche es später erneut.';
+                ? 'Profil gespeichert. Bitte bestätige deine neue E-Mail-Adresse über den Link, den wir dir geschickt haben – bis dahin bleibt deine bisherige Adresse aktiv.'
+                : 'Profil gespeichert. Die Bestätigungsmail für deine neue E-Mail-Adresse konnte aber nicht versendet werden – bitte versuche es später erneut.';
         }
 
         // Menschenlesbarer Text statt eines reinen Status-Schlüssels, da die
@@ -350,7 +350,7 @@ class ProfileController extends Controller
                 ->exists();
 
             if (! $hasOtherOwner) {
-                return back()->withErrors(['owner' => 'Du bist der einzige Inhaber dieser Bootsschule und kannst dein Konto deshalb nicht löschen. Bitte übertrage die Inhaberschaft zuerst -- wende dich dafür an unseren Support.'], 'userDeletion');
+                return back()->withErrors(['owner' => 'Du bist der einzige Inhaber dieser Bootsschule und kannst dein Konto deshalb nicht löschen. Bitte übertrage die Inhaberschaft zuerst – wende dich dafür an unseren Support.'], 'userDeletion');
             }
         }
 

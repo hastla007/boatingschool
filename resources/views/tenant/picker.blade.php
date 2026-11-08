@@ -11,7 +11,7 @@
         <div class="text-center mb-8">
             <x-icon name="anchor" class="w-9 h-9 mx-auto mb-2 text-blue-600" />
             <h1 class="text-2xl font-bold text-slate-800 dark:text-white">White-Label Lernplattform</h1>
-            <p class="text-slate-500 dark:text-slate-400">Bitte wählen Sie Ihre Bootsschule</p>
+            <p class="text-slate-500 dark:text-slate-400">Wähle deine Bootsschule</p>
         </div>
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 space-y-2">
             @forelse ($tenants as $tenant)
@@ -27,9 +27,6 @@
                 <p class="text-slate-500 dark:text-slate-400 text-sm p-4">Noch keine Bootsschule angelegt.</p>
             @endforelse
         </div>
-        <p class="text-xs text-slate-600 dark:text-slate-400 text-center mt-6">
-            Produktiv wird jede Bootsschule über ihre eigene Subdomain oder Domain erreicht.
-        </p>
     </div>
 </body>
 </html>

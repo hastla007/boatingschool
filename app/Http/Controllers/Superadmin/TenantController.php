@@ -135,7 +135,7 @@ class TenantController extends Controller
         $status = 'Bootsschule angelegt.';
 
         if (! $mailSent) {
-            $status .= ' Die Einladungsmail an den Admin konnte nicht versendet werden -- bitte den Zugang über "Passwort vergessen" erneut anstoßen.';
+            $status .= ' Die Einladungsmail an den Admin konnte nicht versendet werden – bitte den Zugang über "Passwort vergessen" erneut anstoßen.';
         }
 
         return redirect()->route('superadmin.tenants.show', $tenant)->with('status', $status);
