@@ -152,9 +152,11 @@ class AdminDashboardController extends Controller
             ->where('exam_date', '<=', $now->copy()->addDays(30))
             ->when($scopeCourseIds !== null, fn ($q) => $q->whereIn('praxis_form_submission_id',
                 PraxisFormSubmission::where('tenant_id', $tenant->id)->whereIn('course_id', $scopeCourseIds)->select('id')))
-            ->get(['exam_date']);
-        $upcomingAppointmentsNext7Days = $upcomingAppointments->where('exam_date', '<=', $now->copy()->addDays(7))->count();
-        $upcomingAppointmentsNext30Days = $upcomingAppointments->count();
+            ->get(['exam_date', 'slot']);
+        // Review-Runde 10: Prüfungstermine (Slot 0) und Praxistermine getrennt zählen.
+        $upcomingExamDates30 = $upcomingAppointments->where('slot', 0)->count();
+        $upcomingAppointmentsNext7Days = $upcomingAppointments->where('slot', '>', 0)->where('exam_date', '<=', $now->copy()->addDays(7))->count();
+        $upcomingAppointmentsNext30Days = $upcomingAppointments->where('slot', '>', 0)->count();
 
         // Info-Chart "Teilnehmer je Phase" -- der jeweils am weitesten
         // fortgeschrittene Status je Lerner über alle seine Kurse/
@@ -554,6 +556,7 @@ class AdminDashboardController extends Controller
             'examPassRate' => $examPassRate,
             'upcomingAppointmentsNext7Days' => $upcomingAppointmentsNext7Days,
             'upcomingAppointmentsNext30Days' => $upcomingAppointmentsNext30Days,
+            'upcomingExamDates30' => $upcomingExamDates30,
             'learnerPhases' => $learnerPhases,
             'progressDistribution' => $progressDistribution,
             'learningPhaseLearnerCount' => $learningPhaseLearnerCount,

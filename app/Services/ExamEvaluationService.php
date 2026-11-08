@@ -129,12 +129,15 @@ class ExamEvaluationService
                 $navigationPoints = 0;
                 foreach ($examSession->navigationAnswers()->with('question')->lockForUpdate()->get() as $answer) {
                     $withinTime = ! $deadline || ! $answer->answered_at || $answer->answered_at->lte($deadline);
-                    $given = $withinTime ? trim((string) $answer->answer) : '';
-                    if ($given === '') {
+                    if (! $withinTime || ($answer->answer === null && ! $answer->isChartDrawing())) {
                         $isCorrect = false;
+                    } elseif ($answer->isAutoCheckable()) {
+                        // Automatisch geprüft; „gleichwertig“ kann der Teilnehmer
+                        // bei einer falsch-negativen Prüfung selbst bestätigen.
+                        $isCorrect = $answer->autoResult() || $answer->self_assessed_known === true;
                     } else {
-                        $result = NavigationAnswer::evaluate($answer->question->answer_text, $given);
-                        $isCorrect = $result['auto'] ? (bool) $result['correct'] : (bool) $answer->self_assessed_known;
+                        // Freitext und Eintragungen in die Karte: Selbsteinschätzung.
+                        $isCorrect = $answer->self_assessed_known === true;
                     }
                     $answer->update(['correct' => $isCorrect]);
                     $navigationPoints += $isCorrect ? 1 : 0;

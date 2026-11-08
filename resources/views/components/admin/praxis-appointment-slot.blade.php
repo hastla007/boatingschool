@@ -12,7 +12,7 @@
      "Zurückziehen" wurden dort nie initialisiert. Eigener Scope hier, damit sie
      unabhängig von der einbindenden Seite immer greifen. --}}
 <div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700" x-data="{}">
-    <h4 class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">{{ $label }}</h4>
+    <h4 class="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">{{ $label }}</h4>
 
     @if ($confirmedAppointment)
         <div class="text-sm text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 rounded-lg px-3 py-2 mb-2">

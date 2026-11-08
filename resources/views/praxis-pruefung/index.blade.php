@@ -8,6 +8,16 @@
         <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Praxis &amp; Prüfung</h1>
     </x-slot>
 
+    {{-- Praxisstunden der Schule ohne (bisher) ausgefüllte Anmeldung, z. B. aus der Zeit der Selbst-Anmeldung. --}}
+    @if ($state !== 'submitted' && isset($practiceSubmission) && $practiceSubmission->practiceSlotNumbers() !== [])
+        <div class="max-w-2xl mx-auto mb-6 bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6">
+            <h3 class="font-semibold text-slate-800 dark:text-white">Termine deiner Bootsschule</h3>
+            @foreach ($practiceSubmission->practiceSlotNumbers() as $practiceSlot)
+                <x-praxis-appointment-response :submission="$practiceSubmission" :course="$course" :appointment-slot="$practiceSlot" :label="$practiceSubmission->labelForSlot($practiceSlot)" />
+            @endforeach
+        </div>
+    @endif
+
     @if ($state === 'unavailable')
         <div class="max-w-2xl mx-auto bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-10 text-center">
             <x-icon name="anchor" class="w-10 h-10 mx-auto text-slate-600 dark:text-slate-400 mb-3" />

@@ -67,6 +67,17 @@ class PraxisPruefungController extends Controller
         // fälschlich eine Schwelle von 50%. Die Gates unten vergleichen
         // deshalb den ungerundeten $exactPercent, nur die Anzeige im
         // "locked"-Zustand nutzt weiterhin den gerundeten $percent.
+        $submission = PraxisFormSubmission::where('tenant_id', $tenant->id)
+            ->where('user_id', $user->id)
+            ->where('course_id', $course->id)
+            ->with('examAppointments.location')
+            ->first();
+
+        // Nur Praxisstunden (aus der Selbst-Anmeldung): Anmeldeformular bzw.
+        // Hürde zeigen, die Termine aber in jedem Zustand mit anzeigen.
+        if ($submission?->isPracticeOnly()) {
+            view()->share('practiceSubmission', $submission);
+        }
         $exactPercent = $courseProgress->exactPercent($course, $tenant, $user);
         $percent = (int) round($exactPercent);
 
@@ -93,13 +104,6 @@ class PraxisPruefungController extends Controller
             ]);
         }
 
-        $submission = PraxisFormSubmission::where('tenant_id', $tenant->id)
-            ->where('user_id', $user->id)
-            ->where('course_id', $course->id)
-            ->with('examAppointments.location')
-            ->first();
-
-        // Nur Praxisstunden (aus der Selbst-Anmeldung): Anmeldeformular zeigen.
         if ($submission && ! $submission->isPracticeOnly()) {
             return view('praxis-pruefung.index', [
                 'course' => $course,

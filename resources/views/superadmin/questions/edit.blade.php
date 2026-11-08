@@ -56,7 +56,13 @@
             <form method="POST" action="{{ route('superadmin.questions.update', $question) }}" class="space-y-5">
                 @csrf
                 {{-- Immer die aktuell bearbeitete Fassung (auch nach einem Konflikt neu geladen). --}}
-                <input type="hidden" name="base_revision_no" value="{{ $revision?->revision_no }}">
+                <input type="hidden" name="base_revision_no" value="{{ old('base_revision_no', $revision?->revision_no) }}">
+                @if (old('base_revision_no') !== null && (int) old('base_revision_no') !== (int) $revision?->revision_no)
+                    <label class="flex items-center gap-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 dark:bg-amber-900/30 dark:border-amber-800 dark:text-amber-100 px-3 py-2 text-sm">
+                        <input type="checkbox" name="overwrite_newer" value="1">
+                        Meine Fassung soll die inzwischen gespeicherte Revision {{ $revision?->revision_no }} ersetzen.
+                    </label>
+                @endif
                 @method('PATCH')
                 @include('superadmin.questions._form')
                 <button type="submit" class="px-5 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: #005FD7">

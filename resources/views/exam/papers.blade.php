@@ -78,7 +78,7 @@
                         Nach den Fragen folgt in jedem Bogen die Navigationsaufgabe mit derselben Nummer &ndash; sie muss für sich
                         bestanden sein (mindestens 7 von 9 Punkten), alles zusammen in der Prüfungszeit. Zum Üben mit sofortiger
                         Lösung findest du alle Aufgaben im Bereich
-                        <a href="{{ route('exam.navigation.index', $course) }}" class="inline-flex items-center px-2 py-0.5 rounded-md text-white text-xs font-medium" style="background-color: var(--brand-primary, #005FD7)">Navigation Prüfungssimulation</a>.
+                        <a href="{{ route('exam.navigation.index', $course) }}" class="inline-flex items-center px-2 py-0.5 rounded-md text-white text-xs font-medium" style="background-color: var(--brand-primary, #005FD7)">Navigationsaufgaben</a>.
                     @endif
                 </p>
                 <p class="text-xs text-slate-600 dark:text-slate-400 mt-3">

@@ -114,7 +114,7 @@ class PraxisFormSubmissionController extends Controller
             // Gab es schon Praxisstunden (Behälter aus der Selbst-Anmeldung),
             // wird daraus die Anmeldung -- die Termine bleiben erhalten.
             if ($stillExisting) {
-                $stillExisting->update(['praxis_form_template_id' => $template->id, 'data' => $data]);
+                $stillExisting->forceFill(['praxis_form_template_id' => $template->id, 'data' => $data, 'created_at' => now()])->save();
 
                 return $stillExisting;
             }

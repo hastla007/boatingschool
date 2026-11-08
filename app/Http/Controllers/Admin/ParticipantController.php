@@ -18,6 +18,7 @@ use App\Services\LearnerOverview;
 use App\Services\ParticipantInviter;
 use App\Support\Countries;
 use App\Support\ExamRegistration;
+use App\Support\InstructorScope;
 use App\Support\TenantContext;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
@@ -68,9 +69,13 @@ class ParticipantController extends Controller
         $optionsByCode = $productPurchases->where('source_type', 'coupon')->groupBy('source_reference');
         $bundledProductIds = [];
 
+        // Freie Verlängerungscodes je Kurs (für den „Verlängern“-Knopf).
+        $freeRenewalCodes = Coupon::where('tenant_id', $tenant->id)->where('is_renewal', true)->usable()
+            ->selectRaw('course_id, count(*) as free')->groupBy('course_id')->pluck('free', 'course_id');
+
         $entitlements = Entitlement::where('tenant_id', $tenant->id)->where('user_id', $user->id)
             ->with('course')->orderByDesc('valid_from')->get()
-            ->map(function (Entitlement $e) use ($optionsByCode, &$bundledProductIds) {
+            ->map(function (Entitlement $e) use ($optionsByCode, &$bundledProductIds, $freeRenewalCodes) {
                 $options = $e->source_type === 'coupon' ? ($optionsByCode->get($e->source_reference) ?? collect()) : collect();
                 $bundledProductIds = [...$bundledProductIds, ...$options->pluck('id')->all()];
 
@@ -86,6 +91,7 @@ class ParticipantController extends Controller
                     // für genau diese Entitlement-Zeile rendern.
                     'entitlement_id' => $e->id,
                     'valid_until' => $e->valid_until,
+                    'free_renewal_codes' => (int) ($freeRenewalCodes[$e->course_id] ?? 0),
                 ];
             });
 
@@ -114,8 +120,10 @@ class ParticipantController extends Controller
         // Anmeldungen unterschiedliche Kurse betreffen können.
         // Kurse mit Selbst-Anmeldung zur Prüfung (noch ohne Termine): dort
         // kann die Schule trotzdem Praxisstunden vorschlagen.
+        $instructorCourses = InstructorScope::courseIds($tenant, $request->user());
         $selfBookingCourses = Entitlement::where('tenant_id', $tenant->id)->where('user_id', $user->id)
-            ->whereIn('status', ['active', 'suspended'])->with('course')->get()->pluck('course')->filter()
+            ->currentlyActive()->with('course')->get()->pluck('course')->filter()
+            ->filter(fn ($course) => $instructorCourses === null || $instructorCourses->contains($course->id))
             ->unique('id')
             ->reject(fn ($course) => $praxisFormSubmissions->contains('course_id', $course->id))
             ->filter(fn ($course) => ExamRegistration::isSelf($tenant, $course))
@@ -137,12 +145,12 @@ class ParticipantController extends Controller
         // Willkommensbox-Bestellung. Ein Vorschlag, der noch auf
         // Rückmeldung des Teilnehmers wartet, ist dagegen nicht an der
         // Bootsschule.
-        $actionItems = $praxisFormSubmissions->flatMap(function (PraxisFormSubmission $submission) {
+        $actionItems = $praxisFormSubmissions->flatMap(function (PraxisFormSubmission $submission) use ($tenant) {
             $items = collect();
             $course = $submission->course->name ?? '—';
 
             $examAppointments = $submission->appointmentsForSlot(0);
-            if ($submission->isPracticeOnly()) {
+            if ($submission->isPracticeOnly() || ($submission->course && ExamRegistration::isSelf($tenant, $submission->course))) {
                 // Prüfungstermin bucht der Teilnehmer selbst.
             } elseif ($examAppointments->isEmpty()) {
                 $items->push(['course' => $course, 'label' => 'Prüfungstermin', 'reason' => 'Neue Anmeldung -- bitte Prüfungstermin vorschlagen.']);
@@ -154,8 +162,10 @@ class ParticipantController extends Controller
 
             foreach ($submission->practiceSlotNumbers() as $slot) {
                 $latest = $submission->appointmentsForSlot($slot)->last();
-                if ($latest && in_array($latest->response, ['declined', 'withdrawn', 'cancelled'], true)) {
-                    $items->push(['course' => $course, 'label' => $submission->labelForSlot($slot), 'reason' => $latest->response === 'declined' ? 'Vorschlag abgelehnt -- bitte neuen Termin vorschlagen.' : 'Termin zurückgezogen bzw. abgesagt -- bitte neuen Termin vorschlagen.']);
+                // Zusatztermine: nur eine Ablehnung des Teilnehmers verlangt einen
+                // neuen Vorschlag; zieht die Schule selbst zurück, ist er erledigt.
+                if ($latest && $latest->response === 'declined') {
+                    $items->push(['course' => $course, 'label' => $submission->labelForSlot($slot), 'reason' => 'Vorschlag abgelehnt -- bitte neuen Termin vorschlagen.']);
                 }
             }
 

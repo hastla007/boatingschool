@@ -288,6 +288,11 @@ class ReviewRoundSixFixesTest extends TestCase
         $until = now()->addDays(10)->startOfSecond();
         $this->onAdmin(fn () => Entitlement::whereKey($entitlement->id)->update(['valid_from' => now()->subYear(), 'valid_until' => $until]));
 
+        // Ohne freien Verlängerungscode kein Knopf, sondern ein Hinweis (Runde 10).
+        $this->actingAsInTenant($owner, $tenant)->get("/admin/participants/{$learner->id}")->assertOk()
+            ->assertSee('Verlängern (keine Verlängerungscodes)');
+        $this->onAdmin(fn () => Coupon::create(['tenant_id' => $tenant->id, 'course_id' => $entitlement->course_id, 'code' => 'R6-VERL-'.uniqid(), 'is_renewal' => true]));
+
         $this->actingAsInTenant($owner, $tenant)->get("/admin/participants/{$learner->id}")->assertOk()
             ->assertSee('name="seen_valid_until" value="'.$until->timestamp.'"', false);
     }

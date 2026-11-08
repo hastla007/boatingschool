@@ -104,6 +104,11 @@ class SmarttrainerService
             ->map(function (ContentQuestion $question) use ($progressByQuestion, $topicAccuracy) {
                 $progress = $progressByQuestion->get($question->id);
                 [$score, $reason] = $this->score($question, $progress, $topicAccuracy);
+                // Review-Runde 10: ein Fehler kommt nach kurzer Pause wieder
+                // dran, noch vor neuen Fragen -- sonst erst nach dem ganzen Katalog.
+                if ($this->wasLastWrong($progress) && $progress->last_seen_at?->lt(now()->subMinutes(self::REPEAT_AFTER_MINUTES))) {
+                    $score += 250;
+                }
 
                 return ['question' => $question, 'score' => $score, 'reason' => $reason, 'seen' => $progress?->last_seen_at?->getTimestamp() ?? 0];
             })

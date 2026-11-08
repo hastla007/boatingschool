@@ -85,7 +85,7 @@
         </div>
 
         <div>
-            <label for="support_email" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Support E-Mail</label>
+            <label for="support_email" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Support-E-Mail</label>
             <input type="email" id="support_email" name="support_email" value="{{ old('support_email', $branding->support_email) }}" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
             @if ($branding->support_email && ! $branding->hasVerifiedSupportEmail())
                 <p class="text-sm mt-2 text-amber-700 dark:text-amber-300">
@@ -230,11 +230,15 @@
                 <span class="text-sm text-slate-500 dark:text-slate-400">% Kursfortschritt</span>
             </div>
             <x-input-error :messages="$errors->get('exam_readiness_threshold_percent')" class="mt-2" />
-            @php($formThresholds = \App\Models\PraxisFormTemplate::where('active', true)->orderBy('title')->get(['title', 'min_progress_percent']))
-            @if ($formThresholds->isNotEmpty())
+            @php($formThresholds = \App\Models\PraxisFormTemplate::where('active', true)->get(['course_ids', 'min_progress_percent']))
+            {{-- Nur Kurse, die auf der Plattform freigegeben sind und die die Schule anbietet. --}}
+            @php($courseNames = \App\Models\CourseDefinition::withoutGlobalScopes()->where('site_enabled', true)->whereIn('id', $formThresholds->pluck('course_ids')->flatten()->unique())
+                ->whereNotIn('id', \App\Models\TenantCourseDisabled::where('tenant_id', $currentTenant->id)->select('course_id'))->pluck('name', 'id'))
+            @php($perCourse = $formThresholds->flatMap(fn ($t) => collect($t->course_ids ?? [])->filter(fn ($id) => isset($courseNames[$id]))->mapWithKeys(fn ($id) => [$courseNames[$id] => $t->min_progress_percent]))->sortKeys())
+            @if ($perCourse->isNotEmpty())
                 <p class="text-xs text-slate-600 dark:text-slate-400 mt-2">
-                    Tatsächlich gilt für Kurse mit Praxisformular der Wert des Formulars:
-                    {{ $formThresholds->map(fn ($t) => $t->title.' '.$t->min_progress_percent.' %')->implode(' · ') }}.
+                    Für diese Kurse gibt das Praxisformular den Wert vor:
+                    {{ $perCourse->map(fn ($p, $name) => $name.' '.$p.' %')->implode(' · ') }}.
                     Ihr Wert oben gilt für alle übrigen Kurse.
                 </p>
             @endif

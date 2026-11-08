@@ -99,7 +99,7 @@ class NavigationAnswer
             }
         }
         // Eigene Antwort ohne Einheit („074“, „6,1“): als Zahl ohne Typ.
-        if ($lenient && preg_match_all('/(?<![\w,.])(\d+(?:[.,]\d+)?)(?![\w,.])/u', $text, $all, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) {
+        if ($lenient && preg_match_all('/(?<![\w,.])(\d+(?:[.,]\d+)?)(?!\w|[,.]\d)/u', $text, $all, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) {
             foreach ($all as $m) {
                 // „14.30“ ohne „Uhr“ kann auch eine Uhrzeit sein (Minuten getrennt merken).
                 $clock = preg_match('/^(\d{1,2})[.,](\d{2})$/', $m[1][0], $c) && (int) $c[2] < 60 ? (int) $c[1] * 60 + (int) $c[2] : null;

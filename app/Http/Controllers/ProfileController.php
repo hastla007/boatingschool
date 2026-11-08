@@ -101,7 +101,7 @@ class ProfileController extends Controller
         $praxisFormSubmissions = PraxisFormSubmission::where('tenant_id', $tenant->id)->where('user_id', $user->id)
             ->with('course')->orderByDesc('created_at')->get()
             ->map(fn (PraxisFormSubmission $s) => [
-                'label' => 'Praxisformular'.($s->course?->name ? ' — '.$s->course->name : ''),
+                'label' => ($s->isPracticeOnly() ? 'Praxisstunden' : 'Praxisformular').($s->course?->name ? ' — '.$s->course->name : ''),
                 'source_type' => 'self',
                 'source_reference' => null,
                 'date' => $s->created_at,

@@ -11,7 +11,7 @@
         <div class="w-14 h-14 rounded-full bg-rose-50 dark:bg-rose-900/30 flex items-center justify-center mx-auto mb-4">
             <x-icon name="lock-closed" class="w-7 h-7 text-rose-400" />
         </div>
-        <h1 class="text-xl font-bold text-slate-800 dark:text-white mb-2">Zugang derzeit nicht verfügbar</h1>
+        <h1 class="text-xl font-bold text-slate-800 dark:text-white mb-2">{{ $tenant->status === 'closed' ? 'Lernplattform geschlossen' : 'Zugang derzeit nicht verfügbar' }}</h1>
         @php($contact = $tenant->branding?->support_email)
         @if ($tenant->status === 'closed')
             <p class="text-slate-500 dark:text-slate-400">Die Lernplattform von {{ $tenant->name }} ist geschlossen.</p>
@@ -23,7 +23,13 @@
         @endif
         @auth
             <p class="mt-4 text-sm"><a href="{{ route('profile.data-rights') }}" class="underline text-slate-700 dark:text-slate-200">Eigene Daten herunterladen oder Konto löschen</a></p>
+        @else
+            {{-- Auskunft/Löschung (Art. 15/17/20 DSGVO) bleibt nach der Anmeldung möglich. --}}
+            <p class="mt-4 text-sm"><a href="{{ route('login') }}" class="underline text-slate-700 dark:text-slate-200">Anmelden, um eigene Daten herunterzuladen oder das Konto zu löschen</a></p>
         @endauth
+        <p class="mt-6 text-xs text-slate-500 dark:text-slate-400">
+            <a href="{{ url('/impressum') }}" class="underline">Impressum</a> &middot; <a href="{{ url('/datenschutz') }}" class="underline">Datenschutz</a>
+        </p>
     </div>
 </body>
 </html>

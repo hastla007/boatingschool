@@ -23,11 +23,11 @@
         <div class="grid sm:grid-cols-2 gap-6 pb-5 border-b border-slate-100 dark:border-slate-700">
             <div>
                 <label for="course_validity_days" class="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">
-                    Kurse X Tage für Teilnehmer verfügbar
+                    Gültigkeit eines Kurszugangs (Tage)
                 </label>
                 <p class="text-xs text-slate-600 dark:text-slate-400 mb-2">
                     Nach Ablauf dieser Frist verliert ein Teilnehmer den Zugriff auf seinen Kurs und benötigt
-                    einen Verlängerungs-Code.
+                    einen Verlängerungscode.
                 </p>
                 <input type="number" id="course_validity_days" name="course_validity_days" min="1" max="3650"
                        value="{{ old('course_validity_days', $branding->course_validity_days) }}"

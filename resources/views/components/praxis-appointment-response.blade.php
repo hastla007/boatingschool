@@ -86,6 +86,11 @@
             Du hast den letzten Vorschlag für &bdquo;{{ $label }}&ldquo; ({{ $latestAppointment->formattedRange() }} Uhr) abgelehnt. Deine Bootsschule schlägt dir in Kürze einen neuen Termin vor.
         @endif
     </div>
+@elseif (! $isExamSlot && $latestAppointment && in_array($latestAppointment->response, ['withdrawn', 'cancelled'], true))
+    {{-- Zusatztermin von der Schule zurückgezogen/abgesagt: kein neuer Vorschlag versprochen. --}}
+    <div class="mt-6 bg-slate-50 dark:bg-slate-700/40 rounded-xl p-4 text-sm text-slate-600 dark:text-slate-300">
+        Der Termin &bdquo;{{ $label }}&ldquo; ({{ $latestAppointment->formattedRange() }} Uhr) wurde von deiner Bootsschule {{ $latestAppointment->response === 'cancelled' ? 'abgesagt' : 'zurückgezogen' }}.
+    </div>
 @else
     <div class="mt-6 bg-slate-50 dark:bg-slate-700/40 rounded-xl p-4 text-sm text-slate-600 dark:text-slate-300">
         @if ($isExamSlot)

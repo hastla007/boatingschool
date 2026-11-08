@@ -373,6 +373,9 @@ class ExamController extends Controller
                 'exam_session_id' => $session->id,
                 'navigation_question_id' => $question->id,
                 'position' => $i + 1,
+                'question_number' => $question->question_number,
+                'question_text' => $question->question_text,
+                'answer_text' => $question->answer_text,
             ]);
         }
     }
@@ -388,29 +391,40 @@ class ExamController extends Controller
         $validated = $request->validate(['answers' => ['array'], 'answers.*' => ['nullable', 'string', 'max:500']]);
 
         $expired = false;
-        DB::transaction(function () use ($examSession, $validated, $examEvaluation, &$expired) {
+        $already = false;
+        DB::transaction(function () use ($examSession, $validated, &$expired, &$already) {
             DB::table('exam_session')->where('id', $examSession->id)->lockForUpdate()->first();
             $examSession->refresh();
             abort_if($examSession->status !== 'running', 409);
-            if ($examEvaluation->timeExpired($examSession)) {
+            if ($examSession->navigation_submitted_at) {
+                $already = true;
+
+                return;
+            }
+            // Review-Runde 10: wer kurz nach Ablauf abgibt, verliert die ganze
+            // Aufgabe nicht -- innerhalb der Nachfrist zählen die Antworten wie
+            // zum Prüfungsende abgegeben (wie Papier, das eingesammelt wird).
+            $deadline = $examSession->deadline();
+            if ($deadline && now()->gt($deadline->copy()->addSeconds(ExamSession::NAVIGATION_SUBMIT_GRACE))) {
                 $expired = true;
 
                 return;
             }
-            if ($examSession->navigation_submitted_at) {
-                return;
-            }
+            $answeredAt = $deadline && now()->gt($deadline) ? $deadline : now();
             foreach ($examSession->navigationAnswers as $answer) {
-                $given = trim((string) ($validated['answers'][$answer->navigation_question_id] ?? ''));
-                $answer->update(['answer' => $given === '' ? null : $given, 'answered_at' => $given === '' ? null : now()]);
+                $given = trim((string) ($validated['answers'][$answer->id] ?? ''));
+                $answer->update(['answer' => $given === '' ? null : $given, 'answered_at' => $answeredAt]);
             }
             $examSession->update(['navigation_submitted_at' => now()]);
         });
 
+        if ($already) {
+            return redirect()->route('exam.show', $examSession)->with('status', 'Die Navigationsaufgabe ist bereits abgegeben.');
+        }
         if ($expired) {
             $examEvaluation->evaluate($examSession);
 
-            return redirect()->route('exam.result', $examSession)->with('status', 'Die Prüfungszeit ist abgelaufen -- hier ist dein Ergebnis.');
+            return redirect()->route('exam.result', $examSession)->with('status', 'Die Prüfungszeit ist abgelaufen – hier ist dein Ergebnis.');
         }
 
         return redirect()->route('exam.show', $examSession);
@@ -428,9 +442,18 @@ class ExamController extends Controller
 
         DB::transaction(function () use ($examSession, $validated) {
             DB::table('exam_session')->where('id', $examSession->id)->lockForUpdate()->first();
+            $examSession->refresh();
+            abort_if($examSession->status !== 'running', 409);
             foreach ($examSession->navigationAnswers()->with('question')->get() as $answer) {
-                if ($answer->answer !== null && ! $answer->isAutoCheckable() && isset($validated['known'][$answer->id])) {
-                    $answer->update(['self_assessed_known' => $validated['known'][$answer->id] === '1']);
+                $value = $validated['known'][$answer->id] ?? null;
+                // Freitext/Karte: Selbsteinschätzung; automatisch geprüft und als
+                // falsch erkannt: „trotzdem richtig (gleichwertig)“ möglich.
+                if ($answer->answer === null && ! $answer->isChartDrawing()) {
+                    $answer->update(['self_assessed_known' => false]); // leer = falsch
+                } elseif (! $answer->isAutoCheckable()) {
+                    $answer->update(['self_assessed_known' => $value === null ? null : $value === '1']);
+                } elseif ($answer->autoResult() === false) {
+                    $answer->update(['self_assessed_known' => $value === '1' ? true : null]);
                 }
             }
         });
@@ -446,7 +469,8 @@ class ExamController extends Controller
             return redirect()->route('exam.result', $examSession);
         }
 
-        if ($examEvaluation->timeExpired($examSession)) {
+        // Die Selbsteinschätzung der Navigation zählt nicht zur Prüfungszeit.
+        if ($examEvaluation->timeExpired($examSession) && ! $examSession->inNavigationAssessment()) {
             return $this->finish($request, $tenantContext, $entitlements, $examEvaluation, $examSession);
         }
 
@@ -457,8 +481,8 @@ class ExamController extends Controller
                 ? max(0, (int) ($examSession->effectiveRuleSet()->time_limit_seconds - $examSession->started_at->diffInSeconds(now())))
                 : null;
             $answers = $examSession->navigationAnswers()->with('question')->get();
-            $toAssess = $answers->filter(fn ($a) => $a->answer !== null && ! $a->isAutoCheckable());
-            if (! $examSession->navigation_submitted_at || $toAssess->isNotEmpty()) {
+            $toAssess = $answers;
+            if (! $examSession->navigation_submitted_at || $examSession->inNavigationAssessment()) {
                 return view('exam.navigation-part', [
                     'examSession' => $examSession,
                     'task' => $examSession->navigationTask,
@@ -527,7 +551,7 @@ class ExamController extends Controller
             $examEvaluation->evaluate($examSession);
 
             return redirect()->route('exam.result', $examSession)
-                ->with('status', 'Die Prüfungszeit ist abgelaufen -- hier ist dein Ergebnis.');
+                ->with('status', 'Die Prüfungszeit ist abgelaufen – hier ist dein Ergebnis.');
         }
 
         $validated = $request->validate([
@@ -637,7 +661,7 @@ class ExamController extends Controller
             $examEvaluation->evaluate($examSession);
 
             return redirect()->route('exam.result', $examSession)
-                ->with('status', 'Die Prüfungszeit ist abgelaufen -- die letzte Antwort kam zu spät. Hier ist dein Ergebnis.');
+                ->with('status', 'Die Prüfungszeit ist abgelaufen – die letzte Antwort kam zu spät. Hier ist dein Ergebnis.');
         }
 
         return redirect()->route('exam.show', $examSession);

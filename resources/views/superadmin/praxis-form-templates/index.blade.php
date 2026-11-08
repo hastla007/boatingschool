@@ -9,7 +9,7 @@
     </x-slot>
 
     <p class="text-slate-500 dark:text-slate-400 mb-6 max-w-3xl">
-        Formulare für die Anmeldung zu „Praxis &amp; Prüfung&quot;. Jeder zugewiesene Kurs zeigt seinen Lernern dieses
+        Formulare für die Anmeldung zu „Praxis &amp; Prüfung&quot;. Jeder zugewiesene Kurs zeigt seinen Teilnehmern dieses
         Formular, sobald der konfigurierte Kursfortschritt erreicht ist &mdash; vorher erscheint nur eine Hürden-Meldung.
         Ein Kurs kann nur einem aktiven Formular gleichzeitig zugewiesen sein.
     </p>

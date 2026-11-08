@@ -42,7 +42,8 @@ class ExpireAbandonedExamSessions extends Command
                 ? $examEvaluation->timeExpired($session)
                 : $session->started_at->lte(now()->subHours(self::ABANDONED_GRACE_HOURS));
 
-            if (! $abandoned) {
+            // Selbsteinschätzung der Navigation läuft noch (eigene Nachfrist).
+            if (! $abandoned || $session->inNavigationAssessment()) {
                 continue;
             }
 

@@ -64,8 +64,13 @@ class TenantCourseLocationController extends Controller
         // Koordinaten wie man sie eintippt bzw. aus Google Maps kopiert:
         // Dezimalkomma („54,3333“) und beide Werte in einem Feld („54.33, 10.15“).
         foreach (['praxis', 'pruefung', 'theorie'] as $prefix) {
-            $lat = trim((string) $request->input("{$prefix}_lat"));
-            $lng = trim((string) $request->input("{$prefix}_lng"));
+            $rawLat = $request->input("{$prefix}_lat");
+            $rawLng = $request->input("{$prefix}_lng");
+            if (! is_scalar($rawLat ?? '') || ! is_scalar($rawLng ?? '')) {
+                continue; // Arrays o. Ä. lehnt die Validierung unten ab.
+            }
+            $lat = trim((string) $rawLat);
+            $lng = trim((string) $rawLng);
             if (preg_match('/^(-?\d+(?:[.,]\d+)?)\s*[,;]\s+(-?\d+(?:[.,]\d+)?)$/', $lat, $m) && $lng === '') {
                 [$lat, $lng] = [$m[1], $m[2]];
             }
@@ -81,22 +86,22 @@ class TenantCourseLocationController extends Controller
             'praxis_plz' => ['nullable', 'string', 'max:20'],
             'praxis_stadt' => ['nullable', 'string', 'max:255'],
             'praxis_land' => ['nullable', 'string', 'max:255'],
-            'praxis_lat' => ['nullable', 'numeric', 'between:-90,90'],
-            'praxis_lng' => ['nullable', 'numeric', 'between:-180,180'],
+            'praxis_lat' => ['nullable', 'numeric', 'between:-90,90', 'required_with:praxis_lng'],
+            'praxis_lng' => ['nullable', 'numeric', 'between:-180,180', 'required_with:praxis_lat'],
             'pruefung_ort' => ['nullable', 'string', 'max:255'],
             'pruefung_strasse' => ['nullable', 'string', 'max:255'],
             'pruefung_plz' => ['nullable', 'string', 'max:20'],
             'pruefung_stadt' => ['nullable', 'string', 'max:255'],
             'pruefung_land' => ['nullable', 'string', 'max:255'],
-            'pruefung_lat' => ['nullable', 'numeric', 'between:-90,90'],
-            'pruefung_lng' => ['nullable', 'numeric', 'between:-180,180'],
+            'pruefung_lat' => ['nullable', 'numeric', 'between:-90,90', 'required_with:pruefung_lng'],
+            'pruefung_lng' => ['nullable', 'numeric', 'between:-180,180', 'required_with:pruefung_lat'],
             'theorie_ort' => ['nullable', 'string', 'max:255'],
             'theorie_strasse' => ['nullable', 'string', 'max:255'],
             'theorie_plz' => ['nullable', 'string', 'max:20'],
             'theorie_stadt' => ['nullable', 'string', 'max:255'],
             'theorie_land' => ['nullable', 'string', 'max:255'],
-            'theorie_lat' => ['nullable', 'numeric', 'between:-90,90'],
-            'theorie_lng' => ['nullable', 'numeric', 'between:-180,180'],
+            'theorie_lat' => ['nullable', 'numeric', 'between:-90,90', 'required_with:theorie_lng'],
+            'theorie_lng' => ['nullable', 'numeric', 'between:-180,180', 'required_with:theorie_lat'],
             'pruefungsausschuss_id' => ['nullable', 'uuid', 'exists:pruefungsausschuss,id'],
             'course_ids' => ['nullable', 'array'],
             'course_ids.*' => ['uuid', 'exists:course_definition,id'],
