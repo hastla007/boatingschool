@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\CourseDefinition;
 use App\Models\CourseExamRegistration;
 use App\Models\ExamPaper;
 use App\Models\ExamSession;
@@ -18,6 +19,7 @@ use App\Services\MasteryCalculator;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -275,5 +277,72 @@ class ReviewRoundElevenFixesTest extends TestCase
             'praxis_ort' => "Hafen\0Nord", 'course_ids' => [],
         ])->assertRedirect();
         $this->asTenant($tenant, fn () => $this->assertDatabaseHas('tenant_course_location', ['praxis_ort' => 'HafenNord']));
+    }
+
+    public function test_editing_a_navigation_task_does_not_change_a_running_exam(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SBF-SEE');
+        $this->grantEntitlement($tenant, $learner, $course);
+        $paper = $this->onAdmin(fn () => ExamPaper::where('course_id', $course->id)->where('paper_number', 3)->firstOrFail());
+        $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam/papers/{$paper->id}")->assertRedirect();
+        $session = $this->asTenant($tenant, fn () => ExamSession::where('user_id', $learner->id)->firstOrFail());
+        foreach ($this->asTenant($tenant, fn () => $session->questions()->with('revision.answers')->get()) as $sq) {
+            $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/answers", [
+                'position' => $sq->position, 'answer_id' => $sq->revision->answers->firstWhere('is_correct', true)->id,
+            ]);
+        }
+        $task = $this->onAdmin(fn () => NavigationTask::find($session->navigation_task_id));
+        $original = $task->scenario_text;
+        $this->onAdmin(fn () => $task->update(['scenario_text' => 'GEAENDERT-R11']));
+
+        try {
+            $this->actingAsInTenant($learner, $tenant)->get("/exam-sessions/{$session->id}")->assertOk()
+                ->assertDontSee('GEAENDERT-R11')->assertSee(Str::limit($original, 40, ''));
+        } finally {
+            $this->onAdmin(fn () => $task->update(['scenario_text' => $original]));
+        }
+    }
+
+    public function test_a_course_scoped_instructor_cannot_invite_people_they_would_not_see(): void
+    {
+        $tenant = $this->createTestTenant();
+        $instructor = $this->createTenantUser($tenant, 'instructor');
+        $this->onAdmin(fn () => InstructorCourse::create(['tenant_id' => $tenant->id, 'user_id' => $instructor->id, 'course_id' => $this->existingCourse('SRC')->id]));
+
+        $this->actingAsInTenant($instructor, $tenant)->post('/admin/participants/invite', ['name' => 'Ivo', 'email' => 'ivo-'.uniqid().'@example.test'])
+            ->assertSessionHasErrors('email');
+    }
+
+    public function test_bulk_renewal_does_not_offer_suspended_memberships(): void
+    {
+        $tenant = $this->createTestTenant();
+        $owner = $this->createTenantUser($tenant, 'owner');
+        $active = $this->createTenantUser($tenant, 'learner', ['display_name' => 'Aktiv Anna']);
+        $suspended = $this->createTenantUser($tenant, 'learner', ['display_name' => 'Gesperrt Tim']);
+        $course = $this->existingCourse('SRC');
+        foreach ([$active, $suspended] as $learner) {
+            $e = $this->grantEntitlement($tenant, $learner, $course);
+            $this->onAdmin(fn () => DB::table('entitlement')->where('id', $e->id)->update(['valid_until' => now()->addDays(10)]));
+        }
+        $this->onAdmin(fn () => DB::table('tenant_user')->where('tenant_id', $tenant->id)->where('user_id', $suspended->id)->update(['status' => 'suspended']));
+
+        $this->actingAsInTenant($owner, $tenant)->get('/admin/renewals?course_id='.$course->id)->assertOk()
+            ->assertSee('Aktiv Anna')->assertDontSee('Gesperrt Tim');
+    }
+
+    public function test_saving_the_course_selection_unchanged_writes_no_audit_entries(): void
+    {
+        $tenant = $this->createTestTenant();
+        $owner = $this->createTenantUser($tenant, 'owner');
+        $enabled = $this->onAdmin(fn () => CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')->where('site_enabled', true)->pluck('id')->all());
+
+        $this->actingAsInTenant($owner, $tenant)->patch('/admin/courses', ['enabled' => $enabled])->assertRedirect();
+        $count = fn () => $this->onAdmin(fn () => DB::table('audit_log')->where('tenant_id', $tenant->id)->whereIn('action', ['course-selection.update', 'webshop-links.update', 'exam-registration.update'])->count());
+        $first = $count();
+        $this->actingAsInTenant($owner, $tenant)->patch('/admin/courses', ['enabled' => $enabled])->assertRedirect();
+
+        $this->assertSame($first, $count());
     }
 }

@@ -87,9 +87,11 @@
     @endif
 
     @php($selfBooking = $submission->course && \App\Support\ExamRegistration::isSelf(app(\App\Support\TenantContext::class)->tenant(), $submission->course))
-    @if (! $submission->isPracticeOnly() && $selfBooking && $submission->appointmentsForSlot(0)->isEmpty())
-        <p class="mt-3 text-xs text-slate-600 dark:text-slate-400">Zur Prüfung meldet sich der Teilnehmer bei diesem Kurs selbst an; Praxisstunden können Sie unten vorschlagen.</p>
-    @elseif (! $submission->isPracticeOnly())
+    @if (! $submission->isPracticeOnly())
+        @if ($selfBooking)
+            {{-- Review-Runde 11: bestehende Anmeldungen laufen nach der Umstellung weiter über die Schule. --}}
+            <p class="mt-3 text-xs text-slate-600 dark:text-slate-400">Der Kurs steht inzwischen auf Selbst-Anmeldung. Diese Anmeldung lag schon vorher vor; den Prüfungstermin schlagen weiterhin Sie vor.</p>
+        @endif
         <x-admin.praxis-appointment-slot :submission="$submission" :appointment-slot="0" label="Prüfungstermin" :locations="$submissionLocations" />
     @endif
 

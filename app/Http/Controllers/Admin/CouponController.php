@@ -129,7 +129,7 @@ class CouponController extends Controller
             // Bug-Review (Du/Sie im Admin-Bereich -- weitere Reste): dieselbe
             // Meldung wie in EntitlementController nutzte hier noch die
             // informelle ihr-Form ("eurer" statt "Ihrer").
-            return back()->withErrors(['assign' => 'Dieser Nutzer gehört nicht zu Ihrer Bootsschule.']);
+            return back()->withErrors(['assign' => 'Diese Person gehört nicht zu Ihrer Bootsschule.']);
         }
 
         // Review: keinen Code an ein gesperrtes bzw. beendetes Mitglied verbrauchen.

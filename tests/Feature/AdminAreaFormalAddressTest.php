@@ -145,7 +145,7 @@ class AdminAreaFormalAddressTest extends TestCase
         ]);
 
         $response->assertSessionHasErrors('assign');
-        $this->assertSame('Dieser Nutzer gehört nicht zu Ihrer Bootsschule.', session('errors')->first('assign'));
+        $this->assertSame('Diese Person gehört nicht zu Ihrer Bootsschule.', session('errors')->first('assign'));
 
         $this->onAdmin(fn () => Coupon::where('code', $code)->delete());
     }
@@ -167,7 +167,7 @@ class AdminAreaFormalAddressTest extends TestCase
     {
         $source = file_get_contents(app_path('Http/Controllers/Admin/EntitlementController.php'));
 
-        $this->assertStringContainsString('Dieser Nutzer gehört nicht zu Ihrer Bootsschule.', $source);
+        $this->assertStringContainsString('Diese Person gehört nicht zu Ihrer Bootsschule.', $source);
         $this->assertStringContainsString('Dieser Kurs ist für Ihre Bootsschule nicht verfügbar.', $source);
         $this->assertStringNotContainsString('eurer Bootsschule', $source);
         $this->assertStringNotContainsString('eure Bootsschule', $source);

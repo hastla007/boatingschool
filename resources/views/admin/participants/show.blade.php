@@ -190,7 +190,7 @@
                                 <span class="inline-block ms-1 px-1.5 py-0.5 rounded-full text-[10px] bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">{{ \App\Support\StatusLabels::entitlementStatus($booking['status']) }}</span>
                             @endif
                             <span class="block text-xs text-slate-600 dark:text-slate-400">
-                                {{ $booking['source_type'] === 'coupon' ? 'Code '.$booking['source_reference'] : 'Manuell freigeschaltet' }}
+                                {{ in_array($booking['source_type'], ['coupon', 'coupon_renewal'], true) && $booking['source_reference'] ? 'Code '.$booking['source_reference'] : 'Manuell freigeschaltet' }}
                                 @if ($booking['entitlement_id'] ?? null)
                                     &middot; {{ $booking['valid_until'] ? 'gültig bis '.$booking['valid_until']->timezone('Europe/Berlin')->format('d.m.Y') : 'unbefristet' }}
                                 @endif

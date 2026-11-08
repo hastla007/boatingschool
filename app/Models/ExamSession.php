@@ -20,7 +20,7 @@ class ExamSession extends Model
     protected $fillable = [
         'tenant_id', 'user_id', 'course_id', 'rule_set_id', 'paper_id', 'status',
         'started_at', 'submitted_at', 'score', 'passed', 'rule_snapshot',
-        'navigation_task_id', 'navigation_submitted_at', 'navigation_points',
+        'navigation_task_id', 'navigation_submitted_at', 'navigation_points', 'navigation_task_snapshot',
     ];
 
     protected function casts(): array
@@ -28,6 +28,7 @@ class ExamSession extends Model
         return [
             'started_at' => 'datetime',
             'rule_snapshot' => 'array',
+            'navigation_task_snapshot' => 'array',
             'submitted_at' => 'datetime',
             'created_at' => 'datetime',
             'score' => 'float',
@@ -75,6 +76,16 @@ class ExamSession extends Model
     public const NAVIGATION_SUBMIT_GRACE = 120;
 
     public const NAVIGATION_ASSESS_GRACE = 900;
+
+    /** Review-Runde 11: Navigationsaufgabe im Stand des Prüfungsstarts (Text, Hinweis, Karte). */
+    public function navigationTaskAsStarted(): ?NavigationTask
+    {
+        if ($this->navigation_task_snapshot) {
+            return (new NavigationTask)->forceFill($this->navigation_task_snapshot + ['id' => $this->navigation_task_id]);
+        }
+
+        return $this->navigationTask;
+    }
 
     public function deadline(): ?Carbon
     {

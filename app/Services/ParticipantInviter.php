@@ -86,12 +86,12 @@ class ParticipantInviter
                 // Passwort-Festlegen erneut schicken (der alte ist evtl.
                 // abgelaufen), sonst nichts verschicken.
                 if ($existingUser->status !== 'invited') {
-                    return ['type' => 'existing', 'mail_sent' => false, 'user' => null, 'already_member' => true];
+                    return ['type' => 'existing', 'mail_sent' => false, 'user' => null, 'already_member' => true, 'role' => $membership->role];
                 }
                 // Höchstens drei neue Links je Person und Tag (Schutz vor Mail-Flut).
                 $resendKey = 'participant-invite-resend:'.$existingUser->id;
                 if (RateLimiter::tooManyAttempts($resendKey, 3)) {
-                    return ['type' => 'existing', 'mail_sent' => true, 'user' => null, 'duplicate' => true];
+                    return ['type' => 'existing', 'mail_sent' => true, 'user' => null, 'duplicate' => true, 'resend_limit' => true];
                 }
                 RateLimiter::hit($resendKey, 86400);
                 $mailSent = BestEffortMail::send(fn () => app(AccountSetupLink::class)->send($existingUser, $tenant, $membership->role), "Einladung erneut {$existingUser->id}");

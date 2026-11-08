@@ -121,7 +121,7 @@ class CouponRedemptionService
             // jetzt trotzdem fest eingebaut und erschien dem Admin.
             throw new RuntimeException($actor->id === $user->id
                 ? 'Du hast diesen Kurs bereits freigeschaltet. Für eine Verlängerung wird ein Verlängerungscode benötigt.'
-                : 'Dieser Nutzer hat diesen Kurs bereits freigeschaltet. Für eine Verlängerung wird ein Verlängerungscode benötigt.');
+                : 'Dieser Teilnehmer hat für diesen Kurs bereits einen aktiven Zugang. Für eine Verlängerung wird ein Verlängerungscode benötigt.');
         }
 
         $now = now();

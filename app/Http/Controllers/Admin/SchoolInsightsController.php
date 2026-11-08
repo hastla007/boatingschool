@@ -70,7 +70,7 @@ class SchoolInsightsController extends Controller
             ->orderByDesc('total')->get();
 
         // Durchschnittlicher Fortschritt und Prüfungsreife je Kurs (aktive Zugänge).
-        $courses = $learners(Entitlement::currentlyActive()->where('tenant_id', $tenant->id)->when($scopeCourses !== null, fn ($q) => $q->whereIn('course_id', $scopeCourses)))->with('course', 'user')->get()
+        $courses = $learners(Entitlement::currentlyActive()->where('tenant_id', $tenant->id)->whereIn('user_id', $memberIds)->when($scopeCourses !== null, fn ($q) => $q->whereIn('course_id', $scopeCourses)))->with('course', 'user')->get()
             ->filter(fn ($e) => $e->course && $e->user)->groupBy('course_id')
             ->map(function ($group) use ($tenant, $overview) {
                 $course = $group->first()->course;

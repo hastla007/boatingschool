@@ -63,10 +63,12 @@ class ImportContentFeedback extends Command
             return self::FAILURE;
         }
 
-        $rows = iterator_to_array($this->readCsv($path));
+        // Review-Runde 11: Schlüssel = echte Zeilennummer; kaputte Zeilen
+        // und eine Datei ohne content_id-Spalte werden als Fehler gemeldet.
+        $rows = iterator_to_array($this->readCsv($path), true);
 
-        $this->withProgressBar($rows, function (array $row, $bar, int $rowIndex) {
-            $this->importRow($row, $rowIndex + 2);
+        $this->withProgressBar($rows, function (array $row, $bar, int $lineNumber) {
+            $this->importRow($row, $lineNumber);
         });
         $this->newLine(2);
 
@@ -244,16 +246,35 @@ class ImportContentFeedback extends Command
     {
         $handle = fopen($path, 'r');
         $header = fgetcsv($handle, 0, ';', '"', '\\');
+        if (! is_array($header) || $header === [null]) {
+            $this->recordSkip(1, 'Die Datei ist leer.');
+            fclose($handle);
+
+            return;
+        }
         $header[0] = preg_replace('/^\xEF\xBB\xBF/', '', $header[0]);
         $header = array_map('trim', $header);
+        if (! in_array('content_id', $header, true)) {
+            $this->recordSkip(1, 'Kopfzeile ohne Spalte „content_id“ (Trennzeichen Semikolon?).');
+            fclose($handle);
 
+            return;
+        }
+
+        $line = 1;
         while (($data = fgetcsv($handle, 0, ';', '"', '\\')) !== false) {
-            // Leerzeilen (fgetcsv liefert [null]) und Zeilen mit falscher
-            // Spaltenzahl überspringen statt mit einem ValueError abzubrechen.
-            if ($data === [null] || count($data) !== count($header)) {
+            $line++;
+            // Leerzeilen (fgetcsv liefert [null]) überspringen; Zeilen mit
+            // falscher Spaltenzahl melden statt mit einem ValueError abzubrechen.
+            if ($data === [null]) {
                 continue;
             }
-            yield array_combine($header, $data);
+            if (count($data) !== count($header)) {
+                $this->recordSkip($line, 'Falsche Spaltenzahl ('.count($data).' statt '.count($header).').');
+
+                continue;
+            }
+            yield $line => array_combine($header, $data);
         }
 
         fclose($handle);

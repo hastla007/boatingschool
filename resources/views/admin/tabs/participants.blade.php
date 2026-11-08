@@ -124,6 +124,7 @@
     </div>
 @endif
 
+@if ($canInvite ?? true)
 <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 mb-6">
     <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
         <x-icon name="envelope" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Teilnehmer einladen
@@ -179,6 +180,7 @@
         <button type="submit" class="px-4 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">Einladen</button>
     </form>
 </div>
+@endif
 
 @if ($canManageTenant)
 <details class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 mb-6" @if ($errors->has('emails')) open @endif>

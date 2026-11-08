@@ -4,7 +4,7 @@
             <h1 class="text-2xl font-bold text-slate-800 dark:text-white">Bootsschul-Admin</h1>
             {{-- Bug-Review (Du/Sie im Admin-Bereich gemischt): der restliche
                  Admin-Bereich siezt durchgehend (siehe tabs/dashboard.blade.php). --}}
-            <p class="text-sm text-slate-600 dark:text-slate-400 mt-0.5">Verwalten Sie Teilnehmer, Kurse und Einstellungen Ihrer Bootsschule.</p>
+            <p class="text-sm text-slate-600 dark:text-slate-400 mt-0.5">{{ ($canManageTenant ?? false) ? 'Verwalten Sie Teilnehmer, Kurse und Einstellungen Ihrer Bootsschule.' : 'Begleiten Sie Ihre Teilnehmer beim Lernen und bei der Praxis.' }}</p>
         </div>
         <div class="flex items-center gap-2 text-slate-600 dark:text-slate-400 text-xs text-right">
             <span class="leading-tight">Alles im Blick.<br>Immer startklar.</span>

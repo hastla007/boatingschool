@@ -370,7 +370,7 @@ class ExamController extends Controller
         if (! $task || $task->questions->isEmpty()) {
             return;
         }
-        $session->update(['navigation_task_id' => $task->id]);
+        $session->update(['navigation_task_id' => $task->id, 'navigation_task_snapshot' => $task->only(['task_number', 'scenario_text', 'hint', 'chart_image_path', 'chart_caption'])]);
         foreach ($task->questions->sortBy('question_number')->values() as $i => $question) {
             ExamSessionNavigationAnswer::create([
                 'tenant_id' => $session->tenant_id,
@@ -489,7 +489,7 @@ class ExamController extends Controller
             if (! $examSession->navigation_submitted_at || $examSession->inNavigationAssessment()) {
                 return view('exam.navigation-part', [
                     'examSession' => $examSession,
-                    'task' => $examSession->navigationTask,
+                    'task' => $examSession->navigationTaskAsStarted(),
                     'answers' => $answers,
                     'toAssess' => $toAssess,
                     'step' => $examSession->navigation_submitted_at ? 'assess' : 'answer',

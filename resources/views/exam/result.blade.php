@@ -63,7 +63,7 @@
         @if ($navRule)
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
                 <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
-                    <x-icon name="compass" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Navigationsaufgabe {{ $examSession->navigationTask?->task_number }}
+                    <x-icon name="compass" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Navigationsaufgabe {{ $examSession->navigationTaskAsStarted()?->task_number }}
                 </h3>
                 <ul class="divide-y divide-slate-100 dark:divide-slate-700 text-sm">
                     @foreach ($examSession->navigationAnswers()->with('question')->get() as $navAnswer)

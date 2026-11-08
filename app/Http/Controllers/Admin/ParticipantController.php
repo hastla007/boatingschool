@@ -149,12 +149,15 @@ class ParticipantController extends Controller
         // Willkommensbox-Bestellung. Ein Vorschlag, der noch auf
         // Rückmeldung des Teilnehmers wartet, ist dagegen nicht an der
         // Bootsschule.
-        $actionItems = $praxisFormSubmissions->flatMap(function (PraxisFormSubmission $submission) use ($tenant) {
+        $actionItems = $praxisFormSubmissions->flatMap(function (PraxisFormSubmission $submission) {
             $items = collect();
             $course = $submission->course->name ?? '—';
 
             $examAppointments = $submission->appointmentsForSlot(0);
-            if ($submission->isPracticeOnly() || ($submission->course && ExamRegistration::isSelf($tenant, $submission->course))) {
+            // Review-Runde 11: eine echte Praxis-Anmeldung bleibt im Ablauf der
+            // Schule, auch wenn der Kurs später auf Selbst-Anmeldung umgestellt
+            // wird (wie beim Teilnehmer, ExamRegistration::usesAppointmentTool).
+            if ($submission->isPracticeOnly()) {
                 // Prüfungstermin bucht der Teilnehmer selbst.
             } elseif ($examAppointments->isEmpty()) {
                 $items->push(['course' => $course, 'label' => 'Prüfungstermin', 'reason' => 'Neue Anmeldung – bitte Prüfungstermin vorschlagen.']);
@@ -306,6 +309,12 @@ class ParticipantController extends Controller
     public function invite(Request $request, TenantContext $tenantContext, CouponRedemptionService $redemption, ParticipantInviter $inviter): Response
     {
         $tenant = $tenantContext->tenant();
+        // Review-Runde 11: ein auf Kurse beschränkter Ausbilder sähe die
+        // eingeladene Person danach nicht (noch kein Kurs) -- weder zum
+        // Freischalten noch zum erneuten Einladen.
+        if (InstructorScope::courseIds($tenant, $request->user()) !== null) {
+            return back()->withErrors(['email' => 'Neue Teilnehmer lädt die Leitung Ihrer Bootsschule ein. Sie sehen Teilnehmer, sobald sie einen Ihrer Kurse gebucht haben.']);
+        }
         EmailInput::normalize($request, 'email');
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -383,10 +392,14 @@ class ParticipantController extends Controller
         $result = $inviter->invite($tenant, $request->user(), $validated['name'], $validated['email'], array_intersect_key($validated, array_flip(['street', 'postal_code', 'city', 'country'])));
 
         if ($result['duplicate'] ?? false) {
-            return back()->with('status', 'Diese Person wurde heute schon eingeladen; die Einladung ist weiter gültig.');
+            return back()->with('status', ($result['resend_limit'] ?? false)
+                ? 'Die Einladung wurde heute schon dreimal verschickt; ein neuer Link ist erst morgen wieder möglich. Der zuletzt verschickte Link bleibt 7 Tage gültig.'
+                : 'Diese Person wurde heute schon eingeladen; die Einladung ist weiter gültig.');
         }
         if ($result['already_member'] ?? false) {
-            return back()->with('status', 'Diese Person ist bereits Teilnehmer Ihrer Bootsschule.');
+            return back()->with('status', ($result['role'] ?? 'learner') === 'learner'
+                ? 'Diese Person ist bereits Teilnehmer Ihrer Bootsschule.'
+                : 'Diese Person gehört bereits zum Team Ihrer Bootsschule.');
         }
         if ($result['resent'] ?? false) {
             return back()->with('status', $result['mail_sent'] ? 'Einladung erneut verschickt (neuer Link zum Passwort festlegen, 7 Tage gültig).' : 'Der Versand der Einladung ist fehlgeschlagen – bitte später erneut versuchen.');
