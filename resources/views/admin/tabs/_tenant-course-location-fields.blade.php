@@ -1,3 +1,9 @@
+{{-- Review-Runde 10: Eingaben/Fehler nur in dem Formular wieder anzeigen, das abgeschickt wurde
+     (sonst landete ein fehlgeschlagenes „Neuer Ort“ in allen bestehenden Orten). --}}
+@php($formKey = isset($location) && $location ? (string) $location->id : 'create')
+@php($isSubmittedForm = old('_form') === $formKey)
+@php($fieldOld = fn (string $key, $default = null) => $isSubmittedForm ? old($key, $default) : $default)
+@php($fieldErrors = fn (string $key) => $isSubmittedForm ? $errors->get($key) : [])
 @php($location = $location ?? null)
 @php($sameByDefault = ! $location || (
     $location->praxis_ort === $location->pruefung_ort
@@ -9,7 +15,7 @@
     && $location->praxis_lng === $location->pruefung_lng
 ))
 @php($hasTheorieOrt = $location && $location->hasTheorieOrt())
-@php($initialPruefungsausschussId = old('pruefungsausschuss_id', $location?->pruefungsausschuss_id))
+@php($initialPruefungsausschussId = $fieldOld('pruefungsausschuss_id', $location?->pruefungsausschuss_id))
 @php($pruefungsausschussInfo = $pruefungsausschuesse->mapWithKeys(fn ($pa) => [
     $pa->id => [
         'adresse' => $pa->adresse(),
@@ -28,47 +34,47 @@
             <div>
                 <x-input-label :for="$prefix.'-praxis_ort'" value="Praxisort" />
                 <x-text-input :id="$prefix.'-praxis_ort'" name="praxis_ort" type="text" placeholder="z. B. Hauptstandort"
-                              class="mt-1 block w-full" :value="old('praxis_ort', $location?->praxis_ort)" required />
-                <x-input-error :messages="$errors->get('praxis_ort')" class="mt-2" />
+                              class="mt-1 block w-full" :value="$fieldOld('praxis_ort', $location?->praxis_ort)" required />
+                <x-input-error :messages="$fieldErrors('praxis_ort')" class="mt-2" />
             </div>
             <div>
                 <x-input-label :for="$prefix.'-praxis_strasse'" value="Straße & Nr." />
                 <x-text-input :id="$prefix.'-praxis_strasse'" name="praxis_strasse" type="text" placeholder="z. B. Hafenstraße 12"
-                              class="mt-1 block w-full" :value="old('praxis_strasse', $location?->praxis_strasse)" />
-                <x-input-error :messages="$errors->get('praxis_strasse')" class="mt-2" />
+                              class="mt-1 block w-full" :value="$fieldOld('praxis_strasse', $location?->praxis_strasse)" />
+                <x-input-error :messages="$fieldErrors('praxis_strasse')" class="mt-2" />
             </div>
             <div class="grid grid-cols-2 gap-3">
                 <div>
                     <x-input-label :for="$prefix.'-praxis_plz'" value="PLZ" />
                     <x-text-input :id="$prefix.'-praxis_plz'" name="praxis_plz" type="text" placeholder="20095"
-                                  class="mt-1 block w-full" :value="old('praxis_plz', $location?->praxis_plz)" />
-                    <x-input-error :messages="$errors->get('praxis_plz')" class="mt-2" />
+                                  class="mt-1 block w-full" :value="$fieldOld('praxis_plz', $location?->praxis_plz)" />
+                    <x-input-error :messages="$fieldErrors('praxis_plz')" class="mt-2" />
                 </div>
                 <div>
                     <x-input-label :for="$prefix.'-praxis_stadt'" value="Stadt" />
                     <x-text-input :id="$prefix.'-praxis_stadt'" name="praxis_stadt" type="text" placeholder="Hamburg"
-                                  class="mt-1 block w-full" :value="old('praxis_stadt', $location?->praxis_stadt)" />
-                    <x-input-error :messages="$errors->get('praxis_stadt')" class="mt-2" />
+                                  class="mt-1 block w-full" :value="$fieldOld('praxis_stadt', $location?->praxis_stadt)" />
+                    <x-input-error :messages="$fieldErrors('praxis_stadt')" class="mt-2" />
                 </div>
             </div>
             <div>
                 <x-input-label :for="$prefix.'-praxis_land'" value="Land" />
                 <x-text-input :id="$prefix.'-praxis_land'" name="praxis_land" type="text" placeholder="Deutschland"
-                              class="mt-1 block w-full" :value="old('praxis_land', $location?->praxis_land)" />
-                <x-input-error :messages="$errors->get('praxis_land')" class="mt-2" />
+                              class="mt-1 block w-full" :value="$fieldOld('praxis_land', $location?->praxis_land)" />
+                <x-input-error :messages="$fieldErrors('praxis_land')" class="mt-2" />
             </div>
             <div class="grid grid-cols-2 gap-3">
                 <div>
                     <x-input-label :for="$prefix.'-praxis_lat'" value="Breitengrad" />
                     <x-text-input :id="$prefix.'-praxis_lat'" name="praxis_lat" type="text" inputmode="decimal" placeholder="53.5460740"
-                                  class="mt-1 block w-full" :value="old('praxis_lat', $location?->praxis_lat)" />
-                    <x-input-error :messages="$errors->get('praxis_lat')" class="mt-2" />
+                                  class="mt-1 block w-full" :value="$fieldOld('praxis_lat', $location?->praxis_lat)" />
+                    <x-input-error :messages="$fieldErrors('praxis_lat')" class="mt-2" />
                 </div>
                 <div>
                     <x-input-label :for="$prefix.'-praxis_lng'" value="Längengrad" />
                     <x-text-input :id="$prefix.'-praxis_lng'" name="praxis_lng" type="text" inputmode="decimal" placeholder="9.9826940"
-                                  class="mt-1 block w-full" :value="old('praxis_lng', $location?->praxis_lng)" />
-                    <x-input-error :messages="$errors->get('praxis_lng')" class="mt-2" />
+                                  class="mt-1 block w-full" :value="$fieldOld('praxis_lng', $location?->praxis_lng)" />
+                    <x-input-error :messages="$fieldErrors('praxis_lng')" class="mt-2" />
                 </div>
             </div>
             <p class="text-xs text-slate-600 dark:text-slate-400">
@@ -79,52 +85,52 @@
             <div>
                 <x-input-label :for="$prefix.'-pruefung_ort'" value="Prüfungsort" />
                 <x-text-input :id="$prefix.'-pruefung_ort'" name="pruefung_ort" type="text" placeholder="z. B. Hauptstandort"
-                              class="mt-1 block w-full" x-bind:disabled="sameAsLocation" :value="old('pruefung_ort', $location?->pruefung_ort)" />
+                              class="mt-1 block w-full" x-bind:disabled="sameAsLocation" :value="$fieldOld('pruefung_ort', $location?->pruefung_ort)" />
                 <label class="inline-flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mt-1.5">
                     <input type="checkbox" x-model="sameAsLocation"
                            class="rounded border-slate-300 dark:bg-slate-700 dark:border-slate-600">
                     Gleich wie Praxisort
                 </label>
-                <x-input-error :messages="$errors->get('pruefung_ort')" class="mt-2" />
+                <x-input-error :messages="$fieldErrors('pruefung_ort')" class="mt-2" />
             </div>
             <div>
                 <x-input-label :for="$prefix.'-pruefung_strasse'" value="Straße & Nr." />
                 <x-text-input :id="$prefix.'-pruefung_strasse'" name="pruefung_strasse" type="text" placeholder="z. B. Hafenstraße 12"
-                              class="mt-1 block w-full" x-bind:disabled="sameAsLocation" :value="old('pruefung_strasse', $location?->pruefung_strasse)" />
-                <x-input-error :messages="$errors->get('pruefung_strasse')" class="mt-2" />
+                              class="mt-1 block w-full" x-bind:disabled="sameAsLocation" :value="$fieldOld('pruefung_strasse', $location?->pruefung_strasse)" />
+                <x-input-error :messages="$fieldErrors('pruefung_strasse')" class="mt-2" />
             </div>
             <div class="grid grid-cols-2 gap-3">
                 <div>
                     <x-input-label :for="$prefix.'-pruefung_plz'" value="PLZ" />
                     <x-text-input :id="$prefix.'-pruefung_plz'" name="pruefung_plz" type="text" placeholder="20095"
-                                  class="mt-1 block w-full" x-bind:disabled="sameAsLocation" :value="old('pruefung_plz', $location?->pruefung_plz)" />
-                    <x-input-error :messages="$errors->get('pruefung_plz')" class="mt-2" />
+                                  class="mt-1 block w-full" x-bind:disabled="sameAsLocation" :value="$fieldOld('pruefung_plz', $location?->pruefung_plz)" />
+                    <x-input-error :messages="$fieldErrors('pruefung_plz')" class="mt-2" />
                 </div>
                 <div>
                     <x-input-label :for="$prefix.'-pruefung_stadt'" value="Stadt" />
                     <x-text-input :id="$prefix.'-pruefung_stadt'" name="pruefung_stadt" type="text" placeholder="Hamburg"
-                                  class="mt-1 block w-full" x-bind:disabled="sameAsLocation" :value="old('pruefung_stadt', $location?->pruefung_stadt)" />
-                    <x-input-error :messages="$errors->get('pruefung_stadt')" class="mt-2" />
+                                  class="mt-1 block w-full" x-bind:disabled="sameAsLocation" :value="$fieldOld('pruefung_stadt', $location?->pruefung_stadt)" />
+                    <x-input-error :messages="$fieldErrors('pruefung_stadt')" class="mt-2" />
                 </div>
             </div>
             <div>
                 <x-input-label :for="$prefix.'-pruefung_land'" value="Land" />
                 <x-text-input :id="$prefix.'-pruefung_land'" name="pruefung_land" type="text" placeholder="Deutschland"
-                              class="mt-1 block w-full" x-bind:disabled="sameAsLocation" :value="old('pruefung_land', $location?->pruefung_land)" />
-                <x-input-error :messages="$errors->get('pruefung_land')" class="mt-2" />
+                              class="mt-1 block w-full" x-bind:disabled="sameAsLocation" :value="$fieldOld('pruefung_land', $location?->pruefung_land)" />
+                <x-input-error :messages="$fieldErrors('pruefung_land')" class="mt-2" />
             </div>
             <div class="grid grid-cols-2 gap-3">
                 <div>
                     <x-input-label :for="$prefix.'-pruefung_lat'" value="Breitengrad" />
                     <x-text-input :id="$prefix.'-pruefung_lat'" name="pruefung_lat" type="text" inputmode="decimal" placeholder="53.5460740"
-                                  class="mt-1 block w-full" x-bind:disabled="sameAsLocation" :value="old('pruefung_lat', $location?->pruefung_lat)" />
-                    <x-input-error :messages="$errors->get('pruefung_lat')" class="mt-2" />
+                                  class="mt-1 block w-full" x-bind:disabled="sameAsLocation" :value="$fieldOld('pruefung_lat', $location?->pruefung_lat)" />
+                    <x-input-error :messages="$fieldErrors('pruefung_lat')" class="mt-2" />
                 </div>
                 <div>
                     <x-input-label :for="$prefix.'-pruefung_lng'" value="Längengrad" />
                     <x-text-input :id="$prefix.'-pruefung_lng'" name="pruefung_lng" type="text" inputmode="decimal" placeholder="9.9826940"
-                                  class="mt-1 block w-full" x-bind:disabled="sameAsLocation" :value="old('pruefung_lng', $location?->pruefung_lng)" />
-                    <x-input-error :messages="$errors->get('pruefung_lng')" class="mt-2" />
+                                  class="mt-1 block w-full" x-bind:disabled="sameAsLocation" :value="$fieldOld('pruefung_lng', $location?->pruefung_lng)" />
+                    <x-input-error :messages="$fieldErrors('pruefung_lng')" class="mt-2" />
                 </div>
             </div>
         </div>
@@ -149,47 +155,47 @@
             <div>
                 <x-input-label :for="$prefix.'-theorie_ort'" value="Ort" class="sr-only" />
                 <x-text-input :id="$prefix.'-theorie_ort'" name="theorie_ort" type="text" placeholder="z. B. Theoriezentrum Innenstadt"
-                              class="mt-1 block w-full" :value="old('theorie_ort', $location?->theorie_ort)" />
-                <x-input-error :messages="$errors->get('theorie_ort')" class="mt-2" />
+                              class="mt-1 block w-full" :value="$fieldOld('theorie_ort', $location?->theorie_ort)" />
+                <x-input-error :messages="$fieldErrors('theorie_ort')" class="mt-2" />
             </div>
             <div>
                 <x-input-label :for="$prefix.'-theorie_strasse'" value="Straße & Nr." class="sr-only" />
                 <x-text-input :id="$prefix.'-theorie_strasse'" name="theorie_strasse" type="text" placeholder="z. B. Hafenstraße 12"
-                              class="mt-1 block w-full" :value="old('theorie_strasse', $location?->theorie_strasse)" />
-                <x-input-error :messages="$errors->get('theorie_strasse')" class="mt-2" />
+                              class="mt-1 block w-full" :value="$fieldOld('theorie_strasse', $location?->theorie_strasse)" />
+                <x-input-error :messages="$fieldErrors('theorie_strasse')" class="mt-2" />
             </div>
             <div class="grid grid-cols-2 gap-3">
                 <div>
                     <x-input-label :for="$prefix.'-theorie_plz'" value="PLZ" class="sr-only" />
                     <x-text-input :id="$prefix.'-theorie_plz'" name="theorie_plz" type="text" placeholder="20095"
-                                  class="mt-1 block w-full" :value="old('theorie_plz', $location?->theorie_plz)" />
-                    <x-input-error :messages="$errors->get('theorie_plz')" class="mt-2" />
+                                  class="mt-1 block w-full" :value="$fieldOld('theorie_plz', $location?->theorie_plz)" />
+                    <x-input-error :messages="$fieldErrors('theorie_plz')" class="mt-2" />
                 </div>
                 <div>
                     <x-input-label :for="$prefix.'-theorie_stadt'" value="Stadt" class="sr-only" />
                     <x-text-input :id="$prefix.'-theorie_stadt'" name="theorie_stadt" type="text" placeholder="Hamburg"
-                                  class="mt-1 block w-full" :value="old('theorie_stadt', $location?->theorie_stadt)" />
-                    <x-input-error :messages="$errors->get('theorie_stadt')" class="mt-2" />
+                                  class="mt-1 block w-full" :value="$fieldOld('theorie_stadt', $location?->theorie_stadt)" />
+                    <x-input-error :messages="$fieldErrors('theorie_stadt')" class="mt-2" />
                 </div>
             </div>
             <div>
                 <x-input-label :for="$prefix.'-theorie_land'" value="Land" class="sr-only" />
                 <x-text-input :id="$prefix.'-theorie_land'" name="theorie_land" type="text" placeholder="Deutschland"
-                              class="mt-1 block w-full" :value="old('theorie_land', $location?->theorie_land)" />
-                <x-input-error :messages="$errors->get('theorie_land')" class="mt-2" />
+                              class="mt-1 block w-full" :value="$fieldOld('theorie_land', $location?->theorie_land)" />
+                <x-input-error :messages="$fieldErrors('theorie_land')" class="mt-2" />
             </div>
             <div class="grid grid-cols-2 gap-3">
                 <div>
                     <x-input-label :for="$prefix.'-theorie_lat'" value="Breitengrad" class="sr-only" />
                     <x-text-input :id="$prefix.'-theorie_lat'" name="theorie_lat" type="text" inputmode="decimal" placeholder="53.5460740"
-                                  class="mt-1 block w-full" :value="old('theorie_lat', $location?->theorie_lat)" />
-                    <x-input-error :messages="$errors->get('theorie_lat')" class="mt-2" />
+                                  class="mt-1 block w-full" :value="$fieldOld('theorie_lat', $location?->theorie_lat)" />
+                    <x-input-error :messages="$fieldErrors('theorie_lat')" class="mt-2" />
                 </div>
                 <div>
                     <x-input-label :for="$prefix.'-theorie_lng'" value="Längengrad" class="sr-only" />
                     <x-text-input :id="$prefix.'-theorie_lng'" name="theorie_lng" type="text" inputmode="decimal" placeholder="9.9826940"
-                                  class="mt-1 block w-full" :value="old('theorie_lng', $location?->theorie_lng)" />
-                    <x-input-error :messages="$errors->get('theorie_lng')" class="mt-2" />
+                                  class="mt-1 block w-full" :value="$fieldOld('theorie_lng', $location?->theorie_lng)" />
+                    <x-input-error :messages="$fieldErrors('theorie_lng')" class="mt-2" />
                 </div>
             </div>
         </div>
@@ -207,7 +213,7 @@
                 <option value="{{ $pa->id }}" @selected($initialPruefungsausschussId === $pa->id)>{{ $pa->label() }}</option>
             @endforeach
         </select>
-        <x-input-error :messages="$errors->get('pruefungsausschuss_id')" class="mt-2" />
+        <x-input-error :messages="$fieldErrors('pruefungsausschuss_id')" class="mt-2" />
 
         <template x-if="pruefungsausschussId && pruefungsausschussInfo[pruefungsausschussId]">
             <div class="mt-2 text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/40 rounded-lg p-3 space-y-1">
@@ -221,7 +227,7 @@
 
     <div>
         <x-input-label value="Für diese Kurse verfügbar" />
-        @php($selectedCourseIds = old('course_ids', $location?->course_ids ?? []))
+        @php($selectedCourseIds = $fieldOld('course_ids', $location?->course_ids ?? []))
         <div class="mt-1 grid sm:grid-cols-2 gap-x-4 gap-y-1.5 max-h-56 overflow-y-auto border border-slate-200 dark:border-slate-700 rounded-lg p-3">
             @foreach ($courses as $course)
                 @php($courseDisabled = $disabledCourseIds->contains($course->id))
@@ -240,6 +246,6 @@
                 </label>
             @endforeach
         </div>
-        <x-input-error :messages="$errors->get('course_ids')" class="mt-2" />
+        <x-input-error :messages="$fieldErrors('course_ids')" class="mt-2" />
     </div>
 </div>

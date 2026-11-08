@@ -40,7 +40,7 @@ class AuditLog extends Model
         'entitlement.extend' => 'hat einen Kurszugang verlängert.',
         'participants.export' => 'hat die Teilnehmerliste exportiert.',
         'participant.invite_resent' => 'hat eine Einladung erneut verschickt.',
-        'participant.remove' => 'hat eine teilnehmende Person samt Lerndaten gelöscht.',
+        'participant.remove' => 'hat einen Teilnehmer samt Lerndaten gelöscht.',
         'profile.export' => 'hat die eigenen Daten heruntergeladen.',
         'participants.remind_inactive' => 'hat inaktive Teilnehmer ans Lernen erinnert.',
         'announcement.create' => 'hat eine Mitteilung an Teilnehmer veröffentlicht.',

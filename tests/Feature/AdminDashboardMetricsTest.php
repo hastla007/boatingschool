@@ -147,8 +147,10 @@ class AdminDashboardMetricsTest extends TestCase
         $response = $this->actingAsInTenant($admin, $tenant)->get(route('admin.dashboard'));
 
         $response->assertOk();
-        $this->assertStatTileValue($response, 'Praxistermine (7 Tage)', '1');
-        $this->assertStatTileValue($response, 'Praxistermine (30 Tage)', '2');
+        // Review-Runde 10: Prüfungstermin (Slot 0) eigene Kachel, Praxistermine getrennt.
+        $this->assertStatTileValue($response, 'Prüfungstermine (nächste 30 Tage)', '1');
+        $this->assertStatTileValue($response, 'Praxistermine (nächste 7 Tage)', '0');
+        $this->assertStatTileValue($response, 'Praxistermine (nächste 30 Tage)', '1');
     }
 
     public function test_dashboard_does_not_count_pending_or_past_appointments(): void
@@ -177,8 +179,9 @@ class AdminDashboardMetricsTest extends TestCase
         $response = $this->actingAsInTenant($admin, $tenant)->get(route('admin.dashboard'));
 
         $response->assertOk();
-        $this->assertStatTileValue($response, 'Praxistermine (7 Tage)', '0');
-        $this->assertStatTileValue($response, 'Praxistermine (30 Tage)', '0');
+        $this->assertStatTileValue($response, 'Praxistermine (nächste 7 Tage)', '0');
+        $this->assertStatTileValue($response, 'Praxistermine (nächste 30 Tage)', '0');
+        $this->assertStatTileValue($response, 'Prüfungstermine (nächste 30 Tage)', '0');
     }
 
     public function test_dashboard_shows_learner_phase_distribution(): void
@@ -415,7 +418,6 @@ class AdminDashboardMetricsTest extends TestCase
         $response = $this->actingAsInTenant($admin, $tenant)->get(route('admin.dashboard'));
 
         $response->assertOk();
-        $this->assertStatTileValue($response, 'Prüfungen (7 Tage)', '1');
-        $this->assertStatTileValue($response, 'Prüfungen (30 Tage)', '2');
+        $this->assertStatTileValue($response, 'Prüfungssimulationen (letzte 30 Tage)', '2');
     }
 }

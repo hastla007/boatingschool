@@ -4,6 +4,14 @@
 
     <x-auth-session-status class="mb-4" :status="session('status')" />
 
+    @if (isset($currentTenant) && in_array($currentTenant->status, ['suspended', 'closed'], true))
+        {{-- Gesperrte/geschlossene Schule: Anmelden nur noch für Datenauskunft und Kontolöschung. --}}
+        <div class="mb-4 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 dark:bg-amber-900/30 dark:border-amber-800 dark:text-amber-100 px-4 py-3 text-sm">
+            Die Lernplattform von {{ $currentTenant->name }} ist {{ $currentTenant->status === 'closed' ? 'geschlossen' : 'vorübergehend gesperrt' }}.
+            Nach der Anmeldung kannst du nur noch deine Daten herunterladen oder dein Konto löschen.
+        </div>
+    @endif
+
     <form method="POST" action="{{ route('login') }}" class="space-y-4">
         @csrf
 

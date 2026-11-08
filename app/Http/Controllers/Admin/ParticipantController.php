@@ -69,9 +69,13 @@ class ParticipantController extends Controller
         $optionsByCode = $productPurchases->where('source_type', 'coupon')->groupBy('source_reference');
         $bundledProductIds = [];
 
+        // Freie Verlängerungscodes je Kurs (für den „Verlängern“-Knopf).
+        $freeRenewalCodes = Coupon::where('tenant_id', $tenant->id)->where('is_renewal', true)->usable()
+            ->selectRaw('course_id, count(*) as free')->groupBy('course_id')->pluck('free', 'course_id');
+
         $entitlements = Entitlement::where('tenant_id', $tenant->id)->where('user_id', $user->id)
             ->with('course')->orderByDesc('valid_from')->get()
-            ->map(function (Entitlement $e) use ($optionsByCode, &$bundledProductIds) {
+            ->map(function (Entitlement $e) use ($optionsByCode, &$bundledProductIds, $freeRenewalCodes) {
                 $options = $e->source_type === 'coupon' ? ($optionsByCode->get($e->source_reference) ?? collect()) : collect();
                 $bundledProductIds = [...$bundledProductIds, ...$options->pluck('id')->all()];
 
@@ -87,6 +91,7 @@ class ParticipantController extends Controller
                     // für genau diese Entitlement-Zeile rendern.
                     'entitlement_id' => $e->id,
                     'valid_until' => $e->valid_until,
+                    'free_renewal_codes' => (int) ($freeRenewalCodes[$e->course_id] ?? 0),
                 ];
             });
 

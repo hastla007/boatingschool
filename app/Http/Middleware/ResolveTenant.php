@@ -172,7 +172,9 @@ class ResolveTenant
      */
     private function isDataRightsRoute(Request $request): bool
     {
-        return $request->is('logout') || $request->is('impressum') || $request->is('datenschutz')
+        // Anmeldung (inkl. 2FA) bleibt möglich, damit auch Abgemeldete an „Meine Daten“ kommen.
+        return $request->is('logout') || $request->is('login') || $request->is('two-factor-challenge')
+            || $request->is('impressum') || $request->is('datenschutz')
             || $request->is('meine-daten') || $request->is('profile/export-data')
             || ($request->is('profile') && $request->isMethod('DELETE'));
     }

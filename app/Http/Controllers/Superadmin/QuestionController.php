@@ -110,8 +110,10 @@ class QuestionController extends Controller
 
         // Zwei Tabs bzw. zwei Personen: wurde die Frage seit dem Öffnen des
         // Formulars schon neu gespeichert, nicht stillschweigend überschreiben.
-        if ($request->filled('base_revision_no') && (int) $request->input('base_revision_no') !== (int) $editing?->revision_no) {
-            return back()->withInput()->withErrors(['question_text' => 'Diese Frage wurde inzwischen von jemand anderem gespeichert (jetzt Revision '.$editing?->revision_no.'). Bitte die Seite neu laden und die Änderung erneut eintragen.']);
+        // Review-Runde 10: der zweite Klick überschrieb sonst stillschweigend --
+        // jetzt nur mit ausdrücklichem „trotzdem speichern“.
+        if ($request->filled('base_revision_no') && (int) $request->input('base_revision_no') !== (int) $editing?->revision_no && ! $request->boolean('overwrite_newer')) {
+            return back()->withInput()->withErrors(['question_text' => 'Diese Frage wurde inzwischen in einem anderen Fenster oder von jemand anderem gespeichert (jetzt Revision '.$editing?->revision_no.'). Bitte die Seite neu laden -- oder unten bestätigen, dass Ihre Fassung die neuere ersetzen soll.']);
         }
 
         DB::transaction(function () use ($validated, $question, $latest, $editing) {

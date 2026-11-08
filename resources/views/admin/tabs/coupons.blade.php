@@ -62,9 +62,9 @@
 <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden">
     <form method="GET" action="{{ route('admin.dashboard') }}" class="flex flex-wrap gap-2 p-4 border-b border-slate-100 dark:border-slate-700">
         <input type="hidden" name="tab" value="coupons">
-        <label for="coupon_search" class="sr-only">Code, Kurs/Produkt oder Nutzer suchen</label>
+        <label for="coupon_search" class="sr-only">Code, Kurs/Produkt oder Teilnehmer suchen</label>
         <input type="text" id="coupon_search" name="coupon_search" value="{{ $couponFilters['coupon_search'] ?? '' }}"
-               placeholder="Code, Kurs/Produkt oder Nutzer suchen…"
+               placeholder="Code, Kurs/Produkt oder Teilnehmer suchen…"
                class="flex-1 min-w-[220px] rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
         <label for="coupon_status" class="sr-only">Status filtern</label>
         <select id="coupon_status" name="coupon_status" @change="$el.form.submit()" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
@@ -96,7 +96,7 @@
          <select> der Zeilen geklont, statt sie serverseitig zu duplizieren. --}}
     @if ($coupons->contains(fn ($c) => $c->isUsable() && $c->tenant_id === $tenant->id))
         <select id="coupon-assign-options-template" hidden aria-hidden="true">
-            <option value="">Nutzer wählen…</option>
+            <option value="">Teilnehmer wählen…</option>
             @foreach ($allParticipants as $membership)
                 <option value="{{ $membership->user_id }}">{{ $membership->user->name }}</option>
             @endforeach
@@ -139,7 +139,7 @@
                             <form method="POST" action="{{ route('admin.coupons.assign', $coupon) }}" class="flex gap-1">
                                 @csrf
                                 <select name="user_id" required aria-label="Nutzer für Coupon {{ $coupon->code }} wählen" class="js-coupon-assign-select rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs">
-                                    <option value="">Nutzer wählen…</option>
+                                    <option value="">Teilnehmer wählen…</option>
                                 </select>
                                 <button type="submit" class="px-3 py-1 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-xs whitespace-nowrap">Zuweisen</button>
                             </form>

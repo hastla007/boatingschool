@@ -15,7 +15,7 @@
             {{-- Sperren/Schließen trennt sofort alle Nutzer der Schule: nachfragen. --}}
             <form method="POST" action="{{ route('superadmin.tenants.update', $tenant) }}" class="space-y-3"
                   x-data="{ original: @js($tenant->status) }"
-                  @submit="const s = $el.querySelector('#status').value; if (s !== original && ['suspended', 'closed'].includes(s) && ! confirm('Bootsschule wirklich ' + (s === 'closed' ? 'schließen' : 'sperren') + '? Alle Lernenden und das Team verlieren sofort den Zugang.')) $event.preventDefault()">
+                  @submit="const s = $el.querySelector('#status').value; if (s !== original && ['suspended', 'closed'].includes(s) && ! confirm('Bootsschule wirklich ' + (s === 'closed' ? 'schließen' : 'sperren') + '? Alle Teilnehmer und das Team verlieren sofort den Zugang.')) $event.preventDefault()">
                 @csrf
                 @method('PATCH')
                 <div>
@@ -51,7 +51,7 @@
             <div class="mt-5 pt-5 border-t border-slate-100 dark:border-slate-700 text-sm space-y-3">
                 <h4 class="font-medium text-slate-700 dark:text-slate-200">Vertragsende</h4>
                 <a href="{{ route('superadmin.tenants.export', $tenant) }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-xs">
-                    <x-icon name="download" class="w-4 h-4" /> Alle Daten exportieren (JSON)
+                    <x-icon name="download" class="w-4 h-4" /> Teilnehmer- und Code-Daten exportieren (JSON)
                 </a>
                 @if ($tenant->status === 'closed')
                     <form method="POST" action="{{ route('superadmin.tenants.destroy', $tenant) }}" class="space-y-2 p-3 rounded-lg bg-red-50 dark:bg-red-950/40"
@@ -78,7 +78,7 @@
                 @if ($tenant->branding->custom_domain)
                     <div class="flex justify-between"><span class="text-slate-600 dark:text-slate-400">Eigene Domain</span><span class="font-mono text-xs text-slate-600 dark:text-slate-300">{{ $tenant->branding->custom_domain }}</span></div>
                 @endif
-                <div class="flex justify-between"><span class="text-slate-600 dark:text-slate-400">Support E-Mail</span><span class="text-slate-600 dark:text-slate-300">{{ $tenant->branding->support_email ?: '—' }}</span></div>
+                <div class="flex justify-between"><span class="text-slate-600 dark:text-slate-400">Support-E-Mail</span><span class="text-slate-600 dark:text-slate-300">{{ $tenant->branding->support_email ?: '—' }}</span></div>
                 <div class="flex justify-between"><span class="text-slate-600 dark:text-slate-400">Website</span><span class="text-slate-600 dark:text-slate-300">{{ $tenant->branding->website ?: '—' }}</span></div>
                 <div class="flex justify-between"><span class="text-slate-600 dark:text-slate-400">Telefon</span><span class="text-slate-600 dark:text-slate-300">{{ $tenant->branding->phone ?: '—' }}</span></div>
                 <div class="flex justify-between"><span class="text-slate-600 dark:text-slate-400">Ansprechpartner</span><span class="text-slate-600 dark:text-slate-300">{{ trim(($tenant->branding->contact_first_name ?? '').' '.($tenant->branding->contact_last_name ?? '')) ?: '—' }}</span></div>

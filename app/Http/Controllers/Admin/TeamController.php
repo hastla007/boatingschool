@@ -50,7 +50,11 @@ class TeamController extends Controller
         if ($existingUser) {
             $alreadyMember = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $existingUser->id)->exists();
             if ($alreadyMember) {
-                return back()->withErrors(['team_email' => 'Diese Person ist bereits Mitglied Ihrer Bootsschule – ändern Sie die Rolle in der Team-Liste.']);
+                $isLearner = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $existingUser->id)->value('role') === 'learner';
+
+                return back()->withErrors(['team_email' => $isLearner
+                    ? 'Diese Person ist bereits Teilnehmer Ihrer Bootsschule. Ins Team holen Sie sie auf ihrer Teilnehmerseite unter „Ins Team holen“.'
+                    : 'Diese Person ist bereits Mitglied Ihrer Bootsschule – ändern Sie die Rolle in der Team-Liste.']);
             }
 
             // Bestehendes Konto: Einladung, die die Person selbst annimmt

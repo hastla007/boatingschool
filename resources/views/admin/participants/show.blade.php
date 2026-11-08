@@ -191,6 +191,9 @@
                             @endif
                             <span class="block text-xs text-slate-600 dark:text-slate-400">
                                 {{ $booking['source_type'] === 'coupon' ? 'Code '.$booking['source_reference'] : 'Manuell freigeschaltet' }}
+                                @if ($booking['entitlement_id'] ?? null)
+                                    &middot; {{ $booking['valid_until'] ? 'gültig bis '.$booking['valid_until']->timezone('Europe/Berlin')->format('d.m.Y') : 'unbefristet' }}
+                                @endif
                             </span>
                             @if ($booking['options']->isNotEmpty())
                                 <span class="block text-xs text-indigo-600 dark:text-indigo-400 mt-0.5">+ {{ $booking['options']->implode(', ') }}</span>
@@ -267,7 +270,11 @@
                                              verschwindet für status=revoked zusätzlich auch in der
                                              Oberfläche, "Widerruf aufheben" oben ist dort die einzig
                                              sinnvolle Aktion. --}}
-                                        @if ($booking['status'] !== 'revoked')
+                                        @if ($booking['status'] !== 'revoked' && $booking['valid_until'] === null)
+                                            {{-- Unbefristet: nichts zu verlängern. --}}
+                                        @elseif ($booking['status'] !== 'revoked' && ($booking['free_renewal_codes'] ?? 1) < 1)
+                                            <span class="text-xs text-slate-600 dark:text-slate-400" title="Für diesen Kurs ist kein freier Verlängerungscode vorhanden.">Verlängern (keine Verlängerungscodes)</span>
+                                        @elseif ($booking['status'] !== 'revoked')
                                             {{-- Doppelklick-Schutz: Knopf nach dem Absenden gesperrt, und der Server
                                                  verlängert nur, wenn das Laufzeitende noch dem angezeigten entspricht. --}}
                                             <form method="POST" action="{{ route('admin.entitlements.update', $booking['entitlement_id']) }}"
@@ -407,6 +414,22 @@
     </div>
 
     @if ($canManageTenant && ($membership->role ?? null) === 'learner')
+        {{-- Ins Team holen (Review-Runde 10: die Team-Einladung führte für Teilnehmer ins Leere). --}}
+        <form method="POST" action="{{ route('admin.team.role.update', $participant) }}" class="mt-4 bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5 flex flex-wrap items-end gap-2" x-data="{}"
+              @submit="if (! confirm('Diese Person ins Team holen? Sie sieht danach den Admin-Bereich.')) $event.preventDefault()">
+            @csrf
+            @method('PATCH')
+            <div>
+                <label for="promote-role" class="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Ins Team holen</label>
+                <select id="promote-role" name="role" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                    <option value="instructor">als Ausbilder</option>
+                    @if (auth()->user()->roleForTenant($currentTenant) === 'owner')
+                        <option value="admin">als Admin</option>
+                    @endif
+                </select>
+            </div>
+            <button type="submit" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-sm">Rolle ändern</button>
+        </form>
         <details class="mt-4 bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5" @if ($errors->has('confirm')) open @endif>
             <summary class="cursor-pointer text-sm font-medium text-rose-700 dark:text-rose-300">Teilnehmer und alle Daten löschen</summary>
             <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">

@@ -32,6 +32,7 @@
                 <form method="POST" action="{{ route('admin.tenant-course-locations.update', $location) }}" class="space-y-4">
                     @csrf
                     @method('PATCH')
+                    <input type="hidden" name="_form" value="{{ $location->id }}">
 
                     @include('admin.tabs._tenant-course-location-fields', ['location' => $location, 'prefix' => 'location-'.$location->id])
 

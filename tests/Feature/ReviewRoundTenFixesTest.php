@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\ContentQuestion;
 use App\Models\CourseExamRegistration;
 use App\Models\ExamPaper;
 use App\Models\ExamSession;
@@ -10,6 +11,7 @@ use App\Models\InstructorCourse;
 use App\Models\NavigationQuestion;
 use App\Models\PraxisFormSubmission;
 use App\Models\Tenant;
+use App\Models\TenantCourseLocation;
 use App\Models\User;
 use App\Services\AccountSetupLink;
 use Illuminate\Support\Facades\DB;
@@ -187,5 +189,51 @@ class ReviewRoundTenFixesTest extends TestCase
             'password' => 'fremdes-passwort-1', 'password_confirmation' => 'fremdes-passwort-1',
         ])->assertSessionHasErrors('email');
         $this->onAdmin(fn () => $this->assertTrue(Hash::check('eigenes-passwort-1', User::find($user->id)->password)));
+    }
+
+    public function test_a_failed_new_location_does_not_leak_into_the_existing_locations(): void
+    {
+        $tenant = $this->createTestTenant();
+        $owner = $this->createTenantUser($tenant, 'owner');
+        $this->actingAsInTenant($owner, $tenant)->post('/admin/tenant-course-locations', ['_form' => 'create', 'praxis_ort' => 'Hafen Ost', 'praxis_lat' => '54,33', 'praxis_lng' => '10,15'])
+            ->assertSessionHasNoErrors();
+        $this->onAdmin(fn () => $this->assertSame(54.33, (float) TenantCourseLocation::where('tenant_id', $tenant->id)->value('praxis_lat')));
+
+        $this->actingAsInTenant($owner, $tenant)->from('/admin?tab=orte')->post('/admin/tenant-course-locations', ['_form' => 'create', 'praxis_ort' => 'QA Fehlversuch', 'praxis_lat' => 'abc']);
+        $page = $this->actingAsInTenant($owner, $tenant)->withSession(['_old_input' => ['_form' => 'create', 'praxis_ort' => 'QA Fehlversuch']])->get('/admin?tab=orte')->assertOk();
+        // Nur das Formular „Neuer Ort“ zeigt die abgelehnte Eingabe, nicht der bestehende Ort.
+        $this->assertSame(1, substr_count($page->getContent(), 'value="QA Fehlversuch"'));
+        $page->assertSee('value="Hafen Ost"', false);
+    }
+
+    public function test_a_question_edit_conflict_needs_an_explicit_overwrite(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        $question = $this->onAdmin(fn () => ContentQuestion::whereHas('revisions', fn ($q) => $q->where('editorial_status', 'published')->where('question_type', 'single_choice'))->firstOrFail());
+        $published = $this->onAdmin(fn () => $question->publishedRevision()->load('answers'));
+
+        $this->actingAs($superadmin)->patch("/superadmin/questions/{$question->id}", [
+            'question_type' => 'single_choice',
+            'question_text' => $published->question_text.' (Konflikt)',
+            'answers' => $published->answers->mapWithKeys(fn ($a) => [$a->answer_key => $a->answer_text])->all(),
+            'correct' => $published->answers->firstWhere('is_correct', true)->answer_key,
+            'base_revision_no' => $published->revision_no - 1,
+        ])->assertSessionHasErrors('question_text');
+        $this->onAdmin(fn () => $this->assertSame($published->revision_no, $question->publishedRevision()->revision_no));
+
+        $this->actingAs($superadmin)->withSession(['_old_input' => ['base_revision_no' => $published->revision_no - 1]])
+            ->get("/superadmin/questions/{$question->id}/edit")->assertOk()->assertSee('name="overwrite_newer"', false);
+    }
+
+    public function test_members_of_a_suspended_school_can_still_log_in_to_get_their_data(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner', ['password' => bcrypt('passwort-1234')]);
+        $this->onAdmin(fn () => $tenant->update(['status' => 'suspended']));
+
+        $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/login', ['email' => $learner->email, 'password' => 'passwort-1234'])->assertRedirect();
+        $this->assertAuthenticatedAs($learner);
+        $this->withSession(['dev_tenant_slug' => $tenant->slug])->get('/meine-daten')->assertOk();
+        $this->withSession(['dev_tenant_slug' => $tenant->slug])->get('/dashboard')->assertStatus(403)->assertSee('Eigene Daten herunterladen');
     }
 }

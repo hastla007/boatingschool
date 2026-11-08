@@ -29,10 +29,13 @@ class SuspendedTenantAgnosticRouteTest extends TestCase
         $tenant = $this->createTestTenant();
         $this->onAdmin(fn () => $tenant->update(['status' => 'suspended']));
 
+        // Review-Runde 10: Anmelden bleibt möglich (Datenauskunft/Löschung nach
+        // Art. 15/17/20 DSGVO), die Seite weist auf die Sperre hin; alles
+        // andere zeigt weiter die Sperrseite.
         $response = $this->withSession(['dev_tenant_slug' => $tenant->slug])->get('/login');
-
-        $response->assertStatus(403);
-        $response->assertViewIs('tenant.suspended');
+        $response->assertOk();
+        $response->assertSee('vorübergehend gesperrt');
+        $this->withSession(['dev_tenant_slug' => $tenant->slug])->get('/register')->assertStatus(403);
     }
 
     public function test_the_login_page_shows_the_closed_notice_on_a_closed_tenants_subdomain(): void
@@ -40,10 +43,13 @@ class SuspendedTenantAgnosticRouteTest extends TestCase
         $tenant = $this->createTestTenant();
         $this->onAdmin(fn () => $tenant->update(['status' => 'closed']));
 
+        // Review-Runde 10: Anmelden bleibt möglich (Datenauskunft/Löschung nach
+        // Art. 15/17/20 DSGVO), die Seite weist auf die Sperre hin; alles
+        // andere zeigt weiter die Sperrseite.
         $response = $this->withSession(['dev_tenant_slug' => $tenant->slug])->get('/login');
-
-        $response->assertStatus(403);
-        $response->assertViewIs('tenant.suspended');
+        $response->assertOk();
+        $response->assertSee('geschlossen');
+        $this->withSession(['dev_tenant_slug' => $tenant->slug])->get('/register')->assertStatus(403);
     }
 
     public function test_the_login_page_still_works_normally_on_an_active_tenants_subdomain(): void
