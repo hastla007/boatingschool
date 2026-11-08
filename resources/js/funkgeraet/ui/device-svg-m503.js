@@ -11,6 +11,7 @@
 
 import { createBacklight } from './backlight.js';
 import { drawHandset } from './handset.js';
+import { setKnobAria, volAria, sqlAria, channelAria } from './knob-aria.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const KEY_TEXT = '#1c1408';
@@ -286,6 +287,9 @@ export function renderDeviceM503(container) {
             drawDs(display);
             setKnob(vol, radioState.vol);
             setKnob(sql, radioState.sql);
+            setKnobAria(svg.querySelector('[data-knob="vol"]'), volAria(radioState, 10));
+            setKnobAria(svg.querySelector('[data-knob="sql"]'), sqlAria(radioState));
+            setKnobAria(svg.querySelector('[data-knob="channel"]'), channelAria(radioState));
             channel.pointer.setAttribute('transform', `rotate(${channelAngle} ${channel.cx} ${channel.cy})`);
             Object.entries(radioState.coverOpen ? coverOpen : coverClosed).forEach(([k, v]) => coverLid.setAttribute(k, v));
             const node = target ? svg.querySelector(`[data-key="${target}"], [data-knob="${target}"]`) : null;

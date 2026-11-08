@@ -11,6 +11,7 @@
 
 import { createBacklight, glowFilter } from './backlight.js';
 import { drawHandset } from './handset.js';
+import { setKnobAria, volAria, sqlAria } from './knob-aria.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const LCD_INK = '#2b1806';
@@ -324,6 +325,7 @@ export function renderDeviceM330(container) {
             drawDisplay(display);
             const level = radioState.knobMode === 'sql' ? radioState.sql / 10 : radioState.vol / 20;
             pointer.setAttribute('transform', `rotate(${-135 + level * 270} ${kx} ${ky})`);
+            setKnobAria(ring, radioState.knobMode === 'sql' ? sqlAria(radioState) : volAria(radioState, 20));
             Object.entries(radioState.coverOpen ? coverOpen : coverClosed).forEach(([name, value]) => coverLid.setAttribute(name, value));
 
             let node = null;

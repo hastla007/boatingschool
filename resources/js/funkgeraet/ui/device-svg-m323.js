@@ -11,6 +11,7 @@
 
 import { createBacklight, glowFilter } from './backlight.js';
 import { drawHandset } from './handset.js';
+import { setKnobAria, volAria, sqlAria, channelAria } from './knob-aria.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const LCD_INK = '#2b1806';
@@ -324,6 +325,10 @@ export function renderDeviceM323(container, { model = 'IC-M323', mic16 = false }
             drawDisplay(display);
             const level = radioState.knobMode === 'sql' ? radioState.sql / 10 : radioState.vol / 20;
             pointer.setAttribute('transform', `rotate(${-135 + level * 270} ${kx} ${ky})`);
+            const aria = radioState.knobMode === 'sql' ? sqlAria(radioState)
+                : radioState.knobMode === 'chan' ? channelAria(radioState)
+                : volAria(radioState, 20);
+            setKnobAria(ring, aria);
             Object.entries(radioState.coverOpen ? coverOpen : coverClosed).forEach(([name, value]) => coverLid.setAttribute(name, value));
 
             let node = null;
