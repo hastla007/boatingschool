@@ -312,7 +312,12 @@ class ParticipantController extends Controller
         // Review-Runde 11: ein auf Kurse beschränkter Ausbilder sähe die
         // eingeladene Person danach nicht (noch kein Kurs) -- weder zum
         // Freischalten noch zum erneuten Einladen.
-        if (InstructorScope::courseIds($tenant, $request->user()) !== null) {
+        // Review-Runde 12: erneutes Senden an eine schon sichtbare,
+        // eingeladene Person bleibt möglich.
+        $visible = InstructorScope::learnerIds($tenant, $request->user());
+        $existingVisible = $visible !== null && is_string($request->input('email'))
+            && $visible->contains(User::on('pgsql_admin')->whereRaw('lower(email) = ?', [mb_strtolower(trim($request->input('email')))])->value('id'));
+        if (InstructorScope::courseIds($tenant, $request->user()) !== null && ! $existingVisible) {
             return back()->withErrors(['email' => 'Neue Teilnehmer lädt die Leitung Ihrer Bootsschule ein. Sie sehen Teilnehmer, sobald sie einen Ihrer Kurse gebucht haben.']);
         }
         EmailInput::normalize($request, 'email');

@@ -176,7 +176,9 @@ class TwoFactorController extends Controller
         }
         $user = User::on('pgsql_admin')->find($pending['id']);
 
-        return $user && $user->hasTwoFactor() ? $user : null;
+        // Review-Runde 12: inzwischen gesperrt oder Passwort geändert -> nicht anmelden.
+        return $user && $user->hasTwoFactor() && $user->status === 'active'
+            && hash_equals((string) ($pending['pw'] ?? ''), hash('sha256', (string) $user->getAuthPassword())) ? $user : null;
     }
 
     /**

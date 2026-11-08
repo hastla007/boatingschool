@@ -37,7 +37,9 @@
                         <x-icon name="clipboard-document-check" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> {{ $ruleSet->blueprints->sum('question_count') }} zufällig ausgewählte Fragen
                     </li>
                     <li class="flex items-center gap-2">
-                        <x-icon name="shield-check" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Bestehensgrenze: {{ (int) round(($ruleSet->passing_rule['min_correct_ratio'] ?? 0.75) * 100) }}%
+                        @php($questionTotal = $ruleSet->blueprints->sum('question_count'))
+                        {{-- Review-Runde 12: als Anzahl Fragen statt Prozent. --}}
+                        <x-icon name="shield-check" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Bestehensgrenze: {{ (int) ceil(($ruleSet->passing_rule['min_correct_ratio'] ?? 0.75) * $questionTotal - 1e-9) }} von {{ $questionTotal }} Fragen richtig
                     </li>
                 </ul>
                 @if ($ruleSet->note())

@@ -234,9 +234,14 @@ class CourseController extends Controller
             'comboVideoGroups' => $comboVideoGroups,
             'hasExam' => $course->hasStartableExam(),
             // Review-Runde 11: Stand statt immer „Bereit zum Starten“.
-            'examsPassed' => ExamSession::where('tenant_id', $tenant->id)->where('user_id', $request->user()->id)
-                ->where('course_id', $course->id)->where('status', 'evaluated')->where('passed', true)->whereNotNull('paper_id')
-                ->distinct()->count('paper_id'),
+            // Review-Runde 12: Kurse ohne feste Bögen (z. B. SKN) zählen bestandene Simulationen.
+            'examsHavePapers' => $hasPapers = $course->examPapers()->exists(),
+            'examsPassed' => $hasPapers
+                ? ExamSession::where('tenant_id', $tenant->id)->where('user_id', $request->user()->id)
+                    ->where('course_id', $course->id)->where('status', 'evaluated')->where('passed', true)->whereNotNull('paper_id')
+                    ->distinct()->count('paper_id')
+                : ExamSession::where('tenant_id', $tenant->id)->where('user_id', $request->user()->id)
+                    ->where('course_id', $course->id)->where('status', 'evaluated')->where('passed', true)->count(),
             'examsTaken' => ExamSession::where('tenant_id', $tenant->id)->where('user_id', $request->user()->id)
                 ->where('course_id', $course->id)->where('status', 'evaluated')->count(),
             'funkCatalogs' => FunkTraining::catalogsFor($course),

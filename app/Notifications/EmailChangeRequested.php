@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Models\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
@@ -30,10 +31,16 @@ class EmailChangeRequested extends Notification
 
     public function toMail(mixed $notifiable): MailMessage
     {
+        // Review-Runde 12: Team-Mitglieder werden gesiezt.
+        $formal = $notifiable instanceof User && $notifiable->prefersFormalAddress();
+        $email = preg_replace('/([\\\\`*_{}\[\]#|>~])/', '\\\\$1', $this->newEmail);
+
         return (new MailMessage)
-            ->subject('Änderung deiner E-Mail-Adresse angefordert')
-            ->line("Für dein Konto wurde eine Änderung der Login-E-Mail-Adresse zu {$this->newEmail} angefordert.")
+            ->subject($formal ? 'Änderung Ihrer E-Mail-Adresse angefordert' : 'Änderung deiner E-Mail-Adresse angefordert')
+            ->line(($formal ? 'Für Ihr Konto' : 'Für dein Konto')." wurde eine Änderung der Login-E-Mail-Adresse zu {$email} angefordert.")
             ->line('Diese Adresse wird erst aktiv, wenn sie über einen an sie geschickten Link bestätigt wird – bis dahin bleibt diese (bisherige) Adresse für den Login gültig.')
-            ->line('Warst du das nicht selbst, ändere umgehend dein Passwort und wende dich an den Support deiner Bootsschule.');
+            ->line($formal
+                ? 'Waren Sie das nicht selbst, ändern Sie bitte umgehend Ihr Passwort und wenden Sie sich an den Support.'
+                : 'Warst du das nicht selbst, ändere umgehend dein Passwort und wende dich an den Support deiner Bootsschule.');
     }
 }

@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\Entitlement;
 use App\Notifications\EntitlementExpiringSoon;
 use App\Support\BestEffortMail;
+use App\Support\TenantContext;
 use Illuminate\Console\Command;
 
 /**
@@ -48,7 +49,16 @@ class RemindExpiringEntitlements extends Command
                     // Erst vermerken, dann senden: ein Mailfehler führt nicht
                     // zu täglich neuen Versuchen und doppelten Mails.
                     Entitlement::whereKey($entitlement->id)->update(['expiry_reminded_at' => now()]);
-                    if (BestEffortMail::send(fn () => $entitlement->user->notify(new EntitlementExpiringSoon($entitlement)), 'Ablauf-Erinnerung '.$entitlement->id)) {
+                    // Review-Runde 12: im Kontext der Schule senden -- Unterschrift
+                    // und Antwortadresse der Mail kommen von ihr.
+                    $context = app(TenantContext::class);
+                    $context->set($entitlement->tenant);
+                    try {
+                        $ok = BestEffortMail::send(fn () => $entitlement->user->notify(new EntitlementExpiringSoon($entitlement)), 'Ablauf-Erinnerung '.$entitlement->id);
+                    } finally {
+                        $context->clear();
+                    }
+                    if ($ok) {
                         $sent++;
                     } else {
                         // Mail nicht raus (z. B. SMTP gestört): beim nächsten

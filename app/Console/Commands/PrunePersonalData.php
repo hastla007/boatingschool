@@ -75,7 +75,14 @@ class PrunePersonalData extends Command
         $resetMinutes = (int) config('auth.passwords.users.expire', 60);
         $resets = DB::table('password_reset_tokens')->where('created_at', '<', now()->subMinutes($resetMinutes));
         // Einladungs-Links liegen in einer eigenen Tabelle mit eigener Frist (7 Tage).
+        // Review-Runde 12: die (abgelaufene) Zeile bleibt so lange wie die Frist
+        // für nie aktivierte Konten -- sie ist der Nachweis „vor Kurzem neu
+        // eingeladen“ (pruneUnclaimedAccounts); vorher schützte ein neu
+        // verschickter Link nur noch bis zum nächsten täglichen Lauf.
         $inviteMinutes = (int) config('auth.passwords.invites.expire', 60 * 24 * 7);
+        if (config('data_retention.unclaimed_accounts.enabled')) {
+            $inviteMinutes = max($inviteMinutes, (int) config('data_retention.unclaimed_accounts.days') * 24 * 60);
+        }
         $invites = Schema::hasTable('account_setup_tokens')
             ? DB::table('account_setup_tokens')->where('created_at', '<', now()->subMinutes($inviteMinutes)) : null;
 

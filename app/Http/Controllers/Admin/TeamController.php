@@ -47,7 +47,7 @@ class TeamController extends Controller
         ]);
 
         // Plattformweite Suche wie bei der Teilnehmer-Einladung (RLS-frei).
-        $existingUser = User::on('pgsql_admin')->where('email', $validated['email'])->first();
+        $existingUser = User::on('pgsql_admin')->whereRaw('lower(email) = ?', [mb_strtolower($validated['email'])])->first();
 
         if ($existingUser) {
             $alreadyMember = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $existingUser->id)->exists();

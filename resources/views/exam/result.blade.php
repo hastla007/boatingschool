@@ -37,6 +37,21 @@
                 </div>
             @endif
             @php($navRule = $examSession->hasNavigationPart() ? $examSession->effectiveRuleSet()->navigationRule() : null)
+            @if ($examSession->paper)
+                {{-- Review-Runde 12: welcher Bogen (bei Kombikursen mit Teilkurs). --}}
+                @php($comboInfo = \App\Support\ComboExamGroups::infoFor($examSession->course->code ?? '', $examSession->paper->paper_number))
+                <div class="text-xs text-slate-500 dark:text-slate-400 mt-1">{{ $comboInfo ? $comboInfo['label'].' – ' : '' }}Prüfungsbogen Nr. {{ $comboInfo['displayNumber'] ?? $examSession->paper->paper_number }}</div>
+            @endif
+            @if ($partResults === [] && ! $navRule)
+                {{-- Review-Runde 12: ohne Teilgrenzen die Gesamtgrenze nennen. --}}
+                @php($minCorrect = (int) ceil(($examSession->effectiveRuleSet()->passing_rule['min_correct_ratio'] ?? 0.75) * $questions->count() - 1e-9))
+                <div class="mt-3 flex justify-center">
+                    <span class="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium {{ $examSession->passed ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300' }}">
+                        <x-icon :name="$examSession->passed ? 'check-circle' : 'x-circle'" class="w-4 h-4" />
+                        {{ $questions->where('correct', true)->count() }}/{{ $questions->count() }} (mind. {{ $minCorrect }}/{{ $questions->count() }})
+                    </span>
+                </div>
+            @endif
             @if ($partResults !== [] || $navRule)
                 {{-- Amtliche Teilgrenzen: jeder Teil muss für sich bestanden sein. --}}
                 <div class="mt-3 flex flex-wrap justify-center gap-2">

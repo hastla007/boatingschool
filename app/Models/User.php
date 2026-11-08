@@ -181,4 +181,15 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return in_array($this->roleForTenant($tenant), ['owner', 'admin'], true);
     }
+
+    /**
+     * Review-Runde 12: Konto- und Sicherheitsmails siezen das Team einer
+     * Bootsschule und den Plattformbetrieb (wie der Admin-Bereich), Teilnehmer
+     * werden geduzt. Schulübergreifend über die Owner-Verbindung (RLS).
+     */
+    public function prefersFormalAddress(): bool
+    {
+        return (bool) $this->is_superadmin || TenantUser::on('pgsql_admin')->withoutGlobalScopes()
+            ->where('user_id', $this->id)->where('role', '!=', 'learner')->exists();
+    }
 }

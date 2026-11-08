@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\TenantInvitation;
+use App\Notifications\Concerns\EscapesMarkdown;
 use App\Support\CanonicalUrl;
 use App\Support\MailTemplates;
 use Illuminate\Bus\Queueable;
@@ -20,6 +21,7 @@ use Illuminate\Notifications\Notification;
  */
 class TenantInvitationNotification extends Notification
 {
+    use EscapesMarkdown;
     use Queueable;
 
     public function __construct(private readonly TenantInvitation $invitation) {}
@@ -49,14 +51,17 @@ class TenantInvitationNotification extends Notification
             'owner' => 'als Inhaber',
             'admin' => 'als Admin ins Team',
             'instructor' => 'als Ausbilder ins Team',
+            'staff' => 'als Mitarbeiter ins Team',
+            'support' => 'als Support ins Team',
             default => 'als Teilnehmer',
         };
 
         $message = (new MailMessage)
             ->subject('Einladung zu '.$tenantName)
             ->line($formal
-                ? "Für diese E-Mail-Adresse existiert bereits ein Konto auf der Plattform. {$tenantName} möchte Sie {$as} aufnehmen."
-                : "Für diese E-Mail-Adresse existiert bereits ein Konto auf der Plattform. {$tenantName} möchte dich {$as} aufnehmen.")
+                // Review-Runde 12: Schulname als Fließtext (kein Markdown/Link).
+                ? 'Für diese E-Mail-Adresse existiert bereits ein Konto auf der Plattform. '.self::escapeMarkdown($tenantName)." möchte Sie {$as} aufnehmen."
+                : 'Für diese E-Mail-Adresse existiert bereits ein Konto auf der Plattform. '.self::escapeMarkdown($tenantName)." möchte dich {$as} aufnehmen.")
             ->line($formal ? 'Melden Sie sich mit dieser E-Mail-Adresse an und bestätigen Sie die Einladung über den folgenden Link.' : 'Melde dich mit dieser E-Mail-Adresse an und bestätige die Einladung über den folgenden Link.')
             ->action('Einladung bestätigen', $url)
             ->line($formal

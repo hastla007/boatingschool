@@ -2,6 +2,8 @@
 
 namespace App\Notifications;
 
+use App\Support\CanonicalUrl;
+use App\Support\MailSchool;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
@@ -35,6 +37,8 @@ class DuplicateRegistrationAttempt extends Notification
             ->subject('Registrierungsversuch mit deiner E-Mail-Adresse')
             ->line('Jemand hat versucht, mit dieser E-Mail-Adresse ein neues Konto zu registrieren – für diese Adresse existiert aber bereits ein Konto.')
             ->line('Warst du das selbst? Dann melde dich einfach ganz normal an oder setze dein Passwort zurück, falls du es vergessen hast.')
+            // Review-Runde 12: direkt zur Anmeldung der Schule, in der registriert wurde.
+            ->action('Zur Anmeldung', CanonicalUrl::root(MailSchool::current()).route('login', [], false))
             ->line('Warst du das nicht, kannst du diese Nachricht ignorieren – an deinem Konto wurde nichts verändert.');
     }
 }

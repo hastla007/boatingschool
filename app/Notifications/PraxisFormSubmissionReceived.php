@@ -36,7 +36,7 @@ class PraxisFormSubmissionReceived extends Notification
 
         return (new MailMessage)
             ->subject('Neue Praxis-Anmeldung: '.$courseName)
-            ->line("{$learnerName} hat sich für \"{$courseName}\" zu Praxis & Prüfung angemeldet.")
+            ->line("{$learnerName} hat sich für \"".self::escapeMarkdown($courseName).'" zu Praxis & Prüfung angemeldet.')
             ->action('Anmeldung ansehen', route('admin.participants.show', $this->submission->user_id))
             // Bug-Review T8: "schlage ... vor" ist der informelle
             // du-Imperativ -- der restliche Admin-Bereich siezt

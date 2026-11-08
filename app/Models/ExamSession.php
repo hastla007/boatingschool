@@ -81,10 +81,38 @@ class ExamSession extends Model
     public function navigationTaskAsStarted(): ?NavigationTask
     {
         if ($this->navigation_task_snapshot) {
-            return (new NavigationTask)->forceFill($this->navigation_task_snapshot + ['id' => $this->navigation_task_id]);
+            $task = (new NavigationTask)->forceFill($this->navigation_task_snapshot + ['id' => $this->navigation_task_id]);
+            // Review-Runde 12: die Karte kommt von der aktuellen Aufgabe -- eine
+            // ersetzte Karte löscht die alte Datei, der Schnappschuss zeigte
+            // sonst ins Leere.
+            if ($live = $this->navigationTask) {
+                $task->forceFill(['chart_image_path' => $live->chart_image_path, 'chart_caption' => $live->chart_caption]);
+            }
+
+            return $task;
         }
 
         return $this->navigationTask;
+    }
+
+    /**
+     * Review-Runde 12: läuft der Versuch noch für den Teilnehmer -- auch nach
+     * Ablauf der Prüfungszeit, solange die Navigation noch abgegeben (kurze
+     * Nachfrist) oder selbst eingeschätzt wird. Ein Neustart des Bogens
+     * wertete in diesem Fenster sonst den Versuch sofort aus.
+     */
+    public function stillOpen(bool $timeExpired): bool
+    {
+        if ($this->status !== 'running') {
+            return false;
+        }
+        if (! $timeExpired || $this->inNavigationAssessment()) {
+            return true;
+        }
+        $deadline = $this->deadline();
+
+        return $deadline && $this->navigation_submitted_at === null && $this->hasNavigationPart()
+            && now()->lte($deadline->copy()->addSeconds(self::NAVIGATION_SUBMIT_GRACE));
     }
 
     public function deadline(): ?Carbon

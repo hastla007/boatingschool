@@ -43,7 +43,9 @@ class ExamController extends Controller
             return $this->papersOverview($tenant, $user, $course, $papers);
         }
 
-        $ruleSet = $course->activeExamRuleSet();
+        // Review-Runde 12: liegt nur ein noch nicht freigegebener Entwurf vor,
+        // sagt die Seite das (statt „kein Regelwerk“); starten lässt er sich nicht.
+        $ruleSet = $course->activeExamRuleSet() ?? $course->examRuleSets()->orderByDesc('version')->first();
 
         return view('exam.intro', [
             'course' => $course,
@@ -81,7 +83,7 @@ class ExamController extends Controller
         // Angefangene Bögen (noch in der Zeit): Kachel zeigt „läuft – fortsetzen“.
         $runningPaperIds = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $user->id)
             ->whereIn('paper_id', $paperIds)->where('status', 'running')->get()
-            ->reject(fn ($session) => app(ExamEvaluationService::class)->timeExpired($session))
+            ->filter(fn ($session) => $session->stillOpen(app(ExamEvaluationService::class)->timeExpired($session)))
             ->pluck('paper_id')->flip();
 
         // Bug-Review (Langsame Prüfungsübersicht): für jeden Bogen eine
@@ -213,7 +215,7 @@ class ExamController extends Controller
             $running = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $user->id)
                 ->where('paper_id', $paper->id)->where('status', 'running')->first();
 
-            if ($running && ! $examEvaluation->timeExpired($running)) {
+            if ($running && $running->stillOpen($examEvaluation->timeExpired($running))) {
                 return redirect()->route('exam.show', $running);
             }
 
@@ -310,7 +312,7 @@ class ExamController extends Controller
             $running = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $user->id)
                 ->where('course_id', $course->id)->whereNull('paper_id')->where('status', 'running')->first();
 
-            if ($running && ! $examEvaluation->timeExpired($running)) {
+            if ($running && $running->stillOpen($examEvaluation->timeExpired($running))) {
                 return redirect()->route('exam.show', $running);
             }
 

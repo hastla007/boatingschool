@@ -124,4 +124,12 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    /*
+    | Review-Runde 12: Mindestdauer (Mikrosekunden) von Login und Passwort-
+    | Reset, unabhängig davon, ob die Adresse existiert. Laravels Standard
+    | (200 ms) lag unter der bcrypt-Zeit (Kostenfaktor 12) -- an der
+    | Antwortzeit ließ sich ablesen, ob ein Konto existiert.
+    */
+    'timebox_duration' => (int) env('AUTH_TIMEBOX_DURATION', 600000),
+
 ];

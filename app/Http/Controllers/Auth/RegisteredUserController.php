@@ -71,7 +71,7 @@ class RegisteredUserController extends Controller
         // übersprungene Mail kein Zeit-Orakel für bestehende Konten ist.
         $mailKey = 'registration-mail:'.sha1(strtolower($request->email));
 
-        if (User::on('pgsql_admin')->where('email', $request->email)->exists()) {
+        if (User::on('pgsql_admin')->whereRaw('lower(email) = ?', [mb_strtolower((string) $request->email)])->exists()) {
             // Bug-Review M3 (Folgefehler): ein verworfener Dummy-Hash gleicht
             // die Laufzeit an den Erfolgsfall an (der dort unten erzeugte
             // echte Hash ist der mit Abstand teuerste Schritt) -- sonst bliebe

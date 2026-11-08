@@ -69,8 +69,12 @@ class ReviewRoundElevenFixesTest extends TestCase
         $this->travelBack();
 
         Artisan::call('app:prune-personal-data');
-
         $this->assertTrue($this->userExists($user), 'Ein vor 20 Tagen neu verschickter Link zählt als neue Frist.');
+
+        // Review-Runde 12: auch an den Folgetagen (die Link-Zeile bleibt erhalten).
+        $this->travel(1)->days();
+        Artisan::call('app:prune-personal-data');
+        $this->assertTrue($this->userExists($user));
     }
 
     public function test_a_recent_membership_at_another_school_protects_an_unclaimed_account(): void

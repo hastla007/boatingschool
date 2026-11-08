@@ -31,8 +31,8 @@ class LearningReminder extends Notification
             ->line($this->days
                 ? "Du hast seit {$this->days} Tagen nicht mehr gelernt. Schon ein paar Fragen am Tag bringen dich deiner Prüfung ein gutes Stück näher."
                 : 'Du hast noch nicht mit dem Lernen angefangen. Schon ein paar Fragen am Tag bringen dich deiner Prüfung ein gutes Stück näher.')
-            ->action('Weiterlernen', CanonicalUrl::root($this->tenant).route('dashboard', [], false))
-            ->line('Viele Grüße von '.self::escapeMarkdown($school).'.');
+            // Review-Runde 12: kein eigener Gruß mehr -- die Unterschrift der Mail nennt die Schule.
+            ->action('Weiterlernen', CanonicalUrl::root($this->tenant).route('dashboard', [], false));
 
         return MailTemplates::apply($message, 'learning_reminder', ['schule' => $school, 'tage' => $this->days ? (string) $this->days : '']);
     }

@@ -77,7 +77,7 @@ class ParticipantInviter
     public function invite(Tenant $tenant, User $actor, string $name, string $email, array $address = []): array
     {
         RateLimiter::hit(self::dailyKey($tenant), 86400);
-        $existingUser = User::on('pgsql_admin')->where('email', $email)->first();
+        $existingUser = User::on('pgsql_admin')->whereRaw('lower(email) = ?', [mb_strtolower($email)])->first();
 
         if ($existingUser) {
             $membership = TenantUser::on('pgsql_admin')->withoutGlobalScopes()->where('tenant_id', $tenant->id)->where('user_id', $existingUser->id)->first();

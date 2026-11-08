@@ -41,7 +41,8 @@
 @else
 @lang('Regards,')<br>
 {{-- Review-Runde 11: im Namen der Bootsschule, wenn die Mail aus ihrem Bereich kommt. --}}
-{{ app(\App\Support\TenantContext::class)->tenant()?->name ?? \App\Models\PlatformSetting::siteName() }}
+{{-- Review-Runde 12: Sonderzeichen entschärft, auch auf schulunabhängigen Routen. --}}
+{{ \App\Support\MailSchool::signature() }}
 @endif
 
 {{-- Subcopy --}}

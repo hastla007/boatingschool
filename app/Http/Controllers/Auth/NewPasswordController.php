@@ -44,10 +44,16 @@ class NewPasswordController extends Controller
         // Einladungs-Links (AccountSetupLink) sind 7 Tage gültig: eigener Broker.
         // Einladungs-Broker nur für Konten, die noch nie ein Passwort gesetzt haben.
         $invited = $request->boolean('invite')
-            && User::on('pgsql_admin')->where('email', (string) $request->input('email'))->value('status') === 'invited';
+            && User::on('pgsql_admin')->whereRaw('lower(email) = ?', [mb_strtolower((string) $request->input('email'))])->value('status') === 'invited';
         $status = Password::broker($invited ? 'invites' : null)->reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
             function (User $user) use ($request) {
+                // Review-Runde 12: ist der Reset der erste Nachweis der Mailbox,
+                // stammt eine schon eingerichtete 2FA nicht sicher vom Besitzer
+                // (jemand konnte die Adresse vor ihm registrieren) -- zurücksetzen.
+                if ($user->email_verified_at === null && $user->two_factor_secret !== null) {
+                    $user->forceFill(['two_factor_secret' => null, 'two_factor_recovery_codes' => null, 'two_factor_confirmed_at' => null]);
+                }
                 $user->forceFill([
                     'password' => Hash::make($request->password),
                     'remember_token' => Str::random(60),

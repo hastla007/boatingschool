@@ -343,7 +343,7 @@
             </div>
             <div class="flex-1 min-w-0">
                 <div class="font-semibold text-slate-800 dark:text-white">Prüfungssimulation</div>
-                <div class="text-xs text-slate-600 dark:text-slate-400">@if (! $hasExam) Noch nicht freigegeben @elseif ($examsTaken === 0) Bereit zum Starten @else {{ $examsPassed }} {{ $examsPassed === 1 ? 'Bogen' : 'Bögen' }} bestanden &middot; {{ $examsTaken }} {{ $examsTaken === 1 ? 'Simulation' : 'Simulationen' }} @endif</div>
+                <div class="text-xs text-slate-600 dark:text-slate-400">@if (! $hasExam) Noch nicht freigegeben @elseif ($examsTaken === 0) Bereit zum Starten @else {{ $examsPassed }} {{ $examsHavePapers ? ($examsPassed === 1 ? 'Bogen' : 'Bögen').' ' : '' }}bestanden &middot; {{ $examsTaken }} {{ $examsTaken === 1 ? 'Simulation' : 'Simulationen' }} @endif</div>
             </div>
             <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />
         </a>

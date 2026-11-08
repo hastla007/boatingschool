@@ -105,9 +105,6 @@ class PraxisExamAppointmentController extends Controller
         if ($request->input('slot') !== null && (int) $request->input('slot') === 0 && $submission->isPracticeOnly()) {
             return back()->withErrors(['exam_date' => 'Für reine Praxisstunden gibt es keinen Prüfungstermin.']);
         }
-        if ($request->input('slot') !== null && (int) $request->input('slot') === 0 && $submission->isPracticeOnly()) {
-            return back()->withErrors(['exam_date' => 'Für diesen Kurs melden sich die Teilnehmer selbst zur Prüfung an (Einstellung im Tab „Kurse“). Einen Prüfungstermin schlagen Sie deshalb nicht vor; Praxisstunden sind weiter möglich.']);
-        }
 
         $locationIds = TenantCourseLocation::where('tenant_id', $tenantContext->id())
             ->whereJsonContains('course_ids', $submission->course_id)
