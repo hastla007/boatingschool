@@ -47,10 +47,19 @@ class ExpireAbandonedExamSessions extends Command
                 continue;
             }
 
+            // Review-Runde 11: die Abgabe der Navigationsaufgabe hat nach
+            // Ablauf der Zeit noch eine kurze Nachfrist (automatisches Abgeben
+            // im Browser) -- nicht mitten darin auswerten.
+            if ($limit && $session->navigation_submitted_at === null && $session->hasNavigationPart()
+                && now()->lte($session->deadline()->copy()->addSeconds(ExamSession::NAVIGATION_SUBMIT_GRACE))) {
+                continue;
+            }
+
             // Review-Runde 9: ohne eine einzige Antwort ist das kein Ergebnis
             // (0 % „nicht bestanden“ verdrängte sonst das letzte echte Ergebnis
             // auf der Bogen-Kachel und drückte die Bestehensquote der Schule).
-            if (! $session->questions()->where(fn ($q) => $q->whereNotNull('answered_at')->orWhereNotNull('revealed_at'))->exists()) {
+            if (! $session->questions()->where(fn ($q) => $q->whereNotNull('answered_at')->orWhereNotNull('revealed_at'))->exists()
+                && ! $session->navigationAnswers()->whereNotNull('answered_at')->exists()) {
                 $session->delete();
                 $expired++;
 

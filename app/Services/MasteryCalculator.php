@@ -30,8 +30,10 @@ class MasteryCalculator
             // Review-Runde 9: eine schon einmal falsch beantwortete Frage
             // gilt erst als gefestigt, wenn die letzte richtige Antwort mit
             // Abstand kommt -- dreimal direkt hintereinander nach dem Blick
-            // auf die Lösung ist noch kein Lernerfolg.
-            if ($progress->incorrect_count > 0 && $progress->current_streak >= 3 && $previousSeenAt
+            // auf die Lösung ist noch kein Lernerfolg. Review-Runde 11: nur
+            // für die festigende dritte Antwort -- eine schon gefestigte Frage
+            // fällt durch eine weitere richtige Antwort nicht zurück.
+            if ($progress->incorrect_count > 0 && $progress->current_streak === 3 && $previousSeenAt
                 && Carbon::parse($previousSeenAt)->gt($now->copy()->subMinutes(self::SPACING_MINUTES))) {
                 $progress->current_streak = 2;
             }

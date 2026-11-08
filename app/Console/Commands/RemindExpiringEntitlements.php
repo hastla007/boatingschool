@@ -38,6 +38,8 @@ class RemindExpiringEntitlements extends Command
             ->whereHas('tenant', fn ($q) => $q->whereIn('status', ['active', 'trial']))
             ->whereExists(fn ($q) => $q->from('tenant_user')->whereColumn('tenant_user.tenant_id', 'entitlement.tenant_id')
                 ->whereColumn('tenant_user.user_id', 'entitlement.user_id')->where('tenant_user.status', 'active'))
+            // Review-Runde 11: auch nicht an plattformweit gesperrte Konten.
+            ->whereExists(fn ($q) => $q->from('app_user')->whereColumn('app_user.id', 'entitlement.user_id')->whereIn('app_user.status', ['active', 'invited']))
             ->chunkById(200, function ($entitlements) use (&$sent, &$failed) {
                 foreach ($entitlements as $entitlement) {
                     if (! $entitlement->user || ! $entitlement->course || ! $entitlement->tenant) {
