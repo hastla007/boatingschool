@@ -138,7 +138,7 @@ class SbfExamRuleSetsTest extends TestCase
 
         $response->assertOk();
         $response->assertDontSee('noch nicht freigegeben');
-        $response->assertSee('Basisfragen 5/7 · See 18/23 · 60 Minuten');
+        $response->assertSee('Basisfragen 5/7 · See 18/23 · Navigation 7/9 · 60 Minuten');
     }
 
     public function test_sbf_combo_binnen_papers_skip_the_basis_questions_and_use_the_addon_threshold(): void
