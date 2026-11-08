@@ -7,6 +7,7 @@ use App\Models\TenantUser;
 use App\Models\User;
 use App\Notifications\DuplicateRegistrationAttempt;
 use App\Support\BestEffortMail;
+use App\Support\EmailInput;
 use App\Support\TenantContext;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
@@ -36,9 +37,10 @@ class RegisteredUserController extends Controller
         // sonst platformweit, ob eine Adresse irgendwo existiert, auf jeder
         // beliebigen Bootsschul-Subdomain. Der Duplikat-Fall unten bekommt
         // stattdessen eine neutrale Meldung statt eines Feld-Fehlers.
+        EmailInput::normalize($request, 'email');
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255'],
+            'email' => ['bail', 'required', 'string', 'lowercase', 'email', 'max:255'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 

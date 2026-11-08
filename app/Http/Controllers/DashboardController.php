@@ -11,6 +11,7 @@ use App\Models\VideoProgress;
 use App\Services\EntitlementService;
 use App\Support\TenantContext;
 use App\Support\VideoCourseLessons;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -26,6 +27,8 @@ class DashboardController extends Controller
 
         $activeEntitlements = $entitlements->activeEntitlements($tenant, $user);
         $courses = $activeEntitlements->map(fn (Entitlement $e) => $e->course)->unique('id')->values();
+        // Review-Runde 11: Fragen aller Kurse in einer Abfrage statt je Modul.
+        (new Collection($courses->all()))->loadMissing('modules.questions');
 
         // Review-Runde 11: bald ablaufende und schon abgelaufene Kurse nicht
         // stillschweigend verschwinden lassen.

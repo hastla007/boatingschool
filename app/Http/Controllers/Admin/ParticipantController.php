@@ -17,6 +17,7 @@ use App\Services\CouponRedemptionService;
 use App\Services\LearnerOverview;
 use App\Services\ParticipantInviter;
 use App\Support\Countries;
+use App\Support\EmailInput;
 use App\Support\ExamRegistration;
 use App\Support\InstructorScope;
 use App\Support\TenantContext;
@@ -253,7 +254,7 @@ class ParticipantController extends Controller
             'postal_code' => ['nullable', 'string', 'max:20'],
             'city' => ['nullable', 'string', 'max:255'],
             'country' => ['nullable', 'string', Rule::in(Countries::OPTIONS)],
-            'birthdate' => ['nullable', 'date', 'before:today'],
+            'birthdate' => ['bail', 'nullable', 'date', 'before:today'],
         ]);
 
         // Sicherheitsreview S3: diese Felder liegen jetzt auf der
@@ -305,6 +306,7 @@ class ParticipantController extends Controller
     public function invite(Request $request, TenantContext $tenantContext, CouponRedemptionService $redemption, ParticipantInviter $inviter): Response
     {
         $tenant = $tenantContext->tenant();
+        EmailInput::normalize($request, 'email');
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             // Bug-Review B18: ohne 'lowercase' konnte dieselbe Adresse mit
@@ -312,7 +314,7 @@ class ParticipantController extends Controller
             // "anderes" betrachtetes Konto erzeugen (case-sensitiver
             // unique-Vergleich) -- dasselbe Muster wie bereits in
             // RegisteredUserController.
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255'],
+            'email' => ['bail', 'required', 'string', 'lowercase', 'email', 'max:255'],
             // Adresse kann die Bootsschule beim Anlegen (z. B. vor Ort)
             // gleich mit hinterlegen -- das Geburtsdatum bewusst nicht, das
             // muss immer der Lerner selbst angeben (siehe

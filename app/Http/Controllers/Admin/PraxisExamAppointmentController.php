@@ -119,7 +119,8 @@ class PraxisExamAppointmentController extends Controller
         // Fake-Datensatz dafür nötig.
         $validated = $request->validate([
             'exam_date' => ['required', 'date'],
-            'ends_at' => ['nullable', 'date', 'after:exam_date'],
+            // Review-Runde 11: Vergleich nur mit einem echten Datumswert (exam_date[]=… gab 500).
+            'ends_at' => ['bail', 'nullable', 'date', ...(is_string($request->input('exam_date')) ? ['after:exam_date'] : [])],
             'slot' => ['nullable', 'integer', 'min:0'],
             'label' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:2000'],

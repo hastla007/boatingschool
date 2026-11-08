@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Support\Countries;
+use App\Support\EmailInput;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -14,6 +15,12 @@ class ProfileUpdateRequest extends FormRequest
      *
      * @return array<string, ValidationRule|array<mixed>|string>
      */
+    /** Review-Runde 11: Adresse klein schreiben statt „muss in Kleinbuchstaben sein“. */
+    protected function prepareForValidation(): void
+    {
+        EmailInput::normalize($this);
+    }
+
     public function rules(): array
     {
         return [
@@ -38,6 +45,7 @@ class ProfileUpdateRequest extends FormRequest
             // dadurch jetzt unabhängig davon identisch, ob die eingegebene
             // Adresse bereits irgendwo vergeben ist.
             'email' => [
+                'bail',
                 'required',
                 'string',
                 'lowercase',
@@ -49,7 +57,7 @@ class ProfileUpdateRequest extends FormRequest
             'postal_code' => ['nullable', 'string', 'max:20'],
             'city' => ['nullable', 'string', 'max:255'],
             'country' => ['nullable', 'string', Rule::in(Countries::OPTIONS)],
-            'birthdate' => ['nullable', 'date', 'before:today'],
+            'birthdate' => ['bail', 'nullable', 'date', 'before:today'],
         ];
     }
 }

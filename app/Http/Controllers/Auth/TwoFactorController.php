@@ -52,7 +52,7 @@ class TwoFactorController extends Controller
     {
         // Passwort nötig: wer nur eine fremde Sitzung hat, soll keinen
         // eigenen zweiten Faktor einrichten und die Person aussperren können.
-        $request->validate(['password' => ['required', 'current_password']]);
+        $request->validate(['password' => ['bail', 'required', 'string', 'current_password']]);
         $user = $request->user();
         abort_if($user->hasTwoFactor(), 409);
         $user->forceFill(['two_factor_secret' => Totp::generateSecret(), 'two_factor_confirmed_at' => null, 'two_factor_recovery_codes' => null])->save();
@@ -85,7 +85,7 @@ class TwoFactorController extends Controller
 
     public function disable(Request $request): RedirectResponse
     {
-        $request->validate(['password' => ['required', 'current_password']]);
+        $request->validate(['password' => ['bail', 'required', 'string', 'current_password']]);
         $user = $request->user();
 
         // 2FA-Pflicht fürs Team: wer im Team einer Schule mit Pflicht ist, kann sie nicht selbst abschalten

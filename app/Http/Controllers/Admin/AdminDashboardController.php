@@ -75,6 +75,7 @@ class AdminDashboardController extends Controller
             ->when($scopeCourseIds !== null, fn ($q) => $q->whereIn('course_id', $scopeCourseIds)->whereIn('user_id', $learnerIds))->count();
         // Protokoll der ganzen Schule nur für Inhaber/Admins.
         $recentActivity = $canManageTenant ? AuditLog::where('tenant_id', $tenant->id)->latest('created_at')->take(10)->get() : collect();
+        AuditLog::preloadFor($recentActivity);
 
         // Info-Hinweis "Kürzlich gebuchte Kurse & Produkte" auf dem
         // Dashboard -- über alle Teilnehmer der Bootsschule hinweg, damit

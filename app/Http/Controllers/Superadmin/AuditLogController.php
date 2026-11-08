@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Support\DateInput;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
@@ -40,7 +41,7 @@ class AuditLogController extends Controller
             $query->where('entity_id', $filters['entity']);
         }
         foreach (['from' => '>=', 'to' => '<='] as $key => $operator) {
-            if ($filters[$key] && preg_match('/^\d{4}-\d{2}-\d{2}$/', $filters[$key])) {
+            if (DateInput::isDate($filters[$key])) {
                 $query->where('created_at', $operator, $key === 'from' ? $filters[$key].' 00:00:00' : $filters[$key].' 23:59:59');
             }
         }

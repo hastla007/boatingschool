@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Services\AccountSetupLink;
 use App\Services\TenantOffboardingService;
 use App\Support\BestEffortMail;
+use App\Support\EmailInput;
 use App\Support\TenantPath;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -47,6 +48,7 @@ class TenantController extends Controller
 
     public function store(Request $request): Response
     {
+        EmailInput::normalize($request, 'admin_email');
         $validated = $request->validate([
             // Bug-Review B17: alpha_dash erlaubt Großbuchstaben und
             // Unterstriche -- der Slug wird aber direkt als Subdomain
@@ -72,7 +74,7 @@ class TenantController extends Controller
             // "anderes" betrachtetes Konto erzeugen (case-sensitiver
             // unique-Vergleich) -- dasselbe Muster wie bereits in
             // RegisteredUserController.
-            'admin_email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:app_user,email'],
+            'admin_email' => ['bail', 'required', 'string', 'lowercase', 'email', 'max:255', 'unique:app_user,email'],
         ], [
             'slug.regex' => 'Der Slug darf nur Kleinbuchstaben, Ziffern und einzelne Bindestriche enthalten (z. B. "meine-bootsschule").',
             'slug.not_in' => 'Dieser Slug ist für die Plattform reserviert und kann nicht verwendet werden.',

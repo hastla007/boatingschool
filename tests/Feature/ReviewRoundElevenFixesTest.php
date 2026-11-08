@@ -249,4 +249,31 @@ class ReviewRoundElevenFixesTest extends TestCase
 
         $this->actingAsInTenant($learner, $tenant)->get('/dashboard')->assertOk()->assertSee('Abgelaufen: '.$see->name, false);
     }
+
+    public function test_array_input_on_email_and_password_fields_is_a_validation_error_not_a_server_error(): void
+    {
+        $tenant = $this->createTestTenant();
+        $owner = $this->createTenantUser($tenant, 'owner');
+
+        $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/register', ['name' => 'x', 'email' => ['a@b.de'], 'password' => 'geheim-123456', 'password_confirmation' => 'geheim-123456'])
+            ->assertSessionHasErrors('email');
+        $this->actingAsInTenant($owner, $tenant)->post('/admin/participants/invite', ['name' => 'x', 'email' => ['a@b.de']])->assertSessionHasErrors('email');
+        $this->actingAsInTenant($owner, $tenant)->put('/password', ['current_password' => ['x'], 'password' => 'neu-12345678', 'password_confirmation' => 'neu-12345678'])->assertStatus(302);
+        $this->actingAsInTenant($owner, $tenant)->post('/confirm-password', ['password' => ['x']])->assertSessionHasErrors('password');
+    }
+
+    public function test_impossible_audit_dates_are_ignored_and_null_bytes_are_stripped(): void
+    {
+        $tenant = $this->createTestTenant();
+        $owner = $this->createTenantUser($tenant, 'owner');
+
+        $this->actingAsInTenant($owner, $tenant)->get('/admin/audit?to=2026-13-45&from=2026-02-30')->assertOk();
+        $superadmin = $this->createSuperAdmin();
+        $this->actingAs($superadmin)->get('/superadmin/audit?from=2026-02-30')->assertOk();
+
+        $this->actingAsInTenant($owner, $tenant)->post('/admin/tenant-course-locations', [
+            'praxis_ort' => "Hafen\0Nord", 'course_ids' => [],
+        ])->assertRedirect();
+        $this->asTenant($tenant, fn () => $this->assertDatabaseHas('tenant_course_location', ['praxis_ort' => 'HafenNord']));
+    }
 }

@@ -265,7 +265,8 @@ class QuestionController extends Controller
             'source_page' => ['nullable', 'string', 'max:40'],
             'source_question_id' => ['nullable', 'string', 'max:255'],
             'valid_from' => ['nullable', 'date'],
-            'valid_to' => ['nullable', 'date', 'after_or_equal:valid_from'],
+            // Review-Runde 11: Vergleich nur mit einem echten Datumswert (valid_from[]=… gab 500).
+            'valid_to' => ['bail', 'nullable', 'date', ...(is_string($request->input('valid_from')) ? ['after_or_equal:valid_from'] : [])],
         ]);
 
         // $request->boolean() statt des rohen validierten Werts: eine nicht

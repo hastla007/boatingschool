@@ -151,7 +151,7 @@ class ProfileController extends Controller
         // Adress-Update.
         if ($emailChanged) {
             $request->validateWithBag('emailChange', [
-                'current_password' => ['required', 'current_password'],
+                'current_password' => ['bail', 'required', 'string', 'current_password'],
             ]);
         }
 
@@ -321,7 +321,7 @@ class ProfileController extends Controller
     public function destroy(Request $request, TenantContext $tenantContext, AccountErasureService $erasure): RedirectResponse
     {
         $request->validateWithBag('userDeletion', [
-            'password' => ['required', 'current_password'],
+            'password' => ['bail', 'required', 'string', 'current_password'],
         ]);
 
         $user = $request->user();

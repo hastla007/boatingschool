@@ -15,6 +15,7 @@ use App\Models\User;
 use App\Services\AccountSetupLink;
 use App\Support\BestEffortMail;
 use App\Support\Countries;
+use App\Support\EmailInput;
 use App\Support\StatusLabels;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -52,6 +53,7 @@ class UserController extends Controller
 
     public function store(Request $request): Response
     {
+        EmailInput::normalize($request, 'email');
         $validated = $request->validate([
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
@@ -69,7 +71,7 @@ class UserController extends Controller
             // Adresse hätten diese Zeile nie gefunden bzw. hätten eine
             // Dopplung angelegt (die unique-Regel vergleicht ebenfalls
             // Groß-/Kleinschreibung-sensitiv).
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:app_user,email'],
+            'email' => ['bail', 'required', 'string', 'lowercase', 'email', 'max:255', 'unique:app_user,email'],
             'tenant_id' => ['nullable', 'uuid', 'exists:tenant,id'],
             'role' => ['required_with:tenant_id', 'nullable', 'in:owner,admin,instructor,staff,learner,support'],
         ]);
@@ -196,6 +198,7 @@ class UserController extends Controller
         // der sie eine Adresse zuordnen könnte; diese Felder editiert
         // deshalb nur noch die jeweilige Bootsschule selbst (Profil/
         // Teilnehmerverwaltung), nicht mehr der Superadmin.
+        EmailInput::normalize($request, 'email');
         $validated = $request->validate([
             'first_name' => ['required', 'string', 'max:255'],
             // Bug-Review (Konten mit einteiligem Namen): Bestandskonten
@@ -204,7 +207,7 @@ class UserController extends Controller
             'last_name' => ['nullable', 'string', 'max:255'],
             // Bug-Review R4-6: siehe store() oben -- dieselbe fehlende
             // 'lowercase'-Regel wie dort.
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:app_user,email,'.$user->id],
+            'email' => ['bail', 'required', 'string', 'lowercase', 'email', 'max:255', 'unique:app_user,email,'.$user->id],
             'status' => ['required', 'in:invited,active,suspended,closed'],
             'phone' => ['nullable', 'string', 'max:40'],
             'is_superadmin' => ['sometimes', 'boolean'],

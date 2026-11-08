@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\AccountSetupLink;
 use App\Services\ParticipantInviter;
 use App\Support\BestEffortMail;
+use App\Support\EmailInput;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -38,9 +39,10 @@ class TeamController extends Controller
         $tenant = $tenantContext->tenant();
         $actorRole = $request->user()->roleForTenant($tenant);
 
+        EmailInput::normalize($request, 'email');
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255'],
+            'email' => ['bail', 'required', 'string', 'lowercase', 'email', 'max:255'],
             'role' => ['required', Rule::in($actorRole === 'owner' ? ['instructor', 'admin'] : ['instructor'])],
         ]);
 

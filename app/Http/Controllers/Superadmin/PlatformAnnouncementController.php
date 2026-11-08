@@ -42,7 +42,7 @@ class PlatformAnnouncementController extends Controller
             'target' => ['required', Rule::in(['all', 'selected'])],
             'tenant_ids' => ['required_if:target,selected', 'array', 'max:1000'],
             'tenant_ids.*' => ['uuid', Rule::exists('tenant', 'id')],
-            'visible_until' => ['nullable', 'date', 'after_or_equal:'.now('Europe/Berlin')->toDateString()],
+            'visible_until' => ['bail', 'nullable', 'date', 'after_or_equal:'.now('Europe/Berlin')->toDateString()],
             'send_mail' => ['nullable', 'boolean'],
         ], [
             'tenant_ids.required_if' => 'Bitte mindestens eine Bootsschule auswählen.',
