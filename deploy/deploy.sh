@@ -44,6 +44,8 @@ step "Storage-Link"
 step "Caches"
 php artisan optimize
 php artisan queue:restart
+# Kursliste der App vorwärmen (sonst ist der erste Aufruf nach dem Deploy langsam).
+php artisan app:warm-course-cache || true
 # Opcache leeren (bei opcache.validate_timestamps=0 sonst alter Code):
 # PHP_FPM_SERVICE=php8.3-fpm setzen, wenn der Deploy-Benutzer reloaden darf.
 if [ -n "${PHP_FPM_SERVICE:-}" ]; then sudo systemctl reload "$PHP_FPM_SERVICE"; fi

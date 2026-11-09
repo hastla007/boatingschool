@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\ContentQuestion;
+use App\Models\ContentQuestionRevision;
 use App\Models\CourseDefinition;
 use App\Models\ExamPaper;
 use App\Models\ExamRuleSet;
@@ -11,6 +12,7 @@ use App\Models\ExamSessionNavigationAnswer;
 use App\Models\ExamSessionQuestion;
 use App\Models\Tenant;
 use App\Models\User;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -57,11 +59,15 @@ class ExamSessionStarter
             ]);
 
             $position = 1;
+            $rows = [];
             // Bug-Review (BB16-Rest: feste Bögen ignorierten "Gültig ab/bis"):
             // wie die deaktivierte Frage (B12) wird auch eine Frage außerhalb
             // ihres Gültigkeitsfensters nicht ausgespielt.
             $paper->loadMissing('paperQuestions.question');
             $validQuestionIds = ContentQuestion::currentlyValidIds($paper->paperQuestions->pluck('question'))->flip();
+            // Veröffentlichte Fassungen aller Bogenfragen in einer Abfrage
+            // (statt einer je Frage) -- gleiche Auswahl wie publishedRevision().
+            $revisionIds = $this->publishedRevisionIds($paper->paperQuestions->pluck('question_id'));
             foreach ($paper->paperQuestions as $paperQuestion) {
                 // Bug-Review B12 (Folgefehler): eine nach dem Anlegen des
                 // Bogens im Superadmin deaktivierte Frage (content_question.
@@ -73,16 +79,19 @@ class ExamSessionStarter
                     continue;
                 }
 
-                $revision = $paperQuestion->question->publishedRevision();
-                abort_if(! $revision, 404, 'Für eine Frage dieses Bogens liegt keine veröffentlichte Fassung vor.');
+                $revisionId = $revisionIds->get($paperQuestion->question_id);
+                abort_if(! $revisionId, 404, 'Für eine Frage dieses Bogens liegt keine veröffentlichte Fassung vor.');
 
-                ExamSessionQuestion::create([
+                $rows[] = [
+                    'tenant_id' => $session->tenant_id,
                     'exam_session_id' => $session->id,
                     'question_id' => $paperQuestion->question_id,
-                    'revision_id' => $revision->id,
+                    'revision_id' => $revisionId,
                     'position' => $position++,
-                ]);
+                ];
             }
+            // Alle Fragen in einem INSERT.
+            ExamSessionQuestion::insert($rows);
 
             // SBF See: Navigationsaufgabe mit derselben Nummer wie der Bogen
             // als eigener Prüfungsteil (mindestens 7 von 9 Punkten).
@@ -120,6 +129,7 @@ class ExamSessionStarter
             ]);
 
             $position = 1;
+            $rows = [];
             foreach ($ruleSet->blueprints as $blueprint) {
                 // Bug-Review B12: eine im Superadmin deaktivierte Frage
                 // (content_question.active) konnte hier trotzdem in eine
@@ -132,16 +142,23 @@ class ExamSessionStarter
                     ->take($blueprint->question_count)
                     ->get();
 
+                $revisionIds = $this->publishedRevisionIds($questions->pluck('id'));
                 foreach ($questions as $question) {
-                    $revision = $question->publishedRevision();
-
-                    ExamSessionQuestion::create([
+                    // Gleichzeitig ausgewählte Frage in zwei Blueprints: nur einmal.
+                    if (isset($rows[$question->id])) {
+                        continue;
+                    }
+                    $rows[$question->id] = [
+                        'tenant_id' => $session->tenant_id,
                         'exam_session_id' => $session->id,
                         'question_id' => $question->id,
-                        'revision_id' => $revision->id,
+                        'revision_id' => $revisionIds->get($question->id),
                         'position' => $position++,
-                    ]);
+                    ];
                 }
+            }
+            if ($rows !== []) {
+                ExamSessionQuestion::insert(array_values($rows));
             }
 
             // Ohne gültige Fragen (z. B. alle Fragen eines Moduls deaktiviert)
@@ -162,16 +179,32 @@ class ExamSessionStarter
             return;
         }
         $session->update(['navigation_task_id' => $task->id, 'navigation_task_snapshot' => $task->only(['task_number', 'scenario_text', 'hint', 'chart_image_path', 'chart_caption'])]);
-        foreach ($task->questions->sortBy('question_number')->values() as $i => $question) {
-            ExamSessionNavigationAnswer::create([
-                'tenant_id' => $session->tenant_id,
-                'exam_session_id' => $session->id,
-                'navigation_question_id' => $question->id,
-                'position' => $i + 1,
-                'question_number' => $question->question_number,
-                'question_text' => $question->question_text,
-                'answer_text' => $question->answer_text,
-            ]);
-        }
+        $model = new ExamSessionNavigationAnswer;
+        ExamSessionNavigationAnswer::insert($task->questions->sortBy('question_number')->values()->map(fn ($question, $i) => [
+            'id' => $model->newUniqueId(),
+            'tenant_id' => $session->tenant_id,
+            'exam_session_id' => $session->id,
+            'navigation_question_id' => $question->id,
+            'position' => $i + 1,
+            'question_number' => $question->question_number,
+            'question_text' => $question->question_text,
+            'answer_text' => $question->answer_text,
+        ])->all());
+    }
+
+    /**
+     * Neueste veröffentlichte Fassung je Frage (wie ContentQuestion::
+     * publishedRevision()), für viele Fragen in einer Abfrage.
+     *
+     * @return Collection<string, string> question_id => revision_id
+     */
+    private function publishedRevisionIds(Collection $questionIds): Collection
+    {
+        return ContentQuestionRevision::whereIn('question_id', $questionIds->unique()->values())
+            ->where('editorial_status', 'published')
+            ->orderBy('question_id')->orderByDesc('revision_no')
+            ->get(['id', 'question_id'])
+            ->unique('question_id')
+            ->pluck('id', 'question_id');
     }
 }
