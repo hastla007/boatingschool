@@ -65,6 +65,7 @@ class ExamEvaluationService
             $questions = $examSession->questions()->with('revision.answers')->lockForUpdate()->get();
             $correctCount = 0;
             $scoredTotal = 0;
+            $correctByQuestion = [];
 
             foreach ($questions as $sq) {
                 $withinTime = ! $deadline || ! $sq->answered_at || $sq->answered_at->lte($deadline);
@@ -74,7 +75,8 @@ class ExamEvaluationService
                     $correctIds = $sq->revision->correctAnswers()->pluck('id')->sort()->values()->all();
                     $selectedIds = $withinTime ? collect($sq->selected_answer_ids ?? [])->sort()->values()->all() : [];
                     $isCorrect = $selectedIds !== [] && $selectedIds === $correctIds;
-                    $sq->update(['correct' => $isCorrect]);
+                    $sq->correct = $isCorrect;
+                    $correctByQuestion[$sq->question_id] = $isCorrect;
                     $correctCount += $isCorrect ? 1 : 0;
                     $scoredTotal++;
                 } elseif ($type === 'open_text') {
@@ -98,16 +100,26 @@ class ExamEvaluationService
                     // amtliche Prüfung vor dem Prüfungsausschuss (siehe
                     // Pruefungsausschuss-Model).
                     $isCorrect = $withinTime && (bool) $sq->self_assessed_known;
-                    $sq->update(['correct' => $isCorrect]);
+                    $sq->correct = $isCorrect;
+                    $correctByQuestion[$sq->question_id] = $isCorrect;
                     $correctCount += $isCorrect ? 1 : 0;
                     $scoredTotal++;
                 } else {
                     $correctAnswerId = $sq->revision->correctAnswer()?->id;
                     $selectedId = $withinTime ? $sq->selected_answer_id : null;
                     $isCorrect = $selectedId !== null && $selectedId === $correctAnswerId;
-                    $sq->update(['correct' => $isCorrect]);
+                    $sq->correct = $isCorrect;
+                    $correctByQuestion[$sq->question_id] = $isCorrect;
                     $correctCount += $isCorrect ? 1 : 0;
                     $scoredTotal++;
+                }
+            }
+
+            // Ergebnis je Frage gebündelt schreiben (zwei Abfragen statt einer je Frage).
+            foreach ([true, false] as $value) {
+                $ids = array_keys(array_filter($correctByQuestion, fn ($c) => $c === $value));
+                if ($ids !== []) {
+                    DB::table('exam_session_question')->where('exam_session_id', $examSession->id)->whereIn('question_id', $ids)->update(['correct' => $value]);
                 }
             }
 
@@ -127,6 +139,7 @@ class ExamEvaluationService
             $navigationPassed = true;
             if ($examSession->hasNavigationPart()) {
                 $navigationPoints = 0;
+                $navigationCorrect = [];
                 foreach ($examSession->navigationAnswers()->with('question')->lockForUpdate()->get() as $answer) {
                     $withinTime = ! $deadline || ! $answer->answered_at || $answer->answered_at->lte($deadline);
                     if (! $withinTime || ($answer->answer === null && ! $answer->isChartDrawing())) {
@@ -139,8 +152,14 @@ class ExamEvaluationService
                         // Freitext und Eintragungen in die Karte: Selbsteinschätzung.
                         $isCorrect = $answer->self_assessed_known === true;
                     }
-                    $answer->update(['correct' => $isCorrect]);
+                    $navigationCorrect[$answer->id] = $isCorrect;
                     $navigationPoints += $isCorrect ? 1 : 0;
+                }
+                foreach ([true, false] as $value) {
+                    $ids = array_keys(array_filter($navigationCorrect, fn ($c) => $c === $value));
+                    if ($ids !== []) {
+                        DB::table('exam_session_navigation_answer')->whereIn('id', $ids)->update(['correct' => $value]);
+                    }
                 }
                 $navigationPassed = $navigationPoints >= $examSession->effectiveRuleSet()->navigationRule()['min_points'];
             }

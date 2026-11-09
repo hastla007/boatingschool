@@ -85,7 +85,11 @@ class ImpersonationController extends Controller
             'entity_type' => 'app_user',
             'entity_id' => $userId,
             'after_data' => $after ? json_encode($after) : null,
-            'created_at' => now(),
+            // Mit Mikrosekunden: der Query-Builder schreibt now() sonst nur
+            // sekundengenau -- mehrere Einträge derselben Sekunde (Start,
+            // gesperrte Änderung, Ende) standen dann in zufälliger Reihenfolge
+            // im Protokoll.
+            'created_at' => now()->format('Y-m-d H:i:s.uP'),
         ]);
     }
 }

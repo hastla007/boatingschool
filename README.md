@@ -314,12 +314,14 @@ Self-Service-Billing, ein vollständiges Content-Review-UI
 (Staging/Diff/Publish-Oberfläche – der Import validiert und veröffentlicht
 aktuell in einem Schritt) sowie fortgeschrittenes Spaced Repetition.
 
-**Wichtiger Hinweis zur Prüfungssimulation**: Die Prüfungsregelwerke
-(Fragenmix, Zeitlimit, Bestehensgrenze) sind für die meisten Kurse weiterhin
-als `draft`/unverifiziert markiert. Nur für Kurse mit echten, amtlichen
-Prüfungsbögen (ADD-BIN-SEGEL, SRC, FKN, UBI) ist zusätzlich eine tatsächlich aus
-der jeweiligen Prüfungsordnung belegte Bestehensgrenze eingetragen und das
-Regelwerk als verifiziert markiert (siehe `ExamRuleSetSeeder`) – für alle
-anderen Kurse müssen Zeitlimit/Fragenmix/Bestehensgrenze vor echtem
-Produktivbetrieb noch fachlich geprüft werden (siehe Umsetzungskonzept,
-Abschnitt "Noch festzulegende Betriebsparameter").
+**Stand der Prüfungsregelwerke**: Für alle Einzelkurse ist das Regelwerk
+(Fragenmix, Zeitlimit, Bestehensgrenze) fachlich freigegeben und als
+verifiziert markiert – SBF See und Binnen (Motor/Segeln), die Ergänzungen
+See ↔ Binnen, Binnen Segeln, SRC, UBI, UBI-Ergänzung, FKN und SKN (siehe
+`ExamRuleSetSeeder`; SRC 24/19/30 Min., UBI 22/17/60 Min., UBI-Ergänzung
+10/8/30 Min., festgehalten in `FunkExamRulesConfirmedTest`). Jede Frage
+zählt richtig oder falsch, ohne Teilpunkte. Noch offen ist nur die
+Ergänzung FKN → SKN (`ADD-FKN-TO-SKN`, Entwurf; dafür lässt sich keine
+Prüfung starten). Die Kombikurse SBF See & Binnen und SRC & UBI haben kein
+eigenes Regelwerk: jeder ihrer Bögen läuft nach dem Regelwerk seiner
+Teilprüfung.

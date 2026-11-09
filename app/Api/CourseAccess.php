@@ -15,6 +15,25 @@ use Illuminate\Support\Facades\Cache;
 /** Kurszugang und Kurs-Eigenschaften für die Mobile-API. */
 class CourseAccess
 {
+    /** Frisch 5 Minuten, danach bis 1 Stunde als veralteter Wert sofort lieferbar (Neuberechnung nach der Antwort). */
+    public const CACHE_TTL = [300, 3600];
+
+    public static function cacheKey(string $what, CourseDefinition $course): string
+    {
+        return "api-course-{$what}:{$course->id}";
+    }
+
+    /** Zwischenspeicher eines Kurses neu berechnen (app:warm-course-cache). */
+    public function warm(CourseDefinition $course): void
+    {
+        foreach (['valid-qids', 'capabilities'] as $what) {
+            Cache::forget(self::cacheKey($what, $course));
+            Cache::forget('illuminate:cache:flexible:created:'.self::cacheKey($what, $course));
+        }
+        $this->validQuestionIds($course);
+        $this->capabilities($course);
+    }
+
     public function __construct(private EntitlementService $entitlements) {}
 
     /** Kurs laden und Zugang prüfen (ENTITLEMENT_REQUIRED / ENTITLEMENT_EXPIRED). */
@@ -68,7 +87,10 @@ class CourseAccess
      */
     public function validQuestionIds(CourseDefinition $course): Collection
     {
-        return collect(Cache::remember('api-course-valid-qids:'.$course->id, 300, function () use ($course) {
+        // Review: stale-while-revalidate -- nach 5 Minuten wird der alte Wert
+        // noch bis zu einer Stunde sofort geliefert und nach der Antwort
+        // erneuert; app:warm-course-cache füllt den Cache vorab.
+        return collect(Cache::flexible(self::cacheKey('valid-qids', $course), self::CACHE_TTL, function () use ($course) {
             $course->loadMissing('modules.questions');
 
             return ContentQuestion::currentlyValidIds($course->modules->flatMap(fn ($m) => $m->questions))->values()->all();
@@ -78,7 +100,7 @@ class CourseAccess
     /** @return list<string> */
     public function capabilities(CourseDefinition $course): array
     {
-        return Cache::remember('api-course-capabilities:'.$course->id, 300, function () use ($course) {
+        return Cache::flexible(self::cacheKey('capabilities', $course), self::CACHE_TTL, function () use ($course) {
             $hasQuestions = $course->contentQuestionIds()->isNotEmpty();
 
             return array_values(array_filter([
