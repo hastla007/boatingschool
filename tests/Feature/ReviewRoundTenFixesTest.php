@@ -76,7 +76,7 @@ class ReviewRoundTenFixesTest extends TestCase
     {
         [$tenant, $learner, , $session] = $this->startSeePaper(2);
         $answers = $this->navAnswers($tenant, $session);
-        $this->travelTo($session->started_at->copy()->addSeconds(3600 + 60));
+        $this->travelTo($session->started_at->copy()->addSeconds(3600 + 45));
 
         $given = $answers->mapWithKeys(fn ($a) => [$a->id => $a->modelAnswer()])->all();
         $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/navigation", ['answers' => $given])->assertRedirect();
