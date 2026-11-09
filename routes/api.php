@@ -19,9 +19,11 @@ use Illuminate\Support\Facades\Route;
 */
 
 // Öffentlich (ohne Token).
+Route::get('/app/config', [AccountController::class, 'appConfig'])->middleware('throttle:60,1,api-config');
 Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:10,1,api-login');
 Route::post('/auth/two-factor', [AuthController::class, 'twoFactor'])->middleware('throttle:10,1,api-two-factor');
-Route::post('/auth/refresh', [AuthController::class, 'refresh'])->middleware('throttle:30,1,api-refresh');
+// Review-Runde 13: je Refresh-Token begrenzt (viele Geräte hinter einer IP, z. B. Schul-WLAN).
+Route::post('/auth/refresh', [AuthController::class, 'refresh'])->middleware('throttle:api-refresh');
 Route::post('/auth/password/forgot', [AuthController::class, 'forgotPassword'])->middleware('throttle:6,1,api-password-forgot');
 Route::post('/auth/password/reset', [AuthController::class, 'resetPassword'])->middleware('throttle:6,1,api-password-reset');
 
@@ -34,6 +36,7 @@ Route::middleware('api.auth')->group(function () {
     Route::post('/auth/email/verification-notification', [AuthController::class, 'resendVerification'])->middleware('throttle:6,1,api-verification');
     Route::get('/me', [AccountController::class, 'me']);
     Route::get('/me/sessions', [AccountController::class, 'sessions']);
+    Route::delete('/me/sessions', [AccountController::class, 'revokeOtherSessions']);
     Route::delete('/me/sessions/{sessionId}', [AccountController::class, 'revokeSession'])->whereUuid('sessionId');
 
     // Ab hier im Kontext einer Schule (X-Tenant-Slug + aktive Mitgliedschaft).
@@ -59,6 +62,7 @@ Route::middleware('api.auth')->group(function () {
         // Prüfungssimulation (Antworten werden festgeschrieben, Auflösung erst nach Abgabe).
         Route::get('/courses/{courseId}/exams', [ExamController::class, 'index'])->whereUuid('courseId');
         Route::post('/courses/{courseId}/exams', [ExamController::class, 'start'])->whereUuid('courseId')->middleware('api.idempotent');
+        Route::get('/courses/{courseId}/exam-sessions', [ExamController::class, 'history'])->whereUuid('courseId');
         Route::get('/exams/{examId}', [ExamController::class, 'show'])->whereUuid('examId');
         Route::put('/exams/{examId}/answers/{questionId}', [ExamController::class, 'answer'])->whereUuid(['examId', 'questionId']);
         Route::post('/exams/{examId}/questions/{questionId}/reveal', [ExamController::class, 'reveal'])->whereUuid(['examId', 'questionId']);
@@ -81,7 +85,8 @@ Route::middleware('api.auth')->group(function () {
         Route::post('/coupons/redeem', [CouponController::class, 'redeem'])->middleware(['throttle:10,1,api-coupons', 'api.idempotent']);
 
         // DSGVO-Datenexport.
-        Route::post('/profile/export', [ExportController::class, 'store'])->middleware(['throttle:5,60,api-export', 'api.idempotent']);
+        // Ohne Idempotenz-Speicher: ein wiederholter Aufruf soll einen frischen Link liefern.
+        Route::post('/profile/export', [ExportController::class, 'store'])->middleware('throttle:5,60,api-export');
         Route::get('/profile/export/{exportId}', [ExportController::class, 'show'])->whereUuid('exportId');
     });
 });

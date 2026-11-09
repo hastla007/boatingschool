@@ -31,6 +31,9 @@ Artisan::command('inspire', function () {
 // der nächste geplante Lauf trotzdem parallel dazu. withoutOverlapping()
 // verhindert genau das.
 Schedule::command('app:prune-personal-data')->daily()->onOneServer()->withoutOverlapping(180);
+// Review-Runde 13: Exportdateien der App (personenbezogen) nicht bis zum
+// nächsten Tageslauf liegen lassen.
+Schedule::command('app:prune-personal-data --mobile-api-only')->hourly()->onOneServer()->withoutOverlapping(55);
 
 // Bug-Review B15: ohne diesen Lauf blieb entitlement.status für
 // abgelaufene Freischaltungen dauerhaft auf "active" stehen.

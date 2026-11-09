@@ -100,7 +100,6 @@ class Coupon extends Model
         return $this->expires_at !== null && $this->expires_at->isPast();
     }
 
-    /** Noch einlösbar: nicht eingelöst, nicht gesperrt, nicht abgelaufen. */
     /**
      * Code so finden, wie Lernende ihn eintippen: Groß-/Kleinschreibung egal,
      * Review-Runde 12: auch mit Leerzeichen oder ohne Bindestriche
@@ -122,6 +121,7 @@ class Coupon extends Model
         return $coupon;
     }
 
+    /** Noch einlösbar: nicht eingelöst, nicht gesperrt, nicht abgelaufen. */
     public function isUsable(): bool
     {
         return ! $this->isRedeemed() && ! $this->isVoided() && ! $this->isExpired();

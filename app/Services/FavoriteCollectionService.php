@@ -37,6 +37,27 @@ class FavoriteCollectionService
         ]);
     }
 
+    /**
+     * Favoriten aus der Zeit vor den Sammlungen (oder sonst in keiner
+     * Sammlung des Kurses) gehören in die Standard-Sammlung -- sonst zeigte
+     * der Filter „Favoriten“ sie nicht an. Gemeinsam für Web und App.
+     *
+     * @param  iterable<Favorite>  $favorites
+     */
+    public function assignUnsortedToDefault(Tenant $tenant, User $user, CourseDefinition $course, iterable $favorites): void
+    {
+        $default = $this->defaultFor($tenant, $user, $course);
+        $collectionIds = FavoriteCollection::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)->pluck('id');
+        $assigned = FavoriteCollectionItem::where('tenant_id', $tenant->id)->whereIn('favorite_collection_id', $collectionIds)
+            ->get(['question_id', 'context'])->map(fn ($i) => $i->context.'|'.$i->question_id)->flip();
+
+        collect($favorites)
+            ->reject(fn (Favorite $f) => $assigned->has($f->context.'|'.$f->question_id))
+            ->map(fn (Favorite $f) => ['tenant_id' => $tenant->id, 'favorite_collection_id' => $default->id, 'question_id' => $f->question_id, 'context' => $f->context])
+            ->values()
+            ->whenNotEmpty(fn ($rows) => FavoriteCollectionItem::insertOrIgnore($rows->all()));
+    }
+
     public function create(Tenant $tenant, User $user, CourseDefinition $course, string $name): FavoriteCollection
     {
         $name = trim($name);

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Superadmin;
 
+use App\Api\DeviceSessions;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\ContentQuestion;
@@ -256,6 +257,12 @@ class UserController extends Controller
         if ($wasActive && $validated['status'] !== 'active') {
             DB::table('sessions')->where('user_id', $user->id)->delete();
             $user->forceFill(['remember_token' => Str::random(60)])->save();
+        }
+        // Review-Runde 13: Sperre oder neue E-Mail-Adresse beenden auch die
+        // Geräte der Mobile-App -- nach einer Entsperrung waren die alten
+        // Refresh-Tokens sonst wieder gültig.
+        if (($wasActive && $validated['status'] !== 'active') || strtolower((string) ($before['email'] ?? '')) !== strtolower((string) $validated['email'])) {
+            DeviceSessions::revokeAllFor($user->id);
         }
 
         return back()->with('status', 'Nutzer aktualisiert.');

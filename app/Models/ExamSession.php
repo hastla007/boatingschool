@@ -3,11 +3,14 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToTenant;
+use App\Services\ExamEvaluationService;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class ExamSession extends Model
 {
@@ -116,19 +119,47 @@ class ExamSession extends Model
     }
 
     /**
+     * Offene Prüfungen der Person in ALLEN Schulen (Review-Runde 13: die
+     * Sperre der Prüfungsfragen im Lernmodus und der Navigationsaufgabe im
+     * Übungsbereich galt nur in der aktuellen Schule -- mit derselben Kurs-
+     * freischaltung bei einer zweiten Schule ließ sich dort die Lösung
+     * abrufen). Über die Owner-Verbindung, da RLS andere Schulen ausblendet;
+     * „offen“ heißt wie überall stillOpen() (inkl. Nachfrist und
+     * Selbsteinschätzung der Navigation).
+     *
+     * @return Collection<int, self>
+     */
+    public static function openForUserAcrossTenants(string $userId): Collection
+    {
+        $evaluation = app(ExamEvaluationService::class);
+
+        return static::on('pgsql_admin')->withoutGlobalScopes()->where('user_id', $userId)->where('status', 'running')
+            ->with('ruleSet')->get()
+            ->filter(fn (self $s) => $s->stillOpen($evaluation->timeExpired($s)))->values();
+    }
+
+    /** Fragen-IDs aller offenen Prüfungen der Person (schulübergreifend). @return Collection<int, string> */
+    public static function blockedQuestionIdsFor(string $userId): Collection
+    {
+        $ids = static::openForUserAcrossTenants($userId)->pluck('id');
+
+        return $ids->isEmpty() ? collect() : DB::connection('pgsql_admin')->table('exam_session_question')
+            ->whereIn('exam_session_id', $ids)->pluck('question_id')->unique()->values();
+    }
+
+    /**
      * Laufende Prüfung, in der diese Navigationsaufgabe gerade dran ist --
      * deren Lösungen bleiben im Übungsbereich so lange gesperrt (Review-Runde
-     * 10/11: auch während der Nachfrist und der Selbsteinschätzung).
+     * 10/11: auch während der Nachfrist und der Selbsteinschätzung; Runde 13:
+     * schulübergreifend). $tenantId bleibt für die Aufrufer erhalten, die
+     * auf eine Prüfung derselben Schule weiterleiten.
      */
     public static function runningWithNavigationTask(string $tenantId, string $userId, string $taskId): ?self
     {
-        return static::where('tenant_id', $tenantId)->where('user_id', $userId)
-            ->where('status', 'running')->where('navigation_task_id', $taskId)->get()
-            ->first(function (self $s) {
-                $deadline = $s->deadline();
-
-                return ! $deadline || now()->lte($deadline->copy()->addSeconds(self::NAVIGATION_SUBMIT_GRACE)) || $s->inNavigationAssessment();
-            });
+        return static::openForUserAcrossTenants($userId)
+            ->filter(fn (self $s) => $s->navigation_task_id === $taskId)
+            ->sortByDesc(fn (self $s) => $s->tenant_id === $tenantId)
+            ->first();
     }
 
     public function deadline(): ?Carbon

@@ -4,6 +4,7 @@ namespace App\Http\Middleware\Api;
 
 use App\Api\ApiProblem;
 use Closure;
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -15,7 +16,7 @@ use Symfony\Component\HttpFoundation\Response;
  * Idempotency-Key (UUID) für Schreibaufrufe mit Nebenwirkung: gleicher
  * Schlüssel + gleiche Anfrage liefert die gespeicherte Antwort erneut,
  * gleicher Schlüssel mit anderer Anfrage ergibt IDEMPOTENCY_KEY_REUSED.
- * Schlüssel gelten je Konto und werden nach 24 Stunden gelöscht.
+ * Schlüssel gelten je Konto 24 Stunden; gespeichert werden nur Erfolge.
  */
 class ApiIdempotency
 {
@@ -30,35 +31,49 @@ class ApiIdempotency
         $fingerprint = hash('sha256', $request->method().' '.$request->path().' '.(string) $request->header('X-Tenant-Slug').' '.$request->getContent());
 
         // Gleichzeitige Wiederholungen nacheinander abarbeiten.
-        return Cache::lock("api-idem:{$userId}:{$key}", 30)->block(10, function () use ($request, $next, $key, $userId, $fingerprint) {
-            $stored = DB::table('api_idempotency_key')->where('user_id', $userId)->where('idempotency_key', $key)->first();
-            if ($stored) {
-                if (! hash_equals($stored->fingerprint, $fingerprint)) {
-                    throw new ApiProblem(409, 'IDEMPOTENCY_KEY_REUSED', 'Idempotency-Key bereits verwendet', 'Dieser Schlüssel gehört zu einer anderen Anfrage.');
-                }
+        try {
+            return Cache::lock("api-idem:{$userId}:{$key}", 120)->block(10, fn () => $this->once($request, $next, $key, $userId, $fingerprint));
+        } catch (LockTimeoutException) {
+            // Review-Runde 13: dieselbe Anfrage läuft noch -- kein 500.
+            throw new ApiProblem(409, 'CONFLICT', 'Anfrage läuft noch', 'Dieselbe Anfrage wird gerade bearbeitet. Bitte kurz warten und erneut senden.', [], ['Retry-After' => '5']);
+        }
+    }
 
-                return new JsonResponse(json_decode($stored->response_body ?? 'null', true), $stored->status_code, array_filter([
-                    'Idempotent-Replayed' => 'true',
-                    'Content-Type' => $stored->status_code >= 400 ? 'application/problem+json' : null,
-                ]), JSON_UNESCAPED_UNICODE);
+    private function once(Request $request, Closure $next, string $key, string $userId, string $fingerprint): Response
+    {
+        // Review-Runde 13: nur innerhalb der Aufbewahrungsfrist (das
+        // tägliche Aufräumen allein ließe bis zu 48 Stunden zu).
+        $stored = DB::table('api_idempotency_key')->where('user_id', $userId)->where('idempotency_key', $key)
+            ->where('created_at', '>', now()->subHours((int) config('mobile_api.idempotency_hours', 24)))->first();
+        if ($stored) {
+            if (! hash_equals($stored->fingerprint, $fingerprint)) {
+                throw new ApiProblem(409, 'IDEMPOTENCY_KEY_REUSED', 'Idempotency-Key bereits verwendet', 'Dieser Schlüssel gehört zu einer anderen Anfrage.');
             }
 
-            $response = $next($request);
+            return new JsonResponse(json_decode($stored->response_body ?? 'null', true), $stored->status_code, array_filter([
+                'Idempotent-Replayed' => 'true',
+                'Content-Type' => $stored->status_code >= 400 ? 'application/problem+json' : null,
+            ]), JSON_UNESCAPED_UNICODE);
+        }
 
-            // Nur abgeschlossene Ergebnisse speichern (Erfolg oder fachliche
-            // Ablehnung) -- Serverfehler dürfen wiederholt werden.
-            if ($response->getStatusCode() < 500 && $response->getStatusCode() !== 429) {
-                DB::table('api_idempotency_key')->insert([
-                    'user_id' => $userId,
-                    'idempotency_key' => $key,
-                    'fingerprint' => $fingerprint,
-                    'status_code' => $response->getStatusCode(),
-                    'response_body' => $response->getContent() ?: null,
-                    'created_at' => now(),
-                ]);
-            }
+        $response = $next($request);
 
-            return $response;
-        });
+        // Review-Runde 13: nur Erfolge speichern. Eine fachliche Ablehnung
+        // (z. B. 403 ohne Zugang) blieb sonst mit demselben Schlüssel
+        // bestehen, auch nachdem der Grund behoben war.
+        if ($response->isSuccessful()) {
+            DB::table('api_idempotency_key')->where('user_id', $userId)->where('idempotency_key', $key)->delete();
+            DB::table('api_idempotency_key')->insert([
+                'user_id' => $userId,
+                'idempotency_key' => $key,
+                'fingerprint' => $fingerprint,
+                'status_code' => $response->getStatusCode(),
+                'response_body' => $response->getContent() ?: null,
+                'created_at' => now(),
+            ]);
+        }
+
+        return $response;
+
     }
 }

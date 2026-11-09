@@ -17,4 +17,15 @@ return [
     'export_ttl_minutes' => (int) env('MOBILE_API_EXPORT_TTL_MINUTES', 60),
     // Idempotenz-Schlüssel werden so lange aufbewahrt.
     'idempotency_hours' => 24,
+    // Mindestversion der App je Plattform (leer = keine Vorgabe). Ältere
+    // Versionen bekommen 426 APP_UPDATE_REQUIRED (Header X-App-Version und
+    // X-App-Platform); GET /api/v1/app/config nennt die Werte.
+    'minimum_version' => [
+        'ios' => env('MOBILE_API_MIN_VERSION_IOS'),
+        'android' => env('MOBILE_API_MIN_VERSION_ANDROID'),
+    ],
+    'store_url' => [
+        'ios' => env('MOBILE_API_STORE_URL_IOS'),
+        'android' => env('MOBILE_API_STORE_URL_ANDROID'),
+    ],
 ];

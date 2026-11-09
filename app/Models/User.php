@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Api\DeviceSessions;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -159,6 +160,8 @@ class User extends Authenticatable implements MustVerifyEmail
         $this->forceFill(['remember_token' => Str::random(60)])->save();
         DB::table('sessions')->where('user_id', $this->id)
             ->when($keepSessionId, fn ($q) => $q->where('id', '!=', $keepSessionId))->delete();
+        // Review-Runde 13: auch alle Geräte der Mobile-App abmelden.
+        DeviceSessions::revokeAllFor($this->id);
     }
 
     public function roleForTenant(?Tenant $tenant): ?string

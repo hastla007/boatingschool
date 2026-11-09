@@ -41,8 +41,11 @@ class LearningFlow
     {
         if ($mode === 'favorites') {
             // Gültigkeit prüft die Auswahl unten (currentlyValid()) ohnehin.
+            // Mit $questionIds (z. B. eine Sammlung oder „diese Frage üben“)
+            // nur diese Favoriten -- dann auch aus dem Prüfungskontext.
             $favoriteIds = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)
-                ->where('context', Favorite::CONTEXT_SMART_LEARNING)
+                ->when($questionIds === null, fn ($q) => $q->where('context', Favorite::CONTEXT_SMART_LEARNING))
+                ->when($questionIds !== null, fn ($q) => $q->whereIn('question_id', $questionIds))
                 ->whereIn('question_id', $this->courseQuestionIds($course))->pluck('question_id');
 
             // Bug-Review (Deaktivierte Favoriten, Endlosschleife) und X10
@@ -94,12 +97,18 @@ class LearningFlow
             ->whereHas('questions', fn ($q) => $q->where('question_id', $revision->question_id))
             ->get();
         foreach ($runningExamSessions as $runningExamSession) {
-            if ($this->examEvaluation->timeExpired($runningExamSession)) {
+            // Review-Runde 13: während Nachfrist/Selbsteinschätzung der
+            // Navigation bleibt die Prüfung offen (nicht hier auswerten).
+            if (! $runningExamSession->stillOpen($this->examEvaluation->timeExpired($runningExamSession))) {
                 $this->examEvaluation->evaluate($runningExamSession);
 
                 continue;
             }
 
+            throw new HttpException(409, 'Diese Frage ist Teil einer laufenden Prüfung und kann währenddessen nicht im Lernmodus bearbeitet werden.');
+        }
+        // … und auch bei einer anderen Schule (gleicher Kurs, gleiche Frage).
+        if (ExamSession::blockedQuestionIdsFor($user->id)->contains($revision->question_id)) {
             throw new HttpException(409, 'Diese Frage ist Teil einer laufenden Prüfung und kann währenddessen nicht im Lernmodus bearbeitet werden.');
         }
 

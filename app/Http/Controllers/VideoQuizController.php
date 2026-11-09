@@ -147,7 +147,9 @@ class VideoQuizController extends Controller
             ->get();
 
         foreach ($runningExamSessions as $runningExamSession) {
-            if ($examEvaluation->timeExpired($runningExamSession)) {
+            // Review-Runde 13: während Nachfrist/Selbsteinschätzung der
+            // Navigation bleibt die Prüfung offen (nicht hier auswerten).
+            if (! $runningExamSession->stillOpen($examEvaluation->timeExpired($runningExamSession))) {
                 $examEvaluation->evaluate($runningExamSession);
 
                 continue;
@@ -155,6 +157,8 @@ class VideoQuizController extends Controller
 
             abort(409, 'Diese Frage ist Teil einer laufenden Prüfung und kann hier aktuell nicht beantwortet werden.');
         }
+        // … und auch bei einer anderen Schule.
+        abort_if(ExamSession::blockedQuestionIdsFor($user->id)->contains($revision->question_id), 409, 'Diese Frage ist Teil einer laufenden Prüfung und kann hier aktuell nicht beantwortet werden.');
 
         $selectedAnswer = null;
         $selectedAnswers = null;
@@ -329,13 +333,8 @@ class VideoQuizController extends Controller
      */
     private static function runningExamQuestionIds(Tenant $tenant, User $user, ExamEvaluationService $examEvaluation): Collection
     {
-        return ExamSession::where('tenant_id', $tenant->id)
-            ->where('user_id', $user->id)
-            ->where('status', 'running')
-            ->with('questions')
-            ->get()
-            ->reject(fn (ExamSession $session) => $examEvaluation->timeExpired($session))
-            ->flatMap(fn (ExamSession $session) => $session->questions->pluck('question_id'));
+        // Review-Runde 13: schulübergreifend und mit stillOpen() wie im Smarttrainer.
+        return ExamSession::blockedQuestionIdsFor($user->id);
     }
 
     private function parseModuleIds(Request $request): ?array

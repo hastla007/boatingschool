@@ -2,12 +2,14 @@
 
 namespace App\Api;
 
+use App\Models\ContentQuestion;
 use App\Models\CourseDefinition;
 use App\Models\Entitlement;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\EntitlementService;
 use App\Support\VideoCourseLessons;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 
 /** Kurszugang und Kurs-Eigenschaften für die Mobile-API. */
@@ -33,10 +35,16 @@ class CourseAccess
     }
 
     /** @return array{status: string, valid_from: ?string, valid_until: ?string} */
-    public function status(Tenant $tenant, User $user, CourseDefinition $course, ?Entitlement $active = null): array
+    /**
+     * @param  ?Collection<int, Entitlement>  $preloaded  alle Zugänge der Person
+     *                                                    in dieser Schule (spart eine Abfrage je Kurs in Listen)
+     */
+    public function status(Tenant $tenant, User $user, CourseDefinition $course, ?Entitlement $active = null, ?Collection $preloaded = null): array
     {
-        $entitlement = $active ?? Entitlement::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)
-            ->orderByRaw("status = 'active' desc")->orderByRaw('valid_until desc nulls first')->first();
+        $entitlement = $active ?? ($preloaded !== null
+            ? $preloaded->where('course_id', $course->id)->sortBy(fn (Entitlement $e) => [$e->status === 'active' ? 0 : 1, $e->valid_until ? -$e->valid_until->getTimestamp() : PHP_INT_MIN])->first()
+            : Entitlement::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)
+                ->orderByRaw("status = 'active' desc")->orderByRaw('valid_until desc nulls first')->first());
         if (! $entitlement) {
             return ['status' => 'not_granted', 'valid_from' => null, 'valid_until' => null];
         }
@@ -50,6 +58,21 @@ class CourseAccess
             'valid_from' => Present::time($entitlement->valid_from),
             'valid_until' => Present::time($entitlement->valid_until),
         ];
+    }
+
+    /**
+     * Aktuell gültige Fragen eines Kurses (Modulfragen), 5 Minuten zwischen-
+     * gespeichert -- Inhalte ändern sich selten, Listen fragen je Kurs.
+     *
+     * @return Collection<int, string>
+     */
+    public function validQuestionIds(CourseDefinition $course): Collection
+    {
+        return collect(Cache::remember('api-course-valid-qids:'.$course->id, 300, function () use ($course) {
+            $course->loadMissing('modules.questions');
+
+            return ContentQuestion::currentlyValidIds($course->modules->flatMap(fn ($m) => $m->questions))->values()->all();
+        }));
     }
 
     /** @return list<string> */

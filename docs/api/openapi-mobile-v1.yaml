@@ -12,6 +12,10 @@ info:
     * Fehler: `application/problem+json` mit stabilem `code` und `request_id`.
     * Schreibende POST-Endpunkte mit `Idempotency-Key` (UUID) sind sicher wiederholbar (24 Stunden).
     * Zeitangaben: ISO 8601 in UTC (`2026-11-09T10:15:00Z`).
+    * Empfohlen bei jeder Anfrage: `X-App-Platform` (`ios`/`android`) und `X-App-Version`. Ist eine
+      Mindestversion hinterlegt und die App älter, kommt 426 `APP_UPDATE_REQUIRED` (mit `minimum_version`, `store_url`).
+    * Wartung der Plattform: 503 `MAINTENANCE` mit `Retry-After`; `GET /app/config` zeigt den Status vorab.
+    * Eine wiederholte Antwort aus dem Idempotenz-Speicher trägt den Header `Idempotent-Replayed: true`.
 
     Fachliche Abweichungen vom ursprünglichen Konzept: siehe `docs/api/README.md`.
 servers:
@@ -33,6 +37,30 @@ tags:
   - {name: Privacy}
 
 paths:
+  # ---------------------------------------------------------------- App
+  /app/config:
+    get:
+      tags: [Account]
+      operationId: getAppConfig
+      summary: Mindestversion, Store-Links und Wartung (vor dem Login)
+      security: []
+      responses:
+        '200':
+          description: Konfiguration
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      api_version: {type: string, const: v1}
+                      minimum_version: {type: object, properties: {ios: {type: [string, 'null']}, android: {type: [string, 'null']}}}
+                      store_url: {type: object, properties: {ios: {type: [string, 'null']}, android: {type: [string, 'null']}}}
+                      maintenance: {type: object, properties: {active: {type: boolean}, message: {type: [string, 'null']}}}
+                      server_time: {type: string, format: date-time}
+
   # --------------------------------------------------------------- Auth
   /auth/login:
     post:
@@ -99,9 +127,9 @@ paths:
       operationId: refreshTokens
       summary: Tokens erneuern (Refresh-Token rotiert)
       description: |
-        Jedes Refresh-Token gilt genau einmal. Wird ein bereits benutztes Refresh-Token erneut
-        vorgelegt, endet die ganze Gerätesitzung (Schutz bei Diebstahl). Leerlauf max. 30 Tage,
-        Sitzung höchstens 90 Tage.
+        Jedes Refresh-Token gilt genau einmal. Wird das unmittelbar vorherige Refresh-Token erneut
+        vorgelegt, endet die ganze Gerätesitzung (Schutz bei Diebstahl); ältere ergeben nur 401.
+        Leerlauf max. 30 Tage, Sitzung höchstens 90 Tage. Begrenzung 10/Min. je Refresh-Token.
       security: []
       requestBody:
         required: true
@@ -120,6 +148,8 @@ paths:
                 type: object
                 properties: {data: {$ref: '#/components/schemas/TokenPair'}}
         '401': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+        '429': {$ref: '#/components/responses/Problem'}
   /auth/logout:
     post:
       tags: [Auth]
@@ -226,6 +256,13 @@ paths:
                 type: object
                 properties:
                   data: {type: array, items: {$ref: '#/components/schemas/DeviceSession'}}
+    delete:
+      tags: [Account]
+      operationId: revokeOtherDeviceSessions
+      summary: Alle anderen Geräte abmelden (dieses bleibt angemeldet)
+      responses:
+        '204': {description: Abgemeldet}
+        '401': {$ref: '#/components/responses/Problem'}
   /me/sessions/{sessionId}:
     delete:
       tags: [Account]
@@ -307,9 +344,11 @@ paths:
                       continue_learning:
                         type: [object, 'null']
                         properties:
-                          module_id: {type: string}
-                          module_name: {type: string}
+                          module_id: {type: [string, 'null']}
+                          module_name: {type: [string, 'null']}
+                          topic: {type: [string, 'null']}
                           mode: {type: string}
+                          last_activity_at: {type: string, format: date-time}
                       modules: {type: array, items: {$ref: '#/components/schemas/Module'}}
         '403': {$ref: '#/components/responses/Problem'}
   /courses/{courseId}/modules:
@@ -363,7 +402,8 @@ paths:
         - {in: query, name: mode, schema: {type: string, enum: [smarttrainer, new, wrong, topic, favorites], default: smarttrainer}}
         - {in: query, name: module_id, schema: {type: string, format: uuid}}
         - {in: query, name: topic, schema: {type: string}, description: 'Für mode=topic'}
-        - {in: query, name: question_ids, schema: {type: string}, description: 'Kommagetrennte Frage-IDs (z. B. Favoriten einer Sammlung)'}
+        - {in: query, name: question_ids, schema: {type: string}, description: 'Kommagetrennte Frage-IDs. Mit mode=favorites: genau diese Favoriten (z. B. „diese Frage üben“). Sonst „Fehler üben“ wie im Web: Fragen mit laufender richtiger Serie fallen heraus.'}
+        - {in: query, name: collection_id, schema: {type: string, format: uuid}, description: 'Eine Favoriten-Sammlung üben (setzt mode=favorites)'}
       responses:
         '200':
           description: Frage
@@ -372,7 +412,8 @@ paths:
               schema:
                 type: object
                 properties: {data: {$ref: '#/components/schemas/TrainerQuestion'}}
-        '204': {description: 'Keine passende Frage (z. B. alles gefestigt, keine Favoriten)'}
+        '204': {description: 'Keine passende Frage: new = alles gesehen, wrong = keine falschen, favorites = keine (passenden) Favoriten, question_ids = alle erledigt. Im Smarttrainer kommen gefestigte Fragen zur Wiederholung; „alles geschafft“ zeigt progress.percent = 100.'}
+        '404': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
   /courses/{courseId}/attempts:
     post:
@@ -390,7 +431,7 @@ paths:
             schema: {$ref: '#/components/schemas/TrainerAnswerRequest'}
       responses:
         '201':
-          description: Bewertet, mit Lösung und Lernstand
+          description: 'Bewertet, mit Lösung und Lernstand. 409 EXAM_QUESTION_LOCKED: Frage ist gerade Teil einer laufenden Prüfung (auch bei einer anderen Schule).'
           content:
             application/json:
               schema:
@@ -439,7 +480,7 @@ paths:
       tags: [Favorites]
       operationId: putFavorite
       summary: Favorit setzen (wiederholbar), optional mit Sammlungen
-      description: Ohne `collection_ids` landet die Frage in der Standard-Sammlung; mit `collection_ids` genau in diesen.
+      description: Ohne `collection_ids` landet die Frage in der Standard-Sammlung; mit `collection_ids` genau in diesen (mindestens eine eigene Sammlung des Kurses, sonst 422; Entfernen über DELETE).
       parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/CourseId'}, {$ref: '#/components/parameters/QuestionId'}]
       requestBody:
         content:
@@ -458,6 +499,7 @@ paths:
                 type: object
                 properties: {data: {$ref: '#/components/schemas/Favorite'}}
         '404': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
     delete:
       tags: [Favorites]
       operationId: deleteFavorite
@@ -546,7 +588,11 @@ paths:
                 type: object
                 properties:
                   data: {type: array, items: {$ref: '#/components/schemas/ExamOption'}}
-                  meta: {type: object, properties: {includes_navigation_task: {type: boolean}}}
+                  meta:
+                    type: object
+                    properties:
+                      includes_navigation_task: {type: boolean}
+                      rule_set_status: {type: string, enum: [verified, draft, none], description: 'draft = Regelwerk noch nicht freigegeben (Liste leer)'}
         '403': {$ref: '#/components/responses/Problem'}
     post:
       tags: [Exams]
@@ -575,6 +621,42 @@ paths:
         '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
         '422': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/exam-sessions:
+    get:
+      tags: [Exams]
+      operationId: listExamHistory
+      summary: Bisherige (ausgewertete) Prüfungsversuche, neueste zuerst
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/CourseId'}
+        - {$ref: '#/components/parameters/Page'}
+        - {$ref: '#/components/parameters/PerPage'}
+      responses:
+        '200':
+          description: Versuche
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        exam_id: {type: string}
+                        paper_id: {type: [string, 'null']}
+                        name: {type: string}
+                        passed: {type: boolean}
+                        score: {type: number}
+                        correct_count: {type: integer}
+                        question_count: {type: integer}
+                        navigation_points: {type: [integer, 'null']}
+                        started_at: {type: string, format: date-time}
+                        evaluated_at: {type: string, format: date-time}
+                  meta: {type: object, properties: {pagination: {$ref: '#/components/schemas/Pagination'}}}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
   /exams/{examId}:
     get:
       tags: [Exams]
@@ -641,7 +723,7 @@ paths:
       tags: [Exams]
       operationId: submitExamNavigation
       summary: Navigationsaufgabe abgeben (SBF See; einmalig, alle Teilantworten)
-      description: Schlüssel sind die `navigation.parts[].id` der Prüfung. 2 Minuten Nachfrist nach Zeitablauf (Antworten zählen wie zum Prüfungsende abgegeben).
+      description: 'Schlüssel sind die `navigation.parts[].id` der Prüfung. Erst nach dem Fragebogen (sonst 409 EXAM_QUESTIONS_OPEN), nach Zeitablauf bis `navigation_submit_until` (2 Minuten Nachfrist; Antworten zählen wie zum Prüfungsende abgegeben).'
       parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/ExamId'}]
       requestBody:
         required: true
@@ -690,7 +772,14 @@ paths:
       tags: [Exams]
       operationId: submitExam
       summary: Prüfung abgeben und auswerten (wiederholbar, gleiches Ergebnis)
+      description: 'Mit Navigationsteil, der noch nicht abgegeben ist: 409 EXAM_NAVIGATION_NOT_SUBMITTED, außer `without_navigation: true` (Navigation zählt dann 0 Punkte) oder die Abgabefrist ist vorbei.'
       parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/ExamId'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {without_navigation: {type: boolean, default: false}}
       responses:
         '200':
           description: Ergebnis
@@ -699,6 +788,7 @@ paths:
               schema: {$ref: '#/components/schemas/ExamResultResponse'}
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
   /exams/{examId}/result:
     get:
       tags: [Exams]
@@ -896,8 +986,8 @@ paths:
       tags: [Privacy]
       operationId: requestDataExport
       summary: DSGVO-Datenexport anfordern (Daten bei dieser Schule)
-      description: Wird sofort erzeugt (`status = ready`) und ist 60 Minuten abrufbar. Höchstens 5 Anforderungen pro Stunde.
-      parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      description: Wird sofort erzeugt (`status = ready`, bei einem Fehler `failed`) und ist 60 Minuten abrufbar; danach wird die Datei gelöscht (stündliches Aufräumen). Höchstens 5 Anforderungen pro Stunde. Ohne Idempotency-Key -- ein erneuter Aufruf liefert einen frischen Export.
+      parameters: [{$ref: '#/components/parameters/TenantSlug'}]
       responses:
         '202':
           description: Export angelegt
@@ -940,7 +1030,7 @@ paths:
           description: Datei
           content:
             application/json: {schema: {type: object}}
-        '403': {$ref: '#/components/responses/Problem'}
+        '403': {description: 'LINK_INVALID: Signatur falsch oder Link abgelaufen', content: {application/problem+json: {schema: {$ref: '#/components/schemas/Problem'}}}}
         '410': {$ref: '#/components/responses/Problem'}
 
 components:
@@ -1009,11 +1099,13 @@ components:
             ENTITLEMENT_REQUIRED, ENTITLEMENT_EXPIRED, PASSWORD_RESET_INVALID_OR_EXPIRED, IDEMPOTENCY_KEY_REUSED,
             COLLECTION_NOT_DELETABLE, EXAM_NOT_AVAILABLE, EXAM_ANSWER_LOCKED, EXAM_ALREADY_SUBMITTED, EXAM_EXPIRED,
             EXAM_NOT_SUBMITTED, EXAM_NO_NAVIGATION_PART, EXAM_NAVIGATION_ALREADY_SUBMITTED, EXAM_NAVIGATION_NOT_SUBMITTED,
-            NAVIGATION_TASK_IN_EXAM, COUPON_INVALID, COUPON_NOT_APPLICABLE, EXPORT_EXPIRED]
+            NAVIGATION_TASK_IN_EXAM, COUPON_INVALID, COUPON_NOT_APPLICABLE, EXPORT_EXPIRED,
+            MAINTENANCE, APP_UPDATE_REQUIRED, EXAM_QUESTIONS_OPEN, EXAM_QUESTION_LOCKED, LINK_INVALID]
         errors: {type: object, additionalProperties: {type: array, items: {type: string}}}
         request_id: {type: string}
-        challenge_token: {type: string}
-        exam_id: {type: string}
+        exam_id: {type: string, description: Bei NAVIGATION_TASK_IN_EXAM}
+        minimum_version: {type: string, description: Bei APP_UPDATE_REQUIRED}
+        store_url: {type: [string, 'null'], description: Bei APP_UPDATE_REQUIRED}
     LoginRequest:
       type: object
       required: [email, password, device_name]
@@ -1076,6 +1168,8 @@ components:
           properties:
             imprint_url: {type: string, format: uri}
             privacy_url: {type: string, format: uri}
+            account_url: {type: string, format: uri, description: 'Profil im Web (u. a. Konto löschen)'}
+            data_rights_url: {type: string, format: uri, description: Datenrechte im Web}
     DeviceSession:
       type: object
       properties:
@@ -1117,6 +1211,7 @@ components:
         progress: {$ref: '#/components/schemas/ProgressSummary'}
         capabilities: {type: array, items: {type: string, enum: [smarttrainer, favorites, exam, video, navigation, praxis]}}
         webshop_url: {type: [string, 'null'], format: uri}
+        last_activity_at: {type: [string, 'null'], format: date-time, description: Letzte Antwort in diesem Kurs}
     Module:
       type: object
       properties:
@@ -1157,12 +1252,12 @@ components:
         prompt_media: {type: array, items: {$ref: '#/components/schemas/Media'}}
         answers:
           type: array
-          description: Ohne Kennzeichnung der richtigen Antwort; leer bei offenen Fragen
+          description: 'Ohne Kennzeichnung der richtigen Antwort; leer bei offenen Fragen. Einfachauswahl je Person gemischt (wie im Web), Mehrfachauswahl in gepflegter Reihenfolge.'
           items:
             type: object
             properties:
               id: {type: string}
-              key: {type: [string, 'null']}
+              key: {type: string, description: 'Buchstabe der Anzeigeposition (A, B, C …)'}
               text: {type: string}
         topic: {type: [string, 'null']}
         module_id: {type: [string, 'null']}
@@ -1205,8 +1300,8 @@ components:
             attempt_id: {type: string}
             question_id: {type: string}
             correct: {type: boolean}
-            selected_answer_ids: {type: array, items: {type: string}}
-            learning_state: {type: string}
+            selected_answer_ids: {type: array, items: {type: string}, description: Bei offenen Fragen leer}
+            learning_state: {type: string, enum: [neu, unsicher, in_bearbeitung, gefestigt]}
             streak: {$ref: '#/components/schemas/Streak'}
             completed: {type: boolean, description: 'true = gefestigt'}
             progress:
@@ -1222,6 +1317,16 @@ components:
         context: {type: string, enum: [smart_learning, exam]}
         collection_ids: {type: array, items: {type: string}}
         created_at: {type: string, format: date-time}
+        question:
+          type: [object, 'null']
+          description: Kurzfassung für die Favoriten-Liste (ohne Lösung); null nur in der Antwort von PUT
+          properties:
+            official_number: {type: [string, 'null']}
+            text: {type: string}
+            question_type: {type: string}
+            topic: {type: [string, 'null']}
+            learning_state: {type: string, enum: [neu, unsicher, in_bearbeitung, gefestigt]}
+            last_seen_at: {type: [string, 'null'], format: date-time}
     FavoriteCollection:
       type: object
       properties:
@@ -1315,12 +1420,16 @@ components:
         exam_id: {type: string}
         course_id: {type: string}
         paper_id: {type: [string, 'null']}
+        name: {type: string}
+        pass_rule: {type: string}
         status: {type: string, enum: [running, evaluated]}
-        phase: {type: string, enum: [questions, ready_to_submit, navigation, navigation_assessment, evaluated]}
+        phase: {type: string, enum: [questions, ready_to_submit, navigation, navigation_assessment, evaluated], description: 'navigation auch nach Zeitablauf mit offenen Fragen (Nachfrist)'}
         started_at: {type: string, format: date-time}
         expires_at: {type: [string, 'null'], format: date-time}
         server_time: {type: string, format: date-time}
         remaining_seconds: {type: [integer, 'null']}
+        navigation_submit_until: {type: [string, 'null'], format: date-time, description: 'Letzter Zeitpunkt für die Abgabe der Navigation (Ende + 2 Min.)'}
+        navigation_assessment_until: {type: [string, 'null'], format: date-time, description: 'Letzter Zeitpunkt für die Selbsteinschätzung (Ende + 15 Min.)'}
         question_count: {type: integer}
         answered_count: {type: integer}
         questions: {type: array, items: {$ref: '#/components/schemas/ExamQuestion'}}
@@ -1350,6 +1459,7 @@ components:
         exam_id: {type: string}
         course_id: {type: string}
         paper_id: {type: [string, 'null']}
+        name: {type: string}
         status: {type: string, const: evaluated}
         passed: {type: boolean, description: 'Gesamtquote UND alle Teilgrenzen UND Navigation'}
         score: {type: number}

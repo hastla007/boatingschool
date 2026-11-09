@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\ApiDataExport;
 use App\Models\AuditLog;
 use App\Models\Coupon;
 use App\Models\MediaAsset;
@@ -88,6 +89,8 @@ class TenantOffboardingService
             AuditLog::where('tenant_id', $tenant->id)->delete();
             AuditLog::where('entity_type', 'tenant')->where('entity_id', $tenant->id)->delete();
             TenantInvitation::where('tenant_id', $tenant->id)->delete();
+            // Review-Runde 13: Exportdateien der App (Zeilen gehen per Kaskade).
+            ApiDataExport::deleteFilesAfterCommit(ApiDataExport::withoutGlobalScopes()->where('tenant_id', $tenant->id)->pluck('path'));
 
             $tenant->delete();
 

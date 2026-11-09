@@ -17,15 +17,18 @@ use App\Support\MailSchool;
 use App\Support\TenantContext;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Validation\UncompromisedVerifier;
 use Illuminate\Foundation\Events\DiagnosingHealth;
 use Illuminate\Http\Client\Factory;
+use Illuminate\Http\Request;
 use Illuminate\Mail\Events\MessageSending;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\NotPwnedVerifier;
@@ -56,6 +59,12 @@ class AppServiceProvider extends ServiceProvider
     {
         // Mobile-API: der Guard bekommt seinen Nutzer von AuthenticateMobileApi.
         Auth::viaRequest('mobile-token', fn () => null);
+        // Mobile-API: Erneuern je Refresh-Token (10/Min.) und großzügig je IP
+        // (viele Geräte hinter einem Schul- oder Mobilfunk-Netz).
+        RateLimiter::for('api-refresh', fn (Request $request) => [
+            Limit::perMinute(10)->by('api-refresh-token:'.hash('sha256', (string) $request->input('refresh_token'))),
+            Limit::perMinute(300)->by('api-refresh-ip:'.$request->ip()),
+        ]);
 
         // Eigenes Remember-Cookie je Schule im Pfad-Modus (siehe TenantSessionGuard).
         Auth::extend('session', function ($app, string $name, array $config) {

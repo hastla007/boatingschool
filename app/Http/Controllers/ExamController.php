@@ -256,6 +256,7 @@ class ExamController extends Controller
         return match (app(ExamActions::class)->submitNavigation($examSession, $validated['answers'] ?? [])) {
             ExamActions::EVALUATED => redirect()->route('exam.result', $examSession),
             ExamActions::ALREADY_ANSWERED => redirect()->route('exam.show', $examSession)->with('status', 'Die Navigationsaufgabe ist bereits abgegeben.'),
+            ExamActions::QUESTIONS_OPEN => redirect()->route('exam.show', $examSession)->with('status', 'Bitte zuerst alle Fragen beantworten – danach folgt die Navigationsaufgabe.'),
             ExamActions::EXPIRED => redirect()->route('exam.result', $examSession)->with('status', 'Die Prüfungszeit ist abgelaufen – hier ist dein Ergebnis.'),
             default => redirect()->route('exam.show', $examSession),
         };
@@ -266,9 +267,11 @@ class ExamController extends Controller
     {
         $this->authorizeSession($request, $tenantContext, $entitlements, $examSession);
         $validated = $request->validate(['known' => ['array'], 'known.*' => ['in:0,1']]);
-        app(ExamActions::class)->assessNavigationAndFinish($examSession, $validated['known'] ?? []);
+        $outcome = app(ExamActions::class)->assessNavigationAndFinish($examSession, $validated['known'] ?? []);
 
-        return redirect()->route('exam.result', $examSession);
+        return $outcome === ExamActions::EXPIRED
+            ? redirect()->route('exam.result', $examSession)->with('status', 'Die Zeit für die Selbsteinschätzung ist abgelaufen – hier ist dein Ergebnis.')
+            : redirect()->route('exam.result', $examSession);
     }
 
     public function show(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, ExamEvaluationService $examEvaluation, ExamSession $examSession): View|Response

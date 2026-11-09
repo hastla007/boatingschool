@@ -7,9 +7,11 @@ use App\Api\CourseAccess;
 use App\Api\Present;
 use App\Http\Controllers\Controller;
 use App\Models\ContentQuestion;
+use App\Models\ContentQuestionRevision;
 use App\Models\Favorite;
 use App\Models\FavoriteCollection;
 use App\Models\FavoriteCollectionItem;
+use App\Models\Progress;
 use App\Services\FavoriteCollectionService;
 use App\Support\TenantContext;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -40,13 +42,19 @@ class FavoriteController extends Controller
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
         $course = $this->access->require($tenant, $user, $courseId);
-        $this->collections->defaultFor($tenant, $user, $course);
 
         $favorites = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)
             ->whereIn('question_id', $course->contentQuestionIds())
             ->whereIn('question_id', ContentQuestion::query()->currentlyValid()->select('id'))
             ->when($validated['context'] ?? null, fn ($q, $context) => $q->where('context', $context))
             ->latest('created_at')->get();
+        // Review-Runde 13: wie im Web Favoriten ohne Sammlung in die Standard-Sammlung.
+        $this->collections->assignUnsortedToDefault($tenant, $user, $course, $favorites);
+        // Kurzfassung je Frage für die Favoriten-Liste (ohne Lösung).
+        $revisions = ContentQuestionRevision::whereIn('question_id', $favorites->pluck('question_id'))->where('editorial_status', 'published')
+            ->get()->keyBy('question_id');
+        $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->whereIn('question_id', $favorites->pluck('question_id'))
+            ->get()->keyBy('question_id');
         $items = FavoriteCollectionItem::where('tenant_id', $tenant->id)
             ->whereIn('favorite_collection_id', FavoriteCollection::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)->select('id'))
             ->get()->groupBy(fn ($i) => $i->context.'|'.$i->question_id);
@@ -56,6 +64,14 @@ class FavoriteController extends Controller
             'context' => $f->context,
             'collection_ids' => ($items->get($f->context.'|'.$f->question_id) ?? collect())->pluck('favorite_collection_id')->values(),
             'created_at' => Present::time($f->created_at),
+            'question' => ($revision = $revisions->get($f->question_id)) ? [
+                'official_number' => $revision->source_question_id,
+                'text' => $revision->question_text,
+                'question_type' => $revision->question_type ?: 'single_choice',
+                'topic' => $revision->smartmodus_kategorie ?: $revision->topic,
+                'learning_state' => $progress->get($f->question_id)?->learning_state ?? 'neu',
+                'last_seen_at' => Present::time($progress->get($f->question_id)?->last_seen_at),
+            ] : null,
         ]);
         if ($validated['collection_id'] ?? null) {
             $data = $data->filter(fn ($f) => $f['collection_ids']->contains($validated['collection_id']));
@@ -79,10 +95,19 @@ class FavoriteController extends Controller
             throw ApiProblem::notFound('Frage');
         }
         $context = $validated['context'] ?? Favorite::CONTEXT_SMART_LEARNING;
+        // Review-Runde 13: eine leere oder fremde Liste hätte den Favoriten
+        // stillschweigend entfernt (Entfernen geht über DELETE).
+        if (array_key_exists('collection_ids', $validated) && $validated['collection_ids'] !== null) {
+            $own = FavoriteCollection::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)
+                ->whereIn('id', $validated['collection_ids'])->count();
+            if ($validated['collection_ids'] === [] || $own !== count(array_unique($validated['collection_ids']))) {
+                throw new ApiProblem(422, 'VALIDATION_FAILED', 'Eingaben ungültig', null, ['collection_ids' => ['Bitte mindestens eine eigene Sammlung dieses Kurses angeben.']]);
+            }
+        }
 
         $favorite = Favorite::firstOrCreate(['tenant_id' => $tenant->id, 'user_id' => $user->id, 'question_id' => $questionId, 'context' => $context]);
-        if (array_key_exists('collection_ids', $validated)) {
-            $this->collections->syncQuestion($tenant, $user, $course, $questionId, $context, $validated['collection_ids'] ?? []);
+        if (($validated['collection_ids'] ?? null) !== null) {
+            $this->collections->syncQuestion($tenant, $user, $course, $questionId, $context, $validated['collection_ids']);
         } else {
             $this->collections->ensureInDefault($tenant, $user, $course, $questionId, $context);
         }
@@ -118,7 +143,8 @@ class FavoriteController extends Controller
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
         $course = $this->access->require($tenant, $user, $courseId);
-        $this->collections->defaultFor($tenant, $user, $course);
+        $this->collections->assignUnsortedToDefault($tenant, $user, $course, Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+            ->whereIn('question_id', $course->contentQuestionIds())->get());
 
         $collections = FavoriteCollection::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)
             ->withCount('items')->orderByDesc('is_default')->orderBy('sort_order')->orderBy('name')->get();

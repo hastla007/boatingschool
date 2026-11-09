@@ -7,7 +7,7 @@ dieselben.
 
 | Datei | Inhalt |
 |---|---|
-| `docs/api/openapi-mobile-v1.yaml` | Vertrag (OpenAPI 3.1), alle 44 Endpunkte |
+| `docs/api/openapi-mobile-v1.yaml` | Vertrag (OpenAPI 3.1), alle 47 Endpunkte |
 | `routes/api.php` | Routen (Präfix `/api/v1`) |
 | `app/Http/Controllers/Api/V1/` | Controller je Bereich |
 | `app/Api/` | Tokens, Fehlerformat, Ausgabeformate |
@@ -60,8 +60,9 @@ Design-Übersicht. Grundlage war jeweils der tatsächliche Stand der Plattform.
 
 * **Konto löschen (Apple-Richtlinie 5.1.1 v):** Die App legt keine Konten an
   (Konten entstehen über die Schule oder einen Code). Eine Löschfunktion in
-  der App ist damit nicht vorgeschrieben. Empfehlung: in der App auf
-  „Profil → Konto löschen“ der Web-App verlinken.
+  der App ist damit nicht vorgeschrieben. Die App verlinkt dafür auf das
+  Profil im Web (`memberships[].legal.account_url`, dort „Konto löschen“;
+  Datenrechte unter `legal.data_rights_url`).
 * **Regelwerk `ADD-FKN-TO-SKN`** ist weiterhin ein Entwurf. Die API bietet
   dafür keine Prüfung an (`startable: false` bzw. `EXAM_NOT_AVAILABLE`), bis
   das Regelwerk freigegeben ist.
@@ -81,20 +82,36 @@ Design-Übersicht. Grundlage war jeweils der tatsächliche Stand der Plattform.
   * `X-Tenant-Slug: <tenant_slug>` (schulbezogene Endpunkte)
   * `Accept: application/json`
   * `Idempotency-Key: <uuid>` (wo im Vertrag angegeben)
+  * `X-App-Platform: ios|android` und `X-App-Version: 1.4.0` (empfohlen; für
+    die Mindestversion)
+* **Antworten** stehen immer in `data` (Listen zusätzlich `meta`), Fehler
+  nicht (siehe Abschnitt 11).
+* **Mindestversion und Wartung:** `GET /app/config` (ohne Anmeldung) nennt
+  die Mindestversion je Plattform, die Store-Links und ob gerade Wartung ist.
+  * Zu alte App: 426 `APP_UPDATE_REQUIRED` mit `minimum_version` und
+    `store_url`.
+  * Wartung: 503 `MAINTENANCE` mit `Retry-After`.
 * **Zeit:** ISO 8601 in UTC. Für Countdowns `server_time`, `expires_at` und
   `remaining_seconds` der Prüfung verwenden, nicht die Gerätezeit.
 * **Seiten:** `page`, `per_page` (max. 100), Antwort in `meta.pagination`.
 * **Caching:** Alle Antworten sind `Cache-Control: no-store, private`.
 * **Request-ID:** Jede Antwort hat `X-Request-Id`, Fehler zusätzlich
-  `request_id`. Für Support-Anfragen mitschicken.
+  `request_id`. Für Support-Anfragen mitschicken; die ID steht auch im
+  Server-Log und im Fehlertracking.
+* **Nur zentrale Domain:** Unter einer Schul-Adresse oder einem Schul-Pfad
+  (`/{schule}/api/…`) antwortet die API mit 404.
 
 ### Idempotenz
 
-Für `POST`-Aktionen mit Pflicht-Header `Idempotency-Key`: Antworten werden
-24 Stunden je Konto gespeichert.
+Für `POST`-Aktionen mit Pflicht-Header `Idempotency-Key`: **erfolgreiche**
+Antworten werden 24 Stunden je Konto gespeichert.
 
 * Gleicher Schlüssel mit gleichem Inhalt liefert dieselbe Antwort; nichts
-  passiert doppelt.
+  passiert doppelt. Eine solche Antwort trägt `Idempotent-Replayed: true`.
+* Fehlerantworten (4xx/5xx) werden nicht gespeichert: nach dem Beheben des
+  Grundes (z. B. Code eingelöst, dann Prüfung starten) gilt derselbe
+  Schlüssel wieder.
+* Läuft dieselbe Anfrage noch: 409 `CONFLICT` mit `Retry-After`.
 * Gleicher Schlüssel mit anderem Inhalt ergibt 409 `IDEMPOTENCY_KEY_REUSED`.
 * Je fachlicher Aktion einen neuen Schlüssel erzeugen und bei automatischen
   Wiederholungen beibehalten.
@@ -105,13 +122,15 @@ Für `POST`-Aktionen mit Pflicht-Header `Idempotency-Key`: Antworten werden
 
 | Bereich | Grenze |
 |---|---|
-| Login | 10/Min. je IP, 5 Fehlversuche je E-Mail+IP, 20 je Konto (15 Min.) |
-| 2FA | 10/Min., zusätzlich je Konto |
-| Refresh | 30/Min. |
+| Login | 10/Min. je IP, 5 Fehlversuche je E-Mail+IP und Minute, 20 je Konto in 15 Min. |
+| 2FA | 10/Min., dazu 5 Versuche je Konto in 5 Min. (gemeinsam mit dem Web) |
+| Refresh | 10/Min. je Refresh-Token, 300/Min. je IP |
 | Passwort vergessen/zurücksetzen | je 6/Min. |
+| Bestätigungsmail | 6/Min. |
+| App-Konfiguration | 60/Min. |
 | Schulbezogene Endpunkte | 240/Min. je Konto |
 | Codes einlösen | 10/Min. |
-| Datenexport | 5/Std. |
+| Datenexport | 5/Std., Download 20/Min. |
 
 ---
 
@@ -119,8 +138,8 @@ Für `POST`-Aktionen mit Pflicht-Header `Idempotency-Key`: Antworten werden
 
 ```
 POST /auth/login {email, password, device_name, device_platform?, app_version?}
-  → 200 {access_token, refresh_token, …, user, memberships}
-  → oder 200 {two_factor_required: true, challenge_token}
+  → 200 {data: {access_token, refresh_token, …, user, memberships}}
+  → oder 200 {data: {two_factor_required: true, challenge_token}}
        → POST /auth/two-factor {challenge_token, code | recovery_code}
 ```
 
@@ -128,17 +147,22 @@ POST /auth/login {email, password, device_name, device_platform?, app_version?}
   liest nichts daraus.
 * **Refresh-Token** (`bsr_…`) wird bei jedem `POST /auth/refresh` ersetzt.
   * Gültig bis 30 Tage ohne Nutzung, höchstens 90 Tage ab Anmeldung.
-  * Ein **zweites Mal benutztes** Refresh-Token beendet die ganze
-    Gerätesitzung (Diebstahl-Schutz).
+  * Das **unmittelbar vorherige**, also schon ersetzte Refresh-Token noch
+    einmal benutzt beendet die ganze Gerätesitzung (Diebstahl-Schutz).
+    Ältere Tokens ergeben nur 401.
   * Bei zwei gleichzeitigen Erneuerungen nur eine abwarten.
 * **Speicherung in der App:** Keychain (iOS) bzw. EncryptedSharedPreferences
   oder Keystore (Android). Auf dem Server liegen nur SHA-256-Hashes.
-* **Abmelden:** `POST /auth/logout` (dieses Gerät) oder
-  `DELETE /me/sessions/{id}` (anderes Gerät).
+* **Abmelden:** `POST /auth/logout` (dieses Gerät),
+  `DELETE /me/sessions/{id}` (ein anderes Gerät) oder `DELETE /me/sessions`
+  (alle anderen Geräte).
 * **Alle App-Sitzungen enden automatisch**, wenn:
   * das Passwort geändert oder zurückgesetzt wird,
-  * die E-Mail-Adresse geändert wird,
-  * das Konto gesperrt wird (sofort 401).
+  * die E-Mail-Adresse geändert wird (auch durch den Superadmin),
+  * die Zwei-Faktor-Anmeldung ein- oder ausgeschaltet oder vom Support
+    zurückgesetzt wird,
+  * das Konto gesperrt wird (sofort 401; auch nach einer Entsperrung bleiben
+    die alten Sitzungen beendet).
 * **E-Mail nicht bestätigt:** Anmeldung geht, schulbezogene Endpunkte
   antworten 403 `EMAIL_NOT_VERIFIED`. Neue Mail mit
   `POST /auth/email/verification-notification`.
@@ -153,7 +177,9 @@ POST /auth/login {email, password, device_name, device_platform?, app_version?}
 
 * Nur `status: active` ist nutzbar.
 * Den `tenant_slug` als `X-Tenant-Slug` mitsenden.
-* Branding (Logo, Farben) und Rechtstexte kommen aus der Mitgliedschaft.
+* Branding (Logo, Farben) und Links kommen aus der Mitgliedschaft
+  (`legal`: Impressum, Datenschutz, Profil im Web mit „Konto löschen“,
+  Datenrechte).
 
 Fehler beim Schul-Kontext:
 
@@ -170,6 +196,9 @@ Fehler beim Schul-Kontext:
   `not_granted`.
 * `capabilities` (z. B. `smarttrainer`, `exam`, `video`, `navigation`)
   steuert, welche Kacheln die App zeigt.
+* `last_activity_at` (letzte Antwort im Kurs) sortiert „Weiterlernen“ über
+  alle Kurse. `GET /courses/{id}/overview` nennt in `continue_learning` das
+  Modul und das Thema der letzten Frage („Du warst bei …“).
 
 Kursinhalte ohne gültigen Zugang ergeben 403 `ENTITLEMENT_REQUIRED` oder
 `ENTITLEMENT_EXPIRED`. Die App zeigt dann `webshop_url` bzw.
@@ -177,18 +206,23 @@ Kursinhalte ohne gültigen Zugang ergeben 403 `ENTITLEMENT_REQUIRED` oder
 
 ## 6. Smarttrainer und Lernmodi
 
-`GET /courses/{id}/trainer/next?mode=…` holt die nächste Frage; 204 heißt,
-es gibt keine passende Frage.
+`GET /courses/{id}/trainer/next?mode=…` holt die nächste Frage.
 
-| `mode` | Auswahl |
-|---|---|
-| `smarttrainer` | Standard |
-| `new` | neue Fragen |
-| `wrong` | falsch beantwortete Fragen |
-| `topic` | mit `topic` |
-| `favorites` | optional `question_ids` |
+| `mode` | Auswahl | 204 bedeutet |
+|---|---|---|
+| `smarttrainer` | Standard; gefestigte Fragen kommen zur Wiederholung | (praktisch nie; „alles geschafft“ = `progress.percent` 100) |
+| `new` | neue Fragen | alles schon gesehen |
+| `wrong` | falsch beantwortete Fragen | keine Fehler offen |
+| `topic` | mit `topic` | Thema erledigt |
+| `favorites` | Favoriten; `collection_id` = eine Sammlung, `question_ids` = genau diese | keine (passenden) Favoriten |
 
-Optional lässt sich zusätzlich `module_id` angeben.
+* `module_id` begrenzt `smarttrainer`, `new`, `wrong` und `topic` auf ein Modul.
+* `question_ids` außerhalb von `favorites` wirkt wie „Fehler üben“ im Web:
+  Fragen mit laufender richtiger Serie fallen heraus, am Ende kommt 204.
+* Die Antworten einer Einfachauswahl sind je Person gemischt (wie im Web);
+  `key` ist der Buchstabe der Anzeigeposition.
+* Fragen einer laufenden Prüfung sind gesperrt, auch bei einer anderen
+  Schule (409 `EXAM_QUESTION_LOCKED`).
 
 `POST /courses/{id}/attempts` (mit Idempotency-Key) gibt eine Antwort ab:
 
@@ -203,10 +237,14 @@ Web-App (`MasteryCalculator`).
 
 ## 7. Favoriten
 
-* Favoriten gelten je Kurs.
+* Favoriten gelten je Kurs. `GET …/favorites` enthält je Eintrag eine
+  Kurzfassung der Frage (`question`: Text, Thema, Lernstand, zuletzt geübt).
 * `PUT …/favorites/{questionId}` ist wiederholbar.
   * Ohne `collection_ids`: die Frage kommt in die Standard-Sammlung.
-  * Mit `collection_ids`: die Frage liegt genau in diesen Sammlungen.
+  * Mit `collection_ids`: die Frage liegt genau in diesen Sammlungen
+    (mindestens eine eigene Sammlung, sonst 422; entfernen über `DELETE`).
+* Üben: `trainer/next?collection_id=…` (eine Sammlung) oder
+  `?mode=favorites&question_ids=<id>` (genau eine Frage).
 * Sammlungen: anlegen, umbenennen, löschen (max. 60 Zeichen, eindeutiger
   Name). Die Standard-Sammlung bleibt.
 * `context: exam` gilt für Favoriten aus der Prüfung.
@@ -215,37 +253,47 @@ Web-App (`MasteryCalculator`).
 
 ```
 GET  /courses/{id}/exams                → Bögen/Optionen, Bestehensregel, laufend?, letztes Ergebnis
+GET  /courses/{id}/exam-sessions        → bisherige Versuche (Verlauf)
 POST /courses/{id}/exams {paper_id}     → 201 neu / 200 laufende fortsetzen
 GET  /exams/{id}                        → Fragen ohne Lösung, gegebene Antworten, phase, Zeit
 PUT  /exams/{id}/answers/{questionId}   → festschreiben
 POST /exams/{id}/questions/{qid}/reveal → Musterantwort (offene Fragen)
 PUT  /exams/{id}/navigation             → Navigationsaufgabe abgeben (SBF See)
 POST /exams/{id}/navigation/assessment  → Selbsteinschätzung → Auswertung
-POST /exams/{id}/submit                 → abgeben → Ergebnis
+POST /exams/{id}/submit                 → abgeben → Ergebnis (Navigation fehlt: 409, außer without_navigation)
 GET  /exams/{id}/result                 → Ergebnis mit Lösungen
 ```
 
 * **Phasen (`phase`):**
   * `questions`: es sind noch Fragen offen.
-  * `navigation`: alle Fragen beantwortet, die Navigation fehlt noch.
+  * `navigation`: alle Fragen beantwortet (oder die Zeit ist um), die
+    Navigation fehlt noch.
   * `navigation_assessment`: Navigation abgegeben, Selbsteinschätzung
     steht aus.
   * `ready_to_submit`: alles beantwortet.
   * `evaluated`: ausgewertet.
 * **Reihenfolge:** Fragen dürfen in beliebiger Reihenfolge beantwortet
-  werden; jede Antwort ist danach festgeschrieben.
-* **Zeit:** Nach Ablauf zählt keine Antwort mehr.
-  * Die Prüfung wird beim nächsten Aufruf ausgewertet (410 `EXAM_EXPIRED`
-    bzw. `status: evaluated`).
-  * Für die Navigation gilt eine Nachfrist von 2 Minuten. Die
-    Selbsteinschätzung zählt nicht zur Prüfungszeit (bis 15 Min.).
+  werden; jede Antwort ist danach festgeschrieben. Die Navigation kommt wie
+  im Web erst nach dem Fragebogen (sonst 409 `EXAM_QUESTIONS_OPEN`).
+* **Zeit:** Nach Ablauf (`expires_at`) zählt keine Antwort mehr (410
+  `EXAM_EXPIRED`).
+  * Mit Navigationsteil bleibt die Prüfung für die Navigation offen: Abgabe
+    bis `navigation_submit_until` (2 Min. nach Ende), Selbsteinschätzung bis
+    `navigation_assessment_until` (15 Min. nach Ende). Danach wird
+    ausgewertet; eine spätere Selbsteinschätzung zählt nicht (Web und App
+    gleich).
+  * Ohne Navigationsteil wird beim nächsten Aufruf ausgewertet.
+* **Abgabe:** Fehlt die Navigation noch, lehnt `submit` mit 409
+  `EXAM_NAVIGATION_NOT_SUBMITTED` ab. `{"without_navigation": true}` gibt
+  ohne sie ab (Navigation 0 Punkte).
 * **Bestanden:** Gesamtquote **und** alle Teilgrenzen (`parts`, z. B. SBF
   See Basis 5/7 und See 18/23) **und** die Navigation (7/9).
 * **Kombikurse:** Jeder Bogen läuft nach dem Regelwerk seiner Teilprüfung
   (`group`).
 * **Lösungen** gibt es nur im Ergebnis. Die laufende Prüfung enthält keine
-  Kennzeichnung richtiger Antworten und keine Erklärungen (durch einen Test
-  abgesichert).
+  Kennzeichnung richtiger Antworten und keine Erklärungen, die Antworten
+  sind je Person gemischt (durch Tests abgesichert).
+* `name` und `pass_rule` stehen auch in der laufenden Prüfung.
 * **Navigationsaufgabe der laufenden Prüfung:** Sie ist im Übungsbereich
   gesperrt (409 `NAVIGATION_TASK_IN_EXAM`).
 
@@ -263,47 +311,61 @@ GET  /exams/{id}/result                 → Ergebnis mit Lösungen
 ## 10. Navigationstrainer, Codes, Datenexport
 
 * **Navigationstrainer:**
-  * Musterlösungen nur mit `show_solution=true`.
+  * Musterlösungen in der Aufgabe nur mit `show_solution=true`; die
+    Antwort auf `PUT …/parts/{id}/answer` enthält sie immer.
   * Eigene Antworten mit Messwerten (Kurs, Zeit, Distanz, Position) prüft
     der Server mit Toleranz (`auto_checked`).
   * Sonst bewertet sich die Person selbst (`self_assessment`).
 * **Code einlösen:** `POST /coupons/redeem {code}`.
-  * Groß-/Kleinschreibung, Leerzeichen und fehlende Bindestriche sind egal.
+  * Groß-/Kleinschreibung und Leerzeichen am Rand sind egal; beim
+    16-stelligen Standardformat auch Leerzeichen statt oder fehlende
+    Bindestriche.
   * Danach `GET /courses` neu laden.
   * `type`: `course`, `course_renewal` oder `product`.
 * **Datenexport:**
   * `POST /profile/export` erzeugt eine JSON-Datei mit allen Daten bei
-    dieser Schule, inkl. der App-Geräte.
+    dieser Schule, inkl. der App-Geräte (`status: ready`, bei einem Fehler
+    `failed`). Ohne Idempotency-Key: jeder Aufruf erzeugt einen frischen
+    Export.
   * `GET /profile/export/{id}` liefert `download_url`: signiert, 10 Minuten
     gültig, ohne Token nutzbar (z. B. Teilen-Menü).
-  * Nach 60 Minuten wird die Datei gelöscht.
+  * Nach 60 Minuten ist der Export abgelaufen; die Datei löscht das
+    stündliche Aufräumen.
 
 ## 11. Fehlercodes
 
 | HTTP | `code` | Bedeutung / App-Reaktion |
 |---|---|---|
 | 401 | `UNAUTHENTICATED` | Token fehlt/abgelaufen → einmal `refresh`, sonst Login |
-| 422 | `TWO_FACTOR_INVALID` | 2FA-Code falsch |
-| 422 | `VALIDATION_FAILED` | Eingaben prüfen, Details in `errors` |
-| 422 | `PASSWORD_RESET_INVALID_OR_EXPIRED` | neuen Link anfordern |
-| 429 | `RATE_LIMITED` | `Retry-After` abwarten |
 | 403 | `EMAIL_NOT_VERIFIED` | Bestätigungsmail anbieten |
 | 403 | `TENANT_MEMBERSHIP_REQUIRED` / `_SUSPENDED`, `TENANT_UNAVAILABLE` | Schulwahl / Support |
 | 403 | `ENTITLEMENT_REQUIRED` / `ENTITLEMENT_EXPIRED` | Webshop-Link, Code-Eingabe |
 | 403 | `FORBIDDEN` | keine Berechtigung |
+| 403 | `LINK_INVALID` | Download-Link manipuliert oder abgelaufen → Status neu laden |
 | 404 | `RESOURCE_NOT_FOUND` | auch für fremde Daten (keine Aussage über Existenz) |
+| 405 | `METHOD_NOT_ALLOWED` | Programmierfehler in der App |
+| 409 | `CONFLICT` | allgemeiner Konflikt bzw. dieselbe Anfrage läuft noch (`Retry-After`) |
 | 409 | `IDEMPOTENCY_KEY_REUSED` | neuen Schlüssel erzeugen |
 | 409 | `COLLECTION_NOT_DELETABLE` | Standard-Sammlung |
 | 409 | `EXAM_NOT_AVAILABLE` | Regelwerk nicht freigegeben |
 | 409 | `EXAM_ANSWER_LOCKED` | Antwort bereits festgeschrieben |
+| 409 | `EXAM_QUESTION_LOCKED` | Frage gerade in einer laufenden Prüfung (Lernmodus) |
+| 409 | `EXAM_QUESTIONS_OPEN` | erst den Fragebogen beenden, dann Navigation |
 | 409 | `EXAM_ALREADY_SUBMITTED` / `EXAM_NOT_SUBMITTED` | Ergebnis bzw. Prüfung laden |
-| 409 | `EXAM_NO_NAVIGATION_PART`, `EXAM_NAVIGATION_ALREADY_SUBMITTED`, `EXAM_NAVIGATION_NOT_SUBMITTED` | Phase neu laden |
+| 409 | `EXAM_NO_NAVIGATION_PART`, `EXAM_NAVIGATION_ALREADY_SUBMITTED`, `EXAM_NAVIGATION_NOT_SUBMITTED` | Phase neu laden / nachfragen |
 | 409 | `NAVIGATION_TASK_IN_EXAM` | erst Prüfung beenden (`exam_id` im Fehler) |
-| 410 | `EXAM_EXPIRED` | Ergebnis laden |
+| 410 | `EXAM_EXPIRED` | Prüfung bzw. Ergebnis neu laden |
 | 410 | `EXPORT_EXPIRED` | neuen Export anfordern |
+| 410 | `GONE` | allgemein: nicht mehr verfügbar |
+| 422 | `VALIDATION_FAILED` | Eingaben prüfen, Details in `errors` |
+| 422 | `TWO_FACTOR_INVALID` | 2FA-Code falsch |
+| 422 | `PASSWORD_RESET_INVALID_OR_EXPIRED` | neuen Link anfordern |
 | 422 | `COUPON_INVALID` | „Code ungültig, abgelaufen oder bereits eingelöst“ |
 | 422 | `COUPON_NOT_APPLICABLE` | Meldung aus `detail` anzeigen |
-| 409 | `CONFLICT` | allgemeiner Konflikt |
+| 426 | `APP_UPDATE_REQUIRED` | Update-Hinweis mit `store_url` |
+| 429 | `RATE_LIMITED` | `Retry-After` abwarten |
+| 4xx | `REQUEST_FAILED` | sonstiger Fehler; `detail` anzeigen |
+| 503 | `MAINTENANCE` | Wartungshinweis (`detail`), `Retry-After` |
 | 5xx | `SERVER_ERROR` / `SERVICE_UNAVAILABLE` | später erneut; `request_id` an Support |
 
 Texte in `title`/`detail` sind deutsch und für Lernende formuliert. Die App
@@ -318,20 +380,36 @@ entscheidet aber nur anhand von `code`.
   wird bei jedem Aufruf geprüft.
 * **Protokoll:** Datenexporte werden protokolliert (`audit_log`, Kanal
   `app`).
-* **Löschfristen** (`php artisan app:prune-personal-data`, täglich):
+* **Löschfristen** (`php artisan app:prune-personal-data --mobile-api-only`,
+  stündlich; dazu der tägliche Gesamtlauf):
   * beendete oder abgelaufene App-Sitzungen nach 30 Tagen,
-  * Idempotenz-Schlüssel nach 24 Stunden,
-  * Exporte nach Ablauf.
-* **Konto oder Mitgliedschaft löschen** entfernt die App-Sitzungen und
-  Exporte mit.
+  * Idempotenz-Schlüssel nach 24 Stunden (gelesen werden sie ohnehin nur so
+    lange),
+  * Exporte und ihre Dateien nach Ablauf.
+* **Konto löschen** entfernt App-Sitzungen, Exporte samt Dateien und
+  gespeicherte Antworten sofort. **Eine Schule verlassen** entfernt die
+  Exporte dieser Schule samt Dateien und die gespeicherten Antworten; die
+  App-Sitzungen gelten kontoweit und bleiben (für andere Schulen).
+* **Datenschutzerklärung:** Die zentrale Vorlage nennt die Lern-App
+  (Geräteangaben, Speicherfristen). Schulen mit eigener Vorlage müssen den
+  Absatz selbst ergänzen.
+* **Bekannte Grenze:** Ein gültiger, aber für das eigene Konto nicht
+  anwendbarer Code ergibt `COUPON_NOT_APPLICABLE` statt `COUPON_INVALID`
+  (wie im Web). Bei 80 Bit je Code und 10 Versuchen pro Minute lässt sich
+  das nicht zum Durchprobieren nutzen.
 
 ## 13. Betrieb
 
-* **Konfiguration** über `.env`; ohne Eintrag gelten 15 / 30 / 90 / 60:
+* **Konfiguration** über `.env` (Vorlage in `.env.example`); ohne Eintrag
+  gelten 15 / 30 / 90 / 60:
   * `MOBILE_API_ACCESS_TTL_MINUTES`
   * `MOBILE_API_REFRESH_IDLE_DAYS`
   * `MOBILE_API_REFRESH_MAX_DAYS`
   * `MOBILE_API_EXPORT_TTL_MINUTES`
+  * `MOBILE_API_MIN_VERSION_IOS` / `_ANDROID` und `MOBILE_API_STORE_URL_IOS`
+    / `_ANDROID` (leer = keine Mindestversion)
+* **Wartungsmodus** der Plattform (Superadmin-Einstellungen) gilt auch für
+  die API (503 `MAINTENANCE`); `GET /app/config` bleibt erreichbar.
 * **Keine CORS-Freigabe nötig** (native Apps). Die API nutzt keine Cookies
   und keine Sessions.
 * **Migration:** `2024_02_01_000591_create_mobile_api_tables`. Sie legt
@@ -345,6 +423,9 @@ entscheidet aber nur anhand von `code`.
 * Offline-Modus und Synchronisation.
 * Push-Benachrichtigungen.
 * In-App-Käufe (Kauf bleibt im externen Webshop).
-* Funkgeräte-Simulator, Praxistrainer, Video-Quiz und Prüfungstermine.
+* Funkgeräte-Simulator, Praxistrainer, Video-Quiz und Prüfungstermine
+  (eine Video-Lektion lässt sich deshalb ohne Quiz abschließen).
+* Untertitel und Vorschaubilder für Videos; Seekarten fehlen bisher in den
+  Navigationsaufgaben (`chart: null`), dafür braucht es die Papierkarte.
 * Registrierung in der App.
 * Konto löschen in der App (siehe Hinweis Apple oben).

@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Api\CourseAccess;
+use App\Api\Present;
 use App\Http\Controllers\Controller;
 use App\Models\Attempt;
-use App\Models\ContentQuestion;
+use App\Models\ContentQuestionRevision;
 use App\Models\CourseDefinition;
 use App\Models\CourseWebshopLink;
+use App\Models\Entitlement;
 use App\Models\Progress;
 use App\Models\TenantCourseDisabled;
 use App\Services\CourseProgressService;
@@ -15,6 +17,7 @@ use App\Services\EntitlementService;
 use App\Support\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 /** Kurse, Zugänge, Kursübersicht, Module/Themen und Fortschritt. */
@@ -46,6 +49,9 @@ class CourseController extends Controller
             ->reject(fn ($c) => $active->has($c->id));
         $webshop = CourseWebshopLink::where('tenant_id', $tenant->id)->pluck('url', 'course_id');
         $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get();
+        // Review-Runde 13: einmal laden statt je Kurs (Startbildschirm der App).
+        $entitlements = Entitlement::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get();
+        $lastActivity = $this->lastActivityByCourse($tenant->id, $user->id);
 
         $courses = $active->map(fn ($e) => $e->course)->filter()->concat($offered)
             ->sortBy(fn ($c) => [$active->has($c->id) ? 0 : 1, $order[$c->code] ?? PHP_INT_MAX, $c->name])->values();
@@ -55,7 +61,7 @@ class CourseController extends Controller
         $slice = $courses->slice(($page - 1) * $perPage, $perPage)->values();
 
         return response()->json([
-            'data' => $slice->map(fn (CourseDefinition $course) => $this->summary($course, $progress, $active->get($course->id), $webshop->get($course->id)))->values(),
+            'data' => $slice->map(fn (CourseDefinition $course) => $this->summary($course, $progress, $active->get($course->id), $webshop->get($course->id), $entitlements, $lastActivity))->values(),
             'meta' => [
                 'tenant' => ['slug' => $tenant->slug, 'name' => $tenant->name],
                 'renewal_webshop_url' => $tenant->branding?->renewal_webshop_link,
@@ -87,14 +93,23 @@ class CourseController extends Controller
         $modules = $this->moduleList($course);
 
         // Weiterlernen beim Modul der letzten Antwort in diesem Kurs.
-        $lastQuestionId = Attempt::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)
-            ->latest('created_at')->value('question_id');
-        $lastModule = $lastQuestionId ? $course->modules->first(fn ($m) => $m->questions->contains('id', $lastQuestionId)) : null;
+        $last = Attempt::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)
+            ->latest('created_at')->first(['question_id', 'revision_id', 'created_at']);
+        $lastModule = $last ? $course->modules->first(fn ($m) => $m->questions->contains('id', $last->question_id)) : null;
+        $lastRevision = $last ? ContentQuestionRevision::find($last->revision_id) : null;
+        $summary = $this->summary($course, $progress, null, null);
 
         return response()->json(['data' => [
-            'course' => $this->summary($course, $progress, null, null),
-            'progress' => $this->summary($course, $progress, null, null)['progress'],
-            'continue_learning' => $lastModule ? ['module_id' => $lastModule->id, 'module_name' => $lastModule->name, 'mode' => 'smarttrainer'] : null,
+            'course' => $summary,
+            'progress' => $summary['progress'],
+            'continue_learning' => $last ? [
+                'module_id' => $lastModule?->id,
+                'module_name' => $lastModule?->name,
+                // Review-Runde 13: „Du warst bei …“ (Thema der letzten Frage).
+                'topic' => $lastRevision ? ($lastRevision->smartmodus_kategorie ?: $lastRevision->topic) : null,
+                'mode' => 'smarttrainer',
+                'last_activity_at' => Present::time($last->created_at),
+            ] : null,
             'modules' => $modules,
         ]]);
     }
@@ -113,7 +128,7 @@ class CourseController extends Controller
         $user = $request->user();
         $course = $this->access->require($tenant, $user, $courseId);
         $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get();
-        $questionIds = ContentQuestion::currentlyValidIds($course->modules->flatMap(fn ($m) => $m->questions));
+        $questionIds = $this->access->validQuestionIds($course);
         $own = $progress->whereIn('question_id', $questionIds);
 
         return response()->json(['data' => [
@@ -146,24 +161,34 @@ class CourseController extends Controller
             ])->all();
     }
 
-    private function summary(CourseDefinition $course, Collection $progress, $activeEntitlement, ?string $webshopUrl): array
+    private function summary(CourseDefinition $course, Collection $progress, $activeEntitlement, ?string $webshopUrl, ?Collection $entitlements = null, ?Collection $lastActivity = null): array
     {
         $tenant = $this->tenantContext->tenant();
-        $course->loadMissing('modules.questions');
-        $questionIds = ContentQuestion::currentlyValidIds($course->modules->flatMap(fn ($m) => $m->questions));
+        $questionIds = $this->access->validQuestionIds($course);
         $total = $questionIds->count();
-        $mastered = $progress->whereIn('question_id', $questionIds)->where('learning_state', 'gefestigt')->count();
+        $mastered = $progress->isEmpty() ? 0 : $progress->whereIn('question_id', $questionIds->all())->where('learning_state', 'gefestigt')->count();
+        $lastActivity ??= $this->lastActivityByCourse($tenant->id, request()->user()->id, $course->id);
 
         return [
             'id' => $course->id,
             'code' => $course->code,
             'name' => $course->name,
             'description' => $course->description ?? null,
-            'access' => $this->access->status($tenant, request()->user(), $course, $activeEntitlement),
+            'access' => $this->access->status($tenant, request()->user(), $course, $activeEntitlement, $entitlements),
             // Gefestigt = 3× richtig in Folge (dieselbe Regel wie im Web).
             'progress' => ['percent' => $total > 0 ? (int) round($mastered / $total * 100) : 0, 'completed' => $mastered, 'total' => $total],
             'capabilities' => $this->access->capabilities($course),
             'webshop_url' => $webshopUrl,
+            // Review-Runde 13: für „Weiterlernen“ über alle Kurse.
+            'last_activity_at' => Present::time(($at = $lastActivity->get($course->id)) ? Carbon::parse($at) : null),
         ];
+    }
+
+    /** Letzte Antwort je Kurs (eine Abfrage). @return Collection<string, string> */
+    private function lastActivityByCourse(string $tenantId, string $userId, ?string $courseId = null): Collection
+    {
+        return Attempt::where('tenant_id', $tenantId)->where('user_id', $userId)
+            ->when($courseId, fn ($q) => $q->where('course_id', $courseId))
+            ->groupBy('course_id')->selectRaw('course_id, max(created_at) as last_at')->pluck('last_at', 'course_id');
     }
 }

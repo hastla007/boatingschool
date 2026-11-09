@@ -169,13 +169,9 @@ class SmarttrainerService
      */
     public function runningExamQuestionIds(Tenant $tenant, User $user): Collection
     {
-        return ExamSession::where('tenant_id', $tenant->id)
-            ->where('user_id', $user->id)
-            ->where('status', 'running')
-            ->with('questions')
-            ->get()
-            ->reject(fn (ExamSession $session) => $this->examEvaluation->timeExpired($session))
-            ->flatMap(fn (ExamSession $session) => $session->questions->pluck('question_id'));
+        // Review-Runde 13: schulübergreifend und mit stillOpen() (Nachfrist,
+        // Selbsteinschätzung der Navigation) statt nur „Zeit nicht abgelaufen“.
+        return ExamSession::blockedQuestionIdsFor($user->id);
     }
 
     private function questionTopic(ContentQuestion $question): ?string
