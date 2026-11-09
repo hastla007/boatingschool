@@ -31,6 +31,9 @@ class ExamActions
     /** Die Prüfung war bereits ausgewertet. */
     public const EVALUATED = 'evaluated';
 
+    /** Navigation erst nach dem Fragebogen (solange die Zeit läuft). */
+    public const QUESTIONS_OPEN = 'questions_open';
+
     public function __construct(private ExamEvaluationService $evaluation) {}
 
     /**
@@ -174,6 +177,15 @@ class ExamActions
 
                 return;
             }
+            // Review-Runde 13: wie im Web erst der Fragebogen, dann die
+            // Navigation -- sonst begann die Selbsteinschätzung (und mit ihr
+            // die Auswertung) bei noch offenen Fragen. Nach Zeitablauf zählt
+            // nur noch die Navigation.
+            if (! $this->evaluation->timeExpired($examSession) && $examSession->questions()->whereNull('answered_at')->exists()) {
+                $outcome = self::QUESTIONS_OPEN;
+
+                return;
+            }
             // Review-Runde 10: wer kurz nach Ablauf abgibt, verliert die ganze
             // Aufgabe nicht -- innerhalb der Nachfrist zählen die Antworten wie
             // zum Prüfungsende abgegeben (wie Papier, das eingesammelt wird).
@@ -211,6 +223,15 @@ class ExamActions
             return self::EVALUATED;
         }
         abort_unless($examSession->status === 'running' && $examSession->navigation_submitted_at, 409);
+
+        // Review-Runde 13: nach dem Fenster für die Selbsteinschätzung
+        // (NAVIGATION_ASSESS_GRACE) zählt sie nicht mehr -- in Web und App
+        // gleich; die Prüfung wird ohne sie ausgewertet.
+        if (! $examSession->inNavigationAssessment()) {
+            $this->evaluation->evaluate($examSession);
+
+            return self::EXPIRED;
+        }
 
         DB::transaction(function () use ($examSession, $known) {
             DB::table('exam_session')->where('id', $examSession->id)->lockForUpdate()->first();

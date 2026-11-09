@@ -82,6 +82,9 @@ class Present
                 'legal' => [
                     'imprint_url' => CanonicalUrl::root($tenant).'/impressum',
                     'privacy_url' => CanonicalUrl::root($tenant).'/datenschutz',
+                    // Review-Runde 13: Konto löschen und Datenrechte laufen im Web.
+                    'account_url' => CanonicalUrl::root($tenant).'/profile',
+                    'data_rights_url' => CanonicalUrl::root($tenant).'/meine-daten',
                 ],
             ];
         })->filter()->values()->all();

@@ -78,7 +78,11 @@ class ExamController extends Controller
 
         return response()->json([
             'data' => $options,
-            'meta' => ['includes_navigation_task' => $course->navigationTasks()->exists()],
+            'meta' => [
+                'includes_navigation_task' => $course->navigationTasks()->exists(),
+                // Review-Runde 13: ohne startbare Prüfung sagen, warum (z. B. Regelwerk noch Entwurf).
+                'rule_set_status' => $options->isNotEmpty() ? 'verified' : ($course->examRuleSets()->exists() ? 'draft' : 'none'),
+            ],
         ]);
     }
 
@@ -112,6 +116,37 @@ class ExamController extends Controller
         }
 
         return response()->json(['data' => $this->sessionPayload($session->fresh())], $session->wasRecentlyCreated ? 201 : 200);
+    }
+
+    /** Review-Runde 13: bisherige Prüfungsversuche des Kurses (neueste zuerst). */
+    public function history(Request $request, string $courseId): JsonResponse
+    {
+        $tenant = $this->tenantContext->tenant();
+        $user = $request->user();
+        $course = $this->access->require($tenant, $user, $courseId);
+        $perPage = max(1, min(100, (int) $request->query('per_page', 20)));
+
+        $page = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)
+            ->where('status', 'evaluated')->with('paper')->orderByDesc('submitted_at')->paginate($perPage);
+        $counts = ExamSessionQuestion::whereIn('exam_session_id', $page->getCollection()->pluck('id'))
+            ->selectRaw('exam_session_id, count(*) as question_count, sum(case when correct then 1 else 0 end) as correct_count')
+            ->groupBy('exam_session_id')->get()->keyBy('exam_session_id');
+
+        return response()->json([
+            'data' => $page->getCollection()->map(fn (ExamSession $s) => [
+                'exam_id' => $s->id,
+                'paper_id' => $s->paper_id,
+                'name' => $this->examName($s),
+                'passed' => (bool) $s->passed,
+                'score' => (float) $s->score,
+                'correct_count' => (int) ($counts->get($s->id)->correct_count ?? 0),
+                'question_count' => (int) ($counts->get($s->id)->question_count ?? 0),
+                'navigation_points' => $s->navigation_points,
+                'started_at' => Present::time($s->started_at),
+                'evaluated_at' => Present::time($s->submitted_at),
+            ])->values(),
+            'meta' => ['pagination' => ['page' => $page->currentPage(), 'per_page' => $perPage, 'total' => $page->total(), 'last_page' => $page->lastPage()]],
+        ]);
     }
 
     public function show(Request $request, string $examId): JsonResponse
@@ -205,6 +240,9 @@ class ExamController extends Controller
         }
 
         $outcome = $this->actions->submitNavigation($session, $validated['answers']);
+        if ($outcome === ExamActions::QUESTIONS_OPEN) {
+            throw new ApiProblem(409, 'EXAM_QUESTIONS_OPEN', 'Fragen offen', 'Bitte zuerst alle Fragen beantworten – danach folgt die Navigationsaufgabe.');
+        }
         if ($outcome === ExamActions::ALREADY_ANSWERED) {
             throw new ApiProblem(409, 'EXAM_NAVIGATION_ALREADY_SUBMITTED', 'Navigation bereits abgegeben', 'Die Navigationsaufgabe ist bereits abgegeben.');
         }
@@ -229,7 +267,9 @@ class ExamController extends Controller
         }
         $this->requireRunning($session, allowNavigationGrace: true);
 
-        $this->actions->assessNavigationAndFinish($session, $validated['known']);
+        if ($this->actions->assessNavigationAndFinish($session, $validated['known']) === ExamActions::EXPIRED) {
+            throw $this->expired();
+        }
 
         return response()->json(['data' => $this->resultPayload($session->fresh())]);
     }
@@ -237,7 +277,16 @@ class ExamController extends Controller
     /** Prüfung abgeben und auswerten; erneuter Aufruf liefert dasselbe Ergebnis. */
     public function submit(Request $request, string $examId): JsonResponse
     {
+        $validated = $request->validate(['without_navigation' => ['nullable', 'boolean']]);
         $session = $this->ownSession($request, $examId);
+        // Review-Runde 13: eine versehentliche Abgabe vor der Navigations-
+        // aufgabe kostete sie ganz (SBF See: 7/9 Pflicht). Nur ausdrücklich
+        // ohne Navigation abgeben -- oder nach Ablauf der Abgabefrist.
+        if ($session->status === 'running' && $session->hasNavigationPart() && ! $session->navigation_submitted_at
+            && empty($validated['without_navigation']) && $session->stillOpen($this->evaluation->timeExpired($session))) {
+            throw new ApiProblem(409, 'EXAM_NAVIGATION_NOT_SUBMITTED', 'Navigation fehlt',
+                'Die Navigationsaufgabe ist noch nicht abgegeben. Zum Abgeben ohne Navigation without_navigation: true senden.');
+        }
         $this->actions->finish($session);
 
         return response()->json(['data' => $this->resultPayload($session->fresh())]);
@@ -329,11 +378,21 @@ class ExamController extends Controller
         if ($session->status !== 'running') {
             throw new ApiProblem(409, 'CONFLICT', 'Prüfung nicht aktiv');
         }
-        $expired = $this->evaluation->timeExpired($session);
-        if ($expired && (! $allowNavigationGrace || ! $session->stillOpen(true))) {
-            $this->evaluation->evaluate($session);
+        if (! $this->evaluation->timeExpired($session)) {
+            return;
+        }
+        // Zeit um. Läuft noch die Nachfrist bzw. Selbsteinschätzung der
+        // Navigation, bleibt die Prüfung dafür offen (Review-Runde 13: eine zu
+        // späte Antwort auf eine Frage wertete sonst alles aus und die
+        // Navigation ging verloren).
+        if ($session->stillOpen(true)) {
+            if ($allowNavigationGrace) {
+                return;
+            }
             throw $this->expired();
         }
+        $this->evaluation->evaluate($session);
+        throw $this->expired();
     }
 
     private function failOn(string $outcome): void
@@ -400,7 +459,9 @@ class ExamController extends Controller
             if ($session->navigation_submitted_at) {
                 return 'navigation_assessment';
             }
-            if ($open === 0) {
+            // Fragebogen fertig -- oder Zeit um: dann zählt nur noch die
+            // Abgabe der Navigation (Nachfrist).
+            if ($open === 0 || $this->evaluation->timeExpired($session)) {
                 return 'navigation';
             }
         }
@@ -419,15 +480,20 @@ class ExamController extends Controller
             'exam_id' => $session->id,
             'course_id' => $session->course_id,
             'paper_id' => $session->paper_id,
+            'name' => $this->examName($session),
+            'pass_rule' => $session->effectiveRuleSet()->passingSummary(max(1, $questions->count())),
             'status' => $session->status,
             'phase' => $phase,
             'started_at' => Present::time($session->started_at),
             'expires_at' => Present::time($deadline),
             'server_time' => Present::time(now()),
             'remaining_seconds' => $deadline ? max(0, (int) now()->diffInSeconds($deadline, false)) : null,
+            // Fristen der Navigationsaufgabe (Abgabe nach Zeitablauf, Selbsteinschätzung).
+            'navigation_submit_until' => $deadline && $session->hasNavigationPart() ? Present::time($deadline->copy()->addSeconds(ExamSession::NAVIGATION_SUBMIT_GRACE)) : null,
+            'navigation_assessment_until' => $deadline && $session->hasNavigationPart() ? Present::time($deadline->copy()->addSeconds(ExamSession::NAVIGATION_ASSESS_GRACE)) : null,
             'question_count' => $questions->count(),
             'answered_count' => $questions->count() - $open,
-            'questions' => $questions->map(fn (ExamSessionQuestion $sq) => QuestionPresenter::question($sq->revision) + [
+            'questions' => $questions->map(fn (ExamSessionQuestion $sq) => QuestionPresenter::question($sq->revision, null, $session->user_id) + [
                 'position' => $sq->position,
                 'answered' => $sq->answered_at !== null,
                 'revealed' => $sq->revealed_at !== null,
@@ -492,6 +558,7 @@ class ExamController extends Controller
             'exam_id' => $session->id,
             'course_id' => $session->course_id,
             'paper_id' => $session->paper_id,
+            'name' => $this->examName($session),
             'status' => 'evaluated',
             'passed' => (bool) $session->passed,
             'score' => (float) $session->score,
@@ -507,7 +574,7 @@ class ExamController extends Controller
             'by_topic' => $questions->groupBy(fn ($q) => ($q->revision?->smartmodus_kategorie ?: $q->revision?->topic) ?? '—')
                 ->map(fn ($rows, $topic) => ['topic' => (string) $topic, 'correct_count' => $rows->where('correct', true)->count(), 'question_count' => $rows->count()])
                 ->values(),
-            'questions' => $questions->map(fn (ExamSessionQuestion $sq) => QuestionPresenter::question($sq->revision) + [
+            'questions' => $questions->map(fn (ExamSessionQuestion $sq) => QuestionPresenter::question($sq->revision, null, $session->user_id) + [
                 'position' => $sq->position,
                 'selected_answer_ids' => $this->selectedIds($sq),
                 'known' => $sq->revision->question_type === 'open_text' ? $sq->self_assessed_known : null,
@@ -517,6 +584,17 @@ class ExamController extends Controller
             ])->values(),
             'navigation' => $this->navigationPayload($session, true),
         ];
+    }
+
+    private function examName(ExamSession $session): string
+    {
+        $paper = $session->paper;
+        if (! $paper) {
+            return 'Prüfungssimulation';
+        }
+        $combo = ComboExamGroups::infoFor((string) $session->course?->code, $paper->paper_number);
+
+        return trim(($combo['label'] ?? '').' Bogen '.($combo['displayNumber'] ?? $paper->paper_number));
     }
 
     private function locked(): ApiProblem

@@ -10,12 +10,15 @@ use App\Http\Controllers\Controller;
 use App\Models\Attempt;
 use App\Models\ContentQuestionRevision;
 use App\Models\Favorite;
+use App\Models\FavoriteCollection;
+use App\Models\FavoriteCollectionItem;
 use App\Models\Progress;
 use App\Services\LearningFlow;
 use App\Support\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 /**
  * Smarttrainer der App: dieselbe Auswahl und Bewertung wie im Web
@@ -37,12 +40,24 @@ class LearningController extends Controller
             'module_id' => ['nullable', 'uuid'],
             'topic' => ['nullable', 'string', 'max:255'],
             'question_ids' => ['nullable', 'string', 'max:4000'],
+            'collection_id' => ['nullable', 'uuid'],
         ]);
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
         $course = $this->access->require($tenant, $user, $courseId);
         $mode = $validated['mode'] ?? 'smarttrainer';
         $questionIds = isset($validated['question_ids']) ? array_values(array_filter(explode(',', $validated['question_ids']))) : null;
+        // Review-Runde 13: eine Favoriten-Sammlung üben.
+        if (! empty($validated['collection_id'])) {
+            $collection = FavoriteCollection::where('id', $validated['collection_id'])->where('tenant_id', $tenant->id)
+                ->where('user_id', $user->id)->where('course_id', $course->id)->first();
+            if (! $collection) {
+                throw ApiProblem::notFound('Sammlung');
+            }
+            $mode = 'favorites';
+            $questionIds = FavoriteCollectionItem::where('tenant_id', $tenant->id)->where('favorite_collection_id', $collection->id)
+                ->pluck('question_id')->unique()->values()->all();
+        }
 
         $next = $this->flow->nextQuestion($tenant, $user, $course, $mode, $validated['topic'] ?? null, $validated['module_id'] ?? null, $questionIds);
         if (! $next) {
@@ -55,7 +70,7 @@ class LearningController extends Controller
         }
         $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('question_id', $revision->question_id)->first();
         $moduleId = $course->modules->first(fn ($m) => $m->questions->contains('id', $revision->question_id))?->id;
-        $question = QuestionPresenter::question($revision, $moduleId);
+        $question = QuestionPresenter::question($revision, $moduleId, $user->id);
         if ($revision->question_type === 'open_text') {
             // Offene Frage im Lernmodus: Musterantwort zum Aufdecken, danach
             // schätzt die Person selbst ein (known: true/false).
@@ -103,13 +118,26 @@ class LearningController extends Controller
             throw new ApiProblem(422, 'VALIDATION_FAILED', 'Eingaben ungültig', null, ['selected_answer_ids' => ['Bei dieser Frage ist genau eine Antwort richtig.']]);
         }
 
-        $attempt = $this->flow->submitAttempt($tenant, $user, $course, [
-            'revision_id' => $revision->id,
-            'answer_id' => $revision->question_type === 'multi_choice' ? null : ($selected[0] ?? null),
-            'answer_ids' => $revision->question_type === 'multi_choice' ? $selected : null,
-            'known' => $validated['known'] ?? null,
-            'mode' => $validated['mode'] ?? 'smarttrainer',
-        ]);
+        try {
+            $attempt = $this->flow->submitAttempt($tenant, $user, $course, [
+                'revision_id' => $revision->id,
+                'answer_id' => $revision->question_type === 'multi_choice' ? null : ($selected[0] ?? null),
+                'answer_ids' => $revision->question_type === 'multi_choice' ? $selected : null,
+                'known' => $validated['known'] ?? null,
+                'mode' => $validated['mode'] ?? 'smarttrainer',
+            ]);
+        } catch (HttpException $e) {
+            // Review-Runde 13: eigene Codes statt allgemeinem CONFLICT/404.
+            throw match ($e->getStatusCode()) {
+                409 => new ApiProblem(409, 'EXAM_QUESTION_LOCKED', 'Frage gerade in der Prüfung', $e->getMessage()),
+                404 => str_contains($e->getMessage(), 'Antwort')
+                    ? new ApiProblem(422, 'VALIDATION_FAILED', 'Eingaben ungültig', null, ['selected_answer_ids' => ['Unbekannte Antwort.']])
+                    : ApiProblem::notFound('Frage'),
+                default => $e,
+            };
+        }
+        // created_at kommt aus der Datenbank (Standardwert).
+        $attempt->refresh();
 
         return response()->json(['data' => $this->result($attempt)], 201);
     }
@@ -131,7 +159,8 @@ class LearningController extends Controller
     {
         $revision = ContentQuestionRevision::with('answers')->findOrFail($attempt->revision_id);
         $progress = Progress::where('tenant_id', $attempt->tenant_id)->where('user_id', $attempt->user_id)->where('question_id', $attempt->question_id)->first();
-        $selected = $attempt->selected_answer_ids ?: array_filter([$attempt->selected_answer_id]);
+        // Offene Fragen: keine Auswahl (intern steht dort die Musterantwort).
+        $selected = $revision->question_type === 'open_text' ? [] : ($attempt->selected_answer_ids ?: array_filter([$attempt->selected_answer_id]));
 
         return [
             'attempt_id' => $attempt->id,

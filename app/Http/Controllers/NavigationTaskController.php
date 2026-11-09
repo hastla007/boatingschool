@@ -57,6 +57,9 @@ class NavigationTaskController extends Controller
 
         $task = $tasks->firstWhere('id', $task->id);
         if ($running = $this->runningExamWithTask($request, $tenantContext, $task)) {
+            // Prüfung bei einer anderen Schule: dorthin lässt sich nicht weiterleiten.
+            abort_if($running->tenant_id !== $tenantContext->id(), 409, 'Diese Navigationsaufgabe ist gerade Teil deiner laufenden Prüfungssimulation. Die Übung ist danach wieder verfügbar.');
+
             return redirect()->route('exam.show', $running)
                 ->with('status', 'Diese Navigationsaufgabe ist gerade Teil deiner laufenden Prüfung – die Übung ist danach wieder verfügbar.');
         }

@@ -31,12 +31,14 @@ class NavigationController extends Controller
         $course = $this->access->require($this->tenantContext->tenant(), $request->user(), $courseId);
         $tasks = $course->navigationTasks()->with('questions')->get();
         $progress = $this->progress($request, $tasks);
+        // Review-Runde 13: offene Prüfungen einmal laden statt je Aufgabe.
+        $lockedTaskIds = ExamSession::openForUserAcrossTenants($request->user()->id)->pluck('navigation_task_id')->filter()->flip();
 
         $perPage = max(1, min(100, (int) $request->query('per_page', 50)));
         $page = max(1, (int) $request->query('page', 1));
 
         return response()->json([
-            'data' => $tasks->slice(($page - 1) * $perPage, $perPage)->values()->map(fn (NavigationTask $t) => $this->summary($request, $t, $progress)),
+            'data' => $tasks->slice(($page - 1) * $perPage, $perPage)->values()->map(fn (NavigationTask $t) => $this->summary($t, $progress, $lockedTaskIds->has($t->id))),
             'meta' => ['pagination' => ['page' => $page, 'per_page' => $perPage, 'total' => $tasks->count(), 'last_page' => max(1, (int) ceil($tasks->count() / $perPage))]],
         ]);
     }
@@ -48,7 +50,7 @@ class NavigationController extends Controller
         $this->abortIfInRunningExam($request, $task);
         $progress = $this->progress($request, collect([$task]));
 
-        return response()->json(['data' => $this->summary($request, $task, $progress) + [
+        return response()->json(['data' => $this->summary($task, $progress, false) + [
             'scenario' => $task->scenario_text,
             'hint' => $task->hint,
             'chart' => $task->chart_image_path ? Present::image(Present::publicFile($task->chart_image_path), $task->chart_caption ?: 'Kartenausschnitt') : null,
@@ -137,7 +139,7 @@ class NavigationController extends Controller
             ->whereIn('navigation_question_id', $questionIds)->get()->keyBy('navigation_question_id');
     }
 
-    private function summary(Request $request, NavigationTask $task, Collection $progress): array
+    private function summary(NavigationTask $task, Collection $progress, bool $locked): array
     {
         $rows = $task->questions->map(fn ($q) => $progress->get($q->id))->filter();
         $status = $rows->isEmpty() ? 'new'
@@ -152,7 +154,7 @@ class NavigationController extends Controller
             'status' => $status,
             'correct_count' => $rows->where('correct', true)->count(),
             'has_chart' => (bool) $task->chart_image_path,
-            'locked_by_exam' => ExamSession::runningWithNavigationTask($this->tenantContext->id(), $request->user()->id, $task->id) !== null,
+            'locked_by_exam' => $locked,
         ];
     }
 }

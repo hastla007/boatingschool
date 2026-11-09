@@ -24,6 +24,7 @@ use App\Models\TenantUser;
 use App\Models\User;
 use App\Models\VideoProgress;
 use App\Models\WillkommensboxOrder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -286,9 +287,9 @@ class PersonalDataExportService
                     'device_name' => $row->device_name,
                     'device_platform' => $row->device_platform,
                     'app_version' => $row->app_version,
-                    'created_at' => $row->created_at,
-                    'last_used_at' => $row->last_used_at,
-                    'revoked_at' => $row->revoked_at,
+                    'created_at' => $row->created_at ? Carbon::parse($row->created_at)->toIso8601String() : null,
+                    'last_used_at' => $row->last_used_at ? Carbon::parse($row->last_used_at)->toIso8601String() : null,
+                    'revoked_at' => $row->revoked_at ? Carbon::parse($row->revoked_at)->toIso8601String() : null,
                 ])->all(),
             // Protokolleinträge dieser Bootsschule, die die Person betreffen.
             'audit_log' => $forSchool ? [] : AuditLog::where('tenant_id', $tenant->id)

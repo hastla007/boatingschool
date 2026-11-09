@@ -15,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
 /**
  * DSGVO-Datenexport (Art. 15/20) aus der App: dieselben Daten wie
@@ -35,7 +36,15 @@ class ExportController extends Controller
 
         $export = ApiDataExport::create(['tenant_id' => $tenant->id, 'user_id' => $user->id, 'status' => 'processing', 'created_at' => now()]);
         $path = 'api-exports/'.$export->id.'.json';
-        Storage::disk(self::DISK)->put($path, json_encode($exporter->export($user, $tenant), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        try {
+            Storage::disk(self::DISK)->put($path, json_encode($exporter->export($user, $tenant), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
+        } catch (Throwable $e) {
+            // Review-Runde 13: Fehlschlag sichtbar machen statt „processing“ für immer.
+            $export->update(['status' => 'failed']);
+            report($e);
+
+            return response()->json(['data' => $this->status($export)], 202);
+        }
         $export->update(['status' => 'ready', 'path' => $path, 'expires_at' => now()->addMinutes((int) config('mobile_api.export_ttl_minutes', 60))]);
         AuditLog::record($tenant->id, $user->id, 'profile.export', 'app_user', $user->id, null, ['channel' => 'app']);
 

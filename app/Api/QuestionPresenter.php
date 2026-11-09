@@ -13,10 +13,17 @@ use App\Models\MediaAsset;
  */
 class QuestionPresenter
 {
-    public static function question(ContentQuestionRevision $revision, ?string $moduleId = null): array
+    /**
+     * @param  ?string  $userId  Einfachauswahl in derselben, je Person
+     *                           gemischten Reihenfolge wie im Web -- die Quelldaten führen die
+     *                           richtige Antwort immer als erste (Schlüssel A).
+     */
+    public static function question(ContentQuestionRevision $revision, ?string $moduleId = null, ?string $userId = null): array
     {
         $revision->loadMissing('answers', 'media');
         $type = $revision->question_type ?: 'single_choice';
+        // Mehrfachauswahl wie im Web in der gepflegten Reihenfolge.
+        $answers = $type === 'multi_choice' ? $revision->answers->values() : $revision->answersInDisplayOrderFor($userId);
 
         return [
             'id' => $revision->question_id,
@@ -31,11 +38,12 @@ class QuestionPresenter
             },
             'prompt_media' => $revision->media->sortBy(fn ($m) => $m->pivot->sort_order ?? 0)
                 ->map(fn (MediaAsset $m) => Present::image($m->storage_path, $m->alt_text, $m->mime_type))->values(),
-            'answers' => $type === 'open_text' ? [] : $revision->answers->map(fn (ContentAnswer $a) => [
+            // key = Buchstabe der Anzeigeposition (nicht der Quell-Schlüssel, der die Lösung verriete).
+            'answers' => $type === 'open_text' ? [] : $answers->values()->map(fn (ContentAnswer $a, int $i) => [
                 'id' => $a->id,
-                'key' => $a->answer_key,
+                'key' => chr(65 + $i),
                 'text' => $a->answer_text,
-            ])->values(),
+            ]),
             'topic' => $revision->smartmodus_kategorie ?: $revision->topic,
             'module_id' => $moduleId,
         ];

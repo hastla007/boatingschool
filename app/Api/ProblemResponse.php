@@ -7,8 +7,10 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Exceptions\InvalidSignatureException;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
+use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Throwable;
 
@@ -24,7 +26,7 @@ class ProblemResponse
         [$status, $code, $title, $detail, $errors, $headers, $extra] = self::describe($e);
 
         $body = array_filter([
-            'type' => 'https://boatingschool/problems/'.strtolower(str_replace('_', '-', $code)),
+            'type' => 'urn:boatingschool:problem:'.strtolower(str_replace('_', '-', $code)),
             'title' => $title,
             'status' => $status,
             'detail' => $detail,
@@ -54,6 +56,13 @@ class ProblemResponse
         }
         if ($e instanceof ThrottleRequestsException) {
             return [429, 'RATE_LIMITED', 'Zu viele Anfragen', 'Bitte später erneut versuchen.', [], $e->getHeaders(), []];
+        }
+        // Review-Runde 13: Framework-Meldungen auf Deutsch statt im Original.
+        if ($e instanceof InvalidSignatureException) {
+            return [403, 'LINK_INVALID', 'Link ungültig oder abgelaufen', 'Bitte einen neuen Link anfordern.', [], [], []];
+        }
+        if ($e instanceof MethodNotAllowedHttpException) {
+            return [405, 'METHOD_NOT_ALLOWED', 'Methode nicht erlaubt', null, [], $e->getHeaders(), []];
         }
         if ($e instanceof ModelNotFoundException || $e instanceof NotFoundHttpException) {
             return [404, 'RESOURCE_NOT_FOUND', 'Nicht gefunden', null, [], [], []];

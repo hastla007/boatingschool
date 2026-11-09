@@ -137,6 +137,21 @@ class ExamApiTest extends MobileApiTestCase
 
         $model = $this->onAdmin(fn () => ExamSession::findOrFail($exam['exam_id'])->navigationAnswers()->with('question')->get());
         $given = $model->mapWithKeys(fn ($a) => [$a->id => $a->modelAnswer()])->all();
+        // Erst der Fragebogen, dann die Navigation (wie im Web).
+        $this->api('PUT', "/exams/{$exam['exam_id']}/navigation", $token, $tenant, ['answers' => $given])
+            ->assertStatus(409)->assertJsonPath('code', 'EXAM_QUESTIONS_OPEN');
+        // Abgeben ohne Navigation nur ausdrücklich.
+        $this->api('POST', "/exams/{$exam['exam_id']}/submit", $token, $tenant)->assertStatus(409)->assertJsonPath('code', 'EXAM_NAVIGATION_NOT_SUBMITTED');
+
+        // Zeit um, Fragen offen: in der Nachfrist zählt nur noch die Navigation.
+        $this->onAdmin(fn () => DB::table('exam_session')->where('id', $exam['exam_id'])->update(['started_at' => now()->subSeconds(3600 + 30)]));
+        $this->api('GET', "/exams/{$exam['exam_id']}", $token, $tenant)->assertOk()
+            ->assertJsonPath('data.status', 'running')->assertJsonPath('data.phase', 'navigation');
+        $q1 = $exam['questions'][0];
+        $this->api('PUT', "/exams/{$exam['exam_id']}/answers/{$q1['id']}", $token, $tenant, ['selected_answer_ids' => [$q1['answers'][0]['id']]])
+            ->assertStatus(410)->assertJsonPath('code', 'EXAM_EXPIRED');
+        $this->api('GET', "/exams/{$exam['exam_id']}", $token, $tenant)->assertJsonPath('data.status', 'running');
+
         $this->api('PUT', "/exams/{$exam['exam_id']}/navigation", $token, $tenant, ['answers' => ['00000000-0000-0000-0000-000000000000' => 'x']])->assertStatus(422);
         $submitted = $this->api('PUT', "/exams/{$exam['exam_id']}/navigation", $token, $tenant, ['answers' => $given])->assertOk()
             ->assertJsonPath('data.phase', 'navigation_assessment');

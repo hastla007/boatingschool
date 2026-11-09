@@ -20,7 +20,9 @@ use Illuminate\Support\Facades\Storage;
  */
 class PrunePersonalData extends Command
 {
-    protected $signature = 'app:prune-personal-data {--dry-run : Nur anzeigen, wie viele Zeilen betroffen wären, nichts löschen}';
+    protected $signature = 'app:prune-personal-data
+        {--dry-run : Nur anzeigen, wie viele Zeilen betroffen wären, nichts löschen}
+        {--mobile-api-only : Nur die Reste der Mobile-API (Sitzungen, Idempotenz, Exporte) -- läuft stündlich}';
 
     protected $description = 'Löscht abgelaufene Sessions sowie (falls aktiviert) Audit-Log- und Lern-Attempt-Zeilen jenseits der konfigurierten Aufbewahrungsfrist.';
 
@@ -29,6 +31,12 @@ class PrunePersonalData extends Command
         config(['database.default' => 'pgsql_admin']);
 
         $dryRun = $this->option('dry-run');
+
+        if ($this->option('mobile-api-only')) {
+            $this->pruneMobileApi($dryRun);
+
+            return self::SUCCESS;
+        }
 
         $this->pruneSessions($dryRun);
         // Review-Runde 11: erst die nie aktivierten Konten -- die Prüfung

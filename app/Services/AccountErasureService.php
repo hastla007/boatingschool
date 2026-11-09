@@ -74,9 +74,12 @@ class AccountErasureService
             $praxisExamAppointmentIds = $praxisFormSubmissionIds === [] ? [] : PraxisExamAppointment::where('tenant_id', $tenant->id)
                 ->whereIn('praxis_form_submission_id', $praxisFormSubmissionIds)->pluck('id')->all();
 
+            ApiDataExport::deleteFilesAfterCommit(ApiDataExport::where('tenant_id', $tenant->id)->where('user_id', $user->id)->pluck('path'));
             foreach ($this->tenantScopedModels() as $model) {
                 $model::where('tenant_id', $tenant->id)->where('user_id', $user->id)->delete();
             }
+            // Gespeicherte App-Antworten (Idempotenz) enthalten Lerndaten dieser Schule.
+            DB::table('api_idempotency_key')->where('user_id', $user->id)->delete();
 
             $invitationIds = $this->deleteInvitationsFor($tenant, $user);
             $this->pseudonymizeAuditLogFor($tenant, $user, $invitationIds, $willkommensboxOrderIds, $praxisFormSubmissionIds, $praxisExamAppointmentIds);

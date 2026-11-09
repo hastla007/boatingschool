@@ -6,6 +6,7 @@ use App\Api\ApiProblem;
 use App\Api\Present;
 use App\Http\Controllers\Controller;
 use App\Models\ApiDeviceSession;
+use App\Models\PlatformSetting;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -39,6 +40,33 @@ class AccountController extends Controller
             'last_used_at' => Present::time($s->last_used_at),
             'current' => $s->id === $current->id,
         ])->values()]);
+    }
+
+    /** Review-Runde 13: alle anderen Geräte auf einmal abmelden. */
+    public function revokeOtherSessions(Request $request): Response
+    {
+        $current = $request->attributes->get('api_session');
+        ApiDeviceSession::where('user_id', $request->user()->id)->whereNull('revoked_at')->where('id', '!=', $current->id)
+            ->update(['revoked_at' => now()]);
+
+        return response()->noContent();
+    }
+
+    /** Öffentlich: Mindestversion, Store-Links und Wartung (vor dem Login abrufbar). */
+    public function appConfig(): JsonResponse
+    {
+        $settings = PlatformSetting::query()->first();
+
+        return response()->json(['data' => [
+            'api_version' => 'v1',
+            'minimum_version' => config('mobile_api.minimum_version'),
+            'store_url' => config('mobile_api.store_url'),
+            'maintenance' => [
+                'active' => (bool) $settings?->maintenance_mode,
+                'message' => $settings?->maintenance_mode ? $settings->maintenance_message : null,
+            ],
+            'server_time' => Present::time(now()),
+        ]]);
     }
 
     public function revokeSession(Request $request, string $sessionId): Response

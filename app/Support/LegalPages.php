@@ -86,6 +86,7 @@ Der Betreiber verarbeitet die Daten im Auftrag der Bootsschule (Auftragsverarbei
 - **Konto:** Name, E-Mail-Adresse, Passwort (verschlüsselt gespeichert), freigeschaltete Kurse.
 - **Lernen:** Antworten, Lernfortschritt, Ergebnisse der Prüfungssimulation, Übungen im Praxistrainer und in der Funk-Gerätesimulation.
 - **Praxisprüfung und Willkommensbox:** die Angaben im Anmeldeformular, Prüfungstermine sowie die Lieferadresse, wenn du eine Willkommensbox bestellst.
+- **Lern-App:** wenn du die App nutzt, zusätzlich je angemeldetem Gerät der Gerätename, die Plattform (iOS/Android), die App-Version sowie Zeitpunkt der Anmeldung und der letzten Nutzung.
 - **Technik:** Server-Protokolle (z. B. IP-Adresse, Zeitpunkt, aufgerufene Seite) für den sicheren Betrieb.
 
 ## 4. Zwecke und Rechtsgrundlagen
@@ -112,7 +113,7 @@ Deine Daten sehen die Bootsschule und der Betreiber der Plattform. Für Hosting 
 
 ## 9. Speicherdauer
 
-Wir speichern deine Daten, solange dein Konto besteht. Danach löschen wir sie, soweit keine gesetzlichen Aufbewahrungspflichten entgegenstehen.
+Wir speichern deine Daten, solange dein Konto besteht. Danach löschen wir sie, soweit keine gesetzlichen Aufbewahrungspflichten entgegenstehen. Abgemeldete oder abgelaufene Geräte der Lern-App löschen wir nach 30 Tagen, einen Datenexport aus der App nach einer Stunde.
 
 ## 10. Deine Rechte
 
