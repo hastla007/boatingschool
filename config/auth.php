@@ -42,6 +42,12 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+        // Mobile-API v1: Bearer-Token einer Gerätesitzung (siehe
+        // AuthenticateMobileApi); der Nutzer wird dort gesetzt.
+        'mobile' => [
+            'driver' => 'mobile-token',
+            'provider' => 'users',
+        ],
     ],
 
     /*

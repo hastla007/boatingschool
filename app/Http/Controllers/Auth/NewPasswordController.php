@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Api\DeviceSessions;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Auth\Events\PasswordReset;
@@ -59,49 +60,7 @@ class NewPasswordController extends Controller
             && User::on('pgsql_admin')->whereRaw('lower(email) = ?', [mb_strtolower((string) $request->input('email'))])->value('status') === 'invited';
         $status = Password::broker($invited ? 'invites' : null)->reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
-            function (User $user) use ($request) {
-                // Review-Runde 12: ist der Reset der erste Nachweis der Mailbox,
-                // stammt eine schon eingerichtete 2FA nicht sicher vom Besitzer
-                // (jemand konnte die Adresse vor ihm registrieren) -- zurücksetzen.
-                if ($user->email_verified_at === null && $user->two_factor_secret !== null) {
-                    $user->forceFill(['two_factor_secret' => null, 'two_factor_recovery_codes' => null, 'two_factor_confirmed_at' => null]);
-                }
-                $user->forceFill([
-                    'password' => Hash::make($request->password),
-                    'remember_token' => Str::random(60),
-                    // Bug-Review B18: ein über ParticipantController::invite()
-                    // neu angelegtes Konto bekommt den Status "invited" und
-                    // ein zufälliges Passwort -- genau dieser Reset-Link setzt
-                    // das erste eigene Passwort. Ohne diesen Übergang blieb
-                    // der Status für immer auf "invited" stehen, und
-                    // LoginRequest verlangt status=active -- das Konto konnte
-                    // sich also nie einloggen. Ein bereits gesperrtes
-                    // (suspended/closed) Konto bleibt bewusst unverändert.
-                    'status' => $user->status === 'invited' ? 'active' : $user->status,
-                    // Bug-Review NEU-7: ein erfolgreicher Passwort-Reset
-                    // bestätigt den Besitz der Mailbox genauso stark wie ein
-                    // eigener Verifizierungslink (beide beweisen sich
-                    // ausschließlich darüber, dass der tatsächliche Besitzer
-                    // einen an diese Adresse geschickten, signierten Token
-                    // zurückgibt) -- ohne das blieb email_verified_at trotz
-                    // bewiesenem Mailbox-Besitz null. app:create-superadmin
-                    // empfiehlt genau diesen Weg ("z. B. Passwort-Reset-Link")
-                    // als Nachweis für ein unbestätigtes Konto; ohne diese
-                    // Zeile hätte der Befehl danach trotzdem weiter abgelehnt.
-                    'email_verified_at' => $user->email_verified_at ?? now(),
-                ])->save();
-
-                // Beendet alle laufenden Sitzungen dieses Kontos (z. B. eines
-                // Angreifers, der es zuvor übernommen hatte) -- ohne das würde
-                // ein Passwort-Reset durch den rechtmäßigen Besitzer dessen
-                // aktive Sessions nicht beenden (Sicherheitsreview H2).
-                DB::table('sessions')->where('user_id', $user->id)->delete();
-                // Offene Reset- und Einladungslinks verlieren ihre Gültigkeit.
-                DB::table('password_reset_tokens')->where('email', $user->email)->delete();
-                DB::table('account_setup_tokens')->where('email', $user->email)->delete();
-
-                event(new PasswordReset($user));
-            }
+            fn (User $user) => self::completeReset($user, (string) $request->password)
         );
 
         // If the password was successfully reset, we will redirect the user back to
@@ -125,5 +84,56 @@ class NewPasswordController extends Controller
                         ->with('first_login', $request->boolean('invite'))
                     : back()->withInput($request->only('email'))
                         ->withErrors(['email' => __('passwords.token')]);
+    }
+
+    /**
+     * Neues Passwort setzen und alles Bisherige beenden -- gemeinsam für den
+     * Web-Ablauf und die Mobile-API (POST /api/v1/auth/password/reset).
+     */
+    public static function completeReset(User $user, string $password): void
+    {
+        // Review-Runde 12: ist der Reset der erste Nachweis der Mailbox,
+        // stammt eine schon eingerichtete 2FA nicht sicher vom Besitzer
+        // (jemand konnte die Adresse vor ihm registrieren) -- zurücksetzen.
+        if ($user->email_verified_at === null && $user->two_factor_secret !== null) {
+            $user->forceFill(['two_factor_secret' => null, 'two_factor_recovery_codes' => null, 'two_factor_confirmed_at' => null]);
+        }
+        $user->forceFill([
+            'password' => Hash::make($password),
+            'remember_token' => Str::random(60),
+            // Bug-Review B18: ein über ParticipantController::invite()
+            // neu angelegtes Konto bekommt den Status "invited" und
+            // ein zufälliges Passwort -- genau dieser Reset-Link setzt
+            // das erste eigene Passwort. Ohne diesen Übergang blieb
+            // der Status für immer auf "invited" stehen, und
+            // LoginRequest verlangt status=active -- das Konto konnte
+            // sich also nie einloggen. Ein bereits gesperrtes
+            // (suspended/closed) Konto bleibt bewusst unverändert.
+            'status' => $user->status === 'invited' ? 'active' : $user->status,
+            // Bug-Review NEU-7: ein erfolgreicher Passwort-Reset
+            // bestätigt den Besitz der Mailbox genauso stark wie ein
+            // eigener Verifizierungslink (beide beweisen sich
+            // ausschließlich darüber, dass der tatsächliche Besitzer
+            // einen an diese Adresse geschickten, signierten Token
+            // zurückgibt) -- ohne das blieb email_verified_at trotz
+            // bewiesenem Mailbox-Besitz null. app:create-superadmin
+            // empfiehlt genau diesen Weg ("z. B. Passwort-Reset-Link")
+            // als Nachweis für ein unbestätigtes Konto; ohne diese
+            // Zeile hätte der Befehl danach trotzdem weiter abgelehnt.
+            'email_verified_at' => $user->email_verified_at ?? now(),
+        ])->save();
+
+        // Beendet alle laufenden Sitzungen dieses Kontos (z. B. eines
+        // Angreifers, der es zuvor übernommen hatte) -- ohne das würde
+        // ein Passwort-Reset durch den rechtmäßigen Besitzer dessen
+        // aktive Sessions nicht beenden (Sicherheitsreview H2).
+        DB::table('sessions')->where('user_id', $user->id)->delete();
+        // Offene Reset- und Einladungslinks verlieren ihre Gültigkeit.
+        DB::table('password_reset_tokens')->where('email', $user->email)->delete();
+        DB::table('account_setup_tokens')->where('email', $user->email)->delete();
+
+        event(new PasswordReset($user));
+        // Mobile-API: auch alle App-Gerätesitzungen beenden.
+        DeviceSessions::revokeAllFor($user->id);
     }
 }

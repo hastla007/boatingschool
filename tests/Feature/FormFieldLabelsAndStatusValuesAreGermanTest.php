@@ -66,9 +66,11 @@ class FormFieldLabelsAndStatusValuesAreGermanTest extends TestCase
     {
         $superadmin = $this->createSuperAdmin();
         $tenant = $this->createTestTenant();
-        $this->createTenantUser($tenant, 'learner');
+        $learner = $this->createTenantUser($tenant, 'learner');
 
-        $response = $this->actingAs($superadmin)->get(route('superadmin.users.index'));
+        // Nach der eigenen Adresse suchen: die Liste ist alphabetisch und
+        // seitenweise, ältere Testdaten dürfen den Eintrag nicht verdrängen.
+        $response = $this->actingAs($superadmin)->get(route('superadmin.users.index', ['q' => $learner->email]));
 
         $response->assertOk();
         $response->assertSee('Teilnehmer');

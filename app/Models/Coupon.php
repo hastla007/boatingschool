@@ -101,6 +101,27 @@ class Coupon extends Model
     }
 
     /** Noch einlösbar: nicht eingelöst, nicht gesperrt, nicht abgelaufen. */
+    /**
+     * Code so finden, wie Lernende ihn eintippen: Groß-/Kleinschreibung egal,
+     * Review-Runde 12: auch mit Leerzeichen oder ohne Bindestriche
+     * (XXXX XXXX XXXX XXXX / XXXXXXXXXXXXXXXX). Die RLS-Policy blendet Codes
+     * anderer Schulen aus. Liefert auch eingelöste/gesperrte Codes.
+     */
+    public static function lookup(string $entered): ?self
+    {
+        $code = strtoupper(trim($entered));
+        if ($code === '' || mb_strlen($code) > 100) {
+            return null;
+        }
+        $coupon = static::where('code', $code)->first();
+        $compact = preg_replace('/[\s\-]+/', '', $code);
+        if (! $coupon && preg_match('/^[A-Z0-9]{16}$/', $compact)) {
+            $coupon = static::where('code', implode('-', str_split($compact, 4)))->first();
+        }
+
+        return $coupon;
+    }
+
     public function isUsable(): bool
     {
         return ! $this->isRedeemed() && ! $this->isVoided() && ! $this->isExpired();

@@ -14,7 +14,7 @@ auf PostgreSQL, gemäß dem mitgelieferten technischen Konzept
   Pfad (`CENTRAL_DOMAIN/{slug}`, Standard, `ResolveTenantPath`), Subdomain
   (`{slug}.CENTRAL_DOMAIN`, optional mit `TENANT_URL_MODE=subdomain`) oder
   Custom Domain (`app/Http/Middleware/ResolveTenant.php`). Mandantengebundene Tabellen
-  (inzwischen 31, u. a. `tenant_branding`, `tenant_user`,
+  (inzwischen 32, u. a. `tenant_branding`, `tenant_user`,
   `entitlement`, `attempt`, `progress`, `favorite`, `exam_session`,
   `exam_session_question`, `coupon`, `audit_log`, `app_user`) sind
   zusätzlich per **Postgres Row-Level-Security** abgesichert – ein
@@ -280,6 +280,16 @@ ID-Manipulation über Mandantengrenzen), serverseitige Bewertung und
 Unveränderlichkeit von Attempts, Idempotenz und Revisionslogik des
 Content-Imports, sowie die Prüfungsengine (kein Sofort-Feedback,
 serverseitige Auswertung).
+
+## Mobile-API (Lernenden-App)
+
+Für die geplanten Handy-Apps gibt es eine eigene Schnittstelle unter
+`/api/v1` (Bearer-Token, Schulwahl per `X-Tenant-Slug`, Fehler als
+`application/problem+json`). Sie nutzt dieselbe Lern- und Prüfungslogik wie
+das Web (gemeinsame Services `LearningFlow`, `ExamSessionStarter`,
+`ExamActions`). Dokumentation und Abweichungen vom App-Konzept:
+[`docs/api/README.md`](docs/api/README.md), Vertrag:
+[`docs/api/openapi-mobile-v1.yaml`](docs/api/openapi-mobile-v1.yaml).
 
 ## Umfang dieser Version
 

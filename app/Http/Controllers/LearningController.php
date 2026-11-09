@@ -3,19 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\Models\Attempt;
-use App\Models\ContentAnswer;
 use App\Models\ContentQuestion;
-use App\Models\ContentQuestionRevision;
 use App\Models\CourseDefinition;
-use App\Models\ExamSession;
 use App\Models\Favorite;
 use App\Models\Module;
 use App\Models\PraxisProgress;
 use App\Models\Progress;
 use App\Services\CourseProgressService;
 use App\Services\EntitlementService;
-use App\Services\ExamEvaluationService;
-use App\Services\LearningService;
+use App\Services\LearningFlow;
 use App\Services\SmarttrainerService;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
@@ -91,7 +87,7 @@ class LearningController extends Controller
         Request $request,
         TenantContext $tenantContext,
         EntitlementService $entitlements,
-        SmarttrainerService $smarttrainer,
+        LearningFlow $learningFlow,
         CourseDefinition $course,
     ): View {
         $tenant = $tenantContext->tenant();
@@ -115,48 +111,8 @@ class LearningController extends Controller
         $moduleId = $this->stringQueryParam($request, 'module');
         $questionIds = $this->parseQuestionIds($this->questionsQueryParam($request));
 
-        if ($mode === 'favorites') {
-            // Gültigkeit prüft die Auswahl unten (currentlyValid()) ohnehin.
-            $courseQuestionIds = $this->courseQuestionIds($course);
-            $favoriteIds = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)
-                ->where('context', Favorite::CONTEXT_SMART_LEARNING)
-                ->whereIn('question_id', $courseQuestionIds)->pluck('question_id');
-
-            // Bug-Review (Deaktivierte Favoriten führen zu Endlosschleife):
-            // ein als Favorit markierte Frage bleibt es auch, wenn ein
-            // Superadmin sie später deaktiviert (content_question.active)
-            // oder ihre einzige Revision (noch) nicht veröffentlicht ist --
-            // diese Auswahl hier zog bisher trotzdem jede Favoriten-ID ohne
-            // Prüfung in Betracht. Landete $favoriteIds->random() dabei
-            // (z. B. weil es der einzige verbliebene Favorit ist) immer
-            // wieder auf genau dieser kaputten Frage, endete jeder Aufruf
-            // dieser Seite im abort_if() weiter unten (keine veröffentlichte
-            // Fassung) -- ohne je einen funktionierenden Favoriten oder die
-            // "keine Favoriten"-Ansicht zu erreichen. SmarttrainerService::
-            // nextQuestion() filtert bereits analog auf active=true (siehe
-            // Bug-Review B12); hier zusätzlich auf eine existierende
-            // veröffentlichte Revision, da genau das hier (anders als bei
-            // Smarttrainer) sonst erst nach der Auswahl geprüft wird.
-            //
-            // Bug-Review X10 (Favoriten zeigen Fragen aus laufender
-            // Prüfung): storeAttempt() lehnt eine Antwort auf eine Frage
-            // ab, die Teil einer noch laufenden Prüfungssession dieses
-            // Nutzers ist (siehe unten) -- der Favoriten-Modus bot genau
-            // so eine Frage bisher trotzdem aktiv an und scheiterte erst
-            // beim anschließenden Abschicken mit 409, analog zur bereits
-            // für den Smarttrainer behobenen Bug-Review "Smarttrainer
-            // blockiert während laufender Prüfung".
-            $blockedQuestionIds = $smarttrainer->runningExamQuestionIds($tenant, $user);
-            $next = ContentQuestion::whereIn('id', $favoriteIds)
-                ->currentlyValid()
-                ->when($blockedQuestionIds->isNotEmpty(), fn ($query) => $query->whereNotIn('id', $blockedQuestionIds))
-                ->inRandomOrder()
-                ->first();
-            $next = $next ? ['question' => $next, 'reason' => 'Favorit'] : null;
-        } else {
-            $learningCourse = $questionIds !== null ? $this->withExamPaperQuestions($course, $questionIds) : $course;
-            $next = $smarttrainer->nextQuestion($tenant, $user, $learningCourse, $mode, $topic, $moduleId, $questionIds);
-        }
+        // Auswahl der nächsten Frage gemeinsam mit der Mobile-API (LearningFlow).
+        $next = $learningFlow->nextQuestion($tenant, $user, $course, $mode, $topic, $moduleId, $questionIds);
 
         if (! $next) {
             return view('learning.empty', ['course' => $course, 'mode' => $mode]);
@@ -196,8 +152,7 @@ class LearningController extends Controller
         Request $request,
         TenantContext $tenantContext,
         EntitlementService $entitlements,
-        LearningService $learningService,
-        ExamEvaluationService $examEvaluation,
+        LearningFlow $learningFlow,
         CourseDefinition $course,
     ) {
         $tenant = $tenantContext->tenant();
@@ -228,100 +183,9 @@ class LearningController extends Controller
             'started_at_ms' => ['nullable', 'integer', 'min:0', 'max:'.intdiv(PHP_INT_MAX, 2)],
         ]);
 
-        $responseTimeMs = isset($validated['started_at_ms'])
-            ? max(0, (int) round(microtime(true) * 1000) - $validated['started_at_ms'])
-            : null;
+        // Prüfung und Speichern gemeinsam mit der Mobile-API (LearningFlow).
+        $attempt = $learningFlow->submitAttempt($tenant, $user, $course, $validated);
 
-        // Bug-Review B12 (Folgefehler): storeAttempt() prüfte bisher nur
-        // editorial_status, nicht ob die zugehörige Frage im Superadmin
-        // deaktiviert wurde (content_question.active) -- anders als die
-        // Auswahl im Smarttrainer/Prüfung/Video-Quiz, die solche Fragen
-        // konsequent ausblendet, nahm storeAttempt eine direkt per
-        // revision_id eingereichte deaktivierte Frage trotzdem an.
-        //
-        // Bug-Review BB16 ("Gültig ab"/"Gültig bis" wirkungslos): dieselbe
-        // Lücke bestand für valid_from/valid_to -- eine außerhalb ihres
-        // Gültigkeitsfensters liegende Frage ließ sich hier weiterhin
-        // beantworten, obwohl sie an keiner Auswahl-Stelle mehr angeboten
-        // wird.
-        //
-        // Bug-Review (Antwort geht bei neuer Revision verloren): wurde
-        // zwischen Anzeige und Abschicken eine neue Fassung derselben Frage
-        // veröffentlicht, ist die angezeigte Revision inzwischen
-        // "deprecated" -- der POST mit ihrer revision_id endete bisher mit
-        // 404, die Antwort war verloren. Eine abgelöste Fassung einer
-        // weiterhin gültigen Frage wird deshalb ebenfalls angenommen und
-        // gegen genau diese (angezeigte) Fassung bewertet.
-        $revision = ContentQuestionRevision::where('id', $validated['revision_id'])
-            ->whereIn('editorial_status', ['published', 'deprecated'])
-            ->whereHas('question', fn ($q) => $q->currentlyValid())
-            ->firstOrFail();
-
-        // Sicherheitsregel laut api_spec.md: question_id/revision_id müssen zu
-        // Content gehören, der für den Kurs des Nutzers tatsächlich freigegeben ist.
-        abort_unless($this->courseQuestionIds($course)->contains($revision->question_id), 403, 'Frage gehört nicht zum berechtigten Kurs.');
-
-        // Eine Frage, die gerade Teil einer laufenden Prüfungssession dieses
-        // Nutzers ist, darf währenddessen nicht im Lernmodus bearbeitet
-        // werden (Sicherheitsreview M2) -- sonst ließe sich die richtige
-        // Antwort über die sofortige Rückmeldung hier einsehen und danach in
-        // der noch offenen Prüfung eintragen.
-        //
-        // Bug-Review (Hoch): die Prüfung fragte bisher nur status='running'
-        // ab, ohne die Zeit zu berücksichtigen -- eine Prüfungssession bleibt
-        // in der DB aber so lange "running", bis sie ausgewertet wird
-        // (ExamController::show()/answer()/finish() tun das NUR, wenn der
-        // Nutzer die Prüfungsseite selbst erneut aufruft). Ließ ein Nutzer
-        // eine zeitlich abgelaufene Prüfung einfach liegen, ohne sie noch
-        // einmal zu öffnen, blieb jede ihrer Fragen hier PERMANENT gesperrt
-        // (409), auch lange nach Ablauf der Prüfungszeit -- der Smarttrainer
-        // zeigte dieselbe gesperrte Frage dann immer wieder erneut an. Eine
-        // abgelaufene Session wird deshalb jetzt genau wie in ExamController
-        // sofort ausgewertet (statt die Antwort hier anzunehmen UND
-        // gleichzeitig zu blockieren), statt weiterhin als blockierend zu
-        // gelten.
-        $runningExamSessions = ExamSession::where('tenant_id', $tenant->id)
-            ->where('user_id', $user->id)
-            ->where('status', 'running')
-            ->whereHas('questions', fn ($q) => $q->where('question_id', $revision->question_id))
-            ->get();
-
-        foreach ($runningExamSessions as $runningExamSession) {
-            if ($examEvaluation->timeExpired($runningExamSession)) {
-                $examEvaluation->evaluate($runningExamSession);
-
-                continue;
-            }
-
-            abort(409, 'Diese Frage ist Teil einer laufenden Prüfung und kann währenddessen nicht im Lernmodus bearbeitet werden.');
-        }
-
-        $selectedAnswer = null;
-        $selectedAnswers = null;
-        $selfAssessedKnown = null;
-
-        if ($revision->question_type === 'multi_choice') {
-            $selectedAnswers = ContentAnswer::where('revision_id', $revision->id)
-                ->whereIn('id', $validated['answer_ids'] ?? [])->get();
-        } elseif ($revision->question_type === 'open_text') {
-            $selfAssessedKnown = array_key_exists('known', $validated) ? (bool) $validated['known'] : null;
-        } elseif ($validated['answer_id'] ?? null) {
-            $selectedAnswer = ContentAnswer::where('id', $validated['answer_id'])
-                ->where('revision_id', $revision->id)
-                ->firstOrFail();
-        }
-
-        $attempt = $learningService->recordAttempt(
-            $tenant, $user, $revision, $selectedAnswer, $validated['mode'], $course, $responseTimeMs, $selectedAnswers, $selfAssessedKnown, $validated['started_at_ms'] ?? null
-        );
-
-        // Bug-Review B20: dieser Handler rendert die beantwortete Frage
-        // nicht mehr direkt als POST-Antwort -- ein Neuladen (F5) hätte den
-        // Browser sonst zur erneuten Formular-Einreichung (derselbe
-        // POST) veranlasst und einen zweiten Attempt für dieselbe Frage
-        // angelegt. Der Redirect auf die GET-Route showAttempt() ist bei
-        // einem Reload hingegen ein harmloses erneutes Laden desselben,
-        // bereits gespeicherten Attempts.
         return redirect()->route('learning.attempts.show', array_filter([
             'course' => $course,
             'attempt' => $attempt,
@@ -389,38 +253,6 @@ class LearningController extends Controller
     private function courseQuestionIds(CourseDefinition $course): Collection
     {
         return $course->contentQuestionIds();
-    }
-
-    /**
-     * "Falsche Fragen erneut lernen" (?questions=...) übergibt die falsch
-     * beantworteten Fragen einer Prüfung -- SmarttrainerService::
-     * nextQuestion() wählt aber nur unter den Modulfragen des Kurses aus
-     * und übersprang Bogenfragen außerhalb der Module (siehe
-     * courseQuestionIds()) stillschweigend. Nur für diese explizit
-     * angefragten Fragen bekommt eine Kopie des Kurses ein zusätzliches,
-     * nicht gespeichertes Modul mit genau diesen Bogenfragen; der normale
-     * Lernmodus bleibt beim Modulinhalt des Kurses.
-     *
-     * @param  list<string>  $questionIds
-     */
-    private function withExamPaperQuestions(CourseDefinition $course, array $questionIds): CourseDefinition
-    {
-        $moduleQuestionIds = $course->modules->flatMap(fn ($m) => $m->questions)->pluck('id');
-        $extraIds = $course->examPaperQuestionIds()->intersect($questionIds)->diff($moduleQuestionIds);
-
-        if ($extraIds->isEmpty()) {
-            return $course;
-        }
-
-        $paperModule = new Module(['code' => 'EXAM_PAPERS', 'name' => 'Prüfungsbögen']);
-        $paperModule->setRelation('questions', ContentQuestion::whereIn('id', $extraIds)
-            ->with(['revisions' => fn ($q) => $q->where('editorial_status', 'published')->orderByDesc('revision_no')])
-            ->get());
-
-        $scopedCourse = clone $course;
-        $scopedCourse->setRelation('modules', $course->modules->concat([$paperModule]));
-
-        return $scopedCourse;
     }
 
     private function parseQuestionIds(?string $questions): ?array

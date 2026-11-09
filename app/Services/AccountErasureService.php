@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\ApiDataExport;
 use App\Models\Attempt;
 use App\Models\AuditLog;
 use App\Models\Entitlement;
@@ -209,6 +210,8 @@ class AccountErasureService
             PraxisProgress::class,
             VideoProgress::class,
             NavigationProgress::class,
+            // Datenexporte aus der App (Datei räumt app:prune-personal-data nach Ablauf weg).
+            ApiDataExport::class,
             // Bug-Review (Funk-Training fehlt in Löschung): answers enthält
             // freie Mitschriften/Eingaben des Lerners (siehe Migration
             // 2024_02_01_000479) -- die Tabelle kam nach dieser Liste hinzu

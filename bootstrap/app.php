@@ -1,6 +1,11 @@
 <?php
 
+use App\Api\ProblemResponse;
 use App\Http\Controllers\TlsCheckController;
+use App\Http\Middleware\Api\ApiIdempotency;
+use App\Http\Middleware\Api\AuthenticateMobileApi;
+use App\Http\Middleware\Api\PrepareApiRequest;
+use App\Http\Middleware\Api\ResolveApiTenant;
 use App\Http\Middleware\EnforceInstructorScope;
 use App\Http\Middleware\EnforceMaintenanceMode;
 use App\Http\Middleware\EnforceTeamTwoFactor;
@@ -23,6 +28,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Foundation\Http\Middleware\HandlePrecognitiveRequests;
+use Illuminate\Http\Request;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Route;
 use Sentry\Laravel\Integration;
@@ -30,6 +36,9 @@ use Sentry\Laravel\Integration;
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
+        // Mobile-API v1 für die Lernenden-App (docs/api/README.md).
+        api: __DIR__.'/../routes/api.php',
+        apiPrefix: 'api/v1',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
         // Go-live B4: Prüf-Endpunkt für automatische Zertifikate (Caddy
@@ -190,7 +199,11 @@ return Application::configure(basePath: dirname(__DIR__))
             append: UseAdminDatabaseConnection::class,
         );
 
+        $middleware->api(prepend: [PrepareApiRequest::class]);
         $middleware->alias([
+            'api.auth' => AuthenticateMobileApi::class,
+            'api.tenant' => ResolveApiTenant::class,
+            'api.idempotent' => ApiIdempotency::class,
             'tenant.role' => EnsureTenantRole::class,
             'tenant.member' => EnsureTenantMembership::class,
             'tenant.any-member' => EnsureAnyTenantMembership::class,
@@ -203,5 +216,12 @@ return Application::configure(basePath: dirname(__DIR__))
         // Go-live B3: Fehler an Sentry melden -- nur aktiv, wenn
         // SENTRY_LARAVEL_DSN gesetzt ist (siehe config/sentry.php).
         Integration::handles($exceptions);
+
+        // Mobile-API: alle Fehler als application/problem+json mit stabilem Code.
+        $exceptions->render(function (Throwable $e, Request $request) {
+            if ($request->is('api/*')) {
+                return ProblemResponse::render($e, $request);
+            }
+        });
         //
     })->create();

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Api\DeviceSessions;
 use App\Http\Requests\ProfileUpdateRequest;
 use App\Models\AuditLog;
 use App\Models\Entitlement;
@@ -264,6 +265,8 @@ class ProfileController extends Controller
                 ->where('user_id', $user->id)
                 ->where('id', '!=', $request->session()->getId())
                 ->delete();
+            // Mobile-API: App-Gerätesitzungen enden mit dem E-Mail-Wechsel.
+            DeviceSessions::revokeAllFor($user->id);
         } catch (UniqueConstraintViolationException) {
             // fresh() statt $user direkt: forceFill() oben hat "email" im
             // Model bereits auf den fremden Wert gesetzt, obwohl der

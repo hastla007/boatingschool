@@ -44,7 +44,7 @@ class PersonalDataExportService
     {
         $data = $this->collect($user, $tenant, $forSchool);
         if ($forSchool) {
-            unset($data['sessions'], $data['audit_log']);
+            unset($data['sessions'], $data['app_devices'], $data['audit_log']);
         }
 
         return $data;
@@ -279,6 +279,16 @@ class PersonalDataExportService
                     'ip_address' => $row->ip_address,
                     'user_agent' => $row->user_agent,
                     'last_activity' => date(DATE_ATOM, (int) $row->last_activity),
+                ])->all(),
+            // Angemeldete Geräte der Mobile-App (ohne Tokens, nur deren Hashes liegen vor).
+            'app_devices' => $forSchool ? [] : DB::connection('pgsql_admin')->table('api_device_session')->where('user_id', $user->id)->orderByDesc('created_at')->get()
+                ->map(fn ($row) => [
+                    'device_name' => $row->device_name,
+                    'device_platform' => $row->device_platform,
+                    'app_version' => $row->app_version,
+                    'created_at' => $row->created_at,
+                    'last_used_at' => $row->last_used_at,
+                    'revoked_at' => $row->revoked_at,
                 ])->all(),
             // Protokolleinträge dieser Bootsschule, die die Person betreffen.
             'audit_log' => $forSchool ? [] : AuditLog::where('tenant_id', $tenant->id)
