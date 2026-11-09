@@ -76,7 +76,10 @@ class ExamSession extends Model
     }
 
     /** Nachfrist für die Abgabe der Navigation bzw. die Selbsteinschätzung nach Zeitablauf (Sekunden). */
-    public const NAVIGATION_SUBMIT_GRACE = 120;
+    // Vorgabe Auftraggeber (Runde 13): „mit dem Gong ist Schluss“ -- die
+    // Nachfrist gleicht nur technische Verzögerungen aus (langsames Netz,
+    // letzter Klick), nicht zum Weiterrechnen.
+    public const NAVIGATION_SUBMIT_GRACE = 60;
 
     public const NAVIGATION_ASSESS_GRACE = 900;
 

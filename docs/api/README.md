@@ -278,7 +278,7 @@ GET  /exams/{id}/result                 → Ergebnis mit Lösungen
 * **Zeit:** Nach Ablauf (`expires_at`) zählt keine Antwort mehr (410
   `EXAM_EXPIRED`).
   * Mit Navigationsteil bleibt die Prüfung für die Navigation offen: Abgabe
-    bis `navigation_submit_until` (2 Min. nach Ende), Selbsteinschätzung bis
+    bis `navigation_submit_until` (1 Min. nach Ende, nur für technische Verzögerungen), Selbsteinschätzung bis
     `navigation_assessment_until` (15 Min. nach Ende). Danach wird
     ausgewertet; eine spätere Selbsteinschätzung zählt nicht (Web und App
     gleich).

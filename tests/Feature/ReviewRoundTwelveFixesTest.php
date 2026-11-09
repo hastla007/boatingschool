@@ -123,8 +123,10 @@ class ReviewRoundTwelveFixesTest extends TestCase
         $paper = $this->onAdmin(fn () => ExamPaper::where('course_id', $course->id)->where('paper_number', 3)->firstOrFail());
         $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam/papers/{$paper->id}")->assertRedirect();
         $session = $this->asTenant($tenant, fn () => ExamSession::where('user_id', $learner->id)->firstOrFail());
-        $this->travelTo($session->started_at->copy()->addSeconds(3590));
+        // Navigation in der Nachfrist abgegeben (vor Ablauf ginge sie erst nach dem Fragebogen).
+        $this->travelTo($session->started_at->copy()->addSeconds(3610));
         $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/navigation", ['answers' => []])->assertRedirect();
+        $this->assertNotNull($this->onAdmin(fn () => ExamSession::find($session->id)->navigation_submitted_at));
 
         $this->travelTo($session->started_at->copy()->addSeconds(3700));
         $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam/papers/{$paper->id}")

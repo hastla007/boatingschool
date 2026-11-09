@@ -723,7 +723,7 @@ paths:
       tags: [Exams]
       operationId: submitExamNavigation
       summary: Navigationsaufgabe abgeben (SBF See; einmalig, alle Teilantworten)
-      description: 'Schlüssel sind die `navigation.parts[].id` der Prüfung. Erst nach dem Fragebogen (sonst 409 EXAM_QUESTIONS_OPEN), nach Zeitablauf bis `navigation_submit_until` (2 Minuten Nachfrist; Antworten zählen wie zum Prüfungsende abgegeben).'
+      description: 'Schlüssel sind die `navigation.parts[].id` der Prüfung. Erst nach dem Fragebogen (sonst 409 EXAM_QUESTIONS_OPEN), nach Zeitablauf bis `navigation_submit_until` (1 Minute Nachfrist für technische Verzögerungen; Antworten zählen wie zum Prüfungsende abgegeben).'
       parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/ExamId'}]
       requestBody:
         required: true
@@ -1428,7 +1428,7 @@ components:
         expires_at: {type: [string, 'null'], format: date-time}
         server_time: {type: string, format: date-time}
         remaining_seconds: {type: [integer, 'null']}
-        navigation_submit_until: {type: [string, 'null'], format: date-time, description: 'Letzter Zeitpunkt für die Abgabe der Navigation (Ende + 2 Min.)'}
+        navigation_submit_until: {type: [string, 'null'], format: date-time, description: 'Letzter Zeitpunkt für die Abgabe der Navigation (Ende + 1 Min.)'}
         navigation_assessment_until: {type: [string, 'null'], format: date-time, description: 'Letzter Zeitpunkt für die Selbsteinschätzung (Ende + 15 Min.)'}
         question_count: {type: integer}
         answered_count: {type: integer}
