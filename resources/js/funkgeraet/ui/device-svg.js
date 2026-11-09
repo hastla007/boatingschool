@@ -10,6 +10,7 @@
 
 import { createBacklight, glowFilter } from './backlight.js';
 import { drawHandset } from './handset.js';
+import { setKnobAria, volAria, sqlAria, channelAria } from './knob-aria.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 
@@ -134,7 +135,7 @@ export function renderDevice(container) {
     const k = Math.min(lcdBox.width / 386, lcdBox.height / 216);
     const tx = lcdBox.x + (lcdBox.width - 386 * k) / 2 - 392 * k;
     const ty = lcdBox.y + (lcdBox.height - 216 * k) / 2 - 102 * k;
-    const lcd = el('g', { 'font-family': MONO, fill: LCD_INK, transform: `translate(${tx} ${ty}) scale(${k})` }, svg);
+    const lcd = el('g', { 'data-lcd': '', 'font-family': MONO, fill: LCD_INK, transform: `translate(${tx} ${ty}) scale(${k})` }, svg);
 
     // DISTRESS mit Klappe (oben rechts)
     const [dx1, dy1] = P(678, 58);
@@ -274,6 +275,9 @@ export function renderDevice(container) {
             drawDisplay(display);
             setKnob(vol, radioState.vol);
             setKnob(sql, radioState.sql);
+            setKnobAria(svg.querySelector('[data-knob="vol"]'), volAria(radioState, 10));
+            setKnobAria(svg.querySelector('[data-knob="sql"]'), sqlAria(radioState));
+            setKnobAria(svg.querySelector('[data-knob="channel"]'), channelAria(radioState));
             channel.pointer.setAttribute('transform', `rotate(${channelAngle} ${channel.cx} ${channel.cy})`);
             Object.entries(radioState.coverOpen ? coverOpen : coverClosed).forEach(([k, v]) => coverLid.setAttribute(k, v));
 

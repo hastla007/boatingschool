@@ -38,7 +38,13 @@ class AccountErasureService
 {
     public function __construct(private TenantContext $tenantContext) {}
 
-    public function leaveTenant(User $user, Tenant $tenant): void
+    /**
+     * @param  bool  $forgetOtherSchoolsInvitations  false, wenn eine Schule löscht
+     *                                               (Review-Runde 11: deren Aktion
+     *                                               räumt nicht die offenen Einladungen
+     *                                               anderer Schulen ab)
+     */
+    public function leaveTenant(User $user, Tenant $tenant, bool $forgetOtherSchoolsInvitations = true): void
     {
         DB::transaction(function () use ($user, $tenant) {
             // Bug-Review (Kontolöschung hinterlässt personenbezogene Daten im
@@ -114,7 +120,9 @@ class AccountErasureService
             $this->tenantContext->clear();
             try {
                 $this->pseudonymizePlatformAuditLogFor($user, $tenant);
-                $this->forgetOpenInvitations($user, $tenant->id);
+                if ($forgetOtherSchoolsInvitations) {
+                    $this->forgetOpenInvitations($user, $tenant->id);
+                }
                 $this->deleteAccountEntirely($user);
             } finally {
                 // Review-Runde 8: der restliche Request (z. B. der

@@ -142,6 +142,10 @@ class ExamRuleSet extends Model
         $summary = $parts !== []
             ? implode(' · ', array_map(fn ($part) => "{$part['label']} {$part['min_correct']}/{$part['of']}", $parts))
             : 'Bestanden ab '.(int) ceil(($this->passing_rule['min_correct_ratio'] ?? 0.75) * $total - 1e-9)." von {$total} richtigen Antworten";
+        // Review-Runde 11: die Navigationsaufgabe gehört zur Bestehensregel.
+        if ($navigation = $this->navigationRule()) {
+            $summary .= " · Navigation {$navigation['min_points']}/{$navigation['of']}";
+        }
 
         return $this->time_limit_seconds ? $summary.' · '.intdiv($this->time_limit_seconds, 60).' Minuten' : $summary;
     }

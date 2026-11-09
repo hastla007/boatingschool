@@ -203,7 +203,7 @@ class LearningController extends Controller
         $tenant = $tenantContext->tenant();
         $user = $request->user();
 
-        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403);
+        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Dein Zugang zu diesem Kurs ist abgelaufen oder nicht freigeschaltet.');
 
         $validated = $request->validate([
             'revision_id' => ['required', 'uuid'],

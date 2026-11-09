@@ -73,7 +73,7 @@ class UserAccountController extends Controller
 
         $lastMembership = TenantUser::withoutGlobalScopes()->where('user_id', $user->id)->count() === 1;
         AuditLog::record($tenant->id, $request->user()->id, 'superadmin.user.membership_delete', 'tenant_user', null, null, ['account_deleted' => $lastMembership]);
-        $erasure->leaveTenant($user, $tenant);
+        $erasure->leaveTenant($user, $tenant, forgetOtherSchoolsInvitations: false); // Review-Runde 12: nur diese Schule
 
         return $lastMembership
             ? redirect()->route('superadmin.users.index')->with('status', 'Mitgliedschaft entfernt. Da es die letzte war, wurde das Konto gelöscht.')

@@ -273,7 +273,8 @@
                                 </label>
                                 @break
                             @default
-                                <x-text-input :id="$fieldId" :name="$field['key']" type="text" class="mt-1 block w-full" :value="old($field['key'])" :required="$field['required']" />
+                                {{-- Review-Runde 12: Telefonnummer aus dem Profil vorbelegen. --}}
+                                <x-text-input :id="$fieldId" :name="$field['key']" type="text" class="mt-1 block w-full" :value="old($field['key'], str_contains($field['key'], 'telefon') ? auth()->user()->phone : null)" :required="$field['required']" />
                         @endswitch
 
                         @if (! empty($field['help_text']))

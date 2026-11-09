@@ -223,7 +223,8 @@ class SuperadminAreaTest extends TestCase
      * E-Mail-Vergleiche an anderer Stelle (z. B. app:create-superadmin)
      * unterlaufen hätte.
      */
-    public function test_a_new_users_email_must_be_lowercase(): void
+    /** Review-Runde 11: groß geschriebene Adressen werden klein gespeichert statt abgelehnt. */
+    public function test_a_new_users_email_is_stored_lowercase(): void
     {
         $superadmin = $this->createSuperAdmin();
 
@@ -233,11 +234,14 @@ class SuperadminAreaTest extends TestCase
             'email' => 'Nina-Beispiel@Example.test',
         ]);
 
-        $response->assertSessionHasErrors('email');
+        $response->assertSessionHasNoErrors();
         $this->assertDatabaseMissing('app_user', ['email' => 'Nina-Beispiel@Example.test']);
+        $created = $this->onAdmin(fn () => User::where('email', 'nina-beispiel@example.test')->first());
+        $this->assertNotNull($created);
+        $this->createdUserIds[] = $created->id;
     }
 
-    public function test_updating_a_users_email_to_mixed_case_is_rejected(): void
+    public function test_updating_a_users_email_to_mixed_case_stores_it_lowercase(): void
     {
         $superadmin = $this->createSuperAdmin();
         $tenant = $this->createTestTenant();
@@ -250,8 +254,8 @@ class SuperadminAreaTest extends TestCase
             'status' => 'active',
         ]);
 
-        $response->assertSessionHasErrors('email');
-        $this->assertSame($user->email, $user->fresh()->email);
+        $response->assertSessionHasNoErrors();
+        $this->assertSame('grossgeschrieben@example.test', $this->onAdmin(fn () => $user->fresh()->email));
     }
 
     public function test_superadmin_sees_a_users_course_results_across_tenants(): void

@@ -62,6 +62,7 @@ class LoginRequest extends FormRequest
         // werden, weil hier nur E-Mail/Passwort geprüft wurden.
         if (! Auth::attempt([...$credentials, 'status' => 'active'], $this->boolean('remember'))) {
             RateLimiter::hit($this->throttleKey());
+            RateLimiter::hit($this->accountThrottleKey(), 900);
 
             throw ValidationException::withMessages([
                 'email' => trans('auth.failed'),
@@ -69,6 +70,7 @@ class LoginRequest extends FormRequest
         }
 
         RateLimiter::clear($this->throttleKey());
+        RateLimiter::clear($this->accountThrottleKey());
     }
 
     /**
@@ -78,13 +80,16 @@ class LoginRequest extends FormRequest
      */
     public function ensureIsNotRateLimited(): void
     {
-        if (! RateLimiter::tooManyAttempts($this->throttleKey(), 5)) {
+        // Review-Runde 12: zusätzlich je Konto (unabhängig von der IP) --
+        // mit wechselnden IPs ließ sich ein Konto sonst unbegrenzt raten.
+        $accountLimited = RateLimiter::tooManyAttempts($this->accountThrottleKey(), self::ACCOUNT_ATTEMPTS);
+        if (! $accountLimited && ! RateLimiter::tooManyAttempts($this->throttleKey(), 5)) {
             return;
         }
 
         event(new Lockout($this));
 
-        $seconds = RateLimiter::availableIn($this->throttleKey());
+        $seconds = $accountLimited ? RateLimiter::availableIn($this->accountThrottleKey()) : RateLimiter::availableIn($this->throttleKey());
 
         throw ValidationException::withMessages([
             'email' => trans('auth.throttle', [
@@ -97,6 +102,14 @@ class LoginRequest extends FormRequest
     /**
      * Get the rate limiting throttle key for the request.
      */
+    /** Fehlversuche je Konto in 15 Minuten, über alle IPs hinweg. */
+    private const ACCOUNT_ATTEMPTS = 20;
+
+    public function accountThrottleKey(): string
+    {
+        return 'login-account:'.Str::transliterate(Str::lower($this->string('email')));
+    }
+
     public function throttleKey(): string
     {
         return Str::transliterate(Str::lower($this->string('email')).'|'.$this->ip());

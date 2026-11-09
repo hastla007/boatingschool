@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Models\User;
 use App\Support\CanonicalUrl;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -49,10 +50,18 @@ class ConfirmPendingEmail extends Notification
             app()->bound('currentTenant') ? app('currentTenant') : null,
         );
 
+        // Review-Runde 12: Team-Mitglieder werden gesiezt (Empfänger ist hier
+        // die neue Adresse, nicht das Konto selbst).
+        $formal = (bool) User::on('pgsql_admin')->find($this->userId)?->prefersFormalAddress();
+
         return (new MailMessage)
             ->subject('Neue E-Mail-Adresse bestätigen')
-            ->line('Für dein Konto wurde diese E-Mail-Adresse als neue Login-Adresse hinterlegt.')
+            ->line($formal
+                ? 'Für Ihr Konto wurde diese E-Mail-Adresse als neue Login-Adresse hinterlegt.'
+                : 'Für dein Konto wurde diese E-Mail-Adresse als neue Login-Adresse hinterlegt.')
             ->action('E-Mail-Adresse bestätigen', $url)
-            ->line('Hast du diese Änderung nicht selbst vorgenommen, kannst du diese Nachricht einfach ignorieren -- ohne Bestätigung ändert sich nichts an deinem Konto.');
+            ->line($formal
+                ? 'Haben Sie diese Änderung nicht selbst vorgenommen, können Sie diese Nachricht einfach ignorieren – ohne Bestätigung ändert sich nichts an Ihrem Konto.'
+                : 'Hast du diese Änderung nicht selbst vorgenommen, kannst du diese Nachricht einfach ignorieren – ohne Bestätigung ändert sich nichts an deinem Konto.');
     }
 }

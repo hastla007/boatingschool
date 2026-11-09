@@ -71,10 +71,13 @@ class AdminDashboardController extends Controller
         // Bug-Review B15: status wechselt nie automatisch auf "expired" --
         // ein reines status=active zählte abgelaufene Freischaltungen
         // weiter als aktiv. currentlyActive() prüft zusätzlich valid_until.
-        $activeEntitlements = Entitlement::where('tenant_id', $tenant->id)->currentlyActive()
-            ->when($scopeCourseIds !== null, fn ($q) => $q->whereIn('course_id', $scopeCourseIds)->whereIn('user_id', $learnerIds))->count();
+        // Review-Runde 11: nur Zugänge aktiver Teilnehmer (nicht gesperrte
+        // Mitgliedschaften oder Team-Mitglieder) -- wie die Teilnehmerzahl.
+        $activeEntitlements = Entitlement::where('tenant_id', $tenant->id)->currentlyActive()->whereIn('user_id', $learnerIds)
+            ->when($scopeCourseIds !== null, fn ($q) => $q->whereIn('course_id', $scopeCourseIds))->count();
         // Protokoll der ganzen Schule nur für Inhaber/Admins.
         $recentActivity = $canManageTenant ? AuditLog::where('tenant_id', $tenant->id)->latest('created_at')->take(10)->get() : collect();
+        AuditLog::preloadFor($recentActivity);
 
         // Info-Hinweis "Kürzlich gebuchte Kurse & Produkte" auf dem
         // Dashboard -- über alle Teilnehmer der Bootsschule hinweg, damit
@@ -95,7 +98,7 @@ class AdminDashboardController extends Controller
         $bundledProductIds = [];
 
         $recentCourseBookings = Entitlement::where('tenant_id', $tenant->id)
-            ->where('valid_from', '>=', $recentBookingsCutoff)
+            ->where('valid_from', '>=', $recentBookingsCutoff)->whereIn('user_id', $learnerIds)
             ->when($scopeCourseIds !== null, fn ($q) => $q->whereIn('course_id', $scopeCourseIds))
             ->when($visibleLearnerIds !== null, fn ($q) => $q->whereIn('user_id', $visibleLearnerIds))
             ->with(['course', 'user'])->get()
@@ -490,7 +493,7 @@ class AdminDashboardController extends Controller
                     $q2->where('code', 'ilike', $term)
                         ->orWhereHas('course', fn ($q3) => $q3->where('name', 'ilike', $term))
                         ->orWhereHas('product', fn ($q3) => $q3->where('name', 'ilike', $term))
-                        ->orWhereHas('redeemedBy', fn ($q3) => $q3->where('display_name', 'ilike', $term));
+                        ->orWhereHas('redeemedBy', fn ($q3) => $q3->where('display_name', 'ilike', $term)->orWhere('email', 'ilike', $term));
                 });
             })
             // „offen“ = noch einlösbar (wie die Bestandszahl oben), nicht nur „nicht eingelöst“.
@@ -546,6 +549,7 @@ class AdminDashboardController extends Controller
             'platformAnnouncements' => PlatformAnnouncement::visible()->forTenant($tenant->id)->orderByDesc('created_at')->limit(5)->get(),
             'tenant' => $tenant,
             'canManageTenant' => $canManageTenant,
+            'canInvite' => InstructorScope::courseIds($tenant, $request->user()) === null,
             'learnerCount' => $learnerCount,
             'activeEntitlements' => $activeEntitlements,
             'recentActivity' => $recentActivity,

@@ -52,13 +52,16 @@ class ParticipantToolsController extends Controller
                 continue;
             }
             if (isset($seen[$email])) {
+                $skipped[] = "{$email} (doppelt in der Liste)";
+
                 continue;
             }
             $seen[$email] = true;
 
-            $existing = User::on('pgsql_admin')->where('email', $email)->first();
-            if ($existing && TenantUser::where('tenant_id', $tenant->id)->where('user_id', $existing->id)->exists()) {
-                $skipped[] = "{$email} (bereits Teilnehmer)";
+            $existing = User::on('pgsql_admin')->whereRaw('lower(email) = ?', [mb_strtolower($email)])->first();
+            $existingRole = $existing ? TenantUser::where('tenant_id', $tenant->id)->where('user_id', $existing->id)->value('role') : null;
+            if ($existingRole) {
+                $skipped[] = $existingRole === 'learner' ? "{$email} (bereits Teilnehmer)" : "{$email} (gehört zum Team)";
 
                 continue;
             }

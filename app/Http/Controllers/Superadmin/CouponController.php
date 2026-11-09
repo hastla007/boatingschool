@@ -48,7 +48,7 @@ class CouponController extends Controller
             'quantity' => ['required', 'integer', 'min:1', 'max:500'],
             'batch_label' => ['nullable', 'string', 'max:255'],
             // Optional: letzter Tag, an dem die Codes einlösbar sind.
-            'expires_on' => ['nullable', 'date', 'after_or_equal:'.now('Europe/Berlin')->toDateString()],
+            'expires_on' => ['bail', 'nullable', 'date', 'after_or_equal:'.now('Europe/Berlin')->toDateString()],
         ]);
 
         [$type, $targetId] = array_pad(explode(':', $validated['target'], 2), 2, null);

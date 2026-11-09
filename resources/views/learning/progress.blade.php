@@ -54,10 +54,14 @@
                 <div class="rounded-xl border border-slate-100 dark:border-slate-700 px-4 py-3">
                     <div class="flex items-center justify-between gap-3">
                         <div class="min-w-0">
-                            <div class="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">
+                            <div class="text-sm font-medium text-slate-700 dark:text-slate-200 break-words">
                                 {{ $session->displayLabel }}
                             </div>
                             <div class="text-xs text-slate-600 dark:text-slate-400">{{ \App\Support\GermanTime::format($session->submitted_at, 'd.m.Y H:i') }}</div>
+                            @if (! is_null($session->navigation_points))
+                                {{-- Review-Runde 11: der Prozentwert zählt nur den Fragebogen. --}}
+                                <div class="text-xs text-slate-500 dark:text-slate-400">Fragebogen {{ (int) round($session->score * 100) }}&nbsp;% &middot; Navigationsaufgabe {{ $session->navigation_points }} Punkte</div>
+                            @endif
                             @if ($session->openTextCount > 0)
                                 {{-- Bug-Review (FKN offene Fragen): siehe exam/result.blade.php --
                                      dieselbe Selbsteinschätzung-Transparenz in der dauerhaften

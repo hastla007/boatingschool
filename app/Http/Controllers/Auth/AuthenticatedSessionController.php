@@ -33,9 +33,16 @@ class AuthenticatedSessionController extends Controller
         // nur die Session, wer sich anmelden will.
         $user = $request->user();
         if ($user->hasTwoFactor()) {
-            Auth::guard('web')->logout();
+            // Review-Runde 12: logoutCurrentDevice statt logout -- logout()
+            // erneuert den remember_token und meldete damit allein mit dem
+            // Passwort (ohne zweiten Faktor) alle gemerkten Geräte ab.
+            Auth::guard('web')->logoutCurrentDevice();
             $request->session()->regenerate();
-            $request->session()->put('two_factor.login', ['id' => $user->id, 'remember' => $request->boolean('remember'), 'at' => now()->timestamp]);
+            $request->session()->put('two_factor.login', [
+                'id' => $user->id, 'remember' => $request->boolean('remember'), 'at' => now()->timestamp,
+                // Passwort seither geändert/zurückgesetzt -> Anmeldung ungültig.
+                'pw' => hash('sha256', (string) $user->getAuthPassword()),
+            ]);
 
             return redirect()->route('two-factor.challenge');
         }
@@ -66,7 +73,7 @@ class AuthenticatedSessionController extends Controller
             if (! TenantPath::isCentralRoot($request)) {
                 return redirect()
                     ->to($this->centralDomainUrl($request, route('login', absolute: false)))
-                    ->with('status', 'Der Superadmin-Bereich ist nur über die zentrale Domain erreichbar -- bitte melde dich hier noch einmal an.');
+                    ->with('status', 'Der Superadmin-Bereich ist nur über die zentrale Domain erreichbar – bitte melde dich hier noch einmal an.');
             }
 
             return redirect()->intended(route('superadmin.dashboard', absolute: false));

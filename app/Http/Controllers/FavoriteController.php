@@ -110,6 +110,9 @@ class FavoriteController extends Controller
                     ->where('course_id', $course->id);
             })
             ->where('correct', false)
+            // Review-Runde 11: nur tatsächlich beantwortete Fragen -- nach
+            // Zeitablauf unbeantwortete hat der Teilnehmer oft nie gesehen.
+            ->whereNotNull('answered_at')
             // Bug-Review (Fehlerliste zeigt deaktivierte Fragen): anders als
             // alle übrigen Listen dieser Seite war "Meine Fehler" der
             // Prüfungsfragen nicht auf aktuell gültige Fragen (active,
@@ -124,8 +127,7 @@ class FavoriteController extends Controller
             ->whereNotIn('question_id', $masteredIds)
             ->selectRaw('question_id, max(answered_at) as last_wrong_at')
             ->groupBy('question_id')
-            // Unbeantwortet gebliebene Fragen (answered_at leer) ans Ende.
-            ->orderByRaw('max(answered_at) desc nulls last')
+            ->orderByRaw('max(answered_at) desc')
             ->limit(20)
             ->pluck('question_id');
 

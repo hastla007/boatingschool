@@ -30,8 +30,11 @@ class PrunePersonalData extends Command
         $dryRun = $this->option('dry-run');
 
         $this->pruneSessions($dryRun);
-        $this->pruneTechnicalLeftovers($dryRun);
+        // Review-Runde 11: erst die nie aktivierten Konten -- die Prüfung
+        // „vor Kurzem neu eingeladen“ liest die Einladungs-Links, die das
+        // Aufräumen der technischen Reste danach löscht.
         $this->pruneUnclaimedAccounts($dryRun);
+        $this->pruneTechnicalLeftovers($dryRun);
         $this->pruneTable('audit_log', 'created_at', 'audit_log', $dryRun);
         $this->pruneTable('attempt', 'created_at', 'attempt', $dryRun);
 
@@ -72,7 +75,14 @@ class PrunePersonalData extends Command
         $resetMinutes = (int) config('auth.passwords.users.expire', 60);
         $resets = DB::table('password_reset_tokens')->where('created_at', '<', now()->subMinutes($resetMinutes));
         // Einladungs-Links liegen in einer eigenen Tabelle mit eigener Frist (7 Tage).
+        // Review-Runde 12: die (abgelaufene) Zeile bleibt so lange wie die Frist
+        // für nie aktivierte Konten -- sie ist der Nachweis „vor Kurzem neu
+        // eingeladen“ (pruneUnclaimedAccounts); vorher schützte ein neu
+        // verschickter Link nur noch bis zum nächsten täglichen Lauf.
         $inviteMinutes = (int) config('auth.passwords.invites.expire', 60 * 24 * 7);
+        if (config('data_retention.unclaimed_accounts.enabled')) {
+            $inviteMinutes = max($inviteMinutes, (int) config('data_retention.unclaimed_accounts.days') * 24 * 60);
+        }
         $invites = Schema::hasTable('account_setup_tokens')
             ? DB::table('account_setup_tokens')->where('created_at', '<', now()->subMinutes($inviteMinutes)) : null;
 
@@ -107,6 +117,14 @@ class PrunePersonalData extends Command
             // Team-Mitglieder einer Schule -- dort entscheidet die Schule.
             ->whereNotExists(fn ($q) => $q->from('entitlement')->whereColumn('entitlement.user_id', 'app_user.id'))
             ->whereNotExists(fn ($q) => $q->from('tenant_user')->whereColumn('tenant_user.user_id', 'app_user.id')->where('tenant_user.role', '!=', 'learner'))
+            // Review-Runde 11: auch nicht löschen, wenn eine Schule das Konto
+            // innerhalb der Frist (neu) aufgenommen oder eingeladen hat oder
+            // schon etwas daran hängt (Kauf, Willkommensbox, Praxis-Anmeldung).
+            ->whereNotExists(fn ($q) => $q->from('tenant_user')->whereColumn('tenant_user.user_id', 'app_user.id')->where('tenant_user.created_at', '>=', $cutoff))
+            ->whereNotExists(fn ($q) => $q->from('tenant_invitation')->whereColumn('tenant_invitation.email', 'app_user.email')->where('tenant_invitation.created_at', '>=', $cutoff))
+            ->whereNotExists(fn ($q) => $q->from('product_purchase')->whereColumn('product_purchase.user_id', 'app_user.id'))
+            ->whereNotExists(fn ($q) => $q->from('willkommensbox_order')->whereColumn('willkommensbox_order.user_id', 'app_user.id'))
+            ->whereNotExists(fn ($q) => $q->from('praxis_form_submission')->whereColumn('praxis_form_submission.user_id', 'app_user.id'))
             ->get();
 
         if ($dryRun) {

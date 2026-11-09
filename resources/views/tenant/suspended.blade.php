@@ -23,6 +23,11 @@
         @endif
         @auth
             <p class="mt-4 text-sm"><a href="{{ route('profile.data-rights') }}" class="underline text-slate-700 dark:text-slate-200">Eigene Daten herunterladen oder Konto löschen</a></p>
+            {{-- Review-Runde 11 --}}
+            <form method="POST" action="{{ route('logout') }}" class="mt-2">
+                @csrf
+                <button type="submit" class="text-sm underline text-slate-600 dark:text-slate-400">Abmelden</button>
+            </form>
         @else
             {{-- Auskunft/Löschung (Art. 15/17/20 DSGVO) bleibt nach der Anmeldung möglich. --}}
             <p class="mt-4 text-sm"><a href="{{ route('login') }}" class="underline text-slate-700 dark:text-slate-200">Anmelden, um eigene Daten herunterzuladen oder das Konto zu löschen</a></p>

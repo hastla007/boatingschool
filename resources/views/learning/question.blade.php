@@ -37,6 +37,9 @@
                   title="Die Serie zählt pro Frage. Beantworte diese Frage 3x hintereinander richtig, dann gilt sie als gelernt und dein Fortschritt steigt.">
                 <x-icon :name="$mastered ? 'check-circle' : 'lock-closed'" class="w-3.5 h-3.5" />
                 {{ min($streak, 3) }}/3
+                {{-- Review-Runde 12: Erklärung auch für Tastatur, Touch und Screenreader. --}}
+                <span class="hidden sm:inline">{{ $mastered ? 'gelernt' : 'richtig in Folge' }}</span>
+                <span class="sr-only">– nach 3 richtigen Antworten in Folge gilt die Frage als gelernt und zählt zum Kursfortschritt.</span>
             </div>
         </div>
 

@@ -46,10 +46,10 @@ class EntitlementController extends Controller
         // Bug-Review T8: "eurer"/"eure" ist die informelle ihr-Form -- der
         // restliche Admin-Bereich siezt durchgehend.
         $membership = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $user->id)->first();
-        abort_unless($membership, 404, 'Dieser Nutzer gehört nicht zu Ihrer Bootsschule.');
+        abort_unless($membership, 404, 'Diese Person gehört nicht zu Ihrer Bootsschule.');
         // Review: keinen Code an ein gesperrtes bzw. beendetes Mitglied verbrauchen.
         if ($membership->status !== 'active') {
-            return back()->withErrors(['course_id' => 'Dieses Mitglied ist nicht aktiv -- ein Code würde ungenutzt verbraucht.']);
+            return back()->withErrors(['course_id' => 'Dieses Mitglied ist nicht aktiv – ein Code würde ungenutzt verbraucht.']);
         }
         abort_unless($entitlements->isOfferable($tenant, $course), 404, 'Dieser Kurs ist für Ihre Bootsschule nicht verfügbar.');
 
@@ -121,7 +121,7 @@ class EntitlementController extends Controller
             // Review-Runde 4: bei mehreren Zeilen (Altbestand) zählt jede widerrufene.
             $hasRevoked = Entitlement::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)->where('status', 'revoked')->exists();
             if ($hasRevoked && ! $isCurrentlyActive) {
-                return back()->withErrors(['course_id' => 'Der Zugang zu diesem Kurs wurde widerrufen und kann nicht einfach per neuem Code wiederhergestellt werden -- bitte zuerst den Widerruf bei der bestehenden Buchung aufheben.']);
+                return back()->withErrors(['course_id' => 'Der Zugang zu diesem Kurs wurde widerrufen und kann nicht einfach per neuem Code wiederhergestellt werden – bitte zuerst den Widerruf bei der bestehenden Buchung aufheben.']);
             }
 
             // Bug-Review (Manuelle Freischaltung -- Code beliebig gewählt):
@@ -334,7 +334,7 @@ class EntitlementController extends Controller
             // abgelaufen ist, würde sonst "aktiv" angezeigt, ohne Zugang zu
             // geben (und stündlich wieder auf abgelaufen gesetzt).
             if ($entitlement->valid_until !== null && $entitlement->valid_until->isPast()) {
-                return back()->withErrors(['action' => 'Die Laufzeit dieses Zugangs ist bereits abgelaufen -- bitte über „Kurs freischalten“ neu vergeben.']);
+                return back()->withErrors(['action' => 'Die Laufzeit dieses Zugangs ist bereits abgelaufen – bitte über „Kurs freischalten“ neu vergeben.']);
             }
             $entitlement->update(['status' => 'active']);
 

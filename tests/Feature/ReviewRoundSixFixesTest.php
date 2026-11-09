@@ -251,8 +251,8 @@ class ReviewRoundSixFixesTest extends TestCase
         $this->onAdmin(fn () => PlatformSetting::current()->update(['operator_info' => "Plattform Betreiber GmbH\nHafenweg 1"]));
         $this->beforeApplicationDestroyed(fn () => $this->onAdmin(fn () => PlatformSetting::current()->update(['operator_info' => $previous])));
 
-        $this->get("{$central}/impressum")->assertOk()->assertSee('Plattform Betreiber GmbH')->assertDontSee('Bitte wählen Sie Ihre Bootsschule');
-        $this->get("{$central}/datenschutz")->assertOk()->assertDontSee('Bitte wählen Sie Ihre Bootsschule');
+        $this->get("{$central}/impressum")->assertOk()->assertSee('Plattform Betreiber GmbH')->assertDontSee('Wähle deine Bootsschule');
+        $this->get("{$central}/datenschutz")->assertOk()->assertDontSee('Wähle deine Bootsschule');
     }
 
     public function test_single_renewal_double_click_uses_only_one_code(): void

@@ -55,10 +55,12 @@ class PasswordResetLinkController extends Controller
         // Versand selbst). Analog zu den bereits auf BestEffortMail
         // umgestellten Stellen (Bug-Review B31) wird ein Fehler nur noch
         // geloggt.
-        BestEffortMail::send(
+        // Review-Runde 12: Versand erst nach der Antwort -- die SMTP-Laufzeit
+        // verriet sonst, ob die Adresse ein Konto hat.
+        \Illuminate\Support\defer(fn () => BestEffortMail::send(
             fn () => Password::sendResetLink(['email' => $email]),
             'Passwort-Reset-Link für '.$email
-        );
+        ));
 
         // Sicherheitsreview M3: unabhängig davon, ob die Adresse tatsächlich
         // registriert ist, bekommt der Request immer dieselbe Antwort --

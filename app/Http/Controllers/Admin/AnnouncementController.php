@@ -40,7 +40,7 @@ class AnnouncementController extends Controller
             'title' => ['required', 'string', 'max:150'],
             'body' => ['required', 'string', 'max:5000'],
             'course_id' => ['nullable', 'uuid', Rule::in($this->courses($tenantContext)->pluck('id'))],
-            'visible_until' => ['nullable', 'date', 'after_or_equal:'.now('Europe/Berlin')->toDateString()],
+            'visible_until' => ['bail', 'nullable', 'date', 'after_or_equal:'.now('Europe/Berlin')->toDateString()],
             'send_mail' => ['nullable', 'boolean'],
         ]);
 

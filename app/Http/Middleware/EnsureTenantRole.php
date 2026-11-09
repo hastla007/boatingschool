@@ -21,7 +21,12 @@ class EnsureTenantRole
         $role = $user->roleForTenant($tenant);
 
         if (! $role || ! in_array($role, $roles, true)) {
-            abort(403, 'Dieser Bereich ist nur für das Team der Bootsschule.');
+            // Review-Runde 11: passende Meldung je nach Rolle.
+            abort(403, match (true) {
+                in_array('learner', $roles, true) => 'Dieser Bereich ist für Teilnehmer gedacht.',
+                $role === 'instructor' => 'Dieser Bereich ist der Leitung der Bootsschule (Inhaber und Admins) vorbehalten.',
+                default => 'Dieser Bereich ist nur für das Team der Bootsschule.',
+            });
         }
 
         return $next($request);

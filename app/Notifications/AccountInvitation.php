@@ -35,6 +35,9 @@ class AccountInvitation extends Notification
             'admin' => 'als Admin',
             'instructor' => 'als Ausbilder',
             'superadmin' => 'als Plattform-Administrator',
+            // Review-Runde 12: diese Rollen bekamen „als Teilnehmer“.
+            'staff' => 'als Mitarbeiter',
+            'support' => 'als Support',
             default => 'als Teilnehmer',
         };
 

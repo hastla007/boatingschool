@@ -59,6 +59,15 @@ class CourseSelectionController extends Controller
             'renewal_webshop_link' => ['nullable', 'url:http,https', 'max:2048'],
         ]);
 
+        // Review-Runde 11: Stand vorher, damit das Protokoll nur echte
+        // Änderungen (mit altem Wert) festhält.
+        $snapshot = fn () => [
+            'disabled' => TenantCourseDisabled::where('tenant_id', $tenant->id)->orderBy('course_id')->pluck('course_id')->all(),
+            'links' => CourseWebshopLink::where('tenant_id', $tenant->id)->orderBy('course_id')->pluck('url', 'course_id')->all(),
+            'registrations' => CourseExamRegistration::where('tenant_id', $tenant->id)->orderBy('course_id')->pluck('mode', 'course_id')->all(),
+        ];
+        $before = $snapshot();
+
         $tenant->branding()->update([
             'course_validity_days' => $validated['course_validity_days'] ?? $tenant->branding->course_validity_days,
             'renewal_webshop_link' => $validated['renewal_webshop_link'] ?? null,
@@ -104,9 +113,16 @@ class CourseSelectionController extends Controller
             );
         }
 
-        AuditLog::record($tenant->id, $request->user()->id, 'course-selection.update', 'tenant_course_disabled', $tenant->id, null, ['enabled' => $enabledIds->values()->toArray()]);
-        AuditLog::record($tenant->id, $request->user()->id, 'webshop-links.update', 'course_webshop_link', $tenant->id, null, $links->toArray());
-        AuditLog::record($tenant->id, $request->user()->id, 'exam-registration.update', 'course_exam_registration', $tenant->id, null, $registrations->toArray());
+        $after = $snapshot();
+        if ($before['disabled'] !== $after['disabled']) {
+            AuditLog::record($tenant->id, $request->user()->id, 'course-selection.update', 'tenant_course_disabled', $tenant->id, ['disabled' => $before['disabled']], ['enabled' => $enabledIds->values()->toArray(), 'disabled' => $after['disabled']]);
+        }
+        if ($before['links'] !== $after['links']) {
+            AuditLog::record($tenant->id, $request->user()->id, 'webshop-links.update', 'course_webshop_link', $tenant->id, $before['links'], $after['links']);
+        }
+        if ($before['registrations'] !== $after['registrations']) {
+            AuditLog::record($tenant->id, $request->user()->id, 'exam-registration.update', 'course_exam_registration', $tenant->id, $before['registrations'], $after['registrations']);
+        }
 
         return back()->with('status', 'Kursauswahl aktualisiert.');
     }

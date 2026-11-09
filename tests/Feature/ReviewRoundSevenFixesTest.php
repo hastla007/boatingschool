@@ -231,8 +231,9 @@ class ReviewRoundSevenFixesTest extends TestCase
     public function test_navigation_placeholder_and_compact_positions(): void
     {
         $model = "53° 47,2' N 007° 29,1' E";
-        $this->assertStringContainsString('N 008°', NavigationAnswer::placeholder($model));
-        $this->assertSame('z. B. 079°, 6,1 sm', NavigationAnswer::placeholder('BV = 103° - 0,8 sm'));
+        $this->assertStringContainsString('N 000°', NavigationAnswer::placeholder($model));
+        // Review-Runde 11: nur das Format, nie ein echter Wert.
+        $this->assertSame('Format: 000°, 0,0 sm', NavigationAnswer::placeholder('BV = 103° - 0,8 sm'));
         foreach (["N53°47,2' E007°29,1'", "53°47,2'N007°29,1'E", 'N53 47,2 E7 29,1'] as $given) {
             $this->assertTrue(NavigationAnswer::evaluate($model, $given)['correct'], $given);
         }

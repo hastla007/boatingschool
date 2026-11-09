@@ -13,6 +13,7 @@ use App\Http\Middleware\ResolveTenant;
 use App\Http\Middleware\ResolveTenantPath;
 use App\Http\Middleware\RestrictImpersonation;
 use App\Http\Middleware\SecurityHeaders;
+use App\Http\Middleware\StripNullBytes;
 use App\Http\Middleware\TrustHosts;
 use App\Http\Middleware\TrustProxies;
 use App\Http\Middleware\UseAdminDatabaseConnection;
@@ -77,6 +78,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // laufen (globale Middleware), nach TrustProxies (Schema/Host
         // hinter einem Proxy), siehe ResolveTenantPath.
         $middleware->append(ResolveTenantPath::class);
+        $middleware->append(StripNullBytes::class);
 
         // Zertifikate für eigene Domains auch während eines Deploys
         // (Wartungsmodus) ausstellen lassen.

@@ -24,6 +24,8 @@ class ConfirmablePasswordController extends Controller
      */
     public function store(Request $request): RedirectResponse
     {
+        // Review-Runde 11: password[]=… führte sonst zu einem 500.
+        $request->validate(['password' => ['required', 'string']]);
         if (! Auth::guard('web')->validate([
             'email' => $request->user()->email,
             'password' => $request->password,

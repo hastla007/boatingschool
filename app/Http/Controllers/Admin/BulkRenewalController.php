@@ -117,6 +117,9 @@ class BulkRenewalController extends Controller
                     $q->orWhere(fn ($e) => $e->whereIn('status', ['active', 'expired'])->whereBetween('valid_until', [now()->subDays(90), now()]));
                 }
             })
+            // Review-Runde 11: keine gesperrten Mitgliedschaften (ein Code wäre verschenkt).
+            ->whereExists(fn ($q) => $q->from('tenant_user')->whereColumn('tenant_user.tenant_id', 'entitlement.tenant_id')
+                ->whereColumn('tenant_user.user_id', 'entitlement.user_id')->where('tenant_user.status', 'active'))
             ->with('user:id,display_name,email')->orderBy('valid_until')->get()->filter(fn ($e) => $e->user);
     }
 

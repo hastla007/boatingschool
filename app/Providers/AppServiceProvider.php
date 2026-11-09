@@ -3,6 +3,8 @@
 namespace App\Providers;
 
 use App\Auth\TenantSessionGuard;
+use App\Models\PlatformSetting;
+use App\Notifications\AccountInvitation;
 use App\Notifications\AnnouncementPublished;
 use App\Notifications\CouponRedeemed;
 use App\Notifications\EntitlementExpiringSoon;
@@ -11,6 +13,7 @@ use App\Notifications\PraxisExamAppointmentUpdated;
 use App\Notifications\TenantInvitationNotification;
 use App\Notifications\WillkommensboxOrderShipped;
 use App\Support\CanonicalUrl;
+use App\Support\MailSchool;
 use App\Support\TenantContext;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
@@ -18,6 +21,7 @@ use Illuminate\Contracts\Validation\UncompromisedVerifier;
 use Illuminate\Foundation\Events\DiagnosingHealth;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Mail\Events\MessageSending;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -102,16 +106,26 @@ class AppServiceProvider extends ServiceProvider
         // Plattform (Passwort, Bestätigung, Registrierungsversuch …), sonst
         // könnte eine Schule dort ihre eigene Antwortadresse unterbringen.
         $schoolMails = [
-            TenantInvitationNotification::class, CouponRedeemed::class,
+            TenantInvitationNotification::class, AccountInvitation::class, CouponRedeemed::class,
             EntitlementExpiringSoon::class, LearningReminder::class,
             PraxisExamAppointmentUpdated::class, AnnouncementPublished::class,
             WillkommensboxOrderShipped::class,
         ];
+        // Review-Runde 12: Absendername wie die Unterschrift -- die Schule, aus
+        // deren Bereich die Mail kommt, sonst der Plattformname (statt APP_NAME).
+        Event::listen(MessageSending::class, function ($event) {
+            $from = $event->message->getFrom()[0] ?? null;
+            if ($from) {
+                $name = MailSchool::current()?->name ?? PlatformSetting::siteName();
+                $event->message->from(new Address($from->getAddress(), $name));
+            }
+        });
+
         Event::listen(MessageSending::class, function ($event) use ($schoolMails) {
             if (! in_array($event->data['__laravel_notification'] ?? null, $schoolMails, true)) {
                 return;
             }
-            $tenant = app(TenantContext::class)->tenant();
+            $tenant = MailSchool::current();
             $branding = $tenant?->branding;
             if ($branding?->support_email && $branding->support_email_verified_at && $event->message->getReplyTo() === []) {
                 $event->message->replyTo(new Address($branding->support_email, $tenant->name));
@@ -166,6 +180,23 @@ class AppServiceProvider extends ServiceProvider
 
     private function configurePasswordResetUrl(): void
     {
+        // Review-Runde 12: Team-Mitglieder und Plattformbetrieb werden gesiezt.
+        ResetPassword::toMailUsing(function ($notifiable, string $token) {
+            $formal = method_exists($notifiable, 'prefersFormalAddress') && $notifiable->prefersFormalAddress();
+            $minutes = config('auth.passwords.'.config('auth.defaults.passwords').'.expire');
+
+            return (new MailMessage)
+                ->subject('Passwort zurücksetzen')
+                ->line($formal
+                    ? 'Sie erhalten diese E-Mail, weil für Ihr Konto ein neues Passwort angefordert wurde.'
+                    : 'Du erhältst diese E-Mail, weil für dein Konto ein neues Passwort angefordert wurde.')
+                ->action('Passwort zurücksetzen', call_user_func(ResetPassword::$createUrlCallback, $notifiable, $token))
+                ->line("Der Link ist {$minutes} Minuten gültig.")
+                ->line($formal
+                    ? 'Falls Sie kein neues Passwort angefordert haben, müssen Sie nichts weiter tun.'
+                    : 'Falls du kein neues Passwort angefordert hast, musst du nichts weiter tun.');
+        });
+
         ResetPassword::createUrlUsing(function ($notifiable, string $token) {
             // In einer Schule angefordert: Link unter der Adresse der Schule
             // (Pfad-Modus /<slug>/, Port lokal), sonst zentral.

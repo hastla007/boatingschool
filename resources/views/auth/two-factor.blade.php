@@ -3,7 +3,7 @@
     <h2 class="text-xl font-bold text-slate-800 dark:text-white mb-1">Zwei-Faktor-Anmeldung</h2>
     <p class="text-sm text-slate-600 dark:text-slate-400 mb-4">
         Zusätzlich zum Passwort fragt die Anmeldung nach einem Code aus einer Authenticator-App
-        (z. B. Google Authenticator, Microsoft Authenticator, 1Password). Empfohlen für alle, die Kurse freischalten oder Codes verwalten.
+        (z. B. Google Authenticator, Microsoft Authenticator, 1Password). Das schützt dein Konto, auch wenn jemand dein Passwort kennt.
     </p>
 
     <x-auth-session-status class="mb-4" :status="session('status')" />

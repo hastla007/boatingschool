@@ -69,8 +69,11 @@ Route::middleware('guest')->group(function () {
 Route::middleware('auth')->group(function () {
     // Zwei-Faktor-Anmeldung einrichten/abschalten (für jedes Konto, auch Superadmin).
     Route::get('two-factor', [TwoFactorController::class, 'show'])->name('two-factor.show');
-    Route::post('two-factor/enable', [TwoFactorController::class, 'enable'])->name('two-factor.enable');
-    Route::post('two-factor/confirm', [TwoFactorController::class, 'confirm'])->middleware('throttle:10,1,two-factor-confirm')->name('two-factor.confirm');
+    // Review-Runde 12: erst mit bestätigter E-Mail-Adresse -- sonst konnte
+    // jemand, der eine fremde Adresse vor ihrem Besitzer registriert, dort
+    // 2FA mit eigenem Schlüssel einrichten und den Besitzer aussperren.
+    Route::post('two-factor/enable', [TwoFactorController::class, 'enable'])->middleware('verified')->name('two-factor.enable');
+    Route::post('two-factor/confirm', [TwoFactorController::class, 'confirm'])->middleware(['verified', 'throttle:10,1,two-factor-confirm'])->name('two-factor.confirm');
     Route::delete('two-factor', [TwoFactorController::class, 'disable'])->middleware('throttle:10,1,two-factor-disable')->name('two-factor.disable');
 
     Route::get('verify-email', EmailVerificationPromptController::class)

@@ -60,7 +60,7 @@ class PraxisExamAppointmentController extends Controller
 
         $template = PraxisFormTemplate::where('active', true)->whereJsonContains('course_ids', $course->id)->first();
         if (! $template) {
-            return back()->withErrors(['exam_date' => 'Für diesen Kurs ist kein Praxisformular hinterlegt -- bitte an den Plattform-Support wenden.']);
+            return back()->withErrors(['exam_date' => 'Für diesen Kurs ist kein Praxisformular hinterlegt – bitte an den Plattform-Support wenden.']);
         }
 
         $submission = DB::transaction(function () use ($tenant, $user, $course, $template) {
@@ -73,14 +73,21 @@ class PraxisExamAppointmentController extends Controller
         });
         $request->request->remove('slot');
 
-        $response = $this->store($request, $tenantContext, $submission, $appointments);
-        // Scheiterte der Vorschlag (z. B. Datum in der Vergangenheit), bleibt
-        // kein leerer Behälter zurück.
-        if ($submission->isPracticeOnly() && ! $submission->examAppointments()->exists()) {
-            $submission->delete();
+        try {
+            return $this->store($request, $tenantContext, $submission, $appointments);
+        } finally {
+            // Scheiterte der Vorschlag (z. B. Datum in der Vergangenheit oder
+            // ein Eingabefehler), bleibt kein leerer Behälter zurück. Frisch
+            // unter der Sperre gelesen: hat der Teilnehmer inzwischen seine
+            // Praxis-Anmeldung abgeschickt, bleibt sie stehen.
+            DB::transaction(function () use ($tenant, $user, $course, $submission) {
+                DB::statement('SELECT pg_advisory_xact_lock(hashtext(?))', [$tenant->id.':'.$user->id.':'.$course->id]);
+                $fresh = PraxisFormSubmission::find($submission->id);
+                if ($fresh && $fresh->isPracticeOnly() && ! $fresh->examAppointments()->exists()) {
+                    $fresh->delete();
+                }
+            });
         }
-
-        return $response;
     }
 
     public function store(Request $request, TenantContext $tenantContext, PraxisFormSubmission $submission, PraxisExamAppointmentService $appointments): Response
@@ -98,9 +105,6 @@ class PraxisExamAppointmentController extends Controller
         if ($request->input('slot') !== null && (int) $request->input('slot') === 0 && $submission->isPracticeOnly()) {
             return back()->withErrors(['exam_date' => 'Für reine Praxisstunden gibt es keinen Prüfungstermin.']);
         }
-        if ($request->input('slot') !== null && (int) $request->input('slot') === 0 && $submission->course && ExamRegistration::isSelf($tenantContext->tenant(), $submission->course)) {
-            return back()->withErrors(['exam_date' => 'Für diesen Kurs melden sich die Teilnehmer selbst zur Prüfung an (Einstellung im Tab „Kurse“). Einen Prüfungstermin schlagen Sie deshalb nicht vor; Praxisstunden sind weiter möglich.']);
-        }
 
         $locationIds = TenantCourseLocation::where('tenant_id', $tenantContext->id())
             ->whereJsonContains('course_ids', $submission->course_id)
@@ -112,7 +116,8 @@ class PraxisExamAppointmentController extends Controller
         // Fake-Datensatz dafür nötig.
         $validated = $request->validate([
             'exam_date' => ['required', 'date'],
-            'ends_at' => ['nullable', 'date', 'after:exam_date'],
+            // Review-Runde 11: Vergleich nur mit einem echten Datumswert (exam_date[]=… gab 500).
+            'ends_at' => ['bail', 'nullable', 'date', ...(is_string($request->input('exam_date')) ? ['after:exam_date'] : [])],
             'slot' => ['nullable', 'integer', 'min:0'],
             'label' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:2000'],

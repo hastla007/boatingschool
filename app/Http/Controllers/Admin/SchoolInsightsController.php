@@ -11,6 +11,7 @@ use App\Models\TenantUser;
 use App\Models\User;
 use App\Services\CourseProgressService;
 use App\Services\LearnerOverview;
+use App\Support\DateInput;
 use App\Support\InstructorScope;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
@@ -69,7 +70,7 @@ class SchoolInsightsController extends Controller
             ->orderByDesc('total')->get();
 
         // Durchschnittlicher Fortschritt und Prüfungsreife je Kurs (aktive Zugänge).
-        $courses = $learners(Entitlement::currentlyActive()->where('tenant_id', $tenant->id)->when($scopeCourses !== null, fn ($q) => $q->whereIn('course_id', $scopeCourses)))->with('course', 'user')->get()
+        $courses = $learners(Entitlement::currentlyActive()->where('tenant_id', $tenant->id)->whereIn('user_id', $memberIds)->when($scopeCourses !== null, fn ($q) => $q->whereIn('course_id', $scopeCourses)))->with('course', 'user')->get()
             ->filter(fn ($e) => $e->course && $e->user)->groupBy('course_id')
             ->map(function ($group) use ($tenant, $overview) {
                 $course = $group->first()->course;
@@ -101,13 +102,16 @@ class SchoolInsightsController extends Controller
             $query->whereIn('actor_user_id', User::where('email', 'ilike', '%'.$filters['actor'].'%')->select('id'));
         }
         foreach (['from' => '>=', 'to' => '<='] as $key => $operator) {
-            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $filters[$key])) {
+            if (DateInput::isDate($filters[$key])) {
                 // Datum gilt in deutscher Zeit, gespeichert wird UTC.
-                $day = Carbon::parse($filters[$key], 'Europe/Berlin');
+                $day = Carbon::createFromFormat('!Y-m-d', $filters[$key], 'Europe/Berlin');
                 $query->where('created_at', $operator, ($key === 'from' ? $day->startOfDay() : $day->endOfDay())->utc());
             }
         }
 
-        return view('admin.insights.audit', ['entries' => $query->paginate(50)->withQueryString(), 'filters' => $filters]);
+        $entries = $query->paginate(50)->withQueryString();
+        AuditLog::preloadFor($entries->getCollection());
+
+        return view('admin.insights.audit', ['entries' => $entries, 'filters' => $filters]);
     }
 }

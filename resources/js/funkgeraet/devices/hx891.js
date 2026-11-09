@@ -797,7 +797,7 @@ export function createHx891({ own, clock = () => Date.now(), emit = () => {}, ad
             s.utc = `${m[7]}:${m[8]}`;
             s.positionSetAt = clock();
             event('position_set', { position: s.position });
-            event('utc_set', { utc: s.utc });
+            event('utc_set', { utc: s.utc, position: s.position });
             const fn = e.back;
             s.editor = null;
             fn();

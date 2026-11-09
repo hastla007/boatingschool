@@ -66,7 +66,7 @@ class ContentImportController extends Controller
             // schreiben, damit sichtbar ist, dass nur ein Teil übernommen wurde.
             report($e);
             $exitCode = 1;
-            $failure = 'Import abgebrochen ('.class_basename($e).'): '.Str::limit($e->getMessage(), 300).' -- Zeilen davor wurden bereits übernommen.';
+            $failure = 'Import abgebrochen ('.class_basename($e).'): '.Str::limit($e->getMessage(), 300).' – Zeilen davor wurden bereits übernommen.';
         } finally {
             Storage::disk('local')->delete($stored);
         }

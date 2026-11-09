@@ -63,10 +63,13 @@ class ImportContentFeedback extends Command
             return self::FAILURE;
         }
 
-        $rows = iterator_to_array($this->readCsv($path));
+        // Review-Runde 11: Schlüssel = echte Zeilennummer; kaputte Zeilen
+        // und eine Datei ohne content_id-Spalte werden als Fehler gemeldet.
+        $rows = iterator_to_array($this->readCsv($path), true);
+        $headerRejected = isset($this->errors[1]) && $rows === [];
 
-        $this->withProgressBar($rows, function (array $row, $bar, int $rowIndex) {
-            $this->importRow($row, $rowIndex + 2);
+        $this->withProgressBar($rows, function (array $row, $bar, int $lineNumber) {
+            $this->importRow($row, $lineNumber);
         });
         $this->newLine(2);
 
@@ -74,11 +77,13 @@ class ImportContentFeedback extends Command
         $this->info("Unverändert (bereits identisch): {$this->unchanged}");
         $this->warn("Übersprungen/Fehler: {$this->skipped}");
 
+        ksort($this->errors);
         foreach ($this->errors as $line => $message) {
             $this->line("  Zeile {$line}: {$message}");
         }
 
-        return self::SUCCESS;
+        // Review-Runde 12: eine unbrauchbare Datei ist kein erfolgreicher Import.
+        return $headerRejected ? self::FAILURE : self::SUCCESS;
     }
 
     private function importRow(array $row, int $lineNumber): void
@@ -244,16 +249,43 @@ class ImportContentFeedback extends Command
     {
         $handle = fopen($path, 'r');
         $header = fgetcsv($handle, 0, ';', '"', '\\');
+        if (! is_array($header) || $header === [null]) {
+            $this->recordSkip(1, 'Die Datei ist leer.');
+            fclose($handle);
+
+            return;
+        }
         $header[0] = preg_replace('/^\xEF\xBB\xBF/', '', $header[0]);
         $header = array_map('trim', $header);
+        if (! in_array('content_id', $header, true)) {
+            $this->recordSkip(1, 'Kopfzeile ohne Spalte „content_id“ (Trennzeichen Semikolon?).');
+            fclose($handle);
 
+            return;
+        }
+
+        // Review-Runde 12: echte Zeilennummer in der Datei (ein Feld kann über
+        // mehrere Zeilen gehen) -- gezählt über die gelesenen Bytes.
+        $nextLine = 2;
+        $position = ftell($handle);
         while (($data = fgetcsv($handle, 0, ';', '"', '\\')) !== false) {
-            // Leerzeilen (fgetcsv liefert [null]) und Zeilen mit falscher
-            // Spaltenzahl überspringen statt mit einem ValueError abzubrechen.
-            if ($data === [null] || count($data) !== count($header)) {
+            $line = $nextLine;
+            $end = ftell($handle);
+            fseek($handle, $position);
+            $nextLine += substr_count((string) fread($handle, $end - $position), "\n");
+            fseek($handle, $end);
+            $position = $end;
+            // Leerzeilen (fgetcsv liefert [null]) überspringen; Zeilen mit
+            // falscher Spaltenzahl melden statt mit einem ValueError abzubrechen.
+            if ($data === [null]) {
                 continue;
             }
-            yield array_combine($header, $data);
+            if (count($data) !== count($header)) {
+                $this->recordSkip($line, 'Falsche Spaltenzahl ('.count($data).' statt '.count($header).').');
+
+                continue;
+            }
+            yield $line => array_combine($header, $data);
         }
 
         fclose($handle);

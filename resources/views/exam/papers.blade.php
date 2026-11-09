@@ -41,6 +41,13 @@
                     Bögen haben immer die gleiche Zusammensetzung, sodass du dich gezielt und effizient vorbereiten kannst.
                     Jeder Prüfungsbogen enthält 23 Multiple-Choice-Fragen aus dem Bereich {{ $copy['bereich'] }} &mdash; die 7 allgemeinen
                     Basisfragen entfallen, da diese mit deinem vorhandenen {{ $copy['vorhanden'] }} bereits geprüft wurden.
+                    @if ($hasNavigationTasks && $course->code === 'ADD-BIN-TO-SEE')
+                        {{-- Review-Runde 12 --}}
+                        Nach den Fragen folgt in jedem Bogen die Navigationsaufgabe mit derselben Nummer &ndash; sie muss für sich
+                        bestanden sein (mindestens 7 von 9 Punkten), alles zusammen in der Prüfungszeit. Zum Üben mit sofortiger
+                        Lösung findest du alle Aufgaben im Bereich
+                        <a href="{{ route('exam.navigation.index', $course) }}" class="inline-flex items-center px-2 py-0.5 rounded-md text-white text-xs font-medium" style="background-color: var(--brand-primary, #005FD7)">Navigationsaufgaben</a>.
+                    @endif
                 </p>
                 <p class="text-xs text-slate-600 dark:text-slate-400 mt-3">
                     Hinweis: Die Zuordnung der Fragen zu den einzelnen Bögen entspricht den amtlichen Ergänzungsbögen
@@ -52,6 +59,12 @@
                     (7 allgemeine Basisfragen und 23 Fragen See) und 15 für SBF Binnen mit den 23 Fragen Binnen. Legst du beide
                     Prüfungen am selben Tag ab, werden die Basisfragen nur einmal geprüft. Die Bögen haben immer die gleiche
                     Zusammensetzung, sodass du dich gezielt und effizient auf beide Prüfungen vorbereiten kannst.
+                    @if ($hasNavigationTasks)
+                        {{-- Review-Runde 12 --}}
+                        Zu jedem See-Bogen gehört die Navigationsaufgabe mit derselben Nummer &ndash; sie muss für sich bestanden
+                        sein (mindestens 7 von 9 Punkten). Üben kannst du sie im Bereich
+                        <a href="{{ route('exam.navigation.index', $course) }}" class="inline-flex items-center px-2 py-0.5 rounded-md text-white text-xs font-medium" style="background-color: var(--brand-primary, #005FD7)">Navigationsaufgaben</a>.
+                    @endif
                 </p>
                 <p class="text-xs text-slate-600 dark:text-slate-400 mt-3">
                     Hinweis: Die Zuordnung der Fragen zu den einzelnen Bögen entspricht den amtlichen Prüfungsbögen
@@ -106,6 +119,17 @@
                     Hinweis: Zur SRC-Prüfung gehören zusätzlich ein englisches Diktat und eine schriftliche Übersetzung, die nicht Teil
                     dieser Online-Simulation sind. Quelle der Prüfungsbögen: Fachstelle der WSV für Verkehrstechniken, Koblenz.
                 </p>
+            @elseif (in_array($course->code, ['UBI', 'ADD-UBI-TO-SRC'], true))
+                {{-- Review-Runde 12: bisher ohne eigenen Text. --}}
+                <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                    Hier findest du alle {{ $paperStats->count() }} offiziellen Prüfungsbögen für
+                    {{ $course->code === 'UBI' ? 'das UKW-Binnenfunkzeugnis (UBI)' : 'die UBI-Ergänzungsprüfung für Inhaber des SRC' }}.
+                    Die Bögen haben immer die gleiche Zusammensetzung, sodass du dich gezielt und effizient vorbereiten kannst.
+                    Die Bestehensgrenze und die Bearbeitungszeit stehen unten bei den Bögen.
+                </p>
+                <p class="text-xs text-slate-600 dark:text-slate-400 mt-3">
+                    Hinweis: Zur Prüfung gehört zusätzlich ein praktischer Teil am Funkgerät, der nicht Teil dieser Online-Simulation ist.
+                </p>
             @elseif ($course->code === 'FKN')
                 <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
                     Hier findest du alle {{ $paperStats->count() }} offiziellen Prüfungsbögen für den FKN Vollkurs (Fachkundenachweis für
@@ -120,7 +144,7 @@
             @elseif ($course->code === 'ADD-BIN-SEGEL')
                 <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
                     Hier findest du alle {{ $paperStats->count() }} offiziellen Prüfungsbögen für die Ergänzungsprüfung „Binnen &rarr; Segeln&quot;. Da du
-                    deinen SBF Binnen bereits besitzt, entfallen der allgemeine Teil und die Basisfragen &mdash; jeder Bogen enthält nur noch
+                    deinen SBF Binnen bereits besitzt, entfallen die Basisfragen und die Fragen Binnen &mdash; jeder Bogen enthält nur noch
                     7 spezifische Segelfragen. Du musst mindestens 5 der 7 Fragen richtig beantworten, die Bearbeitungszeit beträgt 15 Minuten.
                 </p>
                 <p class="text-xs text-slate-600 dark:text-slate-400 mt-3">
@@ -187,6 +211,9 @@
                                         <div class="text-xs font-medium text-amber-200">läuft &ndash; fortsetzen</div>
                                     @else
                                         <div class="text-xs text-white/70">{{ $stat['correct'] }}/{{ $stat['total'] }}</div>
+                                        @if ($stat['attempted'] && ! is_null($stat['passed']))
+                                            <div class="text-xs font-medium {{ $stat['passed'] ? 'text-emerald-300' : 'text-rose-300' }}">{{ $stat['passed'] ? 'bestanden' : 'nicht bestanden' }}</div>
+                                        @endif
                                     @endif
                                 </button>
                             </form>

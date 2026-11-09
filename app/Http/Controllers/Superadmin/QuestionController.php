@@ -113,7 +113,7 @@ class QuestionController extends Controller
         // Review-Runde 10: der zweite Klick überschrieb sonst stillschweigend --
         // jetzt nur mit ausdrücklichem „trotzdem speichern“.
         if ($request->filled('base_revision_no') && (int) $request->input('base_revision_no') !== (int) $editing?->revision_no && ! $request->boolean('overwrite_newer')) {
-            return back()->withInput()->withErrors(['question_text' => 'Diese Frage wurde inzwischen in einem anderen Fenster oder von jemand anderem gespeichert (jetzt Revision '.$editing?->revision_no.'). Bitte die Seite neu laden -- oder unten bestätigen, dass Ihre Fassung die neuere ersetzen soll.']);
+            return back()->withInput()->withErrors(['question_text' => 'Diese Frage wurde inzwischen in einem anderen Fenster oder von jemand anderem gespeichert (jetzt Revision '.$editing?->revision_no.'). Bitte die Seite neu laden – oder unten bestätigen, dass Ihre Fassung die neuere ersetzen soll.']);
         }
 
         DB::transaction(function () use ($validated, $question, $latest, $editing) {
@@ -193,7 +193,7 @@ class QuestionController extends Controller
         $isLatestReview = $revision->revision_no === $revision->question->revisions()
             ->where('editorial_status', 'review')
             ->max('revision_no');
-        abort_unless($isLatestReview, 409, 'Für diese Frage liegt inzwischen eine neuere Fassung vor -- bitte die Seite neu laden.');
+        abort_unless($isLatestReview, 409, 'Für diese Frage liegt inzwischen eine neuere Fassung vor – bitte die Seite neu laden.');
 
         // Bug-Review (AA9-Folgefehler): ist die veröffentlichte Fassung
         // neuer als diese wartende Import-Fassung (Editor-Änderung danach),
@@ -265,7 +265,8 @@ class QuestionController extends Controller
             'source_page' => ['nullable', 'string', 'max:40'],
             'source_question_id' => ['nullable', 'string', 'max:255'],
             'valid_from' => ['nullable', 'date'],
-            'valid_to' => ['nullable', 'date', 'after_or_equal:valid_from'],
+            // Review-Runde 11: Vergleich nur mit einem echten Datumswert (valid_from[]=… gab 500).
+            'valid_to' => ['bail', 'nullable', 'date', ...(is_string($request->input('valid_from')) ? ['after_or_equal:valid_from'] : [])],
         ]);
 
         // $request->boolean() statt des rohen validierten Werts: eine nicht

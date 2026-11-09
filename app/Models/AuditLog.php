@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Support\Impersonation;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 /**
  * Jede Zeile hier ist eine technische Protokollnotiz (action + entity_type/
@@ -115,10 +116,51 @@ class AuditLog extends Model
         ]);
     }
 
+    /** Review-Runde 11: Nachschlage-Cache je Request (vorher je Eintrag eigene Abfragen). */
+    private static array $lookupCache = [];
+
+    /** Nutzer, Codes und Kurse einer Seite von Einträgen in drei Abfragen vorladen. */
+    public static function preloadFor(iterable $entries): void
+    {
+        $entries = collect($entries);
+        self::$lookupCache = [];
+        $uuid = fn ($v) => is_string($v) && Str::isUuid($v);
+        $data = fn ($e, $k) => $e->after_data[$k] ?? $e->before_data[$k] ?? null;
+        $userIds = $entries->flatMap(fn ($e) => [$e->actor_user_id, $e->entity_id, $data($e, 'user_id'), $data($e, 'learner_id'), $data($e, 'redeemed_by_user_id')])->filter($uuid)->unique();
+        foreach (User::whereIn('id', $userIds)->get() as $user) {
+            self::$lookupCache[User::class][$user->id] = $user;
+        }
+        foreach (Coupon::whereIn('id', $entries->where('entity_type', 'coupon')->pluck('entity_id')->filter($uuid)->unique())->get() as $coupon) {
+            self::$lookupCache[Coupon::class][$coupon->id] = $coupon;
+        }
+        foreach (CourseDefinition::withoutGlobalScopes()->whereIn('id', $entries->map(fn ($e) => $data($e, 'course_id'))->filter($uuid)->unique())->get() as $course) {
+            self::$lookupCache[CourseDefinition::class][$course->id] = $course;
+        }
+    }
+
+    private static function cachedUser(mixed $id): ?User
+    {
+        return self::cached(User::class, $id);
+    }
+
+    private static function cached(string $class, mixed $id): mixed
+    {
+        if (! is_string($id) || $id === '') {
+            return null;
+        }
+        // Nur vorgeladene Treffer aus dem Cache; alles andere frisch (kein
+        // veralteter Stand über Requests hinweg).
+        if (array_key_exists($id, self::$lookupCache[$class] ?? [])) {
+            return self::$lookupCache[$class][$id];
+        }
+
+        return $class === CourseDefinition::class ? CourseDefinition::withoutGlobalScopes()->find($id) : $class::find($id);
+    }
+
     public function description(): string
     {
         // Eigene Aktionen eines inzwischen gelöschten Kontos (actor pseudonymisiert).
-        $actorName = ($this->actor_user_id ? User::find($this->actor_user_id)?->name : null)
+        $actorName = ($this->actor_user_id ? self::cachedUser($this->actor_user_id)?->name : null)
             ?? (str_starts_with($this->action, 'profile.') ? 'Ein gelöschtes Konto' : 'System');
 
         return match (true) {
@@ -172,9 +214,9 @@ class AuditLog extends Model
      */
     private function describeCouponRedeem(string $actorName): string
     {
-        $coupon = Coupon::find($this->entity_id);
+        $coupon = self::cached(Coupon::class, $this->entity_id);
         $learnerId = $this->after_data['user_id'] ?? null;
-        $learnerName = ($learnerId ? User::find($learnerId)?->name : null) ?? 'einem Teilnehmer';
+        $learnerName = ($learnerId ? self::cachedUser($learnerId)?->name : null) ?? 'einem Teilnehmer';
         $courseOrProductName = $coupon?->course?->name ?? $coupon?->product?->name;
         $what = $courseOrProductName
             ? 'einen Code ('.$courseOrProductName.')'
@@ -192,7 +234,7 @@ class AuditLog extends Model
     private function describeWillkommensboxShip(string $actorName): string
     {
         $learnerId = $this->after_data['user_id'] ?? null;
-        $learnerName = ($learnerId ? User::find($learnerId)?->name : null) ?? 'einem Teilnehmer';
+        $learnerName = ($learnerId ? self::cachedUser($learnerId)?->name : null) ?? 'einem Teilnehmer';
 
         return "{$actorName} hat die Willkommensbox von {$learnerName} als versendet markiert.";
     }
@@ -203,8 +245,8 @@ class AuditLog extends Model
         $learnerId = $data['user_id'] ?? null;
         $courseId = $data['course_id'] ?? null;
         // Nach „für“ Akkusativ; ein gelöschter Kurs ohne Anführungszeichen.
-        $learnerName = ($learnerId ? User::find($learnerId)?->name : null) ?? 'einen Teilnehmer';
-        $courseName = $courseId ? CourseDefinition::withoutGlobalScopes()->find($courseId)?->name : null;
+        $learnerName = ($learnerId ? self::cachedUser($learnerId)?->name : null) ?? 'einen Teilnehmer';
+        $courseName = $courseId ? self::cached(CourseDefinition::class, $courseId)?->name : null;
 
         $verb = match ($this->action) {
             'entitlement.create' => 'freigeschaltet',
@@ -231,21 +273,21 @@ class AuditLog extends Model
 
     private function describeParticipantUpdate(string $actorName): string
     {
-        $learnerName = ($this->entity_id ? User::find($this->entity_id)?->name : null) ?? 'einem Teilnehmer';
+        $learnerName = ($this->entity_id ? self::cachedUser($this->entity_id)?->name : null) ?? 'einem Teilnehmer';
 
         return "{$actorName} hat die Adresse von {$learnerName} aktualisiert.";
     }
 
     private function describeParticipantInvite(string $actorName): string
     {
-        $learnerName = ($this->entity_id ? User::find($this->entity_id)?->name : null) ?? ($this->after_data['email'] ?? 'einen Teilnehmer');
+        $learnerName = ($this->entity_id ? self::cachedUser($this->entity_id)?->name : null) ?? ($this->after_data['email'] ?? 'einen Teilnehmer');
 
         return "{$actorName} hat {$learnerName} eingeladen.";
     }
 
     private function describeParticipantMembershipUpdate(string $actorName): string
     {
-        $learnerName = ($this->entity_id ? User::find($this->entity_id)?->name : null) ?? 'einem Teilnehmer';
+        $learnerName = ($this->entity_id ? self::cachedUser($this->entity_id)?->name : null) ?? 'einem Teilnehmer';
         $status = $this->after_data['status'] ?? null;
 
         $verb = match ($status) {

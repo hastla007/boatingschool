@@ -22,7 +22,19 @@ class NewPasswordController extends Controller
      */
     public function create(Request $request): View
     {
-        return view('auth.reset-password', ['request' => $request]);
+        // Review-Runde 12: abgelaufene oder schon benutzte Links gleich beim
+        // Öffnen erkennen -- bisher kam die Meldung erst nach dem Eintippen
+        // des neuen Passworts (und sprach nur von „Zurücksetzen“).
+        $linkInvalid = false;
+        $email = $request->query('email');
+        $token = (string) $request->route('token');
+        if (is_string($email) && $email !== '') {
+            $user = User::on('pgsql_admin')->whereRaw('lower(email) = ?', [mb_strtolower($email)])->first();
+            $broker = $request->boolean('invite') && $user?->status === 'invited' ? 'invites' : null;
+            $linkInvalid = ! $user || ! Password::broker($broker)->tokenExists($user, $token);
+        }
+
+        return view('auth.reset-password', ['request' => $request, 'linkInvalid' => $linkInvalid]);
     }
 
     /**
@@ -44,10 +56,16 @@ class NewPasswordController extends Controller
         // Einladungs-Links (AccountSetupLink) sind 7 Tage gültig: eigener Broker.
         // Einladungs-Broker nur für Konten, die noch nie ein Passwort gesetzt haben.
         $invited = $request->boolean('invite')
-            && User::on('pgsql_admin')->where('email', (string) $request->input('email'))->value('status') === 'invited';
+            && User::on('pgsql_admin')->whereRaw('lower(email) = ?', [mb_strtolower((string) $request->input('email'))])->value('status') === 'invited';
         $status = Password::broker($invited ? 'invites' : null)->reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
             function (User $user) use ($request) {
+                // Review-Runde 12: ist der Reset der erste Nachweis der Mailbox,
+                // stammt eine schon eingerichtete 2FA nicht sicher vom Besitzer
+                // (jemand konnte die Adresse vor ihm registrieren) -- zurücksetzen.
+                if ($user->email_verified_at === null && $user->two_factor_secret !== null) {
+                    $user->forceFill(['two_factor_secret' => null, 'two_factor_recovery_codes' => null, 'two_factor_confirmed_at' => null]);
+                }
                 $user->forceFill([
                     'password' => Hash::make($request->password),
                     'remember_token' => Str::random(60),
@@ -101,7 +119,10 @@ class NewPasswordController extends Controller
         // Beide Fehlerfälle zeigen deshalb jetzt denselben Text, unabhängig
         // davon, welchen der beiden Status Laravel zurückgegeben hat.
         return $status == Password::PASSWORD_RESET
-                    ? redirect()->route('login')->with('status', $request->boolean('invite') ? 'Dein Passwort ist festgelegt. Du kannst dich jetzt anmelden.' : __($status))
+                    // Review-Runde 11: E-Mail-Adresse vorausgefüllt, Begrüßung für Neue.
+                    ? redirect()->route('login')->withInput($request->only('email'))
+                        ->with('status', $request->boolean('invite') ? 'Dein Passwort ist festgelegt. Du kannst dich jetzt anmelden.' : __($status))
+                        ->with('first_login', $request->boolean('invite'))
                     : back()->withInput($request->only('email'))
                         ->withErrors(['email' => __('passwords.token')]);
     }

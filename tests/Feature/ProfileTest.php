@@ -614,7 +614,7 @@ class ProfileTest extends TestCase
             'password' => 'password',
         ]);
 
-        $response->assertSessionHasNoErrors()->assertRedirect('/');
+        $response->assertSessionHasNoErrors()->assertRedirect(route('login'))->assertSessionHas('status');
 
         $this->assertGuest();
         $this->assertNull($user->fresh());

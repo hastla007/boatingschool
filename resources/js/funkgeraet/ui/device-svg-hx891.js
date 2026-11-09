@@ -141,7 +141,7 @@ export function renderDeviceHx891(container) {
     const lcdBox = { x: 172, y: 176, width: 300, height: 302 };
     light.add(el('rect', { ...lcdBox, rx: 6, fill: 'url(#hx-lcd)' }, svg), { fill: 'url(#hx-lcd)' }, { fill: '#555b61' });
     const k = lcdBox.width / LCD_W;
-    const lcd = el('g', { 'font-family': MONO, fill: LCD_INK, transform: `translate(${lcdBox.x} ${lcdBox.y}) scale(${k})` }, svg);
+    const lcd = el('g', { 'data-lcd': '', 'font-family': MONO, fill: LCD_INK, transform: `translate(${lcdBox.x} ${lcdBox.y}) scale(${k})` }, svg);
 
     // Softkeys unter den Feldern im Display
     el('text', { x: 152, y: 548, 'font-size': 10, 'font-weight': 700, fill: '#6b6e74', 'font-family': SANS }, svg, 'MIC');

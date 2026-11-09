@@ -77,7 +77,7 @@ class CouponRedemptionMessageAddressFormTest extends TestCase
         $response->assertSessionHasErrors('assign');
         $message = session('errors')->first('assign');
         $this->assertSame(
-            'Dieser Nutzer hat diesen Kurs bereits freigeschaltet. Für eine Verlängerung wird ein Verlängerungscode benötigt.',
+            'Dieser Teilnehmer hat für diesen Kurs bereits einen aktiven Zugang. Für eine Verlängerung wird ein Verlängerungscode benötigt.',
             $message
         );
         $this->assertStringNotContainsString('Du hast', $message);

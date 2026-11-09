@@ -15,7 +15,8 @@
          Element seine Metadaten geladen hatte. Der U8-Fix oben betraf nur
          die beiden Flex-Zeilen, nicht diese Grid-Spaltenbreite. --}}
     <div class="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4 items-start">
-        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-3 lg:sticky lg:top-4">
+        {{-- Review-Runde 12: auf dem Handy erst das Video, dann die Kapitelliste. --}}
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-3 lg:sticky lg:top-4 order-2 lg:order-none">
             <div class="flex items-center gap-2 px-1 mb-2">
                 <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style="background-color: color-mix(in srgb, var(--brand-primary, #005FD7) 12%, white)">
                     <x-icon name="book-open" class="w-4 h-4" style="color: var(--brand-primary, #005FD7)" />
@@ -78,7 +79,7 @@
             </div>
         </div>
 
-        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 order-1 lg:order-none">
             <h3 class="font-medium text-slate-800 dark:text-white mb-3">{{ $lesson->title }}</h3>
             <div class="rounded-xl overflow-hidden bg-slate-900 aspect-video">
                 <video controls class="w-full h-full" preload="metadata" poster="{{ $posterUri }}">

@@ -11,6 +11,7 @@
 
 import { createBacklight } from './backlight.js';
 import { drawHandset } from './handset.js';
+import { setKnobAria, volAria, sqlAria, channelAria } from './knob-aria.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const KEY_TEXT = '#1c1408';
@@ -129,7 +130,7 @@ export function renderDeviceM503(container) {
         el('rect', { x: x1, y: y1, width: 120, height: 17, rx: 8.5, fill: '#1a1b1e', stroke: '#62666d', 'stroke-opacity': 0.45, 'stroke-width': 1 }, svg);
     }
     const lcd = lcdPanel(svg, R(232, 128), R(447, 222), R(240, 135), R(440, 208));
-    const radioLcd = el('g', { 'font-family': MONO, fill: LCD_INK }, svg);
+    const radioLcd = el('g', { 'data-lcd': '', 'font-family': MONO, fill: LCD_INK }, svg);
 
     // Taste 16 (blau, eingefasst)
     const ch16 = el('g', { 'data-key': 'ch16', tabindex: '0', role: 'button', 'aria-label': 'Kanal 16 (gehalten: Set-Modus beim Einschalten)', class: 'fg-control', style: 'cursor:pointer' }, svg);
@@ -171,7 +172,7 @@ export function renderDeviceM503(container) {
     // --- DS-100 -----------------------------------------------------------------
     housing(svg, D(612, 75), D(1163, 435), 'DSC CONTROLLER      DS-100', [D(705, 0)[0], D(905, 0)[0]]);
     const dsBox = lcdPanel(svg, D(678, 128), D(932, 292), D(688, 138), D(922, 268));
-    const ds = el('g', { 'font-family': MONO, fill: LCD_INK }, svg);
+    const ds = el('g', { 'data-lcd': '', 'font-family': MONO, fill: LCD_INK }, svg);
 
     // Zifferntastatur
     const pad = [['d1', '1', 'QZ'], ['d2', '2', 'ABC'], ['d3', '3', 'DEF'], ['d4', '4', 'GHI'], ['d5', '5', 'JKL'], ['d6', '6', 'MNO'], ['d7', '7', 'PRS'], ['d8', '8', 'TUV'], ['d9', '9', 'WXY'], ['dsAa', 'A/a', null], ['d0', '0', '-/.'], ['dsBs', 'BS', '←']];
@@ -286,6 +287,9 @@ export function renderDeviceM503(container) {
             drawDs(display);
             setKnob(vol, radioState.vol);
             setKnob(sql, radioState.sql);
+            setKnobAria(svg.querySelector('[data-knob="vol"]'), volAria(radioState, 10));
+            setKnobAria(svg.querySelector('[data-knob="sql"]'), sqlAria(radioState));
+            setKnobAria(svg.querySelector('[data-knob="channel"]'), channelAria(radioState));
             channel.pointer.setAttribute('transform', `rotate(${channelAngle} ${channel.cx} ${channel.cy})`);
             Object.entries(radioState.coverOpen ? coverOpen : coverClosed).forEach(([k, v]) => coverLid.setAttribute(k, v));
             const node = target ? svg.querySelector(`[data-key="${target}"], [data-knob="${target}"]`) : null;

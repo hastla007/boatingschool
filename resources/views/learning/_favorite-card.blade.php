@@ -17,8 +17,9 @@
         <x-icon :name="$badgeIcon" class="w-5 h-5" />
     </div>
     <div class="min-w-0 flex-1">
-        <div class="text-slate-700 dark:text-slate-200 line-clamp-2 break-words">{{ $revision?->question_text }}</div>
-        <div class="text-xs text-slate-600 dark:text-slate-400">{{ $revision?->topic }}</div>
+        {{-- Review-Runde 11: die Karte führt zur Frage (üben, Lösung ansehen). --}}
+        <a href="{{ route('learning.show', ['course' => $course, 'questions' => $question->id]) }}" class="block text-slate-700 dark:text-slate-200 line-clamp-2 break-words hover:underline">{{ $revision?->question_text }}</a>
+        <div class="text-xs text-slate-600 dark:text-slate-400">{{ $revision?->smartmodus_kategorie ?: $revision?->topic }}</div>
     </div>
     <div class="flex items-center gap-1 shrink-0">
         <form method="POST" action="{{ route($isFavorite ? 'favorites.destroy' : 'favorites.store', $question->id) }}">

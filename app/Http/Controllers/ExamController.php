@@ -35,7 +35,7 @@ class ExamController extends Controller
     {
         $tenant = $tenantContext->tenant();
         $user = $request->user();
-        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403);
+        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Dein Zugang zu diesem Kurs ist abgelaufen oder nicht freigeschaltet.');
 
         $papers = $course->examPapers;
 
@@ -43,7 +43,9 @@ class ExamController extends Controller
             return $this->papersOverview($tenant, $user, $course, $papers);
         }
 
-        $ruleSet = $course->activeExamRuleSet();
+        // Review-Runde 12: liegt nur ein noch nicht freigegebener Entwurf vor,
+        // sagt die Seite das (statt „kein Regelwerk“); starten lässt er sich nicht.
+        $ruleSet = $course->activeExamRuleSet() ?? $course->examRuleSets()->orderByDesc('version')->first();
 
         return view('exam.intro', [
             'course' => $course,
@@ -81,7 +83,7 @@ class ExamController extends Controller
         // Angefangene Bögen (noch in der Zeit): Kachel zeigt „läuft – fortsetzen“.
         $runningPaperIds = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $user->id)
             ->whereIn('paper_id', $paperIds)->where('status', 'running')->get()
-            ->reject(fn ($session) => app(ExamEvaluationService::class)->timeExpired($session))
+            ->filter(fn ($session) => $session->stillOpen(app(ExamEvaluationService::class)->timeExpired($session)))
             ->pluck('paper_id')->flip();
 
         // Bug-Review (Langsame Prüfungsübersicht): für jeden Bogen eine
@@ -134,6 +136,10 @@ class ExamController extends Controller
                 'attempted' => (bool) $session,
                 'running' => $runningPaperIds->has($paper->id),
                 'percent' => $session ? (int) round($session->score * 100) : 0,
+                // Review-Runde 11: der Prozentwert zählt nur den Fragebogen --
+                // ohne Ergebnis wirkte ein an der Navigation gescheiterter Bogen
+                // mit 100 % wie bestanden.
+                'passed' => $session?->passed,
                 'correct' => $session ? $correctBySession->get($session->id, 0) : 0,
                 'total' => $session ? (int) $questionCountBySession->get($session->id, 0) : $totalsByPaper->get($paper->id, 0),
                 'group' => $comboInfo['label'] ?? null,
@@ -184,7 +190,7 @@ class ExamController extends Controller
     {
         $tenant = $tenantContext->tenant();
         $user = $request->user();
-        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403);
+        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Dein Zugang zu diesem Kurs ist abgelaufen oder nicht freigeschaltet.');
         abort_unless($paper->course_id === $course->id, 404);
 
         // Kombikurse: der Bogen läuft nach dem Regelwerk seines Teilkurses
@@ -209,7 +215,7 @@ class ExamController extends Controller
             $running = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $user->id)
                 ->where('paper_id', $paper->id)->where('status', 'running')->first();
 
-            if ($running && ! $examEvaluation->timeExpired($running)) {
+            if ($running && $running->stillOpen($examEvaluation->timeExpired($running))) {
                 return redirect()->route('exam.show', $running);
             }
 
@@ -274,7 +280,7 @@ class ExamController extends Controller
     {
         $tenant = $tenantContext->tenant();
         $user = $request->user();
-        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403);
+        abort_unless($entitlements->hasAccess($tenant, $user, $course), 403, 'Dein Zugang zu diesem Kurs ist abgelaufen oder nicht freigeschaltet.');
 
         // Bug-Review (Zufallsprüfung bei SRC/FKN hat nur 10 statt 24/15
         // Fragen): intro() zeigt für einen Kurs mit echten Prüfungsbögen
@@ -289,7 +295,7 @@ class ExamController extends Controller
         // zufällig zusammengestellte Prüfung kein gültiger, zweiter Weg,
         // sondern veraltet; sie bleibt deshalb jetzt auf Kurse ohne eigene
         // Prüfungsbögen beschränkt (analog zur Verzweigung in intro()).
-        abort_if($course->examPapers()->exists(), 409, 'Für diesen Kurs gibt es feste Prüfungsbögen -- die zufällig zusammengestellte Prüfung ist hier nicht verfügbar.');
+        abort_if($course->examPapers()->exists(), 409, 'Für diesen Kurs gibt es feste Prüfungsbögen – die zufällig zusammengestellte Prüfung ist hier nicht verfügbar.');
 
         $ruleSet = $course->activeExamRuleSet();
         abort_unless($ruleSet && $ruleSet->isVerified(), 409, 'Für diesen Kurs liegt noch kein fachlich freigegebenes Prüfungsregelwerk vor.');
@@ -306,7 +312,7 @@ class ExamController extends Controller
             $running = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $user->id)
                 ->where('course_id', $course->id)->whereNull('paper_id')->where('status', 'running')->first();
 
-            if ($running && ! $examEvaluation->timeExpired($running)) {
+            if ($running && $running->stillOpen($examEvaluation->timeExpired($running))) {
                 return redirect()->route('exam.show', $running);
             }
 
@@ -366,7 +372,7 @@ class ExamController extends Controller
         if (! $task || $task->questions->isEmpty()) {
             return;
         }
-        $session->update(['navigation_task_id' => $task->id]);
+        $session->update(['navigation_task_id' => $task->id, 'navigation_task_snapshot' => $task->only(['task_number', 'scenario_text', 'hint', 'chart_image_path', 'chart_caption'])]);
         foreach ($task->questions->sortBy('question_number')->values() as $i => $question) {
             ExamSessionNavigationAnswer::create([
                 'tenant_id' => $session->tenant_id,
@@ -485,7 +491,7 @@ class ExamController extends Controller
             if (! $examSession->navigation_submitted_at || $examSession->inNavigationAssessment()) {
                 return view('exam.navigation-part', [
                     'examSession' => $examSession,
-                    'task' => $examSession->navigationTask,
+                    'task' => $examSession->navigationTaskAsStarted(),
                     'answers' => $answers,
                     'toAssess' => $toAssess,
                     'step' => $examSession->navigation_submitted_at ? 'assess' : 'answer',
@@ -736,7 +742,8 @@ class ExamController extends Controller
         $wrong = $incorrect->whereNotNull('answered_at');
         $unanswered = $incorrect->whereNull('answered_at');
 
-        $topicBreakdown = $questions->groupBy(fn ($q) => $q->revision->topic ?? '—')
+        // Review-Runde 11: dieselben Themennamen wie im Lernstand.
+        $topicBreakdown = $questions->groupBy(fn ($q) => ($q->revision?->smartmodus_kategorie ?: $q->revision?->topic) ?? '—')
             ->map(fn ($rows) => [
                 'total' => $rows->count(),
                 'correct' => $rows->where('correct', true)->count(),

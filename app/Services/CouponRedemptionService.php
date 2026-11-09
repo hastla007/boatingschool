@@ -53,6 +53,14 @@ class CouponRedemptionService
 
             $coupon = $locked;
 
+            // Review-Runde 11: dieselbe Sperre je Teilnehmer und Kurs wie
+            // die Admin-Pfade (Freischalten, Verlängern, Sammel-Verlängerung)
+            // -- sonst geht bei zwei gleichzeitigen Verlängerungen eine
+            // verloren oder es entstehen zwei Zugänge.
+            if ($coupon->course_id) {
+                DB::statement('SELECT pg_advisory_xact_lock(hashtext(?))', [$tenant->id.':'.$user->id.':'.$coupon->course_id]);
+            }
+
             if ($coupon->isForRenewal()) {
                 return $this->redeemForRenewal($coupon, $tenant, $user, $actor);
             }
@@ -113,7 +121,7 @@ class CouponRedemptionService
             // jetzt trotzdem fest eingebaut und erschien dem Admin.
             throw new RuntimeException($actor->id === $user->id
                 ? 'Du hast diesen Kurs bereits freigeschaltet. Für eine Verlängerung wird ein Verlängerungscode benötigt.'
-                : 'Dieser Nutzer hat diesen Kurs bereits freigeschaltet. Für eine Verlängerung wird ein Verlängerungscode benötigt.');
+                : 'Dieser Teilnehmer hat für diesen Kurs bereits einen aktiven Zugang. Für eine Verlängerung wird ein Verlängerungscode benötigt.');
         }
 
         $now = now();

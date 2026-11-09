@@ -67,7 +67,9 @@ class MailTemplates
         foreach ($vars as $name => $value) {
             $value = (string) $value;
             // Werte aus Daten (Schul-/Kursnamen) nie als Markdown/Link interpretieren.
-            $map['{'.$name.'}'] = $markdown ? preg_replace('/([\\\\`*_{}\[\]()#+\-.!|>~])/', '\\\\$1', $value) : $value;
+            // Review-Runde 12: dieselbe Zeichenauswahl wie EscapesMarkdown -- „e.V.“
+            // oder „(Nord)“ erschienen sonst mit Backslashes im Text-Teil.
+            $map['{'.$name.'}'] = $markdown ? preg_replace('/([\\\\`*_{}\[\]#|>~])/', '\\\\$1', $value) : $value;
         }
 
         return $map;

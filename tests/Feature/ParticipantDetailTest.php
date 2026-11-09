@@ -247,7 +247,7 @@ class ParticipantDetailTest extends TestCase
         $response->assertOk();
         $response->assertSee('Benachrichtigungen');
         $response->assertSee($submission->course->name);
-        $response->assertSee('Neue Anmeldung -- bitte Prüfungstermin vorschlagen.');
+        $response->assertSee('Neue Anmeldung – bitte Prüfungstermin vorschlagen.');
         $response->assertDontSee('Keine offenen Aktionen.');
     }
 
@@ -271,7 +271,7 @@ class ParticipantDetailTest extends TestCase
         $response = $this->actingAsInTenant($admin, $tenant)->get("/admin/participants/{$learner->id}");
 
         $response->assertOk();
-        $response->assertSee('Vorschlag abgelehnt -- bitte neuen Termin vorschlagen.');
+        $response->assertSee('Vorschlag abgelehnt – bitte neuen Termin vorschlagen.');
         $response->assertDontSee('Keine offenen Aktionen.');
     }
 

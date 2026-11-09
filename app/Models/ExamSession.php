@@ -20,7 +20,7 @@ class ExamSession extends Model
     protected $fillable = [
         'tenant_id', 'user_id', 'course_id', 'rule_set_id', 'paper_id', 'status',
         'started_at', 'submitted_at', 'score', 'passed', 'rule_snapshot',
-        'navigation_task_id', 'navigation_submitted_at', 'navigation_points',
+        'navigation_task_id', 'navigation_submitted_at', 'navigation_points', 'navigation_task_snapshot',
     ];
 
     protected function casts(): array
@@ -28,6 +28,7 @@ class ExamSession extends Model
         return [
             'started_at' => 'datetime',
             'rule_snapshot' => 'array',
+            'navigation_task_snapshot' => 'array',
             'submitted_at' => 'datetime',
             'created_at' => 'datetime',
             'score' => 'float',
@@ -75,6 +76,44 @@ class ExamSession extends Model
     public const NAVIGATION_SUBMIT_GRACE = 120;
 
     public const NAVIGATION_ASSESS_GRACE = 900;
+
+    /** Review-Runde 11: Navigationsaufgabe im Stand des Prüfungsstarts (Text, Hinweis, Karte). */
+    public function navigationTaskAsStarted(): ?NavigationTask
+    {
+        if ($this->navigation_task_snapshot) {
+            $task = (new NavigationTask)->forceFill($this->navigation_task_snapshot + ['id' => $this->navigation_task_id]);
+            // Review-Runde 12: die Karte kommt von der aktuellen Aufgabe -- eine
+            // ersetzte Karte löscht die alte Datei, der Schnappschuss zeigte
+            // sonst ins Leere.
+            if ($live = $this->navigationTask) {
+                $task->forceFill(['chart_image_path' => $live->chart_image_path, 'chart_caption' => $live->chart_caption]);
+            }
+
+            return $task;
+        }
+
+        return $this->navigationTask;
+    }
+
+    /**
+     * Review-Runde 12: läuft der Versuch noch für den Teilnehmer -- auch nach
+     * Ablauf der Prüfungszeit, solange die Navigation noch abgegeben (kurze
+     * Nachfrist) oder selbst eingeschätzt wird. Ein Neustart des Bogens
+     * wertete in diesem Fenster sonst den Versuch sofort aus.
+     */
+    public function stillOpen(bool $timeExpired): bool
+    {
+        if ($this->status !== 'running') {
+            return false;
+        }
+        if (! $timeExpired || $this->inNavigationAssessment()) {
+            return true;
+        }
+        $deadline = $this->deadline();
+
+        return $deadline && $this->navigation_submitted_at === null && $this->hasNavigationPart()
+            && now()->lte($deadline->copy()->addSeconds(self::NAVIGATION_SUBMIT_GRACE));
+    }
 
     public function deadline(): ?Carbon
     {

@@ -81,14 +81,14 @@
                     <label for="collection_name_{{ $collection->id }}" class="sr-only">Name der Sammlung</label>
                     <input type="text" id="collection_name_{{ $collection->id }}" name="name" value="{{ $collection->name }}" maxlength="255"
                            class="text-sm rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 py-1">
-                    <button type="submit" class="text-xs text-slate-500 dark:text-slate-400 hover:underline whitespace-nowrap">Umbenennen</button>
+                    <button type="submit" class="text-xs text-slate-500 dark:text-slate-400 hover:underline whitespace-nowrap py-2 px-1">Umbenennen</button>
                 </form>
                 @unless ($collection->is_default)
                     <form method="POST" action="{{ route('favorite-collections.destroy', $collection) }}"
                           @submit="if (! confirm('Sammlung „' + collectionName + '“ wirklich löschen? Die enthaltenen Favoriten bleiben erhalten, nur die Einsortierung entfällt.')) $event.preventDefault()">
                         @csrf
                         @method('DELETE')
-                        <button type="submit" class="text-xs text-rose-600 hover:underline whitespace-nowrap">Sammlung löschen</button>
+                        <button type="submit" class="text-xs text-rose-600 hover:underline whitespace-nowrap py-2 px-1">Sammlung löschen</button>
                     </form>
                 @else
                     <span class="text-xs text-slate-600 dark:text-slate-400">Standard-Sammlung – kann nicht gelöscht werden</span>
@@ -110,6 +110,11 @@
             </div>
 
             <div x-show="smartView === 'favorites'" class="space-y-2">
+                @if ($smartFavorites->isNotEmpty())
+                    <div class="flex justify-end">
+                        <a href="{{ route('learning.show', ['course' => $course, 'mode' => 'favorites']) }}" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-white text-sm font-medium" style="background-color: var(--brand-primary, #005FD7)"><x-icon name="play" class="w-4 h-4" /> Favoriten üben</a>
+                    </div>
+                @endif
                 @forelse ($smartFavorites as $favorite)
                     @include('learning._favorite-card', [
                         'question' => $favorite->question,
@@ -137,6 +142,12 @@
             </div>
 
             <div x-show="smartView === 'errors'" class="space-y-2" style="display: none">
+                @if ($smartWrongQuestions->isNotEmpty())
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <p class="text-xs text-slate-600 dark:text-slate-400">Die {{ $smartWrongQuestions->count() < 20 ? $smartWrongQuestions->count() : '20' }} zuletzt falsch beantworteten, noch nicht gefestigten Fragen.</p>
+                        <a href="{{ route('learning.show', ['course' => $course, 'questions' => $smartWrongQuestions->pluck('id')->implode(',')]) }}" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-white text-sm font-medium" style="background-color: var(--brand-primary, #005FD7)"><x-icon name="play" class="w-4 h-4" /> Fehler üben</a>
+                    </div>
+                @endif
                 @forelse ($smartWrongQuestions as $question)
                     @include('learning._favorite-card', [
                         'question' => $question,

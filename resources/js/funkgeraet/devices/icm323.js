@@ -587,6 +587,13 @@ export function createIcM323({ own, clock = () => Date.now(), emit = () => {}, a
 
         if (e.kind === 'position') {
             const m = text.match(/^(\d\d)°(\d\d\.\d{4})([NS]) (\d\d\d)°(\d\d\.\d{4})([EW])$/);
+            // Review-Runde 12: unmögliche Positionen (Minuten ab 60, Breite über 90°,
+            // Länge über 180°) übernimmt das Gerät nicht -- wie IC-M330 und HX891.
+            if (! m || Number(m[1]) > 90 || Number(m[2]) >= 60 || Number(m[4]) > 180 || Number(m[5]) >= 60) {
+                event('input_invalid', { field: 'position' });
+
+                return;
+            }
             s.position = [Number(m[1]), Number(m[2]), m[3], Number(m[4]), Number(m[5]), m[6]];
             s.positionSetAt = clock();
             event('position_set', { position: s.position });
@@ -595,7 +602,7 @@ export function createIcM323({ own, clock = () => Date.now(), emit = () => {}, a
             startEditor('utc', backFn, then);
         } else if (e.kind === 'utc') {
             s.utc = text;
-            event('utc_set', { utc: s.utc });
+            event('utc_set', { utc: s.utc, position: s.position });
             const then = e.then;
             s.editor = null;
             if (then === 'distress') setScreen('distressConfirm');

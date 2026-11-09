@@ -938,7 +938,7 @@ export function createIcM330({ own, clock = () => Date.now(), emit = () => {}, a
             const m = text.match(/^(\d\d):(\d\d)$/);
             if (! m || Number(m[1]) > 23 || Number(m[2]) > 59) return invalid('utc');
             s.utc = text;
-            event('utc_set', { utc: s.utc });
+            event('utc_set', { utc: s.utc, position: s.position });
             s.editor = null;
             if (then === 'distress') openDistressMenu();
             else openDscSettings();

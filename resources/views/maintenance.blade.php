@@ -12,7 +12,7 @@
             <x-icon name="bolt" class="w-7 h-7 text-amber-400" />
         </div>
         <h1 class="text-xl font-bold text-slate-800 dark:text-white mb-2">Wartungsarbeiten</h1>
-        <p class="text-slate-500 dark:text-slate-400">{{ $message ?: 'Die Plattform ist gerade kurz nicht erreichbar. Bitte versuchen Sie es in Kürze erneut.' }}</p>
+        <p class="text-slate-500 dark:text-slate-400">{{ $message ?: 'Die Plattform ist gerade kurz nicht erreichbar. Bitte versuche es in Kürze erneut.' }}</p>
         @if (! empty($supportEmail))
             <p class="text-sm text-slate-600 dark:text-slate-400 mt-4">
                 Fragen? <a href="mailto:{{ $supportEmail }}" class="underline">{{ $supportEmail }}</a>

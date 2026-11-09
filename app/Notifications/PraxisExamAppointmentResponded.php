@@ -36,7 +36,7 @@ class PraxisExamAppointmentResponded extends Notification
 
         $message = (new MailMessage)
             ->subject('Rückmeldung zu "'.$this->appointment->label.'"')
-            ->line("{$learnerName} hat den Termin \"{$this->appointment->label}\" ({$this->appointment->formattedRange()} Uhr) {$verb}.");
+            ->line("{$learnerName} hat den Termin \"".self::escapeMarkdown($this->appointment->label)."\" ({$this->appointment->formattedRange()} Uhr) {$verb}.");
 
         if ($this->appointment->response_comment) {
             $message->line('Kommentar: "'.self::escapeMarkdown($this->appointment->response_comment).'"');

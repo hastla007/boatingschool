@@ -16,6 +16,17 @@
                  sie deshalb separat als "nicht bewertet" aus. Sie fließen
                  jetzt wie jede andere Frage in $examSession->score ein. --}}
             <div class="text-slate-500 dark:text-slate-400 mt-1">{{ (int) round($examSession->score * 100) }}% richtig &middot; {{ $questions->where('correct', true)->count() }}/{{ $questions->count() }} Fragen</div>
+            @php
+                // Review-Runde 11: nach Zeitablauf ausgewertet -- sagen, warum.
+                $deadline = $examSession->deadline();
+                $endedAt = $examSession->navigation_submitted_at ?? $examSession->submitted_at;
+                $timedOut = $deadline && $endedAt && $endedAt->gte($deadline);
+            @endphp
+            @if ($timedOut)
+                <div class="mt-2 inline-flex items-center gap-1.5 rounded-full bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200 px-3 py-1 text-xs font-medium">
+                    <x-icon name="clock" class="w-4 h-4" /> Die Prüfungszeit war abgelaufen &ndash; nicht beantwortete Fragen zählen als falsch.
+                </div>
+            @endif
             @if ($openTextCount > 0)
                 {{-- Bug-Review (FKN offene Fragen): die Quote oben enthält
                      Punkte aus offenen Fragen, die per Selbsteinschätzung
@@ -26,6 +37,21 @@
                 </div>
             @endif
             @php($navRule = $examSession->hasNavigationPart() ? $examSession->effectiveRuleSet()->navigationRule() : null)
+            @if ($examSession->paper)
+                {{-- Review-Runde 12: welcher Bogen (bei Kombikursen mit Teilkurs). --}}
+                @php($comboInfo = \App\Support\ComboExamGroups::infoFor($examSession->course->code ?? '', $examSession->paper->paper_number))
+                <div class="text-xs text-slate-500 dark:text-slate-400 mt-1">{{ $comboInfo ? $comboInfo['label'].' – ' : '' }}Prüfungsbogen Nr. {{ $comboInfo['displayNumber'] ?? $examSession->paper->paper_number }}</div>
+            @endif
+            @if ($partResults === [] && ! $navRule)
+                {{-- Review-Runde 12: ohne Teilgrenzen die Gesamtgrenze nennen. --}}
+                @php($minCorrect = (int) ceil(($examSession->effectiveRuleSet()->passing_rule['min_correct_ratio'] ?? 0.75) * $questions->count() - 1e-9))
+                <div class="mt-3 flex justify-center">
+                    <span class="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium {{ $examSession->passed ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300' }}">
+                        <x-icon :name="$examSession->passed ? 'check-circle' : 'x-circle'" class="w-4 h-4" />
+                        {{ $questions->where('correct', true)->count() }}/{{ $questions->count() }} (mind. {{ $minCorrect }}/{{ $questions->count() }})
+                    </span>
+                </div>
+            @endif
             @if ($partResults !== [] || $navRule)
                 {{-- Amtliche Teilgrenzen: jeder Teil muss für sich bestanden sein. --}}
                 <div class="mt-3 flex flex-wrap justify-center gap-2">
@@ -52,7 +78,7 @@
         @if ($navRule)
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
                 <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
-                    <x-icon name="compass" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Navigationsaufgabe {{ $examSession->navigationTask?->task_number }}
+                    <x-icon name="compass" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Navigationsaufgabe {{ $examSession->navigationTaskAsStarted()?->task_number }}
                 </h3>
                 <ul class="divide-y divide-slate-100 dark:divide-slate-700 text-sm">
                     @foreach ($examSession->navigationAnswers()->with('question')->get() as $navAnswer)

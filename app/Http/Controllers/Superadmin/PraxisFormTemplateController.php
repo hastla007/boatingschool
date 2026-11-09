@@ -95,7 +95,7 @@ class PraxisFormTemplateController extends Controller
 
             if ($conflicts->isNotEmpty()) {
                 return back()->withErrors([
-                    'template' => 'Dieses Formular kann nicht aktiviert werden -- diese Kurse sind bereits einem anderen aktiven Formular zugewiesen: '.$conflicts->implode(', ').'.',
+                    'template' => 'Dieses Formular kann nicht aktiviert werden – diese Kurse sind bereits einem anderen aktiven Formular zugewiesen: '.$conflicts->implode(', ').'.',
                 ]);
             }
         }

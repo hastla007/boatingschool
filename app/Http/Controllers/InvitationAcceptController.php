@@ -56,6 +56,6 @@ class InvitationAcceptController extends Controller
             'user_id' => $user->id,
         ]);
 
-        return redirect()->route('dashboard')->with('status', 'Einladung angenommen -- du bist jetzt Mitglied.');
+        return redirect()->route('dashboard')->with('status', 'Einladung angenommen – du bist jetzt Mitglied.');
     }
 }

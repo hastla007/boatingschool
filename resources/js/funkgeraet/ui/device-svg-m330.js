@@ -11,6 +11,7 @@
 
 import { createBacklight, glowFilter } from './backlight.js';
 import { drawHandset } from './handset.js';
+import { setKnobAria, volAria, sqlAria } from './knob-aria.js';
 
 const NS = 'http://www.w3.org/2000/svg';
 const LCD_INK = '#2b1806';
@@ -135,7 +136,7 @@ export function renderDeviceM330(container) {
     const lcdBox = { x: lx1, y: ly1, width: lx2 - lx1, height: ly2 - ly1 };
     light.add(el('rect', { ...lcdBox, rx: 6, fill: 'url(#m330-lcd)' }, svg), { fill: 'url(#m330-lcd)' }, { fill: '#4b4840' });
     const k = lcdBox.width / LCD_W;
-    const lcd = el('g', { 'font-family': MONO, fill: LCD_INK, transform: `translate(${lcdBox.x} ${lcdBox.y}) scale(${k})` }, svg);
+    const lcd = el('g', { 'data-lcd': '', 'font-family': MONO, fill: LCD_INK, transform: `translate(${lcdBox.x} ${lcdBox.y}) scale(${k})` }, svg);
     for (const x of [456.2, 535.6, 620.6, 703.4]) el('line', { x1: x, y1: 270, x2: x, y2: 281, stroke: PRINT, 'stroke-width': 2.4, 'stroke-linecap': 'round' }, svg);
 
     // Softkeys
@@ -324,6 +325,7 @@ export function renderDeviceM330(container) {
             drawDisplay(display);
             const level = radioState.knobMode === 'sql' ? radioState.sql / 10 : radioState.vol / 20;
             pointer.setAttribute('transform', `rotate(${-135 + level * 270} ${kx} ${ky})`);
+            setKnobAria(ring, radioState.knobMode === 'sql' ? sqlAria(radioState) : volAria(radioState, 20));
             Object.entries(radioState.coverOpen ? coverOpen : coverClosed).forEach(([name, value]) => coverLid.setAttribute(name, value));
 
             let node = null;

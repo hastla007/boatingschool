@@ -7,6 +7,7 @@ use App\Models\TenantUser;
 use App\Models\User;
 use App\Notifications\DuplicateRegistrationAttempt;
 use App\Support\BestEffortMail;
+use App\Support\EmailInput;
 use App\Support\TenantContext;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
@@ -36,9 +37,10 @@ class RegisteredUserController extends Controller
         // sonst platformweit, ob eine Adresse irgendwo existiert, auf jeder
         // beliebigen Bootsschul-Subdomain. Der Duplikat-Fall unten bekommt
         // stattdessen eine neutrale Meldung statt eines Feld-Fehlers.
+        EmailInput::normalize($request, 'email');
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255'],
+            'email' => ['bail', 'required', 'string', 'lowercase', 'email', 'max:255'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
@@ -57,7 +59,7 @@ class RegisteredUserController extends Controller
         // ganz normal über "Anmelden" einloggen -- der signierte
         // Verifizierungs-Link in der E-Mail (siehe unten) greift dann über
         // die bestehende "auth"-Middleware (routes/auth.php) wie gewohnt.
-        $status = 'Fast fertig -- falls die Adresse neu ist, haben wir dir eine Bestätigungsmail geschickt; bitte melde dich an, um fortzufahren. Falls sie bereits bei uns registriert ist, melde dich stattdessen einfach an oder setze dein Passwort zurück.';
+        $status = 'Fast fertig – falls die Adresse neu ist, haben wir dir eine Bestätigungsmail geschickt; bitte melde dich an, um fortzufahren. Falls sie bereits bei uns registriert ist, melde dich stattdessen einfach an oder setze dein Passwort zurück.';
 
         // Sicherheitsreview M7: app_user hat jetzt RLS -- diese
         // Duplikat-Erkennung muss aber bewusst plattformweit suchen (das ist
@@ -69,7 +71,7 @@ class RegisteredUserController extends Controller
         // übersprungene Mail kein Zeit-Orakel für bestehende Konten ist.
         $mailKey = 'registration-mail:'.sha1(strtolower($request->email));
 
-        if (User::on('pgsql_admin')->where('email', $request->email)->exists()) {
+        if (User::on('pgsql_admin')->whereRaw('lower(email) = ?', [mb_strtolower((string) $request->email)])->exists()) {
             // Bug-Review M3 (Folgefehler): ein verworfener Dummy-Hash gleicht
             // die Laufzeit an den Erfolgsfall an (der dort unten erzeugte
             // echte Hash ist der mit Abstand teuerste Schritt) -- sonst bliebe

@@ -43,6 +43,12 @@ class CouponRedeemController extends Controller
         $code = strtoupper(trim($validated['code']));
 
         $coupon = Coupon::where('code', $code)->whereNull('redeemed_at')->first();
+        // Review-Runde 12: mit Leerzeichen oder ohne Bindestriche abgetippte
+        // Codes (XXXX XXXX XXXX XXXX / XXXXXXXXXXXXXXXX) ebenfalls finden.
+        $compact = preg_replace('/[\s\-]+/', '', $code);
+        if (! $coupon && preg_match('/^[A-Z0-9]{16}$/', $compact)) {
+            $coupon = Coupon::where('code', implode('-', str_split($compact, 4)))->whereNull('redeemed_at')->first();
+        }
 
         if (! $coupon) {
             return back()->withErrors(['code' => 'Dieser Code ist ungültig oder wurde bereits eingelöst.'])->withInput();
@@ -65,17 +71,17 @@ class CouponRedeemController extends Controller
 
         if ($result['type'] === 'course') {
             return redirect()->route('courses.show', $result['course'])
-                ->with('status', 'Code eingelöst -- der Kurs ist jetzt freigeschaltet!');
+                ->with('status', 'Code eingelöst – der Kurs ist jetzt freigeschaltet!');
         }
 
         if ($result['type'] === 'course_renewal') {
             $validUntil = GermanTime::format($result['entitlement']->valid_until, 'd.m.Y');
 
             return redirect()->route('courses.show', $result['course'])
-                ->with('status', "Code eingelöst -- dein Zugang zu \"{$result['course']->name}\" wurde verlängert".($validUntil ? " bis {$validUntil}" : '').'!');
+                ->with('status', "Code eingelöst – dein Zugang zu \"{$result['course']->name}\" wurde verlängert".($validUntil ? " bis {$validUntil}" : '').'!');
         }
 
         return redirect()->route('profile.edit')
-            ->with('status', "Code eingelöst -- \"{$result['product']->name}\" wurde deinem Konto gutgeschrieben!");
+            ->with('status', "Code eingelöst – \"{$result['product']->name}\" wurde deinem Konto gutgeschrieben!");
     }
 }

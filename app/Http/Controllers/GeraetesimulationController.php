@@ -143,7 +143,7 @@ class GeraetesimulationController extends Controller
 
     private function authorizeCourse(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, CourseDefinition $course): void
     {
-        abort_unless($entitlements->hasAccess($tenantContext->tenant(), $request->user(), $course), 403);
+        abort_unless($entitlements->hasAccess($tenantContext->tenant(), $request->user(), $course), 403, 'Dein Zugang zu diesem Kurs ist abgelaufen oder nicht freigeschaltet.');
         abort_unless(Geraetesimulation::availableFor($request->user(), $course), 404);
     }
 }

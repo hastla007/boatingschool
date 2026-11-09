@@ -28,7 +28,8 @@ class PraxisFormDataResolver
             $base = $required ? ['required'] : ['nullable'];
 
             $rules[$key] = match ($field['type']) {
-                'date' => [...$base, 'date'],
+                // Review-Runde 12: ein Wunschtermin liegt nicht in der Vergangenheit.
+                'date' => str_contains(strtolower($key), 'wunsch') ? [...$base, 'date', 'after_or_equal:today'] : [...$base, 'date'],
                 'checkbox' => $required ? ['required', 'accepted'] : ['nullable', 'boolean'],
                 // Bug-Review (AA11: Komma in Formularfeld-Option blockiert
                 // Absenden): die "in:"-Regel wurde hier bisher als EIN

@@ -26,7 +26,8 @@
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
                 <h2 class="font-medium text-slate-800 dark:text-white mb-2">Navigationsaufgabe {{ $task->task_number }}</h2>
                 <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">{{ $task->scenario_text }}</p>
-                @if ($task->hint)
+                {{-- Review-Runde 11: der Hinweis enthält teils Lösungswerte -- erst bei der Selbsteinschätzung zeigen. --}}
+                @if ($task->hint && $step !== 'answer')
                     <p class="mt-2 text-xs text-slate-600 dark:text-slate-400">{{ $task->hint }}</p>
                 @endif
             </div>
@@ -67,6 +68,10 @@
         @else
             <form method="POST" action="{{ route('exam.navigation-part.assess', $examSession) }}" class="space-y-3">
                 @csrf
+                @if ($examSession->deadline() && $examSession->navigation_submitted_at?->gte($examSession->deadline()))
+                    {{-- Review-Runde 11 --}}
+                    <p class="rounded-xl bg-amber-50 border border-amber-200 text-amber-900 dark:bg-amber-900/30 dark:border-amber-800 dark:text-amber-100 px-4 py-3 text-sm">Die Prüfungszeit ist abgelaufen &ndash; deine Eingaben wurden automatisch abgegeben.</p>
+                @endif
                 <p class="text-sm text-slate-600 dark:text-slate-300">Vergleiche deine Antworten mit der Musterlösung und bewerte ehrlich &ndash; danach wird die Prüfung ausgewertet. Die Zeit dafür zählt nicht zur Prüfungszeit.</p>
                 @foreach ($toAssess as $answer)
                     @php($auto = $answer->autoResult())

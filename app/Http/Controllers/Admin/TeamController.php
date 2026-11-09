@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\AccountSetupLink;
 use App\Services\ParticipantInviter;
 use App\Support\BestEffortMail;
+use App\Support\EmailInput;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -38,14 +39,15 @@ class TeamController extends Controller
         $tenant = $tenantContext->tenant();
         $actorRole = $request->user()->roleForTenant($tenant);
 
+        EmailInput::normalize($request, 'email');
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255'],
+            'email' => ['bail', 'required', 'string', 'lowercase', 'email', 'max:255'],
             'role' => ['required', Rule::in($actorRole === 'owner' ? ['instructor', 'admin'] : ['instructor'])],
         ]);
 
         // Plattformweite Suche wie bei der Teilnehmer-Einladung (RLS-frei).
-        $existingUser = User::on('pgsql_admin')->where('email', $validated['email'])->first();
+        $existingUser = User::on('pgsql_admin')->whereRaw('lower(email) = ?', [mb_strtolower($validated['email'])])->first();
 
         if ($existingUser) {
             $alreadyMember = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $existingUser->id)->exists();
@@ -100,7 +102,7 @@ class TeamController extends Controller
         // Gleicher Text für bestehendes und neues Konto (kein Konto-Orakel).
         return back()->with('status', $mailSent
             ? 'Einladung verschickt.'
-            : 'Einladung angelegt, der Versand der E-Mail ist aber fehlgeschlagen -- bitte später erneut einladen.');
+            : 'Einladung angelegt, der Versand der E-Mail ist aber fehlgeschlagen – bitte später erneut einladen.');
     }
 
     public function updateRole(Request $request, TenantContext $tenantContext, User $user): Response

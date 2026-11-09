@@ -64,7 +64,7 @@ class TenantCreationAndInviteEmailTest extends TestCase
         });
     }
 
-    public function test_creating_a_tenant_rejects_an_uppercase_admin_email(): void
+    public function test_creating_a_tenant_stores_an_uppercase_admin_email_lowercase(): void
     {
         $superadmin = $this->createSuperAdmin();
 
@@ -77,9 +77,13 @@ class TenantCreationAndInviteEmailTest extends TestCase
             'admin_email' => 'B18-Admin@Example.test',
         ]);
 
-        $response->assertSessionHasErrors('admin_email');
+        $response->assertSessionHasNoErrors();
         $this->assertDatabaseMissing('app_user', ['email' => 'B18-Admin@Example.test']);
-        $this->assertDatabaseMissing('tenant', ['slug' => 'b18-schule-zwei']);
+        $this->onAdmin(function () {
+            $this->createdTenantIds[] = Tenant::where('slug', 'b18-schule-zwei')->value('id');
+            $this->createdUserIds[] = User::where('email', 'b18-admin@example.test')->value('id');
+        });
+        $this->assertNotNull(end($this->createdUserIds));
     }
 
     public function test_inviting_a_new_participant_sends_a_password_set_link(): void
@@ -147,7 +151,7 @@ class TenantCreationAndInviteEmailTest extends TestCase
         });
     }
 
-    public function test_inviting_a_participant_rejects_an_uppercase_email(): void
+    public function test_inviting_a_participant_stores_an_uppercase_email_lowercase(): void
     {
         $tenant = $this->createTestTenant();
         $admin = $this->createTenantUser($tenant, 'owner');
@@ -157,7 +161,10 @@ class TenantCreationAndInviteEmailTest extends TestCase
             'email' => 'B18-Teilnehmer@Example.test',
         ]);
 
-        $response->assertSessionHasErrors('email');
+        $response->assertSessionHasNoErrors();
         $this->assertDatabaseMissing('app_user', ['email' => 'B18-Teilnehmer@Example.test']);
+        $id = $this->onAdmin(fn () => User::where('email', 'b18-teilnehmer@example.test')->value('id'));
+        $this->assertNotNull($id);
+        $this->createdUserIds[] = $id;
     }
 }

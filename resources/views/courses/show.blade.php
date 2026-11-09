@@ -216,7 +216,7 @@
                                 <div class="h-1.5 rounded-full bg-white" style="width: {{ $group['percent'] }}%"></div>
                             </div>
                             <div class="inline-flex items-center gap-1 mt-3 bg-white rounded-lg px-4 py-2 text-sm font-semibold" style="color: var(--brand-primary, #005FD7)">
-                                {{ $group['percent'] >= 100 ? 'Abgeschlossen' : 'Weiterschauen' }} <x-icon name="arrow-right" class="w-3.5 h-3.5" />
+                                {{ $group['percent'] >= 100 ? 'Abgeschlossen' : ($group['percent'] > 0 ? 'Weiterschauen' : 'Starten') }} <x-icon name="arrow-right" class="w-3.5 h-3.5" />
                             </div>
                         </div>
                     </a>
@@ -250,7 +250,7 @@
                         <div class="h-1.5 rounded-full bg-white" style="width: {{ $videoPercent }}%"></div>
                     </div>
                     <div class="inline-flex items-center gap-1 mt-4 bg-white rounded-lg px-4 py-2 text-sm font-semibold" style="color: var(--brand-primary, #005FD7)">
-                        {{ $videoPercent >= 100 ? 'Abgeschlossen' : 'Weiterschauen' }} <x-icon name="arrow-right" class="w-3.5 h-3.5" />
+                        {{ $videoPercent >= 100 ? 'Abgeschlossen' : ($videoPercent > 0 ? 'Weiterschauen' : 'Starten') }} <x-icon name="arrow-right" class="w-3.5 h-3.5" />
                     </div>
                 </div>
             </a>
@@ -277,6 +277,8 @@
                     </div>
                 </div>
             </div>
+            {{-- Review-Runde 12: warum der Fortschritt anfangs bei 0 % bleibt. --}}
+            <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">Gefestigt ist eine Frage nach 3 richtigen Antworten in Folge.</p>
             <div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
                 <x-icon name="anchor" class="w-3.5 h-3.5 shrink-0" style="color: var(--brand-secondary, #007A7A)" />
                 {{ $masteredCount > 0 ? 'Weiter so! Du bist auf einem guten Weg.' : 'Leg los – im Smart-Learning festigst du deine ersten Fragen.' }}
@@ -343,7 +345,7 @@
             </div>
             <div class="flex-1 min-w-0">
                 <div class="font-semibold text-slate-800 dark:text-white">Prüfungssimulation</div>
-                <div class="text-xs text-slate-600 dark:text-slate-400">{{ $hasExam ? 'Bereit zum Starten' : 'Noch nicht freigegeben' }}</div>
+                <div class="text-xs text-slate-600 dark:text-slate-400">@if (! $hasExam) Noch nicht freigegeben @elseif ($examsTaken === 0) Bereit zum Starten @else {{ $examsPassed }} {{ $examsHavePapers ? ($examsPassed === 1 ? 'Bogen' : 'Bögen').' ' : '' }}bestanden &middot; {{ $examsTaken }} {{ $examsTaken === 1 ? 'Simulation' : 'Simulationen' }} @endif</div>
             </div>
             <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />
         </a>

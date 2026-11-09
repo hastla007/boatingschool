@@ -17,6 +17,7 @@ use App\Services\CouponRedemptionService;
 use App\Services\LearnerOverview;
 use App\Services\ParticipantInviter;
 use App\Support\Countries;
+use App\Support\EmailInput;
 use App\Support\ExamRegistration;
 use App\Support\InstructorScope;
 use App\Support\TenantContext;
@@ -110,7 +111,11 @@ class ParticipantController extends Controller
 
         $bookings = $entitlements->concat($standaloneProductPurchases)->sortByDesc('date')->values();
 
+        // Review-Runde 11: Ausbilder sehen nur Anmeldungen ihrer Kurse (wie
+        // die Einzelansicht der Anmeldung und das Dashboard).
+        $instructorCourses = InstructorScope::courseIds($tenant, $request->user());
         $praxisFormSubmissions = PraxisFormSubmission::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+            ->when($instructorCourses !== null, fn ($q) => $q->whereIn('course_id', $instructorCourses))
             ->with(['course', 'template', 'examAppointments.location'])->orderByDesc('created_at')->get();
 
         // Für das Termin-Vorschlagsformular je Anmeldung: die für den
@@ -120,7 +125,6 @@ class ParticipantController extends Controller
         // Anmeldungen unterschiedliche Kurse betreffen können.
         // Kurse mit Selbst-Anmeldung zur Prüfung (noch ohne Termine): dort
         // kann die Schule trotzdem Praxisstunden vorschlagen.
-        $instructorCourses = InstructorScope::courseIds($tenant, $request->user());
         $selfBookingCourses = Entitlement::where('tenant_id', $tenant->id)->where('user_id', $user->id)
             ->currentlyActive()->with('course')->get()->pluck('course')->filter()
             ->filter(fn ($course) => $instructorCourses === null || $instructorCourses->contains($course->id))
@@ -145,19 +149,22 @@ class ParticipantController extends Controller
         // Willkommensbox-Bestellung. Ein Vorschlag, der noch auf
         // Rückmeldung des Teilnehmers wartet, ist dagegen nicht an der
         // Bootsschule.
-        $actionItems = $praxisFormSubmissions->flatMap(function (PraxisFormSubmission $submission) use ($tenant) {
+        $actionItems = $praxisFormSubmissions->flatMap(function (PraxisFormSubmission $submission) {
             $items = collect();
             $course = $submission->course->name ?? '—';
 
             $examAppointments = $submission->appointmentsForSlot(0);
-            if ($submission->isPracticeOnly() || ($submission->course && ExamRegistration::isSelf($tenant, $submission->course))) {
+            // Review-Runde 11: eine echte Praxis-Anmeldung bleibt im Ablauf der
+            // Schule, auch wenn der Kurs später auf Selbst-Anmeldung umgestellt
+            // wird (wie beim Teilnehmer, ExamRegistration::usesAppointmentTool).
+            if ($submission->isPracticeOnly()) {
                 // Prüfungstermin bucht der Teilnehmer selbst.
             } elseif ($examAppointments->isEmpty()) {
-                $items->push(['course' => $course, 'label' => 'Prüfungstermin', 'reason' => 'Neue Anmeldung -- bitte Prüfungstermin vorschlagen.']);
+                $items->push(['course' => $course, 'label' => 'Prüfungstermin', 'reason' => 'Neue Anmeldung – bitte Prüfungstermin vorschlagen.']);
             } elseif (in_array($examAppointments->last()->response, ['declined', 'withdrawn', 'cancelled'], true)) {
                 // Review: wie PraxisFormSubmission::nextStep() -- auch nach
                 // Zurückziehen bzw. Absage braucht es einen neuen Vorschlag.
-                $items->push(['course' => $course, 'label' => 'Prüfungstermin', 'reason' => $examAppointments->last()->response === 'declined' ? 'Vorschlag abgelehnt -- bitte neuen Termin vorschlagen.' : 'Termin zurückgezogen bzw. abgesagt -- bitte neuen Termin vorschlagen.']);
+                $items->push(['course' => $course, 'label' => 'Prüfungstermin', 'reason' => $examAppointments->last()->response === 'declined' ? 'Vorschlag abgelehnt – bitte neuen Termin vorschlagen.' : 'Termin zurückgezogen bzw. abgesagt – bitte neuen Termin vorschlagen.']);
             }
 
             foreach ($submission->practiceSlotNumbers() as $slot) {
@@ -165,7 +172,7 @@ class ParticipantController extends Controller
                 // Zusatztermine: nur eine Ablehnung des Teilnehmers verlangt einen
                 // neuen Vorschlag; zieht die Schule selbst zurück, ist er erledigt.
                 if ($latest && $latest->response === 'declined') {
-                    $items->push(['course' => $course, 'label' => $submission->labelForSlot($slot), 'reason' => 'Vorschlag abgelehnt -- bitte neuen Termin vorschlagen.']);
+                    $items->push(['course' => $course, 'label' => $submission->labelForSlot($slot), 'reason' => 'Vorschlag abgelehnt – bitte neuen Termin vorschlagen.']);
                 }
             }
 
@@ -173,7 +180,7 @@ class ParticipantController extends Controller
         });
 
         if ($willkommensboxOrder && ! $willkommensboxOrder->isShipped()) {
-            $actionItems->push(['course' => 'Willkommensbox', 'label' => 'Versand', 'reason' => 'Bestellung eingegangen -- bitte Willkommensbox versenden.']);
+            $actionItems->push(['course' => 'Willkommensbox', 'label' => 'Versand', 'reason' => 'Bestellung eingegangen – bitte Willkommensbox versenden.']);
         }
 
         return view('admin.participants.show', [
@@ -220,7 +227,7 @@ class ParticipantController extends Controller
         }
 
         $name = $user->name;
-        $erasure->leaveTenant($user, $tenant);
+        $erasure->leaveTenant($user, $tenant, forgetOtherSchoolsInvitations: false);
         AuditLog::record($tenant->id, $request->user()->id, 'participant.remove', 'tenant_user', null, null, null);
 
         return redirect()->route('admin.dashboard', ['tab' => 'participants'])->with('status', "{$name} und alle Lerndaten bei dieser Bootsschule wurden gelöscht.");
@@ -250,7 +257,7 @@ class ParticipantController extends Controller
             'postal_code' => ['nullable', 'string', 'max:20'],
             'city' => ['nullable', 'string', 'max:255'],
             'country' => ['nullable', 'string', Rule::in(Countries::OPTIONS)],
-            'birthdate' => ['nullable', 'date', 'before:today'],
+            'birthdate' => ['bail', 'nullable', 'date', 'before:today'],
         ]);
 
         // Sicherheitsreview S3: diese Felder liegen jetzt auf der
@@ -302,6 +309,18 @@ class ParticipantController extends Controller
     public function invite(Request $request, TenantContext $tenantContext, CouponRedemptionService $redemption, ParticipantInviter $inviter): Response
     {
         $tenant = $tenantContext->tenant();
+        // Review-Runde 11: ein auf Kurse beschränkter Ausbilder sähe die
+        // eingeladene Person danach nicht (noch kein Kurs) -- weder zum
+        // Freischalten noch zum erneuten Einladen.
+        // Review-Runde 12: erneutes Senden an eine schon sichtbare,
+        // eingeladene Person bleibt möglich.
+        $visible = InstructorScope::learnerIds($tenant, $request->user());
+        $existingVisible = $visible !== null && is_string($request->input('email'))
+            && $visible->contains(User::on('pgsql_admin')->whereRaw('lower(email) = ?', [mb_strtolower(trim($request->input('email')))])->value('id'));
+        if (InstructorScope::courseIds($tenant, $request->user()) !== null && ! $existingVisible) {
+            return back()->withErrors(['email' => 'Neue Teilnehmer lädt die Leitung Ihrer Bootsschule ein. Sie sehen Teilnehmer, sobald sie einen Ihrer Kurse gebucht haben.']);
+        }
+        EmailInput::normalize($request, 'email');
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             // Bug-Review B18: ohne 'lowercase' konnte dieselbe Adresse mit
@@ -309,7 +328,7 @@ class ParticipantController extends Controller
             // "anderes" betrachtetes Konto erzeugen (case-sensitiver
             // unique-Vergleich) -- dasselbe Muster wie bereits in
             // RegisteredUserController.
-            'email' => ['required', 'string', 'lowercase', 'email', 'max:255'],
+            'email' => ['bail', 'required', 'string', 'lowercase', 'email', 'max:255'],
             // Adresse kann die Bootsschule beim Anlegen (z. B. vor Ort)
             // gleich mit hinterlegen -- das Geburtsdatum bewusst nicht, das
             // muss immer der Lerner selbst angeben (siehe
@@ -378,26 +397,30 @@ class ParticipantController extends Controller
         $result = $inviter->invite($tenant, $request->user(), $validated['name'], $validated['email'], array_intersect_key($validated, array_flip(['street', 'postal_code', 'city', 'country'])));
 
         if ($result['duplicate'] ?? false) {
-            return back()->with('status', 'Diese Person wurde heute schon eingeladen; die Einladung ist weiter gültig.');
+            return back()->with('status', ($result['resend_limit'] ?? false)
+                ? 'Die Einladung wurde heute schon dreimal verschickt; ein neuer Link ist erst morgen wieder möglich. Der zuletzt verschickte Link bleibt 7 Tage gültig.'
+                : 'Diese Person wurde heute schon eingeladen; die Einladung ist weiter gültig.');
         }
         if ($result['already_member'] ?? false) {
-            return back()->with('status', 'Diese Person ist bereits Teilnehmer Ihrer Bootsschule.');
+            return back()->with('status', ($result['role'] ?? 'learner') === 'learner'
+                ? 'Diese Person ist bereits Teilnehmer Ihrer Bootsschule.'
+                : 'Diese Person gehört bereits zum Team Ihrer Bootsschule.');
         }
         if ($result['resent'] ?? false) {
-            return back()->with('status', $result['mail_sent'] ? 'Einladung erneut verschickt (neuer Link zum Passwort festlegen, 7 Tage gültig).' : 'Der Versand der Einladung ist fehlgeschlagen -- bitte später erneut versuchen.');
+            return back()->with('status', $result['mail_sent'] ? 'Einladung erneut verschickt (neuer Link zum Passwort festlegen, 7 Tage gültig).' : 'Der Versand der Einladung ist fehlgeschlagen – bitte später erneut versuchen.');
         }
 
         $status = $result['mail_sent']
             ? 'Einladung verschickt.'
-            : 'Einladung angelegt, der Versand der E-Mail ist aber fehlgeschlagen -- bitte später erneut einladen.';
+            : 'Einladung angelegt, der Versand der E-Mail ist aber fehlgeschlagen – bitte später erneut einladen.';
 
         if ($result['type'] === 'existing') {
             if ($codeRequiresAdmin) {
-                return back()->withErrors(['code' => 'Nur Owner/Admin können beim Einladen direkt einen Code zuweisen -- das geht sonst nach der Einladung über die Coupon-Codes-Verwaltung.'])->with('status', $status);
+                return back()->withErrors(['code' => 'Nur Owner/Admin können beim Einladen direkt einen Code zuweisen – das geht sonst nach der Einladung über die Coupon-Codes-Verwaltung.'])->with('status', $status);
             }
 
             if ($code !== '') {
-                $status .= ' Ein angegebener Code wird dabei nicht automatisch zugewiesen -- das geht nach der Bestätigung über die Coupon-Codes-Verwaltung.';
+                $status .= ' Ein angegebener Code wird dabei nicht automatisch zugewiesen – das geht nach der Bestätigung über die Coupon-Codes-Verwaltung.';
             }
 
             return back()->with('status', $status);
@@ -418,7 +441,7 @@ class ParticipantController extends Controller
         // genau wie bei einem ungültigen Code unten wird nur die
         // Code-Zuweisung abgelehnt, nicht die ganze Einladung.
         if ($codeRequiresAdmin) {
-            return back()->withErrors(['code' => 'Nur Owner/Admin können beim Einladen direkt einen Code zuweisen -- das geht sonst nach der Einladung über die Coupon-Codes-Verwaltung.'])->with('status', $status);
+            return back()->withErrors(['code' => 'Nur Owner/Admin können beim Einladen direkt einen Code zuweisen – das geht sonst nach der Einladung über die Coupon-Codes-Verwaltung.'])->with('status', $status);
         }
 
         // Eine fehlgeschlagene Code-Zuweisung soll die bereits erfolgte

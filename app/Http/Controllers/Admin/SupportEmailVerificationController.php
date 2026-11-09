@@ -35,7 +35,7 @@ class SupportEmailVerificationController extends Controller
         // Klartext statt Schlüssel: die Statuszeile des Layouts zeigt den Wert direkt an.
         return back()->with('status', $mailSent
             ? 'Ein neuer Bestätigungslink für die Support-E-Mail wurde gesendet.'
-            : 'Die Bestätigungs-Mail konnte nicht versendet werden -- bitte später erneut versuchen.');
+            : 'Die Bestätigungs-Mail konnte nicht versendet werden – bitte später erneut versuchen.');
     }
 
     public function verify(Request $request, TenantContext $tenantContext, Tenant $tenant): Response

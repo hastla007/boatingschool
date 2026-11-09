@@ -7,6 +7,7 @@ use App\Models\CourseDefinition;
 use App\Models\CoursePromoBanner;
 use App\Models\CourseWebshopLink;
 use App\Models\Entitlement;
+use App\Models\ExamSession;
 use App\Models\PraxisFormTemplate;
 use App\Models\Progress;
 use App\Models\TenantAddon;
@@ -232,6 +233,17 @@ class CourseController extends Controller
             'videoPercent' => $videoTotal > 0 ? (int) round($videoCompleted / $videoTotal * 100) : 0,
             'comboVideoGroups' => $comboVideoGroups,
             'hasExam' => $course->hasStartableExam(),
+            // Review-Runde 11: Stand statt immer „Bereit zum Starten“.
+            // Review-Runde 12: Kurse ohne feste Bögen (z. B. SKN) zählen bestandene Simulationen.
+            'examsHavePapers' => $hasPapers = $course->examPapers()->exists(),
+            'examsPassed' => $hasPapers
+                ? ExamSession::where('tenant_id', $tenant->id)->where('user_id', $request->user()->id)
+                    ->where('course_id', $course->id)->where('status', 'evaluated')->where('passed', true)->whereNotNull('paper_id')
+                    ->distinct()->count('paper_id')
+                : ExamSession::where('tenant_id', $tenant->id)->where('user_id', $request->user()->id)
+                    ->where('course_id', $course->id)->where('status', 'evaluated')->where('passed', true)->count(),
+            'examsTaken' => ExamSession::where('tenant_id', $tenant->id)->where('user_id', $request->user()->id)
+                ->where('course_id', $course->id)->where('status', 'evaluated')->count(),
             'funkCatalogs' => FunkTraining::catalogsFor($course),
             // Bug-Review (Umstellung auf Selbstanmeldung): wer schon eine
             // Praxis-Anmeldung hat, behält das Termintool (Termine,
