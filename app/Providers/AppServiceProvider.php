@@ -54,6 +54,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Mobile-API: der Guard bekommt seinen Nutzer von AuthenticateMobileApi.
+        Auth::viaRequest('mobile-token', fn () => null);
+
         // Eigenes Remember-Cookie je Schule im Pfad-Modus (siehe TenantSessionGuard).
         Auth::extend('session', function ($app, string $name, array $config) {
             $guard = new TenantSessionGuard(

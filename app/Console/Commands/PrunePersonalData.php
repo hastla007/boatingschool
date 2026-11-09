@@ -7,6 +7,7 @@ use App\Services\AccountErasureService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * DSGVO-Review D3: es gab keinerlei Löschfristen für audit_log, attempt
@@ -35,6 +36,7 @@ class PrunePersonalData extends Command
         // Aufräumen der technischen Reste danach löscht.
         $this->pruneUnclaimedAccounts($dryRun);
         $this->pruneTechnicalLeftovers($dryRun);
+        $this->pruneMobileApi($dryRun);
         $this->pruneTable('audit_log', 'created_at', 'audit_log', $dryRun);
         $this->pruneTable('attempt', 'created_at', 'attempt', $dryRun);
 
@@ -93,6 +95,42 @@ class PrunePersonalData extends Command
         }
 
         $this->line('Cache: '.($cache?->delete() ?? 0).' abgelaufene Zeile(n) gelöscht, Passwort-Reset-Tokens: '.$resets->delete().', Einladungs-Links: '.($invites?->delete() ?? 0).' gelöscht.');
+    }
+
+    /**
+     * Mobile-API: beendete/abgelaufene Gerätesitzungen (nach 30 Tagen Frist
+     * für Rückfragen), Idempotenz-Schlüssel nach ihrer Gültigkeit und
+     * abgelaufene Datenexporte samt Datei.
+     */
+    private function pruneMobileApi(bool $dryRun): void
+    {
+        if (! Schema::hasTable('api_device_session')) {
+            return;
+        }
+        $sessions = DB::table('api_device_session')->where(fn ($q) => $q
+            ->where('revoked_at', '<', now()->subDays(30))
+            ->orWhere('refresh_expires_at', '<', now()->subDays(30))
+            ->orWhere('max_expires_at', '<', now()->subDays(30)));
+        $keys = DB::table('api_idempotency_key')->where('created_at', '<', now()->subHours((int) config('mobile_api.idempotency_hours', 24)));
+        $exports = DB::table('api_data_export')->where(fn ($q) => $q->where('expires_at', '<', now())
+            ->orWhere(fn ($q) => $q->whereNull('expires_at')->where('created_at', '<', now()->subDay())));
+
+        if ($dryRun) {
+            $this->line("App-Sitzungen: {$sessions->count()}, Idempotenz-Schlüssel: {$keys->count()}, Datenexporte: {$exports->count()} -- würden gelöscht.");
+
+            return;
+        }
+
+        // Dateien nach Alter statt über die Zeilen: auch die eines inzwischen
+        // gelöschten Kontos (Zeile per Fremdschlüssel schon weg) verschwinden.
+        $disk = Storage::disk('local');
+        $cutoff = now()->subMinutes((int) config('mobile_api.export_ttl_minutes', 60))->getTimestamp();
+        foreach ($disk->files('api-exports') as $file) {
+            if ($disk->lastModified($file) < $cutoff) {
+                $disk->delete($file);
+            }
+        }
+        $this->line('App-Sitzungen: '.$sessions->delete().', Idempotenz-Schlüssel: '.$keys->delete().', Datenexporte: '.$exports->delete().' gelöscht.');
     }
 
     /** Nie angenommene Einladungs-Konten (nie ein Passwort festgelegt) nach der Frist löschen. */

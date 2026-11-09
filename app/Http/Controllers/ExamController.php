@@ -2,26 +2,25 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\ContentAnswer;
 use App\Models\ContentQuestion;
 use App\Models\CourseDefinition;
 use App\Models\ExamPaper;
 use App\Models\ExamPaperQuestion;
 use App\Models\ExamRuleSet;
 use App\Models\ExamSession;
-use App\Models\ExamSessionNavigationAnswer;
 use App\Models\ExamSessionQuestion;
 use App\Models\Favorite;
 use App\Models\Progress;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\EntitlementService;
+use App\Services\ExamActions;
 use App\Services\ExamEvaluationService;
+use App\Services\ExamSessionStarter;
 use App\Support\ComboExamGroups;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -209,71 +208,8 @@ class ExamController extends Controller
         // Tenant/Nutzer/Bogen-Kombination für die Dauer der Transaktion; der
         // Unique-Index aus der Migration 000460 sichert das zusätzlich auf
         // Datenbankebene ab.
-        return DB::transaction(function () use ($tenant, $user, $course, $ruleSet, $paper, $examEvaluation) {
-            DB::statement('SELECT pg_advisory_xact_lock(hashtext(?))', [$tenant->id.':'.$user->id.':'.$paper->id]);
-
-            $running = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $user->id)
-                ->where('paper_id', $paper->id)->where('status', 'running')->first();
-
-            if ($running && $running->stillOpen($examEvaluation->timeExpired($running))) {
-                return redirect()->route('exam.show', $running);
-            }
-
-            if ($running) {
-                // Eine abgelaufene, aber noch nicht ausgewertete Session
-                // blockierte bisher den Neustart: der erste Klick auf
-                // "Jetzt starten" führte (über show()) nur zum alten
-                // Ergebnis statt direkt zu einem neuen Versuch. Jetzt wird
-                // sie hier sofort abgeschlossen, bevor der neue Versuch
-                // angelegt wird.
-                $examEvaluation->evaluate($running);
-            }
-
-            $session = ExamSession::create([
-                'tenant_id' => $tenant->id,
-                'user_id' => $user->id,
-                'course_id' => $course->id,
-                'rule_set_id' => $ruleSet->id,
-                'rule_snapshot' => ExamSession::snapshotOf($ruleSet),
-                'paper_id' => $paper->id,
-                'status' => 'running',
-                'started_at' => now(),
-            ]);
-
-            $position = 1;
-            // Bug-Review (BB16-Rest: feste Bögen ignorierten "Gültig ab/bis"):
-            // wie die deaktivierte Frage (B12) wird auch eine Frage außerhalb
-            // ihres Gültigkeitsfensters nicht ausgespielt.
-            $paper->loadMissing('paperQuestions.question');
-            $validQuestionIds = ContentQuestion::currentlyValidIds($paper->paperQuestions->pluck('question'))->flip();
-            foreach ($paper->paperQuestions as $paperQuestion) {
-                // Bug-Review B12 (Folgefehler): eine nach dem Anlegen des
-                // Bogens im Superadmin deaktivierte Frage (content_question.
-                // active) wurde hier -- im Gegensatz zur zufällig
-                // zusammengestellten Prüfung in start() -- trotzdem noch
-                // ausgespielt. Positionen werden deshalb neu durchnummeriert,
-                // statt Lücken zu lassen.
-                if (! $validQuestionIds->has($paperQuestion->question_id)) {
-                    continue;
-                }
-
-                $revision = $paperQuestion->question->publishedRevision();
-                abort_if(! $revision, 404, 'Für eine Frage dieses Bogens liegt keine veröffentlichte Fassung vor.');
-
-                ExamSessionQuestion::create([
-                    'exam_session_id' => $session->id,
-                    'question_id' => $paperQuestion->question_id,
-                    'revision_id' => $revision->id,
-                    'position' => $position++,
-                ]);
-            }
-
-            // SBF See: Navigationsaufgabe mit derselben Nummer wie der Bogen
-            // als eigener Prüfungsteil (mindestens 7 von 9 Punkten).
-            $this->attachNavigationTask($session, $ruleSet, $course, $paper->paper_number);
-
-            return redirect()->route('exam.show', $session);
-        });
+        // Gemeinsam mit der Mobile-API (ExamSessionStarter).
+        return redirect()->route('exam.show', app(ExamSessionStarter::class)->startPaper($tenant, $user, $course, $ruleSet, $paper));
     }
 
     public function start(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, ExamEvaluationService $examEvaluation, CourseDefinition $course): Response
@@ -306,165 +242,33 @@ class ExamController extends Controller
         // Ein Doppelklick auf "Zufallsprüfung starten" konnte zwei parallele
         // "running"-Sessions für denselben Kurs anlegen. Der Unique-Index
         // aus Migration 000466 sichert das zusätzlich auf Datenbankebene ab.
-        return DB::transaction(function () use ($tenant, $user, $course, $ruleSet, $examEvaluation) {
-            DB::statement('SELECT pg_advisory_xact_lock(hashtext(?))', [$tenant->id.':'.$user->id.':'.$course->id.':random-exam']);
-
-            $running = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $user->id)
-                ->where('course_id', $course->id)->whereNull('paper_id')->where('status', 'running')->first();
-
-            if ($running && $running->stillOpen($examEvaluation->timeExpired($running))) {
-                return redirect()->route('exam.show', $running);
-            }
-
-            if ($running) {
-                $examEvaluation->evaluate($running);
-            }
-
-            $session = ExamSession::create([
-                'tenant_id' => $tenant->id,
-                'user_id' => $user->id,
-                'course_id' => $course->id,
-                'rule_set_id' => $ruleSet->id,
-                'rule_snapshot' => ExamSession::snapshotOf($ruleSet),
-                'status' => 'running',
-                'started_at' => now(),
-            ]);
-
-            $position = 1;
-            foreach ($ruleSet->blueprints as $blueprint) {
-                // Bug-Review B12: eine im Superadmin deaktivierte Frage
-                // (content_question.active) konnte hier trotzdem in eine
-                // zufällig zusammengestellte Prüfung geraten.
-                // Bug-Review BB16 ("Gültig ab"/"Gültig bis" wirkungslos):
-                // dieselbe Lücke bestand für valid_from/valid_to.
-                $questions = $blueprint->module->questions()
-                    ->currentlyValid()
-                    ->inRandomOrder()
-                    ->take($blueprint->question_count)
-                    ->get();
-
-                foreach ($questions as $question) {
-                    $revision = $question->publishedRevision();
-
-                    ExamSessionQuestion::create([
-                        'exam_session_id' => $session->id,
-                        'question_id' => $question->id,
-                        'revision_id' => $revision->id,
-                        'position' => $position++,
-                    ]);
-                }
-            }
-
-            // Ohne gültige Fragen (z. B. alle Fragen eines Moduls deaktiviert)
-            // gäbe es eine leere Prüfung, die als „nicht bestanden“ zählt.
-            abort_if($position === 1, 409, 'Für diesen Kurs sind derzeit keine Prüfungsfragen verfügbar. Bitte wende dich an deine Bootsschule.');
-
-            return redirect()->route('exam.show', $session);
-        });
-    }
-
-    private function attachNavigationTask(ExamSession $session, ExamRuleSet $ruleSet, CourseDefinition $course, int $taskNumber): void
-    {
-        if ($ruleSet->navigationRule() === null) {
-            return;
-        }
-        $task = $course->navigationTasks()->where('task_number', $taskNumber)->with('questions')->first();
-        if (! $task || $task->questions->isEmpty()) {
-            return;
-        }
-        $session->update(['navigation_task_id' => $task->id, 'navigation_task_snapshot' => $task->only(['task_number', 'scenario_text', 'hint', 'chart_image_path', 'chart_caption'])]);
-        foreach ($task->questions->sortBy('question_number')->values() as $i => $question) {
-            ExamSessionNavigationAnswer::create([
-                'tenant_id' => $session->tenant_id,
-                'exam_session_id' => $session->id,
-                'navigation_question_id' => $question->id,
-                'position' => $i + 1,
-                'question_number' => $question->question_number,
-                'question_text' => $question->question_text,
-                'answer_text' => $question->answer_text,
-            ]);
-        }
+        // Gemeinsam mit der Mobile-API (ExamSessionStarter).
+        return redirect()->route('exam.show', app(ExamSessionStarter::class)->startRandom($tenant, $user, $course, $ruleSet));
     }
 
     /** Navigationsaufgabe der Prüfung: alle Teilantworten auf einmal abgeben. */
     public function submitNavigation(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, ExamEvaluationService $examEvaluation, ExamSession $examSession): Response
     {
         $this->authorizeSession($request, $tenantContext, $entitlements, $examSession);
-        if ($examSession->status === 'evaluated') {
-            return redirect()->route('exam.result', $examSession);
-        }
-        abort_unless($examSession->status === 'running' && $examSession->hasNavigationPart(), 409);
         $validated = $request->validate(['answers' => ['array'], 'answers.*' => ['nullable', 'string', 'max:500']]);
 
-        $expired = false;
-        $already = false;
-        DB::transaction(function () use ($examSession, $validated, &$expired, &$already) {
-            DB::table('exam_session')->where('id', $examSession->id)->lockForUpdate()->first();
-            $examSession->refresh();
-            abort_if($examSession->status !== 'running', 409);
-            if ($examSession->navigation_submitted_at) {
-                $already = true;
-
-                return;
-            }
-            // Review-Runde 10: wer kurz nach Ablauf abgibt, verliert die ganze
-            // Aufgabe nicht -- innerhalb der Nachfrist zählen die Antworten wie
-            // zum Prüfungsende abgegeben (wie Papier, das eingesammelt wird).
-            $deadline = $examSession->deadline();
-            if ($deadline && now()->gt($deadline->copy()->addSeconds(ExamSession::NAVIGATION_SUBMIT_GRACE))) {
-                $expired = true;
-
-                return;
-            }
-            $answeredAt = $deadline && now()->gt($deadline) ? $deadline : now();
-            foreach ($examSession->navigationAnswers as $answer) {
-                $given = trim((string) ($validated['answers'][$answer->id] ?? ''));
-                $answer->update(['answer' => $given === '' ? null : $given, 'answered_at' => $answeredAt]);
-            }
-            $examSession->update(['navigation_submitted_at' => now()]);
-        });
-
-        if ($already) {
-            return redirect()->route('exam.show', $examSession)->with('status', 'Die Navigationsaufgabe ist bereits abgegeben.');
-        }
-        if ($expired) {
-            $examEvaluation->evaluate($examSession);
-
-            return redirect()->route('exam.result', $examSession)->with('status', 'Die Prüfungszeit ist abgelaufen – hier ist dein Ergebnis.');
-        }
-
-        return redirect()->route('exam.show', $examSession);
+        // Gemeinsam mit der Mobile-API (ExamActions).
+        return match (app(ExamActions::class)->submitNavigation($examSession, $validated['answers'] ?? [])) {
+            ExamActions::EVALUATED => redirect()->route('exam.result', $examSession),
+            ExamActions::ALREADY_ANSWERED => redirect()->route('exam.show', $examSession)->with('status', 'Die Navigationsaufgabe ist bereits abgegeben.'),
+            ExamActions::EXPIRED => redirect()->route('exam.result', $examSession)->with('status', 'Die Prüfungszeit ist abgelaufen – hier ist dein Ergebnis.'),
+            default => redirect()->route('exam.show', $examSession),
+        };
     }
 
     /** Selbsteinschätzung der Teilfragen, die sich nicht automatisch prüfen lassen; danach Auswertung. */
     public function assessNavigation(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, ExamEvaluationService $examEvaluation, ExamSession $examSession): Response
     {
         $this->authorizeSession($request, $tenantContext, $entitlements, $examSession);
-        if ($examSession->status === 'evaluated') {
-            return redirect()->route('exam.result', $examSession);
-        }
-        abort_unless($examSession->status === 'running' && $examSession->navigation_submitted_at, 409);
         $validated = $request->validate(['known' => ['array'], 'known.*' => ['in:0,1']]);
+        app(ExamActions::class)->assessNavigationAndFinish($examSession, $validated['known'] ?? []);
 
-        DB::transaction(function () use ($examSession, $validated) {
-            DB::table('exam_session')->where('id', $examSession->id)->lockForUpdate()->first();
-            $examSession->refresh();
-            abort_if($examSession->status !== 'running', 409);
-            foreach ($examSession->navigationAnswers()->with('question')->get() as $answer) {
-                $value = $validated['known'][$answer->id] ?? null;
-                // Freitext/Karte: Selbsteinschätzung; automatisch geprüft und als
-                // falsch erkannt: „trotzdem richtig (gleichwertig)“ möglich.
-                if ($answer->answer === null && ! $answer->isChartDrawing()) {
-                    $answer->update(['self_assessed_known' => false]); // leer = falsch
-                } elseif (! $answer->isAutoCheckable()) {
-                    $answer->update(['self_assessed_known' => $value === null ? null : $value === '1']);
-                } elseif ($answer->autoResult() === false) {
-                    $answer->update(['self_assessed_known' => $value === '1' ? true : null]);
-                }
-            }
-        });
-
-        return $this->finish($request, $tenantContext, $entitlements, $examEvaluation, $examSession);
+        return redirect()->route('exam.result', $examSession);
     }
 
     public function show(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, ExamEvaluationService $examEvaluation, ExamSession $examSession): View|Response
@@ -533,31 +337,11 @@ class ExamController extends Controller
     {
         $this->authorizeSession($request, $tenantContext, $entitlements, $examSession);
 
-        // Bug-Review (AA4: Prüfung nach Ablauf der Zeit zeigt englische
-        // Fehlerseite): wer nach Zeitablauf noch antwortet, erreicht diese
-        // Methode oft ein zweites Mal (Doppelklick, oder der Browser hatte
-        // die Seite bereits neu geladen) -- die Session steht dann schon auf
-        // "evaluated" (siehe timeExpired()-Zweig unten bzw. finish()). Statt
-        // dafür bisher ein nacktes abort(409) ohne eigene errors/409.blade.php
-        // zu zeigen (Laravels generische, englische Fallback-Fehlerseite),
-        // landet der Lernende jetzt direkt beim längst fertigen Ergebnis --
-        // genau das, was er nach Ablauf der Zeit sehen will.
+        // Bug-Review (AA4): nach Ablauf der Zeit (oder bei einem Doppelklick
+        // danach) landet der Lernende direkt beim fertigen Ergebnis statt auf
+        // einer Fehlerseite.
         if ($examSession->status === 'evaluated') {
             return redirect()->route('exam.result', $examSession);
-        }
-
-        abort_if($examSession->status !== 'running', 409);
-
-        // Serverseitig prüfen statt nur der Weiterleitung in show() zu
-        // vertrauen (Sicherheitsreview M2): ohne diese Prüfung ließ sich nach
-        // Ablauf der Zeit beliebig weiter antworten, solange die Session noch
-        // auf "running" stand. Abgelaufen wird sofort ausgewertet und
-        // abgeschlossen statt die Antwort noch anzunehmen.
-        if ($examEvaluation->timeExpired($examSession)) {
-            $examEvaluation->evaluate($examSession);
-
-            return redirect()->route('exam.result', $examSession)
-                ->with('status', 'Die Prüfungszeit ist abgelaufen – hier ist dein Ergebnis.');
         }
 
         $validated = $request->validate([
@@ -568,109 +352,14 @@ class ExamController extends Controller
             'known' => ['nullable', 'boolean'],
         ]);
 
-        // whereNull('answered_at'): eine bereits beantwortete Frage lässt
-        // sich über die reguläre UI (show() liefert immer die nächste
-        // unbeantwortete Frage) nicht erneut erreichen -- nur über einen
-        // gezielt nachgebauten Request mit alter position. Das wird hier
-        // unterbunden (Sicherheitsreview M2).
-        $sessionQuestion = $examSession->questions()->where('position', $validated['position'])
-            ->whereNull('answered_at')->with('revision')->first();
-        // Review (Doppelklick auf „Weiter“): der zweite, gleiche Request kam
-        // bisher als 404 mitten in der Prüfung an. Die erste Antwort ist
-        // gespeichert und bleibt unverändert; weiter geht es mit der
-        // nächsten offenen Frage.
-        if (! $sessionQuestion) {
-            return redirect()->route('exam.show', $examSession);
-        }
-        $type = $sessionQuestion->revision->question_type;
-
-        // Bug-Review (Zwei gleichzeitige Prüfungsauswertungen stören sich):
-        // der abort_if()-Check oben liest den Status, BEVOR die Antwort
-        // unten gespeichert wird -- lief währenddessen eine Auswertung
-        // (finish() oder der Zeit-Timeout-Zweig oben, siehe
-        // ExamEvaluationService::evaluate()) nebenläufig durch, konnte eine
-        // Antwort noch auf eine Frage geschrieben werden, die bereits
-        // bewertet wurde (correct stand damit auf dem Stand VOR dieser
-        // Antwort fest, die Antwort selbst wirkte nie auf die Bewertung).
-        // Die exam_session-Zeile wird deshalb jetzt gesperrt, bis eine
-        // nebenläufige Auswertung committet hat, und der Status danach
-        // erneut geprüft -- evaluate() sperrt dieselbe Zeile, die beiden
-        // serialisieren sich also gegenseitig.
-        $expired = false;
-        DB::transaction(function () use ($examSession, $sessionQuestion, $type, $validated, $examEvaluation, &$expired) {
-            // DB::table() statt einer zweiten Eloquent-Abfrage auf dem
-            // ExamSession-Model: vermeidet, dass der globale Tenant-Scope
-            // (BelongsToTenant) dabei erneut ausgewertet wird (siehe
-            // ExamEvaluationService::evaluate()).
-            DB::table('exam_session')->where('id', $examSession->id)->lockForUpdate()->first();
-            $examSession->refresh();
-            abort_if($examSession->status !== 'running', 409);
-            // Review-Runde 9: die Zeit kann zwischen der Prüfung oben und der
-            // Sperre abgelaufen sein -- dann zählt die Antwort nicht mehr
-            // (statt stillschweigend gespeichert und als falsch gewertet).
-            if ($examEvaluation->timeExpired($examSession)) {
-                $expired = true;
-
-                return;
-            }
-
-            // Doppelklick oder zweiter Tab: die Sperre oben serialisiert beide
-            // Anfragen, die zweite sieht die schon gespeicherte Antwort und
-            // überschreibt sie nicht (die erste Antwort zählt).
-            // (Zusammengesetzter Schlüssel: direkt abfragen statt refresh().)
-            if ($examSession->questions()->where('position', $sessionQuestion->position)->whereNotNull('answered_at')->exists()) {
-                return;
-            }
-
-            // Keine Sofortauflösung: correct wird erst bei finish() befüllt.
-            if ($type === 'multi_choice') {
-                abort_if(empty($validated['answer_ids']), 422, 'Bitte mindestens eine Antwort auswählen.');
-                $answerIds = ContentAnswer::where('revision_id', $sessionQuestion->revision_id)
-                    ->whereIn('id', $validated['answer_ids'])->pluck('id');
-                abort_if($answerIds->count() !== count($validated['answer_ids']), 422);
-
-                $sessionQuestion->update([
-                    'selected_answer_id' => null,
-                    'selected_answer_ids' => $answerIds->values()->all(),
-                    'answered_at' => now(),
-                ]);
-            } elseif ($type === 'open_text') {
-                abort_if(! array_key_exists('known', $validated) || $validated['known'] === null, 422, 'Bitte Selbsteinschätzung angeben.');
-
-                // Bug-Review Oberfläche U9: self_assessed_known entscheidet
-                // direkt über "correct" bei finish() (siehe ExamEvaluationService)
-                // -- ohne diese Prüfung konnte ein per Devtools nachgebauter
-                // Request mit known=1 jede offene Frage als gewusst zählen
-                // lassen, ohne die Musterantwort je abgerufen zu haben.
-                // reveal() setzt revealed_at erst, wenn die Antwort tatsächlich
-                // ausgeliefert wurde.
-                abort_unless($sessionQuestion->revealed_at, 422, 'Bitte zuerst die Musterantwort anzeigen.');
-
-                $sessionQuestion->update([
-                    'self_assessed_known' => (bool) $validated['known'],
-                    'answered_at' => now(),
-                ]);
-            } else {
-                abort_if(empty($validated['answer_id']), 422, 'Bitte eine Antwort auswählen.');
-                $answer = ContentAnswer::where('id', $validated['answer_id'])
-                    ->where('revision_id', $sessionQuestion->revision_id)
-                    ->firstOrFail();
-
-                $sessionQuestion->update([
-                    'selected_answer_id' => $answer->id,
-                    'answered_at' => now(),
-                ]);
-            }
-        });
-
-        if ($expired) {
-            $examEvaluation->evaluate($examSession);
-
-            return redirect()->route('exam.result', $examSession)
-                ->with('status', 'Die Prüfungszeit ist abgelaufen – die letzte Antwort kam zu spät. Hier ist dein Ergebnis.');
-        }
-
-        return redirect()->route('exam.show', $examSession);
+        // Gemeinsam mit der Mobile-API (ExamActions): Antwort festschreiben,
+        // abgelaufene Zeit, Doppelklick (die erste Antwort zählt).
+        return match (app(ExamActions::class)->answer($examSession, (int) $validated['position'], $validated)) {
+            ExamActions::EVALUATED => redirect()->route('exam.result', $examSession),
+            ExamActions::EXPIRED => redirect()->route('exam.result', $examSession)
+                ->with('status', 'Die Prüfungszeit ist abgelaufen – hier ist dein Ergebnis.'),
+            default => redirect()->route('exam.show', $examSession),
+        };
     }
 
     /**
@@ -686,42 +375,23 @@ class ExamController extends Controller
     public function reveal(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, ExamSession $examSession): Response
     {
         $this->authorizeSession($request, $tenantContext, $entitlements, $examSession);
-        abort_if($examSession->status !== 'running', 409);
-
         $validated = $request->validate([
             'position' => ['required', 'integer', 'min:1', 'max:1000'],
         ]);
 
-        $sessionQuestion = $examSession->questions()->where('position', $validated['position'])
-            ->whereNull('answered_at')->with('revision')->first();
-        // Review (Doppelklick auf „Weiter“): der zweite, gleiche Request kam
-        // bisher als 404 mitten in der Prüfung an. Die erste Antwort ist
-        // gespeichert und bleibt unverändert; weiter geht es mit der
-        // nächsten offenen Frage.
-        if (! $sessionQuestion) {
+        $revealed = app(ExamActions::class)->reveal($examSession, (int) $validated['position']);
+        // Doppelklick: die Frage ist schon beantwortet, weiter mit der nächsten.
+        if ($revealed['outcome'] === ExamActions::ALREADY_ANSWERED) {
             return redirect()->route('exam.show', $examSession);
         }
 
-        abort_unless($sessionQuestion->revision->question_type === 'open_text', 422);
-
-        if (! $sessionQuestion->revealed_at) {
-            $sessionQuestion->update(['revealed_at' => now()]);
-        }
-
-        return response()->json([
-            'answer_text' => $sessionQuestion->revision->correctAnswer()?->answer_text,
-        ]);
+        return response()->json(['answer_text' => $revealed['answer_text']]);
     }
 
     public function finish(Request $request, TenantContext $tenantContext, EntitlementService $entitlements, ExamEvaluationService $examEvaluation, ExamSession $examSession): Response
     {
         $this->authorizeSession($request, $tenantContext, $entitlements, $examSession);
-
-        if ($examSession->status === 'evaluated') {
-            return redirect()->route('exam.result', $examSession);
-        }
-
-        $examEvaluation->evaluate($examSession);
+        app(ExamActions::class)->finish($examSession);
 
         return redirect()->route('exam.result', $examSession);
     }

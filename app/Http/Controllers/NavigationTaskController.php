@@ -39,15 +39,7 @@ class NavigationTaskController extends Controller
     /** Review-Runde 10: Lösungen der Aufgabe, die gerade in einer laufenden Prüfung dran ist, nicht zeigen. */
     private function runningExamWithTask(Request $request, TenantContext $tenantContext, NavigationTask $task): ?ExamSession
     {
-        return ExamSession::where('tenant_id', $tenantContext->id())->where('user_id', $request->user()->id)
-            ->where('status', 'running')->where('navigation_task_id', $task->id)->get()
-            // Review-Runde 11: auch während der Nachfrist für die Abgabe und
-            // der Selbsteinschätzung gesperrt.
-            ->first(function (ExamSession $s) {
-                $deadline = $s->deadline();
-
-                return ! $deadline || now()->lte($deadline->copy()->addSeconds(ExamSession::NAVIGATION_SUBMIT_GRACE)) || $s->inNavigationAssessment();
-            });
+        return ExamSession::runningWithNavigationTask($tenantContext->id(), $request->user()->id, $task->id);
     }
 
     /** Review-Runde 10: Lösungen der Aufgabe, die gerade in einer laufenden Prüfung dran ist, nicht zeigen. */

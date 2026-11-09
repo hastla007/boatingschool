@@ -115,6 +115,22 @@ class ExamSession extends Model
             && now()->lte($deadline->copy()->addSeconds(self::NAVIGATION_SUBMIT_GRACE));
     }
 
+    /**
+     * Laufende Prüfung, in der diese Navigationsaufgabe gerade dran ist --
+     * deren Lösungen bleiben im Übungsbereich so lange gesperrt (Review-Runde
+     * 10/11: auch während der Nachfrist und der Selbsteinschätzung).
+     */
+    public static function runningWithNavigationTask(string $tenantId, string $userId, string $taskId): ?self
+    {
+        return static::where('tenant_id', $tenantId)->where('user_id', $userId)
+            ->where('status', 'running')->where('navigation_task_id', $taskId)->get()
+            ->first(function (self $s) {
+                $deadline = $s->deadline();
+
+                return ! $deadline || now()->lte($deadline->copy()->addSeconds(self::NAVIGATION_SUBMIT_GRACE)) || $s->inNavigationAssessment();
+            });
+    }
+
     public function deadline(): ?Carbon
     {
         $limit = $this->effectiveRuleSet()->time_limit_seconds;

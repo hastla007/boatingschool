@@ -18,7 +18,7 @@ class TenantPath
     public const ATTRIBUTE = 'tenant_path_slug';
 
     /** Dateien und Bereiche, die nie als Bootsschule gelten. */
-    private const ALWAYS_RESERVED = ['build', 'storage', 'vendor', 'index.php', 'favicon.ico', 'robots.txt', 'up', 'tls-check', 'impressum', 'datenschutz'];
+    private const ALWAYS_RESERVED = ['api', 'build', 'storage', 'vendor', 'index.php', 'favicon.ico', 'robots.txt', 'up', 'tls-check', 'impressum', 'datenschutz'];
 
     private static ?array $routeSegments = null;
 

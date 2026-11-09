@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Api\DeviceSessions;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -40,6 +41,8 @@ class PasswordController extends Controller
         // neuen Passwort ihre Gültigkeit.
         DB::table('password_reset_tokens')->where('email', $request->user()->email)->delete();
         DB::table('account_setup_tokens')->where('email', $request->user()->email)->delete();
+        // Mobile-API: App-Gerätesitzungen enden mit dem Passwortwechsel.
+        DeviceSessions::revokeAllFor($request->user()->id);
 
         // Beendet alle anderen laufenden Sitzungen dieses Kontos (z. B. eines
         // Angreifers mit gestohlenen Zugangsdaten) -- die eigene, gerade

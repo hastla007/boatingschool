@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Support\Impersonation;
 use App\Support\TenantContext;
 use App\Support\Totp;
+use App\Support\TwoFactorCheck;
 use BaconQrCode\Renderer\Image\SvgImageBackEnd;
 use BaconQrCode\Renderer\ImageRenderer;
 use BaconQrCode\Renderer\RendererStyle\RendererStyle;
@@ -131,29 +132,8 @@ class TwoFactorController extends Controller
         }
         RateLimiter::hit($key, 300);
 
-        $code = trim((string) $request->input('code', ''));
-        $recovery = trim((string) $request->input('recovery_code', ''));
-        $ok = false;
-
-        if ($code !== '') {
-            // Derselbe Code gilt nur einmal (Schritt merken).
-            $lastStep = cache()->get('two-factor-step:'.$user->id);
-            $step = Totp::verify($user->two_factor_secret, $code, null, $lastStep);
-            if ($step !== null) {
-                cache()->put('two-factor-step:'.$user->id, $step, now()->addMinutes(5));
-                $ok = true;
-            }
-        } elseif ($recovery !== '') {
-            $hashes = $user->two_factor_recovery_codes ?? [];
-            foreach ($hashes as $i => $hash) {
-                if (Hash::check(Str::upper($recovery), $hash)) {
-                    unset($hashes[$i]);
-                    $user->forceFill(['two_factor_recovery_codes' => array_values($hashes)])->save();
-                    $ok = true;
-                    break;
-                }
-            }
-        }
+        // Prüfung gemeinsam mit der Mobile-API (TwoFactorCheck).
+        $ok = TwoFactorCheck::verify($user, (string) $request->input('code', ''), (string) $request->input('recovery_code', ''));
 
         if (! $ok) {
             return back()->withErrors(['code' => 'Der Code stimmt nicht.']);
