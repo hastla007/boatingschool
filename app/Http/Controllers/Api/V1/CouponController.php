@@ -9,6 +9,7 @@ use App\Models\Coupon;
 use App\Models\CourseDefinition;
 use App\Models\Product;
 use App\Services\CouponRedemptionService;
+use App\Services\LearningGroupService;
 use App\Support\TenantContext;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
@@ -27,11 +28,35 @@ class CouponController extends Controller
 {
     public function __construct(private TenantContext $tenantContext, private CourseAccess $access) {}
 
-    public function redeem(Request $request, CouponRedemptionService $redemption): JsonResponse
+    public function redeem(Request $request, CouponRedemptionService $redemption, LearningGroupService $groups): JsonResponse
     {
         $validated = $request->validate(['code' => ['required', 'string', 'min:4', 'max:100']]);
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
+        $raw = trim($validated['code']);
+        $groupCode = preg_match('#/gruppe/([gi][0-9a-f]{32})/?#i', $raw, $match) === 1 ? strtolower($match[1]) : strtolower($raw);
+        if (preg_match('/^[gi][0-9a-f]{32}$/', $groupCode) === 1) {
+            try {
+                $joined = $groups->join($groupCode, $tenant, $user);
+            } catch (RuntimeException $e) {
+                if ($e->getMessage() === 'GROUP_SCOPE_UNSUPPORTED') {
+                    throw new ApiProblem(422, 'GROUP_SCOPE_UNSUPPORTED', 'Gruppenumfang nicht unterstützt', 'Für diese Gruppenlizenz ist noch kein passender Original-Kurszugang eingerichtet.');
+                }
+                throw $this->invalid();
+            }
+            $codes = collect($joined['group']->scopes ?? [])->map(fn ($scope) => $scope['course_code'] ?? $scope['course'] ?? null)->filter()->unique()->values();
+            $courses = CourseDefinition::withoutGlobalScopes()->whereIn('code', $codes)->where('status', 'published')->get()
+                ->map(fn (CourseDefinition $course) => ['course_id' => $course->id, 'code' => $course->code, 'name' => $course->name])->values();
+
+            return response()->json(['data' => [
+                'redeemed' => true,
+                'already_redeemed' => $joined['already'],
+                'type' => 'group_license',
+                'group_name' => $joined['group']->name,
+                'courses' => $courses,
+                'entitlement' => ['status' => 'active', 'valid_from' => null, 'valid_until' => $joined['group']->valid_until?->toIso8601String()],
+            ]]);
+        }
 
         $coupon = Coupon::lookup($validated['code']);
         if ($coupon && $coupon->isRedeemed() && $coupon->redeemed_by_user_id === $user->id && $coupon->redeemed_tenant_id === $tenant->id) {
