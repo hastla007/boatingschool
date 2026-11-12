@@ -48,6 +48,11 @@ class LearningController extends Controller
         $course = $this->access->require($tenant, $user, $courseId, 'smarttrainer');
         $mode = $validated['mode'] ?? 'smarttrainer';
         $questionIds = isset($validated['question_ids']) ? array_values(array_filter(explode(',', $validated['question_ids']))) : null;
+        $scope = $this->access->featureScope($tenant, $user, $course, 'smarttrainer');
+        if (! $scope['full']) {
+            $allowedIds = $this->access->accessibleQuestionIds($tenant, $user, $course)->all();
+            $questionIds = $questionIds === null ? $allowedIds : array_values(array_intersect($questionIds, $allowedIds));
+        }
         // Review-Runde 13: eine Favoriten-Sammlung üben.
         if (! empty($validated['collection_id'])) {
             $collection = FavoriteCollection::where('id', $validated['collection_id'])->where('tenant_id', $tenant->id)
@@ -107,6 +112,10 @@ class LearningController extends Controller
         if (! $belongsToCourse) {
             throw ApiProblem::notFound('Frage');
         }
+        $scope = $this->access->featureScope($tenant, $user, $course, 'smarttrainer');
+        if (! $scope['full'] && ! $this->access->accessibleQuestionIds($tenant, $user, $course)->contains($revision->question_id)) {
+            throw ApiProblem::notFound('Frage');
+        }
         if ($revision->question_type !== 'open_text') {
             throw new ApiProblem(422, 'VALIDATION_FAILED', 'Eingaben ungültig', null, [
                 'answer_token' => ['Nur offene Fragen haben eine aufzudeckende Musterantwort.'],
@@ -133,6 +142,10 @@ class LearningController extends Controller
 
         $revision = ContentQuestionRevision::find($validated['revision_id']);
         if (! $revision || $revision->question_id !== $validated['question_id']) {
+            throw ApiProblem::notFound('Frage');
+        }
+        $scope = $this->access->featureScope($tenant, $user, $course, 'smarttrainer');
+        if (! $scope['full'] && ! $this->access->accessibleQuestionIds($tenant, $user, $course)->contains($revision->question_id)) {
             throw ApiProblem::notFound('Frage');
         }
         $selected = $validated['selected_answer_ids'] ?? [];
@@ -177,6 +190,10 @@ class LearningController extends Controller
         $course = $this->access->require($tenant, $user, $courseId, 'smarttrainer');
         $attempt = Attempt::where('id', $attemptId)->where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)->first();
         if (! $attempt) {
+            throw ApiProblem::notFound('Versuch');
+        }
+        $scope = $this->access->featureScope($tenant, $user, $course, 'smarttrainer');
+        if (! $scope['full'] && ! $this->access->accessibleQuestionIds($tenant, $user, $course)->contains($attempt->question_id)) {
             throw ApiProblem::notFound('Versuch');
         }
 
