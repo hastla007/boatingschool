@@ -447,14 +447,25 @@ entscheidet aber nur anhand von `code`.
   * `MOBILE_API_REFRESH_IDLE_DAYS`
   * `MOBILE_API_REFRESH_MAX_DAYS`
   * `MOBILE_API_EXPORT_TTL_MINUTES`
+  * `MOBILE_API_WEB_SESSION_ENABLED` und `MOBILE_API_DELETION_CONFIRMATION_PATH`
   * `MOBILE_API_MIN_VERSION_IOS` / `_ANDROID` und `MOBILE_API_STORE_URL_IOS`
     / `_ANDROID` (leer = keine Mindestversion)
 * **Wartungsmodus** der Plattform (Superadmin-Einstellungen) gilt auch für
   die API (503 `MAINTENANCE`); `GET /app/config` bleibt erreichbar.
 * **Keine CORS-Freigabe nötig** (native Apps). Die API nutzt keine Cookies
   und keine Sessions.
-* **Migration:** `2024_02_01_000591_create_mobile_api_tables`. Sie legt
-  `api_device_session`, `api_idempotency_key` und `api_data_export` an.
+* **Migrationen:** Die Basis beginnt mit `2024_02_01_000591_create_mobile_api_tables`; die späteren Migrationen legen WebView-SSO, Kontolöschung, Zugangsregeln und den Dateizugriff für Downloads an.
+* **Limited-/Free-/Drip-Zugänge:** Die Access-Regeln aus WordPress müssen einmalig in das Original übernommen werden. Der Import erwartet eine normalisierte JSON-Datei:
+  ```json
+  {
+    "rules": [
+      {"tenant_slug":"schule-a","course_code":"SBF-SEE","feature_code":"question_bank","access_type":"free_limited","limit_value":5,"source_key":"wp:rule:123"},
+      {"tenant_slug":"schule-a","course_code":"SBF-SEE","feature_code":"question_bank","access_type":"drip","module_code":"SEE-01","limit_value":14,"source_key":"wp:drip:123"}
+    ]
+  }
+  ```
+  Danach mit `php artisan app:import-mobile-access-rules /pfad/export.json` importieren. `tenant_slug` und `course_code` müssen auf die IDs im Original zeigen. Drip-Module verwenden den nativen Modulcode; für Videokapitel den Kapitel-Titel. Doppelte Regeln desselben Typs brauchen verschiedene `source_key`-Werte.
+* **Downloads:** Datei-Metadaten kommen in `course_file`; die eigentlichen Dateien müssen auf den Laravel-Storage kopiert werden, der für den geschützten Download konfiguriert ist. Die Access-Regeln allein importieren keine WordPress-Medien.
 * **Tests:** `vendor/bin/phpunit tests/Feature/Api`.
   `OpenApiContractTest` schlägt fehl, wenn Routen und OpenAPI-Datei
   auseinanderlaufen.
@@ -464,9 +475,6 @@ entscheidet aber nur anhand von `code`.
 * Offline-Modus und Synchronisation.
 * Push-Benachrichtigungen.
 * In-App-Käufe (Kauf bleibt im externen Webshop).
-* Funkgeräte-Simulator, Praxistrainer, Video-Quiz und Prüfungstermine
-  (eine Video-Lektion lässt sich deshalb ohne Quiz abschließen).
-* Untertitel und Vorschaubilder für Videos; Seekarten fehlen bisher in den
-  Navigationsaufgaben (`chart: null`), dafür braucht es die Papierkarte.
 * Registrierung in der App.
-* Konto löschen in der App (siehe Hinweis Apple oben).
+* Der Gerätesimulator öffnet sich als Browseransicht und benötigt die native Freigabe-Konfiguration.
+* Untertitel und Vorschaubilder für Videos. Navigationsaufgaben ohne passende Seekarte liefern `chart: null`; dann wird die Papierkarte benötigt.
