@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Cache;
 class CourseAccess
 {
     /** Frisch 5 Minuten, danach bis 1 Stunde als veralteter Wert sofort lieferbar (Neuberechnung nach der Antwort). */
-    public const CACHE_TTL = [300, 3600];
+    public const CACHE_TTL = [300, 3600];\n\n    private array $scopeCache = [];\n\n    private const RULE_FEATURES = [\n        'smarttrainer' => 'question_bank', 'favorites' => 'question_bank',\n        'exam' => 'exam_simulation', 'video' => 'video_course',\n        'navigation' => 'navigation_trainer', 'praxis' => 'praxis_trainer',\n        'funk' => 'radio_training', 'explanations' => 'learning_explanations',\n    ];
 
     public static function cacheKey(string $what, CourseDefinition $course): string
     {
@@ -57,6 +57,41 @@ class CourseAccess
         return $course;
     }
 
+    /** Active full or limited access for one mobile capability. */
+    public function featureScope(Tenant $tenant, User $user, CourseDefinition $course, string $capability): array
+    {
+        $key = implode(':', [$tenant->id, $user->id, $course->id, $capability]);
+        if (isset($this->scopeCache[$key])) {
+            return $this->scopeCache[$key];
+        }
+
+        $feature = self::RULE_FEATURES[$capability] ?? null;
+        $entitlementCapability = in_array($capability, ['favorites', 'explanations'], true) ? 'smarttrainer' : $capability;
+        $full = $this->entitlements->hasCapabilityAccess($tenant, $user, $course, $entitlementCapability);
+        $limit = null;
+        if ($feature !== null) {
+            $now = now();
+            $rules = CourseAccessRule::where('tenant_id', $tenant->id)->where('course_id', $course->id)
+                ->where('feature_code', $feature)->whereNull('module_code')
+                ->where(fn ($q) => $q->whereNull('valid_from')->orWhere('valid_from', '<=', $now))
+                ->where(fn ($q) => $q->whereNull('valid_until')->orWhere('valid_until', '>=', $now))
+                ->get(['access_type', 'limit_value']);
+            $full = $full || $rules->contains(fn (CourseAccessRule $rule) => $rule->access_type === 'free');
+            if (! $full) {
+                $limit = $rules->where('access_type', 'free_limited')->max('limit_value');
+            }
+        }
+
+        return $this->scopeCache[$key] = ['full' => $full, 'limit' => $full ? null : ($limit === null ? null : (int) $limit)];
+    }
+
+    public function hasFeatureAccess(Tenant $tenant, User $user, CourseDefinition $course, string $capability): bool
+    {
+        $scope = $this->featureScope($tenant, $user, $course, $capability);
+
+        return $scope['full'] || (int) ($scope['limit'] ?? 0) > 0;
+    }
+
     /** @return array{status: string, valid_from: ?string, valid_until: ?string} */
     /**
      * @param  ?Collection<int, Entitlement>  $preloaded  alle Zugänge der Person
@@ -73,7 +108,6 @@ class CourseAccess
             && (! $e->valid_until || $e->valid_until > $now))->values();
 
         if ($valid->isNotEmpty()) {
-            $status = 'active';
             $froms = $valid->pluck('valid_from')->filter();
             $unbounded = $valid->contains(fn (Entitlement $e) => $e->valid_until === null);
             $until = $unbounded ? null : $valid->max('valid_until');
@@ -92,60 +126,18 @@ class CourseAccess
             }
         }
 
-        $questionAccess = $valid->filter(fn (Entitlement $e) => $e->capabilities === null || in_array('smarttrainer', $e->capabilities, true));
-        $unboundedQuestionAccess = $questionAccess->contains(fn (Entitlement $e) => $e->valid_until === null);
-        $questionExpiry = $unboundedQuestionAccess ? null : $questionAccess->max('valid_until');
-        $expiresSoon = $questionExpiry !== null && $questionExpiry->lte($now->copy()->addDays(Entitlement::EXPIRY_WARNING_DAYS));
-        $renewUrl = $expiresSoon
-            ? \App\Models\CourseWebshopLink::where('tenant_id', $tenant->id)->where('course_id', $course->id)->value('url')
-            : null;
-
-        return [
-            'status' => $status,
-            'valid_from' => Present::time($froms->isNotEmpty() ? $froms->min() : null),
-            'valid_until' => Present::time($until),
-            'trial' => false,
-            'purchased' => $valid->isNotEmpty(),
-            'limits' => (object) [],
-            'expires_soon' => $expiresSoon,
-            'expires_at' => Present::time($questionExpiry),
-            'renew_url' => $renewUrl,
-        ];
-    }
-
-    /**
-     * Aktuell gültige Fragen eines Kurses (Modulfragen), 5 Minuten zwischen-
-     * gespeichert -- Inhalte ändern sich selten, Listen fragen je Kurs.
-     *
-     * @return Collection<int, string>
-     */
-    public function validQuestionIds(CourseDefinition $course): Collection
-    {
-        // Review: stale-while-revalidate -- nach 5 Minuten wird der alte Wert
-        // noch bis zu einer Stunde sofort geliefert und nach der Antwort
-        // erneuert; app:warm-course-cache füllt den Cache vorab.
-        return collect(Cache::flexible(self::cacheKey('valid-qids', $course), self::CACHE_TTL, function () use ($course) {
-            $course->loadMissing('modules.questions');
-
-            return ContentQuestion::currentlyValidIds($course->modules->flatMap(fn ($m) => $m->questions))->values()->all();
-        }));
-    }
-
-    /** @return list<string> */
-    public function capabilities(CourseDefinition $course): array
-    {
-        return Cache::flexible(self::cacheKey('capabilities', $course), self::CACHE_TTL, function () use ($course) {
-            $hasQuestions = $course->contentQuestionIds()->isNotEmpty();
-
-            return array_values(array_filter([
-                $hasQuestions ? 'smarttrainer' : null,
-                $hasQuestions ? 'favorites' : null,
-                $course->hasStartableExam() ? 'exam' : null,
-                VideoCourseLessons::ordered($course)->isNotEmpty() ? 'video' : null,
-                $course->navigationTasks()->exists() ? 'navigation' : null,
-                $course->praxisTasks()->exists() ? 'praxis' : null,
-                FunkTraining::catalogsFor($course) !== [] ? 'funk' : null,
-            ]));
-        });
-    }
-}
+        $capabilities = $this->capabilities($course);
+        if ($capabilities === []) {
+            $capabilities = ['smarttrainer'];
+        }
+        $scopes = collect(array_unique($capabilities))->mapWithKeys(fn (string $cap) => [
+            $cap => $this->featureScope($tenant, $user, $course, $cap),
+        ]);
+        $hasFullScope = $scopes->contains(fn ($scope) => $scope['full']);
+        $limits = $scopes->map(fn ($scope) => (int) ($scope['limit'] ?? 0))
+            ->filter(fn (int $limit) => $limit > 0)->all();
+        if ($hasFullScope) {
+            $status = 'active';
+        } elseif ($limits !== []) {
+            $status = 'limited';
+        }
