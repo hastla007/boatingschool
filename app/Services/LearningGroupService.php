@@ -257,6 +257,9 @@ class LearningGroupService
      */
     private function courseGrants(LearningGroup $group): array
     {
+        if (empty($group->scopes)) {
+            throw new RuntimeException('GROUP_SCOPE_UNSUPPORTED');
+        }
         $grants = [];
         foreach ($group->scopes ?? [] as $scope) {
             $code = (string) ($scope['course_code'] ?? $scope['course'] ?? '');
@@ -314,12 +317,21 @@ class LearningGroupService
             $code = $scope['course_code'] ?? $scope['course'] ?? '';
             $course = CourseDefinition::withoutGlobalScopes()->where('code', $code)->first();
             $feature = (string) ($scope['feature'] ?? 'course');
+            $capabilities = $this->scopeCapabilities($scope);
+            $capability = $scope['capability'] ?? ($capabilities[0] ?? null);
+            $labels = [
+                'course' => 'Vollzugang', 'full' => 'Vollzugang', 'all' => 'Vollzugang',
+                'question_bank' => 'Fragenbank', 'exam_simulation' => 'Prüfungssimulation',
+                'video_course' => 'Videokurs', 'navigation_trainer' => 'Navigationstrainer',
+                'praxis_trainer' => 'Praxistrainer', 'funk_training' => 'Funktraining',
+                'radio_training' => 'Funktraining',
+            ];
 
             return [
                 'course_id' => $course?->id, 'course_code' => $code,
                 'course_name' => $course?->name ?? $code, 'feature' => $feature,
-                'capability' => $feature === 'course' ? null : $feature,
-                'feature_label' => $feature === 'course' ? 'Vollzugang' : $feature,
+                'capability' => $capability,
+                'feature_label' => $labels[$feature] ?? $feature,
             ];
         })->all();
     }
