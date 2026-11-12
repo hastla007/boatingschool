@@ -40,7 +40,7 @@ Route::get('/profile/export/{exportId}/download', [ExportController::class, 'dow
     ->whereUuid('exportId')->middleware(['signed', 'throttle:20,1,api-export-download'])->name('api.v1.export.download');
 
 Route::post('/me/deletion-request/confirm', [AccountDeletionController::class, 'confirmDeletion'])->middleware('throttle:20,60,api-deletion-confirm');\n\nRoute::middleware('api.auth')->group(function () {
-    Route::post('/auth/logout', [AuthController::class, 'logout']);
+    Route::post('/auth/logout', [AuthController::class, 'logout']);\n    Route::post('/auth/web-session', [WebSessionController::class, 'create']);
     Route::post('/auth/email/verification-notification', [AuthController::class, 'resendVerification'])->middleware('throttle:6,1,api-verification');
     Route::post('/me/deletion-request', [AccountDeletionController::class, 'requestDeletion']);\n    Route::get('/me', [AccountController::class, 'me']);
     Route::get('/me/groups', [GroupController::class, 'index']);
