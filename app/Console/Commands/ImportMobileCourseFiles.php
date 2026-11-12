@@ -88,7 +88,7 @@ class ImportMobileCourseFiles extends Command
                 $extension = strtolower((string) pathinfo($sourcePath, PATHINFO_EXTENSION));
                 $extension = preg_match('/^[a-z0-9]{1,10}$/', $extension) ? '.'.$extension : '';
                 $safeCourse = preg_replace('/[^A-Za-z0-9_-]/', '_', $courseCode);
-                $target = 'course-files/'.$safeCourse.'/'.hash('sha256', $tenantSlug.':'.$sourceKey).$extension;
+                $target = 'course-files/'.$safeCourse.'/'.hash('sha256', $courseCode.':'.$sourceKey).$extension;
                 $records[] = [
                     'tenant_id' => $tenant->id,
                     'course_id' => $course->id,
@@ -122,7 +122,7 @@ class ImportMobileCourseFiles extends Command
             DB::transaction(function () use ($records): void {
                 foreach ($records as $record) {
                     unset($record['source_path'], $record['tenant_id']);
-                    CourseFile::updateOrCreate(['source_key' => $record['source_key']], $record);
+                    CourseFile::updateOrCreate(['course_id' => $record['course_id'], 'source_key' => $record['source_key']], $record);
                 }
             });
         } catch (Throwable $exception) {
