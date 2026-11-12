@@ -68,7 +68,7 @@ class PraxisTrainerController extends Controller
 
         PraxisProgress::updateOrCreate(
             ['tenant_id' => $tenant->id, 'user_id' => $user->id, 'praxis_task_id' => $task->id],
-            ['completed' => true, 'updated_at' => now()]
+            ['completed' => true, 'status' => 'known', 'updated_at' => now()]
         );
 
         $currentIndex = $tasks->search(fn ($t) => $t->id === $task->id);
@@ -95,7 +95,7 @@ class PraxisTrainerController extends Controller
         abort_unless($this->orderedTasks($course, $kategorie)->contains('id', $task->id), 404);
 
         PraxisProgress::where(['tenant_id' => $tenant->id, 'user_id' => $user->id, 'praxis_task_id' => $task->id])
-            ->update(['completed' => false, 'updated_at' => now()]);
+            ->update(['completed' => false, 'status' => 'open', 'updated_at' => now()]);
 
         return redirect()->route('praxistrainer.show', array_filter(['course' => $course, 'task' => $task, 'kategorie' => $kategorie]));
     }
