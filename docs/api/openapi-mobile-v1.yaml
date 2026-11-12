@@ -1160,6 +1160,61 @@ paths:
         '409': {$ref: '#/components/responses/Problem'}
         '422': {$ref: '#/components/responses/Problem'}
 
+    post:
+      tags: [Navigation]
+      operationId: answerNavigationPartCompatible
+      summary: WP-kompatible Antwort und dreistufige Selbsteinschätzung speichern
+      description: |
+        Alias des Laravel-PUT-Endpunkts mit dem Pfad und Antwortformat der WP-App.
+        `self_assessment` akzeptiert `correct`, `partly` oder `wrong`; eine fehlende
+        Antwort oder Bewertung lässt den jeweils gespeicherten Wert unverändert. Ein leerer
+        Antworttext löscht die eigene Antwort. Die automatische Prüfung verwendet die im
+        Laravel-Navigationsinhalt vorhandene Musterlösung.
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/TaskId'}
+        - {in: path, name: partId, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                answer: {type: [string, 'null'], maxLength: 5000}
+                self_assessment: {type: [string, 'null'], enum: [correct, partly, wrong, null]}
+      responses:
+        '200':
+          description: Antwort gespeichert
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [part_id, solution, my_answer, self_assessment, done, auto_check, check]
+                    properties:
+                      part_id: {type: string, format: uuid}
+                      solution: {type: string}
+                      my_answer: {type: [string, 'null']}
+                      self_assessment: {type: [string, 'null'], enum: [correct, partly, wrong, null]}
+                      done: {type: boolean}
+                      auto_check: {type: boolean}
+                      check:
+                        oneOf:
+                          - {type: 'null'}
+                          - type: object
+                            required: [status, message, values]
+                            properties:
+                              status: {type: string, enum: [within, deviates]}
+                              message: {type: string}
+                              values: {type: array, items: {type: object}}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+
   # ------------------------------------------------------------ Coupons
   /coupons/redeem:
     post:
