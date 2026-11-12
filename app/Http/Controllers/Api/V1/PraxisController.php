@@ -20,7 +20,7 @@ class PraxisController extends Controller
     {
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
-        $course = $this->access->require($tenant, $user, $courseId);
+        $course = $this->access->require($tenant, $user, $courseId, 'praxis');
         $tasks = $course->praxisTasks()->where('active', true)->with('media')->orderBy('sort_order')->get();
         $progress = PraxisProgress::where('tenant_id', $tenant->id)->where('user_id', $user->id)
             ->whereIn('praxis_task_id', $tasks->pluck('id'))->get()->keyBy('praxis_task_id');
@@ -64,7 +64,7 @@ class PraxisController extends Controller
         $validated = $request->validate(['status' => ['required', 'in:known,practice,open']]);
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
-        $course = $this->access->require($tenant, $user, $courseId);
+        $course = $this->access->require($tenant, $user, $courseId, 'praxis');
         $task = $course->praxisTasks()->where('active', true)->whereKey($cardId)->first();
         if (! $task) {
             throw ApiProblem::notFound('Praxiskarte');
