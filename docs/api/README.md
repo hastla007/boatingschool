@@ -494,7 +494,7 @@ erzeugen. Für jede Zielschule den passenden bestehenden `tenant_slug` verwenden
 wp bootspruefung export access-rules <tenant-slug> --output=/tmp/mobile-access.json
 wp bootspruefung export entitlements <tenant-slug> --output=/tmp/mobile-entitlements.json
 wp bootspruefung export course-files <tenant-slug> --media-root=/tmp/mobile-media --output=/tmp/mobile-files.json
-wp bootspruefung export customer-faqs > storage/app/import/mobile-faqs.json
+wp bootspruefung export customer-faqs --output=storage/app/import/mobile-faqs.json
 ```
 
 Nach dem Übertragen der Dateien ins Original und nach Ausführen der Datenbank-
