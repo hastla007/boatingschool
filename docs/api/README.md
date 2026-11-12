@@ -492,6 +492,7 @@ erzeugen. Für jede Zielschule den passenden bestehenden `tenant_slug` verwenden
 
 ```sh
 wp bootspruefung export access-rules <tenant-slug> --output=/tmp/mobile-access.json
+wp bootspruefung export entitlements <tenant-slug> --output=/tmp/mobile-entitlements.json
 wp bootspruefung export course-files <tenant-slug> --media-root=/tmp/mobile-media --output=/tmp/mobile-files.json
 wp bootspruefung export customer-faqs > storage/app/import/mobile-faqs.json
 ```
@@ -501,6 +502,7 @@ Migrationen importieren:
 
 ```sh
 php artisan mobile-api:import-faqs storage/app/import/mobile-faqs.json
+php artisan app:import-mobile-entitlements /tmp/mobile-entitlements.json
 php artisan app:import-mobile-access-rules /tmp/mobile-access.json
 php artisan app:import-mobile-course-files /tmp/mobile-files.json /tmp/mobile-media
 ```
@@ -511,8 +513,12 @@ Reihenfolge einem nativen Kapitel zu; wenn das Kapitel fehlt oder mehrdeutig
 ist, bricht der Import ab, statt eine unwirksame Drip-Regel anzulegen.
 Der exportierte WP-Default `logged_in` wird angezeigt, aber nicht automatisch
 als Laufzeit-Standard gesetzt; siehe `MOBILE_API_DEFAULT_ACCESS` in Abschnitt 5.
-Der Import legt keine Schulen oder Nutzer an: der Mandant muss existieren und
-WP-Nutzerzugänge müssen separat zugeordnet werden.
+Der Import legt keine Schulen oder App-Konten an. Für WP-Entitlements muss das
+App-Konto mit derselben E-Mail-Adresse bereits bestehen; fehlende aktive
+Mitgliedschaften werden als Lernende angelegt. Gesperrte Mitgliedschaften,
+mehrdeutige E-Mail-Adressen oder fehlende Konten brechen den Import ab. Der
+Entitlement-Export enthält personenbezogene E-Mail-Adressen. WP-Features für den
+Geräte-Simulator bleiben eine separate Betriebs-Konfiguration.
 
 ---
 
