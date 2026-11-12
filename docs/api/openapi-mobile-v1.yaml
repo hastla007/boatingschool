@@ -553,7 +553,7 @@ paths:
       tags: [Trainer]
       operationId: listCourseMistakes
       summary: Falsch beantwortete Fragen des Kurses
-      description: Gibt aktuell gültige Kursfragen mit mindestens einer falschen Antwort zurück, nach letzter Lernaktivität absteigend. Favoriten- und Sammlungsangaben beziehen sich nur auf den angemeldeten Nutzer.
+      description: Gibt aktuell gültige Kursfragen zurück, deren letzter Lernstand eine falsche Antwort ist (Lernserie 0), nach letzter Aktivität absteigend. Favoriten- und Sammlungsangaben beziehen sich nur auf den angemeldeten Nutzer.
       parameters:
         - {$ref: '#/components/parameters/TenantSlug'}
         - {$ref: '#/components/parameters/CourseId'}
