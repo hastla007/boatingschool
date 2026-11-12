@@ -30,6 +30,9 @@ class FileController extends Controller
             ->join('module_content', 'module_content.question_id', '=', 'content_question_revision.question_id')
             ->join('course_module', 'course_module.module_id', '=', 'module_content.module_id')
             ->where('question_media.media_asset_id', $asset->id)
+            ->where('content_question_revision.editorial_status', 'published')
+            ->where(fn ($q) => $q->whereNull('content_question_revision.valid_from')->orWhere('content_question_revision.valid_from', '<=', now()))
+            ->where(fn ($q) => $q->whereNull('content_question_revision.valid_to')->orWhere('content_question_revision.valid_to', '>=', now()->toDateString()))
             ->distinct()->pluck('course_module.course_id');
         if ($courseIds->isEmpty() || ! $this->hasAnyCourseAccess($request->user(), $courseIds->all(), $entitlements)) {
             throw ApiProblem::notFound('Datei');
