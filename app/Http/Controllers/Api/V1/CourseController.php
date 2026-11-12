@@ -177,16 +177,27 @@ class CourseController extends Controller
         $total = $questionIds->count();
         $mastered = $progress->isEmpty() ? 0 : $progress->whereIn('question_id', $questionIds->all())->where('learning_state', 'gefestigt')->count();
         $lastActivity ??= $this->lastActivityByCourse($tenant->id, request()->user()->id, $course->id);
+        $capabilities = $this->access->capabilities($course);
+        $access = $this->access->status($tenant, request()->user(), $course, $activeEntitlement, $entitlements);
+        $fullAccess = $access['status'] === 'active';
+        $features = collect($capabilities)->mapWithKeys(fn (string $capability) => [
+            $capability => ['available' => $fullAccess, 'full' => $fullAccess, 'limit' => null],
+        ])->all();
+        if (in_array('smarttrainer', $capabilities, true)) {
+            $features['explanations'] = ['available' => $fullAccess, 'full' => $fullAccess, 'limit' => null];
+        }
 
         return [
             'id' => $course->id,
             'code' => $course->code,
             'name' => $course->name,
             'description' => $course->description ?? null,
-            'access' => $this->access->status($tenant, request()->user(), $course, $activeEntitlement, $entitlements),
+            'course_type' => $course->course_type,
+            'access' => $access,
+            'features' => $features,
             // Gefestigt = 3× richtig in Folge (dieselbe Regel wie im Web).
             'progress' => ['percent' => $total > 0 ? (int) round($mastered / $total * 100) : 0, 'completed' => $mastered, 'total' => $total],
-            'capabilities' => $this->access->capabilities($course),
+            'capabilities' => $capabilities,
             'webshop_url' => $webshopUrl,
             // Review-Runde 13: für „Weiterlernen“ über alle Kurse.
             'last_activity_at' => Present::time(($at = $lastActivity->get($course->id)) ? Carbon::parse($at) : null),
