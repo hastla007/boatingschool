@@ -15,12 +15,15 @@ return new class extends Migration
             $table->string('source_key', 191)->unique();
             $table->string('course_code', 100);
             $table->uuid('parent_id')->nullable();
-            $table->foreign('parent_id')->references('id')->on('customer_faq_category')->cascadeOnDelete();
             $table->string('name', 191);
             $table->string('slug', 191);
             $table->integer('sort_order')->default(0);
             $table->unique(['course_code', 'slug']);
             $table->index(['course_code', 'parent_id', 'sort_order']);
+        });
+        // Create the table and its primary key before adding the self-reference.
+        Schema::table('customer_faq_category', function (Blueprint $table) {
+            $table->foreign('parent_id')->references('id')->on('customer_faq_category')->cascadeOnDelete();
         });
         Schema::create('customer_faq', function (Blueprint $table) {
             $table->uuid('id')->primary()->default(DB::raw('gen_random_uuid()'));
