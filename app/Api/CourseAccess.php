@@ -153,7 +153,10 @@ class CourseAccess
             }
         }
 
-        $capabilities = $this->capabilities($course);
+        $capabilities = array_values(array_intersect(
+            ['smarttrainer', 'exam', 'video', 'navigation', 'praxis', 'funk'],
+            $this->capabilities($course),
+        ));
         if ($capabilities === []) {
             $capabilities = ['smarttrainer'];
         }
@@ -170,7 +173,7 @@ class CourseAccess
         }
 
         $questionAccess = $valid->filter(fn (Entitlement $e) => $e->capabilities === null
-            || in_array('smarttrainer', $e->capabilities, true) || in_array('favorites', $e->capabilities, true));
+            || in_array('smarttrainer', $e->capabilities, true) || in_array('favorites', $e->capabilities, true) || in_array('all', $e->capabilities, true));
         $unboundedQuestionAccess = $questionAccess->contains(fn (Entitlement $e) => $e->valid_until === null);
         $questionExpiry = $unboundedQuestionAccess ? null : $questionAccess->max('valid_until');
         $expiresSoon = $questionExpiry !== null && $questionExpiry->lte($now->copy()->addDays(Entitlement::EXPIRY_WARNING_DAYS));
