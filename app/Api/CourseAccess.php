@@ -65,7 +65,7 @@ class CourseAccess
         }
 
         $hasAccess = $capability === null
-            ? $this->entitlements->hasAccess($tenant, $user, $course)
+            ? $this->hasCourseAccess($tenant, $user, $course)
             : $this->hasFeatureAccess($tenant, $user, $course, $capability);
         if (! $hasAccess) {
             $status = $this->status($tenant, $user, $course)['status'];
@@ -87,7 +87,8 @@ class CourseAccess
 
         $feature = self::RULE_FEATURES[$capability] ?? null;
         $entitlementCapability = in_array($capability, ['favorites', 'explanations'], true) ? 'smarttrainer' : $capability;
-        $full = $this->entitlements->hasCapabilityAccess($tenant, $user, $course, $entitlementCapability);
+        $full = config('mobile_api.default_access') === 'logged_in'
+            || $this->entitlements->hasCapabilityAccess($tenant, $user, $course, $entitlementCapability);
         if ($capability === 'favorites') {
             $full = $full || $this->entitlements->hasCapabilityAccess($tenant, $user, $course, 'favorites');
         }
@@ -190,6 +191,12 @@ class CourseAccess
         ];
     }
 
+    public function hasCourseAccess(Tenant $tenant, User $user, CourseDefinition $course): bool
+    {
+        return config('mobile_api.default_access') === 'logged_in'
+            || $this->entitlements->hasAccess($tenant, $user, $course);
+    }
+
     /** Apply WP's first_items rule to an already deterministically ordered resource list. */
     public function limitItems(Tenant $tenant, User $user, CourseDefinition $course, string $capability, Collection $items): Collection
     {
@@ -231,9 +238,7 @@ class CourseAccess
         $now = now();
         $rule = CourseAccessRule::where('tenant_id', $tenant->id)->where('course_id', $course->id)
             ->where('feature_code', $feature)->where('access_type', 'drip')->where('module_code', $moduleCode)
-            ->where(fn ($q) => $q->whereNull('valid_from')->orWhere('valid_from', '<=', $now))
-            ->where(fn ($q) => $q->whereNull('valid_until')->orWhere('valid_until', '>=', $now))
-            ->orderBy('limit_value')->first(['limit_value']);
+            ->orderByDesc('limit_value')->first(['limit_value']);
         if (! $rule) {
             return null;
         }
@@ -242,8 +247,9 @@ class CourseAccess
         $starts = Entitlement::where('tenant_id', $tenant->id)->where('user_id', $user->id)
             ->where('course_id', $course->id)->where('status', 'active')->get()
             ->filter(fn (Entitlement $entitlement) => $entitlement->capabilities === null
-                || in_array($entitlementCapability, $entitlement->capabilities, true))
-            ->map(fn (Entitlement $entitlement) => $entitlement->valid_from ?: $entitlement->created_at)
+                || in_array($entitlementCapability, $entitlement->capabilities, true)
+                || in_array('all', $entitlement->capabilities, true))
+            ->pluck('valid_from')
             ->filter(fn ($start) => $start !== null);
         $startedAt = $starts->isNotEmpty() ? Carbon::parse($starts->min()) : ($user->created_at ? Carbon::parse($user->created_at) : $now);
 
@@ -293,7 +299,6 @@ class CourseAccess
                 $course->navigationTasks()->exists() ? 'navigation' : null,
                 $course->praxisTasks()->exists() ? 'praxis' : null,
                 FunkTraining::catalogsFor($course) !== [] ? 'funk' : null,
-                $course->files()->where('category', 'downloads')->where('published', true)->exists() ? 'downloads' : null,
             ]));
         });
     }
