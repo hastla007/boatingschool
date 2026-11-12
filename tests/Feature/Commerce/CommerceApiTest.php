@@ -120,7 +120,9 @@ class CommerceApiTest extends TestCase
         $tenant = $this->createTestTenant();
         $admin = $this->createTenantUser($tenant, 'admin');
         $this->signed('POST', '/accounts', ['shop_customer_id' => '502', 'email' => $admin->email])
-            ->assertCreated()->assertJsonPath('data.status', 'awaiting_link')->assertJsonPath('data.app_user_id', null)->assertJsonPath('data.tenant', null);
+            // Nach außen wie eine neue Registrierung (verrät nicht, dass es das Konto gibt).
+            ->assertCreated()->assertJsonPath('data.status', 'pending_review')->assertJsonPath('data.app_user_id', null)->assertJsonPath('data.tenant', null);
+        $this->assertSame('awaiting_link', $this->onAdmin(fn () => CommerceShopAccount::where('shop_id', $this->shopId)->where('shop_customer_id', '502')->value('status')));
 
         // Stammdaten aus dem Shop ändern das App-Konto nicht.
         $this->signed('PATCH', '/accounts/501', ['email' => 'andere@example.test', 'company_name' => 'Segelschule Süd'])->assertOk();
@@ -222,6 +224,49 @@ class CommerceApiTest extends TestCase
         $this->signed('POST', "/accounts/{$customerId}/deactivate")->assertOk()->assertJsonPath('data.status', 'revoked');
         $this->signed('POST', '/orders/lines', ['shop_customer_id' => $customerId, 'order_id' => '2', 'order_line_id' => '1', 'kind' => 'course', 'course_code' => 'SRC', 'quantity' => 1])
             ->assertStatus(403);
+    }
+
+    public function test_unsigned_parts_of_a_request_are_rejected(): void
+    {
+        // Query-Parameter stehen nicht in der Signatur.
+        $uri = '/api/commerce/v1/catalog';
+        $this->call('GET', $uri.'?quantity=999', [], [], [], $this->transformHeadersToServerVars(
+            Signature::headers('shop', 'test-secret-123', 'GET', $uri, '') + ['Accept' => 'application/json']), '')
+            ->assertStatus(400)->assertJsonPath('code', 'QUERY_NOT_ALLOWED');
+        // Formulardaten statt JSON: nicht signiert.
+        $uri = '/api/commerce/v1/accounts';
+        $this->call('POST', $uri, ['shop_customer_id' => '1', 'email' => 'x@example.test'], [], [], $this->transformHeadersToServerVars(
+            Signature::headers('shop', 'test-secret-123', 'POST', $uri, '') + ['Accept' => 'application/json']))
+            ->assertStatus(401);
+    }
+
+    public function test_a_delivered_line_stays_delivered_on_retry_even_after_unlinking(): void
+    {
+        [$tenant, $admin, $customerId] = $this->linkedAccount();
+        $line = ['shop_customer_id' => $customerId, 'order_id' => '9300', 'order_line_id' => '1', 'kind' => 'course', 'course_code' => 'SRC', 'quantity' => 1];
+        $batchId = $this->signed('POST', '/orders/lines', $line)->assertCreated()->json('data.batch_id');
+
+        // Antwort ging verloren, inzwischen hat die Schule die Verknüpfung gelöst:
+        // die Wiederholung bestätigt die Lieferung, statt sie abzulehnen.
+        $account = $this->onAdmin(fn () => CommerceShopAccount::where('shop_id', $this->shopId)->where('shop_customer_id', $customerId)->first());
+        $this->actingAsInTenant($admin, $tenant)->delete("/admin/shop-accounts/{$account->id}")->assertRedirect();
+        $this->signed('POST', '/orders/lines', $line)->assertOk()->assertJsonPath('data.batch_id', $batchId);
+        $this->signed('POST', '/orders/lines', ['order_line_id' => '2'] + $line)->assertStatus(403);
+    }
+
+    public function test_courses_switched_off_platform_wide_are_neither_offered_nor_delivered(): void
+    {
+        [, , $customerId] = $this->linkedAccount();
+        $course = $this->existingCourse('SKN');
+        $this->onAdmin(fn () => DB::table('course_definition')->where('id', $course->id)->update(['site_enabled' => false]));
+        try {
+            $codes = collect($this->signed('GET', '/catalog')->assertOk()->json('data.courses'))->pluck('code');
+            $this->assertNotContains('SKN', $codes);
+            $this->signed('POST', '/orders/lines', ['shop_customer_id' => $customerId, 'order_id' => '9400', 'order_line_id' => '1', 'kind' => 'course', 'course_code' => 'SKN', 'quantity' => 1])
+                ->assertStatus(422)->assertJsonPath('code', 'COURSE_NOT_AVAILABLE');
+        } finally {
+            $this->onAdmin(fn () => DB::table('course_definition')->where('id', $course->id)->update(['site_enabled' => true]));
+        }
     }
 
     public function test_refund_voids_only_unused_codes_and_is_idempotent(): void

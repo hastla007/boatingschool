@@ -40,6 +40,19 @@ class VerifyCommerceSignature
             throw new ApiProblem(401, 'SIGNATURE_REPLAYED', 'Anfrage bereits verarbeitet', 'Diese Nonce wurde schon verwendet.');
         }
 
+        // Nicht signierte Teile der Anfrage gar nicht erst annehmen: keine
+        // Query-Parameter (würden in $request->all() mit einfließen) und nur
+        // JSON-Bodies (Formulardaten stünden nicht im signierten Inhalt).
+        if ((string) $request->getQueryString() !== '') {
+            throw new ApiProblem(400, 'QUERY_NOT_ALLOWED', 'Query-Parameter nicht erlaubt', 'Die Commerce-API nimmt Daten nur im signierten JSON-Body an.');
+        }
+        if ($request->getContent() !== '' && ! $request->isJson()) {
+            throw new ApiProblem(415, 'UNSUPPORTED_MEDIA_TYPE', 'Nur JSON', 'Bitte Content-Type: application/json senden.');
+        }
+        if ($request->getContent() === '' && $request->request->count() > 0) {
+            throw $this->unauthorized();
+        }
+
         $request->attributes->set('commerce_shop_id', (string) config('commerce.shop_id'));
 
         return $next($request);

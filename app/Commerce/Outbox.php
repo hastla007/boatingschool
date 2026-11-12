@@ -76,13 +76,24 @@ class Outbox
     /** Fällige Ausgangs-Ereignisse senden. @return int Anzahl versuchter Ereignisse */
     public function process(): int
     {
-        $events = CommerceEvent::on('pgsql_admin')->where('direction', 'out')->where('status', 'pending')
-            ->where('available_at', '<=', now())->orderBy('created_at')->limit(50)->get();
-        foreach ($events as $event) {
-            $this->send($event);
+        $ids = CommerceEvent::on('pgsql_admin')->where('direction', 'out')->where('status', 'pending')
+            ->where('available_at', '<=', now())->orderBy('created_at')->limit(50)->pluck('id');
+        $sent = 0;
+        foreach ($ids as $id) {
+            // Jedes Ereignis exklusiv beanspruchen: Scheduler, defer() nach dem
+            // Anlegen einer Schule und „Erneut versuchen“ können gleichzeitig
+            // laufen -- gesendet wird trotzdem nur einmal.
+            DB::connection('pgsql_admin')->transaction(function () use ($id, &$sent) {
+                $event = CommerceEvent::on('pgsql_admin')->whereKey($id)->where('status', 'pending')
+                    ->where('available_at', '<=', now())->lock('for update skip locked')->first();
+                if ($event) {
+                    $sent++;
+                    $this->send($event);
+                }
+            });
         }
 
-        return $events->count();
+        return $sent;
     }
 
     public function send(CommerceEvent $event): void
@@ -109,7 +120,8 @@ class Outbox
                 // selbst mit einem Verknüpfungscode aus der App.
                 DB::connection('pgsql_admin')->transaction(function () use ($event, $account) {
                     $account?->forceFill(['provisioning_status' => 'needs_link', 'provisioning_error' => null])->save();
-                    $event->forceFill(['status' => 'done', 'attempts' => $event->attempts + 1, 'processed_at' => now(), 'last_error' => null])->save();
+                    $event->forceFill(['status' => 'done', 'attempts' => $event->attempts + 1, 'processed_at' => now(), 'last_error' => null,
+                        'payload' => self::withoutPersonalData($event->payload)])->save();
                 });
 
                 return;
@@ -121,7 +133,14 @@ class Outbox
                     // bestehende Zeile -- die vorgemerkte wird übernommen.
                     $existing = CommerceShopAccount::on('pgsql_admin')->where('shop_id', $account->shop_id)
                         ->where('shop_customer_id', (string) $customerId)->where('id', '!=', $account->id)->first();
-                    if ($existing) {
+                    $existingElsewhere = $existing && $existing->tenant_id && $existing->tenant_id !== $account->tenant_id
+                        && $existing->status === CommerceShopAccount::LINKED && $existing->canPurchase();
+                    if ($existingElsewhere) {
+                        // Ein Kundenkonto kauft für genau eine Schule: die bestehende
+                        // Verknüpfung nicht still auf die neue Schule umhängen.
+                        $account->forceFill(['provisioning_status' => 'needs_link',
+                            'provisioning_error' => 'Das Kundenkonto im Shop kauft bereits für eine andere Bootsschule ein.'])->save();
+                    } elseif ($existing) {
                         $existing->forceFill([
                             'user_id' => $account->user_id, 'tenant_id' => $account->tenant_id, 'status' => CommerceShopAccount::LINKED,
                             'linked_at' => now(), 'provisioning_status' => 'done', 'provisioning_error' => null,
@@ -132,7 +151,8 @@ class Outbox
                         $account->forceFill(['shop_customer_id' => (string) $customerId, 'provisioning_status' => 'done', 'provisioning_error' => null])->save();
                     }
                 }
-                $event->forceFill(['status' => 'done', 'attempts' => $event->attempts + 1, 'processed_at' => now(), 'last_error' => null])->save();
+                $event->forceFill(['status' => 'done', 'attempts' => $event->attempts + 1, 'processed_at' => now(), 'last_error' => null,
+                    'payload' => self::withoutPersonalData($event->payload)])->save();
             });
         } catch (Throwable $e) {
             $this->failed($event, $account, $e);
@@ -143,7 +163,8 @@ class Outbox
     {
         $backoff = (array) config('commerce.outbox_backoff_minutes', [1, 5, 30]);
         $attempts = $event->attempts + 1;
-        $final = $attempts >= count($backoff);
+        // Erster Versuch sofort, danach je ein weiterer nach jeder Wartezeit.
+        $final = $attempts > count($backoff);
         $event->forceFill([
             'attempts' => $attempts,
             'last_error' => mb_substr($e->getMessage(), 0, 1000),
@@ -164,6 +185,12 @@ class Outbox
                 ), 'Commerce-Alarm '.$event->id);
             }
         }
+    }
+
+    /** Erledigt: Adresse und Name werden nicht mehr gebraucht (Datensparsamkeit). */
+    private static function withoutPersonalData(?array $payload): array
+    {
+        return array_diff_key((array) $payload, array_flip(['email', 'first_name', 'last_name']));
     }
 
     /** Fehlgeschlagenes Ereignis erneut einreihen (Superadmin). */

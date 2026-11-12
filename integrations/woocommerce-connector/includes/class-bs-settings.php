@@ -56,9 +56,9 @@ final class BS_Settings
             ['title' => __('Anbindung an die Bootsschul-Plattform', 'bs-connector'), 'type' => 'title', 'id' => 'bs_connector_section', 'desc' => __('Gekaufte Codes werden nach der Zahlung dem Codebestand der verknüpften Bootsschule gutgeschrieben. Werte in wp-config.php haben Vorrang.', 'bs-connector')],
             ['title' => __('Adresse der Plattform', 'bs-connector'), 'id' => self::OPTION.'[app_url]', 'type' => 'url', 'placeholder' => 'https://app.example.de'],
             ['title' => __('Schlüssel-ID (Shop → App)', 'bs-connector'), 'id' => self::OPTION.'[key_id]', 'type' => 'text', 'default' => 'shop'],
-            ['title' => __('Geheimnis (Shop → App)', 'bs-connector'), 'id' => self::OPTION.'[secret]', 'type' => 'password'],
+            ['title' => __('Geheimnis (Shop → App)', 'bs-connector'), 'id' => self::OPTION.'[secret]', 'type' => 'password', 'value' => '', 'placeholder' => self::secret_placeholder('secret')],
             ['title' => __('Schlüssel-ID (App → Shop)', 'bs-connector'), 'id' => self::OPTION.'[inbound_key_id]', 'type' => 'text', 'default' => 'app'],
-            ['title' => __('Geheimnis (App → Shop)', 'bs-connector'), 'id' => self::OPTION.'[inbound_secret]', 'type' => 'password'],
+            ['title' => __('Geheimnis (App → Shop)', 'bs-connector'), 'id' => self::OPTION.'[inbound_secret]', 'type' => 'password', 'value' => '', 'placeholder' => self::secret_placeholder('inbound_secret')],
             ['title' => __('Alarm-Adresse', 'bs-connector'), 'id' => self::OPTION.'[alert_email]', 'type' => 'email', 'desc' => __('Erhält eine Mail, wenn eine Zustellung endgültig fehlschlägt. Leer = Admin-Adresse von WordPress.', 'bs-connector')],
             ['title' => __('Meta-Feld der USt-ID', 'bs-connector'), 'id' => self::OPTION.'[vat_meta_key]', 'type' => 'text', 'default' => 'billing_vat_id'],
             ['type' => 'sectionend', 'id' => 'bs_connector_section'],
@@ -70,8 +70,24 @@ final class BS_Settings
         woocommerce_admin_fields(self::fields());
     }
 
+    /** Gespeicherte Geheimnisse nie zurück ins Formular schreiben. */
+    private static function secret_placeholder(string $key): string
+    {
+        $stored = (array) get_option(self::OPTION, []);
+
+        return ! empty($stored[$key]) ? __('gespeichert – leer lassen, um es zu behalten', 'bs-connector') : '';
+    }
+
     public static function save(): void
     {
+        // Leeres Geheimnis-Feld = unverändert lassen.
+        $stored = (array) get_option(self::OPTION, []);
+        foreach (['secret', 'inbound_secret'] as $key) {
+            // phpcs:ignore WordPress.Security.NonceVerification.Missing -- WooCommerce prüft die Nonce der Einstellungsseite.
+            if (isset($_POST[self::OPTION]) && is_array($_POST[self::OPTION]) && ($_POST[self::OPTION][$key] ?? '') === '' && ! empty($stored[$key])) {
+                $_POST[self::OPTION][$key] = $stored[$key];
+            }
+        }
         woocommerce_update_options(self::fields());
         delete_transient('bs_connector_catalog');
     }

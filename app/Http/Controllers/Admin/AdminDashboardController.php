@@ -520,7 +520,13 @@ class AdminDashboardController extends Controller
         // Shop-Anbindung: verknüpfte Shopkonten und die letzten Bestellungen
         // (Code-Batches) der Schule (docs/commerce/README.md).
         $shopAccounts = CommerceShopAccount::where('tenant_id', $tenant->id)->where('status', CommerceShopAccount::LINKED)->whereNotNull('shop_customer_id')
-            ->orderByDesc('linked_at')->get();
+            ->orderByDesc('linked_at')->get()
+            // Einkauf möglich? (Wer den Code erzeugt hat, muss noch Inhaber/Admin sein.)
+            ->each(fn (CommerceShopAccount $a) => $a->setAttribute('purchase_possible', $a->canPurchase()));
+        // Beim Anlegen der Schule gab es im Shop schon ein Konto mit der Adresse:
+        // die Schule muss es selbst per Code verknüpfen.
+        $shopNeedsLink = CommerceShopAccount::where('tenant_id', $tenant->id)->whereNull('shop_customer_id')
+            ->where('provisioning_status', 'needs_link')->exists();
         $shopBatches = CouponBatch::where('tenant_id', $tenant->id)->with(['course', 'product'])
             ->withCount(['coupons as redeemed_count' => fn ($q) => $q->whereNotNull('redeemed_at')])
             ->orderByDesc('created_at')->limit(20)->get();
@@ -599,6 +605,7 @@ class AdminDashboardController extends Controller
             'coupons' => $coupons,
             'couponSummary' => $couponSummary,
             'shopAccounts' => $shopAccounts,
+            'shopNeedsLink' => $shopNeedsLink,
             'shopBatches' => $shopBatches,
             'couponFilters' => $couponFilters,
             'freeCourseCouponCounts' => $freeCourseCouponCounts,

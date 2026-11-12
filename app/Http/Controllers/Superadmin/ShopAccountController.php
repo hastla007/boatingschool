@@ -16,6 +16,7 @@ use App\Support\BestEffortMail;
 use App\Support\TenantPath;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -51,7 +52,10 @@ class ShopAccountController extends Controller
     /** Freigeben: bestehende Schule (Rolle Admin) oder neue Schule (Rolle Inhaber). */
     public function approve(Request $request, CommerceShopAccount $account): Response
     {
-        abort_unless(in_array($account->status, [CommerceShopAccount::PENDING_REVIEW, CommerceShopAccount::AWAITING_LINK], true), 409, 'Dieses Shopkonto ist nicht mehr in der Prüfung.');
+        // Nur neu registrierte Konten. Hat die Adresse schon ein App-Konto
+        // (awaiting_link), verknüpft allein der Code aus diesem Konto -- die im
+        // Shop angegebene Adresse ist unbestätigt.
+        abort_unless($account->status === CommerceShopAccount::PENDING_REVIEW, 409, 'Dieses Shopkonto ist nicht (mehr) zur Freigabe offen.');
         $validated = $request->validate([
             'mode' => ['required', 'in:existing,new'],
             'tenant_id' => ['nullable', 'required_if:mode,existing', 'uuid', 'exists:tenant,id'],
@@ -61,15 +65,16 @@ class ShopAccountController extends Controller
             'note' => ['nullable', 'string', 'max:500'],
         ], ['slug.regex' => 'Der Slug darf nur Kleinbuchstaben, Ziffern und einzelne Bindestriche enthalten.']);
 
-        // Identität: bei neuer Registrierung das dabei angelegte Konto; ist
-        // die Adresse schon ein App-Konto, dieses -- der Superadmin bestätigt
-        // die Zuordnung hier ausdrücklich (statt per Verknüpfungscode).
-        $user = $account->user_id ? User::find($account->user_id) : User::whereRaw('lower(email) = ?', [strtolower($account->email)])->first();
+        // Identität: das bei der Registrierung im Shop angelegte App-Konto.
+        $user = $account->user_id ? User::find($account->user_id) : null;
         if (! $user) {
             throw ValidationException::withMessages(['mode' => 'Zu diesem Shopkonto gibt es kein App-Konto mehr.']);
         }
 
         [$tenant, $role] = DB::transaction(function () use ($validated, $account, $user, $request) {
+            // Gleichzeitige Freigabe/Ablehnung (zweiter Superadmin, alter Tab).
+            $locked = CommerceShopAccount::whereKey($account->id)->lockForUpdate()->first();
+            abort_unless($locked && $locked->status === CommerceShopAccount::PENDING_REVIEW, 409, 'Dieses Shopkonto wurde inzwischen bearbeitet.');
             if ($validated['mode'] === 'new') {
                 $tenant = Tenant::create(['slug' => $validated['slug'], 'name' => $validated['name'], 'status' => 'active', 'default_locale' => 'de-DE']);
                 TenantBranding::create(['tenant_id' => $tenant->id, 'primary_color' => '#005FD7', 'secondary_color' => '#007A7A']);
@@ -81,11 +86,14 @@ class ShopAccountController extends Controller
             $membership = TenantUser::withoutGlobalScopes()->where('tenant_id', $tenant->id)->where('user_id', $user->id)->first();
             if (! $membership) {
                 TenantUser::create(['tenant_id' => $tenant->id, 'user_id' => $user->id, 'role' => $role, 'status' => 'active']);
-            } elseif (! in_array($membership->role, ['owner', 'admin'], true)) {
-                // Teilnehmer o. Ä. derselben Schule: Einkauf nur als Admin.
-                $membership->forceFill(['role' => 'admin', 'status' => 'active'])->save();
-            } else {
+            } elseif (in_array($membership->role, ['owner', 'admin'], true) && $membership->status === 'active') {
                 $role = $membership->role;
+            } else {
+                // Bestehende Mitgliedschaft nie still hochstufen oder reaktivieren:
+                // das entscheidet die Schule selbst (Team-Verwaltung).
+                throw ValidationException::withMessages(['tenant_id' => 'Diese Person ist bei der Schule bereits '
+                    .($membership->status === 'active' ? 'als „'.$membership->role.'“' : 'mit Status „'.$membership->status.'“')
+                    .' eingetragen. Rolle bitte über die Team-Verwaltung der Schule ändern lassen.']);
             }
 
             $account->forceFill([
@@ -94,7 +102,7 @@ class ShopAccountController extends Controller
                 'linked_at' => now(),
             ])->save();
             AuditLog::record($tenant->id, $request->user()->id, 'superadmin.commerce.account.approved', 'commerce_shop_account', $account->id, null, [
-                'mode' => $validated['mode'], 'email' => $account->email, 'role' => $role,
+                'mode' => $validated['mode'], 'user_id' => $user->id, 'role' => $role,
             ]);
 
             return [$tenant, $role];
@@ -104,6 +112,19 @@ class ShopAccountController extends Controller
         if ($user->status === 'invited') {
             BestEffortMail::send(fn () => app(AccountSetupLink::class)->send($user, $tenant, $role), 'Shop-Freigabe '.$account->id);
         }
+        // Bestehende Schule: Inhaber erfahren, dass jemand als Admin hinzukam.
+        if ($validated['mode'] === 'existing') {
+            $ownerEmails = User::whereIn('id', TenantUser::withoutGlobalScopes()->where('tenant_id', $tenant->id)
+                ->where('role', 'owner')->where('status', 'active')->where('user_id', '!=', $user->id)->pluck('user_id'))->pluck('email');
+            foreach ($ownerEmails as $ownerEmail) {
+                BestEffortMail::send(fn () => Mail::raw(
+                    "Der Plattform-Betreiber hat {$user->display_name} ({$user->email}) nach Prüfung einer Registrierung im Shop als Admin Ihrer Bootsschule „{$tenant->name}“ eingetragen. "
+                    ."Über dieses Konto können Codes für Ihre Schule im Shop gekauft werden.\n\n"
+                    .'Falls das nicht stimmt, entfernen Sie die Person im Admin-Bereich unter „Team“ und lösen Sie die Verknüpfung unter „Codes → Shop verknüpfen“.',
+                    fn ($m) => $m->to($ownerEmail)->subject('Neuer Admin für Ihre Bootsschule (Shop)')
+                ), 'Shop-Freigabe Inhaber-Info '.$account->id);
+            }
+        }
 
         return back()->with('status', "Shopkonto {$account->email} für „{$tenant->name}“ freigegeben.");
     }
@@ -111,10 +132,15 @@ class ShopAccountController extends Controller
     public function reject(Request $request, CommerceShopAccount $account): Response
     {
         $validated = $request->validate(['note' => ['nullable', 'string', 'max:500']]);
-        $account->forceFill([
-            'status' => CommerceShopAccount::REJECTED, 'reviewed_by_user_id' => $request->user()->id, 'reviewed_at' => now(), 'review_note' => $validated['note'] ?? null,
-        ])->save();
-        AuditLog::record(null, $request->user()->id, 'superadmin.commerce.account.rejected', 'commerce_shop_account', $account->id, null, ['email' => $account->email]);
+        DB::transaction(function () use ($account, $validated, $request) {
+            $locked = CommerceShopAccount::whereKey($account->id)->lockForUpdate()->first();
+            abort_unless($locked && in_array($locked->status, [CommerceShopAccount::PENDING_REVIEW, CommerceShopAccount::AWAITING_LINK], true), 409,
+                'Dieses Shopkonto ist nicht (mehr) in der Prüfung.');
+            $account->forceFill([
+                'status' => CommerceShopAccount::REJECTED, 'reviewed_by_user_id' => $request->user()->id, 'reviewed_at' => now(), 'review_note' => $validated['note'] ?? null,
+            ])->save();
+            AuditLog::record(null, $request->user()->id, 'superadmin.commerce.account.rejected', 'commerce_shop_account', $account->id, null, []);
+        });
 
         return back()->with('status', "Shopkonto {$account->email} abgelehnt.");
     }
@@ -124,7 +150,7 @@ class ShopAccountController extends Controller
         $event = CommerceEvent::where('shop_account_id', $account->id)->where('direction', 'out')->where('status', 'failed')->latest('created_at')->first();
         abort_unless($event, 404);
         Outbox::retry($event);
-        app(Outbox::class)->send($event->fresh());
+        app(Outbox::class)->process();
 
         return back()->with('status', $account->fresh()?->provisioning_status === 'done'
             ? 'Shopkonto angelegt.' : 'Erneut versucht -- der Shop hat noch nicht geantwortet, es wird automatisch wiederholt.');

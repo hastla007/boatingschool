@@ -20,7 +20,7 @@ final class BS_Accounts
         add_action('woocommerce_customer_save_address', [__CLASS__, 'queue_update']);
         add_action('profile_update', [__CLASS__, 'queue_update']);
         add_action('delete_user', [__CLASS__, 'queue_deactivate']);
-        add_action('bs_connector_sync_account', [__CLASS__, 'sync_account'], 10, 2);
+        add_action('bs_connector_sync_account', [__CLASS__, 'sync_account'], 10, 3);
 
         add_action('init', [__CLASS__, 'add_endpoint']);
         add_filter('woocommerce_account_menu_items', [__CLASS__, 'menu_item']);
@@ -101,7 +101,7 @@ final class BS_Accounts
     public static function queue_deactivate($user_id): void
     {
         if (get_user_meta((int) $user_id, '_bs_registered', true)) {
-            // Sofort senden: nach dem Löschen gibt es den Nutzer nicht mehr.
+            // Sofort senden (Wiederholungen brauchen den Nutzer nicht mehr).
             self::sync_account('deactivate', (int) $user_id);
         }
     }
@@ -115,8 +115,8 @@ final class BS_Accounts
         }
     }
 
-    /** Abgleich mit der App; bei Fehler erneut in 5 Minuten (höchstens dreimal). */
-    public static function sync_account(string $action, int $customer_id): void
+    /** Abgleich mit der App; bei Fehler erneut nach 5 Minuten (höchstens drei Versuche je Vorgang). */
+    public static function sync_account(string $action, int $customer_id, int $attempt = 1): void
     {
         $user = get_userdata($customer_id);
         if (! $user && $action !== 'deactivate') {
@@ -149,10 +149,8 @@ final class BS_Accounts
             return;
         }
 
-        $attempts = (int) get_user_meta($customer_id, '_bs_sync_attempts', true) + 1;
-        update_user_meta($customer_id, '_bs_sync_attempts', $attempts);
-        if ($attempts < 3 && function_exists('as_schedule_single_action') && $user) {
-            as_schedule_single_action(time() + 5 * MINUTE_IN_SECONDS, 'bs_connector_sync_account', [$action, $customer_id], 'bs-connector');
+        if ($attempt < 3 && function_exists('as_schedule_single_action')) {
+            as_schedule_single_action(time() + 5 * MINUTE_IN_SECONDS, 'bs_connector_sync_account', [$action, $customer_id, $attempt + 1], 'bs-connector');
 
             return;
         }
@@ -223,6 +221,10 @@ final class BS_Accounts
             wc_add_notice(sprintf( /* translators: %s: Name der Bootsschule */ __('Ihr Shopkonto ist jetzt mit „%s“ verknüpft.', 'bs-connector'), $tenant), 'success');
         } elseif ($response['status'] === 429) {
             wc_add_notice(__('Zu viele Versuche. Bitte in einigen Minuten erneut versuchen.', 'bs-connector'), 'error');
+        } elseif ($response['status'] === 409) {
+            wc_add_notice(__('Für dieses Kundenkonto ist keine Verknüpfung möglich. Bitte wenden Sie sich an den Support.', 'bs-connector'), 'error');
+        } elseif ($response['status'] === null || $response['status'] === 404 || $response['status'] >= 500) {
+            wc_add_notice(__('Die Bootsschul-Plattform ist gerade nicht erreichbar. Bitte versuchen Sie es später erneut.', 'bs-connector'), 'error');
         } else {
             wc_add_notice(__('Der Verknüpfungscode ist ungültig oder abgelaufen. Bitte in der App einen neuen erzeugen.', 'bs-connector'), 'error');
         }
@@ -240,7 +242,7 @@ final class BS_Accounts
             return;
         }
         if ($status && $status['status'] === 'pending_review') {
-            echo '<p>'.esc_html__('Ihr Konto wird gerade geprüft. Sie erhalten eine E-Mail, sobald Ihre Bootsschule freigeschaltet ist.', 'bs-connector').'</p>';
+            echo '<p>'.esc_html__('Ihr Konto ist noch nicht für den Einkauf freigeschaltet. Wir prüfen Ihre Angaben und melden uns per E-Mail.', 'bs-connector').'</p>';
         }
         if ($status && $status['status'] === 'rejected') {
             echo '<p>'.esc_html__('Für dieses Konto ist kein Einkauf für eine Bootsschule möglich. Bitte wenden Sie sich an den Support.', 'bs-connector').'</p>';

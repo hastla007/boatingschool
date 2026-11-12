@@ -45,7 +45,9 @@ final class BS_Provision_Endpoint
         $ts = (string) $request->get_header('x_bs_timestamp');
         $nonce = (string) $request->get_header('x_bs_nonce');
         $sig = (string) $request->get_header('x_bs_signature');
-        $path = '/'.rest_get_url_prefix().$request->get_route();
+        // Fester Pfad, den die App signiert und aufruft (unabhängig von einem
+        // per Filter geänderten REST-Präfix oder ?rest_route=-Aufrufen).
+        $path = '/wp-json/'.self::NAMESPACE_V1.'/provision';
 
         if ($settings['inbound_secret'] === '' || ! hash_equals($settings['inbound_key_id'], $key_id)
             || ! BS_Signature::verify($settings['inbound_secret'], 'POST', $path, $ts, $nonce, (string) $request->get_body(), $sig)) {

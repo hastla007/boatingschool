@@ -371,6 +371,25 @@ class AccountErasureService
         // dauerhaft. Die Löschung läuft deshalb bewusst über eine
         // verbindungslose Query auf der aktuellen Default-Verbindung, exakt
         // wie die beiden Löschungen oben.
+        // Shopkonten dieser Person (Kontaktdaten aus dem Shop): anonymisieren
+        // statt löschen -- die Bestellhistorie der Schule (coupon_batch)
+        // verweist darauf. Ausgehende Ereignisse ohne Adresse/Name.
+        $shopAccountIds = DB::table('commerce_shop_account')
+            ->where(fn ($q) => $q->where('user_id', $user->id)->orWhereRaw('lower(email) = ?', [mb_strtolower($user->email)]))
+            ->pluck('id');
+        if ($shopAccountIds->isNotEmpty()) {
+            foreach ($shopAccountIds as $shopAccountId) {
+                DB::table('commerce_shop_account')->where('id', $shopAccountId)->update([
+                    'email' => 'geloescht-'.$shopAccountId.'@invalid.invalid', 'contact_name' => null, 'company_name' => null, 'vat_id' => null,
+                    'user_id' => null, 'status' => DB::raw("CASE WHEN status = 'rejected' THEN 'rejected' ELSE 'revoked' END"), 'revoked_at' => now(),
+                ]);
+            }
+            // commerce_event darf die App-Rolle nicht ändern: Owner-Verbindung
+            // (andere Tabelle als die in dieser Transaktion gesperrten Zeilen).
+            DB::connection('pgsql_admin')->table('commerce_event')->whereIn('shop_account_id', $shopAccountIds)
+                ->update(['payload' => DB::raw("payload - 'email' - 'first_name' - 'last_name'")]);
+        }
+
         DB::table('app_user')->where('id', $user->id)->delete();
     }
 }

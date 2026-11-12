@@ -37,8 +37,9 @@ final class BS_Delivery_Policy
         if ($status !== null && $status >= 400 && $status < 500 && $status !== 408 && $status !== 429) {
             return [self::FAILED, null];
         }
-        // Netzfehler, Timeout, 408/429/5xx: später erneut, höchstens drei Versuche.
-        if ($attempt >= count(self::BACKOFF_MINUTES)) {
+        // Netzfehler, Timeout, 408/429/5xx: später erneut -- nach 1, 5 und 30
+        // Minuten, also höchstens vier Versuche (wie der Ausgang der App).
+        if ($attempt > count(self::BACKOFF_MINUTES)) {
             return [self::FAILED, null];
         }
 

@@ -16,6 +16,8 @@ final class BS_Checkout
         add_action('woocommerce_after_checkout_validation', [__CLASS__, 'validate_checkout'], 10, 2);
         add_action('woocommerce_review_order_before_payment', [__CLASS__, 'delivery_notice']);
         add_action('woocommerce_before_cart_totals', [__CLASS__, 'delivery_notice']);
+        // Block-Checkout (Store API) löst woocommerce_after_checkout_validation nicht aus.
+        add_action('woocommerce_store_api_checkout_update_order_from_request', [__CLASS__, 'validate_block_checkout']);
     }
 
     /** @return string|null Fehlermeldung oder null, wenn der Einkauf möglich ist. */
@@ -30,7 +32,7 @@ final class BS_Checkout
         }
         if (! $status['can_purchase']) {
             return $status['status'] === 'pending_review'
-                ? __('Ihr Konto wird noch geprüft. Bootsschul-Codes können Sie kaufen, sobald Ihre Bootsschule freigeschaltet ist.', 'bs-connector')
+                ? __('Ihr Konto ist noch nicht für den Einkauf freigeschaltet. Wir prüfen Ihre Angaben; haben Sie bereits Zugang zur Plattform, können Sie Ihr Konto auch selbst unter „Mein Konto → Bootsschule verknüpfen“ verknüpfen.', 'bs-connector')
                 : __('Bitte verknüpfen Sie Ihr Kundenkonto zuerst unter „Mein Konto → Bootsschule verknüpfen“ mit Ihrer Bootsschule.', 'bs-connector');
         }
 
@@ -66,10 +68,26 @@ final class BS_Checkout
         return true;
     }
 
+    /** Mehr als die Höchstmenge je Position nimmt die Plattform nicht an. */
+    private static function quantity_blocker(): ?string
+    {
+        foreach (WC()->cart ? WC()->cart->get_cart() : [] as $item) {
+            if (BS_Products::is_platform_product($item['data'] ?? null) && (int) ($item['quantity'] ?? 0) > BS_Products::MAX_QUANTITY) {
+                return sprintf(
+                    /* translators: %d: Höchstmenge */
+                    __('Bootsschul-Codes können höchstens %d Stück je Position bestellt werden.', 'bs-connector'),
+                    BS_Products::MAX_QUANTITY
+                );
+            }
+        }
+
+        return null;
+    }
+
     public static function check_cart(): void
     {
         if (self::cart_has_platform_products()) {
-            $blocker = self::purchase_blocker();
+            $blocker = self::purchase_blocker() ?? self::quantity_blocker();
             if ($blocker !== null) {
                 wc_add_notice($blocker, 'error');
             }
@@ -80,11 +98,28 @@ final class BS_Checkout
     public static function validate_checkout($data, WP_Error $errors): void
     {
         if (self::cart_has_platform_products()) {
-            $blocker = self::purchase_blocker(true);
+            $blocker = self::purchase_blocker(true) ?? self::quantity_blocker();
             if ($blocker !== null) {
                 $errors->add('bs_connector', $blocker);
             }
         }
+    }
+
+    /** Dasselbe für den Block-Checkout. */
+    public static function validate_block_checkout($order): void
+    {
+        if (! self::cart_has_platform_products()) {
+            return;
+        }
+        $blocker = self::purchase_blocker(true) ?? self::quantity_blocker();
+        if ($blocker === null) {
+            return;
+        }
+        $exception = '\\Automattic\\WooCommerce\\StoreApi\\Exceptions\\RouteException';
+        if (class_exists($exception)) {
+            throw new $exception('bs_connector_blocked', $blocker, 403);
+        }
+        throw new Exception($blocker);
     }
 
     public static function delivery_notice(): void

@@ -204,6 +204,15 @@ return Application::configure(basePath: dirname(__DIR__))
             append: UseAdminDatabaseConnection::class,
         );
 
+        // Die Signaturprüfung der Commerce-API läuft vor admin-db (Owner-
+        // Verbindung, wie N10) und vor der Drosselung: nicht signierte
+        // Anfragen bekommen weder die Owner-Verbindung noch verbrauchen sie
+        // das Kontingent des Shops.
+        $middleware->prependToPriorityList(
+            before: UseAdminDatabaseConnection::class,
+            prepend: VerifyCommerceSignature::class,
+        );
+
         $middleware->api(prepend: [PrepareApiRequest::class]);
         $middleware->alias([
             'api.auth' => AuthenticateMobileApi::class,

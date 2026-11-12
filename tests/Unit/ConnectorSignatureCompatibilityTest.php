@@ -68,7 +68,8 @@ class ConnectorSignatureCompatibilityTest extends TestCase
         $this->assertSame([BS_Delivery_Policy::RETRY, 1], BS_Delivery_Policy::decide(null, 1));
         $this->assertSame([BS_Delivery_Policy::RETRY, 5], BS_Delivery_Policy::decide(503, 2));
         $this->assertSame([BS_Delivery_Policy::RETRY, 1], BS_Delivery_Policy::decide(429, 1));
-        $this->assertSame([BS_Delivery_Policy::FAILED, null], BS_Delivery_Policy::decide(null, 3));
+        $this->assertSame([BS_Delivery_Policy::RETRY, 30], BS_Delivery_Policy::decide(null, 3));
+        $this->assertSame([BS_Delivery_Policy::FAILED, null], BS_Delivery_Policy::decide(null, 4));
         // Fachliche Ablehnung: nicht wiederholen.
         $this->assertSame([BS_Delivery_Policy::FAILED, null], BS_Delivery_Policy::decide(403, 1));
         $this->assertSame([BS_Delivery_Policy::FAILED, null], BS_Delivery_Policy::decide(409, 1));

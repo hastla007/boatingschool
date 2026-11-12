@@ -133,6 +133,10 @@ class CommerceAdminFlowsTest extends TestCase
         $this->artisan('app:commerce-outbox')->assertSuccessful();
         $this->travel(6)->minutes();
         $this->artisan('app:commerce-outbox')->assertSuccessful();
+        $this->assertSame('pending', $this->onAdmin(fn () => $event->fresh()->status), 'noch der Versuch nach 30 Minuten');
+        $this->travel(31)->minutes();
+        $this->artisan('app:commerce-outbox')->assertSuccessful();
+        $this->assertSame(4, $this->onAdmin(fn () => $event->fresh()->attempts));
         $this->assertSame('failed', $this->onAdmin(fn () => $event->fresh()->status));
         $this->assertSame('failed', $this->onAdmin(fn () => $account->fresh()->provisioning_status));
         $this->actingAs($superadmin)->get(route('superadmin.shop-accounts.index'))->assertSee('Shopkonto ausstehend/Fehler');
@@ -144,6 +148,32 @@ class CommerceAdminFlowsTest extends TestCase
         $this->assertSame('done', $account->provisioning_status);
         $this->assertSame('4711', $account->shop_customer_id);
         $this->assertTrue($this->onAdmin(fn () => $account->canPurchase()));
+    }
+
+    public function test_approval_never_upgrades_memberships_or_binds_by_email(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        $tenant = $this->createTestTenant();
+
+        // Adresse hat schon ein App-Konto: nur per Verknüpfungscode, nicht per Freigabe.
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $byEmail = $this->register('811', $learner->email);
+        $this->assertSame('awaiting_link', $byEmail->status);
+        $this->actingAs($superadmin)->post(route('superadmin.shop-accounts.approve', $byEmail), ['mode' => 'existing', 'tenant_id' => $tenant->id])->assertStatus(409);
+        $this->assertSame('learner', $this->onAdmin(fn () => TenantUser::withoutGlobalScopes()->where('tenant_id', $tenant->id)->where('user_id', $learner->id)->value('role')));
+
+        // Neu registrierte Person, die die Schule inzwischen als Lernende eingetragen hat:
+        // keine stille Hochstufung zur Admin.
+        $account = $this->register('812', 'neu-'.Str::lower(Str::random(6)).'@example.test');
+        $this->onAdmin(fn () => TenantUser::create(['tenant_id' => $tenant->id, 'user_id' => $account->user_id, 'role' => 'learner', 'status' => 'active']));
+        $this->actingAs($superadmin)->post(route('superadmin.shop-accounts.approve', $account), ['mode' => 'existing', 'tenant_id' => $tenant->id])
+            ->assertSessionHasErrors('tenant_id');
+        $this->assertSame('learner', $this->onAdmin(fn () => TenantUser::withoutGlobalScopes()->where('tenant_id', $tenant->id)->where('user_id', $account->user_id)->value('role')));
+        $this->assertSame('pending_review', $this->onAdmin(fn () => $account->fresh()->status));
+
+        // Bereits abgelehnt: nicht noch einmal ablehnen/freigeben.
+        $this->actingAs($superadmin)->post(route('superadmin.shop-accounts.reject', $account))->assertRedirect();
+        $this->actingAs($superadmin)->post(route('superadmin.shop-accounts.reject', $account))->assertStatus(409);
     }
 
     public function test_existing_shop_customer_with_the_same_email_is_not_taken_over(): void

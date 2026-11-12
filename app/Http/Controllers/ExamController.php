@@ -283,7 +283,9 @@ class ExamController extends Controller
         }
 
         // Die Selbsteinschätzung der Navigation zählt nicht zur Prüfungszeit.
-        if ($examEvaluation->timeExpired($examSession) && ! $examSession->inNavigationAssessment()) {
+        // Nachfrist für die Abgabe der Navigationsaufgabe wie überall sonst
+        // (stillOpen): ein Neuladen innerhalb der Frist wertet nicht vorzeitig aus.
+        if ($examSession->status === 'running' && ! $examSession->stillOpen($examEvaluation->timeExpired($examSession))) {
             return $this->finish($request, $tenantContext, $entitlements, $examEvaluation, $examSession);
         }
 

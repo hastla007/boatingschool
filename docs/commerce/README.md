@@ -36,7 +36,7 @@ oder in der App ein (`POST /api/v1/coupons/redeem`).
 
 1. Die Kundin registriert sich im Shop. Das Plugin sendet `POST /accounts`.
    - Gibt es noch kein App-Konto mit der Adresse: Status `pending_review`.
-   - Gibt es schon eines: Status `awaiting_link`. Es wird **nicht** verknüpft.
+   - Gibt es schon eines: Status `awaiting_link`. Es wird **nicht** verknüpft, und der Superadmin kann es auch nicht freigeben (nur ablehnen); verknüpft wird es ausschließlich per Code aus diesem App-Konto. Nach außen meldet die API in beiden Fällen `pending_review`, damit der Shop nicht verrät, ob eine Adresse ein App-Konto hat.
 2. Inhaber oder Admin der Schule erzeugt unter Admin → Codes → „Shop verknüpfen“ einen Verknüpfungscode.
 3. Im Shop unter „Mein Konto → Bootsschule verknüpfen“ den Code eingeben. Das Plugin sendet `POST /accounts/{id}/link`, der Status wird `linked`.
 4. Nach falschen Codes: höchstens 5 Versuche in 10 Minuten (danach 429).
@@ -46,7 +46,7 @@ oder in der App ein (`POST /api/v1/coupons/redeem`).
 1. Registrierung wie oben, Status `pending_review`.
 2. Der Superadmin prüft unter „Shopkonten“ und hat drei Möglichkeiten:
    - **Neue Schule** anlegen: Die Person wird Inhaberin und erhält den Link zum Einrichten des Passworts.
-   - **Bestehender Schule** als Admin zuordnen.
+   - **Bestehender Schule** als Admin zuordnen. Die Inhaber der Schule bekommen dazu eine E-Mail. Ist die Person dort schon eingetragen (z. B. als Teilnehmer), wird nichts still hochgestuft – die Freigabe wird abgelehnt.
    - **Ablehnen**: Danach ist auch keine Verknüpfung per Code mehr möglich (409 `ACCOUNT_REJECTED`).
 
 ### 3. Superadmin legt eine Schule in der App an
@@ -57,7 +57,8 @@ oder in der App ein (`POST /api/v1/coupons/redeem`).
    - **Neues Kundenkonto** (`matched_by=created`): Der Shop schickt den Link zum Setzen des Passworts.
    - **Für dieselbe App-Person schon angelegt** (`matched_by=app_user`): Das Konto wird wiederverwendet.
    - **Fremdes Konto mit derselben E-Mail** (`matched_by=email`): Es wird **nicht** übernommen. Der Status ist dann `needs_link`, die Verknüpfung läuft per Code.
-4. Fehler: drei Versuche (nach 1, 5 und 30 Minuten), dann „fehlgeschlagen“. Es folgen eine Alarm-Mail und der Knopf „Erneut versuchen“ unter „Shopkonten“.
+4. Fehler: erster Versuch sofort, weitere nach 1, 5 und 30 Minuten, dann „fehlgeschlagen“. Es folgen eine Alarm-Mail und der Knopf „Erneut versuchen“ unter „Shopkonten“. Jedes Ereignis wird exklusiv beansprucht, auch wenn Scheduler und „Erneut versuchen“ gleichzeitig laufen.
+5. Ist das Kundenkonto im Shop schon mit einer anderen Schule verknüpft, wird es nicht umgehängt (ebenfalls `needs_link`). Die Schule sieht im Codes-Tab einen Hinweis, dass sie selbst verknüpfen muss.
 
 ### 4. Bestellung
 
@@ -68,7 +69,8 @@ oder in der App ein (`POST /api/v1/coupons/redeem`).
 3. Zustellung mit `POST /orders/lines`:
    - Ab dem zweiten Versuch fragt das Plugin zuerst `GET /orders/{order}/lines/{line}` ab.
    - Ergebnis `2xx`: zugestellt, mit Bestellnotiz.
-   - Keine Antwort, 408, 429 oder 5xx: neuer Versuch nach 1 bzw. 5 Minuten, höchstens drei Versuche.
+   - Keine Antwort, 408, 429 oder 5xx: neuer Versuch nach 1, 5 und 30 Minuten, höchstens vier Versuche.
+   - Eine Wiederholung derselben Position bestätigt eine schon erfolgte Lieferung immer – auch wenn inzwischen die Verknüpfung gelöst oder der Kurs abgeschaltet wurde.
    - Sonstiges `4xx` (z. B. Konto nicht verknüpft, Kurs abgeschaltet): sofort „fehlgeschlagen“.
    - Bei „fehlgeschlagen“: Bestellnotiz, Alarm-Mail und Knopf „Erneut zustellen“ in der Bestellung. Dieselbe Referenz liefert höchstens einmal.
 4. Die Codes erscheinen bei der Schule unter Admin → Codes. Die Tabelle „Bestellungen aus dem Shop“ zeigt Menge, eingelöste Codes und Status.
@@ -78,6 +80,8 @@ oder in der App ein (`POST /api/v1/coupons/redeem`).
 - **Teil-Rückerstattung**: `POST /batches/{id}/void` mit `quantity`. Gesperrt werden die zuletzt erzeugten, unbenutzten Codes. Der Idempotency-Key ist `refund-{refund_id}-{item_id}`.
 - **Storno oder vollständige Erstattung**: alle restlichen unbenutzten Codes. Der Idempotency-Key ist `cancel-{order_id}-{item_id}`.
 - Eine noch offene Zustellung wird abgebrochen.
+- Kommt eine Rückerstattung, bevor die Zustellung gelungen ist, merkt sich das Plugin die Sperre und wendet sie nach der Lieferung an (geliefert wird immer die volle Menge der Position).
+- Steht eine Bestellung zwischenzeitlich „In Wartestellung“, wird die Zustellung zurückgestellt und bei „In Bearbeitung“ erneut eingeplant.
 
 ## Commerce-API v1
 
@@ -98,6 +102,8 @@ METHODE \n /PFAD \n ZEITSTEMPEL \n NONCE \n sha256(BODY)
 | `X-BS-Signature` | Hex-Wert der Signatur |
 
 Fehlercodes der Signaturprüfung: `SIGNATURE_INVALID`, `SIGNATURE_EXPIRED`, `SIGNATURE_REPLAYED`.
+Nicht signierte Teile werden abgelehnt: Query-Parameter (400 `QUERY_NOT_ALLOWED`) und Bodies, die kein JSON sind (415).
+Die Signatur wird geprüft, bevor die Owner-Verbindung aktiv wird und bevor gedrosselt wird.
 
 | Methode und Pfad | Zweck | Wichtige Fehler |
 |---|---|---|
@@ -143,7 +149,17 @@ Der Scheduler (`schedule:run` jede Minute) muss laufen, er führt
 | `BS_CONNECTOR_INBOUND_SECRET` | `COMMERCE_OUTBOUND_SECRET` |
 
 Voraussetzungen: WooCommerce ab 8 (HPOS-kompatibel) und der mitgelieferte
-Action Scheduler.
+Action Scheduler. Außerdem:
+
+- **Permalinks** dürfen nicht auf „Einfach“ stehen, sonst ist
+  `/wp-json/boatingschool/v1/provision` nicht erreichbar.
+- Produkte mit **Varianten** sind möglich; die Zuordnung steht am Hauptprodukt.
+- Höchstens 500 Codes je Bestellposition (wird im Shop begrenzt).
+- **Klassischer und Block-Checkout** prüfen unmittelbar vor der Bestellung
+  frisch, ob das Konto einkaufen darf.
+- Zahlarten, die Bestellungen ohne Zahlungseingang auf „In Bearbeitung“
+  setzen (z. B. Nachnahme), lösen die Zustellung sofort aus. Für Codes
+  sollten nur Zahlarten mit bestätigter Zahlung freigeschaltet sein.
 
 **Test:** Das Plugin wurde nicht gegen ein echtes WordPress getestet. Geprüft
 sind:

@@ -29,16 +29,16 @@ class ShopOrders
      */
     public function deliver(string $shopId, CommerceShopAccount $account, array $line): array
     {
-        if (! $account->canPurchase()) {
-            throw new ApiProblem(403, 'ACCOUNT_NOT_LINKED', 'Kein Einkauf für eine Schule möglich', 'Das Shopkonto ist (noch) nicht mit einer aktiven Schule verknüpft.');
-        }
-        $target = $this->resolveTarget($account, $line);
+        // Fingerabdruck aus den Angaben der Anfrage selbst: eine Wiederholung
+        // erkennt die App so auch dann, wenn sich seitdem etwas geändert hat
+        // (Verknüpfung gelöst, Kurs abgeschaltet) -- geliefert ist geliefert.
+        $options = array_values(array_unique(array_map('strval', $line['option_product_codes'] ?? [])));
+        sort($options);
         $fingerprint = hash('sha256', json_encode([
-            $account->id, $line['kind'], $target['course']?->id, $target['product']?->id,
-            $target['option_product_ids'], (int) $line['quantity'],
+            $account->id, $line['kind'], $line['course_code'] ?? null, $line['product_code'] ?? null, $options, (int) $line['quantity'],
         ]));
 
-        return DB::transaction(function () use ($shopId, $account, $line, $target, $fingerprint) {
+        return DB::transaction(function () use ($shopId, $account, $line, $fingerprint) {
             DB::statement('SELECT pg_advisory_xact_lock(hashtext(?))', ['commerce-line:'.$shopId.':'.$line['order_id'].':'.$line['order_line_id']]);
             $existing = CouponBatch::withoutGlobalScopes()->where('shop_id', $shopId)
                 ->where('order_id', $line['order_id'])->where('order_line_id', $line['order_line_id'])->first();
@@ -51,6 +51,11 @@ class ShopOrders
 
                 return [$existing, false];
             }
+
+            if (! $account->canPurchase()) {
+                throw new ApiProblem(403, 'ACCOUNT_NOT_LINKED', 'Kein Einkauf für eine Schule möglich', 'Das Shopkonto ist (noch) nicht mit einer aktiven Schule verknüpft.');
+            }
+            $target = $this->resolveTarget($account, $line);
 
             $batch = CouponBatch::create([
                 'tenant_id' => $account->tenant_id,
@@ -115,17 +120,23 @@ class ShopOrders
                 return $previous->payload['result'];
             }
 
+            // Zeilen sperren, damit eine gleichzeitige Einlösung nicht zwischen
+            // Auswahl und Sperre fällt (Einlösungen sperren dieselbe Zeile).
             $ids = Coupon::withoutGlobalScopes()->where('batch_id', $batch->id)->whereNull('redeemed_at')->whereNull('voided_at')
                 ->orderByDesc('created_at')->orderByDesc('id')
-                ->when($quantity, fn ($q) => $q->limit($quantity))->pluck('id');
-            $voided = $ids->isEmpty() ? 0 : Coupon::withoutGlobalScopes()->whereIn('id', $ids)->update(['voided_at' => now()]);
+                ->when($quantity, fn ($q) => $q->limit($quantity))->lockForUpdate()->pluck('id');
+            $voided = $ids->isEmpty() ? 0 : Coupon::withoutGlobalScopes()->whereIn('id', $ids)
+                ->whereNull('redeemed_at')->whereNull('voided_at')->update(['voided_at' => now()]);
 
             $result = $this->counts($batch) + ['voided' => $voided];
-            $batch->forceFill([
-                'status' => $result['open'] === 0 && $result['redeemed'] === 0 ? 'voided' : ($result['already_voided'] > 0 ? 'partially_voided' : $batch->status),
-                'void_reason' => mb_substr($reason, 0, 500),
-                'voided_at' => now(),
-            ])->save();
+            if ($voided > 0) {
+                $batch->forceFill([
+                    // Nichts mehr offen und nichts eingelöst: ganz gesperrt; sonst teilweise.
+                    'status' => $result['open'] === 0 && $result['redeemed'] === 0 ? 'voided' : 'partially_voided',
+                    'void_reason' => mb_substr($reason, 0, 500),
+                    'voided_at' => now(),
+                ])->save();
+            }
 
             AuditLog::record($batch->tenant_id, null, 'commerce.batch.voided', 'coupon_batch', $batch->id, null, [
                 'order_number' => $batch->order_number, 'voided' => $voided, 'reason' => mb_substr($reason, 0, 200),
@@ -181,7 +192,7 @@ class ShopOrders
     public function catalog(): array
     {
         return [
-            'courses' => CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')->where('status', 'published')
+            'courses' => CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')->where('status', 'published')->where('site_enabled', true)
                 ->orderBy('name')->get(['code', 'name'])->map(fn ($c) => ['code' => $c->code, 'name' => $c->name])->values(),
             'products' => Product::where('active', true)->orderBy('name')->get(['code', 'name'])
                 ->map(fn ($p) => ['code' => $p->code, 'name' => $p->name])->values(),
@@ -198,6 +209,10 @@ class ShopOrders
             $course = CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')->where('status', 'published')->where('code', $line['course_code'] ?? '')->first();
             if (! $course) {
                 throw new ApiProblem(422, 'UNKNOWN_COURSE', 'Unbekannter Kurs', 'Kein veröffentlichter Kurs mit diesem Code.', ['course_code' => ['Unbekannter Kurs.']]);
+            }
+            // Plattformweit abgeschaltet: Codes ließen sich nicht einlösen.
+            if (! $course->site_enabled) {
+                throw new ApiProblem(422, 'COURSE_NOT_AVAILABLE', 'Kurs derzeit nicht verfügbar', 'Der Kurs wird auf der Plattform derzeit nicht angeboten.');
             }
             if (TenantCourseDisabled::withoutGlobalScopes()->where('tenant_id', $account->tenant_id)->where('course_id', $course->id)->exists()) {
                 throw new ApiProblem(422, 'COURSE_NOT_AVAILABLE', 'Kurs für die Schule abgeschaltet', 'Die Schule hat diesen Kurs abgeschaltet.');

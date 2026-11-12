@@ -109,6 +109,10 @@ class ShopAccounts
                 'revoked_at' => null,
             ])->save();
             RateLimiter::clear($limiterKey);
+            // Platzhalter aus der Anlage einer Schule, für die der Shop ein
+            // fremdes Konto gleicher Adresse meldete (needs_link): jetzt erledigt.
+            CommerceShopAccount::where('tenant_id', $account->tenant_id)->whereNull('shop_customer_id')
+                ->where('provisioning_status', 'needs_link')->where('id', '!=', $account->id)->delete();
             CommerceEvent::logIncoming('account.linked', $account, null, ['tenant_id' => $account->tenant_id]);
 
             return $account;
@@ -161,7 +165,9 @@ class ShopAccounts
         return [
             'account_id' => $account->id,
             'shop_customer_id' => $account->shop_customer_id,
-            'status' => $account->status,
+            // Nach außen nie verraten, ob eine Adresse schon ein App-Konto hat:
+            // „wartet auf Verknüpfung“ erscheint im Shop wie „in Prüfung“.
+            'status' => $account->status === CommerceShopAccount::AWAITING_LINK ? CommerceShopAccount::PENDING_REVIEW : $account->status,
             'can_purchase' => $account->canPurchase(),
             'app_user_id' => $account->user_id,
             'tenant' => $tenant ? ['id' => $tenant->id, 'name' => $tenant->name, 'slug' => $tenant->slug] : null,

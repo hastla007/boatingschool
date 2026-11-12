@@ -106,6 +106,14 @@ class PersonalDataExportService
             'redeemed_codes' => Coupon::where('redeemed_tenant_id', $tenant->id)->where('redeemed_by_user_id', $user->id)
                 ->orderBy('redeemed_at')->get()
                 ->map(fn (Coupon $c) => ['code' => $c->code, 'redeemed_at' => $c->redeemed_at?->toIso8601String()])->all(),
+            // Shopkonten (B2B-Shop), über die für diese Schule eingekauft wird.
+            'shop_accounts' => DB::table('commerce_shop_account')->where('tenant_id', $tenant->id)->where('user_id', $user->id)
+                ->orderBy('created_at')->get()
+                ->map(fn ($a) => [
+                    'shop_customer_id' => $a->shop_customer_id, 'status' => $a->status, 'email' => $a->email,
+                    'contact_name' => $a->contact_name, 'company_name' => $a->company_name, 'billing_country' => $a->billing_country,
+                    'vat_id' => $a->vat_id, 'linked_at' => $a->linked_at, 'created_at' => $a->created_at,
+                ])->all(),
             'product_purchases' => ProductPurchase::where('tenant_id', $tenant->id)->where('user_id', $user->id)
                 ->with('product')->orderBy('created_at')->get()
                 ->map(fn (ProductPurchase $p) => [

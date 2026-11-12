@@ -20,7 +20,10 @@ final class BS_Products
     public static function init(): void
     {
         add_action('woocommerce_product_options_general_product_data', [__CLASS__, 'render_fields']);
-        add_action('woocommerce_process_product_meta', [__CLASS__, 'save_fields']);
+        // Bekommt das Produktobjekt, bevor WooCommerce es speichert (sonst
+        // überschreibt WooCommerce z. B. „virtuell“ mit dem Formularwert).
+        add_action('woocommerce_admin_process_product_object', [__CLASS__, 'save_fields']);
+        add_filter('woocommerce_quantity_input_max', [__CLASS__, 'max_quantity'], 10, 2);
     }
 
     /** @return array{courses: array, products: array} Katalog der App (15 Minuten zwischengespeichert). */
@@ -42,15 +45,43 @@ final class BS_Products
         return $catalog;
     }
 
+    /** Höchstmenge je Bestellposition (wie COMMERCE max_quantity der Plattform). */
+    const MAX_QUANTITY = 500;
+
+    /** Die Zuordnung steht am Hauptprodukt -- auch für dessen Varianten. */
+    public static function source($product): ?WC_Product
+    {
+        if (! $product instanceof WC_Product) {
+            return null;
+        }
+        if ($product->is_type('variation') && $product->get_parent_id()) {
+            return wc_get_product($product->get_parent_id()) ?: null;
+        }
+
+        return $product;
+    }
+
     /** Liefert das Produkt Codes der Plattform? */
     public static function is_platform_product($product): bool
     {
-        return $product instanceof WC_Product && (string) $product->get_meta(self::META_KIND) !== '';
+        $source = self::source($product);
+
+        return $source !== null && (string) $source->get_meta(self::META_KIND) !== '';
+    }
+
+    public static function max_quantity($max, $product)
+    {
+        if (! self::is_platform_product($product)) {
+            return $max;
+        }
+
+        return ($max === -1 || $max === '' || (int) $max <= 0) ? self::MAX_QUANTITY : min((int) $max, self::MAX_QUANTITY);
     }
 
     /** @return array{kind: string, course_code: ?string, product_code: ?string, option_product_codes: array} */
     public static function target(WC_Product $product): array
     {
+        $product = self::source($product) ?? $product;
         $options = array_values(array_filter(array_map('trim', explode(',', (string) $product->get_meta(self::META_OPTIONS)))));
 
         return [
@@ -72,6 +103,17 @@ final class BS_Products
         foreach ($catalog['products'] as $item) {
             $products[$item['code']] = $item['name'].' ('.$item['code'].')';
         }
+        // Gespeicherte Zuordnung immer anbieten -- auch wenn der Katalog gerade
+        // nicht erreichbar ist oder den Eintrag nicht mehr enthält. Sonst würde
+        // ein Speichern die Zuordnung still löschen.
+        $post_id = (int) get_the_ID();
+        foreach ([self::META_COURSE => &$courses, self::META_PRODUCT => &$products] as $meta => &$options) {
+            $stored = (string) get_post_meta($post_id, $meta, true);
+            if ($stored !== '' && ! isset($options[$stored])) {
+                $options[$stored] = $stored.' '.__('(nicht im aktuellen Katalog)', 'bs-connector');
+            }
+        }
+        unset($options);
 
         echo '<div class="options_group">';
         woocommerce_wp_select(
@@ -101,13 +143,9 @@ final class BS_Products
         echo '</div>';
     }
 
-    public static function save_fields(int $post_id): void
+    public static function save_fields(WC_Product $product): void
     {
-        // Nonce und Rechte prüft WooCommerce vor diesem Hook (woocommerce_process_product_meta).
-        $product = wc_get_product($post_id);
-        if (! $product) {
-            return;
-        }
+        // Nonce und Rechte prüft WooCommerce vor diesem Hook.
         // phpcs:disable WordPress.Security.NonceVerification.Missing
         $kind = sanitize_key(wp_unslash($_POST[self::META_KIND] ?? ''));
         $kind = in_array($kind, ['course', 'renewal', 'product'], true) ? $kind : '';
@@ -120,6 +158,6 @@ final class BS_Products
             // Codes sind digitale Ware: kein Versand.
             $product->set_virtual(true);
         }
-        $product->save();
+        // Gespeichert wird von WooCommerce direkt nach diesem Hook.
     }
 }

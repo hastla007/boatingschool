@@ -71,6 +71,12 @@
             einmal das Shopkonto mit Ihrer Bootsschule verknüpfen: Code erzeugen und im Shop unter
             „Mein Konto → Bootsschule verknüpfen“ eingeben. Der Code gilt {{ config('commerce.link_code_minutes', 15) }} Minuten.
         </p>
+        @if ($shopNeedsLink ?? false)
+            <p class="mb-3 rounded-lg bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800 p-3 text-xs text-amber-800 dark:text-amber-200">
+                Im Shop gibt es bereits ein Kundenkonto mit Ihrer E-Mail-Adresse. Aus Sicherheitsgründen wurde es nicht automatisch
+                verknüpft: Bitte erzeugen Sie hier einen Code und geben Sie ihn im Shop ein.
+            </p>
+        @endif
         @if (session('shopLinkCode'))
             <div class="mb-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 p-3" role="status">
                 <p class="text-xs text-emerald-800 dark:text-emerald-200">Ihr Verknüpfungscode (wird nur einmal angezeigt):</p>
@@ -90,6 +96,9 @@
                         <span class="text-slate-700 dark:text-slate-200">
                             {{ $shopAccount->email }}@if ($shopAccount->company_name) · {{ $shopAccount->company_name }}@endif
                             <span class="block text-xs text-slate-500 dark:text-slate-400">verknüpft am {{ \App\Support\GermanTime::format($shopAccount->linked_at, 'd.m.Y') }}</span>
+                            @unless ($shopAccount->purchase_possible)
+                                <span class="block text-xs text-amber-700 dark:text-amber-300">Einkauf derzeit nicht möglich: Die Person, die den Code erzeugt hat, ist nicht mehr Inhaber oder Admin. Bitte Verknüpfung lösen und neu verknüpfen.</span>
+                            @endunless
                         </span>
                         <form method="POST" action="{{ route('admin.shop-link.unlink', $shopAccount->id) }}" onsubmit="return confirm('Verknüpfung mit diesem Shopkonto lösen? Danach sind keine Einkäufe für die Bootsschule mehr möglich.')">
                             @csrf @method('DELETE')

@@ -52,8 +52,9 @@
 
                 @if ($account->status === 'awaiting_link')
                     <p class="mt-2 text-xs text-amber-700 dark:text-amber-300">
-                        Diese Adresse hat bereits ein App-Konto. Die Person kann in der App einen Verknüpfungscode erzeugen
-                        (Admin-Bereich → Codes) – oder Sie ordnen das Konto hier nach Prüfung ausdrücklich zu.
+                        Diese Adresse hat bereits ein App-Konto. Weil die im Shop angegebene Adresse nicht bestätigt ist,
+                        verknüpft nur ein Verknüpfungscode aus diesem App-Konto (Admin-Bereich → Codes → „Shop verknüpfen“).
+                        Hier können Sie das Shopkonto nur ablehnen.
                     </p>
                 @endif
 
@@ -70,6 +71,7 @@
                         Im Shop gibt es bereits ein Kundenkonto mit dieser Adresse. Es wurde nicht automatisch übernommen:
                         Die Schule erzeugt in der App einen Verknüpfungscode (Admin-Bereich → Codes) und gibt ihn im Shop unter
                         „Mein Konto → Bootsschule verknüpfen“ ein.
+                        @if ($account->provisioning_error) {{ $account->provisioning_error }} @endif
                     </p>
                 @elseif ($account->provisioning_status === 'pending')
                     <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">Shopkonto wird angelegt …</p>
@@ -77,6 +79,7 @@
 
                 @if (in_array($account->status, ['pending_review', 'awaiting_link'], true))
                     <div class="mt-4 grid md:grid-cols-3 gap-4 text-sm">
+                        @if ($account->status === 'pending_review')
                         <form method="POST" action="{{ route('superadmin.shop-accounts.approve', $account) }}" class="space-y-2">
                             @csrf
                             <input type="hidden" name="mode" value="existing">
@@ -87,6 +90,7 @@
                                     <option value="{{ $tenant->id }}">{{ $tenant->name }} ({{ $tenant->slug }})</option>
                                 @endforeach
                             </select>
+                            <p class="text-xs text-slate-500 dark:text-slate-400">Die Inhaber der Schule werden per E-Mail informiert.</p>
                             <button type="submit" class="px-3 py-2 rounded-lg bg-slate-900 text-white">Zuordnen &amp; freigeben</button>
                         </form>
                         <form method="POST" action="{{ route('superadmin.shop-accounts.approve', $account) }}" class="space-y-2">
@@ -98,6 +102,7 @@
                             <input id="slug-{{ $account->id }}" name="slug" required value="{{ \Illuminate\Support\Str::slug($account->company_name ?? '') }}" placeholder="slug (z. B. meine-bootsschule)" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm font-mono">
                             <button type="submit" class="px-3 py-2 rounded-lg bg-slate-900 text-white">Schule anlegen &amp; freigeben</button>
                         </form>
+                        @endif
                         <form method="POST" action="{{ route('superadmin.shop-accounts.reject', $account) }}" class="space-y-2">
                             @csrf
                             <label for="note-{{ $account->id }}" class="block text-xs text-slate-600 dark:text-slate-300">Ablehnen (Grund, intern)</label>

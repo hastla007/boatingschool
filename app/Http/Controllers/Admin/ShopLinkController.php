@@ -44,7 +44,7 @@ class ShopLinkController extends Controller
         $tenant = $tenantContext->tenant();
         $shopAccount = CommerceShopAccount::where('id', $account)->where('tenant_id', $tenant->id)->firstOrFail();
         $shopAccount->forceFill(['status' => CommerceShopAccount::REVOKED, 'revoked_at' => now()])->save();
-        AuditLog::record($tenant->id, $request->user()->id, 'commerce.account.unlinked', 'commerce_shop_account', $shopAccount->id, null, ['email' => $shopAccount->email]);
+        AuditLog::record($tenant->id, $request->user()->id, 'commerce.account.unlinked', 'commerce_shop_account', $shopAccount->id, null, []);
 
         return back()->with('status', 'Verknüpfung mit dem Shopkonto '.$shopAccount->email.' gelöst.');
     }
