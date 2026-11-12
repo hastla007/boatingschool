@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Services\EntitlementService;
 use App\Support\FunkTraining;
 use App\Support\VideoCourseLessons;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 
@@ -218,24 +219,60 @@ class CourseAccess
         }));
     }
 
+    /** Return the unlock timestamp for a module-level drip rule, if one applies. */
+    public function dripUnlockAt(Tenant $tenant, User $user, CourseDefinition $course, string $capability, string $moduleCode): ?Carbon
+    {
+        $feature = self::RULE_FEATURES[$capability] ?? null;
+        if ($feature === null || trim($moduleCode) === '') {
+            return null;
+        }
+
+        $now = now();
+        $rule = CourseAccessRule::where('tenant_id', $tenant->id)->where('course_id', $course->id)
+            ->where('feature_code', $feature)->where('access_type', 'drip')->where('module_code', $moduleCode)
+            ->where(fn ($q) => $q->whereNull('valid_from')->orWhere('valid_from', '<=', $now))
+            ->where(fn ($q) => $q->whereNull('valid_until')->orWhere('valid_until', '>=', $now))
+            ->orderBy('limit_value')->first(['limit_value']);
+        if (! $rule) {
+            return null;
+        }
+
+        $entitlementCapability = in_array($capability, ['favorites', 'explanations'], true) ? 'smarttrainer' : $capability;
+        $starts = Entitlement::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+            ->where('course_id', $course->id)->where('status', 'active')->get()
+            ->filter(fn (Entitlement $entitlement) => $entitlement->capabilities === null
+                || in_array($entitlementCapability, $entitlement->capabilities, true))
+            ->map(fn (Entitlement $entitlement) => $entitlement->valid_from ?: $entitlement->created_at)
+            ->filter(fn ($start) => $start !== null && $start <= $now);
+        $startedAt = $starts->isNotEmpty() ? Carbon::parse($starts->min()) : ($user->created_at ? Carbon::parse($user->created_at) : $now);
+
+        return $startedAt->copy()->addDays((int) $rule->limit_value);
+    }
+
+    public function isDripLocked(Tenant $tenant, User $user, CourseDefinition $course, string $capability, string $moduleCode): bool
+    {
+        return ($unlockAt = $this->dripUnlockAt($tenant, $user, $course, $capability, $moduleCode)) !== null
+            && $unlockAt->isFuture();
+    }
+
     /** Questions available to a partial question-bank entitlement, keeping the first N per module. */
     public function accessibleQuestionIds(Tenant $tenant, User $user, CourseDefinition $course): Collection
     {
         $scope = $this->featureScope($tenant, $user, $course, 'smarttrainer');
-        if ($scope['full']) {
-            return $this->validQuestionIds($course);
-        }
-        $limit = (int) ($scope['limit'] ?? 0);
-        if ($limit < 1) {
+        $limit = $scope['full'] ? null : (int) ($scope['limit'] ?? 0);
+        if (! $scope['full'] && $limit < 1) {
             return collect();
         }
 
         $course->loadMissing('modules.questions');
         $allowed = collect();
         foreach ($course->modules as $module) {
+            if ($this->isDripLocked($tenant, $user, $course, 'smarttrainer', (string) $module->code)) {
+                continue;
+            }
             $valid = ContentQuestion::currentlyValidIds($module->questions);
 
-            $allowed = $allowed->merge($valid->take($limit));
+            $allowed = $allowed->merge($limit === null ? $valid : $valid->take($limit));
         }
 
         return $allowed->unique()->values();
