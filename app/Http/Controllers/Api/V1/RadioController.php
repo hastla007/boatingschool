@@ -12,6 +12,7 @@ use App\Support\Geraetesimulation;
 use App\Support\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Mobile adapter for the native SRC/UBI radio trainers. Content and checks use the same
@@ -234,36 +235,54 @@ class RadioController extends Controller
     {
         $course = $this->radioCourse($request, $courseId);
         $validated = $request->validate(['known' => ['required', 'boolean'], 'streak' => ['nullable', 'integer', 'min:0']]);
-        $card = null;
         $catalog = null;
+        $allKeys = [];
         foreach (FunkTraining::catalogsFor($course) as $candidate) {
             foreach (FunkTraining::vocabulary($candidate) as $items) {
-                foreach ($items as $item) {
-                    if ($item['key'] === $cardId) {
-                        $card = $item;
-                        $catalog = $candidate;
-                        break 3;
-                    }
+                $allKeys = array_merge($allKeys, array_column($items, 'key'));
+                if (in_array($cardId, array_column($items, 'key'), true)) {
+                    $catalog = $candidate;
                 }
             }
         }
-        if ($card === null) {
+        if ($catalog === null) {
             throw ApiProblem::notFound('Vokabel');
         }
 
-        $progress = $this->progress($request, RadioTrainingProgress::TYPE_VOCAB, [$cardId])->get($cardId);
-        $currentStreak = (int) ($progress?->streak ?? 0);
-        $streak = (bool) $validated['known'] ? $currentStreak + 1 : 0;
-        $learned = (bool) ($progress?->completed ?? false) || $streak >= RadioTrainingProgress::VOCAB_STREAK_TO_LEARN;
-        $this->store($request, RadioTrainingProgress::TYPE_VOCAB, $cardId, ['streak' => $streak, 'completed' => $learned]);
+        $result = DB::transaction(function () use ($request, $cardId, $validated): array {
+            $query = RadioTrainingProgress::where('tenant_id', $this->tenantContext->id())
+                ->where('user_id', $request->user()->id)
+                ->where('item_type', RadioTrainingProgress::TYPE_VOCAB)
+                ->where('item_key', $cardId)
+                ->lockForUpdate();
+            $row = $query->first();
+            $created = $row === null;
+            if ($created) {
+                $row = RadioTrainingProgress::create([
+                    'tenant_id' => $this->tenantContext->id(), 'user_id' => $request->user()->id,
+                    'item_type' => RadioTrainingProgress::TYPE_VOCAB, 'item_key' => $cardId,
+                    'streak' => 0, 'completed' => false, 'updated_at' => now(),
+                ]);
+            }
 
-        $allKeys = [];
-        foreach (FunkTraining::vocabulary($catalog) as $items) {
-            array_push($allKeys, ...array_column($items, 'key'));
-        }
+            $expected = $validated['streak'] ?? null;
+            $isRepeat = ! $created && ($expected !== null
+                ? (int) $expected !== (int) $row->streak
+                : $row->updated_at !== null && $row->updated_at->greaterThanOrEqualTo(now()->subSeconds(2)));
+            if ($isRepeat) {
+                return ['streak' => (int) $row->streak, 'learned' => (bool) $row->completed, 'repeated' => true];
+            }
+
+            $streak = $validated['known'] ? (int) $row->streak + 1 : 0;
+            $learned = (bool) $row->completed || $streak >= RadioTrainingProgress::VOCAB_STREAK_TO_LEARN;
+            $row->update(['streak' => $streak, 'completed' => $learned, 'updated_at' => now()]);
+
+            return ['streak' => $streak, 'learned' => $learned, 'repeated' => false];
+        });
+
         $learnedCount = $this->progress($request, RadioTrainingProgress::TYPE_VOCAB, $allKeys)->where('completed', true)->count();
 
-        return response()->json(['data' => ['card_id' => $cardId, 'known' => (bool) $validated['known'], 'streak' => $streak, 'learned' => $learned, 'learned_count' => $learnedCount]]);
+        return response()->json(['data' => ['card_id' => $cardId, 'known' => (bool) $validated['known']] + $result + ['learned_count' => $learnedCount]]);
     }
 
     public function practiceIndex(Request $request, string $courseId): JsonResponse
