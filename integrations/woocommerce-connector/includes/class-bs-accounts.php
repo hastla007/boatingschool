@@ -58,6 +58,11 @@ final class BS_Accounts
 
     public static function validate_registration(WP_Error $errors, $username, $email): WP_Error
     {
+        // Nur das Registrierungsformular unter „Mein Konto“ -- Konten, die an der
+        // Kasse angelegt werden (normale Produkte), brauchen keine Schulangaben.
+        if (did_action('woocommerce_checkout_process') || ! isset($_POST['register'])) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+            return $errors;
+        }
         // phpcs:disable WordPress.Security.NonceVerification.Missing -- WooCommerce prüft die Nonce des Formulars.
         if (empty($_POST['billing_company'])) {
             $errors->add('billing_company', __('Bitte den Namen der Bootsschule angeben.', 'bs-connector'));

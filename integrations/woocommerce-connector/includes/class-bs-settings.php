@@ -85,7 +85,7 @@ final class BS_Settings
         foreach (['secret', 'inbound_secret'] as $key) {
             // phpcs:ignore WordPress.Security.NonceVerification.Missing -- WooCommerce prüft die Nonce der Einstellungsseite.
             if (isset($_POST[self::OPTION]) && is_array($_POST[self::OPTION]) && ($_POST[self::OPTION][$key] ?? '') === '' && ! empty($stored[$key])) {
-                $_POST[self::OPTION][$key] = $stored[$key];
+                $_POST[self::OPTION][$key] = wp_slash($stored[$key]); // WooCommerce entfernt die Maskierung beim Speichern.
             }
         }
         woocommerce_update_options(self::fields());

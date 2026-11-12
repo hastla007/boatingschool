@@ -124,7 +124,9 @@ class ShopOrders
             // Auswahl und Sperre fällt (Einlösungen sperren dieselbe Zeile).
             $ids = Coupon::withoutGlobalScopes()->where('batch_id', $batch->id)->whereNull('redeemed_at')->whereNull('voided_at')
                 ->orderByDesc('created_at')->orderByDesc('id')
-                ->when($quantity, fn ($q) => $q->limit($quantity))->lockForUpdate()->pluck('id');
+                // SKIP LOCKED: ein gerade eingelöster Code wird übersprungen und der
+                // nächste freie genommen (FOR UPDATE allein lieferte dann weniger).
+                ->when($quantity, fn ($q) => $q->limit($quantity))->lock('for update skip locked')->pluck('id');
             $voided = $ids->isEmpty() ? 0 : Coupon::withoutGlobalScopes()->whereIn('id', $ids)
                 ->whereNull('redeemed_at')->whereNull('voided_at')->update(['voided_at' => now()]);
 

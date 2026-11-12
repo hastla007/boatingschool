@@ -91,6 +91,17 @@ class TenantOffboardingService
             TenantInvitation::where('tenant_id', $tenant->id)->delete();
             // Review-Runde 13: Exportdateien der App (Zeilen gehen per Kaskade).
             ApiDataExport::deleteFilesAfterCommit(ApiDataExport::withoutGlobalScopes()->where('tenant_id', $tenant->id)->pluck('path'));
+            // Shopkonten der Schule: kein Einkauf mehr, Kontaktdaten aus dem Shop
+            // nicht weiter aufbewahren; ausgehende Ereignisse ohne Name/Adresse.
+            $shopAccountIds = DB::table('commerce_shop_account')->where('tenant_id', $tenant->id)->pluck('id');
+            foreach ($shopAccountIds as $shopAccountId) {
+                DB::table('commerce_shop_account')->where('id', $shopAccountId)->update([
+                    'email' => 'geloescht-'.$shopAccountId.'@invalid.invalid', 'contact_name' => null, 'company_name' => null, 'vat_id' => null,
+                    'user_id' => null, 'status' => DB::raw("CASE WHEN status = 'rejected' THEN 'rejected' ELSE 'revoked' END"), 'revoked_at' => now(),
+                ]);
+            }
+            DB::table('commerce_event')->where('tenant_id', $tenant->id)
+                ->update(['payload' => DB::raw("payload - 'email' - 'first_name' - 'last_name'")]);
 
             $tenant->delete();
 

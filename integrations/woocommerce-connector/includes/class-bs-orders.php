@@ -47,13 +47,37 @@ final class BS_Orders
         }
         foreach ($order->get_items() as $item_id => $item) {
             $product = $item->get_product();
-            if (! BS_Products::is_platform_product($product) || (string) $item->get_meta('_bs_delivery_status') !== '') {
+            $status = (string) $item->get_meta('_bs_delivery_status');
+            if ($status === 'cancelled' && ! $item->get_meta('_bs_reactivation_alerted')) {
+                // Storniert und später wieder auf bezahlt gesetzt: nichts automatisch
+                // nachliefern (Codes können bereits gesperrt sein) -- Mensch entscheidet.
+                $item->update_meta_data('_bs_reactivation_alerted', 1);
+                $item->save();
+                $order->add_order_note(sprintf(__('Bootsschul-Codes für „%s“: Die Position war storniert. Bitte prüfen und bei Bedarf neu bestellen lassen.', 'bs-connector'), $item->get_name()));
+                self::alert(
+                    sprintf(__('Stornierte Bestellung %s wieder aktiv', 'bs-connector'), $order->get_order_number()),
+                    sprintf("Position: %s\nDie Codes dieser Position wurden storniert bzw. gesperrt und werden nicht automatisch erneut geliefert.\n%s", $item->get_name(), $order->get_edit_order_url())
+                );
+
                 continue;
             }
-            $target = BS_Products::target($product);
-            $item->update_meta_data('_bs_target', wp_json_encode($target));
+            if (! in_array($status, ['', 'deferred'], true) || ($status === '' && ! BS_Products::is_platform_product($product))) {
+                continue;
+            }
+            // Lieferauftrag beim ersten Einplanen einfrieren (Zuordnung, Menge,
+            // Kunde) -- spätere Änderungen an Produkt oder Bestellung dürfen eine
+            // schon angekommene Lieferung nicht in einen Konflikt verwandeln.
+            if ((string) $item->get_meta('_bs_target') === '') {
+                $target = BS_Products::target($product) + [
+                    'quantity' => (int) $item->get_quantity(),
+                    'shop_customer_id' => (string) $order->get_customer_id(),
+                ];
+                $item->update_meta_data('_bs_target', wp_json_encode($target));
+            }
             $item->update_meta_data('_bs_delivery_status', 'pending');
-            $item->update_meta_data('_bs_attempts', 0);
+            // Versuchszähler behalten: nach einer Zurückstellung fragt der nächste
+            // Versuch zuerst nach, ob ein früherer angekommen ist.
+            $item->update_meta_data('_bs_attempts', (int) $item->get_meta('_bs_attempts'));
             $item->save();
             self::enqueue_delivery((int) $order->get_id(), (int) $item_id, 0, true);
             $order->add_order_note(sprintf( /* translators: %s: Produktname */ __('Bootsschul-Codes für „%s“ zur Zustellung eingeplant.', 'bs-connector'), $item->get_name()));
@@ -85,14 +109,14 @@ final class BS_Orders
     {
         $order = wc_get_order((int) $order_id);
         $item = $order ? $order->get_item((int) $item_id) : null;
-        if (! $order || ! $item || (string) $item->get_meta('_bs_delivery_status') !== 'pending') {
+        if (! $order || ! $item || (int) $item->get_order_id() !== (int) $order->get_id() || (string) $item->get_meta('_bs_delivery_status') !== 'pending') {
             return;
         }
         // Nicht (mehr) bezahlt, z. B. „In Wartestellung“: Zustellung zurückstellen.
         // Wird die Bestellung wieder „In Bearbeitung“, plant schedule_order neu ein;
         // wird sie storniert, sperrt on_cancel (über _bs_target) alles Gelieferte.
         if (! $order->is_paid()) {
-            $item->delete_meta_data('_bs_delivery_status');
+            $item->update_meta_data('_bs_delivery_status', 'deferred');
             $item->save();
 
             return;
@@ -112,7 +136,7 @@ final class BS_Orders
                 'POST',
                 '/orders/lines',
                 [
-                    'shop_customer_id' => (string) $order->get_customer_id(),
+                    'shop_customer_id' => (string) ($target['shop_customer_id'] ?? $order->get_customer_id()),
                     'order_id' => (string) $order->get_id(),
                     'order_line_id' => (string) $item_id,
                     'order_number' => (string) $order->get_order_number(),
@@ -120,7 +144,7 @@ final class BS_Orders
                     'course_code' => $target['course_code'],
                     'product_code' => $target['product_code'],
                     'option_product_codes' => $target['option_product_codes'],
-                    'quantity' => (int) $item->get_quantity(),
+                    'quantity' => (int) ($target['quantity'] ?? $item->get_quantity()),
                     'delivery' => 'platform',
                 ],
                 ['Idempotency-Key' => BS_Delivery_Policy::reference('woocommerce', (string) $order->get_id(), (string) $item_id)]
@@ -132,8 +156,10 @@ final class BS_Orders
         // sein: den aktuellen Stand neu lesen, statt ihn zu überschreiben.
         $order = wc_get_order((int) $order_id) ?: $order;
         $item = $order->get_item((int) $item_id) ?: $item;
+        // Nur ein echtes Storno zählt -- „In Wartestellung“ (Prüfung, Streitfall)
+        // sperrt nichts, sonst blieben bezahlte Codes dauerhaft gesperrt.
+        $cancelled_meanwhile = (string) $item->get_meta('_bs_delivery_status') === 'cancelled' || $order->has_status(['cancelled', 'refunded']);
         if ($result === BS_Delivery_Policy::DELIVERED) {
-            $cancelled_meanwhile = (string) $item->get_meta('_bs_delivery_status') === 'cancelled' || ! $order->is_paid();
             $item->update_meta_data('_bs_batch_id', (string) ($response['body']['data']['batch_id'] ?? ''));
             self::set_item_status($item, 'delivered', null);
             if ($cancelled_meanwhile) {
@@ -148,6 +174,15 @@ final class BS_Orders
                     $item->get_name()
                 )
             );
+
+            return;
+        }
+        if ($cancelled_meanwhile) {
+            // Storniert, während der Aufruf lief: nicht weiter liefern. Kam der
+            // Aufruf trotz fehlender Antwort an, sperrt der Storno-Lauf die Codes
+            // (er fragt bei „nicht gefunden“ mehrmals nach).
+            self::set_item_status($item, 'cancelled', null);
+            self::enqueue_void((int) $order_id, (int) $item_id, null, 'cancel-'.(int) $order_id.'-'.(int) $item_id);
 
             return;
         }
@@ -210,7 +245,7 @@ final class BS_Orders
         }
         foreach ($order->get_items() as $item_id => $item) {
             $status = (string) $item->get_meta('_bs_delivery_status');
-            if ($status === 'pending') {
+            if (in_array($status, ['pending', 'deferred'], true)) {
                 // Noch nicht geliefert: Zustellung abbrechen. Kam ein laufender Versuch
                 // doch an, sperrt die Nachfrage beim nächsten Lauf (cancelled) nichts --
                 // deshalb zusätzlich ein Storno für den Fall der Lieferung.
@@ -241,23 +276,39 @@ final class BS_Orders
     {
         $order = wc_get_order((int) $order_id);
         $item = $order ? $order->get_item((int) $item_id) : null;
-        if (! $item) {
+        if (! $item || (int) $item->get_order_id() !== (int) $order->get_id()) {
             return;
         }
         $batch_id = (string) $item->get_meta('_bs_batch_id');
         if ($batch_id === '') {
             // Batch-ID unbekannt (z. B. Zustellung lief beim Storno): über die Position nachfragen.
             $lookup = BS_Api_Client::request('GET', '/orders/'.rawurlencode((string) $order_id).'/lines/'.rawurlencode((string) $item_id));
+            if ($lookup['status'] !== 200 && $lookup['status'] !== 404) {
+                // Plattform nicht erreichbar o. Ä.: das heißt nicht „nichts geliefert“.
+                self::retry_void_or_alert($order, $item, $quantity, (string) $key, (int) $attempt, $lookup);
+
+                return;
+            }
             $batch_id = $lookup['status'] === 200 ? (string) ($lookup['body']['data']['batch_id'] ?? '') : '';
             if ($batch_id === '') {
                 $status = (string) $item->get_meta('_bs_delivery_status');
-                if (in_array($status, ['pending', 'failed'], true) || ($status === '' && $order->is_paid())) {
+                if (in_array($status, ['pending', 'failed', 'deferred'], true) && $order->is_paid()) {
                     // Zustellung steht noch aus: Sperre merken und nach der Lieferung
                     // anwenden (geliefert wird immer die volle Menge der Position).
                     $deferred = (array) json_decode((string) $item->get_meta('_bs_deferred_voids'), true);
                     $deferred[(string) $key] = $quantity;
                     $item->update_meta_data('_bs_deferred_voids', wp_json_encode($deferred));
                     $item->save();
+                    // Lief die Zustellung gerade fertig, die Sperre jetzt anwenden.
+                    $fresh = wc_get_order((int) $order_id)?->get_item((int) $item_id);
+                    if ($fresh && (string) $fresh->get_meta('_bs_delivery_status') === 'delivered') {
+                        self::flush_deferred_voids($fresh);
+                    }
+                } elseif ((int) $item->get_meta('_bs_attempts') > 0 && (int) $attempt <= count(BS_Delivery_Policy::BACKOFF_MINUTES)) {
+                    // Storniert, aber ein Lieferauftrag wurde schon gesendet: er kann
+                    // noch verarbeitet werden -- später erneut nachsehen.
+                    as_schedule_single_action(time() + BS_Delivery_Policy::BACKOFF_MINUTES[(int) $attempt - 1] * MINUTE_IN_SECONDS, self::HOOK_VOID,
+                        [(int) $order_id, (int) $item_id, $quantity, (string) $key, (int) $attempt + 1], self::GROUP);
                 }
 
                 return; // Nichts geliefert: (noch) nichts zu sperren.
@@ -292,9 +343,14 @@ final class BS_Orders
 
             return;
         }
-        [$result, $delay] = BS_Delivery_Policy::decide($response['status'], (int) $attempt);
+        self::retry_void_or_alert($order, $item, $quantity, (string) $key, (int) $attempt, $response);
+    }
+
+    private static function retry_void_or_alert(WC_Order $order, WC_Order_Item $item, $quantity, string $key, int $attempt, array $response): void
+    {
+        [$result, $delay] = BS_Delivery_Policy::decide($response['status'], $attempt);
         if ($result === BS_Delivery_Policy::RETRY && function_exists('as_schedule_single_action')) {
-            as_schedule_single_action(time() + (int) $delay * MINUTE_IN_SECONDS, self::HOOK_VOID, [(int) $order_id, (int) $item_id, $quantity, (string) $key, (int) $attempt + 1], self::GROUP);
+            as_schedule_single_action(time() + (int) $delay * MINUTE_IN_SECONDS, self::HOOK_VOID, [(int) $order->get_id(), (int) $item->get_id(), $quantity, $key, $attempt + 1], self::GROUP);
 
             return;
         }
@@ -330,7 +386,7 @@ final class BS_Orders
 
     public static function hide_item_meta(array $keys): array
     {
-        return array_merge($keys, ['_bs_target', '_bs_delivery_status', '_bs_attempts', '_bs_error', '_bs_batch_id', '_bs_deferred_voids']);
+        return array_merge($keys, ['_bs_target', '_bs_delivery_status', '_bs_attempts', '_bs_error', '_bs_batch_id', '_bs_deferred_voids', '_bs_reactivation_alerted']);
     }
 
     public static function add_meta_box(): void
@@ -365,7 +421,7 @@ final class BS_Orders
                 echo '<br><small>'.esc_html($error).'</small>';
             }
             if ($status === 'failed' && current_user_can('edit_shop_orders')) {
-                $url = wp_nonce_url(admin_url('admin-post.php?action=bs_connector_retry&order_id='.$order->get_id().'&item_id='.$item_id), 'bs_connector_retry_'.$item_id);
+                $url = wp_nonce_url(admin_url('admin-post.php?action=bs_connector_retry&order_id='.$order->get_id().'&item_id='.$item_id), 'bs_connector_retry_'.$order->get_id().'_'.$item_id);
                 echo '<br><a class="button" href="'.esc_url($url).'">'.esc_html__('Erneut zustellen', 'bs-connector').'</a>';
             }
             echo '</li>';
@@ -380,13 +436,13 @@ final class BS_Orders
     {
         $order_id = isset($_GET['order_id']) ? absint($_GET['order_id']) : 0;
         $item_id = isset($_GET['item_id']) ? absint($_GET['item_id']) : 0;
-        check_admin_referer('bs_connector_retry_'.$item_id);
+        check_admin_referer('bs_connector_retry_'.$order_id.'_'.$item_id);
         if (! current_user_can('edit_shop_orders')) {
             wp_die(esc_html__('Keine Berechtigung.', 'bs-connector'), 403);
         }
         $order = wc_get_order($order_id);
         $item = $order ? $order->get_item($item_id) : null;
-        if ($item && (string) $item->get_meta('_bs_delivery_status') === 'failed') {
+        if ($item && (int) $item->get_order_id() === (int) $order->get_id() && (string) $item->get_meta('_bs_delivery_status') === 'failed') {
             // Gleicher Lieferauftrag, gleiche Referenz: die App liefert höchstens einmal.
             $item->update_meta_data('_bs_delivery_status', 'pending');
             $item->update_meta_data('_bs_attempts', 0);

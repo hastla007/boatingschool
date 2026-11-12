@@ -169,7 +169,9 @@ class ShopAccounts
             // „wartet auf Verknüpfung“ erscheint im Shop wie „in Prüfung“.
             'status' => $account->status === CommerceShopAccount::AWAITING_LINK ? CommerceShopAccount::PENDING_REVIEW : $account->status,
             'can_purchase' => $account->canPurchase(),
-            'app_user_id' => $account->user_id,
+            // Nur bei bestehender Verknüpfung -- sonst verriete null/gesetzt, ob die
+            // Adresse schon ein App-Konto hat.
+            'app_user_id' => $account->status === CommerceShopAccount::LINKED ? $account->user_id : null,
             'tenant' => $tenant ? ['id' => $tenant->id, 'name' => $tenant->name, 'slug' => $tenant->slug] : null,
             'linked_at' => $account->linked_at?->toIso8601ZuluString(),
         ];

@@ -12,7 +12,7 @@ oder in der App ein (`POST /api/v1/coupons/redeem`).
 | Ausgang App → Shop (Outbox) | `app/Commerce/Outbox.php`, Befehl `app:commerce-outbox` (jede Minute) |
 | Superadmin „Shopkonten“ | `app/Http/Controllers/Superadmin/ShopAccountController.php` |
 | Schuladmin „Shop verknüpfen“ | `app/Http/Controllers/Admin/ShopLinkController.php`, Tab „Codes“ |
-| Datenmodell | Migration `2024_02_01_000610_create_commerce_tables` |
+| Datenmodell | Migration `2024_02_01_000610_create_commerce_tables` (RLS je Schule auf Batches, Verknüpfungscodes und Shopkonten) |
 | WooCommerce-Plugin | `integrations/woocommerce-connector/` |
 | Konfiguration | `config/commerce.php`, `.env` (`COMMERCE_*`) |
 | Tests | `tests/Feature/Commerce/`, `tests/Unit/ConnectorSignatureCompatibilityTest.php` |
@@ -36,7 +36,7 @@ oder in der App ein (`POST /api/v1/coupons/redeem`).
 
 1. Die Kundin registriert sich im Shop. Das Plugin sendet `POST /accounts`.
    - Gibt es noch kein App-Konto mit der Adresse: Status `pending_review`.
-   - Gibt es schon eines: Status `awaiting_link`. Es wird **nicht** verknüpft, und der Superadmin kann es auch nicht freigeben (nur ablehnen); verknüpft wird es ausschließlich per Code aus diesem App-Konto. Nach außen meldet die API in beiden Fällen `pending_review`, damit der Shop nicht verrät, ob eine Adresse ein App-Konto hat.
+   - Gibt es schon eines: Status `awaiting_link` (ist die Person noch nicht Inhaberin/Admin einer Schule, legt der Superadmin die Schule mit dieser Adresse als Inhaber an; danach verknüpft sie per Code). Es wird **nicht** verknüpft, und der Superadmin kann es auch nicht freigeben (nur ablehnen); verknüpft wird es ausschließlich per Code aus diesem App-Konto. Nach außen meldet die API in beiden Fällen `pending_review`, damit der Shop nicht verrät, ob eine Adresse ein App-Konto hat.
 2. Inhaber oder Admin der Schule erzeugt unter Admin → Codes → „Shop verknüpfen“ einen Verknüpfungscode.
 3. Im Shop unter „Mein Konto → Bootsschule verknüpfen“ den Code eingeben. Das Plugin sendet `POST /accounts/{id}/link`, der Status wird `linked`.
 4. Nach falschen Codes: höchstens 5 Versuche in 10 Minuten (danach 429).
@@ -81,7 +81,9 @@ oder in der App ein (`POST /api/v1/coupons/redeem`).
 - **Storno oder vollständige Erstattung**: alle restlichen unbenutzten Codes. Der Idempotency-Key ist `cancel-{order_id}-{item_id}`.
 - Eine noch offene Zustellung wird abgebrochen.
 - Kommt eine Rückerstattung, bevor die Zustellung gelungen ist, merkt sich das Plugin die Sperre und wendet sie nach der Lieferung an (geliefert wird immer die volle Menge der Position).
-- Steht eine Bestellung zwischenzeitlich „In Wartestellung“, wird die Zustellung zurückgestellt und bei „In Bearbeitung“ erneut eingeplant.
+- Steht eine Bestellung zwischenzeitlich „In Wartestellung“ (Prüfung, Streitfall), wird die Zustellung zurückgestellt (`deferred`) und bei „In Bearbeitung“ mit demselben eingefrorenen Auftrag (Zuordnung, Menge, Kunde) fortgesetzt. „In Wartestellung“ sperrt keine Codes – nur „Storniert“ und „Erstattet“.
+- Wird während einer laufenden Zustellung storniert, liefert das Plugin nicht weiter und fragt bei „nicht gefunden“ mehrfach nach (1, 5, 30 Minuten), ob der Auftrag doch noch ankam, und sperrt ihn dann.
+- Wird eine stornierte Bestellung später wieder auf bezahlt gesetzt, liefert das Plugin nicht automatisch nach, sondern meldet es per Bestellnotiz und Alarm-Mail.
 
 ## Commerce-API v1
 
@@ -128,7 +130,7 @@ Antworten zu einem Paket enthalten nur Zahlen, **nie Codewerte**:
 
 ```
 COMMERCE_SHOP_KEY_ID=shop
-COMMERCE_SHOP_SECRET=<zufällig, mind. 32 Zeichen>   # ohne: Commerce-API aus (401)
+COMMERCE_SHOP_SECRET=<zufällig, mind. 32 Zeichen>   # ohne: Commerce-API aus (401); app:check-production prüft die Länge
 COMMERCE_SHOP_URL=https://shop.example.de           # ohne: kein Ausgang App -> Shop
 COMMERCE_OUTBOUND_KEY_ID=app
 COMMERCE_OUTBOUND_SECRET=<zufällig, mind. 32 Zeichen>

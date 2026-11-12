@@ -6,7 +6,7 @@ use Automattic\WooCommerce\Utilities\FeaturesUtil;
  * Plugin Name:       Bootsschul-Plattform Connector
  * Description:       Verkauft Kurs-, Verlängerungs- und Produktcodes der Bootsschul-Plattform. Nach der Zahlung werden die Codes im Codebestand der verknüpften Bootsschule hinterlegt.
  * Version:           1.0.0
- * Requires at least: 6.4
+ * Requires at least: 6.5
  * Requires PHP:      8.1
  * Requires Plugins:  woocommerce
  * WC requires at least: 8.0

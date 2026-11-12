@@ -123,6 +123,8 @@ class CommerceApiTest extends TestCase
             // Nach außen wie eine neue Registrierung (verrät nicht, dass es das Konto gibt).
             ->assertCreated()->assertJsonPath('data.status', 'pending_review')->assertJsonPath('data.app_user_id', null)->assertJsonPath('data.tenant', null);
         $this->assertSame('awaiting_link', $this->onAdmin(fn () => CommerceShopAccount::where('shop_id', $this->shopId)->where('shop_customer_id', '502')->value('status')));
+        // Auch die neue Registrierung meldet keine App-Konto-ID, solange nicht verknüpft.
+        $this->signed('GET', '/accounts/501')->assertOk()->assertJsonPath('data.app_user_id', null);
 
         // Stammdaten aus dem Shop ändern das App-Konto nicht.
         $this->signed('PATCH', '/accounts/501', ['email' => 'andere@example.test', 'company_name' => 'Segelschule Süd'])->assertOk();

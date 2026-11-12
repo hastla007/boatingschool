@@ -43,13 +43,14 @@ class TlsCheckController extends Controller
         if (str_ends_with($domain, '.'.$central)) {
             $slug = substr($domain, 0, -strlen('.'.$central));
 
-            return ! str_contains($slug, '.') && $db->table('tenant')->whereRaw('lower(slug) = ?', [$slug])->where('status', 'active')->exists();
+            return ! str_contains($slug, '.') && $db->table('tenant')->whereRaw('lower(slug) = ?', [$slug])->whereIn('status', ['active', 'trial'])->exists();
         }
 
         return $db->table('tenant_branding')
             ->join('tenant', 'tenant.id', '=', 'tenant_branding.tenant_id')
             ->whereRaw('lower(tenant_branding.custom_domain) = ?', [$domain])
-            ->where('tenant.status', 'active')
+            // Wie ResolveTenant: auch Schulen in der Testphase sind erreichbar.
+            ->whereIn('tenant.status', ['active', 'trial'])
             ->exists();
     }
 }

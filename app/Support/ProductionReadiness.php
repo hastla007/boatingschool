@@ -43,6 +43,13 @@ class ProductionReadiness
         $add('Konfiguration', 'APP_ENV = production', $env === 'production' ? 'ok' : 'fail', "aktuell: {$env}");
         $add('Konfiguration', 'APP_DEBUG aus', config('app.debug') ? 'fail' : 'ok', config('app.debug') ? 'Fehlerseiten zeigen sonst Code und Zugangsdaten' : '');
         $add('Konfiguration', 'APP_KEY gesetzt', config('app.key') ? 'ok' : 'fail');
+        // Shop-Anbindung: kurze HMAC-Geheimnisse ließen sich aus einer mitgeschnittenen
+        // Anfrage offline erraten -- damit könnte man Codes für jede Schule erzeugen.
+        $shortSecrets = collect(array_merge(array_values((array) config('commerce.keys')), [config('commerce.outbound_secret')]))
+            ->filter()->filter(fn ($secret) => strlen((string) $secret) < 32)->count();
+        if (config('commerce.keys') || config('commerce.outbound_secret')) {
+            $add('Konfiguration', 'Geheimnisse der Shop-Anbindung mind. 32 Zeichen', $shortSecrets === 0 ? 'ok' : 'fail', $shortSecrets ? "{$shortSecrets} zu kurz (z. B. openssl rand -hex 32)" : '');
+        }
         $url = (string) config('app.url');
         $add('Konfiguration', 'APP_URL mit https', str_starts_with($url, 'https://') ? 'ok' : 'fail', $url);
         $central = (string) config('app.central_domain');
@@ -97,6 +104,9 @@ class ProductionReadiness
             $role = DB::connection('pgsql_admin')->selectOne('SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = ?', [$app]);
             $roleOk = $role && ! $role->rolsuper && ! $role->rolbypassrls;
             $add('Datenbank', 'App-Rolle ohne Superuser/BYPASSRLS', $roleOk ? 'ok' : 'fail', $roleOk ? '' : 'sonst greift die Mandantentrennung (RLS) nicht');
+            // Mitglied der Owner-Rolle = gilt als Tabelleneigentümer, RLS greift dann nicht.
+            $member = (bool) DB::connection('pgsql_admin')->selectOne('SELECT pg_has_role(?, ?, \'USAGE\') AS m', [$app, $owner])?->m;
+            $add('Datenbank', 'App-Rolle nicht Mitglied der Owner-Rolle', $member ? 'fail' : 'ok', $member ? 'sonst greift die Mandantentrennung (RLS) nicht' : '');
             $weak = collect([$app => config('database.connections.pgsql.password'), $owner => config('database.connections.pgsql_admin.password')])
                 ->filter(fn ($pw, $user) => strlen((string) $pw) < 16 || $pw === $user)->keys();
             $add('Datenbank', 'Starke DB-Passwörter (≥ 16 Zeichen)', $weak->isEmpty() ? 'ok' : 'fail', $weak->isEmpty() ? '' : 'zu schwach: '.$weak->implode(', '));
@@ -112,7 +122,7 @@ class ProductionReadiness
             $placeholders = VideoLesson::on('pgsql_admin')->where('video_url', VideoLesson::PLACEHOLDER_URL)->count();
             $add('Inhalte', 'Videolektionen mit echtem Video', $placeholders === 0 ? 'ok' : 'warn', $placeholders ? "{$placeholders} Lektion(en) noch mit Platzhaltervideo" : '');
 
-            $incomplete = Tenant::on('pgsql_admin')->where('status', 'active')->with('branding')->get()
+            $incomplete = Tenant::on('pgsql_admin')->whereIn('status', ['active', 'trial'])->with('branding')->get()
                 ->filter(fn (Tenant $t) => ! $t->branding || LegalPages::missingImprintFields($t->branding) !== [])
                 ->pluck('name');
             $add('Inhalte', 'Impressumsangaben aller aktiven Schulen', $incomplete->isEmpty() ? 'ok' : 'warn', $incomplete->isEmpty() ? '' : 'unvollständig: '.$incomplete->take(5)->implode(', ').($incomplete->count() > 5 ? ' …' : ''));

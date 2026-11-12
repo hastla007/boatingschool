@@ -231,7 +231,7 @@ Route::middleware(['auth', 'tenant.role:owner,admin,instructor', 'verified', 'in
     Route::post('/inactive/remind', [InactiveLearnerController::class, 'remind'])->middleware('throttle:10,1,participants-remind')->name('inactive.remind');
     Route::get('/statistics', [SchoolInsightsController::class, 'statistics'])->name('statistics');
     // Vor participants/{user}, sonst fängt die Detailroute "export" ab; nur Inhaber/Admins (personenbezogene Daten).
-    Route::get('/participants/export', [ParticipantToolsController::class, 'export'])->middleware('tenant.role:owner,admin')->name('participants.export');
+    Route::get('/participants/export', [ParticipantToolsController::class, 'export'])->middleware(['tenant.role:owner,admin', 'throttle:10,1,participants-export'])->name('participants.export');
     Route::get('/participants/{user}', [ParticipantController::class, 'show'])->name('participants.show');
     Route::patch('/participants/{user}', [ParticipantController::class, 'update'])->name('participants.update');
     Route::get('/branding/support-email/verify/{tenant}/{hash}', [SupportEmailVerificationController::class, 'verify'])
@@ -253,7 +253,7 @@ Route::middleware(['auth', 'tenant.role:owner,admin,instructor', 'verified', 'in
     Route::patch('/praxis-form-submissions/{submission}/exam-appointments/{examAppointment}/cancel', [AdminPraxisExamAppointmentController::class, 'cancel'])->name('praxis-form-submissions.exam-appointments.cancel');
 
     Route::patch('/willkommensbox-orders/{willkommensboxOrder}/ship', [WillkommensboxOrderController::class, 'ship'])->name('willkommensbox-orders.ship');
-    Route::get('/willkommensbox-orders/{willkommensboxOrder}/label/{size}', [WillkommensboxLabelController::class, 'show'])->name('willkommensbox-orders.label');
+    Route::get('/willkommensbox-orders/{willkommensboxOrder}/label/{size}', [WillkommensboxLabelController::class, 'show'])->middleware('throttle:30,1,willkommensbox-label')->name('willkommensbox-orders.label');
 });
 
 // Finanz-/Vertrauens-relevante Stellschrauben bleiben Owner/Admin

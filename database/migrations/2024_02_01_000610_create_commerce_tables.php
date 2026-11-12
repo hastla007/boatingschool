@@ -135,8 +135,9 @@ return new class extends Migration
             $table->index('created_at');
         });
 
-        // Schuladmins sehen Batches und Verknüpfungscodes nur ihrer Schule.
-        foreach (['coupon_batch', 'commerce_link_code'] as $table) {
+        // Schuladmins sehen Batches, Verknüpfungscodes und Shopkonten nur ihrer
+        // Schule (Commerce-API, Superadmin und Ausgang laufen auf der Owner-Verbindung).
+        foreach (['coupon_batch', 'commerce_link_code', 'commerce_shop_account'] as $table) {
             DB::statement("ALTER TABLE {$table} ENABLE ROW LEVEL SECURITY");
             DB::statement("CREATE POLICY {$table}_isolation ON {$table}
                 USING (tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')::uuid)
@@ -147,8 +148,10 @@ return new class extends Migration
             $role = AppRoleGrants::quotedRole();
             DB::statement("GRANT SELECT, INSERT, UPDATE ON commerce_link_code TO {$role}");
             DB::statement("GRANT SELECT ON coupon_batch TO {$role}");
-            // Die Schule sieht ihre verknüpften Shopkonten und kann eine Verknüpfung lösen.
-            DB::statement("GRANT SELECT, UPDATE ON commerce_shop_account TO {$role}");
+            // Die Schule sieht ihre verknüpften Shopkonten und kann eine Verknüpfung
+            // lösen -- ändern darf sie dabei nur den Status.
+            DB::statement("GRANT SELECT ON commerce_shop_account TO {$role}");
+            DB::statement("GRANT UPDATE (status, revoked_at, updated_at) ON commerce_shop_account TO {$role}");
             DB::statement("GRANT INSERT ON commerce_event TO {$role}");
         }
     }

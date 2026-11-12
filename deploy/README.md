@@ -85,6 +85,14 @@ zusätzlich nach außen; vorher `composer require league/flysystem-aws-s3-v3`. A
 
 ### Backup zurückspielen
 
+**Wichtig: `.env` gehört nicht in die Sicherung, wird aber gebraucht.** `APP_KEY`
+verschlüsselt u. a. die Zwei-Faktor-Schlüssel und Wiederherstellungscodes aller
+Konten (auch der Superadmins). Mit einem neuen `APP_KEY` (`key:generate`) lassen
+sie sich nach dem Zurückspielen nicht mehr entschlüsseln. `APP_KEY` sowie die
+Geheimnisse der Shop-Anbindung (`COMMERCE_*_SECRET`) und die Zugangsdaten für
+Datenbank, Mail und S3 deshalb getrennt und sicher aufbewahren (z. B. im
+Passwortmanager) und beim Zurückspielen wieder in `.env` eintragen.
+
 Auf einem Server mit denselben Rollen (`boatingschool`, `boatingschool_app`):
 
 ```bash

@@ -150,9 +150,9 @@ class ShopAccountController extends Controller
         $event = CommerceEvent::where('shop_account_id', $account->id)->where('direction', 'out')->where('status', 'failed')->latest('created_at')->first();
         abort_unless($event, 404);
         Outbox::retry($event);
-        app(Outbox::class)->process();
+        app(Outbox::class)->processOne($event->id);
 
-        return back()->with('status', $account->fresh()?->provisioning_status === 'done'
+        return back()->with('status', $event->fresh()?->status === 'done'
             ? 'Shopkonto angelegt.' : 'Erneut versucht -- der Shop hat noch nicht geantwortet, es wird automatisch wiederholt.');
     }
 }

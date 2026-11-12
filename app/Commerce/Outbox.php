@@ -80,20 +80,36 @@ class Outbox
             ->where('available_at', '<=', now())->orderBy('created_at')->limit(50)->pluck('id');
         $sent = 0;
         foreach ($ids as $id) {
-            // Jedes Ereignis exklusiv beanspruchen: Scheduler, defer() nach dem
-            // Anlegen einer Schule und „Erneut versuchen“ können gleichzeitig
-            // laufen -- gesendet wird trotzdem nur einmal.
-            DB::connection('pgsql_admin')->transaction(function () use ($id, &$sent) {
-                $event = CommerceEvent::on('pgsql_admin')->whereKey($id)->where('status', 'pending')
-                    ->where('available_at', '<=', now())->lock('for update skip locked')->first();
-                if ($event) {
-                    $sent++;
-                    $this->send($event);
-                }
-            });
+            $sent += $this->processOne($id) ? 1 : 0;
         }
 
         return $sent;
+    }
+
+    /**
+     * Ein Ereignis exklusiv beanspruchen und senden: Scheduler, defer() nach dem
+     * Anlegen einer Schule und „Erneut versuchen“ können gleichzeitig laufen --
+     * gesendet wird trotzdem nur einmal. Ein Datenbankfehler betrifft nur dieses
+     * Ereignis, nicht die übrigen.
+     */
+    public function processOne(string $id): bool
+    {
+        try {
+            return DB::connection('pgsql_admin')->transaction(function () use ($id) {
+                $event = CommerceEvent::on('pgsql_admin')->whereKey($id)->where('status', 'pending')
+                    ->where('available_at', '<=', now())->lock('for update skip locked')->first();
+                if (! $event) {
+                    return false;
+                }
+                $this->send($event);
+
+                return true;
+            });
+        } catch (Throwable $e) {
+            report($e);
+
+            return false;
+        }
     }
 
     public function send(CommerceEvent $event): void

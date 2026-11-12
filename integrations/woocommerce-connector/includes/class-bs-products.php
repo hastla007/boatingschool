@@ -23,7 +23,10 @@ final class BS_Products
         // Bekommt das Produktobjekt, bevor WooCommerce es speichert (sonst
         // überschreibt WooCommerce z. B. „virtuell“ mit dem Formularwert).
         add_action('woocommerce_admin_process_product_object', [__CLASS__, 'save_fields']);
-        add_filter('woocommerce_quantity_input_max', [__CLASS__, 'max_quantity'], 10, 2);
+        // Höchstmenge in den Mengenfeldern (klassisch und Block-Warenkorb); erzwungen
+        // wird sie zusätzlich serverseitig im Warenkorb und an der Kasse.
+        add_filter('woocommerce_quantity_input_args', [__CLASS__, 'quantity_args'], 10, 2);
+        add_filter('woocommerce_store_api_product_quantity_maximum', [__CLASS__, 'max_quantity'], 10, 2);
     }
 
     /** @return array{courses: array, products: array} Katalog der App (15 Minuten zwischengespeichert). */
@@ -67,6 +70,15 @@ final class BS_Products
         $source = self::source($product);
 
         return $source !== null && (string) $source->get_meta(self::META_KIND) !== '';
+    }
+
+    public static function quantity_args($args, $product)
+    {
+        if (is_array($args) && self::is_platform_product($product)) {
+            $args['max_value'] = self::max_quantity($args['max_value'] ?? -1, $product);
+        }
+
+        return $args;
     }
 
     public static function max_quantity($max, $product)

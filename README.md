@@ -319,10 +319,10 @@ und Versandlabel-Druck, Addon-Banner, Tipps sowie DSGVO-Werkzeuge
 (Datenexport, Löschfristen).
 
 **Bewusst ausgeklammert**, konsistent mit der im Technikpaket festgelegten
-Reihenfolge "nach V1": ein echter WooCommerce-/Commerce-Adapter bzw.
-In-App-Zahlungsabwicklung (Kurskäufe laufen weiterhin über einen externen
-Webshop-Link je Kurs, `course_webshop_link`, dessen Bestätigungscode erst
-hier als Coupon eingelöst wird), automatisierte Domain-Provisionierung,
+Reihenfolge "nach V1": In-App-Zahlungsabwicklung für Lernende (Kurskäufe
+laufen über einen externen Webshop-Link je Kurs, `course_webshop_link`, dessen
+Code hier eingelöst wird; Bootsschulen kaufen Codes im B2B-Shop, siehe
+„Shop-Anbindung“), automatisierte Domain-Provisionierung,
 Self-Service-Billing, ein vollständiges Content-Review-UI
 (Staging/Diff/Publish-Oberfläche – der Import validiert und veröffentlicht
 aktuell in einem Schritt) sowie fortgeschrittenes Spaced Repetition.

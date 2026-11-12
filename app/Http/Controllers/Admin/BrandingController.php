@@ -44,12 +44,14 @@ class BrandingController extends Controller
             // Plattform (Sicherheitsreview H4). "image" lässt SVG in
             // Laravel 11 sonst durch, daher zusätzlich "mimes" auf eine
             // feste Positivliste einschränken.
-            'logo' => ['nullable', 'image', 'mimes:png,jpg,jpeg,webp', 'max:1024'],
+            // dimensions: ein kleines PNG mit riesiger Pixelfläche sprengt sonst beim
+            // Umkodieren den Speicher (imagecreatefromstring).
+            'logo' => ['nullable', 'image', 'mimes:png,jpg,jpeg,webp', 'max:1024', 'dimensions:max_width=4096,max_height=4096'],
             // Bug-Review Oberfläche U4: favicon_asset_id existierte in der
             // Tabelle bereits (siehe TenantBranding), hatte aber weder ein
             // Formularfeld noch eine Upload-Verarbeitung -- dasselbe
             // SVG-Verbot wie beim Logo (Sicherheitsreview H4) gilt auch hier.
-            'favicon' => ['nullable', 'image', 'mimes:png,jpg,jpeg,webp', 'max:512'],
+            'favicon' => ['nullable', 'image', 'mimes:png,jpg,jpeg,webp', 'max:512', 'dimensions:max_width=2048,max_height=2048'],
             // Bug-Review Oberfläche U4: primary_color/secondary_color
             // existierten in der Tabelle bereits, wurden aber nie validiert
             // oder gespeichert -- das Formularfeld "Farben" hatte dadurch

@@ -12,7 +12,7 @@ use Illuminate\Support\Str;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
-/** Review-Runde 14: Superadmin-2FA, Löschung von Shopdaten, Bündel-Codes, Code-Import. */
+/** Review-Runden 14/15: Superadmin-2FA, Löschung von Shopdaten, Bündel-Codes, Code-Import, Testschulen. */
 class ReviewRoundFourteenTest extends TestCase
 {
     use InteractsWithTenants;
@@ -65,6 +65,54 @@ class ReviewRoundFourteenTest extends TestCase
         $this->assertNull($fresh->contact_name);
         $this->assertNull($fresh->vat_id);
         $this->assertStringNotContainsString($admin->email, $fresh->email);
+    }
+
+    public function test_deleting_an_account_leaves_shop_links_of_other_people_alone(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        $tenant = $this->createTestTenant();
+        $this->createTenantUser($tenant, 'owner');
+        $schoolAdmin = $this->createTenantUser($tenant, 'admin');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        // Shopkunde mit der Adresse der Lernenden, verknüpft über den Code des Admins.
+        $account = $this->onAdmin(fn () => CommerceShopAccount::create([
+            'shop_id' => 'test-'.Str::lower(Str::random(8)), 'shop_customer_id' => '78', 'user_id' => $schoolAdmin->id, 'tenant_id' => $tenant->id,
+            'status' => 'linked', 'email' => $learner->email, 'linked_at' => now(),
+        ]));
+        $this->shopAccountIds[] = $account->id;
+
+        $this->actingAs($superadmin)->delete("/superadmin/users/{$learner->id}", ['confirm_email' => $learner->email])->assertRedirect();
+
+        $fresh = $this->onAdmin(fn () => $account->fresh());
+        $this->assertSame('linked', $fresh->status);
+        $this->assertSame($schoolAdmin->id, $fresh->user_id);
+    }
+
+    public function test_deleting_a_school_anonymises_its_shop_accounts(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        $tenant = $this->createTestTenant('Shop Lösch Schule');
+        $account = $this->onAdmin(fn () => CommerceShopAccount::create([
+            'shop_id' => 'test-'.Str::lower(Str::random(8)), 'shop_customer_id' => '79', 'tenant_id' => $tenant->id,
+            'status' => 'linked', 'email' => 'einkauf-'.Str::lower(Str::random(6)).'@example.test', 'vat_id' => 'DE999999999', 'linked_at' => now(),
+        ]));
+        $this->shopAccountIds[] = $account->id;
+        $this->onAdmin(fn () => $tenant->update(['status' => 'closed']));
+
+        $this->actingAs($superadmin)->delete("/superadmin/tenants/{$tenant->id}", ['confirm_slug' => $tenant->slug])->assertRedirect();
+
+        $fresh = $this->onAdmin(fn () => $account->fresh());
+        $this->assertSame('revoked', $fresh->status);
+        $this->assertNull($fresh->vat_id);
+        $this->assertStringStartsWith('geloescht-', $fresh->email);
+    }
+
+    public function test_schools_in_trial_get_a_certificate(): void
+    {
+        $trial = $this->createTestTenant('TLS Testphase');
+        $this->onAdmin(fn () => $trial->update(['status' => 'trial']));
+
+        $this->get('http://127.0.0.1/tls-check?domain='.urlencode($trial->slug.'.'.config('app.central_domain')))->assertOk();
     }
 
     public function test_manual_unlock_uses_plain_course_codes_before_bundles(): void

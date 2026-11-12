@@ -374,20 +374,28 @@ class AccountErasureService
         // Shopkonten dieser Person (Kontaktdaten aus dem Shop): anonymisieren
         // statt löschen -- die Bestellhistorie der Schule (coupon_batch)
         // verweist darauf. Ausgehende Ereignisse ohne Adresse/Name.
-        $shopAccountIds = DB::table('commerce_shop_account')
-            ->where(fn ($q) => $q->where('user_id', $user->id)->orWhereRaw('lower(email) = ?', [mb_strtolower($user->email)]))
+        // Per E-Mail nur Konten ohne App-Bezug (offene Registrierungen): ein
+        // verknüpftes Shopkonto mit dieser Adresse kann einer anderen Person
+        // (dem Admin, der den Code erzeugt hat) zugeordnet sein.
+        // Owner-Verbindung: Shopkonten unterliegen RLS je Schule, die Person kann
+        // aber für mehrere Schulen (oder noch keine) eingetragen sein.
+        $commerce = DB::connection('pgsql_admin');
+        $shopAccountIds = $commerce->table('commerce_shop_account')
+            ->where(fn ($q) => $q->where('user_id', $user->id)
+                ->orWhere(fn ($e) => $e->whereNull('user_id')->whereIn('status', ['pending_review', 'awaiting_link'])
+                    ->whereRaw('lower(email) = ?', [mb_strtolower($user->email)])))
             ->pluck('id');
         if ($shopAccountIds->isNotEmpty()) {
+            // Zuerst die Ereignisse (Owner-Verbindung), dann die Konten -- in dieser
+            // Reihenfolge kann kein Warten über zwei Sitzungen hinweg entstehen.
+            $commerce->table('commerce_event')->whereIn('shop_account_id', $shopAccountIds)
+                ->update(['payload' => DB::raw("payload - 'email' - 'first_name' - 'last_name'")]);
             foreach ($shopAccountIds as $shopAccountId) {
-                DB::table('commerce_shop_account')->where('id', $shopAccountId)->update([
+                $commerce->table('commerce_shop_account')->where('id', $shopAccountId)->update([
                     'email' => 'geloescht-'.$shopAccountId.'@invalid.invalid', 'contact_name' => null, 'company_name' => null, 'vat_id' => null,
                     'user_id' => null, 'status' => DB::raw("CASE WHEN status = 'rejected' THEN 'rejected' ELSE 'revoked' END"), 'revoked_at' => now(),
                 ]);
             }
-            // commerce_event darf die App-Rolle nicht ändern: Owner-Verbindung
-            // (andere Tabelle als die in dieser Transaktion gesperrten Zeilen).
-            DB::connection('pgsql_admin')->table('commerce_event')->whereIn('shop_account_id', $shopAccountIds)
-                ->update(['payload' => DB::raw("payload - 'email' - 'first_name' - 'last_name'")]);
         }
 
         DB::table('app_user')->where('id', $user->id)->delete();

@@ -54,7 +54,9 @@
                     <p class="mt-2 text-xs text-amber-700 dark:text-amber-300">
                         Diese Adresse hat bereits ein App-Konto. Weil die im Shop angegebene Adresse nicht bestätigt ist,
                         verknüpft nur ein Verknüpfungscode aus diesem App-Konto (Admin-Bereich → Codes → „Shop verknüpfen“).
-                        Hier können Sie das Shopkonto nur ablehnen.
+                        Hier können Sie das Shopkonto nur ablehnen. Ist die Person noch nicht Inhaberin oder Admin einer Schule
+                        (z. B. bisher Lernende), legen Sie die Schule unter „Schulen“ mit dieser E-Mail als Inhaber an; danach
+                        verknüpft sie per Code.
                     </p>
                 @endif
 

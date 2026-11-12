@@ -1,5 +1,5 @@
 === Bootsschul-Plattform Connector ===
-Requires at least: 6.4
+Requires at least: 6.5
 Requires PHP: 8.1
 Requires Plugins: woocommerce
 Stable tag: 1.0.0
