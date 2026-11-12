@@ -507,6 +507,46 @@ paths:
         '204': {description: 'Keine passende Frage: new = alles gesehen, wrong = keine falschen, favorites = keine (passenden) Favoriten, question_ids = alle erledigt. Im Smarttrainer kommen gefestigte Fragen zur Wiederholung; „alles geschafft“ zeigt progress.percent = 100.'}
         '404': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/trainer/reveal:
+    post:
+      tags: [Trainer]
+      operationId: revealModelAnswer
+      summary: Musterantwort einer offenen Frage anzeigen
+      description: |
+        `answer_token` ist die UUID der Revision aus der Antwort von
+        `GET /courses/{courseId}/trainer/next`. Die API prüft erneut Kurszugang,
+        Kurszuordnung und Veröffentlichungsstatus. Nur offene Fragen können aufgedeckt werden.
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/CourseId'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [answer_token]
+              properties:
+                answer_token: {type: string, format: uuid}
+      responses:
+        '200':
+          description: Musterantwort
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [model_answer]
+                    properties:
+                      model_answer: {type: [string, 'null']}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+
   /courses/{courseId}/attempts:
     post:
       tags: [Trainer]
