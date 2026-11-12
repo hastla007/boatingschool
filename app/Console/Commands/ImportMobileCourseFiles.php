@@ -60,7 +60,7 @@ class ImportMobileCourseFiles extends Command
                 if ($tenantSlug === '' || $courseCode === '' || $sourceKey === '' || strlen($sourceKey) > 160 || $relativeSource === '') {
                     throw new RuntimeException('Datei '.($index + 1).' benötigt tenant_slug, course_code, source_key und file.');
                 }
-                if (! in_array($category, ['downloads', 'section'], true)) {
+                if (! in_array($category, ['download', 'section', 'chart'], true)) {
                     throw new RuntimeException('Datei '.($index + 1).' hat eine unbekannte category.');
                 }
                 $required = $row['required_capability'] ?? null;
