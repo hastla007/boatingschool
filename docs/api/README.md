@@ -469,11 +469,11 @@ entscheidet aber nur anhand von `code`.
   ```json
   {
     "files": [
-      {"tenant_slug":"schule-a","course_code":"SBF-SEE","source_key":"wp:attachment:22","file":"uploads/2024/karte.pdf","category":"downloads","title":"Kartenmaterial","sort_order":1}
+      {"tenant_slug":"schule-a","course_code":"SBF-SEE","source_key":"wp:attachment:22","file":"uploads/2024/karte.pdf","category":"download","title":"Kartenmaterial","sort_order":1}
     ]
   }
   ```
-  `php artisan app:import-mobile-course-files /pfad/files.json /pfad/zum/wordpress-media-export` kopiert die Dateien in den geschützten Laravel-Storage und legt die `course_file`-Einträge idempotent an. `category` ist `downloads` oder `section`; Abschnittsdateien benötigen einen `section_key`. Die exportierten Quelldateien selbst müssen vorher bereitgestellt werden.
+  `php artisan app:import-mobile-course-files /pfad/files.json /pfad/zum/wordpress-media-export` kopiert die Dateien in den geschützten Laravel-Storage und legt die `course_file`-Einträge idempotent an. `category` ist `download`, `section` oder `chart`; Abschnittsdateien und Seekarten können einen `section_key` nutzen. Die exportierten Quelldateien selbst müssen vorher bereitgestellt werden.
 * **Tests:** `vendor/bin/phpunit tests/Feature/Api`.
   `OpenApiContractTest` schlägt fehl, wenn Routen und OpenAPI-Datei
   auseinanderlaufen.
