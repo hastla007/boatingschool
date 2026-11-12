@@ -12,6 +12,12 @@ use App\Models\CourseFile;
 use App\Models\CourseWebshopLink;
 use App\Models\Entitlement;
 use App\Models\Progress;
+use App\Models\VideoProgress;
+use App\Models\NavigationProgress;
+use App\Models\PraxisProgress;
+use App\Support\FunkPraxis;
+use App\Support\FunkTraining;
+use App\Support\Geraetesimulation;
 use App\Models\TenantCourseDisabled;
 use App\Services\CourseProgressService;
 use App\Services\CourseRelationService;
@@ -78,6 +84,7 @@ class CourseController extends Controller
     public function show(Request $request, string $courseId): JsonResponse
     {
         $tenant = $this->tenantContext->tenant();
+        $user = $request->user();
         $disabled = TenantCourseDisabled::where('tenant_id', $tenant->id)->pluck('course_id');
         $course = CourseDefinition::withoutGlobalScopes()
             ->whereNull('tenant_id')
@@ -88,13 +95,14 @@ class CourseController extends Controller
         if (! $course) {
             throw \App\Api\ApiProblem::notFound('Kurs');
         }
-        $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $request->user()->id)->get();
+
+        $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get();
         $course->loadMissing('modules', 'files');
         $files = $course->files->where('published', true)->values();
-        $fileRef = function (CourseFile $file) use ($tenant, $request): array {
+        $fileRef = function (CourseFile $file) use ($tenant, $user): array {
             $allowed = $file->required_capability === null
-                ? $this->entitlements->hasAccess($tenant, $request->user(), $file->course)
-                : $this->entitlements->hasCapabilityAccess($tenant, $request->user(), $file->course, $file->required_capability);
+                ? $this->entitlements->hasAccess($tenant, $user, $file->course)
+                : $this->entitlements->hasCapabilityAccess($tenant, $user, $file->course, $file->required_capability);
 
             return [
                 'id' => $file->id,
@@ -109,12 +117,89 @@ class CourseController extends Controller
         $sections = $files->where('category', 'section')->groupBy(fn (CourseFile $file) => $file->section_key ?: 'general')
             ->map(fn ($items) => $items->map($fileRef)->values())->all();
 
-        return response()->json(['data' => $this->summary($course, $progress, null, CourseWebshopLink::where('tenant_id', $tenant->id)->where('course_id', $course->id)->value('url')) + [
+        $summary = $this->summary($course, $progress, null, CourseWebshopLink::where('tenant_id', $tenant->id)->where('course_id', $course->id)->value('url'));
+        $hasExam = $this->entitlements->hasCapabilityAccess($tenant, $user, $course, 'exam');
+        $hasVideo = $this->entitlements->hasCapabilityAccess($tenant, $user, $course, 'video');
+        $hasNavigation = $this->entitlements->hasCapabilityAccess($tenant, $user, $course, 'navigation');
+        $hasPraxis = $this->entitlements->hasCapabilityAccess($tenant, $user, $course, 'praxis');
+        $hasRadio = $this->entitlements->hasCapabilityAccess($tenant, $user, $course, 'funk');
+
+        $examOptions = $hasExam ? ($course->examPapers()->count() ?: ($course->activeExamRuleSet() ? 1 : 0)) : 0;
+        $favoriteCount = 0;
+        if ($this->entitlements->hasCapabilityAccess($tenant, $user, $course, 'smarttrainer')) {
+            $favoriteCount = DB::table('favorite')->where('tenant_id', $tenant->id)->where('user_id', $user->id)
+                ->whereIn('question_id', $this->access->validQuestionIds($course))->count();
+        }
+
+        $navigationTasks = $hasNavigation ? $course->navigationTasks()->with('questions')->get() : collect();
+        $navigationQuestionIds = $navigationTasks->flatMap(fn ($task) => $task->questions->pluck('id'))->values();
+        $navigationProgress = $navigationQuestionIds->isEmpty() ? collect() : NavigationProgress::where('tenant_id', $tenant->id)
+            ->where('user_id', $user->id)->whereIn('navigation_question_id', $navigationQuestionIds)->get()->keyBy('navigation_question_id');
+        $navigationDone = $navigationTasks->filter(fn ($task) => $task->questions->isNotEmpty()
+            && $task->questions->every(fn ($question) => $navigationProgress->get($question->id)?->correct === true))->count();
+
+        $praxisTasks = $hasPraxis ? $course->praxisTasks()->where('active', true)->get() : collect();
+        $praxisProgress = $praxisTasks->isEmpty() ? collect() : PraxisProgress::where('tenant_id', $tenant->id)
+            ->where('user_id', $user->id)->whereIn('praxis_task_id', $praxisTasks->pluck('id'))->get();
+        $praxisKnown = $praxisProgress->filter(fn ($row) => $row->status === 'known' || $row->completed)->count();
+
+        $videoModules = $course->videoModules()->with('lessons')->get();
+        $videoLessons = $videoModules->flatMap->lessons;
+        $videoProgress = $hasVideo && $videoLessons->isNotEmpty() ? VideoProgress::where('tenant_id', $tenant->id)
+            ->where('user_id', $user->id)->whereIn('video_lesson_id', $videoLessons->pluck('id'))->get() : collect();
+        $videoCompleted = $videoProgress->where('completed', true)->count();
+        $knotModule = $videoModules->firstWhere('title', 'Knoten');
+        $knotLessons = $knotModule?->lessons ?? collect();
+        $knotProgress = $knotLessons->isEmpty() ? collect() : $videoProgress->whereIn('video_lesson_id', $knotLessons->pluck('id'));
+        $knots = $knotModule ? [
+            'available' => true, 'locked' => ! $hasVideo, 'module_id' => $knotModule->id,
+            'lessons' => $knotLessons->count(), 'completed' => $hasVideo ? $knotProgress->where('completed', true)->count() : 0,
+            'unlock_at' => null, 'webshop_url' => ! $hasVideo ? $summary['webshop_url'] : null,
+        ] : null;
+
+        $radioCatalogs = $hasRadio ? FunkTraining::catalogsFor($course) : [];
+        $radioTexts = $radioVocabulary = $radioPractice = 0;
+        foreach ($radioCatalogs as $catalog) {
+            $radioTexts += count(FunkTraining::texts($catalog));
+            if ($catalog === 'UBI') {
+                $radioTexts += count(FunkTraining::ubiTexts('aufnahme')) + count(FunkTraining::ubiTexts('abgabe'));
+            }
+            foreach (FunkTraining::vocabulary($catalog) as $cards) {
+                $radioVocabulary += count($cards);
+            }
+            $radioPractice += count(FunkPraxis::tasks($catalog));
+        }
+        $deviceAvailable = Geraetesimulation::availableFor($user, $course);
+        $deviceCatalogs = Geraetesimulation::catalogsFor($course);
+        $deviceLessons = Geraetesimulation::lessonsForBrowser($deviceCatalogs);
+
+        return response()->json(['data' => $summary + [
             'modules_count' => $course->modules->count(),
-            'exam_options_count' => $course->examPapers()->count() ?: ($course->activeExamRuleSet() ? 1 : 0),
+            'exam_options_count' => $examOptions,
+            'favorites_count' => $favoriteCount,
+            'trainers' => [
+                'navigation' => ['tasks' => $navigationTasks->count(), 'questions' => $navigationQuestionIds->count(), 'done' => $navigationDone],
+                'praxis' => ['cards' => $praxisTasks->count(), 'known' => $praxisKnown],
+                'video' => ['lessons' => $hasVideo ? $videoLessons->count() : 0, 'completed' => $videoCompleted],
+                'radio' => ['texts' => $radioTexts, 'vocabulary' => $radioVocabulary, 'practice' => $radioPractice, 'device' => $deviceAvailable ? count($deviceLessons) : 0],
+            ],
+            'offers' => (object) [],
             'downloads' => $files->where('category', 'download')->map($fileRef)->values(),
-            'section_files' => $sections,
-            'charts' => $files->where('category', 'chart')->map($fileRef)->values(),
+            'section_files' => (object) $sections,
+            'charts' => $files->where('category', 'chart')->map(fn (CourseFile $file) => ['code' => $file->section_key ?: $file->id] + $fileRef($file))->values(),
+            'web_url' => route('courses.show', ['course' => $course]),
+            'device_simulator' => [
+                'available' => $deviceAvailable, 'premium' => false, 'tier' => $deviceAvailable ? 'free' : null,
+                'web_url' => $deviceAvailable ? route('funk.device.index', ['course' => $course]) : null,
+                'open_in' => 'browser',
+                'hint' => $deviceAvailable ? 'Der Funkgerät-Simulator wird im Browser geöffnet.' : null,
+                'webshop_url' => null,
+            ],
+            'knots' => $knots,
+            'exam_registration' => [
+                'available' => \App\Support\ExamBooking::pagesFor($course) !== [],
+                'web_url' => \App\Support\ExamBooking::pagesFor($course) !== [] ? route('exam-booking', ['course' => $course]) : null,
+            ],
         ]]);
     }
 
