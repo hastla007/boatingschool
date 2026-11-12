@@ -541,7 +541,19 @@ paths:
                           exam_options_count: {type: integer}
                           downloads: {type: array, items: {$ref: '#/components/schemas/FileRef'}}
                           section_files: {type: object, additionalProperties: {type: array, items: {$ref: '#/components/schemas/FileRef'}}}
-                          charts: {type: array, items: {$ref: '#/components/schemas/FileRef'}}
+                          charts: {type: array, items: {$ref: '#/components/schemas/CourseChartRef'}}
+                          favorites_count: {type: integer, minimum: 0}
+                          trainers: {type: object, additionalProperties: true}
+                          offers: {type: object, additionalProperties: {type: array, items: {$ref: '#/components/schemas/Offer'}}}
+                          web_url: {type: string, format: uri}
+                          device_simulator: {$ref: '#/components/schemas/DeviceSimulatorLink'}
+                          knots: {$ref: '#/components/schemas/KnotsSummary'}
+                          exam_registration:
+                            type: object
+                            required: [available, web_url]
+                            properties:
+                              available: {type: boolean}
+                              web_url: {type: [string, 'null'], format: uri}
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
   /courses/{courseId}/overview:
@@ -2073,6 +2085,42 @@ components:
         relation: {$ref: '#/components/schemas/CourseRelation'}
         faq_count: {type: integer, minimum: 0}
         last_activity_at: {type: [string, 'null'], format: date-time, description: Letzte Antwort in diesem Kurs}
+    Offer:
+      type: object
+      required: [name, url, price]
+      properties:
+        name: {type: string}
+        url: {type: string, format: uri}
+        price: {type: string}
+    CourseChartRef:
+      allOf:
+        - {$ref: '#/components/schemas/FileRef'}
+        - type: object
+          required: [code]
+          properties:
+            code: {type: string}
+    DeviceSimulatorLink:
+      type: object
+      required: [available, premium, tier, web_url, open_in, hint, webshop_url]
+      properties:
+        available: {type: boolean}
+        premium: {type: boolean}
+        tier: {type: [string, 'null'], enum: [free, premium, null]}
+        web_url: {type: [string, 'null'], format: uri}
+        open_in: {type: string, const: browser}
+        hint: {type: [string, 'null']}
+        webshop_url: {type: [string, 'null'], format: uri}
+    KnotsSummary:
+      type: object
+      required: [available, locked, module_id, lessons, completed, unlock_at, webshop_url]
+      properties:
+        available: {type: boolean}
+        locked: {type: boolean}
+        module_id: {type: string, format: uuid}
+        lessons: {type: integer}
+        completed: {type: integer}
+        unlock_at: {type: [string, 'null'], format: date-time}
+        webshop_url: {type: [string, 'null'], format: uri}
     FileRef:
       type: object
       required: [id, title, locked, url, requires_authorization]
