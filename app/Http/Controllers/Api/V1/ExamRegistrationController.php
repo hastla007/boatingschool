@@ -40,7 +40,12 @@ class ExamRegistrationController extends Controller
                 'apply' => $page['apply'] ?? null,
                 'deadline' => $page['deadline'] ?? null,
                 'documents' => $page['documents'] ?? [],
-                'variants' => ExamBooking::variants($key, $firstVariant),
+                'variants' => array_map(static function (array $variant): array {
+                    $variant['pass_text'] = $variant['pass'] ?? null;
+                    unset($variant['pass']);
+
+                    return $variant;
+                }, ExamBooking::variants($key, $firstVariant)),
                 'exam_parts' => $page['exam_parts'] ?? [],
                 'faq' => $page['faq'] ?? [],
                 'providers' => $providers,
