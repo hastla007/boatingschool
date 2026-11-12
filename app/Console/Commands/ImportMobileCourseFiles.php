@@ -85,10 +85,18 @@ class ImportMobileCourseFiles extends Command
                     throw new RuntimeException('Datei '.($index + 1).' liegt nicht sicher im Quellverzeichnis oder ist nicht lesbar.');
                 }
 
+                $sourceHash = hash_file('sha256', $sourcePath);
+                if (! is_string($sourceHash)) {
+                    throw new RuntimeException('Datei '.($index + 1).' konnte nicht geprüft werden.');
+                }
+                $expectedHash = strtolower(trim((string) ($row['sha256'] ?? '')));
+                if ($expectedHash !== '' && (! preg_match('/^[a-f0-9]{64}$/', $expectedHash) || ! hash_equals($expectedHash, $sourceHash))) {
+                    throw new RuntimeException('Datei '.($index + 1).' stimmt nicht mit der Prüfsumme aus dem WP-Export überein.');
+                }
                 $extension = strtolower((string) pathinfo($sourcePath, PATHINFO_EXTENSION));
                 $extension = preg_match('/^[a-z0-9]{1,10}$/', $extension) ? '.'.$extension : '';
                 $safeCourse = preg_replace('/[^A-Za-z0-9_-]/', '_', $courseCode);
-                $target = 'course-files/'.$safeCourse.'/'.hash('sha256', $courseCode.':'.$sourceKey).'-'.hash_file('sha256', $sourcePath).$extension;
+                $target = 'course-files/'.$safeCourse.'/'.hash('sha256', $courseCode.':'.$sourceKey).'-'.$sourceHash.$extension;
                 $records[] = [
                     'tenant_id' => $tenant->id,
                     'course_id' => $course->id,
@@ -104,6 +112,7 @@ class ImportMobileCourseFiles extends Command
                     'published' => (bool) ($row['published'] ?? true),
                     'source_key' => $sourceKey,
                     'source_path' => $sourcePath,
+                    'sha256' => $sourceHash,
                 ];
             }
 
@@ -117,6 +126,10 @@ class ImportMobileCourseFiles extends Command
                     throw new RuntimeException('Eine Quelldatei ließ sich nicht in den Laravel-Storage kopieren.');
                 }
                 fclose($stream);
+                $storedHash = hash_file('sha256', Storage::disk('local')->path($record['storage_path']));
+                if (! is_string($storedHash) || ! hash_equals($record['sha256'], $storedHash)) {
+                    throw new RuntimeException('Eine Kursdatei wurde im Laravel-Storage nicht vollständig gespeichert.');
+                }
                 if (! $alreadyExists) {
                     $written[] = $record['storage_path'];
                 }
