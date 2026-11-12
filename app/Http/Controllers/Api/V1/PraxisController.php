@@ -21,7 +21,8 @@ class PraxisController extends Controller
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
         $course = $this->access->require($tenant, $user, $courseId, 'praxis');
-        $tasks = $course->praxisTasks()->where('active', true)->with('media')->orderBy('sort_order')->get();
+        $orderedTasks = $course->praxisTasks()->where('active', true)->with('media')->orderBy('sort_order')->orderBy('id')->get();
+        $tasks = $this->access->limitItems($tenant, $user, $course, 'praxis', $orderedTasks);
         $progress = PraxisProgress::where('tenant_id', $tenant->id)->where('user_id', $user->id)
             ->whereIn('praxis_task_id', $tasks->pluck('id'))->get()->keyBy('praxis_task_id');
 
@@ -65,7 +66,11 @@ class PraxisController extends Controller
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
         $course = $this->access->require($tenant, $user, $courseId, 'praxis');
-        $task = $course->praxisTasks()->where('active', true)->whereKey($cardId)->first();
+        $orderedTasks = $course->praxisTasks()->where('active', true)->orderBy('sort_order')->orderBy('id')->get();
+        if (! $this->access->allowsLimitedItem($tenant, $user, $course, 'praxis', $orderedTasks, $cardId)) {
+            throw ApiProblem::notFound('Praxiskarte');
+        }
+        $task = $orderedTasks->firstWhere('id', $cardId);
         if (! $task) {
             throw ApiProblem::notFound('Praxiskarte');
         }
