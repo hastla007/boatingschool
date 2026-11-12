@@ -20,7 +20,6 @@ class EntitlementService
     public function activeCourses(Tenant $tenant, User $user): Collection
     {
         return $this->activeEntitlements($tenant, $user)
-            ->filter(fn (Entitlement $e) => $e->capabilities === null)
             ->map(fn (Entitlement $e) => $e->course)
             ->unique('id')
             ->values();
@@ -47,7 +46,9 @@ class EntitlementService
 
     public function hasAccess(Tenant $tenant, User $user, CourseDefinition $course): bool
     {
-        return $this->activeCourses($tenant, $user)->contains('id', $course->id);
+        return $this->activeEntitlements($tenant, $user)->contains(
+            fn (Entitlement $entitlement) => $entitlement->course_id === $course->id && $entitlement->capabilities === null
+        );
     }
 
     public function hasCapabilityAccess(Tenant $tenant, User $user, CourseDefinition $course, string $capability): bool
