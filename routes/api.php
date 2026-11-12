@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\ExamRegistrationController;
 use App\Http\Controllers\Api\V1\ExamController;
 use App\Http\Controllers\Api\V1\ExportController;
 use App\Http\Controllers\Api\V1\FavoriteController;
+use App\Http\Controllers\Api\V1\GroupController;
 use App\Http\Controllers\Api\V1\LearningController;
 use App\Http\Controllers\Api\V1\PraxisController;
 use App\Http\Controllers\Api\V1\RadioController;
@@ -41,6 +42,11 @@ Route::middleware('api.auth')->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::post('/auth/email/verification-notification', [AuthController::class, 'resendVerification'])->middleware('throttle:6,1,api-verification');
     Route::get('/me', [AccountController::class, 'me']);
+    Route::get('/me/groups', [GroupController::class, 'index']);
+    Route::get('/me/groups/{groupId}', [GroupController::class, 'show'])->whereUuid('groupId');
+    Route::post('/me/groups/{groupId}/invites', [GroupController::class, 'invite'])->whereUuid('groupId');
+    Route::delete('/me/groups/{groupId}/members/{memberId}', [GroupController::class, 'removeMember'])->whereUuid(['groupId', 'memberId']);
+    Route::post('/me/groups/{groupId}/join-code', [GroupController::class, 'regenerateJoinCode'])->whereUuid('groupId');
     Route::get('/me/settings', [AccountController::class, 'settings']);
     Route::put('/me/settings', [AccountController::class, 'updateSettings']);
     Route::get('/me/sessions', [AccountController::class, 'sessions']);
@@ -49,6 +55,7 @@ Route::middleware('api.auth')->group(function () {
 
     // Ab hier im Kontext einer Schule (X-Tenant-Slug + aktive Mitgliedschaft).
     Route::middleware(['api.tenant', 'throttle:240,1,api-tenant'])->group(function () {
+        Route::get('/groups/join/{token}', [GroupController::class, 'previewJoin'])->where('token', '[giGI][0-9a-fA-F]{32}');
         Route::get('/courses', [CourseController::class, 'index']);
         Route::get('/courses/{courseId}', [CourseController::class, 'show'])->whereUuid('courseId');
         Route::get('/courses/{courseId}/overview', [CourseController::class, 'overview'])->whereUuid('courseId');
