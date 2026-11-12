@@ -2246,6 +2246,8 @@ components:
         name: {type: string}
         description: {type: [string, 'null']}
         order: {type: integer}
+        locked: {type: boolean}
+        unlock_at: {type: [string, 'null'], format: date-time}
         question_count: {type: integer}
         progress: {$ref: '#/components/schemas/ProgressSummary'}
         topics:
@@ -2563,6 +2565,8 @@ components:
         title: {type: string}
         order: {type: integer}
         standalone: {type: boolean, description: 'Eigenständiges Kapitel (z. B. Knoten), im Web als eigene Kachel'}
+        locked: {type: boolean}
+        unlock_at: {type: [string, 'null'], format: date-time}
         lessons: {type: array, items: {$ref: '#/components/schemas/VideoLesson'}}
     NavigationTaskSummary:
       type: object
