@@ -49,8 +49,8 @@ class WebSessionController extends Controller
             throw new ApiProblem(401, 'UNAUTHENTICATED', 'Sitzung abgelaufen', 'Bitte erneut anmelden.');
         }
 
-        $code = 'bsw_'.rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
-        $verifier = 'bsv_'.rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
+        $code = 'bpw_'.rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
+        $verifier = 'bpv_'.rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
         $expires = now()->addSeconds(self::TTL_SECONDS);
         ApiMobileWebSession::create([
             'user_id' => $user->id,
@@ -102,7 +102,9 @@ class WebSessionController extends Controller
             return null;
         }
         $allowed = str_starts_with($path.'/', '/courses/')
-            || in_array($path, ['/dashboard', '/tipps-tricks', '/angebote', '/willkommensbox'], true);
+            || preg_match('#^/[A-Za-z0-9-]+/courses/#', $path) === 1
+            || in_array($path, ['/dashboard', '/tipps-tricks', '/angebote', '/willkommensbox'], true)
+            || preg_match('#^/[A-Za-z0-9-]+/(dashboard|tipps-tricks|angebote|willkommensbox)$#', $path) === 1;
         if (! $allowed) {
             return null;
         }
