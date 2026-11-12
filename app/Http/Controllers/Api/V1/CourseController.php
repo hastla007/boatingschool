@@ -73,7 +73,16 @@ class CourseController extends Controller
     public function show(Request $request, string $courseId): JsonResponse
     {
         $tenant = $this->tenantContext->tenant();
-        $course = $this->access->require($tenant, $request->user(), $courseId);
+        $disabled = TenantCourseDisabled::where('tenant_id', $tenant->id)->pluck('course_id');
+        $course = CourseDefinition::withoutGlobalScopes()
+            ->whereNull('tenant_id')
+            ->where('site_enabled', true)
+            ->where('status', 'published')
+            ->whereNotIn('id', $disabled)
+            ->find($courseId);
+        if (! $course) {
+            throw \\App\\Api\\ApiProblem::notFound('Kurs');
+        }
         $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $request->user()->id)->get();
         $course->loadMissing('modules');
 
