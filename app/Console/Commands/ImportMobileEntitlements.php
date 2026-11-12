@@ -1,15 +1,15 @@
 <?php
 
-namespace App\\Console\\Commands;
+namespace App\Console\Commands;
 
-use App\\Models\\CourseDefinition;
-use App\\Models\\Entitlement;
-use App\\Models\\Tenant;
-use App\\Models\\TenantUser;
-use App\\Models\\User;
-use Illuminate\\Console\\Command;
-use Illuminate\\Support\\Carbon;
-use Illuminate\\Support\\Facades\\DB;
+use App\Models\CourseDefinition;
+use App\Models\Entitlement;
+use App\Models\Tenant;
+use App\Models\TenantUser;
+use App\Models\User;
+use Illuminate\Console\Command;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use JsonException;
 use RuntimeException;
 
@@ -160,7 +160,7 @@ class ImportMobileEntitlements extends Command
         }
         try {
             return Carbon::parse($value);
-        } catch (\\Throwable) {
+        } catch (\Throwable) {
             throw new RuntimeException('Zugang '.($index + 1).' enthält ein ungültiges Datum.');
         }
     }
