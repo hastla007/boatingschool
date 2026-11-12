@@ -126,12 +126,12 @@ class ImportMobileCourseFiles extends Command
                     throw new RuntimeException('Eine Quelldatei ließ sich nicht in den Laravel-Storage kopieren.');
                 }
                 fclose($stream);
+                if (! $alreadyExists) {
+                    $written[] = $record['storage_path'];
+                }
                 $storedHash = hash_file('sha256', Storage::disk('local')->path($record['storage_path']));
                 if (! is_string($storedHash) || ! hash_equals($record['sha256'], $storedHash)) {
                     throw new RuntimeException('Eine Kursdatei wurde im Laravel-Storage nicht vollständig gespeichert.');
-                }
-                if (! $alreadyExists) {
-                    $written[] = $record['storage_path'];
                 }
             }
 
