@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Attempt;
 use App\Models\ContentQuestionRevision;
 use App\Models\CourseDefinition;
+use App\Models\CourseFile;
 use App\Models\CourseWebshopLink;
 use App\Models\Entitlement;
 use App\Models\Progress;
@@ -84,11 +85,32 @@ class CourseController extends Controller
             throw \App\Api\ApiProblem::notFound('Kurs');
         }
         $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $request->user()->id)->get();
-        $course->loadMissing('modules');
+        $course->loadMissing('modules', 'files');
+        $files = $course->files->where('published', true)->values();
+        $fileRef = function (CourseFile $file) use ($tenant, $request): array {
+            $allowed = $file->required_capability === null
+                ? $this->entitlements->hasAccess($tenant, $request->user(), $file->course)
+                : $this->entitlements->hasCapabilityAccess($tenant, $request->user(), $file->course, $file->required_capability);
+
+            return [
+                'id' => $file->id,
+                'title' => $file->title,
+                'description' => $file->description,
+                'size_bytes' => $file->size_bytes,
+                'locked' => ! $allowed,
+                'url' => $allowed ? route('api.v1.files.download', ['fileId' => $file->id]) : null,
+                'requires_authorization' => true,
+            ];
+        };
+        $sections = $files->where('category', 'section')->groupBy(fn (CourseFile $file) => $file->section_key ?: 'general')
+            ->map(fn ($items) => $items->map($fileRef)->values())->all();
 
         return response()->json(['data' => $this->summary($course, $progress, null, CourseWebshopLink::where('tenant_id', $tenant->id)->where('course_id', $course->id)->value('url')) + [
             'modules_count' => $course->modules->count(),
             'exam_options_count' => $course->examPapers()->count() ?: ($course->activeExamRuleSet() ? 1 : 0),
+            'downloads' => $files->where('category', 'download')->map($fileRef)->values(),
+            'section_files' => $sections,
+            'charts' => $files->where('category', 'chart')->map($fileRef)->values(),
         ]]);
     }
 
