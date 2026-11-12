@@ -85,6 +85,9 @@ class CourseAccess
         $feature = self::RULE_FEATURES[$capability] ?? null;
         $entitlementCapability = in_array($capability, ['favorites', 'explanations'], true) ? 'smarttrainer' : $capability;
         $full = $this->entitlements->hasCapabilityAccess($tenant, $user, $course, $entitlementCapability);
+        if ($capability === 'favorites') {
+            $full = $full || $this->entitlements->hasCapabilityAccess($tenant, $user, $course, 'favorites');
+        }
         $limit = null;
         if ($feature !== null) {
             $now = now();
