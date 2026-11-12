@@ -14,7 +14,7 @@ auf PostgreSQL, gemäß dem mitgelieferten technischen Konzept
   Pfad (`CENTRAL_DOMAIN/{slug}`, Standard, `ResolveTenantPath`), Subdomain
   (`{slug}.CENTRAL_DOMAIN`, optional mit `TENANT_URL_MODE=subdomain`) oder
   Custom Domain (`app/Http/Middleware/ResolveTenant.php`). Mandantengebundene Tabellen
-  (inzwischen 32, u. a. `tenant_branding`, `tenant_user`,
+  (inzwischen 36, u. a. `tenant_branding`, `tenant_user`,
   `entitlement`, `attempt`, `progress`, `favorite`, `exam_session`,
   `exam_session_question`, `coupon`, `audit_log`, `app_user`) sind
   zusätzlich per **Postgres Row-Level-Security** abgesichert – ein
@@ -245,6 +245,9 @@ Geplante Kommandos:
   (`BACKUP_DISK`), siehe `deploy/README.md`.
 - `ops:scheduler-heartbeat` (jede Minute) -- Lebenszeichen für den
   Go-live-Check.
+- `app:commerce-outbox` (jede Minute) -- sendet vorgemerkte Ereignisse an
+  den WooCommerce-Shop (Anlage des Shopkontos neuer Schulen), siehe
+  `docs/commerce/README.md`. Ohne `COMMERCE_SHOP_URL` ohne Wirkung.
 
 `QUEUE_CONNECTION` steht in `.env`/`.env.example` auf `database` (Tabellen
 `jobs`/`failed_jobs`/`job_batches` existieren bereits), aktuell nutzt aber
@@ -290,6 +293,16 @@ das Web (gemeinsame Services `LearningFlow`, `ExamSessionStarter`,
 `ExamActions`). Dokumentation und Abweichungen vom App-Konzept:
 [`docs/api/README.md`](docs/api/README.md), Vertrag:
 [`docs/api/openapi-mobile-v1.yaml`](docs/api/openapi-mobile-v1.yaml).
+
+## Shop-Anbindung (WooCommerce)
+
+Bootsschulen kaufen Kurs-, Verlängerungs- und Produktcodes im B2B-Shop.
+Nach der Zahlung landen die Codes im Codebestand der Schule. Codewerte
+verlassen die Plattform nie. Die Konten verknüpft ein Einmalcode aus der
+App oder die Freigabe durch den Superadmin. Gleiche E-Mail-Adressen
+verknüpfen nie. Commerce-API unter `/api/commerce/v1` (HMAC-signiert),
+WordPress-Plugin unter `integrations/woocommerce-connector/`. Alles Weitere:
+[`docs/commerce/README.md`](docs/commerce/README.md).
 
 ## Umfang dieser Version
 

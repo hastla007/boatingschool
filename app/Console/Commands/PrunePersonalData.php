@@ -171,6 +171,8 @@ class PrunePersonalData extends Command
             ->whereNotExists(fn ($q) => $q->from('product_purchase')->whereColumn('product_purchase.user_id', 'app_user.id'))
             ->whereNotExists(fn ($q) => $q->from('willkommensbox_order')->whereColumn('willkommensbox_order.user_id', 'app_user.id'))
             ->whereNotExists(fn ($q) => $q->from('praxis_form_submission')->whereColumn('praxis_form_submission.user_id', 'app_user.id'))
+            // Shop-Registrierung in der B2B-Prüfung: das Konto wartet auf die Freigabe.
+            ->whereNotExists(fn ($q) => $q->from('commerce_shop_account')->whereColumn('commerce_shop_account.user_id', 'app_user.id')->whereIn('commerce_shop_account.status', ['pending_review', 'linked']))
             ->get();
 
         if ($dryRun) {

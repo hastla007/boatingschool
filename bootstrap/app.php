@@ -6,6 +6,7 @@ use App\Http\Middleware\Api\ApiIdempotency;
 use App\Http\Middleware\Api\AuthenticateMobileApi;
 use App\Http\Middleware\Api\PrepareApiRequest;
 use App\Http\Middleware\Api\ResolveApiTenant;
+use App\Http\Middleware\Commerce\VerifyCommerceSignature;
 use App\Http\Middleware\EnforceInstructorScope;
 use App\Http\Middleware\EnforceMaintenanceMode;
 use App\Http\Middleware\EnforceTeamTwoFactor;
@@ -46,6 +47,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // Mandant), siehe TlsCheckController.
         then: function () {
             Route::get('/tls-check', TlsCheckController::class)->name('tls-check');
+            // Commerce-API v1 für den B2B-WooCommerce-Shop (docs/commerce/README.md):
+            // signiert, Owner-Verbindung, eigene Begrenzung.
+            Route::middleware(['api', 'commerce.signed', 'admin-db', 'throttle:300,1,commerce'])
+                ->prefix('api/commerce/v1')->group(__DIR__.'/../routes/commerce.php');
         },
     )
     ->withMiddleware(function (Middleware $middleware) {
@@ -209,6 +214,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'tenant.any-member' => EnsureAnyTenantMembership::class,
             'superadmin' => EnsureSuperAdmin::class,
             'admin-db' => UseAdminDatabaseConnection::class,
+            'commerce.signed' => VerifyCommerceSignature::class,
             'instructor.scope' => EnforceInstructorScope::class,
         ]);
     })

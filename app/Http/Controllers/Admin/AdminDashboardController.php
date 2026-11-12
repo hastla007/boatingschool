@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\AddonTemplate;
 use App\Models\Attempt;
 use App\Models\AuditLog;
+use App\Models\CommerceShopAccount;
 use App\Models\ContentQuestion;
 use App\Models\Coupon;
+use App\Models\CouponBatch;
 use App\Models\CourseDefinition;
 use App\Models\CourseExamRegistration;
 use App\Models\CoursePromoBanner;
@@ -515,6 +517,14 @@ class AdminDashboardController extends Controller
         // sie verwaltet). Verlängerungscodes laufen als eigene Zeile je
         // Kurs, damit sie nicht mit regulären Kurs-Freischalt-Codes
         // vermischt werden.
+        // Shop-Anbindung: verknüpfte Shopkonten und die letzten Bestellungen
+        // (Code-Batches) der Schule (docs/commerce/README.md).
+        $shopAccounts = CommerceShopAccount::where('tenant_id', $tenant->id)->where('status', CommerceShopAccount::LINKED)->whereNotNull('shop_customer_id')
+            ->orderByDesc('linked_at')->get();
+        $shopBatches = CouponBatch::where('tenant_id', $tenant->id)->with(['course', 'product'])
+            ->withCount(['coupons as redeemed_count' => fn ($q) => $q->whereNotNull('redeemed_at')])
+            ->orderByDesc('created_at')->limit(20)->get();
+
         $couponSummary = Coupon::where('tenant_id', $tenant->id)
             ->selectRaw('course_id, product_id, is_renewal, count(*) filter (where redeemed_at is null and voided_at is null and (expires_at is null or expires_at > now())) as free_count, count(*) filter (where redeemed_at is not null) as used_count')
             ->groupBy('course_id', 'product_id', 'is_renewal')
@@ -588,6 +598,8 @@ class AdminDashboardController extends Controller
             'disabledCourseIds' => $disabledCourseIds,
             'coupons' => $coupons,
             'couponSummary' => $couponSummary,
+            'shopAccounts' => $shopAccounts,
+            'shopBatches' => $shopBatches,
             'couponFilters' => $couponFilters,
             'freeCourseCouponCounts' => $freeCourseCouponCounts,
         ]);

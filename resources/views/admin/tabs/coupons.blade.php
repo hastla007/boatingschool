@@ -3,9 +3,9 @@
      Absatz nutzte bisher als einzige Stelle hier die informelle
      ihr-Form. --}}
 <p class="text-slate-500 dark:text-slate-400 mb-6">
-    Eigene Coupon-Codes bekommen Sie auf zwei Wegen: entweder teilt Ihnen der Plattform-Betreiber welche zu, oder Sie
-    übernehmen Codes, die Sie einzeln oder im Bulk über einen externen Webshop gekauft haben, per Import in Ihren
-    Bestand.
+    Eigene Coupon-Codes bekommen Sie auf drei Wegen: Bestellungen im verknüpften Shop werden automatisch
+    gutgeschrieben, der Plattform-Betreiber teilt Ihnen welche zu, oder Sie übernehmen anderswo gekaufte Codes per
+    Import in Ihren Bestand.
 </p>
 
 <div class="grid lg:grid-cols-2 gap-6 mb-6">
@@ -52,6 +52,86 @@
                     </tr>
                 @empty
                     <tr><td colspan="3" class="px-4 py-3 text-slate-500 dark:text-slate-400">Noch keine eigenen Codes vorhanden.</td></tr>
+                @endforelse
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+
+{{-- Shop-Anbindung (docs/commerce/README.md): Codes aus Bestellungen im
+     B2B-Shop landen direkt hier im Bestand. --}}
+<div class="grid lg:grid-cols-2 gap-6 mb-6">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
+        <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-1 flex items-center gap-1.5">
+            <x-icon name="link" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Shop verknüpfen
+        </h3>
+        <p class="text-xs text-slate-600 dark:text-slate-400 mb-3">
+            Codes, die Sie im Shop kaufen, werden nach der Zahlung automatisch diesem Bestand gutgeschrieben. Dafür
+            einmal das Shopkonto mit Ihrer Bootsschule verknüpfen: Code erzeugen und im Shop unter
+            „Mein Konto → Bootsschule verknüpfen“ eingeben. Der Code gilt {{ config('commerce.link_code_minutes', 15) }} Minuten.
+        </p>
+        @if (session('shopLinkCode'))
+            <div class="mb-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 p-3" role="status">
+                <p class="text-xs text-emerald-800 dark:text-emerald-200">Ihr Verknüpfungscode (wird nur einmal angezeigt):</p>
+                <p class="font-mono text-lg font-semibold tracking-wider text-emerald-900 dark:text-emerald-100">{{ session('shopLinkCode') }}</p>
+            </div>
+        @endif
+        <form method="POST" action="{{ route('admin.shop-link.code') }}">
+            @csrf
+            <button type="submit" class="px-4 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
+                Verknüpfungscode erzeugen
+            </button>
+        </form>
+        @if ($shopAccounts->isNotEmpty())
+            <ul class="mt-4 divide-y divide-slate-100 dark:divide-slate-700 text-sm">
+                @foreach ($shopAccounts as $shopAccount)
+                    <li class="py-2 flex items-center justify-between gap-3">
+                        <span class="text-slate-700 dark:text-slate-200">
+                            {{ $shopAccount->email }}@if ($shopAccount->company_name) · {{ $shopAccount->company_name }}@endif
+                            <span class="block text-xs text-slate-500 dark:text-slate-400">verknüpft am {{ \App\Support\GermanTime::format($shopAccount->linked_at, 'd.m.Y') }}</span>
+                        </span>
+                        <form method="POST" action="{{ route('admin.shop-link.unlink', $shopAccount->id) }}" onsubmit="return confirm('Verknüpfung mit diesem Shopkonto lösen? Danach sind keine Einkäufe für die Bootsschule mehr möglich.')">
+                            @csrf @method('DELETE')
+                            <button type="submit" class="text-xs text-red-600 hover:underline">Verknüpfung lösen</button>
+                        </form>
+                    </li>
+                @endforeach
+            </ul>
+        @endif
+    </div>
+
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden">
+        <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700">
+            <h3 class="font-medium text-slate-700 dark:text-slate-200">Bestellungen aus dem Shop</h3>
+        </div>
+        <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="bg-slate-50 dark:bg-slate-700 text-slate-500 dark:text-slate-300 text-left">
+                <tr>
+                    <th class="px-4 py-2">Bestellung</th>
+                    <th class="px-4 py-2">Kurs / Produkt</th>
+                    <th class="px-4 py-2">Codes</th>
+                    <th class="px-4 py-2">Datum</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse ($shopBatches as $batch)
+                    <tr class="border-t border-slate-100 dark:border-slate-700">
+                        <td class="px-4 py-2 text-slate-700 dark:text-slate-200">{{ $batch->order_number ?? $batch->order_id }}</td>
+                        <td class="px-4 py-2 text-slate-700 dark:text-slate-200">
+                            {{ $batch->course->name ?? $batch->product->name ?? '—' }}@if ($batch->kind === 'renewal') (Verlängerung)@endif
+                        </td>
+                        <td class="px-4 py-2 text-slate-600 dark:text-slate-300">
+                            {{ $batch->quantity }}, davon {{ $batch->redeemed_count }} eingelöst
+                            @if ($batch->status !== 'delivered')
+                                <span class="block text-xs text-amber-700 dark:text-amber-300">{{ $batch->status === 'voided' ? 'storniert' : 'teilweise storniert' }}</span>
+                            @endif
+                        </td>
+                        <td class="px-4 py-2 text-slate-500 dark:text-slate-400">{{ \App\Support\GermanTime::format($batch->created_at, 'd.m.Y') }}</td>
+                    </tr>
+                @empty
+                    <tr><td colspan="4" class="px-4 py-3 text-slate-500 dark:text-slate-400">Noch keine Bestellungen aus dem Shop.</td></tr>
                 @endforelse
             </tbody>
         </table>

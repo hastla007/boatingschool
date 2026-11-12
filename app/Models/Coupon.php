@@ -18,7 +18,7 @@ class Coupon extends Model
     protected $fillable = [
         'code', 'course_id', 'product_id', 'is_renewal', 'tenant_id', 'batch_label', 'created_by_user_id',
         'redeemed_by_user_id', 'redeemed_tenant_id', 'redeemed_at',
-        'expires_at', 'voided_at', 'voided_by_user_id',
+        'expires_at', 'voided_at', 'voided_by_user_id', 'batch_id',
     ];
 
     protected function casts(): array
@@ -43,6 +43,12 @@ class Coupon extends Model
     }
 
     /** Zusätzlich gebündelte Produkte bei einem Kurs-Coupon (siehe redeemForCourse). */
+    /** Code-Batch einer Shop-Bestellung (sonst null). */
+    public function batch(): BelongsTo
+    {
+        return $this->belongsTo(CouponBatch::class, 'batch_id');
+    }
+
     public function optionProducts(): BelongsToMany
     {
         return $this->belongsToMany(Product::class, 'coupon_option_product');

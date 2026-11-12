@@ -1,0 +1,78 @@
+<?php
+
+/**
+ * Einstellungen (WooCommerce → Einstellungen → Bootsschule).
+ *
+ * Die Geheimnisse können statt in der Datenbank auch in wp-config.php
+ * stehen (empfohlen): BS_CONNECTOR_APP_URL, BS_CONNECTOR_KEY_ID,
+ * BS_CONNECTOR_SECRET, BS_CONNECTOR_INBOUND_KEY_ID, BS_CONNECTOR_INBOUND_SECRET.
+ */
+defined('ABSPATH') || exit;
+
+final class BS_Settings
+{
+    const OPTION = 'bs_connector_settings';
+
+    /** @return array{app_url: string, key_id: string, secret: string, inbound_key_id: string, inbound_secret: string, alert_email: string, vat_meta_key: string} */
+    public static function get(): array
+    {
+        $stored = (array) get_option(self::OPTION, []);
+        $value = static function (string $constant, string $key, string $default = '') use ($stored): string {
+            if (defined($constant)) {
+                return (string) constant($constant);
+            }
+
+            return isset($stored[$key]) ? (string) $stored[$key] : $default;
+        };
+
+        return [
+            'app_url' => $value('BS_CONNECTOR_APP_URL', 'app_url'),
+            'key_id' => $value('BS_CONNECTOR_KEY_ID', 'key_id', 'shop'),
+            'secret' => $value('BS_CONNECTOR_SECRET', 'secret'),
+            'inbound_key_id' => $value('BS_CONNECTOR_INBOUND_KEY_ID', 'inbound_key_id', 'app'),
+            'inbound_secret' => $value('BS_CONNECTOR_INBOUND_SECRET', 'inbound_secret'),
+            'alert_email' => isset($stored['alert_email']) && $stored['alert_email'] !== '' ? (string) $stored['alert_email'] : (string) get_option('admin_email'),
+            'vat_meta_key' => isset($stored['vat_meta_key']) && $stored['vat_meta_key'] !== '' ? (string) $stored['vat_meta_key'] : 'billing_vat_id',
+        ];
+    }
+
+    public static function init(): void
+    {
+        add_filter('woocommerce_settings_tabs_array', [__CLASS__, 'add_tab'], 60);
+        add_action('woocommerce_settings_tabs_bs_connector', [__CLASS__, 'render']);
+        add_action('woocommerce_update_options_bs_connector', [__CLASS__, 'save']);
+    }
+
+    public static function add_tab(array $tabs): array
+    {
+        $tabs['bs_connector'] = __('Bootsschule', 'bs-connector');
+
+        return $tabs;
+    }
+
+    private static function fields(): array
+    {
+        return [
+            ['title' => __('Anbindung an die Bootsschul-Plattform', 'bs-connector'), 'type' => 'title', 'id' => 'bs_connector_section', 'desc' => __('Gekaufte Codes werden nach der Zahlung dem Codebestand der verknüpften Bootsschule gutgeschrieben. Werte in wp-config.php haben Vorrang.', 'bs-connector')],
+            ['title' => __('Adresse der Plattform', 'bs-connector'), 'id' => self::OPTION.'[app_url]', 'type' => 'url', 'placeholder' => 'https://app.example.de'],
+            ['title' => __('Schlüssel-ID (Shop → App)', 'bs-connector'), 'id' => self::OPTION.'[key_id]', 'type' => 'text', 'default' => 'shop'],
+            ['title' => __('Geheimnis (Shop → App)', 'bs-connector'), 'id' => self::OPTION.'[secret]', 'type' => 'password'],
+            ['title' => __('Schlüssel-ID (App → Shop)', 'bs-connector'), 'id' => self::OPTION.'[inbound_key_id]', 'type' => 'text', 'default' => 'app'],
+            ['title' => __('Geheimnis (App → Shop)', 'bs-connector'), 'id' => self::OPTION.'[inbound_secret]', 'type' => 'password'],
+            ['title' => __('Alarm-Adresse', 'bs-connector'), 'id' => self::OPTION.'[alert_email]', 'type' => 'email', 'desc' => __('Erhält eine Mail, wenn eine Zustellung endgültig fehlschlägt. Leer = Admin-Adresse von WordPress.', 'bs-connector')],
+            ['title' => __('Meta-Feld der USt-ID', 'bs-connector'), 'id' => self::OPTION.'[vat_meta_key]', 'type' => 'text', 'default' => 'billing_vat_id'],
+            ['type' => 'sectionend', 'id' => 'bs_connector_section'],
+        ];
+    }
+
+    public static function render(): void
+    {
+        woocommerce_admin_fields(self::fields());
+    }
+
+    public static function save(): void
+    {
+        woocommerce_update_options(self::fields());
+        delete_transient('bs_connector_catalog');
+    }
+}

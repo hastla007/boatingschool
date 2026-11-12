@@ -35,6 +35,9 @@ Schedule::command('app:prune-personal-data')->daily()->onOneServer()->withoutOve
 // nächsten Tageslauf liegen lassen.
 Schedule::command('app:prune-personal-data --mobile-api-only')->hourly()->onOneServer()->withoutOverlapping(55);
 
+// Shop-Anbindung: Ausgang App -> Shop (Shopkonten neuer Schulen), mit Wiederholung.
+Schedule::command('app:commerce-outbox')->everyMinute()->onOneServer()->withoutOverlapping(5);
+
 // Kursliste der App: Zwischenspeicher vorab füllen (siehe CourseAccess).
 Schedule::command('app:warm-course-cache')->hourly()->onOneServer()->withoutOverlapping(55);
 
