@@ -104,7 +104,7 @@ class CourseController extends Controller
             $files->where('category', 'downloads')->sortBy([['sort_order', 'asc'], ['id', 'asc']])->values(),
         )->pluck('id')->flip();
         $fileRef = function (CourseFile $file) use ($tenant, $user, $downloadAllowedIds): array {
-            $allowed = $file->category === 'downloads'
+            $allowed = ($file->category === 'downloads' || $file->required_capability === 'downloads')
                 ? $downloadAllowedIds->has($file->id)
                 : ($file->required_capability === null
                     ? $this->entitlements->hasAccess($tenant, $user, $file->course)
