@@ -187,6 +187,21 @@ class CourseAccess
         ];
     }
 
+    /** Apply WP's first_items rule to an already deterministically ordered resource list. */
+    public function limitItems(Tenant $tenant, User $user, CourseDefinition $course, string $capability, Collection $items): Collection
+    {
+        $scope = $this->featureScope($tenant, $user, $course, $capability);
+
+        return $scope['full'] ? $items->values() : $items->take(max(0, (int) ($scope['limit'] ?? 0)))->values();
+    }
+
+    /** Check direct-ID access against the same ordered list used by the collection endpoint. */
+    public function allowsLimitedItem(Tenant $tenant, User $user, CourseDefinition $course, string $capability, Collection $orderedItems, string $id): bool
+    {
+        return $this->limitItems($tenant, $user, $course, $capability, $orderedItems)
+            ->contains(fn ($item) => (string) $item->id === $id);
+    }
+
     /**
      * Aktuell gültige Fragen eines Kurses (Modulfragen), 5 Minuten zwischen-
      * gespeichert -- Inhalte ändern sich selten, Listen fragen je Kurs.
