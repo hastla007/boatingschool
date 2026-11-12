@@ -321,7 +321,7 @@ class CourseController extends Controller
         $features['explanations'] = [
             'available' => $explanations['full'] || $explanationLimit !== null,
             'full' => $explanations['full'],
-            'limit' => null,
+            'limit' => $explanationLimit,
         ];
         $relation ??= $this->courseRelations->forCourses($tenant, $user, collect([$course]))[$course->code];
         $faqCount = $canLearn ? (int) DB::table('customer_faq_category_item as item')
