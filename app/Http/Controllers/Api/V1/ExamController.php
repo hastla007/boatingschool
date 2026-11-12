@@ -42,7 +42,7 @@ class ExamController extends Controller
     {
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
-        $course = $this->access->require($tenant, $user, $courseId);
+        $course = $this->access->require($tenant, $user, $courseId, 'exam');
         $papers = $course->examPapers;
 
         $sessions = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)
@@ -92,7 +92,7 @@ class ExamController extends Controller
         $validated = $request->validate(['paper_id' => ['nullable', 'uuid']]);
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
-        $course = $this->access->require($tenant, $user, $courseId);
+        $course = $this->access->require($tenant, $user, $courseId, 'exam');
         $starter = app(ExamSessionStarter::class);
 
         if ($course->examPapers()->exists()) {
@@ -123,7 +123,7 @@ class ExamController extends Controller
     {
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
-        $course = $this->access->require($tenant, $user, $courseId);
+        $course = $this->access->require($tenant, $user, $courseId, 'exam');
         $perPage = max(1, min(100, (int) $request->query('per_page', 20)));
 
         $page = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)
@@ -374,7 +374,7 @@ class ExamController extends Controller
         if (! $session) {
             throw ApiProblem::notFound('Prüfung');
         }
-        $this->access->require($tenant, $request->user(), $session->course_id);
+        $this->access->require($tenant, $request->user(), $session->course_id, 'exam');
 
         return $session;
     }
