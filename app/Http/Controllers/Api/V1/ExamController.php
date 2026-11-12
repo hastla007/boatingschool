@@ -43,7 +43,7 @@ class ExamController extends Controller
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
         $course = $this->access->require($tenant, $user, $courseId, 'exam');
-        $papers = $course->examPapers;
+        $papers = $this->access->limitItems($tenant, $user, $course, 'exam', $course->examPapers);
 
         $sessions = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)
             ->whereIn('status', ['running', 'evaluated'])->orderByDesc('started_at')->get();
@@ -98,6 +98,10 @@ class ExamController extends Controller
         if ($course->examPapers()->exists()) {
             if (empty($validated['paper_id'])) {
                 throw new ApiProblem(422, 'VALIDATION_FAILED', 'Eingaben ungültig', null, ['paper_id' => ['Bitte einen Prüfungsbogen wählen.']]);
+            }
+            $orderedPapers = $course->examPapers;
+            if (! $this->access->allowsLimitedItem($tenant, $user, $course, 'exam', $orderedPapers, $validated['paper_id'])) {
+                throw ApiProblem::notFound('Prüfungsbogen');
             }
             $paper = ExamPaper::where('id', $validated['paper_id'])->where('course_id', $course->id)->first();
             if (! $paper) {
