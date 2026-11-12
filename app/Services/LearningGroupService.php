@@ -9,6 +9,7 @@ use App\Models\LearningGroupMember;
 use App\Models\Tenant;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use RuntimeException;
 
@@ -39,14 +40,23 @@ class LearningGroupService
     public function invite(LearningGroup $group, User $owner, array $emails): array
     {
         $this->active($group);
+        $userKey = 'learning-group-invite-user:'.$owner->id;
+        if (RateLimiter::tooManyAttempts($userKey, 20)) {
+            throw new \\App\\Api\\ApiProblem(429, 'TOO_MANY_REQUESTS', 'Zu viele Einladungen', 'Bitte warte eine Stunde und versuche es erneut.');
+        }
+        RateLimiter::hit($userKey, 3600);
         $emails = array_values(array_unique(array_map(fn ($email) => mb_strtolower(trim((string) $email)), $emails)));
         $invited = 0;
         $skipped = [];
         foreach ($emails as $email) {
-            if (! filter_var($email, FILTER_VALIDATE_EMAIL) || $this->occupiedEmail($group, $email) || $this->freeSeats($group) <= 0) {
+            $dailyKey = 'learning-group-invite-group:'.$group->id.':'.now()->toDateString();
+            $dailyLimit = max(self::INVITES_PER_DAY, 2 * (int) $group->seats);
+            if (! filter_var($email, FILTER_VALIDATE_EMAIL) || $this->occupiedEmail($group, $email)
+                || $this->freeSeats($group) <= 0 || RateLimiter::tooManyAttempts($dailyKey, $dailyLimit)) {
                 $skipped[] = $email;
                 continue;
             }
+            RateLimiter::hit($dailyKey, 86400);
             $member = LearningGroupMember::create([
                 'group_id' => $group->id, 'email' => $email, 'status' => 'invited',
                 'invite_token' => 'i'.bin2hex(random_bytes(16)), 'invited_at' => now(),
@@ -181,7 +191,7 @@ class LearningGroupService
             'scopes' => $this->scopes($group),
             'join_code' => $active ? $group->join_code : null,
             'join_url' => $active ? rtrim(config('app.url'), '/').'/gruppe/'.$group->join_code.'/' : null,
-            'invites_remaining_today' => $active ? self::INVITES_PER_DAY : 0,
+            'invites_remaining_today' => $active ? RateLimiter::remaining('learning-group-invite-group:'.$group->id.':'.now()->toDateString(), max(self::INVITES_PER_DAY, 2 * (int) $group->seats)) : 0,
             'invite_valid_days' => self::INVITE_DAYS,
             'members' => $members,
         ];
