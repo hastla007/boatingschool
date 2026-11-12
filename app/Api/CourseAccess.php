@@ -202,6 +202,29 @@ class CourseAccess
         }));
     }
 
+    /** Questions available to a partial question-bank entitlement, keeping the first N per module. */
+    public function accessibleQuestionIds(Tenant $tenant, User $user, CourseDefinition $course): Collection
+    {
+        $scope = $this->featureScope($tenant, $user, $course, 'smarttrainer');
+        if ($scope['full']) {
+            return $this->validQuestionIds($course);
+        }
+        $limit = (int) ($scope['limit'] ?? 0);
+        if ($limit < 1) {
+            return collect();
+        }
+
+        $course->loadMissing('modules.questions');
+        $allowed = collect();
+        foreach ($course->modules as $module) {
+            $valid = ContentQuestion::currentlyValidIds($module->questions);
+
+            $allowed = $allowed->merge($valid->take($limit));
+        }
+
+        return $allowed->unique()->values();
+    }
+
     /** @return list<string> */
     public function capabilities(CourseDefinition $course): array
     {
