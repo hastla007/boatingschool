@@ -51,7 +51,7 @@ class VideoController extends Controller
                 'unlock_at' => Present::time($this->access->dripUnlockAt($tenant, $user, $course, 'video', (string) $m->title)),
                 'lessons' => $lessons->map(fn (VideoLesson $l) => $this->lesson($l, $progress->get($l->id), false))->values(),
             ];
-        })->filter(fn (array $module) => $module['lessons']->isNotEmpty())->values()]);
+        })->filter(fn (array $module) => $module['locked'] || $module['lessons']->isNotEmpty())->values()]);
     }
 
     public function show(Request $request, string $lessonId): JsonResponse
