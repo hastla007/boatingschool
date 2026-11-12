@@ -7,13 +7,29 @@ dieselben.
 
 | Datei | Inhalt |
 |---|---|
-| `docs/api/openapi-mobile-v1.yaml` | Vertrag (OpenAPI 3.1), alle 47 Endpunkte |
+| `docs/api/openapi-mobile-v1.yaml` | Vertrag (OpenAPI 3.1), alle 48 Endpunkte |
 | `routes/api.php` | Routen (Präfix `/api/v1`) |
 | `app/Http/Controllers/Api/V1/` | Controller je Bereich |
 | `app/Api/` | Tokens, Fehlerformat, Ausgabeformate |
 | `app/Http/Middleware/Api/` | Anmeldung, Schule, Idempotenz |
 | `config/mobile_api.php` | Laufzeiten (Tokens, Export, Idempotenz) |
 | `tests/Feature/Api/` | Tests inkl. Abgleich Routen ↔ OpenAPI |
+
+
+### Kunden-FAQs aus WordPress übertragen
+
+Der WP-Export liefert veröffentlichte Kunden-FAQs, Kategorien und Kurszuordnungen
+im JSON-Format des Laravel-Imports. Nach dem Export die Datei ins Laravel-Projekt
+übertragen und dort importieren:
+
+\`\`\`sh
+wp bootspruefung export customer-faqs > mobile-faqs.json
+php artisan mobile-api:import-faqs storage/app/import/mobile-faqs.json
+\`\`\`
+
+Der Import aktualisiert Einträge über stabile Quellschlüssel, erhält gefilterte
+HTML-Antworten und löscht keine Datensätze, die im Export fehlen. Die FAQ-API
+gibt nur veröffentlichte Fragen für freigeschaltete Kurse aus.
 
 ---
 
