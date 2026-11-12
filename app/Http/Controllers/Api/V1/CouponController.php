@@ -51,8 +51,10 @@ class CouponController extends Controller
             return response()->json(['data' => [
                 'redeemed' => true,
                 'already_redeemed' => $joined['already'],
-                'type' => 'group_license',
+                'kind' => 'group_license',
                 'group_name' => $joined['group']->name,
+                'course_id' => $courses->count() === 1 ? $courses->first()['course_id'] : null,
+                'course_name' => $courses->count() === 1 ? $courses->first()['name'] : null,
                 'courses' => $courses,
                 'entitlement' => ['status' => 'active', 'valid_from' => null, 'valid_until' => $joined['group']->valid_until?->toIso8601String()],
             ]]);
