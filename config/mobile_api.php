@@ -5,6 +5,8 @@
 | App-Konzept; vor dem Go-live anpassbar.
 */
 return [
+    // Access default: entitlement (Standard) oder logged_in wie die WP-App-Einstellung.
+    'default_access' => env('MOBILE_API_DEFAULT_ACCESS', 'entitlement'),
     // Access-Token: kurzlebig.
     'access_ttl_minutes' => (int) env('MOBILE_API_ACCESS_TTL_MINUTES', 15),
     // Refresh-Token: rotiert bei jeder Erneuerung; verfällt nach dieser
@@ -17,6 +19,10 @@ return [
     'export_ttl_minutes' => (int) env('MOBILE_API_EXPORT_TTL_MINUTES', 60),
     // Idempotenz-Schlüssel werden so lange aufbewahrt.
     'idempotency_hours' => 24,
+    // Einmalige Anmeldung für die Webansicht aus einer Mobile-App.
+    'web_session_enabled' => (bool) env('MOBILE_API_WEB_SESSION_ENABLED', true),
+    // Universal-Link-Pfad, den die App aus der Bestätigungsmail öffnet.
+    'deletion_confirmation_path' => env('MOBILE_API_DELETION_CONFIRMATION_PATH', '/app/konto-loeschen/'),
     // Mindestversion der App je Plattform (leer = keine Vorgabe). Ältere
     // Versionen bekommen 426 APP_UPDATE_REQUIRED (Header X-App-Version und
     // X-App-Platform); GET /api/v1/app/config nennt die Werte.

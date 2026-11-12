@@ -16,7 +16,7 @@ class Entitlement extends Model
 
     protected $fillable = [
         'tenant_id', 'user_id', 'course_id', 'valid_from', 'valid_until',
-        'status', 'source_type', 'source_reference', 'expiry_reminded_at',
+        'status', 'source_type', 'source_reference', 'expiry_reminded_at', 'capabilities',
     ];
 
     /** So viele Tage vor dem Ablauf warnen Kursübersicht und Erinnerungsmail. */
@@ -38,6 +38,7 @@ class Entitlement extends Model
             'valid_from' => 'datetime',
             'valid_until' => 'datetime',
             'expiry_reminded_at' => 'datetime',
+            'capabilities' => 'array',
         ];
     }
 

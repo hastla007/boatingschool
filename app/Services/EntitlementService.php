@@ -46,7 +46,17 @@ class EntitlementService
 
     public function hasAccess(Tenant $tenant, User $user, CourseDefinition $course): bool
     {
-        return $this->activeCourses($tenant, $user)->contains('id', $course->id);
+        return $this->activeEntitlements($tenant, $user)->contains(
+            fn (Entitlement $entitlement) => $entitlement->course_id === $course->id && ($entitlement->capabilities === null || in_array('all', $entitlement->capabilities, true))
+        );
+    }
+
+    public function hasCapabilityAccess(Tenant $tenant, User $user, CourseDefinition $course, string $capability): bool
+    {
+        return $this->activeEntitlements($tenant, $user)->contains(
+            fn (Entitlement $entitlement) => $entitlement->course_id === $course->id
+                && ($entitlement->capabilities === null || in_array($capability, $entitlement->capabilities, true) || in_array('all', $entitlement->capabilities, true))
+        );
     }
 
     /** Ob ein Kurs für diese Bootsschule aktuell angeboten werden kann (veröffentlicht, sitewide UND mandantenseitig aktiv). */

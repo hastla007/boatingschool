@@ -28,8 +28,10 @@ class NavigationController extends Controller
 
     public function index(Request $request, string $courseId): JsonResponse
     {
-        $course = $this->access->require($this->tenantContext->tenant(), $request->user(), $courseId);
-        $tasks = $course->navigationTasks()->with('questions')->get();
+        $course = $this->access->require($this->tenantContext->tenant(), $request->user(), $courseId, 'navigation');
+        $orderedTasks = $course->navigationTasks()->orderBy('sort_order')->orderBy('task_number')->with('questions')->get();
+        $allowedIds = $this->access->limitItems($this->tenantContext->tenant(), $request->user(), $course, 'navigation', $orderedTasks)->pluck('id')->flip();
+        $tasks = $orderedTasks;
         $progress = $this->progress($request, $tasks);
         // Review-Runde 13: offene Prüfungen einmal laden statt je Aufgabe.
         $lockedTaskIds = ExamSession::openForUserAcrossTenants($request->user()->id)->pluck('navigation_task_id')->filter()->flip();
@@ -38,7 +40,7 @@ class NavigationController extends Controller
         $page = max(1, (int) $request->query('page', 1));
 
         return response()->json([
-            'data' => $tasks->slice(($page - 1) * $perPage, $perPage)->values()->map(fn (NavigationTask $t) => $this->summary($t, $progress, $lockedTaskIds->has($t->id))),
+            'data' => $tasks->slice(($page - 1) * $perPage, $perPage)->values()->map(fn (NavigationTask $t) => $this->summary($t, $progress, $lockedTaskIds->has($t->id)) + ['locked' => ! $allowedIds->has($t->id)]),
             'meta' => ['pagination' => ['page' => $page, 'per_page' => $perPage, 'total' => $tasks->count(), 'last_page' => max(1, (int) ceil($tasks->count() / $perPage))]],
         ]);
     }
@@ -110,13 +112,83 @@ class NavigationController extends Controller
         ]]);
     }
 
+    /**
+     * WP-compatible answer route. Keeps the original three-state self-assessment contract
+     * while sharing the Laravel navigation progress and exam lock.
+     */
+    public function answerCompatible(Request $request, string $taskId, string $partId): JsonResponse
+    {
+        $validated = $request->validate([
+            'answer' => ['sometimes', 'nullable', 'string', 'max:5000'],
+            'self_assessment' => ['sometimes', 'nullable', 'in:correct,partly,wrong'],
+        ]);
+        $task = $this->accessibleTask($request, $taskId);
+        $this->abortIfInRunningExam($request, $task);
+        $question = $task->questions->firstWhere('id', $partId);
+        if (! $question) {
+            throw ApiProblem::notFound('Teilaufgabe');
+        }
+
+        $key = ['tenant_id' => $this->tenantContext->id(), 'user_id' => $request->user()->id, 'navigation_question_id' => $question->id];
+        $existing = NavigationProgress::where($key)->first();
+        $values = ['updated_at' => now()];
+        $evaluation = null;
+
+        // Missing/null means keep the saved value. An explicit empty string clears it,
+        // matching the source endpoint's null-versus-empty behavior.
+        if ($request->exists('answer') && $validated['answer'] !== null) {
+            $given = mb_substr((string) $validated['answer'], 0, 5000);
+            $values['answer'] = $given;
+            if (trim($given) !== '') {
+                $evaluation = NavigationAnswer::evaluate($question->answer_text, $given);
+                $values['correct'] = $evaluation['correct'];
+            } else {
+                $values['correct'] = null;
+            }
+        }
+
+        $assessment = $validated['self_assessment'] ?? null;
+        if ($assessment !== null) {
+            $values['self_assessment'] = $assessment;
+            $values['correct'] = $assessment === 'correct';
+        }
+
+        $row = NavigationProgress::updateOrCreate($key, $values);
+        $check = null;
+        if ($evaluation !== null && $evaluation['auto']) {
+            $check = [
+                'status' => $evaluation['correct'] ? 'within' : 'deviates',
+                'message' => $evaluation['correct']
+                    ? 'Deine Werte liegen im Toleranzbereich.'
+                    : 'Mindestens ein Wert weicht ab oder fehlt.',
+                'values' => [],
+            ];
+        }
+
+        return response()->json(['data' => [
+            'part_id' => $question->id,
+            'solution' => $question->answer_text,
+            'my_answer' => $row->answer,
+            'self_assessment' => $assessment,
+            'done' => $assessment !== null,
+            'auto_check' => $evaluation !== null && (bool) $evaluation['auto'],
+            'check' => $check,
+        ]]);
+    }
+
     private function accessibleTask(Request $request, string $taskId): NavigationTask
     {
         $task = NavigationTask::with('questions')->find($taskId);
         if (! $task) {
             throw ApiProblem::notFound('Navigationsaufgabe');
         }
-        $this->access->require($this->tenantContext->tenant(), $request->user(), $task->course_id);
+        $tenant = $this->tenantContext->tenant();
+        $user = $request->user();
+        $course = $this->access->require($tenant, $user, $task->course_id, 'navigation');
+        $orderedTasks = $course->navigationTasks()->orderBy('sort_order')->orderBy('task_number')->get();
+        if (! $this->access->allowsLimitedItem($tenant, $user, $course, 'navigation', $orderedTasks, (string) $task->id)) {
+            throw ApiProblem::notFound('Navigationsaufgabe');
+        }
 
         return $task;
     }

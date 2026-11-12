@@ -41,10 +41,10 @@ class FavoriteController extends Controller
         ]);
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
-        $course = $this->access->require($tenant, $user, $courseId);
+        $course = $this->access->require($tenant, $user, $courseId, 'favorites');
 
         $favorites = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)
-            ->whereIn('question_id', $course->contentQuestionIds())
+            ->whereIn('question_id', $this->access->accessibleQuestionIds($tenant, $user, $course))
             ->whereIn('question_id', ContentQuestion::query()->currentlyValid()->select('id'))
             ->when($validated['context'] ?? null, fn ($q, $context) => $q->where('context', $context))
             ->latest('created_at')->get();
@@ -80,6 +80,80 @@ class FavoriteController extends Controller
         return response()->json(['data' => $data->values()]);
     }
 
+    /** Zuletzt falsch beantwortete Fragen für den freigeschalteten Kurs. */
+    public function mistakes(Request $request, string $courseId): JsonResponse
+    {
+        $tenant = $this->tenantContext->tenant();
+        $user = $request->user();
+        $course = $this->access->require($tenant, $user, $courseId, 'favorites');
+        $courseQuestionIds = $course->contentQuestionIds();
+        if ($courseQuestionIds->isEmpty()) {
+            return response()->json(['data' => []]);
+        }
+
+        $progress = Progress::where('tenant_id', $tenant->id)
+            ->where('user_id', $user->id)
+            ->whereIn('question_id', $courseQuestionIds)
+            ->where('attempt_count', '>', 0)->where('current_streak', 0)
+            ->orderByDesc('last_seen_at')
+            ->get();
+        $questionIds = $progress->pluck('question_id')->all();
+        if ($questionIds === []) {
+            return response()->json(['data' => []]);
+        }
+
+        $questions = ContentQuestion::query()->currentlyValid()
+            ->whereIn('id', $questionIds)
+            ->with(['revisions' => fn ($query) => $query->where('editorial_status', 'published')->orderByDesc('revision_no')])
+            ->get()->keyBy('id');
+        $favoriteRows = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+            ->where('context', Favorite::CONTEXT_SMART_LEARNING)->whereIn('question_id', $questionIds)
+            ->get(['question_id', 'created_at'])->keyBy('question_id');
+        $favoriteIds = $favoriteRows->keys()->flip();
+        $collections = FavoriteCollection::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+            ->where('course_id', $course->id)->pluck('id');
+        $collectionIds = FavoriteCollectionItem::where('tenant_id', $tenant->id)
+            ->whereIn('favorite_collection_id', $collections)->where('context', Favorite::CONTEXT_SMART_LEARNING)
+            ->whereIn('question_id', $questionIds)->orderBy('created_at')
+            ->get(['question_id', 'favorite_collection_id'])->groupBy('question_id')
+            ->map(fn ($items) => $items->pluck('favorite_collection_id')->map(fn ($id) => (string) $id)->values());
+
+        $moduleByQuestion = [];
+        foreach ($course->modules()->with('questions')->get() as $module) {
+            foreach ($module->questions as $question) {
+                $moduleByQuestion[$question->id] ??= $module->name;
+            }
+        }
+
+        $items = [];
+        foreach ($progress as $state) {
+            $question = $questions->get($state->question_id);
+            $revision = $question?->revisions->first();
+            if (! $question || ! $revision) {
+                continue;
+            }
+            $ids = $collectionIds->get($question->id, collect());
+            $savedAt = $favoriteRows->get($question->id)?->created_at;
+
+            $items[] = [
+                'question_id' => (string) $question->id,
+                'context' => Favorite::CONTEXT_SMART_LEARNING,
+                'favorite' => $favoriteIds->has($question->id),
+                'wrong' => true,
+                'collection_id' => $ids->first(),
+                'collection_ids' => $ids,
+                'official_number' => $question->official_number !== null ? (string) $question->official_number : null,
+                'text' => trim(strip_tags((string) $revision->question_text)),
+                'module' => (string) ($moduleByQuestion[$question->id] ?? ''),
+                'topic' => ($revision->smartmodus_kategorie ?: $revision->topic) ?: null,
+                'saved_at' => $savedAt ? Present::time($savedAt) : null,
+                'created_at' => $savedAt ? Present::time($savedAt) : null,
+            ];
+        }
+
+        return response()->json(['data' => $items]);
+    }
+
     /** Favorit setzen (optional mit Sammlungen); wiederholbar. */
     public function put(Request $request, string $courseId, string $questionId): JsonResponse
     {
@@ -90,7 +164,7 @@ class FavoriteController extends Controller
         ]);
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
-        $course = $this->access->require($tenant, $user, $courseId);
+        $course = $this->access->require($tenant, $user, $courseId, 'favorites');
         if (! $course->contentQuestionIds()->contains($questionId)) {
             throw ApiProblem::notFound('Frage');
         }
@@ -129,7 +203,7 @@ class FavoriteController extends Controller
         $validated = $request->validate(['context' => ['nullable', 'in:'.Favorite::CONTEXT_SMART_LEARNING.','.Favorite::CONTEXT_EXAM]]);
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
-        $this->access->require($tenant, $user, $courseId);
+        $this->access->require($tenant, $user, $courseId, 'favorites');
         $context = $validated['context'] ?? Favorite::CONTEXT_SMART_LEARNING;
 
         Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('question_id', $questionId)->where('context', $context)->delete();
@@ -142,7 +216,7 @@ class FavoriteController extends Controller
     {
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
-        $course = $this->access->require($tenant, $user, $courseId);
+        $course = $this->access->require($tenant, $user, $courseId, 'favorites');
         $this->collections->assignUnsortedToDefault($tenant, $user, $course, Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)
             ->whereIn('question_id', $course->contentQuestionIds())->get());
 
@@ -157,7 +231,7 @@ class FavoriteController extends Controller
         $validated = $request->validate(['name' => ['bail', 'required', 'string', 'max:60']]);
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
-        $course = $this->access->require($tenant, $user, $courseId);
+        $course = $this->access->require($tenant, $user, $courseId, 'favorites');
 
         try {
             $collection = $this->collections->create($tenant, $user, $course, $validated['name']);
@@ -201,7 +275,7 @@ class FavoriteController extends Controller
     private function ownCollection(Request $request, string $courseId, string $collectionId): FavoriteCollection
     {
         $tenant = $this->tenantContext->tenant();
-        $course = $this->access->require($tenant, $request->user(), $courseId);
+        $course = $this->access->require($tenant, $request->user(), $courseId, 'favorites');
         $collection = FavoriteCollection::where('id', $collectionId)->where('tenant_id', $tenant->id)
             ->where('user_id', $request->user()->id)->where('course_id', $course->id)->first();
         if (! $collection) {

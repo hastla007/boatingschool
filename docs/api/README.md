@@ -7,13 +7,52 @@ dieselben.
 
 | Datei | Inhalt |
 |---|---|
-| `docs/api/openapi-mobile-v1.yaml` | Vertrag (OpenAPI 3.1), alle 47 Endpunkte |
+| `docs/api/openapi-mobile-v1.yaml` | Vertrag (OpenAPI 3.1), alle 82 Endpunkte |
 | `routes/api.php` | Routen (Präfix `/api/v1`) |
 | `app/Http/Controllers/Api/V1/` | Controller je Bereich |
 | `app/Api/` | Tokens, Fehlerformat, Ausgabeformate |
 | `app/Http/Middleware/Api/` | Anmeldung, Schule, Idempotenz |
 | `config/mobile_api.php` | Laufzeiten (Tokens, Export, Idempotenz) |
 | `tests/Feature/Api/` | Tests inkl. Abgleich Routen ↔ OpenAPI |
+
+
+### Kunden-FAQs aus WordPress übertragen
+
+Der WP-Export liefert veröffentlichte Kunden-FAQs, Kategorien und Kurszuordnungen
+im JSON-Format des Laravel-Imports. Nach dem Export die Datei ins Laravel-Projekt
+übertragen und dort importieren:
+
+\`\`\`sh
+wp bootspruefung export customer-faqs > mobile-faqs.json
+php artisan mobile-api:import-faqs storage/app/import/mobile-faqs.json
+\`\`\`
+
+Der Import aktualisiert Einträge über stabile Quellschlüssel, erhält gefilterte
+HTML-Antworten und löscht keine Datensätze, die im Export fehlen. Die FAQ-API
+gibt nur veröffentlichte Fragen für freigeschaltete Kurse aus.
+
+`GET /tips` liefert aktive Tipps und Tricks nach Kategorie. Die Inhalte sind plattformweit, erfordern aber den angemeldeten Schulkontext; ein einzelner Kurszugang ist nicht nötig. HTML, Text und sichere Links stehen gemeinsam zur Verfügung.
+
+`GET /courses/{id}/mistakes` listet falsch beantwortete, noch gültige Kursfragen samt Favoriten- und Sammlungsstatus. Ein Kurszugang ist erforderlich.
+
+`/courses/{courseId}/radio/*` stellt SRC-/UBI-Funktexte, Mitschrift-Auswertung, Vokabeltraining und Funkpraxis über dieselben nativen Inhalte und Lernstandsdatensätze wie der Laravel-Webtrainer bereit. `GET …/samples` liefert die Musterlösungen ausdrücklich als eigenen Abruf.
+
+`GET /courses/{id}/exam-registration` liefert die Prüfungsanleitung, Prüfungsformen, Prüfungsteile, FAQ und allgemeine DSV/DMYV-Kontakte. Die Terminbuchung selbst bleibt beim Prüfungsausschuss. Individuelle regionale Ausschüsse sind im nativen Laravel-Datenbestand derzeit nicht gepflegt.
+
+* **Praxistrainer:** `GET /courses/{id}/praxis` liefert Karten, freigegebene Medien und Status. `PUT /courses/{id}/praxis/{cardId}` speichert `known`, `practice` oder `open`; die Webansicht und App teilen den Status `known`/`open`.
+
+### Health und synchronisierte App-Einstellungen
+
+* `GET /health` ist ohne Anmeldung erreichbar und liefert API-Version,
+  Status und Serverzeit.
+* `POST /auth/web-session` erstellt für die eingebettete Webansicht eine einmalige, 60 Sekunden gültige Anmeldung. Die WebView muss die URL mit dem mitgelieferten Verifier-Header laden; erlaubt sind nur interne Lernseiten. Die Bestätigungsseite für Kontolöschung ist über `MOBILE_API_DELETION_CONFIRMATION_PATH` auf den Universal-Link der App zu legen.
+
+* `GET /me/settings` und `PUT /me/settings` synchronisieren
+  benutzerspezifische App-Einstellungen über Geräte hinweg. Antworten
+  enthalten eine monoton steigende `version` und den passenden `ETag`.
+  Schreibzugriffe können `If-Match: "<version>"` oder
+  `expected_version` mitsenden. Bei einem Versionskonflikt antwortet die API
+  mit 409 `VERSION_CONFLICT` und dem aktuellen Stand.
 
 ---
 
@@ -45,9 +84,9 @@ Design-Übersicht. Grundlage war jeweils der tatsächliche Stand der Plattform.
 | Login mit Schule | Schule beim Login nötig | Login ohne Schule; die Antwort listet die Mitgliedschaften | Ein Konto kann bei mehreren Schulen lernen |
 | Passwortlänge | mind. 12 | mind. 10 (`Password::defaults()` der Plattform) | Gleiche Regel wie im Web |
 | Favoriten | eine Sammlung je Favorit | `collection_ids` (mehrere Sammlungen) plus nicht löschbare Standard-Sammlung (`COLLECTION_NOT_DELETABLE`) | So ist das Datenmodell im Web |
-| Offene Fragen (FKN/SKN) | fehlten | `answer_selection = self_assessment`, Musterantwort aufdecken, `known` true/false; in der Prüfung erst `…/reveal`, dann Antwort | Sonst wären FKN/SKN nicht nutzbar |
+| Offene Fragen (FKN/SKN) | fehlten | `answer_selection = self_assessment`, `answer_token` in `GET …/trainer/next`, `POST …/trainer/reveal`, danach `known` true/false speichern | Antwort bleibt bis zum ausdrücklichen Aufdecken verborgen |
 | Navigationsaufgabe in der Prüfung (SBF See) | fehlte | `PUT /exams/{id}/navigation` und `POST …/navigation/assessment`; eigenes Minimum 7/9 | Prüfung wäre sonst nie bestanden |
-| Navigationstrainer | nur Lesen | zusätzlich `PUT …/parts/{id}/answer` (Toleranzprüfung bzw. Selbstbewertung); gesperrt, solange die Aufgabe in einer laufenden Prüfung ist | Gleicher Stand wie im Web |
+| Navigationstrainer | nur Lesen | `PUT …/parts/{id}/answer` plus WP-kompatibles `POST …/parts/{id}` mit `correct`/`partly`/`wrong`, Antwortspeicherung und automatischer Prüfung; gesperrt, solange die Aufgabe in einer laufenden Prüfung ist | Gleicher Funktionsumfang und zusätzlicher Routen-Alias für die App |
 | Prüfungsstart | `mode: official_simulation` | entfällt; `paper_id` bei Kursen mit festen Bögen, sonst Zufallsprüfung | Bögen sind die amtlichen Fragebögen |
 | Prüfungsübersicht | einfache Liste | `group` (Teilprüfung im Kombikurs), `parts`, `navigation`, `running_exam_id`, `last_result` | Kombikurse (SRC+UBI, SBF See+Binnen) |
 | Mitgliedschaft | Logo, Primärfarbe | zusätzlich `secondary_color`, Support-Adresse (nur bestätigt), Links zu Impressum/Datenschutz | Pflichtangaben je Schule |
@@ -204,6 +243,13 @@ Kursinhalte ohne gültigen Zugang ergeben 403 `ENTITLEMENT_REQUIRED` oder
 `ENTITLEMENT_EXPIRED`. Die App zeigt dann `webshop_url` bzw.
 `meta.renewal_webshop_url` und die Code-Eingabe.
 
+Die WP-App verwendet `default_access=logged_in`. Das native Original ist aus
+Sicherheitsgründen standardmäßig auf `entitlement` eingestellt. Für denselben
+Zugangs-Default muss die Betriebsumgebung vor dem Rollout ausdrücklich
+`MOBILE_API_DEFAULT_ACCESS=logged_in` setzen. Das gewährt eingeloggten Nutzern
+die Vollzugriffe der Kursfeatures; die Zugangsentscheidung muss daher zum
+Geschäftsmodell passen.
+
 ## 6. Smarttrainer und Lernmodi
 
 `GET /courses/{id}/trainer/next?mode=…` holt die nächste Frage.
@@ -258,6 +304,8 @@ POST /courses/{id}/exams {paper_id}     → 201 neu / 200 laufende fortsetzen
 GET  /exams/{id}                        → Fragen ohne Lösung, gegebene Antworten, phase, Zeit
 PUT  /exams/{id}/answers/{questionId}   → festschreiben
 POST /exams/{id}/questions/{qid}/reveal → Musterantwort (offene Fragen)
+PUT /exams/{id}/answers/{questionId}/flag {flagged} → Markierung zur Überprüfung speichern (Position oder Fragen-ID)
+  * WP-kompatibler Alias: `POST /exams/{id}/answers/{questionId}/reveal`.
 PUT  /exams/{id}/navigation             → Navigationsaufgabe abgeben (SBF See)
 POST /exams/{id}/navigation/assessment  → Selbsteinschätzung → Auswertung
 POST /exams/{id}/submit                 → abgeben → Ergebnis (Navigation fehlt: 409, außer without_navigation)
@@ -406,26 +454,79 @@ entscheidet aber nur anhand von `code`.
   * `MOBILE_API_REFRESH_IDLE_DAYS`
   * `MOBILE_API_REFRESH_MAX_DAYS`
   * `MOBILE_API_EXPORT_TTL_MINUTES`
+  * `MOBILE_API_WEB_SESSION_ENABLED` und `MOBILE_API_DELETION_CONFIRMATION_PATH`
   * `MOBILE_API_MIN_VERSION_IOS` / `_ANDROID` und `MOBILE_API_STORE_URL_IOS`
     / `_ANDROID` (leer = keine Mindestversion)
 * **Wartungsmodus** der Plattform (Superadmin-Einstellungen) gilt auch für
   die API (503 `MAINTENANCE`); `GET /app/config` bleibt erreichbar.
 * **Keine CORS-Freigabe nötig** (native Apps). Die API nutzt keine Cookies
   und keine Sessions.
-* **Migration:** `2024_02_01_000591_create_mobile_api_tables`. Sie legt
-  `api_device_session`, `api_idempotency_key` und `api_data_export` an.
+* **Migrationen:** Die Basis beginnt mit `2024_02_01_000591_create_mobile_api_tables`; die späteren Migrationen legen WebView-SSO, Kontolöschung, Zugangsregeln und den Dateizugriff für Downloads an.
+* **Limited-/Free-/Drip-Zugänge:** Die Access-Regeln aus WordPress müssen einmalig in das Original übernommen werden. Der Import erwartet eine normalisierte JSON-Datei:
+  ```json
+  {
+    "rules": [
+      {"tenant_slug":"schule-a","course_code":"SBF-SEE","feature_code":"question_bank","access_type":"free_limited","limit_value":5,"source_key":"wp:rule:123"},
+      {"tenant_slug":"schule-a","course_code":"SBF-SEE","feature_code":"question_bank","access_type":"drip","module_code":"SEE-01","limit_value":14,"source_key":"wp:drip:123"}
+    ]
+  }
+  ```
+  Danach mit `php artisan app:import-mobile-access-rules /pfad/export.json` importieren. `tenant_slug` und `course_code` müssen auf die IDs im Original zeigen. Drip-Module verwenden den nativen Modulcode. Für WordPress-Videokapitel muss `module_code` dem `video_module.source_id` entsprechen; der Kapitel-Titel ist nur ein Rückfallwert für bereits native Inhalte ohne Quell-ID. Doppelte Regeln desselben Typs brauchen verschiedene `source_key`-Werte.
+* **Downloads und Abschnittsdateien:** WordPress-Dateien zuerst in ein staging-Verzeichnis exportieren und dann mit einem Manifest registrieren:
+  ```json
+  {
+    "files": [
+      {"tenant_slug":"schule-a","course_code":"SBF-SEE","source_key":"wp:attachment:22","file":"uploads/2024/karte.pdf","category":"download","title":"Kartenmaterial","sort_order":1}
+    ]
+  }
+  ```
+  `php artisan app:import-mobile-course-files /pfad/files.json /pfad/zum/wordpress-media-export` kopiert die Dateien in den geschützten Laravel-Storage und legt die `course_file`-Einträge idempotent an. `category` ist `download`, `section` oder `chart`; Abschnittsdateien und Seekarten können einen `section_key` nutzen. Der aktuelle WP-Export ergänzt je Zuordnung `sha256`; der Importer prüft die Prüfsumme sowohl im Staging als auch nach dem Kopieren in den Laravel-Storage. Die exportierten Quelldateien selbst müssen vorher bereitgestellt werden.
 * **Tests:** `vendor/bin/phpunit tests/Feature/Api`.
   `OpenApiContractTest` schlägt fehl, wenn Routen und OpenAPI-Datei
   auseinanderlaufen.
+
+### Übernahme aus dem neuesten WP-Branch
+
+Zuerst die WP-CLI-Exporte auf dem WP-Stand `claude/loving-euler-c7h553`
+erzeugen. Für jede Zielschule den passenden bestehenden `tenant_slug` verwenden:
+
+```sh
+wp bootspruefung export access-rules <tenant-slug> --output=/tmp/mobile-access.json
+wp bootspruefung export entitlements <tenant-slug> --output=/tmp/mobile-entitlements.json
+wp bootspruefung export course-files <tenant-slug> --media-root=/tmp/mobile-media --output=/tmp/mobile-files.json
+wp bootspruefung export customer-faqs --output=storage/app/import/mobile-faqs.json
+```
+
+Nach dem Übertragen der Dateien ins Original und nach Ausführen der Datenbank-
+Migrationen importieren:
+
+```sh
+php artisan mobile-api:import-faqs storage/app/import/mobile-faqs.json
+php artisan app:import-mobile-entitlements /tmp/mobile-entitlements.json
+php artisan app:import-mobile-access-rules /tmp/mobile-access.json
+php artisan app:import-mobile-course-files /tmp/mobile-files.json /tmp/mobile-media
+```
+
+Der FAQ-Import aktualisiert per Quellschlüssel. Regeln und Dateien werden
+idempotent importiert. Video-Drip-Regeln ordnen das WP-Kapitel über Titel und
+Reihenfolge einem nativen Kapitel zu; wenn das Kapitel fehlt oder mehrdeutig
+ist, bricht der Import ab, statt eine unwirksame Drip-Regel anzulegen.
+Der exportierte WP-Default `logged_in` wird angezeigt, aber nicht automatisch
+als Laufzeit-Standard gesetzt; siehe `MOBILE_API_DEFAULT_ACCESS` in Abschnitt 5.
+Der Import legt keine Schulen oder App-Konten an. Für WP-Entitlements muss das
+App-Konto mit derselben E-Mail-Adresse bereits bestehen; fehlende aktive
+Mitgliedschaften werden als Lernende angelegt. Gesperrte Mitgliedschaften,
+mehrdeutige E-Mail-Adressen oder fehlende Konten brechen den Import ab. Der
+Entitlement-Export enthält personenbezogene E-Mail-Adressen. WP-Features für den
+Geräte-Simulator bleiben eine separate Betriebs-Konfiguration.
+
+---
 
 ## 14. Nicht in v1
 
 * Offline-Modus und Synchronisation.
 * Push-Benachrichtigungen.
 * In-App-Käufe (Kauf bleibt im externen Webshop).
-* Funkgeräte-Simulator, Praxistrainer, Video-Quiz und Prüfungstermine
-  (eine Video-Lektion lässt sich deshalb ohne Quiz abschließen).
-* Untertitel und Vorschaubilder für Videos; Seekarten fehlen bisher in den
-  Navigationsaufgaben (`chart: null`), dafür braucht es die Papierkarte.
 * Registrierung in der App.
-* Konto löschen in der App (siehe Hinweis Apple oben).
+* Der Gerätesimulator öffnet sich als Browseransicht und benötigt die native Freigabe-Konfiguration.
+* Untertitel und Vorschaubilder für Videos. Navigationsaufgaben ohne passende Seekarte liefern `chart: null`; dann wird die Papierkarte benötigt.

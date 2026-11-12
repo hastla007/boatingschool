@@ -53,6 +53,11 @@ class CourseDefinition extends Model
         return $this->hasMany(Entitlement::class, 'course_id');
     }
 
+    public function files(): HasMany
+    {
+        return $this->hasMany(CourseFile::class, 'course_id')->orderBy('sort_order');
+    }
+
     public function examRuleSets(): HasMany
     {
         return $this->hasMany(ExamRuleSet::class, 'course_id');

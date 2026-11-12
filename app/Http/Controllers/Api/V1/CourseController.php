@@ -6,18 +6,28 @@ use App\Api\CourseAccess;
 use App\Api\Present;
 use App\Http\Controllers\Controller;
 use App\Models\Attempt;
+use App\Models\ContentQuestion;
 use App\Models\ContentQuestionRevision;
 use App\Models\CourseDefinition;
+use App\Models\CourseFile;
 use App\Models\CourseWebshopLink;
 use App\Models\Entitlement;
 use App\Models\Progress;
+use App\Models\VideoProgress;
+use App\Models\NavigationProgress;
+use App\Models\PraxisProgress;
+use App\Support\FunkPraxis;
+use App\Support\FunkTraining;
+use App\Support\Geraetesimulation;
 use App\Models\TenantCourseDisabled;
 use App\Services\CourseProgressService;
+use App\Services\CourseRelationService;
 use App\Services\EntitlementService;
 use App\Support\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Collection;
 
 /** Kurse, Zugänge, Kursübersicht, Module/Themen und Fortschritt. */
@@ -33,6 +43,7 @@ class CourseController extends Controller
         private CourseAccess $access,
         private EntitlementService $entitlements,
         private CourseProgressService $progress,
+        private CourseRelationService $courseRelations,
     ) {}
 
     /** Freigeschaltete Kurse und weitere buchbare Kurse der Schule (mit Webshop-Link). */
@@ -59,9 +70,10 @@ class CourseController extends Controller
         $perPage = max(1, min(100, (int) $request->query('per_page', 20)));
         $page = max(1, (int) $request->query('page', 1));
         $slice = $courses->slice(($page - 1) * $perPage, $perPage)->values();
+        $relations = $this->courseRelations->forCourses($tenant, $user, $slice);
 
         return response()->json([
-            'data' => $slice->map(fn (CourseDefinition $course) => $this->summary($course, $progress, $active->get($course->id), $webshop->get($course->id), $entitlements, $lastActivity))->values(),
+            'data' => $slice->map(fn (CourseDefinition $course) => $this->summary($course, $progress, $active->get($course->id), $webshop->get($course->id), $entitlements, $lastActivity, $relations[$course->code] ?? null))->values(),
             'meta' => [
                 'tenant' => ['slug' => $tenant->slug, 'name' => $tenant->name],
                 'renewal_webshop_url' => $tenant->branding?->renewal_webshop_link,
@@ -73,13 +85,139 @@ class CourseController extends Controller
     public function show(Request $request, string $courseId): JsonResponse
     {
         $tenant = $this->tenantContext->tenant();
-        $course = $this->access->require($tenant, $request->user(), $courseId);
-        $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $request->user()->id)->get();
-        $course->loadMissing('modules');
+        $user = $request->user();
+        $disabled = TenantCourseDisabled::where('tenant_id', $tenant->id)->pluck('course_id');
+        $course = CourseDefinition::withoutGlobalScopes()
+            ->whereNull('tenant_id')
+            ->where('site_enabled', true)
+            ->where('status', 'published')
+            ->whereNotIn('id', $disabled)
+            ->find($courseId);
+        if (! $course) {
+            throw \App\Api\ApiProblem::notFound('Kurs');
+        }
 
-        return response()->json(['data' => $this->summary($course, $progress, null, CourseWebshopLink::where('tenant_id', $tenant->id)->where('course_id', $course->id)->value('url')) + [
+        $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get();
+        $course->loadMissing('modules', 'files');
+        $files = $course->files->where('published', true)->values();
+        $downloadAllowedIds = $this->access->limitItems(
+            $tenant, $user, $course, 'downloads',
+            $files->where('category', 'download')->sortBy([['sort_order', 'asc'], ['id', 'asc']])->values(),
+        )->pluck('id')->flip();
+        $fileRef = function (CourseFile $file) use ($tenant, $user, $downloadAllowedIds): array {
+            $allowed = ($file->category === 'download' || $file->required_capability === 'downloads')
+                ? $downloadAllowedIds->has($file->id)
+                : ($file->required_capability === null
+                    ? $this->access->hasCourseAccess($tenant, $user, $file->course)
+                    : $this->access->hasFeatureAccess($tenant, $user, $file->course, $file->required_capability));
+
+            return [
+                'id' => $file->id,
+                'title' => $file->title,
+                'description' => $file->description,
+                'size_bytes' => $file->size_bytes,
+                'locked' => ! $allowed,
+                'url' => $allowed ? route('api.v1.files.download', ['fileId' => $file->id]) : null,
+                'requires_authorization' => true,
+            ];
+        };
+        $sections = $files->where('category', 'section')->groupBy(fn (CourseFile $file) => $file->section_key ?: 'general')
+            ->map(fn ($items) => $items->map($fileRef)->values())->all();
+
+        $summary = $this->summary($course, $progress, null, CourseWebshopLink::where('tenant_id', $tenant->id)->where('course_id', $course->id)->value('url'));
+        $hasExam = $this->access->hasFeatureAccess($tenant, $user, $course, 'exam');
+        $hasVideo = $this->access->hasFeatureAccess($tenant, $user, $course, 'video');
+        $hasNavigation = $this->access->hasFeatureAccess($tenant, $user, $course, 'navigation');
+        $hasPraxis = $this->access->hasFeatureAccess($tenant, $user, $course, 'praxis');
+        $hasRadio = $this->access->hasFeatureAccess($tenant, $user, $course, 'funk');
+
+        $examOptions = $hasExam ? ($course->examPapers()->count() ?: ($course->activeExamRuleSet() ? 1 : 0)) : 0;
+        $favoriteCount = 0;
+        if ($this->access->hasFeatureAccess($tenant, $user, $course, 'smarttrainer')) {
+            $favoriteCount = DB::table('favorite')->where('tenant_id', $tenant->id)->where('user_id', $user->id)
+                ->whereIn('question_id', $this->access->accessibleQuestionIds($tenant, $user, $course))->count();
+        }
+
+        $navigationTasks = $hasNavigation ? $course->navigationTasks()->with('questions')->get() : collect();
+        $navigationQuestionIds = $navigationTasks->flatMap(fn ($task) => $task->questions->pluck('id'))->values();
+        $navigationProgress = $navigationQuestionIds->isEmpty() ? collect() : NavigationProgress::where('tenant_id', $tenant->id)
+            ->where('user_id', $user->id)->whereIn('navigation_question_id', $navigationQuestionIds)->get()->keyBy('navigation_question_id');
+        $navigationDone = $navigationTasks->filter(fn ($task) => $task->questions->isNotEmpty()
+            && $task->questions->every(fn ($question) => $navigationProgress->get($question->id)?->correct === true))->count();
+
+        $praxisTasks = $hasPraxis ? $course->praxisTasks()->where('active', true)->get() : collect();
+        $praxisProgress = $praxisTasks->isEmpty() ? collect() : PraxisProgress::where('tenant_id', $tenant->id)
+            ->where('user_id', $user->id)->whereIn('praxis_task_id', $praxisTasks->pluck('id'))->get();
+        $accessiblePraxisIds = $this->access->limitItems($tenant, $user, $course, 'praxis', $praxisTasks)->pluck('id')->flip();
+        $praxisKnown = $praxisProgress->filter(fn ($row) => $accessiblePraxisIds->has($row->praxis_task_id)
+            && ($row->status === 'known' || $row->completed))->count();
+
+        $videoModules = $course->videoModules()->with('lessons')->get();
+        $videoLessons = $videoModules->flatMap->lessons;
+        $videoProgress = $hasVideo && $videoLessons->isNotEmpty() ? VideoProgress::where('tenant_id', $tenant->id)
+            ->where('user_id', $user->id)->whereIn('video_lesson_id', $videoLessons->pluck('id'))->get() : collect();
+        $videoCompleted = $videoProgress->where('completed', true)->count();
+        $knotModule = $videoModules->firstWhere('title', 'Knoten');
+        $knotLessons = $knotModule?->lessons ?? collect();
+        $knotProgress = $knotLessons->isEmpty() ? collect() : $videoProgress->whereIn('video_lesson_id', $knotLessons->pluck('id'));
+        $knots = $knotModule ? [
+            'available' => true,
+            'locked' => ! $hasVideo || $this->access->isDripLocked($tenant, $user, $course, 'video', $knotModule->accessCode()),
+            'module_id' => $knotModule->id,
+            'lessons' => $knotLessons->count(),
+            'completed' => $hasVideo ? $knotProgress->where('completed', true)->count() : 0,
+            'unlock_at' => Present::time($this->access->dripUnlockAt($tenant, $user, $course, 'video', $knotModule->accessCode())),
+            'webshop_url' => ! $hasVideo ? $summary['webshop_url'] : null,
+        ] : null;
+
+        $radioCatalogs = $hasRadio ? FunkTraining::catalogsFor($course) : [];
+        $radioTexts = $radioVocabulary = $radioPractice = 0;
+        foreach ($radioCatalogs as $catalog) {
+            $radioTexts += count(FunkTraining::texts($catalog));
+            if ($catalog === 'UBI') {
+                $radioTexts += count(FunkTraining::ubiTexts('aufnahme')) + count(FunkTraining::ubiTexts('abgabe'));
+            }
+            foreach (FunkTraining::vocabulary($catalog) as $cards) {
+                $radioVocabulary += count($cards);
+            }
+            $radioPractice += count(FunkPraxis::tasks($catalog));
+        }
+        $deviceAvailable = Geraetesimulation::availableFor($user, $course);
+        $deviceCatalogs = Geraetesimulation::catalogsFor($course);
+        $deviceLessons = Geraetesimulation::lessonsForBrowser($deviceCatalogs);
+        $offerCapability = collect($summary['capabilities'])->reject(fn ($capability) => $capability === 'favorites')
+            ->first(fn ($capability) => ! ($summary['features'][$capability]['available'] ?? false), 'smarttrainer');
+        $offers = $summary['webshop_url'] ? [
+            $offerCapability => [['name' => $course->name, 'url' => $summary['webshop_url'], 'price' => '']],
+        ] : [];
+
+        return response()->json(['data' => $summary + [
             'modules_count' => $course->modules->count(),
-            'exam_options_count' => $course->examPapers()->count() ?: ($course->activeExamRuleSet() ? 1 : 0),
+            'exam_options_count' => $examOptions,
+            'favorites_count' => $favoriteCount,
+            'trainers' => [
+                'navigation' => ['tasks' => $navigationTasks->count(), 'questions' => $navigationQuestionIds->count(), 'done' => $navigationDone],
+                'praxis' => ['cards' => $praxisTasks->count(), 'known' => $praxisKnown],
+                'video' => ['lessons' => $hasVideo ? $videoLessons->count() : 0, 'completed' => $videoCompleted],
+                'radio' => ['texts' => $radioTexts, 'vocabulary' => $radioVocabulary, 'practice' => $radioPractice, 'device' => $deviceAvailable ? count($deviceLessons) : 0],
+            ],
+            'offers' => (object) $offers,
+            'downloads' => $files->where('category', 'download')->map($fileRef)->values(),
+            'section_files' => (object) $sections,
+            'charts' => $files->where('category', 'chart')->map(fn (CourseFile $file) => ['code' => $file->section_key ?: $file->id] + $fileRef($file))->values(),
+            'web_url' => route('courses.show', ['course' => $course]),
+            'device_simulator' => [
+                'available' => $deviceAvailable, 'premium' => false, 'tier' => $deviceAvailable ? 'free' : null,
+                'web_url' => $deviceAvailable ? route('funk.device.index', ['course' => $course]) : null,
+                'open_in' => 'browser',
+                'hint' => $deviceAvailable ? 'Der Funkgerät-Simulator wird im Browser geöffnet.' : null,
+                'webshop_url' => null,
+            ],
+            'knots' => $knots,
+            'exam_registration' => [
+                'available' => \App\Support\ExamBooking::pagesFor($course) !== [],
+                'web_url' => \App\Support\ExamBooking::pagesFor($course) !== [] ? route('exam-booking', ['course' => $course]) : null,
+            ],
         ]]);
     }
 
@@ -88,7 +226,7 @@ class CourseController extends Controller
     {
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
-        $course = $this->access->require($tenant, $user, $courseId);
+        $course = $this->access->require($tenant, $user, $courseId, 'smarttrainer');
         $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get();
         $modules = $this->moduleList($course);
 
@@ -116,7 +254,7 @@ class CourseController extends Controller
 
     public function modules(Request $request, string $courseId): JsonResponse
     {
-        $course = $this->access->require($this->tenantContext->tenant(), $request->user(), $courseId);
+        $course = $this->access->require($this->tenantContext->tenant(), $request->user(), $courseId, 'smarttrainer');
 
         return response()->json(['data' => $this->moduleList($course)]);
     }
@@ -126,9 +264,9 @@ class CourseController extends Controller
     {
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
-        $course = $this->access->require($tenant, $user, $courseId);
+        $course = $this->access->require($tenant, $user, $courseId, 'smarttrainer');
         $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get();
-        $questionIds = $this->access->validQuestionIds($course);
+        $questionIds = $this->access->accessibleQuestionIds($tenant, $user, $course);
         $own = $progress->whereIn('question_id', $questionIds);
 
         return response()->json(['data' => [
@@ -137,6 +275,8 @@ class CourseController extends Controller
             'correct_answers' => (int) $own->sum('correct_count'),
             'incorrect_answers' => (int) $own->sum('incorrect_count'),
             'modules' => $this->moduleList($course),
+            'limit' => $this->access->featureScope($tenant, $user, $course, 'smarttrainer')['full']
+                ? null : (int) ($this->access->featureScope($tenant, $user, $course, 'smarttrainer')['limit'] ?? 0),
         ]]);
     }
 
@@ -145,41 +285,87 @@ class CourseController extends Controller
     {
         $tenant = $this->tenantContext->tenant();
 
-        return $this->progress->moduleKategorieBreakdown($course, $tenant, request()->user())
+        return $this->progress->moduleKategorieBreakdown($course, $tenant, request()->user(), $this->access->accessibleQuestionIds($tenant, request()->user(), $course))
             ->values()->map(fn ($group, $i) => [
-                'id' => $group['module']->id,
+                'id' => (string) $group['module']->id,
+                'code' => (string) $group['module']->code,
                 'name' => $group['module']->name,
                 'description' => $group['module']->description ?? null,
                 'order' => $i + 1,
+                'locked' => $locked = $this->access->isDripLocked($tenant, request()->user(), $course, 'smarttrainer', (string) $group['module']->code),
+                'lock_reason' => $locked ? 'drip' : ($group['total'] < ContentQuestion::filterCurrentlyValid($group['module']->questions)->count() ? 'trial' : null),
+                'unlock_at' => Present::time($this->access->dripUnlockAt($tenant, request()->user(), $course, 'smarttrainer', (string) $group['module']->code)),
                 'question_count' => $group['total'],
-                'progress' => ['percent' => $group['percent'], 'completed' => $group['mastered'], 'total' => $group['total']],
+                'catalog_count' => ContentQuestion::filterCurrentlyValid($group['module']->questions)->count(),
+                'progress' => [
+                    'percent' => $group['percent'], 'completed' => $group['mastered'], 'total' => $group['total'],
+                    'new' => $group['new'], 'unsure' => $group['unsure'], 'learning' => $group['learning'], 'mastered' => $group['mastered'],
+                ],
                 'topics' => $group['topics']->map(fn ($t) => [
                     'name' => $t['topic'],
                     'question_count' => $t['total'],
-                    'progress' => ['percent' => $t['percent'], 'completed' => $t['mastered'], 'total' => $t['total']],
+                    'progress' => [
+                        'percent' => $t['percent'], 'completed' => $t['mastered'], 'total' => $t['total'],
+                        'new' => $t['new'], 'unsure' => $t['unsure'], 'learning' => $t['learning'], 'mastered' => $t['mastered'],
+                    ],
                 ])->values(),
             ])->all();
     }
 
-    private function summary(CourseDefinition $course, Collection $progress, $activeEntitlement, ?string $webshopUrl, ?Collection $entitlements = null, ?Collection $lastActivity = null): array
+    private function summary(CourseDefinition $course, Collection $progress, $activeEntitlement, ?string $webshopUrl, ?Collection $entitlements = null, ?Collection $lastActivity = null, ?array $relation = null): array
     {
         $tenant = $this->tenantContext->tenant();
-        $questionIds = $this->access->validQuestionIds($course);
+        $user = request()->user();
+        $canLearn = $this->access->hasFeatureAccess($tenant, $user, $course, 'smarttrainer');
+        $questionIds = $canLearn ? $this->access->accessibleQuestionIds($tenant, $user, $course) : collect();
+        $ownProgress = $progress->whereIn('question_id', $questionIds->all());
         $total = $questionIds->count();
-        $mastered = $progress->isEmpty() ? 0 : $progress->whereIn('question_id', $questionIds->all())->where('learning_state', 'gefestigt')->count();
-        $lastActivity ??= $this->lastActivityByCourse($tenant->id, request()->user()->id, $course->id);
+        $mastered = $ownProgress->where('learning_state', 'gefestigt')->count();
+        $new = max(0, $total - $ownProgress->count());
+        $unsure = $ownProgress->where('learning_state', 'unsicher')->count();
+        $learning = $ownProgress->where('learning_state', 'in_bearbeitung')->count();
+        $lastActivity ??= $this->lastActivityByCourse($tenant->id, $user->id, $course->id);
+        $capabilities = $this->access->capabilities($course);
+        $access = $this->access->status($tenant, $user, $course, $activeEntitlement, $entitlements);
+        $features = collect($capabilities)->reject(fn (string $capability) => $capability === 'favorites')
+            ->mapWithKeys(function (string $capability) use ($tenant, $user, $course): array {
+                $scope = $this->access->featureScope($tenant, $user, $course, $capability);
+                $limit = $scope['full'] ? null : ((int) ($scope['limit'] ?? 0) ?: null);
+
+                return [$capability => ['available' => $scope['full'] || $limit !== null, 'full' => $scope['full'], 'limit' => $limit]];
+            })->all();
+        $explanations = $this->access->featureScope($tenant, $user, $course, 'explanations');
+        $explanationLimit = $explanations['full'] ? null : ((int) ($explanations['limit'] ?? 0) ?: null);
+        $features['explanations'] = [
+            'available' => $explanations['full'] || $explanationLimit !== null,
+            'full' => $explanations['full'],
+            'limit' => null,
+        ];
+        $relation ??= $this->courseRelations->forCourses($tenant, $user, collect([$course]))[$course->code];
+        $faqCount = $this->access->featureScope($tenant, $user, $course, 'smarttrainer')['full'] ? (int) DB::table('customer_faq_category_item as item')
+            ->join('customer_faq_category as category', 'category.id', '=', 'item.category_id')
+            ->join('customer_faq as faq', 'faq.id', '=', 'item.faq_id')
+            ->where('category.course_code', $course->code)->where('faq.status', 'published')
+            ->distinct()->count('faq.id') : 0;
 
         return [
             'id' => $course->id,
             'code' => $course->code,
+            'slug' => strtolower((string) $course->code),
             'name' => $course->name,
             'description' => $course->description ?? null,
-            'access' => $this->access->status($tenant, request()->user(), $course, $activeEntitlement, $entitlements),
-            // Gefestigt = 3× richtig in Folge (dieselbe Regel wie im Web).
-            'progress' => ['percent' => $total > 0 ? (int) round($mastered / $total * 100) : 0, 'completed' => $mastered, 'total' => $total],
-            'capabilities' => $this->access->capabilities($course),
-            'webshop_url' => $webshopUrl,
-            // Review-Runde 13: für „Weiterlernen“ über alle Kurse.
+            'course_type' => $course->course_type,
+            'access' => $access,
+            'progress' => [
+                'percent' => $total > 0 ? (int) floor($mastered * 100 / $total) : 0,
+                'completed' => $mastered, 'total' => $total,
+                'new' => $new, 'unsure' => $unsure, 'learning' => $learning, 'mastered' => $mastered,
+            ],
+            'capabilities' => $capabilities,
+            'features' => $features,
+            'webshop_url' => $access['status'] === 'active' && ! $access['trial'] ? null : $webshopUrl,
+            'relation' => $relation,
+            'faq_count' => $faqCount,
             'last_activity_at' => Present::time(($at = $lastActivity->get($course->id)) ? Carbon::parse($at) : null),
         ];
     }

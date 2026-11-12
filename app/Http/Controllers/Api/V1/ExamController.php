@@ -42,8 +42,8 @@ class ExamController extends Controller
     {
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
-        $course = $this->access->require($tenant, $user, $courseId);
-        $papers = $course->examPapers;
+        $course = $this->access->require($tenant, $user, $courseId, 'exam');
+        $papers = $this->access->limitItems($tenant, $user, $course, 'exam', $course->examPapers);
 
         $sessions = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)
             ->whereIn('status', ['running', 'evaluated'])->orderByDesc('started_at')->get();
@@ -92,12 +92,16 @@ class ExamController extends Controller
         $validated = $request->validate(['paper_id' => ['nullable', 'uuid']]);
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
-        $course = $this->access->require($tenant, $user, $courseId);
+        $course = $this->access->require($tenant, $user, $courseId, 'exam');
         $starter = app(ExamSessionStarter::class);
 
         if ($course->examPapers()->exists()) {
             if (empty($validated['paper_id'])) {
                 throw new ApiProblem(422, 'VALIDATION_FAILED', 'Eingaben ungültig', null, ['paper_id' => ['Bitte einen Prüfungsbogen wählen.']]);
+            }
+            $orderedPapers = $course->examPapers;
+            if (! $this->access->allowsLimitedItem($tenant, $user, $course, 'exam', $orderedPapers, $validated['paper_id'])) {
+                throw ApiProblem::notFound('Prüfungsbogen');
             }
             $paper = ExamPaper::where('id', $validated['paper_id'])->where('course_id', $course->id)->first();
             if (! $paper) {
@@ -123,7 +127,7 @@ class ExamController extends Controller
     {
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
-        $course = $this->access->require($tenant, $user, $courseId);
+        $course = $this->access->require($tenant, $user, $courseId, 'exam');
         $perPage = max(1, min(100, (int) $request->query('per_page', 20)));
 
         $page = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)
@@ -201,6 +205,23 @@ class ExamController extends Controller
         return response()->json(['data' => $this->savedAnswer($sq, $session)]);
     }
 
+    /** Mark or unmark a question for review in a running exam. */
+    public function flag(Request $request, string $examId, string $questionId): JsonResponse
+    {
+        $validated = $request->validate(['flagged' => ['required', 'boolean']]);
+        $session = $this->ownSession($request, $examId);
+        $this->requireRunning($session);
+        $sq = $this->sessionQuestion($session, $questionId);
+        $flagged = (bool) $validated['flagged'];
+        $sq->forceFill(['flagged' => $flagged])->save();
+
+        return response()->json(['data' => [
+            'question_id' => ctype_digit($questionId) ? $questionId : $sq->question_id,
+            'flagged' => $flagged,
+            'flagged_count' => $session->questions()->where('flagged', true)->count(),
+        ]]);
+    }
+
     /** Musterantwort einer offenen Frage abrufen (Voraussetzung für die Selbsteinschätzung). */
     public function reveal(Request $request, string $examId, string $questionId): JsonResponse
     {
@@ -219,7 +240,7 @@ class ExamController extends Controller
             throw $this->locked();
         }
 
-        return response()->json(['data' => ['question_id' => $sq->question_id, 'model_answer' => $revealed['answer_text']]]);
+        return response()->json(['data' => ['question_id' => ctype_digit($questionId) ? $questionId : $sq->question_id, 'model_answer' => $revealed['answer_text']]]);
     }
 
     /** Navigationsaufgabe abgeben (alle Teilantworten auf einmal, einmalig). */
@@ -357,7 +378,7 @@ class ExamController extends Controller
         if (! $session) {
             throw ApiProblem::notFound('Prüfung');
         }
-        $this->access->require($tenant, $request->user(), $session->course_id);
+        $this->access->require($tenant, $request->user(), $session->course_id, 'exam');
 
         return $session;
     }
@@ -408,6 +429,9 @@ class ExamController extends Controller
     private function sessionQuestion(ExamSession $session, string $questionId): ExamSessionQuestion
     {
         $sq = $session->questions()->where('question_id', $questionId)->with('revision.answers')->first();
+        if (! $sq && ctype_digit($questionId)) {
+            $sq = $session->questions()->where('position', (int) $questionId)->with('revision.answers')->first();
+        }
         if (! $sq) {
             throw ApiProblem::notFound('Frage');
         }
@@ -445,6 +469,7 @@ class ExamController extends Controller
             'selected_answer_ids' => $this->selectedIds($sq),
             'known' => $sq->revision->question_type === 'open_text' ? $sq->self_assessed_known : null,
             'saved_at' => Present::time($sq->answered_at),
+            'flagged' => (bool) $sq->flagged,
             'answered_count' => $session->questions()->whereNotNull('answered_at')->count(),
             'question_count' => $session->questions()->count(),
         ];
@@ -493,8 +518,10 @@ class ExamController extends Controller
             'navigation_assessment_until' => $deadline && $session->hasNavigationPart() ? Present::time($deadline->copy()->addSeconds(ExamSession::NAVIGATION_ASSESS_GRACE)) : null,
             'question_count' => $questions->count(),
             'answered_count' => $questions->count() - $open,
+            'flagged_count' => $questions->where('flagged', true)->count(),
             'questions' => $questions->map(fn (ExamSessionQuestion $sq) => QuestionPresenter::question($sq->revision, null, $session->user_id) + [
                 'position' => $sq->position,
+                'flagged' => (bool) $sq->flagged,
                 'answered' => $sq->answered_at !== null,
                 'revealed' => $sq->revealed_at !== null,
                 // Musterantwort einer offenen Frage nur nach dem Abruf (reveal) und solange offen.

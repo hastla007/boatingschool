@@ -15,6 +15,7 @@ use App\Models\FavoriteCollectionItem;
 use App\Models\Progress;
 use App\Services\LearningFlow;
 use App\Support\TenantContext;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -44,9 +45,14 @@ class LearningController extends Controller
         ]);
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
-        $course = $this->access->require($tenant, $user, $courseId);
+        $course = $this->access->require($tenant, $user, $courseId, 'smarttrainer');
         $mode = $validated['mode'] ?? 'smarttrainer';
         $questionIds = isset($validated['question_ids']) ? array_values(array_filter(explode(',', $validated['question_ids']))) : null;
+        $scope = $this->access->featureScope($tenant, $user, $course, 'smarttrainer');
+        if (! $scope['full']) {
+            $allowedIds = $this->access->accessibleQuestionIds($tenant, $user, $course)->all();
+            $questionIds = $questionIds === null ? $allowedIds : array_values(array_intersect($questionIds, $allowedIds));
+        }
         // Review-Runde 13: eine Favoriten-Sammlung üben.
         if (! empty($validated['collection_id'])) {
             $collection = FavoriteCollection::where('id', $validated['collection_id'])->where('tenant_id', $tenant->id)
@@ -71,14 +77,9 @@ class LearningController extends Controller
         $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('question_id', $revision->question_id)->first();
         $moduleId = $course->modules->first(fn ($m) => $m->questions->contains('id', $revision->question_id))?->id;
         $question = QuestionPresenter::question($revision, $moduleId, $user->id);
-        if ($revision->question_type === 'open_text') {
-            // Offene Frage im Lernmodus: Musterantwort zum Aufdecken, danach
-            // schätzt die Person selbst ein (known: true/false).
-            $question['model_answer'] = $revision->correctAnswer()?->answer_text;
-        }
-
         return response()->json(['data' => [
             'question' => $question,
+            'answer_token' => $revision->id,
             'mode' => $mode,
             'selection_reason' => $next['reason'] ?? null,
             'is_favorite' => Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)
@@ -86,6 +87,42 @@ class LearningController extends Controller
             'learning_state' => $progress?->learning_state ?? 'neu',
             'streak' => ['current' => min((int) ($progress?->current_streak ?? 0), 3), 'required' => 3],
         ]]);
+    }
+
+    /**
+     * WP-compatible reveal route for open questions. The UUID token is the delivered revision ID;
+     * course access and course membership are rechecked on every request.
+     */
+    public function reveal(Request $request, string $courseId): JsonResponse
+    {
+        $validated = $request->validate(['answer_token' => ['required', 'uuid']]);
+        $tenant = $this->tenantContext->tenant();
+        $user = $request->user();
+        $course = $this->access->require($tenant, $user, $courseId, 'smarttrainer');
+        $revision = ContentQuestionRevision::with('answers')->find($validated['answer_token']);
+        if (! $revision || $revision->editorial_status !== 'published') {
+            throw ApiProblem::notFound('Frage');
+        }
+
+        $belongsToCourse = DB::table('course_module')
+            ->join('module_content', 'module_content.module_id', '=', 'course_module.module_id')
+            ->where('course_module.course_id', $course->id)
+            ->where('module_content.question_id', $revision->question_id)
+            ->exists();
+        if (! $belongsToCourse) {
+            throw ApiProblem::notFound('Frage');
+        }
+        $scope = $this->access->featureScope($tenant, $user, $course, 'smarttrainer');
+        if (! $scope['full'] && ! $this->access->accessibleQuestionIds($tenant, $user, $course)->contains($revision->question_id)) {
+            throw ApiProblem::notFound('Frage');
+        }
+        if ($revision->question_type !== 'open_text') {
+            throw new ApiProblem(422, 'VALIDATION_FAILED', 'Eingaben ungültig', null, [
+                'answer_token' => ['Nur offene Fragen haben eine aufzudeckende Musterantwort.'],
+            ]);
+        }
+
+        return response()->json(['data' => ['model_answer' => $revision->correctAnswer()?->answer_text]]);
     }
 
     public function submit(Request $request, string $courseId): JsonResponse
@@ -101,10 +138,14 @@ class LearningController extends Controller
         ]);
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
-        $course = $this->access->require($tenant, $user, $courseId);
+        $course = $this->access->require($tenant, $user, $courseId, 'smarttrainer');
 
         $revision = ContentQuestionRevision::find($validated['revision_id']);
         if (! $revision || $revision->question_id !== $validated['question_id']) {
+            throw ApiProblem::notFound('Frage');
+        }
+        $scope = $this->access->featureScope($tenant, $user, $course, 'smarttrainer');
+        if (! $scope['full'] && ! $this->access->accessibleQuestionIds($tenant, $user, $course)->contains($revision->question_id)) {
             throw ApiProblem::notFound('Frage');
         }
         $selected = $validated['selected_answer_ids'] ?? [];
@@ -146,9 +187,13 @@ class LearningController extends Controller
     {
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
-        $course = $this->access->require($tenant, $user, $courseId);
+        $course = $this->access->require($tenant, $user, $courseId, 'smarttrainer');
         $attempt = Attempt::where('id', $attemptId)->where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)->first();
         if (! $attempt) {
+            throw ApiProblem::notFound('Versuch');
+        }
+        $scope = $this->access->featureScope($tenant, $user, $course, 'smarttrainer');
+        if (! $scope['full'] && ! $this->access->accessibleQuestionIds($tenant, $user, $course)->contains($attempt->question_id)) {
             throw ApiProblem::notFound('Versuch');
         }
 

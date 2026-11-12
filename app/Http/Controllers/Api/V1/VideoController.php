@@ -29,17 +29,41 @@ class VideoController extends Controller
 
     public function index(Request $request, string $courseId): JsonResponse
     {
-        $course = $this->access->require($this->tenantContext->tenant(), $request->user(), $courseId);
-        $modules = $course->videoModules()->with('lessons.steps')->get();
-        $progress = $this->progressFor($request, $modules->flatMap->lessons);
+        $course = $this->access->require($this->tenantContext->tenant(), $request->user(), $courseId, 'video');
+        $modules = $course->videoModules()->with('lessons.steps')->orderBy('sort_order')->get();
+        $orderedLessons = $modules->flatMap(fn (VideoModule $module) => $module->lessons)->values();
+        $tenant = $this->tenantContext->tenant();
+        $user = $request->user();
+        $allowedFirstItems = $this->access->limitItems($tenant, $user, $course, 'video', $orderedLessons)->pluck('id')->flip();
+        $progress = $this->progressFor($request, $orderedLessons);
+        $moduleTitles = $modules->mapWithKeys(fn (VideoModule $module) => [$module->id => $module->accessCode()]);
+        $allLocked = fn (VideoLesson $lesson) => ! $allowedFirstItems->has($lesson->id)
+            || $this->access->isDripLocked($tenant, $user, $course, 'video', (string) $moduleTitles->get($lesson->video_module_id));
+        $nextLesson = $orderedLessons->first(fn (VideoLesson $lesson) => $moduleTitles->get($lesson->video_module_id) !== 'Knoten'
+            && ! $allLocked($lesson) && ! (bool) ($progress->get($lesson->id)?->completed ?? false));
 
-        return response()->json(['data' => $modules->values()->map(fn (VideoModule $m, int $i) => [
-            'id' => $m->id,
-            'title' => $m->title,
-            'order' => $i + 1,
-            'standalone' => in_array($m->title, self::STANDALONE_CHAPTERS, true),
-            'lessons' => $m->lessons->map(fn (VideoLesson $l) => $this->lesson($l, $progress->get($l->id), false))->values(),
-        ])]);
+        return response()->json(['data' => $modules->values()->map(function (VideoModule $m, int $i) use ($progress, $allLocked, $tenant, $user, $course) {
+            $lessons = $m->lessons->values();
+            return [
+                'id' => $m->id,
+                'title' => $m->title,
+                'order' => $i + 1,
+                'standalone' => in_array($m->title, self::STANDALONE_CHAPTERS, true),
+                'group' => $m->group_label,
+                'locked' => $this->access->isDripLocked($tenant, $user, $course, 'video', $m->accessCode()),
+                'unlock_at' => Present::time($this->access->dripUnlockAt($tenant, $user, $course, 'video', $m->accessCode())),
+                'lessons' => $lessons->map(function (VideoLesson $lesson) use ($progress, $allLocked) {
+                    $item = $this->lesson($lesson, $progress->get($lesson->id), false);
+                    $item['locked'] = $allLocked($lesson);
+                    return $item;
+                })->values(),
+            ];
+        })->values(), 'meta' => [
+            'course_id' => (string) $course->id,
+            'lessons' => $orderedLessons->count(),
+            'completed' => $progress->where('completed', true)->count(),
+            'next_lesson_id' => $nextLesson?->id ? (string) $nextLesson->id : null,
+        ]]);
     }
 
     public function show(Request $request, string $lessonId): JsonResponse
@@ -83,7 +107,15 @@ class VideoController extends Controller
         if (! $lesson || ! $lesson->module) {
             throw ApiProblem::notFound('Lektion');
         }
-        $this->access->require($this->tenantContext->tenant(), $request->user(), $lesson->module->course_id);
+        $tenant = $this->tenantContext->tenant();
+        $user = $request->user();
+        $course = $this->access->require($tenant, $user, $lesson->module->course_id, 'video');
+        $orderedLessons = $course->videoModules()->with('lessons')->orderBy('sort_order')->get()
+            ->flatMap(fn (VideoModule $module) => $module->lessons)->values();
+        if (! $this->access->allowsLimitedItem($tenant, $user, $course, 'video', $orderedLessons, (string) $lesson->id)
+            || $this->access->isDripLocked($tenant, $user, $course, 'video', $lesson->module->accessCode())) {
+            throw ApiProblem::notFound('Lektion');
+        }
 
         return $lesson;
     }
@@ -104,12 +136,13 @@ class VideoController extends Controller
             'duration_seconds' => (int) ($lesson->duration_seconds ?? 0),
             'media' => $lesson->isPlaceholder() || ! $lesson->video_url
                 ? Present::placeholder('Video folgt')
-                : ['kind' => 'video', 'available' => true, 'label' => $lesson->title, 'url' => Present::url($lesson->video_url),
+                : ['kind' => 'video', 'available' => true, 'label' => $lesson->title, 'url' => $withSteps ? Present::url($lesson->video_url) : null,
                     'mime_type' => str_ends_with(strtolower((string) parse_url($lesson->video_url, PHP_URL_PATH)), '.mp4') ? 'video/mp4' : null,
                     'duration_seconds' => $lesson->duration_seconds, 'placeholder_reason' => null],
             'completed' => (bool) ($progress?->completed ?? false),
             'position_seconds' => (int) ($progress?->last_position_seconds ?? 0),
             'step_count' => $lesson->relationLoaded('steps') ? $lesson->steps->count() : null,
+            'quiz_count' => $lesson->questions()->count(),
         ];
         if ($withSteps) {
             $data['steps'] = $lesson->steps->values()->map(fn (VideoLessonStep $s, int $i) => [
