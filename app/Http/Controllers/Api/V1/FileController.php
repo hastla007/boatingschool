@@ -19,7 +19,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class FileController extends Controller
 {
-    public function download(Request $request, string $fileId, EntitlementService $entitlements): StreamedResponse
+    public function download(Request $request, string $fileId, EntitlementService $entitlements, CourseAccess $access): StreamedResponse
     {
         $courseFile = CourseFile::where('published', true)->find($fileId);
         if ($courseFile) {
@@ -27,7 +27,7 @@ class FileController extends Controller
                 ->where('status', 'published')->where('site_enabled', true)->find($courseFile->course_id);
             $requiredCapability = $courseFile->required_capability;
             $courseIds = $course ? [$course->id] : [];
-            if ($courseIds === [] || ! $this->hasAnyCourseAccess($request->user(), $courseIds, $entitlements, $requiredCapability)) {
+            if ($courseIds === [] || ! $this->hasAnyCourseAccess($request->user(), $courseIds, $entitlements, $access, $requiredCapability, $courseFile)) {
                 throw ApiProblem::notFound('Datei');
             }
             $path = $courseFile->storage_path;
@@ -48,7 +48,7 @@ class FileController extends Controller
                 ->where(fn ($q) => $q->whereNull('content_question_revision.valid_from')->orWhere('content_question_revision.valid_from', '<=', now()))
                 ->where(fn ($q) => $q->whereNull('content_question_revision.valid_to')->orWhere('content_question_revision.valid_to', '>=', now()->toDateString()))
                 ->distinct()->pluck('course_module.course_id');
-            if ($courseIds->isEmpty() || ! $this->hasAnyCourseAccess($request->user(), $courseIds->all(), $entitlements)) {
+            if ($courseIds->isEmpty() || ! $this->hasAnyCourseAccess($request->user(), $courseIds->all(), $entitlements, $access, 'smarttrainer', null, $asset)) {
                 throw ApiProblem::notFound('Datei');
             }
 
@@ -102,19 +102,65 @@ class FileController extends Controller
         }, $status, $headers);
     }
 
-    private function hasAnyCourseAccess(User $user, array $courseIds, EntitlementService $entitlements, ?string $capability = 'smarttrainer'): bool
-    {
+    private function hasAnyCourseAccess(
+        User $user,
+        array $courseIds,
+        EntitlementService $entitlements,
+        CourseAccess $access,
+        ?string $capability = 'smarttrainer',
+        ?CourseFile $file = null,
+        ?MediaAsset $asset = null,
+    ): bool {
         $memberships = TenantUser::where('user_id', $user->id)->where('role', 'learner')->where('status', 'active')->pluck('tenant_id');
         $tenants = Tenant::whereIn('id', $memberships)->whereIn('status', ['active', 'trial'])->get()->keyBy('id');
-        $active = Entitlement::where('user_id', $user->id)->whereIn('tenant_id', $tenants->keys())
-            ->whereIn('course_id', $courseIds)->currentlyActive()->get();
-        $courses = CourseDefinition::withoutGlobalScopes()->whereIn('id', $active->pluck('course_id'))->get()->keyBy('id');
+        $courses = CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')
+            ->where('status', 'published')->where('site_enabled', true)->whereIn('id', $courseIds)->get()->keyBy('id');
 
-        foreach ($active as $entitlement) {
-            $tenant = $tenants->get($entitlement->tenant_id);
-            $course = $courses->get($entitlement->course_id);
-            if ($tenant && $course && ($capability === null ? $entitlements->hasAccess($tenant, $user, $course) : $entitlements->hasCapabilityAccess($tenant, $user, $course, $capability))) {
-                return true;
+        foreach ($tenants as $tenant) {
+            foreach ($courses as $course) {
+                if ($file && ($file->category === 'downloads' || $file->required_capability === 'downloads')) {
+                    $ordered = CourseFile::where('course_id', $course->id)->where('published', true)
+                        ->where('category', 'downloads')->orderBy('sort_order')->orderBy('id')->get();
+                    if ($access->allowsLimitedItem($tenant, $user, $course, 'downloads', $ordered, (string) $file->id)) {
+                        return true;
+                    }
+                    continue;
+                }
+
+                if ($file && $file->required_capability !== null) {
+                    if ($access->hasFeatureAccess($tenant, $user, $course, $file->required_capability)) {
+                        return true;
+                    }
+                    continue;
+                }
+
+                if (! $file && ! $asset && $capability === null && $entitlements->hasAccess($tenant, $user, $course)) {
+                    return true;
+                }
+
+                if (! $file && $asset) {
+                    if ($entitlements->hasCapabilityAccess($tenant, $user, $course, 'smarttrainer')) {
+                        return true;
+                    }
+                    $courseQuestionIds = DB::table('question_media')
+                        ->join('content_question_revision', 'content_question_revision.id', '=', 'question_media.revision_id')
+                        ->join('module_content', 'module_content.question_id', '=', 'content_question_revision.question_id')
+                        ->join('course_module', 'course_module.module_id', '=', 'module_content.module_id')
+                        ->where('question_media.media_asset_id', $asset->id)
+                        ->where('course_module.course_id', $course->id)
+                        ->where('content_question_revision.editorial_status', 'published')
+                        ->where(fn ($q) => $q->whereNull('content_question_revision.valid_from')->orWhere('content_question_revision.valid_from', '<=', now()))
+                        ->where(fn ($q) => $q->whereNull('content_question_revision.valid_to')->orWhere('content_question_revision.valid_to', '>=', now()->toDateString()))
+                        ->distinct()->pluck('content_question_revision.question_id');
+                    if ($courseQuestionIds->intersect($access->accessibleQuestionIds($tenant, $user, $course))->isNotEmpty()) {
+                        return true;
+                    }
+                    continue;
+                }
+
+                if ($capability !== null && $access->hasFeatureAccess($tenant, $user, $course, $capability)) {
+                    return true;
+                }
             }
         }
 
