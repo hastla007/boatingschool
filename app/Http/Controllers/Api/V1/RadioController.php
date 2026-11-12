@@ -476,7 +476,7 @@ class RadioController extends Controller
     {
         $saved = $this->progress($request, RadioTrainingProgress::TYPE_TEXT, [$item['key']])->get($item['key']);
 
-        return ['id' => $item['key'], 'number' => (int) $item['number'], 'direction' => $item['richtung'] ?? null,
+        return ['id' => $item['key'], 'type' => $type, 'number' => (int) $item['number'], 'direction' => $item['richtung'] ?? null,
             'teaser' => mb_substr((string) ($item['de'] ?? $item['text'] ?? implode(' ', $item['lines'] ?? [])), 0, 90),
             'done' => (bool) ($saved?->completed ?? false), 'locked' => false];
     }
