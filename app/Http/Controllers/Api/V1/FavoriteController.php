@@ -44,7 +44,7 @@ class FavoriteController extends Controller
         $course = $this->access->require($tenant, $user, $courseId, 'favorites');
 
         $favorites = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)
-            ->whereIn('question_id', $course->contentQuestionIds())
+            ->whereIn('question_id', $this->access->accessibleQuestionIds($tenant, $user, $course))
             ->whereIn('question_id', ContentQuestion::query()->currentlyValid()->select('id'))
             ->when($validated['context'] ?? null, fn ($q, $context) => $q->where('context', $context))
             ->latest('created_at')->get();
