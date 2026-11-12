@@ -106,10 +106,10 @@ class FavoriteController extends Controller
             ->whereIn('id', $questionIds)
             ->with(['revisions' => fn ($query) => $query->where('editorial_status', 'published')->orderByDesc('revision_no')])
             ->get()->keyBy('id');
-        $favoriteDates = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+        $favoriteRows = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)
             ->where('context', Favorite::CONTEXT_SMART_LEARNING)->whereIn('question_id', $questionIds)
-            ->pluck('created_at', 'question_id');
-        $favoriteIds = $favoriteDates->keys()->flip();
+            ->get(['question_id', 'created_at'])->keyBy('question_id');
+        $favoriteIds = $favoriteRows->keys()->flip();
         $collections = FavoriteCollection::where('tenant_id', $tenant->id)->where('user_id', $user->id)
             ->where('course_id', $course->id)->pluck('id');
         $collectionIds = FavoriteCollectionItem::where('tenant_id', $tenant->id)
@@ -133,7 +133,7 @@ class FavoriteController extends Controller
                 continue;
             }
             $ids = $collectionIds->get($question->id, collect());
-            $savedAt = $favoriteDates->get($question->id);
+            $savedAt = $favoriteRows->get($question->id)?->created_at;
 
             $items[] = [
                 'question_id' => (string) $question->id,
