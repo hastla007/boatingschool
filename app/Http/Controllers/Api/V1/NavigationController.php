@@ -28,7 +28,7 @@ class NavigationController extends Controller
 
     public function index(Request $request, string $courseId): JsonResponse
     {
-        $course = $this->access->require($this->tenantContext->tenant(), $request->user(), $courseId);
+        $course = $this->access->require($this->tenantContext->tenant(), $request->user(), $courseId, 'navigation');
         $tasks = $course->navigationTasks()->with('questions')->get();
         $progress = $this->progress($request, $tasks);
         // Review-Runde 13: offene Prüfungen einmal laden statt je Aufgabe.
@@ -180,7 +180,7 @@ class NavigationController extends Controller
         if (! $task) {
             throw ApiProblem::notFound('Navigationsaufgabe');
         }
-        $this->access->require($this->tenantContext->tenant(), $request->user(), $task->course_id);
+        $this->access->require($this->tenantContext->tenant(), $request->user(), $task->course_id, 'navigation');
 
         return $task;
     }
