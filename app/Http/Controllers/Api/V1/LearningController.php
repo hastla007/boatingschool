@@ -72,12 +72,6 @@ class LearningController extends Controller
         $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('question_id', $revision->question_id)->first();
         $moduleId = $course->modules->first(fn ($m) => $m->questions->contains('id', $revision->question_id))?->id;
         $question = QuestionPresenter::question($revision, $moduleId, $user->id);
-        if ($revision->question_type === 'open_text') {
-            // Offene Frage im Lernmodus: Musterantwort zum Aufdecken, danach
-            // schätzt die Person selbst ein (known: true/false).
-            $question['model_answer'] = $revision->correctAnswer()?->answer_text;
-        }
-
         return response()->json(['data' => [
             'question' => $question,
             'answer_token' => $revision->id,
