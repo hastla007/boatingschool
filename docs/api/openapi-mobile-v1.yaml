@@ -565,33 +565,27 @@ paths:
       tags: [Groups]
       operationId: previewGroupJoin
       summary: Gruppenbeitritt vor dem Einlösen prüfen
+      description: Zeigt die Vorschau eines Gruppen-Beitrittscodes oder einer persönlichen Einladung. Der Token wird nicht eingelöst.
       parameters:
         - {$ref: '#/components/parameters/TenantSlug'}
-        - {in: path, name: token, required: true, schema: {type: string, pattern: '^[gi][0-9a-fA-F]{32}    get:
-      tags: [Courses]
-      operationId: listCourses
-      summary: Freigeschaltete und buchbare Kurse der Schule
-      description: Freigeschaltete Kurse zuerst, dann weitere Kurse mit `webshop_url` zum Kauf im externen Webshop.
-      parameters:
-        - {$ref: '#/components/parameters/TenantSlug'}
-        - {$ref: '#/components/parameters/Page'}
-        - {$ref: '#/components/parameters/PerPage'}
+        - in: path
+          name: token
+          required: true
+          schema: {type: string, pattern: '^[gi][0-9a-fA-F]{32}$'}
       responses:
         '200':
-          description: Kurse
+          description: Vorschau auf den Gruppenbeitritt
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  data: {type: array, items: {$ref: '#/components/schemas/CourseSummary'}}
-                  meta:
+                  data:
                     type: object
-                    properties:
-                      tenant: {type: object, properties: {slug: {type: string}, name: {type: string}}}
-                      renewal_webshop_url: {type: [string, 'null'], format: uri}
-                      pagination: {$ref: '#/components/schemas/Pagination'}
-        '403': {$ref: '#/components/responses/Problem'}
+                    additionalProperties: true
+        '401': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+        '429': {$ref: '#/components/responses/Problem'}
   /courses:
     get:
       tags: [Courses]
