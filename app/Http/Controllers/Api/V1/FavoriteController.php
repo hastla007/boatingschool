@@ -94,7 +94,7 @@ class FavoriteController extends Controller
         $progress = Progress::where('tenant_id', $tenant->id)
             ->where('user_id', $user->id)
             ->whereIn('question_id', $courseQuestionIds)
-            ->where('incorrect_count', '>', 0)
+            ->where('attempt_count', '>', 0)->where('current_streak', 0)
             ->orderByDesc('last_seen_at')
             ->get();
         $questionIds = $progress->pluck('question_id')->all();
