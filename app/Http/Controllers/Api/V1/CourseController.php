@@ -14,6 +14,7 @@ use App\Models\Entitlement;
 use App\Models\Progress;
 use App\Models\TenantCourseDisabled;
 use App\Services\CourseProgressService;
+use App\Services\CourseRelationService;
 use App\Services\EntitlementService;
 use App\Support\TenantContext;
 use Illuminate\Http\JsonResponse;
@@ -35,7 +36,7 @@ class CourseController extends Controller
         private CourseAccess $access,
         private EntitlementService $entitlements,
         private CourseProgressService $progress,
-        private \\App\\Services\\CourseRelationService $courseRelations,
+        private CourseRelationService $courseRelations,
     ) {}
 
     /** Freigeschaltete Kurse und weitere buchbare Kurse der Schule (mit Webshop-Link). */
