@@ -25,6 +25,7 @@ return new class extends Migration
             $table->string('source_key', 160)->nullable();
             $table->timestampsTz();
             $table->unique(['tenant_id', 'source_key']);
+            $table->index('course_id');
             $table->index(['tenant_id', 'course_id', 'feature_code', 'access_type']);
             $table->index(['valid_from', 'valid_until']);
         });
