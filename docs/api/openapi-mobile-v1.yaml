@@ -2391,6 +2391,7 @@ components:
         redeemed: {type: boolean, const: true}
         already_redeemed: {type: boolean}
         type: {type: string, enum: [course, course_renewal, product, group_license]}
+        kind: {type: string, const: group_license, description: WP-compatible group redemption marker}
         group_name: {type: [string, 'null']}
         courses: {type: array, items: {type: object, properties: {course_id: {type: string, format: uuid}, code: {type: string}, name: {type: string}}}}
         course_id: {type: [string, 'null']}
