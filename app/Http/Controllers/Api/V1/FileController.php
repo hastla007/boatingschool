@@ -119,9 +119,9 @@ class FileController extends Controller
 
         foreach ($tenants as $tenant) {
             foreach ($courses as $course) {
-                if ($file && ($file->category === 'downloads' || $file->required_capability === 'downloads')) {
+                if ($file && ($file->category === 'download' || $file->required_capability === 'downloads')) {
                     $ordered = CourseFile::where('course_id', $course->id)->where('published', true)
-                        ->where('category', 'downloads')->orderBy('sort_order')->orderBy('id')->get();
+                        ->where('category', 'download')->orderBy('sort_order')->orderBy('id')->get();
                     if ($access->allowsLimitedItem($tenant, $user, $course, 'downloads', $ordered, (string) $file->id)) {
                         return true;
                     }
