@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\ExamController;
 use App\Http\Controllers\Api\V1\ExportController;
 use App\Http\Controllers\Api\V1\FavoriteController;
 use App\Http\Controllers\Api\V1\LearningController;
+use App\Http\Controllers\Api\V1\PraxisController;
 use App\Http\Controllers\Api\V1\NavigationController;
 use App\Http\Controllers\Api\V1\TipsController;
 use App\Http\Controllers\Api\V1\VideoController;
@@ -87,6 +88,9 @@ Route::middleware('api.auth')->group(function () {
         Route::get('/courses/{courseId}/videos', [VideoController::class, 'index'])->whereUuid('courseId');
         Route::get('/videos/{lessonId}', [VideoController::class, 'show'])->whereUuid('lessonId');
         Route::put('/videos/{lessonId}/progress', [VideoController::class, 'progress'])->whereUuid('lessonId');
+
+        Route::get('/courses/{courseId}/praxis', [PraxisController::class, 'index'])->whereUuid('courseId');
+        Route::put('/courses/{courseId}/praxis/{cardId}', [PraxisController::class, 'updateStatus'])->whereUuid(['courseId', 'cardId']);
 
         // Navigationsaufgaben-Trainer.
         Route::get('/courses/{courseId}/navigation-tasks', [NavigationController::class, 'index'])->whereUuid('courseId');
