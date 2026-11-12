@@ -81,7 +81,7 @@ class CourseController extends Controller
             ->whereNotIn('id', $disabled)
             ->find($courseId);
         if (! $course) {
-            throw \\App\\Api\\ApiProblem::notFound('Kurs');
+            throw \App\Api\ApiProblem::notFound('Kurs');
         }
         $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $request->user()->id)->get();
         $course->loadMissing('modules');
