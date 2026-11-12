@@ -274,7 +274,7 @@ paths:
           description: Einstellungen und aktuelle Version
           headers:
             ETag:
-              schema: {type: string, example: '"3"'}
+              schema: {type: string}
           content:
             application/json:
               schema:
@@ -298,7 +298,42 @@ paths:
         - in: header
           name: If-Match
           required: false
-          schema: {type: string, pattern: '^"(0|[1-9][0-9]*)"    get:
+          schema: {type: string}
+          description: ETag-Version aus GET /me/settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [settings]
+              properties:
+                settings: {type: object, additionalProperties: true}
+                expected_version: {type: integer, minimum: 0}
+      responses:
+        '200':
+          description: Gespeicherte Einstellungen und neue Version
+          headers:
+            ETag:
+              schema: {type: string}
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [settings, version, updated_at]
+                    properties:
+                      settings: {type: object, additionalProperties: true}
+                      version: {type: integer, minimum: 0}
+                      updated_at: {type: [string, 'null'], format: date-time}
+        '401': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+  /me/sessions:
+    get:
       tags: [Account]
       operationId: listDeviceSessions
       summary: Angemeldete Geräte
