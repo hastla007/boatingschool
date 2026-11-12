@@ -480,7 +480,7 @@ entscheidet aber nur anhand von `code`.
     ]
   }
   ```
-  `php artisan app:import-mobile-course-files /pfad/files.json /pfad/zum/wordpress-media-export` kopiert die Dateien in den geschützten Laravel-Storage und legt die `course_file`-Einträge idempotent an. `category` ist `download`, `section` oder `chart`; Abschnittsdateien und Seekarten können einen `section_key` nutzen. Die exportierten Quelldateien selbst müssen vorher bereitgestellt werden.
+  `php artisan app:import-mobile-course-files /pfad/files.json /pfad/zum/wordpress-media-export` kopiert die Dateien in den geschützten Laravel-Storage und legt die `course_file`-Einträge idempotent an. `category` ist `download`, `section` oder `chart`; Abschnittsdateien und Seekarten können einen `section_key` nutzen. Der aktuelle WP-Export ergänzt je Zuordnung `sha256`; der Importer prüft die Prüfsumme sowohl im Staging als auch nach dem Kopieren in den Laravel-Storage. Die exportierten Quelldateien selbst müssen vorher bereitgestellt werden.
 * **Tests:** `vendor/bin/phpunit tests/Feature/Api`.
   `OpenApiContractTest` schlägt fehl, wenn Routen und OpenAPI-Datei
   auseinanderlaufen.
