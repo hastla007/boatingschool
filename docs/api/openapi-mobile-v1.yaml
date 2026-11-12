@@ -919,6 +919,49 @@ paths:
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
+  /exams/{examId}/answers/{questionId}/flag:
+    put:
+      tags: [Exams]
+      operationId: flagExamQuestion
+      summary: Prüfungsfrage zur Überprüfung markieren
+      description: Setzt oder entfernt die Markierung einer laufenden Prüfungsfrage. questionId darf wie in WP der Position (1…n) oder kompatibel eine Fragen-UUID sein. Antwort und Bewertung bleiben unverändert.
+      parameters:
+        - {$ref: '#/components/parameters/ExamId'}
+        - in: path
+          name: questionId
+          required: true
+          schema: {type: string}
+          description: Position 1…n (WP-kompatibel) oder Fragen-UUID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [flagged]
+              properties:
+                flagged: {type: boolean}
+      responses:
+        '200':
+          description: Markierung gespeichert
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [question_id, flagged, flagged_count]
+                    properties:
+                      question_id: {type: string}
+                      flagged: {type: boolean}
+                      flagged_count: {type: integer, minimum: 0}
+        '401': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '410': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
   /exams/{examId}/answers/{questionId}/reveal:
     post:
       tags: [Exams]
@@ -1579,6 +1622,7 @@ components:
         - type: object
           properties:
             position: {type: integer}
+            flagged: {type: boolean}
             answered: {type: boolean}
             revealed: {type: boolean}
     ExamAnswer:
@@ -1587,6 +1631,7 @@ components:
         question_id: {type: string}
         selected_answer_ids: {type: array, items: {type: string}}
         known: {type: [boolean, 'null']}
+        flagged: {type: boolean}
         answered_at: {type: string, format: date-time}
     ExamNavigation:
       type: [object, 'null']
@@ -1634,6 +1679,7 @@ components:
         navigation_assessment_until: {type: [string, 'null'], format: date-time, description: 'Letzter Zeitpunkt für die Selbsteinschätzung (Ende + 15 Min.)'}
         question_count: {type: integer}
         answered_count: {type: integer}
+        flagged_count: {type: integer}
         questions: {type: array, items: {$ref: '#/components/schemas/ExamQuestion'}}
         answers: {type: array, items: {$ref: '#/components/schemas/ExamAnswer'}}
         navigation: {$ref: '#/components/schemas/ExamNavigation'}
