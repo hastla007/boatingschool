@@ -58,6 +58,7 @@ Route::middleware('api.auth')->group(function () {
         Route::get('/tips', [TipsController::class, 'index']);
 
         Route::get('/courses/{courseId}/trainer/next', [LearningController::class, 'next'])->whereUuid('courseId');
+        Route::post('/courses/{courseId}/trainer/reveal', [LearningController::class, 'reveal'])->whereUuid('courseId');
         Route::post('/courses/{courseId}/attempts', [LearningController::class, 'submit'])->whereUuid('courseId')->middleware('api.idempotent');
         Route::get('/courses/{courseId}/attempts/{attemptId}', [LearningController::class, 'showAttempt'])->whereUuid(['courseId', 'attemptId']);
 
