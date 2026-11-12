@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\RadioTrainingProgress;
 use App\Support\FunkPraxis;
 use App\Support\FunkTraining;
+use App\Support\Geraetesimulation;
 use App\Support\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -71,13 +72,21 @@ class RadioController extends Controller
             $practice[] = ['catalog' => $catalog, 'tasks' => $rows];
         }
 
+        $deviceAvailable = Geraetesimulation::availableFor($request->user(), $course);
+        $deviceCatalogs = Geraetesimulation::catalogsFor($course);
+        $deviceLessons = Geraetesimulation::lessonsForBrowser($deviceCatalogs);
+        $deviceProgress = RadioTrainingProgress::where('tenant_id', $this->tenantContext->id())
+            ->where('user_id', $request->user()->id)
+            ->where('item_type', RadioTrainingProgress::TYPE_DEVICE)
+            ->where('completed', true)->count();
+
         return response()->json(['data' => [
             'course_id' => $course->id,
             'catalogs' => $catalogs,
             'texts' => array_values($texts),
             'vocabulary' => $vocabulary,
             'practice' => $practice,
-            'device_simulator' => ['available' => false, 'premium' => false, 'tier' => null, 'web_url' => null, 'open_in' => 'browser', 'hint' => null, 'webshop_url' => null],
+            'device_simulator' => ['available' => $deviceAvailable, 'premium' => false, 'tier' => $deviceAvailable ? 'free' : null, 'web_url' => $deviceAvailable ? route('funk.device.index', $course) : null, 'open_in' => 'browser', 'hint' => $deviceAvailable ? 'Der Funkgerät-Simulator wird im Browser geöffnet.' : null, 'webshop_url' => null, 'lessons' => count($deviceLessons), 'mastered' => $deviceProgress],
         ], 'meta' => ['limit' => null, 'streak_to_learn' => RadioTrainingProgress::VOCAB_STREAK_TO_LEARN]]);
     }
 
