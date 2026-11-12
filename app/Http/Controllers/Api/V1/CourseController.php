@@ -6,6 +6,7 @@ use App\Api\CourseAccess;
 use App\Api\Present;
 use App\Http\Controllers\Controller;
 use App\Models\Attempt;
+use App\Models\ContentQuestion;
 use App\Models\ContentQuestionRevision;
 use App\Models\CourseDefinition;
 use App\Models\CourseFile;
