@@ -919,6 +919,32 @@ paths:
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
+  /exams/{examId}/answers/{questionId}/reveal:
+    post:
+      tags: [Exams]
+      operationId: revealExamAnswerAlias
+      summary: Musterantwort einer offenen Prüfungsfrage anzeigen (WP-kompatibler Pfad)
+      description: Gleiche Funktion wie POST /exams/{examId}/questions/{questionId}/reveal; der WP-Mobile-API-Pfad bleibt für App-Kompatibilität verfügbar.
+      parameters:
+        - {$ref: '#/components/parameters/ExamId'}
+        - {$ref: '#/components/parameters/QuestionId'}
+      responses:
+        '200':
+          description: Musterantwort
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      question_id: {type: string, format: uuid}
+                      model_answer: {type: string}
+        '401': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
   /exams/{examId}/result:
     get:
       tags: [Exams]
