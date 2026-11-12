@@ -317,7 +317,11 @@ class LearningGroupService
             $code = $scope['course_code'] ?? $scope['course'] ?? '';
             $course = CourseDefinition::withoutGlobalScopes()->where('code', $code)->first();
             $feature = (string) ($scope['feature'] ?? 'course');
-            $capabilities = $this->scopeCapabilities($scope);
+            try {
+                $capabilities = $this->scopeCapabilities($scope);
+            } catch (RuntimeException) {
+                $capabilities = [];
+            }
             $capability = $scope['capability'] ?? ($capabilities[0] ?? null);
             $labels = [
                 'course' => 'Vollzugang', 'full' => 'Vollzugang', 'all' => 'Vollzugang',
