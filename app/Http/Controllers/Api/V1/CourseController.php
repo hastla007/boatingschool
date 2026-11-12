@@ -107,7 +107,7 @@ class CourseController extends Controller
             $allowed = ($file->category === 'downloads' || $file->required_capability === 'downloads')
                 ? $downloadAllowedIds->has($file->id)
                 : ($file->required_capability === null
-                    ? $this->entitlements->hasAccess($tenant, $user, $file->course)
+                    ? $this->access->hasCourseAccess($tenant, $user, $file->course)
                     : $this->access->hasFeatureAccess($tenant, $user, $file->course, $file->required_capability));
 
             return [
@@ -321,10 +321,10 @@ class CourseController extends Controller
         $features['explanations'] = [
             'available' => $explanations['full'] || $explanationLimit !== null,
             'full' => $explanations['full'],
-            'limit' => $explanationLimit,
+            'limit' => null,
         ];
         $relation ??= $this->courseRelations->forCourses($tenant, $user, collect([$course]))[$course->code];
-        $faqCount = $canLearn ? (int) DB::table('customer_faq_category_item as item')
+        $faqCount = $this->access->featureScope($tenant, $user, $course, 'smarttrainer')['full'] ? (int) DB::table('customer_faq_category_item as item')
             ->join('customer_faq_category as category', 'category.id', '=', 'item.category_id')
             ->join('customer_faq as faq', 'faq.id', '=', 'item.faq_id')
             ->where('category.course_code', $course->code)->where('faq.status', 'published')
