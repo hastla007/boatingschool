@@ -539,6 +539,9 @@ paths:
                         properties:
                           modules_count: {type: integer}
                           exam_options_count: {type: integer}
+                          downloads: {type: array, items: {$ref: '#/components/schemas/FileRef'}}
+                          section_files: {type: object, additionalProperties: {type: array, items: {$ref: '#/components/schemas/FileRef'}}}
+                          charts: {type: array, items: {$ref: '#/components/schemas/FileRef'}}
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
   /courses/{courseId}/overview:
@@ -2041,6 +2044,17 @@ components:
           additionalProperties: {$ref: '#/components/schemas/FeatureAccess'}
         webshop_url: {type: [string, 'null'], format: uri}
         last_activity_at: {type: [string, 'null'], format: date-time, description: Letzte Antwort in diesem Kurs}
+    FileRef:
+      type: object
+      required: [id, title, locked, url, requires_authorization]
+      properties:
+        id: {type: string, format: uuid}
+        title: {type: string}
+        description: {type: [string, 'null']}
+        size_bytes: {type: [integer, 'null']}
+        locked: {type: boolean}
+        url: {type: [string, 'null'], format: uri, description: Protected API download URL}
+        requires_authorization: {type: boolean, const: true}
     Module:
       type: object
       properties:
