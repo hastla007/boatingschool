@@ -378,7 +378,7 @@ class RadioController extends Controller
 
     private function radioCourse(Request $request, string $courseId): \App\Models\CourseDefinition
     {
-        $course = $this->access->require($this->tenantContext->tenant(), $request->user(), $courseId);
+        $course = $this->access->require($this->tenantContext->tenant(), $request->user(), $courseId, 'funk');
         if (FunkTraining::catalogsFor($course) === []) {
             throw ApiProblem::notFound('Funktraining');
         }
