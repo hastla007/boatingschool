@@ -129,7 +129,7 @@ class FileController extends Controller
                 }
 
                 if ($file && $file->required_capability === null) {
-                    if ($entitlements->hasAccess($tenant, $user, $course)) {
+                    if ($access->hasCourseAccess($tenant, $user, $course)) {
                         return true;
                     }
                     continue;
