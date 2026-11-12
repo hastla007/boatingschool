@@ -52,6 +52,16 @@ class AccountController extends Controller
         return response()->noContent();
     }
 
+    /** Public health probe used by load balancers and mobile clients. */
+    public function health(): JsonResponse
+    {
+        return response()->json(['data' => [
+            'status' => 'ok',
+            'api_version' => 'v1',
+            'server_time' => Present::time(now()),
+        ]]);
+    }
+
     /** Öffentlich: Mindestversion, Store-Links und Wartung (vor dem Login abrufbar). */
     public function appConfig(): JsonResponse
     {
