@@ -16,7 +16,11 @@ return [
     // Datenexport: Download-Link und Datei bleiben so lange erhalten.
     'export_ttl_minutes' => (int) env('MOBILE_API_EXPORT_TTL_MINUTES', 60),
     // Idempotenz-Schlüssel werden so lange aufbewahrt.
-    'idempotency_hours' => 24,\n    // Einmalige Anmeldung für die Webansicht aus einer Mobile-App.\n    'web_session_enabled' => (bool) env('MOBILE_API_WEB_SESSION_ENABLED', true),\n    // Universal-Link-Pfad, den die App aus der Bestätigungsmail öffnet.\n    'deletion_confirmation_path' => env('MOBILE_API_DELETION_CONFIRMATION_PATH', '/app/konto-loeschen/'),
+    'idempotency_hours' => 24,
+    // Einmalige Anmeldung für die Webansicht aus einer Mobile-App.
+    'web_session_enabled' => (bool) env('MOBILE_API_WEB_SESSION_ENABLED', true),
+    // Universal-Link-Pfad, den die App aus der Bestätigungsmail öffnet.
+    'deletion_confirmation_path' => env('MOBILE_API_DELETION_CONFIRMATION_PATH', '/app/konto-loeschen/'),
     // Mindestversion der App je Plattform (leer = keine Vorgabe). Ältere
     // Versionen bekommen 426 APP_UPDATE_REQUIRED (Header X-App-Version und
     // X-App-Platform); GET /api/v1/app/config nennt die Werte.
