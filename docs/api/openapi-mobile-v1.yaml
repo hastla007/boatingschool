@@ -38,6 +38,28 @@ tags:
 
 paths:
   # ---------------------------------------------------------------- App
+  /health:
+    get:
+      tags: [Account]
+      operationId: getHealth
+      summary: Öffentlicher Health-Status der API
+      security: []
+      responses:
+        '200':
+          description: API erreichbar
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    required: [status, api_version, server_time]
+                    properties:
+                      status: {type: string, const: ok}
+                      api_version: {type: string, const: v1}
+                      server_time: {type: string, format: date-time}
+        '429': {$ref: '#/components/responses/Problem'}
   /app/config:
     get:
       tags: [Account]
@@ -242,6 +264,1487 @@ paths:
                       user: {$ref: '#/components/schemas/User'}
                       memberships: {type: array, items: {$ref: '#/components/schemas/Membership'}}
         '401': {$ref: '#/components/responses/Problem'}
+  /me/settings:
+    get:
+      tags: [Account]
+      operationId: getMobileSettings
+      summary: Gerätesynchronisierte App-Einstellungen abrufen
+      responses:
+        '200':
+          description: Einstellungen und aktuelle Version
+          headers:
+            ETag:
+              schema: {type: string, example: '"3"'}
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [settings, version, updated_at]
+                    properties:
+                      settings: {type: object, additionalProperties: true}
+                      version: {type: integer, minimum: 0}
+                      updated_at: {type: [string, 'null'], format: date-time}
+        '401': {$ref: '#/components/responses/Problem'}
+    put:
+      tags: [Account]
+      operationId: replaceMobileSettings
+      summary: App-Einstellungen atomar ersetzen
+      description: Maximal 8192 Bytes und vier Ebenen. Optional schützt If-Match oder expected_version vor konkurrierenden Änderungen; bei Konflikt liefert 409 VERSION_CONFLICT den aktuellen Stand.
+      parameters:
+        - in: header
+          name: If-Match
+          required: false
+          schema: {type: string, pattern: '^"(0|[1-9][0-9]*)"    get:
+      tags: [Account]
+      operationId: listDeviceSessions
+      summary: Angemeldete Geräte
+      responses:
+        '200':
+          description: Gerätesitzungen
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: {type: array, items: {$ref: '#/components/schemas/DeviceSession'}}
+    delete:
+      tags: [Account]
+      operationId: revokeOtherDeviceSessions
+      summary: Alle anderen Geräte abmelden (dieses bleibt angemeldet)
+      responses:
+        '204': {description: Abgemeldet}
+        '401': {$ref: '#/components/responses/Problem'}
+  /me/sessions/{sessionId}:
+    delete:
+      tags: [Account]
+      operationId: revokeDeviceSession
+      summary: Ein Gerät abmelden
+      parameters: [{$ref: '#/components/parameters/SessionId'}]
+      responses:
+        '204': {description: 'Abgemeldet'}
+        '404': {$ref: '#/components/responses/Problem'}
+
+  # ------------------------------------------------------------ Courses
+  /courses:
+    get:
+      tags: [Courses]
+      operationId: listCourses
+      summary: Freigeschaltete und buchbare Kurse der Schule
+      description: Freigeschaltete Kurse zuerst, dann weitere Kurse mit `webshop_url` zum Kauf im externen Webshop.
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/Page'}
+        - {$ref: '#/components/parameters/PerPage'}
+      responses:
+        '200':
+          description: Kurse
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: {type: array, items: {$ref: '#/components/schemas/CourseSummary'}}
+                  meta:
+                    type: object
+                    properties:
+                      tenant: {type: object, properties: {slug: {type: string}, name: {type: string}}}
+                      renewal_webshop_url: {type: [string, 'null'], format: uri}
+                      pagination: {$ref: '#/components/schemas/Pagination'}
+        '403': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}:
+    get:
+      tags: [Courses]
+      operationId: getCourse
+      parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/CourseId'}]
+      responses:
+        '200':
+          description: Kurs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    allOf:
+                      - {$ref: '#/components/schemas/CourseSummary'}
+                      - type: object
+                        properties:
+                          modules_count: {type: integer}
+                          exam_options_count: {type: integer}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/overview:
+    get:
+      tags: [Courses]
+      operationId: getCourseOverview
+      summary: Fortschritt, Module und „Weiterlernen“
+      parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/CourseId'}]
+      responses:
+        '200':
+          description: Übersicht
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      course: {$ref: '#/components/schemas/CourseSummary'}
+                      progress: {$ref: '#/components/schemas/ProgressSummary'}
+                      continue_learning:
+                        type: [object, 'null']
+                        properties:
+                          module_id: {type: [string, 'null']}
+                          module_name: {type: [string, 'null']}
+                          topic: {type: [string, 'null']}
+                          mode: {type: string}
+                          last_activity_at: {type: string, format: date-time}
+                      modules: {type: array, items: {$ref: '#/components/schemas/Module'}}
+        '403': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/modules:
+    get:
+      tags: [Courses]
+      operationId: listModules
+      parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/CourseId'}]
+      responses:
+        '200':
+          description: Module mit Themen
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: {type: array, items: {$ref: '#/components/schemas/Module'}}
+        '403': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/progress:
+    get:
+      tags: [Courses]
+      operationId: getProgress
+      parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/CourseId'}]
+      responses:
+        '200':
+          description: Fortschritt
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      overall: {$ref: '#/components/schemas/ProgressSummary'}
+                      answered_questions: {type: integer}
+                      correct_answers: {type: integer}
+                      incorrect_answers: {type: integer}
+                      modules: {type: array, items: {$ref: '#/components/schemas/Module'}}
+        '403': {$ref: '#/components/responses/Problem'}
+
+  # ------------------------------------------------------------ Trainer
+  /courses/{courseId}/trainer/next:
+    get:
+      tags: [Trainer]
+      operationId: nextTrainerQuestion
+      summary: Nächste Frage (Smarttrainer und weitere Lernmodi)
+      description: Ohne Lösung. Bei offenen Fragen (`answer_selection = self_assessment`) enthält die Frage `model_answer` zum Aufdecken.
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/CourseId'}
+        - {in: query, name: mode, schema: {type: string, enum: [smarttrainer, new, wrong, topic, favorites], default: smarttrainer}}
+        - {in: query, name: module_id, schema: {type: string, format: uuid}}
+        - {in: query, name: topic, schema: {type: string}, description: 'Für mode=topic'}
+        - {in: query, name: question_ids, schema: {type: string}, description: 'Kommagetrennte Frage-IDs. Mit mode=favorites: genau diese Favoriten (z. B. „diese Frage üben“). Sonst „Fehler üben“ wie im Web: Fragen mit laufender richtiger Serie fallen heraus.'}
+        - {in: query, name: collection_id, schema: {type: string, format: uuid}, description: 'Eine Favoriten-Sammlung üben (setzt mode=favorites)'}
+      responses:
+        '200':
+          description: Frage
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {data: {$ref: '#/components/schemas/TrainerQuestion'}}
+        '204': {description: 'Keine passende Frage: new = alles gesehen, wrong = keine falschen, favorites = keine (passenden) Favoriten, question_ids = alle erledigt. Im Smarttrainer kommen gefestigte Fragen zur Wiederholung; „alles geschafft“ zeigt progress.percent = 100.'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/attempts:
+    post:
+      tags: [Trainer]
+      operationId: submitTrainerAnswer
+      summary: Antwort im Lernmodus abgeben
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/CourseId'}
+        - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/TrainerAnswerRequest'}
+      responses:
+        '201':
+          description: 'Bewertet, mit Lösung und Lernstand. 409 EXAM_QUESTION_LOCKED: Frage ist gerade Teil einer laufenden Prüfung (auch bei einer anderen Schule).'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {data: {$ref: '#/components/schemas/TrainerAnswerResult'}}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/attempts/{attemptId}:
+    get:
+      tags: [Trainer]
+      operationId: getTrainerAttempt
+      parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/CourseId'}, {$ref: '#/components/parameters/AttemptId'}]
+      responses:
+        '200':
+          description: Eigener Versuch
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {data: {$ref: '#/components/schemas/TrainerAnswerResult'}}
+        '404': {$ref: '#/components/responses/Problem'}
+
+  # ---------------------------------------------------------- Favorites
+  /courses/{courseId}/favorites:
+    get:
+      tags: [Favorites]
+      operationId: listFavorites
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/CourseId'}
+        - {in: query, name: collection_id, schema: {type: string, format: uuid}}
+        - {in: query, name: context, schema: {type: string, enum: [smart_learning, exam]}}
+      responses:
+        '200':
+          description: Favoriten
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: {type: array, items: {$ref: '#/components/schemas/Favorite'}}
+  /courses/{courseId}/favorites/{questionId}:
+    put:
+      tags: [Favorites]
+      operationId: putFavorite
+      summary: Favorit setzen (wiederholbar), optional mit Sammlungen
+      description: Ohne `collection_ids` landet die Frage in der Standard-Sammlung; mit `collection_ids` genau in diesen (mindestens eine eigene Sammlung des Kurses, sonst 422; Entfernen über DELETE).
+      parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/CourseId'}, {$ref: '#/components/parameters/QuestionId'}]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                context: {type: string, enum: [smart_learning, exam], default: smart_learning}
+                collection_ids: {type: array, items: {type: string, format: uuid}}
+      responses:
+        '200':
+          description: Favorit
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {data: {$ref: '#/components/schemas/Favorite'}}
+        '404': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+    delete:
+      tags: [Favorites]
+      operationId: deleteFavorite
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/CourseId'}
+        - {$ref: '#/components/parameters/QuestionId'}
+        - {in: query, name: context, schema: {type: string, enum: [smart_learning, exam], default: smart_learning}}
+      responses:
+        '204': {description: 'Entfernt'}
+  /courses/{courseId}/favorite-collections:
+    get:
+      tags: [Favorites]
+      operationId: listFavoriteCollections
+      parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/CourseId'}]
+      responses:
+        '200':
+          description: Sammlungen (Standard-Sammlung zuerst)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: {type: array, items: {$ref: '#/components/schemas/FavoriteCollection'}}
+    post:
+      tags: [Favorites]
+      operationId: createFavoriteCollection
+      parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/CourseId'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/FavoriteCollectionRequest'}
+      responses:
+        '201':
+          description: Angelegt
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {data: {$ref: '#/components/schemas/FavoriteCollection'}}
+        '422': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/favorite-collections/{collectionId}:
+    patch:
+      tags: [Favorites]
+      operationId: renameFavoriteCollection
+      parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/CourseId'}, {$ref: '#/components/parameters/CollectionId'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/FavoriteCollectionRequest'}
+      responses:
+        '200':
+          description: Umbenannt
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {data: {$ref: '#/components/schemas/FavoriteCollection'}}
+        '404': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+    delete:
+      tags: [Favorites]
+      operationId: deleteFavoriteCollection
+      description: Die Standard-Sammlung lässt sich nicht löschen (409 COLLECTION_NOT_DELETABLE).
+      parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/CourseId'}, {$ref: '#/components/parameters/CollectionId'}]
+      responses:
+        '204': {description: 'Gelöscht'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+
+  # -------------------------------------------------------------- Exams
+  /courses/{courseId}/exams:
+    get:
+      tags: [Exams]
+      operationId: listExams
+      summary: Startbare Prüfungen (feste Bögen oder Zufallsprüfung) mit letztem Ergebnis
+      parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/CourseId'}]
+      responses:
+        '200':
+          description: Prüfungen
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: {type: array, items: {$ref: '#/components/schemas/ExamOption'}}
+                  meta:
+                    type: object
+                    properties:
+                      includes_navigation_task: {type: boolean}
+                      rule_set_status: {type: string, enum: [verified, draft, none], description: 'draft = Regelwerk noch nicht freigegeben (Liste leer)'}
+        '403': {$ref: '#/components/responses/Problem'}
+    post:
+      tags: [Exams]
+      operationId: startExam
+      summary: Prüfung starten oder laufende fortsetzen
+      description: Kurse mit festen Bögen brauchen `paper_id`. Läuft für den Bogen bereits eine Prüfung, kommt diese zurück (200).
+      parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/CourseId'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {paper_id: {type: [string, 'null'], format: uuid}}
+      responses:
+        '200':
+          description: Laufende Prüfung fortgesetzt
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ExamSessionResponse'}
+        '201':
+          description: Neu gestartet
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ExamSessionResponse'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/exam-sessions:
+    get:
+      tags: [Exams]
+      operationId: listExamHistory
+      summary: Bisherige (ausgewertete) Prüfungsversuche, neueste zuerst
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/CourseId'}
+        - {$ref: '#/components/parameters/Page'}
+        - {$ref: '#/components/parameters/PerPage'}
+      responses:
+        '200':
+          description: Versuche
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        exam_id: {type: string}
+                        paper_id: {type: [string, 'null']}
+                        name: {type: string}
+                        passed: {type: boolean}
+                        score: {type: number}
+                        correct_count: {type: integer}
+                        question_count: {type: integer}
+                        navigation_points: {type: [integer, 'null']}
+                        started_at: {type: string, format: date-time}
+                        evaluated_at: {type: string, format: date-time}
+                  meta: {type: object, properties: {pagination: {$ref: '#/components/schemas/Pagination'}}}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+  /exams/{examId}:
+    get:
+      tags: [Exams]
+      operationId: getExam
+      summary: Eigene Prüfung mit Status, Fragen (ohne Lösung) und gegebenen Antworten
+      description: Ist die Zeit abgelaufen, wird die Prüfung dabei ausgewertet (`status = evaluated`).
+      parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/ExamId'}]
+      responses:
+        '200':
+          description: Prüfung
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ExamSessionResponse'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+  /exams/{examId}/answers/{questionId}:
+    put:
+      tags: [Exams]
+      operationId: saveExamAnswer
+      summary: Antwort festschreiben
+      description: |
+        Speichert ohne Richtig/Falsch. Eine gegebene Antwort ist endgültig (wie im Web):
+        dieselbe Antwort erneut → 200; eine andere → 409 `EXAM_ANSWER_LOCKED`.
+        Offene Fragen: erst `POST …/reveal`, dann `known` senden. Nach Zeitablauf → 410 `EXAM_EXPIRED`.
+      parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/ExamId'}, {$ref: '#/components/parameters/QuestionId'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ExamAnswerRequest'}
+      responses:
+        '200':
+          description: Gespeichert
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {data: {$ref: '#/components/schemas/ExamAnswerSaved'}}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '410': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+  /exams/{examId}/questions/{questionId}/reveal:
+    post:
+      tags: [Exams]
+      operationId: revealExamModelAnswer
+      summary: Musterantwort einer offenen Frage abrufen (FKN/SKN)
+      parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/ExamId'}, {$ref: '#/components/parameters/QuestionId'}]
+      responses:
+        '200':
+          description: Musterantwort
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: {type: object, properties: {question_id: {type: string}, model_answer: {type: [string, 'null']}}}
+        '409': {$ref: '#/components/responses/Problem'}
+        '410': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+  /exams/{examId}/navigation:
+    put:
+      tags: [Exams]
+      operationId: submitExamNavigation
+      summary: Navigationsaufgabe abgeben (SBF See; einmalig, alle Teilantworten)
+      description: 'Schlüssel sind die `navigation.parts[].id` der Prüfung. Erst nach dem Fragebogen (sonst 409 EXAM_QUESTIONS_OPEN), nach Zeitablauf bis `navigation_submit_until` (1 Minute Nachfrist für technische Verzögerungen; Antworten zählen wie zum Prüfungsende abgegeben).'
+      parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/ExamId'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [answers]
+              properties:
+                answers: {type: object, additionalProperties: {type: [string, 'null'], maxLength: 500}}
+      responses:
+        '200':
+          description: Abgegeben; Phase `navigation_assessment` mit Musterlösungen
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ExamSessionResponse'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '410': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+  /exams/{examId}/navigation/assessment:
+    post:
+      tags: [Exams]
+      operationId: assessExamNavigation
+      summary: Selbsteinschätzung der Navigation; danach Auswertung der ganzen Prüfung
+      description: '`known` je Teilfrage mit `needs_assessment = true` (Freitext, Karteneintrag, oder automatisch als falsch erkannt aber gleichwertig).'
+      parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/ExamId'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [known]
+              properties:
+                known: {type: object, additionalProperties: {type: [boolean, 'null']}}
+      responses:
+        '200':
+          description: Ergebnis
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ExamResultResponse'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '410': {$ref: '#/components/responses/Problem'}
+  /exams/{examId}/submit:
+    post:
+      tags: [Exams]
+      operationId: submitExam
+      summary: Prüfung abgeben und auswerten (wiederholbar, gleiches Ergebnis)
+      description: 'Mit Navigationsteil, der noch nicht abgegeben ist: 409 EXAM_NAVIGATION_NOT_SUBMITTED, außer `without_navigation: true` (Navigation zählt dann 0 Punkte) oder die Abgabefrist ist vorbei.'
+      parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/ExamId'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {without_navigation: {type: boolean, default: false}}
+      responses:
+        '200':
+          description: Ergebnis
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ExamResultResponse'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+  /exams/{examId}/result:
+    get:
+      tags: [Exams]
+      operationId: getExamResult
+      summary: Ergebnis mit Lösungen (nur nach der Auswertung)
+      parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/ExamId'}]
+      responses:
+        '200':
+          description: Unveränderliches Ergebnis
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ExamResultResponse'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+
+  # ------------------------------------------------------------- Videos
+  /courses/{courseId}/videos:
+    get:
+      tags: [Videos]
+      operationId: listVideoModules
+      parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/CourseId'}]
+      responses:
+        '200':
+          description: Kapitel mit Lektionen
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: {type: array, items: {$ref: '#/components/schemas/VideoModule'}}
+        '403': {$ref: '#/components/responses/Problem'}
+  /videos/{lessonId}:
+    get:
+      tags: [Videos]
+      operationId: getVideoLesson
+      parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/LessonId'}]
+      responses:
+        '200':
+          description: Lektion mit Schritt-Galerie
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {data: {$ref: '#/components/schemas/VideoLesson'}}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+  /videos/{lessonId}/progress:
+    put:
+      tags: [Videos]
+      operationId: updateVideoProgress
+      summary: Wiedergabestand speichern (abgeschlossen bleibt abgeschlossen)
+      parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/LessonId'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [position_seconds, completed]
+              properties:
+                position_seconds: {type: integer, minimum: 0, maximum: 86400}
+                completed: {type: boolean}
+      responses:
+        '200':
+          description: Gespeichert
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      lesson_id: {type: string}
+                      position_seconds: {type: integer}
+                      completed: {type: boolean}
+                      updated_at: {type: string, format: date-time}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+
+  # --------------------------------------------------------- Navigation
+  /courses/{courseId}/navigation-tasks:
+    get:
+      tags: [Navigation]
+      operationId: listNavigationTasks
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/CourseId'}
+        - {$ref: '#/components/parameters/Page'}
+        - {in: query, name: per_page, schema: {type: integer, minimum: 1, maximum: 100, default: 50}}
+      responses:
+        '200':
+          description: Aufgaben mit eigenem Stand
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: {type: array, items: {$ref: '#/components/schemas/NavigationTaskSummary'}}
+                  meta: {type: object, properties: {pagination: {$ref: '#/components/schemas/Pagination'}}}
+        '403': {$ref: '#/components/responses/Problem'}
+  /navigation-tasks/{taskId}:
+    get:
+      tags: [Navigation]
+      operationId: getNavigationTask
+      description: Musterlösungen nur mit `show_solution=true`. Gesperrt (409 NAVIGATION_TASK_IN_EXAM), solange die Aufgabe Teil einer laufenden Prüfung ist.
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/TaskId'}
+        - {in: query, name: show_solution, schema: {type: boolean, default: false}}
+      responses:
+        '200':
+          description: Aufgabe
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {data: {$ref: '#/components/schemas/NavigationTask'}}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+  /navigation-tasks/{taskId}/parts/{partId}/answer:
+    put:
+      tags: [Navigation]
+      operationId: answerNavigationPart
+      summary: Eigene Antwort prüfen (Toleranz bei Messwerten) oder Selbstbewertung speichern
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/TaskId'}
+        - {in: path, name: partId, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Genau eines von beiden.
+              properties:
+                answer: {type: string, maxLength: 500}
+                self_assessment: {type: string, enum: [correct, incorrect]}
+      responses:
+        '200':
+          description: Bewertet
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      part_id: {type: string}
+                      own_answer: {type: [string, 'null']}
+                      auto_checked: {type: boolean}
+                      correct: {type: [boolean, 'null'], description: 'null = nicht automatisch prüfbar, bitte selbst bewerten'}
+                      solution: {type: string}
+        '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+
+  # ------------------------------------------------------------ Coupons
+  /coupons/redeem:
+    post:
+      tags: [Coupons]
+      operationId: redeemCoupon
+      summary: Zugangscode einlösen (nach dem Kauf im externen Webshop)
+      description: |
+        Unbekannte, gesperrte, abgelaufene und von anderen eingelöste Codes ergeben einheitlich
+        422 `COUPON_INVALID`. Ein vom eigenen Konto in dieser Schule schon eingelöster Code
+        liefert das Ergebnis erneut (`already_redeemed: true`). Danach `GET /courses` neu laden.
+        Begrenzung 10 Versuche pro Minute.
+      parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/IdempotencyKey'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties: {code: {type: string, minLength: 4, maxLength: 100}}
+      responses:
+        '200':
+          description: Eingelöst
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {data: {$ref: '#/components/schemas/CouponRedemption'}}
+        '422': {$ref: '#/components/responses/Problem'}
+        '429': {$ref: '#/components/responses/Problem'}
+
+  # ------------------------------------------------------------ Privacy
+  /profile/export:
+    post:
+      tags: [Privacy]
+      operationId: requestDataExport
+      summary: DSGVO-Datenexport anfordern (Daten bei dieser Schule)
+      description: Wird sofort erzeugt (`status = ready`, bei einem Fehler `failed`) und ist 60 Minuten abrufbar; danach wird die Datei gelöscht (stündliches Aufräumen). Höchstens 5 Anforderungen pro Stunde. Ohne Idempotency-Key -- ein erneuter Aufruf liefert einen frischen Export.
+      parameters: [{$ref: '#/components/parameters/TenantSlug'}]
+      responses:
+        '202':
+          description: Export angelegt
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {data: {$ref: '#/components/schemas/ExportStatus'}}
+        '429': {$ref: '#/components/responses/Problem'}
+  /profile/export/{exportId}:
+    get:
+      tags: [Privacy]
+      operationId: getDataExport
+      summary: Status und kurzlebiger Download-Link (10 Minuten)
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {in: path, name: exportId, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200':
+          description: Status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {data: {$ref: '#/components/schemas/ExportStatus'}}
+        '404': {$ref: '#/components/responses/Problem'}
+  /profile/export/{exportId}/download:
+    get:
+      tags: [Privacy]
+      operationId: downloadDataExport
+      summary: JSON-Datei herunterladen (signierter Link aus `download_url`, ohne Token)
+      security: []
+      parameters:
+        - {in: path, name: exportId, required: true, schema: {type: string, format: uuid}}
+        - {in: query, name: tenant, required: true, schema: {type: string}}
+        - {in: query, name: expires, required: true, schema: {type: integer}}
+        - {in: query, name: signature, required: true, schema: {type: string}}
+      responses:
+        '200':
+          description: Datei
+          content:
+            application/json: {schema: {type: object}}
+        '403': {description: 'LINK_INVALID: Signatur falsch oder Link abgelaufen', content: {application/problem+json: {schema: {$ref: '#/components/schemas/Problem'}}}}
+        '410': {$ref: '#/components/responses/Problem'}
+
+  /courses/{courseId}/faqs:
+    get:
+      tags: [Courses]
+      operationId: listCourseFaqs
+      summary: Veröffentliche Kunden-FAQs nach Kurs und Unterkategorie
+      parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/CourseId'}]
+      responses:
+        '200':
+          description: Gruppierte Kunden-FAQs
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items: {$ref: '#/components/schemas/CourseFaqGroup'}
+                  meta:
+                    type: object
+                    required: [course_id, groups, faqs]
+                    properties:
+                      course_id: {type: string, format: uuid}
+                      groups: {type: integer}
+                      faqs: {type: integer}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: Undurchsichtiges Access-Token (`bsa_…`), 15 Minuten gültig.
+  parameters:
+    TenantSlug:
+      in: header
+      name: X-Tenant-Slug
+      required: true
+      description: Kennung der Schule aus `memberships[].tenant_slug`.
+      schema: {type: string, pattern: '^[A-Za-z0-9][A-Za-z0-9-]{0,119}$'}
+    TenantSlugOptional:
+      in: header
+      name: X-Tenant-Slug
+      required: false
+      schema: {type: string}
+    IdempotencyKey:
+      in: header
+      name: Idempotency-Key
+      required: true
+      description: UUID je fachlicher Aktion; Wiederholung liefert die gespeicherte Antwort, anderer Inhalt → 409 IDEMPOTENCY_KEY_REUSED.
+      schema: {type: string, format: uuid}
+    Page: {in: query, name: page, schema: {type: integer, minimum: 1, default: 1}}
+    PerPage: {in: query, name: per_page, schema: {type: integer, minimum: 1, maximum: 100, default: 20}}
+    CourseId: {in: path, name: courseId, required: true, schema: {type: string, format: uuid}}
+    CollectionId: {in: path, name: collectionId, required: true, schema: {type: string, format: uuid}}
+    QuestionId: {in: path, name: questionId, required: true, schema: {type: string, format: uuid}}
+    AttemptId: {in: path, name: attemptId, required: true, schema: {type: string, format: uuid}}
+    ExamId: {in: path, name: examId, required: true, schema: {type: string, format: uuid}}
+    LessonId: {in: path, name: lessonId, required: true, schema: {type: string, format: uuid}}
+    TaskId: {in: path, name: taskId, required: true, schema: {type: string, format: uuid}}
+    SessionId: {in: path, name: sessionId, required: true, schema: {type: string, format: uuid}}
+  responses:
+    Problem:
+      description: Fehler
+      content:
+        application/problem+json:
+          schema: {$ref: '#/components/schemas/Problem'}
+    Accepted:
+      description: Angenommen
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data: {type: object, properties: {status: {type: string, const: accepted}}}
+  schemas:
+    Problem:
+      type: object
+      required: [title, status, code, request_id]
+      properties:
+        type: {type: string}
+        title: {type: string}
+        status: {type: integer}
+        detail: {type: string}
+        code:
+          type: string
+          description: Stabiler Fehlercode, siehe docs/api/README.md
+          enum: [UNAUTHENTICATED, TWO_FACTOR_INVALID, VALIDATION_FAILED, RATE_LIMITED, FORBIDDEN, RESOURCE_NOT_FOUND, CONFLICT, GONE,
+            METHOD_NOT_ALLOWED, SERVER_ERROR, SERVICE_UNAVAILABLE, REQUEST_FAILED,
+            EMAIL_NOT_VERIFIED, TENANT_MEMBERSHIP_REQUIRED, TENANT_MEMBERSHIP_SUSPENDED, TENANT_UNAVAILABLE,
+            ENTITLEMENT_REQUIRED, ENTITLEMENT_EXPIRED, PASSWORD_RESET_INVALID_OR_EXPIRED, IDEMPOTENCY_KEY_REUSED,
+            COLLECTION_NOT_DELETABLE, EXAM_NOT_AVAILABLE, EXAM_ANSWER_LOCKED, EXAM_ALREADY_SUBMITTED, EXAM_EXPIRED,
+            EXAM_NOT_SUBMITTED, EXAM_NO_NAVIGATION_PART, EXAM_NAVIGATION_ALREADY_SUBMITTED, EXAM_NAVIGATION_NOT_SUBMITTED,
+            NAVIGATION_TASK_IN_EXAM, COUPON_INVALID, COUPON_NOT_APPLICABLE, EXPORT_EXPIRED,
+            MAINTENANCE, APP_UPDATE_REQUIRED, EXAM_QUESTIONS_OPEN, EXAM_QUESTION_LOCKED, LINK_INVALID]
+        errors: {type: object, additionalProperties: {type: array, items: {type: string}}}
+        request_id: {type: string}
+        exam_id: {type: string, description: Bei NAVIGATION_TASK_IN_EXAM}
+        minimum_version: {type: string, description: Bei APP_UPDATE_REQUIRED}
+        store_url: {type: [string, 'null'], description: Bei APP_UPDATE_REQUIRED}
+    LoginRequest:
+      type: object
+      required: [email, password, device_name]
+      properties:
+        email: {type: string, format: email}
+        password: {type: string}
+        device_name: {type: string, maxLength: 100}
+        device_platform: {type: string, enum: [ios, android]}
+        app_version: {type: string, maxLength: 40}
+    TokenPair:
+      type: object
+      required: [access_token, token_type, access_expires_at, refresh_token, refresh_expires_at, session_id]
+      properties:
+        access_token: {type: string}
+        token_type: {type: string, const: Bearer}
+        access_expires_at: {type: string, format: date-time}
+        refresh_token: {type: string}
+        refresh_expires_at: {type: string, format: date-time}
+        session_id: {type: string}
+    LoginResult:
+      allOf:
+        - {$ref: '#/components/schemas/TokenPair'}
+        - type: object
+          properties:
+            user: {$ref: '#/components/schemas/User'}
+            memberships: {type: array, items: {$ref: '#/components/schemas/Membership'}}
+    TwoFactorChallenge:
+      type: object
+      required: [two_factor_required, challenge_token, challenge_expires_at]
+      properties:
+        two_factor_required: {type: boolean, const: true}
+        challenge_token: {type: string}
+        challenge_expires_at: {type: string, format: date-time}
+    User:
+      type: object
+      properties:
+        id: {type: string}
+        name: {type: string}
+        first_name: {type: [string, 'null']}
+        last_name: {type: [string, 'null']}
+        email: {type: string, format: email}
+        email_verified: {type: boolean}
+        two_factor_enabled: {type: boolean}
+    Membership:
+      type: object
+      properties:
+        tenant_slug: {type: string}
+        tenant_name: {type: string}
+        status: {type: string, enum: [active, suspended]}
+        role: {type: string, const: learner}
+        branding:
+          type: object
+          properties:
+            logo_url: {type: [string, 'null'], format: uri}
+            primary_color: {type: [string, 'null']}
+            secondary_color: {type: [string, 'null']}
+            support_email: {type: [string, 'null'], format: email}
+        legal:
+          type: object
+          properties:
+            imprint_url: {type: string, format: uri}
+            privacy_url: {type: string, format: uri}
+            account_url: {type: string, format: uri, description: 'Profil im Web (u. a. Konto löschen)'}
+            data_rights_url: {type: string, format: uri, description: Datenrechte im Web}
+    DeviceSession:
+      type: object
+      properties:
+        id: {type: string}
+        device_name: {type: string}
+        device_platform: {type: [string, 'null']}
+        app_version: {type: [string, 'null']}
+        created_at: {type: string, format: date-time}
+        last_used_at: {type: [string, 'null'], format: date-time}
+        current: {type: boolean}
+    Pagination:
+      type: object
+      properties:
+        page: {type: integer}
+        per_page: {type: integer}
+        total: {type: integer}
+        last_page: {type: integer}
+    Entitlement:
+      type: object
+      properties:
+        status: {type: string, enum: [active, expired, suspended, revoked, not_granted]}
+        valid_from: {type: [string, 'null'], format: date-time}
+        valid_until: {type: [string, 'null'], format: date-time}
+    ProgressSummary:
+      type: object
+      description: completed = gefestigte Fragen (3× richtig in Folge, Regeln wie im Web)
+      properties:
+        percent: {type: integer, minimum: 0, maximum: 100}
+        completed: {type: integer}
+        total: {type: integer}
+    CourseSummary:
+      type: object
+      properties:
+        id: {type: string}
+        code: {type: string}
+        name: {type: string}
+        description: {type: [string, 'null']}
+        access: {$ref: '#/components/schemas/Entitlement'}
+        progress: {$ref: '#/components/schemas/ProgressSummary'}
+        capabilities: {type: array, items: {type: string, enum: [smarttrainer, favorites, exam, video, navigation, praxis]}}
+        webshop_url: {type: [string, 'null'], format: uri}
+        last_activity_at: {type: [string, 'null'], format: date-time, description: Letzte Antwort in diesem Kurs}
+    Module:
+      type: object
+      properties:
+        id: {type: string}
+        name: {type: string}
+        description: {type: [string, 'null']}
+        order: {type: integer}
+        question_count: {type: integer}
+        progress: {$ref: '#/components/schemas/ProgressSummary'}
+        topics:
+          type: array
+          items:
+            type: object
+            properties:
+              name: {type: string}
+              question_count: {type: integer}
+              progress: {$ref: '#/components/schemas/ProgressSummary'}
+    Media:
+      type: object
+      required: [kind, available, label]
+      properties:
+        kind: {type: string, enum: [image, video, placeholder]}
+        available: {type: boolean}
+        label: {type: string}
+        url: {type: [string, 'null'], format: uri, description: 'Bei Platzhaltern immer null'}
+        mime_type: {type: [string, 'null']}
+        duration_seconds: {type: [integer, 'null']}
+        placeholder_reason: {type: [string, 'null'], enum: [awaiting_asset, unavailable, null]}
+    Question:
+      type: object
+      properties:
+        id: {type: string}
+        revision_id: {type: string}
+        official_number: {type: [string, 'null']}
+        text: {type: string}
+        question_type: {type: string, enum: [single_choice, multi_choice, open_text]}
+        answer_selection: {type: string, enum: [single, multiple, self_assessment]}
+        prompt_media: {type: array, items: {$ref: '#/components/schemas/Media'}}
+        answers:
+          type: array
+          description: 'Ohne Kennzeichnung der richtigen Antwort; leer bei offenen Fragen. Einfachauswahl je Person gemischt (wie im Web), Mehrfachauswahl in gepflegter Reihenfolge.'
+          items:
+            type: object
+            properties:
+              id: {type: string}
+              key: {type: string, description: 'Buchstabe der Anzeigeposition (A, B, C …)'}
+              text: {type: string}
+        topic: {type: [string, 'null']}
+        module_id: {type: [string, 'null']}
+        model_answer: {type: [string, 'null'], description: 'Nur bei offenen Fragen (Trainer; in der Prüfung erst nach reveal)'}
+    Solution:
+      type: object
+      properties:
+        correct_answer_ids: {type: array, items: {type: string}}
+        model_answer: {type: [string, 'null']}
+        explanation: {type: [string, 'null']}
+    Streak:
+      type: object
+      properties:
+        current: {type: integer, minimum: 0, maximum: 3}
+        required: {type: integer, const: 3}
+    TrainerQuestion:
+      type: object
+      properties:
+        question: {$ref: '#/components/schemas/Question'}
+        mode: {type: string}
+        selection_reason: {type: [string, 'null']}
+        is_favorite: {type: boolean}
+        learning_state: {type: string, enum: [neu, unsicher, in_bearbeitung, gefestigt]}
+        streak: {$ref: '#/components/schemas/Streak'}
+    TrainerAnswerRequest:
+      type: object
+      required: [question_id, revision_id]
+      properties:
+        question_id: {type: string, format: uuid}
+        revision_id: {type: string, format: uuid}
+        mode: {type: string, enum: [smarttrainer, new, wrong, topic, favorites]}
+        selected_answer_ids: {type: array, maxItems: 20, items: {type: string, format: uuid}, description: 'Einfachauswahl genau 1'}
+        known: {type: boolean, description: 'Pflicht bei offenen Fragen (Selbsteinschätzung)'}
+        client_answered_at: {type: string, format: date-time}
+    TrainerAnswerResult:
+      allOf:
+        - {$ref: '#/components/schemas/Solution'}
+        - type: object
+          properties:
+            attempt_id: {type: string}
+            question_id: {type: string}
+            correct: {type: boolean}
+            selected_answer_ids: {type: array, items: {type: string}, description: Bei offenen Fragen leer}
+            learning_state: {type: string, enum: [neu, unsicher, in_bearbeitung, gefestigt]}
+            streak: {$ref: '#/components/schemas/Streak'}
+            completed: {type: boolean, description: 'true = gefestigt'}
+            progress:
+              type: object
+              properties:
+                mastery_score: {type: number}
+                current_streak: {type: integer}
+            answered_at: {type: string, format: date-time}
+    Favorite:
+      type: object
+      properties:
+        question_id: {type: string}
+        context: {type: string, enum: [smart_learning, exam]}
+        collection_ids: {type: array, items: {type: string}}
+        created_at: {type: string, format: date-time}
+        question:
+          type: [object, 'null']
+          description: Kurzfassung für die Favoriten-Liste (ohne Lösung); null nur in der Antwort von PUT
+          properties:
+            official_number: {type: [string, 'null']}
+            text: {type: string}
+            question_type: {type: string}
+            topic: {type: [string, 'null']}
+            learning_state: {type: string, enum: [neu, unsicher, in_bearbeitung, gefestigt]}
+            last_seen_at: {type: [string, 'null'], format: date-time}
+    FavoriteCollection:
+      type: object
+      properties:
+        id: {type: string}
+        name: {type: string}
+        is_default: {type: boolean}
+        favorite_count: {type: integer}
+        created_at: {type: string, format: date-time}
+        updated_at: {type: [string, 'null'], format: date-time}
+    FavoriteCollectionRequest:
+      type: object
+      required: [name]
+      properties: {name: {type: string, maxLength: 60}}
+    ExamOption:
+      type: object
+      properties:
+        id: {type: string, description: 'Bogen-ID (fixed_paper) bzw. Regelwerk-ID (rule_set)'}
+        kind: {type: string, enum: [fixed_paper, rule_set]}
+        name: {type: string}
+        group: {type: [string, 'null'], description: 'Teilprüfung im Kombikurs, z. B. „UBI“'}
+        number: {type: [integer, 'null']}
+        question_count: {type: integer}
+        duration_seconds: {type: [integer, 'null']}
+        pass_rule:
+          type: [object, 'null']
+          properties:
+            description: {type: string}
+            minimum_correct: {type: [integer, 'null']}
+            minimum_score: {type: number}
+            parts: {type: array, items: {type: object, properties: {label: {type: string}, min_correct: {type: integer}, of: {type: integer}}}}
+            navigation: {type: [object, 'null'], properties: {min_points: {type: integer}, of: {type: integer}}}
+            note: {type: [string, 'null']}
+        startable: {type: boolean}
+        running_exam_id: {type: [string, 'null']}
+        last_result:
+          type: [object, 'null']
+          properties:
+            exam_id: {type: string}
+            passed: {type: boolean}
+            score: {type: number}
+            correct_count: {type: integer}
+            question_count: {type: integer}
+            navigation_points: {type: [integer, 'null']}
+            evaluated_at: {type: string, format: date-time}
+    ExamQuestion:
+      allOf:
+        - {$ref: '#/components/schemas/Question'}
+        - type: object
+          properties:
+            position: {type: integer}
+            answered: {type: boolean}
+            revealed: {type: boolean}
+    ExamAnswer:
+      type: object
+      properties:
+        question_id: {type: string}
+        selected_answer_ids: {type: array, items: {type: string}}
+        known: {type: [boolean, 'null']}
+        answered_at: {type: string, format: date-time}
+    ExamNavigation:
+      type: [object, 'null']
+      properties:
+        task_id: {type: [string, 'null']}
+        title: {type: string}
+        scenario: {type: [string, 'null']}
+        hint: {type: [string, 'null'], description: 'Erst bei der Selbsteinschätzung'}
+        chart: {oneOf: [{$ref: '#/components/schemas/Media'}, {type: 'null'}]}
+        rule: {type: [object, 'null'], properties: {min_points: {type: integer}, of: {type: integer}}}
+        submitted_at: {type: [string, 'null'], format: date-time}
+        points: {type: [integer, 'null']}
+        passed: {type: [boolean, 'null']}
+        parts:
+          type: array
+          items:
+            type: object
+            properties:
+              id: {type: string}
+              number: {type: integer}
+              prompt: {type: string}
+              chart_drawing: {type: boolean, description: 'In die Karte einzutragen (nichts zu tippen)'}
+              answer: {type: [string, 'null']}
+              auto_checkable: {type: boolean}
+              auto_result: {type: [boolean, 'null']}
+              solution: {type: [string, 'null'], description: 'Erst nach der Abgabe der Navigation'}
+              needs_assessment: {type: boolean}
+              self_assessed_known: {type: [boolean, 'null']}
+              correct: {type: [boolean, 'null']}
+    ExamSession:
+      type: object
+      properties:
+        exam_id: {type: string}
+        course_id: {type: string}
+        paper_id: {type: [string, 'null']}
+        name: {type: string}
+        pass_rule: {type: string}
+        status: {type: string, enum: [running, evaluated]}
+        phase: {type: string, enum: [questions, ready_to_submit, navigation, navigation_assessment, evaluated], description: 'navigation auch nach Zeitablauf mit offenen Fragen (Nachfrist)'}
+        started_at: {type: string, format: date-time}
+        expires_at: {type: [string, 'null'], format: date-time}
+        server_time: {type: string, format: date-time}
+        remaining_seconds: {type: [integer, 'null']}
+        navigation_submit_until: {type: [string, 'null'], format: date-time, description: 'Letzter Zeitpunkt für die Abgabe der Navigation (Ende + 1 Min.)'}
+        navigation_assessment_until: {type: [string, 'null'], format: date-time, description: 'Letzter Zeitpunkt für die Selbsteinschätzung (Ende + 15 Min.)'}
+        question_count: {type: integer}
+        answered_count: {type: integer}
+        questions: {type: array, items: {$ref: '#/components/schemas/ExamQuestion'}}
+        answers: {type: array, items: {$ref: '#/components/schemas/ExamAnswer'}}
+        navigation: {$ref: '#/components/schemas/ExamNavigation'}
+    ExamSessionResponse:
+      type: object
+      properties: {data: {$ref: '#/components/schemas/ExamSession'}}
+    ExamAnswerRequest:
+      type: object
+      properties:
+        selected_answer_ids: {type: array, uniqueItems: true, maxItems: 20, items: {type: string, format: uuid}}
+        known: {type: boolean, description: 'Offene Fragen nach reveal'}
+    ExamAnswerSaved:
+      type: object
+      properties:
+        saved: {type: boolean, const: true}
+        question_id: {type: string}
+        selected_answer_ids: {type: array, items: {type: string}}
+        known: {type: [boolean, 'null']}
+        saved_at: {type: string, format: date-time}
+        answered_count: {type: integer}
+        question_count: {type: integer}
+    ExamResult:
+      type: object
+      properties:
+        exam_id: {type: string}
+        course_id: {type: string}
+        paper_id: {type: [string, 'null']}
+        name: {type: string}
+        status: {type: string, const: evaluated}
+        passed: {type: boolean, description: 'Gesamtquote UND alle Teilgrenzen UND Navigation'}
+        score: {type: number}
+        correct_count: {type: integer}
+        question_count: {type: integer}
+        unanswered_count: {type: integer}
+        started_at: {type: string, format: date-time}
+        evaluated_at: {type: string, format: date-time}
+        rule_set_version: {type: [string, 'null']}
+        pass_rule: {type: string}
+        parts:
+          type: array
+          items:
+            type: object
+            properties:
+              label: {type: string}
+              correct: {type: integer}
+              total: {type: integer}
+              min_correct: {type: integer}
+              of: {type: integer}
+              passed: {type: boolean}
+        self_assessed: {type: object, properties: {question_count: {type: integer}, correct_count: {type: integer}}}
+        by_topic:
+          type: array
+          items: {type: object, properties: {topic: {type: string}, correct_count: {type: integer}, question_count: {type: integer}}}
+        questions:
+          type: array
+          items:
+            allOf:
+              - {$ref: '#/components/schemas/Question'}
+              - type: object
+                properties:
+                  position: {type: integer}
+                  selected_answer_ids: {type: array, items: {type: string}}
+                  known: {type: [boolean, 'null']}
+                  answered: {type: boolean}
+                  correct: {type: boolean}
+                  solution: {$ref: '#/components/schemas/Solution'}
+        navigation: {$ref: '#/components/schemas/ExamNavigation'}
+    ExamResultResponse:
+      type: object
+      properties: {data: {$ref: '#/components/schemas/ExamResult'}}
+    VideoLessonStep:
+      type: object
+      properties:
+        id: {type: string}
+        order: {type: integer}
+        title: {type: string}
+        description: {type: [string, 'null']}
+        media: {type: array, items: {$ref: '#/components/schemas/Media'}}
+    VideoLesson:
+      type: object
+      properties:
+        id: {type: string}
+        module_id: {type: string}
+        title: {type: string}
+        description: {type: [string, 'null']}
+        duration_seconds: {type: integer}
+        media: {$ref: '#/components/schemas/Media'}
+        completed: {type: boolean}
+        position_seconds: {type: integer}
+        step_count: {type: [integer, 'null']}
+        steps: {type: array, items: {$ref: '#/components/schemas/VideoLessonStep'}, description: 'Nur in GET /videos/{lessonId}'}
+    VideoModule:
+      type: object
+      properties:
+        id: {type: string}
+        title: {type: string}
+        order: {type: integer}
+        standalone: {type: boolean, description: 'Eigenständiges Kapitel (z. B. Knoten), im Web als eigene Kachel'}
+        lessons: {type: array, items: {$ref: '#/components/schemas/VideoLesson'}}
+    NavigationTaskSummary:
+      type: object
+      properties:
+        id: {type: string}
+        number: {type: integer}
+        title: {type: string}
+        description: {type: [string, 'null']}
+        part_count: {type: integer}
+        status: {type: string, enum: [new, started, done]}
+        correct_count: {type: integer}
+        has_chart: {type: boolean}
+        locked_by_exam: {type: boolean}
+    NavigationTask:
+      allOf:
+        - {$ref: '#/components/schemas/NavigationTaskSummary'}
+        - type: object
+          properties:
+            scenario: {type: string}
+            hint: {type: [string, 'null']}
+            chart: {oneOf: [{$ref: '#/components/schemas/Media'}, {type: 'null'}]}
+            parts:
+              type: array
+              items:
+                type: object
+                properties:
+                  id: {type: string}
+                  number: {type: integer}
+                  prompt: {type: string}
+                  auto_checkable: {type: boolean}
+                  chart_drawing: {type: boolean}
+                  placeholder: {type: [string, 'null'], description: 'Eingabehilfe (z. B. Format „054°“)'}
+                  own_answer: {type: [string, 'null']}
+                  correct: {type: [boolean, 'null']}
+                  solution: {type: [string, 'null'], description: 'Nur mit show_solution=true'}
+    CouponRedemption:
+      type: object
+      properties:
+        redeemed: {type: boolean, const: true}
+        already_redeemed: {type: boolean}
+        type: {type: string, enum: [course, course_renewal, product]}
+        course_id: {type: [string, 'null']}
+        course_name: {type: [string, 'null']}
+        entitlement: {oneOf: [{$ref: '#/components/schemas/Entitlement'}, {type: 'null'}]}
+        product: {type: [object, 'null'], properties: {id: {type: string}, name: {type: string}}}
+    ExportStatus:
+      type: object
+      properties:
+        export_id: {type: string}
+        status: {type: string, enum: [processing, ready, failed, expired]}
+        download_url: {type: [string, 'null'], format: uri}
+        download_url_expires_at: {type: [string, 'null'], format: date-time}
+        expires_at: {type: [string, 'null'], format: date-time}
+        created_at: {type: string, format: date-time}
+    CourseFaq:
+      type: object
+      required: [id, question, answer_html, answer_text, links]
+      properties:
+        id: {type: string, format: uuid}
+        question: {type: string}
+        answer_html: {type: string}
+        answer_text: {type: string}
+        links:
+          type: array
+          items:
+            type: object
+            required: [url, text]
+            properties:
+              url: {type: string, format: uri}
+              text: {type: string}
+    CourseFaqGroup:
+      type: object
+      required: [id, key, name, slug, faqs, subcategories]
+      properties:
+        id: {type: string, format: uuid}
+        key: {type: string, description: 'WP/Laravel course code for this FAQ category'}
+        name: {type: string}
+        slug: {type: string}
+        faqs:
+          type: array
+          items: {$ref: '#/components/schemas/CourseFaq'}
+        subcategories:
+          type: array
+          items: {$ref: '#/components/schemas/CourseFaqSubcategory'}
+    CourseFaqSubcategory:
+      type: object
+      required: [id, name, slug, parent_id, depth, faqs]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+        slug: {type: string}
+        parent_id: {type: string, format: uuid}
+        depth: {type: integer}
+        faqs:
+          type: array
+          items: {$ref: '#/components/schemas/CourseFaq'}
+
+}
+          description: ETag-Version aus GET /me/settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [settings]
+              properties:
+                settings: {type: object, additionalProperties: true}
+                expected_version: {type: integer, minimum: 0}
+      responses:
+        '200':
+          description: Gespeicherte Einstellungen und neue Version
+          headers:
+            ETag:
+              schema: {type: string, example: '"4"'}
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [settings, version, updated_at]
+                    properties:
+                      settings: {type: object, additionalProperties: true}
+                      version: {type: integer, minimum: 0}
+                      updated_at: {type: [string, 'null'], format: date-time}
+        '401': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
   /me/sessions:
     get:
       tags: [Account]
