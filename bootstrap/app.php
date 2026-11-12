@@ -14,6 +14,7 @@ use App\Http\Middleware\EnsureAnyTenantMembership;
 use App\Http\Middleware\EnsureSuperAdmin;
 use App\Http\Middleware\EnsureTenantMembership;
 use App\Http\Middleware\EnsureTenantRole;
+use App\Http\Middleware\ConsumeMobileWebSession;
 use App\Http\Middleware\ResolveTenant;
 use App\Http\Middleware\ResolveTenantPath;
 use App\Http\Middleware\RestrictImpersonation;
@@ -136,6 +137,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->replace(Illuminate\Http\Middleware\TrustHosts::class, TrustHosts::class);
 
         $middleware->web(append: [
+            ConsumeMobileWebSession::class,
             SecurityHeaders::class,
             EnforceMaintenanceMode::class,
             EnsureAccountIsActive::class,
@@ -172,6 +174,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->appendToPriorityList(
             after: StartSession::class,
             append: ResolveTenant::class,
+        );
+        $middleware->prependToPriorityList(
+            before: ResolveTenant::class,
+            prepend: ConsumeMobileWebSession::class,
         );
 
         // EnsureSuperAdmin (der "superadmin"-Alias) muss nach Authenticate
