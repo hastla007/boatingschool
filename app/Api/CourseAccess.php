@@ -8,6 +8,7 @@ use App\Models\Entitlement;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\EntitlementService;
+use App\Support\FunkTraining;
 use App\Support\VideoCourseLessons;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -110,6 +111,7 @@ class CourseAccess
                 VideoCourseLessons::ordered($course)->isNotEmpty() ? 'video' : null,
                 $course->navigationTasks()->exists() ? 'navigation' : null,
                 $course->praxisTasks()->exists() ? 'praxis' : null,
+                FunkTraining::catalogsFor($course) !== [] ? 'funk' : null,
             ]));
         });
     }
