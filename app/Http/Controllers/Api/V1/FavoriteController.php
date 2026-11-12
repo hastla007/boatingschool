@@ -41,7 +41,7 @@ class FavoriteController extends Controller
         ]);
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
-        $course = $this->access->require($tenant, $user, $courseId);
+        $course = $this->access->require($tenant, $user, $courseId, 'favorites');
 
         $favorites = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)
             ->whereIn('question_id', $course->contentQuestionIds())
@@ -85,7 +85,7 @@ class FavoriteController extends Controller
     {
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
-        $course = $this->access->require($tenant, $user, $courseId);
+        $course = $this->access->require($tenant, $user, $courseId, 'favorites');
         $courseQuestionIds = $course->contentQuestionIds();
         if ($courseQuestionIds->isEmpty()) {
             return response()->json(['data' => []]);
@@ -164,7 +164,7 @@ class FavoriteController extends Controller
         ]);
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
-        $course = $this->access->require($tenant, $user, $courseId);
+        $course = $this->access->require($tenant, $user, $courseId, 'favorites');
         if (! $course->contentQuestionIds()->contains($questionId)) {
             throw ApiProblem::notFound('Frage');
         }
@@ -203,7 +203,7 @@ class FavoriteController extends Controller
         $validated = $request->validate(['context' => ['nullable', 'in:'.Favorite::CONTEXT_SMART_LEARNING.','.Favorite::CONTEXT_EXAM]]);
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
-        $this->access->require($tenant, $user, $courseId);
+        $this->access->require($tenant, $user, $courseId, 'favorites');
         $context = $validated['context'] ?? Favorite::CONTEXT_SMART_LEARNING;
 
         Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('question_id', $questionId)->where('context', $context)->delete();
@@ -216,7 +216,7 @@ class FavoriteController extends Controller
     {
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
-        $course = $this->access->require($tenant, $user, $courseId);
+        $course = $this->access->require($tenant, $user, $courseId, 'favorites');
         $this->collections->assignUnsortedToDefault($tenant, $user, $course, Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)
             ->whereIn('question_id', $course->contentQuestionIds())->get());
 
@@ -231,7 +231,7 @@ class FavoriteController extends Controller
         $validated = $request->validate(['name' => ['bail', 'required', 'string', 'max:60']]);
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
-        $course = $this->access->require($tenant, $user, $courseId);
+        $course = $this->access->require($tenant, $user, $courseId, 'favorites');
 
         try {
             $collection = $this->collections->create($tenant, $user, $course, $validated['name']);
@@ -275,7 +275,7 @@ class FavoriteController extends Controller
     private function ownCollection(Request $request, string $courseId, string $collectionId): FavoriteCollection
     {
         $tenant = $this->tenantContext->tenant();
-        $course = $this->access->require($tenant, $request->user(), $courseId);
+        $course = $this->access->require($tenant, $request->user(), $courseId, 'favorites');
         $collection = FavoriteCollection::where('id', $collectionId)->where('tenant_id', $tenant->id)
             ->where('user_id', $request->user()->id)->where('course_id', $course->id)->first();
         if (! $collection) {
