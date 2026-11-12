@@ -26,7 +26,7 @@ return new class extends Migration
 
         $role = AppRoleGrants::quotedRole();
         if (AppRoleGrants::roleExistsOrWarn()) {
-            DB::statement("GRANT SELECT, INSERT, UPDATE ON api_mobile_web_session TO {$role}");
+            DB::statement("GRANT SELECT, INSERT, UPDATE, DELETE ON api_mobile_web_session TO {$role}");
         }
     }
 
