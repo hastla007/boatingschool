@@ -30,16 +30,22 @@ class VideoController extends Controller
     public function index(Request $request, string $courseId): JsonResponse
     {
         $course = $this->access->require($this->tenantContext->tenant(), $request->user(), $courseId, 'video');
-        $modules = $course->videoModules()->with('lessons.steps')->get();
-        $progress = $this->progressFor($request, $modules->flatMap->lessons);
+        $modules = $course->videoModules()->with('lessons.steps')->orderBy('sort_order')->get();
+        $orderedLessons = $modules->flatMap(fn (VideoModule $module) => $module->lessons)->values();
+        $allowedLessons = $this->access->limitItems($this->tenantContext->tenant(), $request->user(), $course, 'video', $orderedLessons);
+        $allowedIds = $allowedLessons->pluck('id')->flip();
+        $progress = $this->progressFor($request, $allowedLessons);
 
-        return response()->json(['data' => $modules->values()->map(fn (VideoModule $m, int $i) => [
-            'id' => $m->id,
-            'title' => $m->title,
-            'order' => $i + 1,
-            'standalone' => in_array($m->title, self::STANDALONE_CHAPTERS, true),
-            'lessons' => $m->lessons->map(fn (VideoLesson $l) => $this->lesson($l, $progress->get($l->id), false))->values(),
-        ])]);
+        return response()->json(['data' => $modules->values()->map(function (VideoModule $m, int $i) use ($progress, $allowedIds) {
+            $lessons = $m->lessons->filter(fn (VideoLesson $lesson) => $allowedIds->has($lesson->id))->values();
+            return [
+                'id' => $m->id,
+                'title' => $m->title,
+                'order' => $i + 1,
+                'standalone' => in_array($m->title, self::STANDALONE_CHAPTERS, true),
+                'lessons' => $lessons->map(fn (VideoLesson $l) => $this->lesson($l, $progress->get($l->id), false))->values(),
+            ];
+        })->filter(fn (array $module) => $module['lessons']->isNotEmpty())->values()]);
     }
 
     public function show(Request $request, string $lessonId): JsonResponse
@@ -83,7 +89,14 @@ class VideoController extends Controller
         if (! $lesson || ! $lesson->module) {
             throw ApiProblem::notFound('Lektion');
         }
-        $this->access->require($this->tenantContext->tenant(), $request->user(), $lesson->module->course_id, 'video');
+        $tenant = $this->tenantContext->tenant();
+        $user = $request->user();
+        $course = $this->access->require($tenant, $user, $lesson->module->course_id, 'video');
+        $orderedLessons = $course->videoModules()->with('lessons')->orderBy('sort_order')->get()
+            ->flatMap(fn (VideoModule $module) => $module->lessons)->values();
+        if (! $this->access->allowsLimitedItem($tenant, $user, $course, 'video', $orderedLessons, (string) $lesson->id)) {
+            throw ApiProblem::notFound('Lektion');
+        }
 
         return $lesson;
     }
