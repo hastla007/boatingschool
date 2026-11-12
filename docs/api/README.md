@@ -243,6 +243,13 @@ Kursinhalte ohne gültigen Zugang ergeben 403 `ENTITLEMENT_REQUIRED` oder
 `ENTITLEMENT_EXPIRED`. Die App zeigt dann `webshop_url` bzw.
 `meta.renewal_webshop_url` und die Code-Eingabe.
 
+Die WP-App verwendet `default_access=logged_in`. Das native Original ist aus
+Sicherheitsgründen standardmäßig auf `entitlement` eingestellt. Für denselben
+Zugangs-Default muss die Betriebsumgebung vor dem Rollout ausdrücklich
+`MOBILE_API_DEFAULT_ACCESS=logged_in` setzen. Das gewährt eingeloggten Nutzern
+die Vollzugriffe der Kursfeatures; die Zugangsentscheidung muss daher zum
+Geschäftsmodell passen.
+
 ## 6. Smarttrainer und Lernmodi
 
 `GET /courses/{id}/trainer/next?mode=…` holt die nächste Frage.
