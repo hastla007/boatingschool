@@ -179,12 +179,14 @@ class CourseController extends Controller
         $lastActivity ??= $this->lastActivityByCourse($tenant->id, request()->user()->id, $course->id);
         $capabilities = $this->access->capabilities($course);
         $access = $this->access->status($tenant, request()->user(), $course, $activeEntitlement, $entitlements);
-        $fullAccess = $access['status'] === 'active';
-        $features = collect($capabilities)->mapWithKeys(fn (string $capability) => [
-            $capability => ['available' => $fullAccess, 'full' => $fullAccess, 'limit' => null],
-        ])->all();
+        $features = collect($capabilities)->mapWithKeys(function (string $capability) use ($tenant, $course): array {
+            $available = $this->entitlements->hasCapabilityAccess($tenant, request()->user(), $course, $capability);
+
+            return [$capability => ['available' => $available, 'full' => $available, 'limit' => null]];
+        })->all();
         if (in_array('smarttrainer', $capabilities, true)) {
-            $features['explanations'] = ['available' => $fullAccess, 'full' => $fullAccess, 'limit' => null];
+            $available = $this->entitlements->hasCapabilityAccess($tenant, request()->user(), $course, 'smarttrainer');
+            $features['explanations'] = ['available' => $available, 'full' => $available, 'limit' => null];
         }
 
         return [
