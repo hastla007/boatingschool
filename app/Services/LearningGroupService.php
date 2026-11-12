@@ -138,6 +138,11 @@ class LearningGroupService
             } catch (RuntimeException $e) {
                 throw new RuntimeException('GROUP_SCOPE_UNSUPPORTED', previous: $e);
             }
+            foreach ($courseGrants as $grant) {
+                if (! $this->entitlements->isOfferable($tenant, $grant['course'])) {
+                    throw new RuntimeException('GROUP_INVALID');
+                }
+            }
 
             $member = $invite;
             if ($member) {
