@@ -1,17 +1,17 @@
 <?php
 
-namespace App\\Http\\Controllers\\Api\\V1;
+namespace App\Http\Controllers\Api\V1;
 
-use App\\Api\\ApiProblem;
-use App\\Http\\Controllers\\Controller;
-use App\\Models\\ApiAccountDeletionRequest;
-use App\\Notifications\\AccountDeletionConfirmation;
-use App\\Support\\BestEffortMail;
-use Illuminate\\Http\\JsonResponse;
-use Illuminate\\Http\\Request;
-use Illuminate\\Support\\Facades\\DB;
-use Illuminate\\Support\\Facades\\RateLimiter;
-use Illuminate\\Support\\Str;
+use App\Api\ApiProblem;
+use App\Http\Controllers\Controller;
+use App\Models\ApiAccountDeletionRequest;
+use App\Notifications\AccountDeletionConfirmation;
+use App\Support\BestEffortMail;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 
 class AccountDeletionController extends Controller
 {
