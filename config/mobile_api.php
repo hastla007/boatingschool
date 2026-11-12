@@ -5,6 +5,8 @@
 | App-Konzept; vor dem Go-live anpassbar.
 */
 return [
+    // Access default: entitlement (Standard) oder logged_in wie die WP-App-Einstellung.
+    'default_access' => env('MOBILE_API_DEFAULT_ACCESS', 'entitlement'),
     // Access-Token: kurzlebig.
     'access_ttl_minutes' => (int) env('MOBILE_API_ACCESS_TTL_MINUTES', 15),
     // Refresh-Token: rotiert bei jeder Erneuerung; verfällt nach dieser
