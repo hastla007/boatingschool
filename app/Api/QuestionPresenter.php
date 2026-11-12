@@ -37,7 +37,7 @@ class QuestionPresenter
                 default => 'single',
             },
             'prompt_media' => $revision->media->sortBy(fn ($m) => $m->pivot->sort_order ?? 0)
-                ->map(fn (MediaAsset $m) => Present::image($m->storage_path, $m->alt_text, $m->mime_type))->values(),
+                ->map(fn (MediaAsset $m) => Present::image($m->storage_path, $m->alt_text, $m->mime_type) + ['file_id' => $m->id, 'download_url' => route('api.v1.files.download', ['fileId' => $m->id])])->values(),
             // key = Buchstabe der Anzeigeposition (nicht der Quell-Schlüssel, der die Lösung verriete).
             'answers' => $type === 'open_text' ? [] : $answers->values()->map(fn (ContentAnswer $a, int $i) => [
                 'id' => $a->id,
