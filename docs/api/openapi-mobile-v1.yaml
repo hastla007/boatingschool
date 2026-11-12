@@ -2008,10 +2008,17 @@ components:
         last_page: {type: integer}
     Entitlement:
       type: object
+      required: [status, valid_from, valid_until]
       properties:
-        status: {type: string, enum: [active, expired, suspended, revoked, not_granted]}
+        status: {type: string, enum: [active, limited, pending, expired, suspended, revoked, not_granted]}
         valid_from: {type: [string, 'null'], format: date-time}
         valid_until: {type: [string, 'null'], format: date-time}
+        trial: {type: boolean}
+        purchased: {type: boolean}
+        limits: {type: object, additionalProperties: {type: integer}}
+        expires_soon: {type: boolean}
+        expires_at: {type: [string, 'null'], format: date-time}
+        renew_url: {type: [string, 'null'], format: uri}
     ProgressSummary:
       type: object
       description: completed = gefestigte Fragen (3× richtig in Folge, Regeln wie im Web)
