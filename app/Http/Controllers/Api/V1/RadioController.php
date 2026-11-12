@@ -48,7 +48,7 @@ class RadioController extends Controller
             }
 
             foreach (FunkTraining::vocabulary($catalog) as $category => $cards) {
-                $cards = $this->firstRadioItems($request, $course, $cards)->all();
+                // Vocabulary is not limited by the WP first-items rule.
                 $keys = array_column($cards, 'key');
                 $progress = $this->progress($request, RadioTrainingProgress::TYPE_VOCAB, $keys);
                 $vocabulary[] = [
@@ -59,16 +59,18 @@ class RadioController extends Controller
                 ];
             }
 
-            $tasks = $this->firstRadioItems($request, $course, FunkPraxis::tasks($catalog))->all();
+            $allTasks = FunkPraxis::tasks($catalog);
+            $allowedTaskIds = $this->firstRadioItems($request, $course, $allTasks)->pluck('key')->flip();
+            $tasks = array_values($allTasks);
             $progress = $this->progress($request, RadioTrainingProgress::TYPE_PRAXIS, array_column($tasks, 'key'));
             $rows = [];
             foreach ($tasks as $task) {
                 $saved = $progress->get($task['key']);
                 $rows[] = [
                     'id' => $task['key'], 'number' => $task['number'], 'kind' => $task['kind'],
-                    'teaser' => mb_substr($task['situation_de'], 0, 140),
+                    'teaser' => $allowedTaskIds->has($task['key']) ? mb_substr($task['situation_de'], 0, 140) : null,
                     'done' => (bool) ($saved?->completed ?? false), 'evaluated' => $saved?->answers !== null,
-                    'locked' => false,
+                    'locked' => ! $allowedTaskIds->has($task['key']),
                 ];
             }
             $practice[] = ['catalog' => $catalog, 'tasks' => $rows];
@@ -83,7 +85,14 @@ class RadioController extends Controller
             ->where('completed', true)->count();
 
         foreach ($texts as &$textGroup) {
-            $textGroup['items'] = $this->firstRadioItems($request, $course, $textGroup['items'])->values()->all();
+            $allowedTextIds = $this->firstRadioItems($request, $course, $textGroup['items'])->pluck('id')->flip();
+            foreach ($textGroup['items'] as &$textItem) {
+                $textItem['locked'] = ! $allowedTextIds->has($textItem['id']);
+                if ($textItem['locked']) {
+                    $textItem['teaser'] = null;
+                }
+            }
+            unset($textItem);
         }
         unset($textGroup);
         $limit = $this->access->featureScope($this->tenantContext->tenant(), $request->user(), $course, 'funk')['limit'];
@@ -226,7 +235,8 @@ class RadioController extends Controller
             if ($category !== null && $category !== '' && $name !== $category) {
                 continue;
             }
-            $items = $this->firstRadioItems($request, $course, $items)->all();
+            // Vocabulary cards remain available across free and full access.
+            $items = array_values($items);
             $progress = $this->progress($request, RadioTrainingProgress::TYPE_VOCAB, array_column($items, 'key'));
             foreach ($items as $item) {
                 $saved = $progress->get($item['key']);
@@ -252,7 +262,7 @@ class RadioController extends Controller
             foreach (FunkTraining::vocabulary($candidate) as $items) {
                 if (in_array($cardId, array_column($items, 'key'), true)) {
                     $catalog = $candidate;
-                    $allowed = $this->firstRadioItems($request, $course, $items)->contains(fn (array $item) => $item['key'] === $cardId);
+                    $allowed = true;
                 }
             }
         }
@@ -301,15 +311,17 @@ class RadioController extends Controller
         $course = $this->radioCourse($request, $courseId);
         $data = [];
         foreach (FunkTraining::catalogsFor($course) as $catalog) {
-            $tasks = $this->firstRadioItems($request, $course, FunkPraxis::tasks($catalog))->all();
+            $allTasks = FunkPraxis::tasks($catalog);
+            $allowedTaskIds = $this->firstRadioItems($request, $course, $allTasks)->pluck('key')->flip();
+            $tasks = array_values($allTasks);
             $progress = $this->progress($request, RadioTrainingProgress::TYPE_PRAXIS, array_column($tasks, 'key'));
             $rows = [];
             foreach ($tasks as $task) {
                 $saved = $progress->get($task['key']);
                 $rows[] = [
                     'id' => $task['key'], 'number' => $task['number'], 'kind' => $task['kind'],
-                    'teaser' => mb_substr($task['situation_de'], 0, 140), 'done' => (bool) ($saved?->completed ?? false),
-                    'evaluated' => is_array($saved?->answers), 'locked' => false,
+                    'teaser' => $allowedTaskIds->has($task['key']) ? mb_substr($task['situation_de'], 0, 140) : null, 'done' => (bool) ($saved?->completed ?? false),
+                    'evaluated' => is_array($saved?->answers), 'locked' => ! $allowedTaskIds->has($task['key']),
                 ];
             }
             $data[] = ['catalog' => $catalog, 'tasks' => $rows];
@@ -380,9 +392,12 @@ class RadioController extends Controller
         $data = [];
         foreach (FunkTraining::catalogsFor($course) as $catalog) {
             $tasks = [];
-            foreach ($this->firstRadioItems($request, $course, FunkPraxis::tasks($catalog)) as $task) {
-                $tasks[] = ['id' => $task['key'], 'number' => $task['number'], 'kind' => $task['kind'],
-                    'fields' => array_map(fn ($field) => ['name' => $field['name'], 'solution' => $field['solution']], $task['fields'])];
+            $allTasks = FunkPraxis::tasks($catalog);
+            $allowedTaskIds = $this->firstRadioItems($request, $course, $allTasks)->pluck('key')->flip();
+            foreach ($allTasks as $task) {
+                $allowed = $allowedTaskIds->has($task['key']);
+                $tasks[] = ['id' => $task['key'], 'number' => $task['number'], 'kind' => $task['kind'], 'locked' => ! $allowed,
+                    'fields' => $allowed ? array_map(fn ($field) => ['name' => $field['name'], 'solution' => $field['solution']], $task['fields']) : []];
             }
             $data[] = ['catalog' => $catalog, 'tasks' => $tasks];
         }
