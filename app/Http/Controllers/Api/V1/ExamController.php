@@ -201,6 +201,23 @@ class ExamController extends Controller
         return response()->json(['data' => $this->savedAnswer($sq, $session)]);
     }
 
+    /** Mark or unmark a question for review in a running exam. */
+    public function flag(Request $request, string $examId, string $questionId): JsonResponse
+    {
+        $validated = $request->validate(['flagged' => ['required', 'boolean']]);
+        $session = $this->ownSession($request, $examId);
+        $this->requireRunning($session);
+        $sq = $this->sessionQuestion($session, $questionId);
+        $flagged = (bool) $validated['flagged'];
+        $sq->forceFill(['flagged' => $flagged])->save();
+
+        return response()->json(['data' => [
+            'question_id' => ctype_digit($questionId) ? $questionId : $sq->question_id,
+            'flagged' => $flagged,
+            'flagged_count' => $session->questions()->where('flagged', true)->count(),
+        ]]);
+    }
+
     /** Musterantwort einer offenen Frage abrufen (Voraussetzung für die Selbsteinschätzung). */
     public function reveal(Request $request, string $examId, string $questionId): JsonResponse
     {
@@ -408,6 +425,9 @@ class ExamController extends Controller
     private function sessionQuestion(ExamSession $session, string $questionId): ExamSessionQuestion
     {
         $sq = $session->questions()->where('question_id', $questionId)->with('revision.answers')->first();
+        if (! $sq && ctype_digit($questionId)) {
+            $sq = $session->questions()->where('position', (int) $questionId)->with('revision.answers')->first();
+        }
         if (! $sq) {
             throw ApiProblem::notFound('Frage');
         }
@@ -445,6 +465,7 @@ class ExamController extends Controller
             'selected_answer_ids' => $this->selectedIds($sq),
             'known' => $sq->revision->question_type === 'open_text' ? $sq->self_assessed_known : null,
             'saved_at' => Present::time($sq->answered_at),
+            'flagged' => (bool) $sq->flagged,
             'answered_count' => $session->questions()->whereNotNull('answered_at')->count(),
             'question_count' => $session->questions()->count(),
         ];
@@ -493,8 +514,10 @@ class ExamController extends Controller
             'navigation_assessment_until' => $deadline && $session->hasNavigationPart() ? Present::time($deadline->copy()->addSeconds(ExamSession::NAVIGATION_ASSESS_GRACE)) : null,
             'question_count' => $questions->count(),
             'answered_count' => $questions->count() - $open,
+            'flagged_count' => $questions->where('flagged', true)->count(),
             'questions' => $questions->map(fn (ExamSessionQuestion $sq) => QuestionPresenter::question($sq->revision, null, $session->user_id) + [
                 'position' => $sq->position,
+                'flagged' => (bool) $sq->flagged,
                 'answered' => $sq->answered_at !== null,
                 'revealed' => $sq->revealed_at !== null,
                 // Musterantwort einer offenen Frage nur nach dem Abruf (reveal) und solange offen.
