@@ -7,7 +7,7 @@ dieselben.
 
 | Datei | Inhalt |
 |---|---|
-| `docs/api/openapi-mobile-v1.yaml` | Vertrag (OpenAPI 3.1), alle 58 Endpunkte |
+| `docs/api/openapi-mobile-v1.yaml` | Vertrag (OpenAPI 3.1), alle 59 Endpunkte |
 | `routes/api.php` | Routen (Präfix `/api/v1`) |
 | `app/Http/Controllers/Api/V1/` | Controller je Bereich |
 | `app/Api/` | Tokens, Fehlerformat, Ausgabeformate |
@@ -82,7 +82,7 @@ Design-Übersicht. Grundlage war jeweils der tatsächliche Stand der Plattform.
 | Favoriten | eine Sammlung je Favorit | `collection_ids` (mehrere Sammlungen) plus nicht löschbare Standard-Sammlung (`COLLECTION_NOT_DELETABLE`) | So ist das Datenmodell im Web |
 | Offene Fragen (FKN/SKN) | fehlten | `answer_selection = self_assessment`, Musterantwort aufdecken, `known` true/false; in der Prüfung erst `…/reveal`, dann Antwort | Sonst wären FKN/SKN nicht nutzbar |
 | Navigationsaufgabe in der Prüfung (SBF See) | fehlte | `PUT /exams/{id}/navigation` und `POST …/navigation/assessment`; eigenes Minimum 7/9 | Prüfung wäre sonst nie bestanden |
-| Navigationstrainer | nur Lesen | zusätzlich `PUT …/parts/{id}/answer` (Toleranzprüfung bzw. Selbstbewertung); gesperrt, solange die Aufgabe in einer laufenden Prüfung ist | Gleicher Stand wie im Web |
+| Navigationstrainer | nur Lesen | `PUT …/parts/{id}/answer` plus WP-kompatibles `POST …/parts/{id}` mit `correct`/`partly`/`wrong`, Antwortspeicherung und automatischer Prüfung; gesperrt, solange die Aufgabe in einer laufenden Prüfung ist | Gleicher Funktionsumfang und zusätzlicher Routen-Alias für die App |
 | Prüfungsstart | `mode: official_simulation` | entfällt; `paper_id` bei Kursen mit festen Bögen, sonst Zufallsprüfung | Bögen sind die amtlichen Fragebögen |
 | Prüfungsübersicht | einfache Liste | `group` (Teilprüfung im Kombikurs), `parts`, `navigation`, `running_exam_id`, `last_result` | Kombikurse (SRC+UBI, SBF See+Binnen) |
 | Mitgliedschaft | Logo, Primärfarbe | zusätzlich `secondary_color`, Support-Adresse (nur bestätigt), Links zu Impressum/Datenschutz | Pflichtangaben je Schule |
