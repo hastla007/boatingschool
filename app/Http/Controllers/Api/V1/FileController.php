@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Api\ApiProblem;
 use App\Http\Controllers\Controller;
 use App\Models\CourseDefinition;
+use App\Models\CourseFile;
 use App\Models\Entitlement;
 use App\Models\MediaAsset;
 use App\Models\Tenant;
@@ -20,30 +21,42 @@ class FileController extends Controller
 {
     public function download(Request $request, string $fileId, EntitlementService $entitlements): StreamedResponse
     {
-        $asset = MediaAsset::find($fileId);
-        if (! $asset || $asset->status !== 'published' || ! in_array($asset->rights_status, ['licensed', 'public'], true)) {
-            throw ApiProblem::notFound('Datei');
-        }
+        $courseFile = CourseFile::where('published', true)->find($fileId);
+        if ($courseFile) {
+            $course = CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')
+                ->where('status', 'published')->where('site_enabled', true)->find($courseFile->course_id);
+            $requiredCapability = $courseFile->required_capability;
+            $courseIds = $course ? [$course->id] : [];
+            if ($courseIds === [] || ! $this->hasAnyCourseAccess($request->user(), $courseIds, $entitlements, $requiredCapability)) {
+                throw ApiProblem::notFound('Datei');
+            }
+            $path = $courseFile->storage_path;
+            $disk = Storage::disk('local');
+            $mime = $courseFile->mime_type ?: 'application/octet-stream';
+        } else {
+            $asset = MediaAsset::find($fileId);
+            if (! $asset || $asset->status !== 'published' || ! in_array($asset->rights_status, ['licensed', 'public'], true)) {
+                throw ApiProblem::notFound('Datei');
+            }
 
-        $courseIds = DB::table('question_media')
-            ->join('content_question_revision', 'content_question_revision.id', '=', 'question_media.revision_id')
-            ->join('module_content', 'module_content.question_id', '=', 'content_question_revision.question_id')
-            ->join('course_module', 'course_module.module_id', '=', 'module_content.module_id')
-            ->where('question_media.media_asset_id', $asset->id)
-            ->where('content_question_revision.editorial_status', 'published')
-            ->where(fn ($q) => $q->whereNull('content_question_revision.valid_from')->orWhere('content_question_revision.valid_from', '<=', now()))
-            ->where(fn ($q) => $q->whereNull('content_question_revision.valid_to')->orWhere('content_question_revision.valid_to', '>=', now()->toDateString()))
-            ->distinct()->pluck('course_module.course_id');
-        if ($courseIds->isEmpty() || ! $this->hasAnyCourseAccess($request->user(), $courseIds->all(), $entitlements)) {
-            throw ApiProblem::notFound('Datei');
-        }
+            $courseIds = DB::table('question_media')
+                ->join('content_question_revision', 'content_question_revision.id', '=', 'question_media.revision_id')
+                ->join('module_content', 'module_content.question_id', '=', 'content_question_revision.question_id')
+                ->join('course_module', 'course_module.module_id', '=', 'module_content.module_id')
+                ->where('question_media.media_asset_id', $asset->id)
+                ->where('content_question_revision.editorial_status', 'published')
+                ->where(fn ($q) => $q->whereNull('content_question_revision.valid_from')->orWhere('content_question_revision.valid_from', '<=', now()))
+                ->where(fn ($q) => $q->whereNull('content_question_revision.valid_to')->orWhere('content_question_revision.valid_to', '>=', now()->toDateString()))
+                ->distinct()->pluck('course_module.course_id');
+            if ($courseIds->isEmpty() || ! $this->hasAnyCourseAccess($request->user(), $courseIds->all(), $entitlements)) {
+                throw ApiProblem::notFound('Datei');
+            }
 
-        $path = $asset->getRawOriginal('storage_path');
-        if (! is_string($path) || $path === '' || preg_match('#^https?://#i', $path)) {
-            throw ApiProblem::notFound('Datei');
+            $path = $asset->getRawOriginal('storage_path');
+            $disk = Storage::disk('public');
+            $mime = $asset->mime_type ?: 'application/octet-stream';
         }
-        $disk = Storage::disk('public');
-        if (! $disk->exists($path)) {
+        if (! is_string($path) || $path === '' || preg_match('#^https?://#i', $path) || ! $disk->exists($path)) {
             throw ApiProblem::notFound('Datei');
         }
         $size = (int) $disk->size($path);
@@ -56,7 +69,6 @@ class FileController extends Controller
         $length = max(0, $end - $start + 1);
         $status = $range === null ? 200 : 206;
         $filename = basename(str_replace('\\', '/', $path));
-        $mime = $asset->mime_type ?: 'application/octet-stream';
         $headers = [
             'Content-Type' => $mime,
             'Content-Disposition' => $this->contentDisposition($filename),
@@ -90,7 +102,7 @@ class FileController extends Controller
         }, $status, $headers);
     }
 
-    private function hasAnyCourseAccess(User $user, array $courseIds, EntitlementService $entitlements): bool
+    private function hasAnyCourseAccess(User $user, array $courseIds, EntitlementService $entitlements, ?string $capability = 'smarttrainer'): bool
     {
         $memberships = TenantUser::where('user_id', $user->id)->where('role', 'learner')->where('status', 'active')->pluck('tenant_id');
         $tenants = Tenant::whereIn('id', $memberships)->whereIn('status', ['active', 'trial'])->get()->keyBy('id');
@@ -101,7 +113,7 @@ class FileController extends Controller
         foreach ($active as $entitlement) {
             $tenant = $tenants->get($entitlement->tenant_id);
             $course = $courses->get($entitlement->course_id);
-            if ($tenant && $course && $entitlements->hasCapabilityAccess($tenant, $user, $course, 'smarttrainer')) {
+            if ($tenant && $course && ($capability === null ? $entitlements->hasAccess($tenant, $user, $course) : $entitlements->hasCapabilityAccess($tenant, $user, $course, $capability))) {
                 return true;
             }
         }
