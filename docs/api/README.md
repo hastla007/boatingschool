@@ -7,7 +7,7 @@ dieselben.
 
 | Datei | Inhalt |
 |---|---|
-| `docs/api/openapi-mobile-v1.yaml` | Vertrag (OpenAPI 3.1), alle 56 Endpunkte |
+| `docs/api/openapi-mobile-v1.yaml` | Vertrag (OpenAPI 3.1), alle 58 Endpunkte |
 | `routes/api.php` | Routen (Präfix `/api/v1`) |
 | `app/Http/Controllers/Api/V1/` | Controller je Bereich |
 | `app/Api/` | Tokens, Fehlerformat, Ausgabeformate |
@@ -36,6 +36,8 @@ gibt nur veröffentlichte Fragen für freigeschaltete Kurse aus.
 `GET /courses/{id}/mistakes` listet falsch beantwortete, noch gültige Kursfragen samt Favoriten- und Sammlungsstatus. Ein Kurszugang ist erforderlich.
 
 `GET /courses/{id}/exam-registration` liefert die Prüfungsanleitung, Prüfungsformen, Prüfungsteile, FAQ und allgemeine DSV/DMYV-Kontakte. Die Terminbuchung selbst bleibt beim Prüfungsausschuss. Individuelle regionale Ausschüsse sind im nativen Laravel-Datenbestand derzeit nicht gepflegt.
+
+* **Praxistrainer:** `GET /courses/{id}/praxis` liefert Karten, freigegebene Medien und Status. `PUT /courses/{id}/praxis/{cardId}` speichert `known`, `practice` oder `open`; die Webansicht und App teilen den Status `known`/`open`.
 
 ### Health und synchronisierte App-Einstellungen
 
