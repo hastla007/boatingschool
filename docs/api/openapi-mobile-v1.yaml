@@ -2183,7 +2183,7 @@ components:
         course_type: {type: string, enum: [full, combo, addon]}
         access: {$ref: '#/components/schemas/Entitlement'}
         progress: {$ref: '#/components/schemas/ProgressSummary'}
-        capabilities: {type: array, items: {type: string, enum: [smarttrainer, favorites, exam, video, navigation, praxis, funk, downloads]}}
+        capabilities: {type: array, items: {type: string, enum: [smarttrainer, favorites, exam, video, navigation, praxis, funk]}}
         features:
           type: object
           description: Fähigkeit → Zugriff; Gruppenlizenzen können einzelne Fähigkeiten freischalten.
@@ -2245,9 +2245,12 @@ components:
         id: {type: string}
         name: {type: string}
         description: {type: [string, 'null']}
+        code: {type: string}
         order: {type: integer}
         locked: {type: boolean}
+        lock_reason: {type: [string, 'null'], enum: [drip, trial, null]}
         unlock_at: {type: [string, 'null'], format: date-time}
+        catalog_count: {type: integer}
         question_count: {type: integer}
         progress: {$ref: '#/components/schemas/ProgressSummary'}
         topics:
@@ -2557,6 +2560,8 @@ components:
         completed: {type: boolean}
         position_seconds: {type: integer}
         step_count: {type: [integer, 'null']}
+        quiz_count: {type: integer}
+        locked: {type: boolean}
         steps: {type: array, items: {$ref: '#/components/schemas/VideoLessonStep'}, description: 'Nur in GET /videos/{lessonId}'}
     VideoModule:
       type: object
@@ -2565,6 +2570,7 @@ components:
         title: {type: string}
         order: {type: integer}
         standalone: {type: boolean, description: 'Eigenständiges Kapitel (z. B. Knoten), im Web als eigene Kachel'}
+        group: {type: [string, 'null']}
         locked: {type: boolean}
         unlock_at: {type: [string, 'null'], format: date-time}
         lessons: {type: array, items: {$ref: '#/components/schemas/VideoLesson'}}
