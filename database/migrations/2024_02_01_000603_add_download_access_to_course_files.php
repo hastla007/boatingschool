@@ -16,7 +16,7 @@ return new class extends Migration
         SQL);
 
         foreach ($constraints as $constraint) {
-            DB::statement('ALTER TABLE course_file DROP CONSTRAINT '.DB::getPdo()->quote($constraint->conname));
+            DB::statement('ALTER TABLE course_file DROP CONSTRAINT '.DB::getQueryGrammar()->wrap($constraint->conname));
         }
 
         DB::statement("ALTER TABLE course_file ADD CONSTRAINT course_file_required_capability_check
