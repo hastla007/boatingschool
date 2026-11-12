@@ -118,15 +118,15 @@ class CourseController extends Controller
             ->map(fn ($items) => $items->map($fileRef)->values())->all();
 
         $summary = $this->summary($course, $progress, null, CourseWebshopLink::where('tenant_id', $tenant->id)->where('course_id', $course->id)->value('url'));
-        $hasExam = $this->entitlements->hasCapabilityAccess($tenant, $user, $course, 'exam');
-        $hasVideo = $this->entitlements->hasCapabilityAccess($tenant, $user, $course, 'video');
-        $hasNavigation = $this->entitlements->hasCapabilityAccess($tenant, $user, $course, 'navigation');
-        $hasPraxis = $this->entitlements->hasCapabilityAccess($tenant, $user, $course, 'praxis');
-        $hasRadio = $this->entitlements->hasCapabilityAccess($tenant, $user, $course, 'funk');
+        $hasExam = $this->access->hasFeatureAccess($tenant, $user, $course, 'exam');
+        $hasVideo = $this->access->hasFeatureAccess($tenant, $user, $course, 'video');
+        $hasNavigation = $this->access->hasFeatureAccess($tenant, $user, $course, 'navigation');
+        $hasPraxis = $this->access->hasFeatureAccess($tenant, $user, $course, 'praxis');
+        $hasRadio = $this->access->hasFeatureAccess($tenant, $user, $course, 'funk');
 
         $examOptions = $hasExam ? ($course->examPapers()->count() ?: ($course->activeExamRuleSet() ? 1 : 0)) : 0;
         $favoriteCount = 0;
-        if ($this->entitlements->hasCapabilityAccess($tenant, $user, $course, 'smarttrainer')) {
+        if ($this->access->hasFeatureAccess($tenant, $user, $course, 'smarttrainer')) {
             $favoriteCount = DB::table('favorite')->where('tenant_id', $tenant->id)->where('user_id', $user->id)
                 ->whereIn('question_id', $this->access->validQuestionIds($course))->count();
         }
@@ -290,7 +290,7 @@ class CourseController extends Controller
     {
         $tenant = $this->tenantContext->tenant();
         $user = request()->user();
-        $canLearn = $this->entitlements->hasCapabilityAccess($tenant, $user, $course, 'smarttrainer');
+        $canLearn = $this->access->hasFeatureAccess($tenant, $user, $course, 'smarttrainer');
         $questionIds = $canLearn ? $this->access->validQuestionIds($course) : collect();
         $ownProgress = $progress->whereIn('question_id', $questionIds->all());
         $total = $questionIds->count();
@@ -303,12 +303,18 @@ class CourseController extends Controller
         $access = $this->access->status($tenant, $user, $course, $activeEntitlement, $entitlements);
         $features = collect($capabilities)->reject(fn (string $capability) => $capability === 'favorites')
             ->mapWithKeys(function (string $capability) use ($tenant, $user, $course): array {
-                $available = $this->entitlements->hasCapabilityAccess($tenant, $user, $course, $capability);
+                $scope = $this->access->featureScope($tenant, $user, $course, $capability);
+                $limit = $scope['full'] ? null : ((int) ($scope['limit'] ?? 0) ?: null);
 
-                return [$capability => ['available' => $available, 'full' => $available, 'limit' => null]];
+                return [$capability => ['available' => $scope['full'] || $limit !== null, 'full' => $scope['full'], 'limit' => $limit]];
             })->all();
-        $explanations = $this->entitlements->hasCapabilityAccess($tenant, $user, $course, 'smarttrainer');
-        $features['explanations'] = ['available' => $explanations, 'full' => $explanations, 'limit' => null];
+        $explanations = $this->access->featureScope($tenant, $user, $course, 'explanations');
+        $explanationLimit = $explanations['full'] ? null : ((int) ($explanations['limit'] ?? 0) ?: null);
+        $features['explanations'] = [
+            'available' => $explanations['full'] || $explanationLimit !== null,
+            'full' => $explanations['full'],
+            'limit' => null,
+        ];
         $relation ??= $this->courseRelations->forCourses($tenant, $user, collect([$course]))[$course->code];
         $faqCount = $canLearn ? (int) DB::table('customer_faq_category_item as item')
             ->join('customer_faq_category as category', 'category.id', '=', 'item.category_id')
