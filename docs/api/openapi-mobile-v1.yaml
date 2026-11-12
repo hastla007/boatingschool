@@ -2183,7 +2183,7 @@ components:
         course_type: {type: string, enum: [full, combo, addon]}
         access: {$ref: '#/components/schemas/Entitlement'}
         progress: {$ref: '#/components/schemas/ProgressSummary'}
-        capabilities: {type: array, items: {type: string, enum: [smarttrainer, favorites, exam, video, navigation, praxis, funk]}}
+        capabilities: {type: array, items: {type: string, enum: [smarttrainer, favorites, exam, video, navigation, praxis, funk, downloads]}}
         features:
           type: object
           description: Fähigkeit → Zugriff; Gruppenlizenzen können einzelne Fähigkeiten freischalten.
