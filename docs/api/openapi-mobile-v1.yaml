@@ -420,8 +420,6 @@ paths:
         Legt einen Löschantrag an und sendet eine Bestätigungsmail. Ein bestätigter Antrag
         wird durch die Bootsschule bearbeitet; die API löscht das Konto nicht sofort.
         Wiederholte Anträge liefern den vorhandenen offenen oder bestätigten Antrag zurück.
-      parameters:
-        - {$ref: '#/components/parameters/IdempotencyKey'}
       responses:
         '202':
           description: Antrag angelegt oder bereits vorhanden
