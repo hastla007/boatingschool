@@ -133,8 +133,10 @@ class LearningGroupService
             if (! $invite && $this->freeSeats($group) <= 0) {
                 throw new RuntimeException('GROUP_INVALID');
             }
-            if (! $this->supportsScopes($group)) {
-                throw new RuntimeException('GROUP_SCOPE_UNSUPPORTED');
+            try {
+                $courseGrants = $this->courseGrants($group);
+            } catch (RuntimeException $e) {
+                throw new RuntimeException('GROUP_SCOPE_UNSUPPORTED', previous: $e);
             }
 
             $member = $invite;
@@ -144,15 +146,14 @@ class LearningGroupService
                 $member = LearningGroupMember::create(['group_id' => $group->id, 'user_id' => $user->id, 'status' => 'active', 'joined_at' => now()]);
             }
 
-            foreach ($group->scopes as $scope) {
-                $course = CourseDefinition::withoutGlobalScopes()->where('code', $scope['course_code'] ?? $scope['course'] ?? '')->first();
-                if (! $course || ! $this->entitlements->isOfferable($tenant, $course)) {
-                    continue;
-                }
+            foreach ($courseGrants as $grant) {
                 Entitlement::firstOrCreate([
-                    'tenant_id' => $tenant->id, 'user_id' => $user->id, 'course_id' => $course->id,
+                    'tenant_id' => $tenant->id, 'user_id' => $user->id, 'course_id' => $grant['course']->id,
                     'source_type' => 'group', 'source_reference' => 'group:'.$group->id.':'.$member->id,
-                ], ['status' => 'active', 'valid_from' => now(), 'valid_until' => $group->valid_until]);
+                ], [
+                    'status' => 'active', 'valid_from' => now(), 'valid_until' => $group->valid_until,
+                    'capabilities' => $grant['capabilities'],
+                ]);
             }
 
             return ['group' => $group, 'member' => $member, 'already' => false];
@@ -234,14 +235,72 @@ class LearningGroupService
 
     private function supportsScopes(LearningGroup $group): bool
     {
+        try {
+            $this->courseGrants($group);
+
+            return true;
+        } catch (RuntimeException) {
+            return false;
+        }
+    }
+
+    /**
+     * Resolve WP feature scopes to the native API capabilities. A null capability list
+     * means full-course access; a non-null list can only open the named API areas.
+     *
+     * @return array<string, array{course:CourseDefinition,capabilities:?array}>
+     */
+    private function courseGrants(LearningGroup $group): array
+    {
+        $grants = [];
         foreach ($group->scopes ?? [] as $scope) {
-            $feature = $scope['feature'] ?? 'course';
-            if (! in_array($feature, ['course','full','all'], true)) {
-                return false;
+            $code = (string) ($scope['course_code'] ?? $scope['course'] ?? '');
+            $course = CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')->where('code', $code)->first();
+            if (! $course) {
+                throw new RuntimeException('GROUP_COURSE_UNAVAILABLE');
+            }
+
+            $mapped = $this->scopeCapabilities($scope);
+            if (! array_key_exists($code, $grants)) {
+                $grants[$code] = ['course' => $course, 'capabilities' => $mapped];
+            } elseif ($grants[$code]['capabilities'] !== null && $mapped !== null) {
+                $grants[$code]['capabilities'] = array_values(array_unique(array_merge($grants[$code]['capabilities'], $mapped)));
+            } else {
+                $grants[$code]['capabilities'] = null;
             }
         }
 
-        return true;
+        return $grants;
+    }
+
+    /** @return ?array<string> null grants the entire course */
+    private function scopeCapabilities(array $scope): ?array
+    {
+        $feature = strtolower((string) ($scope['feature'] ?? 'course'));
+        if (in_array($feature, ['course', 'full', 'all'], true)) {
+            return null;
+        }
+
+        $capability = strtolower((string) ($scope['capability'] ?? ''));
+        $allowed = ['smarttrainer', 'favorites', 'exam', 'video', 'navigation', 'praxis', 'funk'];
+        if (in_array($capability, $allowed, true)) {
+            return [$capability];
+        }
+
+        $mapping = [
+            'question_bank' => ['smarttrainer', 'favorites'],
+            'exam_simulation' => ['exam'],
+            'video_course' => ['video'],
+            'navigation_trainer' => ['navigation'],
+            'praxis_trainer' => ['praxis'],
+            'funk_training' => ['funk'],
+            'radio_training' => ['funk'],
+        ];
+        if (isset($mapping[$feature])) {
+            return $mapping[$feature];
+        }
+
+        throw new RuntimeException('GROUP_SCOPE_UNSUPPORTED');
     }
 
     private function scopes(LearningGroup $group): array
