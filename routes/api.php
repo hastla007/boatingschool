@@ -44,9 +44,9 @@ Route::middleware('api.auth')->group(function () {
     Route::get('/me', [AccountController::class, 'me']);
     Route::get('/me/groups', [GroupController::class, 'index']);
     Route::get('/me/groups/{groupId}', [GroupController::class, 'show'])->whereUuid('groupId');
-    Route::post('/me/groups/{groupId}/invites', [GroupController::class, 'invite'])->whereUuid('groupId');
+    Route::post('/me/groups/{groupId}/invites', [GroupController::class, 'invite'])->whereUuid('groupId')->middleware('api.idempotent');
     Route::delete('/me/groups/{groupId}/members/{memberId}', [GroupController::class, 'removeMember'])->whereUuid(['groupId', 'memberId']);
-    Route::post('/me/groups/{groupId}/join-code', [GroupController::class, 'regenerateJoinCode'])->whereUuid('groupId');
+    Route::post('/me/groups/{groupId}/join-code', [GroupController::class, 'regenerateJoinCode'])->whereUuid('groupId')->middleware('api.idempotent');
     Route::get('/me/settings', [AccountController::class, 'settings']);
     Route::put('/me/settings', [AccountController::class, 'updateSettings']);
     Route::get('/me/sessions', [AccountController::class, 'sessions']);
