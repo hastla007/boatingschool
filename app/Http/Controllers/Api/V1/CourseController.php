@@ -99,10 +99,16 @@ class CourseController extends Controller
         $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get();
         $course->loadMissing('modules', 'files');
         $files = $course->files->where('published', true)->values();
-        $fileRef = function (CourseFile $file) use ($tenant, $user): array {
-            $allowed = $file->required_capability === null
-                ? $this->entitlements->hasAccess($tenant, $user, $file->course)
-                : $this->entitlements->hasCapabilityAccess($tenant, $user, $file->course, $file->required_capability);
+        $downloadAllowedIds = $this->access->limitItems(
+            $tenant, $user, $course, 'downloads',
+            $files->where('category', 'downloads')->sortBy([['sort_order', 'asc'], ['id', 'asc']])->values(),
+        )->pluck('id')->flip();
+        $fileRef = function (CourseFile $file) use ($tenant, $user, $downloadAllowedIds): array {
+            $allowed = $file->category === 'downloads'
+                ? $downloadAllowedIds->has($file->id)
+                : ($file->required_capability === null
+                    ? $this->entitlements->hasAccess($tenant, $user, $file->course)
+                    : $this->access->hasFeatureAccess($tenant, $user, $file->course, $file->required_capability));
 
             return [
                 'id' => $file->id,
