@@ -30,7 +30,7 @@ return new class extends Migration
         });
         DB::statement("ALTER TABLE course_access_rule ADD CONSTRAINT course_access_rule_feature_check CHECK (feature_code IN ('question_bank','learning_explanations','exam_simulation','navigation_trainer','praxis_trainer','video_course','radio_training','device_simulation','downloads'))");
         DB::statement("ALTER TABLE course_access_rule ADD CONSTRAINT course_access_rule_type_check CHECK (access_type IN ('free','free_limited','drip'))");
-        DB::statement("ALTER TABLE course_access_rule ADD CONSTRAINT course_access_rule_limit_check CHECK ((access_type = 'free_limited' AND limit_value >= 0) OR (access_type = 'drip' AND limit_value > 0) OR (access_type = 'free' AND limit_value IS NULL))");
+        DB::statement("ALTER TABLE course_access_rule ADD CONSTRAINT course_access_rule_limit_check CHECK ((access_type = 'free_limited' AND limit_value IS NOT NULL AND limit_value >= 0) OR (access_type = 'drip' AND limit_value > 0) OR (access_type = 'free' AND limit_value IS NULL))");
         DB::statement('ALTER TABLE course_access_rule ADD CONSTRAINT course_access_rule_date_check CHECK (valid_from IS NULL OR valid_until IS NULL OR valid_from <= valid_until)');
 
         $role = AppRoleGrants::quotedRole();
