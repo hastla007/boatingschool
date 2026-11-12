@@ -465,7 +465,15 @@ entscheidet aber nur anhand von `code`.
   }
   ```
   Danach mit `php artisan app:import-mobile-access-rules /pfad/export.json` importieren. `tenant_slug` und `course_code` müssen auf die IDs im Original zeigen. Drip-Module verwenden den nativen Modulcode; für Videokapitel den Kapitel-Titel. Doppelte Regeln desselben Typs brauchen verschiedene `source_key`-Werte.
-* **Downloads:** Datei-Metadaten kommen in `course_file`; die eigentlichen Dateien müssen auf den Laravel-Storage kopiert werden, der für den geschützten Download konfiguriert ist. Die Access-Regeln allein importieren keine WordPress-Medien.
+* **Downloads und Abschnittsdateien:** WordPress-Dateien zuerst in ein staging-Verzeichnis exportieren und dann mit einem Manifest registrieren:
+  ```json
+  {
+    "files": [
+      {"tenant_slug":"schule-a","course_code":"SBF-SEE","source_key":"wp:attachment:22","file":"uploads/2024/karte.pdf","category":"downloads","title":"Kartenmaterial","sort_order":1}
+    ]
+  }
+  ```
+  `php artisan app:import-mobile-course-files /pfad/files.json /pfad/zum/wordpress-media-export` kopiert die Dateien in den geschützten Laravel-Storage und legt die `course_file`-Einträge idempotent an. `category` ist `downloads` oder `section`; Abschnittsdateien benötigen einen `section_key`. Die exportierten Quelldateien selbst müssen vorher bereitgestellt werden.
 * **Tests:** `vendor/bin/phpunit tests/Feature/Api`.
   `OpenApiContractTest` schlägt fehl, wenn Routen und OpenAPI-Datei
   auseinanderlaufen.
