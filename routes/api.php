@@ -74,6 +74,7 @@ Route::middleware('api.auth')->group(function () {
         Route::get('/exams/{examId}', [ExamController::class, 'show'])->whereUuid('examId');
         Route::put('/exams/{examId}/answers/{questionId}', [ExamController::class, 'answer'])->whereUuid(['examId', 'questionId']);
         Route::post('/exams/{examId}/questions/{questionId}/reveal', [ExamController::class, 'reveal'])->whereUuid(['examId', 'questionId']);
+        Route::post('/exams/{examId}/answers/{questionId}/reveal', [ExamController::class, 'reveal'])->whereUuid(['examId', 'questionId']);
         Route::put('/exams/{examId}/navigation', [ExamController::class, 'submitNavigation'])->whereUuid('examId');
         Route::post('/exams/{examId}/navigation/assessment', [ExamController::class, 'assessNavigation'])->whereUuid('examId')->middleware('api.idempotent');
         Route::post('/exams/{examId}/submit', [ExamController::class, 'submit'])->whereUuid('examId')->middleware('api.idempotent');
