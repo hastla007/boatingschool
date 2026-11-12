@@ -28,7 +28,7 @@ class CustomerFaqController extends Controller
 
     public function index(Request $request, string $courseId): JsonResponse
     {
-        $course = $this->access->require($this->tenantContext->tenant(), $request->user(), $courseId);
+        $course = $this->access->require($this->tenantContext->tenant(), $request->user(), $courseId, 'smarttrainer');
         $keys = array_values(array_unique(array_merge([$course->code], self::RELATED_COURSES[$course->code] ?? [])));
         $categories = CustomerFaqCategory::whereIn('course_code', $keys)
             ->orderBy('sort_order')->orderBy('name')->with('faqs')->get();
