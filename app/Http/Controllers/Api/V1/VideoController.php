@@ -40,15 +40,15 @@ class VideoController extends Controller
         $allowedIds = $allowedLessons->pluck('id')->flip();
         $progress = $this->progressFor($request, $allowedLessons);
 
-        return response()->json(['data' => $modules->values()->map(function (VideoModule $m, int $i) use ($progress, $allowedIds) {
+        return response()->json(['data' => $modules->values()->map(function (VideoModule $m, int $i) use ($progress, $allowedIds, $tenant, $user, $course) {
             $lessons = $m->lessons->filter(fn (VideoLesson $lesson) => $allowedIds->has($lesson->id))->values();
             return [
                 'id' => $m->id,
                 'title' => $m->title,
                 'order' => $i + 1,
                 'standalone' => in_array($m->title, self::STANDALONE_CHAPTERS, true),
-                'locked' => $this->access->isDripLocked($this->tenantContext->tenant(), request()->user(), $m->course, 'video', (string) $m->title),
-                'unlocks_at' => Present::time($this->access->dripUnlockAt($this->tenantContext->tenant(), request()->user(), $m->course, 'video', (string) $m->title)),
+                'locked' => $this->access->isDripLocked($tenant, $user, $course, 'video', (string) $m->title),
+                'unlock_at' => Present::time($this->access->dripUnlockAt($tenant, $user, $course, 'video', (string) $m->title)),
                 'lessons' => $lessons->map(fn (VideoLesson $l) => $this->lesson($l, $progress->get($l->id), false))->values(),
             ];
         })->filter(fn (array $module) => $module['lessons']->isNotEmpty())->values()]);
