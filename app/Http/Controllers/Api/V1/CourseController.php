@@ -19,6 +19,7 @@ use App\Support\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Collection;
 
 /** Kurse, Zugänge, Kursübersicht, Module/Themen und Fortschritt. */
@@ -34,6 +35,7 @@ class CourseController extends Controller
         private CourseAccess $access,
         private EntitlementService $entitlements,
         private CourseProgressService $progress,
+        private \\App\\Services\\CourseRelationService $courseRelations,
     ) {}
 
     /** Freigeschaltete Kurse und weitere buchbare Kurse der Schule (mit Webshop-Link). */
@@ -60,9 +62,10 @@ class CourseController extends Controller
         $perPage = max(1, min(100, (int) $request->query('per_page', 20)));
         $page = max(1, (int) $request->query('page', 1));
         $slice = $courses->slice(($page - 1) * $perPage, $perPage)->values();
+        $relations = $this->courseRelations->forCourses($tenant, $user, $slice);
 
         return response()->json([
-            'data' => $slice->map(fn (CourseDefinition $course) => $this->summary($course, $progress, $active->get($course->id), $webshop->get($course->id), $entitlements, $lastActivity))->values(),
+            'data' => $slice->map(fn (CourseDefinition $course) => $this->summary($course, $progress, $active->get($course->id), $webshop->get($course->id), $entitlements, $lastActivity, $relations[$course->code] ?? null))->values(),
             'meta' => [
                 'tenant' => ['slug' => $tenant->slug, 'name' => $tenant->name],
                 'renewal_webshop_url' => $tenant->branding?->renewal_webshop_link,
@@ -192,38 +195,55 @@ class CourseController extends Controller
             ])->all();
     }
 
-    private function summary(CourseDefinition $course, Collection $progress, $activeEntitlement, ?string $webshopUrl, ?Collection $entitlements = null, ?Collection $lastActivity = null): array
+    private function summary(CourseDefinition $course, Collection $progress, $activeEntitlement, ?string $webshopUrl, ?Collection $entitlements = null, ?Collection $lastActivity = null, ?array $relation = null): array
     {
         $tenant = $this->tenantContext->tenant();
-        $questionIds = $this->access->validQuestionIds($course);
+        $user = request()->user();
+        $canLearn = $this->entitlements->hasCapabilityAccess($tenant, $user, $course, 'smarttrainer');
+        $questionIds = $canLearn ? $this->access->validQuestionIds($course) : collect();
+        $ownProgress = $progress->whereIn('question_id', $questionIds->all());
         $total = $questionIds->count();
-        $mastered = $progress->isEmpty() ? 0 : $progress->whereIn('question_id', $questionIds->all())->where('learning_state', 'gefestigt')->count();
-        $lastActivity ??= $this->lastActivityByCourse($tenant->id, request()->user()->id, $course->id);
+        $mastered = $ownProgress->where('learning_state', 'gefestigt')->count();
+        $new = max(0, $total - $ownProgress->count());
+        $unsure = $ownProgress->where('learning_state', 'unsicher')->count();
+        $learning = $ownProgress->where('learning_state', 'in_bearbeitung')->count();
+        $lastActivity ??= $this->lastActivityByCourse($tenant->id, $user->id, $course->id);
         $capabilities = $this->access->capabilities($course);
-        $access = $this->access->status($tenant, request()->user(), $course, $activeEntitlement, $entitlements);
-        $features = collect($capabilities)->mapWithKeys(function (string $capability) use ($tenant, $course): array {
-            $available = $this->entitlements->hasCapabilityAccess($tenant, request()->user(), $course, $capability);
+        $access = $this->access->status($tenant, $user, $course, $activeEntitlement, $entitlements);
+        $features = collect($capabilities)->mapWithKeys(function (string $capability) use ($tenant, $user, $course): array {
+            $available = $this->entitlements->hasCapabilityAccess($tenant, $user, $course, $capability);
 
             return [$capability => ['available' => $available, 'full' => $available, 'limit' => null]];
         })->all();
         if (in_array('smarttrainer', $capabilities, true)) {
-            $available = $this->entitlements->hasCapabilityAccess($tenant, request()->user(), $course, 'smarttrainer');
+            $available = $this->entitlements->hasCapabilityAccess($tenant, $user, $course, 'smarttrainer');
             $features['explanations'] = ['available' => $available, 'full' => $available, 'limit' => null];
         }
+        $relation ??= $this->courseRelations->forCourses($tenant, $user, collect([$course]))[$course->code];
+        $faqCount = $canLearn ? (int) DB::table('customer_faq_category_item as item')
+            ->join('customer_faq_category as category', 'category.id', '=', 'item.category_id')
+            ->join('customer_faq as faq', 'faq.id', '=', 'item.faq_id')
+            ->where('category.course_code', $course->code)->where('faq.status', 'published')
+            ->distinct()->count('faq.id') : 0;
 
         return [
             'id' => $course->id,
             'code' => $course->code,
+            'slug' => strtolower((string) $course->code),
             'name' => $course->name,
             'description' => $course->description ?? null,
             'course_type' => $course->course_type,
             'access' => $access,
-            'features' => $features,
-            // Gefestigt = 3× richtig in Folge (dieselbe Regel wie im Web).
-            'progress' => ['percent' => $total > 0 ? (int) round($mastered / $total * 100) : 0, 'completed' => $mastered, 'total' => $total],
+            'progress' => [
+                'percent' => $total > 0 ? (int) round($mastered / $total * 100) : 0,
+                'completed' => $mastered, 'total' => $total,
+                'new' => $new, 'unsure' => $unsure, 'learning' => $learning, 'mastered' => $mastered,
+            ],
             'capabilities' => $capabilities,
-            'webshop_url' => $webshopUrl,
-            // Review-Runde 13: für „Weiterlernen“ über alle Kurse.
+            'features' => $features,
+            'webshop_url' => $access['status'] === 'active' && ! $access['trial'] ? null : $webshopUrl,
+            'relation' => $relation,
+            'faq_count' => $faqCount,
             'last_activity_at' => Present::time(($at = $lastActivity->get($course->id)) ? Carbon::parse($at) : null),
         ];
     }
