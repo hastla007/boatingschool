@@ -7,7 +7,7 @@ dieselben.
 
 | Datei | Inhalt |
 |---|---|
-| `docs/api/openapi-mobile-v1.yaml` | Vertrag (OpenAPI 3.1), alle 60 Endpunkte |
+| `docs/api/openapi-mobile-v1.yaml` | Vertrag (OpenAPI 3.1), alle 72 Endpunkte |
 | `routes/api.php` | Routen (Präfix `/api/v1`) |
 | `app/Http/Controllers/Api/V1/` | Controller je Bereich |
 | `app/Api/` | Tokens, Fehlerformat, Ausgabeformate |
@@ -34,6 +34,8 @@ gibt nur veröffentlichte Fragen für freigeschaltete Kurse aus.
 `GET /tips` liefert aktive Tipps und Tricks nach Kategorie. Die Inhalte sind plattformweit, erfordern aber den angemeldeten Schulkontext; ein einzelner Kurszugang ist nicht nötig. HTML, Text und sichere Links stehen gemeinsam zur Verfügung.
 
 `GET /courses/{id}/mistakes` listet falsch beantwortete, noch gültige Kursfragen samt Favoriten- und Sammlungsstatus. Ein Kurszugang ist erforderlich.
+
+`/courses/{courseId}/radio/*` stellt SRC-/UBI-Funktexte, Mitschrift-Auswertung, Vokabeltraining und Funkpraxis über dieselben nativen Inhalte und Lernstandsdatensätze wie der Laravel-Webtrainer bereit. `GET …/samples` liefert die Musterlösungen ausdrücklich als eigenen Abruf.
 
 `GET /courses/{id}/exam-registration` liefert die Prüfungsanleitung, Prüfungsformen, Prüfungsteile, FAQ und allgemeine DSV/DMYV-Kontakte. Die Terminbuchung selbst bleibt beim Prüfungsausschuss. Individuelle regionale Ausschüsse sind im nativen Laravel-Datenbestand derzeit nicht gepflegt.
 
