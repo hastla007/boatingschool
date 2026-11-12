@@ -39,10 +39,10 @@ Route::post('/auth/password/reset', [AuthController::class, 'resetPassword'])->m
 Route::get('/profile/export/{exportId}/download', [ExportController::class, 'download'])
     ->whereUuid('exportId')->middleware(['signed', 'throttle:20,1,api-export-download'])->name('api.v1.export.download');
 
-Route::middleware('api.auth')->group(function () {
+Route::post('/me/deletion-request/confirm', [AccountDeletionController::class, 'confirmDeletion'])->middleware('throttle:20,60,api-deletion-confirm');\n\nRoute::middleware('api.auth')->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::post('/auth/email/verification-notification', [AuthController::class, 'resendVerification'])->middleware('throttle:6,1,api-verification');
-    Route::get('/me', [AccountController::class, 'me']);
+    Route::post('/me/deletion-request', [AccountDeletionController::class, 'requestDeletion'])->middleware('api.idempotent');\n    Route::get('/me', [AccountController::class, 'me']);
     Route::get('/me/groups', [GroupController::class, 'index']);
     Route::get('/me/groups/{groupId}', [GroupController::class, 'show'])->whereUuid('groupId');
     Route::post('/me/groups/{groupId}/invites', [GroupController::class, 'invite'])->whereUuid('groupId')->middleware('api.idempotent');
