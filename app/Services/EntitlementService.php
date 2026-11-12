@@ -47,7 +47,7 @@ class EntitlementService
     public function hasAccess(Tenant $tenant, User $user, CourseDefinition $course): bool
     {
         return $this->activeEntitlements($tenant, $user)->contains(
-            fn (Entitlement $entitlement) => $entitlement->course_id === $course->id && $entitlement->capabilities === null
+            fn (Entitlement $entitlement) => $entitlement->course_id === $course->id && ($entitlement->capabilities === null || in_array('all', $entitlement->capabilities, true))
         );
     }
 
@@ -55,7 +55,7 @@ class EntitlementService
     {
         return $this->activeEntitlements($tenant, $user)->contains(
             fn (Entitlement $entitlement) => $entitlement->course_id === $course->id
-                && ($entitlement->capabilities === null || in_array($capability, $entitlement->capabilities, true))
+                && ($entitlement->capabilities === null || in_array($capability, $entitlement->capabilities, true) || in_array('all', $entitlement->capabilities, true))
         );
     }
 
