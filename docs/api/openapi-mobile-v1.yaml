@@ -547,7 +547,7 @@ paths:
                           offers: {type: object, additionalProperties: {type: array, items: {$ref: '#/components/schemas/Offer'}}}
                           web_url: {type: string, format: uri}
                           device_simulator: {$ref: '#/components/schemas/DeviceSimulatorLink'}
-                          knots: {$ref: '#/components/schemas/KnotsSummary'}
+                          knots: {oneOf: [{$ref: '#/components/schemas/KnotsSummary'}, {type: 'null'}]}
                           exam_registration:
                             type: object
                             required: [available, web_url]
