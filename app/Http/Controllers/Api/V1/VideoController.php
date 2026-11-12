@@ -32,7 +32,11 @@ class VideoController extends Controller
         $course = $this->access->require($this->tenantContext->tenant(), $request->user(), $courseId, 'video');
         $modules = $course->videoModules()->with('lessons.steps')->orderBy('sort_order')->get();
         $orderedLessons = $modules->flatMap(fn (VideoModule $module) => $module->lessons)->values();
-        $allowedLessons = $this->access->limitItems($this->tenantContext->tenant(), $request->user(), $course, 'video', $orderedLessons);
+        $tenant = $this->tenantContext->tenant();
+        $user = $request->user();
+        $allowedLessons = $this->access->limitItems($tenant, $user, $course, 'video', $orderedLessons)
+            ->reject(fn (VideoLesson $lesson) => $this->access->isDripLocked($tenant, $user, $course, 'video', (string) $lesson->module->title))
+            ->values();
         $allowedIds = $allowedLessons->pluck('id')->flip();
         $progress = $this->progressFor($request, $allowedLessons);
 
@@ -43,6 +47,8 @@ class VideoController extends Controller
                 'title' => $m->title,
                 'order' => $i + 1,
                 'standalone' => in_array($m->title, self::STANDALONE_CHAPTERS, true),
+                'locked' => $this->access->isDripLocked($this->tenantContext->tenant(), request()->user(), $m->course, 'video', (string) $m->title),
+                'unlocks_at' => Present::time($this->access->dripUnlockAt($this->tenantContext->tenant(), request()->user(), $m->course, 'video', (string) $m->title)),
                 'lessons' => $lessons->map(fn (VideoLesson $l) => $this->lesson($l, $progress->get($l->id), false))->values(),
             ];
         })->filter(fn (array $module) => $module['lessons']->isNotEmpty())->values()]);
@@ -94,7 +100,8 @@ class VideoController extends Controller
         $course = $this->access->require($tenant, $user, $lesson->module->course_id, 'video');
         $orderedLessons = $course->videoModules()->with('lessons')->orderBy('sort_order')->get()
             ->flatMap(fn (VideoModule $module) => $module->lessons)->values();
-        if (! $this->access->allowsLimitedItem($tenant, $user, $course, 'video', $orderedLessons, (string) $lesson->id)) {
+        if (! $this->access->allowsLimitedItem($tenant, $user, $course, 'video', $orderedLessons, (string) $lesson->id)
+            || $this->access->isDripLocked($tenant, $user, $course, 'video', (string) $lesson->module->title)) {
             throw ApiProblem::notFound('Lektion');
         }
 
