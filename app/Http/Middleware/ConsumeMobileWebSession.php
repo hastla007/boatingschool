@@ -1,21 +1,21 @@
 <?php
 
-namespace App\\Http\\Middleware;
+namespace App\Http\Middleware;
 
-use App\\Api\\DeviceSessions;
-use App\\Http\\Controllers\\Api\\V1\\WebSessionController;
-use App\\Models\\ApiDeviceSession;
-use App\\Models\\ApiMobileWebSession;
-use App\\Models\\User;
-use Illuminate\\Auth\\AuthenticationException;
-use Illuminate\\Http\\Request;
-use Illuminate\\Support\\Facades\\Auth;
-use Illuminate\\Support\\Facades\\DB;
-use Symfony\\Component\\HttpFoundation\\Response;
+use App\Api\DeviceSessions;
+use App\Http\Controllers\Api\V1\WebSessionController;
+use App\Models\ApiDeviceSession;
+use App\Models\ApiMobileWebSession;
+use App\Models\User;
+use Illuminate\Auth\AuthenticationException;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpFoundation\Response;
 
 class ConsumeMobileWebSession
 {
-    public function handle(Request $request, \\Closure $next): Response
+    public function handle(Request $request, \Closure $next): Response
     {
         if (! $request->isMethod('GET')) {
             return $next($request);
@@ -60,7 +60,7 @@ class ConsumeMobileWebSession
         $verifierValid = preg_match('/^bpv_[A-Za-z0-9_-]{43}$/', $verifier) === 1
             && hash_equals((string) $record->verifier_hash, hash('sha256', $verifier));
         $privileged = $user && ((bool) $user->is_superadmin
-            || \\App\\Models\\TenantUser::on('pgsql_admin')->withoutGlobalScopes()->where('user_id', $user->id)
+            || \App\Models\TenantUser::on('pgsql_admin')->withoutGlobalScopes()->where('user_id', $user->id)
                 ->whereIn('role', ['owner', 'admin', 'instructor'])->exists());
 
         if (! $session || ! $user || ! $verifierValid || $privileged) {
