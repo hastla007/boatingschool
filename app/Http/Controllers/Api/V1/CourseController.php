@@ -158,9 +158,13 @@ class CourseController extends Controller
         $knotLessons = $knotModule?->lessons ?? collect();
         $knotProgress = $knotLessons->isEmpty() ? collect() : $videoProgress->whereIn('video_lesson_id', $knotLessons->pluck('id'));
         $knots = $knotModule ? [
-            'available' => true, 'locked' => ! $hasVideo, 'module_id' => $knotModule->id,
-            'lessons' => $knotLessons->count(), 'completed' => $hasVideo ? $knotProgress->where('completed', true)->count() : 0,
-            'unlock_at' => null, 'webshop_url' => ! $hasVideo ? $summary['webshop_url'] : null,
+            'available' => true,
+            'locked' => ! $hasVideo || $this->access->isDripLocked($tenant, $user, $course, 'video', $knotModule->accessCode()),
+            'module_id' => $knotModule->id,
+            'lessons' => $knotLessons->count(),
+            'completed' => $hasVideo ? $knotProgress->where('completed', true)->count() : 0,
+            'unlock_at' => Present::time($this->access->dripUnlockAt($tenant, $user, $course, 'video', $knotModule->accessCode())),
+            'webshop_url' => ! $hasVideo ? $summary['webshop_url'] : null,
         ] : null;
 
         $radioCatalogs = $hasRadio ? FunkTraining::catalogsFor($course) : [];
