@@ -2016,16 +2016,29 @@ components:
         percent: {type: integer, minimum: 0, maximum: 100}
         completed: {type: integer}
         total: {type: integer}
+    FeatureAccess:
+      type: object
+      required: [available, full]
+      properties:
+        available: {type: boolean}
+        full: {type: boolean}
+        limit: {type: [integer, 'null']}
     CourseSummary:
       type: object
+      required: [id, code, name, course_type, access, progress, capabilities, features, webshop_url]
       properties:
         id: {type: string}
         code: {type: string}
         name: {type: string}
         description: {type: [string, 'null']}
+        course_type: {type: string, enum: [full, combo, addon]}
         access: {$ref: '#/components/schemas/Entitlement'}
         progress: {$ref: '#/components/schemas/ProgressSummary'}
         capabilities: {type: array, items: {type: string, enum: [smarttrainer, favorites, exam, video, navigation, praxis, funk]}}
+        features:
+          type: object
+          description: Fähigkeit → Zugriff; Teilumfänge sind im nativen Entitlement-Modell noch nicht verfügbar.
+          additionalProperties: {$ref: '#/components/schemas/FeatureAccess'}
         webshop_url: {type: [string, 'null'], format: uri}
         last_activity_at: {type: [string, 'null'], format: date-time, description: Letzte Antwort in diesem Kurs}
     Module:
