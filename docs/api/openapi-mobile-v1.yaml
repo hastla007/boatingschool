@@ -368,6 +368,49 @@ paths:
         '204': {description: 'Abgemeldet'}
         '404': {$ref: '#/components/responses/Problem'}
 
+  /auth/web-session:
+    post:
+      tags: [Auth]
+      operationId: createWebSession
+      summary: Einmal-URL für die eingebettete Webansicht
+      description: >-
+        Übergibt die angemeldete App-Sitzung einmalig an die Web-Lernansicht.
+        Die URL enthält einen 60 Sekunden gültigen Einmal-Code, der an Konto und aktive
+        App-Gerätesitzung gebunden ist. Die App muss die URL mit dem zurückgegebenen
+        Verifier-Header laden. Verwaltungsrollen sind ausgeschlossen; Redirects sind
+        ausschließlich innerhalb des Lernbereichs der aktuellen Website erlaubt.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [redirect]
+              properties:
+                redirect: {type: string, maxLength: 400}
+      responses:
+        '201':
+          description: Einmal-URL
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [url, expires_at, expires_in, redirect, verifier, verifier_header]
+                    properties:
+                      url: {type: string, format: uri}
+                      expires_at: {type: string, format: date-time}
+                      expires_in: {type: integer, const: 60}
+                      redirect: {type: string, format: uri}
+                      verifier: {type: string}
+                      verifier_header: {type: string, const: X-Boatingschool-Web-Verifier}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+        '429': {$ref: '#/components/responses/Problem'}
   /me/deletion-request:
     post:
       tags: [Privacy]
