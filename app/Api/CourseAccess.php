@@ -38,13 +38,16 @@ class CourseAccess
     public function __construct(private EntitlementService $entitlements) {}
 
     /** Kurs laden und Zugang prüfen (ENTITLEMENT_REQUIRED / ENTITLEMENT_EXPIRED). */
-    public function require(Tenant $tenant, User $user, string $courseId): CourseDefinition
+    public function require(Tenant $tenant, User $user, string $courseId, ?string $capability = null): CourseDefinition
     {
         $course = CourseDefinition::find($courseId);
         if (! $course) {
             throw ApiProblem::notFound('Kurs');
         }
-        if (! $this->entitlements->hasAccess($tenant, $user, $course)) {
+        $hasAccess = $capability === null
+            ? $this->entitlements->hasAccess($tenant, $user, $course)
+            : $this->entitlements->hasCapabilityAccess($tenant, $user, $course, $capability);
+        if (! $hasAccess) {
             $status = $this->status($tenant, $user, $course)['status'];
             throw $status === 'expired'
                 ? new ApiProblem(403, 'ENTITLEMENT_EXPIRED', 'Kurszugang abgelaufen', 'Für diesen Kurs besteht derzeit kein aktiver Zugang.')
