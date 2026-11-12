@@ -1260,6 +1260,68 @@ paths:
         '401': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
         '422': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/exam-registration:
+    get:
+      tags: [Courses]
+      operationId: getExamRegistrationGuide
+      summary: Prüfungsanmeldung und Prüfungsausschüsse
+      description: Liefert die native Prüfungsanleitung des Kurses. Die App bucht keinen Termin; die Anmeldung erfolgt beim DSV/DMYV. Ein aktiver Kurszugang ist nicht erforderlich.
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/CourseId'}
+      responses:
+        '200':
+          description: Prüfungsanleitung
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [course_id, web_url, registration_in_app, guides, committees]
+                    properties:
+                      course_id: {type: string, format: uuid}
+                      web_url: {type: string, format: uri}
+                      registration_in_app: {type: boolean, const: false}
+                      guides:
+                        type: array
+                        items:
+                          type: object
+                          required: [key, tab, title, variants, exam_parts, faq, providers]
+                          additionalProperties: true
+                          properties:
+                            key: {type: string}
+                            tab: {type: string}
+                            title: {type: string}
+                            intro: {type: [string, 'null']}
+                            fee: {type: [string, 'null']}
+                            fee_note: {type: [string, 'null']}
+                            lead_time: {type: [string, 'null']}
+                            min_age: {type: [string, 'null']}
+                            apply: {type: [string, 'null']}
+                            deadline: {type: [string, 'null']}
+                            documents: {type: array, items: {type: string}}
+                            variants: {type: array, items: {type: object, additionalProperties: true}}
+                            exam_parts: {type: array, items: {type: object, additionalProperties: true}}
+                            faq: {type: object, additionalProperties: {type: string}}
+                            providers: {type: array, items: {type: object, additionalProperties: true}}
+                      committees:
+                        type: array
+                        description: Allgemeine DSV/DMYV-Kontakte aus der nativen Prüfungsanleitung.
+                        items:
+                          type: object
+                          required: [id, label, commission, matches]
+                          additionalProperties: true
+                          properties:
+                            id: {type: string}
+                            label: {type: string}
+                            commission: {type: string}
+                            website: {type: [string, 'null'], format: uri}
+                            matches: {type: boolean}
+        '401': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
   /courses/{courseId}/faqs:
     get:
       tags: [Courses]
