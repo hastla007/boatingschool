@@ -2021,11 +2021,16 @@ components:
         renew_url: {type: [string, 'null'], format: uri}
     ProgressSummary:
       type: object
+      required: [percent, completed, total]
       description: completed = gefestigte Fragen (3× richtig in Folge, Regeln wie im Web)
       properties:
         percent: {type: integer, minimum: 0, maximum: 100}
         completed: {type: integer}
         total: {type: integer}
+        new: {type: integer}
+        unsure: {type: integer}
+        learning: {type: integer}
+        mastered: {type: integer}
     FeatureAccess:
       type: object
       required: [available, full]
@@ -2033,12 +2038,27 @@ components:
         available: {type: boolean, description: Die Funktion ist durch Vollzugang oder Gruppen-Teilzugang nutzbar}
         full: {type: boolean, description: Der gesamte Funktionsumfang ist freigeschaltet}
         limit: {type: [integer, 'null']}
+    CourseRelation:
+      type: object
+      required: [hidden, recommended, recommended_for]
+      properties:
+        hidden: {type: boolean}
+        recommended: {type: boolean}
+        recommended_for:
+          type: array
+          items:
+            type: object
+            required: [id, name]
+            properties:
+              id: {type: string, format: uuid}
+              name: {type: string}
     CourseSummary:
       type: object
-      required: [id, code, name, course_type, access, progress, capabilities, features, webshop_url]
+      required: [id, code, slug, name, course_type, access, progress, capabilities, features, webshop_url, relation, faq_count]
       properties:
         id: {type: string}
         code: {type: string}
+        slug: {type: string}
         name: {type: string}
         description: {type: [string, 'null']}
         course_type: {type: string, enum: [full, combo, addon]}
@@ -2050,6 +2070,8 @@ components:
           description: Fähigkeit → Zugriff; Gruppenlizenzen können einzelne Fähigkeiten freischalten.
           additionalProperties: {$ref: '#/components/schemas/FeatureAccess'}
         webshop_url: {type: [string, 'null'], format: uri}
+        relation: {$ref: '#/components/schemas/CourseRelation'}
+        faq_count: {type: integer, minimum: 0}
         last_activity_at: {type: [string, 'null'], format: date-time, description: Letzte Antwort in diesem Kurs}
     FileRef:
       type: object
