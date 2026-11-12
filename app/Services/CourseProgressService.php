@@ -115,7 +115,10 @@ class CourseProgressService
             // Frage zählte hier ebenfalls weiter mit, obwohl sie nie
             // "gefestigt" werden kann.
             // Bug-Review BB16: dieselbe Lücke bestand für valid_from/valid_to.
-            $activeQuestions = ContentQuestion::filterCurrentlyValid($module->questions);\n            if ($allowedQuestionIds !== null) {\n                $activeQuestions = $activeQuestions->whereIn('id', $allowedQuestionIds);\n            }
+            $activeQuestions = ContentQuestion::filterCurrentlyValid($module->questions);
+            if ($allowedQuestionIds !== null) {
+                $activeQuestions = $activeQuestions->whereIn('id', $allowedQuestionIds);
+            }
 
             $topics = $activeQuestions
                 ->groupBy(function ($q) {
