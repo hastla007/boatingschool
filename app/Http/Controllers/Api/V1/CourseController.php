@@ -128,7 +128,7 @@ class CourseController extends Controller
         $favoriteCount = 0;
         if ($this->access->hasFeatureAccess($tenant, $user, $course, 'smarttrainer')) {
             $favoriteCount = DB::table('favorite')->where('tenant_id', $tenant->id)->where('user_id', $user->id)
-                ->whereIn('question_id', $this->access->validQuestionIds($course))->count();
+                ->whereIn('question_id', $this->access->accessibleQuestionIds($tenant, $user, $course))->count();
         }
 
         $navigationTasks = $hasNavigation ? $course->navigationTasks()->with('questions')->get() : collect();
@@ -253,7 +253,7 @@ class CourseController extends Controller
         $user = $request->user();
         $course = $this->access->require($tenant, $user, $courseId, 'smarttrainer');
         $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get();
-        $questionIds = $this->access->validQuestionIds($course);
+        $questionIds = $this->access->accessibleQuestionIds($tenant, $user, $course);
         $own = $progress->whereIn('question_id', $questionIds);
 
         return response()->json(['data' => [
@@ -270,7 +270,7 @@ class CourseController extends Controller
     {
         $tenant = $this->tenantContext->tenant();
 
-        return $this->progress->moduleKategorieBreakdown($course, $tenant, request()->user())
+        return $this->progress->moduleKategorieBreakdown($course, $tenant, request()->user(), $this->access->accessibleQuestionIds($tenant, request()->user(), $course))
             ->values()->map(fn ($group, $i) => [
                 'id' => $group['module']->id,
                 'name' => $group['module']->name,
@@ -291,7 +291,7 @@ class CourseController extends Controller
         $tenant = $this->tenantContext->tenant();
         $user = request()->user();
         $canLearn = $this->access->hasFeatureAccess($tenant, $user, $course, 'smarttrainer');
-        $questionIds = $canLearn ? $this->access->validQuestionIds($course) : collect();
+        $questionIds = $canLearn ? $this->access->accessibleQuestionIds($tenant, $user, $course) : collect();
         $ownProgress = $progress->whereIn('question_id', $questionIds->all());
         $total = $questionIds->count();
         $mastered = $ownProgress->where('learning_state', 'gefestigt')->count();
