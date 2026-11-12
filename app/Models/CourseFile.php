@@ -14,7 +14,7 @@ class CourseFile extends Model
 
     protected $fillable = [
         'course_id', 'category', 'section_key', 'title', 'description', 'storage_path',
-        'mime_type', 'size_bytes', 'required_capability', 'sort_order', 'published',
+        'mime_type', 'size_bytes', 'required_capability', 'sort_order', 'published', 'source_key',
     ];
 
     protected function casts(): array
