@@ -22,13 +22,19 @@ class PraxisController extends Controller
         $user = $request->user();
         $course = $this->access->require($tenant, $user, $courseId, 'praxis');
         $orderedTasks = $course->praxisTasks()->where('active', true)->with('media')->orderBy('sort_order')->orderBy('id')->get();
-        $tasks = $this->access->limitItems($tenant, $user, $course, 'praxis', $orderedTasks);
+        $allowedIds = $this->access->limitItems($tenant, $user, $course, 'praxis', $orderedTasks)->pluck('id')->flip();
+        $tasks = $orderedTasks;
         $progress = PraxisProgress::where('tenant_id', $tenant->id)->where('user_id', $user->id)
             ->whereIn('praxis_task_id', $tasks->pluck('id'))->get()->keyBy('praxis_task_id');
 
         $categories = [];
         $known = 0;
         foreach ($tasks as $task) {
+            if (! $allowedIds->has($task->id)) {
+                $categories[$task->kategorie] ??= ['name' => $task->kategorie, 'known_count' => 0, 'cards' => []];
+                $categories[$task->kategorie]['cards'][] = ['id' => (string) $task->id, 'title' => $task->unterkategorie, 'locked' => true];
+                continue;
+            }
             $state = $progress->get($task->id);
             $status = $state?->status ?: ($state?->completed ? 'known' : 'open');
             $isKnown = $status === 'known';
