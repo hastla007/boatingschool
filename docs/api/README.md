@@ -7,7 +7,7 @@ dieselben.
 
 | Datei | Inhalt |
 |---|---|
-| `docs/api/openapi-mobile-v1.yaml` | Vertrag (OpenAPI 3.1), alle 48 Endpunkte |
+| `docs/api/openapi-mobile-v1.yaml` | Vertrag (OpenAPI 3.1), alle 51 Endpunkte |
 | `routes/api.php` | Routen (Präfix `/api/v1`) |
 | `app/Http/Controllers/Api/V1/` | Controller je Bereich |
 | `app/Api/` | Tokens, Fehlerformat, Ausgabeformate |
@@ -30,6 +30,17 @@ php artisan mobile-api:import-faqs storage/app/import/mobile-faqs.json
 Der Import aktualisiert Einträge über stabile Quellschlüssel, erhält gefilterte
 HTML-Antworten und löscht keine Datensätze, die im Export fehlen. Die FAQ-API
 gibt nur veröffentlichte Fragen für freigeschaltete Kurse aus.
+
+### Health und synchronisierte App-Einstellungen
+
+* `GET /health` ist ohne Anmeldung erreichbar und liefert API-Version,
+  Status und Serverzeit.
+* `GET /me/settings` und `PUT /me/settings` synchronisieren
+  benutzerspezifische App-Einstellungen über Geräte hinweg. Antworten
+  enthalten eine monoton steigende `version` und den passenden `ETag`.
+  Schreibzugriffe können `If-Match: "<version>"` oder
+  `expected_version` mitsenden. Bei einem Versionskonflikt antwortet die API
+  mit 409 `VERSION_CONFLICT` und dem aktuellen Stand.
 
 ---
 
