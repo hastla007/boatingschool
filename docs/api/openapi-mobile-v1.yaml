@@ -548,6 +548,45 @@ paths:
         '404': {$ref: '#/components/responses/Problem'}
 
   # ---------------------------------------------------------- Favorites
+  /courses/{courseId}/mistakes:
+    get:
+      tags: [Trainer]
+      operationId: listCourseMistakes
+      summary: Falsch beantwortete Fragen des Kurses
+      description: Gibt aktuell gültige Kursfragen mit mindestens einer falschen Antwort zurück, nach letzter Lernaktivität absteigend. Favoriten- und Sammlungsangaben beziehen sich nur auf den angemeldeten Nutzer.
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/CourseId'}
+      responses:
+        '200':
+          description: Fehlerliste
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      required: [question_id, context, wrong, favorite, collection_ids, official_number, text, module, topic, saved_at, created_at]
+                      properties:
+                        question_id: {type: string, format: uuid}
+                        context: {type: string, const: smart_learning}
+                        wrong: {type: boolean, const: true}
+                        favorite: {type: boolean}
+                        collection_id: {type: [string, 'null']}
+                        collection_ids: {type: array, items: {type: string, format: uuid}}
+                        official_number: {type: [string, 'null']}
+                        text: {type: string}
+                        module: {type: string}
+                        topic: {type: [string, 'null']}
+                        saved_at: {type: [string, 'null'], format: date-time}
+                        created_at: {type: [string, 'null'], format: date-time, deprecated: true}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
   /courses/{courseId}/favorites:
     get:
       tags: [Favorites]
