@@ -43,7 +43,7 @@ class WebSessionController extends Controller
             throw new ApiProblem(422, 'VALIDATION_FAILED', 'Eingaben ungültig', 'Erlaubt sind nur Seiten im Lernbereich dieser Website.');
         }
 
-        $apiSession = $request->attributes->get('api_session');
+        ApiMobileWebSession::where('user_id', $user->id)->where('created_at', '<', now()->subDay())->delete();\n\n        $apiSession = $request->attributes->get('api_session');
         if (! $apiSession || $apiSession->user_id !== $user->id || $apiSession->revoked_at
             || $apiSession->refresh_expires_at->isPast() || $apiSession->max_expires_at->isPast()) {
             throw new ApiProblem(401, 'UNAUTHENTICATED', 'Sitzung abgelaufen', 'Bitte erneut anmelden.');
