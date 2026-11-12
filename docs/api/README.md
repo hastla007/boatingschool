@@ -7,7 +7,7 @@ dieselben.
 
 | Datei | Inhalt |
 |---|---|
-| `docs/api/openapi-mobile-v1.yaml` | Vertrag (OpenAPI 3.1), alle 59 Endpunkte |
+| `docs/api/openapi-mobile-v1.yaml` | Vertrag (OpenAPI 3.1), alle 60 Endpunkte |
 | `routes/api.php` | Routen (Präfix `/api/v1`) |
 | `app/Http/Controllers/Api/V1/` | Controller je Bereich |
 | `app/Api/` | Tokens, Fehlerformat, Ausgabeformate |
@@ -80,7 +80,7 @@ Design-Übersicht. Grundlage war jeweils der tatsächliche Stand der Plattform.
 | Login mit Schule | Schule beim Login nötig | Login ohne Schule; die Antwort listet die Mitgliedschaften | Ein Konto kann bei mehreren Schulen lernen |
 | Passwortlänge | mind. 12 | mind. 10 (`Password::defaults()` der Plattform) | Gleiche Regel wie im Web |
 | Favoriten | eine Sammlung je Favorit | `collection_ids` (mehrere Sammlungen) plus nicht löschbare Standard-Sammlung (`COLLECTION_NOT_DELETABLE`) | So ist das Datenmodell im Web |
-| Offene Fragen (FKN/SKN) | fehlten | `answer_selection = self_assessment`, Musterantwort aufdecken, `known` true/false; in der Prüfung erst `…/reveal`, dann Antwort | Sonst wären FKN/SKN nicht nutzbar |
+| Offene Fragen (FKN/SKN) | fehlten | `answer_selection = self_assessment`, `answer_token` in `GET …/trainer/next`, `POST …/trainer/reveal`, danach `known` true/false speichern | Antwort bleibt bis zum ausdrücklichen Aufdecken verborgen |
 | Navigationsaufgabe in der Prüfung (SBF See) | fehlte | `PUT /exams/{id}/navigation` und `POST …/navigation/assessment`; eigenes Minimum 7/9 | Prüfung wäre sonst nie bestanden |
 | Navigationstrainer | nur Lesen | `PUT …/parts/{id}/answer` plus WP-kompatibles `POST …/parts/{id}` mit `correct`/`partly`/`wrong`, Antwortspeicherung und automatischer Prüfung; gesperrt, solange die Aufgabe in einer laufenden Prüfung ist | Gleicher Funktionsumfang und zusätzlicher Routen-Alias für die App |
 | Prüfungsstart | `mode: official_simulation` | entfällt; `paper_id` bei Kursen mit festen Bögen, sonst Zufallsprüfung | Bögen sind die amtlichen Fragebögen |
