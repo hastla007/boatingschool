@@ -172,6 +172,11 @@ class CourseController extends Controller
         $deviceAvailable = Geraetesimulation::availableFor($user, $course);
         $deviceCatalogs = Geraetesimulation::catalogsFor($course);
         $deviceLessons = Geraetesimulation::lessonsForBrowser($deviceCatalogs);
+        $offerCapability = collect($summary['capabilities'])->reject(fn ($capability) => $capability === 'favorites')
+            ->first(fn ($capability) => ! ($summary['features'][$capability]['available'] ?? false), 'smarttrainer');
+        $offers = $summary['webshop_url'] ? [
+            $offerCapability => [['name' => $course->name, 'url' => $summary['webshop_url'], 'price' => '']],
+        ] : [];
 
         return response()->json(['data' => $summary + [
             'modules_count' => $course->modules->count(),
@@ -183,7 +188,7 @@ class CourseController extends Controller
                 'video' => ['lessons' => $hasVideo ? $videoLessons->count() : 0, 'completed' => $videoCompleted],
                 'radio' => ['texts' => $radioTexts, 'vocabulary' => $radioVocabulary, 'practice' => $radioPractice, 'device' => $deviceAvailable ? count($deviceLessons) : 0],
             ],
-            'offers' => (object) [],
+            'offers' => (object) $offers,
             'downloads' => $files->where('category', 'download')->map($fileRef)->values(),
             'section_files' => (object) $sections,
             'charts' => $files->where('category', 'chart')->map(fn (CourseFile $file) => ['code' => $file->section_key ?: $file->id] + $fileRef($file))->values(),
