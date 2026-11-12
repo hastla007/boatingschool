@@ -15,7 +15,12 @@ class VideoModule extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['course_id', 'title', 'sort_order'];
+    protected $fillable = ['course_id', 'title', 'sort_order', 'module_code', 'group_label'];
+
+    public function accessCode(): string
+    {
+        return (string) ($this->module_code ?: $this->title);
+    }
 
     public function course(): BelongsTo
     {
