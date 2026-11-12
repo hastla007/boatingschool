@@ -38,11 +38,11 @@ class VideoController extends Controller
         $progress = $this->progressFor($request, $orderedLessons);
         $allLocked = fn (VideoLesson $lesson) => ! $allowedFirstItems->has($lesson->id)
             || $this->access->isDripLocked($tenant, $user, $course, 'video', (string) $lesson->module->title);
-        $unlockedIds = $orderedLessons->reject($allLocked)->pluck('id')->flip();
-        $nextLesson = $orderedLessons->first(fn (VideoLesson $lesson) => $lesson->module->title !== 'Knoten'
+        $moduleTitles = $modules->mapWithKeys(fn (VideoModule $module) => [$module->id => $module->title]);
+        $nextLesson = $orderedLessons->first(fn (VideoLesson $lesson) => $moduleTitles->get($lesson->video_module_id) !== 'Knoten'
             && ! $allLocked($lesson) && ! (bool) ($progress->get($lesson->id)?->completed ?? false));
 
-        return response()->json(['data' => $modules->values()->map(function (VideoModule $m, int $i) use ($progress, $allowedIds, $tenant, $user, $course) {
+        return response()->json(['data' => $modules->values()->map(function (VideoModule $m, int $i) use ($progress, $allLocked, $tenant, $user, $course) {
             $lessons = $m->lessons->values();
             return [
                 'id' => $m->id,
@@ -55,7 +55,6 @@ class VideoController extends Controller
                 'lessons' => $lessons->map(function (VideoLesson $lesson) use ($progress, $allLocked) {
                     $item = $this->lesson($lesson, $progress->get($lesson->id), false);
                     $item['locked'] = $allLocked($lesson);
-                    $item['quiz_count'] = $lesson->questions()->count();
                     return $item;
                 })->values(),
             ];
