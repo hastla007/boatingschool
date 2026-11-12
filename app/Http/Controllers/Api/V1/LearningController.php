@@ -45,7 +45,7 @@ class LearningController extends Controller
         ]);
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
-        $course = $this->access->require($tenant, $user, $courseId);
+        $course = $this->access->require($tenant, $user, $courseId, 'smarttrainer');
         $mode = $validated['mode'] ?? 'smarttrainer';
         $questionIds = isset($validated['question_ids']) ? array_values(array_filter(explode(',', $validated['question_ids']))) : null;
         // Review-Runde 13: eine Favoriten-Sammlung üben.
@@ -93,7 +93,7 @@ class LearningController extends Controller
         $validated = $request->validate(['answer_token' => ['required', 'uuid']]);
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
-        $course = $this->access->require($tenant, $user, $courseId);
+        $course = $this->access->require($tenant, $user, $courseId, 'smarttrainer');
         $revision = ContentQuestionRevision::with('answers')->find($validated['answer_token']);
         if (! $revision || $revision->editorial_status !== 'published') {
             throw ApiProblem::notFound('Frage');
@@ -129,7 +129,7 @@ class LearningController extends Controller
         ]);
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
-        $course = $this->access->require($tenant, $user, $courseId);
+        $course = $this->access->require($tenant, $user, $courseId, 'smarttrainer');
 
         $revision = ContentQuestionRevision::find($validated['revision_id']);
         if (! $revision || $revision->question_id !== $validated['question_id']) {
@@ -174,7 +174,7 @@ class LearningController extends Controller
     {
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
-        $course = $this->access->require($tenant, $user, $courseId);
+        $course = $this->access->require($tenant, $user, $courseId, 'smarttrainer');
         $attempt = Attempt::where('id', $attemptId)->where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)->first();
         if (! $attempt) {
             throw ApiProblem::notFound('Versuch');
