@@ -368,6 +368,72 @@ paths:
         '204': {description: 'Abgemeldet'}
         '404': {$ref: '#/components/responses/Problem'}
 
+  /me/deletion-request:
+    post:
+      tags: [Privacy]
+      operationId: requestAccountDeletion
+      summary: Kontolöschung beantragen
+      description: >-
+        Legt einen Löschantrag an und sendet eine Bestätigungsmail. Ein bestätigter Antrag
+        wird durch die Bootsschule bearbeitet; die API löscht das Konto nicht sofort.
+        Wiederholte Anträge liefern den vorhandenen offenen oder bestätigten Antrag zurück.
+      parameters:
+        - {$ref: '#/components/parameters/IdempotencyKey'}
+      responses:
+        '202':
+          description: Antrag angelegt oder bereits vorhanden
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [request_id, status, already_requested, message]
+                    properties:
+                      request_id: {type: string, format: uuid}
+                      status: {type: string, enum: [pending_confirmation, confirmed]}
+                      already_requested: {type: boolean}
+                      message: {type: string}
+        '401': {$ref: '#/components/responses/Problem'}
+        '429': {$ref: '#/components/responses/Problem'}
+  /me/deletion-request/confirm:
+    post:
+      tags: [Privacy]
+      operationId: confirmAccountDeletionRequest
+      summary: Löschantrag aus der Bestätigungsmail bestätigen
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [request_id, confirm_key]
+              properties:
+                request_id: {type: string, format: uuid}
+                confirm_key: {type: string, maxLength: 100}
+      responses:
+        '200':
+          description: Löschantrag bestätigt
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [request_id, status, already_requested, message]
+                    properties:
+                      request_id: {type: string, format: uuid}
+                      status: {type: string, enum: [pending_confirmation, confirmed]}
+                      already_requested: {type: boolean}
+                      message: {type: string}
+        '422': {$ref: '#/components/responses/Problem'}
+        '429': {$ref: '#/components/responses/Problem'}
+
   # ------------------------------------------------------------ Courses
   /files/{fileId}:
     get:
