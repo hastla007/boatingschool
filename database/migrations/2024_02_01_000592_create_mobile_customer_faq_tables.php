@@ -19,6 +19,7 @@ return new class extends Migration
             $table->string('slug', 191);
             $table->integer('sort_order')->default(0);
             $table->unique(['course_code', 'slug']);
+            $table->index('parent_id');
             $table->index(['course_code', 'parent_id', 'sort_order']);
         });
         // Create the table and its primary key before adding the self-reference.
@@ -42,6 +43,7 @@ return new class extends Migration
             $table->foreign('faq_id')->references('id')->on('customer_faq')->cascadeOnDelete();
             $table->integer('sort_order')->default(0);
             $table->primary(['category_id', 'faq_id']);
+            $table->index('faq_id');
         });
         if (AppRoleGrants::roleExistsOrWarn()) {
             DB::statement('GRANT SELECT, INSERT, UPDATE, DELETE ON customer_faq_category, customer_faq, customer_faq_category_item TO '.AppRoleGrants::quotedRole());
