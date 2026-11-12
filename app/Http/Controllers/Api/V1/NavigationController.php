@@ -30,7 +30,8 @@ class NavigationController extends Controller
     {
         $course = $this->access->require($this->tenantContext->tenant(), $request->user(), $courseId, 'navigation');
         $orderedTasks = $course->navigationTasks()->orderBy('sort_order')->orderBy('task_number')->with('questions')->get();
-        $tasks = $this->access->limitItems($this->tenantContext->tenant(), $request->user(), $course, 'navigation', $orderedTasks);
+        $allowedIds = $this->access->limitItems($this->tenantContext->tenant(), $request->user(), $course, 'navigation', $orderedTasks)->pluck('id')->flip();
+        $tasks = $orderedTasks;
         $progress = $this->progress($request, $tasks);
         // Review-Runde 13: offene Prüfungen einmal laden statt je Aufgabe.
         $lockedTaskIds = ExamSession::openForUserAcrossTenants($request->user()->id)->pluck('navigation_task_id')->filter()->flip();
@@ -39,7 +40,7 @@ class NavigationController extends Controller
         $page = max(1, (int) $request->query('page', 1));
 
         return response()->json([
-            'data' => $tasks->slice(($page - 1) * $perPage, $perPage)->values()->map(fn (NavigationTask $t) => $this->summary($t, $progress, $lockedTaskIds->has($t->id))),
+            'data' => $tasks->slice(($page - 1) * $perPage, $perPage)->values()->map(fn (NavigationTask $t) => $this->summary($t, $progress, $lockedTaskIds->has($t->id)) + ['locked' => ! $allowedIds->has($t->id)]),
             'meta' => ['pagination' => ['page' => $page, 'per_page' => $perPage, 'total' => $tasks->count(), 'last_page' => max(1, (int) ceil($tasks->count() / $perPage))]],
         ]);
     }
