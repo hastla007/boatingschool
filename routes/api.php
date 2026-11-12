@@ -96,6 +96,7 @@ Route::middleware('api.auth')->group(function () {
         Route::get('/courses/{courseId}/navigation-tasks', [NavigationController::class, 'index'])->whereUuid('courseId');
         Route::get('/navigation-tasks/{taskId}', [NavigationController::class, 'show'])->whereUuid('taskId');
         Route::put('/navigation-tasks/{taskId}/parts/{partId}/answer', [NavigationController::class, 'answer'])->whereUuid(['taskId', 'partId']);
+        Route::post('/navigation-tasks/{taskId}/parts/{partId}', [NavigationController::class, 'answerCompatible'])->whereUuid(['taskId', 'partId']);
 
         // Zugangscode einlösen (nach dem Kauf im externen Webshop).
         Route::post('/coupons/redeem', [CouponController::class, 'redeem'])->middleware(['throttle:10,1,api-coupons', 'api.idempotent']);
