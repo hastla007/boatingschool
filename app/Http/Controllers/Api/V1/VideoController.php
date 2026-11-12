@@ -36,9 +36,9 @@ class VideoController extends Controller
         $user = $request->user();
         $allowedFirstItems = $this->access->limitItems($tenant, $user, $course, 'video', $orderedLessons)->pluck('id')->flip();
         $progress = $this->progressFor($request, $orderedLessons);
-        $allLocked = fn (VideoLesson $lesson) => ! $allowedFirstItems->has($lesson->id)
-            || $this->access->isDripLocked($tenant, $user, $course, 'video', (string) $lesson->module->title);
         $moduleTitles = $modules->mapWithKeys(fn (VideoModule $module) => [$module->id => $module->title]);
+        $allLocked = fn (VideoLesson $lesson) => ! $allowedFirstItems->has($lesson->id)
+            || $this->access->isDripLocked($tenant, $user, $course, 'video', (string) $moduleTitles->get($lesson->video_module_id));
         $nextLesson = $orderedLessons->first(fn (VideoLesson $lesson) => $moduleTitles->get($lesson->video_module_id) !== 'Knoten'
             && ! $allLocked($lesson) && ! (bool) ($progress->get($lesson->id)?->completed ?? false));
 
