@@ -17,7 +17,7 @@ class ConsumeMobileWebSession
 {
     public function handle(Request $request, \\Closure $next): Response
     {
-        $code = (string) $request->query(WebSessionController::CODE_PARAM, '');
+        if (! $request->isMethod('GET')) {\n            return $next($request);\n        }\n\n        $code = (string) $request->query(WebSessionController::CODE_PARAM, '');
         if ($code === '') {
             return $next($request);
         }
@@ -56,7 +56,7 @@ class ConsumeMobileWebSession
         $verifierValid = preg_match('/^bpv_[A-Za-z0-9_-]{43}$/', $verifier) === 1
             && hash_equals((string) $record->verifier_hash, hash('sha256', $verifier));
         $privileged = $user && ((bool) $user->is_superadmin
-            || \\App\\Models\\TenantUser::on('pgsql_admin')->where('user_id', $user->id)
+            || \\App\\Models\\TenantUser::on('pgsql_admin')->withoutGlobalScopes()->where('user_id', $user->id)
                 ->whereIn('role', ['owner', 'admin', 'instructor'])->exists());
 
         if (! $session || ! $user || ! $verifierValid || $privileged) {
