@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\CourseAccessRule;
 use App\Models\CourseDefinition;
 use App\Models\Tenant;
+use App\Models\VideoModule;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -61,6 +62,9 @@ class ImportMobileAccessRules extends Command
                 $type = (string) ($row['access_type'] ?? '');
                 $moduleCode = isset($row['module_code']) ? trim((string) $row['module_code']) : null;
                 $limit = $row['limit_value'] ?? null;
+                $moduleTitle = isset($row['module_title']) ? trim((string) $row['module_title']) : null;
+                $moduleGroup = isset($row['module_group']) ? trim((string) $row['module_group']) : null;
+                $moduleSortOrder = isset($row['module_sort_order']) ? (int) $row['module_sort_order'] : null;
 
                 if ($tenantSlug === '' || $courseCode === '' || ! in_array($feature, self::FEATURES, true)) {
                     throw new RuntimeException('Regel '.($index + 1).' benötigt tenant_slug, course_code und einen bekannten feature_code.');
@@ -99,11 +103,37 @@ class ImportMobileAccessRules extends Command
                     'valid_from' => $this->date($row['valid_from'] ?? null, $index),
                     'valid_until' => $this->date($row['valid_until'] ?? null, $index),
                     'source_key' => $sourceKey,
+                    'module_title' => $moduleTitle ?: null,
+                    'module_group' => $moduleGroup ?: null,
+                    'module_sort_order' => $moduleSortOrder,
                 ];
             }
 
             DB::transaction(function () use ($records): void {
                 foreach ($records as $record) {
+                    if ($record['feature_code'] === 'video_course' && $record['access_type'] === 'drip') {
+                        $moduleTitle = $record['module_title'] ?? null;
+                        $moduleQuery = VideoModule::where('course_id', $record['course_id']);
+                        if ($moduleTitle !== null) {
+                            $moduleQuery->where('title', $moduleTitle);
+                            if ($record['module_sort_order'] !== null) {
+                                $moduleQuery->where('sort_order', $record['module_sort_order']);
+                            }
+                            $videoModules = $moduleQuery->get();
+                            if ($videoModules->count() !== 1) {
+                                throw new RuntimeException('Video-Drip-Regel '.$record['source_key'].': Zielkapitel nicht eindeutig gefunden; Videokapitel zuerst importieren oder Titel/Reihenfolge zuordnen.');
+                            }
+                            $videoModule = $videoModules->first();
+                            $videoModule->module_code = $record['module_code'];
+                            if ($record['module_group'] !== null) {
+                                $videoModule->group_label = mb_substr($record['module_group'], 0, 120);
+                            }
+                            $videoModule->save();
+                        } elseif (! $moduleQuery->where('module_code', $record['module_code'])->exists()) {
+                            throw new RuntimeException('Video-Drip-Regel '.$record['source_key'].': module_title fehlt und das Originalkapitel besitzt noch keinen module_code.');
+                        }
+                    }
+                    unset($record['module_title'], $record['module_group'], $record['module_sort_order']);
                     CourseAccessRule::updateOrCreate(
                         ['tenant_id' => $record['tenant_id'], 'source_key' => $record['source_key']],
                         $record,
