@@ -53,7 +53,7 @@ class ConsumeMobileWebSession
             ->where('max_expires_at', '>', now())
             ->first();
         $user = User::on('pgsql_admin')->whereKey($record->user_id)->where('status', 'active')->first();
-        $verifierValid = preg_match('/^bsv_[A-Za-z0-9_-]{43}$/', $verifier) === 1
+        $verifierValid = preg_match('/^bpv_[A-Za-z0-9_-]{43}$/', $verifier) === 1
             && hash_equals((string) $record->verifier_hash, hash('sha256', $verifier));
         $privileged = $user && ((bool) $user->is_superadmin
             || \\App\\Models\\TenantUser::on('pgsql_admin')->where('user_id', $user->id)
