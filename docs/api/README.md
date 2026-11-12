@@ -7,7 +7,7 @@ dieselben.
 
 | Datei | Inhalt |
 |---|---|
-| `docs/api/openapi-mobile-v1.yaml` | Vertrag (OpenAPI 3.1), alle 51 Endpunkte |
+| `docs/api/openapi-mobile-v1.yaml` | Vertrag (OpenAPI 3.1), alle 52 Endpunkte |
 | `routes/api.php` | Routen (Präfix `/api/v1`) |
 | `app/Http/Controllers/Api/V1/` | Controller je Bereich |
 | `app/Api/` | Tokens, Fehlerformat, Ausgabeformate |
@@ -30,6 +30,8 @@ php artisan mobile-api:import-faqs storage/app/import/mobile-faqs.json
 Der Import aktualisiert Einträge über stabile Quellschlüssel, erhält gefilterte
 HTML-Antworten und löscht keine Datensätze, die im Export fehlen. Die FAQ-API
 gibt nur veröffentlichte Fragen für freigeschaltete Kurse aus.
+
+`GET /tips` liefert aktive Tipps und Tricks nach Kategorie. Die Inhalte sind plattformweit, erfordern aber den angemeldeten Schulkontext; ein einzelner Kurszugang ist nicht nötig. HTML, Text und sichere Links stehen gemeinsam zur Verfügung.
 
 ### Health und synchronisierte App-Einstellungen
 
