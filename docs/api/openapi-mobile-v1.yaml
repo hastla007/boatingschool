@@ -521,6 +521,8 @@ paths:
     get:
       tags: [Courses]
       operationId: getCourse
+      summary: Kursdetails auch bei gesperrtem Zugang
+      description: Öffentliche Kursmetadaten sind für veröffentlichte, von der Schule angebotene Kurse abrufbar; geschützte Lerninhalte bleiben zugangspflichtig.
       parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/CourseId'}]
       responses:
         '200':
