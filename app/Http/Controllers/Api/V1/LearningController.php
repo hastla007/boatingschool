@@ -15,6 +15,7 @@ use App\Models\FavoriteCollectionItem;
 use App\Models\Progress;
 use App\Services\LearningFlow;
 use App\Support\TenantContext;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -79,6 +80,7 @@ class LearningController extends Controller
 
         return response()->json(['data' => [
             'question' => $question,
+            'answer_token' => $revision->id,
             'mode' => $mode,
             'selection_reason' => $next['reason'] ?? null,
             'is_favorite' => Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)
@@ -86,6 +88,38 @@ class LearningController extends Controller
             'learning_state' => $progress?->learning_state ?? 'neu',
             'streak' => ['current' => min((int) ($progress?->current_streak ?? 0), 3), 'required' => 3],
         ]]);
+    }
+
+    /**
+     * WP-compatible reveal route for open questions. The UUID token is the delivered revision ID;
+     * course access and course membership are rechecked on every request.
+     */
+    public function reveal(Request $request, string $courseId): JsonResponse
+    {
+        $validated = $request->validate(['answer_token' => ['required', 'uuid']]);
+        $tenant = $this->tenantContext->tenant();
+        $user = $request->user();
+        $course = $this->access->require($tenant, $user, $courseId);
+        $revision = ContentQuestionRevision::with('answers')->find($validated['answer_token']);
+        if (! $revision || $revision->editorial_status !== 'published') {
+            throw ApiProblem::notFound('Frage');
+        }
+
+        $belongsToCourse = DB::table('course_module')
+            ->join('module_content', 'module_content.module_id', '=', 'course_module.module_id')
+            ->where('course_module.course_id', $course->id)
+            ->where('module_content.question_id', $revision->question_id)
+            ->exists();
+        if (! $belongsToCourse) {
+            throw ApiProblem::notFound('Frage');
+        }
+        if ($revision->question_type !== 'open_text') {
+            throw new ApiProblem(422, 'VALIDATION_FAILED', 'Eingaben ungültig', null, [
+                'answer_token' => ['Nur offene Fragen haben eine aufzudeckende Musterantwort.'],
+            ]);
+        }
+
+        return response()->json(['data' => ['model_answer' => $revision->correctAnswer()?->answer_text]]);
     }
 
     public function submit(Request $request, string $courseId): JsonResponse
