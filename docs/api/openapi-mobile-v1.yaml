@@ -36,6 +36,7 @@ tags:
   - {name: Praxis}
   - {name: Radio}
   - {name: Groups}
+  - {name: Files}
   - {name: Tips}
   - {name: Coupons}
   - {name: Privacy}
@@ -368,6 +369,26 @@ paths:
         '404': {$ref: '#/components/responses/Problem'}
 
   # ------------------------------------------------------------ Courses
+  /files/{fileId}:
+    get:
+      tags: [Files]
+      operationId: downloadProtectedFile
+      summary: Geschützte Kursdatei oder Medienasset herunterladen
+      description: |
+        Kein Tenant-Header erforderlich. Die Datei wird nur ausgeliefert, wenn sie zu veröffentlichtem
+        Kursinhalt gehört, die Nutzungsrechte eine App-Auslieferung erlauben und das Konto in mindestens
+        einer Schule aktiven Zugang zu diesem Kurs hat. Unterstützt einen einzelnen HTTP-Range-Bereich;
+        ein If-Range-Header fordert die vollständige Datei an.
+      parameters:
+        - {in: path, name: fileId, required: true, schema: {type: string, format: uuid}}
+        - {in: header, name: Range, required: false, schema: {type: string, examples: ['bytes=1048576-']}}
+        - {in: header, name: If-Range, required: false, schema: {type: string}}
+      responses:
+        '200': {description: Vollständige Datei, content: {application/octet-stream: {schema: {type: string, contentMediaType: application/octet-stream}}}}
+        '206': {description: Angeforderter Teilbereich; Content-Range enthält Start, Ende und Dateigröße, content: {application/octet-stream: {schema: {type: string, contentMediaType: application/octet-stream}}}}
+        '401': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '416': {$ref: '#/components/responses/Problem'}
   /me/groups:
     get:
       tags: [Groups]
@@ -1516,7 +1537,7 @@ paths:
     post:
       tags: [Coupons]
       operationId: redeemCoupon
-      summary: Zugangscode einlösen (nach dem Kauf im externen Webshop)
+      summary: Zugangscode oder Gruppenbeitrittscode einlösen (Kurskauf, Verlängerung, Produkt oder Gruppenlizenz)
       description: |
         Unbekannte, gesperrte, abgelaufene und von anderen eingelöste Codes ergeben einheitlich
         422 `COUPON_INVALID`. Ein vom eigenen Konto in dieser Schule schon eingelöster Code
@@ -2334,7 +2355,9 @@ components:
       properties:
         redeemed: {type: boolean, const: true}
         already_redeemed: {type: boolean}
-        type: {type: string, enum: [course, course_renewal, product]}
+        type: {type: string, enum: [course, course_renewal, product, group_license]}
+        group_name: {type: [string, 'null']}
+        courses: {type: array, items: {type: object, properties: {course_id: {type: string, format: uuid}, code: {type: string}, name: {type: string}}}}
         course_id: {type: [string, 'null']}
         course_name: {type: [string, 'null']}
         entitlement: {oneOf: [{$ref: '#/components/schemas/Entitlement'}, {type: 'null'}]}
