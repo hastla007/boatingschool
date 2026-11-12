@@ -211,15 +211,14 @@ class CourseController extends Controller
         $lastActivity ??= $this->lastActivityByCourse($tenant->id, $user->id, $course->id);
         $capabilities = $this->access->capabilities($course);
         $access = $this->access->status($tenant, $user, $course, $activeEntitlement, $entitlements);
-        $features = collect($capabilities)->mapWithKeys(function (string $capability) use ($tenant, $user, $course): array {
-            $available = $this->entitlements->hasCapabilityAccess($tenant, $user, $course, $capability);
+        $features = collect($capabilities)->reject(fn (string $capability) => $capability === 'favorites')
+            ->mapWithKeys(function (string $capability) use ($tenant, $user, $course): array {
+                $available = $this->entitlements->hasCapabilityAccess($tenant, $user, $course, $capability);
 
-            return [$capability => ['available' => $available, 'full' => $available, 'limit' => null]];
-        })->all();
-        if (in_array('smarttrainer', $capabilities, true)) {
-            $available = $this->entitlements->hasCapabilityAccess($tenant, $user, $course, 'smarttrainer');
-            $features['explanations'] = ['available' => $available, 'full' => $available, 'limit' => null];
-        }
+                return [$capability => ['available' => $available, 'full' => $available, 'limit' => null]];
+            })->all();
+        $explanations = $this->entitlements->hasCapabilityAccess($tenant, $user, $course, 'smarttrainer');
+        $features['explanations'] = ['available' => $explanations, 'full' => $explanations, 'limit' => null];
         $relation ??= $this->courseRelations->forCourses($tenant, $user, collect([$course]))[$course->code];
         $faqCount = $canLearn ? (int) DB::table('customer_faq_category_item as item')
             ->join('customer_faq_category as category', 'category.id', '=', 'item.category_id')
