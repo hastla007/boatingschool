@@ -5,6 +5,7 @@ namespace App\Api;
 use App\Models\ContentQuestion;
 use App\Models\CourseAccessRule;
 use App\Models\CourseDefinition;
+use App\Models\CourseFile;
 use App\Models\CourseWebshopLink;
 use App\Models\Entitlement;
 use App\Models\Tenant;
@@ -243,7 +244,7 @@ class CourseAccess
             ->filter(fn (Entitlement $entitlement) => $entitlement->capabilities === null
                 || in_array($entitlementCapability, $entitlement->capabilities, true))
             ->map(fn (Entitlement $entitlement) => $entitlement->valid_from ?: $entitlement->created_at)
-            ->filter(fn ($start) => $start !== null && $start <= $now);
+            ->filter(fn ($start) => $start !== null);
         $startedAt = $starts->isNotEmpty() ? Carbon::parse($starts->min()) : ($user->created_at ? Carbon::parse($user->created_at) : $now);
 
         return $startedAt->copy()->addDays((int) $rule->limit_value);
@@ -292,6 +293,7 @@ class CourseAccess
                 $course->navigationTasks()->exists() ? 'navigation' : null,
                 $course->praxisTasks()->exists() ? 'praxis' : null,
                 FunkTraining::catalogsFor($course) !== [] ? 'funk' : null,
+                $course->files()->where('category', 'downloads')->where('published', true)->exists() ? 'downloads' : null,
             ]));
         });
     }
