@@ -19,7 +19,7 @@ class PraxisProgress extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['tenant_id', 'user_id', 'praxis_task_id', 'completed', 'updated_at'];
+    protected $fillable = ['tenant_id', 'user_id', 'praxis_task_id', 'completed', 'status', 'updated_at'];
 
     protected function casts(): array
     {
