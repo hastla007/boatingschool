@@ -464,7 +464,7 @@ entscheidet aber nur anhand von `code`.
     ]
   }
   ```
-  Danach mit `php artisan app:import-mobile-access-rules /pfad/export.json` importieren. `tenant_slug` und `course_code` müssen auf die IDs im Original zeigen. Drip-Module verwenden den nativen Modulcode; für Videokapitel den Kapitel-Titel. Doppelte Regeln desselben Typs brauchen verschiedene `source_key`-Werte.
+  Danach mit `php artisan app:import-mobile-access-rules /pfad/export.json` importieren. `tenant_slug` und `course_code` müssen auf die IDs im Original zeigen. Drip-Module verwenden den nativen Modulcode. Für WordPress-Videokapitel muss `module_code` dem `video_module.source_id` entsprechen; der Kapitel-Titel ist nur ein Rückfallwert für bereits native Inhalte ohne Quell-ID. Doppelte Regeln desselben Typs brauchen verschiedene `source_key`-Werte.
 * **Downloads und Abschnittsdateien:** WordPress-Dateien zuerst in ein staging-Verzeichnis exportieren und dann mit einem Manifest registrieren:
   ```json
   {
