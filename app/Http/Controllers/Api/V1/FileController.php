@@ -44,9 +44,9 @@ class FileController extends Controller
             throw ApiProblem::notFound('Datei');
         }
         $size = (int) $disk->size($path);
-        $range = $this->parseRange($request->header('Range'), $size);
+        $range = $request->header('If-Range') ? null : $this->parseRange($request->header('Range'), $size);
         if ($range === false) {
-            throw new ApiProblem(416, 'RANGE_NOT_SATISFIABLE', 'Dateibereich ungültig', null, ['content_range' => 'bytes */'.$size]);
+            throw new ApiProblem(416, 'RANGE_NOT_SATISFIABLE', 'Dateibereich ungültig', null, headers: ['Content-Range' => 'bytes */'.$size, 'Accept-Ranges' => 'bytes']);
         }
         $start = $range[0] ?? 0;
         $end = $range[1] ?? max(0, $size - 1);
