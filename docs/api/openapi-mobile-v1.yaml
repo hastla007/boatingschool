@@ -1033,6 +1033,35 @@ paths:
         '403': {description: 'LINK_INVALID: Signatur falsch oder Link abgelaufen', content: {application/problem+json: {schema: {$ref: '#/components/schemas/Problem'}}}}
         '410': {$ref: '#/components/responses/Problem'}
 
+  /courses/{courseId}/faqs:
+    get:
+      tags: [Courses]
+      operationId: listCourseFaqs
+      summary: Veröffentliche Kunden-FAQs nach Kurs und Unterkategorie
+      parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/CourseId'}]
+      responses:
+        '200':
+          description: Gruppierte Kunden-FAQs
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items: {$ref: '#/components/schemas/CourseFaqGroup'}
+                  meta:
+                    type: object
+                    required: [course_id, groups, faqs]
+                    properties:
+                      course_id: {type: string, format: uuid}
+                      groups: {type: integer}
+                      faqs: {type: integer}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+
 components:
   securitySchemes:
     BearerAuth:
@@ -1584,3 +1613,46 @@ components:
         download_url_expires_at: {type: [string, 'null'], format: date-time}
         expires_at: {type: [string, 'null'], format: date-time}
         created_at: {type: string, format: date-time}
+    CourseFaq:
+      type: object
+      required: [id, question, answer_html, answer_text, links]
+      properties:
+        id: {type: string, format: uuid}
+        question: {type: string}
+        answer_html: {type: string}
+        answer_text: {type: string}
+        links:
+          type: array
+          items:
+            type: object
+            required: [url, text]
+            properties:
+              url: {type: string, format: uri}
+              text: {type: string}
+    CourseFaqGroup:
+      type: object
+      required: [id, key, name, slug, faqs, subcategories]
+      properties:
+        id: {type: string, format: uuid}
+        key: {type: string, description: 'WP/Laravel course code for this FAQ category'}
+        name: {type: string}
+        slug: {type: string}
+        faqs:
+          type: array
+          items: {$ref: '#/components/schemas/CourseFaq'}
+        subcategories:
+          type: array
+          items: {$ref: '#/components/schemas/CourseFaqSubcategory'}
+    CourseFaqSubcategory:
+      type: object
+      required: [id, name, slug, parent_id, depth, faqs]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+        slug: {type: string}
+        parent_id: {type: string, format: uuid}
+        depth: {type: integer}
+        faqs:
+          type: array
+          items: {$ref: '#/components/schemas/CourseFaq'}
+
