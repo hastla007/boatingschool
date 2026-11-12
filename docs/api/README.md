@@ -485,6 +485,37 @@ entscheidet aber nur anhand von `code`.
   `OpenApiContractTest` schlägt fehl, wenn Routen und OpenAPI-Datei
   auseinanderlaufen.
 
+### Übernahme aus dem neuesten WP-Branch
+
+Zuerst die WP-CLI-Exporte auf dem WP-Stand `claude/loving-euler-c7h553`
+erzeugen. Für jede Zielschule den passenden bestehenden `tenant_slug` verwenden:
+
+```sh
+wp bootspruefung export access-rules <tenant-slug> --output=/tmp/mobile-access.json
+wp bootspruefung export course-files <tenant-slug> --media-root=/tmp/mobile-media --output=/tmp/mobile-files.json
+wp bootspruefung export customer-faqs > storage/app/import/mobile-faqs.json
+```
+
+Nach dem Übertragen der Dateien ins Original und nach Ausführen der Datenbank-
+Migrationen importieren:
+
+```sh
+php artisan mobile-api:import-faqs storage/app/import/mobile-faqs.json
+php artisan app:import-mobile-access-rules /tmp/mobile-access.json
+php artisan app:import-mobile-course-files /tmp/mobile-files.json /tmp/mobile-media
+```
+
+Der FAQ-Import aktualisiert per Quellschlüssel. Regeln und Dateien werden
+idempotent importiert. Video-Drip-Regeln ordnen das WP-Kapitel über Titel und
+Reihenfolge einem nativen Kapitel zu; wenn das Kapitel fehlt oder mehrdeutig
+ist, bricht der Import ab, statt eine unwirksame Drip-Regel anzulegen.
+Der exportierte WP-Default `logged_in` wird angezeigt, aber nicht automatisch
+als Laufzeit-Standard gesetzt; siehe `MOBILE_API_DEFAULT_ACCESS` in Abschnitt 5.
+Der Import legt keine Schulen oder Nutzer an: der Mandant muss existieren und
+WP-Nutzerzugänge müssen separat zugeordnet werden.
+
+---
+
 ## 14. Nicht in v1
 
 * Offline-Modus und Synchronisation.
