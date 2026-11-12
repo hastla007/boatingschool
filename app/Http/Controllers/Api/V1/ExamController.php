@@ -236,7 +236,7 @@ class ExamController extends Controller
             throw $this->locked();
         }
 
-        return response()->json(['data' => ['question_id' => $sq->question_id, 'model_answer' => $revealed['answer_text']]]);
+        return response()->json(['data' => ['question_id' => ctype_digit($questionId) ? $questionId : $sq->question_id, 'model_answer' => $revealed['answer_text']]]);
     }
 
     /** Navigationsaufgabe abgeben (alle Teilantworten auf einmal, einmalig). */
