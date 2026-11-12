@@ -226,7 +226,6 @@ class RadioController extends Controller
             if ($category !== null && $category !== '' && $name !== $category) {
                 continue;
             }
-            $progress = $this->progress($request, RadioTrainingProgress::TYPE_VOCAB, array_column($items, 'key'));
             $items = $this->firstRadioItems($request, $course, $items)->all();
             $progress = $this->progress($request, RadioTrainingProgress::TYPE_VOCAB, array_column($items, 'key'));
             foreach ($items as $item) {
