@@ -33,6 +33,7 @@ class CourseAccess
         'praxis' => 'praxis_trainer',
         'funk' => 'radio_training',
         'explanations' => 'learning_explanations',
+        'downloads' => 'downloads',
     ];
 
     public static function cacheKey(string $what, CourseDefinition $course): string
