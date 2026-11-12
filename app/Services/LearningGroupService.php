@@ -42,7 +42,7 @@ class LearningGroupService
         $this->active($group);
         $userKey = 'learning-group-invite-user:'.$owner->id;
         if (RateLimiter::tooManyAttempts($userKey, 20)) {
-            throw new \\App\\Api\\ApiProblem(429, 'TOO_MANY_REQUESTS', 'Zu viele Einladungen', 'Bitte warte eine Stunde und versuche es erneut.');
+            throw new \App\Api\ApiProblem(429, 'TOO_MANY_REQUESTS', 'Zu viele Einladungen', 'Bitte warte eine Stunde und versuche es erneut.');
         }
         RateLimiter::hit($userKey, 3600);
         $emails = array_values(array_unique(array_map(fn ($email) => mb_strtolower(trim((string) $email)), $emails)));
