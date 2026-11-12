@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\ExamRegistrationController;
 use App\Http\Controllers\Api\V1\ExamController;
 use App\Http\Controllers\Api\V1\ExportController;
 use App\Http\Controllers\Api\V1\FavoriteController;
+use App\Http\Controllers\Api\V1\FileController;
 use App\Http\Controllers\Api\V1\GroupController;
 use App\Http\Controllers\Api\V1\LearningController;
 use App\Http\Controllers\Api\V1\PraxisController;
@@ -52,6 +53,7 @@ Route::middleware('api.auth')->group(function () {
     Route::get('/me/sessions', [AccountController::class, 'sessions']);
     Route::delete('/me/sessions', [AccountController::class, 'revokeOtherSessions']);
     Route::delete('/me/sessions/{sessionId}', [AccountController::class, 'revokeSession'])->whereUuid('sessionId');
+    Route::get('/files/{fileId}', [FileController::class, 'download'])->whereUuid('fileId')->name('api.v1.files.download');
 
     // Ab hier im Kontext einer Schule (X-Tenant-Slug + aktive Mitgliedschaft).
     Route::middleware(['api.tenant', 'throttle:240,1,api-tenant'])->group(function () {
