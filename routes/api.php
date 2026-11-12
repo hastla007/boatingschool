@@ -20,6 +20,7 @@ use Illuminate\Support\Facades\Route;
 */
 
 // Öffentlich (ohne Token).
+Route::get('/health', [AccountController::class, 'health'])->middleware('throttle:60,1,api-health');
 Route::get('/app/config', [AccountController::class, 'appConfig'])->middleware('throttle:60,1,api-config');
 Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:10,1,api-login');
 Route::post('/auth/two-factor', [AuthController::class, 'twoFactor'])->middleware('throttle:10,1,api-two-factor');
