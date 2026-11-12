@@ -17,7 +17,11 @@ class ConsumeMobileWebSession
 {
     public function handle(Request $request, \\Closure $next): Response
     {
-        if (! $request->isMethod('GET')) {\n            return $next($request);\n        }\n\n        $code = (string) $request->query(WebSessionController::CODE_PARAM, '');
+        if (! $request->isMethod('GET')) {
+            return $next($request);
+        }
+
+        $code = (string) $request->query(WebSessionController::CODE_PARAM, '');
         if ($code === '') {
             return $next($request);
         }
