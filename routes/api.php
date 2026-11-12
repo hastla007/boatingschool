@@ -37,6 +37,8 @@ Route::middleware('api.auth')->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::post('/auth/email/verification-notification', [AuthController::class, 'resendVerification'])->middleware('throttle:6,1,api-verification');
     Route::get('/me', [AccountController::class, 'me']);
+    Route::get('/me/settings', [AccountController::class, 'settings']);
+    Route::put('/me/settings', [AccountController::class, 'updateSettings']);
     Route::get('/me/sessions', [AccountController::class, 'sessions']);
     Route::delete('/me/sessions', [AccountController::class, 'revokeOtherSessions']);
     Route::delete('/me/sessions/{sessionId}', [AccountController::class, 'revokeSession'])->whereUuid('sessionId');
