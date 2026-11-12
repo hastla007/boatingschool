@@ -64,22 +64,52 @@ class CourseAccess
      */
     public function status(Tenant $tenant, User $user, CourseDefinition $course, ?Entitlement $active = null, ?Collection $preloaded = null): array
     {
-        $entitlement = $active ?? ($preloaded !== null
-            ? $preloaded->where('course_id', $course->id)->sortBy(fn (Entitlement $e) => [$e->status === 'active' ? 0 : 1, $e->valid_until ? -$e->valid_until->getTimestamp() : PHP_INT_MIN])->first()
-            : Entitlement::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)
-                ->orderByRaw("status = 'active' desc")->orderByRaw('valid_until desc nulls first')->first());
-        if (! $entitlement) {
-            return ['status' => 'not_granted', 'valid_from' => null, 'valid_until' => null];
+        $rows = $preloaded !== null
+            ? $preloaded->where('course_id', $course->id)->values()
+            : Entitlement::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)->get();
+        $now = now();
+        $valid = $rows->filter(fn (Entitlement $e) => $e->status === 'active'
+            && (! $e->valid_from || $e->valid_from <= $now)
+            && (! $e->valid_until || $e->valid_until > $now))->values();
+
+        if ($valid->isNotEmpty()) {
+            $status = 'active';
+            $froms = $valid->pluck('valid_from')->filter();
+            $unbounded = $valid->contains(fn (Entitlement $e) => $e->valid_until === null);
+            $until = $unbounded ? null : $valid->max('valid_until');
+        } else {
+            $froms = collect();
+            $until = null;
+            $statuses = $rows->map(function (Entitlement $e) use ($now) {
+                return $e->status === 'active' && $e->valid_until && $e->valid_until <= $now ? 'expired' : $e->status;
+            });
+            $status = 'not_granted';
+            foreach (['pending', 'suspended', 'expired', 'revoked'] as $candidate) {
+                if ($statuses->contains($candidate)) {
+                    $status = $candidate;
+                    break;
+                }
+            }
         }
-        $status = $entitlement->status;
-        if ($status === 'active' && $entitlement->valid_until && $entitlement->valid_until->isPast()) {
-            $status = 'expired';
-        }
+
+        $questionAccess = $valid->filter(fn (Entitlement $e) => $e->capabilities === null || in_array('smarttrainer', $e->capabilities, true));
+        $unboundedQuestionAccess = $questionAccess->contains(fn (Entitlement $e) => $e->valid_until === null);
+        $questionExpiry = $unboundedQuestionAccess ? null : $questionAccess->max('valid_until');
+        $expiresSoon = $questionExpiry !== null && $questionExpiry->lte($now->copy()->addDays(Entitlement::EXPIRY_WARNING_DAYS));
+        $renewUrl = $expiresSoon
+            ? \App\Models\CourseWebshopLink::where('tenant_id', $tenant->id)->where('course_id', $course->id)->value('url')
+            : null;
 
         return [
             'status' => $status,
-            'valid_from' => Present::time($entitlement->valid_from),
-            'valid_until' => Present::time($entitlement->valid_until),
+            'valid_from' => Present::time($froms->isNotEmpty() ? $froms->min() : null),
+            'valid_until' => Present::time($until),
+            'trial' => false,
+            'purchased' => $valid->isNotEmpty(),
+            'limits' => (object) [],
+            'expires_soon' => $expiresSoon,
+            'expires_at' => Present::time($questionExpiry),
+            'renew_url' => $renewUrl,
         ];
     }
 
