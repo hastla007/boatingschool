@@ -2050,7 +2050,10 @@ components:
         kind: {type: string, enum: [image, video, placeholder]}
         available: {type: boolean}
         label: {type: string}
+        alt: {type: [string, 'null']}
         url: {type: [string, 'null'], format: uri, description: 'Bei Platzhaltern immer null'}
+        file_id: {type: [string, 'null'], format: uuid}
+        download_url: {type: [string, 'null'], format: uri, description: Geschützter API-Download für Medien mit Lizenzrechten}
         mime_type: {type: [string, 'null']}
         duration_seconds: {type: [integer, 'null']}
         placeholder_reason: {type: [string, 'null'], enum: [awaiting_asset, unavailable, null]}
