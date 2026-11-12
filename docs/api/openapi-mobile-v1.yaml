@@ -2023,7 +2023,7 @@ components:
         description: {type: [string, 'null']}
         access: {$ref: '#/components/schemas/Entitlement'}
         progress: {$ref: '#/components/schemas/ProgressSummary'}
-        capabilities: {type: array, items: {type: string, enum: [smarttrainer, favorites, exam, video, navigation, praxis]}}
+        capabilities: {type: array, items: {type: string, enum: [smarttrainer, favorites, exam, video, navigation, praxis, funk]}}
         webshop_url: {type: [string, 'null'], format: uri}
         last_activity_at: {type: [string, 'null'], format: date-time, description: Letzte Antwort in diesem Kurs}
     Module:
