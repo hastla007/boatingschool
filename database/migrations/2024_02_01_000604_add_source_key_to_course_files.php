@@ -9,14 +9,15 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('course_file', function (Blueprint $table) {
-            $table->string('source_key', 160)->nullable()->unique();
+            $table->string('source_key', 160)->nullable();
+            $table->unique(['course_id', 'source_key']);
         });
     }
 
     public function down(): void
     {
         Schema::table('course_file', function (Blueprint $table) {
-            $table->dropUnique(['source_key']);
+            $table->dropUnique(['course_id', 'source_key']);
             $table->dropColumn('source_key');
         });
     }
