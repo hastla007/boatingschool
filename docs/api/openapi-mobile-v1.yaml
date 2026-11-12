@@ -34,6 +34,7 @@ tags:
   - {name: Videos}
   - {name: Navigation}
   - {name: Praxis}
+  - {name: Radio}
   - {name: Tips}
   - {name: Coupons}
   - {name: Privacy}
@@ -1056,6 +1057,189 @@ paths:
         '409': {$ref: '#/components/responses/Problem'}
 
   # ------------------------------------------------------------- Videos
+  /courses/{courseId}/radio:
+    get:
+      tags: [Radio]
+      operationId: getRadioOverview
+      summary: Übersicht der Funkübungen
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/CourseId'}
+      responses:
+        '200': {description: Funktrainer-Übersicht und Lernstand}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/radio/spelling:
+    get:
+      tags: [Radio]
+      operationId: getRadioSpelling
+      summary: Buchstabiertafel und Ziffern
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/CourseId'}
+      responses:
+        '200': {description: Buchstabiertafel}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/radio/texts/{textId}:
+    get:
+      tags: [Radio]
+      operationId: getRadioText
+      summary: Seefunktext, Diktat oder Buchstabierübung
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/CourseId'}
+        - {in: path, name: textId, required: true, schema: {type: string, maxLength: 40}}
+        - {in: query, name: direction, schema: {type: string, enum: [de-en, en-de], default: de-en}}
+      responses:
+        '200': {description: Funktext und gespeicherter Lernstand}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/radio/texts/{textId}/evaluate:
+    post:
+      tags: [Radio]
+      operationId: evaluateRadioText
+      summary: Mitschrift/Übersetzung auswerten und speichern
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/CourseId'}
+        - {in: path, name: textId, required: true, schema: {type: string, maxLength: 40}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, required: [direction], properties: {direction: {type: string, enum: [de-en, en-de]}, transcript: {type: [string, 'null'], maxLength: 5000}, translation: {type: [string, 'null'], maxLength: 5000}}}
+      responses:
+        '200': {description: Bewertung und Musterlösung}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/radio/texts/{textId}/done:
+    put:
+      tags: [Radio]
+      operationId: setRadioTextDone
+      summary: Seefunktext erledigt markieren
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/CourseId'}
+        - {in: path, name: textId, required: true, schema: {type: string, maxLength: 40}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, required: [done], properties: {done: {type: boolean}}}
+      responses:
+        '200': {description: Gespeicherter Status}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/radio/vocabulary:
+    get:
+      tags: [Radio]
+      operationId: listRadioVocabulary
+      summary: Vokabelkarten nach Katalog und Kategorie
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/CourseId'}
+        - {in: query, name: catalog, schema: {type: string, enum: [SRC, UBI]}}
+        - {in: query, name: category, schema: {type: string, maxLength: 191}}
+      responses:
+        '200': {description: Vokabelkarten und Lernstand}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/radio/vocabulary/{cardId}/answers:
+    post:
+      tags: [Radio]
+      operationId: answerRadioVocabulary
+      summary: Vokabel als gewusst/nicht gewusst bewerten
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/CourseId'}
+        - {in: path, name: cardId, required: true, schema: {type: string, maxLength: 40}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, required: [known], properties: {known: {type: boolean}, streak: {type: [integer, 'null'], minimum: 0}}}
+      responses:
+        '200': {description: Aktualisierter Lernstand}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/radio/practice:
+    get:
+      tags: [Radio]
+      operationId: listRadioPractice
+      summary: Funkpraxis-Aufgaben je Katalog
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/CourseId'}
+      responses:
+        '200': {description: Aufgabenlisten und Fortschritt}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/radio/practice/{scenarioId}:
+    get:
+      tags: [Radio]
+      operationId: getRadioPractice
+      summary: Funkpraxis-Aufgabe ohne Musterlösung
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/CourseId'}
+        - {in: path, name: scenarioId, required: true, schema: {type: string, maxLength: 40}}
+      responses:
+        '200': {description: Aufgabe und gespeicherte Antworten}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/radio/practice/{scenarioId}/evaluate:
+    post:
+      tags: [Radio]
+      operationId: evaluateRadioPractice
+      summary: Funkpraxis-Antworten auswerten
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/CourseId'}
+        - {in: path, name: scenarioId, required: true, schema: {type: string, maxLength: 40}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, required: [answers], properties: {answers: {type: object, additionalProperties: {type: [string, 'null'], maxLength: 5000}}}}
+      responses:
+        '200': {description: Prüfpunkte und Musterlösungen}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/radio/practice/{scenarioId}/done:
+    put:
+      tags: [Radio]
+      operationId: setRadioPracticeDone
+      summary: Funkpraxis-Aufgabe erledigt markieren
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/CourseId'}
+        - {in: path, name: scenarioId, required: true, schema: {type: string, maxLength: 40}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, required: [done], properties: {done: {type: boolean}}}
+      responses:
+        '200': {description: Gespeicherter Status}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/radio/samples:
+    get:
+      tags: [Radio]
+      operationId: listRadioSamples
+      summary: Musterlösungen der Funkpraxis
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/CourseId'}
+      responses:
+        '200': {description: Musterlösungen nach Katalog}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+
   /courses/{courseId}/videos:
     get:
       tags: [Videos]
