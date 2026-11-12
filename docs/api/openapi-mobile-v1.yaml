@@ -373,12 +373,12 @@ paths:
     get:
       tags: [Files]
       operationId: downloadProtectedFile
-      summary: Geschützte Kursdatei oder Medienasset herunterladen
+      summary: Geschützte Kursdatei oder Fragenmedium herunterladen
       description: |
-        Kein Tenant-Header erforderlich. Die Datei wird nur ausgeliefert, wenn sie zu veröffentlichtem
-        Kursinhalt gehört, die Nutzungsrechte eine App-Auslieferung erlauben und das Konto in mindestens
-        einer Schule aktiven Zugang zu diesem Kurs hat. Unterstützt einen einzelnen HTTP-Range-Bereich;
-        ein If-Range-Header fordert die vollständige Datei an.
+        Kein Tenant-Header erforderlich. Unterstützt veröffentlichte Einträge aus dem nativen Kursdatei-
+        Register sowie lizenzierte/veröffentlichte Medien an gültigen Fragen. Die passende Kursfähigkeit
+        muss aktiv sein; Dateien ohne Fähigkeitsbindung erfordern Vollzugang. Unterstützt einen einzelnen
+        HTTP-Range-Bereich; ein If-Range-Header fordert die vollständige Datei an.
       parameters:
         - {in: path, name: fileId, required: true, schema: {type: string, format: uuid}}
         - {in: header, name: Range, required: false, schema: {type: string, examples: ['bytes=1048576-']}}
@@ -2023,8 +2023,8 @@ components:
       type: object
       required: [available, full]
       properties:
-        available: {type: boolean}
-        full: {type: boolean}
+        available: {type: boolean, description: Die Funktion ist durch Vollzugang oder Gruppen-Teilzugang nutzbar}
+        full: {type: boolean, description: Der gesamte Funktionsumfang ist freigeschaltet}
         limit: {type: [integer, 'null']}
     CourseSummary:
       type: object
@@ -2040,7 +2040,7 @@ components:
         capabilities: {type: array, items: {type: string, enum: [smarttrainer, favorites, exam, video, navigation, praxis, funk]}}
         features:
           type: object
-          description: Fähigkeit → Zugriff; Teilumfänge sind im nativen Entitlement-Modell noch nicht verfügbar.
+          description: Fähigkeit → Zugriff; Gruppenlizenzen können einzelne Fähigkeiten freischalten.
           additionalProperties: {$ref: '#/components/schemas/FeatureAccess'}
         webshop_url: {type: [string, 'null'], format: uri}
         last_activity_at: {type: [string, 'null'], format: date-time, description: Letzte Antwort in diesem Kurs}
