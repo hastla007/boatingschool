@@ -268,6 +268,8 @@ class CourseController extends Controller
             'correct_answers' => (int) $own->sum('correct_count'),
             'incorrect_answers' => (int) $own->sum('incorrect_count'),
             'modules' => $this->moduleList($course),
+            'limit' => $this->access->featureScope($tenant, $user, $course, 'smarttrainer')['full']
+                ? null : (int) ($this->access->featureScope($tenant, $user, $course, 'smarttrainer')['limit'] ?? 0),
         ]]);
     }
 
@@ -278,18 +280,27 @@ class CourseController extends Controller
 
         return $this->progress->moduleKategorieBreakdown($course, $tenant, request()->user(), $this->access->accessibleQuestionIds($tenant, request()->user(), $course))
             ->values()->map(fn ($group, $i) => [
-                'id' => $group['module']->id,
+                'id' => (string) $group['module']->id,
+                'code' => (string) $group['module']->code,
                 'name' => $group['module']->name,
                 'description' => $group['module']->description ?? null,
                 'order' => $i + 1,
-                'locked' => $this->access->isDripLocked($tenant, request()->user(), $course, 'smarttrainer', (string) $group['module']->code),
+                'locked' => $locked = $this->access->isDripLocked($tenant, request()->user(), $course, 'smarttrainer', (string) $group['module']->code),
+                'lock_reason' => $locked ? 'drip' : ($group['total'] < ContentQuestion::filterCurrentlyValid($group['module']->questions)->count() ? 'trial' : null),
                 'unlock_at' => Present::time($this->access->dripUnlockAt($tenant, request()->user(), $course, 'smarttrainer', (string) $group['module']->code)),
                 'question_count' => $group['total'],
-                'progress' => ['percent' => $group['percent'], 'completed' => $group['mastered'], 'total' => $group['total']],
+                'catalog_count' => ContentQuestion::filterCurrentlyValid($group['module']->questions)->count(),
+                'progress' => [
+                    'percent' => $group['percent'], 'completed' => $group['mastered'], 'total' => $group['total'],
+                    'new' => $group['new'], 'unsure' => $group['unsure'], 'learning' => $group['learning'], 'mastered' => $group['mastered'],
+                ],
                 'topics' => $group['topics']->map(fn ($t) => [
                     'name' => $t['topic'],
                     'question_count' => $t['total'],
-                    'progress' => ['percent' => $t['percent'], 'completed' => $t['mastered'], 'total' => $t['total']],
+                    'progress' => [
+                        'percent' => $t['percent'], 'completed' => $t['mastered'], 'total' => $t['total'],
+                        'new' => $t['new'], 'unsure' => $t['unsure'], 'learning' => $t['learning'], 'mastered' => $t['mastered'],
+                    ],
                 ])->values(),
             ])->all();
     }
@@ -339,7 +350,7 @@ class CourseController extends Controller
             'course_type' => $course->course_type,
             'access' => $access,
             'progress' => [
-                'percent' => $total > 0 ? (int) round($mastered / $total * 100) : 0,
+                'percent' => $total > 0 ? (int) floor($mastered * 100 / $total) : 0,
                 'completed' => $mastered, 'total' => $total,
                 'new' => $new, 'unsure' => $unsure, 'learning' => $learning, 'mastered' => $mastered,
             ],
