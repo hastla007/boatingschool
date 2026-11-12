@@ -71,7 +71,7 @@ class ImportMobileCourseFiles extends Command
                 if ($category === 'section' && $sectionKey === '') {
                     $sectionKey = 'general';
                 }
-                if ($category === 'downloads' && $sectionKey !== '') {
+                if ($category === 'download' && $sectionKey !== '') {
                     throw new RuntimeException('Download-Datei '.($index + 1).' darf keinen section_key enthalten.');
                 }
 
