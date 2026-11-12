@@ -48,6 +48,7 @@ class RadioController extends Controller
             }
 
             foreach (FunkTraining::vocabulary($catalog) as $category => $cards) {
+                $cards = $this->firstRadioItems($request, $course, $cards)->all();
                 $keys = array_column($cards, 'key');
                 $progress = $this->progress($request, RadioTrainingProgress::TYPE_VOCAB, $keys);
                 $vocabulary[] = [
@@ -58,7 +59,7 @@ class RadioController extends Controller
                 ];
             }
 
-            $tasks = FunkPraxis::tasks($catalog);
+            $tasks = $this->firstRadioItems($request, $course, FunkPraxis::tasks($catalog))->all();
             $progress = $this->progress($request, RadioTrainingProgress::TYPE_PRAXIS, array_column($tasks, 'key'));
             $rows = [];
             foreach ($tasks as $task) {
@@ -81,6 +82,12 @@ class RadioController extends Controller
             ->where('item_type', RadioTrainingProgress::TYPE_DEVICE)
             ->where('completed', true)->count();
 
+        foreach ($texts as &$textGroup) {
+            $textGroup['items'] = $this->firstRadioItems($request, $course, $textGroup['items'])->values()->all();
+        }
+        unset($textGroup);
+        $limit = $this->access->featureScope($this->tenantContext->tenant(), $request->user(), $course, 'funk')['limit'];
+
         return response()->json(['data' => [
             'course_id' => $course->id,
             'catalogs' => $catalogs,
@@ -88,7 +95,7 @@ class RadioController extends Controller
             'vocabulary' => $vocabulary,
             'practice' => $practice,
             'device_simulator' => ['available' => $deviceAvailable, 'premium' => false, 'tier' => $deviceAvailable ? 'free' : null, 'web_url' => $deviceAvailable ? route('funk.device.index', $course) : null, 'open_in' => 'browser', 'hint' => $deviceAvailable ? 'Der Funkgerät-Simulator wird im Browser geöffnet.' : null, 'webshop_url' => null, 'lessons' => count($deviceLessons), 'mastered' => $deviceProgress],
-        ], 'meta' => ['limit' => null, 'streak_to_learn' => RadioTrainingProgress::VOCAB_STREAK_TO_LEARN]]);
+        ], 'meta' => ['limit' => $limit, 'streak_to_learn' => RadioTrainingProgress::VOCAB_STREAK_TO_LEARN]]);
     }
 
     public function spelling(Request $request, string $courseId): JsonResponse
@@ -113,6 +120,7 @@ class RadioController extends Controller
     {
         $course = $this->radioCourse($request, $courseId);
         $record = $this->textRecord($course, $textId);
+        $this->requireRadioItem($request, $course, collect($record['siblings']), $textId, 'Funktext');
         $item = $record['item'];
         $catalog = $record['catalog'];
         $type = $record['type'];
@@ -152,6 +160,7 @@ class RadioController extends Controller
     {
         $course = $this->radioCourse($request, $courseId);
         $record = $this->textRecord($course, $textId);
+        $this->requireRadioItem($request, $course, collect($record['siblings']), $textId, 'Funktext');
         $validated = $request->validate([
             'direction' => ['required', 'in:de-en,en-de'],
             'transcript' => ['nullable', 'string', 'max:5000'],
@@ -186,6 +195,7 @@ class RadioController extends Controller
     {
         $course = $this->radioCourse($request, $courseId);
         $record = $this->textRecord($course, $textId);
+        $this->requireRadioItem($request, $course, collect($record['siblings']), $textId, 'Funktext');
         $validated = $request->validate(['done' => ['required', 'boolean']]);
         $this->store($request, RadioTrainingProgress::TYPE_TEXT, $record['item']['key'], ['completed' => $validated['done']]);
 
@@ -217,6 +227,8 @@ class RadioController extends Controller
                 continue;
             }
             $progress = $this->progress($request, RadioTrainingProgress::TYPE_VOCAB, array_column($items, 'key'));
+            $items = $this->firstRadioItems($request, $course, $items)->all();
+            $progress = $this->progress($request, RadioTrainingProgress::TYPE_VOCAB, array_column($items, 'key'));
             foreach ($items as $item) {
                 $saved = $progress->get($item['key']);
                 $cards[] = [
@@ -236,16 +248,16 @@ class RadioController extends Controller
         $course = $this->radioCourse($request, $courseId);
         $validated = $request->validate(['known' => ['required', 'boolean'], 'streak' => ['nullable', 'integer', 'min:0']]);
         $catalog = null;
-        $allKeys = [];
+        $allowed = false;
         foreach (FunkTraining::catalogsFor($course) as $candidate) {
             foreach (FunkTraining::vocabulary($candidate) as $items) {
-                $allKeys = array_merge($allKeys, array_column($items, 'key'));
                 if (in_array($cardId, array_column($items, 'key'), true)) {
                     $catalog = $candidate;
+                    $allowed = $this->firstRadioItems($request, $course, $items)->contains(fn (array $item) => $item['key'] === $cardId);
                 }
             }
         }
-        if ($catalog === null) {
+        if ($catalog === null || ! $allowed) {
             throw ApiProblem::notFound('Vokabel');
         }
 
@@ -290,7 +302,7 @@ class RadioController extends Controller
         $course = $this->radioCourse($request, $courseId);
         $data = [];
         foreach (FunkTraining::catalogsFor($course) as $catalog) {
-            $tasks = FunkPraxis::tasks($catalog);
+            $tasks = $this->firstRadioItems($request, $course, FunkPraxis::tasks($catalog))->all();
             $progress = $this->progress($request, RadioTrainingProgress::TYPE_PRAXIS, array_column($tasks, 'key'));
             $rows = [];
             foreach ($tasks as $task) {
@@ -311,6 +323,7 @@ class RadioController extends Controller
     {
         $course = $this->radioCourse($request, $courseId);
         [$catalog, $task] = $this->practiceTask($course, $scenarioId);
+        $this->requirePracticeItem($request, $course, $catalog, $task);
         $progress = $this->progress($request, RadioTrainingProgress::TYPE_PRAXIS, [$task['key']])->get($task['key']);
         $items = array_values(FunkPraxis::tasks($catalog));
         $keys = array_column($items, 'key');
@@ -330,6 +343,7 @@ class RadioController extends Controller
     {
         $course = $this->radioCourse($request, $courseId);
         [$catalog, $task] = $this->practiceTask($course, $scenarioId);
+        $this->requirePracticeItem($request, $course, $catalog, $task);
         $validated = $request->validate(['answers' => ['required', 'array'], 'answers.*' => ['nullable', 'string', 'max:5000']]);
         $fieldNames = array_column($task['fields'], 'name');
         $answers = array_intersect_key($validated['answers'], array_flip($fieldNames));
@@ -353,7 +367,8 @@ class RadioController extends Controller
     public function setPracticeDone(Request $request, string $courseId, string $scenarioId): JsonResponse
     {
         $course = $this->radioCourse($request, $courseId);
-        [, $task] = $this->practiceTask($course, $scenarioId);
+        [$catalog, $task] = $this->practiceTask($course, $scenarioId);
+        $this->requirePracticeItem($request, $course, $catalog, $task);
         $validated = $request->validate(['done' => ['required', 'boolean']]);
         $this->store($request, RadioTrainingProgress::TYPE_PRAXIS, $task['key'], ['completed' => $validated['done']]);
 
@@ -366,7 +381,7 @@ class RadioController extends Controller
         $data = [];
         foreach (FunkTraining::catalogsFor($course) as $catalog) {
             $tasks = [];
-            foreach (FunkPraxis::tasks($catalog) as $task) {
+            foreach ($this->firstRadioItems($request, $course, FunkPraxis::tasks($catalog)) as $task) {
                 $tasks[] = ['id' => $task['key'], 'number' => $task['number'], 'kind' => $task['kind'],
                     'fields' => array_map(fn ($field) => ['name' => $field['name'], 'solution' => $field['solution']], $task['fields'])];
             }
@@ -401,10 +416,11 @@ class RadioController extends Controller
                     }
                 }
             }
-            $siblings = array_column($items, 'item');
             foreach ($items as $entry) {
                 if ($entry['item']['key'] === $id) {
-                    return ['item' => $entry['item'], 'catalog' => $catalog, 'type' => $entry['type'], 'siblings' => $siblings];
+                    $type = $entry['type'];
+                    $siblings = array_column(array_values(array_filter($items, fn (array $candidate) => $candidate['type'] === $type)), 'item');
+                    return ['item' => $entry['item'], 'catalog' => $catalog, 'type' => $type, 'siblings' => $siblings];
                 }
             }
         }
@@ -423,6 +439,23 @@ class RadioController extends Controller
             }
         }
         throw ApiProblem::notFound('Funkpraxis-Aufgabe');
+    }
+
+    private function firstRadioItems(Request $request, \App\Models\CourseDefinition $course, array|\Illuminate\Support\Collection $items): \Illuminate\Support\Collection
+    {
+        return $this->access->limitItems($this->tenantContext->tenant(), $request->user(), $course, 'funk', collect($items)->values());
+    }
+
+    private function requireRadioItem(Request $request, \App\Models\CourseDefinition $course, \Illuminate\Support\Collection $orderedItems, string $id, string $label): void
+    {
+        if (! $this->firstRadioItems($request, $course, $orderedItems)->contains(fn (array $item) => ($item['key'] ?? null) === $id)) {
+            throw ApiProblem::notFound($label);
+        }
+    }
+
+    private function requirePracticeItem(Request $request, \App\Models\CourseDefinition $course, string $catalog, array $task): void
+    {
+        $this->requireRadioItem($request, $course, collect(FunkPraxis::tasks($catalog)), (string) $task['key'], 'Funkpraxis-Aufgabe');
     }
 
     private function textSummary(Request $request, array $item, string $catalog, string $type): array
