@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\ExportController;
 use App\Http\Controllers\Api\V1\FavoriteController;
 use App\Http\Controllers\Api\V1\LearningController;
 use App\Http\Controllers\Api\V1\NavigationController;
+use App\Http\Controllers\Api\V1\TipsController;
 use App\Http\Controllers\Api\V1\VideoController;
 use Illuminate\Support\Facades\Route;
 
@@ -51,6 +52,7 @@ Route::middleware('api.auth')->group(function () {
         Route::get('/courses/{courseId}/modules', [CourseController::class, 'modules'])->whereUuid('courseId');
         Route::get('/courses/{courseId}/progress', [CourseController::class, 'progress'])->whereUuid('courseId');
         Route::get('/courses/{courseId}/faqs', [CustomerFaqController::class, 'index'])->whereUuid('courseId');
+        Route::get('/tips', [TipsController::class, 'index']);
 
         Route::get('/courses/{courseId}/trainer/next', [LearningController::class, 'next'])->whereUuid('courseId');
         Route::post('/courses/{courseId}/attempts', [LearningController::class, 'submit'])->whereUuid('courseId')->middleware('api.idempotent');
