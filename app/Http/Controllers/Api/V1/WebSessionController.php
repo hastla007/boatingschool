@@ -87,7 +87,7 @@ class WebSessionController extends Controller
             if (! is_array($parts) || isset($parts['user']) || isset($parts['pass'])
                 || strtolower((string) ($parts['scheme'] ?? '')) !== strtolower($request->getScheme())
                 || strtolower((string) ($parts['host'] ?? '')) !== strtolower($request->getHost())
-                || ($parts['port'] ?? null) !== $request->getPort()) {
+                || ($parts['port'] ?? null) !== parse_url($request->getSchemeAndHttpHost(), PHP_URL_PORT)) {
                 return null;
             }
             $target = ($parts['path'] ?? '/').(isset($parts['query']) ? '?'.$parts['query'] : '');
