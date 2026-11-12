@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\V1\ExportController;
 use App\Http\Controllers\Api\V1\FavoriteController;
 use App\Http\Controllers\Api\V1\LearningController;
 use App\Http\Controllers\Api\V1\PraxisController;
+use App\Http\Controllers\Api\V1\RadioController;
 use App\Http\Controllers\Api\V1\NavigationController;
 use App\Http\Controllers\Api\V1\TipsController;
 use App\Http\Controllers\Api\V1\VideoController;
@@ -92,6 +93,19 @@ Route::middleware('api.auth')->group(function () {
 
         Route::get('/courses/{courseId}/praxis', [PraxisController::class, 'index'])->whereUuid('courseId');
         Route::put('/courses/{courseId}/praxis/{cardId}', [PraxisController::class, 'updateStatus'])->whereUuid(['courseId', 'cardId']);
+
+        Route::get('/courses/{courseId}/radio', [RadioController::class, 'index'])->whereUuid('courseId');
+        Route::get('/courses/{courseId}/radio/spelling', [RadioController::class, 'spelling'])->whereUuid('courseId');
+        Route::get('/courses/{courseId}/radio/texts/{textId}', [RadioController::class, 'showText'])->whereUuid('courseId');
+        Route::post('/courses/{courseId}/radio/texts/{textId}/evaluate', [RadioController::class, 'evaluateText'])->whereUuid('courseId');
+        Route::put('/courses/{courseId}/radio/texts/{textId}/done', [RadioController::class, 'setTextDone'])->whereUuid('courseId');
+        Route::get('/courses/{courseId}/radio/vocabulary', [RadioController::class, 'vocabulary'])->whereUuid('courseId');
+        Route::post('/courses/{courseId}/radio/vocabulary/{cardId}/answers', [RadioController::class, 'answerVocabulary'])->whereUuid('courseId');
+        Route::get('/courses/{courseId}/radio/practice', [RadioController::class, 'practiceIndex'])->whereUuid('courseId');
+        Route::get('/courses/{courseId}/radio/practice/{scenarioId}', [RadioController::class, 'showPractice'])->whereUuid('courseId');
+        Route::post('/courses/{courseId}/radio/practice/{scenarioId}/evaluate', [RadioController::class, 'evaluatePractice'])->whereUuid('courseId');
+        Route::put('/courses/{courseId}/radio/practice/{scenarioId}/done', [RadioController::class, 'setPracticeDone'])->whereUuid('courseId');
+        Route::get('/courses/{courseId}/radio/samples', [RadioController::class, 'samples'])->whereUuid('courseId');
 
         // Navigationsaufgaben-Trainer.
         Route::get('/courses/{courseId}/navigation-tasks', [NavigationController::class, 'index'])->whereUuid('courseId');
