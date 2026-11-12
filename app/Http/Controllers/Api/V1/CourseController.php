@@ -101,10 +101,10 @@ class CourseController extends Controller
         $files = $course->files->where('published', true)->values();
         $downloadAllowedIds = $this->access->limitItems(
             $tenant, $user, $course, 'downloads',
-            $files->where('category', 'downloads')->sortBy([['sort_order', 'asc'], ['id', 'asc']])->values(),
+            $files->where('category', 'download')->sortBy([['sort_order', 'asc'], ['id', 'asc']])->values(),
         )->pluck('id')->flip();
         $fileRef = function (CourseFile $file) use ($tenant, $user, $downloadAllowedIds): array {
-            $allowed = ($file->category === 'downloads' || $file->required_capability === 'downloads')
+            $allowed = ($file->category === 'download' || $file->required_capability === 'downloads')
                 ? $downloadAllowedIds->has($file->id)
                 : ($file->required_capability === null
                     ? $this->access->hasCourseAccess($tenant, $user, $file->course)
