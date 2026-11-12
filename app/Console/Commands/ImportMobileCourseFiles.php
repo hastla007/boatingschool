@@ -137,7 +137,7 @@ class ImportMobileCourseFiles extends Command
 
             DB::transaction(function () use ($records): void {
                 foreach ($records as $record) {
-                    unset($record['source_path'], $record['tenant_id']);
+                    unset($record['source_path'], $record['tenant_id'], $record['sha256']);
                     CourseFile::updateOrCreate(['course_id' => $record['course_id'], 'source_key' => $record['source_key']], $record);
                 }
             });
