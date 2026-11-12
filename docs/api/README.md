@@ -45,7 +45,7 @@ gibt nur veröffentlichte Fragen für freigeschaltete Kurse aus.
 
 * `GET /health` ist ohne Anmeldung erreichbar und liefert API-Version,
   Status und Serverzeit.
-* `GET /me/settings` und `PUT /me/settings` synchronisieren
+* `POST /auth/web-session` erstellt für die eingebettete Webansicht eine einmalige, 60 Sekunden gültige Anmeldung. Die WebView muss die URL mit dem mitgelieferten Verifier-Header laden; erlaubt sind nur interne Lernseiten. Die Bestätigungsseite für Kontolöschung ist über `MOBILE_API_DELETION_CONFIRMATION_PATH` auf den Universal-Link der App zu legen.\n\n* `GET /me/settings` und `PUT /me/settings` synchronisieren
   benutzerspezifische App-Einstellungen über Geräte hinweg. Antworten
   enthalten eine monoton steigende `version` und den passenden `ETag`.
   Schreibzugriffe können `If-Match: "<version>"` oder
