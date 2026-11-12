@@ -40,6 +40,12 @@ class ImportMobileAccessRules extends Command
             return self::FAILURE;
         }
 
+        $defaultAccess = is_array($payload) ? ($payload['default_access'] ?? null) : null;
+        if ($defaultAccess !== null && ! in_array($defaultAccess, ['logged_in', 'entitlement'], true)) {
+            $this->error('Der Export enthält einen unbekannten default_access-Wert.');
+
+            return self::FAILURE;
+        }
         $rules = is_array($payload) ? ($payload['rules'] ?? null) : null;
         if (! is_array($rules) || ! array_is_list($rules)) {
             $this->error('Erwartet wird ein JSON-Objekt mit einem rules-Array.');
@@ -149,6 +155,9 @@ class ImportMobileAccessRules extends Command
         }
 
         $this->info(count($records).' Zugangsregel(n) importiert bzw. aktualisiert.');
+        if ($defaultAccess !== null && $defaultAccess !== config('mobile_api.default_access')) {
+            $this->warn('WP default_access='.$defaultAccess.'; Original aktuell '.config('mobile_api.default_access').'. Für Verhaltensparität MOBILE_API_DEFAULT_ACCESS bewusst angleichen.');
+        }
 
         return self::SUCCESS;
     }
