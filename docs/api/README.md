@@ -7,7 +7,7 @@ dieselben.
 
 | Datei | Inhalt |
 |---|---|
-| `docs/api/openapi-mobile-v1.yaml` | Vertrag (OpenAPI 3.1), alle 54 Endpunkte |
+| `docs/api/openapi-mobile-v1.yaml` | Vertrag (OpenAPI 3.1), alle 55 Endpunkte |
 | `routes/api.php` | Routen (Präfix `/api/v1`) |
 | `app/Http/Controllers/Api/V1/` | Controller je Bereich |
 | `app/Api/` | Tokens, Fehlerformat, Ausgabeformate |
@@ -289,6 +289,7 @@ POST /courses/{id}/exams {paper_id}     → 201 neu / 200 laufende fortsetzen
 GET  /exams/{id}                        → Fragen ohne Lösung, gegebene Antworten, phase, Zeit
 PUT  /exams/{id}/answers/{questionId}   → festschreiben
 POST /exams/{id}/questions/{qid}/reveal → Musterantwort (offene Fragen)
+PUT /exams/{id}/answers/{questionId}/flag {flagged} → Markierung zur Überprüfung speichern (Position oder Fragen-ID)
   * WP-kompatibler Alias: `POST /exams/{id}/answers/{questionId}/reveal`.
 PUT  /exams/{id}/navigation             → Navigationsaufgabe abgeben (SBF See)
 POST /exams/{id}/navigation/assessment  → Selbsteinschätzung → Auswertung
