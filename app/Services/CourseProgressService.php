@@ -107,51 +107,42 @@ class CourseProgressService
             $query->where('editorial_status', 'published')->orderByDesc('revision_no');
         }]);
 
-        $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get();
-        $mastered = fn ($questionIds) => $progress->whereIn('question_id', $questionIds)->where('learning_state', 'gefestigt')->count();
+        $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get()->keyBy('question_id');
+        $summary = function ($questionIds) use ($progress): array {
+            $questionIds = collect($questionIds)->unique()->values();
+            $states = $questionIds->map(fn ($id) => $progress->get($id)?->learning_state ?? 'neu');
+            $mastered = $states->filter(fn ($state) => $state === 'gefestigt')->count();
+            $unsure = $states->filter(fn ($state) => $state === 'unsicher')->count();
+            $learning = $states->filter(fn ($state) => $state === 'in_bearbeitung')->count();
 
-        return $course->modules->map(function ($module) use ($mastered, $allowedQuestionIds) {
-            // Bug-Review F7: siehe overallPercent() -- eine deaktivierte
-            // Frage zählte hier ebenfalls weiter mit, obwohl sie nie
-            // "gefestigt" werden kann.
-            // Bug-Review BB16: dieselbe Lücke bestand für valid_from/valid_to.
+            return [
+                'total' => $questionIds->count(),
+                'mastered' => $mastered,
+                'unsure' => $unsure,
+                'learning' => $learning,
+                'new' => max(0, $questionIds->count() - $mastered - $unsure - $learning),
+                'percent' => $questionIds->isNotEmpty() ? (int) floor($mastered * 100 / $questionIds->count()) : 0,
+            ];
+        };
+
+        return $course->modules->map(function ($module) use ($allowedQuestionIds, $summary) {
             $activeQuestions = ContentQuestion::filterCurrentlyValid($module->questions);
             if ($allowedQuestionIds !== null) {
                 $activeQuestions = $activeQuestions->whereIn('id', $allowedQuestionIds);
             }
 
-            $topics = $activeQuestions
-                ->groupBy(function ($q) {
-                    $revision = $q->revisions->first();
+            $topicGroups = $activeQuestions->groupBy(function ($question) use ($module) {
+                $revision = $question->revisions->first();
+                $topic = trim((string) ($revision?->smartmodus_kategorie ?: $revision?->topic ?: ''));
+                return $topic !== '' && $topic !== $module->name ? $topic : null;
+            })->reject(fn ($questions, $topic) => $topic === null || $topic === '');
+            $topics = $topicGroups->count() < 2 ? collect() : $topicGroups->map(function ($questions, $topic) use ($summary) {
+                return ['topic' => $topic] + $summary($questions->pluck('id'));
+            })->sort(function ($a, $b) {
+                return $b['total'] <=> $a['total'] ?: strcmp((string) $a['topic'], (string) $b['topic']);
+            })->values();
 
-                    return $revision?->smartmodus_kategorie ?: ($revision?->topic ?: 'Sonstiges');
-                })
-                ->map(function ($questions, $topic) use ($mastered) {
-                    $questionIds = $questions->pluck('id');
-                    $total = $questionIds->count();
-                    $topicMastered = $mastered($questionIds);
-
-                    return [
-                        'topic' => $topic,
-                        'total' => $total,
-                        'mastered' => $topicMastered,
-                        'percent' => $total > 0 ? (int) round($topicMastered / $total * 100) : 0,
-                    ];
-                })
-                ->sortByDesc('total')
-                ->values();
-
-            $questionIds = $activeQuestions->pluck('id');
-            $total = $questionIds->count();
-            $moduleMastered = $mastered($questionIds);
-
-            return [
-                'module' => $module,
-                'topics' => $topics,
-                'total' => $total,
-                'mastered' => $moduleMastered,
-                'percent' => $total > 0 ? (int) round($moduleMastered / $total * 100) : 0,
-            ];
+            return ['module' => $module, 'topics' => $topics] + $summary($activeQuestions->pluck('id'));
         })->values();
     }
 }
