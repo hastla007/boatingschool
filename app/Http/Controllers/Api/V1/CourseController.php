@@ -283,7 +283,7 @@ class CourseController extends Controller
                 'description' => $group['module']->description ?? null,
                 'order' => $i + 1,
                 'locked' => $this->access->isDripLocked($tenant, request()->user(), $course, 'smarttrainer', (string) $group['module']->code),
-                'unlocks_at' => Present::time($this->access->dripUnlockAt($tenant, request()->user(), $course, 'smarttrainer', (string) $group['module']->code)),
+                'unlock_at' => Present::time($this->access->dripUnlockAt($tenant, request()->user(), $course, 'smarttrainer', (string) $group['module']->code)),
                 'question_count' => $group['total'],
                 'progress' => ['percent' => $group['percent'], 'completed' => $group['mastered'], 'total' => $group['total']],
                 'topics' => $group['topics']->map(fn ($t) => [
