@@ -29,7 +29,7 @@ class VideoController extends Controller
 
     public function index(Request $request, string $courseId): JsonResponse
     {
-        $course = $this->access->require($this->tenantContext->tenant(), $request->user(), $courseId);
+        $course = $this->access->require($this->tenantContext->tenant(), $request->user(), $courseId, 'video');
         $modules = $course->videoModules()->with('lessons.steps')->get();
         $progress = $this->progressFor($request, $modules->flatMap->lessons);
 
@@ -83,7 +83,7 @@ class VideoController extends Controller
         if (! $lesson || ! $lesson->module) {
             throw ApiProblem::notFound('Lektion');
         }
-        $this->access->require($this->tenantContext->tenant(), $request->user(), $lesson->module->course_id);
+        $this->access->require($this->tenantContext->tenant(), $request->user(), $lesson->module->course_id, 'video');
 
         return $lesson;
     }
