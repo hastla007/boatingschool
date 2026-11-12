@@ -811,7 +811,14 @@ paths:
         Speichert ohne Richtig/Falsch. Eine gegebene Antwort ist endgültig (wie im Web):
         dieselbe Antwort erneut → 200; eine andere → 409 `EXAM_ANSWER_LOCKED`.
         Offene Fragen: erst `POST …/reveal`, dann `known` senden. Nach Zeitablauf → 410 `EXAM_EXPIRED`.
-      parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/ExamId'}, {$ref: '#/components/parameters/QuestionId'}]
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/ExamId'}
+        - in: path
+          name: questionId
+          required: true
+          schema: {type: string}
+          description: Prüfungsposition 1…n (WP-kompatibel) oder Fragen-UUID
       requestBody:
         required: true
         content:
@@ -970,7 +977,11 @@ paths:
       description: Gleiche Funktion wie POST /exams/{examId}/questions/{questionId}/reveal; der WP-Mobile-API-Pfad bleibt für App-Kompatibilität verfügbar.
       parameters:
         - {$ref: '#/components/parameters/ExamId'}
-        - {$ref: '#/components/parameters/QuestionId'}
+        - in: path
+          name: questionId
+          required: true
+          schema: {type: string}
+          description: Prüfungsposition 1…n (WP-kompatibel) oder Fragen-UUID
       responses:
         '200':
           description: Musterantwort
@@ -982,7 +993,7 @@ paths:
                   data:
                     type: object
                     properties:
-                      question_id: {type: string, format: uuid}
+                      question_id: {type: string}
                       model_answer: {type: string}
         '401': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
