@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AccountController;
+use App\Http\Controllers\Api\V1\AccountDeletionController;
+use App\Http\Controllers\Api\V1\WebSessionController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CouponController;
 use App\Http\Controllers\Api\V1\CourseController;
@@ -39,10 +41,14 @@ Route::post('/auth/password/reset', [AuthController::class, 'resetPassword'])->m
 Route::get('/profile/export/{exportId}/download', [ExportController::class, 'download'])
     ->whereUuid('exportId')->middleware(['signed', 'throttle:20,1,api-export-download'])->name('api.v1.export.download');
 
-Route::post('/me/deletion-request/confirm', [AccountDeletionController::class, 'confirmDeletion'])->middleware('throttle:20,60,api-deletion-confirm');\n\nRoute::middleware('api.auth')->group(function () {
-    Route::post('/auth/logout', [AuthController::class, 'logout']);\n    Route::post('/auth/web-session', [WebSessionController::class, 'create']);
+Route::post('/me/deletion-request/confirm', [AccountDeletionController::class, 'confirmDeletion'])->middleware('throttle:20,60,api-deletion-confirm');
+
+Route::middleware('api.auth')->group(function () {
+    Route::post('/auth/logout', [AuthController::class, 'logout']);
+    Route::post('/auth/web-session', [WebSessionController::class, 'create']);
     Route::post('/auth/email/verification-notification', [AuthController::class, 'resendVerification'])->middleware('throttle:6,1,api-verification');
-    Route::post('/me/deletion-request', [AccountDeletionController::class, 'requestDeletion']);\n    Route::get('/me', [AccountController::class, 'me']);
+    Route::post('/me/deletion-request', [AccountDeletionController::class, 'requestDeletion']);
+    Route::get('/me', [AccountController::class, 'me']);
     Route::get('/me/groups', [GroupController::class, 'index']);
     Route::get('/me/groups/{groupId}', [GroupController::class, 'show'])->whereUuid('groupId');
     Route::post('/me/groups/{groupId}/invites', [GroupController::class, 'invite'])->whereUuid('groupId')->middleware('api.idempotent');
