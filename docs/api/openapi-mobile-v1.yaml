@@ -485,6 +485,38 @@ paths:
                       renewal_webshop_url: {type: [string, 'null'], format: uri}
                       pagination: {$ref: '#/components/schemas/Pagination'}
         '403': {$ref: '#/components/responses/Problem'}
+  /courses:
+    get:
+      tags: [Courses]
+      operationId: listCourses
+      summary: Freigeschaltete und buchbare Kurse der Schule
+      description: >-
+        Listet veröffentlichte Kurse, für die diese Schule Zugänge bereitstellt. Freigeschaltete
+        Kurse stehen zuerst; weitere buchbare Kurse enthalten ihren externen Webshop-Link.
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/Page'}
+        - {$ref: '#/components/parameters/PerPage'}
+      responses:
+        '200':
+          description: Kurse mit Zugang, Lernfortschritt und Fähigkeiten
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data: {type: array, items: {$ref: '#/components/schemas/CourseSummary'}}
+                  meta:
+                    type: object
+                    properties:
+                      tenant: {type: object, properties: {slug: {type: string}, name: {type: string}}}
+                      renewal_webshop_url: {type: [string, 'null'], format: uri}
+                      pagination: {$ref: '#/components/schemas/Pagination'}
+        '401': {$ref: '#/components/responses/Problem'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+
   /courses/{courseId}:
     get:
       tags: [Courses]
