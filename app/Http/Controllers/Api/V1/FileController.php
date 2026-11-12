@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Api\ApiProblem;
+use App\Api\CourseAccess;
 use App\Http\Controllers\Controller;
 use App\Models\CourseDefinition;
 use App\Models\CourseFile;
@@ -122,6 +123,13 @@ class FileController extends Controller
                     $ordered = CourseFile::where('course_id', $course->id)->where('published', true)
                         ->where('category', 'downloads')->orderBy('sort_order')->orderBy('id')->get();
                     if ($access->allowsLimitedItem($tenant, $user, $course, 'downloads', $ordered, (string) $file->id)) {
+                        return true;
+                    }
+                    continue;
+                }
+
+                if ($file && $file->required_capability === null) {
+                    if ($entitlements->hasAccess($tenant, $user, $course)) {
                         return true;
                     }
                     continue;
