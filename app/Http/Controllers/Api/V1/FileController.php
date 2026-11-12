@@ -101,7 +101,7 @@ class FileController extends Controller
         foreach ($active as $entitlement) {
             $tenant = $tenants->get($entitlement->tenant_id);
             $course = $courses->get($entitlement->course_id);
-            if ($tenant && $course && $entitlements->hasAccess($tenant, $user, $course)) {
+            if ($tenant && $course && $entitlements->hasCapabilityAccess($tenant, $user, $course, 'smarttrainer')) {
                 return true;
             }
         }
