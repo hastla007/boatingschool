@@ -97,7 +97,7 @@ class CourseController extends Controller
     {
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
-        $course = $this->access->require($tenant, $user, $courseId);
+        $course = $this->access->require($tenant, $user, $courseId, 'smarttrainer');
         $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get();
         $modules = $this->moduleList($course);
 
@@ -125,7 +125,7 @@ class CourseController extends Controller
 
     public function modules(Request $request, string $courseId): JsonResponse
     {
-        $course = $this->access->require($this->tenantContext->tenant(), $request->user(), $courseId);
+        $course = $this->access->require($this->tenantContext->tenant(), $request->user(), $courseId, 'smarttrainer');
 
         return response()->json(['data' => $this->moduleList($course)]);
     }
@@ -135,7 +135,7 @@ class CourseController extends Controller
     {
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
-        $course = $this->access->require($tenant, $user, $courseId);
+        $course = $this->access->require($tenant, $user, $courseId, 'smarttrainer');
         $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get();
         $questionIds = $this->access->validQuestionIds($course);
         $own = $progress->whereIn('question_id', $questionIds);
