@@ -88,7 +88,7 @@ class ImportMobileCourseFiles extends Command
                 $extension = strtolower((string) pathinfo($sourcePath, PATHINFO_EXTENSION));
                 $extension = preg_match('/^[a-z0-9]{1,10}$/', $extension) ? '.'.$extension : '';
                 $safeCourse = preg_replace('/[^A-Za-z0-9_-]/', '_', $courseCode);
-                $target = 'course-files/'.$safeCourse.'/'.hash('sha256', $courseCode.':'.$sourceKey).$extension;
+                $target = 'course-files/'.$safeCourse.'/'.hash('sha256', $courseCode.':'.$sourceKey).'-'.hash_file('sha256', $sourcePath).$extension;
                 $records[] = [
                     'tenant_id' => $tenant->id,
                     'course_id' => $course->id,
@@ -108,6 +108,7 @@ class ImportMobileCourseFiles extends Command
             }
 
             foreach ($records as $record) {
+                $alreadyExists = Storage::disk('local')->exists($record['storage_path']);
                 $stream = fopen($record['source_path'], 'rb');
                 if ($stream === false || ! Storage::disk('local')->put($record['storage_path'], $stream)) {
                     if (is_resource($stream)) {
@@ -116,7 +117,9 @@ class ImportMobileCourseFiles extends Command
                     throw new RuntimeException('Eine Quelldatei ließ sich nicht in den Laravel-Storage kopieren.');
                 }
                 fclose($stream);
-                $written[] = $record['storage_path'];
+                if (! $alreadyExists) {
+                    $written[] = $record['storage_path'];
+                }
             }
 
             DB::transaction(function () use ($records): void {
