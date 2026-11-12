@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CouponController;
 use App\Http\Controllers\Api\V1\CourseController;
 use App\Http\Controllers\Api\V1\CustomerFaqController;
+use App\Http\Controllers\Api\V1\ExamRegistrationController;
 use App\Http\Controllers\Api\V1\ExamController;
 use App\Http\Controllers\Api\V1\ExportController;
 use App\Http\Controllers\Api\V1\FavoriteController;
@@ -51,6 +52,7 @@ Route::middleware('api.auth')->group(function () {
         Route::get('/courses/{courseId}/overview', [CourseController::class, 'overview'])->whereUuid('courseId');
         Route::get('/courses/{courseId}/modules', [CourseController::class, 'modules'])->whereUuid('courseId');
         Route::get('/courses/{courseId}/progress', [CourseController::class, 'progress'])->whereUuid('courseId');
+        Route::get('/courses/{courseId}/exam-registration', [ExamRegistrationController::class, 'show'])->whereUuid('courseId');
         Route::get('/courses/{courseId}/faqs', [CustomerFaqController::class, 'index'])->whereUuid('courseId');
         Route::get('/tips', [TipsController::class, 'index']);
 
