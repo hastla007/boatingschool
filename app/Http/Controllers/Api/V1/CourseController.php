@@ -147,7 +147,9 @@ class CourseController extends Controller
         $praxisTasks = $hasPraxis ? $course->praxisTasks()->where('active', true)->get() : collect();
         $praxisProgress = $praxisTasks->isEmpty() ? collect() : PraxisProgress::where('tenant_id', $tenant->id)
             ->where('user_id', $user->id)->whereIn('praxis_task_id', $praxisTasks->pluck('id'))->get();
-        $praxisKnown = $praxisProgress->filter(fn ($row) => $row->status === 'known' || $row->completed)->count();
+        $accessiblePraxisIds = $this->access->limitItems($tenant, $user, $course, 'praxis', $praxisTasks)->pluck('id')->flip();
+        $praxisKnown = $praxisProgress->filter(fn ($row) => $accessiblePraxisIds->has($row->praxis_task_id)
+            && ($row->status === 'known' || $row->completed))->count();
 
         $videoModules = $course->videoModules()->with('lessons')->get();
         $videoLessons = $videoModules->flatMap->lessons;
