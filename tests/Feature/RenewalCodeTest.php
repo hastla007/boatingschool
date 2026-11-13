@@ -15,7 +15,7 @@ use Tests\TestCase;
  * Entitlement statt ein neues anzulegen (CouponRedemptionService::
  * redeemForRenewal), auf zwei Wegen:
  * - Ablauf 1: der Teilnehmer löst den Code selbst über /coupons/redeem ein.
- * - Ablauf 2: die Bootsschule weist ihn direkt über die Coupon-Codes-Tab
+ * - Ablauf 2: die Bootsschule weist ihn direkt über die Zugangscodes-Tab
  *   ("Zuweisen", Admin\CouponController::assign) einem Teilnehmer zu.
  */
 class RenewalCodeTest extends TestCase

@@ -339,7 +339,7 @@ class ParticipantController extends Controller
             // der dem neuen Teilnehmer direkt bei der Einladung zugewiesen
             // wird -- Gegenstück zu CouponController::assign, nur in einem
             // Schritt mit der Einladung selbst statt danach separat über die
-            // Coupon-Codes-Tabelle.
+            // Zugangscodes-Tabelle.
             'code' => ['nullable', 'string', 'max:255'],
         ]);
 
@@ -359,7 +359,7 @@ class ParticipantController extends Controller
         // liefert in beiden Fällen denselben Fehler.
         $codeRequiresAdmin = $code !== '' && ! $request->user()->isAdminFor($tenant);
         if ($codeRequiresAdmin) {
-            return back()->withErrors(['code' => 'Nur Owner/Admin können beim Einladen direkt einen Code zuweisen – das geht sonst nach der Einladung über die Coupon-Codes-Verwaltung.'])->withInput();
+            return back()->withErrors(['code' => 'Nur Owner/Admin können beim Einladen direkt einen Code zuweisen – das geht sonst nach der Einladung über die Zugangscodes-Verwaltung.'])->withInput();
         }
 
         // Code samt Kurs/Produkt vorab prüfen, ohne etwas anzulegen: Fehler,

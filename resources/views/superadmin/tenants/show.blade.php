@@ -131,9 +131,9 @@
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
         <div class="flex items-center justify-between mb-3">
             <h3 class="font-medium text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
-                <x-icon name="bookmark" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Coupon-Codes dieser Bootsschule
+                <x-icon name="bookmark" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Zugangscodes dieser Bootsschule
             </h3>
-            <a href="{{ route('superadmin.coupons.index', ['tenant_id' => $tenant->id]) }}" class="text-sm hover:underline text-blue-700 dark:text-blue-300">Im Coupon-Bereich verwalten &rarr;</a>
+            <a href="{{ route('superadmin.coupons.index', ['tenant_id' => $tenant->id]) }}" class="text-sm hover:underline text-blue-700 dark:text-blue-300">Bei den Zugangscodes verwalten &rarr;</a>
         </div>
         <div class="overflow-x-auto">
         <table class="w-full text-sm">

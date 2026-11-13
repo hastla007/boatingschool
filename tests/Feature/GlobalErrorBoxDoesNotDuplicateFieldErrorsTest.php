@@ -12,7 +12,7 @@ use Tests\TestCase;
  * (siehe Bug-Review T4), seit T4 zusätzlich in einer globalen Box oben auf
  * der Seite. Diese Box rendert bisher $errors->all() komplett -- auch
  * Meldungen, die eine Seite bereits direkt neben ihrem Feld anzeigt, z. B.
- * den "assign"-Fehler der Coupon-Zuweisung (admin/tabs/coupons.blade.php).
+ * den "assign"-Fehler der Zugangscode-Zuweisung (admin/tabs/coupons.blade.php).
  * Jede so eingeleitete Meldung erschien dadurch zweimal auf derselben
  * Seite.
  */
@@ -58,6 +58,6 @@ class GlobalErrorBoxDoesNotDuplicateFieldErrorsTest extends TestCase
 
         $occurrences = substr_count($response->getContent(), 'gehört nicht zu');
 
-        $this->assertSame(1, $occurrences, 'Der Coupon-Zuweisungsfehler darf nicht zusätzlich in der globalen Fehlerbox erscheinen.');
+        $this->assertSame(1, $occurrences, 'Der Zugangscode-Zuweisungsfehler darf nicht zusätzlich in der globalen Fehlerbox erscheinen.');
     }
 }

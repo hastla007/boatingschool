@@ -55,7 +55,7 @@ class InvitationCoupon
 
     /**
      * Codes, die gerade für eine offene Einladung dieser Schule reserviert
-     * sind (Anzeige „reserviert für Einladung“ in der Coupon-Code-Liste).
+     * sind (Anzeige „reserviert für Einladung“ in der Zugangscode-Liste).
      *
      * @param  iterable<string>  $codes
      * @return array<string, true>

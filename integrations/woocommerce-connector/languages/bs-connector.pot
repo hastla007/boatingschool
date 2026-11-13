@@ -155,7 +155,7 @@ msgid "Für dieses Konto ist kein Einkauf für eine Bootsschule möglich. Bitte 
 msgstr ""
 
 #: includes/class-bs-accounts.php:433
-msgid "Haben Sie bereits Zugang zur Plattform? Erzeugen Sie dort im Admin-Bereich unter „Coupon-Codes → Shop verknüpfen“ einen Verknüpfungscode und geben Sie ihn hier ein."
+msgid "Haben Sie bereits Zugang zur Plattform? Erzeugen Sie dort im Admin-Bereich unter „Zugangscodes → Shop verknüpfen“ einen Verknüpfungscode und geben Sie ihn hier ein."
 msgstr ""
 
 #: includes/class-bs-accounts.php:438

@@ -88,7 +88,7 @@
                      gesperrt (tenant.role:owner,admin,learner), das hier
                      vermeidet nur einen Link ins Leere. --}}
                 @if ($role !== 'instructor')
-                    <x-nav-link :href="route('coupons.redeem')" :active="request()->routeIs('coupons.redeem')">Coupon-Code einlösen</x-nav-link>
+                    <x-nav-link :href="route('coupons.redeem')" :active="request()->routeIs('coupons.redeem')">Zugangscode einlösen</x-nav-link>
                 @endif
 
                 <x-dropdown align="right" width="48">
@@ -178,7 +178,7 @@
                 <x-responsive-nav-link :href="route('willkommensbox.index')" :active="request()->routeIs('willkommensbox.index')">Willkommensbox</x-responsive-nav-link>
             @endif
             @if ($role !== 'instructor')
-                <x-responsive-nav-link :href="route('coupons.redeem')" :active="request()->routeIs('coupons.redeem')">Coupon-Code einlösen</x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('coupons.redeem')" :active="request()->routeIs('coupons.redeem')">Zugangscode einlösen</x-responsive-nav-link>
             @endif
         </div>
         <div class="pt-4 pb-1 border-t border-slate-200 dark:border-slate-600">

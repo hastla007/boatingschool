@@ -6,7 +6,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 
 /**
- * Ergebnis des Coupon-Codes aus dem Registrierungsformular. Die
+ * Ergebnis des Zugangscodes aus dem Registrierungsformular. Die
  * Registrierung meldet sich bewusst nicht an und antwortet für neue und
  * bestehende Adressen gleich (siehe RegisteredUserController) -- das
  * Ergebnis wird deshalb je Konto zwischengespeichert und nach der ersten

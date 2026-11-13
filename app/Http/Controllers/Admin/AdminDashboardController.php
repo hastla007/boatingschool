@@ -40,11 +40,11 @@ use Illuminate\View\View;
 
 /**
  * Ein einziger Bootsschul-Admin-Bereich mit Tabs (Dashboard, Teilnehmer,
- * Branding, Webshop-Links, Kursauswahl, Coupon-Codes) statt sechs
+ * Branding, Webshop-Links, Kursauswahl, Zugangscodes) statt sechs
  * separater Seiten -- alle Daten werden hier gesammelt geladen, die Tabs
  * selbst sind reine Client-Umschaltung (siehe admin/dashboard.blade.php).
  * Die schreibenden Aktionen (Teilnehmer einladen, Branding/Webshop-Links/
- * Kursauswahl speichern, Kurs manuell freischalten, Coupon-Codes
+ * Kursauswahl speichern, Kurs manuell freischalten, Zugangscodes
  * importieren/zuweisen) bleiben in ihren jeweiligen Controllern, nur die
  * Anzeige ist hier zusammengeführt.
  */
@@ -56,7 +56,7 @@ class AdminDashboardController extends Controller
 
         // Steuert, ob die Tabs mit Finanz-/Vertrauens-relevanten
         // Einstellungen (Branding, Addons, Kursauswahl/Webshop-Links,
-        // Kursempfehlungen, Coupon-Codes) überhaupt angezeigt werden -- die
+        // Kursempfehlungen, Zugangscodes) überhaupt angezeigt werden -- die
         // zugehörigen Routen sind serverseitig ohnehin auf owner/admin
         // beschränkt (siehe routes/web.php, Sicherheitsreview H3), das hier
         // vermeidet nur unbedienbare Formulare für einen Instructor.

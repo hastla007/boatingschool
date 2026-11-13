@@ -83,7 +83,7 @@ class AppServiceProvider extends ServiceProvider
             return $guard;
         });
 
-        // Ergebnis des Coupon-Codes aus der Registrierung nach der Anmeldung zeigen.
+        // Ergebnis des Zugangscodes aus der Registrierung nach der Anmeldung zeigen.
         Event::listen(Login::class, function (Login $event) {
             if ($event->user instanceof User) {
                 RegistrationCouponNotice::moveToSession($event->user);

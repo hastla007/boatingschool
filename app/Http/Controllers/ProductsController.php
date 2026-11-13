@@ -12,7 +12,7 @@ use Illuminate\View\View;
 
 /**
  * „Meine Produkte“: Zusatzleistungen (Fahrstunden, Praxiseinheiten,
- * Willkommensbox …), die der Lerner per Coupon-Code eingelöst oder von
+ * Willkommensbox …), die der Lerner per Zugangscode eingelöst oder von
  * seiner Bootsschule bekommen hat -- je Eintrag mit dem nächsten Schritt.
  * Nach dem Einlösen eines Produkt-Codes landet der Lerner hier statt im
  * Profil, damit er sieht, was er bekommen hat und wie es weitergeht.

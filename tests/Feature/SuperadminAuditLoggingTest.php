@@ -15,14 +15,14 @@ use Tests\TestCase;
 /**
  * Sicherheitsreview S4: Sperren/Entsperren einer Bootsschule oder eines
  * Kontos, das Erteilen/Entziehen von is_superadmin, die Rollenzuweisung
- * über die Superadmin-Nutzerseite und das Erzeugen von Coupon-Codes
+ * über die Superadmin-Nutzerseite und das Erzeugen von Zugangscodes
  * schrieben bisher keine AuditLog-Zeile -- im Unterschied zu den längst
  * bestehenden AuditLog::record()-Aufrufen für Bootsschul-Admin-Aktionen
  * (z. B. entitlement.*, coupon.redeem, participant.update).
  *
  * Bug-Review (Superadmin-Audit-Lücken): dieselbe Lücke bestand weiterhin
  * beim Anlegen eines Nutzers/einer Bootsschule, beim Export von
- * Coupon-Codes und bei einer vom Superadmin selbst geänderten
+ * Zugangscodes und bei einer vom Superadmin selbst geänderten
  * E-Mail-Adresse. Erzeugte Codes stehen außerdem nicht mehr im Klartext
  * im after_data-JSON (siehe AuditLogDescriptionTest für die zugehörige
  * Anzeige-Seite im "Letzte Aktivitäten"-Feed der Bootsschule).

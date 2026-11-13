@@ -12,7 +12,7 @@ use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
 /**
- * Bestätigungsmail beim Einlösen, Coupon-Codes sperren bzw. mit
+ * Bestätigungsmail beim Einlösen, Zugangscodes sperren bzw. mit
  * Ablaufdatum, Vorwarnung vor dem Ablauf eines Kurszugangs.
  */
 class CouponAndExpiryNoticesTest extends TestCase

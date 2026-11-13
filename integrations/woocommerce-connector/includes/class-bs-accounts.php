@@ -430,7 +430,7 @@ final class BS_Accounts
 
             return;
         }
-        echo '<p>'.esc_html__('Haben Sie bereits Zugang zur Plattform? Erzeugen Sie dort im Admin-Bereich unter „Coupon-Codes → Shop verknüpfen“ einen Verknüpfungscode und geben Sie ihn hier ein.', 'bs-connector').'</p>';
+        echo '<p>'.esc_html__('Haben Sie bereits Zugang zur Plattform? Erzeugen Sie dort im Admin-Bereich unter „Zugangscodes → Shop verknüpfen“ einen Verknüpfungscode und geben Sie ihn hier ein.', 'bs-connector').'</p>';
         ?>
 		<form method="post" class="woocommerce-form">
 			<?php wp_nonce_field('bs_link', '_bs_link_nonce'); ?>

@@ -81,7 +81,7 @@ class RegisteredUserController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['bail', 'required', 'string', 'lowercase', 'email', 'max:255'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
-            // Optionaler Coupon-Code: ein ungültiger Code blockiert die
+            // Optionaler Zugangscode: ein ungültiger Code blockiert die
             // Registrierung nicht (Hinweis nach der Anmeldung, siehe unten).
             'coupon_code' => ['nullable', 'string', 'max:64'],
             // Mindestalter bzw. Einverständnis der Erziehungsberechtigten.
@@ -183,7 +183,7 @@ class RegisteredUserController extends Controller
             "Verifizierungsmail Registrierung {$user->id}"
         );
 
-        // Coupon-Code aus dem Registrierungsformular direkt nach dem Anlegen
+        // Zugangscode aus dem Registrierungsformular direkt nach dem Anlegen
         // einlösen. Das Ergebnis (auch „ungültig“) erscheint erst nach der
         // Anmeldung (RegistrationCouponNotice) -- die Antwort hier bleibt für
         // neue und bestehende Adressen gleich (Bug-Review M3).
@@ -207,10 +207,10 @@ class RegisteredUserController extends Controller
         $coupon = Coupon::lookup($code);
 
         if (! $coupon || $coupon->isRedeemed()) {
-            return ['type' => 'error', 'message' => "Der Coupon-Code aus deiner Registrierung ({$code}) ist ungültig oder wurde bereits eingelöst. Du kannst einen gültigen Code jederzeit unter „Coupon-Code einlösen“ eingeben."];
+            return ['type' => 'error', 'message' => "Der Zugangscode aus deiner Registrierung ({$code}) ist ungültig oder wurde bereits eingelöst. Du kannst einen gültigen Code jederzeit unter „Zugangscode einlösen“ eingeben."];
         }
         if (! $coupon->isUsable()) {
-            return ['type' => 'error', 'message' => "Der Coupon-Code aus deiner Registrierung ({$code}) ist nicht mehr gültig. Bitte wende dich an deine Bootsschule."];
+            return ['type' => 'error', 'message' => "Der Zugangscode aus deiner Registrierung ({$code}) ist nicht mehr gültig. Bitte wende dich an deine Bootsschule."];
         }
 
         try {
@@ -221,11 +221,11 @@ class RegisteredUserController extends Controller
                 report($e);
             }
 
-            return ['type' => 'error', 'message' => "Der Coupon-Code aus deiner Registrierung ({$code}) konnte nicht eingelöst werden. Bitte versuche es unter „Coupon-Code einlösen“ erneut."];
+            return ['type' => 'error', 'message' => "Der Zugangscode aus deiner Registrierung ({$code}) konnte nicht eingelöst werden. Bitte versuche es unter „Zugangscode einlösen“ erneut."];
         }
 
         $name = $result['type'] === 'product' ? $result['product']->name : $result['course']->name;
 
-        return ['type' => 'success', 'message' => "Dein Coupon-Code aus der Registrierung wurde eingelöst – „{$name}“ ist freigeschaltet."];
+        return ['type' => 'success', 'message' => "Dein Zugangscode aus der Registrierung wurde eingelöst – „{$name}“ ist freigeschaltet."];
     }
 }

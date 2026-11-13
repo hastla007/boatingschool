@@ -10,7 +10,7 @@ use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
 /**
- * Zwei Wege, wie eine Bootsschule an eigene Coupon-Codes kommt: der
+ * Zwei Wege, wie eine Bootsschule an eigene Zugangscodes kommt: der
  * Superadmin teilt direkt welche zu (bereits in SuperadminAreaTest
  * geprüft), oder die Bootsschule übernimmt selbst Codes in ihren Bestand
  * (Admin\CouponController::import) -- die Codes existieren dafür schon
@@ -308,7 +308,7 @@ class CouponManagementTest extends TestCase
         $response = $this->actingAsInTenant($learner, $tenant)->get('/dashboard');
 
         $response->assertOk();
-        $response->assertSee('Coupon-Code einlösen');
+        $response->assertSee('Zugangscode einlösen');
         $response->assertSee(route('coupons.redeem', absolute: false), false);
     }
 

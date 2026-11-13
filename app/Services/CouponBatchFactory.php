@@ -9,7 +9,7 @@ use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Carbon;
 
 /**
- * Der eine Weg, Coupon-Codes anzulegen (Superadmin „Codes erzeugen“ und
+ * Der eine Weg, Zugangscodes anzulegen (Superadmin „Codes erzeugen“ und
  * Lieferung einer Shop-Bestellposition, siehe ShopOrders::deliver):
  *
  * - alles in einer Transaktion (bricht etwas ab, bleibt kein halbes Paket),

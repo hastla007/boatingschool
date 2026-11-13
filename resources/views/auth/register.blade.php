@@ -51,7 +51,7 @@
 
         {{-- Optional: ein Code der Bootsschule wird direkt nach dem Anlegen eingelöst. --}}
         <div>
-            <x-input-label for="coupon_code" value="Coupon-Code (optional)" />
+            <x-input-label for="coupon_code" value="Zugangscode (optional)" />
             <x-text-input id="coupon_code" class="block mt-1 w-full font-mono uppercase tracking-wider" type="text" name="coupon_code" :value="old('coupon_code')" autocomplete="off" placeholder="XXXX-XXXX-XXXX-XXXX" maxlength="64" />
             <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Hast du von deiner Bootsschule einen Code bekommen? Er wird nach der Registrierung eingelöst; das Ergebnis siehst du nach der Anmeldung.</p>
             <x-input-error :messages="$errors->get('coupon_code')" class="mt-2" />

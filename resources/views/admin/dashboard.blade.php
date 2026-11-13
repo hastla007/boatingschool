@@ -29,7 +29,7 @@
          Bereich. --}}
     {{-- Bug-Review BB15 (Admin-Pagination verliert aktiven Reiter beim
          Seitenwechsel): die Pagination-Links in den Tabs (Teilnehmer,
-         Praxis-Anmeldungen, Willkommensbox, Coupon-Codes) werden
+         Praxis-Anmeldungen, Willkommensbox, Zugangscodes) werden
          serverseitig mit withQueryString() gerendert -- das übernimmt nur
          die Query-Parameter des GERADE AUSGEFÜHRTEN Requests. Der
          Tab-Wechsel selbst läuft aber rein clientseitig über
@@ -74,7 +74,7 @@
                     :style="tab === 'willkommensbox' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Willkommensbox</button>
             @if ($canManageTenant)
                 <button type="button" role="tab" :aria-selected="(tab === 'coupons').toString()" data-tab="coupons" @click="tab = 'coupons'" :class="tab === 'coupons' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
-                        :style="tab === 'coupons' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Coupon-Codes</button>
+                        :style="tab === 'coupons' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Zugangscodes</button>
                 <button type="button" role="tab" :aria-selected="(tab === 'courses').toString()" data-tab="courses" @click="tab = 'courses'" :class="tab === 'courses' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
                         :style="tab === 'courses' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Kursauswahl</button>
             @endif

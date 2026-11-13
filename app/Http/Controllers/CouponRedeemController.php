@@ -13,7 +13,7 @@ use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Einlösen eines Coupon-Codes -- für einen Kurs (schaltet ein Entitlement
+ * Einlösen eines Zugangscodes -- für einen Kurs (schaltet ein Entitlement
  * frei) oder ein Produkt wie eine Fahrstunde (legt einen ProductPurchase-
  * Nachweis an). Die RLS-Policy auf "coupon" (tenant_id IS NULL ODER
  * tenant_id = aktueller Mandant) sorgt bereits dafür, dass ein einer

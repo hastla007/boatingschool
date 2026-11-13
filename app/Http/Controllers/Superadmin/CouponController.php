@@ -98,7 +98,7 @@ class CouponController extends Controller
         ], $quantity, $quantity > 1 ? ['source' => 'superadmin'] : null);
         $codes = $created['codes'];
 
-        // Sicherheitsreview S4: die Erzeugung von Coupon-Codes (potenziell
+        // Sicherheitsreview S4: die Erzeugung von Zugangscodes (potenziell
         // kostenlose Freischaltungen, bis zu 500 pro Aufruf) wurde bisher
         // gar nicht protokolliert -- ein einziger Eintrag pro Batch statt
         // einem je Code, da ein Batch bis zu 500 Zeilen erzeugen könnte.
@@ -118,7 +118,7 @@ class CouponController extends Controller
             'batch_id' => $created['batch']?->id,
         ]);
 
-        $message = $quantity === 1 ? 'Coupon-Code erzeugt.' : "{$quantity} Coupon-Codes erzeugt.";
+        $message = $quantity === 1 ? 'Zugangscode erzeugt.' : "{$quantity} Zugangscodes erzeugt.";
 
         return back()->with('status', $message)->with('generatedCodes', $codes);
     }
@@ -154,7 +154,7 @@ class CouponController extends Controller
             $codes = Coupon::whereIn('id', $validated['ids'])->orderByDesc('created_at')->pluck('code');
         }
 
-        // Bug-Review (Superadmin-Audit-Lücken): der Export von Coupon-Codes
+        // Bug-Review (Superadmin-Audit-Lücken): der Export von Zugangscodes
         // als Klartext-Download wurde bisher gar nicht protokolliert --
         // anders als store() (Sicherheitsreview S4) wird hier bewusst NUR
         // die Anzahl vermerkt, nicht die Codes selbst (die stehen bereits

@@ -24,7 +24,7 @@ use Tests\TestCase;
  *
  * Bug-Review (Hoch): store() ("Kurs freischalten" im Teilnehmer-Tab) legte
  * bisher IMMER ein unbefristetes Entitlement an (valid_until frei wählbar,
- * Default null), ohne jemals einen Coupon-Code der Bootsschule zu
+ * Default null), ohne jemals einen Zugangscode der Bootsschule zu
  * verbrauchen -- obwohl das Dropdown im Teilnehmer-Tab ausdrücklich den
  * verfügbaren Code-Bestand je Kurs anzeigt und bei 0 deaktiviert. store()
  * verlangt jetzt einen verfügbaren, der Bootsschule gehörenden Kurs-Coupon
@@ -688,7 +688,7 @@ class EntitlementManagementTest extends TestCase
      * product_purchase_coupon_source_unique (source_type, source_reference,
      * product_id) griff dabei nicht, weil "Widerruf aufheben" bewusst einen
      * FRISCHEN, bisher unbenutzten Code verbraucht (source_reference also
-     * ein anderer Coupon-Code als beim ursprünglichen Kauf). Ein Zyklus aus
+     * ein anderer Zugangscode als beim ursprünglichen Kauf). Ein Zyklus aus
      * Widerrufen + Widerruf aufheben legte das gebündelte Produkt (hier die
      * Willkommensbox) dadurch ein zweites Mal an.
      */

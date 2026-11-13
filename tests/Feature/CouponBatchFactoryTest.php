@@ -48,7 +48,7 @@ class CouponBatchFactoryTest extends TestCase
 
         $this->actingAs($superadmin)->post('/superadmin/coupons', [
             'target' => 'course:'.$course->id, 'quantity' => 3, 'batch_label' => $label, 'option_product_ids' => [$option->id],
-        ])->assertSessionHasNoErrors()->assertSessionHas('status', '3 Coupon-Codes erzeugt.');
+        ])->assertSessionHasNoErrors()->assertSessionHas('status', '3 Zugangscodes erzeugt.');
 
         $this->onAdmin(function () use ($label, $course, $option) {
             $coupons = Coupon::where('batch_label', $label)->get();
@@ -78,7 +78,7 @@ class CouponBatchFactoryTest extends TestCase
         $course = $this->existingCourse('SRC');
         $single = $this->label();
         $this->actingAs($superadmin)->post('/superadmin/coupons', ['target' => 'course:'.$course->id, 'quantity' => 1, 'batch_label' => $single])
-            ->assertSessionHas('status', 'Coupon-Code erzeugt.');
+            ->assertSessionHas('status', 'Zugangscode erzeugt.');
         $this->assertNull($this->onAdmin(fn () => Coupon::where('batch_label', $single)->value('batch_id')));
 
         // Paket für eine Schule: im Codebestand, aber nicht unter „Bestellungen aus dem Shop“.

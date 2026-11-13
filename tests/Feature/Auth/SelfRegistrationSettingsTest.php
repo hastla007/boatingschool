@@ -14,7 +14,7 @@ use Tests\TestCase;
 
 /**
  * Registrierung: Schalter „Selbstregistrierung erlauben“ je Schule und
- * optionaler Coupon-Code im Registrierungsformular.
+ * optionaler Zugangscode im Registrierungsformular.
  */
 class SelfRegistrationSettingsTest extends TestCase
 {
@@ -148,7 +148,7 @@ class SelfRegistrationSettingsTest extends TestCase
         $dashboard = $this->actingAsInTenant($user->fresh(), $tenant)
             ->withSession([RegistrationCouponNotice::SESSION_KEY => $notice])->get('/dashboard');
         $dashboard->assertOk();
-        $dashboard->assertSee('Dein Coupon-Code aus der Registrierung wurde eingelöst');
+        $dashboard->assertSee('Dein Zugangscode aus der Registrierung wurde eingelöst');
     }
 
     public function test_an_invalid_coupon_code_does_not_block_registration(): void

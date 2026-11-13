@@ -14,7 +14,7 @@ use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Zwei Wege, wie eine Bootsschule an Coupon-Codes für ihre eigenen
+ * Zwei Wege, wie eine Bootsschule an Zugangscodes für ihre eigenen
  * angebotenen Kurse/Produkte kommt: der Superadmin teilt direkt welche zu
  * (Superadmin\CouponController::store mit tenant_id), oder die Bootsschule
  * übernimmt selbst Codes in ihren Bestand (import()), die vorher im System

@@ -3,7 +3,7 @@
      Absatz nutzte bisher als einzige Stelle hier die informelle
      ihr-Form. --}}
 <p class="text-slate-500 dark:text-slate-400 mb-6">
-    Eigene Coupon-Codes bekommen Sie auf drei Wegen: Bestellungen im verknüpften Shop werden automatisch
+    Eigene Zugangscodes bekommen Sie auf drei Wegen: Bestellungen im verknüpften Shop werden automatisch
     gutgeschrieben, der Plattform-Betreiber teilt Ihnen welche zu, oder Sie übernehmen anderswo gekaufte Codes per
     Import in Ihren Bestand.
 </p>
@@ -20,7 +20,7 @@
         <form method="POST" action="{{ route('admin.coupons.import') }}" class="space-y-3">
             @csrf
             <div>
-                <label for="codes" class="sr-only">Coupon-Codes</label>
+                <label for="codes" class="sr-only">Zugangscodes</label>
                 <textarea id="codes" name="codes" rows="4" required placeholder="XXXX-XXXX-XXXX-XXXX" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm font-mono">{{ old('codes') }}</textarea>
                 <x-input-error :messages="$errors->get('codes')" class="mt-2" />
             </div>
@@ -241,7 +241,7 @@
                         @if ($coupon->isUsable() && $coupon->tenant_id === $tenant->id && ! isset($reservedCouponCodes[$coupon->code]))
                             <form method="POST" action="{{ route('admin.coupons.assign', $coupon) }}" class="flex gap-1">
                                 @csrf
-                                <select name="user_id" required aria-label="Nutzer für Coupon {{ $coupon->code }} wählen" class="js-coupon-assign-select rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs">
+                                <select name="user_id" required aria-label="Nutzer für Zugangscode {{ $coupon->code }} wählen" class="js-coupon-assign-select rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs">
                                     <option value="">Teilnehmer wählen…</option>
                                 </select>
                                 <button type="submit" class="px-3 py-1 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-xs whitespace-nowrap">Zuweisen</button>

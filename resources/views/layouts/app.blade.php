@@ -111,7 +111,7 @@
                      globale Box zeigte danach $errors->all() komplett an,
                      auch Meldungen, die eine Seite bereits direkt neben
                      ihrem Feld anzeigt (z. B. <x-input-error> bei
-                     Adresse/Coupon-Zuweisung) -- jede so eingeleitete
+                     Adresse/Zugangscode-Zuweisung) -- jede so eingeleitete
                      Meldung erschien dadurch zweimal. $slot ist an dieser
                      Stelle bereits vollständig gerendert (Blade führt den
                      Inhalt zwischen <x-app-layout>...</x-app-layout> vor

@@ -1,4 +1,4 @@
-{{-- Ergebnis des Coupon-Codes aus der Registrierung, einmalig nach der Anmeldung (App\Support\RegistrationCouponNotice). --}}
+{{-- Ergebnis des Zugangscodes aus der Registrierung, einmalig nach der Anmeldung (App\Support\RegistrationCouponNotice). --}}
 @php($registrationCouponNotice = auth()->check() ? \App\Support\RegistrationCouponNotice::pull() : null)
 @if ($registrationCouponNotice)
     <div role="status" @class([
