@@ -87,6 +87,7 @@
                     'verification-link-sent' => 'Ein neuer Bestätigungslink wurde an deine E-Mail-Adresse gesendet.',
                     default => session('status'),
                 })
+                @include('partials.registration-coupon-notice')
                 @if ($statusText)
                     <div role="status" class="mb-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 text-sm dark:bg-emerald-900/30 dark:border-emerald-800 dark:text-emerald-300">
                         {{ $statusText }}

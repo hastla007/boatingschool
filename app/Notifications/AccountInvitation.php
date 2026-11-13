@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Models\PlatformSetting;
 use App\Models\Tenant;
+use App\Notifications\Concerns\AddsNoReplyHint;
 use App\Notifications\Concerns\EscapesMarkdown;
 use App\Support\MailTemplates;
 use Illuminate\Bus\Queueable;
@@ -17,7 +18,7 @@ use Illuminate\Notifications\Notification;
  */
 class AccountInvitation extends Notification
 {
-    use EscapesMarkdown, Queueable;
+    use AddsNoReplyHint, EscapesMarkdown, Queueable;
 
     public function __construct(private readonly ?Tenant $tenant, private readonly string $role, public readonly string $url) {}
 
@@ -65,6 +66,12 @@ class AccountInvitation extends Notification
             ->action('Passwort festlegen', $this->url)
             ->line($expired);
 
-        return MailTemplates::apply($message, 'account_invitation', ['schule' => $school, 'rolle' => trim(str_replace('als ', '', $roleText))]);
+        $message = MailTemplates::apply($message, 'account_invitation', ['schule' => $school, 'rolle' => trim(str_replace('als ', '', $roleText))]);
+
+        return self::withNoReplyHint($message, match (true) {
+            in_array($this->role, ['owner', 'superadmin'], true) => 'platform',
+            $formal => 'team',
+            default => 'learner',
+        });
     }
 }

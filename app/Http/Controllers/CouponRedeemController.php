@@ -76,7 +76,10 @@ class CouponRedeemController extends Controller
                 ->with('status', "Code eingelöst – dein Zugang zu \"{$result['course']->name}\" wurde verlängert".($validUntil ? " bis {$validUntil}" : '').'!');
         }
 
-        return redirect()->route('profile.edit')
+        // Produkte (Fahrstunde, Praxiseinheit …): „Meine Produkte“ zeigt, was
+        // der Lerner bekommen hat und wie es weitergeht (das Profil nannte
+        // nur die Buchung ohne nächsten Schritt).
+        return redirect()->route('products.index')
             ->with('status', "Code eingelöst – \"{$result['product']->name}\" wurde deinem Konto gutgeschrieben!");
     }
 }

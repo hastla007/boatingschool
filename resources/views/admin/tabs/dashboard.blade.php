@@ -97,38 +97,20 @@
         <x-icon name="chart-bar" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Kursfortschritt in der Lernphase
     </h3>
     @if ($learningPhaseLearnerCount > 0)
-        @php
-            $chartPointCount = $progressDistribution->count();
-            $chartPoints = $progressDistribution->values()->map(function ($bucket, $i) use ($chartPointCount) {
-                return [
-                    'x' => $chartPointCount > 1 ? 5 + ($i / ($chartPointCount - 1)) * 90 : 50,
-                    'y' => 95 - ($bucket['percent'] / 100 * 90),
-                    'bucket' => $bucket,
-                ];
-            });
-            $polylinePoints = $chartPoints->map(fn ($p) => $p['x'].','.$p['y'])->implode(' ');
-        @endphp
-        <div class="relative h-32 mb-2">
-            <svg viewBox="0 0 100 100" preserveAspectRatio="none" class="absolute inset-0 w-full h-full">
-                <polyline
-                    points="{{ $polylinePoints }}"
-                    fill="none"
-                    stroke="var(--brand-primary, #005FD7)"
-                    stroke-width="2"
-                    stroke-linejoin="round"
-                    stroke-linecap="round"
-                    vector-effect="non-scaling-stroke"
-                />
-            </svg>
-            @foreach ($chartPoints as $point)
-                <div
-                    class="absolute w-2.5 h-2.5 rounded-full -translate-x-1/2 -translate-y-1/2 ring-2 ring-white dark:ring-slate-800"
-                    style="left: {{ $point['x'] }}%; top: {{ $point['y'] }}%; background-color: var(--brand-primary, #005FD7)"
-                    title="{{ $point['bucket']['label'] }}: {{ $point['bucket']['count'] }} Teilnehmer ({{ $point['bucket']['percent'] }}%)"
-                ></div>
+        {{-- Balken je Fortschrittsbereich statt einer Linie: die Bereiche sind
+             Kategorien (keine Zeitreihe), eine Verbindungslinie suggerierte
+             einen Verlauf. Höhe = Anteil der Teilnehmer in der Lernphase. --}}
+        <div class="flex items-end gap-2 sm:gap-4 h-32 mb-2 border-b border-slate-200 dark:border-slate-700" role="img"
+             aria-label="Kursfortschritt in der Lernphase: {{ $progressDistribution->map(fn ($b) => $b['label'].' '.$b['count'].' Teilnehmer')->implode(', ') }}">
+            @foreach ($progressDistribution as $bucket)
+                <div class="flex-1 h-full flex flex-col justify-end items-center gap-1"
+                     title="{{ $bucket['label'] }}: {{ $bucket['count'] }} Teilnehmer ({{ $bucket['percent'] }}%)">
+                    <span class="text-xs text-slate-600 dark:text-slate-400">{{ $bucket['percent'] }}%</span>
+                    <div class="w-full max-w-16 rounded-t-md" style="height: {{ max($bucket['count'] > 0 ? 4 : 0, $bucket['percent'] * 0.8) }}%; background-color: var(--brand-primary, #005FD7)"></div>
+                </div>
             @endforeach
         </div>
-        <div class="flex gap-4 text-xs text-slate-600 dark:text-slate-400 text-center">
+        <div class="flex gap-2 sm:gap-4 text-xs text-slate-600 dark:text-slate-400 text-center">
             @foreach ($progressDistribution as $bucket)
                 <div class="flex-1">{{ $bucket['label'] }} <span class="text-slate-500 dark:text-slate-400">({{ $bucket['count'] }})</span></div>
             @endforeach

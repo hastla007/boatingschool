@@ -4,17 +4,13 @@ namespace App\Providers;
 
 use App\Auth\TenantSessionGuard;
 use App\Models\PlatformSetting;
-use App\Notifications\AccountInvitation;
-use App\Notifications\AnnouncementPublished;
-use App\Notifications\CouponRedeemed;
-use App\Notifications\EntitlementExpiringSoon;
-use App\Notifications\LearningReminder;
-use App\Notifications\PraxisExamAppointmentUpdated;
-use App\Notifications\TenantInvitationNotification;
-use App\Notifications\WillkommensboxOrderShipped;
+use App\Models\User;
 use App\Support\CanonicalUrl;
 use App\Support\MailSchool;
+use App\Support\RegistrationCouponNotice;
+use App\Support\SchoolMails;
 use App\Support\TenantContext;
+use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -86,6 +82,13 @@ class AppServiceProvider extends ServiceProvider
             return $guard;
         });
 
+        // Ergebnis des Coupon-Codes aus der Registrierung nach der Anmeldung zeigen.
+        Event::listen(Login::class, function (Login $event) {
+            if ($event->user instanceof User) {
+                RegistrationCouponNotice::moveToSession($event->user);
+            }
+        });
+
         // Die Verifizierungs-Mail nach der Registrierung verdrahtet Laravel 12
         // selbst (EventServiceProvider::configureEmailVerification); ein
         // eigenes Event::listen() hier schickte sie doppelt.
@@ -117,12 +120,8 @@ class AppServiceProvider extends ServiceProvider
         // schickt (Liste unten) -- nie für Konto- und Sicherheitsmails der
         // Plattform (Passwort, Bestätigung, Registrierungsversuch …), sonst
         // könnte eine Schule dort ihre eigene Antwortadresse unterbringen.
-        $schoolMails = [
-            TenantInvitationNotification::class, AccountInvitation::class, CouponRedeemed::class,
-            EntitlementExpiringSoon::class, LearningReminder::class,
-            PraxisExamAppointmentUpdated::class, AnnouncementPublished::class,
-            WillkommensboxOrderShipped::class,
-        ];
+        // Liste in SchoolMails (auch für die Schlusszeile ohne Antwortadresse).
+        $schoolMails = SchoolMails::NOTIFICATIONS;
         // Review-Runde 12: Absendername wie die Unterschrift -- die Schule, aus
         // deren Bereich die Mail kommt, sonst der Plattformname (statt APP_NAME).
         Event::listen(MessageSending::class, function ($event) {
@@ -138,9 +137,8 @@ class AppServiceProvider extends ServiceProvider
                 return;
             }
             $tenant = MailSchool::current();
-            $branding = $tenant?->branding;
-            if ($branding?->support_email && $branding->support_email_verified_at && $event->message->getReplyTo() === []) {
-                $event->message->replyTo(new Address($branding->support_email, $tenant->name));
+            if (SchoolMails::hasVerifiedReplyTo() && $event->message->getReplyTo() === []) {
+                $event->message->replyTo(new Address($tenant->branding->support_email, $tenant->name));
             }
         });
 

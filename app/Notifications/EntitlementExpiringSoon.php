@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\Entitlement;
+use App\Notifications\Concerns\AddsNoReplyHint;
 use App\Notifications\Concerns\EscapesMarkdown;
 use App\Support\CanonicalUrl;
 use App\Support\GermanTime;
@@ -17,7 +18,7 @@ use Illuminate\Notifications\Notification;
  */
 class EntitlementExpiringSoon extends Notification
 {
-    use EscapesMarkdown, Queueable;
+    use AddsNoReplyHint, EscapesMarkdown, Queueable;
 
     public function __construct(private readonly Entitlement $entitlement) {}
 
@@ -51,8 +52,8 @@ class EntitlementExpiringSoon extends Notification
                 ->action('Zum Kurs', $root.route('courses.show', $this->entitlement->course, false));
         }
 
-        return MailTemplates::apply($message, 'entitlement_expiring', [
+        return self::withNoReplyHint(MailTemplates::apply($message, 'entitlement_expiring', [
             'schule' => $tenant->name, 'kurs' => $this->entitlement->course->name, 'datum' => $date,
-        ]);
+        ]));
     }
 }

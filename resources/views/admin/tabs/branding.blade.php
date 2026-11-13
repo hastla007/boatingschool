@@ -221,6 +221,17 @@
         </div>
 
         <div class="pt-2 border-t border-slate-100 dark:border-slate-700">
+            <span class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Registrierung</span>
+            {{-- Verstecktes Feld: ein abgewählter Haken wird sonst gar nicht übertragen. --}}
+            <input type="hidden" name="self_registration_enabled" value="0">
+            <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" name="self_registration_enabled" value="1" @checked(old('self_registration_enabled', $branding->allowsSelfRegistration())) class="rounded border-slate-300 dark:border-slate-600 text-emerald-600 focus:ring-emerald-500">
+                <span class="text-sm text-slate-600 dark:text-slate-300">Selbstregistrierung erlauben</span>
+            </label>
+            <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Ist der Haken entfernt, können sich Teilnehmer nicht mehr selbst registrieren – Konten entstehen dann nur noch über Ihre Einladung (Teilnehmer-Tab). Die Anmeldeseite zeigt keinen Registrierungslink mehr.</p>
+        </div>
+
+        <div class="pt-2 border-t border-slate-100 dark:border-slate-700">
             <label for="exam_readiness_threshold_percent" class="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">Kursfortschritt-Voraussetzung für Prüfung &amp; Praxis</label>
             <p class="text-xs text-slate-600 dark:text-slate-400 mb-2">Ab diesem Kursfortschritt darf ein Teilnehmer die Kachel „Praxis &amp; Prüfung" auswählen, um Prüfung und Praxis bei Ihrer Bootsschule zu buchen. Gibt das Praxisformular eines Kurses einen eigenen Mindestfortschritt vor, gilt für diesen Kurs dieser Wert.</p>
             <div class="flex items-center gap-2">

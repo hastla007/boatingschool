@@ -3,13 +3,18 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\Coupon;
+use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
 use App\Notifications\DuplicateRegistrationAttempt;
+use App\Services\CouponRedemptionService;
 use App\Support\BestEffortMail;
 use App\Support\EmailInput;
+use App\Support\RegistrationCouponNotice;
 use App\Support\TenantContext;
 use Illuminate\Auth\Events\Registered;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -19,19 +24,33 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\Rules;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use RuntimeException;
+use Throwable;
 
 class RegisteredUserController extends Controller
 {
-    public function create(): View
+    public function create(TenantContext $tenantContext): View
     {
-        return view('auth.register');
+        // Selbstregistrierung abgeschaltet: Hinweis statt Formular.
+        return view('auth.register', [
+            'registrationClosed' => ! self::allowsSelfRegistration($tenantContext->tenant()),
+        ]);
+    }
+
+    /** Schalter „Selbstregistrierung erlauben“ im Branding der Schule (Standard an). */
+    public static function allowsSelfRegistration(?Tenant $tenant): bool
+    {
+        return $tenant?->branding?->allowsSelfRegistration() ?? true;
     }
 
     /**
      * @throws ValidationException
      */
-    public function store(Request $request, TenantContext $tenantContext): RedirectResponse
+    public function store(Request $request, TenantContext $tenantContext, CouponRedemptionService $redemption): RedirectResponse
     {
+        // Selbstregistrierung von der Schule abgeschaltet: Konten entstehen nur per Einladung.
+        abort_unless(self::allowsSelfRegistration($tenantContext->tenant()), 403, 'Bei dieser Bootsschule werden Konten nur per Einladung der Bootsschule angelegt.');
+
         // Kein "unique"-Regelverstoß mehr auf dem email-Feld (Sicherheitsreview
         // M3): Laravels Standardmeldung "wurde bereits vergeben" bestätigt
         // sonst platformweit, ob eine Adresse irgendwo existiert, auf jeder
@@ -42,6 +61,9 @@ class RegisteredUserController extends Controller
             'name' => ['required', 'string', 'max:255'],
             'email' => ['bail', 'required', 'string', 'lowercase', 'email', 'max:255'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            // Optionaler Coupon-Code: ein ungültiger Code blockiert die
+            // Registrierung nicht (Hinweis nach der Anmeldung, siehe unten).
+            'coupon_code' => ['nullable', 'string', 'max:64'],
         ]);
 
         $tenant = $tenantContext->tenant();
@@ -91,7 +113,9 @@ class RegisteredUserController extends Controller
                 );
             }
 
-            return back()->withInput($request->except('password', 'password_confirmation'))->with('status', $status);
+            // Ein mitgeschickter Code bleibt hier bewusst unangetastet (fremdes
+            // Konto) -- die Antwort ist dieselbe wie bei einem neuen Konto.
+            return back()->withInput($request->except('password', 'password_confirmation', 'coupon_code'))->with('status', $status);
         }
 
         $user = DB::transaction(function () use ($request, $tenant) {
@@ -132,6 +156,49 @@ class RegisteredUserController extends Controller
             "Verifizierungsmail Registrierung {$user->id}"
         );
 
-        return back()->withInput($request->except('password', 'password_confirmation'))->with('status', $status);
+        // Coupon-Code aus dem Registrierungsformular direkt nach dem Anlegen
+        // einlösen. Das Ergebnis (auch „ungültig“) erscheint erst nach der
+        // Anmeldung (RegistrationCouponNotice) -- die Antwort hier bleibt für
+        // neue und bestehende Adressen gleich (Bug-Review M3).
+        $code = trim((string) $request->input('coupon_code'));
+        if ($code !== '') {
+            RegistrationCouponNotice::remember($user, $this->redeemRegistrationCoupon($code, $tenant, $user, $redemption));
+        }
+
+        return back()->withInput($request->except('password', 'password_confirmation', 'coupon_code'))->with('status', $status);
+    }
+
+    /**
+     * Dieselben Prüfungen wie CouponRedeemController::redeem(), aber ohne
+     * Formularfehler: das Konto existiert bereits, ein Fehler beim Code darf
+     * die Registrierung nicht mehr scheitern lassen.
+     *
+     * @return array{type: 'success'|'error', message: string}
+     */
+    private function redeemRegistrationCoupon(string $code, Tenant $tenant, User $user, CouponRedemptionService $redemption): array
+    {
+        $coupon = Coupon::lookup($code);
+
+        if (! $coupon || $coupon->isRedeemed()) {
+            return ['type' => 'error', 'message' => "Der Coupon-Code aus deiner Registrierung ({$code}) ist ungültig oder wurde bereits eingelöst. Du kannst einen gültigen Code jederzeit unter „Coupon-Code einlösen“ eingeben."];
+        }
+        if (! $coupon->isUsable()) {
+            return ['type' => 'error', 'message' => "Der Coupon-Code aus deiner Registrierung ({$code}) ist nicht mehr gültig. Bitte wende dich an deine Bootsschule."];
+        }
+
+        try {
+            $result = $redemption->redeem($coupon, $tenant, $user);
+        } catch (Throwable $e) {
+            // Auch Datenbankfehler nur melden, das Konto bleibt bestehen.
+            if (! $e instanceof RuntimeException || $e instanceof QueryException) {
+                report($e);
+            }
+
+            return ['type' => 'error', 'message' => "Der Coupon-Code aus deiner Registrierung ({$code}) konnte nicht eingelöst werden. Bitte versuche es unter „Coupon-Code einlösen“ erneut."];
+        }
+
+        $name = $result['type'] === 'product' ? $result['product']->name : $result['course']->name;
+
+        return ['type' => 'success', 'message' => "Dein Coupon-Code aus der Registrierung wurde eingelöst – „{$name}“ ist freigeschaltet."];
     }
 }

@@ -232,10 +232,14 @@
 </form>
 <p class="text-xs text-slate-600 dark:text-slate-400 mb-2">{{ $participants->total() }} {{ $participants->total() === 1 ? 'Teilnehmer' : 'Teilnehmer' }}{{ \App\Support\ParticipantFilters::active($participantFilters) ? ' gefunden' : '' }}</p>
 
+{{-- Unter sm (Handy) wird jede Tabellenzeile per CSS zur Karte (Name, E-Mail,
+     Kurse als umbrechende Badges, Status, Aktionen); ab sm die gewohnte Tabelle.
+     Bewusst dasselbe Markup statt einer zweiten Kartenliste: jedes Formular
+     gibt es nur einmal. --}}
 <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden">
     <div class="overflow-x-auto">
-    <table class="w-full text-sm">
-        <thead class="bg-slate-50 dark:bg-slate-700 text-slate-500 dark:text-slate-300 text-left">
+    <table class="w-full text-sm block sm:table">
+        <thead class="hidden sm:table-header-group bg-slate-50 dark:bg-slate-700 text-slate-500 dark:text-slate-300 text-left">
             <tr>
                 <th class="px-4 py-2">Name</th>
                 <th class="px-4 py-2">E-Mail</th>
@@ -252,10 +256,10 @@
                 @endif
             </tr>
         </thead>
-        <tbody>
+        <tbody class="block sm:table-row-group">
             @foreach ($participants as $membership)
-                <tr class="border-t border-slate-100 dark:border-slate-700">
-                    <td class="px-4 py-2">
+                <tr class="block sm:table-row border-t first:border-t-0 sm:first:border-t border-slate-100 dark:border-slate-700 px-4 py-3 sm:p-0">
+                    <td class="block sm:table-cell sm:px-4 sm:py-2">
                         <a href="{{ route('admin.participants.show', $membership->user_id) }}" class="flex items-center gap-2 hover:underline">
                             <div class="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-semibold shrink-0" style="background-color: var(--brand-primary, #005FD7)">
                                 {{-- Bug-Review B28: mb_substr/mb_strtoupper statt
@@ -269,7 +273,7 @@
                         </a>
                         @if ($membership->user->status === 'invited')
                             {{-- Noch nie angemeldet: Link zum Passwort-Festlegen erneut schicken. --}}
-                            <form method="POST" action="{{ route('admin.participants.invite') }}" class="mt-1 ml-9 flex items-center gap-2 text-xs">
+                            <form method="POST" action="{{ route('admin.participants.invite') }}" class="mt-1 ml-9 flex flex-wrap items-center gap-2 text-xs">
                                 @csrf
                                 <input type="hidden" name="name" value="{{ $membership->user->name }}">
                                 <input type="hidden" name="email" value="{{ $membership->user->email }}">
@@ -278,8 +282,9 @@
                             </form>
                         @endif
                     </td>
-                    <td class="px-4 py-2 text-slate-500 dark:text-slate-400">{{ $membership->user->email }}</td>
-                    <td class="px-4 py-2 text-slate-500 dark:text-slate-400">
+                    <td class="block sm:table-cell pl-9 sm:px-4 sm:py-2 text-slate-500 dark:text-slate-400 break-all sm:break-normal">{{ $membership->user->email }}</td>
+                    <td class="block sm:table-cell pt-2 sm:px-4 sm:py-2 text-slate-500 dark:text-slate-400">
+                        <span class="sm:hidden block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">Kurse</span>
                         @forelse ($membership->user->entitlements as $entitlement)
                             <span class="inline-block px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-xs mb-1">
                                 {{ $entitlement->course->name }} ({{ \App\Support\StatusLabels::entitlementStatus($entitlement->status) }})
@@ -288,7 +293,8 @@
                             <span class="text-slate-600 dark:text-slate-400">keine</span>
                         @endforelse
                     </td>
-                    <td class="px-4 py-2 text-slate-500 dark:text-slate-400">
+                    <td class="block sm:table-cell pt-1 sm:px-4 sm:py-2 text-slate-500 dark:text-slate-400">
+                        <span class="sm:hidden block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">Produkte</span>
                         @forelse ($productPurchases->get($membership->user_id, collect()) as $purchase)
                             <span class="inline-block px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-xs mb-1">
                                 {{ $purchase->product->name }}
@@ -298,7 +304,8 @@
                         @endforelse
                     </td>
                     @if ($canManageTenant)
-                    <td class="px-4 py-2">
+                    <td class="block sm:table-cell pt-2 sm:px-4 sm:py-2">
+                        <span class="sm:hidden block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">Kurs freischalten <span class="font-normal">(verbraucht einen eigenen Code)</span></span>
                         {{-- Review: abgelaufene Zugänge (auch gesperrt und inzwischen abgelaufen) lassen sich hier neu freischalten; aktive, widerrufene und gesperrte mit Restlaufzeit haben eigene Aktionen. --}}
                         @php($bookedCourseIds = $membership->user->entitlements->filter(fn ($e) => $e->status === 'revoked' || (in_array($e->status, ['active', 'suspended'], true) && ($e->valid_until === null || $e->valid_until->isFuture())))->pluck('course_id')->all())
                         {{-- Nur Kurse, die die Schule anbietet. --}}
@@ -307,7 +314,7 @@
                             <form method="POST" action="{{ route('admin.entitlements.store') }}" class="flex gap-1">
                                 @csrf
                                 <input type="hidden" name="user_id" value="{{ $membership->user_id }}">
-                                <select name="course_id" aria-label="Kurs für {{ $membership->user->name }} freischalten" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs">
+                                <select name="course_id" aria-label="Kurs für {{ $membership->user->name }} freischalten" class="min-w-0 flex-1 sm:flex-none rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs">
                                     @foreach ($unbookedCourses as $course)
                                         @php($freeCount = $freeCourseCouponCounts->get($course->id, 0))
                                         <option value="{{ $course->id }}" @disabled($freeCount < 1) @class(['text-slate-600 dark:text-slate-400' => $freeCount < 1])>
@@ -323,7 +330,8 @@
                     </td>
                     @endif
                     @if ($canManageTenant)
-                        <td class="px-4 py-2">
+                        <td class="block sm:table-cell pt-2 sm:px-4 sm:py-2">
+                            <span class="sm:hidden block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">Status</span>
                             @if ($membership->user_id === auth()->id())
                                 {{-- Bug-Review (Du/Sie im Admin-Bereich gemischt): der restliche
                                      Admin-Bereich siezt durchgehend. --}}

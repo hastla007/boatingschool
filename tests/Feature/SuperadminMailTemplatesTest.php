@@ -40,7 +40,8 @@ class SuperadminMailTemplatesTest extends TestCase
         $this->assertStringStartsWith('Erinnerung: SRC', $mail->subject);
         $this->assertSame('Hallo von Vorlagen \[Schule\]!', $mail->introLines[0], 'Platzhalter als Text, nicht als Markdown');
         $this->assertStringContainsString('läuft am', $mail->introLines[1], 'fester Inhalt bleibt');
-        $this->assertSame('Dein Team', end($mail->outroLines));
+        // Danach folgt nur noch der Hinweis, nicht zu antworten (Schule ohne bestätigte Support-Adresse).
+        $this->assertSame(['Dein Team', 'Bitte antworte nicht auf diese E-Mail. Bei Fragen wende dich direkt an deine Bootsschule.'], array_slice($mail->outroLines, -2));
         $this->assertNotNull($mail->actionUrl);
 
         // Leeren: wieder der Standard.

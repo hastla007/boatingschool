@@ -55,8 +55,22 @@
                  samt Fortschritt-/Favoriten-Kacheln, nicht nur der aktivste Kurs. --}}
             <div class="space-y-6">
                 @foreach ($courses as $courseSummary)
-                    <div>
-                        <h2 class="font-semibold text-slate-700 dark:text-slate-200 mb-3">{{ $courseSummary['course']->name }}</h2>
+                    {{-- Mobil (unter sm) lässt sich jeder Kursblock auf- und zuklappen,
+                         nur der erste ist anfangs offen -- bei mehreren Kursen musste man
+                         sonst sehr weit scrollen. Ab sm bleibt alles wie bisher sichtbar
+                         (max-sm:hidden greift dort nicht). --}}
+                    <div x-data="{ open: {{ $loop->first ? 'true' : 'false' }}, wide: window.matchMedia('(min-width: 640px)').matches }" x-init="if (wide) open = true">
+                        <h2 class="font-semibold text-slate-700 dark:text-slate-200 mb-3">
+                            <button type="button" @click="if (! wide) open = ! open" :aria-expanded="open.toString()" aria-controls="course-block-{{ $loop->index }}"
+                                    class="w-full flex items-center justify-between gap-2 text-left sm:cursor-default focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded">
+                                <span class="min-w-0">{{ $courseSummary['course']->name }}</span>
+                                <span class="sm:hidden flex items-center gap-1.5 shrink-0 text-sm font-normal text-slate-500 dark:text-slate-400">
+                                    {{ $courseSummary['percent'] }}&nbsp;%
+                                    <span :class="open ? 'rotate-90' : ''" class="inline-flex transition-transform"><x-icon name="chevron-right" class="w-4 h-4" /></span>
+                                </span>
+                            </button>
+                        </h2>
+                        <div id="course-block-{{ $loop->index }}" @class(['max-sm:hidden' => ! $loop->first]) :class="{ 'max-sm:hidden': ! open }">
                         {{-- Der Banner führt je nach Kursfortschritt zum nächsten sinnvollen
                              Schritt: erst Videokurs, dann Smarttrainer, ab hoher Mastery-Quote
                              die Prüfungssimulation (siehe DashboardController::$bannerMode). --}}
@@ -103,10 +117,11 @@
                             </div>
                             <x-icon name="arrow-right" class="w-6 h-6 shrink-0" />
                         </a>
-                        <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-stretch">
-                            <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex items-center gap-4">
+                        {{-- Mobil 2×2 statt vier Kacheln untereinander. --}}
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 items-stretch">
+                            <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 flex flex-col sm:flex-row items-center text-center sm:text-left gap-2 sm:gap-4">
                                 <x-progress-ring :percent="$courseSummary['percent']" :size="72" :stroke="7" />
-                                <div class="min-w-0">
+                                    <div class="min-w-0 max-w-full">
                                     <div class="text-sm font-medium text-slate-700 dark:text-slate-200 truncate">{{ $courseSummary['course']->name }}</div>
                                     <div class="text-xs text-slate-600 dark:text-slate-400">Fortschritt gesamt</div>
                                 </div>
@@ -146,10 +161,16 @@
                                 </div>
                                 <div class="min-w-0 flex-1">
                                     <div class="text-sm font-medium text-slate-700 dark:text-slate-200">Favoriten &amp; Fehler</div>
-                                    <div class="text-xs text-slate-600 dark:text-slate-400 truncate">{{ $courseSummary['course']->name }}</div>
+                                    {{-- Leerer Zustand: Hinweis statt einer scheinbar gefüllten Kachel. --}}
+                                    @if ($courseSummary['favorites_empty'] ?? false)
+                                        <div class="text-xs text-slate-600 dark:text-slate-400">Noch leer – markiere Fragen beim Lernen mit dem Stern.</div>
+                                    @else
+                                        <div class="text-xs text-slate-600 dark:text-slate-400 truncate">{{ $courseSummary['course']->name }}</div>
+                                    @endif
                                 </div>
                                 <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />
                             </a>
+                        </div>
                         </div>
                     </div>
                 @endforeach

@@ -106,7 +106,7 @@ class ProductTest extends TestCase
 
         $response = $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', ['code' => $coupon->code]);
 
-        $response->assertRedirect(route('profile.edit', absolute: false));
+        $response->assertRedirect(route('products.index', absolute: false));
         $this->onAdmin(function () use ($tenant, $learner, $product, $coupon) {
             $this->assertDatabaseHas('product_purchase', [
                 'tenant_id' => $tenant->id,

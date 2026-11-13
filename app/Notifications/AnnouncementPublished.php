@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Models\Tenant;
 use App\Models\TenantAnnouncement;
+use App\Notifications\Concerns\AddsNoReplyHint;
 use App\Notifications\Concerns\EscapesMarkdown;
 use App\Support\CanonicalUrl;
 use App\Support\MailTemplates;
@@ -14,7 +15,7 @@ use Illuminate\Notifications\Notification;
 /** Mitteilung der Bootsschule per Mail (Text der Schule als reiner Text, kein Markdown/Links). */
 class AnnouncementPublished extends Notification
 {
-    use EscapesMarkdown, Queueable;
+    use AddsNoReplyHint, EscapesMarkdown, Queueable;
 
     public function __construct(private readonly Tenant $tenant, private readonly TenantAnnouncement $announcement) {}
 
@@ -34,6 +35,6 @@ class AnnouncementPublished extends Notification
         }
         $message->action('Zur Lernplattform', CanonicalUrl::root($this->tenant).route('dashboard', [], false));
 
-        return MailTemplates::apply($message, 'announcement', ['schule' => $this->tenant->name, 'titel' => $this->announcement->title]);
+        return self::withNoReplyHint(MailTemplates::apply($message, 'announcement', ['schule' => $this->tenant->name, 'titel' => $this->announcement->title]));
     }
 }

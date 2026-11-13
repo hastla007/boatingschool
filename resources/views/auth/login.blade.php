@@ -49,7 +49,8 @@
             Anmelden
         </button>
 
-        @if (Route::has('register'))
+        {{-- Ohne Selbstregistrierung (Branding-Schalter der Schule) kein Link ins Leere. --}}
+        @if (Route::has('register') && (! isset($branding) || ! $branding || $branding->allowsSelfRegistration()))
             <p class="text-center text-sm text-slate-500 dark:text-slate-400 pt-2">
                 Noch kein Konto?
                 <a href="{{ route('register') }}" class="font-semibold" style="color: var(--brand-primary, #005FD7)">Jetzt registrieren</a>

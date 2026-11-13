@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\TenantInvitation;
+use App\Notifications\Concerns\AddsNoReplyHint;
 use App\Notifications\Concerns\EscapesMarkdown;
 use App\Support\CanonicalUrl;
 use App\Support\MailTemplates;
@@ -21,6 +22,7 @@ use Illuminate\Notifications\Notification;
  */
 class TenantInvitationNotification extends Notification
 {
+    use AddsNoReplyHint;
     use EscapesMarkdown;
     use Queueable;
 
@@ -68,6 +70,6 @@ class TenantInvitationNotification extends Notification
                 ? 'Haben Sie diese Einladung nicht erwartet, können Sie diese Nachricht ignorieren – ohne Bestätigung ändert sich nichts an Ihrem Konto.'
                 : 'Hast du diese Einladung nicht erwartet, kannst du diese Nachricht ignorieren – ohne Bestätigung ändert sich nichts an deinem Konto.');
 
-        return MailTemplates::apply($message, 'invitation', ['schule' => $tenantName]);
+        return self::withNoReplyHint(MailTemplates::apply($message, 'invitation', ['schule' => $tenantName]), $formal ? 'team' : 'learner');
     }
 }
