@@ -78,6 +78,7 @@ class OwnerConnectionUsageTest extends TestCase
         'app/Services/ParticipantInviter.php' => 'Einladung: bestehendes Konto plattformweit per E-Mail finden.',
         'app/Services/TenantOffboardingService.php' => 'Schule auflösen: Exportdateien der Schule finden und löschen.',
         'app/Services/NewLoginDeviceNotifier.php' => 'Hinweis bei neuem Gerät: Team-Rollen des Kontos in allen Schulen prüfen.',
+        'app/Services/CouponBatchFactory.php' => 'Code-Erzeugung: Eindeutigkeit gegen Codes aller Schulen prüfen (nur Abgleich, kein Lesen fremder Daten).',
         'app/Http/Controllers/Admin/ParticipantController.php' => 'Einladung durch Ausbilder: Konto zur E-Mail plattformweit finden.',
         'app/Http/Controllers/Admin/ParticipantToolsController.php' => 'Sammel-Einladung: bestehende Konten plattformweit per E-Mail finden.',
         'app/Http/Controllers/Admin/TeamController.php' => 'Team-Einladung: bestehendes Konto plattformweit per E-Mail finden.',
