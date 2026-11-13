@@ -71,11 +71,12 @@
                             </td>
                         </tr>
                     @endforeach
+                    {{-- Kein Konto-Orakel: neue Adressen und Bestandskonten erscheinen bis zur Annahme gleich. --}}
                     @foreach ($pendingTeamInvitations as $invitation)
                         <tr class="border-t border-slate-100 dark:border-slate-700 text-slate-500 dark:text-slate-400">
-                            <td class="py-2 pr-4 italic">eingeladen</td>
-                            <td class="py-2 pr-4">{{ $invitation->email }}</td>
-                            <td class="py-2 pr-4">{{ \App\Support\StatusLabels::tenantRole($invitation->role) }}</td>
+                            <td class="py-2 pr-4">{{ $invitation['name'] }} <span class="ml-1 text-xs italic">eingeladen</span></td>
+                            <td class="py-2 pr-4">{{ $invitation['email'] }}</td>
+                            <td class="py-2 pr-4">{{ \App\Support\StatusLabels::tenantRole($invitation['role']) }}</td>
                             <td class="py-2 text-xs">wartet auf Bestätigung</td>
                         </tr>
                     @endforeach

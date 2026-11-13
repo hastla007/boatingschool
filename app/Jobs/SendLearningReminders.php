@@ -6,6 +6,7 @@ use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Notifications\LearningReminder;
 use App\Support\BestEffortMail;
+use App\Support\MailPreferences;
 use App\Support\TenantContext;
 
 /**
@@ -53,6 +54,10 @@ class SendLearningReminders extends MassMailJob
         foreach ($items as $item) {
             $membership = $members->get($item['user_id']);
             if (! $membership || ! $membership->user || $membership->user->status !== 'active') {
+                continue;
+            }
+            // Inzwischen abbestellt (§ 7 UWG): überspringen.
+            if (! MailPreferences::wants($membership->user, MailPreferences::LEARNING_REMINDERS)) {
                 continue;
             }
             // Erst bedingt vermerken (zwei Admins gleichzeitig: nur einer

@@ -227,7 +227,9 @@
                     </td>
                     <td class="px-4 py-2 text-slate-600 dark:text-slate-300">{{ $coupon->redeemableName() }}</td>
                     <td class="px-4 py-2">
-                        @if ($coupon->isUsable())
+                        @if ($coupon->isUsable() && isset($reservedCouponCodes[$coupon->code]))
+                            <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200" title="Wird eingelöst, sobald die eingeladene Person die Einladung annimmt.">reserviert für Einladung</span>
+                        @elseif ($coupon->isUsable())
                             <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">offen{{ $coupon->expires_at ? ' · bis '.\App\Support\GermanTime::format($coupon->expires_at, 'd.m.Y') : '' }}</span>
                         @else
                             <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full {{ $coupon->isRedeemed() ? 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400' : 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-200' }}">{{ $coupon->statusLabel() }}</span>
@@ -236,7 +238,7 @@
                     <td class="px-4 py-2 text-slate-500 dark:text-slate-400">{{ $coupon->redeemedBy?->name ?? '—' }}</td>
                     <td class="px-4 py-2 text-slate-500 dark:text-slate-400 text-xs">{{ \App\Support\GermanTime::format($coupon->redeemed_at, 'd.m.Y H:i') ?? '—' }}</td>
                     <td class="px-4 py-2">
-                        @if ($coupon->isUsable() && $coupon->tenant_id === $tenant->id)
+                        @if ($coupon->isUsable() && $coupon->tenant_id === $tenant->id && ! isset($reservedCouponCodes[$coupon->code]))
                             <form method="POST" action="{{ route('admin.coupons.assign', $coupon) }}" class="flex gap-1">
                                 @csrf
                                 <select name="user_id" required aria-label="Nutzer für Coupon {{ $coupon->code }} wählen" class="js-coupon-assign-select rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs">

@@ -9,6 +9,7 @@ use App\Models\CourseDefinition;
 use App\Models\Entitlement;
 use App\Models\TenantAnnouncement;
 use App\Models\TenantUser;
+use App\Support\MailPreferences;
 use App\Support\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -65,7 +66,10 @@ class AnnouncementController extends Controller
         // damit die Tagesgrenze MAILED_PER_DAY auch während des Versands greift.
         $queued = 0;
         if ($request->boolean('send_mail')) {
-            $userIds = $this->recipients($tenant->id, $announcement->course_id)->take(self::MAX_MAILS)->pluck('user_id')->values()->all();
+            // Abbestellt (§ 7 UWG): nicht anschreiben und nicht mitzählen.
+            $userIds = $this->recipients($tenant->id, $announcement->course_id)
+                ->filter(fn ($m) => MailPreferences::wants($m->user, MailPreferences::ANNOUNCEMENTS))
+                ->take(self::MAX_MAILS)->pluck('user_id')->values()->all();
             $queued = count($userIds);
             $announcement->update(['emailed_at' => now(), 'emailed_count' => 0]);
             foreach (array_chunk($userIds, SendAnnouncementMails::CHUNK) as $chunk) {

@@ -24,6 +24,7 @@ use App\Models\TenantUser;
 use App\Models\User;
 use App\Models\VideoProgress;
 use App\Models\WillkommensboxOrder;
+use App\Support\MailPreferences;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -87,6 +88,12 @@ class PersonalDataExportService
                 // Löschfrist für inaktive Konten (app:prune-inactive-learners).
                 'last_login_at' => $user->last_login_at?->toIso8601String(),
                 'inactivity_deletion_warned_at' => $user->inactivity_warned_at?->toIso8601String(),
+                // Bestätigung Mindestalter/Einverständnis der Erziehungsberechtigten.
+                'age_confirmed_at' => $user->age_confirmed_at?->toIso8601String(),
+                // Einwilligung in die Spracherkennung des Browsers (widerrufbar im Profil).
+                'speech_consent_at' => $user->speech_consent_at?->toIso8601String(),
+                // E-Mail-Benachrichtigungen (§ 7 UWG): true = erwünscht.
+                'mail_preferences' => MailPreferences::forUser($user),
             ],
             'membership' => $membership ? [
                 'role' => $membership->role,

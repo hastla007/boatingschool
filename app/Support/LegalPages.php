@@ -104,9 +104,9 @@ Der Betreiber verarbeitet die Daten im Auftrag der Bootsschule (Auftragsverarbei
 
 Wir verwenden nur technisch notwendige Cookies (Anmeldung und Sicherheit), keine Werbe- oder Analyse-Cookies. Schriften werden von unserem eigenen Server geladen, nicht von Drittanbietern.
 
-## 6. Spracherkennung in den Funkübungen
+## 6. Spracherkennung in den Funk-Übungen
 
-In den mündlichen Funkübungen und in der Funk-Gerätesimulation kannst du Funksprüche einsprechen, statt sie einzutippen. Das ist freiwillig: Die Spracherkennung startet nur, wenn du selbst auf das Mikrofon bzw. die Sprechtaste tippst, und dein Browser fragt vorher nach der Erlaubnis für das Mikrofon. Die Erkennung übernimmt dein Browser (Web Speech API); je nach Browser wird die Aufnahme dafür an dessen Anbieter übertragen (z. B. Google bei Chrome) und nach dessen Bedingungen verarbeitet. Bei uns kommt nur der erkannte Text an, und nur, wenn du ihn absendest. Du kannst den Funkspruch jederzeit auch eintippen.
+Wenn du einen Funkspruch einsprichst (Gerätesimulation und Funk-Übungen), nutzt die Plattform die Spracherkennung deines Browsers. Je nach Browser wird die Aufnahme dafür an den Anbieter des Browsers übertragen (z. B. Google bei Chrome und Edge, Apple bei Safari). Die Spracherkennung ist erst nach deiner ausdrücklichen Einwilligung aktiv (Art. 6 Abs. 1 lit. a DSGVO), die wir vor der ersten Nutzung abfragen und mit Zeitpunkt speichern; du kannst sie jederzeit in deinem Profil widerrufen. Die Aufnahme läuft nur, solange du sprichst bzw. die Sprechtaste hältst. Bei uns kommt nur der erkannte Text an, und nur, wenn du ihn absendest. Du kannst den Funkspruch stattdessen auch eintippen.
 
 ## 7. Karten (OpenStreetMap)
 

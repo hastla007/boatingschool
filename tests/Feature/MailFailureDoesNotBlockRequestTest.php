@@ -156,7 +156,7 @@ class MailFailureDoesNotBlockRequestTest extends TestCase
         $tenant = $this->createTestTenant();
         $email = 'smtp-register-'.uniqid().'@example.test';
 
-        $response = $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/register', [
+        $response = $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/register', [...$this->registrationFormFields(),
             'name' => 'SMTP Test',
             'email' => $email,
             'password' => 'password1234',

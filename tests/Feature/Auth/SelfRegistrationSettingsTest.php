@@ -42,7 +42,7 @@ class SelfRegistrationSettingsTest extends TestCase
 
     private function register($tenant, string $email, array $extra = [])
     {
-        return $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/register', [
+        return $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/register', [...$this->registrationFormFields(),
             'name' => 'Neu Registriert',
             'email' => $email,
             'password' => 'password1234',

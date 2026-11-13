@@ -99,6 +99,10 @@ Route::middleware('auth')->group(function () {
     Route::get('invitations/{invitation}/accept/{hash}', [InvitationAcceptController::class, 'accept'])
         ->middleware(['signed', 'throttle:6,1,invitation-accept'])
         ->name('invitations.accept');
+    // Dieselbe signierte Adresse per POST: einmalige Altersbestätigung vor dem Annehmen.
+    Route::post('invitations/{invitation}/accept/{hash}', [InvitationAcceptController::class, 'accept'])
+        ->middleware(['signed', 'throttle:6,1,invitation-accept'])
+        ->name('invitations.accept.confirm');
 
     Route::get('confirm-password', [ConfirmablePasswordController::class, 'show'])
         ->name('password.confirm');

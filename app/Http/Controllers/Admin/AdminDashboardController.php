@@ -29,6 +29,7 @@ use App\Models\TenantInvitation;
 use App\Models\TenantUser;
 use App\Models\WillkommensboxOrder;
 use App\Services\CourseProgressService;
+use App\Services\InvitationCoupon;
 use App\Support\InstructorScope;
 use App\Support\ParticipantFilters;
 use App\Support\TenantContext;
@@ -313,18 +314,29 @@ class AdminDashboardController extends Controller
             ->withQueryString();
 
         // Team: alle Mitglieder außer Lernenden, dazu offene Team-Einladungen.
+        // Kein Konto-Orakel (wie bei „Offene Einladungen“ der Teilnehmer):
+        // ein von hier neu angelegtes, nie aktiviertes Konto erscheint bis
+        // zur Annahme genauso als „eingeladen“ wie eine Einladung an ein
+        // Bestandskonto (Name wie eingegeben, E-Mail, Rolle).
         $team = TenantUser::with('user')
             ->where('tenant_id', $tenant->id)
             ->where('role', '!=', 'learner')
+            ->whereHas('user', fn ($u) => $u->where('status', '!=', 'invited'))
             ->orderByRaw("CASE role WHEN 'owner' THEN 0 WHEN 'admin' THEN 1 WHEN 'instructor' THEN 2 ELSE 3 END")
             ->orderBy('created_at')
             ->orderBy('user_id')
             ->get();
+        $invitedTeamMembers = TenantUser::with('user')->where('tenant_id', $tenant->id)->where('role', '!=', 'learner')
+            ->whereHas('user', fn ($u) => $u->where('status', 'invited'))->get()
+            ->map(fn (TenantUser $m) => ['name' => $m->user->name, 'email' => $m->user->email, 'role' => $m->role, 'invited_at' => $m->created_at]);
         $pendingTeamInvitations = TenantInvitation::where('tenant_id', $tenant->id)
             ->where('role', '!=', 'learner')
             ->whereNull('accepted_at')
             ->orderByDesc('created_at')
-            ->get();
+            ->get()
+            ->map(fn (TenantInvitation $i) => ['name' => $i->name ?: strstr($i->email, '@', true), 'email' => $i->email, 'role' => $i->role, 'invited_at' => $i->created_at]);
+        $pendingTeamInvitations = $invitedTeamMembers->concat($pendingTeamInvitations)->sortByDesc('invited_at')
+            ->unique(fn ($row) => mb_strtolower($row['email']))->values();
 
         $allParticipants = ParticipantFilters::withoutOpenInvitations(TenantUser::with('user')
             ->where('tenant_id', $tenant->id)
@@ -345,9 +357,11 @@ class AdminDashboardController extends Controller
                 ->whereHas('user', fn ($u) => $u->where('status', 'invited'))->get()
                 ->map(fn (TenantUser $m) => ['name' => $m->user->name, 'email' => $m->user->email, 'invited_at' => $m->created_at]);
             $pendingInvitations = TenantInvitation::where('tenant_id', $tenant->id)->where('role', 'learner')->whereNull('accepted_at')->get()
-                ->map(fn (TenantInvitation $i) => ['name' => $i->name ?: strstr($i->email, '@', true), 'email' => $i->email, 'invited_at' => $i->created_at])
-                ->unique(fn ($row) => mb_strtolower($row['email']));
-            $openInvitations = $invitedMembers->concat($pendingInvitations)->sortByDesc('invited_at')->values();
+                ->map(fn (TenantInvitation $i) => ['name' => $i->name ?: strstr($i->email, '@', true), 'email' => $i->email, 'invited_at' => $i->created_at]);
+            // Ein neu angelegtes Konto hat zusätzlich eine Einladung (zum
+            // Annehmen beim Passwort-Festlegen): eine Zeile je Adresse.
+            $openInvitations = $invitedMembers->concat($pendingInvitations)->sortByDesc('invited_at')
+                ->unique(fn ($row) => mb_strtolower($row['email']))->values();
         }
 
         // Sitewide deaktivierte Kurse (course_definition.site_enabled = false)
@@ -493,6 +507,8 @@ class AdminDashboardController extends Controller
             ->orderByDesc('created_at')
             ->paginate(50, ['*'], 'coupon_page')
             ->withQueryString();
+        // Beim Einladen angegebene Codes sind bis zur Annahme reserviert (InvitationCoupon).
+        $reservedCouponCodes = InvitationCoupon::reservedCodes($tenant, $coupons->getCollection()->pluck('code'));
 
         // Bestand je Kurs/Produkt aus den Codes, die dieser Bootsschule
         // gehören (übernommen per Import oder vom Superadmin zugeteilt) --
@@ -589,6 +605,7 @@ class AdminDashboardController extends Controller
             'willkommensboxLabelSizes' => $branding->enabledLabelSizes(),
             'disabledCourseIds' => $disabledCourseIds,
             'coupons' => $coupons,
+            'reservedCouponCodes' => $reservedCouponCodes,
             'couponSummary' => $couponSummary,
             'shopAccounts' => $shopAccounts,
             'shopNeedsLink' => $shopNeedsLink,

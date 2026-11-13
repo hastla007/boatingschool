@@ -12,11 +12,11 @@ class PlatformSetting extends Model
 
     const UPDATED_AT = 'updated_at';
 
-    protected $fillable = ['site_name', 'support_email', 'maintenance_mode', 'maintenance_message', 'imprint_template', 'privacy_template', 'operator_info', 'mail_templates'];
+    protected $fillable = ['site_name', 'support_email', 'maintenance_mode', 'maintenance_message', 'imprint_template', 'privacy_template', 'operator_info', 'mail_templates', 'new_tenant_requires_team_two_factor'];
 
     protected function casts(): array
     {
-        return ['maintenance_mode' => 'boolean', 'mail_templates' => 'array'];
+        return ['maintenance_mode' => 'boolean', 'mail_templates' => 'array', 'new_tenant_requires_team_two_factor' => 'boolean'];
     }
 
     public static function current(): self
@@ -35,5 +35,14 @@ class PlatformSetting extends Model
     public static function siteName(): string
     {
         return static::query()->first()?->site_name ?: config('app.name');
+    }
+
+    /**
+     * „2FA-Pflicht für neue Schulen“ (Standard an): Startwert von
+     * tenant_branding.require_team_two_factor beim Anlegen einer Schule.
+     */
+    public static function newTenantRequiresTeamTwoFactor(): bool
+    {
+        return (bool) (static::query()->first()?->new_tenant_requires_team_two_factor ?? true);
     }
 }

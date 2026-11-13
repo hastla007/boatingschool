@@ -38,6 +38,10 @@
             <x-input-error :messages="$errors->get('password_confirmation')" class="mt-2" />
         </div>
 
+        @if ($needsAgeConfirmation ?? false)
+            @include('auth.partials.age-confirmation')
+        @endif
+
         <button type="submit" class="w-full px-4 py-2.5 rounded-lg font-semibold text-white transition hover:opacity-90" style="background-color: var(--brand-primary, #005FD7)">
             {{ $request->boolean('invite') ? 'Passwort festlegen' : 'Passwort zurücksetzen' }}
         </button>

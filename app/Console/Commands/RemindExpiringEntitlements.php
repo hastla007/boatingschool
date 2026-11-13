@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\Entitlement;
 use App\Notifications\EntitlementExpiringSoon;
 use App\Support\BestEffortMail;
+use App\Support\MailPreferences;
 use App\Support\TenantContext;
 use Illuminate\Console\Command;
 
@@ -50,6 +51,10 @@ class RemindExpiringEntitlements extends Command
             ->chunkById(200, function ($entitlements) use (&$sent, &$failed) {
                 foreach ($entitlements as $entitlement) {
                     if (! $entitlement->user || ! $entitlement->course || ! $entitlement->tenant) {
+                        continue;
+                    }
+                    // Abbestellt (§ 7 UWG): keine Mail, nicht als versendet zählen.
+                    if (! MailPreferences::wants($entitlement->user, MailPreferences::EXPIRY)) {
                         continue;
                     }
                     // Erst vermerken, dann senden: ein Mailfehler führt nicht

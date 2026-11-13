@@ -261,7 +261,7 @@ class ReviewRoundElevenFixesTest extends TestCase
         $tenant = $this->createTestTenant();
         $owner = $this->createTenantUser($tenant, 'owner');
 
-        $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/register', ['name' => 'x', 'email' => ['a@b.de'], 'password' => 'geheim-123456', 'password_confirmation' => 'geheim-123456'])
+        $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/register', [...$this->registrationFormFields(), 'name' => 'x', 'email' => ['a@b.de'], 'password' => 'geheim-123456', 'password_confirmation' => 'geheim-123456'])
             ->assertSessionHasErrors('email');
         $this->actingAsInTenant($owner, $tenant)->post('/admin/participants/invite', ['name' => 'x', 'email' => ['a@b.de']])->assertSessionHasErrors('email');
         $this->actingAsInTenant($owner, $tenant)->put('/password', ['current_password' => ['x'], 'password' => 'neu-12345678', 'password_confirmation' => 'neu-12345678'])->assertStatus(302);

@@ -55,7 +55,9 @@ class SchoolMailNoReplyHintTest extends TestCase
 
         $mail = $this->asTenant($tenant->fresh(), fn () => (new LearningReminder($tenant, 10))->toMail($learner));
 
-        $this->assertSame(self::LEARNER_HINT, end($mail->outroLines));
+        // Vor der abschließenden Abmeldezeile (§ 7 UWG, MailPreferences).
+        $this->assertSame(self::LEARNER_HINT, array_slice($mail->outroLines, -2, 1)[0]);
+        $this->assertStringStartsWith('Du möchtest diese E-Mails (Lern-Erinnerungen) nicht mehr erhalten?', end($mail->outroLines));
     }
 
     public function test_no_hint_when_the_school_has_a_verified_support_address(): void

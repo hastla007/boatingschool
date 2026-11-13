@@ -7,6 +7,7 @@ use App\Notifications\Concerns\AddsNoReplyHint;
 use App\Notifications\Concerns\EscapesMarkdown;
 use App\Support\CanonicalUrl;
 use App\Support\GermanTime;
+use App\Support\MailPreferences;
 use App\Support\MailTemplates;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -25,7 +26,8 @@ class EntitlementExpiringSoon extends Notification
     /** @return array<int, string> */
     public function via(mixed $notifiable): array
     {
-        return ['mail'];
+        // Abbestellbar (§ 7 UWG): ohne Einwilligung keine Mail.
+        return MailPreferences::wants($notifiable, MailPreferences::EXPIRY) ? ['mail'] : [];
     }
 
     public function toMail(mixed $notifiable): MailMessage
@@ -52,8 +54,8 @@ class EntitlementExpiringSoon extends Notification
                 ->action('Zum Kurs', $root.route('courses.show', $this->entitlement->course, false));
         }
 
-        return self::withNoReplyHint(MailTemplates::apply($message, 'entitlement_expiring', [
+        return MailPreferences::addUnsubscribe(self::withNoReplyHint(MailTemplates::apply($message, 'entitlement_expiring', [
             'schule' => $tenant->name, 'kurs' => $this->entitlement->course->name, 'datum' => $date,
-        ]));
+        ])), $notifiable, MailPreferences::EXPIRY, $this->entitlement->tenant);
     }
 }

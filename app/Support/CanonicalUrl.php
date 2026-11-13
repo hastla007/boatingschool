@@ -69,4 +69,20 @@ class CanonicalUrl
             $generator->forceRootUrl(null);
         }
     }
+
+    /**
+     * Signierte Route ohne Ablauf auf dem kanonischen Host (z. B. der
+     * Abmeldelink in Mails, der dauerhaft funktionieren muss).
+     */
+    public static function signedRoute(string $name, array $parameters, ?Tenant $tenant = null): string
+    {
+        $generator = URL::getFacadeRoot();
+        $generator->forceRootUrl(self::root($tenant));
+
+        try {
+            return $generator->signedRoute($name, $parameters);
+        } finally {
+            $generator->forceRootUrl(null);
+        }
+    }
 }

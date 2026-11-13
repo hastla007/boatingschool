@@ -18,7 +18,7 @@ class PasswordPolicyTest extends TestCase
     {
         $tenant = $this->createTestTenant();
 
-        $response = $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/register', [
+        $response = $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/register', [...$this->registrationFormFields(),
             'name' => 'Test User',
             'email' => 'short-'.uniqid().'@example.test',
             'password' => 'short123',
@@ -34,7 +34,7 @@ class PasswordPolicyTest extends TestCase
         $tenant = $this->createTestTenant();
         $email = 'long-'.uniqid().'@example.test';
 
-        $response = $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/register', [
+        $response = $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/register', [...$this->registrationFormFields(),
             'name' => 'Test User',
             'email' => $email,
             'password' => 'password1234',

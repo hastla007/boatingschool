@@ -68,8 +68,8 @@ class ParticipantToolsController extends Controller
             // offene Einladung (kein Konto-Orakel, siehe ParticipantInviter):
             // es geht durch denselben Einladungsweg wie eine Adresse mit
             // Bestandskonto, statt als „bereits Teilnehmer“ übersprungen zu
-            // werden.
-            if ($existingRole && ! ($existingRole === 'learner' && $existing->status === 'invited')) {
+            // werden -- auch ein so eingeladenes Team-Mitglied.
+            if ($existingRole && $existing->status !== 'invited') {
                 $skipped[] = $existingRole === 'learner' ? "{$email} (bereits Teilnehmer)" : "{$email} (gehört zum Team)";
 
                 continue;

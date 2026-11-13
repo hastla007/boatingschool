@@ -42,7 +42,7 @@ class CrossTenantAccountAccessTest extends TestCase
         $tenant = $this->createTestTenant();
         $existing = $this->createTenantUser($tenant, 'learner');
 
-        $response = $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/register', [
+        $response = $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/register', [...$this->registrationFormFields(),
             'name' => 'Angreifer',
             'email' => $existing->email,
             'password' => 'password1234',
@@ -59,7 +59,7 @@ class CrossTenantAccountAccessTest extends TestCase
         $tenant = $this->createTestTenant();
         $email = 'brandneu-'.uniqid().'@example.test';
 
-        $response = $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/register', [
+        $response = $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/register', [...$this->registrationFormFields(),
             'name' => 'Neuer Nutzer',
             'email' => $email,
             'password' => 'password1234',

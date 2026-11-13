@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Auth;
 use App\Api\DeviceSessions;
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\InvitationAcceptance;
+use App\Support\AgeConfirmation;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -27,15 +29,18 @@ class NewPasswordController extends Controller
         // Öffnen erkennen -- bisher kam die Meldung erst nach dem Eintippen
         // des neuen Passworts (und sprach nur von „Zurücksetzen“).
         $linkInvalid = false;
+        $needsAgeConfirmation = false;
         $email = $request->query('email');
         $token = (string) $request->route('token');
         if (is_string($email) && $email !== '') {
             $user = User::on('pgsql_admin')->whereRaw('lower(email) = ?', [mb_strtolower($email)])->first();
             $broker = $request->boolean('invite') && $user?->status === 'invited' ? 'invites' : null;
             $linkInvalid = ! $user || ! Password::broker($broker)->tokenExists($user, $token);
+            // Eingeladenes Konto: Mindestalter einmalig mit bestätigen.
+            $needsAgeConfirmation = ! $linkInvalid && $broker === 'invites' && $user->age_confirmed_at === null;
         }
 
-        return view('auth.reset-password', ['request' => $request, 'linkInvalid' => $linkInvalid]);
+        return view('auth.reset-password', ['request' => $request, 'linkInvalid' => $linkInvalid, 'needsAgeConfirmation' => $needsAgeConfirmation]);
     }
 
     /**
@@ -56,11 +61,26 @@ class NewPasswordController extends Controller
         // database. Otherwise we will parse the error and return the response.
         // Einladungs-Links (AccountSetupLink) sind 7 Tage gültig: eigener Broker.
         // Einladungs-Broker nur für Konten, die noch nie ein Passwort gesetzt haben.
-        $invited = $request->boolean('invite')
-            && User::on('pgsql_admin')->whereRaw('lower(email) = ?', [mb_strtolower((string) $request->input('email'))])->value('status') === 'invited';
+        $invitedUser = $request->boolean('invite')
+            ? User::on('pgsql_admin')->whereRaw('lower(email) = ?', [mb_strtolower((string) $request->input('email'))])->first()
+            : null;
+        $invited = $invitedUser?->status === 'invited';
+        // Eingeladenes Konto ohne Altersbestätigung: einmalig Pflicht (siehe
+        // AgeConfirmation). Nur für Einladungslinks, ein normales
+        // Zurücksetzen fragt nicht -- und erst bei gültigem Link, sonst
+        // verriete die Meldung, dass es ein eingeladenes Konto gibt.
+        if ($invited && $invitedUser->age_confirmed_at === null
+            && Password::broker('invites')->tokenExists($invitedUser, (string) $request->input('token'))) {
+            $request->validate(['age_confirmed' => ['accepted']], ['age_confirmed.accepted' => AgeConfirmation::MESSAGE]);
+        }
         $status = Password::broker($invited ? 'invites' : null)->reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
-            fn (User $user) => self::completeReset($user, (string) $request->password)
+            function (User $user) use ($request, $invited) {
+                if ($invited && $user->age_confirmed_at === null && $request->boolean('age_confirmed')) {
+                    $user->forceFill(['age_confirmed_at' => now()]);
+                }
+                self::completeReset($user, (string) $request->password);
+            }
         );
 
         // If the password was successfully reset, we will redirect the user back to
@@ -92,6 +112,7 @@ class NewPasswordController extends Controller
      */
     public static function completeReset(User $user, string $password): void
     {
+        $wasInvited = $user->status === 'invited';
         // Review-Runde 12: ist der Reset der erste Nachweis der Mailbox,
         // stammt eine schon eingerichtete 2FA nicht sicher vom Besitzer
         // (jemand konnte die Adresse vor ihm registrieren) -- zurücksetzen.
@@ -131,6 +152,13 @@ class NewPasswordController extends Controller
         // Offene Reset- und Einladungslinks verlieren ihre Gültigkeit.
         DB::table('password_reset_tokens')->where('email', $user->email)->delete();
         DB::table('account_setup_tokens')->where('email', $user->email)->delete();
+
+        // Erstes Passwort eines von einer Schule angelegten Kontos: die
+        // Einladung gilt damit als angenommen (inkl. reserviertem Code),
+        // genau wie bei einem Bestandskonto über den Bestätigungslink.
+        if ($wasInvited) {
+            app(InvitationAcceptance::class)->acceptForActivatedAccount($user);
+        }
 
         event(new PasswordReset($user));
         // Mobile-API: auch alle App-Gerätesitzungen beenden.

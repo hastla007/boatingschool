@@ -23,6 +23,7 @@
     @else
     <form method="POST" action="{{ route('register') }}" class="space-y-4">
         @csrf
+        @include('auth.partials.bot-check')
 
         <div>
             <x-input-label for="name" value="Name" />
@@ -55,6 +56,8 @@
             <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Hast du von deiner Bootsschule einen Code bekommen? Er wird nach der Registrierung eingelöst; das Ergebnis siehst du nach der Anmeldung.</p>
             <x-input-error :messages="$errors->get('coupon_code')" class="mt-2" />
         </div>
+
+        @include('auth.partials.age-confirmation')
 
         {{-- Informationspflicht (Art. 13 DSGVO): Hinweis auf die Datenschutzerklärung. --}}
         <p class="text-xs text-slate-500 dark:text-slate-400">

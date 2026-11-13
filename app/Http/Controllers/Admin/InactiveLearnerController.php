@@ -9,6 +9,7 @@ use App\Models\Entitlement;
 use App\Models\TenantUser;
 use App\Services\LearnerOverview;
 use App\Support\InstructorScope;
+use App\Support\MailPreferences;
 use App\Support\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -50,6 +51,8 @@ class InactiveLearnerController extends Controller
         $rows = $this->inactive($tenantContext, $overview, $days)
             ->when($request->filled('user_id'), fn ($c) => $c->where('membership.user_id', $request->input('user_id')))
             ->reject(fn ($row) => $row['recently_reminded'])
+            // Lern-Erinnerungen abbestellt (§ 7 UWG): nicht anschreiben, nicht mitzählen.
+            ->filter(fn ($row) => MailPreferences::wants($row['membership']->user, MailPreferences::LEARNING_REMINDERS))
             ->take(200);
 
         $items = $rows->map(fn ($row) => [
