@@ -5,15 +5,14 @@ namespace App\Http\Controllers\Superadmin;
 use App\Api\DeviceSessions;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
-use App\Models\ContentQuestion;
 use App\Models\Entitlement;
 use App\Models\ExamSession;
 use App\Models\ProductPurchase;
-use App\Models\Progress;
 use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
 use App\Services\AccountSetupLink;
+use App\Services\CourseProgressService;
 use App\Support\BestEffortMail;
 use App\Support\Countries;
 use App\Support\EmailInput;
@@ -132,37 +131,20 @@ class UserController extends Controller
     {
         $memberships = TenantUser::where('user_id', $user->id)->with('tenant')->get();
 
-        $entitlements = Entitlement::where('user_id', $user->id)->with('course.modules.questions', 'tenant')->get();
+        $entitlements = Entitlement::where('user_id', $user->id)->with('course', 'tenant')->get();
 
         // Bug-Review P1: CourseProgressService::overallPercent() lief hier
-        // einmal PRO Freischaltung und fragte dabei jedes Mal frisch die
-        // Progress-Tabelle ab -- bei einem Nutzer mit vielen Freischaltungen
-        // (verschiedene Bootsschulen/Kurse über die Zeit) wurde die Seite
-        // dadurch spürbar langsam (N+1). Progress wird deshalb hier einmal
-        // komplett geladen und die Prozentzahl pro Freischaltung im
-        // Speicher berechnet, exakt dieselbe Formel wie overallPercent().
-        $masteredProgress = Progress::where('user_id', $user->id)
-            ->where('learning_state', 'gefestigt')
-            ->get(['tenant_id', 'question_id']);
-
-        $results = $entitlements->map(function (Entitlement $entitlement) use ($masteredProgress) {
-            // Bug-Review F7: eine deaktivierte Frage zählte hier weiter mit,
-            // obwohl sie nie "gefestigt" werden kann (siehe
-            // CourseProgressService::overallPercent, dessen Formel hier aus
-            // Performance-Gründen dupliziert ist).
-            // Bug-Review BB16: dieselbe Lücke bestand für valid_from/valid_to.
-            $questionIds = ContentQuestion::currentlyValidIds($entitlement->course->modules->flatMap(fn ($m) => $m->questions));
-            $total = max($questionIds->count(), 1);
-            $mastered = $masteredProgress
-                ->where('tenant_id', $entitlement->tenant_id)
-                ->whereIn('question_id', $questionIds)
-                ->count();
-
-            return [
-                'entitlement' => $entitlement,
-                'percent' => (int) round($mastered / $total * 100),
-            ];
-        });
+        // früher einmal PRO Freischaltung (N+1). Jetzt je Bootsschule eine
+        // gemeinsame SQL-Zählung über CourseProgressService::
+        // percentsByUserAndCourse() -- dieselbe Formel wie overallPercent()
+        // (Bug-Review F7/BB16: nur aktuell gültige Fragen zählen).
+        $progressService = app(CourseProgressService::class);
+        $percents = $entitlements->groupBy('tenant_id')->map(fn ($group, $tenantId) => $progressService
+            ->percentsByUserAndCourse($tenantId, $group->pluck('course')->filter(), [$user->id])[$user->id] ?? []);
+        $results = $entitlements->map(fn (Entitlement $entitlement) => [
+            'entitlement' => $entitlement,
+            'percent' => $percents[$entitlement->tenant_id][$entitlement->course_id] ?? 0,
+        ]);
 
         $examResults = ExamSession::where('user_id', $user->id)->where('status', 'evaluated')
             ->with('course', 'paper', 'questions.revision')->orderByDesc('submitted_at')->get();

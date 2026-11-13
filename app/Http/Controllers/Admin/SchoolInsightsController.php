@@ -61,7 +61,10 @@ class SchoolInsightsController extends Controller
             ->pluck('learners', 'month');
         $monthly = $months->map(fn ($m) => ['label' => $m->locale('de')->translatedFormat('M Y'), 'learners' => (int) ($byMonth[$m->format('Y-m')] ?? 0)]);
 
+        // Wie alle Kennzahlen dieser Seite nur aktive Lernende -- Probeläufe
+        // von Inhabern/Ausbildern verfälschten sonst die Bestehensquote.
         $exams = $learners(ExamSession::where('exam_session.tenant_id', $tenant->id), 'exam_session.user_id')->where('exam_session.status', 'evaluated')
+            ->whereIn('exam_session.user_id', $memberIds)
             ->when($scopeCourses !== null, fn ($q) => $q->whereIn('exam_session.course_id', $scopeCourses))
             ->where('exam_session.submitted_at', '>=', now()->subDays(90))
             ->join('course_definition', 'course_definition.id', '=', 'exam_session.course_id')
@@ -73,6 +76,9 @@ class SchoolInsightsController extends Controller
         $courses = $learners(Entitlement::currentlyActive()->where('tenant_id', $tenant->id)->whereIn('user_id', $memberIds)->when($scopeCourses !== null, fn ($q) => $q->whereIn('course_id', $scopeCourses)))->with('course', 'user')->get()
             ->filter(fn ($e) => $e->course && $e->user)->groupBy('course_id')
             ->map(function ($group) use ($tenant, $overview) {
+                // Mehrere laufende Zugänge derselben Person zum selben Kurs
+                // (z. B. manuell + Coupon) zählen als EIN Teilnehmer.
+                $group = $group->unique('user_id');
                 $course = $group->first()->course;
                 $threshold = $overview->threshold($tenant, $course);
                 $byUser = app(CourseProgressService::class)->overallPercents($course, $tenant, $group->pluck('user_id'));

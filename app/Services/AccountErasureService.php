@@ -23,6 +23,7 @@ use App\Models\TenantUser;
 use App\Models\User;
 use App\Models\VideoProgress;
 use App\Models\WillkommensboxOrder;
+use App\Support\OwnerConnection;
 use App\Support\TenantContext;
 use Illuminate\Support\Facades\DB;
 
@@ -187,14 +188,7 @@ class AccountErasureService
 
     private function onAdminConnection(callable $callback): mixed
     {
-        $original = config('database.default');
-        config(['database.default' => 'pgsql_admin']);
-
-        try {
-            return $callback();
-        } finally {
-            config(['database.default' => $original]);
-        }
+        return OwnerConnection::run($callback);
     }
 
     /** @return array<class-string> */

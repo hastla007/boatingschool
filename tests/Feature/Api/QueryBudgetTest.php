@@ -77,4 +77,38 @@ class QueryBudgetTest extends MobileApiTestCase
         $this->travel(10)->minutes();
         $this->api('GET', '/courses?per_page=100', $this->apiLogin($user), $tenant)->assertOk()->assertJsonStructure(['data' => [['capabilities']]]);
     }
+
+    /**
+     * Admin-Dashboard (/admin): der Kursfortschritt der Lernenden in der
+     * Phase „Lernen“ wird in SQL gezählt (CourseProgressService::
+     * percentsByUserAndCourse) -- weder die Zahl der Abfragen noch die der
+     * geladenen Zeilen darf mit Lernenden oder gefestigten Fragen wachsen.
+     */
+    public function test_admin_dashboard_stays_within_budget_regardless_of_learners_and_progress(): void
+    {
+        $measure = function (int $learnerCount): int {
+            $tenant = $this->createTestTenant();
+            $owner = $this->createTenantUser($tenant, 'owner');
+            $courses = [$this->existingCourse('SRC'), $this->existingCourse('FKN')];
+            $questionIds = $this->onAdmin(fn () => DB::table('module_content')->join('course_module', 'course_module.module_id', '=', 'module_content.module_id')
+                ->whereIn('course_module.course_id', collect($courses)->pluck('id'))->distinct()->limit(40)->pluck('module_content.question_id'));
+            for ($i = 0; $i < $learnerCount; $i++) {
+                $learner = $this->createTenantUser($tenant, 'learner');
+                foreach ($courses as $course) {
+                    $this->grantEntitlement($tenant, $learner, $course);
+                }
+                $this->onAdmin(fn () => DB::table('progress')->insert($questionIds->take(5 + $i)->map(fn ($questionId) => [
+                    'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'question_id' => $questionId,
+                    'learning_state' => 'gefestigt', 'mastery_score' => 1, 'attempt_count' => 1, 'correct_count' => 1,
+                ])->all()));
+            }
+
+            return $this->countQueries(fn () => $this->actingAsInTenant($owner, $tenant)->get('/admin')->assertOk());
+        };
+
+        $small = $measure(2);
+        $large = $measure(12);
+        $this->assertLessThan(100, $large, "Admin-Dashboard: {$large} Abfragen");
+        $this->assertLessThanOrEqual(2, $large - $small, "Admin-Dashboard: {$large} Abfragen bei 12 Lernenden statt {$small} bei 2");
+    }
 }

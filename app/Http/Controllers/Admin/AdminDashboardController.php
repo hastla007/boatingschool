@@ -7,7 +7,6 @@ use App\Models\AddonTemplate;
 use App\Models\Attempt;
 use App\Models\AuditLog;
 use App\Models\CommerceShopAccount;
-use App\Models\ContentQuestion;
 use App\Models\Coupon;
 use App\Models\CouponBatch;
 use App\Models\CourseDefinition;
@@ -22,7 +21,6 @@ use App\Models\PraxisExamAppointment;
 use App\Models\PraxisFormSubmission;
 use App\Models\Product;
 use App\Models\ProductPurchase;
-use App\Models\Progress;
 use App\Models\Pruefungsausschuss;
 use App\Models\TenantAddon;
 use App\Models\TenantCourseDisabled;
@@ -30,6 +28,7 @@ use App\Models\TenantCourseLocation;
 use App\Models\TenantInvitation;
 use App\Models\TenantUser;
 use App\Models\WillkommensboxOrder;
+use App\Services\CourseProgressService;
 use App\Support\InstructorScope;
 use App\Support\ParticipantFilters;
 use App\Support\TenantContext;
@@ -236,63 +235,29 @@ class AdminDashboardController extends Controller
         // Schritten)? Bei mehreren aktiven Kurszugängen zählt der am
         // weitesten fortgeschrittene (derselbe Fortschrittswert wie auf
         // der Kursübersicht, siehe CourseProgressService::overallPercent).
-        // Bug-Review Betrieb B6 (dasselbe Muster wie Superadmin\UserController::
-        // show(), Bug-Review P1): overallPercent() lief hier einmal PRO
-        // Freischaltung JE Lerner in der Phase "Lernen" und lud dabei jedes
-        // Mal frisch sowohl die Modul-/Fragen-Relation des Kurses als auch
-        // die Progress-Tabelle nach -- bei 500 Lernenden wurde /admin
-        // dadurch mit hunderten zusätzlichen Queries spürbar langsam.
-        // Kurs-Module/-Fragen werden deshalb direkt mit eager-geladen,
-        // Progress einmal komplett geladen, und die Prozentzahl pro
-        // Freischaltung im Speicher berechnet -- exakt dieselbe Formel wie
-        // overallPercent().
-        $learningEntitlementsByUser = Entitlement::where('tenant_id', $tenant->id)
+        // Bug-Review Betrieb B6 / Review-Runde 8: früher lief hier
+        // overallPercent() je Freischaltung (N+1), danach wurden ALLE
+        // gefestigten Progress-Zeilen aller Lernenden in PHP geladen
+        // (Speicher/Laufzeit wuchsen mit Lernenden × Fragen). Jetzt zählt
+        // CourseProgressService::percentsByUserAndCourse() in SQL je Lerner
+        // und Kurs -- dieselbe Formel, eine Implementierung.
+        $learningEntitlements = Entitlement::where('tenant_id', $tenant->id)
             ->currentlyActive()
             ->whereIn('user_id', $learningPhaseLearnerIds)
-            ->with(['course.modules.questions', 'user'])
-            ->get()
-            ->groupBy('user_id');
-        $learningMasteredProgress = Progress::where('tenant_id', $tenant->id)
-            ->whereIn('user_id', $learningPhaseLearnerIds)
-            ->where('learning_state', 'gefestigt')
-            ->get(['user_id', 'question_id'])
-            // Review-Runde 8 (Betrieb): je Lerner einmal gruppieren statt
-            // pro Lerner die ganze Sammlung zu durchsuchen (Lernende ×
-            // gefestigte Fragen lief bei großen Schulen in den Timeout).
-            ->groupBy('user_id')
-            ->map(fn ($rows) => array_flip($rows->pluck('question_id')->all()));
-        $validQuestionSetByCourse = [];
+            // Wie bisher (Lerner ohne Nutzerdatensatz wurden übersprungen).
+            ->whereHas('user')
+            ->get(['user_id', 'course_id']);
+        $learningCourses = CourseDefinition::whereIn('id', $learningEntitlements->pluck('course_id')->unique()->values())->get();
+        $percentsByUser = app(CourseProgressService::class)->percentsByUserAndCourse($tenant, $learningCourses, $learningEntitlements->pluck('user_id'));
+        $courseIdsByUser = $learningEntitlements->groupBy('user_id')->map(fn ($rows) => $rows->pluck('course_id'));
         $progressBuckets = ['0–20%' => 0, '21–40%' => 0, '41–60%' => 0, '61–80%' => 0, '81–100%' => 0];
-        // Bug-Review BB16 (Folgefehler): isCurrentlyValid() fragt pro Frage
-        // einmal die veröffentlichte Revision ab -- über viele Lernende
-        // desselben Kurses hinweg summierte sich das wieder zu dem N+1, das
-        // Bug-Review Betrieb B6 oben bereits für active=false behoben hatte.
-        // Die gültigen IDs werden deshalb pro Kurs nur einmal (nicht pro
-        // Lerner) über ContentQuestion::currentlyValidIds() berechnet.
-        $validQuestionIdsByCourse = [];
         foreach ($learningPhaseLearnerIds as $learnerId) {
-            $entitlementsForLearner = $learningEntitlementsByUser->get($learnerId) ?? collect();
-            $user = $entitlementsForLearner->first()?->user;
-            if (! $user) {
+            $courseIds = $courseIdsByUser->get($learnerId);
+            if ($courseIds === null) {
                 continue;
             }
-            $percent = $entitlementsForLearner
-                ->filter(fn (Entitlement $e) => $e->course !== null)
-                ->map(function (Entitlement $e) use ($learningMasteredProgress, &$validQuestionIdsByCourse, &$validQuestionSetByCourse) {
-                    // Bug-Review F7: siehe overallPercent() -- eine
-                    // deaktivierte Frage zählt hier nie als gefestigt, aber
-                    // weiter im Nenner mit.
-                    // Bug-Review BB16: dieselbe Lücke bestand für valid_from/valid_to.
-                    $questionIds = $validQuestionIdsByCourse[$e->course_id] ??= ContentQuestion::currentlyValidIds(
-                        $e->course->modules->flatMap(fn ($m) => $m->questions)
-                    );
-                    $total = max($questionIds->count(), 1);
-                    $validSet = $validQuestionSetByCourse[$e->course_id] ??= array_flip($questionIds->all());
-                    $mastered = count(array_intersect_key($learningMasteredProgress->get($e->user_id, []), $validSet));
-
-                    return (int) round($mastered / $total * 100);
-                })
-                ->max() ?? 0;
+            // Kurse, die (z. B. per Sichtbarkeits-Scope) nicht geladen werden, zählen nicht mit.
+            $percent = $courseIds->map(fn ($courseId) => $percentsByUser[$learnerId][$courseId] ?? null)->filter(fn ($p) => $p !== null)->max() ?? 0;
             $bucket = match (true) {
                 $percent <= 20 => '0–20%',
                 $percent <= 40 => '21–40%',
