@@ -70,6 +70,11 @@ class ExamBooking
     public static function variants(string $page, string $first): array
     {
         $variants = self::page($page)['variants'];
+        // Prüfungsformen plattformweit abgeschalteter Kurse nicht unter
+        // „Weitere Prüfungsformen“ zeigen (die eigene bleibt immer sichtbar).
+        $disabled = CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')->where('site_enabled', false)
+            ->whereIn('code', array_filter(array_map(fn (array $v) => $v['course'] ?? $v['course_code'] ?? null, $variants)))->pluck('code')->all();
+        $variants = array_filter($variants, fn (array $v, string $key) => $key === $first || ! in_array($v['course'] ?? $v['course_code'] ?? null, $disabled, true), ARRAY_FILTER_USE_BOTH);
         $ordered = [$first => $variants[$first]] + $variants;
         $catalogSizes = Module::whereIn('code', collect($variants)->flatMap(fn ($v) => array_column($v['parts'], 'module'))->unique()->all())
             ->withCount('questions')->pluck('questions_count', 'code');

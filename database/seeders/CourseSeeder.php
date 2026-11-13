@@ -48,12 +48,19 @@ class CourseSeeder extends Seeder
             ['code' => 'SKN', 'name' => 'SKN Vollkurs', 'type' => 'full', 'modules' => ['SKN']],
             ['code' => 'FKN', 'name' => 'FKN Vollkurs', 'type' => 'full', 'modules' => ['FKN']],
             ['code' => 'ADD-FKN-TO-SKN', 'name' => 'Ergänzung FKN → SKN', 'type' => 'addon', 'modules' => ['SKN']],
+            // Weitere Ergänzungsprüfungen laut ELWIS-Bewertungstabelle. Angelegt,
+            // aber plattformweit abgeschaltet (site_enabled = false): die
+            // Bestehensgrenzen sind noch nicht belegt, ihre Regelwerke bleiben
+            // Entwürfe (ExamRuleSetSeeder). Freischalten im Superadmin unter
+            // „Kurse“, sobald Regelwerk und Inhalte geprüft sind.
+            ['code' => 'ADD-SEE-TO-BIN-SEGEL', 'name' => 'Ergänzung See → Binnen unter Segel', 'type' => 'addon', 'modules' => ['SBF_BINNEN', 'SBF_BINNEN_SEGELN'], 'site_enabled' => false],
+            ['code' => 'ADD-BIN-MOTOR-2012', 'name' => 'Ergänzung Binnen Motor (Segelschein vor Mai 2012)', 'type' => 'addon', 'modules' => ['SBF_BINNEN'], 'site_enabled' => false],
         ];
 
         foreach ($courses as $definition) {
             $course = CourseDefinition::withoutGlobalScopes()->firstOrCreate(
                 ['tenant_id' => null, 'code' => $definition['code']],
-                ['name' => $definition['name'], 'course_type' => $definition['type'], 'status' => 'published']
+                ['name' => $definition['name'], 'course_type' => $definition['type'], 'status' => 'published', 'site_enabled' => $definition['site_enabled'] ?? true]
             );
 
             if (! $course->wasRecentlyCreated) {

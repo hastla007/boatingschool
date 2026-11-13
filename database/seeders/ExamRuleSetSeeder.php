@@ -75,6 +75,7 @@ class ExamRuleSetSeeder extends Seeder
             'SBF-SEE' => ['SBF_BASIS' => 7, 'SBF_SEE' => 23],
             'SBF-BIN-MOTOR' => ['SBF_BASIS' => 7, 'SBF_BINNEN' => 23],
             'SBF-BIN-SEGEL' => ['SBF_BASIS' => 7, 'SBF_BINNEN' => 23, 'SBF_BINNEN_SEGELN' => 7],
+            'ADD-SEE-TO-BIN-SEGEL' => ['SBF_BINNEN' => 23, 'SBF_BINNEN_SEGELN' => 7],
         ];
 
         // ADD-BIN-SEGEL ("Ergänzung Binnen → Segeln"): nur noch die 7
@@ -112,6 +113,10 @@ class ExamRuleSetSeeder extends Seeder
         $timeLimitOverrides = [
             'ADD-BIN-SEGEL' => 900, 'SRC' => 1800, 'FKN' => 1800, 'UBI' => 3600,
             'SBF-SEE' => 3600, 'SBF-BIN-MOTOR' => 2700, 'SBF-BIN-SEGEL' => 3600, 'SKN' => 3600, 'ADD-SEE-TO-BIN' => 2100, 'ADD-BIN-TO-SEE' => 3000, 'ADD-UBI-TO-SRC' => 1800,
+            // ELWIS: Binnen Segeln mit vorhandenem SBF See 35 Minuten; Binnen Motor,
+            // wenn der Segelschein vor dem 1. Mai 2012 erworben wurde, 15 Minuten.
+            // Beide Regelwerke bleiben Entwürfe (Kurse abgeschaltet, siehe CourseSeeder).
+            'ADD-SEE-TO-BIN-SEGEL' => 2100, 'ADD-BIN-MOTOR-2012' => 900,
         ];
         // Navigationsaufgabe als eigener Prüfungsteil: mindestens 7 von 9
         // Punkten (ELWIS-Bewertungstabelle), siehe Migration 000587.
@@ -148,6 +153,16 @@ class ExamRuleSetSeeder extends Seeder
             'ADD-BIN-TO-SEE' => ['min_correct_ratio' => 18 / 23, 'navigation' => $navigation],
             'ADD-UBI-TO-SRC' => ['min_correct_ratio' => 8 / 10],
             'SKN' => ['min_correct_ratio' => 26 / 36],
+            // Annahme in Anlehnung an SBF Binnen unter Segel ohne Basisteil --
+            // amtlich noch nicht belegt, daher Entwurf (nicht in $verifiedCourses).
+            'ADD-SEE-TO-BIN-SEGEL' => [
+                'min_correct_ratio' => 23 / 30,
+                'parts' => [
+                    ['module' => 'SBF_BINNEN', 'label' => 'Binnen', 'min_correct' => 18, 'of' => 23],
+                    ['module' => 'SBF_BINNEN_SEGELN', 'label' => 'Segeln', 'min_correct' => 5, 'of' => 7],
+                ],
+            ],
+            // Fragenmix und Bestehensgrenze unbekannt: Platzhalter (10 Binnen-Fragen, 75 %).
         ];
 
         // Bug-Review (Hoch, Folgefehler von CourseSeeder): dieser Seeder
