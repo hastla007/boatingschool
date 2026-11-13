@@ -3,7 +3,8 @@
 /**
  * Datenschutz-Werkzeuge von WordPress (Werkzeuge → Personenbezogene Daten
  * exportieren/löschen) für die Nutzer-Metadaten des Plugins:
- * bs_app_user_id, bs_app_tenant_id und die _bs_*-Merker.
+ * bs_app_user_id, bs_app_tenant_id, die _bs_*-Merker und das Ergebnis der
+ * USt-IdNr.-Prüfung (_bs_vat_*).
  *
  * Bestellpositionen (Zustellstatus) bleiben: sie gehören zur Buchhaltung.
  */
@@ -20,6 +21,12 @@ final class BS_Privacy
         '_bs_email_confirmed' => 'Bestätigte E-Mail-Adresse',
         '_bs_email_verify_sent' => 'Bestätigungsmail gesendet am',
         '_bs_email_verify_key' => 'Offener Bestätigungslink',
+        '_bs_vat_number' => 'Geprüfte USt-IdNr.',
+        '_bs_vat_status' => 'Ergebnis der USt-IdNr.-Prüfung (VIES)',
+        '_bs_vat_checked_at' => 'USt-IdNr. geprüft am',
+        '_bs_vat_request_id' => 'Abfragenummer der USt-IdNr.-Prüfung (VIES)',
+        '_bs_vat_error' => 'Fehler der USt-IdNr.-Prüfung',
+        '_bs_vat_attempts' => 'Versuche der USt-IdNr.-Prüfung',
     ];
 
     public static function init(): void
@@ -45,7 +52,7 @@ final class BS_Privacy
             }
             if ($key === '_bs_email_verify_key') {
                 $value = 'ja';
-            } elseif ($key === '_bs_email_verify_sent') {
+            } elseif ($key === '_bs_email_verify_sent' || $key === '_bs_vat_checked_at') {
                 $value = gmdate('Y-m-d H:i', (int) $value).' UTC';
             } elseif (in_array($key, ['_bs_registered', '_bs_provisioned'], true)) {
                 $value = 'ja';
@@ -135,6 +142,12 @@ final class BS_Privacy
             'Bestätigte E-Mail-Adresse' => __('Bestätigte E-Mail-Adresse', 'bs-connector'),
             'Bestätigungsmail gesendet am' => __('Bestätigungsmail gesendet am', 'bs-connector'),
             'Offener Bestätigungslink' => __('Offener Bestätigungslink', 'bs-connector'),
+            'Geprüfte USt-IdNr.' => __('Geprüfte USt-IdNr.', 'bs-connector'),
+            'Ergebnis der USt-IdNr.-Prüfung (VIES)' => __('Ergebnis der USt-IdNr.-Prüfung (VIES)', 'bs-connector'),
+            'USt-IdNr. geprüft am' => __('USt-IdNr. geprüft am', 'bs-connector'),
+            'Abfragenummer der USt-IdNr.-Prüfung (VIES)' => __('Abfragenummer der USt-IdNr.-Prüfung (VIES)', 'bs-connector'),
+            'Fehler der USt-IdNr.-Prüfung' => __('Fehler der USt-IdNr.-Prüfung', 'bs-connector'),
+            'Versuche der USt-IdNr.-Prüfung' => __('Versuche der USt-IdNr.-Prüfung', 'bs-connector'),
         ];
     }
 }

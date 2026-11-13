@@ -513,6 +513,7 @@ final class BS_Orders
         }
         $labels = [
             'pending' => __('wird zugestellt', 'bs-connector'),
+            'deferred' => __('zurückgestellt (Bestellung derzeit nicht bezahlt)', 'bs-connector'),
             'delivered' => __('im Codebestand der Schule', 'bs-connector'),
             'failed' => __('fehlgeschlagen', 'bs-connector'),
             'cancelled' => __('abgebrochen', 'bs-connector'),

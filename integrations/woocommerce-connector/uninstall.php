@@ -12,7 +12,7 @@ delete_transient('bs_connector_catalog');
 
 // Ausstehende Hintergrund-Aufgaben des Plugins entfernen.
 if (function_exists('as_unschedule_all_actions')) {
-    foreach (['bs_connector_deliver_item', 'bs_connector_void_item', 'bs_connector_sync_account'] as $bs_connector_hook) {
+    foreach (['bs_connector_deliver_item', 'bs_connector_void_item', 'bs_connector_sync_account', 'bs_connector_vat_recheck'] as $bs_connector_hook) {
         as_unschedule_all_actions($bs_connector_hook, null, 'bs-connector');
     }
 }
