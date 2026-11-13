@@ -176,7 +176,7 @@ class ReviewRoundSixFixesTest extends TestCase
 
         $this->actingAsInTenant($instructor, $tenant)->post('/admin/participants/bulk-invite', ['emails' => $other->email])->assertForbidden();
         $this->actingAsInTenant($owner, $tenant)->post('/admin/participants/bulk-invite', ['emails' => $other->email])
-            ->assertSessionHas('status', 'Eine Person eingeladen.');
+            ->assertSessionHas('status', 'Eine Person eingeladen. Die Einladungsmail wird verschickt.');
         $this->actingAsInTenant($owner, $tenant)->post('/admin/participants/bulk-invite', ['emails' => $other->email."\nName ".str_repeat('x', 200).' <lang@example.test>'])
             ->assertSessionHas('status', fn ($s) => str_starts_with($s, '0 Personen eingeladen.') && str_contains($s, 'heute schon eingeladen') && str_contains($s, 'Name zu lang'));
     }

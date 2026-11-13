@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Jobs\SendInvitationMails;
 use App\Models\AuditLog;
 use App\Models\Tenant;
 use App\Models\TenantInvitation;
@@ -26,6 +27,54 @@ class ParticipantInviter
 {
     /** Höchstens so viele Einladungen je Schule und Tag (einzeln und als Sammel-Einladung zusammen). */
     public const DAILY_LIMIT = 300;
+
+    /**
+     * Nur mit queueMails(): gesammelte Einladungsmails, die dispatchQueuedMails()
+     * als Queue-Jobs verschickt (Sammel-Einladung).
+     *
+     * @var list<array{type: 'setup'|'invitation', user_id: string, role?: string, invitation_id?: string}>
+     */
+    private array $pendingMails = [];
+
+    private bool $queueMails = false;
+
+    /**
+     * Sammel-Einladung: Mails nicht sofort im Request verschicken, sondern
+     * sammeln und danach per dispatchQueuedMails() als Jobs (je Paket)
+     * an den Queue-Worker geben. mail_sent ist dann immer true (der
+     * Versand steht zu dem Zeitpunkt noch aus).
+     */
+    public function queueMails(): static
+    {
+        $this->queueMails = true;
+
+        return $this;
+    }
+
+    /** Gesammelte Einladungsmails als Jobs verschicken (und wieder direkt senden); liefert die Anzahl der Mails. */
+    public function dispatchQueuedMails(): int
+    {
+        $count = count($this->pendingMails);
+        foreach (array_chunk($this->pendingMails, SendInvitationMails::CHUNK) as $chunk) {
+            SendInvitationMails::dispatch($chunk);
+        }
+        $this->pendingMails = [];
+        $this->queueMails = false;
+
+        return $count;
+    }
+
+    /** Sofort senden oder (Sammel-Einladung) für den Queue-Job vormerken. */
+    private function sendOrQueue(array $mail, callable $sendNow): bool
+    {
+        if ($this->queueMails) {
+            $this->pendingMails[] = $mail;
+
+            return true;
+        }
+
+        return $sendNow();
+    }
 
     public static function dailyKey(Tenant $tenant): string
     {
@@ -103,7 +152,10 @@ class ParticipantInviter
                 if (! self::mayMailAddress($tenant, $existingUser->email)) {
                     return ['type' => 'existing', 'mail_sent' => true, 'user' => null, 'duplicate' => true];
                 }
-                $mailSent = BestEffortMail::send(fn () => app(AccountSetupLink::class)->send($existingUser, $tenant, $membership->role), "Einladung erneut {$existingUser->id}");
+                $mailSent = $this->sendOrQueue(
+                    ['type' => 'setup', 'user_id' => $existingUser->id, 'role' => $membership->role],
+                    fn () => BestEffortMail::send(fn () => app(AccountSetupLink::class)->send($existingUser, $tenant, $membership->role), "Einladung erneut {$existingUser->id}")
+                );
                 AuditLog::record($tenant->id, $actor->id, 'participant.invite_resent', 'app_user', $existingUser->id, null, ['email' => $existingUser->email]);
 
                 return ['type' => 'existing', 'mail_sent' => $mailSent, 'user' => $membership->role === 'learner' ? $existingUser : null];
@@ -131,7 +183,10 @@ class ParticipantInviter
                 'invited_by_user_id' => $actor->id,
             ]);
 
-            $mailSent = self::sendExistingAccountInvitation($existingUser, $tenant, $invitation);
+            $mailSent = $this->sendOrQueue(
+                ['type' => 'invitation', 'user_id' => $existingUser->id, 'invitation_id' => $invitation->id],
+                fn () => self::sendExistingAccountInvitation($existingUser, $tenant, $invitation)
+            );
 
             AuditLog::record($tenant->id, $actor->id, 'participant.invite_pending', 'tenant_invitation', $invitation->id, null, [
                 'email' => $existingUser->email,
@@ -169,9 +224,9 @@ class ParticipantInviter
 
         // Zählt für die Tagesdrossel je Adresse mit (siehe oben).
         self::mayMailAddress($tenant, $user->email);
-        $mailSent = BestEffortMail::send(
-            fn () => app(AccountSetupLink::class)->send($user, $tenant, 'learner'),
-            "Einladungsmail neuer Teilnehmer {$user->id}"
+        $mailSent = $this->sendOrQueue(
+            ['type' => 'setup', 'user_id' => $user->id, 'role' => 'learner'],
+            fn () => BestEffortMail::send(fn () => app(AccountSetupLink::class)->send($user, $tenant, 'learner'), "Einladungsmail neuer Teilnehmer {$user->id}")
         );
 
         return ['type' => 'new', 'mail_sent' => $mailSent, 'user' => $user];

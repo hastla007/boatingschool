@@ -3,13 +3,11 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\SendLearningReminders;
 use App\Models\AuditLog;
 use App\Models\Entitlement;
-use App\Models\Tenant;
 use App\Models\TenantUser;
-use App\Notifications\LearningReminder;
 use App\Services\LearnerOverview;
-use App\Support\BestEffortMail;
 use App\Support\InstructorScope;
 use App\Support\TenantContext;
 use Illuminate\Http\RedirectResponse;
@@ -30,7 +28,7 @@ class InactiveLearnerController extends Controller
 
     public const DAY_OPTIONS = [7, 14, 30, 60];
 
-    private const REMINDER_COOLDOWN_DAYS = 7;
+    private const REMINDER_COOLDOWN_DAYS = SendLearningReminders::REMINDER_COOLDOWN_DAYS;
 
     public function index(Request $request, TenantContext $tenantContext, LearnerOverview $overview): View
     {
@@ -54,19 +52,26 @@ class InactiveLearnerController extends Controller
             ->reject(fn ($row) => $row['recently_reminded'])
             ->take(200);
 
+        $items = $rows->map(fn ($row) => [
+            'user_id' => $row['membership']->user_id,
+            'days_since' => $row['last_activity'] ? (int) $row['last_activity']->diffInDays(now()) : null,
+        ])->values()->all();
+
         // Review-Runde 11: viele Empfänger nicht im Request nacheinander
         // anschreiben (bei echtem SMTP sonst Zeitüberschreitung) -- der
-        // Versand läuft nach der Antwort.
-        if ($rows->count() > self::SYNC_LIMIT) {
-            $queued = $rows->values();
-            \Illuminate\Support\defer(fn () => $this->send($tenant, $queued));
-            AuditLog::record($tenant->id, $request->user()->id, 'participants.remind_inactive', 'tenant_user', null, null, ['days' => $days, 'queued' => $queued->count()]);
+        // Versand läuft als Queue-Job je Paket im Worker (Mandantenkontext
+        // über TenantAware, Wiederholung bei Mailfehlern).
+        if (count($items) > self::SYNC_LIMIT) {
+            foreach (array_chunk($items, SendLearningReminders::CHUNK) as $chunk) {
+                SendLearningReminders::dispatch($chunk);
+            }
+            AuditLog::record($tenant->id, $request->user()->id, 'participants.remind_inactive', 'tenant_user', null, null, ['days' => $days, 'queued' => count($items)]);
 
             return redirect()->route('admin.inactive.index', ['days' => $days])
-                ->with('status', "{$queued->count()} Erinnerungen werden jetzt verschickt.");
+                ->with('status', count($items).' Erinnerungen werden jetzt verschickt.');
         }
 
-        [$sent, $failed] = $this->send($tenant, $rows);
+        [$sent, $failed] = SendLearningReminders::sendBatch($tenant, $items);
         AuditLog::record($tenant->id, $request->user()->id, 'participants.remind_inactive', 'tenant_user', $request->input('user_id'), null, ['days' => $days, 'sent' => $sent]);
 
         return redirect()->route('admin.inactive.index', ['days' => $days])
@@ -98,33 +103,5 @@ class InactiveLearnerController extends Controller
         $days = (int) $request->input('days', 14);
 
         return in_array($days, self::DAY_OPTIONS, true) ? $days : 14;
-    }
-
-    /** @return array{0: int, 1: int} versendet, fehlgeschlagen */
-    private function send(Tenant $tenant, Collection $rows): array
-    {
-        $sent = 0;
-        $failed = 0;
-        foreach ($rows as $row) {
-            $membership = $row['membership'];
-            // Erst bedingt vermerken (zwei Admins gleichzeitig: nur einer
-            // sendet), bei Mailfehler zurücksetzen, damit ein neuer Versuch
-            // nicht 7 Tage gesperrt ist.
-            $claimed = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $membership->user_id)
-                ->where(fn ($q) => $q->whereNull('reminded_at')->orWhere('reminded_at', '<', now()->subDays(self::REMINDER_COOLDOWN_DAYS)))
-                ->update(['reminded_at' => now()]);
-            if ($claimed === 0) {
-                continue;
-            }
-            $daysSince = $row['last_activity'] ? (int) $row['last_activity']->diffInDays(now()) : null;
-            if (BestEffortMail::send(fn () => $membership->user->notify(new LearningReminder($tenant, $daysSince)), 'Lernerinnerung '.$membership->user_id)) {
-                $sent++;
-            } else {
-                $failed++;
-                TenantUser::where('tenant_id', $tenant->id)->where('user_id', $membership->user_id)->update(['reminded_at' => $membership->reminded_at]);
-            }
-        }
-
-        return [$sent, $failed];
     }
 }

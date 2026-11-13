@@ -2,3 +2,5 @@
 # tägliche Datensicherung um 03:15, Lebenszeichen für den Go-live-Check).
 # Einrichten mit `crontab -e` als Deploy-Benutzer; Pfad anpassen.
 * * * * * cd /var/www/boatingschool && php artisan schedule:run >> /dev/null 2>&1
+# Modus releases (deploy.sh, DEPLOY_MODE=releases): über den Symlink current, z. B.
+# * * * * * cd /var/www/boatingschool/current && php artisan schedule:run >> /dev/null 2>&1

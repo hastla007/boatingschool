@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Console\Commands\BackupApplication;
+use App\Jobs\MassMailJob;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Models\VideoLesson;
@@ -22,6 +23,9 @@ use Throwable;
 class ProductionReadiness
 {
     public const SCHEDULER_HEARTBEAT_KEY = 'ops:scheduler-heartbeat';
+
+    /** Ab so vielen Schulen empfiehlt der Check Redis statt der Datenbank für Cache/Sessions/Queue. */
+    public const REDIS_RECOMMENDED_FROM_SCHOOLS = 20;
 
     /** @return list<array{group: string, label: string, status: string, detail: string}> */
     public static function checks(): array
@@ -75,10 +79,14 @@ class ProductionReadiness
         // --- Hintergrunddienste --------------------------------------------
         $last = Cache::get(self::SCHEDULER_HEARTBEAT_KEY);
         $add('Hintergrunddienste', 'Scheduler (Cron: schedule:run jede Minute)', $last && now()->timestamp - $last < 300 ? 'ok' : 'fail', $last ? 'zuletzt '.self::ago($last) : 'noch nie gelaufen');
-        // Derzeit legt die App keine Queue-Jobs an (Mails laufen synchron,
-        // siehe BestEffortMail). Geprüft wird deshalb nur, ob Jobs hängen
-        // bleiben -- dann fehlt der Worker (queue:work).
-        if (config('queue.default') === 'database') {
+        // Sammel-Mails (Mitteilungen, Erinnerungen, Sammel-Einladungen) laufen
+        // als Queue-Jobs: ohne laufenden Worker (queue:work, siehe
+        // deploy/supervisor-worker.conf) bleiben sie liegen.
+        $queue = (string) config('queue.default');
+        if ($queue === 'sync') {
+            $add('Hintergrunddienste', 'Queue-Worker (QUEUE_CONNECTION nicht „sync“)', 'warn', 'Sammel-Mails laufen sonst im Request (Zeitüberschreitung bei vielen Empfängern)');
+        }
+        if ($queue === 'database') {
             $safely(function () use ($add) {
                 $oldest = DB::connection('pgsql_admin')->table(config('queue.connections.database.table', 'jobs'))->min('created_at');
                 $stuck = $oldest && now()->timestamp - (int) $oldest > 900;
@@ -89,11 +97,35 @@ class ProductionReadiness
             $failed = DB::connection('pgsql_admin')->table(config('queue.failed.table', 'failed_jobs'))->count();
             $add('Hintergrunddienste', 'Fehlgeschlagene Jobs', $failed === 0 ? 'ok' : 'warn', $failed ? "{$failed} Job(s), siehe php artisan queue:failed" : '');
         });
+        $failedMailJobs = (int) Cache::get(MassMailJob::FAILED_COUNTER_KEY, 0);
+        $add('Hintergrunddienste', 'Sammel-Mails ohne endgültigen Fehlschlag', $failedMailJobs === 0 ? 'ok' : 'warn', $failedMailJobs ? "{$failedMailJobs} Paket(e) nach 3 Versuchen aufgegeben, siehe Log und php artisan queue:failed" : '');
+        // Ab einigen Schulen trägt die Datenbank Cache, Sessions und Queue
+        // spürbar mit: Redis entlastet sie (deploy/README.md, „Redis“).
+        if (config('cache.default') === 'database' && config('session.driver') === 'database' && $queue === 'database') {
+            $safely(function () use ($add) {
+                $schools = Tenant::on('pgsql_admin')->whereIn('status', ['active', 'trial'])->count();
+                if ($schools > self::REDIS_RECOMMENDED_FROM_SCHOOLS) {
+                    $add('Hintergrunddienste', 'Cache, Sessions und Queue auf Redis', 'warn', "{$schools} Schulen, alles läuft über die Datenbank: Redis empfohlen (deploy/README.md)");
+                }
+            });
+        }
         $backup = BackupApplication::latestBackupAt();
         $maxAge = (int) config('backup.max_age_hours', 26);
         $add('Hintergrunddienste', 'Datensicherung (app:backup)', $backup && $backup->diffInHours(now()) < $maxAge ? 'ok' : 'fail', $backup ? 'zuletzt '.$backup->format('d.m.Y H:i').(config('backup.disk') ? ', extern: '.config('backup.disk') : ', nur lokal') : 'noch keine Sicherung');
         if ($backup && ! config('backup.disk')) {
             $add('Hintergrunddienste', 'Sicherung außerhalb des Servers (BACKUP_DISK)', 'warn', 'fällt der Server aus, sind lokale Sicherungen mit weg');
+        }
+        if ($disk = config('backup.disk')) {
+            $missing = BackupApplication::offsiteUnavailableReason($disk);
+            $add('Hintergrunddienste', 'Externer Sicherungsspeicher nutzbar', $missing ? 'fail' : 'ok', (string) $missing);
+        }
+        try {
+            $encryption = BackupEncryption::mode();
+            if (config('backup.disk')) {
+                $add('Hintergrunddienste', 'Sicherung verschlüsselt (BACKUP_ENCRYPT_RECIPIENT)', $encryption ? 'ok' : 'warn', $encryption ? "mit {$encryption}" : 'externe Kopien liegen sonst im Klartext beim Speicheranbieter');
+            }
+        } catch (Throwable $e) {
+            $add('Hintergrunddienste', 'Sicherung verschlüsselt (BACKUP_ENCRYPT_RECIPIENT)', 'fail', $e->getMessage());
         }
 
         // --- Datenbank -----------------------------------------------------

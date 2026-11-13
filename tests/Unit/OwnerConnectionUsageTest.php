@@ -44,8 +44,10 @@ class OwnerConnectionUsageTest extends TestCase
         'app/Models/CommerceShopAccount.php' => 'Kaufberechtigung prüfen, auch aus Shop-Aufrufen ohne Mandant.',
 
         // --- Konsolenbefehle (Cron/Deploy, laufen ohne Mandantenkontext) ---
+        'app/Console/Commands/AnonymizeDatabase.php' => 'Staging-Kopie anonymisieren: personenbezogene Daten aller Schulen ersetzen (nie in production).',
         'app/Console/Commands/AuditMissingRequiredImages.php' => 'Inhaltsprüfung über den gesamten Fragenkatalog.',
         'app/Console/Commands/BackupApplication.php' => 'pg_dump mit den Zugangsdaten der Owner-Rolle.',
+        'app/Services/BackupVerifier.php' => 'Probe-Wiederherstellung: temporäre Datenbank als Owner anlegen, befüllen, löschen.',
         'app/Console/Commands/CreateSuperAdmin.php' => 'Superadmin-Konto anlegen (vor jeder Schule).',
         'app/Console/Commands/ExpireAbandonedExamSessions.php' => 'Verwaiste Prüfungen aller Schulen beenden.',
         'app/Console/Commands/ExpireEntitlements.php' => 'Abgelaufene Zugänge aller Schulen markieren.',
@@ -77,6 +79,8 @@ class OwnerConnectionUsageTest extends TestCase
         'app/Services/PersonalDataExportService.php' => 'DSGVO-Auskunft: Sitzungen/Geräte sind kontoweit, nicht je Schule.',
         'app/Services/ParticipantInviter.php' => 'Einladung: bestehendes Konto plattformweit per E-Mail finden.',
         'app/Services/TenantOffboardingService.php' => 'Schule auflösen: Exportdateien der Schule finden und löschen.',
+        'app/Jobs/SendInvitationMails.php' => 'Sammel-Einladung im Queue-Worker: Bestandskonto (noch kein Mitglied der Schule) per ID laden.',
+        'app/Jobs/SendPlatformAnnouncementMails.php' => 'Plattform-Mitteilung im Queue-Worker: Inhaber/Admins vieler Schulen (wie der Superadmin-Bereich).',
         'app/Services/NewLoginDeviceNotifier.php' => 'Hinweis bei neuem Gerät: Team-Rollen des Kontos in allen Schulen prüfen.',
         'app/Services/CouponBatchFactory.php' => 'Code-Erzeugung: Eindeutigkeit gegen Codes aller Schulen prüfen (nur Abgleich, kein Lesen fremder Daten).',
         'app/Http/Controllers/Admin/ParticipantController.php' => 'Einladung durch Ausbilder: Konto zur E-Mail plattformweit finden.',
