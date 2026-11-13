@@ -7,6 +7,7 @@ use App\Models\AuditLog;
 use App\Models\PlatformSetting;
 use App\Models\User;
 use App\Support\Impersonation;
+use App\Support\OwnerConnection;
 use App\Support\TenantContext;
 use App\Support\Totp;
 use App\Support\TwoFactorCheck;
@@ -168,13 +169,7 @@ class TwoFactorController extends Controller
      */
     private function audit(User $user, string $action): void
     {
-        $original = config('database.default');
-        config(['database.default' => 'pgsql_admin']);
-        try {
-            AuditLog::record(null, $user->id, $action, 'app_user', $user->id, null, null);
-        } finally {
-            config(['database.default' => $original]);
-        }
+        OwnerConnection::run(fn () => AuditLog::record(null, $user->id, $action, 'app_user', $user->id, null, null));
     }
 
     private function qrSvg(User $user): string

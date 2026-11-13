@@ -14,9 +14,18 @@ name: Deploy
 # Ausgerollt wird nur `main`, und nur ein Stand, für den der Workflow
 # „Tests“ grün ist. Der geprüfte Commit wird an deploy.sh übergeben, damit
 # genau dieser Stand auf den Server kommt (auch wenn main inzwischen weiter ist).
+#
+# Die Frontend-Assets (public/build) baut der Job „build“ für genau diesen
+# Commit; der Deploy kopiert sie per scp in ein temporäres Verzeichnis auf dem
+# Server, deploy.sh übernimmt sie (BUILD_DIR) statt im Wartungsmodus zu bauen.
 
 on:
   workflow_dispatch:
+    inputs:
+      with_content:
+        description: 'Inhalte (db:seed) auch ohne Änderungen unter database/seeders bzw. database/data einspielen'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -27,9 +36,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  verify:
     runs-on: ubuntu-latest
-    environment: production
+    outputs:
+      sha: ${{ steps.verified.outputs.sha }}
     steps:
       - name: Nur grün getesteten Stand von main ausrollen
         id: verified
@@ -47,6 +57,51 @@ jobs:
           fi
           echo "sha=$SHA" >> "$GITHUB_OUTPUT"
 
+  build:
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Geprüften Commit auschecken
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.verify.outputs.sha }}
+
+      - name: Node einrichten
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Assets bauen
+        env:
+          SHA: ${{ needs.verify.outputs.sha }}
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+          test -f public/build/manifest.json
+          # deploy.sh übernimmt den Build nur für genau diesen Commit.
+          printf '%s\n' "$SHA" > public/build/build-sha.txt
+
+      - name: Build als Artefakt ablegen
+        uses: actions/upload-artifact@v4
+        with:
+          name: public-build
+          path: public/build
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy:
+    needs: [verify, build]
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Build-Artefakt holen
+        uses: actions/download-artifact@v4
+        with:
+          name: public-build
+          path: build
+
       - name: SSH vorbereiten
         env:
           SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
@@ -61,8 +116,15 @@ jobs:
           HOST: ${{ secrets.DEPLOY_HOST }}
           USER: ${{ secrets.DEPLOY_USER }}
           APP_PATH: ${{ secrets.DEPLOY_PATH }}
-          SHA: ${{ steps.verified.outputs.sha }}
+          SHA: ${{ needs.verify.outputs.sha }}
+          WITH_CONTENT: ${{ inputs.with_content && '--with-content' || '' }}
         run: |
           case "$SHA" in (*[!0-9a-f]*|'') echo "Ungültiger Commit"; exit 1;; esac
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$USER@$HOST" \
-            "cd '$APP_PATH' && ./deploy/deploy.sh main '$SHA'"
+          test "$(tr -d '[:space:]' < build/build-sha.txt)" = "$SHA"
+          SSH_OPTS=(-i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes)
+          # Temporäres Verzeichnis auf dem Server für den fertigen Build.
+          REMOTE_TMP=$(ssh "${SSH_OPTS[@]}" "$USER@$HOST" 'mktemp -d "${TMPDIR:-/tmp}/boatingschool-build.XXXXXX"')
+          case "$REMOTE_TMP" in (/*boatingschool-build.*) ;; (*) echo "Unerwartetes Temp-Verzeichnis: $REMOTE_TMP"; exit 1;; esac
+          scp -q -r "${SSH_OPTS[@]}" build "$USER@$HOST:$REMOTE_TMP/"
+          ssh "${SSH_OPTS[@]}" "$USER@$HOST" \
+            "cd '$APP_PATH' && BUILD_DIR='$REMOTE_TMP/build' ./deploy/deploy.sh main '$SHA' $WITH_CONTENT; rc=\$?; rm -rf '$REMOTE_TMP'; exit \$rc"

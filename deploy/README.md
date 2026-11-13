@@ -8,7 +8,7 @@ Worker und Deploy-Skript in der Oberfläche ein.
 
 | Datei | Zweck |
 |---|---|
-| `deploy.sh` | Update auf dem Server (Wartungsmodus, Code, Abhängigkeiten, Build, Migrationen, Caches, Go-live-Check) |
+| `deploy.sh` | Update auf dem Server (Wartungsmodus, Code, Abhängigkeiten, Assets, Migrationen, Inhalte bei Bedarf, Caches, Go-live-Check) |
 | `Caddyfile` | Webserver mit automatischen Zertifikaten, auch für eigene Domains der Schulen (empfohlen) |
 | `nginx.conf` | Alternative mit nginx und Wildcard-Zertifikat |
 | `crontab` | Scheduler (jede Minute) |
@@ -59,15 +59,33 @@ Worker und Deploy-Skript in der Oberfläche ein.
 
 ```bash
 cd /var/www/boatingschool && ./deploy/deploy.sh          # Branch main (zieht vorher eine Sicherung)
+./deploy/deploy.sh main <commit> --with-content          # genau diesen Commit, Inhalte erzwingen
+BUILD_DIR=/tmp/build ./deploy/deploy.sh                  # fertigen Vite-Build übernehmen
 ```
 
 Oder in GitHub unter *Actions → Deploy → Run workflow* (Secrets siehe `deploy.yml`). Der
-Workflow rollt nur `main` aus, und nur einen Commit, für den „Tests“ grün ist.
+Workflow rollt nur `main` aus, und nur einen Commit, für den „Tests“ grün ist. Er baut die
+Frontend-Assets für genau diesen Commit in einem eigenen Job (`npm ci && npm run build`),
+kopiert `public/build` per `scp` in ein temporäres Verzeichnis auf dem Server und startet
+`deploy.sh` mit `BUILD_DIR` -- im Wartungsmodus wird dann nicht mehr gebaut. Die Option
+„with_content“ im Workflow entspricht `--with-content`.
 Bei einem Fehler bleibt die Seite im Wartungsmodus; Ursache beheben und das Skript erneut
 starten. Zurück ohne Update: `php artisan up`.
 
-Das Skript spielt auch Inhaltsupdates ein (`db:seed`, idempotent; Korrekturen aus dem
-Superadmin bleiben erhalten). Darf der Deploy-Benutzer PHP-FPM neu laden, `PHP_FPM_SERVICE=php8.3-fpm`
+**Assets**: Ohne `BUILD_DIR` (bzw. `--build-dir DIR`) baut das Skript wie bisher auf dem
+Server (Node nötig). Fehlt im Verzeichnis `manifest.json` oder gehört die beiliegende
+`build-sha.txt` zu einem anderen Commit, baut es ebenfalls auf dem Server und sagt das im Log.
+
+**Inhalte** (`db:seed`: Fragen, Erklärungen, Navigation, Praxistrainer; idempotent,
+Korrekturen aus dem Superadmin bleiben erhalten) laufen nur, wenn
+
+- sich seit dem zuletzt ausgerollten Commit etwas unter `database/seeders` oder
+  `database/data` geändert hat (der Stand steht in `storage/app/deployed_sha`),
+- noch kein Stand gespeichert bzw. er im Repository unbekannt ist (erster Lauf), oder
+- `--with-content` übergeben wird (z. B. wenn ein Seeder Daten aus `app/` nutzt, die sich geändert haben).
+
+Das Log nennt jeweils, welcher Fall eingetreten ist („Seeder laufen: …“ bzw. „Seeder
+übersprungen: …“). Darf der Deploy-Benutzer PHP-FPM neu laden, `PHP_FPM_SERVICE=php8.3-fpm`
 setzen (leert den Opcache).
 
 Migrationen sind nur vorwärts gedacht. Das Skript zieht deshalb vor jedem Update eine
@@ -136,7 +154,48 @@ funktionieren danach weiter.
 - **Go-live-Check**: `php artisan app:check-production` (Exit-Code 1 bei Fehlern, eignet sich
   für einen täglichen Cron mit Mail bei Fehlern) bzw. Superadmin → „System“.
 
-## 6. Datenschutz im Betrieb
+## 6. E-Mail-Zustellung
+
+Die App verschickt Einladungen, Passwort-Links, Zwei-Faktor- und Ablauf-Hinweise -- landen
+sie im Spam, kommen Lernende nicht in ihr Konto. Deshalb:
+
+- **Transaktionalen Mailanbieter** nutzen statt des Server-eigenen Postfix oder eines
+  normalen Postfachs: Standort/Verarbeitung in der EU, Auftragsverarbeitungsvertrag (AVV)
+  abschließen, z. B. Brevo, Mailjet, Postmark (EU-Region) oder Amazon SES (eu-central-1).
+  Zugang per SMTP in `.env` (`MAIL_MAILER=smtp`, `MAIL_HOST`, `MAIL_PORT=587`,
+  `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_ADDRESS`).
+- **Eigene Absender-Domain**, z. B. `MAIL_FROM_ADDRESS=noreply@mail.example.de`. Eine
+  Subdomain (`mail.`) trennt den Ruf der App-Mails von den Büro-Postfächern der Domain.
+- **DNS-Einträge** für die Absender-Domain (Werte liefert der Anbieter; Beispiel):
+
+  ```text
+  ; SPF: nur der Mailanbieter darf für mail.example.de senden
+  mail.example.de.                     TXT   "v=spf1 include:spf.anbieter.example ~all"
+  ; DKIM: öffentlicher Schlüssel des Anbieters (Selector aus dessen Oberfläche)
+  s1._domainkey.mail.example.de.       CNAME s1.dkim.anbieter.example.
+  ; DMARC: erst beobachten (p=none), nach 2–4 Wochen sauberer Berichte p=quarantine
+  _dmarc.mail.example.de.              TXT   "v=DMARC1; p=none; rua=mailto:dmarc@example.de; adkim=s; aspf=r"
+  ; Return-Path/Bounce-Domain beim Anbieter (für SPF-Alignment)
+  bounce.mail.example.de.              CNAME bounces.anbieter.example.
+  ```
+
+  Pro Domain nur **ein** SPF-Eintrag (mehrere `v=spf1` machen ihn ungültig). Den DKIM-Schlüssel
+  (mind. 2048 Bit) signiert der Anbieter; in seiner Oberfläche muss die Domain als
+  „verifiziert“ erscheinen.
+- **Return-Path**: Der Anbieter setzt den Envelope-Absender (Return-Path) auf seine bzw. die
+  oben eingetragene Bounce-Domain -- dort laufen Unzustellbarkeitsmeldungen auf, nicht im
+  Postfach von `MAIL_FROM_ADDRESS`. Eine eigene Bounce-Subdomain (CNAME) sorgt dafür, dass SPF
+  zur Absender-Domain passt (DMARC-Alignment).
+- **Bounces und Beschwerden**: Im Anbieter Hard Bounces und Spam-Beschwerden automatisch
+  sperren lassen (Suppression-Liste) und die Bounce-Benachrichtigung an eine betreute Adresse
+  (z. B. `support@…`) schicken. Betroffene Konten im Superadmin prüfen (Tippfehler in der
+  Adresse), statt immer wieder an dieselbe ungültige Adresse zu senden.
+- **Prüfen**: Testmail an ein Gmail- und ein GMX/Web.de-Postfach schicken und im Quelltext
+  `spf=pass`, `dkim=pass`, `dmarc=pass` kontrollieren (oder mail-tester.com). Die
+  DMARC-Berichte (`rua`) in den ersten Wochen lesen, bevor `p=quarantine` gesetzt wird.
+- **Reverse DNS** ist nur nötig, wenn der Server selbst versendet (nicht empfohlen).
+
+## 7. Datenschutz im Betrieb
 
 Auftragsverarbeitungsverträge mit Hoster, Mail-, Speicher-, Video- und Fehlertracking-Anbieter
 abschließen; Standorte möglichst in der EU. Die Datenschutzerklärung (Superadmin → Website)
