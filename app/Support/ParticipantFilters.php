@@ -25,9 +25,25 @@ class ParticipantFilters
         ];
     }
 
+    /**
+     * Kein Konto-Orakel bei Einladungen: ein von der Schule neu angelegtes,
+     * noch nie aktiviertes Konto (app_user.status = invited) erscheint bis
+     * zur Annahme nur unter „Offene Einladungen“ -- genau wie eine Einladung
+     * an eine Adresse mit bestehendem Konto, die bis dahin gar keine
+     * Mitgliedschaft hat. Sonst verriete die Teilnehmerliste (bzw. Zahl,
+     * Export, Code-Auswahl), welche eingeladene Adresse schon ein Konto hatte.
+     *
+     * @param  Builder  $query  TenantUser-Abfrage der Schule
+     */
+    public static function withoutOpenInvitations(Builder $query): Builder
+    {
+        return $query->whereHas('user', fn ($u) => $u->where('status', '!=', 'invited'));
+    }
+
     /** @param  Builder  $query  TenantUser-Abfrage der Schule */
     public static function apply(Builder $query, Tenant $tenant, array $filters): Builder
     {
+        self::withoutOpenInvitations($query);
         if ($filters['p_search'] !== '') {
             $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $filters['p_search']).'%';
             $query->whereHas('user', fn ($u) => $u->where(fn ($q) => $q->where('display_name', 'ilike', $like)

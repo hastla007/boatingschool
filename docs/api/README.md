@@ -112,6 +112,10 @@ Antworten werden 24 Stunden je Konto gespeichert.
   Grundes (z. B. Code eingelöst, dann Prüfung starten) gilt derselbe
   Schlüssel wieder.
 * Läuft dieselbe Anfrage noch: 409 `CONFLICT` mit `Retry-After`.
+* Schlüssel und Wirkung werden gemeinsam (in einer Datenbank-Transaktion)
+  festgeschrieben: Bricht die Verarbeitung mit einem Serverfehler (5xx) ab,
+  ist nichts passiert, und dieselbe Anfrage darf mit demselben Schlüssel
+  wiederholt werden, ohne doppelt zu wirken.
 * Gleicher Schlüssel mit anderem Inhalt ergibt 409 `IDEMPOTENCY_KEY_REUSED`.
 * Je fachlicher Aktion einen neuen Schlüssel erzeugen und bei automatischen
   Wiederholungen beibehalten.
@@ -131,6 +135,18 @@ Antworten werden 24 Stunden je Konto gespeichert.
 | Schulbezogene Endpunkte | 240/Min. je Konto |
 | Codes einlösen | 10/Min. |
 | Datenexport | 5/Std., Download 20/Min. |
+| Ausgelieferte Fragen | 2000 je Konto und Kalendertag (Europe/Berlin), siehe unten |
+
+**Tageslimit an Fragen** (`DAILY_LIMIT_REACHED`, HTTP 429): Gegen das
+Abgreifen des Fragenkatalogs zählt die API je Konto und Tag die
+ausgelieferten Fragen: `GET /courses/{id}/trainer/next` je Frage 1, ein neu
+gestartetes `POST /courses/{id}/exams` mit der Fragenzahl der Prüfung (das
+Fortsetzen einer laufenden Prüfung und `GET /exams/{id}` zählen nicht).
+Ist das Limit erreicht, antworten beide Endpunkte mit 429
+`DAILY_LIMIT_REACHED` und `Retry-After` bis Mitternacht (Europe/Berlin).
+Die App zeigt `detail` an („Ab Mitternacht geht es weiter.“) und versucht
+es nicht automatisch erneut. Betreiber: `MOBILE_API_DAILY_QUESTION_LIMIT`
+(Standard 2000, `0` = aus).
 
 ---
 
@@ -365,6 +381,7 @@ GET  /exams/{id}/result                 → Ergebnis mit Lösungen
 | 422 | `COUPON_NOT_APPLICABLE` | Meldung aus `detail` anzeigen |
 | 426 | `APP_UPDATE_REQUIRED` | Update-Hinweis mit `store_url` |
 | 429 | `RATE_LIMITED` | `Retry-After` abwarten |
+| 429 | `DAILY_LIMIT_REACHED` | Tageslimit an Fragen erreicht: `detail` anzeigen, bis Mitternacht (`Retry-After`) nicht erneut versuchen |
 | 4xx | `REQUEST_FAILED` | sonstiger Fehler; `detail` anzeigen |
 | 503 | `MAINTENANCE` | Wartungshinweis (`detail`), `Retry-After` |
 | 5xx | `SERVER_ERROR` / `SERVICE_UNAVAILABLE` | später erneut; `request_id` an Support |

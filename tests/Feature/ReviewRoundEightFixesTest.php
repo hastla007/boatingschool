@@ -11,6 +11,7 @@ use App\Notifications\AccountInvitation;
 use App\Notifications\CouponRedeemed;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Tests\Feature\Concerns\InteractsWithTenants;
@@ -40,16 +41,25 @@ class ReviewRoundEightFixesTest extends TestCase
         Notification::assertSentTo($user, AccountInvitation::class, fn ($n) => str_contains($n->url, 'invite=1')
             && str_contains($n->toMail($user)->subject, 'Einladungs Schule'));
 
-        // Erneut einladen = neuer Link (statt „ist bereits Teilnehmer“), höchstens dreimal am Tag.
-        foreach (range(1, 4) as $i) {
-            $this->actingAsInTenant($admin, $tenant)->post('/admin/participants/invite', ['name' => 'Neu Ling', 'email' => $email]);
-        }
-        Notification::assertSentToTimes($user, AccountInvitation::class, 4);
-        $this->asTenant($tenant, fn () => $this->assertSame(3, AuditLog::where('tenant_id', $tenant->id)->where('action', 'participant.invite_resent')->count()));
+        // Erneut einladen = neuer Link (statt „ist bereits Teilnehmer“).
+        // Kein Konto-Orakel: wie bei Bestandskonten höchstens eine Mail je
+        // Adresse und Tag -- am selben Tag also „heute schon eingeladen“
+        // (früher: bis zu drei neue Links, was eine neue Adresse von einer
+        // mit bestehendem Konto unterscheidbar machte).
+        $this->actingAsInTenant($admin, $tenant)->post('/admin/participants/invite', ['name' => 'Neu Ling', 'email' => $email])
+            ->assertSessionHas('status', 'Diese Person wurde heute schon eingeladen; die Einladung ist weiter gültig.');
+        Notification::assertSentToTimes($user, AccountInvitation::class, 1);
 
-        // Die Teilnehmerliste zeigt den Zustand mit „erneut senden“.
+        // Am nächsten Tag (Drossel abgelaufen) gibt es einen neuen Link.
+        RateLimiter::clear('invite-mail:'.$tenant->id.':'.sha1(mb_strtolower($email)));
+        $this->actingAsInTenant($admin, $tenant)->post('/admin/participants/invite', ['name' => 'Neu Ling', 'email' => $email])
+            ->assertSessionHas('status', 'Einladung verschickt.');
+        Notification::assertSentToTimes($user, AccountInvitation::class, 2);
+        $this->asTenant($tenant, fn () => $this->assertSame(1, AuditLog::where('tenant_id', $tenant->id)->where('action', 'participant.invite_resent')->count()));
+
+        // Die Liste zeigt die Person unter „Offene Einladungen“ mit „erneut senden“.
         $this->actingAsInTenant($admin, $tenant)->get('/admin?tab=participants')
-            ->assertSee('eingeladen, noch nicht angemeldet')->assertSee('Einladung erneut senden');
+            ->assertSee('Offene Einladungen')->assertSee('eingeladen, noch nicht angemeldet')->assertSee('Einladung erneut senden');
     }
 
     public function test_a_suspended_learner_reaches_the_data_rights_page_and_can_export(): void

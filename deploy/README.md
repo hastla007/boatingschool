@@ -27,7 +27,8 @@ Worker und Deploy-Skript in der Oberfläche ein.
    Domains der Schulen per CNAME auf `lernen.example.de`.
 3. **Datenbank**: Rollen und Datenbank wie im Haupt-README („Zwei DB-Rollen anlegen“),
    mit zufälligen Passwörtern (`openssl rand -base64 24`). Ein Pooler (PgBouncer)
-   nur im Session-Modus.
+   nur im Session-Modus. Läuft die Datenbank auf einem anderen Host, `DB_SSLMODE=verify-full`
+   setzen (Standard `prefer` ist nur für lokale Verbindungen gedacht und prüft kein Zertifikat).
 4. **Code**: `git clone … /var/www/boatingschool`, dann `cp .env.example .env` und ausfüllen:
    `APP_URL=https://lernen.example.de`, `CENTRAL_DOMAIN=lernen.example.de`, DB-Zugänge,
    Mail-Zugang (SMTP des Mailanbieters), `MAIL_FROM_ADDRESS`, `BACKUP_DISK`, optional `SENTRY_LARAVEL_DSN`.

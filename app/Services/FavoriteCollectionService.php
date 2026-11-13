@@ -8,6 +8,7 @@ use App\Models\FavoriteCollection;
 use App\Models\FavoriteCollectionItem;
 use App\Models\Tenant;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
 /**
@@ -72,14 +73,18 @@ class FavoriteCollectionService
 
         $nextSortOrder = (int) FavoriteCollection::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)->max('sort_order') + 1;
 
-        return FavoriteCollection::create([
+        // Eigene (ggf. verschachtelte) Transaktion: ein Namenskonflikt bei
+        // gleichzeitigem Anlegen wirft UniqueConstraintViolationException --
+        // innerhalb einer äußeren Transaktion (z. B. ApiIdempotency) bricht
+        // nur dieser Savepoint ab statt der ganzen Transaktion.
+        return DB::transaction(fn () => FavoriteCollection::create([
             'tenant_id' => $tenant->id,
             'user_id' => $user->id,
             'course_id' => $course->id,
             'name' => $name,
             'is_default' => false,
             'sort_order' => $nextSortOrder,
-        ]);
+        ]));
     }
 
     public function rename(FavoriteCollection $collection, string $name): void

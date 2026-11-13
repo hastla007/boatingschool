@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Api\ApiProblem;
 use App\Api\CourseAccess;
+use App\Api\DailyQuestionLimit;
 use App\Api\Present;
 use App\Api\QuestionPresenter;
 use App\Http\Controllers\Controller;
@@ -45,6 +46,7 @@ class LearningController extends Controller
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
         $course = $this->access->require($tenant, $user, $courseId);
+        DailyQuestionLimit::ensureAvailable($user);
         $mode = $validated['mode'] ?? 'smarttrainer';
         $questionIds = isset($validated['question_ids']) ? array_values(array_filter(explode(',', $validated['question_ids']))) : null;
         // Review-Runde 13: eine Favoriten-Sammlung üben.
@@ -76,6 +78,8 @@ class LearningController extends Controller
             // schätzt die Person selbst ein (known: true/false).
             $question['model_answer'] = $revision->correctAnswer()?->answer_text;
         }
+
+        DailyQuestionLimit::consume($user);
 
         return response()->json(['data' => [
             'question' => $question,
