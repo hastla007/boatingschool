@@ -96,6 +96,9 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
+            // Sitzung immer in UTC: Statistiken vergleichen Zeitstempel als UTC,
+            // unabhängig von der Zeitzone des Datenbankservers.
+            'timezone' => 'UTC',
         ],
 
         // Owner-Verbindung: nur für Migrations/Seeder/Content-Import.
@@ -112,6 +115,9 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
+            // Sitzung immer in UTC: Statistiken vergleichen Zeitstempel als UTC,
+            // unabhängig von der Zeitzone des Datenbankservers.
+            'timezone' => 'UTC',
         ],
 
         'sqlsrv' => [
