@@ -2,7 +2,7 @@
 # Erzeugt mit bin/make-pot.php -- nicht von Hand bearbeiten.
 msgid ""
 msgstr ""
-"Project-Id-Version: Bootsschul-Plattform Connector 1.1.0\n"
+"Project-Id-Version: Bootsschul-Plattform Connector 1.2.0\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -78,7 +78,7 @@ msgstr ""
 msgid "Der Bestätigungslink ist ungültig oder abgelaufen. Melden Sie sich an und fordern Sie unter „Mein Konto → Bootsschule verknüpfen“ einen neuen Link an."
 msgstr ""
 
-#: includes/class-bs-accounts.php:207 includes/class-bs-accounts.php:359
+#: includes/class-bs-accounts.php:207 includes/class-bs-accounts.php:368
 msgid "Sitzung abgelaufen, bitte erneut versuchen."
 msgstr ""
 
@@ -100,69 +100,69 @@ msgstr ""
 msgid "Kontenabgleich mit der Bootsschul-Plattform fehlgeschlagen"
 msgstr ""
 
-#: includes/class-bs-accounts.php:345 includes/class-bs-accounts.php:397
+#: includes/class-bs-accounts.php:354 includes/class-bs-accounts.php:406
 msgid "Bootsschule verknüpfen"
 msgstr ""
 
-#: includes/class-bs-accounts.php:366
+#: includes/class-bs-accounts.php:375
 msgid "Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse über den Link in unserer E-Mail."
 msgstr ""
 
 #. translators: %s: Name der Bootsschule
-#: includes/class-bs-accounts.php:380
+#: includes/class-bs-accounts.php:389
 #, php-format
 msgid "Ihr Shopkonto ist jetzt mit „%s“ verknüpft."
 msgstr ""
 
-#: includes/class-bs-accounts.php:382
+#: includes/class-bs-accounts.php:391
 msgid "Zu viele Versuche. Bitte in einigen Minuten erneut versuchen."
 msgstr ""
 
-#: includes/class-bs-accounts.php:384
+#: includes/class-bs-accounts.php:393
 msgid "Für dieses Kundenkonto ist keine Verknüpfung möglich. Bitte wenden Sie sich an den Support."
 msgstr ""
 
-#: includes/class-bs-accounts.php:386
+#: includes/class-bs-accounts.php:395
 msgid "Die Bootsschul-Plattform ist gerade nicht erreichbar. Bitte versuchen Sie es später erneut."
 msgstr ""
 
-#: includes/class-bs-accounts.php:388
+#: includes/class-bs-accounts.php:397
 msgid "Der Verknüpfungscode ist ungültig oder abgelaufen. Bitte auf der Plattform einen neuen erzeugen."
 msgstr ""
 
 #. translators: %s: E-Mail-Adresse
-#: includes/class-bs-accounts.php:399
+#: includes/class-bs-accounts.php:408
 #, php-format
 msgid "Ihre E-Mail-Adresse %s ist noch nicht bestätigt. Bitte öffnen Sie den Link in unserer E-Mail. Erst danach können Sie Ihr Konto mit Ihrer Bootsschule verknüpfen."
 msgstr ""
 
-#: includes/class-bs-accounts.php:404
+#: includes/class-bs-accounts.php:413
 msgid "Bestätigungsmail erneut senden"
 msgstr ""
 
 #. translators: %s: Name der Bootsschule
-#: includes/class-bs-accounts.php:412
+#: includes/class-bs-accounts.php:421
 #, php-format
 msgid "Verknüpft mit: %s. Gekaufte Codes werden nach der Zahlung dem Codebestand dieser Bootsschule gutgeschrieben."
 msgstr ""
 
-#: includes/class-bs-accounts.php:417
+#: includes/class-bs-accounts.php:426
 msgid "Ihr Konto ist noch nicht für den Einkauf freigeschaltet. Wir prüfen Ihre Angaben und melden uns per E-Mail."
 msgstr ""
 
-#: includes/class-bs-accounts.php:420
+#: includes/class-bs-accounts.php:429
 msgid "Für dieses Konto ist kein Einkauf für eine Bootsschule möglich. Bitte wenden Sie sich an den Support."
 msgstr ""
 
-#: includes/class-bs-accounts.php:424
+#: includes/class-bs-accounts.php:433
 msgid "Haben Sie bereits Zugang zur Plattform? Erzeugen Sie dort im Admin-Bereich unter „Coupon-Codes → Shop verknüpfen“ einen Verknüpfungscode und geben Sie ihn hier ein."
 msgstr ""
 
-#: includes/class-bs-accounts.php:429
+#: includes/class-bs-accounts.php:438
 msgid "Verknüpfungscode"
 msgstr ""
 
-#: includes/class-bs-accounts.php:432
+#: includes/class-bs-accounts.php:441
 msgid "Verknüpfen"
 msgstr ""
 
@@ -170,7 +170,7 @@ msgstr ""
 msgid "Bootsschul-Zustellungen"
 msgstr ""
 
-#: includes/class-bs-admin.php:65 includes/class-bs-admin.php:106 includes/class-bs-admin.php:131 includes/class-bs-orders.php:551
+#: includes/class-bs-admin.php:65 includes/class-bs-admin.php:106 includes/class-bs-admin.php:131 includes/class-bs-orders.php:552 includes/class-bs-vat-check.php:543
 msgid "Keine Berechtigung."
 msgstr ""
 
@@ -190,7 +190,7 @@ msgstr ""
 msgid "Position"
 msgstr ""
 
-#: includes/class-bs-admin.php:80
+#: includes/class-bs-admin.php:80 includes/class-bs-vat-check.php:528
 msgid "Versuche"
 msgstr ""
 
@@ -198,7 +198,7 @@ msgstr ""
 msgid "Fehler"
 msgstr ""
 
-#: includes/class-bs-admin.php:98 includes/class-bs-orders.php:535
+#: includes/class-bs-admin.php:98 includes/class-bs-orders.php:536
 msgid "Erneut zustellen"
 msgstr ""
 
@@ -331,63 +331,91 @@ msgid "wird zugestellt"
 msgstr ""
 
 #: includes/class-bs-orders.php:516
-msgid "im Codebestand der Schule"
+msgid "zurückgestellt (Bestellung derzeit nicht bezahlt)"
 msgstr ""
 
 #: includes/class-bs-orders.php:517
-msgid "fehlgeschlagen"
+msgid "im Codebestand der Schule"
 msgstr ""
 
 #: includes/class-bs-orders.php:518
+msgid "fehlgeschlagen"
+msgstr ""
+
+#: includes/class-bs-orders.php:519
 msgid "abgebrochen"
 msgstr ""
 
-#: includes/class-bs-orders.php:541
+#: includes/class-bs-orders.php:542
 msgid "Keine Positionen mit Bootsschul-Codes."
 msgstr ""
 
-#: includes/class-bs-orders.php:574
+#: includes/class-bs-orders.php:575
 msgid "Zustellung der Bootsschul-Codes erneut angestoßen."
 msgstr ""
 
-#: includes/class-bs-privacy.php:62 includes/class-bs-privacy.php:72
+#: includes/class-bs-privacy.php:69 includes/class-bs-privacy.php:79
 msgid "Bootsschul-Plattform Connector"
 msgstr ""
 
-#: includes/class-bs-privacy.php:99
+#: includes/class-bs-privacy.php:106
 msgid "Bootsschul-Plattform"
 msgstr ""
 
-#: includes/class-bs-privacy.php:122
+#: includes/class-bs-privacy.php:129
 msgid "Die Verknüpfung des Kundenkontos mit der Bootsschul-Plattform wurde im Shop entfernt. Bestellungen und ihr Zustellstatus bleiben für die Buchhaltung erhalten."
 msgstr ""
 
-#: includes/class-bs-privacy.php:131
+#: includes/class-bs-privacy.php:138
 msgid "App-Konto (Plattform)"
 msgstr ""
 
-#: includes/class-bs-privacy.php:132
+#: includes/class-bs-privacy.php:139
 msgid "Bootsschule (Plattform)"
 msgstr ""
 
-#: includes/class-bs-privacy.php:133
+#: includes/class-bs-privacy.php:140
 msgid "Bei der Plattform angemeldet"
 msgstr ""
 
-#: includes/class-bs-privacy.php:134
+#: includes/class-bs-privacy.php:141
 msgid "Von der Plattform angelegt"
 msgstr ""
 
-#: includes/class-bs-privacy.php:135
+#: includes/class-bs-privacy.php:142
 msgid "Bestätigte E-Mail-Adresse"
 msgstr ""
 
-#: includes/class-bs-privacy.php:136
+#: includes/class-bs-privacy.php:143
 msgid "Bestätigungsmail gesendet am"
 msgstr ""
 
-#: includes/class-bs-privacy.php:137
+#: includes/class-bs-privacy.php:144
 msgid "Offener Bestätigungslink"
+msgstr ""
+
+#: includes/class-bs-privacy.php:145
+msgid "Geprüfte USt-IdNr."
+msgstr ""
+
+#: includes/class-bs-privacy.php:146
+msgid "Ergebnis der USt-IdNr.-Prüfung (VIES)"
+msgstr ""
+
+#: includes/class-bs-privacy.php:147
+msgid "USt-IdNr. geprüft am"
+msgstr ""
+
+#: includes/class-bs-privacy.php:148
+msgid "Abfragenummer der USt-IdNr.-Prüfung (VIES)"
+msgstr ""
+
+#: includes/class-bs-privacy.php:149
+msgid "Fehler der USt-IdNr.-Prüfung"
+msgstr ""
+
+#: includes/class-bs-privacy.php:150
+msgid "Versuche der USt-IdNr.-Prüfung"
 msgstr ""
 
 #: includes/class-bs-products.php:129 includes/class-bs-products.php:133
@@ -440,66 +468,210 @@ msgstr ""
 msgid "Verfügbar: %s"
 msgstr ""
 
-#: includes/class-bs-settings.php:63
+#: includes/class-bs-settings.php:120
 msgid "Bootsschule"
 msgstr ""
 
-#: includes/class-bs-settings.php:71
+#: includes/class-bs-settings.php:128
 msgid "Anbindung an die Bootsschul-Plattform"
 msgstr ""
 
-#: includes/class-bs-settings.php:71
+#: includes/class-bs-settings.php:128
 msgid "Gekaufte Codes werden nach der Zahlung dem Codebestand der verknüpften Bootsschule gutgeschrieben. Werte in wp-config.php haben Vorrang."
 msgstr ""
 
-#: includes/class-bs-settings.php:72
+#: includes/class-bs-settings.php:129
 msgid "Adresse der Plattform"
 msgstr ""
 
-#: includes/class-bs-settings.php:73
+#: includes/class-bs-settings.php:130
 msgid "Schlüssel-ID (Shop → App)"
 msgstr ""
 
-#: includes/class-bs-settings.php:74
+#: includes/class-bs-settings.php:131
 msgid "Geheimnis (Shop → App)"
 msgstr ""
 
-#: includes/class-bs-settings.php:75
+#: includes/class-bs-settings.php:132
 msgid "Schlüssel-ID (App → Shop)"
 msgstr ""
 
-#: includes/class-bs-settings.php:76
+#: includes/class-bs-settings.php:133
 msgid "Geheimnis (App → Shop)"
 msgstr ""
 
-#: includes/class-bs-settings.php:77
+#: includes/class-bs-settings.php:134
+msgid "Geheimnisse aus der Datenbank erlauben"
+msgstr ""
+
+#: includes/class-bs-settings.php:134
+msgid "Empfohlen: aus. Dann gelten nur die Konstanten BS_CONNECTOR_SECRET und BS_CONNECTOR_INBOUND_SECRET aus wp-config.php; in der Datenbank gespeicherte Geheimnisse werden ignoriert (Filter bs_connector_allow_db_secrets)."
+msgstr ""
+
+#: includes/class-bs-settings.php:135
 msgid "Alarm-Adresse"
 msgstr ""
 
-#: includes/class-bs-settings.php:77
+#: includes/class-bs-settings.php:135
 msgid "Erhält eine Mail, wenn eine Zustellung endgültig fehlschlägt. Leer = Admin-Adresse von WordPress."
 msgstr ""
 
-#: includes/class-bs-settings.php:78
+#: includes/class-bs-settings.php:136
 msgid "Meta-Feld der USt-ID"
 msgstr ""
 
-#: includes/class-bs-settings.php:79
+#: includes/class-bs-settings.php:137
+msgid "USt-IdNr. per VIES prüfen"
+msgstr ""
+
+#: includes/class-bs-settings.php:137
+msgid "Prüft Format und Gültigkeit der USt-IdNr. beim EU-Dienst VIES (Registrierung, Kasse, Rechnungsadresse). Ist VIES nicht erreichbar, wird die Nummer angenommen und später erneut geprüft."
+msgstr ""
+
+#: includes/class-bs-settings.php:138
+msgid "Eigene USt-IdNr. (für VIES)"
+msgstr ""
+
+#: includes/class-bs-settings.php:138
+msgid "Optional. Mit der eigenen Nummer liefert VIES eine Abfragenummer als Nachweis der Prüfung."
+msgstr ""
+
+#: includes/class-bs-settings.php:139
 msgid "Gesperrte Zahlarten"
 msgstr ""
 
-#: includes/class-bs-settings.php:79
+#: includes/class-bs-settings.php:139
 msgid "IDs der Zahlarten ohne bestätigten Zahlungseingang, kommagetrennt (z. B. cod für Nachnahme). Sie werden für Bootsschul-Codes an der Kasse ausgeblendet; Bestellungen damit werden erst nach Zahlungseingang zugestellt."
 msgstr ""
 
-#: includes/class-bs-settings.php:89
+#. translators: %s: Name der Konstante
+#: includes/class-bs-settings.php:153
+#, php-format
+msgid "Empfohlen: stattdessen %s in wp-config.php setzen."
+msgstr ""
+
+#: includes/class-bs-settings.php:161
 msgid "Verbindung testen"
 msgstr ""
 
-#: includes/class-bs-settings.php:90
+#: includes/class-bs-settings.php:162
 msgid "Verwendet die gespeicherten Einstellungen – vorher speichern."
 msgstr ""
 
-#: includes/class-bs-settings.php:99
+#: includes/class-bs-settings.php:171
 msgid "gespeichert – leer lassen, um es zu behalten"
+msgstr ""
+
+#: includes/class-bs-settings.php:217
+msgid "Sie werden nicht verwendet, weil die Konstanten in wp-config.php gesetzt sind. Speichern Sie die Einstellungen unter WooCommerce → Einstellungen → Bootsschule einmal, um sie aus der Datenbank zu entfernen."
+msgstr ""
+
+#: includes/class-bs-settings.php:219
+msgid "Sie werden ignoriert, weil Geheimnisse aus der Datenbank nicht erlaubt sind – die Anbindung funktioniert erst mit den Konstanten in wp-config.php."
+msgstr ""
+
+#: includes/class-bs-settings.php:221
+msgid "Empfohlen: in wp-config.php verschieben und danach „Geheimnisse aus der Datenbank erlauben“ ausschalten."
+msgstr ""
+
+#: includes/class-bs-settings.php:223
+msgid "Bootsschul-Plattform Connector:"
+msgstr ""
+
+#. translators: %s: Namen der Konstanten
+#: includes/class-bs-settings.php:224
+#, php-format
+msgid "Geheimnisse der Anbindung liegen in der Datenbank (wp_options). Sicherer ist wp-config.php: %s."
+msgstr ""
+
+#. translators: 1: eingegebene USt-IdNr., 2: Ländercode
+#: includes/class-bs-vat-check.php:117
+#, php-format
+msgid "Die USt-IdNr. „%1$s“ hat nicht das gültige Format für %2$s. Bitte prüfen Sie die Eingabe (mit oder ohne Länderkennung, z. B. DE123456789)."
+msgstr ""
+
+#. translators: %s: eingegebene USt-IdNr.
+#: includes/class-bs-vat-check.php:125
+#, php-format
+msgid "Die USt-IdNr. „%s“ ist laut EU-Prüfdienst (VIES) nicht gültig. Bitte prüfen Sie die Eingabe."
+msgstr ""
+
+#: includes/class-bs-vat-check.php:373
+msgid "USt-IdNr. konnte nicht geprüft werden"
+msgstr ""
+
+#: includes/class-bs-vat-check.php:438
+msgid "USt-IdNr. nachträglich als ungültig erkannt"
+msgstr ""
+
+#: includes/class-bs-vat-check.php:471
+msgid "gültig (VIES)"
+msgstr ""
+
+#: includes/class-bs-vat-check.php:472
+msgid "ungültig"
+msgstr ""
+
+#: includes/class-bs-vat-check.php:473
+msgid "nicht geprüft (VIES nicht erreichbar)"
+msgstr ""
+
+#: includes/class-bs-vat-check.php:474
+msgid "nicht geprüft (kein EU-Land)"
+msgstr ""
+
+#. translators: 1: USt-IdNr., 2: Ergebnis
+#: includes/class-bs-vat-check.php:485
+#, php-format
+msgid "USt-IdNr. %1$s: %2$s"
+msgstr ""
+
+#. translators: %s: Zeitpunkt
+#: includes/class-bs-vat-check.php:492
+#, php-format
+msgid "Prüfversuch am %s"
+msgstr ""
+
+#. translators: %s: Zeitpunkt
+#: includes/class-bs-vat-check.php:493
+#, php-format
+msgid "geprüft am %s"
+msgstr ""
+
+#. translators: %s: Abfragenummer von VIES
+#: includes/class-bs-vat-check.php:498
+#, php-format
+msgid "Abfragenummer %s"
+msgstr ""
+
+#: includes/class-bs-vat-check.php:504
+msgid "wird automatisch erneut geprüft"
+msgstr ""
+
+#: includes/class-bs-vat-check.php:516
+msgid "USt-IdNr.-Prüfung (VIES)"
+msgstr ""
+
+#: includes/class-bs-vat-check.php:519 includes/class-bs-vat-check.php:525
+msgid "Ergebnis"
+msgstr ""
+
+#: includes/class-bs-vat-check.php:519
+msgid "Keine USt-IdNr. geprüft."
+msgstr ""
+
+#: includes/class-bs-vat-check.php:524
+msgid "USt-IdNr."
+msgstr ""
+
+#: includes/class-bs-vat-check.php:526
+msgid "Geprüft am"
+msgstr ""
+
+#: includes/class-bs-vat-check.php:527
+msgid "Abfragenummer (VIES)"
+msgstr ""
+
+#: includes/class-bs-vat-check.php:534
+msgid "Jetzt erneut prüfen"
 msgstr ""

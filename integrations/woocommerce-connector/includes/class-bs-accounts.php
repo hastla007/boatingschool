@@ -271,7 +271,7 @@ final class BS_Accounts
             'last_name' => (string) get_user_meta($customer_id, 'last_name', true),
             'company_name' => (string) get_user_meta($customer_id, 'billing_company', true),
             'billing_country' => (string) get_user_meta($customer_id, 'billing_country', true),
-            'vat_id' => (string) get_user_meta($customer_id, BS_Settings::get()['vat_meta_key'], true),
+            'vat_id' => self::vat_id_for_app($customer_id),
         ] : [];
         $data = array_filter($data, static fn ($v) => $v !== '');
 
@@ -301,6 +301,15 @@ final class BS_Accounts
             __('Kontenabgleich mit der Bootsschul-Plattform fehlgeschlagen', 'bs-connector'),
             sprintf('Kunde #%d, Aktion %s: %s', $customer_id, $action, (string) $response['error'])
         );
+    }
+
+    /** USt-IdNr. ohne Leer- und Trennzeichen, mit Länderkennung (z. B. „DE 811 191 002“ → DE811191002). */
+    private static function vat_id_for_app(int $customer_id): string
+    {
+        $entered = (string) get_user_meta($customer_id, BS_Settings::get()['vat_meta_key'], true);
+        $normalized = BS_Vat::normalize($entered, (string) get_user_meta($customer_id, 'billing_country', true));
+
+        return $normalized === null ? '' : $normalized['vat_id'];
     }
 
     // ---------------------------------------------------------------- Status / Verknüpfung

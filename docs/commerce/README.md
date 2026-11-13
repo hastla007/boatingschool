@@ -16,7 +16,7 @@ oder in der App ein (`POST /api/v1/coupons/redeem`).
 | Datenmodell | Migration `2024_02_01_000610_create_commerce_tables` (RLS je Schule auf Batches, Verknüpfungscodes und Shopkonten), `000630` (Superadmin-Pakete), `000631` (`commerce_event.claimed_at`), `000632` (`product.sellable_standalone`) |
 | WooCommerce-Plugin | `integrations/woocommerce-connector/` |
 | Konfiguration | `config/commerce.php`, `.env` (`COMMERCE_*`) |
-| Tests | `tests/Feature/Commerce/`, `tests/Unit/ConnectorSignatureCompatibilityTest.php` |
+| Tests | `tests/Feature/Commerce/`, `tests/Unit/ConnectorSignatureCompatibilityTest.php`, `tests/Unit/ConnectorPluginHelpersTest.php`, `tests/Unit/ConnectorVatCheckTest.php`; WordPress-Integrationstest: [wordpress-integrationstest.md](wordpress-integrationstest.md) |
 
 ## Entscheidungen
 
@@ -158,6 +158,15 @@ Der Scheduler (`schedule:run` jede Minute) muss laufen, er führt
 | `BS_CONNECTOR_SECRET` | `COMMERCE_SHOP_SECRET` |
 | `BS_CONNECTOR_INBOUND_SECRET` | `COMMERCE_OUTBOUND_SECRET` |
 
+Ist eine dieser Konstanten gesetzt, blendet die Einstellungsseite des Plugins
+das Feld aus (die Konstante hat immer Vorrang; eine alte Kopie in der Datenbank
+wird beim nächsten Speichern gelöscht). Liegen Geheimnisse noch in der
+Datenbank (`bs_connector_settings`), zeigt das WordPress-Backend einen
+dauerhaften Hinweis. Mit der Einstellung „Geheimnisse aus der Datenbank
+erlauben“ = aus oder dem Filter `bs_connector_allow_db_secrets` (`false`)
+ignoriert das Plugin Geheimnisse aus der Datenbank ganz; Standard ist „an“,
+damit bestehende Installationen weiterlaufen.
+
 Voraussetzungen: WooCommerce ab 8 (HPOS-kompatibel) und der mitgelieferte
 Action Scheduler. Außerdem:
 
@@ -171,19 +180,30 @@ Action Scheduler. Außerdem:
 - **E-Mail-Bestätigung:** Neue Kundenkonten werden erst nach dem Klick auf den Bestätigungslink (signiert, 3 Tage gültig, einmalig) bei der Plattform angemeldet. „Mein Konto → Bootsschule verknüpfen“ zeigt den Stand und bietet „Bestätigungsmail erneut senden“. Vom Provisionierungs-Endpunkt angelegte Konten gelten als bestätigt.
 - **Betrieb im Shop:** Protokoll unter WooCommerce → Status → Protokolle (Quelle `bs-connector`, nie Codewerte oder Geheimnisse); Knopf „Verbindung testen“ auf dem Einstellungs-Tab (`GET /catalog`); Seite WooCommerce → Bootsschul-Zustellungen mit allen fehlgeschlagenen Positionen und der Sammelaktion „Erneut zustellen“; `wp bs-connector reconcile [--days=30]` gleicht Positionen mit `GET /orders/{id}/lines/{line}` ab und listet Abweichungen.
 - **Datenschutz und Übersetzung:** Export und Löschung der Plugin-Metadaten über die Datenschutz-Werkzeuge von WordPress; Text-Domain `bs-connector` mit Vorlage `languages/bs-connector.pot` (`php bin/make-pot.php`).
+- **USt-IdNr.-Prüfung (VIES):** Registrierung, Kasse und „Mein Konto → Adressen“ prüfen
+  eine angegebene USt-IdNr. zuerst auf das Format des EU-Lands und dann beim VIES-REST-Dienst
+  der EU-Kommission. Ungültig: Fehlermeldung. VIES nicht erreichbar (`MS_UNAVAILABLE` u. a.):
+  angenommen, „nicht geprüft“ und Wiederholung über Action Scheduler (15 Min., 1, 4, 12, 24 Std.).
+  Ergebnis, Zeitpunkt und Abfragenummer stehen am Kunden (Benutzerprofil im Backend) und als
+  Bestellnotiz an jeder neuen Bestellung. An die Plattform geht die Nummer normalisiert
+  (`DE811191002`); die Plattform selbst prüft nicht.
 - Zahlarten ohne bestätigten Zahlungseingang (Standard: Nachnahme `cod`; Einstellung
   „Gesperrte Zahlarten“ bzw. Filter `bs_connector_blocked_gateways`) werden für Warenkörbe mit
   Bootsschul-Codes ausgeblendet. Bestellungen mit einer solchen Zahlart werden erst zugestellt,
   wenn das Gateway die Zahlung bestätigt oder die Bestellung auf „Abgeschlossen“ gesetzt wird.
 
-**Test:** Das Plugin wurde nicht gegen ein echtes WordPress getestet. Geprüft
-sind:
+**Test:** Die Abläufe 1–5 sind einmal gegen ein echtes WordPress mit
+WooCommerce und die App durchgespielt worden (Versionen, Schritte, Ergebnisse
+und Grenzen: [wordpress-integrationstest.md](wordpress-integrationstest.md)).
+Automatisiert geprüft sind:
 
 - Signatur und Zustellentscheidungen gegen die App (Unit-Test).
 - Die WordPress-freien Hilfsklassen des Plugins: Bestätigungslink, Protokoll ohne Codewerte, Abgleich, Datenschutz-Export, Aktualität der `.pot` (`tests/Unit/ConnectorPluginHelpersTest.php`).
+- USt-IdNr.-Format je EU-Land, Auswertung der VIES-Antworten und Vorrang der Geheimnisse aus `wp-config.php` (`tests/Unit/ConnectorVatCheckTest.php`).
 - Alle App-Endpunkte mit simulierten Shop-Aufrufen (Feature-Tests).
 - Der Ausgang mit einem simulierten Shop, einschließlich gleichzeitigem Beanspruchen, hängender Versände und der Übernahme bestehender Shopkonten.
 - Eine Lieferung von 500 Codes (Zeitmessung) und die gemeinsame Code-Erzeugung (`tests/Feature/CouponBatchFactoryTest.php`).
 
-Vor dem Livebetrieb sollten die Abläufe 1–5 einmal auf einer Staging-Installation
+Vor dem Livebetrieb sollten die Abläufe 1–5 trotzdem einmal auf der
+Staging-Installation des Shops (mit dessen Theme, Zahlarten und Plugins)
 durchgespielt werden.
