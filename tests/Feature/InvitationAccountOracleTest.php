@@ -4,10 +4,12 @@ namespace Tests\Feature;
 
 use App\Models\Coupon;
 use App\Models\Entitlement;
+use App\Models\TenantCourseDisabled;
 use App\Models\TenantInvitation;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Tests\Feature\Concerns\InteractsWithTenants;
@@ -93,7 +95,7 @@ class InvitationAccountOracleTest extends TestCase
                 && str_contains($s, "{$newEmail} (heute schon eingeladen)") && str_contains($s, "{$existing->email} (heute schon eingeladen)"));
     }
 
-    public function test_a_code_is_handled_the_same_and_redeemed_for_an_existing_account_on_acceptance(): void
+    public function test_a_code_is_reserved_the_same_and_redeemed_only_on_acceptance_for_both(): void
     {
         $tenant = $this->createTestTenant();
         $owner = $this->createTenantUser($tenant, 'owner');
@@ -110,31 +112,104 @@ class InvitationAccountOracleTest extends TestCase
             $statuses[] = str_replace($code, 'CODE', $status);
         }
         $this->assertSame($statuses[0], $statuses[1]);
-        $this->assertSame('Einladung verschickt. Code "CODE" wird dieser Person zugewiesen.', $statuses[0]);
+        $this->assertSame('Einladung verschickt. Code "CODE" ist für diese Person reserviert und wird eingelöst, sobald sie die Einladung annimmt.', $statuses[0]);
 
-        // Ungültiger Code: für beide derselbe Fehler (frische Adressen, sonst
-        // greift die Tagesdrossel „heute schon eingeladen“ zuerst).
+        // Ungültiger Code: für beide derselbe Fehler, und es entsteht nichts
+        // (frische Adressen, sonst greift die Tagesdrossel zuerst).
         [$otherNew, $otherExisting] = $this->addresses();
         foreach ([$otherNew, $otherExisting->email] as $email) {
             $this->actingAsInTenant($owner, $tenant)->post('/admin/participants/invite', ['name' => 'Gast', 'email' => $email, 'code' => 'UNBEKANNT-0000'])
                 ->assertSessionHasErrors(['code' => 'Dieser Code ist ungültig oder wurde bereits eingelöst.']);
         }
+        $this->assertFalse($this->onAdmin(fn () => User::where('email', $otherNew)->exists()));
+        $this->assertFalse($this->asTenant($tenant, fn () => TenantInvitation::where('tenant_id', $tenant->id)->where('email', $otherExisting->email)->exists()));
 
-        // Bestandskonto: vorgemerkt, eingelöst erst beim Annehmen.
+        // Ein schon reservierter Code kann nicht für eine andere Person
+        // vergeben werden -- für beide Fälle gleich.
+        foreach ([$otherNew, $otherExisting->email] as $email) {
+            $this->actingAsInTenant($owner, $tenant)->post('/admin/participants/invite', ['name' => 'Gast', 'email' => $email, 'code' => $codes[0]])
+                ->assertSessionHasErrors(['code' => 'Dieser Code ist bereits für eine andere offene Einladung reserviert.']);
+        }
+
+        // Beide: vorgemerkt, noch nicht eingelöst; in der Coupon-Liste „reserviert für Einladung“.
+        foreach ([$newEmail => $codes[0], $existing->email => $codes[1]] as $email => $code) {
+            $invitation = $this->asTenant($tenant, fn () => TenantInvitation::where('tenant_id', $tenant->id)->where('email', $email)->firstOrFail());
+            $this->assertSame($code, $invitation->coupon_code);
+            $this->assertSame('Gast', $invitation->name);
+            $this->assertFalse($this->onAdmin(fn () => Coupon::where('code', $code)->first()->isRedeemed()));
+        }
+        $couponPage = $this->actingAsInTenant($owner, $tenant)->get('/admin?tab=coupons')->assertOk();
+        $this->assertSame(2, substr_count($couponPage->getContent(), 'reserviert für Einladung'));
+
+        // Bestandskonto: eingelöst beim Annehmen.
         $invitation = $this->asTenant($tenant, fn () => TenantInvitation::where('tenant_id', $tenant->id)->where('email', $existing->email)->firstOrFail());
-        $this->assertSame($codes[1], $invitation->coupon_code);
-        $this->assertSame('Gast', $invitation->name);
-        $this->assertFalse($this->onAdmin(fn () => Coupon::where('code', $codes[1])->first()->isRedeemed()));
-
         $url = URL::temporarySignedRoute('invitations.accept', now()->addDays(7), ['invitation' => $invitation->id, 'hash' => sha1($existing->email)]);
         $this->actingAsInTenant($existing, $tenant)->get($url)->assertRedirect(route('dashboard'));
 
-        $this->onAdmin(function () use ($codes, $existing, $tenant, $course) {
-            $coupon = Coupon::where('code', $codes[1])->first();
-            $this->assertTrue($coupon->isRedeemed());
-            $this->assertSame($existing->id, $coupon->redeemed_by_user_id);
-            $this->assertTrue(Entitlement::where('tenant_id', $tenant->id)->where('user_id', $existing->id)->where('course_id', $course->id)->exists());
-            $this->assertTrue(Coupon::where('code', $codes[0])->first()->isRedeemed());
+        // Neue Adresse: eingelöst beim Festlegen des Passworts (Einladungslink).
+        $newUser = $this->onAdmin(fn () => User::where('email', $newEmail)->firstOrFail());
+        $token = Password::broker('invites')->createToken($newUser);
+        $this->app['auth']->forgetGuards();
+        $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/reset-password', [
+            'invite' => '1', 'token' => $token, 'email' => $newEmail,
+            'password' => 'Ein-sicheres-Passwort-2026', 'password_confirmation' => 'Ein-sicheres-Passwort-2026', 'age_confirmed' => '1',
+        ])->assertSessionHasNoErrors()->assertRedirect(route('login'));
+
+        $this->onAdmin(function () use ($codes, $existing, $newUser, $tenant, $course, $newEmail) {
+            foreach ([$codes[1] => $existing->id, $codes[0] => $newUser->id] as $code => $userId) {
+                $coupon = Coupon::where('code', $code)->first();
+                $this->assertTrue($coupon->isRedeemed());
+                $this->assertSame($userId, $coupon->redeemed_by_user_id);
+                $this->assertTrue(Entitlement::where('tenant_id', $tenant->id)->where('user_id', $userId)->where('course_id', $course->id)->exists());
+            }
+            $this->assertNotNull(TenantInvitation::withoutGlobalScopes()->where('tenant_id', $tenant->id)->where('email', $newEmail)->value('accepted_at'));
+            $this->assertNotNull(User::find($newUser->id)->age_confirmed_at);
         });
+    }
+
+    public function test_course_dependent_code_errors_appear_for_both_at_invite_time(): void
+    {
+        $tenant = $this->createTestTenant();
+        $owner = $this->createTenantUser($tenant, 'owner');
+        $course = $this->existingCourse('SRC');
+        $code = 'E2E-ORACLE-OFF-'.Str::upper(Str::random(6));
+        $this->createdCodes = [$code];
+        $this->onAdmin(function () use ($code, $course, $tenant) {
+            Coupon::create(['code' => $code, 'course_id' => $course->id, 'tenant_id' => $tenant->id]);
+            TenantCourseDisabled::create(['tenant_id' => $tenant->id, 'course_id' => $course->id]);
+        });
+        [$newEmail, $existing] = $this->addresses();
+
+        foreach ([$newEmail, $existing->email] as $email) {
+            $this->actingAsInTenant($owner, $tenant)->post('/admin/participants/invite', ['name' => 'Gast', 'email' => $email, 'code' => $code])
+                ->assertSessionHasErrors(['code' => 'Dieser Kurs ist aktuell nicht verfügbar.']);
+        }
+        $this->assertFalse($this->onAdmin(fn () => User::where('email', $newEmail)->exists()));
+        $this->assertFalse($this->asTenant($tenant, fn () => TenantInvitation::where('tenant_id', $tenant->id)->exists()));
+    }
+
+    public function test_team_invites_answer_and_list_new_and_existing_addresses_the_same(): void
+    {
+        $tenant = $this->createTestTenant();
+        $owner = $this->createTenantUser($tenant, 'owner');
+        [$newEmail, $existing] = $this->addresses();
+
+        foreach ([0, 1] as $round) {
+            $statuses = [];
+            foreach ([$newEmail, $existing->email] as $email) {
+                $statuses[] = $this->actingAsInTenant($owner, $tenant)->post('/admin/team/invite', ['name' => 'Kollegin Test', 'email' => $email, 'role' => 'instructor'])
+                    ->assertSessionHasNoErrors()->baseResponse->getSession()->get('status');
+            }
+            $this->assertSame($round === 0
+                ? ['Einladung verschickt.', 'Einladung verschickt.']
+                : array_fill(0, 2, 'Diese Person wurde heute schon eingeladen; die Einladung ist weiter gültig.'), $statuses);
+        }
+
+        // Beide nur als „eingeladen“ mit Namen, keiner in der Team-Liste.
+        $page = $this->actingAsInTenant($owner, $tenant)->get('/admin?tab=participants')->assertOk();
+        $this->assertEqualsCanonicalizing([$newEmail, $existing->email], collect($page->viewData('pendingTeamInvitations'))->pluck('email')->all());
+        $this->assertSame(['Kollegin Test', 'Kollegin Test'], collect($page->viewData('pendingTeamInvitations'))->pluck('name')->all());
+        $this->assertSame(['owner'], $page->viewData('team')->pluck('role')->all());
+        $this->assertSame(2, substr_count($page->getContent(), 'wartet auf Bestätigung'));
     }
 }

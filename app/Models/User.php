@@ -33,6 +33,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'external_identity',
         'email_verified_at',
         'phone',
+        'age_confirmed_at',
     ];
 
     protected $hidden = [
@@ -51,6 +52,9 @@ class User extends Authenticatable implements MustVerifyEmail
             'two_factor_secret' => 'encrypted',
             'two_factor_recovery_codes' => 'encrypted:array',
             'two_factor_confirmed_at' => 'datetime',
+            'age_confirmed_at' => 'datetime',
+            'speech_consent_at' => 'datetime',
+            'mail_preferences' => 'array',
         ];
     }
 

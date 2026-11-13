@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\CommerceEvent;
 use App\Models\CommerceShopAccount;
+use App\Models\PlatformSetting;
 use App\Models\Tenant;
 use App\Models\TenantBranding;
 use App\Models\TenantUser;
@@ -82,7 +83,9 @@ class ShopAccountController extends Controller
             abort_unless($locked && $locked->status === CommerceShopAccount::PENDING_REVIEW, 409, 'Dieses Shopkonto wurde inzwischen bearbeitet.');
             if ($validated['mode'] === 'new') {
                 $tenant = Tenant::create(['slug' => $validated['slug'], 'name' => $validated['name'], 'status' => 'active', 'default_locale' => 'de-DE']);
-                TenantBranding::create(['tenant_id' => $tenant->id, 'primary_color' => '#005FD7', 'secondary_color' => '#007A7A']);
+                // 2FA-Pflicht fürs Team nach der Plattform-Einstellung „2FA-Pflicht für neue Schulen“.
+                TenantBranding::create(['tenant_id' => $tenant->id, 'primary_color' => '#005FD7', 'secondary_color' => '#007A7A',
+                    'require_team_two_factor' => PlatformSetting::newTenantRequiresTeamTwoFactor()]);
                 $role = 'owner';
             } else {
                 $tenant = Tenant::findOrFail($validated['tenant_id']);

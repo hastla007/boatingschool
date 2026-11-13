@@ -1,7 +1,10 @@
 {{-- Sprachein- und -ausgabe des Browsers (Web Speech API): Einsprechen der
      Meldung und Vorlesen von Vokabeln/Seefunktexten. Ohne Unterstützung im
      Browser blenden sich die Knöpfe aus (x-show="supported"). Es wird nichts
-     an den Server übertragen außer dem, was im Textfeld landet. --}}
+     an den Server übertragen außer dem, was im Textfeld landet. Die
+     Spracherkennung startet erst nach Einwilligung (funk._speech-consent):
+     der Browser schickt die Aufnahme an Google bzw. Apple. --}}
+@include('funk._speech-consent')
 @once
     <script nonce="{{ $cspNonce }}">
         window.funkDictation = function (lang) {
@@ -10,8 +13,10 @@
                 supported: !! Recognition,
                 active: false,
                 recognition: null,
-                toggle(field) {
+                async toggle(field) {
                     if (this.active) { this.recognition.stop(); return; }
+                    // Erst nach Einwilligung (Dialog beim ersten Mal).
+                    if (! window.speechConsent || ! await window.speechConsent.ensure()) { return; }
                     this.recognition = new Recognition();
                     this.recognition.lang = lang;
                     this.recognition.continuous = true;

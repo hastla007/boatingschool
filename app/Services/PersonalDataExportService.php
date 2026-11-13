@@ -24,6 +24,7 @@ use App\Models\TenantUser;
 use App\Models\User;
 use App\Models\VideoProgress;
 use App\Models\WillkommensboxOrder;
+use App\Support\MailPreferences;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -84,6 +85,12 @@ class PersonalDataExportService
                 'account_created_at' => $user->created_at?->toIso8601String(),
                 'email_verified_at' => $user->email_verified_at?->toIso8601String(),
                 'two_factor_enabled' => $user->two_factor_confirmed_at !== null,
+                // Bestätigung Mindestalter/Einverständnis der Erziehungsberechtigten.
+                'age_confirmed_at' => $user->age_confirmed_at?->toIso8601String(),
+                // Einwilligung in die Spracherkennung des Browsers (widerrufbar im Profil).
+                'speech_consent_at' => $user->speech_consent_at?->toIso8601String(),
+                // E-Mail-Benachrichtigungen (§ 7 UWG): true = erwünscht.
+                'mail_preferences' => MailPreferences::forUser($user),
             ],
             'membership' => $membership ? [
                 'role' => $membership->role,

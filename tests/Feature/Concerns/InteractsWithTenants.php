@@ -165,6 +165,9 @@ trait InteractsWithTenants
                 'password' => bcrypt('password'),
                 'status' => 'active',
                 'email_verified_at' => now(),
+                // Wie ein über die Registrierung angelegtes Konto: Mindestalter
+                // bestätigt (sonst fragt z. B. die Einladungsannahme nach).
+                'age_confirmed_at' => now(),
             ], $attributes));
 
             TenantUser::create(array_merge([

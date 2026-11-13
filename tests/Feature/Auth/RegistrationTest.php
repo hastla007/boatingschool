@@ -33,7 +33,7 @@ class RegistrationTest extends TestCase
         $tenant = $this->createTestTenant();
         $email = 'test-'.uniqid().'@example.test';
 
-        $response = $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/register', [
+        $response = $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/register', [...$this->registrationFormFields(),
             'name' => 'Test User',
             'email' => $email,
             'password' => 'password1234',
@@ -70,7 +70,7 @@ class RegistrationTest extends TestCase
         $existingEmail = 'bereits-da-'.uniqid().'@example.test';
         $this->createTenantUser($tenant, 'learner', ['email' => $existingEmail]);
 
-        $duplicateResponse = $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/register', [
+        $duplicateResponse = $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/register', [...$this->registrationFormFields(),
             'name' => 'Duplikat',
             'email' => $existingEmail,
             'password' => 'password1234',
@@ -80,7 +80,7 @@ class RegistrationTest extends TestCase
         $duplicateStatus = session('status');
 
         $newEmail = 'ganz-neu-'.uniqid().'@example.test';
-        $newResponse = $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/register', [
+        $newResponse = $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/register', [...$this->registrationFormFields(),
             'name' => 'Neu',
             'email' => $newEmail,
             'password' => 'password1234',
@@ -116,7 +116,7 @@ class RegistrationTest extends TestCase
         $existingEmail = 'bereits-benachrichtigt-'.uniqid().'@example.test';
         $this->createTenantUser($tenant, 'learner', ['email' => $existingEmail]);
 
-        $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/register', [
+        $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/register', [...$this->registrationFormFields(),
             'name' => 'Duplikat',
             'email' => $existingEmail,
             'password' => 'password1234',

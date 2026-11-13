@@ -6,7 +6,9 @@ use App\Commerce\Outbox;
 use App\Commerce\Signature;
 use App\Models\CommerceEvent;
 use App\Models\CommerceShopAccount;
+use App\Models\PlatformSetting;
 use App\Models\Tenant;
+use App\Models\TenantBranding;
 use App\Models\TenantUser;
 use App\Models\User;
 use App\Notifications\AccountInvitation;
@@ -75,6 +77,8 @@ class CommerceAdminFlowsTest extends TestCase
         $this->assertSame($tenant->id, $account->tenant_id);
         $this->assertSame('owner', $this->onAdmin(fn () => TenantUser::withoutGlobalScopes()->where('tenant_id', $tenant->id)->where('user_id', $account->user_id)->value('role')));
         $this->assertTrue($this->onAdmin(fn () => $account->canPurchase()));
+        // Neue Schule: 2FA-Pflicht fürs Team nach der Plattform-Einstellung (Standard an).
+        $this->assertSame(PlatformSetting::newTenantRequiresTeamTwoFactor(), $this->onAdmin(fn () => TenantBranding::find($tenant->id)->require_team_two_factor));
         Notification::assertSentTo($this->onAdmin(fn () => User::find($account->user_id)), AccountInvitation::class);
     }
 

@@ -6,6 +6,7 @@ use App\Models\Tenant;
 use App\Notifications\Concerns\AddsNoReplyHint;
 use App\Notifications\Concerns\EscapesMarkdown;
 use App\Support\CanonicalUrl;
+use App\Support\MailPreferences;
 use App\Support\MailTemplates;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -21,7 +22,8 @@ class LearningReminder extends Notification
     /** @return array<int, string> */
     public function via(mixed $notifiable): array
     {
-        return ['mail'];
+        // Abbestellbar (§ 7 UWG): ohne Einwilligung keine Mail.
+        return MailPreferences::wants($notifiable, MailPreferences::LEARNING_REMINDERS) ? ['mail'] : [];
     }
 
     public function toMail(mixed $notifiable): MailMessage
@@ -35,6 +37,6 @@ class LearningReminder extends Notification
             // Review-Runde 12: kein eigener Gruß mehr -- die Unterschrift der Mail nennt die Schule.
             ->action('Weiterlernen', CanonicalUrl::root($this->tenant).route('dashboard', [], false));
 
-        return self::withNoReplyHint(MailTemplates::apply($message, 'learning_reminder', ['schule' => $school, 'tage' => $this->days ? (string) $this->days : '']));
+        return MailPreferences::addUnsubscribe(self::withNoReplyHint(MailTemplates::apply($message, 'learning_reminder', ['schule' => $school, 'tage' => $this->days ? (string) $this->days : ''])), $notifiable, MailPreferences::LEARNING_REMINDERS, $this->tenant);
     }
 }

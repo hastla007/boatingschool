@@ -33,6 +33,7 @@ use App\Http\Controllers\GeraetesimulationController;
 use App\Http\Controllers\ImpersonationController;
 use App\Http\Controllers\LearningController;
 use App\Http\Controllers\LegalPageController;
+use App\Http\Controllers\MailPreferenceController;
 use App\Http\Controllers\NavigationTaskController;
 use App\Http\Controllers\OffersController;
 use App\Http\Controllers\PraxisExamAppointmentController;
@@ -42,6 +43,7 @@ use App\Http\Controllers\PraxisTrainerController;
 use App\Http\Controllers\ProductsController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProgressController;
+use App\Http\Controllers\SpeechConsentController;
 use App\Http\Controllers\TipController;
 use App\Http\Controllers\VideoCourseController;
 use App\Http\Controllers\VideoQuizController;
@@ -74,6 +76,13 @@ Route::get('/', function (TenantContext $tenantContext) {
 // Impressum und Datenschutzerklärung der Bootsschule (öffentlich, aus der
 // zentralen Vorlage mit den Stammdaten der Schule, siehe LegalPages).
 Route::get('/{kind}', [LegalPageController::class, 'show'])->whereIn('kind', ['impressum', 'datenschutz'])->name('legal.show');
+
+// Abmeldung aus Lern-Erinnerungen, Ablauf-Hinweisen und Mitteilungen
+// (§ 7 UWG): signierter Link je Konto und Kategorie, ohne Anmeldung. POST
+// ist die Ein-Klick-Abmeldung des Mailprogramms (RFC 8058, ohne CSRF-Token,
+// siehe bootstrap/app.php).
+Route::get('/mail/abmelden/{user}/{category}', [MailPreferenceController::class, 'show'])->middleware(['signed', 'throttle:30,1,mail-unsubscribe'])->name('mail.unsubscribe');
+Route::post('/mail/abmelden/{user}/{category}', [MailPreferenceController::class, 'unsubscribe'])->middleware(['signed', 'throttle:30,1,mail-unsubscribe'])->name('mail.unsubscribe.confirm');
 
 // „Als Nutzer ansehen“ (Support): Einmal-Link des Superadmins einlösen bzw. beenden.
 Route::get('/impersonate/{token}', [ImpersonationController::class, 'consume'])->where('token', '[A-Za-z0-9]{48}')->middleware('throttle:20,1')->name('impersonate.consume');
@@ -196,6 +205,10 @@ Route::middleware(['auth', 'tenant.member', 'verified'])->group(function () {
     // beim Profil-Update, Coupon-Import oder Code-Einlösen (und umgekehrt).
     // Jede Stelle bekommt deshalb einen eigenen Prefix.
     Route::patch('/profile', [ProfileController::class, 'update'])->middleware('throttle:10,1,profile-update')->name('profile.update');
+    // E-Mail-Benachrichtigungen und Einwilligung in die Spracherkennung (Profil).
+    Route::patch('/profile/mail-preferences', [MailPreferenceController::class, 'update'])->middleware('throttle:10,1,profile-mail-preferences')->name('profile.mail-preferences.update');
+    Route::post('/profile/speech-consent', [SpeechConsentController::class, 'store'])->middleware('throttle:10,1,speech-consent')->name('profile.speech-consent.store');
+    Route::delete('/profile/speech-consent', [SpeechConsentController::class, 'destroy'])->middleware('throttle:10,1,speech-consent')->name('profile.speech-consent.destroy');
     // Bug-Review (Passwort-Throttle eingeloggter Nutzer): destroy() prüft
     // ebenfalls das aktuelle Passwort (current_password) -- fehlte hier
     // bisher als einzige der drei Profil-Routen, siehe profile-update oben.

@@ -20,7 +20,7 @@ mehrere Schulen oder gar keine Schule betrifft.
 | Commerce-API | `App\Commerce\*`, `Commerce\CommerceController` | signierte Shop-Aufrufe; die Schule ergibt sich erst aus Shopkonto/Code |
 | Konsolenbefehle | `app:expire-entitlements`, Importe, Backups | Cron/Deploy ohne Mandantenkontext |
 | Mandantenauflösung & Login | `ResolveTenant`, `EnsureTenantMembership`, Auth-Controller | es gibt noch keinen Mandanten bzw. das Konto ist plattformweit |
-| Mandantenübergreifende Dienste | `AccountErasureService`, `ParticipantInviter`, DSGVO-Export | Konten (`app_user`) und Mitgliedschaften gelten über Schulen hinweg |
+| Mandantenübergreifende Dienste | `AccountErasureService`, `ParticipantInviter`, `InvitationAcceptance`, DSGVO-Export | Konten (`app_user`) und Mitgliedschaften gelten über Schulen hinweg |
 | Plattform-Katalog | `CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')` | nur Katalogkurse, nicht die schuleigenen |
 
 **Nicht erlaubt** ist die Owner-Verbindung als Abkürzung, weil eine Abfrage im

@@ -103,6 +103,11 @@ return Application::configure(basePath: dirname(__DIR__))
         // (Wartungsmodus) ausstellen lassen.
         $middleware->preventRequestsDuringMaintenance(except: ['tls-check']);
 
+        // Ein-Klick-Abmeldung aus Mails (RFC 8058): das Mailprogramm schickt
+        // einen POST ohne Sitzung und CSRF-Token; geschützt ist die Route
+        // durch die Signatur des Links (MailPreferenceController).
+        $middleware->validateCsrfTokens(except: ['mail/abmelden/*']);
+
         // Bug-Review R3-2/R4-A: ohne trustHosts() vertraut Laravel jedem
         // Host-Header blind -- route()/url() erzeugen absolute URLs (z. B.
         // der Link in der Passwort-Reset-Mail) damit mit dem Host, den der

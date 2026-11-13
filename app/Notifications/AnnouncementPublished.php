@@ -7,6 +7,7 @@ use App\Models\TenantAnnouncement;
 use App\Notifications\Concerns\AddsNoReplyHint;
 use App\Notifications\Concerns\EscapesMarkdown;
 use App\Support\CanonicalUrl;
+use App\Support\MailPreferences;
 use App\Support\MailTemplates;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -22,7 +23,8 @@ class AnnouncementPublished extends Notification
     /** @return array<int, string> */
     public function via(mixed $notifiable): array
     {
-        return ['mail'];
+        // Abbestellbar (§ 7 UWG): ohne Einwilligung keine Mail.
+        return MailPreferences::wants($notifiable, MailPreferences::ANNOUNCEMENTS) ? ['mail'] : [];
     }
 
     public function toMail(mixed $notifiable): MailMessage
@@ -35,6 +37,6 @@ class AnnouncementPublished extends Notification
         }
         $message->action('Zur Lernplattform', CanonicalUrl::root($this->tenant).route('dashboard', [], false));
 
-        return self::withNoReplyHint(MailTemplates::apply($message, 'announcement', ['schule' => $this->tenant->name, 'titel' => $this->announcement->title]));
+        return MailPreferences::addUnsubscribe(self::withNoReplyHint(MailTemplates::apply($message, 'announcement', ['schule' => $this->tenant->name, 'titel' => $this->announcement->title])), $notifiable, MailPreferences::ANNOUNCEMENTS, $this->tenant);
     }
 }

@@ -168,7 +168,8 @@ class ResolveTenant
 
     /**
      * Auch bei gesperrter oder geschlossener Schule erreichbar: Abmelden,
-     * Impressum/Datenschutz und die Datenrechte (Export, Kontolöschung).
+     * Impressum/Datenschutz, die Datenrechte (Export, Kontolöschung) und
+     * die Abmeldung aus Mails.
      */
     private function isDataRightsRoute(Request $request): bool
     {
@@ -176,7 +177,9 @@ class ResolveTenant
         return $request->is('logout') || $request->is('login') || $request->is('two-factor-challenge')
             || $request->is('impressum') || $request->is('datenschutz')
             || $request->is('meine-daten') || $request->is('profile/export-data')
-            || ($request->is('profile') && $request->isMethod('DELETE'));
+            || ($request->is('profile') && $request->isMethod('DELETE'))
+            // Abmeldung aus Mails (§ 7 UWG) muss immer funktionieren.
+            || $request->is('mail/abmelden/*');
     }
 
     private function isTenantAgnosticRoute(Request $request): bool

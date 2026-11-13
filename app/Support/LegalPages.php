@@ -99,9 +99,9 @@ Der Betreiber verarbeitet die Daten im Auftrag der Bootsschule (Auftragsverarbei
 
 Wir verwenden nur technisch notwendige Cookies (Anmeldung und Sicherheit), keine Werbe- oder Analyse-Cookies. Schriften werden von unserem eigenen Server geladen, nicht von Drittanbietern.
 
-## 6. Spracherkennung in der Funk-Gerätesimulation
+## 6. Spracherkennung in den Funk-Übungen
 
-Wenn du einen Funkspruch einsprichst, nutzt die Gerätesimulation die Spracherkennung deines Browsers. Je nach Browser wird die Aufnahme dafür an den Anbieter des Browsers übertragen (z. B. Google bei Chrome). Das geschieht nur, solange du die Sprechtaste hältst. Du kannst den Funkspruch stattdessen auch eintippen.
+Wenn du einen Funkspruch einsprichst (Gerätesimulation und Funk-Übungen), nutzt die Plattform die Spracherkennung deines Browsers. Je nach Browser wird die Aufnahme dafür an den Anbieter des Browsers übertragen (z. B. Google bei Chrome und Edge, Apple bei Safari). Die Spracherkennung ist erst nach deiner ausdrücklichen Einwilligung aktiv (Art. 6 Abs. 1 lit. a DSGVO), die wir vor der ersten Nutzung abfragen und mit Zeitpunkt speichern; du kannst sie jederzeit in deinem Profil widerrufen. Die Aufnahme läuft nur, solange du sprichst bzw. die Sprechtaste hältst. Du kannst den Funkspruch stattdessen auch eintippen.
 
 ## 7. Karten (OpenStreetMap)
 

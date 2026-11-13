@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Coupon;
 use App\Models\Entitlement;
+use App\Models\PlatformSetting;
 use App\Models\Tenant;
 use App\Models\TenantBranding;
 use App\Models\TenantUser;
@@ -97,7 +98,9 @@ class TenantController extends Controller
             // Bug-Review Oberfläche U6: #00A8A8 erreichte mit weißer
             // Buttonschrift nur 2,9:1 Kontrast (WCAG AA verlangt 4,5:1) --
             // siehe TenantBranding::secondaryColorOrDefault().
-            TenantBranding::create(['tenant_id' => $tenant->id, 'primary_color' => '#005FD7', 'secondary_color' => '#007A7A']);
+            // 2FA-Pflicht fürs Team nach der Plattform-Einstellung „2FA-Pflicht für neue Schulen“.
+            TenantBranding::create(['tenant_id' => $tenant->id, 'primary_color' => '#005FD7', 'secondary_color' => '#007A7A',
+                'require_team_two_factor' => PlatformSetting::newTenantRequiresTeamTwoFactor()]);
 
             $admin = User::create([
                 'display_name' => trim($validated['admin_first_name'].' '.$validated['admin_last_name']),

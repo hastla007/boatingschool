@@ -11,6 +11,7 @@ use App\Notifications\LearningReminder;
 use App\Services\LearnerOverview;
 use App\Support\BestEffortMail;
 use App\Support\InstructorScope;
+use App\Support\MailPreferences;
 use App\Support\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -107,6 +108,10 @@ class InactiveLearnerController extends Controller
         $failed = 0;
         foreach ($rows as $row) {
             $membership = $row['membership'];
+            // Lern-Erinnerungen abbestellt (§ 7 UWG): überspringen.
+            if (! MailPreferences::wants($membership->user, MailPreferences::LEARNING_REMINDERS)) {
+                continue;
+            }
             // Erst bedingt vermerken (zwei Admins gleichzeitig: nur einer
             // sendet), bei Mailfehler zurücksetzen, damit ein neuer Versuch
             // nicht 7 Tage gesperrt ist.

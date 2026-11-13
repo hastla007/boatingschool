@@ -67,6 +67,7 @@ class OwnerConnectionUsageTest extends TestCase
         'app/Http/Controllers/Auth/NewPasswordController.php' => 'Passwort setzen: Konto plattformweit per E-Mail finden.',
         'app/Http/Controllers/Auth/RegisteredUserController.php' => 'Registrierung: E-Mail plattformweit auf Dubletten prüfen.',
         'app/Http/Controllers/Auth/TwoFactorController.php' => '2FA-Pflicht über alle Mitgliedschaften, Protokoll ohne Mandant.',
+        'app/Http/Controllers/MailPreferenceController.php' => 'Abmeldelink aus Mails: Konto ohne Anmeldung per signierter ID finden und Einstellung ändern.',
         'app/Http/Controllers/ImpersonationController.php' => 'Support-Ansicht: Einmal-Link einlösen, Protokoll vor/nach Anmeldung.',
         'app/Models/User.php' => 'Hat das Konto Team-Rollen in irgendeiner Schule?',
         'app/Api/Present.php' => 'API: Mitgliedschaften und Branding aller Schulen des Kontos.',
@@ -75,6 +76,8 @@ class OwnerConnectionUsageTest extends TestCase
         // --- Mandantenübergreifende Dienste ---
         'app/Services/AccountErasureService.php' => 'Konto löschen: Mitgliedschaften/Daten in allen Schulen.',
         'app/Services/PersonalDataExportService.php' => 'DSGVO-Auskunft: Sitzungen/Geräte sind kontoweit, nicht je Schule.',
+        'app/Services/InvitationAcceptance.php' => 'Erstes Passwort eines eingeladenen Kontos: offene Einladungen aller Schulen (noch kein Mandant) finden.',
+        'app/Services/InvitationCoupon.php' => 'Code beim Einladen prüfen: Kurs des Plattform-Katalogs (tenant_id NULL) laden.',
         'app/Services/ParticipantInviter.php' => 'Einladung: bestehendes Konto plattformweit per E-Mail finden.',
         'app/Services/TenantOffboardingService.php' => 'Schule auflösen: Exportdateien der Schule finden und löschen.',
         'app/Services/NewLoginDeviceNotifier.php' => 'Hinweis bei neuem Gerät: Team-Rollen des Kontos in allen Schulen prüfen.',
