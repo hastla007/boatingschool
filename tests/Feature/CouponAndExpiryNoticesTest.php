@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Coupon;
+use App\Models\CouponBatch;
 use App\Models\Entitlement;
 use App\Notifications\CouponRedeemed;
 use App\Notifications\EntitlementExpiringSoon;
@@ -22,7 +23,11 @@ class CouponAndExpiryNoticesTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->onAdmin(fn () => Coupon::whereIn('code', $this->codes)->delete());
+        $this->onAdmin(function () {
+            $batchIds = Coupon::whereIn('code', $this->codes)->whereNotNull('batch_id')->pluck('batch_id');
+            Coupon::whereIn('code', $this->codes)->delete();
+            CouponBatch::withoutGlobalScopes()->whereIn('id', $batchIds)->delete();
+        });
         $this->cleanUpCreatedTenantsAndUsers();
         parent::tearDown();
     }

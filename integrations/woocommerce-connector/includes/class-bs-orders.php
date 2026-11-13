@@ -237,6 +237,16 @@ final class BS_Orders
                 self::enqueue_void((int) $order_id, (int) $item_id, null, 'cancel-'.(int) $order_id.'-'.(int) $item_id);
             }
             self::flush_deferred_voids($item);
+            BS_Log::info(
+                'Zustellung erfolgreich',
+                [
+                    'order_id' => (int) $order_id,
+                    'item_id' => (int) $item_id,
+                    'batch_id' => (string) ($response['body']['data']['batch_id'] ?? ''),
+                    'quantity' => (int) ($response['body']['data']['quantity'] ?? $item->get_quantity()),
+                    'attempt' => $attempt,
+                ]
+            );
             $order->add_order_note(
                 sprintf(
                     /* translators: 1: Anzahl, 2: Produktname */
@@ -253,11 +263,13 @@ final class BS_Orders
             // Aufruf trotz fehlender Antwort an, sperrt der Storno-Lauf die Codes
             // (er fragt bei „nicht gefunden“ mehrmals nach).
             self::set_item_status($item, 'cancelled', null);
+            BS_Log::info('Zustellung wegen Storno abgebrochen', ['order_id' => (int) $order_id, 'item_id' => (int) $item_id]);
             self::enqueue_void((int) $order_id, (int) $item_id, null, 'cancel-'.(int) $order_id.'-'.(int) $item_id);
 
             return;
         }
         if ($result === BS_Delivery_Policy::RETRY) {
+            BS_Log::warning('Zustellung wird wiederholt', ['order_id' => (int) $order_id, 'item_id' => (int) $item_id, 'attempt' => $attempt, 'delay_minutes' => (int) $delay, 'http_status' => $response['status'], 'error' => (string) $response['error']]);
             $item->update_meta_data('_bs_error', (string) $response['error']);
             $item->save();
             self::enqueue_delivery((int) $order->get_id(), (int) $item_id, (int) $delay, false);
@@ -266,6 +278,7 @@ final class BS_Orders
         }
 
         self::set_item_status($item, 'failed', (string) $response['error']);
+        BS_Log::error('Zustellung fehlgeschlagen', ['order_id' => (int) $order_id, 'item_id' => (int) $item_id, 'attempt' => $attempt, 'http_status' => $response['status'], 'error_code' => (string) $code, 'error' => (string) $response['error']]);
         $order->add_order_note(sprintf( /* translators: 1: Produktname, 2: Fehler */ __('Zustellung der Bootsschul-Codes für „%1$s“ fehlgeschlagen: %2$s', 'bs-connector'), $item->get_name(), (string) $response['error']));
         self::alert(
             sprintf( /* translators: %s: Bestellnummer */ __('Bootsschul-Codes für Bestellung %s nicht zugestellt', 'bs-connector'), $order->get_order_number()),
@@ -416,6 +429,17 @@ final class BS_Orders
         );
 
         if ($response['status'] === 200) {
+            BS_Log::info(
+                'Codes gesperrt',
+                [
+                    'order_id' => (int) $order_id,
+                    'item_id' => (int) $item_id,
+                    'batch_id' => $batch_id,
+                    'idempotency_key' => (string) $key,
+                    'voided' => (int) ($response['body']['data']['voided_now'] ?? 0),
+                    'redeemed' => (int) ($response['body']['data']['redeemed'] ?? 0),
+                ]
+            );
             $order->add_order_note(
                 sprintf(
                     /* translators: 1: Anzahl, 2: eingelöst, 3: Produktname */
@@ -439,6 +463,7 @@ final class BS_Orders
 
             return;
         }
+        BS_Log::error('Sperren fehlgeschlagen', ['order_id' => (int) $order->get_id(), 'item_id' => (int) $item->get_id(), 'idempotency_key' => $key, 'attempt' => $attempt, 'http_status' => $response['status'], 'error' => (string) $response['error']]);
         self::alert(
             sprintf( /* translators: %s: Bestellnummer */ __('Bootsschul-Codes für Bestellung %s nicht gesperrt', 'bs-connector'), $order->get_order_number()),
             sprintf("Position: %s\nFehler: %s\n\nBitte die Codes auf der Plattform prüfen.\n%s", $item->get_name(), (string) $response['error'], $order->get_edit_order_url())
@@ -525,17 +550,30 @@ final class BS_Orders
         if (! current_user_can('edit_shop_orders')) {
             wp_die(esc_html__('Keine Berechtigung.', 'bs-connector'), 403);
         }
+        self::retry_item($order_id, $item_id);
         $order = wc_get_order($order_id);
-        $item = $order ? $order->get_item($item_id) : null;
-        if ($item && (int) $item->get_order_id() === (int) $order->get_id() && (string) $item->get_meta('_bs_delivery_status') === 'failed') {
-            // Gleicher Lieferauftrag, gleiche Referenz: die App liefert höchstens einmal.
-            $item->update_meta_data('_bs_delivery_status', 'pending');
-            $item->update_meta_data('_bs_attempts', 0);
-            $item->save();
-            self::enqueue_delivery($order_id, $item_id, 0, true);
-            $order->add_order_note(__('Zustellung der Bootsschul-Codes erneut angestoßen.', 'bs-connector'));
-        }
         wp_safe_redirect($order ? $order->get_edit_order_url() : admin_url());
         exit;
+    }
+
+    /**
+     * Fehlgeschlagene Position erneut zustellen. Gleicher Lieferauftrag, gleiche
+     * Referenz: die App liefert höchstens einmal.
+     */
+    public static function retry_item(int $order_id, int $item_id): bool
+    {
+        $order = wc_get_order($order_id);
+        $item = $order ? $order->get_item($item_id) : null;
+        if (! $item || (int) $item->get_order_id() !== (int) $order->get_id() || (string) $item->get_meta('_bs_delivery_status') !== 'failed') {
+            return false;
+        }
+        $item->update_meta_data('_bs_delivery_status', 'pending');
+        $item->update_meta_data('_bs_attempts', 0);
+        $item->save();
+        self::enqueue_delivery($order_id, $item_id, 0, true);
+        $order->add_order_note(__('Zustellung der Bootsschul-Codes erneut angestoßen.', 'bs-connector'));
+        BS_Log::info('Zustellung erneut angestoßen', ['order_id' => $order_id, 'item_id' => $item_id, 'user_id' => get_current_user_id()]);
+
+        return true;
     }
 }

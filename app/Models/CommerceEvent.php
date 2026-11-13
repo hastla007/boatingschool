@@ -5,7 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 
-/** Protokoll der Shop-Anbindung (eingehend) und Ausgang an den Shop (Outbox). Nie Codewerte. */
+/**
+ * Protokoll der Shop-Anbindung (eingehend) und Ausgang an den Shop (Outbox). Nie Codewerte.
+ *
+ * Status im Ausgang: pending (wartet) -> sending (beansprucht, claimed_at) -> done | pending (nächster Versuch) | failed.
+ */
 class CommerceEvent extends Model
 {
     use HasUuids;
@@ -16,12 +20,12 @@ class CommerceEvent extends Model
 
     protected $fillable = [
         'direction', 'type', 'shop_account_id', 'tenant_id', 'correlation_id', 'payload',
-        'status', 'attempts', 'last_error', 'available_at', 'created_at', 'processed_at',
+        'status', 'attempts', 'last_error', 'available_at', 'claimed_at', 'created_at', 'processed_at',
     ];
 
     protected function casts(): array
     {
-        return ['payload' => 'array', 'available_at' => 'datetime', 'created_at' => 'datetime', 'processed_at' => 'datetime', 'attempts' => 'integer'];
+        return ['payload' => 'array', 'available_at' => 'datetime', 'claimed_at' => 'datetime', 'created_at' => 'datetime', 'processed_at' => 'datetime', 'attempts' => 'integer'];
     }
 
     /** Eingehenden Aufruf protokollieren (ohne Codewerte). */

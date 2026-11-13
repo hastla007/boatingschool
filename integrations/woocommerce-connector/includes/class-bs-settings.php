@@ -84,6 +84,11 @@ final class BS_Settings
     public static function render(): void
     {
         woocommerce_admin_fields(self::fields());
+        if (current_user_can('manage_woocommerce')) {
+            // Prüft Adresse, Schlüssel und Geheimnis mit GET /catalog (gespeicherte Werte).
+            echo '<p><a class="button" href="'.esc_url(BS_Admin::connection_test_url()).'">'.esc_html__('Verbindung testen', 'bs-connector').'</a> ';
+            echo '<span class="description">'.esc_html__('Verwendet die gespeicherten Einstellungen – vorher speichern.', 'bs-connector').'</span></p>';
+        }
     }
 
     /** Gespeicherte Geheimnisse nie zurück ins Formular schreiben. */

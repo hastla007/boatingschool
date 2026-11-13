@@ -328,4 +328,76 @@ class CommerceApiTest extends TestCase
             $this->assertStringNotContainsString($code, $payloads);
         }
     }
+
+    public function test_only_standalone_sellable_products_can_be_ordered_as_product_codes(): void
+    {
+        [, , $customerId] = $this->linkedAccount();
+        $addon = $this->onAdmin(fn () => Product::create(['code' => 'TEST-ADDON-'.Str::upper(Str::random(6)), 'name' => 'Nur Zusatz', 'active' => true, 'sellable_standalone' => false]));
+        $this->productIds[] = $addon->id;
+
+        $catalog = $this->signed('GET', '/catalog')->assertOk()->json('data');
+        $this->assertNotContains($addon->code, collect($catalog['products'])->pluck('code'));
+        $this->assertContains($addon->code, collect($catalog['option_products'])->pluck('code'), 'als Zusatzprodukt weiter wählbar');
+        $this->assertContains('FAHRSTUNDE-1-EH', collect($catalog['products'])->pluck('code'));
+        // Die Lernplattform ergibt nur zu einem Kurs Sinn.
+        $this->assertNotContains('LERNPLATTFORM', collect($catalog['products'])->pluck('code'));
+        $this->assertNotContains('LERNPLATTFORM-WB', collect($catalog['products'])->pluck('code'));
+        $this->assertContains('PRAXISEINHEIT-GROSS', collect($catalog['products'])->pluck('code'));
+
+        $base = ['shop_customer_id' => $customerId, 'order_id' => '9600', 'quantity' => 1];
+        $this->signed('POST', '/orders/lines', ['order_line_id' => '1', 'kind' => 'product', 'product_code' => $addon->code] + $base)
+            ->assertStatus(422)->assertJsonPath('code', 'UNKNOWN_PRODUCT');
+        $this->signed('POST', '/orders/lines', ['order_line_id' => '2', 'kind' => 'product', 'product_code' => 'LERNPLATTFORM'] + $base)
+            ->assertStatus(422)->assertJsonPath('code', 'UNKNOWN_PRODUCT');
+        $batchId = $this->signed('POST', '/orders/lines', ['order_line_id' => '3', 'kind' => 'course', 'course_code' => 'SRC', 'option_product_codes' => [$addon->code, 'LERNPLATTFORM']] + $base)
+            ->assertCreated()->json('data.batch_id');
+        $coupon = $this->onAdmin(fn () => Coupon::withoutGlobalScopes()->where('batch_id', $batchId)->firstOrFail());
+        $this->assertCount(2, $this->onAdmin(fn () => $coupon->optionProducts()->get()));
+    }
+
+    public function test_superadmin_marks_products_as_add_on_only(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        $product = $this->onAdmin(fn () => Product::create(['code' => 'TEST-SELL-'.Str::upper(Str::random(6)), 'name' => 'Prüfprodukt', 'active' => true]));
+        $this->productIds[] = $product->id;
+        $this->assertTrue($this->onAdmin(fn () => $product->fresh()->sellable_standalone), 'Standard: allein verkäuflich');
+
+        $this->actingAs($superadmin)->get(route('superadmin.products.index'))->assertOk()->assertSee('allein verkäuflich');
+        $this->actingAs($superadmin)->patch(route('superadmin.products.update', $product), ['name' => 'Prüfprodukt', 'sellable_standalone' => '0'])->assertSessionHasNoErrors();
+        $this->assertFalse($this->onAdmin(fn () => $product->fresh()->sellable_standalone));
+        // Nur der Name geändert (ältere Formulare): Einstellung bleibt.
+        $this->actingAs($superadmin)->patch(route('superadmin.products.update', $product), ['name' => 'Prüfprodukt 2'])->assertSessionHasNoErrors();
+        $this->assertFalse($this->onAdmin(fn () => $product->fresh()->sellable_standalone));
+        $this->actingAs($superadmin)->patch(route('superadmin.products.update', $product), ['name' => 'Prüfprodukt 2', 'sellable_standalone' => '1'])->assertSessionHasNoErrors();
+        $this->assertTrue($this->onAdmin(fn () => $product->fresh()->sellable_standalone));
+
+        $code = 'TEST-NEW-'.Str::upper(Str::random(6));
+        $this->actingAs($superadmin)->post(route('superadmin.products.store'), ['code' => $code, 'name' => 'Nur Zusatz', 'sellable_standalone' => '0'])->assertSessionHasNoErrors();
+        $created = $this->onAdmin(fn () => Product::where('code', $code)->firstOrFail());
+        $this->productIds[] = $created->id;
+        $this->assertFalse($created->sellable_standalone);
+    }
+
+    public function test_a_line_of_500_codes_is_delivered_well_within_the_plugin_timeout(): void
+    {
+        [$tenant, , $customerId] = $this->linkedAccount();
+        $line = ['shop_customer_id' => $customerId, 'order_id' => '9700', 'order_line_id' => '1', 'order_number' => 'B-9700', 'kind' => 'course',
+            'course_code' => 'SRC', 'option_product_codes' => ['PRAXISEINHEIT-KLEIN'], 'quantity' => 500];
+
+        $started = microtime(true);
+        $this->signed('POST', '/orders/lines', $line)->assertCreated()->assertJsonPath('data.quantity', 500)->assertJsonPath('data.open', 500);
+        $seconds = microtime(true) - $started;
+
+        // Plugin wartet 15 s; mit Sammel-Insert dauert es lokal deutlich unter einer Sekunde.
+        $this->assertLessThan(5.0, $seconds, sprintf('Lieferung von 500 Codes dauerte %.2f s', $seconds));
+        $batchId = $this->onAdmin(fn () => CouponBatch::withoutGlobalScopes()->where('shop_id', $this->shopId)->where('order_id', '9700')->value('id'));
+        $codes = $this->onAdmin(fn () => Coupon::withoutGlobalScopes()->where('batch_id', $batchId)->where('tenant_id', $tenant->id)->pluck('code'));
+        $this->assertCount(500, $codes);
+        $this->assertCount(500, $codes->unique());
+        $this->assertSame(500, $this->onAdmin(fn () => DB::table('coupon_option_product')
+            ->whereIn('coupon_id', Coupon::withoutGlobalScopes()->where('batch_id', $batchId)->select('id'))->count()));
+        // Wiederholung: derselbe Batch, keine weiteren Codes.
+        $this->signed('POST', '/orders/lines', $line)->assertOk()->assertJsonPath('data.batch_id', $batchId);
+        $this->assertSame(500, $this->onAdmin(fn () => Coupon::withoutGlobalScopes()->where('batch_id', $batchId)->count()));
+    }
 }

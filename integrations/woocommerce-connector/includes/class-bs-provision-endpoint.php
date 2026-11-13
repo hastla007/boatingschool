@@ -86,6 +86,7 @@ final class BS_Provision_Endpoint
         if ($users) {
             $user_id = (int) $users[0];
             update_user_meta($user_id, 'bs_app_tenant_id', $tenant_id);
+            BS_Log::info('Provisionierung: bestehendes Kundenkonto wiederverwendet', ['customer_id' => $user_id, 'matched_by' => 'app_user']);
 
             return new WP_REST_Response(['customer_id' => $user_id, 'created' => false, 'matched_by' => 'app_user'], 200);
         }
@@ -93,6 +94,8 @@ final class BS_Provision_Endpoint
         // 2) Fremdes Konto mit derselben Adresse: nicht übernehmen.
         $existing = get_user_by('email', $email);
         if ($existing) {
+            BS_Log::info('Provisionierung: fremdes Kundenkonto mit derselben Adresse, nicht übernommen', ['customer_id' => (int) $existing->ID, 'matched_by' => 'email']);
+
             return new WP_REST_Response(['customer_id' => (int) $existing->ID, 'created' => false, 'matched_by' => 'email'], 200);
         }
 
@@ -115,6 +118,8 @@ final class BS_Provision_Endpoint
             ]
         );
         if (is_wp_error($user_id)) {
+            BS_Log::error('Provisionierung fehlgeschlagen', ['error' => $user_id->get_error_message()]);
+
             return new WP_REST_Response(['message' => $user_id->get_error_message()], 500);
         }
         update_user_meta($user_id, 'billing_email', $email);
@@ -123,6 +128,9 @@ final class BS_Provision_Endpoint
         update_user_meta($user_id, 'bs_app_tenant_id', $tenant_id);
         update_user_meta($user_id, '_bs_provisioned', 1);
         update_user_meta($user_id, '_bs_registered', 1);
+        // Die Adresse kommt aus der Plattform (dort bestätigt): keine Bestätigungsmail.
+        update_user_meta($user_id, '_bs_email_confirmed', strtolower($email));
+        BS_Log::info('Kundenkonto für neue Bootsschule angelegt', ['customer_id' => (int) $user_id, 'matched_by' => 'created']);
         // Link zum Setzen des Passworts (kein Passwort-Austausch mit der App).
         wp_new_user_notification($user_id, null, 'user');
 

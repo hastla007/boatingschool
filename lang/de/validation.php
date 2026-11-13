@@ -317,6 +317,7 @@ return [
         'requires_tauglichkeit' => 'Tauglichkeitsnachweis erforderlich',
         'search' => 'Suche',
         'secondary_color' => 'Nebenfarbe',
+        'sellable_standalone' => 'Allein verkäuflich',
         'select_all' => 'Alle auswählen',
         'site_name' => 'Name der Plattform',
         'slot' => 'Terminart',

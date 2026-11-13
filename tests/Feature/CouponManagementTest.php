@@ -641,4 +641,35 @@ class CouponManagementTest extends TestCase
             ]);
         });
     }
+
+    public function test_a_standalone_grosse_praxiseinheit_product_code_replaces_an_existing_kleine(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $kleine = $this->onAdmin(fn () => Product::where('code', 'PRAXISEINHEIT-KLEIN')->firstOrFail());
+        $grosse = $this->onAdmin(fn () => Product::where('code', 'PRAXISEINHEIT-GROSS')->firstOrFail());
+        $codeKlein = 'E2E-PRAXIS-PK';
+        $codeGross = 'E2E-PRAXIS-PG';
+        $this->createdCodes = array_merge($this->createdCodes, [$codeKlein, $codeGross]);
+        $this->onAdmin(function () use ($codeKlein, $codeGross, $kleine, $grosse, $tenant) {
+            Coupon::create(['code' => $codeKlein, 'product_id' => $kleine->id, 'tenant_id' => $tenant->id]);
+            Coupon::create(['code' => $codeGross, 'product_id' => $grosse->id, 'tenant_id' => $tenant->id]);
+        });
+
+        $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', ['code' => $codeKlein])->assertSessionHasNoErrors();
+        $this->onAdmin(fn () => $this->assertDatabaseHas('product_purchase', [
+            'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'product_id' => $kleine->id,
+        ]));
+
+        // Eigener Produktcode (z. B. aus dem Shop): dieselbe Regel wie bei Zusatzprodukten.
+        $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', ['code' => $codeGross])->assertSessionHasNoErrors();
+        $this->onAdmin(function () use ($tenant, $learner, $kleine, $grosse) {
+            $this->assertDatabaseMissing('product_purchase', [
+                'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'product_id' => $kleine->id,
+            ]);
+            $this->assertDatabaseHas('product_purchase', [
+                'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'product_id' => $grosse->id,
+            ]);
+        });
+    }
 }

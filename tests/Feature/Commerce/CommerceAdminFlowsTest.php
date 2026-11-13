@@ -10,6 +10,7 @@ use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
 use App\Notifications\AccountInvitation;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
@@ -222,5 +223,201 @@ class CommerceAdminFlowsTest extends TestCase
         $other = $this->createTestTenant('Andere');
         $otherAdmin = $this->createTenantUser($other, 'admin');
         $this->actingAsInTenant($otherAdmin, $other)->delete("/admin/shop-accounts/{$account->id}")->assertNotFound();
+    }
+
+    /** Schule mit Inhaber und vorgemerktem Ausgangs-Ereignis (noch nicht gesendet). */
+    private function pendingProvisioning(): array
+    {
+        config(['commerce.shop_url' => 'https://shop.example.test', 'commerce.outbound_secret' => 'out-secret', 'commerce.alert_email' => 'alarm@example.test']);
+        $tenant = $this->createTestTenant();
+        $owner = $this->createTenantUser($tenant, 'owner');
+        $account = $this->onAdmin(fn () => Outbox::provisionTenant($tenant, $owner));
+        $event = $this->onAdmin(fn () => CommerceEvent::where('shop_account_id', $account->id)->where('direction', 'out')->firstOrFail());
+
+        return [$tenant, $owner, $account, $event];
+    }
+
+    public function test_outbox_claims_before_sending_and_holds_no_transaction_or_lock_during_the_http_call(): void
+    {
+        [, , $account, $event] = $this->pendingProvisioning();
+        // Zweite Datenbanksitzung (wie ein zweiter Worker).
+        config(['database.connections.pgsql_probe' => config('database.connections.pgsql_admin')]);
+        $observed = [];
+        Http::fake(function () use ($event, &$observed) {
+            $probe = DB::connection('pgsql_probe');
+            $observed = [
+                'transaction_level' => DB::connection('pgsql_admin')->transactionLevel(),
+                'status_seen_elsewhere' => $probe->table('commerce_event')->where('id', $event->id)->value('status'),
+                // Nicht gesperrt: eine andere Sitzung kommt sofort an die Zeile.
+                'lockable' => $probe->transaction(fn () => $probe->selectOne('SELECT id FROM commerce_event WHERE id = ? FOR UPDATE NOWAIT', [$event->id])) !== null,
+                // Ein zweiter Worker kann das Ereignis nicht noch einmal beanspruchen.
+                'second_claim' => (new Outbox)->claim($event->id),
+            ];
+
+            return Http::response(['customer_id' => 4901, 'created' => true, 'matched_by' => 'created'], 201);
+        });
+
+        $this->assertTrue($this->onAdmin(fn () => app(Outbox::class)->processOne($event->id)));
+        DB::purge('pgsql_probe');
+
+        $this->assertSame(0, $observed['transaction_level']);
+        $this->assertSame('sending', $observed['status_seen_elsewhere']);
+        $this->assertTrue($observed['lockable']);
+        $this->assertFalse($observed['second_claim']);
+        Http::assertSentCount(1);
+        $event = $this->onAdmin(fn () => $event->fresh());
+        $this->assertSame('done', $event->status);
+        $this->assertNull($event->claimed_at);
+        $this->assertSame('4901', $this->onAdmin(fn () => $account->fresh()->shop_customer_id));
+    }
+
+    public function test_concurrent_claims_send_only_once(): void
+    {
+        [, , , $event] = $this->pendingProvisioning();
+        Http::fake(fn () => Http::response(['customer_id' => 4902, 'created' => true], 201));
+        $outbox = new Outbox;
+
+        // Zwei Worker greifen gleichzeitig zu: nur einer bekommt das Ereignis.
+        $this->assertTrue($this->onAdmin(fn () => $outbox->claim($event->id)));
+        $this->assertFalse($this->onAdmin(fn () => $outbox->claim($event->id)));
+        $this->assertNotNull($this->onAdmin(fn () => $event->fresh()->claimed_at));
+        // Scheduler und „Erneut versuchen“ laufen in diesem Moment: nichts gesendet.
+        $this->assertFalse($this->onAdmin(fn () => $outbox->processOne($event->id)));
+        $this->assertSame(0, $this->onAdmin(fn () => $outbox->process()));
+        Http::assertNothingSent();
+        $this->assertSame('sending', $this->onAdmin(fn () => $event->fresh()->status));
+
+        // Noch nicht fällig: auch nicht beanspruchbar.
+        $this->onAdmin(fn () => CommerceEvent::whereKey($event->id)->update(['status' => 'pending', 'claimed_at' => null, 'available_at' => now()->addMinute()]));
+        $this->assertFalse($this->onAdmin(fn () => $outbox->claim($event->id)));
+    }
+
+    public function test_events_stuck_in_sending_are_recovered_and_eventually_fail_with_an_alarm(): void
+    {
+        Mail::fake();
+        [, , $account, $event] = $this->pendingProvisioning();
+        $shopUp = false;
+        Http::fake(function () use (&$shopUp) {
+            return $shopUp ? Http::response(['customer_id' => 4903, 'created' => true], 201) : Http::response(['message' => 'down'], 503);
+        });
+
+        // Gerade erst beansprucht (anderer Worker sendet noch): bleibt unangetastet.
+        $this->onAdmin(fn () => CommerceEvent::whereKey($event->id)->update(['status' => 'sending', 'claimed_at' => now()->subMinutes(Outbox::STUCK_MINUTES - 1)]));
+        $this->artisan('app:commerce-outbox')->assertSuccessful();
+        $this->assertSame('sending', $this->onAdmin(fn () => $event->fresh()->status));
+        Http::assertNothingSent();
+
+        // Prozess abgebrochen: nach 10 Minuten zählt es als Fehlversuch und wird wiederholt.
+        $this->travel(2)->minutes();
+        $this->artisan('app:commerce-outbox')->assertSuccessful();
+        $fresh = $this->onAdmin(fn () => $event->fresh());
+        $this->assertSame('pending', $fresh->status);
+        $this->assertSame(1, $fresh->attempts);
+        $this->assertNull($fresh->claimed_at);
+        $this->assertStringContainsString('Keine Rückmeldung', $fresh->last_error);
+        $this->assertSame('pending', $this->onAdmin(fn () => $account->fresh()->provisioning_status));
+        Http::assertNothingSent();
+
+        $shopUp = true;
+        $this->travel(2)->minutes();
+        $this->artisan('app:commerce-outbox')->assertSuccessful();
+        $this->assertSame('done', $this->onAdmin(fn () => $event->fresh()->status));
+        $this->assertSame('done', $this->onAdmin(fn () => $account->fresh()->provisioning_status));
+
+        // Hängt der letzte Versuch: „fehlgeschlagen“ mit Alarm statt endlos neu.
+        [, , $account2, $event2] = $this->pendingProvisioning();
+        $this->onAdmin(fn () => CommerceEvent::whereKey($event2->id)->update(['status' => 'sending', 'attempts' => 3, 'claimed_at' => now()->subMinutes(30)]));
+        $this->assertSame(1, $this->onAdmin(fn () => app(Outbox::class)->recoverStuck()));
+        $this->assertSame('failed', $this->onAdmin(fn () => $event2->fresh()->status));
+        $this->assertSame('failed', $this->onAdmin(fn () => $account2->fresh()->provisioning_status));
+    }
+
+    public function test_provisioning_takes_over_a_self_registered_shop_account(): void
+    {
+        [$tenant, $owner, $account, $event] = $this->pendingProvisioning();
+        // Die Person hatte sich vorher selbst im Shop registriert (Kunde 4904).
+        $existing = $this->register('4904', 'selbst-'.Str::lower(Str::random(6)).'@example.test');
+        Http::fake(fn () => Http::response(['customer_id' => 4904, 'created' => false, 'matched_by' => 'app_user'], 200));
+
+        $this->assertTrue($this->onAdmin(fn () => app(Outbox::class)->processOne($event->id)));
+
+        $existing = $this->onAdmin(fn () => $existing->fresh());
+        $this->assertSame('linked', $existing->status);
+        $this->assertSame($tenant->id, $existing->tenant_id);
+        $this->assertSame($owner->id, $existing->user_id);
+        $this->assertSame('done', $existing->provisioning_status);
+        $this->assertNull($this->onAdmin(fn () => CommerceShopAccount::find($account->id)), 'vorgemerkte Zeile übernommen');
+        $event = $this->onAdmin(fn () => $event->fresh());
+        $this->assertSame('done', $event->status);
+        $this->assertSame($existing->id, $event->shop_account_id);
+        $this->assertArrayNotHasKey('email', $event->payload, 'personenbezogene Daten nach Erledigung entfernt');
+        $this->assertTrue($this->onAdmin(fn () => $existing->canPurchase()));
+    }
+
+    public function test_provisioning_never_moves_a_shop_account_that_buys_for_another_school(): void
+    {
+        [$tenant, , $account, $event] = $this->pendingProvisioning();
+        $other = $this->createTestTenant('Andere Schule');
+        $otherAdmin = $this->createTenantUser($other, 'admin');
+        $elsewhere = $this->onAdmin(fn () => CommerceShopAccount::create([
+            'shop_id' => $this->shopId, 'shop_customer_id' => '4905', 'user_id' => $otherAdmin->id, 'tenant_id' => $other->id,
+            'status' => 'linked', 'email' => 'anders@example.test', 'linked_at' => now(),
+        ]));
+        Http::fake(fn () => Http::response(['customer_id' => 4905, 'created' => false, 'matched_by' => 'app_user'], 200));
+
+        $this->assertTrue($this->onAdmin(fn () => app(Outbox::class)->processOne($event->id)));
+
+        $account = $this->onAdmin(fn () => $account->fresh());
+        $this->assertSame('needs_link', $account->provisioning_status);
+        $this->assertStringContainsString('andere Bootsschule', $account->provisioning_error);
+        $this->assertNull($account->shop_customer_id);
+        $this->assertSame($tenant->id, $account->tenant_id);
+        $elsewhere = $this->onAdmin(fn () => $elsewhere->fresh());
+        $this->assertSame($other->id, $elsewhere->tenant_id, 'nicht umgehängt');
+        $this->assertSame($otherAdmin->id, $elsewhere->user_id);
+        $this->assertSame('done', $this->onAdmin(fn () => $event->fresh()->status));
+
+        $superadmin = $this->createSuperAdmin();
+        $this->actingAs($superadmin)->get(route('superadmin.shop-accounts.index', ['status' => 'all']))->assertOk()
+            ->assertSee('kauft bereits für eine andere Bootsschule ein');
+        // Die Schule sieht im Codes-Tab, dass sie selbst verknüpfen muss.
+        $owner = $this->onAdmin(fn () => User::find($account->user_id));
+        $this->actingAsInTenant($owner, $tenant)->get('/admin?tab=coupons')->assertOk()->assertSee('Shop verknüpfen');
+    }
+
+    public function test_needs_link_when_the_shop_has_a_foreign_account_with_the_same_email(): void
+    {
+        [, , $account, $event] = $this->pendingProvisioning();
+        Http::fake(fn () => Http::response(['customer_id' => 4906, 'created' => false, 'matched_by' => 'email'], 200));
+
+        $this->assertTrue($this->onAdmin(fn () => app(Outbox::class)->processOne($event->id)));
+
+        $account = $this->onAdmin(fn () => $account->fresh());
+        $this->assertSame('needs_link', $account->provisioning_status);
+        $this->assertNull($account->provisioning_error);
+        $this->assertNull($account->shop_customer_id, 'E-Mail-Gleichheit verknüpft nie');
+        $event = $this->onAdmin(fn () => $event->fresh());
+        $this->assertSame('done', $event->status);
+        $this->assertSame(1, $event->attempts);
+        $this->assertArrayNotHasKey('email', $event->payload);
+        // Erledigt: kein zweiter Versand.
+        $this->assertFalse($this->onAdmin(fn () => app(Outbox::class)->processOne($event->id)));
+        Http::assertSentCount(1);
+    }
+
+    public function test_superadmin_sees_the_outbox_state_and_can_filter_running_provisionings(): void
+    {
+        [, , $account, $event] = $this->pendingProvisioning();
+        $superadmin = $this->createSuperAdmin();
+        $this->onAdmin(fn () => CommerceEvent::whereKey($event->id)->update(['status' => 'sending', 'claimed_at' => now()]));
+        $this->actingAs($superadmin)->get(route('superadmin.shop-accounts.index', ['status' => 'provisioning']))->assertOk()
+            ->assertSee($account->email)->assertSee('wird gerade an den Shop gesendet');
+
+        $this->onAdmin(fn () => CommerceEvent::whereKey($event->id)->update(['status' => 'pending', 'claimed_at' => null, 'attempts' => 1,
+            'available_at' => now()->addMinutes(5), 'last_error' => 'Shop antwortete 503']));
+        $this->actingAs($superadmin)->get(route('superadmin.shop-accounts.index', ['status' => 'provisioning']))->assertOk()
+            ->assertSee('1. Versuch fehlgeschlagen')->assertSee('Shop antwortete 503');
+        $this->actingAs($superadmin)->get(route('superadmin.shop-accounts.index', ['status' => 'linked']))->assertOk()->assertSee($account->email);
+        $this->actingAs($superadmin)->get(route('superadmin.shop-accounts.index', ['status' => 'rejected']))->assertOk()->assertDontSee($account->email);
     }
 }

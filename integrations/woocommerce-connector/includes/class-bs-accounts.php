@@ -1,8 +1,13 @@
 <?php
 /**
- * Kundenkonten: B2B-Angaben bei der Registrierung, Abgleich mit der App
- * (asynchron über Action Scheduler) und „Mein Konto → Bootsschule
- * verknüpfen“ (Einmalcode von der Plattform). Passwörter werden nie übertragen.
+ * Kundenkonten: B2B-Angaben bei der Registrierung, Bestätigung der
+ * E-Mail-Adresse, Abgleich mit der App (asynchron über Action Scheduler) und
+ * „Mein Konto → Bootsschule verknüpfen“ (Einmalcode von der Plattform).
+ * Passwörter werden nie übertragen.
+ *
+ * Bei der Plattform angemeldet wird ein neues Konto erst, wenn die Adresse
+ * über den Link aus der Bestätigungsmail bestätigt ist. Vom Provisionierungs-
+ * Endpunkt angelegte Konten gelten als bestätigt.
  */
 defined('ABSPATH') || exit;
 
@@ -25,6 +30,8 @@ final class BS_Accounts
         add_action('init', [__CLASS__, 'add_endpoint']);
         add_filter('woocommerce_account_menu_items', [__CLASS__, 'menu_item']);
         add_action('woocommerce_account_'.self::ENDPOINT.'_endpoint', [__CLASS__, 'render_endpoint']);
+        add_action('template_redirect', [__CLASS__, 'handle_verification_link']);
+        add_action('template_redirect', [__CLASS__, 'handle_resend_form']);
         add_action('template_redirect', [__CLASS__, 'handle_link_form']);
     }
 
@@ -93,7 +100,138 @@ final class BS_Accounts
         if (get_user_meta($customer_id, '_bs_provisioned', true)) {
             return;
         }
-        self::enqueue('register', $customer_id);
+        // Erst nach bestätigter Adresse bei der Plattform anmelden.
+        self::send_verification($customer_id);
+    }
+
+    // ---------------------------------------------------------------- E-Mail-Bestätigung
+
+    public static function email_confirmed(int $customer_id): bool
+    {
+        $user = get_userdata($customer_id);
+        if (! $user) {
+            return false;
+        }
+
+        return BS_Email_Verification::is_confirmed(
+            [
+                '_bs_provisioned' => get_user_meta($customer_id, '_bs_provisioned', true),
+                '_bs_email_confirmed' => get_user_meta($customer_id, '_bs_email_confirmed', true),
+            ],
+            (string) $user->user_email
+        );
+    }
+
+    /** Geheimnis für die Bestätigungslinks (aus den Schlüsseln der wp-config.php). */
+    private static function verification_secret(): string
+    {
+        return hash_hmac('sha256', 'bs-connector-email-verification', wp_salt('auth'));
+    }
+
+    /** Bestätigungsmail mit signiertem Link senden; ein neuer Link macht den alten ungültig. */
+    public static function send_verification(int $customer_id): bool
+    {
+        $user = get_userdata($customer_id);
+        if (! $user || ! is_email($user->user_email)) {
+            return false;
+        }
+        $key = wp_generate_password(20, false);
+        $expires = time() + BS_Email_Verification::TTL;
+        update_user_meta($customer_id, '_bs_email_verify_key', $key);
+        update_user_meta($customer_id, '_bs_email_verify_sent', time());
+        $url = add_query_arg(
+            [
+                'bs_verify' => $customer_id,
+                'bs_expires' => $expires,
+                'bs_token' => BS_Email_Verification::token(self::verification_secret(), $customer_id, (string) $user->user_email, $key, $expires),
+            ],
+            wc_get_page_permalink('myaccount')
+        );
+        $shop = wp_specialchars_decode(get_bloginfo('name'), ENT_QUOTES);
+        $sent = wp_mail(
+            $user->user_email,
+            sprintf( /* translators: %s: Name des Shops */ __('[%s] Bitte bestätigen Sie Ihre E-Mail-Adresse', 'bs-connector'), $shop),
+            sprintf(
+                /* translators: 1: Name des Shops, 2: Bestätigungslink, 3: Gültigkeit in Tagen */
+                __("Guten Tag,\n\nSie haben bei %1\$s ein Kundenkonto angelegt. Bitte bestätigen Sie Ihre E-Mail-Adresse über diesen Link:\n\n%2\$s\n\nDer Link ist %3\$d Tage gültig. Erst danach können Sie Ihr Konto mit Ihrer Bootsschule verknüpfen und Codes kaufen.\n\nFalls Sie kein Konto angelegt haben, können Sie diese E-Mail ignorieren.", 'bs-connector'),
+                $shop,
+                $url,
+                (int) (BS_Email_Verification::TTL / DAY_IN_SECONDS)
+            )
+        );
+        // Ohne Link und Token im Protokoll.
+        BS_Log::info('Bestätigungsmail gesendet', ['customer_id' => $customer_id, 'mail_sent' => (bool) $sent]);
+
+        return (bool) $sent;
+    }
+
+    /** Link aus der Bestätigungsmail (auch ohne Anmeldung: der Link selbst weist aus). */
+    public static function handle_verification_link(): void
+    {
+        // phpcs:disable WordPress.Security.NonceVerification.Recommended -- signierter Link statt Nonce.
+        if (! isset($_GET['bs_verify'], $_GET['bs_expires'], $_GET['bs_token'])) {
+            return;
+        }
+        $customer_id = absint($_GET['bs_verify']);
+        $expires = absint($_GET['bs_expires']);
+        $token = sanitize_text_field(wp_unslash($_GET['bs_token']));
+        // phpcs:enable
+        $user = $customer_id ? get_userdata($customer_id) : false;
+
+        if ($user && self::email_confirmed($customer_id)) {
+            self::notice(__('Ihre E-Mail-Adresse ist bereits bestätigt.', 'bs-connector'), 'success');
+        } elseif ($user && BS_Email_Verification::verify(self::verification_secret(), $customer_id, (string) $user->user_email, (string) get_user_meta($customer_id, '_bs_email_verify_key', true), $expires, $token)) {
+            update_user_meta($customer_id, '_bs_email_confirmed', strtolower((string) $user->user_email));
+            // Einmal verwendbar.
+            delete_user_meta($customer_id, '_bs_email_verify_key');
+            BS_Log::info('E-Mail-Adresse bestätigt', ['customer_id' => $customer_id]);
+            if (! get_user_meta($customer_id, '_bs_registered', true)) {
+                self::enqueue('register', $customer_id);
+            }
+            self::notice(__('Vielen Dank, Ihre E-Mail-Adresse ist bestätigt. Sie können Ihr Konto jetzt mit Ihrer Bootsschule verknüpfen.', 'bs-connector'), 'success');
+        } else {
+            BS_Log::warning('Ungültiger oder abgelaufener Bestätigungslink', ['customer_id' => $customer_id]);
+            self::notice(__('Der Bestätigungslink ist ungültig oder abgelaufen. Melden Sie sich an und fordern Sie unter „Mein Konto → Bootsschule verknüpfen“ einen neuen Link an.', 'bs-connector'), 'error');
+        }
+        wp_safe_redirect(wc_get_account_endpoint_url(self::ENDPOINT));
+        exit;
+    }
+
+    /** „Bestätigungsmail erneut senden“ unter „Mein Konto → Bootsschule verknüpfen“. */
+    public static function handle_resend_form(): void
+    {
+        if (! is_user_logged_in() || empty($_POST['bs_resend_verification'])) { // phpcs:ignore WordPress.Security.NonceVerification.Missing
+            return;
+        }
+        if (! isset($_POST['_bs_resend_nonce']) || ! wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['_bs_resend_nonce'])), 'bs_resend_verification')) {
+            self::notice(__('Sitzung abgelaufen, bitte erneut versuchen.', 'bs-connector'), 'error');
+
+            return;
+        }
+        $customer_id = get_current_user_id();
+        if (self::email_confirmed($customer_id)) {
+            self::notice(__('Ihre E-Mail-Adresse ist bereits bestätigt.', 'bs-connector'), 'success');
+        } elseif (! BS_Email_Verification::can_resend((int) get_user_meta($customer_id, '_bs_email_verify_sent', true))) {
+            self::notice(__('Wir haben Ihnen gerade erst einen Link geschickt. Bitte warten Sie eine Minute, bevor Sie einen neuen anfordern.', 'bs-connector'), 'notice');
+        } elseif (self::send_verification($customer_id)) {
+            self::notice(sprintf( /* translators: %s: E-Mail-Adresse */ __('Wir haben Ihnen einen neuen Bestätigungslink an %s geschickt.', 'bs-connector'), wp_get_current_user()->user_email), 'success');
+        } else {
+            self::notice(__('Die E-Mail konnte nicht gesendet werden. Bitte versuchen Sie es später erneut.', 'bs-connector'), 'error');
+        }
+        wp_safe_redirect(wc_get_account_endpoint_url(self::ENDPOINT));
+        exit;
+    }
+
+    /** Hinweis für die nächste Seite (auch für Gäste, die den Link öffnen). */
+    private static function notice(string $message, string $type): void
+    {
+        if (! function_exists('wc_add_notice') || ! function_exists('WC') || ! WC()->session) {
+            return;
+        }
+        if (! WC()->session->has_session()) {
+            WC()->session->set_customer_session_cookie(true);
+        }
+        wc_add_notice($message, $type);
     }
 
     public static function queue_update($user_id): void
@@ -223,6 +361,12 @@ final class BS_Accounts
             return;
         }
         $customer_id = get_current_user_id();
+        // Unbestätigte Adresse: keine Verknüpfung (und keine Anmeldung bei der Plattform).
+        if (! self::email_confirmed($customer_id)) {
+            wc_add_notice(__('Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse über den Link in unserer E-Mail.', 'bs-connector'), 'error');
+            wp_safe_redirect(wc_get_account_endpoint_url(self::ENDPOINT));
+            exit;
+        }
         // Noch nicht registriert (z. B. Altbestand): erst anmelden lassen.
         if (! get_user_meta($customer_id, '_bs_registered', true)) {
             self::sync_account('register', $customer_id);
@@ -249,8 +393,21 @@ final class BS_Accounts
 
     public static function render_endpoint(): void
     {
-        $status = self::status(get_current_user_id(), true);
+        $customer_id = get_current_user_id();
         echo '<h2>'.esc_html__('Bootsschule verknüpfen', 'bs-connector').'</h2>';
+        if (! self::email_confirmed($customer_id)) {
+            echo '<p>'.esc_html(sprintf( /* translators: %s: E-Mail-Adresse */ __('Ihre E-Mail-Adresse %s ist noch nicht bestätigt. Bitte öffnen Sie den Link in unserer E-Mail. Erst danach können Sie Ihr Konto mit Ihrer Bootsschule verknüpfen.', 'bs-connector'), wp_get_current_user()->user_email)).'</p>';
+            ?>
+			<form method="post" class="woocommerce-form">
+				<?php wp_nonce_field('bs_resend_verification', '_bs_resend_nonce'); ?>
+				<input type="hidden" name="bs_resend_verification" value="1">
+				<p><button type="submit" class="button"><?php esc_html_e('Bestätigungsmail erneut senden', 'bs-connector'); ?></button></p>
+			</form>
+			<?php
+
+            return;
+        }
+        $status = self::status($customer_id, true);
         if ($status && $status['can_purchase']) {
             echo '<p>'.esc_html(sprintf( /* translators: %s: Name der Bootsschule */ __('Verknüpft mit: %s. Gekaufte Codes werden nach der Zahlung dem Codebestand dieser Bootsschule gutgeschrieben.', 'bs-connector'), $status['tenant']['name'] ?? '')).'</p>';
 

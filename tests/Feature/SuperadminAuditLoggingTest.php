@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\AuditLog;
 use App\Models\Coupon;
+use App\Models\CouponBatch;
 use App\Models\PlatformSetting;
 use App\Models\Tenant;
 use App\Models\User;
@@ -46,9 +47,12 @@ class SuperadminAuditLoggingTest extends TestCase
     protected function tearDown(): void
     {
         $this->onAdmin(function () {
+            // Superadmin-Pakete ab zwei Codes haben einen coupon_batch-Eintrag (ohne Schule).
+            $batchIds = Coupon::whereIn('code', $this->createdCouponCodes)->whereNotNull('batch_id')->pluck('batch_id');
             foreach ($this->createdCouponCodes as $code) {
                 Coupon::where('code', $code)->delete();
             }
+            CouponBatch::withoutGlobalScopes()->whereIn('id', $batchIds)->delete();
         });
 
         $this->cleanUpCreatedAuditLogs();

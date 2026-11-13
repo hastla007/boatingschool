@@ -36,15 +36,19 @@ class ShopAccountController extends Controller
         $accounts = CommerceShopAccount::with(['user', 'tenant'])
             ->when($status === 'open', fn ($q) => $q->whereIn('status', [CommerceShopAccount::PENDING_REVIEW, CommerceShopAccount::AWAITING_LINK])
                 ->orWhere('provisioning_status', 'failed'))
-            ->when($status !== 'open' && $status !== 'all', fn ($q) => $q->where('status', $status))
+            // Anlage im Shop läuft (wartet auf den nächsten Versuch oder wird gerade gesendet).
+            ->when($status === 'provisioning', fn ($q) => $q->where('provisioning_status', 'pending'))
+            ->when(! in_array($status, ['open', 'all', 'provisioning'], true), fn ($q) => $q->where('status', $status))
             ->orderByDesc('created_at')->paginate(30)->withQueryString();
-        $failedEvents = CommerceEvent::where('direction', 'out')->where('status', 'failed')
-            ->whereIn('shop_account_id', $accounts->pluck('id'))->get()->keyBy('shop_account_id');
+        // Letztes Ausgangs-Ereignis je Konto: pending (wartet), sending (wird
+        // gerade gesendet), failed (endgültig fehlgeschlagen) oder done.
+        $outEvents = CommerceEvent::where('direction', 'out')->whereIn('shop_account_id', $accounts->pluck('id'))
+            ->orderBy('created_at')->get()->keyBy('shop_account_id');
 
         return view('superadmin.shop-accounts.index', [
             'accounts' => $accounts,
             'status' => $status,
-            'failedEvents' => $failedEvents,
+            'outEvents' => $outEvents,
             'tenants' => Tenant::orderBy('name')->get(['id', 'name', 'slug']),
             'shopConfigured' => Outbox::enabled() || (bool) config('commerce.keys'),
         ]);
