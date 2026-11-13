@@ -27,7 +27,11 @@ class VideoCourseController extends Controller
         abort_if($lessons->isEmpty(), 404, 'Für diesen Kurs ist noch kein Videokurs hinterlegt.');
 
         $progress = $this->progressFor($tenantContext, $request, $lessons);
-        $current = $lessons->first(fn ($lesson) => ! ($progress[$lesson->id]->completed ?? false)) ?? $lessons->first();
+        // Platzhalter („Video folgt“) lassen sich nicht abschließen -- sie
+        // sind nie die nächste offene Lektion.
+        $current = $lessons->first(fn ($lesson) => ! $lesson->isPlaceholder() && ! ($progress[$lesson->id]->completed ?? false))
+            ?? $lessons->first(fn ($lesson) => ! $lesson->isPlaceholder())
+            ?? $lessons->first();
 
         return $this->show($request, $tenantContext, $entitlements, $course, $current);
     }
@@ -44,7 +48,10 @@ class VideoCourseController extends Controller
         $currentIndex = $lessons->search(fn ($l) => $l->id === $lesson->id);
         $next = $lessons->get($currentIndex + 1);
 
-        $completedCount = $progress->filter(fn ($p) => $p->completed)->count();
+        // Fortschritt nur über echte Videos (Platzhalter zählen weder im
+        // Zähler noch im Nenner, siehe VideoCourseLessons::countable()).
+        $countable = VideoCourseLessons::countable($lessons);
+        $completedCount = $countable->filter(fn ($l) => $progress[$l->id]->completed ?? false)->count();
         $lesson->load('steps', 'questions');
         // Review-Runde 4: nur Fragen, die das Quiz auch ausspielen kann --
         // sonst blieb die Lektion bei lauter deaktivierten Fragen offen.
@@ -70,8 +77,8 @@ class VideoCourseController extends Controller
             'progress' => $progress,
             'next' => $next,
             'completedCount' => $completedCount,
-            'totalCount' => $lessons->count(),
-            'percent' => $lessons->isNotEmpty() ? (int) round($completedCount / $lessons->count() * 100) : 0,
+            'totalCount' => $countable->count(),
+            'percent' => $countable->isNotEmpty() ? (int) round($completedCount / $countable->count() * 100) : 0,
             'moduleIds' => $moduleIds,
             'sectionLabel' => $sectionLabel,
             'posterUri' => $this->posterUri($posterTitle, $posterSubtitle),
@@ -87,6 +94,11 @@ class VideoCourseController extends Controller
         $moduleIds = $this->parseModuleIds($request);
         $lessons = VideoCourseLessons::ordered($course, $moduleIds);
         abort_unless($lessons->contains('id', $lesson->id), 404);
+
+        // Platzhalter: noch kein echtes Video, also nichts abzuschließen.
+        if ($lesson->isPlaceholder()) {
+            return back()->with('status', 'Dieses Video folgt noch. Du kannst es abschließen, sobald es verfügbar ist.');
+        }
 
         VideoProgress::updateOrCreate(
             ['tenant_id' => $tenant->id, 'user_id' => $user->id, 'video_lesson_id' => $lesson->id],

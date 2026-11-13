@@ -18,7 +18,8 @@ use Illuminate\Support\Collection;
 /**
  * Videokurs: Kapitel, Lektionen mit Schritt-Galerie und Wiedergabestand.
  * Platzhaltervideos (noch kein echtes Kursvideo) bleiben sichtbar, haben
- * aber keine abspielbare URL.
+ * aber keine abspielbare URL (media.available = false) und lassen sich nicht
+ * abschließen (409 VIDEO_NOT_AVAILABLE).
  */
 class VideoController extends Controller
 {
@@ -58,6 +59,11 @@ class VideoController extends Controller
             'completed' => ['required', 'boolean'],
         ]);
         $lesson = $this->accessibleLesson($request, $lessonId);
+        // Wie im Web: ein Platzhalter („Video folgt“) lässt sich weder
+        // abspielen noch abschließen und zählt nicht zum Fortschritt.
+        if ($lesson->isPlaceholder() || ! $lesson->video_url) {
+            throw new ApiProblem(409, 'VIDEO_NOT_AVAILABLE', 'Video folgt', 'Dieses Video ist noch nicht verfügbar und kann deshalb noch nicht abgeschlossen werden.');
+        }
         $key = ['tenant_id' => $this->tenantContext->id(), 'user_id' => $request->user()->id, 'video_lesson_id' => $lesson->id];
         $existing = VideoProgress::where($key)->first();
         $position = $lesson->duration_seconds ? min($validated['position_seconds'], (int) $lesson->duration_seconds) : $validated['position_seconds'];

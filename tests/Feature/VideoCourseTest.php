@@ -353,6 +353,28 @@ class VideoCourseTest extends TestCase
             ->assertSessionHasErrors('started_at_ms');
     }
 
+    /** Platzhalter („Video folgt“): nach dem Quiz geht es weiter, abgeschlossen wird nichts. */
+    public function test_the_result_page_of_a_placeholder_lesson_offers_the_next_lesson_instead_of_completing(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        [$course, $firstLesson, $secondLesson] = $this->makeIsolatedVideoCourse();
+        $this->onAdmin(fn () => $firstLesson->update(['video_url' => VideoLesson::PLACEHOLDER_URL]));
+        $this->grantEntitlement($tenant, $learner, $course);
+        [, $revision, $correctAnswer] = $this->attachIsolatedQuestion($firstLesson);
+
+        $this->actingAsInTenant($learner, $tenant)->post(
+            "/courses/{$course->id}/video/{$firstLesson->id}/questions/1",
+            ['revision_id' => $revision->id, 'answer_id' => $correctAnswer->id]
+        );
+
+        $resultPage = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/video/{$firstLesson->id}/questions/result");
+        $resultPage->assertOk();
+        $resultPage->assertSee('Weiter zur nächsten Lektion');
+        $resultPage->assertSee(route('video.show', ['course' => $course, 'lesson' => $secondLesson]), false);
+        $resultPage->assertDontSee(route('video.complete', ['course' => $course, 'lesson' => $firstLesson]), false);
+    }
+
     public function test_the_result_page_lets_the_learner_retry_only_the_wrong_questions(): void
     {
         $tenant = $this->createTestTenant();

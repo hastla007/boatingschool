@@ -6,6 +6,7 @@ use App\Notifications\AccountInvitation;
 use App\Notifications\AnnouncementPublished;
 use App\Notifications\CouponRedeemed;
 use App\Notifications\EntitlementExpiringSoon;
+use App\Notifications\InactiveAccountDeletionWarning;
 use App\Notifications\LearningReminder;
 use App\Notifications\PraxisExamAppointmentUpdated;
 use App\Notifications\TenantInvitationNotification;
@@ -27,6 +28,8 @@ class SchoolMails
         EntitlementExpiringSoon::class, LearningReminder::class,
         PraxisExamAppointmentUpdated::class, AnnouncementPublished::class,
         WillkommensboxOrderShipped::class,
+        // Lösch-Vorwarnung bei Inaktivität: im Namen der (einzigen) Schule.
+        InactiveAccountDeletionWarning::class,
     ];
 
     /** Ob Antworten auf Mails der aktuellen Schule an deren bestätigte Support-Adresse gehen. */

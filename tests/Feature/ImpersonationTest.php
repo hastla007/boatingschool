@@ -62,6 +62,8 @@ class ImpersonationTest extends TestCase
         $this->get($link)->assertRedirect("{$base}/dashboard");
         $this->assertAuthenticatedAs($learner);
         $this->assertSame($superadmin->id, session(Impersonation::SESSION_KEY)['impersonator_id']);
+        // Die Support-Ansicht ist keine Anmeldung der Person selbst (Löschfrist für inaktive Konten).
+        $this->assertNull($this->onAdmin(fn () => User::find($learner->id))->last_login_at);
 
         $page = $this->get("{$base}/dashboard")->assertOk();
         $page->assertSee('Support-Ansicht:')->assertSee($learner->email)->assertSee('Support-Ansicht beenden');

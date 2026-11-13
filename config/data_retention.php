@@ -44,4 +44,14 @@ return [
         'days' => env('DATA_RETENTION_UNCLAIMED_ACCOUNTS_DAYS', 90),
     ],
 
+    // Lernende ohne Anmeldung und ohne Lernaktivität seit N Monaten und ohne
+    // aktiven Kurszugang: Vorwarnung per Mail, 30 Tage später Löschung über
+    // AccountErasureService (app:prune-inactive-learners, täglich).
+    // null/leer = aus. Team-Mitglieder und Superadmins sind nie betroffen.
+    'inactive_learners' => [
+        'months' => env('DATA_RETENTION_INACTIVE_LEARNER_MONTHS') !== null && env('DATA_RETENTION_INACTIVE_LEARNER_MONTHS') !== ''
+            ? (int) env('DATA_RETENTION_INACTIVE_LEARNER_MONTHS') : null,
+        'warning_days' => 30,
+    ],
+
 ];

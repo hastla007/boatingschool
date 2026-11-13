@@ -84,6 +84,9 @@ class PersonalDataExportService
                 'account_created_at' => $user->created_at?->toIso8601String(),
                 'email_verified_at' => $user->email_verified_at?->toIso8601String(),
                 'two_factor_enabled' => $user->two_factor_confirmed_at !== null,
+                // Löschfrist für inaktive Konten (app:prune-inactive-learners).
+                'last_login_at' => $user->last_login_at?->toIso8601String(),
+                'inactivity_deletion_warned_at' => $user->inactivity_warned_at?->toIso8601String(),
             ],
             'membership' => $membership ? [
                 'role' => $membership->role,

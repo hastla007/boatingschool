@@ -44,7 +44,10 @@
                 @foreach ($lessons->groupBy(fn ($l) => $l->module->id) as $group)
                     @php($module = $group->first()->module)
                     @php($isCurrentModule = $group->contains('id', $lesson->id))
-                    @php($moduleCompleted = $group->every(fn ($l) => $progress[$l->id]->completed ?? false))
+                    {{-- Platzhalter („Video folgt“) zählen nicht mit: ein Kapitel
+                         gilt als fertig, wenn alle echten Videos abgeschlossen sind. --}}
+                    @php($playable = $group->reject(fn ($l) => $l->isPlaceholder()))
+                    @php($moduleCompleted = $playable->isNotEmpty() && $playable->every(fn ($l) => $progress[$l->id]->completed ?? false))
                     <div x-data="{ open: {{ $isCurrentModule ? 'true' : 'false' }} }" class="rounded-lg">
                         <button type="button" x-on:click="open = !open"
                                 class="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
@@ -62,13 +65,17 @@
                                 @php($isCurrent = $item->id === $lesson->id)
                                 <a href="{{ route('video.show', array_filter(['course' => $course, 'lesson' => $item, 'kapitel' => $moduleIds ? implode(',', $moduleIds) : null])) }}"
                                    class="flex items-center gap-2 px-2 py-1.5 rounded-lg text-sm transition {{ $isCurrent ? 'bg-slate-100 dark:bg-slate-700 font-medium text-slate-800 dark:text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/50' }}">
-                                    @if ($isCompleted)
+                                    @if ($item->isPlaceholder())
+                                        <x-icon name="clock" class="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 shrink-0" />
+                                    @elseif ($isCompleted)
                                         <x-icon name="check-circle" class="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                                     @else
                                         <span class="w-3.5 h-3.5 rounded-full border-2 border-slate-300 dark:border-slate-600 shrink-0"></span>
                                     @endif
                                     <span class="flex-1 truncate">{{ $item->title }}</span>
-                                    @if ($item->duration_seconds)
+                                    @if ($item->isPlaceholder())
+                                        <span class="text-xs text-slate-600 dark:text-slate-400 shrink-0">folgt</span>
+                                    @elseif ($item->duration_seconds)
                                         <span class="text-xs text-slate-600 dark:text-slate-400 shrink-0">{{ $item->formattedDuration() }}</span>
                                     @endif
                                 </a>
@@ -81,11 +88,27 @@
 
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 order-1 lg:order-none">
             <h3 class="font-medium text-slate-800 dark:text-white mb-3">{{ $lesson->title }}</h3>
-            <div class="rounded-xl overflow-hidden bg-slate-900 aspect-video">
-                <video controls class="w-full h-full" preload="metadata" poster="{{ $posterUri }}">
-                    <source src="{{ $lesson->video_url }}" type="video/mp4">
-                </video>
-            </div>
+            @php($isPlaceholder = $lesson->isPlaceholder())
+            @php($isSuperadmin = (bool) auth()->user()?->is_superadmin)
+            @if ($isPlaceholder && ! $isSuperadmin)
+                {{-- Noch kein echtes Video hinterlegt: kein Platzhalterfilm für
+                     Lernende, sondern ein neutraler Hinweis. --}}
+                <div class="rounded-xl aspect-video bg-slate-50 dark:bg-slate-700/50 border border-dashed border-slate-300 dark:border-slate-600 flex flex-col items-center justify-center text-center p-6" data-video-placeholder>
+                    <x-icon name="clock" class="w-8 h-8 text-slate-500 dark:text-slate-400 mb-3" />
+                    <p class="font-semibold text-slate-800 dark:text-white">Video folgt</p>
+                    <p class="text-sm text-slate-600 dark:text-slate-300 mt-1 max-w-md">Dieses Video wird gerade vorbereitet. Du kannst schon mit der nächsten Lektion weitermachen &ndash; sobald das Video da ist, findest du es hier.</p>
+                </div>
+            @else
+                <div class="rounded-xl overflow-hidden bg-slate-900 aspect-video">
+                    <video controls class="w-full h-full" preload="metadata" poster="{{ $posterUri }}">
+                        <source src="{{ $lesson->video_url }}" type="video/mp4">
+                    </video>
+                </div>
+                @if ($isPlaceholder)
+                    {{-- Interner Hinweis nur für den Plattform-Betreiber. --}}
+                    <p class="text-xs text-amber-700 dark:text-amber-300 mt-2">Platzhaltervideo: Lernende sehen hier stattdessen „Video folgt“, die Lektion zählt nicht zum Fortschritt. Echtes Video im Superadmin hinterlegen.</p>
+                @endif
+            @endif
 
             {{-- Bug-Review Oberfläche U8: flex items-center justify-between
                  ohne flex-wrap zwang den Status-Text und den CTA-Button auf
@@ -95,7 +118,9 @@
                  den Status-Text statt danebenzudrängen. --}}
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mt-4">
                 <span class="text-xs text-slate-600 dark:text-slate-400">
-                    @if ($progress[$lesson->id]->completed ?? false)
+                    @if ($isPlaceholder)
+                        Video folgt
+                    @elseif ($progress[$lesson->id]->completed ?? false)
                         <span class="inline-flex items-center gap-1 text-emerald-600"><x-icon name="check-circle" class="w-4 h-4" /> Abgeschlossen</span>
                     @else
                         Noch nicht abgeschlossen
@@ -105,6 +130,12 @@
                     <a href="{{ route('video.quiz.show', array_filter(['course' => $course, 'lesson' => $lesson, 'position' => 1, 'kapitel' => $moduleIds ? implode(',', $moduleIds) : null])) }}"
                        class="inline-flex items-center gap-1.5 px-5 py-2 rounded-full text-[color:var(--brand-on-secondary,#fff)] text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-secondary, #007A7A)">
                         Zu den Fragen ({{ $quizQuestionCount }}) <x-icon name="arrow-right" class="w-4 h-4" />
+                    </a>
+                @elseif ($isPlaceholder)
+                    {{-- Nichts abzuschließen: einfach weiter zur nächsten Lektion. --}}
+                    <a href="{{ $next ? route('video.show', array_filter(['course' => $course, 'lesson' => $next, 'kapitel' => $moduleIds ? implode(',', $moduleIds) : null])) : route('courses.show', $course) }}"
+                       class="inline-flex items-center gap-1.5 px-5 py-2 rounded-full text-[color:var(--brand-on-secondary,#fff)] text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-secondary, #007A7A)">
+                        {{ $next ? 'Weiter zur nächsten Lektion' : 'Zurück zum Kurs' }} <x-icon name="arrow-right" class="w-4 h-4" />
                     </a>
                 @else
                     <form method="POST" action="{{ route('video.complete', array_filter(['course' => $course, 'lesson' => $lesson, 'kapitel' => $moduleIds ? implode(',', $moduleIds) : null])) }}">

@@ -52,6 +52,7 @@ class OwnerConnectionUsageTest extends TestCase
         'app/Console/Commands/ImportContentFeedback.php' => 'Plattformweiter Inhaltsimport.',
         'app/Console/Commands/ImportContentQuestions.php' => 'Plattformweiter Inhaltsimport.',
         'app/Console/Commands/PrunePersonalData.php' => 'Löschfristen (DSGVO) über alle Schulen.',
+        'app/Console/Commands/PruneInactiveLearners.php' => 'Löschfrist inaktiver Lernender: Aktivität und Kurszugänge über alle Schulen prüfen.',
         'app/Console/Commands/RemindExpiringEntitlements.php' => 'Ablauf-Erinnerungen für Lernende aller Schulen.',
         'app/Console/Commands/WarmCourseCache.php' => 'Kurs-Cache für alle veröffentlichten Kurse vorwärmen.',
 

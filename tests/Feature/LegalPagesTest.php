@@ -157,4 +157,96 @@ class LegalPagesTest extends TestCase
         $this->assertSame('Amtsgericht Kiel, HRB 1', $branding->register_entry);
         $this->assertSame('DE999999999', $branding->vat_id);
     }
+
+    private function privacyPage(Tenant $tenant): string
+    {
+        return $this->guest($tenant)->get('/datenschutz')->assertOk()->getContent();
+    }
+
+    public function test_optional_service_sections_are_omitted_when_not_configured_and_sections_stay_numbered(): void
+    {
+        config(['privacy.video_provider.name' => null, 'sentry.dsn' => null, 'commerce.keys' => [], 'commerce.shop_url' => null]);
+        $tenant = $this->schoolWithData();
+        $this->onAdmin(fn () => PlatformSetting::current()->update(['privacy_template' => null, 'operator_info' => 'Plattform GmbH']));
+
+        $html = $this->privacyPage($tenant);
+
+        $this->assertStringNotContainsString('Lernvideos', $html);
+        $this->assertStringNotContainsString('Fehleranalyse', $html);
+        $this->assertStringNotContainsString('Code-Shop', $html);
+        // Immer: Datensicherung (14 Tage), Spracherkennung (freiwillig) und Speicherdauer je Datenart.
+        $this->assertStringContainsString('Datensicherung', $html);
+        $this->assertStringContainsString('nach 14 Tagen automatisch gelöscht', $html);
+        $this->assertStringContainsString('Das ist freiwillig', $html);
+        $this->assertStringContainsString('Server-Protokolle:</strong> 14 Tage', $html);
+        $this->assertStringNotContainsString('Fehlerberichte:', $html);
+
+        // Lückenlose Nummerierung trotz entfallener Abschnitte.
+        preg_match_all('/<h2>(\d+)\./', $html, $numbers);
+        $this->assertSame(range(1, count($numbers[1])), array_map('intval', $numbers[1]));
+    }
+
+    public function test_the_video_provider_section_appears_when_configured(): void
+    {
+        $tenant = $this->schoolWithData();
+        $this->onAdmin(fn () => PlatformSetting::current()->update(['privacy_template' => null]));
+
+        config(['privacy.video_provider.name' => 'Videohost AG', 'privacy.video_provider.country' => 'Deutschland', 'privacy.video_provider.privacy_url' => 'https://videohost.example/datenschutz']);
+        $html = $this->privacyPage($tenant);
+        $this->assertStringContainsString('Lernvideos', $html);
+        $this->assertStringContainsString('Videohost AG (Deutschland)', $html);
+        $this->assertStringContainsString('https://videohost.example/datenschutz', $html);
+        $this->assertStringNotContainsString('außerhalb der EU', $html);
+
+        config(['privacy.video_provider.country' => 'USA']);
+        $this->assertStringContainsString('außerhalb der EU bzw. des EWR', $this->privacyPage($tenant));
+    }
+
+    public function test_the_error_tracking_section_appears_only_with_a_sentry_dsn(): void
+    {
+        $tenant = $this->schoolWithData();
+        $this->onAdmin(fn () => PlatformSetting::current()->update(['privacy_template' => null]));
+
+        config(['sentry.dsn' => 'https://public@o1.ingest.de.sentry.io/1']);
+        $html = $this->privacyPage($tenant);
+        $this->assertStringContainsString('Fehleranalyse', $html);
+        $this->assertStringContainsString('in der EU (Frankfurt am Main)', $html);
+        $this->assertStringContainsString('Fehlerberichte:</strong> 90 Tage', $html);
+
+        config(['sentry.dsn' => 'https://public@o1.ingest.sentry.io/1']);
+        $this->assertStringContainsString('Übermittlung in die USA', $this->privacyPage($tenant));
+
+        config(['sentry.dsn' => 'https://public@sentry.betreiber.example/1']);
+        $html = $this->privacyPage($tenant);
+        $this->assertStringContainsString('in unserem Auftrag betriebene Sentry-Instanz', $html);
+        $this->assertStringNotContainsString('USA', $html);
+    }
+
+    public function test_backup_shop_and_inactivity_retention_follow_the_configuration(): void
+    {
+        $tenant = $this->schoolWithData();
+        $this->onAdmin(fn () => PlatformSetting::current()->update(['privacy_template' => null]));
+        config([
+            'backup.keep_days' => 7, 'backup.disk' => 's3', 'privacy.backups.provider' => 'Speicher GmbH, Deutschland', 'privacy.backups.encrypted' => true,
+            'commerce.keys' => ['shop' => 'geheim'],
+            'data_retention.inactive_learners.months' => 24,
+        ]);
+
+        $html = $this->privacyPage($tenant);
+
+        $this->assertStringContainsString('nach 7 Tagen automatisch gelöscht', $html);
+        $this->assertStringContainsString('Speicheranbieter (Speicher GmbH, Deutschland)', $html);
+        $this->assertStringContainsString('verschlüsselt', $html);
+        $this->assertStringContainsString('Code-Shop für Bootsschulen', $html);
+        $this->assertStringContainsString('nur Inhaber und Mitarbeitende der Bootsschule, nicht Lernende', $html);
+        $this->assertStringContainsString('24 Monate lang nicht an', $html);
+    }
+
+    public function test_numbering_is_kept_for_custom_templates_without_numbers(): void
+    {
+        $markdown = "## Wer wir sind\n\nText\n\n## 2. Kontakt\n\nMail";
+
+        $this->assertSame($markdown, LegalPages::renumberSections($markdown));
+        $this->assertSame("## 1. A\n\n## 2. B", LegalPages::renumberSections("## 1. A\n\n## 5. B"));
+    }
 }

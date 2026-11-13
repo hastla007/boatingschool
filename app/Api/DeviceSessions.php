@@ -4,6 +4,7 @@ namespace App\Api;
 
 use App\Models\ApiDeviceSession;
 use App\Models\User;
+use App\Support\LoginActivity;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -40,6 +41,8 @@ class DeviceSessions
             'last_used_at' => $now,
             'created_at' => $now,
         ]);
+        // Letzte Anmeldung (Löschung inaktiver Konten, siehe LoginActivity).
+        LoginActivity::record($user->id);
 
         return ['session' => $session, 'access_token' => $access, 'refresh_token' => $refresh];
     }
@@ -93,6 +96,8 @@ class DeviceSessions
                 'last_used_at' => $now,
                 'refreshed_at' => $retry ? $session->refreshed_at : $now,
             ])->save();
+            // Die App erneuert ihr Token bei jeder Nutzung: zählt wie eine Anmeldung.
+            LoginActivity::record($session->user_id);
 
             return ['session' => $session, 'access_token' => $access, 'refresh_token' => $refresh];
         });
