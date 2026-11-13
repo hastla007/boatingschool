@@ -90,6 +90,9 @@ class ExamSessionStarter
                     'position' => $position++,
                 ];
             }
+            // Alle Gültigkeitsfenster abgelaufen bzw. Fragen deaktiviert: keine
+            // leere Prüfung anlegen, die als „nicht bestanden“ zählt.
+            abort_if($rows === [], 409, 'Für diesen Prüfungsbogen sind derzeit keine Fragen verfügbar. Bitte wende dich an deine Bootsschule.');
             // Alle Fragen in einem INSERT.
             ExamSessionQuestion::insert($rows);
 
@@ -175,9 +178,10 @@ class ExamSessionStarter
             return;
         }
         $task = $course->navigationTasks()->where('task_number', $taskNumber)->with('questions')->first();
-        if (! $task || $task->questions->isEmpty()) {
-            return;
-        }
+        // Das Regelwerk verlangt einen Navigationsteil: ohne (vollständige)
+        // Aufgabe wäre die Prüfung entweder ohne Navigation bestehbar oder nie.
+        abort_if(! $task || $task->questions->count() < $ruleSet->navigationRule()['min_points'], 409,
+            'Die Navigationsaufgabe zu diesem Prüfungsbogen fehlt oder ist unvollständig. Bitte wende dich an deine Bootsschule.');
         $session->update(['navigation_task_id' => $task->id, 'navigation_task_snapshot' => $task->only(['task_number', 'scenario_text', 'hint', 'chart_image_path', 'chart_caption'])]);
         $model = new ExamSessionNavigationAnswer;
         ExamSessionNavigationAnswer::insert($task->questions->sortBy('question_number')->values()->map(fn ($question, $i) => [

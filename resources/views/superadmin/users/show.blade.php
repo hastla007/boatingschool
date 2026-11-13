@@ -84,6 +84,9 @@
                     <form method="POST" action="{{ route('superadmin.users.two-factor.reset', $user) }}" x-data="{}"
                           @submit="if (! confirm('Zwei-Faktor-Anmeldung dieses Kontos wirklich zurücksetzen?')) $event.preventDefault()">
                         @csrf
+                        <label for="two-factor-reason" class="block text-xs text-slate-600 dark:text-slate-400 mt-2">Wie wurde die Identität geprüft? (Pflicht, steht im Protokoll)</label>
+                        <input id="two-factor-reason" name="reason" required minlength="10" maxlength="500" value="{{ old('reason') }}" placeholder="z. B. Rückruf über hinterlegte Nummer, Bestätigung durch Inhaber" class="mt-1 mb-2 w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs">
+                        <x-input-error :messages="$errors->get('reason')" class="mb-2" />
                         <button type="submit" class="px-3 py-1.5 rounded-lg border border-amber-300 text-amber-800 dark:border-amber-700 dark:text-amber-200 text-xs font-medium hover:bg-amber-50 dark:hover:bg-amber-900/30">2FA zurücksetzen</button>
                     </form>
                 @else
@@ -144,6 +147,8 @@
                                     <form method="POST" action="{{ route('superadmin.users.impersonate', [$user, $membership->tenant]) }}" x-data="{}"
                                           @submit="if (! confirm('Als {{ addslashes($user->name) }} bei {{ addslashes($membership->tenant->name) }} ansehen? Die Ansicht ist nur lesend und wird protokolliert.')) $event.preventDefault()">
                                         @csrf
+                                        <label class="sr-only" for="impersonate-reason-{{ $membership->tenant->id }}">Anlass der Support-Ansicht</label>
+                                        <input id="impersonate-reason-{{ $membership->tenant->id }}" name="reason" required minlength="5" maxlength="300" placeholder="Anlass/Ticket" class="w-32 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs py-1">
                                         <button type="submit" class="text-xs text-sky-700 dark:text-sky-300 hover:underline">Als Nutzer ansehen</button>
                                     </form>
                                 @endif

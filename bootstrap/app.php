@@ -1,11 +1,13 @@
 <?php
 
 use App\Api\ProblemResponse;
+use App\Http\Controllers\NavigationChartImageController;
 use App\Http\Controllers\TlsCheckController;
 use App\Http\Middleware\Api\ApiIdempotency;
 use App\Http\Middleware\Api\AuthenticateMobileApi;
 use App\Http\Middleware\Api\PrepareApiRequest;
 use App\Http\Middleware\Api\ResolveApiTenant;
+use App\Http\Middleware\Commerce\VerifyCommerceSignature;
 use App\Http\Middleware\EnforceInstructorScope;
 use App\Http\Middleware\EnforceMaintenanceMode;
 use App\Http\Middleware\EnforceTeamTwoFactor;
@@ -46,6 +48,14 @@ return Application::configure(basePath: dirname(__DIR__))
         // Mandant), siehe TlsCheckController.
         then: function () {
             Route::get('/tls-check', TlsCheckController::class)->name('tls-check');
+            // Kartenausschnitte der Navigationsaufgaben: nur über signierte,
+            // kurzlebige Adressen (ohne Session/Mandant, auch für die App).
+            Route::get('/media/navigation-charts/{file}', NavigationChartImageController::class)
+                ->where('file', '[A-Za-z0-9][A-Za-z0-9._-]*')->middleware(['signed', 'throttle:120,1,navigation-chart'])->name('navigation-chart.image');
+            // Commerce-API v1 für den B2B-WooCommerce-Shop (docs/commerce/README.md):
+            // signiert, Owner-Verbindung, eigene Begrenzung.
+            Route::middleware(['api', 'commerce.signed', 'admin-db', 'throttle:300,1,commerce'])
+                ->prefix('api/commerce/v1')->group(__DIR__.'/../routes/commerce.php');
         },
     )
     ->withMiddleware(function (Middleware $middleware) {
@@ -199,6 +209,15 @@ return Application::configure(basePath: dirname(__DIR__))
             append: UseAdminDatabaseConnection::class,
         );
 
+        // Die Signaturprüfung der Commerce-API läuft vor admin-db (Owner-
+        // Verbindung, wie N10) und vor der Drosselung: nicht signierte
+        // Anfragen bekommen weder die Owner-Verbindung noch verbrauchen sie
+        // das Kontingent des Shops.
+        $middleware->prependToPriorityList(
+            before: UseAdminDatabaseConnection::class,
+            prepend: VerifyCommerceSignature::class,
+        );
+
         $middleware->api(prepend: [PrepareApiRequest::class]);
         $middleware->alias([
             'api.auth' => AuthenticateMobileApi::class,
@@ -209,6 +228,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'tenant.any-member' => EnsureAnyTenantMembership::class,
             'superadmin' => EnsureSuperAdmin::class,
             'admin-db' => UseAdminDatabaseConnection::class,
+            'commerce.signed' => VerifyCommerceSignature::class,
             'instructor.scope' => EnforceInstructorScope::class,
         ]);
     })

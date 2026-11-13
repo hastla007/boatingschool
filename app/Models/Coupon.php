@@ -18,7 +18,7 @@ class Coupon extends Model
     protected $fillable = [
         'code', 'course_id', 'product_id', 'is_renewal', 'tenant_id', 'batch_label', 'created_by_user_id',
         'redeemed_by_user_id', 'redeemed_tenant_id', 'redeemed_at',
-        'expires_at', 'voided_at', 'voided_by_user_id',
+        'expires_at', 'voided_at', 'voided_by_user_id', 'batch_id',
     ];
 
     protected function casts(): array
@@ -43,6 +43,12 @@ class Coupon extends Model
     }
 
     /** Zusätzlich gebündelte Produkte bei einem Kurs-Coupon (siehe redeemForCourse). */
+    /** Code-Batch einer Shop-Bestellung (sonst null). */
+    public function batch(): BelongsTo
+    {
+        return $this->belongsTo(CouponBatch::class, 'batch_id');
+    }
+
     public function optionProducts(): BelongsToMany
     {
         return $this->belongsToMany(Product::class, 'coupon_option_product');
@@ -108,17 +114,30 @@ class Coupon extends Model
      */
     public static function lookup(string $entered): ?self
     {
-        $code = strtoupper(trim($entered));
+        $code = mb_strtoupper(trim(self::normalizeInput($entered)));
         if ($code === '' || mb_strlen($code) > 100) {
             return null;
         }
         $coupon = static::where('code', $code)->first();
-        $compact = preg_replace('/[\s\-]+/', '', $code);
+        $compact = preg_replace('/[\s\-]+/u', '', $code);
         if (! $coupon && preg_match('/^[A-Z0-9]{16}$/', $compact)) {
             $coupon = static::where('code', implode('-', str_split($compact, 4)))->first();
         }
 
         return $coupon;
+    }
+
+    /**
+     * Aus PDFs, Mails oder Messengern kopierte Codes: Gedankenstriche u. Ä. als
+     * Bindestrich, geschützte/schmale Leerzeichen als Leerzeichen, unsichtbare
+     * Zeichen (Zero-Width, BOM) entfernen.
+     */
+    public static function normalizeInput(string $entered): string
+    {
+        $entered = preg_replace('/[\x{200B}-\x{200D}\x{2060}\x{FEFF}\x{00AD}]/u', '', $entered) ?? $entered;
+        $entered = preg_replace('/\p{Pd}/u', '-', $entered) ?? $entered;
+
+        return preg_replace('/\p{Zs}/u', ' ', $entered) ?? $entered;
     }
 
     /** Noch einlösbar: nicht eingelöst, nicht gesperrt, nicht abgelaufen. */

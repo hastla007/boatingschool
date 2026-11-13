@@ -283,7 +283,12 @@ class ExamController extends Controller
         }
 
         // Die Selbsteinschätzung der Navigation zählt nicht zur Prüfungszeit.
-        if ($examEvaluation->timeExpired($examSession) && ! $examSession->inNavigationAssessment()) {
+        // Nachfrist für die Abgabe der Navigationsaufgabe wie überall sonst
+        // (stillOpen): ein Neuladen innerhalb der Frist wertet nicht vorzeitig aus.
+        // Sind noch Fragen offen, gibt es keine Nachfrist (sonst lädt die Seite
+        // mit 0:00 bis zum Ende der Frist immer wieder neu).
+        if ($examSession->status === 'running' && $examEvaluation->timeExpired($examSession) && ! $examSession->inNavigationAssessment()
+            && (! $examSession->stillOpen(true) || $examSession->questions()->whereNull('answered_at')->exists())) {
             return $this->finish($request, $tenantContext, $entitlements, $examEvaluation, $examSession);
         }
 
@@ -383,8 +388,9 @@ class ExamController extends Controller
         ]);
 
         $revealed = app(ExamActions::class)->reveal($examSession, (int) $validated['position']);
-        // Doppelklick: die Frage ist schon beantwortet, weiter mit der nächsten.
-        if ($revealed['outcome'] === ExamActions::ALREADY_ANSWERED) {
+        // Doppelklick: die Frage ist schon beantwortet, weiter mit der nächsten;
+        // Zeit abgelaufen: show() wertet aus.
+        if (in_array($revealed['outcome'], [ExamActions::ALREADY_ANSWERED, ExamActions::EXPIRED], true)) {
             return redirect()->route('exam.show', $examSession);
         }
 

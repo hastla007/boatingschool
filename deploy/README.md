@@ -58,10 +58,11 @@ Worker und Deploy-Skript in der Oberfläche ein.
 ## 2. Updates einspielen
 
 ```bash
-cd /var/www/boatingschool && ./deploy/deploy.sh          # Branch main
+cd /var/www/boatingschool && ./deploy/deploy.sh          # Branch main (zieht vorher eine Sicherung)
 ```
 
-Oder in GitHub unter *Actions → Deploy → Run workflow* (Secrets siehe `deploy.yml`).
+Oder in GitHub unter *Actions → Deploy → Run workflow* (Secrets siehe `deploy.yml`). Der
+Workflow rollt nur `main` aus, und nur einen Commit, für den „Tests“ grün ist.
 Bei einem Fehler bleibt die Seite im Wartungsmodus; Ursache beheben und das Skript erneut
 starten. Zurück ohne Update: `php artisan up`.
 
@@ -69,7 +70,8 @@ Das Skript spielt auch Inhaltsupdates ein (`db:seed`, idempotent; Korrekturen au
 Superadmin bleiben erhalten). Darf der Deploy-Benutzer PHP-FPM neu laden, `PHP_FPM_SERVICE=php8.3-fpm`
 setzen (leert den Opcache).
 
-Migrationen sind nur vorwärts gedacht. Vor größeren Updates vorher `php artisan app:backup`.
+Migrationen sind nur vorwärts gedacht. Das Skript zieht deshalb vor jedem Update eine
+Sicherung (`php artisan app:backup`); schlägt sie fehl, bricht der Deploy ab.
 
 ## 3. Datensicherung
 
@@ -84,6 +86,14 @@ zusätzlich nach außen; vorher `composer require league/flysystem-aws-s3-v3`. A
 `BACKUP_KEEP_DAYS` (Standard 14). Videos liegen beim Videoanbieter und sind nicht Teil der Sicherung.
 
 ### Backup zurückspielen
+
+**Wichtig: `.env` gehört nicht in die Sicherung, wird aber gebraucht.** `APP_KEY`
+verschlüsselt u. a. die Zwei-Faktor-Schlüssel und Wiederherstellungscodes aller
+Konten (auch der Superadmins). Mit einem neuen `APP_KEY` (`key:generate`) lassen
+sie sich nach dem Zurückspielen nicht mehr entschlüsseln. `APP_KEY` sowie die
+Geheimnisse der Shop-Anbindung (`COMMERCE_*_SECRET`) und die Zugangsdaten für
+Datenbank, Mail und S3 deshalb getrennt und sicher aufbewahren (z. B. im
+Passwortmanager) und beim Zurückspielen wieder in `.env` eintragen.
 
 Auf einem Server mit denselben Rollen (`boatingschool`, `boatingschool_app`):
 

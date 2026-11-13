@@ -116,7 +116,7 @@ class AdminAreaFormalAddressTest extends TestCase
         $response = $this->actingAsInTenant($owner, $tenant)->get(route('admin.dashboard', ['tab' => 'coupons']));
 
         $response->assertOk();
-        $response->assertSee('Eigene Coupon-Codes bekommen Sie auf zwei Wegen', false);
+        $response->assertSee('Eigene Coupon-Codes bekommen Sie auf drei Wegen', false);
         $response->assertDontSee('Eigene Coupon-Codes bekommt ihr auf zwei Wegen', false);
     }
 

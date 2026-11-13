@@ -139,6 +139,11 @@ class ExamActions
     public function reveal(ExamSession $examSession, int $position): array
     {
         abort_if($examSession->status !== 'running', 409);
+        // Nach Ablauf der Zeit keine Musterantwort mehr (eine Antwort zählte
+        // ohnehin nicht mehr).
+        if ($this->evaluation->timeExpired($examSession)) {
+            return ['outcome' => self::EXPIRED, 'answer_text' => null];
+        }
 
         $sessionQuestion = $examSession->questions()->where('position', $position)
             ->whereNull('answered_at')->with('revision')->first();

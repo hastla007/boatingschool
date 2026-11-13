@@ -204,7 +204,7 @@ class ReviewRoundSixFixesTest extends TestCase
         $learner = $this->createTenantUser($tenant, 'learner');
         $this->onAdmin(fn () => User::whereKey($learner->id)->update(['remember_token' => 'ORIGINALTOKEN123']));
 
-        $link = $this->actingAs($superadmin)->post("{$central}/superadmin/users/{$learner->id}/impersonate/{$tenant->id}")->assertOk()->viewData('url');
+        $link = $this->actingAs($superadmin)->post("{$central}/superadmin/users/{$learner->id}/impersonate/{$tenant->id}", ['reason' => 'Support-Anfrage im Test'])->assertOk()->viewData('url');
         auth()->logout();
         $this->flushSession();
         $this->get($link)->assertRedirect();

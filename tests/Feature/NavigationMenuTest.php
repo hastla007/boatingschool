@@ -6,7 +6,7 @@ use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
 /**
- * "Bootsschul-Admin" und der Superadmin-Rücksprung ("Login auf Plattform")
+ * "Bootsschul-Admin" und der Superadmin-Rücksprung ("Plattform-Verwaltung")
  * stehen bewusst im Konto-Dropdown ("<Name> ▾") statt in der primären
  * Nav-Leiste -- dort tauchen nur die für alle Lernenden relevanten Links
  * (Lernen, Kurse, Coupon-Code einlösen) auf.
@@ -47,7 +47,7 @@ class NavigationMenuTest extends TestCase
         $response = $this->actingAsInTenant($superadminMember, $tenant)->get('/dashboard');
 
         $response->assertOk();
-        $response->assertSee('Login auf Plattform');
+        $response->assertSee('Plattform-Verwaltung');
         $response->assertSee(route('superadmin.dashboard', absolute: false), false);
     }
 
@@ -59,6 +59,6 @@ class NavigationMenuTest extends TestCase
         $response = $this->actingAsInTenant($learner, $tenant)->get('/dashboard');
 
         $response->assertOk();
-        $response->assertDontSee('Login auf Plattform');
+        $response->assertDontSee('Plattform-Verwaltung');
     }
 }

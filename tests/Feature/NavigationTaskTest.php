@@ -8,6 +8,7 @@ use App\Models\NavigationQuestion;
 use App\Models\NavigationTask;
 use App\Services\AccountErasureService;
 use App\Services\PersonalDataExportService;
+use App\Support\NavigationChart;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Tests\Feature\Concerns\InteractsWithTenants;
@@ -145,6 +146,7 @@ class NavigationTaskTest extends TestCase
     public function test_superadmin_uploads_and_removes_a_chart_excerpt(): void
     {
         Storage::fake('public');
+        Storage::fake('local');
         $superadmin = $this->createSuperAdmin();
         [$course, $task] = $this->makeIsolatedNavigationTask();
 
@@ -156,19 +158,30 @@ class NavigationTaskTest extends TestCase
             'chart_caption' => 'Ausschnitt mit freundlicher Genehmigung',
         ])->assertSessionHasNoErrors();
         $task = $this->onAdmin(fn () => $task->fresh());
-        Storage::disk('public')->assertExists($task->chart_image_path);
+        // Privat gespeichert, nicht öffentlich abrufbar.
+        Storage::disk('local')->assertExists($task->chart_image_path);
+        Storage::disk('public')->assertMissing($task->chart_image_path);
         $this->assertSame('Ausschnitt mit freundlicher Genehmigung', $task->chart_caption);
 
         // Lernende sehen den Ausschnitt mit Bildunterschrift.
         $tenant = $this->createTestTenant();
         $learner = $this->createTenantUser($tenant, 'learner');
         $this->grantEntitlement($tenant, $learner, $course);
-        $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/exam/navigation")
+        $page = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/exam/navigation")
             ->assertSee($task->chart_image_path)->assertSee('Ausschnitt mit freundlicher Genehmigung');
+        // Nur über die signierte, kurzlebige Adresse auslieferbar.
+        preg_match('#src="([^"]*/media/navigation-charts/[^"]+)"#', $page->getContent(), $m);
+        $this->assertNotEmpty($m, 'signierte Bildadresse auf der Seite');
+        $signed = html_entity_decode($m[1]);
+        $this->get($signed)->assertOk();
+        $this->get(strtok($signed, '?'))->assertForbidden();
+        $this->travel(NavigationChart::URL_MINUTES + 1)->minutes();
+        $this->get($signed)->assertForbidden();
+        $this->travelBack();
 
         $path = $task->chart_image_path;
         $this->actingAs($superadmin)->delete("/superadmin/navigation-tasks/{$task->id}/chart")->assertRedirect();
-        Storage::disk('public')->assertMissing($path);
+        Storage::disk('local')->assertMissing($path);
         $this->assertNull($this->onAdmin(fn () => $task->fresh())->chart_image_path);
     }
 

@@ -13,7 +13,9 @@
                          Minute/Sekunde INNERHALB der aktuellen Stunde --
                          bei genau 60 Minuten (3600s) sprang die Anzeige
                          dadurch auf "00:00" statt "60:00" zu zeigen. --}}
-                    <span id="exam-timer" data-remaining="{{ $remainingSeconds }}">{{ sprintf('%02d:%02d', intdiv($remainingSeconds, 60), $remainingSeconds % 60) }}</span>
+                    <span id="exam-timer" data-remaining="{{ $remainingSeconds }}" aria-label="Verbleibende Prüfungszeit" class="tabular-nums">{{ sprintf('%02d:%02d', intdiv($remainingSeconds, 60), $remainingSeconds % 60) }}</span>
+                    {{-- Ansage für Screenreader bei 5 und 1 Minute. --}}
+                    <span id="exam-timer-announce" class="sr-only" aria-live="assertive"></span>
                 @endif
             </div>
         </div>
@@ -31,7 +33,7 @@
         <h3 class="text-lg font-medium text-slate-800 dark:text-white mb-4">{{ $current->revision->question_text }}</h3>
 
         @if ($current->revision->question_type === 'multi_choice')
-            <form method="POST" action="{{ route('exam.answer', $examSession) }}" x-data="{ selected: [] }">
+            <form method="POST" action="{{ route('exam.answer', $examSession) }}" x-data="{ selected: [] }" data-exam-answer>
                 @csrf
                 <input type="hidden" name="position" value="{{ $current->position }}">
 
@@ -118,7 +120,7 @@
                 </template>
             </div>
         @else
-            <form method="POST" action="{{ route('exam.answer', $examSession) }}" x-data="{ selected: null }">
+            <form method="POST" action="{{ route('exam.answer', $examSession) }}" x-data="{ selected: null }" data-exam-answer>
                 @csrf
                 <input type="hidden" name="position" value="{{ $current->position }}">
 
@@ -192,13 +194,37 @@
         <script nonce="{{ $cspNonce }}">
             (function () {
                 const el = document.getElementById('exam-timer');
+                const announce = document.getElementById('exam-timer-announce');
                 let remaining = parseInt(el.dataset.remaining, 10);
+                let leaving = false;
+                const warn = function (text) {
+                    el.classList.add('text-rose-600', 'font-semibold');
+                    if (announce) announce.textContent = text;
+                };
+                if (remaining <= 300) warn('');
                 setInterval(function () {
+                    if (leaving) return;
                     remaining = Math.max(0, remaining - 1);
                     const m = String(Math.floor(remaining / 60)).padStart(2, '0');
                     const s = String(remaining % 60).padStart(2, '0');
                     el.textContent = m + ':' + s;
-                    if (remaining <= 0) window.location.reload();
+                    if (remaining === 300) warn('Noch 5 Minuten Prüfungszeit.');
+                    if (remaining === 60) warn('Noch 1 Minute Prüfungszeit.');
+                    // Kurz vor Ablauf: eine bereits angeklickte, aber noch nicht
+                    // gesendete Antwort abschicken, statt sie beim Neuladen zu verlieren.
+                    if (remaining === 3) {
+                        const form = Array.from(document.querySelectorAll('form[data-exam-answer]'))
+                            .find(function (f) { return f.querySelector('input[type=radio]:checked, input[type=checkbox]:checked'); });
+                        if (form) {
+                            leaving = true;
+                            form.requestSubmit ? form.requestSubmit() : form.submit();
+                            return;
+                        }
+                    }
+                    if (remaining <= 0) {
+                        leaving = true;
+                        window.location.reload();
+                    }
                 }, 1000);
             })();
         </script>

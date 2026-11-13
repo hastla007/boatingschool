@@ -28,9 +28,12 @@ class UserAccountController extends Controller
     public function resetTwoFactor(Request $request, User $user): RedirectResponse
     {
         abort_unless($user->two_factor_secret || $user->two_factor_confirmed_at, 409);
+        // Nachvollziehbar: wie wurde die Identität geprüft (Rückruf, Bestätigung durch den Inhaber …)?
+        $validated = $request->validate(['reason' => ['required', 'string', 'min:10', 'max:500']],
+            ['reason.required' => 'Bitte angeben, wie die Identität geprüft wurde.', 'reason.min' => 'Bitte etwas ausführlicher (mind. 10 Zeichen).']);
 
         $user->forceFill(['two_factor_secret' => null, 'two_factor_recovery_codes' => null, 'two_factor_confirmed_at' => null])->save();
-        AuditLog::record(null, $request->user()->id, 'superadmin.user.two_factor_reset', 'app_user', $user->id, null, null);
+        AuditLog::record(null, $request->user()->id, 'superadmin.user.two_factor_reset', 'app_user', $user->id, null, ['reason' => $validated['reason']]);
         // Kontowiederherstellung: alle bestehenden Anmeldungen beenden.
         $user->endOtherSessions();
         BestEffortMail::send(fn () => $user->notify(new TwoFactorResetBySupport), '2FA-Reset '.$user->id);

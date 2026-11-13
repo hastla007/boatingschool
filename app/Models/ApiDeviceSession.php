@@ -18,7 +18,7 @@ class ApiDeviceSession extends Model
     protected $fillable = [
         'user_id', 'device_name', 'device_platform', 'app_version',
         'access_token_hash', 'access_expires_at', 'refresh_token_hash', 'previous_refresh_token_hash',
-        'refresh_expires_at', 'max_expires_at', 'last_used_at', 'created_at', 'revoked_at',
+        'refresh_expires_at', 'max_expires_at', 'last_used_at', 'created_at', 'revoked_at', 'refreshed_at',
     ];
 
     protected $hidden = ['access_token_hash', 'refresh_token_hash', 'previous_refresh_token_hash'];
@@ -32,6 +32,7 @@ class ApiDeviceSession extends Model
             'last_used_at' => 'datetime',
             'created_at' => 'datetime',
             'revoked_at' => 'datetime',
+            'refreshed_at' => 'datetime',
         ];
     }
 

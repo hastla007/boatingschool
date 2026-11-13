@@ -74,6 +74,10 @@
             </div>
 
             <div class="hidden lg:flex lg:items-center lg:ms-6 gap-4">
+                {{-- Team: Admin-Bereich direkt erreichbar, nicht nur über das Namensmenü. --}}
+                @if ($isAdmin)
+                    <x-nav-link :href="route('admin.dashboard')" :active="request()->routeIs('admin.*')">Admin-Bereich</x-nav-link>
+                @endif
                 @if ($hasWillkommensbox)
                     <x-nav-link :href="route('willkommensbox.index')" :active="request()->routeIs('willkommensbox.index')">Willkommensbox</x-nav-link>
                 @endif
@@ -100,7 +104,7 @@
                             <x-dropdown-link :href="route('admin.dashboard')">Bootsschul-Admin</x-dropdown-link>
                         @endif
                         @if (Auth::user()->is_superadmin)
-                            <x-dropdown-link :href="route('superadmin.dashboard')">Login auf Plattform</x-dropdown-link>
+                            <x-dropdown-link :href="route('superadmin.dashboard')">Plattform-Verwaltung</x-dropdown-link>
                         @endif
                         <form method="POST" action="{{ route('logout') }}">
                             @csrf
@@ -172,7 +176,7 @@
                     <x-responsive-nav-link :href="route('admin.dashboard')" :active="request()->routeIs('admin.*')">Bootsschul-Admin</x-responsive-nav-link>
                 @endif
                 @if (Auth::user()->is_superadmin)
-                    <x-responsive-nav-link :href="route('superadmin.dashboard')">Login auf Plattform</x-responsive-nav-link>
+                    <x-responsive-nav-link :href="route('superadmin.dashboard')">Plattform-Verwaltung</x-responsive-nav-link>
                 @endif
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf

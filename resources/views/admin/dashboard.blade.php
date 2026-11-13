@@ -60,37 +60,43 @@
              syncPaginationLinksTab(tab);
              $nextTick(() => $el.querySelector(`[data-tab='${tab}']`)?.scrollIntoView({ inline: 'nearest', block: 'nearest' }));
          ">
-        <div class="flex gap-1 mb-6 border-b border-slate-200 dark:border-slate-700 overflow-x-auto">
-            <button type="button" data-tab="dashboard" @click="tab = 'dashboard'" :class="tab === 'dashboard' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
+        <div class="flex flex-col sm:flex-row sm:items-end gap-1 mb-6 border-b border-slate-200 dark:border-slate-700">
+        {{-- Tabs scrollen bei Platzmangel; die eigenen Seiten (Statistik,
+             Mitteilungen, Protokoll) stehen getrennt und bleiben sichtbar. --}}
+        <div class="flex gap-1 overflow-x-auto min-w-0 flex-1" role="tablist" aria-label="Bereiche des Admin-Bereichs">
+            <button type="button" role="tab" :aria-selected="(tab === 'dashboard').toString()" data-tab="dashboard" @click="tab = 'dashboard'" :class="tab === 'dashboard' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
                     :style="tab === 'dashboard' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Dashboard</button>
-            <button type="button" data-tab="participants" @click="tab = 'participants'" :class="tab === 'participants' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
+            <button type="button" role="tab" :aria-selected="(tab === 'participants').toString()" data-tab="participants" @click="tab = 'participants'" :class="tab === 'participants' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
                     :style="tab === 'participants' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Teilnehmer</button>
-            <button type="button" data-tab="praxis-anmeldungen" @click="tab = 'praxis-anmeldungen'" :class="tab === 'praxis-anmeldungen' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
+            <button type="button" role="tab" :aria-selected="(tab === 'praxis-anmeldungen').toString()" data-tab="praxis-anmeldungen" @click="tab = 'praxis-anmeldungen'" :class="tab === 'praxis-anmeldungen' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
                     :style="tab === 'praxis-anmeldungen' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Praxis-Anmeldungen</button>
-            <button type="button" data-tab="willkommensbox" @click="tab = 'willkommensbox'" :class="tab === 'willkommensbox' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
+            <button type="button" role="tab" :aria-selected="(tab === 'willkommensbox').toString()" data-tab="willkommensbox" @click="tab = 'willkommensbox'" :class="tab === 'willkommensbox' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
                     :style="tab === 'willkommensbox' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Willkommensbox</button>
             @if ($canManageTenant)
-                <button type="button" data-tab="coupons" @click="tab = 'coupons'" :class="tab === 'coupons' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
+                <button type="button" role="tab" :aria-selected="(tab === 'coupons').toString()" data-tab="coupons" @click="tab = 'coupons'" :class="tab === 'coupons' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
                         :style="tab === 'coupons' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Coupon-Codes</button>
-                <button type="button" data-tab="courses" @click="tab = 'courses'" :class="tab === 'courses' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
+                <button type="button" role="tab" :aria-selected="(tab === 'courses').toString()" data-tab="courses" @click="tab = 'courses'" :class="tab === 'courses' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
                         :style="tab === 'courses' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Kursauswahl</button>
             @endif
-            <button type="button" data-tab="orte" @click="tab = 'orte'" :class="tab === 'orte' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
+            <button type="button" role="tab" :aria-selected="(tab === 'orte').toString()" data-tab="orte" @click="tab = 'orte'" :class="tab === 'orte' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
                     :style="tab === 'orte' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Orte</button>
             @if ($canManageTenant)
-                <button type="button" data-tab="branding" @click="tab = 'branding'" :class="tab === 'branding' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
+                <button type="button" role="tab" :aria-selected="(tab === 'branding').toString()" data-tab="branding" @click="tab = 'branding'" :class="tab === 'branding' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
                         :style="tab === 'branding' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Branding</button>
-                <button type="button" data-tab="addons" @click="tab = 'addons'" :class="tab === 'addons' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
+                <button type="button" role="tab" :aria-selected="(tab === 'addons').toString()" data-tab="addons" @click="tab = 'addons'" :class="tab === 'addons' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
                         :style="tab === 'addons' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Addons</button>
-                <button type="button" data-tab="course-promo-banners" @click="tab = 'course-promo-banners'" :class="tab === 'course-promo-banners' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
+                <button type="button" role="tab" :aria-selected="(tab === 'course-promo-banners').toString()" data-tab="course-promo-banners" @click="tab = 'course-promo-banners'" :class="tab === 'course-promo-banners' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
                         :style="tab === 'course-promo-banners' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Kursempfehlungen</button>
             @endif
+        </div>
+        <div class="flex gap-1 shrink-0 overflow-x-auto">
             {{-- Eigene Seiten (keine Tabs): Statistik, Mitteilungen, Protokoll. --}}
             <a href="{{ route('admin.statistics') }}" class="px-4 py-2 text-sm whitespace-nowrap border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white">Statistik</a>
             @if ($canManageTenant)
                 <a href="{{ route('admin.announcements.index') }}" class="px-4 py-2 text-sm whitespace-nowrap border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white">Mitteilungen</a>
                 <a href="{{ route('admin.audit.index') }}" class="px-4 py-2 text-sm whitespace-nowrap border-b-2 border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white">Protokoll</a>
             @endif
+        </div>
         </div>
 
         <div x-show="tab === 'dashboard'">

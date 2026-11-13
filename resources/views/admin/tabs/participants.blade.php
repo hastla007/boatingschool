@@ -169,7 +169,7 @@
             </button>
             <div x-show="showCode" @unless ($errors->has('code')) style="display: none" @endunless class="mt-2">
                 <label for="invite_code" class="sr-only">Coupon-Code</label>
-                <input type="text" id="invite_code" name="code" value="{{ old('code') }}" placeholder="XXXX-XXXX-XXXX" class="w-full sm:w-64 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm font-mono">
+                <input type="text" id="invite_code" name="code" value="{{ old('code') }}" placeholder="XXXX-XXXX-XXXX-XXXX" class="w-full sm:w-64 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm font-mono">
                 <x-input-error :messages="$errors->get('code')" class="mt-1" />
                 <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">
                     Ein eigener Code (Kurs oder Produkt) wird dem Teilnehmer direkt bei der Einladung zugewiesen und eingelöst.

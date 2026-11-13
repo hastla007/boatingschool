@@ -10,12 +10,14 @@ use App\Models\User;
 use App\Services\CourseProgressService;
 use App\Services\LearnerOverview;
 use App\Services\ParticipantInviter;
+use App\Support\BestEffortMail;
 use App\Support\ParticipantFilters;
 use App\Support\StatusLabels;
 use App\Support\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -113,6 +115,18 @@ class ParticipantToolsController extends Controller
         $entitlements = $entitlementRows->groupBy('user_id');
 
         AuditLog::record($tenant->id, $request->user()->id, 'participants.export', 'tenant_user', null, null, ['count' => $members->count(), 'filters' => array_filter($filters)]);
+        // Personenbezogene Daten verlassen die Plattform: die (anderen) Inhaber
+        // erfahren davon -- fällt bei einem übernommenen Admin-Konto auf.
+        $actor = $request->user();
+        $ownerEmails = User::whereIn('id', TenantUser::where('tenant_id', $tenant->id)->where('role', 'owner')->where('status', 'active')
+            ->where('user_id', '!=', $actor->id)->pluck('user_id'))->pluck('email');
+        foreach ($ownerEmails as $ownerEmail) {
+            BestEffortMail::send(fn () => Mail::raw(
+                "{$actor->name} ({$actor->email}) hat soeben die Teilnehmerliste von „{$tenant->name}“ als CSV exportiert ({$members->count()} Personen).\n\n"
+                .'War das nicht abgesprochen, ändern Sie bitte das Passwort des Kontos bzw. entfernen Sie es im Admin-Bereich unter „Team“.',
+                fn ($m) => $m->to($ownerEmail)->subject('Teilnehmerliste exportiert')
+            ), 'Export-Hinweis '.$tenant->id);
+        }
 
         return response()->streamDownload(function () use ($members, $last, $entitlements, $percents, $overview, $tenant) {
             $out = fopen('php://output', 'w');

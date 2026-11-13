@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Models\PraxisFormSubmission;
 use App\Notifications\Concerns\EscapesMarkdown;
+use App\Notifications\Concerns\RepliesToLearner;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
@@ -17,7 +18,7 @@ use Illuminate\Notifications\Notification;
  */
 class PraxisFormSubmissionReceived extends Notification
 {
-    use EscapesMarkdown, Queueable;
+    use EscapesMarkdown, Queueable, RepliesToLearner;
 
     public function __construct(private readonly PraxisFormSubmission $submission) {}
 
@@ -34,7 +35,7 @@ class PraxisFormSubmissionReceived extends Notification
         $learnerName = self::escapeMarkdown($this->submission->user->name ?? 'Ein Teilnehmer');
         $courseName = $this->submission->course->name ?? 'einen Kurs';
 
-        return (new MailMessage)
+        return self::replyToLearner(new MailMessage, $this->submission->user)
             ->subject('Neue Praxis-Anmeldung: '.$courseName)
             ->line("{$learnerName} hat sich für \"".self::escapeMarkdown($courseName).'" zu Praxis & Prüfung angemeldet.')
             ->action('Anmeldung ansehen', route('admin.participants.show', $this->submission->user_id))

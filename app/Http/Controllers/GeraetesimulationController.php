@@ -9,6 +9,7 @@ use App\Support\Geraetesimulation;
 use App\Support\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -95,11 +96,17 @@ class GeraetesimulationController extends Controller
 
         $key = Geraetesimulation::progressKey($validated['lesson'], $device);
         $attributes = ['tenant_id' => $tenantContext->id(), 'user_id' => $request->user()->id, 'item_type' => RadioTrainingProgress::TYPE_DEVICE, 'item_key' => $key];
-        $current = RadioTrainingProgress::where($attributes)->first();
-        // Die beste Stufe bleibt: ein späterer Durchgang mit Hilfe senkt sie nicht.
-        $level = max((int) ($current?->answers['level'] ?? 0), (int) $validated['level']);
+        // Lesen und Schreiben unter einer Sperre: zwei gleichzeitige Meldungen
+        // (zwei Tabs) überschreiben den besseren Stand nicht mit dem schlechteren.
+        $level = DB::transaction(function () use ($attributes, $validated) {
+            DB::statement('SELECT pg_advisory_xact_lock(hashtext(?))', ['device-progress:'.$attributes['user_id'].':'.$attributes['item_key']]);
+            $current = RadioTrainingProgress::where($attributes)->first();
+            // Die beste Stufe bleibt: ein späterer Durchgang mit Hilfe senkt sie nicht.
+            $level = max((int) ($current?->answers['level'] ?? 0), (int) $validated['level']);
+            RadioTrainingProgress::updateOrCreate($attributes, ['answers' => ['level' => $level], 'completed' => $level >= 3, 'updated_at' => now()]);
 
-        RadioTrainingProgress::updateOrCreate($attributes, ['answers' => ['level' => $level], 'completed' => $level >= 3, 'updated_at' => now()]);
+            return $level;
+        });
 
         return response()->json(['level' => $level]);
     }
@@ -129,9 +136,14 @@ class GeraetesimulationController extends Controller
 
         $key = Geraetesimulation::examKey($validated['series'], $device);
         $attributes = ['tenant_id' => $tenantContext->id(), 'user_id' => $request->user()->id, 'item_type' => RadioTrainingProgress::TYPE_DEVICE, 'item_key' => $key];
-        $current = RadioTrainingProgress::where($attributes)->first();
-        $best = max((int) ($current?->answers['best'] ?? 0), count($passed));
-        RadioTrainingProgress::updateOrCreate($attributes, ['answers' => ['best' => $best, 'total' => count($lessons), 'last' => $passed], 'completed' => $best === count($lessons), 'updated_at' => now()]);
+        $best = DB::transaction(function () use ($attributes, $passed, $lessons) {
+            DB::statement('SELECT pg_advisory_xact_lock(hashtext(?))', ['device-progress:'.$attributes['user_id'].':'.$attributes['item_key']]);
+            $current = RadioTrainingProgress::where($attributes)->first();
+            $best = max((int) ($current?->answers['best'] ?? 0), count($passed));
+            RadioTrainingProgress::updateOrCreate($attributes, ['answers' => ['best' => $best, 'total' => count($lessons), 'last' => $passed], 'completed' => $best === count($lessons), 'updated_at' => now()]);
+
+            return $best;
+        });
 
         return response()->json([
             'passed' => count($passed),

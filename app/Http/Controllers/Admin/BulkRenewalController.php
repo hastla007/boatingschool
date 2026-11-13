@@ -58,6 +58,9 @@ class BulkRenewalController extends Controller
 
         $entitlements = Entitlement::where('tenant_id', $tenant->id)->where('course_id', $validated['course_id'])
             ->whereIn('id', $validated['entitlement_ids'])->whereIn('status', ['active', 'expired'])->whereNotNull('valid_until')
+            // Wie in der Vorschau: nur aktive Mitgliedschaften (seitdem gesperrt -> kein Code verschenken).
+            ->whereExists(fn ($q) => $q->from('tenant_user')->whereColumn('tenant_user.tenant_id', 'entitlement.tenant_id')
+                ->whereColumn('tenant_user.user_id', 'entitlement.user_id')->where('tenant_user.status', 'active'))
             ->orderBy('valid_until')->get();
 
         // Laufzeitende aus der Vorschau: hat sich ein Zugang seitdem

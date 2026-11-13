@@ -129,7 +129,10 @@
                             </div>
                         @endforeach
                     </div>
-                    <p class="text-xs text-slate-600 dark:text-slate-400 mt-2">Platzhalter-Schritte ohne echtes Bildmaterial &mdash; vor Produktivbetrieb durch Aufnahmen der Bootsschule ersetzen.</p>
+                    {{-- Interner Hinweis nur für den Plattform-Betreiber, nicht für Lernende. --}}
+                    @if (auth()->user()?->is_superadmin)
+                        <p class="text-xs text-slate-600 dark:text-slate-400 mt-2">Platzhalter-Schritte ohne echtes Bildmaterial &mdash; vor Produktivbetrieb durch Aufnahmen der Bootsschule ersetzen.</p>
+                    @endif
                 </div>
             @endif
         </div>

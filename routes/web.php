@@ -15,6 +15,7 @@ use App\Http\Controllers\Admin\ParticipantToolsController;
 use App\Http\Controllers\Admin\PraxisExamAppointmentController as AdminPraxisExamAppointmentController;
 use App\Http\Controllers\Admin\PraxisFormSubmissionController as AdminPraxisFormSubmissionController;
 use App\Http\Controllers\Admin\SchoolInsightsController;
+use App\Http\Controllers\Admin\ShopLinkController;
 use App\Http\Controllers\Admin\SupportEmailVerificationController;
 use App\Http\Controllers\Admin\TeamController;
 use App\Http\Controllers\Admin\TenantCourseLocationController;
@@ -230,7 +231,7 @@ Route::middleware(['auth', 'tenant.role:owner,admin,instructor', 'verified', 'in
     Route::post('/inactive/remind', [InactiveLearnerController::class, 'remind'])->middleware('throttle:10,1,participants-remind')->name('inactive.remind');
     Route::get('/statistics', [SchoolInsightsController::class, 'statistics'])->name('statistics');
     // Vor participants/{user}, sonst fängt die Detailroute "export" ab; nur Inhaber/Admins (personenbezogene Daten).
-    Route::get('/participants/export', [ParticipantToolsController::class, 'export'])->middleware('tenant.role:owner,admin')->name('participants.export');
+    Route::get('/participants/export', [ParticipantToolsController::class, 'export'])->middleware(['tenant.role:owner,admin', 'throttle:10,1,participants-export'])->name('participants.export');
     Route::get('/participants/{user}', [ParticipantController::class, 'show'])->name('participants.show');
     Route::patch('/participants/{user}', [ParticipantController::class, 'update'])->name('participants.update');
     Route::get('/branding/support-email/verify/{tenant}/{hash}', [SupportEmailVerificationController::class, 'verify'])
@@ -252,7 +253,7 @@ Route::middleware(['auth', 'tenant.role:owner,admin,instructor', 'verified', 'in
     Route::patch('/praxis-form-submissions/{submission}/exam-appointments/{examAppointment}/cancel', [AdminPraxisExamAppointmentController::class, 'cancel'])->name('praxis-form-submissions.exam-appointments.cancel');
 
     Route::patch('/willkommensbox-orders/{willkommensboxOrder}/ship', [WillkommensboxOrderController::class, 'ship'])->name('willkommensbox-orders.ship');
-    Route::get('/willkommensbox-orders/{willkommensboxOrder}/label/{size}', [WillkommensboxLabelController::class, 'show'])->name('willkommensbox-orders.label');
+    Route::get('/willkommensbox-orders/{willkommensboxOrder}/label/{size}', [WillkommensboxLabelController::class, 'show'])->middleware('throttle:30,1,willkommensbox-label')->name('willkommensbox-orders.label');
 });
 
 // Finanz-/Vertrauens-relevante Stellschrauben bleiben Owner/Admin
@@ -305,6 +306,9 @@ Route::middleware(['auth', 'tenant.role:owner,admin', 'verified'])->prefix('admi
     // Oracle für Code-Existenz.
     Route::post('/coupons/import', [AdminCouponController::class, 'import'])->middleware('throttle:10,1,coupons-import')->name('coupons.import');
     Route::post('/coupons/{coupon}/assign', [AdminCouponController::class, 'assign'])->name('coupons.assign');
+    // Shop-Anbindung: Verknüpfungscode und Verknüpfungen (docs/commerce/README.md).
+    Route::post('/shop-link-code', [ShopLinkController::class, 'generate'])->middleware('throttle:10,1,shop-link-code')->name('shop-link.code');
+    Route::delete('/shop-accounts/{account}', [ShopLinkController::class, 'unlink'])->whereUuid('account')->name('shop-link.unlink');
 });
 
 require __DIR__.'/superadmin.php';

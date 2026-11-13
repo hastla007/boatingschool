@@ -18,6 +18,7 @@ use App\Services\ExamActions;
 use App\Services\ExamEvaluationService;
 use App\Services\ExamSessionStarter;
 use App\Support\ComboExamGroups;
+use App\Support\NavigationChart;
 use App\Support\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -215,6 +216,7 @@ class ExamController extends Controller
         }
 
         $revealed = $this->actions->reveal($session, $sq->position);
+        $this->failOn($revealed['outcome']);
         if ($revealed['outcome'] === ExamActions::ALREADY_ANSWERED) {
             throw $this->locked();
         }
@@ -525,7 +527,7 @@ class ExamController extends Controller
             'scenario' => $task?->scenario_text,
             // Wie im Web: der Hinweis erst bei der Selbsteinschätzung.
             'hint' => $withSolutions ? $task?->hint : null,
-            'chart' => $task?->chart_image_path ? Present::image(Present::publicFile($task->chart_image_path), $task->chart_caption ?: 'Kartenausschnitt') : null,
+            'chart' => $task?->chart_image_path ? Present::image(NavigationChart::url($task->chart_image_path), $task->chart_caption ?: 'Kartenausschnitt') : null,
             'rule' => $rule,
             'submitted_at' => Present::time($session->navigation_submitted_at),
             'points' => $session->status === 'evaluated' ? $session->navigation_points : null,

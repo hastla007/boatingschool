@@ -58,7 +58,8 @@ class CouponController extends Controller
             // niemandem zugeordnet sind (tenant_id NULL) oder uns bereits
             // gehören -- ein Code einer anderen Bootsschule sieht für uns
             // exakt wie ein unbekannter Code aus (siehe CouponRedeemController).
-            $coupon = Coupon::where('code', $code)->first();
+            // Gleiche Schreibweisen wie beim Einlösen (ohne Bindestriche usw.).
+            $coupon = Coupon::lookup($code);
 
             if (! $coupon) {
                 $unavailable[] = $code;

@@ -55,12 +55,24 @@ class DeviceSessions
 
         return DB::transaction(function () use ($hash) {
             $session = ApiDeviceSession::where('refresh_token_hash', $hash)->lockForUpdate()->first();
+            $retry = false;
             if (! $session) {
-                // Bereits rotiertes Token erneut benutzt: möglicher Diebstahl --
-                // die ganze Sitzung beenden.
-                ApiDeviceSession::where('previous_refresh_token_hash', $hash)->whereNull('revoked_at')->update(['revoked_at' => now()]);
+                $previous = ApiDeviceSession::where('previous_refresh_token_hash', $hash)->whereNull('revoked_at')->lockForUpdate()->first();
+                if (! $previous) {
+                    return null;
+                }
+                // Dieselbe Erneuerung kurz danach noch einmal (Antwort im Funkloch
+                // verloren, zwei parallele Anfragen): neues Paar statt Abmeldung.
+                $grace = (int) config('mobile_api.refresh_reuse_grace_seconds', 60);
+                if ($grace > 0 && $previous->refreshed_at && $previous->refreshed_at->gt(now()->subSeconds($grace))) {
+                    $session = $previous;
+                    $retry = true;
+                } else {
+                    // Später erneut benutzt: möglicher Diebstahl -- Sitzung beenden.
+                    $previous->forceFill(['revoked_at' => now()])->save();
 
-                return null;
+                    return null;
+                }
             }
             if ($session->revoked_at || $session->refresh_expires_at->isPast() || $session->max_expires_at->isPast()
                 || ($session->user?->status ?? null) !== 'active') {
@@ -73,10 +85,13 @@ class DeviceSessions
             $session->forceFill([
                 'access_token_hash' => self::hash($access),
                 'access_expires_at' => $now->copy()->addMinutes(config('mobile_api.access_ttl_minutes')),
-                'previous_refresh_token_hash' => $session->refresh_token_hash,
+                // Bei der Wiederholung bleibt das vorgelegte Token das „vorherige“
+                // (die Toleranz läuft ab der ersten Erneuerung, nicht neu).
+                'previous_refresh_token_hash' => $retry ? $session->previous_refresh_token_hash : $session->refresh_token_hash,
                 'refresh_token_hash' => self::hash($refresh),
                 'refresh_expires_at' => min($now->copy()->addDays(config('mobile_api.refresh_idle_days')), $session->max_expires_at),
                 'last_used_at' => $now,
+                'refreshed_at' => $retry ? $session->refreshed_at : $now,
             ])->save();
 
             return ['session' => $session, 'access_token' => $access, 'refresh_token' => $refresh];

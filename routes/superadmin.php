@@ -20,6 +20,7 @@ use App\Http\Controllers\Superadmin\PruefungsausschussController;
 use App\Http\Controllers\Superadmin\QuestionController;
 use App\Http\Controllers\Superadmin\QuestionSearchController;
 use App\Http\Controllers\Superadmin\SettingsController;
+use App\Http\Controllers\Superadmin\ShopAccountController;
 use App\Http\Controllers\Superadmin\SystemStatusController;
 use App\Http\Controllers\Superadmin\TenantController;
 use App\Http\Controllers\Superadmin\TipCategoryController;
@@ -51,6 +52,11 @@ use Illuminate\Support\Facades\Route;
 Route::middleware(['auth', 'superadmin', 'admin-db', 'verified', AuditSuperadminChanges::class])->prefix('superadmin')->name('superadmin.')->group(function () {
     Route::get('/', DashboardController::class)->name('dashboard');
 
+    // Shop-Anbindung: B2B-Prüfung der Shopkonten (docs/commerce/README.md).
+    Route::get('/shop-accounts', [ShopAccountController::class, 'index'])->name('shop-accounts.index');
+    Route::post('/shop-accounts/{account}/approve', [ShopAccountController::class, 'approve'])->whereUuid('account')->name('shop-accounts.approve');
+    Route::post('/shop-accounts/{account}/reject', [ShopAccountController::class, 'reject'])->whereUuid('account')->name('shop-accounts.reject');
+    Route::post('/shop-accounts/{account}/retry', [ShopAccountController::class, 'retryProvisioning'])->whereUuid('account')->name('shop-accounts.retry');
     Route::get('/tenants', [TenantController::class, 'index'])->name('tenants.index');
     Route::get('/tenants/create', [TenantController::class, 'create'])->name('tenants.create');
     Route::post('/tenants', [TenantController::class, 'store'])->name('tenants.store');

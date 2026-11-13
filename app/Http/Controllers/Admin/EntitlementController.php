@@ -144,10 +144,13 @@ class EntitlementController extends Controller
             // ein zweiter freier Code längst existierte. SKIP LOCKED lässt
             // die zweite Transaktion stattdessen direkt die nächste, noch
             // ungesperrte freie Zeile wählen.
+            // Codes ohne Zusatzprodukte zuerst: ein Bündel-Code (z. B. Kurs +
+            // Willkommensbox aus dem Shop) gehört dem, der das Bündel gekauft hat.
             $coupon = Coupon::where('tenant_id', $tenant->id)
                 ->where('course_id', $course->id)
                 ->where('is_renewal', false)
                 ->usable()
+                ->orderByRaw('exists (select 1 from coupon_option_product cop where cop.coupon_id = coupon.id)')
                 ->oldest()
                 ->lock('for update skip locked')
                 ->first();
@@ -343,10 +346,13 @@ class EntitlementController extends Controller
 
         // Bug-Review (Gleichzeitige Code-Zuweisung meldet "kein Code frei"):
         // siehe grant() oben -- SKIP LOCKED statt lockForUpdate().
+        // Codes ohne Zusatzprodukte zuerst: deren Zusatzprodukte würden hier
+        // nicht vergeben (siehe unten); ein Bündel-Code nur, wenn kein anderer da ist.
         $coupon = Coupon::where('tenant_id', $tenant->id)
             ->where('course_id', $entitlement->course_id)
             ->where('is_renewal', false)
             ->usable()
+            ->orderByRaw('exists (select 1 from coupon_option_product cop where cop.coupon_id = coupon.id)')
             ->oldest()
             ->lock('for update skip locked')
             ->first();

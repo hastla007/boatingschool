@@ -138,4 +138,11 @@ return [
     */
     'timebox_duration' => (int) env('AUTH_TIMEBOX_DURATION', 600000),
 
+    /*
+    | Superadmins (Owner-Verbindung, alle Schulen) brauchen die Zwei-Faktor-
+    | Anmeldung, bevor sie den Superadmin-Bereich nutzen können. Standard: an,
+    | außer lokal und in Tests (dort per .env einschaltbar).
+    */
+    'superadmin_two_factor' => (bool) env('SUPERADMIN_REQUIRE_TWO_FACTOR', ! in_array(env('APP_ENV', 'production'), ['local', 'testing'], true)),
+
 ];

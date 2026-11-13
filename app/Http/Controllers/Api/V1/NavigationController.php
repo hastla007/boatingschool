@@ -11,6 +11,7 @@ use App\Models\NavigationProgress;
 use App\Models\NavigationQuestion;
 use App\Models\NavigationTask;
 use App\Support\NavigationAnswer;
+use App\Support\NavigationChart;
 use App\Support\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -53,7 +54,7 @@ class NavigationController extends Controller
         return response()->json(['data' => $this->summary($task, $progress, false) + [
             'scenario' => $task->scenario_text,
             'hint' => $task->hint,
-            'chart' => $task->chart_image_path ? Present::image(Present::publicFile($task->chart_image_path), $task->chart_caption ?: 'Kartenausschnitt') : null,
+            'chart' => $task->chart_image_path ? Present::image(NavigationChart::url($task->chart_image_path), $task->chart_caption ?: 'Kartenausschnitt') : null,
             'parts' => $task->questions->map(fn (NavigationQuestion $q) => [
                 'id' => $q->id,
                 'number' => (int) $q->question_number,

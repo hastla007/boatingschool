@@ -122,7 +122,8 @@
                                     <x-icon name="bolt" class="w-5 h-5" />
                                 </div>
                                 <div class="min-w-0 flex-1">
-                                    <div class="text-sm font-medium text-slate-700 dark:text-slate-200">Zum Kurs</div>
+                                    {{-- Führt in den Smarttrainer -- so heißt die Kachel auch. --}}
+                                    <div class="text-sm font-medium text-slate-700 dark:text-slate-200">Weiterlernen</div>
                                     <div class="text-xs text-slate-600 dark:text-slate-400 truncate">{{ $courseSummary['course']->name }}</div>
                                 </div>
                                 <x-icon name="chevron-right" class="w-4 h-4 text-slate-300 shrink-0" />

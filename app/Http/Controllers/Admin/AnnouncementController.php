@@ -25,6 +25,9 @@ class AnnouncementController extends Controller
 {
     private const MAX_MAILS = 500;
 
+    /** Höchstens so viele Mitteilungen mit Mailversand je Schule und Tag (Schutz vor Missbrauch/Sperrlisten). */
+    private const MAILED_PER_DAY = 3;
+
     public function index(TenantContext $tenantContext): View
     {
         return view('admin.announcements.index', [
@@ -43,6 +46,12 @@ class AnnouncementController extends Controller
             'visible_until' => ['bail', 'nullable', 'date', 'after_or_equal:'.now('Europe/Berlin')->toDateString()],
             'send_mail' => ['nullable', 'boolean'],
         ]);
+
+        $mailedToday = TenantAnnouncement::whereNotNull('emailed_at')->where('emailed_at', '>=', now('Europe/Berlin')->startOfDay()->utc())->count();
+        if ($request->boolean('send_mail') && $mailedToday >= self::MAILED_PER_DAY) {
+            return back()->withInput()->withErrors(['send_mail' => 'Heute wurden bereits '.self::MAILED_PER_DAY.' Mitteilungen per Mail verschickt. '
+                .'Bitte morgen erneut versuchen oder die Mitteilung ohne Mail veröffentlichen.']);
+        }
 
         $announcement = TenantAnnouncement::create([
             'course_id' => $validated['course_id'] ?? null,

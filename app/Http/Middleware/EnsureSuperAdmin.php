@@ -19,6 +19,13 @@ class EnsureSuperAdmin
 
         abort_unless($user && $user->is_superadmin, 403, 'Nur für Plattform-Administratoren.');
 
+        // Zugriff auf alle Schulen (Owner-Verbindung, Impersonation): nur mit
+        // Zwei-Faktor-Anmeldung. Die Einrichtung liegt außerhalb dieses Bereichs.
+        if (config('auth.superadmin_two_factor') && ! $user->hasTwoFactor()) {
+            return redirect()->route('two-factor.show')
+                ->with('status', 'Für den Superadmin-Bereich ist die Zwei-Faktor-Anmeldung Pflicht. Bitte richte sie jetzt ein.');
+        }
+
         return $next($request);
     }
 }

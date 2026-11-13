@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Models\PraxisExamAppointment;
 use App\Notifications\Concerns\EscapesMarkdown;
+use App\Notifications\Concerns\RepliesToLearner;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
@@ -16,7 +17,7 @@ use Illuminate\Notifications\Notification;
  */
 class PraxisExamAppointmentResponded extends Notification
 {
-    use EscapesMarkdown, Queueable;
+    use EscapesMarkdown, Queueable, RepliesToLearner;
 
     public function __construct(private readonly PraxisExamAppointment $appointment) {}
 
@@ -34,7 +35,7 @@ class PraxisExamAppointmentResponded extends Notification
         $learnerName = self::escapeMarkdown($this->appointment->submission->user->name ?? 'Ein Teilnehmer');
         $verb = $this->appointment->response === 'accepted' ? 'angenommen' : 'abgelehnt';
 
-        $message = (new MailMessage)
+        $message = self::replyToLearner(new MailMessage, $this->appointment->submission->user)
             ->subject('Rückmeldung zu "'.$this->appointment->label.'"')
             ->line("{$learnerName} hat den Termin \"".self::escapeMarkdown($this->appointment->label)."\" ({$this->appointment->formattedRange()} Uhr) {$verb}.");
 

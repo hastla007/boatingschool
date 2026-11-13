@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Superadmin;
 
+use App\Commerce\Outbox;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\ContentQuestion;
@@ -24,6 +25,8 @@ use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\Response;
 
+use function Illuminate\Support\defer;
+
 class TenantController extends Controller
 {
     /**
@@ -32,7 +35,7 @@ class TenantController extends Controller
      * superadmin mit den gleichnamigen URL-Pfaden dieser App) oder sind
      * allgemein für technische Zwecke reserviert.
      */
-    private const RESERVED_SLUGS = ['www', 'admin', 'superadmin', 'api', 'app', 'mail', 'ftp', 'support', 'help'];
+    public const RESERVED_SLUGS = ['www', 'admin', 'superadmin', 'api', 'app', 'mail', 'ftp', 'support', 'help'];
 
     public function index(): View
     {
@@ -133,6 +136,13 @@ class TenantController extends Controller
             fn () => app(AccountSetupLink::class)->send(User::on('pgsql_admin')->where('email', $validated['admin_email'])->firstOrFail(), $tenant, 'owner'),
             "Einladungsmail neue Bootsschule {$tenant->id}"
         );
+
+        // Shop-Anbindung: Shopkonto für den Schuladmin vormerken; der minütliche
+        // Ausgang legt es im Shop an (mit Wiederholung, docs/commerce/README.md).
+        $shopAccount = Outbox::provisionTenant($tenant, User::on('pgsql_admin')->where('email', $validated['admin_email'])->firstOrFail());
+        if ($shopAccount) {
+            defer(fn () => app(Outbox::class)->process());
+        }
 
         $status = 'Bootsschule angelegt.';
 
