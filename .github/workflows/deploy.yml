@@ -3,17 +3,23 @@ name: Deploy
 # Deploy per Knopfdruck (Actions → Deploy → Run workflow). Läuft nie
 # automatisch. Führt auf dem Server deploy/deploy.sh aus.
 #
-# Benötigte Repository-Secrets (Settings → Secrets and variables → Actions):
+# Ziel: Eingabe „environment“ = production (Standard) oder staging. Sie wählt
+# die gleichnamige GitHub-Umgebung (Settings → Environments); die Secrets
+# liegen JE UMGEBUNG dort (nicht als Repository-Secrets), damit Staging nie
+# mit den Zugangsdaten der Produktion ausrollt:
 #   DEPLOY_HOST         Hostname oder IP des Servers
 #   DEPLOY_USER         SSH-Benutzer (Deploy-Benutzer, nicht root)
 #   DEPLOY_SSH_KEY      privater SSH-Schlüssel (nur für diesen Zweck erzeugen)
 #   DEPLOY_KNOWN_HOSTS  Ausgabe von `ssh-keyscan <host>` (schützt vor fremden Servern)
 #   DEPLOY_PATH         App-Verzeichnis, z. B. /var/www/boatingschool
-
+#                       (Modus releases: <basis>/current, siehe deploy/README.md)
 #
-# Ausgerollt wird nur `main`, und nur ein Stand, für den der Workflow
-# „Tests“ grün ist. Der geprüfte Commit wird an deploy.sh übergeben, damit
-# genau dieser Stand auf den Server kommt (auch wenn main inzwischen weiter ist).
+# production: nur `main`, und nur ein Stand, für den der Workflow „Tests“
+# grün ist (zusätzlich in der Umgebung „production“ unter „Deployment
+# branches“ nur main erlauben). staging: jeder Branch, dessen Stand grün
+# getestet ist (Workflow vom gewünschten Branch aus starten). Der geprüfte
+# Commit wird an deploy.sh übergeben, damit genau dieser Stand auf den
+# Server kommt (auch wenn der Branch inzwischen weiter ist).
 #
 # Die Frontend-Assets (public/build) baut der Job „build“ für genau diesen
 # Commit; der Deploy kopiert sie per scp in ein temporäres Verzeichnis auf dem
@@ -22,6 +28,13 @@ name: Deploy
 on:
   workflow_dispatch:
     inputs:
+      environment:
+        description: 'Ziel (GitHub-Umgebung mit eigenen Secrets): production nur von main, staging von jedem grün getesteten Branch'
+        type: choice
+        options:
+          - production
+          - staging
+        default: production
       with_content:
         description: 'Inhalte (db:seed) auch ohne Änderungen unter database/seeders bzw. database/data einspielen'
         type: boolean
@@ -32,7 +45,7 @@ permissions:
   actions: read
 
 concurrency:
-  group: deploy
+  group: deploy-${{ inputs.environment || 'production' }}
   cancel-in-progress: false
 
 jobs:
@@ -40,22 +53,37 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       sha: ${{ steps.verified.outputs.sha }}
+      branch: ${{ steps.verified.outputs.branch }}
     steps:
-      - name: Nur grün getesteten Stand von main ausrollen
+      - name: Nur grün getesteten Stand ausrollen (production nur von main)
         id: verified
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
+          TARGET_ENV: ${{ inputs.environment || 'production' }}
         run: |
-          if [ "${GITHUB_REF}" != "refs/heads/main" ]; then
-            echo "Deploy nur von main (gestartet von ${GITHUB_REF})."; exit 1
-          fi
-          SHA=$(gh api "repos/$REPO/commits/main" --jq .sha)
-          RESULT=$(gh run list --repo "$REPO" --workflow tests.yml --branch main --commit "$SHA" --json conclusion --jq '.[0].conclusion // "keiner"')
+          case "${GITHUB_REF}" in
+            (refs/heads/*) BRANCH="${GITHUB_REF#refs/heads/}" ;;
+            (*) echo "Deploy nur von einem Branch (gestartet von ${GITHUB_REF})."; exit 1 ;;
+          esac
+          # Branchname landet in einem SSH-Kommando: nur unverdächtige Zeichen.
+          case "$BRANCH" in (*[!A-Za-z0-9._/-]*|'') echo "Ungültiger Branchname: $BRANCH"; exit 1;; esac
+          case "$TARGET_ENV" in
+            (production)
+              if [ "$BRANCH" != "main" ]; then
+                echo "Production nur von main (gestartet von ${GITHUB_REF})."; exit 1
+              fi
+              SHA=$(gh api "repos/$REPO/commits/main" --jq .sha) ;;
+            (staging)
+              SHA="${GITHUB_SHA}" ;;
+            (*) echo "Unbekannte Umgebung: $TARGET_ENV"; exit 1 ;;
+          esac
+          RESULT=$(gh run list --repo "$REPO" --workflow tests.yml --branch "$BRANCH" --commit "$SHA" --json conclusion --jq '.[0].conclusion // "keiner"')
           if [ "$RESULT" != "success" ]; then
-            echo "Tests für $SHA: $RESULT -- Deploy abgebrochen."; exit 1
+            echo "Tests für $SHA ($BRANCH): $RESULT -- Deploy abgebrochen."; exit 1
           fi
           echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
 
   build:
     needs: verify
@@ -94,7 +122,8 @@ jobs:
   deploy:
     needs: [verify, build]
     runs-on: ubuntu-latest
-    environment: production
+    # Wählt die GitHub-Umgebung und damit deren Secrets (DEPLOY_*).
+    environment: ${{ inputs.environment || 'production' }}
     steps:
       - name: Build-Artefakt holen
         uses: actions/download-artifact@v4
@@ -117,9 +146,11 @@ jobs:
           USER: ${{ secrets.DEPLOY_USER }}
           APP_PATH: ${{ secrets.DEPLOY_PATH }}
           SHA: ${{ needs.verify.outputs.sha }}
+          BRANCH: ${{ needs.verify.outputs.branch }}
           WITH_CONTENT: ${{ inputs.with_content && '--with-content' || '' }}
         run: |
           case "$SHA" in (*[!0-9a-f]*|'') echo "Ungültiger Commit"; exit 1;; esac
+          case "$BRANCH" in (*[!A-Za-z0-9._/-]*|'') echo "Ungültiger Branch"; exit 1;; esac
           test "$(tr -d '[:space:]' < build/build-sha.txt)" = "$SHA"
           SSH_OPTS=(-i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes)
           # Temporäres Verzeichnis auf dem Server für den fertigen Build.
@@ -127,4 +158,4 @@ jobs:
           case "$REMOTE_TMP" in (/*boatingschool-build.*) ;; (*) echo "Unerwartetes Temp-Verzeichnis: $REMOTE_TMP"; exit 1;; esac
           scp -q -r "${SSH_OPTS[@]}" build "$USER@$HOST:$REMOTE_TMP/"
           ssh "${SSH_OPTS[@]}" "$USER@$HOST" \
-            "cd '$APP_PATH' && BUILD_DIR='$REMOTE_TMP/build' ./deploy/deploy.sh main '$SHA' $WITH_CONTENT; rc=\$?; rm -rf '$REMOTE_TMP'; exit \$rc"
+            "cd '$APP_PATH' && BUILD_DIR='$REMOTE_TMP/build' ./deploy/deploy.sh '$BRANCH' '$SHA' $WITH_CONTENT; rc=\$?; rm -rf '$REMOTE_TMP'; exit \$rc"

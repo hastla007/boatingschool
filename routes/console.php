@@ -61,6 +61,11 @@ Schedule::command('app:backup')->dailyAt('03:15')->timezone('Europe/Berlin')->on
     // Eigener Prozess: der Dump blockiert die übrigen Aufgaben nicht.
     ->runInBackground()
     ->onFailure(OpsAlert::forTask('Datensicherung (app:backup)'));
+// Monatlich: neueste Sicherung probeweise in eine temporäre Datenbank
+// zurückspielen (Owner-Rolle braucht CREATEDB, siehe deploy/README.md).
+Schedule::command('app:backup:verify')->monthlyOn(2, '04:40')->timezone('Europe/Berlin')->onOneServer()->withoutOverlapping(180)
+    ->runInBackground()
+    ->onFailure(OpsAlert::forTask('Prüfung der Datensicherung (app:backup:verify)'));
 
 // Go-live-Check täglich: Fehler (z. B. Scheduler steht, Sicherung fehlt,
 // Platzhalter) per Mail an OPS_ALERT_EMAIL bzw. die Support-Adresse.

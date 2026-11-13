@@ -254,15 +254,14 @@ Geplante Kommandos:
   `docs/commerce/README.md`. Ohne `COMMERCE_SHOP_URL` ohne Wirkung.
 
 `QUEUE_CONNECTION` steht in `.env`/`.env.example` auf `database` (Tabellen
-`jobs`/`failed_jobs`/`job_batches` existieren bereits), aktuell nutzt aber
-keine Klasse `ShouldQueue` -- der gesamte Mailversand (Passwort-Set-Link,
-Einladung, E-Mail-Bestätigung) läuft bewusst synchron im Request über
-`App\Support\BestEffortMail` (Bug-Review B31: ein SMTP-Fehler wird
-geloggt, bricht den Request aber nicht ab). Ein `php artisan queue:work`
-ist daher für den aktuellen Funktionsumfang nicht nötig; sobald ein
-künftiges Feature echte Queue-Jobs einführt, muss ein Worker-Prozess
-(Vorlage `deploy/supervisor-worker.conf`) dauerhaft laufen --
-`app:check-production` meldet hängende Jobs.
+`jobs`/`failed_jobs`/`job_batches`). Massen-Mails (Mitteilungen der Schule
+und der Plattform, Lern-Erinnerungen an mehr als 10 Personen,
+Sammel-Einladungen) laufen als Queue-Jobs in Paketen zu 50 Empfängern mit
+Schulkontext (`App\Jobs\Concerns\TenantAware`, 3 Versuche). Einzelmails
+(Passwort-Set-Link, Einladung, E-Mail-Bestätigung) bleiben synchron über
+`App\Support\BestEffortMail`. Ein Worker-Prozess (`php artisan queue:work`,
+Vorlage `deploy/supervisor-worker.conf`) muss daher dauerhaft laufen --
+`app:check-production` meldet `sync`, hängende und aufgegebene Jobs.
 
 ### Produktivbetrieb
 

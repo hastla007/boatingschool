@@ -42,7 +42,7 @@ class PlatformAnnouncementTest extends TestCase
         $this->actingAs($superadmin)->post('/superadmin/announcements', [
             'title' => 'Wartung am Sonntag', 'body' => 'Die Plattform ist von 6 bis 8 Uhr nicht erreichbar.',
             'target' => 'selected', 'tenant_ids' => [$a->id, $c->id], 'audience' => 'team', 'send_mail' => '1',
-        ])->assertSessionHasNoErrors()->assertSessionHas('status', 'Mitteilung veröffentlicht und an 2 Personen gemailt.');
+        ])->assertSessionHasNoErrors()->assertSessionHas('status', 'Mitteilung veröffentlicht und wird an 2 Personen verschickt.');
 
         Notification::assertSentToTimes($owner, PlatformAnnouncementPublished::class, 1);
         Notification::assertSentToTimes($admin, PlatformAnnouncementPublished::class, 1);

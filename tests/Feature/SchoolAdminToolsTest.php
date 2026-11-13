@@ -151,7 +151,7 @@ class SchoolAdminToolsTest extends TestCase
         $this->actingAsInTenant($admin, $tenant)->get('/admin/announcements')->assertOk()->assertSee('Neue Mitteilung');
         $this->actingAsInTenant($admin, $tenant)->post('/admin/announcements', [
             'title' => 'Funkprüfung am Samstag', 'body' => 'Treffpunkt 9 Uhr am Hafen.', 'course_id' => $src->id, 'send_mail' => '1',
-        ])->assertSessionHas('status', 'Mitteilung veröffentlicht und an 1 Person gemailt.');
+        ])->assertSessionHas('status', 'Mitteilung veröffentlicht und wird an 1 Person verschickt.');
 
         Notification::assertSentTo($srcLearner, AnnouncementPublished::class);
         Notification::assertNotSentTo($ubiLearner, AnnouncementPublished::class);

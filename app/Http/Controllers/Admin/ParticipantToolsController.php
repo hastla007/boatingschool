@@ -36,8 +36,10 @@ class ParticipantToolsController extends Controller
             return back()->withErrors(['emails' => 'Höchstens '.self::MAX_BULK.' Zeilen auf einmal.'])->withInput();
         }
 
+        // Konten/Einladungen legt der Request an, die Mails verschickt der
+        // Queue-Worker (SendInvitationMails, ein Job je Paket).
+        $inviter->queueMails();
         $invited = 0;
-        $mailFailed = 0;
         $skipped = [];
         $seen = [];
         $limitReached = false;
@@ -84,14 +86,12 @@ class ParticipantToolsController extends Controller
                 continue;
             }
             $invited++;
-            if (! $result['mail_sent']) {
-                $mailFailed++;
-            }
         }
+        $mails = $inviter->dispatchQueuedMails();
 
         $status = $invited === 1 ? 'Eine Person eingeladen.' : "{$invited} Personen eingeladen.";
-        if ($mailFailed > 0) {
-            $status .= " Bei {$mailFailed} konnte die Einladungsmail nicht verschickt werden.";
+        if ($mails > 0) {
+            $status .= $mails === 1 ? ' Die Einladungsmail wird verschickt.' : " Die {$mails} Einladungsmails werden verschickt.";
         }
         if ($limitReached) {
             $status .= ' Tageslimit von '.ParticipantInviter::DAILY_LIMIT.' Einladungen erreicht, die übrigen bitte morgen einladen.';

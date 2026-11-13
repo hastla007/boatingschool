@@ -1,6 +1,7 @@
 <?php
 
 use App\Api\ProblemResponse;
+use App\Http\Controllers\AppLinksController;
 use App\Http\Controllers\NavigationChartImageController;
 use App\Http\Controllers\TlsCheckController;
 use App\Http\Middleware\Api\ApiIdempotency;
@@ -48,6 +49,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // Mandant), siehe TlsCheckController.
         then: function () {
             Route::get('/tls-check', TlsCheckController::class)->name('tls-check');
+            // App-Deep-Links (iOS/Android): ebenfalls ohne web-Gruppe, auf jeder
+            // Domain gleich, ohne Weiterleitung (siehe AppLinksController).
+            Route::get('/.well-known/apple-app-site-association', [AppLinksController::class, 'apple'])->name('app-links.apple');
+            Route::get('/.well-known/assetlinks.json', [AppLinksController::class, 'android'])->name('app-links.android');
             // Kartenausschnitte der Navigationsaufgaben: nur über signierte,
             // kurzlebige Adressen (ohne Session/Mandant, auch für die App).
             Route::get('/media/navigation-charts/{file}', NavigationChartImageController::class)
