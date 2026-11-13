@@ -174,10 +174,10 @@ class LegalPagesTest extends TestCase
         $this->assertStringNotContainsString('Lernvideos', $html);
         $this->assertStringNotContainsString('Fehleranalyse', $html);
         $this->assertStringNotContainsString('Code-Shop', $html);
-        // Immer: Datensicherung (14 Tage), Spracherkennung (freiwillig) und Speicherdauer je Datenart.
+        // Immer: Datensicherung (14 Tage), Spracherkennung (nur mit Einwilligung) und Speicherdauer je Datenart.
         $this->assertStringContainsString('Datensicherung', $html);
         $this->assertStringContainsString('nach 14 Tagen automatisch gelöscht', $html);
-        $this->assertStringContainsString('Das ist freiwillig', $html);
+        $this->assertStringContainsString('erst nach deiner ausdrücklichen Einwilligung aktiv', $html);
         $this->assertStringContainsString('Server-Protokolle:</strong> 14 Tage', $html);
         $this->assertStringNotContainsString('Fehlerberichte:', $html);
 

@@ -131,7 +131,7 @@ class MailPreferencesTest extends TestCase
         $this->grantEntitlement($tenant, $optedOut, $course);
 
         $this->actingAsInTenant($admin, $tenant)->post('/admin/announcements', ['title' => 'Info', 'body' => 'Text', 'send_mail' => '1'])
-            ->assertSessionHasNoErrors()->assertSessionHas('status', fn ($status) => str_contains($status, 'an 1 Person gemailt'));
+            ->assertSessionHasNoErrors()->assertSessionHas('status', fn ($status) => str_contains($status, 'an 1 Person verschickt'));
 
         Notification::assertSentTo($wants, AnnouncementPublished::class);
         Notification::assertNotSentTo($optedOut, AnnouncementPublished::class);
