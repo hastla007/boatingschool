@@ -21,8 +21,6 @@ use Illuminate\Support\Str;
  * neue Adresse → Konto „invited“ plus Mitgliedschaft und Link zum
  * Passwort-Setzen. Ein Mailfehler bricht nichts ab (BestEffortMail,
  * Bug-Review B31).
- *
- * @phpstan-type Result array{type: 'existing'|'new', mail_sent: bool, user: ?User, duplicate?: bool}
  */
 class ParticipantInviter
 {
@@ -71,8 +69,17 @@ class ParticipantInviter
     }
 
     /**
+     * Kein Konto-Orakel: für eine Adresse, die (noch) nicht Mitglied dieser
+     * Schule ist, verhält sich das Ergebnis nach außen gleich, egal ob es
+     * plattformweit schon ein Konto gibt -- dieselbe Mail-Drossel (eine Mail
+     * je Adresse, Schule und Tag, auch beim allerersten Versand an eine neue
+     * Adresse und beim erneuten Versand an ein nie aktiviertes Konto), und
+     * der Aufrufer bekommt dieselben Felder (mail_sent, duplicate). Die
+     * Unterscheidung „Mitglied angelegt“ (user) vs. „Einladung zum Annehmen“
+     * (invitation) bleibt nur intern, z. B. für die Code-Zuweisung.
+     *
      * @param  array{street?: ?string, postal_code?: ?string, city?: ?string, country?: ?string}  $address
-     * @return array{type: 'existing'|'new', mail_sent: bool, user: ?User, duplicate?: bool, already_member?: bool, resent?: bool}
+     * @return array{type: 'existing'|'new', mail_sent: bool, user: ?User, invitation?: TenantInvitation, duplicate?: bool, already_member?: bool, role?: string}
      */
     public function invite(Tenant $tenant, User $actor, string $name, string $email, array $address = []): array
     {
@@ -88,16 +95,18 @@ class ParticipantInviter
                 if ($existingUser->status !== 'invited') {
                     return ['type' => 'existing', 'mail_sent' => false, 'user' => null, 'already_member' => true, 'role' => $membership->role];
                 }
-                // Höchstens drei neue Links je Person und Tag (Schutz vor Mail-Flut).
-                $resendKey = 'participant-invite-resend:'.$existingUser->id;
-                if (RateLimiter::tooManyAttempts($resendKey, 3)) {
-                    return ['type' => 'existing', 'mail_sent' => true, 'user' => null, 'duplicate' => true, 'resend_limit' => true];
+                // Dieselbe Drossel wie bei Bestandskonten (eine Mail je
+                // Adresse, Schule und Tag) -- sonst verriete schon der
+                // zweite Versuch am selben Tag, ob die Adresse beim ersten
+                // Mal neu war (neu: „erneut verschickt“, Bestandskonto:
+                // „heute schon eingeladen“).
+                if (! self::mayMailAddress($tenant, $existingUser->email)) {
+                    return ['type' => 'existing', 'mail_sent' => true, 'user' => null, 'duplicate' => true];
                 }
-                RateLimiter::hit($resendKey, 86400);
                 $mailSent = BestEffortMail::send(fn () => app(AccountSetupLink::class)->send($existingUser, $tenant, $membership->role), "Einladung erneut {$existingUser->id}");
                 AuditLog::record($tenant->id, $actor->id, 'participant.invite_resent', 'app_user', $existingUser->id, null, ['email' => $existingUser->email]);
 
-                return ['type' => 'existing', 'mail_sent' => $mailSent, 'user' => null, 'resent' => true];
+                return ['type' => 'existing', 'mail_sent' => $mailSent, 'user' => $membership->role === 'learner' ? $existingUser : null];
             }
 
             // Schutz vor Mail-Bombing: dieselbe Adresse höchstens einmal am Tag
@@ -111,9 +120,13 @@ class ParticipantInviter
             if (! self::mayMailAddress($tenant, $existingUser->email)) {
                 return ['type' => 'existing', 'mail_sent' => true, 'user' => null, 'duplicate' => true];
             }
+            // Der eingegebene Name wird nur an der Einladung gespeichert
+            // (Anzeige in „Offene Einladungen“ wie bei einer neuen Adresse),
+            // das bestehende Konto selbst bleibt unverändert.
             $invitation = $open ?? TenantInvitation::create([
                 'tenant_id' => $tenant->id,
                 'email' => $existingUser->email,
+                'name' => $name,
                 'role' => 'learner',
                 'invited_by_user_id' => $actor->id,
             ]);
@@ -124,7 +137,7 @@ class ParticipantInviter
                 'email' => $existingUser->email,
             ]);
 
-            return ['type' => 'existing', 'mail_sent' => $mailSent, 'user' => null];
+            return ['type' => 'existing', 'mail_sent' => $mailSent, 'user' => null, 'invitation' => $invitation];
         }
 
         $user = DB::transaction(function () use ($tenant, $actor, $name, $email, $address) {
@@ -154,6 +167,8 @@ class ParticipantInviter
             return $user;
         });
 
+        // Zählt für die Tagesdrossel je Adresse mit (siehe oben).
+        self::mayMailAddress($tenant, $user->email);
         $mailSent = BestEffortMail::send(
             fn () => app(AccountSetupLink::class)->send($user, $tenant, 'learner'),
             "Einladungsmail neuer Teilnehmer {$user->id}"

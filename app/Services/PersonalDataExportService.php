@@ -299,6 +299,13 @@ class PersonalDataExportService
                     'last_used_at' => $row->last_used_at ? Carbon::parse($row->last_used_at)->toIso8601String() : null,
                     'revoked_at' => $row->revoked_at ? Carbon::parse($row->revoked_at)->toIso8601String() : null,
                 ])->all(),
+            // Bekannte Anmelde-Geräte (Team/Superadmin, Hinweis-Mail bei neuem
+            // Gerät): gespeichert ist nur ein Fingerabdruck-Hash, keine IP.
+            'known_login_devices' => $forSchool ? [] : DB::connection('pgsql_admin')->table('known_login_device')->where('user_id', $user->id)->orderBy('first_seen_at')->get()
+                ->map(fn ($row) => [
+                    'first_seen_at' => Carbon::parse($row->first_seen_at)->toIso8601String(),
+                    'last_seen_at' => Carbon::parse($row->last_seen_at)->toIso8601String(),
+                ])->all(),
             // Protokolleinträge dieser Bootsschule, die die Person betreffen.
             'audit_log' => $forSchool ? [] : AuditLog::where('tenant_id', $tenant->id)
                 ->where(fn ($q) => $q->where('actor_user_id', $user->id)

@@ -62,7 +62,12 @@ class ParticipantToolsController extends Controller
 
             $existing = User::on('pgsql_admin')->whereRaw('lower(email) = ?', [mb_strtolower($email)])->first();
             $existingRole = $existing ? TenantUser::where('tenant_id', $tenant->id)->where('user_id', $existing->id)->value('role') : null;
-            if ($existingRole) {
+            // Ein nie aktiviertes, von hier eingeladenes Konto zählt wie eine
+            // offene Einladung (kein Konto-Orakel, siehe ParticipantInviter):
+            // es geht durch denselben Einladungsweg wie eine Adresse mit
+            // Bestandskonto, statt als „bereits Teilnehmer“ übersprungen zu
+            // werden.
+            if ($existingRole && ! ($existingRole === 'learner' && $existing->status === 'invited')) {
                 $skipped[] = $existingRole === 'learner' ? "{$email} (bereits Teilnehmer)" : "{$email} (gehört zum Team)";
 
                 continue;

@@ -67,7 +67,9 @@ class AdminDashboardController extends Controller
         // Ausbilder mit zugeordneten Kursen sehen nur ihre Lernenden (InstructorScope).
         $visibleLearnerIds = InstructorScope::learnerIds($tenant, $request->user());
         $scopeCourseIds = InstructorScope::courseIds($tenant, $request->user());
-        $learnerIds = TenantUser::where('tenant_id', $tenant->id)->where('role', 'learner')->where('status', 'active')
+        // Offene Einladungen (nie aktivierte Konten) zählen nicht mit, siehe
+        // ParticipantFilters::withoutOpenInvitations.
+        $learnerIds = ParticipantFilters::withoutOpenInvitations(TenantUser::where('tenant_id', $tenant->id)->where('role', 'learner')->where('status', 'active'))
             ->when($visibleLearnerIds !== null, fn ($q) => $q->whereIn('user_id', $visibleLearnerIds))->pluck('user_id');
         $learnerCount = $learnerIds->count();
         // Bug-Review B15: status wechselt nie automatisch auf "expired" --
@@ -359,12 +361,29 @@ class AdminDashboardController extends Controller
             ->orderByDesc('created_at')
             ->get();
 
-        $allParticipants = TenantUser::with('user')
+        $allParticipants = ParticipantFilters::withoutOpenInvitations(TenantUser::with('user')
             ->where('tenant_id', $tenant->id)
-            ->where('role', 'learner')
+            ->where('role', 'learner'))
             ->orderBy('created_at')
             ->orderBy('user_id')
             ->get();
+
+        // „Offene Einladungen“: neu angelegte, nie aktivierte Konten und
+        // Einladungen an Bestandskonten erscheinen hier gleich (Name wie
+        // eingegeben, E-Mail, Datum) -- kein Konto-Orakel, siehe
+        // ParticipantFilters::withoutOpenInvitations. Ausbilder mit
+        // Kurszuordnung sehen nur ihre Lernenden, Einladungen gehören noch
+        // zu keinem Kurs.
+        $openInvitations = collect();
+        if ($visibleLearnerIds === null) {
+            $invitedMembers = TenantUser::with('user')->where('tenant_id', $tenant->id)->where('role', 'learner')
+                ->whereHas('user', fn ($u) => $u->where('status', 'invited'))->get()
+                ->map(fn (TenantUser $m) => ['name' => $m->user->name, 'email' => $m->user->email, 'invited_at' => $m->created_at]);
+            $pendingInvitations = TenantInvitation::where('tenant_id', $tenant->id)->where('role', 'learner')->whereNull('accepted_at')->get()
+                ->map(fn (TenantInvitation $i) => ['name' => $i->name ?: strstr($i->email, '@', true), 'email' => $i->email, 'invited_at' => $i->created_at])
+                ->unique(fn ($row) => mb_strtolower($row['email']));
+            $openInvitations = $invitedMembers->concat($pendingInvitations)->sortByDesc('invited_at')->values();
+        }
 
         // Sitewide deaktivierte Kurse (course_definition.site_enabled = false)
         // tauchen konsequent in keinem Tab auf -- weder zum manuellen
@@ -585,6 +604,7 @@ class AdminDashboardController extends Controller
             'instructorCourses' => InstructorCourse::where('tenant_id', $tenant->id)->get()->groupBy('user_id')->map(fn ($rows) => $rows->pluck('course_id')),
             'pendingTeamInvitations' => $pendingTeamInvitations,
             'allParticipants' => $allParticipants,
+            'openInvitations' => $openInvitations,
             'courses' => $courses,
             'participantFilters' => $participantFilters,
             'productPurchases' => $productPurchases,

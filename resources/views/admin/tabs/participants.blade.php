@@ -172,7 +172,7 @@
                 <input type="text" id="invite_code" name="code" value="{{ old('code') }}" placeholder="XXXX-XXXX-XXXX-XXXX" class="w-full sm:w-64 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm font-mono">
                 <x-input-error :messages="$errors->get('code')" class="mt-1" />
                 <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                    Ein eigener Code (Kurs oder Produkt) wird dem Teilnehmer direkt bei der Einladung zugewiesen und eingelöst.
+                    Ein eigener Code (Kurs oder Produkt) wird dem Teilnehmer bei der Einladung zugewiesen und spätestens beim Annehmen der Einladung eingelöst.
                 </p>
             </div>
         </div>
@@ -193,6 +193,44 @@
         <button type="submit" class="px-4 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">Alle einladen</button>
     </form>
 </details>
+@endif
+
+{{-- Kein Konto-Orakel: neue Adressen und Adressen mit bestehendem Konto
+     erscheinen bis zur Annahme gleich (siehe ParticipantFilters::withoutOpenInvitations). --}}
+@if ($openInvitations->isNotEmpty())
+<div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 mb-6">
+    <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-2">Offene Einladungen ({{ $openInvitations->count() }})</h3>
+    <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+        <thead class="text-slate-500 dark:text-slate-300 text-left">
+            <tr>
+                <th class="py-1 pr-4">Name</th>
+                <th class="py-1 pr-4">E-Mail</th>
+                <th class="py-1 pr-4">Eingeladen am</th>
+                <th class="py-1"></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach ($openInvitations as $openInvitation)
+                <tr class="border-t border-slate-100 dark:border-slate-700">
+                    <td class="py-2 pr-4 text-slate-700 dark:text-slate-200">{{ $openInvitation['name'] }}</td>
+                    <td class="py-2 pr-4 text-slate-500 dark:text-slate-400">{{ $openInvitation['email'] }}</td>
+                    <td class="py-2 pr-4 text-slate-500 dark:text-slate-400">{{ $openInvitation['invited_at']?->timezone('Europe/Berlin')->format('d.m.Y') }}</td>
+                    <td class="py-2">
+                        <form method="POST" action="{{ route('admin.participants.invite') }}" class="flex items-center gap-2 text-xs">
+                            @csrf
+                            <input type="hidden" name="name" value="{{ $openInvitation['name'] }}">
+                            <input type="hidden" name="email" value="{{ $openInvitation['email'] }}">
+                            <span class="rounded-full px-2 py-0.5 bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">eingeladen, noch nicht angemeldet</span>
+                            <button type="submit" class="underline text-slate-600 dark:text-slate-300">Einladung erneut senden</button>
+                        </form>
+                    </td>
+                </tr>
+            @endforeach
+        </tbody>
+    </table>
+    </div>
+</div>
 @endif
 
 <form method="GET" action="{{ route('admin.dashboard') }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 mb-3 flex flex-wrap items-end gap-2">
@@ -267,16 +305,6 @@
                             </div>
                             <span class="text-slate-700 dark:text-slate-200">{{ $membership->user->name }}</span>
                         </a>
-                        @if ($membership->user->status === 'invited')
-                            {{-- Noch nie angemeldet: Link zum Passwort-Festlegen erneut schicken. --}}
-                            <form method="POST" action="{{ route('admin.participants.invite') }}" class="mt-1 ml-9 flex items-center gap-2 text-xs">
-                                @csrf
-                                <input type="hidden" name="name" value="{{ $membership->user->name }}">
-                                <input type="hidden" name="email" value="{{ $membership->user->email }}">
-                                <span class="rounded-full px-2 py-0.5 bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">eingeladen, noch nicht angemeldet</span>
-                                <button type="submit" class="underline text-slate-600 dark:text-slate-300">Einladung erneut senden</button>
-                            </form>
-                        @endif
                     </td>
                     <td class="px-4 py-2 text-slate-500 dark:text-slate-400">{{ $membership->user->email }}</td>
                     <td class="px-4 py-2 text-slate-500 dark:text-slate-400">

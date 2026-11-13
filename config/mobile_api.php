@@ -19,6 +19,11 @@ return [
     'two_factor_challenge_minutes' => 10,
     // Datenexport: Download-Link und Datei bleiben so lange erhalten.
     'export_ttl_minutes' => (int) env('MOBILE_API_EXPORT_TTL_MINUTES', 60),
+    // Höchstens so viele ausgelieferte Fragen je Konto und Kalendertag
+    // (Europe/Berlin) über Lernmodus und Prüfungsstart; darüber 429
+    // DAILY_LIMIT_REACHED. Schutz gegen das Abgreifen des Fragenkatalogs.
+    // 0 = keine Grenze.
+    'daily_question_limit' => (int) env('MOBILE_API_DAILY_QUESTION_LIMIT', 2000),
     // Idempotenz-Schlüssel werden so lange aufbewahrt.
     'idempotency_hours' => 24,
     // Mindestversion der App je Plattform (leer = keine Vorgabe). Ältere

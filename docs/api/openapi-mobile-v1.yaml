@@ -417,6 +417,7 @@ paths:
         '204': {description: 'Keine passende Frage: new = alles gesehen, wrong = keine falschen, favorites = keine (passenden) Favoriten, question_ids = alle erledigt. Im Smarttrainer kommen gefestigte Fragen zur Wiederholung; „alles geschafft“ zeigt progress.percent = 100.'}
         '404': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
+        '429': {description: 'DAILY_LIMIT_REACHED (Tageslimit an Fragen je Konto, Europe/Berlin; Retry-After bis Mitternacht) oder RATE_LIMITED', content: {application/problem+json: {schema: {$ref: '#/components/schemas/Problem'}}}}
   /courses/{courseId}/attempts:
     post:
       tags: [Trainer]
@@ -600,7 +601,7 @@ paths:
       tags: [Exams]
       operationId: startExam
       summary: Prüfung starten oder laufende fortsetzen
-      description: Kurse mit festen Bögen brauchen `paper_id`. Läuft für den Bogen bereits eine Prüfung, kommt diese zurück (200).
+      description: Kurse mit festen Bögen brauchen `paper_id`. Läuft für den Bogen bereits eine Prüfung, kommt diese zurück (200). Eine neu gestartete Prüfung zählt mit ihrer Fragenzahl auf das Tageslimit (429 `DAILY_LIMIT_REACHED`).
       parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/CourseId'}, {$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody:
         content:
@@ -623,6 +624,7 @@ paths:
         '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
         '422': {$ref: '#/components/responses/Problem'}
+        '429': {description: 'DAILY_LIMIT_REACHED (Tageslimit an Fragen erreicht, Retry-After bis Mitternacht) oder RATE_LIMITED', content: {application/problem+json: {schema: {$ref: '#/components/schemas/Problem'}}}}
   /courses/{courseId}/exam-sessions:
     get:
       tags: [Exams]
@@ -1095,7 +1097,7 @@ components:
         code:
           type: string
           description: Stabiler Fehlercode, siehe docs/api/README.md
-          enum: [UNAUTHENTICATED, TWO_FACTOR_INVALID, VALIDATION_FAILED, RATE_LIMITED, FORBIDDEN, RESOURCE_NOT_FOUND, CONFLICT, GONE,
+          enum: [UNAUTHENTICATED, TWO_FACTOR_INVALID, VALIDATION_FAILED, RATE_LIMITED, DAILY_LIMIT_REACHED, FORBIDDEN, RESOURCE_NOT_FOUND, CONFLICT, GONE,
             METHOD_NOT_ALLOWED, SERVER_ERROR, SERVICE_UNAVAILABLE, REQUEST_FAILED,
             EMAIL_NOT_VERIFIED, TENANT_MEMBERSHIP_REQUIRED, TENANT_MEMBERSHIP_SUSPENDED, TENANT_UNAVAILABLE,
             ENTITLEMENT_REQUIRED, ENTITLEMENT_EXPIRED, PASSWORD_RESET_INVALID_OR_EXPIRED, IDEMPOTENCY_KEY_REUSED,

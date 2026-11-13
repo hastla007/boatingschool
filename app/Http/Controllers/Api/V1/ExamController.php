@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Api\ApiProblem;
 use App\Api\CourseAccess;
+use App\Api\DailyQuestionLimit;
 use App\Api\Present;
 use App\Api\QuestionPresenter;
 use App\Http\Controllers\Controller;
@@ -94,6 +95,7 @@ class ExamController extends Controller
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
         $course = $this->access->require($tenant, $user, $courseId);
+        DailyQuestionLimit::ensureAvailable($user);
         $starter = app(ExamSessionStarter::class);
 
         if ($course->examPapers()->exists()) {
@@ -114,6 +116,11 @@ class ExamController extends Controller
             $ruleSet = $course->activeExamRuleSet();
             $this->requireVerified($ruleSet);
             $session = $starter->startRandom($tenant, $user, $course, $ruleSet);
+        }
+
+        // Nur eine neu gestartete Prüfung liefert neue Fragen aus.
+        if ($session->wasRecentlyCreated) {
+            DailyQuestionLimit::consume($user, $session->questions()->count());
         }
 
         return response()->json(['data' => $this->sessionPayload($session->fresh())], $session->wasRecentlyCreated ? 201 : 200);
