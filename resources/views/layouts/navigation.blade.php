@@ -5,6 +5,8 @@
         ? app(\App\Services\EntitlementService::class)->activeCourses($currentTenant, Auth::user())
         : collect();
     $hasWillkommensbox = Auth::check() && isset($currentTenant) && Auth::user()->hasWillkommensboxAccess($currentTenant);
+    // „Meine Produkte“ nur zeigen, wenn es dort auch etwas gibt.
+    $hasProducts = Auth::check() && isset($currentTenant) && \App\Models\ProductPurchase::where('tenant_id', $currentTenant->id)->where('user_id', Auth::id())->exists();
 @endphp
 <nav x-data="{ open: false }" class="bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -100,6 +102,9 @@
                     </x-slot>
                     <x-slot name="content">
                         <x-dropdown-link :href="route('profile.edit')">Profil</x-dropdown-link>
+                        @if ($hasProducts)
+                            <x-dropdown-link :href="route('products.index')">Meine Produkte</x-dropdown-link>
+                        @endif
                         @if ($isAdmin)
                             <x-dropdown-link :href="route('admin.dashboard')">Bootsschul-Admin</x-dropdown-link>
                         @endif
@@ -132,30 +137,41 @@
     </div>
 
     <div id="mobile-menu" :class="{'block': open, 'hidden': ! open}" class="hidden lg:hidden">
+        {{-- Mobil: die gebuchten Kurse (je mit Fortschritt/Favoriten) stehen in
+             einer aufklappbaren Gruppe „Kurse“ -- sonst schoben sie Profil und
+             Abmelden bei mehreren Kursen weit nach unten. Auf einer Kursseite
+             ist die Gruppe gleich geöffnet. --}}
+        @php($mobileCoursesOpen = request()->routeIs('courses.*', 'progress.show', 'favorites.smart-learning', 'favorites.exam'))
         <div class="pt-2 pb-3 space-y-1">
-            <div class="px-4 pt-1 pb-0.5 text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400">Kurse</div>
-            <div class="pl-6">
-                <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">Lernen</x-responsive-nav-link>
+            <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">Lernen</x-responsive-nav-link>
+            <div x-data="{ coursesOpen: {{ $mobileCoursesOpen ? 'true' : 'false' }} }">
+                <button type="button" @click="coursesOpen = ! coursesOpen" :aria-expanded="coursesOpen.toString()" aria-controls="mobile-menu-courses"
+                        class="w-full flex items-center justify-between ps-3 pe-4 py-2 border-l-4 border-transparent text-start text-base font-medium text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-slate-300 dark:hover:border-slate-600 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500 transition duration-150 ease-in-out">
+                    <span>Kurse @if ($navCourses->isNotEmpty())<span class="text-sm text-slate-500 dark:text-slate-400">({{ $navCourses->count() }})</span>@endif</span>
+                    <span :class="coursesOpen ? 'rotate-90' : ''" class="inline-flex transition-transform"><x-icon name="chevron-right" class="w-4 h-4" /></span>
+                </button>
+                <div id="mobile-menu-courses" x-show="coursesOpen" @unless ($mobileCoursesOpen) style="display: none" @endunless>
+                    @forelse ($navCourses as $navCourse)
+                        <div class="pl-6">
+                            <x-responsive-nav-link :href="route('courses.show', $navCourse)" :active="request()->routeIs('courses.show') && ($course ?? null)?->id === $navCourse->id">
+                                {{ $navCourse->name }}
+                            </x-responsive-nav-link>
+                        </div>
+                        <div class="pl-12">
+                            <x-responsive-nav-link :href="route('progress.show', $navCourse)" :active="request()->routeIs('progress.show') && ($course ?? null)?->id === $navCourse->id">
+                                Fortschritt
+                            </x-responsive-nav-link>
+                            <x-responsive-nav-link :href="route('favorites.smart-learning', $navCourse)" :active="request()->routeIs('favorites.smart-learning', 'favorites.exam') && ($course ?? null)?->id === $navCourse->id">
+                                Favoriten
+                            </x-responsive-nav-link>
+                        </div>
+                    @empty
+                        <div class="pl-6">
+                            <x-responsive-nav-link :href="route('courses.index')" :active="request()->routeIs('courses.*')">Deine Kurse</x-responsive-nav-link>
+                        </div>
+                    @endforelse
+                </div>
             </div>
-            @forelse ($navCourses as $navCourse)
-                <div class="pl-12">
-                    <x-responsive-nav-link :href="route('courses.show', $navCourse)" :active="request()->routeIs('courses.show') && ($course ?? null)?->id === $navCourse->id">
-                        {{ $navCourse->name }}
-                    </x-responsive-nav-link>
-                </div>
-                <div class="pl-20">
-                    <x-responsive-nav-link :href="route('progress.show', $navCourse)" :active="request()->routeIs('progress.show') && ($course ?? null)?->id === $navCourse->id">
-                        Fortschritt
-                    </x-responsive-nav-link>
-                    <x-responsive-nav-link :href="route('favorites.smart-learning', $navCourse)" :active="request()->routeIs('favorites.smart-learning', 'favorites.exam') && ($course ?? null)?->id === $navCourse->id">
-                        Favoriten
-                    </x-responsive-nav-link>
-                </div>
-            @empty
-                <div class="pl-12">
-                    <x-responsive-nav-link :href="route('courses.index')" :active="request()->routeIs('courses.*')">Deine Kurse</x-responsive-nav-link>
-                </div>
-            @endforelse
             <x-responsive-nav-link :href="route('tips.index')" :active="request()->routeIs('tips.index')">Tipps & Tricks</x-responsive-nav-link>
             <x-responsive-nav-link :href="route('offers.index')" :active="request()->routeIs('offers.index')">Angebote</x-responsive-nav-link>
             @if ($hasWillkommensbox)
@@ -172,6 +188,9 @@
             </div>
             <div class="mt-3 space-y-1">
                 <x-responsive-nav-link :href="route('profile.edit')">Profil</x-responsive-nav-link>
+                @if ($hasProducts)
+                    <x-responsive-nav-link :href="route('products.index')" :active="request()->routeIs('products.index')">Meine Produkte</x-responsive-nav-link>
+                @endif
                 @if ($isAdmin)
                     <x-responsive-nav-link :href="route('admin.dashboard')" :active="request()->routeIs('admin.*')">Bootsschul-Admin</x-responsive-nav-link>
                 @endif

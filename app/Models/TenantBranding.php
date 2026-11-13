@@ -30,7 +30,7 @@ class TenantBranding extends Model
         'website', 'exam_readiness_threshold_percent', 'willkommensbox_threshold_percent', 'whatsapp_enabled', 'whatsapp_phone', 'whatsapp_greeting',
         'label_size_a4', 'label_size_a5', 'label_size_a6',
         'course_validity_days', 'renewal_webshop_link',
-        'representative', 'register_entry', 'vat_id', 'require_team_two_factor',
+        'representative', 'register_entry', 'vat_id', 'require_team_two_factor', 'self_registration_enabled',
     ];
 
     protected function casts(): array
@@ -44,6 +44,7 @@ class TenantBranding extends Model
             'label_size_a5' => 'boolean',
             'label_size_a6' => 'boolean',
             'require_team_two_factor' => 'boolean',
+            'self_registration_enabled' => 'boolean',
         ];
     }
 
@@ -54,6 +55,12 @@ class TenantBranding extends Model
             ->filter()
             ->keys()
             ->all();
+    }
+
+    /** „Selbstregistrierung erlauben“ (Standard an; aus = Konten nur per Einladung). */
+    public function allowsSelfRegistration(): bool
+    {
+        return $this->self_registration_enabled !== false;
     }
 
     public function hasVerifiedSupportEmail(): bool

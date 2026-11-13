@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\WillkommensboxOrder;
+use App\Notifications\Concerns\AddsNoReplyHint;
 use App\Notifications\Concerns\EscapesMarkdown;
 use App\Support\MailTemplates;
 use Illuminate\Bus\Queueable;
@@ -17,7 +18,7 @@ use Illuminate\Notifications\Notification;
 class WillkommensboxOrderShipped extends Notification
 {
     // Review: Sendungsnummer kommt von der Schule -- kein Markdown-Link in der Mail.
-    use EscapesMarkdown, Queueable;
+    use AddsNoReplyHint, EscapesMarkdown, Queueable;
 
     public function __construct(private readonly WillkommensboxOrder $order) {}
 
@@ -37,6 +38,6 @@ class WillkommensboxOrderShipped extends Notification
             $message->line('Sendungsnummer: '.self::escapeMarkdown($this->order->tracking_number));
         }
 
-        return MailTemplates::apply($message->action('Zur Willkommensbox', route('willkommensbox.index')), 'willkommensbox_shipped');
+        return self::withNoReplyHint(MailTemplates::apply($message->action('Zur Willkommensbox', route('willkommensbox.index')), 'willkommensbox_shipped'));
     }
 }

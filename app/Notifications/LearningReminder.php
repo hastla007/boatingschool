@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\Tenant;
+use App\Notifications\Concerns\AddsNoReplyHint;
 use App\Notifications\Concerns\EscapesMarkdown;
 use App\Support\CanonicalUrl;
 use App\Support\MailTemplates;
@@ -13,7 +14,7 @@ use Illuminate\Notifications\Notification;
 /** Erinnerung der Bootsschule an Lernende, die länger nicht gelernt haben. */
 class LearningReminder extends Notification
 {
-    use EscapesMarkdown, Queueable;
+    use AddsNoReplyHint, EscapesMarkdown, Queueable;
 
     public function __construct(private readonly Tenant $tenant, private readonly ?int $days) {}
 
@@ -34,6 +35,6 @@ class LearningReminder extends Notification
             // Review-Runde 12: kein eigener Gruß mehr -- die Unterschrift der Mail nennt die Schule.
             ->action('Weiterlernen', CanonicalUrl::root($this->tenant).route('dashboard', [], false));
 
-        return MailTemplates::apply($message, 'learning_reminder', ['schule' => $school, 'tage' => $this->days ? (string) $this->days : '']);
+        return self::withNoReplyHint(MailTemplates::apply($message, 'learning_reminder', ['schule' => $school, 'tage' => $this->days ? (string) $this->days : '']));
     }
 }

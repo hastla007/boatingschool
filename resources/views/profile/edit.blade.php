@@ -18,6 +18,9 @@
                     <header>
                         <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">Deine Buchungen</h2>
                         <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Kurse und Zusatzleistungen, die du oder deine Bootsschule bei uns freigeschaltet habt, sowie deine eigenen Bestellungen und Anmeldungen.</p>
+                        @if ($hasProducts ?? false)
+                            <a href="{{ route('products.index') }}" class="inline-block mt-2 text-sm font-medium underline" style="color: var(--brand-primary, #005FD7)">Meine Produkte und nächste Schritte</a>
+                        @endif
                     </header>
 
                     <div class="mt-4 space-y-2">

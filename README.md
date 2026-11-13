@@ -194,11 +194,15 @@ UBI 17/22, Ergänzung 8/10) nicht abbilden kann.
 php artisan serve
 ```
 
-Jede Bootsschule ist auch lokal unter ihrem Pfad erreichbar, z. B.
-`http://localhost:8000/mueller/`. Zusätzlich gibt es einen Dev-Override:
-`http://localhost:8000/login?as_tenant=mueller` (nur aktiv in
-`APP_ENV=local|testing`). Auf der zentralen Domain ohne gewählten Tenant
-erscheint ein einfacher Bootsschul-Picker.
+Jede Bootsschule ist auch lokal unter ihrem Pfad erreichbar. Zum Anmelden
+mit den Demo-Zugängen unten direkt die Anmeldeseite der Schule öffnen, z. B.
+`http://localhost:8000/mueller/login` -- danach geht es auf
+`http://localhost:8000/mueller/dashboard` weiter. Auf der zentralen Domain
+ohne gewählte Schule (z. B. `http://localhost:8000/login`) landet man nach
+der Anmeldung auf einem einfachen Bootsschul-Picker. Der Dev-Override
+`http://localhost:8000/login?as_tenant=mueller` wirkt nur mit
+`DEV_TENANT_OVERRIDE=true` in der `.env` (und `APP_ENV=local|testing`,
+Aufruf von localhost); ohne diesen Schalter führt auch er auf den Picker.
 
 ### Demo-Zugänge
 

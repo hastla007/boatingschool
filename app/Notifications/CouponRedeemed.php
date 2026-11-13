@@ -5,6 +5,7 @@ namespace App\Notifications;
 use App\Models\CourseDefinition;
 use App\Models\Entitlement;
 use App\Models\Product;
+use App\Notifications\Concerns\AddsNoReplyHint;
 use App\Notifications\Concerns\EscapesMarkdown;
 use App\Support\GermanTime;
 use App\Support\MailTemplates;
@@ -19,7 +20,7 @@ use Illuminate\Notifications\Notification;
 class CouponRedeemed extends Notification
 {
     // Kurs- und Produktnamen pflegt die Plattform, Schulnamen die Schule.
-    use EscapesMarkdown, Queueable;
+    use AddsNoReplyHint, EscapesMarkdown, Queueable;
 
     /** @param array{type: string, course?: CourseDefinition, entitlement?: Entitlement, product?: Product} $result */
     public function __construct(private readonly array $result) {}
@@ -36,10 +37,10 @@ class CouponRedeemed extends Notification
         $until = isset($r['entitlement']) ? GermanTime::format($r['entitlement']->valid_until, 'd.m.Y') : null;
 
         if ($r['type'] === 'product') {
-            return (new MailMessage)
+            return self::withNoReplyHint((new MailMessage)
                 ->subject('Dein Code wurde eingelöst')
                 ->line('„'.self::escapeMarkdown($r['product']->name).'“ wurde deinem Konto gutgeschrieben.')
-                ->action('Zu deinem Profil', route('profile.edit'));
+                ->action('Zu deinen Produkten', route('products.index')));
         }
 
         $name = self::escapeMarkdown($r['course']->name);
@@ -54,6 +55,6 @@ class CouponRedeemed extends Notification
         // Verlängerungen behalten ihren eigenen Betreff; Einleitung/Schluss gelten für beide.
         $template = MailTemplates::apply($message, 'coupon_redeemed', ['kurs' => $r['course']->name]);
 
-        return $r['type'] === 'course_renewal' ? $template->subject('Dein Kurszugang wurde verlängert') : $template;
+        return self::withNoReplyHint($r['type'] === 'course_renewal' ? $template->subject('Dein Kurszugang wurde verlängert') : $template);
     }
 }

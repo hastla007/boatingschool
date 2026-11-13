@@ -51,7 +51,10 @@
                         <td class="px-4 py-2 text-slate-500 dark:text-slate-400">{{ $row->used }}</td>
                     </tr>
                 @empty
-                    <tr><td colspan="3" class="px-4 py-3 text-slate-500 dark:text-slate-400">Noch keine eigenen Codes vorhanden.</td></tr>
+                    <tr><td colspan="3" class="px-4 py-3 text-slate-500 dark:text-slate-400">
+                        Noch keine eigenen Codes vorhanden.
+                        <span class="block text-xs mt-1">Importieren Sie gekaufte Codes über „Codes importieren“ oder bestellen Sie Codes im verknüpften Shop – sie erscheinen dann hier.</span>
+                    </td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -140,7 +143,16 @@
                         <td class="px-4 py-2 text-slate-500 dark:text-slate-400">{{ \App\Support\GermanTime::format($batch->created_at, 'd.m.Y') }}</td>
                     </tr>
                 @empty
-                    <tr><td colspan="4" class="px-4 py-3 text-slate-500 dark:text-slate-400">Noch keine Bestellungen aus dem Shop.</td></tr>
+                    <tr><td colspan="4" class="px-4 py-3 text-slate-500 dark:text-slate-400">
+                        Noch keine Bestellungen aus dem Shop.
+                        <span class="block text-xs mt-1">
+                            @if ($shopAccounts->isEmpty())
+                                Verknüpfen Sie zuerst Ihr Shopkonto („Verknüpfungscode erzeugen“) – Bestellungen und ihre Codes erscheinen danach automatisch hier.
+                            @else
+                                Sobald Sie im verknüpften Shop Codes bestellen, erscheinen die Bestellungen nach der Zahlung hier.
+                            @endif
+                        </span>
+                    </td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -243,6 +255,7 @@
                         Keine Codes gefunden, die zu diesem Filter passen.
                     @else
                         Noch keine Codes für diese Bootsschule.
+                        <span class="block text-xs mt-1">Importieren Sie vorhandene Codes über „Codes importieren“ oder bestellen Sie neue im verknüpften Shop. Codes, die Ihnen der Plattform-Betreiber zuteilt, erscheinen hier automatisch.</span>
                     @endif
                 </td></tr>
             @endforelse

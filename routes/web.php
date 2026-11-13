@@ -39,6 +39,7 @@ use App\Http\Controllers\PraxisExamAppointmentController;
 use App\Http\Controllers\PraxisFormSubmissionController;
 use App\Http\Controllers\PraxisPruefungController;
 use App\Http\Controllers\PraxisTrainerController;
+use App\Http\Controllers\ProductsController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProgressController;
 use App\Http\Controllers\TipController;
@@ -99,6 +100,9 @@ Route::middleware(['auth', 'tenant.member', 'verified'])->group(function () {
 
     Route::get('/willkommensbox', [WillkommensboxController::class, 'index'])->name('willkommensbox.index');
     Route::post('/willkommensbox', [WillkommensboxController::class, 'store'])->name('willkommensbox.store');
+
+    // „Meine Produkte“: eingelöste Zusatzleistungen mit dem nächsten Schritt.
+    Route::get('/produkte', [ProductsController::class, 'index'])->name('products.index');
 
     Route::get('/courses/{course}/learn', [LearningController::class, 'show'])->name('learning.show');
     Route::get('/courses/{course}/learn/overview', [LearningController::class, 'overview'])->name('learning.overview');
