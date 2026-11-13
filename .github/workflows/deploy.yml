@@ -10,13 +10,17 @@ name: Deploy
 #   DEPLOY_KNOWN_HOSTS  Ausgabe von `ssh-keyscan <host>` (schützt vor fremden Servern)
 #   DEPLOY_PATH         App-Verzeichnis, z. B. /var/www/boatingschool
 
+#
+# Ausgerollt wird nur `main`, und nur ein Stand, für den der Workflow
+# „Tests“ grün ist. Der geprüfte Commit wird an deploy.sh übergeben, damit
+# genau dieser Stand auf den Server kommt (auch wenn main inzwischen weiter ist).
+
 on:
   workflow_dispatch:
-    inputs:
-      branch:
-        description: 'Branch'
-        required: true
-        default: 'main'
+
+permissions:
+  contents: read
+  actions: read
 
 concurrency:
   group: deploy
@@ -27,6 +31,22 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     steps:
+      - name: Nur grün getesteten Stand von main ausrollen
+        id: verified
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ "${GITHUB_REF}" != "refs/heads/main" ]; then
+            echo "Deploy nur von main (gestartet von ${GITHUB_REF})."; exit 1
+          fi
+          SHA=$(gh api "repos/$REPO/commits/main" --jq .sha)
+          RESULT=$(gh run list --repo "$REPO" --workflow tests.yml --branch main --commit "$SHA" --json conclusion --jq '.[0].conclusion // "keiner"')
+          if [ "$RESULT" != "success" ]; then
+            echo "Tests für $SHA: $RESULT -- Deploy abgebrochen."; exit 1
+          fi
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+
       - name: SSH vorbereiten
         env:
           SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
@@ -41,8 +61,8 @@ jobs:
           HOST: ${{ secrets.DEPLOY_HOST }}
           USER: ${{ secrets.DEPLOY_USER }}
           APP_PATH: ${{ secrets.DEPLOY_PATH }}
-          BRANCH: ${{ inputs.branch }}
+          SHA: ${{ steps.verified.outputs.sha }}
         run: |
-          case "$BRANCH" in (*[!A-Za-z0-9._/-]*|'') echo "Ungültiger Branch-Name"; exit 1;; esac
+          case "$SHA" in (*[!0-9a-f]*|'') echo "Ungültiger Commit"; exit 1;; esac
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes "$USER@$HOST" \
-            "cd '$APP_PATH' && ./deploy/deploy.sh '$BRANCH'"
+            "cd '$APP_PATH' && ./deploy/deploy.sh main '$SHA'"

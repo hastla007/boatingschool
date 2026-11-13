@@ -37,7 +37,7 @@ class SuperadminUserSupportTest extends TestCase
         $this->onAdmin(fn () => User::findOrFail($user->id)->forceFill(['two_factor_secret' => Totp::generateSecret(), 'two_factor_confirmed_at' => now(), 'two_factor_recovery_codes' => ['x']])->save());
 
         $this->actingAs($superadmin)->get("/superadmin/users/{$user->id}")->assertSee('2FA zurücksetzen');
-        $this->actingAs($superadmin)->post("/superadmin/users/{$user->id}/two-factor/reset")->assertSessionHas('status');
+        $this->actingAs($superadmin)->post("/superadmin/users/{$user->id}/two-factor/reset", ['reason' => 'Rückruf über hinterlegte Nummer'])->assertSessionHas('status');
 
         $this->assertFalse($this->fresh($user)->hasTwoFactor());
         $this->assertNull($this->fresh($user)->two_factor_secret);

@@ -73,6 +73,9 @@ class ConnectorSignatureCompatibilityTest extends TestCase
         // Fachliche Ablehnung: nicht wiederholen.
         $this->assertSame([BS_Delivery_Policy::FAILED, null], BS_Delivery_Policy::decide(403, 1));
         $this->assertSame([BS_Delivery_Policy::FAILED, null], BS_Delivery_Policy::decide(409, 1));
+        // Tageskontingent der Schule: nicht automatisch wiederholen (Freigabe nötig).
+        $this->assertSame([BS_Delivery_Policy::FAILED, null], BS_Delivery_Policy::decide(429, 1, 'CODE_QUOTA_EXCEEDED'));
+        $this->assertSame([BS_Delivery_Policy::RETRY, 1], BS_Delivery_Policy::decide(429, 1, 'RATE_LIMITED'));
         $this->assertSame('woocommerce:1001:7', BS_Delivery_Policy::reference('woocommerce', '1001', '7'));
     }
 }

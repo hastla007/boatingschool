@@ -18,9 +18,25 @@ class CourseAccess
     /** Frisch 5 Minuten, danach bis 1 Stunde als veralteter Wert sofort lieferbar (Neuberechnung nach der Antwort). */
     public const CACHE_TTL = [300, 3600];
 
+    public const CONTENT_VERSION_KEY = 'api-content-version';
+
+    /**
+     * Schlüssel mit Inhaltsversion und Tag: jede Änderung im Superadmin-Bereich
+     * erhöht die Version (AuditSuperadminChanges), und Gültigkeitsfenster von
+     * Fragen („gültig ab/bis“) greifen ab Mitternacht -- die App sieht so
+     * dieselben Fragen wie das Web statt bis zu einer Stunde alter Werte.
+     */
     public static function cacheKey(string $what, CourseDefinition $course): string
     {
-        return "api-course-{$what}:{$course->id}";
+        // memo(): je Request nur einmal aus dem Cache lesen.
+        $version = (int) Cache::memo()->get(self::CONTENT_VERSION_KEY, 1);
+
+        return "api-course-{$what}:{$course->id}:v{$version}:".now('Europe/Berlin')->toDateString();
+    }
+
+    public static function bumpContentVersion(): void
+    {
+        Cache::memo()->forever(self::CONTENT_VERSION_KEY, (int) Cache::get(self::CONTENT_VERSION_KEY, 1) + 1);
     }
 
     /** Zwischenspeicher eines Kurses neu berechnen (app:warm-course-cache). */

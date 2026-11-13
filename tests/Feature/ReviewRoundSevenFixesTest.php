@@ -71,7 +71,7 @@ class ReviewRoundSevenFixesTest extends TestCase
         $superadmin = $this->createSuperAdmin();
         $learner = $this->createTenantUser($tenant, 'learner');
 
-        $link = $this->actingAs($superadmin)->post("http://{$central}/superadmin/users/{$learner->id}/impersonate/{$tenant->id}")->assertOk()->viewData('url');
+        $link = $this->actingAs($superadmin)->post("http://{$central}/superadmin/users/{$learner->id}/impersonate/{$tenant->id}", ['reason' => 'Support-Anfrage im Test'])->assertOk()->viewData('url');
         auth()->logout();
         $this->flushSession();
         $this->get($link)->assertRedirect();

@@ -11,6 +11,10 @@ return [
     // Inaktivität bzw. spätestens nach der Höchstdauer ab Anmeldung.
     'refresh_idle_days' => (int) env('MOBILE_API_REFRESH_IDLE_DAYS', 30),
     'refresh_max_days' => (int) env('MOBILE_API_REFRESH_MAX_DAYS', 90),
+    // Toleranz für die Wiederholung derselben Token-Erneuerung (verlorene
+    // Antwort, parallele Anfragen): innerhalb dieser Sekunden gibt es ein
+    // neues Paar statt der Beendigung der Sitzung.
+    'refresh_reuse_grace_seconds' => (int) env('MOBILE_API_REFRESH_REUSE_GRACE_SECONDS', 60),
     // Gültigkeit einer 2FA-Abfrage nach richtigem Passwort.
     'two_factor_challenge_minutes' => 10,
     // Datenexport: Download-Link und Datei bleiben so lange erhalten.

@@ -11,6 +11,7 @@ use App\Models\Tenant;
 use App\Models\TenantBranding;
 use App\Models\TenantUser;
 use App\Models\User;
+use App\Services\AccountErasureService;
 use App\Services\AccountSetupLink;
 use App\Support\BestEffortMail;
 use App\Support\TenantPath;
@@ -141,6 +142,18 @@ class ShopAccountController extends Controller
             ])->save();
             AuditLog::record(null, $request->user()->id, 'superadmin.commerce.account.rejected', 'commerce_shop_account', $account->id, null, []);
         });
+
+        // Das bei der Registrierung angelegte App-Konto wieder entfernen, wenn es
+        // nie benutzt wurde -- sonst blockiert die (unbestätigte) Adresse z. B.
+        // das spätere Anlegen einer Schule mit ihr als Inhaber.
+        $user = $account->user_id ? User::find($account->user_id) : null;
+        $unused = $user && $user->status === 'invited' && ! $user->is_superadmin
+            && ! TenantUser::withoutGlobalScopes()->where('user_id', $user->id)->exists()
+            && ! CommerceShopAccount::where('user_id', $user->id)->where('id', '!=', $account->id)->exists();
+        if ($unused) {
+            $account->forceFill(['user_id' => null])->save();
+            app(AccountErasureService::class)->deleteAccount($user);
+        }
 
         return back()->with('status', "Shopkonto {$account->email} abgelehnt.");
     }

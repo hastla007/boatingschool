@@ -378,11 +378,16 @@ class CourseDetailWidgetsTest extends TestCase
         $course = $this->existingCourse('SRC');
         $this->grantEntitlement($tenant, $learner, $course);
 
+        // Ohne Store-Links kein Versprechen „bald verfügbar“.
+        $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}")->assertOk()->assertDontSee('Lerne auch auf deinem Handy!');
+
+        config(['mobile_api.store_url.ios' => 'https://apps.apple.com/app/id1', 'mobile_api.store_url.android' => 'https://play.google.com/store/apps/details?id=x']);
         $response = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}");
 
         $response->assertOk();
         $response->assertSee('Lerne auch auf deinem Handy!');
         $response->assertSee('App Store');
         $response->assertSee('Google Play');
+        $response->assertSee('https://apps.apple.com/app/id1', false);
     }
 }

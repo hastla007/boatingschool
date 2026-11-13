@@ -35,4 +35,8 @@ return [
 
     // Höchstmenge je Bestellposition.
     'max_quantity' => 500,
+
+    // Höchstzahl Codes je Schule und Kalendertag (Europe/Berlin) über den Shop;
+    // 0 = ohne Grenze. Darüber: 429 CODE_QUOTA_EXCEEDED und Alarm-Mail.
+    'daily_code_limit' => (int) env('COMMERCE_DAILY_CODE_LIMIT', 1000),
 ];

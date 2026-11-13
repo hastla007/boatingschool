@@ -56,7 +56,7 @@ class DashboardTest extends TestCase
         $response = $this->actingAsInTenant($learner, $tenant)->get('/dashboard');
 
         $response->assertOk();
-        $response->assertSee('Zum Kurs');
+        $response->assertSee('Weiterlernen');
         $response->assertSee('Fortschritt & Statistiken');
         $response->assertSee('Favoriten & Fehler');
         $response->assertSee(route('learning.show', $course));

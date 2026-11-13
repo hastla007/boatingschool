@@ -388,8 +388,9 @@ class ExamController extends Controller
         ]);
 
         $revealed = app(ExamActions::class)->reveal($examSession, (int) $validated['position']);
-        // Doppelklick: die Frage ist schon beantwortet, weiter mit der nächsten.
-        if ($revealed['outcome'] === ExamActions::ALREADY_ANSWERED) {
+        // Doppelklick: die Frage ist schon beantwortet, weiter mit der nächsten;
+        // Zeit abgelaufen: show() wertet aus.
+        if (in_array($revealed['outcome'], [ExamActions::ALREADY_ANSWERED, ExamActions::EXPIRED], true)) {
             return redirect()->route('exam.show', $examSession);
         }
 

@@ -161,6 +161,7 @@ class ShopAccounts
     public function present(CommerceShopAccount $account): array
     {
         $tenant = $account->tenant_id ? Tenant::find($account->tenant_id) : null;
+        $canPurchase = $account->canPurchase();
 
         return [
             'account_id' => $account->id,
@@ -168,7 +169,11 @@ class ShopAccounts
             // Nach außen nie verraten, ob eine Adresse schon ein App-Konto hat:
             // „wartet auf Verknüpfung“ erscheint im Shop wie „in Prüfung“.
             'status' => $account->status === CommerceShopAccount::AWAITING_LINK ? CommerceShopAccount::PENDING_REVIEW : $account->status,
-            'can_purchase' => $account->canPurchase(),
+            'can_purchase' => $canPurchase,
+            // Kurse, die die Schule derzeit erhalten kann (veröffentlicht, auf der
+            // Plattform aktiv, von der Schule nicht abgeschaltet): der Shop prüft
+            // das vor dem Bezahlen, statt nach der Zahlung zu scheitern.
+            'deliverable_course_codes' => $canPurchase ? ShopOrders::deliverableCourseCodes($account->tenant_id) : [],
             // Nur bei bestehender Verknüpfung -- sonst verriete null/gesetzt, ob die
             // Adresse schon ein App-Konto hat.
             'app_user_id' => $account->status === CommerceShopAccount::LINKED ? $account->user_id : null,

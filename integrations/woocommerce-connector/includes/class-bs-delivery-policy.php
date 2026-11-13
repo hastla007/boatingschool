@@ -19,18 +19,26 @@ final class BS_Delivery_Policy
 
     const FAILED = 'failed';
 
+    const CODE_QUOTA_EXCEEDED = 'CODE_QUOTA_EXCEEDED';
+
     /** Wartezeiten bis zum nächsten Versuch (Minuten); danach „Zustellung offen“. */
     const BACKOFF_MINUTES = [1, 5, 30];
 
     /**
      * @param  int|null  $status  HTTP-Status der App (null = keine Antwort / Netzfehler).
      * @param  int  $attempt  Nummer des gerade beendeten Versuchs (ab 1).
+     * @param  string|null  $code  Fehlercode aus dem Body der App (problem+json „code“).
      * @return array{0: string, 1: int|null} Ergebnis und ggf. Minuten bis zum nächsten Versuch.
      */
-    public static function decide(?int $status, int $attempt): array
+    public static function decide(?int $status, int $attempt, ?string $code = null): array
     {
         if ($status !== null && $status >= 200 && $status < 300) {
             return [self::DELIVERED, null];
+        }
+        // Tageskontingent der Schule überschritten: wartet auf Freigabe durch den
+        // Superadmin -- automatisch wiederholen hilft nicht, also wie eine Ablehnung.
+        if ($status === 429 && $code === self::CODE_QUOTA_EXCEEDED) {
+            return [self::FAILED, null];
         }
         // Fachliche Ablehnung (Konto nicht verknüpft, Kurs unbekannt, Konflikt):
         // eine Wiederholung ändert nichts -- sofort an den Support.

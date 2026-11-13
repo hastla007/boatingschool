@@ -2,7 +2,7 @@
 /**
  * Kundenkonten: B2B-Angaben bei der Registrierung, Abgleich mit der App
  * (asynchron über Action Scheduler) und „Mein Konto → Bootsschule
- * verknüpfen“ (Einmalcode aus der App). Passwörter werden nie übertragen.
+ * verknüpfen“ (Einmalcode von der Plattform). Passwörter werden nie übertragen.
  */
 defined('ABSPATH') || exit;
 
@@ -167,7 +167,14 @@ final class BS_Accounts
 
     // ---------------------------------------------------------------- Status / Verknüpfung
 
-    /** Status in der App (5 Minuten zwischengespeichert). @return array{status: string, can_purchase: bool, tenant: ?array}|null */
+    /**
+     * Status in der App (5 Minuten zwischengespeichert).
+     *
+     * deliverable_course_codes: Kurse, die die verknüpfte Schule derzeit erhalten
+     * kann; null, wenn die App die Angabe (noch) nicht liefert.
+     *
+     * @return array{status: string, can_purchase: bool, tenant: ?array, deliverable_course_codes: ?array}|null
+     */
     public static function status(int $customer_id, bool $fresh = false): ?array
     {
         if (! $fresh) {
@@ -184,6 +191,9 @@ final class BS_Accounts
             'status' => (string) ($response['body']['data']['status'] ?? ''),
             'can_purchase' => (bool) ($response['body']['data']['can_purchase'] ?? false),
             'tenant' => $response['body']['data']['tenant'] ?? null,
+            'deliverable_course_codes' => is_array($response['body']['data']['deliverable_course_codes'] ?? null)
+                ? array_values(array_map('strval', $response['body']['data']['deliverable_course_codes']))
+                : null,
         ];
         set_transient(self::STATUS_CACHE.$customer_id, $status, 5 * MINUTE_IN_SECONDS);
 
@@ -231,7 +241,7 @@ final class BS_Accounts
         } elseif ($response['status'] === null || $response['status'] === 404 || $response['status'] >= 500) {
             wc_add_notice(__('Die Bootsschul-Plattform ist gerade nicht erreichbar. Bitte versuchen Sie es später erneut.', 'bs-connector'), 'error');
         } else {
-            wc_add_notice(__('Der Verknüpfungscode ist ungültig oder abgelaufen. Bitte in der App einen neuen erzeugen.', 'bs-connector'), 'error');
+            wc_add_notice(__('Der Verknüpfungscode ist ungültig oder abgelaufen. Bitte auf der Plattform einen neuen erzeugen.', 'bs-connector'), 'error');
         }
         wp_safe_redirect(wc_get_account_endpoint_url(self::ENDPOINT));
         exit;
@@ -254,7 +264,7 @@ final class BS_Accounts
 
             return;
         }
-        echo '<p>'.esc_html__('Haben Sie bereits Zugang zur Plattform? Erzeugen Sie dort im Admin-Bereich unter „Codes“ einen Verknüpfungscode und geben Sie ihn hier ein.', 'bs-connector').'</p>';
+        echo '<p>'.esc_html__('Haben Sie bereits Zugang zur Plattform? Erzeugen Sie dort im Admin-Bereich unter „Coupon-Codes → Shop verknüpfen“ einen Verknüpfungscode und geben Sie ihn hier ein.', 'bs-connector').'</p>';
         ?>
 		<form method="post" class="woocommerce-form">
 			<?php wp_nonce_field('bs_link', '_bs_link_nonce'); ?>

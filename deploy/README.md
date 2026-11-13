@@ -58,10 +58,11 @@ Worker und Deploy-Skript in der Oberfläche ein.
 ## 2. Updates einspielen
 
 ```bash
-cd /var/www/boatingschool && ./deploy/deploy.sh          # Branch main
+cd /var/www/boatingschool && ./deploy/deploy.sh          # Branch main (zieht vorher eine Sicherung)
 ```
 
-Oder in GitHub unter *Actions → Deploy → Run workflow* (Secrets siehe `deploy.yml`).
+Oder in GitHub unter *Actions → Deploy → Run workflow* (Secrets siehe `deploy.yml`). Der
+Workflow rollt nur `main` aus, und nur einen Commit, für den „Tests“ grün ist.
 Bei einem Fehler bleibt die Seite im Wartungsmodus; Ursache beheben und das Skript erneut
 starten. Zurück ohne Update: `php artisan up`.
 
@@ -69,7 +70,8 @@ Das Skript spielt auch Inhaltsupdates ein (`db:seed`, idempotent; Korrekturen au
 Superadmin bleiben erhalten). Darf der Deploy-Benutzer PHP-FPM neu laden, `PHP_FPM_SERVICE=php8.3-fpm`
 setzen (leert den Opcache).
 
-Migrationen sind nur vorwärts gedacht. Vor größeren Updates vorher `php artisan app:backup`.
+Migrationen sind nur vorwärts gedacht. Das Skript zieht deshalb vor jedem Update eine
+Sicherung (`php artisan app:backup`); schlägt sie fehl, bricht der Deploy ab.
 
 ## 3. Datensicherung
 

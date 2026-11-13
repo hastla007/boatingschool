@@ -13,7 +13,7 @@ final class BS_Settings
 {
     const OPTION = 'bs_connector_settings';
 
-    /** @return array{app_url: string, key_id: string, secret: string, inbound_key_id: string, inbound_secret: string, alert_email: string, vat_meta_key: string} */
+    /** @return array{app_url: string, key_id: string, secret: string, inbound_key_id: string, inbound_secret: string, alert_email: string, vat_meta_key: string, blocked_gateways: string} */
     public static function get(): array
     {
         $stored = (array) get_option(self::OPTION, []);
@@ -33,7 +33,22 @@ final class BS_Settings
             'inbound_secret' => $value('BS_CONNECTOR_INBOUND_SECRET', 'inbound_secret'),
             'alert_email' => isset($stored['alert_email']) && $stored['alert_email'] !== '' ? (string) $stored['alert_email'] : (string) get_option('admin_email'),
             'vat_meta_key' => isset($stored['vat_meta_key']) && $stored['vat_meta_key'] !== '' ? (string) $stored['vat_meta_key'] : 'billing_vat_id',
+            // Leer gespeichert = keine Zahlart sperren (bewusste Entscheidung des Shops).
+            'blocked_gateways' => isset($stored['blocked_gateways']) ? (string) $stored['blocked_gateways'] : 'cod',
         ];
+    }
+
+    /**
+     * Zahlarten (Gateway-IDs) ohne bestätigten Zahlungseingang: für Bootsschul-Codes
+     * an der Kasse ausgeblendet, Bestellungen damit werden erst nach Zahlung zugestellt.
+     *
+     * @return string[]
+     */
+    public static function blocked_gateways(): array
+    {
+        $ids = array_values(array_filter(array_map('trim', explode(',', self::get()['blocked_gateways']))));
+
+        return array_values(array_filter(array_map('strval', (array) apply_filters('bs_connector_blocked_gateways', $ids))));
     }
 
     public static function init(): void
@@ -61,6 +76,7 @@ final class BS_Settings
             ['title' => __('Geheimnis (App → Shop)', 'bs-connector'), 'id' => self::OPTION.'[inbound_secret]', 'type' => 'password', 'value' => '', 'placeholder' => self::secret_placeholder('inbound_secret')],
             ['title' => __('Alarm-Adresse', 'bs-connector'), 'id' => self::OPTION.'[alert_email]', 'type' => 'email', 'desc' => __('Erhält eine Mail, wenn eine Zustellung endgültig fehlschlägt. Leer = Admin-Adresse von WordPress.', 'bs-connector')],
             ['title' => __('Meta-Feld der USt-ID', 'bs-connector'), 'id' => self::OPTION.'[vat_meta_key]', 'type' => 'text', 'default' => 'billing_vat_id'],
+            ['title' => __('Gesperrte Zahlarten', 'bs-connector'), 'id' => self::OPTION.'[blocked_gateways]', 'type' => 'text', 'default' => 'cod', 'desc' => __('IDs der Zahlarten ohne bestätigten Zahlungseingang, kommagetrennt (z. B. cod für Nachnahme). Sie werden für Bootsschul-Codes an der Kasse ausgeblendet; Bestellungen damit werden erst nach Zahlungseingang zugestellt.', 'bs-connector')],
             ['type' => 'sectionend', 'id' => 'bs_connector_section'],
         ];
     }

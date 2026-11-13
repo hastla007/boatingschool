@@ -52,7 +52,7 @@ class ImpersonationTest extends TestCase
         $base = "{$this->central}/{$tenant->slug}";
 
         $this->actingAs($superadmin)->get("{$this->central}/superadmin/users/{$learner->id}")->assertSee('Als Nutzer ansehen');
-        $start = $this->actingAs($superadmin)->post("{$this->central}/superadmin/users/{$learner->id}/impersonate/{$tenant->id}")->assertOk();
+        $start = $this->actingAs($superadmin)->post("{$this->central}/superadmin/users/{$learner->id}/impersonate/{$tenant->id}", ['reason' => 'Support-Anfrage im Test'])->assertOk();
         $link = $start->viewData('url');
         $start->assertSee('http-equiv="refresh"', false)->assertSee('Support-Ansicht öffnen');
         $this->assertStringStartsWith("{$base}/impersonate/", $link);
@@ -87,12 +87,12 @@ class ImpersonationTest extends TestCase
         $learner = $this->createTenantUser($tenant, 'learner');
         $suspended = $this->createTenantUser($tenant, 'learner', ['status' => 'suspended']);
 
-        $this->actingAs($superadmin)->post("{$this->central}/superadmin/users/{$otherSuperadmin->id}/impersonate/{$tenant->id}")->assertSessionHasErrors('impersonate');
-        $this->actingAs($superadmin)->post("{$this->central}/superadmin/users/{$suspended->id}/impersonate/{$tenant->id}")->assertSessionHasErrors('impersonate');
-        $this->actingAs($superadmin)->post("{$this->central}/superadmin/users/{$learner->id}/impersonate/{$other->id}")->assertSessionHasErrors('impersonate');
+        $this->actingAs($superadmin)->post("{$this->central}/superadmin/users/{$otherSuperadmin->id}/impersonate/{$tenant->id}", ['reason' => 'Support-Anfrage im Test'])->assertSessionHasErrors('impersonate');
+        $this->actingAs($superadmin)->post("{$this->central}/superadmin/users/{$suspended->id}/impersonate/{$tenant->id}", ['reason' => 'Support-Anfrage im Test'])->assertSessionHasErrors('impersonate');
+        $this->actingAs($superadmin)->post("{$this->central}/superadmin/users/{$learner->id}/impersonate/{$other->id}", ['reason' => 'Support-Anfrage im Test'])->assertSessionHasErrors('impersonate');
 
         // Link einer Schule unter einer anderen Schule eingelöst: abgelehnt.
-        $link = $this->actingAs($superadmin)->post("{$this->central}/superadmin/users/{$learner->id}/impersonate/{$tenant->id}")->viewData('url');
+        $link = $this->actingAs($superadmin)->post("{$this->central}/superadmin/users/{$learner->id}/impersonate/{$tenant->id}", ['reason' => 'Support-Anfrage im Test'])->viewData('url');
         $otherSlug = strtolower($other->slug);
         $this->onAdmin(fn () => Tenant::where('id', $other->id)->update(['slug' => $otherSlug]));
         auth()->logout();
@@ -101,7 +101,7 @@ class ImpersonationTest extends TestCase
 
         // Schul-Admins können keine Ansicht starten.
         $admin = $this->createTenantUser($tenant, 'admin');
-        $this->actingAsInTenant($admin, $tenant)->post("{$this->central}/superadmin/users/{$learner->id}/impersonate/{$tenant->id}")->assertForbidden();
+        $this->actingAsInTenant($admin, $tenant)->post("{$this->central}/superadmin/users/{$learner->id}/impersonate/{$tenant->id}", ['reason' => 'Support-Anfrage im Test'])->assertForbidden();
     }
 
     public function test_the_view_ends_automatically_after_the_time_limit(): void
@@ -111,7 +111,7 @@ class ImpersonationTest extends TestCase
         $learner = $this->createTenantUser($tenant, 'learner');
         $base = "{$this->central}/{$tenant->slug}";
 
-        $link = $this->actingAs($superadmin)->post("{$this->central}/superadmin/users/{$learner->id}/impersonate/{$tenant->id}")->viewData('url');
+        $link = $this->actingAs($superadmin)->post("{$this->central}/superadmin/users/{$learner->id}/impersonate/{$tenant->id}", ['reason' => 'Support-Anfrage im Test'])->viewData('url');
         auth()->logout();
         $this->get($link);
         $this->assertAuthenticatedAs($learner);

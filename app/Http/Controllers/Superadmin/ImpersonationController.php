@@ -26,6 +26,9 @@ class ImpersonationController extends Controller
 {
     public function start(Request $request, User $user, Tenant $tenant): View|RedirectResponse
     {
+        // Anlass der Support-Ansicht (z. B. Ticketnummer) -- steht im Protokoll der Schule.
+        $validated = $request->validate(['reason' => ['required', 'string', 'min:5', 'max:300']],
+            ['reason.required' => 'Bitte den Anlass angeben (z. B. Ticketnummer).']);
         $error = match (true) {
             $user->id === $request->user()->id => 'Das eigene Konto lässt sich nicht ansehen.',
             (bool) $user->is_superadmin => 'Superadmin-Konten lassen sich nicht ansehen.',
@@ -44,6 +47,7 @@ class ImpersonationController extends Controller
             'impersonator_name' => $request->user()->name,
             'user_id' => $user->id,
             'tenant_id' => $tenant->id,
+            'reason' => $validated['reason'],
         ], now()->addSeconds(Impersonation::TOKEN_TTL_SECONDS));
 
         return view('superadmin.users.impersonate', [

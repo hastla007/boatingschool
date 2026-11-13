@@ -48,7 +48,7 @@ class ImpersonationController extends Controller
             'tenant_id' => $tenant->id,
             'started_at' => now()->timestamp,
         ]);
-        $this->audit($tenant->id, $data['impersonator_id'], 'superadmin.impersonate.start', $user->id);
+        $this->audit($tenant->id, $data['impersonator_id'], 'superadmin.impersonate.start', $user->id, isset($data['reason']) ? ['reason' => $data['reason']] : null);
 
         $role = $user->roleForTenant($tenant);
 

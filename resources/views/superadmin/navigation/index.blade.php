@@ -25,7 +25,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                         @if ($task->chart_image_path)
-                            <img src="{{ Storage::disk('public')->url($task->chart_image_path) }}" alt="Kartenausschnitt zu Aufgabe {{ $task->task_number }}" class="w-full rounded-xl border border-slate-100 dark:border-slate-700">
+                            <img src="{{ \App\Support\NavigationChart::url($task->chart_image_path) }}" alt="Kartenausschnitt zu Aufgabe {{ $task->task_number }}" class="w-full rounded-xl border border-slate-100 dark:border-slate-700">
                         @else
                             <div class="h-28 rounded-xl border border-dashed border-slate-300 dark:border-slate-600 flex items-center justify-center text-xs text-slate-600 dark:text-slate-400">Kein Kartenausschnitt</div>
                         @endif

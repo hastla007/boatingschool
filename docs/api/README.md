@@ -148,9 +148,10 @@ POST /auth/login {email, password, device_name, device_platform?, app_version?}
 * **Refresh-Token** (`bsr_…`) wird bei jedem `POST /auth/refresh` ersetzt.
   * Gültig bis 30 Tage ohne Nutzung, höchstens 90 Tage ab Anmeldung.
   * Das **unmittelbar vorherige**, also schon ersetzte Refresh-Token noch
-    einmal benutzt beendet die ganze Gerätesitzung (Diebstahl-Schutz).
-    Ältere Tokens ergeben nur 401.
-  * Bei zwei gleichzeitigen Erneuerungen nur eine abwarten.
+    einmal benutzt: innerhalb von 60 Sekunden nach der Erneuerung (Antwort
+    im Funkloch verloren, zwei gleichzeitige Erneuerungen) gibt es ein neues
+    Paar; später beendet es die ganze Gerätesitzung (Diebstahl-Schutz).
+    Ältere Tokens ergeben nur 401. Immer das zuletzt erhaltene Paar speichern.
 * **Speicherung in der App:** Keychain (iOS) bzw. EncryptedSharedPreferences
   oder Keystore (Android). Auf dem Server liegen nur SHA-256-Hashes.
 * **Abmelden:** `POST /auth/logout` (dieses Gerät),

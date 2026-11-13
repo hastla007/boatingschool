@@ -18,6 +18,9 @@ final class BS_Checkout
         add_action('woocommerce_before_cart_totals', [__CLASS__, 'delivery_notice']);
         // Block-Checkout (Store API) löst woocommerce_after_checkout_validation nicht aus.
         add_action('woocommerce_store_api_checkout_update_order_from_request', [__CLASS__, 'validate_block_checkout']);
+        // Codes erst nach bestätigter Zahlung: Zahlarten wie Nachnahme ausblenden
+        // (gilt für klassischen und Block-Checkout).
+        add_filter('woocommerce_available_payment_gateways', [__CLASS__, 'filter_gateways']);
     }
 
     /** @return string|null Fehlermeldung oder null, wenn der Einkauf möglich ist. */
@@ -72,11 +75,11 @@ final class BS_Checkout
     private static function quantity_blocker(): ?string
     {
         foreach (WC()->cart ? WC()->cart->get_cart() : [] as $item) {
-            if (BS_Products::is_platform_product($item['data'] ?? null) && (int) ($item['quantity'] ?? 0) > BS_Products::MAX_QUANTITY) {
+            if (BS_Products::is_platform_product($item['data'] ?? null) && (int) ($item['quantity'] ?? 0) > BS_Products::max_quantity_limit()) {
                 return sprintf(
                     /* translators: %d: Höchstmenge */
                     __('Bootsschul-Codes können höchstens %d Stück je Position bestellt werden.', 'bs-connector'),
-                    BS_Products::MAX_QUANTITY
+                    BS_Products::max_quantity_limit()
                 );
             }
         }
@@ -84,10 +87,54 @@ final class BS_Checkout
         return null;
     }
 
+    /**
+     * Kurs- und Verlängerungscodes nur für Kurse, die die Schule derzeit erhalten
+     * kann. Nutzt den zwischengespeicherten Status -- an der Kasse hat
+     * purchase_blocker(true) ihn unmittelbar vorher frisch geladen.
+     */
+    private static function deliverability_blocker(): ?string
+    {
+        $status = is_user_logged_in() ? BS_Accounts::status(get_current_user_id()) : null;
+        $deliverable = $status['deliverable_course_codes'] ?? null;
+        // Ältere App ohne diese Angabe: nicht prüfen (die App lehnt bei der Zustellung ab).
+        if (! is_array($deliverable)) {
+            return null;
+        }
+        foreach (WC()->cart ? WC()->cart->get_cart() : [] as $item) {
+            $product = $item['data'] ?? null;
+            if (! BS_Products::is_platform_product($product)) {
+                continue;
+            }
+            $target = BS_Products::target($product);
+            if (in_array($target['kind'], ['course', 'renewal'], true) && ! in_array((string) $target['course_code'], $deliverable, true)) {
+                return sprintf(
+                    /* translators: %s: Produktname */
+                    __('„%s“ kann für Ihre Bootsschule derzeit nicht geliefert werden (Kurs nicht freigeschaltet). Bitte wenden Sie sich an den Support.', 'bs-connector'),
+                    $product->get_name()
+                );
+            }
+        }
+
+        return null;
+    }
+
+    /** Gesperrte Zahlarten (BS_Settings::blocked_gateways) ausblenden, sobald Bootsschul-Codes im Warenkorb sind. */
+    public static function filter_gateways($gateways)
+    {
+        if (! is_array($gateways) || ! self::cart_has_platform_products()) {
+            return $gateways;
+        }
+        foreach (BS_Settings::blocked_gateways() as $id) {
+            unset($gateways[$id]);
+        }
+
+        return $gateways;
+    }
+
     public static function check_cart(): void
     {
         if (self::cart_has_platform_products()) {
-            $blocker = self::purchase_blocker() ?? self::quantity_blocker();
+            $blocker = self::purchase_blocker() ?? self::quantity_blocker() ?? self::deliverability_blocker();
             if ($blocker !== null) {
                 wc_add_notice($blocker, 'error');
             }
@@ -98,7 +145,7 @@ final class BS_Checkout
     public static function validate_checkout($data, WP_Error $errors): void
     {
         if (self::cart_has_platform_products()) {
-            $blocker = self::purchase_blocker(true) ?? self::quantity_blocker();
+            $blocker = self::purchase_blocker(true) ?? self::quantity_blocker() ?? self::deliverability_blocker();
             if ($blocker !== null) {
                 $errors->add('bs_connector', $blocker);
             }
@@ -111,7 +158,7 @@ final class BS_Checkout
         if (! self::cart_has_platform_products()) {
             return;
         }
-        $blocker = self::purchase_blocker(true) ?? self::quantity_blocker();
+        $blocker = self::purchase_blocker(true) ?? self::quantity_blocker() ?? self::deliverability_blocker();
         if ($blocker === null) {
             return;
         }

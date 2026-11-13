@@ -12,7 +12,9 @@ use App\Support\GermanTime;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\Response;
@@ -43,7 +45,8 @@ class CouponController extends Controller
         $validated = $request->validate([
             'target' => ['required', 'string'],
             'option_product_ids' => ['nullable', 'array'],
-            'option_product_ids.*' => ['uuid', 'exists:product,id'],
+            // Nur aktive Produkte als Zusatzprodukt (inaktive ließen sich nicht einlösen).
+            'option_product_ids.*' => ['uuid', Rule::exists('product', 'id')->where('active', true)],
             'tenant_id' => ['nullable', 'uuid', 'exists:tenant,id'],
             'quantity' => ['required', 'integer', 'min:1', 'max:500'],
             'batch_label' => ['nullable', 'string', 'max:255'],
@@ -79,25 +82,31 @@ class CouponController extends Controller
             ? Carbon::parse($validated['expires_on'], 'Europe/Berlin')->endOfDay()->utc()
             : null;
 
-        $codes = [];
-        for ($i = 0; $i < $quantity; $i++) {
-            $coupon = Coupon::create([
-                'code' => Coupon::generateUniqueCode(),
-                'course_id' => $type === 'product' ? null : $targetId,
-                'product_id' => $type === 'product' ? $targetId : null,
-                'is_renewal' => $type === 'renewal',
-                'tenant_id' => $validated['tenant_id'] ?? null,
-                'batch_label' => $batchLabel,
-                'created_by_user_id' => $request->user()->id,
-                'expires_at' => $expiresAt,
-            ]);
+        // Alles oder nichts: bricht die Erzeugung ab (Timeout, Fehler), bleibt kein
+        // halber Satz Codes ohne Protokolleintrag zurück.
+        $codes = DB::transaction(function () use ($quantity, $type, $targetId, $validated, $batchLabel, $request, $expiresAt, $optionProductIds) {
+            $codes = [];
+            for ($i = 0; $i < $quantity; $i++) {
+                $coupon = Coupon::create([
+                    'code' => Coupon::generateUniqueCode(),
+                    'course_id' => $type === 'product' ? null : $targetId,
+                    'product_id' => $type === 'product' ? $targetId : null,
+                    'is_renewal' => $type === 'renewal',
+                    'tenant_id' => $validated['tenant_id'] ?? null,
+                    'batch_label' => $batchLabel,
+                    'created_by_user_id' => $request->user()->id,
+                    'expires_at' => $expiresAt,
+                ]);
 
-            if (! empty($optionProductIds)) {
-                $coupon->optionProducts()->attach($optionProductIds);
+                if (! empty($optionProductIds)) {
+                    $coupon->optionProducts()->attach($optionProductIds);
+                }
+
+                $codes[] = $coupon->code;
             }
 
-            $codes[] = $coupon->code;
-        }
+            return $codes;
+        });
 
         // Sicherheitsreview S4: die Erzeugung von Coupon-Codes (potenziell
         // kostenlose Freischaltungen, bis zu 500 pro Aufruf) wurde bisher

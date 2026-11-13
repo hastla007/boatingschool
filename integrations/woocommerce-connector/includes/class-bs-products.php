@@ -29,7 +29,7 @@ final class BS_Products
         add_filter('woocommerce_store_api_product_quantity_maximum', [__CLASS__, 'max_quantity'], 10, 2);
     }
 
-    /** @return array{courses: array, products: array} Katalog der App (15 Minuten zwischengespeichert). */
+    /** @return array{courses: array, products: array, max_quantity: ?int} Katalog der App (15 Minuten zwischengespeichert). */
     public static function catalog(): array
     {
         $cached = get_transient('bs_connector_catalog');
@@ -40,6 +40,7 @@ final class BS_Products
         $catalog = [
             'courses' => $response['body']['data']['courses'] ?? [],
             'products' => $response['body']['data']['products'] ?? [],
+            'max_quantity' => isset($response['body']['data']['max_quantity']) ? (int) $response['body']['data']['max_quantity'] : null,
         ];
         if ($response['status'] === 200) {
             set_transient('bs_connector_catalog', $catalog, 15 * MINUTE_IN_SECONDS);
@@ -48,8 +49,21 @@ final class BS_Products
         return $catalog;
     }
 
-    /** Höchstmenge je Bestellposition (wie COMMERCE max_quantity der Plattform). */
+    /** Höchstmenge je Bestellposition, falls der Katalog keine liefert (wie COMMERCE max_quantity der Plattform). */
     const MAX_QUANTITY = 500;
+
+    /** Höchstmenge je Bestellposition laut Katalog der Plattform, sonst MAX_QUANTITY. */
+    public static function max_quantity_limit(): int
+    {
+        // Je Seitenaufruf nur einmal ermitteln (Mengenfelder fragen je Produkt).
+        static $limit = null;
+        if ($limit === null) {
+            $value = (int) (self::catalog()['max_quantity'] ?? 0);
+            $limit = $value > 0 ? $value : self::MAX_QUANTITY;
+        }
+
+        return $limit;
+    }
 
     /** Die Zuordnung steht am Hauptprodukt -- auch für dessen Varianten. */
     public static function source($product): ?WC_Product
@@ -87,7 +101,9 @@ final class BS_Products
             return $max;
         }
 
-        return ($max === -1 || $max === '' || (int) $max <= 0) ? self::MAX_QUANTITY : min((int) $max, self::MAX_QUANTITY);
+        $limit = self::max_quantity_limit();
+
+        return ($max === -1 || $max === '' || (int) $max <= 0) ? $limit : min((int) $max, $limit);
     }
 
     /** @return array{kind: string, course_code: ?string, product_code: ?string, option_product_codes: array} */

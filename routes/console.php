@@ -1,5 +1,6 @@
 <?php
 
+use App\Support\OpsAlert;
 use App\Support\ProductionReadiness;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -53,7 +54,18 @@ Schedule::command('app:remind-expiring-entitlements')->dailyAt('09:00')->timezon
 Schedule::command('app:expire-abandoned-exam-sessions')->hourly()->onOneServer()->withoutOverlapping(55);
 
 // Go-live B2: tägliche Datensicherung (Datenbank und Uploads, siehe config/backup.php).
-Schedule::command('app:backup')->dailyAt('03:15')->timezone('Europe/Berlin')->onOneServer()->withoutOverlapping(180);
+Schedule::command('app:backup')->dailyAt('03:15')->timezone('Europe/Berlin')->onOneServer()->withoutOverlapping(180)
+    // Eigener Prozess: der Dump blockiert die übrigen Aufgaben nicht.
+    ->runInBackground()
+    ->onFailure(OpsAlert::forTask('Datensicherung (app:backup)'));
+
+// Go-live-Check täglich: Fehler (z. B. Scheduler steht, Sicherung fehlt,
+// Platzhalter) per Mail an OPS_ALERT_EMAIL bzw. die Support-Adresse.
+Schedule::command('app:check-production')->dailyAt('07:40')->timezone('Europe/Berlin')->onOneServer()
+    ->onFailure(OpsAlert::forTask('Go-live-Check (app:check-production)'));
+
+// Datenbank-Cache: abgelaufene Einträge werden ohne Lesezugriff nie entfernt.
+Schedule::call(fn () => OpsAlert::pruneExpiredCache())->name('prune-expired-cache')->dailyAt('04:20')->timezone('Europe/Berlin')->onOneServer();
 
 // Go-live B5: Lebenszeichen des Schedulers für app:check-production.
 Schedule::call(fn () => Cache::forever(ProductionReadiness::SCHEDULER_HEARTBEAT_KEY, now()->timestamp))

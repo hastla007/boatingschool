@@ -1,5 +1,7 @@
 <?php
 
+use App\Support\SentryScrubber;
+
 /**
  * Sentry Laravel SDK configuration file.
  *
@@ -60,6 +62,9 @@ return [
 
     // @see: https://docs.sentry.io/platforms/php/guides/laravel/configuration/options/#send_default_pii
     'send_default_pii' => false,
+
+    // Tokens in URLs, Signaturen und E-Mail-Adressen vor dem Versand entfernen.
+    'before_send' => [SentryScrubber::class, 'scrub'],
 
     // Keine Request-Bodies übertragen (Passwörter, Antworten, Formulardaten).
     'max_request_body_size' => 'never',

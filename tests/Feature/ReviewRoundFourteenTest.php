@@ -2,17 +2,20 @@
 
 namespace Tests\Feature;
 
+use App\Api\CourseAccess;
 use App\Models\CommerceShopAccount;
 use App\Models\Coupon;
 use App\Models\Entitlement;
+use App\Models\PlatformAnnouncement;
 use App\Models\Product;
 use App\Models\User;
 use App\Support\Totp;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
-/** Review-Runden 14/15: Superadmin-2FA, Löschung von Shopdaten, Bündel-Codes, Code-Import, Testschulen. */
+/** Review-Runden 14–16: Superadmin-2FA, Shopdaten, Bündel-Codes, Code-Import, Testschulen, Pflichtgründe, Limits. */
 class ReviewRoundFourteenTest extends TestCase
 {
     use InteractsWithTenants;
@@ -113,6 +116,54 @@ class ReviewRoundFourteenTest extends TestCase
         $this->onAdmin(fn () => $trial->update(['status' => 'trial']));
 
         $this->get('http://127.0.0.1/tls-check?domain='.urlencode($trial->slug.'.'.config('app.central_domain')))->assertOk();
+    }
+
+    public function test_support_actions_need_a_reason(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $this->onAdmin(fn () => User::findOrFail($learner->id)->forceFill(['two_factor_secret' => Totp::generateSecret(), 'two_factor_confirmed_at' => now()])->save());
+
+        $this->actingAs($superadmin)->post("/superadmin/users/{$learner->id}/two-factor/reset")->assertSessionHasErrors('reason');
+        $this->assertTrue($this->onAdmin(fn () => User::findOrFail($learner->id)->hasTwoFactor()));
+        $this->actingAs($superadmin)->post("/superadmin/users/{$learner->id}/impersonate/{$tenant->id}")->assertSessionHasErrors('reason');
+    }
+
+    public function test_announcement_mails_are_limited_per_day(): void
+    {
+        Notification::fake();
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'admin');
+        foreach (range(1, 3) as $i) {
+            $this->actingAsInTenant($admin, $tenant)->post('/admin/announcements', ['title' => "Info {$i}", 'body' => 'Text', 'send_mail' => '1'])->assertSessionHasNoErrors();
+        }
+        $this->actingAsInTenant($admin, $tenant)->post('/admin/announcements', ['title' => 'Info 4', 'body' => 'Text', 'send_mail' => '1'])->assertSessionHasErrors('send_mail');
+        // Ohne Mail weiterhin möglich.
+        $this->actingAsInTenant($admin, $tenant)->post('/admin/announcements', ['title' => 'Info 5', 'body' => 'Text'])->assertSessionHasNoErrors();
+    }
+
+    public function test_codes_copied_from_pdfs_or_mails_are_recognised(): void
+    {
+        $coupon = $this->onAdmin(fn () => Coupon::create(['code' => Coupon::generateUniqueCode(), 'course_id' => $this->existingCourse('SRC')->id]));
+        [$a, $b, $c, $d] = explode('-', $coupon->code);
+        // Geschütztes Leerzeichen, Gedankenstrich, Zero-Width-Zeichen, Kleinschreibung.
+        $messy = strtolower($a)."\u{00A0}{$b}–{$c}\u{200B}-{$d} ";
+        $this->assertSame($coupon->id, $this->onAdmin(fn () => Coupon::lookup($messy)?->id));
+    }
+
+    public function test_superadmin_changes_refresh_the_app_course_cache(): void
+    {
+        $course = $this->existingCourse('SRC');
+        $before = CourseAccess::cacheKey('valid-qids', $course);
+        $superadmin = $this->createSuperAdmin();
+        // Beliebige erfolgreiche Änderung im Superadmin-Bereich.
+        $tenant = $this->createTestTenant();
+        $this->actingAs($superadmin)->post('/superadmin/announcements', [
+            'title' => 'Wartung', 'body' => 'Kurz offline.', 'target' => 'selected', 'tenant_ids' => [$tenant->id], 'audience' => 'team',
+        ])->assertSessionHasNoErrors();
+        $this->assertNotSame($before, CourseAccess::cacheKey('valid-qids', $course));
+        $this->onAdmin(fn () => PlatformAnnouncement::where('title', 'Wartung')->delete());
     }
 
     public function test_manual_unlock_uses_plain_course_codes_before_bundles(): void

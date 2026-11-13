@@ -6,9 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\CourseDefinition;
 use App\Models\NavigationTask;
+use App\Support\NavigationChart;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -39,11 +39,12 @@ class NavigationChartController extends Controller
         $old = $task->chart_image_path;
         if ($request->hasFile('chart')) {
             $file = $request->file('chart');
-            $values['chart_image_path'] = $file->storeAs('navigation-charts', $task->id.'-'.Str::random(8).'.'.$file->extension(), 'public');
+            // Privat speichern: Auslieferung nur über signierte Adressen (NavigationChart).
+            $values['chart_image_path'] = $file->storeAs(NavigationChart::DIRECTORY, $task->id.'-'.Str::random(8).'.'.$file->extension(), NavigationChart::DISK);
         }
         $task->update($values);
         if ($old && isset($values['chart_image_path'])) {
-            Storage::disk('public')->delete($old);
+            NavigationChart::delete($old);
         }
         AuditLog::record(null, $request->user()->id, 'superadmin.navigation_chart.update', 'navigation_task', $task->id, null, ['task_number' => $task->task_number]);
 
@@ -53,9 +54,7 @@ class NavigationChartController extends Controller
 
     public function destroy(Request $request, NavigationTask $task): RedirectResponse
     {
-        if ($task->chart_image_path) {
-            Storage::disk('public')->delete($task->chart_image_path);
-        }
+        NavigationChart::delete($task->chart_image_path);
         $task->update(['chart_image_path' => null, 'chart_caption' => null]);
         AuditLog::record(null, $request->user()->id, 'superadmin.navigation_chart.delete', 'navigation_task', $task->id, null, ['task_number' => $task->task_number]);
 

@@ -71,7 +71,8 @@ oder in der App ein (`POST /api/v1/coupons/redeem`).
    - Ergebnis `2xx`: zugestellt, mit Bestellnotiz.
    - Keine Antwort, 408, 429 oder 5xx: neuer Versuch nach 1, 5 und 30 Minuten, höchstens vier Versuche.
    - Eine Wiederholung derselben Position bestätigt eine schon erfolgte Lieferung immer – auch wenn inzwischen die Verknüpfung gelöst oder der Kurs abgeschaltet wurde.
-   - Sonstiges `4xx` (z. B. Konto nicht verknüpft, Kurs abgeschaltet): sofort „fehlgeschlagen“.
+   - Sonstiges `4xx` (z. B. Konto nicht verknüpft, Kurs abgeschaltet) und 429 `CODE_QUOTA_EXCEEDED`: sofort „fehlgeschlagen“.
+   - **Tageskontingent:** Je Schule und Tag höchstens `COMMERCE_DAILY_CODE_LIMIT` Codes (Standard 1000). Darüber: 429 `CODE_QUOTA_EXCEEDED` und Alarm-Mail an den Betreiber. Ist die Bestellung echt, das Kontingent vorübergehend anheben und im Shop „Erneut zustellen“ auslösen.
    - Bei „fehlgeschlagen“: Bestellnotiz, Alarm-Mail und Knopf „Erneut zustellen“ in der Bestellung. Dieselbe Referenz liefert höchstens einmal.
 4. Die Codes erscheinen bei der Schule unter Admin → Codes. Die Tabelle „Bestellungen aus dem Shop“ zeigt Menge, eingelöste Codes und Status.
 
@@ -109,13 +110,13 @@ Die Signatur wird geprüft, bevor die Owner-Verbindung aktiv wird und bevor gedr
 
 | Methode und Pfad | Zweck | Wichtige Fehler |
 |---|---|---|
-| `GET /catalog` | Kurse (`code`, `name`) und Produkte für die Produktzuordnung | |
+| `GET /catalog` | Kurse (`code`, `name`), Produkte und `max_quantity` für die Produktzuordnung | |
 | `POST /accounts` | Registrierung (`shop_customer_id`, `email`, Name, `company_name`, `billing_country`, `vat_id`). 201 neu, 200 Wiederholung | 422 |
-| `GET /accounts/{customerId}` | Status, `can_purchase`, Schule | 404 |
+| `GET /accounts/{customerId}` | Status, `can_purchase`, Schule, `deliverable_course_codes` | 404 |
 | `PATCH /accounts/{customerId}` | Kontaktdaten aus dem Shop | 404 |
 | `POST /accounts/{customerId}/link` | `link_code` | 422 `LINK_CODE_INVALID`, 409 `ACCOUNT_REJECTED`, 429 |
 | `POST /accounts/{customerId}/deactivate` | Shopkunde gelöscht: keine Einkäufe mehr | |
-| `POST /orders/lines` | Lieferauftrag (`shop_customer_id`, `order_id`, `order_line_id`, `order_number`, `kind` = course, renewal oder product, `course_code` bzw. `product_code`, `option_product_codes`, `quantity` ≤ 500, `delivery=platform`). 201 neu, 200 Wiederholung | 403 `ACCOUNT_NOT_LINKED`, 422 `UNKNOWN_COURSE`, `COURSE_NOT_AVAILABLE`, `UNKNOWN_PRODUCT`, 409 `ORDER_LINE_CONFLICT` |
+| `POST /orders/lines` | Lieferauftrag (`shop_customer_id`, `order_id`, `order_line_id`, `order_number`, `kind` = course, renewal oder product, `course_code` bzw. `product_code`, `option_product_codes`, `quantity` ≤ `max_quantity` (500), `delivery=platform`). 201 neu, 200 Wiederholung | 403 `ACCOUNT_NOT_LINKED`, 422 `UNKNOWN_COURSE`, `COURSE_NOT_AVAILABLE`, `UNKNOWN_PRODUCT`, 409 `ORDER_LINE_CONFLICT`, 429 `CODE_QUOTA_EXCEEDED` (Tageskontingent der Schule) |
 | `GET /orders/{orderId}/lines/{lineId}` | Status einer Position | 404 `BATCH_NOT_FOUND` |
 | `GET /batches/{id}` | Status eines Pakets | 404 `BATCH_NOT_FOUND` |
 | `POST /batches/{id}/void` | `reason`, optional `quantity`. Header `Idempotency-Key` ist Pflicht | 422 |
@@ -156,12 +157,14 @@ Action Scheduler. Außerdem:
 - **Permalinks** dürfen nicht auf „Einfach“ stehen, sonst ist
   `/wp-json/boatingschool/v1/provision` nicht erreichbar.
 - Produkte mit **Varianten** sind möglich; die Zuordnung steht am Hauptprodukt.
-- Höchstens 500 Codes je Bestellposition (wird im Shop begrenzt).
+- Höchstmenge je Bestellposition aus dem Katalog (`max_quantity`, derzeit 500), im Shop begrenzt.
+- Warenkorb und Kasse prüfen, ob die verknüpfte Schule den Kurs erhalten kann (`deliverable_course_codes` aus `GET /accounts/{id}`), damit nicht nach der Zahlung eine Lieferung scheitert.
 - **Klassischer und Block-Checkout** prüfen unmittelbar vor der Bestellung
   frisch, ob das Konto einkaufen darf.
-- Zahlarten, die Bestellungen ohne Zahlungseingang auf „In Bearbeitung“
-  setzen (z. B. Nachnahme), lösen die Zustellung sofort aus. Für Codes
-  sollten nur Zahlarten mit bestätigter Zahlung freigeschaltet sein.
+- Zahlarten ohne bestätigten Zahlungseingang (Standard: Nachnahme `cod`; Einstellung
+  „Gesperrte Zahlarten“ bzw. Filter `bs_connector_blocked_gateways`) werden für Warenkörbe mit
+  Bootsschul-Codes ausgeblendet. Bestellungen mit einer solchen Zahlart werden erst zugestellt,
+  wenn das Gateway die Zahlung bestätigt oder die Bestellung auf „Abgeschlossen“ gesetzt wird.
 
 **Test:** Das Plugin wurde nicht gegen ein echtes WordPress getestet. Geprüft
 sind:

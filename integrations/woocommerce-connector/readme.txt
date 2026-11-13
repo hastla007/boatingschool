@@ -14,7 +14,18 @@ Verkauft Codes der Bootsschul-Plattform über WooCommerce. Nach der Zahlung werd
 * Einkaufen kann nur, wer mit einer aktiven Bootsschule verknüpft ist: per Verknüpfungscode aus der Plattform („Mein Konto → Bootsschule verknüpfen“) oder nach Freigabe einer Neuregistrierung durch den Plattform-Betreiber.
 * Genau ein Code-Paket je Bestellposition. Wiederholte Zustellungen nach Zeitüberschreitung erzeugen keine zusätzlichen Codes.
 * Rückerstattung oder Storno sperrt unbenutzte Codes. Bereits eingelöste Codes bleiben gültig.
-* Endgültig fehlgeschlagene Zustellungen erzeugen eine Bestellnotiz, eine Alarm-Mail und den Knopf „Erneut zustellen“.
+* Endgültig fehlgeschlagene Zustellungen erzeugen eine Bestellnotiz, eine Alarm-Mail und den Knopf „Erneut zustellen“. Ist das Tageskontingent der Schule für Codes überschritten (`CODE_QUOTA_EXCEEDED`), wird nicht automatisch wiederholt: Nach der Freigabe durch den Superadmin „Erneut zustellen“ klicken.
+* Höchstmenge je Position kommt aus dem Katalog der Plattform (`max_quantity`, sonst 500).
+* Kurs- und Verlängerungscodes lassen sich nur für Kurse bestellen, die die verknüpfte Schule derzeit erhalten kann.
+* Rückerstattungen nur als Betrag (ohne Positionsmenge) sperren keine Codes; das Plugin meldet sie per Bestellnotiz und Alarm-Mail.
+
+== Zahlarten ==
+
+Codes werden nur nach bestätigter Zahlung zugestellt.
+
+* Zahlarten ohne bestätigten Zahlungseingang werden an der Kasse ausgeblendet, sobald Bootsschul-Codes im Warenkorb liegen. Standard: `cod` (Nachnahme). Einstellbar unter „Gesperrte Zahlarten“ (Gateway-IDs, kommagetrennt; leer = keine sperren) oder per Filter `bs_connector_blocked_gateways`.
+* Bestellungen mit einer dieser Zahlarten (z. B. im Backend angelegt) werden beim Wechsel auf „In Bearbeitung“ nicht zugestellt, sondern erhalten einmalig eine Bestellnotiz. Zugestellt wird, sobald die Zahlung verbucht ist: wenn das Gateway den Zahlungseingang meldet (`woocommerce_payment_complete`) oder die Bestellung nach Zahlungseingang auf „Abgeschlossen“ gesetzt wird. Das Zahlungsdatum allein genügt nicht, weil WooCommerce es schon beim Wechsel auf „In Bearbeitung“ setzt.
+* Alle anderen Zahlarten liefern wie bisher, sobald die Bestellung bezahlt ist („In Bearbeitung“ oder „Abgeschlossen“).
 
 == Installation ==
 

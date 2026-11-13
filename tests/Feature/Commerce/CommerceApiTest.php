@@ -271,6 +271,28 @@ class CommerceApiTest extends TestCase
         }
     }
 
+    public function test_daily_code_quota_catalog_limit_and_deliverable_courses(): void
+    {
+        config(['commerce.daily_code_limit' => 3]);
+        [$tenant, , $customerId] = $this->linkedAccount();
+        $this->signed('GET', '/catalog')->assertOk()->assertJsonPath('data.max_quantity', 500);
+
+        // Lieferbare Kurse der Schule: ohne die abgeschalteten.
+        $codes = $this->signed('GET', "/accounts/{$customerId}")->assertOk()->json('data.deliverable_course_codes');
+        $this->assertContains('SRC', $codes);
+        $this->onAdmin(fn () => TenantCourseDisabled::create(['tenant_id' => $tenant->id, 'course_id' => $this->existingCourse('SRC')->id]));
+        $this->assertNotContains('SRC', $this->signed('GET', "/accounts/{$customerId}")->json('data.deliverable_course_codes'));
+        $this->onAdmin(fn () => TenantCourseDisabled::where('tenant_id', $tenant->id)->delete());
+
+        $line = ['shop_customer_id' => $customerId, 'order_id' => '9500', 'kind' => 'course', 'course_code' => 'SRC', 'quantity' => 2];
+        $this->signed('POST', '/orders/lines', ['order_line_id' => '1'] + $line)->assertCreated();
+        // 2 + 2 > 3: abgelehnt, keine Codes.
+        $this->signed('POST', '/orders/lines', ['order_line_id' => '2'] + $line)->assertStatus(429)->assertJsonPath('code', 'CODE_QUOTA_EXCEEDED');
+        $this->signed('GET', '/orders/9500/lines/2')->assertNotFound();
+        // Wiederholung der schon gelieferten Position zählt nicht noch einmal.
+        $this->signed('POST', '/orders/lines', ['order_line_id' => '1'] + $line)->assertOk();
+    }
+
     public function test_refund_voids_only_unused_codes_and_is_idempotent(): void
     {
         [$tenant, , $customerId] = $this->linkedAccount();

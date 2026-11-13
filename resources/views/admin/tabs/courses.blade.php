@@ -67,6 +67,8 @@
                            class="rounded border-slate-300">
                     <span class="text-sm text-slate-700 dark:text-slate-200">{{ $course->name }}</span>
                 </label>
+                {{-- Nur die hier angezeigten Kurse werden beim Speichern geändert. --}}
+                <input type="hidden" name="shown[]" value="{{ $course->id }}">
                 <div class="flex-1">
                     <input type="url" name="links[{{ $course->id }}]" aria-label="Webshop-Link für {{ $course->name }}" placeholder="https://ihr-webshop.de/produkt/... (optional)"
                            value="{{ old('links.'.$course->id, $webshopLinks->get($course->id)) }}"

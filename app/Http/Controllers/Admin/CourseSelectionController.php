@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
+use App\Models\Coupon;
 use App\Models\CourseDefinition;
 use App\Models\CourseExamRegistration;
 use App\Models\CourseWebshopLink;
@@ -48,6 +49,10 @@ class CourseSelectionController extends Controller
         $validated = $request->validate([
             'enabled' => ['array'],
             'enabled.*' => ['uuid'],
+            // Kurse, die das Formular angezeigt hat: ein inzwischen plattformweit
+            // neu freigeschalteter Kurs wird so nicht unbemerkt abgeschaltet.
+            'shown' => ['array'],
+            'shown.*' => ['uuid'],
             'links' => ['array'],
             // Sicherheitsreview N1: die bloße "url"-Regel lässt auch
             // javascript:/data:/file:-Schemata durch, die als href in
@@ -77,7 +82,9 @@ class CourseSelectionController extends Controller
         $links = collect($validated['links'] ?? []);
         $registrations = collect($validated['registration'] ?? []);
         $courses = CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')
-            ->where('site_enabled', true)->get();
+            ->where('site_enabled', true)
+            ->when($request->has('shown'), fn ($q) => $q->whereIn('id', $validated['shown'] ?? []))
+            ->get();
 
         foreach ($courses as $course) {
             $courseId = $course->id;
@@ -122,6 +129,16 @@ class CourseSelectionController extends Controller
         }
         if ($before['registrations'] !== $after['registrations']) {
             AuditLog::record($tenant->id, $request->user()->id, 'exam-registration.update', 'course_exam_registration', $tenant->id, $before['registrations'], $after['registrations']);
+        }
+
+        // Neu abgeschaltete Kurse mit noch offenen, im Shop bezahlten Codes:
+        // diese Codes lassen sich jetzt nicht mehr einlösen.
+        $newlyDisabled = array_diff($after['disabled'], $before['disabled']);
+        $openShopCodes = $newlyDisabled === [] ? 0 : Coupon::where('tenant_id', $tenant->id)->whereIn('course_id', $newlyDisabled)
+            ->whereNotNull('batch_id')->whereNull('redeemed_at')->whereNull('voided_at')->count();
+        if ($openShopCodes > 0) {
+            return back()->with('status', "Kursauswahl aktualisiert. Achtung: Für abgeschaltete Kurse liegen noch {$openShopCodes} unbenutzte, im Shop gekaufte Code(s) im Bestand. "
+                    .'Sie lassen sich erst wieder einlösen, wenn der Kurs erneut freigeschaltet ist.');
         }
 
         return back()->with('status', 'Kursauswahl aktualisiert.');

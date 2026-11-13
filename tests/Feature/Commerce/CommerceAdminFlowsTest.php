@@ -171,6 +171,14 @@ class CommerceAdminFlowsTest extends TestCase
         $this->assertSame('learner', $this->onAdmin(fn () => TenantUser::withoutGlobalScopes()->where('tenant_id', $tenant->id)->where('user_id', $account->user_id)->value('role')));
         $this->assertSame('pending_review', $this->onAdmin(fn () => $account->fresh()->status));
 
+        // Ablehnen entfernt das nie benutzte, bei der Registrierung angelegte App-Konto
+        // (die Adresse ist danach wieder frei) -- hier nicht, weil die Person schon
+        // Lernende der Schule ist.
+        $unused = $this->register('813', 'frei-'.Str::lower(Str::random(6)).'@example.test');
+        $this->actingAs($superadmin)->post(route('superadmin.shop-accounts.reject', $unused))->assertRedirect();
+        $this->assertNull($this->onAdmin(fn () => User::find($unused->user_id)), 'unbenutztes App-Konto entfernt');
+        $this->assertNull($this->onAdmin(fn () => $unused->fresh()->user_id));
+
         // Bereits abgelehnt: nicht noch einmal ablehnen/freigeben.
         $this->actingAs($superadmin)->post(route('superadmin.shop-accounts.reject', $account))->assertRedirect();
         $this->actingAs($superadmin)->post(route('superadmin.shop-accounts.reject', $account))->assertStatus(409);

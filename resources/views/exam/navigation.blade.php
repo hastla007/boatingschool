@@ -52,8 +52,8 @@
 
         @if ($task->chart_image_path)
             <figure class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-3">
-                <a href="{{ Storage::disk('public')->url($task->chart_image_path) }}" target="_blank" rel="noopener">
-                    <img src="{{ Storage::disk('public')->url($task->chart_image_path) }}" alt="Kartenausschnitt zu Aufgabe {{ $task->task_number }}" class="w-full rounded-xl" loading="lazy">
+                <a href="{{ \App\Support\NavigationChart::url($task->chart_image_path) }}" target="_blank" rel="noopener">
+                    <img src="{{ \App\Support\NavigationChart::url($task->chart_image_path) }}" alt="Kartenausschnitt zu Aufgabe {{ $task->task_number }}" class="w-full rounded-xl" loading="lazy">
                 </a>
                 @if ($task->chart_caption)
                     <figcaption class="mt-2 text-xs text-slate-600 dark:text-slate-400">{{ $task->chart_caption }}</figcaption>

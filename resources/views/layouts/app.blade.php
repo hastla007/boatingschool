@@ -5,7 +5,15 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
-        <title>{{ isset($currentTenant) ? $currentTenant->name.' – Lernplattform' : \App\Models\PlatformSetting::siteName() }}</title>
+        @php
+            // Seitentitel aus der Überschrift der Seite (h1/h2 im Header): Tabs,
+            // Verlauf und Screenreader können die Seiten so unterscheiden (WCAG 2.4.2).
+            $pageHeading = isset($header) && preg_match('/<h[12][^>]*>(.*?)<\/h[12]>/s', (string) $header, $headingMatch)
+                ? \Illuminate\Support\Str::limit(trim(preg_replace('/\s+/', ' ', html_entity_decode(strip_tags($headingMatch[1])))), 70)
+                : '';
+            $siteTitle = isset($currentTenant) ? $currentTenant->name.' – Lernplattform' : \App\Models\PlatformSetting::siteName();
+        @endphp
+        <title>{{ $pageHeading !== '' ? $pageHeading.' · '.$siteTitle : $siteTitle }}</title>
 
         {{-- Bug-Review Oberfläche U4: ohne ein eigenes <link rel="icon">
              fiel der Browser auf /favicon.ico zurück -- die Datei existierte,

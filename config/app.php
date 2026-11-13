@@ -176,4 +176,10 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    | Empfänger für Betriebsalarme (fehlgeschlagene Sicherung, Go-live-Check);
+    | leer = Support-Adresse der Plattform (Superadmin-Einstellungen).
+    */
+    'ops_alert_email' => env('OPS_ALERT_EMAIL'),
+
 ];

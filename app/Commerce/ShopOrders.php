@@ -9,9 +9,14 @@ use App\Models\CommerceShopAccount;
 use App\Models\Coupon;
 use App\Models\CouponBatch;
 use App\Models\CourseDefinition;
+use App\Models\PlatformSetting;
 use App\Models\Product;
+use App\Models\Tenant;
 use App\Models\TenantCourseDisabled;
+use App\Support\BestEffortMail;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 
 /**
  * Lieferaufträge des Shops (nach bestätigter Zahlung): genau ein Code-Batch
@@ -56,6 +61,7 @@ class ShopOrders
                 throw new ApiProblem(403, 'ACCOUNT_NOT_LINKED', 'Kein Einkauf für eine Schule möglich', 'Das Shopkonto ist (noch) nicht mit einer aktiven Schule verknüpft.');
             }
             $target = $this->resolveTarget($account, $line);
+            $this->assertWithinDailyQuota($account, (int) $line['quantity']);
 
             $batch = CouponBatch::create([
                 'tenant_id' => $account->tenant_id,
@@ -199,7 +205,50 @@ class ShopOrders
             'products' => Product::where('active', true)->orderBy('name')->get(['code', 'name'])
                 ->map(fn ($p) => ['code' => $p->code, 'name' => $p->name])->values(),
             'kinds' => self::KINDS,
+            'max_quantity' => (int) config('commerce.max_quantity', 500),
         ];
+    }
+
+    /** @return list<string> Codes der Kurse, die diese Schule derzeit erhalten kann. */
+    public static function deliverableCourseCodes(string $tenantId): array
+    {
+        return CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')->where('status', 'published')->where('site_enabled', true)
+            ->whereNotIn('id', TenantCourseDisabled::withoutGlobalScopes()->where('tenant_id', $tenantId)->select('course_id'))
+            ->orderBy('code')->pluck('code')->all();
+    }
+
+    /**
+     * Tageskontingent je Schule: schützt davor, dass ein kompromittierter Shop
+     * (oder ein Bedienfehler) unbegrenzt Codes erzeugt. Darüber hinaus nur nach
+     * Freigabe (COMMERCE_DAILY_CODE_LIMIT anheben, dann „Erneut zustellen“).
+     */
+    private function assertWithinDailyQuota(CommerceShopAccount $account, int $quantity): void
+    {
+        $limit = (int) config('commerce.daily_code_limit', 1000);
+        if ($limit <= 0) {
+            return;
+        }
+        $since = now('Europe/Berlin')->startOfDay()->utc();
+        $today = (int) CouponBatch::withoutGlobalScopes()->where('tenant_id', $account->tenant_id)->where('created_at', '>=', $since)->sum('quantity');
+        if ($today + $quantity <= $limit) {
+            return;
+        }
+        // Alarm höchstens einmal je Schule und Tag.
+        if (Cache::add('commerce-quota-alert:'.$account->tenant_id.':'.$since->toDateString(), 1, now()->addDay())) {
+            $to = config('commerce.alert_email') ?: PlatformSetting::on('pgsql_admin')->value('support_email');
+            $tenantName = Tenant::on('pgsql_admin')->whereKey($account->tenant_id)->value('name') ?? '—';
+            if ($to) {
+                BestEffortMail::send(fn () => Mail::raw(
+                    "Für die Bootsschule „{$tenantName}“ wurden heute bereits {$today} Codes über den Shop geliefert. "
+                    ."Eine weitere Bestellposition über {$quantity} Codes überschreitet das Tageskontingent von {$limit} und wurde nicht geliefert.\n\n"
+                    .'Ist die Bestellung echt, COMMERCE_DAILY_CODE_LIMIT vorübergehend anheben und im Shop „Erneut zustellen“ auslösen. '
+                    .'Sonst Shop-Zugang prüfen (möglicher Missbrauch).',
+                    fn ($m) => $m->to($to)->subject('Shop-Anbindung: Tageskontingent für Codes überschritten')
+                ), 'Commerce-Kontingent '.$account->tenant_id);
+            }
+        }
+        throw new ApiProblem(429, 'CODE_QUOTA_EXCEEDED', 'Tageskontingent überschritten',
+            "Das Tageskontingent von {$limit} Codes für diese Schule ist erreicht. Bitte den Plattform-Betreiber kontaktieren.");
     }
 
     /** @return array{course: ?CourseDefinition, product: ?Product, option_product_ids: list<string>} */

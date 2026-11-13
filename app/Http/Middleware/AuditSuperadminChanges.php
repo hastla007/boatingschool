@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Api\CourseAccess;
 use App\Models\AuditLog;
 use Closure;
 use Illuminate\Http\Request;
@@ -25,6 +26,10 @@ class AuditSuperadminChanges
         $response = $next($request);
 
         $succeeded = $response->getStatusCode() < 400 && ! session()->has('errors');
+        if ($succeeded) {
+            // Inhalte könnten sich geändert haben: Kurs-Zwischenspeicher der App neu berechnen.
+            CourseAccess::bumpContentVersion();
+        }
         if ($succeeded && AuditLog::$recordedThisRequest === $before && $request->user()) {
             $route = $request->route();
             $parameters = collect($route?->parameters() ?? [])

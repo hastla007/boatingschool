@@ -21,7 +21,8 @@ final class BS_Orders
 
     public static function init(): void
     {
-        add_action('woocommerce_payment_complete', [__CLASS__, 'schedule_order']);
+        add_action('woocommerce_pre_payment_complete', [__CLASS__, 'on_pre_payment_complete']);
+        add_action('woocommerce_payment_complete', [__CLASS__, 'on_payment_complete']);
         add_action('woocommerce_order_status_processing', [__CLASS__, 'schedule_order']);
         add_action('woocommerce_order_status_completed', [__CLASS__, 'schedule_order']);
         add_action(self::HOOK_DELIVER, [__CLASS__, 'deliver_item'], 10, 2);
@@ -38,11 +39,80 @@ final class BS_Orders
 
     // ---------------------------------------------------------------- Zustellung
 
+    /** Bestellungen, für die das Gateway in diesem Aufruf payment_complete() ausführt. */
+    private static array $confirming = [];
+
+    /**
+     * Das Gateway bestätigt den Zahlungseingang. Vor dem Statuswechsel merken,
+     * damit schedule_order beim Wechsel auf „In Bearbeitung“ schon zustellt.
+     */
+    public static function on_pre_payment_complete($order_id): void
+    {
+        self::$confirming[(int) $order_id] = true;
+    }
+
+    public static function on_payment_complete($order_id): void
+    {
+        $order = wc_get_order($order_id);
+        if ($order && ! $order->get_meta('_bs_payment_confirmed')) {
+            $order->update_meta_data('_bs_payment_confirmed', 1);
+            $order->save();
+        }
+        self::schedule_order($order_id);
+    }
+
+    /**
+     * Zahlart ohne bestätigten Zahlungseingang (BS_Settings::blocked_gateways, z. B.
+     * Nachnahme) und noch keine Zahlung verbucht? date_paid reicht dafür nicht:
+     * WooCommerce setzt es schon beim Wechsel auf „In Bearbeitung“ -- auch ohne
+     * Zahlung. Als verbucht gilt daher nur payment_complete() des Gateways oder
+     * der Status „Abgeschlossen“ (vom Shop nach Zahlungseingang gesetzt).
+     */
+    private static function awaiting_payment(WC_Order $order): bool
+    {
+        if (! in_array((string) $order->get_payment_method(), BS_Settings::blocked_gateways(), true)) {
+            return false;
+        }
+
+        return ! isset(self::$confirming[(int) $order->get_id()]) && ! $order->get_meta('_bs_payment_confirmed') && ! $order->has_status('completed');
+    }
+
+    /**
+     * Enthält die Bestellung Positionen mit Bootsschul-Codes?
+     *
+     * @param  bool  $scheduled_only  Nur Positionen mit eingefrorenem Lieferauftrag (_bs_target).
+     */
+    private static function has_platform_items(WC_Order $order, bool $scheduled_only = false): bool
+    {
+        foreach ($order->get_items() as $item) {
+            if ((string) $item->get_meta('_bs_target') !== '' || (! $scheduled_only && BS_Products::is_platform_product($item->get_product()))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /** Bezahlte Bestellung: jede Position mit Bootsschul-Codes einplanen (einmalig). */
     public static function schedule_order($order_id): void
     {
         $order = wc_get_order($order_id);
         if (! $order || ! $order->is_paid()) {
+            return;
+        }
+        // Codes nur nach bestätigter Zahlung: z. B. Nachnahme manuell auf „In
+        // Bearbeitung“ gesetzt liefert noch nicht (Hinweis einmalig als Notiz).
+        if (self::awaiting_payment($order)) {
+            if (! $order->get_meta('_bs_awaiting_payment_note') && self::has_platform_items($order)) {
+                $order->update_meta_data('_bs_awaiting_payment_note', 1);
+                $order->save();
+                $order->add_order_note(sprintf(
+                    /* translators: %s: Zahlart */
+                    __('Bootsschul-Codes werden noch nicht zugestellt: Die Zahlart „%s“ bestätigt keinen Zahlungseingang. Die Zustellung startet, sobald die Zahlung verbucht ist (Bestellung nach Zahlungseingang auf „Abgeschlossen“ setzen).', 'bs-connector'),
+                    $order->get_payment_method_title() ?: $order->get_payment_method()
+                ));
+            }
+
             return;
         }
         foreach ($order->get_items() as $item_id => $item) {
@@ -151,7 +221,8 @@ final class BS_Orders
             );
         }
 
-        [$result, $delay] = BS_Delivery_Policy::decide($response['status'], $attempt);
+        $code = isset($response['body']['code']) ? (string) $response['body']['code'] : null;
+        [$result, $delay] = BS_Delivery_Policy::decide($response['status'], $attempt, $code);
         // Während des Aufrufs kann die Bestellung storniert oder erstattet worden
         // sein: den aktuellen Stand neu lesen, statt ihn zu überschreiben.
         $order = wc_get_order((int) $order_id) ?: $order;
@@ -199,10 +270,11 @@ final class BS_Orders
         self::alert(
             sprintf( /* translators: %s: Bestellnummer */ __('Bootsschul-Codes für Bestellung %s nicht zugestellt', 'bs-connector'), $order->get_order_number()),
             sprintf(
-                "Position: %s\nVersuche: %d\nFehler: %s\n\nIn der Bestellung über „Bootsschul-Codes → Erneut zustellen“ neu anstoßen.\n%s",
+                "Position: %s\nVersuche: %d\nFehler: %s\n%s\nIn der Bestellung über „Bootsschul-Codes → Erneut zustellen“ neu anstoßen.\n%s",
                 $item->get_name(),
                 $attempt,
                 (string) $response['error'],
+                $code === BS_Delivery_Policy::CODE_QUOTA_EXCEEDED ? "Das Tageskontingent der Bootsschule für Codes ist überschritten. Der Superadmin muss die Lieferung auf der Plattform freigeben.\n" : '',
                 $order->get_edit_order_url()
             )
         );
@@ -227,13 +299,26 @@ final class BS_Orders
         if (! $refund) {
             return;
         }
+        $voided = false;
         foreach ($refund->get_items() as $refund_item) {
             $original_id = (int) $refund_item->get_meta('_refunded_item_id');
             $quantity = abs((int) $refund_item->get_quantity());
             $original = $original_id ? wc_get_order((int) $order_id)?->get_item($original_id) : null;
             if ($original && (string) $original->get_meta('_bs_target') !== '' && $quantity > 0) {
                 self::enqueue_void((int) $order_id, $original_id, $quantity, 'refund-'.(int) $refund_id.'-'.$original_id);
+                $voided = true;
             }
+        }
+        // Nur ein Betrag erstattet (ohne Menge): Welche Codes gesperrt werden sollen,
+        // ist unklar -- nichts sperren, aber melden. Vollständig erstattet oder
+        // storniert sperrt on_cancel ohnehin alle unbenutzten Codes.
+        $order = wc_get_order((int) $order_id);
+        if (! $voided && $order && (float) $refund->get_amount() > 0 && ! $order->has_status(['refunded', 'cancelled']) && self::has_platform_items($order, true)) {
+            $order->add_order_note(__('Rückerstattung ohne Positionsmenge: Bootsschul-Codes wurden nicht gesperrt. Bitte prüfen, ob Codes gesperrt werden müssen (Rückerstattung mit Menge anlegen).', 'bs-connector'));
+            self::alert(
+                sprintf( /* translators: %s: Bestellnummer */ __('Rückerstattung ohne Menge für Bestellung %s', 'bs-connector'), $order->get_order_number()),
+                sprintf("Erstattet: %s\nEs wurden keine Bootsschul-Codes gesperrt, weil die Rückerstattung keine Positionsmenge enthält.\nBitte prüfen, ob Codes gesperrt werden müssen (Rückerstattung mit Menge anlegen).\n%s", wc_format_decimal($refund->get_amount(), wc_get_price_decimals()).' '.$order->get_currency(), $order->get_edit_order_url())
+            );
         }
     }
 

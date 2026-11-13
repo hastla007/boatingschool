@@ -21,7 +21,7 @@
             @csrf
             <div>
                 <label for="codes" class="sr-only">Coupon-Codes</label>
-                <textarea id="codes" name="codes" rows="4" required placeholder="XXXX-XXXX-XXXX" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm font-mono">{{ old('codes') }}</textarea>
+                <textarea id="codes" name="codes" rows="4" required placeholder="XXXX-XXXX-XXXX-XXXX" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm font-mono">{{ old('codes') }}</textarea>
                 <x-input-error :messages="$errors->get('codes')" class="mt-2" />
             </div>
             <button type="submit" class="px-4 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">

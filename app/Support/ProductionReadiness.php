@@ -120,7 +120,8 @@ class ProductionReadiness
             $add('Konten', 'Superadmins mit Zwei-Faktor-Anmeldung', $without2fa === 0 ? 'ok' : 'warn', $without2fa ? "{$without2fa} ohne 2FA" : '');
 
             $placeholders = VideoLesson::on('pgsql_admin')->where('video_url', VideoLesson::PLACEHOLDER_URL)->count();
-            $add('Inhalte', 'Videolektionen mit echtem Video', $placeholders === 0 ? 'ok' : 'warn', $placeholders ? "{$placeholders} Lektion(en) noch mit Platzhaltervideo" : '');
+            // Lernende sähen sonst ein Beispielvideo statt der Lektion.
+            $add('Inhalte', 'Videolektionen mit echtem Video', $placeholders === 0 ? 'ok' : 'fail', $placeholders ? "{$placeholders} Lektion(en) noch mit Platzhaltervideo" : '');
 
             $incomplete = Tenant::on('pgsql_admin')->whereIn('status', ['active', 'trial'])->with('branding')->get()
                 ->filter(fn (Tenant $t) => ! $t->branding || LegalPages::missingImprintFields($t->branding) !== [])
@@ -128,7 +129,8 @@ class ProductionReadiness
             $add('Inhalte', 'Impressumsangaben aller aktiven Schulen', $incomplete->isEmpty() ? 'ok' : 'warn', $incomplete->isEmpty() ? '' : 'unvollständig: '.$incomplete->take(5)->implode(', ').($incomplete->count() > 5 ? ' …' : ''));
 
             $footer = @file_get_contents(resource_path('views/components/site-footer.blade.php')) ?: '';
-            $add('Inhalte', 'Footer ohne Platzhalter', str_contains($footer, 'XXX') ? 'warn' : 'ok', str_contains($footer, 'XXX') ? 'Footer enthält noch „XXX“' : '');
+            // Sichtbar auf jeder Seite jeder Schule: vor dem Start zwingend ersetzen.
+            $add('Inhalte', 'Footer ohne Platzhalter', str_contains($footer, 'XXX') ? 'fail' : 'ok', str_contains($footer, 'XXX') ? 'Footer enthält noch „XXX“' : '');
         });
 
         return $checks;

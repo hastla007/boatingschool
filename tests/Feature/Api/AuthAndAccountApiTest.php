@@ -51,9 +51,14 @@ class AuthAndAccountApiTest extends MobileApiTestCase
         $this->getJson('/api/v1/me', ['Authorization' => 'Bearer '.$login['access_token']])->assertStatus(401);
         $this->getJson('/api/v1/me', ['Authorization' => 'Bearer '.$refreshed['access_token']])->assertOk();
 
-        // Altes Refresh-Token noch einmal: Sitzung wird beendet.
+        // Gleich noch einmal (Antwort verloren): neues Paar statt Abmeldung.
+        $retried = $this->postJson('/api/v1/auth/refresh', ['refresh_token' => $login['refresh_token']])->assertOk()->json('data');
+        $this->getJson('/api/v1/me', ['Authorization' => 'Bearer '.$retried['access_token']])->assertOk();
+
+        // Nach Ablauf der Toleranz: Sitzung wird beendet.
+        $this->travel(2)->minutes();
         $this->postJson('/api/v1/auth/refresh', ['refresh_token' => $login['refresh_token']])->assertStatus(401);
-        $this->getJson('/api/v1/me', ['Authorization' => 'Bearer '.$refreshed['access_token']])->assertStatus(401);
+        $this->getJson('/api/v1/me', ['Authorization' => 'Bearer '.$retried['access_token']])->assertStatus(401);
     }
 
     public function test_two_factor_login_needs_the_code(): void

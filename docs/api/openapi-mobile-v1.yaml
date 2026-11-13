@@ -127,8 +127,10 @@ paths:
       operationId: refreshTokens
       summary: Tokens erneuern (Refresh-Token rotiert)
       description: |
-        Jedes Refresh-Token gilt genau einmal. Wird das unmittelbar vorherige Refresh-Token erneut
-        vorgelegt, endet die ganze Gerätesitzung (Schutz bei Diebstahl); ältere ergeben nur 401.
+        Jedes Refresh-Token gilt genau einmal. Wird das unmittelbar vorherige Refresh-Token innerhalb
+        von 60 Sekunden nach der Erneuerung erneut vorgelegt (verlorene Antwort, parallele Anfragen),
+        gibt es ein neues Paar. Später vorgelegt, endet die ganze Gerätesitzung (Schutz bei Diebstahl);
+        ältere ergeben nur 401.
         Leerlauf max. 30 Tage, Sitzung höchstens 90 Tage. Begrenzung 10/Min. je Refresh-Token.
       security: []
       requestBody:

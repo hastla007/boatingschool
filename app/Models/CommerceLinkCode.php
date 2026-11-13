@@ -36,6 +36,6 @@ class CommerceLinkCode extends Model
 
     public static function hash(string $code): string
     {
-        return hash('sha256', strtoupper(preg_replace('/[\s\-]+/', '', $code)));
+        return hash('sha256', mb_strtoupper(preg_replace('/[\s\-]+/u', '', Coupon::normalizeInput($code))));
     }
 }

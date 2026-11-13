@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Update auf dem Server (im App-Verzeichnis ausführen, als Deploy-Benutzer,
-# nicht als root):  ./deploy/deploy.sh [branch]
+# nicht als root):  ./deploy/deploy.sh [branch] [commit]
+# Mit [commit] wird genau dieser (grün getestete) Stand ausgerollt.
 #
 # Ablauf: Wartungsmodus → Code holen → Abhängigkeiten → Assets bauen →
 # Migrationen (Owner-Rolle) → Inhalte (Seeder) → Storage-Link → Caches → Wartungsmodus aus →
@@ -10,6 +11,7 @@
 set -euo pipefail
 
 BRANCH="${1:-main}"
+TARGET="${2:-}"
 cd "$(dirname "$0")/.."
 
 step() { printf '\n\033[1;34m==> %s\033[0m\n' "$1"; }
@@ -18,10 +20,14 @@ trap 'printf "\n\033[1;31mDeploy abgebrochen (Zeile %s). Die Seite bleibt im War
 step "Wartungsmodus an"
 php artisan down --retry=15 --refresh=15 || true
 
-step "Code holen ($BRANCH)"
+step "Sicherung vor dem Update"
+# Migrationen sind nur vorwärts gedacht: vorher immer ein frischer Dump.
+php artisan app:backup
+
+step "Code holen ($BRANCH${TARGET:+ @ $TARGET})"
 git fetch --quiet origin "$BRANCH"
 git checkout --quiet "$BRANCH"
-git merge --ff-only --quiet "origin/$BRANCH"
+git merge --ff-only --quiet "${TARGET:-origin/$BRANCH}"
 
 step "PHP-Abhängigkeiten"
 composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction --no-progress

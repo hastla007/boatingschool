@@ -1,6 +1,7 @@
 <?php
 
 use App\Api\ProblemResponse;
+use App\Http\Controllers\NavigationChartImageController;
 use App\Http\Controllers\TlsCheckController;
 use App\Http\Middleware\Api\ApiIdempotency;
 use App\Http\Middleware\Api\AuthenticateMobileApi;
@@ -47,6 +48,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // Mandant), siehe TlsCheckController.
         then: function () {
             Route::get('/tls-check', TlsCheckController::class)->name('tls-check');
+            // Kartenausschnitte der Navigationsaufgaben: nur über signierte,
+            // kurzlebige Adressen (ohne Session/Mandant, auch für die App).
+            Route::get('/media/navigation-charts/{file}', NavigationChartImageController::class)
+                ->where('file', '[A-Za-z0-9][A-Za-z0-9._-]*')->middleware(['signed', 'throttle:120,1,navigation-chart'])->name('navigation-chart.image');
             // Commerce-API v1 für den B2B-WooCommerce-Shop (docs/commerce/README.md):
             // signiert, Owner-Verbindung, eigene Begrenzung.
             Route::middleware(['api', 'commerce.signed', 'admin-db', 'throttle:300,1,commerce'])

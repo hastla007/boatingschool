@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Models\WillkommensboxOrder;
 use App\Notifications\Concerns\EscapesMarkdown;
+use App\Notifications\Concerns\RepliesToLearner;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
@@ -16,7 +17,7 @@ use Illuminate\Notifications\Notification;
  */
 class WillkommensboxOrderPlaced extends Notification
 {
-    use EscapesMarkdown, Queueable;
+    use EscapesMarkdown, Queueable, RepliesToLearner;
 
     public function __construct(private readonly WillkommensboxOrder $order) {}
 
@@ -36,7 +37,7 @@ class WillkommensboxOrderPlaced extends Notification
         $learnerName = self::escapeMarkdown($this->order->user->name ?? 'Ein Teilnehmer');
         $address = self::escapeMarkdown($this->order->street.', '.$this->order->postal_code.' '.$this->order->city.', '.$this->order->country);
 
-        return (new MailMessage)
+        return self::replyToLearner(new MailMessage, $this->order->user)
             ->subject('Neue Willkommensbox-Bestellung')
             ->line("{$learnerName} hat eine Willkommensbox bestellt.")
             ->line('Lieferadresse: '.$address)
