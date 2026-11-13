@@ -174,21 +174,31 @@ class Coupon extends Model
      */
     public static function generateUniqueCode(): string
     {
-        $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-        $alphabetLength = strlen($alphabet);
-
         do {
-            $segments = [];
-            for ($segment = 0; $segment < 4; $segment++) {
-                $chars = '';
-                for ($i = 0; $i < 4; $i++) {
-                    $chars .= $alphabet[random_int(0, $alphabetLength - 1)];
-                }
-                $segments[] = $chars;
-            }
-            $code = implode('-', $segments);
+            $code = self::randomCode();
         } while (static::withoutGlobalScopes()->where('code', $code)->exists());
 
         return $code;
+    }
+
+    /**
+     * Ein zufälliger Code ohne Prüfung auf Eindeutigkeit (die übernimmt der
+     * Aufrufer, z. B. CouponBatchFactory gesammelt je Paket).
+     */
+    public static function randomCode(): string
+    {
+        $alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        $alphabetLength = strlen($alphabet);
+
+        $segments = [];
+        for ($segment = 0; $segment < 4; $segment++) {
+            $chars = '';
+            for ($i = 0; $i < 4; $i++) {
+                $chars .= $alphabet[random_int(0, $alphabetLength - 1)];
+            }
+            $segments[] = $chars;
+        }
+
+        return implode('-', $segments);
     }
 }

@@ -29,7 +29,7 @@ final class BS_Products
         add_filter('woocommerce_store_api_product_quantity_maximum', [__CLASS__, 'max_quantity'], 10, 2);
     }
 
-    /** @return array{courses: array, products: array, max_quantity: ?int} Katalog der App (15 Minuten zwischengespeichert). */
+    /** @return array{courses: array, products: array, option_products: array, max_quantity: ?int} Katalog der App (15 Minuten zwischengespeichert). */
     public static function catalog(): array
     {
         $cached = get_transient('bs_connector_catalog');
@@ -39,7 +39,10 @@ final class BS_Products
         $response = BS_Api_Client::request('GET', '/catalog');
         $catalog = [
             'courses' => $response['body']['data']['courses'] ?? [],
+            // Produktcodes: nur allein verkäufliche Produkte der Plattform.
             'products' => $response['body']['data']['products'] ?? [],
+            // Zusatzprodukte zu Kurscodes: alle aktiven Produkte (ältere Plattformen: wie products).
+            'option_products' => $response['body']['data']['option_products'] ?? ($response['body']['data']['products'] ?? []),
             'max_quantity' => isset($response['body']['data']['max_quantity']) ? (int) $response['body']['data']['max_quantity'] : null,
         ];
         if ($response['status'] === 200) {
@@ -160,11 +163,13 @@ final class BS_Products
         );
         woocommerce_wp_select(['id' => self::META_COURSE, 'label' => __('Kurs', 'bs-connector'), 'options' => $courses]);
         woocommerce_wp_select(['id' => self::META_PRODUCT, 'label' => __('Plattform-Produkt', 'bs-connector'), 'options' => $products]);
+        $option_codes = implode(', ', array_map(static fn ($item) => (string) $item['code'], (array) ($catalog['option_products'] ?? [])));
         woocommerce_wp_text_input(
             [
                 'id' => self::META_OPTIONS,
                 'label' => __('Zusatzprodukte (Codes, kommagetrennt)', 'bs-connector'),
-                'description' => __('Nur bei Kurscodes: wird beim Einlösen zusätzlich gutgeschrieben.', 'bs-connector'),
+                'description' => __('Nur bei Kurscodes: wird beim Einlösen zusätzlich gutgeschrieben.', 'bs-connector')
+                    .($option_codes === '' ? '' : ' '.sprintf( /* translators: %s: Codes der Zusatzprodukte */ __('Verfügbar: %s', 'bs-connector'), $option_codes)),
                 'desc_tip' => true,
             ]
         );

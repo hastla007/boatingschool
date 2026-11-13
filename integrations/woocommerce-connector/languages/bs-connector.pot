@@ -1,0 +1,505 @@
+# Übersetzungsvorlage für den Bootsschul-Plattform Connector.
+# Erzeugt mit bin/make-pot.php -- nicht von Hand bearbeiten.
+msgid ""
+msgstr ""
+"Project-Id-Version: Bootsschul-Plattform Connector 1.1.0\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: de_DE\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"X-Domain: bs-connector\n"
+"X-Generator: bin/make-pot.php\n"
+
+#. Plugin Name of the plugin
+#: boatingschool-connector.php
+msgid "Bootsschul-Plattform Connector"
+msgstr ""
+
+#. Description of the plugin
+#: boatingschool-connector.php
+msgid "Verkauft Kurs-, Verlängerungs- und Produktcodes der Bootsschul-Plattform. Nach der Zahlung werden die Codes im Codebestand der verknüpften Bootsschule hinterlegt."
+msgstr ""
+
+#: boatingschool-connector.php:57
+msgid "Der Bootsschul-Plattform Connector benötigt WooCommerce."
+msgstr ""
+
+#: includes/class-bs-accounts.php:52
+msgid "Name der Bootsschule (Unternehmen)"
+msgstr ""
+
+#: includes/class-bs-accounts.php:56
+msgid "Rechnungsland (ISO-Code, z. B. DE)"
+msgstr ""
+
+#: includes/class-bs-accounts.php:60
+msgid "USt-IdNr. (falls vorhanden)"
+msgstr ""
+
+#: includes/class-bs-accounts.php:75
+msgid "Bitte den Namen der Bootsschule angeben."
+msgstr ""
+
+#: includes/class-bs-accounts.php:79
+msgid "Bitte das Rechnungsland als zweistelligen Code angeben (z. B. DE)."
+msgstr ""
+
+#. translators: %s: Name des Shops
+#: includes/class-bs-accounts.php:153
+#, php-format
+msgid "[%s] Bitte bestätigen Sie Ihre E-Mail-Adresse"
+msgstr ""
+
+#. translators: 1: Name des Shops, 2: Bestätigungslink, 3: Gültigkeit in Tagen
+#: includes/class-bs-accounts.php:156
+#, php-format
+msgid ""
+"Guten Tag,\n"
+"\n"
+"Sie haben bei %1$s ein Kundenkonto angelegt. Bitte bestätigen Sie Ihre E-Mail-Adresse über diesen Link:\n"
+"\n"
+"%2$s\n"
+"\n"
+"Der Link ist %3$d Tage gültig. Erst danach können Sie Ihr Konto mit Ihrer Bootsschule verknüpfen und Codes kaufen.\n"
+"\n"
+"Falls Sie kein Konto angelegt haben, können Sie diese E-Mail ignorieren."
+msgstr ""
+
+#: includes/class-bs-accounts.php:182 includes/class-bs-accounts.php:213
+msgid "Ihre E-Mail-Adresse ist bereits bestätigt."
+msgstr ""
+
+#: includes/class-bs-accounts.php:191
+msgid "Vielen Dank, Ihre E-Mail-Adresse ist bestätigt. Sie können Ihr Konto jetzt mit Ihrer Bootsschule verknüpfen."
+msgstr ""
+
+#: includes/class-bs-accounts.php:194
+msgid "Der Bestätigungslink ist ungültig oder abgelaufen. Melden Sie sich an und fordern Sie unter „Mein Konto → Bootsschule verknüpfen“ einen neuen Link an."
+msgstr ""
+
+#: includes/class-bs-accounts.php:207 includes/class-bs-accounts.php:359
+msgid "Sitzung abgelaufen, bitte erneut versuchen."
+msgstr ""
+
+#: includes/class-bs-accounts.php:215
+msgid "Wir haben Ihnen gerade erst einen Link geschickt. Bitte warten Sie eine Minute, bevor Sie einen neuen anfordern."
+msgstr ""
+
+#. translators: %s: E-Mail-Adresse
+#: includes/class-bs-accounts.php:217
+#, php-format
+msgid "Wir haben Ihnen einen neuen Bestätigungslink an %s geschickt."
+msgstr ""
+
+#: includes/class-bs-accounts.php:219
+msgid "Die E-Mail konnte nicht gesendet werden. Bitte versuchen Sie es später erneut."
+msgstr ""
+
+#: includes/class-bs-accounts.php:301
+msgid "Kontenabgleich mit der Bootsschul-Plattform fehlgeschlagen"
+msgstr ""
+
+#: includes/class-bs-accounts.php:345 includes/class-bs-accounts.php:397
+msgid "Bootsschule verknüpfen"
+msgstr ""
+
+#: includes/class-bs-accounts.php:366
+msgid "Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse über den Link in unserer E-Mail."
+msgstr ""
+
+#. translators: %s: Name der Bootsschule
+#: includes/class-bs-accounts.php:380
+#, php-format
+msgid "Ihr Shopkonto ist jetzt mit „%s“ verknüpft."
+msgstr ""
+
+#: includes/class-bs-accounts.php:382
+msgid "Zu viele Versuche. Bitte in einigen Minuten erneut versuchen."
+msgstr ""
+
+#: includes/class-bs-accounts.php:384
+msgid "Für dieses Kundenkonto ist keine Verknüpfung möglich. Bitte wenden Sie sich an den Support."
+msgstr ""
+
+#: includes/class-bs-accounts.php:386
+msgid "Die Bootsschul-Plattform ist gerade nicht erreichbar. Bitte versuchen Sie es später erneut."
+msgstr ""
+
+#: includes/class-bs-accounts.php:388
+msgid "Der Verknüpfungscode ist ungültig oder abgelaufen. Bitte auf der Plattform einen neuen erzeugen."
+msgstr ""
+
+#. translators: %s: E-Mail-Adresse
+#: includes/class-bs-accounts.php:399
+#, php-format
+msgid "Ihre E-Mail-Adresse %s ist noch nicht bestätigt. Bitte öffnen Sie den Link in unserer E-Mail. Erst danach können Sie Ihr Konto mit Ihrer Bootsschule verknüpfen."
+msgstr ""
+
+#: includes/class-bs-accounts.php:404
+msgid "Bestätigungsmail erneut senden"
+msgstr ""
+
+#. translators: %s: Name der Bootsschule
+#: includes/class-bs-accounts.php:412
+#, php-format
+msgid "Verknüpft mit: %s. Gekaufte Codes werden nach der Zahlung dem Codebestand dieser Bootsschule gutgeschrieben."
+msgstr ""
+
+#: includes/class-bs-accounts.php:417
+msgid "Ihr Konto ist noch nicht für den Einkauf freigeschaltet. Wir prüfen Ihre Angaben und melden uns per E-Mail."
+msgstr ""
+
+#: includes/class-bs-accounts.php:420
+msgid "Für dieses Konto ist kein Einkauf für eine Bootsschule möglich. Bitte wenden Sie sich an den Support."
+msgstr ""
+
+#: includes/class-bs-accounts.php:424
+msgid "Haben Sie bereits Zugang zur Plattform? Erzeugen Sie dort im Admin-Bereich unter „Coupon-Codes → Shop verknüpfen“ einen Verknüpfungscode und geben Sie ihn hier ein."
+msgstr ""
+
+#: includes/class-bs-accounts.php:429
+msgid "Verknüpfungscode"
+msgstr ""
+
+#: includes/class-bs-accounts.php:432
+msgid "Verknüpfen"
+msgstr ""
+
+#: includes/class-bs-admin.php:30 includes/class-bs-admin.php:31 includes/class-bs-admin.php:68
+msgid "Bootsschul-Zustellungen"
+msgstr ""
+
+#: includes/class-bs-admin.php:65 includes/class-bs-admin.php:106 includes/class-bs-admin.php:131 includes/class-bs-orders.php:551
+msgid "Keine Berechtigung."
+msgstr ""
+
+#: includes/class-bs-admin.php:69
+msgid "Positionen, deren Codes nicht im Codebestand der Bootsschule angekommen sind. „Erneut zustellen“ verwendet denselben Lieferauftrag – die Plattform liefert je Position höchstens einmal."
+msgstr ""
+
+#: includes/class-bs-admin.php:71
+msgid "Keine fehlgeschlagenen Zustellungen."
+msgstr ""
+
+#: includes/class-bs-admin.php:80
+msgid "Bestellung"
+msgstr ""
+
+#: includes/class-bs-admin.php:80
+msgid "Position"
+msgstr ""
+
+#: includes/class-bs-admin.php:80
+msgid "Versuche"
+msgstr ""
+
+#: includes/class-bs-admin.php:80
+msgid "Fehler"
+msgstr ""
+
+#: includes/class-bs-admin.php:98 includes/class-bs-orders.php:535
+msgid "Erneut zustellen"
+msgstr ""
+
+#. translators: 1: Anzahl Kurse, 2: Anzahl Produkte
+#: includes/class-bs-admin.php:142
+#, php-format
+msgid "Verbindung zur Bootsschul-Plattform erfolgreich: %1$d Kurse und %2$d Produkte im Katalog."
+msgstr ""
+
+#: includes/class-bs-admin.php:148
+msgid "Verbindung fehlgeschlagen: Die Plattform lehnt die Signatur ab. Bitte Schlüssel-ID und Geheimnis (Shop → App) sowie die Uhrzeit des Servers prüfen."
+msgstr ""
+
+#. translators: %s: Fehlermeldung
+#: includes/class-bs-admin.php:154
+#, php-format
+msgid "Verbindung fehlgeschlagen: %s"
+msgstr ""
+
+#. translators: %d: Anzahl Positionen
+#: includes/class-bs-admin.php:177
+#, php-format
+msgid "%d Position wird erneut zugestellt."
+msgid_plural "%d Positionen werden erneut zugestellt."
+msgstr[0] ""
+msgstr[1] ""
+
+#: includes/class-bs-checkout.php:30
+msgid "Bootsschul-Codes können nur mit einem Kundenkonto gekauft werden. Bitte melden Sie sich an."
+msgstr ""
+
+#: includes/class-bs-checkout.php:34
+msgid "Die Bootsschul-Plattform ist gerade nicht erreichbar oder Ihr Konto ist dort noch nicht bekannt. Bitte versuchen Sie es später erneut."
+msgstr ""
+
+#: includes/class-bs-checkout.php:38
+msgid "Ihr Konto ist noch nicht für den Einkauf freigeschaltet. Wir prüfen Ihre Angaben; haben Sie bereits Zugang zur Plattform, können Sie Ihr Konto auch selbst unter „Mein Konto → Bootsschule verknüpfen“ verknüpfen."
+msgstr ""
+
+#: includes/class-bs-checkout.php:39
+msgid "Bitte verknüpfen Sie Ihr Kundenkonto zuerst unter „Mein Konto → Bootsschule verknüpfen“ mit Ihrer Bootsschule."
+msgstr ""
+
+#. translators: %d: Höchstmenge
+#: includes/class-bs-checkout.php:81
+#, php-format
+msgid "Bootsschul-Codes können höchstens %d Stück je Position bestellt werden."
+msgstr ""
+
+#. translators: %s: Produktname
+#: includes/class-bs-checkout.php:112
+#, php-format
+msgid "„%s“ kann für Ihre Bootsschule derzeit nicht geliefert werden (Kurs nicht freigeschaltet). Bitte wenden Sie sich an den Support."
+msgstr ""
+
+#. translators: %s: Name der Bootsschule
+#: includes/class-bs-checkout.php:181
+#, php-format
+msgid "Die Codes werden nach Zahlungseingang dem Codebestand von „%s“ auf der Plattform gutgeschrieben. Es wird nichts versandt."
+msgstr ""
+
+#. translators: %s: Zahlart
+#: includes/class-bs-orders.php:111
+#, php-format
+msgid "Bootsschul-Codes werden noch nicht zugestellt: Die Zahlart „%s“ bestätigt keinen Zahlungseingang. Die Zustellung startet, sobald die Zahlung verbucht ist (Bestellung nach Zahlungseingang auf „Abgeschlossen“ setzen)."
+msgstr ""
+
+#: includes/class-bs-orders.php:126
+#, php-format
+msgid "Bootsschul-Codes für „%s“: Die Position war storniert. Bitte prüfen und bei Bedarf neu bestellen lassen."
+msgstr ""
+
+#: includes/class-bs-orders.php:128
+#, php-format
+msgid "Stornierte Bestellung %s wieder aktiv"
+msgstr ""
+
+#. translators: %s: Produktname
+#: includes/class-bs-orders.php:153
+#, php-format
+msgid "Bootsschul-Codes für „%s“ zur Zustellung eingeplant."
+msgstr ""
+
+#. translators: 1: Anzahl, 2: Produktname
+#: includes/class-bs-orders.php:253
+#, php-format
+msgid "%1$d Bootsschul-Code(s) für „%2$s“ im Codebestand der Bootsschule hinterlegt."
+msgstr ""
+
+#. translators: 1: Produktname, 2: Fehler
+#: includes/class-bs-orders.php:282
+#, php-format
+msgid "Zustellung der Bootsschul-Codes für „%1$s“ fehlgeschlagen: %2$s"
+msgstr ""
+
+#. translators: %s: Bestellnummer
+#: includes/class-bs-orders.php:284
+#, php-format
+msgid "Bootsschul-Codes für Bestellung %s nicht zugestellt"
+msgstr ""
+
+#: includes/class-bs-orders.php:330
+msgid "Rückerstattung ohne Positionsmenge: Bootsschul-Codes wurden nicht gesperrt. Bitte prüfen, ob Codes gesperrt werden müssen (Rückerstattung mit Menge anlegen)."
+msgstr ""
+
+#. translators: %s: Bestellnummer
+#: includes/class-bs-orders.php:332
+#, php-format
+msgid "Rückerstattung ohne Menge für Bestellung %s"
+msgstr ""
+
+#. translators: 1: Anzahl, 2: eingelöst, 3: Produktname
+#: includes/class-bs-orders.php:446
+#, php-format
+msgid "%1$d unbenutzte(r) Bootsschul-Code(s) für „%3$s“ gesperrt; %2$d bereits eingelöst (bleiben gültig)."
+msgstr ""
+
+#. translators: %s: Bestellnummer
+#: includes/class-bs-orders.php:468
+#, php-format
+msgid "Bootsschul-Codes für Bestellung %s nicht gesperrt"
+msgstr ""
+
+#: includes/class-bs-orders.php:505 includes/class-bs-products.php:153
+msgid "Bootsschul-Codes"
+msgstr ""
+
+#: includes/class-bs-orders.php:515
+msgid "wird zugestellt"
+msgstr ""
+
+#: includes/class-bs-orders.php:516
+msgid "im Codebestand der Schule"
+msgstr ""
+
+#: includes/class-bs-orders.php:517
+msgid "fehlgeschlagen"
+msgstr ""
+
+#: includes/class-bs-orders.php:518
+msgid "abgebrochen"
+msgstr ""
+
+#: includes/class-bs-orders.php:541
+msgid "Keine Positionen mit Bootsschul-Codes."
+msgstr ""
+
+#: includes/class-bs-orders.php:574
+msgid "Zustellung der Bootsschul-Codes erneut angestoßen."
+msgstr ""
+
+#: includes/class-bs-privacy.php:62 includes/class-bs-privacy.php:72
+msgid "Bootsschul-Plattform Connector"
+msgstr ""
+
+#: includes/class-bs-privacy.php:99
+msgid "Bootsschul-Plattform"
+msgstr ""
+
+#: includes/class-bs-privacy.php:122
+msgid "Die Verknüpfung des Kundenkontos mit der Bootsschul-Plattform wurde im Shop entfernt. Bestellungen und ihr Zustellstatus bleiben für die Buchhaltung erhalten."
+msgstr ""
+
+#: includes/class-bs-privacy.php:131
+msgid "App-Konto (Plattform)"
+msgstr ""
+
+#: includes/class-bs-privacy.php:132
+msgid "Bootsschule (Plattform)"
+msgstr ""
+
+#: includes/class-bs-privacy.php:133
+msgid "Bei der Plattform angemeldet"
+msgstr ""
+
+#: includes/class-bs-privacy.php:134
+msgid "Von der Plattform angelegt"
+msgstr ""
+
+#: includes/class-bs-privacy.php:135
+msgid "Bestätigte E-Mail-Adresse"
+msgstr ""
+
+#: includes/class-bs-privacy.php:136
+msgid "Bestätigungsmail gesendet am"
+msgstr ""
+
+#: includes/class-bs-privacy.php:137
+msgid "Offener Bestätigungslink"
+msgstr ""
+
+#: includes/class-bs-products.php:129 includes/class-bs-products.php:133
+msgid "— wählen —"
+msgstr ""
+
+#: includes/class-bs-products.php:144
+msgid "(nicht im aktuellen Katalog)"
+msgstr ""
+
+#: includes/class-bs-products.php:154
+msgid "Je verkaufter Menge entsteht ein Code im Codebestand der Bootsschule."
+msgstr ""
+
+#: includes/class-bs-products.php:157
+msgid "Keine (normales Produkt)"
+msgstr ""
+
+#: includes/class-bs-products.php:158
+msgid "Kurscode"
+msgstr ""
+
+#: includes/class-bs-products.php:159
+msgid "Verlängerungscode"
+msgstr ""
+
+#: includes/class-bs-products.php:160
+msgid "Produktcode (z. B. Fahrstunde)"
+msgstr ""
+
+#: includes/class-bs-products.php:164
+msgid "Kurs"
+msgstr ""
+
+#: includes/class-bs-products.php:165
+msgid "Plattform-Produkt"
+msgstr ""
+
+#: includes/class-bs-products.php:170
+msgid "Zusatzprodukte (Codes, kommagetrennt)"
+msgstr ""
+
+#: includes/class-bs-products.php:171
+msgid "Nur bei Kurscodes: wird beim Einlösen zusätzlich gutgeschrieben."
+msgstr ""
+
+#. translators: %s: Codes der Zusatzprodukte
+#: includes/class-bs-products.php:172
+#, php-format
+msgid "Verfügbar: %s"
+msgstr ""
+
+#: includes/class-bs-settings.php:63
+msgid "Bootsschule"
+msgstr ""
+
+#: includes/class-bs-settings.php:71
+msgid "Anbindung an die Bootsschul-Plattform"
+msgstr ""
+
+#: includes/class-bs-settings.php:71
+msgid "Gekaufte Codes werden nach der Zahlung dem Codebestand der verknüpften Bootsschule gutgeschrieben. Werte in wp-config.php haben Vorrang."
+msgstr ""
+
+#: includes/class-bs-settings.php:72
+msgid "Adresse der Plattform"
+msgstr ""
+
+#: includes/class-bs-settings.php:73
+msgid "Schlüssel-ID (Shop → App)"
+msgstr ""
+
+#: includes/class-bs-settings.php:74
+msgid "Geheimnis (Shop → App)"
+msgstr ""
+
+#: includes/class-bs-settings.php:75
+msgid "Schlüssel-ID (App → Shop)"
+msgstr ""
+
+#: includes/class-bs-settings.php:76
+msgid "Geheimnis (App → Shop)"
+msgstr ""
+
+#: includes/class-bs-settings.php:77
+msgid "Alarm-Adresse"
+msgstr ""
+
+#: includes/class-bs-settings.php:77
+msgid "Erhält eine Mail, wenn eine Zustellung endgültig fehlschlägt. Leer = Admin-Adresse von WordPress."
+msgstr ""
+
+#: includes/class-bs-settings.php:78
+msgid "Meta-Feld der USt-ID"
+msgstr ""
+
+#: includes/class-bs-settings.php:79
+msgid "Gesperrte Zahlarten"
+msgstr ""
+
+#: includes/class-bs-settings.php:79
+msgid "IDs der Zahlarten ohne bestätigten Zahlungseingang, kommagetrennt (z. B. cod für Nachnahme). Sie werden für Bootsschul-Codes an der Kasse ausgeblendet; Bestellungen damit werden erst nach Zahlungseingang zugestellt."
+msgstr ""
+
+#: includes/class-bs-settings.php:89
+msgid "Verbindung testen"
+msgstr ""
+
+#: includes/class-bs-settings.php:90
+msgid "Verwendet die gespeicherten Einstellungen – vorher speichern."
+msgstr ""
+
+#: includes/class-bs-settings.php:99
+msgid "gespeichert – leer lassen, um es zu behalten"
+msgstr ""

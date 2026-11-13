@@ -27,6 +27,10 @@ use RuntimeException;
  */
 class CouponRedemptionService
 {
+    public const PRAXIS_GROSS = 'PRAXISEINHEIT-GROSS';
+
+    public const PRAXIS_KLEIN = 'PRAXISEINHEIT-KLEIN';
+
     public function __construct(private EntitlementService $entitlements) {}
 
     /** @return array{type: 'course'|'product'|'course_renewal', course?: CourseDefinition, product?: Product, entitlement?: Entitlement} */
@@ -330,17 +334,14 @@ class CouponRedemptionService
             return;
         }
 
-        if ($options->contains('code', 'PRAXISEINHEIT-GROSS')) {
-            ProductPurchase::where('tenant_id', $tenant->id)
-                ->where('user_id', $user->id)
-                ->whereHas('product', fn ($q) => $q->where('code', 'PRAXISEINHEIT-KLEIN'))
-                ->delete();
+        if ($options->contains('code', self::PRAXIS_GROSS)) {
+            $this->replaceSmallPracticeUnit($tenant, $user);
 
             // Bündelt derselbe Code ausnahmsweise beide Praxiseinheiten
             // gleichzeitig, zählt nur die größere -- sonst würde der
             // nachfolgende Anlage-Schritt die gerade gelöschte Kleine sofort
             // wieder neu anlegen.
-            $options = $options->reject(fn ($option) => $option->code === 'PRAXISEINHEIT-KLEIN');
+            $options = $options->reject(fn ($option) => $option->code === self::PRAXIS_KLEIN);
         }
 
         foreach ($options as $option) {
@@ -369,6 +370,20 @@ class CouponRedemptionService
         }
     }
 
+    /**
+     * „Große Praxiseinheit ersetzt Kleine“: der Kunde hat danach nur noch die
+     * größere Einheit gebucht, nicht beide nebeneinander. Gilt für Kurscodes
+     * mit Zusatzprodukten (applyOptionProducts) und für eigene Produktcodes
+     * (redeemForProduct).
+     */
+    private function replaceSmallPracticeUnit(Tenant $tenant, User $user): void
+    {
+        ProductPurchase::where('tenant_id', $tenant->id)
+            ->where('user_id', $user->id)
+            ->whereHas('product', fn ($q) => $q->where('code', self::PRAXIS_KLEIN))
+            ->delete();
+    }
+
     private function redeemForProduct(Coupon $coupon, Tenant $tenant, User $user, User $actor): array
     {
         $product = $coupon->product;
@@ -378,6 +393,12 @@ class CouponRedemptionService
         }
 
         $now = now();
+
+        // Dieselbe Regel wie bei gebündelten Zusatzprodukten: ein eigener
+        // Produktcode für die Große Praxiseinheit ersetzt eine Kleine.
+        if ($product->code === self::PRAXIS_GROSS) {
+            $this->replaceSmallPracticeUnit($tenant, $user);
+        }
 
         ProductPurchase::create([
             'tenant_id' => $tenant->id,

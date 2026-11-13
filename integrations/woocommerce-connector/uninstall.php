@@ -17,6 +17,12 @@ if (function_exists('as_unschedule_all_actions')) {
     }
 }
 
-// Zwischengespeicherte Kontostatus (Transients bs_connector_status_*).
+// Zwischengespeicherte Kontostatus und Ergebnisse von „Verbindung testen“
+// (Transients bs_connector_status_*, bs_connector_test_result_*).
 global $wpdb;
-$wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE '\\_transient\\_bs\\_connector\\_status\\_%' OR option_name LIKE '\\_transient\\_timeout\\_bs\\_connector\\_status\\_%'"); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+foreach (['status', 'test\\_result'] as $bs_connector_transient) {
+    $wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE '\\_transient\\_bs\\_connector\\_{$bs_connector_transient}\\_%' OR option_name LIKE '\\_transient\\_timeout\\_bs\\_connector\\_{$bs_connector_transient}\\_%'"); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+}
+
+// Nutzer-Metadaten (Verknüpfung, E-Mail-Bestätigung) bleiben wie die Bestelldaten erhalten;
+// einzeln löschen lassen sie sich über die Datenschutz-Werkzeuge von WordPress.

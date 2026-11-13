@@ -527,7 +527,8 @@ class AdminDashboardController extends Controller
         // die Schule muss es selbst per Code verknüpfen.
         $shopNeedsLink = CommerceShopAccount::where('tenant_id', $tenant->id)->whereNull('shop_customer_id')
             ->where('provisioning_status', 'needs_link')->exists();
-        $shopBatches = CouponBatch::where('tenant_id', $tenant->id)->with(['course', 'product'])
+        // Nur Shop-Lieferungen (Code-Pakete des Superadmins stehen nicht in dieser Tabelle).
+        $shopBatches = CouponBatch::where('tenant_id', $tenant->id)->where('source', 'woocommerce')->with(['course', 'product'])
             ->withCount(['coupons as redeemed_count' => fn ($q) => $q->whereNotNull('redeemed_at')])
             ->orderByDesc('created_at')->limit(20)->get();
 

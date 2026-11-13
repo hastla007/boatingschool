@@ -8,11 +8,11 @@ use App\Models\Coupon;
 use App\Models\CourseDefinition;
 use App\Models\Product;
 use App\Models\Tenant;
+use App\Services\CouponBatchFactory;
 use App\Support\GermanTime;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -83,30 +83,20 @@ class CouponController extends Controller
             : null;
 
         // Alles oder nichts: bricht die Erzeugung ab (Timeout, Fehler), bleibt kein
-        // halber Satz Codes ohne Protokolleintrag zurück.
-        $codes = DB::transaction(function () use ($quantity, $type, $targetId, $validated, $batchLabel, $request, $expiresAt, $optionProductIds) {
-            $codes = [];
-            for ($i = 0; $i < $quantity; $i++) {
-                $coupon = Coupon::create([
-                    'code' => Coupon::generateUniqueCode(),
-                    'course_id' => $type === 'product' ? null : $targetId,
-                    'product_id' => $type === 'product' ? $targetId : null,
-                    'is_renewal' => $type === 'renewal',
-                    'tenant_id' => $validated['tenant_id'] ?? null,
-                    'batch_label' => $batchLabel,
-                    'created_by_user_id' => $request->user()->id,
-                    'expires_at' => $expiresAt,
-                ]);
-
-                if (! empty($optionProductIds)) {
-                    $coupon->optionProducts()->attach($optionProductIds);
-                }
-
-                $codes[] = $coupon->code;
-            }
-
-            return $codes;
-        });
+        // halber Satz Codes ohne Protokolleintrag zurück. Derselbe Weg wie bei
+        // Shop-Bestellungen (CouponBatchFactory: Sammel-Insert); ab zwei Codes
+        // entsteht dazu ein Paket-Eintrag (coupon_batch, Quelle „superadmin“).
+        $created = app(CouponBatchFactory::class)->create([
+            'kind' => $type,
+            'course_id' => $type === 'product' ? null : $targetId,
+            'product_id' => $type === 'product' ? $targetId : null,
+            'option_product_ids' => $optionProductIds,
+            'tenant_id' => $validated['tenant_id'] ?? null,
+            'batch_label' => $batchLabel,
+            'created_by_user_id' => $request->user()->id,
+            'expires_at' => $expiresAt,
+        ], $quantity, $quantity > 1 ? ['source' => 'superadmin'] : null);
+        $codes = $created['codes'];
 
         // Sicherheitsreview S4: die Erzeugung von Coupon-Codes (potenziell
         // kostenlose Freischaltungen, bis zu 500 pro Aufruf) wurde bisher
@@ -125,6 +115,7 @@ class CouponController extends Controller
             'target' => $validated['target'],
             'quantity' => $quantity,
             'batch_label' => $batchLabel,
+            'batch_id' => $created['batch']?->id,
         ]);
 
         $message = $quantity === 1 ? 'Coupon-Code erzeugt.' : "{$quantity} Coupon-Codes erzeugt.";

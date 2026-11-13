@@ -13,6 +13,7 @@ use App\Models\PlatformSetting;
 use App\Models\Product;
 use App\Models\Tenant;
 use App\Models\TenantCourseDisabled;
+use App\Services\CouponBatchFactory;
 use App\Support\BestEffortMail;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -63,13 +64,18 @@ class ShopOrders
             $target = $this->resolveTarget($account, $line);
             $this->assertWithinDailyQuota($account, (int) $line['quantity']);
 
-            $batch = CouponBatch::create([
-                'tenant_id' => $account->tenant_id,
+            // Gemeinsamer Weg mit dem Superadmin: Paket und Codes in einem
+            // Rutsch (Sammel-Insert), auch bei 500 Codes deutlich unter dem
+            // Zeitlimit des Plugins.
+            $batch = app(CouponBatchFactory::class)->create([
                 'kind' => $line['kind'],
                 'course_id' => $target['course']?->id,
                 'product_id' => $target['product']?->id,
-                'option_product_ids' => $target['option_product_ids'] ?: null,
-                'quantity' => (int) $line['quantity'],
+                'option_product_ids' => $target['option_product_ids'],
+                'tenant_id' => $account->tenant_id,
+                'batch_label' => 'Shop-Bestellung '.($line['order_number'] ?? $line['order_id']),
+                'created_by_user_id' => null,
+            ], (int) $line['quantity'], [
                 'source' => 'woocommerce',
                 'shop_id' => $shopId,
                 'order_id' => $line['order_id'],
@@ -77,26 +83,7 @@ class ShopOrders
                 'order_number' => $line['order_number'] ?? null,
                 'shop_account_id' => $account->id,
                 'request_fingerprint' => $fingerprint,
-                'status' => 'delivered',
-                'created_at' => now(),
-            ]);
-
-            $label = 'Shop-Bestellung '.($line['order_number'] ?? $line['order_id']);
-            for ($i = 0; $i < (int) $line['quantity']; $i++) {
-                $coupon = Coupon::create([
-                    'code' => Coupon::generateUniqueCode(),
-                    'course_id' => $target['course']?->id,
-                    'product_id' => $target['product']?->id,
-                    'is_renewal' => $line['kind'] === 'renewal',
-                    'tenant_id' => $account->tenant_id,
-                    'batch_label' => $label,
-                    'batch_id' => $batch->id,
-                    'created_by_user_id' => null,
-                ]);
-                if ($target['option_product_ids']) {
-                    $coupon->optionProducts()->attach($target['option_product_ids']);
-                }
-            }
+            ])['batch'];
 
             AuditLog::record($account->tenant_id, null, 'commerce.batch.delivered', 'coupon_batch', $batch->id, null, [
                 'order_number' => $batch->order_number, 'kind' => $batch->kind, 'quantity' => $batch->quantity,
@@ -196,13 +183,17 @@ class ShopOrders
         ];
     }
 
-    /** Was der Shop Produkten zuordnen kann (Kurse und Produkte der Plattform). */
+    /** Was der Shop Produkten zuordnen kann (Kurse, allein verkäufliche Produkte, Zusatzprodukte). */
     public function catalog(): array
     {
         return [
             'courses' => CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')->where('status', 'published')->where('site_enabled', true)
                 ->orderBy('name')->get(['code', 'name'])->map(fn ($c) => ['code' => $c->code, 'name' => $c->name])->values(),
-            'products' => Product::where('active', true)->orderBy('name')->get(['code', 'name'])
+            // Produktcodes (kind=product): nur allein verkäufliche Produkte.
+            'products' => Product::sellableStandalone()->orderBy('name')->get(['code', 'name'])
+                ->map(fn ($p) => ['code' => $p->code, 'name' => $p->name])->values(),
+            // Zusatzprodukte zu Kurscodes: jedes aktive Produkt.
+            'option_products' => Product::where('active', true)->orderBy('name')->get(['code', 'name'])
                 ->map(fn ($p) => ['code' => $p->code, 'name' => $p->name])->values(),
             'kinds' => self::KINDS,
             'max_quantity' => (int) config('commerce.max_quantity', 500),
@@ -229,7 +220,8 @@ class ShopOrders
             return;
         }
         $since = now('Europe/Berlin')->startOfDay()->utc();
-        $today = (int) CouponBatch::withoutGlobalScopes()->where('tenant_id', $account->tenant_id)->where('created_at', '>=', $since)->sum('quantity');
+        $today = (int) CouponBatch::withoutGlobalScopes()->where('tenant_id', $account->tenant_id)->where('source', 'woocommerce')
+            ->where('created_at', '>=', $since)->sum('quantity');
         if ($today + $quantity <= $limit) {
             return;
         }
@@ -269,9 +261,11 @@ class ShopOrders
                 throw new ApiProblem(422, 'COURSE_NOT_AVAILABLE', 'Kurs für die Schule abgeschaltet', 'Die Schule hat diesen Kurs abgeschaltet.');
             }
         } else {
-            $product = Product::where('active', true)->where('code', $line['product_code'] ?? '')->first();
+            // Nur als Zusatzprodukt gedachte Produkte (z. B. Lernplattform) gibt
+            // es nicht als eigenen Produktcode.
+            $product = Product::sellableStandalone()->where('code', $line['product_code'] ?? '')->first();
             if (! $product) {
-                throw new ApiProblem(422, 'UNKNOWN_PRODUCT', 'Unbekanntes Produkt', 'Kein aktives Produkt mit diesem Code.', ['product_code' => ['Unbekanntes Produkt.']]);
+                throw new ApiProblem(422, 'UNKNOWN_PRODUCT', 'Unbekanntes Produkt', 'Kein aktives, allein verkäufliches Produkt mit diesem Code.', ['product_code' => ['Unbekanntes Produkt.']]);
             }
         }
 
