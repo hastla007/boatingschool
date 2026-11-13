@@ -843,7 +843,7 @@ paths:
     put:
       tags: [Videos]
       operationId: updateVideoProgress
-      summary: Wiedergabestand speichern (abgeschlossen bleibt abgeschlossen)
+      summary: Wiedergabestand speichern (abgeschlossen bleibt abgeschlossen; Platzhalter-Videos ergeben 409 VIDEO_NOT_AVAILABLE)
       parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/LessonId'}]
       requestBody:
         required: true
@@ -872,6 +872,7 @@ paths:
                       updated_at: {type: string, format: date-time}
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
         '422': {$ref: '#/components/responses/Problem'}
 
   # --------------------------------------------------------- Navigation
@@ -1104,7 +1105,7 @@ components:
             COLLECTION_NOT_DELETABLE, EXAM_NOT_AVAILABLE, EXAM_ANSWER_LOCKED, EXAM_ALREADY_SUBMITTED, EXAM_EXPIRED,
             EXAM_NOT_SUBMITTED, EXAM_NO_NAVIGATION_PART, EXAM_NAVIGATION_ALREADY_SUBMITTED, EXAM_NAVIGATION_NOT_SUBMITTED,
             NAVIGATION_TASK_IN_EXAM, COUPON_INVALID, COUPON_NOT_APPLICABLE, EXPORT_EXPIRED,
-            MAINTENANCE, APP_UPDATE_REQUIRED, EXAM_QUESTIONS_OPEN, EXAM_QUESTION_LOCKED, LINK_INVALID]
+            MAINTENANCE, APP_UPDATE_REQUIRED, EXAM_QUESTIONS_OPEN, EXAM_QUESTION_LOCKED, LINK_INVALID, VIDEO_NOT_AVAILABLE]
         errors: {type: object, additionalProperties: {type: array, items: {type: string}}}
         request_id: {type: string}
         exam_id: {type: string, description: Bei NAVIGATION_TASK_IN_EXAM}

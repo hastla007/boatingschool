@@ -73,7 +73,9 @@ class DashboardController extends Controller
             // Weiterlernen-Banner führt je nach Fortschritt zu einem anderen
             // nächsten Schritt: erst der Videokurs (falls vorhanden), dann der
             // Smarttrainer, ab hoher Mastery-Quote schließlich die Prüfungssimulation.
-            $videoLessons = VideoCourseLessons::ordered($course);
+            // Platzhalter („Video folgt“) lassen sich nicht abschließen und
+            // halten den Banner deshalb nicht beim Videokurs fest.
+            $videoLessons = VideoCourseLessons::countable(VideoCourseLessons::ordered($course));
             $videoComplete = $videoLessons->isEmpty()
                 || $videoLessons->every(fn ($lesson) => $videoProgressStats->has($lesson->id));
 

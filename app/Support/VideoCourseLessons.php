@@ -32,4 +32,17 @@ class VideoCourseLessons
         return $query->get()
             ->flatMap(fn ($module) => $module->lessons->map(fn ($lesson) => tap($lesson, fn ($l) => $l->setRelation('module', $module))));
     }
+
+    /**
+     * Lektionen, die im Fortschritt zählen: Platzhalter („Video folgt“, siehe
+     * VideoLesson::isPlaceholder()) lassen sich nicht abschließen und stehen
+     * deshalb weder im Zähler noch im Nenner -- im Web wie in der App.
+     *
+     * @param  Collection<int, VideoLesson>  $lessons
+     * @return Collection<int, VideoLesson>
+     */
+    public static function countable(Collection $lessons): Collection
+    {
+        return $lessons->reject(fn (VideoLesson $lesson) => $lesson->isPlaceholder())->values();
+    }
 }

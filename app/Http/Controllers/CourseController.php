@@ -18,6 +18,7 @@ use App\Support\ComboVideoGroups;
 use App\Support\ExamRegistration;
 use App\Support\FunkTraining;
 use App\Support\TenantContext;
+use App\Support\VideoCourseLessons;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
@@ -129,7 +130,8 @@ class CourseController extends Controller
         // Kapitel im sequenziellen Haupt-Videokurs bzw. dessen
         // Kursfortschritt auf.
         $mainVideoModules = $videoModules->reject(fn ($m) => $m->title === 'Knoten');
-        $videoLessonIds = $mainVideoModules->flatMap->lessons->pluck('id');
+        // Platzhalter („Video folgt“) zählen im Fortschritt nicht mit.
+        $videoLessonIds = VideoCourseLessons::countable($mainVideoModules->flatMap->lessons)->pluck('id');
         $videoTotal = $videoLessonIds->count();
         $videoCompleted = $videoTotal > 0
             ? VideoProgress::where('tenant_id', $tenant->id)->where('user_id', $user->id)
@@ -144,7 +146,7 @@ class CourseController extends Controller
         $navigationModule = $videoModules->firstWhere('title', 'Navigation');
 
         $chapterPercent = function (array $moduleIds) use ($tenant, $user, $videoModules) {
-            $lessonIds = $videoModules->whereIn('id', $moduleIds)->flatMap->lessons->pluck('id');
+            $lessonIds = VideoCourseLessons::countable($videoModules->whereIn('id', $moduleIds)->flatMap->lessons)->pluck('id');
             if ($lessonIds->isEmpty()) {
                 return 0;
             }
@@ -229,7 +231,8 @@ class CourseController extends Controller
             'coursePromoBanner' => $coursePromoBanner,
             'masteredCount' => $masteredCount,
             'openCount' => max($questionIds->count() - $masteredCount, 0),
-            'hasVideoCourse' => $videoTotal > 0,
+            // Die Kachel bleibt auch, wenn alle Videos noch folgen (Platzhalter).
+            'hasVideoCourse' => $mainVideoModules->flatMap->lessons->isNotEmpty(),
             'videoPercent' => $videoTotal > 0 ? (int) round($videoCompleted / $videoTotal * 100) : 0,
             'comboVideoGroups' => $comboVideoGroups,
             'hasExam' => $course->hasStartableExam(),

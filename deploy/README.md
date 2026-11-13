@@ -200,4 +200,10 @@ sie im Spam, kommen Lernende nicht in ihr Konto. Deshalb:
 
 Auftragsverarbeitungsverträge mit Hoster, Mail-, Speicher-, Video- und Fehlertracking-Anbieter
 abschließen; Standorte möglichst in der EU. Die Datenschutzerklärung (Superadmin → Website)
-muss die eingesetzten Anbieter nennen.
+muss die eingesetzten Anbieter nennen: Videoanbieter, externer Sicherungsspeicher
+und Fehleranalyse erscheinen dort automatisch, wenn `PRIVACY_VIDEO_PROVIDER`,
+`BACKUP_DISK`/`PRIVACY_BACKUP_PROVIDER` bzw. `SENTRY_LARAVEL_DSN` gesetzt sind
+(`config/privacy.php`). Entwürfe für AVV, TOM, Verzeichnis der
+Verarbeitungstätigkeiten, Löschkonzept, AGB und Barrierefreiheit:
+`docs/recht/`. Löschfrist für inaktive Lernende:
+`DATA_RETENTION_INACTIVE_LEARNER_MONTHS` (Standard aus).

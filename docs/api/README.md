@@ -323,7 +323,11 @@ GET  /exams/{id}/result                 → Ergebnis mit Lösungen
 * `PUT /videos/{id}/progress` speichert den Fortschritt:
   * `position_seconds` (Wiedergabeposition) und `completed`.
   * Eine abgeschlossene Lektion bleibt abgeschlossen.
-* Platzhalter-Videos haben `media.kind = placeholder` und `url = null`.
+* Platzhalter-Videos („Video folgt“) haben `media.kind = placeholder`,
+  `media.available = false` und `url = null`. Sie lassen sich nicht
+  abschließen (`PUT …/progress` ergibt 409 `VIDEO_NOT_AVAILABLE`) und zählen
+  wie im Web nicht zum Videofortschritt. Die App zeigt statt des Players
+  einen Hinweis „Video folgt“.
 
 ## 10. Navigationstrainer, Codes, Datenexport
 
@@ -371,6 +375,7 @@ GET  /exams/{id}/result                 → Ergebnis mit Lösungen
 | 409 | `EXAM_ALREADY_SUBMITTED` / `EXAM_NOT_SUBMITTED` | Ergebnis bzw. Prüfung laden |
 | 409 | `EXAM_NO_NAVIGATION_PART`, `EXAM_NAVIGATION_ALREADY_SUBMITTED`, `EXAM_NAVIGATION_NOT_SUBMITTED` | Phase neu laden / nachfragen |
 | 409 | `NAVIGATION_TASK_IN_EXAM` | erst Prüfung beenden (`exam_id` im Fehler) |
+| 409 | `VIDEO_NOT_AVAILABLE` | Platzhalter-Video („Video folgt“): nicht abschließbar, zur nächsten Lektion |
 | 410 | `EXAM_EXPIRED` | Prüfung bzw. Ergebnis neu laden |
 | 410 | `EXPORT_EXPIRED` | neuen Export anfordern |
 | 410 | `GONE` | allgemein: nicht mehr verfügbar |

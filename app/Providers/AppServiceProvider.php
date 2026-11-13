@@ -6,6 +6,7 @@ use App\Auth\TenantSessionGuard;
 use App\Models\PlatformSetting;
 use App\Models\User;
 use App\Support\CanonicalUrl;
+use App\Support\LoginActivity;
 use App\Support\MailSchool;
 use App\Support\RegistrationCouponNotice;
 use App\Support\SchoolMails;
@@ -86,6 +87,12 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(Login::class, function (Login $event) {
             if ($event->user instanceof User) {
                 RegistrationCouponNotice::moveToSession($event->user);
+                // Letzte Anmeldung für die Löschung inaktiver Konten -- nicht,
+                // wenn der Support ein Konto ansieht (das ist keine Anmeldung
+                // der Person selbst).
+                if (! request()->routeIs('impersonate.consume')) {
+                    LoginActivity::record($event->user->id);
+                }
             }
         });
 

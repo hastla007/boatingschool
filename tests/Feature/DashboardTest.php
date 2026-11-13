@@ -6,6 +6,7 @@ use App\Models\ContentQuestion;
 use App\Models\CourseDefinition;
 use App\Models\Module;
 use App\Models\Progress;
+use App\Models\VideoLesson;
 use App\Models\VideoProgress;
 use App\Support\VideoCourseLessons;
 use Tests\Feature\Concerns\InteractsWithTenants;
@@ -27,11 +28,14 @@ class DashboardTest extends TestCase
 
     private array $createdQuestionIds = [];
 
+    private array $createdVideoLessonIds = [];
+
     protected function tearDown(): void
     {
         $this->cleanUpCreatedTenantsAndUsers();
 
         $this->onAdmin(function () {
+            VideoLesson::whereIn('id', $this->createdVideoLessonIds)->delete();
             foreach ($this->createdCourseIds as $id) {
                 CourseDefinition::withoutGlobalScopes()->where('id', $id)->delete();
             }
@@ -135,6 +139,12 @@ class DashboardTest extends TestCase
         $learner = $this->createTenantUser($tenant, 'learner');
         $course = $this->existingCourse('FKN');
         $this->grantEntitlement($tenant, $learner, $course);
+        // Die Seeder legen nur Platzhalter an („Video folgt“, zählen nicht):
+        // ein echtes, noch nicht gesehenes Video dazu.
+        $this->onAdmin(function () use ($course) {
+            $module = VideoCourseLessons::ordered($course)->first()->module;
+            $this->createdVideoLessonIds[] = VideoLesson::create(['video_module_id' => $module->id, 'title' => 'Echtes Video', 'video_url' => 'https://videos.example.test/fkn.mp4', 'sort_order' => 999])->id;
+        });
 
         $response = $this->actingAsInTenant($learner, $tenant)->get('/dashboard');
 

@@ -33,6 +33,11 @@ class LegalPages
         'ustid' => 'Umsatzsteuer-Identifikationsnummer',
         'plattform' => 'Name der Plattform',
         'betreiber' => 'Angaben zum Betreiber der Plattform (Website-Einstellungen)',
+        'videos' => 'Absatz zum Videoanbieter (nur mit PRIVACY_VIDEO_PROVIDER, sonst leer)',
+        'fehleranalyse' => 'Absatz zur Fehleranalyse (nur mit SENTRY_LARAVEL_DSN, sonst leer)',
+        'datensicherung' => 'Absatz zur Datensicherung (Aufbewahrung BACKUP_KEEP_DAYS)',
+        'shop' => 'Absatz zum Code-Shop für Bootsschulen (nur mit eingerichteter Shop-Anbindung)',
+        'speicherdauer' => 'Speicherdauer je Datenart (aus den eingestellten Löschfristen)',
     ];
 
     public const DEFAULT_IMPRESSUM = <<<'MD'
@@ -83,7 +88,7 @@ Der Betreiber verarbeitet die Daten im Auftrag der Bootsschule (Auftragsverarbei
 
 ## 3. Welche Daten wir verarbeiten
 
-- **Konto:** Name, E-Mail-Adresse, Passwort (verschlüsselt gespeichert), freigeschaltete Kurse.
+- **Konto:** Name, E-Mail-Adresse, Passwort (verschlüsselt gespeichert), freigeschaltete Kurse, Zeitpunkt der letzten Anmeldung.
 - **Lernen:** Antworten, Lernfortschritt, Ergebnisse der Prüfungssimulation, Übungen im Praxistrainer und in der Funk-Gerätesimulation.
 - **Praxisprüfung und Willkommensbox:** die Angaben im Anmeldeformular, Prüfungstermine sowie die Lieferadresse, wenn du eine Willkommensbox bestellst.
 - **Lern-App:** wenn du die App nutzt, zusätzlich je angemeldetem Gerät der Gerätename, die Plattform (iOS/Android), die App-Version sowie Zeitpunkt der Anmeldung und der letzten Nutzung.
@@ -99,27 +104,43 @@ Der Betreiber verarbeitet die Daten im Auftrag der Bootsschule (Auftragsverarbei
 
 Wir verwenden nur technisch notwendige Cookies (Anmeldung und Sicherheit), keine Werbe- oder Analyse-Cookies. Schriften werden von unserem eigenen Server geladen, nicht von Drittanbietern.
 
-## 6. Spracherkennung in der Funk-Gerätesimulation
+## 6. Spracherkennung in den Funkübungen
 
-Wenn du einen Funkspruch einsprichst, nutzt die Gerätesimulation die Spracherkennung deines Browsers. Je nach Browser wird die Aufnahme dafür an den Anbieter des Browsers übertragen (z. B. Google bei Chrome). Das geschieht nur, solange du die Sprechtaste hältst. Du kannst den Funkspruch stattdessen auch eintippen.
+In den mündlichen Funkübungen und in der Funk-Gerätesimulation kannst du Funksprüche einsprechen, statt sie einzutippen. Das ist freiwillig: Die Spracherkennung startet nur, wenn du selbst auf das Mikrofon bzw. die Sprechtaste tippst, und dein Browser fragt vorher nach der Erlaubnis für das Mikrofon. Die Erkennung übernimmt dein Browser (Web Speech API); je nach Browser wird die Aufnahme dafür an dessen Anbieter übertragen (z. B. Google bei Chrome) und nach dessen Bedingungen verarbeitet. Bei uns kommt nur der erkannte Text an, und nur, wenn du ihn absendest. Du kannst den Funkspruch jederzeit auch eintippen.
 
 ## 7. Karten (OpenStreetMap)
 
 Bei der Anmeldung zur Praxisprüfung zeigt eine Karte die Prüfungsorte. Die Kartenkacheln lädt dein Browser von den Servern der OpenStreetMap Foundation (St John's Innovation Centre, Cowley Road, Cambridge, CB4 0WS, Vereinigtes Königreich). Dabei werden deine IP-Adresse und technische Angaben deines Browsers an OpenStreetMap übermittelt; Grundlage ist unser berechtigtes Interesse an einer übersichtlichen Ortsauswahl (Art. 6 Abs. 1 lit. f DSGVO). Für das Vereinigte Königreich besteht ein Angemessenheitsbeschluss der EU-Kommission. Mehr dazu: https://osmfoundation.org/wiki/Privacy_Policy. Den Prüfungsort kannst du auch ohne Karte aus der Liste wählen.
 
-## 8. Empfänger
+## 8. Lernvideos
 
-Deine Daten sehen die Bootsschule und der Betreiber der Plattform. Für Hosting und E-Mail-Versand setzen wir Dienstleister ein, die nach Art. 28 DSGVO an unsere Weisungen gebunden sind.
+{videos}
 
-## 9. Speicherdauer
+## 9. Fehleranalyse
 
-Wir speichern deine Daten, solange dein Konto besteht. Danach löschen wir sie, soweit keine gesetzlichen Aufbewahrungspflichten entgegenstehen. Abgemeldete oder abgelaufene Geräte der Lern-App löschen wir nach 30 Tagen, einen Datenexport aus der App nach einer Stunde.
+{fehleranalyse}
 
-## 10. Deine Rechte
+## 10. Datensicherung
+
+{datensicherung}
+
+## 11. Code-Shop für Bootsschulen
+
+{shop}
+
+## 12. Empfänger
+
+Deine Daten sehen die Bootsschule und der Betreiber der Plattform. Für Hosting, E-Mail-Versand und die oben genannten Dienste setzen wir Dienstleister ein, die nach Art. 28 DSGVO an unsere Weisungen gebunden sind.
+
+## 13. Speicherdauer
+
+{speicherdauer}
+
+## 14. Deine Rechte
 
 Du hast das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung, Datenübertragbarkeit und Widerspruch (Art. 15 bis 21 DSGVO). Deine Daten kannst du im Profil selbst exportieren, dein Konto dort auch löschen. Außerdem kannst du dich bei einer Datenschutz-Aufsichtsbehörde beschweren.
 
-## 11. Kontakt
+## 15. Kontakt
 
 Fragen zum Datenschutz richtest du an: {email}
 MD;
@@ -171,7 +192,7 @@ MD;
             ? ($settings?->imprint_template ?: self::DEFAULT_IMPRESSUM)
             : ($settings?->privacy_template ?: self::DEFAULT_DATENSCHUTZ);
 
-        $markdown = self::fill($template, self::values($tenant?->branding, $tenant, $settings));
+        $markdown = self::renumberSections(self::fill($template, self::values($tenant?->branding, $tenant, $settings)));
 
         // Kein HTML aus der Vorlage oder den Stammdaten durchlassen.
         return Str::markdown($markdown, ['html_input' => 'escape', 'allow_unsafe_links' => false]);
@@ -195,7 +216,28 @@ MD;
             'ustid' => (string) ($branding?->vat_id ?? ''),
             'plattform' => PlatformSetting::siteName(),
             'betreiber' => (string) ($settings?->operator_info ?? ''),
-        ];
+        ] + PrivacyNotices::values();
+    }
+
+    /**
+     * Entfallen Abschnitte (z. B. „Lernvideos“ ohne Videoanbieter), wird die
+     * Nummerierung „## 1.“, „## 2.“ … lückenlos neu vergeben -- nur, wenn
+     * alle Überschriften der Ebene 2 nummeriert sind (eigene Vorlagen ohne
+     * Nummern bleiben unverändert).
+     */
+    public static function renumberSections(string $markdown): string
+    {
+        preg_match_all('/^## (.*)$/m', $markdown, $headings);
+        if ($headings[1] === [] || collect($headings[1])->contains(fn ($h) => ! preg_match('/^\d+\.\s/', $h))) {
+            return $markdown;
+        }
+        $number = 0;
+
+        return preg_replace_callback('/^## \d+\.\s/m', function () use (&$number) {
+            $number++;
+
+            return "## {$number}. ";
+        }, $markdown);
     }
 
     /** @param array<string, string> $values */

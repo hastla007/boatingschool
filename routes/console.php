@@ -34,6 +34,9 @@ Artisan::command('inspire', function () {
 Schedule::command('app:prune-personal-data')->daily()->onOneServer()->withoutOverlapping(180);
 // Review-Runde 13: Exportdateien der App (personenbezogen) nicht bis zum
 // nächsten Tageslauf liegen lassen.
+// Löschfrist für inaktive Lernende (nur mit DATA_RETENTION_INACTIVE_LEARNER_MONTHS):
+// Vorwarnung per Mail, Löschung frühestens 30 Tage danach.
+Schedule::command('app:prune-inactive-learners')->dailyAt('05:10')->timezone('Europe/Berlin')->onOneServer()->withoutOverlapping(180);
 Schedule::command('app:prune-personal-data --mobile-api-only')->hourly()->onOneServer()->withoutOverlapping(55);
 
 // Shop-Anbindung: Ausgang App -> Shop (Shopkonten neuer Schulen), mit Wiederholung.
