@@ -226,12 +226,14 @@ class PersonalDataExportService
                 ->map(fn (PraxisProgress $p) => [
                     'praxis_task_id' => $p->praxis_task_id,
                     'completed' => $p->completed,
+                    'status' => $p->status,
                 ])->all(),
             'navigation_progress' => NavigationProgress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get()
                 ->map(fn (NavigationProgress $p) => [
                     'navigation_question_id' => $p->navigation_question_id,
                     'answer' => $p->answer,
                     'correct' => $p->correct,
+                    'self_assessment' => $p->self_assessment,
                     'updated_at' => $p->updated_at?->toIso8601String(),
                 ])->all(),
             'video_progress' => VideoProgress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get()

@@ -94,14 +94,15 @@ class NavigationTaskController extends Controller
         $existing = NavigationProgress::where($key)->first();
 
         if (isset($data['self'])) {
-            $values = ['answer' => $existing?->answer, 'correct' => $data['self'] === 'richtig'];
+            $values = ['answer' => $existing?->answer, 'correct' => $data['self'] === 'richtig', 'self_assessment' => $data['self'] === 'richtig' ? 'correct' : 'wrong'];
         } else {
             $given = trim((string) ($data['answer'] ?? ''));
             if ($given === '') {
                 return back()->withErrors(['answer_'.$question->id => 'Bitte zuerst eine Antwort eingeben.'])->withFragment('frage-'.$question->question_number);
             }
             $result = NavigationAnswer::evaluate($question->answer_text, $given);
-            $values = ['answer' => $given, 'correct' => $result['correct']];
+            // Neue Antwort: eine frühere Selbstbewertung (App) gilt nicht mehr.
+            $values = ['answer' => $given, 'correct' => $result['correct'], 'self_assessment' => null];
         }
 
         NavigationProgress::updateOrCreate($key, $values + ['updated_at' => now()]);
