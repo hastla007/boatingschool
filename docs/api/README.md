@@ -248,7 +248,11 @@ Kursinhalte ohne gültigen Zugang ergeben 403 `ENTITLEMENT_REQUIRED` oder
 * Einfachauswahl: `selected_answer_ids` mit genau einer ID.
 * Mehrfachauswahl: alle gewählten IDs.
 * Offene Frage: Musterantwort aus `question.model_answer` aufdecken, dann
-  `known: true/false` senden.
+  `known: true/false` senden. WP-kompatibel geht auch
+  `POST /courses/{id}/trainer/reveal {answer_token}` mit dem `answer_token`
+  aus `trainer/next` (die ausgelieferte Revision). Kurszugang und
+  Kurszugehörigkeit werden dabei neu geprüft; nur offene Fragen (sonst 422),
+  Fragen einer laufenden Prüfung → 409 `EXAM_QUESTION_LOCKED`.
 
 Die Antwort enthält Richtig/Falsch, Lösung, Erklärung, `learning_state`,
 `streak` (x von 3) und `completed` (= gefestigt). Es gelten die Regeln der
@@ -267,6 +271,11 @@ Web-App (`MasteryCalculator`).
 * Sammlungen: anlegen, umbenennen, löschen (max. 60 Zeichen, eindeutiger
   Name). Die Standard-Sammlung bleibt.
 * `context: exam` gilt für Favoriten aus der Prüfung.
+* **Fehlerliste:** `GET /courses/{id}/mistakes` listet die zuletzt falsch
+  beantworteten, noch gültigen Fragen des Kurses (gleiche Regel wie
+  `mode=wrong`: mindestens ein Versuch, aktuelle Serie 0), neueste zuerst,
+  mit Favoriten- und Sammlungsstatus, ohne Lösung. Üben:
+  `trainer/next?mode=wrong`.
 
 ## 8. Prüfungssimulation
 
@@ -277,6 +286,8 @@ POST /courses/{id}/exams {paper_id}     → 201 neu / 200 laufende fortsetzen
 GET  /exams/{id}                        → Fragen ohne Lösung, gegebene Antworten, phase, Zeit
 PUT  /exams/{id}/answers/{questionId}   → festschreiben
 POST /exams/{id}/questions/{qid}/reveal → Musterantwort (offene Fragen)
+PUT  /exams/{id}/answers/{qid}/flag     → Frage markieren {flagged: true/false}
+POST /exams/{id}/answers/{qid}/reveal   → WP-kompatibler Alias für …/questions/{qid}/reveal
 PUT  /exams/{id}/navigation             → Navigationsaufgabe abgeben (SBF See)
 POST /exams/{id}/navigation/assessment  → Selbsteinschätzung → Auswertung
 POST /exams/{id}/submit                 → abgeben → Ergebnis (Navigation fehlt: 409, außer without_navigation)
@@ -296,6 +307,12 @@ GET  /exams/{id}/result                 → Ergebnis mit Lösungen
   im Web erst nach dem Fragebogen (sonst 409 `EXAM_QUESTIONS_OPEN`).
 * **Zeit:** Nach Ablauf (`expires_at`) zählt keine Antwort mehr (410
   `EXAM_EXPIRED`).
+* **Markieren:** `PUT …/answers/{qid}/flag` speichert eine Markierung zur
+  Durchsicht am Server (bleibt beim Fortsetzen auf einem anderen Gerät
+  erhalten), auch für schon beantwortete Fragen, und wirkt sich nicht auf
+  die Auswertung aus. `GET /exams/{id}` liefert je Frage `flagged` und
+  `flagged_count`. Bei `…/flag` und dem Reveal-Alias darf `{qid}` auch die
+  Position der Frage sein (1-basiert).
   * Mit Navigationsteil bleibt die Prüfung für die Navigation offen: Abgabe
     bis `navigation_submit_until` (1 Min. nach Ende, nur für technische Verzögerungen), Selbsteinschätzung bis
     `navigation_assessment_until` (15 Min. nach Ende). Danach wird

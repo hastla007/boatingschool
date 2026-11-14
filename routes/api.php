@@ -55,10 +55,12 @@ Route::middleware('api.auth')->group(function () {
         Route::get('/tips', [TipsController::class, 'index']);
 
         Route::get('/courses/{courseId}/trainer/next', [LearningController::class, 'next'])->whereUuid('courseId');
+        Route::post('/courses/{courseId}/trainer/reveal', [LearningController::class, 'reveal'])->whereUuid('courseId');
         Route::post('/courses/{courseId}/attempts', [LearningController::class, 'submit'])->whereUuid('courseId')->middleware('api.idempotent');
         Route::get('/courses/{courseId}/attempts/{attemptId}', [LearningController::class, 'showAttempt'])->whereUuid(['courseId', 'attemptId']);
 
         Route::get('/courses/{courseId}/favorites', [FavoriteController::class, 'index'])->whereUuid('courseId');
+        Route::get('/courses/{courseId}/mistakes', [FavoriteController::class, 'mistakes'])->whereUuid('courseId');
         Route::put('/courses/{courseId}/favorites/{questionId}', [FavoriteController::class, 'put'])->whereUuid(['courseId', 'questionId']);
         Route::delete('/courses/{courseId}/favorites/{questionId}', [FavoriteController::class, 'destroy'])->whereUuid(['courseId', 'questionId']);
         Route::get('/courses/{courseId}/favorite-collections', [FavoriteController::class, 'collections'])->whereUuid('courseId');
@@ -73,6 +75,11 @@ Route::middleware('api.auth')->group(function () {
         Route::get('/exams/{examId}', [ExamController::class, 'show'])->whereUuid('examId');
         Route::put('/exams/{examId}/answers/{questionId}', [ExamController::class, 'answer'])->whereUuid(['examId', 'questionId']);
         Route::post('/exams/{examId}/questions/{questionId}/reveal', [ExamController::class, 'reveal'])->whereUuid(['examId', 'questionId']);
+        // Markieren und WP-kompatibler Reveal-Alias: Frage per ID oder Position (1-basiert).
+        Route::put('/exams/{examId}/answers/{questionId}/flag', [ExamController::class, 'flag'])
+            ->whereUuid('examId')->where('questionId', '[0-9]{1,4}|[0-9a-fA-F-]{36}');
+        Route::post('/exams/{examId}/answers/{questionId}/reveal', [ExamController::class, 'reveal'])
+            ->whereUuid('examId')->where('questionId', '[0-9]{1,4}|[0-9a-fA-F-]{36}');
         Route::put('/exams/{examId}/navigation', [ExamController::class, 'submitNavigation'])->whereUuid('examId');
         Route::post('/exams/{examId}/navigation/assessment', [ExamController::class, 'assessNavigation'])->whereUuid('examId')->middleware('api.idempotent');
         Route::post('/exams/{examId}/submit', [ExamController::class, 'submit'])->whereUuid('examId')->middleware('api.idempotent');
