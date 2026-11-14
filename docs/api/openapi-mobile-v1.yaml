@@ -397,7 +397,7 @@ paths:
       tags: [Trainer]
       operationId: nextTrainerQuestion
       summary: Nächste Frage (Smarttrainer und weitere Lernmodi)
-      description: Ohne Lösung. Bei offenen Fragen (`answer_selection = self_assessment`) enthält die Frage `model_answer` zum Aufdecken.
+      description: Ohne Lösung. Bei offenen Fragen (`answer_selection = self_assessment`) enthält die Frage `model_answer` zum Aufdecken; alternativ (WP-kompatibel) `POST …/trainer/reveal` mit `answer_token`.
       parameters:
         - {$ref: '#/components/parameters/TenantSlug'}
         - {$ref: '#/components/parameters/CourseId'}
@@ -417,6 +417,43 @@ paths:
         '204': {description: 'Keine passende Frage: new = alles gesehen, wrong = keine falschen, favorites = keine (passenden) Favoriten, question_ids = alle erledigt. Im Smarttrainer kommen gefestigte Fragen zur Wiederholung; „alles geschafft“ zeigt progress.percent = 100.'}
         '404': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/trainer/reveal:
+    post:
+      tags: [Trainer]
+      operationId: revealTrainerModelAnswer
+      summary: Musterantwort einer offenen Frage im Lernmodus aufdecken (WP-kompatibel)
+      description: |
+        `answer_token` ist der Wert aus `GET …/trainer/next`. Kurszugang und Kurszugehörigkeit werden bei
+        jedem Abruf geprüft. Nur offene Fragen (422 sonst); eine Frage einer laufenden Prüfung → 409 `EXAM_QUESTION_LOCKED`.
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/CourseId'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [answer_token]
+              properties: {answer_token: {type: string, format: uuid}}
+      responses:
+        '200':
+          description: Musterantwort
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      question_id: {type: string}
+                      revision_id: {type: string}
+                      model_answer: {type: [string, 'null']}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
   /courses/{courseId}/attempts:
     post:
       tags: [Trainer]
@@ -477,6 +514,26 @@ paths:
                 type: object
                 properties:
                   data: {type: array, items: {$ref: '#/components/schemas/Favorite'}}
+  /courses/{courseId}/mistakes:
+    get:
+      tags: [Favorites]
+      operationId: listMistakes
+      summary: Zuletzt falsch beantwortete Fragen (Fehlerliste)
+      description: 'Gleiche Regel wie `mode=wrong` im Trainer: mindestens ein Versuch und aktuelle Serie 0. Neueste zuerst, nur gültige Fragen, ohne Lösung.'
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/CourseId'}
+      responses:
+        '200':
+          description: Fehlerliste
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: {type: array, items: {$ref: '#/components/schemas/Mistake'}}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
   /courses/{courseId}/favorites/{questionId}:
     put:
       tags: [Favorites]
@@ -717,6 +774,60 @@ paths:
                 type: object
                 properties:
                   data: {type: object, properties: {question_id: {type: string}, model_answer: {type: [string, 'null']}}}
+        '409': {$ref: '#/components/responses/Problem'}
+        '410': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+  /exams/{examId}/answers/{questionId}/flag:
+    put:
+      tags: [Exams]
+      operationId: flagExamQuestion
+      summary: Frage zur Durchsicht markieren oder Markierung entfernen
+      description: Nur in einer laufenden Prüfung, auch bei schon beantworteten Fragen. Keine Auswirkung auf die Auswertung. Nach Zeitablauf → 410 `EXAM_EXPIRED`.
+      parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/ExamId'}, {$ref: '#/components/parameters/ExamQuestionRef'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [flagged]
+              properties: {flagged: {type: boolean}}
+      responses:
+        '200':
+          description: Markierung gespeichert
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      question_id: {type: string}
+                      position: {type: integer}
+                      flagged: {type: boolean}
+                      flagged_count: {type: integer}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '410': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+  /exams/{examId}/answers/{questionId}/reveal:
+    post:
+      tags: [Exams]
+      operationId: revealExamModelAnswerCompatible
+      summary: WP-kompatibler Alias für `POST /exams/{examId}/questions/{questionId}/reveal`
+      parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/ExamId'}, {$ref: '#/components/parameters/ExamQuestionRef'}]
+      responses:
+        '200':
+          description: Musterantwort
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: {type: object, properties: {question_id: {type: string}, model_answer: {type: [string, 'null']}}}
+        '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
         '410': {$ref: '#/components/responses/Problem'}
         '422': {$ref: '#/components/responses/Problem'}
@@ -1064,6 +1175,12 @@ components:
     CourseId: {in: path, name: courseId, required: true, schema: {type: string, format: uuid}}
     CollectionId: {in: path, name: collectionId, required: true, schema: {type: string, format: uuid}}
     QuestionId: {in: path, name: questionId, required: true, schema: {type: string, format: uuid}}
+    ExamQuestionRef:
+      in: path
+      name: questionId
+      required: true
+      description: Frage-ID (UUID) oder Position der Frage in der Prüfung (1-basiert, WP-kompatibel)
+      schema: {type: string, pattern: '^([0-9]{1,4}|[0-9a-fA-F-]{36})$'}
     AttemptId: {in: path, name: attemptId, required: true, schema: {type: string, format: uuid}}
     ExamId: {in: path, name: examId, required: true, schema: {type: string, format: uuid}}
     LessonId: {in: path, name: lessonId, required: true, schema: {type: string, format: uuid}}
@@ -1279,6 +1396,7 @@ components:
       type: object
       properties:
         question: {$ref: '#/components/schemas/Question'}
+        answer_token: {type: string, format: uuid, description: 'Für POST …/trainer/reveal (= ausgelieferte Revision)'}
         mode: {type: string}
         selection_reason: {type: [string, 'null']}
         is_favorite: {type: boolean}
@@ -1329,6 +1447,23 @@ components:
             topic: {type: [string, 'null']}
             learning_state: {type: string, enum: [neu, unsicher, in_bearbeitung, gefestigt]}
             last_seen_at: {type: [string, 'null'], format: date-time}
+    Mistake:
+      type: object
+      properties:
+        question_id: {type: string}
+        context: {type: string, const: smart_learning}
+        wrong: {type: boolean, const: true}
+        favorite: {type: boolean}
+        collection_id: {type: [string, 'null'], description: 'Erste Sammlung (WP-kompatibel)'}
+        collection_ids: {type: array, items: {type: string}}
+        official_number: {type: [string, 'null']}
+        text: {type: string, description: 'Fragetext ohne HTML'}
+        question_type: {type: string}
+        module: {type: [string, 'null']}
+        topic: {type: [string, 'null']}
+        learning_state: {type: string, enum: [neu, unsicher, in_bearbeitung, gefestigt]}
+        last_seen_at: {type: [string, 'null'], format: date-time}
+        saved_at: {type: [string, 'null'], format: date-time, description: 'Favorit gesetzt am'}
     FavoriteCollection:
       type: object
       properties:
@@ -1379,6 +1514,7 @@ components:
         - type: object
           properties:
             position: {type: integer}
+            flagged: {type: boolean}
             answered: {type: boolean}
             revealed: {type: boolean}
     ExamAnswer:
@@ -1434,6 +1570,7 @@ components:
         navigation_assessment_until: {type: [string, 'null'], format: date-time, description: 'Letzter Zeitpunkt für die Selbsteinschätzung (Ende + 15 Min.)'}
         question_count: {type: integer}
         answered_count: {type: integer}
+        flagged_count: {type: integer}
         questions: {type: array, items: {$ref: '#/components/schemas/ExamQuestion'}}
         answers: {type: array, items: {$ref: '#/components/schemas/ExamAnswer'}}
         navigation: {$ref: '#/components/schemas/ExamNavigation'}
@@ -1453,6 +1590,7 @@ components:
         selected_answer_ids: {type: array, items: {type: string}}
         known: {type: [boolean, 'null']}
         saved_at: {type: string, format: date-time}
+        flagged: {type: boolean}
         answered_count: {type: integer}
         question_count: {type: integer}
     ExamResult:
