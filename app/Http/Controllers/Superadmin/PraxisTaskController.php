@@ -7,9 +7,9 @@ use App\Models\AuditLog;
 use App\Models\CourseDefinition;
 use App\Models\MediaAsset;
 use App\Models\PraxisTask;
+use App\Support\QuestionMedia;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -139,7 +139,8 @@ class PraxisTaskController extends Controller
             return null;
         }
         $file = $request->file('image');
-        $path = $file->storeAs('question-media/praxistrainer/eigene', Str::uuid().'.'.$file->extension(), 'public');
+        // Rechte „licensed“: privat speichern, Auslieferung nur signiert (QuestionMedia).
+        $path = QuestionMedia::storeUpload($file, QuestionMedia::DIRECTORY.'/praxistrainer/eigene', 'licensed');
 
         return MediaAsset::create([
             'asset_key' => self::CUSTOM_ASSET_PREFIX.Str::random(16),
@@ -160,7 +161,7 @@ class PraxisTaskController extends Controller
         if (! $asset || ! str_starts_with($asset->asset_key, self::CUSTOM_ASSET_PREFIX) || PraxisTask::where('media_asset_id', $assetId)->exists()) {
             return;
         }
-        Storage::disk('public')->delete($asset->getRawOriginal('storage_path'));
+        QuestionMedia::deleteFile($asset);
         $asset->delete();
     }
 

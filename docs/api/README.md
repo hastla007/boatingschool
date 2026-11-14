@@ -95,6 +95,18 @@ Design-Übersicht. Grundlage war jeweils der tatsächliche Stand der Plattform.
   `remaining_seconds` der Prüfung verwenden, nicht die Gerätezeit.
 * **Seiten:** `page`, `per_page` (max. 100), Antwort in `meta.pagination`.
 * **Caching:** Alle Antworten sind `Cache-Control: no-store, private`.
+* **Medien-URLs sind kurzlebig:** Bilder zu Fragen (`prompt_media[].url`)
+  mit geschützten Rechten (z. B. amtliche Fragenbilder) sind signierte
+  Adressen, an Person und Schule gebunden und 120 Minuten gültig. Sie
+  funktionieren ohne `Authorization`-Header (Bild-Loader). Der Zugang
+  wird beim Abruf erneut geprüft; ohne Kurszugang kommt 404.
+  * Die App darf diese URLs nicht dauerhaft speichern (keine Datenbank,
+    kein Offline-Paket mit URL). Das geladene Bild darf sie im Speicher-
+    bzw. Bild-Cache halten (`Cache-Control: private, max-age=3600`).
+  * Nach 403 auf eine Bild-URL (abgelaufen) die Frage bzw. Prüfung neu
+    laden; die Antwort enthält dann frische URLs. Das gilt auch für eine
+    per Idempotency-Key wiederholte Antwort.
+  * Öffentliche Medien behalten ihre bisherige, dauerhafte URL.
 * **Request-ID:** Jede Antwort hat `X-Request-Id`, Fehler zusätzlich
   `request_id`. Für Support-Anfragen mitschicken; die ID steht auch im
   Server-Log und im Fehlertracking.

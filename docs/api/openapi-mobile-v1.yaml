@@ -1238,7 +1238,7 @@ components:
         kind: {type: string, enum: [image, video, placeholder]}
         available: {type: boolean}
         label: {type: string}
-        url: {type: [string, 'null'], format: uri, description: 'Bei Platzhaltern immer null'}
+        url: {type: [string, 'null'], format: uri, description: 'Bei Platzhaltern immer null. Geschützte Fragenbilder: signierte, kurzlebige Adresse (120 Minuten, ohne Token abrufbar), nicht dauerhaft speichern.'}
         mime_type: {type: [string, 'null']}
         duration_seconds: {type: [integer, 'null']}
         placeholder_reason: {type: [string, 'null'], enum: [awaiting_asset, unavailable, null]}

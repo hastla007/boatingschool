@@ -21,7 +21,7 @@
                     @foreach ($tasks as $task)
                         <div id="karte-{{ $task->id }}" class="flex items-center gap-3 border border-slate-100 dark:border-slate-700 rounded-xl px-3 py-2 text-sm scroll-mt-20 {{ $task->active ? '' : 'opacity-60' }}">
                             @if ($task->media)
-                                <img src="{{ $task->media->storage_path }}" alt="" class="w-10 h-10 object-cover rounded-lg shrink-0">
+                                <img src="{{ \App\Support\QuestionMedia::url($task->media) }}" alt="" class="w-10 h-10 object-cover rounded-lg shrink-0">
                             @else
                                 <span class="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-700 shrink-0"></span>
                             @endif
