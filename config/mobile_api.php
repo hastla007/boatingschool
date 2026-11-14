@@ -5,6 +5,12 @@
 | App-Konzept; vor dem Go-live anpassbar.
 */
 return [
+    // Grundzugang zu Kursinhalten: 'entitlement' (Standard) = nur mit
+    // gekauftem/zugewiesenem Zugang bzw. Zugangsregel (course_access_rule);
+    // 'logged_in' = wie die WP-Einstellung „eingeloggt genügt“: JEDES
+    // Mitglied der Schule bekommt Vollzugriff auf alle angebotenen Kurse.
+    // Nur nach ausdrücklicher Entscheidung umstellen.
+    'default_access' => env('MOBILE_API_DEFAULT_ACCESS', 'entitlement') === 'logged_in' ? 'logged_in' : 'entitlement',
     // Access-Token: kurzlebig.
     'access_ttl_minutes' => (int) env('MOBILE_API_ACCESS_TTL_MINUTES', 15),
     // Refresh-Token: rotiert bei jeder Erneuerung; verfällt nach dieser

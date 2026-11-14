@@ -193,17 +193,47 @@ Fehler beim Schul-Kontext:
 
 `GET /courses` liefert zuerst die freigeschalteten Kurse, dann buchbare Kurse.
 
-* `access.status`: `active`, `expired`, `suspended`, `revoked` oder
-  `not_granted`.
+* `access.status`: `active`, `limited` (nur Probezugang), `pending`,
+  `expired`, `suspended`, `revoked` oder `not_granted`; dazu `trial`,
+  `purchased`, `limits` (Probezugang je Funktion), `expires_soon`,
+  `expires_at` und `renew_url`.
 * `capabilities` (z. B. `smarttrainer`, `exam`, `video`, `navigation`)
-  steuert, welche Kacheln die App zeigt.
+  sagt, welche Funktionen der Kurs hat; `features.<capability>` mit
+  `available`/`full`/`limit` sagt, was die Person davon nutzen darf
+  (gesperrte Kacheln mit Schloss und `webshop_url`).
+* `relation` (`hidden`, `recommended`, `recommended_for`) bildet die
+  Katalogregeln der WP-App ab: ein gekaufter Kombikurs blendet seine
+  Teilkurse aus, Aufbaukurse werden empfohlen.
 * `last_activity_at` (letzte Antwort im Kurs) sortiert „Weiterlernen“ über
   alle Kurse. `GET /courses/{id}/overview` nennt in `continue_learning` das
   Modul und das Thema der letzten Frage („Du warst bei …“).
 
 Kursinhalte ohne gültigen Zugang ergeben 403 `ENTITLEMENT_REQUIRED` oder
 `ENTITLEMENT_EXPIRED`. Die App zeigt dann `webshop_url` bzw.
-`meta.renewal_webshop_url` und die Code-Eingabe.
+`meta.renewal_webshop_url` und die Code-Eingabe. `GET /courses/{id}`
+liefert das Kursdetail auch für buchbare Kurse ohne Zugang (mit gesperrten
+`features`).
+
+**Zugriffsregeln (WP-Parität, `App\Api\CourseAccess`):**
+
+* **Kurszugang:** aktives Entitlement ohne Einschränkung
+  (`entitlement.capabilities = null`).
+* **Funktionszugang:** ein Entitlement kann auf einzelne Funktionen
+  beschränkt sein (`capabilities`, z. B. `["exam"]` aus dem WP-Import oder
+  einer Lerngruppe). Endpunkte mit eigener Funktion (Übersicht, Module,
+  Fortschritt: `smarttrainer`) akzeptieren das, alle anderen verlangen
+  weiter vollen Kurszugang.
+* **Schulregeln** (`course_access_rule`, je Schule, RLS): `free` öffnet eine
+  Funktion ohne Kauf, `free_limited` die ersten N Einträge (beim
+  Fragenkatalog: die ersten N gültigen Fragen je Modul; Module zeigen dann
+  `lock_reason: trial`), `drip` sperrt ein Modul bis N Tage nach
+  Zugangsbeginn (`locked`, `lock_reason: drip`, `unlock_at`). Regeln wirken
+  nur für Kurse, die die Schule anbietet.
+* **Schalter `MOBILE_API_DEFAULT_ACCESS`:** Standard `entitlement`. Die
+  WP-App kennt `logged_in` („eingeloggt genügt“); gesetzt bekommt JEDES
+  Mitglied der Schule Vollzugriff auf alle angebotenen Kurse. Nur nach
+  ausdrücklicher Geschäftsentscheidung setzen; der Import ändert den Wert
+  nicht.
 
 ## 6. Smarttrainer und Lernmodi
 
@@ -415,6 +445,23 @@ entscheidet aber nur anhand von `code`.
   und keine Sessions.
 * **Migration:** `2024_02_01_000591_create_mobile_api_tables`. Sie legt
   `api_device_session`, `api_idempotency_key` und `api_data_export` an.
+* **Zugänge und Zugriffsregeln aus WordPress übernehmen** (Owner-
+  Verbindung, idempotent über Quellschlüssel, legt keine Schulen oder Konten
+  an):
+  ```sh
+  php artisan app:import-mobile-entitlements /pfad/mobile-entitlements.json
+  php artisan app:import-mobile-access-rules /pfad/mobile-access.json
+  ```
+  Entitlements: `{"tenant_slug": "...", "entitlements": [{"email", "course_code",
+  "feature_code" ("all" oder WP-Funktion), "source_key", "status": "active",
+  "valid_from"?, "valid_until"?}]}`. Das App-Konto mit derselben E-Mail muss
+  bestehen; fehlende Mitgliedschaften werden als Lernende angelegt, gesperrte
+  oder mehrdeutige Konten brechen ab. Der Export enthält E-Mail-Adressen.
+  Regeln: `{"default_access"?, "rules": [{"tenant_slug", "course_code",
+  "feature_code", "access_type" (free/free_limited/drip), "limit_value"?,
+  "module_code"? (nur drip), "valid_from"?, "valid_until"?, "source_key"?}]}`.
+  `module_code` ist der native Modulcode. Video-Drip-Regeln brauchen die
+  WP-Kapitelkennung an den Videokapiteln und brechen sonst ab.
 * **Tests:** `vendor/bin/phpunit tests/Feature/Api`.
   `OpenApiContractTest` schlägt fehl, wenn Routen und OpenAPI-Datei
   auseinanderlaufen.
