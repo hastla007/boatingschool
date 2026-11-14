@@ -37,7 +37,7 @@ class QuestionPresenter
                 default => 'single',
             },
             'prompt_media' => $revision->media->sortBy(fn ($m) => $m->pivot->sort_order ?? 0)
-                ->map(fn (MediaAsset $m) => Present::image($m->storage_path, $m->alt_text, $m->mime_type))->values(),
+                ->map(fn (MediaAsset $m) => Present::image($m->storage_path, $m->alt_text, $m->mime_type) + self::download($m))->values(),
             // key = Buchstabe der Anzeigeposition (nicht der Quell-Schlüssel, der die Lösung verriete).
             'answers' => $type === 'open_text' ? [] : $answers->values()->map(fn (ContentAnswer $a, int $i) => [
                 'id' => $a->id,
@@ -58,6 +58,24 @@ class QuestionPresenter
             'correct_answer_ids' => $revision->question_type === 'open_text' ? [] : $revision->answers->where('is_correct', true)->pluck('id')->values(),
             'model_answer' => $revision->question_type === 'open_text' ? $revision->correctAnswer()?->answer_text : null,
             'explanation' => $correct === null ? ($revision->feedback_correct ?: null) : ($correct ? $revision->feedback_correct : $revision->feedback_incorrect),
+        ];
+    }
+
+    /**
+     * Geprüfter Download des Bildes über die API (z. B. zum Offline-Speichern);
+     * file_id/download_url nur für eigene, veröffentlichte Dateien.
+     *
+     * @return array{file_id: ?string, download_url: ?string}
+     */
+    private static function download(MediaAsset $m): array
+    {
+        $path = (string) $m->getRawOriginal('storage_path');
+        $downloadable = $path !== '' && ! preg_match('#^https?://#i', $path)
+            && $m->status === 'published' && in_array($m->rights_status, ['licensed', 'public'], true);
+
+        return [
+            'file_id' => $downloadable ? $m->id : null,
+            'download_url' => $downloadable ? route('api.v1.files.download', ['fileId' => $m->id]) : null,
         ];
     }
 }

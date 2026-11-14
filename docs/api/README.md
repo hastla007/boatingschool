@@ -235,6 +235,34 @@ liefert das Kursdetail auch für buchbare Kurse ohne Zugang (mit gesperrten
   ausdrücklicher Geschäftsentscheidung setzen; der Import ändert den Wert
   nicht.
 
+**Kursdateien (Downloads, Abschnittsdateien, Karten):**
+
+* `GET /courses/{id}` listet `downloads`, `section_files` (je
+  `section_key`) und `charts`. Jeder Eintrag (`FileRef`) hat `locked` und,
+  wenn frei, `url` = `GET /files/{fileId}`. Die App ruft die Datei mit Token
+  und `X-Tenant-Slug` ab (`requires_authorization: true`); es gibt keine
+  öffentlichen oder ratbaren Adressen.
+* Regeln (`App\Api\CourseFiles`, gleich für Liste und Download):
+  Kategorie `download` verlangt die Funktion `downloads` (voller Kurszugang,
+  Zugang mit Capability `downloads` oder Schulregel `downloads`;
+  `free_limited` = die ersten N Downloads in Kursreihenfolge). Andere
+  Dateien verlangen ihre `required_capability`, ohne Angabe vollen
+  Kurszugang. Gesperrt: 403 `ENTITLEMENT_REQUIRED`; unbekannte,
+  unveröffentlichte Dateien und Kurse, die die Schule nicht anbietet: 404.
+* `capabilities` enthält `downloads`, sobald der Kurs veröffentlichte
+  Download-Dateien hat; `features.downloads` zeigt dann den Zugang.
+* Kursdateien sind plattformweit (Tabelle `course_file` ohne Schulbezug,
+  App-Rolle nur lesend) und liegen auf der privaten Disk unter
+  `course-files/`; die Datenbank lässt nur Pfade dort ohne `..` zu.
+  PDFs, Bilder, Audio/Video und Text kommen `inline`, andere Typen nur als
+  Anhang (`application/octet-stream`). Range-Anfragen (206) werden
+  unterstützt.
+* **Fragenbilder** tragen zusätzlich `file_id` und `download_url` (ebenfalls
+  `GET /files/{fileId}`, z. B. zum Offline-Speichern). Abrufbar, wenn die
+  Frage im freigegebenen Fragenkatalog der Person liegt (inkl. Probezugang
+  und Drip) oder sie Prüfungszugang im Kurs hat; sonst 404. `url` bleibt
+  unverändert.
+
 ## 6. Smarttrainer und Lernmodi
 
 `GET /courses/{id}/trainer/next?mode=…` holt die nächste Frage.
@@ -462,6 +490,17 @@ entscheidet aber nur anhand von `code`.
   "module_code"? (nur drip), "valid_from"?, "valid_until"?, "source_key"?}]}`.
   `module_code` ist der native Modulcode. Video-Drip-Regeln brauchen die
   WP-Kapitelkennung an den Videokapiteln und brechen sonst ab.
+* **Kursdateien aus WordPress übernehmen** (Owner-Verbindung, kopiert in
+  die private Disk, idempotent über `course_code` + `source_key`):
+  ```sh
+  php artisan app:import-mobile-course-files /pfad/manifest.json /pfad/wp-medien
+  ```
+  Manifest: `{"files": [{"course_code", "source_key", "file" (relativ zum
+  Quellverzeichnis), "category" (download/section/chart), "title",
+  "description"?, "section_key"? (nur section/chart), "required_capability"?,
+  "mime_type"?, "sha256"?, "sort_order"?, "published"? (Standard true)}]}`.
+  Dateien außerhalb des Quellverzeichnisses oder mit falscher Prüfsumme
+  brechen den ganzen Lauf ab (bereits kopierte Dateien werden entfernt).
 * **Tests:** `vendor/bin/phpunit tests/Feature/Api`.
   `OpenApiContractTest` schlägt fehl, wenn Routen und OpenAPI-Datei
   auseinanderlaufen.

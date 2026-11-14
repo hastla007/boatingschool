@@ -8,7 +8,7 @@ info:
 
     * Basis-URL: `https://<plattform-domain>/api/v1`
     * Anmeldung: `Authorization: Bearer <access_token>` (15 Minuten gültig, Erneuerung über `/auth/refresh`).
-    * Schule: Header `X-Tenant-Slug` bei allen schulbezogenen Endpunkten (Kurse, Lernen, Prüfung, Videos, Navigation, Codes, Export).
+    * Schule: Header `X-Tenant-Slug` bei allen schulbezogenen Endpunkten (Kurse, Lernen, Prüfung, Videos, Navigation, Dateien, Codes, Export).
     * Fehler: `application/problem+json` mit stabilem `code` und `request_id`.
     * Schreibende POST-Endpunkte mit `Idempotency-Key` (UUID) sind sicher wiederholbar (24 Stunden).
     * Zeitangaben: ISO 8601 in UTC (`2026-11-09T10:15:00Z`).
@@ -33,6 +33,7 @@ tags:
   - {name: Exams}
   - {name: Videos}
   - {name: Navigation}
+  - {name: Files}
   - {name: Coupons}
   - {name: Privacy}
 
@@ -307,7 +308,10 @@ paths:
       tags: [Courses]
       operationId: getCourse
       summary: Kursdetail (auch für buchbare, nicht freigeschaltete Kurse)
-      description: 'Ohne Zugang zeigen `access` und `features`, was gesperrt ist; `exam_options_count` ist dann 0.'
+      description: |
+        Ohne Zugang zeigen `access` und `features`, was gesperrt ist; `exam_options_count` ist dann 0.
+        Kursdateien (`downloads`, `section_files`, `charts`) erscheinen immer; gesperrte Einträge mit
+        `locked: true` und ohne `url`.
       parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/CourseId'}]
       responses:
         '200':
@@ -324,6 +328,19 @@ paths:
                         properties:
                           modules_count: {type: integer}
                           exam_options_count: {type: integer}
+                          downloads: {type: array, items: {$ref: '#/components/schemas/FileRef'}}
+                          section_files:
+                            type: object
+                            description: 'Dateien je Kursabschnitt (Schlüssel = section_key, sonst general)'
+                            additionalProperties: {type: array, items: {$ref: '#/components/schemas/FileRef'}}
+                          charts:
+                            type: array
+                            items:
+                              allOf:
+                                - {$ref: '#/components/schemas/FileRef'}
+                                - type: object
+                                  properties:
+                                    code: {type: string, description: 'Kennung der Karte (section_key, sonst die Datei-ID)'}
         '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
   /courses/{courseId}/overview:
@@ -955,6 +972,32 @@ paths:
         '422': {$ref: '#/components/responses/Problem'}
 
   # ------------------------------------------------------------ Coupons
+  /files/{fileId}:
+    get:
+      tags: [Files]
+      operationId: downloadFile
+      summary: Kursdatei oder Fragenbild herunterladen (Zugang je Datei geprüft)
+      description: |
+        `fileId` stammt aus `url` einer Kursdatei (Kursdetail) bzw. aus `file_id`/`download_url` eines
+        Fragenbilds. Token und `X-Tenant-Slug` sind nötig; die Prüfung gilt für die angegebene Schule.
+
+        * Kategorie download: Funktion `downloads` (voller Kurszugang, Zugang mit Capability `downloads`
+          oder Schulregel; Probezugang = die ersten N Downloads in Kursreihenfolge).
+        * Andere Dateien mit `required_capability`: diese Funktion; ohne: voller Kurszugang.
+        * Fragenbilder: Frage im freigegebenen Fragenkatalog oder Prüfungszugang im Kurs; sonst 404.
+
+        PDFs, Bilder, Audio/Video und Text kommen `inline`, alle anderen Typen als
+        `application/octet-stream`-Anhang. Ein einzelner Range-Bereich wird unterstützt (206).
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {in: path, name: fileId, required: true, schema: {type: string, format: uuid}}
+        - {in: header, name: Range, required: false, schema: {type: string, examples: ['bytes=1048576-']}}
+      responses:
+        '200': {description: Datei, content: {application/octet-stream: {schema: {type: string, contentMediaType: application/octet-stream}}}}
+        '206': {description: 'Teilbereich (Content-Range: Start, Ende, Dateigröße)', content: {application/octet-stream: {schema: {type: string, contentMediaType: application/octet-stream}}}}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '416': {description: Bereich ungültig}
   /coupons/redeem:
     post:
       tags: [Coupons]
@@ -1244,7 +1287,7 @@ components:
         course_type: {type: string}
         access: {$ref: '#/components/schemas/Entitlement'}
         progress: {$ref: '#/components/schemas/ProgressSummary'}
-        capabilities: {type: array, description: 'Funktionen, die der Kurs inhaltlich hat', items: {type: string, enum: [smarttrainer, favorites, exam, video, navigation, praxis]}}
+        capabilities: {type: array, description: 'Funktionen, die der Kurs inhaltlich hat (downloads = veröffentlichte Kursdateien der Kategorie download)', items: {type: string, enum: [smarttrainer, favorites, exam, video, navigation, praxis, downloads]}}
         features:
           type: object
           description: 'Nutzbarkeit je Funktion für die angemeldete Person (Schlüssel wie capabilities ohne favorites, plus explanations)'
@@ -1252,6 +1295,19 @@ components:
         webshop_url: {type: [string, 'null'], format: uri, description: 'Kauflink, solange kein voller Zugang besteht'}
         relation: {oneOf: [{$ref: '#/components/schemas/CourseRelation'}, {type: 'null'}]}
         last_activity_at: {type: [string, 'null'], format: date-time, description: Letzte Antwort in diesem Kurs}
+    FileRef:
+      type: object
+      required: [id, title, locked, url, requires_authorization]
+      properties:
+        id: {type: string, format: uuid}
+        title: {type: string}
+        description: {type: [string, 'null']}
+        mime_type: {type: [string, 'null']}
+        size_bytes: {type: [integer, 'null']}
+        required_capability: {type: [string, 'null'], description: 'Nötige Funktion (download-Dateien immer downloads; null = voller Kurszugang)'}
+        locked: {type: boolean}
+        url: {type: [string, 'null'], format: uri, description: 'GET /files/{fileId} (mit Token und X-Tenant-Slug); null, wenn gesperrt'}
+        requires_authorization: {type: boolean, const: true}
     Module:
       type: object
       properties:
@@ -1282,6 +1338,8 @@ components:
         available: {type: boolean}
         label: {type: string}
         url: {type: [string, 'null'], format: uri, description: 'Bei Platzhaltern immer null'}
+        file_id: {type: [string, 'null'], format: uuid, description: 'Nur bei Fragenbildern mit freigegebenen Rechten'}
+        download_url: {type: [string, 'null'], format: uri, description: 'Geprüfter Download über GET /files/{fileId} (mit Token und X-Tenant-Slug), z. B. zum Offline-Speichern'}
         mime_type: {type: [string, 'null']}
         duration_seconds: {type: [integer, 'null']}
         placeholder_reason: {type: [string, 'null'], enum: [awaiting_asset, unavailable, null]}

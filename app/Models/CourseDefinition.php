@@ -53,6 +53,12 @@ class CourseDefinition extends Model
         return $this->hasMany(Entitlement::class, 'course_id');
     }
 
+    /** Kursdateien der Mobile-API (Downloads, Abschnittsdateien, Karten). */
+    public function files(): HasMany
+    {
+        return $this->hasMany(CourseFile::class, 'course_id')->orderBy('sort_order')->orderBy('id');
+    }
+
     public function examRuleSets(): HasMany
     {
         return $this->hasMany(ExamRuleSet::class, 'course_id');
