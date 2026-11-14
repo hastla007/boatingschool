@@ -357,6 +357,9 @@ class AccountErasureService
         DB::table('sessions')->where('user_id', $user->id)->delete();
         DB::table('password_reset_tokens')->where('email', $user->email)->delete();
         DB::table('account_setup_tokens')->where('email', $user->email)->delete();
+        // App-Einstellungen gelten fürs Konto (nicht je Schule); der Fremdschlüssel
+        // kaskadiert zwar, gelöscht wird aber ausdrücklich wie bei den Sitzungen.
+        DB::table('api_user_setting')->where('user_id', $user->id)->delete();
 
         // Sicherheitsreview M5 (Folgefehler): $user->delete() würde die von
         // Eloquent beim Hydrieren/Erstellen fest zugeordnete Verbindung des
