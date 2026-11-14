@@ -59,10 +59,11 @@ Design-Übersicht. Grundlage war jeweils der tatsächliche Stand der Plattform.
 ### Hinweise zu den Unterlagen
 
 * **Konto löschen (Apple-Richtlinie 5.1.1 v):** Die App legt keine Konten an
-  (Konten entstehen über die Schule oder einen Code). Eine Löschfunktion in
-  der App ist damit nicht vorgeschrieben. Die App verlinkt dafür auf das
-  Profil im Web (`memberships[].legal.account_url`, dort „Konto löschen“;
-  Datenrechte unter `legal.data_rights_url`).
+  (Konten entstehen über die Schule oder einen Code), bietet die Löschung
+  aber trotzdem an: `POST /me/deletion-request` (siehe Abschnitt 12). Es
+  gilt dasselbe wie „Konto löschen“ im Profil im Web
+  (`memberships[].legal.account_url`; Datenrechte unter
+  `legal.data_rights_url`).
 * **Regelwerk `ADD-FKN-TO-SKN`** ist weiterhin ein Entwurf. Die API bietet
   dafür keine Prüfung an (`startable: false` bzw. `EXAM_NOT_AVAILABLE`), bis
   das Regelwerk freigegeben ist.
@@ -171,6 +172,21 @@ POST /auth/login {email, password, device_name, device_platform?, app_version?}
   Der Link in der Mail führt ins Web. Für einen Deep-Link in die App kann die
   App `POST /auth/password/reset` mit `email`, `token` und neuem Passwort
   aufrufen. `invite: true` gilt für Einladungs-Links.
+* **Webansicht der Schule** (eingebettete WebView, z. B. für Seiten, die es
+  in der App nicht gibt): `POST /auth/web-session {redirect}` mit
+  `X-Tenant-Slug` liefert eine Einmal-URL.
+  * Der Code in der URL gilt 60 Sekunden, nur einmal, nur bei dieser Schule
+    und nur, solange diese Gerätesitzung besteht. Gespeichert wird nur sein
+    Hash.
+  * Die WebView lädt die URL mit dem Header `X-Boatingschool-Web-Verifier:
+    <verifier>`. Ohne passenden Verifier verfällt der Code ohne Anmeldung.
+    Danach leitet die Website auf dieselbe Adresse ohne Code weiter.
+  * Ziele nur im Lernbereich (`/dashboard`, `/courses…`, `/tipps-tricks`,
+    `/angebote`, `/willkommensbox`), relativ zur Schuladresse. Kein Profil,
+    keine Verwaltung, keine fremden Hosts (422 `VALIDATION_FAILED`).
+  * Konten mit Team-Rolle bei irgendeiner Schule und Plattform-Konten:
+    403 `WEB_SESSION_NOT_ALLOWED`. Ist im Browser schon jemand anderes
+    angemeldet, bleibt es dabei (keine Anmeldung).
 
 ## 4. Schule wählen
 
@@ -343,6 +359,8 @@ GET  /exams/{id}/result                 → Ergebnis mit Lösungen
 | 403 | `ENTITLEMENT_REQUIRED` / `ENTITLEMENT_EXPIRED` | Webshop-Link, Code-Eingabe |
 | 403 | `FORBIDDEN` | keine Berechtigung |
 | 403 | `LINK_INVALID` | Download-Link manipuliert oder abgelaufen → Status neu laden |
+| 403 | `WEB_SESSION_DISABLED` / `WEB_SESSION_NOT_ALLOWED` | Webansicht ohne Anmeldung öffnen bzw. auf den Browser verweisen |
+| 403 | `ACCOUNT_DELETION_NOT_ALLOWED` | Plattform-Konto: an den Support verweisen |
 | 404 | `RESOURCE_NOT_FOUND` | auch für fremde Daten (keine Aussage über Existenz) |
 | 405 | `METHOD_NOT_ALLOWED` | Programmierfehler in der App |
 | 409 | `CONFLICT` | allgemeiner Konflikt bzw. dieselbe Anfrage läuft noch (`Retry-After`) |
@@ -363,6 +381,7 @@ GET  /exams/{id}/result                 → Ergebnis mit Lösungen
 | 422 | `PASSWORD_RESET_INVALID_OR_EXPIRED` | neuen Link anfordern |
 | 422 | `COUPON_INVALID` | „Code ungültig, abgelaufen oder bereits eingelöst“ |
 | 422 | `COUPON_NOT_APPLICABLE` | Meldung aus `detail` anzeigen |
+| 422 | `DELETION_CONFIRMATION_INVALID` | Löschlink ungültig, abgelaufen oder benutzt → Löschung neu beantragen |
 | 426 | `APP_UPDATE_REQUIRED` | Update-Hinweis mit `store_url` |
 | 429 | `RATE_LIMITED` | `Retry-After` abwarten |
 | 4xx | `REQUEST_FAILED` | sonstiger Fehler; `detail` anzeigen |
@@ -386,11 +405,27 @@ entscheidet aber nur anhand von `code`.
   * beendete oder abgelaufene App-Sitzungen nach 30 Tagen,
   * Idempotenz-Schlüssel nach 24 Stunden (gelesen werden sie ohnehin nur so
     lange),
-  * Exporte und ihre Dateien nach Ablauf.
+  * Exporte und ihre Dateien nach Ablauf,
+  * offene Löschanträge nach Ablauf (7 Tage),
+  * Einmal-Codes der Webansicht nach einem Tag.
+* **Konto löschen in der App** (`POST /me/deletion-request` mit
+  `X-Tenant-Slug`) wirkt wie „Konto löschen“ im Web-Profil, nur bestätigt
+  die Person per Link aus einer Mail statt mit ihrem Passwort:
+  * Die Mail enthält einen Link auf `MOBILE_API_DELETION_CONFIRMATION_PATH`
+    der zentralen Domain mit `request_id` und `confirm_key` (7 Tage gültig,
+    nur der Hash wird gespeichert). Die App öffnet ihn als Universal-/App-Link
+    und ruft `POST /me/deletion-request/confirm` auf (ohne Token).
+  * Die Bestätigung löscht sofort Mitgliedschaft und alle Daten bei dieser
+    Schule und pseudonymisiert das Protokoll (`AccountErasureService::
+    leaveTenant`). Ohne weitere Mitgliedschaft wird das Konto gelöscht, alle
+    App- und Web-Sitzungen enden (`account_deleted: true`).
+  * Ein Eintrag `profile.delete` (Kanal `app`, ohne Personenbezug) bleibt
+    als Nachweis im Protokoll der Schule.
 * **Konto löschen** entfernt App-Sitzungen, Exporte samt Dateien und
   gespeicherte Antworten sofort. **Eine Schule verlassen** entfernt die
-  Exporte dieser Schule samt Dateien und die gespeicherten Antworten; die
-  App-Sitzungen gelten kontoweit und bleiben (für andere Schulen).
+  Exporte, offenen Löschanträge und Webansicht-Codes dieser Schule samt
+  Dateien und die gespeicherten Antworten; die App-Sitzungen gelten
+  kontoweit und bleiben (für andere Schulen).
 * **Datenschutzerklärung:** Die zentrale Vorlage nennt die Lern-App
   (Geräteangaben, Speicherfristen). Schulen mit eigener Vorlage müssen den
   Absatz selbst ergänzen.
@@ -409,12 +444,20 @@ entscheidet aber nur anhand von `code`.
   * `MOBILE_API_EXPORT_TTL_MINUTES`
   * `MOBILE_API_MIN_VERSION_IOS` / `_ANDROID` und `MOBILE_API_STORE_URL_IOS`
     / `_ANDROID` (leer = keine Mindestversion)
+  * `MOBILE_API_WEB_SESSION_ENABLED` (Standard `true`): Einmal-Anmeldung
+    der Webansicht
+  * `MOBILE_API_DELETION_CONFIRMATION_PATH` (Standard `/app/konto-loeschen`):
+    Pfad des Bestätigungslinks; muss als Universal Link (iOS) bzw. App Link
+    (Android) auf die App zeigen
 * **Wartungsmodus** der Plattform (Superadmin-Einstellungen) gilt auch für
   die API (503 `MAINTENANCE`); `GET /app/config` bleibt erreichbar.
 * **Keine CORS-Freigabe nötig** (native Apps). Die API nutzt keine Cookies
-  und keine Sessions.
+  und keine Sessions (Ausnahme: das Einlösen des Webansicht-Codes meldet die
+  Website-Sitzung an).
 * **Migration:** `2024_02_01_000591_create_mobile_api_tables`. Sie legt
   `api_device_session`, `api_idempotency_key` und `api_data_export` an.
+  `…_000600` (Löschanträge) und `…_000601` (Webansicht-Codes) mit
+  `tenant_id` und Row-Level-Security.
 * **Tests:** `vendor/bin/phpunit tests/Feature/Api`.
   `OpenApiContractTest` schlägt fehl, wenn Routen und OpenAPI-Datei
   auseinanderlaufen.
@@ -429,4 +472,3 @@ entscheidet aber nur anhand von `code`.
 * Untertitel und Vorschaubilder für Videos; Seekarten fehlen bisher in den
   Navigationsaufgaben (`chart: null`), dafür braucht es die Papierkarte.
 * Registrierung in der App.
-* Konto löschen in der App (siehe Hinweis Apple oben).

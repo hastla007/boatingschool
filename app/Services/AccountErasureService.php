@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use App\Models\ApiAccountDeletionRequest;
 use App\Models\ApiDataExport;
+use App\Models\ApiMobileWebSession;
 use App\Models\Attempt;
 use App\Models\AuditLog;
 use App\Models\Entitlement;
@@ -215,6 +217,9 @@ class AccountErasureService
             NavigationProgress::class,
             // Datenexporte aus der App (Datei räumt app:prune-personal-data nach Ablauf weg).
             ApiDataExport::class,
+            // Offener Löschantrag und Einmal-Codes der Webansicht aus der App.
+            ApiAccountDeletionRequest::class,
+            ApiMobileWebSession::class,
             // Bug-Review (Funk-Training fehlt in Löschung): answers enthält
             // freie Mitschriften/Eingaben des Lerners (siehe Migration
             // 2024_02_01_000479) -- die Tabelle kam nach dieser Liste hinzu

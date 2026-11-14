@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Models\ApiAccountDeletionRequest;
+use App\Models\ApiMobileWebSession;
 use App\Models\Attempt;
 use App\Models\AuditLog;
 use App\Models\Coupon;
@@ -45,7 +47,7 @@ class PersonalDataExportService
     {
         $data = $this->collect($user, $tenant, $forSchool);
         if ($forSchool) {
-            unset($data['sessions'], $data['app_devices'], $data['audit_log']);
+            unset($data['sessions'], $data['app_devices'], $data['app_web_logins'], $data['audit_log']);
         }
 
         return $data;
@@ -298,6 +300,21 @@ class PersonalDataExportService
                     'created_at' => $row->created_at ? Carbon::parse($row->created_at)->toIso8601String() : null,
                     'last_used_at' => $row->last_used_at ? Carbon::parse($row->last_used_at)->toIso8601String() : null,
                     'revoked_at' => $row->revoked_at ? Carbon::parse($row->revoked_at)->toIso8601String() : null,
+                ])->all(),
+            // Offener Löschantrag aus der App (bis zur Bestätigung per Mail).
+            'app_deletion_requests' => ApiAccountDeletionRequest::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+                ->orderBy('requested_at')->get()
+                ->map(fn (ApiAccountDeletionRequest $r) => [
+                    'requested_at' => $r->requested_at?->toIso8601String(),
+                    'expires_at' => $r->expires_at?->toIso8601String(),
+                ])->all(),
+            // Anmeldungen der Webansicht aus der App (ohne Codes, nur deren Hashes liegen vor).
+            'app_web_logins' => $forSchool ? [] : ApiMobileWebSession::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+                ->orderBy('created_at')->get()
+                ->map(fn (ApiMobileWebSession $s) => [
+                    'redirect_path' => $s->redirect_path,
+                    'created_at' => $s->created_at?->toIso8601String(),
+                    'used_at' => $s->used_at?->toIso8601String(),
                 ])->all(),
             // Protokolleinträge dieser Bootsschule, die die Person betreffen.
             'audit_log' => $forSchool ? [] : AuditLog::where('tenant_id', $tenant->id)
