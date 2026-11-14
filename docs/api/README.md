@@ -130,6 +130,7 @@ Antworten werden 24 Stunden je Konto gespeichert.
 | App-Konfiguration | 60/Min. |
 | Schulbezogene Endpunkte | 240/Min. je Konto |
 | Codes einlösen | 10/Min. |
+| Lerngruppen | Vorschau 30/Min.; Einladen 20 Aufrufe/Std. je Verwalter, je Gruppe und Tag max(20, 2 × Plätze) Einladungen |
 | Datenexport | 5/Std., Download 20/Min. |
 
 ---
@@ -352,7 +353,35 @@ GET  /exams/{id}/result                 → Ergebnis mit Lösungen
     16-stelligen Standardformat auch Leerzeichen statt oder fehlende
     Bindestriche.
   * Danach `GET /courses` neu laden.
-  * `type`: `course`, `course_renewal` oder `product`.
+  * `type`: `course`, `course_renewal`, `product` oder `group_license`
+    (Lerngruppe, siehe unten).
+* **Lerngruppen (Gruppenlizenzen):** eine Gruppe gehört genau einer Schule
+  und hat eine feste Zahl Plätze für einen oder mehrere Kurse (ganzer Kurs
+  oder einzelne Funktionen, z. B. nur Prüfungssimulation).
+  * **Anlegen** nur durch den Betreiber (`app:learning-group-create`, siehe
+    Betrieb); die App verwaltet bestehende Gruppen.
+  * **Verwalten** darf nur der eingetragene Verwalter (aktiver Teilnehmer
+    der Schule): `GET /me/groups`, `GET /me/groups/{id}`,
+    `POST /me/groups/{id}/invites {emails[]}`,
+    `DELETE /me/groups/{id}/members/{memberId}`,
+    `POST /me/groups/{id}/join-code`. Alle mit `X-Tenant-Slug`; Gruppen
+    anderer Schulen und anderer Verwalter ergeben 404.
+  * **Plätze:** aktive Mitglieder und offene Einladungen (30 Tage gültig).
+    Einladen und Beitreten sperren die Gruppe kurz, parallele Anfragen
+    können die Platzzahl nicht überziehen.
+  * **Einladung:** jede gültige Adresse bekommt eine Mail mit persönlichem
+    Code, gleich ob es ein Konto gibt -- die Antwort (`invited`, `skipped`)
+    verrät das nicht. Der Name erscheint erst nach dem Beitritt.
+  * **Beitreten:** `GET /groups/join/{token}` zeigt die Vorschau,
+    `POST /coupons/redeem` mit dem Beitrittscode (`g…`), der persönlichen
+    Einladung (`i…`, nur mit der eingeladenen Adresse) oder dem Link
+    `…/gruppe/<code>/` tritt bei. Nur Teilnehmer der Schule der Gruppe; je
+    Kurs entsteht ein Kurszugang mit `source_type = group` (bei einzelnen
+    Funktionen mit `capabilities`), gültig bis zum Ende der Gruppe.
+  * **Entfernen** gibt den Platz frei und widerruft genau die Gruppen-
+    zugänge der Person; eigene Zugänge (Kauf, Code, Schule) bleiben. Über
+    den Beitrittscode kommt sie nicht wieder hinein, nur mit einer neuen
+    persönlichen Einladung.
 * **Datenexport:**
   * `POST /profile/export` erzeugt eine JSON-Datei mit allen Daten bei
     dieser Schule, inkl. der App-Geräte (`status: ready`, bei einem Fehler
@@ -385,6 +414,7 @@ GET  /exams/{id}/result                 → Ergebnis mit Lösungen
 | 409 | `EXAM_ALREADY_SUBMITTED` / `EXAM_NOT_SUBMITTED` | Ergebnis bzw. Prüfung laden |
 | 409 | `EXAM_NO_NAVIGATION_PART`, `EXAM_NAVIGATION_ALREADY_SUBMITTED`, `EXAM_NAVIGATION_NOT_SUBMITTED` | Phase neu laden / nachfragen |
 | 409 | `NAVIGATION_TASK_IN_EXAM` | erst Prüfung beenden (`exam_id` im Fehler) |
+| 409 | `GROUP_NOT_ACTIVE` | Lerngruppe abgelaufen oder gesperrt |
 | 410 | `EXAM_EXPIRED` | Prüfung bzw. Ergebnis neu laden |
 | 410 | `EXPORT_EXPIRED` | neuen Export anfordern |
 | 410 | `GONE` | allgemein: nicht mehr verfügbar |
@@ -393,6 +423,7 @@ GET  /exams/{id}/result                 → Ergebnis mit Lösungen
 | 422 | `PASSWORD_RESET_INVALID_OR_EXPIRED` | neuen Link anfordern |
 | 422 | `COUPON_INVALID` | „Code ungültig, abgelaufen oder bereits eingelöst“ |
 | 422 | `COUPON_NOT_APPLICABLE` | Meldung aus `detail` anzeigen |
+| 422 | `GROUP_SCOPE_UNSUPPORTED` | Gruppenumfang nicht abbildbar → Support |
 | 426 | `APP_UPDATE_REQUIRED` | Update-Hinweis mit `store_url` |
 | 429 | `RATE_LIMITED` | `Retry-After` abwarten |
 | 4xx | `REQUEST_FAILED` | sonstiger Fehler; `detail` anzeigen |
@@ -416,11 +447,22 @@ entscheidet aber nur anhand von `code`.
   * beendete oder abgelaufene App-Sitzungen nach 30 Tagen,
   * Idempotenz-Schlüssel nach 24 Stunden (gelesen werden sie ohnehin nur so
     lange),
-  * Exporte und ihre Dateien nach Ablauf.
+  * Exporte und ihre Dateien nach Ablauf,
+  * abgelaufene Lerngruppen-Einladungen (Adresse und Code werden entfernt).
 * **Konto löschen** entfernt App-Sitzungen, Exporte samt Dateien und
   gespeicherte Antworten sofort. **Eine Schule verlassen** entfernt die
   Exporte dieser Schule samt Dateien und die gespeicherten Antworten; die
   App-Sitzungen gelten kontoweit und bleiben (für andere Schulen).
+* **Lerngruppen:** `learning_group` und `learning_group_member` haben
+  `tenant_id` und RLS je Schule; Mitglieder und Verwalter müssen per
+  Fremdschlüssel Mitglieder derselben Schule sein. Eine Schule verlassen
+  entfernt die eigenen Gruppenplätze und Einladungen an die eigene Adresse
+  (bei dieser Schule); selbst verwaltete Gruppen bleiben ohne Verwalter
+  bestehen, damit die übrigen Mitglieder ihren Zugang behalten. Die
+  Kontolöschung entfernt auch offene Gruppeneinladungen anderer Schulen.
+  Der Datenexport enthält eigene Plätze/Einladungen und für verwaltete
+  Gruppen nur Kennzahlen; der Export beim Vertragsende der Schule enthält
+  alle Gruppen samt Mitgliedern.
 * **Datenschutzerklärung:** Die zentrale Vorlage nennt die Lern-App
   (Geräteangaben, Speicherfristen). Schulen mit eigener Vorlage müssen den
   Absatz selbst ergänzen.
@@ -462,6 +504,17 @@ entscheidet aber nur anhand von `code`.
   "module_code"? (nur drip), "valid_from"?, "valid_until"?, "source_key"?}]}`.
   `module_code` ist der native Modulcode. Video-Drip-Regeln brauchen die
   WP-Kapitelkennung an den Videokapiteln und brechen sonst ab.
+* **Lerngruppen anlegen und beenden** (Owner-Verbindung):
+  ```sh
+  php artisan app:learning-group-create <schul-slug> <verwalter@mail> "Segelverein" \
+      --seats=10 --course=SRC --course=FKN:exam_simulation --valid-until=2027-12-31
+  php artisan app:learning-group-revoke <gruppen-id>
+  ```
+  Der Verwalter muss aktiver Teilnehmer der Schule sein. `--course` ist ein
+  Kurscode, optional mit WP-Funktion (`question_bank`, `exam_simulation`,
+  `video_course`, `navigation_trainer`, `praxis_trainer`, `funk_training`).
+  Beenden widerruft alle Gruppenzugänge; offene Einladungen verfallen.
+  Migration: `2024_02_01_000597_create_learning_group_tables`.
 * **Tests:** `vendor/bin/phpunit tests/Feature/Api`.
   `OpenApiContractTest` schlägt fehl, wenn Routen und OpenAPI-Datei
   auseinanderlaufen.

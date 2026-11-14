@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Models\ApiDataExport;
 use App\Models\AuditLog;
 use App\Models\Coupon;
+use App\Models\LearningGroup;
+use App\Models\LearningGroupMember;
 use App\Models\MediaAsset;
 use App\Models\Tenant;
 use App\Models\TenantInvitation;
@@ -19,8 +21,8 @@ use RuntimeException;
  * JSON exportieren und die Schule danach endgültig löschen.
  *
  * Die Löschung entfernt die Schule mit allen ihr zugeordneten Daten
- * (Mitgliedschaften, Freischaltungen, Lernstände, Anmeldungen, Bestellungen
- * … per ON DELETE CASCADE), ihr Protokoll, Logo und Favicon. Konten, die
+ * (Mitgliedschaften, Freischaltungen, Lernstände, Anmeldungen, Bestellungen,
+ * Lerngruppen samt Einladungen … per ON DELETE CASCADE), ihr Protokoll, Logo und Favicon. Konten, die
  * danach keiner Bootsschule mehr angehören, werden ebenfalls gelöscht;
  * Konten mit weiteren Mitgliedschaften und Superadmins bleiben. Läuft im
  * Superadmin-Bereich auf der Owner-Verbindung (RLS-frei).
@@ -65,6 +67,17 @@ class TenantOffboardingService
             .',"coupons":'.$json(Coupon::where('tenant_id', $tenant->id)->with(['course:id,code', 'product:id,code'])->get()
                 ->map(fn (Coupon $c) => ['code' => $c->code, 'course' => $c->course?->code, 'product' => $c->product?->code, 'status' => $c->statusLabel(), 'redeemed_at' => $c->redeemed_at?->toIso8601String()])
                 ->all())
+            // Lerngruppen mit Plätzen; offene Einladungen mit Adresse (wie open_invitations).
+            .',"learning_groups":'.$json(LearningGroup::where('tenant_id', $tenant->id)->with(['owner', 'members.user'])->orderBy('created_at')->get()
+                ->map(fn (LearningGroup $g) => [
+                    'name' => $g->name, 'status' => $g->status, 'seats' => $g->seats, 'scopes' => $g->scopes,
+                    'owner' => $g->owner?->email, 'valid_from' => $g->valid_from?->toIso8601String(), 'valid_until' => $g->valid_until?->toIso8601String(),
+                    'source_reference' => $g->source_reference,
+                    'members' => $g->members->whereIn('status', ['invited', 'active'])->map(fn (LearningGroupMember $m) => [
+                        'status' => $m->status, 'email' => $m->user?->email ?? $m->email,
+                        'invited_at' => $m->invited_at?->toIso8601String(), 'joined_at' => $m->joined_at?->toIso8601String(),
+                    ])->values()->all(),
+                ])->all())
             .'}');
 
         return $count;

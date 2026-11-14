@@ -10,6 +10,8 @@ use App\Models\ExamSession;
 use App\Models\Favorite;
 use App\Models\FavoriteCollection;
 use App\Models\InstructorCourse;
+use App\Models\LearningGroup;
+use App\Models\LearningGroupMember;
 use App\Models\NavigationProgress;
 use App\Models\PraxisExamAppointment;
 use App\Models\PraxisFormSubmission;
@@ -80,6 +82,8 @@ class AccountErasureService
             }
             // Gespeicherte App-Antworten (Idempotenz) enthalten Lerndaten dieser Schule.
             DB::table('api_idempotency_key')->where('user_id', $user->id)->delete();
+
+            $this->leaveLearningGroups($tenant, $user);
 
             $invitationIds = $this->deleteInvitationsFor($tenant, $user);
             $this->pseudonymizeAuditLogFor($tenant, $user, $invitationIds, $willkommensboxOrderIds, $praxisFormSubmissionIds, $praxisExamAppointmentIds);
@@ -182,6 +186,9 @@ class AccountErasureService
                 AuditLog::where('entity_type', 'tenant_invitation')->whereIn('entity_id', $invitationIds)->update(['before_data' => null, 'after_data' => null]);
                 TenantInvitation::withoutGlobalScopes()->whereIn('id', $invitationIds)->delete();
             }
+            // Offene Einladungen in Lerngruppen (enthalten die Adresse).
+            LearningGroupMember::withoutGlobalScopes()->where('status', 'invited')->whereRaw('lower(email) = ?', [mb_strtolower($user->email)])
+                ->when($exceptTenantId, fn ($q) => $q->where('tenant_id', '!=', $exceptTenantId))->delete();
         });
     }
 
@@ -228,6 +235,21 @@ class AccountErasureService
             // Kaskadiert praxis_exam_appointment weg (ON DELETE CASCADE).
             PraxisFormSubmission::class,
         ];
+    }
+
+    /**
+     * Lerngruppen dieser Schule: Mitgliedschaften und offene Einladungen an
+     * die Adresse verschwinden (die Gruppenzugänge selbst löscht
+     * tenantScopedModels()), der Platz wird frei. Verwaltet die Person
+     * Gruppen, bleiben diese ohne Verwalter bestehen -- die übrigen
+     * Mitglieder behalten ihren bezahlten Zugang.
+     */
+    private function leaveLearningGroups(Tenant $tenant, User $user): void
+    {
+        LearningGroupMember::where('tenant_id', $tenant->id)
+            ->where(fn ($q) => $q->where('user_id', $user->id)->orWhereRaw('lower(email) = ?', [mb_strtolower($user->email)]))
+            ->delete();
+        LearningGroup::where('tenant_id', $tenant->id)->where('owner_user_id', $user->id)->update(['owner_user_id' => null]);
     }
 
     /**

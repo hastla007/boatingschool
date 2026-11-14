@@ -30,9 +30,9 @@ class ForeignKeyIndexCoverageTest extends TestCase
                 WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_schema = 'public'
             ),
             single_column_fks AS (
-                SELECT table_name, column_name, constraint_name
+                SELECT table_name, MIN(column_name) AS column_name, constraint_name
                 FROM fk_columns
-                GROUP BY table_name, column_name, constraint_name
+                GROUP BY table_name, constraint_name
                 HAVING COUNT(*) = 1
             ),
             indexed_leading_columns AS (
@@ -67,21 +67,35 @@ class ForeignKeyIndexCoverageTest extends TestCase
         );
     }
 
-    public function test_the_schema_has_no_composite_foreign_keys_that_the_single_column_check_above_would_miss(): void
+    /**
+     * Zusammengesetzte Fremdschlüssel (seit den Lerngruppen, z. B.
+     * (tenant_id, user_id) -> tenant_user): ein Index muss mit genau den
+     * Spalten des Schlüssels beginnen (Reihenfolge egal).
+     */
+    public function test_every_composite_foreign_key_has_a_covering_leading_index(): void
     {
-        $composite = DB::connection('pgsql_admin')->select(<<<'SQL'
-            SELECT tc.table_name, tc.constraint_name, COUNT(*) AS col_count
-            FROM information_schema.table_constraints tc
-            JOIN information_schema.key_column_usage kcu
-                ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
-            WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_schema = 'public'
-            GROUP BY tc.table_name, tc.constraint_name
-            HAVING COUNT(*) > 1
+        $db = DB::connection('pgsql_admin');
+        $foreignKeys = $db->select(<<<'SQL'
+            SELECT c.conrelid::regclass::text AS table_name, c.conname AS constraint_name, c.conrelid AS rel, c.conkey AS cols
+            FROM pg_constraint c
+            JOIN pg_namespace n ON n.oid = c.connamespace
+            WHERE c.contype = 'f' AND n.nspname = 'public' AND array_length(c.conkey, 1) > 1
         SQL);
 
-        $this->assertEmpty(
-            $composite,
-            'Es gibt jetzt zusammengesetzte Fremdschlüssel -- ForeignKeyIndexCoverageTest::test_every_single_column_foreign_key_has_a_covering_leading_index() prüft nur einspaltige FKs und muss um diese erweitert werden.'
-        );
+        $uncovered = [];
+        foreach ($foreignKeys as $fk) {
+            $covered = $db->selectOne(<<<'SQL'
+                SELECT 1 AS ok FROM pg_index ix
+                WHERE ix.indrelid = ?
+                  AND (SELECT array_agg(k ORDER BY k) FROM unnest((ix.indkey::int2[])[0:array_length(?::int2[], 1) - 1]) k)
+                    = (SELECT array_agg(k ORDER BY k) FROM unnest(?::int2[]) k)
+                LIMIT 1
+            SQL, [$fk->rel, $fk->cols, $fk->cols]);
+            if (! $covered) {
+                $uncovered[] = "{$fk->table_name} ({$fk->constraint_name})";
+            }
+        }
+
+        $this->assertEmpty($uncovered, "Zusammengesetzte Fremdschlüssel ohne passenden Index:\n".implode("\n", $uncovered));
     }
 }

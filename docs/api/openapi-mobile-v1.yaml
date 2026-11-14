@@ -8,7 +8,7 @@ info:
 
     * Basis-URL: `https://<plattform-domain>/api/v1`
     * Anmeldung: `Authorization: Bearer <access_token>` (15 Minuten gültig, Erneuerung über `/auth/refresh`).
-    * Schule: Header `X-Tenant-Slug` bei allen schulbezogenen Endpunkten (Kurse, Lernen, Prüfung, Videos, Navigation, Codes, Export).
+    * Schule: Header `X-Tenant-Slug` bei allen schulbezogenen Endpunkten (Kurse, Lernen, Prüfung, Videos, Navigation, Codes, Lerngruppen, Export).
     * Fehler: `application/problem+json` mit stabilem `code` und `request_id`.
     * Schreibende POST-Endpunkte mit `Idempotency-Key` (UUID) sind sicher wiederholbar (24 Stunden).
     * Zeitangaben: ISO 8601 in UTC (`2026-11-09T10:15:00Z`).
@@ -34,6 +34,7 @@ tags:
   - {name: Videos}
   - {name: Navigation}
   - {name: Coupons}
+  - {name: Groups}
   - {name: Privacy}
 
 paths:
@@ -959,12 +960,18 @@ paths:
     post:
       tags: [Coupons]
       operationId: redeemCoupon
-      summary: Zugangscode einlösen (nach dem Kauf im externen Webshop)
+      summary: Zugangscode einlösen (nach dem Kauf im externen Webshop) oder einer Lerngruppe beitreten
       description: |
         Unbekannte, gesperrte, abgelaufene und von anderen eingelöste Codes ergeben einheitlich
         422 `COUPON_INVALID`. Ein vom eigenen Konto in dieser Schule schon eingelöster Code
         liefert das Ergebnis erneut (`already_redeemed: true`). Danach `GET /courses` neu laden.
         Begrenzung 10 Versuche pro Minute.
+
+        Lerngruppen: ein Beitrittscode (`g…`), eine persönliche Einladung (`i…`, nur mit der
+        eingeladenen Adresse) oder ein Link `…/gruppe/<code>/` tritt der Gruppe bei
+        (`type: group_license`). Volle, abgelaufene, fremde und nach dem Entfernen erneut
+        genutzte Beitrittscodes ergeben ebenfalls `COUPON_INVALID`; ein nicht abbildbarer
+        Gruppenumfang 422 `GROUP_SCOPE_UNSUPPORTED`.
       parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody:
         required: true
@@ -984,6 +991,145 @@ paths:
                 properties: {data: {$ref: '#/components/schemas/CouponRedemption'}}
         '422': {$ref: '#/components/responses/Problem'}
         '429': {$ref: '#/components/responses/Problem'}
+
+  # ------------------------------------------------------------- Groups
+  /groups/join/{token}:
+    get:
+      tags: [Groups]
+      operationId: previewGroupJoin
+      summary: Gruppenbeitritt vor dem Einlösen prüfen
+      description: Vorschau eines Beitrittscodes oder einer persönlichen Einladung, ohne sie einzulösen. Eine Einladung an eine andere Adresse und Gruppen anderer Schulen ergeben 422 `COUPON_INVALID`. Höchstens 30 Abrufe pro Minute.
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {in: path, name: token, required: true, schema: {type: string, pattern: '^[giGI][0-9a-fA-F]{32}$'}}
+      responses:
+        '200':
+          description: Vorschau
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {data: {$ref: '#/components/schemas/GroupJoinPreview'}}
+        '422': {$ref: '#/components/responses/Problem'}
+        '429': {$ref: '#/components/responses/Problem'}
+  /me/groups:
+    get:
+      tags: [Groups]
+      operationId: listMyGroups
+      summary: Selbst verwaltete Lerngruppen dieser Schule
+      parameters: [{$ref: '#/components/parameters/TenantSlug'}]
+      responses:
+        '200':
+          description: Gruppen mit Plätzen und Mitgliedern
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: {type: array, items: {$ref: '#/components/schemas/LearningGroup'}}
+                  meta:
+                    type: object
+                    properties:
+                      groups: {type: integer}
+                      seats_total: {type: integer}
+                      seats_used: {type: integer}
+  /me/groups/{groupId}:
+    get:
+      tags: [Groups]
+      operationId: getMyGroup
+      summary: Selbst verwaltete Lerngruppe
+      parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/GroupId'}]
+      responses:
+        '200':
+          description: Gruppe
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {data: {$ref: '#/components/schemas/LearningGroup'}}
+        '404': {$ref: '#/components/responses/Problem'}
+  /me/groups/{groupId}/invites:
+    post:
+      tags: [Groups]
+      operationId: inviteToMyGroup
+      summary: Personen per E-Mail einladen
+      description: |
+        Jede gültige, noch nicht eingeladene Adresse bekommt einen persönlichen Code (30 Tage gültig),
+        solange Plätze frei sind -- unabhängig davon, ob es dazu ein Konto gibt (die Antwort verrät
+        das nicht). Übersprungen werden ungültige und schon eingeladene Adressen sowie Adressen ohne
+        freien Platz oder über dem Tageslimit (`skipped`). Höchstens 20 Aufrufe pro Stunde, je Gruppe
+        und Tag höchstens max(20, 2 × Plätze) Einladungen. 409 `GROUP_NOT_ACTIVE` bei abgelaufener
+        oder gesperrter Gruppe.
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/GroupId'}
+        - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: {type: [string, 'null'], maxLength: 320}
+                emails: {type: array, maxItems: 200, items: {type: string, maxLength: 320}}
+      responses:
+        '200':
+          description: Ergebnis
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    required: [invited, skipped, group]
+                    properties:
+                      invited: {type: integer}
+                      skipped: {type: array, items: {type: string}}
+                      group: {$ref: '#/components/schemas/LearningGroup'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+        '429': {$ref: '#/components/responses/Problem'}
+  /me/groups/{groupId}/members/{memberId}:
+    delete:
+      tags: [Groups]
+      operationId: removeGroupMember
+      summary: Mitglied oder offene Einladung entfernen
+      description: Der Platz wird frei; die über die Gruppe erteilten Kurszugänge werden widerrufen, andere Zugänge der Person bleiben. Ein entferntes Mitglied kann nur mit einer neuen persönlichen Einladung wieder beitreten.
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/GroupId'}
+        - {in: path, name: memberId, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200':
+          description: Gruppe mit aktualisierten Mitgliedern
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {data: {$ref: '#/components/schemas/LearningGroup'}}
+        '404': {$ref: '#/components/responses/Problem'}
+  /me/groups/{groupId}/join-code:
+    post:
+      tags: [Groups]
+      operationId: regenerateGroupJoinCode
+      summary: Beitrittscode erneuern (der bisherige wird ungültig)
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/GroupId'}
+        - {$ref: '#/components/parameters/IdempotencyKey'}
+      responses:
+        '200':
+          description: Gruppe mit neuem Code
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {data: {$ref: '#/components/schemas/LearningGroup'}}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
 
   # ------------------------------------------------------------ Privacy
   /profile/export:
@@ -1072,6 +1218,7 @@ components:
     LessonId: {in: path, name: lessonId, required: true, schema: {type: string, format: uuid}}
     TaskId: {in: path, name: taskId, required: true, schema: {type: string, format: uuid}}
     SessionId: {in: path, name: sessionId, required: true, schema: {type: string, format: uuid}}
+    GroupId: {in: path, name: groupId, required: true, schema: {type: string, format: uuid}}
   responses:
     Problem:
       description: Fehler
@@ -1615,11 +1762,70 @@ components:
       properties:
         redeemed: {type: boolean, const: true}
         already_redeemed: {type: boolean}
-        type: {type: string, enum: [course, course_renewal, product]}
-        course_id: {type: [string, 'null']}
+        type: {type: string, enum: [course, course_renewal, product, group_license]}
+        kind: {type: string, const: group_license, description: 'Nur beim Gruppenbeitritt (WP-kompatibel)'}
+        group_name: {type: string, description: 'Nur beim Gruppenbeitritt'}
+        courses:
+          type: array
+          description: 'Nur beim Gruppenbeitritt: alle Kurse der Gruppe'
+          items: {type: object, properties: {course_id: {type: string, format: uuid}, code: {type: string}, name: {type: string}}}
+        course_id: {type: [string, 'null'], description: 'Beim Gruppenbeitritt nur bei genau einem Kurs'}
         course_name: {type: [string, 'null']}
         entitlement: {oneOf: [{$ref: '#/components/schemas/Entitlement'}, {type: 'null'}]}
         product: {type: [object, 'null'], properties: {id: {type: string}, name: {type: string}}}
+    GroupScope:
+      type: object
+      properties:
+        course_id: {type: [string, 'null'], format: uuid}
+        course_code: {type: string}
+        course_name: {type: string}
+        feature: {type: string, description: 'course (ganzer Kurs) oder WP-Funktion, z. B. exam_simulation'}
+        feature_label: {type: string}
+        capability: {type: [string, 'null']}
+        capabilities: {type: [array, 'null'], items: {type: string}, description: 'null = ganzer Kurs'}
+    LearningGroupMember:
+      type: object
+      properties:
+        id: {type: string, format: uuid}
+        user_id: {type: [string, 'null'], format: uuid}
+        name: {type: [string, 'null'], description: 'Erst nach dem Beitritt'}
+        email: {type: [string, 'null'], description: 'Vom Verwalter eingegebene Adresse (nur bei Einladungen)'}
+        status: {type: string, enum: [invited, active, expired]}
+        is_me: {type: boolean}
+        joined_at: {type: [string, 'null'], format: date-time}
+        invited_at: {type: [string, 'null'], format: date-time}
+        invite_expires_at: {type: [string, 'null'], format: date-time}
+        removable: {type: boolean}
+    LearningGroup:
+      type: object
+      required: [id, name, status, seats, scopes, members]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+        status: {type: string, enum: [active, suspended, revoked]}
+        active: {type: boolean, description: 'Status aktiv und innerhalb der Laufzeit'}
+        valid_until: {type: [string, 'null'], format: date-time}
+        seats:
+          type: object
+          properties: {total: {type: integer}, used: {type: integer}, free: {type: integer}}
+        scopes: {type: array, items: {$ref: '#/components/schemas/GroupScope'}}
+        join_code: {type: [string, 'null'], description: 'Nur bei aktiver Gruppe'}
+        join_url: {type: [string, 'null'], format: uri, description: 'Universal Link für die App (…/gruppe/<code>/)'}
+        invites_remaining_today: {type: integer}
+        invite_valid_days: {type: integer}
+        members: {type: array, items: {$ref: '#/components/schemas/LearningGroupMember'}}
+    GroupJoinPreview:
+      type: object
+      properties:
+        name: {type: string}
+        owner_name: {type: [string, 'null']}
+        personal: {type: boolean, description: 'Persönliche Einladung statt Beitrittscode'}
+        status: {type: string}
+        valid_until: {type: [string, 'null'], format: date-time}
+        free_seats: {type: integer}
+        already_member: {type: boolean}
+        joinable: {type: boolean}
+        scopes: {type: array, items: {$ref: '#/components/schemas/GroupScope'}}
     ExportStatus:
       type: object
       properties:
