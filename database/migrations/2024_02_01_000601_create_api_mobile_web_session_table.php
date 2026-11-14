@@ -31,6 +31,7 @@ return new class extends Migration
             $table->timestampTz('created_at')->useCurrent();
             $table->index(['tenant_id', 'user_id']);
             $table->index('user_id');
+            $table->index('api_device_session_id');
             $table->index('expires_at');
         });
 
