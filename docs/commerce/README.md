@@ -88,7 +88,7 @@ oder in der App ein (`POST /api/v1/coupons/redeem`).
 - Kommt eine Rückerstattung, bevor die Zustellung gelungen ist, merkt sich das Plugin die Sperre und wendet sie nach der Lieferung an (geliefert wird immer die volle Menge der Position).
 - Steht eine Bestellung zwischenzeitlich „In Wartestellung“ (Prüfung, Streitfall), wird die Zustellung zurückgestellt (`deferred`) und bei „In Bearbeitung“ mit demselben eingefrorenen Auftrag (Zuordnung, Menge, Kunde) fortgesetzt. „In Wartestellung“ sperrt keine Codes – nur „Storniert“ und „Erstattet“.
 - Wird während einer laufenden Zustellung storniert, liefert das Plugin nicht weiter und fragt bei „nicht gefunden“ mehrfach nach (1, 5, 30 Minuten), ob der Auftrag doch noch ankam, und sperrt ihn dann.
-- Wird eine stornierte Bestellung später wieder auf bezahlt gesetzt, liefert das Plugin nicht automatisch nach, sondern meldet es per Bestellnotiz und Alarm-Mail.
+- Wird eine stornierte oder vollständig erstattete Bestellung später wieder auf bezahlt gesetzt, liefert das Plugin nicht automatisch nach, sondern meldet es einmalig per Bestellnotiz und Alarm-Mail – auch wenn die Codes vor dem Storno schon geliefert waren.
 
 ## Commerce-API v1
 
@@ -175,7 +175,7 @@ Action Scheduler. Außerdem:
   `/wp-json/boatingschool/v1/provision` nicht erreichbar.
 - Produkte mit **Varianten** sind möglich; die Zuordnung steht am Hauptprodukt.
 - Höchstmenge je Bestellposition aus dem Katalog (`max_quantity`, derzeit 500), im Shop begrenzt.
-- Warenkorb und Kasse prüfen, ob die verknüpfte Schule den Kurs erhalten kann (`deliverable_course_codes` aus `GET /accounts/{id}`), damit nicht nach der Zahlung eine Lieferung scheitert.
+- „In den Warenkorb“, Warenkorb und Kasse prüfen, ob die verknüpfte Schule den Kurs erhalten kann (`deliverable_course_codes` aus `GET /accounts/{id}`), damit nicht nach der Zahlung eine Lieferung scheitert. Kurs- und Verlängerungscodes für nicht freigeschaltete Kurse kommen gar nicht erst in den Warenkorb.
 - **Klassischer und Block-Checkout** prüfen unmittelbar vor der Bestellung
   frisch, ob das Konto einkaufen darf.
 - Zahlarten ohne bestätigten Zahlungseingang (Standard: Nachnahme `cod`; Einstellung
@@ -183,13 +183,13 @@ Action Scheduler. Außerdem:
   Bootsschul-Codes ausgeblendet. Bestellungen mit einer solchen Zahlart werden erst zugestellt,
   wenn das Gateway die Zahlung bestätigt oder die Bestellung auf „Abgeschlossen“ gesetzt wird.
 
-**Test:** Das Plugin wurde nicht gegen ein echtes WordPress getestet. Geprüft
-sind:
+**Test:** Geprüft sind:
 
 - Signatur und Zustellentscheidungen gegen die App (Unit-Test).
-- Status-Zwischenspeicher und Einstellungen mit einem minimalen WordPress-Ersatz (Unit-Test).
+- Status-Zwischenspeicher, Einstellungen, Warenkorb-Sperren und Storno-Reaktivierung mit einem minimalen WordPress-/WooCommerce-Ersatz (Unit-Tests).
 - Alle App-Endpunkte mit simulierten Shop-Aufrufen (Feature-Tests).
 - Der Ausgang mit einem simulierten Shop.
+- Einmal lokal gegen echtes WordPress 7.1.4 / WooCommerce 11.3.0 (SQLite statt MySQL) zusammen mit der echten App, Abläufe 1–5. Ergebnis und Lücken: [`staging-test.md`](staging-test.md), Abschnitt „Ergebnis lokaler E2E-Test“.
 
-Vor dem Livebetrieb sollten die Abläufe 1–5 einmal auf einer Staging-Installation (Checkliste: [`staging-test.md`](staging-test.md))
-durchgespielt werden.
+Vor dem Livebetrieb sollten die Abläufe 1–5 trotzdem einmal auf einer Staging-Installation mit MySQL,
+echter Testzahlart, echtem Mailversand und Cron durchgespielt werden (Checkliste: [`staging-test.md`](staging-test.md)).
