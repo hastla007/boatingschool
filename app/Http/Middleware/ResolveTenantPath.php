@@ -20,9 +20,16 @@ use Symfony\Component\HttpFoundation\Response;
  * findet die Schule über das Request-Attribut.
  *
  * Sitzungs-Cookies gelten nur für diesen Pfad und tragen den Slug im
- * Namen: wie bei getrennten Subdomains hat jede Schule ihre eigene
- * Anmeldung, und das Cookie der zentralen Domain (Superadmin) kollidiert
- * nicht damit.
+ * Namen: jede Schule hat ihre eigene Anmeldung, und das Cookie der
+ * zentralen Domain (Superadmin) überschreibt sich nicht mit ihrem.
+ *
+ * Das ist nur eine Trennung der Anmeldungen, KEINE Sicherheitsgrenze wie
+ * bei getrennten Subdomains: alle Schulen und (ohne SUPERADMIN_HOST) der
+ * Superadmin teilen sich einen Ursprung. Skript auf einer Schulseite
+ * (z. B. eine XSS-Lücke) könnte Seiten anderer Schulen und des Superadmins
+ * im selben Browser lesen und Anfragen dorthin schicken; Cookie-Pfade
+ * schützen davor nicht. Für den Betrieb deshalb SUPERADMIN_HOST setzen
+ * oder den Subdomain-Modus nutzen (deploy/README.md, Go-live-Check).
  */
 class ResolveTenantPath
 {

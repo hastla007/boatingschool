@@ -61,10 +61,13 @@ class ResolveTenant
         app(TenantContext::class)->clear();
         $this->setCurrentUserIdForRls($request);
 
-        $tenant = $this->resolveViaPath($request)
+        // Eigener Superadmin-Host (SUPERADMIN_HOST): dort gibt es nie eine Schule,
+        // auch wenn er wie eine Schul-Subdomain aussieht.
+        $onSuperadminHost = $this->isSuperadminHost($request);
+        $tenant = $onSuperadminHost ? null : ($this->resolveViaPath($request)
             ?? $this->resolveViaCustomDomain($request)
             ?? $this->resolveViaDevOverride($request)
-            ?? $this->resolveViaSubdomain($request);
+            ?? $this->resolveViaSubdomain($request));
 
         // Bug-Review R3-1 (Folgefehler): diese Prüfung griff bisher nur,
         // wenn GAR KEIN Tenant aufgelöst werden konnte (zentrale Domain) --
@@ -91,8 +94,20 @@ class ResolveTenant
         // jeweiligen Bootsschul-Betreiber) kontrollierte Subdomain/Custom
         // Domain -- unabhängig davon, ob dort überhaupt ein Tenant auflöst.
         // Pfad-Modus: auch nicht unter CENTRAL_DOMAIN/<slug>/superadmin.
-        if ($this->isSuperadminRoute($request) && ! TenantPath::isCentralRoot($request)) {
+        //
+        // Härtung SEC-W-4: mit SUPERADMIN_HOST ausschließlich dort (eigener
+        // Ursprung und eigenes Session-Cookie), auf der zentralen Domain 404.
+        if ($this->isSuperadminRoute($request) && ! ($this->superadminHost() ? $onSuperadminHost : TenantPath::isCentralRoot($request))) {
             return response()->view('tenant.not-found', [], 404);
+        }
+        // Auf dem Superadmin-Host nur Superadmin, Anmeldung und Rechtstexte.
+        if ($onSuperadminHost && ! $this->isTenantAgnosticRoute($request)) {
+            if ($request->is('/')) {
+                return redirect('/superadmin');
+            }
+            if (! $request->is('impressum') && ! $request->is('datenschutz')) {
+                return response()->view('tenant.not-found', [], 404);
+            }
         }
 
         if ($this->isTenantAgnosticRoute($request)) {
@@ -100,7 +115,7 @@ class ResolveTenant
             // (keine Bootsschule, nicht die zentrale Domain) zeigte /login
             // eine scheinbar funktionierende Anmeldeseite, deren Links dann
             // auf „Bootsschule nicht gefunden“ führten.
-            if (! $tenant && ! TenantPath::isCentralRoot($request)) {
+            if (! $tenant && ! TenantPath::isCentralRoot($request) && ! $onSuperadminHost) {
                 return response()->view('tenant.not-found', [], 404);
             }
 
@@ -139,8 +154,8 @@ class ResolveTenant
         }
 
         if (! $tenant) {
-            // Impressum/Datenschutz der Plattform selbst (zentrale Domain ohne Schule).
-            if (TenantPath::isCentralRoot($request) && ($request->is('impressum') || $request->is('datenschutz'))) {
+            // Impressum/Datenschutz der Plattform selbst (zentrale Domain bzw. Superadmin-Host).
+            if ((TenantPath::isCentralRoot($request) || $onSuperadminHost) && ($request->is('impressum') || $request->is('datenschutz'))) {
                 return $next($request);
             }
             if (TenantPath::isCentralRoot($request)) {
@@ -210,6 +225,21 @@ class ResolveTenant
     private function isSuperadminRoute(Request $request): bool
     {
         return $request->is('superadmin') || $request->is('superadmin/*');
+    }
+
+    /** SUPERADMIN_HOST, sofern gesetzt und nicht (versehentlich) die zentrale Domain selbst. */
+    private function superadminHost(): ?string
+    {
+        $host = config('app.superadmin_host');
+
+        return $host && $host !== strtolower((string) config('app.central_domain')) ? $host : null;
+    }
+
+    private function isSuperadminHost(Request $request): bool
+    {
+        $host = $this->superadminHost();
+
+        return $host !== null && strtolower($request->getHost()) === $host;
     }
 
     /**

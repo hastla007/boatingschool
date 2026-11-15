@@ -217,8 +217,13 @@ ohne ihn laufen die folgenden Kommandos nie, auch nicht im Dev-Setup mit
 `php artisan serve`:
 
 ```cron
-* * * * * cd /pfad/zur/app && php artisan schedule:run >> /dev/null 2>&1
+* * * * * cd /pfad/zur/app && php artisan schedule:run >> storage/logs/scheduler.log 2>&1
 ```
+
+In Produktion zusätzlich Pflicht: ein externer Totmann-Schalter
+(`OPS_HEARTBEAT_URL`, z. B. healthchecks.io), den der Scheduler jede Minute
+anpingt -- steht Cron oder der Server, alarmiert der Dienst von außen
+(siehe `deploy/README.md` §5).
 
 Geplante Kommandos:
 
@@ -240,11 +245,13 @@ Geplante Kommandos:
   E-Mail an Lernende, deren Kurszugang in den nächsten Tagen abläuft
   (einmal je Ablaufdatum; scheitert der Versand, wird es beim nächsten
   Lauf erneut versucht).
-- `app:backup` (täglich 03:15 Europe/Berlin) -- Datenbank-Dump und Uploads
-  nach `storage/app/backups/`, optional auf externen Speicher
-  (`BACKUP_DISK`), siehe `deploy/README.md`.
+- `app:backup` (täglich 03:15 Europe/Berlin) -- Datenbank-Dump, Uploads
+  und geschützte Dateien (Fragenbilder, Kartenausschnitte, Kursdateien)
+  nach `storage/app/backups/`, optional verschlüsselt auf externen
+  Speicher (`BACKUP_DISK`, `BACKUP_ENCRYPTION_PUBLIC_KEY`), siehe
+  `deploy/README.md`.
 - `ops:scheduler-heartbeat` (jede Minute) -- Lebenszeichen für den
-  Go-live-Check.
+  Go-live-Check und Ping an `OPS_HEARTBEAT_URL`.
 - `app:commerce-outbox` (jede Minute) -- sendet vorgemerkte Ereignisse an
   den WooCommerce-Shop (Anlage des Shopkontos neuer Schulen), siehe
   `docs/commerce/README.md`. Ohne `COMMERCE_SHOP_URL` ohne Wirkung.

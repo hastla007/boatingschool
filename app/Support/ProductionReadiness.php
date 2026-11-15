@@ -54,7 +54,27 @@ class ProductionReadiness
         $add('Konfiguration', 'APP_URL mit https', str_starts_with($url, 'https://') ? 'ok' : 'fail', $url);
         $central = (string) config('app.central_domain');
         $add('Konfiguration', 'CENTRAL_DOMAIN gesetzt', in_array($central, ['', 'localhost', '127.0.0.1'], true) ? 'fail' : 'ok', $central);
-        $add('Konfiguration', 'Sichere Session-Cookies (SESSION_SECURE_COOKIE=true)', config('session.secure') ? 'ok' : 'warn');
+        // Über https ohne Secure-Flag ginge das Session-Cookie auch über unverschlüsseltes http mit.
+        $add('Konfiguration', 'Sichere Session-Cookies (SESSION_SECURE_COOKIE=true)', config('session.secure') ? 'ok' : (str_starts_with($url, 'https://') ? 'fail' : 'warn'));
+        // „*“ vertraut jedem Absender: X-Forwarded-For (IP-Limits, Protokolle) wäre frei fälschbar.
+        $proxies = trim((string) config('app.trusted_proxies'));
+        $add('Konfiguration', 'TRUSTED_PROXIES ohne „*“', in_array($proxies, ['*', '**'], true) ? 'warn' : 'ok', in_array($proxies, ['*', '**'], true) ? 'nur die Adressen des eigenen Proxys/Load-Balancers eintragen' : ($proxies === '' ? 'keinem Proxy vertraut' : $proxies));
+        // Nur für app:create-superadmin beim ersten Einrichten gedacht, danach aus der .env entfernen.
+        $add('Konfiguration', 'SUPERADMIN_PASSWORD nicht in der .env', config('app.superadmin_password') ? 'warn' : 'ok', config('app.superadmin_password') ? 'nach dem Anlegen des Superadmins entfernen' : '');
+        $envFile = app()->environmentFilePath();
+        if (is_file($envFile)) {
+            $othersCanRead = (fileperms($envFile) & 0o007) !== 0;
+            $add('Konfiguration', '.env nur für den Deploy-Benutzer lesbar', $othersCanRead ? 'warn' : 'ok', $othersCanRead ? 'chmod 600 .env (enthält APP_KEY und Zugangsdaten)' : '');
+        }
+        // Pfad-Modus: alle Schulen und der Superadmin teilen sich einen Ursprung (SEC-W-4).
+        $superadminHost = (string) config('app.superadmin_host');
+        if ($superadminHost === '' && config('app.tenant_url_mode') !== 'subdomain') {
+            $add('Konfiguration', 'Superadmin getrennt von den Schulen (SUPERADMIN_HOST)', 'warn', 'im Pfad-Modus teilen Schulen und Superadmin einen Ursprung: SUPERADMIN_HOST setzen oder TENANT_URL_MODE=subdomain');
+        } elseif ($superadminHost !== '' && config('session.domain')) {
+            $add('Konfiguration', 'Superadmin getrennt von den Schulen (SUPERADMIN_HOST)', 'warn', 'SESSION_DOMAIN teilt das Session-Cookie über Hosts hinweg: leer lassen');
+        } else {
+            $add('Konfiguration', 'Superadmin getrennt von den Schulen (SUPERADMIN_HOST)', 'ok', $superadminHost ?: 'Subdomain-Modus');
+        }
         $add('Konfiguration', 'Cache nicht „array“', config('cache.default') === 'array' ? 'fail' : 'ok', (string) config('cache.default'));
         $add('Konfiguration', 'LOG_LEVEL nicht „debug“', config('logging.channels.'.config('logging.default').'.level') === 'debug' || config('logging.channels.daily.level') === 'debug' ? 'warn' : 'ok');
         $add('Konfiguration', 'Fehlertracking (SENTRY_LARAVEL_DSN)', config('sentry.dsn') ? 'ok' : 'warn', config('sentry.dsn') ? '' : 'ohne DSN werden Fehler nur ins Log geschrieben');
@@ -75,6 +95,12 @@ class ProductionReadiness
         // --- Hintergrunddienste --------------------------------------------
         $last = Cache::get(self::SCHEDULER_HEARTBEAT_KEY);
         $add('Hintergrunddienste', 'Scheduler (Cron: schedule:run jede Minute)', $last && now()->timestamp - $last < 300 ? 'ok' : 'fail', $last ? 'zuletzt '.self::ago($last) : 'noch nie gelaufen');
+        // Steht der Scheduler (oder der Server), läuft auch dieser Check nicht mehr: nur ein externer Dienst merkt das.
+        $add('Hintergrunddienste', 'Externer Totmann-Schalter (OPS_HEARTBEAT_URL)', config('app.ops_heartbeat_url') ? 'ok' : 'warn', config('app.ops_heartbeat_url') ? '' : 'ohne externen Heartbeat-Dienst fällt ein stehender Scheduler niemandem auf');
+        $safely(function () use ($add) {
+            $to = OpsAlert::recipient();
+            $add('Hintergrunddienste', 'Empfänger für Betriebsalarme', $to ? 'ok' : 'fail', $to ?: 'OPS_ALERT_EMAIL oder Support-Adresse (Superadmin → Einstellungen) setzen');
+        });
         // Derzeit legt die App keine Queue-Jobs an (Mails laufen synchron,
         // siehe BestEffortMail). Geprüft wird deshalb nur, ob Jobs hängen
         // bleiben -- dann fehlt der Worker (queue:work).
@@ -94,6 +120,16 @@ class ProductionReadiness
         $add('Hintergrunddienste', 'Datensicherung (app:backup)', $backup && $backup->diffInHours(now()) < $maxAge ? 'ok' : 'fail', $backup ? 'zuletzt '.$backup->format('d.m.Y H:i').(config('backup.disk') ? ', extern: '.config('backup.disk') : ', nur lokal') : 'noch keine Sicherung');
         if ($backup && ! config('backup.disk')) {
             $add('Hintergrunddienste', 'Sicherung außerhalb des Servers (BACKUP_DISK)', 'warn', 'fällt der Server aus, sind lokale Sicherungen mit weg');
+        }
+        if (config('backup.disk')) {
+            $remote = BackupApplication::latestRemoteBackupAt();
+            $add('Hintergrunddienste', 'Externe Sicherung erfolgreich', $remote && $remote->diffInHours(now()) < $maxAge ? 'ok' : 'fail', $remote ? 'zuletzt '.$remote->format('d.m.Y H:i') : 'noch keine vollständige externe Kopie');
+            $add('Hintergrunddienste', 'Externe Sicherung verschlüsselt (BACKUP_ENCRYPTION_PUBLIC_KEY)', config('backup.encryption_public_key') ? 'ok' : 'warn', config('backup.encryption_public_key') ? '' : 'Kopien liegen sonst lesbar beim Speicheranbieter (php artisan app:backup-keygen)');
+        }
+        $free = @disk_free_space(is_dir((string) config('backup.path')) ? (string) config('backup.path') : storage_path());
+        if ($free !== false) {
+            [$status, $detail] = self::freeSpace((int) $free, BackupApplication::latestBackupBytes());
+            $add('Hintergrunddienste', 'Freier Speicher für Sicherungen', $status, $detail);
         }
 
         // --- Datenbank -----------------------------------------------------
@@ -131,6 +167,9 @@ class ProductionReadiness
             // Lizenzierte/amtliche Fragenbilder sonst ohne Anmeldung unter /storage/... abrufbar.
             $exposed = QuestionMedia::protectedFilesOnPublicDisk();
             $add('Inhalte', 'Geschützte Fragenbilder nicht öffentlich abrufbar', $exposed->isEmpty() ? 'ok' : 'warn', $exposed->isEmpty() ? '' : "{$exposed->count()} Datei(en) noch auf der public-Disk, z. B. {$exposed->first()} (unter gleichem Pfad nach storage/app/private verschieben)");
+            // Kartenausschnitte (Lizenz nur für Kursteilnehmer) ebenso.
+            $charts = NavigationChart::filesOnPublicDisk();
+            $add('Inhalte', 'Kartenausschnitte nicht öffentlich abrufbar', $charts === [] ? 'ok' : 'warn', $charts === [] ? '' : count($charts).' Datei(en) noch unter storage/app/public/'.NavigationChart::DIRECTORY.' (nach storage/app/private/'.NavigationChart::DIRECTORY.' verschieben)');
 
             $footer = @file_get_contents(resource_path('views/components/site-footer.blade.php')) ?: '';
             // Sichtbar auf jeder Seite jeder Schule: vor dem Start zwingend ersetzen.
@@ -138,6 +177,23 @@ class ProductionReadiness
         });
 
         return $checks;
+    }
+
+    /**
+     * Freier Speicher reicht für mindestens drei weitere Sicherungen (und 1 GiB)?
+     *
+     * @return array{0: string, 1: string}
+     */
+    public static function freeSpace(int $freeBytes, ?int $latestBackupBytes): array
+    {
+        $needed = max(1024 ** 3, 3 * (int) $latestBackupBytes);
+        $gib = fn (int|float $bytes) => number_format($bytes / 1024 ** 3, 1, ',', '.').' GiB';
+
+        if ($latestBackupBytes !== null && $freeBytes < $latestBackupBytes) {
+            return ['fail', "frei {$gib($freeBytes)}, die letzte Sicherung brauchte {$gib($latestBackupBytes)}"];
+        }
+
+        return [$freeBytes < $needed ? 'warn' : 'ok', "frei {$gib($freeBytes)}".($freeBytes < $needed ? ", empfohlen mind. {$gib($needed)}" : '')];
     }
 
     private static function ago(int $timestamp): string
