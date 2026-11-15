@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\Tenant;
+use App\Services\AppAccountDeletion;
 use App\Support\CanonicalUrl;
 use App\Support\GermanTime;
 use Carbon\CarbonInterface;
@@ -35,9 +36,7 @@ class AccountDeletionConfirmation extends Notification
 
     public function url(): string
     {
-        $path = '/'.ltrim((string) config('mobile_api.deletion_confirmation_path', '/app/konto-loeschen'), '/');
-
-        return CanonicalUrl::root().$path.'?'.http_build_query([
+        return CanonicalUrl::root().AppAccountDeletion::confirmationPath().'?'.http_build_query([
             'request_id' => $this->requestId,
             'confirm_key' => $this->confirmKey,
         ]);

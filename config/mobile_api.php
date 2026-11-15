@@ -43,4 +43,15 @@ return [
     // Pfad auf der zentralen Domain, den die App als Universal-/App-Link
     // öffnet (Bestätigungslink der Kontolöschung aus der App).
     'deletion_confirmation_path' => env('MOBILE_API_DELETION_CONFIRMATION_PATH', '/app/konto-loeschen'),
+    // Universal Links (iOS) und App Links (Android) für diesen Pfad: die zentrale
+    // Domain liefert /.well-known/apple-app-site-association bzw.
+    // /.well-known/assetlinks.json nur aus, wenn die Werte gesetzt sind
+    // (kommagetrennt). Ohne installierte App öffnet der Link die Web-Bestätigung.
+    'app_links' => [
+        // App-IDs im Format <Team-ID>.<Bundle-ID>, z. B. ABCDE12345.de.example.app
+        'ios_app_ids' => env('MOBILE_API_IOS_APP_IDS'),
+        'android_package' => env('MOBILE_API_ANDROID_PACKAGE'),
+        // SHA-256-Fingerprints des Signaturzertifikats (AA:BB:...)
+        'android_sha256_fingerprints' => env('MOBILE_API_ANDROID_SHA256_FINGERPRINTS'),
+    ],
 ];
