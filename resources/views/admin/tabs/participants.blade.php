@@ -299,8 +299,8 @@
                     </td>
                     @if ($canManageTenant)
                     <td class="px-4 py-2">
-                        {{-- Review: abgelaufene Zugänge (auch gesperrt und inzwischen abgelaufen) lassen sich hier neu freischalten; aktive, widerrufene und gesperrte mit Restlaufzeit haben eigene Aktionen. --}}
-                        @php($bookedCourseIds = $membership->user->entitlements->filter(fn ($e) => $e->status === 'revoked' || (in_array($e->status, ['active', 'suspended'], true) && ($e->valid_until === null || $e->valid_until->isFuture())))->pluck('course_id')->all())
+                        {{-- Review: abgelaufene Zugänge (auch gesperrt und inzwischen abgelaufen) lassen sich hier neu freischalten; aktive, widerrufene und gesperrte mit Restlaufzeit haben eigene Aktionen. QA-L-1: ein Teilzugang (capabilities) zählt nicht als gebucht. --}}
+                        @php($bookedCourseIds = $membership->user->entitlements->filter(fn ($e) => $e->status === 'revoked' || ($e->capabilities === null && in_array($e->status, ['active', 'suspended'], true) && ($e->valid_until === null || $e->valid_until->isFuture())))->pluck('course_id')->all())
                         {{-- Nur Kurse, die die Schule anbietet. --}}
                         @php($unbookedCourses = $courses->whereNotIn('id', $disabledCourseIds)->whereNotIn('id', $bookedCourseIds))
                         @if ($unbookedCourses->isNotEmpty())

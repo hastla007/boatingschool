@@ -247,7 +247,10 @@ Fehler beim Schul-Kontext:
 * `capabilities` (z. B. `smarttrainer`, `exam`, `video`, `navigation`)
   sagt, welche Funktionen der Kurs hat; `features.<capability>` mit
   `available`/`full`/`limit` sagt, was die Person davon nutzen darf
-  (gesperrte Kacheln mit Schloss und `webshop_url`).
+  (gesperrte Kacheln mit Schloss und `webshop_url`). Was dort `available`
+  ist, öffnen auch die Endpunkte der Funktion (siehe Zugriffsregeln).
+  `webshop_url` fehlt nur bei vollem Kurszugang -- bei Probe- oder
+  Teilzugang bleibt der Kauf-Link.
 * `relation` (`hidden`, `recommended`, `recommended_for`) bildet die
   Katalogregeln der WP-App ab: ein gekaufter Kombikurs blendet seine
   Teilkurse aus, Aufbaukurse werden empfohlen.
@@ -267,15 +270,32 @@ liefert das Kursdetail auch für buchbare Kurse ohne Zugang (mit gesperrten
   (`entitlement.capabilities = null`).
 * **Funktionszugang:** ein Entitlement kann auf einzelne Funktionen
   beschränkt sein (`capabilities`, z. B. `["exam"]` aus dem WP-Import oder
-  einer Lerngruppe). Endpunkte mit eigener Funktion (Übersicht, Module,
-  Fortschritt: `smarttrainer`) akzeptieren das, alle anderen verlangen
-  weiter vollen Kurszugang.
+  einer Lerngruppe). Die Endpunkte verlangen genau ihre Funktion:
+  Übersicht, Module, Fortschritt, `trainer/next`, `trainer/reveal`,
+  `attempts` und Fehlerliste `smarttrainer`; Favoriten und Sammlungen
+  `favorites`; Prüfungen (Liste, Start, Verlauf, laufende Prüfung)
+  `exam`; Videos `video`; Navigationsaufgaben `navigation`; Praxistrainer
+  `praxis`; Funktraining `funk` (nur im vollen Umfang, kein Probezugang).
+  Übrige Endpunkte (z. B. Prüfungsanmeldung, Kunden-FAQ) verlangen vollen
+  Kurszugang. Das Web öffnet Kurse nur bei vollem Kurszugang; ein Kurs mit
+  bloßem Teilzugang bleibt dort buchbar („Teilzugang in der App“).
 * **Schulregeln** (`course_access_rule`, je Schule, RLS): `free` öffnet eine
   Funktion ohne Kauf, `free_limited` die ersten N Einträge (beim
   Fragenkatalog: die ersten N gültigen Fragen je Modul; Module zeigen dann
   `lock_reason: trial`), `drip` sperrt ein Modul bis N Tage nach
   Zugangsbeginn (`locked`, `lock_reason: drip`, `unlock_at`). Regeln wirken
-  nur für Kurse, die die Schule anbietet.
+  nur für Kurse, die die Schule anbietet, und nur innerhalb ihres
+  `valid_from`/`valid_until`.
+* **Durchsetzung:** Probezugang und Drip gelten nicht nur für die Anzeige.
+  `trainer/next` spielt nur freigegebene Fragen aus (auch mit
+  `question_ids`, `collection_id` und `mode=favorites`), `module_id` eines
+  gesperrten Moduls, `attempts`, `trainer/reveal` und Favoriten auf eine
+  nicht freigegebene Frage ergeben 403 `ENTITLEMENT_REQUIRED`; die
+  Fehlerliste zeigt nur freigegebene Fragen. Bei Probezugang zu Prüfung,
+  Videos, Navigation und Praxistrainer liefern die Listen die ersten N
+  Einträge (Prüfungsbögen, Lektionen, Aufgaben, Karten in Kursreihenfolge);
+  ein Direktzugriff auf einen späteren Eintrag ergibt 403
+  `ENTITLEMENT_REQUIRED`.
 * **Schalter `MOBILE_API_DEFAULT_ACCESS`:** Standard `entitlement`. Die
   WP-App kennt `logged_in` („eingeloggt genügt“); gesetzt bekommt JEDES
   Mitglied der Schule Vollzugriff auf alle angebotenen Kurse. Nur nach
@@ -327,6 +347,13 @@ liefert das Kursdetail auch für buchbare Kurse ohne Zugang (mit gesperrten
   Fragen mit laufender richtiger Serie fallen heraus, am Ende kommt 204.
 * Die Antworten einer Einfachauswahl sind je Person gemischt (wie im Web);
   `key` ist der Buchstabe der Anzeigeposition.
+* **Antwort-IDs sind Kennungen je Person** (`answers[].id`,
+  `selected_answer_ids`, `correct_answer_ids`, auch in Prüfung und
+  Prüfungsverlauf): UUID-förmig, für die angemeldete Person stabil, aber
+  nicht die interne ID der Antwort. Die App schickt genau die Kennung
+  zurück, die sie bekommen hat. Kennungen nicht zwischen Konten teilen oder
+  vergleichen -- für andere Personen sind sie ungültig (422 „Unbekannte
+  Antwort.“).
 * Fragen einer laufenden Prüfung sind gesperrt, auch bei einer anderen
   Schule (409 `EXAM_QUESTION_LOCKED`).
 
@@ -340,6 +367,9 @@ liefert das Kursdetail auch für buchbare Kurse ohne Zugang (mit gesperrten
   aus `trainer/next` (die ausgelieferte Revision). Kurszugang und
   Kurszugehörigkeit werden dabei neu geprüft; nur offene Fragen (sonst 422),
   Fragen einer laufenden Prüfung → 409 `EXAM_QUESTION_LOCKED`.
+* `GET /courses/{id}/attempts/{attemptId}` liefert das Ergebnis erneut;
+  steckt die Frage gerade in einer laufenden Prüfung: 409
+  `EXAM_QUESTION_LOCKED` (keine Lösung vor der Abgabe).
 
 Die Antwort enthält Richtig/Falsch, Lösung, Erklärung, `learning_state`,
 `streak` (x von 3) und `completed` (= gefestigt). Es gelten die Regeln der
@@ -479,10 +509,13 @@ GET  /exams/{id}/result                 → Ergebnis mit Lösungen
     `…/gruppe/<code>/` tritt bei. Nur Teilnehmer der Schule der Gruppe; je
     Kurs entsteht ein Kurszugang mit `source_type = group` (bei einzelnen
     Funktionen mit `capabilities`), gültig bis zum Ende der Gruppe.
-  * **Entfernen** gibt den Platz frei und widerruft genau die Gruppen-
-    zugänge der Person; eigene Zugänge (Kauf, Code, Schule) bleiben. Über
-    den Beitrittscode kommt sie nicht wieder hinein, nur mit einer neuen
-    persönlichen Einladung.
+  * **Entfernen** gibt den Platz frei und beendet genau die Gruppen-
+    zugänge der Person (`status: expired`, Enddatum jetzt -- kein
+    `revoked`, das bleibt der bewussten Sperre durch die Schule
+    vorbehalten); eigene Zugänge (Kauf, Code, Schule) bleiben, ein eigener
+    Kurscode bzw. das Freischalten durch die Schule ist danach wie gewohnt
+    möglich. Über den Beitrittscode kommt sie nicht wieder hinein, nur mit
+    einer neuen persönlichen Einladung.
 * **Datenexport:**
   * `POST /profile/export` erzeugt eine JSON-Datei mit allen Daten bei
     dieser Schule, inkl. der App-Geräte (`status: ready`, bei einem Fehler
@@ -721,8 +754,10 @@ entscheidet aber nur anhand von `code`.
   Der Verwalter muss aktiver Teilnehmer der Schule sein. `--course` ist ein
   Kurscode, optional mit WP-Funktion (`question_bank`, `exam_simulation`,
   `video_course`, `navigation_trainer`, `praxis_trainer`, `funk_training`).
-  Beenden widerruft alle Gruppenzugänge; offene Einladungen verfallen.
-  Migration: `2024_02_01_000597_create_learning_group_tables`.
+  Beenden beendet alle Gruppenzugänge (`expired`, Enddatum jetzt); offene
+  Einladungen verfallen. Migrationen: `2024_02_01_000597_create_learning_group_tables`,
+  `2024_02_01_000760_end_group_entitlements_as_expired` (stellt bisher
+  widerrufene Gruppenzugänge auf `expired` um).
 * **Tests:** `vendor/bin/phpunit tests/Feature/Api`.
   `OpenApiContractTest` schlägt fehl, wenn Routen und OpenAPI-Datei
   auseinanderlaufen.

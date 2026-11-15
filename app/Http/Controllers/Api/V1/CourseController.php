@@ -112,7 +112,8 @@ class CourseController extends Controller
 
         return response()->json(['data' => $this->summary($course, $progress, null, CourseWebshopLink::where('tenant_id', $tenant->id)->where('course_id', $course->id)->value('url')) + [
             'modules_count' => $course->modules->count(),
-            'exam_options_count' => $hasExam ? ($course->examPapers()->count() ?: ($course->activeExamRuleSet() ? 1 : 0)) : 0,
+            // Wie GET …/exams: bei Probezugang nur die ersten N Bögen.
+            'exam_options_count' => $hasExam ? ($this->access->limitItems($tenant, $user, $course, 'exam', $course->examPapers)->count() ?: ($course->activeExamRuleSet() ? 1 : 0)) : 0,
             'downloads' => $files->where('category', 'download')->map($fileRef)->values(),
             'section_files' => (object) $files->where('category', 'section')->groupBy(fn (CourseFile $file) => $file->section_key ?: 'general')
                 ->map(fn ($items) => $items->map($fileRef)->values())->all(),
@@ -249,8 +250,9 @@ class CourseController extends Controller
             'progress' => ['percent' => $total > 0 ? (int) round($mastered / $total * 100) : 0, 'completed' => $mastered, 'total' => $total],
             'capabilities' => $capabilities,
             'features' => (object) $features,
-            // Kauf-Link nur, solange etwas fehlt (kein oder nur Probezugang).
-            'webshop_url' => $access['status'] === 'active' && ! $access['trial'] ? null : $webshopUrl,
+            // Kauf-Link nur, solange etwas fehlt (kein voller Kurszugang -- auch
+            // bei Probe- oder Teilzugang auf einzelne Funktionen).
+            'webshop_url' => $this->access->hasCourseAccess($tenant, $user, $course) ? null : $webshopUrl,
             // Ausblenden/Empfehlen wie im WP-Katalog (z. B. SBF See ausblenden, wenn SBF See & Binnen gekauft).
             'relation' => $relation,
             // Review-Runde 13: für „Weiterlernen“ über alle Kurse.

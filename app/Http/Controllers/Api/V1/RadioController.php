@@ -373,10 +373,14 @@ class RadioController extends Controller
         ], FunkTraining::catalogsFor($course))]);
     }
 
-    /** Kurszugang wie alle V1-Endpunkte; Kurse ohne Funkschein: 404. */
+    /**
+     * Zugang zum Funktraining (Capability funk, voller Umfang -- für die
+     * vielen Teillisten gibt es keine eindeutige „erste N“-Reihenfolge);
+     * Kurse ohne Funkschein: 404.
+     */
     private function radioCourse(Request $request, string $courseId): CourseDefinition
     {
-        $course = $this->access->require($this->tenantContext->tenant(), $request->user(), $courseId);
+        $course = $this->access->requireFull($this->tenantContext->tenant(), $request->user(), $courseId, 'funk');
         if (FunkTraining::catalogsFor($course) === []) {
             throw ApiProblem::notFound('Funktraining');
         }

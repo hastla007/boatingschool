@@ -121,7 +121,7 @@ class FunkCourseStructureTest extends TestCase
         foreach ($questions as $i => $sq) {
             $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/answers", [
                 'position' => $sq->position,
-                'answer_id' => $sq->revision->answers->firstWhere('is_correct', $i < 8)->id,
+                'answer_id' => $this->answerToken($learner, $sq->revision->answers->firstWhere('is_correct', $i < 8)->id),
             ]);
         }
         $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/finish")->assertRedirect();

@@ -74,7 +74,7 @@ class ExamPaperTest extends TestCase
             $correctAnswer = $sq->revision->correctAnswer();
             $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/answers", [
                 'position' => $sq->position,
-                'answer_id' => $correctAnswer->id,
+                'answer_id' => $this->answerToken($learner, $correctAnswer->id),
             ]);
         }
 
@@ -222,7 +222,7 @@ class ExamPaperTest extends TestCase
             $wrongAnswer = $sq->revision->answers->firstWhere('is_correct', false);
             $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/answers", [
                 'position' => $sq->position,
-                'answer_id' => $wrongAnswer->id,
+                'answer_id' => $this->answerToken($learner, $wrongAnswer->id),
             ]);
         }
         $this->actingAsInTenant($learner, $tenant)->get("/exam-sessions/{$session->id}");

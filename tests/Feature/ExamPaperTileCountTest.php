@@ -57,7 +57,7 @@ class ExamPaperTileCountTest extends TestCase
         $session = $this->asTenant($tenant, fn () => ExamSession::where('user_id', $learner->id)->firstOrFail());
         $sqs = $this->asTenant($tenant, fn () => $session->questions()->with('revision.answers')->get());
         foreach ($sqs as $sq) {
-            $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/answers", ['position' => $sq->position, 'answer_id' => $sq->revision->correctAnswer()->id]);
+            $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/answers", ['position' => $sq->position, 'answer_id' => $this->answerToken($learner, $sq->revision->correctAnswer()->id)]);
         }
         $this->actingAsInTenant($learner, $tenant)->get("/exam-sessions/{$session->id}");
 

@@ -34,7 +34,8 @@ class ReviewRoundThirteenApiTest extends MobileApiTestCase
         $token = $this->apiLogin($user);
 
         $exam = $this->startPaper('SRC', 1, $token, $tenant);
-        $correctIds = $this->onAdmin(fn () => ContentAnswer::whereIn('revision_id', collect($exam['questions'])->pluck('revision_id'))->where('is_correct', true)->pluck('id'))->flip();
+        $correctIds = $this->onAdmin(fn () => ContentAnswer::whereIn('revision_id', collect($exam['questions'])->pluck('revision_id'))->where('is_correct', true)->pluck('id'));
+        $correctIds = collect($this->answerTokens($user, $correctIds))->flip();
         $firstIsCorrect = collect($exam['questions'])->filter(fn ($q) => $correctIds->has($q['answers'][0]['id']))->count();
 
         // Quelldaten: richtige Antwort immer „A“ an erster Stelle -- die App bekommt sie gemischt.

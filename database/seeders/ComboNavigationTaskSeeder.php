@@ -46,6 +46,8 @@ class ComboNavigationTaskSeeder extends Seeder
                 'scenario_text' => $sourceTask->scenario_text,
                 'hint' => $sourceTask->hint,
                 'sort_order' => $sourceTask->sort_order,
+                // Verknüpfung zur Quelle: die Prüfungssperre gilt für beide (QA-L-6).
+                'source_task_id' => $sourceTask->id,
             ]);
 
             foreach ($sourceTask->questions as $sourceQuestion) {

@@ -57,7 +57,7 @@ class ExamEngineTest extends TestCase
 
         $response = $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/answers", [
             'position' => $question->position,
-            'answer_id' => $answer->id,
+            'answer_id' => $this->answerToken($learner, $answer->id),
         ]);
 
         $response->assertRedirect(route('exam.show', $session));
@@ -88,7 +88,7 @@ class ExamEngineTest extends TestCase
             $correctAnswer = $sq->revision->correctAnswer();
             $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/answers", [
                 'position' => $sq->position,
-                'answer_id' => $correctAnswer->id,
+                'answer_id' => $this->answerToken($learner, $correctAnswer->id),
             ]);
         }
 
@@ -177,7 +177,7 @@ class ExamEngineTest extends TestCase
             $correctAnswer = $sq->revision->correctAnswer();
             $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/answers", [
                 'position' => $sq->position,
-                'answer_id' => $correctAnswer->id,
+                'answer_id' => $this->answerToken($learner, $correctAnswer->id),
             ]);
         }
 
