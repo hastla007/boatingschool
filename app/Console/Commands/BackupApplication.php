@@ -2,6 +2,8 @@
 
 namespace App\Console\Commands;
 
+use App\Support\NavigationChart;
+use App\Support\QuestionMedia;
 use Carbon\CarbonInterface;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
@@ -14,7 +16,8 @@ use ZipArchive;
 
 /**
  * Datensicherung: Datenbank (pg_dump, Custom-Format, über die
- * Owner-Verbindung) und Uploads (storage/app/public als ZIP) in einen
+ * Owner-Verbindung), Uploads (storage/app/public als ZIP) und geschützte
+ * Medien der privaten Disk (Fragenbilder, Kartenausschnitte) in einen
  * Ordner mit Zeitstempel, optional zusätzlich auf einen externen Speicher
  * (BACKUP_DISK). Alte Sicherungen werden nach BACKUP_KEEP_DAYS gelöscht.
  *
@@ -22,6 +25,9 @@ use ZipArchive;
  */
 class BackupApplication extends Command
 {
+    /** Ordner der privaten Disk, die zur Sicherung gehören (siehe QuestionMedia, NavigationChart). */
+    public const PRIVATE_MEDIA_DIRECTORIES = [QuestionMedia::DIRECTORY, NavigationChart::DIRECTORY];
+
     protected $signature = 'app:backup {--no-uploads : Nur die Datenbank sichern}';
 
     protected $description = 'Sichert Datenbank und Uploads (täglich per Scheduler).';
@@ -37,6 +43,8 @@ class BackupApplication extends Command
             $files = ['database.dump' => $this->dumpDatabase($dir.'/database.dump')];
             if (! $this->option('no-uploads')) {
                 $files['uploads.zip'] = $this->zipUploads($dir.'/uploads.zip');
+                // Geschützte Fragenbilder und Kartenausschnitte (private Disk, ohne Exporte o. Ä.).
+                $files['protected-media.zip'] = $this->zipUploads($dir.'/protected-media.zip', Storage::disk('local')->path(''), self::PRIVATE_MEDIA_DIRECTORIES);
             }
             $files = array_filter($files);
 
@@ -94,9 +102,10 @@ class BackupApplication extends Command
         return $target;
     }
 
-    private function zipUploads(string $target): ?string
+    /** @param  ?list<string>  $only  nur diese Unterordner (null: alles) */
+    private function zipUploads(string $target, ?string $source = null, ?array $only = null): ?string
     {
-        $source = Storage::disk('public')->path('');
+        $source ??= Storage::disk('public')->path('');
         if (! is_dir($source)) {
             return null;
         }
@@ -105,11 +114,19 @@ class BackupApplication extends Command
         if ($zip->open($target, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
             throw new RuntimeException('ZIP-Datei konnte nicht angelegt werden.');
         }
-        foreach (File::allFiles($source, true) as $file) {
-            if ($file->getFilename() === '.gitignore') {
+        $source = rtrim($source, '/\\');
+        foreach ($only ?? [''] as $prefix) {
+            $dir = $prefix === '' ? $source : $source.'/'.$prefix;
+            if (! is_dir($dir)) {
                 continue;
             }
-            $zip->addFile($file->getPathname(), ltrim(str_replace('\\', '/', $file->getRelativePathname()), '/'));
+            foreach (File::allFiles($dir, true) as $file) {
+                if ($file->getFilename() === '.gitignore') {
+                    continue;
+                }
+                $relative = ltrim(str_replace('\\', '/', $file->getRelativePathname()), '/');
+                $zip->addFile($file->getPathname(), $prefix === '' ? $relative : $prefix.'/'.$relative);
+            }
         }
         $count = $zip->numFiles;
         $zip->close();

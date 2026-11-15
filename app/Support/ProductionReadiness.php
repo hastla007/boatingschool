@@ -128,6 +128,10 @@ class ProductionReadiness
                 ->pluck('name');
             $add('Inhalte', 'Impressumsangaben aller aktiven Schulen', $incomplete->isEmpty() ? 'ok' : 'warn', $incomplete->isEmpty() ? '' : 'unvollständig: '.$incomplete->take(5)->implode(', ').($incomplete->count() > 5 ? ' …' : ''));
 
+            // Lizenzierte/amtliche Fragenbilder sonst ohne Anmeldung unter /storage/... abrufbar.
+            $exposed = QuestionMedia::protectedFilesOnPublicDisk();
+            $add('Inhalte', 'Geschützte Fragenbilder nicht öffentlich abrufbar', $exposed->isEmpty() ? 'ok' : 'warn', $exposed->isEmpty() ? '' : "{$exposed->count()} Datei(en) noch auf der public-Disk, z. B. {$exposed->first()} (unter gleichem Pfad nach storage/app/private verschieben)");
+
             $footer = @file_get_contents(resource_path('views/components/site-footer.blade.php')) ?: '';
             // Sichtbar auf jeder Seite jeder Schule: vor dem Start zwingend ersetzen.
             $add('Inhalte', 'Footer ohne Platzhalter', str_contains($footer, 'XXX') ? 'fail' : 'ok', str_contains($footer, 'XXX') ? 'Footer enthält noch „XXX“' : '');

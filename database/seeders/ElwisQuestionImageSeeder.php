@@ -4,9 +4,9 @@ namespace Database\Seeders;
 
 use App\Models\MediaAsset;
 use App\Models\Module;
+use App\Support\QuestionMedia;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 
 /**
  * Bilder aus den Fragenkatalogen auf ELWIS (Fragenkatalog Binnen:
@@ -96,7 +96,7 @@ class ElwisQuestionImageSeeder extends Seeder
             ->get();
 
         foreach ($unused as $asset) {
-            Storage::disk('public')->delete($asset->getRawOriginal('storage_path'));
+            QuestionMedia::deleteFile($asset);
             $asset->delete();
         }
     }
@@ -128,9 +128,8 @@ class ElwisQuestionImageSeeder extends Seeder
         $storagePath = 'question-media/elwis/'.$row['datei'];
         $contents = file_get_contents(database_path('data/elwis_bilder/'.$row['datei']));
 
-        if (Storage::disk('public')->get($storagePath) !== $contents) {
-            Storage::disk('public')->put($storagePath, $contents);
-        }
+        // Amtliche Bilder (Rechte „review“): privat, Auslieferung nur signiert.
+        QuestionMedia::put($storagePath, $contents, 'review');
 
         // Eine Datei kann mehreren Fragen gehören (z. B. dasselbe
         // Schallsignal in SBF See 118-121) -- daher ein gemeinsames Asset

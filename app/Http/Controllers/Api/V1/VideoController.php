@@ -31,15 +31,26 @@ class VideoController extends Controller
     {
         $course = $this->access->require($this->tenantContext->tenant(), $request->user(), $courseId);
         $modules = $course->videoModules()->with('lessons.steps')->get();
-        $progress = $this->progressFor($request, $modules->flatMap->lessons);
+        $lessons = $modules->flatMap->lessons->values();
+        $progress = $this->progressFor($request, $lessons);
+        // Nächste offene Lektion im normalen Kursfluss (ohne eigenständige Kapitel wie Knoten).
+        $next = $modules->reject(fn (VideoModule $m) => $this->isStandalone($m))->flatMap->lessons
+            ->first(fn (VideoLesson $l) => ! ($progress->get($l->id)?->completed ?? false));
 
         return response()->json(['data' => $modules->values()->map(fn (VideoModule $m, int $i) => [
             'id' => $m->id,
             'title' => $m->title,
+            'code' => $m->module_code,
+            'group' => $m->group_label,
             'order' => $i + 1,
-            'standalone' => in_array($m->title, self::STANDALONE_CHAPTERS, true),
+            'standalone' => $this->isStandalone($m),
             'lessons' => $m->lessons->map(fn (VideoLesson $l) => $this->lesson($l, $progress->get($l->id), false))->values(),
-        ])]);
+        ]), 'meta' => [
+            'course_id' => (string) $course->id,
+            'lessons' => $lessons->count(),
+            'completed' => $progress->where('completed', true)->count(),
+            'next_lesson_id' => $next?->id,
+        ]]);
     }
 
     public function show(Request $request, string $lessonId): JsonResponse
@@ -86,6 +97,11 @@ class VideoController extends Controller
         $this->access->require($this->tenantContext->tenant(), $request->user(), $lesson->module->course_id);
 
         return $lesson;
+    }
+
+    private function isStandalone(VideoModule $module): bool
+    {
+        return in_array($module->title, self::STANDALONE_CHAPTERS, true);
     }
 
     private function progressFor(Request $request, Collection $lessons): Collection

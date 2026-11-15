@@ -44,7 +44,7 @@
         </div>
 
         @foreach ($revision->media as $media)
-            <img src="{{ $media->storage_path }}" alt="{{ $media->alt_text }}" class="rounded-lg mb-4 max-h-64 mx-auto">
+            <img src="{{ \App\Support\QuestionMedia::url($media) }}" alt="{{ $media->alt_text }}" class="rounded-lg mb-4 max-h-64 mx-auto">
         @endforeach
 
         <h3 class="text-lg font-medium text-slate-800 dark:text-white mb-4">{{ $revision->question_text }}</h3>

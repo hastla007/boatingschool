@@ -7,7 +7,7 @@ dieselben.
 
 | Datei | Inhalt |
 |---|---|
-| `docs/api/openapi-mobile-v1.yaml` | Vertrag (OpenAPI 3.1), alle 47 Endpunkte |
+| `docs/api/openapi-mobile-v1.yaml` | Vertrag (OpenAPI 3.1), alle 75 Endpunkte |
 | `routes/api.php` | Routen (Präfix `/api/v1`) |
 | `app/Http/Controllers/Api/V1/` | Controller je Bereich |
 | `app/Api/` | Tokens, Fehlerformat, Ausgabeformate |
@@ -59,10 +59,11 @@ Design-Übersicht. Grundlage war jeweils der tatsächliche Stand der Plattform.
 ### Hinweise zu den Unterlagen
 
 * **Konto löschen (Apple-Richtlinie 5.1.1 v):** Die App legt keine Konten an
-  (Konten entstehen über die Schule oder einen Code). Eine Löschfunktion in
-  der App ist damit nicht vorgeschrieben. Die App verlinkt dafür auf das
-  Profil im Web (`memberships[].legal.account_url`, dort „Konto löschen“;
-  Datenrechte unter `legal.data_rights_url`).
+  (Konten entstehen über die Schule oder einen Code), bietet die Löschung
+  aber trotzdem an: `POST /me/deletion-request` (siehe Abschnitt 12). Es
+  gilt dasselbe wie „Konto löschen“ im Profil im Web
+  (`memberships[].legal.account_url`; Datenrechte unter
+  `legal.data_rights_url`).
 * **Regelwerk `ADD-FKN-TO-SKN`** ist weiterhin ein Entwurf. Die API bietet
   dafür keine Prüfung an (`startable: false` bzw. `EXAM_NOT_AVAILABLE`), bis
   das Regelwerk freigegeben ist.
@@ -95,6 +96,18 @@ Design-Übersicht. Grundlage war jeweils der tatsächliche Stand der Plattform.
   `remaining_seconds` der Prüfung verwenden, nicht die Gerätezeit.
 * **Seiten:** `page`, `per_page` (max. 100), Antwort in `meta.pagination`.
 * **Caching:** Alle Antworten sind `Cache-Control: no-store, private`.
+* **Medien-URLs sind kurzlebig:** Bilder zu Fragen (`prompt_media[].url`)
+  mit geschützten Rechten (z. B. amtliche Fragenbilder) sind signierte
+  Adressen, an Person und Schule gebunden und 120 Minuten gültig. Sie
+  funktionieren ohne `Authorization`-Header (Bild-Loader). Der Zugang
+  wird beim Abruf erneut geprüft; ohne Kurszugang kommt 404.
+  * Die App darf diese URLs nicht dauerhaft speichern (keine Datenbank,
+    kein Offline-Paket mit URL). Das geladene Bild darf sie im Speicher-
+    bzw. Bild-Cache halten (`Cache-Control: private, max-age=3600`).
+  * Nach 403 auf eine Bild-URL (abgelaufen) die Frage bzw. Prüfung neu
+    laden; die Antwort enthält dann frische URLs. Das gilt auch für eine
+    per Idempotency-Key wiederholte Antwort.
+  * Öffentliche Medien behalten ihre bisherige, dauerhafte URL.
 * **Request-ID:** Jede Antwort hat `X-Request-Id`, Fehler zusätzlich
   `request_id`. Für Support-Anfragen mitschicken; die ID steht auch im
   Server-Log und im Fehlertracking.
@@ -127,7 +140,8 @@ Antworten werden 24 Stunden je Konto gespeichert.
 | Refresh | 10/Min. je Refresh-Token, 300/Min. je IP |
 | Passwort vergessen/zurücksetzen | je 6/Min. |
 | Bestätigungsmail | 6/Min. |
-| App-Konfiguration | 60/Min. |
+| App-Konfiguration, Health | je 60/Min. |
+| App-Einstellungen speichern | 60/Min. |
 | Schulbezogene Endpunkte | 240/Min. je Konto |
 | Codes einlösen | 10/Min. |
 | Datenexport | 5/Std., Download 20/Min. |
@@ -171,6 +185,38 @@ POST /auth/login {email, password, device_name, device_platform?, app_version?}
   Der Link in der Mail führt ins Web. Für einen Deep-Link in die App kann die
   App `POST /auth/password/reset` mit `email`, `token` und neuem Passwort
   aufrufen. `invite: true` gilt für Einladungs-Links.
+* **Webansicht der Schule** (eingebettete WebView, z. B. für Seiten, die es
+  in der App nicht gibt): `POST /auth/web-session {redirect}` mit
+  `X-Tenant-Slug` liefert eine Einmal-URL.
+  * Der Code in der URL gilt 60 Sekunden, nur einmal, nur bei dieser Schule
+    und nur, solange diese Gerätesitzung besteht. Gespeichert wird nur sein
+    Hash.
+  * Die WebView lädt die URL mit dem Header `X-Boatingschool-Web-Verifier:
+    <verifier>`. Ohne passenden Verifier verfällt der Code ohne Anmeldung.
+    Danach leitet die Website auf dieselbe Adresse ohne Code weiter.
+  * Ziele nur im Lernbereich (`/dashboard`, `/courses…`, `/tipps-tricks`,
+    `/angebote`, `/willkommensbox`), relativ zur Schuladresse. Kein Profil,
+    keine Verwaltung, keine fremden Hosts (422 `VALIDATION_FAILED`).
+  * Konten mit Team-Rolle bei irgendeiner Schule und Plattform-Konten:
+    403 `WEB_SESSION_NOT_ALLOWED`. Ist im Browser schon jemand anderes
+    angemeldet, bleibt es dabei (keine Anmeldung).
+
+### Health und App-Einstellungen
+
+* `GET /health` (ohne Token) liefert `status: ok`, `api_version` und
+  `server_time`. Wie `GET /app/config` auch im Wartungsmodus und für zu alte
+  App-Versionen erreichbar (Load-Balancer).
+* `GET /me/settings` / `PUT /me/settings {settings, expected_version?}`
+  synchronisieren App-Einstellungen über Geräte hinweg. Sie gelten für das
+  Konto (ohne `X-Tenant-Slug`, für alle Schulen gleich).
+  * `PUT` ersetzt das ganze Objekt; `{}` setzt zurück. Schlüssel
+    `^[a-z0-9_.-]{1,64}$`, höchstens vier Ebenen, höchstens 8192 Bytes.
+  * Jede Antwort enthält die `version` (0 = nie gespeichert) und denselben
+    Wert als `ETag`. Mit `If-Match: "<version>"` oder `expected_version`
+    wird nur gespeichert, wenn niemand dazwischen geändert hat; sonst 409
+    `VERSION_CONFLICT` mit dem aktuellen Stand in `details.current`.
+  * Die Einstellungen sind Teil des Datenexports (`app_settings`) und werden
+    mit dem Konto gelöscht. Keine Gesundheits- oder Zahlungsdaten ablegen.
 
 ## 4. Schule wählen
 
@@ -260,7 +306,11 @@ liefert das Kursdetail auch für buchbare Kurse ohne Zugang (mit gesperrten
 * Einfachauswahl: `selected_answer_ids` mit genau einer ID.
 * Mehrfachauswahl: alle gewählten IDs.
 * Offene Frage: Musterantwort aus `question.model_answer` aufdecken, dann
-  `known: true/false` senden.
+  `known: true/false` senden. WP-kompatibel geht auch
+  `POST /courses/{id}/trainer/reveal {answer_token}` mit dem `answer_token`
+  aus `trainer/next` (die ausgelieferte Revision). Kurszugang und
+  Kurszugehörigkeit werden dabei neu geprüft; nur offene Fragen (sonst 422),
+  Fragen einer laufenden Prüfung → 409 `EXAM_QUESTION_LOCKED`.
 
 Die Antwort enthält Richtig/Falsch, Lösung, Erklärung, `learning_state`,
 `streak` (x von 3) und `completed` (= gefestigt). Es gelten die Regeln der
@@ -279,6 +329,11 @@ Web-App (`MasteryCalculator`).
 * Sammlungen: anlegen, umbenennen, löschen (max. 60 Zeichen, eindeutiger
   Name). Die Standard-Sammlung bleibt.
 * `context: exam` gilt für Favoriten aus der Prüfung.
+* **Fehlerliste:** `GET /courses/{id}/mistakes` listet die zuletzt falsch
+  beantworteten, noch gültigen Fragen des Kurses (gleiche Regel wie
+  `mode=wrong`: mindestens ein Versuch, aktuelle Serie 0), neueste zuerst,
+  mit Favoriten- und Sammlungsstatus, ohne Lösung. Üben:
+  `trainer/next?mode=wrong`.
 
 ## 8. Prüfungssimulation
 
@@ -289,6 +344,8 @@ POST /courses/{id}/exams {paper_id}     → 201 neu / 200 laufende fortsetzen
 GET  /exams/{id}                        → Fragen ohne Lösung, gegebene Antworten, phase, Zeit
 PUT  /exams/{id}/answers/{questionId}   → festschreiben
 POST /exams/{id}/questions/{qid}/reveal → Musterantwort (offene Fragen)
+PUT  /exams/{id}/answers/{qid}/flag     → Frage markieren {flagged: true/false}
+POST /exams/{id}/answers/{qid}/reveal   → WP-kompatibler Alias für …/questions/{qid}/reveal
 PUT  /exams/{id}/navigation             → Navigationsaufgabe abgeben (SBF See)
 POST /exams/{id}/navigation/assessment  → Selbsteinschätzung → Auswertung
 POST /exams/{id}/submit                 → abgeben → Ergebnis (Navigation fehlt: 409, außer without_navigation)
@@ -308,6 +365,12 @@ GET  /exams/{id}/result                 → Ergebnis mit Lösungen
   im Web erst nach dem Fragebogen (sonst 409 `EXAM_QUESTIONS_OPEN`).
 * **Zeit:** Nach Ablauf (`expires_at`) zählt keine Antwort mehr (410
   `EXAM_EXPIRED`).
+* **Markieren:** `PUT …/answers/{qid}/flag` speichert eine Markierung zur
+  Durchsicht am Server (bleibt beim Fortsetzen auf einem anderen Gerät
+  erhalten), auch für schon beantwortete Fragen, und wirkt sich nicht auf
+  die Auswertung aus. `GET /exams/{id}` liefert je Frage `flagged` und
+  `flagged_count`. Bei `…/flag` und dem Reveal-Alias darf `{qid}` auch die
+  Position der Frage sein (1-basiert).
   * Mit Navigationsteil bleibt die Prüfung für die Navigation offen: Abgabe
     bis `navigation_submit_until` (1 Min. nach Ende, nur für technische Verzögerungen), Selbsteinschätzung bis
     `navigation_assessment_until` (15 Min. nach Ende). Danach wird
@@ -333,6 +396,10 @@ GET  /exams/{id}/result                 → Ergebnis mit Lösungen
 * `GET /courses/{id}/videos` liefert die Kapitel mit Lektionen.
   * `standalone: true` markiert eigene Kapitel (z. B. „Knoten“), die im Web
     eine eigene Kachel haben.
+  * `code` (stabiler Kapitel-Code) und `group` (Gruppenüberschrift) sind
+    optional und meist `null`.
+  * `meta`: `lessons`, `completed` und `next_lesson_id` (nächste offene
+    Lektion im Kursfluss, ohne eigenständige Kapitel).
 * `GET /videos/{id}` liefert eine Lektion mit Schritt-Galerie.
 * `PUT /videos/{id}/progress` speichert den Fortschritt:
   * `position_seconds` (Wiedergabeposition) und `completed`.
@@ -347,6 +414,12 @@ GET  /exams/{id}/result                 → Ergebnis mit Lösungen
   * Eigene Antworten mit Messwerten (Kurs, Zeit, Distanz, Position) prüft
     der Server mit Toleranz (`auto_checked`).
   * Sonst bewertet sich die Person selbst (`self_assessment`).
+  * `POST /navigation-tasks/{id}/parts/{partId}` ist der Weg im Format der
+    bisherigen App: Antwort und/oder dreistufige Selbstbewertung
+    (`correct`, `partly`, `wrong`; nur `correct` zählt als richtig). Eine neue
+    Antwort setzt eine frühere Selbstbewertung zurück. Der PUT-Weg speichert
+    `correct`/`incorrect` als `correct`/`wrong` mit. Die Aufgabe zeigt die
+    Bewertung je Teilfrage (`parts[].self_assessment`).
 * **Code einlösen:** `POST /coupons/redeem {code}`.
   * Groß-/Kleinschreibung und Leerzeichen am Rand sind egal; beim
     16-stelligen Standardformat auch Leerzeichen statt oder fehlende
@@ -363,6 +436,70 @@ GET  /exams/{id}/result                 → Ergebnis mit Lösungen
   * Nach 60 Minuten ist der Export abgelaufen; die Datei löscht das
     stündliche Aufräumen.
 
+### Tipps und Kunden-FAQs
+
+* `GET /tips` liefert die aktiven Tipps und Tricks nach Kategorie (dieselben
+  wie im Web, plattformweit). Schulkontext nötig, aber kein Kurszugang.
+  Je Tipp: bereinigtes `html` (relative Links absolut, Bilder nur über
+  http(s)), reiner `text` und die externen `links`.
+* `GET /courses/{id}/faqs` liefert die veröffentlichten Kunden-FAQs eines
+  Kurses nach Kategorie mit Unterkategorien (flache Liste mit `depth` und
+  `parent_id`). Kurszugang nötig. Kombikurse (z. B. `SRC-UBI`,
+  `SBF-SEE-BIN`) zeigen zusätzlich die FAQs der enthaltenen Kurse; jede FAQ
+  erscheint nur einmal.
+* Die FAQs sind plattformweiter Inhalt (wie die Tipps, ohne Schulbezug) und
+  kommen per Import aus der alten WordPress-App:
+
+  ```sh
+  php artisan mobile-api:import-faqs storage/app/import/mobile-faqs.json
+  ```
+
+  Die Datei enthält `categories` (`source_key`, `course_code`, `name`,
+  `slug`, `parent_source_key?`, `sort_order?`) und `faqs` (`source_key`,
+  `question`, `answer` als HTML, `status?` = `draft`/`published`/`archived`,
+  `sort_order?`, `category_source_keys`). Der Import prüft erst die ganze
+  Datei, aktualisiert dann über die `source_key`s in einer Transaktion und
+  löscht nichts, was in der Datei fehlt. Er läuft über die Owner-Verbindung;
+  die App-Rolle darf die FAQ-Tabellen nur lesen.
+
+## 10a. Praxistrainer, Funk-Training, Prüfungsanmeldung
+
+Alle Endpunkte prüfen Schule (`X-Tenant-Slug`) und Kurszugang wie die
+übrigen Kursendpunkte (403 `ENTITLEMENT_REQUIRED`/`ENTITLEMENT_EXPIRED`).
+Der Lernstand ist derselbe wie im Web.
+
+* **Praxistrainer:** `GET /courses/{id}/praxis` liefert die Karten nach
+  Kategorie mit Frage, Antwort und Erklärung (Aufdecken in der App).
+  * `PUT /courses/{id}/praxis/{cardId} {status}` mit `open`, `practice`
+    oder `known`. `known` ist „Gemeistert“ im Web; „Wieder öffnen“ im Web
+    setzt auf `open`.
+  * `title` ist `null`, wenn die Unterkategorie die Lösung verraten würde.
+    Bilder haben `role`: `question` (zur Frage) oder `solution` (erst nach
+    dem Aufdecken zeigen).
+* **Funk-Training (SRC/UBI):** unter `/courses/{id}/radio`; Kurse ohne
+  Funkschein liefern 404.
+  * Überblick, Buchstabiertafel (`/spelling`), Texte (`/texts/{textId}`),
+    Vokabeln (`/vocabulary`), Praxisaufgaben (`/practice`) und
+    Musterlösungen (`/samples`).
+  * Texte: `translation` (Seefunktexte, Lösung der gewählten Richtung erst
+    nach der ersten Auswertung), `dictation` (UBI-Aufnahme) und `spelling`
+    (UBI-Abgabe, nicht auswertbar). Die Auswertung ist eine grobe
+    Wort-Übereinstimmung wie im Web; leere Felder werden nicht bewertet.
+  * Vokabeln: `POST …/vocabulary/{cardId}/answers {known, streak?}` mit
+    `Idempotency-Key`. Nach 3× „gewusst“ in Folge gilt die Karte als
+    gelernt. Mit `streak` (Stand der App) wird ein doppelt gesendeter
+    Klick erkannt (`repeated: true`).
+  * Die Gerätesimulation gibt es nur im Browser (`device_simulator.web_url`,
+    nur wenn sie für die Person freigeschaltet ist).
+* **Prüfungsanmeldung:** `GET /courses/{id}/exam-registration`, nur lesend.
+  * `mode: school` (Standard): die Schule meldet an, es gilt ihr Termintool;
+    `guides` ist leer.
+  * `mode: self`: die Anleitung der Web-Seite „Prüfung buchen“ (Gebühren,
+    Fristen, Unterlagen, Varianten, Prüfungsverbände) und `web_url`. Wer
+    schon eine Praxis-Anmeldung abgeschickt hat, behält das Termintool
+    (`uses_appointment_tool: true`).
+  * Angemeldet wird nie in der App (`registration_in_app: false`).
+
 ## 11. Fehlercodes
 
 | HTTP | `code` | Bedeutung / App-Reaktion |
@@ -373,11 +510,14 @@ GET  /exams/{id}/result                 → Ergebnis mit Lösungen
 | 403 | `ENTITLEMENT_REQUIRED` / `ENTITLEMENT_EXPIRED` | Webshop-Link, Code-Eingabe |
 | 403 | `FORBIDDEN` | keine Berechtigung |
 | 403 | `LINK_INVALID` | Download-Link manipuliert oder abgelaufen → Status neu laden |
+| 403 | `WEB_SESSION_DISABLED` / `WEB_SESSION_NOT_ALLOWED` | Webansicht ohne Anmeldung öffnen bzw. auf den Browser verweisen |
+| 403 | `ACCOUNT_DELETION_NOT_ALLOWED` | Plattform-Konto: an den Support verweisen |
 | 404 | `RESOURCE_NOT_FOUND` | auch für fremde Daten (keine Aussage über Existenz) |
 | 405 | `METHOD_NOT_ALLOWED` | Programmierfehler in der App |
 | 409 | `CONFLICT` | allgemeiner Konflikt bzw. dieselbe Anfrage läuft noch (`Retry-After`) |
 | 409 | `IDEMPOTENCY_KEY_REUSED` | neuen Schlüssel erzeugen |
 | 409 | `COLLECTION_NOT_DELETABLE` | Standard-Sammlung |
+| 409 | `VERSION_CONFLICT` | App-Einstellungen anderswo geändert → `details.current` übernehmen oder zusammenführen |
 | 409 | `EXAM_NOT_AVAILABLE` | Regelwerk nicht freigegeben |
 | 409 | `EXAM_ANSWER_LOCKED` | Antwort bereits festgeschrieben |
 | 409 | `EXAM_QUESTION_LOCKED` | Frage gerade in einer laufenden Prüfung (Lernmodus) |
@@ -393,6 +533,7 @@ GET  /exams/{id}/result                 → Ergebnis mit Lösungen
 | 422 | `PASSWORD_RESET_INVALID_OR_EXPIRED` | neuen Link anfordern |
 | 422 | `COUPON_INVALID` | „Code ungültig, abgelaufen oder bereits eingelöst“ |
 | 422 | `COUPON_NOT_APPLICABLE` | Meldung aus `detail` anzeigen |
+| 422 | `DELETION_CONFIRMATION_INVALID` | Löschlink ungültig, abgelaufen oder benutzt → Löschung neu beantragen |
 | 426 | `APP_UPDATE_REQUIRED` | Update-Hinweis mit `store_url` |
 | 429 | `RATE_LIMITED` | `Retry-After` abwarten |
 | 4xx | `REQUEST_FAILED` | sonstiger Fehler; `detail` anzeigen |
@@ -416,11 +557,27 @@ entscheidet aber nur anhand von `code`.
   * beendete oder abgelaufene App-Sitzungen nach 30 Tagen,
   * Idempotenz-Schlüssel nach 24 Stunden (gelesen werden sie ohnehin nur so
     lange),
-  * Exporte und ihre Dateien nach Ablauf.
-* **Konto löschen** entfernt App-Sitzungen, Exporte samt Dateien und
-  gespeicherte Antworten sofort. **Eine Schule verlassen** entfernt die
-  Exporte dieser Schule samt Dateien und die gespeicherten Antworten; die
-  App-Sitzungen gelten kontoweit und bleiben (für andere Schulen).
+  * Exporte und ihre Dateien nach Ablauf,
+  * offene Löschanträge nach Ablauf (7 Tage),
+  * Einmal-Codes der Webansicht nach einem Tag.
+* **Konto löschen in der App** (`POST /me/deletion-request` mit
+  `X-Tenant-Slug`) wirkt wie „Konto löschen“ im Web-Profil, nur bestätigt
+  die Person per Link aus einer Mail statt mit ihrem Passwort:
+  * Die Mail enthält einen Link auf `MOBILE_API_DELETION_CONFIRMATION_PATH`
+    der zentralen Domain mit `request_id` und `confirm_key` (7 Tage gültig,
+    nur der Hash wird gespeichert). Die App öffnet ihn als Universal-/App-Link
+    und ruft `POST /me/deletion-request/confirm` auf (ohne Token).
+  * Die Bestätigung löscht sofort Mitgliedschaft und alle Daten bei dieser
+    Schule und pseudonymisiert das Protokoll (`AccountErasureService::
+    leaveTenant`). Ohne weitere Mitgliedschaft wird das Konto gelöscht, alle
+    App- und Web-Sitzungen enden (`account_deleted: true`).
+  * Ein Eintrag `profile.delete` (Kanal `app`, ohne Personenbezug) bleibt
+    als Nachweis im Protokoll der Schule.
+* **Konto löschen** entfernt App-Sitzungen, App-Einstellungen, Exporte samt
+  Dateien und gespeicherte Antworten sofort. **Eine Schule verlassen** entfernt die
+  Exporte, offenen Löschanträge und Webansicht-Codes dieser Schule samt
+  Dateien und die gespeicherten Antworten; die App-Sitzungen und
+  App-Einstellungen gelten kontoweit und bleiben (für andere Schulen).
 * **Datenschutzerklärung:** Die zentrale Vorlage nennt die Lern-App
   (Geräteangaben, Speicherfristen). Schulen mit eigener Vorlage müssen den
   Absatz selbst ergänzen.
@@ -439,12 +596,23 @@ entscheidet aber nur anhand von `code`.
   * `MOBILE_API_EXPORT_TTL_MINUTES`
   * `MOBILE_API_MIN_VERSION_IOS` / `_ANDROID` und `MOBILE_API_STORE_URL_IOS`
     / `_ANDROID` (leer = keine Mindestversion)
+  * `MOBILE_API_WEB_SESSION_ENABLED` (Standard `true`): Einmal-Anmeldung
+    der Webansicht
+  * `MOBILE_API_DELETION_CONFIRMATION_PATH` (Standard `/app/konto-loeschen`):
+    Pfad des Bestätigungslinks; muss als Universal Link (iOS) bzw. App Link
+    (Android) auf die App zeigen
 * **Wartungsmodus** der Plattform (Superadmin-Einstellungen) gilt auch für
-  die API (503 `MAINTENANCE`); `GET /app/config` bleibt erreichbar.
+  die API (503 `MAINTENANCE`); `GET /app/config` und `GET /health` bleiben
+  erreichbar.
 * **Keine CORS-Freigabe nötig** (native Apps). Die API nutzt keine Cookies
-  und keine Sessions.
-* **Migration:** `2024_02_01_000591_create_mobile_api_tables`. Sie legt
-  `api_device_session`, `api_idempotency_key` und `api_data_export` an.
+  und keine Sessions (Ausnahme: das Einlösen des Webansicht-Codes meldet die
+  Website-Sitzung an).
+* **Migrationen:** `2024_02_01_000591_create_mobile_api_tables` legt
+  `api_device_session`, `api_idempotency_key` und `api_data_export` an,
+  `…_000592_create_mobile_customer_faq_tables` die FAQ-Tabellen (nur lesbar
+  für die App-Rolle), `…_000593_create_api_user_setting_table` die
+  App-Einstellungen, `…_000600` (Löschanträge) und `…_000601`
+  (Webansicht-Codes) mit `tenant_id` und Row-Level-Security.
 * **Zugänge und Zugriffsregeln aus WordPress übernehmen** (Owner-
   Verbindung, idempotent über Quellschlüssel, legt keine Schulen oder Konten
   an):
@@ -471,9 +639,9 @@ entscheidet aber nur anhand von `code`.
 * Offline-Modus und Synchronisation.
 * Push-Benachrichtigungen.
 * In-App-Käufe (Kauf bleibt im externen Webshop).
-* Funkgeräte-Simulator, Praxistrainer, Video-Quiz und Prüfungstermine
-  (eine Video-Lektion lässt sich deshalb ohne Quiz abschließen).
+* Funkgeräte-Simulator (nur Link in den Browser), Video-Quiz und
+  Prüfungstermine (eine Video-Lektion lässt sich deshalb ohne Quiz
+  abschließen).
 * Untertitel und Vorschaubilder für Videos; Seekarten fehlen bisher in den
   Navigationsaufgaben (`chart: null`), dafür braucht es die Papierkarte.
 * Registrierung in der App.
-* Konto löschen in der App (siehe Hinweis Apple oben).

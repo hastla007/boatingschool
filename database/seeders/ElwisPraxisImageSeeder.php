@@ -4,8 +4,8 @@ namespace Database\Seeders;
 
 use App\Models\MediaAsset;
 use App\Models\PraxisTask;
+use App\Support\QuestionMedia;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Storage;
 
 /**
  * Praxistrainer (SBF See, der gespiegelte Kombikurs und SBF Binnen, Karten
@@ -57,7 +57,7 @@ class ElwisPraxisImageSeeder extends Seeder
             ->get();
 
         foreach ($unused as $asset) {
-            Storage::disk('public')->delete($asset->getRawOriginal('storage_path'));
+            QuestionMedia::deleteFile($asset);
             $asset->delete();
         }
     }
@@ -82,10 +82,7 @@ class ElwisPraxisImageSeeder extends Seeder
                 continue;
             }
 
-            $contents = file_get_contents($sourcePath);
-            if (Storage::disk('public')->get($storagePath) !== $contents) {
-                Storage::disk('public')->put($storagePath, $contents);
-            }
+            QuestionMedia::put($storagePath, file_get_contents($sourcePath), $asset->rights_status);
         }
     }
 }

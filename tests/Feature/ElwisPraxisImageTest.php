@@ -71,10 +71,13 @@ class ElwisPraxisImageTest extends TestCase
         $current = file_get_contents(database_path('data/praxistrainer_bilder/praxis-0013_seemannsknoten.png'));
 
         $this->onAdmin(function () use ($path, $current) {
+            Storage::disk('local')->put($path, 'alte dunkelblaue Grafik');
             Storage::disk('public')->put($path, 'alte dunkelblaue Grafik');
             (new ElwisPraxisImageSeeder)->run();
 
-            $this->assertSame($current, Storage::disk('public')->get($path));
+            // Privat erneuert, die alte öffentliche Kopie ist weg (QuestionMedia).
+            $this->assertSame($current, Storage::disk('local')->get($path));
+            $this->assertFalse(Storage::disk('public')->exists($path));
         });
     }
 
