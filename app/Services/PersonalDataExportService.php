@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Models\ApiAccountDeletionRequest;
+use App\Models\ApiMobileWebSession;
 use App\Models\Attempt;
 use App\Models\AuditLog;
 use App\Models\Coupon;
@@ -45,7 +47,7 @@ class PersonalDataExportService
     {
         $data = $this->collect($user, $tenant, $forSchool);
         if ($forSchool) {
-            unset($data['sessions'], $data['app_devices'], $data['audit_log']);
+            unset($data['sessions'], $data['app_devices'], $data['app_web_logins'], $data['app_settings'], $data['audit_log']);
         }
 
         return $data;
@@ -226,12 +228,14 @@ class PersonalDataExportService
                 ->map(fn (PraxisProgress $p) => [
                     'praxis_task_id' => $p->praxis_task_id,
                     'completed' => $p->completed,
+                    'status' => $p->status,
                 ])->all(),
             'navigation_progress' => NavigationProgress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get()
                 ->map(fn (NavigationProgress $p) => [
                     'navigation_question_id' => $p->navigation_question_id,
                     'answer' => $p->answer,
                     'correct' => $p->correct,
+                    'self_assessment' => $p->self_assessment,
                     'updated_at' => $p->updated_at?->toIso8601String(),
                 ])->all(),
             'video_progress' => VideoProgress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get()
@@ -299,6 +303,23 @@ class PersonalDataExportService
                     'last_used_at' => $row->last_used_at ? Carbon::parse($row->last_used_at)->toIso8601String() : null,
                     'revoked_at' => $row->revoked_at ? Carbon::parse($row->revoked_at)->toIso8601String() : null,
                 ])->all(),
+            // Offener Löschantrag aus der App (bis zur Bestätigung per Mail).
+            'app_deletion_requests' => ApiAccountDeletionRequest::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+                ->orderBy('requested_at')->get()
+                ->map(fn (ApiAccountDeletionRequest $r) => [
+                    'requested_at' => $r->requested_at?->toIso8601String(),
+                    'expires_at' => $r->expires_at?->toIso8601String(),
+                ])->all(),
+            // Anmeldungen der Webansicht aus der App (ohne Codes, nur deren Hashes liegen vor).
+            'app_web_logins' => $forSchool ? [] : ApiMobileWebSession::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+                ->orderBy('created_at')->get()
+                ->map(fn (ApiMobileWebSession $s) => [
+                    'redirect_path' => $s->redirect_path,
+                    'created_at' => $s->created_at?->toIso8601String(),
+                    'used_at' => $s->used_at?->toIso8601String(),
+                ])->all(),
+            // Geräteübergreifende App-Einstellungen (gelten fürs Konto, nicht je Schule).
+            'app_settings' => $forSchool ? null : $this->appSettings($user),
             // Protokolleinträge dieser Bootsschule, die die Person betreffen.
             'audit_log' => $forSchool ? [] : AuditLog::where('tenant_id', $tenant->id)
                 ->where(fn ($q) => $q->where('actor_user_id', $user->id)
@@ -311,6 +332,23 @@ class PersonalDataExportService
                     'by_this_person' => $l->actor_user_id === $user->id,
                     'created_at' => $l->created_at?->toIso8601String(),
                 ])->all(),
+        ];
+    }
+
+    /** @return ?array{settings: array<string, mixed>, version: int, updated_at: ?string} */
+    private function appSettings(User $user): ?array
+    {
+        // Schulübergreifende Tabelle ohne RLS (Zugriff nur über die eigene user_id).
+        $row = DB::table('api_user_setting')->where('user_id', $user->id)->first();
+        if ($row === null) {
+            return null;
+        }
+        $settings = json_decode((string) $row->settings, true);
+
+        return [
+            'settings' => is_array($settings) ? $settings : [],
+            'version' => (int) $row->version,
+            'updated_at' => $row->updated_at ? Carbon::parse($row->updated_at)->toIso8601String() : null,
         ];
     }
 }

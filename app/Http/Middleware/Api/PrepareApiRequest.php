@@ -43,11 +43,15 @@ class PrepareApiRequest
         DB::statement('RESET app.current_user_id');
         app(TenantContext::class)->clear();
 
+        // App-Konfiguration und Health-Check bleiben immer erreichbar (Load-Balancer,
+        // Update-/Wartungshinweis vor dem Login).
+        $alwaysReachable = $request->is('api/v1/app/config', 'api/v1/health');
+
         // Review-Runde 13: zu alte App-Versionen zum Update auffordern.
         $platform = strtolower((string) $request->header('X-App-Platform'));
         $version = (string) $request->header('X-App-Version');
         $minimum = in_array($platform, ['ios', 'android'], true) ? config("mobile_api.minimum_version.{$platform}") : null;
-        if ($minimum && $version !== '' && ! $request->is('api/v1/app/config') && version_compare($version, $minimum, '<')) {
+        if ($minimum && $version !== '' && ! $alwaysReachable && version_compare($version, $minimum, '<')) {
             throw new ApiProblem(426, 'APP_UPDATE_REQUIRED', 'Update erforderlich', 'Bitte aktualisiere die App, um weiterzulernen.', [], [], [
                 'minimum_version' => $minimum, 'store_url' => config("mobile_api.store_url.{$platform}"),
             ]);
@@ -55,7 +59,7 @@ class PrepareApiRequest
 
         // Review-Runde 13: der Wartungsmodus der Plattform gilt auch für die App.
         $settings = PlatformSetting::query()->first();
-        if ($settings?->maintenance_mode && ! $request->is('api/v1/app/config')) {
+        if ($settings?->maintenance_mode && ! $alwaysReachable) {
             throw new ApiProblem(503, 'MAINTENANCE', 'Wartung', $settings->maintenance_message ?: 'Die Plattform wird gerade gewartet. Bitte später erneut versuchen.', [], ['Retry-After' => '300']);
         }
 

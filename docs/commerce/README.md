@@ -173,5 +173,5 @@ sind:
 - Alle App-Endpunkte mit simulierten Shop-Aufrufen (Feature-Tests).
 - Der Ausgang mit einem simulierten Shop.
 
-Vor dem Livebetrieb sollten die Abläufe 1–5 einmal auf einer Staging-Installation
+Vor dem Livebetrieb sollten die Abläufe 1–5 einmal auf einer Staging-Installation (Checkliste: [`staging-test.md`](staging-test.md))
 durchgespielt werden.
