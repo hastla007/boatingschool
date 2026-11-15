@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Attempt;
+use App\Models\ContentAnswer;
 use App\Models\ContentQuestion;
 use App\Models\CourseDefinition;
 use App\Models\Favorite;
@@ -13,6 +14,7 @@ use App\Services\CourseProgressService;
 use App\Services\EntitlementService;
 use App\Services\LearningFlow;
 use App\Services\SmarttrainerService;
+use App\Support\AnswerToken;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -182,6 +184,9 @@ class LearningController extends Controller
             // Eingang berechnet, unabhängig von der Client-Uhr.
             'started_at_ms' => ['nullable', 'integer', 'min:0', 'max:'.intdiv(PHP_INT_MAX, 2)],
         ]);
+
+        // Kennungen je Person (SEC-A1) in echte Antwort-IDs der Revision umsetzen.
+        $validated = AnswerToken::resolveInput($user->id, $validated, ContentAnswer::where('revision_id', $validated['revision_id'])->pluck('id'));
 
         // Prüfung und Speichern gemeinsam mit der Mobile-API (LearningFlow).
         $attempt = $learningFlow->submitAttempt($tenant, $user, $course, $validated);

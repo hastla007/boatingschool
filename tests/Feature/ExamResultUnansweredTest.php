@@ -59,14 +59,14 @@ class ExamResultUnansweredTest extends TestCase
         $wrongAnswer = $wrongQuestion->revision->answers->firstWhere('is_correct', false);
         $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/answers", [
             'position' => $wrongQuestion->position,
-            'answer_id' => $wrongAnswer->id,
+            'answer_id' => $this->answerToken($learner, $wrongAnswer->id),
         ]);
 
         foreach ($sessionQuestions->skip(2) as $sq) {
             $correctAnswer = $sq->revision->correctAnswer();
             $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/answers", [
                 'position' => $sq->position,
-                'answer_id' => $correctAnswer->id,
+                'answer_id' => $this->answerToken($learner, $correctAnswer->id),
             ]);
         }
 

@@ -29,7 +29,7 @@ class LearningLoopTest extends TestCase
 
         $response = $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/learn/attempts", [
             'revision_id' => $revision->id,
-            'answer_id' => $wrongAnswer->id,
+            'answer_id' => $this->answerToken($learner, $wrongAnswer->id),
             'mode' => 'smarttrainer',
             'response_time_ms' => 1000,
         ]);
@@ -60,7 +60,7 @@ class LearningLoopTest extends TestCase
 
         $response = $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/learn/attempts", [
             'revision_id' => $revision->id,
-            'answer_id' => $answer->id,
+            'answer_id' => $this->answerToken($learner, $answer->id),
             'mode' => 'smarttrainer',
         ]);
 
@@ -82,7 +82,7 @@ class LearningLoopTest extends TestCase
         $endpoint = "/courses/{$course->id}/learn/attempts";
         $payload = fn ($answerId) => [
             'revision_id' => $revision->id,
-            'answer_id' => $answerId,
+            'answer_id' => $this->answerToken($learner, $answerId),
             'mode' => 'smarttrainer',
         ];
 
@@ -142,7 +142,7 @@ class LearningLoopTest extends TestCase
         $correctAnswer = $revision->answers->firstWhere('is_correct', true);
 
         $endpoint = "/courses/{$course->id}/learn/attempts";
-        $payload = ['revision_id' => $revision->id, 'answer_id' => $correctAnswer->id, 'mode' => 'smarttrainer'];
+        $payload = ['revision_id' => $revision->id, 'answer_id' => $this->answerToken($learner, $correctAnswer->id), 'mode' => 'smarttrainer'];
 
         // Drei richtige Antworten in Folge (s. MasteryCalculatorTest) => learning_state "gefestigt".
         for ($i = 0; $i < 3; $i++) {
@@ -205,7 +205,7 @@ class LearningLoopTest extends TestCase
         $correctAnswer = $revision->answers->firstWhere('is_correct', true);
 
         $endpoint = "/courses/{$course->id}/learn/attempts";
-        $payload = ['revision_id' => $revision->id, 'answer_id' => $correctAnswer->id, 'mode' => 'smarttrainer'];
+        $payload = ['revision_id' => $revision->id, 'answer_id' => $this->answerToken($learner, $correctAnswer->id), 'mode' => 'smarttrainer'];
 
         for ($i = 0; $i < 3; $i++) {
             $this->actingAsInTenant($learner, $tenant)->post($endpoint, $payload)->assertRedirect();
@@ -254,7 +254,7 @@ class LearningLoopTest extends TestCase
         $correctAnswer = $revision->answers->firstWhere('is_correct', true);
 
         $endpoint = "/courses/{$course->id}/learn/attempts";
-        $payload = ['revision_id' => $revision->id, 'answer_id' => $correctAnswer->id, 'mode' => 'smarttrainer'];
+        $payload = ['revision_id' => $revision->id, 'answer_id' => $this->answerToken($learner, $correctAnswer->id), 'mode' => 'smarttrainer'];
 
         for ($i = 0; $i < 3; $i++) {
             $this->actingAsInTenant($learner, $tenant)->post($endpoint, $payload)->assertRedirect();

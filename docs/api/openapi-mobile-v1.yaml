@@ -2369,7 +2369,7 @@ components:
           items:
             type: object
             properties:
-              id: {type: string}
+              id: {type: string, description: 'Kennung der Antwort je Person (UUID-förmig, für die Person stabil, nicht teilen); genau so in selected_answer_ids zurückschicken'}
               key: {type: string, description: 'Buchstabe der Anzeigeposition (A, B, C …)'}
               text: {type: string}
         topic: {type: [string, 'null']}
@@ -2378,7 +2378,7 @@ components:
     Solution:
       type: object
       properties:
-        correct_answer_ids: {type: array, items: {type: string}}
+        correct_answer_ids: {type: array, items: {type: string}, description: 'Kennungen je Person (wie answers[].id)'}
         model_answer: {type: [string, 'null']}
         explanation: {type: [string, 'null']}
     Streak:
@@ -2403,7 +2403,7 @@ components:
         question_id: {type: string, format: uuid}
         revision_id: {type: string, format: uuid}
         mode: {type: string, enum: [smarttrainer, new, wrong, topic, favorites]}
-        selected_answer_ids: {type: array, maxItems: 20, items: {type: string, format: uuid}, description: 'Einfachauswahl genau 1'}
+        selected_answer_ids: {type: array, maxItems: 20, items: {type: string, format: uuid}, description: 'Kennungen aus answers[].id; Einfachauswahl genau 1; fremde oder unbekannte Kennung → 422'}
         known: {type: boolean, description: 'Pflicht bei offenen Fragen (Selbsteinschätzung)'}
         client_answered_at: {type: string, format: date-time}
     TrainerAnswerResult:
@@ -2574,7 +2574,7 @@ components:
     ExamAnswerRequest:
       type: object
       properties:
-        selected_answer_ids: {type: array, uniqueItems: true, maxItems: 20, items: {type: string, format: uuid}}
+        selected_answer_ids: {type: array, uniqueItems: true, maxItems: 20, items: {type: string, format: uuid}, description: 'Kennungen aus answers[].id; fremde oder unbekannte Kennung → 422'}
         known: {type: boolean, description: 'Offene Fragen nach reveal'}
     ExamAnswerSaved:
       type: object

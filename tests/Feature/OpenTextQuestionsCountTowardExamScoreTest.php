@@ -50,7 +50,7 @@ class OpenTextQuestionsCountTowardExamScoreTest extends TestCase
                 $correctIds = $sq->revision->correctAnswers()->pluck('id')->values()->all();
                 $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/answers", [
                     'position' => $sq->position,
-                    'answer_ids' => $correctIds,
+                    'answer_ids' => $this->answerTokens($learner, $correctIds),
                 ]);
             } elseif ($type === 'open_text') {
                 // Bug-Review Oberfläche U9: die Selbsteinschätzung verlangt
@@ -71,7 +71,7 @@ class OpenTextQuestionsCountTowardExamScoreTest extends TestCase
                 $correctAnswer = $sq->revision->correctAnswer();
                 $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/answers", [
                     'position' => $sq->position,
-                    'answer_id' => $correctAnswer->id,
+                    'answer_id' => $this->answerToken($learner, $correctAnswer->id),
                 ]);
             }
         }
