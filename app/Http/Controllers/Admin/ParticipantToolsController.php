@@ -114,7 +114,7 @@ class ParticipantToolsController extends Controller
             ->map(fn ($group) => app(CourseProgressService::class)->overallPercents($group->first()->course, $tenant, $group->pluck('user_id')));
         $entitlements = $entitlementRows->groupBy('user_id');
 
-        AuditLog::record($tenant->id, $request->user()->id, 'participants.export', 'tenant_user', null, null, ['count' => $members->count(), 'filters' => array_filter($filters)]);
+        AuditLog::record($tenant->id, $request->user()->id, 'participants.export', 'tenant_user', null, null, ['count' => $members->count(), 'filters' => self::auditFilters($filters)]);
         // Personenbezogene Daten verlassen die Plattform: die (anderen) Inhaber
         // erfahren davon -- fällt bei einem übernommenen Admin-Konto auf.
         $actor = $request->user();
@@ -175,5 +175,16 @@ class ParticipantToolsController extends Controller
         $name = collect($parts)->reject(fn ($p) => $p === $email)->implode(' ');
 
         return [trim($name), $email ? mb_strtolower($email) : null];
+    }
+
+    /**
+     * QA-D-4: der Suchbegriff (oft Name oder E-Mail) gehört nicht ins
+     * Protokoll -- vermerkt wird nur, dass gesucht wurde.
+     *
+     * @param  array<string, string>  $filters
+     */
+    private static function auditFilters(array $filters): array
+    {
+        return array_filter(['p_search' => $filters['p_search'] !== ''] + $filters);
     }
 }

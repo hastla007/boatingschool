@@ -25,6 +25,9 @@ class ImportContentQuestions extends Command
 
     protected $description = 'Importiert die zentrale Fragenbasis aus der Excel-Arbeitsmappe.';
 
+    /** Ohne diese Spalten ist keine Zeile importierbar (übrige Spalten optional). */
+    private const REQUIRED_COLUMNS = ['content_id', 'module', 'question', 'answer_a', 'answer_b', 'answer_c', 'answer_d', 'correct_answer'];
+
     /** @var array<string,string> */
     private array $moduleMap = [
         'Basis' => 'SBF_BASIS',
@@ -78,7 +81,14 @@ class ImportContentQuestions extends Command
         }
 
         $rows = $spreadsheet->getSheetByName($sheetName)->toArray(null, true, true, false);
-        $header = array_map('trim', array_shift($rows));
+        $header = array_map(fn ($name) => trim((string) $name), array_shift($rows) ?? []);
+        // Pflichtspalten vorab prüfen statt jede Zeile einzeln scheitern zu lassen.
+        $missing = array_diff(self::REQUIRED_COLUMNS, $header);
+        if ($missing !== []) {
+            $this->error('Pflichtspalten fehlen: '.implode(', ', $missing).'.');
+
+            return self::FAILURE;
+        }
 
         $modules = Module::all()->keyBy('code');
         if ($modules->isEmpty()) {
@@ -173,7 +183,8 @@ class ImportContentQuestions extends Command
             $question = ContentQuestion::firstOrCreate(
                 ['content_id' => $contentId],
                 [
-                    'official_number' => $row['official_number'] !== null ? (string) $row['official_number'] : null,
+                    // Optionale Spalte: fehlt sie, bleibt die amtliche Nummer leer.
+                    'official_number' => ($officialNumber = trim((string) ($row['official_number'] ?? ''))) !== '' ? $officialNumber : null,
                     'content_role' => trim((string) ($row['content_role'] ?? '')) ?: null,
                     'language' => 'de-DE',
                     'active' => true,
