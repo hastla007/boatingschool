@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Api\CourseAccess;
 use App\Auth\TenantSessionGuard;
 use App\Models\PlatformSetting;
 use App\Notifications\AccountInvitation;
@@ -13,17 +14,21 @@ use App\Notifications\PraxisExamAppointmentUpdated;
 use App\Notifications\TenantInvitationNotification;
 use App\Notifications\WillkommensboxOrderShipped;
 use App\Support\CanonicalUrl;
+use App\Support\DisabledCourses;
 use App\Support\MailSchool;
+use App\Support\ProductionReadiness;
 use App\Support\TenantContext;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Validation\UncompromisedVerifier;
+use Illuminate\Database\Events\MigrationsEnded;
 use Illuminate\Foundation\Events\DiagnosingHealth;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Http\Request;
 use Illuminate\Mail\Events\MessageSending;
 use Illuminate\Notifications\Messages\MailMessage;
+use Illuminate\Queue\Events\Looping;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -43,6 +48,8 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(TenantContext::class);
+        // Audit ARC-5: je Request gemerkt (WeakMap auf den Request).
+        $this->app->singleton(DisabledCourses::class);
         // Passwort-Leak-Prüfung (api.pwnedpasswords.com): höchstens 5 s statt
         // 30 s warten, wenn der Dienst nicht erreichbar ist (die Prüfung
         // lässt das Passwort dann ohnehin zu).
@@ -176,6 +183,13 @@ class AppServiceProvider extends ServiceProvider
                 $event->message->replyTo(new Address($branding->support_email, $tenant->name));
             }
         });
+
+        // Audit ARC-V2: Migrationen ändern teils Inhalte (Korrekturen an Fragen,
+        // Medien) -- danach Kurs-Zwischenspeicher der App neu berechnen lassen.
+        Event::listen(MigrationsEnded::class, fn () => rescue(fn () => CourseAccess::bumpContentVersion(), report: false));
+
+        // Audit ARC-2: Lebenszeichen des Queue-Workers für app:check-production.
+        Event::listen(Looping::class, fn () => ProductionReadiness::recordWorkerHeartbeat());
 
         Event::listen(DiagnosingHealth::class, function () {
             DB::connection()->getPdo();

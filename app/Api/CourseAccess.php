@@ -8,9 +8,9 @@ use App\Models\CourseDefinition;
 use App\Models\CourseWebshopLink;
 use App\Models\Entitlement;
 use App\Models\Tenant;
-use App\Models\TenantCourseDisabled;
 use App\Models\User;
 use App\Services\EntitlementService;
+use App\Support\DisabledCourses;
 use App\Support\VideoCourseLessons;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -87,21 +87,27 @@ class CourseAccess
         return "api-course-{$what}:{$course->id}:v{$version}:".now('Europe/Berlin')->toDateString();
     }
 
+    /**
+     * Audit ARC-V2: atomar erhöhen (zwei gleichzeitige Änderungen ergaben
+     * mit Lesen + Schreiben sonst dieselbe Version). add() legt die Version
+     * beim ersten Mal an (Wert 1 = Standard von cacheKey()).
+     */
     public static function bumpContentVersion(): void
     {
-        Cache::memo()->forever(self::CONTENT_VERSION_KEY, (int) Cache::get(self::CONTENT_VERSION_KEY, 1) + 1);
+        Cache::add(self::CONTENT_VERSION_KEY, 1, now()->addYears(10));
+        if (Cache::memo()->increment(self::CONTENT_VERSION_KEY) === false) {
+            Cache::memo()->forever(self::CONTENT_VERSION_KEY, (int) Cache::get(self::CONTENT_VERSION_KEY, 1) + 1);
+        }
     }
 
     /** Zwischenspeicher eines Kurses neu berechnen (app:warm-course-cache). */
     public function warm(CourseDefinition $course): void
     {
-        foreach (['valid-qids', 'module-qids', 'capabilities'] as $what) {
-            Cache::forget(self::cacheKey($what, $course));
-            Cache::forget('illuminate:cache:flexible:created:'.self::cacheKey($what, $course));
-        }
-        $this->validQuestionIds($course);
-        $this->moduleQuestionIds($course);
-        $this->capabilities($course);
+        $key = self::cacheKey('data', $course);
+        Cache::forget($key);
+        Cache::forget('illuminate:cache:flexible:created:'.$key);
+        $this->forget();
+        $this->courseData($course);
     }
 
     public function __construct(private EntitlementService $entitlements) {}
@@ -270,14 +276,7 @@ class CourseAccess
      */
     public function validQuestionIds(CourseDefinition $course): Collection
     {
-        // Review: stale-while-revalidate -- nach 5 Minuten wird der alte Wert
-        // noch bis zu einer Stunde sofort geliefert und nach der Antwort
-        // erneuert; app:warm-course-cache füllt den Cache vorab.
-        return collect(Cache::flexible(self::cacheKey('valid-qids', $course), self::CACHE_TTL, function () use ($course) {
-            $course->loadMissing('modules.questions');
-
-            return ContentQuestion::currentlyValidIds($course->modules->flatMap(fn ($m) => $m->questions))->values()->all();
-        }));
+        return collect($this->courseData($course)['valid']);
     }
 
     /**
@@ -288,15 +287,50 @@ class CourseAccess
      */
     public function moduleQuestionIds(CourseDefinition $course): array
     {
-        return Cache::flexible(self::cacheKey('module-qids', $course), self::CACHE_TTL, function () use ($course) {
-            $course->loadMissing('modules.questions');
+        return $this->courseData($course)['modules'];
+    }
 
-            return $course->modules->map(fn ($module) => [
-                'id' => (string) $module->id,
-                'code' => (string) $module->code,
-                'ids' => ContentQuestion::currentlyValidIds($module->questions)->values()->all(),
-            ])->values()->all();
-        });
+    /**
+     * Inhaltliche Daten eines Kurses (gültige Fragen, Fragen je Modul,
+     * Funktionen) als EIN Cache-Eintrag, je Request nur einmal gelesen.
+     *
+     * Review: stale-while-revalidate -- nach 5 Minuten wird der alte Wert
+     * noch bis zu einer Stunde sofort geliefert und nach der Antwort
+     * erneuert; app:warm-course-cache füllt den Cache vorab.
+     * Audit ARC-5: vorher drei Schlüssel je Kurs und kein Request-Speicher --
+     * mit dem Datenbank-Cache über die Hälfte aller Abfragen einer Kursliste.
+     * Der Schlüssel trägt weiter Inhaltsversion und Tag (Invalidierung).
+     *
+     * @return array{valid: list<string>, modules: array<int, array{id: string, code: string, ids: list<string>}>, capabilities: list<string>}
+     */
+    private function courseData(CourseDefinition $course): array
+    {
+        $key = self::cacheKey('data', $course);
+
+        return $this->remember("course-data:{$key}", fn () => Cache::flexible($key, self::CACHE_TTL, function () use ($course) {
+            $course->loadMissing('modules.questions');
+            $validIds = ContentQuestion::currentlyValidIds($course->modules->flatMap(fn ($m) => $m->questions));
+            $valid = array_flip($validIds->all());
+            $hasQuestions = $course->contentQuestionIds()->isNotEmpty();
+
+            return [
+                'valid' => $validIds->values()->all(),
+                'modules' => $course->modules->map(fn ($module) => [
+                    'id' => (string) $module->id,
+                    'code' => (string) $module->code,
+                    'ids' => $module->questions->pluck('id')->unique()->filter(fn ($id) => isset($valid[$id]))->values()->all(),
+                ])->values()->all(),
+                'capabilities' => array_values(array_filter([
+                    $hasQuestions ? 'smarttrainer' : null,
+                    $hasQuestions ? 'favorites' : null,
+                    $course->hasStartableExam() ? 'exam' : null,
+                    VideoCourseLessons::ordered($course)->isNotEmpty() ? 'video' : null,
+                    $course->navigationTasks()->exists() ? 'navigation' : null,
+                    $course->praxisTasks()->exists() ? 'praxis' : null,
+                    $course->files()->where('category', 'download')->where('published', true)->exists() ? 'downloads' : null,
+                ])),
+            ];
+        }));
     }
 
     /** Freischaltzeitpunkt eines Moduls mit Drip-Regel (null = keine Regel). */
@@ -415,19 +449,7 @@ class CourseAccess
      */
     public function capabilities(CourseDefinition $course): array
     {
-        return Cache::flexible(self::cacheKey('capabilities', $course), self::CACHE_TTL, function () use ($course) {
-            $hasQuestions = $course->contentQuestionIds()->isNotEmpty();
-
-            return array_values(array_filter([
-                $hasQuestions ? 'smarttrainer' : null,
-                $hasQuestions ? 'favorites' : null,
-                $course->hasStartableExam() ? 'exam' : null,
-                VideoCourseLessons::ordered($course)->isNotEmpty() ? 'video' : null,
-                $course->navigationTasks()->exists() ? 'navigation' : null,
-                $course->praxisTasks()->exists() ? 'praxis' : null,
-                $course->files()->where('category', 'download')->where('published', true)->exists() ? 'downloads' : null,
-            ]));
-        });
+        return $this->courseData($course)['capabilities'];
     }
 
     // --- intern ---------------------------------------------------------
@@ -456,8 +478,7 @@ class CourseAccess
             return false;
         }
 
-        return ! $this->remember("disabled:{$tenant->id}", fn () => TenantCourseDisabled::where('tenant_id', $tenant->id)->pluck('course_id')->flip())
-            ->has($course->id);
+        return ! app(DisabledCourses::class)->contains($tenant, $course->id);
     }
 
     private function hasDripRules(Tenant $tenant, CourseDefinition $course, string $capability): bool

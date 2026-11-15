@@ -5,8 +5,8 @@ namespace App\Services;
 use App\Models\CourseDefinition;
 use App\Models\Entitlement;
 use App\Models\Tenant;
-use App\Models\TenantCourseDisabled;
 use App\Models\User;
+use App\Support\DisabledCourses;
 use Illuminate\Support\Collection;
 
 /**
@@ -28,7 +28,7 @@ class EntitlementService
     /** @return Collection<int, Entitlement> */
     public function activeEntitlements(Tenant $tenant, User $user): Collection
     {
-        $disabledCourseIds = TenantCourseDisabled::where('tenant_id', $tenant->id)->pluck('course_id');
+        $disabledCourseIds = app(DisabledCourses::class)->ids($tenant);
 
         return Entitlement::with('course.modules')
             ->where('tenant_id', $tenant->id)
@@ -99,6 +99,6 @@ class EntitlementService
             return false;
         }
 
-        return ! TenantCourseDisabled::where('tenant_id', $tenant->id)->where('course_id', $course->id)->exists();
+        return ! app(DisabledCourses::class)->contains($tenant, $course->id);
     }
 }

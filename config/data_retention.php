@@ -28,6 +28,10 @@ return [
         'months' => env('DATA_RETENTION_ATTEMPT_MONTHS', 36),
     ],
 
+    // Audit ARC-4: audit_log/attempt werden in Blöcken dieser Größe gelöscht
+    // (kurze Sperren und Transaktionen statt eines riesigen DELETE).
+    'prune_chunk' => 5000,
+
     // Abgelaufene Sessions sind reine Betriebsdaten ohne eigenen Zweck nach
     // Ablauf von SESSION_LIFETIME -- hier reicht ein großzügiger, technischer
     // Puffer statt einer rechtlichen Abwägung, daher standardmäßig aktiv.

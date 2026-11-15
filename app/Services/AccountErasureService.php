@@ -28,6 +28,7 @@ use App\Models\User;
 use App\Models\VideoProgress;
 use App\Models\WillkommensboxOrder;
 use App\Support\TenantContext;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -185,11 +186,12 @@ class AccountErasureService
      * Owner-Verbindung; in einer dort schon offenen Transaktion (Offboarding)
      * dieselbe Postgres-Session.
      */
-    public function eraseOrphanAccount(User $user): void
+    public function eraseOrphanAccount(User $user, bool $auditAlreadyCleared = false): void
     {
-        $this->onAdminConnection(function () use ($user) {
-            AuditLog::where('entity_type', 'app_user')->where('entity_id', $user->id)->update(['before_data' => null, 'after_data' => null]);
-            $this->forgetAdminEmailInTenantCreateEntries($user);
+        $this->onAdminConnection(function () use ($user, $auditAlreadyCleared) {
+            if (! $auditAlreadyCleared) {
+                $this->forgetOrphanAuditData(collect([$user]));
+            }
             DB::table('api_idempotency_key')->where('user_id', $user->id)->delete();
             $this->deleteAccountEntirely($user);
         });
@@ -398,6 +400,29 @@ class AccountErasureService
      * E-Mail des Inhabers (entity_type "tenant") -- dieser Eintrag
      * betrifft nicht das Nutzerkonto und blieb deshalb stehen.
      */
+    /**
+     * Protokolldaten zu Konten, die gelöscht werden: Einträge zum Konto selbst
+     * leeren und die Adresse aus superadmin.tenant.create entfernen -- je
+     * Block eine Abfrage statt einer je Konto (Audit ARC-3, Offboarding).
+     *
+     * @param  Collection<int, User>  $users
+     */
+    public function forgetOrphanAuditData(Collection $users): void
+    {
+        $this->onAdminConnection(function () use ($users) {
+            foreach ($users->chunk(1000) as $chunk) {
+                AuditLog::where('entity_type', 'app_user')->whereIn('entity_id', $chunk->pluck('id')->all())
+                    ->update(['before_data' => null, 'after_data' => null]);
+                $emails = $chunk->pluck('email')->filter()->values()->all();
+                if ($emails !== []) {
+                    AuditLog::where('action', 'superadmin.tenant.create')
+                        ->whereIn(DB::raw("after_data->>'admin_email'"), $emails)
+                        ->update(['after_data' => DB::raw("after_data - 'admin_email'")]);
+                }
+            }
+        });
+    }
+
     private function forgetAdminEmailInTenantCreateEntries(User $user): void
     {
         AuditLog::where('action', 'superadmin.tenant.create')

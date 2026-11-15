@@ -23,6 +23,25 @@ class ProductionReadiness
 {
     public const SCHEDULER_HEARTBEAT_KEY = 'ops:scheduler-heartbeat';
 
+    /** Lebenszeichen des Queue-Workers (Event Looping, siehe AppServiceProvider). */
+    public const WORKER_HEARTBEAT_KEY = 'ops:queue-worker-heartbeat';
+
+    /** Länger darf ein fälliger Job nicht warten, sonst fehlt Worker-Kapazität. */
+    public const MAX_JOB_WAIT_SECONDS = 600;
+
+    private static int $lastWorkerBeat = 0;
+
+    /** Vom Worker bei jedem Schleifendurchlauf aufgerufen, schreibt höchstens alle 30 s. */
+    public static function recordWorkerHeartbeat(): void
+    {
+        $now = now()->timestamp;
+        if ($now - self::$lastWorkerBeat < 30 && rescue(fn () => Cache::has(self::WORKER_HEARTBEAT_KEY), false, false)) {
+            return;
+        }
+        self::$lastWorkerBeat = $now;
+        rescue(fn () => Cache::forever(self::WORKER_HEARTBEAT_KEY, $now), report: false);
+    }
+
     /** @return list<array{group: string, label: string, status: string, detail: string}> */
     public static function checks(): array
     {
@@ -75,14 +94,24 @@ class ProductionReadiness
         // --- Hintergrunddienste --------------------------------------------
         $last = Cache::get(self::SCHEDULER_HEARTBEAT_KEY);
         $add('Hintergrunddienste', 'Scheduler (Cron: schedule:run jede Minute)', $last && now()->timestamp - $last < 300 ? 'ok' : 'fail', $last ? 'zuletzt '.self::ago($last) : 'noch nie gelaufen');
-        // Derzeit legt die App keine Queue-Jobs an (Mails laufen synchron,
-        // siehe BestEffortMail). Geprüft wird deshalb nur, ob Jobs hängen
-        // bleiben -- dann fehlt der Worker (queue:work).
+        // Audit ARC-2: Massen-Mails (Mitteilungen, Sammel-Einladung und
+        // -Verlängerung, Lern-Erinnerungen, Lerngruppen) laufen über die
+        // Queue -- ohne laufenden Worker (queue:work) gehen sie nie raus.
+        if (config('queue.default') !== 'sync') {
+            $beat = Cache::get(self::WORKER_HEARTBEAT_KEY);
+            $add('Hintergrunddienste', 'Queue-Worker (queue:work)', $beat && now()->timestamp - $beat < 300 ? 'ok' : 'fail',
+                $beat ? 'zuletzt '.self::ago($beat) : 'noch nie gelaufen (Vorlage deploy/supervisor-worker.conf)');
+        }
         if (config('queue.default') === 'database') {
             $safely(function () use ($add) {
-                $oldest = DB::connection('pgsql_admin')->table(config('queue.connections.database.table', 'jobs'))->min('created_at');
-                $stuck = $oldest && now()->timestamp - (int) $oldest > 900;
-                $add('Hintergrunddienste', 'Queue (keine hängenden Jobs)', $stuck ? 'fail' : 'ok', $stuck ? 'Jobs warten seit über 15 Minuten: Worker (queue:work) läuft nicht' : '');
+                // Älteste fällige, noch nicht gestartete Job-Wartezeit.
+                $oldest = DB::connection('pgsql_admin')->table(config('queue.connections.database.table', 'jobs'))
+                    ->whereNull('reserved_at')->where('available_at', '<=', now()->timestamp)->min('available_at');
+                $wait = $oldest ? now()->timestamp - (int) $oldest : 0;
+                $stuck = $wait > self::MAX_JOB_WAIT_SECONDS;
+                $add('Hintergrunddienste', 'Queue (keine hängenden Jobs)', $stuck ? 'fail' : 'ok',
+                    $stuck ? 'ältester Job wartet seit '.intdiv($wait, 60).' Minuten: Worker (queue:work) läuft nicht oder ist überlastet'
+                        : ($oldest ? 'älteste Wartezeit '.$wait.' s' : ''));
             });
         }
         $safely(function () use ($add) {

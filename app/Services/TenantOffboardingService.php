@@ -123,10 +123,12 @@ class TenantOffboardingService
                 ->where('is_superadmin', false)
                 ->whereDoesntHave('tenantMemberships')
                 ->get();
+            // Audit ARC-3: Protokolldaten aller Konten gebündelt statt je Konto.
+            $this->erasure->forgetOrphanAuditData($orphans);
             foreach ($orphans as $user) {
                 // Gleicher Lösch-Pfad wie die Kontolöschung (Shopkonten,
                 // Shop-Ereignisse, plattformweites Protokoll).
-                $this->erasure->eraseOrphanAccount($user);
+                $this->erasure->eraseOrphanAccount($user, auditAlreadyCleared: true);
             }
 
             return $orphans->count();

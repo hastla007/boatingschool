@@ -21,7 +21,9 @@ use Illuminate\Support\Str;
  * Bootsschul-Admin): bestehendes Konto → Einladung zum Bestätigen;
  * neue Adresse → Konto „invited“ plus Mitgliedschaft und Link zum
  * Passwort-Setzen. Ein Mailfehler bricht nichts ab (BestEffortMail,
- * Bug-Review B31).
+ * Bug-Review B31). Mit $queueMail (Sammel-Einladung) gehen die Mails über
+ * die Queue statt im Request (Audit ARC-2); „mail_sent“ heißt dann
+ * „eingereiht“.
  *
  * @phpstan-type Result array{type: 'existing'|'new', mail_sent: bool, user: ?User, duplicate?: bool}
  */
@@ -73,16 +75,17 @@ class ParticipantInviter
      * einladende Schule; die offene Einladung wird danach beim ersten Aufruf
      * angenommen (EnsureTenantMembership).
      */
-    public static function sendExistingAccountInvitation(User $user, Tenant $tenant, TenantInvitation $invitation): bool
+    public static function sendExistingAccountInvitation(User $user, Tenant $tenant, TenantInvitation $invitation, bool $queue = false): bool
     {
         if ($user->status === 'invited') {
-            return BestEffortMail::send(fn () => app(AccountSetupLink::class)->send($user, $tenant, $invitation->role), "Einladung (Passwort festlegen) {$invitation->id}");
+            return BestEffortMail::send(fn () => app(AccountSetupLink::class)->send($user, $tenant, $invitation->role, $queue), "Einladung (Passwort festlegen) {$invitation->id}");
         }
 
-        return BestEffortMail::send(
-            fn () => Notification::route('mail', $user->email)->notify(new TenantInvitationNotification($invitation)),
-            "Einladungsmail Bestandskonto {$invitation->id}"
-        );
+        return BestEffortMail::send(function () use ($user, $invitation, $queue) {
+            $notifiable = Notification::route('mail', $user->email);
+            $notification = new TenantInvitationNotification($invitation);
+            $queue ? $notifiable->notify($notification) : $notifiable->notifyNow($notification);
+        }, "Einladungsmail Bestandskonto {$invitation->id}");
     }
 
     public function limitReached(Tenant $tenant): bool
@@ -94,7 +97,7 @@ class ParticipantInviter
      * @param  array{street?: ?string, postal_code?: ?string, city?: ?string, country?: ?string}  $address
      * @return array{type: 'existing'|'new', mail_sent: bool, user: ?User, duplicate?: bool, already_member?: bool, resent?: bool}
      */
-    public function invite(Tenant $tenant, User $actor, string $name, string $email, array $address = []): array
+    public function invite(Tenant $tenant, User $actor, string $name, string $email, array $address = [], bool $queueMail = false): array
     {
         RateLimiter::hit(self::dailyKey($tenant), 86400);
         $existingUser = User::on('pgsql_admin')->whereRaw('lower(email) = ?', [mb_strtolower($email)])->first();
@@ -114,7 +117,7 @@ class ParticipantInviter
                     return ['type' => 'existing', 'mail_sent' => true, 'user' => null, 'duplicate' => true, 'resend_limit' => true];
                 }
                 RateLimiter::hit($resendKey, 86400);
-                $mailSent = BestEffortMail::send(fn () => app(AccountSetupLink::class)->send($existingUser, $tenant, $membership->role), "Einladung erneut {$existingUser->id}");
+                $mailSent = BestEffortMail::send(fn () => app(AccountSetupLink::class)->send($existingUser, $tenant, $membership->role, $queueMail), "Einladung erneut {$existingUser->id}");
                 AuditLog::record($tenant->id, $actor->id, 'participant.invite_resent', 'app_user', $existingUser->id, null, ['email' => $existingUser->email]);
 
                 return ['type' => 'existing', 'mail_sent' => $mailSent, 'user' => null, 'resent' => true];
@@ -141,7 +144,7 @@ class ParticipantInviter
                 'invited_by_user_id' => $actor->id,
             ]);
 
-            $mailSent = self::sendExistingAccountInvitation($existingUser, $tenant, $invitation);
+            $mailSent = self::sendExistingAccountInvitation($existingUser, $tenant, $invitation, $queueMail);
 
             AuditLog::record($tenant->id, $actor->id, 'participant.invite_pending', 'tenant_invitation', $invitation->id, null, [
                 'email' => $existingUser->email,
@@ -180,7 +183,7 @@ class ParticipantInviter
         });
 
         $mailSent = BestEffortMail::send(
-            fn () => app(AccountSetupLink::class)->send($user, $tenant, 'learner'),
+            fn () => app(AccountSetupLink::class)->send($user, $tenant, 'learner', $queueMail),
             "Einladungsmail neuer Teilnehmer {$user->id}"
         );
 

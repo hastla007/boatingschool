@@ -15,12 +15,15 @@ use Illuminate\Support\Facades\DB;
  */
 class QueryBudgetTest extends MobileApiTestCase
 {
+    private array $lastQueryLog = [];
+
     private function countQueries(callable $call): int
     {
         DB::flushQueryLog();
         DB::enableQueryLog();
         $call();
-        $count = count(DB::getQueryLog());
+        $this->lastQueryLog = DB::getQueryLog();
+        $count = count($this->lastQueryLog);
         DB::disableQueryLog();
 
         return $count;
@@ -57,7 +60,24 @@ class QueryBudgetTest extends MobileApiTestCase
         $this->assertLessThan(80, $evaluate, "Auswertung: {$evaluate} Abfragen");
     }
 
-    public function test_warmed_course_list_stays_cheap_even_after_the_fresh_window(): void
+    /**
+     * Audit ARC-5: in Produktion liegt der Cache in der Datenbank -- dort
+     * kostet jeder Cache-Zugriff selbst Abfragen (vorher 39 von 73 für die
+     * Kursliste: drei Schlüssel je Kurs, abgeschaltete Kurse mehrfach).
+     */
+    public function test_warmed_course_list_stays_cheap_with_the_database_cache(): void
+    {
+        config(['cache.default' => 'database']);
+        Cache::forgetDriver('database');
+        try {
+            $this->test_warmed_course_list_stays_cheap_even_after_the_fresh_window(55);
+        } finally {
+            DB::connection('pgsql_admin')->table('cache')->where('key', 'like', '%api-course-%')->delete();
+            DB::connection('pgsql_admin')->table('cache')->where('key', 'like', '%api-content-version%')->delete();
+        }
+    }
+
+    public function test_warmed_course_list_stays_cheap_even_after_the_fresh_window(int $budget = 40): void
     {
         $tenant = $this->createTestTenant();
         $user = $this->createTenantUser($tenant, 'learner');
@@ -67,10 +87,15 @@ class QueryBudgetTest extends MobileApiTestCase
         $token = $this->apiLogin($user);
 
         $this->artisan('app:warm-course-cache')->assertSuccessful();
-        $this->assertTrue(Cache::has(CourseAccess::cacheKey('capabilities', $this->existingCourse('SRC'))));
+        if (config('cache.default') === 'database') {
+            // Der Befehl läuft über die Owner-Verbindung; Requests nutzen die App-Verbindung.
+            Cache::forgetDriver('database');
+        }
+        $this->assertTrue(Cache::has(CourseAccess::cacheKey('data', $this->existingCourse('SRC'))));
 
         $queries = $this->countQueries(fn () => $this->api('GET', '/courses?per_page=100', $token, $tenant)->assertOk());
-        $this->assertLessThan(60, $queries, "Kursliste: {$queries} Abfragen");
+        $this->assertLessThan($budget, $queries, "Kursliste: {$queries} Abfragen");
+        $this->assertSame(1, collect($this->lastQueryLog)->filter(fn ($q) => str_contains($q['query'], 'tenant_course_disabled'))->count(), 'abgeschaltete Kurse einmal je Request');
 
         // Nach dem frischen Fenster: der veraltete Wert wird geliefert, die
         // Neuberechnung läuft nach der Antwort (im Test noch in derselben Anfrage).

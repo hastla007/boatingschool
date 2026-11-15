@@ -120,11 +120,12 @@ class LearningGroupService
 
         // Erst nach dem Commit verschicken: an jede gültige Adresse gleich,
         // ob es dazu ein Konto gibt (keine Auskunft darüber an den Verwalter).
+        // Audit ARC-2: über die Queue (im Namen der Schule der Gruppe).
         $school = Tenant::find($tenant)?->name ?? '';
         foreach ($invites as $member) {
             try {
                 Notification::route('mail', $member->email)->notify(new LearningGroupInvitation(
-                    $group->name, $owner->name, $school, (string) $member->invite_token, self::INVITE_DAYS,
+                    $group->name, $owner->name, $school, (string) $member->invite_token, self::INVITE_DAYS, $tenant,
                 ));
             } catch (\Throwable $e) {
                 report($e);
