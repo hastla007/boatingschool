@@ -141,6 +141,19 @@ class ExamSession extends Model
             ->filter(fn (self $s) => $s->stillOpen($evaluation->timeExpired($s)))->values();
     }
 
+    /**
+     * Navigationsaufgaben aller offenen Prüfungen der Person samt ihrer
+     * Quelle/Kopien in anderen Kursen (QA-L-6).
+     *
+     * @return Collection<int, string>
+     */
+    public static function lockedNavigationTaskIdsFor(string $userId): Collection
+    {
+        $ids = static::openForUserAcrossTenants($userId)->pluck('navigation_task_id')->filter()->unique();
+
+        return $ids->flatMap(fn (string $id) => NavigationTask::linkedIds($id))->unique()->values();
+    }
+
     /** Fragen-IDs aller offenen Prüfungen der Person (schulübergreifend). @return Collection<int, string> */
     public static function blockedQuestionIdsFor(string $userId): Collection
     {
@@ -154,13 +167,21 @@ class ExamSession extends Model
      * Laufende Prüfung, in der diese Navigationsaufgabe gerade dran ist --
      * deren Lösungen bleiben im Übungsbereich so lange gesperrt (Review-Runde
      * 10/11: auch während der Nachfrist und der Selbsteinschätzung; Runde 13:
-     * schulübergreifend). $tenantId bleibt für die Aufrufer erhalten, die
-     * auf eine Prüfung derselben Schule weiterleiten.
+     * schulübergreifend; QA-L-6: auch über die gespiegelte Kopie derselben
+     * Aufgabe in einem Kombikurs, siehe NavigationTask::linkedIds()).
+     * $tenantId bleibt für die Aufrufer erhalten, die auf eine Prüfung
+     * derselben Schule weiterleiten.
      */
     public static function runningWithNavigationTask(string $tenantId, string $userId, string $taskId): ?self
     {
-        return static::openForUserAcrossTenants($userId)
-            ->filter(fn (self $s) => $s->navigation_task_id === $taskId)
+        $open = static::openForUserAcrossTenants($userId)->filter(fn (self $s) => $s->navigation_task_id !== null);
+        if ($open->isEmpty()) {
+            return null;
+        }
+        $taskIds = NavigationTask::linkedIds($taskId);
+
+        return $open
+            ->filter(fn (self $s) => $taskIds->contains($s->navigation_task_id))
             ->sortByDesc(fn (self $s) => $s->tenant_id === $tenantId)
             ->first();
     }

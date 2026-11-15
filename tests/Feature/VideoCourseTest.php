@@ -238,7 +238,7 @@ class VideoCourseTest extends TestCase
         // POST-Antwort zu rendern -- followingRedirects() folgt dem hier.
         $answerResponse = $this->actingAsInTenant($learner, $tenant)->followingRedirects()->post(
             "/courses/{$course->id}/video/{$firstLesson->id}/questions/1",
-            ['revision_id' => $revision->id, 'answer_id' => $correctAnswer->id]
+            ['revision_id' => $revision->id, 'answer_id' => $this->answerToken($learner, $correctAnswer->id)]
         );
         $answerResponse->assertOk();
         $answerResponse->assertSee('Richtig!');
@@ -298,7 +298,7 @@ class VideoCourseTest extends TestCase
 
         $answerResponse = $this->actingAsInTenant($learner, $tenant)->post(
             "/courses/{$course->id}/video/{$firstLesson->id}/questions/1",
-            ['revision_id' => $revision->id, 'answer_id' => $correctAnswer->id]
+            ['revision_id' => $revision->id, 'answer_id' => $this->answerToken($learner, $correctAnswer->id)]
         );
         $answerResponse->assertRedirect("/courses/{$course->id}/video/{$firstLesson->id}/questions/1");
 
@@ -324,6 +324,46 @@ class VideoCourseTest extends TestCase
         });
     }
 
+    /**
+     * SEC-A1: das Video-Quiz gibt nur Kennungen je Person aus (auch in der
+     * Rückmeldung nach der Antwort) und nimmt nur diese an -- echte IDs und
+     * Kennungen anderer Personen gelten als unbekannte Antwort.
+     */
+    public function test_the_video_quiz_uses_per_person_answer_tokens_instead_of_real_ids(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $other = $this->createTenantUser($tenant, 'learner');
+        [$course, $firstLesson] = $this->makeIsolatedVideoCourse();
+        $this->grantEntitlement($tenant, $learner, $course);
+        [$question, $revision, $correctAnswer, $wrongAnswer] = $this->attachIsolatedQuestion($firstLesson);
+        $url = "/courses/{$course->id}/video/{$firstLesson->id}/questions/1";
+
+        $page = $this->actingAsInTenant($learner, $tenant)->get($url)->assertOk();
+        foreach ([$correctAnswer->id, $wrongAnswer->id] as $id) {
+            $this->assertStringNotContainsString($id, $page->getContent());
+        }
+        preg_match_all('/name="answer_id" value="([0-9a-f-]{36})"/', $page->getContent(), $m);
+        $this->assertEqualsCanonicalizing($this->answerTokens($learner, [$correctAnswer->id, $wrongAnswer->id]), $m[1]);
+
+        foreach ([$correctAnswer->id, $this->answerToken($other, $correctAnswer->id)] as $bad) {
+            $this->actingAsInTenant($learner, $tenant)->post($url, ['revision_id' => $revision->id, 'answer_id' => $bad])->assertNotFound();
+        }
+        $this->assertSame(0, $this->asTenant($tenant, fn () => Attempt::where('user_id', $learner->id)->count()));
+
+        $this->actingAsInTenant($learner, $tenant)->post($url, ['revision_id' => $revision->id, 'answer_id' => $this->answerToken($learner, $correctAnswer->id)])->assertRedirect($url);
+        $feedback = $this->actingAsInTenant($learner, $tenant)->get($url)->assertOk()->assertSee('Richtig!');
+        foreach ([$correctAnswer->id, $wrongAnswer->id] as $id) {
+            $this->assertStringNotContainsString($id, $feedback->getContent());
+        }
+        $this->assertSame($correctAnswer->id, $this->asTenant($tenant, fn () => Attempt::where('user_id', $learner->id)->where('question_id', $question->id)->value('selected_answer_id')));
+
+        $result = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/video/{$firstLesson->id}/questions/result")->assertOk();
+        foreach ([$correctAnswer->id, $wrongAnswer->id] as $id) {
+            $this->assertStringNotContainsString($id, $result->getContent());
+        }
+    }
+
     public function test_a_double_submitted_answer_counts_only_once(): void
     {
         // Bug-Review X11 (Video-Quiz): ein Doppelklick schickte dieselbe
@@ -338,7 +378,7 @@ class VideoCourseTest extends TestCase
         $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/video/{$firstLesson->id}/questions/1")
             ->assertOk()->assertSee('name="started_at_ms"', false);
 
-        $payload = ['revision_id' => $revision->id, 'answer_id' => $correctAnswer->id, 'started_at_ms' => now()->valueOf()];
+        $payload = ['revision_id' => $revision->id, 'answer_id' => $this->answerToken($learner, $correctAnswer->id), 'started_at_ms' => now()->valueOf()];
         $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/video/{$firstLesson->id}/questions/1", $payload)->assertRedirect();
         $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/video/{$firstLesson->id}/questions/1", $payload)->assertRedirect();
 
@@ -349,7 +389,7 @@ class VideoCourseTest extends TestCase
 
         // Ein unsinniger Zeitstempel ist ein Validierungsfehler, keine Fehlerseite.
         $this->actingAsInTenant($learner, $tenant)
-            ->post("/courses/{$course->id}/video/{$firstLesson->id}/questions/1", ['revision_id' => $revision->id, 'answer_id' => $correctAnswer->id, 'started_at_ms' => -9223372036854775807])
+            ->post("/courses/{$course->id}/video/{$firstLesson->id}/questions/1", ['revision_id' => $revision->id, 'answer_id' => $this->answerToken($learner, $correctAnswer->id), 'started_at_ms' => -9223372036854775807])
             ->assertSessionHasErrors('started_at_ms');
     }
 
@@ -363,7 +403,7 @@ class VideoCourseTest extends TestCase
 
         $this->actingAsInTenant($learner, $tenant)->post(
             "/courses/{$course->id}/video/{$firstLesson->id}/questions/1",
-            ['revision_id' => $revision->id, 'answer_id' => $wrongAnswer->id]
+            ['revision_id' => $revision->id, 'answer_id' => $this->answerToken($learner, $wrongAnswer->id)]
         );
 
         $resultPage = $this->actingAsInTenant($learner, $tenant)->get("/courses/{$course->id}/video/{$firstLesson->id}/questions/result");
@@ -378,7 +418,7 @@ class VideoCourseTest extends TestCase
 
         $retryAnswer = $this->actingAsInTenant($learner, $tenant)->followingRedirects()->post(
             "/courses/{$course->id}/video/{$firstLesson->id}/questions/1?questions={$question->id}",
-            ['revision_id' => $revision->id, 'answer_id' => $correctAnswer->id]
+            ['revision_id' => $revision->id, 'answer_id' => $this->answerToken($learner, $correctAnswer->id)]
         );
         $retryAnswer->assertOk();
         $retryAnswer->assertSee('Richtig!');
@@ -418,7 +458,7 @@ class VideoCourseTest extends TestCase
 
         $response = $this->actingAsInTenant($learner, $tenant)->post(
             "/courses/{$course->id}/video/{$firstLesson->id}/questions/1",
-            ['revision_id' => $revision->id, 'answer_id' => $correctAnswer->id]
+            ['revision_id' => $revision->id, 'answer_id' => $this->answerToken($learner, $correctAnswer->id)]
         );
 
         $response->assertStatus(404);
@@ -444,7 +484,7 @@ class VideoCourseTest extends TestCase
 
         $response = $this->actingAsInTenant($learner, $tenant)->followingRedirects()->post(
             "/courses/{$course->id}/video/{$firstLesson->id}/questions/1",
-            ['revision_id' => $revision->id, 'answer_id' => $correctAnswer->id]
+            ['revision_id' => $revision->id, 'answer_id' => $this->answerToken($learner, $correctAnswer->id)]
         );
 
         $response->assertOk();
@@ -534,7 +574,7 @@ class VideoCourseTest extends TestCase
         // richtige answer_id.
         $response = $this->actingAsInTenant($learner, $tenant)->post(
             "/courses/{$course->id}/video/{$firstLesson->id}/questions/1",
-            ['revision_id' => $oldRevision->id, 'answer_ids' => [$oldCorrectAnswer->id]]
+            ['revision_id' => $oldRevision->id, 'answer_ids' => $this->answerTokens($learner, [$oldCorrectAnswer->id])]
         );
 
         // Bug-Review (Antwort geht verloren, wenn die Frage zwischendurch

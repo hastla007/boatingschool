@@ -63,7 +63,7 @@ class AnswerSurvivesNewRevisionTest extends TestCase
 
         $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/learn/attempts", [
             'revision_id' => $oldRevision->id,
-            'answer_id' => $oldCorrect->id,
+            'answer_id' => $this->answerToken($learner, $oldCorrect->id),
             'mode' => 'smarttrainer',
         ])->assertRedirect();
 
@@ -84,7 +84,7 @@ class AnswerSurvivesNewRevisionTest extends TestCase
 
         $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/learn/attempts", [
             'revision_id' => $oldRevision->id,
-            'answer_id' => $oldCorrect->id,
+            'answer_id' => $this->answerToken($learner, $oldCorrect->id),
             'mode' => 'smarttrainer',
         ])->assertNotFound();
     }
@@ -107,7 +107,7 @@ class AnswerSurvivesNewRevisionTest extends TestCase
 
         $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/video/{$lesson->id}/questions/1", [
             'revision_id' => $oldRevision->id,
-            'answer_id' => $oldCorrect->id,
+            'answer_id' => $this->answerToken($learner, $oldCorrect->id),
         ])->assertRedirect();
 
         $attempt = $this->asTenant($tenant, fn () => Attempt::where('user_id', $learner->id)->sole());

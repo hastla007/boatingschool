@@ -100,7 +100,7 @@ class RunningExamNoLongerBlocksLearningAfterTimeExpiredTest extends TestCase
         $wrongAnswer = $revision->answers->firstWhere('is_correct', false);
         $response = $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/learn/attempts", [
             'revision_id' => $revision->id,
-            'answer_id' => $wrongAnswer->id,
+            'answer_id' => $this->answerToken($learner, $wrongAnswer->id),
             'mode' => 'smarttrainer',
         ]);
 
@@ -148,7 +148,7 @@ class RunningExamNoLongerBlocksLearningAfterTimeExpiredTest extends TestCase
         $wrongAnswer = $revision->answers->firstWhere('is_correct', false);
         $response = $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/learn/attempts", [
             'revision_id' => $revision->id,
-            'answer_id' => $wrongAnswer->id,
+            'answer_id' => $this->answerToken($learner, $wrongAnswer->id),
             'mode' => 'smarttrainer',
         ]);
 
@@ -281,7 +281,7 @@ class RunningExamNoLongerBlocksLearningAfterTimeExpiredTest extends TestCase
         $answer = $revision->answers->first();
         $response = $this->actingAsInTenant($learner, $tenant)->post(
             "/courses/{$course->id}/video/{$lesson->id}/questions/1",
-            ['revision_id' => $revision->id, 'answer_id' => $answer->id]
+            ['revision_id' => $revision->id, 'answer_id' => $this->answerToken($learner, $answer->id)]
         );
 
         $response->assertStatus(404);
@@ -302,7 +302,7 @@ class RunningExamNoLongerBlocksLearningAfterTimeExpiredTest extends TestCase
         $answer = $revision->answers->first();
         $response = $this->actingAsInTenant($learner, $tenant)->followingRedirects()->post(
             "/courses/{$course->id}/video/{$lesson->id}/questions/1",
-            ['revision_id' => $revision->id, 'answer_id' => $answer->id]
+            ['revision_id' => $revision->id, 'answer_id' => $this->answerToken($learner, $answer->id)]
         );
 
         $response->assertOk();

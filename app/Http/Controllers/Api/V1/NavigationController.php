@@ -29,11 +29,13 @@ class NavigationController extends Controller
 
     public function index(Request $request, string $courseId): JsonResponse
     {
-        $course = $this->access->require($this->tenantContext->tenant(), $request->user(), $courseId);
-        $tasks = $course->navigationTasks()->with('questions')->get();
+        $tenant = $this->tenantContext->tenant();
+        $course = $this->access->require($tenant, $request->user(), $courseId, 'navigation');
+        // Probezugang: nur die ersten N Aufgaben.
+        $tasks = $this->access->limitItems($tenant, $request->user(), $course, 'navigation', $course->navigationTasks()->orderBy('id')->with('questions')->get());
         $progress = $this->progress($request, $tasks);
         // Review-Runde 13: offene Prüfungen einmal laden statt je Aufgabe.
-        $lockedTaskIds = ExamSession::openForUserAcrossTenants($request->user()->id)->pluck('navigation_task_id')->filter()->flip();
+        $lockedTaskIds = ExamSession::lockedNavigationTaskIdsFor($request->user()->id)->flip();
 
         $perPage = max(1, min(100, (int) $request->query('per_page', 50)));
         $page = max(1, (int) $request->query('page', 1));
@@ -183,7 +185,11 @@ class NavigationController extends Controller
         if (! $task) {
             throw ApiProblem::notFound('Navigationsaufgabe');
         }
-        $this->access->require($this->tenantContext->tenant(), $request->user(), $task->course_id);
+        $tenant = $this->tenantContext->tenant();
+        $course = $this->access->require($tenant, $request->user(), $task->course_id, 'navigation');
+        if (! $this->access->allowsLimitedItem($tenant, $request->user(), $course, 'navigation', $course->navigationTasks()->orderBy('id')->get(['id']), (string) $task->id)) {
+            throw CourseAccess::itemLocked();
+        }
 
         return $task;
     }

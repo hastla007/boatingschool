@@ -30,6 +30,7 @@ use App\Models\TenantCourseLocation;
 use App\Models\TenantInvitation;
 use App\Models\TenantUser;
 use App\Models\WillkommensboxOrder;
+use App\Services\ParticipantInviter;
 use App\Support\InstructorScope;
 use App\Support\ParticipantFilters;
 use App\Support\TenantContext;
@@ -345,6 +346,23 @@ class AdminDashboardController extends Controller
             ->paginate(25, ['*'], 'participants_page')
             ->withQueryString();
 
+        // Audit SEC-W-3: offene Einladungen an schon bestehende Konten stehen
+        // wie neu angelegte, noch nicht angemeldete Teilnehmer in der Liste
+        // (auf der ersten Seite, gleiche Filter) -- vorher erschien nur ein
+        // neu angelegtes Konto, und die Liste verriet so, ob es zur Adresse
+        // schon ein Konto auf der Plattform gab. Ausbilder mit
+        // Kursbeschränkung sehen beides nicht (sie laden nicht neu ein).
+        $pendingLearnerInvitations = collect();
+        if ($visibleLearnerIds === null && $participants->onFirstPage()
+            && $participantFilters['p_course'] === '' && $participantFilters['p_status'] !== 'suspended') {
+            $pendingLearnerInvitations = ParticipantInviter::openLearnerInvitations($tenant)
+                ->when($participantFilters['p_search'] !== '', function ($q) use ($participantFilters) {
+                    $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $participantFilters['p_search']).'%';
+                    $q->where(fn ($w) => $w->where('name', 'ilike', $like)->orWhere('email', 'ilike', $like));
+                })
+                ->limit(100)->get();
+        }
+
         // Team: alle Mitglieder außer Lernenden, dazu offene Team-Einladungen.
         $team = TenantUser::with('user')
             ->where('tenant_id', $tenant->id)
@@ -584,6 +602,7 @@ class AdminDashboardController extends Controller
             'team' => $team,
             'instructorCourses' => InstructorCourse::where('tenant_id', $tenant->id)->get()->groupBy('user_id')->map(fn ($rows) => $rows->pluck('course_id')),
             'pendingTeamInvitations' => $pendingTeamInvitations,
+            'pendingLearnerInvitations' => $pendingLearnerInvitations,
             'allParticipants' => $allParticipants,
             'courses' => $courses,
             'participantFilters' => $participantFilters,

@@ -17,6 +17,7 @@ use App\Models\ExamSessionQuestion;
 use App\Services\ExamActions;
 use App\Services\ExamEvaluationService;
 use App\Services\ExamSessionStarter;
+use App\Support\AnswerToken;
 use App\Support\ComboExamGroups;
 use App\Support\NavigationChart;
 use App\Support\TenantContext;
@@ -44,8 +45,9 @@ class ExamController extends Controller
     {
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
-        $course = $this->access->require($tenant, $user, $courseId);
-        $papers = $course->examPapers;
+        $course = $this->access->require($tenant, $user, $courseId, 'exam');
+        // Probezugang: nur die ersten N Bögen (WP first_items).
+        $papers = $this->access->limitItems($tenant, $user, $course, 'exam', $course->examPapers);
 
         $sessions = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)
             ->whereIn('status', ['running', 'evaluated'])->orderByDesc('started_at')->get();
@@ -94,7 +96,7 @@ class ExamController extends Controller
         $validated = $request->validate(['paper_id' => ['nullable', 'uuid']]);
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
-        $course = $this->access->require($tenant, $user, $courseId);
+        $course = $this->access->require($tenant, $user, $courseId, 'exam');
         $starter = app(ExamSessionStarter::class);
 
         if ($course->examPapers()->exists()) {
@@ -104,6 +106,9 @@ class ExamController extends Controller
             $paper = ExamPaper::where('id', $validated['paper_id'])->where('course_id', $course->id)->first();
             if (! $paper) {
                 throw ApiProblem::notFound('Prüfungsbogen');
+            }
+            if (! $this->access->allowsLimitedItem($tenant, $user, $course, 'exam', $course->examPapers, (string) $paper->id)) {
+                throw CourseAccess::itemLocked();
             }
             $ruleSet = $course->examRuleSetForPaper($paper);
             $this->requireVerified($ruleSet);
@@ -125,7 +130,7 @@ class ExamController extends Controller
     {
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
-        $course = $this->access->require($tenant, $user, $courseId);
+        $course = $this->access->require($tenant, $user, $courseId, 'exam');
         $perPage = max(1, min(100, (int) $request->query('per_page', 20)));
 
         $page = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)
@@ -181,6 +186,13 @@ class ExamController extends Controller
 
         $type = $sq->revision->question_type;
         $selected = array_values($validated['selected_answer_ids'] ?? []);
+        // Kennungen je Person (SEC-A1) in echte Antwort-IDs der Revision umsetzen.
+        if ($type !== 'open_text' && $selected !== []) {
+            $selected = AnswerToken::resolveMany($session->user_id, $selected, $sq->revision->answers);
+            if (in_array(AnswerToken::UNKNOWN, $selected, true)) {
+                throw new ApiProblem(422, 'VALIDATION_FAILED', 'Eingaben ungültig', null, ['selected_answer_ids' => ['Unbekannte Antwort.']]);
+            }
+        }
         if ($type === 'open_text') {
             $input = ['known' => $validated['known'] ?? null];
         } elseif ($type === 'multi_choice') {
@@ -373,7 +385,7 @@ class ExamController extends Controller
         }
     }
 
-    /** Eigene Session in dieser Schule; Kurszugang muss weiter bestehen (wie im Web, Bug-Review B11). */
+    /** Eigene Session in dieser Schule; Zugang zur Prüfung muss weiter bestehen (wie im Web, Bug-Review B11). */
     private function ownSession(Request $request, string $examId): ExamSession
     {
         $tenant = $this->tenantContext->tenant();
@@ -381,7 +393,7 @@ class ExamController extends Controller
         if (! $session) {
             throw ApiProblem::notFound('Prüfung');
         }
-        $this->access->require($tenant, $request->user(), $session->course_id);
+        $this->access->require($tenant, $request->user(), $session->course_id, 'exam');
 
         return $session;
     }
@@ -456,7 +468,7 @@ class ExamController extends Controller
     {
         $same = $sq->revision->question_type === 'open_text'
             ? array_key_exists('known', $validated) && $validated['known'] !== null && (bool) $validated['known'] === (bool) $sq->self_assessed_known
-            : collect($validated['selected_answer_ids'] ?? [])->sort()->values()->all() === collect($this->selectedIds($sq))->sort()->values()->all();
+            : collect($validated['selected_answer_ids'] ?? [])->map(fn ($id) => strtolower((string) $id))->sort()->values()->all() === collect($this->selectedIds($sq, $session->user_id))->sort()->values()->all();
         if (! $same) {
             throw $this->locked();
         }
@@ -464,14 +476,12 @@ class ExamController extends Controller
         return response()->json(['data' => $this->savedAnswer($sq, $session)]);
     }
 
-    /** @return list<string> */
-    private function selectedIds(ExamSessionQuestion $sq): array
+    /** @return list<string> Auswahl als Kennungen der Person (SEC-A1) */
+    private function selectedIds(ExamSessionQuestion $sq, string $userId): array
     {
-        if ($sq->selected_answer_ids) {
-            return array_values($sq->selected_answer_ids);
-        }
+        $ids = $sq->selected_answer_ids ? array_values($sq->selected_answer_ids) : array_filter([$sq->selected_answer_id]);
 
-        return $sq->selected_answer_id ? [$sq->selected_answer_id] : [];
+        return AnswerToken::mapMany($userId, $ids);
     }
 
     private function savedAnswer(ExamSessionQuestion $sq, ExamSession $session): array
@@ -479,7 +489,7 @@ class ExamController extends Controller
         return [
             'saved' => true,
             'question_id' => $sq->question_id,
-            'selected_answer_ids' => $this->selectedIds($sq),
+            'selected_answer_ids' => $this->selectedIds($sq, $session->user_id),
             'known' => $sq->revision->question_type === 'open_text' ? $sq->self_assessed_known : null,
             'saved_at' => Present::time($sq->answered_at),
             'flagged' => (bool) $sq->flagged,
@@ -543,7 +553,7 @@ class ExamController extends Controller
             ])->values(),
             'answers' => $questions->whereNotNull('answered_at')->map(fn (ExamSessionQuestion $sq) => [
                 'question_id' => $sq->question_id,
-                'selected_answer_ids' => $this->selectedIds($sq),
+                'selected_answer_ids' => $this->selectedIds($sq, $session->user_id),
                 'known' => $sq->revision->question_type === 'open_text' ? $sq->self_assessed_known : null,
                 'answered_at' => Present::time($sq->answered_at),
             ])->values(),
@@ -616,11 +626,11 @@ class ExamController extends Controller
                 ->values(),
             'questions' => $questions->map(fn (ExamSessionQuestion $sq) => QuestionPresenter::question($sq->revision, null, $session->user_id) + [
                 'position' => $sq->position,
-                'selected_answer_ids' => $this->selectedIds($sq),
+                'selected_answer_ids' => $this->selectedIds($sq, $session->user_id),
                 'known' => $sq->revision->question_type === 'open_text' ? $sq->self_assessed_known : null,
                 'answered' => $sq->answered_at !== null,
                 'correct' => (bool) $sq->correct,
-                'solution' => QuestionPresenter::solution($sq->revision, (bool) $sq->correct),
+                'solution' => QuestionPresenter::solution($sq->revision, (bool) $sq->correct, $session->user_id),
             ])->values(),
             'navigation' => $this->navigationPayload($session, true),
         ];

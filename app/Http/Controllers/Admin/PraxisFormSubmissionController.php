@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
+use App\Models\PraxisExamAppointment;
 use App\Models\PraxisFormSubmission;
 use App\Models\TenantCourseLocation;
 use App\Services\PraxisFormDataResolver;
@@ -115,7 +116,18 @@ class PraxisFormSubmissionController extends Controller
         // Ohne die Formulardaten (Name, Geburtsdatum, Anschrift): die Anmeldung
         // ist gelöscht, das Protokoll soll sie nicht als Kopie aufbewahren.
         $before = collect($submission->toArray())->except('data')->all();
+        // QA-D-3: Termine verschwinden per Kaskade -- IDs vorher einsammeln.
+        $appointmentIds = PraxisExamAppointment::where('tenant_id', $submission->tenant_id)
+            ->where('praxis_form_submission_id', $submission->id)->pluck('id')->all();
         $submission->delete();
+
+        // Frühere Protokolleinträge enthalten Formulardaten (Änderungen) bzw.
+        // den Termin samt Antwort des Lerners als Kopie: Inhalt leeren, der
+        // Eintrag selbst (Aktion, Zeitpunkt) bleibt als Nachweis.
+        AuditLog::where('tenant_id', $submission->tenant_id)
+            ->where(fn ($q) => $q->where(fn ($s) => $s->where('entity_type', 'praxis_form_submission')->where('entity_id', $submission->id))
+                ->when($appointmentIds !== [], fn ($q) => $q->orWhere(fn ($a) => $a->where('entity_type', 'praxis_exam_appointment')->whereIn('entity_id', $appointmentIds))))
+            ->update(['before_data' => null, 'after_data' => null]);
 
         AuditLog::record(
             $tenantContext->id(), $request->user()->id, 'praxis-form-submission.delete',

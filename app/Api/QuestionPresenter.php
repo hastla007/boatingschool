@@ -5,6 +5,7 @@ namespace App\Api;
 use App\Models\ContentAnswer;
 use App\Models\ContentQuestionRevision;
 use App\Models\MediaAsset;
+use App\Support\AnswerToken;
 use App\Support\QuestionMedia;
 
 /**
@@ -39,9 +40,10 @@ class QuestionPresenter
             },
             'prompt_media' => $revision->media->sortBy(fn ($m) => $m->pivot->sort_order ?? 0)
                 ->map(fn (MediaAsset $m) => self::promptMedia($m))->values(),
-            // key = Buchstabe der Anzeigeposition (nicht der Quell-Schlüssel, der die Lösung verriete).
+            // key = Buchstabe der Anzeigeposition (nicht der Quell-Schlüssel, der die Lösung verriete);
+            // id = Kennung je Person (SEC-A1), nie die echte, sortierbare Antwort-ID.
             'answers' => $type === 'open_text' ? [] : $answers->values()->map(fn (ContentAnswer $a, int $i) => [
-                'id' => $a->id,
+                'id' => self::answerId($a->id, $userId),
                 'key' => chr(65 + $i),
                 'text' => $a->answer_text,
             ]),
@@ -50,16 +52,22 @@ class QuestionPresenter
         ];
     }
 
-    /** Lösung zu einer Revision (nur nach Bewertung bzw. Prüfungsabgabe). */
-    public static function solution(ContentQuestionRevision $revision, ?bool $correct): array
+    /** Lösung zu einer Revision (nur nach Bewertung bzw. Prüfungsabgabe); IDs als Kennungen der Person. */
+    public static function solution(ContentQuestionRevision $revision, ?bool $correct, string $userId): array
     {
         $revision->loadMissing('answers');
 
         return [
-            'correct_answer_ids' => $revision->question_type === 'open_text' ? [] : $revision->answers->where('is_correct', true)->pluck('id')->values(),
+            'correct_answer_ids' => $revision->question_type === 'open_text' ? [] : AnswerToken::mapMany($userId, $revision->answers->where('is_correct', true)->pluck('id')),
             'model_answer' => $revision->question_type === 'open_text' ? $revision->correctAnswer()?->answer_text : null,
             'explanation' => $correct === null ? ($revision->feedback_correct ?: null) : ($correct ? $revision->feedback_correct : $revision->feedback_incorrect),
         ];
+    }
+
+    /** Ohne Person (nur intern) bleibt es bei der echten ID. */
+    private static function answerId(string $answerId, ?string $userId): string
+    {
+        return $userId ? AnswerToken::for($userId, $answerId) : $answerId;
     }
 
     /**

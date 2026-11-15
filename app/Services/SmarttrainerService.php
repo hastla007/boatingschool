@@ -24,7 +24,7 @@ class SmarttrainerService
 
     public function __construct(private ExamEvaluationService $examEvaluation) {}
 
-    public function nextQuestion(Tenant $tenant, User $user, CourseDefinition $course, string $mode = 'smarttrainer', ?string $topic = null, ?string $moduleId = null, ?array $questionIds = null): ?array
+    public function nextQuestion(Tenant $tenant, User $user, CourseDefinition $course, string $mode = 'smarttrainer', ?string $topic = null, ?string $moduleId = null, ?array $questionIds = null, ?Collection $restrictTo = null): ?array
     {
         $course->loadMissing(['modules.questions.revisions' => function ($query) {
             $query->where('editorial_status', 'published')->orderByDesc('revision_no');
@@ -52,6 +52,11 @@ class SmarttrainerService
 
         if ($questionIds !== null) {
             $questions = $questions->whereIn('id', $questionIds);
+        }
+        // Mobile-API: nur freigegebene Fragen (Probezugang, Drip-Sperre).
+        if ($restrictTo !== null) {
+            $allowed = $restrictTo->flip();
+            $questions = $questions->filter(fn ($question) => $allowed->has($question->id));
         }
 
         if ($questions->isEmpty()) {

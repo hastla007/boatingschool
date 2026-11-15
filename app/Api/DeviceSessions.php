@@ -15,6 +15,9 @@ use Illuminate\Support\Str;
  */
 class DeviceSessions
 {
+    /** Wiederholungen derselben Erneuerung innerhalb der Toleranz. */
+    private const MAX_GRACE_RETRIES = 5;
+
     public static function hash(string $token): string
     {
         return hash('sha256', $token);
@@ -59,12 +62,21 @@ class DeviceSessions
             if (! $session) {
                 $previous = ApiDeviceSession::where('previous_refresh_token_hash', $hash)->whereNull('revoked_at')->lockForUpdate()->first();
                 if (! $previous) {
+                    // Audit SEC-A3: ein durch eine Wiederholung verdrängtes Token --
+                    // jemand anderes hat das vorherige Token benutzt: Sitzung beenden.
+                    $superseded = ApiDeviceSession::whereJsonContains('superseded_refresh_token_hashes', $hash)
+                        ->whereNull('revoked_at')->lockForUpdate()->first();
+                    $superseded?->forceFill(['revoked_at' => now()])->save();
+
                     return null;
                 }
                 // Dieselbe Erneuerung kurz danach noch einmal (Antwort im Funkloch
                 // verloren, zwei parallele Anfragen): neues Paar statt Abmeldung.
+                // Das dabei verdrängte Token wird gemerkt (siehe oben); mehr als
+                // eine Handvoll Wiederholungen ist kein Funkloch mehr.
                 $grace = (int) config('mobile_api.refresh_reuse_grace_seconds', 60);
-                if ($grace > 0 && $previous->refreshed_at && $previous->refreshed_at->gt(now()->subSeconds($grace))) {
+                if ($grace > 0 && $previous->refreshed_at && $previous->refreshed_at->gt(now()->subSeconds($grace))
+                    && count($previous->superseded_refresh_token_hashes ?? []) < self::MAX_GRACE_RETRIES) {
                     $session = $previous;
                     $retry = true;
                 } else {
@@ -92,6 +104,9 @@ class DeviceSessions
                 'refresh_expires_at' => min($now->copy()->addDays(config('mobile_api.refresh_idle_days')), $session->max_expires_at),
                 'last_used_at' => $now,
                 'refreshed_at' => $retry ? $session->refreshed_at : $now,
+                'superseded_refresh_token_hashes' => $retry
+                    ? [...($session->superseded_refresh_token_hashes ?? []), $session->refresh_token_hash]
+                    : ($session->superseded_refresh_token_hashes ?? []),
             ])->save();
 
             return ['session' => $session, 'access_token' => $access, 'refresh_token' => $refresh];
