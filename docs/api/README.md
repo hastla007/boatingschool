@@ -7,7 +7,7 @@ dieselben.
 
 | Datei | Inhalt |
 |---|---|
-| `docs/api/openapi-mobile-v1.yaml` | Vertrag (OpenAPI 3.1), alle 47 Endpunkte |
+| `docs/api/openapi-mobile-v1.yaml` | Vertrag (OpenAPI 3.1), alle 72 Endpunkte |
 | `routes/api.php` | Routen (Präfix `/api/v1`) |
 | `app/Http/Controllers/Api/V1/` | Controller je Bereich |
 | `app/Api/` | Tokens, Fehlerformat, Ausgabeformate |
@@ -127,7 +127,8 @@ Antworten werden 24 Stunden je Konto gespeichert.
 | Refresh | 10/Min. je Refresh-Token, 300/Min. je IP |
 | Passwort vergessen/zurücksetzen | je 6/Min. |
 | Bestätigungsmail | 6/Min. |
-| App-Konfiguration | 60/Min. |
+| App-Konfiguration, Health | je 60/Min. |
+| App-Einstellungen speichern | 60/Min. |
 | Schulbezogene Endpunkte | 240/Min. je Konto |
 | Codes einlösen | 10/Min. |
 | Datenexport | 5/Std., Download 20/Min. |
@@ -171,6 +172,23 @@ POST /auth/login {email, password, device_name, device_platform?, app_version?}
   Der Link in der Mail führt ins Web. Für einen Deep-Link in die App kann die
   App `POST /auth/password/reset` mit `email`, `token` und neuem Passwort
   aufrufen. `invite: true` gilt für Einladungs-Links.
+
+### Health und App-Einstellungen
+
+* `GET /health` (ohne Token) liefert `status: ok`, `api_version` und
+  `server_time`. Wie `GET /app/config` auch im Wartungsmodus und für zu alte
+  App-Versionen erreichbar (Load-Balancer).
+* `GET /me/settings` / `PUT /me/settings {settings, expected_version?}`
+  synchronisieren App-Einstellungen über Geräte hinweg. Sie gelten für das
+  Konto (ohne `X-Tenant-Slug`, für alle Schulen gleich).
+  * `PUT` ersetzt das ganze Objekt; `{}` setzt zurück. Schlüssel
+    `^[a-z0-9_.-]{1,64}$`, höchstens vier Ebenen, höchstens 8192 Bytes.
+  * Jede Antwort enthält die `version` (0 = nie gespeichert) und denselben
+    Wert als `ETag`. Mit `If-Match: "<version>"` oder `expected_version`
+    wird nur gespeichert, wenn niemand dazwischen geändert hat; sonst 409
+    `VERSION_CONFLICT` mit dem aktuellen Stand in `details.current`.
+  * Die Einstellungen sind Teil des Datenexports (`app_settings`) und werden
+    mit dem Konto gelöscht. Keine Gesundheits- oder Zahlungsdaten ablegen.
 
 ## 4. Schule wählen
 
@@ -230,7 +248,11 @@ Kursinhalte ohne gültigen Zugang ergeben 403 `ENTITLEMENT_REQUIRED` oder
 * Einfachauswahl: `selected_answer_ids` mit genau einer ID.
 * Mehrfachauswahl: alle gewählten IDs.
 * Offene Frage: Musterantwort aus `question.model_answer` aufdecken, dann
-  `known: true/false` senden.
+  `known: true/false` senden. WP-kompatibel geht auch
+  `POST /courses/{id}/trainer/reveal {answer_token}` mit dem `answer_token`
+  aus `trainer/next` (die ausgelieferte Revision). Kurszugang und
+  Kurszugehörigkeit werden dabei neu geprüft; nur offene Fragen (sonst 422),
+  Fragen einer laufenden Prüfung → 409 `EXAM_QUESTION_LOCKED`.
 
 Die Antwort enthält Richtig/Falsch, Lösung, Erklärung, `learning_state`,
 `streak` (x von 3) und `completed` (= gefestigt). Es gelten die Regeln der
@@ -249,6 +271,11 @@ Web-App (`MasteryCalculator`).
 * Sammlungen: anlegen, umbenennen, löschen (max. 60 Zeichen, eindeutiger
   Name). Die Standard-Sammlung bleibt.
 * `context: exam` gilt für Favoriten aus der Prüfung.
+* **Fehlerliste:** `GET /courses/{id}/mistakes` listet die zuletzt falsch
+  beantworteten, noch gültigen Fragen des Kurses (gleiche Regel wie
+  `mode=wrong`: mindestens ein Versuch, aktuelle Serie 0), neueste zuerst,
+  mit Favoriten- und Sammlungsstatus, ohne Lösung. Üben:
+  `trainer/next?mode=wrong`.
 
 ## 8. Prüfungssimulation
 
@@ -259,6 +286,8 @@ POST /courses/{id}/exams {paper_id}     → 201 neu / 200 laufende fortsetzen
 GET  /exams/{id}                        → Fragen ohne Lösung, gegebene Antworten, phase, Zeit
 PUT  /exams/{id}/answers/{questionId}   → festschreiben
 POST /exams/{id}/questions/{qid}/reveal → Musterantwort (offene Fragen)
+PUT  /exams/{id}/answers/{qid}/flag     → Frage markieren {flagged: true/false}
+POST /exams/{id}/answers/{qid}/reveal   → WP-kompatibler Alias für …/questions/{qid}/reveal
 PUT  /exams/{id}/navigation             → Navigationsaufgabe abgeben (SBF See)
 POST /exams/{id}/navigation/assessment  → Selbsteinschätzung → Auswertung
 POST /exams/{id}/submit                 → abgeben → Ergebnis (Navigation fehlt: 409, außer without_navigation)
@@ -278,6 +307,12 @@ GET  /exams/{id}/result                 → Ergebnis mit Lösungen
   im Web erst nach dem Fragebogen (sonst 409 `EXAM_QUESTIONS_OPEN`).
 * **Zeit:** Nach Ablauf (`expires_at`) zählt keine Antwort mehr (410
   `EXAM_EXPIRED`).
+* **Markieren:** `PUT …/answers/{qid}/flag` speichert eine Markierung zur
+  Durchsicht am Server (bleibt beim Fortsetzen auf einem anderen Gerät
+  erhalten), auch für schon beantwortete Fragen, und wirkt sich nicht auf
+  die Auswertung aus. `GET /exams/{id}` liefert je Frage `flagged` und
+  `flagged_count`. Bei `…/flag` und dem Reveal-Alias darf `{qid}` auch die
+  Position der Frage sein (1-basiert).
   * Mit Navigationsteil bleibt die Prüfung für die Navigation offen: Abgabe
     bis `navigation_submit_until` (1 Min. nach Ende, nur für technische Verzögerungen), Selbsteinschätzung bis
     `navigation_assessment_until` (15 Min. nach Ende). Danach wird
@@ -343,6 +378,32 @@ GET  /exams/{id}/result                 → Ergebnis mit Lösungen
   * Nach 60 Minuten ist der Export abgelaufen; die Datei löscht das
     stündliche Aufräumen.
 
+### Tipps und Kunden-FAQs
+
+* `GET /tips` liefert die aktiven Tipps und Tricks nach Kategorie (dieselben
+  wie im Web, plattformweit). Schulkontext nötig, aber kein Kurszugang.
+  Je Tipp: bereinigtes `html` (relative Links absolut, Bilder nur über
+  http(s)), reiner `text` und die externen `links`.
+* `GET /courses/{id}/faqs` liefert die veröffentlichten Kunden-FAQs eines
+  Kurses nach Kategorie mit Unterkategorien (flache Liste mit `depth` und
+  `parent_id`). Kurszugang nötig. Kombikurse (z. B. `SRC-UBI`,
+  `SBF-SEE-BIN`) zeigen zusätzlich die FAQs der enthaltenen Kurse; jede FAQ
+  erscheint nur einmal.
+* Die FAQs sind plattformweiter Inhalt (wie die Tipps, ohne Schulbezug) und
+  kommen per Import aus der alten WordPress-App:
+
+  ```sh
+  php artisan mobile-api:import-faqs storage/app/import/mobile-faqs.json
+  ```
+
+  Die Datei enthält `categories` (`source_key`, `course_code`, `name`,
+  `slug`, `parent_source_key?`, `sort_order?`) und `faqs` (`source_key`,
+  `question`, `answer` als HTML, `status?` = `draft`/`published`/`archived`,
+  `sort_order?`, `category_source_keys`). Der Import prüft erst die ganze
+  Datei, aktualisiert dann über die `source_key`s in einer Transaktion und
+  löscht nichts, was in der Datei fehlt. Er läuft über die Owner-Verbindung;
+  die App-Rolle darf die FAQ-Tabellen nur lesen.
+
 ## 10a. Praxistrainer, Funk-Training, Prüfungsanmeldung
 
 Alle Endpunkte prüfen Schule (`X-Tenant-Slug`) und Kurszugang wie die
@@ -396,6 +457,7 @@ Der Lernstand ist derselbe wie im Web.
 | 409 | `CONFLICT` | allgemeiner Konflikt bzw. dieselbe Anfrage läuft noch (`Retry-After`) |
 | 409 | `IDEMPOTENCY_KEY_REUSED` | neuen Schlüssel erzeugen |
 | 409 | `COLLECTION_NOT_DELETABLE` | Standard-Sammlung |
+| 409 | `VERSION_CONFLICT` | App-Einstellungen anderswo geändert → `details.current` übernehmen oder zusammenführen |
 | 409 | `EXAM_NOT_AVAILABLE` | Regelwerk nicht freigegeben |
 | 409 | `EXAM_ANSWER_LOCKED` | Antwort bereits festgeschrieben |
 | 409 | `EXAM_QUESTION_LOCKED` | Frage gerade in einer laufenden Prüfung (Lernmodus) |
@@ -435,10 +497,11 @@ entscheidet aber nur anhand von `code`.
   * Idempotenz-Schlüssel nach 24 Stunden (gelesen werden sie ohnehin nur so
     lange),
   * Exporte und ihre Dateien nach Ablauf.
-* **Konto löschen** entfernt App-Sitzungen, Exporte samt Dateien und
-  gespeicherte Antworten sofort. **Eine Schule verlassen** entfernt die
+* **Konto löschen** entfernt App-Sitzungen, App-Einstellungen, Exporte samt
+  Dateien und gespeicherte Antworten sofort. **Eine Schule verlassen** entfernt die
   Exporte dieser Schule samt Dateien und die gespeicherten Antworten; die
-  App-Sitzungen gelten kontoweit und bleiben (für andere Schulen).
+  App-Sitzungen und App-Einstellungen gelten kontoweit und bleiben (für
+  andere Schulen).
 * **Datenschutzerklärung:** Die zentrale Vorlage nennt die Lern-App
   (Geräteangaben, Speicherfristen). Schulen mit eigener Vorlage müssen den
   Absatz selbst ergänzen.
@@ -458,11 +521,15 @@ entscheidet aber nur anhand von `code`.
   * `MOBILE_API_MIN_VERSION_IOS` / `_ANDROID` und `MOBILE_API_STORE_URL_IOS`
     / `_ANDROID` (leer = keine Mindestversion)
 * **Wartungsmodus** der Plattform (Superadmin-Einstellungen) gilt auch für
-  die API (503 `MAINTENANCE`); `GET /app/config` bleibt erreichbar.
+  die API (503 `MAINTENANCE`); `GET /app/config` und `GET /health` bleiben
+  erreichbar.
 * **Keine CORS-Freigabe nötig** (native Apps). Die API nutzt keine Cookies
   und keine Sessions.
-* **Migration:** `2024_02_01_000591_create_mobile_api_tables`. Sie legt
-  `api_device_session`, `api_idempotency_key` und `api_data_export` an.
+* **Migrationen:** `2024_02_01_000591_create_mobile_api_tables` legt
+  `api_device_session`, `api_idempotency_key` und `api_data_export` an,
+  `…_000592_create_mobile_customer_faq_tables` die FAQ-Tabellen (nur lesbar
+  für die App-Rolle) und `…_000593_create_api_user_setting_table` die
+  App-Einstellungen.
 * **Tests:** `vendor/bin/phpunit tests/Feature/Api`.
   `OpenApiContractTest` schlägt fehl, wenn Routen und OpenAPI-Datei
   auseinanderlaufen.

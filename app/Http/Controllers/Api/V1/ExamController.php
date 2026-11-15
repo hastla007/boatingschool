@@ -22,6 +22,7 @@ use App\Support\NavigationChart;
 use App\Support\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 /**
  * Prüfungssimulation in der App -- dieselbe Engine wie im Web
@@ -200,6 +201,27 @@ class ExamController extends Controller
         }
 
         return response()->json(['data' => $this->savedAnswer($sq, $session)]);
+    }
+
+    /**
+     * Frage einer laufenden Prüfung zur Durchsicht markieren bzw. die Markierung
+     * entfernen. Geht auch bei bereits beantworteten Fragen; beeinflusst die
+     * Auswertung nicht.
+     */
+    public function flag(Request $request, string $examId, string $questionId): JsonResponse
+    {
+        $validated = $request->validate(['flagged' => ['required', 'boolean']]);
+        $session = $this->ownSession($request, $examId);
+        $this->requireRunning($session);
+        $sq = $this->sessionQuestion($session, $questionId);
+        $sq->update(['flagged' => (bool) $validated['flagged']]);
+
+        return response()->json(['data' => [
+            'question_id' => $sq->question_id,
+            'position' => $sq->position,
+            'flagged' => (bool) $sq->flagged,
+            'flagged_count' => $session->questions()->where('flagged', true)->count(),
+        ]]);
     }
 
     /** Musterantwort einer offenen Frage abrufen (Voraussetzung für die Selbsteinschätzung). */
@@ -407,9 +429,22 @@ class ExamController extends Controller
         }
     }
 
+    /**
+     * Frage der Prüfung über ihre ID oder (WP-kompatibel) ihre Position
+     * (1-basiert) finden. Andere Werte gar nicht erst gegen die UUID-Spalte
+     * prüfen (PostgreSQL lehnte sie mit einem Fehler ab).
+     */
     private function sessionQuestion(ExamSession $session, string $questionId): ExamSessionQuestion
     {
-        $sq = $session->questions()->where('question_id', $questionId)->with('revision.answers')->first();
+        $query = $session->questions()->with('revision.answers');
+        if (ctype_digit($questionId) && strlen($questionId) <= 4) {
+            $query->where('position', (int) $questionId);
+        } elseif (Str::isUuid($questionId)) {
+            $query->where('question_id', $questionId);
+        } else {
+            throw ApiProblem::notFound('Frage');
+        }
+        $sq = $query->first();
         if (! $sq) {
             throw ApiProblem::notFound('Frage');
         }
@@ -447,6 +482,7 @@ class ExamController extends Controller
             'selected_answer_ids' => $this->selectedIds($sq),
             'known' => $sq->revision->question_type === 'open_text' ? $sq->self_assessed_known : null,
             'saved_at' => Present::time($sq->answered_at),
+            'flagged' => (bool) $sq->flagged,
             'answered_count' => $session->questions()->whereNotNull('answered_at')->count(),
             'question_count' => $session->questions()->count(),
         ];
@@ -495,8 +531,10 @@ class ExamController extends Controller
             'navigation_assessment_until' => $deadline && $session->hasNavigationPart() ? Present::time($deadline->copy()->addSeconds(ExamSession::NAVIGATION_ASSESS_GRACE)) : null,
             'question_count' => $questions->count(),
             'answered_count' => $questions->count() - $open,
+            'flagged_count' => $questions->where('flagged', true)->count(),
             'questions' => $questions->map(fn (ExamSessionQuestion $sq) => QuestionPresenter::question($sq->revision, null, $session->user_id) + [
                 'position' => $sq->position,
+                'flagged' => (bool) $sq->flagged,
                 'answered' => $sq->answered_at !== null,
                 'revealed' => $sq->revealed_at !== null,
                 // Musterantwort einer offenen Frage nur nach dem Abruf (reveal) und solange offen.
