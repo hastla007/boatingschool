@@ -30,6 +30,13 @@
                 <x-text-input id="password" class="block mt-1 w-full" type="password" name="password" required autocomplete="current-password" />
                 <x-input-error :messages="$errors->get('password')" class="mt-2" />
             </div>
+            <div>
+                <x-input-label for="disable_code" value="Code aus der App" />
+                <x-text-input id="disable_code" class="block mt-1 w-full font-mono tracking-widest" type="text" name="code" inputmode="numeric" autocomplete="one-time-code" />
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Handy nicht zur Hand? Stattdessen einen Wiederherstellungscode eingeben:</p>
+                <x-text-input id="disable_recovery_code" class="block mt-1 w-full font-mono" type="text" name="recovery_code" autocomplete="off" aria-label="Wiederherstellungscode" />
+                <x-input-error :messages="$errors->get('code')" class="mt-2" />
+            </div>
             <button type="submit" class="px-4 py-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-sm">Zwei-Faktor-Anmeldung ausschalten</button>
         </form>
     @elseif ($pendingSecret)

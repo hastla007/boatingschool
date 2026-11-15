@@ -396,37 +396,23 @@ class ParticipantController extends Controller
 
         $result = $inviter->invite($tenant, $request->user(), $validated['name'], $validated['email'], array_intersect_key($validated, array_flip(['street', 'postal_code', 'city', 'country'])));
 
-        if ($result['duplicate'] ?? false) {
-            return back()->with('status', ($result['resend_limit'] ?? false)
-                ? 'Die Einladung wurde heute schon dreimal verschickt; ein neuer Link ist erst morgen wieder möglich. Der zuletzt verschickte Link bleibt 7 Tage gültig.'
-                : 'Diese Person wurde heute schon eingeladen; die Einladung ist weiter gültig.');
+        // Audit SEC-W-3: erneutes Einladen meldet dasselbe, ob die Person
+        // neu angelegt wurde oder schon ein Konto hatte (vorher drei
+        // verschiedene Texte, an denen das ablesbar war).
+        if (($result['duplicate'] ?? false) || ($result['resent'] ?? false)) {
+            return ($result['resent'] ?? false) && ! $result['mail_sent']
+                ? back()->with('status', 'Der Versand der Einladung ist fehlgeschlagen – bitte später erneut versuchen.')
+                : back()->with('status', ParticipantInviter::ALREADY_INVITED_STATUS);
         }
         if ($result['already_member'] ?? false) {
             return back()->with('status', ($result['role'] ?? 'learner') === 'learner'
                 ? 'Diese Person ist bereits Teilnehmer Ihrer Bootsschule.'
                 : 'Diese Person gehört bereits zum Team Ihrer Bootsschule.');
         }
-        if ($result['resent'] ?? false) {
-            return back()->with('status', $result['mail_sent'] ? 'Einladung erneut verschickt (neuer Link zum Passwort festlegen, 7 Tage gültig).' : 'Der Versand der Einladung ist fehlgeschlagen – bitte später erneut versuchen.');
-        }
 
         $status = $result['mail_sent']
             ? 'Einladung verschickt.'
             : 'Einladung angelegt, der Versand der E-Mail ist aber fehlgeschlagen – bitte später erneut einladen.';
-
-        if ($result['type'] === 'existing') {
-            if ($codeRequiresAdmin) {
-                return back()->withErrors(['code' => 'Nur Owner/Admin können beim Einladen direkt einen Code zuweisen – das geht sonst nach der Einladung über die Coupon-Codes-Verwaltung.'])->with('status', $status);
-            }
-
-            if ($code !== '') {
-                $status .= ' Ein angegebener Code wird dabei nicht automatisch zugewiesen – das geht nach der Bestätigung über die Coupon-Codes-Verwaltung.';
-            }
-
-            return back()->with('status', $status);
-        }
-
-        $user = $result['user'];
 
         if ($code === '') {
             return back()->with('status', $status);
@@ -434,26 +420,43 @@ class ParticipantController extends Controller
 
         // Bug-Review H3 (Rest): /coupons/redeem schließt Instructor bewusst
         // aus (siehe Kommentar dort, routes/web.php) -- über diesen Umweg
-        // (Code gleich beim Einladen eines NEUEN Teilnehmers mitgeben, diese
-        // Route lässt auch Instructor zu) ließe sich dieselbe Einschränkung
-        // sonst umgehen und ein begrenzter Coupon ohne Owner/Admin-Freigabe
-        // verbrauchen. Der Teilnehmer selbst bleibt trotzdem angelegt --
-        // genau wie bei einem ungültigen Code unten wird nur die
-        // Code-Zuweisung abgelehnt, nicht die ganze Einladung.
+        // (Code gleich beim Einladen mitgeben, diese Route lässt auch
+        // Instructor zu) ließe sich dieselbe Einschränkung sonst umgehen und
+        // ein begrenzter Coupon ohne Owner/Admin-Freigabe verbrauchen. Die
+        // Einladung selbst bleibt trotzdem bestehen -- nur die
+        // Code-Zuweisung wird abgelehnt.
         if ($codeRequiresAdmin) {
             return back()->withErrors(['code' => 'Nur Owner/Admin können beim Einladen direkt einen Code zuweisen – das geht sonst nach der Einladung über die Coupon-Codes-Verwaltung.'])->with('status', $status);
         }
 
         // Eine fehlgeschlagene Code-Zuweisung soll die bereits erfolgte
-        // Einladung nicht rückgängig machen -- der Teilnehmer bleibt
-        // angelegt, nur der Code-Fehler wird separat gemeldet (die
-        // RLS-Policy auf "coupon" lässt uns ohnehin nur Codes sehen, die
-        // frei oder bereits uns zugeordnet sind, siehe CouponRedeemController).
-        $coupon = Coupon::where('code', strtoupper($code))->whereNull('redeemed_at')->first();
+        // Einladung nicht rückgängig machen -- nur der Code-Fehler wird
+        // separat gemeldet (die RLS-Policy auf "coupon" lässt uns ohnehin
+        // nur Codes sehen, die frei oder bereits uns zugeordnet sind, siehe
+        // CouponRedeemController). Audit SEC-W-3: geprüft wird für neue und
+        // bestehende Konten gleich, damit die Antwort nichts verrät.
+        // QA-D-7: dieselbe Code-Suche wie beim Einlösen (ohne Bindestriche,
+        // Leerzeichen, Kleinschreibung); nur freie oder eigene Codes.
+        $coupon = Coupon::lookup($code);
+        if ($coupon && ($coupon->isRedeemed() || ($coupon->tenant_id !== null && $coupon->tenant_id !== $tenant->id))) {
+            $coupon = null;
+        }
 
         if (! $coupon) {
             return back()->withErrors(['code' => 'Dieser Code ist ungültig oder wurde bereits eingelöst.'])->with('status', $status);
         }
+        // Gesperrte (z. B. verlorene Charge) oder abgelaufene Codes.
+        if (! $coupon->isUsable()) {
+            return back()->withErrors(['code' => 'Dieser Code ist nicht mehr gültig.'])->with('status', $status);
+        }
+
+        // Bestehendes Konto: erst Mitglied nach eigener Annahme, der Code
+        // wird deshalb (noch) nicht eingelöst -- gleicher Hinweis wie unten.
+        if ($result['type'] === 'existing') {
+            return back()->with('status', $status.ParticipantInviter::CODE_NOTE);
+        }
+
+        $user = $result['user'];
 
         try {
             $redemption->redeem($coupon, $tenant, $user, $request->user());
@@ -465,6 +468,6 @@ class ParticipantController extends Controller
             return back()->withErrors(['code' => $e->getMessage()])->with('status', $status);
         }
 
-        return back()->with('status', $status.' Code "'.$coupon->code.'" wurde eingelöst.');
+        return back()->with('status', $status.ParticipantInviter::CODE_NOTE);
     }
 }

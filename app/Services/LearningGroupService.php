@@ -27,7 +27,8 @@ use RuntimeException;
  *   Einladungen oder Beitritte können die Platzzahl nicht überziehen.
  * - Der Beitritt legt je Kurs ein Entitlement mit source_type "group" an
  *   (capabilities = null: ganzer Kurs, sonst nur die genannten Funktionen).
- *   Entfernen widerruft genau diese Entitlements, eigene Zugänge bleiben.
+ *   Entfernen beendet genau diese Entitlements (status expired, nicht
+ *   revoked -- QA-L-2), eigene Zugänge bleiben.
  * - Antworten auf Einladungen verraten nie, ob es zu einer Adresse ein
  *   Konto gibt.
  */
@@ -245,14 +246,14 @@ class LearningGroupService
         });
     }
 
-    /** Gruppe ganz beenden (Betreiber): alle Gruppenzugänge widerrufen, offene Einladungen verfallen. */
+    /** Gruppe ganz beenden (Betreiber): alle Gruppenzugänge enden, offene Einladungen verfallen. */
     public function revokeGroup(LearningGroup $group): void
     {
         DB::transaction(function () use ($group) {
             $locked = $this->lock($group);
             Entitlement::withoutGlobalScopes()->where('tenant_id', $locked->tenant_id)->where('source_type', 'group')
                 ->where('source_reference', 'like', 'group:'.$locked->id.':%')->where('status', 'active')
-                ->update(['status' => 'revoked', 'updated_at' => now()]);
+                ->update(self::endedAttributes());
             LearningGroupMember::withoutGlobalScopes()->where('group_id', $locked->id)->where('status', 'invited')
                 ->update(['status' => 'expired', 'invite_token' => null, 'email' => null, 'updated_at' => now()]);
             $locked->update(['status' => 'revoked']);
@@ -320,7 +321,26 @@ class LearningGroupService
     {
         Entitlement::where('tenant_id', $group->tenant_id)->where('source_type', 'group')
             ->where('source_reference', self::reference($group, $member))->where('status', 'active')
-            ->update(['status' => 'revoked', 'updated_at' => now()]);
+            ->update(self::endedAttributes());
+    }
+
+    /**
+     * Ende eines Gruppenzugangs: abgelaufen zum jetzigen Zeitpunkt, nicht
+     * "revoked" -- das ist die bewusste Sperre der Schule (Betrug/Rück-
+     * buchung) und hätte jeden späteren eigenen Code bzw. das Freischalten
+     * blockiert (QA-L-2).
+     */
+    private static function endedAttributes(): array
+    {
+        $now = now()->toIso8601String();
+
+        // LEAST ignoriert NULL: unbefristete Gruppenzugänge enden jetzt; die
+        // Untergrenze hält entitlement_valid_range_check (valid_until > valid_from).
+        return [
+            'status' => 'expired',
+            'valid_until' => DB::raw("LEAST(valid_until, GREATEST('{$now}'::timestamptz, valid_from + interval '1 second'))"),
+            'updated_at' => now(),
+        ];
     }
 
     private function lock(LearningGroup $group): LearningGroup

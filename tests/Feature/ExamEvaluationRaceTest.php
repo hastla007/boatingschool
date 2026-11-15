@@ -122,7 +122,7 @@ class ExamEvaluationRaceTest extends TestCase
 
         $response = $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/answers", [
             'position' => $question->position,
-            'answer_id' => $answer->id,
+            'answer_id' => $this->answerToken($learner, $answer->id),
         ]);
 
         pcntl_waitpid($pid, $status);

@@ -46,7 +46,7 @@ class ExamFlagAndLearningRevealApiTest extends MobileApiTestCase
 
         // Auch eine beantwortete Frage lässt sich (ent)markieren; die Antwort bleibt.
         $right = $this->onAdmin(fn () => ContentAnswer::where('revision_id', $q1['revision_id'])->where('is_correct', true)->value('id'));
-        $this->api('PUT', "/exams/{$examId}/answers/{$q1['id']}", $token, $tenant, ['selected_answer_ids' => [$right]])->assertOk()
+        $this->api('PUT', "/exams/{$examId}/answers/{$q1['id']}", $token, $tenant, ['selected_answer_ids' => [$this->answerToken($user, $right)]])->assertOk()
             ->assertJsonPath('data.flagged', true);
         $this->api('PUT', "/exams/{$examId}/answers/{$q1['id']}/flag", $token, $tenant, ['flagged' => false])->assertOk()
             ->assertJsonPath('data.flagged', false)->assertJsonPath('data.flagged_count', 1);
@@ -197,7 +197,7 @@ class ExamFlagAndLearningRevealApiTest extends MobileApiTestCase
         $wrong = $revision->answers->firstWhere('is_correct', false);
         $correct = $revision->answers->firstWhere('is_correct', true);
 
-        $this->api('POST', "/courses/{$course->id}/attempts", $token, $tenant, $body + ['selected_answer_ids' => [$wrong->id]])->assertCreated();
+        $this->api('POST', "/courses/{$course->id}/attempts", $token, $tenant, $body + ['selected_answer_ids' => [$this->answerToken($user, $wrong->id)]])->assertCreated();
         $this->api('PUT', "/courses/{$course->id}/favorites/{$question['id']}", $token, $tenant)->assertOk();
 
         $list = $this->api('GET', "/courses/{$course->id}/mistakes", $token, $tenant)->assertOk();
@@ -222,7 +222,7 @@ class ExamFlagAndLearningRevealApiTest extends MobileApiTestCase
         $this->api('GET', "/courses/{$course->id}/mistakes", $stranger, $tenant)->assertStatus(403);
 
         // Richtig beantwortet: nicht mehr in der Fehlerliste.
-        $this->api('POST', "/courses/{$course->id}/attempts", $token, $tenant, $body + ['selected_answer_ids' => [$correct->id]])->assertCreated();
+        $this->api('POST', "/courses/{$course->id}/attempts", $token, $tenant, $body + ['selected_answer_ids' => [$this->answerToken($user, $correct->id)]])->assertCreated();
         $this->api('GET', "/courses/{$course->id}/mistakes", $token, $tenant)->assertOk()->assertExactJson(['data' => []]);
     }
 

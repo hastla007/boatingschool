@@ -27,8 +27,9 @@ class PraxisController extends Controller
     {
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
-        $course = $this->access->require($tenant, $user, $courseId);
-        $tasks = $course->praxisTasks()->with('media')->orderBy('sort_order')->orderBy('id')->get();
+        $course = $this->access->require($tenant, $user, $courseId, 'praxis');
+        // Probezugang: nur die ersten N Karten.
+        $tasks = $this->access->limitItems($tenant, $user, $course, 'praxis', $course->praxisTasks()->with('media')->orderBy('sort_order')->orderBy('id')->get());
         $progress = PraxisProgress::where('tenant_id', $tenant->id)->where('user_id', $user->id)
             ->whereIn('praxis_task_id', $tasks->pluck('id'))->get()->keyBy('praxis_task_id');
 
@@ -68,10 +69,13 @@ class PraxisController extends Controller
         $validated = $request->validate(['status' => ['required', Rule::in(PraxisProgress::STATUSES)]]);
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
-        $course = $this->access->require($tenant, $user, $courseId);
+        $course = $this->access->require($tenant, $user, $courseId, 'praxis');
         $task = $course->praxisTasks()->whereKey($cardId)->first();
         if (! $task) {
             throw ApiProblem::notFound('Praxiskarte');
+        }
+        if (! $this->access->allowsLimitedItem($tenant, $user, $course, 'praxis', $course->praxisTasks()->orderBy('sort_order')->orderBy('id')->get(['id']), (string) $task->id)) {
+            throw CourseAccess::itemLocked();
         }
 
         PraxisProgress::updateOrCreate(

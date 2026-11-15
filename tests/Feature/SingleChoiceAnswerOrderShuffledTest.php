@@ -119,6 +119,6 @@ class SingleChoiceAnswerOrderShuffledTest extends TestCase
 
         $response->assertOk();
         preg_match_all('/name="answer_id" value="([0-9a-f-]{36})"/', $response->getContent(), $matches);
-        $this->assertSame($expected, $matches[1], 'Die Lernseite muss die Antworten in der nutzerspezifisch gemischten Reihenfolge rendern.');
+        $this->assertSame($this->answerTokens($learner, $expected), $matches[1], 'Die Lernseite muss die Antworten in der nutzerspezifisch gemischten Reihenfolge rendern.');
     }
 }

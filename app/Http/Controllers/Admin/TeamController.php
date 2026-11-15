@@ -13,9 +13,11 @@ use App\Services\ParticipantInviter;
 use App\Support\BestEffortMail;
 use App\Support\EmailInput;
 use App\Support\TenantContext;
+use App\Support\TwoFactorCheck;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Symfony\Component\HttpFoundation\Response;
@@ -50,13 +52,25 @@ class TeamController extends Controller
         $existingUser = User::on('pgsql_admin')->whereRaw('lower(email) = ?', [mb_strtolower($validated['email'])])->first();
 
         if ($existingUser) {
-            $alreadyMember = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $existingUser->id)->exists();
-            if ($alreadyMember) {
-                $isLearner = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $existingUser->id)->value('role') === 'learner';
-
-                return back()->withErrors(['team_email' => $isLearner
+            $membership = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $existingUser->id)->first();
+            if ($membership && ! ($existingUser->status === 'invited' && $membership->role !== 'learner')) {
+                return back()->withErrors(['team_email' => $membership->role === 'learner'
                     ? 'Diese Person ist bereits Teilnehmer Ihrer Bootsschule. Ins Team holen Sie sie auf ihrer Teilnehmerseite unter „Ins Team holen“.'
                     : 'Diese Person ist bereits Mitglied Ihrer Bootsschule – ändern Sie die Rolle in der Team-Liste.']);
+            }
+
+            // Audit SEC-W-3: ein hier neu angelegtes, noch nie angemeldetes
+            // Team-Konto erneut einladen = neuer Link zum Passwort-Festlegen,
+            // mit derselben Rückmeldung wie bei einer offenen Einladung an ein
+            // bestehendes Konto (vorher „bereits Mitglied“ -- ein Konto-Orakel).
+            if ($membership) {
+                if (! ParticipantInviter::mayMailAddress($tenant, $existingUser->email)) {
+                    return back()->with('status', ParticipantInviter::ALREADY_INVITED_STATUS);
+                }
+                $mailSent = BestEffortMail::send(fn () => app(AccountSetupLink::class)->send($existingUser, $tenant, $membership->role), "Team-Einladung erneut {$existingUser->id}");
+                AuditLog::record($tenant->id, $request->user()->id, 'team.invite_resent', 'app_user', $existingUser->id, null, ['email' => $existingUser->email]);
+
+                return back()->with('status', $mailSent ? ParticipantInviter::ALREADY_INVITED_STATUS : 'Der Versand der Einladung ist fehlgeschlagen – bitte später erneut versuchen.');
             }
 
             // Bestehendes Konto: Einladung, die die Person selbst annimmt
@@ -64,21 +78,25 @@ class TeamController extends Controller
             // Review-Runde 9: offene Einladung derselben Rolle wiederverwenden
             // und je Adresse höchstens eine Mail am Tag (Schutz vor Mail-Flut).
             if (! ParticipantInviter::mayMailAddress($tenant, $existingUser->email)) {
-                return back()->with('status', 'Diese Person wurde heute schon eingeladen; die Einladung ist weiter gültig.');
+                return back()->with('status', ParticipantInviter::ALREADY_INVITED_STATUS);
             }
-            $invitation = TenantInvitation::where('tenant_id', $tenant->id)->where('role', $validated['role'])->whereNull('accepted_at')
+            $open = TenantInvitation::where('tenant_id', $tenant->id)->where('role', $validated['role'])->whereNull('accepted_at')
                 ->whereRaw('lower(email) = ?', [mb_strtolower($existingUser->email)])->where('created_at', '>=', now()->subDays(7))
-                ->latest('created_at')->first()
-                ?? TenantInvitation::create([
-                    'tenant_id' => $tenant->id,
-                    'email' => $existingUser->email,
-                    'role' => $validated['role'],
-                    'invited_by_user_id' => $request->user()->id,
-                ]);
+                ->latest('created_at')->first();
+            $invitation = $open ?? TenantInvitation::create([
+                'tenant_id' => $tenant->id,
+                'email' => $existingUser->email,
+                'name' => mb_substr($validated['name'], 0, 255),
+                'role' => $validated['role'],
+                'invited_by_user_id' => $request->user()->id,
+            ]);
             $mailSent = ParticipantInviter::sendExistingAccountInvitation($existingUser, $tenant, $invitation);
             AuditLog::record($tenant->id, $request->user()->id, 'team.invite_pending', 'tenant_invitation', $invitation->id, null, [
                 'email' => $existingUser->email, 'role' => $validated['role'],
             ]);
+            if ($open && $mailSent) {
+                return back()->with('status', ParticipantInviter::ALREADY_INVITED_STATUS);
+            }
         } else {
             $user = DB::transaction(function () use ($validated, $tenant, $request) {
                 $user = User::create([
@@ -184,6 +202,11 @@ class TeamController extends Controller
         if ($required && ! $request->user()->hasTwoFactor()) {
             return back()->withErrors(['two_factor' => 'Bitte richten Sie zuerst für Ihr eigenes Konto die Zwei-Faktor-Anmeldung ein.']);
         }
+        // Audit SEC-W-5: Aufheben der Pflicht schwächt das ganze Team --
+        // nur mit Passwort und (falls eingerichtet) dem eigenen zweiten Faktor.
+        if (! $required && ($error = $this->confirmOwner($request))) {
+            return back()->withErrors(['two_factor' => $error]);
+        }
 
         $tenant->branding->update(['require_team_two_factor' => $required]);
         AuditLog::record($tenant->id, $request->user()->id, 'team.two_factor_policy', 'tenant_branding', $tenant->id, null, ['required' => $required]);
@@ -191,5 +214,28 @@ class TeamController extends Controller
         return back()->with('status', $required
             ? 'Zwei-Faktor-Anmeldung ist jetzt für alle Team-Mitglieder Pflicht.'
             : 'Die 2FA-Pflicht fürs Team ist aufgehoben.');
+    }
+
+    /** Passwort und ggf. 2FA-Code der handelnden Person prüfen; Fehlermeldung oder null. */
+    private function confirmOwner(Request $request): ?string
+    {
+        $user = $request->user();
+        if (! Hash::check((string) $request->input('current_password', ''), (string) $user->password)) {
+            return 'Bitte bestätigen Sie mit Ihrem aktuellen Passwort.';
+        }
+        if (! $user->hasTwoFactor()) {
+            return null;
+        }
+        $key = 'two-factor:'.$user->id;
+        if (RateLimiter::tooManyAttempts($key, 5)) {
+            return 'Zu viele Versuche. Bitte in '.RateLimiter::availableIn($key).' Sekunden erneut versuchen.';
+        }
+        RateLimiter::hit($key, 300);
+        if (! TwoFactorCheck::verify($user, (string) $request->input('code', ''), (string) $request->input('recovery_code', ''))) {
+            return 'Der Code aus der App stimmt nicht.';
+        }
+        RateLimiter::clear($key);
+
+        return null;
     }
 }

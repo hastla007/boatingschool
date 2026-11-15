@@ -284,6 +284,7 @@ class PersonalDataExportService
             'tenant_invitations' => TenantInvitation::where('tenant_id', $tenant->id)->where('email', $user->email)
                 ->orderBy('created_at')->get()
                 ->map(fn (TenantInvitation $i) => [
+                    'name' => $i->name,
                     'role' => $i->role,
                     'created_at' => $i->created_at?->toIso8601String(),
                     'accepted_at' => $i->accepted_at?->toIso8601String(),

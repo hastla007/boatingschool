@@ -5,6 +5,7 @@ namespace Tests\Feature\Api;
 use App\Api\CourseAccess;
 use App\Models\CourseAccessRule;
 use App\Models\CourseDefinition;
+use App\Models\CourseWebshopLink;
 use App\Models\Entitlement;
 use App\Models\Tenant;
 use App\Models\TenantCourseDisabled;
@@ -119,6 +120,7 @@ class CourseAccessRulesApiTest extends MobileApiTestCase
         $user = $this->createTenantUser($tenant, 'learner');
         $course = $this->existingCourse('SRC');
         $this->partialEntitlement($tenant, $user, $course, ['exam']);
+        $this->onAdmin(fn () => CourseWebshopLink::create(['tenant_id' => $tenant->id, 'course_id' => $course->id, 'url' => 'https://shop.example.test/src']));
         $token = $this->apiLogin($user);
 
         $entry = $this->courseEntry($tenant, $token, $course);
@@ -129,11 +131,19 @@ class CourseAccessRulesApiTest extends MobileApiTestCase
         $this->assertSame(0, $entry['progress']['total']);
 
         $this->api('GET', "/courses/{$course->id}/overview", $token, $tenant)->assertStatus(403)->assertJsonPath('code', 'ENTITLEMENT_REQUIRED');
-        // Endpunkte ohne eigene Capability brauchen weiter vollen Kurszugang.
-        $this->api('GET', "/courses/{$course->id}/exams", $token, $tenant)->assertStatus(403);
+        $this->api('GET', "/courses/{$course->id}/trainer/next", $token, $tenant)->assertStatus(403)->assertJsonPath('code', 'ENTITLEMENT_REQUIRED');
+        $this->api('GET', "/courses/{$course->id}/favorites", $token, $tenant)->assertStatus(403);
+        $this->api('GET', "/courses/{$course->id}/videos", $token, $tenant)->assertStatus(403);
+        // QA-L-4: die gemeldete Funktion ist auch nutzbar (Prüfung starten, ansehen).
+        $options = $this->api('GET', "/courses/{$course->id}/exams", $token, $tenant)->assertOk()->json('data');
+        $this->assertNotEmpty($options);
+        $exam = $this->api('POST', "/courses/{$course->id}/exams", $token, $tenant, ['paper_id' => $options[0]['id']])->assertCreated()->json('data');
+        $this->api('GET', "/exams/{$exam['exam_id']}", $token, $tenant)->assertOk();
 
         $detail = $this->api('GET', "/courses/{$course->id}", $token, $tenant)->assertOk();
-        $this->assertGreaterThan(0, $detail->json('data.exam_options_count'));
+        $this->assertSame(count($options), $detail->json('data.exam_options_count'));
+        // Kauf-Link bleibt, solange der volle Kurszugang fehlt.
+        $this->assertSame('https://shop.example.test/src', $this->courseEntry($tenant, $token, $course)['webshop_url']);
     }
 
     public function test_drip_rule_locks_a_module_until_the_unlock_day(): void

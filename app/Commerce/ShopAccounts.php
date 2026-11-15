@@ -10,9 +10,7 @@ use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
-use Illuminate\Support\Str;
 
 /**
  * Shopkonten (Shop -> App): Registrierung, Verknüpfung per Einmalcode,
@@ -22,9 +20,10 @@ use Illuminate\Support\Str;
 class ShopAccounts
 {
     /**
-     * Registrierung im Shop: neues App-Konto (ausstehend, B2B-Prüfung) --
-     * oder, wenn die Adresse schon ein App-Konto hat, Warten auf den
-     * Verknüpfungscode dieses Kontos.
+     * Registrierung im Shop: nur das Shopkonto (B2B-Prüfung), noch kein
+     * App-Konto -- die Adresse ist unbestätigt. Das App-Konto entsteht erst
+     * bei der Freigabe durch den Superadmin. Hat die Adresse schon ein
+     * App-Konto: Warten auf den Verknüpfungscode dieses Kontos.
      *
      * @param  array{shop_customer_id: string, email: string, first_name?: ?string, last_name?: ?string, company_name?: ?string, billing_country?: ?string, vat_id?: ?string}  $data
      */
@@ -42,26 +41,12 @@ class ShopAccounts
                 return $account;
             }
 
-            $existing = User::whereRaw('lower(email) = ?', [$email])->first();
-            $user = null;
-            if (! $existing) {
-                $user = User::create([
-                    'display_name' => trim(($data['first_name'] ?? '').' '.($data['last_name'] ?? '')) ?: $email,
-                    'first_name' => $data['first_name'] ?? null,
-                    'last_name' => $data['last_name'] ?? null,
-                    'email' => $email,
-                    'password' => Hash::make(Str::random(40)),
-                    // Wie eine Einladung: ein Passwort setzt die Person erst
-                    // nach der Freigabe über den Einrichtungslink.
-                    'status' => 'invited',
-                ]);
-            }
-
+            $hasAppAccount = User::whereRaw('lower(email) = ?', [$email])->exists();
             $account = CommerceShopAccount::create([
                 'shop_id' => $shopId,
                 'shop_customer_id' => $data['shop_customer_id'],
-                'user_id' => $user?->id,
-                'status' => $user ? CommerceShopAccount::PENDING_REVIEW : CommerceShopAccount::AWAITING_LINK,
+                'user_id' => null,
+                'status' => $hasAppAccount ? CommerceShopAccount::AWAITING_LINK : CommerceShopAccount::PENDING_REVIEW,
                 'email' => $email,
                 'contact_name' => trim(($data['first_name'] ?? '').' '.($data['last_name'] ?? '')) ?: null,
                 'company_name' => $data['company_name'] ?? null,
@@ -69,7 +54,7 @@ class ShopAccounts
                 'vat_id' => $data['vat_id'] ?? null,
                 'shop_data_updated_at' => now(),
             ]);
-            CommerceEvent::logIncoming('account.registered', $account, null, ['status' => $account->status, 'new_app_user' => (bool) $user]);
+            CommerceEvent::logIncoming('account.registered', $account, null, ['status' => $account->status]);
 
             return $account;
         });

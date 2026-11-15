@@ -35,9 +35,10 @@ class LearningFlow
      * Nächste Frage oder null (alles erledigt bzw. Filter ohne Treffer).
      *
      * @param  list<string>|null  $questionIds  explizite Fragenliste („Fehler üben“)
+     * @param  ?Collection<int, string>  $restrictTo  nur diese Fragen (Mobile-API: Probezugang/Drip, siehe CourseAccess::learnableQuestionIds()); null = alle
      * @return array{question: ContentQuestion, reason: ?string}|null
      */
-    public function nextQuestion(Tenant $tenant, User $user, CourseDefinition $course, string $mode, ?string $topic = null, ?string $moduleId = null, ?array $questionIds = null): ?array
+    public function nextQuestion(Tenant $tenant, User $user, CourseDefinition $course, string $mode, ?string $topic = null, ?string $moduleId = null, ?array $questionIds = null, ?Collection $restrictTo = null): ?array
     {
         if ($mode === 'favorites') {
             // Gültigkeit prüft die Auswahl unten (currentlyValid()) ohnehin.
@@ -46,7 +47,9 @@ class LearningFlow
             $favoriteIds = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)
                 ->when($questionIds === null, fn ($q) => $q->where('context', Favorite::CONTEXT_SMART_LEARNING))
                 ->when($questionIds !== null, fn ($q) => $q->whereIn('question_id', $questionIds))
-                ->whereIn('question_id', $this->courseQuestionIds($course))->pluck('question_id');
+                ->whereIn('question_id', $this->courseQuestionIds($course))
+                ->when($restrictTo !== null, fn ($q) => $q->whereIn('question_id', $restrictTo))
+                ->pluck('question_id');
 
             // Bug-Review (Deaktivierte Favoriten, Endlosschleife) und X10
             // (Fragen einer laufenden Prüfung): nur gültige, nicht gesperrte
@@ -63,7 +66,7 @@ class LearningFlow
 
         $learningCourse = $questionIds !== null ? $this->withExamPaperQuestions($course, $questionIds) : $course;
 
-        return $this->smarttrainer->nextQuestion($tenant, $user, $learningCourse, $mode, $topic, $moduleId, $questionIds);
+        return $this->smarttrainer->nextQuestion($tenant, $user, $learningCourse, $mode, $topic, $moduleId, $questionIds, $restrictTo);
     }
 
     /**

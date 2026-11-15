@@ -77,6 +77,18 @@ class Entitlement extends Model
     }
 
     /**
+     * QA-L-1/QA-L-2: Zeilen, die ein Kurs- oder Verlängerungscode bzw. das
+     * Freischalten durch die Schule reaktivieren oder verlängern darf --
+     * nur volle Kurszugänge (capabilities = null), keine Gruppenzugänge
+     * (die gehören zur Lerngruppe und enden mit ihr). Sonst entsteht eine
+     * neue Vollzeile.
+     */
+    public function scopeOwnFullAccess(Builder $query): Builder
+    {
+        return $query->whereNull('capabilities')->where('source_type', '<>', 'group');
+    }
+
+    /**
      * Bug-Review B15: status wechselt nie automatisch auf "expired" (dafür
      * gibt es einen eigenen Scheduler-Befehl, siehe ExpireEntitlements),
      * daher reicht ein reines status=active für "aktiv" nicht aus -- diese

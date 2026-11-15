@@ -82,15 +82,22 @@ class TwoFactorAuthenticationTest extends TestCase
         $this->get('/two-factor-challenge')->assertRedirect(route('login'));
     }
 
-    public function test_switching_off_requires_the_password(): void
+    public function test_switching_off_requires_the_password_and_a_second_factor(): void
     {
         $tenant = $this->createTestTenant();
         $user = $this->createTenantUser($tenant, 'admin', ['password' => Hash::make('geheim123!')]);
-        $this->onAdmin(fn () => User::findOrFail($user->id)->forceFill(['two_factor_secret' => Totp::generateSecret(), 'two_factor_confirmed_at' => now()])->save());
+        $secret = Totp::generateSecret();
+        $this->onAdmin(fn () => User::findOrFail($user->id)->forceFill([
+            'two_factor_secret' => $secret, 'two_factor_confirmed_at' => now(), 'two_factor_recovery_codes' => [Hash::make('ABCDE-FGHIJ')],
+        ])->save());
 
-        $this->actingAsInTenant($this->fresh($user), $tenant)->delete('/two-factor', ['password' => 'falsch'])->assertSessionHasErrors('password');
+        $this->actingAsInTenant($this->fresh($user), $tenant)->delete('/two-factor', ['password' => 'falsch', 'code' => Totp::at($secret, time())])->assertSessionHasErrors('password');
+        // Audit SEC-W-5: Passwort allein reicht nicht mehr, ein falscher Code auch nicht.
+        $this->actingAsInTenant($this->fresh($user), $tenant)->delete('/two-factor', ['password' => 'geheim123!'])->assertSessionHasErrors('code');
+        $this->actingAsInTenant($this->fresh($user), $tenant)->delete('/two-factor', ['password' => 'geheim123!', 'code' => '000000'])->assertSessionHasErrors('code');
         $this->assertTrue($this->fresh($user)->hasTwoFactor());
-        $this->actingAsInTenant($this->fresh($user), $tenant)->delete('/two-factor', ['password' => 'geheim123!'])->assertSessionHasNoErrors();
+
+        $this->actingAsInTenant($this->fresh($user), $tenant)->delete('/two-factor', ['password' => 'geheim123!', 'recovery_code' => 'abcde-fghij'])->assertSessionHasNoErrors();
         $this->assertFalse($this->fresh($user)->hasTwoFactor());
     }
 }

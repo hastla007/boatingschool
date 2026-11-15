@@ -637,7 +637,7 @@ paths:
         - {$ref: '#/components/parameters/TenantSlug'}
         - {$ref: '#/components/parameters/CourseId'}
         - {in: query, name: mode, schema: {type: string, enum: [smarttrainer, new, wrong, topic, favorites], default: smarttrainer}}
-        - {in: query, name: module_id, schema: {type: string, format: uuid}}
+        - {in: query, name: module_id, schema: {type: string, format: uuid}, description: 'Modul mit aktiver Drip-Sperre → 403 ENTITLEMENT_REQUIRED'}
         - {in: query, name: topic, schema: {type: string}, description: 'Für mode=topic'}
         - {in: query, name: question_ids, schema: {type: string}, description: 'Kommagetrennte Frage-IDs. Mit mode=favorites: genau diese Favoriten (z. B. „diese Frage üben“). Sonst „Fehler üben“ wie im Web: Fragen mit laufender richtiger Serie fallen heraus.'}
         - {in: query, name: collection_id, schema: {type: string, format: uuid}, description: 'Eine Favoriten-Sammlung üben (setzt mode=favorites)'}
@@ -649,7 +649,7 @@ paths:
               schema:
                 type: object
                 properties: {data: {$ref: '#/components/schemas/TrainerQuestion'}}
-        '204': {description: 'Keine passende Frage: new = alles gesehen, wrong = keine falschen, favorites = keine (passenden) Favoriten, question_ids = alle erledigt. Im Smarttrainer kommen gefestigte Fragen zur Wiederholung; „alles geschafft“ zeigt progress.percent = 100.'}
+        '204': {description: 'Keine passende Frage: new = alles gesehen, wrong = keine falschen, favorites = keine (passenden) Favoriten, question_ids = alle erledigt oder nicht freigegeben. Ausgespielt werden nur freigegebene Fragen (Probezugang: erste N je Modul, Drip). Im Smarttrainer kommen gefestigte Fragen zur Wiederholung; „alles geschafft“ zeigt progress.percent = 100.'}
         '404': {$ref: '#/components/responses/Problem'}
         '403': {$ref: '#/components/responses/Problem'}
   /courses/{courseId}/trainer/reveal:
@@ -705,7 +705,7 @@ paths:
             schema: {$ref: '#/components/schemas/TrainerAnswerRequest'}
       responses:
         '201':
-          description: 'Bewertet, mit Lösung und Lernstand. 409 EXAM_QUESTION_LOCKED: Frage ist gerade Teil einer laufenden Prüfung (auch bei einer anderen Schule).'
+          description: 'Bewertet, mit Lösung und Lernstand. 409 EXAM_QUESTION_LOCKED: Frage ist gerade Teil einer laufenden Prüfung (auch bei einer anderen Schule). 403 ENTITLEMENT_REQUIRED: Frage nicht freigegeben (Probezugang, Drip).'
           content:
             application/json:
               schema:
@@ -728,7 +728,9 @@ paths:
               schema:
                 type: object
                 properties: {data: {$ref: '#/components/schemas/TrainerAnswerResult'}}
+        '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
+        '409': {description: 'EXAM_QUESTION_LOCKED: Frage gerade in einer laufenden Prüfung (keine Lösung vor der Abgabe)', content: {application/problem+json: {schema: {$ref: '#/components/schemas/Problem'}}}}
 
   # ---------------------------------------------------------- Favorites
   /courses/{courseId}/favorites:
@@ -2302,7 +2304,7 @@ components:
           type: object
           description: 'Nutzbarkeit je Funktion für die angemeldete Person (Schlüssel wie capabilities ohne favorites, plus explanations)'
           additionalProperties: {$ref: '#/components/schemas/FeatureAccess'}
-        webshop_url: {type: [string, 'null'], format: uri, description: 'Kauflink, solange kein voller Zugang besteht'}
+        webshop_url: {type: [string, 'null'], format: uri, description: 'Kauflink, solange kein voller Kurszugang besteht (auch bei Probe- oder Teilzugang)'}
         relation: {oneOf: [{$ref: '#/components/schemas/CourseRelation'}, {type: 'null'}]}
         last_activity_at: {type: [string, 'null'], format: date-time, description: Letzte Antwort in diesem Kurs}
     FileRef:
@@ -2369,7 +2371,7 @@ components:
           items:
             type: object
             properties:
-              id: {type: string}
+              id: {type: string, description: 'Kennung der Antwort je Person (UUID-förmig, für die Person stabil, nicht teilen); genau so in selected_answer_ids zurückschicken'}
               key: {type: string, description: 'Buchstabe der Anzeigeposition (A, B, C …)'}
               text: {type: string}
         topic: {type: [string, 'null']}
@@ -2378,7 +2380,7 @@ components:
     Solution:
       type: object
       properties:
-        correct_answer_ids: {type: array, items: {type: string}}
+        correct_answer_ids: {type: array, items: {type: string}, description: 'Kennungen je Person (wie answers[].id)'}
         model_answer: {type: [string, 'null']}
         explanation: {type: [string, 'null']}
     Streak:
@@ -2403,7 +2405,7 @@ components:
         question_id: {type: string, format: uuid}
         revision_id: {type: string, format: uuid}
         mode: {type: string, enum: [smarttrainer, new, wrong, topic, favorites]}
-        selected_answer_ids: {type: array, maxItems: 20, items: {type: string, format: uuid}, description: 'Einfachauswahl genau 1'}
+        selected_answer_ids: {type: array, maxItems: 20, items: {type: string, format: uuid}, description: 'Kennungen aus answers[].id; Einfachauswahl genau 1; fremde oder unbekannte Kennung → 422'}
         known: {type: boolean, description: 'Pflicht bei offenen Fragen (Selbsteinschätzung)'}
         client_answered_at: {type: string, format: date-time}
     TrainerAnswerResult:
@@ -2574,7 +2576,7 @@ components:
     ExamAnswerRequest:
       type: object
       properties:
-        selected_answer_ids: {type: array, uniqueItems: true, maxItems: 20, items: {type: string, format: uuid}}
+        selected_answer_ids: {type: array, uniqueItems: true, maxItems: 20, items: {type: string, format: uuid}, description: 'Kennungen aus answers[].id; fremde oder unbekannte Kennung → 422'}
         known: {type: boolean, description: 'Offene Fragen nach reveal'}
     ExamAnswerSaved:
       type: object

@@ -51,7 +51,8 @@ class AuditLogIndexAndPruneTest extends TestCase
         $this->actingAs($superadmin)->delete("/superadmin/tenants/{$tenant->id}", ['confirm_slug' => $tenant->slug])
             ->assertRedirect(route('superadmin.tenants.index'));
 
-        $this->assertSame(1, $updates);
+        // Konstant statt je Konto: Einträge zu den Konten + Adresse in superadmin.tenant.create.
+        $this->assertSame(2, $updates);
         $this->onAdmin(function () use ($orphans, $tenant) {
             AuditLog::where('action', 'superadmin.tenant.delete')->where('after_data->slug', $tenant->slug)->delete();
             $this->assertSame(0, User::whereIn('id', $orphans->pluck('id'))->count());
