@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AccountController;
+use App\Http\Controllers\Api\V1\AccountDeletionController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CouponController;
 use App\Http\Controllers\Api\V1\CourseController;
@@ -15,6 +16,7 @@ use App\Http\Controllers\Api\V1\PraxisController;
 use App\Http\Controllers\Api\V1\RadioController;
 use App\Http\Controllers\Api\V1\TipsController;
 use App\Http\Controllers\Api\V1\VideoController;
+use App\Http\Controllers\Api\V1\WebSessionController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -36,6 +38,9 @@ Route::post('/auth/password/reset', [AuthController::class, 'resetPassword'])->m
 // Datenexport: kurzlebiger, signierter Link (ohne Token nutzbar, z. B. Teilen-Menü).
 Route::get('/profile/export/{exportId}/download', [ExportController::class, 'download'])
     ->whereUuid('exportId')->middleware(['signed', 'throttle:20,1,api-export-download'])->name('api.v1.export.download');
+
+// Kontolöschung bestätigen: Werte aus dem Link der Bestätigungsmail (ohne Token).
+Route::post('/me/deletion-request/confirm', [AccountDeletionController::class, 'confirmDeletion'])->middleware('throttle:20,60,api-deletion-confirm');
 
 Route::middleware('api.auth')->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
@@ -124,6 +129,12 @@ Route::middleware('api.auth')->group(function () {
 
         // Zugangscode einlösen (nach dem Kauf im externen Webshop).
         Route::post('/coupons/redeem', [CouponController::class, 'redeem'])->middleware(['throttle:10,1,api-coupons', 'api.idempotent']);
+
+        // Webansicht der Schule aus der App anmelden (Einmal-Code, 60 Sekunden).
+        Route::post('/auth/web-session', [WebSessionController::class, 'create']);
+
+        // Kontolöschung bei dieser Schule beantragen (wie „Konto löschen“ im Web-Profil).
+        Route::post('/me/deletion-request', [AccountDeletionController::class, 'requestDeletion']);
 
         // DSGVO-Datenexport.
         // Ohne Idempotenz-Speicher: ein wiederholter Aufruf soll einen frischen Link liefern.

@@ -8,6 +8,7 @@ use App\Http\Middleware\Api\AuthenticateMobileApi;
 use App\Http\Middleware\Api\PrepareApiRequest;
 use App\Http\Middleware\Api\ResolveApiTenant;
 use App\Http\Middleware\Commerce\VerifyCommerceSignature;
+use App\Http\Middleware\ConsumeMobileWebSession;
 use App\Http\Middleware\EnforceInstructorScope;
 use App\Http\Middleware\EnforceMaintenanceMode;
 use App\Http\Middleware\EnforceTeamTwoFactor;
@@ -150,6 +151,8 @@ return Application::configure(basePath: dirname(__DIR__))
             EnforceMaintenanceMode::class,
             EnsureAccountIsActive::class,
             ResolveTenant::class,
+            // Einmal-Anmeldung der Webansicht aus der App, siehe ConsumeMobileWebSession.
+            ConsumeMobileWebSession::class,
             // Support-Ansicht („Als Nutzer ansehen“) nur lesend, siehe RestrictImpersonation.
             RestrictImpersonation::class,
             // 2FA-Pflicht fürs Team, siehe EnforceTeamTwoFactor.
@@ -182,6 +185,14 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->appendToPriorityList(
             after: StartSession::class,
             append: ResolveTenant::class,
+        );
+
+        // Direkt nach ResolveTenant (Schule und RLS-Kontext stehen fest) und
+        // vor Authenticate: der Einmal-Code der App meldet erst an, danach
+        // greift die normale Anmeldeprüfung auf der Zieladresse.
+        $middleware->appendToPriorityList(
+            after: ResolveTenant::class,
+            append: ConsumeMobileWebSession::class,
         );
 
         // EnsureSuperAdmin (der "superadmin"-Alias) muss nach Authenticate
