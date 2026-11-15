@@ -15,7 +15,8 @@
         <p class="text-sm text-slate-600 dark:text-slate-400">
             Abrechnung: Jeder Beitritt verbraucht je Kurs einen freien Kurscode aus Ihrem
             <a href="{{ route('admin.dashboard', ['tab' => 'coupons']) }}" class="underline hover:no-underline">Codebestand</a>
-            (auch bei einzelnen Funktionen). Die Platzzahl ist frei wählbar; ohne freien Code ist kein Beitritt möglich.
+            (auch bei einzelnen Funktionen). Personen mit eigenem Kurszugang verbrauchen keinen Code. Die Platzzahl ist
+            frei wählbar; ohne freien Code ist kein Beitritt möglich.
             Weitere Codes erhalten Sie im verknüpften Shop.
         </p>
         <div>

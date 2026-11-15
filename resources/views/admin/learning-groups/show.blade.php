@@ -27,13 +27,14 @@
                 </div>
             </div>
 
-            {{-- Abrechnung: jeder Beitritt verbraucht je Kurs einen freien Kurscode der Schule. --}}
+            {{-- Abrechnung: jeder Beitritt verbraucht je Kurs einen freien Kurscode der Schule (außer bei eigenem Vollzugang). --}}
             @php($short = collect($payload['course_codes'])->reject(fn ($row) => $row['sufficient']))
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 text-sm space-y-2">
                 <h3 class="font-medium text-slate-700 dark:text-slate-200">Kurscodes für Beitritte</h3>
                 <p class="text-xs text-slate-600 dark:text-slate-400">
                     Jeder Beitritt verbraucht je Kurs einen freien Kurscode aus Ihrem Codebestand, auch bei einzelnen
-                    Funktionen. Entfernte Mitglieder geben ihren Code nicht zurück.
+                    Funktionen. Personen mit eigenem Kurszugang verbrauchen keinen Code. Entfernte Mitglieder geben ihren
+                    Code nicht zurück.
                 </p>
                 <ul class="space-y-1">
                     @foreach ($payload['course_codes'] as $row)
@@ -46,7 +47,8 @@
                 @if (! $revoked && $short->isNotEmpty())
                     <p class="text-xs rounded-lg bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 p-2" role="alert">
                         Achtung: Für {{ $short->pluck('course_name')->join(', ', ' und ') }} gibt es weniger freie Kurscodes als
-                        offene Plätze ({{ $short->first()['needed'] }}). Ohne freien Code kann niemand mehr beitreten.
+                        offene Plätze ({{ $short->first()['needed'] }}). Ohne freien Code kann nur noch beitreten, wer schon
+                        einen eigenen Kurszugang hat (Personen mit eigenem Kurszugang verbrauchen keinen Code).
                     </p>
                 @endif
                 <a href="{{ route('admin.dashboard', ['tab' => 'coupons']) }}" class="inline-block text-xs hover:underline" style="color: var(--brand-primary, #005FD7)">Zum Codebestand (Codes importieren oder im Shop kaufen) &rarr;</a>
@@ -85,7 +87,7 @@
                         </div>
                     </div>
                     <p class="text-xs text-slate-600 dark:text-slate-400">Ein neues Ende gilt auch für die Kurszugänge der aktuellen Mitglieder.</p>
-                    <p class="text-xs text-slate-600 dark:text-slate-400">Freie Kurscodes: {{ collect($payload['course_codes'])->map(fn ($row) => $row['course_name'].' '.$row['free'])->join(', ') }} &ndash; zusätzliche Plätze brauchen beim Beitritt je Kurs einen Code.</p>
+                    <p class="text-xs text-slate-600 dark:text-slate-400">Freie Kurscodes: {{ collect($payload['course_codes'])->map(fn ($row) => $row['course_name'].' '.$row['free'])->join(', ') }} &ndash; zusätzliche Plätze brauchen beim Beitritt je Kurs einen Code (außer für Personen mit eigenem Kurszugang).</p>
                     <button type="submit" class="px-4 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90" style="background-color: var(--brand-primary, #005FD7)">Speichern</button>
                 </form>
 

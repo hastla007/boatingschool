@@ -120,7 +120,10 @@ Design-Übersicht. Grundlage war jeweils der tatsächliche Stand der Plattform.
     120 Minuten gültig, für alle aktiven Mitglieder einer laufenden Schule
     (kein Kurszugang nötig). Die Datei kommt inline als `application/pdf`
     mit dem Tipp-Titel als Dateinamen. Nach 403 (abgelaufen) `GET /tips`
-    neu laden.
+    neu laden. Geschützte Bilder kommen mit `Content-Security-Policy: …;
+    sandbox`; PDFs ohne `sandbox` (sonst zeigt Chrome sie nicht im Browser
+    an), mit `default-src 'none'; object-src 'self'; frame-ancestors 'self'`
+    -- kein Skript, Einbetten nur auf der eigenen Seite.
 * **Request-ID:** Jede Antwort hat `X-Request-Id`, Fehler zusätzlich
   `request_id`. Für Support-Anfragen mitschicken; die ID steht auch im
   Server-Log und im Fehlertracking.
@@ -543,16 +546,29 @@ GET  /exams/{id}/result                 → Ergebnis mit Lösungen
     (`FOR UPDATE SKIP LOCKED`, bald ablaufende zuerst) beansprucht und als
     eingelöst markiert (`redeemed_by_user_id` = Mitglied, Schule,
     Zeitpunkt); der Bezug zur Mitgliedschaft steht im Protokoll
-    (`coupon.redeem_group` mit `group_id`, `member_id`). Fehlt für einen
-    Kurs ein Code: 409 `GROUP_NO_CODES`, nichts wird verbraucht, eine
+    (`coupon.redeem_group` mit `group_id`, `member_id`).
+    **Kein Code bei eigenem Vollzugang:** hat die Person für einen Kurs der
+    Gruppe schon einen eigenen, gerade gültigen Vollzugang (`capabilities`
+    leer, nicht aus einer Gruppe -- auch nicht aus einer anderen; nicht
+    abgelaufen, gesperrt oder ausstehend), wird für diesen Kurs kein Code
+    verbraucht. Platz und Gruppenzugang entstehen trotzdem: der Gruppen-
+    zugang trägt den Kurs weiter, falls der eigene Zugang vor der Gruppe
+    endet, und endet wie jeder Gruppenzugang mit Entfernen/Gruppenende;
+    Kurs- und Verlängerungscodes verlängern weiter nur den eigenen Zugang.
+    Die Ablauf-Erinnerung schweigt, solange ein anderer Vollzugang zum Kurs
+    länger gilt. Protokoll: `learning_group.join_own_access` mit
+    `course_ids_without_code`. Fehlt für einen Kurs ohne eigenen
+    Vollzugang ein Code: 409 `GROUP_NO_CODES`, nichts wird verbraucht, eine
     persönliche Einladung bleibt offen. Die Vorschau meldet das als
-    `codes_available: false` (`joinable: false`). Schon beigetretene
+    `codes_available: false` (`joinable: false`; berücksichtigt den eigenen
+    Vollzugang der anfragenden Person). Schon beigetretene
     Mitglieder (auch aus der Zeit vor der Abrechnung) werden nicht
     belastet; Entfernen und Gruppenende geben den Code nicht zurück. Die
     Platzzahl bleibt frei wählbar; `course_codes` in `GET /me/groups[/{id}]`
     zeigt je Kurs die freien Codes der Schule (`free`), die für die noch
-    nicht beigetretenen Plätze nötigen (`needed` = Plätze − aktive
-    Mitglieder) und `sufficient`, damit die App warnen kann. Die Codes
+    nicht beigetretenen Plätze höchstens nötigen (`needed` = Plätze − aktive
+    Mitglieder, Momentaufnahme: Personen mit eigenem Kurszugang verbrauchen
+    keinen Code) und `sufficient`, damit die App warnen kann. Die Codes
     teilen sich alle Gruppen und Einlösungen der Schule.
   * **Entfernen** gibt den Platz frei und beendet genau die Gruppen-
     zugänge der Person (`status: expired`, Enddatum jetzt -- kein
@@ -664,7 +680,7 @@ Der Lernstand ist derselbe wie im Web.
 | 409 | `EXAM_NO_NAVIGATION_PART`, `EXAM_NAVIGATION_ALREADY_SUBMITTED`, `EXAM_NAVIGATION_NOT_SUBMITTED` | Phase neu laden / nachfragen |
 | 409 | `NAVIGATION_TASK_IN_EXAM` | erst Prüfung beenden (`exam_id` im Fehler) |
 | 409 | `GROUP_NOT_ACTIVE` | Lerngruppe abgelaufen oder gesperrt |
-| 409 | `GROUP_NO_CODES` | Beitritt: die Schule hat für einen Kurs der Gruppe keinen freien Kurscode → an Verwalter/Schule wenden |
+| 409 | `GROUP_NO_CODES` | Beitritt: die Schule hat für einen Kurs der Gruppe, für den die Person keinen eigenen Vollzugang hat, keinen freien Kurscode → an Verwalter/Schule wenden |
 | 410 | `EXAM_EXPIRED` | Prüfung bzw. Ergebnis neu laden |
 | 410 | `EXPORT_EXPIRED` | neuen Export anfordern |
 | 410 | `GONE` | allgemein: nicht mehr verfügbar |
@@ -829,7 +845,7 @@ entscheidet aber nur anhand von `code`.
   Einladungen verfallen. `--valid-until` gilt bis Tagesende deutscher Zeit.
   Der Befehl legt nur an und verbraucht keine Codes; er nennt je Kurs die
   freien Kurscodes der Schule (Warnung, wenn weniger als Plätze) -- jeder
-  Beitritt verbraucht je Kurs einen.
+  Beitritt verbraucht je Kurs einen (außer bei eigenem Vollzugang).
   Dasselbe geht für Inhaber/Admins im Admin-Bereich (Tab „Lerngruppen“).
   Migrationen: `2024_02_01_000597_create_learning_group_tables`,
   `2024_02_01_000760_end_group_entitlements_as_expired` (stellt bisher

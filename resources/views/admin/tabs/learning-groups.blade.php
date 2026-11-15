@@ -7,7 +7,8 @@
         Eine Lerngruppe ist eine Gruppenlizenz mit fester Platzzahl für einen oder mehrere Kurse. Der Verwalter
         &ndash; ein aktiver Teilnehmer Ihrer Bootsschule &ndash; lädt in der App ein; wer beitritt, erhält die
         gewählten Kurse bzw. Funktionen bis zum Ende der Gruppe. Jeder Beitritt verbraucht je Kurs einen freien
-        Kurscode aus Ihrem <a href="{{ route('admin.dashboard', ['tab' => 'coupons']) }}" class="underline hover:no-underline">Codebestand</a>.
+        Kurscode aus Ihrem <a href="{{ route('admin.dashboard', ['tab' => 'coupons']) }}" class="underline hover:no-underline">Codebestand</a>;
+        Personen mit eigenem Kurszugang verbrauchen keinen Code.
     </p>
     <a href="{{ route('admin.learning-groups.create') }}" class="shrink-0 px-5 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">+ Neue Lerngruppe</a>
 </div>

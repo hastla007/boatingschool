@@ -530,6 +530,7 @@ class AdminLearningGroupTest extends TestCase
             ->assertSee('data-free-codes="SRC">Freie Kurscodes: 2', false)
             ->assertSee('data-free-codes="FKN">Freie Kurscodes: 0', false)
             ->assertSee('Mehr Plätze als freie Kurscodes')
+            ->assertSee('Personen mit eigenem Kurszugang verbrauchen keinen Code.')
             ->assertSee($codesTab, false);
 
         // 3 Plätze, aber nur 2 SRC- und keine FKN-Codes: Warnung (Platzzahl bleibt frei wählbar).
@@ -538,7 +539,8 @@ class AdminLearningGroupTest extends TestCase
         ]);
         $page = $this->actingAsInTenant($owner, $tenant)->get(route('admin.learning-groups.show', $group))->assertOk();
         $page->assertSeeInOrder(['data-free-codes="SRC"', '2 frei', 'data-free-codes="FKN"', '0 frei'], false)
-            ->assertSee('Achtung: Für')->assertSee('offene Plätze (3)')->assertSee($codesTab, false);
+            ->assertSee('Achtung: Für')->assertSee('offene Plätze (3)')->assertSee($codesTab, false)
+            ->assertSee('Personen mit eigenem Kurszugang verbrauchen keinen Code');
 
         // Genug Codes für alle offenen Plätze: keine Warnung mehr.
         $this->courseCodes($tenant, 'SRC', 1);

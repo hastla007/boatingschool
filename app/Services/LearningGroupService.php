@@ -39,8 +39,12 @@ use RuntimeException;
  *   revoked -- QA-L-2), eigene Zugänge bleiben.
  * - Abrechnung: jeder Beitritt verbraucht je Kurs der Gruppe einen freien
  *   Kurscode aus dem Codebestand der Schule (Coupon::scopeFreeCourseCodesOf),
- *   auch bei Teilzugang (capabilities). Ohne freien Code kein Beitritt
- *   (GROUP_NO_CODES). Entfernen und Gruppenende geben keinen Code zurück.
+ *   auch bei Teilzugang (capabilities). Ausnahme: Kurse, für die die Person
+ *   schon einen eigenen, gerade gültigen Vollzugang hat (ownFullAccess) --
+ *   dafür kein Code; Platz und Gruppenzugang gibt es trotzdem (der trägt
+ *   den Kurs weiter, falls der eigene Zugang vor der Gruppe endet). Ohne
+ *   freien Code für einen übrigen Kurs kein Beitritt (GROUP_NO_CODES).
+ *   Entfernen und Gruppenende geben keinen Code zurück.
  * - Antworten auf Einladungen verraten nie, ob es zu einer Adresse ein
  *   Konto gibt.
  */
@@ -359,7 +363,7 @@ class LearningGroupService
         $removed = ! $invite && ! $already && $this->wasRemoved($group, $user);
         $free = $this->freeSeats($group) + ($invite ? 1 : 0);
         // Nur ob es weitergeht, nicht wie viele Codes die Schule hat.
-        $codes = $already || $this->codesAvailable($group);
+        $codes = $already || $this->codesAvailable($group, $user);
 
         return [
             'name' => $group->name, 'owner_name' => $group->owner?->name, 'personal' => $invite !== null,
@@ -374,8 +378,8 @@ class LearningGroupService
      * Beitritt über Beitrittscode (g…) oder persönliche Einladung (i…).
      * Fehler als RuntimeException: GROUP_INVALID (einheitlich, kein
      * Ausprobieren), GROUP_SCOPE_UNSUPPORTED oder GROUP_NO_CODES (für einen
-     * Kurs hat die Schule keinen freien Kurscode; nichts wird verbraucht,
-     * eine Einladung bleibt offen).
+     * Kurs ohne eigenen Vollzugang hat die Schule keinen freien Kurscode;
+     * nichts wird verbraucht, eine Einladung bleibt offen).
      *
      * @return array{group:LearningGroup, member:LearningGroupMember, already:bool}
      */
@@ -408,7 +412,9 @@ class LearningGroupService
                     throw new RuntimeException('GROUP_INVALID');
                 }
             }
-            $coupons = $this->claimCourseCodes($tenant->id, $grants);
+            $ownAccess = $this->ownFullAccessCourseIds($tenant->id, $user, $grants);
+            $coupons = $this->claimCourseCodes($tenant->id, array_filter($grants,
+                fn (array $grant) => ! in_array($grant['course']->id, $ownAccess, true)));
 
             if ($invite) {
                 $invite->update(['user_id' => $user->id, 'status' => 'active', 'invite_token' => null, 'joined_at' => now()]);
@@ -434,6 +440,12 @@ class LearningGroupService
                 $coupon->update(['redeemed_by_user_id' => $user->id, 'redeemed_tenant_id' => $tenant->id, 'redeemed_at' => now()]);
                 AuditLog::record($tenant->id, $user->id, 'coupon.redeem_group', 'coupon', $coupon->id, null, [
                     'course_id' => $coupon->course_id, 'user_id' => $user->id, 'group_id' => $group->id, 'member_id' => $member->id,
+                ]);
+            }
+            // Kurse, für die der eigene Vollzugang den Code erspart hat.
+            if ($ownAccess !== []) {
+                AuditLog::record($tenant->id, $user->id, 'learning_group.join_own_access', 'learning_group', $group->id, null, [
+                    'user_id' => $user->id, 'member_id' => $member->id, 'course_ids_without_code' => $ownAccess,
                 ]);
             }
 
@@ -518,7 +530,9 @@ class LearningGroupService
 
     /**
      * Je Kurs der Gruppe: freie Kurscodes der Schule und wie viele die noch
-     * nicht beigetretenen Plätze bräuchten (Plätze − aktive Mitglieder).
+     * nicht beigetretenen Plätze höchstens bräuchten (Plätze − aktive
+     * Mitglieder). Momentaufnahme: Personen mit eigenem Vollzugang
+     * verbrauchen beim Beitritt keinen Code, das ist vorher nicht bekannt.
      * Die Codes teilen sich alle Gruppen und Einlösungen der Schule.
      *
      * @return list<array{course_id:?string, course_code:string, course_name:string, free:int, needed:int, sufficient:bool}>
@@ -613,15 +627,38 @@ class LearningGroupService
         return $claimed;
     }
 
-    /** Hat die Schule für jeden Kurs der Gruppe mindestens einen freien Kurscode? */
-    private function codesAvailable(LearningGroup $group): bool
+    /**
+     * Kurse (IDs) der Gruppe, für die die Person einen eigenen, gerade
+     * gültigen Vollzugang hat: kein Teilzugang, kein Gruppenzugang (auch
+     * nicht aus einer anderen Gruppe), nicht abgelaufen/gesperrt. Dafür
+     * verbraucht der Beitritt keinen Kurscode.
+     *
+     * @param  array<string, array{course:CourseDefinition, capabilities:?list<string>}>  $grants
+     * @return list<string>
+     */
+    private function ownFullAccessCourseIds(string $tenantId, User $user, array $grants): array
+    {
+        $ids = collect($grants)->map(fn (array $grant) => $grant['course']->id)->values();
+        if ($ids->isEmpty()) {
+            return [];
+        }
+        $own = Entitlement::where('tenant_id', $tenantId)->where('user_id', $user->id)->whereIn('course_id', $ids)
+            ->ownFullAccess()->currentlyActive()->distinct()->pluck('course_id');
+
+        return $ids->filter(fn (string $id) => $own->contains($id))->values()->all();
+    }
+
+    /** Gibt es für jeden Kurs der Gruppe, für den die Person keinen eigenen Vollzugang hat, einen freien Kurscode? */
+    private function codesAvailable(LearningGroup $group, User $user): bool
     {
         try {
             $grants = $this->courseGrants($group);
         } catch (RuntimeException) {
             return false;
         }
-        $free = $this->freeCourseCodes($group->tenant_id, collect($grants)->map(fn ($grant) => $grant['course']->id));
+        $ownAccess = $this->ownFullAccessCourseIds($group->tenant_id, $user, $grants);
+        $free = $this->freeCourseCodes($group->tenant_id, collect($grants)->map(fn ($grant) => $grant['course']->id)
+            ->reject(fn (string $id) => in_array($id, $ownAccess, true)));
 
         return collect($free)->every(fn (int $count) => $count > 0);
     }

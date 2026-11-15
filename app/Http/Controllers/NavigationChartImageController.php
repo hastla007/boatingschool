@@ -30,7 +30,7 @@ class NavigationChartImageController extends Controller
             'X-Content-Type-Options' => 'nosniff',
             'Content-Disposition' => 'inline',
             // Direkt aufgerufen (z. B. SVG) nichts ausführen.
-            'Content-Security-Policy' => "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+            'Content-Security-Policy' => ProtectedMedia::SANDBOX_CSP,
         ]);
     }
 }

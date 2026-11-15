@@ -11,6 +11,7 @@ use App\Services\AccountErasureService;
 use App\Services\PersonalDataExportService;
 use App\Support\NavigationChart;
 use App\Support\ProductionReadiness;
+use App\Support\ProtectedMedia;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Tests\Feature\Concerns\InteractsWithTenants;
@@ -175,7 +176,8 @@ class NavigationTaskTest extends TestCase
         preg_match('#src="([^"]*/media/navigation-charts/[^"]+)"#', $page->getContent(), $m);
         $this->assertNotEmpty($m, 'signierte Bildadresse auf der Seite');
         $signed = html_entity_decode($m[1]);
-        $this->get($signed)->assertOk();
+        $chart = $this->get($signed)->assertOk();
+        $this->assertSame(ProtectedMedia::SANDBOX_CSP, $chart->headers->get('Content-Security-Policy'));
         $this->get(strtok($signed, '?'))->assertForbidden();
         $this->travel(NavigationChart::URL_MINUTES + 1)->minutes();
         $this->get($signed)->assertForbidden();
