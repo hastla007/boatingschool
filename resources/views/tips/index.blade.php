@@ -21,7 +21,7 @@
                                         <h4 class="font-medium text-slate-800 dark:text-slate-200">{{ $tip->title }}</h4>
                                         <p class="text-sm text-slate-500 dark:text-slate-400 mt-1 whitespace-pre-line">{{ $tip->body }}</p>
                                         @if ($tip->pdfAsset)
-                                            <a href="{{ $tip->pdfAsset->storage_path }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 mt-3 text-sm text-blue-600 hover:underline">
+                                            <a href="{{ \App\Support\TipPdf::url($tip) }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 mt-3 text-sm text-blue-600 hover:underline">
                                                 <x-icon name="download" class="w-4 h-4" /> PDF herunterladen
                                             </a>
                                         @endif

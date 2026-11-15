@@ -11,6 +11,7 @@ use App\Models\VideoLessonStep;
 use App\Models\VideoModule;
 use App\Models\VideoProgress;
 use App\Support\TenantContext;
+use App\Support\VideoStepImage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -145,7 +146,8 @@ class VideoController extends Controller
                 'order' => $i + 1,
                 'title' => $s->title,
                 'description' => null,
-                'media' => [$s->image_path ? Present::image(Present::publicFile($s->image_path), $s->title) : Present::placeholder('Bild folgt')],
+                // Signierte, kurzlebige Adresse (VideoStepImage); nie zwischenspeichern.
+                'media' => [$s->image_path ? Present::image(VideoStepImage::url($s), $s->title) : Present::placeholder('Bild folgt')],
             ]);
         }
 

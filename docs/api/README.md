@@ -112,6 +112,15 @@ Design-Übersicht. Grundlage war jeweils der tatsächliche Stand der Plattform.
     `GET /navigation-tasks/{id}` und im Navigationsteil der Prüfung) gelten
     genauso: signiert, an Person und Schule gebunden, Zugang beim Abruf
     erneut geprüft (404 ohne Kurszugang), 90 Minuten gültig.
+  * Bilder der Videoschritte (`steps[].media[].url` in `GET /videos/{id}`)
+    gelten genauso: signiert, 120 Minuten gültig, Zugang beim Abruf erneut
+    geprüft (Funktion `video` des Kurses, bei Probezugang nur die
+    freigegebenen Lektionen; sonst 404). Das Feld `url` bleibt wie bisher.
+  * PDF-Anhänge der Tipps (`pdf.url` in `GET /tips`) ebenso: signiert,
+    120 Minuten gültig, für alle aktiven Mitglieder einer laufenden Schule
+    (kein Kurszugang nötig). Die Datei kommt inline als `application/pdf`
+    mit dem Tipp-Titel als Dateinamen. Nach 403 (abgelaufen) `GET /tips`
+    neu laden.
 * **Request-ID:** Jede Antwort hat `X-Request-Id`, Fehler zusätzlich
   `request_id`. Für Support-Anfragen mitschicken; die ID steht auch im
   Server-Log und im Fehlertracking.
@@ -567,7 +576,10 @@ GET  /exams/{id}/result                 → Ergebnis mit Lösungen
 * `GET /tips` liefert die aktiven Tipps und Tricks nach Kategorie (dieselben
   wie im Web, plattformweit). Schulkontext nötig, aber kein Kurszugang.
   Je Tipp: bereinigtes `html` (relative Links absolut, Bilder nur über
-  http(s)), reiner `text` und die externen `links`.
+  http(s)), reiner `text`, die externen `links` und `pdf` (Anhang mit
+  signierter, kurzlebiger `url`, sonst `null`; siehe „Medien-URLs sind
+  kurzlebig“). Alte `/storage/…`-Links auf den Anhang im Text werden auf
+  die signierte Adresse umgestellt.
 * `GET /courses/{id}/faqs` liefert die veröffentlichten Kunden-FAQs eines
   Kurses nach Kategorie mit Unterkategorien (flache Liste mit `depth` und
   `parent_id`). Kurszugang nötig. Kombikurse (z. B. `SRC-UBI`,

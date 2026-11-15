@@ -9,7 +9,6 @@ use App\Models\TenantUser;
 use App\Models\User;
 use App\Support\CanonicalUrl;
 use Carbon\CarbonInterface;
-use Illuminate\Support\Facades\Storage;
 
 /** Gemeinsame Ausgabeformate der Mobile-API. */
 class Present
@@ -88,12 +87,6 @@ class Present
                 ],
             ];
         })->filter()->values()->all();
-    }
-
-    /** URL einer Datei auf der öffentlichen Disk (z. B. Seekarten-Ausschnitte). */
-    public static function publicFile(?string $path): ?string
-    {
-        return $path ? self::url(Storage::disk('public')->url($path)) : null;
     }
 
     /** Bild zu einer Frage/Aufgabe. */

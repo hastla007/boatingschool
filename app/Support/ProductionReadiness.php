@@ -196,6 +196,9 @@ class ProductionReadiness
             // Lizenzierte/amtliche Fragenbilder sonst ohne Anmeldung unter /storage/... abrufbar.
             $exposed = QuestionMedia::protectedFilesOnPublicDisk();
             $add('Inhalte', 'Geschützte Fragenbilder nicht öffentlich abrufbar', $exposed->isEmpty() ? 'ok' : 'warn', $exposed->isEmpty() ? '' : "{$exposed->count()} Datei(en) noch auf der public-Disk, z. B. {$exposed->first()} (unter gleichem Pfad nach storage/app/private verschieben)");
+            // Tipp-PDFs (lizenziert) und Bilder der Videoschritte (Kursinhalt) ebenso.
+            $more = TipPdf::filesOnPublicDisk()->merge(VideoStepImage::filesOnPublicDisk())->unique()->values();
+            $add('Inhalte', 'Tipp-PDFs und Videoschritt-Bilder nicht öffentlich abrufbar', $more->isEmpty() ? 'ok' : 'warn', $more->isEmpty() ? '' : "{$more->count()} Datei(en) noch auf der public-Disk, z. B. {$more->first()} (unter gleichem Pfad nach storage/app/private verschieben, siehe Migration 000820)");
             // Kartenausschnitte (Lizenz nur für Kursteilnehmer) ebenso.
             $charts = NavigationChart::filesOnPublicDisk();
             $add('Inhalte', 'Kartenausschnitte nicht öffentlich abrufbar', $charts === [] ? 'ok' : 'warn', $charts === [] ? '' : count($charts).' Datei(en) noch unter storage/app/public/'.NavigationChart::DIRECTORY.' (nach storage/app/private/'.NavigationChart::DIRECTORY.' verschieben)');

@@ -2036,7 +2036,7 @@ paths:
       tags: [Tips]
       operationId: listTips
       summary: Aktive Tipps und Tricks nach Kategorie
-      description: Plattformweite Tipps (wie in der Web-App), gruppiert nach Kategorie; leere Kategorien entfallen. Kein Kurszugang nötig, aber Schulkontext (`X-Tenant-Slug`). HTML wird serverseitig bereinigt, relative Links werden absolut, Bilder nur mit http(s)-Quelle.
+      description: Plattformweite Tipps (wie in der Web-App), gruppiert nach Kategorie; leere Kategorien entfallen. Kein Kurszugang nötig, aber Schulkontext (`X-Tenant-Slug`). HTML wird serverseitig bereinigt, relative Links werden absolut, Bilder nur mit http(s)-Quelle. Ein PDF-Anhang kommt in `pdf.url` als signierte, kurzlebige Adresse.
       parameters:
         - {$ref: '#/components/parameters/TenantSlug'}
       responses:
@@ -2352,7 +2352,7 @@ components:
         kind: {type: string, enum: [image, video, placeholder]}
         available: {type: boolean}
         label: {type: string}
-        url: {type: [string, 'null'], format: uri, description: 'Bei Platzhaltern immer null. Geschützte Fragenbilder: signierte, kurzlebige Adresse (120 Minuten, Kartenausschnitte 90 Minuten, ohne Token abrufbar), nicht dauerhaft speichern.'}
+        url: {type: [string, 'null'], format: uri, description: 'Bei Platzhaltern immer null. Geschützte Fragenbilder und Bilder der Videoschritte: signierte, kurzlebige Adresse (120 Minuten, Kartenausschnitte 90 Minuten, ohne Token abrufbar), nicht dauerhaft speichern.'}
         file_id: {type: [string, 'null'], format: uuid, description: 'Nur bei Fragenbildern mit freigegebenen Rechten'}
         download_url: {type: [string, 'null'], format: uri, description: 'Geprüfter Download über GET /files/{fileId} (mit Token und X-Tenant-Slug), z. B. zum Offline-Speichern'}
         mime_type: {type: [string, 'null']}
@@ -2969,6 +2969,14 @@ components:
         html: {type: string, description: 'Bereinigtes HTML; relative Links absolut'}
         text: {type: string, description: 'Reiner Text mit Absatz- und Listenumbrüchen'}
         links: {type: array, items: {$ref: '#/components/schemas/ContentLink'}}
+        pdf:
+          type: [object, 'null']
+          description: PDF-Anhang des Tipps (null ohne Anhang)
+          required: [label, url, mime_type]
+          properties:
+            label: {type: string}
+            url: {type: string, format: uri, description: 'Signierte, kurzlebige Adresse (120 Minuten, an Person und Schule gebunden, ohne Token abrufbar), nicht dauerhaft speichern.'}
+            mime_type: {type: string, enum: [application/pdf]}
     TipGroup:
       type: object
       required: [id, slug, name, tips]
