@@ -78,7 +78,11 @@ Sicherung (`php artisan app:backup`); schlägt sie fehl, bricht der Deploy ab.
 `app:backup` läuft täglich um 03:15 (Europe/Berlin) und legt unter `storage/app/backups/<Zeitstempel>/` ab:
 
 - `database.dump`: kompletter Datenbank-Dump (pg_dump, Custom-Format, inkl. Rechte und RLS-Policies)
-- `uploads.zip`: alle Uploads (Logos, Bilder, Kartenausschnitte, PDFs)
+- `uploads.zip`: öffentliche Uploads (Logos, Favicons, Tipp-PDFs, öffentliche Bilder; `storage/app/public`)
+- `protected-media.zip`: geschützte Fragen- und Praxistrainer-Bilder und Kartenausschnitte
+  (`storage/app/private/question-media` und `…/navigation-charts`). Sie werden nur über
+  signierte Adressen ausgeliefert und gehören ausdrücklich in die Sicherung. Andere
+  Dateien der privaten Disk (z. B. kurzlebige Datenexporte) bleiben draußen.
 - `manifest.json`: Zeitpunkt, Größen, SHA-256-Prüfsummen
 
 Mit `BACKUP_DISK=s3` (S3-kompatibler Speicher, z. B. Hetzner Object Storage) geht jede Sicherung
@@ -105,6 +109,7 @@ sudo -u postgres psql -c "DROP DATABASE boatingschool" -c "CREATE DATABASE boati
 PGPASSWORD=… pg_restore -h 127.0.0.1 -U boatingschool -d boatingschool --exit-on-error storage/app/backups/<Zeitstempel>/database.dump
 # Uploads
 unzip -o storage/app/backups/<Zeitstempel>/uploads.zip -d storage/app/public
+unzip -o storage/app/backups/<Zeitstempel>/protected-media.zip -d storage/app/private   # falls vorhanden
 php artisan optimize:clear && php artisan optimize && php artisan up
 ```
 

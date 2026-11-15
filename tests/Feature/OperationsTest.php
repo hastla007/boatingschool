@@ -51,6 +51,11 @@ class OperationsTest extends TestCase
     {
         Storage::fake('public');
         Storage::disk('public')->put('logos/schule.png', 'png');
+        // Geschützte Medien der privaten Disk gehören dazu, Exporte nicht.
+        Storage::fake('local');
+        Storage::disk('local')->put('question-media/elwis/bild.png', 'png');
+        Storage::disk('local')->put('navigation-charts/karte.png', 'png');
+        Storage::disk('local')->put('exports/person.json', '{}');
         Storage::fake('backup-extern');
         config(['backup.disk' => 'backup-extern', 'backup.keep_days' => 14]);
         File::ensureDirectoryExists($this->backupPath.'/2020-01-01_030000');
@@ -73,6 +78,12 @@ class OperationsTest extends TestCase
         $manifest = json_decode(File::get($dir.'/manifest.json'), true);
         $this->assertSame(hash_file('sha256', $dir.'/database.dump'), $manifest['files']['database.dump']['sha256']);
         Storage::disk('backup-extern')->assertExists('backups/'.basename($dir).'/uploads.zip');
+        Storage::disk('backup-extern')->assertExists('backups/'.basename($dir).'/protected-media.zip');
+        $zip = new \ZipArchive;
+        $this->assertTrue($zip->open($dir.'/protected-media.zip'));
+        $entries = collect(range(0, $zip->numFiles - 1))->map(fn ($i) => $zip->getNameIndex($i))->sort()->values()->all();
+        $zip->close();
+        $this->assertSame(['navigation-charts/karte.png', 'question-media/elwis/bild.png'], $entries);
         $this->assertNotNull(BackupApplication::latestBackupAt());
     }
 

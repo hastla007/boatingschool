@@ -83,7 +83,7 @@
                      (imageBelongsToSolution() liefert hier immer false),
                      der Alt-Text verriet sie also schon vor dem Klick auf
                      "Musterlösung anzeigen". --}}
-                <img src="{{ $task->media->storage_path }}" alt="{{ $task->media->alt_text ?: 'Abbildung zur Aufgabe' }}" class="rounded-xl mb-4 max-h-80 mx-auto">
+                <img src="{{ \App\Support\QuestionMedia::url($task->media) }}" alt="{{ $task->media->alt_text ?: 'Abbildung zur Aufgabe' }}" class="rounded-xl mb-4 max-h-80 mx-auto">
             @endif
 
             <div x-show="!revealed">
@@ -94,7 +94,7 @@
 
             <div x-show="revealed" x-transition class="space-y-3">
                 @if ($task->media && $task->imageBelongsToSolution())
-                    <img src="{{ $task->media->storage_path }}" alt="{{ $task->media->alt_text ?? $task->unterkategorie }}" class="rounded-xl mb-1 max-h-80 mx-auto">
+                    <img src="{{ \App\Support\QuestionMedia::url($task->media) }}" alt="{{ $task->media->alt_text ?? $task->unterkategorie }}" class="rounded-xl mb-1 max-h-80 mx-auto">
                 @endif
                 <div class="rounded-xl p-4 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-200">
                     <div class="text-xs font-semibold uppercase tracking-wide mb-1">Musterlösung</div>

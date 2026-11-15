@@ -2,6 +2,7 @@
 
 use App\Api\ProblemResponse;
 use App\Http\Controllers\NavigationChartImageController;
+use App\Http\Controllers\QuestionMediaController;
 use App\Http\Controllers\TlsCheckController;
 use App\Http\Middleware\Api\ApiIdempotency;
 use App\Http\Middleware\Api\AuthenticateMobileApi;
@@ -53,6 +54,10 @@ return Application::configure(basePath: dirname(__DIR__))
             // kurzlebige Adressen (ohne Session/Mandant, auch für die App).
             Route::get('/media/navigation-charts/{file}', NavigationChartImageController::class)
                 ->where('file', '[A-Za-z0-9][A-Za-z0-9._-]*')->middleware(['signed', 'throttle:120,1,navigation-chart'])->name('navigation-chart.image');
+            // Geschützte Fragen- und Praxistrainer-Bilder (QuestionMedia): signiert,
+            // an Person und Schule gebunden, Zugang wird beim Abruf erneut geprüft.
+            Route::get('/media/question-media/{asset}', QuestionMediaController::class)
+                ->whereUuid('asset')->middleware(['signed', 'throttle:600,1,question-media'])->name('question-media.file');
             // Commerce-API v1 für den B2B-WooCommerce-Shop (docs/commerce/README.md):
             // signiert, Owner-Verbindung, eigene Begrenzung.
             Route::middleware(['api', 'commerce.signed', 'admin-db', 'throttle:300,1,commerce'])

@@ -8,6 +8,7 @@ use App\Api\Present;
 use App\Http\Controllers\Controller;
 use App\Models\PraxisProgress;
 use App\Models\PraxisTask;
+use App\Support\QuestionMedia;
 use App\Support\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -106,6 +107,7 @@ class PraxisController extends Controller
         // Alt-Text einer Frage-Abbildung darf die Lösung (Unterkategorie) nicht verraten.
         $alt = $asset->alt_text ?: ($solution ? $task->unterkategorie : 'Abbildung zur Aufgabe');
 
-        return [Present::image($asset->storage_path, $alt, $asset->mime_type) + ['role' => $solution ? 'solution' : 'question']];
+        // Geschützte Bilder nur über die signierte Adresse (wie im Web, siehe QuestionMedia).
+        return [Present::image(QuestionMedia::url($asset), $alt, $asset->mime_type) + ['role' => $solution ? 'solution' : 'question']];
     }
 }

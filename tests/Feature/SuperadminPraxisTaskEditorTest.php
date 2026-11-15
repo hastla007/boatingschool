@@ -48,6 +48,7 @@ class SuperadminPraxisTaskEditorTest extends TestCase
     public function test_superadmin_edits_and_creates_cards_with_images(): void
     {
         Storage::fake('public');
+        Storage::fake('local');
         $superadmin = $this->createSuperAdmin();
         [$course, $task] = $this->makeCourseWithCard();
 
@@ -62,14 +63,21 @@ class SuperadminPraxisTaskEditorTest extends TestCase
         $this->assertSame('Palstek: wie stecken?', $task->frage);
         $this->assertSame('Palstek', $task->media->alt_text);
         $firstPath = $task->media->getRawOriginal('storage_path');
-        Storage::disk('public')->assertExists($firstPath);
+        // Rechte „licensed“: privat, nicht unter /storage/... abrufbar.
+        Storage::disk('local')->assertExists($firstPath);
+        Storage::disk('public')->assertMissing($firstPath);
+        // Vorschau im Editor über die signierte Adresse.
+        $editor = $this->actingAs($superadmin)->get("/superadmin/praxis-tasks/{$task->id}/edit")->assertOk()->getContent();
+        $this->assertMatchesRegularExpression('#src="[^"]*/media/question-media/'.$task->media_asset_id.'\?[^"]*signature=#', $editor);
+        preg_match('#src="([^"]*/media/question-media/[^"]+)"#', $editor, $m);
+        $this->get(html_entity_decode($m[1]))->assertOk();
 
         // Bild ersetzen: das alte, selbst hochgeladene wird gelöscht.
         $this->actingAs($superadmin)->patch("/superadmin/praxis-tasks/{$task->id}", [
             'kategorie' => 'Seemannsknoten', 'frage' => 'Palstek: wie stecken?', 'antwort' => 'Neue Antwort',
             'image' => UploadedFile::fake()->image('palstek2.png', 400, 300),
         ]);
-        Storage::disk('public')->assertMissing($firstPath);
+        Storage::disk('local')->assertMissing($firstPath);
         $this->actingAs($superadmin)->patch("/superadmin/praxis-tasks/{$task->id}", [
             'kategorie' => 'Seemannsknoten', 'frage' => 'Palstek: wie stecken?', 'antwort' => 'Neue Antwort', 'remove_image' => '1',
         ]);
