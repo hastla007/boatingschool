@@ -77,6 +77,14 @@ jobs:
           npm ci
           npm run build
 
+      # Bekannte Sicherheitslücken in den Abhängigkeiten (Betriebsaudit
+      # OPS-7): PHP-Pakete laut composer.lock, JS nur die Pakete, die im
+      # Browser landen (Dev-Werkzeuge wie Vite prüft Dependabot).
+      - name: Audit dependencies
+        run: |
+          composer audit --locked
+          npm audit --omit=dev --audit-level=high
+
       # Gerätelogik und Lektionen der Gerätesimulation (node --test, ohne
       # Browser); die Lektionen liest der Test per PHP aus database/data.
       - name: JavaScript tests

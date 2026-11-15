@@ -25,3 +25,6 @@ yarn-error.log
 
 # Temporäre Testseiten (Browser-Checks) nicht einchecken
 /public/*.html
+
+# Vorbereitungsordner und Sperre von deploy/deploy.sh
+/.deploy

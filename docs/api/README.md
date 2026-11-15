@@ -108,6 +108,10 @@ Design-Übersicht. Grundlage war jeweils der tatsächliche Stand der Plattform.
     laden; die Antwort enthält dann frische URLs. Das gilt auch für eine
     per Idempotency-Key wiederholte Antwort.
   * Öffentliche Medien behalten ihre bisherige, dauerhafte URL.
+  * Kartenausschnitte der Navigationsaufgaben (`chart.url` in
+    `GET /navigation-tasks/{id}` und im Navigationsteil der Prüfung) gelten
+    genauso: signiert, an Person und Schule gebunden, Zugang beim Abruf
+    erneut geprüft (404 ohne Kurszugang), 90 Minuten gültig.
 * **Request-ID:** Jede Antwort hat `X-Request-Id`, Fehler zusätzlich
   `request_id`. Für Support-Anfragen mitschicken; die ID steht auch im
   Server-Log und im Fehlertracking.

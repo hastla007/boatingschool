@@ -37,6 +37,10 @@ class TlsCheckController extends Controller
         if ($domain === $central || $domain === 'www.'.$central) {
             return true;
         }
+        // Eigener Superadmin-Host (SUPERADMIN_HOST).
+        if ($domain === config('app.superadmin_host')) {
+            return true;
+        }
 
         // Eigene Domains und Schul-Subdomains: Owner-Verbindung (kein Mandanten-Kontext, RLS).
         $db = DB::connection('pgsql_admin');

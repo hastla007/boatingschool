@@ -2349,7 +2349,7 @@ components:
         kind: {type: string, enum: [image, video, placeholder]}
         available: {type: boolean}
         label: {type: string}
-        url: {type: [string, 'null'], format: uri, description: 'Bei Platzhaltern immer null. Geschützte Fragenbilder: signierte, kurzlebige Adresse (120 Minuten, ohne Token abrufbar), nicht dauerhaft speichern.'}
+        url: {type: [string, 'null'], format: uri, description: 'Bei Platzhaltern immer null. Geschützte Fragenbilder: signierte, kurzlebige Adresse (120 Minuten, Kartenausschnitte 90 Minuten, ohne Token abrufbar), nicht dauerhaft speichern.'}
         file_id: {type: [string, 'null'], format: uuid, description: 'Nur bei Fragenbildern mit freigegebenen Rechten'}
         download_url: {type: [string, 'null'], format: uri, description: 'Geprüfter Download über GET /files/{fileId} (mit Token und X-Tenant-Slug), z. B. zum Offline-Speichern'}
         mime_type: {type: [string, 'null']}

@@ -1,4 +1,8 @@
 # Laravel-Scheduler: jede Minute (Fristen, Erinnerungen, DSGVO-Bereinigung,
-# tägliche Datensicherung um 03:15, Lebenszeichen für den Go-live-Check).
+# tägliche Datensicherung um 03:15, Lebenszeichen für den Go-live-Check und
+# den externen Totmann-Schalter OPS_HEARTBEAT_URL).
 # Einrichten mit `crontab -e` als Deploy-Benutzer; Pfad anpassen.
-* * * * * cd /var/www/boatingschool && php artisan schedule:run >> /dev/null 2>&1
+# Ausgabe ins Log statt nach /dev/null: Fehler beim Start des Schedulers
+# (PHP fehlt, .env kaputt, Rechte) sind sonst unsichtbar. Die Datei wird mit
+# den übrigen Logs rotiert (logrotate, siehe deploy/README.md §5).
+* * * * * cd /var/www/boatingschool && php artisan schedule:run >> storage/logs/scheduler.log 2>&1

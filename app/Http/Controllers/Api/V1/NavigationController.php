@@ -56,7 +56,7 @@ class NavigationController extends Controller
         return response()->json(['data' => $this->summary($task, $progress, false) + [
             'scenario' => $task->scenario_text,
             'hint' => $task->hint,
-            'chart' => $task->chart_image_path ? Present::image(NavigationChart::url($task->chart_image_path), $task->chart_caption ?: 'Kartenausschnitt') : null,
+            'chart' => $task->chart_image_path ? Present::image(NavigationChart::url($task->chart_image_path, $request->user(), $this->tenantContext->tenant()), $task->chart_caption ?: 'Kartenausschnitt') : null,
             'parts' => $task->questions->map(fn (NavigationQuestion $q) => [
                 'id' => $q->id,
                 'number' => (int) $q->question_number,
