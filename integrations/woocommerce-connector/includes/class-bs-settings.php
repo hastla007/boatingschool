@@ -6,12 +6,30 @@
  * Die Geheimnisse können statt in der Datenbank auch in wp-config.php
  * stehen (empfohlen): BS_CONNECTOR_APP_URL, BS_CONNECTOR_KEY_ID,
  * BS_CONNECTOR_SECRET, BS_CONNECTOR_INBOUND_KEY_ID, BS_CONNECTOR_INBOUND_SECRET.
+ * Solche Felder sind im Formular gesperrt.
+ *
+ * Nur für Administratoren (manage_options): WooCommerce zeigt seine
+ * Einstellungen schon Shop-Managern (manage_woocommerce) -- die dürften sonst
+ * die Plattform-Adresse umbiegen und Lieferaufträge samt Geheimnis an einen
+ * fremden Server schicken.
  */
 defined('ABSPATH') || exit;
 
 final class BS_Settings
 {
     const OPTION = 'bs_connector_settings';
+
+    /** Berechtigung für Tab, Anzeige und Speichern. */
+    const CAPABILITY = 'manage_options';
+
+    /** Felder, die eine wp-config.php-Konstante festlegen kann. */
+    const CONSTANTS = [
+        'app_url' => 'BS_CONNECTOR_APP_URL',
+        'key_id' => 'BS_CONNECTOR_KEY_ID',
+        'secret' => 'BS_CONNECTOR_SECRET',
+        'inbound_key_id' => 'BS_CONNECTOR_INBOUND_KEY_ID',
+        'inbound_secret' => 'BS_CONNECTOR_INBOUND_SECRET',
+    ];
 
     /** @return array{app_url: string, key_id: string, secret: string, inbound_key_id: string, inbound_secret: string, alert_email: string, vat_meta_key: string, blocked_gateways: string} */
     public static function get(): array
@@ -58,9 +76,22 @@ final class BS_Settings
         add_action('woocommerce_update_options_bs_connector', [__CLASS__, 'save']);
     }
 
+    public static function can_manage(): bool
+    {
+        return current_user_can(self::CAPABILITY);
+    }
+
+    /** In wp-config.php festgelegt: im Formular gesperrt, beim Speichern ignoriert. */
+    public static function is_locked(string $key): bool
+    {
+        return isset(self::CONSTANTS[$key]) && defined(self::CONSTANTS[$key]);
+    }
+
     public static function add_tab(array $tabs): array
     {
-        $tabs['bs_connector'] = __('Bootsschule', 'bs-connector');
+        if (self::can_manage()) {
+            $tabs['bs_connector'] = __('Bootsschule', 'bs-connector');
+        }
 
         return $tabs;
     }
@@ -81,9 +112,52 @@ final class BS_Settings
         ];
     }
 
+    /**
+     * Felder ohne die per Konstante festgelegten: diese stehen nur als Hinweis
+     * im Formular (ohne Eingabefeld, Geheimnisse ohne Wert) und werden nie
+     * gespeichert.
+     */
+    private static function editable_fields(): array
+    {
+        $fields = [];
+        foreach (self::fields() as $field) {
+            $key = preg_match('/\[(\w+)\]$/', (string) ($field['id'] ?? ''), $m) ? $m[1] : null;
+            if ($key !== null && self::is_locked($key)) {
+                continue;
+            }
+            $fields[] = $field;
+        }
+
+        return $fields;
+    }
+
+    /** Hinweis auf Werte aus wp-config.php (ohne Geheimnisse anzuzeigen). */
+    private static function locked_notice(): array
+    {
+        $locked = array_values(array_filter(array_keys(self::CONSTANTS), [__CLASS__, 'is_locked']));
+        if ($locked === []) {
+            return [];
+        }
+        $names = array_map(static fn (string $key): string => self::CONSTANTS[$key], $locked);
+
+        return [[
+            'title' => __('In wp-config.php festgelegt', 'bs-connector'),
+            'type' => 'title',
+            'id' => 'bs_connector_locked',
+            'desc' => sprintf(
+                /* translators: %s: Namen der Konstanten */
+                __('Diese Werte sind hier nicht änderbar: %s', 'bs-connector'),
+                implode(', ', $names)
+            ),
+        ], ['type' => 'sectionend', 'id' => 'bs_connector_locked']];
+    }
+
     public static function render(): void
     {
-        woocommerce_admin_fields(self::fields());
+        if (! self::can_manage()) {
+            return;
+        }
+        woocommerce_admin_fields(array_merge(self::locked_notice(), self::editable_fields()));
     }
 
     /** Gespeicherte Geheimnisse nie zurück ins Formular schreiben. */
@@ -96,15 +170,26 @@ final class BS_Settings
 
     public static function save(): void
     {
-        // Leeres Geheimnis-Feld = unverändert lassen.
+        if (! self::can_manage()) {
+            return;
+        }
         $stored = (array) get_option(self::OPTION, []);
+        // Per Konstante festgelegt: nie aus dem Formular übernehmen (der
+        // gespeicherte Wert bleibt, wie er war).
+        foreach (array_keys(self::CONSTANTS) as $key) {
+            // phpcs:ignore WordPress.Security.NonceVerification.Missing -- WooCommerce prüft die Nonce der Einstellungsseite.
+            if (self::is_locked($key) && isset($_POST[self::OPTION]) && is_array($_POST[self::OPTION])) {
+                unset($_POST[self::OPTION][$key]);
+            }
+        }
+        // Leeres Geheimnis-Feld = unverändert lassen.
         foreach (['secret', 'inbound_secret'] as $key) {
             // phpcs:ignore WordPress.Security.NonceVerification.Missing -- WooCommerce prüft die Nonce der Einstellungsseite.
             if (isset($_POST[self::OPTION]) && is_array($_POST[self::OPTION]) && ($_POST[self::OPTION][$key] ?? '') === '' && ! empty($stored[$key])) {
                 $_POST[self::OPTION][$key] = wp_slash($stored[$key]); // WooCommerce entfernt die Maskierung beim Speichern.
             }
         }
-        woocommerce_update_options(self::fields());
+        woocommerce_update_options(self::editable_fields());
         delete_transient('bs_connector_catalog');
     }
 }
