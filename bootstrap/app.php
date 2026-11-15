@@ -1,6 +1,7 @@
 <?php
 
 use App\Api\ProblemResponse;
+use App\Http\Controllers\AppLinkAssociationController;
 use App\Http\Controllers\NavigationChartImageController;
 use App\Http\Controllers\ProtectedMediaController;
 use App\Http\Controllers\QuestionMediaController;
@@ -51,6 +52,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // Mandant), siehe TlsCheckController.
         then: function () {
             Route::get('/tls-check', TlsCheckController::class)->name('tls-check');
+            // Universal Links/App Links der Lernenden-App (ohne Sitzung, nur mit Konfiguration).
+            Route::get('/.well-known/apple-app-site-association', [AppLinkAssociationController::class, 'apple'])->name('app-links.apple');
+            Route::get('/.well-known/assetlinks.json', [AppLinkAssociationController::class, 'android'])->name('app-links.android');
             // Kartenausschnitte der Navigationsaufgaben: nur über signierte,
             // kurzlebige Adressen (ohne Session/Mandant, auch für die App).
             Route::get('/media/navigation-charts/{file}', NavigationChartImageController::class)

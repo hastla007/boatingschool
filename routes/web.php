@@ -21,6 +21,7 @@ use App\Http\Controllers\Admin\TeamController;
 use App\Http\Controllers\Admin\TenantCourseLocationController;
 use App\Http\Controllers\Admin\WillkommensboxLabelController;
 use App\Http\Controllers\Admin\WillkommensboxOrderController;
+use App\Http\Controllers\AppAccountDeletionController;
 use App\Http\Controllers\CouponRedeemController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\DashboardController;
@@ -45,6 +46,7 @@ use App\Http\Controllers\TipController;
 use App\Http\Controllers\VideoCourseController;
 use App\Http\Controllers\VideoQuizController;
 use App\Http\Controllers\WillkommensboxController;
+use App\Services\AppAccountDeletion;
 use App\Support\TenantContext;
 use Illuminate\Support\Facades\Route;
 
@@ -77,6 +79,12 @@ Route::get('/{kind}', [LegalPageController::class, 'show'])->whereIn('kind', ['i
 // „Als Nutzer ansehen“ (Support): Einmal-Link des Superadmins einlösen bzw. beenden.
 Route::get('/impersonate/{token}', [ImpersonationController::class, 'consume'])->where('token', '[A-Za-z0-9]{48}')->middleware('throttle:20,1')->name('impersonate.consume');
 Route::post('/impersonate/stop', [ImpersonationController::class, 'stop'])->middleware('auth')->name('impersonate.stop');
+
+// Bestätigungslink der Kontolöschung aus der App, wenn die App ihn nicht als
+// Universal-/App-Link öffnet (nur zentrale Domain, siehe ResolveTenant).
+// GET zeigt nur an, erst das Formular löscht.
+Route::get(AppAccountDeletion::confirmationPath(), [AppAccountDeletionController::class, 'show'])->middleware('throttle:20,60,app-deletion-web')->name('app-account-deletion.show');
+Route::post(AppAccountDeletion::confirmationPath(), [AppAccountDeletionController::class, 'confirm'])->middleware('throttle:20,60,app-deletion-web')->name('app-account-deletion.confirm');
 
 // Datenrechte (Art. 15/17/20 DSGVO): Export und Kontolöschung auch mit
 // gesperrter Mitgliedschaft, gesperrter Schule oder unbestätigter E-Mail
