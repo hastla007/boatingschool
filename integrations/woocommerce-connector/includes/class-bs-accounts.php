@@ -12,6 +12,18 @@ final class BS_Accounts
 
     const STATUS_CACHE = 'bs_connector_status_';
 
+    /** Sperre für frische Abfragen je Kunde (siehe status()). */
+    const STATUS_FRESH_LOCK = 'bs_connector_status_fresh_';
+
+    /** Gültigkeit eines positiven Status (Sekunden). */
+    const STATUS_TTL = 300;
+
+    /** Gültigkeit eines Fehlschlags (404/429/5xx/Netzfehler), Sekunden. */
+    const STATUS_NEGATIVE_TTL = 60;
+
+    /** Höchstens eine frische Abfrage je Kunde in diesem Abstand (Sekunden). */
+    const STATUS_FRESH_INTERVAL = 10;
+
     public static function init(): void
     {
         add_action('woocommerce_register_form', [__CLASS__, 'registration_fields']);
@@ -149,7 +161,7 @@ final class BS_Accounts
             if ($action === 'register') {
                 update_user_meta($customer_id, '_bs_registered', 1);
             }
-            delete_transient(self::STATUS_CACHE.$customer_id);
+            self::forget_status($customer_id);
 
             return;
         }
@@ -168,7 +180,14 @@ final class BS_Accounts
     // ---------------------------------------------------------------- Status / Verknüpfung
 
     /**
-     * Status in der App (5 Minuten zwischengespeichert).
+     * Status in der App, zwischengespeichert: Erfolg 5 Minuten, Fehlschlag
+     * (404, 429, 5xx, Netzfehler) 60 Sekunden -- sonst könnte ein Kunde mit
+     * jedem Seitenaufruf eine Anfrage an die App auslösen und deren
+     * Begrenzung für den ganzen Shop aufbrauchen.
+     *
+     * $fresh (Kasse): lädt am Cache vorbei, aber höchstens einmal je
+     * STATUS_FRESH_INTERVAL Sekunden und Kunde; innerhalb dieser Zeit gilt
+     * das gerade geladene Ergebnis (es ist höchstens so alt).
      *
      * deliverable_course_codes: Kurse, die die verknüpfte Schule derzeit erhalten
      * kann; null, wenn die App die Angabe (noch) nicht liefert.
@@ -177,14 +196,20 @@ final class BS_Accounts
      */
     public static function status(int $customer_id, bool $fresh = false): ?array
     {
-        if (! $fresh) {
-            $cached = get_transient(self::STATUS_CACHE.$customer_id);
-            if (is_array($cached)) {
-                return $cached;
-            }
+        $cached = get_transient(self::STATUS_CACHE.$customer_id);
+        $throttled = $fresh && get_transient(self::STATUS_FRESH_LOCK.$customer_id);
+        if (is_array($cached) && (! $fresh || $throttled)) {
+            return empty($cached['unavailable']) ? $cached : null;
         }
+        if ($fresh) {
+            set_transient(self::STATUS_FRESH_LOCK.$customer_id, 1, self::STATUS_FRESH_INTERVAL);
+        }
+
         $response = BS_Api_Client::request('GET', '/accounts/'.$customer_id);
         if ($response['status'] !== 200) {
+            // Fehlschlag kurz merken (Antwort bleibt null = Einkauf gesperrt).
+            set_transient(self::STATUS_CACHE.$customer_id, ['unavailable' => true, 'http_status' => $response['status']], self::STATUS_NEGATIVE_TTL);
+
             return null;
         }
         $status = [
@@ -195,9 +220,16 @@ final class BS_Accounts
                 ? array_values(array_map('strval', $response['body']['data']['deliverable_course_codes']))
                 : null,
         ];
-        set_transient(self::STATUS_CACHE.$customer_id, $status, 5 * MINUTE_IN_SECONDS);
+        set_transient(self::STATUS_CACHE.$customer_id, $status, self::STATUS_TTL);
 
         return $status;
+    }
+
+    /** Status verwerfen, damit der nächste Aufruf frisch lädt (nach Abgleich oder Verknüpfung). */
+    public static function forget_status(int $customer_id): void
+    {
+        delete_transient(self::STATUS_CACHE.$customer_id);
+        delete_transient(self::STATUS_FRESH_LOCK.$customer_id);
     }
 
     public static function menu_item(array $items): array
@@ -229,7 +261,8 @@ final class BS_Accounts
         }
         $code = sanitize_text_field(wp_unslash($_POST['bs_link_code']));
         $response = BS_Api_Client::request('POST', '/accounts/'.$customer_id.'/link', ['link_code' => $code]);
-        delete_transient(self::STATUS_CACHE.$customer_id);
+        // Die Seite nach der Weiterleitung lädt den Status dadurch einmal frisch.
+        self::forget_status($customer_id);
 
         if ($response['status'] === 200) {
             $tenant = $response['body']['data']['tenant']['name'] ?? '';
@@ -247,9 +280,15 @@ final class BS_Accounts
         exit;
     }
 
+    /**
+     * „Mein Konto → Bootsschule verknüpfen“: zwischengespeicherter Status. Frisch
+     * geladen wird nur direkt nach einem Verknüpfungsversuch (handle_link_form
+     * verwirft den Cache vor der Weiterleitung) -- ein Neuladen der Seite löst
+     * so keine Anfrage an die App aus.
+     */
     public static function render_endpoint(): void
     {
-        $status = self::status(get_current_user_id(), true);
+        $status = self::status(get_current_user_id());
         echo '<h2>'.esc_html__('Bootsschule verknüpfen', 'bs-connector').'</h2>';
         if ($status && $status['can_purchase']) {
             echo '<p>'.esc_html(sprintf( /* translators: %s: Name der Bootsschule */ __('Verknüpft mit: %s. Gekaufte Codes werden nach der Zahlung dem Codebestand dieser Bootsschule gutgeschrieben.', 'bs-connector'), $status['tenant']['name'] ?? '')).'</p>';

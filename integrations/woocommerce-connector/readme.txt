@@ -18,6 +18,7 @@ Verkauft Codes der Bootsschul-Plattform über WooCommerce. Nach der Zahlung werd
 * Höchstmenge je Position kommt aus dem Katalog der Plattform (`max_quantity`, sonst 500).
 * Kurs- und Verlängerungscodes lassen sich nur für Kurse bestellen, die die verknüpfte Schule derzeit erhalten kann.
 * Rückerstattungen nur als Betrag (ohne Positionsmenge) sperren keine Codes; das Plugin meldet sie per Bestellnotiz und Alarm-Mail.
+* Der Kontostatus aus der Plattform wird zwischengespeichert (5 Minuten, Fehlschläge 60 Sekunden). An der Kasse wird frisch geprüft, höchstens alle 10 Sekunden je Kunde; „Mein Konto → Bootsschule verknüpfen“ lädt nur nach einem Verknüpfungsversuch frisch. So können Kunden die Begrenzung der Plattform nicht aufbrauchen.
 
 == Zahlarten ==
 
@@ -38,7 +39,7 @@ Codes werden nur nach bestätigter Zahlung zugestellt.
     define( 'BS_CONNECTOR_INBOUND_KEY_ID', 'app' );     // = COMMERCE_OUTBOUND_KEY_ID
     define( 'BS_CONNECTOR_INBOUND_SECRET', '…' );       // = COMMERCE_OUTBOUND_SECRET
 
-   Alternativ unter WooCommerce → Einstellungen → Bootsschul-Plattform.
+   Alternativ unter WooCommerce → Einstellungen → Bootsschule (nur für Administratoren mit `manage_options`; per Konstante festgelegte Felder sind dort gesperrt).
 3. Auf der Plattform `COMMERCE_SHOP_URL` auf die Shop-Adresse setzen.
 4. Produkte anlegen und unter „Allgemein“ die Art (Kurscode, Verlängerungscode, Produktcode) und den Kurs bzw. das Produkt auswählen. Die Auswahl kommt aus dem Katalog der Plattform.
 
@@ -46,4 +47,4 @@ Ausführliche Beschreibung: docs/commerce/README.md im Plattform-Repository.
 
 == Datenschutz ==
 
-An die Plattform gehen nur Kontaktdaten (E-Mail, Name, Firma, Land, USt-IdNr.) und Bestellpositionen (Bestell-/Positionsnummer, Art, Menge). Zahlungsdaten bleiben im Shop.
+An die Plattform gehen nur Kontaktdaten (E-Mail, Name, Firma, Land, USt-IdNr.) und Bestellpositionen (Bestell-/Positionsnummer, Art, Menge). Zahlungsdaten bleiben im Shop. Die Plattform legt bei der Registrierung kein Benutzerkonto an, sondern erst nach Prüfung und Freigabe durch den Betreiber.

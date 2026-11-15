@@ -59,8 +59,9 @@ return Application::configure(basePath: dirname(__DIR__))
             Route::get('/media/question-media/{asset}', QuestionMediaController::class)
                 ->whereUuid('asset')->middleware(['signed', 'throttle:600,1,question-media'])->name('question-media.file');
             // Commerce-API v1 für den B2B-WooCommerce-Shop (docs/commerce/README.md):
-            // signiert, Owner-Verbindung, eigene Begrenzung.
-            Route::middleware(['api', 'commerce.signed', 'admin-db', 'throttle:300,1,commerce'])
+            // signiert, Owner-Verbindung; Begrenzung je Endpunktgruppe in
+            // routes/commerce.php (getrennte Töpfe, siehe AppServiceProvider).
+            Route::middleware(['api', 'commerce.signed', 'admin-db'])
                 ->prefix('api/commerce/v1')->group(__DIR__.'/../routes/commerce.php');
         },
     )

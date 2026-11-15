@@ -22,10 +22,12 @@ größeren WooCommerce-Updates abhaken.
 
 ## 1. Bestehende Schule verknüpft sich
 
-- [ ] Neues Shopkonto mit einer Adresse **ohne** App-Konto registrieren → Superadmin „Shopkonten“ zeigt `pending_review`.
+- [ ] Neues Shopkonto mit einer Adresse **ohne** App-Konto registrieren → Superadmin „Shopkonten“ zeigt `pending_review`; auf der Plattform entsteht **kein** App-Konto (Selbstregistrierung mit der Adresse bleibt möglich).
 - [ ] Shopkonto mit der Adresse eines bestehenden Admins von Schule A → ebenfalls `pending_review` nach außen, Superadmin sieht `awaiting_link`, **keine** automatische Verknüpfung.
 - [ ] In Schule A: Admin → Codes → „Shop verknüpfen“ → Code im Shop unter „Mein Konto → Bootsschule verknüpfen“ eingeben → Status `linked`, Schulname im Shop sichtbar.
 - [ ] Fünf falsche Codes in Folge → sechster Versuch abgelehnt (429), Meldung im Shop verständlich.
+- [ ] „Mein Konto → Bootsschule verknüpfen“ mehrfach neu laden → im Zugriffsprotokoll der Plattform höchstens ein `GET /accounts/{id}` je 5 Minuten (bzw. 60 s bei Fehler).
+- [ ] Als Shop-Manager (ohne Administratorrechte) angemeldet: Tab „Bootsschule“ unter WooCommerce → Einstellungen fehlt. Als Administrator mit Konstanten in `wp-config.php`: die betroffenen Felder sind nicht editierbar.
 - [ ] Abgelaufener Code (> 15 Minuten) wird abgelehnt.
 
 ## 2. Neue Schule über den Shop
