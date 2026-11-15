@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\V1\ExamRegistrationController;
 use App\Http\Controllers\Api\V1\ExportController;
 use App\Http\Controllers\Api\V1\FavoriteController;
 use App\Http\Controllers\Api\V1\FileController;
+use App\Http\Controllers\Api\V1\GroupController;
 use App\Http\Controllers\Api\V1\LearningController;
 use App\Http\Controllers\Api\V1\NavigationController;
 use App\Http\Controllers\Api\V1\PraxisController;
@@ -131,7 +132,7 @@ Route::middleware('api.auth')->group(function () {
         // Kursdateien und Fragenbilder (Zugang je Datei geprüft, private Disk).
         Route::get('/files/{fileId}', [FileController::class, 'download'])->whereUuid('fileId')->name('api.v1.files.download');
 
-        // Zugangscode einlösen (nach dem Kauf im externen Webshop).
+        // Zugangscode einlösen (nach dem Kauf im externen Webshop; auch Gruppen-Beitrittscodes).
         Route::post('/coupons/redeem', [CouponController::class, 'redeem'])->middleware(['throttle:10,1,api-coupons', 'api.idempotent']);
 
         // Webansicht der Schule aus der App anmelden (Einmal-Code, 60 Sekunden).
@@ -139,6 +140,14 @@ Route::middleware('api.auth')->group(function () {
 
         // Kontolöschung bei dieser Schule beantragen (wie „Konto löschen“ im Web-Profil).
         Route::post('/me/deletion-request', [AccountDeletionController::class, 'requestDeletion']);
+
+        // Lerngruppen (Gruppenlizenzen) -- je Schule; verwalten darf nur der eingetragene Verwalter.
+        Route::get('/groups/join/{token}', [GroupController::class, 'previewJoin'])->where('token', '[giGI][0-9a-fA-F]{32}')->middleware('throttle:30,1,api-group-preview');
+        Route::get('/me/groups', [GroupController::class, 'index']);
+        Route::get('/me/groups/{groupId}', [GroupController::class, 'show'])->whereUuid('groupId');
+        Route::post('/me/groups/{groupId}/invites', [GroupController::class, 'invite'])->whereUuid('groupId')->middleware('api.idempotent');
+        Route::delete('/me/groups/{groupId}/members/{memberId}', [GroupController::class, 'removeMember'])->whereUuid(['groupId', 'memberId']);
+        Route::post('/me/groups/{groupId}/join-code', [GroupController::class, 'regenerateJoinCode'])->whereUuid('groupId')->middleware('api.idempotent');
 
         // DSGVO-Datenexport.
         // Ohne Idempotenz-Speicher: ein wiederholter Aufruf soll einen frischen Link liefern.

@@ -13,6 +13,8 @@ use App\Models\Favorite;
 use App\Models\FavoriteCollection;
 use App\Models\FavoriteCollectionItem;
 use App\Models\InstructorCourse;
+use App\Models\LearningGroup;
+use App\Models\LearningGroupMember;
 use App\Models\NavigationProgress;
 use App\Models\PraxisExamAppointment;
 use App\Models\PraxisFormSubmission;
@@ -285,6 +287,32 @@ class PersonalDataExportService
                     'role' => $i->role,
                     'created_at' => $i->created_at?->toIso8601String(),
                     'accepted_at' => $i->accepted_at?->toIso8601String(),
+                ])->all(),
+            // Lerngruppen: eigene Plätze/Einladungen und selbst verwaltete Gruppen
+            // (dort nur Kennzahlen -- Namen und Adressen der Mitglieder sind
+            // Daten Dritter und gehören in deren eigenen Export).
+            'learning_group_memberships' => LearningGroupMember::where('tenant_id', $tenant->id)
+                ->where(fn ($q) => $q->where('user_id', $user->id)->orWhereRaw('lower(email) = ?', [mb_strtolower($user->email)]))
+                ->with('group')->orderBy('created_at')->get()
+                ->map(fn (LearningGroupMember $m) => [
+                    'group' => $m->group?->name,
+                    'status' => $m->status,
+                    'email' => $m->email,
+                    'invited_at' => $m->invited_at?->toIso8601String(),
+                    'joined_at' => $m->joined_at?->toIso8601String(),
+                ])->all(),
+            'learning_groups_managed' => LearningGroup::where('tenant_id', $tenant->id)->where('owner_user_id', $user->id)
+                ->withCount(['members as active_members' => fn ($q) => $q->where('status', 'active'),
+                    'members as open_invitations' => fn ($q) => $q->where('status', 'invited')])
+                ->orderBy('created_at')->get()
+                ->map(fn (LearningGroup $g) => [
+                    'name' => $g->name,
+                    'status' => $g->status,
+                    'seats' => $g->seats,
+                    'active_members' => $g->active_members,
+                    'open_invitations' => $g->open_invitations,
+                    'valid_until' => $g->valid_until?->toIso8601String(),
+                    'created_at' => $g->created_at?->toIso8601String(),
                 ])->all(),
             // Angemeldete Geräte (IP-Adresse, Browser) dieses Kontos.
             'sessions' => $forSchool ? [] : DB::connection('pgsql_admin')->table('sessions')->where('user_id', $user->id)->orderByDesc('last_activity')->get()
