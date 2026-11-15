@@ -520,6 +520,8 @@ paths:
     get:
       tags: [Courses]
       operationId: getCourse
+      summary: Kursdetail (auch für buchbare, nicht freigeschaltete Kurse)
+      description: 'Ohne Zugang zeigen `access` und `features`, was gesperrt ist; `exam_options_count` ist dann 0.'
       parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/CourseId'}]
       responses:
         '200':
@@ -603,6 +605,7 @@ paths:
                       correct_answers: {type: integer}
                       incorrect_answers: {type: integer}
                       modules: {type: array, items: {$ref: '#/components/schemas/Module'}}
+                      limit: {type: [integer, 'null'], description: 'Fragen je Modul bei Probezugang (null = alle)'}
         '403': {$ref: '#/components/responses/Problem'}
 
   # ------------------------------------------------------------ Trainer
@@ -2054,10 +2057,39 @@ components:
         last_page: {type: integer}
     Entitlement:
       type: object
+      description: >-
+        Zugangsstand. `active` = mindestens eine Funktion voll nutzbar (gekauft,
+        zugewiesen oder per Schulregel `free`), `limited` = nur Probezugang
+        (Schulregel `free_limited`, siehe `limits`). Gültigkeit und Ablauf
+        beziehen sich auf gekaufte/zugewiesene Zugänge.
       properties:
-        status: {type: string, enum: [active, expired, suspended, revoked, not_granted]}
+        status: {type: string, enum: [active, limited, pending, expired, suspended, revoked, not_granted]}
         valid_from: {type: [string, 'null'], format: date-time}
         valid_until: {type: [string, 'null'], format: date-time}
+        trial: {type: boolean, description: 'Nur Probezugang (keine Funktion voll freigeschaltet)'}
+        purchased: {type: boolean, description: 'Aktiver gekaufter/zugewiesener Zugang vorhanden'}
+        limits:
+          type: object
+          description: 'Probezugang je Funktion -- die ersten N Einträge (z. B. Fragen je Modul)'
+          additionalProperties: {type: integer, minimum: 1}
+        expires_soon: {type: boolean, description: 'Fragenkatalog-Zugang läuft in den nächsten 14 Tagen ab'}
+        expires_at: {type: [string, 'null'], format: date-time}
+        renew_url: {type: [string, 'null'], format: uri, description: 'Verlängerungslink (nur bei expires_soon)'}
+    FeatureAccess:
+      type: object
+      properties:
+        available: {type: boolean, description: 'Funktion nutzbar (voll oder eingeschränkt)'}
+        full: {type: boolean}
+        limit: {type: [integer, 'null'], description: 'Bei eingeschränktem Zugang die ersten N Einträge'}
+    CourseRelation:
+      type: object
+      description: 'Katalogregeln wie in der WP-App (Kombikurs gekauft blendet Teilkurse aus, Aufbaukurse werden empfohlen).'
+      properties:
+        hidden: {type: boolean}
+        recommended: {type: boolean}
+        recommended_for:
+          type: array
+          items: {type: object, properties: {id: {type: string}, name: {type: string}}}
     ProgressSummary:
       type: object
       description: completed = gefestigte Fragen (3× richtig in Folge, Regeln wie im Web)
@@ -2072,19 +2104,30 @@ components:
         code: {type: string}
         name: {type: string}
         description: {type: [string, 'null']}
+        course_type: {type: string}
         access: {$ref: '#/components/schemas/Entitlement'}
         progress: {$ref: '#/components/schemas/ProgressSummary'}
-        capabilities: {type: array, items: {type: string, enum: [smarttrainer, favorites, exam, video, navigation, praxis]}}
-        webshop_url: {type: [string, 'null'], format: uri}
+        capabilities: {type: array, description: 'Funktionen, die der Kurs inhaltlich hat', items: {type: string, enum: [smarttrainer, favorites, exam, video, navigation, praxis]}}
+        features:
+          type: object
+          description: 'Nutzbarkeit je Funktion für die angemeldete Person (Schlüssel wie capabilities ohne favorites, plus explanations)'
+          additionalProperties: {$ref: '#/components/schemas/FeatureAccess'}
+        webshop_url: {type: [string, 'null'], format: uri, description: 'Kauflink, solange kein voller Zugang besteht'}
+        relation: {oneOf: [{$ref: '#/components/schemas/CourseRelation'}, {type: 'null'}]}
         last_activity_at: {type: [string, 'null'], format: date-time, description: Letzte Antwort in diesem Kurs}
     Module:
       type: object
       properties:
         id: {type: string}
+        code: {type: string}
         name: {type: string}
         description: {type: [string, 'null']}
         order: {type: integer}
-        question_count: {type: integer}
+        locked: {type: boolean, description: 'Modul per Drip-Regel noch gesperrt'}
+        lock_reason: {type: [string, 'null'], enum: [drip, trial, null], description: 'drip = erst ab unlock_at, trial = nur die ersten Fragen freigegeben'}
+        unlock_at: {type: [string, 'null'], format: date-time}
+        question_count: {type: integer, description: 'Freigegebene Fragen'}
+        catalog_count: {type: integer, description: 'Alle gültigen Fragen des Moduls'}
         progress: {$ref: '#/components/schemas/ProgressSummary'}
         topics:
           type: array

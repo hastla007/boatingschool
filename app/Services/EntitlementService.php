@@ -44,9 +44,25 @@ class EntitlementService
             ->values();
     }
 
+    /**
+     * Voller Kurszugang. Ein auf einzelne Funktionen beschränkter Zugang
+     * (entitlement.capabilities, z. B. aus dem WP-Import oder einer
+     * Lerngruppe) zählt hier nicht -- siehe hasCapabilityAccess().
+     */
     public function hasAccess(Tenant $tenant, User $user, CourseDefinition $course): bool
     {
-        return $this->activeCourses($tenant, $user)->contains('id', $course->id);
+        return $this->activeEntitlements($tenant, $user)->contains(
+            fn (Entitlement $entitlement) => $entitlement->course_id === $course->id && $entitlement->capabilities === null
+        );
+    }
+
+    /** Zugang zu einer Funktion (smarttrainer, exam, video, ...): uneingeschränkt oder mit dieser Capability. */
+    public function hasCapabilityAccess(Tenant $tenant, User $user, CourseDefinition $course, string $capability): bool
+    {
+        return $this->activeEntitlements($tenant, $user)->contains(
+            fn (Entitlement $entitlement) => $entitlement->course_id === $course->id
+                && ($entitlement->capabilities === null || in_array($capability, $entitlement->capabilities, true))
+        );
     }
 
     /** Ob ein Kurs für diese Bootsschule aktuell angeboten werden kann (veröffentlicht, sitewide UND mandantenseitig aktiv). */
