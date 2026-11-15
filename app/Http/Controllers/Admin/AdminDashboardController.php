@@ -16,6 +16,7 @@ use App\Models\CourseWebshopLink;
 use App\Models\Entitlement;
 use App\Models\ExamSession;
 use App\Models\InstructorCourse;
+use App\Models\LearningGroup;
 use App\Models\PlatformAnnouncement;
 use App\Models\PraxisExamAppointment;
 use App\Models\PraxisFormSubmission;
@@ -29,6 +30,7 @@ use App\Models\TenantInvitation;
 use App\Models\TenantUser;
 use App\Models\WillkommensboxOrder;
 use App\Services\CourseProgressService;
+use App\Services\LearningGroupService;
 use App\Services\ParticipantInviter;
 use App\Support\InstructorScope;
 use App\Support\ParticipantFilters;
@@ -561,6 +563,19 @@ class AdminDashboardController extends Controller
             ->groupBy('course_id')
             ->pluck('free_count', 'course_id');
 
+        // Lerngruppen (nur Inhaber/Admins, Admin\LearningGroupController):
+        // höchstens drei Abfragen, unabhängig von der Zahl der Gruppen und
+        // Mitglieder (Gruppen samt belegter Plätze, Verwalter, Kurse).
+        $learningGroups = collect();
+        if ($canManageTenant) {
+            $learningGroupService = app(LearningGroupService::class);
+            $learningGroups = LearningGroup::where('tenant_id', $tenant->id)->with('owner')
+                ->withCount(['members as used_seats' => fn ($q) => $q->occupyingSeat()])
+                ->orderByRaw("status = 'revoked'")->orderByDesc('created_at')->get();
+            $learningGroupCourses = LearningGroupService::coursesByCode($learningGroups);
+            $learningGroups->each(fn (LearningGroup $group) => $group->setAttribute('scope_summary', $learningGroupService->describeScopes($group, $learningGroupCourses)));
+        }
+
         return view('admin.dashboard', [
             'platformAnnouncements' => PlatformAnnouncement::visible()->forTenant($tenant->id)->orderByDesc('created_at')->limit(5)->get(),
             'tenant' => $tenant,
@@ -610,6 +625,7 @@ class AdminDashboardController extends Controller
             'shopBatches' => $shopBatches,
             'couponFilters' => $couponFilters,
             'freeCourseCouponCounts' => $freeCourseCouponCounts,
+            'learningGroups' => $learningGroups,
         ]);
     }
 

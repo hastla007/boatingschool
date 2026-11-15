@@ -8,18 +8,24 @@ use App\Models\Entitlement;
 use App\Models\LearningGroup;
 use App\Models\LearningGroupMember;
 use App\Models\Tenant;
+use App\Models\TenantUser;
 use App\Models\User;
 use App\Notifications\LearningGroupInvitation;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
 /**
  * Lerngruppen (Gruppenlizenzen der WP-App). Regeln:
  * - Eine Gruppe gehört genau einer Schule (RLS); alles hier läuft im
- *   Mandantenkontext der Mobile-API. Angelegt wird sie vom Betreiber
- *   (learning-groups:create), verwaltet vom eingetragenen Verwalter.
+ *   Mandantenkontext. Angelegt, geändert und beendet wird sie vom Betreiber
+ *   (app:learning-group-create/-revoke) oder von Inhaber/Admin der Schule
+ *   im Admin-Bereich (create/update/revokeGroup), in der App verwaltet vom
+ *   eingetragenen Verwalter (aktiver Teilnehmer der Schule).
  * - Nur der Verwalter sieht die Gruppe, lädt ein, entfernt und erneuert den
  *   Beitrittscode. Beitreten können nur Teilnehmer derselben Schule.
  * - Plätze: aktive Mitglieder + offene, nicht abgelaufene Einladungen.
@@ -54,6 +60,17 @@ class LearningGroupService
         'radio_training' => ['funk'],
     ];
 
+    /** Auswahl beim Anlegen im Admin-Bereich (feature → Bezeichnung). */
+    public const FEATURE_OPTIONS = [
+        'course' => 'Vollzugang', 'question_bank' => 'Fragenbank', 'exam_simulation' => 'Prüfungssimulation',
+        'video_course' => 'Videokurs', 'navigation_trainer' => 'Navigationstrainer',
+        'praxis_trainer' => 'Praxistrainer', 'funk_training' => 'Funktraining',
+    ];
+
+    public const MAX_SEATS = 10000;
+
+    public const MAX_NAME_LENGTH = 120;
+
     private const FEATURE_LABELS = [
         'course' => 'Vollzugang', 'full' => 'Vollzugang', 'all' => 'Vollzugang',
         'question_bank' => 'Fragenbank', 'exam_simulation' => 'Prüfungssimulation',
@@ -63,6 +80,165 @@ class LearningGroupService
     ];
 
     public function __construct(private EntitlementService $entitlements) {}
+
+    /**
+     * Gruppe anlegen (Betreiber-Befehl und Admin-Bereich). Prüft Verwalter,
+     * Name, Plätze, Kurse/Funktionen und Ende; Fehler als
+     * ValidationException mit deutscher Meldung je Feld. Ob die Schule die
+     * Kurse anbietet, prüft der Admin-Bereich zusätzlich (offeredCourses),
+     * der Betreiber darf vorab anlegen.
+     *
+     * @param  list<array<string, mixed>>  $scopes  je {course_code, feature}
+     */
+    public function create(Tenant $tenant, User $owner, string $name, int $seats, array $scopes, ?Carbon $validUntil,
+        string $sourceType = 'manual', ?string $sourceReference = null): LearningGroup
+    {
+        $name = trim($name);
+        $this->ensureEligibleManager($tenant->id, $owner);
+        $this->ensureName($name);
+        $this->ensureSeats($seats, 0);
+        try {
+            $this->validateScopes($scopes);
+        } catch (RuntimeException $e) {
+            throw ValidationException::withMessages(['courses' => 'Kurs oder Funktion nicht unterstützt ('.$e->getMessage().').']);
+        }
+        $this->ensureValidUntil($validUntil);
+
+        return LearningGroup::create([
+            'tenant_id' => $tenant->id, 'owner_user_id' => $owner->id, 'name' => $name, 'status' => 'active',
+            'seats' => $seats, 'scopes' => array_values($scopes), 'valid_from' => now(), 'valid_until' => $validUntil,
+            'join_code' => self::newJoinCode(), 'source_type' => $sourceType, 'source_reference' => $sourceReference,
+        ]);
+    }
+
+    /**
+     * Name, Plätze, Ende und Verwalter ändern (Admin-Bereich), unter
+     * Sperre der Gruppenzeile wie Einladen/Beitreten:
+     * - Plätze nie unter die belegten (aktive Mitglieder + offene Einladungen),
+     * - der neue Verwalter muss aktiver Teilnehmer der Schule sein,
+     * - ein neues Ende gilt auch für die Gruppenzugänge der aktiven
+     *   Mitglieder (beim Beitritt mit dem damaligen Ende angelegt); nach
+     *   Ablauf beendete Zugänge aktiver Mitglieder leben dabei wieder auf.
+     * Beendete Gruppen sind nicht mehr änderbar.
+     *
+     * @param  array{name?:string, seats?:int, valid_until?:?Carbon, owner_user_id?:string}  $changes
+     * @return array{before:array<string, mixed>, after:array<string, mixed>} tatsächlich geänderte Felder
+     */
+    public function update(LearningGroup $group, array $changes): array
+    {
+        return DB::transaction(function () use ($group, $changes) {
+            $locked = $this->lock($group);
+            if ($locked->status === 'revoked') {
+                throw ValidationException::withMessages(['group' => 'Eine beendete Lerngruppe kann nicht mehr geändert werden.']);
+            }
+            $attributes = [];
+            if (array_key_exists('name', $changes)) {
+                $attributes['name'] = trim((string) $changes['name']);
+                $this->ensureName($attributes['name']);
+            }
+            if (array_key_exists('seats', $changes)) {
+                $attributes['seats'] = (int) $changes['seats'];
+                $this->ensureSeats($attributes['seats'], $this->usedSeats($locked));
+            }
+            $plain = fn ($value) => $value instanceof \DateTimeInterface ? Carbon::instance($value)->utc()->toIso8601String() : $value;
+            // Ende tagesgenau (wie im Formular); nur ein neues Ende muss in der
+            // Zukunft liegen -- der Name einer abgelaufenen Gruppe bleibt änderbar.
+            $day = fn (?\DateTimeInterface $value) => $value ? Carbon::instance($value)->timezone('Europe/Berlin')->toDateString() : null;
+            if (array_key_exists('valid_until', $changes) && $day($changes['valid_until']) !== $day($locked->valid_until)) {
+                $this->ensureValidUntil($changes['valid_until']);
+                $attributes['valid_until'] = $changes['valid_until'];
+            }
+            if (array_key_exists('owner_user_id', $changes) && $changes['owner_user_id'] !== $locked->owner_user_id) {
+                $owner = User::find($changes['owner_user_id']);
+                if (! $owner) {
+                    throw ValidationException::withMessages(['owner_user_id' => 'Der Verwalter muss aktiver Teilnehmer dieser Schule sein.']);
+                }
+                $this->ensureEligibleManager($locked->tenant_id, $owner);
+                $attributes['owner_user_id'] = $owner->id;
+            }
+
+            $before = [];
+            $after = [];
+            foreach ($attributes as $key => $value) {
+                if ($plain($locked->getAttribute($key)) !== $plain($value)) {
+                    $before[$key] = $plain($locked->getAttribute($key));
+                    $after[$key] = $plain($value);
+                }
+            }
+            if ($after !== []) {
+                $locked->update(array_intersect_key($attributes, $after));
+            }
+            if (array_key_exists('valid_until', $after)) {
+                $references = LearningGroupMember::where('group_id', $locked->id)->where('status', 'active')->pluck('id')
+                    ->map(fn ($id) => 'group:'.$locked->id.':'.$id);
+                Entitlement::where('tenant_id', $locked->tenant_id)->where('source_type', 'group')
+                    ->whereIn('source_reference', $references)->whereIn('status', ['active', 'expired'])
+                    ->update(['status' => 'active', 'valid_until' => $attributes['valid_until'], 'updated_at' => now()]);
+            }
+
+            return ['before' => $before, 'after' => $after];
+        });
+    }
+
+    /**
+     * Kurse, die die Schule anbietet (veröffentlicht, freigeschaltet, nicht
+     * abgeschaltet) -- nur diese lassen sich im Admin-Bereich wählen.
+     *
+     * @param  ?Collection<int, CourseDefinition>  $candidates  bereits geladene Kurse
+     * @return Collection<int, CourseDefinition>
+     */
+    public function offeredCourses(Tenant $tenant, ?Collection $candidates = null): Collection
+    {
+        $candidates ??= CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')->where('site_enabled', true)->orderBy('name')->get();
+
+        return $candidates->filter(fn (CourseDefinition $course) => $this->entitlements->isOfferable($tenant, $course))->values();
+    }
+
+    /** Datum (deutsche Zeit) → Ende dieses Tages; leer = unbefristet. */
+    public static function validUntilFromDate(?string $date): ?Carbon
+    {
+        return $date ? Carbon::parse($date, 'Europe/Berlin')->endOfDay()->utc() : null;
+    }
+
+    /** Belegte Plätze: aktive Mitglieder + offene, nicht abgelaufene Einladungen. */
+    public function usedSeats(LearningGroup $group): int
+    {
+        return LearningGroupMember::where('group_id', $group->id)->occupyingSeat()->count();
+    }
+
+    /** Verwalter: aktiver Teilnehmer (Rolle learner) der Schule. */
+    private function ensureEligibleManager(string $tenantId, User $user): void
+    {
+        $eligible = TenantUser::withoutGlobalScopes()->where('tenant_id', $tenantId)->where('user_id', $user->id)
+            ->where('role', 'learner')->where('status', 'active')->exists();
+        if (! $eligible) {
+            throw ValidationException::withMessages(['owner_user_id' => 'Der Verwalter muss aktiver Teilnehmer dieser Schule sein.']);
+        }
+    }
+
+    private function ensureName(string $name): void
+    {
+        if ($name === '' || mb_strlen($name) > self::MAX_NAME_LENGTH) {
+            throw ValidationException::withMessages(['name' => 'Der Name muss 1 bis '.self::MAX_NAME_LENGTH.' Zeichen lang sein.']);
+        }
+    }
+
+    private function ensureSeats(int $seats, int $used): void
+    {
+        if ($seats < 1 || $seats > self::MAX_SEATS) {
+            throw ValidationException::withMessages(['seats' => 'Die Platzzahl muss zwischen 1 und '.self::MAX_SEATS.' liegen.']);
+        }
+        if ($seats < $used) {
+            throw ValidationException::withMessages(['seats' => "Die Platzzahl darf nicht unter den belegten Plätzen ({$used}) liegen."]);
+        }
+    }
+
+    private function ensureValidUntil(?Carbon $validUntil): void
+    {
+        if ($validUntil && ! $validUntil->isFuture()) {
+            throw ValidationException::withMessages(['valid_until' => 'Das Ende der Lerngruppe muss in der Zukunft liegen.']);
+        }
+    }
 
     /** Gruppe des Verwalters in der aktuellen Schule, sonst 404 (auch für fremde Gruppen). */
     public function owned(User $user, string $id): LearningGroup
@@ -182,7 +358,7 @@ class LearningGroupService
             'status' => $group->status, 'valid_until' => $group->valid_until?->toIso8601String(),
             'free_seats' => $free, 'already_member' => $already,
             'joinable' => $already || (! $removed && $free > 0 && $this->supportsScopes($group)),
-            'scopes' => $this->scopes($group),
+            'scopes' => $this->describeScopes($group),
         ];
     }
 
@@ -246,7 +422,7 @@ class LearningGroupService
         });
     }
 
-    /** Gruppe ganz beenden (Betreiber): alle Gruppenzugänge enden, offene Einladungen verfallen. */
+    /** Gruppe ganz beenden (Betreiber, Admin-Bereich): alle Gruppenzugänge enden, offene Einladungen verfallen. */
     public function revokeGroup(LearningGroup $group): void
     {
         DB::transaction(function () use ($group) {
@@ -288,7 +464,7 @@ class LearningGroupService
             'id' => $group->id, 'name' => $group->name, 'status' => $group->status, 'active' => $active,
             'valid_until' => $group->valid_until?->toIso8601String(),
             'seats' => ['total' => (int) $group->seats, 'used' => $used, 'free' => max(0, (int) $group->seats - $used)],
-            'scopes' => $this->scopes($group),
+            'scopes' => $this->describeScopes($group),
             'join_code' => $active ? $group->join_code : null,
             'join_url' => $active ? rtrim((string) config('app.url'), '/').'/gruppe/'.$group->join_code.'/' : null,
             'invites_remaining_today' => $active ? RateLimiter::remaining($this->dailyKey($group), $this->dailyLimit($group)) : 0,
@@ -424,12 +600,7 @@ class LearningGroupService
 
     private function freeSeats(LearningGroup $group): int
     {
-        $used = LearningGroupMember::where('group_id', $group->id)
-            ->where(fn ($q) => $q->where('status', 'active')
-                ->orWhere(fn ($i) => $i->where('status', 'invited')->where('invited_at', '>=', now()->subDays(self::INVITE_DAYS))))
-            ->count();
-
-        return max(0, (int) $group->seats - $used);
+        return max(0, (int) $group->seats - $this->usedSeats($group));
     }
 
     private function dailyKey(LearningGroup $group): string
@@ -508,10 +679,30 @@ class LearningGroupService
         throw new RuntimeException('GROUP_SCOPE_UNSUPPORTED');
     }
 
-    private function scopes(LearningGroup $group): array
+    /**
+     * Kurse aller Scopes der Gruppen in einer Abfrage (nach Code).
+     *
+     * @param  iterable<LearningGroup>  $groups
+     * @return Collection<string, CourseDefinition>
+     */
+    public static function coursesByCode(iterable $groups): Collection
     {
-        $codes = collect($group->scopes ?? [])->map(fn ($scope) => $scope['course_code'] ?? $scope['course'] ?? '')->unique()->values();
-        $courses = CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')->whereIn('code', $codes)->get()->keyBy('code');
+        $codes = collect($groups)->flatMap(fn (LearningGroup $group) => collect($group->scopes ?? [])
+            ->map(fn ($scope) => (string) ($scope['course_code'] ?? $scope['course'] ?? '')))->filter()->unique()->values();
+
+        return $codes->isEmpty() ? collect()
+            : CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')->whereIn('code', $codes)->get()->keyBy('code');
+    }
+
+    /**
+     * Kurse und Funktionsumfang einer Gruppe. In Listen spart $courses
+     * (coursesByCode) die Abfrage je Gruppe.
+     *
+     * @param  ?Collection<string, CourseDefinition>  $courses
+     */
+    public function describeScopes(LearningGroup $group, ?Collection $courses = null): array
+    {
+        $courses ??= self::coursesByCode([$group]);
 
         return collect($group->scopes ?? [])->map(function ($scope) use ($courses) {
             $code = (string) ($scope['course_code'] ?? $scope['course'] ?? '');

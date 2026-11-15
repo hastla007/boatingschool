@@ -2,20 +2,19 @@
 
 namespace App\Console\Commands;
 
-use App\Models\LearningGroup;
 use App\Models\Tenant;
-use App\Models\TenantUser;
 use App\Models\User;
 use App\Services\LearningGroupService;
 use Illuminate\Console\Command;
-use Illuminate\Support\Carbon;
+use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
 /**
- * Lerngruppe (Gruppenlizenz) für eine Schule anlegen. Bewusst nur für den
- * Betreiber: die App kann Gruppen verwalten, aber keine anlegen (Plätze
- * sind bezahlte Zugänge). Der Verwalter muss aktiver Teilnehmer der Schule
- * sein. Läuft auf der Owner-Verbindung.
+ * Lerngruppe (Gruppenlizenz) für eine Schule anlegen -- für den Betreiber;
+ * Inhaber/Admins der Schule legen Gruppen im Admin-Bereich an. Die App
+ * selbst kann Gruppen nur verwalten (Plätze sind bezahlte Zugänge). Der
+ * Verwalter muss aktiver Teilnehmer der Schule sein; die Regeln stehen in
+ * LearningGroupService::create(). Läuft auf der Owner-Verbindung.
  */
 class CreateLearningGroup extends Command
 {
@@ -40,40 +39,28 @@ class CreateLearningGroup extends Command
                 throw new RuntimeException('Schule nicht gefunden.');
             }
             $owner = User::whereRaw('lower(email) = ?', [mb_strtolower(trim((string) $this->argument('owner')))])->first();
-            $membership = $owner ? TenantUser::withoutGlobalScopes()->where('tenant_id', $tenant->id)->where('user_id', $owner->id)
-                ->where('role', 'learner')->where('status', 'active')->first() : null;
-            if (! $membership) {
+            if (! $owner) {
                 throw new RuntimeException('Der Verwalter muss aktiver Teilnehmer dieser Schule sein.');
             }
-            $seats = filter_var($this->option('seats'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 10000]]);
+            $seats = filter_var($this->option('seats'), FILTER_VALIDATE_INT);
             if ($seats === false) {
-                throw new RuntimeException('--seats muss eine Zahl zwischen 1 und 10000 sein.');
-            }
-            $name = trim((string) $this->argument('name'));
-            if ($name === '' || mb_strlen($name) > 120) {
-                throw new RuntimeException('Der Name muss 1 bis 120 Zeichen lang sein.');
+                throw new RuntimeException('--seats muss eine Zahl zwischen 1 und '.LearningGroupService::MAX_SEATS.' sein.');
             }
             $scopes = collect($this->option('course'))->map(function (string $value) {
                 [$code, $feature] = array_pad(explode(':', trim($value), 2), 2, null);
 
                 return array_filter(['course_code' => strtoupper((string) $code), 'feature' => $feature ?: 'course']);
             })->values()->all();
-            try {
-                $groups->validateScopes($scopes);
-            } catch (RuntimeException $e) {
-                throw new RuntimeException('Kurs oder Funktion nicht unterstützt ('.$e->getMessage().').');
-            }
-            $validUntil = $this->option('valid-until') ? Carbon::parse((string) $this->option('valid-until'))->endOfDay() : null;
-            if ($validUntil && $validUntil->isPast()) {
-                throw new RuntimeException('--valid-until liegt in der Vergangenheit.');
-            }
 
-            $group = LearningGroup::create([
-                'tenant_id' => $tenant->id, 'owner_user_id' => $owner->id, 'name' => $name, 'status' => 'active',
-                'seats' => $seats, 'scopes' => $scopes, 'valid_from' => now(), 'valid_until' => $validUntil,
-                'join_code' => LearningGroupService::newJoinCode(), 'source_type' => 'manual',
-                'source_reference' => $this->option('source-reference') ?: null,
-            ]);
+            $group = $groups->create(
+                $tenant, $owner, (string) $this->argument('name'), $seats, $scopes,
+                LearningGroupService::validUntilFromDate($this->option('valid-until') ?: null),
+                'manual', $this->option('source-reference') ?: null,
+            );
+        } catch (ValidationException $e) {
+            $this->error((string) collect($e->errors())->flatten()->first());
+
+            return self::FAILURE;
         } catch (RuntimeException $e) {
             $this->error($e->getMessage());
 

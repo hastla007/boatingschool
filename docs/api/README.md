@@ -497,8 +497,16 @@ GET  /exams/{id}/result                 → Ergebnis mit Lösungen
 * **Lerngruppen (Gruppenlizenzen):** eine Gruppe gehört genau einer Schule
   und hat eine feste Zahl Plätze für einen oder mehrere Kurse (ganzer Kurs
   oder einzelne Funktionen, z. B. nur Prüfungssimulation).
-  * **Anlegen** nur durch den Betreiber (`app:learning-group-create`, siehe
-    Betrieb); die App verwaltet bestehende Gruppen.
+  * **Anlegen** durch den Betreiber (`app:learning-group-create`, siehe
+    Betrieb) oder durch Inhaber/Admins der Schule im Web-Admin-Bereich
+    (Tab „Lerngruppen“, gleiche Regeln über `LearningGroupService::create`,
+    nur Kurse, die die Schule anbietet). Dort auch: Name, Plätze (nicht
+    unter die belegten), Ende und Verwalter ändern (neuer Verwalter muss
+    aktiver Teilnehmer sein; ein neues Ende gilt auch für die Gruppen-
+    zugänge der aktiven Mitglieder), Mitglieder einsehen und entfernen,
+    Gruppe beenden -- jeweils mit Protokolleintrag (`learning_group.*`).
+    Ausbilder und Lernende haben keinen Zugriff. Die App verwaltet
+    bestehende Gruppen, legt aber keine an.
   * **Verwalten** darf nur der eingetragene Verwalter (aktiver Teilnehmer
     der Schule): `GET /me/groups`, `GET /me/groups/{id}`,
     `POST /me/groups/{id}/invites {emails[]}`,
@@ -685,7 +693,8 @@ entscheidet aber nur anhand von `code`.
   Fremdschlüssel Mitglieder derselben Schule sein. Eine Schule verlassen
   entfernt die eigenen Gruppenplätze und Einladungen an die eigene Adresse
   (bei dieser Schule); selbst verwaltete Gruppen bleiben ohne Verwalter
-  bestehen, damit die übrigen Mitglieder ihren Zugang behalten. Die
+  bestehen, damit die übrigen Mitglieder ihren Zugang behalten -- einen
+  neuen Verwalter tragen Inhaber/Admins im Admin-Bereich ein. Die
   Kontolöschung entfernt auch offene Gruppeneinladungen anderer Schulen.
   Der Datenexport enthält eigene Plätze/Einladungen und für verwaltete
   Gruppen nur Kennzahlen; der Export beim Vertragsende der Schule enthält
@@ -763,9 +772,14 @@ entscheidet aber nur anhand von `code`.
   Kurscode, optional mit WP-Funktion (`question_bank`, `exam_simulation`,
   `video_course`, `navigation_trainer`, `praxis_trainer`, `funk_training`).
   Beenden beendet alle Gruppenzugänge (`expired`, Enddatum jetzt); offene
-  Einladungen verfallen. Migrationen: `2024_02_01_000597_create_learning_group_tables`,
+  Einladungen verfallen. `--valid-until` gilt bis Tagesende deutscher Zeit.
+  Dasselbe geht für Inhaber/Admins im Admin-Bereich (Tab „Lerngruppen“).
+  Migrationen: `2024_02_01_000597_create_learning_group_tables`,
   `2024_02_01_000760_end_group_entitlements_as_expired` (stellt bisher
-  widerrufene Gruppenzugänge auf `expired` um).
+  widerrufene Gruppenzugänge auf `expired` um),
+  `2024_02_01_000800_grant_insert_on_learning_group_to_app_role` (die
+  App-Rolle darf Gruppen einfügen -- nur in der eigenen Schule, RLS mit
+  `WITH CHECK`; Löschen bleibt der Owner-Verbindung vorbehalten).
 * **Tests:** `vendor/bin/phpunit tests/Feature/Api`.
   `OpenApiContractTest` schlägt fehl, wenn Routen und OpenAPI-Datei
   auseinanderlaufen.
