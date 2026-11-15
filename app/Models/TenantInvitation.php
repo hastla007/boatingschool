@@ -15,7 +15,7 @@ class TenantInvitation extends Model
 
     const UPDATED_AT = null;
 
-    protected $fillable = ['tenant_id', 'email', 'role', 'invited_by_user_id', 'accepted_at'];
+    protected $fillable = ['tenant_id', 'email', 'name', 'role', 'invited_by_user_id', 'accepted_at'];
 
     protected function casts(): array
     {

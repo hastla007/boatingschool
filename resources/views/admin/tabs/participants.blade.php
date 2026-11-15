@@ -22,7 +22,10 @@
                         <tr class="border-t border-slate-100 dark:border-slate-700">
                             <td class="py-2 pr-4 text-slate-700 dark:text-slate-200">
                                 {{ $member->user->name }}{{ $member->user_id === auth()->id() ? ' (Sie)' : '' }}
-                                @if ($member->user->hasTwoFactor())
+                                @if ($member->user->status === 'invited')
+                                    {{-- Audit SEC-W-3: wie eine offene Einladung an ein bestehendes Konto. --}}
+                                    <span class="ml-1 text-xs rounded-full px-1.5 py-0.5 bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">Einladung offen</span>
+                                @elseif ($member->user->hasTwoFactor())
                                     <span class="ml-1 text-xs rounded-full px-1.5 py-0.5 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200" title="Zwei-Faktor-Anmeldung aktiv">2FA</span>
                                 @else
                                     <span class="ml-1 text-xs rounded-full px-1.5 py-0.5 {{ $currentTenant->branding?->require_team_two_factor ? 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200' : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300' }}" title="Zwei-Faktor-Anmeldung nicht eingerichtet">ohne 2FA</span>
@@ -73,7 +76,7 @@
                     @endforeach
                     @foreach ($pendingTeamInvitations as $invitation)
                         <tr class="border-t border-slate-100 dark:border-slate-700 text-slate-500 dark:text-slate-400">
-                            <td class="py-2 pr-4 italic">eingeladen</td>
+                            <td class="py-2 pr-4">{{ $invitation->name ?: \Illuminate\Support\Str::before($invitation->email, '@') }} <span class="ml-1 text-xs rounded-full px-1.5 py-0.5 bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">Einladung offen</span></td>
                             <td class="py-2 pr-4">{{ $invitation->email }}</td>
                             <td class="py-2 pr-4">{{ \App\Support\StatusLabels::tenantRole($invitation->role) }}</td>
                             <td class="py-2 text-xs">wartet auf Bestätigung</td>
@@ -92,10 +95,19 @@
                     <span class="text-xs text-slate-600 dark:text-slate-400">({{ $withoutTwoFactor }} von {{ $team->count() }} ohne 2FA)</span>
                 </span>
                 @if ($isOwner)
-                    <form method="POST" action="{{ route('admin.team.two-factor-policy') }}">
+                    <form method="POST" action="{{ route('admin.team.two-factor-policy') }}" class="flex flex-wrap items-center gap-2">
                         @csrf
                         @method('PATCH')
                         <input type="hidden" name="require_team_two_factor" value="{{ $twoFactorRequired ? '0' : '1' }}">
+                        @if ($twoFactorRequired)
+                            {{-- Audit SEC-W-5: Aufheben nur mit Passwort und eigenem Code. --}}
+                            <label for="policy_current_password" class="sr-only">Aktuelles Passwort</label>
+                            <input type="password" id="policy_current_password" name="current_password" placeholder="Ihr Passwort" required autocomplete="current-password" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs">
+                            @if (auth()->user()->hasTwoFactor())
+                                <label for="policy_code" class="sr-only">Code aus der App</label>
+                                <input type="text" id="policy_code" name="code" placeholder="Code aus der App" required inputmode="numeric" autocomplete="one-time-code" class="w-36 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs font-mono">
+                            @endif
+                        @endif
                         <button type="submit" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-xs">{{ $twoFactorRequired ? 'Pflicht aufheben' : 'Zur Pflicht machen' }}</button>
                     </form>
                 @endif
@@ -230,7 +242,7 @@
         @endif
     </div>
 </form>
-<p class="text-xs text-slate-600 dark:text-slate-400 mb-2">{{ $participants->total() }} {{ $participants->total() === 1 ? 'Teilnehmer' : 'Teilnehmer' }}{{ \App\Support\ParticipantFilters::active($participantFilters) ? ' gefunden' : '' }}</p>
+<p class="text-xs text-slate-600 dark:text-slate-400 mb-2">{{ $participants->total() + count($pendingLearnerInvitations ?? []) }} Teilnehmer{{ \App\Support\ParticipantFilters::active($participantFilters) ? ' gefunden' : '' }}</p>
 
 <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden">
     <div class="overflow-x-auto">
@@ -253,6 +265,35 @@
             </tr>
         </thead>
         <tbody>
+            {{-- Audit SEC-W-3: offene Einladungen an schon bestehende Konten
+                 genauso wie neu angelegte, noch nicht angemeldete Teilnehmer. --}}
+            @foreach ($pendingLearnerInvitations ?? [] as $invitation)
+                @php($invitationName = $invitation->name ?: \Illuminate\Support\Str::before($invitation->email, '@'))
+                <tr class="border-t border-slate-100 dark:border-slate-700">
+                    <td class="px-4 py-2">
+                        <div class="flex items-center gap-2">
+                            <div class="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-semibold shrink-0" style="background-color: var(--brand-primary, #005FD7)">
+                                {{ mb_strtoupper(mb_substr($invitationName, 0, 1)) }}
+                            </div>
+                            <span class="text-slate-700 dark:text-slate-200">{{ $invitationName }}</span>
+                        </div>
+                        <form method="POST" action="{{ route('admin.participants.invite') }}" class="mt-1 ml-9 flex items-center gap-2 text-xs">
+                            @csrf
+                            <input type="hidden" name="name" value="{{ $invitationName }}">
+                            <input type="hidden" name="email" value="{{ $invitation->email }}">
+                            <span class="rounded-full px-2 py-0.5 bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">Einladung offen</span>
+                            <button type="submit" class="underline text-slate-600 dark:text-slate-300">Einladung erneut senden</button>
+                        </form>
+                    </td>
+                    <td class="px-4 py-2 text-slate-500 dark:text-slate-400">{{ $invitation->email }}</td>
+                    <td class="px-4 py-2 text-slate-500 dark:text-slate-400"><span class="text-slate-600 dark:text-slate-400">keine</span></td>
+                    <td class="px-4 py-2 text-slate-500 dark:text-slate-400"><span class="text-slate-600 dark:text-slate-400">keine</span></td>
+                    @if ($canManageTenant)
+                        <td class="px-4 py-2"><span class="text-slate-600 dark:text-slate-400 text-xs">nach Annahme der Einladung</span></td>
+                        <td class="px-4 py-2"><span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">eingeladen</span></td>
+                    @endif
+                </tr>
+            @endforeach
             @foreach ($participants as $membership)
                 <tr class="border-t border-slate-100 dark:border-slate-700">
                     <td class="px-4 py-2">
@@ -273,7 +314,7 @@
                                 @csrf
                                 <input type="hidden" name="name" value="{{ $membership->user->name }}">
                                 <input type="hidden" name="email" value="{{ $membership->user->email }}">
-                                <span class="rounded-full px-2 py-0.5 bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">eingeladen, noch nicht angemeldet</span>
+                                <span class="rounded-full px-2 py-0.5 bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">Einladung offen</span>
                                 <button type="submit" class="underline text-slate-600 dark:text-slate-300">Einladung erneut senden</button>
                             </form>
                         @endif

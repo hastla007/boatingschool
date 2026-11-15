@@ -9,6 +9,7 @@ use App\Models\TenantUser;
 use App\Models\User;
 use App\Notifications\TenantInvitationNotification;
 use App\Support\BestEffortMail;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
@@ -28,6 +29,25 @@ class ParticipantInviter
 {
     /** Höchstens so viele Einladungen je Schule und Tag (einzeln und als Sammel-Einladung zusammen). */
     public const DAILY_LIMIT = 300;
+
+    /**
+     * Rückmeldung bei einer schon eingeladenen Person -- gleich, ob es zur
+     * Adresse vorher ein Konto gab (Audit SEC-W-3).
+     */
+    public const ALREADY_INVITED_STATUS = 'Diese Person ist bereits eingeladen. Die Einladung wurde erneut verschickt, soweit das Tageslimit für diese Adresse es zulässt; der Link ist 7 Tage gültig.';
+
+    /** Hinweis zu einem beim Einladen angegebenen Code (für beide Fälle gleich). */
+    public const CODE_NOTE = ' Zum angegebenen Code: Ob er schon eingelöst ist, zeigt die Coupon-Codes-Verwaltung. Hatte die Person bereits ein Konto auf der Plattform, weisen Sie ihn dort nach Annahme der Einladung zu.';
+
+    /** Offene Teilnehmer-Einladungen an bestehende Konten (7 Tage gültig), ohne schon Mitglied gewordene. */
+    public static function openLearnerInvitations(Tenant $tenant): Builder
+    {
+        return TenantInvitation::where('tenant_id', $tenant->id)->where('role', 'learner')->whereNull('accepted_at')
+            ->where('created_at', '>=', now()->subDays(7))
+            ->whereRaw('not exists (select 1 from tenant_user tu join app_user au on au.id = tu.user_id
+                where tu.tenant_id = tenant_invitation.tenant_id and lower(au.email) = lower(tenant_invitation.email))')
+            ->orderByDesc('created_at')->orderBy('id');
+    }
 
     public static function dailyKey(Tenant $tenant): string
     {
@@ -111,9 +131,12 @@ class ParticipantInviter
             if (! self::mayMailAddress($tenant, $existingUser->email)) {
                 return ['type' => 'existing', 'mail_sent' => true, 'user' => null, 'duplicate' => true];
             }
+            // Audit SEC-W-3: der Name erscheint in der Teilnehmerliste wie bei
+            // einem neu angelegten Konto.
             $invitation = $open ?? TenantInvitation::create([
                 'tenant_id' => $tenant->id,
                 'email' => $existingUser->email,
+                'name' => mb_substr($name, 0, 255),
                 'role' => 'learner',
                 'invited_by_user_id' => $actor->id,
             ]);
@@ -124,7 +147,9 @@ class ParticipantInviter
                 'email' => $existingUser->email,
             ]);
 
-            return ['type' => 'existing', 'mail_sent' => $mailSent, 'user' => null];
+            // Wiederverwendete Einladung: dieselbe Rückmeldung wie beim
+            // erneuten Senden an ein neu angelegtes Konto (kein Konto-Orakel).
+            return ['type' => 'existing', 'mail_sent' => $mailSent, 'user' => null, 'resent' => $open !== null];
         }
 
         $user = DB::transaction(function () use ($tenant, $actor, $name, $email, $address) {
