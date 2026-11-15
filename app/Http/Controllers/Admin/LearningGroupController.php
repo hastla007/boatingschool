@@ -26,8 +26,9 @@ use Illuminate\View\View;
  * wie beim Betreiber-Befehl); jede Änderung wird protokolliert. Läuft auf
  * der App-Verbindung mit RLS -- Gruppen einfügen darf die App-Rolle seit
  * 2024_02_01_000800, nur in der eigenen Schule. Plätze werden beim Beitritt
- * mit Kurscodes der Schule abgerechnet; Anlegen und Detailseite zeigen je
- * Kurs die freien Codes und warnen, wenn sie für die Plätze nicht reichen.
+ * mit Kurscodes der Schule abgerechnet (nicht für Kurse mit eigenem
+ * Vollzugang); Anlegen und Detailseite zeigen je Kurs die freien Codes und
+ * warnen, wenn sie für die offenen Plätze nicht reichen (Momentaufnahme).
  */
 class LearningGroupController extends Controller
 {

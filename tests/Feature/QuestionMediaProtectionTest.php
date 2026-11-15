@@ -13,6 +13,7 @@ use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
 use App\Support\ProductionReadiness;
+use App\Support\ProtectedMedia;
 use App\Support\QuestionMedia;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -63,7 +64,7 @@ class QuestionMediaProtectionTest extends TestCase
         $this->assertStringContainsString('private', $image->headers->get('Cache-Control'));
         $this->assertStringNotContainsString('public', $image->headers->get('Cache-Control'));
         $this->assertSame('nosniff', $image->headers->get('X-Content-Type-Options'));
-        $this->assertStringContainsString('sandbox', $image->headers->get('Content-Security-Policy'));
+        $this->assertSame(ProtectedMedia::SANDBOX_CSP, $image->headers->get('Content-Security-Policy'));
 
         // Ohne Signatur bzw. mit verändertem Parameter: abgelehnt.
         $this->get(strtok($signed, '?'))->assertForbidden();

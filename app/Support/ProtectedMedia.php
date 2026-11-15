@@ -30,6 +30,20 @@ class ProtectedMedia
 
     public const PUBLIC_DISK = 'public';
 
+    /** Bilder, Audio/Video und Anhänge: direkt aufgerufen wird nichts ausgeführt. */
+    public const SANDBOX_CSP = "default-src 'none'; style-src 'unsafe-inline'; sandbox";
+
+    /**
+     * Inline-PDFs ohne „sandbox“: Chrome lädt seinen PDF-Betrachter in einem
+     * sandboxed Dokument nicht (Plugins sind dort gesperrt) und prüft ihn
+     * gegen object-src der PDF-Antwort selbst -- daher object-src 'self'.
+     * default-src 'none' erlaubt weiterhin kein Skript, keine Verbindungen
+     * und keine Nachladeressourcen der Origin; frame-ancestors 'self' lässt
+     * das Einbetten nur auf der eigenen Seite zu (kein Clickjacking von
+     * fremden Seiten). Firefox (pdf.js) zeigt das PDF damit ebenfalls inline.
+     */
+    public const PDF_CSP = "default-src 'none'; object-src 'self'; frame-ancestors 'self'";
+
     /**
      * Signierte Adresse für die angemeldete Person im aktuellen
      * Schulkontext (bzw. die übergebenen). Ohne Person: null.
@@ -158,8 +172,8 @@ class ProtectedMedia
 
     /**
      * Antwort für eine geprüfte Datei: nur privat zwischenspeichern, kein
-     * MIME-Sniffing, direkt aufgerufen nichts ausführen (CSP sandbox).
-     * Erlaubte Typen inline, alles andere als Anhang.
+     * MIME-Sniffing, direkt aufgerufen nichts ausführen (CSP sandbox; bei
+     * Inline-PDFs PDF_CSP). Erlaubte Typen inline, alles andere als Anhang.
      *
      * @param  list<string>  $inlineTypes  Regex-Muster der MIME-Typen, die inline angezeigt werden
      */
@@ -184,7 +198,7 @@ class ProtectedMedia
             'Cache-Control' => 'private, max-age=3600',
             'X-Content-Type-Options' => 'nosniff',
             'Content-Disposition' => $disposition,
-            'Content-Security-Policy' => "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+            'Content-Security-Policy' => $inline && $mime === 'application/pdf' ? self::PDF_CSP : self::SANDBOX_CSP,
         ], false);
     }
 

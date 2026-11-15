@@ -104,7 +104,26 @@ class TipAndVideoStepMediaProtectionTest extends MobileApiTestCase
         $this->assertStringContainsString('private', $pdf->headers->get('Cache-Control'));
         $this->assertStringNotContainsString('public', $pdf->headers->get('Cache-Control'));
         $this->assertSame('nosniff', $pdf->headers->get('X-Content-Type-Options'));
-        $this->assertStringContainsString('sandbox', $pdf->headers->get('Content-Security-Policy'));
+        // Inline im Browser: ohne sandbox (sonst zeigt Chrome das PDF nicht),
+        // PDF-Betrachter erlaubt, aber weiterhin kein Skript und kein
+        // Einbetten auf fremden Seiten; die Medienroute läuft ohne die
+        // globalen Sicherheits-Header (kein X-Frame-Options: DENY).
+        $csp = $pdf->headers->get('Content-Security-Policy');
+        $this->assertSame(ProtectedMedia::PDF_CSP, $csp);
+        $this->assertStringNotContainsString('sandbox', $csp);
+        $this->assertStringContainsString("default-src 'none'", $csp);
+        $this->assertStringContainsString("object-src 'self'", $csp);
+        $this->assertStringContainsString("frame-ancestors 'self'", $csp);
+        $this->assertStringNotContainsString('script-src', $csp);
+        $this->assertFalse($pdf->headers->has('X-Frame-Options'));
+
+        // Liegt unter dem Tipp keine echte PDF-Datei, gibt es einen Anhang mit Sandbox.
+        $fake = $this->tipWithPdf('Kein PDF');
+        Storage::disk('local')->put($fake->pdfAsset->getRawOriginal('storage_path'), '<html><script>alert(1)</script></html>');
+        $attachment = $this->get(TipPdf::url($fake, $learner, $tenant))->assertOk();
+        $this->assertSame('application/octet-stream', $attachment->headers->get('Content-Type'));
+        $this->assertStringStartsWith('attachment;', $attachment->headers->get('Content-Disposition'));
+        $this->assertSame(ProtectedMedia::SANDBOX_CSP, $attachment->headers->get('Content-Security-Policy'));
 
         // Ohne Signatur bzw. mit verändertem Parameter: abgelehnt.
         $this->get(strtok($signed, '?'))->assertForbidden();
@@ -193,7 +212,7 @@ class TipAndVideoStepMediaProtectionTest extends MobileApiTestCase
         $this->assertSame('inline', $image->headers->get('Content-Disposition'));
         $this->assertStringContainsString('private', $image->headers->get('Cache-Control'));
         $this->assertSame('nosniff', $image->headers->get('X-Content-Type-Options'));
-        $this->assertStringContainsString('sandbox', $image->headers->get('Content-Security-Policy'));
+        $this->assertSame(ProtectedMedia::SANDBOX_CSP, $image->headers->get('Content-Security-Policy'));
         $this->get('/storage/'.$step->image_path)->assertNotFound();
 
         // API: das Feld url bleibt, ist aber signiert.
