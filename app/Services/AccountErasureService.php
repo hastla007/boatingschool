@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use App\Models\ApiAccountDeletionRequest;
 use App\Models\ApiDataExport;
+use App\Models\ApiMobileWebSession;
 use App\Models\Attempt;
 use App\Models\AuditLog;
 use App\Models\Entitlement;
@@ -222,6 +224,9 @@ class AccountErasureService
             NavigationProgress::class,
             // Datenexporte aus der App (Datei räumt app:prune-personal-data nach Ablauf weg).
             ApiDataExport::class,
+            // Offener Löschantrag und Einmal-Codes der Webansicht aus der App.
+            ApiAccountDeletionRequest::class,
+            ApiMobileWebSession::class,
             // Bug-Review (Funk-Training fehlt in Löschung): answers enthält
             // freie Mitschriften/Eingaben des Lerners (siehe Migration
             // 2024_02_01_000479) -- die Tabelle kam nach dieser Liste hinzu
@@ -379,6 +384,9 @@ class AccountErasureService
         DB::table('sessions')->where('user_id', $user->id)->delete();
         DB::table('password_reset_tokens')->where('email', $user->email)->delete();
         DB::table('account_setup_tokens')->where('email', $user->email)->delete();
+        // App-Einstellungen gelten fürs Konto (nicht je Schule); der Fremdschlüssel
+        // kaskadiert zwar, gelöscht wird aber ausdrücklich wie bei den Sitzungen.
+        DB::table('api_user_setting')->where('user_id', $user->id)->delete();
 
         // Sicherheitsreview M5 (Folgefehler): $user->delete() würde die von
         // Eloquent beim Hydrieren/Erstellen fest zugeordnete Verbindung des

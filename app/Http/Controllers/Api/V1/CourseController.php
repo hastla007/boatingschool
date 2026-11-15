@@ -4,11 +4,13 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Api\ApiProblem;
 use App\Api\CourseAccess;
+use App\Api\CourseFiles;
 use App\Api\Present;
 use App\Http\Controllers\Controller;
 use App\Models\Attempt;
 use App\Models\ContentQuestionRevision;
 use App\Models\CourseDefinition;
+use App\Models\CourseFile;
 use App\Models\CourseWebshopLink;
 use App\Models\Entitlement;
 use App\Models\Progress;
@@ -36,6 +38,7 @@ class CourseController extends Controller
         private EntitlementService $entitlements,
         private CourseProgressService $progress,
         private CourseRelationService $courseRelations,
+        private CourseFiles $files,
     ) {}
 
     /** Freigeschaltete Kurse und weitere buchbare Kurse der Schule (mit Webshop-Link). */
@@ -92,9 +95,28 @@ class CourseController extends Controller
         $course->loadMissing('modules');
         $hasExam = $this->access->hasFeatureAccess($tenant, $user, $course, 'exam');
 
+        // Kursdateien: gesperrte Einträge bleiben sichtbar (locked, ohne url).
+        $files = $this->files->published($course);
+        $allowed = $this->files->allowedIds($tenant, $user, $course, $files);
+        $fileRef = fn (CourseFile $file) => [
+            'id' => $file->id,
+            'title' => $file->title,
+            'description' => $file->description,
+            'mime_type' => $file->mime_type,
+            'size_bytes' => $file->size_bytes,
+            'required_capability' => $file->capability(),
+            'locked' => ! $allowed->has($file->id),
+            'url' => $allowed->has($file->id) ? route('api.v1.files.download', ['fileId' => $file->id]) : null,
+            'requires_authorization' => true,
+        ];
+
         return response()->json(['data' => $this->summary($course, $progress, null, CourseWebshopLink::where('tenant_id', $tenant->id)->where('course_id', $course->id)->value('url')) + [
             'modules_count' => $course->modules->count(),
             'exam_options_count' => $hasExam ? ($course->examPapers()->count() ?: ($course->activeExamRuleSet() ? 1 : 0)) : 0,
+            'downloads' => $files->where('category', 'download')->map($fileRef)->values(),
+            'section_files' => (object) $files->where('category', 'section')->groupBy(fn (CourseFile $file) => $file->section_key ?: 'general')
+                ->map(fn ($items) => $items->map($fileRef)->values())->all(),
+            'charts' => $files->where('category', 'chart')->map(fn (CourseFile $file) => ['code' => $file->section_key ?: $file->id] + $fileRef($file))->values(),
         ]]);
     }
 

@@ -80,6 +80,75 @@ class FavoriteController extends Controller
         return response()->json(['data' => $data->values()]);
     }
 
+    /**
+     * Fehlerliste: zuletzt falsch beantwortete, noch gültige Fragen des Kurses
+     * (gleiche Regel wie der Lernmodus „wrong“: mindestens ein Versuch, Serie 0),
+     * neueste zuerst, mit Favoriten- und Sammlungsstatus. Ohne Lösung.
+     */
+    public function mistakes(Request $request, string $courseId): JsonResponse
+    {
+        $tenant = $this->tenantContext->tenant();
+        $user = $request->user();
+        $course = $this->access->require($tenant, $user, $courseId);
+
+        $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+            ->whereIn('question_id', $course->contentQuestionIds())
+            ->where('attempt_count', '>', 0)->where('current_streak', 0)
+            ->orderByDesc('last_seen_at')->get();
+        $questionIds = $progress->pluck('question_id');
+        if ($questionIds->isEmpty()) {
+            return response()->json(['data' => []]);
+        }
+
+        $questions = ContentQuestion::query()->currentlyValid()->whereIn('id', $questionIds)
+            ->with(['revisions' => fn ($q) => $q->where('editorial_status', 'published')->orderByDesc('revision_no')])
+            ->get()->keyBy('id');
+        $favorites = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)
+            ->where('context', Favorite::CONTEXT_SMART_LEARNING)->whereIn('question_id', $questionIds)
+            ->get(['question_id', 'created_at'])->keyBy('question_id');
+        $collectionIds = FavoriteCollectionItem::where('tenant_id', $tenant->id)
+            ->whereIn('favorite_collection_id', FavoriteCollection::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)->select('id'))
+            ->where('context', Favorite::CONTEXT_SMART_LEARNING)->whereIn('question_id', $questionIds)
+            ->orderBy('created_at')->get(['question_id', 'favorite_collection_id'])->groupBy('question_id')
+            ->map(fn ($items) => $items->pluck('favorite_collection_id')->values());
+        // Erstes Modul des Kurses, in dem die Frage vorkommt (Module sind durch contentQuestionIds() geladen).
+        $moduleNames = [];
+        foreach ($course->modules as $module) {
+            foreach ($module->questions as $question) {
+                $moduleNames[$question->id] ??= $module->name;
+            }
+        }
+
+        $data = [];
+        foreach ($progress as $state) {
+            $question = $questions->get($state->question_id);
+            $revision = $question?->revisions->first();
+            if (! $revision) {
+                continue;
+            }
+            $ids = $collectionIds->get($question->id, collect());
+            $savedAt = $favorites->get($question->id)?->created_at;
+            $data[] = [
+                'question_id' => $question->id,
+                'context' => Favorite::CONTEXT_SMART_LEARNING,
+                'wrong' => true,
+                'favorite' => $savedAt !== null,
+                'collection_id' => $ids->first(),
+                'collection_ids' => $ids,
+                'official_number' => $question->official_number !== null ? (string) $question->official_number : null,
+                'text' => trim(strip_tags((string) $revision->question_text)),
+                'question_type' => $revision->question_type ?: 'single_choice',
+                'module' => $moduleNames[$question->id] ?? null,
+                'topic' => ($revision->smartmodus_kategorie ?: $revision->topic) ?: null,
+                'learning_state' => $state->learning_state ?? 'neu',
+                'last_seen_at' => Present::time($state->last_seen_at),
+                'saved_at' => $savedAt ? Present::time($savedAt) : null,
+            ];
+        }
+
+        return response()->json(['data' => $data]);
+    }
+
     /** Favorit setzen (optional mit Sammlungen); wiederholbar. */
     public function put(Request $request, string $courseId, string $questionId): JsonResponse
     {

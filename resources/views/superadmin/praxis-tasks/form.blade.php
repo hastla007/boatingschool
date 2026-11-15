@@ -73,7 +73,7 @@
                 <legend class="text-sm font-medium text-slate-700 dark:text-slate-200">Bild</legend>
                 @if ($task?->media)
                     <div class="flex items-start gap-3">
-                        <img src="{{ $task->media->storage_path }}" alt="{{ $task->media->alt_text }}" class="w-40 rounded-xl border border-slate-100 dark:border-slate-700">
+                        <img src="{{ \App\Support\QuestionMedia::url($task->media) }}" alt="{{ $task->media->alt_text }}" class="w-40 rounded-xl border border-slate-100 dark:border-slate-700">
                         <label class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
                             <input type="checkbox" name="remove_image" value="1" class="rounded border-slate-300"> Bild entfernen
                         </label>

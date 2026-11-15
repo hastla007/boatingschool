@@ -23,7 +23,7 @@ class PrunePersonalData extends Command
 {
     protected $signature = 'app:prune-personal-data
         {--dry-run : Nur anzeigen, wie viele Zeilen betroffen wären, nichts löschen}
-        {--mobile-api-only : Nur die Reste der Mobile-API (Sitzungen, Idempotenz, Exporte, Gruppeneinladungen) -- läuft stündlich}';
+        {--mobile-api-only : Nur die Reste der Mobile-API (Sitzungen, Idempotenz, Exporte, Löschanträge, Webansicht-Codes, Gruppeneinladungen) -- läuft stündlich}';
 
     protected $description = 'Löscht abgelaufene Sessions sowie (falls aktiviert) Audit-Log- und Lern-Attempt-Zeilen jenseits der konfigurierten Aufbewahrungsfrist.';
 
@@ -108,8 +108,9 @@ class PrunePersonalData extends Command
 
     /**
      * Mobile-API: beendete/abgelaufene Gerätesitzungen (nach 30 Tagen Frist
-     * für Rückfragen), Idempotenz-Schlüssel nach ihrer Gültigkeit und
-     * abgelaufene Datenexporte samt Datei.
+     * für Rückfragen), Idempotenz-Schlüssel nach ihrer Gültigkeit,
+     * abgelaufene Datenexporte samt Datei, abgelaufene Löschanträge und
+     * Einmal-Codes der Webansicht.
      */
     private function pruneMobileApi(bool $dryRun): void
     {
@@ -127,8 +128,13 @@ class PrunePersonalData extends Command
         $groupInvites = DB::table('learning_group_member')->where('status', 'invited')
             ->where('invited_at', '<', now()->subDays(LearningGroupService::INVITE_DAYS));
 
+        // Abgelaufene Löschanträge (Bestätigung nicht mehr möglich) und
+        // Einmal-Codes der Webansicht (60 Sekunden gültig) nach einem Tag.
+        $deletionRequests = DB::table('api_account_deletion_request')->where('expires_at', '<', now());
+        $webLogins = DB::table('api_mobile_web_session')->where('expires_at', '<', now()->subDay());
+
         if ($dryRun) {
-            $this->line("App-Sitzungen: {$sessions->count()}, Idempotenz-Schlüssel: {$keys->count()}, Datenexporte: {$exports->count()}, Gruppeneinladungen: {$groupInvites->count()} -- würden gelöscht.");
+            $this->line("App-Sitzungen: {$sessions->count()}, Idempotenz-Schlüssel: {$keys->count()}, Datenexporte: {$exports->count()}, Löschanträge: {$deletionRequests->count()}, Webansicht-Codes: {$webLogins->count()}, Gruppeneinladungen: {$groupInvites->count()} -- würden gelöscht.");
 
             return;
         }
@@ -142,8 +148,11 @@ class PrunePersonalData extends Command
                 $disk->delete($file);
             }
         }
+        // Webansicht-Codes zuerst: sie hängen an den Gerätesitzungen.
+        $webLoginCount = $webLogins->delete();
         $expiredInvites = $groupInvites->update(['status' => 'expired', 'email' => null, 'invite_token' => null, 'updated_at' => now()]);
-        $this->line('App-Sitzungen: '.$sessions->delete().', Idempotenz-Schlüssel: '.$keys->delete().', Datenexporte: '.$exports->delete().', Gruppeneinladungen: '.$expiredInvites.' gelöscht.');
+        $this->line('App-Sitzungen: '.$sessions->delete().', Idempotenz-Schlüssel: '.$keys->delete().', Datenexporte: '.$exports->delete()
+            .', Löschanträge: '.$deletionRequests->delete().', Webansicht-Codes: '.$webLoginCount.', Gruppeneinladungen: '.$expiredInvites.' gelöscht.');
     }
 
     /** Nie angenommene Einladungs-Konten (nie ein Passwort festgelegt) nach der Frist löschen. */

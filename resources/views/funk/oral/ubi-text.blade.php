@@ -9,7 +9,7 @@
         // Abgabe: *Wort* hervorheben; Lösung = Zeile mit buchstabierten Wörtern.
         $lines = collect($text['lines'] ?? [])->map(fn ($line) => [
             'html' => preg_replace('/\*([^*]+)\*/', '<mark class="font-semibold underline decoration-2 underline-offset-2" style="background: transparent; color: var(--brand-secondary, #007A7A)">$1</mark>', e($line)),
-            'spelled' => preg_replace_callback('/\*([^*]+)\*/', fn ($m) => $m[1].' ('.\App\Support\FunkTraining::spellGerman($m[1]).')', $line),
+            'spelled' => \App\Support\FunkTraining::spellMarkedWords($line),
         ]);
     @endphp
 

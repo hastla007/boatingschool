@@ -38,4 +38,9 @@ return [
         'ios' => env('MOBILE_API_STORE_URL_IOS'),
         'android' => env('MOBILE_API_STORE_URL_ANDROID'),
     ],
+    // Einmal-Anmeldung der eingebetteten Webansicht aus der App (POST /auth/web-session).
+    'web_session_enabled' => (bool) env('MOBILE_API_WEB_SESSION_ENABLED', true),
+    // Pfad auf der zentralen Domain, den die App als Universal-/App-Link
+    // öffnet (Bestätigungslink der Kontolöschung aus der App).
+    'deletion_confirmation_path' => env('MOBILE_API_DELETION_CONFIRMATION_PATH', '/app/konto-loeschen'),
 ];
