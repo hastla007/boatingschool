@@ -39,4 +39,13 @@ return [
     // Höchstzahl Codes je Schule und Kalendertag (Europe/Berlin) über den Shop;
     // 0 = ohne Grenze. Darüber: 429 CODE_QUOTA_EXCEEDED und Alarm-Mail.
     'daily_code_limit' => (int) env('COMMERCE_DAILY_CODE_LIMIT', 1000),
+
+    // Anfragen je Minute und Shop, in getrennten Töpfen (AppServiceProvider):
+    // Lieferungen/Sperren/Batch-Status großzügig, Konto-/Statusabfragen und
+    // Katalog getrennt davon, dazu je Shopkunde (Konto-Endpunkte).
+    'rate_limits' => [
+        'orders' => 1200,
+        'accounts' => 300,
+        'per_customer' => 20,
+    ],
 ];

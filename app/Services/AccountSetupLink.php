@@ -27,8 +27,10 @@ class AccountSetupLink
         ]);
     }
 
-    public function send(User $user, ?Tenant $tenant, string $role): void
+    /** Direkt verschicken (Fehler sichtbar), oder mit $queue über die Queue (Sammel-Einladung, Audit ARC-2). */
+    public function send(User $user, ?Tenant $tenant, string $role, bool $queue = false): void
     {
-        $user->notify(new AccountInvitation($tenant, $role, $this->url($user, $tenant)));
+        $notification = new AccountInvitation($tenant, $role, $this->url($user, $tenant));
+        $queue ? $user->notify($notification) : $user->notifyNow($notification);
     }
 }

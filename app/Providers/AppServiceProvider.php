@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Api\CourseAccess;
 use App\Auth\TenantSessionGuard;
 use App\Models\PlatformSetting;
 use App\Notifications\AccountInvitation;
@@ -13,17 +14,21 @@ use App\Notifications\PraxisExamAppointmentUpdated;
 use App\Notifications\TenantInvitationNotification;
 use App\Notifications\WillkommensboxOrderShipped;
 use App\Support\CanonicalUrl;
+use App\Support\DisabledCourses;
 use App\Support\MailSchool;
+use App\Support\ProductionReadiness;
 use App\Support\TenantContext;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Validation\UncompromisedVerifier;
+use Illuminate\Database\Events\MigrationsEnded;
 use Illuminate\Foundation\Events\DiagnosingHealth;
 use Illuminate\Http\Client\Factory;
 use Illuminate\Http\Request;
 use Illuminate\Mail\Events\MessageSending;
 use Illuminate\Notifications\Messages\MailMessage;
+use Illuminate\Queue\Events\Looping;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -43,6 +48,8 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(TenantContext::class);
+        // Audit ARC-5: je Request gemerkt (WeakMap auf den Request).
+        $this->app->singleton(DisabledCourses::class);
         // Passwort-Leak-Prüfung (api.pwnedpasswords.com): höchstens 5 s statt
         // 30 s warten, wenn der Dienst nicht erreichbar ist (die Prüfung
         // lässt das Passwort dann ohnehin zu).
@@ -65,6 +72,7 @@ class AppServiceProvider extends ServiceProvider
             Limit::perMinute(10)->by('api-refresh-token:'.hash('sha256', (string) $request->input('refresh_token'))),
             Limit::perMinute(300)->by('api-refresh-ip:'.$request->ip()),
         ]);
+        $this->configureCommerceRateLimits();
 
         // Eigenes Remember-Cookie je Schule im Pfad-Modus (siehe TenantSessionGuard).
         Auth::extend('session', function ($app, string $name, array $config) {
@@ -95,6 +103,38 @@ class AppServiceProvider extends ServiceProvider
         $this->configurePasswordResetUrl();
         $this->configureVerifyEmailUrl();
         $this->configureHealthCheck();
+    }
+
+    /**
+     * Commerce-API (routes/commerce.php): getrennte Töpfe je Shop. Konto- und
+     * Statusabfragen lösen Shopkunden indirekt aus (Warenkorb, „Mein Konto“);
+     * sie dürfen Lieferungen, Sperren und Batch-Abfragen (idempotent, vom
+     * Shop-Server geplant) nie ausbremsen. Zusätzlich je Shopkunde begrenzt,
+     * damit ein einzelner Kunde nicht den ganzen Konto-Topf leert. Die
+     * Signatur ist vorher geprüft (commerce_shop_id gesetzt).
+     */
+    private function configureCommerceRateLimits(): void
+    {
+        $shop = fn (Request $request): string => (string) ($request->attributes->get('commerce_shop_id') ?: $request->ip());
+
+        RateLimiter::for('commerce-orders', fn (Request $request) => Limit::perMinute((int) config('commerce.rate_limits.orders', 1200))
+            ->by('commerce-orders:'.$shop($request)));
+
+        RateLimiter::for('commerce-accounts', function (Request $request) use ($shop) {
+            $limits = [];
+            // Kunde aus dem Pfad (/accounts/{customerId}/…) oder bei der Registrierung
+            // aus dem Body. Zuerst geprüft: ThrottleRequests zählt eine Anfrage in
+            // allen Töpfen bis zu dem, der sie abweist -- ein gedrosselter Kunde
+            // verbraucht so nichts vom gemeinsamen Topf.
+            $customer = $request->route('customerId') ?? $request->input('shop_customer_id');
+            if (is_string($customer) && $customer !== '') {
+                $limits[] = Limit::perMinute((int) config('commerce.rate_limits.per_customer', 20))
+                    ->by('commerce-customer:'.$shop($request).':'.hash('sha256', $customer));
+            }
+            $limits[] = Limit::perMinute((int) config('commerce.rate_limits.accounts', 300))->by('commerce-accounts:'.$shop($request));
+
+            return $limits;
+        });
     }
 
     /**
@@ -143,6 +183,13 @@ class AppServiceProvider extends ServiceProvider
                 $event->message->replyTo(new Address($branding->support_email, $tenant->name));
             }
         });
+
+        // Audit ARC-V2: Migrationen ändern teils Inhalte (Korrekturen an Fragen,
+        // Medien) -- danach Kurs-Zwischenspeicher der App neu berechnen lassen.
+        Event::listen(MigrationsEnded::class, fn () => rescue(fn () => CourseAccess::bumpContentVersion(), report: false));
+
+        // Audit ARC-2: Lebenszeichen des Queue-Workers für app:check-production.
+        Event::listen(Looping::class, fn () => ProductionReadiness::recordWorkerHeartbeat());
 
         Event::listen(DiagnosingHealth::class, function () {
             DB::connection()->getPdo();

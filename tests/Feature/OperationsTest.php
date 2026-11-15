@@ -17,6 +17,7 @@ use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Process\PendingProcess;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Storage;
@@ -117,9 +118,10 @@ class OperationsTest extends TestCase
             'queue.default' => 'database',
         ]);
         Cache::forever(ProductionReadiness::SCHEDULER_HEARTBEAT_KEY, now()->timestamp);
+        Cache::forever(ProductionReadiness::WORKER_HEARTBEAT_KEY, now()->timestamp);
 
         $checks = collect(ProductionReadiness::checks())->keyBy('label');
-        foreach (['APP_ENV = production', 'APP_DEBUG aus', 'APP_URL mit https', 'CENTRAL_DOMAIN gesetzt', 'Echter Mailversand', 'Absenderadresse', 'Scheduler (Cron: schedule:run jede Minute)', 'Queue (keine hängenden Jobs)', 'Getrennte Rollen für App und Owner', 'App-Rolle ohne Superuser/BYPASSRLS'] as $label) {
+        foreach (['APP_ENV = production', 'APP_DEBUG aus', 'APP_URL mit https', 'CENTRAL_DOMAIN gesetzt', 'Echter Mailversand', 'Absenderadresse', 'Scheduler (Cron: schedule:run jede Minute)', 'Queue-Worker (queue:work)', 'Queue (keine hängenden Jobs)', 'Getrennte Rollen für App und Owner', 'App-Rolle ohne Superuser/BYPASSRLS'] as $label) {
             $this->assertSame('ok', $checks[$label]['status'], $label);
         }
         $this->assertSame('fail', $checks['Datensicherung (app:backup)']['status']);
@@ -127,6 +129,30 @@ class OperationsTest extends TestCase
         // Veraltetes Lebenszeichen: Scheduler gilt als ausgefallen.
         Cache::forever(ProductionReadiness::SCHEDULER_HEARTBEAT_KEY, now()->subMinutes(10)->timestamp);
         $this->assertSame('fail', collect(ProductionReadiness::checks())->firstWhere('label', 'Scheduler (Cron: schedule:run jede Minute)')['status']);
+    }
+
+    /** Audit ARC-2: Massen-Mails brauchen den Worker -- Lebenszeichen und Wartezeit werden geprüft. */
+    public function test_check_production_reports_a_missing_worker_and_long_waiting_jobs(): void
+    {
+        config(['queue.default' => 'database']);
+        Cache::forget(ProductionReadiness::WORKER_HEARTBEAT_KEY);
+        $check = fn (string $label) => collect(ProductionReadiness::checks())->firstWhere('label', $label);
+        $this->assertSame('fail', $check('Queue-Worker (queue:work)')['status']);
+
+        // Der Worker schreibt sein Lebenszeichen bei jedem Schleifendurchlauf.
+        $this->artisan('queue:work', ['connection' => 'database', '--queue' => 'arc2-heartbeat-probe', '--stop-when-empty' => true, '--memory' => 4096])->assertSuccessful();
+        $this->assertSame('ok', $check('Queue-Worker (queue:work)')['status']);
+
+        $id = DB::connection('pgsql_admin')->table('jobs')->insertGetId([
+            'queue' => 'arc2-wait-probe', 'payload' => '{}', 'attempts' => 0, 'reserved_at' => null,
+            'available_at' => now()->subMinutes(11)->timestamp, 'created_at' => now()->subMinutes(11)->timestamp,
+        ]);
+        try {
+            $this->assertSame('fail', $check('Queue (keine hängenden Jobs)')['status']);
+            $this->assertStringContainsString('seit 11 Minuten', $check('Queue (keine hängenden Jobs)')['detail']);
+        } finally {
+            DB::connection('pgsql_admin')->table('jobs')->delete($id);
+        }
     }
 
     public function test_superadmin_sees_the_system_status(): void

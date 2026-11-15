@@ -61,7 +61,7 @@ class ExamAccessRevocationTest extends TestCase
         $answer = $question->revision->answers->first();
         $answerResponse = $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/answers", [
             'position' => $question->position,
-            'answer_id' => $answer->id,
+            'answer_id' => $this->answerToken($learner, $answer->id),
         ]);
         $answerResponse->assertForbidden();
 
@@ -86,7 +86,7 @@ class ExamAccessRevocationTest extends TestCase
             $correctAnswer = $sq->revision->correctAnswer();
             $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/answers", [
                 'position' => $sq->position,
-                'answer_id' => $correctAnswer->id,
+                'answer_id' => $this->answerToken($learner, $correctAnswer->id),
             ]);
         }
         $this->actingAsInTenant($learner, $tenant)->get("/exam-sessions/{$session->id}");

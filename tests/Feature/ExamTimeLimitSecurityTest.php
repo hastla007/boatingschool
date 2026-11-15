@@ -75,7 +75,7 @@ class ExamTimeLimitSecurityTest extends TestCase
 
         $response = $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/answers", [
             'position' => $question->position,
-            'answer_id' => $answer->id,
+            'answer_id' => $this->answerToken($learner, $answer->id),
         ]);
 
         $response->assertRedirect(route('exam.result', $session));
@@ -93,7 +93,7 @@ class ExamTimeLimitSecurityTest extends TestCase
         // direkt beim Ergebnis statt erneut auf einer Fehlerseite.
         $second = $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/answers", [
             'position' => $question->position,
-            'answer_id' => $answer->id,
+            'answer_id' => $this->answerToken($learner, $answer->id),
         ]);
         $second->assertRedirect(route('exam.result', $session));
     }
@@ -115,12 +115,12 @@ class ExamTimeLimitSecurityTest extends TestCase
 
         $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/answers", [
             'position' => $question->position,
-            'answer_id' => $firstAnswer->id,
+            'answer_id' => $this->answerToken($learner, $firstAnswer->id),
         ])->assertRedirect();
 
         $retry = $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/answers", [
             'position' => $question->position,
-            'answer_id' => $otherAnswer->id,
+            'answer_id' => $this->answerToken($learner, $otherAnswer->id),
         ]);
 
         // Doppelklick bzw. nachgebauter Request: kein 404 mitten in der
@@ -192,7 +192,7 @@ class ExamTimeLimitSecurityTest extends TestCase
 
         $response = $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/learn/attempts", [
             'revision_id' => $question->revision_id,
-            'answer_id' => $question->revision->answers->first()->id,
+            'answer_id' => $this->answerToken($learner, $question->revision->answers->first()->id),
             'mode' => 'smarttrainer',
         ]);
 

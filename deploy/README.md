@@ -13,7 +13,7 @@ Worker und Deploy-Skript in der Oberfläche ein.
 | `nginx.conf` | Alternative mit nginx und Wildcard-Zertifikat |
 | `php-fpm-pool.conf` | PHP-FPM-Pool (Benutzer, Limits, nur `.php` ausführen) |
 | `crontab` | Scheduler (jede Minute, Ausgabe nach `storage/logs/scheduler.log`) |
-| `supervisor-worker.conf` | Queue-Worker (derzeit optional) |
+| `supervisor-worker.conf` | Queue-Worker (Pflicht: Massen-Mails laufen über die Queue) |
 | `../.github/workflows/deploy.yml` | Deploy per Knopfdruck aus GitHub (optional) |
 
 ## 1. Erstinstallation
@@ -58,8 +58,15 @@ Worker und Deploy-Skript in der Oberfläche ein.
 7. **Webserver**: `Caddyfile` nach `/etc/caddy/Caddyfile` (oder `nginx.conf` + certbot), neu laden.
 8. **Cron**: Zeile aus `crontab` mit `crontab -e` als Deploy-Benutzer eintragen. Die Ausgabe
    landet in `storage/logs/scheduler.log`; mit logrotate begrenzen (§5).
-9. **Prüfen**: `php artisan app:check-production` bzw. im Superadmin unter „System“.
-   Nach einigen Minuten müssen Scheduler und (am nächsten Morgen) Datensicherung grün sein.
+9. **Queue-Worker**: `supervisor-worker.conf` nach `/etc/supervisor/conf.d/boatingschool-worker.conf`,
+   dann `supervisorctl reread && supervisorctl update`. Pflicht: Mitteilungen per Mail,
+   Sammel-Einladungen, Sammel-Verlängerungen, Lern-Erinnerungen an viele und Lerngruppen-
+   Einladungen werden nur eingereiht und erst vom Worker verschickt. `deploy.sh` startet ihn
+   nach jedem Update neu (`queue:restart`).
+10. **Prüfen**: `php artisan app:check-production` bzw. im Superadmin unter „System“.
+   Nach einigen Minuten müssen Scheduler, Queue-Worker (Lebenszeichen) und (am nächsten
+   Morgen) Datensicherung grün sein; ein fälliger Job, der länger als 10 Minuten wartet,
+   gilt als hängend.
 
 ## 2. Updates einspielen
 
@@ -253,7 +260,19 @@ lassen. Alternativ den Subdomain-Modus nutzen. Der Go-live-Check weist im Pfad-M
   }
   ```
 
+- **Queue**: `app:check-production` meldet einen Worker ohne Lebenszeichen (über 5 Minuten)
+  und fällige Jobs, die länger als 10 Minuten warten; fehlgeschlagene Mails unter
+  `php artisan queue:failed` (erneut senden: `queue:retry`).
+
 ## 6. Datenschutz im Betrieb
+
+**Datenexport einer Schule** (Vertragsende): der Download im Superadmin-Bereich wird gestreamt,
+unterliegt aber dem Zeitlimit von PHP-FPM (`request_terminate_timeout` 300 s, einschließlich der
+Übertragung). Gemessen (Testsystem, je Mitglied 200 Fortschrittszeilen und 600 Lernversuche):
+rund 30 ms und 25 Abfragen je Mitglied, etwa 0,2 MB JSON je Mitglied -- 300 Mitglieder ≈ 9 s und
+58 MB. Ab einigen tausend Mitgliedern bzw. bei langsamer Verbindung deshalb auf dem Server
+exportieren: `php artisan app:export-tenant <slug> /pfad/export.json` (gleicher Inhalt, ohne
+Zeitlimit, Datei nur für den Betreiber lesbar; nach der Übergabe löschen).
 
 Auftragsverarbeitungsverträge mit Hoster, Mail-, Speicher-, Video- und Fehlertracking-Anbieter
 abschließen; Standorte möglichst in der EU. Die Datenschutzerklärung (Superadmin → Website)

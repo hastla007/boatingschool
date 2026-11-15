@@ -221,6 +221,7 @@ class ShopOrders
      * Tageskontingent je Schule: schützt davor, dass ein kompromittierter Shop
      * (oder ein Bedienfehler) unbegrenzt Codes erzeugt. Darüber hinaus nur nach
      * Freigabe (COMMERCE_DAILY_CODE_LIMIT anheben, dann „Erneut zustellen“).
+     * Muss innerhalb der Liefer-Transaktion laufen (Sperre je Schule).
      */
     private function assertWithinDailyQuota(CommerceShopAccount $account, int $quantity): void
     {
@@ -228,6 +229,12 @@ class ShopOrders
         if ($limit <= 0) {
             return;
         }
+        // Gleichzeitige Lieferungen derselben Schule nacheinander zählen: ohne
+        // diese Sperre sähe jede Transaktion (READ COMMITTED) nur die schon
+        // committeten Batches, und parallele Positionen übersprängen das Limit.
+        // Reihenfolge immer Position -> Schule (keine Verklemmung). Gilt bis
+        // zum Ende der Transaktion, also auch über das Anlegen des Batches.
+        DB::statement('SELECT pg_advisory_xact_lock(hashtext(?))', ['commerce-quota:'.$account->tenant_id]);
         $since = now('Europe/Berlin')->startOfDay()->utc();
         $today = (int) CouponBatch::withoutGlobalScopes()->where('tenant_id', $account->tenant_id)->where('created_at', '>=', $since)->sum('quantity');
         if ($today + $quantity <= $limit) {

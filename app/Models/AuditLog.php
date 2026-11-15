@@ -48,6 +48,7 @@ class AuditLog extends Model
         'announcement.delete' => 'hat eine Mitteilung an Teilnehmer gelöscht.',
         'team.invite' => 'hat ein Teammitglied eingeladen.',
         'team.invite_pending' => 'hat eine Team-Einladung an ein bestehendes Konto verschickt.',
+        'team.invite_resent' => 'hat eine Team-Einladung erneut verschickt.',
         'team.role_update' => 'hat die Rolle eines Teammitglieds geändert.',
         'team.transfer_ownership' => 'hat die Inhaberschaft übergeben.',
         'team.two_factor_policy' => 'hat die 2FA-Pflicht fürs Team geändert.',

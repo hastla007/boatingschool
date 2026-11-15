@@ -8,9 +8,9 @@ use App\Models\CourseDefinition;
 use App\Models\CourseWebshopLink;
 use App\Models\Entitlement;
 use App\Models\Tenant;
-use App\Models\TenantCourseDisabled;
 use App\Models\User;
 use App\Services\EntitlementService;
+use App\Support\DisabledCourses;
 use App\Support\VideoCourseLessons;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -87,21 +87,27 @@ class CourseAccess
         return "api-course-{$what}:{$course->id}:v{$version}:".now('Europe/Berlin')->toDateString();
     }
 
+    /**
+     * Audit ARC-V2: atomar erhöhen (zwei gleichzeitige Änderungen ergaben
+     * mit Lesen + Schreiben sonst dieselbe Version). add() legt die Version
+     * beim ersten Mal an (Wert 1 = Standard von cacheKey()).
+     */
     public static function bumpContentVersion(): void
     {
-        Cache::memo()->forever(self::CONTENT_VERSION_KEY, (int) Cache::get(self::CONTENT_VERSION_KEY, 1) + 1);
+        Cache::add(self::CONTENT_VERSION_KEY, 1, now()->addYears(10));
+        if (Cache::memo()->increment(self::CONTENT_VERSION_KEY) === false) {
+            Cache::memo()->forever(self::CONTENT_VERSION_KEY, (int) Cache::get(self::CONTENT_VERSION_KEY, 1) + 1);
+        }
     }
 
     /** Zwischenspeicher eines Kurses neu berechnen (app:warm-course-cache). */
     public function warm(CourseDefinition $course): void
     {
-        foreach (['valid-qids', 'module-qids', 'capabilities'] as $what) {
-            Cache::forget(self::cacheKey($what, $course));
-            Cache::forget('illuminate:cache:flexible:created:'.self::cacheKey($what, $course));
-        }
-        $this->validQuestionIds($course);
-        $this->moduleQuestionIds($course);
-        $this->capabilities($course);
+        $key = self::cacheKey('data', $course);
+        Cache::forget($key);
+        Cache::forget('illuminate:cache:flexible:created:'.$key);
+        $this->forget();
+        $this->courseData($course);
     }
 
     public function __construct(private EntitlementService $entitlements) {}
@@ -167,11 +173,7 @@ class CourseAccess
             $limit = null;
             $feature = self::RULE_FEATURES[$capability] ?? null;
             if (! $full && $feature !== null && $offered) {
-                $now = now();
-                $rules = $this->rules($tenant)->get($course->id, collect())->filter(fn (CourseAccessRule $rule) => $rule->feature_code === $feature
-                    && $rule->module_code === null
-                    && ($rule->valid_from === null || $rule->valid_from <= $now)
-                    && ($rule->valid_until === null || $rule->valid_until >= $now));
+                $rules = $this->activeRules($tenant, $course, $feature)->filter(fn (CourseAccessRule $rule) => $rule->module_code === null);
                 $full = $rules->contains(fn (CourseAccessRule $rule) => $rule->access_type === 'free');
                 if (! $full) {
                     $limit = $rules->where('access_type', 'free_limited')->max('limit_value');
@@ -274,14 +276,7 @@ class CourseAccess
      */
     public function validQuestionIds(CourseDefinition $course): Collection
     {
-        // Review: stale-while-revalidate -- nach 5 Minuten wird der alte Wert
-        // noch bis zu einer Stunde sofort geliefert und nach der Antwort
-        // erneuert; app:warm-course-cache füllt den Cache vorab.
-        return collect(Cache::flexible(self::cacheKey('valid-qids', $course), self::CACHE_TTL, function () use ($course) {
-            $course->loadMissing('modules.questions');
-
-            return ContentQuestion::currentlyValidIds($course->modules->flatMap(fn ($m) => $m->questions))->values()->all();
-        }));
+        return collect($this->courseData($course)['valid']);
     }
 
     /**
@@ -292,15 +287,50 @@ class CourseAccess
      */
     public function moduleQuestionIds(CourseDefinition $course): array
     {
-        return Cache::flexible(self::cacheKey('module-qids', $course), self::CACHE_TTL, function () use ($course) {
-            $course->loadMissing('modules.questions');
+        return $this->courseData($course)['modules'];
+    }
 
-            return $course->modules->map(fn ($module) => [
-                'id' => (string) $module->id,
-                'code' => (string) $module->code,
-                'ids' => ContentQuestion::currentlyValidIds($module->questions)->values()->all(),
-            ])->values()->all();
-        });
+    /**
+     * Inhaltliche Daten eines Kurses (gültige Fragen, Fragen je Modul,
+     * Funktionen) als EIN Cache-Eintrag, je Request nur einmal gelesen.
+     *
+     * Review: stale-while-revalidate -- nach 5 Minuten wird der alte Wert
+     * noch bis zu einer Stunde sofort geliefert und nach der Antwort
+     * erneuert; app:warm-course-cache füllt den Cache vorab.
+     * Audit ARC-5: vorher drei Schlüssel je Kurs und kein Request-Speicher --
+     * mit dem Datenbank-Cache über die Hälfte aller Abfragen einer Kursliste.
+     * Der Schlüssel trägt weiter Inhaltsversion und Tag (Invalidierung).
+     *
+     * @return array{valid: list<string>, modules: array<int, array{id: string, code: string, ids: list<string>}>, capabilities: list<string>}
+     */
+    private function courseData(CourseDefinition $course): array
+    {
+        $key = self::cacheKey('data', $course);
+
+        return $this->remember("course-data:{$key}", fn () => Cache::flexible($key, self::CACHE_TTL, function () use ($course) {
+            $course->loadMissing('modules.questions');
+            $validIds = ContentQuestion::currentlyValidIds($course->modules->flatMap(fn ($m) => $m->questions));
+            $valid = array_flip($validIds->all());
+            $hasQuestions = $course->contentQuestionIds()->isNotEmpty();
+
+            return [
+                'valid' => $validIds->values()->all(),
+                'modules' => $course->modules->map(fn ($module) => [
+                    'id' => (string) $module->id,
+                    'code' => (string) $module->code,
+                    'ids' => $module->questions->pluck('id')->unique()->filter(fn ($id) => isset($valid[$id]))->values()->all(),
+                ])->values()->all(),
+                'capabilities' => array_values(array_filter([
+                    $hasQuestions ? 'smarttrainer' : null,
+                    $hasQuestions ? 'favorites' : null,
+                    $course->hasStartableExam() ? 'exam' : null,
+                    VideoCourseLessons::ordered($course)->isNotEmpty() ? 'video' : null,
+                    $course->navigationTasks()->exists() ? 'navigation' : null,
+                    $course->praxisTasks()->exists() ? 'praxis' : null,
+                    $course->files()->where('category', 'download')->where('published', true)->exists() ? 'downloads' : null,
+                ])),
+            ];
+        }));
     }
 
     /** Freischaltzeitpunkt eines Moduls mit Drip-Regel (null = keine Regel). */
@@ -311,8 +341,9 @@ class CourseAccess
             return null;
         }
 
-        $days = $this->rules($tenant)->get($course->id, collect())
-            ->filter(fn (CourseAccessRule $rule) => $rule->feature_code === $feature && $rule->access_type === 'drip' && $rule->module_code === $moduleCode)
+        // Nur gerade gültige Regeln (valid_from/valid_until wie in featureScope()).
+        $days = $this->activeRules($tenant, $course, $feature)
+            ->filter(fn (CourseAccessRule $rule) => $rule->access_type === 'drip' && $rule->module_code === $moduleCode)
             ->max('limit_value');
         if ($days === null) {
             return null;
@@ -359,6 +390,57 @@ class CourseAccess
     }
 
     /**
+     * Fragen, die die Person im Lernmodus (Smarttrainer, Favoriten, Fehler-
+     * liste) bearbeiten darf: null = keine Einschränkung (voller Zugang, kein
+     * Modul per Drip gesperrt). Voller Zugang mit Drip-Sperre: alle Kurs-
+     * fragen außer denen gesperrter Module (Bogenfragen bleiben). Sonst die
+     * freigegebenen Fragen aus accessibleQuestionIds() (Probezugang: erste N
+     * je Modul).
+     *
+     * @return ?Collection<int, string>
+     */
+    public function learnableQuestionIds(Tenant $tenant, User $user, CourseDefinition $course, string $capability = 'smarttrainer'): ?Collection
+    {
+        return $this->remember("learnable:{$tenant->id}:{$user->id}:{$course->id}:{$capability}", function () use ($tenant, $user, $course, $capability) {
+            $accessible = $this->accessibleQuestionIds($tenant, $user, $course);
+            if (! $this->featureScope($tenant, $user, $course, $capability)['full']) {
+                return $accessible;
+            }
+            $locked = $this->validQuestionIds($course)->diff($accessible);
+
+            return $locked->isEmpty() ? null : $course->contentQuestionIds()->diff($locked)->values();
+        });
+    }
+
+    /** Ob eine einzelne Frage im Lernmodus freigegeben ist (siehe learnableQuestionIds()). */
+    public function allowsQuestion(Tenant $tenant, User $user, CourseDefinition $course, string $questionId, string $capability = 'smarttrainer'): bool
+    {
+        $allowed = $this->learnableQuestionIds($tenant, $user, $course, $capability);
+
+        return $allowed === null || $allowed->contains($questionId);
+    }
+
+    /** Eintrag außerhalb des freigegebenen Umfangs (Probezugang „erste N“, Drip). */
+    public static function itemLocked(): ApiProblem
+    {
+        return new ApiProblem(403, 'ENTITLEMENT_REQUIRED', 'Kein Zugang', 'Dieser Inhalt ist mit deinem Zugang (noch) nicht freigeschaltet.');
+    }
+
+    /**
+     * Wie require(), verlangt aber den vollen Umfang der Funktion (für
+     * Bereiche ohne eindeutige „erste N“-Reihenfolge, z. B. Funktraining).
+     */
+    public function requireFull(Tenant $tenant, User $user, string $courseId, string $capability): CourseDefinition
+    {
+        $course = $this->require($tenant, $user, $courseId, $capability);
+        if (! $this->featureScope($tenant, $user, $course, $capability)['full']) {
+            throw self::itemLocked();
+        }
+
+        return $course;
+    }
+
+    /**
      * Funktionen, die der Kurs inhaltlich hat (nicht: die die Person nutzen darf).
      * 'funk' kommt mit den Funk-Endpunkten dazu; 'downloads' bei veröffentlichten
      * Kursdateien der Kategorie download.
@@ -367,19 +449,7 @@ class CourseAccess
      */
     public function capabilities(CourseDefinition $course): array
     {
-        return Cache::flexible(self::cacheKey('capabilities', $course), self::CACHE_TTL, function () use ($course) {
-            $hasQuestions = $course->contentQuestionIds()->isNotEmpty();
-
-            return array_values(array_filter([
-                $hasQuestions ? 'smarttrainer' : null,
-                $hasQuestions ? 'favorites' : null,
-                $course->hasStartableExam() ? 'exam' : null,
-                VideoCourseLessons::ordered($course)->isNotEmpty() ? 'video' : null,
-                $course->navigationTasks()->exists() ? 'navigation' : null,
-                $course->praxisTasks()->exists() ? 'praxis' : null,
-                $course->files()->where('category', 'download')->where('published', true)->exists() ? 'downloads' : null,
-            ]));
-        });
+        return $this->courseData($course)['capabilities'];
     }
 
     // --- intern ---------------------------------------------------------
@@ -408,16 +478,25 @@ class CourseAccess
             return false;
         }
 
-        return ! $this->remember("disabled:{$tenant->id}", fn () => TenantCourseDisabled::where('tenant_id', $tenant->id)->pluck('course_id')->flip())
-            ->has($course->id);
+        return ! app(DisabledCourses::class)->contains($tenant, $course->id);
     }
 
     private function hasDripRules(Tenant $tenant, CourseDefinition $course, string $capability): bool
     {
         $feature = self::RULE_FEATURES[$capability] ?? null;
 
-        return $this->rules($tenant)->get($course->id, collect())
-            ->contains(fn (CourseAccessRule $rule) => $rule->feature_code === $feature && $rule->access_type === 'drip');
+        return $feature !== null && $this->activeRules($tenant, $course, $feature)
+            ->contains(fn (CourseAccessRule $rule) => $rule->access_type === 'drip');
+    }
+
+    /** @return Collection<int, CourseAccessRule> gerade gültige Regeln einer Funktion für diesen Kurs */
+    private function activeRules(Tenant $tenant, CourseDefinition $course, string $feature): Collection
+    {
+        $now = now();
+
+        return $this->rules($tenant)->get($course->id, collect())->filter(fn (CourseAccessRule $rule) => $rule->feature_code === $feature
+            && ($rule->valid_from === null || $rule->valid_from <= $now)
+            && ($rule->valid_until === null || $rule->valid_until >= $now));
     }
 
     /** Beginn des Zugangs für Drip: frühester Start eines passenden aktiven Zugangs, sonst Registrierung. */

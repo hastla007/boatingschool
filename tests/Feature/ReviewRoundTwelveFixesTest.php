@@ -55,9 +55,10 @@ class ReviewRoundTwelveFixesTest extends TestCase
     public function test_a_password_reset_as_first_mailbox_proof_clears_foreign_two_factor(): void
     {
         $tenant = $this->createTestTenant();
-        $user = $this->createTenantUser($tenant, 'learner');
+        // Nie bestätigt (Audit SEC-W-2: zählt email_ever_verified_at).
+        $user = $this->createTenantUser($tenant, 'learner', ['email_verified_at' => null]);
         $this->onAdmin(fn () => User::findOrFail($user->id)->forceFill([
-            'email_verified_at' => null, 'two_factor_secret' => Totp::generateSecret(), 'two_factor_confirmed_at' => now(),
+            'two_factor_secret' => Totp::generateSecret(), 'two_factor_confirmed_at' => now(),
         ])->save());
         $token = $this->onAdmin(fn () => Password::broker()->createToken(User::find($user->id)));
 
@@ -104,14 +105,17 @@ class ReviewRoundTwelveFixesTest extends TestCase
         $user = $this->createTenantUser($tenant, 'learner', ['password' => Hash::make('geheim123!')]);
         RateLimiter::clear('login-account:'.$user->email);
 
+        // Wechselnde IPs im selben Netz: ab 20 Fehlversuchen wird aus diesem
+        // Netz gar nicht mehr geprüft, auch nicht das richtige Passwort.
         foreach (range(1, 20) as $i) {
             $this->withServerVariables(['REMOTE_ADDR' => "10.0.0.{$i}"])->withSession(['dev_tenant_slug' => $tenant->slug])
                 ->post('/login', ['email' => $user->email, 'password' => 'falsch']);
         }
-        $this->withServerVariables(['REMOTE_ADDR' => '10.0.1.1'])->withSession(['dev_tenant_slug' => $tenant->slug])
+        $this->withServerVariables(['REMOTE_ADDR' => '10.0.0.200'])->withSession(['dev_tenant_slug' => $tenant->slug])
             ->post('/login', ['email' => $user->email, 'password' => 'geheim123!'])->assertSessionHasErrors('email');
         $this->assertGuest();
         RateLimiter::clear('login-account:'.$user->email);
+        RateLimiter::clear('login-account:'.$user->email.'|10.0.0.0/24');
     }
 
     public function test_reopening_a_paper_during_the_navigation_self_assessment_continues_it(): void

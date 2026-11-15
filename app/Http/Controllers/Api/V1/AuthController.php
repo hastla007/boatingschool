@@ -10,6 +10,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Support\BestEffortMail;
+use App\Support\LoginThrottle;
 use App\Support\TwoFactorCheck;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -29,9 +30,6 @@ use Illuminate\Validation\Rules;
  */
 class AuthController extends Controller
 {
-    /** Fehlversuche je Konto in 15 Minuten (gemeinsam mit dem Web-Login). */
-    private const ACCOUNT_ATTEMPTS = 20;
-
     public function __construct(private DeviceSessions $sessions) {}
 
     public function login(Request $request): JsonResponse
@@ -46,12 +44,12 @@ class AuthController extends Controller
 
         $email = Str::lower(trim($validated['email']));
         $ipKey = 'api-login:'.Str::transliterate($email).'|'.$request->ip();
-        $accountKey = 'login-account:'.Str::transliterate($email);
-        foreach ([[$ipKey, 5], [$accountKey, self::ACCOUNT_ATTEMPTS]] as [$key, $max]) {
-            if (RateLimiter::tooManyAttempts($key, $max)) {
-                $seconds = RateLimiter::availableIn($key);
-                throw new ApiProblem(429, 'RATE_LIMITED', 'Zu viele Anmeldeversuche', 'Bitte später erneut versuchen.', [], ['Retry-After' => (string) $seconds]);
-            }
+        // Konto-Grenzen gemeinsam mit dem Web-Login (je Konto und Netz,
+        // Audit SEC-W-1 -- ein richtiges Passwort aus einem sauberen Netz
+        // scheitert nicht an fremden Fehlversuchen).
+        $seconds = RateLimiter::tooManyAttempts($ipKey, 5) ? RateLimiter::availableIn($ipKey) : LoginThrottle::blockedFor($email, $request->ip());
+        if ($seconds !== null) {
+            throw new ApiProblem(429, 'RATE_LIMITED', 'Zu viele Anmeldeversuche', 'Bitte später erneut versuchen.', [], ['Retry-After' => (string) $seconds]);
         }
 
         // Einheitliche Mindestdauer: an der Antwortzeit ist nicht ablesbar,
@@ -67,11 +65,11 @@ class AuthController extends Controller
 
         if (! $user) {
             RateLimiter::hit($ipKey);
-            RateLimiter::hit($accountKey, 900);
+            LoginThrottle::failed($email, $request->ip());
             throw new ApiProblem(401, 'UNAUTHENTICATED', 'Anmeldung fehlgeschlagen', 'E-Mail-Adresse oder Passwort stimmen nicht.');
         }
         RateLimiter::clear($ipKey);
-        RateLimiter::clear($accountKey);
+        LoginThrottle::clear($email, $request->ip());
 
         $device = ['name' => $validated['device_name'], 'platform' => $validated['device_platform'] ?? null, 'app_version' => $validated['app_version'] ?? null];
 

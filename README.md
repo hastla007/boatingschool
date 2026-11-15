@@ -257,15 +257,22 @@ Geplante Kommandos:
   `docs/commerce/README.md`. Ohne `COMMERCE_SHOP_URL` ohne Wirkung.
 
 `QUEUE_CONNECTION` steht in `.env`/`.env.example` auf `database` (Tabellen
-`jobs`/`failed_jobs`/`job_batches` existieren bereits), aktuell nutzt aber
-keine Klasse `ShouldQueue` -- der gesamte Mailversand (Passwort-Set-Link,
-Einladung, E-Mail-Bestätigung) läuft bewusst synchron im Request über
-`App\Support\BestEffortMail` (Bug-Review B31: ein SMTP-Fehler wird
-geloggt, bricht den Request aber nicht ab). Ein `php artisan queue:work`
-ist daher für den aktuellen Funktionsumfang nicht nötig; sobald ein
-künftiges Feature echte Queue-Jobs einführt, muss ein Worker-Prozess
-(Vorlage `deploy/supervisor-worker.conf`) dauerhaft laufen --
-`app:check-production` meldet hängende Jobs.
+`jobs`/`failed_jobs`/`job_batches`). Ein dauerhaft laufender Worker
+(`php artisan queue:work`, Vorlage `deploy/supervisor-worker.conf`) ist
+Pflicht: Massen-Mails gehen je Empfänger als Job über die Queue --
+Mitteilungen der Schule und der Plattform, Sammel-Einladung, Sammel-
+Verlängerung und Freischaltungen durch die Schule, Erinnerungen an mehr als
+zehn Lernende und Lerngruppen-Einladungen (Notifications mit `ShouldQueue`,
+`afterCommit`). Die Schule reist nur als ID mit; die Job-Middleware
+`App\Jobs\Middleware\WithSchoolContext` setzt im Worker den
+Mandantenkontext (RLS, Absendername, Unterschrift, Antwortadresse).
+Einladungen mit Passwort-Link und Beitrittscodes werden verschlüsselt
+eingereiht. Einzelne Konto- und Sicherheitsmails (Passwort-Link, E-Mail-
+Bestätigung, Einzel-Einladung, selbst eingelöster Code) laufen weiter
+bewusst synchron im Request über `App\Support\BestEffortMail`
+(Bug-Review B31: ein SMTP-Fehler wird geloggt und gemeldet, bricht den
+Request aber nicht ab). `app:check-production` prüft das Lebenszeichen des
+Workers und meldet fällige Jobs, die länger als 10 Minuten warten.
 
 ### Produktivbetrieb
 

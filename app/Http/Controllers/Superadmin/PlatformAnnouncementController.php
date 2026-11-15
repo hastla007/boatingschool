@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Superadmin;
 
+use App\Http\Controllers\Admin\AnnouncementController;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\PlatformAnnouncement;
@@ -50,6 +51,8 @@ class PlatformAnnouncementController extends Controller
 
         $tenantIds = $validated['target'] === 'selected' ? array_values(array_unique($validated['tenant_ids'])) : null;
 
+        // Audit ARC-2/QA-D-1: Claim vor dem Versand, Mails über die Queue.
+        $sendMail = $request->boolean('send_mail');
         $announcement = PlatformAnnouncement::create([
             'title' => trim($validated['title']),
             'body' => trim($validated['body']),
@@ -57,24 +60,28 @@ class PlatformAnnouncementController extends Controller
             'tenant_ids' => $tenantIds,
             'visible_until' => $validated['visible_until'] ?? null,
             'created_by_user_id' => $request->user()->id,
+            'emailed_at' => $sendMail ? now() : null,
         ]);
 
-        $sent = 0;
-        if ($request->boolean('send_mail')) {
-            foreach ($this->recipients($tenantIds)->take(self::MAX_MAILS) as $membership) {
+        $queued = 0;
+        $omitted = 0;
+        if ($sendMail) {
+            $recipients = $this->recipients($tenantIds);
+            $omitted = max($recipients->count() - self::MAX_MAILS, 0);
+            foreach ($recipients->take(self::MAX_MAILS) as $membership) {
                 if (BestEffortMail::send(fn () => $membership->user->notify(new PlatformAnnouncementPublished($announcement, $membership->tenant)), 'Plattform-Mitteilung '.$announcement->id)) {
-                    $sent++;
+                    $queued++;
                 }
             }
-            $announcement->update(['emailed_at' => now(), 'emailed_count' => $sent]);
+            $announcement->update(['emailed_count' => $queued]);
         }
 
         AuditLog::record(null, $request->user()->id, 'superadmin.platform_announcement.create', 'platform_announcement', $announcement->id, null, [
-            'title' => $announcement->title, 'audience' => $announcement->audience, 'tenant_ids' => $tenantIds, 'emailed' => $sent,
-        ]);
+            'title' => $announcement->title, 'audience' => $announcement->audience, 'tenant_ids' => $tenantIds, 'emailed' => $queued,
+        ] + ($omitted > 0 ? ['omitted' => $omitted] : []));
 
         return redirect()->route('superadmin.announcements.index')
-            ->with('status', 'Mitteilung veröffentlicht'.($request->boolean('send_mail') ? " und an {$sent} ".($sent === 1 ? 'Person' : 'Personen').' gemailt.' : '.'));
+            ->with('status', 'Mitteilung veröffentlicht'.($sendMail ? AnnouncementController::mailStatus($queued, $omitted, self::MAX_MAILS) : '.'));
     }
 
     public function destroy(Request $request, PlatformAnnouncement $announcement): RedirectResponse

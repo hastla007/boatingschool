@@ -62,6 +62,15 @@ class ParticipantToolsController extends Controller
 
             $existing = User::on('pgsql_admin')->whereRaw('lower(email) = ?', [mb_strtolower($email)])->first();
             $existingRole = $existing ? TenantUser::where('tenant_id', $tenant->id)->where('user_id', $existing->id)->value('role') : null;
+            // Audit SEC-W-3: noch nie angemeldete (hier angelegte) Konten und
+            // offene Einladungen an bestehende Konten melden dasselbe.
+            $alreadyInvited = ($existingRole && $existing->status === 'invited')
+                || (! $existingRole && ParticipantInviter::openLearnerInvitations($tenant)->whereRaw('lower(email) = ?', [mb_strtolower($email)])->exists());
+            if ($alreadyInvited) {
+                $skipped[] = "{$email} (bereits eingeladen)";
+
+                continue;
+            }
             if ($existingRole) {
                 $skipped[] = $existingRole === 'learner' ? "{$email} (bereits Teilnehmer)" : "{$email} (gehört zum Team)";
 
@@ -72,9 +81,10 @@ class ParticipantToolsController extends Controller
                 break;
             }
 
-            $result = $inviter->invite($tenant, $request->user(), $name ?: strstr($email, '@', true), $email);
+            // Audit ARC-2: Einladungsmails über die Queue (bis zu 100 je Liste).
+            $result = $inviter->invite($tenant, $request->user(), $name ?: strstr($email, '@', true), $email, queueMail: true);
             if ($result['duplicate'] ?? false) {
-                $skipped[] = "{$email} (heute schon eingeladen)";
+                $skipped[] = "{$email} (bereits eingeladen)";
 
                 continue;
             }
@@ -85,6 +95,10 @@ class ParticipantToolsController extends Controller
         }
 
         $status = $invited === 1 ? 'Eine Person eingeladen.' : "{$invited} Personen eingeladen.";
+        $queued = $invited - $mailFailed;
+        if ($queued > 0) {
+            $status .= $queued === 1 ? ' Die Einladungsmail wird im Hintergrund verschickt.' : ' Die Einladungsmails werden im Hintergrund verschickt.';
+        }
         if ($mailFailed > 0) {
             $status .= " Bei {$mailFailed} konnte die Einladungsmail nicht verschickt werden.";
         }
@@ -114,7 +128,7 @@ class ParticipantToolsController extends Controller
             ->map(fn ($group) => app(CourseProgressService::class)->overallPercents($group->first()->course, $tenant, $group->pluck('user_id')));
         $entitlements = $entitlementRows->groupBy('user_id');
 
-        AuditLog::record($tenant->id, $request->user()->id, 'participants.export', 'tenant_user', null, null, ['count' => $members->count(), 'filters' => array_filter($filters)]);
+        AuditLog::record($tenant->id, $request->user()->id, 'participants.export', 'tenant_user', null, null, ['count' => $members->count(), 'filters' => self::auditFilters($filters)]);
         // Personenbezogene Daten verlassen die Plattform: die (anderen) Inhaber
         // erfahren davon -- fällt bei einem übernommenen Admin-Konto auf.
         $actor = $request->user();
@@ -175,5 +189,16 @@ class ParticipantToolsController extends Controller
         $name = collect($parts)->reject(fn ($p) => $p === $email)->implode(' ');
 
         return [trim($name), $email ? mb_strtolower($email) : null];
+    }
+
+    /**
+     * QA-D-4: der Suchbegriff (oft Name oder E-Mail) gehört nicht ins
+     * Protokoll -- vermerkt wird nur, dass gesucht wurde.
+     *
+     * @param  array<string, string>  $filters
+     */
+    private static function auditFilters(array $filters): array
+    {
+        return array_filter(['p_search' => $filters['p_search'] !== ''] + $filters);
     }
 }

@@ -46,11 +46,11 @@ class TopicQueryStringEncodingTest extends TestCase
         ];
 
         if ($revision->question_type === 'multi_choice') {
-            $payload['answer_ids'] = [$revision->answers->firstWhere('is_correct', true)->id];
+            $payload['answer_ids'] = $this->answerTokens($learner, [$revision->answers->firstWhere('is_correct', true)->id]);
         } elseif ($revision->question_type === 'open_text') {
             $payload['known'] = true;
         } else {
-            $payload['answer_id'] = $revision->answers->firstWhere('is_correct', true)->id;
+            $payload['answer_id'] = $this->answerToken($learner, $revision->answers->firstWhere('is_correct', true)->id);
         }
 
         // topic kommt -- wie beim echten Formular (action="...&topic=...") --

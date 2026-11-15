@@ -43,7 +43,7 @@ class ReviewRoundTenFixesTest extends TestCase
         $session = $this->asTenant($tenant, fn () => ExamSession::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->firstOrFail());
         foreach ($this->asTenant($tenant, fn () => $session->questions()->with('revision.answers')->get()) as $sq) {
             $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/answers", [
-                'position' => $sq->position, 'answer_id' => $sq->revision->answers->firstWhere('is_correct', true)->id,
+                'position' => $sq->position, 'answer_id' => $this->answerToken($learner, $sq->revision->answers->firstWhere('is_correct', true)->id),
             ]);
         }
 

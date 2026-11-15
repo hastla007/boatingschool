@@ -13,6 +13,7 @@ use App\Models\Progress;
 use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
+use App\Notifications\EmailChangeRequested;
 use App\Services\AccountSetupLink;
 use App\Support\BestEffortMail;
 use App\Support\Countries;
@@ -223,9 +224,12 @@ class UserController extends Controller
         $isSuperadmin = $request->boolean('is_superadmin');
         unset($validated['is_superadmin']);
 
+        $emailChanged = strtolower((string) $user->email) !== strtolower((string) $validated['email']);
         if ($user->email !== $validated['email']) {
             $user->email_verified_at = null;
         }
+        // Audit SEC-W-2: Kopie mit der bisherigen Adresse für den Hinweis.
+        $previousRecipient = clone $user;
 
         // Sicherheitsreview S4: Superadmin-Aktionen -- insbesondere Sperren
         // (status) und das Erteilen/Entziehen von is_superadmin -- wurden
@@ -261,8 +265,21 @@ class UserController extends Controller
         // Review-Runde 13: Sperre oder neue E-Mail-Adresse beenden auch die
         // Geräte der Mobile-App -- nach einer Entsperrung waren die alten
         // Refresh-Tokens sonst wieder gültig.
-        if (($wasActive && $validated['status'] !== 'active') || strtolower((string) ($before['email'] ?? '')) !== strtolower((string) $validated['email'])) {
+        if (($wasActive && $validated['status'] !== 'active') || $emailChanged) {
             DeviceSessions::revokeAllFor($user->id);
+        }
+        // Audit SEC-W-2: eine Adressänderung durch den Support beendet wie
+        // der Wechsel im Profil alle anderen Web-Sitzungen samt „Angemeldet
+        // bleiben“, und die bisherige Adresse erfährt davon -- sonst bliebe
+        // eine per Social Engineering erschlichene Änderung unbemerkt.
+        if ($emailChanged) {
+            DB::table('sessions')->where('user_id', $user->id)
+                ->where('id', '!=', $request->session()->getId())->delete();
+            $user->forceFill(['remember_token' => Str::random(60)])->save();
+            BestEffortMail::send(
+                fn () => $previousRecipient->notify(new EmailChangeRequested($validated['email'], bySupport: true)),
+                "Hinweis an alte E-Mail-Adresse (Support) Nutzer {$user->id}"
+            );
         }
 
         return back()->with('status', 'Nutzer aktualisiert.');

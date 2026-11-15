@@ -29,7 +29,7 @@ use RuntimeException;
  */
 class TenantOffboardingService
 {
-    public function __construct(private PersonalDataExportService $personalData) {}
+    public function __construct(private PersonalDataExportService $personalData, private AccountErasureService $erasure) {}
 
     /** @return array<string, mixed> */
     /**
@@ -65,7 +65,7 @@ class TenantOffboardingService
 
         $write('],"open_invitations":'.$json(TenantInvitation::where('tenant_id', $tenant->id)->whereNull('accepted_at')->get(['email', 'role', 'created_at'])->toArray())
             .',"coupons":'.$json(Coupon::where('tenant_id', $tenant->id)->with(['course:id,code', 'product:id,code'])->get()
-                ->map(fn (Coupon $c) => ['code' => $c->code, 'course' => $c->course?->code, 'product' => $c->product?->code, 'status' => $c->statusLabel(), 'redeemed_at' => $c->redeemed_at?->toIso8601String()])
+                ->map(fn (Coupon $c) => ['code' => $c->code, 'course' => $c->course?->code, 'product' => $c->product?->code, 'status' => $this->couponExportStatus($c), 'redeemed_at' => $c->redeemed_at?->toIso8601String()])
                 ->all())
             // Lerngruppen mit Plätzen; offene Einladungen mit Adresse (wie open_invitations).
             .',"learning_groups":'.$json(LearningGroup::where('tenant_id', $tenant->id)->with(['owner', 'members.user'])->orderBy('created_at')->get()
@@ -123,12 +123,12 @@ class TenantOffboardingService
                 ->where('is_superadmin', false)
                 ->whereDoesntHave('tenantMemberships')
                 ->get();
+            // Audit ARC-3: Protokolldaten aller Konten gebündelt statt je Konto.
+            $this->erasure->forgetOrphanAuditData($orphans);
             foreach ($orphans as $user) {
-                AuditLog::where('entity_type', 'app_user')->where('entity_id', $user->id)->update(['before_data' => null, 'after_data' => null]);
-                DB::table('sessions')->where('user_id', $user->id)->delete();
-                DB::table('password_reset_tokens')->where('email', $user->email)->delete();
-                DB::table('account_setup_tokens')->where('email', $user->email)->delete();
-                DB::table('app_user')->where('id', $user->id)->delete();
+                // Gleicher Lösch-Pfad wie die Kontolöschung (Shopkonten,
+                // Shop-Ereignisse, plattformweites Protokoll).
+                $this->erasure->eraseOrphanAccount($user, auditAlreadyCleared: true);
             }
 
             return $orphans->count();
@@ -149,5 +149,15 @@ class TenantOffboardingService
         ]);
 
         return ['members' => count($userIds), 'deleted_accounts' => $deletedAccounts];
+    }
+
+    /**
+     * QA-D-2: nicht eingelöste Codes löscht der Trigger
+     * tenant_delete_unredeemed_coupons (Migration 000473) mit der Schule --
+     * „offen“ allein ließe glauben, sie blieben danach einlösbar.
+     */
+    private function couponExportStatus(Coupon $coupon): string
+    {
+        return $coupon->isUsable() ? 'offen, wird beim Löschen der Schule gelöscht' : $coupon->statusLabel();
     }
 }

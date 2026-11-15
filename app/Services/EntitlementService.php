@@ -5,8 +5,8 @@ namespace App\Services;
 use App\Models\CourseDefinition;
 use App\Models\Entitlement;
 use App\Models\Tenant;
-use App\Models\TenantCourseDisabled;
 use App\Models\User;
+use App\Support\DisabledCourses;
 use Illuminate\Support\Collection;
 
 /**
@@ -28,7 +28,7 @@ class EntitlementService
     /** @return Collection<int, Entitlement> */
     public function activeEntitlements(Tenant $tenant, User $user): Collection
     {
-        $disabledCourseIds = TenantCourseDisabled::where('tenant_id', $tenant->id)->pluck('course_id');
+        $disabledCourseIds = app(DisabledCourses::class)->ids($tenant);
 
         return Entitlement::with('course.modules')
             ->where('tenant_id', $tenant->id)
@@ -41,6 +41,28 @@ class EntitlementService
             // bestehendes Entitlement trotzdem zugänglich, genau wie
             // site_enabled wird jetzt auch status === 'published' geprüft.
             ->filter(fn (Entitlement $e) => $e->course && $e->course->status === 'published' && $e->course->site_enabled && ! $disabledCourseIds->contains($e->course_id))
+            ->values();
+    }
+
+    /**
+     * Aktive volle Kurszugänge (capabilities = null) -- was das Web als
+     * gebucht zeigt. Teilzugänge (WP-Import, Lerngruppe mit einzelnen
+     * Funktionen) nutzt nur die App; im Web öffnen sie keine Kursseite
+     * (hasAccess()), der Kurs bleibt dort buchbar (QA-L-3).
+     *
+     * @return Collection<int, Entitlement>
+     */
+    public function activeFullEntitlements(Tenant $tenant, User $user): Collection
+    {
+        return $this->activeEntitlements($tenant, $user)->filter(fn (Entitlement $e) => $e->capabilities === null)->values();
+    }
+
+    /** @return Collection<int, CourseDefinition> Kurse mit vollem Zugang (siehe activeFullEntitlements()) */
+    public function activeFullCourses(Tenant $tenant, User $user): Collection
+    {
+        return $this->activeFullEntitlements($tenant, $user)
+            ->map(fn (Entitlement $e) => $e->course)
+            ->unique('id')
             ->values();
     }
 
@@ -77,6 +99,6 @@ class EntitlementService
             return false;
         }
 
-        return ! TenantCourseDisabled::where('tenant_id', $tenant->id)->where('course_id', $course->id)->exists();
+        return ! app(DisabledCourses::class)->contains($tenant, $course->id);
     }
 }

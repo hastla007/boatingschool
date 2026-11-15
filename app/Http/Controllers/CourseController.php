@@ -42,7 +42,11 @@ class CourseController extends Controller
 
         $orderIndex = array_flip(self::COURSE_DISPLAY_ORDER);
 
-        $activeEntitlements = $entitlements->activeEntitlements($tenant, $user)->keyBy('course_id');
+        // QA-L-3: nur volle Zugänge gelten im Web als gebucht; ein Kurs mit
+        // bloßem Teilzugang (nur in der App nutzbar) bleibt buchbar.
+        $allActive = $entitlements->activeEntitlements($tenant, $user);
+        $activeEntitlements = $allActive->filter(fn (Entitlement $e) => $e->capabilities === null)->keyBy('course_id');
+        $partialCourseIds = $allActive->pluck('course_id')->diff($activeEntitlements->keys())->values();
         $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get();
 
         $courses = $activeEntitlements->map(function ($entitlement) use ($progress) {
@@ -92,6 +96,7 @@ class CourseController extends Controller
         // würde daran nichts ändern.
         $expiredCourseIds = Entitlement::where('tenant_id', $tenant->id)
             ->where('user_id', $user->id)
+            ->whereNull('capabilities')
             ->whereIn('status', ['active', 'expired'])
             ->whereNotNull('valid_until')
             ->where('valid_until', '<=', now())
@@ -102,6 +107,7 @@ class CourseController extends Controller
             'lockedCourses' => $lockedCourses,
             'webshopLinks' => $webshopLinks,
             'expiredCourseIds' => $expiredCourseIds,
+            'partialCourseIds' => $partialCourseIds,
             'renewalWebshopLink' => $tenant->branding->renewal_webshop_link,
         ]);
     }

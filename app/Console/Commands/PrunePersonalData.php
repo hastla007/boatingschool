@@ -187,7 +187,8 @@ class PrunePersonalData extends Command
             ->whereNotExists(fn ($q) => $q->from('praxis_form_submission')->whereColumn('praxis_form_submission.user_id', 'app_user.id'))
             // Shop-Registrierung in der B2B-Prüfung: das Konto wartet auf die Freigabe
             // -- aber nicht unbegrenzt (offene Registrierung, sonst ließe sich jede
-            // Adresse dauerhaft belegen). Verknüpfte Shopkonten bleiben.
+            // Adresse dauerhaft belegen). Verknüpfte Shopkonten bleiben. (Betrifft nur
+            // ältere Registrierungen: neue legen erst bei der Freigabe ein App-Konto an.)
             ->whereNotExists(fn ($q) => $q->from('commerce_shop_account')->whereColumn('commerce_shop_account.user_id', 'app_user.id')
                 ->where(fn ($w) => $w->where('commerce_shop_account.status', 'linked')
                     ->orWhere(fn ($p) => $p->where('commerce_shop_account.status', 'pending_review')->where('commerce_shop_account.created_at', '>', now()->subDays(180)))))
@@ -225,7 +226,18 @@ class PrunePersonalData extends Command
             return;
         }
 
-        $deleted = $query->delete();
+        // Audit ARC-4: in Blöcken (über ctid, jede Anweisung eine eigene
+        // kurze Transaktion) statt in einem einzigen DELETE über Millionen
+        // Zeilen -- das hielt Sperren und WAL lange und blähte die Tabelle.
+        $chunk = max((int) config('data_retention.prune_chunk', 5000), 1);
+        $deleted = 0;
+        do {
+            $count = DB::delete(
+                "DELETE FROM {$table} WHERE ctid = ANY(ARRAY(SELECT ctid FROM {$table} WHERE {$dateColumn} < ? LIMIT {$chunk}))",
+                [$cutoff]
+            );
+            $deleted += $count;
+        } while ($count >= $chunk);
         $this->line("{$table}: {$deleted} Zeile(n) jenseits der Aufbewahrungsfrist gelöscht.");
     }
 }

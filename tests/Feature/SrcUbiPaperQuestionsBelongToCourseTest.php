@@ -64,8 +64,8 @@ class SrcUbiPaperQuestionsBelongToCourseTest extends TestCase
         $revision = $this->onAdmin(fn () => $question->publishedRevision()->load('answers'));
         $this->actingAsInTenant($learner, $tenant)->post("/courses/{$combo->id}/learn/attempts?questions={$question->id}", [
             'revision_id' => $revision->id,
-            'answer_id' => $revision->answers->firstWhere('is_correct', true)?->id,
-            'answer_ids' => $revision->question_type === 'multi_choice' ? $revision->answers->where('is_correct', true)->pluck('id')->all() : null,
+            'answer_id' => $this->answerToken($learner, $revision->answers->firstWhere('is_correct', true)?->id),
+            'answer_ids' => $revision->question_type === 'multi_choice' ? $this->answerTokens($learner, $revision->answers->where('is_correct', true)->pluck('id')->all()) : null,
             'mode' => 'smarttrainer',
         ])->assertRedirect();
     }

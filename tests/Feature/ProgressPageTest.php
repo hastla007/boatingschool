@@ -41,7 +41,7 @@ class ProgressPageTest extends TestCase
 
         $this->actingAsInTenant($learner, $tenant)->post("/courses/{$courseA->id}/learn/attempts", [
             'revision_id' => $revisionA->id,
-            'answer_id' => $correctA->id,
+            'answer_id' => $this->answerToken($learner, $correctA->id),
             'mode' => 'smarttrainer',
         ])->assertRedirect();
 

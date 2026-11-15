@@ -13,8 +13,8 @@ use Tests\TestCase;
  * DB::transaction() ab -- nur damit SET LOCAL app.current_tenant_id (siehe
  * TenantContext) am Transaktionsende zuverlässig zurückgesetzt wird. Jedes
  * im Request erworbene DB-Lock blieb dadurch bis zum Request-Ende bestehen
- * (auch während des synchronen SMTP-Versands über BestEffortMail -- keine
- * Notification implementiert ShouldQueue, siehe README.md), und die
+ * (auch während des synchronen SMTP-Versands einzelner Mails über
+ * BestEffortMail, siehe README.md), und die
  * vorgetäuschte Atomarität griff ohnehin nicht, da die meisten Fehlerpfade
  * (BestEffortMail, ProfileController::confirmEmail()) ihre Exception
  * bereits selbst fangen, die Transaktion also trotzdem normal committete.
