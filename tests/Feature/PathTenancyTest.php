@@ -101,6 +101,24 @@ class PathTenancyTest extends TestCase
         $this->assertSame('/', collect($central->headers->getCookies())->first(fn ($c) => $c->getName() === 'XSRF-TOKEN')->getPath());
     }
 
+    /**
+     * Der Schul-Request darf nach der Antwort nicht als app('request')
+     * gebunden bleiben: sonst erzeugte url() danach /<slug>/… und der
+     * nächste relative Aufruf (hier die App-Schnittstelle) lief unter dem
+     * Schul-Pfad (404 statt Antwort der zentralen Domain).
+     */
+    public function test_a_path_request_does_not_leak_its_base_url_into_the_next_request(): void
+    {
+        $tenant = $this->tenant();
+
+        $this->getJson("/{$tenant->slug}/api/v1/health")->assertNotFound();
+
+        $this->assertSame('', app('request')->getBaseUrl());
+        $this->assertSame(rtrim(config('app.url'), '/').'/api/v1/health', url('api/v1/health'));
+        $this->getJson('/api/v1/health')->assertOk()->assertJsonPath('data.status', 'ok');
+        $this->get("{$this->central}/login")->assertOk()->assertDontSee("/{$tenant->slug}/login", false);
+    }
+
     public function test_login_and_learning_pages_work_under_the_path(): void
     {
         $tenant = $this->tenant();
