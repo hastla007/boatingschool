@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Api;
 
+use App\Models\Coupon;
 use App\Models\CourseDefinition;
 use App\Models\Entitlement;
 use App\Models\LearningGroup;
@@ -24,7 +25,7 @@ use Illuminate\Support\Str;
 /**
  * Lerngruppen (Gruppenlizenzen): je Schule mit RLS, Verwaltung nur durch
  * den Verwalter, Plätze ohne Überzug, Beitritt per Code/Einladung über
- * /coupons/redeem, Widerruf beim Entfernen, Datenschutz (Löschung, Export,
+ * /coupons/redeem, Ende des Gruppenzugangs beim Entfernen, Datenschutz (Löschung, Export,
  * Fristen) und die Betreiber-Befehle.
  */
 class LearningGroupApiTest extends MobileApiTestCase
@@ -261,7 +262,7 @@ class LearningGroupApiTest extends MobileApiTestCase
         $this->api('POST', '/coupons/redeem', $sameSchool, $tenant, ['code' => $stale->invite_token])->assertStatus(422);
     }
 
-    public function test_removing_a_member_revokes_only_the_group_access_and_frees_the_seat(): void
+    public function test_removing_a_member_ends_only_the_group_access_and_frees_the_seat(): void
     {
         $tenant = $this->createTestTenant();
         $owner = $this->createTenantUser($tenant, 'learner');
@@ -287,7 +288,10 @@ class LearningGroupApiTest extends MobileApiTestCase
         $after = $this->api('DELETE', "/me/groups/{$group->id}/members/{$row['id']}", $ownerToken, $tenant)->assertOk();
         $this->assertSame([], $after->json('data.members'));
         $this->assertSame(1, $after->json('data.seats.free'));
-        $this->assertSame(['revoked', 'revoked'], $this->groupEntitlements($member)->pluck('status')->all());
+        // QA-L-2: Ende der Mitgliedschaft = abgelaufen, keine Sperre (revoked).
+        $this->assertSame(['expired', 'expired'], $this->groupEntitlements($member)->pluck('status')->all());
+        // Enddatum jetzt (höchstens 1 s nach dem gerade erfolgten Beitritt, siehe valid_range_check).
+        $this->assertTrue($this->groupEntitlements($member)->every(fn (Entitlement $e) => $e->valid_until !== null && $e->valid_until->lt(now()->addSeconds(5))));
         $this->assertSame('active', $this->onAdmin(fn () => Entitlement::withoutGlobalScopes()->find($own->id))->status);
         $this->assertNotSame('active', $this->courseEntry($tenant, $memberToken, $src)['access']['status']);
         $this->api('GET', "/courses/{$src->id}/overview", $memberToken, $tenant)->assertStatus(403);
@@ -297,6 +301,16 @@ class LearningGroupApiTest extends MobileApiTestCase
         // Entfernte Person kommt über den Gruppencode nicht wieder hinein (nur mit neuer Einladung).
         $this->api('POST', '/coupons/redeem', $memberToken, $tenant, ['code' => $group->join_code])->assertStatus(422);
         $this->api('GET', "/groups/join/{$group->join_code}", $memberToken, $tenant)->assertOk()->assertJsonPath('data.joinable', false);
+
+        // QA-L-2: ein eigener Kurscode bringt den Kurs danach zurück.
+        $coupon = $this->onAdmin(fn () => Coupon::create(['code' => 'QA-L2-'.strtoupper(Str::random(8)), 'course_id' => $src->id, 'tenant_id' => $tenant->id]));
+        try {
+            $this->api('POST', '/coupons/redeem', $memberToken, $tenant, ['code' => $coupon->code])->assertOk();
+            $this->assertSame('active', $this->courseEntry($tenant, $memberToken, $src)['access']['status']);
+            $this->api('GET', "/courses/{$src->id}/overview", $memberToken, $tenant)->assertOk();
+        } finally {
+            $this->onAdmin(fn () => Coupon::whereKey($coupon->id)->delete());
+        }
     }
 
     public function test_inactive_groups_cannot_be_joined_or_extended(): void
@@ -451,7 +465,7 @@ class LearningGroupApiTest extends MobileApiTestCase
         $this->inviteRow($group, 'offen@example.test');
 
         $this->artisan('app:learning-group-revoke', ['group' => $group->id])->assertSuccessful();
-        $this->assertSame(['revoked', 'revoked'], $this->groupEntitlements($user)->pluck('status')->all());
+        $this->assertSame(['expired', 'expired'], $this->groupEntitlements($user)->pluck('status')->all());
         $this->onAdmin(function () use ($group) {
             $this->assertSame('revoked', LearningGroup::find($group->id)->status);
             $this->assertSame(0, LearningGroupMember::where('group_id', $group->id)->where('status', 'invited')->count());

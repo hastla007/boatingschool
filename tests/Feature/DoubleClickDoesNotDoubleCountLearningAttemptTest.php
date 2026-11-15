@@ -45,7 +45,7 @@ class DoubleClickDoesNotDoubleCountLearningAttemptTest extends TestCase
         $startedAtMs = (int) round(microtime(true) * 1000) - 2000;
         $payload = [
             'revision_id' => $revision->id,
-            'answer_id' => $correctAnswer->id,
+            'answer_id' => $this->answerToken($learner, $correctAnswer->id),
             'mode' => 'smarttrainer',
             'started_at_ms' => $startedAtMs,
         ];
@@ -91,7 +91,7 @@ class DoubleClickDoesNotDoubleCountLearningAttemptTest extends TestCase
 
         $basePayload = [
             'revision_id' => $revision->id,
-            'answer_id' => $correctAnswer->id,
+            'answer_id' => $this->answerToken($learner, $correctAnswer->id),
             'mode' => 'smarttrainer',
         ];
 

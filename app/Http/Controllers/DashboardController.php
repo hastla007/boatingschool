@@ -25,7 +25,8 @@ class DashboardController extends Controller
         $tenant = $tenantContext->tenant();
         $user = $request->user();
 
-        $activeEntitlements = $entitlements->activeEntitlements($tenant, $user);
+        // QA-L-3: nur volle Zugänge (Teilzugänge öffnen im Web keine Kursseite).
+        $activeEntitlements = $entitlements->activeFullEntitlements($tenant, $user);
         $courses = $activeEntitlements->map(fn (Entitlement $e) => $e->course)->unique('id')->values();
         // Review-Runde 11: Fragen aller Kurse in einer Abfrage statt je Modul.
         (new Collection($courses->all()))->loadMissing('modules.questions');
@@ -36,7 +37,7 @@ class DashboardController extends Controller
             ->reject(fn (Entitlement $e) => $activeEntitlements->contains(fn ($o) => $o->course_id === $e->course_id && ($o->valid_until === null || $o->valid_until > $e->valid_until)))
             ->unique('course_id')->values();
         $expiredCourseNames = Entitlement::with('course')->where('tenant_id', $tenant->id)->where('user_id', $user->id)
-            ->whereIn('status', ['active', 'expired'])->whereNotNull('valid_until')->where('valid_until', '<=', now())
+            ->whereNull('capabilities')->whereIn('status', ['active', 'expired'])->whereNotNull('valid_until')->where('valid_until', '<=', now())
             ->whereNotIn('course_id', $courses->pluck('id'))->get()
             ->pluck('course.name')->filter()->unique()->values();
 

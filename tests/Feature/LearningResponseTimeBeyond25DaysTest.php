@@ -43,7 +43,7 @@ class LearningResponseTimeBeyond25DaysTest extends TestCase
             ->post('/courses/'.$course->id.'/learn/attempts', [
                 'revision_id' => $revision->id,
                 'mode' => 'smarttrainer',
-                'answer_id' => $revision->answers->firstWhere('is_correct', true)->id,
+                'answer_id' => $this->answerToken($learner, $revision->answers->firstWhere('is_correct', true)->id),
                 'started_at_ms' => $startedAtMs,
             ]);
 

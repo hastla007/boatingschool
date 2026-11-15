@@ -17,6 +17,7 @@ use App\Services\EntitlementService;
 use App\Services\ExamActions;
 use App\Services\ExamEvaluationService;
 use App\Services\ExamSessionStarter;
+use App\Support\AnswerToken;
 use App\Support\ComboExamGroups;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
@@ -360,12 +361,20 @@ class ExamController extends Controller
             'known' => ['nullable', 'boolean'],
         ]);
 
+        // Kennungen je Person (SEC-A1) in echte Antwort-IDs der Frage umsetzen.
+        $sessionQuestion = $examSession->questions()->where('position', (int) $validated['position'])->with('revision.answers')->first();
+        $validated = AnswerToken::resolveInput($examSession->user_id, $validated, $sessionQuestion?->revision?->answers ?? []);
+
         // Gemeinsam mit der Mobile-API (ExamActions): Antwort festschreiben,
         // abgelaufene Zeit, Doppelklick (die erste Antwort zählt).
         return match (app(ExamActions::class)->answer($examSession, (int) $validated['position'], $validated)) {
             ExamActions::EVALUATED => redirect()->route('exam.result', $examSession),
-            ExamActions::EXPIRED => redirect()->route('exam.result', $examSession)
-                ->with('status', 'Die Prüfungszeit ist abgelaufen – hier ist dein Ergebnis.'),
+            // QA-L-8: in der Nachfrist der Navigation bleibt die Prüfung offen.
+            ExamActions::EXPIRED => $examSession->fresh()->status === 'running'
+                ? redirect()->route('exam.show', $examSession)
+                    ->with('status', 'Die Prüfungszeit ist abgelaufen – diese Antwort zählt nicht mehr. Die Navigationsaufgabe kannst du noch abschließen.')
+                : redirect()->route('exam.result', $examSession)
+                    ->with('status', 'Die Prüfungszeit ist abgelaufen – hier ist dein Ergebnis.'),
             default => redirect()->route('exam.show', $examSession),
         };
     }

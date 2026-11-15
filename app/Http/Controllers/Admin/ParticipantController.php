@@ -435,10 +435,19 @@ class ParticipantController extends Controller
         // nur Codes sehen, die frei oder bereits uns zugeordnet sind, siehe
         // CouponRedeemController). Audit SEC-W-3: geprüft wird für neue und
         // bestehende Konten gleich, damit die Antwort nichts verrät.
-        $coupon = Coupon::where('code', strtoupper($code))->whereNull('redeemed_at')->first();
+        // QA-D-7: dieselbe Code-Suche wie beim Einlösen (ohne Bindestriche,
+        // Leerzeichen, Kleinschreibung); nur freie oder eigene Codes.
+        $coupon = Coupon::lookup($code);
+        if ($coupon && ($coupon->isRedeemed() || ($coupon->tenant_id !== null && $coupon->tenant_id !== $tenant->id))) {
+            $coupon = null;
+        }
 
-        if (! $coupon || ! $coupon->isUsable()) {
+        if (! $coupon) {
             return back()->withErrors(['code' => 'Dieser Code ist ungültig oder wurde bereits eingelöst.'])->with('status', $status);
+        }
+        // Gesperrte (z. B. verlorene Charge) oder abgelaufene Codes.
+        if (! $coupon->isUsable()) {
+            return back()->withErrors(['code' => 'Dieser Code ist nicht mehr gültig.'])->with('status', $status);
         }
 
         // Bestehendes Konto: erst Mitglied nach eigener Annahme, der Code

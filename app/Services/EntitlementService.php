@@ -45,6 +45,28 @@ class EntitlementService
     }
 
     /**
+     * Aktive volle Kurszugänge (capabilities = null) -- was das Web als
+     * gebucht zeigt. Teilzugänge (WP-Import, Lerngruppe mit einzelnen
+     * Funktionen) nutzt nur die App; im Web öffnen sie keine Kursseite
+     * (hasAccess()), der Kurs bleibt dort buchbar (QA-L-3).
+     *
+     * @return Collection<int, Entitlement>
+     */
+    public function activeFullEntitlements(Tenant $tenant, User $user): Collection
+    {
+        return $this->activeEntitlements($tenant, $user)->filter(fn (Entitlement $e) => $e->capabilities === null)->values();
+    }
+
+    /** @return Collection<int, CourseDefinition> Kurse mit vollem Zugang (siehe activeFullEntitlements()) */
+    public function activeFullCourses(Tenant $tenant, User $user): Collection
+    {
+        return $this->activeFullEntitlements($tenant, $user)
+            ->map(fn (Entitlement $e) => $e->course)
+            ->unique('id')
+            ->values();
+    }
+
+    /**
      * Voller Kurszugang. Ein auf einzelne Funktionen beschränkter Zugang
      * (entitlement.capabilities, z. B. aus dem WP-Import oder einer
      * Lerngruppe) zählt hier nicht -- siehe hasCapabilityAccess().

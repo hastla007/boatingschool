@@ -50,7 +50,7 @@ class ExamResultDisclosesSelfAssessedOpenTextTest extends TestCase
                 $correctIds = $sq->revision->correctAnswers()->pluck('id')->values()->all();
                 $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/answers", [
                     'position' => $sq->position,
-                    'answer_ids' => $correctIds,
+                    'answer_ids' => $this->answerTokens($learner, $correctIds),
                 ]);
             } elseif ($type === 'open_text') {
                 $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/reveal", [
@@ -68,7 +68,7 @@ class ExamResultDisclosesSelfAssessedOpenTextTest extends TestCase
                 $correctAnswer = $sq->revision->correctAnswer();
                 $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/answers", [
                     'position' => $sq->position,
-                    'answer_id' => $correctAnswer->id,
+                    'answer_id' => $this->answerToken($learner, $correctAnswer->id),
                 ]);
             }
         }

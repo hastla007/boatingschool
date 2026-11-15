@@ -57,9 +57,9 @@ class ExamRuleSnapshotTest extends TestCase
         $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/exam/papers/{$paper->id}");
         $session = $this->asTenant($tenant, fn () => ExamSession::where('user_id', $learner->id)->firstOrFail());
         $sqs = $this->asTenant($tenant, fn () => $session->questions()->with('revision.answers')->get());
-        $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/answers", ['position' => 1, 'answer_id' => $sqs[0]->revision->correctAnswer()->id]);
+        $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/answers", ['position' => 1, 'answer_id' => $this->answerToken($learner, $sqs[0]->revision->correctAnswer()->id)]);
         $wrong = $sqs[1]->revision->answers->firstWhere('is_correct', false);
-        $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/answers", ['position' => 2, 'answer_id' => $wrong->id]);
+        $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/answers", ['position' => 2, 'answer_id' => $this->answerToken($learner, $wrong->id)]);
         $this->actingAsInTenant($learner, $tenant)->get("/exam-sessions/{$session->id}");
         $session = $this->asTenant($tenant, fn () => $session->fresh());
         $this->assertTrue($session->passed);

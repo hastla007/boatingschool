@@ -50,19 +50,19 @@ class LearningAndFavoritesApiTest extends MobileApiTestCase
         $revision = $this->onAdmin(fn () => ContentQuestionRevision::with('answers')->findOrFail($question['revision_id']));
         $correct = $revision->answers->firstWhere('is_correct', true);
         $wrong = $revision->answers->firstWhere('is_correct', false);
-        $body = ['question_id' => $question['id'], 'revision_id' => $question['revision_id'], 'selected_answer_ids' => [$correct->id]];
+        $body = ['question_id' => $question['id'], 'revision_id' => $question['revision_id'], 'selected_answer_ids' => [$this->answerToken($user, $correct->id)]];
 
         $key = (string) Str::uuid();
         $first = $this->api('POST', "/courses/{$course->id}/attempts", $token, $tenant, $body, ['Idempotency-Key' => $key])
             ->assertCreated()->assertJsonPath('data.correct', true)->assertJsonPath('data.streak.current', 1)
             ->assertJsonPath('data.completed', false);
-        $this->assertNotEmpty($first->json('data.correct_answer_ids'));
+        $this->assertSame([$this->answerToken($user, $correct->id)], $first->json('data.correct_answer_ids'));
 
         // Wiederholung mit demselben Schlüssel: dieselbe Antwort, kein zweiter Versuch.
         $replay = $this->api('POST', "/courses/{$course->id}/attempts", $token, $tenant, $body, ['Idempotency-Key' => $key])->assertCreated();
         $this->assertSame($first->json('data.attempt_id'), $replay->json('data.attempt_id'));
         // Derselbe Schlüssel mit anderem Inhalt: Konflikt.
-        $this->api('POST', "/courses/{$course->id}/attempts", $token, $tenant, ['selected_answer_ids' => [$wrong->id]] + $body, ['Idempotency-Key' => $key])
+        $this->api('POST', "/courses/{$course->id}/attempts", $token, $tenant, ['selected_answer_ids' => [$this->answerToken($user, $wrong->id)]] + $body, ['Idempotency-Key' => $key])
             ->assertStatus(409)->assertJsonPath('code', 'IDEMPOTENCY_KEY_REUSED');
         // Ohne Schlüssel: abgelehnt.
         $this->json('POST', "/api/v1/courses/{$course->id}/attempts", $body, ['Authorization' => 'Bearer '.$token, 'X-Tenant-Slug' => $tenant->slug])
@@ -70,7 +70,7 @@ class LearningAndFavoritesApiTest extends MobileApiTestCase
 
         // Zweimal richtig, dann falsch: Serie zurück auf 0 (wie im Web).
         $this->api('POST', "/courses/{$course->id}/attempts", $token, $tenant, $body)->assertJsonPath('data.streak.current', 2);
-        $this->api('POST', "/courses/{$course->id}/attempts", $token, $tenant, ['selected_answer_ids' => [$wrong->id]] + $body)
+        $this->api('POST', "/courses/{$course->id}/attempts", $token, $tenant, ['selected_answer_ids' => [$this->answerToken($user, $wrong->id)]] + $body)
             ->assertJsonPath('data.correct', false)->assertJsonPath('data.streak.current', 0);
         foreach ([1, 2, 2] as $streak) {
             // Dritte richtige Antwort direkt hintereinander nach einem Fehler festigt noch nicht (Abstandsregel wie im Web).
@@ -81,7 +81,7 @@ class LearningAndFavoritesApiTest extends MobileApiTestCase
             ->assertJsonPath('data.streak.current', 3)->assertJsonPath('data.completed', true)->assertJsonPath('data.learning_state', 'gefestigt');
 
         // Einfachauswahl mit zwei Antworten: abgelehnt.
-        $this->api('POST', "/courses/{$course->id}/attempts", $token, $tenant, ['selected_answer_ids' => [$correct->id, $wrong->id]] + $body)
+        $this->api('POST', "/courses/{$course->id}/attempts", $token, $tenant, ['selected_answer_ids' => $this->answerTokens($user, [$correct->id, $wrong->id])] + $body)
             ->assertStatus(422)->assertJsonPath('code', 'VALIDATION_FAILED');
     }
 
@@ -98,7 +98,7 @@ class LearningAndFavoritesApiTest extends MobileApiTestCase
         $question = $this->api('GET', "/courses/{$course->id}/trainer/next", $tokenA, $tenant)->json('data.question');
         $revision = $this->onAdmin(fn () => ContentQuestionRevision::with('answers')->findOrFail($question['revision_id']));
         $attemptId = $this->api('POST', "/courses/{$course->id}/attempts", $tokenA, $tenant, [
-            'question_id' => $question['id'], 'revision_id' => $question['revision_id'], 'selected_answer_ids' => [$revision->answers->first()->id],
+            'question_id' => $question['id'], 'revision_id' => $question['revision_id'], 'selected_answer_ids' => [$this->answerToken($a, $revision->answers->first()->id)],
         ])->assertCreated()->json('data.attempt_id');
 
         $this->api('GET', "/courses/{$course->id}/attempts/{$attemptId}", $tokenA, $tenant)->assertOk();
