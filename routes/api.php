@@ -4,11 +4,13 @@ use App\Http\Controllers\Api\V1\AccountController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CouponController;
 use App\Http\Controllers\Api\V1\CourseController;
+use App\Http\Controllers\Api\V1\CustomerFaqController;
 use App\Http\Controllers\Api\V1\ExamController;
 use App\Http\Controllers\Api\V1\ExportController;
 use App\Http\Controllers\Api\V1\FavoriteController;
 use App\Http\Controllers\Api\V1\LearningController;
 use App\Http\Controllers\Api\V1\NavigationController;
+use App\Http\Controllers\Api\V1\TipsController;
 use App\Http\Controllers\Api\V1\VideoController;
 use Illuminate\Support\Facades\Route;
 
@@ -19,6 +21,7 @@ use Illuminate\Support\Facades\Route;
 */
 
 // Öffentlich (ohne Token).
+Route::get('/health', [AccountController::class, 'health'])->middleware('throttle:60,1,api-health');
 Route::get('/app/config', [AccountController::class, 'appConfig'])->middleware('throttle:60,1,api-config');
 Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:10,1,api-login');
 Route::post('/auth/two-factor', [AuthController::class, 'twoFactor'])->middleware('throttle:10,1,api-two-factor');
@@ -35,6 +38,8 @@ Route::middleware('api.auth')->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::post('/auth/email/verification-notification', [AuthController::class, 'resendVerification'])->middleware('throttle:6,1,api-verification');
     Route::get('/me', [AccountController::class, 'me']);
+    Route::get('/me/settings', [AccountController::class, 'settings']);
+    Route::put('/me/settings', [AccountController::class, 'updateSettings'])->middleware('throttle:60,1,api-settings');
     Route::get('/me/sessions', [AccountController::class, 'sessions']);
     Route::delete('/me/sessions', [AccountController::class, 'revokeOtherSessions']);
     Route::delete('/me/sessions/{sessionId}', [AccountController::class, 'revokeSession'])->whereUuid('sessionId');
@@ -46,6 +51,8 @@ Route::middleware('api.auth')->group(function () {
         Route::get('/courses/{courseId}/overview', [CourseController::class, 'overview'])->whereUuid('courseId');
         Route::get('/courses/{courseId}/modules', [CourseController::class, 'modules'])->whereUuid('courseId');
         Route::get('/courses/{courseId}/progress', [CourseController::class, 'progress'])->whereUuid('courseId');
+        Route::get('/courses/{courseId}/faqs', [CustomerFaqController::class, 'index'])->whereUuid('courseId');
+        Route::get('/tips', [TipsController::class, 'index']);
 
         Route::get('/courses/{courseId}/trainer/next', [LearningController::class, 'next'])->whereUuid('courseId');
         Route::post('/courses/{courseId}/trainer/reveal', [LearningController::class, 'reveal'])->whereUuid('courseId');
