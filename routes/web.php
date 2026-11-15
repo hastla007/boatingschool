@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\CoursePromoBannerController;
 use App\Http\Controllers\Admin\CourseSelectionController;
 use App\Http\Controllers\Admin\EntitlementController;
 use App\Http\Controllers\Admin\InactiveLearnerController;
+use App\Http\Controllers\Admin\LearningGroupController;
 use App\Http\Controllers\Admin\ParticipantController;
 use App\Http\Controllers\Admin\ParticipantToolsController;
 use App\Http\Controllers\Admin\PraxisExamAppointmentController as AdminPraxisExamAppointmentController;
@@ -301,6 +302,15 @@ Route::middleware(['auth', 'tenant.role:owner,admin', 'verified'])->prefix('admi
     Route::patch('/team/two-factor-policy', [TeamController::class, 'twoFactorPolicy'])->name('team.two-factor-policy');
 
     Route::patch('/addons', [AddonController::class, 'update'])->name('addons.update');
+
+    // Lerngruppen (Gruppenlizenzen der App): Liste im Tab "Lerngruppen", hier Anlegen und Verwalten.
+    Route::get('/learning-groups/create', [LearningGroupController::class, 'create'])->name('learning-groups.create');
+    Route::post('/learning-groups', [LearningGroupController::class, 'store'])->middleware('throttle:10,1,learning-groups-create')->name('learning-groups.store');
+    Route::get('/learning-groups/{learningGroup}', [LearningGroupController::class, 'show'])->whereUuid('learningGroup')->name('learning-groups.show');
+    Route::patch('/learning-groups/{learningGroup}', [LearningGroupController::class, 'update'])->whereUuid('learningGroup')->name('learning-groups.update');
+    Route::post('/learning-groups/{learningGroup}/revoke', [LearningGroupController::class, 'revoke'])->whereUuid('learningGroup')->name('learning-groups.revoke');
+    Route::delete('/learning-groups/{learningGroup}/members/{member}', [LearningGroupController::class, 'removeMember'])
+        ->whereUuid(['learningGroup', 'member'])->name('learning-groups.members.destroy');
 
     Route::post('/course-promo-banners', [CoursePromoBannerController::class, 'store'])->name('course-promo-banners.store');
     Route::patch('/course-promo-banners/{coursePromoBanner}', [CoursePromoBannerController::class, 'update'])->name('course-promo-banners.update');

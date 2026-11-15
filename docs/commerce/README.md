@@ -78,6 +78,7 @@ oder in der App ein (`POST /api/v1/coupons/redeem`).
    - **Tageskontingent:** Je Schule und Tag höchstens `COMMERCE_DAILY_CODE_LIMIT` Codes (Standard 1000). Darüber: 429 `CODE_QUOTA_EXCEEDED` und Alarm-Mail an den Betreiber. Ist die Bestellung echt, das Kontingent vorübergehend anheben und im Shop „Erneut zustellen“ auslösen. Gleichzeitige Lieferungen derselben Schule werden nacheinander gezählt (Sperre je Schule bis zum Ende der Transaktion), parallele Positionen können das Kontingent also nicht überspringen.
    - Bei „fehlgeschlagen“: Bestellnotiz, Alarm-Mail und Knopf „Erneut zustellen“ in der Bestellung. Dieselbe Referenz liefert höchstens einmal.
 4. Die Codes erscheinen bei der Schule unter Admin → Codes. Die Tabelle „Bestellungen aus dem Shop“ zeigt Menge, eingelöste Codes und Status.
+5. Auch Lerngruppen verbrauchen Kurscodes aus diesem Bestand: jeder Beitritt einen freien reinen Kurscode je Kurs der Gruppe (keine Verlängerungs- oder Produktcodes, keine mit Zusatzprodukten). Er gilt danach als eingelöst (vom Mitglied) und zählt in der Bestellübersicht mit; ein Storno sperrt ihn nicht mehr. Entfernen aus der Gruppe gibt ihn nicht zurück. Details: `docs/api/README.md`, Abschnitt Lerngruppen.
 
 ### 5. Rückerstattung und Storno
 

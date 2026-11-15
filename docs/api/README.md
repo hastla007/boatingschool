@@ -506,8 +506,16 @@ GET  /exams/{id}/result                 → Ergebnis mit Lösungen
 * **Lerngruppen (Gruppenlizenzen):** eine Gruppe gehört genau einer Schule
   und hat eine feste Zahl Plätze für einen oder mehrere Kurse (ganzer Kurs
   oder einzelne Funktionen, z. B. nur Prüfungssimulation).
-  * **Anlegen** nur durch den Betreiber (`app:learning-group-create`, siehe
-    Betrieb); die App verwaltet bestehende Gruppen.
+  * **Anlegen** durch den Betreiber (`app:learning-group-create`, siehe
+    Betrieb) oder durch Inhaber/Admins der Schule im Web-Admin-Bereich
+    (Tab „Lerngruppen“, gleiche Regeln über `LearningGroupService::create`,
+    nur Kurse, die die Schule anbietet). Dort auch: Name, Plätze (nicht
+    unter die belegten), Ende und Verwalter ändern (neuer Verwalter muss
+    aktiver Teilnehmer sein; ein neues Ende gilt auch für die Gruppen-
+    zugänge der aktiven Mitglieder), Mitglieder einsehen und entfernen,
+    Gruppe beenden -- jeweils mit Protokolleintrag (`learning_group.*`).
+    Ausbilder und Lernende haben keinen Zugriff. Die App verwaltet
+    bestehende Gruppen, legt aber keine an.
   * **Verwalten** darf nur der eingetragene Verwalter (aktiver Teilnehmer
     der Schule): `GET /me/groups`, `GET /me/groups/{id}`,
     `POST /me/groups/{id}/invites {emails[]}`,
@@ -526,6 +534,26 @@ GET  /exams/{id}/result                 → Ergebnis mit Lösungen
     `…/gruppe/<code>/` tritt bei. Nur Teilnehmer der Schule der Gruppe; je
     Kurs entsteht ein Kurszugang mit `source_type = group` (bei einzelnen
     Funktionen mit `capabilities`), gültig bis zum Ende der Gruppe.
+  * **Abrechnung über Kurscodes:** jeder Beitritt verbraucht je Kurs der
+    Gruppe einen freien Kurscode aus dem Codebestand der Schule (eigene,
+    offene, nicht gesperrte/abgelaufene reine Kurscodes genau dieses Kurses
+    -- keine Verlängerungs-, Produkt- oder plattformweiten Codes und keine
+    Kurscodes mit Zusatzprodukten), auch bei Teilzugang (`capabilities`).
+    Der Code wird in derselben Transaktion unter Zeilensperre
+    (`FOR UPDATE SKIP LOCKED`, bald ablaufende zuerst) beansprucht und als
+    eingelöst markiert (`redeemed_by_user_id` = Mitglied, Schule,
+    Zeitpunkt); der Bezug zur Mitgliedschaft steht im Protokoll
+    (`coupon.redeem_group` mit `group_id`, `member_id`). Fehlt für einen
+    Kurs ein Code: 409 `GROUP_NO_CODES`, nichts wird verbraucht, eine
+    persönliche Einladung bleibt offen. Die Vorschau meldet das als
+    `codes_available: false` (`joinable: false`). Schon beigetretene
+    Mitglieder (auch aus der Zeit vor der Abrechnung) werden nicht
+    belastet; Entfernen und Gruppenende geben den Code nicht zurück. Die
+    Platzzahl bleibt frei wählbar; `course_codes` in `GET /me/groups[/{id}]`
+    zeigt je Kurs die freien Codes der Schule (`free`), die für die noch
+    nicht beigetretenen Plätze nötigen (`needed` = Plätze − aktive
+    Mitglieder) und `sufficient`, damit die App warnen kann. Die Codes
+    teilen sich alle Gruppen und Einlösungen der Schule.
   * **Entfernen** gibt den Platz frei und beendet genau die Gruppen-
     zugänge der Person (`status: expired`, Enddatum jetzt -- kein
     `revoked`, das bleibt der bewussten Sperre durch die Schule
@@ -636,6 +664,7 @@ Der Lernstand ist derselbe wie im Web.
 | 409 | `EXAM_NO_NAVIGATION_PART`, `EXAM_NAVIGATION_ALREADY_SUBMITTED`, `EXAM_NAVIGATION_NOT_SUBMITTED` | Phase neu laden / nachfragen |
 | 409 | `NAVIGATION_TASK_IN_EXAM` | erst Prüfung beenden (`exam_id` im Fehler) |
 | 409 | `GROUP_NOT_ACTIVE` | Lerngruppe abgelaufen oder gesperrt |
+| 409 | `GROUP_NO_CODES` | Beitritt: die Schule hat für einen Kurs der Gruppe keinen freien Kurscode → an Verwalter/Schule wenden |
 | 410 | `EXAM_EXPIRED` | Prüfung bzw. Ergebnis neu laden |
 | 410 | `EXPORT_EXPIRED` | neuen Export anfordern |
 | 410 | `GONE` | allgemein: nicht mehr verfügbar |
@@ -709,7 +738,8 @@ entscheidet aber nur anhand von `code`.
   Fremdschlüssel Mitglieder derselben Schule sein. Eine Schule verlassen
   entfernt die eigenen Gruppenplätze und Einladungen an die eigene Adresse
   (bei dieser Schule); selbst verwaltete Gruppen bleiben ohne Verwalter
-  bestehen, damit die übrigen Mitglieder ihren Zugang behalten. Die
+  bestehen, damit die übrigen Mitglieder ihren Zugang behalten -- einen
+  neuen Verwalter tragen Inhaber/Admins im Admin-Bereich ein. Die
   Kontolöschung entfernt auch offene Gruppeneinladungen anderer Schulen.
   Der Datenexport enthält eigene Plätze/Einladungen und für verwaltete
   Gruppen nur Kennzahlen; der Export beim Vertragsende der Schule enthält
@@ -796,9 +826,19 @@ entscheidet aber nur anhand von `code`.
   Kurscode, optional mit WP-Funktion (`question_bank`, `exam_simulation`,
   `video_course`, `navigation_trainer`, `praxis_trainer`, `funk_training`).
   Beenden beendet alle Gruppenzugänge (`expired`, Enddatum jetzt); offene
-  Einladungen verfallen. Migrationen: `2024_02_01_000597_create_learning_group_tables`,
+  Einladungen verfallen. `--valid-until` gilt bis Tagesende deutscher Zeit.
+  Der Befehl legt nur an und verbraucht keine Codes; er nennt je Kurs die
+  freien Kurscodes der Schule (Warnung, wenn weniger als Plätze) -- jeder
+  Beitritt verbraucht je Kurs einen.
+  Dasselbe geht für Inhaber/Admins im Admin-Bereich (Tab „Lerngruppen“).
+  Migrationen: `2024_02_01_000597_create_learning_group_tables`,
   `2024_02_01_000760_end_group_entitlements_as_expired` (stellt bisher
-  widerrufene Gruppenzugänge auf `expired` um).
+  widerrufene Gruppenzugänge auf `expired` um),
+  `2024_02_01_000800_grant_insert_on_learning_group_to_app_role` (die
+  App-Rolle darf Gruppen einfügen -- nur in der eigenen Schule, RLS mit
+  `WITH CHECK`; Löschen bleibt der Owner-Verbindung vorbehalten),
+  `2024_02_01_000805_add_free_course_code_index_to_coupon` (Teilindex für
+  die freien Kurscodes je Schule und Kurs).
 * **Tests:** `vendor/bin/phpunit tests/Feature/Api`.
   `OpenApiContractTest` schlägt fehl, wenn Routen und OpenAPI-Datei
   auseinanderlaufen.

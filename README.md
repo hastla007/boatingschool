@@ -325,7 +325,9 @@ Implementierungsplans hinaus gewachsen): zentraler Content mit
 Revisionshistorie, Excel-Import, Tenant/Branding/Rollen mit RLS,
 Kurse/Entitlements, vollständige Learning Loop, Smarttrainer,
 Lernenden-Dashboard, Bootsschul-Admin (Teilnehmer, manuelle Freischaltung,
-Branding), Prüfungssimulation (inkl. fester, amtlicher Prüfungsbögen für
+Branding, Lerngruppen: Gruppenlizenzen anlegen, bearbeiten, beenden und
+Mitglieder verwalten -- nur Inhaber/Admins, protokolliert; jeder Beitritt
+verbraucht je Kurs einen freien Kurscode aus dem Codebestand der Schule), Prüfungssimulation (inkl. fester, amtlicher Prüfungsbögen für
 mehrere Kurse), Videokurs, Navigationsaufgaben-Trainer,
 Coupon-/Zugangscode-System (inkl. Bundle-Optionen, Export, Audit-Log),
 Praxisformular-Anmeldung samt Prüfungsterminen, Willkommensbox-Bestellung

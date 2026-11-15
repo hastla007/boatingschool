@@ -128,6 +128,31 @@
         <div class="mt-2">{{ $results->links() }}</div>
     </div>
 
+    {{-- Nur lesend: Lerngruppen verwaltet die Schule im Admin-Bereich (bzw. der Betreiber per Befehl). --}}
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5 mb-6">
+        <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3">Lerngruppen</h3>
+        <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="text-slate-600 dark:text-slate-400 text-left">
+                <tr><th class="py-1">Name</th><th class="py-1">Verwalter</th><th class="py-1">Plätze</th><th class="py-1">Gültig bis</th><th class="py-1">Status</th></tr>
+            </thead>
+            <tbody>
+                @forelse ($learningGroups as $group)
+                    <tr class="border-t border-slate-100 dark:border-slate-700">
+                        <td class="py-1.5">{{ $group->name }}</td>
+                        <td class="py-1.5 text-slate-500 dark:text-slate-400">{{ $group->owner?->name ?? '—' }}</td>
+                        <td class="py-1.5 text-slate-500 dark:text-slate-400">{{ $group->used_seats }} / {{ $group->seats }}</td>
+                        <td class="py-1.5 text-slate-500 dark:text-slate-400">{{ $group->valid_until?->timezone('Europe/Berlin')->format('d.m.Y') ?? 'unbefristet' }}</td>
+                        <td class="py-1.5 text-slate-500 dark:text-slate-400">{{ \App\Http\Controllers\Admin\LearningGroupController::statusLabel($group) }}</td>
+                    </tr>
+                @empty
+                    <tr><td colspan="5" class="py-3 text-slate-500 dark:text-slate-400">Keine Lerngruppen.</td></tr>
+                @endforelse
+            </tbody>
+        </table>
+        </div>
+    </div>
+
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
         <div class="flex items-center justify-between mb-3">
             <h3 class="font-medium text-slate-700 dark:text-slate-200 flex items-center gap-1.5">

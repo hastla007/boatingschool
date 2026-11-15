@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToTenant;
+use App\Services\LearningGroupService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -23,6 +25,13 @@ class LearningGroupMember extends Model
     protected function casts(): array
     {
         return ['invited_at' => 'datetime', 'joined_at' => 'datetime'];
+    }
+
+    /** Belegt einen Platz: aktives Mitglied oder offene, nicht abgelaufene Einladung. */
+    public function scopeOccupyingSeat(Builder $query): Builder
+    {
+        return $query->where(fn ($q) => $q->where('status', 'active')
+            ->orWhere(fn ($i) => $i->where('status', 'invited')->where('invited_at', '>=', now()->subDays(LearningGroupService::INVITE_DAYS))));
     }
 
     public function group(): BelongsTo

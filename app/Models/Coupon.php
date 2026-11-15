@@ -165,6 +165,20 @@ class Coupon extends Model
     }
 
     /**
+     * Freie Kurscodes im Codebestand einer Schule, mit denen Lerngruppen-
+     * Plätze abgerechnet werden (LearningGroupService::join): eigener Bestand
+     * (keine plattformweiten Codes), einlösbar, reiner Kurscode -- keine
+     * Verlängerungs- oder Produktcodes und keine Kurscodes mit gebündelten
+     * Zusatzprodukten (die gingen bei einem Gruppenplatz verloren).
+     */
+    public function scopeFreeCourseCodesOf($query, string $tenantId)
+    {
+        return $query->usable()->where('coupon.tenant_id', $tenantId)->whereNotNull('coupon.course_id')
+            ->whereNull('coupon.product_id')->where('coupon.is_renewal', false)
+            ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('coupon_option_product')->whereColumn('coupon_option_product.coupon_id', 'coupon.id'));
+    }
+
+    /**
      * str_shuffle() (Sicherheitsreview M8) nutzt Mt19937, keinen
      * kryptographischen Zufall, und wählte außerdem je Gruppe nur 4 von 33
      * Zeichen ohne Wiederholung -- zusammen nur ~59 Bit Entropie. random_int()
