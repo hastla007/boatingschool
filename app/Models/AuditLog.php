@@ -50,6 +50,7 @@ class AuditLog extends Model
         'learning_group.update' => 'hat eine Lerngruppe geändert.',
         'learning_group.revoke' => 'hat eine Lerngruppe beendet.',
         'learning_group.member_remove' => 'hat ein Mitglied aus einer Lerngruppe entfernt.',
+        'coupon.redeem_group' => 'ist einer Lerngruppe beigetreten (ein Kurscode der Schule wurde verbraucht).',
         'team.invite' => 'hat ein Teammitglied eingeladen.',
         'team.invite_pending' => 'hat eine Team-Einladung an ein bestehendes Konto verschickt.',
         'team.invite_resent' => 'hat eine Team-Einladung erneut verschickt.',

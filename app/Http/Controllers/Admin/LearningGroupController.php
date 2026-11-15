@@ -25,7 +25,9 @@ use Illuminate\View\View;
  * Bearbeiten und Mitgliedern, Beenden und Mitglied entfernen. Die Regeln liegen in LearningGroupService (dieselben
  * wie beim Betreiber-Befehl); jede Änderung wird protokolliert. Läuft auf
  * der App-Verbindung mit RLS -- Gruppen einfügen darf die App-Rolle seit
- * 2024_02_01_000800, nur in der eigenen Schule.
+ * 2024_02_01_000800, nur in der eigenen Schule. Plätze werden beim Beitritt
+ * mit Kurscodes der Schule abgerechnet; Anlegen und Detailseite zeigen je
+ * Kurs die freien Codes und warnen, wenn sie für die Plätze nicht reichen.
  */
 class LearningGroupController extends Controller
 {
@@ -47,8 +49,12 @@ class LearningGroupController extends Controller
 
     public function create(TenantContext $tenantContext, LearningGroupService $groups): View
     {
+        $courses = $groups->offeredCourses($tenantContext->tenant());
+
         return view('admin.learning-groups.create', [
-            'courses' => $groups->offeredCourses($tenantContext->tenant()),
+            'courses' => $courses,
+            // Jeder Beitritt verbraucht je Kurs einen freien Kurscode der Schule.
+            'freeCodes' => $groups->freeCourseCodes($tenantContext->id(), $courses->pluck('id')),
             'managers' => $this->eligibleManagers($tenantContext->id()),
         ]);
     }

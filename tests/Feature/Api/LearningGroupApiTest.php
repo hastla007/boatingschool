@@ -2,11 +2,13 @@
 
 namespace Tests\Feature\Api;
 
+use App\Models\AuditLog;
 use App\Models\Coupon;
 use App\Models\CourseDefinition;
 use App\Models\Entitlement;
 use App\Models\LearningGroup;
 use App\Models\LearningGroupMember;
+use App\Models\Product;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Notifications\LearningGroupInvitation;
@@ -21,6 +23,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
+use RuntimeException;
 
 /**
  * Lerngruppen (Gruppenlizenzen): je Schule mit RLS, Verwaltung nur durch
@@ -30,14 +33,61 @@ use Illuminate\Support\Str;
  */
 class LearningGroupApiTest extends MobileApiTestCase
 {
+    /** @var list<string> */
+    private array $couponIds = [];
+
+    /** @var list<string> */
+    private array $productIds = [];
+
+    protected function tearDown(): void
+    {
+        // Eingelöste Codes überleben das Löschen der Schule (tenant_id NULL);
+        // vor den Produkten löschen (coupon_exactly_one_target_check).
+        $this->onAdmin(function () {
+            Coupon::whereIn('id', $this->couponIds)->delete();
+            Product::whereIn('id', $this->productIds)->delete();
+        });
+        parent::tearDown();
+    }
+
+    /**
+     * Gruppe anlegen; die Schule bekommt dazu je Kurs so viele freie
+     * Kurscodes wie Plätze ('codes' => n überschreibt das, 0 = keine).
+     */
     private function group(Tenant $tenant, User $owner, array $attributes = []): LearningGroup
     {
-        return $this->onAdmin(fn () => LearningGroup::create($attributes + [
+        $codes = $attributes['codes'] ?? null;
+        unset($attributes['codes']);
+        $group = $this->onAdmin(fn () => LearningGroup::create($attributes + [
             'tenant_id' => $tenant->id, 'owner_user_id' => $owner->id, 'name' => 'Segelverein',
             'status' => 'active', 'seats' => 3, 'scopes' => [['course_code' => 'SRC', 'feature' => 'course']],
             'valid_from' => now()->subMinute(), 'valid_until' => now()->addYear(),
             'join_code' => LearningGroupService::newJoinCode(),
         ]));
+        foreach (collect($group->scopes)->pluck('course_code')->unique() as $code) {
+            $this->courseCodes($tenant, $this->existingCourse($code), $codes ?? (int) $group->seats);
+        }
+
+        return $group;
+    }
+
+    /** Freie Kurscodes im Bestand der Schule (wie aus der Shop-Lieferung). */
+    private function courseCodes(Tenant $tenant, CourseDefinition $course, int $count, array $attributes = []): Collection
+    {
+        return $this->onAdmin(function () use ($tenant, $course, $count, $attributes) {
+            $coupons = collect(range(1, $count))->filter(fn () => $count > 0)->map(fn () => Coupon::create($attributes + [
+                'code' => Coupon::generateUniqueCode(), 'course_id' => $course->id, 'tenant_id' => $tenant->id, 'batch_label' => 'Test',
+            ]));
+            array_push($this->couponIds, ...$coupons->pluck('id')->all());
+
+            return $coupons->values();
+        });
+    }
+
+    /** Vom Beitritt verbrauchte Codes der Person. */
+    private function consumedCodes(User $user): Collection
+    {
+        return $this->onAdmin(fn () => Coupon::where('redeemed_by_user_id', $user->id)->get());
     }
 
     private function inviteRow(LearningGroup $group, string $email, array $extra = []): LearningGroupMember
@@ -151,11 +201,13 @@ class LearningGroupApiTest extends MobileApiTestCase
         $this->assertSame('active', $this->courseEntry($tenant, $token, $course)['access']['status']);
         $entitlement = $this->groupEntitlements($first)->sole();
         $this->assertNull($entitlement->capabilities);
+        $this->assertSame([$course->id], $this->consumedCodes($first)->pluck('course_id')->all());
         $this->assertSame($group->valid_until->toIso8601String(), $entitlement->valid_until->toIso8601String());
 
         // Nochmal einlösen: kein zweiter Platz, kein zweites Entitlement.
         $this->api('POST', '/coupons/redeem', $token, $tenant, ['code' => $group->join_code])->assertOk()->assertJsonPath('data.already_redeemed', true);
         $this->assertCount(1, $this->groupEntitlements($first));
+        $this->assertCount(1, $this->consumedCodes($first));
 
         // Kein freier Platz mehr: einheitlich COUPON_INVALID.
         $this->api('POST', '/coupons/redeem', $second, $tenant, ['code' => $group->join_code])->assertStatus(422)->assertJsonPath('code', 'COUPON_INVALID');
@@ -290,6 +342,11 @@ class LearningGroupApiTest extends MobileApiTestCase
         $this->assertSame(1, $after->json('data.seats.free'));
         // QA-L-2: Ende der Mitgliedschaft = abgelaufen, keine Sperre (revoked).
         $this->assertSame(['expired', 'expired'], $this->groupEntitlements($member)->pluck('status')->all());
+        // Die beim Beitritt verbrauchten Kurscodes (je Kurs einer) bleiben verbraucht.
+        $consumed = $this->consumedCodes($member);
+        $this->assertEqualsCanonicalizing([$src->id, $fkn->id], $consumed->pluck('course_id')->all());
+        $this->assertTrue($consumed->every(fn (Coupon $coupon) => $coupon->isRedeemed()));
+        $this->assertSame(0, $this->onAdmin(fn () => Coupon::freeCourseCodesOf($tenant->id)->count()));
         // Enddatum jetzt (höchstens 1 s nach dem gerade erfolgten Beitritt, siehe valid_range_check).
         $this->assertTrue($this->groupEntitlements($member)->every(fn (Entitlement $e) => $e->valid_until !== null && $e->valid_until->lt(now()->addSeconds(5))));
         $this->assertSame('active', $this->onAdmin(fn () => Entitlement::withoutGlobalScopes()->find($own->id))->status);
@@ -454,14 +511,20 @@ class LearningGroupApiTest extends MobileApiTestCase
         $this->artisan('app:learning-group-create', ['tenant' => $tenant->slug, 'owner' => $owner->email, 'name' => 'X', '--seats' => 0, '--course' => ['SRC']])->assertFailed();
         $this->artisan('app:learning-group-create', ['tenant' => $tenant->slug, 'owner' => $owner->email, 'name' => 'X', '--seats' => 2, '--course' => ['SRC:unbekannt']])->assertFailed();
         $this->artisan('app:learning-group-create', ['tenant' => $tenant->slug, 'owner' => strtoupper($owner->email), 'name' => 'Verein', '--seats' => 2,
-            '--course' => ['src', 'FKN:exam_simulation'], '--valid-until' => now()->addMonth()->toDateString()])->assertSuccessful();
+            '--course' => ['src', 'FKN:exam_simulation'], '--valid-until' => now()->addMonth()->toDateString()])
+            ->expectsOutputToContain('Freie Kurscodes SRC: 0')->assertSuccessful();
 
         $group = $this->onAdmin(fn () => LearningGroup::where('tenant_id', $tenant->id)->sole());
         $this->assertSame($owner->id, $group->owner_user_id);
         $this->assertEquals([['course_code' => 'SRC', 'feature' => 'course'], ['course_code' => 'FKN', 'feature' => 'exam_simulation']], $group->scopes);
 
+        // Der Befehl legt nur an; der Beitritt braucht je Kurs einen freien Kurscode.
+        $this->api('POST', '/coupons/redeem', $user, $tenant, ['code' => $group->join_code])->assertStatus(409)->assertJsonPath('code', 'GROUP_NO_CODES');
+        $this->courseCodes($tenant, $this->existingCourse('SRC'), 1);
+        $this->courseCodes($tenant, $this->existingCourse('FKN'), 1);
         $this->api('POST', '/coupons/redeem', $user, $tenant, ['code' => $group->join_code])->assertOk();
         $this->assertCount(2, $this->groupEntitlements($user)->where('status', 'active'));
+        $this->assertCount(2, $this->consumedCodes($user));
         $this->inviteRow($group, 'offen@example.test');
 
         $this->artisan('app:learning-group-revoke', ['group' => $group->id])->assertSuccessful();
@@ -471,5 +534,153 @@ class LearningGroupApiTest extends MobileApiTestCase
             $this->assertSame(0, LearningGroupMember::where('group_id', $group->id)->where('status', 'invited')->count());
             $this->assertSame(0, LearningGroupMember::where('group_id', $group->id)->whereNotNull('email')->where('status', '!=', 'active')->count());
         });
+    }
+
+    public function test_joining_consumes_exactly_one_free_course_code_per_course_of_the_own_school(): void
+    {
+        Notification::fake();
+        $tenant = $this->createTestTenant();
+        $other = $this->createTestTenant('Andere Schule');
+        $owner = $this->createTenantUser($tenant, 'learner');
+        $user = $this->createTenantUser($tenant, 'learner');
+        $invitee = $this->createTenantUser($tenant, 'learner');
+        $src = $this->existingCourse('SRC');
+        $fkn = $this->existingCourse('FKN');
+        // Teilzugang (exam_simulation) verbraucht trotzdem einen vollen Kurscode.
+        $group = $this->group($tenant, $owner, ['seats' => 2, 'codes' => 0,
+            'scopes' => [['course_code' => 'SRC', 'feature' => 'course'], ['course_code' => 'FKN', 'feature' => 'exam_simulation']]]);
+        $product = $this->onAdmin(fn () => Product::create(['code' => 'LG-'.uniqid(), 'name' => 'Testprodukt', 'active' => true]));
+        $this->productIds[] = $product->id;
+
+        // Zählen nicht: andere Schule, anderer Kurs, plattformweit, Verlängerung,
+        // gesperrt, abgelaufen, eingelöst, Produktcode, Kurscode mit Zusatzprodukt.
+        $decoys = collect([
+            $this->courseCodes($other, $src, 1), $this->courseCodes($other, $fkn, 1),
+            $this->courseCodes($tenant, $this->existingCourse('SKN'), 1),
+            $this->courseCodes($tenant, $src, 1, ['is_renewal' => true]),
+            $this->courseCodes($tenant, $src, 1, ['voided_at' => now()->subDay()]),
+            $this->courseCodes($tenant, $fkn, 1, ['expires_at' => now()->subMinute()]),
+            $this->courseCodes($tenant, $fkn, 1, ['redeemed_at' => now()->subDay(), 'redeemed_tenant_id' => $tenant->id]),
+        ])->flatten(1);
+        $decoys = $decoys->merge($this->onAdmin(function () use ($tenant, $src, $product) {
+            $global = Coupon::create(['code' => Coupon::generateUniqueCode(), 'course_id' => $src->id, 'tenant_id' => null]);
+            $productCode = Coupon::create(['code' => Coupon::generateUniqueCode(), 'product_id' => $product->id, 'course_id' => null, 'tenant_id' => $tenant->id]);
+            $bundle = Coupon::create(['code' => Coupon::generateUniqueCode(), 'course_id' => $src->id, 'tenant_id' => $tenant->id]);
+            $bundle->optionProducts()->attach($product->id);
+            array_push($this->couponIds, $global->id, $productCode->id, $bundle->id);
+
+            return [$global, $productCode, $bundle];
+        }));
+        $snapshot = fn () => $this->onAdmin(fn () => Coupon::whereIn('id', $decoys->pluck('id'))->orderBy('id')
+            ->get(['id', 'redeemed_at', 'redeemed_by_user_id'])->map(fn ($c) => [$c->id, $c->redeemed_at?->toIso8601String(), $c->redeemed_by_user_id])->all());
+        $before = $snapshot();
+
+        $ownerToken = $this->apiLogin($owner);
+        $codes = $this->api('GET', "/me/groups/{$group->id}", $ownerToken, $tenant)->assertOk()->json('data.course_codes');
+        $this->assertSame([
+            ['course_id' => $src->id, 'course_code' => 'SRC', 'course_name' => $src->name, 'free' => 0, 'needed' => 2, 'sufficient' => false],
+            ['course_id' => $fkn->id, 'course_code' => 'FKN', 'course_name' => $fkn->name, 'free' => 0, 'needed' => 2, 'sufficient' => false],
+        ], $codes);
+
+        // Ohne freie Codes: 409, nichts verbraucht, kein Platz, kein Zugang.
+        $token = $this->apiLogin($user);
+        $this->api('GET', "/groups/join/{$group->join_code}", $token, $tenant)->assertOk()
+            ->assertJsonPath('data.codes_available', false)->assertJsonPath('data.joinable', false);
+        $this->api('POST', '/coupons/redeem', $token, $tenant, ['code' => $group->join_code])->assertStatus(409)->assertJsonPath('code', 'GROUP_NO_CODES');
+        // Persönliche Einladung: bleibt offen.
+        $invite = $this->inviteRow($group, $invitee->email);
+        $this->api('POST', '/coupons/redeem', $invitee, $tenant, ['code' => $invite->invite_token])->assertStatus(409)->assertJsonPath('code', 'GROUP_NO_CODES');
+        $stillInvited = $this->onAdmin(fn () => LearningGroupMember::find($invite->id));
+        $this->assertSame(['invited', $invite->invite_token, null], [$stillInvited->status, $stillInvited->invite_token, $stillInvited->user_id]);
+
+        // Code nur für einen der beiden Kurse: weiterhin nichts verbraucht.
+        $srcCode = $this->courseCodes($tenant, $src, 1)->sole();
+        $this->api('POST', '/coupons/redeem', $token, $tenant, ['code' => $group->join_code])->assertStatus(409)->assertJsonPath('code', 'GROUP_NO_CODES');
+        $this->assertNull($this->onAdmin(fn () => Coupon::find($srcCode->id)->redeemed_at));
+        $this->assertSame(1, $this->onAdmin(fn () => LearningGroupMember::where('group_id', $group->id)->count()));
+        $this->assertCount(0, $this->groupEntitlements($user));
+        $this->assertSame($before, $snapshot());
+
+        // Mit Codes für beide Kurse: genau diese zwei werden verbraucht.
+        $fknCode = $this->courseCodes($tenant, $fkn, 1)->sole();
+        $this->api('GET', "/groups/join/{$group->join_code}", $token, $tenant)->assertOk()->assertJsonPath('data.codes_available', true);
+        $this->api('POST', '/coupons/redeem', $token, $tenant, ['code' => $group->join_code])->assertOk()->assertJsonPath('data.already_redeemed', false);
+        $member = $this->onAdmin(fn () => LearningGroupMember::where('group_id', $group->id)->where('user_id', $user->id)->sole());
+        $consumed = $this->consumedCodes($user);
+        $this->assertEqualsCanonicalizing([$srcCode->id, $fknCode->id], $consumed->pluck('id')->all());
+        foreach ($consumed as $coupon) {
+            $this->assertSame($tenant->id, $coupon->redeemed_tenant_id);
+            $this->assertNotNull($coupon->redeemed_at);
+        }
+        $this->assertSame($before, $snapshot());
+        $this->assertSame(['exam'], $this->groupEntitlements($user)->firstWhere('course_id', $fkn->id)->capabilities);
+        // Verweis auf die Mitgliedschaft im Protokoll.
+        $audit = $this->onAdmin(fn () => AuditLog::where('tenant_id', $tenant->id)->where('action', 'coupon.redeem_group')->get());
+        $this->assertEqualsCanonicalizing([$srcCode->id, $fknCode->id], $audit->pluck('entity_id')->all());
+        $this->assertTrue($audit->every(fn (AuditLog $row) => $row->after_data['member_id'] === $member->id && $row->after_data['group_id'] === $group->id
+            && $row->after_data['user_id'] === $user->id && $row->actor_user_id === $user->id));
+
+        // Erneutes Einlösen als Mitglied verbraucht nichts.
+        $this->api('POST', '/coupons/redeem', $token, $tenant, ['code' => $group->join_code])->assertOk()->assertJsonPath('data.already_redeemed', true);
+        $this->assertCount(2, $this->consumedCodes($user));
+        $after = $this->api('GET', "/me/groups/{$group->id}", $ownerToken, $tenant)->json('data.course_codes');
+        $this->assertSame([0, 0], array_column($after, 'free'));
+        $this->assertSame([1, 1], array_column($after, 'needed'));
+    }
+
+    public function test_parallel_joins_never_take_a_code_another_transaction_holds(): void
+    {
+        $tenant = $this->createTestTenant();
+        $owner = $this->createTenantUser($tenant, 'learner');
+        $first = $this->createTenantUser($tenant, 'learner');
+        $second = $this->createTenantUser($tenant, 'learner');
+        $src = $this->existingCourse('SRC');
+        $group = $this->group($tenant, $owner, ['seats' => 3, 'codes' => 0]);
+        [$held, $free] = $this->courseCodes($tenant, $src, 2)->all();
+        $service = app(LearningGroupService::class);
+
+        // Ein paralleler Beitritt (andere Verbindung) hat einen Code gesperrt:
+        // der Beitritt wartet nicht und nimmt den anderen (SKIP LOCKED).
+        $other = DB::connection('pgsql_admin');
+        $join = fn (User $user) => $this->asTenant($tenant, function () use ($service, $group, $tenant, $user) {
+            DB::statement("SET lock_timeout = '200ms'");
+            try {
+                return $service->join($group->join_code, $tenant, User::find($user->id));
+            } finally {
+                DB::statement('RESET lock_timeout');
+            }
+        });
+        $other->beginTransaction();
+        try {
+            $other->select('SELECT id FROM coupon WHERE id = ? FOR UPDATE', [$held->id]);
+            $join($first);
+            $this->assertSame([$free->id], $this->consumedCodes($first)->pluck('id')->all());
+
+            // Nur noch der gesperrte Code: kein Beitritt, kein Doppelverbrauch.
+            try {
+                $join($second);
+                $this->fail('Beitritt mit einem Code, den eine andere Transaktion hält.');
+            } catch (RuntimeException $e) {
+                $this->assertSame('GROUP_NO_CODES', $e->getMessage());
+            }
+        } finally {
+            $other->rollBack();
+        }
+        $this->assertNull($this->onAdmin(fn () => Coupon::find($held->id)->redeemed_at));
+        $this->assertCount(0, $this->groupEntitlements($second));
+
+        // Umgekehrt hält der Beitritt seinen Code bis zum Commit gesperrt.
+        $this->asTenant($tenant, function () use ($service, $group, $tenant, $second, $held, $other) {
+            DB::transaction(function () use ($service, $group, $tenant, $second, $held, $other) {
+                $service->join($group->join_code, $tenant, User::find($second->id));
+                $other->beginTransaction();
+                try {
+                    $this->assertSame([], $other->select('SELECT id FROM coupon WHERE id = ? FOR UPDATE SKIP LOCKED', [$held->id]));
+                } finally {
+                    $other->rollBack();
+                }
+            });
+        });
+        $this->assertSame([$held->id], $this->consumedCodes($second)->pluck('id')->all());
     }
 }

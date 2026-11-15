@@ -14,7 +14,9 @@ use RuntimeException;
  * Inhaber/Admins der Schule legen Gruppen im Admin-Bereich an. Die App
  * selbst kann Gruppen nur verwalten (Plätze sind bezahlte Zugänge). Der
  * Verwalter muss aktiver Teilnehmer der Schule sein; die Regeln stehen in
- * LearningGroupService::create(). Läuft auf der Owner-Verbindung.
+ * LearningGroupService::create(). Läuft auf der Owner-Verbindung. Der
+ * Befehl legt nur an: Plätze werden erst beim Beitritt mit je einem freien
+ * Kurscode der Schule pro Kurs abgerechnet (Hinweis auf den Bestand).
  */
 class CreateLearningGroup extends Command
 {
@@ -70,6 +72,16 @@ class CreateLearningGroup extends Command
         }
 
         $this->info("Lerngruppe {$group->id} angelegt ({$seats} Plätze).");
+        // Der Befehl verbraucht keine Codes; das tut erst jeder Beitritt (je Kurs ein freier Kurscode der Schule).
+        config(['database.default' => 'pgsql_admin']);
+        try {
+            foreach ($groups->codeCoverage($group) as $row) {
+                $line = "Freie Kurscodes {$row['course_code']}: {$row['free']} (je Beitritt wird einer verbraucht).";
+                $row['sufficient'] ? $this->line($line) : $this->warn($line.' Weniger als Plätze -- ohne freien Code kein Beitritt.');
+            }
+        } finally {
+            config(['database.default' => $previous]);
+        }
 
         return self::SUCCESS;
     }

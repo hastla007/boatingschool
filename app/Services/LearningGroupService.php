@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Api\ApiProblem;
+use App\Models\AuditLog;
+use App\Models\Coupon;
 use App\Models\CourseDefinition;
 use App\Models\Entitlement;
 use App\Models\LearningGroup;
@@ -35,6 +37,10 @@ use RuntimeException;
  *   (capabilities = null: ganzer Kurs, sonst nur die genannten Funktionen).
  *   Entfernen beendet genau diese Entitlements (status expired, nicht
  *   revoked -- QA-L-2), eigene Zugänge bleiben.
+ * - Abrechnung: jeder Beitritt verbraucht je Kurs der Gruppe einen freien
+ *   Kurscode aus dem Codebestand der Schule (Coupon::scopeFreeCourseCodesOf),
+ *   auch bei Teilzugang (capabilities). Ohne freien Code kein Beitritt
+ *   (GROUP_NO_CODES). Entfernen und Gruppenende geben keinen Code zurück.
  * - Antworten auf Einladungen verraten nie, ob es zu einer Adresse ein
  *   Konto gibt.
  */
@@ -352,12 +358,14 @@ class LearningGroupService
         $already = LearningGroupMember::where('group_id', $group->id)->where('user_id', $user->id)->where('status', 'active')->exists();
         $removed = ! $invite && ! $already && $this->wasRemoved($group, $user);
         $free = $this->freeSeats($group) + ($invite ? 1 : 0);
+        // Nur ob es weitergeht, nicht wie viele Codes die Schule hat.
+        $codes = $already || $this->codesAvailable($group);
 
         return [
             'name' => $group->name, 'owner_name' => $group->owner?->name, 'personal' => $invite !== null,
             'status' => $group->status, 'valid_until' => $group->valid_until?->toIso8601String(),
-            'free_seats' => $free, 'already_member' => $already,
-            'joinable' => $already || (! $removed && $free > 0 && $this->supportsScopes($group)),
+            'free_seats' => $free, 'already_member' => $already, 'codes_available' => $codes,
+            'joinable' => $already || (! $removed && $free > 0 && $codes && $this->supportsScopes($group)),
             'scopes' => $this->describeScopes($group),
         ];
     }
@@ -365,7 +373,9 @@ class LearningGroupService
     /**
      * Beitritt über Beitrittscode (g…) oder persönliche Einladung (i…).
      * Fehler als RuntimeException: GROUP_INVALID (einheitlich, kein
-     * Ausprobieren) oder GROUP_SCOPE_UNSUPPORTED.
+     * Ausprobieren), GROUP_SCOPE_UNSUPPORTED oder GROUP_NO_CODES (für einen
+     * Kurs hat die Schule keinen freien Kurscode; nichts wird verbraucht,
+     * eine Einladung bleibt offen).
      *
      * @return array{group:LearningGroup, member:LearningGroupMember, already:bool}
      */
@@ -398,6 +408,7 @@ class LearningGroupService
                     throw new RuntimeException('GROUP_INVALID');
                 }
             }
+            $coupons = $this->claimCourseCodes($tenant->id, $grants);
 
             if ($invite) {
                 $invite->update(['user_id' => $user->id, 'status' => 'active', 'invite_token' => null, 'joined_at' => now()]);
@@ -415,6 +426,14 @@ class LearningGroupService
                     'source_type' => 'group', 'source_reference' => self::reference($group, $member),
                     'status' => 'active', 'valid_from' => now(), 'valid_until' => $group->valid_until,
                     'capabilities' => $grant['capabilities'],
+                ]);
+            }
+            // Codes als eingelöst markieren; der Bezug zur Mitgliedschaft
+            // steht im Protokoll (coupon hat dafür keine Spalte).
+            foreach ($coupons as $coupon) {
+                $coupon->update(['redeemed_by_user_id' => $user->id, 'redeemed_tenant_id' => $tenant->id, 'redeemed_at' => now()]);
+                AuditLog::record($tenant->id, $user->id, 'coupon.redeem_group', 'coupon', $coupon->id, null, [
+                    'course_id' => $coupon->course_id, 'user_id' => $user->id, 'group_id' => $group->id, 'member_id' => $member->id,
                 ]);
             }
 
@@ -436,7 +455,10 @@ class LearningGroupService
         });
     }
 
-    public function payload(LearningGroup $group, User $viewer): array
+    /**
+     * @param  ?array<string, int>  $freeCodes  freie Kurscodes je Kurs-ID (freeCourseCodes), spart in Listen die Abfrage je Gruppe
+     */
+    public function payload(LearningGroup $group, User $viewer, ?array $freeCodes = null): array
     {
         $group->loadMissing('members.user');
         $members = [];
@@ -459,18 +481,64 @@ class LearningGroupService
             ];
         }
         $active = $group->isActive();
+        $scopes = $this->describeScopes($group);
+        $joined = $group->members->where('status', 'active')->count();
 
         return [
             'id' => $group->id, 'name' => $group->name, 'status' => $group->status, 'active' => $active,
             'valid_until' => $group->valid_until?->toIso8601String(),
             'seats' => ['total' => (int) $group->seats, 'used' => $used, 'free' => max(0, (int) $group->seats - $used)],
-            'scopes' => $this->describeScopes($group),
+            'scopes' => $scopes,
+            'course_codes' => $this->codeCoverage($group, $scopes, $joined, $freeCodes),
             'join_code' => $active ? $group->join_code : null,
             'join_url' => $active ? rtrim((string) config('app.url'), '/').'/gruppe/'.$group->join_code.'/' : null,
             'invites_remaining_today' => $active ? RateLimiter::remaining($this->dailyKey($group), $this->dailyLimit($group)) : 0,
             'invite_valid_days' => self::INVITE_DAYS,
             'members' => $members,
         ];
+    }
+
+    /**
+     * Freie Kurscodes der Schule je Kurs (siehe Coupon::scopeFreeCourseCodesOf).
+     *
+     * @param  iterable<?string>  $courseIds
+     * @return array<string, int> Kurs-ID → Anzahl (0 für Kurse ohne Code)
+     */
+    public function freeCourseCodes(string $tenantId, iterable $courseIds): array
+    {
+        $ids = collect($courseIds)->filter()->unique()->values();
+        if ($ids->isEmpty()) {
+            return [];
+        }
+        $counts = Coupon::freeCourseCodesOf($tenantId)->whereIn('coupon.course_id', $ids)
+            ->groupBy('coupon.course_id')->selectRaw('coupon.course_id, count(*) AS free')->pluck('free', 'course_id');
+
+        return $ids->mapWithKeys(fn (string $id) => [$id => (int) ($counts[$id] ?? 0)])->all();
+    }
+
+    /**
+     * Je Kurs der Gruppe: freie Kurscodes der Schule und wie viele die noch
+     * nicht beigetretenen Plätze bräuchten (Plätze − aktive Mitglieder).
+     * Die Codes teilen sich alle Gruppen und Einlösungen der Schule.
+     *
+     * @return list<array{course_id:?string, course_code:string, course_name:string, free:int, needed:int, sufficient:bool}>
+     */
+    public function codeCoverage(LearningGroup $group, ?array $scopes = null, ?int $joined = null, ?array $freeCodes = null): array
+    {
+        $scopes ??= $this->describeScopes($group);
+        $joined ??= LearningGroupMember::where('group_id', $group->id)->where('status', 'active')->count();
+        $courses = collect($scopes)->unique('course_code')->values();
+        $freeCodes ??= $this->freeCourseCodes($group->tenant_id, $courses->pluck('course_id'));
+        $needed = max(0, (int) $group->seats - $joined);
+
+        return $courses->map(function (array $scope) use ($freeCodes, $needed) {
+            $free = $scope['course_id'] ? (int) ($freeCodes[$scope['course_id']] ?? 0) : 0;
+
+            return [
+                'course_id' => $scope['course_id'], 'course_code' => $scope['course_code'], 'course_name' => $scope['course_name'],
+                'free' => $free, 'needed' => $needed, 'sufficient' => $free >= $needed,
+            ];
+        })->all();
     }
 
     public static function newJoinCode(): string
@@ -517,6 +585,45 @@ class LearningGroupService
             'valid_until' => DB::raw("LEAST(valid_until, GREATEST('{$now}'::timestamptz, valid_from + interval '1 second'))"),
             'updated_at' => now(),
         ];
+    }
+
+    /**
+     * Je Kurs einen freien Kurscode der Schule sperren (der Beitritt markiert
+     * sie danach als eingelöst). SKIP LOCKED: parallele Beitritte und
+     * Einlösungen greifen nie denselben Code und warten nicht aufeinander;
+     * bald ablaufende Codes zuerst. Fehlt ein Code, bricht der Beitritt ab
+     * (die Transaktion gibt alle Sperren frei, nichts ist verbraucht).
+     *
+     * @param  array<string, array{course:CourseDefinition, capabilities:?list<string>}>  $grants
+     * @return list<Coupon>
+     */
+    private function claimCourseCodes(string $tenantId, array $grants): array
+    {
+        $claimed = [];
+        foreach ($grants as $grant) {
+            $coupon = Coupon::freeCourseCodesOf($tenantId)->where('coupon.course_id', $grant['course']->id)
+                ->orderByRaw('coupon.expires_at ASC NULLS LAST')->orderBy('coupon.created_at')->orderBy('coupon.id')
+                ->lock('for update skip locked')->first();
+            if (! $coupon) {
+                throw new RuntimeException('GROUP_NO_CODES');
+            }
+            $claimed[] = $coupon;
+        }
+
+        return $claimed;
+    }
+
+    /** Hat die Schule für jeden Kurs der Gruppe mindestens einen freien Kurscode? */
+    private function codesAvailable(LearningGroup $group): bool
+    {
+        try {
+            $grants = $this->courseGrants($group);
+        } catch (RuntimeException) {
+            return false;
+        }
+        $free = $this->freeCourseCodes($group->tenant_id, collect($grants)->map(fn ($grant) => $grant['course']->id));
+
+        return collect($free)->every(fn (int $count) => $count > 0);
     }
 
     private function lock(LearningGroup $group): LearningGroup

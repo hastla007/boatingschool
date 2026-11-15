@@ -1814,7 +1814,9 @@ paths:
         eingeladenen Adresse) oder ein Link `…/gruppe/<code>/` tritt der Gruppe bei
         (`type: group_license`). Volle, abgelaufene, fremde und nach dem Entfernen erneut
         genutzte Beitrittscodes ergeben ebenfalls `COUPON_INVALID`; ein nicht abbildbarer
-        Gruppenumfang 422 `GROUP_SCOPE_UNSUPPORTED`.
+        Gruppenumfang 422 `GROUP_SCOPE_UNSUPPORTED`. Jeder Beitritt verbraucht je Kurs der
+        Gruppe einen freien Kurscode der Schule (auch bei Teilzugang); fehlt einer, 409
+        `GROUP_NO_CODES` (nichts verbraucht, eine Einladung bleibt offen).
       parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody:
         required: true
@@ -1832,6 +1834,7 @@ paths:
               schema:
                 type: object
                 properties: {data: {$ref: '#/components/schemas/CouponRedemption'}}
+        '409': {$ref: '#/components/responses/Problem'}
         '422': {$ref: '#/components/responses/Problem'}
         '429': {$ref: '#/components/responses/Problem'}
 
@@ -2756,6 +2759,19 @@ components:
           type: object
           properties: {total: {type: integer}, used: {type: integer}, free: {type: integer}}
         scopes: {type: array, items: {$ref: '#/components/schemas/GroupScope'}}
+        course_codes:
+          type: array
+          description: 'Je Kurs: freie Kurscodes der Schule (jeder Beitritt verbraucht einen je Kurs, auch bei Teilzugang). Gemeinsamer Bestand aller Gruppen der Schule.'
+          items:
+            type: object
+            required: [course_id, course_code, course_name, free, needed, sufficient]
+            properties:
+              course_id: {type: [string, 'null'], format: uuid}
+              course_code: {type: string}
+              course_name: {type: string}
+              free: {type: integer, description: 'Freie Kurscodes dieses Kurses im Bestand der Schule'}
+              needed: {type: integer, description: 'Plätze minus aktive Mitglieder'}
+              sufficient: {type: boolean, description: 'free >= needed; sonst in der App warnen'}
         join_code: {type: [string, 'null'], description: 'Nur bei aktiver Gruppe'}
         join_url: {type: [string, 'null'], format: uri, description: 'Universal Link für die App (…/gruppe/<code>/)'}
         invites_remaining_today: {type: integer}
@@ -2771,6 +2787,7 @@ components:
         valid_until: {type: [string, 'null'], format: date-time}
         free_seats: {type: integer}
         already_member: {type: boolean}
+        codes_available: {type: boolean, description: 'Die Schule hat für jeden Kurs der Gruppe einen freien Kurscode (sonst schlägt der Beitritt mit 409 GROUP_NO_CODES fehl)'}
         joinable: {type: boolean}
         scopes: {type: array, items: {$ref: '#/components/schemas/GroupScope'}}
     ExportStatus:

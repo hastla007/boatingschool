@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\AuditLog;
+use App\Models\Coupon;
 use App\Models\Entitlement;
 use App\Models\LearningGroup;
 use App\Models\LearningGroupMember;
@@ -38,9 +39,42 @@ class AdminLearningGroupTest extends TestCase
         ]));
     }
 
+    /** @var list<string> */
+    private array $couponIds = [];
+
+    protected function tearDown(): void
+    {
+        // Eingelöste Codes überleben das Löschen der Schule (tenant_id NULL).
+        $this->onAdmin(fn () => Coupon::whereIn('id', $this->couponIds)->delete());
+        parent::tearDown();
+    }
+
+    /** Freie Kurscodes im Bestand der Schule. */
+    private function courseCodes(Tenant $tenant, string $courseCode, int $count): Collection
+    {
+        return $this->onAdmin(function () use ($tenant, $courseCode, $count) {
+            $course = $this->existingCourse($courseCode);
+            $coupons = collect(range(1, $count))->map(fn () => Coupon::create([
+                'code' => Coupon::generateUniqueCode(), 'course_id' => $course->id, 'tenant_id' => $tenant->id, 'batch_label' => 'Test',
+            ]));
+            array_push($this->couponIds, ...$coupons->pluck('id')->all());
+
+            return $coupons;
+        });
+    }
+
+    /**
+     * Beitritt; die Schule bekommt vorher je Kurs der Gruppe einen freien
+     * Kurscode, der dabei verbraucht wird (Abrechnung der Plätze).
+     */
     private function join(Tenant $tenant, LearningGroup $group, User $user): LearningGroupMember
     {
-        return $this->asTenant($tenant, fn () => app(LearningGroupService::class)->join($group->join_code, $tenant, $user)['member']);
+        $codes = collect($group->scopes)->pluck('course_code')->unique()
+            ->flatMap(fn (string $code) => $this->courseCodes($tenant, $code, 1))->pluck('id');
+        $member = $this->asTenant($tenant, fn () => app(LearningGroupService::class)->join($group->join_code, $tenant, $user)['member']);
+        $this->assertEqualsCanonicalizing($codes->all(), $this->onAdmin(fn () => Coupon::whereIn('id', $codes)->where('redeemed_by_user_id', $user->id)->pluck('id')->all()));
+
+        return $member;
     }
 
     private function groupEntitlements(User $user): Collection
@@ -315,6 +349,9 @@ class AdminLearningGroupTest extends TestCase
         $this->assertSame(['expired'], $this->groupEntitlements($first)->pluck('status')->all());
         $this->assertSame(['expired'], $this->groupEntitlements($second)->pluck('status')->all());
         $this->assertSame('active', $this->onAdmin(fn () => Entitlement::withoutGlobalScopes()->find($own->id))->status);
+        // Gruppenende gibt die verbrauchten Kurscodes nicht zurück.
+        $this->assertSame(2, $this->onAdmin(fn () => Coupon::whereIn('id', $this->couponIds)->whereNotNull('redeemed_at')->count()));
+        $this->assertSame(0, $this->onAdmin(fn () => Coupon::freeCourseCodesOf($tenant->id)->count()));
         $entry = $this->audit($tenant, 'learning_group.revoke')->sole();
         $this->assertSame($owner->id, $entry->actor_user_id);
         $this->assertSame(2, $entry->after_data['active_members']);
@@ -352,6 +389,9 @@ class AdminLearningGroupTest extends TestCase
         $this->assertSame('active', $this->onAdmin(fn () => Entitlement::withoutGlobalScopes()->find($own->id))->status);
         $this->assertSame('removed', $this->onAdmin(fn () => LearningGroupMember::find($member->id))->status);
         $this->assertSame('active', $this->fresh($group)->status);
+        // Der Code des entfernten Mitglieds bleibt verbraucht.
+        $this->assertSame(1, $this->onAdmin(fn () => Coupon::where('redeemed_by_user_id', $leaving->id)->whereNotNull('redeemed_at')->count()));
+        $this->assertSame(0, $this->onAdmin(fn () => Coupon::freeCourseCodesOf($tenant->id)->count()));
 
         $entry = $this->audit($tenant, 'learning_group.member_remove')->sole();
         $this->assertSame($admin->id, $entry->actor_user_id);
@@ -472,5 +512,71 @@ class AdminLearningGroupTest extends TestCase
         $this->assertSame(1, $groupQueriesFour);
         // Übrige Abfragen: wie AdminAndTenantShowPerformanceTest (mehr Teilnehmer, höchstens 3 mehr).
         $this->assertLessThanOrEqual(3, $four - $one, "Admin-Dashboard braucht mit 4 Lerngruppen {$four} statt {$one} Abfragen.");
+    }
+
+    public function test_create_and_detail_pages_show_free_course_codes_and_warn_when_seats_exceed_them(): void
+    {
+        $tenant = $this->createTestTenant();
+        $other = $this->createTestTenant('Andere Schule');
+        $owner = $this->createTenantUser($tenant, 'owner');
+        $manager = $this->createTenantUser($tenant, 'learner');
+        $this->courseCodes($tenant, 'SRC', 2);
+        // Codes einer anderen Schule zählen nicht.
+        $this->courseCodes($other, 'SRC', 3);
+        $this->courseCodes($other, 'FKN', 3);
+        $codesTab = e(route('admin.dashboard', ['tab' => 'coupons']));
+
+        $this->actingAsInTenant($owner, $tenant)->get(route('admin.learning-groups.create'))->assertOk()
+            ->assertSee('data-free-codes="SRC">Freie Kurscodes: 2', false)
+            ->assertSee('data-free-codes="FKN">Freie Kurscodes: 0', false)
+            ->assertSee('Mehr Plätze als freie Kurscodes')
+            ->assertSee($codesTab, false);
+
+        // 3 Plätze, aber nur 2 SRC- und keine FKN-Codes: Warnung (Platzzahl bleibt frei wählbar).
+        $group = $this->group($tenant, $manager, [
+            'seats' => 3, 'scopes' => [['course_code' => 'SRC', 'feature' => 'course'], ['course_code' => 'FKN', 'feature' => 'question_bank']],
+        ]);
+        $page = $this->actingAsInTenant($owner, $tenant)->get(route('admin.learning-groups.show', $group))->assertOk();
+        $page->assertSeeInOrder(['data-free-codes="SRC"', '2 frei', 'data-free-codes="FKN"', '0 frei'], false)
+            ->assertSee('Achtung: Für')->assertSee('offene Plätze (3)')->assertSee($codesTab, false);
+
+        // Genug Codes für alle offenen Plätze: keine Warnung mehr.
+        $this->courseCodes($tenant, 'SRC', 1);
+        $this->courseCodes($tenant, 'FKN', 3);
+        $this->actingAsInTenant($owner, $tenant)->get(route('admin.learning-groups.show', $group))->assertOk()
+            ->assertSeeInOrder(['data-free-codes="SRC"', '3 frei', 'data-free-codes="FKN"', '3 frei'], false)
+            ->assertDontSee('Achtung: Für');
+    }
+
+    public function test_members_who_joined_before_billing_are_not_charged_retroactively(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'admin');
+        $manager = $this->createTenantUser($tenant, 'learner');
+        $legacy = $this->createTenantUser($tenant, 'learner');
+        $group = $this->group($tenant, $manager, ['seats' => 2]);
+        // Bestand: beigetreten, bevor Plätze mit Kurscodes abgerechnet wurden.
+        $member = $this->onAdmin(fn () => LearningGroupMember::create([
+            'tenant_id' => $tenant->id, 'group_id' => $group->id, 'user_id' => $legacy->id, 'status' => 'active', 'joined_at' => now()->subMonth(),
+        ]));
+        $this->onAdmin(fn () => Entitlement::create([
+            'tenant_id' => $tenant->id, 'user_id' => $legacy->id, 'course_id' => $this->existingCourse('SRC')->id,
+            'source_type' => 'group', 'source_reference' => 'group:'.$group->id.':'.$member->id,
+            'status' => 'active', 'valid_from' => now()->subMonth(), 'valid_until' => $group->valid_until,
+        ]));
+
+        // Erneutes Einlösen ohne freie Codes: bleibt Mitglied, nichts verbraucht.
+        $result = $this->asTenant($tenant, fn () => app(LearningGroupService::class)->join($group->join_code, $tenant, $legacy));
+        $this->assertTrue($result['already']);
+        // Ende verlängern gilt weiter für den Bestand, ohne Codes.
+        $this->actingAsInTenant($admin, $tenant)->patch(route('admin.learning-groups.update', $group), [
+            'name' => 'Segelverein', 'seats' => 2, 'owner_user_id' => $manager->id,
+            'valid_until' => now('Europe/Berlin')->addYears(2)->toDateString(),
+        ])->assertSessionHasNoErrors();
+        $this->assertSame(['active'], $this->groupEntitlements($legacy)->pluck('status')->all());
+        $this->assertSame(0, $this->onAdmin(fn () => Coupon::where('redeemed_by_user_id', $legacy->id)->count()));
+        $this->assertSame(0, $this->audit($tenant, 'coupon.redeem_group')->count());
+        // Nur der noch freie Platz braucht einen Code.
+        $this->actingAsInTenant($admin, $tenant)->get(route('admin.learning-groups.show', $group))->assertOk()->assertSee('offene Plätze (1)');
     }
 }

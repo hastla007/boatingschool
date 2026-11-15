@@ -78,6 +78,11 @@ class CouponController extends Controller
             if ($e->getMessage() === 'GROUP_SCOPE_UNSUPPORTED') {
                 throw new ApiProblem(422, 'GROUP_SCOPE_UNSUPPORTED', 'Gruppenumfang nicht unterstützt', 'Für diese Gruppenlizenz ist noch kein passender Kurszugang eingerichtet.');
             }
+            // Plätze werden mit Kurscodes der Schule abgerechnet; keiner frei.
+            if ($e->getMessage() === 'GROUP_NO_CODES') {
+                throw new ApiProblem(409, 'GROUP_NO_CODES', 'Keine Kurscodes verfügbar',
+                    'Für diese Lerngruppe hat deine Bootsschule gerade keine freien Kurscodes. Bitte wende dich an den Verwalter oder deine Bootsschule.');
+            }
             throw $this->invalid();
         }
 

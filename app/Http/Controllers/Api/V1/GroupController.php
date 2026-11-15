@@ -13,7 +13,9 @@ use Illuminate\Http\Request;
  * Lerngruppen in der App (im Kontext einer Schule): der Verwalter sieht
  * seine Gruppen dieser Schule, lädt per E-Mail ein, entfernt Mitglieder und
  * erneuert den Beitrittscode. Beitreten läuft über POST /coupons/redeem,
- * die Vorschau über GET /groups/join/{token}.
+ * die Vorschau über GET /groups/join/{token}. course_codes zeigt je Kurs die
+ * freien Kurscodes der Schule (jeder Beitritt verbraucht einen), damit die
+ * App vor vollen Gruppen ohne Codes warnen kann.
  */
 class GroupController extends Controller
 {
@@ -23,7 +25,10 @@ class GroupController extends Controller
     {
         $owner = $request->user();
         $groups = LearningGroup::with('members.user')->where('owner_user_id', $owner->id)->latest('created_at')->get();
-        $data = $groups->map(fn (LearningGroup $group) => $this->groups->payload($group, $owner))->values();
+        // Freie Kurscodes der Schule je Kurs einmal für alle Gruppen (course_codes).
+        $courses = LearningGroupService::coursesByCode($groups);
+        $free = $groups->isEmpty() ? [] : $this->groups->freeCourseCodes($groups->first()->tenant_id, $courses->pluck('id'));
+        $data = $groups->map(fn (LearningGroup $group) => $this->groups->payload($group, $owner, $free))->values();
         $seats = $data->pluck('seats');
 
         return response()->json(['data' => $data, 'meta' => [
