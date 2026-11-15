@@ -64,6 +64,7 @@ class NavigationController extends Controller
                 'placeholder' => NavigationAnswer::placeholder($q->answer_text),
                 'own_answer' => $progress->get($q->id)?->answer,
                 'correct' => $progress->get($q->id)?->correct,
+                'self_assessment' => $progress->get($q->id)?->self_assessment,
                 'solution' => $showSolution ? $q->answer_text : null,
             ])->values(),
         ]]);
@@ -79,27 +80,17 @@ class NavigationController extends Controller
             'answer' => ['nullable', 'string', 'max:500', 'required_without:self_assessment'],
             'self_assessment' => ['nullable', 'in:correct,incorrect', 'required_without:answer'],
         ]);
-        $task = $this->accessibleTask($request, $taskId);
-        $this->abortIfInRunningExam($request, $task);
-        $question = $task->questions->firstWhere('id', $partId);
-        if (! $question) {
-            throw ApiProblem::notFound('Teilfrage');
-        }
+        [$question] = $this->accessiblePart($request, $taskId, $partId);
 
-        $key = ['tenant_id' => $this->tenantContext->id(), 'user_id' => $request->user()->id, 'navigation_question_id' => $question->id];
-        $existing = NavigationProgress::where($key)->first();
-        $evaluation = null;
         if (! empty($validated['self_assessment'])) {
-            $values = ['answer' => $existing?->answer, 'correct' => $validated['self_assessment'] === 'correct'];
+            [$row, $evaluation] = $this->store($request, $question, null, $validated['self_assessment'] === 'correct' ? 'correct' : 'wrong');
         } else {
             $given = trim((string) $validated['answer']);
             if ($given === '') {
                 throw new ApiProblem(422, 'VALIDATION_FAILED', 'Eingaben ungültig', null, ['answer' => ['Bitte zuerst eine Antwort eingeben.']]);
             }
-            $evaluation = NavigationAnswer::evaluate($question->answer_text, $given);
-            $values = ['answer' => $given, 'correct' => $evaluation['correct']];
+            [$row, $evaluation] = $this->store($request, $question, $given, null);
         }
-        $row = NavigationProgress::updateOrCreate($key, $values + ['updated_at' => now()]);
 
         return response()->json(['data' => [
             'part_id' => $question->id,
@@ -107,8 +98,83 @@ class NavigationController extends Controller
             'auto_checked' => $evaluation !== null && (bool) $evaluation['auto'],
             // null: nicht automatisch prüfbar -- Musterlösung ansehen und selbst bewerten.
             'correct' => $evaluation !== null && ! $evaluation['auto'] ? null : $row->correct,
+            'self_assessment' => $row->self_assessment,
             'solution' => $question->answer_text,
         ]]);
+    }
+
+    /**
+     * Antwort im Format der bisherigen App: Antwort und/oder dreistufige
+     * Selbstbewertung (correct|partly|wrong) in einem Aufruf. Fehlt `answer`
+     * (oder ist leer/null), bleibt die gespeicherte Antwort stehen.
+     */
+    public function answerCompatible(Request $request, string $taskId, string $partId): JsonResponse
+    {
+        $validated = $request->validate([
+            'answer' => ['sometimes', 'nullable', 'string', 'max:500'],
+            'self_assessment' => ['sometimes', 'nullable', 'in:correct,partly,wrong'],
+        ]);
+        [$question] = $this->accessiblePart($request, $taskId, $partId);
+        $answer = trim((string) ($validated['answer'] ?? ''));
+        $answer = $answer === '' ? null : $answer;
+        $assessment = $validated['self_assessment'] ?? null;
+        if ($answer === null && $assessment === null) {
+            throw new ApiProblem(422, 'VALIDATION_FAILED', 'Eingaben ungültig', null, ['answer' => ['Bitte eine Antwort oder Selbstbewertung senden.']]);
+        }
+
+        [$row, $evaluation] = $this->store($request, $question, $answer, $assessment);
+        $autoChecked = $evaluation !== null && (bool) $evaluation['auto'];
+
+        return response()->json(['data' => [
+            'part_id' => $question->id,
+            'solution' => $question->answer_text,
+            'my_answer' => $row->answer,
+            'self_assessment' => $row->self_assessment,
+            'done' => $row->self_assessment !== null,
+            'auto_check' => $autoChecked,
+            'check' => $autoChecked ? [
+                'status' => $evaluation['correct'] ? 'within' : 'deviates',
+                'message' => $evaluation['correct'] ? 'Deine Werte liegen im Toleranzbereich.' : 'Mindestens ein Wert weicht ab oder fehlt.',
+            ] : null,
+        ]]);
+    }
+
+    /**
+     * Stand einer Teilfrage speichern. $answer: neue Antwort (null lässt sie
+     * stehen); $assessment: Selbstbewertung (null lässt sie stehen, eine
+     * neue Antwort ohne Bewertung setzt sie zurück).
+     *
+     * @return array{0: NavigationProgress, 1: ?array}
+     */
+    private function store(Request $request, NavigationQuestion $question, ?string $answer, ?string $assessment): array
+    {
+        $key = ['tenant_id' => $this->tenantContext->id(), 'user_id' => $request->user()->id, 'navigation_question_id' => $question->id];
+        $values = ['updated_at' => now()];
+        $evaluation = null;
+
+        if ($answer !== null) {
+            $evaluation = NavigationAnswer::evaluate($question->answer_text, $answer);
+            $values += ['answer' => $answer, 'correct' => $evaluation['correct'], 'self_assessment' => null];
+        }
+        if ($assessment !== null) {
+            $values['self_assessment'] = $assessment;
+            $values['correct'] = $assessment === 'correct';
+        }
+
+        return [NavigationProgress::updateOrCreate($key, $values), $evaluation];
+    }
+
+    /** @return array{0: NavigationQuestion, 1: NavigationTask} */
+    private function accessiblePart(Request $request, string $taskId, string $partId): array
+    {
+        $task = $this->accessibleTask($request, $taskId);
+        $this->abortIfInRunningExam($request, $task);
+        $question = $task->questions->firstWhere('id', $partId);
+        if (! $question) {
+            throw ApiProblem::notFound('Teilfrage');
+        }
+
+        return [$question, $task];
     }
 
     private function accessibleTask(Request $request, string $taskId): NavigationTask

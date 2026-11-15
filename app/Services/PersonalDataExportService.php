@@ -47,7 +47,7 @@ class PersonalDataExportService
     {
         $data = $this->collect($user, $tenant, $forSchool);
         if ($forSchool) {
-            unset($data['sessions'], $data['app_devices'], $data['app_web_logins'], $data['audit_log']);
+            unset($data['sessions'], $data['app_devices'], $data['app_web_logins'], $data['app_settings'], $data['audit_log']);
         }
 
         return $data;
@@ -228,12 +228,14 @@ class PersonalDataExportService
                 ->map(fn (PraxisProgress $p) => [
                     'praxis_task_id' => $p->praxis_task_id,
                     'completed' => $p->completed,
+                    'status' => $p->status,
                 ])->all(),
             'navigation_progress' => NavigationProgress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get()
                 ->map(fn (NavigationProgress $p) => [
                     'navigation_question_id' => $p->navigation_question_id,
                     'answer' => $p->answer,
                     'correct' => $p->correct,
+                    'self_assessment' => $p->self_assessment,
                     'updated_at' => $p->updated_at?->toIso8601String(),
                 ])->all(),
             'video_progress' => VideoProgress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get()
@@ -316,6 +318,8 @@ class PersonalDataExportService
                     'created_at' => $s->created_at?->toIso8601String(),
                     'used_at' => $s->used_at?->toIso8601String(),
                 ])->all(),
+            // Geräteübergreifende App-Einstellungen (gelten fürs Konto, nicht je Schule).
+            'app_settings' => $forSchool ? null : $this->appSettings($user),
             // Protokolleinträge dieser Bootsschule, die die Person betreffen.
             'audit_log' => $forSchool ? [] : AuditLog::where('tenant_id', $tenant->id)
                 ->where(fn ($q) => $q->where('actor_user_id', $user->id)
@@ -328,6 +332,23 @@ class PersonalDataExportService
                     'by_this_person' => $l->actor_user_id === $user->id,
                     'created_at' => $l->created_at?->toIso8601String(),
                 ])->all(),
+        ];
+    }
+
+    /** @return ?array{settings: array<string, mixed>, version: int, updated_at: ?string} */
+    private function appSettings(User $user): ?array
+    {
+        // Schulübergreifende Tabelle ohne RLS (Zugriff nur über die eigene user_id).
+        $row = DB::table('api_user_setting')->where('user_id', $user->id)->first();
+        if ($row === null) {
+            return null;
+        }
+        $settings = json_decode((string) $row->settings, true);
+
+        return [
+            'settings' => is_array($settings) ? $settings : [],
+            'version' => (int) $row->version,
+            'updated_at' => $row->updated_at ? Carbon::parse($row->updated_at)->toIso8601String() : null,
         ];
     }
 }

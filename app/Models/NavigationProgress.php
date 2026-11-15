@@ -19,7 +19,7 @@ class NavigationProgress extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['tenant_id', 'user_id', 'navigation_question_id', 'answer', 'correct', 'updated_at'];
+    protected $fillable = ['tenant_id', 'user_id', 'navigation_question_id', 'answer', 'correct', 'self_assessment', 'updated_at'];
 
     protected function casts(): array
     {

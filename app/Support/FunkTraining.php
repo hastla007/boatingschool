@@ -124,6 +124,12 @@ class FunkTraining
         return implode(' ', array_filter(array_map(fn ($c) => ctype_digit($c) ? self::DIGITS[(int) $c] : (self::ALPHABET[$c][0] ?? null), $chars)));
     }
 
+    /** UBI-Abgabe: *markierte* Wörter mit Buchstabierung, z. B. "*Kel*" -> "Kel (Kilo Echo Lima)". */
+    public static function spellMarkedWords(string $line): string
+    {
+        return preg_replace_callback('/\*([^*]+)\*/', fn ($m) => $m[1].' ('.self::spellGerman($m[1]).')', $line);
+    }
+
     /**
      * Anteil der Wörter des Originals, die in der Eingabe vorkommen (ohne
      * Groß-/Kleinschreibung und Satzzeichen) -- eine grobe, ehrliche
