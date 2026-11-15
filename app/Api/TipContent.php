@@ -16,8 +16,12 @@ final class TipContent
         'strong', 'table', 'tbody', 'td', 'th', 'thead', 'tr', 'u', 'ul',
     ];
 
-    /** @return array{html:string,text:string,links:list<array{url:string,text:string}>} */
-    public static function present(string $source): array
+    /**
+     * @param  array<string, string>  $replaceLinks  absolute Link-Adressen, die ersetzt werden
+     *                                               (z. B. die alte /storage-Adresse des Tipp-PDFs durch die signierte)
+     * @return array{html:string,text:string,links:list<array{url:string,text:string}>}
+     */
+    public static function present(string $source, array $replaceLinks = []): array
     {
         $document = new DOMDocument('1.0', 'UTF-8');
         $previous = libxml_use_internal_errors(true);
@@ -34,7 +38,7 @@ final class TipContent
 
         $html = '';
         foreach (iterator_to_array($root->childNodes) as $child) {
-            $html .= self::clean($child);
+            $html .= self::clean($child, $replaceLinks);
         }
 
         $safeDocument = new DOMDocument('1.0', 'UTF-8');
@@ -65,7 +69,8 @@ final class TipContent
         return ['html' => $html, 'text' => $plain, 'links' => $links];
     }
 
-    private static function clean(DOMNode $node): string
+    /** @param  array<string, string>  $replaceLinks */
+    private static function clean(DOMNode $node, array $replaceLinks): string
     {
         if ($node->nodeType === XML_TEXT_NODE) {
             return htmlspecialchars($node->nodeValue ?? '', ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5, 'UTF-8');
@@ -81,7 +86,7 @@ final class TipContent
 
         $children = '';
         foreach (iterator_to_array($node->childNodes) as $child) {
-            $children .= self::clean($child);
+            $children .= self::clean($child, $replaceLinks);
         }
 
         if (! in_array($tag, self::TAGS, true)) {
@@ -91,6 +96,7 @@ final class TipContent
         $attributes = '';
         if ($tag === 'a') {
             $href = self::absoluteUrl(trim($node->getAttribute('href')));
+            $href = $replaceLinks[$href] ?? $href;
             if (self::safeHref($href)) {
                 $attributes .= ' href="'.e($href).'"';
                 if (preg_match('#^https?://#i', $href) === 1) {

@@ -2,6 +2,7 @@
 
 use App\Api\ProblemResponse;
 use App\Http\Controllers\NavigationChartImageController;
+use App\Http\Controllers\ProtectedMediaController;
 use App\Http\Controllers\QuestionMediaController;
 use App\Http\Controllers\TlsCheckController;
 use App\Http\Middleware\Api\ApiIdempotency;
@@ -58,6 +59,11 @@ return Application::configure(basePath: dirname(__DIR__))
             // an Person und Schule gebunden, Zugang wird beim Abruf erneut geprüft.
             Route::get('/media/question-media/{asset}', QuestionMediaController::class)
                 ->whereUuid('asset')->middleware(['signed', 'throttle:600,1,question-media'])->name('question-media.file');
+            // Tipp-PDFs und Bilder der Videoschritte (TipPdf, VideoStepImage): ebenso.
+            Route::get('/media/tip-pdfs/{tip}', [ProtectedMediaController::class, 'tipPdf'])
+                ->whereUuid('tip')->middleware(['signed', 'throttle:300,1,tip-pdf'])->name('tip-pdf.file');
+            Route::get('/media/video-steps/{step}', [ProtectedMediaController::class, 'videoStep'])
+                ->whereUuid('step')->middleware(['signed', 'throttle:600,1,video-step'])->name('video-step.image');
             // Commerce-API v1 für den B2B-WooCommerce-Shop (docs/commerce/README.md):
             // signiert, Owner-Verbindung; Begrenzung je Endpunktgruppe in
             // routes/commerce.php (getrennte Töpfe, siehe AppServiceProvider).

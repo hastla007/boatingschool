@@ -6,10 +6,8 @@ use App\Api\CourseAccess;
 use App\Models\CourseDefinition;
 use App\Models\NavigationTask;
 use App\Models\Tenant;
-use App\Models\TenantUser;
 use App\Models\User;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\URL;
 
 /**
  * Kartenausschnitte der Navigationsaufgaben (BSH-Seekarten): Lizenzen
@@ -41,17 +39,8 @@ class NavigationChart
         if (! $path || ! str_starts_with($path, self::DIRECTORY.'/')) {
             return null;
         }
-        $user ??= auth()->user();
-        if (! $user instanceof User) {
-            return null;
-        }
-        $tenant ??= app(TenantContext::class)->tenant();
 
-        return URL::temporarySignedRoute('navigation-chart.image', now()->addMinutes(self::URL_MINUTES), array_filter([
-            'file' => basename($path),
-            'u' => $user->id,
-            't' => $tenant?->id,
-        ]));
+        return ProtectedMedia::signedUrl('navigation-chart.image', self::URL_MINUTES, ['file' => basename($path)], $user, $tenant);
     }
 
     /**
@@ -62,29 +51,16 @@ class NavigationChart
      */
     public static function allows(User $user, ?Tenant $tenant, string $file): bool
     {
-        if ($user->status !== 'active') {
-            return false;
-        }
-        if ($user->is_superadmin) {
-            return true;
-        }
-        if (! $tenant || ! in_array($tenant->status, ['active', 'trial'], true)) {
-            return false;
-        }
-        $member = TenantUser::on('pgsql_admin')->withoutGlobalScopes()
-            ->where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('status', 'active')->exists();
-        if (! $member) {
-            return false;
-        }
+        return ProtectedMedia::gate($user, $tenant, function () use ($tenant, $user, $file) {
+            // Wie die Seiten und die API der Navigationsaufgaben: voller Kurszugang
+            // (bzw. MOBILE_API_DEFAULT_ACCESS=logged_in für angebotene Kurse).
+            $access = app(CourseAccess::class);
 
-        // Wie die Seiten und die API der Navigationsaufgaben: voller Kurszugang
-        // (bzw. MOBILE_API_DEFAULT_ACCESS=logged_in für angebotene Kurse).
-        $access = app(CourseAccess::class);
-
-        return CourseDefinition::on('pgsql_admin')
-            ->whereIn('id', NavigationTask::on('pgsql_admin')->where('chart_image_path', self::DIRECTORY.'/'.$file)->select('course_id'))
-            ->get()
-            ->contains(fn (CourseDefinition $course) => $access->hasCourseAccess($tenant, $user, $course));
+            return CourseDefinition::on('pgsql_admin')
+                ->whereIn('id', NavigationTask::on('pgsql_admin')->where('chart_image_path', self::DIRECTORY.'/'.$file)->select('course_id'))
+                ->get()
+                ->contains(fn (CourseDefinition $course) => $access->hasCourseAccess($tenant, $user, $course));
+        });
     }
 
     /**
