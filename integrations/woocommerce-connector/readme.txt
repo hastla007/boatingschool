@@ -13,10 +13,10 @@ Verkauft Codes der Bootsschul-Plattform über WooCommerce. Nach der Zahlung werd
 * Zustellung ausschließlich in den Codebestand der Bootsschule auf der Plattform. Der Shop sieht und versendet keine Codes.
 * Einkaufen kann nur, wer mit einer aktiven Bootsschule verknüpft ist: per Verknüpfungscode aus der Plattform („Mein Konto → Bootsschule verknüpfen“) oder nach Freigabe einer Neuregistrierung durch den Plattform-Betreiber.
 * Genau ein Code-Paket je Bestellposition. Wiederholte Zustellungen nach Zeitüberschreitung erzeugen keine zusätzlichen Codes.
-* Rückerstattung oder Storno sperrt unbenutzte Codes. Bereits eingelöste Codes bleiben gültig.
+* Rückerstattung oder Storno sperrt unbenutzte Codes. Bereits eingelöste Codes bleiben gültig. Wird eine stornierte Bestellung wieder auf bezahlt gesetzt, wird nicht nachgeliefert, sondern einmalig per Bestellnotiz und Alarm-Mail gemeldet.
 * Endgültig fehlgeschlagene Zustellungen erzeugen eine Bestellnotiz, eine Alarm-Mail und den Knopf „Erneut zustellen“. Ist das Tageskontingent der Schule für Codes überschritten (`CODE_QUOTA_EXCEEDED`), wird nicht automatisch wiederholt: Nach der Freigabe durch den Superadmin „Erneut zustellen“ klicken.
 * Höchstmenge je Position kommt aus dem Katalog der Plattform (`max_quantity`, sonst 500).
-* Kurs- und Verlängerungscodes lassen sich nur für Kurse bestellen, die die verknüpfte Schule derzeit erhalten kann.
+* Kurs- und Verlängerungscodes lassen sich nur für Kurse bestellen, die die verknüpfte Schule derzeit erhalten kann (geprüft schon beim Hinzufügen zum Warenkorb).
 * Rückerstattungen nur als Betrag (ohne Positionsmenge) sperren keine Codes; das Plugin meldet sie per Bestellnotiz und Alarm-Mail.
 * Der Kontostatus aus der Plattform wird zwischengespeichert (5 Minuten, Fehlschläge 60 Sekunden). An der Kasse wird frisch geprüft, höchstens alle 10 Sekunden je Kunde; „Mein Konto → Bootsschule verknüpfen“ lädt nur nach einem Verknüpfungsversuch frisch. So können Kunden die Begrenzung der Plattform nicht aufbrauchen.
 

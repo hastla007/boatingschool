@@ -6,8 +6,9 @@
  * oder Storno. Läuft im Hintergrund über Action Scheduler.
  *
  * Positions-Metadaten: _bs_target (fester Lieferauftrag, beim Einplanen
- * eingefroren), _bs_delivery_status (pending|delivered|failed|cancelled),
- * _bs_attempts, _bs_error, _bs_batch_id.
+ * eingefroren), _bs_delivery_status (pending|deferred|delivered|failed|cancelled),
+ * _bs_attempts, _bs_error, _bs_batch_id, _bs_cancelled (Bestellung storniert
+ * bzw. vollständig erstattet, auch nach der Lieferung).
  */
 defined('ABSPATH') || exit;
 
@@ -118,7 +119,10 @@ final class BS_Orders
         foreach ($order->get_items() as $item_id => $item) {
             $product = $item->get_product();
             $status = (string) $item->get_meta('_bs_delivery_status');
-            if ($status === 'cancelled' && ! $item->get_meta('_bs_reactivation_alerted')) {
+            // Storniert oder vollständig erstattet: vor der Lieferung (cancelled)
+            // oder danach (delivered, unbenutzte Codes gesperrt -- _bs_cancelled).
+            $was_cancelled = $status === 'cancelled' || (string) $item->get_meta('_bs_cancelled') !== '';
+            if ($was_cancelled && ! $item->get_meta('_bs_reactivation_alerted')) {
                 // Storniert und später wieder auf bezahlt gesetzt: nichts automatisch
                 // nachliefern (Codes können bereits gesperrt sein) -- Mensch entscheidet.
                 $item->update_meta_data('_bs_reactivation_alerted', 1);
@@ -342,6 +346,13 @@ final class BS_Orders
             // Auch „fehlgeschlagen“ und zurückgestellte Positionen: ein letzter Versuch
             // kann angekommen sein, obwohl die Antwort ausblieb.
             if ((string) $item->get_meta('_bs_target') !== '') {
+                // Merken, auch bei schon gelieferten Positionen: wird die Bestellung
+                // wieder „In Bearbeitung“, meldet schedule_order das, statt still
+                // nichts zu tun (die Codes sind dann gesperrt).
+                if (! $item->get_meta('_bs_cancelled')) {
+                    $item->update_meta_data('_bs_cancelled', 1);
+                    $item->save();
+                }
                 self::enqueue_void((int) $order_id, (int) $item_id, null, 'cancel-'.(int) $order_id.'-'.(int) $item_id);
             }
         }
@@ -471,7 +482,7 @@ final class BS_Orders
 
     public static function hide_item_meta(array $keys): array
     {
-        return array_merge($keys, ['_bs_target', '_bs_delivery_status', '_bs_attempts', '_bs_error', '_bs_batch_id', '_bs_deferred_voids', '_bs_reactivation_alerted']);
+        return array_merge($keys, ['_bs_target', '_bs_delivery_status', '_bs_attempts', '_bs_error', '_bs_batch_id', '_bs_deferred_voids', '_bs_reactivation_alerted', '_bs_cancelled']);
     }
 
     public static function add_meta_box(): void
@@ -488,6 +499,7 @@ final class BS_Orders
         }
         $labels = [
             'pending' => __('wird zugestellt', 'bs-connector'),
+            'deferred' => __('zurückgestellt (Bestellung nicht bezahlt)', 'bs-connector'),
             'delivered' => __('im Codebestand der Schule', 'bs-connector'),
             'failed' => __('fehlgeschlagen', 'bs-connector'),
             'cancelled' => __('abgebrochen', 'bs-connector'),
@@ -500,7 +512,11 @@ final class BS_Orders
                 continue;
             }
             $any = true;
-            echo '<li><strong>'.esc_html($item->get_name()).'</strong>: '.esc_html($labels[$status] ?? $status);
+            $label = $labels[$status] ?? $status;
+            if ($status === 'delivered' && $item->get_meta('_bs_cancelled')) {
+                $label = __('storniert, unbenutzte Codes gesperrt', 'bs-connector');
+            }
+            echo '<li><strong>'.esc_html($item->get_name()).'</strong>: '.esc_html($label);
             $error = (string) $item->get_meta('_bs_error');
             if ($error !== '' && $status !== 'delivered') {
                 echo '<br><small>'.esc_html($error).'</small>';
