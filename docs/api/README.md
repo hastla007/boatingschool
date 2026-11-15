@@ -669,8 +669,9 @@ entscheidet aber nur anhand von `code`.
 * **Konto löschen** entfernt App-Sitzungen, App-Einstellungen, Exporte samt
   Dateien und gespeicherte Antworten sofort. **Eine Schule verlassen** entfernt die
   Exporte, offenen Löschanträge und Webansicht-Codes dieser Schule samt
-  Dateien und die gespeicherten Antworten; die App-Sitzungen und
-  App-Einstellungen gelten kontoweit und bleiben (für andere Schulen).
+  Dateien; die App-Sitzungen, App-Einstellungen und gespeicherten Antworten
+  (ohne Schulbezug, nach 24 Stunden ohnehin gelöscht) gelten kontoweit und
+  bleiben, solange eine weitere Mitgliedschaft besteht.
 * **Lerngruppen:** `learning_group` und `learning_group_member` haben
   `tenant_id` und RLS je Schule; Mitglieder und Verwalter müssen per
   Fremdschlüssel Mitglieder derselben Schule sein. Eine Schule verlassen
