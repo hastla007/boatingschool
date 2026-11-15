@@ -104,7 +104,7 @@ class ReviewRoundSevenFixesTest extends TestCase
 
         $this->actingAsInTenant($owner, $tenant)->post('/admin/participants/invite', ['name' => 'Gast', 'email' => $other->email])->assertSessionHas('status', 'Einladung verschickt.');
         $this->actingAsInTenant($owner, $tenant)->post('/admin/participants/invite', ['name' => 'Gast', 'email' => $other->email])
-            ->assertSessionHas('status', 'Diese Person wurde heute schon eingeladen; die Einladung ist weiter gültig.');
+            ->assertSessionHas('status', ParticipantInviter::ALREADY_INVITED_STATUS);
         $this->assertSame(1, $this->onAdmin(fn () => TenantInvitation::where('tenant_id', $tenant->id)->count()));
 
         foreach (range(1, ParticipantInviter::DAILY_LIMIT) as $i) {

@@ -135,7 +135,7 @@ Antworten werden 24 Stunden je Konto gespeichert.
 
 | Bereich | Grenze |
 |---|---|
-| Login | 10/Min. je IP, 5 Fehlversuche je E-Mail+IP und Minute, 20 je Konto in 15 Min. |
+| Login | 10/Min. je IP, 5 Fehlversuche je E-Mail+IP und Minute, 20 je Konto und Netz (IPv4 /24, IPv6 /48) in 15 Min.; nach 20 Fehlversuchen je Konto insgesamt nur noch 3 je Netz. Ein richtiges Passwort aus einem Netz ohne eigene Fehlversuche scheitert nicht an fremden Fehlversuchen (gemeinsam mit dem Web). |
 | 2FA | 10/Min., dazu 5 Versuche je Konto in 5 Min. (gemeinsam mit dem Web) |
 | Refresh | 10/Min. je Refresh-Token, 300/Min. je IP |
 | Passwort vergessen/zurücksetzen | je 6/Min. |
@@ -166,7 +166,11 @@ POST /auth/login {email, password, device_name, device_platform?, app_version?}
     einmal benutzt: innerhalb von 60 Sekunden nach der Erneuerung (Antwort
     im Funkloch verloren, zwei gleichzeitige Erneuerungen) gibt es ein neues
     Paar; später beendet es die ganze Gerätesitzung (Diebstahl-Schutz).
-    Ältere Tokens ergeben nur 401. Immer das zuletzt erhaltene Paar speichern.
+    Das dabei verdrängte Paar ist verbraucht: wird dessen Refresh-Token
+    später noch vorgelegt, endet die Gerätesitzung ebenfalls. Mehr als fünf
+    Wiederholungen in der Toleranz beenden sie auch.
+    Ältere Tokens ergeben nur 401. Immer das zuletzt erhaltene Paar speichern
+    und Erneuerungen nacheinander statt parallel senden.
 * **Speicherung in der App:** Keychain (iOS) bzw. EncryptedSharedPreferences
   oder Keystore (Android). Auf dem Server liegen nur SHA-256-Hashes.
 * **Abmelden:** `POST /auth/logout` (dieses Gerät),

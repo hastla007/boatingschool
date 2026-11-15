@@ -49,7 +49,7 @@ class ReviewRoundEightFixesTest extends TestCase
 
         // Die Teilnehmerliste zeigt den Zustand mit „erneut senden“.
         $this->actingAsInTenant($admin, $tenant)->get('/admin?tab=participants')
-            ->assertSee('eingeladen, noch nicht angemeldet')->assertSee('Einladung erneut senden');
+            ->assertSee('Einladung offen')->assertSee('Einladung erneut senden');
     }
 
     public function test_a_suspended_learner_reaches_the_data_rights_page_and_can_export(): void

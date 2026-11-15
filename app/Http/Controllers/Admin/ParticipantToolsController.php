@@ -62,6 +62,15 @@ class ParticipantToolsController extends Controller
 
             $existing = User::on('pgsql_admin')->whereRaw('lower(email) = ?', [mb_strtolower($email)])->first();
             $existingRole = $existing ? TenantUser::where('tenant_id', $tenant->id)->where('user_id', $existing->id)->value('role') : null;
+            // Audit SEC-W-3: noch nie angemeldete (hier angelegte) Konten und
+            // offene Einladungen an bestehende Konten melden dasselbe.
+            $alreadyInvited = ($existingRole && $existing->status === 'invited')
+                || (! $existingRole && ParticipantInviter::openLearnerInvitations($tenant)->whereRaw('lower(email) = ?', [mb_strtolower($email)])->exists());
+            if ($alreadyInvited) {
+                $skipped[] = "{$email} (bereits eingeladen)";
+
+                continue;
+            }
             if ($existingRole) {
                 $skipped[] = $existingRole === 'learner' ? "{$email} (bereits Teilnehmer)" : "{$email} (gehört zum Team)";
 
@@ -74,7 +83,7 @@ class ParticipantToolsController extends Controller
 
             $result = $inviter->invite($tenant, $request->user(), $name ?: strstr($email, '@', true), $email);
             if ($result['duplicate'] ?? false) {
-                $skipped[] = "{$email} (heute schon eingeladen)";
+                $skipped[] = "{$email} (bereits eingeladen)";
 
                 continue;
             }
