@@ -45,8 +45,9 @@ class ExamController extends Controller
     {
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
-        $course = $this->access->require($tenant, $user, $courseId);
-        $papers = $course->examPapers;
+        $course = $this->access->require($tenant, $user, $courseId, 'exam');
+        // Probezugang: nur die ersten N Bögen (WP first_items).
+        $papers = $this->access->limitItems($tenant, $user, $course, 'exam', $course->examPapers);
 
         $sessions = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)
             ->whereIn('status', ['running', 'evaluated'])->orderByDesc('started_at')->get();
@@ -95,7 +96,7 @@ class ExamController extends Controller
         $validated = $request->validate(['paper_id' => ['nullable', 'uuid']]);
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
-        $course = $this->access->require($tenant, $user, $courseId);
+        $course = $this->access->require($tenant, $user, $courseId, 'exam');
         $starter = app(ExamSessionStarter::class);
 
         if ($course->examPapers()->exists()) {
@@ -105,6 +106,9 @@ class ExamController extends Controller
             $paper = ExamPaper::where('id', $validated['paper_id'])->where('course_id', $course->id)->first();
             if (! $paper) {
                 throw ApiProblem::notFound('Prüfungsbogen');
+            }
+            if (! $this->access->allowsLimitedItem($tenant, $user, $course, 'exam', $course->examPapers, (string) $paper->id)) {
+                throw CourseAccess::itemLocked();
             }
             $ruleSet = $course->examRuleSetForPaper($paper);
             $this->requireVerified($ruleSet);
@@ -126,7 +130,7 @@ class ExamController extends Controller
     {
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
-        $course = $this->access->require($tenant, $user, $courseId);
+        $course = $this->access->require($tenant, $user, $courseId, 'exam');
         $perPage = max(1, min(100, (int) $request->query('per_page', 20)));
 
         $page = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('course_id', $course->id)
@@ -381,7 +385,7 @@ class ExamController extends Controller
         }
     }
 
-    /** Eigene Session in dieser Schule; Kurszugang muss weiter bestehen (wie im Web, Bug-Review B11). */
+    /** Eigene Session in dieser Schule; Zugang zur Prüfung muss weiter bestehen (wie im Web, Bug-Review B11). */
     private function ownSession(Request $request, string $examId): ExamSession
     {
         $tenant = $this->tenantContext->tenant();
@@ -389,7 +393,7 @@ class ExamController extends Controller
         if (! $session) {
             throw ApiProblem::notFound('Prüfung');
         }
-        $this->access->require($tenant, $request->user(), $session->course_id);
+        $this->access->require($tenant, $request->user(), $session->course_id, 'exam');
 
         return $session;
     }

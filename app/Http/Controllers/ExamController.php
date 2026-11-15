@@ -369,8 +369,12 @@ class ExamController extends Controller
         // abgelaufene Zeit, Doppelklick (die erste Antwort zählt).
         return match (app(ExamActions::class)->answer($examSession, (int) $validated['position'], $validated)) {
             ExamActions::EVALUATED => redirect()->route('exam.result', $examSession),
-            ExamActions::EXPIRED => redirect()->route('exam.result', $examSession)
-                ->with('status', 'Die Prüfungszeit ist abgelaufen – hier ist dein Ergebnis.'),
+            // QA-L-8: in der Nachfrist der Navigation bleibt die Prüfung offen.
+            ExamActions::EXPIRED => $examSession->fresh()->status === 'running'
+                ? redirect()->route('exam.show', $examSession)
+                    ->with('status', 'Die Prüfungszeit ist abgelaufen – diese Antwort zählt nicht mehr. Die Navigationsaufgabe kannst du noch abschließen.')
+                : redirect()->route('exam.result', $examSession)
+                    ->with('status', 'Die Prüfungszeit ist abgelaufen – hier ist dein Ergebnis.'),
             default => redirect()->route('exam.show', $examSession),
         };
     }
