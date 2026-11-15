@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\Tenant;
 use App\Models\TenantBranding;
+use App\Services\AppAccountDeletion;
 use App\Support\TenantContext;
 use App\Support\TenantPath;
 use Closure;
@@ -63,6 +64,14 @@ class ResolveTenant
 
         // Eigener Superadmin-Host (SUPERADMIN_HOST): dort gibt es nie eine Schule,
         // auch wenn er wie eine Schul-Subdomain aussieht.
+        // Bestätigungslink der Kontolöschung aus der App: nur auf der zentralen
+        // Domain (dorthin zeigt der Link, siehe CanonicalUrl), ohne Schulkontext --
+        // Antrag und Schule löst AppAccountDeletion selbst auf. Auf Schul- und
+        // Superadmin-Hosts gibt es die Seite nicht.
+        if ($request->is(ltrim(AppAccountDeletion::confirmationPath(), '/'))) {
+            return TenantPath::isCentralRoot($request) ? $next($request) : response()->view('tenant.not-found', [], 404);
+        }
+
         $onSuperadminHost = $this->isSuperadminHost($request);
         $tenant = $onSuperadminHost ? null : ($this->resolveViaPath($request)
             ?? $this->resolveViaCustomDomain($request)

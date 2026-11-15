@@ -5,12 +5,8 @@ namespace App\Http\Controllers\Api\V1;
 use App\Api\ApiProblem;
 use App\Http\Controllers\Controller;
 use App\Models\ApiAccountDeletionRequest;
-use App\Models\AuditLog;
-use App\Models\Tenant;
-use App\Models\TenantUser;
-use App\Models\User;
 use App\Notifications\AccountDeletionConfirmation;
-use App\Services\AccountErasureService;
+use App\Services\AppAccountDeletion;
 use App\Support\BestEffortMail;
 use App\Support\TenantContext;
 use Illuminate\Http\JsonResponse;
@@ -86,20 +82,21 @@ class AccountDeletionController extends Controller
         ]], 202);
     }
 
-    /** Öffentlich: die App ruft das mit den Werten aus dem Bestätigungslink auf. */
-    public function confirmDeletion(Request $request, TenantContext $tenantContext, AccountErasureService $erasure): JsonResponse
+    /**
+     * Öffentlich: die App ruft das mit den Werten aus dem Bestätigungslink auf.
+     * Ohne App öffnet der Link die Web-Bestätigungsseite (AppAccountDeletionController);
+     * beide nutzen dieselbe Prüfung und Löschung (AppAccountDeletion).
+     */
+    public function confirmDeletion(Request $request, AppAccountDeletion $deletions): JsonResponse
     {
         $validated = $request->validate([
             'request_id' => ['bail', 'required', 'uuid'],
             'confirm_key' => ['bail', 'required', 'string', 'max:100'],
         ]);
-        foreach (['api-deletion-confirm-ip:'.$request->ip() => 20, 'api-deletion-confirm:'.$validated['request_id'] => 10] as $limit => $max) {
-            if (RateLimiter::tooManyAttempts($limit, $max)) {
-                throw new ApiProblem(429, 'RATE_LIMITED', 'Zu viele Bestätigungsversuche', 'Bitte später erneut versuchen.', [], [
-                    'Retry-After' => (string) RateLimiter::availableIn($limit),
-                ]);
-            }
-            RateLimiter::hit($limit, 3600);
+        if (($retryAfter = $deletions->throttle((string) $request->ip(), $validated['request_id'])) !== null) {
+            throw new ApiProblem(429, 'RATE_LIMITED', 'Zu viele Bestätigungsversuche', 'Bitte später erneut versuchen.', [], [
+                'Retry-After' => (string) $retryAfter,
+            ]);
         }
 
         $invalid = new ApiProblem(
@@ -109,40 +106,14 @@ class AccountDeletionController extends Controller
             'Dieser Bestätigungslink ist ungültig oder abgelaufen. Bitte beantrage die Löschung in der App erneut.'
         );
 
-        // Ohne Anmeldung und Schulkontext: Antrag, Schule und Konto über die Owner-Verbindung suchen.
-        $deletion = ApiAccountDeletionRequest::on('pgsql_admin')->withoutGlobalScopes()->whereKey($validated['request_id'])->first();
-        if (! $deletion || $deletion->expires_at->isPast()
-            || ! hash_equals((string) $deletion->confirm_key_hash, hash('sha256', $validated['confirm_key']))) {
+        $pending = $deletions->find($validated['request_id'], $validated['confirm_key']);
+        $accountDeleted = $pending ? $deletions->confirm($pending, 'app') : null;
+        if ($accountDeleted === null) {
             throw $invalid;
         }
-        $tenant = Tenant::on('pgsql_admin')->find($deletion->tenant_id);
-        $user = User::on('pgsql_admin')->find($deletion->user_id);
-        // Nur eine (weiterhin) bestehende Teilnehmer-Mitgliedschaft; wer inzwischen zum
-        // Team gehört, löscht im Web (dort u. a. die Prüfung „einziger Inhaber“).
-        $isLearner = $tenant && $user && ! $user->is_superadmin && TenantUser::on('pgsql_admin')->withoutGlobalScopes()
-            ->where('tenant_id', $tenant->id)->where('user_id', $user->id)->where('role', 'learner')->exists();
-        if (! $isLearner) {
-            throw $invalid;
-        }
-
-        $tenantContext->set(Tenant::find($tenant->id) ?? $tenant);
-        try {
-            // Den Antrag zuerst entfernen: ein zweiter, gleichzeitiger Aufruf mit
-            // demselben Link findet ihn danach nicht mehr.
-            if (ApiAccountDeletionRequest::whereKey($deletion->id)->delete() !== 1) {
-                throw $invalid;
-            }
-            $erasure->leaveTenant($user, $tenantContext->tenant());
-            // Nachweis ohne Personenbezug (wie participant.remove im Admin-Bereich).
-            AuditLog::record($tenant->id, null, 'profile.delete', 'tenant_user', null, null, ['channel' => 'app']);
-        } finally {
-            $tenantContext->clear();
-        }
-
-        $accountDeleted = ! User::on('pgsql_admin')->whereKey($user->id)->exists();
 
         return response()->json(['data' => [
-            'request_id' => (string) $deletion->id,
+            'request_id' => (string) $pending->deletion->id,
             'status' => 'completed',
             'account_deleted' => $accountDeleted,
             'message' => $accountDeleted

@@ -676,12 +676,24 @@ entscheidet aber nur anhand von `code`.
     der zentralen Domain mit `request_id` und `confirm_key` (7 Tage gültig,
     nur der Hash wird gespeichert). Die App öffnet ihn als Universal-/App-Link
     und ruft `POST /me/deletion-request/confirm` auf (ohne Token).
+  * Ohne installierte App öffnet der Link im Browser eine
+    **Bestätigungsseite** (nur zentrale Domain, Gast-Layout mit dem Branding
+    der Schule): Schule, was gelöscht wird, ob das ganze Konto entfällt,
+    Gültigkeit des Links. Das Aufrufen löscht nichts (Link-Vorschauen der
+    Mailprogramme); erst „Endgültig löschen“ (POST an denselben Pfad, CSRF)
+    löscht mit derselben Logik wie die App (`AppAccountDeletion`). Ungültige,
+    abgelaufene oder benutzte Links bekommen eine einheitliche Meldung ohne
+    Hinweis, ob es den Antrag gab. Der Link ist der Nachweis: gelöscht wird
+    das Konto aus dem Antrag, auch wenn im Browser jemand anderes angemeldet
+    ist; die eigene Web-Sitzung endet, wenn das Konto ganz entfällt.
+  * Prüfversuche sind je Link (10) und je IP (20) pro Stunde begrenzt; App
+    und Webseite teilen sich die Kontingente.
   * Die Bestätigung löscht sofort Mitgliedschaft und alle Daten bei dieser
     Schule und pseudonymisiert das Protokoll (`AccountErasureService::
     leaveTenant`). Ohne weitere Mitgliedschaft wird das Konto gelöscht, alle
     App- und Web-Sitzungen enden (`account_deleted: true`).
-  * Ein Eintrag `profile.delete` (Kanal `app`, ohne Personenbezug) bleibt
-    als Nachweis im Protokoll der Schule.
+  * Ein Eintrag `profile.delete` (Kanal `app` bzw. `web`, ohne
+    Personenbezug) bleibt als Nachweis im Protokoll der Schule.
 * **Konto löschen** entfernt App-Sitzungen, App-Einstellungen, Exporte samt
   Dateien und gespeicherte Antworten sofort. **Eine Schule verlassen** entfernt die
   Exporte, offenen Löschanträge und Webansicht-Codes dieser Schule samt
@@ -720,8 +732,17 @@ entscheidet aber nur anhand von `code`.
   * `MOBILE_API_WEB_SESSION_ENABLED` (Standard `true`): Einmal-Anmeldung
     der Webansicht
   * `MOBILE_API_DELETION_CONFIRMATION_PATH` (Standard `/app/konto-loeschen`):
-    Pfad des Bestätigungslinks; muss als Universal Link (iOS) bzw. App Link
-    (Android) auf die App zeigen
+    Pfad des Bestätigungslinks (Web-Bestätigungsseite ohne App); muss als
+    Universal Link (iOS) bzw. App Link (Android) auf die App zeigen
+  * `MOBILE_API_IOS_APP_IDS` (`<Team-ID>.<Bundle-ID>`, kommagetrennt) sowie
+    `MOBILE_API_ANDROID_PACKAGE` und `MOBILE_API_ANDROID_SHA256_FINGERPRINTS`
+    (kommagetrennt): Die zentrale Domain liefert damit
+    `/.well-known/apple-app-site-association` (nur dieser Pfad) bzw.
+    `/.well-known/assetlinks.json` aus. Ohne Werte gibt es beide Dateien
+    nicht (404), der Link öffnet dann immer die Webseite. Die App braucht
+    zusätzlich die Associated Domain `applinks:<zentrale Domain>` bzw. einen
+    Intent-Filter mit `autoVerify` für den Pfad. Wer die Dateien statisch
+    ausliefert (Webserver/CDN), lässt die Variablen leer.
 * **Wartungsmodus** der Plattform (Superadmin-Einstellungen) gilt auch für
   die API (503 `MAINTENANCE`); `GET /app/config` und `GET /health` bleiben
   erreichbar.
