@@ -72,8 +72,8 @@ class CouponRedemptionService
 
         // Bestätigung an den Lernenden (auch bei Zuweisung durch die Schule),
         // erst nach dem Commit und ohne den Vorgang bei einem Mailfehler
-        // abzubrechen.
-        BestEffortMail::send(fn () => $user->notify(new CouponRedeemed($result)), 'Coupon eingelöst '.$coupon->id);
+        // abzubrechen. Direkt (notifyNow), nicht über die Queue: einzelne Mail.
+        BestEffortMail::send(fn () => $user->notifyNow(new CouponRedeemed($result)), 'Coupon eingelöst '.$coupon->id);
 
         return $result;
     }

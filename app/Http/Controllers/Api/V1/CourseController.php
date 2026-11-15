@@ -14,10 +14,10 @@ use App\Models\CourseFile;
 use App\Models\CourseWebshopLink;
 use App\Models\Entitlement;
 use App\Models\Progress;
-use App\Models\TenantCourseDisabled;
 use App\Services\CourseProgressService;
 use App\Services\CourseRelationService;
 use App\Services\EntitlementService;
+use App\Support\DisabledCourses;
 use App\Support\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -49,7 +49,7 @@ class CourseController extends Controller
         $order = array_flip(self::DISPLAY_ORDER);
 
         $active = $this->entitlements->activeEntitlements($tenant, $user)->keyBy('course_id');
-        $disabled = TenantCourseDisabled::where('tenant_id', $tenant->id)->pluck('course_id');
+        $disabled = app(DisabledCourses::class)->ids($tenant);
         $offered = CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')->where('site_enabled', true)
             ->where('status', 'published')->whereNotIn('id', $disabled)->get()
             ->reject(fn ($c) => $active->has($c->id));
@@ -85,7 +85,7 @@ class CourseController extends Controller
     {
         $tenant = $this->tenantContext->tenant();
         $user = $request->user();
-        $disabled = TenantCourseDisabled::where('tenant_id', $tenant->id)->pluck('course_id');
+        $disabled = app(DisabledCourses::class)->ids($tenant);
         $course = CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')->where('site_enabled', true)
             ->where('status', 'published')->whereNotIn('id', $disabled)->find($courseId);
         if (! $course) {

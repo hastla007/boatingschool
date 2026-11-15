@@ -28,6 +28,9 @@ class InactiveLearnerController extends Controller
     /** Bis zu so vielen Empfängern wird direkt (mit Rückmeldung) verschickt. */
     private const SYNC_LIMIT = 10;
 
+    /** Höchstens so viele Erinnerungen je Auslösung. */
+    private const MAX_REMINDERS = 200;
+
     public const DAY_OPTIONS = [7, 14, 30, 60];
 
     private const REMINDER_COOLDOWN_DAYS = 7;
@@ -49,21 +52,24 @@ class InactiveLearnerController extends Controller
         $days = $this->days($request);
         $tenant = $tenantContext->tenant();
 
-        $rows = $this->inactive($tenantContext, $overview, $days)
+        $candidates = $this->inactive($tenantContext, $overview, $days)
             ->when($request->filled('user_id'), fn ($c) => $c->where('membership.user_id', $request->input('user_id')))
-            ->reject(fn ($row) => $row['recently_reminded'])
-            ->take(200);
+            ->reject(fn ($row) => $row['recently_reminded']);
+        $rows = $candidates->take(self::MAX_REMINDERS);
+        $omitted = $candidates->count() - $rows->count();
 
         // Review-Runde 11: viele Empfänger nicht im Request nacheinander
-        // anschreiben (bei echtem SMTP sonst Zeitüberschreitung) -- der
-        // Versand läuft nach der Antwort.
+        // anschreiben (bei echtem SMTP sonst Zeitüberschreitung).
+        // Audit ARC-2: über die Queue statt defer() (das hing weiter am
+        // PHP-FPM-Zeitlimit); vermerkt wird beim Einreihen.
         if ($rows->count() > self::SYNC_LIMIT) {
-            $queued = $rows->values();
-            \Illuminate\Support\defer(fn () => $this->send($tenant, $queued));
-            AuditLog::record($tenant->id, $request->user()->id, 'participants.remind_inactive', 'tenant_user', null, null, ['days' => $days, 'queued' => $queued->count()]);
+            [$queued] = $this->send($tenant, $rows, queue: true);
+            AuditLog::record($tenant->id, $request->user()->id, 'participants.remind_inactive', 'tenant_user', null, null, ['days' => $days, 'queued' => $queued]);
 
             return redirect()->route('admin.inactive.index', ['days' => $days])
-                ->with('status', "{$queued->count()} Erinnerungen werden jetzt verschickt.");
+                ->with('status', ($queued === 1 ? 'Eine Erinnerung wird' : "{$queued} Erinnerungen werden").' im Hintergrund verschickt.'
+                    // Audit ARC-2: Kürzung bei der Höchstgrenze nennen statt still abzuschneiden.
+                    .($omitted > 0 ? ' Höchstens '.self::MAX_REMINDERS." auf einmal: {$omitted} weitere bitte erneut erinnern." : ''));
         }
 
         [$sent, $failed] = $this->send($tenant, $rows);
@@ -100,8 +106,8 @@ class InactiveLearnerController extends Controller
         return in_array($days, self::DAY_OPTIONS, true) ? $days : 14;
     }
 
-    /** @return array{0: int, 1: int} versendet, fehlgeschlagen */
-    private function send(Tenant $tenant, Collection $rows): array
+    /** @return array{0: int, 1: int} versendet bzw. eingereiht, fehlgeschlagen */
+    private function send(Tenant $tenant, Collection $rows, bool $queue = false): array
     {
         $sent = 0;
         $failed = 0;
@@ -117,7 +123,9 @@ class InactiveLearnerController extends Controller
                 continue;
             }
             $daysSince = $row['last_activity'] ? (int) $row['last_activity']->diffInDays(now()) : null;
-            if (BestEffortMail::send(fn () => $membership->user->notify(new LearningReminder($tenant, $daysSince)), 'Lernerinnerung '.$membership->user_id)) {
+            $notification = new LearningReminder($tenant, $daysSince);
+            $mail = $queue ? fn () => $membership->user->notify($notification) : fn () => $membership->user->notifyNow($notification);
+            if (BestEffortMail::send($mail, 'Lernerinnerung '.$membership->user_id)) {
                 $sent++;
             } else {
                 $failed++;

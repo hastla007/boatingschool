@@ -72,7 +72,8 @@ class ParticipantToolsController extends Controller
                 break;
             }
 
-            $result = $inviter->invite($tenant, $request->user(), $name ?: strstr($email, '@', true), $email);
+            // Audit ARC-2: Einladungsmails über die Queue (bis zu 100 je Liste).
+            $result = $inviter->invite($tenant, $request->user(), $name ?: strstr($email, '@', true), $email, queueMail: true);
             if ($result['duplicate'] ?? false) {
                 $skipped[] = "{$email} (heute schon eingeladen)";
 
@@ -85,6 +86,10 @@ class ParticipantToolsController extends Controller
         }
 
         $status = $invited === 1 ? 'Eine Person eingeladen.' : "{$invited} Personen eingeladen.";
+        $queued = $invited - $mailFailed;
+        if ($queued > 0) {
+            $status .= $queued === 1 ? ' Die Einladungsmail wird im Hintergrund verschickt.' : ' Die Einladungsmails werden im Hintergrund verschickt.';
+        }
         if ($mailFailed > 0) {
             $status .= " Bei {$mailFailed} konnte die Einladungsmail nicht verschickt werden.";
         }

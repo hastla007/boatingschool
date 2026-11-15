@@ -123,8 +123,11 @@ class TenantOffboardingService
                 ->where('is_superadmin', false)
                 ->whereDoesntHave('tenantMemberships')
                 ->get();
+            // Audit ARC-3: eine Abfrage für alle Konten statt einer je Konto.
+            foreach ($orphans->pluck('id')->chunk(1000) as $orphanIds) {
+                AuditLog::where('entity_type', 'app_user')->whereIn('entity_id', $orphanIds->all())->update(['before_data' => null, 'after_data' => null]);
+            }
             foreach ($orphans as $user) {
-                AuditLog::where('entity_type', 'app_user')->where('entity_id', $user->id)->update(['before_data' => null, 'after_data' => null]);
                 DB::table('sessions')->where('user_id', $user->id)->delete();
                 DB::table('password_reset_tokens')->where('email', $user->email)->delete();
                 DB::table('account_setup_tokens')->where('email', $user->email)->delete();

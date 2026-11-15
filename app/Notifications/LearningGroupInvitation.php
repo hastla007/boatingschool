@@ -3,7 +3,10 @@
 namespace App\Notifications;
 
 use App\Notifications\Concerns\EscapesMarkdown;
+use App\Notifications\Concerns\SentFromSchool;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldBeEncrypted;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
@@ -12,10 +15,12 @@ use Illuminate\Notifications\Notification;
  * gleich ob es dazu schon ein Konto gibt -- die Antwort an den Verwalter
  * verrät das deshalb nicht. Eingelöst wird nur mit genau dieser Adresse
  * und als Teilnehmer der Schule, zu der die Gruppe gehört.
+ *
+ * Audit ARC-2: über die Queue, verschlüsselt (der Beitrittscode steht im Job).
  */
-class LearningGroupInvitation extends Notification
+class LearningGroupInvitation extends Notification implements ShouldBeEncrypted, ShouldQueue
 {
-    use EscapesMarkdown, Queueable;
+    use EscapesMarkdown, Queueable, SentFromSchool;
 
     public function __construct(
         private readonly string $groupName,
@@ -23,7 +28,11 @@ class LearningGroupInvitation extends Notification
         private readonly string $schoolName,
         private readonly string $inviteCode,
         private readonly int $validDays,
-    ) {}
+        ?string $tenantId = null,
+    ) {
+        $this->captureSchool($tenantId);
+        $this->afterCommit();
+    }
 
     /** @return array<int, string> */
     public function via(mixed $notifiable): array

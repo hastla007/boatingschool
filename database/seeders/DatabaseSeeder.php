@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Api\CourseAccess;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Artisan;
 
@@ -104,6 +105,10 @@ class DatabaseSeeder extends Seeder
             ElwisPraxisImageSeeder::class,
             PraxisFormTemplateSeeder::class,
         ]);
+
+        // Audit ARC-V2: Inhalte (Fragen, Prüfungsbögen, Videos …) können sich
+        // geändert haben -- Kurs-Zwischenspeicher der App neu berechnen lassen.
+        CourseAccess::bumpContentVersion();
 
         // O3: alles ab hier erzeugt ausschließlich die beiden fiktiven
         // Demo-Bootsschulen ("mueller"/"hanse-kiel") samt Konten mit dem

@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Api\CourseAccess;
 use App\Models\CourseAccessRule;
 use App\Models\CourseDefinition;
 use App\Models\Tenant;
@@ -162,6 +163,8 @@ class ImportMobileAccessRules extends Command
         if ($defaultAccess !== null && $defaultAccess !== config('mobile_api.default_access')) {
             $this->warn('WP default_access='.$defaultAccess.'; Original aktuell '.config('mobile_api.default_access').'. Für Verhaltensparität MOBILE_API_DEFAULT_ACCESS bewusst angleichen.');
         }
+        // Audit ARC-V2: Zwischenspeicher der App (Kursdaten) neu berechnen lassen.
+        CourseAccess::bumpContentVersion();
 
         return self::SUCCESS;
     }

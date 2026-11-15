@@ -225,7 +225,18 @@ class PrunePersonalData extends Command
             return;
         }
 
-        $deleted = $query->delete();
+        // Audit ARC-4: in Blöcken (über ctid, jede Anweisung eine eigene
+        // kurze Transaktion) statt in einem einzigen DELETE über Millionen
+        // Zeilen -- das hielt Sperren und WAL lange und blähte die Tabelle.
+        $chunk = max((int) config('data_retention.prune_chunk', 5000), 1);
+        $deleted = 0;
+        do {
+            $count = DB::delete(
+                "DELETE FROM {$table} WHERE ctid = ANY(ARRAY(SELECT ctid FROM {$table} WHERE {$dateColumn} < ? LIMIT {$chunk}))",
+                [$cutoff]
+            );
+            $deleted += $count;
+        } while ($count >= $chunk);
         $this->line("{$table}: {$deleted} Zeile(n) jenseits der Aufbewahrungsfrist gelöscht.");
     }
 }

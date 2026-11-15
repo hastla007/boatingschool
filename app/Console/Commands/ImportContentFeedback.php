@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Api\CourseAccess;
 use App\Models\ContentAnswer;
 use App\Models\ContentQuestion;
 use App\Models\ContentQuestionRevision;
@@ -81,6 +82,9 @@ class ImportContentFeedback extends Command
         foreach ($this->errors as $line => $message) {
             $this->line("  Zeile {$line}: {$message}");
         }
+
+        // Audit ARC-V2: Kurs-Zwischenspeicher der App neu berechnen lassen.
+        CourseAccess::bumpContentVersion();
 
         // Review-Runde 12: eine unbrauchbare Datei ist kein erfolgreicher Import.
         return $headerRejected ? self::FAILURE : self::SUCCESS;
