@@ -7,7 +7,7 @@ dieselben.
 
 | Datei | Inhalt |
 |---|---|
-| `docs/api/openapi-mobile-v1.yaml` | Vertrag (OpenAPI 3.1), alle 52 Endpunkte |
+| `docs/api/openapi-mobile-v1.yaml` | Vertrag (OpenAPI 3.1), alle 72 Endpunkte |
 | `routes/api.php` | Routen (Präfix `/api/v1`) |
 | `app/Http/Controllers/Api/V1/` | Controller je Bereich |
 | `app/Api/` | Tokens, Fehlerformat, Ausgabeformate |
@@ -338,6 +338,10 @@ GET  /exams/{id}/result                 → Ergebnis mit Lösungen
 * `GET /courses/{id}/videos` liefert die Kapitel mit Lektionen.
   * `standalone: true` markiert eigene Kapitel (z. B. „Knoten“), die im Web
     eine eigene Kachel haben.
+  * `code` (stabiler Kapitel-Code) und `group` (Gruppenüberschrift) sind
+    optional und meist `null`.
+  * `meta`: `lessons`, `completed` und `next_lesson_id` (nächste offene
+    Lektion im Kursfluss, ohne eigenständige Kapitel).
 * `GET /videos/{id}` liefert eine Lektion mit Schritt-Galerie.
 * `PUT /videos/{id}/progress` speichert den Fortschritt:
   * `position_seconds` (Wiedergabeposition) und `completed`.
@@ -352,6 +356,12 @@ GET  /exams/{id}/result                 → Ergebnis mit Lösungen
   * Eigene Antworten mit Messwerten (Kurs, Zeit, Distanz, Position) prüft
     der Server mit Toleranz (`auto_checked`).
   * Sonst bewertet sich die Person selbst (`self_assessment`).
+  * `POST /navigation-tasks/{id}/parts/{partId}` ist der Weg im Format der
+    bisherigen App: Antwort und/oder dreistufige Selbstbewertung
+    (`correct`, `partly`, `wrong`; nur `correct` zählt als richtig). Eine neue
+    Antwort setzt eine frühere Selbstbewertung zurück. Der PUT-Weg speichert
+    `correct`/`incorrect` als `correct`/`wrong` mit. Die Aufgabe zeigt die
+    Bewertung je Teilfrage (`parts[].self_assessment`).
 * **Code einlösen:** `POST /coupons/redeem {code}`.
   * Groß-/Kleinschreibung und Leerzeichen am Rand sind egal; beim
     16-stelligen Standardformat auch Leerzeichen statt oder fehlende
@@ -393,6 +403,44 @@ GET  /exams/{id}/result                 → Ergebnis mit Lösungen
   Datei, aktualisiert dann über die `source_key`s in einer Transaktion und
   löscht nichts, was in der Datei fehlt. Er läuft über die Owner-Verbindung;
   die App-Rolle darf die FAQ-Tabellen nur lesen.
+
+## 10a. Praxistrainer, Funk-Training, Prüfungsanmeldung
+
+Alle Endpunkte prüfen Schule (`X-Tenant-Slug`) und Kurszugang wie die
+übrigen Kursendpunkte (403 `ENTITLEMENT_REQUIRED`/`ENTITLEMENT_EXPIRED`).
+Der Lernstand ist derselbe wie im Web.
+
+* **Praxistrainer:** `GET /courses/{id}/praxis` liefert die Karten nach
+  Kategorie mit Frage, Antwort und Erklärung (Aufdecken in der App).
+  * `PUT /courses/{id}/praxis/{cardId} {status}` mit `open`, `practice`
+    oder `known`. `known` ist „Gemeistert“ im Web; „Wieder öffnen“ im Web
+    setzt auf `open`.
+  * `title` ist `null`, wenn die Unterkategorie die Lösung verraten würde.
+    Bilder haben `role`: `question` (zur Frage) oder `solution` (erst nach
+    dem Aufdecken zeigen).
+* **Funk-Training (SRC/UBI):** unter `/courses/{id}/radio`; Kurse ohne
+  Funkschein liefern 404.
+  * Überblick, Buchstabiertafel (`/spelling`), Texte (`/texts/{textId}`),
+    Vokabeln (`/vocabulary`), Praxisaufgaben (`/practice`) und
+    Musterlösungen (`/samples`).
+  * Texte: `translation` (Seefunktexte, Lösung der gewählten Richtung erst
+    nach der ersten Auswertung), `dictation` (UBI-Aufnahme) und `spelling`
+    (UBI-Abgabe, nicht auswertbar). Die Auswertung ist eine grobe
+    Wort-Übereinstimmung wie im Web; leere Felder werden nicht bewertet.
+  * Vokabeln: `POST …/vocabulary/{cardId}/answers {known, streak?}` mit
+    `Idempotency-Key`. Nach 3× „gewusst“ in Folge gilt die Karte als
+    gelernt. Mit `streak` (Stand der App) wird ein doppelt gesendeter
+    Klick erkannt (`repeated: true`).
+  * Die Gerätesimulation gibt es nur im Browser (`device_simulator.web_url`,
+    nur wenn sie für die Person freigeschaltet ist).
+* **Prüfungsanmeldung:** `GET /courses/{id}/exam-registration`, nur lesend.
+  * `mode: school` (Standard): die Schule meldet an, es gilt ihr Termintool;
+    `guides` ist leer.
+  * `mode: self`: die Anleitung der Web-Seite „Prüfung buchen“ (Gebühren,
+    Fristen, Unterlagen, Varianten, Prüfungsverbände) und `web_url`. Wer
+    schon eine Praxis-Anmeldung abgeschickt hat, behält das Termintool
+    (`uses_appointment_tool: true`).
+  * Angemeldet wird nie in der App (`registration_in_app: false`).
 
 ## 11. Fehlercodes
 
@@ -491,8 +539,9 @@ entscheidet aber nur anhand von `code`.
 * Offline-Modus und Synchronisation.
 * Push-Benachrichtigungen.
 * In-App-Käufe (Kauf bleibt im externen Webshop).
-* Funkgeräte-Simulator, Praxistrainer, Video-Quiz und Prüfungstermine
-  (eine Video-Lektion lässt sich deshalb ohne Quiz abschließen).
+* Funkgeräte-Simulator (nur Link in den Browser), Video-Quiz und
+  Prüfungstermine (eine Video-Lektion lässt sich deshalb ohne Quiz
+  abschließen).
 * Untertitel und Vorschaubilder für Videos; Seekarten fehlen bisher in den
   Navigationsaufgaben (`chart: null`), dafür braucht es die Papierkarte.
 * Registrierung in der App.

@@ -313,19 +313,11 @@ class FunkTrainingController extends Controller
     /** @return Collection<string, RadioTrainingProgress> */
     private function progress(TenantContext $tenantContext, Request $request, string $type, array $keys): Collection
     {
-        return RadioTrainingProgress::where('tenant_id', $tenantContext->id())
-            ->where('user_id', $request->user()->id)
-            ->where('item_type', $type)
-            ->whereIn('item_key', $keys)
-            ->get()
-            ->keyBy('item_key');
+        return RadioTrainingProgress::forItems($tenantContext->id(), $request->user()->id, $type, $keys);
     }
 
     private function store(TenantContext $tenantContext, Request $request, string $type, string $key, array $values): void
     {
-        RadioTrainingProgress::updateOrCreate(
-            ['tenant_id' => $tenantContext->id(), 'user_id' => $request->user()->id, 'item_type' => $type, 'item_key' => $key],
-            $values + ['updated_at' => now()]
-        );
+        RadioTrainingProgress::record($tenantContext->id(), $request->user()->id, $type, $key, $values);
     }
 }

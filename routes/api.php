@@ -6,10 +6,13 @@ use App\Http\Controllers\Api\V1\CouponController;
 use App\Http\Controllers\Api\V1\CourseController;
 use App\Http\Controllers\Api\V1\CustomerFaqController;
 use App\Http\Controllers\Api\V1\ExamController;
+use App\Http\Controllers\Api\V1\ExamRegistrationController;
 use App\Http\Controllers\Api\V1\ExportController;
 use App\Http\Controllers\Api\V1\FavoriteController;
 use App\Http\Controllers\Api\V1\LearningController;
 use App\Http\Controllers\Api\V1\NavigationController;
+use App\Http\Controllers\Api\V1\PraxisController;
+use App\Http\Controllers\Api\V1\RadioController;
 use App\Http\Controllers\Api\V1\TipsController;
 use App\Http\Controllers\Api\V1\VideoController;
 use Illuminate\Support\Facades\Route;
@@ -85,6 +88,9 @@ Route::middleware('api.auth')->group(function () {
         Route::post('/exams/{examId}/submit', [ExamController::class, 'submit'])->whereUuid('examId')->middleware('api.idempotent');
         Route::get('/exams/{examId}/result', [ExamController::class, 'result'])->whereUuid('examId');
 
+        // Anmeldung zur amtlichen Prüfung (nur Anleitung, keine Anmeldung in der App).
+        Route::get('/courses/{courseId}/exam-registration', [ExamRegistrationController::class, 'show'])->whereUuid('courseId');
+
         // Videokurs.
         Route::get('/courses/{courseId}/videos', [VideoController::class, 'index'])->whereUuid('courseId');
         Route::get('/videos/{lessonId}', [VideoController::class, 'show'])->whereUuid('lessonId');
@@ -94,6 +100,27 @@ Route::middleware('api.auth')->group(function () {
         Route::get('/courses/{courseId}/navigation-tasks', [NavigationController::class, 'index'])->whereUuid('courseId');
         Route::get('/navigation-tasks/{taskId}', [NavigationController::class, 'show'])->whereUuid('taskId');
         Route::put('/navigation-tasks/{taskId}/parts/{partId}/answer', [NavigationController::class, 'answer'])->whereUuid(['taskId', 'partId']);
+        Route::post('/navigation-tasks/{taskId}/parts/{partId}', [NavigationController::class, 'answerCompatible'])->whereUuid(['taskId', 'partId']);
+
+        // Praxistrainer (Karteikarten).
+        Route::get('/courses/{courseId}/praxis', [PraxisController::class, 'index'])->whereUuid('courseId');
+        Route::put('/courses/{courseId}/praxis/{cardId}', [PraxisController::class, 'updateStatus'])->whereUuid(['courseId', 'cardId']);
+
+        // Funk-Training (SRC/UBI); Kennungen der Inhalte wie TXT-SRC-01, UBI-AUF-01, SRC-01, VOC-UBI-A.
+        Route::prefix('/courses/{courseId}/radio')->whereUuid('courseId')->where(['textId' => '[A-Za-z0-9-]{1,40}', 'cardId' => '[A-Za-z0-9-]{1,40}', 'scenarioId' => '[A-Za-z0-9-]{1,40}'])->group(function () {
+            Route::get('/', [RadioController::class, 'index']);
+            Route::get('/spelling', [RadioController::class, 'spelling']);
+            Route::get('/texts/{textId}', [RadioController::class, 'showText']);
+            Route::post('/texts/{textId}/evaluate', [RadioController::class, 'evaluateText']);
+            Route::put('/texts/{textId}/done', [RadioController::class, 'setTextDone']);
+            Route::get('/vocabulary', [RadioController::class, 'vocabulary']);
+            Route::post('/vocabulary/{cardId}/answers', [RadioController::class, 'answerVocabulary'])->middleware('api.idempotent');
+            Route::get('/practice', [RadioController::class, 'practiceIndex']);
+            Route::get('/practice/{scenarioId}', [RadioController::class, 'showPractice']);
+            Route::post('/practice/{scenarioId}/evaluate', [RadioController::class, 'evaluatePractice']);
+            Route::put('/practice/{scenarioId}/done', [RadioController::class, 'setPracticeDone']);
+            Route::get('/samples', [RadioController::class, 'samples']);
+        });
 
         // Zugangscode einlösen (nach dem Kauf im externen Webshop).
         Route::post('/coupons/redeem', [CouponController::class, 'redeem'])->middleware(['throttle:10,1,api-coupons', 'api.idempotent']);

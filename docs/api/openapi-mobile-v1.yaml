@@ -8,7 +8,7 @@ info:
 
     * Basis-URL: `https://<plattform-domain>/api/v1`
     * Anmeldung: `Authorization: Bearer <access_token>` (15 Minuten gültig, Erneuerung über `/auth/refresh`).
-    * Schule: Header `X-Tenant-Slug` bei allen schulbezogenen Endpunkten (Kurse, Lernen, Prüfung, Videos, Navigation, Codes, Export).
+    * Schule: Header `X-Tenant-Slug` bei allen schulbezogenen Endpunkten (Kurse, Lernen, Prüfung, Videos, Navigation, Praxis, Funk, Codes, Export).
     * Fehler: `application/problem+json` mit stabilem `code` und `request_id`.
     * Schreibende POST-Endpunkte mit `Idempotency-Key` (UUID) sind sicher wiederholbar (24 Stunden).
     * Zeitangaben: ISO 8601 in UTC (`2026-11-09T10:15:00Z`).
@@ -33,6 +33,8 @@ tags:
   - {name: Exams}
   - {name: Videos}
   - {name: Navigation}
+  - {name: Praxis}
+  - {name: Radio}
   - {name: Tips}
   - {name: Coupons}
   - {name: Privacy}
@@ -1002,6 +1004,27 @@ paths:
         '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
 
+  /courses/{courseId}/exam-registration:
+    get:
+      tags: [Exams]
+      operationId: getExamRegistration
+      summary: Anmeldung zur amtlichen Prüfung (nur Anleitung)
+      description: |
+        Wie im Web: meldet die Schule an (`mode=school`, Standard), gilt ihr Termintool und `guides` bleibt leer.
+        Meldet sich der Teilnehmer selbst an (`mode=self`), kommt die Anleitung der Seite „Prüfung buchen“.
+        Wer schon eine Praxis-Anmeldung abgeschickt hat, behält das Termintool. Die Anmeldung selbst läuft nie über die App.
+      parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/CourseId'}]
+      responses:
+        '200':
+          description: Anmeldeweg
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {data: {$ref: '#/components/schemas/ExamRegistration'}}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+
   # ------------------------------------------------------------- Videos
   /courses/{courseId}/videos:
     get:
@@ -1017,6 +1040,13 @@ paths:
                 type: object
                 properties:
                   data: {type: array, items: {$ref: '#/components/schemas/VideoModule'}}
+                  meta:
+                    type: object
+                    properties:
+                      course_id: {type: string}
+                      lessons: {type: integer}
+                      completed: {type: integer}
+                      next_lesson_id: {type: [string, 'null'], description: 'Nächste offene Lektion im Kursfluss (ohne eigenständige Kapitel)'}
         '403': {$ref: '#/components/responses/Problem'}
   /videos/{lessonId}:
     get:
@@ -1143,9 +1173,454 @@ paths:
                       own_answer: {type: [string, 'null']}
                       auto_checked: {type: boolean}
                       correct: {type: [boolean, 'null'], description: 'null = nicht automatisch prüfbar, bitte selbst bewerten'}
+                      self_assessment: {type: [string, 'null'], enum: [correct, partly, wrong, null]}
                       solution: {type: string}
         '409': {$ref: '#/components/responses/Problem'}
         '422': {$ref: '#/components/responses/Problem'}
+  /navigation-tasks/{taskId}/parts/{partId}:
+    post:
+      tags: [Navigation]
+      operationId: answerNavigationPartCompatible
+      summary: Antwort und/oder dreistufige Selbstbewertung (Format der bisherigen App)
+      description: |
+        Mindestens eines von beiden. Eine neue Antwort wird wie beim PUT-Weg geprüft und setzt eine frühere
+        Selbstbewertung zurück; eine fehlende oder leere Antwort lässt die gespeicherte stehen.
+        `correct` gilt als richtig, `partly` und `wrong` als nicht richtig.
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/TaskId'}
+        - {in: path, name: partId, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                answer: {type: [string, 'null'], maxLength: 500}
+                self_assessment: {type: [string, 'null'], enum: [correct, partly, wrong, null]}
+      responses:
+        '200':
+          description: Gespeichert
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      part_id: {type: string}
+                      solution: {type: string}
+                      my_answer: {type: [string, 'null']}
+                      self_assessment: {type: [string, 'null'], enum: [correct, partly, wrong, null]}
+                      done: {type: boolean, description: Selbstbewertung vorhanden}
+                      auto_check: {type: boolean}
+                      check:
+                        type: [object, 'null']
+                        properties:
+                          status: {type: string, enum: [within, deviates]}
+                          message: {type: string}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+
+  # ------------------------------------------------------------- Praxis
+  /courses/{courseId}/praxis:
+    get:
+      tags: [Praxis]
+      operationId: listPraxisCards
+      summary: Praxistrainer-Karten nach Kategorie mit eigenem Stand
+      parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/CourseId'}]
+      responses:
+        '200':
+          description: Kategorien mit Karten
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: {type: array, items: {$ref: '#/components/schemas/PraxisCategory'}}
+                  meta: {type: object, properties: {total: {type: integer}, known: {type: integer}}}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/praxis/{cardId}:
+    put:
+      tags: [Praxis]
+      operationId: updatePraxisCard
+      summary: Stand einer Karte setzen (known = im Web „Gemeistert“)
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/CourseId'}
+        - {in: path, name: cardId, required: true, schema: {type: string, format: uuid}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: {$ref: '#/components/schemas/PraxisStatus'}
+      responses:
+        '200':
+          description: Gespeichert
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: {type: object, properties: {card_id: {type: string}, status: {$ref: '#/components/schemas/PraxisStatus'}}}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+
+  # -------------------------------------------------------------- Radio
+  /courses/{courseId}/radio:
+    get:
+      tags: [Radio]
+      operationId: getRadioOverview
+      summary: Funk-Training (SRC/UBI) im Überblick
+      description: Gleicher Lernstand wie im Web. Kurse ohne Funkschein liefern 404.
+      parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/CourseId'}]
+      responses:
+        '200':
+          description: Überblick
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: {$ref: '#/components/schemas/RadioOverview'}
+                  meta: {type: object, properties: {streak_to_learn: {type: integer}}}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/radio/spelling:
+    get:
+      tags: [Radio]
+      operationId: getRadioSpelling
+      summary: Buchstabiertafel und Ziffern im Sprechfunk
+      parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/CourseId'}]
+      responses:
+        '200':
+          description: Buchstabiertafel
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      catalogs: {type: array, items: {$ref: '#/components/schemas/RadioCatalog'}}
+                      letters: {type: array, items: {type: object, properties: {letter: {type: string}, word: {type: string}, hint: {type: string}}}}
+                      digits: {type: array, items: {type: object, properties: {digit: {type: string}, word: {type: string}}}}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/radio/texts/{textId}:
+    get:
+      tags: [Radio]
+      operationId: getRadioText
+      description: Übersetzung (`translation`) zeigt die Lösung der gewählten Richtung erst nach der ersten Auswertung.
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/CourseId'}
+        - {$ref: '#/components/parameters/RadioTextId'}
+        - {in: query, name: direction, schema: {type: string, enum: [de-en, en-de], default: de-en}}
+      responses:
+        '200':
+          description: Text
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {data: {$ref: '#/components/schemas/RadioText'}}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/radio/texts/{textId}/evaluate:
+    post:
+      tags: [Radio]
+      operationId: evaluateRadioText
+      summary: Mitschrift/Übersetzung speichern und grob auswerten
+      description: |
+        `direction` nur bei Übersetzungen (Pflicht). Leere Felder werden nicht bewertet (`null`).
+        Abgabe-Texte (`spelling`) sind nicht auswertbar (422).
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/CourseId'}
+        - {$ref: '#/components/parameters/RadioTextId'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                direction: {type: string, enum: [de-en, en-de]}
+                transcript: {type: [string, 'null'], maxLength: 5000}
+                translation: {type: [string, 'null'], maxLength: 5000}
+      responses:
+        '200':
+          description: Auswertung
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      text_id: {type: string}
+                      direction: {type: [string, 'null']}
+                      transcript: {oneOf: [{$ref: '#/components/schemas/RadioWordMatch'}, {type: 'null'}]}
+                      translation: {oneOf: [{$ref: '#/components/schemas/RadioWordMatch'}, {type: 'null'}]}
+                      solution: {type: object, properties: {from: {type: string}, to: {type: [string, 'null']}}}
+                      answers: {type: object}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/radio/texts/{textId}/done:
+    put:
+      tags: [Radio]
+      operationId: setRadioTextDone
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/CourseId'}
+        - {$ref: '#/components/parameters/RadioTextId'}
+      requestBody: {$ref: '#/components/requestBodies/RadioDone'}
+      responses:
+        '200':
+          description: Gespeichert
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {data: {type: object, properties: {text_id: {type: string}, done: {type: boolean}}}}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/radio/vocabulary:
+    get:
+      tags: [Radio]
+      operationId: listRadioVocabulary
+      description: '`catalog` ist Pflicht, wenn der Kurs beide Funkscheine hat.'
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/CourseId'}
+        - {in: query, name: catalog, schema: {$ref: '#/components/schemas/RadioCatalog'}}
+        - {in: query, name: category, schema: {type: string}}
+      responses:
+        '200':
+          description: Vokabelkarten
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: {type: array, items: {$ref: '#/components/schemas/RadioVocabularyCard'}}
+                  meta:
+                    type: object
+                    properties:
+                      catalog: {$ref: '#/components/schemas/RadioCatalog'}
+                      category: {type: [string, 'null']}
+                      total: {type: integer}
+                      learned: {type: integer}
+                      streak_to_learn: {type: integer}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/radio/vocabulary/{cardId}/answers:
+    post:
+      tags: [Radio]
+      operationId: answerRadioVocabulary
+      summary: Vokabel gewusst / nicht gewusst
+      description: |
+        „Gewusst“ erhöht die Serie, „nicht gewusst“ setzt sie zurück; ab `streak_to_learn` gilt die Karte als gelernt.
+        Optional `streak` = der Stand, den die App kennt. Weicht er ab, bleibt der Stand unverändert (`repeated: true`).
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/IdempotencyKey'}
+        - {$ref: '#/components/parameters/CourseId'}
+        - {in: path, name: cardId, required: true, schema: {type: string, pattern: '^[A-Za-z0-9-]{1,40}$'}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [known]
+              properties:
+                known: {type: boolean}
+                streak: {type: [integer, 'null'], minimum: 0}
+      responses:
+        '200':
+          description: Neuer Stand
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      card_id: {type: string}
+                      known: {type: boolean}
+                      streak: {type: integer}
+                      learned: {type: boolean}
+                      repeated: {type: boolean}
+                      learned_count: {type: integer}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/radio/practice:
+    get:
+      tags: [Radio]
+      operationId: listRadioPractice
+      parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/CourseId'}]
+      responses:
+        '200':
+          description: Praxisaufgaben je Funkschein
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: {type: array, items: {$ref: '#/components/schemas/RadioPracticeGroup'}}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/radio/practice/{scenarioId}:
+    get:
+      tags: [Radio]
+      operationId: getRadioPractice
+      description: Ohne Prüfpunkte und Musterlösungen (die kommen mit der Auswertung).
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/CourseId'}
+        - {$ref: '#/components/parameters/RadioScenarioId'}
+      responses:
+        '200':
+          description: Aufgabe
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      id: {type: string}
+                      course_id: {type: string}
+                      catalog: {$ref: '#/components/schemas/RadioCatalog'}
+                      number: {type: integer}
+                      kind: {type: string}
+                      situation_de: {type: string}
+                      situation_en: {type: [string, 'null']}
+                      fields:
+                        type: array
+                        items: {type: object, properties: {name: {type: string}, label: {type: string}, placeholder: {type: string}, multiline: {type: boolean}}}
+                      answers: {type: object, additionalProperties: {type: [string, 'null']}}
+                      done: {type: boolean}
+                      previous_id: {type: [string, 'null']}
+                      next_id: {type: [string, 'null']}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/radio/practice/{scenarioId}/evaluate:
+    post:
+      tags: [Radio]
+      operationId: evaluateRadioPractice
+      summary: Eingaben speichern und gegen die Prüfpunkte auswerten
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/CourseId'}
+        - {$ref: '#/components/parameters/RadioScenarioId'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [answers]
+              properties:
+                answers: {type: object, additionalProperties: {type: [string, 'null'], maxLength: 5000}}
+      responses:
+        '200':
+          description: Auswertung
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      scenario_id: {type: string}
+                      passed: {type: integer}
+                      total: {type: integer}
+                      fields:
+                        type: object
+                        additionalProperties:
+                          type: object
+                          properties:
+                            checks: {type: array, items: {type: object, properties: {label: {type: string}, ok: {type: boolean}}}}
+                            solution: {type: string}
+                            answer: {type: string}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/radio/practice/{scenarioId}/done:
+    put:
+      tags: [Radio]
+      operationId: setRadioPracticeDone
+      parameters:
+        - {$ref: '#/components/parameters/TenantSlug'}
+        - {$ref: '#/components/parameters/CourseId'}
+        - {$ref: '#/components/parameters/RadioScenarioId'}
+      requestBody: {$ref: '#/components/requestBodies/RadioDone'}
+      responses:
+        '200':
+          description: Gespeichert
+          content:
+            application/json:
+              schema:
+                type: object
+                properties: {data: {type: object, properties: {scenario_id: {type: string}, done: {type: boolean}}}}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+  /courses/{courseId}/radio/samples:
+    get:
+      tags: [Radio]
+      operationId: listRadioSamples
+      summary: Musterlösungen aller Praxisaufgaben
+      parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/CourseId'}]
+      responses:
+        '200':
+          description: Musterlösungen
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        catalog: {$ref: '#/components/schemas/RadioCatalog'}
+                        tasks:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              id: {type: string}
+                              number: {type: integer}
+                              kind: {type: string}
+                              fields: {type: array, items: {type: object, properties: {name: {type: string}, label: {type: [string, 'null']}, solution: {type: string}}}}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
 
   # ------------------------------------------------------------ Coupons
   /coupons/redeem:
@@ -1318,6 +1793,17 @@ components:
     LessonId: {in: path, name: lessonId, required: true, schema: {type: string, format: uuid}}
     TaskId: {in: path, name: taskId, required: true, schema: {type: string, format: uuid}}
     SessionId: {in: path, name: sessionId, required: true, schema: {type: string, format: uuid}}
+    RadioTextId: {in: path, name: textId, required: true, description: 'z. B. TXT-SRC-01, UBI-AUF-01, UBI-ABG-01', schema: {type: string, pattern: '^[A-Za-z0-9-]{1,40}$'}}
+    RadioScenarioId: {in: path, name: scenarioId, required: true, description: 'z. B. SRC-01, UBI-01', schema: {type: string, pattern: '^[A-Za-z0-9-]{1,40}$'}}
+  requestBodies:
+    RadioDone:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [done]
+            properties: {done: {type: boolean}}
   responses:
     Problem:
       description: Fehler
@@ -1801,6 +2287,8 @@ components:
         id: {type: string}
         title: {type: string}
         order: {type: integer}
+        code: {type: [string, 'null'], description: 'Stabiler Kapitel-Code (optional)'}
+        group: {type: [string, 'null'], description: 'Gruppenüberschrift (optional)'}
         standalone: {type: boolean, description: 'Eigenständiges Kapitel (z. B. Knoten), im Web als eigene Kachel'}
         lessons: {type: array, items: {$ref: '#/components/schemas/VideoLesson'}}
     NavigationTaskSummary:
@@ -1836,6 +2324,7 @@ components:
                   placeholder: {type: [string, 'null'], description: 'Eingabehilfe (z. B. Format „054°“)'}
                   own_answer: {type: [string, 'null']}
                   correct: {type: [boolean, 'null']}
+                  self_assessment: {type: [string, 'null'], enum: [correct, partly, wrong, null]}
                   solution: {type: [string, 'null'], description: 'Nur mit show_solution=true'}
     CouponRedemption:
       type: object
@@ -1856,6 +2345,154 @@ components:
         download_url_expires_at: {type: [string, 'null'], format: date-time}
         expires_at: {type: [string, 'null'], format: date-time}
         created_at: {type: string, format: date-time}
+    ExamRegistration:
+      type: object
+      properties:
+        course_id: {type: string}
+        mode: {type: string, enum: [school, self]}
+        uses_appointment_tool: {type: boolean, description: 'true: Termintool der Schule (Web „Praxis & Prüfung“)'}
+        registration_in_app: {type: boolean, const: false}
+        web_url: {type: [string, 'null'], format: uri, description: 'Seite „Prüfung buchen“ im Web (nur bei Selbstanmeldung)'}
+        guides:
+          type: array
+          items:
+            type: object
+            properties:
+              key: {type: string}
+              tab: {type: string}
+              title: {type: string}
+              intro: {type: [string, 'null']}
+              fee: {type: [string, 'null']}
+              lead_time: {type: [string, 'null']}
+              min_age: {type: [string, 'null']}
+              apply: {type: [string, 'null']}
+              deadline: {type: [string, 'null']}
+              documents: {type: array, items: {}}
+              variants: {type: array, items: {type: object}}
+              exam_parts: {type: array, items: {type: object}}
+              faq: {type: array, items: {type: object}}
+        providers:
+          type: array
+          items: {type: object, properties: {name: {type: string}, full: {type: string}, url: {type: string}, text: {type: string}}}
+    PraxisStatus: {type: string, enum: [open, practice, known]}
+    PraxisCategory:
+      type: object
+      properties:
+        name: {type: string}
+        known_count: {type: integer}
+        cards:
+          type: array
+          items:
+            type: object
+            properties:
+              id: {type: string}
+              title: {type: [string, 'null'], description: 'Nur, wenn sie die Lösung nicht verrät'}
+              reference: {type: [string, 'null']}
+              type: {type: [string, 'null']}
+              question: {type: string}
+              answer: {type: [string, 'null']}
+              explanation: {type: [string, 'null']}
+              media:
+                type: array
+                items:
+                  allOf:
+                    - {$ref: '#/components/schemas/Media'}
+                    - {type: object, properties: {role: {type: string, enum: [question, solution], description: 'solution: erst nach dem Aufdecken zeigen'}}}
+              source: {type: [string, 'null']}
+              source_url: {type: [string, 'null']}
+              status: {$ref: '#/components/schemas/PraxisStatus'}
+    RadioCatalog: {type: string, enum: [SRC, UBI]}
+    RadioWordMatch:
+      type: object
+      properties:
+        percent: {type: integer}
+        missing: {type: array, items: {type: string}}
+    RadioTextSummary:
+      type: object
+      properties:
+        id: {type: string}
+        type: {type: string, enum: [translation, dictation, spelling]}
+        number: {type: integer}
+        direction: {type: [string, 'null']}
+        teaser: {type: string}
+        done: {type: boolean}
+    RadioText:
+      type: object
+      properties:
+        id: {type: string}
+        course_id: {type: string}
+        catalog: {$ref: '#/components/schemas/RadioCatalog'}
+        type: {type: string, enum: [translation, dictation, spelling]}
+        number: {type: integer}
+        direction: {type: [string, 'null'], description: 'Funkrichtung des Texts (Quelle)'}
+        translation_direction: {type: [string, 'null'], enum: [de-en, en-de, null]}
+        solution_hidden: {type: boolean}
+        evaluable: {type: boolean}
+        text_de: {type: [string, 'null']}
+        text_en: {type: [string, 'null']}
+        lines: {type: [array, 'null'], items: {type: object, properties: {text: {type: string}, spelled: {type: string}}}, description: 'UBI-Abgabe: *markierte* Wörter mit Buchstabierung'}
+        answers: {type: object, description: 'Übersetzung: {transcript, translation} der Richtung; Aufnahme: {transcript}'}
+        done: {type: boolean}
+        previous_id: {type: [string, 'null']}
+        next_id: {type: [string, 'null']}
+    RadioVocabularyCard:
+      type: object
+      properties:
+        id: {type: string}
+        catalog: {$ref: '#/components/schemas/RadioCatalog'}
+        category: {type: string}
+        word: {type: string}
+        translation: {type: string}
+        hint: {type: [string, 'null']}
+        streak: {type: integer}
+        learned: {type: boolean}
+    RadioPracticeGroup:
+      type: object
+      properties:
+        catalog: {$ref: '#/components/schemas/RadioCatalog'}
+        tasks:
+          type: array
+          items:
+            type: object
+            properties:
+              id: {type: string}
+              number: {type: integer}
+              kind: {type: string}
+              teaser: {type: string}
+              done: {type: boolean}
+              evaluated: {type: boolean}
+    RadioOverview:
+      type: object
+      properties:
+        course_id: {type: string}
+        catalogs: {type: array, items: {$ref: '#/components/schemas/RadioCatalog'}}
+        texts:
+          type: array
+          items:
+            type: object
+            properties:
+              catalog: {$ref: '#/components/schemas/RadioCatalog'}
+              type: {type: string, enum: [translation, dictation, spelling]}
+              items: {type: array, items: {$ref: '#/components/schemas/RadioTextSummary'}}
+        vocabulary:
+          type: array
+          items:
+            type: object
+            properties:
+              catalog: {$ref: '#/components/schemas/RadioCatalog'}
+              category: {type: string}
+              total: {type: integer}
+              learned: {type: integer}
+        practice: {type: array, items: {$ref: '#/components/schemas/RadioPracticeGroup'}}
+        device_simulator:
+          type: object
+          description: Die Gerätesimulation gibt es nur im Browser.
+          properties:
+            available: {type: boolean}
+            web_url: {type: [string, 'null'], format: uri}
+            open_in: {type: string, const: browser}
+            lessons: {type: integer}
+            mastered: {type: integer}
     MobileSettings:
       type: object
       required: [settings, version, updated_at]
