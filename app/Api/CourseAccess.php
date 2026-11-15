@@ -360,7 +360,8 @@ class CourseAccess
 
     /**
      * Funktionen, die der Kurs inhaltlich hat (nicht: die die Person nutzen darf).
-     * 'funk' kommt mit den Funk-Endpunkten dazu.
+     * 'funk' kommt mit den Funk-Endpunkten dazu; 'downloads' bei veröffentlichten
+     * Kursdateien der Kategorie download.
      *
      * @return list<string>
      */
@@ -376,6 +377,7 @@ class CourseAccess
                 VideoCourseLessons::ordered($course)->isNotEmpty() ? 'video' : null,
                 $course->navigationTasks()->exists() ? 'navigation' : null,
                 $course->praxisTasks()->exists() ? 'praxis' : null,
+                $course->files()->where('category', 'download')->where('published', true)->exists() ? 'downloads' : null,
             ]));
         });
     }

@@ -71,6 +71,24 @@ class QuestionPresenter
      */
     private static function promptMedia(MediaAsset $m): array
     {
-        return Present::image(QuestionMedia::url($m), $m->alt_text, $m->mime_type);
+        return Present::image(QuestionMedia::url($m), $m->alt_text, $m->mime_type) + self::download($m);
+    }
+
+    /**
+     * Geprüfter Download des Bildes über die API (z. B. zum Offline-Speichern);
+     * file_id/download_url nur für eigene, veröffentlichte Dateien.
+     *
+     * @return array{file_id: ?string, download_url: ?string}
+     */
+    private static function download(MediaAsset $m): array
+    {
+        $path = (string) $m->getRawOriginal('storage_path');
+        $downloadable = $path !== '' && ! preg_match('#^https?://#i', $path)
+            && $m->status === 'published' && in_array($m->rights_status, ['licensed', 'public'], true);
+
+        return [
+            'file_id' => $downloadable ? $m->id : null,
+            'download_url' => $downloadable ? route('api.v1.files.download', ['fileId' => $m->id]) : null,
+        ];
     }
 }

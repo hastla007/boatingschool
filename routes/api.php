@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\ExamController;
 use App\Http\Controllers\Api\V1\ExamRegistrationController;
 use App\Http\Controllers\Api\V1\ExportController;
 use App\Http\Controllers\Api\V1\FavoriteController;
+use App\Http\Controllers\Api\V1\FileController;
 use App\Http\Controllers\Api\V1\LearningController;
 use App\Http\Controllers\Api\V1\NavigationController;
 use App\Http\Controllers\Api\V1\PraxisController;
@@ -126,6 +127,9 @@ Route::middleware('api.auth')->group(function () {
             Route::put('/practice/{scenarioId}/done', [RadioController::class, 'setPracticeDone']);
             Route::get('/samples', [RadioController::class, 'samples']);
         });
+
+        // Kursdateien und Fragenbilder (Zugang je Datei geprüft, private Disk).
+        Route::get('/files/{fileId}', [FileController::class, 'download'])->whereUuid('fileId')->name('api.v1.files.download');
 
         // Zugangscode einlösen (nach dem Kauf im externen Webshop).
         Route::post('/coupons/redeem', [CouponController::class, 'redeem'])->middleware(['throttle:10,1,api-coupons', 'api.idempotent']);
