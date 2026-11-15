@@ -7,6 +7,7 @@ use App\Api\CourseFiles;
 use App\Http\Controllers\Controller;
 use App\Models\CourseFile;
 use App\Models\MediaAsset;
+use App\Support\QuestionMedia;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -54,7 +55,13 @@ class FileController extends Controller
             throw ApiProblem::notFound('Datei');
         }
 
-        return $this->send('public', (string) $asset->getRawOriginal('storage_path'), '', $asset->mime_type, null);
+        // Geschützte Bilder liegen privat, öffentliche auf der public-Disk (QuestionMedia).
+        $located = QuestionMedia::locate($asset);
+        if (! $located) {
+            throw ApiProblem::notFound('Datei');
+        }
+
+        return $this->send($located[0], (string) QuestionMedia::relativePath($asset), '', $asset->mime_type, null);
     }
 
     private function send(string $diskName, string $path, string $prefix, ?string $mime, ?string $title): BinaryFileResponse

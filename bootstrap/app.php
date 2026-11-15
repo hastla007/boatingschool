@@ -2,12 +2,14 @@
 
 use App\Api\ProblemResponse;
 use App\Http\Controllers\NavigationChartImageController;
+use App\Http\Controllers\QuestionMediaController;
 use App\Http\Controllers\TlsCheckController;
 use App\Http\Middleware\Api\ApiIdempotency;
 use App\Http\Middleware\Api\AuthenticateMobileApi;
 use App\Http\Middleware\Api\PrepareApiRequest;
 use App\Http\Middleware\Api\ResolveApiTenant;
 use App\Http\Middleware\Commerce\VerifyCommerceSignature;
+use App\Http\Middleware\ConsumeMobileWebSession;
 use App\Http\Middleware\EnforceInstructorScope;
 use App\Http\Middleware\EnforceMaintenanceMode;
 use App\Http\Middleware\EnforceTeamTwoFactor;
@@ -52,6 +54,10 @@ return Application::configure(basePath: dirname(__DIR__))
             // kurzlebige Adressen (ohne Session/Mandant, auch für die App).
             Route::get('/media/navigation-charts/{file}', NavigationChartImageController::class)
                 ->where('file', '[A-Za-z0-9][A-Za-z0-9._-]*')->middleware(['signed', 'throttle:120,1,navigation-chart'])->name('navigation-chart.image');
+            // Geschützte Fragen- und Praxistrainer-Bilder (QuestionMedia): signiert,
+            // an Person und Schule gebunden, Zugang wird beim Abruf erneut geprüft.
+            Route::get('/media/question-media/{asset}', QuestionMediaController::class)
+                ->whereUuid('asset')->middleware(['signed', 'throttle:600,1,question-media'])->name('question-media.file');
             // Commerce-API v1 für den B2B-WooCommerce-Shop (docs/commerce/README.md):
             // signiert, Owner-Verbindung, eigene Begrenzung.
             Route::middleware(['api', 'commerce.signed', 'admin-db', 'throttle:300,1,commerce'])
@@ -150,6 +156,8 @@ return Application::configure(basePath: dirname(__DIR__))
             EnforceMaintenanceMode::class,
             EnsureAccountIsActive::class,
             ResolveTenant::class,
+            // Einmal-Anmeldung der Webansicht aus der App, siehe ConsumeMobileWebSession.
+            ConsumeMobileWebSession::class,
             // Support-Ansicht („Als Nutzer ansehen“) nur lesend, siehe RestrictImpersonation.
             RestrictImpersonation::class,
             // 2FA-Pflicht fürs Team, siehe EnforceTeamTwoFactor.
@@ -182,6 +190,14 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->appendToPriorityList(
             after: StartSession::class,
             append: ResolveTenant::class,
+        );
+
+        // Direkt nach ResolveTenant (Schule und RLS-Kontext stehen fest) und
+        // vor Authenticate: der Einmal-Code der App meldet erst an, danach
+        // greift die normale Anmeldeprüfung auf der Zieladresse.
+        $middleware->appendToPriorityList(
+            after: ResolveTenant::class,
+            append: ConsumeMobileWebSession::class,
         );
 
         // EnsureSuperAdmin (der "superadmin"-Alias) muss nach Authenticate

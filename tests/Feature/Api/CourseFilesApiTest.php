@@ -13,6 +13,7 @@ use App\Models\Tenant;
 use App\Models\TenantCourseDisabled;
 use App\Models\TenantUser;
 use App\Models\User;
+use App\Support\QuestionMedia;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -256,7 +257,8 @@ class CourseFilesApiTest extends MobileApiTestCase
         $course = $this->existingCourse('SRC');
         $module = $this->onAdmin(fn () => $course->modules()->orderBy('course_module.sort_order')->firstOrFail());
         [, $revision] = $this->anyPublishedQuestionIn($module);
-        Storage::disk('public')->put('question-media/test.png', 'PNG');
+        // Lizenzierte Bilder liegen privat (QuestionMedia).
+        Storage::disk(QuestionMedia::DISK)->put('question-media/test.png', 'PNG');
         $asset = $this->onAdmin(fn () => MediaAsset::create([
             'asset_key' => 'test-'.Str::uuid(), 'media_type' => 'image', 'storage_path' => 'question-media/test.png',
             'mime_type' => 'image/png', 'rights_status' => 'licensed', 'status' => 'published',
@@ -267,8 +269,8 @@ class CourseFilesApiTest extends MobileApiTestCase
             $this->grantEntitlement($tenant, $learner, $course);
             $media = collect($this->onAdmin(fn () => QuestionPresenter::question($revision->fresh())['prompt_media']))->firstWhere('file_id', $asset->id);
             $this->assertSame(route('api.v1.files.download', ['fileId' => $asset->id]), $media['download_url']);
-            // Die bisherige Bild-URL bleibt unverändert.
-            $this->assertStringEndsWith('/question-media/test.png', $media['url']);
+            // Die Bild-URL ist nie die öffentliche Speicheradresse.
+            $this->assertStringNotContainsString('/storage/', (string) $media['url']);
 
             $this->api('GET', "/files/{$asset->id}", $learner, $tenant)->assertOk()->assertHeader('Content-Type', 'image/png');
             $this->api('GET', "/files/{$asset->id}", $stranger, $tenant)->assertNotFound();
@@ -285,6 +287,7 @@ class CourseFilesApiTest extends MobileApiTestCase
                 $revision->media()->detach($asset->id);
                 $asset->delete();
             });
+            Storage::disk(QuestionMedia::DISK)->delete('question-media/test.png');
         }
     }
 
