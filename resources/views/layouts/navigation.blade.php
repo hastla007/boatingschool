@@ -2,7 +2,7 @@
     $role = Auth::check() ? Auth::user()->roleForTenant($currentTenant ?? null) : null;
     $isAdmin = in_array($role, ['owner', 'admin', 'instructor'], true);
     $navCourses = Auth::check() && isset($currentTenant)
-        ? app(\App\Services\EntitlementService::class)->activeCourses($currentTenant, Auth::user())
+        ? app(\App\Services\EntitlementService::class)->activeFullCourses($currentTenant, Auth::user())
         : collect();
     $hasWillkommensbox = Auth::check() && isset($currentTenant) && Auth::user()->hasWillkommensboxAccess($currentTenant);
 @endphp

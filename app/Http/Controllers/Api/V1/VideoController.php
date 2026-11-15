@@ -29,8 +29,15 @@ class VideoController extends Controller
 
     public function index(Request $request, string $courseId): JsonResponse
     {
-        $course = $this->access->require($this->tenantContext->tenant(), $request->user(), $courseId);
+        $tenant = $this->tenantContext->tenant();
+        $course = $this->access->require($tenant, $request->user(), $courseId, 'video');
         $modules = $course->videoModules()->with('lessons.steps')->get();
+        // Probezugang: nur die ersten N Lektionen in Kursreihenfolge.
+        if (! $this->access->featureScope($tenant, $request->user(), $course, 'video')['full']) {
+            $allowed = $this->access->limitItems($tenant, $request->user(), $course, 'video', $modules->flatMap->lessons->values())->pluck('id')->flip();
+            $modules = $modules->map(fn (VideoModule $m) => $m->setRelation('lessons', $m->lessons->filter(fn (VideoLesson $l) => $allowed->has($l->id))->values()))
+                ->filter(fn (VideoModule $m) => $m->lessons->isNotEmpty())->values();
+        }
         $lessons = $modules->flatMap->lessons->values();
         $progress = $this->progressFor($request, $lessons);
         // Nächste offene Lektion im normalen Kursfluss (ohne eigenständige Kapitel wie Knoten).
@@ -87,14 +94,19 @@ class VideoController extends Controller
         ]]);
     }
 
-    /** Lektion laden; Zugang über den Kurs ihres Kapitels. */
+    /** Lektion laden; Zugang über den Kurs ihres Kapitels (Probezugang: erste N Lektionen wie in index()). */
     private function accessibleLesson(Request $request, string $lessonId): VideoLesson
     {
         $lesson = VideoLesson::with('module')->find($lessonId);
         if (! $lesson || ! $lesson->module) {
             throw ApiProblem::notFound('Lektion');
         }
-        $this->access->require($this->tenantContext->tenant(), $request->user(), $lesson->module->course_id);
+        $tenant = $this->tenantContext->tenant();
+        $course = $this->access->require($tenant, $request->user(), $lesson->module->course_id, 'video');
+        $ordered = $course->videoModules()->with('lessons')->get()->flatMap->lessons->values();
+        if (! $this->access->allowsLimitedItem($tenant, $request->user(), $course, 'video', $ordered, (string) $lesson->id)) {
+            throw CourseAccess::itemLocked();
+        }
 
         return $lesson;
     }
