@@ -3,11 +3,10 @@
 namespace App\Http\Controllers\Superadmin;
 
 use App\Http\Controllers\Controller;
-use App\Models\MediaAsset;
 use App\Models\Tip;
 use App\Models\TipCategory;
+use App\Support\TipPdf;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -97,18 +96,7 @@ class TipController extends Controller
             return null;
         }
 
-        $file = $request->file('pdf');
-        $path = $file->storeAs('tip-attachments', Str::uuid().'.'.$file->extension(), 'public');
-
-        $asset = MediaAsset::create([
-            'asset_key' => 'tip-pdf-'.Str::random(12),
-            'media_type' => 'document',
-            'storage_path' => $path,
-            'mime_type' => $file->getMimeType(),
-            'rights_status' => 'licensed',
-            'status' => 'published',
-        ]);
-
-        return $asset->id;
+        // Lernmaterial (Rechte „licensed“): privat speichern, Auslieferung nur signiert (TipPdf).
+        return TipPdf::storeUpload($request->file('pdf'))->id;
     }
 }

@@ -246,8 +246,8 @@ Geplante Kommandos:
   (einmal je Ablaufdatum; scheitert der Versand, wird es beim nächsten
   Lauf erneut versucht).
 - `app:backup` (täglich 03:15 Europe/Berlin) -- Datenbank-Dump, Uploads
-  und geschützte Dateien (Fragenbilder, Kartenausschnitte, Kursdateien)
-  nach `storage/app/backups/`, optional verschlüsselt auf externen
+  und geschützte Dateien (Fragenbilder, Kartenausschnitte, Kursdateien,
+  Tipp-PDFs, Videoschritt-Bilder) nach `storage/app/backups/`, optional verschlüsselt auf externen
   Speicher (`BACKUP_DISK`, `BACKUP_ENCRYPTION_PUBLIC_KEY`), siehe
   `deploy/README.md`.
 - `ops:scheduler-heartbeat` (jede Minute) -- Lebenszeichen für den

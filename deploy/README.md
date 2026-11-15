@@ -123,11 +123,12 @@ bleiben die letzten `BACKUP_KEEP_DEPLOY`, Standard 3); schlägt sie fehl, bricht
 `app:backup` läuft täglich um 03:15 (Europe/Berlin) und legt unter `storage/app/backups/<Zeitstempel>/` ab:
 
 - `database.dump`: kompletter Datenbank-Dump (pg_dump, Custom-Format, inkl. Rechte und RLS-Policies)
-- `uploads.zip`: öffentliche Uploads (Logos, Favicons, Tipp-PDFs, öffentliche Bilder; `storage/app/public`)
+- `uploads.zip`: öffentliche Uploads (Logos, Favicons, öffentliche Bilder; `storage/app/public`)
 - `protected-media.zip`: die geschützten Dateien der privaten Disk: Fragen- und
-  Praxistrainer-Bilder, Kartenausschnitte und Kursdateien der App
-  (`storage/app/private/question-media`, `…/navigation-charts`, `…/course-files`) sowie jeder
-  weitere Ordner dort. Sie werden nur über signierte bzw. geprüfte Adressen ausgeliefert und
+  Praxistrainer-Bilder, Kartenausschnitte, Kursdateien der App, Tipp-PDFs und Bilder der
+  Videoschritte (`storage/app/private/question-media`, `…/navigation-charts`, `…/course-files`,
+  `…/tip-attachments`, `…/video-steps`) sowie jeder weitere Ordner dort; Videoschritt-Bilder
+  mit älterem Pfad außerhalb dieser Ordner kommen einzeln dazu. Sie werden nur über signierte bzw. geprüfte Adressen ausgeliefert und
   gehören ausdrücklich in die Sicherung. Draußen bleiben nur kurzlebige Dateien
   (Datenexporte `api-exports`/`exports`, Import-Uploads `imports`).
 - `manifest.json`: Zeitpunkt, Größen, SHA-256-Prüfsummen

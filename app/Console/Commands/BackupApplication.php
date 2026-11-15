@@ -6,6 +6,8 @@ use App\Models\CourseFile;
 use App\Support\BackupEncryption;
 use App\Support\NavigationChart;
 use App\Support\QuestionMedia;
+use App\Support\TipPdf;
+use App\Support\VideoStepImage;
 use Carbon\CarbonInterface;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
@@ -19,7 +21,8 @@ use ZipArchive;
 /**
  * Datensicherung: Datenbank (pg_dump, Custom-Format, über die
  * Owner-Verbindung), Uploads (storage/app/public als ZIP) und geschützte
- * Dateien der privaten Disk (Fragenbilder, Kartenausschnitte, Kursdateien)
+ * Dateien der privaten Disk (Fragenbilder, Kartenausschnitte, Kursdateien,
+ * Tipp-PDFs, Videoschritt-Bilder)
  * in einen Ordner mit Zeitstempel, optional zusätzlich auf einen externen
  * Speicher (BACKUP_DISK), dort auf Wunsch clientseitig verschlüsselt
  * (BACKUP_ENCRYPTION_PUBLIC_KEY, siehe BackupEncryption). Alte Sicherungen
@@ -34,10 +37,13 @@ class BackupApplication extends Command
 {
     /**
      * Ordner der privaten Disk, die immer zur Sicherung gehören (siehe
-     * QuestionMedia, NavigationChart, CourseFile). Weitere Ordner der privaten
-     * Disk kommen automatisch dazu, außer den kurzlebigen in EXCLUDED_PRIVATE_DIRECTORIES.
+     * QuestionMedia, NavigationChart, CourseFile, TipPdf, VideoStepImage).
+     * Weitere Ordner der privaten Disk kommen automatisch dazu, außer den
+     * kurzlebigen in EXCLUDED_PRIVATE_DIRECTORIES.
      */
-    public const PRIVATE_MEDIA_DIRECTORIES = [QuestionMedia::DIRECTORY, NavigationChart::DIRECTORY, CourseFile::DIRECTORY];
+    public const PRIVATE_MEDIA_DIRECTORIES = [
+        QuestionMedia::DIRECTORY, NavigationChart::DIRECTORY, CourseFile::DIRECTORY, TipPdf::DIRECTORY, VideoStepImage::DIRECTORY,
+    ];
 
     /** Kurzlebige Dateien der privaten Disk: Datenexporte (personenbezogen, Stunden gültig) und Import-Uploads. */
     public const EXCLUDED_PRIVATE_DIRECTORIES = ['api-exports', 'exports', 'imports', 'tmp', 'livewire-tmp'];
@@ -68,8 +74,9 @@ class BackupApplication extends Command
             $files = ['database.dump' => $this->dumpDatabase($dir.'/database.dump')];
             if (! $this->option('no-uploads')) {
                 $files['uploads.zip'] = $this->zipUploads($dir.'/uploads.zip');
-                // Geschützte Fragenbilder, Kartenausschnitte und Kursdateien (private Disk, ohne Exporte o. Ä.).
-                $files['protected-media.zip'] = $this->zipUploads($dir.'/protected-media.zip', Storage::disk('local')->path(''), self::privateDirectories());
+                // Geschützte Fragenbilder, Kartenausschnitte, Kursdateien, Tipp-PDFs und
+                // Videoschritt-Bilder (private Disk, ohne Exporte o. Ä.).
+                $files['protected-media.zip'] = $this->zipUploads($dir.'/protected-media.zip', Storage::disk('local')->path(''), self::privateEntries());
             }
             $files = array_filter($files);
 
@@ -131,6 +138,24 @@ class BackupApplication extends Command
         return collect(self::PRIVATE_MEDIA_DIRECTORIES)->merge($found)
             ->reject(fn ($dir) => in_array($dir, self::EXCLUDED_PRIVATE_DIRECTORIES, true) || str_starts_with($dir, '.'))
             ->unique()->sort()->values()->all();
+    }
+
+    /**
+     * Alles, was in protected-media.zip gehört: die Ordner aus
+     * privateDirectories() und zusätzlich Schrittbilder, die mit ihrem alten
+     * Pfad außerhalb davon liegen (z. B. direkt in der Wurzel der Disk).
+     *
+     * @return list<string> relative Ordner bzw. Dateien
+     */
+    public static function privateEntries(): array
+    {
+        $directories = self::privateDirectories();
+        $local = Storage::disk('local');
+        $files = VideoStepImage::protectedPaths()
+            ->reject(fn (string $path) => in_array(explode('/', $path)[0], $directories, true) && str_contains($path, '/'))
+            ->filter(fn (string $path) => $local->exists($path));
+
+        return collect($directories)->merge($files)->unique()->values()->all();
     }
 
     /** @param  array<string, string>  $files */
@@ -200,6 +225,12 @@ class BackupApplication extends Command
         $source = rtrim($source, '/\\');
         foreach ($only ?? [''] as $prefix) {
             $dir = $prefix === '' ? $source : $source.'/'.$prefix;
+            if ($prefix !== '' && is_file($dir)) {
+                // Einzelne Datei (siehe privateEntries()).
+                $zip->addFile($dir, $prefix);
+
+                continue;
+            }
             if (! is_dir($dir)) {
                 continue;
             }
