@@ -13,6 +13,7 @@ use App\Models\VideoLesson;
 use App\Services\EntitlementService;
 use App\Services\ExamEvaluationService;
 use App\Services\LearningService;
+use App\Support\AnswerToken;
 use App\Support\TenantContext;
 use App\Support\VideoCourseLessons;
 use Illuminate\Http\Request;
@@ -159,6 +160,9 @@ class VideoQuizController extends Controller
         }
         // … und auch bei einer anderen Schule.
         abort_if(ExamSession::blockedQuestionIdsFor($user->id)->contains($revision->question_id), 409, 'Diese Frage ist Teil einer laufenden Prüfung und kann hier aktuell nicht beantwortet werden.');
+
+        // Kennungen je Person (SEC-A1) in echte Antwort-IDs der Revision umsetzen.
+        $validated = AnswerToken::resolveInput($user->id, $validated, $revision->answers()->pluck('id'));
 
         $selectedAnswer = null;
         $selectedAnswers = null;

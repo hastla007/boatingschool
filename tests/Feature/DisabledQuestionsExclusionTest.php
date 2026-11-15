@@ -217,7 +217,7 @@ class DisabledQuestionsExclusionTest extends TestCase
 
         $response = $this->actingAsInTenant($learner, $tenant)->post("/courses/{$course->id}/learn/attempts", [
             'revision_id' => $revision->id,
-            'answer_id' => $answer->id,
+            'answer_id' => $this->answerToken($learner, $answer->id),
             'mode' => 'smarttrainer',
         ]);
 

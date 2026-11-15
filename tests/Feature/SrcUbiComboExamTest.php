@@ -112,7 +112,7 @@ class SrcUbiComboExamTest extends TestCase
             $answer = $sq->revision->answers->firstWhere('is_correct', $i < $correct);
             $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/answers", [
                 'position' => $sq->position,
-                'answer_id' => $answer->id,
+                'answer_id' => $this->answerToken($learner, $answer->id),
             ]);
         }
 

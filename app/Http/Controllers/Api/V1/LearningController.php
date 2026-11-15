@@ -15,6 +15,7 @@ use App\Models\FavoriteCollection;
 use App\Models\FavoriteCollectionItem;
 use App\Models\Progress;
 use App\Services\LearningFlow;
+use App\Support\AnswerToken;
 use App\Support\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -158,6 +159,14 @@ class LearningController extends Controller
             throw new ApiProblem(422, 'VALIDATION_FAILED', 'Eingaben ungültig', null, ['selected_answer_ids' => ['Bei dieser Frage ist genau eine Antwort richtig.']]);
         }
 
+        // Kennungen je Person (SEC-A1) in echte Antwort-IDs der Revision umsetzen.
+        if ($revision->question_type !== 'open_text' && $selected !== []) {
+            $selected = AnswerToken::resolveMany($user->id, $selected, $revision->answers()->pluck('id'));
+            if (in_array(AnswerToken::UNKNOWN, $selected, true)) {
+                throw new ApiProblem(422, 'VALIDATION_FAILED', 'Eingaben ungültig', null, ['selected_answer_ids' => ['Unbekannte Antwort.']]);
+            }
+        }
+
         try {
             $attempt = $this->flow->submitAttempt($tenant, $user, $course, [
                 'revision_id' => $revision->id,
@@ -206,8 +215,8 @@ class LearningController extends Controller
             'attempt_id' => $attempt->id,
             'question_id' => $attempt->question_id,
             'correct' => (bool) $attempt->correct,
-            'selected_answer_ids' => array_values($selected),
-            ...QuestionPresenter::solution($revision, (bool) $attempt->correct),
+            'selected_answer_ids' => AnswerToken::mapMany($attempt->user_id, $selected),
+            ...QuestionPresenter::solution($revision, (bool) $attempt->correct, $attempt->user_id),
             'learning_state' => $progress?->learning_state ?? 'neu',
             'streak' => ['current' => min((int) ($progress?->current_streak ?? 0), 3), 'required' => 3],
             'completed' => ($progress?->learning_state ?? null) === 'gefestigt',

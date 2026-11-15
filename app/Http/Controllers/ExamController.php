@@ -17,6 +17,7 @@ use App\Services\EntitlementService;
 use App\Services\ExamActions;
 use App\Services\ExamEvaluationService;
 use App\Services\ExamSessionStarter;
+use App\Support\AnswerToken;
 use App\Support\ComboExamGroups;
 use App\Support\TenantContext;
 use Illuminate\Http\Request;
@@ -359,6 +360,10 @@ class ExamController extends Controller
             'answer_ids.*' => ['uuid'],
             'known' => ['nullable', 'boolean'],
         ]);
+
+        // Kennungen je Person (SEC-A1) in echte Antwort-IDs der Frage umsetzen.
+        $sessionQuestion = $examSession->questions()->where('position', (int) $validated['position'])->with('revision.answers')->first();
+        $validated = AnswerToken::resolveInput($examSession->user_id, $validated, $sessionQuestion?->revision?->answers ?? []);
 
         // Gemeinsam mit der Mobile-API (ExamActions): Antwort festschreiben,
         // abgelaufene Zeit, Doppelklick (die erste Antwort zählt).

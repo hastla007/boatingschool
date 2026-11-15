@@ -327,6 +327,13 @@ liefert das Kursdetail auch für buchbare Kurse ohne Zugang (mit gesperrten
   Fragen mit laufender richtiger Serie fallen heraus, am Ende kommt 204.
 * Die Antworten einer Einfachauswahl sind je Person gemischt (wie im Web);
   `key` ist der Buchstabe der Anzeigeposition.
+* **Antwort-IDs sind Kennungen je Person** (`answers[].id`,
+  `selected_answer_ids`, `correct_answer_ids`, auch in Prüfung und
+  Prüfungsverlauf): UUID-förmig, für die angemeldete Person stabil, aber
+  nicht die interne ID der Antwort. Die App schickt genau die Kennung
+  zurück, die sie bekommen hat. Kennungen nicht zwischen Konten teilen oder
+  vergleichen -- für andere Personen sind sie ungültig (422 „Unbekannte
+  Antwort.“).
 * Fragen einer laufenden Prüfung sind gesperrt, auch bei einer anderen
   Schule (409 `EXAM_QUESTION_LOCKED`).
 

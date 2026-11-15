@@ -145,7 +145,7 @@ class ReviewRoundElevenFixesTest extends TestCase
         $session = $this->asTenant($tenant, fn () => ExamSession::where('user_id', $learner->id)->firstOrFail());
         $sq = $this->asTenant($tenant, fn () => $session->questions()->with('revision.answers')->first());
         $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/answers", [
-            'position' => $sq->position, 'answer_id' => $sq->revision->answers->first()->id,
+            'position' => $sq->position, 'answer_id' => $this->answerToken($learner, $sq->revision->answers->first()->id),
         ]);
 
         $this->travelTo($session->started_at->copy()->addSeconds(3600 + 30));
@@ -233,7 +233,7 @@ class ReviewRoundElevenFixesTest extends TestCase
         $session = $this->asTenant($tenant, fn () => ExamSession::where('user_id', $learner->id)->firstOrFail());
         foreach ($this->asTenant($tenant, fn () => $session->questions()->with('revision.answers')->get()) as $sq) {
             $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/answers", [
-                'position' => $sq->position, 'answer_id' => $sq->revision->answers->firstWhere('is_correct', true)->id,
+                'position' => $sq->position, 'answer_id' => $this->answerToken($learner, $sq->revision->answers->firstWhere('is_correct', true)->id),
             ]);
         }
         $hint = $this->onAdmin(fn () => NavigationTask::find($session->navigation_task_id)->hint);
@@ -294,7 +294,7 @@ class ReviewRoundElevenFixesTest extends TestCase
         $session = $this->asTenant($tenant, fn () => ExamSession::where('user_id', $learner->id)->firstOrFail());
         foreach ($this->asTenant($tenant, fn () => $session->questions()->with('revision.answers')->get()) as $sq) {
             $this->actingAsInTenant($learner, $tenant)->post("/exam-sessions/{$session->id}/answers", [
-                'position' => $sq->position, 'answer_id' => $sq->revision->answers->firstWhere('is_correct', true)->id,
+                'position' => $sq->position, 'answer_id' => $this->answerToken($learner, $sq->revision->answers->firstWhere('is_correct', true)->id),
             ]);
         }
         $task = $this->onAdmin(fn () => NavigationTask::find($session->navigation_task_id));
