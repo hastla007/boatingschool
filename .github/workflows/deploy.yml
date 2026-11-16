@@ -127,7 +127,7 @@ jobs:
     environment: ${{ inputs.environment || 'production' }}
     steps:
       - name: Build-Artefakt holen
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: public-build
           path: build
