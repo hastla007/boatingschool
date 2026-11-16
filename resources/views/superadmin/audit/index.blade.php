@@ -16,7 +16,7 @@
                     Nur Plattform (ohne Bootsschule)
                 </label>
                 @if ($tenantFilterError)
-                    <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $tenantFilterError }} Der Schulfilter wurde nicht angewendet.</p>
+                    <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $tenantFilterError }} Es werden keine Einträge angezeigt.</p>
                 @endif
             </div>
             <div>
@@ -76,7 +76,7 @@
                     </div>
                 </details>
             @empty
-                <p class="px-4 py-6 text-sm text-slate-600 dark:text-slate-400">Keine Einträge gefunden.</p>
+                <p class="px-4 py-6 text-sm text-slate-600 dark:text-slate-400">{{ $tenantFilterError ? 'Keine Schule gefunden.' : 'Keine Einträge gefunden.' }}</p>
             @endforelse
         </div>
 

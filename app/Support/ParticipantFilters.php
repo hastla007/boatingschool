@@ -45,9 +45,11 @@ class ParticipantFilters
      * Teilnehmer, denen die Schule einen Zugangscode zuweisen kann
      * (Admin\CouponController::assign() und die Suche des Suchfelds
      * „Zuweisen“, Admin\ParticipantSearchController): Lernende mit aktiver
-     * Mitgliedschaft dieser Schule, ohne offene Einladung, bei einem
+     * Mitgliedschaft dieser Schule und aktivem Konto (app_user.status
+     * „active“: weder offene Einladung noch gesperrt/geschlossen), bei einem
      * Ausbilder mit Kurszuordnung nur seine Lernenden (InstructorScope) --
-     * dieselbe Grenze, die auch die Teilnehmerliste zieht.
+     * dieselbe Grenze wie die Verwaltersuche der Lerngruppen
+     * (Admin\LearningGroupController::eligibleManagers()).
      *
      * @return Builder<User>
      */
@@ -55,7 +57,7 @@ class ParticipantFilters
     {
         $visibleLearnerIds = InstructorScope::learnerIds($tenant, $actor);
 
-        return User::query()->where('status', '!=', 'invited')
+        return User::query()->where('status', 'active')
             ->whereHas('tenantMemberships', fn (Builder $query) => $query->where('tenant_id', $tenant->id)->where('role', 'learner')->where('status', 'active'))
             ->when($visibleLearnerIds !== null, fn (Builder $query) => $query->whereIn('id', $visibleLearnerIds));
     }

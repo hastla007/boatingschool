@@ -135,13 +135,22 @@ class CouponController extends Controller
     public function assign(Request $request, TenantContext $tenantContext, Coupon $coupon, CouponRedemptionService $redemption): Response
     {
         $tenant = $tenantContext->tenant();
-        abort_unless($coupon->tenant_id === $tenant->id && $coupon->isUsable(), 404);
+        // Code einer anderen Schule (bzw. ein freier Code): wie unbekannt.
+        abort_unless($coupon->tenant_id === $tenant->id, 404);
 
         $userId = is_string($request->input('user_id')) && $request->input('user_id') !== '' ? $request->input('user_id') : null;
         $email = is_string($request->input('participant_email')) ? mb_strtolower(trim($request->input('participant_email'))) : '';
         $fail = fn (string $message) => back()
             ->withInput(['assign_coupon' => $coupon->id, 'user_id' => (string) $userId, 'participant_email' => mb_substr($email, 0, 255)])
             ->withErrors(['assign' => $message]);
+
+        // Eigener, schon eingelöster Code (z. B. Doppelklick auf „Zuweisen“):
+        // zurück zur Codeliste mit Meldung statt 404 -- dieselbe Meldung wie
+        // CouponRedemptionService, wenn zwei Anfragen gleichzeitig kommen.
+        if ($coupon->isRedeemed()) {
+            return $fail('Dieser Code wurde bereits eingelöst.');
+        }
+        abort_unless($coupon->isUsable(), 404);
 
         if (($userId !== null && ! Str::isUuid($userId)) || mb_strlen($email) > 255) {
             return $fail(self::NOT_A_MEMBER);
@@ -185,6 +194,11 @@ class CouponController extends Controller
         }
         if ($membership->user->status === 'invited') {
             return $fail('Diese Person hat ihre Einladung noch nicht angenommen. Weisen Sie den Code nach der Annahme zu.');
+        }
+        // Gesperrtes bzw. geschlossenes Konto (app_user.status): kann sich
+        // nicht anmelden, der Code würde ungenutzt verbraucht.
+        if ($membership->user->status !== 'active') {
+            return $fail('Dieses Konto ist gesperrt oder geschlossen – ein Code würde ungenutzt verbraucht.');
         }
 
         try {
