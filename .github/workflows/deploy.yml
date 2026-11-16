@@ -23,7 +23,8 @@ name: Deploy
 #
 # Die Frontend-Assets (public/build) baut der Job „build“ für genau diesen
 # Commit; der Deploy kopiert sie per scp in ein temporäres Verzeichnis auf dem
-# Server, deploy.sh übernimmt sie (BUILD_DIR) statt im Wartungsmodus zu bauen.
+# Server, deploy.sh übernimmt sie (BUILD_DIR) statt sie auf dem Server zu bauen
+# (gebaut wird ohnehin vor dem Wartungsmodus, siehe deploy.sh).
 
 on:
   workflow_dispatch:
