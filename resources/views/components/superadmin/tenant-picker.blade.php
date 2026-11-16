@@ -68,7 +68,8 @@
                 x-bind:class="index === active ? 'bg-blue-50 dark:bg-slate-700' : ''"
                 class="px-3 py-2 cursor-pointer text-slate-700 dark:text-slate-200">
                 <span x-text="tenant.name"></span>
-                <span class="block text-xs text-slate-600 dark:text-slate-400">
+                {{-- Kontrast ≥ 4.5:1 auch auf dem markierten Treffer (dark:bg-slate-700). --}}
+                <span class="block text-xs text-slate-600 dark:text-slate-300">
                     <span class="font-mono" x-text="tenant.slug"></span>
                     <span x-show="tenant.status !== 'active'" x-text="' · ' + tenant.status_label"></span>
                 </span>

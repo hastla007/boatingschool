@@ -5,7 +5,7 @@
     {data: [{id, name, email}]}) und setzt die gewählte ID ins versteckte
     Feld $idName; Pfeiltasten wählen in der Trefferliste
     (aria-activedescendant), Enter übernimmt, Escape schließt. Die Logik
-    steht als Alpine.data('participantPicker') in resources/js/app.js.
+    steht in resources/js/participant-picker.js (Alpine.data('participantPicker')).
     Ohne JavaScript ist es ein normales Textfeld $name: die eingetippte
     E-Mail-Adresse löst der Server auf. Die Combobox-Rollen setzt deshalb
     erst Alpine.
@@ -83,7 +83,8 @@
                 x-bind:class="index === active ? 'bg-blue-50 dark:bg-slate-700' : ''"
                 class="px-3 py-2 cursor-pointer">
                 <span x-text="user.name"></span>
-                <span class="block text-xs text-slate-500 dark:text-slate-400" x-text="user.email"></span>
+                {{-- Kontrast ≥ 4.5:1 auch auf dem markierten Treffer (bg-blue-50 / dark:bg-slate-700). --}}
+                <span class="block text-xs text-slate-600 dark:text-slate-300" x-text="user.email"></span>
             </li>
         </template>
     </ul>
