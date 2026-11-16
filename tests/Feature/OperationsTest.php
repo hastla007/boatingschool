@@ -132,6 +132,16 @@ class OperationsTest extends TestCase
         $this->assertSame('fail', collect(ProductionReadiness::checks())->firstWhere('label', 'Scheduler (Cron: schedule:run jede Minute)')['status']);
     }
 
+    public function test_check_production_warns_when_the_locale_is_not_german(): void
+    {
+        $label = fn () => collect(ProductionReadiness::checks())->firstWhere('label', 'APP_LOCALE = de');
+        config(['app.locale' => 'de']);
+        $this->assertSame('ok', $label()['status']);
+        config(['app.locale' => 'en']);
+        $this->assertSame('warn', $label()['status']);
+        $this->assertStringContainsString('aktuell: en', $label()['detail']);
+    }
+
     public function test_check_production_warns_about_a_sync_queue_and_database_only_drivers(): void
     {
         $label = fn (string $label) => collect(ProductionReadiness::checks())->firstWhere('label', $label);
