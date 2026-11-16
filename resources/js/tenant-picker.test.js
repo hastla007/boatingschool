@@ -71,3 +71,21 @@ test('vorbelegte Auswahl bleibt, solange der Text passt', async () => {
     await state.search();
     assert.equal(state.id, 'a');
 });
+
+test('eine späte Antwort öffnet die Liste nach dem Löschen nicht wieder', async () => {
+    let release;
+    globalThis.fetch = (url, { signal }) => new Promise((resolve, reject) => {
+        signal.addEventListener('abort', () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })));
+        release = () => resolve({ ok: true, json: async () => ({ data: schools }) });
+    });
+    const state = tenantPicker({ url: '/s', inputId: 'tenant_id', limit: 20 });
+    state.$nextTick = (callback) => callback();
+    state.query = 'al';
+    const pending = state.search();
+    state.query = '';
+    await state.search();
+    release();
+    await pending;
+    assert.equal(state.open, false);
+    assert.equal(state.message, '');
+});
