@@ -20,6 +20,10 @@ Mechanismen:
   verschwindet mit der letzten Mitgliedschaft), Löschung durch den Superadmin
   (alle Schulen). Protokolleinträge werden dabei pseudonymisiert, Shopkonten
   anonymisiert.
+- **Kontolöschung aus der App** (`AppAccountDeletion` → `leaveTenant`): Antrag
+  in der App, Bestätigung per Mail-Link (7 Tage gültig); danach wie die
+  Selbstlöschung im Profil (nur diese Schule, das Konto mit der letzten
+  Mitgliedschaft).
 - **Vertragsende einer Schule** (`TenantOffboardingService`): Export, dann
   Löschung aller Daten der Schule per Kaskade.
 
@@ -40,7 +44,7 @@ Mechanismen:
 | 11 | Einzelne Antworten (Lern-Versuche) | `attempt` | **aus** | `data_retention.attempt` (`DATA_RETENTION_ATTEMPT_ENABLED`, `_MONTHS`, Vorschlag 36) | [36 Monate] – zusammengefasster Lernstand (`progress`) bleibt |
 | 12 | Änderungsprotokoll | `audit_log` | **aus**; bei Kontolöschung pseudonymisiert | `data_retention.audit_log` (`DATA_RETENTION_AUDIT_LOG_ENABLED`, `_MONTHS`, Vorschlag 24) | [24 Monate] |
 | 13 | Server-Protokolle (IP-Adressen) | `storage/logs/laravel-*.log` | 14 Tage | `LOG_DAILY_DAYS` | 14 Tage |
-| 14 | **Datensicherungen** (DB-Dump und Uploads) | `storage/app/backups`, optional `BACKUP_DISK` | **14 Tage** | `BACKUP_KEEP_DAYS` (lokal und extern) | 14 Tage; gelöschte Daten verschwinden spätestens nach 14 Tagen auch aus den Sicherungen |
+| 14 | **Datensicherungen** (DB-Dump und Uploads) | `storage/app/backups`, optional `BACKUP_DISK` (externe Kopien clientseitig verschlüsselt, `BACKUP_ENCRYPTION_PUBLIC_KEY`) | **14 Tage** | `BACKUP_KEEP_DAYS` (lokal; extern nur mit `BACKUP_PRUNE_REMOTE=true`, sonst per Lifecycle-Regel des Buckets); `app:backup:verify` löscht seine temporäre Datenbank sofort wieder | 14 Tage; gelöschte Daten verschwinden spätestens nach 14 Tagen auch aus den Sicherungen – bei `BACKUP_PRUNE_REMOTE=false` nur, wenn die Lifecycle-Regel auf 14 Tage steht |
 | 15 | Fehlerberichte (optional) | Sentry | beim Anbieter, [90] Tage | Einstellung im Sentry-Projekt; Angabe in der Datenschutzerklärung über `PRIVACY_ERROR_TRACKING_RETENTION_DAYS` | 30–90 Tage |
 | 16 | Praxisanmeldung, Termine | `praxis_form_submission`, `praxis_exam_appointment` | mit der Mitgliedschaft; Frist **aus** (Standard `null`) – **Frist durch Betreiber festlegen** | `data_retention.praxis_submissions.months` (`DATA_RETENTION_PRAXIS_SUBMISSION_MONTHS`): N Monate nach dem letzten Bezug (spätester Zeitpunkt aus letzter Änderung, fixiertem Prüfungstermin, Terminen und Rückmeldungen – ein anstehender Termin schützt immer) werden die Formularangaben (`data`) und die Freitext-Rückmeldungen (`response_comment`) geleert, ebenso deren Kopien im Änderungsprotokoll; Anmeldung, Kurs, Termine und Zeitpunkte bleiben (Zählungen, „bereits angemeldet“), Kennzeichen `_angaben_entfernt_am` in `data` | [12 Monate] – Nachweispflichten zur Prüfungsanmeldung mit den Schulen klären |
 | 17 | Willkommensbox-Bestellungen (Lieferadresse) | `willkommensbox_order` | mit der Mitgliedschaft; Frist **aus** (Standard `null`) – **Frist durch Betreiber festlegen** | `data_retention.willkommensbox_addresses.days` (`DATA_RETENTION_WILLKOMMENSBOX_ADDRESS_DAYS`): nur versendete Bestellungen, N Tage nach `shipped_at` werden Straße, PLZ, Ort, Land, Anmerkung und Sendungsnummer geleert (auch im Änderungsprotokoll); die Bestellung selbst bleibt (Versandzahlen, keine zweite Bestellung). Nie vor dem Versand | [90 Tage] nach Versand (Reklamationen/Rücksendungen) |
@@ -53,7 +57,10 @@ Mechanismen:
 | 24 | Einmal-Codes der App-Webansicht | `api_mobile_web_session` | 1 Tag nach Ablauf (gültig 60 Sekunden), stündlich | wie Nr. 23 (fest im Code) | wie umgesetzt (technisch tote Zeilen) |
 | 25 | Lerngruppen-Einladungen | `learning_group_member` (Status „eingeladen“) | nach Ablauf der Einladung werden E-Mail und Code entfernt (Status „abgelaufen“) | wie Nr. 23 | wie umgesetzt; aktive Mitgliedschaften mit dem Konto |
 | 26 | Shop-Verknüpfungscodes | `commerce_link_code` | 1 Tag nach Ablauf (gültig 15 Minuten), täglich | `app:prune-personal-data` (fest im Code); die Verknüpfung selbst steht am Shopkonto und im Protokoll | wie umgesetzt (technisch tote Zeilen) |
-| 27 | App-Einstellungen | `api_user_setting` | mit dem Konto | Fremdschlüssel | keine eigene Frist nötig (Teil des Kontos) |
+| 27 | App-Einstellungen | `api_user_setting` | mit dem ganzen Konto (nicht beim Verlassen nur einer Schule) | Fremdschlüssel | keine eigene Frist nötig (Teil des Kontos) |
+| 28 | Lerngruppen-Mitgliedschaften | `learning_group_member` | mit der Mitgliedschaft der Person in der Schule (`AccountErasureService::leaveLearningGroups`); eine verwaltete Gruppe bleibt ohne Verwalter bestehen | Kontolöschung | **offen**: Frist für beendete Gruppen |
+| 29 | Fehlgeschlagene Queue-Jobs (können Mail-Inhalte enthalten) | `failed_jobs` | **offen** – keine Frist | – | Vorschlag: täglich `queue:prune-failed --hours=[168]` |
+| 30 | Zugriffsprotokolle des Webservers, Scheduler-Log | Webserver-Logs, `storage/logs/scheduler.log` | 14 Tage | logrotate bzw. Caddy `roll_keep_for 336h` (`deploy/`) | 14 Tage |
 
 ## Datenschutzerklärung
 
@@ -61,7 +68,9 @@ Die Liste „Speicherdauer“ in der Datenschutzerklärung der Schulen wird aus
 derselben Konfiguration erzeugt (`App\Support\PrivacyNotices::retention()`):
 Aktivierte Fristen (Nr. 2, 3, 4, 11, 12, 16, 17) erscheinen dort automatisch mit
 dem eingestellten Wert. Nr. 18 (nur Team und Superadmins) und Nr. 20 (Shop der
-Schule) betreffen keine Lernenden.
+Schule) betreffen keine Lernenden. Zusätzlich nennt die Datenschutzerklärung
+fest die Fristen für Lerngruppen-Einladungen, Löschanträge aus der App und die
+Einmal-Codes der App-Webansicht (Nr. 23–25).
 
 ## Vor dem Aktivieren
 
