@@ -322,6 +322,10 @@ verknüpfen nie. Commerce-API unter `/api/commerce/v1` (HMAC-signiert),
 WordPress-Plugin unter `integrations/woocommerce-connector/`. Alles Weitere:
 [`docs/commerce/README.md`](docs/commerce/README.md).
 
+## Captain-Connectoren
+
+Connectoren zu den Captain-Plugins (Form Captain, Workflow Captain) sind eigene WordPress-Plugins dieses Projekts. Sie laufen mit der jeweiligen Pro-Lizenz (Entscheidung Nr. 17 vom 16.11.2026). Offene Aufgaben: [docs/captain-connectoren.md](docs/captain-connectoren.md).
+
 ## Umfang dieser Version
 
 **Umgesetzt** (deutlich über Sprint 0–6 des ursprünglichen
