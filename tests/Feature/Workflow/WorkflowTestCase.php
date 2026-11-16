@@ -54,8 +54,12 @@ abstract class WorkflowTestCase extends TestCase
             'workflow.outbound_key_id' => 'app-workflow',
             'workflow.outbound_secret' => self::OUTBOUND_SECRET,
             'workflow.keys' => ['workflow' => ['secret' => self::WORKFLOW_SECRET, 'scopes' => ['tenant']]],
-            'workflow.actions.school_admin.notice' => ['enabled' => true, 'daily_limit' => 20],
-            'workflow.actions.learning_group.invite' => ['enabled' => false, 'daily_limit' => 50],
+            // Wörtliche Schlüssel wie in config/workflow.php (nicht 'workflow.actions.school_admin.notice':
+            // das legte verschachtelte Arrays an, die die echte Konfiguration nie hat).
+            'workflow.actions' => [
+                'school_admin.notice' => ['enabled' => true, 'daily_limit' => 20],
+                'learning_group.invite' => ['enabled' => false, 'daily_limit' => 50],
+            ],
         ]);
     }
 
@@ -100,6 +104,14 @@ abstract class WorkflowTestCase extends TestCase
         return $this->call('POST', '/api/integrations/v1/workflow/'.$endpoint.$query, [], [], [], $this->transformHeadersToServerVars(
             $headers + ['Content-Type' => 'application/json', 'Accept' => 'application/json']
         ), $body);
+    }
+
+    /** Einstellung eines Befehls ändern (wörtlicher Schlüssel mit Punkt, siehe ActionRegistry::setting()). */
+    protected function actionConfig(string $name, array $values): void
+    {
+        $all = (array) config('workflow.actions', []);
+        $all[$name] = $values + ($all[$name] ?? []);
+        config(['workflow.actions' => $all]);
     }
 
     protected function command(array $overrides = []): array

@@ -19,6 +19,7 @@ final class BSW_Admin
     public static function init(): void
     {
         add_action('admin_menu', [__CLASS__, 'menu']);
+        add_action('admin_notices', [__CLASS__, 'notice']);
         add_action('admin_post_bsw_handshake', [__CLASS__, 'handle_handshake']);
         add_action('admin_post_bsw_test_event', [__CLASS__, 'handle_test_event']);
         add_action('admin_post_bsw_reset_diagnostics', [__CLASS__, 'handle_reset']);
@@ -27,6 +28,30 @@ final class BSW_Admin
     public static function menu(): void
     {
         add_management_page(__('BoatingSchool Workflow', 'boatingschool-workflow-connector'), __('BoatingSchool Workflow', 'boatingschool-workflow-connector'), self::CAPABILITY, self::SLUG, [__CLASS__, 'render']);
+    }
+
+    /** Text zur Laufzeit nach F-18a, oder null, wenn alles da ist. */
+    public static function runtime_message(?string $runtime): ?string
+    {
+        if ($runtime === null || $runtime === 'ok') {
+            return null;
+        }
+
+        return $runtime === BSW_Workflow::RUNTIME_NOT_ALLOWED
+            ? __('Workflow Captain Pro fehlt oder das Recht fehlt: Workflow Captain Pro ist aktiv, seine Lizenz gewährt das Recht „workflow.custom_connectors“ aber nicht. Die eigene Lizenz dieses Connectors ersetzt das nicht.', 'boatingschool-workflow-connector')
+            : __('Workflow Captain Pro fehlt oder das Recht fehlt: Kundenconnectoren brauchen Workflow Captain Pro mit dem Recht „workflow.custom_connectors“. Die eigene Lizenz dieses Connectors ersetzt das nicht.', 'boatingschool-workflow-connector');
+    }
+
+    /** Admin-Hinweis, solange Workflow Captain Pro oder dessen Recht fehlt. */
+    public static function notice(): void
+    {
+        if (! current_user_can(self::CAPABILITY) || ! BSW_Workflow::available()) {
+            return;
+        }
+        $message = self::runtime_message(BSW_Workflow::runtime());
+        if ($message !== null) {
+            echo '<div class="notice notice-error"><p>'.esc_html__('BoatingSchool Workflow Connector:', 'boatingschool-workflow-connector').' '.esc_html($message).'</p></div>';
+        }
     }
 
     /** Zustand für die Seite (auch für Tests), ohne Geheimnisse. */
@@ -39,6 +64,7 @@ final class BSW_Admin
             'workflow_captain' => BSW_Workflow::available(),
             'workflow_captain_contract' => defined('WORKFLOW_CAPTAIN_CONTRACT_VERSION') ? (string) WORKFLOW_CAPTAIN_CONTRACT_VERSION : null,
             'registration' => BSW_Workflow::registration(),
+            'runtime' => BSW_Workflow::available() ? (BSW_Workflow::runtime() ?? 'ok') : null,
             'enabled' => BSW_Workflow::enabled(),
             'settings' => BSW_Settings::overview(),
             'diagnostics' => BSW_Diagnostics::get(),
@@ -53,6 +79,9 @@ final class BSW_Admin
         }
         if (! BSW_Workflow::available()) {
             return 'workflow_captain_missing';
+        }
+        if (BSW_Workflow::runtime() !== null) {
+            return (string) BSW_Workflow::runtime();
         }
         if (! BSW_Workflow::registered()) {
             return 'connector_not_registered';
@@ -121,6 +150,7 @@ final class BSW_Admin
             __('Vertragsversion (App)', 'boatingschool-workflow-connector') => esc_html($s['contract_version']),
             __('Lizenz', 'boatingschool-workflow-connector') => '<code>'.esc_html($s['license']).'</code>',
             __('Workflow Captain aktiv', 'boatingschool-workflow-connector') => ($s['workflow_captain'] ? $yes : $no).($s['workflow_captain_contract'] ? ' ('.esc_html($s['workflow_captain_contract']).')' : ''),
+            __('Workflow Captain Pro (Laufzeit)', 'boatingschool-workflow-connector') => $s['runtime'] === null ? '–' : ($s['runtime'] === 'ok' ? $yes : '<code>'.esc_html($s['runtime']).'</code> '.esc_html((string) self::runtime_message($s['runtime']))),
             __('Anmeldung in Workflow Captain', 'boatingschool-workflow-connector') => '<code>'.esc_html((string) ($s['registration'] ?? $d['registration'] ?? '–')).'</code>',
             __('Freigegeben (Eigene Connectoren)', 'boatingschool-workflow-connector') => $s['enabled'] ? $yes : $no,
             __('App-Adresse eingerichtet', 'boatingschool-workflow-connector') => $s['settings']['app_url'] ? $yes : $no,

@@ -16,9 +16,14 @@ Kerns). Ein Workflow kann umgekehrt wenige, eng begrenzte **Befehle** an die Pla
   „planned“, bis das Produkt auf dem Lizenzserver angelegt ist). Das Plugin prüft seine Lizenz selbst; eine Pro-Lizenz
   eines Captain-Produkts deckt es nicht ab. Die Lizenzbibliothek liegt **nicht** im (öffentlichen) Repository, der
   Paketbau legt sie unter `lib/license-client.php` ab (siehe BS-03).
-- **Workflow Captain Pro ist keine Voraussetzung.** Der Connector nutzt nur den öffentlichen Vertrag des freien Kerns
-  (`workflow_captain_register_connectors_v1`, `workflow_captain_actions_v1`, `Consumer::capture()`). Ob die Laufzeit
-  eigener Connectoren künftig Pro voraussetzt, ist offen (F-18a); dann ändert sich hier nichts am Vertrag.
+- **Laufzeit: Workflow Captain Pro mit dem Recht `workflow.custom_connectors`** (Entscheidung des Inhabers F-18a,
+  16.11.2026). Der Connector nutzt den öffentlichen Connector-Vertrag (`workflow_captain_register_connectors_v1`,
+  `workflow_captain_actions_v1`, `Consumer::capture()`); Workflow Captain fragt dabei den Filter
+  `workflow_captain_connector_runtime_allowed_v1`, den Pro mit dem Recht schaltet. Ohne Pro meldet sich das Plugin
+  nicht an (`workflow_captain_pro_missing`), ohne Recht lehnt Workflow Captain ab (`runtime_not_allowed`); Ereignisse
+  der App bekommen dann `503` mit diesem Code und werden wiederholt, Aktionen enden mit `runtime_not_allowed`.
+  Statusseite und Admin-Hinweis: „Workflow Captain Pro fehlt oder das Recht fehlt“. Das ist eine technische
+  Abhängigkeit, keine Lizenzdeckung: Die eigene Lizenz prüft das Plugin selbst (Entscheidung 17).
 - **Getrennt von der Commerce-API:** eigene Endpunkte, eigene Schlüssel, eigene Header (`X-BSW-…`), eigene
   Ausgangstabelle. Die Shop-Outbox `tenant.provision` (`commerce_event`) bleibt unberührt.
 
@@ -148,12 +153,13 @@ Ausgeschlossen bleiben: Freigabe/Verknüpfung von Shopkonten, Ausgabe/Widerruf v
 
 ## WF-CUST1-08: das Plugin
 
-`integrations/boatingschool-workflow-connector/` (Version 0.1.0): Anmeldung mit Manifest (Schlüssel
+`integrations/boatingschool-workflow-connector/` (Version 0.2.0): Anmeldung mit Manifest (Schlüssel
 `boatingschool-connector`, Typen `xboatingschoolconnector.<typ>`, alle Felder Datenklasse `normal`, `after_commit: true`),
 Ereignis-Eingang (`BSW_Receiver`), Payload-Mapping (`BSW_Payload_Mapper`, Event-ID als Diskriminator), zwei Aktionen
 (`TransientFailure` bei Timeout/429/5xx, sonst `PermanentFailure` mit Code), Statusseite unter **Werkzeuge →
 BoatingSchool Workflow** mit Version, Lizenz, Anmeldung/Freigabe in Workflow Captain, Einrichtung (nur ob, nie Werte),
-Contract-Handshake, Testereignis (`xboatingschoolconnector.connector.tested`), Payload-Mapping und Fehlerdiagnose
+Contract-Handshake, Testereignis (`xboatingschoolconnector.connector.tested`), Laufzeit (Workflow Captain Pro und
+Recht, F-18a), Payload-Mapping und Fehlerdiagnose
 (Zähler und Codes, nie Werte). Antworten an die App: `200 captured|duplicate`, `503 <code>` (vorübergehend: Lizenz,
 Workflow Captain fehlt, nicht freigegeben – die App wiederholt), `4xx <code>` (Signatur, Vertrag, Inhalt).
 
@@ -168,18 +174,36 @@ Workflow Captain fehlt, nicht freigegeben – die App wiederholt), `4xx <code>` 
 | `tests/Unit/WorkflowConnectorContractTest` | gleiche Signatur App/Plugin/InboundGuard, gleiche Ereignisse App/Plugin, Manifest nach Connector-Vertrag v1, Mapping |
 | `tests/Unit/WorkflowConnectorPluginTest` | Plugin gegen WordPress-/Workflow-Captain-Ersatz: Eingang, Replay, Doppel, Lizenz fail-closed, Freigabe, Rotation, Aktionen, Handshake, Testereignis |
 
+| `tests/workflow-e2e/run.sh` | Ende zu Ende über das Netz: laufende App (PostgreSQL 16 mit beiden Rollen, RLS) ↔ echtes WordPress mit Workflow Captain, Workflow Captain Pro und dem Plugin (siehe unten) |
+
 Die Feature-Tests laufen gegen PostgreSQL mit beiden Rollen (wie in der CI, RLS aktiv).
 
-**Nicht geprüft** (braucht echte Umgebungen): echtes WordPress (REST-Routing, Transients in der Datenbank,
-Statusseite im Browser), echtes Workflow Captain (Manifest-Prüfung durch `ConnectorRegistry`, `Consumer::capture()`,
-Builder, Lauf einer Aktion), die echte Lizenzbibliothek und der Lizenzserver, Zustellung über das Netz zwischen App und
-Shop, Last und Nebenläufigkeit mehrerer Scheduler.
+**Workflow-E2E (`tests/workflow-e2e/run.sh`).** Lauf vom 16.11.2026: App auf `php -S` (PostgreSQL 16 aus dem
+Ubuntu-Paket, eigene Datenbank, migriert und geseedet mit der Owner-Rolle), WordPress 6.9.11 mit WooCommerce 9.9.5,
+Workflow Captain 0.2.0 und Workflow Captain Pro 0.1.0, Plugin 0.2.0: **46 Prüfungen bestanden**. Geprüft: F-18a (ohne
+Pro 503 an die App und Wiederholung, Pro ohne Recht `runtime_not_allowed`, Statusseite und Hinweis), Anmeldung und
+Freigabe, Workflows im echten Workflow Captain, Testereignis, Statusseite (Version, Laufzeit, Mapping, Zustellung,
+Wiederholung, keine Geheimnisse), Ereignisse aus der Commerce-API (Anmeldung, Verknüpfung, Lieferung,
+Teil-Erstattung) über das Netz zugestellt und erfasst, keine Codes/Adressen/Namen/USt-ID/Verknüpfungscode in
+Workflow Captain, Workflow-Lauf → `school_admin.notice` an die App (Empfänger unter RLS der Schule), Timeout nach
+erfolgreichem Aufruf (Doppel), falsche Signatur bis `failed` und Outbox-Replay, zweites Schlüsselpaar, abgelaufener
+Zeitstempel, wiederholte Nonce, Diagnose. Ein Must-use-Plugin (`wp/bsw-e2e-site.php`) steht für die Lizenz des
+Plugins und das Recht von Pro ein (keine Lizenzbibliothek im Repository) und wird am Ende wieder entfernt.
+**Gefunden und behoben:** `ActionRegistry` las die Einstellungen der Befehle mit der Punkt-Schreibweise von `config()`
+(`workflow.actions.school_admin.notice`); weil der Befehlsname selbst einen Punkt hat, fand sie die Einstellung aus
+`config/workflow.php` nie, und jeder Befehl war in echter Umgebung `ACTION_DISABLED`. Die Feature-Tests hatten das
+überdeckt, weil sie die Einstellung verschachtelt setzten; neuer Test mit der ausgelieferten Konfiguration.
+
+**Nicht geprüft:** die echte Lizenzbibliothek und der Lizenzserver (Plugin und Pro), WordPress 7.x und WooCommerce
+11.x (in der Sitzung nur 6.9.11/9.9.5 ohne Download), Statusseite im Browser (Tastatur, Screenreader), Last und
+Nebenläufigkeit mehrerer Scheduler, TLS zwischen App und Shop.
 
 ## Betrieb
 
 1. App: Migration (`workflow_event`, `workflow_nonce`, `workflow_command`), dann `.env`: `WORKFLOW_ENABLED=true`,
    `WORKFLOW_CONNECTOR_URL`, `WORKFLOW_OUTBOUND_SECRET`, `WORKFLOW_SECRET` (siehe `.env.example`).
-2. Plugin installieren (Paket mit Lizenzbibliothek), Konstanten in `wp-config.php`, Lizenz aktivieren.
+2. Workflow Captain Pro mit Lizenz (Recht `workflow.custom_connectors`) und das Plugin installieren (Paket mit
+   Lizenzbibliothek), Konstanten in `wp-config.php`, Lizenz des Plugins aktivieren.
 3. Workflow Captain → Eigene Connectoren: „BoatingSchool Workflow Connector“ freigeben.
 4. Werkzeuge → BoatingSchool Workflow: Handshake und Testereignis.
 5. Fehlgeschlagene Ereignisse: `select id, type, last_error from workflow_event where status = 'failed'`, nach Behebung

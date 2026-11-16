@@ -55,12 +55,28 @@ class ActionRegistry
 
     public function enabled(string $name): bool
     {
-        return isset($this->actions[$name]) && (bool) config('workflow.actions.'.$name.'.enabled', false);
+        return isset($this->actions[$name]) && (bool) (self::setting($name)['enabled'] ?? false);
     }
 
     public function dailyLimit(string $name): int
     {
-        return (int) config('workflow.actions.'.$name.'.daily_limit', 0);
+        return (int) (self::setting($name)['daily_limit'] ?? 0);
+    }
+
+    /**
+     * Einstellung eines Befehls aus config('workflow.actions'). Die Namen enthalten
+     * einen Punkt (school_admin.notice) und dürfen deshalb nicht über die
+     * Punkt-Schreibweise von config() gelesen werden: config('workflow.actions.
+     * school_admin.notice') sucht actions → school_admin → notice und findet die
+     * Einstellung aus config/workflow.php nie (im Workflow-E2E-Test gefunden).
+     *
+     * @return array{enabled?:bool, daily_limit?:int}
+     */
+    private static function setting(string $name): array
+    {
+        $all = config('workflow.actions', []);
+
+        return is_array($all) && is_array($all[$name] ?? null) ? $all[$name] : [];
     }
 
     /** Für den Handshake. @return list<array{action:string, subjects:list<string>}> */

@@ -195,4 +195,33 @@ class WorkflowConnectorPluginTest extends TestCase
         $this->assertStringNotContainsString('secret-0123456789', json_encode($out));
         $this->assertSame('license_invalid', $this->harness('test_event', ['stored' => self::RELEASED, 'register' => true, 'license' => 'invalid'])['result']);
     }
+
+    public function test_runtime_needs_workflow_captain_pro_with_the_custom_connectors_right(): void
+    {
+        // F-18a: ohne Workflow Captain Pro keine Anmeldung, keine Aktionen, keine Annahme von Ereignissen.
+        $noPro = $this->harness('test_event', ['register' => true, 'stored' => self::RELEASED, 'no_pro' => true]);
+        $this->assertSame('workflow_captain_pro_missing', $noPro['result']);
+        $this->assertSame('workflow_captain_pro_missing', $noPro['status']['registration']);
+        $this->assertSame('workflow_captain_pro_missing', $noPro['status']['runtime']);
+        $this->assertStringStartsWith('Workflow Captain Pro fehlt oder das Recht fehlt', $noPro['runtime_message']);
+        $this->assertSame([], $noPro['captured']);
+
+        $received = $this->receive([[]], ['no_pro' => true]);
+        $this->assertFalse($received['registered']);
+        $this->assertSame([503, 'workflow_captain_pro_missing'], [$received['responses'][0]['status'], $received['responses'][0]['body']['code'] ?? $received['responses'][0]['code'] ?? null]);
+        $this->assertSame([], $received['captured']);
+
+        $actions = $this->harness('action', ['action' => 'xboatingschoolconnector.school_admin.notice', 'config' => [], 'envelope' => [], 'idempotency_key' => str_repeat('a', 64), 'no_pro' => true]);
+        $this->assertSame([], $actions['actions']);
+
+        // Pro aktiv, Lizenz ohne Recht: Workflow Captain lehnt ab (runtime_not_allowed).
+        $denied = $this->harness('test_event', ['register' => true, 'stored' => self::RELEASED, 'runtime_denied' => true]);
+        $this->assertSame('runtime_not_allowed', $denied['result']);
+        $this->assertSame('runtime_not_allowed', $denied['status']['runtime']);
+        $this->assertStringContainsString('workflow.custom_connectors', $denied['runtime_message']);
+
+        $ok = $this->harness('test_event', ['register' => true, 'stored' => self::RELEASED]);
+        $this->assertSame('ok', $ok['status']['runtime']);
+        $this->assertNull($ok['runtime_message']);
+    }
 }

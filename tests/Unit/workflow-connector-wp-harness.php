@@ -138,6 +138,9 @@ namespace {
     define('ABSPATH', __DIR__.'/');
     define('BSW_CONNECTOR_VERSION', '0.1.0');
     define('WORKFLOW_CAPTAIN_CONTRACT_VERSION', '0.1.0');
+    if (empty($options['no_pro'])) {
+        define('WORKFLOW_CAPTAIN_PRO_VERSION', '0.1.0'); // F-18a: Laufzeit für Kundenconnectoren
+    }
     foreach ($options['constants'] ?? [] as $name => $value) {
         define($name, $value);
     }
@@ -148,6 +151,7 @@ namespace {
     $GLOBALS['bsw_requests'] = [];
     $GLOBALS['bsw_responses'] = $options['responses'] ?? [];
     $GLOBALS['bsw_capture_result'] = $options['capture_result'] ?? null;
+    $GLOBALS['bsw_runtime_denied'] = ! empty($options['runtime_denied']);
 
     function get_transient($key)
     {
@@ -225,16 +229,32 @@ namespace {
     }
     BSW_License::use_checker(fn () => $options['license'] ?? BSW_License::VALID);
 
-    /** Fake ConnectorRegistry::add(): nimmt an, wenn product() und key passen. */
+    /**
+     * Fake ConnectorRegistry::add(): nimmt an, wenn product() und key passen und
+     * die Laufzeit erlaubt ist (wie der Filter workflow_captain_connector_runtime_allowed_v1,
+     * den Workflow Captain Pro mit dem Recht workflow.custom_connectors schaltet).
+     */
     final class Fake_Connector_Registry
     {
         public ?array $manifest = null;
 
+        public ?string $reason = null;
+
         public function add(array $manifest, Adapter $adapter): bool
         {
             $this->manifest = $manifest;
+            if (! empty($GLOBALS['bsw_runtime_denied'])) {
+                $this->reason = 'runtime_not_allowed';
+
+                return false;
+            }
 
             return $adapter->product() === $manifest['key'];
+        }
+
+        public function reason(string $key): ?string
+        {
+            return $this->reason;
         }
     }
     final class Fake_Action_Registry
@@ -300,6 +320,10 @@ namespace {
 
         case 'action':
             [, $actions] = bsw_register();
+            $out['actions'] = array_keys($actions->actions);
+            if (! isset($actions->actions[$options['action']])) {
+                break;
+            }
             $action = $actions->actions[$options['action']];
             $out['validate'] = $action->validate_config($options['config']);
             $out['capability'] = $action->capability();
@@ -334,6 +358,7 @@ namespace {
                 bsw_register();
             }
             $out['result'] = BSW_Admin::send_test_event($GLOBALS['bsw_now']);
+            $out['runtime_message'] = BSW_Admin::runtime_message(BSW_Workflow::runtime());
             $out['status'] = BSW_Admin::status();
             $out['captured'] = Plugin::instance()->consumer()->captured;
             break;

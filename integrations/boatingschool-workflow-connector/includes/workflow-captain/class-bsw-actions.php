@@ -39,6 +39,10 @@ abstract class BSW_App_Command_Action implements Action
         if (! BSW_License::valid()) {
             throw new PermanentFailure('license_inactive', true);
         }
+        if (BSW_Workflow::runtime() !== null) {
+            // F-18a: ohne Workflow Captain Pro bzw. ohne dessen Recht keine Befehle.
+            throw new PermanentFailure(BSW_Workflow::RUNTIME_NOT_ALLOWED, true);
+        }
         [$tenant, $subject, $params] = $this->request($context);
         if (! preg_match(self::UUID, $tenant)) {
             throw new PermanentFailure('tenant_missing');

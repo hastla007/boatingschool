@@ -110,7 +110,7 @@ class WorkflowCommandTest extends WorkflowTestCase
                 ];
             }
         });
-        config(['workflow.actions.test.rls_probe' => ['enabled' => true, 'daily_limit' => 0]]);
+        $this->actionConfig('test.rls_probe', ['enabled' => true, 'daily_limit' => 0]);
 
         $result = $this->workflow('commands', $this->command(['action' => 'test.rls_probe', 'tenant_id' => $tenantA->id,
             'subject' => ['type' => 'tenant', 'id' => $tenantA->id], 'params' => []]))->assertOk()->json('result');
@@ -175,7 +175,7 @@ class WorkflowCommandTest extends WorkflowTestCase
     public function test_daily_limit_per_school_and_action(): void
     {
         Notification::fake();
-        config(['workflow.actions.school_admin.notice.daily_limit' => 2]);
+        $this->actionConfig('school_admin.notice', ['daily_limit' => 2]);
         [$tenant, , , $account] = $this->linkedAccount();
         $subject = ['tenant_id' => $tenant->id, 'subject' => ['type' => 'shop_account', 'id' => $account->id]];
         $this->workflow('commands', $this->command($subject))->assertOk();
@@ -204,7 +204,7 @@ class WorkflowCommandTest extends WorkflowTestCase
             'subject' => ['type' => 'learning_group', 'id' => $group->id], 'params' => $params]);
 
         $this->workflow('commands', $invite(['user_id' => $invitee->id, 'acting_user_id' => $owner->id]))->assertStatus(403)->assertJsonPath('code', 'ACTION_DISABLED');
-        config(['workflow.actions.learning_group.invite.enabled' => true]);
+        $this->actionConfig('learning_group.invite', ['enabled' => true]);
 
         $this->workflow('commands', $invite(['user_id' => $invitee->id, 'acting_user_id' => $invitee->id]))->assertStatus(403)->assertJsonPath('code', 'ROLE_NOT_ALLOWED');
         $this->workflow('commands', $invite(['user_id' => $unconfirmed->id, 'acting_user_id' => $owner->id]))->assertStatus(422)->assertJsonPath('code', 'INVITEE_NOT_ELIGIBLE');
@@ -221,5 +221,16 @@ class WorkflowCommandTest extends WorkflowTestCase
         // Gruppe einer anderen Schule mit der eigenen Schule als Referenz: abgelehnt.
         $this->workflow('commands', $this->command(['action' => 'learning_group.invite', 'tenant_id' => $foreign->id,
             'subject' => ['type' => 'learning_group', 'id' => $group->id], 'params' => ['user_id' => $invitee->id, 'acting_user_id' => $owner->id]]))->assertStatus(403);
+    }
+
+    public function test_the_shipped_configuration_enables_the_notice_and_keeps_the_invite_off(): void
+    {
+        // Gefunden im Workflow-E2E-Test (tests/workflow-e2e): mit den Schlüsseln aus config/workflow.php selbst.
+        config(['workflow.actions' => (require config_path('workflow.php'))['actions']]);
+        $registry = app(ActionRegistry::class);
+        $this->assertTrue($registry->enabled('school_admin.notice'));
+        $this->assertSame(20, $registry->dailyLimit('school_admin.notice'));
+        $this->assertFalse($registry->enabled('learning_group.invite'));
+        $this->assertSame(50, $registry->dailyLimit('learning_group.invite'));
     }
 }

@@ -109,6 +109,9 @@ final class BSW_Receiver
         if (! BSW_Workflow::available()) {
             return self::refuse(503, 'workflow_captain_missing', $now);
         }
+        if (BSW_Workflow::runtime() !== null) {
+            return self::refuse(503, (string) BSW_Workflow::runtime(), $now);
+        }
         if (! BSW_Workflow::registered()) {
             return self::refuse(503, 'connector_not_registered', $now);
         }
