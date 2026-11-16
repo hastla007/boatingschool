@@ -112,7 +112,7 @@ jobs:
           printf '%s\n' "$SHA" > public/build/build-sha.txt
 
       - name: Build als Artefakt ablegen
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: public-build
           path: public/build
