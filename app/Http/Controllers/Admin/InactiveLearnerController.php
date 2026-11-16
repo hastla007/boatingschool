@@ -15,6 +15,7 @@ use App\Support\MailPreferences;
 use App\Support\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
@@ -36,13 +37,27 @@ class InactiveLearnerController extends Controller
 
     private const REMINDER_COOLDOWN_DAYS = 7;
 
+    /** Personen je Seite der Liste (Anzahl und „Alle erinnern“ gelten weiter für alle). */
+    public const PER_PAGE = 50;
+
     public function index(Request $request, TenantContext $tenantContext, LearnerOverview $overview): View
     {
         $days = $this->days($request);
+        $rows = $this->inactive($tenantContext, $overview, $days);
+
+        // Seitenweise anzeigen: ohne Grenze stand jede inaktive Person mit
+        // Formular im HTML (1200 Lernende: ~1000 Zeilen, 1,2 MB). Gesamtzahl
+        // und „Alle erinnern“ beziehen sich weiter auf die ganze Liste.
+        $page = LengthAwarePaginator::resolveCurrentPage();
+        $paginated = new LengthAwarePaginator($rows->forPage($page, self::PER_PAGE)->values(), $rows->count(), self::PER_PAGE, $page, [
+            'path' => LengthAwarePaginator::resolveCurrentPath(),
+        ]);
 
         return view('admin.inactive.index', [
             'days' => $days,
-            'rows' => $this->inactive($tenantContext, $overview, $days),
+            'rows' => $paginated->withQueryString(),
+            'total' => $rows->count(),
+            'remindable' => $rows->reject(fn ($r) => $r['recently_reminded'])->count(),
             'cooldownDays' => self::REMINDER_COOLDOWN_DAYS,
         ]);
     }

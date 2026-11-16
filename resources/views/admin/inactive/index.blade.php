@@ -21,8 +21,7 @@
 
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm">
             <div class="flex flex-wrap items-center justify-between gap-2 p-4 border-b border-slate-100 dark:border-slate-700">
-                <span class="text-sm text-slate-700 dark:text-slate-200">{{ $rows->count() }} {{ $rows->count() === 1 ? 'Person' : 'Personen' }}</span>
-                @php($remindable = $rows->reject(fn ($r) => $r['recently_reminded'])->count())
+                <span class="text-sm text-slate-700 dark:text-slate-200">{{ $total }} {{ $total === 1 ? 'Person' : 'Personen' }}</span>
                 @if ($remindable > 0)
                     <form method="POST" action="{{ route('admin.inactive.remind') }}" x-data="{}"
                           @submit="if (! confirm('{{ $remindable }} Erinnerung(en) per E-Mail verschicken?')) $event.preventDefault()">
@@ -57,6 +56,9 @@
                     <li class="px-4 py-6 text-sm text-slate-600 dark:text-slate-400">Alle Teilnehmer mit Kurszugang waren in den letzten {{ $days }} Tagen aktiv.</li>
                 @endforelse
             </ul>
+            @if ($rows->hasPages())
+                <div class="p-4 border-t border-slate-100 dark:border-slate-700">{{ $rows->links() }}</div>
+            @endif
         </div>
     </div>
 </x-app-layout>

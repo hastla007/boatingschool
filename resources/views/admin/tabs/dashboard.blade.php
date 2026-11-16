@@ -141,6 +141,10 @@
             @empty
                 <p class="text-slate-500 dark:text-slate-400">Keine Buchungen in den letzten 7 Tagen.</p>
             @endforelse
+            {{-- Nur die neuesten Einträge (AdminDashboardController::RECENT_BOOKINGS_LIMIT), der Rest als Anzahl. --}}
+            @if (($recentBookingsTotal ?? 0) > $recentBookings->count())
+                <p class="text-xs text-slate-600 dark:text-slate-400">… und {{ $recentBookingsTotal - $recentBookings->count() }} weitere in den letzten 7 Tagen.</p>
+            @endif
         </div>
     </div>
 
