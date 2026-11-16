@@ -88,6 +88,18 @@ von Codes sind nicht gestattet.
 Einlösung verantwortlich. Für verlorene oder von Unbefugten eingelöste Codes
 leistet der Anbieter keinen Ersatz, es sei denn, er hat dies zu vertreten.
 
+(4) **Lerngruppen**: Richtet der Kunde auf der Lernplattform eine Lerngruppe
+(Gruppenlizenz mit fester Platzzahl) ein, verbraucht jeder Beitritt je Kurs der
+Gruppe einen freien Kurscode aus dem Codebestand des Kunden – auch wenn die
+Gruppe nur einzelne Funktionen eines Kurses freischaltet. Kein Code wird
+verbraucht für Kurse, für die die beitretende Person bereits einen eigenen,
+gültigen Vollzugang hat. Ohne freien Code ist kein Beitritt möglich. Ein so
+verbrauchter Code gilt als eingelöst; das Entfernen eines Mitglieds oder das
+Ende der Gruppe gibt ihn nicht zurück. Die Platzzahl der Gruppe ist keine
+eigene Leistung des Anbieters und wird nicht gesondert berechnet.
+[Anwalt: prüfen, ob die Abrechnung über Codes so in der Leistungsbeschreibung
+des Shops stehen muss]
+
 ## § 7 Laufzeit der Codes und des Kurszugangs
 
 (1) Codes sind bis [Datum/Frist, z. B. 24 Monate ab Lieferung] einlösbar
@@ -104,7 +116,8 @@ noch nicht eingelöste Codes und laufende Zugänge regeln].
 
 (1) Bei einer Rückerstattung oder Stornierung (ganz oder teilweise) werden
 **nur noch nicht eingelöste Codes** der betroffenen Bestellposition **gesperrt**.
-Bereits eingelöste Codes bleiben gültig; Teilnehmende verlieren keinen Zugang,
+Bereits eingelöste Codes (auch durch den Beitritt zu einer Lerngruppe
+verbrauchte, § 6 Abs. 4) bleiben gültig; Teilnehmende verlieren keinen Zugang,
 den sie schon haben.
 
 (2) Erstattet wird der Preis der gesperrten, nicht eingelösten Codes.

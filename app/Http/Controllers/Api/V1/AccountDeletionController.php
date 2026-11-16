@@ -26,7 +26,8 @@ use Illuminate\Support\Str;
  */
 class AccountDeletionController extends Controller
 {
-    private const CONFIRMATION_DAYS = 7;
+    /** Gültigkeit des Bestätigungslinks (auch Angabe in der Datenschutzerklärung, PrivacyNotices). */
+    public const CONFIRMATION_DAYS = 7;
 
     public function requestDeletion(Request $request, TenantContext $tenantContext): JsonResponse
     {

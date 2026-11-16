@@ -56,8 +56,26 @@ Bereits umgesetzt (Auswahl):
    von Links und Flächen in der Markenfarbe werden nicht vollständig geprüft
    (WCAG 1.4.3, 1.4.11).
 9. **Statusmeldungen** (z. B. „gespeichert“) werden nicht überall als
-   Live-Region angesagt (WCAG 4.1.3).
-10. **Lern-App**: [Stand der App gesondert bewerten].
+   Live-Region angesagt (WCAG 4.1.3). Das gilt auch für den Hinweis „Mehr
+   Plätze als freie Kurscodes“, der beim Anlegen einer Lerngruppe erscheint,
+   während die Platzzahl eingegeben wird.
+10. **Fehlermeldungen in Formularen** stehen sichtbar unter dem Feld, sind
+    aber nicht programmatisch mit ihm verknüpft (kein `aria-describedby`,
+    kein `aria-invalid`), z. B. in den Formularen der Lerngruppen im
+    Verwaltungsbereich (WCAG 1.3.1, 3.3.1).
+11. **Lerngruppen im Verwaltungsbereich**: In der Mitgliederliste heißen alle
+    Schaltflächen „Entfernen“, ohne den Namen des Mitglieds zu nennen; außerhalb
+    der Tabellenzeile (z. B. in der Liste der Bedienelemente eines
+    Screenreaders) sind sie nicht unterscheidbar (WCAG 2.4.6). Die Tabellen
+    haben keine Beschriftung (`caption`).
+12. **Seiten ohne Anmeldung** (Anmeldung, Registrierung, Bestätigung der
+    Kontolöschung aus der App): Die Hauptüberschrift (H1) steht nur in der
+    Seitenleiste, die auf kleinen Bildschirmen ausgeblendet ist, und der
+    Seitentitel nennt nur die Bootsschule bzw. die Plattform, nicht die
+    jeweilige Seite (WCAG 1.3.1, 2.4.2, 2.4.6). Das betrifft besonders die
+    Bestätigungsseite der Kontolöschung, die meist auf dem Smartphone geöffnet
+    wird.
+13. **Lern-App**: [Stand der App gesondert bewerten].
 
 Diese Liste wird bei der Behebung einzelner Punkte aktualisiert.
 

@@ -242,6 +242,92 @@ class LegalPagesTest extends TestCase
         $this->assertStringContainsString('24 Monate lang nicht an', $html);
     }
 
+    public function test_learning_groups_and_app_sections_describe_who_sees_what(): void
+    {
+        config(['mobile_api.web_session_enabled' => true]);
+        $tenant = $this->schoolWithData();
+        $this->onAdmin(fn () => PlatformSetting::current()->update(['privacy_template' => null]));
+
+        $html = $this->privacyPage($tenant);
+
+        // Lerngruppen: Verwalter und Schule sehen Namen, Einladungsadressen und Status, keine Lerndaten.
+        $this->assertMatchesRegularExpression('/<h2>\d+\. Lerngruppen<\/h2>/', $html);
+        $this->assertStringContainsString('Die verwaltende Person sieht den Namen der Gruppe, die Namen der Mitglieder, die E-Mail-Adressen, an die sie eingeladen hat', $html);
+        $this->assertStringContainsString('Deinen Lernstand, deine Antworten und deine Prüfungsergebnisse sieht die verwaltende Person nicht', $html);
+        $this->assertStringContainsString('Eine nicht angenommene Einladung gilt 30 Tage', $html);
+        $this->assertStringContainsString('Einladungen in eine Lerngruppe:</strong> 30 Tage', $html);
+        $this->assertStringContainsString('sieht deren verwaltende Person die im Abschnitt „Lerngruppen“ genannten Angaben', $html);
+
+        // Lern-App: Einstellungen, Webansicht, Kontolöschung per Mail-Bestätigung.
+        $this->assertMatchesRegularExpression('/<h2>\d+\. Lern-App<\/h2>/', $html);
+        $this->assertStringContainsString('damit sie auf allen deinen Geräten gleich sind', $html);
+        $this->assertStringContainsString('Der Code gilt 60 Sekunden und nur einmal', $html);
+        $this->assertStringContainsString('schicken wir dir eine E-Mail mit einem Bestätigungslink', $html);
+        $this->assertStringContainsString('Der Link gilt 7 Tage', $html);
+        $this->assertStringContainsString('nicht bestätigter Antrag auf Kontolöschung 7 Tage, Einmal-Codes für die Webansicht einen Tag', $html);
+        $this->assertStringContainsString('im Profil oder in der Lern-App selbst exportieren', $html);
+
+        // Ohne Webansicht-Anmeldung entfällt nur dieser Absatz.
+        config(['mobile_api.web_session_enabled' => false]);
+        $html = $this->privacyPage($tenant);
+        $this->assertStringNotContainsString('Einmal-Code', $html);
+        $this->assertStringNotContainsString('Webansicht', $html);
+        $this->assertStringContainsString('damit sie auf allen deinen Geräten gleich sind', $html);
+        $this->assertStringContainsString('Der Link gilt 7 Tage', $html);
+        preg_match_all('/<h2>(\d+)\./', $html, $numbers);
+        $this->assertSame(range(1, count($numbers[1])), array_map('intval', $numbers[1]));
+    }
+
+    public function test_the_backup_section_reflects_client_side_encryption_of_the_external_copy(): void
+    {
+        $tenant = $this->schoolWithData();
+        $this->onAdmin(fn () => PlatformSetting::current()->update(['privacy_template' => null]));
+
+        // Mit öffentlichem Schlüssel verschlüsselt app:backup die externe Kopie (libsodium).
+        config(['backup.disk' => 's3', 'backup.encryption_public_key' => base64_encode(random_bytes(32)), 'privacy.backups.encrypted' => false]);
+        $html = $this->privacyPage($tenant);
+        $this->assertStringContainsString('Wir verschlüsseln diese Kopie, bevor sie unseren Server verlässt; der Speicheranbieter kann ihren Inhalt nicht lesen.', $html);
+
+        // Ohne Schlüssel und ohne Angabe: keine Behauptung einer Verschlüsselung.
+        config(['backup.encryption_public_key' => null]);
+        $html = $this->privacyPage($tenant);
+        $this->assertStringContainsString('der in unserem Auftrag tätig ist.', $html);
+        $this->assertStringNotContainsString('Wir verschlüsseln diese Kopie', $html);
+        $this->assertStringNotContainsString('tätig ist, verschlüsselt', $html);
+
+        // Ohne externen Speicher: lokale Sicherungen sind nicht verschlüsselt.
+        config(['backup.disk' => null, 'backup.encryption_public_key' => base64_encode(random_bytes(32))]);
+        $this->assertStringNotContainsString('Sicherungen werden verschlüsselt', $this->privacyPage($tenant));
+    }
+
+    public function test_the_backup_encryption_default_follows_the_public_key_and_the_external_disk(): void
+    {
+        $load = function (array $env): bool {
+            $before = [];
+            foreach ($env as $key => $value) {
+                $before[$key] = $_SERVER[$key] ?? null;
+                $_SERVER[$key] = $_ENV[$key] = $value;
+            }
+            try {
+                return (require base_path('config/privacy.php'))['backups']['encrypted'];
+            } finally {
+                foreach ($before as $key => $value) {
+                    if ($value === null) {
+                        unset($_SERVER[$key], $_ENV[$key]);
+                    } else {
+                        $_SERVER[$key] = $_ENV[$key] = $value;
+                    }
+                }
+            }
+        };
+
+        $key = base64_encode(random_bytes(32));
+        $this->assertTrue($load(['BACKUP_ENCRYPTION_PUBLIC_KEY' => $key, 'BACKUP_DISK' => 's3', 'PRIVACY_BACKUPS_ENCRYPTED' => null]));
+        $this->assertFalse($load(['BACKUP_ENCRYPTION_PUBLIC_KEY' => $key, 'BACKUP_DISK' => '', 'PRIVACY_BACKUPS_ENCRYPTED' => null]));
+        $this->assertFalse($load(['BACKUP_ENCRYPTION_PUBLIC_KEY' => '', 'BACKUP_DISK' => 's3', 'PRIVACY_BACKUPS_ENCRYPTED' => null]));
+        $this->assertTrue($load(['BACKUP_ENCRYPTION_PUBLIC_KEY' => '', 'BACKUP_DISK' => '', 'PRIVACY_BACKUPS_ENCRYPTED' => 'true']));
+    }
+
     public function test_numbering_is_kept_for_custom_templates_without_numbers(): void
     {
         $markdown = "## Wer wir sind\n\nText\n\n## 2. Kontakt\n\nMail";
