@@ -2,7 +2,7 @@
 Requires at least: 6.5
 Requires PHP: 8.1
 Requires Plugins: woocommerce
-Stable tag: 1.4.2
+Stable tag: 1.4.3
 License: Proprietary
 
 Verkauft Codes der Bootsschul-Plattform über WooCommerce. Nach der Zahlung werden die Codes im Codebestand der verknüpften Bootsschule hinterlegt.
@@ -20,7 +20,7 @@ Verkauft Codes der Bootsschul-Plattform über WooCommerce. Nach der Zahlung werd
 * Kurs- und Verlängerungscodes lassen sich nur für Kurse bestellen, die die verknüpfte Schule derzeit erhalten kann (geprüft schon beim Hinzufügen zum Warenkorb).
 * Rückerstattungen nur als Betrag (ohne Positionsmenge) sperren keine Codes; das Plugin meldet sie per Bestellnotiz und Alarm-Mail.
 * Kontaktdaten (E-Mail, Vor- und Nachname, Firma, Rechnungsland, USt-IdNr.) gleicht das Plugin beim Speichern von Profil oder Adresse mit der Plattform ab (`PATCH /accounts/{id}`, über Action Scheduler mit bis zu drei Versuchen) – aber nur, wenn sich eines dieser Felder seit dem letzten erfolgreichen Abgleich geändert hat (Prüfsumme in der Nutzer-Meta `_bs_account_sync_hash`, gesetzt erst nach erfolgreicher Antwort). WooCommerce speichert den Kunden z. B. bei jeder Bestellung; das löst nur noch einen Abgleich aus, wenn dabei z. B. die Firma geändert wurde (geprüft nach dem Speichern der Rechnungsdaten, Hook `woocommerce_update_customer`). Wurde das Konto auf der Plattform geändert oder zurückgesetzt, gleicht „Konto neu abgleichen“ (siehe „Betrieb“) ohne diese Prüfung ab.
-* Der Kontostatus aus der Plattform wird zwischengespeichert (5 Minuten, Fehlschläge 60 Sekunden). An der Kasse wird frisch geprüft, höchstens alle 10 Sekunden je Kunde; „Mein Konto → Bootsschule verknüpfen“ lädt nur nach einem Verknüpfungsversuch frisch. So können Kunden die Begrenzung der Plattform nicht aufbrauchen.
+* Der Kontostatus aus der Plattform wird zwischengespeichert (5 Minuten; Konten ohne Einkaufsfreigabe und Fehlschläge 60 Sekunden). An der Kasse wird frisch geprüft, höchstens alle 10 Sekunden je Kunde; „Mein Konto → Bootsschule verknüpfen“ lädt nur nach einem Verknüpfungsversuch frisch. So können Kunden die Begrenzung der Plattform nicht aufbrauchen.
 
 == Zahlarten ==
 
@@ -108,6 +108,11 @@ Das Plugin meldet sich bei den Datenschutz-Werkzeugen von WordPress an (Werkzeug
 Für die USt-IdNr.-Prüfung geht die Nummer (Länderkennung und Nummer, ggf. die eigene USt-IdNr. des Shops) an den VIES-Dienst der EU-Kommission. Bestellungen und ihr Zustellstatus bleiben für die Buchhaltung erhalten. Das Konto auf der Plattform löscht der Plattform-Betreiber.
 
 == Changelog ==
+
+= 1.4.3 =
+* Nicht freigeschaltete Konten (z. B. in Prüfung): Status nur 60 Sekunden zwischengespeichert statt 5 Minuten – nach der Freigabe durch den Plattform-Betreiber ist der Einkauf spätestens nach einer Minute möglich.
+* Hinweis für Administratoren, wenn das Feld „Firmenname“ an der Kasse ausgeblendet ist (WooCommerce-Standard): Jede Bestellung leert sonst die Firma im Kundenkonto.
+* Einstellungsseite ohne Konstanten: die define()-Zeilen erscheinen als Code mit geraden Anführungszeichen (kopierbar).
 
 = 1.4.2 =
 * Ausdrücklicher Kontoabgleich, unabhängig von der Prüfsumme `_bs_account_sync_hash`: Knopf „Konto mit der Bootsschul-Plattform neu abgleichen“ im Benutzerprofil, Sammelaktion in der Benutzerliste (beides nur für Administratoren mit `manage_options`, nur für registrierte Konten, per Action Scheduler eingeplant, Hinweis „Abgleich eingeplant“) und `wp bs-connector resync <user-id|email>...` (sofort, Ergebnis je Konto). Nötig, wenn das Konto auf der Plattform geändert oder zurückgesetzt wurde – bisher sendete der Shop erst wieder nach einer Änderung der Shopdaten. Der Hook `bs_connector_sync_account` nimmt dafür ein viertes Argument `force` an; seine Wiederholungen behalten es.

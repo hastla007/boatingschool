@@ -258,6 +258,10 @@ final class BS_Api_Client
     {
         $GLOBALS['bs_api_calls'][] = $method.' '.$path;
         $status = array_shift($GLOBALS['bs_api_responses']);
+        // Text statt Zahl: 200 mit diesem Kontostatus ohne Einkauf (z. B. pending_review).
+        if (is_string($status)) {
+            return ['status' => 200, 'body' => ['data' => ['status' => $status, 'can_purchase' => false, 'tenant' => null, 'deliverable_course_codes' => []]], 'error' => null];
+        }
         $body = $status === 200 ? ['data' => ['status' => 'linked', 'can_purchase' => true, 'tenant' => ['name' => 'Segelschule Möwe'], 'deliverable_course_codes' => ['SRC']]] : null;
 
         return ['status' => $status, 'body' => $body, 'error' => $status === 200 ? null : 'HTTP '.$status];
@@ -362,6 +366,29 @@ switch ($scenario) {
         $out['checkout_network_error'] = BS_Accounts::status(7, true);
         $out['checkout_network_error_again'] = BS_Accounts::status(7, true);
         $out['calls_end'] = $calls();
+        break;
+
+    case 'status_not_purchasable':
+        // In Prüfung: 60 s gemerkt (nicht 5 Minuten), danach frisch -- z. B. nach der Freigabe.
+        $out['first'] = BS_Accounts::status(7)['status'] ?? null;
+        $advance(59);
+        $out['within_minute'] = BS_Accounts::status(7)['status'] ?? null;
+        $out['calls_within_minute'] = $calls();
+        $advance(2);
+        $after = BS_Accounts::status(7);
+        $out['after_minute'] = $after['status'] ?? null;
+        $out['can_purchase_after_minute'] = $after['can_purchase'] ?? null;
+        $out['calls_after_minute'] = $calls();
+        // Freigeschaltet: wieder 5 Minuten.
+        $advance(299);
+        BS_Accounts::status(7);
+        $out['calls_linked_cached'] = $calls();
+        break;
+
+    case 'company_field_notice':
+        ob_start();
+        BS_Settings::company_field_notice();
+        $out['notice'] = (string) ob_get_clean();
         break;
 
     case 'render_endpoint':

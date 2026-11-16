@@ -75,7 +75,7 @@ oder in der App ein (`POST /api/v1/coupons/redeem`).
 
 1. Kaufen dürfen nur angemeldete, verknüpfte Konten einer aktiven Schule.
    - Das prüft das Plugin beim Hinzufügen zum Warenkorb, im Warenkorb und unmittelbar vor der Bestellung (dort ohne Cache, höchstens alle 10 Sekunden je Kunde).
-   - Zwischenspeicher im Plugin: Status 5 Minuten, Fehlschläge (404, 429, 5xx, keine Antwort) 60 Sekunden. „Mein Konto → Bootsschule verknüpfen“ lädt nur direkt nach einem Verknüpfungsversuch frisch.
+   - Zwischenspeicher im Plugin: Status mit Einkaufsfreigabe 5 Minuten; ohne Freigabe (z. B. `pending_review`, ab 1.4.3) und Fehlschläge (404, 429, 5xx, keine Antwort) 60 Sekunden. „Mein Konto → Bootsschule verknüpfen“ lädt nur direkt nach einem Verknüpfungsversuch frisch.
    - Ist die Plattform nicht erreichbar, wird gesperrt.
 2. Nach der Zahlung (`processing`/`completed`) plant das Plugin je Position eine Zustellung ein (Action Scheduler). Der Lieferauftrag wird dabei eingefroren: Spätere Änderungen am Produkt ändern ihn nicht.
 3. Zustellung mit `POST /orders/lines`:
@@ -208,6 +208,11 @@ Action Scheduler. Außerdem:
 - „In den Warenkorb“, Warenkorb und Kasse prüfen, ob die verknüpfte Schule den Kurs erhalten kann (`deliverable_course_codes` aus `GET /accounts/{id}`), damit nicht nach der Zahlung eine Lieferung scheitert. Kurs- und Verlängerungscodes für nicht freigeschaltete Kurse kommen gar nicht erst in den Warenkorb.
 - **Klassischer und Block-Checkout** prüfen unmittelbar vor der Bestellung
   frisch, ob das Konto einkaufen darf.
+- **Firmenname an der Kasse:** Das Feld muss sichtbar sein („Optional“ oder „Erforderlich“;
+  Kasse-Block im Website-Editor bzw. Customizer → WooCommerce → Kasse). Neue
+  WooCommerce-Installationen blenden es aus; dann speichert jede Bestellung eine leere
+  Firma im Kundenkonto, und die Plattform erhält beim Abgleich keine Firma mehr. Ab
+  Plugin 1.4.3 weist ein Hinweis im Backend darauf hin.
 - **E-Mail-Bestätigung:** Neue Kundenkonten werden erst nach dem Klick auf den Bestätigungslink (signiert, 3 Tage gültig, einmalig) bei der Plattform angemeldet. „Mein Konto → Bootsschule verknüpfen“ zeigt den Stand und bietet „Bestätigungsmail erneut senden“. Vom Provisionierungs-Endpunkt angelegte Konten gelten als bestätigt.
 - **Betrieb im Shop:** Protokoll unter WooCommerce → Status → Protokolle (Quelle `bs-connector`, nie Codewerte oder Geheimnisse); Knopf „Verbindung testen“ auf dem Einstellungs-Tab (`GET /catalog`); Seite WooCommerce → Bootsschul-Zustellungen mit allen fehlgeschlagenen Positionen und der Sammelaktion „Erneut zustellen“; `wp bs-connector reconcile [--days=30]` gleicht Positionen mit `GET /orders/{id}/lines/{line}` ab und listet Abweichungen; `wp bs-connector resync <user-id|email>...` gleicht Kundenkonten neu ab (siehe „Kontoabgleich“).
 - **Kontoabgleich:** Kontaktdaten (E-Mail, Name, Firma, Rechnungsland, USt-IdNr.) gehen per `PATCH /accounts/{id}` an die Plattform, wenn sie sich im Shop seit dem letzten erfolgreichen Abgleich geändert haben (Prüfsumme `_bs_account_sync_hash`, erst nach erfolgreicher Antwort gesetzt). Wurde das Konto auf der Plattform geändert oder zurückgesetzt, sendet der Shop daher von sich aus erst nach der nächsten Änderung im Shop. Für diesen Fall gibt es ab Plugin 1.4.2 einen ausdrücklichen Abgleich ohne Prüfsummen-Vergleich (danach wird die Prüfsumme wie sonst gesetzt): Knopf „Konto mit der Bootsschul-Plattform neu abgleichen“ im Benutzerprofil des Shop-Backends bzw. die gleichnamige Sammelaktion in der Benutzerliste (nur Administratoren mit `manage_options`, nur bei der Plattform registrierte Konten; eingeplant über Action Scheduler mit bis zu drei Versuchen, Hinweis „Abgleich eingeplant“) sowie `wp bs-connector resync <user-id|email>...` (sendet sofort, meldet das Ergebnis je Konto, Exit-Status 1 bei einem nicht abgeglichenen Konto). Ein auf der Plattform gelöschtes Konto (404) legt der Abgleich nicht neu an.
@@ -227,9 +232,14 @@ Action Scheduler. Außerdem:
 **Test:** Die Abläufe 1–5 sind gegen echtes WordPress mit WooCommerce und
 die App durchgespielt worden: einmal mit Plugin 1.2.0 (Versionen, Schritte,
 Ergebnisse und Grenzen: [wordpress-integrationstest.md](wordpress-integrationstest.md))
-und einmal lokal gegen WordPress 7.1.4 / WooCommerce 11.3.0 (SQLite statt
+einmal lokal gegen WordPress 7.1.4 / WooCommerce 11.3.0 (SQLite statt
 MySQL; Ergebnis und Lücken: [`staging-test.md`](staging-test.md), Abschnitt
-„Ergebnis lokaler E2E-Test“). Automatisiert geprüft sind:
+„Ergebnis lokaler E2E-Test“) und einmal mit der Staging-Checkliste in Docker
+(16.11.2026: WordPress 7.1.4, WooCommerce 11.3.0, Yoast SEO 28.8, MySQL 8.4,
+Mailpit, Testzahlung mit `payment_complete()`; Aufbau unter
+[`deploy/staging-shop/`](../../deploy/staging-shop/README.md), Ergebnis in
+[`staging-test.md`](staging-test.md), Abschnitt „Ergebnis Staging-Lauf in Docker“).
+Automatisiert geprüft sind:
 
 - Signatur und Zustellentscheidungen gegen die App (Unit-Test).
 - Die WordPress-freien Hilfsklassen des Plugins: Bestätigungslink, Protokoll ohne Codewerte, Abgleich, Datenschutz-Export, Aktualität der `.pot` (`tests/Unit/ConnectorPluginHelpersTest.php`).

@@ -23,10 +23,10 @@ final class BS_Accounts
     /** Sperre für frische Abfragen je Kunde (siehe status()). */
     const STATUS_FRESH_LOCK = 'bs_connector_status_fresh_';
 
-    /** Gültigkeit eines positiven Status (Sekunden). */
+    /** Gültigkeit eines Status mit Einkauf (can_purchase), Sekunden. */
     const STATUS_TTL = 300;
 
-    /** Gültigkeit eines Fehlschlags (404/429/5xx/Netzfehler), Sekunden. */
+    /** Gültigkeit eines Fehlschlags (404/429/5xx/Netzfehler) und eines Status ohne Einkauf, Sekunden. */
     const STATUS_NEGATIVE_TTL = 60;
 
     /** Höchstens eine frische Abfrage je Kunde in diesem Abstand (Sekunden). */
@@ -536,10 +536,11 @@ final class BS_Accounts
     // ---------------------------------------------------------------- Status / Verknüpfung
 
     /**
-     * Status in der App, zwischengespeichert: Erfolg 5 Minuten, Fehlschlag
-     * (404, 429, 5xx, Netzfehler) 60 Sekunden -- sonst könnte ein Kunde mit
-     * jedem Seitenaufruf eine Anfrage an die App auslösen und deren
-     * Begrenzung für den ganzen Shop aufbrauchen.
+     * Status in der App, zwischengespeichert: Einkauf möglich 5 Minuten;
+     * Einkauf (noch) nicht möglich (z. B. pending_review, das der Superadmin
+     * jederzeit freigeben kann) und Fehlschlag (404, 429, 5xx, Netzfehler)
+     * 60 Sekunden -- sonst könnte ein Kunde mit jedem Seitenaufruf eine Anfrage
+     * an die App auslösen und deren Begrenzung für den ganzen Shop aufbrauchen.
      *
      * $fresh (Kasse): lädt am Cache vorbei, aber höchstens einmal je
      * STATUS_FRESH_INTERVAL Sekunden und Kunde; innerhalb dieser Zeit gilt
@@ -576,7 +577,8 @@ final class BS_Accounts
                 ? array_values(array_map('strval', $response['body']['data']['deliverable_course_codes']))
                 : null,
         ];
-        set_transient(self::STATUS_CACHE.$customer_id, $status, self::STATUS_TTL);
+        // Nach einer Freigabe soll der Kunde nicht 5 Minuten auf den Einkauf warten.
+        set_transient(self::STATUS_CACHE.$customer_id, $status, $status['can_purchase'] ? self::STATUS_TTL : self::STATUS_NEGATIVE_TTL);
 
         return $status;
     }

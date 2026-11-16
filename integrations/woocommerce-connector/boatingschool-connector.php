@@ -5,7 +5,7 @@ use Automattic\WooCommerce\Utilities\FeaturesUtil;
 /**
  * Plugin Name:       Bootsschul-Plattform Connector
  * Description:       Verkauft Kurs-, Verlängerungs- und Produktcodes der Bootsschul-Plattform. Nach der Zahlung werden die Codes im Codebestand der verknüpften Bootsschule hinterlegt.
- * Version:           1.4.2
+ * Version:           1.4.3
  * Requires at least: 6.5
  * Requires PHP:      8.1
  * Requires Plugins:  woocommerce
@@ -16,7 +16,7 @@ use Automattic\WooCommerce\Utilities\FeaturesUtil;
  */
 defined('ABSPATH') || exit;
 
-define('BS_CONNECTOR_VERSION', '1.4.2');
+define('BS_CONNECTOR_VERSION', '1.4.3');
 define('BS_CONNECTOR_FILE', __FILE__);
 
 foreach (['signature', 'delivery-policy', 'log', 'email-verification', 'reconcile', 'settings', 'api-client', 'vat', 'vat-check', 'products', 'accounts', 'checkout', 'orders', 'provision-endpoint', 'privacy', 'admin'] as $bs_connector_file) {

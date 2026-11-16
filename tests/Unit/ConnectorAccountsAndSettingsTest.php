@@ -41,6 +41,32 @@ class ConnectorAccountsAndSettingsTest extends TestCase
         $this->assertSame(4, $out['calls_end']);
     }
 
+    public function test_status_without_purchase_is_cached_for_one_minute_so_an_approval_shows_promptly(): void
+    {
+        $out = $this->harness('status_not_purchasable', ['responses' => ['pending_review', 200, 200]]);
+
+        $this->assertSame('pending_review', $out['first']);
+        $this->assertSame('pending_review', $out['within_minute']);
+        $this->assertSame(1, $out['calls_within_minute'], 'innerhalb von 60 s aus dem Cache');
+        $this->assertSame('linked', $out['after_minute'], 'nach 60 s frisch geladen (Freigabe durch den Superadmin)');
+        $this->assertTrue($out['can_purchase_after_minute']);
+        $this->assertSame(2, $out['calls_after_minute']);
+        $this->assertSame(2, $out['calls_linked_cached'], 'Status mit Einkauf weiter 5 Minuten');
+    }
+
+    public function test_administrators_are_warned_when_the_checkout_hides_the_company_field(): void
+    {
+        $admin = ['manage_woocommerce', 'manage_options'];
+        $hidden = $this->harness('company_field_notice', ['caps' => $admin, 'stored' => ['woocommerce_checkout_company_field' => 'hidden']]);
+        $this->assertStringContainsString('Firmenname', $hidden['notice']);
+
+        foreach (['optional', 'required'] as $setting) {
+            $this->assertSame('', $this->harness('company_field_notice', ['caps' => $admin, 'stored' => ['woocommerce_checkout_company_field' => $setting]])['notice'], $setting);
+        }
+        $this->assertSame('', $this->harness('company_field_notice', ['caps' => $admin])['notice'], 'ohne Option: WooCommerce zeigt das Feld');
+        $this->assertSame('', $this->harness('company_field_notice', ['caps' => ['manage_woocommerce'], 'stored' => ['woocommerce_checkout_company_field' => 'hidden']])['notice'], 'nicht für Shop-Manager');
+    }
+
     public function test_account_page_reloads_use_the_cache_and_load_fresh_only_after_a_link_attempt(): void
     {
         $out = $this->harness('render_endpoint', ['responses' => [200, 200]]);
@@ -133,8 +159,9 @@ class ConnectorAccountsAndSettingsTest extends TestCase
         // Formular: keine Geheimnis-Felder, stattdessen Anleitung für wp-config.php.
         $this->assertSame([], array_intersect(self::SECRET_FIELDS, $fresh['rendered']));
         $this->assertContains('bs_connector_secrets_constants', $fresh['rendered']);
-        $this->assertStringContainsString("define( 'BS_CONNECTOR_SECRET', '…' );", $fresh['rendered_texts']);
-        $this->assertStringContainsString("define( 'BS_CONNECTOR_INBOUND_SECRET', '…' );", $fresh['rendered_texts']);
+        // In <code>, sonst setzt wptexturize typografische Anführungszeichen ein (nicht kopierbar).
+        $this->assertStringContainsString("<code>define( 'BS_CONNECTOR_SECRET', '…' );</code>", $fresh['rendered_texts']);
+        $this->assertStringContainsString("<code>define( 'BS_CONNECTOR_INBOUND_SECRET', '…' );</code>", $fresh['rendered_texts']);
         $this->assertContains('bs_connector_settings[allow_db_secrets]', $fresh['rendered']);
 
         // Später (Update-Schritt schon gelaufen) gelangt ein Geheimnis in die Datenbank: ignoriert.
