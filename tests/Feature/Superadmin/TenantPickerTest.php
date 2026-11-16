@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Superadmin;
 
+use App\Models\Coupon;
 use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Support\TenantPicker;
@@ -144,5 +145,48 @@ class TenantPickerTest extends TestCase
             ->assertSee('name="tenant_id" value="'.$tenant->id.'"', false);
         $this->actingAs($superadmin)->get('/superadmin/coupons?tenant_id='.$tenant->id.'&tenant_slug=')->assertOk()
             ->assertViewHas('filters', fn (array $filters) => ! isset($filters['tenant_id']));
+    }
+
+    /**
+     * Ein nicht auflösbarer Schulfilter (z. B. Teil eines Namens, ohne einen
+     * Treffer zu wählen) zeigt keine Codes statt aller Schulen -- und
+     * „alle gefilterten Codes“ sperren bzw. exportieren wirkt dann nicht auf
+     * den Bestand aller Schulen, sondern wird abgelehnt.
+     */
+    public function test_unresolved_coupon_school_filter_neither_lists_nor_voids_codes_of_all_schools(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        $tenantA = $this->createTestTenant('Codeschule A');
+        $tenantB = $this->createTestTenant('Codeschule B');
+        $codeA = 'PICK-A-'.Str::upper(Str::random(8));
+        $codeB = 'PICK-B-'.Str::upper(Str::random(8));
+        $course = $this->existingCourse('SRC');
+        [$couponA, $couponB] = $this->onAdmin(fn () => [
+            Coupon::create(['code' => $codeA, 'course_id' => $course->id, 'tenant_id' => $tenantA->id]),
+            Coupon::create(['code' => $codeB, 'course_id' => $course->id, 'tenant_id' => $tenantB->id]),
+        ]);
+
+        $this->actingAs($superadmin)->get('/superadmin/coupons?tenant_id=&tenant_slug=Codeschule')->assertOk()
+            ->assertSee(TenantPicker::NOT_FOUND)
+            ->assertDontSee($codeA)->assertDontSee($codeB)
+            ->assertSee('name="tenant_slug" value="Codeschule"', false);
+
+        foreach (['/superadmin/coupons/void', '/superadmin/coupons/export'] as $url) {
+            $this->actingAs($superadmin)->from('/superadmin/coupons')
+                ->post($url, ['select_all' => '1', 'tenant_id' => '', 'tenant_slug' => 'Codeschule'])
+                ->assertSessionHasErrors(['tenant_id' => TenantPicker::NOT_FOUND]);
+        }
+        $this->onAdmin(function () use ($couponA, $couponB) {
+            $this->assertNull($couponA->fresh()->voided_at);
+            $this->assertNull($couponB->fresh()->voided_at);
+        });
+
+        // Auflösbarer Text: nur die Codes dieser Schule.
+        $this->actingAs($superadmin)->post('/superadmin/coupons/void', ['select_all' => '1', 'tenant_id' => '', 'tenant_slug' => $tenantA->slug])
+            ->assertSessionHasNoErrors();
+        $this->onAdmin(function () use ($couponA, $couponB) {
+            $this->assertNotNull($couponA->fresh()->voided_at);
+            $this->assertNull($couponB->fresh()->voided_at);
+        });
     }
 }

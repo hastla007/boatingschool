@@ -34,7 +34,11 @@ class CouponController extends Controller
             $filters['tenant_id'] = $picked['id'];
         }
 
+        // Nicht auflösbarer Schulfilter (z. B. Teil eines Namens ohne Auswahl):
+        // keine Codes statt aller -- sonst bezögen sich „Alle gefilterten Codes
+        // auswählen“ und Sperren auf den Bestand aller Schulen.
         $coupons = $this->filteredCoupons($filters)
+            ->when($picked['error'] !== null, fn (Builder $query) => $query->whereRaw('false'))
             ->with('course', 'product', 'optionProducts', 'tenant', 'redeemedBy', 'redeemedTenant')
             ->orderByDesc('created_at')
             ->paginate(50)
@@ -46,6 +50,9 @@ class CouponController extends Controller
             'products' => Product::where('active', true)->orderBy('name')->get(),
             'filterTenant' => isset($filters['tenant_id']) ? Tenant::find($filters['tenant_id']) : null,
             'tenantFilterError' => $picked['error'],
+            // Für Export/Sperren: der nicht auflösbare Text geht mit, damit
+            // „alle gefilterten“ dort ebenfalls abgelehnt wird (bulkFilters()).
+            'tenantFilterText' => $picked['error'] !== null && is_string($request->query('tenant_slug')) ? $request->query('tenant_slug') : null,
             'filters' => $filters,
         ]);
     }
@@ -157,12 +164,13 @@ class CouponController extends Controller
             'ids' => ['required_unless:select_all,1', 'array'],
             'ids.*' => ['uuid'],
             'tenant_id' => ['nullable', 'uuid', 'exists:tenant,id'],
+            'tenant_slug' => TenantPicker::companionRules(),
             'status' => ['nullable', 'string'],
             'search' => ['nullable', 'string'],
         ]);
 
         if ($request->boolean('select_all')) {
-            $filters = $this->filters($request);
+            $filters = $this->bulkFilters($request, $validated);
             $codes = $this->filteredCoupons($filters)->orderByDesc('created_at')->pluck('code');
         } else {
             $codes = Coupon::whereIn('id', $validated['ids'])->orderByDesc('created_at')->pluck('code');
@@ -200,12 +208,13 @@ class CouponController extends Controller
             'ids' => ['required_unless:select_all,1', 'array'],
             'ids.*' => ['uuid'],
             'tenant_id' => ['nullable', 'uuid', 'exists:tenant,id'],
+            'tenant_slug' => TenantPicker::companionRules(),
             'status' => ['nullable', 'string'],
             'search' => ['nullable', 'string'],
         ]);
 
         $query = $request->boolean('select_all')
-            ? $this->filteredCoupons($this->filters($request))
+            ? $this->filteredCoupons($this->bulkFilters($request, $validated))
             : Coupon::whereIn('id', $validated['ids']);
 
         // QA-D-8: Sperre und Protokolleintrag gemeinsam -- scheitert der
@@ -236,6 +245,26 @@ class CouponController extends Controller
     private function filters(Request $request): array
     {
         return array_filter($request->only(['tenant_id', 'status', 'search']), 'is_string');
+    }
+
+    /**
+     * Filter für „alle gefilterten Codes“ (Export/Sperren): die Schule wie in
+     * index() über TenantPicker -- ein mitgesendeter, nicht auflösbarer
+     * Schultext ist ein Validierungsfehler statt „alle Schulen“.
+     *
+     * @param  array<string, mixed>  $validated
+     * @return array{tenant_id?: string, status?: string, search?: string}
+     */
+    private function bulkFilters(Request $request, array $validated): array
+    {
+        $filters = $this->filters($request);
+        unset($filters['tenant_id']);
+        $tenantId = TenantPicker::resolve($validated);
+        if ($tenantId !== null) {
+            $filters['tenant_id'] = $tenantId;
+        }
+
+        return $filters;
     }
 
     /**

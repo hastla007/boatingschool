@@ -99,13 +99,17 @@
                     <a href="{{ route('superadmin.coupons.index') }}" class="text-sm text-slate-500 dark:text-slate-400 hover:underline self-center">Filter zurücksetzen</a>
                 @endif
                 @if ($tenantFilterError)
-                    <p class="basis-full text-sm text-red-600 dark:text-red-400" role="alert">{{ $tenantFilterError }} Der Schulfilter wurde nicht angewendet.</p>
+                    <p class="basis-full text-sm text-red-600 dark:text-red-400" role="alert">{{ $tenantFilterError }} Es werden keine Codes angezeigt.</p>
                 @endif
             </form>
 
             <form method="POST" action="{{ route('superadmin.coupons.export') }}" id="export-form">
                 @csrf
                 <input type="hidden" name="tenant_id" value="{{ $filters['tenant_id'] ?? '' }}">
+                {{-- Nicht auflösbarer Schulfilter: geht mit, damit „alle gefilterten“ abgelehnt wird. --}}
+                @if ($tenantFilterText !== null)
+                    <input type="hidden" name="tenant_slug" value="{{ $tenantFilterText }}">
+                @endif
                 <input type="hidden" name="status" value="{{ $filters['status'] ?? '' }}">
                 <input type="hidden" name="search" value="{{ $filters['search'] ?? '' }}">
                 <input type="hidden" name="select_all" id="select-all-input" value="0">
