@@ -22,11 +22,10 @@ class FormFieldLabelAssociationTest extends TestCase
         $tenant = $this->createTestTenant();
         $owner = $this->createTenantUser($tenant, 'owner');
 
-        $response = $this->actingAsInTenant($owner, $tenant)->get('/admin');
+        // Jeder Reiter ist ein eigener Aufruf (?tab=…).
+        $tab = fn (string $tab) => $this->actingAsInTenant($owner, $tenant)->get('/admin?tab='.$tab)->assertOk()->getContent();
 
-        $response->assertOk();
-        $content = $response->getContent();
-
+        $content = $tab('branding');
         // Branding-Tab: Farben (U4) + Adresse + Support/Kontakt-Felder.
         $this->assertStringContainsString('for="primary_color"', $content);
         $this->assertStringContainsString('id="primary_color"', $content);
@@ -36,19 +35,23 @@ class FormFieldLabelAssociationTest extends TestCase
         $this->assertStringContainsString('for="whatsapp_phone"', $content);
         $this->assertStringContainsString('for="exam_readiness_threshold_percent"', $content);
 
+        $content = $tab('participants');
         // Teilnehmer-Tab: Einladungsformular.
         $this->assertStringContainsString('for="invite_name"', $content);
         $this->assertStringContainsString('for="invite_email"', $content);
         $this->assertStringContainsString('for="invite_code"', $content);
 
+        $content = $tab('coupons');
         // Coupon-Tab: Import-Textarea + Filterleiste.
         $this->assertStringContainsString('for="codes"', $content);
         $this->assertStringContainsString('for="coupon_search"', $content);
         $this->assertStringContainsString('for="coupon_status"', $content);
 
+        $content = $tab('willkommensbox');
         // Willkommensbox-Tab: Suchfeld.
         $this->assertStringContainsString('for="wb_search"', $content);
 
+        $content = $tab('praxis-anmeldungen');
         // Praxis-Anmeldungen-Tab: Suchfeld + Kursfilter.
         $this->assertStringContainsString('for="anmeldung_search"', $content);
         $this->assertStringContainsString('for="anmeldung_course"', $content);

@@ -166,7 +166,7 @@ class ProductTest extends TestCase
 
         $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', ['code' => $coupon->code]);
 
-        $response = $this->actingAsInTenant($admin, $tenant)->get('/admin');
+        $response = $this->actingAsInTenant($admin, $tenant)->get('/admin?tab=coupons');
 
         $response->assertOk();
         $response->assertSee($coupon->code);

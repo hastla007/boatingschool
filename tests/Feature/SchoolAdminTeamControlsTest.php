@@ -91,7 +91,7 @@ class SchoolAdminTeamControlsTest extends TestCase
         $this->actingAsInTenant($instructor, $tenant)->get('/admin')->assertRedirect(route('two-factor.show'));
         $this->actingAsInTenant($instructor, $tenant)->get('/two-factor')->assertOk();
         $this->actingAsInTenant($learner, $tenant)->get('/dashboard')->assertOk();
-        $this->actingAsInTenant($fresh($owner), $tenant)->get('/admin')->assertOk()->assertSee('ohne 2FA');
+        $this->actingAsInTenant($fresh($owner), $tenant)->get('/admin?tab=participants')->assertOk()->assertSee('ohne 2FA');
 
         // Unter der Pflicht lässt sich 2FA nicht selbst abschalten.
         $this->actingAsInTenant($fresh($owner), $tenant)->delete('/two-factor', ['password' => 'geheim123!'])->assertSessionHasErrors('password');

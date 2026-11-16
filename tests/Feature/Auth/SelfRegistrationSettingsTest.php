@@ -104,7 +104,7 @@ class SelfRegistrationSettingsTest extends TestCase
         $owner = $this->createTenantUser($tenant, 'owner');
         $form = ['exam_readiness_threshold_percent' => 50];
 
-        $this->actingAsInTenant($owner, $tenant)->get(route('admin.dashboard'))->assertSee('Selbstregistrierung erlauben');
+        $this->actingAsInTenant($owner, $tenant)->get(route('admin.dashboard', ['tab' => 'branding']))->assertSee('Selbstregistrierung erlauben');
 
         $this->actingAsInTenant($owner, $tenant)->patch(route('admin.branding.update'), $form + ['self_registration_enabled' => '0'])->assertSessionHasNoErrors();
         $this->assertFalse($this->onAdmin(fn () => TenantBranding::find($tenant->id)->self_registration_enabled));
