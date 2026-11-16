@@ -222,6 +222,23 @@ POST /auth/login {email, password, device_name, device_platform?, app_version?}
   Der Link in der Mail führt ins Web. Für einen Deep-Link in die App kann die
   App `POST /auth/password/reset` mit `email`, `token` und neuem Passwort
   aufrufen. `invite: true` gilt für Einladungs-Links.
+* **Altersbestätigung:** Setzt `POST /auth/password/reset` das erste Passwort
+  eines eingeladenen Kontos, das das Mindestalter noch nicht bestätigt hat,
+  ist `age_confirmed: true` Pflicht (wie die Checkbox im Web, einmalig). Dabei
+  werden die Einladungen angenommen und reservierte Zugangscodes eingelöst.
+  Fehlt das Feld: 422 `VALIDATION_FAILED` mit `errors.age_confirmed` -- die App
+  zeigt dann die Checkbox „Ich bin mindestens 16 Jahre alt oder meine
+  Erziehungsberechtigten sind einverstanden.“ und sendet erneut. Gefragt wird
+  erst bei gültigem Token; bereits bestätigte Konten und ein normales
+  Zurücksetzen brauchen das Feld nicht. `user.age_confirmed` (Anmeldung,
+  `GET /me`) zeigt den Stand.
+* **Links aus Mails in der App** (Universal Links/App Links, siehe
+  Abschnitt 13): Passwort festlegen/zurücksetzen (`/reset-password/{token}?email=…`,
+  bei Einladungen mit `&invite=1`) → `POST /auth/password/reset`. Einladung
+  eines bestehenden Kontos (`/invitations/…/accept/…`) und E-Mail-Bestätigung
+  (`/verify-email/…`) haben keinen API-Endpunkt: die App öffnet sie im
+  In-App-Browser (SFSafariViewController bzw. Custom Tabs). Alle Pfade gibt es
+  auch mit Schul-Slug davor (`/<slug>/reset-password/…`).
 * **Webansicht der Schule** (eingebettete WebView, z. B. für Seiten, die es
   in der App nicht gibt): `POST /auth/web-session {redirect}` mit
   `X-Tenant-Slug` liefert eine Einmal-URL.
@@ -807,13 +824,21 @@ entscheidet aber nur anhand von `code`.
     Universal Link (iOS) bzw. App Link (Android) auf die App zeigen
   * `MOBILE_API_IOS_APP_IDS` (`<Team-ID>.<Bundle-ID>`, kommagetrennt) sowie
     `MOBILE_API_ANDROID_PACKAGE` und `MOBILE_API_ANDROID_SHA256_FINGERPRINTS`
-    (kommagetrennt): Die zentrale Domain liefert damit
-    `/.well-known/apple-app-site-association` (nur dieser Pfad) bzw.
+    (kommagetrennt): Die zentrale Domain (bei `TENANT_URL_MODE=subdomain`
+    auch die Schul-Subdomains, nie eigene Domains der Schulen -- dorthin
+    verlinkt keine Mail) liefert damit
+    `/.well-known/apple-app-site-association` bzw.
     `/.well-known/assetlinks.json` aus. Ohne Werte gibt es beide Dateien
-    nicht (404), der Link öffnet dann immer die Webseite. Die App braucht
-    zusätzlich die Associated Domain `applinks:<zentrale Domain>` bzw. einen
-    Intent-Filter mit `autoVerify` für den Pfad. Wer die Dateien statisch
-    ausliefert (Webserver/CDN), lässt die Variablen leer.
+    nicht (404), der Link öffnet dann immer die Webseite.
+  * `MOBILE_API_APP_LINK_PATHS` (kommagetrennt, `*` als Platzhalter): Pfade
+    für iOS. Standard: der Löschpfad, `/reset-password/*`,
+    `/invitations/*/accept/*` und `/verify-email/*/*`; alle außer dem
+    Löschpfad automatisch auch als `/*/…` (Pfad-Modus `/<slug>/…`). Die App
+    braucht zusätzlich die Associated Domain `applinks:<zentrale Domain>`
+    bzw. einen Intent-Filter mit `autoVerify` für dieselben Pfade (Android
+    nennt sie nicht in `assetlinks.json`). Wer die Dateien statisch
+    ausliefert (Webserver/CDN), lässt die Variablen leer
+    (deploy/README.md, Abschnitt 10).
 * **Wartungsmodus** der Plattform (Superadmin-Einstellungen) gilt auch für
   die API (503 `MAINTENANCE`); `GET /app/config` und `GET /health` bleiben
   erreichbar.
