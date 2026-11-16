@@ -103,19 +103,28 @@ class ProductionReadiness
         }
         $add('Konfiguration', 'Cache nicht „array“', config('cache.default') === 'array' ? 'fail' : 'ok', (string) config('cache.default'));
         $add('Konfiguration', 'LOG_LEVEL nicht „debug“', config('logging.channels.'.config('logging.default').'.level') === 'debug' || config('logging.channels.daily.level') === 'debug' ? 'warn' : 'ok');
+        // Ohne Pflicht-2FA reicht für den Superadmin ein geleaktes Passwort (deploy/README.md §1).
+        $add('Konfiguration', 'Zwei-Faktor-Pflicht im Superadmin (SUPERADMIN_REQUIRE_TWO_FACTOR)', config('auth.superadmin_two_factor') ? 'ok' : 'warn', config('auth.superadmin_two_factor') ? '' : 'abgeschaltet: SUPERADMIN_REQUIRE_TWO_FACTOR aus der .env entfernen oder auf true setzen');
         $add('Konfiguration', 'Fehlertracking (SENTRY_LARAVEL_DSN)', config('sentry.dsn') ? 'ok' : 'warn', config('sentry.dsn') ? '' : 'ohne DSN werden Fehler nur ins Log geschrieben');
 
         // --- Mail ----------------------------------------------------------
         $mailer = (string) config('mail.default');
         $host = (string) config("mail.mailers.{$mailer}.host");
-        $mailOk = ! in_array($mailer, ['log', 'array'], true) && ! in_array($host, ['127.0.0.1', 'localhost', 'mailpit', ''], true) || in_array($mailer, ['ses', 'postmark', 'resend', 'mailgun'], true);
-        $add('Mail', 'Echter Mailversand', $mailOk ? 'ok' : 'fail', "Mailer: {$mailer}".($host ? ", Host: {$host}" : ''));
+        $add('Mail', 'Echter Mailversand', self::sendsRealMail($mailer) ? 'ok' : 'fail', "Mailer: {$mailer}".($host ? ", Host: {$host}" : '')
+            .(in_array(config("mail.mailers.{$mailer}.transport"), ['failover', 'roundrobin'], true) ? ' ('.implode(', ', (array) config("mail.mailers.{$mailer}.mailers")).')' : ''));
         $from = (string) config('mail.from.address');
         $add('Mail', 'Absenderadresse', $from && ! str_ends_with($from, '@example.com') ? 'ok' : 'fail', $from ?: 'nicht gesetzt');
 
         // --- Dateien -------------------------------------------------------
         $link = public_path('storage');
-        $add('Dateien', 'Storage-Link (php artisan storage:link)', is_link($link) || is_dir($link) ? 'ok' : 'fail', is_link($link) || is_dir($link) ? '' : 'ohne Link fehlen Logos, Bilder und Kartenausschnitte');
+        $add('Dateien', 'Storage-Link (php artisan storage:link)', is_link($link) || is_dir($link) ? 'ok' : 'fail', is_link($link) || is_dir($link) ? '' : 'ohne Link fehlen Logos und hochgeladene Bilder');
+        // Vite-Build (laravel-vite-plugin 3: public/build/manifest.json). Ohne Manifest
+        // bricht jede Seite mit 500 ab; eine liegengebliebene public/hot aus
+        // „npm run dev“ lädt CSS/JS vom Entwicklungsserver, der produktiv nicht läuft.
+        $manifest = is_file(public_path('build/manifest.json'));
+        $hot = is_file(public_path('hot'));
+        $add('Dateien', 'Frontend-Build (npm run build)', $manifest && ! $hot ? 'ok' : 'fail',
+            ! $manifest ? 'public/build/manifest.json fehlt: npm ci && npm run build' : ($hot ? 'public/hot vom Vite-Entwicklungsserver löschen' : ''));
         $add('Dateien', 'storage/ beschreibbar', is_writable(storage_path('framework')) && is_writable(storage_path('logs')) ? 'ok' : 'fail');
 
         // --- Hintergrunddienste --------------------------------------------
@@ -193,13 +202,20 @@ class ProductionReadiness
             $add('Datenbank', 'App-Rolle nicht Mitglied der Owner-Rolle', $member ? 'fail' : 'ok', $member ? 'sonst greift die Mandantentrennung (RLS) nicht' : '');
             $weak = collect([$app => config('database.connections.pgsql.password'), $owner => config('database.connections.pgsql_admin.password')])
                 ->filter(fn ($pw, $user) => strlen((string) $pw) < 16 || $pw === $user)->keys();
+            // Entfernte Datenbank: ohne Zertifikatsprüfung lassen sich Zugangsdaten und
+            // Inhalte unterwegs mitlesen (Standard „prefer“ prüft nichts, deploy/README.md §1).
+            $dbHost = (string) config('database.connections.pgsql.host');
+            if (! in_array($dbHost, ['', '127.0.0.1', 'localhost', '::1'], true) && ! str_starts_with($dbHost, '/')) {
+                $sslmode = (string) config('database.connections.pgsql.sslmode');
+                $add('Datenbank', 'Verschlüsselte DB-Verbindung (DB_SSLMODE=verify-full)', $sslmode === 'verify-full' ? 'ok' : 'warn', "Host: {$dbHost}, sslmode: {$sslmode}");
+            }
             $add('Datenbank', 'Starke DB-Passwörter (≥ 16 Zeichen)', $weak->isEmpty() ? 'ok' : 'fail', $weak->isEmpty() ? '' : 'zu schwach: '.$weak->implode(', '));
         });
 
         // --- Inhalte und Konten --------------------------------------------
         $safely(function () use ($add) {
             $superadmins = User::on('pgsql_admin')->where('is_superadmin', true)->get();
-            $add('Konten', 'Superadmin vorhanden', $superadmins->isNotEmpty() ? 'ok' : 'fail');
+            $add('Konten', 'Superadmin vorhanden', $superadmins->isNotEmpty() ? 'ok' : 'fail', $superadmins->isNotEmpty() ? '' : 'php artisan app:create-superadmin <E-Mail>');
             $without2fa = $superadmins->reject(fn (User $u) => $u->hasTwoFactor())->count();
             $add('Konten', 'Superadmins mit Zwei-Faktor-Anmeldung', $without2fa === 0 ? 'ok' : 'warn', $without2fa ? "{$without2fa} ohne 2FA" : '');
 
@@ -245,6 +261,25 @@ class ProductionReadiness
         }
 
         return [$freeBytes < $needed ? 'warn' : 'ok', "frei {$gib($freeBytes)}".($freeBytes < $needed ? ", empfohlen mind. {$gib($needed)}" : '')];
+    }
+
+    /**
+     * Verschickt der Mailer wirklich? failover zählt mit echtem ersten Mailer
+     * (Laravel-Standard: smtp, dann log), roundrobin nur, wenn alle echt sind.
+     */
+    private static function sendsRealMail(string $mailer, int $depth = 0): bool
+    {
+        $transport = (string) (config("mail.mailers.{$mailer}.transport") ?? $mailer);
+        $children = array_values((array) config("mail.mailers.{$mailer}.mailers"));
+
+        return match (true) {
+            $depth > 3 => false,
+            in_array($transport, ['ses', 'ses-v2', 'postmark', 'resend', 'mailgun'], true) => true,
+            $transport === 'smtp' => ! in_array((string) config("mail.mailers.{$mailer}.host"), ['127.0.0.1', 'localhost', 'mailpit', ''], true),
+            $transport === 'failover' => $children !== [] && self::sendsRealMail((string) $children[0], $depth + 1),
+            $transport === 'roundrobin' => $children !== [] && collect($children)->every(fn ($child) => self::sendsRealMail((string) $child, $depth + 1)),
+            default => false,
+        };
     }
 
     private static function ago(int $timestamp): string
