@@ -9,6 +9,7 @@ use App\Models\CommerceShopAccount;
 use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
+use App\Workflow\DomainEvents;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
 
@@ -55,6 +56,7 @@ class ShopAccounts
                 'shop_data_updated_at' => now(),
             ]);
             CommerceEvent::logIncoming('account.registered', $account, null, ['status' => $account->status]);
+            DomainEvents::shopAccountRegistered($account);
 
             return $account;
         });
@@ -99,6 +101,7 @@ class ShopAccounts
             CommerceShopAccount::where('tenant_id', $account->tenant_id)->whereNull('shop_customer_id')
                 ->where('provisioning_status', 'needs_link')->where('id', '!=', $account->id)->delete();
             CommerceEvent::logIncoming('account.linked', $account, null, ['tenant_id' => $account->tenant_id]);
+            DomainEvents::shopAccountLinked($account);
 
             return $account;
         });
@@ -125,10 +128,15 @@ class ShopAccounts
     /** Shopkunde gelöscht oder deaktiviert: keine Einkäufe mehr, Historie bleibt. */
     public function deactivate(CommerceShopAccount $account): CommerceShopAccount
     {
+        $changed = ! in_array($account->status, [CommerceShopAccount::REJECTED, CommerceShopAccount::REVOKED], true);
         if ($account->status !== CommerceShopAccount::REJECTED) {
             $account->forceFill(['status' => CommerceShopAccount::REVOKED, 'revoked_at' => now()])->save();
         }
         CommerceEvent::logIncoming('account.deactivated', $account, null, []);
+        // Workflow-Ereignis nur bei einem echten Statuswechsel (Wiederholungen des Shops zählen nicht).
+        if ($changed) {
+            DomainEvents::shopAccountDeactivated($account);
+        }
 
         return $account;
     }

@@ -40,6 +40,11 @@ class OwnerConnectionUsageTest extends TestCase
         'app/Commerce/ShopOrders.php' => 'Bestellungen aus dem Shop: Schule ergibt sich erst aus dem Shopkonto.',
         'app/Http/Controllers/Commerce/CommerceController.php' => 'Code-Batches per Shop-ID/Bestellung nachschlagen (kein Mandantenkontext).',
         'app/Models/CommerceShopAccount.php' => 'Kaufberechtigung prüfen, auch aus Shop-Aufrufen ohne Mandant.',
+        // --- Workflow-Vertrag (signierte Connector-Aufrufe und Ausgang ohne Mandantenkontext, docs/workflow/README.md) ---
+        'app/Http/Middleware/Workflow/VerifyWorkflowSignature.php' => 'Wiedergabeschutz: Nonces des Workflow-Eingangs in der Plattformtabelle workflow_nonce.',
+        'app/Workflow/CommandHandler.php' => 'Schule eines Befehls serverseitig aus dem Gegenstand ermitteln; Idempotenz in workflow_command. Ausführung danach unter RLS.',
+        'app/Workflow/DomainEvents.php' => 'Ereignis in der Owner-Transaktion des Shop-Ausgangs vormerken; Kursschlüssel aus dem Plattform-Katalog (tenant_id NULL).',
+        'app/Workflow/WorkflowDispatcher.php' => 'Ausgangstabelle workflow_event aller Schulen zustellen (Scheduler ohne Mandant).',
         // --- Konsolenbefehle (Cron/Deploy, laufen ohne Mandantenkontext) ---
         'app/Console/Commands/AnonymizeDatabase.php' => 'Staging-Kopie anonymisieren: personenbezogene Daten aller Schulen ersetzen (nie in production).',
         'app/Console/Commands/AuditMissingRequiredImages.php' => 'Inhaltsprüfung über den gesamten Fragenkatalog.',

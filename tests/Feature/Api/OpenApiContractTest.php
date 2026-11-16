@@ -195,7 +195,9 @@ class OpenApiContractTest extends TestCase
         $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator(app_path(), RecursiveDirectoryIterator::SKIP_DOTS));
         foreach ($files as $file) {
             $path = $file->getPathname();
-            if ($file->getExtension() !== 'php' || str_contains($path, DIRECTORY_SEPARATOR.'Commerce'.DIRECTORY_SEPARATOR)) {
+            // Commerce und Workflow-Vertrag haben eigene Verträge (docs/commerce, docs/workflow).
+            if ($file->getExtension() !== 'php' || str_contains($path, DIRECTORY_SEPARATOR.'Commerce'.DIRECTORY_SEPARATOR)
+                || str_contains($path, DIRECTORY_SEPARATOR.'Workflow'.DIRECTORY_SEPARATOR)) {
                 continue;
             }
             $source = (string) file_get_contents($path);

@@ -8,6 +8,7 @@ use App\Models\PlatformSetting;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Support\BestEffortMail;
+use App\Workflow\DomainEvents;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
@@ -189,6 +190,9 @@ class Outbox
                     }
                     $account?->forceFill(['provisioning_status' => 'needs_link', 'provisioning_error' => null])->save();
                     $this->markDone($event);
+                    if ($account?->tenant_id) {
+                        DomainEvents::provisioningSucceeded($event, $account, 'needs_link');
+                    }
                 });
 
                 return;
@@ -210,6 +214,9 @@ class Outbox
                         // Verknüpfung nicht still auf die neue Schule umhängen.
                         $account->forceFill(['provisioning_status' => 'needs_link',
                             'provisioning_error' => 'Das Kundenkonto im Shop kauft bereits für eine andere Bootsschule ein.'])->save();
+                        if ($account->tenant_id) {
+                            DomainEvents::provisioningSucceeded($event, $account, 'needs_link');
+                        }
                     } elseif ($existing) {
                         $existing->forceFill([
                             'user_id' => $account->user_id, 'tenant_id' => $account->tenant_id, 'status' => CommerceShopAccount::LINKED,
@@ -217,8 +224,14 @@ class Outbox
                         ])->save();
                         $event->forceFill(['shop_account_id' => $existing->id])->save();
                         $account->delete();
+                        if ($existing->tenant_id) {
+                            DomainEvents::provisioningSucceeded($event, $existing, 'done');
+                        }
                     } else {
                         $account->forceFill(['shop_customer_id' => (string) $customerId, 'provisioning_status' => 'done', 'provisioning_error' => null])->save();
+                        if ($account->tenant_id) {
+                            DomainEvents::provisioningSucceeded($event, $account, 'done');
+                        }
                     }
                 }
                 $this->markDone($event);
@@ -267,6 +280,9 @@ class Outbox
                 'claimed_at' => null,
             ])->save();
             $account?->forceFill(['provisioning_status' => $final ? 'failed' : 'pending', 'provisioning_error' => mb_substr($e->getMessage(), 0, 1000)])->save();
+            if ($account?->tenant_id) {
+                DomainEvents::provisioningFailed($event, $account, $attempts, $final);
+            }
 
             return true;
         });

@@ -18,6 +18,7 @@ mehrere Schulen oder gar keine Schule betrifft.
 |---|---|---|
 | Superadmin | `Superadmin\*`-Controller (Middleware `admin-db`) | Plattformverwaltung über alle Schulen |
 | Commerce-API | `App\Commerce\*`, `Commerce\CommerceController` | signierte Shop-Aufrufe; die Schule ergibt sich erst aus Shopkonto/Code |
+| Workflow-Vertrag | `App\Workflow\CommandHandler`, `DomainEvents`, `WorkflowDispatcher`, `VerifyWorkflowSignature` | signierte Connector-Aufrufe und Ausgang ohne Mandant; die Schule eines Befehls ergibt sich aus dem Gegenstand, ausgeführt wird danach unter RLS ([docs/workflow/README.md](../workflow/README.md)) |
 | Konsolenbefehle | `app:expire-entitlements`, Importe, Backups | Cron/Deploy ohne Mandantenkontext |
 | Mandantenauflösung & Login | `ResolveTenant`, `EnsureTenantMembership`, Auth-Controller | es gibt noch keinen Mandanten bzw. das Konto ist plattformweit |
 | Mandantenübergreifende Dienste | `AccountErasureService`, `ParticipantInviter`, `InvitationAcceptance`, DSGVO-Export | Konten (`app_user`) und Mitgliedschaften gelten über Schulen hinweg |

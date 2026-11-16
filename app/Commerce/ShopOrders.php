@@ -15,6 +15,7 @@ use App\Models\Tenant;
 use App\Models\TenantCourseDisabled;
 use App\Services\CouponBatchFactory;
 use App\Support\BestEffortMail;
+use App\Workflow\DomainEvents;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -91,6 +92,8 @@ class ShopOrders
             CommerceEvent::logIncoming('batch.delivered', $account, $line['order_id'].':'.$line['order_line_id'], [
                 'batch_id' => $batch->id, 'kind' => $batch->kind, 'quantity' => $batch->quantity,
             ]);
+            // Nur für einen neu angelegten Batch (nie bei einer Wiederholung).
+            DomainEvents::codeBatchDelivered($batch);
 
             return [$batch, true];
         });
@@ -141,6 +144,9 @@ class ShopOrders
                 'correlation_id' => $idempotencyKey, 'payload' => ['batch_id' => $batch->id, 'result' => $result],
                 'status' => 'done', 'created_at' => now(), 'processed_at' => now(),
             ]);
+            if ($voided > 0) {
+                DomainEvents::codeBatchRevoked($batch, $result, $idempotencyKey);
+            }
 
             return $result;
         });
