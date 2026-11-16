@@ -102,7 +102,7 @@ class LearningGroupController extends Controller
     public function show(TenantContext $tenantContext, LearningGroupService $groups, LearningGroup $learningGroup, Request $request): View
     {
         $this->ensureOwnSchool($tenantContext, $learningGroup);
-        $payload = $groups->payload($learningGroup, $request->user());
+        $payload = $groups->payload($learningGroup, $request->user(), exactCodeCounts: true);
         $users = $learningGroup->members->keyBy('id');
         // Mitglieder per Beitrittscode haben keine Adresse am Platz: die des Kontos zeigen.
         $members = collect($payload['members'])->map(fn (array $member) => $member + [

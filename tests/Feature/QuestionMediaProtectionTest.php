@@ -158,6 +158,34 @@ class QuestionMediaProtectionTest extends TestCase
         Storage::disk('local')->delete('question-media/test/'.$name);
     }
 
+    public function test_only_raster_images_are_shown_inline_and_caching_stays_short(): void
+    {
+        [$tenant, $learner] = $this->learnerWithCourse('SBF-SEE');
+        $files = [];
+        $responses = [];
+        foreach (['png' => [$this->png(), 'image/png'], 'svg' => ['<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>', 'image/svg+xml']] as $extension => [$contents, $mime]) {
+            Storage::disk('local')->put($files[$extension] = 'question-media/test/'.Str::uuid().'.'.$extension, $contents);
+            $asset = $this->asset($files[$extension], 'licensed');
+            $this->onAdmin(fn () => MediaAsset::whereKey($asset->id)->update(['mime_type' => $mime]));
+            $this->questionInModule('SBF_BASIS', 'published', $asset);
+            $responses[$extension] = $this->get(QuestionMedia::url($asset, $learner, $tenant))->assertOk();
+        }
+
+        $png = $responses['png'];
+        $this->assertSame('image/png', $png->headers->get('Content-Type'));
+        $this->assertStringStartsWith('inline', (string) $png->headers->get('Content-Disposition'));
+        // Kurz zwischenspeichern: ein entzogener Zugang wirkt im Browser bald.
+        $this->assertMatchesRegularExpression('/(^|\W)max-age=300(\D|$)/', (string) $png->headers->get('Cache-Control'));
+        $this->assertStringContainsString('private', (string) $png->headers->get('Cache-Control'));
+
+        // SVG (kann Skript enthalten) nur als Download, nie inline.
+        $svg = $responses['svg'];
+        $this->assertSame('application/octet-stream', $svg->headers->get('Content-Type'));
+        $this->assertStringStartsWith('attachment', (string) $svg->headers->get('Content-Disposition'));
+
+        Storage::disk('local')->delete(array_values($files));
+    }
+
     public function test_public_media_stay_public_and_unchanged(): void
     {
         [$tenant, $learner] = $this->learnerWithCourse('SBF-SEE');

@@ -164,7 +164,7 @@ Antworten werden 24 Stunden je Konto gespeichert.
 | App-Einstellungen speichern | 60/Min. |
 | Schulbezogene Endpunkte | 240/Min. je Konto |
 | Codes einlösen | 10/Min. |
-| Lerngruppen | Vorschau 30/Min.; Einladen 20 Aufrufe/Std. je Verwalter, je Gruppe und Tag max(20, 2 × Plätze) Einladungen |
+| Lerngruppen | Vorschau 30/Min.; Einladen 20 Aufrufe/Std. je Verwalter, je Gruppe und Tag max(20, 2 × Plätze) Einladungen, je Verwalter und Tag höchstens 200 Einladungen über alle Gruppen (darüber 429 `RATE_LIMITED`) |
 | Datenexport | 5/Std., Download 20/Min. |
 | Ausgelieferte Fragen | 2000 je Konto und Kalendertag (Europe/Berlin), siehe unten |
 
@@ -560,8 +560,10 @@ GET  /exams/{id}/result                 → Ergebnis mit Lösungen
   * **Abrechnung über Kurscodes:** jeder Beitritt verbraucht je Kurs der
     Gruppe einen freien Kurscode aus dem Codebestand der Schule (eigene,
     offene, nicht gesperrte/abgelaufene reine Kurscodes genau dieses Kurses
-    -- keine Verlängerungs-, Produkt- oder plattformweiten Codes und keine
-    Kurscodes mit Zusatzprodukten), auch bei Teilzugang (`capabilities`).
+    -- keine Verlängerungs-, Produkt- oder plattformweiten Codes, keine
+    Kurscodes mit Zusatzprodukten und keine Codes, die die Schule gerade
+    für eine offene Einladung reserviert hat), auch bei Teilzugang
+    (`capabilities`).
     Der Code wird in derselben Transaktion unter Zeilensperre
     (`FOR UPDATE SKIP LOCKED`, bald ablaufende zuerst) beansprucht und als
     eingelöst markiert (`redeemed_by_user_id` = Mitglied, Schule,
@@ -585,11 +587,18 @@ GET  /exams/{id}/result                 → Ergebnis mit Lösungen
     Mitglieder (auch aus der Zeit vor der Abrechnung) werden nicht
     belastet; Entfernen und Gruppenende geben den Code nicht zurück. Die
     Platzzahl bleibt frei wählbar; `course_codes` in `GET /me/groups[/{id}]`
-    zeigt je Kurs die freien Codes der Schule (`free`), die für die noch
+    zeigt je Kurs die freien Codes der Schule (`free`, höchstens `needed`:
+    den genauen Codebestand sieht nur das Team der Schule), die für die noch
     nicht beigetretenen Plätze höchstens nötigen (`needed` = Plätze − aktive
     Mitglieder, Momentaufnahme: Personen mit eigenem Kurszugang verbrauchen
     keinen Code) und `sufficient`, damit die App warnen kann. Die Codes
     teilen sich alle Gruppen und Einlösungen der Schule.
+  * **Entzogener Kurszugang:** hat die Schule der Person einen Kurs der
+    Gruppe bewusst entzogen (Kurszugang `revoked`), ist kein Beitritt
+    möglich -- wie beim Einlösen eines Kurscodes: 409
+    `GROUP_ACCESS_REVOKED`, nichts wird verbraucht, eine persönliche
+    Einladung bleibt offen; die Vorschau meldet `access_revoked: true`
+    (`joinable: false`).
   * **Entfernen** gibt den Platz frei und beendet genau die Gruppen-
     zugänge der Person (`status: expired`, Enddatum jetzt -- kein
     `revoked`, das bleibt der bewussten Sperre durch die Schule
@@ -701,6 +710,7 @@ Der Lernstand ist derselbe wie im Web.
 | 409 | `NAVIGATION_TASK_IN_EXAM` | erst Prüfung beenden (`exam_id` im Fehler) |
 | 409 | `VIDEO_NOT_AVAILABLE` | Platzhalter-Video („Video folgt“): nicht abschließbar, zur nächsten Lektion |
 | 409 | `GROUP_NOT_ACTIVE` | Lerngruppe abgelaufen oder gesperrt |
+| 409 | `GROUP_ACCESS_REVOKED` | Beitritt: die Schule hat der Person einen Kurs der Gruppe entzogen → `detail` anzeigen, an die Bootsschule wenden (Vorschau: `access_revoked: true`) |
 | 409 | `GROUP_NO_CODES` | Beitritt: die Schule hat für einen Kurs der Gruppe, für den die Person keinen eigenen Vollzugang hat, keinen freien Kurscode → an Verwalter/Schule wenden |
 | 410 | `EXAM_EXPIRED` | Prüfung bzw. Ergebnis neu laden |
 | 410 | `EXPORT_EXPIRED` | neuen Export anfordern |

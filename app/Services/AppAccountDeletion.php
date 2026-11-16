@@ -9,6 +9,7 @@ use App\Models\TenantUser;
 use App\Models\User;
 use App\Support\PendingAppAccountDeletion;
 use App\Support\TenantContext;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 
@@ -98,14 +99,24 @@ class AppAccountDeletion
         $this->tenantContext->set(Tenant::find($pending->tenant->id) ?? $pending->tenant);
         try {
             // Den Antrag zuerst entfernen (nur mit dem geprüften Schlüssel): ein zweiter,
-            // gleichzeitiger Aufruf mit demselben Link findet ihn danach nicht mehr, ein
-            // inzwischen neu ausgestellter Link bleibt unberührt.
-            if (ApiAccountDeletionRequest::whereKey($deletion->id)->where('confirm_key_hash', $deletion->confirm_key_hash)->delete() !== 1) {
+            // gleichzeitiger Aufruf mit demselben Link wartet auf diese Zeile und findet sie
+            // danach nicht mehr, ein inzwischen neu ausgestellter Link bleibt unberührt.
+            // Antrag und Löschung in EINER Transaktion: scheitert die Löschung, ist der
+            // Antrag wieder da und der Link aus der Mail weiter gültig (sonst wäre er
+            // verbraucht, ohne dass etwas gelöscht wurde).
+            $done = DB::transaction(function () use ($deletion, $user, $pending, $channel) {
+                if (ApiAccountDeletionRequest::whereKey($deletion->id)->where('confirm_key_hash', $deletion->confirm_key_hash)->delete() !== 1) {
+                    return false;
+                }
+                $this->erasure->leaveTenant($user, $this->tenantContext->tenant());
+                // Nachweis ohne Personenbezug (wie participant.remove im Admin-Bereich).
+                AuditLog::record($pending->tenant->id, null, 'profile.delete', 'tenant_user', null, null, ['channel' => $channel]);
+
+                return true;
+            });
+            if (! $done) {
                 return null;
             }
-            $this->erasure->leaveTenant($user, $this->tenantContext->tenant());
-            // Nachweis ohne Personenbezug (wie participant.remove im Admin-Bereich).
-            AuditLog::record($pending->tenant->id, null, 'profile.delete', 'tenant_user', null, null, ['channel' => $channel]);
         } finally {
             $previous ? $this->tenantContext->set($previous) : $this->tenantContext->clear();
         }

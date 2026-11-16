@@ -195,7 +195,7 @@ class ProtectedMedia
         // public: false -- sonst setzt BinaryFileResponse „Cache-Control: public“.
         return new BinaryFileResponse($file, 200, [
             'Content-Type' => $mime,
-            'Cache-Control' => 'private, max-age=3600',
+            'Cache-Control' => 'private, max-age=300',
             'X-Content-Type-Options' => 'nosniff',
             'Content-Disposition' => $disposition,
             'Content-Security-Policy' => $inline && $mime === 'application/pdf' ? self::PDF_CSP : self::SANDBOX_CSP,

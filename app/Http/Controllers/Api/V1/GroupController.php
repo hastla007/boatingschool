@@ -13,9 +13,11 @@ use Illuminate\Http\Request;
  * Lerngruppen in der App (im Kontext einer Schule): der Verwalter sieht
  * seine Gruppen dieser Schule, lädt per E-Mail ein, entfernt Mitglieder und
  * erneuert den Beitrittscode. Beitreten läuft über POST /coupons/redeem,
- * die Vorschau über GET /groups/join/{token}. course_codes zeigt je Kurs die
- * freien Kurscodes der Schule (jeder Beitritt verbraucht einen), damit die
- * App vor vollen Gruppen ohne Codes warnen kann.
+ * die Vorschau über GET /groups/join/{token}. course_codes zeigt je Kurs, ob
+ * die freien Kurscodes der Schule für die übrigen Plätze reichen (jeder
+ * Beitritt verbraucht einen), damit die App vor vollen Gruppen ohne Codes
+ * warnen kann -- "free" nur bis zum Bedarf der Gruppe gedeckelt, den
+ * genauen Codebestand der Schule erfährt der Verwalter (ein Teilnehmer) nicht.
  */
 class GroupController extends Controller
 {
