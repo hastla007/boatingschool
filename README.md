@@ -131,7 +131,7 @@ auf PostgreSQL, gemäß dem mitgelieferten technischen Konzept
 
 ## Setup (lokal)
 
-Voraussetzungen: PHP 8.3+, Composer, Node 20+, PostgreSQL 16+.
+Voraussetzungen: PHP 8.3+, Composer, Node 22+ (Vite 8 braucht mindestens 20.19 bzw. 22.12), PostgreSQL 16+.
 
 ```bash
 composer install

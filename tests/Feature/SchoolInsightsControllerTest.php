@@ -38,7 +38,7 @@ class SchoolInsightsControllerTest extends TestCase
         return Carbon::parse($local, 'Europe/Berlin')->utc()->format('Y-m-d H:i:sP');
     }
 
-    private function attempt(Tenant $tenant, User $user, string $berlinTime): void
+    private function recordAttempt(Tenant $tenant, User $user, string $berlinTime): void
     {
         $this->onAdmin(function () use ($tenant, $user, $berlinTime) {
             $revision = ContentQuestionRevision::where('editorial_status', 'published')->firstOrFail();
@@ -89,14 +89,14 @@ class SchoolInsightsControllerTest extends TestCase
         }
 
         // 31.10. 23:30 (MEZ) = 22:30 UTC -> Oktober; 01.11. 00:10 (MEZ) = 23:10 UTC am 31.10. -> November.
-        $this->attempt($tenant, $october, '2026-10-31 23:30:00');
-        $this->attempt($tenant, $november, '2026-11-01 00:10:00');
+        $this->recordAttempt($tenant, $october, '2026-10-31 23:30:00');
+        $this->recordAttempt($tenant, $november, '2026-11-01 00:10:00');
         // Kurz nach der Umstellung (25.10. 02:30 MEZ, eine Stunde nach 02:30 MESZ) bleibt Oktober.
-        $this->attempt($tenant, $october, '2026-10-25 02:30:00');
+        $this->recordAttempt($tenant, $october, '2026-10-25 02:30:00');
         // Fensterbeginn in Sommerzeit: 01.06. 00:10 (MESZ) = 31.05. 22:10 UTC zählt zum Juni,
         // 31.05. 23:50 (MESZ) liegt vor dem Fenster.
         $this->examSession($tenant, $june, true, '2026-06-01 00:10:00');
-        $this->attempt($tenant, $tooEarly, '2026-05-31 23:50:00');
+        $this->recordAttempt($tenant, $tooEarly, '2026-05-31 23:50:00');
 
         $response = $this->actingAsInTenant($admin, $tenant)->get('/admin/statistics')->assertOk();
 
@@ -150,7 +150,7 @@ class SchoolInsightsControllerTest extends TestCase
 
         $own = $this->createTenantUser($tenant, 'learner');
         $this->grantEntitlement($tenant, $own, $course);
-        $this->attempt($tenant, $own, '2026-11-10 10:00:00');
+        $this->recordAttempt($tenant, $own, '2026-11-10 10:00:00');
         $this->examSession($tenant, $own, false, '2026-11-10 11:00:00');
         // Zweiter laufender Zugang derselben Person zum selben Kurs: weiterhin EIN Teilnehmer.
         $this->grantEntitlement($tenant, $own, $course);
@@ -162,8 +162,8 @@ class SchoolInsightsControllerTest extends TestCase
         $this->onAdmin(fn () => TenantUser::create(['tenant_id' => $other->id, 'user_id' => $own->id, 'role' => 'learner', 'status' => 'active']));
         foreach ([$foreign, $own] as $learner) {
             $this->grantEntitlement($other, $learner, $course);
-            $this->attempt($other, $learner, '2026-11-11 10:00:00');
-            $this->attempt($other, $learner, '2026-09-11 10:00:00');
+            $this->recordAttempt($other, $learner, '2026-11-11 10:00:00');
+            $this->recordAttempt($other, $learner, '2026-09-11 10:00:00');
             $this->examSession($other, $learner, true, '2026-11-11 11:00:00');
             $questionId = $this->onAdmin(fn () => ContentQuestionRevision::where('editorial_status', 'published')->value('question_id'));
             $this->onAdmin(fn () => Progress::create([
