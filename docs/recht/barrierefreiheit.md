@@ -40,6 +40,10 @@ Bereits umgesetzt (Auswahl):
   ein Suchfeld gewählt (Combobox mit Trefferliste, Pfeiltasten,
   `aria-activedescendant`; Trefferzahl wird angesagt), ohne JavaScript per
   E-Mail-Adresse. Die Schulliste des Betreibers ist seitenweise und durchsuchbar.
+- Dasselbe Suchfeld wählt beim „Zuweisen“ eines Zugangscodes den Teilnehmer
+  (statt einer Auswahlliste mit allen Teilnehmern der Schule); ohne
+  JavaScript genügt die E-Mail-Adresse. Fehler der Zuweisung stehen am Feld
+  des jeweiligen Codes.
 - Bilder in Fragen und Navigationsaufgaben mit Alternativtext; fehlt ein
   gepflegter Alternativtext, wird das Bild als „Abbildung zur Frage (ohne
   Bildbeschreibung)“ angesagt statt als Dekoration versteckt.
@@ -62,11 +66,13 @@ Bereits umgesetzt (Auswahl):
   vor dem Start angekündigt.
 - Per JavaScript eingeblendete Statusmeldungen stehen in Live-Regionen
   (`role="status"`, WCAG 4.1.3): Hinweis „Mehr Plätze als freie Kurscodes“
-  beim Anlegen einer Lerngruppe, Treffer der Verwaltersuche, Rückmeldung des
-  Favoriten-Knopfs (Lern- und Prüfungsmodus), Zähler und Kartenrückseite der
-  Funk-Vokabeln, „Gespeichert.“ nach dem Passwortwechsel; Funkübungen sagen
-  Erkennung, Display und Schritte an. In der Prüfung springt der Fokus nach
-  „Musterantwort anzeigen“ auf die nachgeladene Antwort.
+  beim Anlegen einer Lerngruppe, Treffer der Verwalter- und Teilnehmersuche,
+  Adresse und Zuständigkeit des gewählten Prüfungsausschusses bei den
+  Kursorten, Rückmeldung des Favoriten-Knopfs (Lern- und Prüfungsmodus),
+  Zähler und Kartenrückseite der Funk-Vokabeln, „Gespeichert.“ nach dem
+  Passwortwechsel; Funkübungen sagen Erkennung, Display und Schritte an. In
+  der Prüfung springt der Fokus nach „Musterantwort anzeigen“ auf die
+  nachgeladene Antwort.
 - Systemeinstellung „Bewegung reduzieren“ schaltet Übergänge und Animationen ab.
 - Dunkelmodus; Schriftfarbe auf der Markenfarbe der Schule wird nach Kontrast
   automatisch hell oder dunkel gewählt. Kontraste der Standardfarben im
@@ -100,16 +106,11 @@ Bereits umgesetzt (Auswahl):
 6. **Markenfarben der Schulen**: Schulen wählen ihre Farben selbst; Kontraste
    von Links und Flächen in der Markenfarbe werden nicht vollständig geprüft
    (WCAG 1.4.3, 1.4.11).
-7. **Admin-Bereich, Reiter des Dashboards**: Die Auswahl „Zuweisen“ im Reiter
-   Zugangscodes listet alle Teilnehmer der Schule (bei großen Schulen sehr
-   lang, keine Suche), und die per JavaScript nachgeladenen Angaben zum
-   Prüfungsausschuss bei den Kursorten sind keine Live-Region (WCAG 4.1.3)
-   [wird mit der Überarbeitung der Dashboard-Reiter behoben].
-8. **Superadmin-Bereich** (nur Betreiber): nicht vollständig geprüft
+7. **Superadmin-Bereich** (nur Betreiber): nicht vollständig geprüft
    (Fehlermeldungen sind inzwischen mit dem Feld verknüpft). Die Auswahl der
    Bootsschule (z. B. bei Shopkonten, Codes, Protokoll) ist eine lange Liste
    ohne Suche.
-9. **Lern-App**: [Stand der App gesondert bewerten].
+8. **Lern-App**: [Stand der App gesondert bewerten].
 
 Diese Liste wird bei der Behebung einzelner Punkte aktualisiert.
 

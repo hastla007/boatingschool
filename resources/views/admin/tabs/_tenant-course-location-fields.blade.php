@@ -215,14 +215,20 @@
         </select>
         <x-input-error :messages="$fieldErrors('pruefungsausschuss_id')" class="mt-2" />
 
-        <template x-if="pruefungsausschussId && pruefungsausschussInfo[pruefungsausschussId]">
-            <div class="mt-2 text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/40 rounded-lg p-3 space-y-1">
-                <p x-show="pruefungsausschussInfo[pruefungsausschussId].adresse" x-text="pruefungsausschussInfo[pruefungsausschussId].adresse"></p>
-                <template x-if="pruefungsausschussInfo[pruefungsausschussId].kurse.length">
-                    <p>Zuständig für: <span x-text="pruefungsausschussInfo[pruefungsausschussId].kurse.join(', ')"></span></p>
-                </template>
-            </div>
-        </template>
+        {{-- WCAG 4.1.3: Adresse und Zuständigkeit wechseln mit der Auswahl
+             ohne Seitenwechsel -- die Live-Region steht dauerhaft im DOM
+             (sonst sagen Screenreader den eingefügten Inhalt nicht an) und
+             wird als Ganzes vorgelesen (aria-atomic). --}}
+        <div id="{{ $prefix }}-pruefungsausschuss-details" role="status" aria-live="polite" aria-atomic="true" data-pruefungsausschuss-details>
+            <template x-if="pruefungsausschussId && pruefungsausschussInfo[pruefungsausschussId]">
+                <div class="mt-2 text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/40 rounded-lg p-3 space-y-1">
+                    <p x-show="pruefungsausschussInfo[pruefungsausschussId].adresse"><span class="sr-only">Adresse des Prüfungsausschusses: </span><span x-text="pruefungsausschussInfo[pruefungsausschussId].adresse"></span></p>
+                    <template x-if="pruefungsausschussInfo[pruefungsausschussId].kurse.length">
+                        <p>Zuständig für: <span x-text="pruefungsausschussInfo[pruefungsausschussId].kurse.join(', ')"></span></p>
+                    </template>
+                </div>
+            </template>
+        </div>
     </div>
 
     <div>
