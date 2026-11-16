@@ -34,6 +34,7 @@ größeren WooCommerce-Updates abhaken.
 - [ ] „Mein Konto → Bootsschule verknüpfen“ mehrfach neu laden → im Zugriffsprotokoll der Plattform höchstens ein `GET /accounts/{id}` je 5 Minuten (bzw. 60 s bei Fehler).
 - [ ] Als Shop-Manager (ohne Administratorrechte) angemeldet: Tab „Bootsschule“ unter WooCommerce → Einstellungen fehlt. Als Administrator mit Konstanten in `wp-config.php`: die betroffenen Felder sind nicht editierbar.
 - [ ] Abgelaufener Code (> 15 Minuten) wird abgelehnt.
+- [ ] Konto neu abgleichen: Firma des verknüpften Shopkontos auf der Plattform (Superadmin „Shopkonten“) abweichend setzen, im Shop nichts ändern. Als Administrator im Benutzerprofil „Konto mit der Bootsschul-Plattform neu abgleichen“ → Hinweis „Abgleich eingeplant“, Aktion `bs_connector_sync_account` mit `force` in „Geplante Aktionen“, danach zeigt die Plattform wieder die Firma aus dem Shop. Als Shop-Manager und bei einem nicht registrierten Konto fehlt der Knopf. `wp bs-connector resync <id>` meldet „abgeglichen (HTTP 200)“.
 
 ## 2. Neue Schule über den Shop
 

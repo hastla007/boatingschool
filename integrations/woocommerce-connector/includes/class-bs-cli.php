@@ -1,11 +1,15 @@
 <?php
 
 /**
- * WP-CLI: wp bs-connector reconcile [--days=30]
+ * WP-CLI:
  *
- * Vergleicht Positionen mit Bootsschul-Codes (zugestellt, fehlgeschlagen,
- * storniert) der letzten Tage mit GET /orders/{id}/lines/{line} der Plattform
- * und gibt Abweichungen aus. Ändert nichts.
+ * - wp bs-connector reconcile [--days=30]: vergleicht Positionen mit
+ *   Bootsschul-Codes (zugestellt, fehlgeschlagen, storniert) der letzten Tage
+ *   mit GET /orders/{id}/lines/{line} der Plattform und gibt Abweichungen aus.
+ *   Ändert nichts.
+ * - wp bs-connector resync <user-id|email>...: gleicht Kundenkonten
+ *   ausdrücklich mit der Plattform ab (PATCH /accounts/{id}, ohne
+ *   Prüfsummen-Vergleich).
  */
 defined('ABSPATH') || exit;
 
@@ -94,5 +98,73 @@ final class BS_CLI
             return;
         }
         WP_CLI::success(sprintf('%d Position(en) der letzten %d Tage geprüft, keine Abweichungen.', $checked, $days));
+    }
+
+    /**
+     * Kundenkonten ausdrücklich mit der Plattform abgleichen (PATCH /accounts/{id}),
+     * auch wenn sich die abgeglichenen Felder im Shop nicht geändert haben.
+     *
+     * Sendet sofort (nicht über Action Scheduler), damit das Ergebnis je Konto
+     * hier erscheint. Nach einem Fehler plant das Plugin wie sonst bis zu zwei
+     * Wiederholungen ein; nach dem letzten Fehlschlag geht eine Alarm-Mail.
+     * Beendet sich mit Fehlerstatus, wenn ein Konto nicht abgeglichen wurde.
+     *
+     * ## OPTIONS
+     *
+     * <user>...
+     * : Nutzer-ID oder E-Mail-Adresse des Kundenkontos.
+     *
+     * ## EXAMPLES
+     *
+     *     wp bs-connector resync 42 kunde@example.de
+     *
+     * @when after_wp_load
+     */
+    public function resync(array $args, array $assoc_args): void
+    {
+        if (! class_exists('WooCommerce')) {
+            WP_CLI::error('WooCommerce ist nicht aktiv.');
+        }
+        $failed = 0;
+        foreach ($args as $ref) {
+            [$ok, $message] = self::resync_one((string) $ref);
+            if ($ok) {
+                WP_CLI::log($message);
+            } else {
+                $failed++;
+                WP_CLI::warning($message);
+            }
+        }
+        if ($failed > 0) {
+            WP_CLI::error(sprintf('%d von %d Konto/Konten nicht abgeglichen.', $failed, count($args)));
+        }
+        WP_CLI::success(sprintf('%d Konto/Konten abgeglichen.', count($args)));
+    }
+
+    /**
+     * Ein Konto abgleichen.
+     *
+     * @return array{0: bool, 1: string} Erfolg und Meldung
+     */
+    public static function resync_one(string $ref): array
+    {
+        $user = ctype_digit($ref) ? get_userdata((int) $ref) : (is_email($ref) ? get_user_by('email', $ref) : false);
+        if (! $user) {
+            return [false, sprintf('%s: kein Nutzer gefunden.', $ref)];
+        }
+        $label = sprintf('#%d (%s)', (int) $user->ID, (string) $user->user_email);
+        if (! BS_Accounts::is_registered((int) $user->ID)) {
+            return [false, sprintf('%s: nicht bei der Plattform registriert, übersprungen.', $label)];
+        }
+        $result = BS_Accounts::sync_account('update', (int) $user->ID, 1, true);
+        BS_Log::info('Kontoabgleich per WP-CLI', ['customer_id' => (int) $user->ID, 'result' => $result['result'], 'http_status' => $result['status']]);
+        switch ($result['result']) {
+            case 'synced':
+                return [true, sprintf('%s: abgeglichen (HTTP %d).', $label, (int) $result['status'])];
+            case 'retry':
+                return [false, sprintf('%s: fehlgeschlagen (%s), Wiederholung in 5 Minuten eingeplant.', $label, (string) $result['error'])];
+            default:
+                return [false, sprintf('%s: fehlgeschlagen (%s).', $label, (string) $result['error'])];
+        }
     }
 }
