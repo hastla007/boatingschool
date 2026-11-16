@@ -37,6 +37,10 @@ class LegalPages
         'fehleranalyse' => 'Absatz zur Fehleranalyse (nur mit SENTRY_LARAVEL_DSN, sonst leer)',
         'datensicherung' => 'Absatz zur Datensicherung (Aufbewahrung BACKUP_KEEP_DAYS)',
         'shop' => 'Absatz zum Code-Shop für Bootsschulen (nur mit eingerichteter Shop-Anbindung)',
+        'lerngruppen' => 'Absatz zu Lerngruppen: was Verwalter und Schule sehen, Einladungen (Frist aus LearningGroupService)',
+        'appeinstellungen' => 'Absatz zu den App-Einstellungen je Konto',
+        'webansicht' => 'Absatz zur Anmeldung der Webansicht aus der App (nur mit MOBILE_API_WEB_SESSION_ENABLED, sonst leer)',
+        'appkontoloeschung' => 'Absatz zur Kontolöschung aus der App mit Bestätigung per E-Mail',
         'speicherdauer' => 'Speicherdauer je Datenart (aus den eingestellten Löschfristen)',
     ];
 
@@ -91,7 +95,8 @@ Der Betreiber verarbeitet die Daten im Auftrag der Bootsschule (Auftragsverarbei
 - **Konto:** Name, E-Mail-Adresse, Passwort (verschlüsselt gespeichert), freigeschaltete Kurse, Zeitpunkt der letzten Anmeldung.
 - **Lernen:** Antworten, Lernfortschritt, Ergebnisse der Prüfungssimulation, Übungen im Praxistrainer und in der Funk-Gerätesimulation.
 - **Praxisprüfung und Willkommensbox:** die Angaben im Anmeldeformular, Prüfungstermine sowie die Lieferadresse, wenn du eine Willkommensbox bestellst.
-- **Lern-App:** wenn du die App nutzt, zusätzlich je angemeldetem Gerät der Gerätename, die Plattform (iOS/Android), die App-Version sowie Zeitpunkt der Anmeldung und der letzten Nutzung.
+- **Lern-App:** wenn du die App nutzt, zusätzlich je angemeldetem Gerät der Gerätename, die Plattform (iOS/Android), die App-Version sowie Zeitpunkt der Anmeldung und der letzten Nutzung; außerdem deine App-Einstellungen.
+- **Lerngruppen:** wenn du einer Lerngruppe angehörst oder eine verwaltest, die Gruppe, deine Mitgliedschaft (eingeladen, beigetreten, entfernt) mit Zeitpunkt und die E-Mail-Adressen, an die Einladungen gingen.
 - **Technik:** Server-Protokolle (z. B. IP-Adresse, Zeitpunkt, aufgerufene Seite) für den sicheren Betrieb.
 
 ## 4. Zwecke und Rechtsgrundlagen
@@ -112,35 +117,47 @@ Wenn du einen Funkspruch einsprichst (Gerätesimulation und Funk-Übungen), nutz
 
 Bei der Anmeldung zur Praxisprüfung zeigt eine Karte die Prüfungsorte. Die Kartenkacheln lädt dein Browser von den Servern der OpenStreetMap Foundation (St John's Innovation Centre, Cowley Road, Cambridge, CB4 0WS, Vereinigtes Königreich). Dabei werden deine IP-Adresse und technische Angaben deines Browsers an OpenStreetMap übermittelt; Grundlage ist unser berechtigtes Interesse an einer übersichtlichen Ortsauswahl (Art. 6 Abs. 1 lit. f DSGVO). Für das Vereinigte Königreich besteht ein Angemessenheitsbeschluss der EU-Kommission. Mehr dazu: https://osmfoundation.org/wiki/Privacy_Policy. Den Prüfungsort kannst du auch ohne Karte aus der Liste wählen.
 
-## 8. Lernvideos
+## 8. Lerngruppen
+
+{lerngruppen}
+
+## 9. Lern-App
+
+{appeinstellungen}
+
+{webansicht}
+
+{appkontoloeschung}
+
+## 10. Lernvideos
 
 {videos}
 
-## 9. Fehleranalyse
+## 11. Fehleranalyse
 
 {fehleranalyse}
 
-## 10. Datensicherung
+## 12. Datensicherung
 
 {datensicherung}
 
-## 11. Code-Shop für Bootsschulen
+## 13. Code-Shop für Bootsschulen
 
 {shop}
 
-## 12. Empfänger
+## 14. Empfänger
 
-Deine Daten sehen die Bootsschule und der Betreiber der Plattform. Für Hosting, E-Mail-Versand und die oben genannten Dienste setzen wir Dienstleister ein, die nach Art. 28 DSGVO an unsere Weisungen gebunden sind.
+Deine Daten sehen die Bootsschule und der Betreiber der Plattform. Gehörst du einer Lerngruppe an, sieht deren verwaltende Person die im Abschnitt „Lerngruppen“ genannten Angaben, nicht deinen Lernstand. Für Hosting, E-Mail-Versand und die oben genannten Dienste setzen wir Dienstleister ein, die nach Art. 28 DSGVO an unsere Weisungen gebunden sind.
 
-## 13. Speicherdauer
+## 15. Speicherdauer
 
 {speicherdauer}
 
-## 14. Deine Rechte
+## 16. Deine Rechte
 
-Du hast das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung, Datenübertragbarkeit und Widerspruch (Art. 15 bis 21 DSGVO). Deine Daten kannst du im Profil selbst exportieren, dein Konto dort auch löschen. Außerdem kannst du dich bei einer Datenschutz-Aufsichtsbehörde beschweren.
+Du hast das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung, Datenübertragbarkeit und Widerspruch (Art. 15 bis 21 DSGVO). Deine Daten kannst du im Profil oder in der Lern-App selbst exportieren und dein Konto dort auch löschen. Außerdem kannst du dich bei einer Datenschutz-Aufsichtsbehörde beschweren.
 
-## 15. Kontakt
+## 17. Kontakt
 
 Fragen zum Datenschutz richtest du an: {email}
 MD;

@@ -34,6 +34,7 @@ use App\Http\Controllers\FunkTrainingController;
 use App\Http\Controllers\GeraetesimulationController;
 use App\Http\Controllers\ImpersonationController;
 use App\Http\Controllers\LearningController;
+use App\Http\Controllers\LearningGroupLinkController;
 use App\Http\Controllers\LegalPageController;
 use App\Http\Controllers\MailPreferenceController;
 use App\Http\Controllers\NavigationTaskController;
@@ -86,6 +87,11 @@ Route::get('/{kind}', [LegalPageController::class, 'show'])->whereIn('kind', ['i
 // siehe bootstrap/app.php).
 Route::get('/mail/abmelden/{user}/{category}', [MailPreferenceController::class, 'show'])->middleware(['signed', 'throttle:30,1,mail-unsubscribe'])->name('mail.unsubscribe');
 Route::post('/mail/abmelden/{user}/{category}', [MailPreferenceController::class, 'unsubscribe'])->middleware(['signed', 'throttle:30,1,mail-unsubscribe'])->name('mail.unsubscribe.confirm');
+
+// Beitrittslink einer Lerngruppe (…/gruppe/<code>/ aus der App, siehe
+// LearningGroupService::payload()): Hinweisseite für Browser ohne App, tritt
+// nicht bei. Gedrosselt wie die Vorschau der App (api-group-preview).
+Route::get('/gruppe/{code}', [LearningGroupLinkController::class, 'show'])->where('code', '[A-Za-z0-9]{1,64}')->middleware('throttle:30,1,web-group-link')->name('learning-group-link.show');
 
 // „Als Nutzer ansehen“ (Support): Einmal-Link des Superadmins einlösen bzw. beenden.
 Route::get('/impersonate/{token}', [ImpersonationController::class, 'consume'])->where('token', '[A-Za-z0-9]{48}')->middleware('throttle:20,1')->name('impersonate.consume');

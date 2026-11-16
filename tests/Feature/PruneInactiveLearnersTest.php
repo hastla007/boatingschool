@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Api\DeviceSessions;
+use App\Models\Entitlement;
 use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
@@ -232,5 +233,109 @@ class PruneInactiveLearnersTest extends TestCase
         $this->assertNotNull($event);
         $this->assertTrue($event->onOneServer);
         $this->assertTrue($event->withoutOverlapping);
+    }
+
+    /** Lerngruppe der Schule (ohne Beitritte/Codes, nur die Zeile). */
+    private function learningGroup(Tenant $tenant, ?User $owner, string $status = 'active'): string
+    {
+        $id = (string) Str::uuid();
+        $this->onAdmin(fn () => DB::table('learning_group')->insert([
+            'id' => $id, 'tenant_id' => $tenant->id, 'owner_user_id' => $owner?->id, 'name' => 'Testgruppe', 'status' => $status,
+            'seats' => 5, 'scopes' => json_encode([['course_code' => 'SBF-SEE', 'feature' => 'course']]),
+            'join_code' => 'g'.bin2hex(random_bytes(16)), 'created_at' => now()->subMonths(13), 'updated_at' => now()->subMonths(13),
+        ]));
+
+        return $id;
+    }
+
+    public function test_group_joins_web_view_logins_app_settings_and_exam_answers_count_as_activity(): void
+    {
+        $tenant = $this->createTestTenant();
+        $joined = $this->inactiveLearner($tenant);
+        $webLogin = $this->inactiveLearner($tenant);
+        $settings = $this->inactiveLearner($tenant);
+        $examAnswer = $this->inactiveLearner($tenant);
+        $control = $this->inactiveLearner($tenant);
+
+        $groupId = $this->learningGroup($tenant, null);
+        $this->onAdmin(function () use ($tenant, $groupId, $joined, $webLogin, $settings, $examAnswer) {
+            DB::table('learning_group_member')->insert([
+                'tenant_id' => $tenant->id, 'group_id' => $groupId, 'user_id' => $joined->id, 'status' => 'removed',
+                'joined_at' => now()->subMonths(2), 'created_at' => now()->subMonths(2), 'updated_at' => now()->subMonths(2),
+            ]);
+
+            // Gerätesitzung lange unbenutzt, aber vor drei Tagen die Webansicht geöffnet.
+            $device = app(DeviceSessions::class)->issue($webLogin, 'Testgerät', 'ios', '1.0')['session'];
+            DB::table('api_device_session')->where('id', $device->id)->update(['last_used_at' => now()->subMonths(13)]);
+            DB::table('app_user')->where('id', $webLogin->id)->update(['last_login_at' => null]);
+            DB::table('api_mobile_web_session')->insert([
+                'tenant_id' => $tenant->id, 'user_id' => $webLogin->id, 'api_device_session_id' => $device->id,
+                'code_hash' => hash('sha256', Str::random()), 'verifier_hash' => hash('sha256', 'v'), 'redirect_path' => '/dashboard',
+                'expires_at' => now()->subDays(3)->addMinute(), 'used_at' => now()->subDays(3), 'created_at' => now()->subDays(3),
+            ]);
+
+            DB::table('api_user_setting')->insert([
+                'user_id' => $settings->id, 'settings' => '{}', 'created_at' => now()->subMonths(13), 'updated_at' => now()->subWeek(),
+            ]);
+
+            // Prüfung vor 13 Monaten begonnen, Antwort aber kürzlich gegeben.
+            $ruleSet = DB::table('exam_rule_set')->first();
+            $revision = DB::table('content_question_revision')->first();
+            $sessionId = (string) Str::uuid();
+            DB::table('exam_session')->insert([
+                'id' => $sessionId, 'tenant_id' => $tenant->id, 'user_id' => $examAnswer->id, 'course_id' => $ruleSet->course_id,
+                'rule_set_id' => $ruleSet->id, 'status' => 'running', 'started_at' => now()->subMonths(13), 'created_at' => now()->subMonths(13),
+            ]);
+            DB::table('exam_session_question')->insert([
+                'tenant_id' => $tenant->id, 'exam_session_id' => $sessionId, 'question_id' => $revision->question_id,
+                'revision_id' => $revision->id, 'position' => 1, 'answered_at' => now()->subWeek(), 'flagged' => true,
+            ]);
+        });
+
+        $this->artisan('app:prune-inactive-learners')->assertExitCode(0);
+
+        foreach ([$joined, $webLogin, $settings, $examAnswer] as $user) {
+            $this->assertNull($this->fresh($user)->inactivity_warned_at);
+            Notification::assertNotSentTo($user, InactiveAccountDeletionWarning::class);
+        }
+        $this->assertNotNull($this->fresh($control)->inactivity_warned_at);
+    }
+
+    public function test_group_seats_group_managers_and_open_app_deletion_requests_are_left_alone(): void
+    {
+        $tenant = $this->createTestTenant();
+        $seat = $this->inactiveLearner($tenant);
+        $manager = $this->inactiveLearner($tenant);
+        $formerManager = $this->inactiveLearner($tenant);
+        $requested = $this->inactiveLearner($tenant);
+
+        $groupId = $this->learningGroup($tenant, $manager);
+        $this->learningGroup($tenant, $formerManager, 'revoked');
+        $this->onAdmin(function () use ($tenant, $seat, $groupId, $requested) {
+            // Platz in einer Lerngruppe = Gruppenzugang (Entitlement, source_type "group").
+            Entitlement::create([
+                'tenant_id' => $tenant->id, 'user_id' => $seat->id, 'course_id' => $this->existingCourse('SBF-SEE')->id,
+                'status' => 'active', 'source_type' => 'group', 'source_reference' => 'group:'.$groupId.':'.Str::uuid(),
+                'valid_from' => now()->subMonths(13), 'valid_until' => null,
+            ]);
+            DB::table('api_account_deletion_request')->insert([
+                'tenant_id' => $tenant->id, 'user_id' => $requested->id, 'confirm_key_hash' => hash('sha256', 'k'),
+                'requested_at' => now()->subDays(4), 'expires_at' => now()->addDays(3),
+            ]);
+        });
+
+        $this->artisan('app:prune-inactive-learners')->assertExitCode(0);
+
+        foreach ([$seat, $manager, $requested] as $user) {
+            $this->assertNull($this->fresh($user)->inactivity_warned_at);
+            Notification::assertNotSentTo($user, InactiveAccountDeletionWarning::class);
+        }
+        $this->assertNotNull($this->fresh($formerManager)->inactivity_warned_at, 'beendete Gruppe schützt nicht');
+
+        // Nach Ablauf des Löschantrags gilt wieder die normale Frist.
+        $this->travel(4)->days();
+        $this->artisan('app:prune-inactive-learners')->assertExitCode(0);
+        $this->assertNotNull($this->fresh($requested)->inactivity_warned_at);
+        $this->assertNull($this->fresh($manager)->inactivity_warned_at);
     }
 }

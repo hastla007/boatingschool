@@ -7,7 +7,7 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-slate-100 dark:bg-slate-900 min-h-screen flex items-center justify-center p-6">
-    <div class="text-center max-w-md">
+    <main id="inhalt" class="text-center max-w-md">
         <div class="w-14 h-14 rounded-full bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center mx-auto mb-4">
             <x-icon name="bolt" class="w-7 h-7 text-amber-400" />
         </div>
@@ -18,6 +18,6 @@
                 Fragen? <a href="mailto:{{ $supportEmail }}" class="underline">{{ $supportEmail }}</a>
             </p>
         @endif
-    </div>
+    </main>
 </body>
 </html>

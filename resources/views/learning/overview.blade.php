@@ -14,7 +14,7 @@
 
     <div class="max-w-3xl mx-auto space-y-4">
         <div class="flex items-center gap-3">
-            <div class="flex-1 bg-slate-100 dark:bg-slate-700 rounded-full h-2">
+            <div class="flex-1 bg-slate-100 dark:bg-slate-700 rounded-full h-2" aria-hidden="true">
                 <div class="h-2 rounded-full" style="width: {{ $overallPercent }}%; background-color: var(--brand-secondary, #007A7A)"></div>
             </div>
             <span class="text-sm font-medium text-slate-600 dark:text-slate-300 shrink-0">{{ $overallPercent }}%</span>
@@ -39,13 +39,13 @@
         <div class="space-y-2">
             @foreach ($moduleGroups as $group)
                 <div x-data="{ open: {{ $loop->first ? 'true' : 'false' }} }" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden">
-                    <button type="button" x-on:click="open = !open"
+                    <button type="button" x-on:click="open = !open" :aria-expanded="open" aria-controls="lernbereich-{{ $group['module']->id }}"
                             class="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
                         <span class="flex-1 font-medium text-slate-700 dark:text-slate-200">{{ $group['module']->name }}</span>
                         <span class="text-xs text-slate-600 dark:text-slate-400 shrink-0">{{ $group['mastered'] }}/{{ $group['total'] }} &middot; {{ $group['percent'] }}%</span>
                         <x-icon name="chevron-right" class="w-4 h-4 text-slate-600 dark:text-slate-400 shrink-0 transition-transform" x-bind:class="open ? 'rotate-90' : ''" />
                     </button>
-                    <div x-show="open" x-transition class="px-4 pb-4 grid sm:grid-cols-2 gap-2">
+                    <div id="lernbereich-{{ $group['module']->id }}" x-show="open" x-transition class="px-4 pb-4 grid sm:grid-cols-2 gap-2">
                         @foreach ($group['topics'] as $topicEntry)
                             <a href="{{ route('learning.show', ['course' => $course, 'mode' => 'topic', 'module' => $group['module']->id, 'topic' => $topicEntry['topic']]) }}"
                                class="flex items-center gap-3 rounded-xl px-3 py-3 bg-white dark:bg-slate-700/50 border border-slate-100 dark:border-slate-600 shadow-sm hover:shadow-md transition">
@@ -63,12 +63,12 @@
 
             @if ($praxisCategories->isNotEmpty())
                 <div x-data="{ open: false }" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden">
-                    <button type="button" x-on:click="open = !open"
+                    <button type="button" x-on:click="open = !open" :aria-expanded="open" aria-controls="lernbereich-praxis"
                             class="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
                         <span class="flex-1 font-medium text-slate-700 dark:text-slate-200">Trainer für die praktische Prüfung</span>
                         <x-icon name="chevron-right" class="w-4 h-4 text-slate-600 dark:text-slate-400 shrink-0 transition-transform" x-bind:class="open ? 'rotate-90' : ''" />
                     </button>
-                    <div x-show="open" x-transition class="px-4 pb-4 grid sm:grid-cols-2 gap-2">
+                    <div id="lernbereich-praxis" x-show="open" x-transition class="px-4 pb-4 grid sm:grid-cols-2 gap-2">
                         @foreach ($praxisCategories as $entry)
                             <a href="{{ route('praxistrainer.index', ['course' => $course, 'kategorie' => $entry['kategorie']]) }}"
                                class="flex items-center gap-3 rounded-xl px-3 py-3 bg-white dark:bg-slate-700/50 border border-slate-100 dark:border-slate-600 shadow-sm hover:shadow-md transition">

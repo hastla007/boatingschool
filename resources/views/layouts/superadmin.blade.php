@@ -5,7 +5,11 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
-        <title>Superadmin &middot; {{ \App\Models\PlatformSetting::siteName() }}</title>
+        {{-- Seitentitel mit der Seitenüberschrift (WCAG 2.4.2), siehe layouts/app.blade.php. --}}
+        @php($superadminHeading = isset($header) && preg_match('/<h[12][^>]*>(.*?)<\/h[12]>/s', (string) $header, $superadminHeadingMatch)
+            ? \Illuminate\Support\Str::limit(trim(preg_replace('/\s+/', ' ', html_entity_decode(strip_tags($superadminHeadingMatch[1])))), 70)
+            : '')
+        <title>{{ $superadminHeading !== '' ? $superadminHeading.' · ' : '' }}Superadmin &middot; {{ \App\Models\PlatformSetting::siteName() }}</title>
 
         {{-- Bug-Review (Fonts von fonts.bunny.net ohne Einwilligung): siehe
              layouts/app.blade.php -- Figtree wird jetzt selbst gehostet über
@@ -20,7 +24,7 @@
              Screenreader-Nutzer musste bisher jeden Menüpunkt der
              Superadmin-Navigation einzeln durchtaben, um zum eigentlichen
              Seiteninhalt zu gelangen. --}}
-        <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-2 focus:left-2 focus:px-4 focus:py-2 focus:rounded-lg focus:bg-white focus:text-slate-900 focus:shadow-lg">Zum Hauptinhalt springen</a>
+        <a href="#inhalt" class="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-2 focus:left-2 focus:px-4 focus:py-2 focus:rounded-lg focus:bg-white focus:text-slate-900 focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">Zum Inhalt springen</a>
         <div class="min-h-screen bg-slate-100 dark:bg-slate-950">
             {{--
                 Bug-Review (Hoch): die gesamte Navigation steckte bisher in
@@ -131,17 +135,19 @@
                 </div>
             </nav>
 
+            {{-- Skip-Link-Ziel inkl. Seitenüberschrift, siehe layouts/app.blade.php. --}}
+            <main id="inhalt" tabindex="-1" class="focus:outline-none">
             @isset($header)
-                <header class="bg-white dark:bg-slate-900 shadow-sm">
+                <div class="bg-white dark:bg-slate-900 shadow-sm">
                     <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
                         {{ $header }}
                     </div>
-                </header>
+                </div>
             @endisset
 
-            <main id="main-content" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
                 @if (session('status'))
-                    <div class="mb-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 text-sm dark:bg-emerald-900/30 dark:border-emerald-800 dark:text-emerald-300 flex items-center justify-between gap-4 flex-wrap">
+                    <div role="status" class="mb-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 text-sm dark:bg-emerald-900/30 dark:border-emerald-800 dark:text-emerald-300 flex items-center justify-between gap-4 flex-wrap">
                         <span>{{ session('status') }}</span>
                         @if (session('generatedCodes'))
                             <a href="data:text/plain;charset=utf-8,{{ rawurlencode(implode("\n", session('generatedCodes'))) }}"
@@ -154,6 +160,7 @@
                 @endif
 
                 {{ $slot }}
+            </div>
             </main>
 
             <x-site-footer />

@@ -29,7 +29,7 @@ class AccessibleNavigationTest extends TestCase
         $response = $this->actingAsInTenant($learner, $tenant)->get('/dashboard');
 
         $response->assertOk();
-        $response->assertSeeInOrder(['href="#main-content"', 'Zum Hauptinhalt springen', 'id="main-content"'], false);
+        $response->assertSeeInOrder(['href="#inhalt"', 'Zum Inhalt springen', '<main id="inhalt" tabindex="-1"'], false);
     }
 
     public function test_guest_layout_has_a_skip_link_targeting_the_main_content(): void
@@ -39,7 +39,7 @@ class AccessibleNavigationTest extends TestCase
         $response = $this->withSession(['dev_tenant_slug' => $tenant->slug])->get('/login');
 
         $response->assertOk();
-        $response->assertSeeInOrder(['href="#main-content"', 'id="main-content"'], false);
+        $response->assertSeeInOrder(['href="#inhalt"', 'Zum Inhalt springen', '<main id="inhalt" tabindex="-1"'], false);
     }
 
     public function test_superadmin_layout_has_a_skip_link_targeting_the_main_content(): void
@@ -49,7 +49,7 @@ class AccessibleNavigationTest extends TestCase
         $response = $this->actingAs($admin)->get('/superadmin');
 
         $response->assertOk();
-        $response->assertSeeInOrder(['href="#main-content"', 'id="main-content"'], false);
+        $response->assertSeeInOrder(['href="#inhalt"', 'Zum Inhalt springen', '<main id="inhalt" tabindex="-1"'], false);
     }
 
     public function test_dropdown_menus_expose_aria_roles_and_state(): void

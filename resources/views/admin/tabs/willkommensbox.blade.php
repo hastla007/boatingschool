@@ -22,7 +22,7 @@
         @endif
     </form>
     {{-- relative: hält die absolut positionierten sr-only-Labels im Scrollbereich (sonst 498px breite Seite am Handy). --}}
-    <div class="overflow-x-auto relative">
+    <div tabindex="0" role="region" aria-label="Tabelle: Willkommensbox-Bestellungen (seitlich scrollbar)" class="overflow-x-auto relative">
     <table class="w-full text-sm">
         <thead class="bg-slate-50 dark:bg-slate-700 text-slate-500 dark:text-slate-300 text-left">
             <tr>
@@ -30,7 +30,7 @@
                 <th class="px-4 py-2">Lieferadresse</th>
                 <th class="px-4 py-2">Bestellt am</th>
                 <th class="px-4 py-2">Status</th>
-                <th class="px-4 py-2"></th>
+                <th class="px-4 py-2"><span class="sr-only">Aktionen</span></th>
             </tr>
         </thead>
         <tbody>
@@ -44,7 +44,7 @@
                             <span class="text-slate-700 dark:text-slate-200">{{ $order->user->display_name ?? $order->user->email }}</span>
                         </a>
                     </td>
-                    <td class="px-4 py-2 text-slate-600 dark:text-slate-300">{{ $order->street }}, {{ $order->postal_code }} {{ $order->city }}</td>
+                    <td class="px-4 py-2 text-slate-600 dark:text-slate-300">@if ($order->addressRemoved())<span class="text-slate-500 dark:text-slate-400 italic">Adresse nach Versand gelöscht (Löschfrist)</span>@else{{ $order->street }}, {{ $order->postal_code }} {{ $order->city }}@endif</td>
                     <td class="px-4 py-2 text-slate-500 dark:text-slate-400 text-xs whitespace-nowrap">{{ \App\Support\GermanTime::format($order->created_at, 'd.m.Y H:i') }}</td>
                     <td class="px-4 py-2">
                         @if ($order->isShipped())
@@ -71,7 +71,7 @@
                                 </button>
                             </form>
                         @endif
-                        @if (! empty($willkommensboxLabelSizes))
+                        @if (! empty($willkommensboxLabelSizes) && ! $order->addressRemoved())
                             @foreach ($willkommensboxLabelSizes as $size)
                                 <a href="{{ route('admin.willkommensbox-orders.label', [$order, $size]) }}" class="ms-1.5 text-xs hover:underline" style="color: var(--brand-primary, #005FD7)">{{ strtoupper($size) }}</a>
                             @endforeach

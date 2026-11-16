@@ -29,8 +29,11 @@ Pflichten zur Löschung und Rückgabe (§ 10) gelten darüber hinaus.
 Videokurs, Navigations-, Praxis- und Funktrainer), Verwaltung der Teilnehmenden
 und Freischaltungen, Organisation der Praxisprüfung (Anmeldeformular,
 Terminvorschläge), Bestellung und Versand der Willkommensbox, Versand von
-E-Mails der Bootsschule (Einladungen, Erinnerungen, Mitteilungen), Betrieb der
-Lern-App, Datensicherung, Fehleranalyse und Support.
+E-Mails der Bootsschule (Einladungen, Erinnerungen, Mitteilungen), Lerngruppen
+(Gruppenlizenzen mit Verwalter und Plätzen, abgerechnet über Kurscodes der
+Bootsschule), Betrieb der Lern-App (einschließlich App-Einstellungen,
+Anmeldung der Webansicht aus der App und Kontolöschung aus der App),
+Datensicherung, Fehleranalyse und Support.
 
 (2) **Art der Verarbeitung**: Erheben, Speichern, Organisieren, Auslesen,
 Abfragen, Übermitteln (an die Bootsschule und die Unterauftragsverarbeiter nach
@@ -40,7 +43,8 @@ Anlage 1), Einschränken, Löschen.
 
 - Lernende der Bootsschule, **auch Minderjährige ab 14 Jahren**,
 - Mitarbeitende der Bootsschule (Inhaber, Admins, Ausbilder),
-- eingeladene, noch nicht registrierte Personen.
+- eingeladene, noch nicht registrierte Personen (auch von Verwaltern einer
+  Lerngruppe eingeladene Personen).
 
 (4) **Kategorien personenbezogener Daten**:
 
@@ -51,7 +55,8 @@ Anlage 1), Einschränken, Löschen.
 | Lerndaten | Antworten, Lernstand, Prüfungssimulationen, Navigations-, Praxis- und Funkübungen, Videofortschritt, Favoriten (`attempt`, `progress`, `exam_session`, `navigation_progress`, `praxis_progress`, `radio_training_progress`, `video_progress`, `favorite*`) |
 | Praxisprüfung | Formularangaben, Termine und Rückmeldungen (`praxis_form_submission`, `praxis_exam_appointment`, `course_exam_registration`) |
 | Willkommensbox | Lieferadresse, Versandstatus (`willkommensbox_order`) |
-| Lern-App | Gerätename, Plattform, App-Version, Zeitpunkte der Nutzung (`api_device_session`) |
+| Lerngruppen | Gruppe, Verwalter, Mitgliedschaften und Einladungsadressen mit Status und Zeitpunkten (`learning_group`, `learning_group_member`); der Verwalter (ein Lernender) sieht Namen, Einladungsadressen und Status, keine Lerndaten |
+| Lern-App | Gerätename, Plattform, App-Version, Zeitpunkte der Nutzung (`api_device_session`); App-Einstellungen je Konto (`api_user_setting`); Einmal-Codes der Webansicht (`api_mobile_web_session`, nur Hashes); offene Löschanträge (`api_account_deletion_request`, nur Hash des Bestätigungsschlüssels) |
 | Technische Daten | Sitzungen, IP-Adressen in Server-Protokollen, Änderungsprotokoll (`sessions`, Logdateien, `audit_log`) |
 
 Besondere Kategorien nach Art. 9 DSGVO werden nicht planmäßig verarbeitet.
@@ -82,8 +87,9 @@ protokolliert.
 weiterentwickeln, sofern das Schutzniveau nicht unterschritten wird.
 
 (3) Unterstützung bei Betroffenenrechten (Art. 12–23 DSGVO): Die Plattform
-stellt dafür bereit: Datenexport je Person (Profil bzw. Teilnehmerverwaltung),
-Löschung von Teilnehmern durch die Bootsschule, Selbstlöschung im Profil,
+stellt dafür bereit: Datenexport je Person (Profil, Lern-App bzw.
+Teilnehmerverwaltung), Löschung von Teilnehmern durch die Bootsschule,
+Selbstlöschung im Profil und in der Lern-App (mit Bestätigung per E-Mail),
 Berichtigung im Profil bzw. durch die Schule. Darüber hinausgehende
 Unterstützung: [Vergütungsregel].
 
@@ -151,7 +157,7 @@ Lernstände, Anmeldungen, Bestellungen, Protokoll, Logo). Konten, die keiner
 anderen Schule mehr angehören, werden gelöscht (`TenantOffboardingService`).
 
 (2) Kopien in Datensicherungen werden mit Ablauf der Aufbewahrung (14 Tage)
-gelöscht. Gesetzliche Aufbewahrungspflichten des Auftragsverarbeiters bleiben
+gelöscht; externe Kopien liegen dort nur verschlüsselt (Anlage 2). Gesetzliche Aufbewahrungspflichten des Auftragsverarbeiters bleiben
 unberührt.
 
 ## § 11 Haftung
@@ -172,10 +178,10 @@ Datenschutzfragen dem Hauptvertrag vor. Gerichtsstand: [Ort].
 | Dienst | Anbieter | Sitz / Ort der Verarbeitung | Daten | Drittland/Garantie | Pflicht? |
 |---|---|---|---|---|---|
 | Hosting (Server, Datenbank, Uploads) | [Hosting-Anbieter] | [Land, Rechenzentrum EU] | alle oben genannten | – | ja |
-| E-Mail-Versand (SMTP) | [Mail-Anbieter, z. B. EU-Region] | [Land] | E-Mail-Adresse, Name, Inhalt der Mails (Einladungen, Passwort-Links, Erinnerungen) | [–/SCC] | ja |
+| E-Mail-Versand (SMTP) | [Mail-Anbieter, z. B. EU-Region] | [Land] | E-Mail-Adresse, Name, Inhalt der Mails (Einladungen, auch in Lerngruppen mit Name des Verwalters, Passwort-Links, Erinnerungen, Bestätigung der Kontolöschung aus der App) | [–/SCC] | ja |
 | Fehleranalyse | [Sentry: Functional Software, Inc., USA, EU-Region Frankfurt] bzw. selbst betrieben | [EU (de.sentry.io)] | technische Fehlerberichte ohne IP-Adresse, ohne Formularinhalte; E-Mail-Adressen entfernt | [DPF/SCC bei US-Region] | **optional** (nur mit `SENTRY_LARAVEL_DSN`) |
 | Videohosting | [Videohoster] | [Land] | IP-Adresse und Geräteangaben beim Abspielen | [ggf. SCC] | ja, sobald echte Videos hinterlegt sind (`PRIVACY_VIDEO_PROVIDER`) |
-| Externer Sicherungsspeicher | [Speicheranbieter, z. B. S3-kompatibel] | [Land EU] | vollständige Datensicherung (14 Tage) | – | empfohlen (`BACKUP_DISK`) |
+| Externer Sicherungsspeicher | [Speicheranbieter, z. B. S3-kompatibel] | [Land EU] | vollständige Datensicherung (14 Tage), vor dem Hochladen clientseitig verschlüsselt (`BACKUP_ENCRYPTION_PUBLIC_KEY`); der Anbieter hat keinen Schlüssel | – | empfohlen (`BACKUP_DISK`) |
 | B2B-Shop (WooCommerce) | [Shop-Hosting] / Betreiber | [Land] | nur Shopkonten der Schulen (Mitarbeitende), keine Lerndaten | – | nur mit Shop-Anbindung; Verarbeitung für eigene Zwecke des Betreibers, siehe [vvt.md](vvt.md) |
 
 Keine Auftragsverarbeiter, aber Empfänger beim Aufruf durch die Lernenden selbst:
@@ -183,6 +189,11 @@ OpenStreetMap Foundation (Kartenkacheln bei der Praxisanmeldung, Browser lädt
 direkt) und der Anbieter des jeweiligen Browsers bei freiwilliger
 Spracherkennung (Web Speech API). Have I Been Pwned erhält beim Setzen eines
 Passworts nur die ersten fünf Zeichen eines Hashes (kein Personenbezug).
+Ein externer Totmann-Dienst ([z. B. healthchecks.io], `OPS_HEARTBEAT_URL`,
+`OPS_BACKUP_HEARTBEAT_URL`) erhält nur Pings des Servers ohne
+personenbezogene Daten und ist deshalb kein Unterauftragsverarbeiter [prüfen].
+Prüfungsstellen (z. B. für die Selbstanmeldung zur amtlichen Prüfung) erhalten
+von der Plattform keine Daten; die App zeigt nur Anleitung und Links.
 
 ## Anlage 2: Technische und organisatorische Maßnahmen
 

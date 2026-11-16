@@ -1,9 +1,10 @@
-{{-- Zwei-Faktor-Anmeldung einrichten bzw. abschalten (TwoFactorController). --}}
+{{-- Zwei-Faktor-Anmeldung einrichten bzw. abschalten (TwoFactorController).
+     $formal: Team/Superadmin siezen, Teilnehmer duzen (User::prefersFormalAddress()). --}}
 <x-guest-layout>
     <h2 class="text-xl font-bold text-slate-800 dark:text-white mb-1">Zwei-Faktor-Anmeldung</h2>
     <p class="text-sm text-slate-600 dark:text-slate-400 mb-4">
         Zusätzlich zum Passwort fragt die Anmeldung nach einem Code aus einer Authenticator-App
-        (z. B. Google Authenticator, Microsoft Authenticator, 1Password). Das schützt dein Konto, auch wenn jemand dein Passwort kennt.
+        (z. B. Google Authenticator, Microsoft Authenticator, 1Password). {{ $formal ? 'Das schützt Ihr Konto, auch wenn jemand Ihr Passwort kennt.' : 'Das schützt dein Konto, auch wenn jemand dein Passwort kennt.' }}
     </p>
 
     <x-auth-session-status class="mb-4" :status="session('status')" />
@@ -21,12 +22,12 @@
     @endif
 
     @if ($enabled)
-        <p class="text-sm mb-4"><span class="inline-block px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-semibold">aktiv</span> Deine Anmeldung ist mit einem zweiten Faktor geschützt.</p>
+        <p class="text-sm mb-4"><span class="inline-block px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-semibold">aktiv</span> {{ $formal ? 'Ihre' : 'Deine' }} Anmeldung ist mit einem zweiten Faktor geschützt.</p>
         <form method="POST" action="{{ route('two-factor.disable') }}" class="space-y-3">
             @csrf
             @method('DELETE')
             <div>
-                <x-input-label for="password" value="Zum Ausschalten dein Passwort" />
+                <x-input-label for="password" :value="$formal ? 'Zum Ausschalten Ihr Passwort' : 'Zum Ausschalten dein Passwort'" />
                 <x-text-input id="password" class="block mt-1 w-full" type="password" name="password" required autocomplete="current-password" />
                 <x-input-error :messages="$errors->get('password')" class="mt-2" />
             </div>
@@ -59,7 +60,7 @@
         <form method="POST" action="{{ route('two-factor.enable') }}" class="space-y-3">
             @csrf
             <div>
-                <x-input-label for="enable-password" value="Zum Einrichten dein Passwort" />
+                <x-input-label for="enable-password" :value="$formal ? 'Zum Einrichten Ihr Passwort' : 'Zum Einrichten dein Passwort'" />
                 <x-text-input id="enable-password" class="block mt-1 w-full" type="password" name="password" required autocomplete="current-password" />
                 <x-input-error :messages="$errors->get('password')" class="mt-2" />
             </div>

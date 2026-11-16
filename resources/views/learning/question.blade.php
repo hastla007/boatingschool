@@ -44,10 +44,10 @@
         </div>
 
         @foreach ($revision->media as $media)
-            <img src="{{ \App\Support\QuestionMedia::url($media) }}" alt="{{ $media->alt_text }}" class="rounded-lg mb-4 max-h-64 mx-auto">
+            <img src="{{ \App\Support\QuestionMedia::url($media) }}" alt="{{ $media->alt_text ?: 'Abbildung zur Frage (ohne Bildbeschreibung)' }}" class="rounded-lg mb-4 max-h-64 mx-auto">
         @endforeach
 
-        <h3 class="text-lg font-medium text-slate-800 dark:text-white mb-4">{{ $revision->question_text }}</h3>
+        <h2 class="text-lg font-medium text-slate-800 dark:text-white mb-4">{{ $revision->question_text }}</h2>
 
         @if ($revision->question_type === 'multi_choice')
             <form method="POST" action="{{ route('learning.attempts.store', ['course' => $course, 'topic' => $topic, 'module' => $moduleId, 'questions' => $questionsParam]) }}" x-data="{ selected: {{ json_encode(\App\Support\AnswerToken::mapMany(auth()->id(), $selectedAnswerIds ?? [])) }} }">
@@ -146,7 +146,10 @@
 
                 <template x-if="revealed">
                     <div>
-                        <div class="rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 px-4 py-3 text-sm text-slate-700 dark:text-slate-200 whitespace-pre-line">
+                        {{-- Barrierefreiheit (WCAG 2.4.3): der Knopf „Musterantwort anzeigen“
+                             verschwindet beim Klick; der Fokus springt auf die Antwort statt
+                             an den Seitenanfang. --}}
+                        <div @unless ($answered) tabindex="-1" x-init="$el.focus({ preventScroll: true })" @endunless class="outline-none rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 px-4 py-3 text-sm text-slate-700 dark:text-slate-200 whitespace-pre-line">
                             {{ $revision->correctAnswer()?->answer_text }}
                         </div>
 

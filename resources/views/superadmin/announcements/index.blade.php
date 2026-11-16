@@ -13,8 +13,8 @@
             <h3 class="font-medium text-slate-700 dark:text-slate-200">Neue Mitteilung</h3>
             <div>
                 <x-input-label for="title" value="Titel" />
-                <x-text-input id="title" name="title" type="text" maxlength="150" class="mt-1 block w-full" :value="old('title')" required placeholder="z. B. Wartung am Sonntag, 6–8 Uhr" />
-                <x-input-error :messages="$errors->get('title')" class="mt-1" />
+                <x-text-input :invalid="$errors->has('title')" id="title" name="title" type="text" maxlength="150" class="mt-1 block w-full" :value="old('title')" required placeholder="z. B. Wartung am Sonntag, 6–8 Uhr" />
+                <x-input-error for="title" :messages="$errors->get('title')" class="mt-1" />
             </div>
             <div>
                 <x-input-label for="body" value="Text" />

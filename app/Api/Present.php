@@ -41,6 +41,8 @@ class Present
             'email' => $user->email,
             'email_verified' => $user->hasVerifiedEmail(),
             'two_factor_enabled' => $user->hasTwoFactor(),
+            // Mindestalter bzw. Einverständnis der Erziehungsberechtigten bestätigt (AgeConfirmation).
+            'age_confirmed' => $user->age_confirmed_at !== null,
         ];
     }
 

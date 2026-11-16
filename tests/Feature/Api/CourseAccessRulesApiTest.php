@@ -7,11 +7,15 @@ use App\Models\CourseAccessRule;
 use App\Models\CourseDefinition;
 use App\Models\CourseWebshopLink;
 use App\Models\Entitlement;
+use App\Models\LearningGroup;
 use App\Models\Tenant;
 use App\Models\TenantCourseDisabled;
+use App\Models\TenantUser;
 use App\Models\User;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Testing\PendingCommand;
 
 /**
  * Zugriffsregeln der Mobile-API (WP-Parität): Funktionszugänge über
@@ -296,6 +300,282 @@ class CourseAccessRulesApiTest extends MobileApiTestCase
         $token = $this->apiLogin($user);
         $this->api('GET', '/courses/'.$this->existingCourse('FKN')->id.'/overview', $token, $tenant)->assertOk();
         $this->api('GET', '/courses/'.$this->existingCourse('SRC')->id.'/overview', $token, $tenant)->assertStatus(403);
+    }
+
+    /** Format-2-Zeile wie aus wp bootspruefung export entitlements (T46). */
+    private function wpEntitlement(User $user, int $id, array $overrides = []): array
+    {
+        return array_merge([
+            'email' => $user->email, 'course_code' => 'FKN', 'feature_code' => 'all', 'status' => 'active',
+            'valid_from' => now()->subDays(10)->utc()->format('Y-m-d\TH:i:s\Z'),
+            'valid_until' => now()->addDays(300)->utc()->format('Y-m-d\TH:i:s\Z'),
+            'user_registered' => '2024-03-01T08:00:00Z', 'source' => 'woocommerce', 'group_id' => null,
+            'order_id' => 900000 + $id, 'source_key' => 'wp:entitlement:'.$id,
+        ], $overrides);
+    }
+
+    private function formatTwo(Tenant $tenant, array $entitlements, array $simulator = []): array
+    {
+        return ['format_version' => 2, 'tenant_slug' => $tenant->slug, 'default_access' => 'entitlement',
+            'entitlements' => $entitlements, 'device_simulation_entitlements' => $simulator];
+    }
+
+    /** Führt den Import mit einer temporären Exportdatei aus; $expect ergänzt Erwartungen an die Ausgabe. */
+    private function importEntitlements(array $payload, array $options = [], ?callable $expect = null, bool $succeeds = true): void
+    {
+        $file = tempnam(sys_get_temp_dir(), 'ent');
+        file_put_contents($file, json_encode($payload));
+        try {
+            /** @var PendingCommand $command */
+            $command = $this->artisan('app:import-mobile-entitlements', ['file' => $file] + $options);
+            if ($expect) {
+                $expect($command);
+            }
+            $succeeds ? $command->assertSuccessful() : $command->assertFailed();
+            $command->run();
+        } finally {
+            @unlink($file);
+        }
+    }
+
+    private function wpRows(Tenant $tenant): Collection
+    {
+        return $this->onAdmin(fn () => Entitlement::where('tenant_id', $tenant->id)->where('source_type', 'wordpress')->orderBy('source_reference')->get());
+    }
+
+    public function test_import_entitlements_format_one_still_rejects_inactive_rows_and_unknown_versions(): void
+    {
+        $tenant = $this->createTestTenant();
+        $user = $this->createTenantUser($tenant, 'learner');
+
+        $this->importEntitlements(['tenant_slug' => $tenant->slug, 'entitlements' => [
+            ['email' => $user->email, 'course_code' => 'FKN', 'feature_code' => 'all', 'source_key' => 'wp:1', 'status' => 'active'],
+            ['email' => $user->email, 'course_code' => 'SRC', 'feature_code' => 'all', 'source_key' => 'wp:2', 'status' => 'suspended'],
+        ]], [], fn (PendingCommand $c) => $c->expectsOutputToContain('Zugang 2 (wp:2) ist nicht aktiv'), false);
+        $this->assertCount(0, $this->wpRows($tenant), 'alles oder nichts: auch die gültige erste Zeile fehlt');
+
+        $this->importEntitlements(['format_version' => 3, 'tenant_slug' => $tenant->slug, 'entitlements' => []], [],
+            fn (PendingCommand $c) => $c->expectsOutputToContain('Unbekannte format_version 3'), false);
+
+        $this->importEntitlements(['tenant_slug' => $tenant->slug, 'entitlements' => [
+            ['email' => $user->email, 'course_code' => 'FKN', 'feature_code' => 'all', 'source_key' => 'wp:1', 'status' => 'active'],
+        ]], [], fn (PendingCommand $c) => $c->expectsOutputToContain('1 aktive WP-Zugänge importiert/aktualisiert'));
+        $rows = $this->wpRows($tenant);
+        $this->assertCount(1, $rows);
+        $this->assertSame('active', $rows[0]->status);
+        $this->assertNull($rows[0]->import_meta, 'Format 1 kennt keine Herkunft');
+        $this->assertTrue($rows[0]->isCurrentlyActive(), 'ohne valid_from gilt der Zugang ab Kontoerstellung');
+    }
+
+    public function test_import_entitlements_format_two_keeps_suspended_access_locked(): void
+    {
+        $tenant = $this->createTestTenant();
+        $user = $this->createTenantUser($tenant, 'learner');
+
+        $this->importEntitlements($this->formatTwo($tenant, [$this->wpEntitlement($user, 1, ['status' => 'suspended'])]), [],
+            fn (PendingCommand $c) => $c->expectsOutputToContain('Davon gesperrt (suspended, nicht freigeschaltet): 1'));
+
+        $row = $this->wpRows($tenant)->sole();
+        $this->assertSame('suspended', $row->status);
+        $this->assertFalse($row->isCurrentlyActive());
+        $meta = $row->import_meta;
+        ksort($meta);
+        $this->assertSame(['group_id' => null, 'order_id' => 900001, 'source' => 'woocommerce', 'status' => 'suspended'], $meta);
+
+        $token = $this->apiLogin($user);
+        $fkn = $this->existingCourse('FKN');
+        $this->api('GET', '/courses/'.$fkn->id.'/overview', $token, $tenant)->assertStatus(403);
+        $this->assertSame('suspended', $this->courseEntry($tenant, $token, $fkn)['access']['status']);
+    }
+
+    public function test_import_entitlements_format_two_starts_later_access_only_at_valid_from(): void
+    {
+        $tenant = $this->createTestTenant();
+        $user = $this->createTenantUser($tenant, 'learner');
+        $start = now()->addDays(30)->startOfSecond();
+
+        $this->importEntitlements($this->formatTwo($tenant, [
+            $this->wpEntitlement($user, 1, ['course_code' => 'SRC', 'valid_until' => $start->copy()->utc()->format('Y-m-d\TH:i:s\Z')]),
+            $this->wpEntitlement($user, 2, ['valid_from' => $start->copy()->utc()->format('Y-m-d\TH:i:s\Z'), 'valid_until' => null]),
+        ]), [], fn (PendingCommand $c) => $c->expectsOutputToContain('mit späterem Beginn (erst ab valid_from aktiv): 1'));
+
+        $later = $this->wpRows($tenant)->firstWhere('source_reference', 'wp:entitlement:2');
+        $this->assertSame('active', $later->status);
+        $this->assertTrue($later->valid_from->equalTo($start), 'valid_from bleibt der spätere Beginn');
+        $this->assertFalse($later->isCurrentlyActive());
+        $active = fn () => $this->onAdmin(fn () => Entitlement::where('tenant_id', $tenant->id)->currentlyActive()->pluck('source_reference')->all());
+        $this->assertSame(['wp:entitlement:1'], $active());
+
+        $fkn = $this->existingCourse('FKN');
+        $token = $this->apiLogin($user);
+        $this->api('GET', '/courses/'.$fkn->id.'/overview', $token, $tenant)->assertStatus(403);
+
+        $this->travelTo($start->copy()->addHour());
+        $this->assertSame(['wp:entitlement:2'], $active());
+    }
+
+    public function test_import_entitlements_format_two_maps_every_feature_to_capabilities(): void
+    {
+        $tenant = $this->createTestTenant();
+        $user = $this->createTenantUser($tenant, 'learner');
+        $features = [
+            'all' => null, 'question_bank' => ['smarttrainer'], 'learning_explanations' => ['smarttrainer'],
+            'exam_simulation' => ['exam'], 'navigation_trainer' => ['navigation'], 'praxis_trainer' => ['praxis'],
+            'video_course' => ['video'], 'radio_training' => ['funk'], 'downloads' => ['downloads'],
+        ];
+        $rows = [];
+        $id = 0;
+        foreach (array_keys($features) as $feature) {
+            $rows[] = $this->wpEntitlement($user, ++$id, ['course_code' => 'SRC', 'feature_code' => $feature]);
+        }
+
+        $this->importEntitlements($this->formatTwo($tenant, $rows));
+
+        $imported = $this->wpRows($tenant)->keyBy('source_reference');
+        $id = 0;
+        foreach ($features as $feature => $capabilities) {
+            $this->assertSame($capabilities, $imported['wp:entitlement:'.++$id]->capabilities, $feature);
+        }
+
+        $this->importEntitlements($this->formatTwo($tenant, [$this->wpEntitlement($user, 99, ['feature_code' => 'device_simulation'])]), [],
+            fn (PendingCommand $c) => $c->expectsOutputToContain('Zugang 1 (wp:entitlement:99) verwendet das nicht übertragbare Feature device_simulation'), false);
+    }
+
+    public function test_import_entitlements_format_two_imports_group_seats_as_individual_entitlements(): void
+    {
+        $tenant = $this->createTestTenant();
+        $other = $this->createTestTenant('Andere Schule');
+        // Konto ohne Mitgliedschaft in der Zielschule: wird als Lernender angelegt.
+        $user = $this->createTenantUser($other, 'learner');
+
+        $this->importEntitlements($this->formatTwo($tenant, [
+            $this->wpEntitlement($user, 1, ['course_code' => 'SKN', 'feature_code' => 'question_bank', 'source' => 'group', 'group_id' => 4711, 'order_id' => 912345]),
+            $this->wpEntitlement($user, 2, ['source' => 'voucher', 'order_id' => null]),
+        ]), [], fn (PendingCommand $c) => $c
+            ->expectsOutputToContain('Gruppenplätze: 1 wurden als einzelne Zugänge der Lernenden übernommen')
+            ->expectsOutputToContain('1 fehlende Mitgliedschaften wurden als Lernende angelegt'));
+
+        $group = $this->wpRows($tenant)->firstWhere('source_reference', 'wp:entitlement:1');
+        $this->assertSame('wordpress', $group->source_type);
+        $this->assertSame(['smarttrainer'], $group->capabilities);
+        $this->assertSame('group', $group->import_meta['source']);
+        $this->assertSame(4711, $group->import_meta['group_id']);
+        $this->assertSame(912345, $group->import_meta['order_id']);
+        $this->assertSame('voucher', $this->wpRows($tenant)->firstWhere('source_reference', 'wp:entitlement:2')->import_meta['source']);
+        $this->assertSame(0, $this->onAdmin(fn () => LearningGroup::withoutGlobalScopes()->where('tenant_id', $tenant->id)->count()), 'keine Lerngruppe angelegt');
+        $this->assertSame('learner', $this->onAdmin(fn () => TenantUser::withoutGlobalScopes()->where('tenant_id', $tenant->id)->where('user_id', $user->id)->value('role')));
+
+        $this->importEntitlements($this->formatTwo($tenant, [$this->wpEntitlement($user, 3, ['source' => 'gift'])]), [],
+            fn (PendingCommand $c) => $c->expectsOutputToContain('Zugang 1 (wp:entitlement:3) hat die unbekannte Herkunft "gift"'), false);
+    }
+
+    public function test_import_entitlements_format_two_skips_device_simulation_entitlements(): void
+    {
+        $tenant = $this->createTestTenant();
+        $user = $this->createTenantUser($tenant, 'learner');
+
+        $this->importEntitlements($this->formatTwo($tenant, [$this->wpEntitlement($user, 1)], [
+            $this->wpEntitlement($user, 2, ['course_code' => 'SRC', 'feature_code' => 'device_simulation']),
+            $this->wpEntitlement($user, 3, ['course_code' => 'UBI', 'feature_code' => 'device_simulation', 'status' => 'suspended']),
+        ]), [], fn (PendingCommand $c) => $c->expectsOutputToContain('Simulator-Zugänge (device_simulation): 2 übersprungen'));
+
+        $this->assertSame(['wp:entitlement:1'], $this->wpRows($tenant)->pluck('source_reference')->all());
+    }
+
+    public function test_import_entitlements_format_two_is_idempotent_and_updates_on_reimport(): void
+    {
+        $tenant = $this->createTestTenant();
+        $user = $this->createTenantUser($tenant, 'learner');
+        $row = $this->wpEntitlement($user, 1);
+
+        $this->importEntitlements($this->formatTwo($tenant, [$row]), [], fn (PendingCommand $c) => $c->expectsOutputToContain('1 neu, 0 aktualisiert, 0 unverändert'));
+        $first = $this->wpRows($tenant)->sole();
+        $this->onAdmin(fn () => Entitlement::whereKey($first->id)->update(['expiry_reminded_at' => now()]));
+
+        $this->importEntitlements($this->formatTwo($tenant, [$row]), [], fn (PendingCommand $c) => $c->expectsOutputToContain('0 neu, 0 aktualisiert, 1 unverändert'));
+        $this->assertSame($first->id, $this->wpRows($tenant)->sole()->id);
+
+        // In WP nach dem ersten Import gesperrt und verlängert.
+        $until = now()->addDays(500)->startOfSecond();
+        $suspended = ['status' => 'suspended', 'valid_until' => $until->copy()->utc()->format('Y-m-d\TH:i:s\Z')];
+        $this->importEntitlements($this->formatTwo($tenant, [array_merge($row, $suspended)]), [], fn (PendingCommand $c) => $c->expectsOutputToContain('0 neu, 1 aktualisiert, 0 unverändert'));
+        $updated = $this->wpRows($tenant)->sole();
+        $this->assertSame($first->id, $updated->id);
+        $this->assertSame('suspended', $updated->status);
+        $this->assertTrue($updated->valid_until->equalTo($until));
+        $this->assertNull($updated->expiry_reminded_at, 'neues Ablaufdatum: Erinnerung wieder fällig');
+
+        // WP hebt die eigene Sperre auf: der Import folgt.
+        $this->importEntitlements($this->formatTwo($tenant, [array_merge($row, ['valid_until' => $suspended['valid_until']])]));
+        $this->assertSame('active', $this->wpRows($tenant)->sole()->status);
+
+        // In Laravel gesperrt bzw. widerrufen: der Import schaltet nicht wieder frei.
+        foreach (['suspended', 'revoked'] as $local) {
+            $this->onAdmin(fn () => Entitlement::whereKey($first->id)->update(['status' => $local]));
+            $this->importEntitlements($this->formatTwo($tenant, [array_merge($row, ['valid_until' => null])]), [],
+                fn (PendingCommand $c) => $c->expectsOutputToContain('1 Zugänge sind in Laravel gesperrt, widerrufen oder entsperrt und wurden nicht verändert'));
+            $kept = $this->wpRows($tenant)->sole();
+            $this->assertSame($local, $kept->status);
+            $this->assertNotNull($kept->valid_until);
+        }
+
+        // Sperre aus WP, in Laravel aufgehoben: solange WP unverändert
+        // „suspended“ meldet, bleibt der Zugang aktiv („kept“); ändert sich
+        // der Status in WP, folgt der Import wieder.
+        $this->onAdmin(fn () => Entitlement::whereKey($first->id)->update(['status' => 'active']));
+        $this->importEntitlements($this->formatTwo($tenant, [array_merge($row, $suspended)]), [], fn (PendingCommand $c) => $c->expectsOutputToContain('0 neu, 1 aktualisiert, 0 unverändert'));
+        $this->assertSame('suspended', $this->wpRows($tenant)->sole()->status, 'WP sperrt: der Import folgt');
+        $this->onAdmin(fn () => Entitlement::whereKey($first->id)->update(['status' => 'active']));
+        $this->importEntitlements($this->formatTwo($tenant, [array_merge($row, $suspended)]), [],
+            fn (PendingCommand $c) => $c->expectsOutputToContain('1 Zugänge sind in Laravel gesperrt, widerrufen oder entsperrt und wurden nicht verändert'));
+        $this->assertSame('active', $this->wpRows($tenant)->sole()->status, 'lokale Entsperrung bleibt');
+        $this->importEntitlements($this->formatTwo($tenant, [array_merge($row, ['valid_until' => $suspended['valid_until']])]));
+        $this->assertSame('active', $this->wpRows($tenant)->sole()->status);
+        $this->importEntitlements($this->formatTwo($tenant, [array_merge($row, $suspended)]));
+        $this->assertSame('suspended', $this->wpRows($tenant)->sole()->status, 'neue Sperre in WP gilt wieder');
+
+        // Derselbe Quellschlüssel für ein anderes Konto bricht ab.
+        $other = $this->createTenantUser($tenant, 'learner');
+        $this->importEntitlements($this->formatTwo($tenant, [$this->wpEntitlement($other, 1)]), [],
+            fn (PendingCommand $c) => $c->expectsOutputToContain('Zugang 1 (wp:entitlement:1): Der Quellschlüssel wurde bereits für ein anderes App-Konto importiert'), false);
+        $this->importEntitlements($this->formatTwo($tenant, [$row, $row]), [],
+            fn (PendingCommand $c) => $c->expectsOutputToContain('Zugang 2 (wp:entitlement:1): source_key steht bereits in Zugang 1'), false);
+    }
+
+    public function test_import_entitlements_dry_run_reports_without_writing(): void
+    {
+        $tenant = $this->createTestTenant();
+        $user = $this->createTenantUser($this->createTestTenant('Andere Schule'), 'learner');
+        $payload = $this->formatTwo($tenant, [
+            $this->wpEntitlement($user, 1),
+            $this->wpEntitlement($user, 2, ['course_code' => 'SRC', 'feature_code' => 'exam_simulation', 'status' => 'suspended', 'source' => 'group', 'group_id' => 7]),
+        ], [$this->wpEntitlement($user, 3, ['feature_code' => 'device_simulation'])]);
+
+        $this->importEntitlements($payload, ['--dry-run' => true], fn (PendingCommand $c) => $c
+            ->expectsOutputToContain('Probelauf (--dry-run): nichts gespeichert.')
+            ->expectsOutputToContain('wp:entitlement:2')
+            ->expectsOutputToContain('2 WP-Zugänge (Format 2): 2 neu, 0 aktualisiert, 0 unverändert; 1 fehlende Mitgliedschaften würden als Lernende angelegt.')
+            ->expectsOutputToContain('Gruppenplätze: 1 würden als einzelne Zugänge')
+            ->expectsOutputToContain('Simulator-Zugänge (device_simulation): 1 übersprungen'));
+
+        $this->assertCount(0, $this->wpRows($tenant));
+        $this->assertFalse($this->onAdmin(fn () => TenantUser::withoutGlobalScopes()->where('tenant_id', $tenant->id)->where('user_id', $user->id)->exists()));
+
+        $this->importEntitlements($payload);
+        $payload['entitlements'][0]['status'] = 'suspended';
+        $this->importEntitlements($payload, ['--dry-run' => true], fn (PendingCommand $c) => $c
+            ->expectsOutputToContain('aktualisieren')
+            ->expectsOutputToContain('0 neu, 1 aktualisiert, 1 unverändert'));
+        $this->assertSame('active', $this->wpRows($tenant)->firstWhere('source_reference', 'wp:entitlement:1')->status);
+
+        // Probelauf prüft dieselben Regeln: unbekannter Kurs mit Zeilennummer und Quellschlüssel.
+        $payload['entitlements'][] = $this->wpEntitlement($user, 4, ['course_code' => 'GIBTSNICHT']);
+        $this->importEntitlements($payload, ['--dry-run' => true],
+            fn (PendingCommand $c) => $c->expectsOutputToContain('Zugang 3 (wp:entitlement:4): Kurs GIBTSNICHT fehlt im Original.'), false);
+        $payload['entitlements'][2] = $this->wpEntitlement($user, 4, ['email' => 'niemand-'.uniqid().'@example.test']);
+        $this->importEntitlements($payload, [],
+            fn (PendingCommand $c) => $c->expectsOutputToContain('Zugang 3 (wp:entitlement:4): Für niemand-'), false);
+        $this->assertSame('active', $this->wpRows($tenant)->firstWhere('source_reference', 'wp:entitlement:1')->status, 'abgebrochener Lauf ändert nichts');
     }
 
     public function test_entitlement_capabilities_are_constrained_in_the_database(): void

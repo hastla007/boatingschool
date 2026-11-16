@@ -56,6 +56,13 @@ class LearningGroupService
 
     public const INVITE_REQUESTS_PER_HOUR = 20;
 
+    /**
+     * Feste Obergrenze je Verwalter und Tag über alle seine Gruppen: das
+     * Gruppenlimit max(20, 2 × Plätze) wächst mit der Platzzahl (bis
+     * MAX_SEATS) und begrenzt allein keinen Massenversand.
+     */
+    public const INVITES_PER_OWNER_PER_DAY = 200;
+
     /** Funktionen, die eine Gruppe freischalten kann (entitlement.capabilities). */
     public const CAPABILITIES = ['smarttrainer', 'favorites', 'exam', 'video', 'navigation', 'praxis', 'funk'];
 
@@ -255,7 +262,7 @@ class LearningGroupService
     {
         $group = LearningGroup::whereKey($id)->where('owner_user_id', $user->id)->first();
         if (! $group) {
-            throw new ApiProblem(404, 'NOT_FOUND', 'Gruppe nicht gefunden');
+            throw new ApiProblem(404, 'RESOURCE_NOT_FOUND', 'Gruppe nicht gefunden');
         }
 
         return $group;
@@ -269,14 +276,21 @@ class LearningGroupService
     {
         $userKey = 'learning-group-invite-user:'.$owner->id;
         if (RateLimiter::tooManyAttempts($userKey, self::INVITE_REQUESTS_PER_HOUR)) {
-            throw new ApiProblem(429, 'TOO_MANY_REQUESTS', 'Zu viele Einladungen', 'Bitte warte eine Stunde und versuche es erneut.');
+            // Gleicher Code wie überall sonst (RATE_LIMITED) und mit Retry-After.
+            throw new ApiProblem(429, 'RATE_LIMITED', 'Zu viele Einladungen', 'Bitte warte eine Stunde und versuche es erneut.', [], ['Retry-After' => (string) RateLimiter::availableIn($userKey)]);
         }
         RateLimiter::hit($userKey, 3600);
+        $ownerDailyKey = $this->ownerDailyKey($owner->id);
+        if (RateLimiter::tooManyAttempts($ownerDailyKey, self::INVITES_PER_OWNER_PER_DAY)) {
+            throw new ApiProblem(429, 'RATE_LIMITED', 'Tageslimit für Einladungen erreicht',
+                'Du hast heute bereits '.self::INVITES_PER_OWNER_PER_DAY.' Einladungen verschickt. Bitte versuche es morgen erneut.',
+                [], ['Retry-After' => (string) max(1, RateLimiter::availableIn($ownerDailyKey))]);
+        }
 
         $emails = array_values(array_unique(array_map(fn ($email) => mb_strtolower(trim((string) $email)), $emails)));
         $tenant = $group->tenant_id;
 
-        [$invites, $skipped] = DB::transaction(function () use ($group, $emails, $tenant) {
+        [$invites, $skipped] = DB::transaction(function () use ($group, $emails, $tenant, $ownerDailyKey) {
             $locked = $this->lock($group);
             $this->ensureActive($locked);
             $this->expireStaleInvites($locked);
@@ -288,12 +302,14 @@ class LearningGroupService
             $skipped = [];
             foreach ($emails as $email) {
                 if (! filter_var($email, FILTER_VALIDATE_EMAIL) || mb_strlen($email) > 320 || $free <= 0
-                    || $this->occupiedEmail($locked, $email) || RateLimiter::tooManyAttempts($dailyKey, $dailyLimit)) {
+                    || $this->occupiedEmail($locked, $email) || RateLimiter::tooManyAttempts($dailyKey, $dailyLimit)
+                    || RateLimiter::tooManyAttempts($ownerDailyKey, self::INVITES_PER_OWNER_PER_DAY)) {
                     $skipped[] = $email;
 
                     continue;
                 }
                 RateLimiter::hit($dailyKey, 86400);
+                RateLimiter::hit($ownerDailyKey, 86400);
                 $invites[] = LearningGroupMember::create([
                     'tenant_id' => $tenant, 'group_id' => $locked->id, 'email' => $email, 'status' => 'invited',
                     'invite_token' => 'i'.bin2hex(random_bytes(16)), 'invited_at' => now(),
@@ -333,7 +349,7 @@ class LearningGroupService
             $member = LearningGroupMember::where('group_id', $group->id)->whereKey($memberId)
                 ->whereIn('status', ['invited', 'active'])->lockForUpdate()->first();
             if (! $member) {
-                throw new ApiProblem(404, 'NOT_FOUND', 'Mitglied nicht gefunden');
+                throw new ApiProblem(404, 'RESOURCE_NOT_FOUND', 'Mitglied nicht gefunden');
             }
             $this->revokeEntitlements($group, $member);
             $member->update(['status' => 'removed', 'invite_token' => null, 'email' => null]);
@@ -364,12 +380,14 @@ class LearningGroupService
         $free = $this->freeSeats($group) + ($invite ? 1 : 0);
         // Nur ob es weitergeht, nicht wie viele Codes die Schule hat.
         $codes = $already || $this->codesAvailable($group, $user);
+        // Von der Schule bewusst entzogener Kurszugang: kein Beitritt (wie join()).
+        $revoked = ! $already && $this->revokedCourseIds($group->tenant_id, $user, $this->safeCourseGrants($group)) !== [];
 
         return [
             'name' => $group->name, 'owner_name' => $group->owner?->name, 'personal' => $invite !== null,
             'status' => $group->status, 'valid_until' => $group->valid_until?->toIso8601String(),
-            'free_seats' => $free, 'already_member' => $already, 'codes_available' => $codes,
-            'joinable' => $already || (! $removed && $free > 0 && $codes && $this->supportsScopes($group)),
+            'free_seats' => $free, 'already_member' => $already, 'codes_available' => $codes, 'access_revoked' => $revoked,
+            'joinable' => $already || (! $removed && ! $revoked && $free > 0 && $codes && $this->supportsScopes($group)),
             'scopes' => $this->describeScopes($group),
         ];
     }
@@ -377,9 +395,12 @@ class LearningGroupService
     /**
      * Beitritt über Beitrittscode (g…) oder persönliche Einladung (i…).
      * Fehler als RuntimeException: GROUP_INVALID (einheitlich, kein
-     * Ausprobieren), GROUP_SCOPE_UNSUPPORTED oder GROUP_NO_CODES (für einen
-     * Kurs ohne eigenen Vollzugang hat die Schule keinen freien Kurscode;
-     * nichts wird verbraucht, eine Einladung bleibt offen).
+     * Ausprobieren), GROUP_SCOPE_UNSUPPORTED, GROUP_ACCESS_REVOKED (die
+     * Schule hat der Person einen Kurs der Gruppe bewusst entzogen -- wie
+     * beim Einlösen eines Kurscodes, CouponRedemptionService) oder
+     * GROUP_NO_CODES (für einen Kurs ohne eigenen Vollzugang hat die Schule
+     * keinen freien Kurscode). In beiden letzten Fällen wird nichts
+     * verbraucht, eine Einladung bleibt offen.
      *
      * @return array{group:LearningGroup, member:LearningGroupMember, already:bool}
      */
@@ -411,6 +432,12 @@ class LearningGroupService
                 if (! $this->entitlements->isOfferable($tenant, $grant['course'])) {
                     throw new RuntimeException('GROUP_INVALID');
                 }
+            }
+            // Ein entzogener ("revoked") Zugang ist die bewusste Sperre der
+            // Schule (Betrug, Rückbuchung); der Gruppenbeitritt darf ihn so
+            // wenig unterlaufen wie ein neuer Kurscode.
+            if ($this->revokedCourseIds($tenant->id, $user, $grants) !== []) {
+                throw new RuntimeException('GROUP_ACCESS_REVOKED');
             }
             $ownAccess = $this->ownFullAccessCourseIds($tenant->id, $user, $grants);
             $coupons = $this->claimCourseCodes($tenant->id, array_filter($grants,
@@ -469,8 +496,11 @@ class LearningGroupService
 
     /**
      * @param  ?array<string, int>  $freeCodes  freie Kurscodes je Kurs-ID (freeCourseCodes), spart in Listen die Abfrage je Gruppe
+     * @param  bool  $exactCodeCounts  true nur für das Team der Schule (Admin-Bereich): genaue Zahl freier
+     *                                 Kurscodes; der Verwalter in der App (ein Teilnehmer) sieht sie nur bis
+     *                                 zum Bedarf seiner Gruppe (codeCoverage)
      */
-    public function payload(LearningGroup $group, User $viewer, ?array $freeCodes = null): array
+    public function payload(LearningGroup $group, User $viewer, ?array $freeCodes = null, bool $exactCodeCounts = false): array
     {
         $group->loadMissing('members.user');
         $members = [];
@@ -501,10 +531,11 @@ class LearningGroupService
             'valid_until' => $group->valid_until?->toIso8601String(),
             'seats' => ['total' => (int) $group->seats, 'used' => $used, 'free' => max(0, (int) $group->seats - $used)],
             'scopes' => $scopes,
-            'course_codes' => $this->codeCoverage($group, $scopes, $joined, $freeCodes),
+            'course_codes' => $this->codeCoverage($group, $scopes, $joined, $freeCodes, $exactCodeCounts),
             'join_code' => $active ? $group->join_code : null,
             'join_url' => $active ? rtrim((string) config('app.url'), '/').'/gruppe/'.$group->join_code.'/' : null,
-            'invites_remaining_today' => $active ? RateLimiter::remaining($this->dailyKey($group), $this->dailyLimit($group)) : 0,
+            'invites_remaining_today' => $active ? min(RateLimiter::remaining($this->dailyKey($group), $this->dailyLimit($group)),
+                RateLimiter::remaining($this->ownerDailyKey((string) $group->owner_user_id), self::INVITES_PER_OWNER_PER_DAY)) : 0,
             'invite_valid_days' => self::INVITE_DAYS,
             'members' => $members,
         ];
@@ -535,9 +566,13 @@ class LearningGroupService
      * verbrauchen beim Beitritt keinen Code, das ist vorher nicht bekannt.
      * Die Codes teilen sich alle Gruppen und Einlösungen der Schule.
      *
+     * Ohne $exact ist "free" auf "needed" gedeckelt: der Verwalter in der
+     * App ist ein Teilnehmer und erfährt so nur, ob die Codes für seine
+     * Gruppe reichen, nicht den genauen Codebestand der Schule.
+     *
      * @return list<array{course_id:?string, course_code:string, course_name:string, free:int, needed:int, sufficient:bool}>
      */
-    public function codeCoverage(LearningGroup $group, ?array $scopes = null, ?int $joined = null, ?array $freeCodes = null): array
+    public function codeCoverage(LearningGroup $group, ?array $scopes = null, ?int $joined = null, ?array $freeCodes = null, bool $exact = true): array
     {
         $scopes ??= $this->describeScopes($group);
         $joined ??= LearningGroupMember::where('group_id', $group->id)->where('status', 'active')->count();
@@ -545,12 +580,12 @@ class LearningGroupService
         $freeCodes ??= $this->freeCourseCodes($group->tenant_id, $courses->pluck('course_id'));
         $needed = max(0, (int) $group->seats - $joined);
 
-        return $courses->map(function (array $scope) use ($freeCodes, $needed) {
+        return $courses->map(function (array $scope) use ($freeCodes, $needed, $exact) {
             $free = $scope['course_id'] ? (int) ($freeCodes[$scope['course_id']] ?? 0) : 0;
 
             return [
                 'course_id' => $scope['course_id'], 'course_code' => $scope['course_code'], 'course_name' => $scope['course_name'],
-                'free' => $free, 'needed' => $needed, 'sufficient' => $free >= $needed,
+                'free' => $exact ? $free : min($free, $needed), 'needed' => $needed, 'sufficient' => $free >= $needed,
             ];
         })->all();
     }
@@ -648,6 +683,35 @@ class LearningGroupService
         return $ids->filter(fn (string $id) => $own->contains($id))->values()->all();
     }
 
+    /**
+     * Kurse (IDs) der Gruppe, deren Zugang die Schule der Person bewusst
+     * entzogen hat (ein Entitlement mit status "revoked", gleich welcher
+     * Herkunft). Beendete Gruppenzugänge sind "expired" und zählen nicht.
+     *
+     * @param  array<string, array{course:CourseDefinition, capabilities:?list<string>}>  $grants
+     * @return list<string>
+     */
+    private function revokedCourseIds(string $tenantId, User $user, array $grants): array
+    {
+        $ids = collect($grants)->map(fn (array $grant) => $grant['course']->id)->values();
+        if ($ids->isEmpty()) {
+            return [];
+        }
+
+        return Entitlement::where('tenant_id', $tenantId)->where('user_id', $user->id)->whereIn('course_id', $ids)
+            ->where('status', 'revoked')->distinct()->pluck('course_id')->values()->all();
+    }
+
+    /** @return array<string, array{course:CourseDefinition, capabilities:?list<string>}> leer bei nicht abbildbarem Umfang */
+    private function safeCourseGrants(LearningGroup $group): array
+    {
+        try {
+            return $this->courseGrants($group);
+        } catch (RuntimeException) {
+            return [];
+        }
+    }
+
     /** Gibt es für jeden Kurs der Gruppe, für den die Person keinen eigenen Vollzugang hat, einen freien Kurscode? */
     private function codesAvailable(LearningGroup $group, User $user): bool
     {
@@ -667,7 +731,7 @@ class LearningGroupService
     {
         $locked = LearningGroup::whereKey($group->id)->lockForUpdate()->first();
         if (! $locked) {
-            throw new ApiProblem(404, 'NOT_FOUND', 'Gruppe nicht gefunden');
+            throw new ApiProblem(404, 'RESOURCE_NOT_FOUND', 'Gruppe nicht gefunden');
         }
 
         return $locked;
@@ -750,6 +814,11 @@ class LearningGroupService
     private function dailyKey(LearningGroup $group): string
     {
         return 'learning-group-invite-group:'.$group->id.':'.now()->toDateString();
+    }
+
+    private function ownerDailyKey(string $ownerId): string
+    {
+        return 'learning-group-invite-owner:'.$ownerId.':'.now()->toDateString();
     }
 
     private function dailyLimit(LearningGroup $group): int

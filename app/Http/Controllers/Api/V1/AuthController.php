@@ -10,6 +10,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\NewLoginDeviceNotifier;
+use App\Support\AgeConfirmation;
 use App\Support\BestEffortMail;
 use App\Support\LoginThrottle;
 use App\Support\TwoFactorCheck;
@@ -177,13 +178,33 @@ class AuthController extends Controller
             'token' => ['bail', 'required', 'string', 'max:200'],
             'password' => ['bail', 'required', 'string', 'confirmed', Rules\Password::defaults()],
         ]);
-        $email = User::on('pgsql_admin')->whereRaw('lower(email) = ?', [Str::lower(trim($validated['email']))])->value('email') ?? $validated['email'];
+        $account = User::on('pgsql_admin')->whereRaw('lower(email) = ?', [Str::lower(trim($validated['email']))])->first();
+        $email = $account->email ?? $validated['email'];
 
         // Einladungslinks (noch nie angemeldet) nutzen den eigenen Broker.
-        $invited = $request->boolean('invite') && User::on('pgsql_admin')->where('email', $email)->value('status') === 'invited';
-        $status = Password::broker($invited ? 'invites' : null)->reset(
+        $invited = $request->boolean('invite') && $account?->status === 'invited';
+        $broker = Password::broker($invited ? 'invites' : null);
+        // Wie im Web (NewPasswordController): Aktiviert das Passwort ein von
+        // einer Schule angelegtes Konto, nimmt completeReset() dessen
+        // Einladungen an und löst reservierte Zugangscodes ein -- vorher
+        // einmalig das Mindestalter bestätigen (AgeConfirmation). Erst bei
+        // gültigem Token gefragt, sonst verriete die Meldung, dass es ein
+        // eingeladenes Konto gibt. Ein normales Zurücksetzen fragt nicht.
+        // Gespeichert wird die Bestätigung nur beim Aktivieren eines
+        // eingeladenen Kontos (wie im Web) -- ein normales Zurücksetzen
+        // setzt age_confirmed_at nicht nebenbei, auch wenn das Feld mitkommt.
+        $confirmsAge = $account?->status === 'invited' && $account->age_confirmed_at === null && $request->boolean('age_confirmed');
+        if ($account?->status === 'invited' && $account->age_confirmed_at === null && $broker->tokenExists($account, $validated['token'])) {
+            $request->validate(['age_confirmed' => ['accepted']], ['age_confirmed.accepted' => AgeConfirmation::MESSAGE]);
+        }
+        $status = $broker->reset(
             ['email' => $email, 'token' => $validated['token'], 'password' => $validated['password'], 'password_confirmation' => $request->input('password_confirmation')],
-            fn (User $user) => NewPasswordController::completeReset($user, $validated['password'])
+            function (User $user) use ($validated, $confirmsAge) {
+                if ($confirmsAge && $user->status === 'invited') {
+                    $user->forceFill(['age_confirmed_at' => now()]);
+                }
+                NewPasswordController::completeReset($user, $validated['password']);
+            }
         );
 
         if ($status !== Password::PASSWORD_RESET) {

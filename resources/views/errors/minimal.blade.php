@@ -96,10 +96,25 @@
                 color: #334155;
             }
             .school img { width: 2rem; height: 2rem; object-fit: contain; }
+            /* Barrierefreiheit: Skip-Link (WCAG 2.4.1) und sichtbarer Fokus (2.4.7). */
+            .skip-link {
+                position: absolute;
+                left: 0.5rem;
+                top: -10rem;
+                padding: 0.5rem 1rem;
+                border-radius: 0.5rem;
+                background: #fff;
+                color: #0f172a;
+                box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
+            }
+            .skip-link:focus { top: 0.5rem; }
+            a:focus-visible { outline: 3px solid #4f46e5; outline-offset: 2px; }
+            main:focus { outline: none; }
         </style>
     </head>
     <body>
-        <div class="card">
+        <a href="#inhalt" class="skip-link">Zum Inhalt springen</a>
+        <main id="inhalt" tabindex="-1" class="card">
             <p class="school">
                 @if ($errorLogo)
                     <img src="{{ $errorLogo }}" alt="">
@@ -107,12 +122,12 @@
                 <span>{{ $errorSiteName }}</span>
             </p>
             <p class="code">@yield('code')</p>
-            <p class="message">@yield('message')</p>
+            <h1 class="message">@yield('message')</h1>
             <p class="hint">@yield('hint')</p>
             @hasSection('actions')
                 <p class="hint">@yield('actions')</p>
             @endif
             <a class="back-link" href="{{ url('/') }}">Zur Startseite</a>
-        </div>
+        </main>
     </body>
 </html>

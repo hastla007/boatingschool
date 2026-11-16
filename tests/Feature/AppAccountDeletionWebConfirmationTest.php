@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\AppLinkAssociationController;
 use App\Models\ApiAccountDeletionRequest;
 use App\Models\AuditLog;
 use App\Models\Favorite;
@@ -9,7 +10,10 @@ use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
 use App\Notifications\AccountDeletionConfirmation;
+use App\Services\AccountSetupLink;
+use App\Support\CanonicalUrl;
 use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
@@ -285,15 +289,124 @@ class AppAccountDeletionWebConfirmationTest extends MobileApiTestCase
             ->assertHeader('Content-Type', 'application/json')
             ->assertExactJson(['applinks' => ['details' => [[
                 'appIDs' => ['ABCDE12345.de.example.app', 'ABCDE12345.de.example.beta'],
-                'components' => [['/' => '/app/konto-loeschen', 'comment' => 'Bestätigung der Kontolöschung']],
+                // Standard: nur die Kontolöschung -- die kann jede veröffentlichte App-Version.
+                'components' => [
+                    ['/' => '/app/konto-loeschen', 'comment' => 'Bestätigung der Kontolöschung'],
+                ],
             ]]]]);
         $this->get('/.well-known/assetlinks.json')->assertOk()->assertExactJson([[
             'relation' => ['delegate_permission/common.handle_all_urls'],
             'target' => ['namespace' => 'android_app', 'package_name' => 'de.example.app', 'sha256_cert_fingerprints' => ['AA:BB:CC']],
         ]]);
 
-        // Nicht auf den Hosts der Schulen.
+        // Nicht auf den Hosts der Schulen (Pfad-Modus).
         $tenant = $this->createTestTenant();
         $this->get('http://'.$tenant->slug.'.localhost/.well-known/apple-app-site-association')->assertNotFound();
+        $this->get('http://'.$tenant->slug.'.localhost/.well-known/assetlinks.json')->assertNotFound();
+    }
+
+    public function test_the_recommended_app_link_paths_are_documented(): void
+    {
+        $value = AppLinkAssociationController::recommendedPathsValue();
+        $this->assertSame('/app/konto-loeschen,/reset-password/*,/invitations/*/accept/*,/verify-email/*/*,/gruppe/*', $value);
+        $this->assertStringContainsString('MOBILE_API_APP_LINK_PATHS='.$value, file_get_contents(base_path('deploy/README.md')));
+        $this->assertStringContainsString('MOBILE_API_APP_LINK_PATHS='.$value, file_get_contents(base_path('.env.example')));
+        $this->assertStringContainsString('`'.$value.'`', file_get_contents(base_path('docs/api/README.md')));
+    }
+
+    public function test_the_recommended_app_link_paths_match_the_links_in_the_mails(): void
+    {
+        config([
+            'mobile_api.app_links.ios_app_ids' => 'ABCDE12345.de.example.app',
+            'mobile_api.app_links.paths' => AppLinkAssociationController::recommendedPathsValue(),
+        ]);
+        $this->get('/.well-known/apple-app-site-association')->assertOk()
+            ->assertExactJson(['applinks' => ['details' => [[
+                'appIDs' => ['ABCDE12345.de.example.app'],
+                'components' => [
+                    ['/' => '/app/konto-loeschen', 'comment' => 'Bestätigung der Kontolöschung'],
+                    ['/' => '/reset-password/*', 'comment' => 'Passwort festlegen oder zurücksetzen'],
+                    ['/' => '/*/reset-password/*', 'comment' => 'Passwort festlegen oder zurücksetzen (Pfad-Modus /<slug>/…)'],
+                    ['/' => '/invitations/*/accept/*', 'comment' => 'Einladung annehmen'],
+                    ['/' => '/*/invitations/*/accept/*', 'comment' => 'Einladung annehmen (Pfad-Modus /<slug>/…)'],
+                    ['/' => '/verify-email/*/*', 'comment' => 'E-Mail-Adresse bestätigen'],
+                    ['/' => '/*/verify-email/*/*', 'comment' => 'E-Mail-Adresse bestätigen (Pfad-Modus /<slug>/…)'],
+                    ['/' => '/gruppe/*', 'comment' => 'Lerngruppe beitreten'],
+                    ['/' => '/*/gruppe/*', 'comment' => 'Lerngruppe beitreten (Pfad-Modus /<slug>/…)'],
+                ],
+            ]]]]);
+        $patterns = collect($this->get('/.well-known/apple-app-site-association')->assertOk()->json('applinks.details.0.components'))->pluck('/');
+        $tenant = $this->createTestTenant();
+        $user = $this->createTenantUser($tenant, 'learner');
+
+        // Genau die Adressen, die die Mails erzeugen (CanonicalUrl, Pfad-Modus mit Slug).
+        $resetPath = parse_url(app(AccountSetupLink::class)->url($user, $tenant), PHP_URL_PATH);
+        $verifyPath = parse_url(CanonicalUrl::temporarySignedRoute('verification.verify', now()->addHour(), ['id' => $user->id, 'hash' => sha1($user->email)], $tenant), PHP_URL_PATH);
+        $invitePath = parse_url(CanonicalUrl::temporarySignedRoute('invitations.accept', now()->addDay(), ['invitation' => (string) Str::uuid(), 'hash' => sha1($user->email)], $tenant), PHP_URL_PATH);
+        $this->onAdmin(fn () => DB::table('account_setup_tokens')->where('email', $user->email)->delete());
+
+        foreach ([$resetPath, $verifyPath, $invitePath, '/app/konto-loeschen'] as $path) {
+            $this->assertTrue($patterns->contains(fn ($pattern) => $this->appleMatches($pattern, $path)), $path.' fehlt in der Zuordnungsdatei');
+        }
+        // Andere Seiten öffnen weiter im Browser.
+        foreach (['/login', '/'.$tenant->slug.'/dashboard', '/'.$tenant->slug.'/app/konto-loeschen'] as $path) {
+            $this->assertFalse($patterns->contains(fn ($pattern) => $this->appleMatches($pattern, $path)), $path.' darf nicht in die App');
+        }
+    }
+
+    public function test_the_app_link_paths_are_configurable(): void
+    {
+        config([
+            'mobile_api.app_links.ios_app_ids' => 'ABCDE12345.de.example.app',
+            'mobile_api.app_links.paths' => ' /app/konto-loeschen , reset-password/* ,eigene/*',
+        ]);
+
+        $this->get('/.well-known/apple-app-site-association')->assertOk()
+            ->assertExactJson(['applinks' => ['details' => [[
+                'appIDs' => ['ABCDE12345.de.example.app'],
+                'components' => [
+                    ['/' => '/app/konto-loeschen', 'comment' => 'Bestätigung der Kontolöschung'],
+                    ['/' => '/reset-password/*', 'comment' => 'Passwort festlegen oder zurücksetzen'],
+                    ['/' => '/*/reset-password/*', 'comment' => 'Passwort festlegen oder zurücksetzen (Pfad-Modus /<slug>/…)'],
+                    ['/' => '/eigene/*', 'comment' => 'Link aus einer Mail'],
+                    ['/' => '/*/eigene/*', 'comment' => 'Link aus einer Mail (Pfad-Modus /<slug>/…)'],
+                ],
+            ]]]]);
+    }
+
+    public function test_in_subdomain_mode_the_school_subdomains_answer_but_custom_domains_never(): void
+    {
+        config([
+            'app.tenant_url_mode' => 'subdomain',
+            'mobile_api.app_links.ios_app_ids' => 'ABCDE12345.de.example.app',
+            'mobile_api.app_links.android_package' => 'de.example.app',
+            'mobile_api.app_links.android_sha256_fingerprints' => 'AA:BB:CC',
+        ]);
+        $tenant = $this->createTestTenant();
+        $this->onAdmin(fn () => DB::table('tenant_branding')->where('tenant_id', $tenant->id)->update(['custom_domain' => 'schule-'.$tenant->slug.'.example.test']));
+
+        // Standard (nur Kontolöschung): auf der Schul-Subdomain gibt es nichts zu öffnen.
+        $this->get('http://'.$tenant->slug.'.localhost/.well-known/apple-app-site-association')->assertNotFound();
+        config(['mobile_api.app_links.paths' => AppLinkAssociationController::recommendedPathsValue()]);
+
+        $patterns = collect($this->get('http://'.$tenant->slug.'.localhost/.well-known/apple-app-site-association')->assertOk()
+            ->json('applinks.details.0.components'))->pluck('/');
+        $this->assertContains('/reset-password/*', $patterns);
+        // Die Bestätigung der Kontolöschung gibt es nur auf der zentralen Domain.
+        $this->assertNotContains('/app/konto-loeschen', $patterns);
+        $this->get('http://'.$tenant->slug.'.localhost/.well-known/assetlinks.json')->assertOk()->assertJsonPath('0.target.package_name', 'de.example.app');
+
+        // Eigene Domain der Schule und tiefere Subdomains: kein Mail-Link führt dorthin.
+        $this->get('http://schule-'.$tenant->slug.'.example.test/.well-known/apple-app-site-association')->assertNotFound();
+        $this->get('http://schule-'.$tenant->slug.'.example.test/.well-known/assetlinks.json')->assertNotFound();
+        $this->get('http://a.'.$tenant->slug.'.localhost/.well-known/assetlinks.json')->assertNotFound();
+    }
+
+    /** Apples „/“-Muster: „*“ steht für beliebig viele Zeichen, „?“ für genau eines. */
+    private function appleMatches(string $pattern, string $path): bool
+    {
+        $regex = '#^'.str_replace(['\\*', '\\?'], ['.*', '.'], preg_quote($pattern, '#')).'$#';
+
+        return preg_match($regex, $path) === 1;
     }
 }

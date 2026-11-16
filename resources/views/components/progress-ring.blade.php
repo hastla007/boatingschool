@@ -5,7 +5,7 @@
     $offset = $circumference * (1 - max(0, min(100, $percent)) / 100);
 @endphp
 <div {{ $attributes->merge(['class' => 'relative inline-flex items-center justify-center']) }} style="width: {{ $size }}px; height: {{ $size }}px;">
-    <svg width="{{ $size }}" height="{{ $size }}" class="-rotate-90">
+    <svg width="{{ $size }}" height="{{ $size }}" class="-rotate-90" aria-hidden="true" focusable="false">
         <circle cx="{{ $size / 2 }}" cy="{{ $size / 2 }}" r="{{ $radius }}" stroke-width="{{ $stroke }}" class="stroke-slate-100 dark:stroke-slate-700" fill="none"></circle>
         <circle cx="{{ $size / 2 }}" cy="{{ $size / 2 }}" r="{{ $radius }}" stroke-width="{{ $stroke }}"
                 stroke="var(--brand-secondary, #007A7A)" fill="none" stroke-linecap="round"

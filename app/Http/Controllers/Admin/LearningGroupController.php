@@ -82,10 +82,7 @@ class LearningGroupController extends Controller
         if (array_diff(array_column($scopes, 'course_code'), $offered) !== []) {
             throw ValidationException::withMessages(['courses' => 'Bitte nur Kurse wählen, die Ihre Bootsschule anbietet.']);
         }
-        $owner = User::find($validated['owner_user_id']);
-        if (! $owner) {
-            throw ValidationException::withMessages(['owner_user_id' => 'Der Verwalter muss aktiver Teilnehmer dieser Schule sein.']);
-        }
+        $owner = $this->activeAccount($validated['owner_user_id']);
 
         // Verwalter, Name, Plätze, Funktionen, Ende: dieselben Regeln wie app:learning-group-create.
         $group = $groups->create($tenant, $owner, $validated['name'], (int) $validated['seats'], $scopes,
@@ -102,7 +99,7 @@ class LearningGroupController extends Controller
     public function show(TenantContext $tenantContext, LearningGroupService $groups, LearningGroup $learningGroup, Request $request): View
     {
         $this->ensureOwnSchool($tenantContext, $learningGroup);
-        $payload = $groups->payload($learningGroup, $request->user());
+        $payload = $groups->payload($learningGroup, $request->user(), exactCodeCounts: true);
         $users = $learningGroup->members->keyBy('id');
         // Mitglieder per Beitrittscode haben keine Adresse am Platz: die des Kontos zeigen.
         $members = collect($payload['members'])->map(fn (array $member) => $member + [
@@ -127,6 +124,10 @@ class LearningGroupController extends Controller
             'seats' => ['required', 'integer', 'min:1', 'max:'.LearningGroupService::MAX_SEATS],
             'valid_until' => ['nullable', 'date_format:Y-m-d'],
         ], self::MESSAGES);
+
+        if ($validated['owner_user_id'] !== $learningGroup->owner_user_id) {
+            $this->activeAccount($validated['owner_user_id']);
+        }
 
         $changes = $groups->update($learningGroup, [
             'name' => $validated['name'],
@@ -189,11 +190,31 @@ class LearningGroupController extends Controller
         };
     }
 
-    /** @return Collection<int, User> aktive Teilnehmer, als Verwalter wählbar */
+    /**
+     * @return Collection<int, User> aktive Teilnehmer, als Verwalter wählbar --
+     *                               nur Konten, die ihre Einladung angenommen haben (app_user.status
+     *                               „active“; eingeladene Konten können sich noch nicht anmelden)
+     */
     private function eligibleManagers(string $tenantId): Collection
     {
         return TenantUser::with('user')->where('tenant_id', $tenantId)->where('role', 'learner')->where('status', 'active')
+            ->whereHas('user', fn ($query) => $query->where('status', 'active'))
             ->get()->pluck('user')->filter()->sortBy(fn (User $user) => mb_strtolower($user->name ?? $user->email))->values();
+    }
+
+    /**
+     * Verwalter serverseitig: ein angemeldetes, aktives Konto (nicht nur
+     * eingeladen, nicht gesperrt). Mitgliedschaft und Rolle prüft
+     * LearningGroupService::create()/update() selbst.
+     */
+    private function activeAccount(string $userId): User
+    {
+        $owner = User::find($userId);
+        if (! $owner || $owner->status !== 'active') {
+            throw ValidationException::withMessages(['owner_user_id' => 'Der Verwalter muss aktiver Teilnehmer dieser Schule sein.']);
+        }
+
+        return $owner;
     }
 
     private function ensureOwnSchool(TenantContext $tenantContext, LearningGroup $group): void

@@ -37,8 +37,10 @@ class NewPasswordController extends Controller
             $user = User::on('pgsql_admin')->whereRaw('lower(email) = ?', [mb_strtolower($email)])->first();
             $broker = $request->boolean('invite') && $user?->status === 'invited' ? 'invites' : null;
             $linkInvalid = ! $user || ! Password::broker($broker)->tokenExists($user, $token);
-            // Eingeladenes Konto: Mindestalter einmalig mit bestätigen.
-            $needsAgeConfirmation = ! $linkInvalid && $broker === 'invites' && $user->age_confirmed_at === null;
+            // Eingeladenes Konto (noch nie angemeldet): Mindestalter einmalig
+            // mit bestätigen -- auch über einen normalen „Passwort vergessen“-
+            // Link, denn completeReset() nimmt dabei ebenso die Einladungen an.
+            $needsAgeConfirmation = ! $linkInvalid && $user->status === 'invited' && $user->age_confirmed_at === null;
         }
 
         return view('auth.reset-password', ['request' => $request, 'linkInvalid' => $linkInvalid, 'needsAgeConfirmation' => $needsAgeConfirmation]);
@@ -62,22 +64,23 @@ class NewPasswordController extends Controller
         // database. Otherwise we will parse the error and return the response.
         // Einladungs-Links (AccountSetupLink) sind 7 Tage gültig: eigener Broker.
         // Einladungs-Broker nur für Konten, die noch nie ein Passwort gesetzt haben.
-        $invitedUser = $request->boolean('invite')
-            ? User::on('pgsql_admin')->whereRaw('lower(email) = ?', [mb_strtolower((string) $request->input('email'))])->first()
-            : null;
-        $invited = $invitedUser?->status === 'invited';
-        // Eingeladenes Konto ohne Altersbestätigung: einmalig Pflicht (siehe
-        // AgeConfirmation). Nur für Einladungslinks, ein normales
-        // Zurücksetzen fragt nicht -- und erst bei gültigem Link, sonst
-        // verriete die Meldung, dass es ein eingeladenes Konto gibt.
-        if ($invited && $invitedUser->age_confirmed_at === null
-            && Password::broker('invites')->tokenExists($invitedUser, (string) $request->input('token'))) {
+        $resetUser = User::on('pgsql_admin')->whereRaw('lower(email) = ?', [mb_strtolower((string) $request->input('email'))])->first();
+        $neverActivated = $resetUser?->status === 'invited';
+        $invited = $request->boolean('invite') && $neverActivated;
+        $broker = $invited ? 'invites' : null;
+        // Noch nie angemeldetes (eingeladenes) Konto ohne Altersbestätigung:
+        // einmalig Pflicht (siehe AgeConfirmation) -- über den Einladungslink
+        // wie über „Passwort vergessen“, denn beide nehmen die Einladungen an
+        // (completeReset). Erst bei gültigem Link, sonst verriete die Meldung,
+        // dass es ein eingeladenes Konto gibt.
+        if ($neverActivated && $resetUser->age_confirmed_at === null
+            && Password::broker($broker)->tokenExists($resetUser, (string) $request->input('token'))) {
             $request->validate(['age_confirmed' => ['accepted']], ['age_confirmed.accepted' => AgeConfirmation::MESSAGE]);
         }
-        $status = Password::broker($invited ? 'invites' : null)->reset(
+        $status = Password::broker($broker)->reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
-            function (User $user) use ($request, $invited) {
-                if ($invited && $user->age_confirmed_at === null && $request->boolean('age_confirmed')) {
+            function (User $user) use ($request) {
+                if ($user->status === 'invited' && $user->age_confirmed_at === null && $request->boolean('age_confirmed')) {
                     $user->forceFill(['age_confirmed_at' => now()]);
                 }
                 self::completeReset($user, (string) $request->password);

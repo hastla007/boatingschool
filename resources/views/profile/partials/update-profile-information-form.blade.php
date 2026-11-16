@@ -24,20 +24,20 @@
         <div class="grid sm:grid-cols-2 gap-4">
             <div>
                 <x-input-label for="first_name" value="Vorname" />
-                <x-text-input id="first_name" name="first_name" type="text" class="mt-1 block w-full" :value="old('first_name', $user->first_name ?: ($nameParts[0] ?? ''))" required autofocus autocomplete="given-name" />
-                <x-input-error class="mt-2" :messages="$errors->get('first_name')" />
+                <x-text-input :invalid="$errors->has('first_name')" id="first_name" name="first_name" type="text" class="mt-1 block w-full" :value="old('first_name', $user->first_name ?: ($nameParts[0] ?? ''))" required autofocus autocomplete="given-name" />
+                <x-input-error for="first_name" class="mt-2" :messages="$errors->get('first_name')" />
             </div>
             <div>
                 <x-input-label for="last_name" value="Nachname" />
-                <x-text-input id="last_name" name="last_name" type="text" class="mt-1 block w-full" :value="old('last_name', $user->last_name ?: ($nameParts[1] ?? ''))" required autocomplete="family-name" />
-                <x-input-error class="mt-2" :messages="$errors->get('last_name')" />
+                <x-text-input :invalid="$errors->has('last_name')" id="last_name" name="last_name" type="text" class="mt-1 block w-full" :value="old('last_name', $user->last_name ?: ($nameParts[1] ?? ''))" required autocomplete="family-name" />
+                <x-input-error for="last_name" class="mt-2" :messages="$errors->get('last_name')" />
             </div>
         </div>
 
         <div>
             <x-input-label for="email" value="E-Mail-Adresse" />
-            <x-text-input id="email" name="email" type="email" class="mt-1 block w-full" :value="old('email', $user->email)" required autocomplete="username" />
-            <x-input-error class="mt-2" :messages="$errors->get('email')" />
+            <x-text-input :invalid="$errors->has('email')" id="email" name="email" type="email" class="mt-1 block w-full" :value="old('email', $user->email)" required autocomplete="username" />
+            <x-input-error for="email" class="mt-2" :messages="$errors->get('email')" />
 
             @if ($user->pending_email)
                 <p class="text-sm mt-2 text-amber-600 dark:text-amber-400">
@@ -48,9 +48,9 @@
 
         <div>
             <x-input-label for="current_password_for_email" value="Aktuelles Passwort" />
-            <x-text-input id="current_password_for_email" name="current_password" type="password" class="mt-1 block w-full" autocomplete="current-password" />
+            <x-text-input :invalid="$errors->emailChange->has('current_password')" id="current_password_for_email" name="current_password" type="password" class="mt-1 block w-full" autocomplete="current-password" />
             <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Nur nötig, wenn du deine E-Mail-Adresse änderst.</p>
-            <x-input-error class="mt-2" :messages="$errors->emailChange->get('current_password')" />
+            <x-input-error for="current_password_for_email" class="mt-2" :messages="$errors->emailChange->get('current_password')" />
 
             @if ($user instanceof \Illuminate\Contracts\Auth\MustVerifyEmail && ! $user->hasVerifiedEmail())
                 <div>
@@ -73,16 +73,16 @@
 
         <div>
             <x-input-label for="phone" value="Telefonnummer" />
-            <x-text-input id="phone" name="phone" type="text" class="mt-1 block w-full" :value="old('phone', $user->phone)" autocomplete="tel" />
-            <x-input-error class="mt-2" :messages="$errors->get('phone')" />
+            <x-text-input :invalid="$errors->has('phone')" id="phone" name="phone" type="text" class="mt-1 block w-full" :value="old('phone', $user->phone)" autocomplete="tel" />
+            <x-input-error for="phone" class="mt-2" :messages="$errors->get('phone')" />
         </div>
 
         <div>
             <x-input-label for="birthdate" value="Geburtsdatum" />
-            <x-text-input id="birthdate" name="birthdate" type="date" class="mt-1 block w-full"
+            <x-text-input :invalid="$errors->has('birthdate')" id="birthdate" name="birthdate" type="date" class="mt-1 block w-full"
                           :value="old('birthdate', $membership->birthdate?->format('Y-m-d'))" autocomplete="bday" />
             <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Wird u. a. für die Anmeldung zu Praxis &amp; Prüfung benötigt.</p>
-            <x-input-error class="mt-2" :messages="$errors->get('birthdate')" />
+            <x-input-error for="birthdate" class="mt-2" :messages="$errors->get('birthdate')" />
         </div>
 
         <div>
@@ -90,20 +90,20 @@
             <div class="grid sm:grid-cols-[2fr_1fr] gap-4 mt-1">
                 <div>
                     <x-input-label for="street" value="Straße und Hausnummer" class="sr-only" />
-                    <x-text-input id="street" name="street" type="text" placeholder="Straße & Hausnummer" class="block w-full" :value="old('street', $membership->street)" autocomplete="street-address" />
-                    <x-input-error class="mt-2" :messages="$errors->get('street')" />
+                    <x-text-input :invalid="$errors->has('street')" id="street" name="street" type="text" placeholder="Straße & Hausnummer" class="block w-full" :value="old('street', $membership->street)" autocomplete="street-address" />
+                    <x-input-error for="street" class="mt-2" :messages="$errors->get('street')" />
                 </div>
                 <div>
                     <x-input-label for="postal_code" value="PLZ" class="sr-only" />
-                    <x-text-input id="postal_code" name="postal_code" type="text" placeholder="PLZ" class="block w-full" :value="old('postal_code', $membership->postal_code)" autocomplete="postal-code" />
-                    <x-input-error class="mt-2" :messages="$errors->get('postal_code')" />
+                    <x-text-input :invalid="$errors->has('postal_code')" id="postal_code" name="postal_code" type="text" placeholder="PLZ" class="block w-full" :value="old('postal_code', $membership->postal_code)" autocomplete="postal-code" />
+                    <x-input-error for="postal_code" class="mt-2" :messages="$errors->get('postal_code')" />
                 </div>
             </div>
             <div class="grid sm:grid-cols-2 gap-4 mt-2">
                 <div>
                     <x-input-label for="city" value="Wohnort" class="sr-only" />
-                    <x-text-input id="city" name="city" type="text" placeholder="Wohnort" class="block w-full" :value="old('city', $membership->city)" autocomplete="address-level2" />
-                    <x-input-error class="mt-2" :messages="$errors->get('city')" />
+                    <x-text-input :invalid="$errors->has('city')" id="city" name="city" type="text" placeholder="Wohnort" class="block w-full" :value="old('city', $membership->city)" autocomplete="address-level2" />
+                    <x-input-error for="city" class="mt-2" :messages="$errors->get('city')" />
                 </div>
                 <div>
                     <x-input-label for="country" value="Land" class="sr-only" />

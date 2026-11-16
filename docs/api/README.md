@@ -13,7 +13,7 @@ dieselben.
 | `app/Api/` | Tokens, Fehlerformat, Ausgabeformate |
 | `app/Http/Middleware/Api/` | Anmeldung, Schule, Idempotenz |
 | `config/mobile_api.php` | Laufzeiten (Tokens, Export, Idempotenz) |
-| `tests/Feature/Api/` | Tests inkl. Abgleich Routen ↔ OpenAPI |
+| `tests/Feature/Api/` | Tests inkl. Abgleich mit dem Vertrag (`OpenApiContractTest`: Routen, Methoden, Pfadparameter, Token-/Schul-/Idempotenz-Pflicht, Fehlercodes ↔ OpenAPI und Abschnitt 11) |
 
 ---
 
@@ -164,7 +164,7 @@ Antworten werden 24 Stunden je Konto gespeichert.
 | App-Einstellungen speichern | 60/Min. |
 | Schulbezogene Endpunkte | 240/Min. je Konto |
 | Codes einlösen | 10/Min. |
-| Lerngruppen | Vorschau 30/Min.; Einladen 20 Aufrufe/Std. je Verwalter, je Gruppe und Tag max(20, 2 × Plätze) Einladungen |
+| Lerngruppen | Vorschau 30/Min.; Einladen 20 Aufrufe/Std. je Verwalter (darüber 429 `RATE_LIMITED` mit `Retry-After`), je Gruppe und Tag max(20, 2 × Plätze) Einladungen, je Verwalter und Tag höchstens 200 Einladungen über alle Gruppen (darüber 429 `RATE_LIMITED`) |
 | Datenexport | 5/Std., Download 20/Min. |
 | Ausgelieferte Fragen | 2000 je Konto und Kalendertag (Europe/Berlin), siehe unten |
 
@@ -222,6 +222,25 @@ POST /auth/login {email, password, device_name, device_platform?, app_version?}
   Der Link in der Mail führt ins Web. Für einen Deep-Link in die App kann die
   App `POST /auth/password/reset` mit `email`, `token` und neuem Passwort
   aufrufen. `invite: true` gilt für Einladungs-Links.
+* **Altersbestätigung:** Setzt `POST /auth/password/reset` das erste Passwort
+  eines eingeladenen Kontos, das das Mindestalter noch nicht bestätigt hat,
+  ist `age_confirmed: true` Pflicht (wie die Checkbox im Web, einmalig). Dabei
+  werden die Einladungen angenommen und reservierte Zugangscodes eingelöst.
+  Fehlt das Feld: 422 `VALIDATION_FAILED` mit `errors.age_confirmed` -- die App
+  zeigt dann die Checkbox „Ich bin mindestens 16 Jahre alt oder meine
+  Erziehungsberechtigten sind einverstanden.“ und sendet erneut. Gefragt wird
+  erst bei gültigem Token; bereits bestätigte Konten und ein normales
+  Zurücksetzen brauchen das Feld nicht (dort wird es auch nicht gespeichert,
+  wie im Web). `user.age_confirmed` (Anmeldung,
+  `GET /me`) zeigt den Stand.
+* **Links aus Mails in der App** (Universal Links/App Links, siehe
+  Abschnitt 13; standardmäßig nur die Kontolöschung, die übrigen erst mit
+  dem empfohlenen Wert von `MOBILE_API_APP_LINK_PATHS`): Passwort festlegen/zurücksetzen (`/reset-password/{token}?email=…`,
+  bei Einladungen mit `&invite=1`) → `POST /auth/password/reset`. Einladung
+  eines bestehenden Kontos (`/invitations/…/accept/…`) und E-Mail-Bestätigung
+  (`/verify-email/…`) haben keinen API-Endpunkt: die App öffnet sie im
+  In-App-Browser (SFSafariViewController bzw. Custom Tabs). Alle Pfade gibt es
+  auch mit Schul-Slug davor (`/<slug>/reset-password/…`).
 * **Webansicht der Schule** (eingebettete WebView, z. B. für Seiten, die es
   in der App nicht gibt): `POST /auth/web-session {redirect}` mit
   `X-Tenant-Slug` liefert eine Einmal-URL.
@@ -560,8 +579,10 @@ GET  /exams/{id}/result                 → Ergebnis mit Lösungen
   * **Abrechnung über Kurscodes:** jeder Beitritt verbraucht je Kurs der
     Gruppe einen freien Kurscode aus dem Codebestand der Schule (eigene,
     offene, nicht gesperrte/abgelaufene reine Kurscodes genau dieses Kurses
-    -- keine Verlängerungs-, Produkt- oder plattformweiten Codes und keine
-    Kurscodes mit Zusatzprodukten), auch bei Teilzugang (`capabilities`).
+    -- keine Verlängerungs-, Produkt- oder plattformweiten Codes, keine
+    Kurscodes mit Zusatzprodukten und keine Codes, die die Schule gerade
+    für eine offene Einladung reserviert hat), auch bei Teilzugang
+    (`capabilities`).
     Der Code wird in derselben Transaktion unter Zeilensperre
     (`FOR UPDATE SKIP LOCKED`, bald ablaufende zuerst) beansprucht und als
     eingelöst markiert (`redeemed_by_user_id` = Mitglied, Schule,
@@ -585,11 +606,18 @@ GET  /exams/{id}/result                 → Ergebnis mit Lösungen
     Mitglieder (auch aus der Zeit vor der Abrechnung) werden nicht
     belastet; Entfernen und Gruppenende geben den Code nicht zurück. Die
     Platzzahl bleibt frei wählbar; `course_codes` in `GET /me/groups[/{id}]`
-    zeigt je Kurs die freien Codes der Schule (`free`), die für die noch
+    zeigt je Kurs die freien Codes der Schule (`free`, höchstens `needed`:
+    den genauen Codebestand sieht nur das Team der Schule), die für die noch
     nicht beigetretenen Plätze höchstens nötigen (`needed` = Plätze − aktive
     Mitglieder, Momentaufnahme: Personen mit eigenem Kurszugang verbrauchen
     keinen Code) und `sufficient`, damit die App warnen kann. Die Codes
     teilen sich alle Gruppen und Einlösungen der Schule.
+  * **Entzogener Kurszugang:** hat die Schule der Person einen Kurs der
+    Gruppe bewusst entzogen (Kurszugang `revoked`), ist kein Beitritt
+    möglich -- wie beim Einlösen eines Kurscodes: 409
+    `GROUP_ACCESS_REVOKED`, nichts wird verbraucht, eine persönliche
+    Einladung bleibt offen; die Vorschau meldet `access_revoked: true`
+    (`joinable: false`).
   * **Entfernen** gibt den Platz frei und beendet genau die Gruppen-
     zugänge der Person (`status: expired`, Enddatum jetzt -- kein
     `revoked`, das bleibt der bewussten Sperre durch die Schule
@@ -680,7 +708,7 @@ Der Lernstand ist derselbe wie im Web.
 |---|---|---|
 | 401 | `UNAUTHENTICATED` | Token fehlt/abgelaufen → einmal `refresh`, sonst Login |
 | 403 | `EMAIL_NOT_VERIFIED` | Bestätigungsmail anbieten |
-| 403 | `TENANT_MEMBERSHIP_REQUIRED` / `_SUSPENDED`, `TENANT_UNAVAILABLE` | Schulwahl / Support |
+| 403 | `TENANT_MEMBERSHIP_REQUIRED` / `TENANT_MEMBERSHIP_SUSPENDED`, `TENANT_UNAVAILABLE` | Schulwahl / Support |
 | 403 | `ENTITLEMENT_REQUIRED` / `ENTITLEMENT_EXPIRED` | Webshop-Link, Code-Eingabe |
 | 403 | `FORBIDDEN` | keine Berechtigung |
 | 403 | `LINK_INVALID` | Download-Link manipuliert oder abgelaufen → Status neu laden |
@@ -701,6 +729,7 @@ Der Lernstand ist derselbe wie im Web.
 | 409 | `NAVIGATION_TASK_IN_EXAM` | erst Prüfung beenden (`exam_id` im Fehler) |
 | 409 | `VIDEO_NOT_AVAILABLE` | Platzhalter-Video („Video folgt“): nicht abschließbar, zur nächsten Lektion |
 | 409 | `GROUP_NOT_ACTIVE` | Lerngruppe abgelaufen oder gesperrt |
+| 409 | `GROUP_ACCESS_REVOKED` | Beitritt: die Schule hat der Person einen Kurs der Gruppe entzogen → `detail` anzeigen, an die Bootsschule wenden (Vorschau: `access_revoked: true`) |
 | 409 | `GROUP_NO_CODES` | Beitritt: die Schule hat für einen Kurs der Gruppe, für den die Person keinen eigenen Vollzugang hat, keinen freien Kurscode → an Verwalter/Schule wenden |
 | 410 | `EXAM_EXPIRED` | Prüfung bzw. Ergebnis neu laden |
 | 410 | `EXPORT_EXPIRED` | neuen Export anfordern |
@@ -807,13 +836,24 @@ entscheidet aber nur anhand von `code`.
     Universal Link (iOS) bzw. App Link (Android) auf die App zeigen
   * `MOBILE_API_IOS_APP_IDS` (`<Team-ID>.<Bundle-ID>`, kommagetrennt) sowie
     `MOBILE_API_ANDROID_PACKAGE` und `MOBILE_API_ANDROID_SHA256_FINGERPRINTS`
-    (kommagetrennt): Die zentrale Domain liefert damit
-    `/.well-known/apple-app-site-association` (nur dieser Pfad) bzw.
+    (kommagetrennt): Die zentrale Domain (bei `TENANT_URL_MODE=subdomain`
+    auch die Schul-Subdomains, nie eigene Domains der Schulen -- dorthin
+    verlinkt keine Mail) liefert damit
+    `/.well-known/apple-app-site-association` bzw.
     `/.well-known/assetlinks.json` aus. Ohne Werte gibt es beide Dateien
-    nicht (404), der Link öffnet dann immer die Webseite. Die App braucht
-    zusätzlich die Associated Domain `applinks:<zentrale Domain>` bzw. einen
-    Intent-Filter mit `autoVerify` für den Pfad. Wer die Dateien statisch
-    ausliefert (Webserver/CDN), lässt die Variablen leer.
+    nicht (404), der Link öffnet dann immer die Webseite.
+  * `MOBILE_API_APP_LINK_PATHS` (kommagetrennt, `*` als Platzhalter): Pfade
+    für iOS. Standard: nur der Löschpfad (das kann jede veröffentlichte
+    App-Version). Empfohlen, sobald die App auch die übrigen Mail-Links
+    verarbeitet:
+    `/app/konto-loeschen,/reset-password/*,/invitations/*/accept/*,/verify-email/*/*,/gruppe/*`
+    (`AppLinkAssociationController::recommendedPathsValue()`); alle außer dem
+    Löschpfad automatisch auch als `/*/…` (Pfad-Modus `/<slug>/…`). Die App
+    braucht zusätzlich die Associated Domain `applinks:<zentrale Domain>`
+    bzw. einen Intent-Filter mit `autoVerify` für dieselben Pfade (Android
+    nennt sie nicht in `assetlinks.json`). Wer die Dateien statisch
+    ausliefert (Webserver/CDN), lässt die Variablen leer
+    (deploy/README.md, Abschnitt 10).
 * **Wartungsmodus** der Plattform (Superadmin-Einstellungen) gilt auch für
   die API (503 `MAINTENANCE`); `GET /app/config` und `GET /health` bleiben
   erreichbar.
@@ -830,14 +870,47 @@ entscheidet aber nur anhand von `code`.
   Verbindung, idempotent über Quellschlüssel, legt keine Schulen oder Konten
   an):
   ```sh
-  php artisan app:import-mobile-entitlements /pfad/mobile-entitlements.json
+  php artisan app:import-mobile-entitlements /pfad/mobile-entitlements.json [--dry-run]
   php artisan app:import-mobile-access-rules /pfad/mobile-access.json
   ```
-  Entitlements: `{"tenant_slug": "...", "entitlements": [{"email", "course_code",
-  "feature_code" ("all" oder WP-Funktion), "source_key", "status": "active",
-  "valid_from"?, "valid_until"?}]}`. Das App-Konto mit derselben E-Mail muss
-  bestehen; fehlende Mitgliedschaften werden als Lernende angelegt, gesperrte
-  oder mehrdeutige Konten brechen ab. Der Export enthält E-Mail-Adressen.
+  Entitlements, Format 1 (ohne `format_version`): `{"tenant_slug": "...",
+  "entitlements": [{"email", "course_code", "feature_code" ("all" oder
+  WP-Funktion), "source_key", "status": "active", "valid_from"?,
+  "valid_until"?}]}` – nur aktive Zugänge, sonst bricht der Lauf ab.
+  Format 2 (`"format_version": 2`, WP-Export seit T46, `wp bootspruefung export
+  entitlements`): zusätzlich `default_access` (hier ignoriert, gehört zum
+  Regel-Import), je Zugang `status` (`active`/`suspended`), `user_registered`,
+  `source` (`woocommerce`/`group`/`manual`/`voucher`), `group_id`, `order_id`,
+  `source_key` (`wp:entitlement:<id>`) und getrennt
+  `device_simulation_entitlements`. Regeln: `suspended` wird als gesperrter
+  Zugang übernommen und nie freigeschaltet; ein `valid_from` in der Zukunft
+  bleibt stehen, der Zugang gilt erst ab dann (`Entitlement::currentlyActive`);
+  `feature_code` `all` = voller Kurszugang (`capabilities` null), einzelne
+  WP-Funktionen werden auf Capabilities abgebildet (`question_bank`/
+  `learning_explanations` → `smarttrainer`, `exam_simulation` → `exam`,
+  `navigation_trainer` → `navigation`, `praxis_trainer` → `praxis`,
+  `video_course` → `video`, `radio_training` → `funk`, `downloads` →
+  `downloads`). Alle Zeilen erhalten `source_type` `wordpress`,
+  `source_reference` = `source_key`; die Herkunft (`source`, `group_id`,
+  `order_id`, WP-`status`) steht in `entitlement.import_meta` (jsonb,
+  Migration `…_000940`). Gruppenplätze (`source` `group`) werden als einzelne
+  Zugänge der Lernenden übernommen, Lerngruppen werden nicht angelegt; die
+  Ausgabe nennt ihre Anzahl. Simulator-Zugänge werden übersprungen und
+  gezählt: Die Gerätesimulation Funk hat hier keine eigene Capability, sie
+  gehört zum vollen Kurszugang (und ist zusätzlich per
+  `FUNK_GERAETESIMULATION` freigeschaltet).
+  Für beide Formate: Das App-Konto mit derselben E-Mail muss bestehen;
+  fehlende Mitgliedschaften werden als Lernende angelegt, gesperrte oder
+  mehrdeutige Konten und unbekannte Kurse brechen ab (Fehler mit
+  Zeilennummer und `source_key`). Alles oder nichts in einer Transaktion.
+  Ein erneuter Lauf ist idempotent über `source_key` und übernimmt Status,
+  Zeitraum, Funktion und Herkunft (z. B. eine Sperre nach dem ersten Import);
+  in Laravel widerrufene oder dort gesperrte Zugänge schaltet er nicht wieder
+  frei, und eine in Laravel aufgehobene WP-Sperre bleibt aufgehoben, solange
+  WP unverändert `suspended` meldet (Aktion „nicht ändern“). Zugänge, die im neuen Export fehlen, bleiben unverändert.
+  `--dry-run` prüft dieselben Regeln, zeigt je Zugang die geplante Aktion
+  (neu/aktualisieren/unverändert) und speichert nichts. Der Export enthält
+  E-Mail-Adressen.
   Regeln: `{"default_access"?, "rules": [{"tenant_slug", "course_code",
   "feature_code", "access_type" (free/free_limited/drip), "limit_value"?,
   "module_code"? (nur drip), "valid_from"?, "valid_until"?, "source_key"?}]}`.
@@ -879,7 +952,10 @@ entscheidet aber nur anhand von `code`.
   die freien Kurscodes je Schule und Kurs).
 * **Tests:** `vendor/bin/phpunit tests/Feature/Api`.
   `OpenApiContractTest` schlägt fehl, wenn Routen und OpenAPI-Datei
-  auseinanderlaufen.
+  auseinanderlaufen (Methoden, Pfadparameter, `security`, `X-Tenant-Slug`,
+  `Idempotency-Key`) oder ein Fehlercode im Code (`new ApiProblem(…)`,
+  `ProblemResponse`) nicht genau in `Problem.code` und in Abschnitt 11
+  steht. Neue Codes deshalb immer als String-Literal übergeben.
 
 ## 14. Nicht in v1
 

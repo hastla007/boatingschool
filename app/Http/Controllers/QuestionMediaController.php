@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\MediaAsset;
 use App\Support\ProtectedMedia;
 use App\Support\QuestionMedia;
+use App\Support\VideoStepImage;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
@@ -30,6 +31,9 @@ class QuestionMediaController extends Controller
 
         $mime = $media->mime_type && preg_match('#^(image|audio|video)/[A-Za-z0-9.+-]+$#', $media->mime_type) ? $media->mime_type : null;
 
-        return ProtectedMedia::response($file, $mime, ['#^(image|audio|video)/#']);
+        // Inline nur Rasterbilder (wie VideoStepImage): ein SVG könnte Skript
+        // enthalten und liefe sonst im Kontext dieser Domain; alles andere
+        // (SVG, Audio, Video, Unbekanntes) kommt als Download.
+        return ProtectedMedia::response($file, $mime, VideoStepImage::INLINE_TYPES);
     }
 }

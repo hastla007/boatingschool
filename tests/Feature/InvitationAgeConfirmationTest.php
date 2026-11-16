@@ -78,6 +78,50 @@ class InvitationAgeConfirmationTest extends TestCase
         $this->assertNotNull($this->onAdmin(fn () => TenantInvitation::where('tenant_id', $tenant->id)->where('email', $email)->value('accepted_at')));
     }
 
+    /** Auch „Passwort vergessen“ eines eingeladenen Kontos nimmt Einladungen an: dort ebenfalls Altersbestätigung. */
+    public function test_a_normal_password_reset_of_an_invited_account_also_asks_for_the_age(): void
+    {
+        $tenant = $this->createTestTenant();
+        $owner = $this->createTenantUser($tenant, 'owner');
+        $email = $this->emails[] = 'alter-reset-'.Str::lower(Str::random(8)).'@example.test';
+        $this->actingAsInTenant($owner, $tenant)->post('/admin/participants/invite', ['name' => 'Reset Person', 'email' => $email])->assertSessionHasNoErrors();
+        $user = $this->onAdmin(fn () => User::where('email', $email)->firstOrFail());
+        $token = Password::broker()->createToken($user);
+
+        $this->app['auth']->forgetGuards();
+        $this->withSession(['dev_tenant_slug' => $tenant->slug])->get('/reset-password/'.$token.'?email='.urlencode($email))
+            ->assertOk()->assertSee(AgeConfirmation::LABEL)->assertSee('name="age_confirmed"', false);
+
+        $post = fn (array $extra = []) => $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/reset-password', $extra + [
+            'token' => $token, 'email' => $email,
+            'password' => 'Ein-sicheres-Passwort-2026', 'password_confirmation' => 'Ein-sicheres-Passwort-2026',
+        ]);
+        $post()->assertSessionHasErrors(['age_confirmed' => AgeConfirmation::MESSAGE]);
+        $this->assertSame('invited', $this->onAdmin(fn () => User::find($user->id)->status));
+        $this->assertNull($this->onAdmin(fn () => TenantInvitation::where('tenant_id', $tenant->id)->where('email', $email)->value('accepted_at')));
+
+        $this->app['auth']->forgetGuards();
+        $post(['age_confirmed' => '1'])->assertSessionHasNoErrors()->assertRedirect(route('login'));
+        $user = $this->onAdmin(fn () => User::find($user->id));
+        $this->assertSame('active', $user->status);
+        $this->assertNotNull($user->age_confirmed_at);
+    }
+
+    /** Ein normales Zurücksetzen eines aktiven Kontos fragt nicht nach dem Alter. */
+    public function test_a_normal_password_reset_of_an_active_account_does_not_ask_for_the_age(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner', ['age_confirmed_at' => null]);
+        $token = Password::broker()->createToken($learner);
+
+        $this->withSession(['dev_tenant_slug' => $tenant->slug])->get('/reset-password/'.$token.'?email='.urlencode($learner->email))
+            ->assertOk()->assertDontSee('name="age_confirmed"', false);
+        $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/reset-password', [
+            'token' => $token, 'email' => $learner->email,
+            'password' => 'Ein-sicheres-Passwort-2026', 'password_confirmation' => 'Ein-sicheres-Passwort-2026',
+        ])->assertSessionHasNoErrors()->assertRedirect(route('login'));
+    }
+
     public function test_an_invalid_link_does_not_reveal_an_invited_account_through_the_age_question(): void
     {
         $tenant = $this->createTestTenant();

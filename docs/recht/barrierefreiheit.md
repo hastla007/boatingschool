@@ -20,14 +20,43 @@ eine Prüfung durch eine unabhängige Stelle steht aus.
 
 Bereits umgesetzt (Auswahl):
 
-- Seitensprache Deutsch ausgezeichnet (`lang="de"`), Überschriftenstruktur mit
-  sichtbarer H1 je Seite.
-- Beschriftete Formularfelder, beschriftete Symbol-Links (z. B. „Zurück zum Kurs“).
-- Bilder in Fragen und Navigationsaufgaben mit Alternativtext; Kartenausschnitte
-  mit Bildunterschrift.
-- Restzeit der Prüfungssimulation wird zusätzlich für Screenreader angesagt.
+- Seitensprache Deutsch ausgezeichnet (`lang="de"`) auf allen Seiten inkl.
+  Fehler-, Wartungs- und Schulwahlseiten; Überschriftenstruktur mit genau einer
+  sichtbaren H1 je Seite und Zwischenüberschriften ohne übersprungene Ebenen
+  (Lernbereich und Admin-Bereich).
+- Aussagekräftige Seitentitel aus der Seitenüberschrift, auch auf Anmelde-,
+  Registrierungs- und Superadmin-Seiten (WCAG 2.4.2).
+- „Zum Inhalt springen“-Link in allen Layouts (Lernplattform, Anmeldeseiten,
+  Superadmin, Rechtstexte, Fehlerseiten); das Sprungziel `<main id="inhalt">`
+  schließt die Seitenüberschrift ein und nimmt den Fokus an (WCAG 2.4.1).
+  Alle Inhalte liegen in Landmarks (Kopf-, Haupt-, Fußbereich, Navigation).
+- Beschriftete Formularfelder, beschriftete Symbol-Links (z. B. „Zurück zum
+  Kurs“). Fehlermeldungen der Anmelde-, Registrierungs-, Passwort- und
+  Profilformulare, der Code-Einlösung und der Teilnehmer-/Team-Einladung sind
+  per `aria-invalid`/`aria-describedby` mit dem Feld verknüpft (WCAG 3.3.1).
+- Bilder in Fragen und Navigationsaufgaben mit Alternativtext; fehlt ein
+  gepflegter Alternativtext, wird das Bild als „Abbildung zur Frage (ohne
+  Bildbeschreibung)“ angesagt statt als Dekoration versteckt.
+  Kartenausschnitte mit Bildunterschrift; reine Schmuck-Icons sind für
+  Screenreader ausgeblendet.
+- Fortschrittsbalken und Diagramme (Kursfortschritt, Admin-Statistik,
+  Phasenbalken im Admin-Dashboard) stehen neben dem Zahlenwert als Text; der
+  Balken selbst ist ausgeblendet bzw. als `progressbar` mit Wert ausgezeichnet.
+- Sichtbarer Tastaturfokus für Links, Knöpfe, Reiter und scrollbare Tabellen
+  (WCAG 2.4.7). Die Reiter im Admin-Bereich folgen dem WAI-ARIA-Tab-Muster
+  (Pfeiltasten, Pos1/Ende, verknüpfte Bereiche); aufklappbare Bereiche melden
+  ihren Zustand (`aria-expanded`); Menüs schließen per Escape und geben den
+  Fokus an den Auslöser zurück; nach „Musterantwort/-lösung anzeigen“ springt
+  der Fokus auf die Antwort. Breite Tabellen sind per Tastatur scrollbar.
+- Dialoge: Bestätigungsdialoge halten den Fokus im Dialog, schließen per
+  Escape und geben den Fokus zurück; der Einwilligungsdialog zur
+  Spracherkennung startet auf „Nein, lieber tippen“.
+- Restzeit der Prüfungssimulation wird zusätzlich für Screenreader angesagt
+  (5 und 1 Minute vor Ablauf); das Zeitlimit wird vor dem Start angekündigt.
+- Systemeinstellung „Bewegung reduzieren“ schaltet Übergänge und Animationen ab.
 - Dunkelmodus; Schriftfarbe auf der Markenfarbe der Schule wird nach Kontrast
-  automatisch hell oder dunkel gewählt.
+  automatisch hell oder dunkel gewählt. Kontraste der Standardfarben im
+  Hell- und Dunkelmodus automatisiert geprüft (axe-core, Hauptseiten).
 - Darstellung auf kleinen Bildschirmen (360 px) ohne waagerechtes Scrollen.
 - Spracheingabe in den Funkübungen ist freiwillig; alles lässt sich auch tippen.
 
@@ -36,28 +65,34 @@ Bereits umgesetzt (Auswahl):
 1. **Videos ohne Untertitel und ohne Audiodeskription** (WCAG 1.2.2, 1.2.3/1.2.5):
    Für die Lernvideos gibt es derzeit keine Untertitel-Spuren und keine
    Textalternative. Noch nicht produzierte Videos zeigen „Video folgt“.
-2. **Kein „Zum Inhalt springen“-Link** (WCAG 2.4.1): Tastaturnutzende müssen
-   die Navigation bei jeder Seite durchlaufen.
-3. **Zeitbegrenzung der Prüfungssimulation** (WCAG 2.2.1): Die Prüfungszeit
-   entspricht der amtlichen Prüfung und lässt sich nicht verlängern. Die
-   Lernmodi haben keine Zeitbegrenzung.
-4. **Funk-Gerätesimulation** (Beta): Bedienung des simulierten Funkgeräts über
+   [Untertitel müssen erstellt bzw. eingekauft werden – inhaltliche Entscheidung.]
+2. **Zeitbegrenzung der Prüfungssimulation** (WCAG 2.2.1): Die Prüfungszeit
+   entspricht der amtlichen Prüfung und lässt sich nicht verlängern; die
+   Simulation soll die echten Prüfungsbedingungen abbilden (Ausnahme
+   „wesentlich“ nach 2.2.1 – [Anwalt/Fachlich prüfen]). Das Zeitlimit wird vor
+   dem Start angekündigt, 5 und 1 Minute vor Ablauf gibt es einen Hinweis (auch
+   für Screenreader). Die Lernmodi haben keine Zeitbegrenzung. Eine
+   Zeitverlängerung (Nachteilsausgleich) je Teilnehmer oder Schule gibt es
+   nicht [Produktentscheidung offen].
+3. **Funk-Gerätesimulation** (Beta): Bedienung des simulierten Funkgeräts über
    Zeigergesten (Drehen/Ziehen) und Töne; eine gleichwertige Bedienung nur per
    Tastatur und Screenreader ist nicht sichergestellt (WCAG 2.1.1, 2.5.1).
-5. **Navigationsaufgaben mit Seekarten**: Die Aufgaben setzen das Arbeiten mit
-   einer Papier-Seekarte voraus; der Kartenausschnitt ist ein Bild ohne
-   gleichwertige Textbeschreibung (WCAG 1.1.1).
-6. **Alternativtexte der Fragenbilder** hängen von der Inhaltspflege ab und sind
-   nicht für alle Bilder geprüft (WCAG 1.1.1).
-7. **Bewegung und Animationen** (Auf-/Zuklappen) berücksichtigen die
-   Systemeinstellung „Bewegung reduzieren“ nicht (WCAG 2.3.3 ist AAA, hier nur
-   als Hinweis).
-8. **Markenfarben der Schulen**: Schulen wählen ihre Farben selbst; Kontraste
+4. **Navigationsaufgaben mit Seekarten**: Die Aufgaben setzen das Arbeiten mit
+   einer Papier-Seekarte voraus; der Kartenausschnitt hat einen kurzen
+   Alternativtext, aber keine gleichwertige Textbeschreibung (WCAG 1.1.1).
+5. **Alternativtexte der Fragenbilder** hängen von der Inhaltspflege ab und sind
+   nicht für alle Bilder vorhanden (WCAG 1.1.1); Bilder ohne Beschreibung
+   werden als solche angesagt.
+6. **Markenfarben der Schulen**: Schulen wählen ihre Farben selbst; Kontraste
    von Links und Flächen in der Markenfarbe werden nicht vollständig geprüft
    (WCAG 1.4.3, 1.4.11).
-9. **Statusmeldungen** (z. B. „gespeichert“) werden nicht überall als
-   Live-Region angesagt (WCAG 4.1.3).
-10. **Lern-App**: [Stand der App gesondert bewerten].
+7. **Statusmeldungen** (z. B. „gespeichert“) werden auf den Hauptseiten als
+   Live-Region angesagt, aber nicht in allen per JavaScript aktualisierten
+   Bereichen (WCAG 4.1.3), z. B. der Hinweis „Mehr Plätze als freie
+   Kurscodes“ beim Anlegen einer Lerngruppe.
+8. **Superadmin-Bereich** (nur Betreiber): nicht vollständig geprüft;
+   Fehlermeldungen einzelner Formulare sind nicht mit dem Feld verknüpft.
+9. **Lern-App**: [Stand der App gesondert bewerten].
 
 Diese Liste wird bei der Behebung einzelner Punkte aktualisiert.
 

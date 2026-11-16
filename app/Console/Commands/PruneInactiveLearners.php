@@ -22,7 +22,8 @@ use Illuminate\Support\Facades\DB;
  * gelöscht -- in jeder Bootsschule, wie eine Löschung durch den Superadmin.
  *
  * Nie betroffen: Superadmins, Team-Mitglieder einer Schule (Owner, Admin,
- * Ausbilder) und nie aktivierte Einladungs-Konten (die räumt
+ * Ausbilder), Verwalter einer laufenden Lerngruppe, Konten mit offenem
+ * Löschantrag aus der App und nie aktivierte Einladungs-Konten (die räumt
  * app:prune-personal-data mit eigener Frist ab). Ohne gesetzte Monatszahl
  * (DATA_RETENTION_INACTIVE_LEARNER_MONTHS) tut der Befehl nichts.
  *
@@ -142,15 +143,30 @@ class PruneInactiveLearners extends Command
             // Nie aktivierte Einladungen: eigene Frist in app:prune-personal-data.
             ->where('app_user.status', '!=', 'invited')
             ->whereNotExists(fn ($q) => $q->from('tenant_user')->whereColumn('tenant_user.user_id', 'app_user.id')->where('tenant_user.role', '!=', 'learner'))
+            // Aktiver Kurszugang, auch ein Platz in einer Lerngruppe: der Beitritt
+            // legt je Kurs ein Entitlement mit source_type "group" an (Ende der
+            // Gruppe = valid_until), Entfernen/Gruppenende setzen es auf expired.
             ->whereNotExists(fn ($q) => $q->from('entitlement')->whereColumn('entitlement.user_id', 'app_user.id')
                 ->whereIn('entitlement.status', ['active', 'pending'])
-                ->where(fn ($v) => $v->whereNull('entitlement.valid_until')->orWhere('entitlement.valid_until', '>', $now)));
+                ->where(fn ($v) => $v->whereNull('entitlement.valid_until')->orWhere('entitlement.valid_until', '>', $now)))
+            // Verwalter einer laufenden Lerngruppe (auch ohne eigenen Zugang):
+            // die Gruppe stünde nach der Löschung ohne Verwalter da.
+            ->whereNotExists(fn ($q) => $q->from('learning_group')->whereColumn('learning_group.owner_user_id', 'app_user.id')
+                ->where('learning_group.status', 'active')
+                ->where(fn ($v) => $v->whereNull('learning_group.valid_until')->orWhere('learning_group.valid_until', '>', $now)))
+            // Offener Löschantrag aus der App: die Person entscheidet gerade selbst
+            // über den Link aus der Mail (AppAccountDeletion) -- keine zweite
+            // Mail und keine Löschung daneben. Läuft der Antrag ab, gilt wieder
+            // die normale Frist.
+            ->whereNotExists(fn ($q) => $q->from('api_account_deletion_request')->whereColumn('api_account_deletion_request.user_id', 'app_user.id')
+                ->where('api_account_deletion_request.expires_at', '>', $now));
     }
 
     /**
      * Letzte Anmeldung oder Lernaktivität in irgendeiner Schule (GREATEST
      * überspringt NULL). Ohne beides zählt die Kontoanlage bzw. die Aufnahme
-     * in eine Schule.
+     * in eine Schule. Selbstbewertung im Navigationstrainer und der
+     * Lernstand der Praxiskarten setzen updated_at ihrer Zeile mit.
      */
     private static function lastActivitySql(): string
     {
@@ -170,6 +186,16 @@ class PruneInactiveLearners extends Command
             $max('video_progress', 'updated_at'),
             $max('praxis_progress', 'updated_at'),
             $max('radio_training_progress', 'updated_at'),
+            // Antworten und aufgedeckte Musterlösungen in Prüfungen (Markierungen
+            // zur Durchsicht gehen nur in laufenden Prüfungen: started_at oben).
+            '(SELECT max(GREATEST(esq.answered_at, esq.revealed_at)) FROM exam_session_question esq
+                JOIN exam_session es ON es.id = esq.exam_session_id WHERE es.user_id = app_user.id)',
+            // Beitritt zu einer Lerngruppe.
+            $max('learning_group_member', 'joined_at'),
+            // Anmeldung der Webansicht aus der App (Einmal-Code eingelöst).
+            $max('api_mobile_web_session', 'used_at'),
+            // Geänderte App-Einstellungen.
+            $max('api_user_setting', 'updated_at'),
         ]).')';
     }
 }

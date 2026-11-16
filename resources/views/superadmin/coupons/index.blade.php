@@ -58,8 +58,8 @@
                 </div>
                 <div>
                     <x-input-label for="quantity" value="Anzahl (Batch-Generierung)" />
-                    <x-text-input id="quantity" name="quantity" type="number" min="1" max="500" class="mt-1 block w-full" :value="old('quantity', 1)" required />
-                    <x-input-error :messages="$errors->get('quantity')" class="mt-2" />
+                    <x-text-input :invalid="$errors->has('quantity')" id="quantity" name="quantity" type="number" min="1" max="500" class="mt-1 block w-full" :value="old('quantity', 1)" required />
+                    <x-input-error for="quantity" :messages="$errors->get('quantity')" class="mt-2" />
                 </div>
                 <div>
                     <x-input-label for="batch_label" value="Bezeichnung (optional)" />
@@ -67,9 +67,9 @@
                 </div>
                 <div>
                     <x-input-label for="expires_on" value="Einlösbar bis (optional)" />
-                    <x-text-input id="expires_on" name="expires_on" type="date" class="mt-1 block w-full" :value="old('expires_on')" />
+                    <x-text-input :invalid="$errors->has('expires_on')" id="expires_on" name="expires_on" type="date" class="mt-1 block w-full" :value="old('expires_on')" />
                     <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Leer: unbegrenzt einlösbar. Danach gilt der Code als abgelaufen.</p>
-                    <x-input-error :messages="$errors->get('expires_on')" class="mt-2" />
+                    <x-input-error for="expires_on" :messages="$errors->get('expires_on')" class="mt-2" />
                 </div>
                 <button type="submit" class="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium hover:opacity-90 transition">Code(s) erzeugen</button>
             </form>
@@ -139,7 +139,7 @@
                 <table class="w-full text-sm">
                     <thead class="text-slate-600 dark:text-slate-400 text-left">
                         <tr>
-                            <th class="py-1 w-6"></th>
+                            <th class="py-1 w-6"><span class="sr-only">Auswahl</span></th>
                             <th class="py-1">Code</th>
                             <th class="py-1">Typ</th>
                             <th class="py-1">Kurs / Produkt</th>
@@ -153,7 +153,7 @@
                         @forelse ($coupons as $coupon)
                             <tr class="border-t border-slate-100 dark:border-slate-700">
                                 <td class="py-1.5">
-                                    <input type="checkbox" name="ids[]" value="{{ $coupon->id }}" class="coupon-row-checkbox" @change="couponExport.updateButton()">
+                                    <input type="checkbox" name="ids[]" value="{{ $coupon->id }}" aria-label="Code {{ $coupon->code }} auswählen" class="coupon-row-checkbox" @change="couponExport.updateButton()">
                                 </td>
                                 <td class="py-1.5 font-mono text-xs">{{ $coupon->code }}</td>
                                 <td class="py-1.5 text-slate-500 dark:text-slate-400">

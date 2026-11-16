@@ -16,16 +16,16 @@
                     {{-- Bug-Review Oberfläche U4: das Logo erschien bisher
                          nur auf der Kursseite, nicht in der Navigation. --}}
                     @if (isset($branding) && $branding->logo_asset_id && $branding->logoAsset)
-                        <img src="{{ $branding->logoAsset->storage_path }}" alt="{{ $currentTenant->name ?? config('app.name') }} Logo" class="w-7 h-7 object-contain rounded shrink-0">
+                        <img src="{{ $branding->logoAsset->storage_path }}" alt="{{ $currentTenant->name ?? \App\Models\PlatformSetting::siteName() }} Logo" class="w-7 h-7 object-contain rounded shrink-0">
                     @else
                         <x-icon name="anchor" class="w-5 h-5" style="color: var(--brand-primary, #005FD7)" />
                     @endif
-                    <span class="font-bold text-slate-800 dark:text-white">{{ $currentTenant->name ?? config('app.name') }}</span>
+                    <span class="font-bold text-slate-800 dark:text-white">{{ $currentTenant->name ?? \App\Models\PlatformSetting::siteName() }}</span>
                 </a>
 
                 <div class="hidden lg:flex lg:ms-16 lg:space-x-1">
                     @php($coursesMenuActive = request()->routeIs('dashboard') || request()->routeIs('courses.*'))
-                    @php($chevron = '<svg class="fill-current h-3 w-3 shrink-0 transition-transform" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>')
+                    @php($chevron = '<svg aria-hidden="true" focusable="false" class="fill-current h-3 w-3 shrink-0 transition-transform" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>')
                     <x-dropdown align="left" width="w-64">
                         <x-slot name="trigger">
                             <button type="button"
@@ -33,7 +33,7 @@
                                     class="inline-flex items-center gap-1 whitespace-nowrap px-1 pt-1 border-b-2 text-sm font-medium leading-5 transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-slate-800 {{ $coursesMenuActive ? 'text-slate-900 dark:text-white' : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:border-slate-300 dark:hover:border-slate-600' }}"
                                     @style($coursesMenuActive ? 'border-color: var(--brand-primary, #005FD7)' : '')>
                                 Kurse
-                                <svg class="fill-current h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+                                <svg aria-hidden="true" focusable="false" class="fill-current h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
                             </button>
                         </x-slot>
                         <x-slot name="content">
@@ -96,7 +96,7 @@
                         <button :aria-expanded="open" aria-haspopup="true" class="inline-flex items-center whitespace-nowrap px-1 pt-1 border-b-2 border-transparent text-sm leading-5 font-medium text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-slate-800 transition ease-in-out duration-150">
                             <div class="max-w-[10rem] truncate">{{ Auth::user()->name }}</div>
                             <div class="ms-1">
-                                <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+                                <svg aria-hidden="true" focusable="false" class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
                             </div>
                         </button>
                     </x-slot>
@@ -127,7 +127,7 @@
                      aria-expanded/aria-controls, dazu focus:outline-none
                      ohne sichtbaren Ersatz-Fokusring. --}}
                 <button @click="open = ! open" :aria-expanded="open" aria-controls="mobile-menu" aria-label="Menü öffnen/schließen" class="inline-flex items-center justify-center p-2 rounded-md text-slate-600 dark:text-slate-400 hover:text-slate-500 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    <svg class="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24">
+                    <svg aria-hidden="true" focusable="false" class="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24">
                         <path :class="{'hidden': open, 'inline-flex': ! open }" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
                         <path :class="{'hidden': ! open, 'inline-flex': open }" class="hidden" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                     </svg>

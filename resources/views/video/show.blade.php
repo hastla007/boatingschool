@@ -32,7 +32,7 @@
                     <x-icon name="chevron-right" class="w-4 h-4 rotate-180" />
                 </a>
             </div>
-            <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 mb-1 mx-1" style="width: calc(100% - 0.5rem)">
+            <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 mb-1 mx-1" style="width: calc(100% - 0.5rem)" aria-hidden="true">
                 <div class="h-1.5 rounded-full" style="width: {{ $percent }}%; background-color: var(--brand-primary, #005FD7)"></div>
             </div>
             <div class="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 px-1 mb-3">
@@ -49,7 +49,7 @@
                     @php($playable = $group->reject(fn ($l) => $l->isPlaceholder()))
                     @php($moduleCompleted = $playable->isNotEmpty() && $playable->every(fn ($l) => $progress[$l->id]->completed ?? false))
                     <div x-data="{ open: {{ $isCurrentModule ? 'true' : 'false' }} }" class="rounded-lg">
-                        <button type="button" x-on:click="open = !open"
+                        <button type="button" x-on:click="open = !open" :aria-expanded="open" aria-controls="video-modul-{{ $module->id }}"
                                 class="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 transition">
                             @if ($moduleCompleted)
                                 <x-icon name="check-circle" class="w-4 h-4 text-emerald-500 shrink-0" />
@@ -59,7 +59,7 @@
                             <span class="flex-1 text-sm font-medium text-slate-700 dark:text-slate-200 truncate">{{ $module->title }}</span>
                             <x-icon name="chevron-right" class="w-3.5 h-3.5 text-slate-600 dark:text-slate-400 shrink-0 transition-transform" x-bind:class="open ? 'rotate-90' : ''" />
                         </button>
-                        <div x-show="open" x-transition class="space-y-0.5 pl-6 pb-1">
+                        <div id="video-modul-{{ $module->id }}" x-show="open" x-transition class="space-y-0.5 pl-6 pb-1">
                             @foreach ($group as $item)
                                 @php($isCompleted = $progress[$item->id]->completed ?? false)
                                 @php($isCurrent = $item->id === $lesson->id)
@@ -74,7 +74,7 @@
                                     @endif
                                     <span class="flex-1 truncate">{{ $item->title }}</span>
                                     @if ($item->isPlaceholder())
-                                        <span class="text-xs text-slate-600 dark:text-slate-400 shrink-0">folgt</span>
+                                        <span class="text-xs text-slate-600 dark:text-slate-300 shrink-0">folgt</span>
                                     @elseif ($item->duration_seconds)
                                         <span class="text-xs text-slate-600 dark:text-slate-400 shrink-0">{{ $item->formattedDuration() }}</span>
                                     @endif
@@ -87,7 +87,7 @@
         </div>
 
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 order-1 lg:order-none">
-            <h3 class="font-medium text-slate-800 dark:text-white mb-3">{{ $lesson->title }}</h3>
+            <h2 class="font-medium text-slate-800 dark:text-white mb-3">{{ $lesson->title }}</h2>
             @php($isPlaceholder = $lesson->isPlaceholder())
             @php($isSuperadmin = (bool) auth()->user()?->is_superadmin)
             @if ($isPlaceholder && ! $isSuperadmin)
@@ -149,7 +149,7 @@
 
             @if ($lesson->steps->isNotEmpty())
                 <div class="mt-6 pt-6 border-t border-slate-100 dark:border-slate-700">
-                    <h4 class="font-medium text-slate-800 dark:text-white mb-3">{{ $lesson->title }} &middot; Schritt für Schritt</h4>
+                    <h3 class="font-medium text-slate-800 dark:text-white mb-3">{{ $lesson->title }} &middot; Schritt für Schritt</h3>
                     <div class="flex gap-3 overflow-x-auto pb-1">
                         @foreach ($lesson->steps as $step)
                             <div class="shrink-0 w-32 rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-100 dark:border-slate-700 p-3 text-center">

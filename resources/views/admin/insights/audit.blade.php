@@ -1,6 +1,6 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Protokoll</h2>
+        <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Protokoll</h1>
     </x-slot>
 
     <a href="{{ route('admin.dashboard') }}" class="text-sm text-slate-600 dark:text-slate-400 hover:underline">&larr; Zurück zum Admin-Bereich</a>

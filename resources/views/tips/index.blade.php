@@ -11,14 +11,14 @@
         <div class="space-y-8">
             @foreach ($categories as $category)
                 <div>
-                    <h3 class="text-sm font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400 mb-3">{{ $category->name }}</h3>
+                    <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400 mb-3">{{ $category->name }}</h2>
                     <div class="grid sm:grid-cols-2 gap-5">
                         @foreach ($category->tips as $tip)
                             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
                                 <div class="flex items-start gap-3">
                                     <x-icon name="light-bulb" class="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
                                     <div class="flex-1 min-w-0">
-                                        <h4 class="font-medium text-slate-800 dark:text-slate-200">{{ $tip->title }}</h4>
+                                        <h3 class="font-medium text-slate-800 dark:text-slate-200">{{ $tip->title }}</h3>
                                         <p class="text-sm text-slate-500 dark:text-slate-400 mt-1 whitespace-pre-line">{{ $tip->body }}</p>
                                         @if ($tip->pdfAsset)
                                             <a href="{{ \App\Support\TipPdf::url($tip) }}" target="_blank" rel="noopener" class="inline-flex items-center gap-1 mt-3 text-sm text-blue-600 hover:underline">

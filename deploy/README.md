@@ -514,19 +514,44 @@ ebenfalls Redis.
 
 ## 10. App-Deep-Links (Lernenden-App)
 
-Damit Links aus Mails (Passwort festlegen, Einladung, E-Mail bestätigen) direkt in der App
-öffnen, liefert die App unter jeder Domain (zentrale Domain, Subdomains, eigene Domains der
-Schulen) ohne Weiterleitung und als JSON:
+Damit Links aus Mails (Kontolöschung aus der App, optional auch Passwort festlegen/zurücksetzen,
+Einladung annehmen, E-Mail bestätigen) direkt in der App öffnen, liefert die Plattform ohne
+Weiterleitung und als JSON (`Cache-Control: public, max-age=3600`):
 
-- `/.well-known/apple-app-site-association` (iOS Universal Links): `MOBILE_APP_IOS_APP_ID`
-  = `<Team-ID>.<Bundle-ID>` (mehrere kommagetrennt), Pfade aus `MOBILE_APP_LINK_PATHS`
-  (Standard: Passwort-Links, Einladungen, E-Mail-Bestätigung, jeweils auch im Pfad-Modus
-  `/<slug>/…`).
-- `/.well-known/assetlinks.json` (Android App Links): `MOBILE_APP_ANDROID_PACKAGE` und
-  `MOBILE_APP_ANDROID_SHA256` (SHA-256-Fingerabdrücke des Signaturzertifikats aus der Play
-  Console, App-Signatur und ggf. Upload-Schlüssel, kommagetrennt).
+- `/.well-known/apple-app-site-association` (iOS Universal Links), wenn `MOBILE_API_IOS_APP_IDS`
+  gesetzt ist: `<Team-ID>.<Bundle-ID>`, mehrere kommagetrennt. Die Pfade kommen aus
+  `MOBILE_API_APP_LINK_PATHS` (kommagetrennt, `*` als Platzhalter). Leer gilt der Standard:
+  **nur** `MOBILE_API_DELETION_CONFIRMATION_PATH` (Standard `/app/konto-loeschen`) -- die
+  Bestätigung der Kontolöschung kann jede veröffentlichte App-Version. Erst wenn die App auch die
+  übrigen Mail-Links verarbeitet (sonst öffnete ein installierter älterer Stand sie statt der
+  Webseite), den empfohlenen Wert setzen
+  (`AppLinkAssociationController::recommendedPathsValue()`):
 
-Ohne diese Werte antworten beide Adressen mit 404. Nach Änderungen `php artisan optimize`.
-iOS lädt die Datei über Apples CDN und speichert sie zwischen -- Änderungen wirken dort erst
-nach Stunden bis Tagen. Prüfen: `curl -i https://lernen.example.de/.well-known/assetlinks.json`
+  ```
+  MOBILE_API_APP_LINK_PATHS=/app/konto-loeschen,/reset-password/*,/invitations/*/accept/*,/verify-email/*/*,/gruppe/*
+  ```
+
+  `/reset-password/*` (Passwort festlegen nach Einladung und zurücksetzen),
+  `/invitations/*/accept/*` (Einladung eines bestehenden Kontos), `/verify-email/*/*`
+  (E-Mail-Bestätigung), `/gruppe/*` (Beitrittslink einer Lerngruppe). Jeder Pfad außer der Kontolöschung steht zusätzlich mit Schul-Slug davor
+  (`/*/reset-password/*` usw., Pfad-Modus `/<slug>/…`).
+- `/.well-known/assetlinks.json` (Android App Links), wenn `MOBILE_API_ANDROID_PACKAGE` und
+  `MOBILE_API_ANDROID_SHA256_FINGERPRINTS` gesetzt sind (SHA-256-Fingerabdrücke des
+  Signaturzertifikats aus der Play Console, App-Signatur und ggf. Upload-Schlüssel,
+  kommagetrennt). Die Datei nennt keine Pfade: dieselben Pfade gehören in den Intent-Filter
+  der App (`android:autoVerify="true"`, `pathPattern`/`pathAdvancedPattern`).
+
+**Auf welchen Hosts:** auf der zentralen Domain und nur bei `TENANT_URL_MODE=subdomain` auch auf
+den Subdomains der Schulen (`<slug>.lernen.example.de`, ohne den Pfad der Kontolöschung -- mit dem
+Standard antwortet die iOS-Datei dort also mit 404). Auf
+eigenen Domains der Schulen nicht: alle diese Mails verlinken immer auf die zentrale Domain bzw.
+die Schul-Subdomain (`CanonicalUrl`), nie auf die eigene Domain. Die App braucht entsprechend
+die Associated Domain `applinks:lernen.example.de` (im Subdomain-Modus zusätzlich
+`applinks:*.lernen.example.de`) bzw. passende Hosts im Intent-Filter.
+
+Ohne diese Werte antworten beide Adressen mit 404, die Links öffnen dann immer die Webseite.
+Wer die Dateien statisch ausliefert (Webserver/CDN), lässt die Variablen leer. Nach Änderungen
+`php artisan optimize`. iOS lädt die Datei über Apples CDN und speichert sie zwischen --
+Änderungen wirken dort erst nach Stunden bis Tagen. Prüfen:
+`curl -i https://lernen.example.de/.well-known/assetlinks.json`
 (Status 200, `Content-Type: application/json`, keine Weiterleitung).

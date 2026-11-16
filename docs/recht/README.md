@@ -34,15 +34,25 @@ Rollen:
   Abschnitten aus `app/Support/PrivacyNotices.php`: Videoanbieter
   (`PRIVACY_VIDEO_PROVIDER`, `_COUNTRY`, `_URL`), Fehleranalyse (nur mit
   `SENTRY_LARAVEL_DSN`), Datensicherung (`BACKUP_KEEP_DAYS`, `BACKUP_DISK`,
-  `PRIVACY_BACKUP_PROVIDER`, `PRIVACY_BACKUPS_ENCRYPTED`), Code-Shop (nur mit
-  Shop-Anbindung) und Speicherdauer je Datenart (aus `config/data_retention.php`).
-  Siehe `config/privacy.php`.
+  `PRIVACY_BACKUP_PROVIDER`; Verschlüsselung der externen Kopie automatisch mit
+  `BACKUP_DISK` und `BACKUP_ENCRYPTION_PUBLIC_KEY`, überschreibbar mit
+  `PRIVACY_BACKUPS_ENCRYPTED`), Code-Shop (nur mit Shop-Anbindung), Lerngruppen
+  (was Verwalter und Schule sehen, Einladungsfrist), Lern-App
+  (App-Einstellungen, Anmeldung der Webansicht – nur mit
+  `MOBILE_API_WEB_SESSION_ENABLED` –, Kontolöschung mit Bestätigung per Mail)
+  und Speicherdauer je Datenart (aus `config/data_retention.php` und den
+  Fristen im Code). Siehe `config/privacy.php`. Entfallene Abschnitte werden
+  lückenlos neu nummeriert.
 - **Löschroutinen**: `app:prune-personal-data` (täglich, Mobile-API stündlich) und
   `app:prune-inactive-learners` (täglich, nur mit
   `DATA_RETENTION_INACTIVE_LEARNER_MONTHS`), Kontolöschung über
   `App\Services\AccountErasureService`.
 - **Auskunft/Export**: Profil → Daten exportieren (JSON), App-Export
   (`POST /api/v1/profile/export`), Export einer ganzen Schule bei Vertragsende.
+- **Kontolöschung aus der App** mit Bestätigungslink per Mail (7 Tage) und
+  Web-Bestätigungsseite (`MOBILE_API_DELETION_CONFIRMATION_PATH`).
+- **Datensicherung**: externe Kopien clientseitig verschlüsselt (libsodium,
+  `app:backup-keygen`, `app:backup-decrypt`), monatliche Probe-Wiederherstellung.
 
 ## Offene Punkte für Anwalt/DSB (Auswahl)
 
@@ -64,3 +74,14 @@ Rollen:
    und Prüfung durch eine Fachstelle.
 7. **DSFA**: Ob eine Datenschutz-Folgenabschätzung nötig ist (Minderjährige,
    Lernverhalten, Prüfungsergebnisse) – Schwellwertanalyse durch DSB.
+8. **Lerngruppen**: Der Verwalter ist selbst Lernender und sieht Namen und
+   Einladungsadressen anderer Personen (keine Lerndaten). Rolle des Verwalters
+   bzw. des hinter der Gruppe stehenden Vereins/Unternehmens (Empfänger?
+   eigener Verantwortlicher für die Einladungsliste?), Rechtsgrundlage und
+   Information nach Art. 14 DSGVO für Eingeladene ohne Konto (Hinweis in der
+   Einladungsmail auf die Datenschutzerklärung?), Abrechnung über Kurscodes in
+   den AGB (§ 6 Abs. 4).
+9. **App-Einstellungen** gelten schulübergreifend für das Konto
+   (`api_user_setting` ohne Schulbezug): Welche Schule ist verantwortlich,
+   wenn eine Person bei mehreren Schulen lernt? Sie werden erst mit dem ganzen
+   Konto gelöscht.

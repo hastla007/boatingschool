@@ -7,7 +7,7 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-slate-100 dark:bg-slate-900 min-h-screen flex items-center justify-center p-6">
-    <div class="w-full max-w-md">
+    <main id="inhalt" class="w-full max-w-md">
         <div class="text-center mb-8">
             <x-icon name="anchor" class="w-9 h-9 mx-auto mb-2 text-blue-600" />
             <h1 class="text-2xl font-bold text-slate-800 dark:text-white">White-Label Lernplattform</h1>
@@ -27,6 +27,6 @@
                 <p class="text-slate-500 dark:text-slate-400 text-sm p-4">Noch keine Bootsschule angelegt.</p>
             @endforelse
         </div>
-    </div>
+    </main>
 </body>
 </html>

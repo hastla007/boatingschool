@@ -23,6 +23,7 @@
 
     $senderName = $branding->legal_name ?: $tenant->name;
     $recipientName = $order->user->name ?? '—';
+    $addressRemoved = $order->addressRemoved();
 
     // Der Empfänger-Block wird im normalen Textfluss positioniert (Absender
     // -> Abstandshalter -> Empfänger) statt per position:absolute --
@@ -172,9 +173,14 @@
             <div class="recipient">
                 <div class="block-label">Empfänger:</div>
                 {{ $recipientName }}<br>
-                {{ $order->street }}<br>
-                {{ $order->postal_code }} {{ $order->city }}<br>
-                <span class="country">{{ $order->country }}</span>
+                @if ($addressRemoved)
+                    {{-- Löschfrist nach dem Versand (app:prune-personal-data): kein leeres Label drucken. --}}
+                    <span class="block-label">Adresse nach Versand gelöscht (Löschfrist)</span>
+                @else
+                    {{ $order->street }}<br>
+                    {{ $order->postal_code }} {{ $order->city }}<br>
+                    <span class="country">{{ $order->country }}</span>
+                @endif
             </div>
         </div>
     </div>
@@ -182,7 +188,7 @@
     @if ($isCutGuide)
         <div class="info-box">
             <div class="row"><strong>Name des Empfängers:</strong> {{ $recipientName }}</div>
-            <div class="row"><strong>Adresse:</strong> {{ $order->street }}, {{ $order->postal_code }} {{ $order->city }}, {{ $order->country }}</div>
+            <div class="row"><strong>Adresse:</strong> @if ($addressRemoved)Adresse nach Versand gelöscht (Löschfrist)@else{{ $order->street }}, {{ $order->postal_code }} {{ $order->city }}, {{ $order->country }}@endif</div>
             <div class="row spaced"><strong>Inhalt des Pakets:</strong> Willkommensbox</div>
             <div class="row tracking-row"><strong>Tracking:</strong> ____________________________________________</div>
         </div>

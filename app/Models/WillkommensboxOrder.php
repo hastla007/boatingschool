@@ -30,6 +30,12 @@ class WillkommensboxOrder extends Model
         return $this->shipped_at !== null;
     }
 
+    /** Lieferadresse nach Versand und Löschfrist entfernt (app:prune-personal-data). */
+    public function addressRemoved(): bool
+    {
+        return $this->isShipped() && $this->street === null && $this->city === null;
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');

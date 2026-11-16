@@ -7,8 +7,8 @@
 
         <div>
             <x-input-label for="password" value="Passwort" />
-            <x-text-input id="password" class="block mt-1 w-full" type="password" name="password" required autocomplete="current-password" />
-            <x-input-error :messages="$errors->get('password')" class="mt-2" />
+            <x-text-input :invalid="$errors->has('password')" id="password" class="block mt-1 w-full" type="password" name="password" required autocomplete="current-password" />
+            <x-input-error for="password" :messages="$errors->get('password')" class="mt-2" />
         </div>
 
         <button type="submit" class="w-full px-4 py-2.5 rounded-lg font-semibold text-white transition hover:opacity-90" style="background-color: var(--brand-primary, #005FD7)">

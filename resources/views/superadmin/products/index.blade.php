@@ -10,13 +10,13 @@
                 @csrf
                 <div>
                     <x-input-label for="name" value="Name" />
-                    <x-text-input id="name" name="name" type="text" class="mt-1 block w-full" :value="old('name')" required placeholder="z. B. Fahrstunde 1 EH" />
-                    <x-input-error :messages="$errors->get('name')" class="mt-2" />
+                    <x-text-input :invalid="$errors->has('name')" id="name" name="name" type="text" class="mt-1 block w-full" :value="old('name')" required placeholder="z. B. Fahrstunde 1 EH" />
+                    <x-input-error for="name" :messages="$errors->get('name')" class="mt-2" />
                 </div>
                 <div>
                     <x-input-label for="code" value="Code" />
-                    <x-text-input id="code" name="code" type="text" class="mt-1 block w-full" :value="old('code')" required placeholder="z. B. FAHRSTUNDE-3-EH" />
-                    <x-input-error :messages="$errors->get('code')" class="mt-2" />
+                    <x-text-input :invalid="$errors->has('code')" id="code" name="code" type="text" class="mt-1 block w-full" :value="old('code')" required placeholder="z. B. FAHRSTUNDE-3-EH" />
+                    <x-input-error for="code" :messages="$errors->get('code')" class="mt-2" />
                 </div>
                 <div>
                     <input type="hidden" name="sellable_standalone" value="0">

@@ -1,6 +1,6 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Teilnehmer</h2>
+        <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Teilnehmer</h1>
     </x-slot>
 
     <a href="{{ route('admin.dashboard', ['tab' => 'participants']) }}" class="text-sm text-slate-500 dark:text-slate-400 hover:underline inline-block mb-4">&larr; Zurück zu Teilnehmer</a>
@@ -25,9 +25,9 @@
 
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 mb-6">
         <div class="flex flex-wrap items-baseline justify-between gap-2 mb-3">
-            <h3 class="font-medium text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+            <h2 class="font-medium text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
                 <x-icon name="chart-bar" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Lernstand
-            </h3>
+            </h2>
             <span class="text-xs text-slate-600 dark:text-slate-400">
                 Zuletzt gelernt: {{ $learning['last_activity'] ? $learning['last_activity']->timezone('Europe/Berlin')->format('d.m.Y H:i') . ' (' . $learning['last_activity']->locale('de')->diffForHumans() . ')' : 'noch nie' }}
             </span>
@@ -56,7 +56,7 @@
             <p class="text-sm text-slate-600 dark:text-slate-400">Noch kein Kurs freigeschaltet.</p>
         @endforelse
 
-        <h4 class="font-medium text-sm text-slate-700 dark:text-slate-200 mt-4 mb-2">Prüfungssimulation</h4>
+        <h3 class="font-medium text-sm text-slate-700 dark:text-slate-200 mt-4 mb-2">Prüfungssimulation</h3>
         @forelse ($learning['exams'] as $exam)
             <div class="flex flex-wrap items-center justify-between gap-2 text-sm py-1">
                 <span class="text-slate-600 dark:text-slate-300">{{ $exam->submitted_at?->timezone('Europe/Berlin')->format('d.m.Y H:i') }} · {{ $exam->course?->name }}</span>
@@ -79,9 +79,9 @@
         @php($hasAddressData = $membership->street || $membership->postal_code || $membership->city || $membership->country || $membership->birthdate)
         @php($startInEditMode = ! $hasAddressData || $errors->hasAny(['street', 'postal_code', 'city', 'country', 'birthdate']))
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5" x-data="{ editing: {{ $startInEditMode ? 'true' : 'false' }} }">
-            <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
+            <h2 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
                 <x-icon name="map-pin" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Adresse &amp; Geburtsdatum
-            </h3>
+            </h2>
 
             <div x-show="! editing" style="display: none">
                 <dl class="text-sm space-y-1.5">
@@ -159,9 +159,9 @@
         </div>
 
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
-            <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
+            <h2 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
                 <x-icon name="flag" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Benachrichtigungen
-            </h3>
+            </h2>
             @forelse ($actionItems as $item)
                 <div class="flex items-start gap-2 text-sm text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 rounded-lg px-3 py-2 mb-2 last:mb-0">
                     <x-icon name="bolt" class="w-4 h-4 shrink-0 mt-0.5" />
@@ -175,9 +175,9 @@
         </div>
 
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
-            <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
+            <h2 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
                 <x-icon name="clipboard-document-check" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Gebuchte Kurse &amp; Produkte
-            </h3>
+            </h2>
             <div class="space-y-2">
                 @forelse ($bookings as $booking)
                     <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-2 last:border-0 last:pb-0">
@@ -302,22 +302,30 @@
 
         @if ($willkommensboxOrder)
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
-                <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
+                <h2 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
                     <x-icon name="cube" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Willkommensbox
-                </h3>
+                </h2>
                 <dl class="text-sm space-y-1.5 mb-3">
-                    <div class="flex justify-between gap-4">
-                        <dt class="text-slate-500 dark:text-slate-400">Straße</dt>
-                        <dd class="text-slate-800 dark:text-slate-200 text-end">{{ $willkommensboxOrder->street }}</dd>
-                    </div>
-                    <div class="flex justify-between gap-4">
-                        <dt class="text-slate-500 dark:text-slate-400">PLZ / Stadt</dt>
-                        <dd class="text-slate-800 dark:text-slate-200 text-end">{{ $willkommensboxOrder->postal_code }} {{ $willkommensboxOrder->city }}</dd>
-                    </div>
-                    <div class="flex justify-between gap-4">
-                        <dt class="text-slate-500 dark:text-slate-400">Land</dt>
-                        <dd class="text-slate-800 dark:text-slate-200 text-end">{{ $willkommensboxOrder->country }}</dd>
-                    </div>
+                    @if ($willkommensboxOrder->addressRemoved())
+                        {{-- Löschfrist nach dem Versand (app:prune-personal-data). --}}
+                        <div class="flex justify-between gap-4">
+                            <dt class="text-slate-500 dark:text-slate-400">Adresse</dt>
+                            <dd class="text-slate-500 dark:text-slate-400 italic text-end">Adresse nach Versand gelöscht (Löschfrist)</dd>
+                        </div>
+                    @else
+                        <div class="flex justify-between gap-4">
+                            <dt class="text-slate-500 dark:text-slate-400">Straße</dt>
+                            <dd class="text-slate-800 dark:text-slate-200 text-end">{{ $willkommensboxOrder->street }}</dd>
+                        </div>
+                        <div class="flex justify-between gap-4">
+                            <dt class="text-slate-500 dark:text-slate-400">PLZ / Stadt</dt>
+                            <dd class="text-slate-800 dark:text-slate-200 text-end">{{ $willkommensboxOrder->postal_code }} {{ $willkommensboxOrder->city }}</dd>
+                        </div>
+                        <div class="flex justify-between gap-4">
+                            <dt class="text-slate-500 dark:text-slate-400">Land</dt>
+                            <dd class="text-slate-800 dark:text-slate-200 text-end">{{ $willkommensboxOrder->country }}</dd>
+                        </div>
+                    @endif
                     @if ($willkommensboxOrder->note)
                         <div class="flex justify-between gap-4">
                             <dt class="text-slate-500 dark:text-slate-400">Notiz</dt>
@@ -330,7 +338,7 @@
                     </div>
                 </dl>
 
-                @if (! empty($willkommensboxLabelSizes))
+                @if (! empty($willkommensboxLabelSizes) && ! $willkommensboxOrder->addressRemoved())
                     <div class="flex flex-wrap items-center gap-2 mb-3">
                         <span class="text-xs text-slate-500 dark:text-slate-400">Versandlabel:</span>
                         @foreach ($willkommensboxLabelSizes as $size)
@@ -371,18 +379,18 @@
             </div>
         @elseif ($hasWillkommensboxAccess)
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
-                <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
+                <h2 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
                     <x-icon name="cube" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Willkommensbox
-                </h3>
+                </h2>
                 <p class="text-sm text-slate-600 dark:text-slate-400">Zugang vorhanden, aber noch nicht bestellt.</p>
             </div>
         @endif
     </div>
 
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
-        <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
+        <h2 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
             <x-icon name="academic-cap" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Praxis-Anmeldungen
-        </h3>
+        </h2>
         @forelse ($praxisFormSubmissions as $submission)
             @include('admin.partials._praxis-submission', [
                 'submission' => $submission,

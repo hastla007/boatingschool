@@ -31,10 +31,13 @@ class ParticipantInviter
     public const DAILY_LIMIT = 300;
 
     /**
-     * Rückmeldung bei einer schon eingeladenen Person -- gleich, ob es zur
-     * Adresse vorher ein Konto gab (Audit SEC-W-3).
+     * Rückmeldung, wenn an die Adresse heute schon eine Einladungsmail ging
+     * (Drossel je Adresse, Schule und Tag) -- gleich, ob es zur Adresse
+     * vorher ein Konto gab (Audit SEC-W-3). Die Einladung selbst (Rolle,
+     * Name, reservierter Code) wird trotzdem angelegt bzw. aktualisiert, nur
+     * die E-Mail entfällt.
      */
-    public const ALREADY_INVITED_STATUS = 'Diese Person ist bereits eingeladen. Die Einladung wurde erneut verschickt, soweit das Tageslimit für diese Adresse es zulässt; der Link ist 7 Tage gültig.';
+    public const ALREADY_INVITED_STATUS = 'Diese Person wurde heute bereits eingeladen. Die Einladung ist gespeichert; eine weitere E-Mail an diese Adresse ist erst morgen wieder möglich (dann bei Bedarf erneut einladen). Der Link ist 7 Tage gültig.';
 
     /** Offene Teilnehmer-Einladungen (7 Tage gültig), ohne schon aktiv gewordene Mitglieder. */
     public static function openLearnerInvitations(Tenant $tenant): Builder
@@ -96,15 +99,23 @@ class ParticipantInviter
      */
     public static function openInvitation(Tenant $tenant, User $actor, string $email, string $role, ?string $name): TenantInvitation
     {
-        return TenantInvitation::where('tenant_id', $tenant->id)->where('role', $role)->open()
-            ->whereRaw('lower(email) = ?', [mb_strtolower($email)])->latest('created_at')->first()
-            ?? TenantInvitation::create([
+        $invitation = TenantInvitation::where('tenant_id', $tenant->id)->where('role', $role)->open()
+            ->whereRaw('lower(email) = ?', [mb_strtolower($email)])->latest('created_at')->first();
+        if (! $invitation) {
+            return TenantInvitation::create([
                 'tenant_id' => $tenant->id,
                 'email' => $email,
                 'name' => $name,
                 'role' => $role,
                 'invited_by_user_id' => $actor->id,
             ]);
+        }
+        // Erneut eingeladen: der zuletzt eingegebene Name gilt (Anzeige unter „Offene Einladungen“).
+        if ($name !== null && $name !== '' && $invitation->name !== $name) {
+            $invitation->update(['name' => $name]);
+        }
+
+        return $invitation;
     }
 
     /**
@@ -115,6 +126,11 @@ class ParticipantInviter
      * duplicate) und in beiden Fällen eine offene Einladung, an der ein Code
      * bis zur Annahme reserviert wird. Die Unterscheidung „Konto angelegt“
      * (new) vs. „Einladung zum Annehmen“ (existing) bleibt nur intern.
+     *
+     * „duplicate“: an die Adresse ging heute schon eine Einladungsmail --
+     * Konto, Mitgliedschaft und Einladung entstehen bzw. werden trotzdem
+     * aktualisiert, nur die Mail entfällt (sonst ginge z. B. ein am selben
+     * Tag angegebener Code verloren).
      *
      * @param  array{street?: ?string, postal_code?: ?string, city?: ?string, country?: ?string}  $address
      * @return array{type: 'existing'|'new', mail_sent: bool, user: ?User, invitation?: TenantInvitation, duplicate?: bool, already_member?: bool, role?: string}
@@ -135,9 +151,8 @@ class ParticipantInviter
         // Schutz vor Mail-Bombing und kein Zeit-Orakel: je Adresse und
         // Schule höchstens eine Mail am Tag, für neue Adressen genauso wie
         // für Bestandskonten (auch an den Tagen 2–7 einer offenen Einladung).
-        if (! self::mayMailAddress($tenant, $existingUser?->email ?? $email)) {
-            return ['type' => 'existing', 'mail_sent' => true, 'user' => null, 'duplicate' => true];
-        }
+        // Gedrosselt wird nur die Mail, nicht die Einladung selbst.
+        $mayMail = self::mayMailAddress($tenant, $existingUser?->email ?? $email);
 
         if ($existingUser) {
             // Der eingegebene Name wird nur an der Einladung gespeichert
@@ -149,16 +164,20 @@ class ParticipantInviter
                 // Von hier angelegt, aber noch nie angemeldet: Link zum
                 // Passwort-Festlegen erneut schicken (der alte ist evtl.
                 // abgelaufen).
-                $mailSent = BestEffortMail::send(fn () => app(AccountSetupLink::class)->send($existingUser, $tenant, $membership->role, $queueMail), "Einladung erneut {$existingUser->id}");
-                AuditLog::record($tenant->id, $actor->id, 'participant.invite_resent', 'app_user', $existingUser->id, null, ['email' => $existingUser->email]);
+                // Gedrosselt: kein neuer Link, also auch kein „erneut gesendet“.
+                $mailSent = false;
+                if ($mayMail) {
+                    $mailSent = BestEffortMail::send(fn () => app(AccountSetupLink::class)->send($existingUser, $tenant, $membership->role, $queueMail), "Einladung erneut {$existingUser->id}");
+                    AuditLog::record($tenant->id, $actor->id, 'participant.invite_resent', 'app_user', $existingUser->id, null, ['email' => $existingUser->email]);
+                }
             } else {
-                $mailSent = self::sendExistingAccountInvitation($existingUser, $tenant, $invitation, $queueMail);
+                $mailSent = $mayMail && self::sendExistingAccountInvitation($existingUser, $tenant, $invitation, $queueMail);
                 AuditLog::record($tenant->id, $actor->id, 'participant.invite_pending', 'tenant_invitation', $invitation->id, null, [
                     'email' => $existingUser->email,
                 ]);
             }
 
-            return ['type' => 'existing', 'mail_sent' => $mailSent, 'user' => null, 'invitation' => $invitation];
+            return ['type' => 'existing', 'mail_sent' => $mayMail ? $mailSent : true, 'user' => null, 'invitation' => $invitation, 'duplicate' => ! $mayMail];
         }
 
         [$user, $invitation] = DB::transaction(function () use ($tenant, $actor, $name, $email, $address) {
@@ -191,6 +210,10 @@ class ParticipantInviter
 
             return [$user, $invitation];
         });
+
+        if (! $mayMail) {
+            return ['type' => 'new', 'mail_sent' => true, 'user' => $user, 'invitation' => $invitation, 'duplicate' => true];
+        }
 
         $mailSent = BestEffortMail::send(
             fn () => app(AccountSetupLink::class)->send($user, $tenant, 'learner', $queueMail),

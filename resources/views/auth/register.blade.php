@@ -27,34 +27,34 @@
 
         <div>
             <x-input-label for="name" value="Name" />
-            <x-text-input id="name" class="block mt-1 w-full" type="text" name="name" :value="old('name')" required autofocus autocomplete="name" placeholder="Max Mustermann" />
-            <x-input-error :messages="$errors->get('name')" class="mt-2" />
+            <x-text-input :invalid="$errors->has('name')" id="name" class="block mt-1 w-full" type="text" name="name" :value="old('name')" required autofocus autocomplete="name" placeholder="Max Mustermann" />
+            <x-input-error for="name" :messages="$errors->get('name')" class="mt-2" />
         </div>
 
         <div>
             <x-input-label for="email" value="E-Mail-Adresse" />
-            <x-text-input id="email" class="block mt-1 w-full" type="email" name="email" :value="old('email')" required autocomplete="username" placeholder="name@beispiel.de" />
-            <x-input-error :messages="$errors->get('email')" class="mt-2" />
+            <x-text-input :invalid="$errors->has('email')" id="email" class="block mt-1 w-full" type="email" name="email" :value="old('email')" required autocomplete="username" placeholder="name@beispiel.de" />
+            <x-input-error for="email" :messages="$errors->get('email')" class="mt-2" />
         </div>
 
         <div>
             <x-input-label for="password" value="Passwort" />
-            <x-text-input id="password" class="block mt-1 w-full" type="password" name="password" required autocomplete="new-password" />
-            <x-input-error :messages="$errors->get('password')" class="mt-2" />
+            <x-text-input :invalid="$errors->has('password')" id="password" class="block mt-1 w-full" type="password" name="password" required autocomplete="new-password" />
+            <x-input-error for="password" :messages="$errors->get('password')" class="mt-2" />
         </div>
 
         <div>
             <x-input-label for="password_confirmation" value="Passwort bestätigen" />
-            <x-text-input id="password_confirmation" class="block mt-1 w-full" type="password" name="password_confirmation" required autocomplete="new-password" />
-            <x-input-error :messages="$errors->get('password_confirmation')" class="mt-2" />
+            <x-text-input :invalid="$errors->has('password_confirmation')" id="password_confirmation" class="block mt-1 w-full" type="password" name="password_confirmation" required autocomplete="new-password" />
+            <x-input-error for="password_confirmation" :messages="$errors->get('password_confirmation')" class="mt-2" />
         </div>
 
         {{-- Optional: ein Code der Bootsschule wird direkt nach dem Anlegen eingelöst. --}}
         <div>
             <x-input-label for="coupon_code" value="Zugangscode (optional)" />
-            <x-text-input id="coupon_code" class="block mt-1 w-full font-mono uppercase tracking-wider" type="text" name="coupon_code" :value="old('coupon_code')" autocomplete="off" placeholder="XXXX-XXXX-XXXX-XXXX" maxlength="64" />
+            <x-text-input :invalid="$errors->has('coupon_code')" id="coupon_code" class="block mt-1 w-full font-mono uppercase tracking-wider" type="text" name="coupon_code" :value="old('coupon_code')" autocomplete="off" placeholder="XXXX-XXXX-XXXX-XXXX" maxlength="64" />
             <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Hast du von deiner Bootsschule einen Code bekommen? Er wird nach der Registrierung eingelöst; das Ergebnis siehst du nach der Anmeldung.</p>
-            <x-input-error :messages="$errors->get('coupon_code')" class="mt-2" />
+            <x-input-error for="coupon_code" :messages="$errors->get('coupon_code')" class="mt-2" />
         </div>
 
         @include('auth.partials.age-confirmation')

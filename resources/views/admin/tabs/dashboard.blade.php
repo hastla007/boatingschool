@@ -56,9 +56,9 @@
 </div>
 
 <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 mb-6">
-    <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
+    <h2 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
         <x-icon name="chart-bar" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Teilnehmer je Phase
-    </h3>
+    </h2>
     @php
         $phaseColors = [
             'Probeprüfung bestanden' => 'bg-emerald-500',
@@ -69,7 +69,7 @@
         ];
     @endphp
     @if ($learnerCount > 0)
-        <div class="flex w-full h-3 rounded-full overflow-hidden mb-3">
+        <div class="flex w-full h-3 rounded-full overflow-hidden mb-3" aria-hidden="true">
             @foreach ($learnerPhases as $phase)
                 @if ($phase['count'] > 0)
                     <div class="{{ $phaseColors[$phase['label']] }}" style="width: {{ $phase['percent'] }}%" title="{{ $phase['label'] }}: {{ $phase['percent'] }}%"></div>
@@ -93,9 +93,9 @@
 </div>
 
 <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 mb-6">
-    <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
+    <h2 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
         <x-icon name="chart-bar" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Kursfortschritt in der Lernphase
-    </h3>
+    </h2>
     @if ($learningPhaseLearnerCount > 0)
         {{-- Balken je Fortschrittsbereich statt einer Linie: die Bereiche sind
              Kategorien (keine Zeitreihe), eine Verbindungslinie suggerierte
@@ -122,9 +122,9 @@
 
 <div class="grid lg:grid-cols-[2fr_3fr] gap-6">
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
-        <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
+        <h2 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
             <x-icon name="clipboard-document-check" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Kürzlich gebuchte Kurse &amp; Produkte
-        </h3>
+        </h2>
         <div class="space-y-2 text-sm">
             @forelse ($recentBookings as $booking)
                 <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-2 last:border-0 last:pb-0">
@@ -141,14 +141,18 @@
             @empty
                 <p class="text-slate-500 dark:text-slate-400">Keine Buchungen in den letzten 7 Tagen.</p>
             @endforelse
+            {{-- Nur die neuesten Einträge (AdminDashboardController::RECENT_BOOKINGS_LIMIT), der Rest als Anzahl. --}}
+            @if (($recentBookingsTotal ?? 0) > $recentBookings->count())
+                <p class="text-xs text-slate-600 dark:text-slate-400">… und {{ $recentBookingsTotal - $recentBookings->count() }} weitere in den letzten 7 Tagen.</p>
+            @endif
         </div>
     </div>
 
     @if ($canManageTenant)
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
-        <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
+        <h2 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
             <x-icon name="clock" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Letzte Aktivitäten
-        </h3>
+        </h2>
         <div class="space-y-2 text-sm">
             @forelse ($recentActivity as $entry)
                 <div class="flex justify-between border-b border-slate-100 dark:border-slate-700 pb-2 last:border-0 last:pb-0">

@@ -22,6 +22,9 @@ mehrere Schulen oder gar keine Schule betrifft.
 | Mandantenauflösung & Login | `ResolveTenant`, `EnsureTenantMembership`, Auth-Controller | es gibt noch keinen Mandanten bzw. das Konto ist plattformweit |
 | Mandantenübergreifende Dienste | `AccountErasureService`, `ParticipantInviter`, `InvitationAcceptance`, DSGVO-Export | Konten (`app_user`) und Mitgliedschaften gelten über Schulen hinweg |
 | Plattform-Katalog | `CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')` | nur Katalogkurse, nicht die schuleigenen |
+| Signierte Dateien ohne Anmeldung | `ProtectedMediaController`, `QuestionMediaController`, `ProtectedMedia`, `QuestionMedia`, `TipPdf`, `VideoStepImage`, `NavigationChart` | die Signatur trägt Konto/Schule; Berechtigung wird danach ausdrücklich geprüft |
+| Abläufe aus der App per Link | `AppAccountDeletion`, `AppAccountDeletionController`, `ConsumeMobileWebSession`, `WebSessionController` | Mail-Link bzw. Einmal-Code gilt vor jeder Anmeldung; Antrag/Code nennt Konto und Schule |
+| Lerngruppen | `LearningGroupService`, `CreateLearningGroup`, `RevokeLearningGroup` | Gruppenplätze sperren und Codes der Schule unter Sperre verbrauchen |
 
 **Nicht erlaubt** ist die Owner-Verbindung als Abkürzung, weil eine Abfrage im
 Schulbereich „nichts findet“ – dann fehlt fast immer der Mandantenkontext oder

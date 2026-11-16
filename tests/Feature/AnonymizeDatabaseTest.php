@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Api\DeviceSessions;
 use App\Models\TenantBranding;
 use App\Models\TenantInvitation;
 use App\Models\TenantUser;
@@ -98,6 +99,60 @@ class AnonymizeDatabaseTest extends TestCase
             $this->assertSame(0, DB::table('sessions')->count());
             $this->assertFalse(DB::table('audit_log')->where('tenant_id', $tenant->id)->whereNotNull('after_data')->exists());
             $this->assertSame(0, DB::table('app_user')->where('email', 'not like', '%@example.invalid')->count(), 'keine echte Adresse übrig');
+        });
+    }
+
+    public function test_it_covers_learning_groups_and_the_app_tables(): void
+    {
+        $tenant = $this->createTestTenant();
+        $owner = $this->createTenantUser($tenant, 'learner');
+        $member = $this->createTenantUser($tenant, 'learner');
+        $ids = $this->onAdmin(function () use ($tenant, $owner, $member) {
+            $groupId = (string) Str::uuid();
+            DB::table('learning_group')->insert([
+                'id' => $groupId, 'tenant_id' => $tenant->id, 'owner_user_id' => $owner->id, 'name' => 'Familie Echtname',
+                'seats' => 5, 'scopes' => json_encode([['course_code' => 'SBF-SEE', 'feature' => 'course']]),
+                'join_code' => 'g'.str_repeat('a', 32), 'created_at' => now(), 'updated_at' => now(),
+            ]);
+            $inviteId = (string) Str::uuid();
+            DB::table('learning_group_member')->insert([
+                ['id' => $inviteId, 'tenant_id' => $tenant->id, 'group_id' => $groupId, 'user_id' => null, 'email' => 'freund@echt.test',
+                    'status' => 'invited', 'invite_token' => 'i'.str_repeat('b', 32), 'invited_at' => now(), 'joined_at' => null, 'created_at' => now(), 'updated_at' => now()],
+                ['id' => (string) Str::uuid(), 'tenant_id' => $tenant->id, 'group_id' => $groupId, 'user_id' => $member->id, 'email' => null,
+                    'status' => 'active', 'invite_token' => null, 'invited_at' => null, 'joined_at' => now(), 'created_at' => now(), 'updated_at' => now()],
+            ]);
+            $device = app(DeviceSessions::class)->issue($member, 'Testgerät', 'ios', '1.0')['session'];
+            DB::table('api_mobile_web_session')->insert([
+                'tenant_id' => $tenant->id, 'user_id' => $member->id, 'api_device_session_id' => $device->id,
+                'code_hash' => hash('sha256', 'code'), 'verifier_hash' => hash('sha256', 'verifier'), 'redirect_path' => '/courses',
+                'expires_at' => now()->addMinute(),
+            ]);
+            DB::table('api_account_deletion_request')->insert([
+                'tenant_id' => $tenant->id, 'user_id' => $member->id, 'confirm_key_hash' => hash('sha256', 'key'), 'expires_at' => now()->addDays(7),
+            ]);
+            DB::table('api_user_setting')->insert(['user_id' => $member->id, 'settings' => json_encode(['nickname' => 'Anni Echt'])]);
+
+            return ['group' => $groupId, 'invite' => $inviteId];
+        });
+
+        $this->artisan('app:anonymize-database --force')->assertSuccessful();
+
+        $this->onAdmin(function () use ($ids, $member) {
+            $group = DB::table('learning_group')->where('id', $ids['group'])->first();
+            $this->assertStringStartsWith('Lerngruppe ', $group->name);
+            $this->assertNotSame('g'.str_repeat('a', 32), $group->join_code);
+            $this->assertMatchesRegularExpression('/^g[0-9a-f]{32}$/', $group->join_code);
+
+            $invite = DB::table('learning_group_member')->where('id', $ids['invite'])->first();
+            $this->assertSame('gruppe-'.str_replace('-', '', $ids['invite']).'@example.invalid', $invite->email);
+            $this->assertNotSame('i'.str_repeat('b', 32), $invite->invite_token);
+            $this->assertMatchesRegularExpression('/^i[0-9a-f]{32}$/', $invite->invite_token);
+            $this->assertSame(0, DB::table('learning_group_member')->whereNotNull('email')->where('email', 'not like', '%@example.invalid')->count());
+
+            foreach (['api_mobile_web_session', 'api_account_deletion_request', 'api_user_setting', 'api_device_session'] as $table) {
+                $this->assertSame(0, DB::table($table)->count(), $table.' geleert');
+            }
+            $this->assertNotNull(User::find($member->id), 'Konten bleiben bestehen');
         });
     }
 }

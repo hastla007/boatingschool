@@ -9,11 +9,15 @@ use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
 use App\Notifications\AccountDeletionConfirmation;
+use App\Services\AccountErasureService;
+use App\Services\AppAccountDeletion;
 use App\Services\PersonalDataExportService;
 use App\Support\CanonicalUrl;
+use App\Support\TenantContext;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
+use RuntimeException;
 
 /** Mobile-API: Kontolöschung aus der App (wie „Konto löschen“ im Web-Profil). */
 class AccountDeletionApiTest extends MobileApiTestCase
@@ -103,6 +107,34 @@ class AccountDeletionApiTest extends MobileApiTestCase
         // Die App bleibt für die andere Schule angemeldet (Sitzungen gelten kontoweit, wie im Web).
         $this->api('GET', '/courses', $token, $other)->assertOk();
         $this->api('GET', '/courses', $token, $tenant)->assertStatus(403)->assertJsonPath('code', 'TENANT_MEMBERSHIP_REQUIRED');
+    }
+
+    public function test_a_failed_deletion_keeps_the_link_valid(): void
+    {
+        $tenant = $this->createTestTenant();
+        $user = $this->createTenantUser($tenant, 'learner');
+        $token = $this->apiLogin($user);
+        $values = $this->requestDeletion($user, $token, $tenant);
+
+        // Die Löschung scheitert unterwegs (z. B. Datenbankfehler).
+        $this->app->instance(AccountErasureService::class, new class(app(TenantContext::class)) extends AccountErasureService
+        {
+            public function leaveTenant(User $user, Tenant $tenant, bool $forgetOtherSchoolsInvitations = true): void
+            {
+                throw new RuntimeException('Löschung fehlgeschlagen (Test)');
+            }
+        });
+        $this->confirm($values)->assertStatus(500);
+
+        // Antrag und Konto sind unverändert da, derselbe Link funktioniert danach.
+        $this->onAdmin(function () use ($user, $values) {
+            $this->assertTrue(ApiAccountDeletionRequest::withoutGlobalScopes()->whereKey($values['request_id'])->exists());
+            $this->assertNotNull(User::find($user->id));
+        });
+        $this->app->forgetInstance(AccountErasureService::class);
+        $this->app->forgetInstance(AppAccountDeletion::class);
+        $this->confirm($values)->assertOk()->assertJsonPath('data.account_deleted', true);
+        $this->onAdmin(fn () => $this->assertNull(User::find($user->id)));
     }
 
     public function test_a_repeated_request_sends_a_new_link_and_invalidates_the_old_one(): void

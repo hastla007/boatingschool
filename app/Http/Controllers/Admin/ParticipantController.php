@@ -70,7 +70,7 @@ class ParticipantController extends Controller
         $bundledProductIds = [];
 
         // Freie Verlängerungscodes je Kurs (für den „Verlängern“-Knopf).
-        $freeRenewalCodes = Coupon::where('tenant_id', $tenant->id)->where('is_renewal', true)->usable()
+        $freeRenewalCodes = Coupon::where('tenant_id', $tenant->id)->where('is_renewal', true)->usable()->notReservedForInvitation($tenant->id)
             ->selectRaw('course_id, count(*) as free')->groupBy('course_id')->pluck('free', 'course_id');
 
         $entitlements = Entitlement::where('tenant_id', $tenant->id)->where('user_id', $user->id)
@@ -416,18 +416,19 @@ class ParticipantController extends Controller
         // Mitglied dieser Schule sind, sieht die Antwort gleich aus, egal ob
         // plattformweit schon ein Konto existiert -- dieselben Texte,
         // dieselbe Code-Prüfung, dieselbe Anzeige unter „Offene Einladungen“.
-        if ($result['duplicate'] ?? false) {
-            return back()->with('status', ParticipantInviter::ALREADY_INVITED_STATUS);
-        }
         if ($result['already_member'] ?? false) {
             return back()->with('status', ($result['role'] ?? 'learner') === 'learner'
                 ? 'Diese Person ist bereits Teilnehmer Ihrer Bootsschule.'
                 : 'Diese Person gehört bereits zum Team Ihrer Bootsschule.');
         }
 
-        $status = $result['mail_sent']
-            ? 'Einladung verschickt.'
-            : 'Einladung angelegt, der Versand der E-Mail ist aber fehlgeschlagen – bitte später erneut einladen.';
+        // Heute schon eine Mail an die Adresse: Einladung (und ein Code)
+        // ist trotzdem gespeichert, nur die Mail entfällt.
+        $status = match (true) {
+            $result['duplicate'] ?? false => ParticipantInviter::ALREADY_INVITED_STATUS,
+            $result['mail_sent'] => 'Einladung verschickt.',
+            default => 'Einladung angelegt, der Versand der E-Mail ist aber fehlgeschlagen – bitte später erneut einladen.',
+        };
 
         // Neue Adresse wie Bestandskonto: der Code wird an der Einladung
         // reserviert und erst beim Annehmen bzw. Passwort-Festlegen

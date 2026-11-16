@@ -19,14 +19,14 @@
 
     <div class="max-w-2xl mx-auto space-y-4">
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 text-center">
-            <h3 class="text-lg font-semibold text-slate-800 dark:text-white">Auswertung</h3>
+            <h2 class="text-lg font-semibold text-slate-800 dark:text-white">Auswertung</h2>
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Du hast {{ $correctCount }} von {{ $total }} Fragen richtig beantwortet!</p>
         </div>
 
         @foreach ($reviews as $review)
             @php $revision = $review['revision']; @endphp
             <div class="rounded-2xl p-5 {{ $review['correct'] ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'bg-rose-50 dark:bg-rose-900/20' }}">
-                <h4 class="text-center font-medium text-slate-800 dark:text-white mb-4">{{ $revision->question_text }}</h4>
+                <h3 class="text-center font-medium text-slate-800 dark:text-white mb-4">{{ $revision->question_text }}</h3>
                 <div class="space-y-2">
                     {{-- Bug-Review (Antwortreihenfolge bei Einfachauswahl-Fragen immer
                          identisch): die Auswertung muss dieselbe, pro Lernendem

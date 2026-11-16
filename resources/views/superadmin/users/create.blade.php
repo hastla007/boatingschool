@@ -10,20 +10,20 @@
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <x-input-label for="first_name" value="Vorname" />
-                    <x-text-input id="first_name" name="first_name" type="text" class="mt-1 block w-full" :value="old('first_name')" required />
-                    <x-input-error :messages="$errors->get('first_name')" class="mt-2" />
+                    <x-text-input :invalid="$errors->has('first_name')" id="first_name" name="first_name" type="text" class="mt-1 block w-full" :value="old('first_name')" required />
+                    <x-input-error for="first_name" :messages="$errors->get('first_name')" class="mt-2" />
                 </div>
                 <div>
                     <x-input-label for="last_name" value="Nachname" />
-                    <x-text-input id="last_name" name="last_name" type="text" class="mt-1 block w-full" :value="old('last_name')" required />
-                    <x-input-error :messages="$errors->get('last_name')" class="mt-2" />
+                    <x-text-input :invalid="$errors->has('last_name')" id="last_name" name="last_name" type="text" class="mt-1 block w-full" :value="old('last_name')" required />
+                    <x-input-error for="last_name" :messages="$errors->get('last_name')" class="mt-2" />
                 </div>
             </div>
 
             <div>
                 <x-input-label for="email" value="E-Mail" />
-                <x-text-input id="email" name="email" type="email" class="mt-1 block w-full" :value="old('email')" required />
-                <x-input-error :messages="$errors->get('email')" class="mt-2" />
+                <x-text-input :invalid="$errors->has('email')" id="email" name="email" type="email" class="mt-1 block w-full" :value="old('email')" required />
+                <x-input-error for="email" :messages="$errors->get('email')" class="mt-2" />
             </div>
 
             <div class="pt-4 border-t border-slate-100 dark:border-slate-700">

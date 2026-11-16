@@ -59,7 +59,7 @@
                     </header>
 
                     <a href="{{ route('profile.export') }}"
-                       class="mt-4 inline-flex items-center px-4 py-2 bg-gray-800 dark:bg-gray-200 border border-transparent rounded-md font-semibold text-xs text-white dark:text-gray-800 uppercase tracking-widest hover:bg-gray-700 dark:hover:bg-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900 dark:focus:ring-gray-300 transition ease-in-out duration-150">
+                       class="mt-4 inline-flex items-center px-4 py-2 bg-gray-800 dark:bg-gray-200 border border-transparent rounded-lg font-semibold text-sm text-white dark:text-gray-800 hover:bg-gray-700 dark:hover:bg-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900 dark:focus:ring-gray-300 transition ease-in-out duration-150">
                         Meine Daten exportieren
                     </a>
                 </div>
@@ -113,7 +113,7 @@
                     @else
                         <p class="mt-3 text-sm text-gray-700 dark:text-gray-300">Spracherkennung ist aus. Vor der ersten Nutzung fragen wir dich in der Funk-Übung.</p>
                     @endif
-                    @if (session('status') === 'speech-consent-updated')
+                    @if (in_array(session('status'), ['speech-consent-granted', 'speech-consent-revoked'], true))
                         <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">Gespeichert.</p>
                     @endif
                 </div>
@@ -128,7 +128,7 @@
                             {{ auth()->user()->hasTwoFactor() ? 'Aktiv: Die Anmeldung fragt zusätzlich nach einem Code aus deiner Authenticator-App.' : 'Schütze dein Konto zusätzlich mit einem Code aus einer Authenticator-App.' }}
                         </p>
                     </header>
-                    <a href="{{ route('two-factor.show') }}" class="mt-4 inline-flex items-center px-4 py-2 bg-gray-800 dark:bg-gray-200 border border-transparent rounded-md font-semibold text-xs text-white dark:text-gray-800 uppercase tracking-widest hover:bg-gray-700 dark:hover:bg-white transition ease-in-out duration-150">
+                    <a href="{{ route('two-factor.show') }}" class="mt-4 inline-flex items-center px-4 py-2 bg-gray-800 dark:bg-gray-200 border border-transparent rounded-lg font-semibold text-sm text-white dark:text-gray-800 hover:bg-gray-700 dark:hover:bg-white transition ease-in-out duration-150">
                         {{ auth()->user()->hasTwoFactor() ? 'Verwalten' : 'Einrichten' }}
                     </a>
                 </div>

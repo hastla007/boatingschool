@@ -13,7 +13,10 @@
         </div>
         <span class="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">{{ \App\Support\GermanTime::format($submission->created_at, 'd.m.Y H:i') }}</span>
     </div>
-    @if (! $submission->isPracticeOnly() && $submission->template && ! empty($submission->template->fields))
+    @if ($submission->answersRemovedOn())
+        {{-- Löschkonzept Nr. 16: Formularangaben nach der Speicherfrist entfernt (app:prune-personal-data). --}}
+        <p class="text-sm text-slate-500 dark:text-slate-400 italic border-t border-slate-100 dark:border-slate-700 pt-2">Angaben am {{ $submission->answersRemovedOn() }} nach Ablauf der Speicherfrist entfernt.</p>
+    @elseif (! $submission->isPracticeOnly() && $submission->template && ! empty($submission->template->fields))
         <dl class="divide-y divide-slate-100 dark:divide-slate-700 border-t border-slate-100 dark:border-slate-700 text-sm">
             @foreach ($submission->template->fields as $field)
                 <div class="py-2 grid grid-cols-2 gap-4">
@@ -61,7 +64,7 @@
                                             <span @class([
                                                 'inline-flex items-center px-1.5 py-0.5 rounded-full text-[11px] font-medium',
                                                 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' => $kursName === ($submission->course->name ?? null),
-                                                'bg-slate-100 text-slate-500 dark:bg-slate-700/50 dark:text-slate-400' => $kursName !== ($submission->course->name ?? null),
+                                                'bg-slate-100 text-slate-600 dark:bg-slate-700/50 dark:text-slate-300' => $kursName !== ($submission->course->name ?? null),
                                             ])>{{ $kursName }}</span>
                                         @endforeach
                                     </span>
@@ -105,7 +108,7 @@
     @endforeach
 
     <div class="mt-3 pt-3 border-t border-slate-100 dark:border-slate-700">
-        <h4 class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">Weiteren Termin anlegen</h4>
+        <h3 class="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">Weiteren Termin anlegen</h3>
         <p class="text-xs text-slate-600 dark:text-slate-400 mb-2">
             Frei benannt und terminiert -- z. B. "Kleine Praxisstunde (1h)", "Große Praxisstunde (4h)", "Navigationsstunde" oder "Onlinekurs".
             So viele wie nötig, keine feste Anzahl, auch vor dem Prüfungstermin.

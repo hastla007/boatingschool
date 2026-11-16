@@ -32,7 +32,7 @@
             <div class="mt-6">
                 <x-input-label for="password" value="Passwort" class="sr-only" />
 
-                <x-text-input
+                <x-text-input :invalid="$errors->userDeletion->has('password')"
                     id="password"
                     name="password"
                     type="password"
@@ -40,7 +40,7 @@
                     placeholder="Passwort"
                 />
 
-                <x-input-error :messages="$errors->userDeletion->get('password')" class="mt-2" />
+                <x-input-error for="password" :messages="$errors->userDeletion->get('password')" class="mt-2" />
             </div>
 
             <div class="mt-6 flex justify-end">
