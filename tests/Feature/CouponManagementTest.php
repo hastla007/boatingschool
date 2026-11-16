@@ -413,12 +413,102 @@ class CouponManagementTest extends TestCase
         $coupon = $this->onAdmin(fn () => Coupon::create(['code' => $code, 'course_id' => $course->id, 'tenant_id' => $tenant->id]));
         $this->actingAsInTenant($learner1, $tenant)->post('/coupons/redeem', ['code' => $code]);
 
-        $response = $this->actingAsInTenant($admin, $tenant)->post("/admin/coupons/{$coupon->id}/assign", [
-            'user_id' => $learner2->id,
-        ]);
+        $dashboard = route('admin.dashboard', ['tab' => 'coupons']);
 
-        $response->assertNotFound();
+        // Eigener, schon eingelöster Code: zurück zur Codeliste mit Meldung, kein 404.
+        $this->actingAsInTenant($admin, $tenant)->from($dashboard)->post("/admin/coupons/{$coupon->id}/assign", [
+            'user_id' => $learner2->id,
+        ])->assertRedirect($dashboard)->assertSessionHasErrors(['assign' => 'Dieser Code wurde bereits eingelöst.']);
+        $this->actingAsInTenant($admin, $tenant)->get($dashboard)->assertOk()->assertSee('Dieser Code wurde bereits eingelöst.');
+
         $this->assertSame(1, $this->onAdmin(fn () => Entitlement::where('tenant_id', $tenant->id)->where('course_id', $course->id)->count()));
+    }
+
+    /**
+     * Doppelklick auf „Zuweisen“: die zweite Anfrage vergibt den Code nicht
+     * noch einmal und endet nicht mit 404, sondern zurück in der Codeliste
+     * mit Meldung.
+     */
+    public function test_double_click_on_assign_returns_to_the_list_with_a_message(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $code = 'E2E-ASSIGN-TWICE-'.uniqid();
+        $this->createdCodes[] = $code;
+        $coupon = $this->onAdmin(fn () => Coupon::create(['code' => $code, 'course_id' => $course->id, 'tenant_id' => $tenant->id]));
+        $dashboard = route('admin.dashboard', ['tab' => 'coupons']);
+        $assign = fn () => $this->actingAsInTenant($admin, $tenant)->from($dashboard)
+            ->post("/admin/coupons/{$coupon->id}/assign", ['user_id' => $learner->id, 'participant_email' => $learner->email]);
+
+        $assign()->assertRedirect($dashboard)->assertSessionHasNoErrors()->assertSessionHas('status');
+        $assign()->assertRedirect($dashboard)->assertSessionHasErrors(['assign' => 'Dieser Code wurde bereits eingelöst.']);
+
+        $this->assertSame(1, $this->onAdmin(fn () => Entitlement::where('tenant_id', $tenant->id)->where('user_id', $learner->id)->where('course_id', $course->id)->count()));
+    }
+
+    /**
+     * Sicherheitsgrenze zur Meldung „bereits eingelöst“: Codes einer anderen
+     * Schule (offen oder eingelöst) und freie Codes bleiben 404 -- die
+     * Antwort verrät nicht, dass es sie gibt.
+     */
+    public function test_assigning_a_code_of_another_school_stays_not_found(): void
+    {
+        $tenant = $this->createTestTenant();
+        $other = $this->createTestTenant('Andere Schule');
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $otherLearner = $this->createTenantUser($other, 'learner');
+        $course = $this->existingCourse('SRC');
+        $codes = ['E2E-FOREIGN-OPEN-'.uniqid(), 'E2E-FOREIGN-USED-'.uniqid(), 'E2E-FREE-USED-'.uniqid()];
+        $this->createdCodes = array_merge($this->createdCodes, $codes);
+        $coupons = $this->onAdmin(fn () => [
+            Coupon::create(['code' => $codes[0], 'course_id' => $course->id, 'tenant_id' => $other->id]),
+            Coupon::create(['code' => $codes[1], 'course_id' => $course->id, 'tenant_id' => $other->id]),
+            Coupon::create(['code' => $codes[2], 'course_id' => $course->id]),
+        ]);
+        $this->onAdmin(function () use ($coupons, $otherLearner) {
+            foreach ([$coupons[1], $coupons[2]] as $used) {
+                $used->forceFill(['redeemed_at' => now(), 'redeemed_by_user_id' => $otherLearner->id])->save();
+            }
+        });
+
+        foreach ($coupons as $coupon) {
+            $this->actingAsInTenant($admin, $tenant)->post("/admin/coupons/{$coupon->id}/assign", ['user_id' => $learner->id])
+                ->assertNotFound()->assertSessionHasNoErrors();
+        }
+        $this->onAdmin(fn () => $this->assertFalse($coupons[0]->fresh()->isRedeemed()));
+        $this->assertSame(0, $this->onAdmin(fn () => Entitlement::where('user_id', $learner->id)->count()));
+    }
+
+    /**
+     * Gesperrte oder geschlossene Konten (app_user.status) bei aktiver
+     * Mitgliedschaft: weder in der Suche noch per E-Mail-Adresse auflösbar,
+     * eine Zuweisung per ID wird mit Meldung abgelehnt.
+     */
+    public function test_suspended_or_closed_accounts_are_neither_offered_nor_assigned(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'admin');
+        $active = $this->createTenantUser($tenant, 'learner', ['display_name' => 'Konto Aktiv']);
+        $suspended = $this->createTenantUser($tenant, 'learner', ['display_name' => 'Konto Gesperrt', 'status' => 'suspended']);
+        $closed = $this->createTenantUser($tenant, 'learner', ['display_name' => 'Konto Geschlossen', 'status' => 'closed']);
+        $course = $this->existingCourse('SRC');
+        $code = 'E2E-ASSIGN-ACCOUNT-'.uniqid();
+        $this->createdCodes[] = $code;
+        $coupon = $this->onAdmin(fn () => Coupon::create(['code' => $code, 'course_id' => $course->id, 'tenant_id' => $tenant->id]));
+
+        $this->actingAsInTenant($admin, $tenant)->getJson(route('admin.participants.search', ['q' => 'konto']))->assertOk()
+            ->assertExactJson(['data' => [['id' => $active->id, 'name' => 'Konto Aktiv', 'email' => $active->email]]]);
+
+        foreach ([$suspended, $closed] as $user) {
+            $this->actingAsInTenant($admin, $tenant)->post("/admin/coupons/{$coupon->id}/assign", ['participant_email' => $user->email])
+                ->assertSessionHasErrors(['assign' => 'Unter dieser E-Mail-Adresse gibt es keinen aktiven Teilnehmer Ihrer Bootsschule.']);
+            $this->actingAsInTenant($admin, $tenant)->post("/admin/coupons/{$coupon->id}/assign", ['user_id' => $user->id, 'participant_email' => $user->email])
+                ->assertSessionHasErrors(['assign' => 'Dieses Konto ist gesperrt oder geschlossen – ein Code würde ungenutzt verbraucht.']);
+        }
+        $this->onAdmin(fn () => $this->assertFalse($coupon->fresh()->isRedeemed()));
     }
 
     public function test_coupon_redeem_menu_link_is_visible_for_a_learner(): void

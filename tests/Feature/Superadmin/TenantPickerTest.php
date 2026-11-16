@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Superadmin;
 
+use App\Models\AuditLog;
 use App\Models\Coupon;
 use App\Models\Tenant;
 use App\Models\TenantUser;
@@ -137,7 +138,7 @@ class TenantPickerTest extends TestCase
         $this->actingAs($superadmin)->get('/superadmin/audit?platform_only=1')->assertOk()
             ->assertViewHas('filters', fn (array $filters) => $filters['tenant'] === 'platform');
         $this->actingAs($superadmin)->get('/superadmin/audit?tenant_slug=gibt-es-nicht')->assertOk()
-            ->assertSee('Der Schulfilter wurde nicht angewendet.');
+            ->assertSee(TenantPicker::NOT_FOUND)->assertSee('Es werden keine Einträge angezeigt.');
 
         // Codes: derselbe Filter, Export/Sperren übernehmen die aufgelöste ID.
         $this->actingAs($superadmin)->get('/superadmin/coupons?tenant_slug='.$tenant->slug)->assertOk()
@@ -145,6 +146,30 @@ class TenantPickerTest extends TestCase
             ->assertSee('name="tenant_id" value="'.$tenant->id.'"', false);
         $this->actingAs($superadmin)->get('/superadmin/coupons?tenant_id='.$tenant->id.'&tenant_slug=')->assertOk()
             ->assertViewHas('filters', fn (array $filters) => ! isset($filters['tenant_id']));
+    }
+
+    /**
+     * Protokoll wie Codeliste: ein nicht auflösbarer Schulfilter zeigt keine
+     * Einträge statt aller Schulen; „Nur Plattform“ gilt weiterhin.
+     */
+    public function test_unresolved_audit_school_filter_lists_no_entries(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        $tenant = $this->createTestTenant('Protokollschule');
+        $this->onAdmin(function () use ($tenant, $superadmin) {
+            AuditLog::record($tenant->id, $superadmin->id, 'test.tenant_entry', 'tenant', $tenant->id);
+            AuditLog::record(null, $superadmin->id, 'test.platform_entry', 'tenant', $tenant->id);
+        });
+
+        $this->actingAs($superadmin)->get('/superadmin/audit?tenant=&tenant_slug=Protokoll')->assertOk()
+            ->assertViewHas('entries', fn ($entries) => $entries->total() === 0)
+            ->assertSee(TenantPicker::NOT_FOUND)->assertSee('Keine Schule gefunden.');
+
+        $this->actingAs($superadmin)->get('/superadmin/audit?tenant_slug='.$tenant->slug)->assertOk()
+            ->assertViewHas('entries', fn ($entries) => $entries->contains('action', 'test.tenant_entry') && ! $entries->contains('action', 'test.platform_entry'));
+        $this->actingAs($superadmin)->get('/superadmin/audit?tenant_slug=Protokoll&platform_only=1')->assertOk()
+            ->assertViewHas('entries', fn ($entries) => $entries->contains('action', 'test.platform_entry'))
+            ->assertDontSee(TenantPicker::NOT_FOUND);
     }
 
     /**

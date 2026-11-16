@@ -455,6 +455,28 @@ class AdminLearningGroupTest extends TestCase
         $this->assertSame(1, $this->onAdmin(fn () => LearningGroup::where('tenant_id', $tenant->id)->count()));
     }
 
+    /** Wie die Teilnehmersuche der Zugangscodes: gesperrte oder geschlossene Konten sind kein Verwalter. */
+    public function test_suspended_or_closed_accounts_are_neither_offered_nor_accepted_as_manager(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'admin');
+        $active = $this->createTenantUser($tenant, 'learner', ['display_name' => 'Konto Aktiv']);
+        $suspended = $this->createTenantUser($tenant, 'learner', ['display_name' => 'Konto Gesperrt', 'status' => 'suspended']);
+        $closed = $this->createTenantUser($tenant, 'learner', ['display_name' => 'Konto Geschlossen', 'status' => 'closed']);
+
+        $this->actingAsInTenant($admin, $tenant)->getJson(route('admin.learning-groups.manager-candidates', ['q' => 'konto']))->assertOk()
+            ->assertExactJson(['data' => [['id' => $active->id, 'name' => 'Konto Aktiv', 'email' => $active->email]]]);
+        foreach ([$suspended, $closed] as $user) {
+            $this->actingAsInTenant($admin, $tenant)->post(route('admin.learning-groups.store'), [
+                'name' => 'Neue Gruppe', 'owner_email' => $user->email, 'seats' => 2, 'courses' => ['SRC' => 'course'],
+            ])->assertSessionHasErrors(['owner_user_id' => 'Unter dieser E-Mail-Adresse gibt es keinen aktiven Teilnehmer Ihrer Bootsschule.']);
+            $this->actingAsInTenant($admin, $tenant)->post(route('admin.learning-groups.store'), [
+                'name' => 'Neue Gruppe', 'owner_user_id' => $user->id, 'seats' => 2, 'courses' => ['SRC' => 'course'],
+            ])->assertSessionHasErrors(['owner_user_id' => 'Der Verwalter muss aktiver Teilnehmer dieser Schule sein.']);
+        }
+        $this->assertSame(0, $this->onAdmin(fn () => LearningGroup::where('tenant_id', $tenant->id)->count()));
+    }
+
     public function test_revoking_ends_all_group_access_and_is_logged(): void
     {
         $tenant = $this->createTestTenant();

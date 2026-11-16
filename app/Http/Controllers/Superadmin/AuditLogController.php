@@ -33,7 +33,15 @@ class AuditLogController extends Controller
             'to' => $this->stringParam($request, 'to'),
         ];
 
+        $tenantFilterError = $platformOnly ? null : $picked['error'];
+
         $query = AuditLog::query()->orderByDesc('created_at')->orderByDesc('id');
+        // Nicht auflösbarer Schulfilter (z. B. Teil eines Namens ohne Auswahl):
+        // keine Einträge statt aller Schulen -- wie die Codeliste
+        // (Superadmin\CouponController::index()).
+        if ($tenantFilterError !== null) {
+            $query->whereRaw('false');
+        }
         if ($filters['tenant'] === 'platform') {
             $query->whereNull('tenant_id');
         } elseif ($filters['tenant'] && Str::isUuid($filters['tenant'])) {
@@ -67,7 +75,7 @@ class AuditLogController extends Controller
             'actors' => $actors,
             'tenantNames' => $tenantNames,
             'selectedTenant' => $selectedTenant,
-            'tenantFilterError' => $platformOnly ? null : $picked['error'],
+            'tenantFilterError' => $tenantFilterError,
             'filters' => $filters,
         ]);
     }
