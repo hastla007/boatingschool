@@ -114,6 +114,12 @@ class PrivacyNotices
         if (config('data_retention.sessions.enabled')) {
             $items[] = '**Anmeldesitzungen im Browser:** '.(int) config('data_retention.sessions.days').' Tage nach der letzten Nutzung.';
         }
+        if ($praxisMonths = config('data_retention.praxis_submissions.months')) {
+            $items[] = '**Angaben aus der Praxis-Anmeldung:** '.(int) $praxisMonths.' Monate nach dem letzten Termin, danach bleiben nur Anmeldung und Termine ohne deine Angaben.';
+        }
+        if ($boxDays = config('data_retention.willkommensbox_addresses.days')) {
+            $items[] = '**Lieferadresse der Willkommensbox:** '.(int) $boxDays.' Tage nach dem Versand.';
+        }
         $exportMinutes = (int) config('mobile_api.export_ttl_minutes', 60);
         $items[] = '**Lern-App:** abgemeldete oder abgelaufene Geräte 30 Tage, ein Datenexport aus der App '.($exportMinutes === 60 ? 'eine Stunde' : "{$exportMinutes} Minuten").'.';
         $items[] = '**Links zum Setzen des Passworts:** '.(int) config('auth.passwords.users.expire', 60).' Minuten.';

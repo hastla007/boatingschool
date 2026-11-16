@@ -42,25 +42,33 @@ Mechanismen:
 | 13 | Server-Protokolle (IP-Adressen) | `storage/logs/laravel-*.log` | 14 Tage | `LOG_DAILY_DAYS` | 14 Tage |
 | 14 | **Datensicherungen** (DB-Dump und Uploads) | `storage/app/backups`, optional `BACKUP_DISK` | **14 Tage** | `BACKUP_KEEP_DAYS` (lokal und extern) | 14 Tage; gelöschte Daten verschwinden spätestens nach 14 Tagen auch aus den Sicherungen |
 | 15 | Fehlerberichte (optional) | Sentry | beim Anbieter, [90] Tage | Einstellung im Sentry-Projekt; Angabe in der Datenschutzerklärung über `PRIVACY_ERROR_TRACKING_RETENTION_DAYS` | 30–90 Tage |
-| 16 | Praxisanmeldung, Termine | `praxis_form_submission`, `praxis_exam_appointment` | mit der Mitgliedschaft | Kontolöschung | **offen**: eigene Frist nach der Prüfung, z. B. [12 Monate] |
-| 17 | Willkommensbox-Bestellungen (Lieferadresse) | `willkommensbox_order` | mit der Mitgliedschaft | Kontolöschung | **offen**: Lieferadresse nach Versand + [3 Monate] entfernen |
-| 18 | Gerätewiedererkennung (HMAC) | `known_login_device` | mit dem Konto | Fremdschlüssel | [12 Monate ohne Nutzung] – **offen** |
+| 16 | Praxisanmeldung, Termine | `praxis_form_submission`, `praxis_exam_appointment` | mit der Mitgliedschaft; Frist **aus** (Standard `null`) – **Frist durch Betreiber festlegen** | `data_retention.praxis_submissions.months` (`DATA_RETENTION_PRAXIS_SUBMISSION_MONTHS`): N Monate nach dem letzten Bezug (spätester Zeitpunkt aus letzter Änderung, fixiertem Prüfungstermin, Terminen und Rückmeldungen – ein anstehender Termin schützt immer) werden die Formularangaben (`data`) und die Freitext-Rückmeldungen (`response_comment`) geleert, ebenso deren Kopien im Änderungsprotokoll; Anmeldung, Kurs, Termine und Zeitpunkte bleiben (Zählungen, „bereits angemeldet“), Kennzeichen `_angaben_entfernt_am` in `data` | [12 Monate] – Nachweispflichten zur Prüfungsanmeldung mit den Schulen klären |
+| 17 | Willkommensbox-Bestellungen (Lieferadresse) | `willkommensbox_order` | mit der Mitgliedschaft; Frist **aus** (Standard `null`) – **Frist durch Betreiber festlegen** | `data_retention.willkommensbox_addresses.days` (`DATA_RETENTION_WILLKOMMENSBOX_ADDRESS_DAYS`): nur versendete Bestellungen, N Tage nach `shipped_at` werden Straße, PLZ, Ort, Land, Anmerkung und Sendungsnummer geleert (auch im Änderungsprotokoll); die Bestellung selbst bleibt (Versandzahlen, keine zweite Bestellung). Nie vor dem Versand | [90 Tage] nach Versand (Reklamationen/Rücksendungen) |
+| 18 | Gerätewiedererkennung (HMAC) | `known_login_device` | mit dem Konto; Frist **aus** (Standard `null`) – **Frist durch Betreiber festlegen** | `data_retention.known_login_devices.months` (`DATA_RETENTION_KNOWN_LOGIN_DEVICE_MONTHS`): Geräte mit `last_seen_at` älter als N Monate werden gelöscht; das zuletzt gesehene Gerät je Konto bleibt (sonst gälte die nächste Anmeldung – auch die eines Fremden – als „erstes Gerät“ ohne Hinweis-Mail) | [12 Monate ohne Nutzung] |
 | 19 | Shopkonten | `commerce_shop_account` | anonymisiert bei Kontolöschung; offene Registrierungen in Prüfung nach 180 Tagen mit dem Konto gelöscht | `AccountErasureService`, Nr. 3 | wie umgesetzt |
-| 20 | Shop-Ereignisse (Outbox) | `commerce_event` | **keine Frist** | – | **offen**: nach Zustellung + [90 Tage] löschen |
+| 20 | Shop-Ereignisse (Outbox) | `commerce_event` | Frist **aus** (Standard `null`) – **Frist durch Betreiber festlegen**; bei Kontolöschung werden Namen/E-Mail aus den Ereignissen entfernt | `data_retention.commerce_events.days` (`DATA_RETENTION_COMMERCE_EVENT_DAYS`): nur erledigte Ereignisse (`status` „done“: zugestellte Ausgangs-Ereignisse, protokollierte Shop-Aufrufe), gemessen ab `processed_at`. Nie wartende, gerade gesendete oder fehlgeschlagene Ausgangs-Ereignisse („pending“, „sending“, „failed“) und nie Storno-Ereignisse (`batch.voided`, Nachweis gegen doppelte Storno-Aufrufe; ohne Personendaten) | [90 Tage] nach Zustellung |
 | 21 | Shop-Bestellungen und Rechnungen | WooCommerce | im Shop | – | **offen**: [6/10 Jahre] nach § 147 AO / § 257 HGB, im Shop umsetzen |
 | 22 | Daten einer Schule bei Vertragsende | alle Tabellen der Schule | sofort nach Export | `TenantOffboardingService` | wie umgesetzt; Sicherungen nach 14 Tagen |
+| 23 | Löschanträge aus der App | `api_account_deletion_request` | nach Ablauf (Bestätigung nicht mehr möglich), stündlich | `app:prune-personal-data --mobile-api-only` (fest im Code) | wie umgesetzt (technisch tote Zeilen) |
+| 24 | Einmal-Codes der App-Webansicht | `api_mobile_web_session` | 1 Tag nach Ablauf (gültig 60 Sekunden), stündlich | wie Nr. 23 (fest im Code) | wie umgesetzt (technisch tote Zeilen) |
+| 25 | Lerngruppen-Einladungen | `learning_group_member` (Status „eingeladen“) | nach Ablauf der Einladung werden E-Mail und Code entfernt (Status „abgelaufen“) | wie Nr. 23 | wie umgesetzt; aktive Mitgliedschaften mit dem Konto |
+| 26 | Shop-Verknüpfungscodes | `commerce_link_code` | 1 Tag nach Ablauf (gültig 15 Minuten), täglich | `app:prune-personal-data` (fest im Code); die Verknüpfung selbst steht am Shopkonto und im Protokoll | wie umgesetzt (technisch tote Zeilen) |
+| 27 | App-Einstellungen | `api_user_setting` | mit dem Konto | Fremdschlüssel | keine eigene Frist nötig (Teil des Kontos) |
 
 ## Datenschutzerklärung
 
 Die Liste „Speicherdauer“ in der Datenschutzerklärung der Schulen wird aus
 derselben Konfiguration erzeugt (`App\Support\PrivacyNotices::retention()`):
-Aktivierte Fristen (Nr. 2, 3, 4, 11, 12) erscheinen dort automatisch mit dem
-eingestellten Wert.
+Aktivierte Fristen (Nr. 2, 3, 4, 11, 12, 16, 17) erscheinen dort automatisch mit
+dem eingestellten Wert. Nr. 18 (nur Team und Superadmins) und Nr. 20 (Shop der
+Schule) betreffen keine Lernenden.
 
 ## Vor dem Aktivieren
 
-1. Fristen Nr. 2, 11 und 12 mit Anwalt/DSB und den Schulen festlegen
-   (Nachweispflichten zu Ausbildung und Prüfungsanmeldung?).
+1. Fristen Nr. 2, 11, 12, 16, 17, 18 und 20 mit Anwalt/DSB und den Schulen
+   festlegen (Nachweispflichten zu Ausbildung und Prüfungsanmeldung?). Für
+   Nr. 16, 17, 18 und 20 ist der Mechanismus vorhanden, aber standardmäßig aus:
+   **Frist durch Betreiber festlegen** (Variablen in `.env.example`).
 2. In der `.env` setzen, mit `--dry-run` prüfen
    (`php artisan app:prune-inactive-learners --dry-run`,
    `php artisan app:prune-personal-data --dry-run`).

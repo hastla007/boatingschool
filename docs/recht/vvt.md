@@ -24,7 +24,7 @@ Maßnahmen: [tom.md](tom.md).
 | Daten | Shop: Name, Firma, E-Mail, Rechnungsanschrift, USt-IdNr., Bestellungen, Zahlungsstatus. Plattform: `commerce_shop_account` (E-Mail, Kontakt, Firma, USt-IdNr., Verknüpfung zur Schule), `commerce_event` (Ereignisse an den Shop), `coupon_batch` (Bestellposition ↔ Codes) |
 | Empfänger | [Shop-Hosting], [Zahlungsdienstleister], [Steuerberatung] |
 | Drittland | [keins / prüfen Zahlungsdienstleister] |
-| Löschung | Shop: nach Ablauf der Aufbewahrungspflichten ([6/10 Jahre], im Shop-System umzusetzen – **offen**). Plattform: Shopkonten werden bei Kontolöschung anonymisiert; ausgehende Ereignisse ohne Namen/E-Mail; keine automatische Frist für `commerce_event` – **offen** |
+| Löschung | Shop: nach Ablauf der Aufbewahrungspflichten ([6/10 Jahre], im Shop-System umzusetzen – **offen**). Plattform: Shopkonten werden bei Kontolöschung anonymisiert; ausgehende Ereignisse ohne Namen/E-Mail; erledigte `commerce_event` nach `DATA_RETENTION_COMMERCE_EVENT_DAYS` (Standard aus, Frist durch Betreiber festzulegen; siehe Löschkonzept Nr. 20) |
 | TOM | HMAC-signierte Schnittstelle, Codes verlassen die Plattform nie, siehe `docs/commerce/README.md` |
 
 ### A2. Verwaltung der Bootsschulen (Vertragskunden) und Superadmin
@@ -58,7 +58,7 @@ Maßnahmen: [tom.md](tom.md).
 | Betroffene | alle Nutzenden |
 | Daten | Sperrzähler (E-Mail/IP, im Cache, kurzlebig), `known_login_device` (HMAC, Zeitpunkte), Fehlerberichte ohne IP, Sicherungen |
 | Empfänger | Hosting, [Sentry, optional], [Sicherungsspeicher] |
-| Löschung | Cache nach Ablauf (täglich), Geräte mit dem Konto, Fehlerberichte [90] Tage beim Anbieter, Sicherungen 14 Tage |
+| Löschung | Cache nach Ablauf (täglich), Geräte mit dem Konto bzw. nach `DATA_RETENTION_KNOWN_LOGIN_DEVICE_MONTHS` ohne Nutzung (Standard aus, Frist durch Betreiber festzulegen; Löschkonzept Nr. 18), Fehlerberichte [90] Tage beim Anbieter, Sicherungen 14 Tage |
 
 ### A5. Kontakt/Support des Betreibers
 
@@ -114,7 +114,7 @@ Mandanten im Superadmin ([Export als Anlage]). Kategorien von Verarbeitungen:
 | Verarbeitung | Anmeldeformular, Terminvorschläge und Rückmeldungen, Prüfungsausschuss, Bestellung und Versand der Willkommensbox |
 | Daten | `praxis_form_submission`, `praxis_exam_appointment`, `course_exam_registration`, `willkommensbox_order`; Anschrift und Geburtsdatum aus `tenant_user` |
 | Empfänger | die Bootsschule; ggf. Prüfungsausschuss durch die Schule selbst |
-| Fristen | mit der Mitgliedschaft – **offen**: eigene Frist nach der Prüfung |
+| Fristen | mit der Mitgliedschaft; zusätzlich Angaben der Praxisanmeldung N Monate nach dem letzten Termin (`DATA_RETENTION_PRAXIS_SUBMISSION_MONTHS`) und Lieferadresse N Tage nach Versand (`DATA_RETENTION_WILLKOMMENSBOX_ADDRESS_DAYS`) – Mechanismus vorhanden, Standard aus, **Frist durch Betreiber festlegen** (Löschkonzept Nr. 16, 17) |
 
 ### B5. Kommunikation der Schule
 
