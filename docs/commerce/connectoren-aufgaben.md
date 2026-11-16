@@ -133,3 +133,42 @@ Captain-Plugin für die BoatingSchool-Website eingeplant wird).
 - Die 10 `dependabot/*`-Zweige wurden nicht gelesen (nur Abhängigkeiten).
 - Der Connector (rund 4.700 Zeilen) wurde nur auf Recht, Nonce, Geheimnisse und Protokoll geprüft, nicht in der Tiefe.
 - Kein CI-Lauf wurde gesehen und kein Test ausgeführt.
+
+## Workflow-Connector (WF-CUST1, übernommen am 16.11.2026)
+
+Übernommen aus `hastla007/wp-workflowmaster`, `docs/UEBERGABE-E17-kundenconnectoren.md`, Abschnitt „Ziel:
+`hastla007/boatingschool`“ (Entscheidung 17: eigenes Projektprodukt, nicht Teil von Workflow Captain Pro). Die Liste
+unten steht unverändert wie dort; Stand und Ort der Umsetzung darunter. Vertrag und Betrieb:
+[`../workflow/README.md`](../workflow/README.md). Konzept: `wp-workflowmaster`, `konzept.md`, Abschnitt 17.10.
+
+- [ ] WF-CUST1-01 – Vorhandenen WooCommerce-Connector als fachlichen Owner von Paid-Order-Codezustellung, Idempotenz pro Order-Position, Retry und Refund-Sperrung festhalten; Workflow darf diese Befehle nicht nochmals ausführen.
+- [ ] WF-CUST1-02 – In BoatingSchool einen eigenen dauerhaften Workflow-Event-Outbox-Dispatcher nach Commit ergänzen. Nicht die vorhandene `tenant.provision`-Shop-Outbox oder bloße Commerce-Logs als allgemeine Zustellgarantie voraussetzen.
+- [ ] WF-CUST1-03 – Versionierte Events für Shopkonto registriert/verknüpft/deaktiviert, Provisionierung erfolgreich/fehlgeschlagen sowie Code-Batch geliefert/entwertet veröffentlichen; stabile Event-IDs und tenant-/shop-scoped Correlation-IDs nutzen.
+- [ ] WF-CUST1-04 – Allowlist für Event-Payloads implementieren: Referenzen, Status, Menge und Kurs-/Produktcode; nie Gutscheinwerte, Linkcodes, Passwörter, unbestätigte E-Mail-/USt-Daten oder vollständige Lern-/Kontodaten versenden.
+- [ ] WF-CUST1-05 – Separaten Workflow-Vertrag und Credentials mit eigener Key-ID, HMAC, Zeitfenster, Nonce/Replay-Schutz, Rotation, Rate-Limits und Contract-Handshake entwickeln; bestehende Commerce-Keys und `/api/commerce/v1`-Scopes nicht wiederverwenden.
+- [ ] WF-CUST1-06 – Tenant-Scope serverseitig authentifizieren und RLS-Kontext pro Anfrage setzen; Tenant-IDs aus Ereignissen gelten nur als Referenz. Plattformweite Rechte als separaten, überprüfbaren Scope führen.
+- [ ] WF-CUST1-07 – Begrenzte App-Aktionen nur über öffentliche Services zulassen: tenant-scoped Schuladmin-Hinweis und optional Gruppenmitglied-Einladung mit Rollenprüfung, Sitzplatz-/Tageslimits und Command-Idempotenz. Account-Freigabe/-Verknüpfung, Codeausgabe/-widerruf und Kursrechte bleiben ausgeschlossen.
+- [ ] WF-CUST1-08 – BoatingSchool-Provider im WordPress-Connector/Workflow-Captain über Version, Status, Testevent, Payload-Mapping, Eventzustellung, Retry und Fehlerdiagnose sichtbar machen.
+- [ ] WF-CUST1-09 – Integrationstests für Tenant-Isolation, RLS, falsche/abgelaufene Signatur, Replay, doppelte Event-ID, HMAC-Key-Rotation, Timeout nach erfolgreichem Zielaufruf, Refund, Code-Redaktion und Outbox-Replay ergänzen.
+- [ ] Neu (Entscheidung 17) – Produktschlüssel, Präfix und Lizenz des BoatingSchool-Workflow-Connectors auf dem Lizenzserver des Inhabers anlegen; Lizenzprüfung im Connector-Plugin mit eigener Kopie der Lizenzbibliothek; Paket und Updates nur für diesen Kunden.
+
+### Stand der Umsetzung (Branch `claude/plugin-todo-liste-2a83v4`, noch nicht in `main`)
+
+Die Kästchen oben bleiben offen, bis der Code in `main` ist und die unten genannten Prüfungen in echten Umgebungen
+gelaufen sind.
+
+| Aufgabe | Stand | Wo | Offen |
+|---|---|---|---|
+| WF-CUST1-01 | Code und Doku fertig | `docs/workflow/README.md` (Abschnitt WF-CUST1-01), `App\Workflow\ActionRegistry::FORBIDDEN`, `WorkflowKeys` (getrennte Schlüssel), Plugin ohne solche Aktion | – |
+| WF-CUST1-02 | Code fertig, lokal getestet (PostgreSQL) | Migration `2024_02_01_001100_create_workflow_tables`, `App\Workflow\WorkflowOutbox`, `WorkflowDispatcher`, `app:workflow-outbox` (Scheduler jede Minute) | Betrieb: Scheduler-Lauf in Produktion beobachten |
+| WF-CUST1-03 | Code fertig | `App\Workflow\EventCatalog`, `DomainEvents`; Aufrufe in `ShopAccounts`, `ShopOrders`, `Commerce\Outbox` | – |
+| WF-CUST1-04 | Code fertig | `App\Workflow\PayloadAllowlist`, Plugin `BSW_Payload_Mapper` | Datenschutzbewertung (D8, Rechtsprüfung) |
+| WF-CUST1-05 | Code fertig | `WorkflowSignature`, `WorkflowKeys`, `VerifyWorkflowSignature`, Handshake `/api/integrations/v1/workflow/handshake` | Schlüssel erzeugen und hinterlegen |
+| WF-CUST1-06 | Code fertig, RLS lokal mit beiden Rollen getestet | `App\Workflow\CommandHandler` | – |
+| WF-CUST1-07 | Code fertig | `SchoolAdminNoticeAction` (an), `LearningGroupInviteAction` (aus) | Inhaber: Gruppeneinladung freigeben? Heute trägt kein Ereignis eine Nutzer-Referenz; die Aktion braucht alle Kennungen in der Schritt-Konfiguration |
+| WF-CUST1-08 | Code fertig, gegen Ersatz von WordPress/Workflow Captain getestet | `integrations/boatingschool-workflow-connector/` | Test in echtem WordPress mit echtem Workflow Captain (Anmeldung, Freigabe, Builder, Lauf) |
+| WF-CUST1-09 | fertig für App und Plugin-Logik | `tests/Feature/Workflow/*`, `tests/Unit/WorkflowConnector*Test.php` | E2E App ↔ WordPress ↔ Workflow Captain auf Staging |
+| Neu (E17) | vorbereitet | `wplc-catalog.json` (Status „planned“), `BSW_License` (fail-closed, Bibliothek aus dem Paketbau unter `lib/`) | Produkt auf dem Lizenzserver anlegen; Paketbau mit eigener Kopie der Lizenzbibliothek (nicht im öffentlichen Repository, siehe BS-03); Paket und Updates nur für diesen Kunden |
+
+In `wp-workflowmaster`, `TODO.md`, WF-E17-02 ist als Ort dieser Aufgaben `hastla007/boatingschool`,
+`docs/commerce/connectoren-aufgaben.md`, Abschnitt „Workflow-Connector (WF-CUST1 …)“ einzutragen (dort, nicht hier).
