@@ -9,10 +9,19 @@
  * Konstante festgelegte Felder sind im Formular gesperrt: Sie erscheinen nur
  * als Hinweis (ohne Eingabefeld, Geheimnisse ohne Wert) und werden beim
  * Speichern ignoriert; eine Kopie eines solchen Geheimnisses in der Datenbank
- * wird beim Speichern entfernt. Liegen Geheimnisse (noch) in der Datenbank,
- * zeigt das Backend einen dauerhaften Hinweis; mit der Einstellung
- * „Geheimnisse aus der Datenbank erlauben“ = nein bzw. dem Filter
- * bs_connector_allow_db_secrets (false) werden sie ignoriert.
+ * wird beim Speichern entfernt. Geheimnisse aus der Datenbank gelten nur, wenn
+ * „Geheimnisse aus der Datenbank erlauben“ ausdrücklich eingeschaltet ist
+ * (Standard seit 1.4.0: aus) bzw. der Filter bs_connector_allow_db_secrets
+ * true liefert; sonst zeigt das Formular keine Geheimnis-Felder, sondern einen
+ * Hinweis auf die Konstanten, und speichert keine Geheimnisse. Liegen
+ * Geheimnisse (noch) in der Datenbank, zeigt das Backend einen dauerhaften
+ * Hinweis.
+ *
+ * Übergang (maybe_upgrade): Beim ersten Laden nach dem Update von einer
+ * Version vor 1.4.0 wird die Einstellung für Installationen, die Geheimnisse
+ * ohne Konstante in der Datenbank haben, einmalig ausdrücklich eingeschaltet
+ * -- die Anbindung fällt nicht aus, der Hinweis empfiehlt den Umzug nach
+ * wp-config.php.
  *
  * Nur für Administratoren (manage_options): WooCommerce zeigt seine
  * Einstellungen schon Shop-Managern (manage_woocommerce) -- die dürften sonst
@@ -41,6 +50,15 @@ final class BS_Settings
 
     /** Geheimnisse: Einstellungs-Schlüssel => Konstante in wp-config.php. */
     const SECRETS = ['secret' => 'BS_CONNECTOR_SECRET', 'inbound_secret' => 'BS_CONNECTOR_INBOUND_SECRET'];
+
+    /** Zuletzt geladene Plugin-Version (für Update-Schritte). */
+    const VERSION_OPTION = 'bs_connector_version';
+
+    /** Merker: Das Update hat „Geheimnisse aus der Datenbank erlauben“ eingeschaltet. */
+    const KEPT_DB_SECRETS_OPTION = 'bs_connector_db_secrets_kept';
+
+    /** Ab dieser Version sind Geheimnisse aus der Datenbank standardmäßig aus. */
+    const DB_SECRETS_OFF_SINCE = '1.4.0';
 
     /** @return array{app_url: string, key_id: string, secret: string, inbound_key_id: string, inbound_secret: string, alert_email: string, vat_meta_key: string, blocked_gateways: string, vat_check: string, vies_requester: string} */
     public static function get(): array
@@ -91,17 +109,71 @@ final class BS_Settings
     }
 
     /**
-     * Dürfen Geheimnisse aus der Datenbank verwendet werden? Einstellung
-     * „Geheimnisse aus der Datenbank erlauben“ (Standard: ja, kompatibel zu
-     * älteren Installationen), überschreibbar mit dem Filter
+     * Dürfen Geheimnisse aus der Datenbank verwendet werden? Nur wenn
+     * „Geheimnisse aus der Datenbank erlauben“ ausdrücklich eingeschaltet ist
+     * (Standard: nein), überschreibbar mit dem Filter
      * bs_connector_allow_db_secrets.
      */
     public static function allow_db_secrets(?array $stored = null): bool
     {
         $stored ??= (array) get_option(self::OPTION, []);
-        $default = ! isset($stored['allow_db_secrets']) || $stored['allow_db_secrets'] !== 'no';
+        $default = isset($stored['allow_db_secrets']) && $stored['allow_db_secrets'] === 'yes';
 
         return (bool) apply_filters('bs_connector_allow_db_secrets', $default);
+    }
+
+    /**
+     * Update-Schritte beim Laden (plugins_loaded), versioniert über
+     * VERSION_OPTION: laufen je Version nur einmal.
+     */
+    public static function maybe_upgrade(string $version): void
+    {
+        $installed = (string) get_option(self::VERSION_OPTION, '');
+        if ($installed === $version) {
+            return;
+        }
+        // Leer = Neuinstallation oder Update von einer Version ohne Merker (vor 1.4.0).
+        if ($installed === '' || version_compare($installed, self::DB_SECRETS_OFF_SINCE, '<')) {
+            self::upgrade_db_secrets_default();
+        }
+        update_option(self::VERSION_OPTION, $version);
+    }
+
+    /**
+     * Übergang auf „Geheimnisse aus der Datenbank: standardmäßig aus“: Wer ein
+     * Geheimnis nur in der Datenbank hat (ohne Konstante), bekommt die
+     * Einstellung ausdrücklich eingeschaltet, damit die Anbindung weiterläuft,
+     * und einen Hinweis. Alle anderen bekommen „nein“ -- auch ein früher
+     * gespeichertes „ja“ (der alte Standard), das ohne solche Geheimnisse
+     * nichts bewirkt. Ein ausdrückliches „nein“ bleibt.
+     */
+    private static function upgrade_db_secrets_default(): void
+    {
+        $stored = (array) get_option(self::OPTION, []);
+        if (($stored['allow_db_secrets'] ?? '') === 'no') {
+            return;
+        }
+        if (self::db_only_secrets($stored) !== []) {
+            $stored['allow_db_secrets'] = 'yes';
+            update_option(self::OPTION, $stored);
+            update_option(self::KEPT_DB_SECRETS_OPTION, 'yes');
+
+            return;
+        }
+        if (isset($stored['allow_db_secrets'])) {
+            $stored['allow_db_secrets'] = 'no';
+            update_option(self::OPTION, $stored);
+        }
+    }
+
+    /**
+     * Geheimnisse, die nur in der Datenbank stehen (nicht leer, ohne Konstante).
+     *
+     * @return string[] Schlüssel aus SECRETS.
+     */
+    private static function db_only_secrets(array $stored): array
+    {
+        return array_values(array_filter(array_keys(self::SECRETS), static fn ($key) => (string) ($stored[$key] ?? '') !== '' && ! defined(self::SECRETS[$key])));
     }
 
     /**
@@ -167,7 +239,7 @@ final class BS_Settings
             self::secret_field('secret', __('Geheimnis (Shop → App)', 'bs-connector')),
             ['title' => __('Schlüssel-ID (App → Shop)', 'bs-connector'), 'id' => self::OPTION.'[inbound_key_id]', 'type' => 'text', 'default' => 'app'],
             self::secret_field('inbound_secret', __('Geheimnis (App → Shop)', 'bs-connector')),
-            ['title' => __('Geheimnisse aus der Datenbank erlauben', 'bs-connector'), 'id' => self::OPTION.'[allow_db_secrets]', 'type' => 'checkbox', 'default' => 'yes', 'desc' => __('Empfohlen: aus. Dann gelten nur die Konstanten BS_CONNECTOR_SECRET und BS_CONNECTOR_INBOUND_SECRET aus wp-config.php; in der Datenbank gespeicherte Geheimnisse werden ignoriert (Filter bs_connector_allow_db_secrets).', 'bs-connector')],
+            ['title' => __('Geheimnisse aus der Datenbank erlauben', 'bs-connector'), 'id' => self::OPTION.'[allow_db_secrets]', 'type' => 'checkbox', 'default' => 'no', 'desc' => __('Empfohlen: aus (Standard). Dann gelten nur die Konstanten BS_CONNECTOR_SECRET und BS_CONNECTOR_INBOUND_SECRET aus wp-config.php: Das Formular zeigt keine Geheimnis-Felder, in der Datenbank gespeicherte Geheimnisse werden ignoriert. Erst nach dem Einschalten und Speichern erscheinen die Felder (Filter bs_connector_allow_db_secrets).', 'bs-connector')],
             ['title' => __('Alarm-Adresse', 'bs-connector'), 'id' => self::OPTION.'[alert_email]', 'type' => 'email', 'desc' => __('Erhält eine Mail, wenn eine Zustellung endgültig fehlschlägt. Leer = Admin-Adresse von WordPress.', 'bs-connector')],
             ['title' => __('Meta-Feld der USt-ID', 'bs-connector'), 'id' => self::OPTION.'[vat_meta_key]', 'type' => 'text', 'default' => 'billing_vat_id'],
             ['title' => __('USt-IdNr. per VIES prüfen', 'bs-connector'), 'id' => self::OPTION.'[vat_check]', 'type' => 'checkbox', 'default' => 'yes', 'desc' => __('Prüft Format und Gültigkeit der USt-IdNr. beim EU-Dienst VIES (Registrierung, Kasse, Rechnungsadresse). Ist VIES nicht erreichbar, wird die Nummer angenommen und später erneut geprüft.', 'bs-connector')],
@@ -189,20 +261,45 @@ final class BS_Settings
     /**
      * Felder ohne die per Konstante festgelegten: diese stehen nur als Hinweis
      * im Formular (ohne Eingabefeld, Geheimnisse ohne Wert) und werden nie
-     * gespeichert.
+     * gespeichert. Geheimnis-Felder gibt es nur, wenn Geheimnisse aus der
+     * Datenbank erlaubt sind ($allow_db).
      */
-    private static function editable_fields(): array
+    private static function editable_fields(bool $allow_db): array
     {
         $fields = [];
         foreach (self::fields() as $field) {
             $key = preg_match('/\[(\w+)\]$/', (string) ($field['id'] ?? ''), $m) ? $m[1] : null;
-            if ($key !== null && self::is_locked($key)) {
+            if ($key !== null && (self::is_locked($key) || (! $allow_db && isset(self::SECRETS[$key])))) {
                 continue;
             }
             $fields[] = $field;
         }
 
         return $fields;
+    }
+
+    /**
+     * Anleitung für die Geheimnisse ohne Konstante, solange die Datenbank
+     * dafür nicht erlaubt ist (das Formular hat dann keine Geheimnis-Felder).
+     */
+    private static function secrets_constants_notice(bool $allow_db): array
+    {
+        $missing = array_values(array_filter(self::SECRETS, static fn (string $constant): bool => ! defined($constant)));
+        if ($allow_db || $missing === []) {
+            return [];
+        }
+        $lines = implode(' ', array_map(static fn (string $constant): string => "define( '".$constant."', '…' );", $missing));
+
+        return [[
+            'title' => __('Geheimnisse in wp-config.php setzen', 'bs-connector'),
+            'type' => 'title',
+            'id' => 'bs_connector_secrets_constants',
+            'desc' => sprintf(
+                /* translators: %s: define()-Zeilen für wp-config.php */
+                __('Die Geheimnisse werden nur aus wp-config.php gelesen. Tragen Sie dort vor der Zeile „That’s all, stop editing!“ ein: %s – die Werte entsprechen COMMERCE_SHOP_SECRET bzw. COMMERCE_OUTBOUND_SECRET der Bootsschul-Plattform. Ohne diese Konstanten ist die Anbindung aus.', 'bs-connector'),
+                $lines
+            ),
+        ], ['type' => 'sectionend', 'id' => 'bs_connector_secrets_constants']];
     }
 
     /** Hinweis auf Werte aus wp-config.php (ohne Geheimnisse anzuzeigen). */
@@ -231,7 +328,8 @@ final class BS_Settings
         if (! self::can_manage()) {
             return;
         }
-        woocommerce_admin_fields(array_merge(self::locked_notice(), self::editable_fields()));
+        $allow_db = self::allow_db_secrets();
+        woocommerce_admin_fields(array_merge(self::locked_notice(), self::secrets_constants_notice($allow_db), self::editable_fields($allow_db)));
     }
 
     /** Knopf „Verbindung testen“ unter dem Formular (nur mit CAPABILITY). */
@@ -266,9 +364,22 @@ final class BS_Settings
                 unset($_POST[self::OPTION][$key]);
             }
         }
+        // Geheimnisse aus der Datenbank nach dem Speichern erlaubt? Maßgeblich
+        // ist das abgeschickte Kästchen (WooCommerce sendet „1“) samt Filter.
+        // Wenn nein: keine Geheimnisse aus dem Formular übernehmen (auch nicht
+        // aus einer selbst gebauten Anfrage) und den Update-Hinweis beenden.
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing -- WooCommerce prüft die Nonce der Einstellungsseite.
+        $posted = isset($_POST[self::OPTION]) && is_array($_POST[self::OPTION]) ? $_POST[self::OPTION] : [];
+        $allow_db = (bool) apply_filters('bs_connector_allow_db_secrets', in_array($posted['allow_db_secrets'] ?? '', ['1', 'yes'], true));
+        if (! $allow_db) {
+            foreach (array_keys(self::SECRETS) as $key) {
+                unset($_POST[self::OPTION][$key]);
+            }
+            delete_option(self::KEPT_DB_SECRETS_OPTION);
+        }
         // Leeres Geheimnis-Feld = unverändert lassen.
         foreach (array_keys(self::SECRETS) as $key) {
-            if (self::is_locked($key)) {
+            if (self::is_locked($key) || ! $allow_db) {
                 continue;
             }
             // phpcs:ignore WordPress.Security.NonceVerification.Missing -- WooCommerce prüft die Nonce der Einstellungsseite.
@@ -276,7 +387,7 @@ final class BS_Settings
                 $_POST[self::OPTION][$key] = wp_slash($stored[$key]); // WooCommerce entfernt die Maskierung beim Speichern.
             }
         }
-        woocommerce_update_options(self::editable_fields());
+        woocommerce_update_options(self::editable_fields($allow_db));
         // Gesperrte Felder behalten ihren gespeicherten Wert -- außer
         // Geheimnissen: Steht das Geheimnis in wp-config.php, wird die Kopie in
         // der Datenbank nie verwendet, also beim Speichern entfernen.
@@ -315,6 +426,9 @@ final class BS_Settings
             $state = __('Sie werden ignoriert, weil Geheimnisse aus der Datenbank nicht erlaubt sind – die Anbindung funktioniert erst mit den Konstanten in wp-config.php.', 'bs-connector');
         } else {
             $state = __('Empfohlen: in wp-config.php verschieben und danach „Geheimnisse aus der Datenbank erlauben“ ausschalten.', 'bs-connector');
+            if (get_option(self::KEPT_DB_SECRETS_OPTION) === 'yes') {
+                $state = __('Seit Version 1.4.0 sind Geheimnisse aus der Datenbank standardmäßig aus; beim Update wurde „Geheimnisse aus der Datenbank erlauben“ für diese Installation eingeschaltet, damit die Anbindung weiterläuft.', 'bs-connector').' '.$state;
+            }
         }
         echo '<div class="notice notice-warning"><p><strong>'.esc_html__('Bootsschul-Plattform Connector:', 'bs-connector').'</strong> ';
         echo esc_html(sprintf( /* translators: %s: Namen der Konstanten */ __('Geheimnisse der Anbindung liegen in der Datenbank (wp_options). Sicherer ist wp-config.php: %s.', 'bs-connector'), $constants)).' ';

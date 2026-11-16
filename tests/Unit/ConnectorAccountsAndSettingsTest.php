@@ -7,8 +7,9 @@ use PHPUnit\Framework\TestCase;
 use Symfony\Component\Process\Process;
 
 /**
- * WooCommerce-Plugin: Status-Cache (SEC-P1) und Einstellungen nur für
- * Administratoren (SEC-P3). Die Plugin-Klassen laufen mit einem minimalen
+ * WooCommerce-Plugin: Status-Cache (SEC-P1), Einstellungen nur für
+ * Administratoren (SEC-P3) und Geheimnisse standardmäßig nur aus
+ * wp-config.php samt Übergang beim Update (BS-04). Die Plugin-Klassen laufen mit einem minimalen
  * WordPress-Ersatz in einem eigenen Prozess (connector-wp-harness.php) --
  * kein Test gegen echtes WordPress.
  */
@@ -103,7 +104,8 @@ class ConnectorAccountsAndSettingsTest extends TestCase
         $out = $this->harness('settings', [
             'caps' => ['manage_options'],
             'constants' => ['BS_CONNECTOR_SECRET' => 'aus-wp-config', 'BS_CONNECTOR_APP_URL' => 'https://app.example.de'],
-            'stored' => ['bs_connector_settings' => ['secret' => 'alt-aus-db', 'inbound_secret' => 'aus-db', 'app_url' => 'https://alt.example.de']],
+            'stored' => ['bs_connector_settings' => ['secret' => 'alt-aus-db', 'inbound_secret' => 'aus-db', 'app_url' => 'https://alt.example.de', 'allow_db_secrets' => 'yes']],
+            'post' => ['allow_db_secrets' => '1', 'secret' => 'neu', 'inbound_secret' => '', 'alert_email' => 'a@example.test'],
         ]);
 
         $this->assertNotContains('bs_connector_settings[secret]', $out['rendered']);
@@ -111,5 +113,176 @@ class ConnectorAccountsAndSettingsTest extends TestCase
         $this->assertNotContains('secret', $out['stored_after_save'], 'Kopie des Geheimnisses aus wp-config.php gelöscht');
         $this->assertContains('inbound_secret', $out['stored_after_save'], 'Geheimnis ohne Konstante bleibt');
         $this->assertContains('app_url', $out['stored_after_save'], 'andere gesperrte Felder behalten ihren Wert');
+        $this->assertSame('aus-db', $out['settings_after_save']['inbound_secret'], 'leeres Feld = unverändert');
+    }
+
+    private const ADMIN = ['manage_woocommerce', 'manage_options'];
+
+    private const SECRET_FIELDS = ['bs_connector_settings[secret]', 'bs_connector_settings[inbound_secret]'];
+
+    public function test_new_installation_defaults_to_no_and_ignores_secrets_in_the_database(): void
+    {
+        $fresh = $this->harness('upgrade', ['caps' => self::ADMIN]);
+
+        $this->assertFalse($fresh['allow_db_secrets'], 'Neuinstallation: nein');
+        $this->assertSame('1.4.0', $fresh['version']);
+        $this->assertArrayNotHasKey('allow_db_secrets', $fresh['settings']);
+        $this->assertFalse($fresh['kept_flag']);
+        $this->assertSame('', $fresh['notice']);
+        // Formular: keine Geheimnis-Felder, stattdessen Anleitung für wp-config.php.
+        $this->assertSame([], array_intersect(self::SECRET_FIELDS, $fresh['rendered']));
+        $this->assertContains('bs_connector_secrets_constants', $fresh['rendered']);
+        $this->assertStringContainsString("define( 'BS_CONNECTOR_SECRET', '…' );", $fresh['rendered_texts']);
+        $this->assertStringContainsString("define( 'BS_CONNECTOR_INBOUND_SECRET', '…' );", $fresh['rendered_texts']);
+        $this->assertContains('bs_connector_settings[allow_db_secrets]', $fresh['rendered']);
+
+        // Später (Update-Schritt schon gelaufen) gelangt ein Geheimnis in die Datenbank: ignoriert.
+        $later = $this->harness('upgrade', [
+            'caps' => self::ADMIN,
+            'stored' => ['bs_connector_version' => '1.4.0', 'bs_connector_settings' => ['secret' => 'aus-db', 'inbound_secret' => 'auch-aus-db']],
+        ]);
+        $this->assertFalse($later['allow_db_secrets']);
+        $this->assertSame('', $later['secret']);
+        $this->assertSame('', $later['inbound_secret']);
+        $this->assertArrayNotHasKey('allow_db_secrets', $later['settings'], 'kein Update-Schritt bei gleicher Version');
+        $this->assertStringContainsString('werden ignoriert', $later['notice']);
+    }
+
+    public function test_upgrade_keeps_secrets_from_the_database_working_and_shows_a_notice(): void
+    {
+        $out = $this->harness('upgrade', [
+            'caps' => self::ADMIN,
+            'stored' => ['bs_connector_settings' => ['app_url' => 'https://app.example.de', 'secret' => 'aus-db', 'inbound_secret' => 'auch-aus-db']],
+        ]);
+
+        $this->assertSame('yes', $out['settings']['allow_db_secrets'], 'einmalig ausdrücklich eingeschaltet');
+        $this->assertTrue($out['settings_unchanged_by_second_run']);
+        $this->assertTrue($out['allow_db_secrets']);
+        $this->assertSame('aus-db', $out['secret'], 'Anbindung fällt nicht aus');
+        $this->assertSame('auch-aus-db', $out['inbound_secret']);
+        $this->assertSame('yes', $out['kept_flag']);
+        $this->assertStringContainsString('beim Update', $out['notice']);
+        $this->assertStringContainsString('in wp-config.php verschieben und danach', $out['notice']);
+        $this->assertSame(self::SECRET_FIELDS, array_values(array_intersect(self::SECRET_FIELDS, $out['rendered'])));
+
+        // Nur für Administratoren.
+        $manager = $this->harness('upgrade', [
+            'caps' => ['manage_woocommerce'],
+            'stored' => ['bs_connector_settings' => ['secret' => 'aus-db']],
+        ]);
+        $this->assertSame('', $manager['notice']);
+
+        // Ein Geheimnis ohne Konstante genügt (das andere steht in wp-config.php).
+        $mixed = $this->harness('upgrade', [
+            'caps' => self::ADMIN,
+            'constants' => ['BS_CONNECTOR_SECRET' => 'aus-wp-config'],
+            'stored' => ['bs_connector_settings' => ['secret' => 'alt', 'inbound_secret' => 'aus-db']],
+        ]);
+        $this->assertTrue($mixed['allow_db_secrets']);
+        $this->assertSame('aus-wp-config', $mixed['secret']);
+        $this->assertSame('aus-db', $mixed['inbound_secret']);
+    }
+
+    public static function upgradeWithoutDatabaseSecretsCases(): array
+    {
+        return [
+            'nur Adresse gespeichert' => [[], ['app_url' => 'https://app.example.de']],
+            'altes Standard-„ja“ gespeichert' => [[], ['app_url' => 'https://app.example.de', 'allow_db_secrets' => 'yes', 'secret' => '']],
+            'Geheimnis auch in wp-config.php' => [['BS_CONNECTOR_SECRET' => 'aus-wp-config'], ['secret' => 'alt-aus-db']],
+            'ausdrücklich nein' => [[], ['secret' => 'aus-db', 'allow_db_secrets' => 'no']],
+        ];
+    }
+
+    #[DataProvider('upgradeWithoutDatabaseSecretsCases')]
+    public function test_upgrade_without_secrets_needed_from_the_database_gets_no(array $constants, array $settings): void
+    {
+        $out = $this->harness('upgrade', ['caps' => self::ADMIN, 'constants' => $constants, 'stored' => ['bs_connector_settings' => $settings]]);
+
+        $this->assertFalse($out['allow_db_secrets']);
+        $this->assertNotSame('yes', $out['settings']['allow_db_secrets'] ?? null);
+        $this->assertFalse($out['kept_flag']);
+        $this->assertStringNotContainsString('beim Update', $out['notice']);
+        $this->assertSame('1.4.0', $out['version']);
+    }
+
+    public function test_explicit_yes_uses_the_database_secret_and_the_constant_always_wins(): void
+    {
+        $current = ['bs_connector_version' => '1.4.0'];
+        $yes = $this->harness('upgrade', ['caps' => self::ADMIN, 'stored' => $current + ['bs_connector_settings' => ['allow_db_secrets' => 'yes', 'secret' => 'aus-db']]]);
+        $this->assertTrue($yes['allow_db_secrets']);
+        $this->assertSame('aus-db', $yes['secret']);
+        $this->assertFalse($yes['kept_flag'], 'kein Update-Hinweis ohne Update-Schritt');
+        $this->assertStringNotContainsString('beim Update', $yes['notice']);
+
+        foreach (['yes', 'no'] as $allow) {
+            $constant = $this->harness('upgrade', [
+                'caps' => self::ADMIN,
+                'constants' => ['BS_CONNECTOR_SECRET' => 'aus-wp-config', 'BS_CONNECTOR_INBOUND_SECRET' => 'auch-aus-wp-config'],
+                'stored' => $current + ['bs_connector_settings' => ['allow_db_secrets' => $allow, 'secret' => 'aus-db', 'inbound_secret' => 'auch-aus-db']],
+            ]);
+            $this->assertSame('aus-wp-config', $constant['secret'], "Konstante vor Datenbank (erlauben = {$allow})");
+            $this->assertSame('auch-aus-wp-config', $constant['inbound_secret']);
+            $this->assertNotContains('bs_connector_secrets_constants', $constant['rendered'], 'keine Anleitung, wenn beide Konstanten gesetzt sind');
+        }
+    }
+
+    public function test_filter_overrides_the_setting(): void
+    {
+        $on = $this->harness('upgrade', [
+            'caps' => self::ADMIN,
+            'filters' => ['bs_connector_allow_db_secrets' => true],
+            'stored' => ['bs_connector_version' => '1.4.0', 'bs_connector_settings' => ['secret' => 'aus-db']],
+        ]);
+        $this->assertTrue($on['allow_db_secrets']);
+        $this->assertSame('aus-db', $on['secret']);
+
+        $off = $this->harness('upgrade', [
+            'caps' => self::ADMIN,
+            'filters' => ['bs_connector_allow_db_secrets' => false],
+            'stored' => ['bs_connector_settings' => ['allow_db_secrets' => 'yes', 'secret' => 'aus-db']],
+        ]);
+        $this->assertFalse($off['allow_db_secrets']);
+        $this->assertSame('', $off['secret']);
+        $this->assertSame([], array_intersect(self::SECRET_FIELDS, $off['rendered']));
+    }
+
+    public function test_saving_with_no_never_stores_a_secret(): void
+    {
+        // Neuinstallation: Kästchen aus, Geheimnisse in einer selbst gebauten Anfrage.
+        $fresh = $this->harness('settings', [
+            'caps' => self::ADMIN,
+            'post' => ['secret' => 'neu', 'inbound_secret' => 'auch-neu', 'alert_email' => 'a@example.test'],
+        ]);
+        $this->assertSame([], array_intersect(self::SECRET_FIELDS, $fresh['rendered']));
+        $this->assertSame([], array_intersect(self::SECRET_FIELDS, $fresh['saved']));
+        $this->assertArrayNotHasKey('secret', $fresh['settings_after_save']);
+        $this->assertArrayNotHasKey('inbound_secret', $fresh['settings_after_save']);
+        $this->assertSame('no', $fresh['settings_after_save']['allow_db_secrets']);
+
+        // Bisher erlaubt, jetzt ausgeschaltet: kein neues Geheimnis, Update-Hinweis beendet.
+        $off = $this->harness('settings', [
+            'caps' => self::ADMIN,
+            'stored' => ['bs_connector_db_secrets_kept' => 'yes', 'bs_connector_settings' => ['allow_db_secrets' => 'yes', 'secret' => 'alt']],
+            'post' => ['secret' => 'neu', 'alert_email' => 'a@example.test'],
+        ]);
+        $this->assertSame('alt', $off['settings_after_save']['secret'], 'nicht überschrieben');
+        $this->assertSame('no', $off['settings_after_save']['allow_db_secrets']);
+        $this->assertNotContains('bs_connector_db_secrets_kept', $off['options_after_save']);
+
+        // Filter false: auch ein angehaktes Kästchen speichert kein Geheimnis.
+        $filtered = $this->harness('settings', [
+            'caps' => self::ADMIN,
+            'filters' => ['bs_connector_allow_db_secrets' => false],
+            'post' => ['allow_db_secrets' => '1', 'secret' => 'neu'],
+        ]);
+        $this->assertArrayNotHasKey('secret', $filtered['settings_after_save']);
+
+        // Gegenprobe: ausdrücklich ja speichert das Geheimnis.
+        $yes = $this->harness('settings', [
+            'caps' => self::ADMIN,
+            'post' => ['allow_db_secrets' => '1', 'secret' => 'neu', 'inbound_secret' => ''],
+        ]);
+        $this->assertSame('neu', $yes['settings_after_save']['secret']);
+        $this->assertSame('yes', $yes['settings_after_save']['allow_db_secrets']);
     }
 }

@@ -104,7 +104,7 @@ Nutzer-Metadaten, Protokoll `bs-connector`) und in der App-Datenbank
 |---|---|
 | Konstanten gesetzt, nichts in der Datenbank | Einstellungsseite ohne Geheimnis-Felder, kein Hinweis, Verbindungstest erfolgreich |
 | Konstanten gesetzt, alte Kopie in der Datenbank | dauerhafter Hinweis „werden nicht verwendet … einmal speichern“; nach dem Speichern aus der Datenbank entfernt, Hinweis weg |
-| Nur Datenbank, Standard (erlaubt) | Anbindung funktioniert, Hinweis mit Empfehlung, Felder sichtbar |
+| Nur Datenbank, Einstellung an (bis 1.3.0 Standard; seit 1.4.0 Standard aus, beim Update mit solchen Geheimnissen eingeschaltet) | Anbindung funktioniert, Hinweis mit Empfehlung, Felder sichtbar |
 | Nur Datenbank, Filter `bs_connector_allow_db_secrets` = false bzw. Einstellung aus | keine Aufrufe („Plugin nicht konfiguriert“), Hinweis „werden ignoriert“ |
 
 ## Gefundene und behobene Fehler
