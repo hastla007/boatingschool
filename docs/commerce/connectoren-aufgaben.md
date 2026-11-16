@@ -65,7 +65,7 @@ Zweig), wann erledigt, was sie braucht. Kritische Aufgaben gibt es hier keine.
   `captain-pro` – der dürfte in diesem **öffentlichen** Repository nicht liegen (siehe BS-03).
   Bei BS-01 = „nein“ entfällt diese Aufgabe; dann hier abhaken mit dem Vermerk „entfällt“.
 
-- [ ] **BS-04 · [OPTIMIERUNG] · Geheimnisse standardmäßig nur aus Konstanten.**
+- [x] **BS-04 · erledigt 16.11.2026 (#99, Plugin 1.4.0) · [OPTIMIERUNG] · Geheimnisse standardmäßig nur aus Konstanten.**
   **Was:** Der Connector erlaubt Geheimnisse (Schlüssel für die signierten Aufrufe) standardmäßig auch aus der
   Datenbank. Sicherer Standard: nur aus Konstanten in `wp-config.php`; die Datenbank nur, wenn der Betreiber es
   ausdrücklich einschaltet.
@@ -75,7 +75,7 @@ Zweig), wann erledigt, was sie braucht. Kritische Aufgaben gibt es hier keine.
   (Übergang beschrieben) und `tests/Unit/ConnectorAccountsAndSettingsTest.php` beide Fälle prüft.
   **Braucht:** nichts von außen. Kein Bezug zu Entscheidung 17.
 
-- [ ] **BS-05 · [OPTIMIERUNG] · Ein Test des Connectors in echtem WordPress mit WooCommerce.**
+- [x] **BS-05 · erledigt 16.11.2026 (#101, Workflow `connector-wordpress.yml`) · [OPTIMIERUNG] · Ein Test des Connectors in echtem WordPress mit WooCommerce.**
   **Was:** Die fünf Connector-Tests laufen gegen eine Nachbildung von WordPress und WooCommerce. Ein Lauf in einem
   echten WordPress fehlt in der CI (eine Anleitung von Hand gibt es: `docs/commerce/wordpress-integrationstest.md`).
   **Wo:** `main`: `tests/Unit/connector-wp-harness.php`, `tests/Unit/connector-wc-harness.php`,
@@ -124,6 +124,9 @@ Für dieses Repository gab es keinen Schreibzugriff; die Aufgabe steht deshalb h
 
 6 Aufgaben: 5 für dieses Repository (BS-01 bis BS-05), 1 für `boatingschool-wp` (BSW-01). 3 wichtig, 3 Optimierung,
 keine kritisch.
+
+**Stand 16.11.2026:** BS-01, BS-03, BS-04 und BS-05 erledigt, BS-02 entfällt. Offen bleibt nur BSW-01 (bedingt: erst wenn ein
+Captain-Plugin für die BoatingSchool-Website eingeplant wird).
 
 ## Was die Prüfung nicht geklärt hat
 
