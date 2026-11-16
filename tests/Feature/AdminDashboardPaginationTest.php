@@ -32,16 +32,18 @@ class AdminDashboardPaginationTest extends TestCase
         // Das alte, geteilte "page"-Argument darf die Liste nicht mehr
         // beeinflussen -- ohne eigenen pageName hätte das vorher Seite 2
         // gezeigt.
-        $response = $this->actingAsInTenant($owner, $tenant)->get('/admin?page=2');
+        $response = $this->actingAsInTenant($owner, $tenant)->get('/admin?tab=participants&page=2');
         $response->assertOk();
         $response->assertDontSee('Teilnehmer Nr 26');
 
         // Der eigene, distinkte Parameter blättert die Liste tatsächlich um.
-        $response = $this->actingAsInTenant($owner, $tenant)->get('/admin?participants_page=2');
+        $response = $this->actingAsInTenant($owner, $tenant)->get('/admin?tab=participants&participants_page=2');
         $response->assertOk();
         $response->assertSee('Teilnehmer Nr 26');
 
         $this->assertStringContainsString('participants_page=', $response->getContent());
+        // Die Seitenlinks behalten den Reiter (sonst landete „Seite 1“ auf dem Dashboard).
+        $this->assertStringContainsString('tab=participants&amp;participants_page=1', $response->getContent());
     }
 
     /**
@@ -71,7 +73,7 @@ class AdminDashboardPaginationTest extends TestCase
             }
         });
 
-        $response = $this->actingAsInTenant($owner, $tenant)->get('/admin');
+        $response = $this->actingAsInTenant($owner, $tenant)->get('/admin?tab=participants');
 
         $response->assertOk();
         $this->assertNotEmpty($orderByClauses, 'Erwartete mindestens eine sortierte tenant_user-Abfrage.');

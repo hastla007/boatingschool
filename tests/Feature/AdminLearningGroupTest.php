@@ -117,7 +117,7 @@ class AdminLearningGroupTest extends TestCase
         $this->join($tenant, $group, $member);
 
         foreach ([$owner, $admin] as $viewer) {
-            $response = $this->actingAsInTenant($viewer, $tenant)->get('/admin')->assertOk();
+            $response = $this->actingAsInTenant($viewer, $tenant)->get('/admin?tab=learning-groups')->assertOk();
             $response->assertSee('data-tab="learning-groups"', false);
             $response->assertSee('Segelverein Nord');
             $response->assertSee('Greta Verwalterin');
@@ -266,7 +266,7 @@ class AdminLearningGroupTest extends TestCase
             DB::table('learning_group')->where('id', $group->id)->update(['valid_from' => now()->subDays(3), 'valid_until' => now()->subDay()]);
             Entitlement::withoutGlobalScopes()->where('user_id', $member->id)->update(['status' => 'expired', 'valid_from' => now()->subDays(3), 'valid_until' => now()->subDay()]);
         });
-        $this->actingAsInTenant($admin, $tenant)->get('/admin')->assertOk()->assertSee('Abgelaufen');
+        $this->actingAsInTenant($admin, $tenant)->get('/admin?tab=learning-groups')->assertOk()->assertSee('Abgelaufen');
 
         // Name ändern geht auch ohne neues Ende (das alte liegt in der Vergangenheit).
         $expiredDay = $this->fresh($group)->valid_until->timezone('Europe/Berlin')->toDateString();
@@ -445,7 +445,7 @@ class AdminLearningGroupTest extends TestCase
             $this->actingAsInTenant($user, $tenant)->delete(route('admin.learning-groups.members.destroy', [$group, $row->id]))->assertForbidden();
         }
         // Ausbilder sehen den Tab nicht.
-        $this->actingAsInTenant($instructor, $tenant)->get('/admin')->assertOk()
+        $this->actingAsInTenant($instructor, $tenant)->get('/admin?tab=learning-groups')->assertOk()->assertViewHas('activeTab', 'dashboard')
             ->assertDontSee('data-tab="learning-groups"', false)->assertDontSee('Segelverein');
 
         $this->assertSame(1, $this->onAdmin(fn () => LearningGroup::where('tenant_id', $tenant->id)->count()));
@@ -465,7 +465,7 @@ class AdminLearningGroupTest extends TestCase
         $group = $this->group($tenant, $manager, ['name' => 'Geheime Gruppe']);
         $row = $this->join($tenant, $group, $member);
 
-        $this->actingAsInTenant($otherAdmin, $other)->get('/admin')->assertOk()->assertDontSee('Geheime Gruppe');
+        $this->actingAsInTenant($otherAdmin, $other)->get('/admin?tab=learning-groups')->assertOk()->assertDontSee('Geheime Gruppe');
         $this->actingAsInTenant($otherAdmin, $other)->get(route('admin.learning-groups.show', $group))->assertNotFound();
         $this->actingAsInTenant($otherAdmin, $other)->patch(route('admin.learning-groups.update', $group), [
             'name' => 'Gekapert', 'seats' => 9, 'valid_until' => '', 'owner_user_id' => $otherLearner->id,
@@ -522,7 +522,7 @@ class AdminLearningGroupTest extends TestCase
                     $groupQueries += str_contains($query->sql, 'learning_group') ? 1 : 0;
                 }
             });
-            $this->actingAsInTenant($owner, $tenant)->get('/admin')->assertOk()->assertSee('Segelverein');
+            $this->actingAsInTenant($owner, $tenant)->get('/admin?tab=learning-groups')->assertOk()->assertSee('Segelverein');
             $listening = false;
 
             return [$all, $groupQueries];

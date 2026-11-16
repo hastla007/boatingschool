@@ -87,7 +87,7 @@ class InvitationAccountOracleTest extends TestCase
         $page->assertSee('0 Teilnehmer');
         $this->assertSame(2, substr_count($page->getContent(), 'Einladung offen'));
         $this->assertSame(0, $page->viewData('participants')->total());
-        $this->assertSame(0, $page->viewData('learnerCount'));
+        $this->assertSame(0, $this->actingAsInTenant($owner, $tenant)->get('/admin')->assertOk()->viewData('learnerCount'));
         $this->assertSame(['Gast Person', 'Gast Person'], $page->viewData('openInvitations')->pluck('name')->all());
 
         // Sammel-Einladung am selben Tag: beide gleich übersprungen.

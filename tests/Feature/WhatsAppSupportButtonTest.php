@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\Admin\AdminDashboardController;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -130,10 +131,13 @@ class WhatsAppSupportButtonTest extends TestCase
             'whatsapp_phone' => '491701234567',
         ]));
 
-        $response = $this->actingAsInTenant($admin, $tenant)->get('/admin');
+        // Auf keinem Reiter (jeder ist ein eigener Aufruf, ?tab=…).
+        foreach (array_keys(AdminDashboardController::TABS) as $tab) {
+            $response = $this->actingAsInTenant($admin, $tenant)->get('/admin?tab='.$tab);
 
-        $response->assertOk();
-        $response->assertDontSee('wa.me', false);
+            $response->assertOk();
+            $response->assertDontSee('wa.me', false);
+        }
     }
 
     /**

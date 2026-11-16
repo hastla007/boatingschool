@@ -90,7 +90,7 @@ class MobileResponsivenessTest extends TestCase
         $tenant = $this->createTestTenant();
         $owner = $this->createTenantUser($tenant, 'owner');
 
-        $response = $this->actingAsInTenant($owner, $tenant)->get(route('admin.dashboard'));
+        $response = $this->actingAsInTenant($owner, $tenant)->get(route('admin.dashboard', ['tab' => 'participants']));
         $response->assertOk();
 
         $html = $response->getContent();

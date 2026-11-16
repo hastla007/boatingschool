@@ -147,7 +147,7 @@ class AdminDashboardProgressScaleTest extends TestCase
                 $lookups++;
             }
         });
-        $this->actingAsInTenant($owner, $tenant)->get(route('admin.dashboard'))->assertOk();
+        $this->actingAsInTenant($owner, $tenant)->get(route('admin.dashboard', ['tab' => 'coupons']))->assertOk()->assertViewHas('couponSummary');
 
         return $lookups;
     }
@@ -181,7 +181,7 @@ class AdminDashboardProgressScaleTest extends TestCase
         $productId = $this->onAdmin(fn () => Product::value('id'));
         DB::connection('pgsql_admin')->table('product_purchase')->insert(array_map(fn ($id) => ['tenant_id' => $tenant->id, 'user_id' => $id, 'product_id' => $productId, 'source_type' => 'manual'], $userIds));
 
-        $response = $this->actingAsInTenant($owner, $tenant)->get(route('admin.dashboard'))->assertOk();
+        $response = $this->actingAsInTenant($owner, $tenant)->get(route('admin.dashboard', ['tab' => 'participants']))->assertOk();
         $pageIds = $response->viewData('participants')->getCollection()->pluck('user_id')->sort()->values()->all();
         $this->assertCount(25, $pageIds);
         $this->assertSame($pageIds, $response->viewData('productPurchases')->keys()->sort()->values()->all());

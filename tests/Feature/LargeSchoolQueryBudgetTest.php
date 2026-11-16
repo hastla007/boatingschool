@@ -20,7 +20,8 @@ use Tests\TestCase;
  * - /admin: „Kürzlich gebuchte Kurse & Produkte“ zeigt höchstens
  *   RECENT_BOOKINGS_LIMIT Einträge (vorher jede Buchung der Woche, 900
  *   Zeilen / ~550 KB); die Teilnehmerliste für „Zuweisen“ wird nur geladen,
- *   wenn die Coupon-Seite einen zuweisbaren Code zeigt.
+ *   wenn die Coupon-Seite einen zuweisbaren Code zeigt; jeder Reiter
+ *   (?tab=…) wird einzeln berechnet und hat ein eigenes Budget.
  * - /admin/inactive: seitenweise (vorher alle ~1000 Personen, 1,2 MB).
  * - /admin/statistics, /superadmin: Zählungen ohne count(distinct) über
  *   jede einzelne Antwort, Kurse/Konten nicht mehr als Modelle je Zugang.
@@ -146,7 +147,7 @@ class LargeSchoolQueryBudgetTest extends TestCase
         $this->assertSame($limit + 15, $largeResponse->viewData('recentBookingsTotal'));
         $largeResponse->assertSee('… und 15 weitere in den letzten 7 Tagen.');
 
-        $this->assertLessThan(90, $large, "/admin: {$large} Abfragen");
+        $this->assertLessThanOrEqual(self::TAB_QUERY_BUDGETS['dashboard'], $large, "/admin: {$large} Abfragen");
         $this->assertLessThanOrEqual(2, $large - $small, "/admin: {$large} Abfragen bei ".($limit + 15)." Lernenden statt {$small} bei 3 -- wächst mit den Lernenden (N+1?).");
     }
 
@@ -157,15 +158,72 @@ class LargeSchoolQueryBudgetTest extends TestCase
         $owner = $this->createTenantUser($tenant, 'owner');
         $this->createLearners($tenant, 3, $course);
 
-        $without = $this->actingAsInTenant($owner, $tenant)->get('/admin')->assertOk();
+        $without = $this->actingAsInTenant($owner, $tenant)->get('/admin?tab=coupons')->assertOk();
         $this->assertCount(0, $without->viewData('allParticipants'));
         $this->assertStringNotContainsString('id="coupon-assign-options-template"', $without->getContent());
 
         $this->couponIds[] = $this->onAdmin(fn () => Coupon::create(['code' => 'LSQB'.Str::upper(Str::random(10)), 'course_id' => $course->id, 'tenant_id' => $tenant->id])->id);
-        $with = $this->actingAsInTenant($owner, $tenant)->get('/admin')->assertOk();
+        $with = $this->actingAsInTenant($owner, $tenant)->get('/admin?tab=coupons')->assertOk();
         $this->assertCount(3, $with->viewData('allParticipants'));
         $with->assertSee('id="coupon-assign-options-template"', false);
         $with->assertSee('Lernende 1');
+
+        // Andere Reiter laden die Liste (und die Coupons) gar nicht.
+        $dashboard = $this->actingAsInTenant($owner, $tenant)->get('/admin')->assertOk();
+        $dashboard->assertViewMissing('allParticipants');
+        $dashboard->assertViewMissing('coupons');
+        $this->assertStringNotContainsString('id="coupon-assign-options-template"', $dashboard->getContent());
+    }
+
+    /**
+     * Abfrage-Budget je Reiter von /admin (gemessen + 3, ohne die zwei
+     * RESET-Abfragen je Request; davon ~15 Sockel aus Middleware/Layout).
+     * Nur der aktive Reiter wird berechnet -- bis dahin kostete JEDER
+     * Aufruf die Summe aller Reiter (Messsonde mit 1200 Lernenden: 90
+     * Abfragen, ~720 KB HTML, egal welcher Reiter).
+     */
+    private const TAB_QUERY_BUDGETS = [
+        'dashboard' => 41,
+        'participants' => 36,
+        'praxis-anmeldungen' => 22,
+        'willkommensbox' => 20,
+        'coupons' => 31,
+        'courses' => 23,
+        'learning-groups' => 20,
+        'orte' => 23,
+        'branding' => 21,
+        'addons' => 22,
+        'course-promo-banners' => 21,
+    ];
+
+    public function test_each_admin_tab_stays_within_its_query_budget_independent_of_school_size(): void
+    {
+        $this->assertSame(array_keys(AdminDashboardController::TABS), array_keys(self::TAB_QUERY_BUDGETS));
+        $course = $this->existingCourse('SRC');
+        $measure = function (int $learners) use ($course) {
+            $tenant = $this->createTestTenant();
+            $owner = $this->createTenantUser($tenant, 'owner');
+            $this->createLearners($tenant, $learners, $course);
+            // Ein zuweisbarer Code: der Zugangscodes-Reiter lädt dann auch die Auswahl „Zuweisen“.
+            $this->couponIds[] = $this->onAdmin(fn () => Coupon::create(['code' => 'LSQB'.Str::upper(Str::random(10)), 'course_id' => $course->id, 'tenant_id' => $tenant->id])->id);
+            $counts = [];
+            foreach (array_keys(AdminDashboardController::TABS) as $tab) {
+                $counts[$tab] = $this->countQueries(function () use ($owner, $tenant, $tab) {
+                    $this->actingAsInTenant($owner, $tenant)->get('/admin?tab='.$tab)->assertOk()->assertViewHas('activeTab', $tab);
+                });
+            }
+
+            return $counts;
+        };
+
+        $small = $measure(3);
+        // Mehr als eine Seite der Teilnehmerliste (25).
+        $large = $measure(40);
+
+        foreach (self::TAB_QUERY_BUDGETS as $tab => $budget) {
+            $this->assertLessThanOrEqual($budget, $large[$tab], "/admin?tab={$tab}: {$large[$tab]} Abfragen (Budget {$budget})");
+            $this->assertLessThanOrEqual(1, $large[$tab] - $small[$tab], "/admin?tab={$tab}: {$large[$tab]} Abfragen bei 40 Lernenden statt {$small[$tab]} bei 3 -- wächst mit den Lernenden (N+1?).");
+        }
     }
 
     public function test_inactive_learners_are_paginated_with_constant_queries(): void

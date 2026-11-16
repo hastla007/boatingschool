@@ -349,14 +349,15 @@ class AdminDashboardMetricsTest extends TestCase
         $code = 'E2E-N14-PAGE-'.uniqid();
         $this->onAdmin(fn () => Coupon::create(['code' => $code, 'course_id' => $course->id, 'tenant_id' => $tenant->id]));
 
-        $response = $this->actingAsInTenant($admin, $tenant)->get(route('admin.dashboard'));
+        $response = $this->actingAsInTenant($admin, $tenant)->get(route('admin.dashboard', ['tab' => 'participants']));
 
         $response->assertOk();
         // Nur die erste Seite (25) wird in der Teilnehmerliste angezeigt...
         $response->assertSee('<span class="text-slate-700 dark:text-slate-200">Teilnehmer 1</span>', false);
         $response->assertDontSee('<span class="text-slate-700 dark:text-slate-200">Teilnehmer 30</span>', false);
         // ...aber im Coupon-Zuweisen-Dropdown stehen weiterhin alle 30 zur Auswahl.
-        $response->assertSee('>Teilnehmer 30</option>', false);
+        $this->actingAsInTenant($admin, $tenant)->get(route('admin.dashboard', ['tab' => 'coupons']))->assertOk()
+            ->assertSee('>Teilnehmer 30</option>', false);
 
         $this->onAdmin(fn () => Coupon::where('code', $code)->delete());
     }

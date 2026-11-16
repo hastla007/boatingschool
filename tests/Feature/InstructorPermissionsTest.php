@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Models\Coupon;
 use App\Models\Tenant;
 use App\Models\TenantUser;
@@ -164,6 +165,15 @@ class InstructorPermissionsTest extends TestCase
         $asInstructor->assertDontSee('Kursempfehlungen', false);
         $asInstructor->assertSee('Orte');
         $asInstructor->assertSee('Teilnehmer');
+        // Auch ein direkter Aufruf eines solchen Reiters (?tab=…) zeigt nur das Dashboard.
+        foreach (AdminDashboardController::MANAGER_TABS as $tab) {
+            $direct = $this->actingAsInTenant($instructor, $tenant)->get('/admin?tab='.$tab)->assertOk();
+            $direct->assertViewHas('activeTab', 'dashboard');
+            $direct->assertSee('role="tabpanel" id="admin-panel-dashboard"', false);
+            $direct->assertDontSee('id="admin-panel-'.$tab.'"', false);
+            $direct->assertDontSee('Zugangscodes', false);
+            $direct->assertDontSee('>Branding<', false);
+        }
 
         $asOwner = $this->actingAsInTenant($owner, $tenant)->get('/admin');
         $asOwner->assertOk();

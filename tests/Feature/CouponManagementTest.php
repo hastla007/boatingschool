@@ -180,7 +180,7 @@ class CouponManagementTest extends TestCase
         $usedCoupon = $this->onAdmin(fn () => Coupon::create(['code' => $used, 'course_id' => $course->id, 'tenant_id' => $tenant->id]));
         $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', ['code' => $used]);
 
-        $response = $this->actingAsInTenant($admin, $tenant)->get('/admin');
+        $response = $this->actingAsInTenant($admin, $tenant)->get('/admin?tab=coupons');
 
         $response->assertOk();
         $pattern = '/'.preg_quote($course->name, '/').'.*?text-emerald-600 font-medium">2<.*?text-slate-500 dark:text-slate-400">1</s';

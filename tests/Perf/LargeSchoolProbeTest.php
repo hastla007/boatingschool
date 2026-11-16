@@ -119,8 +119,13 @@ class LargeSchoolProbeTest extends TestCase
         };
 
         $measure('/admin', fn () => $web($owner, '/admin'));
-        $measure('/admin?participants_page=10', fn () => $web($owner, '/admin?participants_page=10&coupon_page=5'));
-        $measure('/admin?participant search', fn () => $web($owner, '/admin?search=Lerner+1'));
+        // Jeder Reiter einzeln (berechnet und gerendert wird nur der aktive).
+        foreach (['dashboard', 'participants', 'praxis-anmeldungen', 'willkommensbox', 'coupons', 'courses', 'learning-groups', 'orte', 'branding', 'addons', 'course-promo-banners'] as $tab) {
+            $measure('/admin?tab='.$tab, fn () => $web($owner, '/admin?tab='.$tab));
+        }
+        $measure('/admin?participants_page=10', fn () => $web($owner, '/admin?tab=participants&participants_page=10'));
+        $measure('/admin?coupon_page=5', fn () => $web($owner, '/admin?tab=coupons&coupon_page=5'));
+        $measure('/admin?participant search', fn () => $web($owner, '/admin?tab=participants&search=Lerner+1'));
         $measure('/admin/participants/{active learner}', fn () => $web($owner, '/admin/participants/'.$fixture['activeLearner']->id));
         $measure('/admin/participants/{group owner}', fn () => $web($owner, '/admin/participants/'.$fixture['groupOwner']->id));
         $measure('/admin/inactive', fn () => $web($owner, '/admin/inactive'));
@@ -130,6 +135,7 @@ class LargeSchoolProbeTest extends TestCase
         $measure('/admin/announcements', fn () => $web($owner, '/admin/announcements'));
         $measure('/admin/learning-groups/{id}', fn () => $web($owner, '/admin/learning-groups/'.$fixture['group']->id));
         $measure('/admin (instructor)', fn () => $web($fixture['instructor'], '/admin'));
+        $measure('/admin?tab=participants (instructor)', fn () => $web($fixture['instructor'], '/admin?tab=participants'));
 
         $superadmin = $this->createSuperAdmin(['email' => Str::uuid().'@perf.test']);
         $sa = function (string $uri) use ($superadmin) {
