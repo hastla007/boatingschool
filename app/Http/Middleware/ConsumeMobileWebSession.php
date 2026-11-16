@@ -40,6 +40,7 @@ class ConsumeMobileWebSession
         if ($user) {
             $current = Auth::guard('web')->user();
             if (! $current) {
+                // Löst das Login-Ereignis aus: zählt als Anmeldung (LoginActivity).
                 Auth::guard('web')->login($user);
                 $request->session()->regenerate();
             } elseif ((string) $current->getAuthIdentifier() !== (string) $user->id) {

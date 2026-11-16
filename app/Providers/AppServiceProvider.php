@@ -8,6 +8,7 @@ use App\Models\PlatformSetting;
 use App\Models\User;
 use App\Support\CanonicalUrl;
 use App\Support\DisabledCourses;
+use App\Support\Impersonation;
 use App\Support\LoginActivity;
 use App\Support\MailSchool;
 use App\Support\ProductionReadiness;
@@ -95,10 +96,12 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(Login::class, function (Login $event) {
             if ($event->user instanceof User) {
                 RegistrationCouponNotice::moveToSession($event->user);
-                // Letzte Anmeldung für die Löschung inaktiver Konten -- nicht,
-                // wenn der Support ein Konto ansieht (das ist keine Anmeldung
-                // der Person selbst).
-                if (! request()->routeIs('impersonate.consume')) {
+                // Letzte Anmeldung für die Löschung inaktiver Konten (auch die
+                // Einmal-Anmeldung der Webansicht aus der App,
+                // ConsumeMobileWebSession) -- nicht, wenn der Support ein Konto
+                // ansieht (das ist keine Anmeldung der Person selbst): weder
+                // beim Start der Support-Ansicht noch während sie läuft.
+                if (! request()->routeIs('impersonate.consume') && ! Impersonation::active()) {
                     LoginActivity::record($event->user->id);
                 }
             }
