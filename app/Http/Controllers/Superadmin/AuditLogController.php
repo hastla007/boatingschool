@@ -76,6 +76,9 @@ class AuditLogController extends Controller
             'tenantNames' => $tenantNames,
             'selectedTenant' => $selectedTenant,
             'tenantFilterError' => $tenantFilterError,
+            // Nicht auflösbarer Rohtext bleibt nach dem Absenden im Schulfeld
+            // stehen (auch neben „Nur Plattform“); aufgelöst: Name der Schule.
+            'tenantFilterText' => $picked['error'] !== null && is_string($request->query('tenant_slug')) ? $request->query('tenant_slug') : null,
             'filters' => $filters,
         ]);
     }

@@ -8,7 +8,7 @@
         <form method="GET" action="{{ route('superadmin.audit.index') }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 grid grid-cols-2 md:grid-cols-7 gap-3 items-start">
             {{-- Suchfeld statt Liste aller Schulen; leer = alle. „Nur Plattform“ als eigenes Kästchen. --}}
             <div class="col-span-2 md:col-span-2">
-                <x-superadmin.tenant-picker name="tenant" id="tenant" :selected="$selectedTenant" :use-old="false" :show-errors="false"
+                <x-superadmin.tenant-picker name="tenant" id="tenant" :selected="$selectedTenant" :text="$tenantFilterText" :use-old="false" :show-errors="false"
                                             hint="Leer lassen: alle Schulen." />
                 <label class="mt-1 flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
                     <input type="checkbox" name="platform_only" value="1" @checked($filters['tenant'] === 'platform')

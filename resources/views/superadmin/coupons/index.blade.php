@@ -82,7 +82,7 @@
                        placeholder="Code, Kurs/Produkt, Bootsschule oder Nutzer suchen…"
                        class="flex-1 min-w-[220px] rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                 {{-- Suchfeld statt Liste aller Schulen; ein Treffer filtert sofort, leer = alle. --}}
-                <x-superadmin.tenant-picker name="tenant_id" id="coupon_tenant_id_sa" :selected="$filterTenant" label="Bootsschule filtern"
+                <x-superadmin.tenant-picker name="tenant_id" id="coupon_tenant_id_sa" :selected="$filterTenant" :text="$tenantFilterText" label="Bootsschule filtern"
                                             label-class="sr-only" placeholder="Bootsschule (alle)" input-class="text-sm"
                                             :submit-on-choose="true" :use-old="false" :show-errors="false" class="min-w-[220px]"
                                             hint="Leer lassen: alle Bootsschulen." />

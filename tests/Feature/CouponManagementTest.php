@@ -483,6 +483,62 @@ class CouponManagementTest extends TestCase
     }
 
     /**
+     * Eigener gesperrter bzw. abgelaufener Code: wie der eingelöste Fall
+     * zurück zur Codeliste mit verständlicher Meldung statt 404.
+     */
+    public function test_assigning_an_own_voided_or_expired_code_returns_with_a_message(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $codes = ['E2E-OWN-VOIDED-'.uniqid(), 'E2E-OWN-EXPIRED-'.uniqid()];
+        $this->createdCodes = array_merge($this->createdCodes, $codes);
+        $coupons = $this->onAdmin(fn () => [
+            Coupon::create(['code' => $codes[0], 'course_id' => $course->id, 'tenant_id' => $tenant->id, 'voided_at' => now()]),
+            Coupon::create(['code' => $codes[1], 'course_id' => $course->id, 'tenant_id' => $tenant->id, 'expires_at' => now()->subDay()]),
+        ]);
+        $dashboard = route('admin.dashboard', ['tab' => 'coupons']);
+
+        foreach ([[$coupons[0], 'Dieser Code ist gesperrt.'], [$coupons[1], 'Dieser Code ist abgelaufen.']] as [$coupon, $message]) {
+            $this->actingAsInTenant($admin, $tenant)->from($dashboard)->post("/admin/coupons/{$coupon->id}/assign", [
+                'user_id' => $learner->id,
+            ])->assertRedirect($dashboard)->assertSessionHasErrors(['assign' => $message]);
+            $this->actingAsInTenant($admin, $tenant)->get($dashboard)->assertOk()->assertSee($message);
+        }
+
+        $this->onAdmin(fn () => $this->assertFalse($coupons[0]->fresh()->isRedeemed() || $coupons[1]->fresh()->isRedeemed()));
+        $this->assertSame(0, $this->onAdmin(fn () => Entitlement::where('user_id', $learner->id)->count()));
+    }
+
+    /**
+     * Gesperrte bzw. abgelaufene Codes einer anderen Schule und freie Codes
+     * bleiben 404 -- die Meldungen gelten nur für den eigenen Bestand.
+     */
+    public function test_assigning_a_foreign_or_free_voided_or_expired_code_stays_not_found(): void
+    {
+        $tenant = $this->createTestTenant();
+        $other = $this->createTestTenant('Andere Schule');
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $codes = ['E2E-FX-VOID-'.uniqid(), 'E2E-FX-EXP-'.uniqid(), 'E2E-FR-VOID-'.uniqid(), 'E2E-FR-EXP-'.uniqid()];
+        $this->createdCodes = array_merge($this->createdCodes, $codes);
+        $coupons = $this->onAdmin(fn () => [
+            Coupon::create(['code' => $codes[0], 'course_id' => $course->id, 'tenant_id' => $other->id, 'voided_at' => now()]),
+            Coupon::create(['code' => $codes[1], 'course_id' => $course->id, 'tenant_id' => $other->id, 'expires_at' => now()->subDay()]),
+            Coupon::create(['code' => $codes[2], 'course_id' => $course->id, 'voided_at' => now()]),
+            Coupon::create(['code' => $codes[3], 'course_id' => $course->id, 'expires_at' => now()->subDay()]),
+        ]);
+
+        foreach ($coupons as $coupon) {
+            $this->actingAsInTenant($admin, $tenant)->post("/admin/coupons/{$coupon->id}/assign", ['user_id' => $learner->id])
+                ->assertNotFound()->assertSessionHasNoErrors();
+        }
+        $this->assertSame(0, $this->onAdmin(fn () => Entitlement::where('user_id', $learner->id)->count()));
+    }
+
+    /**
      * Gesperrte oder geschlossene Konten (app_user.status) bei aktiver
      * Mitgliedschaft: weder in der Suche noch per E-Mail-Adresse auflösbar,
      * eine Zuweisung per ID wird mit Meldung abgelehnt.
