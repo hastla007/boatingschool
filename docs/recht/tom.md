@@ -45,6 +45,16 @@ Stand: [Datum]
   (`App\Api\DeviceSessions`).
 - Kontosperre wirkt sofort (Status wird bei jeder Anfrage geprüft,
   `EnsureAccountIsActive`), Passwortwechsel beendet alle App-Sitzungen.
+- **Anmeldung der Webansicht aus der App** nur mit Einmal-Code (60 Sekunden,
+  einmalig, nur als Hash gespeichert, an Konto, Gerätesitzung und Schule
+  gebunden) plus Verifier im Header – die Adresse allein (Verlauf, Logs)
+  genügt nicht; nur Ziele im Lernbereich, nicht für Konten mit
+  Verwaltungsrechten, abschaltbar (`MOBILE_API_WEB_SESSION_ENABLED`,
+  `WebSessionController`, `ConsumeMobileWebSession`).
+- **Kontolöschung aus der App** nur nach Bestätigung über einen Link per Mail
+  (Schlüssel nur als SHA-256-Hash, 7 Tage gültig, Versuche je IP und Antrag
+  begrenzt, `AppAccountDeletion`); Antworten verraten nicht, ob ein Antrag
+  existiert.
 - **offen**: SSH-Zugang zum Server nur mit Schlüssel, Liste der Personen mit
   Serverzugang, Passwortmanager für Betriebsgeheimnisse (`APP_KEY`,
   Datenbank-, Mail-, S3-Zugänge, siehe `deploy/README.md` Abschnitt 3).
@@ -68,6 +78,21 @@ Stand: [Datum]
 - Dateien mit Personenbezug (Datenexporte, Kartenausschnitte der
   Navigationsaufgaben) liegen auf dem privaten Speicher, Download nur über
   signierte, kurzlebige Links.
+- **Geschützte Medien** (lizenzierte Fragen- und Praxistrainer-Bilder,
+  Kartenausschnitte, Tipp-PDFs, Bilder der Videoschritte) liegen
+  auf dem privaten Speicher und werden nur über signierte Adressen mit
+  Ablaufzeit (90–120 Minuten) ausgeliefert, die an Konto und Schule gebunden
+  sind; bei jedem Abruf wird die Mitgliedschaft bzw. der Kurszugang erneut
+  geprüft (`App\Support\ProtectedMedia`, `QuestionMedia`, `NavigationChart`,
+  `TipPdf`, `VideoStepImage`). Adressen werden nie zwischengespeichert;
+  Antworten mit restriktiver Content-Security-Policy (Bilder mit `sandbox`).
+- **Lerngruppen**: Der Verwalter sieht nur die eigenen Gruppen und dort nur
+  Namen, Einladungsadressen und Status der Mitglieder, keine Lerndaten;
+  Mitglied und Verwalter müssen derselben Schule angehören (RLS und
+  zusammengesetzte Fremdschlüssel); Antworten auf Einladungen verraten nicht,
+  ob es zu einer Adresse ein Konto gibt (`LearningGroupService`).
+- Downloads von Kursdateien nur mit Kurszugang bzw. freigeschalteter Funktion
+  (`App\Api\CourseFiles`, `GET /api/v1/files/{id}`).
 
 ### 1.4 Trennungskontrolle
 
@@ -89,6 +114,14 @@ Stand: [Datum]
 - Gerätewiedererkennung nur als HMAC, IP-Adressen in Hinweis-Mails maskiert.
 - Codewerte aus dem Shop verlassen die Plattform nie (keine Codes in Mails,
   Protokollen oder Shop-Ereignissen, `docs/commerce/README.md`).
+- **Zugriffsprotokolle des Webservers ohne Geheimnisse**: ohne Query-String
+  (E-Mail-Adressen, Signaturen, Codes, Token) bzw. mit unkenntlich gemachten
+  Werten, Token im Pfad (Passwort-Reset, Support-Ansicht, Gruppeneinladung)
+  ersetzt, Referer gekürzt bzw. entfernt, Aufbewahrung 14 Tage
+  (`deploy/nginx.conf`, `deploy/Caddyfile`).
+- Mails mit Einladungscodes bzw. Einladungslinks (Kontoeinladung,
+  Lerngruppen-Einladung) liegen nur verschlüsselt in der Warteschlange
+  (`ShouldBeEncrypted`, APP_KEY).
 - Keine Analyse- oder Werbe-Cookies, kein Tracking, Schriften vom eigenen Server.
 
 ## 2. Integrität
@@ -104,6 +137,12 @@ Stand: [Datum]
 - Sicherheits-Header: Content-Security-Policy mit Nonces, `X-Frame-Options: DENY`,
   `nosniff`, `Referrer-Policy`, `Permissions-Policy` (Mikrofon nur für die eigene
   Seite).
+- **Gehärtete Webserver-Konfiguration** (`deploy/Caddyfile`, `deploy/nginx.conf`,
+  `deploy/php-fpm-pool.conf`): nur `public/index.php` läuft über PHP-FPM, jede
+  andere `.php`-Adresse ergibt 404; Uploads (`/storage`) und Assets gehen nie
+  an PHP, alle Antworten tragen `nosniff`, Uploads zusätzlich eine Sandbox-CSP
+  (kein Skript etwa aus einer hochgeladenen SVG-Datei); PHP-FPM führt nur Dateien mit
+  der Endung `.php` aus (`security.limit_extensions`).
 
 ### 2.2 Eingabekontrolle (Protokollierung)
 
@@ -119,19 +158,44 @@ Stand: [Datum]
 
 ## 3. Verfügbarkeit und Belastbarkeit
 
-- **Datensicherung** täglich 03:15 Uhr: vollständiger Datenbank-Dump und alle
-  Uploads, Prüfsummen im Manifest (`app:backup`, `config/backup.php`),
-  Aufbewahrung **14 Tage** (`BACKUP_KEEP_DAYS`), optional Kopie auf externen
-  S3-Speicher (`BACKUP_DISK`). Vor jedem Update automatische Sicherung.
-- Überwachung: täglicher Go-live-Check mit Mail bei Fehlern (Scheduler steht,
-  Sicherung fehlt oder zu alt, Platzhalter), Lebenszeichen des Schedulers,
-  Healthcheck `/up` mit Datenbankprüfung.
-- Geplante Aufgaben laufen nur auf einem Server und nicht überlappend.
-- **offen**: Verschlüsselung der Sicherungen auf dem externen Speicher (derzeit
-  nur, wenn der Speicher serverseitig verschlüsselt – in der
-  Datenschutzerklärung über `PRIVACY_BACKUPS_ENCRYPTED` anzugeben),
-  Wiederherstellungstest dokumentieren (`deploy/README.md` „Backup
-  zurückspielen“), Notfallplan, USV/Redundanz beim Hosting.
+- **Datensicherung** täglich 03:15 Uhr: vollständiger Datenbank-Dump, alle
+  Uploads und die geschützten Dateien des privaten Speichers, Prüfsummen im
+  Manifest (`app:backup`, `config/backup.php`), Aufbewahrung **14 Tage**
+  (`BACKUP_KEEP_DAYS`), optional Kopie auf externen S3-Speicher
+  (`BACKUP_DISK`). Vor jedem Update automatische Sicherung.
+- **Verschlüsselung der externen Sicherungen** (umgesetzt): Mit
+  `BACKUP_ENCRYPTION_PUBLIC_KEY` verschlüsselt `app:backup` jede Datei vor dem
+  Hochladen clientseitig mit libsodium (XChaCha20-Poly1305 als Datenstrom,
+  jeder Block authentisiert; Dateischlüssel versiegelt mit dem öffentlichen
+  X25519-Schlüssel, `App\Support\BackupEncryption`). Der Server kennt nur den
+  öffentlichen Schlüssel und kann die externen Kopien selbst nicht lesen; der
+  geheime Schlüssel liegt außerhalb des Servers (Passwortmanager/Tresor),
+  Entschlüsselung mit `app:backup-decrypt`, Schlüsselpaar mit
+  `app:backup-keygen`. Der Go-live-Check warnt bei unverschlüsselter externer
+  Kopie. Optional löscht der Server alte externe Sicherungen nicht selbst
+  (`BACKUP_PRUNE_REMOTE=false`, Zugang nur schreibend, Object Lock/Lifecycle
+  beim Speicher). Die Datenschutzerklärung nennt die Verschlüsselung
+  automatisch (`PRIVACY_BACKUPS_ENCRYPTED` nur zum Überschreiben).
+- **Wiederherstellungstest** automatisiert: monatlich spielt
+  `app:backup:verify` die neueste Sicherung in eine temporäre Datenbank zurück
+  und prüft Pflichttabellen (`BACKUP_VERIFY_TABLES`), Mail bei Fehler.
+- **Überwachung**: täglicher Go-live-Check mit Mail bei Fehlern (Scheduler
+  steht, Sicherung fehlt oder zu alt, Queue-Worker ohne Lebenszeichen, Jobs
+  warten zu lange, Platzhalter), Lebenszeichen von Scheduler und Queue-Worker,
+  Healthcheck `/up` mit Datenbankprüfung; **externer Totmann-Schalter**: der
+  Scheduler pingt jede Minute `OPS_HEARTBEAT_URL`, jede erfolgreiche Sicherung
+  `OPS_BACKUP_HEARTBEAT_URL` (z. B. healthchecks.io) – bleibt der Ping aus,
+  alarmiert der externe Dienst (übermittelt werden keine personenbezogenen
+  Daten).
+- **Queue-Worker** (`deploy/supervisor-worker.conf`, von supervisor überwacht
+  und neu gestartet): Sammel-Mails werden eingereiht und mit Wiederholung
+  verschickt; nach jedem Deploy Neustart mit dem neuen Code.
+- Geplante Aufgaben laufen nur auf einem Server und nicht überlappend; die
+  Ausgabe des Schedulers wird protokolliert (`deploy/crontab`).
+- **offen**: lokale Sicherungen auf dem Server sind nicht verschlüsselt
+  (Schutz über Dateirechte und ggf. Datenträgerverschlüsselung beim Hosting);
+  Verwahrung und Zugriffsberechtigte für den geheimen Sicherungsschlüssel
+  dokumentieren; Notfallplan, USV/Redundanz beim Hosting.
 - **offen**: Verschlüsselung ruhender Daten (Festplatten-/Volume-Verschlüsselung
   beim Hosting); die Anwendung verschlüsselt nur 2FA-Geheimnisse, nicht die
   gesamte Datenbank.
@@ -145,10 +209,15 @@ Stand: [Datum]
 - Mehrere dokumentierte Sicherheits- und Datenschutz-Reviews (Kommentare
   „Sicherheitsreview“, „DSGVO-Review“ im Code).
 - **Löschroutinen** (siehe [loeschkonzept.md](loeschkonzept.md)):
-  `app:prune-personal-data` (täglich; Mobile-API stündlich),
+  `app:prune-personal-data` (täglich; Mobile-API stündlich, u. a. abgelaufene
+  Lerngruppen-Einladungen, Löschanträge und Einmal-Codes der Webansicht),
   `app:prune-inactive-learners` (täglich, wenn Frist gesetzt).
-- **Auskunft/Datenübertragbarkeit**: Export im Profil (Web) und in der App,
-  Export einer ganzen Schule bei Vertragsende.
+- **Auskunft/Datenübertragbarkeit**: Export im Profil (Web) und in der App
+  (inkl. Lerngruppen-Mitgliedschaften, verwalteter Gruppen und
+  App-Einstellungen), Export einer ganzen Schule bei Vertragsende.
+- **Abhängigkeiten**: Bekannte Sicherheitslücken in PHP- und JavaScript-Paketen
+  prüft der „Tests“-Workflow (`composer audit`, `npm audit`); Hinweise werden
+  zeitnah eingespielt (z. B. Laravel 12.72, CVE-2026-128083).
 - **offen**: jährliche Überprüfung dieser TOM, Schulung der Mitarbeitenden,
   Verpflichtung auf Vertraulichkeit, Penetrationstest durch Dritte.
 
