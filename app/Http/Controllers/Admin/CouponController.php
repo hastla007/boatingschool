@@ -144,13 +144,19 @@ class CouponController extends Controller
             ->withInput(['assign_coupon' => $coupon->id, 'user_id' => (string) $userId, 'participant_email' => mb_substr($email, 0, 255)])
             ->withErrors(['assign' => $message]);
 
-        // Eigener, schon eingelöster Code (z. B. Doppelklick auf „Zuweisen“):
-        // zurück zur Codeliste mit Meldung statt 404 -- dieselbe Meldung wie
+        // Eigener, nicht mehr einlösbarer Code (z. B. Doppelklick auf
+        // „Zuweisen“ oder inzwischen gesperrt/abgelaufen): zurück zur
+        // Codeliste mit Meldung statt 404. „Eingelöst“ wie
         // CouponRedemptionService, wenn zwei Anfragen gleichzeitig kommen.
-        if ($coupon->isRedeemed()) {
-            return $fail('Dieser Code wurde bereits eingelöst.');
+        $unusable = match (true) {
+            $coupon->isRedeemed() => 'Dieser Code wurde bereits eingelöst.',
+            $coupon->isVoided() => 'Dieser Code ist gesperrt.',
+            $coupon->isExpired() => 'Dieser Code ist abgelaufen.',
+            default => null,
+        };
+        if ($unusable !== null) {
+            return $fail($unusable);
         }
-        abort_unless($coupon->isUsable(), 404);
 
         if (($userId !== null && ! Str::isUuid($userId)) || mb_strlen($email) > 255) {
             return $fail(self::NOT_A_MEMBER);

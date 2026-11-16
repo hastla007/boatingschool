@@ -16,10 +16,13 @@
     Seite stehen (Shopkonten), damit nicht alle die alte Eingabe bzw. den
     Fehler eines Formulars zeigen.
     $submitOnChoose: Formular nach der Auswahl absenden (Filter).
+    $text: Text im Feld, wenn keine Schule gewählt ist -- bei GET-Filtern
+    der nicht auflösbare Rohtext, damit er nach dem Absenden stehen bleibt.
 --}}
 @props([
     'name' => 'tenant_id',
     'selected' => null,
+    'text' => null,
     'id' => null,
     'label' => 'Bootsschule',
     'labelClass' => null,
@@ -36,7 +39,7 @@
     $inputId = $id ?? $name;
     $useOldInput = $useOld && old($companion) !== null;
     $pickerId = $useOldInput ? (string) old($name, '') : (string) ($selected?->id ?? '');
-    $pickerText = $useOldInput ? (string) old($companion) : (string) ($selected?->name ?? '');
+    $pickerText = $useOldInput ? (string) old($companion) : (string) ($selected?->name ?? $text ?? '');
     $pickerErrors = $showErrors ? array_merge($errors->get($name), $errors->get($companion)) : [];
     $describedBy = $inputId.'-hint'.($pickerErrors ? ' '.$inputId.'-error' : '');
 @endphp

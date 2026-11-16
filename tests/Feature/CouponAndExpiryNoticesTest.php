@@ -72,7 +72,9 @@ class CouponAndExpiryNoticesTest extends TestCase
         $this->onAdmin(fn () => $this->assertNull(Coupon::where('code', 'E2E-VOID-FREE')->first()->tenant_id));
 
         $voided = $this->onAdmin(fn () => Coupon::where('code', 'E2E-VOID-0001')->first());
-        $this->actingAsInTenant($admin, $tenant)->post("/admin/coupons/{$voided->id}/assign", ['user_id' => $learner->id])->assertNotFound();
+        // Eigener gesperrter Code: zurück mit Meldung statt 404, nichts vergeben.
+        $this->actingAsInTenant($admin, $tenant)->post("/admin/coupons/{$voided->id}/assign", ['user_id' => $learner->id])
+            ->assertRedirect()->assertSessionHasErrors(['assign' => 'Dieser Code ist gesperrt.']);
         $this->assertSame(0, $this->asTenant($tenant, fn () => Entitlement::where('user_id', $learner->id)->count()));
     }
 
