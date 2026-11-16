@@ -1,0 +1,26 @@
+{
+  "format": 1,
+  "product_key": "boatingschool-form-connector",
+  "prefix": "boatingschool_form",
+  "name": {
+    "en": "BoatingSchool Form Connector",
+    "de_DE": "BoatingSchool Form-Connector",
+    "de_DE_formal": "BoatingSchool Form-Connector"
+  },
+  "status": "planned",
+  "held": "Freigabe des Inhabers für den Pilot steht aus (P8-40, BS-06 bis BS-13); nicht im Verkauf.",
+  "entitlements": [
+    {
+      "key": "boatingschool_form.leads",
+      "label": {
+        "en": "Send Form Captain submissions as leads to BoatingSchool",
+        "de_DE": "Form-Captain-Einsendungen als Leads an BoatingSchool senden",
+        "de_DE_formal": "Form-Captain-Einsendungen als Leads an BoatingSchool senden"
+      },
+      "description": {
+        "en": "Delivers mapped, non-sensitive fields of selected Form Captain forms to the lead inbox of the BoatingSchool platform. Deletions of already delivered leads keep working without a license."
+      },
+      "status": "planned"
+    }
+  ]
+}
