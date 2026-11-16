@@ -155,4 +155,29 @@ class AnonymizeDatabaseTest extends TestCase
             $this->assertNotNull(User::find($member->id), 'Konten bleiben bestehen');
         });
     }
+
+    /** Review #95/#96: Namen von Favoriten-Sammlungen sind Freitexte der Lernenden. */
+    public function test_it_replaces_the_names_of_favorite_collections(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $ids = $this->onAdmin(fn () => collect(['Lisas Prüfungsfragen', 'Für Opa Hein'])->map(function (string $name) use ($tenant, $learner, $course) {
+            $id = (string) Str::uuid();
+            DB::table('favorite_collection')->insert([
+                'id' => $id, 'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'course_id' => $course->id,
+                'name' => $name, 'is_default' => false, 'sort_order' => 1, 'created_at' => now(), 'updated_at' => now(),
+            ]);
+
+            return $id;
+        })->all());
+
+        $this->artisan('app:anonymize-database --force')->assertSuccessful();
+
+        $this->onAdmin(function () use ($ids) {
+            foreach ($ids as $id) {
+                $this->assertSame('Sammlung '.str_replace('-', '', $id), DB::table('favorite_collection')->where('id', $id)->value('name'));
+            }
+        });
+    }
 }

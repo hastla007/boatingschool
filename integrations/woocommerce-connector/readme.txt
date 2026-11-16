@@ -2,7 +2,7 @@
 Requires at least: 6.5
 Requires PHP: 8.1
 Requires Plugins: woocommerce
-Stable tag: 1.4.1
+Stable tag: 1.4.2
 License: Proprietary
 
 Verkauft Codes der Bootsschul-Plattform über WooCommerce. Nach der Zahlung werden die Codes im Codebestand der verknüpften Bootsschule hinterlegt.
@@ -19,7 +19,7 @@ Verkauft Codes der Bootsschul-Plattform über WooCommerce. Nach der Zahlung werd
 * Höchstmenge je Position kommt aus dem Katalog der Plattform (`max_quantity`, sonst 500).
 * Kurs- und Verlängerungscodes lassen sich nur für Kurse bestellen, die die verknüpfte Schule derzeit erhalten kann (geprüft schon beim Hinzufügen zum Warenkorb).
 * Rückerstattungen nur als Betrag (ohne Positionsmenge) sperren keine Codes; das Plugin meldet sie per Bestellnotiz und Alarm-Mail.
-* Kontaktdaten (E-Mail, Vor- und Nachname, Firma, Rechnungsland, USt-IdNr.) gleicht das Plugin beim Speichern von Profil oder Adresse mit der Plattform ab (`PATCH /accounts/{id}`, über Action Scheduler mit bis zu drei Versuchen) – aber nur, wenn sich eines dieser Felder seit dem letzten erfolgreichen Abgleich geändert hat (Prüfsumme in der Nutzer-Meta `_bs_account_sync_hash`, gesetzt erst nach erfolgreicher Antwort). WooCommerce speichert den Kunden z. B. bei jeder Bestellung; das löst nur noch einen Abgleich aus, wenn dabei z. B. die Firma geändert wurde (geprüft nach dem Speichern der Rechnungsdaten, Hook `woocommerce_update_customer`).
+* Kontaktdaten (E-Mail, Vor- und Nachname, Firma, Rechnungsland, USt-IdNr.) gleicht das Plugin beim Speichern von Profil oder Adresse mit der Plattform ab (`PATCH /accounts/{id}`, über Action Scheduler mit bis zu drei Versuchen) – aber nur, wenn sich eines dieser Felder seit dem letzten erfolgreichen Abgleich geändert hat (Prüfsumme in der Nutzer-Meta `_bs_account_sync_hash`, gesetzt erst nach erfolgreicher Antwort). WooCommerce speichert den Kunden z. B. bei jeder Bestellung; das löst nur noch einen Abgleich aus, wenn dabei z. B. die Firma geändert wurde (geprüft nach dem Speichern der Rechnungsdaten, Hook `woocommerce_update_customer`). Wurde das Konto auf der Plattform geändert oder zurückgesetzt, gleicht „Konto neu abgleichen“ (siehe „Betrieb“) ohne diese Prüfung ab.
 * Der Kontostatus aus der Plattform wird zwischengespeichert (5 Minuten, Fehlschläge 60 Sekunden). An der Kasse wird frisch geprüft, höchstens alle 10 Sekunden je Kunde; „Mein Konto → Bootsschule verknüpfen“ lädt nur nach einem Verknüpfungsversuch frisch. So können Kunden die Begrenzung der Plattform nicht aufbrauchen.
 
 == Zahlarten ==
@@ -60,6 +60,10 @@ Der Block-Checkout kennt kein eigenes USt-IdNr.-Feld. Dort prüft das Plugin ein
 * **Verbindung testen:** Knopf auf dem Einstellungs-Tab „Bootsschule“. Ruft `GET /catalog` mit den gespeicherten Einstellungen auf und zeigt das Ergebnis als Hinweis an (Recht `manage_options`, wie die Einstellungen).
 * **Fehlgeschlagene Zustellungen:** WooCommerce → Bootsschul-Zustellungen listet alle Positionen mit Status „fehlgeschlagen“. Mit der Sammelaktion „Erneut zustellen“ werden sie neu angestoßen (Recht `edit_shop_orders`). Die Plattform liefert je Position höchstens einmal.
 * **Abgleich per WP-CLI:** `wp bs-connector reconcile [--days=30]` vergleicht zugestellte, fehlgeschlagene und stornierte Positionen der letzten Tage mit `GET /orders/{id}/lines/{line}` und gibt Abweichungen als Tabelle aus (fehlende Pakete, andere Paket-ID oder Menge, offene Codes trotz Storno). Der Befehl ändert nichts.
+* **Konto neu abgleichen:** Der Kontoabgleich sendet nur bei geänderten Shopdaten (siehe oben). Wurde das Konto auf der Plattform geändert oder zurückgesetzt, lässt es sich ausdrücklich abgleichen – `PATCH /accounts/{id}` ohne Prüfsummen-Vergleich, danach wird die Prüfsumme wie sonst gesetzt:
+  * Benutzerprofil im Backend, Box „Bootsschul-Plattform“: Knopf „Konto mit der Bootsschul-Plattform neu abgleichen“. Plant den Abgleich über Action Scheduler ein (bis zu drei Versuche wie sonst) und zeigt „Abgleich eingeplant“. Nur für bei der Plattform registrierte Konten und nur für Administratoren (`manage_options`, wie die Einstellungen, und Recht, das Konto zu bearbeiten); geschützt per Nonce.
+  * Benutzerliste: Sammelaktion „Mit der Bootsschul-Plattform neu abgleichen“ (dieselben Rechte, höchstens 200 Konten je Aufruf; nicht registrierte Konten werden übersprungen und im Hinweis gezählt).
+  * WP-CLI: `wp bs-connector resync <user-id|email>...` sendet sofort und meldet je Konto „abgeglichen“ oder den Fehler (nach einem Fehler sind die üblichen Wiederholungen eingeplant). Exit-Status 1, wenn ein Konto nicht abgeglichen wurde (unbekannt, nicht registriert, Fehler).
 
 == Übersetzung ==
 
@@ -104,6 +108,9 @@ Das Plugin meldet sich bei den Datenschutz-Werkzeugen von WordPress an (Werkzeug
 Für die USt-IdNr.-Prüfung geht die Nummer (Länderkennung und Nummer, ggf. die eigene USt-IdNr. des Shops) an den VIES-Dienst der EU-Kommission. Bestellungen und ihr Zustellstatus bleiben für die Buchhaltung erhalten. Das Konto auf der Plattform löscht der Plattform-Betreiber.
 
 == Changelog ==
+
+= 1.4.2 =
+* Ausdrücklicher Kontoabgleich, unabhängig von der Prüfsumme `_bs_account_sync_hash`: Knopf „Konto mit der Bootsschul-Plattform neu abgleichen“ im Benutzerprofil, Sammelaktion in der Benutzerliste (beides nur für Administratoren mit `manage_options`, nur für registrierte Konten, per Action Scheduler eingeplant, Hinweis „Abgleich eingeplant“) und `wp bs-connector resync <user-id|email>...` (sofort, Ergebnis je Konto). Nötig, wenn das Konto auf der Plattform geändert oder zurückgesetzt wurde – bisher sendete der Shop erst wieder nach einer Änderung der Shopdaten. Der Hook `bs_connector_sync_account` nimmt dafür ein viertes Argument `force` an; seine Wiederholungen behalten es.
 
 = 1.4.1 =
 * Kontoabgleich nur bei Änderung: `PATCH /accounts/{id}` geht nur noch, wenn sich die abgeglichenen Kontaktdaten seit dem letzten erfolgreichen Abgleich geändert haben. Bisher löste jede Bestellung (WooCommerce speichert dabei den Kunden, `profile_update`) einen Abgleich aus. Prüfsumme in der neuen Nutzer-Meta `_bs_account_sync_hash`, erst nach erfolgreicher Antwort gesetzt (nach einem Fehler sendet der nächste Versuch); auch doppelt eingeplante Abgleiche senden nur einmal. Zusätzlich am Hook `woocommerce_update_customer`, damit an der Kasse geänderte Rechnungsdaten erkannt werden (WooCommerce schreibt sie erst nach `profile_update`). Die Meta gehört zum Datenschutz-Export/-Löschen und wird bei der Deinstallation entfernt.

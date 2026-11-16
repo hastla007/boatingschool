@@ -269,4 +269,22 @@ class PersonalDataExportTest extends TestCase
 
         $this->createdUserIds[] = $admin->id;
     }
+
+    /** Review #95/#96: Herkunft eines WP-Imports (import_meta, Format 2) gehört zur Auskunft. */
+    public function test_the_export_includes_the_origin_of_an_imported_wordpress_entitlement(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $this->onAdmin(fn () => Entitlement::create([
+            'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'course_id' => $course->id, 'status' => 'active',
+            'source_type' => 'wordpress', 'source_reference' => 'wp:entitlement:'.random_int(1, 999999), 'valid_from' => now(),
+            'import_meta' => ['source' => 'woocommerce', 'group_id' => null, 'order_id' => 4711, 'status' => 'active'],
+        ]));
+
+        $data = json_decode($this->actingAsInTenant($learner, $tenant)->get('/profile/export-data')->assertOk()->getContent(), true);
+
+        $this->assertSame('woocommerce', $data['entitlements'][0]['import_meta']['source']);
+        $this->assertSame(4711, $data['entitlements'][0]['import_meta']['order_id']);
+    }
 }
