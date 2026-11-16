@@ -37,6 +37,7 @@ use App\Support\ParticipantFilters;
 use App\Support\TenantContext;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -52,6 +53,15 @@ use Illuminate\View\View;
  */
 class AdminDashboardController extends Controller
 {
+    /**
+     * Höchstens so viele Einträge zeigt „Kürzlich gebuchte Kurse &
+     * Produkte“ (die neuesten zuerst, die übrigen nur als Anzahl). Ohne
+     * Grenze stand nach einem Sammel-Import jede Freischaltung der letzten
+     * 7 Tage einzeln im HTML (Messung mit 1200 Lernenden: 900 Zeilen,
+     * ~550 KB allein für diesen Kasten).
+     */
+    public const RECENT_BOOKINGS_LIMIT = 25;
+
     public function __invoke(Request $request, TenantContext $tenantContext): View
     {
         $tenant = $tenantContext->tenant();
@@ -67,8 +77,10 @@ class AdminDashboardController extends Controller
         // Review-Runde 3: nur aktive Mitglieder -- gesperrte bzw.
         // ausgetretene zählten bisher in Teilnehmerzahl und Statistiken mit.
         // Ausbilder mit zugeordneten Kursen sehen nur ihre Lernenden (InstructorScope).
-        $visibleLearnerIds = InstructorScope::learnerIds($tenant, $request->user());
+        // Kurszuordnung nur einmal ermitteln (Rolle + instructor_course), die
+        // sichtbaren Lernenden leiten sich daraus ab.
         $scopeCourseIds = InstructorScope::courseIds($tenant, $request->user());
+        $visibleLearnerIds = InstructorScope::learnerIdsForCourses($tenant, $scopeCourseIds);
         // Offene Einladungen (nie aktivierte Konten) zählen nicht mit, siehe
         // ParticipantFilters::withoutOpenInvitations.
         $learnerIds = ParticipantFilters::withoutOpenInvitations(TenantUser::where('tenant_id', $tenant->id)->where('role', 'learner')->where('status', 'active'))
@@ -94,7 +106,7 @@ class AdminDashboardController extends Controller
         $recentProductPurchases = ProductPurchase::where('tenant_id', $tenant->id)
             ->where('created_at', '>=', $recentBookingsCutoff)
             ->when($visibleLearnerIds !== null, fn ($q) => $q->whereIn('user_id', $visibleLearnerIds))
-            ->with(['product', 'user'])->get();
+            ->with(['product:id,name', 'user:id,display_name,email'])->get();
 
         // Optionen, die ein Kurs-Coupon zusätzlich bündelt (z. B. "Kleine
         // Praxiseinheit"), sollen hier wie auf der Teilnehmer-Detailseite
@@ -107,7 +119,7 @@ class AdminDashboardController extends Controller
             ->where('valid_from', '>=', $recentBookingsCutoff)->whereIn('user_id', $learnerIds)
             ->when($scopeCourseIds !== null, fn ($q) => $q->whereIn('course_id', $scopeCourseIds))
             ->when($visibleLearnerIds !== null, fn ($q) => $q->whereIn('user_id', $visibleLearnerIds))
-            ->with(['course', 'user'])->get()
+            ->with(['course:id,name', 'user:id,display_name,email'])->get()
             ->map(function (Entitlement $e) use ($optionsByCode, &$bundledProductIds) {
                 $options = $e->source_type === 'coupon' ? ($optionsByCode->get($e->source_reference) ?? collect()) : collect();
                 $bundledProductIds = [...$bundledProductIds, ...$options->pluck('id')->all()];
@@ -131,13 +143,18 @@ class AdminDashboardController extends Controller
             ]);
 
         $recentBookings = $recentCourseBookings->concat($recentProductBookings)->sortByDesc('date')->values();
+        $recentBookingsTotal = $recentBookings->count();
+        $recentBookings = $recentBookings->take(self::RECENT_BOOKINGS_LIMIT);
 
+        // DISTINCT in der Unterabfrage statt count(distinct): hasht die
+        // Personen, statt jede Antwort der Woche zu sortieren (Index
+        // idx_attempt_tenant_time, 2024_02_01_000960).
         $activeThisWeek = $learnerCount > 0
-            ? Attempt::where('tenant_id', $tenant->id)
+            ? DB::query()->fromSub(Attempt::where('tenant_id', $tenant->id)
                 ->whereIn('user_id', $learnerIds)
                 ->where('created_at', '>=', now()->subDays(7))
-                ->distinct('user_id')
-                ->count('user_id')
+                ->distinct()
+                ->select('user_id'), 'active')->count()
             : 0;
         $weeklyActivityRate = $learnerCount > 0 ? (int) round($activeThisWeek / $learnerCount * 100) : 0;
 
@@ -351,13 +368,6 @@ class AdminDashboardController extends Controller
         $pendingTeamInvitations = $invitedTeamMembers->concat($pendingTeamInvitations)->sortByDesc('invited_at')
             ->unique(fn ($row) => mb_strtolower($row['email']))->values();
 
-        $allParticipants = ParticipantFilters::withoutOpenInvitations(TenantUser::with('user')
-            ->where('tenant_id', $tenant->id)
-            ->where('role', 'learner'))
-            ->orderBy('created_at')
-            ->orderBy('user_id')
-            ->get();
-
         // „Offene Einladungen“: neu angelegte, nie aktivierte Konten und
         // Einladungen an Bestandskonten erscheinen hier gleich (Name wie
         // eingegeben, E-Mail, Datum) -- kein Konto-Orakel, siehe
@@ -527,6 +537,20 @@ class AdminDashboardController extends Controller
         // Beim Einladen angegebene Codes sind bis zur Annahme reserviert (InvitationCoupon).
         $reservedCouponCodes = InvitationCoupon::reservedCodes($tenant, $coupons->getCollection()->pluck('code'));
 
+        // Auswahl „Zuweisen“ (admin.tabs.coupons): alle Teilnehmer, aber nur
+        // wenn die angezeigte Coupon-Seite überhaupt einen zuweisbaren Code
+        // enthält -- dieselbe Bedingung wie in der View. Sonst wurden bei
+        // jedem Aufruf alle Lernenden samt Konto geladen (1200 Lernende:
+        // ~1200 Modelle), ohne dass die Liste je gerendert wurde.
+        $allParticipants = $coupons->getCollection()->contains(fn (Coupon $c) => $c->isUsable() && $c->tenant_id === $tenant->id)
+            ? ParticipantFilters::withoutOpenInvitations(TenantUser::with('user:id,display_name,email')
+                ->where('tenant_id', $tenant->id)
+                ->where('role', 'learner'))
+                ->orderBy('created_at')
+                ->orderBy('user_id')
+                ->get()
+            : collect();
+
         // Bestand je Kurs/Produkt aus den Codes, die dieser Bootsschule
         // gehören (übernommen per Import oder vom Superadmin zugeteilt) --
         // Codes, die nur eingelöst, aber keiner Bootsschule zugeordnet
@@ -599,11 +623,12 @@ class AdminDashboardController extends Controller
             'platformAnnouncements' => PlatformAnnouncement::visible()->forTenant($tenant->id)->orderByDesc('created_at')->limit(5)->get(),
             'tenant' => $tenant,
             'canManageTenant' => $canManageTenant,
-            'canInvite' => InstructorScope::courseIds($tenant, $request->user()) === null,
+            'canInvite' => $scopeCourseIds === null,
             'learnerCount' => $learnerCount,
             'activeEntitlements' => $activeEntitlements,
             'recentActivity' => $recentActivity,
             'recentBookings' => $recentBookings,
+            'recentBookingsTotal' => $recentBookingsTotal,
             'weeklyActivityRate' => $weeklyActivityRate,
             'recentExamsCount' => $recentExams->count(),
             'recentExamsNext7DaysCount' => $recentExamsNext7DaysCount,

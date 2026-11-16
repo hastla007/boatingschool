@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Attempt;
 use App\Models\AuditLog;
+use App\Models\CourseDefinition;
 use App\Models\Entitlement;
 use App\Models\ExamSession;
 use App\Models\TenantUser;
@@ -26,8 +27,8 @@ class SchoolInsightsController extends Controller
     {
         $tenant = $tenantContext->tenant();
         // Ausbilder mit zugeordneten Kursen: nur deren Lernende und Kurse.
-        $visible = InstructorScope::learnerIds($tenant, $request->user());
         $scopeCourses = InstructorScope::courseIds($tenant, $request->user());
+        $visible = InstructorScope::learnerIdsForCourses($tenant, $scopeCourses);
         // Ein Array-Parameter statt einer Liste einzelner Platzhalter (Postgres erlaubt höchstens 65.535).
         $visibleArray = $visible === null ? null : '{'.$visible->implode(',').'}';
         $learners = fn ($q, string $column = 'user_id') => $q->when($visibleArray !== null, fn ($w) => $w->whereRaw("{$column} = any(?::uuid[])", [$visibleArray]));
@@ -41,9 +42,14 @@ class SchoolInsightsController extends Controller
         $accessIds = $learners(Entitlement::currentlyActive()->where('tenant_id', $tenant->id)->whereIn('user_id', $memberIds)
             ->when($scopeCourses !== null, fn ($q) => $q->whereIn('course_id', $scopeCourses)))->select('user_id');
         $withAccess = DB::query()->fromSub($accessIds, 'access')->distinct()->count('user_id');
-        $events = function ($since) use ($tenant, $memberIds, $learners) {
+        // Je Quelle schon DISTINCT (Person bzw. Person + Monat): sonst lief jede
+        // einzelne Antwort (Messung: 360 000 Versuche in 6 Monaten) durch
+        // Union, Sortierung (auf Platte) und count(distinct) -- so bleiben je
+        // Quelle nur noch Personen × Monate übrig. Ergebnis unverändert.
+        $events = function ($since, bool $byMonth = false) use ($tenant, $memberIds, $learners) {
             $source = fn (string $table, string $column) => $learners(DB::table($table)->where('tenant_id', $tenant->id)->whereIn('user_id', $memberIds))
-                ->where($column, '>=', $since)->selectRaw("user_id, {$column} as at");
+                ->where($column, '>=', $since)->distinct()
+                ->selectRaw($byMonth ? "user_id, to_char({$column} AT TIME ZONE 'Europe/Berlin', 'YYYY-MM') as month" : 'user_id');
 
             return DB::query()->fromSub($source('attempt', 'created_at')
                 ->unionAll($source('exam_session', 'started_at'))
@@ -55,9 +61,9 @@ class SchoolInsightsController extends Controller
 
         // Aktive Lernende je Monat (letzte 6 Monate).
         $months = collect(range(5, 0))->map(fn ($i) => now('Europe/Berlin')->startOfMonth()->subMonths($i));
-        $byMonth = $events($months->first()->copy()->utc())
-            ->groupBy(DB::raw("to_char(at AT TIME ZONE 'Europe/Berlin', 'YYYY-MM')"))
-            ->selectRaw("to_char(at AT TIME ZONE 'Europe/Berlin', 'YYYY-MM') as month, count(distinct user_id) as learners")
+        $byMonth = $events($months->first()->copy()->utc(), byMonth: true)
+            ->groupBy('month')
+            ->selectRaw('month, count(distinct user_id) as learners')
             ->pluck('learners', 'month');
         $monthly = $months->map(fn ($m) => ['label' => $m->locale('de')->translatedFormat('M Y'), 'learners' => (int) ($byMonth[$m->format('Y-m')] ?? 0)]);
 
@@ -73,13 +79,18 @@ class SchoolInsightsController extends Controller
             ->orderByDesc('total')->get();
 
         // Durchschnittlicher Fortschritt und Prüfungsreife je Kurs (aktive Zugänge).
-        $courses = $learners(Entitlement::currentlyActive()->where('tenant_id', $tenant->id)->whereIn('user_id', $memberIds)->when($scopeCourses !== null, fn ($q) => $q->whereIn('course_id', $scopeCourses)))->with('course', 'user')->get()
-            ->filter(fn ($e) => $e->course && $e->user)->groupBy('course_id')
-            ->map(function ($group) use ($tenant, $overview) {
+        // Nur die zwei benötigten Spalten statt Freischaltung + Konto als
+        // Modelle je Zugang (1200 Lernende: ~3500 Modelle); „Konto vorhanden“
+        // prüft die Datenbank, die Kurse kommen in einer Abfrage.
+        $accessRows = $learners(Entitlement::currentlyActive()->where('tenant_id', $tenant->id)->whereIn('user_id', $memberIds)->when($scopeCourses !== null, fn ($q) => $q->whereIn('course_id', $scopeCourses)))
+            ->whereHas('user')->get(['user_id', 'course_id']);
+        $accessCourses = CourseDefinition::whereIn('id', $accessRows->pluck('course_id')->unique()->values())->get()->keyBy('id');
+        $courses = $accessRows->filter(fn ($e) => $accessCourses->has($e->course_id))->groupBy('course_id')
+            ->map(function ($group, $courseId) use ($tenant, $overview, $accessCourses) {
                 // Mehrere laufende Zugänge derselben Person zum selben Kurs
                 // (z. B. manuell + Coupon) zählen als EIN Teilnehmer.
                 $group = $group->unique('user_id');
-                $course = $group->first()->course;
+                $course = $accessCourses->get($courseId);
                 $threshold = $overview->threshold($tenant, $course);
                 $byUser = app(CourseProgressService::class)->overallPercents($course, $tenant, $group->pluck('user_id'));
                 $percents = $group->map(fn ($e) => $byUser[$e->user_id] ?? 0);

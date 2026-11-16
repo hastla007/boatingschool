@@ -30,8 +30,18 @@ class InstructorScope
     /** @return Collection<int, string>|null Nutzer-IDs der sichtbaren Lernenden oder null = alle */
     public static function learnerIds(Tenant $tenant, User $user): ?Collection
     {
-        $courseIds = self::courseIds($tenant, $user);
+        return self::learnerIdsForCourses($tenant, self::courseIds($tenant, $user));
+    }
 
+    /**
+     * Wie learnerIds(), aber mit bereits ermittelten courseIds() -- spart
+     * Seiten, die beides brauchen, die zweite Rollen- und Zuordnungsabfrage.
+     *
+     * @param  Collection<int, string>|null  $courseIds  Ergebnis von courseIds()
+     * @return Collection<int, string>|null
+     */
+    public static function learnerIdsForCourses(Tenant $tenant, ?Collection $courseIds): ?Collection
+    {
         return $courseIds === null ? null
             : Entitlement::where('tenant_id', $tenant->id)->whereIn('course_id', $courseIds)->distinct()->pluck('user_id');
     }
