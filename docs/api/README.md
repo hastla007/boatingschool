@@ -13,7 +13,7 @@ dieselben.
 | `app/Api/` | Tokens, Fehlerformat, Ausgabeformate |
 | `app/Http/Middleware/Api/` | Anmeldung, Schule, Idempotenz |
 | `config/mobile_api.php` | Laufzeiten (Tokens, Export, Idempotenz) |
-| `tests/Feature/Api/` | Tests inkl. Abgleich Routen ↔ OpenAPI |
+| `tests/Feature/Api/` | Tests inkl. Abgleich mit dem Vertrag (`OpenApiContractTest`: Routen, Methoden, Pfadparameter, Token-/Schul-/Idempotenz-Pflicht, Fehlercodes ↔ OpenAPI und Abschnitt 11) |
 
 ---
 
@@ -164,7 +164,7 @@ Antworten werden 24 Stunden je Konto gespeichert.
 | App-Einstellungen speichern | 60/Min. |
 | Schulbezogene Endpunkte | 240/Min. je Konto |
 | Codes einlösen | 10/Min. |
-| Lerngruppen | Vorschau 30/Min.; Einladen 20 Aufrufe/Std. je Verwalter, je Gruppe und Tag max(20, 2 × Plätze) Einladungen, je Verwalter und Tag höchstens 200 Einladungen über alle Gruppen (darüber 429 `RATE_LIMITED`) |
+| Lerngruppen | Vorschau 30/Min.; Einladen 20 Aufrufe/Std. je Verwalter (darüber 429 `TOO_MANY_REQUESTS`), je Gruppe und Tag max(20, 2 × Plätze) Einladungen, je Verwalter und Tag höchstens 200 Einladungen über alle Gruppen (darüber 429 `RATE_LIMITED`) |
 | Datenexport | 5/Std., Download 20/Min. |
 | Ausgelieferte Fragen | 2000 je Konto und Kalendertag (Europe/Berlin), siehe unten |
 
@@ -706,13 +706,14 @@ Der Lernstand ist derselbe wie im Web.
 |---|---|---|
 | 401 | `UNAUTHENTICATED` | Token fehlt/abgelaufen → einmal `refresh`, sonst Login |
 | 403 | `EMAIL_NOT_VERIFIED` | Bestätigungsmail anbieten |
-| 403 | `TENANT_MEMBERSHIP_REQUIRED` / `_SUSPENDED`, `TENANT_UNAVAILABLE` | Schulwahl / Support |
+| 403 | `TENANT_MEMBERSHIP_REQUIRED` / `TENANT_MEMBERSHIP_SUSPENDED`, `TENANT_UNAVAILABLE` | Schulwahl / Support |
 | 403 | `ENTITLEMENT_REQUIRED` / `ENTITLEMENT_EXPIRED` | Webshop-Link, Code-Eingabe |
 | 403 | `FORBIDDEN` | keine Berechtigung |
 | 403 | `LINK_INVALID` | Download-Link manipuliert oder abgelaufen → Status neu laden |
 | 403 | `WEB_SESSION_DISABLED` / `WEB_SESSION_NOT_ALLOWED` | Webansicht ohne Anmeldung öffnen bzw. auf den Browser verweisen |
 | 403 | `ACCOUNT_DELETION_NOT_ALLOWED` | Plattform-Konto: an den Support verweisen |
 | 404 | `RESOURCE_NOT_FOUND` | auch für fremde Daten (keine Aussage über Existenz) |
+| 404 | `NOT_FOUND` | nur Lerngruppen (`/me/groups/…`): Gruppe oder Mitglied unbekannt bzw. fremd → wie `RESOURCE_NOT_FOUND` behandeln |
 | 405 | `METHOD_NOT_ALLOWED` | Programmierfehler in der App |
 | 409 | `CONFLICT` | allgemeiner Konflikt bzw. dieselbe Anfrage läuft noch (`Retry-After`) |
 | 409 | `IDEMPOTENCY_KEY_REUSED` | neuen Schlüssel erzeugen |
@@ -741,6 +742,7 @@ Der Lernstand ist derselbe wie im Web.
 | 422 | `GROUP_SCOPE_UNSUPPORTED` | Gruppenumfang nicht abbildbar → Support |
 | 426 | `APP_UPDATE_REQUIRED` | Update-Hinweis mit `store_url` |
 | 429 | `RATE_LIMITED` | `Retry-After` abwarten |
+| 429 | `TOO_MANY_REQUESTS` | nur Einladen in Lerngruppen: mehr als 20 Aufrufe pro Stunde, ohne `Retry-After` → eine Stunde warten (sonst wie `RATE_LIMITED`) |
 | 429 | `DAILY_LIMIT_REACHED` | Tageslimit an Fragen erreicht: `detail` anzeigen, bis Mitternacht (`Retry-After`) nicht erneut versuchen |
 | 4xx | `REQUEST_FAILED` | sonstiger Fehler; `detail` anzeigen |
 | 503 | `MAINTENANCE` | Wartungshinweis (`detail`), `Retry-After` |
@@ -946,7 +948,10 @@ entscheidet aber nur anhand von `code`.
   die freien Kurscodes je Schule und Kurs).
 * **Tests:** `vendor/bin/phpunit tests/Feature/Api`.
   `OpenApiContractTest` schlägt fehl, wenn Routen und OpenAPI-Datei
-  auseinanderlaufen.
+  auseinanderlaufen (Methoden, Pfadparameter, `security`, `X-Tenant-Slug`,
+  `Idempotency-Key`) oder ein Fehlercode im Code (`new ApiProblem(…)`,
+  `ProblemResponse`) nicht genau in `Problem.code` und in Abschnitt 11
+  steht. Neue Codes deshalb immer als String-Literal übergeben.
 
 ## 14. Nicht in v1
 
