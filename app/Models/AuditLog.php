@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Support\Impersonation;
+use App\Support\OwnerConnection;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
@@ -88,6 +89,19 @@ class AuditLog extends Model
         'superadmin.video_lesson.delete' => 'hat eine Videolektion gelöscht.',
         'superadmin.video_module.create' => 'hat ein Videokapitel angelegt.',
         'superadmin.video_module.delete' => 'hat ein Videokapitel gelöscht.',
+        'superadmin.video_module.update' => 'hat ein Videokapitel geändert.',
+        'superadmin.praxis_task.activate' => 'hat eine Praxisaufgabe aktiviert.',
+        'superadmin.praxis_task.deactivate' => 'hat eine Praxisaufgabe deaktiviert.',
+        'superadmin.commerce.account.approved' => 'hat ein Shopkonto freigegeben.',
+        'superadmin.commerce.account.awaiting_link' => 'hat ein Shopkonto zur Verknüpfung mit einer Bootsschule vorgemerkt.',
+        'superadmin.commerce.account.rejected' => 'hat ein Shopkonto abgelehnt.',
+        'commerce.link_code.created' => 'hat einen Verknüpfungscode für das Shopkonto erzeugt.',
+        'commerce.account.unlinked' => 'hat die Verknüpfung mit dem Shopkonto aufgehoben.',
+        // Persönliche Einstellungen (ohne Bootsschule protokolliert, siehe recordPersonalSetting()).
+        'profile.mail_preferences' => 'hat die eigenen E-Mail-Benachrichtigungen geändert.',
+        'profile.speech_consent.granted' => 'hat in die Spracherkennung eingewilligt.',
+        'profile.speech_consent.revoked' => 'hat die Einwilligung zur Spracherkennung widerrufen.',
+        'mail.unsubscribe' => 'hat sich über den Link in einer E-Mail von Benachrichtigungen abgemeldet.',
     ];
 
     /** Zahl der in dieser Anfrage geschriebenen Einträge (siehe AuditSuperadminChanges). */
@@ -121,6 +135,21 @@ class AuditLog extends Model
             'before_data' => $before,
             'after_data' => $after,
         ]);
+    }
+
+    /**
+     * Persönliche Einstellungen eines Kontos (Einwilligung Spracherkennung,
+     * E-Mail-Benachrichtigungen, Abmeldung aus einer Mail) gelten
+     * schulübergreifend und sind keine Verwaltung der Bootsschule: Protokoll
+     * ohne tenant_id auf Plattformebene, damit sie nicht in „Letzte
+     * Aktivitäten“ und im Protokoll der Schule erscheinen (nur im
+     * Superadmin-Protokoll als „Plattform“). Über die Owner-Verbindung, weil
+     * die RLS-Policy von audit_log auf der App-Verbindung keinen Eintrag ohne
+     * Bootsschule zulässt (wie TwoFactorController::audit()).
+     */
+    public static function recordPersonalSetting(string $userId, string $action, ?array $before = null, ?array $after = null): self
+    {
+        return OwnerConnection::run(fn () => static::record(null, $userId, $action, 'app_user', $userId, $before, $after));
     }
 
     /** Review-Runde 11: Nachschlage-Cache je Request (vorher je Eintrag eigene Abfragen). */
@@ -205,9 +234,16 @@ class AuditLog extends Model
             $this->action === 'superadmin.user.create' => "{$actorName} hat ein Nutzerkonto angelegt.",
             $this->action === 'superadmin.user.update' => "{$actorName} hat ein Nutzerkonto geändert.",
             $this->action === 'superadmin.user.membership_update' => "{$actorName} hat eine Mitgliedschaft geändert.",
+            // Ohne handelnde Person protokolliert (Shop-Bestellung bzw. Löschung des eigenen Kontos).
+            $this->action === 'commerce.batch.delivered' => 'Shop: Codes aus einer Bestellung'.(isset($this->after_data['order_number']) ? ' ('.$this->after_data['order_number'].')' : '').' wurden bereitgestellt.',
+            $this->action === 'commerce.batch.voided' => 'Shop: Codes aus einer Bestellung'.(isset($this->after_data['order_number']) ? ' ('.$this->after_data['order_number'].')' : '').' wurden storniert.',
+            $this->action === 'profile.delete' => 'Ein Teilnehmer hat das eigene Konto bei der Bootsschule gelöscht.',
             $this->action === 'superadmin.change' => "{$actorName} hat im Superadmin-Bereich geändert: ".($this->after_data['route'] ?? '—').'.',
             isset(self::SIMPLE_DESCRIPTIONS[$this->action]) => "{$actorName} ".self::SIMPLE_DESCRIPTIONS[$this->action],
-            default => "{$actorName}: {$this->action}",
+            // Nie den rohen Aktionscode zeigen (der steht nur im
+            // Superadmin-Protokoll); AuditActionLabelsTest prüft, dass jede
+            // im Code geschriebene Aktion einen eigenen Text hat.
+            default => "{$actorName} hat eine Änderung vorgenommen.",
         };
     }
 

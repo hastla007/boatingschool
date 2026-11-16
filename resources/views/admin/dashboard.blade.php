@@ -76,7 +76,10 @@
              Pfeiltasten/Pos1/Ende wechseln den Reiter, nur der aktive Reiter
              liegt in der Tab-Reihenfolge, Reiter und Bereich sind über
              aria-controls/aria-labelledby verknüpft. --}}
-        <div class="flex gap-1 overflow-x-auto min-w-0 flex-1" role="tablist" aria-label="Bereiche des Admin-Bereichs"
+        {{-- Ab md umbrechen statt seitlich scrollen: bei 1280px lagen sonst
+             Reiter ohne Scroll-Hinweis außerhalb des sichtbaren Bereichs
+             (scrollWidth > clientWidth). Auf dem Handy bleibt das Wischen. --}}
+        <div class="flex gap-1 overflow-x-auto md:flex-wrap md:overflow-x-visible min-w-0 flex-1" role="tablist" aria-label="Bereiche des Admin-Bereichs"
              @keydown.arrow-right.prevent="moveTab($event, 1)" @keydown.arrow-left.prevent="moveTab($event, -1)"
              @keydown.home.prevent="moveTab($event, 'first')" @keydown.end.prevent="moveTab($event, 'last')">
             <button type="button" role="tab" id="admin-tab-dashboard" aria-controls="admin-panel-dashboard" :aria-selected="(tab === 'dashboard').toString()" :tabindex="tab === 'dashboard' ? 0 : -1" data-tab="dashboard" @click="tab = 'dashboard'" :class="tab === 'dashboard' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"

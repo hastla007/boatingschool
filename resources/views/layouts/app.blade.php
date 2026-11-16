@@ -86,12 +86,22 @@
             @endisset
 
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-                {{-- Laravels interne Statusschlüssel als Text statt roh anzeigen. --}}
-                @php($statusText = match (session('status')) {
-                    'password-updated' => 'Dein Passwort wurde geändert.',
-                    'profile-updated' => 'Deine Angaben wurden gespeichert.',
-                    'verification-link-sent' => 'Ein neuer Bestätigungslink wurde an deine E-Mail-Adresse gesendet.',
-                    default => session('status'),
+                {{-- Laravels interne Statusschlüssel als Text statt roh anzeigen.
+                     Unbekannte Schlüssel (nur Kleinbuchstaben/Ziffern mit
+                     Bindestrich, z. B. „foo-updated“) bekommen einen
+                     allgemeinen Text -- der rohe Schlüssel erscheint nie;
+                     ausformulierte Meldungen werden unverändert gezeigt. --}}
+                @php($flashStatus = session('status'))
+                @php($statusText = match (true) {
+                    ! is_string($flashStatus) || $flashStatus === '' => null,
+                    $flashStatus === 'password-updated' => 'Dein Passwort wurde geändert.',
+                    $flashStatus === 'profile-updated' => 'Deine Angaben wurden gespeichert.',
+                    $flashStatus === 'verification-link-sent' => 'Ein neuer Bestätigungslink wurde an deine E-Mail-Adresse gesendet.',
+                    $flashStatus === 'mail-preferences-updated' => 'E-Mail-Benachrichtigungen gespeichert.',
+                    $flashStatus === 'speech-consent-granted' => 'Einwilligung zur Spracherkennung gespeichert.',
+                    $flashStatus === 'speech-consent-revoked' => 'Einwilligung zur Spracherkennung widerrufen.',
+                    (bool) preg_match('/^[a-z0-9]+(?:[-_.][a-z0-9]+)+$/', $flashStatus) => 'Änderungen gespeichert.',
+                    default => $flashStatus,
                 })
                 @include('partials.registration-coupon-notice')
                 @if ($statusText)

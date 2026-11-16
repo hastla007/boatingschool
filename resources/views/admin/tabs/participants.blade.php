@@ -12,15 +12,17 @@
         <x-input-error :messages="$errors->get('team')" class="mb-2" />
 
         <div tabindex="0" role="region" aria-label="Tabelle: Team (seitlich scrollbar)" class="overflow-x-auto">
-            <table class="w-full text-sm mb-4">
-                <thead class="text-slate-500 dark:text-slate-300 text-left">
+            {{-- Auf dem Handy je Person ein Block (Name, E-Mail, Rolle, darunter die Aktionen) statt
+                 einer breiten Zeile, deren Knöpfe rechts außerhalb des Bildschirms lagen. --}}
+            <table class="w-full text-sm mb-4 block sm:table">
+                <thead class="hidden sm:table-header-group text-slate-500 dark:text-slate-300 text-left">
                     <tr><th class="py-1 pr-4">Name</th><th class="py-1 pr-4">E-Mail</th><th class="py-1 pr-4">Rolle</th><th class="py-1"><span class="sr-only">Aktionen</span></th></tr>
                 </thead>
-                <tbody>
+                <tbody class="block sm:table-row-group">
                     @foreach ($team as $member)
                         @php($editable = $member->user_id !== auth()->id() && in_array($member->role, ['admin', 'instructor'], true) && ($isOwner || $member->role === 'instructor'))
-                        <tr class="border-t border-slate-100 dark:border-slate-700">
-                            <td class="py-2 pr-4 text-slate-700 dark:text-slate-200">
+                        <tr class="block sm:table-row border-t border-slate-100 dark:border-slate-700 py-2 sm:py-0">
+                            <td class="block sm:table-cell sm:py-2 sm:pr-4 text-slate-700 dark:text-slate-200">
                                 {{ $member->user->name }}{{ $member->user_id === auth()->id() ? ' (Sie)' : '' }}
                                 @if ($member->user->status === 'invited')
                                     {{-- Audit SEC-W-3: wie eine offene Einladung an ein bestehendes Konto. --}}
@@ -31,8 +33,8 @@
                                     <span class="ml-1 text-xs rounded-full px-1.5 py-0.5 {{ $currentTenant->branding?->require_team_two_factor ? 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200' : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300' }}" title="Zwei-Faktor-Anmeldung nicht eingerichtet">ohne 2FA</span>
                                 @endif
                             </td>
-                            <td class="py-2 pr-4 text-slate-500 dark:text-slate-400">{{ $member->user->email }}</td>
-                            <td class="py-2 pr-4">
+                            <td class="block sm:table-cell sm:py-2 sm:pr-4 text-slate-500 dark:text-slate-400 break-all sm:break-normal">{{ $member->user->email }}</td>
+                            <td class="block sm:table-cell pt-1 sm:py-2 sm:pr-4">
                                 @if ($editable)
                                     <form method="POST" action="{{ route('admin.team.role.update', $member->user_id) }}" class="flex items-center gap-1">
                                         @csrf
@@ -48,7 +50,7 @@
                                     <span class="inline-block px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-xs">{{ \App\Support\StatusLabels::tenantRole($member->role) }}</span>
                                 @endif
                             </td>
-                            <td class="py-2">
+                            <td class="block sm:table-cell pt-2 sm:py-2">
                                 @if ($member->role === 'instructor')
                                     @php($assigned = $instructorCourses->get($member->user_id, collect()))
                                     <details class="text-xs">
@@ -352,10 +354,12 @@
                         {{-- Nur Kurse, die die Schule anbietet. --}}
                         @php($unbookedCourses = $courses->whereNotIn('id', $disabledCourseIds)->whereNotIn('id', $bookedCourseIds))
                         @if ($unbookedCourses->isNotEmpty())
+                            {{-- Ohne freien Code für irgendeinen dieser Kurse: Hinweis statt leerer Auswahl mit aktivem Knopf. --}}
+                            @php($noFreeCodes = $unbookedCourses->every(fn ($c) => $freeCourseCouponCounts->get($c->id, 0) < 1))
                             <form method="POST" action="{{ route('admin.entitlements.store') }}" class="flex gap-1">
                                 @csrf
                                 <input type="hidden" name="user_id" value="{{ $membership->user_id }}">
-                                <select name="course_id" aria-label="Kurs für {{ $membership->user->name }} freischalten" class="min-w-0 flex-1 sm:flex-none rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs">
+                                <select name="course_id" aria-label="Kurs für {{ $membership->user->name }} freischalten" @disabled($noFreeCodes) @if ($noFreeCodes) aria-describedby="grant-no-codes-{{ $membership->user_id }}" @endif class="min-w-0 flex-1 sm:flex-none rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs disabled:opacity-60">
                                     @foreach ($unbookedCourses as $course)
                                         @php($freeCount = $freeCourseCouponCounts->get($course->id, 0))
                                         <option value="{{ $course->id }}" @disabled($freeCount < 1) @class(['text-slate-600 dark:text-slate-400' => $freeCount < 1])>
@@ -363,8 +367,11 @@
                                         </option>
                                     @endforeach
                                 </select>
-                                <button type="submit" class="px-3 py-1 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-xs" title="Verbraucht einen eigenen, noch nicht eingelösten Code für diesen Kurs.">Freischalten</button>
+                                <button type="submit" @disabled($noFreeCodes) class="px-3 py-1 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-xs disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-slate-100 dark:disabled:hover:bg-slate-700" title="Verbraucht einen eigenen, noch nicht eingelösten Code für diesen Kurs.">Freischalten</button>
                             </form>
+                            @if ($noFreeCodes)
+                                <p id="grant-no-codes-{{ $membership->user_id }}" class="mt-1 text-xs text-amber-700 dark:text-amber-400">Keine freien Zugangscodes – bitte zuerst Codes bestellen oder erzeugen.</p>
+                            @endif
                         @else
                             <span class="text-slate-600 dark:text-slate-400 text-xs">alle Kurse gebucht</span>
                         @endif

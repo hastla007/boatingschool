@@ -34,7 +34,7 @@ class SpeechConsentTest extends TestCase
         $this->actingAsInTenant($learner, $tenant)->deleteJson('/profile/speech-consent')->assertOk()->assertJson(['granted' => false]);
         $this->assertNull($this->consentAt($learner));
 
-        $actions = $this->onAdmin(fn () => AuditLog::where('tenant_id', $tenant->id)->where('entity_id', $learner->id)->orderBy('created_at')->pluck('action')->all());
+        $actions = $this->onAdmin(fn () => AuditLog::whereNull('tenant_id')->where('entity_id', $learner->id)->orderBy('created_at')->pluck('action')->all());
         $this->assertEqualsCanonicalizing(['profile.speech_consent.granted', 'profile.speech_consent.revoked'], $actions);
     }
 
@@ -59,7 +59,7 @@ class SpeechConsentTest extends TestCase
             ->assertSee('Eingewilligt am')->assertSee('Einwilligung widerrufen');
 
         $this->actingAsInTenant($learner, $tenant)->from('/profile')->delete('/profile/speech-consent')
-            ->assertRedirect('/profile')->assertSessionHas('status', 'speech-consent-updated');
+            ->assertRedirect('/profile')->assertSessionHas('status', 'speech-consent-revoked');
         $this->assertNull($this->consentAt($learner));
     }
 

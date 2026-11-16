@@ -48,7 +48,9 @@
                 <details class="px-4 py-2 text-sm group">
                     <summary class="cursor-pointer flex flex-wrap items-center gap-x-3 gap-y-1 list-none">
                         <span class="text-xs text-slate-600 dark:text-slate-400 w-32 shrink-0">{{ $entry->created_at?->timezone('Europe/Berlin')->format('d.m.Y H:i:s') }}</span>
-                        <span class="font-mono text-xs text-slate-800 dark:text-slate-100">{{ $entry->action }}</span>
+                        {{-- Lesbarer Text; der technische Aktionscode bleibt klein daneben (für den Filter „Aktion“). --}}
+                        <span class="text-slate-800 dark:text-slate-100">{{ $entry->description() }}</span>
+                        <span class="font-mono text-xs text-slate-600 dark:text-slate-400">{{ $entry->action }}</span>
                         <span class="text-xs text-slate-600 dark:text-slate-300">{{ $actor ? ($actor->display_name ?: $actor->email) : ($entry->actor_user_id ? 'gelöschtes Konto' : 'System') }}</span>
                         <span class="text-xs rounded-full px-2 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200">{{ $entry->tenant_id ? ($tenantNames[$entry->tenant_id] ?? 'gelöschte Schule') : 'Plattform' }}</span>
                     </summary>

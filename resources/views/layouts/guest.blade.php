@@ -70,7 +70,7 @@
                     @else
                         <x-icon name="anchor" class="w-16 h-16 mx-auto text-white/90 mb-6" />
                     @endif
-                    <h1 class="text-3xl font-bold text-white mb-3">{{ $currentTenant->name ?? config('app.name') }}</h1>
+                    <h1 class="text-3xl font-bold text-white mb-3">{{ $guestSiteTitle }}</h1>
                     <p class="text-white/80 max-w-sm mx-auto">Dein Weg zum Bootsführerschein &mdash; SBF See, SBF Binnen, SRC und UBI in einer Lernplattform.</p>
                 </div>
             </header>
@@ -86,7 +86,7 @@
                             @endif
                             {{-- Auf kleinen Bildschirmen ist der Markenbereich links ausgeblendet --
                                  hier steht dann die h1 der Seite. --}}
-                            <h1 class="text-xl font-bold" style="color: var(--brand-primary, #005FD7)">{{ $currentTenant->name ?? config('app.name') }}</h1>
+                            <h1 class="text-xl font-bold" style="color: var(--brand-primary, #005FD7)">{{ $guestSiteTitle }}</h1>
                             <div class="text-sm text-slate-600 dark:text-slate-400">Dein Weg zum Bootsführerschein</div>
                         </header>
 

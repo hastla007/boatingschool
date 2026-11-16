@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\AuditLog;
-use App\Support\TenantContext;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -17,29 +16,29 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class SpeechConsentController extends Controller
 {
-    public function store(Request $request, TenantContext $tenantContext): Response
+    public function store(Request $request): Response
     {
         $user = $request->user();
         if ($user->speech_consent_at === null) {
             $user->forceFill(['speech_consent_at' => now()])->save();
-            AuditLog::record($tenantContext->id(), $user->id, 'profile.speech_consent.granted', 'app_user', $user->id);
+            AuditLog::recordPersonalSetting($user->id, 'profile.speech_consent.granted');
         }
 
         return $request->expectsJson()
             ? response()->json(['granted' => true])
-            : back()->with('status', 'speech-consent-updated');
+            : back()->with('status', 'speech-consent-granted');
     }
 
-    public function destroy(Request $request, TenantContext $tenantContext): Response
+    public function destroy(Request $request): Response
     {
         $user = $request->user();
         if ($user->speech_consent_at !== null) {
             $user->forceFill(['speech_consent_at' => null])->save();
-            AuditLog::record($tenantContext->id(), $user->id, 'profile.speech_consent.revoked', 'app_user', $user->id);
+            AuditLog::recordPersonalSetting($user->id, 'profile.speech_consent.revoked');
         }
 
         return $request->expectsJson()
             ? response()->json(['granted' => false])
-            : back()->with('status', 'speech-consent-updated');
+            : back()->with('status', 'speech-consent-revoked');
     }
 }
