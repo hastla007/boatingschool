@@ -60,11 +60,14 @@ return [
         'android_package' => env('MOBILE_API_ANDROID_PACKAGE'),
         // SHA-256-Fingerprints des Signaturzertifikats (AA:BB:...)
         'android_sha256_fingerprints' => env('MOBILE_API_ANDROID_SHA256_FINGERPRINTS'),
-        // Pfade, die die App öffnet (kommagetrennt, „*“ als Platzhalter), z. B.
-        // /app/konto-loeschen,/reset-password/*. Leer = Standard: Bestätigung
-        // der Kontolöschung, Passwort festlegen/zurücksetzen
-        // (/reset-password/*), Einladung annehmen (/invitations/*/accept/*),
-        // E-Mail bestätigen (/verify-email/*/*). Jeder Pfad außer der
+        // Pfade, die die App öffnet (kommagetrennt, „*“ als Platzhalter).
+        // Leer = Standard: nur die Bestätigung der Kontolöschung
+        // (/app/konto-loeschen) -- die verarbeitet jede veröffentlichte
+        // App-Version. Kann die App auch die übrigen Mail-Links, empfohlen
+        // (AppLinkAssociationController::recommendedPathsValue()):
+        // /app/konto-loeschen,/reset-password/*,/invitations/*/accept/*,/verify-email/*/*
+        // (Passwort festlegen/zurücksetzen, Einladung annehmen, E-Mail
+        // bestätigen; deploy/README.md, Abschnitt 10). Jeder Pfad außer der
         // Kontolöschung gilt automatisch auch mit Schul-Slug davor (/*/…).
         'paths' => env('MOBILE_API_APP_LINK_PATHS'),
     ],

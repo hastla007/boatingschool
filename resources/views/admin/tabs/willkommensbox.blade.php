@@ -71,7 +71,7 @@
                                 </button>
                             </form>
                         @endif
-                        @if (! empty($willkommensboxLabelSizes))
+                        @if (! empty($willkommensboxLabelSizes) && ! $order->addressRemoved())
                             @foreach ($willkommensboxLabelSizes as $size)
                                 <a href="{{ route('admin.willkommensbox-orders.label', [$order, $size]) }}" class="ms-1.5 text-xs hover:underline" style="color: var(--brand-primary, #005FD7)">{{ strtoupper($size) }}</a>
                             @endforeach

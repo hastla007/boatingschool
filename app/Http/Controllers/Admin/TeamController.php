@@ -64,10 +64,10 @@ class TeamController extends Controller
         // Kein Konto-Orakel: neue Adresse und Bestandskonto bekommen dieselbe
         // Drossel (höchstens eine Mail je Adresse, Schule und Tag, Review-
         // Runde 9), dieselben Texte und erscheinen beide bis zur Annahme
-        // unter „eingeladen“ (siehe AdminDashboardController).
-        if (! ParticipantInviter::mayMailAddress($tenant, $existingUser?->email ?? $validated['email'])) {
-            return back()->with('status', ParticipantInviter::ALREADY_INVITED_STATUS);
-        }
+        // unter „eingeladen“ (siehe AdminDashboardController). Gedrosselt
+        // wird nur die Mail: Einladung und Rolle werden trotzdem angelegt
+        // bzw. aktualisiert (z. B. heute erst als Teilnehmer, dann ins Team).
+        $mayMail = ParticipantInviter::mayMailAddress($tenant, $existingUser?->email ?? $validated['email']);
 
         if ($existingUser) {
             if ($membership) {
@@ -78,12 +78,12 @@ class TeamController extends Controller
                     $membership->update(['role' => $validated['role']]);
                 }
                 $invitation = ParticipantInviter::openInvitation($tenant, $request->user(), $existingUser->email, $membership->role, $validated['name']);
-                $mailSent = BestEffortMail::send(fn () => app(AccountSetupLink::class)->send($existingUser, $tenant, $membership->role), "Team-Einladung erneut {$existingUser->id}");
+                $mailSent = $mayMail && BestEffortMail::send(fn () => app(AccountSetupLink::class)->send($existingUser, $tenant, $membership->role), "Team-Einladung erneut {$existingUser->id}");
             } else {
                 // Bestehendes Konto: Einladung, die die Person selbst annimmt
                 // (siehe ParticipantController::invite, Sicherheitsreview H2).
                 $invitation = ParticipantInviter::openInvitation($tenant, $request->user(), $existingUser->email, $validated['role'], $validated['name']);
-                $mailSent = ParticipantInviter::sendExistingAccountInvitation($existingUser, $tenant, $invitation);
+                $mailSent = $mayMail && ParticipantInviter::sendExistingAccountInvitation($existingUser, $tenant, $invitation);
             }
             AuditLog::record($tenant->id, $request->user()->id, 'team.invite_pending', 'tenant_invitation', $invitation->id, null, [
                 'email' => $existingUser->email, 'role' => $validated['role'],
@@ -108,13 +108,15 @@ class TeamController extends Controller
                 return $user;
             });
             // Wie bei Teilnehmern: der Link zum Passwort setzen ist die Einladung.
-            $mailSent = BestEffortMail::send(fn () => app(AccountSetupLink::class)->send($user, $tenant, $validated['role']), "Team-Einladung neues Konto {$user->id}");
+            $mailSent = $mayMail && BestEffortMail::send(fn () => app(AccountSetupLink::class)->send($user, $tenant, $validated['role']), "Team-Einladung neues Konto {$user->id}");
         }
 
         // Gleicher Text für bestehendes und neues Konto (kein Konto-Orakel).
-        return back()->with('status', $mailSent
-            ? 'Einladung verschickt.'
-            : 'Einladung angelegt, der Versand der E-Mail ist aber fehlgeschlagen – bitte später erneut einladen.');
+        return back()->with('status', match (true) {
+            ! $mayMail => ParticipantInviter::ALREADY_INVITED_STATUS,
+            $mailSent => 'Einladung verschickt.',
+            default => 'Einladung angelegt, der Versand der E-Mail ist aber fehlgeschlagen – bitte später erneut einladen.',
+        });
     }
 
     public function updateRole(Request $request, TenantContext $tenantContext, User $user): Response

@@ -190,14 +190,17 @@ class AuthController extends Controller
         // einmalig das Mindestalter bestätigen (AgeConfirmation). Erst bei
         // gültigem Token gefragt, sonst verriete die Meldung, dass es ein
         // eingeladenes Konto gibt. Ein normales Zurücksetzen fragt nicht.
-        $confirmsAge = $account !== null && $account->age_confirmed_at === null && $request->boolean('age_confirmed');
+        // Gespeichert wird die Bestätigung nur beim Aktivieren eines
+        // eingeladenen Kontos (wie im Web) -- ein normales Zurücksetzen
+        // setzt age_confirmed_at nicht nebenbei, auch wenn das Feld mitkommt.
+        $confirmsAge = $account?->status === 'invited' && $account->age_confirmed_at === null && $request->boolean('age_confirmed');
         if ($account?->status === 'invited' && $account->age_confirmed_at === null && $broker->tokenExists($account, $validated['token'])) {
             $request->validate(['age_confirmed' => ['accepted']], ['age_confirmed.accepted' => AgeConfirmation::MESSAGE]);
         }
         $status = $broker->reset(
             ['email' => $email, 'token' => $validated['token'], 'password' => $validated['password'], 'password_confirmation' => $request->input('password_confirmation')],
             function (User $user) use ($validated, $confirmsAge) {
-                if ($confirmsAge) {
+                if ($confirmsAge && $user->status === 'invited') {
                     $user->forceFill(['age_confirmed_at' => now()]);
                 }
                 NewPasswordController::completeReset($user, $validated['password']);

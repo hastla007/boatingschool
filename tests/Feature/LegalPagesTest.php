@@ -264,6 +264,10 @@ class LegalPagesTest extends TestCase
         $this->assertStringContainsString('Der Code gilt 60 Sekunden und nur einmal', $html);
         $this->assertStringContainsString('schicken wir dir eine E-Mail mit einem Bestätigungslink', $html);
         $this->assertStringContainsString('Der Link gilt 7 Tage', $html);
+        $this->assertStringContainsString('alle Lerndaten bei dieser Bootsschule sofort. Bist du bei keiner anderen Bootsschule angemeldet, löschen wir auch dein Konto.', $html);
+        $this->assertStringNotContainsString('bist du bei keiner anderen Bootsschule mehr angemeldet, auch dein Konto', $html);
+        // Nie angenommene Einladungen einer Schule (Löschkonzept Nr. 31).
+        $this->assertStringContainsString('Einladungen einer Bootsschule, die du nicht annimmst:</strong> 90 Tage (gültig sind sie 7 Tage).', $html);
         $this->assertStringContainsString('nicht bestätigter Antrag auf Kontolöschung 7 Tage, Einmal-Codes für die Webansicht einen Tag', $html);
         $this->assertStringContainsString('im Profil oder in der Lern-App selbst exportieren', $html);
 

@@ -513,11 +513,26 @@ class CourseAccessRulesApiTest extends MobileApiTestCase
         foreach (['suspended', 'revoked'] as $local) {
             $this->onAdmin(fn () => Entitlement::whereKey($first->id)->update(['status' => $local]));
             $this->importEntitlements($this->formatTwo($tenant, [array_merge($row, ['valid_until' => null])]), [],
-                fn (PendingCommand $c) => $c->expectsOutputToContain('1 Zugänge sind in Laravel gesperrt oder widerrufen und wurden nicht verändert'));
+                fn (PendingCommand $c) => $c->expectsOutputToContain('1 Zugänge sind in Laravel gesperrt, widerrufen oder entsperrt und wurden nicht verändert'));
             $kept = $this->wpRows($tenant)->sole();
             $this->assertSame($local, $kept->status);
             $this->assertNotNull($kept->valid_until);
         }
+
+        // Sperre aus WP, in Laravel aufgehoben: solange WP unverändert
+        // „suspended“ meldet, bleibt der Zugang aktiv („kept“); ändert sich
+        // der Status in WP, folgt der Import wieder.
+        $this->onAdmin(fn () => Entitlement::whereKey($first->id)->update(['status' => 'active']));
+        $this->importEntitlements($this->formatTwo($tenant, [array_merge($row, $suspended)]), [], fn (PendingCommand $c) => $c->expectsOutputToContain('0 neu, 1 aktualisiert, 0 unverändert'));
+        $this->assertSame('suspended', $this->wpRows($tenant)->sole()->status, 'WP sperrt: der Import folgt');
+        $this->onAdmin(fn () => Entitlement::whereKey($first->id)->update(['status' => 'active']));
+        $this->importEntitlements($this->formatTwo($tenant, [array_merge($row, $suspended)]), [],
+            fn (PendingCommand $c) => $c->expectsOutputToContain('1 Zugänge sind in Laravel gesperrt, widerrufen oder entsperrt und wurden nicht verändert'));
+        $this->assertSame('active', $this->wpRows($tenant)->sole()->status, 'lokale Entsperrung bleibt');
+        $this->importEntitlements($this->formatTwo($tenant, [array_merge($row, ['valid_until' => $suspended['valid_until']])]));
+        $this->assertSame('active', $this->wpRows($tenant)->sole()->status);
+        $this->importEntitlements($this->formatTwo($tenant, [array_merge($row, $suspended)]));
+        $this->assertSame('suspended', $this->wpRows($tenant)->sole()->status, 'neue Sperre in WP gilt wieder');
 
         // Derselbe Quellschlüssel für ein anderes Konto bricht ab.
         $other = $this->createTenantUser($tenant, 'learner');

@@ -150,8 +150,8 @@ class ImportMobileEntitlements extends Command
 
     /**
      * Prüft alle Zeilen vor dem ersten Schreiben und ermittelt je Zeile, was
-     * passiert: new, updated, unchanged oder kept (in Laravel gesperrt bzw.
-     * widerrufen, bleibt so).
+     * passiert: new, updated, unchanged oder kept (in Laravel gesperrt,
+     * widerrufen bzw. entsperrt, bleibt so; siehe changedLocally()).
      *
      * @return list<array<string, mixed>>
      */
@@ -297,15 +297,23 @@ class ImportMobileEntitlements extends Command
     /**
      * In Laravel widerrufen, oder dort (nicht durch den Import) gesperrt und
      * WP meldet aktiv? Dann schaltet der Import den Zugang nicht wieder frei.
+     * Umgekehrt: kam die Sperre aus WP (import_meta.status „suspended“), hat
+     * die Schule sie in Laravel aufgehoben und WP meldet weiter unverändert
+     * „suspended“, bleibt der Zugang aktiv -- die lokale Entsperrung gilt, bis
+     * sich der Status in WP ändert.
      */
     private function changedLocally(Entitlement $existing, string $status): bool
     {
         if ($existing->status === 'revoked') {
             return true;
         }
+        $importedStatus = $existing->import_meta['status'] ?? null;
+        if ($existing->status === 'active' && $status === 'suspended' && $importedStatus === 'suspended') {
+            return true;
+        }
 
         return $existing->status === 'suspended' && $status === 'active'
-            && ($existing->import_meta['status'] ?? null) !== 'suspended';
+            && $importedStatus !== 'suspended';
     }
 
     /** @param list<array<string, mixed>> $records */
@@ -315,7 +323,7 @@ class ImportMobileEntitlements extends Command
         $verb = $dryRun ? 'würden' : 'wurden';
 
         if ($dryRun) {
-            $actions = ['new' => 'neu', 'updated' => 'aktualisieren', 'unchanged' => 'unverändert', 'kept' => 'nicht ändern (in Laravel gesperrt/widerrufen)'];
+            $actions = ['new' => 'neu', 'updated' => 'aktualisieren', 'unchanged' => 'unverändert', 'kept' => 'nicht ändern (in Laravel gesperrt/widerrufen/entsperrt)'];
             $this->table(
                 ['#', 'source_key', 'E-Mail', 'Kurs', 'Funktion', 'Status', 'gültig ab', 'gültig bis', 'Herkunft', 'Aktion'],
                 array_map(fn (array $r) => [
@@ -358,7 +366,7 @@ class ImportMobileEntitlements extends Command
         }
         $kept = $count(fn ($r) => $r['action'] === 'kept');
         if ($kept > 0) {
-            $this->warn("{$kept} Zugänge sind in Laravel gesperrt oder widerrufen und {$verb} nicht verändert.");
+            $this->warn("{$kept} Zugänge sind in Laravel gesperrt, widerrufen oder entsperrt und {$verb} nicht verändert.");
         }
     }
 

@@ -306,18 +306,26 @@
                     <x-icon name="cube" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Willkommensbox
                 </h2>
                 <dl class="text-sm space-y-1.5 mb-3">
-                    <div class="flex justify-between gap-4">
-                        <dt class="text-slate-500 dark:text-slate-400">Straße</dt>
-                        <dd class="text-slate-800 dark:text-slate-200 text-end">{{ $willkommensboxOrder->street }}</dd>
-                    </div>
-                    <div class="flex justify-between gap-4">
-                        <dt class="text-slate-500 dark:text-slate-400">PLZ / Stadt</dt>
-                        <dd class="text-slate-800 dark:text-slate-200 text-end">{{ $willkommensboxOrder->postal_code }} {{ $willkommensboxOrder->city }}</dd>
-                    </div>
-                    <div class="flex justify-between gap-4">
-                        <dt class="text-slate-500 dark:text-slate-400">Land</dt>
-                        <dd class="text-slate-800 dark:text-slate-200 text-end">{{ $willkommensboxOrder->country }}</dd>
-                    </div>
+                    @if ($willkommensboxOrder->addressRemoved())
+                        {{-- Löschfrist nach dem Versand (app:prune-personal-data). --}}
+                        <div class="flex justify-between gap-4">
+                            <dt class="text-slate-500 dark:text-slate-400">Adresse</dt>
+                            <dd class="text-slate-500 dark:text-slate-400 italic text-end">Adresse nach Versand gelöscht (Löschfrist)</dd>
+                        </div>
+                    @else
+                        <div class="flex justify-between gap-4">
+                            <dt class="text-slate-500 dark:text-slate-400">Straße</dt>
+                            <dd class="text-slate-800 dark:text-slate-200 text-end">{{ $willkommensboxOrder->street }}</dd>
+                        </div>
+                        <div class="flex justify-between gap-4">
+                            <dt class="text-slate-500 dark:text-slate-400">PLZ / Stadt</dt>
+                            <dd class="text-slate-800 dark:text-slate-200 text-end">{{ $willkommensboxOrder->postal_code }} {{ $willkommensboxOrder->city }}</dd>
+                        </div>
+                        <div class="flex justify-between gap-4">
+                            <dt class="text-slate-500 dark:text-slate-400">Land</dt>
+                            <dd class="text-slate-800 dark:text-slate-200 text-end">{{ $willkommensboxOrder->country }}</dd>
+                        </div>
+                    @endif
                     @if ($willkommensboxOrder->note)
                         <div class="flex justify-between gap-4">
                             <dt class="text-slate-500 dark:text-slate-400">Notiz</dt>
@@ -330,7 +338,7 @@
                     </div>
                 </dl>
 
-                @if (! empty($willkommensboxLabelSizes))
+                @if (! empty($willkommensboxLabelSizes) && ! $willkommensboxOrder->addressRemoved())
                     <div class="flex flex-wrap items-center gap-2 mb-3">
                         <span class="text-xs text-slate-500 dark:text-slate-400">Versandlabel:</span>
                         @foreach ($willkommensboxLabelSizes as $size)

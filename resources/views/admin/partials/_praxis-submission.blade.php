@@ -13,7 +13,10 @@
         </div>
         <span class="text-xs text-slate-600 dark:text-slate-400 whitespace-nowrap">{{ \App\Support\GermanTime::format($submission->created_at, 'd.m.Y H:i') }}</span>
     </div>
-    @if (! $submission->isPracticeOnly() && $submission->template && ! empty($submission->template->fields))
+    @if ($submission->answersRemovedOn())
+        {{-- Löschkonzept Nr. 16: Formularangaben nach der Speicherfrist entfernt (app:prune-personal-data). --}}
+        <p class="text-sm text-slate-500 dark:text-slate-400 italic border-t border-slate-100 dark:border-slate-700 pt-2">Angaben am {{ $submission->answersRemovedOn() }} nach Ablauf der Speicherfrist entfernt.</p>
+    @elseif (! $submission->isPracticeOnly() && $submission->template && ! empty($submission->template->fields))
         <dl class="divide-y divide-slate-100 dark:divide-slate-700 border-t border-slate-100 dark:border-slate-700 text-sm">
             @foreach ($submission->template->fields as $field)
                 <div class="py-2 grid grid-cols-2 gap-4">

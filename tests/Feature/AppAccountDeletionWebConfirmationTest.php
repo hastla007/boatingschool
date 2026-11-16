@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\AppLinkAssociationController;
 use App\Models\ApiAccountDeletionRequest;
 use App\Models\AuditLog;
 use App\Models\Favorite;
@@ -288,14 +289,9 @@ class AppAccountDeletionWebConfirmationTest extends MobileApiTestCase
             ->assertHeader('Content-Type', 'application/json')
             ->assertExactJson(['applinks' => ['details' => [[
                 'appIDs' => ['ABCDE12345.de.example.app', 'ABCDE12345.de.example.beta'],
+                // Standard: nur die Kontolöschung -- die kann jede veröffentlichte App-Version.
                 'components' => [
                     ['/' => '/app/konto-loeschen', 'comment' => 'Bestätigung der Kontolöschung'],
-                    ['/' => '/reset-password/*', 'comment' => 'Passwort festlegen oder zurücksetzen'],
-                    ['/' => '/*/reset-password/*', 'comment' => 'Passwort festlegen oder zurücksetzen (Pfad-Modus /<slug>/…)'],
-                    ['/' => '/invitations/*/accept/*', 'comment' => 'Einladung annehmen'],
-                    ['/' => '/*/invitations/*/accept/*', 'comment' => 'Einladung annehmen (Pfad-Modus /<slug>/…)'],
-                    ['/' => '/verify-email/*/*', 'comment' => 'E-Mail-Adresse bestätigen'],
-                    ['/' => '/*/verify-email/*/*', 'comment' => 'E-Mail-Adresse bestätigen (Pfad-Modus /<slug>/…)'],
                 ],
             ]]]]);
         $this->get('/.well-known/assetlinks.json')->assertOk()->assertExactJson([[
@@ -309,9 +305,34 @@ class AppAccountDeletionWebConfirmationTest extends MobileApiTestCase
         $this->get('http://'.$tenant->slug.'.localhost/.well-known/assetlinks.json')->assertNotFound();
     }
 
-    public function test_the_default_app_link_paths_match_the_links_in_the_mails(): void
+    public function test_the_recommended_app_link_paths_are_documented(): void
     {
-        config(['mobile_api.app_links.ios_app_ids' => 'ABCDE12345.de.example.app']);
+        $value = AppLinkAssociationController::recommendedPathsValue();
+        $this->assertSame('/app/konto-loeschen,/reset-password/*,/invitations/*/accept/*,/verify-email/*/*', $value);
+        $this->assertStringContainsString('MOBILE_API_APP_LINK_PATHS='.$value, file_get_contents(base_path('deploy/README.md')));
+        $this->assertStringContainsString('MOBILE_API_APP_LINK_PATHS='.$value, file_get_contents(base_path('.env.example')));
+        $this->assertStringContainsString('`'.$value.'`', file_get_contents(base_path('docs/api/README.md')));
+    }
+
+    public function test_the_recommended_app_link_paths_match_the_links_in_the_mails(): void
+    {
+        config([
+            'mobile_api.app_links.ios_app_ids' => 'ABCDE12345.de.example.app',
+            'mobile_api.app_links.paths' => AppLinkAssociationController::recommendedPathsValue(),
+        ]);
+        $this->get('/.well-known/apple-app-site-association')->assertOk()
+            ->assertExactJson(['applinks' => ['details' => [[
+                'appIDs' => ['ABCDE12345.de.example.app'],
+                'components' => [
+                    ['/' => '/app/konto-loeschen', 'comment' => 'Bestätigung der Kontolöschung'],
+                    ['/' => '/reset-password/*', 'comment' => 'Passwort festlegen oder zurücksetzen'],
+                    ['/' => '/*/reset-password/*', 'comment' => 'Passwort festlegen oder zurücksetzen (Pfad-Modus /<slug>/…)'],
+                    ['/' => '/invitations/*/accept/*', 'comment' => 'Einladung annehmen'],
+                    ['/' => '/*/invitations/*/accept/*', 'comment' => 'Einladung annehmen (Pfad-Modus /<slug>/…)'],
+                    ['/' => '/verify-email/*/*', 'comment' => 'E-Mail-Adresse bestätigen'],
+                    ['/' => '/*/verify-email/*/*', 'comment' => 'E-Mail-Adresse bestätigen (Pfad-Modus /<slug>/…)'],
+                ],
+            ]]]]);
         $patterns = collect($this->get('/.well-known/apple-app-site-association')->assertOk()->json('applinks.details.0.components'))->pluck('/');
         $tenant = $this->createTestTenant();
         $user = $this->createTenantUser($tenant, 'learner');
@@ -335,7 +356,7 @@ class AppAccountDeletionWebConfirmationTest extends MobileApiTestCase
     {
         config([
             'mobile_api.app_links.ios_app_ids' => 'ABCDE12345.de.example.app',
-            'mobile_api.app_links.paths' => ' /app/konto-loeschen , reset-password/* ,',
+            'mobile_api.app_links.paths' => ' /app/konto-loeschen , reset-password/* ,eigene/*',
         ]);
 
         $this->get('/.well-known/apple-app-site-association')->assertOk()
@@ -343,8 +364,10 @@ class AppAccountDeletionWebConfirmationTest extends MobileApiTestCase
                 'appIDs' => ['ABCDE12345.de.example.app'],
                 'components' => [
                     ['/' => '/app/konto-loeschen', 'comment' => 'Bestätigung der Kontolöschung'],
-                    ['/' => '/reset-password/*', 'comment' => 'Link aus einer Mail'],
-                    ['/' => '/*/reset-password/*', 'comment' => 'Link aus einer Mail (Pfad-Modus /<slug>/…)'],
+                    ['/' => '/reset-password/*', 'comment' => 'Passwort festlegen oder zurücksetzen'],
+                    ['/' => '/*/reset-password/*', 'comment' => 'Passwort festlegen oder zurücksetzen (Pfad-Modus /<slug>/…)'],
+                    ['/' => '/eigene/*', 'comment' => 'Link aus einer Mail'],
+                    ['/' => '/*/eigene/*', 'comment' => 'Link aus einer Mail (Pfad-Modus /<slug>/…)'],
                 ],
             ]]]]);
     }
@@ -359,6 +382,10 @@ class AppAccountDeletionWebConfirmationTest extends MobileApiTestCase
         ]);
         $tenant = $this->createTestTenant();
         $this->onAdmin(fn () => DB::table('tenant_branding')->where('tenant_id', $tenant->id)->update(['custom_domain' => 'schule-'.$tenant->slug.'.example.test']));
+
+        // Standard (nur Kontolöschung): auf der Schul-Subdomain gibt es nichts zu öffnen.
+        $this->get('http://'.$tenant->slug.'.localhost/.well-known/apple-app-site-association')->assertNotFound();
+        config(['mobile_api.app_links.paths' => AppLinkAssociationController::recommendedPathsValue()]);
 
         $patterns = collect($this->get('http://'.$tenant->slug.'.localhost/.well-known/apple-app-site-association')->assertOk()
             ->json('applinks.details.0.components'))->pluck('/');

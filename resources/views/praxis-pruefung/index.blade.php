@@ -57,7 +57,10 @@
                 <h2 class="font-semibold text-lg text-slate-800 dark:text-white">Deine Anmeldung ist eingegangen.</h2>
                 <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Deine Bootsschule hat deine Angaben erhalten und meldet dich bei der Prüfungskommission an.</p>
             </div>
-            @if (! empty($template->fields))
+            @if ($submission->answersRemovedOn())
+                {{-- Löschkonzept Nr. 16: Formularangaben nach der Speicherfrist entfernt. --}}
+                <p class="text-sm text-slate-500 dark:text-slate-400 italic border-t border-b border-slate-100 dark:border-slate-700 py-2.5">Angaben am {{ $submission->answersRemovedOn() }} nach Ablauf der Speicherfrist entfernt.</p>
+            @elseif (! empty($template->fields))
                 <dl class="divide-y divide-slate-100 dark:divide-slate-700 border-t border-b border-slate-100 dark:border-slate-700">
                     @foreach ($template->fields as $field)
                         <div class="py-2.5 grid grid-cols-2 gap-4 text-sm">

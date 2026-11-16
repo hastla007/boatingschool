@@ -22,10 +22,7 @@
                         <tr class="border-t border-slate-100 dark:border-slate-700">
                             <td class="py-2 pr-4 text-slate-700 dark:text-slate-200">
                                 {{ $member->user->name }}{{ $member->user_id === auth()->id() ? ' (Sie)' : '' }}
-                                @if ($member->user->status === 'invited')
-                                    {{-- Audit SEC-W-3: wie eine offene Einladung an ein bestehendes Konto. --}}
-                                    <span class="ml-1 text-xs rounded-full px-1.5 py-0.5 bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">Einladung offen</span>
-                                @elseif ($member->user->hasTwoFactor())
+                                @if ($member->user->hasTwoFactor())
                                     <span class="ml-1 text-xs rounded-full px-1.5 py-0.5 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200" title="Zwei-Faktor-Anmeldung aktiv">2FA</span>
                                 @else
                                     <span class="ml-1 text-xs rounded-full px-1.5 py-0.5 {{ $currentTenant->branding?->require_team_two_factor ? 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200' : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300' }}" title="Zwei-Faktor-Anmeldung nicht eingerichtet">ohne 2FA</span>
@@ -83,6 +80,11 @@
                             <td class="py-2 text-xs">wartet auf Bestätigung</td>
                         </tr>
                     @endforeach
+                    @if (($pendingTeamInvitationsTotal ?? 0) > $pendingTeamInvitations->count())
+                        <tr class="border-t border-slate-100 dark:border-slate-700 text-slate-500 dark:text-slate-400">
+                            <td colspan="4" class="py-2 text-xs">… und {{ $pendingTeamInvitationsTotal - $pendingTeamInvitations->count() }} weitere offene Team-Einladungen</td>
+                        </tr>
+                    @endif
                 </tbody>
             </table>
         </div>
@@ -212,7 +214,7 @@
      erscheinen bis zur Annahme gleich (siehe ParticipantFilters::withoutOpenInvitations). --}}
 @if ($openInvitations->isNotEmpty())
 <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 mb-6">
-    <h2 class="font-medium text-slate-700 dark:text-slate-200 mb-2">Offene Einladungen ({{ $openInvitations->count() }})</h2>
+    <h2 class="font-medium text-slate-700 dark:text-slate-200 mb-2">Offene Einladungen ({{ max($openInvitationsTotal ?? 0, $openInvitations->count()) }})</h2>
     <div tabindex="0" role="region" aria-label="Tabelle: Offene Einladungen (seitlich scrollbar)" class="overflow-x-auto">
     <table class="w-full text-sm">
         <thead class="text-slate-500 dark:text-slate-300 text-left">
@@ -243,6 +245,9 @@
         </tbody>
     </table>
     </div>
+    @if (($openInvitationsTotal ?? 0) > $openInvitations->count())
+        <p class="mt-2 text-xs text-slate-600 dark:text-slate-400">… und {{ $openInvitationsTotal - $openInvitations->count() }} weitere offene Einladungen (die neuesten {{ $openInvitations->count() }} sind oben aufgeführt).</p>
+    @endif
 </div>
 @endif
 
