@@ -47,6 +47,8 @@ class AuditLogController extends Controller
         }
 
         $entries = $query->paginate(50)->withQueryString();
+        // Lesbare Texte (AuditLog::description()) ohne Einzelabfragen je Zeile.
+        AuditLog::preloadFor($entries->getCollection());
         $actors = User::whereIn('id', $entries->pluck('actor_user_id')->filter()->unique())->get(['id', 'email', 'display_name'])->keyBy('id');
         $tenants = Tenant::orderBy('name')->get(['id', 'name']);
 

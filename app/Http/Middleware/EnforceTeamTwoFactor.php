@@ -35,7 +35,8 @@ class EnforceTeamTwoFactor
             return $next($request);
         }
 
+        // Nur Team-Rollen kommen hier an: siezen wie der Admin-Bereich.
         return redirect()->route('two-factor.show')
-            ->with('status', 'Deine Bootsschule verlangt für das Team die Zwei-Faktor-Anmeldung. Bitte richte sie jetzt ein.');
+            ->with('status', 'Ihre Bootsschule verlangt für das Team die Zwei-Faktor-Anmeldung. Bitte richten Sie sie jetzt ein.');
     }
 }

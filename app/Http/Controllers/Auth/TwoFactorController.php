@@ -43,6 +43,8 @@ class TwoFactorController extends Controller
         $pending = ! $user->hasTwoFactor() && $user->two_factor_secret && ! Impersonation::active($request);
 
         return view('auth.two-factor', [
+            // Team und Superadmin siezen, Teilnehmer duzen (wie die Kontomails).
+            'formal' => $user->prefersFormalAddress(),
             'enabled' => $user->hasTwoFactor(),
             'pendingSecret' => $pending ? $user->two_factor_secret : null,
             'qrSvg' => $pending ? $this->qrSvg($user) : null,
@@ -104,7 +106,7 @@ class TwoFactorController extends Controller
             ->where('tenant_user.user_id', $user->id)->where('tenant_user.status', 'active')->where('tenant_user.role', '!=', 'learner')
             ->where('tenant_branding.require_team_two_factor', true)->exists();
         if ($required) {
-            return back()->withErrors(['password' => 'Deine Bootsschule verlangt die Zwei-Faktor-Anmeldung für das Team; sie lässt sich deshalb nicht abschalten.']);
+            return back()->withErrors(['password' => 'Ihre Bootsschule verlangt die Zwei-Faktor-Anmeldung für das Team; sie lässt sich deshalb nicht abschalten.']);
         }
 
         if ($user->hasTwoFactor()) {
@@ -134,11 +136,12 @@ class TwoFactorController extends Controller
 
     public function challenge(Request $request): View|RedirectResponse
     {
-        if (! $this->pendingUser($request)) {
+        $user = $this->pendingUser($request);
+        if (! $user) {
             return redirect()->route('login');
         }
 
-        return view('auth.two-factor-challenge');
+        return view('auth.two-factor-challenge', ['formal' => $user->prefersFormalAddress()]);
     }
 
     public function verify(Request $request, TenantContext $tenantContext, AuthenticatedSessionController $sessions): RedirectResponse

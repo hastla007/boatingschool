@@ -1,7 +1,7 @@
 {{-- Zwei-Faktor-Anmeldung: Code aus der Authenticator-App nach dem Passwort (TwoFactorController). --}}
 <x-guest-layout>
     <h2 class="text-xl font-bold text-slate-800 dark:text-white mb-1">Bestätigungscode</h2>
-    <p class="text-sm text-slate-600 dark:text-slate-400 mb-6">Gib den 6-stelligen Code aus deiner Authenticator-App ein.</p>
+    <p class="text-sm text-slate-600 dark:text-slate-400 mb-6">{{ ($formal ?? false) ? 'Geben Sie den 6-stelligen Code aus Ihrer Authenticator-App ein.' : 'Gib den 6-stelligen Code aus deiner Authenticator-App ein.' }}</p>
 
     <form method="POST" action="{{ url('two-factor-challenge') }}" class="space-y-4" x-data="{ recovery: false }">
         @csrf

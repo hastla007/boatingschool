@@ -330,6 +330,31 @@ class AdminLearningGroupTest extends TestCase
         $this->assertCount(0, $this->audit($tenant, 'learning_group.update'));
     }
 
+    /** Eingeladene, noch nicht aktivierte Konten (app_user.status „invited“) sind kein Verwalter. */
+    public function test_invited_accounts_are_neither_offered_nor_accepted_as_manager(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'admin');
+        $manager = $this->createTenantUser($tenant, 'learner', ['display_name' => 'Aktiver Albert']);
+        $invited = $this->createTenantUser($tenant, 'learner', ['display_name' => 'Eingeladene Inge']);
+        $this->onAdmin(fn () => User::whereKey($invited->id)->update(['status' => 'invited']));
+        $group = $this->group($tenant, $manager);
+
+        $this->actingAsInTenant($admin, $tenant)->get(route('admin.learning-groups.create'))->assertOk()
+            ->assertSee('Aktiver Albert')->assertDontSee('Eingeladene Inge');
+        $this->actingAsInTenant($admin, $tenant)->get(route('admin.learning-groups.show', $group))->assertOk()
+            ->assertSee('Aktiver Albert')->assertDontSee('Eingeladene Inge');
+
+        $this->actingAsInTenant($admin, $tenant)->post(route('admin.learning-groups.store'), [
+            'name' => 'Neue Gruppe', 'owner_user_id' => $invited->id, 'seats' => 2, 'courses' => ['SRC' => 'course'],
+        ])->assertSessionHasErrors(['owner_user_id' => 'Der Verwalter muss aktiver Teilnehmer dieser Schule sein.']);
+        $this->actingAsInTenant($admin, $tenant)->patch(route('admin.learning-groups.update', $group), [
+            'name' => 'Segelverein', 'seats' => 3, 'valid_until' => $group->valid_until->timezone('Europe/Berlin')->toDateString(), 'owner_user_id' => $invited->id,
+        ])->assertSessionHasErrors(['owner_user_id' => 'Der Verwalter muss aktiver Teilnehmer dieser Schule sein.']);
+        $this->assertSame($manager->id, $this->fresh($group)->owner_user_id);
+        $this->assertSame(1, $this->onAdmin(fn () => LearningGroup::where('tenant_id', $tenant->id)->count()));
+    }
+
     public function test_revoking_ends_all_group_access_and_is_logged(): void
     {
         $tenant = $this->createTestTenant();

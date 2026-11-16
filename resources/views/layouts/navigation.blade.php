@@ -16,11 +16,11 @@
                     {{-- Bug-Review Oberfläche U4: das Logo erschien bisher
                          nur auf der Kursseite, nicht in der Navigation. --}}
                     @if (isset($branding) && $branding->logo_asset_id && $branding->logoAsset)
-                        <img src="{{ $branding->logoAsset->storage_path }}" alt="{{ $currentTenant->name ?? config('app.name') }} Logo" class="w-7 h-7 object-contain rounded shrink-0">
+                        <img src="{{ $branding->logoAsset->storage_path }}" alt="{{ $currentTenant->name ?? \App\Models\PlatformSetting::siteName() }} Logo" class="w-7 h-7 object-contain rounded shrink-0">
                     @else
                         <x-icon name="anchor" class="w-5 h-5" style="color: var(--brand-primary, #005FD7)" />
                     @endif
-                    <span class="font-bold text-slate-800 dark:text-white">{{ $currentTenant->name ?? config('app.name') }}</span>
+                    <span class="font-bold text-slate-800 dark:text-white">{{ $currentTenant->name ?? \App\Models\PlatformSetting::siteName() }}</span>
                 </a>
 
                 <div class="hidden lg:flex lg:ms-16 lg:space-x-1">

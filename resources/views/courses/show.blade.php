@@ -164,14 +164,17 @@
                 @foreach ($comboVideoGroups as $group)
                     <a href="{{ route('video.index', $course) }}?kapitel={{ $group['moduleIds']->implode(',') }}" class="relative rounded-2xl p-5 text-white overflow-hidden hover:opacity-95 transition"
                        style="background: linear-gradient(135deg, color-mix(in srgb, {{ $loop->first ? 'var(--brand-primary, #005FD7)' : 'var(--brand-secondary, #007A7A)' }} 90%, #001233), color-mix(in srgb, {{ $loop->first ? 'var(--brand-primary, #005FD7)' : 'var(--brand-secondary, #007A7A)' }} 45%, #001233));">
-                        <svg aria-hidden="true" focusable="false" class="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 800 200" preserveAspectRatio="xMidYMid slice" fill="none">
+                        {{-- Motiv (Kompass usw.) rechts verankert (xMaxYMid): mit xMidYMid wurde
+                             bei höheren Karten rechts beschnitten -- das „O“ der Kompassrose fehlte.
+                             Unter sm ausgeblendet, damit es nicht hinter dem Text liegt. --}}
+                        <svg aria-hidden="true" focusable="false" class="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 800 200" preserveAspectRatio="xMaxYMid slice" fill="none">
                             <path d="M-20,38 C130,20 280,55 430,35 S730,18 820,32" stroke="white" stroke-opacity="0.08" stroke-width="1.5" />
                             <path d="M-20,94 C140,110 300,75 460,97 S740,118 820,100" stroke="white" stroke-opacity="0.07" stroke-width="1.5" />
                             <path d="M-20,156 C160,140 320,168 480,150 S760,134 820,153" stroke="white" stroke-opacity="0.06" stroke-width="1.5" />
                             <text x="565" y="30" fill="white" fill-opacity="0.16" font-size="14" font-family="sans-serif">12</text>
                             <text x="565" y="175" fill="white" fill-opacity="0.14" font-size="14" font-family="sans-serif">28</text>
                             @if ($group['motif'] === 'antenna')
-                                <g transform="translate(680,100)" stroke="white" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                <g class="hidden sm:inline" transform="translate(680,100)" stroke="white" fill="none" stroke-linecap="round" stroke-linejoin="round">
                                     <circle r="58" stroke-opacity="0.10" />
                                     <path d="M0,-30 L-26,52 M0,-30 L26,52 M-16,20 L16,20 M-9,-2 L9,-2 M-21,36 L21,36" stroke-opacity="0.20" stroke-width="2" />
                                     <circle cy="-36" r="6" stroke-opacity="0.22" stroke-width="2" />
@@ -179,7 +182,7 @@
                                     <path d="M-34,-64 A44,44 0 0,0 -34,-8 M34,-64 A44,44 0 0,1 34,-8" stroke-opacity="0.12" stroke-width="2" />
                                 </g>
                             @elseif ($group['motif'] === 'radio')
-                                <g transform="translate(680,100)" stroke="white" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                                <g class="hidden sm:inline" transform="translate(680,100)" stroke="white" fill="none" stroke-linecap="round" stroke-linejoin="round">
                                     <circle r="58" stroke-opacity="0.10" />
                                     <rect x="-20" y="-30" width="40" height="78" rx="8" stroke-opacity="0.20" stroke-width="2" />
                                     <path d="M10,-30 L10,-62" stroke-opacity="0.20" stroke-width="3" />
@@ -187,7 +190,7 @@
                                     <path d="M-10,8 L10,8 M-10,18 L10,18 M-10,28 L10,28 M-10,38 L10,38" stroke-opacity="0.16" stroke-width="2" />
                                 </g>
                             @elseif ($group['motif'] === 'compass')
-                                <g transform="translate(680,100)" stroke="white">
+                                <g class="hidden sm:inline" transform="translate(680,100)" stroke="white">
                                     <circle r="58" stroke-opacity="0.10" fill="none" />
                                     <circle r="44" stroke-opacity="0.13" fill="none" />
                                     <path d="M0,-44 L8,-8 L44,0 L8,8 L0,44 L-8,8 L-44,0 L-8,-8 Z" fill="white" fill-opacity="0.11" stroke="none" />
@@ -197,7 +200,7 @@
                                     <text x="69" y="4" fill="white" fill-opacity="0.20" font-size="12" font-family="sans-serif" text-anchor="middle">O</text>
                                 </g>
                             @else
-                                <g transform="translate(680,100)" stroke="white" fill="none" stroke-linecap="round">
+                                <g class="hidden sm:inline" transform="translate(680,100)" stroke="white" fill="none" stroke-linecap="round">
                                     <circle r="58" stroke-opacity="0.10" />
                                     <circle cy="-52" r="10" stroke-opacity="0.20" stroke-width="2" />
                                     <path d="M0,-42 L0,38" stroke-opacity="0.20" stroke-width="2" />
@@ -225,13 +228,13 @@
         @elseif ($hasVideoCourse)
             <a href="{{ route('video.index', $course) }}" class="relative rounded-2xl p-6 text-white overflow-hidden hover:opacity-95 transition"
                style="background: linear-gradient(135deg, color-mix(in srgb, var(--brand-primary, #005FD7) 90%, #001233), color-mix(in srgb, var(--brand-primary, #005FD7) 45%, #001233));">
-                <svg aria-hidden="true" focusable="false" class="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 800 200" preserveAspectRatio="xMidYMid slice" fill="none">
+                <svg aria-hidden="true" focusable="false" class="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 800 200" preserveAspectRatio="xMaxYMid slice" fill="none">
                     <path d="M-20,38 C130,20 280,55 430,35 S730,18 820,32" stroke="white" stroke-opacity="0.08" stroke-width="1.5" />
                     <path d="M-20,94 C140,110 300,75 460,97 S740,118 820,100" stroke="white" stroke-opacity="0.07" stroke-width="1.5" />
                     <path d="M-20,156 C160,140 320,168 480,150 S760,134 820,153" stroke="white" stroke-opacity="0.06" stroke-width="1.5" />
                     <text x="565" y="30" fill="white" fill-opacity="0.16" font-size="14" font-family="sans-serif">12</text>
                     <text x="565" y="175" fill="white" fill-opacity="0.14" font-size="14" font-family="sans-serif">28</text>
-                    <g transform="translate(680,100)" stroke="white">
+                    <g class="hidden sm:inline" transform="translate(680,100)" stroke="white">
                         <circle r="58" stroke-opacity="0.10" fill="none" />
                         <circle r="44" stroke-opacity="0.13" fill="none" />
                         <path d="M0,-44 L8,-8 L44,0 L8,8 L0,44 L-8,8 L-44,0 L-8,-8 Z" fill="white" fill-opacity="0.11" stroke="none" />
@@ -555,24 +558,7 @@
             <h2 class="font-semibold text-slate-800 dark:text-white text-lg">Lerne auch auf deinem Handy!</h2>
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Mit der App lernst du unterwegs, wo und wann du willst.</p>
         </div>
-        <div class="flex items-center gap-3 shrink-0">
-            @if ($appStoreUrls['ios'])
-            <a href="{{ $appStoreUrls['ios'] }}" target="_blank" rel="noopener" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 text-white hover:opacity-90 whitespace-nowrap">
-                <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" class="w-5 h-5 shrink-0" fill="currentColor">
-                    <path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zm3.415-3.132c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.702" />
-                </svg>
-                <span class="text-sm font-semibold">App Store</span>
-            </a>
-            @endif
-            @if ($appStoreUrls['android'])
-            <a href="{{ $appStoreUrls['android'] }}" target="_blank" rel="noopener" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 text-white hover:opacity-90 whitespace-nowrap">
-                <svg aria-hidden="true" focusable="false" viewBox="0 0 24 24" class="w-5 h-5 shrink-0" fill="currentColor">
-                    <path d="M3.609 1.814L13.792 12 3.61 22.186a1.5 1.5 0 01-.79-1.317V3.13a1.5 1.5 0 01.79-1.316zm10.831 10.831l2.86 2.86-11.86 6.803a1.501 1.501 0 01-.451.166zm4.05-4.05l3.144 1.813c.72.417.72 1.46 0 1.876l-3.144 1.813-3.14-3.14zm-14.02-6.782a1.501 1.501 0 01.45.166l11.86 6.802-2.85 2.851z" />
-                </svg>
-                <span class="text-sm font-semibold">Google Play</span>
-            </a>
-            @endif
-        </div>
+        @include('partials.app-store-buttons')
     </div>
     @endif
 </x-app-layout>

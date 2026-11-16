@@ -139,7 +139,7 @@
                 <table class="w-full text-sm">
                     <thead class="text-slate-600 dark:text-slate-400 text-left">
                         <tr>
-                            <th class="py-1 w-6"></th>
+                            <th class="py-1 w-6"><span class="sr-only">Auswahl</span></th>
                             <th class="py-1">Code</th>
                             <th class="py-1">Typ</th>
                             <th class="py-1">Kurs / Produkt</th>
@@ -153,7 +153,7 @@
                         @forelse ($coupons as $coupon)
                             <tr class="border-t border-slate-100 dark:border-slate-700">
                                 <td class="py-1.5">
-                                    <input type="checkbox" name="ids[]" value="{{ $coupon->id }}" class="coupon-row-checkbox" @change="couponExport.updateButton()">
+                                    <input type="checkbox" name="ids[]" value="{{ $coupon->id }}" aria-label="Code {{ $coupon->code }} auswählen" class="coupon-row-checkbox" @change="couponExport.updateButton()">
                                 </td>
                                 <td class="py-1.5 font-mono text-xs">{{ $coupon->code }}</td>
                                 <td class="py-1.5 text-slate-500 dark:text-slate-400">

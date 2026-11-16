@@ -231,6 +231,9 @@ class ResolveTenant
             || $request->is('two-factor') || $request->is('two-factor/*') || $request->is('two-factor-challenge')
             || $request->is('forgot-password') || $request->is('reset-password') || $request->is('reset-password/*')
             || $request->is('verify-email') || $request->is('verify-email/*') || $request->is('email/verification-notification')
+            // Beitrittslink einer Lerngruppe: Hinweisseite ohne Schuldaten
+            // (der Link zeigt auf die zentrale Domain, LearningGroupLinkController).
+            || $request->is('gruppe/*')
             || $this->isSuperadminRoute($request);
     }
 

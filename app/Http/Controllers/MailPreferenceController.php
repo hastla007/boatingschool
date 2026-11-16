@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\AuditLog;
 use App\Models\User;
 use App\Support\MailPreferences;
-use App\Support\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -18,7 +17,7 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class MailPreferenceController extends Controller
 {
-    public function update(Request $request, TenantContext $tenantContext): RedirectResponse
+    public function update(Request $request): RedirectResponse
     {
         $request->validate(collect(MailPreferences::CATEGORIES)->mapWithKeys(fn ($label, $category) => [$category => ['sometimes', 'boolean']])->all());
         $wanted = collect(MailPreferences::CATEGORIES)->mapWithKeys(fn ($label, $category) => [$category => $request->boolean($category)])->all();
@@ -26,7 +25,7 @@ class MailPreferenceController extends Controller
         $user = $request->user();
         $before = MailPreferences::forUser($user);
         MailPreferences::apply($user, $wanted)->save();
-        AuditLog::record($tenantContext->id(), $user->id, 'profile.mail_preferences', 'app_user', $user->id, $before, $wanted);
+        AuditLog::recordPersonalSetting($user->id, 'profile.mail_preferences', $before, $wanted);
 
         return redirect()->route('profile.edit')->with('status', 'mail-preferences-updated');
     }
@@ -58,7 +57,7 @@ class MailPreferenceController extends Controller
             // Owner-Verbindung ändern; die Signatur des Links belegt, dass
             // er aus einer Mail an genau dieses Konto stammt.
             MailPreferences::apply($account, [$category => false])->save();
-            AuditLog::record(app(TenantContext::class)->id(), $account->id, 'mail.unsubscribe', 'app_user', $account->id, null, ['category' => $category]);
+            AuditLog::recordPersonalSetting($account->id, 'mail.unsubscribe', null, ['category' => $category]);
         }
 
         return response()->view('mail-preferences.unsubscribe', [
