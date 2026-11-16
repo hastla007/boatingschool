@@ -17,8 +17,11 @@ $width = match ($width) {
      ein Screenreader braucht, um es als Menü statt als beliebigen Text zu
      erkennen (role="menu" hier, role="menuitem" je Eintrag siehe
      dropdown-link.blade.php), und schloss sich nicht per Escape. --}}
-<div class="relative" x-data="{ open: false }" @click.outside="open = false" @close.stop="open = false" @keydown.escape.window="open = false">
-    <div @click="open = ! open">
+{{-- Escape schließt das Menü und gibt den Fokus an den Auslöser zurück
+     (WCAG 2.4.3), statt ihn im ausgeblendeten Menü zu lassen. --}}
+<div class="relative" x-data="{ open: false }" @click.outside="open = false" @close.stop="open = false"
+     @keydown.escape.window="if (open) { open = false; $refs.trigger.querySelector('button, a')?.focus(); }">
+    <div x-ref="trigger" @click="open = ! open">
         {{ $trigger }}
     </div>
 

@@ -19,8 +19,8 @@
             @method('PATCH')
             <div class="sm:col-span-2">
                 <x-input-label for="module-name" value="Name" />
-                <x-text-input id="module-name" name="name" type="text" class="mt-1 block w-full" :value="old('name', $module->name)" required />
-                <x-input-error :messages="$errors->get('name')" class="mt-1" />
+                <x-text-input :invalid="$errors->has('name')" id="module-name" name="name" type="text" class="mt-1 block w-full" :value="old('name', $module->name)" required />
+                <x-input-error for="module-name" :messages="$errors->get('name')" class="mt-1" />
             </div>
             <div>
                 <x-input-label for="module-version" value="Version / Stand" />

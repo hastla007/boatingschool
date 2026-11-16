@@ -7,7 +7,7 @@
         <div class="w-14 h-14 rounded-full bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center mx-auto mb-4">
             <x-icon name="check-circle" class="w-7 h-7 text-emerald-500" />
         </div>
-        <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-1">Keine Fragen in diesem Modus verfügbar</h3>
+        <h2 class="font-medium text-slate-700 dark:text-slate-200 mb-1">Keine Fragen in diesem Modus verfügbar</h2>
         <p class="text-sm text-slate-600 dark:text-slate-400 mb-4">
             @switch($mode)
                 @case('new') Du hast bereits alle Fragen dieses Kurses gesehen. @break

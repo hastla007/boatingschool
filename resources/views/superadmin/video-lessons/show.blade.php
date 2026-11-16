@@ -25,18 +25,18 @@
                 @method('PATCH')
                 <div>
                     <x-input-label for="title" value="Titel" />
-                    <x-text-input id="title" name="title" type="text" class="mt-1 block w-full" :value="old('title', $lesson->title)" required maxlength="200" />
-                    <x-input-error :messages="$errors->get('title')" class="mt-1" />
+                    <x-text-input :invalid="$errors->has('title')" id="title" name="title" type="text" class="mt-1 block w-full" :value="old('title', $lesson->title)" required maxlength="200" />
+                    <x-input-error for="title" :messages="$errors->get('title')" class="mt-1" />
                 </div>
                 <div>
                     <x-input-label for="video_url" value="Video-URL (https, direkt abspielbare Datei, z. B. MP4)" />
-                    <x-text-input id="video_url" name="video_url" type="url" class="mt-1 block w-full" :value="old('video_url', $lesson->video_url)" required maxlength="2048" placeholder="https://" />
-                    <x-input-error :messages="$errors->get('video_url')" class="mt-1" />
+                    <x-text-input :invalid="$errors->has('video_url')" id="video_url" name="video_url" type="url" class="mt-1 block w-full" :value="old('video_url', $lesson->video_url)" required maxlength="2048" placeholder="https://" />
+                    <x-input-error for="video_url" :messages="$errors->get('video_url')" class="mt-1" />
                 </div>
                 <div>
                     <x-input-label for="duration" value="Dauer (Minuten:Sekunden, optional)" />
-                    <x-text-input id="duration" name="duration" type="text" class="mt-1 block w-32" :value="old('duration', $lesson->formattedDuration())" placeholder="4:30" />
-                    <x-input-error :messages="$errors->get('duration')" class="mt-1" />
+                    <x-text-input :invalid="$errors->has('duration')" id="duration" name="duration" type="text" class="mt-1 block w-32" :value="old('duration', $lesson->formattedDuration())" placeholder="4:30" />
+                    <x-input-error for="duration" :messages="$errors->get('duration')" class="mt-1" />
                 </div>
                 @if ($copies->isNotEmpty())
                     <div class="pt-2 border-t border-slate-100 dark:border-slate-700">

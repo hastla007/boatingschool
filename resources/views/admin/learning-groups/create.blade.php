@@ -1,6 +1,6 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Neue Lerngruppe</h2>
+        <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Neue Lerngruppe</h1>
     </x-slot>
 
     <a href="{{ route('admin.dashboard', ['tab' => 'learning-groups']) }}" class="text-sm text-slate-600 dark:text-slate-400 hover:underline">&larr; Zurück zu den Lerngruppen</a>
@@ -21,8 +21,8 @@
         </p>
         <div>
             <x-input-label for="name" value="Name" />
-            <x-text-input id="name" name="name" type="text" maxlength="{{ \App\Services\LearningGroupService::MAX_NAME_LENGTH }}" class="mt-1 block w-full" :value="old('name')" required placeholder="z. B. Segelverein Musterstadt" />
-            <x-input-error :messages="$errors->get('name')" class="mt-1" />
+            <x-text-input :invalid="$errors->has('name')" id="name" name="name" type="text" maxlength="{{ \App\Services\LearningGroupService::MAX_NAME_LENGTH }}" class="mt-1 block w-full" :value="old('name')" required placeholder="z. B. Segelverein Musterstadt" />
+            <x-input-error for="name" :messages="$errors->get('name')" class="mt-1" />
         </div>
         <div>
             <x-input-label for="owner_user_id" value="Verwalter (aktiver Teilnehmer)" />
@@ -40,8 +40,8 @@
         <div class="grid sm:grid-cols-2 gap-3">
             <div>
                 <x-input-label for="seats" value="Plätze" />
-                <x-text-input id="seats" name="seats" type="number" min="1" max="{{ \App\Services\LearningGroupService::MAX_SEATS }}" class="mt-1 block w-full" :value="old('seats')" required x-model.number="seats" />
-                <x-input-error :messages="$errors->get('seats')" class="mt-1" />
+                <x-text-input :invalid="$errors->has('seats')" id="seats" name="seats" type="number" min="1" max="{{ \App\Services\LearningGroupService::MAX_SEATS }}" class="mt-1 block w-full" :value="old('seats')" required x-model.number="seats" />
+                <x-input-error for="seats" :messages="$errors->get('seats')" class="mt-1" />
             </div>
             <div>
                 <x-input-label for="valid_until" value="Gültig bis (leer = unbefristet)" />

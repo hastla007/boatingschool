@@ -11,7 +11,7 @@
     {{-- Praxisstunden der Schule ohne (bisher) ausgefüllte Anmeldung, z. B. aus der Zeit der Selbst-Anmeldung. --}}
     @if ($state !== 'submitted' && isset($practiceSubmission) && $practiceSubmission->practiceSlotNumbers() !== [])
         <div class="max-w-2xl mx-auto mb-6 bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6">
-            <h3 class="font-semibold text-slate-800 dark:text-white">Termine deiner Bootsschule</h3>
+            <h2 class="font-semibold text-slate-800 dark:text-white">Termine deiner Bootsschule</h2>
             @foreach ($practiceSubmission->practiceSlotNumbers() as $practiceSlot)
                 <x-praxis-appointment-response :submission="$practiceSubmission" :course="$course" :appointment-slot="$practiceSlot" :label="$practiceSubmission->labelForSlot($practiceSlot)" />
             @endforeach
@@ -26,12 +26,12 @@
     @elseif ($state === 'locked')
         <div class="max-w-2xl mx-auto bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-8 text-center">
             <x-icon name="lock-closed" class="w-10 h-10 mx-auto text-slate-300 mb-4" />
-            <h3 class="font-semibold text-lg text-slate-800 dark:text-white mb-2">Du erfüllst noch nicht alle Voraussetzungen zur Prüfungsbuchung.</h3>
+            <h2 class="font-semibold text-lg text-slate-800 dark:text-white mb-2">Du erfüllst noch nicht alle Voraussetzungen zur Prüfungsbuchung.</h2>
             <p class="text-sm text-slate-500 dark:text-slate-400">
                 Aktuell hast du <span class="font-semibold text-slate-700 dark:text-slate-200">{{ $percent }}% Kursfortschritt</span>.
                 Für die Buchung benötigst du mindestens <span class="font-semibold text-slate-700 dark:text-slate-200">{{ $threshold }}% Kursfortschritt</span>.
             </p>
-            <div class="mt-6 w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2">
+            <div class="mt-6 w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2" aria-hidden="true">
                 <div class="h-2 rounded-full" style="width: {{ min($percent, 100) }}%; background-color: var(--brand-secondary, #007A7A)"></div>
             </div>
             <a href="{{ route('courses.show', $course) }}" class="inline-flex items-center justify-center mt-6 px-5 py-2 rounded-lg text-white text-sm font-semibold hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
@@ -41,7 +41,7 @@
     @elseif ($state === 'incomplete-profile')
         <div class="max-w-2xl mx-auto bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-8 text-center">
             <x-icon name="map-pin" class="w-10 h-10 mx-auto text-slate-300 mb-4" />
-            <h3 class="font-semibold text-lg text-slate-800 dark:text-white mb-2">Vervollständige zuerst dein Profil.</h3>
+            <h2 class="font-semibold text-lg text-slate-800 dark:text-white mb-2">Vervollständige zuerst dein Profil.</h2>
             <p class="text-sm text-slate-500 dark:text-slate-400">
                 Für die Anmeldung zu Praxis &amp; Prüfung benötigen wir einmalig deine Adresse und dein Geburtsdatum &mdash;
                 beides trägt deine Bootsschule bei der Prüfungskommission ein.
@@ -54,7 +54,7 @@
         <div class="max-w-2xl mx-auto bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-8">
             <div class="text-center mb-6">
                 <x-icon name="check-circle" class="w-10 h-10 mx-auto text-emerald-500 mb-3" />
-                <h3 class="font-semibold text-lg text-slate-800 dark:text-white">Deine Anmeldung ist eingegangen.</h3>
+                <h2 class="font-semibold text-lg text-slate-800 dark:text-white">Deine Anmeldung ist eingegangen.</h2>
                 <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Deine Bootsschule hat deine Angaben erhalten und meldet dich bei der Prüfungskommission an.</p>
             </div>
             @if (! empty($template->fields))
@@ -105,7 +105,7 @@
                                                     <span @class([
                                                         'inline-flex items-center px-1.5 py-0.5 rounded-full text-[11px] font-medium',
                                                         'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' => $kursName === $course->name,
-                                                        'bg-slate-100 text-slate-500 dark:bg-slate-700/50 dark:text-slate-400' => $kursName !== $course->name,
+                                                        'bg-slate-100 text-slate-600 dark:bg-slate-700/50 dark:text-slate-300' => $kursName !== $course->name,
                                                     ])>{{ $kursName }}</span>
                                                 @endforeach
                                             </span>
@@ -156,14 +156,14 @@
         <div class="max-w-5xl mx-auto {{ $locationsWithCoords->isNotEmpty() ? 'grid lg:grid-cols-2 gap-6 items-start' : '' }}">
             @if ($locationsWithCoords->isNotEmpty())
                 <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 lg:sticky lg:top-6">
-                    <h4 class="text-sm font-medium text-slate-600 dark:text-slate-300 px-2 pb-3">Prüfungsorte in deiner Nähe</h4>
+                    <h3 class="text-sm font-medium text-slate-600 dark:text-slate-300 px-2 pb-3">Prüfungsorte in deiner Nähe</h3>
                     <div id="pruefungsort-map" style="height: 420px; border-radius: 0.75rem;"></div>
                     <p class="text-xs text-slate-600 dark:text-slate-400 px-2 pt-3">Klicke auf einen Marker, um den Ort im Formular auszuwählen.</p>
                 </div>
             @endif
 
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-8">
-            <h3 class="font-semibold text-lg text-slate-800 dark:text-white mb-1">{{ $template->title }}</h3>
+            <h2 class="font-semibold text-lg text-slate-800 dark:text-white mb-1">{{ $template->title }}</h2>
             <p class="text-sm text-slate-500 dark:text-slate-400 mb-6">Bitte fülle die folgenden Angaben aus &mdash; deine Bootsschule meldet dich damit zur Prüfung an.</p>
 
             @if ($recommendedAddon)

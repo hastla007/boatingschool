@@ -13,7 +13,7 @@
                          Minute/Sekunde INNERHALB der aktuellen Stunde --
                          bei genau 60 Minuten (3600s) sprang die Anzeige
                          dadurch auf "00:00" statt "60:00" zu zeigen. --}}
-                    <span id="exam-timer" data-remaining="{{ $remainingSeconds }}" aria-label="Verbleibende Prüfungszeit" class="tabular-nums">{{ sprintf('%02d:%02d', intdiv($remainingSeconds, 60), $remainingSeconds % 60) }}</span>
+                    <span id="exam-timer" data-remaining="{{ $remainingSeconds }}" role="timer" aria-label="Verbleibende Prüfungszeit" class="tabular-nums">{{ sprintf('%02d:%02d', intdiv($remainingSeconds, 60), $remainingSeconds % 60) }}</span>
                     {{-- Ansage für Screenreader bei 5 und 1 Minute. --}}
                     <span id="exam-timer-announce" class="sr-only" aria-live="assertive"></span>
                 @endif
@@ -22,15 +22,15 @@
     </x-slot>
 
     <div class="max-w-2xl mx-auto bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6">
-        <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 mb-6">
+        <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 mb-6" role="progressbar" aria-label="Bearbeitungsstand" aria-valuemin="0" aria-valuemax="{{ $total }}" aria-valuenow="{{ $answered }}" aria-valuetext="{{ $answered }} von {{ $total }} Fragen beantwortet">
             <div class="h-1.5 rounded-full transition-all" style="width: {{ $total ? ($answered / $total * 100) : 0 }}%; background-color: var(--brand-primary, #005FD7)"></div>
         </div>
 
         @foreach ($current->revision->media as $media)
-            <img src="{{ \App\Support\QuestionMedia::url($media) }}" alt="{{ $media->alt_text }}" class="rounded-lg mb-4 max-h-64 mx-auto">
+            <img src="{{ \App\Support\QuestionMedia::url($media) }}" alt="{{ $media->alt_text ?: 'Abbildung zur Frage (ohne Bildbeschreibung)' }}" class="rounded-lg mb-4 max-h-64 mx-auto">
         @endforeach
 
-        <h3 class="text-lg font-medium text-slate-800 dark:text-white mb-4">{{ $current->revision->question_text }}</h3>
+        <h2 class="text-lg font-medium text-slate-800 dark:text-white mb-4">{{ $current->revision->question_text }}</h2>
 
         @if ($current->revision->question_type === 'multi_choice')
             <form method="POST" action="{{ route('exam.answer', $examSession) }}" x-data="{ selected: [] }" data-exam-answer>

@@ -2,19 +2,19 @@
     {{-- Team der Bootsschule: Ausbilder/Admins einladen, Rollen ändern, Inhaberschaft übergeben (TeamController). --}}
     @php($isOwner = auth()->user()->roleForTenant($currentTenant) === 'owner')
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 mb-6">
-        <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-1 flex items-center gap-1.5">
+        <h2 class="font-medium text-slate-700 dark:text-slate-200 mb-1 flex items-center gap-1.5">
             <x-icon name="users" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Team
-        </h3>
+        </h2>
         <p class="text-xs text-slate-600 dark:text-slate-400 mb-3">
             Ausbilder sehen Teilnehmer und deren Lernstand, können aber keine Kurse freischalten und kein Branding ändern.
             Admins können alles außer Admins verwalten. {{ $isOwner ? 'Als Inhaber können Sie Admins ernennen und die Inhaberschaft übergeben.' : 'Admins ernennt der Inhaber.' }}
         </p>
         <x-input-error :messages="$errors->get('team')" class="mb-2" />
 
-        <div class="overflow-x-auto">
+        <div tabindex="0" role="region" aria-label="Tabelle: Team (seitlich scrollbar)" class="overflow-x-auto">
             <table class="w-full text-sm mb-4">
                 <thead class="text-slate-500 dark:text-slate-300 text-left">
-                    <tr><th class="py-1 pr-4">Name</th><th class="py-1 pr-4">E-Mail</th><th class="py-1 pr-4">Rolle</th><th class="py-1"></th></tr>
+                    <tr><th class="py-1 pr-4">Name</th><th class="py-1 pr-4">E-Mail</th><th class="py-1 pr-4">Rolle</th><th class="py-1"><span class="sr-only">Aktionen</span></th></tr>
                 </thead>
                 <tbody>
                     @foreach ($team as $member)
@@ -122,7 +122,7 @@
             <label for="team_name" class="sr-only">Name</label>
             <input type="text" id="team_name" name="name" placeholder="Name" required value="{{ old('name') }}" class="flex-1 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
             <label for="team_email" class="sr-only">E-Mail</label>
-            <input type="email" id="team_email" name="email" placeholder="E-Mail" required class="flex-1 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+            <input type="email" id="team_email" name="email" placeholder="E-Mail" required @error('team_email') aria-invalid="true" aria-describedby="team_email-error" @enderror class="flex-1 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
             <label for="team_role" class="sr-only">Rolle</label>
             <select id="team_role" name="role" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                 <option value="instructor">{{ \App\Support\StatusLabels::tenantRole('instructor') }}</option>
@@ -132,16 +132,16 @@
             </select>
             <button type="submit" class="px-4 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">Ins Team einladen</button>
         </form>
-        <x-input-error :messages="$errors->get('team_email')" class="mt-2" />
+        <x-input-error for="team_email" :messages="$errors->get('team_email')" class="mt-2" />
         <x-input-error :messages="$errors->get('role')" class="mt-2" />
     </div>
 @endif
 
 @if ($canInvite ?? true)
 <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 mb-6">
-    <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
+    <h2 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
         <x-icon name="envelope" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Teilnehmer einladen
-    </h3>
+    </h2>
     <form method="POST" action="{{ route('admin.participants.invite') }}" class="space-y-2">
         @csrf
         <div class="flex flex-col sm:flex-row gap-2">
@@ -151,11 +151,11 @@
             <input type="email" id="invite_email" name="email" placeholder="E-Mail" required class="flex-1 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
         </div>
         <div x-data="{ showAddress: false }">
-            <button type="button" @click="showAddress = ! showAddress" class="text-xs text-slate-500 dark:text-slate-400 hover:underline">
+            <button type="button" @click="showAddress = ! showAddress" :aria-expanded="showAddress" aria-controls="invite-address-fields" class="text-xs text-slate-500 dark:text-slate-400 hover:underline">
                 <span x-show="! showAddress">+ Adresse hinterlegen (optional)</span>
                 <span x-show="showAddress" style="display: none">&minus; Adresse ausblenden</span>
             </button>
-            <div x-show="showAddress" style="display: none" class="mt-2 grid sm:grid-cols-[2fr_1fr] gap-2">
+            <div id="invite-address-fields" x-show="showAddress" style="display: none" class="mt-2 grid sm:grid-cols-[2fr_1fr] gap-2">
                 <label for="invite_street" class="sr-only">Straße &amp; Hausnummer</label>
                 <input type="text" id="invite_street" name="street" placeholder="Straße & Hausnummer" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                 <label for="invite_postal_code" class="sr-only">PLZ</label>
@@ -176,14 +176,14 @@
         </div>
         @if ($canManageTenant)
         <div x-data="{ showCode: {{ $errors->has('code') ? 'true' : 'false' }} }">
-            <button type="button" @click="showCode = ! showCode" class="text-xs text-slate-500 dark:text-slate-400 hover:underline">
+            <button type="button" @click="showCode = ! showCode" :aria-expanded="showCode" aria-controls="invite-code-field" class="text-xs text-slate-500 dark:text-slate-400 hover:underline">
                 <span x-show="! showCode" @if ($errors->has('code')) style="display: none" @endif>+ Code zuweisen (optional)</span>
                 <span x-show="showCode" @unless ($errors->has('code')) style="display: none" @endunless>&minus; Code ausblenden</span>
             </button>
-            <div x-show="showCode" @unless ($errors->has('code')) style="display: none" @endunless class="mt-2">
+            <div id="invite-code-field" x-show="showCode" @unless ($errors->has('code')) style="display: none" @endunless class="mt-2">
                 <label for="invite_code" class="sr-only">Zugangscode</label>
-                <input type="text" id="invite_code" name="code" value="{{ old('code') }}" placeholder="XXXX-XXXX-XXXX-XXXX" class="w-full sm:w-64 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm font-mono">
-                <x-input-error :messages="$errors->get('code')" class="mt-1" />
+                <input type="text" id="invite_code" name="code" value="{{ old('code') }}" placeholder="XXXX-XXXX-XXXX-XXXX" @error('code') aria-invalid="true" aria-describedby="invite_code-error" @enderror class="w-full sm:w-64 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm font-mono">
+                <x-input-error for="invite_code" :messages="$errors->get('code')" class="mt-1" />
                 <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">
                     Ein eigener Code (Kurs oder Produkt) wird dem Teilnehmer bei der Einladung zugewiesen und spätestens beim Annehmen der Einladung eingelöst.
                 </p>
@@ -212,15 +212,15 @@
      erscheinen bis zur Annahme gleich (siehe ParticipantFilters::withoutOpenInvitations). --}}
 @if ($openInvitations->isNotEmpty())
 <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 mb-6">
-    <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-2">Offene Einladungen ({{ $openInvitations->count() }})</h3>
-    <div class="overflow-x-auto">
+    <h2 class="font-medium text-slate-700 dark:text-slate-200 mb-2">Offene Einladungen ({{ $openInvitations->count() }})</h2>
+    <div tabindex="0" role="region" aria-label="Tabelle: Offene Einladungen (seitlich scrollbar)" class="overflow-x-auto">
     <table class="w-full text-sm">
         <thead class="text-slate-500 dark:text-slate-300 text-left">
             <tr>
                 <th class="py-1 pr-4">Name</th>
                 <th class="py-1 pr-4">E-Mail</th>
                 <th class="py-1 pr-4">Eingeladen am</th>
-                <th class="py-1"></th>
+                <th class="py-1"><span class="sr-only">Aktionen</span></th>
             </tr>
         </thead>
         <tbody>
@@ -288,7 +288,7 @@
      Bewusst dasselbe Markup statt einer zweiten Kartenliste: jedes Formular
      gibt es nur einmal. --}}
 <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden">
-    <div class="overflow-x-auto">
+    <div tabindex="0" role="region" aria-label="Tabelle: Teilnehmer (seitlich scrollbar)" class="overflow-x-auto">
     <table class="w-full text-sm block sm:table">
         <thead class="hidden sm:table-header-group bg-slate-50 dark:bg-slate-700 text-slate-500 dark:text-slate-300 text-left">
             <tr>
@@ -299,7 +299,7 @@
                 @if ($canManageTenant)
                 <th class="px-4 py-2">
                     Kurs freischalten
-                    <span class="block text-[11px] font-normal text-slate-500 dark:text-slate-400">verbraucht einen eigenen Code</span>
+                    <span class="block text-[11px] font-normal text-slate-600 dark:text-slate-300">verbraucht einen eigenen Code</span>
                 </th>
                 @endif
                 @if ($canManageTenant)
@@ -327,7 +327,7 @@
                     <td class="block sm:table-cell pt-2 sm:px-4 sm:py-2 text-slate-500 dark:text-slate-400">
                         <span class="sm:hidden block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">Kurse</span>
                         @forelse ($membership->user->entitlements as $entitlement)
-                            <span class="inline-block px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-xs mb-1">
+                            <span class="inline-block px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200 text-xs mb-1">
                                 {{ $entitlement->course->name }} ({{ \App\Support\StatusLabels::entitlementStatus($entitlement->status) }})
                             </span>
                         @empty

@@ -11,8 +11,8 @@
 
         <div>
             <x-input-label for="email" value="E-Mail-Adresse" />
-            <x-text-input id="email" class="block mt-1 w-full" type="email" name="email" :value="old('email')" required autofocus />
-            <x-input-error :messages="$errors->get('email')" class="mt-2" />
+            <x-text-input :invalid="$errors->has('email')" id="email" class="block mt-1 w-full" type="email" name="email" :value="old('email')" required autofocus />
+            <x-input-error for="email" :messages="$errors->get('email')" class="mt-2" />
         </div>
 
         <button type="submit" class="w-full px-4 py-2.5 rounded-lg font-semibold text-white transition hover:opacity-90" style="background-color: var(--brand-primary, #005FD7)">

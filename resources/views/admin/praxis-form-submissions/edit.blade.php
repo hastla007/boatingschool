@@ -1,6 +1,6 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Praxis-Anmeldung bearbeiten</h2>
+        <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Praxis-Anmeldung bearbeiten</h1>
     </x-slot>
 
     <a href="{{ route('admin.praxis-form-submissions.show', $submission) }}" class="text-sm text-slate-500 dark:text-slate-400 hover:underline inline-block mb-4">&larr; Zurück zur Anmeldung</a>
@@ -13,7 +13,7 @@
          Alpines @submit-Direktive greift nur innerhalb eines x-data-
          Teilbaums (Bug-Review R4-2), das hier bisher komplett fehlte. --}}
     <div class="max-w-2xl bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-8" x-data="{}">
-        <h3 class="font-semibold text-lg text-slate-800 dark:text-white mb-1">{{ $submission->template->title }}</h3>
+        <h2 class="font-semibold text-lg text-slate-800 dark:text-white mb-1">{{ $submission->template->title }}</h2>
         <p class="text-sm text-slate-500 dark:text-slate-400 mb-6">
             {{ $submission->user->display_name ?? $submission->user->email }} &mdash; {{ $submission->course->name ?? '—' }}
         </p>

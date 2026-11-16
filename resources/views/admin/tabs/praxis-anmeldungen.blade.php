@@ -34,7 +34,7 @@
             <a href="{{ route('admin.dashboard', ['tab' => 'praxis-anmeldungen']) }}" class="text-sm text-slate-500 dark:text-slate-400 hover:underline self-center">Filter zurücksetzen</a>
         @endif
     </form>
-    <div class="overflow-x-auto">
+    <div tabindex="0" role="region" aria-label="Tabelle: Praxis-Anmeldungen (seitlich scrollbar)" class="overflow-x-auto">
     <table class="w-full text-sm">
         <thead class="bg-slate-50 dark:bg-slate-700 text-slate-500 dark:text-slate-300 text-left">
             <tr>
@@ -42,7 +42,7 @@
                 <th class="px-4 py-2">Kurs</th>
                 <th class="px-4 py-2">Nächster Schritt</th>
                 <th class="px-4 py-2">Eingereicht am</th>
-                <th class="px-4 py-2"></th>
+                <th class="px-4 py-2"><span class="sr-only">Aktionen</span></th>
             </tr>
         </thead>
         <tbody>
@@ -67,7 +67,7 @@
                             'inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full',
                             'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' => $nextStep['action_needed'],
                             'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' => ! $nextStep['action_needed'] && str_starts_with($nextStep['label'], 'Prüfungstermin fix'),
-                            'bg-slate-100 text-slate-500 dark:bg-slate-700/50 dark:text-slate-400' => ! $nextStep['action_needed'] && ! str_starts_with($nextStep['label'], 'Prüfungstermin fix'),
+                            'bg-slate-100 text-slate-600 dark:bg-slate-700/50 dark:text-slate-300' => ! $nextStep['action_needed'] && ! str_starts_with($nextStep['label'], 'Prüfungstermin fix'),
                         ])>{{ $nextStep['label'] }}</span>
                     </td>
                     <td class="px-4 py-2 text-slate-500 dark:text-slate-400 text-xs whitespace-nowrap">{{ \App\Support\GermanTime::format($submission->created_at, 'd.m.Y H:i') }}</td>

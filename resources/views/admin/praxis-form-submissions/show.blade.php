@@ -1,6 +1,6 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Praxis-Anmeldung</h2>
+        <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Praxis-Anmeldung</h1>
     </x-slot>
 
     <a href="{{ route('admin.dashboard', ['tab' => 'praxis-anmeldungen']) }}" class="text-sm text-slate-500 dark:text-slate-400 hover:underline inline-block mb-4">&larr; Zurück zu Praxis-Anmeldungen</a>

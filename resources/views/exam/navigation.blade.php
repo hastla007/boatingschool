@@ -40,7 +40,7 @@
         </div>
 
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
-            <h3 class="font-medium text-slate-800 dark:text-white mb-2">Navigationsaufgabe {{ $task->task_number }}</h3>
+            <h2 class="font-medium text-slate-800 dark:text-white mb-2">Navigationsaufgabe {{ $task->task_number }}</h2>
             <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">{{ $task->scenario_text }}</p>
             @if ($task->hint)
                 <div class="mt-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 dark:bg-amber-900/30 dark:border-amber-800 dark:text-amber-300 px-3 py-2 text-xs flex items-start gap-2">
@@ -52,8 +52,9 @@
 
         @if ($task->chart_image_path)
             <figure class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-3">
-                <a href="{{ \App\Support\NavigationChart::url($task->chart_image_path) }}" target="_blank" rel="noopener">
-                    <img src="{{ \App\Support\NavigationChart::url($task->chart_image_path) }}" alt="Kartenausschnitt zu Aufgabe {{ $task->task_number }}" class="w-full rounded-xl" loading="lazy">
+                <a href="{{ \App\Support\NavigationChart::url($task->chart_image_path) }}" target="_blank" rel="noopener" class="block rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">
+                    <img src="{{ \App\Support\NavigationChart::url($task->chart_image_path) }}" alt="Seekartenausschnitt zu Navigationsaufgabe {{ $task->task_number }}" class="w-full rounded-xl" loading="lazy">
+                    <span class="sr-only">(Karte in voller Größe, öffnet in neuem Tab)</span>
                 </a>
                 @if ($task->chart_caption)
                     <figcaption class="mt-2 text-xs text-slate-600 dark:text-slate-400">{{ $task->chart_caption }}</figcaption>
@@ -93,13 +94,13 @@
                         <button type="submit" class="rounded-lg px-3 py-2 text-sm font-medium text-white" style="background-color: var(--brand-primary, #005FD7)">
                             {{ $auto ? 'Prüfen' : 'Speichern' }}
                         </button>
-                        <button type="button" x-on:click="open = !open" class="rounded-lg px-3 py-2 text-sm font-medium bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600"
+                        <button type="button" x-on:click="open = !open" :aria-expanded="open" aria-controls="loesung-{{ $question->id }}" class="rounded-lg px-3 py-2 text-sm font-medium bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600"
                                 x-text="open ? 'Lösung ausblenden' : 'Lösung zeigen'">Lösung zeigen</button>
                         @error($errorKey)
                             <p class="w-full text-xs text-red-700 dark:text-red-300">{{ $message }}</p>
                         @enderror
                     </form>
-                    <div x-show="open" x-transition class="px-4 pb-4 space-y-2">
+                    <div id="loesung-{{ $question->id }}" x-show="open" x-transition class="px-4 pb-4 space-y-2">
                         <div class="rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-100 dark:border-slate-700 p-3 text-sm text-slate-600 dark:text-slate-300">
                             <span class="font-medium text-slate-700 dark:text-slate-200">Musterlösung: </span>{{ $question->answer_text }}
                         </div>

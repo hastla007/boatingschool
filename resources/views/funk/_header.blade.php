@@ -8,7 +8,7 @@
     </h1>
     @isset($percent)
         <div class="flex-1 hidden sm:flex items-center gap-2 max-w-xs ml-4">
-            <div class="flex-1 bg-slate-100 dark:bg-slate-700 rounded-full h-1.5">
+            <div class="flex-1 bg-slate-100 dark:bg-slate-700 rounded-full h-1.5" aria-hidden="true">
                 <div class="h-1.5 rounded-full" style="width: {{ $percent }}%; background-color: var(--brand-secondary, #007A7A)"></div>
             </div>
             <span class="text-xs text-slate-500 dark:text-slate-400 shrink-0">{{ $percent }}%</span>

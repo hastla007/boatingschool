@@ -25,15 +25,15 @@
     <div class="grid sm:grid-cols-2 gap-4">
         <div>
             <x-input-label for="title" value="Titel (intern)" />
-            <x-text-input id="title" name="title" type="text" class="mt-1 block w-full" :value="old('title', $template?->title)" required />
-            <x-input-error :messages="$errors->get('title')" class="mt-2" />
+            <x-text-input :invalid="$errors->has('title')" id="title" name="title" type="text" class="mt-1 block w-full" :value="old('title', $template?->title)" required />
+            <x-input-error for="title" :messages="$errors->get('title')" class="mt-2" />
         </div>
         <div>
             <x-input-label for="min_progress_percent" value="Buchbar ab % Kursfortschritt" />
-            <x-text-input id="min_progress_percent" name="min_progress_percent" type="number" min="0" max="100"
+            <x-text-input :invalid="$errors->has('min_progress_percent')" id="min_progress_percent" name="min_progress_percent" type="number" min="0" max="100"
                           class="mt-1 block w-full" :value="old('min_progress_percent', $template?->min_progress_percent ?? 50)" required />
             <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Vor Erreichen dieses Fortschritts sieht der Teilnehmer nur eine Hürden-Meldung statt des Formulars.</p>
-            <x-input-error :messages="$errors->get('min_progress_percent')" class="mt-2" />
+            <x-input-error for="min_progress_percent" :messages="$errors->get('min_progress_percent')" class="mt-2" />
         </div>
     </div>
 

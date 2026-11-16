@@ -80,7 +80,8 @@ class MobileResponsivenessTest extends TestCase
         $tablePos = strpos($html, '<table');
         $this->assertNotFalse($tablePos, 'Testvoraussetzung: Seite muss eine Tabelle enthalten.');
 
-        $wrapperPos = strrpos(substr($html, 0, $tablePos), '<div class="overflow-x-auto">');
+        // Der Container ist zusätzlich per Tastatur scrollbar (tabindex/role/aria-label vor class).
+        $wrapperPos = strrpos(substr($html, 0, $tablePos), 'class="overflow-x-auto">');
         $this->assertNotFalse($wrapperPos, 'Die Tabelle muss von einem horizontal scrollbaren Container umschlossen sein, sonst wird sie auf schmalen Bildschirmen abgeschnitten.');
     }
 
@@ -96,7 +97,8 @@ class MobileResponsivenessTest extends TestCase
         $tablePos = strpos($html, '<table');
         $this->assertNotFalse($tablePos, 'Testvoraussetzung: Seite muss eine Tabelle enthalten.');
 
-        $wrapperPos = strrpos(substr($html, 0, $tablePos), '<div class="overflow-x-auto">');
+        // Der Container ist zusätzlich per Tastatur scrollbar (tabindex/role/aria-label vor class).
+        $wrapperPos = strrpos(substr($html, 0, $tablePos), 'class="overflow-x-auto">');
         $this->assertNotFalse($wrapperPos, 'Die Teilnehmer-Tabelle muss von einem horizontal scrollbaren Container umschlossen sein, sonst wird sie auf schmalen Bildschirmen abgeschnitten.');
     }
 }

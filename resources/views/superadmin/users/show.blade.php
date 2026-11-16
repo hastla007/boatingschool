@@ -45,8 +45,8 @@
                 </div>
                 <div>
                     <x-input-label for="email" value="E-Mail" />
-                    <x-text-input id="email" name="email" type="email" class="mt-1 block w-full" :value="old('email', $user->email)" required />
-                    <x-input-error :messages="$errors->get('email')" class="mt-2" />
+                    <x-text-input :invalid="$errors->has('email')" id="email" name="email" type="email" class="mt-1 block w-full" :value="old('email', $user->email)" required />
+                    <x-input-error for="email" :messages="$errors->get('email')" class="mt-2" />
                 </div>
                 <div>
                     <x-input-label for="phone" value="Telefonnummer" />
@@ -102,8 +102,8 @@
                         @csrf
                         @method('DELETE')
                         <x-input-label for="confirm_email" value="Zur Bestätigung die E-Mail-Adresse eintippen" />
-                        <x-text-input id="confirm_email" name="confirm_email" type="text" class="block w-full" autocomplete="off" />
-                        <x-input-error :messages="$errors->get('confirm_email')" />
+                        <x-text-input :invalid="$errors->has('confirm_email')" id="confirm_email" name="confirm_email" type="text" class="block w-full" autocomplete="off" />
+                        <x-input-error for="confirm_email" :messages="$errors->get('confirm_email')" />
                         <button type="submit" class="px-3 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-medium hover:opacity-90">Konto endgültig löschen</button>
                     </form>
                 </details>

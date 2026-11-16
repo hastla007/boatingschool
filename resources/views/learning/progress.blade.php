@@ -24,9 +24,9 @@
     </div>
 
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
-        <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
+        <h2 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
             <x-icon name="light-bulb" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Fortschritt nach Themen (Smart-Learning)
-        </h3>
+        </h2>
         <div class="space-y-3">
             @forelse ($byTopic as $topic => $stats)
                 <a href="{{ route('learning.show', array_filter(['course' => $course, 'mode' => 'topic', 'module' => $stats['module']?->id, 'topic' => $topic])) }}" class="block group">
@@ -34,7 +34,7 @@
                         <span class="text-slate-600 dark:text-slate-300 group-hover:underline">{{ $topic }}</span>
                         <span class="text-slate-600 dark:text-slate-400">{{ $stats['mastered'] }}/{{ $stats['total'] }} &middot; {{ $stats['percent'] }}%</span>
                     </div>
-                    <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2">
+                    <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2" aria-hidden="true">
                         <div class="h-2 rounded-full {{ $stats['percent'] < 60 ? 'bg-rose-500' : '' }}"
                              style="width: {{ $stats['percent'] }}%; {{ $stats['percent'] >= 60 ? 'background-color: var(--brand-secondary, #007A7A)' : '' }}"></div>
                     </div>
@@ -46,9 +46,9 @@
     </div>
 
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 mt-4">
-        <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
+        <h2 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
             <x-icon name="clipboard-document-check" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Ergebnisse der Prüfungssimulationen
-        </h3>
+        </h2>
         <div class="space-y-3">
             @forelse ($examResults as $session)
                 <div class="rounded-xl border border-slate-100 dark:border-slate-700 px-4 py-3">

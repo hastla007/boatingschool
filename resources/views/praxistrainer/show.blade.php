@@ -51,7 +51,7 @@
                 </a>
                 <span class="text-xs font-semibold text-slate-500 dark:text-slate-300 uppercase tracking-wide">{{ $kategorie ?? 'Praxistrainer' }}</span>
             </div>
-            <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 mb-1 mx-1" style="width: calc(100% - 0.5rem)">
+            <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 mb-1 mx-1" style="width: calc(100% - 0.5rem)" aria-hidden="true">
                 <div class="h-1.5 rounded-full" style="width: {{ $percent }}%; background-color: var(--brand-primary, #005FD7)"></div>
             </div>
             <div class="text-right text-xs text-slate-600 dark:text-slate-400 px-1 mb-3">{{ $percent }}%</div>
@@ -87,12 +87,13 @@
             @endif
 
             <div x-show="!revealed">
-                <button type="button" x-on:click="revealed = true" class="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
+                <button type="button" x-on:click="revealed = true; $nextTick(() => $refs.solution.focus({ preventScroll: true }))" class="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
                     Musterlösung anzeigen
                 </button>
             </div>
 
-            <div x-show="revealed" x-transition class="space-y-3">
+            {{-- Fokus wandert beim Aufdecken hierher (der Knopf verschwindet, WCAG 2.4.3). --}}
+            <div x-show="revealed" x-ref="solution" tabindex="-1" x-transition class="space-y-3 outline-none">
                 @if ($task->media && $task->imageBelongsToSolution())
                     <img src="{{ \App\Support\QuestionMedia::url($task->media) }}" alt="{{ $task->media->alt_text ?? $task->unterkategorie }}" class="rounded-xl mb-1 max-h-80 mx-auto">
                 @endif

@@ -1,6 +1,6 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Mitteilungen an Teilnehmer</h2>
+        <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Mitteilungen an Teilnehmer</h1>
     </x-slot>
 
     <a href="{{ route('admin.dashboard') }}" class="text-sm text-slate-600 dark:text-slate-400 hover:underline">&larr; Zurück zum Admin-Bereich</a>
@@ -8,11 +8,11 @@
     <div class="mt-4 grid lg:grid-cols-5 gap-4">
         <form method="POST" action="{{ route('admin.announcements.store') }}" class="lg:col-span-2 bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 space-y-3 self-start">
             @csrf
-            <h3 class="font-medium text-slate-700 dark:text-slate-200">Neue Mitteilung</h3>
+            <h2 class="font-medium text-slate-700 dark:text-slate-200">Neue Mitteilung</h2>
             <div>
                 <x-input-label for="title" value="Titel" />
-                <x-text-input id="title" name="title" type="text" maxlength="150" class="mt-1 block w-full" :value="old('title')" required placeholder="z. B. Theorieabend am Donnerstag fällt aus" />
-                <x-input-error :messages="$errors->get('title')" class="mt-1" />
+                <x-text-input :invalid="$errors->has('title')" id="title" name="title" type="text" maxlength="150" class="mt-1 block w-full" :value="old('title')" required placeholder="z. B. Theorieabend am Donnerstag fällt aus" />
+                <x-input-error for="title" :messages="$errors->get('title')" class="mt-1" />
             </div>
             <div>
                 <x-input-label for="body" value="Text" />
@@ -48,7 +48,7 @@
                 <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 {{ $announcement->isVisible() ? '' : 'opacity-60' }}">
                     <div class="flex flex-wrap items-start justify-between gap-2">
                         <div>
-                            <h3 class="font-medium text-slate-800 dark:text-slate-100">{{ $announcement->title }}</h3>
+                            <h2 class="font-medium text-slate-800 dark:text-slate-100">{{ $announcement->title }}</h2>
                             <p class="text-xs text-slate-600 dark:text-slate-400">
                                 {{ $announcement->created_at->timezone('Europe/Berlin')->format('d.m.Y H:i') }} · {{ $announcement->author?->display_name ?? $announcement->author?->email ?? '—' }} ·
                                 {{ $announcement->course?->name ?? 'alle Teilnehmer' }}

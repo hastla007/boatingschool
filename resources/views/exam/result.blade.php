@@ -77,9 +77,9 @@
 
         @if ($navRule)
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
-                <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
+                <h2 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
                     <x-icon name="compass" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Navigationsaufgabe {{ $examSession->navigationTaskAsStarted()?->task_number }}
-                </h3>
+                </h2>
                 <ul class="divide-y divide-slate-100 dark:divide-slate-700 text-sm">
                     @foreach ($examSession->navigationAnswers()->with('question')->get() as $navAnswer)
                         <li class="py-2 min-w-0">
@@ -95,9 +95,9 @@
         @endif
 
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
-            <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
+            <h2 class="font-medium text-slate-700 dark:text-slate-200 mb-3 flex items-center gap-1.5">
                 <x-icon name="chart-bar" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Themenanalyse
-            </h3>
+            </h2>
             <div class="space-y-2">
                 @foreach ($topicBreakdown as $topic => $stats)
                     <div class="flex justify-between text-sm">
@@ -110,7 +110,7 @@
 
         @if ($wrong->isNotEmpty())
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
-                <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3">Fehlerliste</h3>
+                <h2 class="font-medium text-slate-700 dark:text-slate-200 mb-3">Fehlerliste</h2>
                 <div class="space-y-3">
                     @foreach ($wrong as $item)
                         <div class="border-l-4 border-rose-400 pl-3">
@@ -130,7 +130,7 @@
 
         @if ($unanswered->isNotEmpty())
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
-                <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3">Nicht beantwortet</h3>
+                <h2 class="font-medium text-slate-700 dark:text-slate-200 mb-3">Nicht beantwortet</h2>
                 <div class="space-y-3">
                     @foreach ($unanswered as $item)
                         <div class="border-l-4 border-amber-400 pl-3">

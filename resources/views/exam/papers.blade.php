@@ -11,7 +11,7 @@
                 <x-icon name="clipboard-document-check" class="w-5 h-5 text-slate-600 dark:text-slate-400" /> Prüfungssimulation
             </h1>
             <div class="flex-1 flex items-center gap-2 max-w-xs ml-4">
-                <div class="flex-1 bg-slate-100 dark:bg-slate-700 rounded-full h-1.5">
+                <div class="flex-1 bg-slate-100 dark:bg-slate-700 rounded-full h-1.5" aria-hidden="true">
                     <div class="h-1.5 rounded-full" style="width: {{ $overallPercent }}%; background-color: var(--brand-secondary, #007A7A)"></div>
                 </div>
                 <span class="text-xs text-slate-500 dark:text-slate-400 shrink-0">{{ $overallPercent }}%</span>
@@ -21,7 +21,7 @@
 
     <div class="space-y-4">
         <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5">
-            <h3 class="font-medium text-slate-800 dark:text-white mb-2">Herzlich willkommen zu den Prüfungsbögen!</h3>
+            <h2 class="font-medium text-slate-800 dark:text-white mb-2">Herzlich willkommen zu den Prüfungsbögen!</h2>
             @php
                 $addonCopy = [
                     'ADD-SEE-TO-BIN' => ['kurs' => 'Ergänzung See → Binnen', 'bereich' => 'Binnen', 'vorhanden' => 'SBF See', 'profil' => 'binnen-motor-with-see'],
@@ -152,6 +152,10 @@
                     (Quelle: seeundbinnen.de).
                 </p>
             @endif
+            {{-- Barrierefreiheit (WCAG 2.2.1): Zeitbegrenzung vorab ankündigen. --}}
+            <p class="text-xs text-slate-600 dark:text-slate-400 mt-3" data-exam-time-note>
+                Die Prüfungszeit entspricht der amtlichen Prüfung. Fünf Minuten und eine Minute vor Ablauf bekommst du einen Hinweis (auch für Screenreader). In den Lernmodi gibt es kein Zeitlimit.
+            </p>
         </div>
 
         <a href="{{ route('favorites.exam', $course) }}" class="flex items-center gap-4 rounded-2xl p-5 text-white hover:opacity-95 transition"
@@ -184,7 +188,7 @@
             <div>
                 {{-- In Kombikursen wird jede Bogengruppe nach dem Regelwerk ihres Teilkurses bewertet. --}}
                 @php($groupRuleSet = $statsInGroup->first()['ruleSet'])
-                <h4 class="font-medium text-slate-700 dark:text-slate-200 {{ $groupRuleSet ? 'mb-1' : 'mb-3' }}">{{ $groupLabel ?: $course->name }}</h4>
+                <h3 class="font-medium text-slate-700 dark:text-slate-200 {{ $groupRuleSet ? 'mb-1' : 'mb-3' }}">{{ $groupLabel ?: $course->name }}</h3>
                 @if ($groupRuleSet)
                     <p class="text-xs text-slate-600 dark:text-slate-400 mb-3">
                         {{ $groupRuleSet->passingSummary($statsInGroup->first()['total']) }}

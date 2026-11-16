@@ -10,9 +10,9 @@
 
 <div class="grid lg:grid-cols-2 gap-6 mb-6">
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
-        <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-1 flex items-center gap-1.5">
+        <h2 class="font-medium text-slate-700 dark:text-slate-200 mb-1 flex items-center gap-1.5">
             <x-icon name="upload" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Codes importieren
-        </h3>
+        </h2>
         <p class="text-xs text-slate-600 dark:text-slate-400 mb-3">
             Ein Code pro Zeile (oder durch Komma/Semikolon getrennt). Kurs oder Produkt erkennt das System
             automatisch anhand des Codes -- eine Auswahl ist nicht nötig.
@@ -32,9 +32,9 @@
 
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden">
         <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700">
-            <h3 class="font-medium text-slate-700 dark:text-slate-200">Bestand je Kurs/Produkt</h3>
+            <h2 class="font-medium text-slate-700 dark:text-slate-200">Bestand je Kurs/Produkt</h2>
         </div>
-        <div class="overflow-x-auto">
+        <div tabindex="0" role="region" aria-label="Tabelle: Bestand je Kurs/Produkt (seitlich scrollbar)" class="overflow-x-auto">
         <table class="w-full text-sm">
             <thead class="bg-slate-50 dark:bg-slate-700 text-slate-500 dark:text-slate-300 text-left">
                 <tr>
@@ -66,9 +66,9 @@
      B2B-Shop landen direkt hier im Bestand. --}}
 <div class="grid lg:grid-cols-2 gap-6 mb-6">
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4">
-        <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-1 flex items-center gap-1.5">
+        <h2 class="font-medium text-slate-700 dark:text-slate-200 mb-1 flex items-center gap-1.5">
             <x-icon name="link" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Shop verknüpfen
-        </h3>
+        </h2>
         <p class="text-xs text-slate-600 dark:text-slate-400 mb-3">
             Codes, die Sie im Shop kaufen, werden nach der Zahlung automatisch diesem Bestand gutgeschrieben. Dafür
             einmal das Shopkonto mit Ihrer Bootsschule verknüpfen: Code erzeugen und im Shop unter
@@ -115,9 +115,9 @@
 
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden">
         <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700">
-            <h3 class="font-medium text-slate-700 dark:text-slate-200">Bestellungen aus dem Shop</h3>
+            <h2 class="font-medium text-slate-700 dark:text-slate-200">Bestellungen aus dem Shop</h2>
         </div>
-        <div class="overflow-x-auto">
+        <div tabindex="0" role="region" aria-label="Tabelle: Bestellungen aus dem Shop (seitlich scrollbar)" class="overflow-x-auto">
         <table class="w-full text-sm">
             <thead class="bg-slate-50 dark:bg-slate-700 text-slate-500 dark:text-slate-300 text-left">
                 <tr>
@@ -203,7 +203,7 @@
             @endforeach
         </select>
     @endif
-    <div class="overflow-x-auto">
+    <div tabindex="0" role="region" aria-label="Tabelle: Zugangscodes (seitlich scrollbar)" class="overflow-x-auto">
     <table class="w-full text-sm">
         <thead class="bg-slate-50 dark:bg-slate-700 text-slate-500 dark:text-slate-300 text-left">
             <tr>

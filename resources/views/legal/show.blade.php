@@ -30,6 +30,7 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="font-sans text-slate-900 dark:text-slate-100 antialiased bg-slate-50 dark:bg-slate-900">
+        <a href="#inhalt" class="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-2 focus:left-2 focus:px-4 focus:py-2 focus:rounded-lg focus:bg-white focus:text-slate-900 focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">Zum Inhalt springen</a>
         <div class="min-h-screen flex flex-col">
             <header class="bg-white dark:bg-slate-800 shadow-sm">
                 <div class="max-w-3xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
@@ -44,7 +45,7 @@
                     <a href="{{ url('/') }}" class="text-sm text-slate-600 dark:text-slate-300 underline">Zur Lernplattform</a>
                 </div>
             </header>
-            <main id="main-content" class="flex-1 w-full max-w-3xl mx-auto px-4 sm:px-6 py-8">
+            <main id="inhalt" tabindex="-1" class="focus:outline-none flex-1 w-full max-w-3xl mx-auto px-4 sm:px-6 py-8">
                 <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 sm:p-8">
                     <h1 class="text-2xl font-bold mb-2">{{ $title }}</h1>
                     <div class="legal-text text-sm text-slate-700 dark:text-slate-200">{!! $content !!}</div>

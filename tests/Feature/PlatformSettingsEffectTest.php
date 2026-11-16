@@ -38,7 +38,7 @@ class PlatformSettingsEffectTest extends TestCase
         $response = $this->get('/login');
 
         $response->assertOk();
-        $response->assertSee('<title>Testname GmbH Lernplattform</title>', false);
+        $response->assertSee('<title>Anmelden · Testname GmbH Lernplattform</title>', false);
     }
 
     public function test_the_platform_site_name_appears_in_the_superadmin_page_title(): void
@@ -49,7 +49,7 @@ class PlatformSettingsEffectTest extends TestCase
         $response = $this->actingAs($superadmin)->get('/superadmin');
 
         $response->assertOk();
-        $response->assertSee('<title>Superadmin &middot; Testname GmbH Lernplattform</title>', false);
+        $response->assertSee('<title>Superadmin-Dashboard · Superadmin &middot; Testname GmbH Lernplattform</title>', false);
     }
 
     public function test_the_support_email_appears_on_the_maintenance_page(): void
