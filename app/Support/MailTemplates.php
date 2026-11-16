@@ -10,15 +10,20 @@ use Illuminate\Notifications\Messages\MailMessage;
  * Betreff sowie ein Text vor und nach dem festen Inhalt. Der feste Inhalt
  * (Daten, Links, Schaltfläche) bleibt immer erhalten, damit keine Angabe
  * versehentlich verloren geht. Platzhalter wie {schule} werden ersetzt.
+ * Ist ein Platzhalter unbekannt (Wert null, z. B. {gruppe} bei einem aus
+ * WordPress übernommenen Gruppenzugang ohne Lerngruppe), entfällt jeder
+ * gespeicherte Text, der ihn verwendet -- es gilt dann der Standard (Betreff)
+ * bzw. nur der feste Inhalt, statt eines Satzes mit Lücke.
  */
 class MailTemplates
 {
-    /** @var array<string, array{label: string, subject: string, placeholders: list<string>}> */
+    /** @var array<string, array{label: string, subject: string, placeholders: list<string>, hint?: string}> */
     public const DEFINITIONS = [
         'account_invitation' => ['label' => 'Einladung mit neuem Konto (Passwort festlegen)', 'subject' => 'Einladung zu {schule}', 'placeholders' => ['schule', 'rolle']],
         'invitation' => ['label' => 'Einladung in eine Bootsschule (bestehendes Konto)', 'subject' => 'Einladung zu {schule}', 'placeholders' => ['schule']],
         'entitlement_expiring' => ['label' => 'Kurszugang läuft bald ab', 'subject' => 'Dein Kurszugang läuft am {datum} ab', 'placeholders' => ['schule', 'kurs', 'datum']],
-        'group_entitlement_expiring' => ['label' => 'Zugang über eine Lerngruppe endet bald', 'subject' => 'Dein Zugang über die Lerngruppe endet am {datum}', 'placeholders' => ['schule', 'kurs', 'gruppe', 'datum']],
+        'group_entitlement_expiring' => ['label' => 'Zugang über eine Lerngruppe endet bald', 'subject' => 'Dein Zugang über die Lerngruppe endet am {datum}', 'placeholders' => ['schule', 'kurs', 'gruppe', 'datum'],
+            'hint' => 'Bei aus WordPress übernommenen Gruppenzugängen ist der Gruppenname unbekannt: Betreff und Texte mit {gruppe} entfallen dann (Standard bzw. nur fester Inhalt).'],
         'coupon_redeemed' => ['label' => 'Code eingelöst / Kurs freigeschaltet', 'subject' => 'Dein Kurs ist freigeschaltet', 'placeholders' => ['kurs']],
         'willkommensbox_shipped' => ['label' => 'Willkommensbox versendet', 'subject' => 'Deine Willkommensbox ist unterwegs', 'placeholders' => []],
         'learning_reminder' => ['label' => 'Erinnerung ans Lernen (inaktive Teilnehmer)', 'subject' => 'Weiterlernen bei {schule}', 'placeholders' => ['schule', 'tage']],
@@ -34,6 +39,13 @@ class MailTemplates
     public static function apply(MailMessage $message, string $key, array $vars = []): MailMessage
     {
         $template = self::template($key);
+        // Texte mit unbekanntem Platzhalter (null) auslassen.
+        $unknown = array_map(fn (string $name) => '{'.$name.'}', array_keys(array_filter($vars, fn ($value) => $value === null)));
+        foreach ($template as $part => $text) {
+            if ($unknown !== [] && str_replace($unknown, '', $text) !== $text) {
+                $template[$part] = '';
+            }
+        }
 
         if ($template['subject'] !== '') {
             $message->subject(strtr($template['subject'], self::replacements($vars, false)));

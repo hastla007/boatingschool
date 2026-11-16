@@ -298,7 +298,10 @@ Fehler beim Schul-Kontext:
 * `access.status`: `active`, `limited` (nur Probezugang), `pending`,
   `expired`, `suspended`, `revoked` oder `not_granted`; dazu `trial`,
   `purchased`, `limits` (Probezugang je Funktion), `expires_soon`,
-  `expires_at` und `renew_url`.
+  `expires_at` und `renew_url`. `renew_url` ist `null`, wenn der Zugang
+  mit einem reinen Gruppenzugang endet (Lerngruppe oder aus WordPress
+  übernommener Gruppenplatz, kein eigener Zugang trägt genauso lange):
+  verlängert wird dann über die Schule, nicht per Kauf oder Code.
 * `capabilities` (z. B. `smarttrainer`, `exam`, `video`, `navigation`)
   sagt, welche Funktionen der Kurs hat; `features.<capability>` mit
   `available`/`full`/`limit` sagt, was die Person davon nutzen darf

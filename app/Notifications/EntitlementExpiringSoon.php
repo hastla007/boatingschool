@@ -20,6 +20,8 @@ use Illuminate\Notifications\Notification;
  * RemindExpiringEntitlements), mit dem Verlängerungs-Link der Bootsschule.
  * Bei einem Zugang aus einer Lerngruppe ($group) ein eigener Text ohne
  * Kauf-/Code-Hinweis: die Gruppe verwaltet die Schule, verlängert wird dort.
+ * Aus WordPress übernommene Gruppenplätze haben hier keine Lerngruppe: dann
+ * derselbe Text ohne Gruppennamen („über deine Lerngruppe“).
  */
 class EntitlementExpiringSoon extends Notification
 {
@@ -42,7 +44,7 @@ class EntitlementExpiringSoon extends Notification
         // Links auf die Subdomain der Bootsschule (der Befehl läuft ohne Request).
         $root = CanonicalUrl::root($tenant);
 
-        if ($this->group) {
+        if ($this->group || $this->entitlement->isGroupAccess()) {
             return $this->groupMail($notifiable, $tenant, $course, $date, $root);
         }
 
@@ -71,16 +73,18 @@ class EntitlementExpiringSoon extends Notification
     /** Gruppenzugang: Hinweis auf die Gruppe und die Schule, kein Kauf, kein Code. */
     private function groupMail(mixed $notifiable, Tenant $tenant, string $course, string $date, string $root): MailMessage
     {
+        $via = $this->group ? 'die Lerngruppe „'.self::escapeMarkdown($this->group->name).'“' : 'deine Lerngruppe';
         $message = (new MailMessage)
             ->subject("Dein Zugang über die Lerngruppe endet am {$date}")
-            ->line("Dein Zugang zu „{$course}“ über die Lerngruppe „".self::escapeMarkdown($this->group->name).'“ bei '
-                .self::escapeMarkdown($tenant->name)." endet am {$date}.")
+            ->line("Dein Zugang zu „{$course}“ über {$via} bei ".self::escapeMarkdown($tenant->name)." endet am {$date}.")
             ->line('Danach kannst du den Kurs nicht mehr nutzen, dein Lernstand bleibt aber erhalten.')
             ->line('Die Lerngruppe verwaltet deine Bootsschule. Für eine Verlängerung wende dich bitte an sie.')
             ->action('Zum Kurs', $root.route('courses.show', $this->entitlement->course, false));
 
+        // Ohne Gruppennamen ist {gruppe} unbekannt (null): Vorlagentexte, die
+        // ihn verwenden, entfallen (siehe MailTemplates::apply()).
         return MailPreferences::addUnsubscribe(self::withNoReplyHint(MailTemplates::apply($message, 'group_entitlement_expiring', [
-            'schule' => $tenant->name, 'kurs' => $this->entitlement->course->name, 'gruppe' => $this->group->name, 'datum' => $date,
+            'schule' => $tenant->name, 'kurs' => $this->entitlement->course->name, 'gruppe' => $this->group?->name, 'datum' => $date,
         ])), $notifiable, MailPreferences::EXPIRY, $tenant);
     }
 }

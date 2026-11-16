@@ -11,6 +11,7 @@ use App\Models\Progress;
 use App\Models\TenantAnnouncement;
 use App\Models\VideoProgress;
 use App\Services\EntitlementService;
+use App\Services\LearningGroupService;
 use App\Support\TenantContext;
 use App\Support\VideoCourseLessons;
 use Illuminate\Database\Eloquent\Collection;
@@ -35,9 +36,14 @@ class DashboardController extends Controller
 
         // Review-Runde 11: bald ablaufende und schon abgelaufene Kurse nicht
         // stillschweigend verschwinden lassen.
+        // Gleiches Ablaufdatum: der eigene Zugang zählt vor dem Gruppenzugang
+        // (ein Verlängerungscode verlängert nur ihn).
         $expiringSoon = $activeEntitlements->filter->expiresSoon()
             ->reject(fn (Entitlement $e) => $activeEntitlements->contains(fn ($o) => $o->course_id === $e->course_id && ($o->valid_until === null || $o->valid_until > $e->valid_until)))
+            ->sortBy(fn (Entitlement $e) => $e->isGroupAccess() ? 1 : 0)
             ->unique('course_id')->values();
+        // Reine Gruppenzugänge: Hinweis auf die Gruppe statt Code/Kauf.
+        $expiringGroupNames = LearningGroupService::groupNamesFor($expiringSoon);
         $expiredCourseNames = Entitlement::with('course')->where('tenant_id', $tenant->id)->where('user_id', $user->id)
             ->whereNull('capabilities')->whereIn('status', ['active', 'expired'])->whereNotNull('valid_until')->where('valid_until', '<=', now())
             ->whereNotIn('course_id', $courses->pluck('id'))->get()
@@ -137,6 +143,7 @@ class DashboardController extends Controller
         return view('dashboard', [
             'hadAccess' => $hadAccess,
             'expiringSoon' => $expiringSoon,
+            'expiringGroupNames' => $expiringGroupNames,
             'expiredCourseNames' => $courses->isEmpty() ? collect() : $expiredCourseNames,
             'firstVisit' => $progressStats->isEmpty() && $videoProgressStats->isEmpty(),
             'platformAnnouncements' => $platformAnnouncements,

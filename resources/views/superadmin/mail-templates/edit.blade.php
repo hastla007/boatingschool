@@ -29,6 +29,9 @@
                         <span class="text-xs text-slate-600 dark:text-slate-400">Platzhalter: {{ collect($definition['placeholders'])->map(fn ($p) => '{'.$p.'}')->implode(' ') }}</span>
                     @endif
                 </div>
+                @if (! empty($definition['hint']))
+                    <p class="text-xs text-slate-600 dark:text-slate-400">{{ $definition['hint'] }}</p>
+                @endif
                 <div>
                     <x-input-label for="{{ $key }}-subject" value="Betreff" />
                     <x-text-input id="{{ $key }}-subject" name="templates[{{ $key }}][subject]" type="text" maxlength="200" class="mt-1 block w-full" :value="old('templates.'.$key.'.subject', $t['subject'] ?? '')" placeholder="Standard: {{ $definition['subject'] }}" />

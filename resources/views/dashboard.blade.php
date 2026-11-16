@@ -7,8 +7,15 @@
 
         @foreach ($expiringSoon ?? [] as $entitlement)
             <div role="status" class="rounded-2xl border border-amber-200 bg-amber-50 dark:bg-amber-900/30 dark:border-amber-800 px-4 py-3 text-sm text-amber-900 dark:text-amber-100">
-                Dein Zugang zu „{{ $entitlement->course->name }}“ läuft am {{ \App\Support\GermanTime::format($entitlement->valid_until, 'd.m.Y') }} ab.
-                <a href="{{ route('coupons.redeem') }}" class="underline font-medium">Verlängerungscode einlösen</a>
+                @if ($entitlement->isGroupAccess())
+                    {{-- Reiner Gruppenzugang: verlängert wird über die Schule, kein Code, kein Kauf. --}}
+                    @php $groupName = ($expiringGroupNames ?? collect())->get($entitlement->id); @endphp
+                    Dein Zugang zu „{{ $entitlement->course->name }}“ über {{ $groupName !== null ? 'die Lerngruppe „'.$groupName.'“' : 'deine Lerngruppe' }} endet am {{ \App\Support\GermanTime::format($entitlement->valid_until, 'd.m.Y') }}.
+                    Für eine Verlängerung wende dich an deine Bootsschule.
+                @else
+                    Dein Zugang zu „{{ $entitlement->course->name }}“ läuft am {{ \App\Support\GermanTime::format($entitlement->valid_until, 'd.m.Y') }} ab.
+                    <a href="{{ route('coupons.redeem') }}" class="underline font-medium">Verlängerungscode einlösen</a>
+                @endif
             </div>
         @endforeach
 

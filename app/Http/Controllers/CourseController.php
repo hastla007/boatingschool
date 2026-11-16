@@ -14,6 +14,7 @@ use App\Models\TenantAddon;
 use App\Models\TenantCourseDisabled;
 use App\Models\VideoProgress;
 use App\Services\EntitlementService;
+use App\Services\LearningGroupService;
 use App\Support\ComboVideoGroups;
 use App\Support\ExamRegistration;
 use App\Support\FunkTraining;
@@ -46,7 +47,12 @@ class CourseController extends Controller
         // QA-L-3: nur volle Zugänge gelten im Web als gebucht; ein Kurs mit
         // bloßem Teilzugang (nur in der App nutzbar) bleibt buchbar.
         $allActive = $entitlements->activeEntitlements($tenant, $user);
-        $activeEntitlements = $allActive->filter(fn (Entitlement $e) => $e->capabilities === null)->keyBy('course_id');
+        // Je Kurs der am längsten tragende Zugang (keyBy behält den letzten),
+        // bei gleichem Ende der eigene vor dem Gruppenzugang -- danach richtet
+        // sich die Ablauf-Warnung (Code/Kauf oder Hinweis auf die Gruppe).
+        $activeEntitlements = $allActive->filter(fn (Entitlement $e) => $e->capabilities === null)
+            ->sortBy(fn (Entitlement $e) => [$e->valid_until?->getTimestamp() ?? PHP_INT_MAX, $e->isGroupAccess() ? 0 : 1])
+            ->keyBy('course_id');
         $partialCourseIds = $allActive->pluck('course_id')->diff($activeEntitlements->keys())->values();
         $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get();
 
@@ -110,6 +116,7 @@ class CourseController extends Controller
             'expiredCourseIds' => $expiredCourseIds,
             'partialCourseIds' => $partialCourseIds,
             'renewalWebshopLink' => $tenant->branding->renewal_webshop_link,
+            'expiringGroupNames' => LearningGroupService::groupNamesFor($activeEntitlements->filter->expiresSoon()),
         ]);
     }
 

@@ -67,6 +67,22 @@ class Entitlement extends Model
             && $this->valid_until <= now()->addDays(self::EXPIRY_WARNING_DAYS);
     }
 
+    /**
+     * Zugang über eine Lerngruppe -- eine der Plattform (source_type „group“)
+     * oder eine aus WordPress übernommene (import_meta.source „group“, ohne
+     * Lerngruppe hier). Verlängert wird über die Schule, nicht per Code/Kauf.
+     */
+    public function isGroupAccess(): bool
+    {
+        return $this->source_type === 'group' || $this->isImportedGroupAccess();
+    }
+
+    /** Aus WordPress übernommener Gruppenplatz (siehe ImportMobileEntitlements). */
+    public function isImportedGroupAccess(): bool
+    {
+        return $this->source_type === 'wordpress' && ($this->import_meta['source'] ?? null) === 'group';
+    }
+
     public function isCurrentlyActive(): bool
     {
         if ($this->status !== 'active') {
