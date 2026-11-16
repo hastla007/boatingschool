@@ -104,6 +104,19 @@ class InvitationAcceptance
             return;
         }
 
+        // Die Reservierung gilt VALID_DAYS (wie die offene Einladung). Danach
+        // darf die Schule denselben Code für eine andere Einladung vormerken
+        // (InvitationCoupon::check); ein später angenommener alter Link
+        // (Passwort vergessen, erneut verschickte Mail) nimmt ihn ihr dann
+        // nicht mehr weg -- die neuere, noch offene Reservierung gilt.
+        if ($invitation->created_at?->lt(now()->subDays(self::VALID_DAYS))
+            && TenantInvitation::where('tenant_id', $invitation->tenant_id)->open()
+                ->where('coupon_code', $invitation->coupon_code)->whereKeyNot($invitation->id)->exists()) {
+            Log::info('Vorgemerkter Einladungs-Code nicht eingelöst', ['invitation' => $invitation->id, 'grund' => 'Reservierung abgelaufen, Code für eine andere offene Einladung reserviert']);
+
+            return;
+        }
+
         $coupon = Coupon::where('code', $invitation->coupon_code)->whereNull('redeemed_at')->first();
         if (! $coupon || ! $coupon->isUsable() || ($coupon->tenant_id !== null && $coupon->tenant_id !== $invitation->tenant_id)) {
             return;
