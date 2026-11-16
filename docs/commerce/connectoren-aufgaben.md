@@ -105,6 +105,19 @@ Zweig), wann erledigt, was sie braucht. Kritische Aufgaben gibt es hier keine.
   dort eingebauter Add-on-Kernel aus `captain-pro` für jeden lesbar. Vor dem ersten Code für den Form-Connector das
   Repository auf privat stellen oder den Kernel nur als Abhängigkeit beim Bau einbinden (nicht einchecken).
 
+### Lead-Eingang für Form Captain (aus `wp-formmaster` P8-43 bis P8-50, angehängt am 16.11.2026)
+
+Vertragsentwurf aus Sicht von Form Captain: `hastla007/wp-formmaster`, `docs/spec/projekt-connectoren-vertraege.md`, Teil A (Endpunkt, HMAC, JSON-Schema `form-captain-lead/1`, Idempotenz, Fehlercodes, Rate-Limits, Datenschutz). Am Code bestätigt (d152f21): `/api/commerce/v1` hat keinen Lead-Eingang (P8-41); der Endpunkt entsteht neu und getrennt. Alle Punkte brauchen die Freigabe des Inhabers für den Pilot (P8-40).
+
+- [ ] **BS-06 · [WICHTIG] · Lead-Datenmodell und Inbox planen (P8-43).** Lead = unqualifizierter Interessent, keinem Tenant zugeordnet, weder Benutzer noch Shopkonto noch Schuldatensatz. Status (neu, in Bearbeitung, erledigt, abgelehnt), Aufbewahrung, Löschung, Superadmin-Rollen festlegen.
+- [ ] **BS-07 · [WICHTIG] · Vertrag übernehmen und versionieren (P8-42).** Teil A des Entwurfs hier als eigene Doku übernehmen, Schema-Version festschreiben; Abweichungen an `wp-formmaster` zurückmelden.
+- [ ] **BS-08 · [WICHTIG] · Endpunkt `POST /api/integrations/v1/form-captain/leads` (P8-44).** Eigener HMAC-Schlüssel (nicht der Commerce-Schlüssel), Zeitstempel und Nonce, Replay-Schutz, eigener Rate-Limit-Topf, Schemaprüfung mit Fehlercodes, Idempotenz über den Schlüssel aus Website, Formular und Entry.
+- [ ] **BS-09 · [WICHTIG] · Lead-Inbox im Superadmin (P8-45).** Anzeigen, bearbeiten, ablehnen, löschen; der Intake legt nie Konto, Schule oder Code an.
+- [ ] **BS-10 · [WICHTIG] · WordPress-Connector `integrations/boatingschool-form-connector/` (P8-46, P8-47).** Form Captain und Contract-Version erkennen, Endpoint und Secret nur serverseitig, standardmäßig aus; nur explizit gemappte, nicht sensible Felder plus Consent-Referenz, Formular-/Entry-ID und erlaubte Quell-URL. Ort und Sichtbarkeit siehe BS-03 (Repository vorher privat oder Kernel nur beim Bau einbinden).
+- [ ] **BS-11 · [WICHTIG] · Lizenzprüfung des Connectors.** Nach der Fassung von Entscheidung 17 in diesem Repository (eigenes Produkt `boatingschool-form-connector`, Recht `boatingschool_form.leads`). **Achtung:** `wp-formmaster` TODO P8-90 nennt noch „Lizenzauskunft über Form Captain Pro, Recht `form.boatingschool_leads`“. Vor dem Bau klärt der Inhaber, welche Fassung gilt.
+- [ ] **BS-12 · [WICHTIG] · Zustellstatus und Wiederholung über die Outbox von Form Captain (P8-48).** Remote-Lead-ID, letzter Versuch, wiederholbarer/endgültiger Fehler, manuelle Wiederholung; eine erfolgreiche Wiederholung erzeugt keinen zweiten Lead.
+- [ ] **BS-13 · [WICHTIG] · Gemeinsame Tests und Staging-Abnahme (P8-49, P8-50).** HMAC-Kompatibilität, Replay, falsches Schema, Doppelzustellung, Timeout nach erfolgreichem Schreiben, Schlüsselrotation, Rate-Limit, Superadmin-Sichtbarkeit; danach WordPress → Laravel Ende-zu-Ende auf Staging, Testleads löschen, Datenschutzabnahme dokumentieren.
+
 ## Repository `hastla007/boatingschool-wp`
 
 Für dieses Repository gab es keinen Schreibzugriff; die Aufgabe steht deshalb hier. Es enthält nur drei Textdateien
