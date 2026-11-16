@@ -121,6 +121,13 @@ class AnonymizeDatabase extends Command
              WHERE email IS NOT NULL OR invite_token IS NOT NULL"
         );
 
+        // Favoriten-Sammlungen: der Name ist ein Freitext der Lernenden (kann
+        // Namen enthalten). Aus der vollen ID abgeleitet, damit der
+        // Unique-Index je Person, Kurs und Name hält.
+        $counts['favorite_collection'] = $db->update(
+            "UPDATE favorite_collection SET name = 'Sammlung ' || {$hex('id')}"
+        );
+
         $counts['willkommensbox_order'] = $db->update(
             "UPDATE willkommensbox_order SET street = {$street('id')}, postal_code = {$digits('id', 5)}, city = 'Musterstadt', note = NULL, tracking_number = NULL"
         );

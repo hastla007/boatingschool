@@ -117,6 +117,8 @@ class PersonalDataExportService
                     'source_reference' => $e->source_reference,
                     // Teilzugang (z. B. aus einer Lerngruppe): freigeschaltete Funktionen, null = ganzer Kurs.
                     'capabilities' => $e->capabilities,
+                    // Herkunft eines WP-Imports (source, group_id, order_id, status), sonst null.
+                    'import_meta' => $e->import_meta,
                     'valid_from' => $e->valid_from?->toIso8601String(),
                     'valid_until' => $e->valid_until?->toIso8601String(),
                     'expiry_reminded_at' => $e->expiry_reminded_at?->toIso8601String(),
