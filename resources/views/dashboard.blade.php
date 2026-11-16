@@ -26,6 +26,15 @@
             </div>
         @endif
 
+        @if ($courses->isNotEmpty())
+            {{-- Abgelaufener Gruppenzugang: verlängert wird über die Schule, kein Code, kein Kauf. --}}
+            @foreach ($expiredGroupAccess ?? [] as $entitlement)
+                <div role="status" class="rounded-2xl border border-slate-200 bg-slate-50 dark:bg-slate-800 dark:border-slate-700 px-4 py-3 text-sm text-slate-700 dark:text-slate-200">
+                    @include('partials.expired-group-access', ['entitlement' => $entitlement, 'groupName' => ($expiredGroupNames ?? collect())->get($entitlement->id), 'withCourse' => true])
+                </div>
+            @endforeach
+        @endif
+
         @include('partials.platform-announcements')
 
         @foreach ($announcements as $announcement)
@@ -45,10 +54,20 @@
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-6 text-center">
                 <x-icon name="life-buoy" class="w-8 h-8 mx-auto text-slate-600 dark:text-slate-400 mb-2" />
                 @if ($hadAccess ?? false)
-                    <p class="text-slate-600 dark:text-slate-300">Dein Kurszugang ist abgelaufen.</p>
-                    <p class="text-sm text-slate-600 dark:text-slate-400 mt-1">Mit einem Verlängerungscode deiner Bootsschule lernst du mit deinem bisherigen Fortschritt weiter.</p>
+                    @if ($expiredCodeHint ?? true)
+                        <p class="text-slate-600 dark:text-slate-300">Dein Kurszugang ist abgelaufen.</p>
+                        <p class="text-sm text-slate-600 dark:text-slate-400 mt-1">Mit einem Verlängerungscode deiner Bootsschule lernst du mit deinem bisherigen Fortschritt weiter.</p>
+                    @endif
+                    {{-- Abgelaufener Gruppenzugang: verlängert wird über die Schule, kein Code, kein Kauf. --}}
+                    @foreach ($expiredGroupAccess ?? [] as $entitlement)
+                        <p class="text-sm text-slate-600 dark:text-slate-300 mt-1">
+                            @include('partials.expired-group-access', ['entitlement' => $entitlement, 'groupName' => ($expiredGroupNames ?? collect())->get($entitlement->id), 'withCourse' => ($expiredGroupAccess ?? collect())->count() > 1])
+                        </p>
+                    @endforeach
                     <div class="mt-3 flex flex-wrap justify-center gap-3 text-sm">
-                        <a href="{{ route('coupons.redeem') }}" class="underline text-slate-700 dark:text-slate-200">Code einlösen</a>
+                        @if ($expiredCodeHint ?? true)
+                            <a href="{{ route('coupons.redeem') }}" class="underline text-slate-700 dark:text-slate-200">Code einlösen</a>
+                        @endif
                         <a href="{{ route('courses.index') }}" class="underline text-slate-700 dark:text-slate-200">Meine Kurse</a>
                     </div>
                 @else

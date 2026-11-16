@@ -10,7 +10,7 @@
         "bacon/bacon-qr-code": "^3.0",
         "barryvdh/laravel-dompdf": "^3.1",
         "laravel/framework": "^12.0",
-        "laravel/tinker": "^2.9",
+        "laravel/tinker": "^3.1",
         "league/flysystem-aws-s3-v3": "^3.0",
         "phpoffice/phpspreadsheet": "^5.10",
         "sentry/sentry-laravel": "^4.29"

@@ -122,8 +122,9 @@
                 @php($webshopUrl = $webshopLinks->get($course->id))
                 @php($image = $courseImages[$course->code] ?? null)
                 @php($isExpired = $expiredCourseIds->contains($course->id))
+                @php($expiredGroupEntitlement = ($expiredGroupAccess ?? collect())->get($course->id))
                 {{-- Nur das Bild abdunkeln, nicht den Text (Kontrast). --}}
-                <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden {{ ($webshopUrl || ($isExpired && $renewalWebshopLink)) ? '' : '[&>div:first-child]:opacity-70' }}">
+                <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden {{ ($webshopUrl || ($isExpired && $renewalWebshopLink && ! $expiredGroupEntitlement)) ? '' : '[&>div:first-child]:opacity-70' }}">
                     <div class="relative h-32 flex items-center justify-center {{ $image ? 'bg-cover bg-center' : 'bg-gradient-to-br from-slate-300 to-slate-400 dark:from-slate-700 dark:to-slate-600' }}"
                          @if ($image) style="background-image: url('{{ asset($image) }}')" @endif>
                         @if ($image)
@@ -138,7 +139,13 @@
                         @if (($partialCourseIds ?? collect())->contains($course->id))
                             <div class="text-xs text-slate-600 dark:text-slate-400 mt-1">Teilzugang in der App</div>
                         @endif
-                        @if ($isExpired)
+                        @if ($isExpired && $expiredGroupEntitlement)
+                            {{-- Abgelaufener Gruppenzugang: verlängert wird über die Schule, kein Code, kein Kauf. --}}
+                            <div class="text-xs text-amber-600 dark:text-amber-400 mt-1">Zugang abgelaufen</div>
+                            <div class="text-xs text-slate-600 dark:text-slate-400 mt-2">
+                                @include('partials.expired-group-access', ['entitlement' => $expiredGroupEntitlement, 'groupName' => ($expiredGroupNames ?? collect())->get($expiredGroupEntitlement->id), 'withCourse' => false])
+                            </div>
+                        @elseif ($isExpired)
                             <div class="text-xs text-amber-600 dark:text-amber-400 mt-1">Zugang abgelaufen</div>
                             @if ($renewalWebshopLink)
                                 <a href="{{ $renewalWebshopLink }}" target="_blank" rel="noopener"

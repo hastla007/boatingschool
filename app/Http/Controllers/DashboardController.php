@@ -44,10 +44,17 @@ class DashboardController extends Controller
             ->unique('course_id')->values();
         // Reine Gruppenzugänge: Hinweis auf die Gruppe statt Code/Kauf.
         $expiringGroupNames = LearningGroupService::groupNamesFor($expiringSoon);
-        $expiredCourseNames = Entitlement::with('course')->where('tenant_id', $tenant->id)->where('user_id', $user->id)
+        // Je abgelaufenem Kurs der zuletzt endende Zugang: stammt er aus einer
+        // Lerngruppe (auch WP-Gruppenplatz), verlängert die Schule -- Hinweis
+        // auf die Gruppe statt Code; ein eigener, später endender gewinnt.
+        $expired = Entitlement::longestPerCourse(Entitlement::with('course')->where('tenant_id', $tenant->id)->where('user_id', $user->id)
             ->whereNull('capabilities')->whereIn('status', ['active', 'expired'])->whereNotNull('valid_until')->where('valid_until', '<=', now())
-            ->whereNotIn('course_id', $courses->pluck('id'))->get()
-            ->pluck('course.name')->filter()->unique()->values();
+            ->whereNotIn('course_id', $courses->pluck('id'))->get())
+            ->filter(fn (Entitlement $e) => $e->course !== null);
+        [$expiredGroupAccess, $expiredOwn] = $expired->partition(fn (Entitlement $e) => $e->isGroupAccess());
+        $expiredGroupAccess = $expiredGroupAccess->values();
+        $expiredCourseNames = $expiredOwn->pluck('course.name')->unique()->values();
+        $expiredGroupNames = LearningGroupService::groupNamesFor($expiredGroupAccess);
 
         $progressStats = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get();
         $videoProgressStats = VideoProgress::where('tenant_id', $tenant->id)->where('user_id', $user->id)
@@ -145,6 +152,10 @@ class DashboardController extends Controller
             'expiringSoon' => $expiringSoon,
             'expiringGroupNames' => $expiringGroupNames,
             'expiredCourseNames' => $courses->isEmpty() ? collect() : $expiredCourseNames,
+            'expiredGroupAccess' => $expiredGroupAccess,
+            'expiredGroupNames' => $expiredGroupNames,
+            // Leere Kursliste: Code-Hinweis nur, wenn nicht ausschließlich Gruppenzugänge abgelaufen sind.
+            'expiredCodeHint' => $expiredCourseNames->isNotEmpty() || $expiredGroupAccess->isEmpty(),
             'firstVisit' => $progressStats->isEmpty() && $videoProgressStats->isEmpty(),
             'platformAnnouncements' => $platformAnnouncements,
             'courses' => $courseSummaries,
