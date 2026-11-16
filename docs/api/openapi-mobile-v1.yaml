@@ -1830,7 +1830,10 @@ paths:
         Gruppenumfang 422 `GROUP_SCOPE_UNSUPPORTED`. Jeder Beitritt verbraucht je Kurs der
         Gruppe einen freien Kurscode der Schule (auch bei Teilzugang), außer für Kurse, für die
         die Person schon einen eigenen, gültigen Vollzugang hat; fehlt einer, 409
-        `GROUP_NO_CODES` (nichts verbraucht, eine Einladung bleibt offen).
+        `GROUP_NO_CODES` (nichts verbraucht, eine Einladung bleibt offen). Für eine offene
+        Schul-Einladung reservierte Codes zählen nicht als frei. Hat die Schule der Person einen
+        Kurs der Gruppe bewusst entzogen (`revoked`), 409 `GROUP_ACCESS_REVOKED` (nichts
+        verbraucht, eine Einladung bleibt offen; `detail` anzeigen).
       parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/IdempotencyKey'}]
       requestBody:
         required: true
@@ -1918,8 +1921,9 @@ paths:
         solange Plätze frei sind -- unabhängig davon, ob es dazu ein Konto gibt (die Antwort verrät
         das nicht). Übersprungen werden ungültige und schon eingeladene Adressen sowie Adressen ohne
         freien Platz oder über dem Tageslimit (`skipped`). Höchstens 20 Aufrufe pro Stunde, je Gruppe
-        und Tag höchstens max(20, 2 × Plätze) Einladungen. 409 `GROUP_NOT_ACTIVE` bei abgelaufener
-        oder gesperrter Gruppe.
+        und Tag höchstens max(20, 2 × Plätze) Einladungen, je Verwalter und Tag über alle seine
+        Gruppen höchstens 200; ist diese Grenze schon erreicht, 429 `RATE_LIMITED` (`detail`
+        anzeigen, `Retry-After`). 409 `GROUP_NOT_ACTIVE` bei abgelaufener oder gesperrter Gruppe.
       parameters:
         - {$ref: '#/components/parameters/TenantSlug'}
         - {$ref: '#/components/parameters/GroupId'}
@@ -2776,7 +2780,7 @@ components:
         scopes: {type: array, items: {$ref: '#/components/schemas/GroupScope'}}
         course_codes:
           type: array
-          description: 'Je Kurs: freie Kurscodes der Schule (jeder Beitritt verbraucht einen je Kurs, auch bei Teilzugang; Personen mit eigenem Kurszugang verbrauchen keinen Code). Gemeinsamer Bestand aller Gruppen der Schule.'
+          description: 'Je Kurs: reichen die freien Kurscodes der Schule für die übrigen Plätze (jeder Beitritt verbraucht einen je Kurs, auch bei Teilzugang; Personen mit eigenem Kurszugang verbrauchen keinen Code)? Gemeinsamer Bestand aller Gruppen der Schule; die genaue Zahl sieht nur das Team der Schule.'
           items:
             type: object
             required: [course_id, course_code, course_name, free, needed, sufficient]
@@ -2784,12 +2788,12 @@ components:
               course_id: {type: [string, 'null'], format: uuid}
               course_code: {type: string}
               course_name: {type: string}
-              free: {type: integer, description: 'Freie Kurscodes dieses Kurses im Bestand der Schule'}
+              free: {type: integer, description: 'Freie Kurscodes dieses Kurses im Bestand der Schule, höchstens needed (gedeckelt: der Verwalter erfährt nicht den ganzen Codebestand)'}
               needed: {type: integer, description: 'Plätze minus aktive Mitglieder (Momentaufnahme, Obergrenze: Personen mit eigenem Kurszugang verbrauchen keinen Code)'}
               sufficient: {type: boolean, description: 'free >= needed; sonst in der App warnen'}
         join_code: {type: [string, 'null'], description: 'Nur bei aktiver Gruppe'}
         join_url: {type: [string, 'null'], format: uri, description: 'Universal Link für die App (…/gruppe/<code>/)'}
-        invites_remaining_today: {type: integer}
+        invites_remaining_today: {type: integer, description: 'Heute noch mögliche Einladungen: das kleinere aus Gruppenlimit und Tageslimit des Verwalters (200 über alle Gruppen)'}
         invite_valid_days: {type: integer}
         members: {type: array, items: {$ref: '#/components/schemas/LearningGroupMember'}}
     GroupJoinPreview:
@@ -2803,6 +2807,7 @@ components:
         free_seats: {type: integer}
         already_member: {type: boolean}
         codes_available: {type: boolean, description: 'Die Schule hat für jeden Kurs der Gruppe, für den die anfragende Person keinen eigenen Vollzugang hat, einen freien Kurscode (sonst schlägt der Beitritt mit 409 GROUP_NO_CODES fehl)'}
+        access_revoked: {type: boolean, description: 'Die Schule hat der anfragenden Person einen Kurs der Gruppe entzogen; der Beitritt schlägt mit 409 GROUP_ACCESS_REVOKED fehl (joinable false)'}
         joinable: {type: boolean}
         scopes: {type: array, items: {$ref: '#/components/schemas/GroupScope'}}
     ExportStatus:

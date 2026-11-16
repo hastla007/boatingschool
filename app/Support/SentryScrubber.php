@@ -9,15 +9,18 @@ use Sentry\EventHint;
 /**
  * Entfernt vor dem Versand an Sentry Geheimnisse und personenbezogene Daten,
  * die send_default_pii=false nicht abdeckt: Tokens in URL-Pfaden
- * (Passwort-/Einrichtungslink, Support-Ansicht, Verknüpfung), Signaturen in
- * Query-Strings und E-Mail-Adressen in Fehlermeldungen (z. B. Postgres
+ * (Passwort-/Einrichtungslink, Support-Ansicht, Verknüpfung, Beitrittscodes
+ * und Einladungen von Lerngruppen unter /groups/join/… und /gruppe/…),
+ * Signaturen und Einmal-Schlüssel in Query-Strings (u. a. request_id und
+ * confirm_key des Löschlinks aus der App, bp_app_login der App-Anmeldung
+ * im Web) und E-Mail-Adressen in Fehlermeldungen (z. B. Postgres
  * „Key (email)=(…) already exists“).
  */
 class SentryScrubber
 {
-    private const PATH_TOKENS = '#/(reset-password|impersonate|account-setup|invitations?|email/verify|confirm-email)/[^/?\s]+#i';
+    private const PATH_TOKENS = '#/(reset-password|impersonate|account-setup|invitations?|email/verify|confirm-email|groups/join|gruppe)/[^/?\s]+#i';
 
-    private const QUERY_SECRETS = '/(signature|token|code|expires|email)=[^&\s]*/i';
+    private const QUERY_SECRETS = '/(signature|token|code|expires|email|confirm_key|request_id|bp_app_login)=[^&\s]*/i';
 
     private const EMAIL = '/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}/i';
 

@@ -10,10 +10,12 @@ use App\Models\LearningGroup;
 use App\Models\LearningGroupMember;
 use App\Models\Product;
 use App\Models\Tenant;
+use App\Models\TenantInvitation;
 use App\Models\User;
 use App\Notifications\EntitlementExpiringSoon;
 use App\Notifications\LearningGroupInvitation;
 use App\Services\AccountErasureService;
+use App\Services\InvitationAcceptance;
 use App\Services\LearningGroupService;
 use App\Services\PersonalDataExportService;
 use App\Services\TenantOffboardingService;
@@ -747,7 +749,8 @@ class LearningGroupApiTest extends MobileApiTestCase
             'Teilzugang' => ['capabilities' => ['exam']],
             'abgelaufen' => ['valid_from' => now()->subYear(), 'valid_until' => now()->subDay()],
             'gesperrt' => ['status' => 'suspended'],
-            'widerrufen' => ['status' => 'revoked'],
+            // 'widerrufen' (revoked) sperrt den Beitritt ganz, siehe
+            // test_a_revoked_course_access_blocks_joining_a_group_of_the_course.
             'noch nicht gültig' => ['valid_from' => now()->addDay()],
             'andere Gruppe' => ['source_type' => 'group', 'source_reference' => 'group:'.$otherGroup->id.':'.Str::uuid(), 'valid_until' => now()->addYear()],
         ];
@@ -830,5 +833,119 @@ class LearningGroupApiTest extends MobileApiTestCase
             fn ($notification) => str_contains($notification->toMail($user)->subject, $grant->valid_until->timezone('Europe/Berlin')->format('d.m.Y')));
         $this->assertNull($this->onAdmin(fn () => Entitlement::find($own->id))->expiry_reminded_at);
         $this->assertNotNull($grant->expiry_reminded_at);
+    }
+
+    public function test_codes_reserved_for_open_school_invitations_are_not_used_for_group_seats(): void
+    {
+        $tenant = $this->createTestTenant();
+        $owner = $this->createTenantUser($tenant, 'learner');
+        $user = $this->createTenantUser($tenant, 'learner');
+        $src = $this->existingCourse('SRC');
+        $group = $this->group($tenant, $owner, ['seats' => 2, 'codes' => 0]);
+        $reserved = $this->courseCodes($tenant, $src, 1)->sole();
+        // Die Schule hat den einzigen Code beim Einladen einer Person reserviert.
+        $invitation = $this->onAdmin(fn () => TenantInvitation::create([
+            'tenant_id' => $tenant->id, 'email' => 'eingeladen-'.Str::lower(Str::random(6)).'@example.test',
+            'role' => 'learner', 'coupon_code' => $reserved->code,
+        ]));
+        $token = $this->apiLogin($user);
+        $ownerToken = $this->apiLogin($owner);
+
+        // Weder Vorschau, Anzeige noch Beitritt zählen den reservierten Code als frei.
+        $this->api('GET', "/groups/join/{$group->join_code}", $token, $tenant)->assertOk()
+            ->assertJsonPath('data.codes_available', false)->assertJsonPath('data.joinable', false);
+        $this->assertSame(0, $this->api('GET', "/me/groups/{$group->id}", $ownerToken, $tenant)->json('data.course_codes.0.free'));
+        $this->api('POST', '/coupons/redeem', $token, $tenant, ['code' => $group->join_code])->assertStatus(409)->assertJsonPath('code', 'GROUP_NO_CODES');
+        $this->assertNull($this->onAdmin(fn () => Coupon::find($reserved->id))->redeemed_at);
+        $this->assertSame(0, $this->onAdmin(fn () => Coupon::freeCourseCodesOf($tenant->id)->count()));
+
+        // Abgelaufene bzw. angenommene Einladungen reservieren nichts mehr.
+        $this->onAdmin(fn () => TenantInvitation::whereKey($invitation->id)->update(['created_at' => now()->subDays(InvitationAcceptance::VALID_DAYS + 1)]));
+        $this->assertSame(1, $this->onAdmin(fn () => Coupon::freeCourseCodesOf($tenant->id)->count()));
+        $this->onAdmin(fn () => TenantInvitation::whereKey($invitation->id)->update(['created_at' => now(), 'accepted_at' => now()]));
+        $this->api('POST', '/coupons/redeem', $token, $tenant, ['code' => $group->join_code])->assertOk();
+        $this->assertSame([$reserved->id], $this->consumedCodes($user)->pluck('id')->all());
+    }
+
+    public function test_a_revoked_course_access_blocks_joining_a_group_of_the_course(): void
+    {
+        $tenant = $this->createTestTenant();
+        $owner = $this->createTenantUser($tenant, 'learner');
+        $user = $this->createTenantUser($tenant, 'learner');
+        $src = $this->existingCourse('SRC');
+        $group = $this->group($tenant, $owner, ['seats' => 2]);
+        // Die Schule hat den Kurs bewusst entzogen (z. B. Rückbuchung).
+        $this->ownAccess($tenant, $user, $src, ['status' => 'revoked']);
+        $invite = $this->inviteRow($group, $user->email);
+        $token = $this->apiLogin($user);
+
+        $this->api('GET', "/groups/join/{$group->join_code}", $token, $tenant)->assertOk()
+            ->assertJsonPath('data.access_revoked', true)->assertJsonPath('data.joinable', false);
+        foreach ([$group->join_code, $invite->invite_token] as $code) {
+            $this->api('POST', '/coupons/redeem', $token, $tenant, ['code' => $code])->assertStatus(409)
+                ->assertJsonPath('code', 'GROUP_ACCESS_REVOKED')
+                ->assertJsonPath('detail', 'Dein Zugang zu einem Kurs dieser Gruppe wurde von der Bootsschule gesperrt. Bitte wende dich an deine Bootsschule.');
+        }
+        // Nichts verbraucht, kein Zugang, die Einladung bleibt offen.
+        $this->assertCount(0, $this->consumedCodes($user));
+        $this->assertCount(0, $this->groupEntitlements($user));
+        $this->assertSame('invited', $this->onAdmin(fn () => LearningGroupMember::find($invite->id))->status);
+        $this->assertNotSame('active', $this->courseEntry($tenant, $token, $src)['access']['status']);
+
+        // Ohne Sperre für diesen Kurs klappt der Beitritt (andere Person, gleiche Gruppe).
+        $other = $this->createTenantUser($tenant, 'learner');
+        $otherToken = $this->apiLogin($other);
+        $this->api('GET', "/groups/join/{$group->join_code}", $otherToken, $tenant)->assertOk()
+            ->assertJsonPath('data.access_revoked', false)->assertJsonPath('data.joinable', true);
+        $this->api('POST', '/coupons/redeem', $otherToken, $tenant, ['code' => $group->join_code])->assertOk();
+    }
+
+    public function test_the_group_manager_only_sees_free_codes_up_to_the_need_of_the_group(): void
+    {
+        $tenant = $this->createTestTenant();
+        $owner = $this->createTenantUser($tenant, 'learner');
+        $group = $this->group($tenant, $owner, ['seats' => 2, 'codes' => 7]);
+        $token = $this->apiLogin($owner);
+
+        // Der Verwalter (ein Teilnehmer) erfährt nicht den Codebestand der Schule.
+        $expected = [['free' => 2, 'needed' => 2, 'sufficient' => true]];
+        $pick = fn (array $rows) => array_map(fn ($row) => array_intersect_key($row, array_flip(['free', 'needed', 'sufficient'])), $rows);
+        $this->assertSame($expected, $pick($this->api('GET', "/me/groups/{$group->id}", $token, $tenant)->json('data.course_codes')));
+        $this->assertSame($expected, $pick($this->api('GET', '/me/groups', $token, $tenant)->json('data.0.course_codes')));
+
+        // Zu wenige Codes: die (kleinere) Zahl bleibt sichtbar, sufficient false.
+        $this->onAdmin(fn () => Coupon::where('tenant_id', $tenant->id)->limit(6)->get()->each->update(['voided_at' => now()]));
+        $this->assertSame([['free' => 1, 'needed' => 2, 'sufficient' => false]], $pick($this->api('GET', "/me/groups/{$group->id}", $token, $tenant)->json('data.course_codes')));
+
+        // Das Team der Schule (Admin-Bereich) sieht die genaue Zahl.
+        $this->onAdmin(fn () => Coupon::where('tenant_id', $tenant->id)->update(['voided_at' => null]));
+        $exact = $this->asTenant($tenant, fn () => app(LearningGroupService::class)->payload(LearningGroup::find($group->id), User::find($owner->id), exactCodeCounts: true));
+        $this->assertSame([['free' => 7, 'needed' => 2, 'sufficient' => true]], $pick($exact['course_codes']));
+    }
+
+    public function test_a_manager_sends_at_most_a_fixed_number_of_invitations_per_day_across_groups(): void
+    {
+        Notification::fake();
+        $tenant = $this->createTestTenant();
+        $owner = $this->createTenantUser($tenant, 'learner');
+        // Je Gruppe läge das Limit bei 2 × 150 = 300 Einladungen am Tag.
+        $first = $this->group($tenant, $owner, ['seats' => 150, 'codes' => 0]);
+        $second = $this->group($tenant, $owner, ['seats' => 150, 'codes' => 0, 'name' => 'Zweite Gruppe']);
+        $token = $this->apiLogin($owner);
+        $emails = fn (string $prefix, int $count) => array_map(fn ($i) => "{$prefix}-{$i}@example.test", range(1, $count));
+
+        $this->api('POST', "/me/groups/{$first->id}/invites", $token, $tenant, ['emails' => $emails('a', 150)])
+            ->assertOk()->assertJsonPath('data.invited', 150);
+        $response = $this->api('POST', "/me/groups/{$second->id}/invites", $token, $tenant, ['emails' => $emails('b', 100)])->assertOk();
+        $this->assertSame(LearningGroupService::INVITES_PER_OWNER_PER_DAY - 150, $response->json('data.invited'));
+        $this->assertCount(100 - (LearningGroupService::INVITES_PER_OWNER_PER_DAY - 150), $response->json('data.skipped'));
+        $this->assertSame(0, $response->json('data.group.invites_remaining_today'));
+        Notification::assertSentOnDemandTimes(LearningGroupInvitation::class, LearningGroupService::INVITES_PER_OWNER_PER_DAY);
+
+        $blocked = $this->api('POST', "/me/groups/{$second->id}/invites", $token, $tenant, ['email' => 'c-1@example.test'])->assertStatus(429);
+        $blocked->assertJsonPath('code', 'RATE_LIMITED');
+        $this->assertStringContainsString('bereits '.LearningGroupService::INVITES_PER_OWNER_PER_DAY.' Einladungen', $blocked->json('detail'));
+        $this->assertNotNull($blocked->headers->get('Retry-After'));
+        $this->assertSame(LearningGroupService::INVITES_PER_OWNER_PER_DAY, $this->onAdmin(fn () => LearningGroupMember::whereIn('group_id', [$first->id, $second->id])->count()));
     }
 }

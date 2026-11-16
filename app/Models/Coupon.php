@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\InvitationAcceptance;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -169,13 +170,22 @@ class Coupon extends Model
      * Plätze abgerechnet werden (LearningGroupService::join): eigener Bestand
      * (keine plattformweiten Codes), einlösbar, reiner Kurscode -- keine
      * Verlängerungs- oder Produktcodes und keine Kurscodes mit gebündelten
-     * Zusatzprodukten (die gingen bei einem Gruppenplatz verloren).
+     * Zusatzprodukten (die gingen bei einem Gruppenplatz verloren). Ebenso
+     * ausgenommen: Codes, die gerade für eine offene Einladung dieser Schule
+     * reserviert sind (TenantInvitation.coupon_code, siehe InvitationCoupon)
+     * -- sonst verbrauchte ein Gruppenbeitritt den Code, und die eingeladene
+     * Person bekäme beim Annehmen stillschweigend keinen Kurszugang.
      */
     public function scopeFreeCourseCodesOf($query, string $tenantId)
     {
         return $query->usable()->where('coupon.tenant_id', $tenantId)->whereNotNull('coupon.course_id')
             ->whereNull('coupon.product_id')->where('coupon.is_renewal', false)
-            ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('coupon_option_product')->whereColumn('coupon_option_product.coupon_id', 'coupon.id'));
+            ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('coupon_option_product')->whereColumn('coupon_option_product.coupon_id', 'coupon.id'))
+            ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('tenant_invitation')
+                ->where('tenant_invitation.tenant_id', $tenantId)->whereColumn('tenant_invitation.coupon_code', 'coupon.code')
+                // Wie TenantInvitation::scopeOpen(): nicht angenommen, nicht abgelaufen.
+                ->whereNull('tenant_invitation.accepted_at')
+                ->where('tenant_invitation.created_at', '>=', now()->subDays(InvitationAcceptance::VALID_DAYS)));
     }
 
     /**
