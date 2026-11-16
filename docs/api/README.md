@@ -302,6 +302,14 @@ Fehler beim Schul-Kontext:
   mit einem reinen Gruppenzugang endet (Lerngruppe oder aus WordPress
   übernommener Gruppenplatz, kein eigener Zugang trägt genauso lange):
   verlängert wird dann über die Schule, nicht per Kauf oder Code.
+  `renewal` sagt der App, welchen Hinweis sie zeigt: `code` (eigener
+  Zugang, Verlängerung per Code bzw. Shop), `school` (Zugang endet mit
+  einem reinen Gruppenzugang: „wende dich an deine Bootsschule“) oder
+  `null` (unbefristet bzw. kein Zugang). Maßgeblich ist der am längsten
+  tragende gültige Zugang, ohne gültigen der zuletzt abgelaufene; bei
+  gleichem Ende zählt der eigene. `group_name` nennt bei `school` die
+  Lerngruppe (`null` bei aus WordPress übernommenen Gruppenplätzen).
+  Beide Felder stehen auch im `entitlement`-Objekt der Code-Einlösung.
 * `capabilities` (z. B. `smarttrainer`, `exam`, `video`, `navigation`)
   sagt, welche Funktionen der Kurs hat; `features.<capability>` mit
   `available`/`full`/`limit` sagt, was die Person davon nutzen darf

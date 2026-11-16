@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Collection;
 
 class Entitlement extends Model
 {
@@ -81,6 +82,20 @@ class Entitlement extends Model
     public function isImportedGroupAccess(): bool
     {
         return $this->source_type === 'wordpress' && ($this->import_meta['source'] ?? null) === 'group';
+    }
+
+    /**
+     * Je Kurs der am längsten tragende Zugang (unbefristet zuerst), bei
+     * gleichem Ende der eigene vor dem Gruppenzugang -- danach richtet sich,
+     * ob ein Ablauf-Hinweis Code/Kauf oder die Schule nennt.
+     *
+     * @param  Collection<int, self>  $entitlements
+     * @return Collection<string, self> course_id => Zugang
+     */
+    public static function longestPerCourse(Collection $entitlements): Collection
+    {
+        return $entitlements->sortBy(fn (self $e) => [$e->valid_until?->getTimestamp() ?? PHP_INT_MAX, $e->isGroupAccess() ? 0 : 1])
+            ->keyBy('course_id');
     }
 
     public function isCurrentlyActive(): bool
