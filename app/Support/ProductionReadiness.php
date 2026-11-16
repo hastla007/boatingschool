@@ -65,6 +65,10 @@ class ProductionReadiness
         $add('Konfiguration', 'APP_ENV = production', $env === 'production' ? 'ok' : 'fail', "aktuell: {$env}");
         $add('Konfiguration', 'APP_DEBUG aus', config('app.debug') ? 'fail' : 'ok', config('app.debug') ? 'Fehlerseiten zeigen sonst Code und Zugangsdaten' : '');
         $add('Konfiguration', 'APP_KEY gesetzt', config('app.key') ? 'ok' : 'fail');
+        // Oberfläche, Validierungsmeldungen und Datumsangaben sind deutsch; mit
+        // anderer Sprache erschienen englische Framework-Texte.
+        $locale = (string) config('app.locale');
+        $add('Konfiguration', 'APP_LOCALE = de', $locale === 'de' ? 'ok' : 'warn', $locale === 'de' ? '' : "aktuell: {$locale} – Framework-Texte erscheinen sonst nicht auf Deutsch");
         // Shop-Anbindung: kurze HMAC-Geheimnisse ließen sich aus einer mitgeschnittenen
         // Anfrage offline erraten -- damit könnte man Codes für jede Schule erzeugen.
         $shortSecrets = collect(array_merge(array_values((array) config('commerce.keys')), [config('commerce.outbound_secret')]))
