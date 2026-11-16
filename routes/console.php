@@ -41,6 +41,7 @@ Schedule::command('app:prune-personal-data --mobile-api-only')->hourly()->onOneS
 
 // Shop-Anbindung: Ausgang App -> Shop (Shopkonten neuer Schulen), mit Wiederholung.
 Schedule::command('app:commerce-outbox')->everyMinute()->onOneServer()->withoutOverlapping(5);
+Schedule::command('app:prune-form-captain-leads')->dailyAt('04:35')->timezone('Europe/Berlin')->onOneServer()->withoutOverlapping(60); // Lead-Eingang Form Captain
 
 // Kursliste der App: Zwischenspeicher vorab füllen (siehe CourseAccess).
 Schedule::command('app:warm-course-cache')->hourly()->onOneServer()->withoutOverlapping(55);

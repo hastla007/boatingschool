@@ -73,6 +73,7 @@ return Application::configure(basePath: dirname(__DIR__))
             // routes/commerce.php (getrennte Töpfe, siehe AppServiceProvider).
             Route::middleware(['api', 'commerce.signed', 'admin-db'])
                 ->prefix('api/commerce/v1')->group(__DIR__.'/../routes/commerce.php');
+            Route::group([], __DIR__.'/../routes/integrations.php'); // Lead-Eingang Form Captain + Inbox (docs/integrations/form-captain-leads.md)
         },
     )
     ->withMiddleware(function (Middleware $middleware) {
