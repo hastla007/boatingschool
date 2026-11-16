@@ -830,14 +830,46 @@ entscheidet aber nur anhand von `code`.
   Verbindung, idempotent über Quellschlüssel, legt keine Schulen oder Konten
   an):
   ```sh
-  php artisan app:import-mobile-entitlements /pfad/mobile-entitlements.json
+  php artisan app:import-mobile-entitlements /pfad/mobile-entitlements.json [--dry-run]
   php artisan app:import-mobile-access-rules /pfad/mobile-access.json
   ```
-  Entitlements: `{"tenant_slug": "...", "entitlements": [{"email", "course_code",
-  "feature_code" ("all" oder WP-Funktion), "source_key", "status": "active",
-  "valid_from"?, "valid_until"?}]}`. Das App-Konto mit derselben E-Mail muss
-  bestehen; fehlende Mitgliedschaften werden als Lernende angelegt, gesperrte
-  oder mehrdeutige Konten brechen ab. Der Export enthält E-Mail-Adressen.
+  Entitlements, Format 1 (ohne `format_version`): `{"tenant_slug": "...",
+  "entitlements": [{"email", "course_code", "feature_code" ("all" oder
+  WP-Funktion), "source_key", "status": "active", "valid_from"?,
+  "valid_until"?}]}` – nur aktive Zugänge, sonst bricht der Lauf ab.
+  Format 2 (`"format_version": 2`, WP-Export seit T46, `wp bootspruefung export
+  entitlements`): zusätzlich `default_access` (hier ignoriert, gehört zum
+  Regel-Import), je Zugang `status` (`active`/`suspended`), `user_registered`,
+  `source` (`woocommerce`/`group`/`manual`/`voucher`), `group_id`, `order_id`,
+  `source_key` (`wp:entitlement:<id>`) und getrennt
+  `device_simulation_entitlements`. Regeln: `suspended` wird als gesperrter
+  Zugang übernommen und nie freigeschaltet; ein `valid_from` in der Zukunft
+  bleibt stehen, der Zugang gilt erst ab dann (`Entitlement::currentlyActive`);
+  `feature_code` `all` = voller Kurszugang (`capabilities` null), einzelne
+  WP-Funktionen werden auf Capabilities abgebildet (`question_bank`/
+  `learning_explanations` → `smarttrainer`, `exam_simulation` → `exam`,
+  `navigation_trainer` → `navigation`, `praxis_trainer` → `praxis`,
+  `video_course` → `video`, `radio_training` → `funk`, `downloads` →
+  `downloads`). Alle Zeilen erhalten `source_type` `wordpress`,
+  `source_reference` = `source_key`; die Herkunft (`source`, `group_id`,
+  `order_id`, WP-`status`) steht in `entitlement.import_meta` (jsonb,
+  Migration `…_000940`). Gruppenplätze (`source` `group`) werden als einzelne
+  Zugänge der Lernenden übernommen, Lerngruppen werden nicht angelegt; die
+  Ausgabe nennt ihre Anzahl. Simulator-Zugänge werden übersprungen und
+  gezählt: Die Gerätesimulation Funk hat hier keine eigene Capability, sie
+  gehört zum vollen Kurszugang (und ist zusätzlich per
+  `FUNK_GERAETESIMULATION` freigeschaltet).
+  Für beide Formate: Das App-Konto mit derselben E-Mail muss bestehen;
+  fehlende Mitgliedschaften werden als Lernende angelegt, gesperrte oder
+  mehrdeutige Konten und unbekannte Kurse brechen ab (Fehler mit
+  Zeilennummer und `source_key`). Alles oder nichts in einer Transaktion.
+  Ein erneuter Lauf ist idempotent über `source_key` und übernimmt Status,
+  Zeitraum, Funktion und Herkunft (z. B. eine Sperre nach dem ersten Import);
+  in Laravel widerrufene oder dort gesperrte Zugänge schaltet er nicht wieder
+  frei. Zugänge, die im neuen Export fehlen, bleiben unverändert.
+  `--dry-run` prüft dieselben Regeln, zeigt je Zugang die geplante Aktion
+  (neu/aktualisieren/unverändert) und speichert nichts. Der Export enthält
+  E-Mail-Adressen.
   Regeln: `{"default_access"?, "rules": [{"tenant_slug", "course_code",
   "feature_code", "access_type" (free/free_limited/drip), "limit_value"?,
   "module_code"? (nur drip), "valid_from"?, "valid_until"?, "source_key"?}]}`.
