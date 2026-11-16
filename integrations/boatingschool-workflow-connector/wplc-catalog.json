@@ -1,0 +1,21 @@
+{
+  "format": 1,
+  "product_key": "boatingschool-workflow-connector",
+  "prefix": "boatingschool_workflow",
+  "name": "BoatingSchool Workflow Connector",
+  "status": "planned",
+  "entitlements": [
+    {
+      "key": "boatingschool_workflow.connector",
+      "label": {
+        "en": "BoatingSchool events and commands in Workflow Captain",
+        "de_DE": "Ereignisse und Befehle der Bootsschul-Plattform in Workflow Captain",
+        "de_DE_formal": "Ereignisse und Befehle der Bootsschul-Plattform in Workflow Captain"
+      },
+      "description": {
+        "en": "Own project product (decision 17), not covered by any Captain Pro license. Without it the connector accepts no new events and runs no commands."
+      },
+      "status": "planned"
+    }
+  ]
+}
