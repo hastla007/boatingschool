@@ -16,7 +16,7 @@ class Entitlement extends Model
 
     protected $fillable = [
         'tenant_id', 'user_id', 'course_id', 'valid_from', 'valid_until',
-        'status', 'source_type', 'source_reference', 'expiry_reminded_at', 'capabilities',
+        'status', 'source_type', 'source_reference', 'expiry_reminded_at', 'capabilities', 'import_meta',
     ];
 
     /** So viele Tage vor dem Ablauf warnen Kursübersicht und Erinnerungsmail. */
@@ -40,6 +40,8 @@ class Entitlement extends Model
             'expiry_reminded_at' => 'datetime',
             // null = voller Kurszugang, sonst Liste einzelner Funktionen (CourseAccess::ENTITLEMENT_CAPABILITIES).
             'capabilities' => 'array',
+            // Herkunft eines WP-Imports (source, group_id, order_id, status), sonst null.
+            'import_meta' => 'array',
         ];
     }
 
