@@ -34,9 +34,9 @@
 
 <div>
     <x-input-label for="bullets" value="Haken-Bullets (eine Zeile pro Punkt)" />
-    <textarea id="bullets" name="bullets" rows="5"
+    <textarea id="bullets" @ariaInvalid('bullets') name="bullets" rows="5"
               class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">{{ old('bullets', $template ? implode("\n", $template->bullets ?? []) : '') }}</textarea>
-    <x-input-error :messages="$errors->get('bullets')" class="mt-2" />
+    <x-input-error for="bullets" :messages="$errors->get('bullets')" class="mt-2" />
 </div>
 
 <div>

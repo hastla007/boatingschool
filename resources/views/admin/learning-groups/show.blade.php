@@ -65,14 +65,7 @@
                         <x-input-error for="name" :messages="$errors->get('name')" class="mt-1" />
                     </div>
                     <div>
-                        <x-input-label for="owner_user_id" value="Verwalter (aktiver Teilnehmer)" />
-                        <select id="owner_user_id" name="owner_user_id" required class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
-                            <option value="">Bitte wählen</option>
-                            @foreach ($managers as $manager)
-                                <option value="{{ $manager->id }}" @selected(old('owner_user_id', $group->owner_user_id) === $manager->id)>{{ $manager->name }} ({{ $manager->email }})</option>
-                            @endforeach
-                        </select>
-                        <x-input-error :messages="$errors->get('owner_user_id')" class="mt-1" />
+                        @include('admin.learning-groups._manager-picker', ['selected' => $group->owner])
                     </div>
                     <div class="grid sm:grid-cols-2 gap-3">
                         <div>
@@ -82,8 +75,8 @@
                         </div>
                         <div>
                             <x-input-label for="valid_until" value="Gültig bis (leer = unbefristet)" />
-                            <input id="valid_until" name="valid_until" type="date" value="{{ old('valid_until', $group->valid_until?->timezone('Europe/Berlin')->toDateString()) }}" class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
-                            <x-input-error :messages="$errors->get('valid_until')" class="mt-1" />
+                            <x-text-input :invalid="$errors->has('valid_until')" id="valid_until" name="valid_until" type="date" :value="old('valid_until', $group->valid_until?->timezone('Europe/Berlin')->toDateString())" class="mt-1 block w-full text-sm" />
+                            <x-input-error for="valid_until" :messages="$errors->get('valid_until')" class="mt-1" />
                         </div>
                     </div>
                     <p class="text-xs text-slate-600 dark:text-slate-400">Ein neues Ende gilt auch für die Kurszugänge der aktuellen Mitglieder.</p>

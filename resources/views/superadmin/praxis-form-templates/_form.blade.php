@@ -48,13 +48,13 @@
     </label>
 
     <div>
-        <x-input-label value="Zugewiesene Kurse" />
+        <x-input-label id="course_ids-label" value="Zugewiesene Kurse" />
         <p class="text-xs text-slate-600 dark:text-slate-400 mt-1 mb-2">Ein Kurs kann nur einem aktiven Formular zugewiesen sein. Bereits vergebene Kurse sind ausgegraut.</p>
-        <div class="grid sm:grid-cols-2 gap-x-4 gap-y-1.5 max-h-56 overflow-y-auto border border-slate-200 dark:border-slate-600 rounded-lg p-3">
+        <div role="group" aria-labelledby="course_ids-label" class="grid sm:grid-cols-2 gap-x-4 gap-y-1.5 max-h-56 overflow-y-auto border border-slate-200 dark:border-slate-600 rounded-lg p-3">
             @foreach ($courses as $course)
                 @php($isTaken = in_array($course->id, $assignedCourseIds, true))
                 <label class="inline-flex items-center gap-2 text-sm {{ $isTaken ? 'text-slate-300 dark:text-slate-600' : 'text-slate-600 dark:text-slate-300' }}">
-                    <input type="checkbox" name="course_ids[]" value="{{ $course->id }}"
+                    <input type="checkbox" name="course_ids[]" value="{{ $course->id }}" @ariaInvalid('course_ids')
                            @checked(in_array($course->id, $selectedCourseIds, true)) @disabled($isTaken)
                            class="rounded border-slate-300 dark:bg-slate-700 dark:border-slate-600">
                     {{ $course->name }}
@@ -64,7 +64,7 @@
                 </label>
             @endforeach
         </div>
-        <x-input-error :messages="$errors->get('course_ids')" class="mt-2" />
+        <x-input-error for="course_ids" :messages="$errors->get('course_ids')" class="mt-2" />
     </div>
 
     <div>

@@ -25,17 +25,10 @@
             <x-input-error for="name" :messages="$errors->get('name')" class="mt-1" />
         </div>
         <div>
-            <x-input-label for="owner_user_id" value="Verwalter (aktiver Teilnehmer)" />
-            <select id="owner_user_id" name="owner_user_id" required class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
-                <option value="">Bitte wählen</option>
-                @foreach ($managers as $manager)
-                    <option value="{{ $manager->id }}" @selected(old('owner_user_id') === $manager->id)>{{ $manager->name }} ({{ $manager->email }})</option>
-                @endforeach
-            </select>
-            <x-input-error :messages="$errors->get('owner_user_id')" class="mt-1" />
-            @if ($managers->isEmpty())
+            @include('admin.learning-groups._manager-picker', ['selected' => null])
+            @unless ($hasManagers)
                 <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Ihre Bootsschule hat noch keine aktiven Teilnehmer.</p>
-            @endif
+            @endunless
         </div>
         <div class="grid sm:grid-cols-2 gap-3">
             <div>
@@ -45,8 +38,8 @@
             </div>
             <div>
                 <x-input-label for="valid_until" value="Gültig bis (leer = unbefristet)" />
-                <input id="valid_until" name="valid_until" type="date" value="{{ old('valid_until') }}" min="{{ now('Europe/Berlin')->addDay()->toDateString() }}" class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
-                <x-input-error :messages="$errors->get('valid_until')" class="mt-1" />
+                <x-text-input :invalid="$errors->has('valid_until')" id="valid_until" name="valid_until" type="date" :value="old('valid_until')" min="{{ now('Europe/Berlin')->addDay()->toDateString() }}" class="mt-1 block w-full text-sm" />
+                <x-input-error for="valid_until" :messages="$errors->get('valid_until')" class="mt-1" />
             </div>
         </div>
         <fieldset>
@@ -56,12 +49,13 @@
                 @forelse ($courses as $course)
                     @php($free = $freeCodes[$course->id] ?? 0)
                     <div class="flex flex-wrap items-center justify-between gap-2" x-data="{ selected: @js((string) old('courses.'.$course->code, '')) }">
-                        <label for="course-{{ $course->code }}" class="text-sm text-slate-700 dark:text-slate-200">
-                            {{ $course->name }}
-                            <span class="block text-xs text-slate-500 dark:text-slate-400" data-free-codes="{{ $course->code }}">Freie Kurscodes: {{ $free }}</span>
-                            <span class="block text-xs text-amber-700 dark:text-amber-400" style="display: none" x-show="selected && seats > {{ $free }}">Mehr Plätze als freie Kurscodes &ndash; nicht alle Plätze können beitreten.</span>
-                        </label>
-                        <select id="course-{{ $course->code }}" name="courses[{{ $course->code }}]" x-model="selected" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                        <div>
+                            <label for="course-{{ $course->code }}" class="text-sm text-slate-700 dark:text-slate-200">{{ $course->name }}</label>
+                            <span id="course-{{ $course->code }}-codes" class="block text-xs text-slate-500 dark:text-slate-400" data-free-codes="{{ $course->code }}">Freie Kurscodes: {{ $free }}</span>
+                            {{-- WCAG 4.1.3: die Warnung erscheint beim Tippen der Platzzahl und wird angesagt (Live-Region bleibt im DOM). --}}
+                            <span class="block text-xs text-amber-700 dark:text-amber-400" role="status" aria-live="polite"><span style="display: none" x-show="selected && seats > {{ $free }}">Mehr Plätze als freie Kurscodes ({{ $course->name }}) &ndash; nicht alle Plätze können beitreten.</span></span>
+                        </div>
+                        <select id="course-{{ $course->code }}" name="courses[{{ $course->code }}]" x-model="selected" aria-describedby="course-{{ $course->code }}-codes" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                             <option value="">nicht enthalten</option>
                             @foreach (\App\Services\LearningGroupService::FEATURE_OPTIONS as $feature => $label)
                                 <option value="{{ $feature }}" @selected(old('courses.'.$course->code) === $feature)>{{ $label }}</option>

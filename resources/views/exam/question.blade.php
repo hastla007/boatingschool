@@ -91,7 +91,8 @@
 
                 <template x-if="revealed">
                     <div>
-                        <div class="rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 px-4 py-3 text-sm text-slate-700 dark:text-slate-200 whitespace-pre-line" x-text="answerText"></div>
+                        {{-- WCAG 2.4.3/4.1.3: der Knopf verschwindet, der Fokus springt auf die geladene Musterantwort. --}}
+                        <div tabindex="-1" x-init="$nextTick(() => $el.focus({ preventScroll: true }))" class="outline-none rounded-xl bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 px-4 py-3 text-sm text-slate-700 dark:text-slate-200 whitespace-pre-line" x-text="answerText" data-revealed-answer></div>
 
                         <form method="POST" action="{{ route('exam.answer', $examSession) }}" class="flex items-center justify-between mt-6">
                             @csrf
@@ -153,6 +154,8 @@
         <button type="submit" class="text-sm text-slate-600 dark:text-slate-400 underline hover:no-underline py-2">Prüfung vorzeitig abgeben</button>
     </form>
 
+    {{-- Rückmeldung zum Favoriten-Knopf für Screenreader (WCAG 4.1.3). --}}
+    <p id="favorite-status" class="sr-only" role="status" aria-live="polite"></p>
     <script nonce="{{ $cspNonce }}">
         // Bug-Review B29: ein Klick auf "Favorit" sendete bisher ein
         // verstecktes Formular ab und navigierte damit die gesamte Seite
@@ -175,7 +178,9 @@
             }).then(function (response) {
                 // Nur die erwartete Antwort (204) gilt als gespeichert -- eine
                 // umgeleitete HTML-Seite (200) darf nicht „Favorit“ anzeigen.
+                const status = document.getElementById('favorite-status');
                 if (response.status !== 204) {
+                    if (status) status.textContent = 'Favorit konnte nicht gespeichert werden. Bitte versuche es noch einmal.';
                     return;
                 }
 
@@ -186,6 +191,8 @@
                 btn.classList.toggle('dark:text-slate-400', ! nowFavorite);
                 btn.classList.toggle('hover:text-amber-500', ! nowFavorite);
                 btn.querySelector('.favorite-label').textContent = nowFavorite ? 'Favorit' : 'Als Favorit speichern';
+                // WCAG 4.1.3: der geänderte Knopftext allein wird nicht angesagt.
+                if (status) status.textContent = nowFavorite ? 'Als Favorit gespeichert.' : 'Aus den Favoriten entfernt.';
             });
         }
     </script>

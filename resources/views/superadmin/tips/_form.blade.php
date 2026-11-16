@@ -3,7 +3,7 @@
 <div class="grid sm:grid-cols-2 gap-4">
     <div>
         <x-input-label for="category_id" value="Kategorie" />
-        <select id="category_id" name="category_id" required
+        <select id="category_id" @ariaInvalid('category_id') name="category_id" required
                 class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
             <option value="" disabled @selected(! old('category_id', $tip?->category_id))>Bitte wählen…</option>
             @foreach ($categories as $category)
@@ -13,7 +13,7 @@
         @if ($categories->isEmpty())
             <p class="text-xs text-amber-600 mt-1">Noch keine Kategorie angelegt — <a href="{{ route('superadmin.tips.categories.index') }}" class="underline">jetzt anlegen</a>.</p>
         @endif
-        <x-input-error :messages="$errors->get('category_id')" class="mt-2" />
+        <x-input-error for="category_id" :messages="$errors->get('category_id')" class="mt-2" />
     </div>
     <div>
         <x-input-label for="sort_order" value="Reihenfolge" />
@@ -30,9 +30,9 @@
 
 <div>
     <x-input-label for="body" value="Inhalt" />
-    <textarea id="body" name="body" rows="10" required
+    <textarea id="body" @ariaInvalid('body') name="body" rows="10" required
               class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">{{ old('body', $tip?->body) }}</textarea>
-    <x-input-error :messages="$errors->get('body')" class="mt-2" />
+    <x-input-error for="body" :messages="$errors->get('body')" class="mt-2" />
 </div>
 
 <div>
@@ -42,6 +42,6 @@
             Aktuell hinterlegt: <a href="{{ \App\Support\TipPdf::url($tip) }}" target="_blank" class="text-blue-600 hover:underline">PDF ansehen</a> — beim Hochladen einer neuen Datei wird diese ersetzt.
         </p>
     @endif
-    <input id="pdf" name="pdf" type="file" accept="application/pdf" class="mt-1 block w-full text-sm text-slate-500 dark:text-slate-400">
-    <x-input-error :messages="$errors->get('pdf')" class="mt-2" />
+    <input id="pdf" @ariaInvalid('pdf') name="pdf" type="file" accept="application/pdf" class="mt-1 block w-full text-sm text-slate-500 dark:text-slate-400">
+    <x-input-error for="pdf" :messages="$errors->get('pdf')" class="mt-2" />
 </div>

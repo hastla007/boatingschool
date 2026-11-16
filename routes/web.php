@@ -328,6 +328,9 @@ Route::middleware(['auth', 'tenant.role:owner,admin', 'verified'])->prefix('admi
 
     // Lerngruppen (Gruppenlizenzen der App): Liste im Tab "Lerngruppen", hier Anlegen und Verwalten.
     Route::get('/learning-groups/create', [LearningGroupController::class, 'create'])->name('learning-groups.create');
+    // Verwaltersuche des Suchfelds (JSON, höchstens 20 aktive Teilnehmer der eigenen Schule).
+    Route::get('/learning-groups/manager-candidates', [LearningGroupController::class, 'managerCandidates'])
+        ->middleware('throttle:120,1,learning-group-manager-search')->name('learning-groups.manager-candidates');
     Route::post('/learning-groups', [LearningGroupController::class, 'store'])->middleware('throttle:10,1,learning-groups-create')->name('learning-groups.store');
     Route::get('/learning-groups/{learningGroup}', [LearningGroupController::class, 'show'])->whereUuid('learningGroup')->name('learning-groups.show');
     Route::patch('/learning-groups/{learningGroup}', [LearningGroupController::class, 'update'])->whereUuid('learningGroup')->name('learning-groups.update');

@@ -18,8 +18,8 @@
             </div>
             <div>
                 <x-input-label for="body" value="Text" />
-                <textarea id="body" name="body" rows="6" maxlength="5000" required class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">{{ old('body') }}</textarea>
-                <x-input-error :messages="$errors->get('body')" class="mt-1" />
+                <textarea id="body" @ariaInvalid('body') name="body" rows="6" maxlength="5000" required class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">{{ old('body') }}</textarea>
+                <x-input-error for="body" :messages="$errors->get('body')" class="mt-1" />
             </div>
 
             <fieldset>
@@ -28,12 +28,12 @@
                     <input type="radio" name="target" value="all" x-model="target" class="border-slate-300"> Alle Bootsschulen
                 </label>
                 <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
-                    <input type="radio" name="target" value="selected" x-model="target" class="border-slate-300"> Ausgewählte Bootsschulen
+                    <input type="radio" name="target" value="selected" x-model="target" @ariaInvalid('tenant_ids') class="border-slate-300"> Ausgewählte Bootsschulen
                 </label>
                 <div x-show="target === 'selected'" @if (old('target', 'all') !== 'selected') style="display: none" @endif class="mt-2 max-h-48 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-700 p-2 space-y-1">
                     @foreach ($tenants as $tenant)
                         <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
-                            <input type="checkbox" name="tenant_ids[]" value="{{ $tenant->id }}" @checked(in_array($tenant->id, old('tenant_ids', []), true)) class="rounded border-slate-300">
+                            <input type="checkbox" name="tenant_ids[]" value="{{ $tenant->id }}" @ariaInvalid('tenant_ids') @checked(in_array($tenant->id, old('tenant_ids', []), true)) class="rounded border-slate-300">
                             {{ $tenant->name }}
                             @if ($tenant->status !== 'active')
                                 <span class="text-xs text-slate-500 dark:text-slate-400">({{ \App\Support\StatusLabels::tenantStatus($tenant->status) }})</span>
@@ -41,7 +41,7 @@
                         </label>
                     @endforeach
                 </div>
-                <x-input-error :messages="$errors->get('tenant_ids')" class="mt-1" />
+                <x-input-error for="tenant_ids" :messages="$errors->get('tenant_ids')" class="mt-1" />
             </fieldset>
 
             <div class="grid sm:grid-cols-2 gap-3">
@@ -54,8 +54,8 @@
                 </div>
                 <div>
                     <x-input-label for="visible_until" value="Anzeigen bis (optional)" />
-                    <input id="visible_until" name="visible_until" type="date" value="{{ old('visible_until') }}" min="{{ now('Europe/Berlin')->toDateString() }}" class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
-                    <x-input-error :messages="$errors->get('visible_until')" class="mt-1" />
+                    <input id="visible_until" @ariaInvalid('visible_until') name="visible_until" type="date" value="{{ old('visible_until') }}" min="{{ now('Europe/Berlin')->toDateString() }}" class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                    <x-input-error for="visible_until" :messages="$errors->get('visible_until')" class="mt-1" />
                 </div>
             </div>
             <label class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
