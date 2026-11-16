@@ -16,7 +16,7 @@ oder in der App ein (`POST /api/v1/coupons/redeem`).
 | Datenmodell | Migration `2024_02_01_000610_create_commerce_tables` (RLS je Schule auf Batches, Verknüpfungscodes und Shopkonten), `000630` (Superadmin-Pakete), `000631` (`commerce_event.claimed_at`), `000632` (`product.sellable_standalone`) |
 | WooCommerce-Plugin | `integrations/woocommerce-connector/` |
 | Konfiguration | `config/commerce.php`, `.env` (`COMMERCE_*`) |
-| Tests | `tests/Feature/Commerce/`, `tests/Unit/ConnectorSignatureCompatibilityTest.php`, `tests/Unit/ConnectorPluginHelpersTest.php`, `tests/Unit/ConnectorVatCheckTest.php`; WordPress-Integrationstest: [wordpress-integrationstest.md](wordpress-integrationstest.md) |
+| Tests | `tests/Feature/Commerce/`, `tests/Unit/ConnectorSignatureCompatibilityTest.php`, `tests/Unit/ConnectorPluginHelpersTest.php`, `tests/Unit/ConnectorVatCheckTest.php`; WordPress-Integrationstest: [wordpress-integrationstest.md](wordpress-integrationstest.md); E2E-Lauf in echtem WordPress (CI): `.github/workflows/connector-wordpress.yml`, `tests/connector-e2e/` |
 
 ## Entscheidungen
 
@@ -222,6 +222,12 @@ MySQL; Ergebnis und Lücken: [`staging-test.md`](staging-test.md), Abschnitt
 - Die WordPress-freien Hilfsklassen des Plugins: Bestätigungslink, Protokoll ohne Codewerte, Abgleich, Datenschutz-Export, Aktualität der `.pot` (`tests/Unit/ConnectorPluginHelpersTest.php`).
 - USt-IdNr.-Format je EU-Land, Auswertung der VIES-Antworten und Vorrang der Geheimnisse aus `wp-config.php` (`tests/Unit/ConnectorVatCheckTest.php`).
 - Status-Zwischenspeicher, Einstellungen nur für Administratoren, gesperrte Felder aus `wp-config.php`, Warenkorb-Sperren und Storno-Reaktivierung mit einem minimalen WordPress-/WooCommerce-Ersatz (`tests/Unit/ConnectorAccountsAndSettingsTest.php`, `tests/Unit/ConnectorOrdersAndCheckoutTest.php`).
+- Ein Ende-zu-Ende-Lauf in echtem WordPress mit WooCommerce (MySQL) gegen die laufende App
+  (CI-Workflow `connector-wordpress.yml`, `tests/connector-e2e/run.sh`): Kundenkonto mit
+  E-Mail-Bestätigung, Anmeldung bei der App, Verknüpfung per Code unter „Mein Konto“, Produkt mit
+  Kurscode aus dem Katalog, bezahlte Bestellung, `wp action-scheduler run` bis zur Zustellung;
+  geprüft werden Positionen und Bestellnotiz im Shop und das Codepaket der Schule in der App.
+  Details und lokales Nachstellen: [wordpress-integrationstest.md](wordpress-integrationstest.md#automatisierter-lauf-in-der-ci).
 - Alle App-Endpunkte mit simulierten Shop-Aufrufen (Feature-Tests).
 - Der Ausgang mit einem simulierten Shop, einschließlich gleichzeitigem Beanspruchen, hängender Versände und der Übernahme bestehender Shopkonten.
 - Eine Lieferung von 500 Codes (Zeitmessung) und die gemeinsame Code-Erzeugung (`tests/Feature/CouponBatchFactoryTest.php`).

@@ -5,7 +5,9 @@ echten WordPress, WooCommerce, dem Connector-Plugin
 (`integrations/woocommerce-connector/`, Version 1.2.0) und der App, alles
 lokal in einem Container (13.11.2026). Kein automatisierter Test: Er
 dokumentiert, was gelaufen ist, und lässt sich mit den Schritten unten
-wiederholen.
+wiederholen. Den Kernablauf (Verknüpfen, Bestellung bis zur Zustellung)
+prüft seitdem ein CI-Job automatisch, siehe
+[Automatisierter Lauf in der CI](#automatisierter-lauf-in-der-ci).
 
 ## Versionen
 
@@ -162,3 +164,80 @@ In der App war für den Shop-Vertrag nichts zu ändern.
 4. Abläufe wie oben; nach jedem Schritt, der etwas einplant,
    `wp action-scheduler run`.
 5. Aufräumen: Server beenden, App-Datenbank löschen, MariaDB stoppen.
+
+## Automatisierter Lauf in der CI
+
+Workflow `.github/workflows/connector-wordpress.yml` (eigener Workflow, weil
+er MySQL, Downloads von wordpress.org und zwei Server braucht). Er läuft bei
+Push und Pull Request, wenn sich das Plugin, der Commerce-Code der App
+(`app/Commerce`, Commerce-Controller/-Middleware/-Modelle, `routes/`,
+Migrationen), `tests/connector-e2e/` oder der Workflow ändern, sowie von Hand
+(`workflow_dispatch`).
+
+Aufbau: PHP 8.3, PostgreSQL 16 (App, migriert und mit `db:seed` befüllt) und
+MySQL 8.4 (WordPress) als Dienste; App mit `php artisan serve` und
+Wegwerf-Geheimnissen `COMMERCE_SHOP_SECRET`/`COMMERCE_OUTBOUND_SECRET`;
+WordPress (gepinnt, derzeit 7.1.4), WooCommerce (gepinnt, derzeit 11.3.0)
+und WP-CLI 2.12.0; Plugin per Symlink aus dem Repository, `BS_CONNECTOR_*`
+in `wp-config.php`, `DISABLE_WP_CRON`; `php -S` mit
+`tests/connector-e2e/router.php`. Ein Must-Use-Plugin schreibt Mails in eine
+Datei (`tests/connector-e2e/wp/mu-plugin-mail.php`).
+
+`tests/connector-e2e/run.sh` prüft:
+
+1. Testschule mit Schuladmin und Verknüpfungscode in der App
+   (`app-setup.php`, direkt über die Owner-Verbindung, keine Produktiv-Route).
+2. Kundenkonto im Shop (`wc_create_new_customer`), Bestätigungslink aus der
+   Mail per HTTP öffnen, Action Scheduler → Konto in der App angemeldet.
+3. Anmeldung im Shop, Verknüpfungscode unter „Mein Konto → Bootsschule
+   verknüpfen“ per Formular → Shopkonto in der App `linked` mit der
+   Testschule, „Mein Konto“ zeigt die Verknüpfung.
+4. Produkt mit Kurscode-Zuordnung (Kurs aus dem Katalog der App, bevorzugt SRC).
+5. Bestellung mit Überweisung, „Abgeschlossen“, dann
+   `wp action-scheduler run --group=bs-connector`, bis die Zustellung im Shop
+   vermerkt ist (gepollt mit Zeitlimit, Standard 60 s je Schritt).
+6. Im Shop: jede Position `delivered` mit Batch und Bestellnotiz „… im
+   Codebestand der Bootsschule hinterlegt“; in der App: Codepaket zur
+   Bestellung für die Testschule, richtiger Kurs und Menge, so viele offene
+   Codes wie bestellt (`app-check.php`).
+
+Bei einem Fehlschlag endet das Skript mit Exit ≠ 0 und gibt den Stand der
+Bestellung, die Aktionen der Gruppe `bs-connector`, Laravel-Log,
+WordPress-`debug.log`, Mail-Datei, Serverprotokolle und das Protokoll
+`bs-connector` aus.
+
+Nicht abgedeckt (weiterhin nur von Hand bzw. auf Staging): Registrierung über
+das Formular mit USt-IdNr./VIES, Freigabe durch den Superadmin,
+Block-Checkout, Rückerstattung/Storno, Provisionierung aus der App,
+Kontingent und Wiederholungen.
+
+### Lokal nachstellen
+
+Voraussetzungen: laufendes PostgreSQL mit migrierter und befüllter
+App-Datenbank, eine MySQL-Datenbank für WordPress, WP-CLI, Zugriff auf
+wordpress.org.
+
+```bash
+export WP_PATH=/tmp/wp WP_URL=http://127.0.0.1:8080 APP_URL=http://127.0.0.1:8000
+export WP_VERSION=7.1.4 WC_VERSION=11.3.0
+export WP_DB_NAME=wordpress WP_DB_USER=wordpress WP_DB_PASSWORD=wordpress WP_DB_HOST=127.0.0.1:3306
+export COMMERCE_SHOP_SECRET=$(openssl rand -hex 24) COMMERCE_OUTBOUND_SECRET=$(openssl rand -hex 24)
+
+# App (Werte als Umgebung, --no-reload reicht sie an den Server durch)
+COMMERCE_SHOP_URL=$WP_URL QUEUE_CONNECTION=sync MAIL_MAILER=log \
+  php artisan serve --no-reload --host=127.0.0.1 --port=8000 &
+
+tests/connector-e2e/install-wordpress.sh
+php -S 127.0.0.1:8080 -t "$WP_PATH" tests/connector-e2e/router.php &
+tests/connector-e2e/run.sh
+```
+
+`install-wordpress.sh` überspringt, was schon da ist (Kern, `wp-config.php`,
+WooCommerce); so lässt sich auch eine vorhandene Installation verwenden.
+`run.sh` braucht dieselben `DB_*`-Werte wie die App (es liest die
+App-Datenbank). Weitere Schalter stehen im Kopf von `run.sh`
+(`WP_CLI_BIN`, `E2E_TIMEOUT`, `E2E_COURSE`, `E2E_QUANTITY`, `AS_RUN`).
+Mit dem SQLite-Drop-in statt MySQL scheitert `wp action-scheduler run
+--group` an der Gruppenabfrage; dort per `AS_RUN` fällige Aktionen einzeln
+ausführen (`wp action-scheduler action run <id>`). So wurde das Skript vor
+der Aufnahme in die CI lokal geprüft (16.11.2026, bestanden).
