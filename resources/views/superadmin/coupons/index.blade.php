@@ -11,7 +11,7 @@
                 @csrf
                 <div>
                     <x-input-label for="target" value="Kurs oder Produkt" />
-                    <select id="target" name="target" x-model="target" required class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                    <select id="target" @ariaInvalid('target') name="target" x-model="target" required class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                         <optgroup label="Kurse">
                             @foreach ($courses as $course)
                                 <option value="course:{{ $course->id }}">{{ $course->name }}</option>
@@ -28,15 +28,15 @@
                             @endforeach
                         </optgroup>
                     </select>
-                    <x-input-error :messages="$errors->get('target')" class="mt-2" />
+                    <x-input-error for="target" :messages="$errors->get('target')" class="mt-2" />
                 </div>
                 @php($selectedOptionProductIds = old('option_product_ids', []))
                 <div x-show="target.startsWith('course:')" style="display: none">
-                    <x-input-label value="Optionen (optional)" />
-                    <div class="mt-1 space-y-1.5 border border-slate-200 dark:border-slate-600 rounded-lg p-3">
+                    <x-input-label id="option_product_ids-label" value="Optionen (optional)" />
+                    <div role="group" aria-labelledby="option_product_ids-label" class="mt-1 space-y-1.5 border border-slate-200 dark:border-slate-600 rounded-lg p-3">
                         @foreach ($products as $product)
                             <label class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-                                <input type="checkbox" name="option_product_ids[]" value="{{ $product->id }}"
+                                <input type="checkbox" name="option_product_ids[]" value="{{ $product->id }}" @ariaInvalid('option_product_ids')
                                        @checked(in_array($product->id, $selectedOptionProductIds, true))
                                        class="rounded border-slate-300 dark:bg-slate-700 dark:border-slate-600">
                                 {{ $product->name }}
@@ -44,18 +44,11 @@
                         @endforeach
                     </div>
                     <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Werden bei Einlösung zusätzlich zum Kurs als eigene Buchungen freigeschaltet.</p>
-                    <x-input-error :messages="$errors->get('option_product_ids')" class="mt-2" />
+                    <x-input-error for="option_product_ids" :messages="$errors->get('option_product_ids')" class="mt-2" />
                 </div>
-                <div>
-                    <x-input-label for="tenant_id" value="Bootsschule (optional)" />
-                    <select id="tenant_id" name="tenant_id" class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
-                        <option value="">&mdash; frei einlösbar, keiner Bootsschule zugeordnet &mdash;</option>
-                        @foreach ($tenants as $tenant)
-                            <option value="{{ $tenant->id }}" @selected(old('tenant_id', request('tenant_id')) === $tenant->id)>{{ $tenant->name }}</option>
-                        @endforeach
-                    </select>
-                    <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Ist eine Bootsschule gewählt, kann der Code nur dort eingelöst werden.</p>
-                </div>
+                {{-- Suchfeld statt Liste aller Schulen; vorbelegt mit der gefilterten Schule. --}}
+                <x-superadmin.tenant-picker name="tenant_id" :selected="$filterTenant" label="Bootsschule (optional)"
+                                            hint="Leer lassen: frei einlösbar. Ist eine Bootsschule gewählt, kann der Code nur dort eingelöst werden." />
                 <div>
                     <x-input-label for="quantity" value="Anzahl (Batch-Generierung)" />
                     <x-text-input :invalid="$errors->has('quantity')" id="quantity" name="quantity" type="number" min="1" max="500" class="mt-1 block w-full" :value="old('quantity', 1)" required />
@@ -83,18 +76,16 @@
              komplett wirkungslos (Filter reagierten nicht auf Auswahl,
              Alle-auswählen/Export-Button taten nichts). --}}
         <div class="lg:col-span-2 bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-5" x-data="{}">
-            <form method="GET" class="flex flex-wrap gap-2 mb-4">
+            <form method="GET" class="flex flex-wrap items-start gap-2 mb-4">
                 <label for="coupon_search_sa" class="sr-only">Code, Kurs/Produkt, Bootsschule oder Nutzer suchen</label>
                 <input type="text" id="coupon_search_sa" name="search" value="{{ $filters['search'] ?? '' }}"
                        placeholder="Code, Kurs/Produkt, Bootsschule oder Nutzer suchen…"
                        class="flex-1 min-w-[220px] rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
-                <label for="coupon_tenant_id_sa" class="sr-only">Bootsschule filtern</label>
-                <select id="coupon_tenant_id_sa" name="tenant_id" @change="$el.form.submit()" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
-                    <option value="">Alle Bootsschulen</option>
-                    @foreach ($tenants as $tenant)
-                        <option value="{{ $tenant->id }}" @selected(($filters['tenant_id'] ?? null) === $tenant->id)>{{ $tenant->name }}</option>
-                    @endforeach
-                </select>
+                {{-- Suchfeld statt Liste aller Schulen; ein Treffer filtert sofort, leer = alle. --}}
+                <x-superadmin.tenant-picker name="tenant_id" id="coupon_tenant_id_sa" :selected="$filterTenant" label="Bootsschule filtern"
+                                            label-class="sr-only" placeholder="Bootsschule (alle)" input-class="text-sm"
+                                            :submit-on-choose="true" :use-old="false" :show-errors="false" class="min-w-[220px]"
+                                            hint="Leer lassen: alle Bootsschulen." />
                 <label for="coupon_status_sa" class="sr-only">Status filtern</label>
                 <select id="coupon_status_sa" name="status" @change="$el.form.submit()" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                     <option value="">Alle Status</option>
@@ -107,11 +98,18 @@
                 @if (! empty($filters['tenant_id']) || ! empty($filters['status']) || ! empty($filters['search']))
                     <a href="{{ route('superadmin.coupons.index') }}" class="text-sm text-slate-500 dark:text-slate-400 hover:underline self-center">Filter zurücksetzen</a>
                 @endif
+                @if ($tenantFilterError)
+                    <p class="basis-full text-sm text-red-600 dark:text-red-400" role="alert">{{ $tenantFilterError }} Es werden keine Codes angezeigt.</p>
+                @endif
             </form>
 
             <form method="POST" action="{{ route('superadmin.coupons.export') }}" id="export-form">
                 @csrf
                 <input type="hidden" name="tenant_id" value="{{ $filters['tenant_id'] ?? '' }}">
+                {{-- Nicht auflösbarer Schulfilter: geht mit, damit „alle gefilterten“ abgelehnt wird. --}}
+                @if ($tenantFilterText !== null)
+                    <input type="hidden" name="tenant_slug" value="{{ $tenantFilterText }}">
+                @endif
                 <input type="hidden" name="status" value="{{ $filters['status'] ?? '' }}">
                 <input type="hidden" name="search" value="{{ $filters['search'] ?? '' }}">
                 <input type="hidden" name="select_all" id="select-all-input" value="0">

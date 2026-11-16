@@ -7,13 +7,13 @@ use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\LearningGroup;
 use App\Models\LearningGroupMember;
-use App\Models\TenantUser;
 use App\Models\User;
 use App\Services\LearningGroupService;
 use App\Support\TenantContext;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -29,14 +29,27 @@ use Illuminate\View\View;
  * mit Kurscodes der Schule abgerechnet (nicht für Kurse mit eigenem
  * Vollzugang); Anlegen und Detailseite zeigen je Kurs die freien Codes und
  * warnen, wenn sie für die offenen Plätze nicht reichen (Momentaufnahme).
+ *
+ * Verwalterauswahl: statt einer Liste aller aktiven Teilnehmer (bei großen
+ * Schulen weit über 1000 Optionen) ein Suchfeld. Mit JavaScript sucht es über
+ * managerCandidates() (höchstens MANAGER_SEARCH_LIMIT Treffer) und setzt die
+ * gewählte owner_user_id; ohne JavaScript wird die eingegebene E-Mail-Adresse
+ * serverseitig aufgelöst (resolveOwnerId()).
  */
 class LearningGroupController extends Controller
 {
+    /** Höchstzahl der Treffer der Verwaltersuche. */
+    public const MANAGER_SEARCH_LIMIT = 20;
+
+    private const OWNER_NOT_ELIGIBLE = 'Der Verwalter muss aktiver Teilnehmer dieser Schule sein.';
+
     private const MESSAGES = [
         'name.required' => 'Bitte einen Namen angeben.',
         'name.max' => 'Der Name darf höchstens :max Zeichen lang sein.',
         'owner_user_id.required' => 'Bitte einen Verwalter wählen.',
-        'owner_user_id.uuid' => 'Der Verwalter muss aktiver Teilnehmer dieser Schule sein.',
+        'owner_user_id.required_without' => 'Bitte einen Verwalter wählen.',
+        'owner_email.max' => 'Die E-Mail-Adresse darf höchstens :max Zeichen lang sein.',
+        'owner_user_id.uuid' => self::OWNER_NOT_ELIGIBLE,
         'seats.required' => 'Bitte die Platzzahl angeben.',
         'seats.integer' => 'Die Platzzahl muss eine ganze Zahl sein.',
         'seats.min' => 'Die Platzzahl muss zwischen 1 und '.LearningGroupService::MAX_SEATS.' liegen.',
@@ -56,7 +69,31 @@ class LearningGroupController extends Controller
             'courses' => $courses,
             // Jeder Beitritt verbraucht je Kurs einen freien Kurscode der Schule.
             'freeCodes' => $groups->freeCourseCodes($tenantContext->id(), $courses->pluck('id')),
-            'managers' => $this->eligibleManagers($tenantContext->id()),
+            'hasManagers' => $this->eligibleManagers($tenantContext->id())->exists(),
+        ]);
+    }
+
+    /**
+     * Verwaltersuche (JSON) für das Suchfeld auf Anlegen und Detailseite: nur
+     * aktive Teilnehmer der eigenen Schule mit aktivem Konto, Suche in Name
+     * und E-Mail-Adresse, höchstens MANAGER_SEARCH_LIMIT Treffer. Erst ab zwei
+     * Zeichen, damit die Liste nicht nebenbei alle Teilnehmer ausgibt.
+     */
+    public function managerCandidates(Request $request, TenantContext $tenantContext): JsonResponse
+    {
+        $search = is_string($request->query('q')) ? trim($request->query('q')) : '';
+        if (mb_strlen($search) < 2) {
+            return response()->json(['data' => []]);
+        }
+        $like = '%'.addcslashes(mb_substr($search, 0, 100), '\\%_').'%';
+
+        $users = $this->eligibleManagers($tenantContext->id())
+            ->where(fn (Builder $query) => $query->where('display_name', 'ilike', $like)->orWhere('email', 'ilike', $like))
+            ->orderByRaw('lower(coalesce(display_name, email))')->orderBy('id')
+            ->limit(self::MANAGER_SEARCH_LIMIT)->get(['id', 'display_name', 'email']);
+
+        return response()->json([
+            'data' => $users->map(fn (User $user) => ['id' => $user->id, 'name' => $user->name, 'email' => $user->email])->values(),
         ]);
     }
 
@@ -66,7 +103,8 @@ class LearningGroupController extends Controller
         $offered = $groups->offeredCourses($tenant)->pluck('code')->all();
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:'.LearningGroupService::MAX_NAME_LENGTH],
-            'owner_user_id' => ['required', 'uuid'],
+            'owner_user_id' => ['nullable', 'required_without:owner_email', 'uuid'],
+            'owner_email' => ['nullable', 'string', 'max:255'],
             'seats' => ['required', 'integer', 'min:1', 'max:'.LearningGroupService::MAX_SEATS],
             'courses' => ['required', 'array'],
             'courses.*' => ['nullable', 'string', Rule::in(array_keys(LearningGroupService::FEATURE_OPTIONS))],
@@ -82,7 +120,7 @@ class LearningGroupController extends Controller
         if (array_diff(array_column($scopes, 'course_code'), $offered) !== []) {
             throw ValidationException::withMessages(['courses' => 'Bitte nur Kurse wählen, die Ihre Bootsschule anbietet.']);
         }
-        $owner = $this->activeAccount($validated['owner_user_id']);
+        $owner = $this->activeAccount($this->resolveOwnerId($validated, $tenant->id));
 
         // Verwalter, Name, Plätze, Funktionen, Ende: dieselben Regeln wie app:learning-group-create.
         $group = $groups->create($tenant, $owner, $validated['name'], (int) $validated['seats'], $scopes,
@@ -110,7 +148,6 @@ class LearningGroupController extends Controller
             'group' => $learningGroup->loadMissing('owner'),
             'payload' => $payload,
             'members' => $members,
-            'managers' => $this->eligibleManagers($tenantContext->id()),
             'statusLabel' => self::statusLabel($learningGroup),
         ]);
     }
@@ -120,20 +157,22 @@ class LearningGroupController extends Controller
         $this->ensureOwnSchool($tenantContext, $learningGroup);
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:'.LearningGroupService::MAX_NAME_LENGTH],
-            'owner_user_id' => ['required', 'uuid'],
+            'owner_user_id' => ['nullable', 'required_without:owner_email', 'uuid'],
+            'owner_email' => ['nullable', 'string', 'max:255'],
             'seats' => ['required', 'integer', 'min:1', 'max:'.LearningGroupService::MAX_SEATS],
             'valid_until' => ['nullable', 'date_format:Y-m-d'],
         ], self::MESSAGES);
 
-        if ($validated['owner_user_id'] !== $learningGroup->owner_user_id) {
-            $this->activeAccount($validated['owner_user_id']);
+        $ownerId = $this->resolveOwnerId($validated, $tenantContext->id(), $learningGroup);
+        if ($ownerId !== $learningGroup->owner_user_id) {
+            $this->activeAccount($ownerId);
         }
 
         $changes = $groups->update($learningGroup, [
             'name' => $validated['name'],
             'seats' => (int) $validated['seats'],
             'valid_until' => LearningGroupService::validUntilFromDate($validated['valid_until'] ?? null),
-            'owner_user_id' => $validated['owner_user_id'],
+            'owner_user_id' => $ownerId,
         ]);
         if ($changes['after'] === []) {
             return back()->with('status', 'Keine Änderungen.');
@@ -191,15 +230,44 @@ class LearningGroupController extends Controller
     }
 
     /**
-     * @return Collection<int, User> aktive Teilnehmer, als Verwalter wählbar --
-     *                               nur Konten, die ihre Einladung angenommen haben (app_user.status
-     *                               „active“; eingeladene Konten können sich noch nicht anmelden)
+     * @return Builder<User> aktive Teilnehmer, als Verwalter wählbar -- nur
+     *                       Konten, die ihre Einladung angenommen haben (app_user.status
+     *                       „active“; eingeladene Konten können sich noch nicht anmelden)
      */
-    private function eligibleManagers(string $tenantId): Collection
+    private function eligibleManagers(string $tenantId): Builder
     {
-        return TenantUser::with('user')->where('tenant_id', $tenantId)->where('role', 'learner')->where('status', 'active')
-            ->whereHas('user', fn ($query) => $query->where('status', 'active'))
-            ->get()->pluck('user')->filter()->sortBy(fn (User $user) => mb_strtolower($user->name ?? $user->email))->values();
+        return User::query()->where('status', 'active')
+            ->whereHas('tenantMemberships', fn (Builder $query) => $query->where('tenant_id', $tenantId)->where('role', 'learner')->where('status', 'active'));
+    }
+
+    /**
+     * Gewählter Verwalter: die owner_user_id des Suchfelds (mit JavaScript),
+     * sonst die eingetippte E-Mail-Adresse (ohne JavaScript, oder wenn sie
+     * nach der Auswahl geändert wurde). Die E-Mail-Adresse wird nur unter den
+     * wählbaren Teilnehmern der eigenen Schule gesucht; der bisherige
+     * Verwalter einer Gruppe bleibt auch per E-Mail-Adresse erhalten.
+     *
+     * @param  array{owner_user_id?: ?string, owner_email?: ?string}  $validated
+     */
+    private function resolveOwnerId(array $validated, string $tenantId, ?LearningGroup $group = null): string
+    {
+        $id = $validated['owner_user_id'] ?? null;
+        $email = mb_strtolower(trim((string) ($validated['owner_email'] ?? '')));
+        if ($id !== null && ($email === '' || mb_strtolower((string) User::whereKey($id)->value('email')) === $email)) {
+            return $id;
+        }
+        if ($email === '') {
+            throw ValidationException::withMessages(['owner_user_id' => 'Bitte einen Verwalter wählen.']);
+        }
+        if ($group?->owner_user_id !== null && mb_strtolower((string) $group->owner?->email) === $email) {
+            return $group->owner_user_id;
+        }
+        $ownerId = $this->eligibleManagers($tenantId)->whereRaw('lower(email) = ?', [$email])->value('id');
+        if ($ownerId === null) {
+            throw ValidationException::withMessages(['owner_user_id' => 'Unter dieser E-Mail-Adresse gibt es keinen aktiven Teilnehmer Ihrer Bootsschule.']);
+        }
+
+        return $ownerId;
     }
 
     /**
@@ -211,7 +279,7 @@ class LearningGroupController extends Controller
     {
         $owner = User::find($userId);
         if (! $owner || $owner->status !== 'active') {
-            throw ValidationException::withMessages(['owner_user_id' => 'Der Verwalter muss aktiver Teilnehmer dieser Schule sein.']);
+            throw ValidationException::withMessages(['owner_user_id' => self::OWNER_NOT_ELIGIBLE]);
         }
 
         return $owner;

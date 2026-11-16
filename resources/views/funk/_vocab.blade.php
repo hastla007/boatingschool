@@ -14,7 +14,8 @@
             ->values();
     @endphp
     <div x-data="funkVocabQuiz(@js($open), {{ count($vocabLearned) }}, {{ $vocabTotal }}, {{ $streakToLearn }}, @js($answerUrl))" class="flex flex-col items-center gap-4 py-4">
-        <div class="text-sm text-slate-600 dark:text-slate-400"><span x-text="learned"></span> / {{ $vocabTotal }} {{ $unit }} gelernt</div>
+        {{-- WCAG 4.1.3: der Zähler ändert sich nach jeder Antwort und wird angesagt. --}}
+        <div class="text-sm text-slate-600 dark:text-slate-400" role="status" aria-live="polite" aria-atomic="true"><span x-text="learned"></span> / {{ $vocabTotal }} {{ $unit }} gelernt</div>
         <template x-if="current">
             <div class="w-full max-w-md flex flex-col items-center gap-4">
                 <div class="flex items-center gap-3 text-xs">
@@ -29,6 +30,8 @@
                     <span x-show="flipped && current.hint" x-cloak class="mt-1 text-xs text-slate-500 dark:text-slate-400" x-text="current.hint"></span>
                     <span x-show="! flipped" class="mt-3 text-xs text-slate-500 dark:text-slate-400">Tippen zum Umdrehen</span>
                 </button>
+                {{-- Die Rückseite erscheint im Knopf; Screenreader bekommen sie hier angesagt. --}}
+                <p class="sr-only" role="status" aria-live="polite" x-text="flipped ? 'Rückseite: ' + current.en + (current.hint ? ', ' + current.hint : '') : ''"></p>
                 <div x-show="flipped" x-cloak class="grid grid-cols-2 gap-3 w-full">
                     <button type="button" @click="answer(false)" :disabled="busy" class="rounded-xl border border-rose-200 bg-rose-50 text-rose-700 py-2.5 text-sm font-semibold hover:bg-rose-100 disabled:opacity-50">Nicht gewusst</button>
                     <button type="button" @click="answer(true)" :disabled="busy" class="rounded-xl py-2.5 text-sm font-semibold text-[color:var(--brand-on-secondary,#fff)] disabled:opacity-50" style="background-color: var(--brand-secondary, #007A7A)">Gewusst</button>

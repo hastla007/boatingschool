@@ -17,14 +17,14 @@
             <div class="grid sm:grid-cols-2 gap-4">
                 <div>
                     <x-input-label for="kategorie" value="Kategorie" />
-                    <input id="kategorie" name="kategorie" list="kategorien" required maxlength="255" value="{{ old('kategorie', $task?->kategorie) }}" class="{{ $input }}">
+                    <input id="kategorie" @ariaInvalid('kategorie') name="kategorie" list="kategorien" required maxlength="255" value="{{ old('kategorie', $task?->kategorie) }}" class="{{ $input }}">
                     <datalist id="kategorien">
                         @foreach ($categories as $category)
                             <option value="{{ $category }}"></option>
                         @endforeach
                     </datalist>
                     <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Bestehende Kategorie wählen oder neue eintippen.</p>
-                    <x-input-error :messages="$errors->get('kategorie')" class="mt-2" />
+                    <x-input-error for="kategorie" :messages="$errors->get('kategorie')" class="mt-2" />
                 </div>
                 <div>
                     <x-input-label for="unterkategorie" value="Unterkategorie / Kartentitel" />
@@ -44,13 +44,13 @@
 
             <div>
                 <x-input-label for="frage" value="Frage / Aufgabe" />
-                <textarea id="frage" name="frage" rows="3" required class="{{ $input }}">{{ old('frage', $task?->frage) }}</textarea>
-                <x-input-error :messages="$errors->get('frage')" class="mt-2" />
+                <textarea id="frage" @ariaInvalid('frage') name="frage" rows="3" required class="{{ $input }}">{{ old('frage', $task?->frage) }}</textarea>
+                <x-input-error for="frage" :messages="$errors->get('frage')" class="mt-2" />
             </div>
             <div>
                 <x-input-label for="antwort" value="Antwort" />
-                <textarea id="antwort" name="antwort" rows="6" required class="{{ $input }}">{{ old('antwort', $task?->antwort) }}</textarea>
-                <x-input-error :messages="$errors->get('antwort')" class="mt-2" />
+                <textarea id="antwort" @ariaInvalid('antwort') name="antwort" rows="6" required class="{{ $input }}">{{ old('antwort', $task?->antwort) }}</textarea>
+                <x-input-error for="antwort" :messages="$errors->get('antwort')" class="mt-2" />
             </div>
             <div>
                 <x-input-label for="erklaerung" value="Erklärung (optional)" />
@@ -81,9 +81,9 @@
                 @endif
                 <div>
                     <x-input-label for="image" value="{{ $task?->media ? 'Neues Bild (ersetzt das bisherige)' : 'Bild hochladen (optional)' }}" />
-                    <input id="image" name="image" type="file" accept="image/png,image/jpeg,image/webp" class="mt-1 block w-full text-sm">
+                    <input id="image" @ariaInvalid('image') name="image" type="file" accept="image/png,image/jpeg,image/webp" class="mt-1 block w-full text-sm">
                     <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">PNG, JPG oder WebP, max. 4 MB. Bei Manövern, Knoten und Sicherheit zeigt der Trainer das Bild erst mit der Lösung.</p>
-                    <x-input-error :messages="$errors->get('image')" class="mt-2" />
+                    <x-input-error for="image" :messages="$errors->get('image')" class="mt-2" />
                 </div>
                 <div>
                     <x-input-label for="alt_text" value="Bildbeschreibung (für Screenreader)" />

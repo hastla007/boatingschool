@@ -7,32 +7,50 @@ use Tests\TestCase;
 
 /**
  * Bug-Review BB15: Admin-Pagination verliert aktiven Reiter beim
- * Seitenwechsel. Der Tab-Wechsel in admin/dashboard.blade.php läuft rein
- * clientseitig über history.replaceState(), ohne eigenen Request -- die
- * Pagination-Links in den Tabs (Teilnehmer, Praxis-Anmeldungen,
- * Willkommensbox, Zugangscodes) wurden dagegen serverseitig mit dem
- * Query-String des ERSTEN Requests gerendert und enthielten daher nie den
- * per Tab-Wechsel gesetzten tab-Parameter. Ein Klick auf "nächste Seite"
- * landete dadurch immer auf dem Dashboard-Tab, unabhängig vom zuvor
- * gewählten Tab. syncPaginationLinksTab() schreibt den aktuellen
- * tab-Wert bei jedem Tab-Wechsel und beim initialen Laden in jeden
- * Pagination-Link.
+ * Seitenwechsel. Als die Reiter noch rein clientseitig umgeschaltet wurden,
+ * enthielten die serverseitig gerenderten Pagination-Links nie den per
+ * Reiterwechsel gesetzten tab-Parameter (damals per JavaScript
+ * nachgetragen). Jetzt ist jeder Reiter ein eigener Aufruf (?tab=…), und
+ * jede Liste hängt ihren Reiter selbst an die Seitenlinks an
+ * (AdminDashboardController: withQueryString() plus tab) -- „nächste
+ * Seite“ bleibt damit im Reiter, auch ohne JavaScript.
  */
 class AdminPaginationPreservesActiveTabTest extends TestCase
 {
     use InteractsWithTenants;
 
-    public function test_dashboard_syncs_the_active_tab_onto_pagination_links_on_load_and_on_every_tab_change(): void
+    public function test_every_paginated_tab_keeps_its_tab_on_the_page_links(): void
     {
         $tenant = $this->createTestTenant();
         $owner = $this->createTenantUser($tenant, 'owner');
 
-        $response = $this->actingAsInTenant($owner, $tenant)->get('/admin');
+        $lists = [
+            'participants' => ['participants', 'participants_page'],
+            'praxis-anmeldungen' => ['praxisFormSubmissions', 'anmeldung_page'],
+            'willkommensbox' => ['willkommensboxOrders', 'wb_page'],
+            'coupons' => ['coupons', 'coupon_page'],
+        ];
+        foreach ($lists as $tab => [$variable, $pageName]) {
+            $response = $this->actingAsInTenant($owner, $tenant)->get("/admin?tab={$tab}")->assertOk();
+            $url = $response->viewData($variable)->url(2);
+            $this->assertStringContainsString("tab={$tab}", $url, $variable);
+            $this->assertStringContainsString("{$pageName}=2", $url, $variable);
+        }
+    }
 
-        $response->assertOk();
-        $response->assertSee("\$el.querySelectorAll('a[href*=\'_page=\']').forEach((link) => {", false);
-        $response->assertSee("linkUrl.searchParams.set('tab', value);", false);
-        $response->assertSee('syncPaginationLinksTab(value);', false);
-        $response->assertSee('syncPaginationLinksTab(tab);', false);
+    public function test_the_rendered_page_links_of_the_participants_list_stay_in_the_tab(): void
+    {
+        $tenant = $this->createTestTenant();
+        $owner = $this->createTenantUser($tenant, 'owner');
+        // 25 je Seite: der 26. Teilnehmer erzeugt eine zweite Seite.
+        for ($i = 1; $i <= 26; $i++) {
+            $this->createTenantUser($tenant, 'learner');
+        }
+
+        $response = $this->actingAsInTenant($owner, $tenant)->get('/admin?tab=participants')->assertOk();
+
+        $response->assertSee('tab=participants&amp;participants_page=2', false);
+        // Kein JavaScript mehr nötig, das die Links nachträglich umschreibt.
+        $response->assertDontSee('syncPaginationLinksTab', false);
     }
 }

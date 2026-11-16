@@ -79,26 +79,26 @@
 
 <div>
     <x-input-label for="hinweis" value="Hinweis (optional)" />
-    <textarea id="hinweis" name="hinweis" rows="3"
+    <textarea id="hinweis" @ariaInvalid('hinweis') name="hinweis" rows="3"
               class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">{{ old('hinweis', $pa?->hinweis) }}</textarea>
-    <x-input-error :messages="$errors->get('hinweis')" class="mt-2" />
+    <x-input-error for="hinweis" :messages="$errors->get('hinweis')" class="mt-2" />
 </div>
 
 <div>
-    <x-input-label value="Zuständig für diese Kurse" />
+    <x-input-label id="course_ids-label" value="Zuständig für diese Kurse" />
     <p class="text-xs text-slate-600 dark:text-slate-400 mt-1 mb-2">
         Mehrere Adressen derselben Kommission können unterschiedliche Kurse abdecken
         (z. B. eine Geschäftsstelle für SBF-Scheine, eine separate Postanschrift nur für UBI/SRC/FKN).
     </p>
     @php($selectedCourseIds = old('course_ids', $pa?->course_ids ?? []))
-    <div class="grid sm:grid-cols-2 gap-x-4 gap-y-1.5 max-h-56 overflow-y-auto border border-slate-200 dark:border-slate-600 rounded-lg p-3">
+    <div role="group" aria-labelledby="course_ids-label" class="grid sm:grid-cols-2 gap-x-4 gap-y-1.5 max-h-56 overflow-y-auto border border-slate-200 dark:border-slate-600 rounded-lg p-3">
         @foreach ($courses as $course)
             <label class="inline-flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-                <input type="checkbox" name="course_ids[]" value="{{ $course->id }}" @checked(in_array($course->id, $selectedCourseIds, true))
+                <input type="checkbox" name="course_ids[]" value="{{ $course->id }}" @ariaInvalid('course_ids') @checked(in_array($course->id, $selectedCourseIds, true))
                        class="rounded border-slate-300 dark:bg-slate-700 dark:border-slate-600">
                 {{ $course->name }}
             </label>
         @endforeach
     </div>
-    <x-input-error :messages="$errors->get('course_ids')" class="mt-2" />
+    <x-input-error for="course_ids" :messages="$errors->get('course_ids')" class="mt-2" />
 </div>

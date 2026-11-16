@@ -44,14 +44,19 @@ use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 /**
- * Ein einziger Bootsschul-Admin-Bereich mit Tabs (Dashboard, Teilnehmer,
- * Branding, Webshop-Links, Kursauswahl, Zugangscodes) statt sechs
- * separater Seiten -- alle Daten werden hier gesammelt geladen, die Tabs
- * selbst sind reine Client-Umschaltung (siehe admin/dashboard.blade.php).
- * Die schreibenden Aktionen (Teilnehmer einladen, Branding/Webshop-Links/
- * Kursauswahl speichern, Kurs manuell freischalten, Zugangscodes
- * importieren/zuweisen) bleiben in ihren jeweiligen Controllern, nur die
- * Anzeige ist hier zusammengeführt.
+ * Ein einziger Bootsschul-Admin-Bereich mit Reitern (Dashboard, Teilnehmer,
+ * Praxis-Anmeldungen, Willkommensbox, Zugangscodes, Kursauswahl,
+ * Lerngruppen, Orte, Branding, Addons, Kursempfehlungen) statt separater
+ * Seiten. Die schreibenden Aktionen bleiben in ihren jeweiligen
+ * Controllern, nur die Anzeige ist hier zusammengeführt.
+ *
+ * Performance (große Bootsschule, tests/Perf/LargeSchoolProbeTest.php):
+ * bisher wurden bei JEDEM Aufruf alle Reiter berechnet und gerendert und
+ * nur clientseitig umgeschaltet (1200 Lernende: ~90 Abfragen, ~350 ms,
+ * ~720 KB HTML). Jetzt bestimmt ?tab= den aktiven Reiter (Standard:
+ * Dashboard), nur dessen Daten werden von seiner eigenen Methode (TAB_BUILDERS)
+ * geladen und nur sein Bereich gerendert; ein Reiterwechsel ist ein normaler
+ * Seitenaufruf (siehe admin/dashboard.blade.php).
  */
 class AdminDashboardController extends Controller
 {
@@ -67,29 +72,111 @@ class AdminDashboardController extends Controller
     /** Höchstens so viele Zeilen je Liste „Offene Einladungen“ (Teilnehmer bzw. Team), die übrigen nur als Anzahl. */
     public const OPEN_INVITATIONS_LIMIT = 100;
 
+    /**
+     * Reiter in der Reihenfolge der Leiste (Schlüssel = ?tab=-Wert und
+     * View admin.tabs.{schlüssel}) mit Beschriftung.
+     */
+    public const TABS = [
+        'dashboard' => 'Dashboard',
+        'participants' => 'Teilnehmer',
+        'praxis-anmeldungen' => 'Praxis-Anmeldungen',
+        'willkommensbox' => 'Willkommensbox',
+        'coupons' => 'Zugangscodes',
+        'courses' => 'Kursauswahl',
+        'learning-groups' => 'Lerngruppen',
+        'orte' => 'Orte',
+        'branding' => 'Branding',
+        'addons' => 'Addons',
+        'course-promo-banners' => 'Kursempfehlungen',
+    ];
+
+    /**
+     * Reiter mit Finanz-/Vertrauens-relevanten Einstellungen, nur für
+     * Inhaber/Admins -- die zugehörigen Routen sind serverseitig ohnehin auf
+     * owner/admin beschränkt (siehe routes/web.php, Sicherheitsreview H3),
+     * das hier vermeidet nur unbedienbare Formulare für einen Instructor.
+     */
+    public const MANAGER_TABS = ['coupons', 'courses', 'learning-groups', 'branding', 'addons', 'course-promo-banners'];
+
+    /** Je Reiter die Methode, die (nur) seine Daten lädt. */
+    private const TAB_BUILDERS = [
+        'dashboard' => 'dashboardTab',
+        'participants' => 'participantsTab',
+        'praxis-anmeldungen' => 'praxisAnmeldungenTab',
+        'willkommensbox' => 'willkommensboxTab',
+        'coupons' => 'couponsTab',
+        'courses' => 'coursesTab',
+        'learning-groups' => 'learningGroupsTab',
+        'orte' => 'orteTab',
+        'branding' => 'brandingTab',
+        'addons' => 'addonsTab',
+        'course-promo-banners' => 'coursePromoBannersTab',
+    ];
+
     public function __invoke(Request $request, TenantContext $tenantContext): View
     {
         $tenant = $tenantContext->tenant();
-
-        // Steuert, ob die Tabs mit Finanz-/Vertrauens-relevanten
-        // Einstellungen (Branding, Addons, Kursauswahl/Webshop-Links,
-        // Kursempfehlungen, Zugangscodes) überhaupt angezeigt werden -- die
-        // zugehörigen Routen sind serverseitig ohnehin auf owner/admin
-        // beschränkt (siehe routes/web.php, Sicherheitsreview H3), das hier
-        // vermeidet nur unbedienbare Formulare für einen Instructor.
         $canManageTenant = $request->user()->isAdminFor($tenant);
 
+        // Ausbilder mit zugeordneten Kursen sehen nur ihre Lernenden
+        // (InstructorScope); die Kurszuordnung wird nur einmal ermittelt.
+        $scopeCourseIds = InstructorScope::courseIds($tenant, $request->user());
+
+        $tabs = $canManageTenant ? self::TABS : array_diff_key(self::TABS, array_flip(self::MANAGER_TABS));
+        // Unbekannter (oder für einen Instructor nicht sichtbarer) Reiter:
+        // Dashboard statt eines leeren Bereichs.
+        $requestedTab = $request->query('tab');
+        $activeTab = is_string($requestedTab) && isset($tabs[$requestedTab]) ? $requestedTab : 'dashboard';
+
+        $tabData = $this->{self::TAB_BUILDERS[$activeTab]}($request, $tenant, $scopeCourseIds, $canManageTenant);
+
+        return view('admin.dashboard', $tabData + [
+            'platformAnnouncements' => PlatformAnnouncement::visible()->forTenant($tenant->id)->orderByDesc('created_at')->limit(5)->get(),
+            'tenant' => $tenant,
+            'canManageTenant' => $canManageTenant,
+            'canInvite' => $scopeCourseIds === null,
+            'tabs' => $tabs,
+            'activeTab' => $activeTab,
+        ]);
+    }
+
+    /**
+     * Aktive Lernende (ohne gesperrte/ausgetretene Mitglieder und ohne
+     * offene Einladungen, siehe ParticipantFilters::withoutOpenInvitations),
+     * bei einem Ausbilder mit Kurszuordnung nur seine.
+     *
+     * @return Collection<int, string>
+     */
+    private function activeLearnerIds(Tenant $tenant, ?Collection $visibleLearnerIds): Collection
+    {
+        return ParticipantFilters::withoutOpenInvitations(TenantUser::where('tenant_id', $tenant->id)->where('role', 'learner')->where('status', 'active'))
+            ->when($visibleLearnerIds !== null, fn ($q) => $q->whereIn('user_id', $visibleLearnerIds))->pluck('user_id');
+    }
+
+    /**
+     * Sitewide deaktivierte Kurse (course_definition.site_enabled = false)
+     * tauchen konsequent in keinem Reiter auf -- weder zum manuellen
+     * Freischalten noch für Webshop-Links noch in der Kursauswahl selbst.
+     */
+    private function siteCourses(): Collection
+    {
+        return CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')
+            ->where('site_enabled', true)
+            ->orderBy('name')->get();
+    }
+
+    private function disabledCourseIds(Tenant $tenant): Collection
+    {
+        return TenantCourseDisabled::where('tenant_id', $tenant->id)->pluck('course_id');
+    }
+
+    /** Reiter „Dashboard“: Kennzahlen, Phasen-/Fortschritts-Charts, letzte Buchungen und Aktivität. */
+    private function dashboardTab(Request $request, Tenant $tenant, ?Collection $scopeCourseIds, bool $canManageTenant): array
+    {
         // Review-Runde 3: nur aktive Mitglieder -- gesperrte bzw.
         // ausgetretene zählten bisher in Teilnehmerzahl und Statistiken mit.
-        // Ausbilder mit zugeordneten Kursen sehen nur ihre Lernenden (InstructorScope).
-        // Kurszuordnung nur einmal ermitteln (Rolle + instructor_course), die
-        // sichtbaren Lernenden leiten sich daraus ab.
-        $scopeCourseIds = InstructorScope::courseIds($tenant, $request->user());
         $visibleLearnerIds = InstructorScope::learnerIdsForCourses($tenant, $scopeCourseIds);
-        // Offene Einladungen (nie aktivierte Konten) zählen nicht mit, siehe
-        // ParticipantFilters::withoutOpenInvitations.
-        $learnerIds = ParticipantFilters::withoutOpenInvitations(TenantUser::where('tenant_id', $tenant->id)->where('role', 'learner')->where('status', 'active'))
-            ->when($visibleLearnerIds !== null, fn ($q) => $q->whereIn('user_id', $visibleLearnerIds))->pluck('user_id');
+        $learnerIds = $this->activeLearnerIds($tenant, $visibleLearnerIds);
         $learnerCount = $learnerIds->count();
         // Bug-Review B15: status wechselt nie automatisch auf "expired" --
         // ein reines status=active zählte abgelaufene Freischaltungen
@@ -310,21 +397,43 @@ class AdminDashboardController extends Controller
             'percent' => $learningPhaseLearnerCount > 0 ? round($count / $learningPhaseLearnerCount * 100) : 0,
         ])->values();
 
+        return [
+            'learnerCount' => $learnerCount,
+            'activeEntitlements' => $activeEntitlements,
+            'recentActivity' => $recentActivity,
+            'recentBookings' => $recentBookings,
+            'recentBookingsTotal' => $recentBookingsTotal,
+            'weeklyActivityRate' => $weeklyActivityRate,
+            'recentExamsCount' => $recentExams->count(),
+            'recentExamsNext7DaysCount' => $recentExamsNext7DaysCount,
+            'examPassRate' => $examPassRate,
+            'upcomingAppointmentsNext7Days' => $upcomingAppointmentsNext7Days,
+            'upcomingAppointmentsNext30Days' => $upcomingAppointmentsNext30Days,
+            'upcomingExamDates30' => $upcomingExamDates30,
+            'learnerPhases' => $learnerPhases,
+            'progressDistribution' => $progressDistribution,
+            'learningPhaseLearnerCount' => $learningPhaseLearnerCount,
+        ];
+    }
+
+    /** Reiter „Teilnehmer“: Team, offene Einladungen, Teilnehmerliste (seitenweise). */
+    private function participantsTab(Request $request, Tenant $tenant, ?Collection $scopeCourseIds, bool $canManageTenant): array
+    {
+        $visibleLearnerIds = InstructorScope::learnerIdsForCourses($tenant, $scopeCourseIds);
+
         // Bug-Review N14: ohne Seitenaufteilung lud diese Liste bei vielen
         // Teilnehmern jedes Mitglied samt all seiner Entitlements auf
-        // einen Schlag -- die "Coupon zuweisen"-Auswahl (admin.tabs.coupons)
-        // braucht dagegen wirklich alle Teilnehmer und bleibt deshalb eine
-        // eigene, schlanke Abfrage ohne Entitlements.
+        // einen Schlag (die "Coupon zuweisen"-Auswahl im Reiter
+        // Zugangscodes sucht inzwischen per Suchfeld, ganz ohne Liste).
         //
-        // Bug-Review R4-4: alle drei Listen auf dieser Seite (Teilnehmer,
-        // Anmeldungen, Coupons) paginierten bisher ohne eigenen pageName --
-        // Laravels Default dafür ist bei JEDEM Paginator derselbe
-        // Query-String-Parameter "page". Da hier aber alle drei Listen auf
-        // einer einzigen Seite (nur per Tab client-seitig umgeschaltet,
-        // siehe admin/dashboard.blade.php) zusammen gerendert werden, blätterte
-        // "nächste Seite" bei EINER Liste automatisch auch die ANDEREN
-        // beiden Listen um (gleicher ?page=N-Parameter) statt nur die
-        // gerade sichtbare.
+        // Bug-Review R4-4: die Listen (Teilnehmer, Anmeldungen, Coupons,
+        // Willkommensbox) paginieren mit eigenem pageName -- Laravels Default
+        // ist bei JEDEM Paginator derselbe Query-String-Parameter "page";
+        // als noch alle Reiter auf einer Seite gerendert wurden, blätterte
+        // "nächste Seite" bei EINER Liste sonst auch die anderen um. Die
+        // eigenen Namen bleiben, damit bestehende Links (z. B.
+        // ?tab=participants&participants_page=3) weiter funktionieren.
+        //
         // Bug-Review (Paginierung -- Teilnehmerliste nicht eindeutig
         // sortiert): created_at ist nicht eindeutig -- mehrere Mitglieder
         // können (z. B. durch einen gemeinsamen Import oder einfach
@@ -346,7 +455,8 @@ class AdminDashboardController extends Controller
             ->orderBy('created_at')
             ->orderBy('user_id')
             ->paginate(25, ['*'], 'participants_page')
-            ->withQueryString();
+            ->withQueryString()
+            ->appends('tab', 'participants');
 
         // Team: alle Mitglieder außer Lernenden, dazu offene Team-Einladungen.
         // Kein Konto-Orakel (wie bei „Offene Einladungen“ der Teilnehmer):
@@ -378,13 +488,6 @@ class AdminDashboardController extends Controller
             [$openInvitations, $openInvitationsTotal] = $this->openInvitationRows($tenant, team: false);
         }
 
-        // Sitewide deaktivierte Kurse (course_definition.site_enabled = false)
-        // tauchen konsequent in keinem Tab auf -- weder zum manuellen
-        // Freischalten noch für Webshop-Links noch in der Kursauswahl selbst.
-        $courses = CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')
-            ->where('site_enabled', true)
-            ->orderBy('name')->get();
-
         // Audit ARC-1: nur für die Teilnehmer der angezeigten Seite (die
         // Liste zeigt sie je Teilnehmer), nicht alle Käufe der Schule.
         $productPurchases = ProductPurchase::where('tenant_id', $tenant->id)
@@ -392,19 +495,40 @@ class AdminDashboardController extends Controller
             ->with('product')->get()
             ->groupBy('user_id');
 
-        $branding = $tenant->branding;
+        // Für den "Kurs freischalten"-Dropdown im Teilnehmer-Tab: wie viele
+        // eigene, noch nicht eingelöste Codes die Bootsschule je Kurs hat --
+        // Verlängerungscodes zählen hier bewusst nicht mit, die schalten
+        // keinen neuen Kurs frei, sondern verlängern einen bestehenden.
+        // Für offene Einladungen reservierte Codes zählen nicht als frei
+        // (wie beim Freischalten selbst, Coupon::scopeNotReservedForInvitation).
+        $freeCourseCouponCounts = Coupon::where('tenant_id', $tenant->id)
+            ->whereNotNull('course_id')
+            ->where('is_renewal', false)
+            ->usable()
+            ->notReservedForInvitation($tenant->id)
+            ->selectRaw('course_id, count(*) as free_count')
+            ->groupBy('course_id')
+            ->pluck('free_count', 'course_id');
 
-        $webshopLinks = CourseWebshopLink::where('tenant_id', $tenant->id)->pluck('url', 'course_id');
-        $examRegistrations = CourseExamRegistration::where('tenant_id', $tenant->id)->pluck('mode', 'course_id');
+        return [
+            'participants' => $participants,
+            'participantFilters' => $participantFilters,
+            'team' => $team,
+            'instructorCourses' => InstructorCourse::where('tenant_id', $tenant->id)->get()->groupBy('user_id')->map(fn ($rows) => $rows->pluck('course_id')),
+            'pendingTeamInvitations' => $pendingTeamInvitations,
+            'pendingTeamInvitationsTotal' => $pendingTeamInvitationsTotal,
+            'openInvitations' => $openInvitations,
+            'openInvitationsTotal' => $openInvitationsTotal,
+            'courses' => $this->siteCourses(),
+            'disabledCourseIds' => $this->disabledCourseIds($tenant),
+            'productPurchases' => $productPurchases,
+            'freeCourseCouponCounts' => $freeCourseCouponCounts,
+        ];
+    }
 
-        $addonTemplates = AddonTemplate::where('active', true)->orderBy('sort_order')->orderBy('title')->get();
-        $tenantAddons = TenantAddon::where('tenant_id', $tenant->id)->get()->keyBy('addon_template_id');
-
-        $coursePromoBanners = CoursePromoBanner::where('tenant_id', $tenant->id)->orderBy('created_at')->get();
-
-        $tenantCourseLocations = TenantCourseLocation::where('tenant_id', $tenant->id)->with('pruefungsausschuss')->orderBy('sort_order')->get();
-        $pruefungsausschuesse = Pruefungsausschuss::orderBy('sort_order')->get();
-
+    /** Reiter „Praxis-Anmeldungen“: alle Anmeldungen (gefiltert, seitenweise). */
+    private function praxisAnmeldungenTab(Request $request, Tenant $tenant, ?Collection $scopeCourseIds, bool $canManageTenant): array
+    {
         // Bug-Review (Array-Query-Parameter): wie bei wb_search unten kam
         // z. B. ?anmeldung_search[]=a als Array an -- trim()/
         // isValidCalendarDate() scheiterten daran mit einem TypeError
@@ -467,7 +591,21 @@ class AdminDashboardController extends Controller
             ->when(($anmeldungFilters['anmeldung_to'] ?? '') !== '', fn ($q) => $q->where('created_at', '<=', Carbon::parse($anmeldungFilters['anmeldung_to'], 'Europe/Berlin')->endOfDay()->setTimezone('UTC')))
             ->orderByDesc('created_at')
             ->paginate(20, ['*'], 'anmeldung_page')
-            ->withQueryString();
+            ->withQueryString()
+            ->appends('tab', 'praxis-anmeldungen');
+
+        return [
+            'praxisFormSubmissions' => $praxisFormSubmissions,
+            'anmeldungFilters' => $anmeldungFilters,
+            'courses' => $this->siteCourses(),
+            'disabledCourseIds' => $this->disabledCourseIds($tenant),
+        ];
+    }
+
+    /** Reiter „Willkommensbox“: Bestellungen (gefiltert, seitenweise). */
+    private function willkommensboxTab(Request $request, Tenant $tenant, ?Collection $scopeCourseIds, bool $canManageTenant): array
+    {
+        $visibleLearnerIds = InstructorScope::learnerIdsForCourses($tenant, $scopeCourseIds);
 
         // Bug-Review F6: Willkommensbox-Bestellungen ließen sich bisher nur
         // einzeln auf der Teilnehmer-Detailseite finden -- keine
@@ -496,11 +634,20 @@ class AdminDashboardController extends Controller
             ->orderByRaw('shipped_at is null desc')
             ->orderByDesc('created_at')
             ->paginate(20, ['*'], 'wb_page')
-            ->withQueryString();
+            ->withQueryString()
+            ->appends('tab', 'willkommensbox');
 
-        $disabledCourseIds = TenantCourseDisabled::where('tenant_id', $tenant->id)->pluck('course_id');
+        return [
+            'willkommensboxOrders' => $willkommensboxOrders,
+            'willkommensboxFilters' => $willkommensboxFilters,
+            'willkommensboxLabelSizes' => $tenant->branding->enabledLabelSizes(),
+        ];
+    }
 
-        // Bug-Review (Array-Query-Parameter): siehe $anmeldungFilters oben.
+    /** Reiter „Zugangscodes“ (nur Inhaber/Admins): Bestand, Shop, Codeliste, Zuweisen. */
+    private function couponsTab(Request $request, Tenant $tenant, ?Collection $scopeCourseIds, bool $canManageTenant): array
+    {
+        // Bug-Review (Array-Query-Parameter): siehe $anmeldungFilters in praxisAnmeldungenTab().
         $couponFilters = array_map(fn ($value) => is_string($value) ? $value : '', $request->only(['coupon_search', 'coupon_status', 'coupon_type']));
 
         $coupons = Coupon::with('course', 'product', 'redeemedBy')
@@ -524,31 +671,14 @@ class AdminDashboardController extends Controller
             ->when(($couponFilters['coupon_type'] ?? null) === 'renewal', fn ($q) => $q->where('is_renewal', true))
             ->orderByDesc('created_at')
             ->paginate(50, ['*'], 'coupon_page')
-            ->withQueryString();
+            ->withQueryString()
+            ->appends('tab', 'coupons');
         // Beim Einladen angegebene Codes sind bis zur Annahme reserviert (InvitationCoupon).
         $reservedCouponCodes = InvitationCoupon::reservedCodes($tenant, $coupons->getCollection()->pluck('code'));
 
-        // Auswahl „Zuweisen“ (admin.tabs.coupons): alle Teilnehmer, aber nur
-        // wenn die angezeigte Coupon-Seite überhaupt einen zuweisbaren Code
-        // enthält -- dieselbe Bedingung wie in der View. Sonst wurden bei
-        // jedem Aufruf alle Lernenden samt Konto geladen (1200 Lernende:
-        // ~1200 Modelle), ohne dass die Liste je gerendert wurde.
-        $allParticipants = $coupons->getCollection()->contains(fn (Coupon $c) => $c->isUsable() && $c->tenant_id === $tenant->id)
-            ? ParticipantFilters::withoutOpenInvitations(TenantUser::with('user:id,display_name,email')
-                ->where('tenant_id', $tenant->id)
-                ->where('role', 'learner'))
-                ->orderBy('created_at')
-                ->orderBy('user_id')
-                ->get()
-            : collect();
+        // „Zuweisen“ sucht Teilnehmer per Suchfeld (Admin\ParticipantSearchController):
+        // hier wird keine Teilnehmerliste mehr geladen.
 
-        // Bestand je Kurs/Produkt aus den Codes, die dieser Bootsschule
-        // gehören (übernommen per Import oder vom Superadmin zugeteilt) --
-        // Codes, die nur eingelöst, aber keiner Bootsschule zugeordnet
-        // wurden, zählen hier bewusst nicht mit (das ist kein Bestand, den
-        // sie verwaltet). Verlängerungscodes laufen als eigene Zeile je
-        // Kurs, damit sie nicht mit regulären Kurs-Freischalt-Codes
-        // vermischt werden.
         // Shop-Anbindung: verknüpfte Shopkonten und die letzten Bestellungen
         // (Code-Batches) der Schule (docs/commerce/README.md).
         $shopAccounts = CommerceShopAccount::where('tenant_id', $tenant->id)->where('status', CommerceShopAccount::LINKED)->whereNotNull('shop_customer_id')
@@ -564,6 +694,13 @@ class AdminDashboardController extends Controller
             ->withCount(['coupons as redeemed_count' => fn ($q) => $q->whereNotNull('redeemed_at')])
             ->orderByDesc('created_at')->limit(20)->get();
 
+        // Bestand je Kurs/Produkt aus den Codes, die dieser Bootsschule
+        // gehören (übernommen per Import oder vom Superadmin zugeteilt) --
+        // Codes, die nur eingelöst, aber keiner Bootsschule zugeordnet
+        // wurden, zählen hier bewusst nicht mit (das ist kein Bestand, den
+        // sie verwaltet). Verlängerungscodes laufen als eigene Zeile je
+        // Kurs, damit sie nicht mit regulären Kurs-Freischalt-Codes
+        // vermischt werden.
         $couponSummaryRows = Coupon::where('tenant_id', $tenant->id)
             ->selectRaw('course_id, product_id, is_renewal, count(*) filter (where redeemed_at is null and voided_at is null and (expires_at is null or expires_at > now())) as free_count, count(*) filter (where redeemed_at is not null) as used_count')
             ->groupBy('course_id', 'product_id', 'is_renewal')
@@ -585,79 +722,7 @@ class AdminDashboardController extends Controller
             ->sortBy('name')
             ->values();
 
-        // Für den "Kurs freischalten"-Dropdown im Teilnehmer-Tab: wie viele
-        // eigene, noch nicht eingelöste Codes die Bootsschule je Kurs hat --
-        // Verlängerungscodes zählen hier bewusst nicht mit, die schalten
-        // keinen neuen Kurs frei, sondern verlängern einen bestehenden.
-        // Für offene Einladungen reservierte Codes zählen nicht als frei
-        // (wie beim Freischalten selbst, Coupon::scopeNotReservedForInvitation).
-        $freeCourseCouponCounts = Coupon::where('tenant_id', $tenant->id)
-            ->whereNotNull('course_id')
-            ->where('is_renewal', false)
-            ->usable()
-            ->notReservedForInvitation($tenant->id)
-            ->selectRaw('course_id, count(*) as free_count')
-            ->groupBy('course_id')
-            ->pluck('free_count', 'course_id');
-
-        // Lerngruppen (nur Inhaber/Admins, Admin\LearningGroupController):
-        // höchstens drei Abfragen, unabhängig von der Zahl der Gruppen und
-        // Mitglieder (Gruppen samt belegter Plätze, Verwalter, Kurse).
-        $learningGroups = collect();
-        if ($canManageTenant) {
-            $learningGroupService = app(LearningGroupService::class);
-            $learningGroups = LearningGroup::where('tenant_id', $tenant->id)->with('owner')
-                ->withCount(['members as used_seats' => fn ($q) => $q->occupyingSeat()])
-                ->orderByRaw("status = 'revoked'")->orderByDesc('created_at')->get();
-            $learningGroupCourses = LearningGroupService::coursesByCode($learningGroups);
-            $learningGroups->each(fn (LearningGroup $group) => $group->setAttribute('scope_summary', $learningGroupService->describeScopes($group, $learningGroupCourses)));
-        }
-
-        return view('admin.dashboard', [
-            'platformAnnouncements' => PlatformAnnouncement::visible()->forTenant($tenant->id)->orderByDesc('created_at')->limit(5)->get(),
-            'tenant' => $tenant,
-            'canManageTenant' => $canManageTenant,
-            'canInvite' => $scopeCourseIds === null,
-            'learnerCount' => $learnerCount,
-            'activeEntitlements' => $activeEntitlements,
-            'recentActivity' => $recentActivity,
-            'recentBookings' => $recentBookings,
-            'recentBookingsTotal' => $recentBookingsTotal,
-            'weeklyActivityRate' => $weeklyActivityRate,
-            'recentExamsCount' => $recentExams->count(),
-            'recentExamsNext7DaysCount' => $recentExamsNext7DaysCount,
-            'examPassRate' => $examPassRate,
-            'upcomingAppointmentsNext7Days' => $upcomingAppointmentsNext7Days,
-            'upcomingAppointmentsNext30Days' => $upcomingAppointmentsNext30Days,
-            'upcomingExamDates30' => $upcomingExamDates30,
-            'learnerPhases' => $learnerPhases,
-            'progressDistribution' => $progressDistribution,
-            'learningPhaseLearnerCount' => $learningPhaseLearnerCount,
-            'participants' => $participants,
-            'team' => $team,
-            'instructorCourses' => InstructorCourse::where('tenant_id', $tenant->id)->get()->groupBy('user_id')->map(fn ($rows) => $rows->pluck('course_id')),
-            'pendingTeamInvitations' => $pendingTeamInvitations,
-            'pendingTeamInvitationsTotal' => $pendingTeamInvitationsTotal,
-            'allParticipants' => $allParticipants,
-            'openInvitations' => $openInvitations,
-            'openInvitationsTotal' => $openInvitationsTotal,
-            'courses' => $courses,
-            'participantFilters' => $participantFilters,
-            'productPurchases' => $productPurchases,
-            'branding' => $branding,
-            'webshopLinks' => $webshopLinks,
-            'examRegistrations' => $examRegistrations,
-            'addonTemplates' => $addonTemplates,
-            'tenantAddons' => $tenantAddons,
-            'coursePromoBanners' => $coursePromoBanners,
-            'praxisFormSubmissions' => $praxisFormSubmissions,
-            'tenantCourseLocations' => $tenantCourseLocations,
-            'pruefungsausschuesse' => $pruefungsausschuesse,
-            'anmeldungFilters' => $anmeldungFilters,
-            'willkommensboxOrders' => $willkommensboxOrders,
-            'willkommensboxFilters' => $willkommensboxFilters,
-            'willkommensboxLabelSizes' => $branding->enabledLabelSizes(),
-            'disabledCourseIds' => $disabledCourseIds,
+        return [
             'coupons' => $coupons,
             'reservedCouponCodes' => $reservedCouponCodes,
             'couponSummary' => $couponSummary,
@@ -665,9 +730,72 @@ class AdminDashboardController extends Controller
             'shopNeedsLink' => $shopNeedsLink,
             'shopBatches' => $shopBatches,
             'couponFilters' => $couponFilters,
-            'freeCourseCouponCounts' => $freeCourseCouponCounts,
-            'learningGroups' => $learningGroups,
-        ]);
+        ];
+    }
+
+    /** Reiter „Kursauswahl“ (nur Inhaber/Admins): Kurse, Webshop-Links, Prüfungsanmeldung. */
+    private function coursesTab(Request $request, Tenant $tenant, ?Collection $scopeCourseIds, bool $canManageTenant): array
+    {
+        return [
+            'courses' => $this->siteCourses(),
+            'disabledCourseIds' => $this->disabledCourseIds($tenant),
+            'branding' => $tenant->branding,
+            'webshopLinks' => CourseWebshopLink::where('tenant_id', $tenant->id)->pluck('url', 'course_id'),
+            'examRegistrations' => CourseExamRegistration::where('tenant_id', $tenant->id)->pluck('mode', 'course_id'),
+        ];
+    }
+
+    /**
+     * Reiter „Lerngruppen“ (nur Inhaber/Admins, Admin\LearningGroupController):
+     * höchstens drei Abfragen, unabhängig von der Zahl der Gruppen und
+     * Mitglieder (Gruppen samt belegter Plätze, Verwalter, Kurse).
+     */
+    private function learningGroupsTab(Request $request, Tenant $tenant, ?Collection $scopeCourseIds, bool $canManageTenant): array
+    {
+        $learningGroupService = app(LearningGroupService::class);
+        $learningGroups = LearningGroup::where('tenant_id', $tenant->id)->with('owner')
+            ->withCount(['members as used_seats' => fn ($q) => $q->occupyingSeat()])
+            ->orderByRaw("status = 'revoked'")->orderByDesc('created_at')->get();
+        $learningGroupCourses = LearningGroupService::coursesByCode($learningGroups);
+        $learningGroups->each(fn (LearningGroup $group) => $group->setAttribute('scope_summary', $learningGroupService->describeScopes($group, $learningGroupCourses)));
+
+        return ['learningGroups' => $learningGroups];
+    }
+
+    /** Reiter „Orte“: Theorie-/Praxis-/Prüfungsorte je Kurs. */
+    private function orteTab(Request $request, Tenant $tenant, ?Collection $scopeCourseIds, bool $canManageTenant): array
+    {
+        return [
+            'tenantCourseLocations' => TenantCourseLocation::where('tenant_id', $tenant->id)->with('pruefungsausschuss')->orderBy('sort_order')->get(),
+            'pruefungsausschuesse' => Pruefungsausschuss::orderBy('sort_order')->get(),
+            'courses' => $this->siteCourses(),
+            'disabledCourseIds' => $this->disabledCourseIds($tenant),
+        ];
+    }
+
+    /** Reiter „Branding“ (nur Inhaber/Admins). */
+    private function brandingTab(Request $request, Tenant $tenant, ?Collection $scopeCourseIds, bool $canManageTenant): array
+    {
+        return ['branding' => $tenant->branding];
+    }
+
+    /** Reiter „Addons“ (nur Inhaber/Admins). */
+    private function addonsTab(Request $request, Tenant $tenant, ?Collection $scopeCourseIds, bool $canManageTenant): array
+    {
+        return [
+            'addonTemplates' => AddonTemplate::where('active', true)->orderBy('sort_order')->orderBy('title')->get(),
+            'tenantAddons' => TenantAddon::where('tenant_id', $tenant->id)->get()->keyBy('addon_template_id'),
+            'courses' => $this->siteCourses(),
+        ];
+    }
+
+    /** Reiter „Kursempfehlungen“ (nur Inhaber/Admins). */
+    private function coursePromoBannersTab(Request $request, Tenant $tenant, ?Collection $scopeCourseIds, bool $canManageTenant): array
+    {
+        return [
+            'coursePromoBanners' => CoursePromoBanner::where('tenant_id', $tenant->id)->orderBy('created_at')->get(),
+            'courses' => $this->siteCourses(),
+        ];
     }
 
     /**

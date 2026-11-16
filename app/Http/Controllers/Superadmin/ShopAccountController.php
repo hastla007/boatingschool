@@ -16,6 +16,7 @@ use App\Services\AccountErasureService;
 use App\Services\AccountSetupLink;
 use App\Support\BestEffortMail;
 use App\Support\TenantPath;
+use App\Support\TenantPicker;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -53,7 +54,6 @@ class ShopAccountController extends Controller
             'accounts' => $accounts,
             'status' => $status,
             'outEvents' => $outEvents,
-            'tenants' => Tenant::orderBy('name')->get(['id', 'name', 'slug']),
             'shopConfigured' => Outbox::enabled() || (bool) config('commerce.keys'),
         ]);
     }
@@ -67,12 +67,16 @@ class ShopAccountController extends Controller
         abort_unless($account->status === CommerceShopAccount::PENDING_REVIEW, 409, 'Dieses Shopkonto ist nicht (mehr) zur Freigabe offen.');
         $validated = $request->validate([
             'mode' => ['required', 'in:existing,new'],
-            'tenant_id' => ['nullable', 'required_if:mode,existing', 'uuid', 'exists:tenant,id'],
+            // Schulauswahl per Suchfeld (components/superadmin/tenant-picker);
+            // ohne JavaScript Kürzel/Name in tenant_slug (TenantPicker::resolve()).
+            'tenant_id' => ['nullable', 'uuid', 'exists:tenant,id'],
+            'tenant_slug' => TenantPicker::companionRules(),
             'name' => ['nullable', 'required_if:mode,new', 'string', 'max:255'],
             'slug' => ['nullable', 'required_if:mode,new', 'string', 'max:120', 'regex:/^[a-z0-9]+(-[a-z0-9]+)*$/', 'unique:tenant,slug',
                 Rule::notIn(array_merge(TenantController::RESERVED_SLUGS, TenantPath::reservedSegments()))],
             'note' => ['nullable', 'string', 'max:500'],
         ], ['slug.regex' => 'Der Slug darf nur Kleinbuchstaben, Ziffern und einzelne Bindestriche enthalten.']);
+        $validated['tenant_id'] = $validated['mode'] === 'existing' ? TenantPicker::resolve($validated, required: true) : null;
 
         // Identität: Seit der Registrierung nur noch ohne App-Konto (die Adresse
         // ist unbestätigt) -- es entsteht erst hier. Ältere Registrierungen

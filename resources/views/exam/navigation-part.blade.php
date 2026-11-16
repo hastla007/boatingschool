@@ -9,6 +9,8 @@
                     <span class="text-slate-300">&middot;</span>
                     <x-icon name="clock" class="w-4 h-4 text-slate-600 dark:text-slate-400" />
                     <span id="exam-timer" data-remaining="{{ $remainingSeconds }}" aria-label="Verbleibende Prüfungszeit">{{ sprintf('%02d:%02d', intdiv($remainingSeconds, 60), $remainingSeconds % 60) }}</span>
+                    {{-- WCAG 2.2.1/4.1.3: Restzeit-Warnungen werden angesagt (wie in exam/question). --}}
+                    <span id="exam-timer-announce" class="sr-only" aria-live="assertive"></span>
                 @endif
             </div>
         </div>
@@ -133,11 +135,14 @@
             (function () {
                 const el = document.getElementById('exam-timer');
                 const form = document.getElementById('navigation-form');
+                const announce = document.getElementById('exam-timer-announce');
                 let remaining = parseInt(el.dataset.remaining, 10);
                 let sent = false;
                 setInterval(function () {
                     remaining = Math.max(0, remaining - 1);
                     el.textContent = String(Math.floor(remaining / 60)).padStart(2, '0') + ':' + String(remaining % 60).padStart(2, '0');
+                    if (announce && remaining === 300) announce.textContent = 'Noch 5 Minuten Prüfungszeit.';
+                    if (announce && remaining === 60) announce.textContent = 'Noch 1 Minute Prüfungszeit.';
                     // Zeit abgelaufen: das Eingetragene wird abgegeben, nicht verworfen.
                     if (remaining <= 0 && ! sent) {
                         sent = true;

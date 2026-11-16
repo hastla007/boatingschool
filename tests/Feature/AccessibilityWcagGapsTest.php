@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Models\ExamPaper;
 use App\Models\ExamSession;
 use Illuminate\Support\MessageBag;
@@ -109,16 +110,24 @@ class AccessibilityWcagGapsTest extends TestCase
         $tenant = $this->createTestTenant();
         $owner = $this->createTenantUser($tenant, 'owner');
 
-        $response = $this->actingAsInTenant($owner, $tenant)->get('/admin')->assertOk();
-
-        foreach (['dashboard', 'participants', 'coupons', 'branding'] as $tab) {
-            $response->assertSee("id=\"admin-tab-{$tab}\" aria-controls=\"admin-panel-{$tab}\"", false);
-            $response->assertSee(":tabindex=\"tab === '{$tab}' ? 0 : -1\"", false);
+        // Nur der aktive Reiter wird gerendert (Reiter = Links auf ?tab=…):
+        // er allein liegt in der Tab-Reihenfolge und ist mit dem einzigen
+        // Bereich verknüpft; die übrigen verweisen auf keinen fehlenden Bereich.
+        $tabs = ['dashboard', 'participants', 'coupons', 'branding'];
+        foreach ($tabs as $tab) {
+            $response = $this->actingAsInTenant($owner, $tenant)->get('/admin?tab='.$tab)->assertOk();
+            $response->assertSee('href="'.route('admin.dashboard', ['tab' => $tab]).'" role="tab" id="admin-tab-'.$tab.'" aria-controls="admin-panel-'.$tab.'" aria-selected="true" tabindex="0"', false);
             $response->assertSee("role=\"tabpanel\" id=\"admin-panel-{$tab}\" aria-labelledby=\"admin-tab-{$tab}\"", false);
+            foreach (array_diff($tabs, [$tab]) as $other) {
+                $response->assertSee('href="'.route('admin.dashboard', ['tab' => $other]).'" role="tab" id="admin-tab-'.$other.'" aria-selected="false" tabindex="-1"', false);
+                $response->assertDontSee("id=\"admin-panel-{$other}\"", false);
+            }
+            $this->assertSame(1, substr_count($response->getContent(), 'role="tabpanel"'));
+            $response->assertSee('@keydown.arrow-right.prevent="moveTab($event, 1)"', false);
+            $response->assertSee('@keydown.home.prevent="moveTab($event, \'first\')"', false);
+            $response->assertSee('@keydown.space.prevent="$event.target.closest(\'[role=tab]\')?.click()"', false);
+            $response->assertSee('focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500', false);
         }
-        $response->assertSee('@keydown.arrow-right.prevent="moveTab($event, 1)"', false);
-        $response->assertSee('@keydown.home.prevent="moveTab($event, \'first\')"', false);
-        $response->assertSee('focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500', false);
     }
 
     public function test_admin_tables_have_named_scrollable_regions_and_no_empty_headers(): void
@@ -127,12 +136,16 @@ class AccessibilityWcagGapsTest extends TestCase
         $owner = $this->createTenantUser($tenant, 'owner');
         $this->createTenantUser($tenant, 'learner');
 
-        $content = $this->actingAsInTenant($owner, $tenant)->get('/admin')->assertOk()->getContent();
+        // Jeder Reiter wird einzeln gerendert (?tab=…).
+        $pages = collect(array_keys(AdminDashboardController::TABS))
+            ->mapWithKeys(fn ($tab) => [$tab => $this->actingAsInTenant($owner, $tenant)->get('/admin?tab='.$tab)->assertOk()->getContent()]);
 
-        $this->assertStringContainsString('<div tabindex="0" role="region" aria-label="Tabelle: Teilnehmer (seitlich scrollbar)" class="overflow-x-auto">', $content);
-        $this->assertStringContainsString('<div tabindex="0" role="region" aria-label="Tabelle: Zugangscodes (seitlich scrollbar)" class="overflow-x-auto">', $content);
-        $this->assertDoesNotMatchRegularExpression('/<th class="[^"]*"><\/th>/', $content);
-        $this->assertStringContainsString('<span class="sr-only">Aktionen</span>', $content);
+        $this->assertStringContainsString('<div tabindex="0" role="region" aria-label="Tabelle: Teilnehmer (seitlich scrollbar)" class="overflow-x-auto">', $pages['participants']);
+        $this->assertStringContainsString('<div tabindex="0" role="region" aria-label="Tabelle: Zugangscodes (seitlich scrollbar)" class="overflow-x-auto">', $pages['coupons']);
+        foreach ($pages as $tab => $content) {
+            $this->assertDoesNotMatchRegularExpression('/<th class="[^"]*"><\/th>/', $content, $tab);
+        }
+        $this->assertStringContainsString('<span class="sr-only">Aktionen</span>', $pages['participants']);
     }
 
     public function test_admin_contrast_fixes_for_delete_buttons_and_status_chips(): void

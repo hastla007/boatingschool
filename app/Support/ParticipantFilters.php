@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\Tenant;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -38,6 +39,25 @@ class ParticipantFilters
     public static function withoutOpenInvitations(Builder $query): Builder
     {
         return $query->whereHas('user', fn ($u) => $u->where('status', '!=', 'invited'));
+    }
+
+    /**
+     * Teilnehmer, denen die Schule einen Zugangscode zuweisen kann
+     * (Admin\CouponController::assign() und die Suche des Suchfelds
+     * „Zuweisen“, Admin\ParticipantSearchController): Lernende mit aktiver
+     * Mitgliedschaft dieser Schule, ohne offene Einladung, bei einem
+     * Ausbilder mit Kurszuordnung nur seine Lernenden (InstructorScope) --
+     * dieselbe Grenze, die auch die Teilnehmerliste zieht.
+     *
+     * @return Builder<User>
+     */
+    public static function assignableLearners(Tenant $tenant, User $actor): Builder
+    {
+        $visibleLearnerIds = InstructorScope::learnerIds($tenant, $actor);
+
+        return User::query()->where('status', '!=', 'invited')
+            ->whereHas('tenantMemberships', fn (Builder $query) => $query->where('tenant_id', $tenant->id)->where('role', 'learner')->where('status', 'active'))
+            ->when($visibleLearnerIds !== null, fn (Builder $query) => $query->whereIn('id', $visibleLearnerIds));
     }
 
     /** @param  Builder  $query  TenantUser-Abfrage der Schule */

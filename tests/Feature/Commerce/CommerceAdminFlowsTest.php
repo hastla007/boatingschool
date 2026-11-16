@@ -95,6 +95,30 @@ class CommerceAdminFlowsTest extends TestCase
         Notification::assertSentTo($this->onAdmin(fn () => User::find($account->user_id)), AccountInvitation::class);
     }
 
+    public function test_shop_account_page_uses_the_school_search_and_approval_accepts_a_slug_without_javascript(): void
+    {
+        Notification::fake();
+        $superadmin = $this->createSuperAdmin();
+        $tenant = $this->createTestTenant('Shop Slugschule');
+        $account = $this->register('809', 'slug-'.Str::lower(Str::random(6)).'@example.test');
+
+        // Suchfeld statt einer Liste aller Schulen je offenem Konto.
+        $this->actingAs($superadmin)->get(route('superadmin.shop-accounts.index'))->assertOk()
+            ->assertSee('id="tenant-'.$account->id.'"', false)->assertSee('name="tenant_slug"', false)
+            ->assertDontSee('<option value="'.$tenant->id.'"', false);
+
+        $this->actingAs($superadmin)->post(route('superadmin.shop-accounts.approve', $account), ['mode' => 'existing', 'tenant_id' => '', 'tenant_slug' => 'gibt-es-nicht'])
+            ->assertSessionHasErrors('tenant_id');
+        $this->actingAs($superadmin)->post(route('superadmin.shop-accounts.approve', $account), ['mode' => 'existing', 'tenant_id' => '', 'tenant_slug' => ''])
+            ->assertSessionHasErrors('tenant_id');
+        $this->assertSame('pending_review', $this->onAdmin(fn () => $account->fresh()->status));
+
+        $this->actingAs($superadmin)->post(route('superadmin.shop-accounts.approve', $account), ['mode' => 'existing', 'tenant_id' => '', 'tenant_slug' => $tenant->slug])
+            ->assertRedirect()->assertSessionHasNoErrors();
+        $account = $this->freshAccount($account);
+        $this->assertSame([$tenant->id, 'linked'], [$account->tenant_id, $account->status]);
+    }
+
     public function test_superadmin_assigns_to_an_existing_school_as_admin_or_rejects(): void
     {
         Notification::fake();

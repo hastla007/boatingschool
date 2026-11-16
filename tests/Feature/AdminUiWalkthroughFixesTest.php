@@ -31,7 +31,7 @@ class AdminUiWalkthroughFixesTest extends TestCase
         $tenant = $this->createTestTenant();
         $owner = $this->createTenantUser($tenant, 'owner');
 
-        $html = $this->actingAsInTenant($owner, $tenant)->get('/admin')->assertOk()->getContent();
+        $html = $this->actingAsInTenant($owner, $tenant)->get('/admin?tab=participants')->assertOk()->getContent();
         $this->assertMatchesRegularExpression('/<div class="[^"]*\bmd:flex-wrap\b[^"]*\bmd:overflow-x-visible\b[^"]*" role="tablist"/', $html);
         $this->assertStringContainsString('@keydown.arrow-right.prevent="moveTab($event, 1)"', $html);
         $this->assertStringContainsString('role="tab" id="admin-tab-participants" aria-controls="admin-panel-participants"', $html);

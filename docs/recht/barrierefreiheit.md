@@ -32,8 +32,22 @@ Bereits umgesetzt (Auswahl):
   Alle Inhalte liegen in Landmarks (Kopf-, Haupt-, Fußbereich, Navigation).
 - Beschriftete Formularfelder, beschriftete Symbol-Links (z. B. „Zurück zum
   Kurs“). Fehlermeldungen der Anmelde-, Registrierungs-, Passwort- und
-  Profilformulare, der Code-Einlösung und der Teilnehmer-/Team-Einladung sind
-  per `aria-invalid`/`aria-describedby` mit dem Feld verknüpft (WCAG 3.3.1).
+  Profilformulare, der Code-Einlösung, der Teilnehmer-/Team-Einladung, der
+  Lerngruppen und aller Superadmin-Formulare (auch Auswahllisten, Textbereiche,
+  Datei- und Auswahlfelder) sind per `aria-invalid`/`aria-describedby` mit dem
+  Feld verknüpft (WCAG 1.3.1, 3.3.1).
+- Personenauswahl ohne Riesenliste: der Verwalter einer Lerngruppe wird über
+  ein Suchfeld gewählt (Combobox mit Trefferliste, Pfeiltasten,
+  `aria-activedescendant`; Trefferzahl wird angesagt), ohne JavaScript per
+  E-Mail-Adresse. Die Schulliste des Betreibers ist seitenweise und durchsuchbar.
+  Ebenso wählt der Betreiber eine Bootsschule (Shopkonten, Codes, Protokoll,
+  Nutzer anlegen und zuordnen) über ein Suchfeld nach Name oder Kürzel
+  (höchstens 20 Treffer, Pfeil nach unten zeigt die ersten Schulen), ohne
+  JavaScript per Kürzel (Slug).
+- Dasselbe Suchfeld wählt beim „Zuweisen“ eines Zugangscodes den Teilnehmer
+  (statt einer Auswahlliste mit allen Teilnehmern der Schule); ohne
+  JavaScript genügt die E-Mail-Adresse. Fehler der Zuweisung stehen am Feld
+  des jeweiligen Codes.
 - Bilder in Fragen und Navigationsaufgaben mit Alternativtext; fehlt ein
   gepflegter Alternativtext, wird das Bild als „Abbildung zur Frage (ohne
   Bildbeschreibung)“ angesagt statt als Dekoration versteckt.
@@ -52,7 +66,17 @@ Bereits umgesetzt (Auswahl):
   Escape und geben den Fokus zurück; der Einwilligungsdialog zur
   Spracherkennung startet auf „Nein, lieber tippen“.
 - Restzeit der Prüfungssimulation wird zusätzlich für Screenreader angesagt
-  (5 und 1 Minute vor Ablauf); das Zeitlimit wird vor dem Start angekündigt.
+  (5 und 1 Minute vor Ablauf, auch bei den Kartenaufgaben); das Zeitlimit wird
+  vor dem Start angekündigt.
+- Per JavaScript eingeblendete Statusmeldungen stehen in Live-Regionen
+  (`role="status"`, WCAG 4.1.3): Hinweis „Mehr Plätze als freie Kurscodes“
+  beim Anlegen einer Lerngruppe, Treffer der Verwalter- und Teilnehmersuche,
+  Adresse und Zuständigkeit des gewählten Prüfungsausschusses bei den
+  Kursorten, Rückmeldung des Favoriten-Knopfs (Lern- und Prüfungsmodus),
+  Zähler und Kartenrückseite der Funk-Vokabeln, „Gespeichert.“ nach dem
+  Passwortwechsel, Treffer der Schulsuche im Superadmin-Bereich; Funkübungen
+  sagen Erkennung, Display und Schritte an. In der Prüfung springt der Fokus
+  nach „Musterantwort anzeigen“ auf die nachgeladene Antwort.
 - Systemeinstellung „Bewegung reduzieren“ schaltet Übergänge und Animationen ab.
 - Dunkelmodus; Schriftfarbe auf der Markenfarbe der Schule wird nach Kontrast
   automatisch hell oder dunkel gewählt. Kontraste der Standardfarben im
@@ -86,13 +110,10 @@ Bereits umgesetzt (Auswahl):
 6. **Markenfarben der Schulen**: Schulen wählen ihre Farben selbst; Kontraste
    von Links und Flächen in der Markenfarbe werden nicht vollständig geprüft
    (WCAG 1.4.3, 1.4.11).
-7. **Statusmeldungen** (z. B. „gespeichert“) werden auf den Hauptseiten als
-   Live-Region angesagt, aber nicht in allen per JavaScript aktualisierten
-   Bereichen (WCAG 4.1.3), z. B. der Hinweis „Mehr Plätze als freie
-   Kurscodes“ beim Anlegen einer Lerngruppe.
-8. **Superadmin-Bereich** (nur Betreiber): nicht vollständig geprüft;
-   Fehlermeldungen einzelner Formulare sind nicht mit dem Feld verknüpft.
-9. **Lern-App**: [Stand der App gesondert bewerten].
+7. **Superadmin-Bereich** (nur Betreiber): nicht vollständig geprüft
+   (Fehlermeldungen sind inzwischen mit dem Feld verknüpft, die Auswahl der
+   Bootsschule ist ein Suchfeld statt einer langen Liste).
+8. **Lern-App**: [Stand der App gesondert bewerten].
 
 Diese Liste wird bei der Behebung einzelner Punkte aktualisiert.
 

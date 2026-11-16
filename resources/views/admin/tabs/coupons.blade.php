@@ -187,21 +187,19 @@
             <a href="{{ route('admin.dashboard', ['tab' => 'coupons']) }}" class="text-sm text-slate-500 dark:text-slate-400 hover:underline self-center">Filter zurücksetzen</a>
         @endif
     </form>
-    {{-- Bug-Review (/admin zu schwer): die Nutzerliste für "Zuweisen" stand
-         bisher komplett innerhalb der @forelse-Schleife unten -- bei 500
-         Lernenden und 50 Coupons auf einer Seite ergab das 50 identische
-         <select>-Listen mit je 500 <option>-Elementen (25.000+ insgesamt,
-         4,8 MB HTML). Die Optionen stehen jetzt nur noch EINMAL in dieser
-         versteckten Vorlage (außerhalb der <table>, da <select> dort kein
-         gültiges Kindelement ist) und werden per Skript unten in jedes
-         <select> der Zeilen geklont, statt sie serverseitig zu duplizieren. --}}
-    @if ($coupons->contains(fn ($c) => $c->isUsable() && $c->tenant_id === $tenant->id))
-        <select id="coupon-assign-options-template" hidden aria-hidden="true">
-            <option value="">Teilnehmer wählen…</option>
-            @foreach ($allParticipants as $membership)
-                <option value="{{ $membership->user_id }}">{{ $membership->user->name }}</option>
-            @endforeach
-        </select>
+    {{-- „Zuweisen“: je zuweisbarem Code ein Teilnehmer-Suchfeld
+         (admin/_participant-picker über admin.participants.search) statt
+         einer Auswahlliste mit allen Teilnehmern -- die stand bisher
+         (geklont) in jeder Zeile und wuchs mit der Schule. Ohne JavaScript
+         wird die eingetippte E-Mail-Adresse serverseitig aufgelöst
+         (Admin\CouponController::assign()). Fehler der Zuweisung stehen in
+         der Zeile des Codes (assign_coupon), sonst unter der Tabelle. --}}
+    @php($assignErrorCouponId = $errors->has('assign') ? old('assign_coupon') : null)
+    @php($assignErrorInRow = $assignErrorCouponId !== null && $coupons->contains(fn ($c) => $c->id === $assignErrorCouponId && $c->isUsable() && $c->tenant_id === $tenant->id && ! isset($reservedCouponCodes[$c->code])))
+    @if ($coupons->contains(fn ($c) => $c->isUsable() && $c->tenant_id === $tenant->id && ! isset($reservedCouponCodes[$c->code])))
+        <p id="coupon-assign-hint" class="px-4 pt-3 text-xs text-slate-600 dark:text-slate-400">
+            Zuweisen: E-Mail-Adresse des Teilnehmers eingeben oder nach dem Namen suchen und einen Treffer wählen.
+        </p>
     @endif
     <div tabindex="0" role="region" aria-label="Tabelle: Zugangscodes (seitlich scrollbar)" class="overflow-x-auto">
     <table class="w-full text-sm">
@@ -239,12 +237,25 @@
                     <td class="px-4 py-2 text-slate-500 dark:text-slate-400 text-xs">{{ \App\Support\GermanTime::format($coupon->redeemed_at, 'd.m.Y H:i') ?? '—' }}</td>
                     <td class="px-4 py-2">
                         @if ($coupon->isUsable() && $coupon->tenant_id === $tenant->id && ! isset($reservedCouponCodes[$coupon->code]))
-                            <form method="POST" action="{{ route('admin.coupons.assign', $coupon) }}" class="flex gap-1">
+                            <form method="POST" action="{{ route('admin.coupons.assign', $coupon) }}" class="flex items-start gap-1">
                                 @csrf
-                                <select name="user_id" required aria-label="Nutzer für Zugangscode {{ $coupon->code }} wählen" class="js-coupon-assign-select rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs">
-                                    <option value="">Teilnehmer wählen…</option>
-                                </select>
-                                <button type="submit" class="px-3 py-1 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-xs whitespace-nowrap">Zuweisen</button>
+                                @php($rowHasError = $assignErrorInRow && $assignErrorCouponId === $coupon->id)
+                                @include('admin._participant-picker', [
+                                    'id' => 'assign-email-'.$coupon->id,
+                                    'name' => 'participant_email',
+                                    'idName' => 'user_id',
+                                    'label' => 'Teilnehmer für Zugangscode '.$coupon->code,
+                                    'labelSrOnly' => true,
+                                    'url' => route('admin.participants.search'),
+                                    'limit' => \App\Http\Controllers\Admin\ParticipantSearchController::SEARCH_LIMIT,
+                                    'selected' => null,
+                                    'useOld' => $rowHasError,
+                                    'messages' => $rowHasError ? $errors->get('assign') : [],
+                                    'describedBy' => 'coupon-assign-hint',
+                                    'emptyMessage' => 'Keine aktiven Teilnehmer gefunden.',
+                                    'compact' => true,
+                                ])
+                                <button type="submit" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-xs whitespace-nowrap">Zuweisen</button>
                             </form>
                         @else
                             <span class="text-slate-300 dark:text-slate-600">—</span>
@@ -267,19 +278,8 @@
     <div class="p-4">{{ $coupons->links() }}</div>
 </div>
 
-<script nonce="{{ $cspNonce }}">
-    (function () {
-        const source = document.getElementById('coupon-assign-options-template');
-        if (! source) {
-            return;
-        }
-        document.querySelectorAll('.js-coupon-assign-select').forEach((select) => {
-            select.innerHTML = source.innerHTML;
-        });
-    })();
-</script>
-
-@if ($errors->has('assign'))
+{{-- Fehler zu einem Code, der nicht (mehr) in der Liste steht. --}}
+@if ($errors->has('assign') && ! $assignErrorInRow)
     @php(\App\Support\ShownFormErrors::register([$errors->first('assign')]))
     <p class="text-rose-600 text-sm mt-3">{{ $errors->first('assign') }}</p>
 @endif

@@ -18,6 +18,7 @@ use App\Services\CourseProgressService;
 use App\Services\TenantOffboardingService;
 use App\Support\BestEffortMail;
 use App\Support\EmailInput;
+use App\Support\StatusLabels;
 use App\Support\TenantPath;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -38,11 +39,32 @@ class TenantController extends Controller
      */
     public const RESERVED_SLUGS = ['www', 'admin', 'superadmin', 'api', 'app', 'mail', 'ftp', 'support', 'help'];
 
-    public function index(): View
-    {
-        $tenants = Tenant::withCount('tenantUsers')->orderBy('name')->get();
+    /** Schulen je Seite der Liste. */
+    public const PER_PAGE = 50;
 
-        return view('superadmin.tenants.index', ['tenants' => $tenants]);
+    /**
+     * Schulliste: seitenweise (bei einigen hundert Schulen sonst eine sehr
+     * große Seite), Suche in Name, Slug und eigener Domain, Filter nach
+     * Status; sortiert nach Name.
+     */
+    public function index(Request $request): View
+    {
+        // Array-Werte in der Adresszeile (?q[]=x) werden ignoriert statt HTTP 500.
+        $search = is_string($request->query('q')) ? trim(mb_substr($request->query('q'), 0, 200)) : '';
+        $status = is_string($request->query('status')) && array_key_exists($request->query('status'), StatusLabels::tenantStatusOptions())
+            ? $request->query('status') : '';
+        $like = '%'.addcslashes($search, '\\%_').'%';
+
+        $tenants = Tenant::withCount('tenantUsers')
+            ->when($search !== '', fn ($query) => $query->where(fn ($query) => $query
+                ->where('name', 'ilike', $like)
+                ->orWhere('slug', 'ilike', $like)
+                ->orWhereHas('branding', fn ($branding) => $branding->where('custom_domain', 'ilike', $like))))
+            ->when($status !== '', fn ($query) => $query->where('status', $status))
+            ->orderBy('name')->orderBy('id')
+            ->paginate(self::PER_PAGE)->withQueryString();
+
+        return view('superadmin.tenants.index', ['tenants' => $tenants, 'search' => $search, 'status' => $status]);
     }
 
     public function create(): View

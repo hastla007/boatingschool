@@ -13,12 +13,41 @@
         </div>
     </x-slot>
 
+    <form method="GET" class="mb-4 flex flex-wrap gap-2 items-end" role="search" aria-label="Bootsschulen suchen">
+        <div class="w-full sm:w-auto sm:min-w-[18rem]">
+            <label for="tenant_search" class="block text-xs text-slate-600 dark:text-slate-300 mb-1">Name, Slug oder Domain</label>
+            <input type="search" id="tenant_search" name="q" value="{{ $search }}" placeholder="z. B. segelschule" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+        </div>
+        <div>
+            <label for="tenant_status" class="block text-xs text-slate-600 dark:text-slate-300 mb-1">Status</label>
+            <select id="tenant_status" name="status" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                <option value="">Alle</option>
+                @foreach (\App\Support\StatusLabels::tenantStatusOptions() as $value => $label)
+                    <option value="{{ $value }}" @selected($status === $value)>{{ $label }}</option>
+                @endforeach
+            </select>
+        </div>
+        <button type="submit" class="px-3 py-2 rounded-lg bg-slate-900 text-white text-sm">Suchen</button>
+        @if ($search !== '' || $status !== '')
+            <a href="{{ route('superadmin.tenants.index') }}" class="px-3 py-2 text-sm text-slate-600 dark:text-slate-300 hover:underline">Filter zurücksetzen</a>
+        @endif
+    </form>
+
+    <p class="mb-2 text-sm text-slate-600 dark:text-slate-300" data-tenant-count>
+        @if ($tenants->total() === 0)
+            Keine Bootsschulen gefunden.
+        @else
+            {{ $tenants->total() }} {{ $tenants->total() === 1 ? 'Bootsschule' : 'Bootsschulen' }}{!! $tenants->lastPage() > 1 ? ', '.$tenants->firstItem().'&ndash;'.$tenants->lastItem().' angezeigt' : '' !!}, sortiert nach Name.
+        @endif
+    </p>
+
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden">
-        <div class="overflow-x-auto">
+        <div tabindex="0" role="region" aria-label="Tabelle: Bootsschulen (seitlich scrollbar)" class="overflow-x-auto">
         <table class="w-full text-sm">
+            <caption class="sr-only">Bootsschulen, sortiert nach Name</caption>
             <thead class="bg-slate-50 dark:bg-slate-700 text-slate-500 dark:text-slate-300 text-left">
                 <tr>
-                    <th class="px-4 py-2">Name</th>
+                    <th class="px-4 py-2" aria-sort="ascending">Name</th>
                     <th class="px-4 py-2">Slug</th>
                     <th class="px-4 py-2">Status</th>
                     <th class="px-4 py-2">Nutzer</th>
@@ -41,4 +70,5 @@
         </table>
         </div>
     </div>
+    <div class="mt-4">{{ $tenants->links() }}</div>
 </x-superadmin-layout>

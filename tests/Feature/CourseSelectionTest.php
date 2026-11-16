@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Models\Coupon;
 use App\Models\CourseDefinition;
 use App\Models\TenantCourseDisabled;
@@ -143,10 +144,13 @@ class CourseSelectionTest extends TestCase
             'status' => $course->status,
         ]);
 
-        $response = $this->actingAsInTenant($admin, $tenant)->get('/admin');
+        // In keinem Reiter (jeder ist ein eigener Aufruf, ?tab=…).
+        foreach (array_keys(AdminDashboardController::TABS) as $tab) {
+            $response = $this->actingAsInTenant($admin, $tenant)->get('/admin?tab='.$tab);
 
-        $response->assertOk();
-        $response->assertDontSee($course->name);
+            $response->assertOk();
+            $response->assertDontSee($course->name);
+        }
 
         $this->onAdmin(fn () => CourseDefinition::withoutGlobalScopes()->where('id', $course->id)->update(['site_enabled' => true]));
     }

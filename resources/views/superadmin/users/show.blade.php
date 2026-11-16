@@ -85,8 +85,8 @@
                           @submit="if (! confirm('Zwei-Faktor-Anmeldung dieses Kontos wirklich zurücksetzen?')) $event.preventDefault()">
                         @csrf
                         <label for="two-factor-reason" class="block text-xs text-slate-600 dark:text-slate-400 mt-2">Wie wurde die Identität geprüft? (Pflicht, steht im Protokoll)</label>
-                        <input id="two-factor-reason" name="reason" required minlength="10" maxlength="500" value="{{ old('reason') }}" placeholder="z. B. Rückruf über hinterlegte Nummer, Bestätigung durch Inhaber" class="mt-1 mb-2 w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs">
-                        <x-input-error :messages="$errors->get('reason')" class="mb-2" />
+                        <input id="two-factor-reason" @ariaInvalid('reason', 'two-factor-reason') name="reason" required minlength="10" maxlength="500" value="{{ old('reason') }}" placeholder="z. B. Rückruf über hinterlegte Nummer, Bestätigung durch Inhaber" class="mt-1 mb-2 w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs">
+                        <x-input-error for="two-factor-reason" :messages="$errors->get('reason')" class="mb-2" />
                         <button type="submit" class="px-3 py-1.5 rounded-lg border border-amber-300 text-amber-800 dark:border-amber-700 dark:text-amber-200 text-xs font-medium hover:bg-amber-50 dark:hover:bg-amber-900/30">2FA zurücksetzen</button>
                     </form>
                 @else
@@ -164,14 +164,11 @@
                         <p class="text-slate-500 dark:text-slate-400">Noch keine Bootsschule zugeordnet.</p>
                     @endforelse
                 </div>
-                <form method="POST" action="{{ route('superadmin.users.memberships.store', $user) }}" class="flex flex-wrap gap-2">
+                <form method="POST" action="{{ route('superadmin.users.memberships.store', $user) }}" class="flex flex-wrap items-start gap-2">
                     @csrf
-                    <label for="membership_tenant_id" class="sr-only">Bootsschule</label>
-                    <select id="membership_tenant_id" name="tenant_id" required class="flex-1 min-w-0 basis-40 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs">
-                        @foreach ($tenants as $tenant)
-                            <option value="{{ $tenant->id }}">{{ $tenant->name }}</option>
-                        @endforeach
-                    </select>
+                    {{-- Suchfeld statt Liste aller Schulen (components/superadmin/tenant-picker). --}}
+                    <x-superadmin.tenant-picker name="tenant_id" id="membership_tenant_id" label="Bootsschule" label-class="sr-only"
+                                                required input-class="text-xs" class="flex-1 min-w-0 basis-40" />
                     <label for="membership_role" class="sr-only">Rolle</label>
                     <select id="membership_role" name="role" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs">
                         @foreach (\App\Support\StatusLabels::tenantRoleOptions() as $role => $label)

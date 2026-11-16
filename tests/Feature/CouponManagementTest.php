@@ -2,9 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\Admin\ParticipantSearchController;
 use App\Models\Coupon;
 use App\Models\Entitlement;
 use App\Models\Product;
+use App\Models\TenantUser;
 use Illuminate\Support\Str;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
@@ -180,7 +182,7 @@ class CouponManagementTest extends TestCase
         $usedCoupon = $this->onAdmin(fn () => Coupon::create(['code' => $used, 'course_id' => $course->id, 'tenant_id' => $tenant->id]));
         $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', ['code' => $used]);
 
-        $response = $this->actingAsInTenant($admin, $tenant)->get('/admin');
+        $response = $this->actingAsInTenant($admin, $tenant)->get('/admin?tab=coupons');
 
         $response->assertOk();
         $pattern = '/'.preg_quote($course->name, '/').'.*?text-emerald-600 font-medium">2<.*?text-slate-500 dark:text-slate-400">1</s';
@@ -221,17 +223,17 @@ class CouponManagementTest extends TestCase
 
     /**
      * Bug-Review (/admin zu schwer): die Nutzerliste für "Zuweisen" stand
-     * bisher einmal PRO Coupon-Zeile im HTML -- bei 500 Lernenden und 50
-     * Coupons ergab das 25.000+ <option>-Elemente (4,8 MB HTML). Die
-     * Optionen stehen jetzt nur noch einmal in einer versteckten Vorlage
-     * und werden per Skript in jede Zeile geklont, statt sie serverseitig
-     * zu duplizieren.
+     * erst einmal PRO Coupon-Zeile im HTML (25.000+ <option>-Elemente bei
+     * 500 Lernenden), danach einmal als versteckte Vorlage, die per Skript
+     * in jede Zeile geklont wurde -- und wuchs so immer noch mit der Schule.
+     * Jetzt hat jede Zeile ein Suchfeld (admin/_participant-picker), das
+     * über admin.participants.search sucht: kein Teilnehmer steht mehr im HTML.
      */
-    public function test_the_assign_dropdown_options_are_not_duplicated_per_coupon_row(): void
+    public function test_the_assign_field_searches_instead_of_listing_all_participants(): void
     {
         $tenant = $this->createTestTenant();
         $admin = $this->createTenantUser($tenant, 'owner');
-        $learner = $this->createTenantUser($tenant, 'learner', ['display_name' => 'Eindeutiger Testname']);
+        $this->createTenantUser($tenant, 'learner', ['display_name' => 'Eindeutiger Testname']);
         $course = $this->existingCourse('SRC');
 
         $codes = [];
@@ -240,21 +242,140 @@ class CouponManagementTest extends TestCase
             $codes[] = $code;
             $this->createdCodes[] = $code;
         }
-        $this->onAdmin(function () use ($codes, $course, $tenant) {
-            foreach ($codes as $code) {
-                Coupon::create(['code' => $code, 'course_id' => $course->id, 'tenant_id' => $tenant->id]);
-            }
-        });
+        $coupons = $this->onAdmin(fn () => collect($codes)->map(fn ($code) => Coupon::create(['code' => $code, 'course_id' => $course->id, 'tenant_id' => $tenant->id])));
 
         $response = $this->actingAsInTenant($admin, $tenant)->get(route('admin.dashboard', ['tab' => 'coupons']));
 
-        $response->assertOk();
-        $optionCount = substr_count($response->getContent(), '>Eindeutiger Testname</option>');
-        $this->assertSame(
-            1,
-            $optionCount,
-            'Die Option für den Lernenden darf nur einmal im HTML stehen (versteckte Vorlage), nicht einmal pro Coupon-Zeile.'
-        );
+        $response->assertOk()->assertViewMissing('allParticipants')
+            ->assertDontSee('Eindeutiger Testname')->assertDontSee('<option value="">Teilnehmer wählen…</option>', false)
+            ->assertSee('id="coupon-assign-hint"', false)
+            ->assertSee('admin\\\\\\/participants\\\\\\/search', false); // URL in JSON.parse('…') von @js
+        $html = $response->getContent();
+        $this->assertSame(3, substr_count($html, 'x-data="participantPicker('));
+        foreach ($coupons as $coupon) {
+            $id = 'assign-email-'.$coupon->id;
+            $response->assertSee('<label class="block font-medium text-sm text-slate-600 dark:text-slate-300 sr-only" for="'.$id.'">', false)
+                ->assertSee('Teilnehmer für Zugangscode '.$coupon->code)
+                ->assertSee('id="'.$id.'" name="participant_email" type="text"', false)
+                ->assertSee('aria-describedby="coupon-assign-hint"', false)
+                ->assertSee('id="'.$id.'-listbox" role="listbox"', false);
+        }
+        $this->assertSame(3, substr_count($html, '<input type="hidden" name="user_id" value="" x-bind:value="id">'));
+        $this->assertSame(3, substr_count($html, 'role="status" aria-live="polite" x-text="message" data-participant-search-status'));
+        // Combobox-Rollen erst mit JavaScript (ohne bleibt es ein Textfeld).
+        $this->assertStringNotContainsString('role="combobox"', $html);
+    }
+
+    /**
+     * Ohne JavaScript schickt das Feld nur die eingetippte E-Mail-Adresse;
+     * der Server sucht sie unter den Teilnehmern der eigenen Schule.
+     */
+    public function test_admin_can_assign_a_code_by_email_without_javascript(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner', ['display_name' => 'Per Mail']);
+        $other = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $code = 'E2E-ASSIGN-MAIL-'.uniqid();
+        $this->createdCodes[] = $code;
+        $coupon = $this->onAdmin(fn () => Coupon::create(['code' => $code, 'course_id' => $course->id, 'tenant_id' => $tenant->id]));
+
+        // Groß-/Kleinschreibung und Leerzeichen egal; eine geänderte Adresse
+        // nach einer Auswahl (user_id passt nicht mehr) gilt vor der ID.
+        $this->actingAsInTenant($admin, $tenant)->post("/admin/coupons/{$coupon->id}/assign", [
+            'user_id' => $other->id,
+            'participant_email' => '  '.strtoupper($learner->email).' ',
+        ])->assertSessionHasNoErrors()->assertSessionHas('status', 'Code "'.$code.'" wurde Per Mail zugewiesen.');
+
+        $this->onAdmin(fn () => $this->assertSame($learner->id, $coupon->fresh()->redeemed_by_user_id));
+    }
+
+    public function test_assigning_by_id_ignores_a_matching_email_and_needs_some_participant(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $course = $this->existingCourse('SRC');
+        $code = 'E2E-ASSIGN-ID-'.uniqid();
+        $this->createdCodes[] = $code;
+        $coupon = $this->onAdmin(fn () => Coupon::create(['code' => $code, 'course_id' => $course->id, 'tenant_id' => $tenant->id]));
+        $dashboard = route('admin.dashboard', ['tab' => 'coupons']);
+
+        // Weder ID noch Adresse, bzw. eine ungültige ID: Fehler in der Zeile des Codes.
+        foreach ([[], ['user_id' => 'keine-uuid', 'participant_email' => $learner->email]] as $input) {
+            $this->actingAsInTenant($admin, $tenant)->from($dashboard)->post("/admin/coupons/{$coupon->id}/assign", $input)
+                ->assertRedirect($dashboard)->assertSessionHasErrors('assign');
+        }
+        $page = $this->actingAsInTenant($admin, $tenant)->get($dashboard)->assertOk();
+        $id = 'assign-email-'.$coupon->id;
+        $page->assertSee('aria-describedby="coupon-assign-hint '.$id.'-error"', false)
+            ->assertSee('aria-invalid="true"', false)->assertSee('id="'.$id.'-error"', false)
+            ->assertSee('value="'.$learner->email.'"', false);
+        $this->assertSame(1, substr_count($page->getContent(), 'Diese Person gehört nicht zu Ihrer Bootsschule.'));
+
+        $this->actingAsInTenant($admin, $tenant)->post("/admin/coupons/{$coupon->id}/assign", [
+            'user_id' => $learner->id,
+            'participant_email' => $learner->email,
+        ])->assertSessionHasNoErrors();
+        $this->onAdmin(fn () => $this->assertSame($learner->id, $coupon->fresh()->redeemed_by_user_id));
+    }
+
+    /**
+     * Zuweisen nur an Teilnehmer, die auch die Suche findet: aktive
+     * Lernende der eigenen Schule ohne offene Einladung -- nicht das Team,
+     * nicht gesperrte Mitglieder, nicht Teilnehmer anderer Schulen.
+     */
+    public function test_assignment_and_search_are_limited_to_active_learners_of_the_school(): void
+    {
+        $tenant = $this->createTestTenant();
+        $other = $this->createTestTenant('Andere Schule');
+        $admin = $this->createTenantUser($tenant, 'admin');
+        $active = $this->createTenantUser($tenant, 'learner', ['display_name' => 'Segel Aktiv', 'first_name' => 'Vorname', 'last_name' => 'Nachname']);
+        $suspended = $this->createTenantUser($tenant, 'learner', ['display_name' => 'Segel Gesperrt']);
+        $this->onAdmin(fn () => TenantUser::withoutGlobalScopes()->where('tenant_id', $tenant->id)->where('user_id', $suspended->id)->update(['status' => 'suspended']));
+        $invited = $this->createTenantUser($tenant, 'learner', ['display_name' => 'Segel Eingeladen', 'status' => 'invited']);
+        $instructor = $this->createTenantUser($tenant, 'instructor', ['display_name' => 'Segel Ausbilder']);
+        $outsider = $this->createTenantUser($other, 'learner', ['display_name' => 'Segel Fremd']);
+        $course = $this->existingCourse('SRC');
+        $code = 'E2E-ASSIGN-SCOPE-'.uniqid();
+        $this->createdCodes[] = $code;
+        $coupon = $this->onAdmin(fn () => Coupon::create(['code' => $code, 'course_id' => $course->id, 'tenant_id' => $tenant->id]));
+        $search = fn (string $q) => $this->actingAsInTenant($admin, $tenant)->getJson(route('admin.participants.search', ['q' => $q]))->assertOk();
+
+        $search('segel')->assertExactJson(['data' => [['id' => $active->id, 'name' => 'Segel Aktiv', 'email' => $active->email]]]);
+        $search('vorname nach')->assertJsonPath('data.0.id', $active->id)->assertJsonCount(1, 'data');
+        $search('s')->assertExactJson(['data' => []]);
+        $search('%%')->assertJsonCount(0, 'data');
+        $this->actingAsInTenant($admin, $tenant)->getJson(route('admin.participants.search').'?q[]=Segel')->assertOk()->assertJsonCount(0, 'data');
+
+        $expected = [
+            [$suspended, 'Unter dieser E-Mail-Adresse gibt es keinen aktiven Teilnehmer Ihrer Bootsschule.', 'Dieses Mitglied ist nicht aktiv – ein Code würde ungenutzt verbraucht.'],
+            [$invited, 'Unter dieser E-Mail-Adresse gibt es keinen aktiven Teilnehmer Ihrer Bootsschule.', 'Diese Person hat ihre Einladung noch nicht angenommen. Weisen Sie den Code nach der Annahme zu.'],
+            [$instructor, 'Unter dieser E-Mail-Adresse gibt es keinen aktiven Teilnehmer Ihrer Bootsschule.', 'Zugangscodes lassen sich nur Teilnehmern zuweisen, nicht dem Team der Bootsschule.'],
+            [$outsider, 'Unter dieser E-Mail-Adresse gibt es keinen aktiven Teilnehmer Ihrer Bootsschule.', 'Diese Person gehört nicht zu Ihrer Bootsschule.'],
+        ];
+        foreach ($expected as [$user, $byEmail, $byId]) {
+            $this->actingAsInTenant($admin, $tenant)->post("/admin/coupons/{$coupon->id}/assign", ['participant_email' => $user->email])
+                ->assertSessionHasErrors(['assign' => $byEmail]);
+            $this->actingAsInTenant($admin, $tenant)->post("/admin/coupons/{$coupon->id}/assign", ['user_id' => $user->id])
+                ->assertSessionHasErrors(['assign' => $byId]);
+        }
+        $this->onAdmin(fn () => $this->assertFalse($coupon->fresh()->isRedeemed()));
+    }
+
+    public function test_participant_search_is_limited_and_sorted(): void
+    {
+        $tenant = $this->createTestTenant();
+        $owner = $this->createTenantUser($tenant, 'owner');
+        foreach (range(1, 25) as $i) {
+            $this->createTenantUser($tenant, 'learner', ['display_name' => sprintf('Kapitän %02d', $i)]);
+        }
+
+        $data = $this->actingAsInTenant($owner, $tenant)->getJson(route('admin.participants.search', ['q' => 'kapitän']))->assertOk()->json('data');
+        $this->assertCount(ParticipantSearchController::SEARCH_LIMIT, $data);
+        $this->assertSame('Kapitän 01', $data[0]['name']);
+        $this->assertSame(['email', 'id', 'name'], collect(array_keys($data[0]))->sort()->values()->all());
     }
 
     public function test_admin_cannot_assign_a_code_to_a_user_outside_their_tenant(): void

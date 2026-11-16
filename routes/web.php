@@ -12,6 +12,7 @@ use App\Http\Controllers\Admin\EntitlementController;
 use App\Http\Controllers\Admin\InactiveLearnerController;
 use App\Http\Controllers\Admin\LearningGroupController;
 use App\Http\Controllers\Admin\ParticipantController;
+use App\Http\Controllers\Admin\ParticipantSearchController;
 use App\Http\Controllers\Admin\ParticipantToolsController;
 use App\Http\Controllers\Admin\PraxisExamAppointmentController as AdminPraxisExamAppointmentController;
 use App\Http\Controllers\Admin\PraxisFormSubmissionController as AdminPraxisFormSubmissionController;
@@ -328,6 +329,9 @@ Route::middleware(['auth', 'tenant.role:owner,admin', 'verified'])->prefix('admi
 
     // Lerngruppen (Gruppenlizenzen der App): Liste im Tab "Lerngruppen", hier Anlegen und Verwalten.
     Route::get('/learning-groups/create', [LearningGroupController::class, 'create'])->name('learning-groups.create');
+    // Verwaltersuche des Suchfelds (JSON, höchstens 20 aktive Teilnehmer der eigenen Schule).
+    Route::get('/learning-groups/manager-candidates', [LearningGroupController::class, 'managerCandidates'])
+        ->middleware('throttle:120,1,learning-group-manager-search')->name('learning-groups.manager-candidates');
     Route::post('/learning-groups', [LearningGroupController::class, 'store'])->middleware('throttle:10,1,learning-groups-create')->name('learning-groups.store');
     Route::get('/learning-groups/{learningGroup}', [LearningGroupController::class, 'show'])->whereUuid('learningGroup')->name('learning-groups.show');
     Route::patch('/learning-groups/{learningGroup}', [LearningGroupController::class, 'update'])->whereUuid('learningGroup')->name('learning-groups.update');
@@ -347,6 +351,9 @@ Route::middleware(['auth', 'tenant.role:owner,admin', 'verified'])->prefix('admi
     // Oracle für Code-Existenz.
     Route::post('/coupons/import', [AdminCouponController::class, 'import'])->middleware('throttle:10,1,coupons-import')->name('coupons.import');
     Route::post('/coupons/{coupon}/assign', [AdminCouponController::class, 'assign'])->name('coupons.assign');
+    // Teilnehmersuche des Suchfelds „Zuweisen“ (JSON, höchstens 20 Treffer, dieselbe Grenze wie die Zuweisung).
+    Route::get('/participants/search', ParticipantSearchController::class)
+        ->middleware('throttle:120,1,participant-search')->name('participants.search');
     // Shop-Anbindung: Verknüpfungscode und Verknüpfungen (docs/commerce/README.md).
     Route::post('/shop-link-code', [ShopLinkController::class, 'generate'])->middleware('throttle:10,1,shop-link-code')->name('shop-link.code');
     Route::delete('/shop-accounts/{account}', [ShopLinkController::class, 'unlink'])->whereUuid('account')->name('shop-link.unlink');
