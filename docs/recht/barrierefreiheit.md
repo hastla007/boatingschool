@@ -40,6 +40,10 @@ Bereits umgesetzt (Auswahl):
   ein Suchfeld gewählt (Combobox mit Trefferliste, Pfeiltasten,
   `aria-activedescendant`; Trefferzahl wird angesagt), ohne JavaScript per
   E-Mail-Adresse. Die Schulliste des Betreibers ist seitenweise und durchsuchbar.
+  Ebenso wählt der Betreiber eine Bootsschule (Shopkonten, Codes, Protokoll,
+  Nutzer anlegen und zuordnen) über ein Suchfeld nach Name oder Kürzel
+  (höchstens 20 Treffer, Pfeil nach unten zeigt die ersten Schulen), ohne
+  JavaScript per Kürzel (Slug).
 - Bilder in Fragen und Navigationsaufgaben mit Alternativtext; fehlt ein
   gepflegter Alternativtext, wird das Bild als „Abbildung zur Frage (ohne
   Bildbeschreibung)“ angesagt statt als Dekoration versteckt.
@@ -64,7 +68,8 @@ Bereits umgesetzt (Auswahl):
   (`role="status"`, WCAG 4.1.3): Hinweis „Mehr Plätze als freie Kurscodes“
   beim Anlegen einer Lerngruppe, Treffer der Verwaltersuche, Rückmeldung des
   Favoriten-Knopfs (Lern- und Prüfungsmodus), Zähler und Kartenrückseite der
-  Funk-Vokabeln, „Gespeichert.“ nach dem Passwortwechsel; Funkübungen sagen
+  Funk-Vokabeln, „Gespeichert.“ nach dem Passwortwechsel, Treffer der
+  Schulsuche im Superadmin-Bereich; Funkübungen sagen
   Erkennung, Display und Schritte an. In der Prüfung springt der Fokus nach
   „Musterantwort anzeigen“ auf die nachgeladene Antwort.
 - Systemeinstellung „Bewegung reduzieren“ schaltet Übergänge und Animationen ab.
@@ -106,9 +111,8 @@ Bereits umgesetzt (Auswahl):
    Prüfungsausschuss bei den Kursorten sind keine Live-Region (WCAG 4.1.3)
    [wird mit der Überarbeitung der Dashboard-Reiter behoben].
 8. **Superadmin-Bereich** (nur Betreiber): nicht vollständig geprüft
-   (Fehlermeldungen sind inzwischen mit dem Feld verknüpft). Die Auswahl der
-   Bootsschule (z. B. bei Shopkonten, Codes, Protokoll) ist eine lange Liste
-   ohne Suche.
+   (Fehlermeldungen sind inzwischen mit dem Feld verknüpft, die Auswahl der
+   Bootsschule ist ein Suchfeld statt einer langen Liste).
 9. **Lern-App**: [Stand der App gesondert bewerten].
 
 Diese Liste wird bei der Behebung einzelner Punkte aktualisiert.

@@ -10,6 +10,7 @@ use App\Models\Product;
 use App\Models\Tenant;
 use App\Services\CouponBatchFactory;
 use App\Support\GermanTime;
+use App\Support\TenantPicker;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -25,6 +26,13 @@ class CouponController extends Controller
     public function index(Request $request): View
     {
         $filters = $this->filters($request);
+        // Schulfilter per Suchfeld (components/superadmin/tenant-picker):
+        // tenant_id wie bisher, ohne JavaScript tenant_slug (Kürzel/Name).
+        $picked = TenantPicker::resolveQuery($request);
+        unset($filters['tenant_id']);
+        if ($picked['id'] !== null) {
+            $filters['tenant_id'] = $picked['id'];
+        }
 
         $coupons = $this->filteredCoupons($filters)
             ->with('course', 'product', 'optionProducts', 'tenant', 'redeemedBy', 'redeemedTenant')
@@ -36,7 +44,8 @@ class CouponController extends Controller
             'coupons' => $coupons,
             'courses' => CourseDefinition::withoutGlobalScopes()->whereNull('tenant_id')->orderBy('name')->get(),
             'products' => Product::where('active', true)->orderBy('name')->get(),
-            'tenants' => Tenant::orderBy('name')->get(),
+            'filterTenant' => isset($filters['tenant_id']) ? Tenant::find($filters['tenant_id']) : null,
+            'tenantFilterError' => $picked['error'],
             'filters' => $filters,
         ]);
     }
@@ -49,11 +58,15 @@ class CouponController extends Controller
             // Nur aktive Produkte als Zusatzprodukt (inaktive ließen sich nicht einlösen).
             'option_product_ids.*' => ['uuid', Rule::exists('product', 'id')->where('active', true)],
             'tenant_id' => ['nullable', 'uuid', 'exists:tenant,id'],
+            // Ohne JavaScript: Kürzel/Name der Schule (TenantPicker::resolve()).
+            'tenant_slug' => TenantPicker::companionRules(),
             'quantity' => ['required', 'integer', 'min:1', 'max:500'],
             'batch_label' => ['nullable', 'string', 'max:255'],
             // Optional: letzter Tag, an dem die Codes einlösbar sind.
             'expires_on' => ['bail', 'nullable', 'date', 'after_or_equal:'.now('Europe/Berlin')->toDateString()],
         ]);
+
+        $validated['tenant_id'] = TenantPicker::resolve($validated);
 
         [$type, $targetId] = array_pad(explode(':', $validated['target'], 2), 2, null);
 
