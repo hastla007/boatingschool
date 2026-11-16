@@ -8,7 +8,10 @@ use Throwable;
 /**
  * Merkt die letzte Anmeldung eines Kontos (app_user.last_login_at) für die
  * Löschung inaktiver Lernender (app:prune-inactive-learners). Web-Anmeldung
- * (auch per „Angemeldet bleiben“) und App (Anmeldung und Token-Erneuerung).
+ * (auch per „Angemeldet bleiben“ und per Einmal-Code der Webansicht aus der
+ * App, ConsumeMobileWebSession -- beides über das Login-Ereignis, siehe
+ * AppServiceProvider; nie in der Support-Ansicht des Superadmins) und App
+ * (Anmeldung und Token-Erneuerung).
  *
  * Eine neue Anmeldung macht eine verschickte Lösch-Vorwarnung hinfällig
  * (inactivity_warned_at zurücksetzen).

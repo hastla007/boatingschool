@@ -29,9 +29,16 @@ class AnonymizeDatabase extends Command
 
     private const LAST_NAMES = ['Albers', 'Bauer', 'Claasen', 'Dietrich', 'Ehlers', 'Friedrichs', 'Gerdes', 'Hansen', 'Iversen', 'Jansen', 'Kröger', 'Lorenzen', 'Meyer', 'Nissen', 'Ohlsen', 'Petersen', 'Quast', 'Rasmussen', 'Schulz', 'Thomsen', 'Ulrichs', 'Voss', 'Wulf', 'Zander'];
 
-    /** Tabellen, deren Inhalt komplett entfällt (Sitzungen, Tokens, Warteschlangen, Ausgang zum Shop). */
+    /**
+     * Tabellen, deren Inhalt komplett entfällt (Sitzungen, Tokens, Warteschlangen, Ausgang zum Shop).
+     * Aus der App: Einmal-Codes der Webansicht (Code-/Verifier-Hash, Zielpfad),
+     * offene Löschanträge (Bestätigungs-Hash) und die frei belegbaren
+     * App-Einstellungen (beliebiges JSON, kann Freitexte enthalten -- die App
+     * fällt ohne Zeile auf ihre Vorgaben zurück).
+     */
     private const CLEARED_TABLES = [
-        'sessions', 'password_reset_tokens', 'account_setup_tokens', 'api_device_session', 'api_idempotency_key',
+        'sessions', 'password_reset_tokens', 'account_setup_tokens', 'api_mobile_web_session', 'api_device_session', 'api_idempotency_key',
+        'api_account_deletion_request', 'api_user_setting',
         'known_login_device', 'api_data_export', 'commerce_event', 'commerce_link_code',
         'cache', 'cache_locks', 'jobs', 'failed_jobs', 'job_batches',
     ];
@@ -96,6 +103,22 @@ class AnonymizeDatabase extends Command
             "UPDATE tenant_invitation SET email = 'einladung-' || {$hex('id')} || '@example.invalid',
                 name = CASE WHEN name IS NULL THEN NULL ELSE {$pick('?', 'id', 'f')} || ' ' || {$pick('?', 'id', 'l')} END",
             [$first, $first, $last, $last]
+        );
+
+        // Lerngruppen: der Name ist ein Freitext (oft mit Namen von Personen),
+        // Beitrittscode und Einladungs-Token sind Zugangsgeheimnisse -- neue,
+        // zufällige Werte im erwarteten Format (CHECK-Constraint ^g[0-9a-f]{32}$).
+        $counts['learning_group'] = $db->update(
+            "UPDATE learning_group SET name = 'Lerngruppe ' || left({$hex('id')}, 8),
+                join_code = 'g' || md5(gen_random_uuid()::text)"
+        );
+        // Einladungen an Adressen ohne Konto: Adresse erfinden, Token neu
+        // (offene Einladungen brauchen beides, CHECK learning_group_member_shape_check).
+        $counts['learning_group_member'] = $db->update(
+            "UPDATE learning_group_member SET
+                email = CASE WHEN email IS NULL THEN NULL ELSE 'gruppe-' || {$hex('id')} || '@example.invalid' END,
+                invite_token = CASE WHEN invite_token IS NULL THEN NULL ELSE 'i' || md5(gen_random_uuid()::text) END
+             WHERE email IS NOT NULL OR invite_token IS NOT NULL"
         );
 
         $counts['willkommensbox_order'] = $db->update(

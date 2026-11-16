@@ -10,8 +10,10 @@ use App\Models\User;
 use App\Services\AccountErasureService;
 use App\Services\PersonalDataExportService;
 use App\Support\CanonicalUrl;
+use App\Support\Impersonation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /** Mobile-API: Einmal-Anmeldung der eingebetteten Webansicht (POST /auth/web-session). */
 class WebSessionApiTest extends MobileApiTestCase
@@ -70,6 +72,43 @@ class WebSessionApiTest extends MobileApiTestCase
         // Zweiter Aufruf derselben Adresse: keine Anmeldung mehr.
         $this->open($data['url'], $data['verifier'])->assertRedirect($root.'/courses?tab=alle');
         $this->assertGuest('web');
+    }
+
+    public function test_the_web_view_login_counts_as_login_for_the_inactivity_period(): void
+    {
+        $tenant = $this->createTestTenant();
+        $user = $this->createTenantUser($tenant, 'learner');
+        $token = $this->apiLogin($user);
+        $data = $this->createWebSession($token, $tenant);
+        // App-Anmeldung lange her, Lösch-Vorwarnung schon verschickt.
+        $this->onAdmin(fn () => DB::table('app_user')->where('id', $user->id)
+            ->update(['last_login_at' => now()->subYear(), 'inactivity_warned_at' => now()->subDay()]));
+
+        $this->open($data['url'], $data['verifier'])->assertRedirect();
+        $this->assertAuthenticatedAs($user, 'web');
+
+        $fresh = $this->onAdmin(fn () => User::find($user->id));
+        $this->assertTrue($fresh->last_login_at->isAfter(now()->subMinute()));
+        $this->assertNull($fresh->inactivity_warned_at);
+    }
+
+    public function test_a_login_while_a_support_view_is_running_in_the_browser_does_not_count(): void
+    {
+        $tenant = $this->createTestTenant();
+        $user = $this->createTenantUser($tenant, 'learner');
+        $token = $this->apiLogin($user);
+        $data = $this->createWebSession($token, $tenant);
+        $this->onAdmin(fn () => DB::table('app_user')->where('id', $user->id)->update(['last_login_at' => null]));
+
+        // Sitzung mit laufender Support-Ansicht (Superadmin), aber ohne Web-Anmeldung.
+        $this->app['auth']->forgetGuards();
+        $this->flushSession();
+        $this->withSession([Impersonation::SESSION_KEY => [
+            'impersonator_id' => (string) Str::uuid(), 'impersonator_name' => 'Support', 'tenant_id' => $tenant->id, 'started_at' => now()->timestamp,
+        ]])->get($data['url'], [WebSessionController::VERIFIER_HEADER => $data['verifier']])->assertRedirect();
+        $this->app['url']->setRequest(Request::create(CanonicalUrl::root().'/'));
+
+        $this->assertNull($this->onAdmin(fn () => User::find($user->id))->last_login_at);
     }
 
     public function test_without_the_right_verifier_the_code_is_burned_without_login(): void

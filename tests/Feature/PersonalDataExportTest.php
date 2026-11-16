@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\ContentQuestion;
+use App\Models\Entitlement;
 use App\Models\Favorite;
 use App\Models\FavoriteCollection;
 use App\Models\FavoriteCollectionItem;
@@ -11,6 +12,9 @@ use App\Models\PraxisFormSubmission;
 use App\Models\PraxisFormTemplate;
 use App\Models\TenantInvitation;
 use App\Models\TenantUser;
+use App\Models\User;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -216,6 +220,52 @@ class PersonalDataExportTest extends TestCase
         $this->assertCount(1, $data['tenant_invitations']);
         $this->assertSame('learner', $data['tenant_invitations'][0]['role']);
         $this->assertNull($data['tenant_invitations'][0]['accepted_at']);
+
+        $this->createdUserIds[] = $admin->id;
+    }
+
+    public function test_the_export_includes_the_columns_added_with_groups_capabilities_and_exam_flags(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $course = $this->existingCourse('SBF-SEE');
+
+        $this->onAdmin(function () use ($tenant, $learner, $admin, $course) {
+            DB::table('app_user')->where('id', $learner->id)->update(['email_verified_at' => now()->subDay()]);
+            Entitlement::create([
+                'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'course_id' => $course->id, 'status' => 'active',
+                'source_type' => 'group', 'source_reference' => 'group:'.Str::uuid().':'.Str::uuid(),
+                'valid_from' => now(), 'capabilities' => ['exam', 'video'],
+            ]);
+            TenantInvitation::create([
+                'tenant_id' => $tenant->id, 'email' => $learner->email, 'role' => 'learner', 'invited_by_user_id' => $admin->id, 'coupon_code' => 'RESERVIERT-1',
+            ]);
+            $ruleSet = DB::table('exam_rule_set')->where('course_id', $course->id)->first() ?? DB::table('exam_rule_set')->first();
+            $revision = DB::table('content_question_revision')->first();
+            $sessionId = (string) Str::uuid();
+            DB::table('exam_session')->insert([
+                'id' => $sessionId, 'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'course_id' => $ruleSet->course_id,
+                'rule_set_id' => $ruleSet->id, 'status' => 'running', 'started_at' => now(),
+            ]);
+            DB::table('exam_session_question')->insert([
+                'tenant_id' => $tenant->id, 'exam_session_id' => $sessionId, 'question_id' => $revision->question_id,
+                'revision_id' => $revision->id, 'position' => 1, 'flagged' => true, 'revealed_at' => now(),
+            ]);
+        });
+
+        // Frisch geladen (wie bei einer echten Anfrage), mit den Werten aus der Datenbank.
+        $learner = $this->onAdmin(fn () => User::find($learner->id));
+        $data = json_decode($this->actingAsInTenant($learner, $tenant)->get('/profile/export-data')->assertOk()->getContent(), true);
+
+        $this->assertNotNull($data['profile']['email_ever_verified_at']);
+        $this->assertSame(['exam', 'video'], $data['entitlements'][0]['capabilities']);
+        $this->assertSame('RESERVIERT-1', $data['tenant_invitations'][0]['coupon_code']);
+        $this->assertTrue($data['exam_sessions'][0]['answers'][0]['flagged']);
+        $this->assertNotNull($data['exam_sessions'][0]['answers'][0]['revealed_at']);
+        foreach (['learning_group_memberships', 'learning_groups_managed', 'app_deletion_requests', 'app_web_logins', 'app_settings'] as $key) {
+            $this->assertArrayHasKey($key, $data);
+        }
 
         $this->createdUserIds[] = $admin->id;
     }

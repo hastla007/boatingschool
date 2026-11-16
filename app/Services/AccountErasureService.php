@@ -332,6 +332,10 @@ class AccountErasureService
                     // die user_id steht aber im JSON.
                     ->orWhereRaw("before_data->>'user_id' = ?", [$user->id])
                     ->orWhereRaw("after_data->>'user_id' = ?", [$user->id])
+                    // Lerngruppen (Admin-Bereich): Verwalter der Gruppe im JSON
+                    // von learning_group.create/update.
+                    ->orWhereRaw("before_data->>'owner_user_id' = ?", [$user->id])
+                    ->orWhereRaw("after_data->>'owner_user_id' = ?", [$user->id])
                     ->when($invitationIds !== [], function ($query) use ($invitationIds) {
                         $query->orWhere(function ($inner) use ($invitationIds) {
                             $inner->where('entity_type', 'tenant_invitation')->whereIn('entity_id', $invitationIds);

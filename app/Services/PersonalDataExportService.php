@@ -88,6 +88,8 @@ class PersonalDataExportService
                 'locale' => $user->locale,
                 'account_created_at' => $user->created_at?->toIso8601String(),
                 'email_verified_at' => $user->email_verified_at?->toIso8601String(),
+                // Erste Bestätigung einer Adresse überhaupt (bleibt bei Adresswechseln stehen).
+                'email_ever_verified_at' => $user->email_ever_verified_at?->toIso8601String(),
                 'two_factor_enabled' => $user->two_factor_confirmed_at !== null,
                 // Löschfrist für inaktive Konten (app:prune-inactive-learners).
                 'last_login_at' => $user->last_login_at?->toIso8601String(),
@@ -113,6 +115,8 @@ class PersonalDataExportService
                     'status' => $e->status,
                     'source_type' => $e->source_type,
                     'source_reference' => $e->source_reference,
+                    // Teilzugang (z. B. aus einer Lerngruppe): freigeschaltete Funktionen, null = ganzer Kurs.
+                    'capabilities' => $e->capabilities,
                     'valid_from' => $e->valid_from?->toIso8601String(),
                     'valid_until' => $e->valid_until?->toIso8601String(),
                     'expiry_reminded_at' => $e->expiry_reminded_at?->toIso8601String(),
@@ -181,6 +185,9 @@ class PersonalDataExportService
                         'self_assessed_known' => $q->self_assessed_known,
                         'correct' => $q->correct,
                         'answered_at' => $q->answered_at?->toIso8601String(),
+                        'revealed_at' => $q->revealed_at?->toIso8601String(),
+                        // Zur Durchsicht markiert.
+                        'flagged' => (bool) $q->flagged,
                     ])->all(),
                 ])->all(),
             'favorites' => Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get()
@@ -296,6 +303,8 @@ class PersonalDataExportService
                 ->map(fn (TenantInvitation $i) => [
                     'name' => $i->name,
                     'role' => $i->role,
+                    // Für die Einladung reservierter Zugangscode.
+                    'coupon_code' => $i->coupon_code,
                     'created_at' => $i->created_at?->toIso8601String(),
                     'accepted_at' => $i->accepted_at?->toIso8601String(),
                 ])->all(),
