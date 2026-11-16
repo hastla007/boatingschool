@@ -8,7 +8,8 @@
  * - `form_captain_consent_withdrawn_v1`: Grundlage des Leads ist die Einwilligung – der Lead wird ebenso gelöscht.
  *
  * Ist die Plattform nicht erreichbar, bleibt die Löschung offen und wird stündlich wiederholt (höchstens 48 Versuche).
- * Läuft auch ohne gültige Lizenz (Datenschutzpflicht, kein Premium-Pfad), aber nur für Leads, die der Connector
+ * Läuft auch ohne gültige Lizenz (Datenschutzpflicht, kein Premium-Pfad; Entscheidung des Inhabers vom 16.11.2026,
+ * bestätigt), aber nur für Leads, die der Connector
  * früher zugestellt hat (Ledger). Eine Löschung in der Plattform wirkt nie auf den Form-Captain-Entry zurück.
  */
 

@@ -84,13 +84,15 @@ class FormConnectorContractTest extends TestCase
         $this->assertSame('boatingschool_form', $action['connector']);
         $this->assertSame(['entry_created'], $action['events']);
         $keys = array_column($action['mapping'], 'key');
-        $this->assertSame(['email', 'consent', 'name', 'phone', 'organisation', 'role', 'school_size', 'message'], $keys, 'nur die Felder des Schemas');
+        $this->assertSame(['email', 'consent', 'name', 'phone', 'organisation', 'role', 'school_size', 'message', 'product'], $keys, 'nur die Felder des Schemas');
+        $this->assertSame(['boatingschool_products'], $action['mapping'][8]['types']);
+        $this->assertSame(['support', 'demo', 'consulting', 'school_access', 'pricing'], array_keys($action['settings'][0]['options']));
         foreach ($action['mapping'] as $field) {
             $this->assertArrayNotHasKey('allow_sensitive', $field, 'nie sensible Felder');
             $this->assertEmpty(array_intersect($field['types'], ['file', 'password', 'payment', 'signature', 'html', 'hidden']));
         }
         $this->assertTrue($action['mapping'][0]['required'] && $action['mapping'][1]['required'], 'E-Mail und Einwilligung Pflicht');
-        $this->assertSame(['purpose', 'consent_text_revision', 'consent_text_hash', 'page_url'], array_column($action['settings'], 'key'));
+        $this->assertSame(['purpose', 'consent_text_revision', 'consent_text_hash', 'customer_reference', 'page_url'], array_column($action['settings'], 'key'));
     }
 
     public function test_lead_is_sent_signed_with_only_mapped_fields_and_matches_the_platform_schema(): void
@@ -115,7 +117,7 @@ class FormConnectorContractTest extends TestCase
         $body = json_decode($request['body'], true);
         $this->assertSame([], LeadSchema::validate($body), 'Body entspricht form-captain-lead/1');
         $this->assertSame(['email' => 'kim@example.test', 'name' => 'Kim Meer', 'organisation' => 'Segelschule Meer'], $body['contact']);
-        $this->assertSame(['site_url' => 'https://www.boatingschool.example', 'form_id' => 7, 'entry_id' => 123, 'plugin_version' => '1.0.0', 'page_url' => 'https://www.boatingschool.example/beratung'], $body['source']);
+        $this->assertSame(['site_url' => 'https://www.boatingschool.example', 'form_id' => 7, 'entry_id' => 123, 'plugin_version' => '1.1.0', 'page_url' => 'https://www.boatingschool.example/beratung'], $body['source']);
         $this->assertSame(['given_at' => '2026-11-16T10:00:05Z', 'text_revision' => 3, 'text_hash' => str_repeat('b', 64)], $body['consent']);
         $this->assertSame('2026-11-16T10:00:05Z', $body['submitted_at']);
         $this->assertStringNotContainsString('DE89370400440532013000', $request['body']);
@@ -209,6 +211,106 @@ class FormConnectorContractTest extends TestCase
         // Nur HTTPS (außer localhost).
         $out = $this->harness('send', ['jobs' => [$this->job()], 'constants' => ['BOATINGSCHOOL_FORM_ENDPOINT' => 'http://app.boatingschool.example'] + self::CONFIG]);
         $this->assertSame('not_configured', $out['results'][0]['code']);
+    }
+
+    private const WOO = [
+        'active' => true,
+        'user' => 17,
+        'customers' => ['17' => ['first' => 'Kim', 'last' => 'Meer', 'email' => 'kim.konto@example.test'], '18' => ['first' => 'Eve', 'last' => 'Fremd', 'email' => 'eve@example.test']],
+        'orders' => [
+            ['customer' => 17, 'status' => 'completed', 'items' => [['product_id' => 42, 'name' => 'SBF-See Onlinekurs'], ['product_id' => 43, 'name' => 'Funkkurs SRC']]],
+            ['customer' => 17, 'status' => 'pending', 'items' => [['product_id' => 44, 'name' => 'Unbezahlt']]],
+            ['customer' => 18, 'status' => 'completed', 'items' => [['product_id' => 45, 'name' => 'Fremdes Produkt']]],
+        ],
+        'products' => ['42' => ['name' => 'SBF-See Onlinekurs', 'sku' => 'SBF-SEE'], '45' => ['name' => 'Fremdes Produkt', 'sku' => 'X']],
+    ];
+
+    public function test_my_products_field_offers_and_accepts_only_the_customers_own_paid_purchases(): void
+    {
+        $products = ['id' => 'f1', 'type' => 'boatingschool_products', 'required' => true];
+        $out = $this->harness('fields', ['woo' => self::WOO,
+            'render' => [$products, ['id' => 'f2', 'type' => 'boatingschool_customer']],
+            'validate' => [[$products, '42'], [$products, '45'], [$products, '44'], [$products, '42 OR 1=1'], [$products, ''], [['type' => 'boatingschool_customer'], 'egal']],
+            'display' => [[$products, '{"product_id":42,"customer_id":17}'], [$products, '{"text":"Funkkurs"}']],
+            'normalize' => [['type' => 'boatingschool_products', 'x' => ['guest_mode' => 'text']], ['type' => 'boatingschool_products', 'x' => ['guest_mode' => 'boese']], ['type' => 'text']],
+        ]);
+
+        $this->assertSame(['has_value' => true], array_intersect_key($out['types']['boatingschool_products'], ['has_value' => 1]));
+        $this->assertFalse($out['types']['boatingschool_customer']['has_value'], 'Kundeninfo speichert keinen Wert');
+        // Nur WooCommerce-CRUD, nur Bestellungen des aktuellen Benutzers, nur bezahlte Status.
+        $this->assertSame(17, $out['order_queries'][0]['customer_id']);
+        $this->assertSame(['processing', 'completed'], $out['order_queries'][0]['status']);
+        $this->assertCount(1, $out['order_queries'], 'Käufe je Anfrage einmal gelesen');
+
+        $select = $out['render'][0];
+        $this->assertStringContainsString('<option value="42">SBF-See Onlinekurs</option>', $select);
+        $this->assertStringContainsString('<option value="43">Funkkurs SRC</option>', $select);
+        $this->assertStringNotContainsString('Unbezahlt', $select);
+        $this->assertStringNotContainsString('Fremdes Produkt', $select);
+        $this->assertStringContainsString(' required', $select);
+        // Kundeninfo: nur Anzeige.
+        foreach (['Kim Meer', 'kim.konto@example.test', '<dd>17</dd>'] as $text) {
+            $this->assertStringContainsString($text, $out['render'][1]);
+        }
+        $this->assertStringNotContainsString('<input', $out['render'][1]);
+
+        $this->assertSame([
+            ['value' => '{"product_id":42,"customer_id":17}'],
+            ['code' => 'product_not_purchased'],
+            ['code' => 'product_not_purchased'],
+            ['code' => 'product_not_purchased'],
+            ['code' => 'required'],
+            ['value' => null],
+        ], $out['validate']);
+        $this->assertSame(['SBF-See Onlinekurs (SKU SBF-SEE) · Kundennummer 17', 'Funkkurs (Freitext, ohne Anmeldung)'], $out['display']);
+        $this->assertSame([['settings' => ['guest_mode' => 'text']], ['settings' => ['guest_mode' => 'notice']], null], $out['normalize']);
+        $this->assertSame(['boatingschool_products'], $out['panels'][0]['types']);
+        $this->assertNull($out['other_type_untouched'], 'fremde Feldtypen bleiben unberührt');
+    }
+
+    public function test_my_products_field_without_login_shows_a_notice_or_a_free_text_field(): void
+    {
+        $notice = ['id' => 'f1', 'type' => 'boatingschool_products', 'required' => true];
+        $text = ['id' => 'f1', 'type' => 'boatingschool_products', 'required' => true, 'x' => ['guest_mode' => 'text']];
+        $out = $this->harness('fields', ['woo' => ['user' => 0] + self::WOO,
+            'render' => [$notice, $text, ['type' => 'boatingschool_customer']],
+            'validate' => [[$notice, '42'], [$text, '<b>Funkkurs</b>'], [$text, ''], [['type' => 'boatingschool_products'], '42']],
+        ]);
+
+        $this->assertStringContainsString('Bitte melden Sie sich', $out['render'][0]);
+        $this->assertStringNotContainsString('<select', $out['render'][0]);
+        $this->assertStringContainsString('<input type="text"', $out['render'][1]);
+        $this->assertStringContainsString('Melden Sie sich an', $out['render'][2]);
+        $this->assertSame([['code' => 'login_required'], ['value' => '{"text":"Funkkurs"}'], ['code' => 'required'], ['value' => null]], $out['validate']);
+        $this->assertSame([], $out['order_queries'], 'ohne Anmeldung keine Bestellabfrage');
+
+        // Vor Contract 1.1.0 keine eigenen Feldtypen.
+        $old = $this->harness('fields', ['contract' => '1.0.0', 'woo' => self::WOO]);
+        $this->assertSame([], $old['types']);
+    }
+
+    public function test_support_lead_sends_product_and_customer_reference_only_for_purpose_support(): void
+    {
+        $support = $this->job(['settings' => ['purpose' => 'support', 'customer_reference' => '1'], 'values' => ['product' => '{"product_id":42,"customer_id":17}']]);
+        $noReference = $this->job(['settings' => ['purpose' => 'support'], 'values' => ['product' => '{"product_id":42,"customer_id":17}']]);
+        $demo = $this->job(['settings' => ['purpose' => 'demo', 'customer_reference' => '1'], 'values' => ['product' => '{"product_id":42,"customer_id":17}']]);
+        $guest = $this->job(['settings' => ['purpose' => 'support', 'customer_reference' => '1'], 'values' => ['product' => '{"text":"Funkkurs"}']]);
+        $ok = ['status' => 201, 'body' => ['lead_id' => self::LEAD_ID]];
+        $out = $this->send([$support, $noReference, $demo, $guest], [$ok, $ok, $ok, $ok], ['woo' => ['user' => 0] + self::WOO]);
+
+        $bodies = array_map(fn ($r) => json_decode($r['body'], true), $out['http']);
+        $this->assertSame(['id' => 42, 'name' => 'SBF-See Onlinekurs', 'sku' => 'SBF-SEE'], $bodies[0]['product']);
+        $this->assertSame(['id' => 17, 'email' => 'kim.konto@example.test'], $bodies[0]['customer'], 'E-Mail aus dem Kundenkonto, im Worker gelesen');
+        $this->assertSame('support', $bodies[0]['purpose']);
+        $this->assertArrayNotHasKey('customer', $bodies[1], 'Kundenreferenz nur mit Einstellung');
+        $this->assertArrayHasKey('product', $bodies[1]);
+        $this->assertArrayNotHasKey('product', $bodies[2], 'Produkt nur beim Zweck support');
+        $this->assertArrayNotHasKey('customer', $bodies[2]);
+        $this->assertSame(['name' => 'Funkkurs'], $bodies[3]['product']);
+        $this->assertArrayNotHasKey('customer', $bodies[3]);
+        foreach ($bodies as $body) {
+            $this->assertSame([], LeadSchema::validate($body), 'Body entspricht form-captain-lead/1 (Vertrag 1.1)');
+        }
     }
 
     public function test_entry_deletion_and_consent_withdrawal_delete_the_remote_lead(): void

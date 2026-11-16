@@ -22,7 +22,8 @@ final class LeadPayload
 {
     public const SCHEMA = 'form-captain-lead/1';
 
-    public const PURPOSES = ['demo', 'consultation', 'school_access_info'];
+    /** Zwecke des B2B-Formulars (Entscheidung des Inhabers vom 16.11.2026, Vertrag 1.1). */
+    public const PURPOSES = ['support', 'demo', 'consulting', 'school_access', 'pricing'];
 
     public const SCHOOL_SIZES = ['1-2', '3-10', '11-50', '50+'];
 
@@ -109,6 +110,29 @@ final class LeadPayload
         $message = self::text($values['message'] ?? '', 4000, true);
         if ($message !== '') {
             $body['message'] = $message;
+        }
+        // Produkt und Kundenreferenz nur beim Zweck support (Datenschutz, Vertrag 1.1) und nur, wenn das Feld
+        // „Meine Produkte“ im Mapping steht; die Kundenreferenz zusätzlich nur mit der Einstellung customer_reference.
+        if (($body['purpose'] ?? '') === 'support' && array_key_exists('product', $values)) {
+            $choice = CustomerFields::decode($values['product']);
+            if (isset($choice['product_id'])) {
+                $product = CustomerFields::product($choice['product_id']);
+                $body['product'] = array_filter([
+                    'id' => $choice['product_id'],
+                    'name' => mb_substr($product['name'] !== '' ? $product['name'] : '#'.$choice['product_id'], 0, 200),
+                    'sku' => mb_substr($product['sku'], 0, 100),
+                ], static fn ($v): bool => $v !== '');
+            } elseif (isset($choice['text'])) {
+                $body['product'] = ['name' => $choice['text']];
+            }
+            if (isset($choice['customer_id']) && ! empty($settings['customer_reference'])) {
+                $customer = ['id' => $choice['customer_id']];
+                $email = CustomerFields::customer_email($choice['customer_id']);
+                if ($email !== '' && is_email($email) && strlen($email) <= 190) {
+                    $customer['email'] = $email;
+                }
+                $body['customer'] = $customer;
+            }
         }
         $body['consent'] = $consent;
         $body['submitted_at'] = $submitted;

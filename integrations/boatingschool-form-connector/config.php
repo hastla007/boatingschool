@@ -9,7 +9,7 @@ use BoatingschoolFormConnector\Features\LeadDelivery;
 defined('ABSPATH') || exit;
 
 /* Version des Plugins; gleich dem Kopf „Version:“ und BOATINGSCHOOL_FORM_VERSION der Plugin-Datei. */
-defined('BOATINGSCHOOL_FORM_CONNECTOR_VERSION') || define('BOATINGSCHOOL_FORM_CONNECTOR_VERSION', '1.0.0');
+defined('BOATINGSCHOOL_FORM_CONNECTOR_VERSION') || define('BOATINGSCHOOL_FORM_CONNECTOR_VERSION', '1.1.0');
 
 /* Produktschlüssel im Katalog des Lizenzservers (= Plugin-Ordner und Textdomain, Entscheidung 17). */
 defined('BOATINGSCHOOL_FORM_CONNECTOR_PRODUCT_KEY') || define('BOATINGSCHOOL_FORM_CONNECTOR_PRODUCT_KEY', 'boatingschool-form-connector');

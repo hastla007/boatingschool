@@ -76,9 +76,17 @@ final class Connector implements ConnectorInterface
             'connector' => self::KEY,
             'settings' => [
                 ['key' => 'purpose', 'type' => 'select', 'label' => __('Anliegen', 'boatingschool-form-connector'), 'required' => true, 'default' => 'demo',
-                    'options' => ['demo' => __('Demo', 'boatingschool-form-connector'), 'consultation' => __('Beratung', 'boatingschool-form-connector'), 'school_access_info' => __('Infos zum Schulzugang', 'boatingschool-form-connector')]],
+                    'options' => [
+                        'support' => __('Support', 'boatingschool-form-connector'),
+                        'demo' => __('Demo', 'boatingschool-form-connector'),
+                        'consulting' => __('Beratung', 'boatingschool-form-connector'),
+                        'school_access' => __('Schulzugang', 'boatingschool-form-connector'),
+                        'pricing' => __('Preisanfrage', 'boatingschool-form-connector'),
+                    ]],
                 ['key' => 'consent_text_revision', 'type' => 'number', 'label' => __('Revision des Einwilligungstexts', 'boatingschool-form-connector'), 'required' => true, 'default' => '1'],
                 ['key' => 'consent_text_hash', 'type' => 'text', 'label' => __('SHA-256 des Einwilligungstexts (optional)', 'boatingschool-form-connector')],
+                // Nur beim Zweck support: Kunden-ID und Konto-E-Mail des WooCommerce-Kunden mitsenden (Standard aus).
+                ['key' => 'customer_reference', 'type' => 'checkbox', 'label' => __('Kundenreferenz (WooCommerce-Kunden-ID, Konto-E-Mail) mitsenden – nur bei Support', 'boatingschool-form-connector')],
                 ['key' => 'page_url', 'type' => 'url', 'label' => __('Seite des Formulars (nur erlaubte Hosts)', 'boatingschool-form-connector')],
             ],
             // Nur diese Felder, nie sensible (kein allow_sensitive).
@@ -91,6 +99,8 @@ final class Connector implements ConnectorInterface
                 ['key' => 'role', 'label' => __('Rolle', 'boatingschool-form-connector'), 'types' => ['text', 'select', 'radio']],
                 ['key' => 'school_size', 'label' => __('Schulgröße (1-2, 3-10, 11-50, 50+)', 'boatingschool-form-connector'), 'types' => ['select', 'radio']],
                 ['key' => 'message', 'label' => __('Nachricht', 'boatingschool-form-connector'), 'types' => ['textarea', 'text']],
+                // Feldtyp „Meine Produkte“ (CustomerFields): Produkt-ID, Name, SKU; nur beim Zweck support übertragen.
+                ['key' => 'product', 'label' => __('Produkt (Meine Produkte, nur Support)', 'boatingschool-form-connector'), 'types' => [CustomerFields::PRODUCTS]],
             ],
             'events' => ['entry_created'],
         ], [$this, 'send_lead']);

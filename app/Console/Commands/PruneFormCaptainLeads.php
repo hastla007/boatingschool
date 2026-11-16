@@ -10,9 +10,10 @@ use Illuminate\Console\Command;
 /**
  * Aufräumen des Lead-Eingangs (BS-06, docs/integrations/form-captain-leads.md):
  * Idempotenz-Einträge nach config('form_captain.idempotency_days') immer,
- * Leads nach Ablauf von retain_until nur, wenn
- * FORM_CAPTAIN_LEAD_RETENTION_ENABLED bewusst gesetzt ist (Frist ist bis zur
- * Rechtsprüfung ein Platzhalter). Täglich über routes/console.php.
+ * Leads nach Ablauf von retain_until (180 Tage, an seit der
+ * Entscheidung des Inhabers vom 16.11.2026; abschaltbar mit
+ * FORM_CAPTAIN_LEAD_RETENTION_ENABLED=false, Frist zur Rechtsprüfung).
+ * Täglich über routes/console.php.
  */
 class PruneFormCaptainLeads extends Command
 {
@@ -26,7 +27,7 @@ class PruneFormCaptainLeads extends Command
         [$requests, $leads] = OwnerConnection::run(function () {
             $requests = FormCaptainLeadRequest::where('created_at', '<', now()->subDays(max(30, (int) config('form_captain.idempotency_days', 30))));
             $leads = FormCaptainLead::where('retain_until', '<', now());
-            $retention = (bool) config('form_captain.retention.enabled', false);
+            $retention = (bool) config('form_captain.retention.enabled', true);
             if ($this->option('dry-run')) {
                 return [$requests->count(), $retention ? $leads->count() : 0];
             }
@@ -36,8 +37,8 @@ class PruneFormCaptainLeads extends Command
 
         $verb = $this->option('dry-run') ? 'würden gelöscht' : 'gelöscht';
         $this->line("Leads {$verb}: {$leads}; Idempotenz-Einträge {$verb}: {$requests}.");
-        if (! config('form_captain.retention.enabled', false)) {
-            $this->line('Aufbewahrungsfrist der Leads nicht aktiviert (FORM_CAPTAIN_LEAD_RETENTION_ENABLED).');
+        if (! config('form_captain.retention.enabled', true)) {
+            $this->line('Automatische Löschung der Leads ist abgeschaltet (FORM_CAPTAIN_LEAD_RETENTION_ENABLED=false).');
         }
 
         return self::SUCCESS;

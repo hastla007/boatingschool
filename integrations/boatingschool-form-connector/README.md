@@ -15,10 +15,12 @@ Inhabers für den Pilot steht aus).
 - Meldet sich über `form_captain_connectors_v1` an (Key `boatingschool_form`, Contract `1.0`), erst nach
   `form_captain_loaded_v1` und nur bei Major 1. Ohne Form Captain: still.
 - Aktion `boatingschool_form.send_lead` mit
-  - Einstellungen je Formular: `purpose` (Demo, Beratung, Infos zum Schulzugang), `consent_text_revision` (Pflicht),
-    `consent_text_hash` (optional, SHA-256 des Einwilligungstexts), `page_url` (Seite des Formulars);
+  - Einstellungen je Formular: `purpose` (Support, Demo, Beratung, Schulzugang, Preisanfrage – Entscheidung des
+    Inhabers vom 16.11.2026), `consent_text_revision` (Pflicht), `consent_text_hash` (optional, SHA-256 des
+    Einwilligungstexts), `customer_reference` (Kundenreferenz mitsenden, nur Support, Standard aus), `page_url`;
   - Mapping, nur diese Felder, keines sensibel: `email` (Pflicht), `consent` (Pflicht, Feldtyp Einwilligung oder
-    Checkbox), `name`, `phone`, `organisation`, `role`, `school_size`, `message`.
+    Checkbox), `name`, `phone`, `organisation`, `role`, `school_size`, `message`, `product` (Feldtyp „Meine Produkte“,
+    nur beim Zweck Support übertragen).
 - Übertragen werden nur die gemappten Werte, Formular- und Entry-ID, die Website (`home_url`), die Seite des Formulars
   und der Verweis auf die Einwilligung (Einsendezeitpunkt, Revision, optional Hash). Nie: IP, User-Agent, versteckte
   oder sensible Felder, andere Formularfelder, der Einwilligungstext.
@@ -30,7 +32,34 @@ Inhabers für den Pilot steht aus).
 - **Testlauf** (`test_mode`): nur `POST /ping` (Schlüssel und Erreichbarkeit), kein Lead.
 - **Löschung:** `form_captain_entry_deleted_v1` und `form_captain_consent_withdrawn_v1` → signiertes
   `DELETE /leads/{lead_id}` (abschaltbar, Standard an). Ist die Plattform nicht erreichbar, wird stündlich wiederholt
-  (höchstens 48-mal). Läuft auch ohne gültige Lizenz, aber nur mit `lib/`.
+  (höchstens 48-mal). Läuft auch ohne gültige Lizenz, aber nur mit `lib/` – Entscheidung des Inhabers vom
+  16.11.2026 (bestätigt): bereits übergebene Leads werden bei Entry-Löschung oder Widerruf auch ohne Lizenz gelöscht.
+
+## Support: „Meine Produkte“ und „Kundeninfo“ (ab Form Captain Contract 1.1.0)
+
+Entscheidung des Inhabers vom 16.11.2026: Bei einer Support-Anfrage wählt der Kunde sein Produkt, und seine Angaben
+werden im Formular angezeigt. Quelle ist der auf der WordPress-Seite **angemeldete WooCommerce-Kunde**. Der Connector
+registriert dafür zwei eigene Feldtypen über die Erweiterungspunkte von Form Captain (`form_captain_field_types_v1`,
+`form_captain_render_field_v1`, `form_captain_validate_field_v1`, `form_captain_display_value_v1`, dazu Editor-Panel und
+Normalisierung), Code in `src/CustomerFields.php`:
+
+- **Meine Produkte** (`boatingschool_products`, mit Wert): Auswahl der Produkte aus den bezahlten Bestellungen des
+  aktuellen Benutzers, gelesen nur über WooCommerce-CRUD (`wc_get_orders` mit `customer_id`, Status aus
+  `wc_get_is_paid_statuses()`, höchstens 100 Bestellungen). Der Wert ist die Produkt-ID; beim Absenden prüft der Server,
+  dass sie zu den eigenen Käufen des aktuellen Benutzers gehört (sonst Fehler `product_not_purchased`) – fremde Produkte
+  sind nie wählbar. Gespeichert wird `{"product_id":…,"customer_id":…}`, im Admin, in CSV und Mail als
+  „Produktname (SKU …) · Kundennummer …“. Ohne Anmeldung je nach Feldeinstellung „Ohne Anmeldung“ ein Hinweis
+  „Bitte anmelden“ (Standard; Pflichtfeld → `login_required`) oder ein Freitextfeld (`{"text":"…"}`).
+- **Kundeninfo** (`boatingschool_customer`, ohne Wert): zeigt Name, E-Mail und Kundennummer des angemeldeten Kunden nur
+  an; nichts wird gespeichert oder übertragen.
+- **Keine Vorbelegung:** Form Captain kennt beim Rendern kein Prefill. Die Anzeige läuft deshalb über den eigenen
+  Feldtyp, nicht über vorbelegte Standardfelder.
+- **Übergabe:** nur beim Zweck `support` und nur, wenn `product` im Mapping steht: `product` = ID, Name, SKU (aus
+  `wc_get_product` im Worker) bzw. nur der Freitext; `customer` = WooCommerce-Kunden-ID und E-Mail aus dem Kundenkonto
+  (`WC_Customer`, im Worker gelesen), nur mit der Einstellung `customer_reference`. Bei anderen Zwecken wird beides nie
+  gesendet, die Plattform würde es auch ablehnen.
+- Die Feldtypen gehören zum lizenzierten Feature: ohne Lizenz entfallen sie im Formular (Feld daher nicht als Pflicht
+  anlegen, wenn das Formular auch ohne Lizenz funktionieren soll). Vor Contract 1.1.0 werden sie nicht registriert.
 
 ## Zustellstatus (BS-12)
 

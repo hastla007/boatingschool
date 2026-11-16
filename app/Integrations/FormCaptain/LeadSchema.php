@@ -15,7 +15,14 @@ final class LeadSchema
 {
     public const ID = 'form-captain-lead/1';
 
-    public const PURPOSES = ['demo', 'consultation', 'school_access_info'];
+    /** Zwecke des B2B-Formulars (Entscheidung des Inhabers vom 16.11.2026, Vertrag 1.1). */
+    public const PURPOSES = ['support', 'demo', 'consulting', 'school_access', 'pricing'];
+
+    /** Werte aus Vertrag 1.0, weiter angenommen und beim Speichern umgeschrieben (veraltet). */
+    public const LEGACY_PURPOSES = ['consultation' => 'consulting', 'school_access_info' => 'school_access'];
+
+    /** Felder, die nur beim Zweck support erlaubt sind (Datenschutz, Vertrag 1.1). */
+    public const SUPPORT_ONLY = ['product', 'customer'];
 
     public const SCHOOL_SIZES = ['1-2', '3-10', '11-50', '50+'];
 
@@ -38,7 +45,7 @@ final class LeadSchema
         if (! $this->isObject($data, '')) {
             return;
         }
-        $this->properties($data, '', ['schema', 'source', 'purpose', 'contact', 'school_size', 'message', 'consent', 'submitted_at'], ['schema', 'source', 'contact', 'consent', 'submitted_at']);
+        $this->properties($data, '', ['schema', 'source', 'purpose', 'contact', 'school_size', 'message', 'product', 'customer', 'consent', 'submitted_at'], ['schema', 'source', 'contact', 'consent', 'submitted_at']);
 
         if (array_key_exists('schema', $data) && $data['schema'] !== self::ID) {
             $this->error('/schema', 'const');
@@ -52,7 +59,7 @@ final class LeadSchema
             $this->integer($source, '/source', 'entry_id', 1);
             $this->string($source, '/source', 'plugin_version', 20);
         }
-        $this->enum($data, '', 'purpose', self::PURPOSES);
+        $this->enum($data, '', 'purpose', array_merge(self::PURPOSES, array_keys(self::LEGACY_PURPOSES)));
         if (array_key_exists('contact', $data) && $this->isObject($data['contact'], '/contact')) {
             $contact = $data['contact'];
             $this->properties($contact, '/contact', ['name', 'email', 'phone', 'organisation', 'role'], ['email']);
@@ -65,6 +72,27 @@ final class LeadSchema
             $this->string($contact, '/contact', 'role', 80);
         }
         $this->enum($data, '', 'school_size', self::SCHOOL_SIZES);
+        // Produkt und Kundenreferenz (Support): nur beim Zweck support, sonst abgelehnt.
+        foreach (self::SUPPORT_ONLY as $key) {
+            if (array_key_exists($key, $data) && ($data['purpose'] ?? null) !== 'support') {
+                $this->error('/'.$key, 'purpose_mismatch');
+            }
+        }
+        if (array_key_exists('product', $data) && $this->isObject($data['product'], '/product')) {
+            $product = $data['product'];
+            $this->properties($product, '/product', ['id', 'name', 'sku'], ['name']);
+            $this->integer($product, '/product', 'id', 1);
+            $this->string($product, '/product', 'name', 200);
+            $this->string($product, '/product', 'sku', 100);
+        }
+        if (array_key_exists('customer', $data) && $this->isObject($data['customer'], '/customer')) {
+            $customer = $data['customer'];
+            $this->properties($customer, '/customer', ['id', 'email'], ['id']);
+            $this->integer($customer, '/customer', 'id', 1);
+            if ($this->string($customer, '/customer', 'email', 190) && filter_var($customer['email'], FILTER_VALIDATE_EMAIL) === false) {
+                $this->error('/customer/email', 'format');
+            }
+        }
         $this->string($data, '', 'message', 4000);
         if (array_key_exists('consent', $data) && $this->isObject($data['consent'], '/consent')) {
             $consent = $data['consent'];

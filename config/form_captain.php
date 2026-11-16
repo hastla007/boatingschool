@@ -41,11 +41,11 @@ return [
     // Idempotenz-Schlüssel und Ergebnis mindestens so lange speichern (Tage).
     'idempotency_days' => 30,
 
-    // Aufbewahrung der Leads: PLATZHALTER bis zur Rechtsprüfung (BS-06,
-    // Vertrag A.8). Ohne FORM_CAPTAIN_LEAD_RETENTION_ENABLED löscht
-    // form-captain:prune-leads nur abgelaufene Idempotenz-Einträge.
+    // Aufbewahrung der Leads: 180 Tage, automatische Löschung an (Entscheidung
+    // des Inhabers vom 16.11.2026). Der Wert gehört zur Rechtsprüfung (BS-06,
+    // Vertrag A.8); abschalten nur mit FORM_CAPTAIN_LEAD_RETENTION_ENABLED=false.
     'retention' => [
-        'enabled' => env('FORM_CAPTAIN_LEAD_RETENTION_ENABLED', false),
+        'enabled' => (bool) env('FORM_CAPTAIN_LEAD_RETENTION_ENABLED', true),
         // Tage nach dem Eingang bzw. nach der letzten Statusänderung.
         'days' => (int) env('FORM_CAPTAIN_LEAD_RETENTION_DAYS', 180),
     ],

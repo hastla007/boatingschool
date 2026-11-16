@@ -33,6 +33,14 @@
             </select>
         </div>
         <div>
+            <label for="purpose" class="block text-xs text-slate-600 dark:text-slate-300 mb-1">Zweck</label>
+            <select id="purpose" name="purpose" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                @foreach (['' => 'Alle Zwecke'] + \App\Models\FormCaptainLead::PURPOSE_LABELS as $value => $label)
+                    <option value="{{ $value }}" @selected($purpose === $value)>{{ $label }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div>
             <label for="q" class="block text-xs text-slate-600 dark:text-slate-300 mb-1">Suche (E-Mail, Name, Organisation, Lead-ID)</label>
             <input id="q" name="q" value="{{ $search }}" maxlength="190" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
         </div>
@@ -62,6 +70,7 @@
                         </td>
                         <td class="px-4 py-2">
                             {{ \App\Models\FormCaptainLead::PURPOSE_LABELS[$lead->purpose] ?? '—' }}
+                            @if ($lead->product_name)<span class="block text-xs text-slate-500 dark:text-slate-400">{{ $lead->product_name }}</span>@endif
                             @if ($lead->merged_count > 0)<span class="block text-xs text-amber-700 dark:text-amber-300">+{{ $lead->merged_count }} weitere Einsendung(en)</span>@endif
                         </td>
                         <td class="px-4 py-2">

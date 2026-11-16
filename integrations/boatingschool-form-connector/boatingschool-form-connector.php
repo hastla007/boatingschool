@@ -4,7 +4,7 @@
  * Plugin Name:       BoatingSchool Form-Connector
  * Plugin URI:        https://license.example.com/boatingschool-form-connector
  * Description:       Übergibt Einsendungen ausgewählter Form-Captain-Formulare (Demo, Beratung, Infos zum Schulzugang) als Lead an die Lead-Inbox der BoatingSchool-Plattform. Nur zugeordnete, nicht sensible Felder und ein Verweis auf die Einwilligung; die Plattform legt daraus kein Konto an. Braucht Form Captain und einen Lizenzschlüssel. Standardmäßig aus.
- * Version:           1.0.0
+ * Version:           1.1.0
  * Requires at least: 6.8
  * Requires PHP:      8.3
  * Requires Plugins:  form-captain
@@ -23,13 +23,14 @@ use FormCaptain\Integrations\ConnectorInterface;
 
 defined('ABSPATH') || exit;
 
-define('BOATINGSCHOOL_FORM_VERSION', '1.0.0');
+define('BOATINGSCHOOL_FORM_VERSION', '1.1.0');
 define('BOATINGSCHOOL_FORM_FILE', __FILE__);
 
 // Eigene Klassen ohne Abhängigkeit vom Kernel (auch für die Tests einzeln ladbar).
 require_once __DIR__.'/src/Signature.php';
 require_once __DIR__.'/src/Settings.php';
 require_once __DIR__.'/src/Client.php';
+require_once __DIR__.'/src/CustomerFields.php';
 require_once __DIR__.'/src/LeadPayload.php';
 require_once __DIR__.'/src/Ledger.php';
 require_once __DIR__.'/src/Privacy.php';

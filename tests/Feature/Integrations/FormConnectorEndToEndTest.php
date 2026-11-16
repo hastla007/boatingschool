@@ -44,9 +44,10 @@ class FormConnectorEndToEndTest extends TestCase
     }
 
     /** @return array{url:string,method:string,headers:array<string,string>,body:string} vom Connector gebaute Anfrage */
-    private function connectorRequest(): array
+    private function connectorRequest(array $settings = [], array $values = [], array $woo = []): array
     {
         $options = [
+            'woo' => $woo,
             'form_captain' => true,
             'constants' => ['BOATINGSCHOOL_FORM_ENDPOINT' => 'http://localhost', 'BOATINGSCHOOL_FORM_KEY_ID' => 'fc-lead-e2e', 'BOATINGSCHOOL_FORM_SECRET' => self::SECRET],
             'entries' => [(string) $this->entryId => ['created_gmt' => '2026-11-16T10:00:05Z']],
@@ -55,8 +56,8 @@ class FormConnectorEndToEndTest extends TestCase
                 'form_id' => 7,
                 'entry_id' => $this->entryId,
                 'idempotency_key' => 'form-captain:1:'.$this->entryId.':boatingschool_form.send_lead:a_e2e0000001',
-                'settings' => ['purpose' => 'demo', 'consent_text_revision' => '2', 'page_url' => 'https://www.boatingschool.example/demo'],
-                'values' => ['email' => $this->email, 'consent' => '1', 'name' => 'Kim Meer', 'school_size' => '11-50'],
+                'settings' => $settings + ['purpose' => 'demo', 'consent_text_revision' => '2', 'page_url' => 'https://www.boatingschool.example/demo'],
+                'values' => $values + ['email' => $this->email, 'consent' => '1', 'name' => 'Kim Meer', 'school_size' => '11-50'],
                 'test_mode' => false,
                 'attempt' => 1,
             ]],
@@ -90,5 +91,20 @@ class FormConnectorEndToEndTest extends TestCase
         $this->assertCount(1, $leads);
         $this->assertSame('11-50', $leads[0]->school_size);
         $this->assertSame('https://www.boatingschool.example/demo', $leads[0]->page_url);
+    }
+
+    public function test_support_lead_from_the_connector_stores_product_and_customer_reference(): void
+    {
+        $request = $this->connectorRequest(['purpose' => 'support', 'customer_reference' => '1'], ['product' => '{"product_id":42,"customer_id":17}'], [
+            'active' => true,
+            'customers' => ['17' => ['first' => 'Kim', 'last' => 'Meer', 'email' => 'kim.konto@example.test']],
+            'products' => ['42' => ['name' => 'SBF-See Onlinekurs', 'sku' => 'SBF-SEE']],
+        ]);
+        $id = $this->call('POST', (string) parse_url($request['url'], PHP_URL_PATH), [], [], [], $this->transformHeadersToServerVars($request['headers']), $request['body'])
+            ->assertCreated()->json('lead_id');
+
+        $lead = $this->onAdmin(fn () => FormCaptainLead::where('public_id', $id)->firstOrFail());
+        $this->assertSame(['support', 42, 'SBF-See Onlinekurs', 'SBF-SEE', 17, 'kim.konto@example.test'],
+            [$lead->purpose, $lead->product_id, $lead->product_name, $lead->product_sku, $lead->customer_ref_id, $lead->customer_email]);
     }
 }

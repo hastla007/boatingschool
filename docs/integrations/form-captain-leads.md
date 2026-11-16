@@ -1,6 +1,7 @@
 # Lead-Eingang für Form Captain (Vertrag `form-captain-lead/1`)
 
-**Status:** Version 1, übernommen am 16.11.2026 aus dem Entwurf `hastla007/wp-formmaster`,
+**Status:** Version 1.1 vom 16.11.2026 (Entscheidungen des Inhabers: Zwecke, Support mit Produkt und Kundenreferenz,
+Aufbewahrung 180 Tage mit automatischer Löschung; Änderungen in Abschnitt 12). Version 1 übernommen am 16.11.2026 aus dem Entwurf `hastla007/wp-formmaster`,
 `docs/spec/projekt-connectoren-vertraege.md`, Teil A (P8-42). Mit dieser Datei ist der Vertrag für die Plattform
 verbindlich (BS-07). Abweichungen vom Entwurf stehen in Abschnitt 10 und gehen an `wp-formmaster` zurück.
 Der Pilot braucht weiterhin die Freigabe des Inhabers (P8-40).
@@ -66,7 +67,7 @@ Inbox zeigt je Schlüssel „zuletzt benutzt“ (nie das Geheimnis).
 
 ## 4. Body (`form-captain-lead/1`)
 
-JSON-Schema (Draft 2020-12) unverändert aus dem Entwurf:
+JSON-Schema (Draft 2020-12), Version 1.1 (gegenüber dem Entwurf: neue Zwecke, `product`, `customer`):
 
 ```json
 {
@@ -88,7 +89,7 @@ JSON-Schema (Draft 2020-12) unverändert aus dem Entwurf:
         "plugin_version": { "type": "string", "maxLength": 20 }
       }
     },
-    "purpose":      { "enum": ["demo", "consultation", "school_access_info"] },
+    "purpose":      { "enum": ["support", "demo", "consulting", "school_access", "pricing", "consultation", "school_access_info"] },
     "contact": {
       "type": "object", "additionalProperties": false,
       "required": ["email"],
@@ -102,6 +103,23 @@ JSON-Schema (Draft 2020-12) unverändert aus dem Entwurf:
     },
     "school_size":  { "enum": ["1-2", "3-10", "11-50", "50+"] },
     "message":      { "type": "string", "maxLength": 4000 },
+    "product": {
+      "type": "object", "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "id":   { "type": "integer", "minimum": 1 },
+        "name": { "type": "string", "maxLength": 200 },
+        "sku":  { "type": "string", "maxLength": 100 }
+      }
+    },
+    "customer": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id"],
+      "properties": {
+        "id":    { "type": "integer", "minimum": 1 },
+        "email": { "type": "string", "format": "email", "maxLength": 190 }
+      }
+    },
     "consent": {
       "type": "object", "additionalProperties": false,
       "required": ["given_at", "text_revision"],
@@ -115,6 +133,17 @@ JSON-Schema (Draft 2020-12) unverändert aus dem Entwurf:
   }
 }
 ```
+
+**Zwecke** (Entscheidung des Inhabers vom 16.11.2026): `support` (Support), `demo` (Demo), `consulting` (Beratung),
+`school_access` (Schulzugang), `pricing` (Preisanfrage). Die Werte `consultation` und `school_access_info` aus Version 1
+werden weiter angenommen (veraltet) und als `consulting` bzw. `school_access` gespeichert.
+
+**Support (`product`, `customer`):** nur beim Zweck `support` erlaubt; bei jedem anderen Zweck lehnt die Plattform mit
+`422 schema_invalid` und Code `purpose_mismatch` ab (Datenschutz: kein Kundenbezug bei Demo-, Beratungs- oder
+Preisanfragen). `product` ist das vom Kunden gewählte Produkt aus seinen WooCommerce-Käufen (`id`, `name`, `sku`) oder –
+ohne Anmeldung – nur ein Freitext-`name`. `customer` ist die Kundenreferenz der Website: WooCommerce-Kunden-ID und
+E-Mail aus dem Kundenkonto. Beides ist ein Verweis auf das Konto im Shop der Website, kein Konto der Plattform; der
+Eingang legt weiterhin nichts an.
 
 Geprüft von `App\Integrations\FormCaptain\LeadSchema` (ohne Bibliothek): unbekannte Eigenschaften werden abgelehnt,
 nicht verworfen; `format: uri` = absolute `http`/`https`-URL; `format: date-time` = RFC 3339 mit `Z` oder Offset,
@@ -140,7 +169,7 @@ Formularfelder, der Einwilligungstext selbst (nur Revision und optional Hash).
 
 Format: `{"code": "…", "message": "…"}`, bei Erfolg zusätzlich `lead_id` und `status`, bei `422` zusätzlich
 `errors: [{"pointer": "/contact/email", "code": "format"}]` (Codes: `required`, `type`, `additional_property`,
-`max_length`, `format`, `enum`, `const`, `minimum`, `pattern`). Fehlerantworten enthalten nie Werte aus dem Body.
+`max_length`, `format`, `enum`, `const`, `minimum`, `pattern`, `purpose_mismatch`). Fehlerantworten enthalten nie Werte aus dem Body.
 
 | HTTP | `code` | Bedeutung | Ergebnis im Connector |
 |---|---|---|---|
@@ -182,10 +211,13 @@ Tagesgrenze → Anlage.
   Organisation, Lead-ID), Detail mit Einwilligungsnachweis und Herkunft, Status und Notiz ändern, ablehnen (Grund),
   endgültig löschen. Nur Superadmins (`auth`, `superadmin`, `verified`); jede Änderung landet im Protokoll
   (`AuditSuperadminChanges`, nur Feldnamen). Eine Löschung in der Plattform wirkt nicht auf den Form-Captain-Entry.
-- **Aufbewahrung:** `retain_until` = Eingang bzw. letzte Statusänderung + `FORM_CAPTAIN_LEAD_RETENTION_DAYS`
-  (Platzhalter 180). `app:prune-form-captain-leads` (täglich 04:35) löscht abgelaufene Leads **nur**, wenn
-  `FORM_CAPTAIN_LEAD_RETENTION_ENABLED=true` gesetzt ist – die Frist ist bis zur Rechtsprüfung offen (offener Punkt 3
-  des Entwurfs). Idempotenz-Einträge löscht der Befehl immer nach 30 Tagen. `--dry-run` zählt nur.
+- Für Support-Anfragen zusätzlich `product_id`, `product_name`, `product_sku`, `customer_ref_id`, `customer_email`.
+  Die Inbox filtert nach Zweck und zeigt Produkt und Kundenreferenz in der Detailansicht.
+- **Aufbewahrung (Entscheidung des Inhabers vom 16.11.2026):** 180 Tage, automatische Löschung **an**.
+  `retain_until` = Eingang bzw. letzte Statusänderung + `FORM_CAPTAIN_LEAD_RETENTION_DAYS` (Standard 180).
+  `app:prune-form-captain-leads` (täglich 04:35) löscht abgelaufene Leads; abschalten nur mit
+  `FORM_CAPTAIN_LEAD_RETENTION_ENABLED=false`. **Der Wert gehört zur Rechtsprüfung** und ist bis dahin eine Festlegung
+  des Inhabers, keine geprüfte Frist. Idempotenz-Einträge löscht der Befehl immer nach 30 Tagen. `--dry-run` zählt nur.
 
 ## 9. Datenschutz
 
@@ -212,8 +244,21 @@ Tagesgrenze → Anlage.
 
 ## 11. Offen
 
-- Werte für `purpose` und `school_size` mit dem tatsächlichen B2B-Angebot abgleichen (P8-40); eine Änderung ist eine
-  neue Schema-Version.
-- Aufbewahrungsfrist (Rechtsprüfung), danach `FORM_CAPTAIN_LEAD_RETENTION_ENABLED` setzen.
+- Werte für `school_size` mit dem tatsächlichen B2B-Angebot abgleichen (P8-40). `purpose` ist entschieden (1.1).
+- Rechtsprüfung der Aufbewahrungsfrist (180 Tage, automatische Löschung an) und der Kundenreferenz bei Support.
 - Staging-Abnahme WordPress → Plattform (BS-13): echtes WordPress mit Form Captain und Connector gegen Staging, Testleads
   löschen, Datenschutzabnahme dokumentieren.
+
+## 12. Änderungen in Version 1.1 (16.11.2026)
+
+Additiv, Schema-Kennung bleibt `form-captain-lead/1`:
+
+1. Zwecke `support`, `demo`, `consulting`, `school_access`, `pricing`; `consultation` und `school_access_info` veraltet,
+   weiter angenommen und umgeschrieben.
+2. Neue optionale Objekte `product` und `customer`, nur beim Zweck `support` (sonst `422`, Code `purpose_mismatch`).
+   Quelle im WordPress-Connector: der auf der Website angemeldete WooCommerce-Kunde (Feldtypen „Meine Produkte“ und
+   „Kundeninfo“, siehe Connector-README).
+3. Aufbewahrung: 180 Tage, automatische Löschung standardmäßig an (`FORM_CAPTAIN_LEAD_RETENTION_ENABLED` Standard
+   `true`); zur Rechtsprüfung vermerkt.
+4. Löschung ohne Lizenz (Connector): bereits übergebene Leads werden bei Entry-Löschung oder Widerruf auch ohne gültige
+   Lizenz gelöscht – Entscheidung des Inhabers vom 16.11.2026 (bestätigt).

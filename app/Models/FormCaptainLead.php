@@ -34,10 +34,13 @@ class FormCaptainLead extends Model
         self::REJECTED => 'Abgelehnt',
     ];
 
+    /** Zwecke (Entscheidung des Inhabers vom 16.11.2026). */
     public const PURPOSE_LABELS = [
+        'support' => 'Support',
         'demo' => 'Demo',
-        'consultation' => 'Beratung',
-        'school_access_info' => 'Infos zum Schulzugang',
+        'consulting' => 'Beratung',
+        'school_access' => 'Schulzugang',
+        'pricing' => 'Preisanfrage',
     ];
 
     protected $table = 'form_captain_lead';
@@ -45,7 +48,7 @@ class FormCaptainLead extends Model
     protected $fillable = [
         'public_id', 'status', 'key_id', 'site_url', 'page_url', 'form_id', 'entry_id', 'plugin_version',
         'purpose', 'contact_name', 'contact_email', 'email_hash', 'contact_phone', 'contact_organisation', 'contact_role',
-        'school_size', 'message', 'consent_given_at', 'consent_text_revision', 'consent_text_hash', 'submitted_at',
+        'school_size', 'message', 'product_id', 'product_name', 'product_sku', 'customer_ref_id', 'customer_email', 'consent_given_at', 'consent_text_revision', 'consent_text_hash', 'submitted_at',
         'merged_count', 'last_merged_at', 'notes', 'rejection_reason', 'handled_by_user_id', 'status_changed_at', 'retain_until',
     ];
 
@@ -53,6 +56,8 @@ class FormCaptainLead extends Model
     {
         return [
             'form_id' => 'integer',
+            'product_id' => 'integer',
+            'customer_ref_id' => 'integer',
             'entry_id' => 'integer',
             'consent_given_at' => 'datetime',
             'consent_text_revision' => 'integer',

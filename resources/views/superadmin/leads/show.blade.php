@@ -21,6 +21,13 @@
                 <dt class="text-slate-500 dark:text-slate-400">Organisation</dt><dd class="sm:col-span-2">{{ $lead->contact_organisation ?: '—' }}</dd>
                 <dt class="text-slate-500 dark:text-slate-400">Rolle</dt><dd class="sm:col-span-2">{{ $lead->contact_role ?: '—' }}</dd>
                 <dt class="text-slate-500 dark:text-slate-400">Anliegen</dt><dd class="sm:col-span-2">{{ \App\Models\FormCaptainLead::PURPOSE_LABELS[$lead->purpose] ?? '—' }}</dd>
+                @if ($lead->product_name || $lead->customer_ref_id)
+                    <dt class="text-slate-500 dark:text-slate-400">Produkt</dt>
+                    <dd class="sm:col-span-2">{{ $lead->product_name ?: '—' }}@if ($lead->product_sku) · SKU {{ $lead->product_sku }}@endif @if ($lead->product_id)<span class="text-xs text-slate-500 dark:text-slate-400">(Produkt-ID {{ $lead->product_id }})</span>@endif</dd>
+                    <dt class="text-slate-500 dark:text-slate-400">Kunde im Shop</dt>
+                    <dd class="sm:col-span-2">@if ($lead->customer_ref_id)Kundennummer {{ $lead->customer_ref_id }}@if ($lead->customer_email) · {{ $lead->customer_email }}@endif @else — @endif
+                        <span class="block text-xs text-slate-500 dark:text-slate-400">Angaben aus dem WooCommerce-Konto der Website (nur bei Support-Anfragen); kein Konto der Plattform.</span></dd>
+                @endif
                 <dt class="text-slate-500 dark:text-slate-400">Schulgröße</dt><dd class="sm:col-span-2">{{ $lead->school_size ?: '—' }}</dd>
                 <dt class="text-slate-500 dark:text-slate-400">Nachricht</dt><dd class="sm:col-span-2 whitespace-pre-line">{{ $lead->message ?: '—' }}</dd>
                 <dt class="text-slate-500 dark:text-slate-400">Einwilligung</dt>

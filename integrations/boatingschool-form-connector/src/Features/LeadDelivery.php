@@ -6,7 +6,9 @@
  * Ohne Recht ist der Connector für Form Captain nicht vorhanden: offene Jobs bleiben dort pausiert („Connector
  * fehlt“) und laufen weiter, sobald die Lizenz wieder gilt. Fail-closed.
  *
- * register_readonly(): Löschungen bereits zugestellter Leads (Datenschutzpflicht) laufen auch ohne Lizenz.
+ * register_readonly(): Löschungen bereits zugestellter Leads (Datenschutzpflicht) laufen auch ohne Lizenz –
+ * Entscheidung des Inhabers vom 16.11.2026 (bestätigt): bei Entry-Löschung oder Widerruf wird der Lead in der
+ * Plattform auch ohne gültige Lizenz gelöscht.
  */
 
 declare(strict_types=1);
@@ -14,6 +16,7 @@ declare(strict_types=1);
 namespace BoatingschoolFormConnector\Features;
 
 use BoatingschoolFormConnector\Admin;
+use BoatingschoolFormConnector\CustomerFields;
 use BoatingschoolFormConnector\Kernel\Addon;
 use BoatingschoolFormConnector\Kernel\BaseFeature;
 use BoatingschoolFormConnector\Privacy;
@@ -46,6 +49,8 @@ final class LeadDelivery extends BaseFeature
     public function register(Addon $addon): void
     {
         boatingschool_form_register_with_form_captain();
+        // Feldtypen „Meine Produkte“ und „Kundeninfo“ (Support, Contract 1.1.0). Ohne Lizenz entfallen sie im Formular.
+        CustomerFields::register();
         Admin::register();
     }
 

@@ -23,10 +23,12 @@ class LeadController extends Controller
     {
         $status = is_string($request->query('status')) ? $request->query('status') : 'open';
         $search = is_string($request->query('q')) ? trim($request->query('q')) : '';
+        $purpose = is_string($request->query('purpose')) && array_key_exists($request->query('purpose'), FormCaptainLead::PURPOSE_LABELS) ? $request->query('purpose') : '';
 
         $leads = FormCaptainLead::query()
             ->when($status === 'open', fn ($q) => $q->whereIn('status', [FormCaptainLead::NEW, FormCaptainLead::IN_PROGRESS]))
             ->when(array_key_exists($status, FormCaptainLead::STATUS_LABELS), fn ($q) => $q->where('status', $status))
+            ->when($purpose !== '', fn ($q) => $q->where('purpose', $purpose))
             ->when($search !== '', function ($q) use ($search) {
                 $like = '%'.addcslashes(mb_strtolower($search), '%_\\').'%';
                 $q->where(fn ($w) => $w->whereRaw('lower(contact_email) like ?', [$like])
@@ -40,6 +42,7 @@ class LeadController extends Controller
             'leads' => $leads,
             'status' => $status,
             'search' => $search,
+            'purpose' => $purpose,
             'keys' => $this->keys(),
         ]);
     }

@@ -254,6 +254,37 @@ class FormCaptainLeadIntakeTest extends TestCase
         $this->postLead($this->lead())->assertCreated();
     }
 
+    public function test_support_lead_carries_product_and_customer_reference_only_for_purpose_support(): void
+    {
+        $support = ['purpose' => 'support', 'product' => ['id' => 42, 'name' => 'SBF-See Onlinekurs', 'sku' => 'SBF-SEE'], 'customer' => ['id' => 17, 'email' => 'kunde@example.test']];
+        $id = $this->postLead($this->lead($support))->assertCreated()->json('lead_id');
+        $stored = $this->onAdmin(fn () => FormCaptainLead::where('public_id', $id)->firstOrFail());
+        $this->assertSame(['support', 42, 'SBF-See Onlinekurs', 'SBF-SEE', 17, 'kunde@example.test'],
+            [$stored->purpose, $stored->product_id, $stored->product_name, $stored->product_sku, $stored->customer_ref_id, $stored->customer_email]);
+
+        // Freitext ohne Anmeldung: nur der Name.
+        $this->postLead($this->lead(['purpose' => 'support', 'product' => ['name' => 'Funkkurs']]))->assertCreated();
+
+        // Datenschutz: bei anderen Zwecken abgelehnt, ohne Werte in der Antwort.
+        $response = $this->postLead($this->lead(['purpose' => 'pricing'] + array_diff_key($support, ['purpose' => 1])))->assertStatus(422);
+        $pointers = collect($response->json('errors'))->map(fn ($e) => $e['pointer'].' '.$e['code'])->all();
+        $this->assertContains('/product purpose_mismatch', $pointers);
+        $this->assertContains('/customer purpose_mismatch', $pointers);
+        $this->assertStringNotContainsString('kunde@example.test', $response->getContent());
+        $this->postLead($this->lead(['purpose' => 'support', 'product' => ['id' => 42], 'customer' => ['email' => 'x@example.test', 'iban' => 'DE00']]))
+            ->assertStatus(422)->assertJsonFragment(['pointer' => '/product/name', 'code' => 'required'])->assertJsonFragment(['pointer' => '/customer/iban', 'code' => 'additional_property']);
+    }
+
+    public function test_all_owner_purposes_are_accepted_and_legacy_values_are_rewritten(): void
+    {
+        foreach (['support', 'demo', 'consulting', 'school_access', 'pricing'] as $purpose) {
+            $this->postLead($this->lead(['purpose' => $purpose]))->assertCreated();
+        }
+        $id = $this->postLead($this->lead(['purpose' => 'consultation']))->assertCreated()->json('lead_id');
+        $this->assertSame('consulting', $this->onAdmin(fn () => FormCaptainLead::where('public_id', $id)->value('purpose')));
+        $this->postLead($this->lead(['purpose' => 'kaufen']))->assertStatus(422);
+    }
+
     public function test_query_parameters_are_not_accepted(): void
     {
         $body = json_encode($this->lead());

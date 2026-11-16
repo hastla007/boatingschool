@@ -1,6 +1,7 @@
 <?php
 
 use BoatingschoolFormConnector\Connector;
+use BoatingschoolFormConnector\CustomerFields;
 use BoatingschoolFormConnector\Privacy;
 
 /**
@@ -270,6 +271,109 @@ if (! empty($options['form_captain'])) {
     }
 }
 
+// --- WooCommerce (nur die CRUD-Funktionen, die der Connector nutzt) ---
+$GLOBALS['fc_woo'] = $options['woo'] ?? [];
+$GLOBALS['fc_order_queries'] = [];
+function get_current_user_id()
+{
+    return (int) ($GLOBALS['fc_woo']['user'] ?? 0);
+}
+function get_userdata($id)
+{
+    $c = $GLOBALS['fc_woo']['customers'][(string) $id] ?? null;
+
+    return $c ? (object) ['display_name' => $c['first'].' '.$c['last'], 'user_email' => $c['email']] : false;
+}
+function esc_attr__($text, $domain = null)
+{
+    return esc_attr($text);
+}
+if (! empty($GLOBALS['fc_woo']['active'])) {
+    final class FC_Item
+    {
+        public function __construct(private array $d) {}
+
+        public function get_product_id()
+        {
+            return $this->d['product_id'];
+        }
+
+        public function get_name()
+        {
+            return $this->d['name'];
+        }
+    }
+    final class FC_Order
+    {
+        public function __construct(private array $d) {}
+
+        public function get_customer_id()
+        {
+            return $this->d['customer'];
+        }
+
+        public function get_items()
+        {
+            return array_map(fn ($i) => new FC_Item($i), $this->d['items']);
+        }
+    }
+    final class FC_Product
+    {
+        public function __construct(private array $d) {}
+
+        public function get_name()
+        {
+            return $this->d['name'];
+        }
+
+        public function get_sku()
+        {
+            return $this->d['sku'] ?? '';
+        }
+    }
+    final class WC_Customer
+    {
+        private array $d;
+
+        public function __construct(int $id)
+        {
+            $this->d = $GLOBALS['fc_woo']['customers'][(string) $id] ?? ['first' => '', 'last' => '', 'email' => ''];
+        }
+
+        public function get_first_name()
+        {
+            return $this->d['first'];
+        }
+
+        public function get_last_name()
+        {
+            return $this->d['last'];
+        }
+
+        public function get_email()
+        {
+            return $this->d['email'];
+        }
+    }
+    function wc_get_is_paid_statuses()
+    {
+        return ['processing', 'completed'];
+    }
+    function wc_get_orders($args)
+    {
+        $GLOBALS['fc_order_queries'][] = $args;
+
+        return array_values(array_map(fn ($o) => new FC_Order($o), array_filter($GLOBALS['fc_woo']['orders'] ?? [],
+            fn ($o) => $o['customer'] === $args['customer_id'] && in_array($o['status'], (array) $args['status'], true))));
+    }
+    function wc_get_product($id)
+    {
+        $p = $GLOBALS['fc_woo']['products'][(string) $id] ?? null;
+
+        return $p ? new FC_Product($p) : false;
+    }
+}
+
 /** Plugin in einen Ordner kopieren (mit oder ohne lib/) und laden – wie WordPress beim Einbinden. */
 function fc_load_plugin(bool $withLib): string
 {
@@ -299,9 +403,9 @@ function fc_load_plugin(bool $withLib): string
 
 function fc_load_classes(): void
 {
-    define('BOATINGSCHOOL_FORM_VERSION', '1.0.0');
+    define('BOATINGSCHOOL_FORM_VERSION', '1.1.0');
     $dir = dirname(__DIR__, 2).'/integrations/boatingschool-form-connector/src';
-    foreach (['Signature', 'Settings', 'Client', 'LeadPayload', 'Ledger', 'Privacy', 'Connector'] as $class) {
+    foreach (['Signature', 'Settings', 'Client', 'CustomerFields', 'LeadPayload', 'Ledger', 'Privacy', 'Connector'] as $class) {
         require_once "$dir/$class.php";
     }
 }
@@ -351,6 +455,28 @@ switch ($scenario) {
             do_action($hook, ...$args);
         }
         $out = ['http' => $GLOBALS['fc_http'], 'options' => $GLOBALS['fc_options'], 'cron' => $GLOBALS['fc_cron']];
+        break;
+
+    case 'fields':
+        fc_load_classes();
+        CustomerFields::register();
+        $types = apply_filters('form_captain_field_types_v1', []);
+        $out = ['types' => $types, 'render' => [], 'validate' => [], 'display' => [], 'normalize' => []];
+        foreach ($options['render'] ?? [] as $field) {
+            $out['render'][] = apply_filters('form_captain_render_field_v1', null, $field, ['id' => 'fc-f1', 'name' => 'fc[f1]', 'value' => '', 'required' => ! empty($field['required']), 'invalid' => false, 'aria-describedby' => '']);
+        }
+        foreach ($options['validate'] ?? [] as [$field, $value]) {
+            $out['validate'][] = apply_filters('form_captain_validate_field_v1', null, $field, $value, ['file' => null, 'form' => []]);
+        }
+        foreach ($options['display'] ?? [] as [$field, $value]) {
+            $out['display'][] = apply_filters('form_captain_display_value_v1', 'roh', $field, $value);
+        }
+        foreach ($options['normalize'] ?? [] as $field) {
+            $out['normalize'][] = apply_filters('form_captain_normalize_field_v1', null, $field, []);
+        }
+        $out['panels'] = apply_filters('form_captain_editor_extensions_v1', []);
+        $out['order_queries'] = $GLOBALS['fc_order_queries'];
+        $out['other_type_untouched'] = apply_filters('form_captain_validate_field_v1', null, ['type' => 'fremd'], 'x', []);
         break;
 
     case 'boot':
