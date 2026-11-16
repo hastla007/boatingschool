@@ -10,7 +10,7 @@ use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
 /**
- * Zwei Wege, wie eine Bootsschule an eigene Coupon-Codes kommt: der
+ * Zwei Wege, wie eine Bootsschule an eigene Zugangscodes kommt: der
  * Superadmin teilt direkt welche zu (bereits in SuperadminAreaTest
  * geprüft), oder die Bootsschule übernimmt selbst Codes in ihren Bestand
  * (Admin\CouponController::import) -- die Codes existieren dafür schon
@@ -308,7 +308,7 @@ class CouponManagementTest extends TestCase
         $response = $this->actingAsInTenant($learner, $tenant)->get('/dashboard');
 
         $response->assertOk();
-        $response->assertSee('Coupon-Code einlösen');
+        $response->assertSee('Zugangscode einlösen');
         $response->assertSee(route('coupons.redeem', absolute: false), false);
     }
 
@@ -632,6 +632,37 @@ class CouponManagementTest extends TestCase
         $response = $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', ['code' => $code]);
 
         $response->assertSessionHasNoErrors();
+        $this->onAdmin(function () use ($tenant, $learner, $kleine, $grosse) {
+            $this->assertDatabaseMissing('product_purchase', [
+                'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'product_id' => $kleine->id,
+            ]);
+            $this->assertDatabaseHas('product_purchase', [
+                'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'product_id' => $grosse->id,
+            ]);
+        });
+    }
+
+    public function test_a_standalone_grosse_praxiseinheit_product_code_replaces_an_existing_kleine(): void
+    {
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $kleine = $this->onAdmin(fn () => Product::where('code', 'PRAXISEINHEIT-KLEIN')->firstOrFail());
+        $grosse = $this->onAdmin(fn () => Product::where('code', 'PRAXISEINHEIT-GROSS')->firstOrFail());
+        $codeKlein = 'E2E-PRAXIS-PK';
+        $codeGross = 'E2E-PRAXIS-PG';
+        $this->createdCodes = array_merge($this->createdCodes, [$codeKlein, $codeGross]);
+        $this->onAdmin(function () use ($codeKlein, $codeGross, $kleine, $grosse, $tenant) {
+            Coupon::create(['code' => $codeKlein, 'product_id' => $kleine->id, 'tenant_id' => $tenant->id]);
+            Coupon::create(['code' => $codeGross, 'product_id' => $grosse->id, 'tenant_id' => $tenant->id]);
+        });
+
+        $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', ['code' => $codeKlein])->assertSessionHasNoErrors();
+        $this->onAdmin(fn () => $this->assertDatabaseHas('product_purchase', [
+            'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'product_id' => $kleine->id,
+        ]));
+
+        // Eigener Produktcode (z. B. aus dem Shop): dieselbe Regel wie bei Zusatzprodukten.
+        $this->actingAsInTenant($learner, $tenant)->post('/coupons/redeem', ['code' => $codeGross])->assertSessionHasNoErrors();
         $this->onAdmin(function () use ($tenant, $learner, $kleine, $grosse) {
             $this->assertDatabaseMissing('product_purchase', [
                 'tenant_id' => $tenant->id, 'user_id' => $learner->id, 'product_id' => $kleine->id,

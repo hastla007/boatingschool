@@ -551,17 +551,27 @@ export function mount(root, config) {
     const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     let recognition = null;
     let heard = '';
+    // Spracherkennung nur nach Einwilligung (Aufnahme geht an Google bzw.
+    // Apple, siehe funk/_speech-consent.blade.php).
+    const consent = () => window.speechConsent;
+    const speechReady = () => !! Recognition && consent()?.granted === true;
 
     function pttDown() {
         // Schon auf Sendung (Maus und Leertaste zugleich): nichts doppelt
         // starten. Gesperrtes Handfunkgerät: nicht senden.
         if (radio.state.tx || recognition || locked()) return;
+        // Erste Nutzung: erst fragen, diese Sendung entfällt. Nach „Nein“
+        // wird ohne Spracherkennung gesendet (Funkspruch eintippen).
+        if (Recognition && consent() && ! consent().granted && ! consent().declined) {
+            consent().ensure();
+            return;
+        }
         showPtt(true);
         if (! radio.pttDown()) { render(); return; }
         window.speechSynthesis?.cancel();
         heard = '';
-        transcript.textContent = 'Sendet … sprich jetzt.';
-        if (Recognition) {
+        transcript.textContent = speechReady() ? 'Sendet … sprich jetzt.' : 'Sendet …';
+        if (speechReady()) {
             recognition = new Recognition();
             recognition.lang = speechLang();
             recognition.continuous = true;
@@ -589,6 +599,7 @@ export function mount(root, config) {
             if (run !== sentRun || radio !== sentRadio) return;
             if (heard.trim()) transmit(heard.trim(), channel);
             else if (! Recognition) transcript.textContent = 'Dieser Browser hat keine Spracherkennung – tippe den Funkspruch unten ein.';
+            else if (! speechReady()) transcript.textContent = 'Spracherkennung ist aus – tippe den Funkspruch unten ein.';
             render();
         };
         if (recognition) {

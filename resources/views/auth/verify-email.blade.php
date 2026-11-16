@@ -4,6 +4,8 @@
         Danke für deine Registrierung! Bitte bestätige deine E-Mail-Adresse über den Link, den wir dir gesendet haben.
     </p>
 
+    @include('partials.registration-coupon-notice')
+
     @if (session('status') == 'verification-link-sent')
         <div class="mb-4 font-medium text-sm text-emerald-600 dark:text-emerald-400">
             Ein neuer Bestätigungslink wurde an deine E-Mail-Adresse gesendet.

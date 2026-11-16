@@ -24,6 +24,8 @@ class SettingsController extends Controller
             'support_email' => ['nullable', 'email', 'max:255'],
             'maintenance_mode' => ['sometimes', 'boolean'],
             'maintenance_message' => ['nullable', 'string', 'max:1000'],
+            // Startwert der 2FA-Pflicht fürs Team neuer Schulen (bestehende bleiben unverändert).
+            'new_tenant_requires_team_two_factor' => ['sometimes', 'boolean'],
             // Impressum und Datenschutzerklärung (Vorlagen mit Platzhaltern,
             // siehe LegalPages); leer = mitgelieferter Entwurf.
             'operator_info' => ['nullable', 'string', 'max:2000'],
@@ -39,13 +41,14 @@ class SettingsController extends Controller
         }
 
         $validated['maintenance_mode'] = $request->boolean('maintenance_mode');
+        $validated['new_tenant_requires_team_two_factor'] = $request->boolean('new_tenant_requires_team_two_factor');
 
         $settings = PlatformSetting::current();
         // Bug-Review (Superadmin-Audit-Lücken): die plattformweiten
         // Website-Einstellungen -- insbesondere der Wartungsmodus, der
         // die gesamte Plattform für alle Mandanten sperrt (siehe
         // EnforceMaintenanceMode) -- wurden bisher gar nicht protokolliert.
-        $before = $settings->only(['site_name', 'support_email', 'maintenance_mode', 'maintenance_message', 'operator_info', 'imprint_template', 'privacy_template']);
+        $before = $settings->only(['site_name', 'support_email', 'maintenance_mode', 'maintenance_message', 'new_tenant_requires_team_two_factor', 'operator_info', 'imprint_template', 'privacy_template']);
         $settings->update($validated);
         // Bug-Review (Superadmin-Audit-Lücken): entity_id ist eine uuid-
         // Spalte, platform_setting.id dagegen die klassische Integer-Zeile

@@ -6,10 +6,13 @@ use App\Api\CourseAccess;
 use App\Models\CommerceShopAccount;
 use App\Models\Coupon;
 use App\Models\Entitlement;
+use App\Models\ExamRuleSet;
 use App\Models\PlatformAnnouncement;
 use App\Models\Product;
 use App\Models\User;
+use App\Support\ExamBooking;
 use App\Support\Totp;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 use Tests\Feature\Concerns\InteractsWithTenants;
@@ -164,6 +167,28 @@ class ReviewRoundFourteenTest extends TestCase
         ])->assertSessionHasNoErrors();
         $this->assertNotSame($before, CourseAccess::cacheKey('valid-qids', $course));
         $this->onAdmin(fn () => PlatformAnnouncement::where('title', 'Wartung')->delete());
+    }
+
+    public function test_new_addon_exams_exist_but_are_switched_off(): void
+    {
+        foreach (['ADD-SEE-TO-BIN-SEGEL' => 2100, 'ADD-BIN-MOTOR-2012' => 900] as $code => $seconds) {
+            $course = $this->existingCourse($code);
+            $this->assertFalse((bool) $course->site_enabled, "{$code} ist abgeschaltet");
+            $ruleSet = $this->onAdmin(fn () => ExamRuleSet::where('course_id', $course->id)->firstOrFail());
+            $this->assertSame('draft', $ruleSet->status, "{$code}: Regelwerk bleibt Entwurf");
+            $this->assertSame($seconds, $ruleSet->time_limit_seconds);
+        }
+
+        // Abgeschaltet: nicht unter „Weitere Prüfungsformen“ der Binnen-Kurse.
+        $keys = fn () => $this->onAdmin(fn () => array_column(ExamBooking::variants('SBF-BIN', 'motor'), 'key'));
+        $this->assertNotContains('segel-see-addon', $keys());
+        $course = $this->existingCourse('ADD-SEE-TO-BIN-SEGEL');
+        $this->onAdmin(fn () => DB::table('course_definition')->where('id', $course->id)->update(['site_enabled' => true]));
+        try {
+            $this->assertContains('segel-see-addon', $keys());
+        } finally {
+            $this->onAdmin(fn () => DB::table('course_definition')->where('id', $course->id)->update(['site_enabled' => false]));
+        }
     }
 
     public function test_manual_unlock_uses_plain_course_codes_before_bundles(): void

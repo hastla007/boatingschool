@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\OwnerConnection;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -30,13 +31,6 @@ class UseAdminDatabaseConnection
         // RLS vollständig umgehen, bis der Worker neu startet. Dasselbe
         // try/finally-Muster wie bei AccountErasureService::onAdminConnection()
         // und InteractsWithTenants::onAdmin().
-        $original = config('database.default');
-        config(['database.default' => 'pgsql_admin']);
-
-        try {
-            return $next($request);
-        } finally {
-            config(['database.default' => $original]);
-        }
+        return OwnerConnection::run(fn () => $next($request));
     }
 }

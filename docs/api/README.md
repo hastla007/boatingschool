@@ -141,6 +141,10 @@ Antworten werden 24 Stunden je Konto gespeichert.
   Grundes (z. B. Code eingelöst, dann Prüfung starten) gilt derselbe
   Schlüssel wieder.
 * Läuft dieselbe Anfrage noch: 409 `CONFLICT` mit `Retry-After`.
+* Schlüssel und Wirkung werden gemeinsam (in einer Datenbank-Transaktion)
+  festgeschrieben: Bricht die Verarbeitung mit einem Serverfehler (5xx) ab,
+  ist nichts passiert, und dieselbe Anfrage darf mit demselben Schlüssel
+  wiederholt werden, ohne doppelt zu wirken.
 * Gleicher Schlüssel mit anderem Inhalt ergibt 409 `IDEMPOTENCY_KEY_REUSED`.
 * Je fachlicher Aktion einen neuen Schlüssel erzeugen und bei automatischen
   Wiederholungen beibehalten.
@@ -162,6 +166,18 @@ Antworten werden 24 Stunden je Konto gespeichert.
 | Codes einlösen | 10/Min. |
 | Lerngruppen | Vorschau 30/Min.; Einladen 20 Aufrufe/Std. je Verwalter, je Gruppe und Tag max(20, 2 × Plätze) Einladungen |
 | Datenexport | 5/Std., Download 20/Min. |
+| Ausgelieferte Fragen | 2000 je Konto und Kalendertag (Europe/Berlin), siehe unten |
+
+**Tageslimit an Fragen** (`DAILY_LIMIT_REACHED`, HTTP 429): Gegen das
+Abgreifen des Fragenkatalogs zählt die API je Konto und Tag die
+ausgelieferten Fragen: `GET /courses/{id}/trainer/next` je Frage 1, ein neu
+gestartetes `POST /courses/{id}/exams` mit der Fragenzahl der Prüfung (das
+Fortsetzen einer laufenden Prüfung und `GET /exams/{id}` zählen nicht).
+Ist das Limit erreicht, antworten beide Endpunkte mit 429
+`DAILY_LIMIT_REACHED` und `Retry-After` bis Mitternacht (Europe/Berlin).
+Die App zeigt `detail` an („Ab Mitternacht geht es weiter.“) und versucht
+es nicht automatisch erneut. Betreiber: `MOBILE_API_DAILY_QUESTION_LIMIT`
+(Standard 2000, `0` = aus).
 
 ---
 
@@ -483,7 +499,11 @@ GET  /exams/{id}/result                 → Ergebnis mit Lösungen
 * `PUT /videos/{id}/progress` speichert den Fortschritt:
   * `position_seconds` (Wiedergabeposition) und `completed`.
   * Eine abgeschlossene Lektion bleibt abgeschlossen.
-* Platzhalter-Videos haben `media.kind = placeholder` und `url = null`.
+* Platzhalter-Videos („Video folgt“) haben `media.kind = placeholder`,
+  `media.available = false` und `url = null`. Sie lassen sich nicht
+  abschließen (`PUT …/progress` ergibt 409 `VIDEO_NOT_AVAILABLE`) und zählen
+  wie im Web nicht zum Videofortschritt. Die App zeigt statt des Players
+  einen Hinweis „Video folgt“.
 
 ## 10. Navigationstrainer, Codes, Datenexport
 
@@ -679,6 +699,7 @@ Der Lernstand ist derselbe wie im Web.
 | 409 | `EXAM_ALREADY_SUBMITTED` / `EXAM_NOT_SUBMITTED` | Ergebnis bzw. Prüfung laden |
 | 409 | `EXAM_NO_NAVIGATION_PART`, `EXAM_NAVIGATION_ALREADY_SUBMITTED`, `EXAM_NAVIGATION_NOT_SUBMITTED` | Phase neu laden / nachfragen |
 | 409 | `NAVIGATION_TASK_IN_EXAM` | erst Prüfung beenden (`exam_id` im Fehler) |
+| 409 | `VIDEO_NOT_AVAILABLE` | Platzhalter-Video („Video folgt“): nicht abschließbar, zur nächsten Lektion |
 | 409 | `GROUP_NOT_ACTIVE` | Lerngruppe abgelaufen oder gesperrt |
 | 409 | `GROUP_NO_CODES` | Beitritt: die Schule hat für einen Kurs der Gruppe, für den die Person keinen eigenen Vollzugang hat, keinen freien Kurscode → an Verwalter/Schule wenden |
 | 410 | `EXAM_EXPIRED` | Prüfung bzw. Ergebnis neu laden |
@@ -693,6 +714,7 @@ Der Lernstand ist derselbe wie im Web.
 | 422 | `GROUP_SCOPE_UNSUPPORTED` | Gruppenumfang nicht abbildbar → Support |
 | 426 | `APP_UPDATE_REQUIRED` | Update-Hinweis mit `store_url` |
 | 429 | `RATE_LIMITED` | `Retry-After` abwarten |
+| 429 | `DAILY_LIMIT_REACHED` | Tageslimit an Fragen erreicht: `detail` anzeigen, bis Mitternacht (`Retry-After`) nicht erneut versuchen |
 | 4xx | `REQUEST_FAILED` | sonstiger Fehler; `detail` anzeigen |
 | 503 | `MAINTENANCE` | Wartungshinweis (`detail`), `Retry-After` |
 | 5xx | `SERVER_ERROR` / `SERVICE_UNAVAILABLE` | später erneut; `request_id` an Support |

@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Models\PlatformSetting;
 use App\Models\Tenant;
+use App\Notifications\Concerns\AddsNoReplyHint;
 use App\Notifications\Concerns\EscapesMarkdown;
 use App\Notifications\Concerns\SentFromSchool;
 use App\Support\MailTemplates;
@@ -24,7 +25,7 @@ use Illuminate\Notifications\Notification;
  */
 class AccountInvitation extends Notification implements ShouldBeEncrypted, ShouldQueue
 {
-    use EscapesMarkdown, Queueable, SentFromSchool;
+    use AddsNoReplyHint, EscapesMarkdown, Queueable, SentFromSchool;
 
     public function __construct(private readonly ?Tenant $tenant, private readonly string $role, public readonly string $url)
     {
@@ -76,6 +77,12 @@ class AccountInvitation extends Notification implements ShouldBeEncrypted, Shoul
             ->action('Passwort festlegen', $this->url)
             ->line($expired);
 
-        return MailTemplates::apply($message, 'account_invitation', ['schule' => $school, 'rolle' => trim(str_replace('als ', '', $roleText))]);
+        $message = MailTemplates::apply($message, 'account_invitation', ['schule' => $school, 'rolle' => trim(str_replace('als ', '', $roleText))]);
+
+        return self::withNoReplyHint($message, match (true) {
+            in_array($this->role, ['owner', 'superadmin'], true) => 'platform',
+            $formal => 'team',
+            default => 'learner',
+        });
     }
 }

@@ -80,6 +80,10 @@ class BrandingController extends Controller
         $validated['label_size_a4'] = $request->boolean('label_size_a4');
         $validated['label_size_a5'] = $request->boolean('label_size_a5');
         $validated['label_size_a6'] = $request->boolean('label_size_a6');
+        // Ältere Formular-Submits ohne das Feld lassen den Schalter unverändert.
+        if ($request->has('self_registration_enabled')) {
+            $validated['self_registration_enabled'] = $request->boolean('self_registration_enabled');
+        }
 
         $before = $tenant->branding->toArray();
         unset($validated['logo'], $validated['favicon']);

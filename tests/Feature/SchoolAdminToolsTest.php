@@ -46,7 +46,7 @@ class SchoolAdminToolsTest extends TestCase
         $this->grantEntitlement($tenant, $anna, $src);
         $this->onAdmin(fn () => TenantUser::where('tenant_id', $tenant->id)->where('user_id', $bert->id)->update(['status' => 'suspended']));
 
-        // Die Admin-Seite rendert alle Tabs (z. B. Coupon-Zuweisung mit allen Teilnehmern): geprüft wird die gefilterte Liste selbst.
+        // Die Admin-Seite rendert alle Tabs (z. B. Zugangscode-Zuweisung mit allen Teilnehmern): geprüft wird die gefilterte Liste selbst.
         $names = fn (array $q) => $this->actingAsInTenant($admin, $tenant)->get('/admin?'.http_build_query(['tab' => 'participants'] + $q))
             ->assertOk()->viewData('participants')->getCollection()->map(fn ($m) => $m->user->display_name)->all();
         $this->assertSame(['Anna Segler'], $names(['p_search' => 'segler']));

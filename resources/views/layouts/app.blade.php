@@ -87,6 +87,7 @@
                     'verification-link-sent' => 'Ein neuer Bestätigungslink wurde an deine E-Mail-Adresse gesendet.',
                     default => session('status'),
                 })
+                @include('partials.registration-coupon-notice')
                 @if ($statusText)
                     <div role="status" class="mb-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 px-4 py-3 text-sm dark:bg-emerald-900/30 dark:border-emerald-800 dark:text-emerald-300">
                         {{ $statusText }}
@@ -110,7 +111,7 @@
                      globale Box zeigte danach $errors->all() komplett an,
                      auch Meldungen, die eine Seite bereits direkt neben
                      ihrem Feld anzeigt (z. B. <x-input-error> bei
-                     Adresse/Coupon-Zuweisung) -- jede so eingeleitete
+                     Adresse/Zugangscode-Zuweisung) -- jede so eingeleitete
                      Meldung erschien dadurch zweimal. $slot ist an dieser
                      Stelle bereits vollständig gerendert (Blade führt den
                      Inhalt zwischen <x-app-layout>...</x-app-layout> vor

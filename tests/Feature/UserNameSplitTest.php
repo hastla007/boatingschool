@@ -51,7 +51,7 @@ class UserNameSplitTest extends TestCase
         $tenant = $this->createTestTenant();
         $email = 'neuer-nutzer-'.uniqid().'@example.test';
 
-        $response = $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/register', [
+        $response = $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/register', [...$this->registrationFormFields(),
             'name' => 'Erika Musterfrau',
             'email' => $email,
             'password' => 'password1234',

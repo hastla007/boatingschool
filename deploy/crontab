@@ -6,3 +6,5 @@
 # (PHP fehlt, .env kaputt, Rechte) sind sonst unsichtbar. Die Datei wird mit
 # den übrigen Logs rotiert (logrotate, siehe deploy/README.md §5).
 * * * * * cd /var/www/boatingschool && php artisan schedule:run >> storage/logs/scheduler.log 2>&1
+# Modus releases (deploy.sh, DEPLOY_MODE=releases): über den Symlink current, z. B.
+# * * * * * cd /var/www/boatingschool/current && php artisan schedule:run >> storage/logs/scheduler.log 2>&1

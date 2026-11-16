@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\ContentQuestion;
 use App\Models\Entitlement;
+use App\Models\ExamSession;
+use App\Models\Favorite;
 use App\Models\PlatformAnnouncement;
 use App\Models\Progress;
 use App\Models\TenantAnnouncement;
@@ -49,7 +51,12 @@ class DashboardController extends Controller
         // (siehe dashboard.blade.php) -- daher hier je Kurs die vollen
         // Statistiken statt nur des einen "aktivsten" Kurses, den es vor
         // Einführung mehrerer Kurskarten gab.
-        $courseSummaries = $courses->map(function ($course) use ($progressStats, $videoProgressStats) {
+        // Leere Kachel „Favoriten & Fehler“ erkennen (Hinweis statt Kursname):
+        // keine Favoriten, keine falschen Antworten, keine Prüfungssimulation.
+        $favoriteQuestionIds = Favorite::where('tenant_id', $tenant->id)->where('user_id', $user->id)->pluck('question_id');
+        $examCourseIds = ExamSession::where('tenant_id', $tenant->id)->where('user_id', $user->id)->distinct()->pluck('course_id');
+
+        $courseSummaries = $courses->map(function ($course) use ($progressStats, $videoProgressStats, $favoriteQuestionIds, $examCourseIds) {
             // Bug-Review (Fortschritt zählt deaktivierte Fragen): eine
             // vom Superadmin deaktivierte Frage kann nie "gefestigt"
             // werden (siehe CourseProgressService::overallPercent, Bug-
@@ -67,7 +74,9 @@ class DashboardController extends Controller
             // Weiterlernen-Banner führt je nach Fortschritt zu einem anderen
             // nächsten Schritt: erst der Videokurs (falls vorhanden), dann der
             // Smarttrainer, ab hoher Mastery-Quote schließlich die Prüfungssimulation.
-            $videoLessons = VideoCourseLessons::ordered($course);
+            // Platzhalter („Video folgt“) lassen sich nicht abschließen und
+            // halten den Banner deshalb nicht beim Videokurs fest.
+            $videoLessons = VideoCourseLessons::countable(VideoCourseLessons::ordered($course));
             $videoComplete = $videoLessons->isEmpty()
                 || $videoLessons->every(fn ($lesson) => $videoProgressStats->has($lesson->id));
 
@@ -106,6 +115,9 @@ class DashboardController extends Controller
                 'attempts' => $courseProgress->sum('attempt_count'),
                 'banner_mode' => $bannerMode,
                 'video_started' => $videoLessons->contains(fn ($lesson) => $videoProgressStats->has($lesson->id)),
+                'favorites_empty' => $favoriteQuestionIds->intersect($questionIds)->isEmpty()
+                    && (int) $courseProgress->sum('incorrect_count') === 0
+                    && ! $examCourseIds->contains($course->id),
             ];
         });
 

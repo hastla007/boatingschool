@@ -9,6 +9,7 @@ use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Controller;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Services\NewLoginDeviceNotifier;
 use App\Support\BestEffortMail;
 use App\Support\LoginThrottle;
 use App\Support\TwoFactorCheck;
@@ -90,6 +91,8 @@ class AuthController extends Controller
             ]]);
         }
 
+        app(NewLoginDeviceNotifier::class)->handle($user, $request, $device['platform'] ?? '');
+
         return $this->issue($user, $device);
     }
 
@@ -123,6 +126,7 @@ class AuthController extends Controller
 
         RateLimiter::clear($limit);
         Cache::forget($cacheKey);
+        app(NewLoginDeviceNotifier::class)->handle($user, $request, $pending['device']['platform'] ?? '');
 
         return $this->issue($user, $pending['device']);
     }

@@ -216,7 +216,7 @@
                             <tr class="border-t border-slate-100 dark:border-slate-700">
                                 <td class="py-1.5">{{ $purchase->product->name }}</td>
                                 <td class="py-1.5 text-slate-500 dark:text-slate-400">{{ $purchase->tenant->name }}</td>
-                                <td class="py-1.5 text-slate-500 dark:text-slate-400">{{ $purchase->source_type === 'coupon' ? 'Coupon '.$purchase->source_reference : $purchase->source_type }}</td>
+                                <td class="py-1.5 text-slate-500 dark:text-slate-400">{{ $purchase->source_type === 'coupon' ? 'Zugangscode '.$purchase->source_reference : $purchase->source_type }}</td>
                                 <td class="py-1.5 text-slate-500 dark:text-slate-400">{{ \App\Support\GermanTime::format($purchase->created_at, 'd.m.Y H:i') }}</td>
                             </tr>
                         @empty

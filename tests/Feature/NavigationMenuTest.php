@@ -9,7 +9,7 @@ use Tests\TestCase;
  * "Bootsschul-Admin" und der Superadmin-Rücksprung ("Plattform-Verwaltung")
  * stehen bewusst im Konto-Dropdown ("<Name> ▾") statt in der primären
  * Nav-Leiste -- dort tauchen nur die für alle Lernenden relevanten Links
- * (Lernen, Kurse, Coupon-Code einlösen) auf.
+ * (Lernen, Kurse, Zugangscode einlösen) auf.
  */
 class NavigationMenuTest extends TestCase
 {
@@ -25,7 +25,7 @@ class NavigationMenuTest extends TestCase
         $response->assertOk();
         $response->assertSee('Bootsschul-Admin');
         // Die primäre Nav-Leiste enthält nur die drei allgemeinen Links.
-        $response->assertSeeInOrder(['Lernen', 'Kurse', 'Coupon-Code einlösen', $admin->name, 'Bootsschul-Admin']);
+        $response->assertSeeInOrder(['Lernen', 'Kurse', 'Zugangscode einlösen', $admin->name, 'Bootsschul-Admin']);
     }
 
     public function test_learner_never_sees_the_bootsschul_admin_link(): void

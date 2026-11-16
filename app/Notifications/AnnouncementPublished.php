@@ -4,9 +4,11 @@ namespace App\Notifications;
 
 use App\Models\Tenant;
 use App\Models\TenantAnnouncement;
+use App\Notifications\Concerns\AddsNoReplyHint;
 use App\Notifications\Concerns\EscapesMarkdown;
 use App\Notifications\Concerns\SentFromSchool;
 use App\Support\CanonicalUrl;
+use App\Support\MailPreferences;
 use App\Support\MailTemplates;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -20,7 +22,7 @@ use Illuminate\Notifications\Notification;
  */
 class AnnouncementPublished extends Notification implements ShouldQueue
 {
-    use EscapesMarkdown, Queueable, SentFromSchool;
+    use AddsNoReplyHint, EscapesMarkdown, Queueable, SentFromSchool;
 
     private readonly string $title;
 
@@ -37,7 +39,8 @@ class AnnouncementPublished extends Notification implements ShouldQueue
     /** @return array<int, string> */
     public function via(mixed $notifiable): array
     {
-        return ['mail'];
+        // Abbestellbar (§ 7 UWG): ohne Einwilligung keine Mail.
+        return MailPreferences::wants($notifiable, MailPreferences::ANNOUNCEMENTS) ? ['mail'] : [];
     }
 
     public function shouldSend(mixed $notifiable, string $channel): bool
@@ -56,6 +59,6 @@ class AnnouncementPublished extends Notification implements ShouldQueue
         }
         $message->action('Zur Lernplattform', CanonicalUrl::root($tenant).route('dashboard', [], false));
 
-        return MailTemplates::apply($message, 'announcement', ['schule' => $tenant->name, 'titel' => $this->title]);
+        return MailPreferences::addUnsubscribe(self::withNoReplyHint(MailTemplates::apply($message, 'announcement', ['schule' => $tenant->name, 'titel' => $this->title])), $notifiable, MailPreferences::ANNOUNCEMENTS, $tenant);
     }
 }

@@ -19,7 +19,7 @@ class GermanValidationMessagesTest extends TestCase
     {
         $tenant = $this->createTestTenant();
 
-        $response = $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/register', [
+        $response = $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/register', [...$this->registrationFormFields(),
             'name' => '',
             'email' => '',
             'password' => '',

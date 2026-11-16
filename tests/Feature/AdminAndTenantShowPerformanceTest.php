@@ -129,7 +129,7 @@ class AdminAndTenantShowPerformanceTest extends TestCase
 
         $expectedPercent = (int) round(1 / $questionIds->count() * 100);
 
-        $resultsSection = Str::between($response->getContent(), 'Kursergebnisse', 'Coupon-Codes');
+        $resultsSection = Str::between($response->getContent(), 'Kursergebnisse', 'Zugangscodes');
         $rowWithProgress = Str::between($resultsSection, $learnerWithProgress->name, '</tr>');
         $rowWithoutProgress = Str::between($resultsSection, $learnerWithoutProgress->name, '</tr>');
         $this->assertStringContainsString($expectedPercent.'%', $rowWithProgress);

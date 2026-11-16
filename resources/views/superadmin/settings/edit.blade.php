@@ -35,6 +35,19 @@
                 </div>
             </div>
 
+            {{-- Startwert der 2FA-Pflicht fürs Team neuer Schulen (TenantController::store, Shop-Freigabe). --}}
+            <div class="pt-2 border-t border-slate-100 dark:border-slate-700">
+                <label class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                    <input type="checkbox" name="new_tenant_requires_team_two_factor" value="1" @checked(old('new_tenant_requires_team_two_factor', $settings->new_tenant_requires_team_two_factor ?? true)) class="rounded border-slate-300">
+                    2FA-Pflicht für neue Schulen
+                </label>
+                <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">
+                    Gilt für Schulen, die ab jetzt angelegt werden (hier im Superadmin oder über die Freigabe einer Shop-Registrierung als neue Schule):
+                    Inhaber, Admins und Ausbilder müssen dann nach der Anmeldung eine Zwei-Faktor-Anmeldung einrichten, bevor sie den Admin-Bereich nutzen.
+                    Der Inhaber kann die Pflicht für seine Schule später im Team-Bereich aufheben. Bestehende Schulen bleiben unverändert.
+                </p>
+            </div>
+
             {{-- Impressum und Datenschutzerklärung für alle Bootsschulen (LegalPages). --}}
             <div class="pt-2 border-t border-slate-100 dark:border-slate-700 space-y-4">
                 <h2 class="font-semibold text-slate-800 dark:text-slate-100">Impressum und Datenschutzerklärung</h2>

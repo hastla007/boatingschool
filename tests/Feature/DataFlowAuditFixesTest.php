@@ -9,6 +9,7 @@ use App\Models\Coupon;
 use App\Models\PraxisExamAppointment;
 use App\Models\PraxisFormSubmission;
 use App\Models\PraxisFormTemplate;
+use App\Models\TenantInvitation;
 use App\Models\TenantUser;
 use App\Models\User;
 use App\Services\AccountErasureService;
@@ -247,7 +248,9 @@ class DataFlowAuditFixesTest extends TestCase
         $this->onAdmin(function () use ($coupon, $email) {
             $user = User::where('email', $email)->firstOrFail();
             $this->createdUserIds[] = $user->id;
-            $this->assertSame($user->id, Coupon::find($coupon->id)->redeemed_by_user_id);
+            // Bis zur Annahme an der Einladung reserviert (InvitationCoupon), in der gespeicherten Schreibweise.
+            $this->assertSame($coupon->code, TenantInvitation::where('email', $email)->value('coupon_code'));
+            $this->assertNull(Coupon::find($coupon->id)->redeemed_at);
         });
     }
 

@@ -5,16 +5,16 @@ namespace App\Http\Controllers\Superadmin;
 use App\Commerce\Outbox;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
-use App\Models\ContentQuestion;
 use App\Models\Coupon;
 use App\Models\Entitlement;
 use App\Models\LearningGroup;
-use App\Models\Progress;
+use App\Models\PlatformSetting;
 use App\Models\Tenant;
 use App\Models\TenantBranding;
 use App\Models\TenantUser;
 use App\Models\User;
 use App\Services\AccountSetupLink;
+use App\Services\CourseProgressService;
 use App\Services\TenantOffboardingService;
 use App\Support\BestEffortMail;
 use App\Support\EmailInput;
@@ -99,7 +99,9 @@ class TenantController extends Controller
             // Bug-Review Oberfläche U6: #00A8A8 erreichte mit weißer
             // Buttonschrift nur 2,9:1 Kontrast (WCAG AA verlangt 4,5:1) --
             // siehe TenantBranding::secondaryColorOrDefault().
-            TenantBranding::create(['tenant_id' => $tenant->id, 'primary_color' => '#005FD7', 'secondary_color' => '#007A7A']);
+            // 2FA-Pflicht fürs Team nach der Plattform-Einstellung „2FA-Pflicht für neue Schulen“.
+            TenantBranding::create(['tenant_id' => $tenant->id, 'primary_color' => '#005FD7', 'secondary_color' => '#007A7A',
+                'require_team_two_factor' => PlatformSetting::newTenantRequiresTeamTwoFactor()]);
 
             $admin = User::create([
                 'display_name' => trim($validated['admin_first_name'].' '.$validated['admin_last_name']),
@@ -171,51 +173,26 @@ class TenantController extends Controller
             ->paginate(20, ['*'], 'membership_page')
             ->withQueryString();
 
-        $entitlementsPage = Entitlement::where('tenant_id', $tenant->id)->with('user', 'course.modules.questions')
+        $entitlementsPage = Entitlement::where('tenant_id', $tenant->id)->with('user', 'course')
             ->orderByDesc('valid_from')
             ->paginate(20, ['*'], 'entitlement_page')
             ->withQueryString();
 
-        // Bug-Review Betrieb B6 (dasselbe Muster wie Superadmin\UserController::
-        // show(), Bug-Review P1): overallPercent() lief hier einmal PRO
-        // Freischaltung und lud dabei jedes Mal frisch sowohl die Modul-/
-        // Fragen-Relation des Kurses als auch die Progress-Tabelle nach --
-        // bei 500 Lernenden wurde /superadmin/tenants/{id} dadurch mit
-        // hunderten zusätzlichen Queries spürbar langsam. Kurs-Module/-Fragen
-        // werden deshalb direkt mit eager-geladen, Progress nur für die
-        // Nutzer der aktuellen Seite einmal geladen, und die Prozentzahl
-        // pro Freischaltung im Speicher berechnet -- exakt dieselbe Formel
-        // wie overallPercent().
-        $masteredProgress = Progress::where('tenant_id', $tenant->id)
-            ->whereIn('user_id', $entitlementsPage->pluck('user_id')->unique())
-            ->where('learning_state', 'gefestigt')
-            ->get(['user_id', 'question_id']);
-
-        // Bug-Review BB16 (Folgefehler): isCurrentlyValid() fragt pro Frage
-        // einmal die veröffentlichte Revision ab -- über viele Freischaltungen
-        // desselben Kurses hinweg summierte sich das wieder zu dem N+1, das
-        // Bug-Review Betrieb B6 oben bereits für active=false behoben hatte.
-        // Die gültigen IDs werden deshalb pro Kurs nur einmal (nicht pro
-        // Freischaltung) über ContentQuestion::currentlyValidIds() berechnet.
-        $validQuestionIdsByCourse = [];
-        $results = $entitlementsPage->getCollection()->map(function (Entitlement $entitlement) use ($masteredProgress, &$validQuestionIdsByCourse) {
-            // Bug-Review F7: siehe overallPercent() -- eine deaktivierte
-            // Frage zählt hier nie als gefestigt, aber weiter im Nenner mit.
-            // Bug-Review BB16: dieselbe Lücke bestand für valid_from/valid_to.
-            $questionIds = $validQuestionIdsByCourse[$entitlement->course_id] ??= ContentQuestion::currentlyValidIds(
-                $entitlement->course->modules->flatMap(fn ($m) => $m->questions)
-            );
-            $total = max($questionIds->count(), 1);
-            $mastered = $masteredProgress
-                ->where('user_id', $entitlement->user_id)
-                ->whereIn('question_id', $questionIds)
-                ->count();
-
-            return [
-                'entitlement' => $entitlement,
-                'percent' => (int) round($mastered / $total * 100),
-            ];
-        });
+        // Bug-Review Betrieb B6: overallPercent() lief hier früher einmal PRO
+        // Freischaltung (N+1). Der Fortschritt wird jetzt für alle
+        // Freischaltungen der aktuellen Seite gemeinsam in SQL gezählt
+        // (CourseProgressService::percentsByUserAndCourse(), dieselbe Formel
+        // wie overallPercent(), inkl. Bug-Review F7/BB16: nur aktuell
+        // gültige Fragen zählen).
+        $percents = app(CourseProgressService::class)->percentsByUserAndCourse(
+            $tenant,
+            $entitlementsPage->getCollection()->pluck('course')->filter(),
+            $entitlementsPage->getCollection()->pluck('user_id'),
+        );
+        $results = $entitlementsPage->getCollection()->map(fn (Entitlement $entitlement) => [
+            'entitlement' => $entitlement,
+            'percent' => $percents[$entitlement->user_id][$entitlement->course_id] ?? 0,
+        ]);
         $results = $entitlementsPage->setCollection($results);
 
         // Die Ansicht zeigt ohnehin nur die ersten 10 Codes (siehe

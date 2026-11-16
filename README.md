@@ -194,11 +194,15 @@ UBI 17/22, Ergänzung 8/10) nicht abbilden kann.
 php artisan serve
 ```
 
-Jede Bootsschule ist auch lokal unter ihrem Pfad erreichbar, z. B.
-`http://localhost:8000/mueller/`. Zusätzlich gibt es einen Dev-Override:
-`http://localhost:8000/login?as_tenant=mueller` (nur aktiv in
-`APP_ENV=local|testing`). Auf der zentralen Domain ohne gewählten Tenant
-erscheint ein einfacher Bootsschul-Picker.
+Jede Bootsschule ist auch lokal unter ihrem Pfad erreichbar. Zum Anmelden
+mit den Demo-Zugängen unten direkt die Anmeldeseite der Schule öffnen, z. B.
+`http://localhost:8000/mueller/login` -- danach geht es auf
+`http://localhost:8000/mueller/dashboard` weiter. Auf der zentralen Domain
+ohne gewählte Schule (z. B. `http://localhost:8000/login`) landet man nach
+der Anmeldung auf einem einfachen Bootsschul-Picker. Der Dev-Override
+`http://localhost:8000/login?as_tenant=mueller` wirkt nur mit
+`DEV_TENANT_OVERRIDE=true` in der `.env` (und `APP_ENV=local|testing`,
+Aufruf von localhost); ohne diesen Schalter führt auch er auf den Picker.
 
 ### Demo-Zugänge
 
@@ -349,8 +353,13 @@ verifiziert markiert – SBF See und Binnen (Motor/Segeln), die Ergänzungen
 See ↔ Binnen, Binnen Segeln, SRC, UBI, UBI-Ergänzung, FKN und SKN (siehe
 `ExamRuleSetSeeder`; SRC 24/19/30 Min., UBI 22/17/60 Min., UBI-Ergänzung
 10/8/30 Min., festgehalten in `FunkExamRulesConfirmedTest`). Jede Frage
-zählt richtig oder falsch, ohne Teilpunkte. Noch offen ist nur die
+zählt richtig oder falsch, ohne Teilpunkte. Noch offen sind die
 Ergänzung FKN → SKN (`ADD-FKN-TO-SKN`, Entwurf; dafür lässt sich keine
-Prüfung starten). Die Kombikurse SBF See & Binnen und SRC & UBI haben kein
+Prüfung starten) sowie zwei weitere Ergänzungen laut ELWIS, die angelegt,
+aber plattformweit abgeschaltet sind: See → Binnen unter Segel
+(`ADD-SEE-TO-BIN-SEGEL`, 35 Min., angenommen Binnen 18/23 und Segeln 5/7)
+und Binnen Motor bei Segelschein vor dem 1. Mai 2012 (`ADD-BIN-MOTOR-2012`,
+15 Min., Fragenmix und Bestehensgrenze noch unbekannt). Ihre Regelwerke sind
+Entwürfe; freischalten im Superadmin, sobald sie geprüft sind. Die Kombikurse SBF See & Binnen und SRC & UBI haben kein
 eigenes Regelwerk: jeder ihrer Bögen läuft nach dem Regelwerk seiner
 Teilprüfung.

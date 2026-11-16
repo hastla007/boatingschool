@@ -34,6 +34,9 @@ Artisan::command('inspire', function () {
 Schedule::command('app:prune-personal-data')->daily()->onOneServer()->withoutOverlapping(180);
 // Review-Runde 13: Exportdateien der App (personenbezogen) nicht bis zum
 // nächsten Tageslauf liegen lassen.
+// Löschfrist für inaktive Lernende (nur mit DATA_RETENTION_INACTIVE_LEARNER_MONTHS):
+// Vorwarnung per Mail, Löschung frühestens 30 Tage danach.
+Schedule::command('app:prune-inactive-learners')->dailyAt('05:10')->timezone('Europe/Berlin')->onOneServer()->withoutOverlapping(180);
 Schedule::command('app:prune-personal-data --mobile-api-only')->hourly()->onOneServer()->withoutOverlapping(55);
 
 // Shop-Anbindung: Ausgang App -> Shop (Shopkonten neuer Schulen), mit Wiederholung.
@@ -60,6 +63,11 @@ Schedule::command('app:backup')->dailyAt('03:15')->timezone('Europe/Berlin')->on
     ->onFailure(OpsAlert::forTask('Datensicherung (app:backup)'))
     // Optionaler Totmann-Ping je erfolgreicher Sicherung (OPS_BACKUP_HEARTBEAT_URL).
     ->pingOnSuccessIf(filled(config('backup.heartbeat_url')), (string) config('backup.heartbeat_url'));
+// Monatlich: neueste Sicherung probeweise in eine temporäre Datenbank
+// zurückspielen (Owner-Rolle braucht CREATEDB, siehe deploy/README.md).
+Schedule::command('app:backup:verify')->monthlyOn(2, '04:40')->timezone('Europe/Berlin')->onOneServer()->withoutOverlapping(180)
+    ->runInBackground()
+    ->onFailure(OpsAlert::forTask('Prüfung der Datensicherung (app:backup:verify)'));
 
 // Go-live-Check täglich: Fehler (z. B. Scheduler steht, Sicherung fehlt,
 // Platzhalter) per Mail an OPS_ALERT_EMAIL bzw. die Support-Adresse.

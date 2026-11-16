@@ -74,11 +74,12 @@
                             </td>
                         </tr>
                     @endforeach
+                    {{-- Kein Konto-Orakel: neue Adressen und Bestandskonten erscheinen bis zur Annahme gleich. --}}
                     @foreach ($pendingTeamInvitations as $invitation)
                         <tr class="border-t border-slate-100 dark:border-slate-700 text-slate-500 dark:text-slate-400">
-                            <td class="py-2 pr-4">{{ $invitation->name ?: \Illuminate\Support\Str::before($invitation->email, '@') }} <span class="ml-1 text-xs rounded-full px-1.5 py-0.5 bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">Einladung offen</span></td>
-                            <td class="py-2 pr-4">{{ $invitation->email }}</td>
-                            <td class="py-2 pr-4">{{ \App\Support\StatusLabels::tenantRole($invitation->role) }}</td>
+                            <td class="py-2 pr-4">{{ $invitation['name'] }} <span class="ml-1 text-xs rounded-full px-1.5 py-0.5 bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">Einladung offen</span></td>
+                            <td class="py-2 pr-4">{{ $invitation['email'] }}</td>
+                            <td class="py-2 pr-4">{{ \App\Support\StatusLabels::tenantRole($invitation['role']) }}</td>
                             <td class="py-2 text-xs">wartet auf Bestätigung</td>
                         </tr>
                     @endforeach
@@ -180,11 +181,11 @@
                 <span x-show="showCode" @unless ($errors->has('code')) style="display: none" @endunless>&minus; Code ausblenden</span>
             </button>
             <div x-show="showCode" @unless ($errors->has('code')) style="display: none" @endunless class="mt-2">
-                <label for="invite_code" class="sr-only">Coupon-Code</label>
+                <label for="invite_code" class="sr-only">Zugangscode</label>
                 <input type="text" id="invite_code" name="code" value="{{ old('code') }}" placeholder="XXXX-XXXX-XXXX-XXXX" class="w-full sm:w-64 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm font-mono">
                 <x-input-error :messages="$errors->get('code')" class="mt-1" />
                 <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                    Ein eigener Code (Kurs oder Produkt) wird dem Teilnehmer direkt bei der Einladung zugewiesen und eingelöst.
+                    Ein eigener Code (Kurs oder Produkt) wird dem Teilnehmer bei der Einladung zugewiesen und spätestens beim Annehmen der Einladung eingelöst.
                 </p>
             </div>
         </div>
@@ -205,6 +206,44 @@
         <button type="submit" class="px-4 py-2 rounded-lg text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">Alle einladen</button>
     </form>
 </details>
+@endif
+
+{{-- Kein Konto-Orakel: neue Adressen und Adressen mit bestehendem Konto
+     erscheinen bis zur Annahme gleich (siehe ParticipantFilters::withoutOpenInvitations). --}}
+@if ($openInvitations->isNotEmpty())
+<div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 mb-6">
+    <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-2">Offene Einladungen ({{ $openInvitations->count() }})</h3>
+    <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+        <thead class="text-slate-500 dark:text-slate-300 text-left">
+            <tr>
+                <th class="py-1 pr-4">Name</th>
+                <th class="py-1 pr-4">E-Mail</th>
+                <th class="py-1 pr-4">Eingeladen am</th>
+                <th class="py-1"></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach ($openInvitations as $openInvitation)
+                <tr class="border-t border-slate-100 dark:border-slate-700">
+                    <td class="py-2 pr-4 text-slate-700 dark:text-slate-200">{{ $openInvitation['name'] }}</td>
+                    <td class="py-2 pr-4 text-slate-500 dark:text-slate-400">{{ $openInvitation['email'] }}</td>
+                    <td class="py-2 pr-4 text-slate-500 dark:text-slate-400">{{ $openInvitation['invited_at']?->timezone('Europe/Berlin')->format('d.m.Y') }}</td>
+                    <td class="py-2">
+                        <form method="POST" action="{{ route('admin.participants.invite') }}" class="flex items-center gap-2 text-xs">
+                            @csrf
+                            <input type="hidden" name="name" value="{{ $openInvitation['name'] }}">
+                            <input type="hidden" name="email" value="{{ $openInvitation['email'] }}">
+                            <span class="rounded-full px-2 py-0.5 bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">Einladung offen</span>
+                            <button type="submit" class="underline text-slate-600 dark:text-slate-300">Einladung erneut senden</button>
+                        </form>
+                    </td>
+                </tr>
+            @endforeach
+        </tbody>
+    </table>
+    </div>
+</div>
 @endif
 
 <form method="GET" action="{{ route('admin.dashboard') }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 mb-3 flex flex-wrap items-end gap-2">
@@ -242,12 +281,16 @@
         @endif
     </div>
 </form>
-<p class="text-xs text-slate-600 dark:text-slate-400 mb-2">{{ $participants->total() + count($pendingLearnerInvitations ?? []) }} Teilnehmer{{ \App\Support\ParticipantFilters::active($participantFilters) ? ' gefunden' : '' }}</p>
+<p class="text-xs text-slate-600 dark:text-slate-400 mb-2">{{ $participants->total() }} Teilnehmer{{ \App\Support\ParticipantFilters::active($participantFilters) ? ' gefunden' : '' }}</p>
 
+{{-- Unter sm (Handy) wird jede Tabellenzeile per CSS zur Karte (Name, E-Mail,
+     Kurse als umbrechende Badges, Status, Aktionen); ab sm die gewohnte Tabelle.
+     Bewusst dasselbe Markup statt einer zweiten Kartenliste: jedes Formular
+     gibt es nur einmal. --}}
 <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden">
     <div class="overflow-x-auto">
-    <table class="w-full text-sm">
-        <thead class="bg-slate-50 dark:bg-slate-700 text-slate-500 dark:text-slate-300 text-left">
+    <table class="w-full text-sm block sm:table">
+        <thead class="hidden sm:table-header-group bg-slate-50 dark:bg-slate-700 text-slate-500 dark:text-slate-300 text-left">
             <tr>
                 <th class="px-4 py-2">Name</th>
                 <th class="px-4 py-2">E-Mail</th>
@@ -264,39 +307,10 @@
                 @endif
             </tr>
         </thead>
-        <tbody>
-            {{-- Audit SEC-W-3: offene Einladungen an schon bestehende Konten
-                 genauso wie neu angelegte, noch nicht angemeldete Teilnehmer. --}}
-            @foreach ($pendingLearnerInvitations ?? [] as $invitation)
-                @php($invitationName = $invitation->name ?: \Illuminate\Support\Str::before($invitation->email, '@'))
-                <tr class="border-t border-slate-100 dark:border-slate-700">
-                    <td class="px-4 py-2">
-                        <div class="flex items-center gap-2">
-                            <div class="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-semibold shrink-0" style="background-color: var(--brand-primary, #005FD7)">
-                                {{ mb_strtoupper(mb_substr($invitationName, 0, 1)) }}
-                            </div>
-                            <span class="text-slate-700 dark:text-slate-200">{{ $invitationName }}</span>
-                        </div>
-                        <form method="POST" action="{{ route('admin.participants.invite') }}" class="mt-1 ml-9 flex items-center gap-2 text-xs">
-                            @csrf
-                            <input type="hidden" name="name" value="{{ $invitationName }}">
-                            <input type="hidden" name="email" value="{{ $invitation->email }}">
-                            <span class="rounded-full px-2 py-0.5 bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">Einladung offen</span>
-                            <button type="submit" class="underline text-slate-600 dark:text-slate-300">Einladung erneut senden</button>
-                        </form>
-                    </td>
-                    <td class="px-4 py-2 text-slate-500 dark:text-slate-400">{{ $invitation->email }}</td>
-                    <td class="px-4 py-2 text-slate-500 dark:text-slate-400"><span class="text-slate-600 dark:text-slate-400">keine</span></td>
-                    <td class="px-4 py-2 text-slate-500 dark:text-slate-400"><span class="text-slate-600 dark:text-slate-400">keine</span></td>
-                    @if ($canManageTenant)
-                        <td class="px-4 py-2"><span class="text-slate-600 dark:text-slate-400 text-xs">nach Annahme der Einladung</span></td>
-                        <td class="px-4 py-2"><span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">eingeladen</span></td>
-                    @endif
-                </tr>
-            @endforeach
+        <tbody class="block sm:table-row-group">
             @foreach ($participants as $membership)
-                <tr class="border-t border-slate-100 dark:border-slate-700">
-                    <td class="px-4 py-2">
+                <tr class="block sm:table-row border-t first:border-t-0 sm:first:border-t border-slate-100 dark:border-slate-700 px-4 py-3 sm:p-0">
+                    <td class="block sm:table-cell sm:px-4 sm:py-2">
                         <a href="{{ route('admin.participants.show', $membership->user_id) }}" class="flex items-center gap-2 hover:underline">
                             <div class="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-semibold shrink-0" style="background-color: var(--brand-primary, #005FD7)">
                                 {{-- Bug-Review B28: mb_substr/mb_strtoupper statt
@@ -308,19 +322,10 @@
                             </div>
                             <span class="text-slate-700 dark:text-slate-200">{{ $membership->user->name }}</span>
                         </a>
-                        @if ($membership->user->status === 'invited')
-                            {{-- Noch nie angemeldet: Link zum Passwort-Festlegen erneut schicken. --}}
-                            <form method="POST" action="{{ route('admin.participants.invite') }}" class="mt-1 ml-9 flex items-center gap-2 text-xs">
-                                @csrf
-                                <input type="hidden" name="name" value="{{ $membership->user->name }}">
-                                <input type="hidden" name="email" value="{{ $membership->user->email }}">
-                                <span class="rounded-full px-2 py-0.5 bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200">Einladung offen</span>
-                                <button type="submit" class="underline text-slate-600 dark:text-slate-300">Einladung erneut senden</button>
-                            </form>
-                        @endif
                     </td>
-                    <td class="px-4 py-2 text-slate-500 dark:text-slate-400">{{ $membership->user->email }}</td>
-                    <td class="px-4 py-2 text-slate-500 dark:text-slate-400">
+                    <td class="block sm:table-cell pl-9 sm:px-4 sm:py-2 text-slate-500 dark:text-slate-400 break-all sm:break-normal">{{ $membership->user->email }}</td>
+                    <td class="block sm:table-cell pt-2 sm:px-4 sm:py-2 text-slate-500 dark:text-slate-400">
+                        <span class="sm:hidden block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">Kurse</span>
                         @forelse ($membership->user->entitlements as $entitlement)
                             <span class="inline-block px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-xs mb-1">
                                 {{ $entitlement->course->name }} ({{ \App\Support\StatusLabels::entitlementStatus($entitlement->status) }})
@@ -329,7 +334,8 @@
                             <span class="text-slate-600 dark:text-slate-400">keine</span>
                         @endforelse
                     </td>
-                    <td class="px-4 py-2 text-slate-500 dark:text-slate-400">
+                    <td class="block sm:table-cell pt-1 sm:px-4 sm:py-2 text-slate-500 dark:text-slate-400">
+                        <span class="sm:hidden block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">Produkte</span>
                         @forelse ($productPurchases->get($membership->user_id, collect()) as $purchase)
                             <span class="inline-block px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-xs mb-1">
                                 {{ $purchase->product->name }}
@@ -339,7 +345,8 @@
                         @endforelse
                     </td>
                     @if ($canManageTenant)
-                    <td class="px-4 py-2">
+                    <td class="block sm:table-cell pt-2 sm:px-4 sm:py-2">
+                        <span class="sm:hidden block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">Kurs freischalten <span class="font-normal">(verbraucht einen eigenen Code)</span></span>
                         {{-- Review: abgelaufene Zugänge (auch gesperrt und inzwischen abgelaufen) lassen sich hier neu freischalten; aktive, widerrufene und gesperrte mit Restlaufzeit haben eigene Aktionen. QA-L-1: ein Teilzugang (capabilities) zählt nicht als gebucht. --}}
                         @php($bookedCourseIds = $membership->user->entitlements->filter(fn ($e) => $e->status === 'revoked' || ($e->capabilities === null && in_array($e->status, ['active', 'suspended'], true) && ($e->valid_until === null || $e->valid_until->isFuture())))->pluck('course_id')->all())
                         {{-- Nur Kurse, die die Schule anbietet. --}}
@@ -348,7 +355,7 @@
                             <form method="POST" action="{{ route('admin.entitlements.store') }}" class="flex gap-1">
                                 @csrf
                                 <input type="hidden" name="user_id" value="{{ $membership->user_id }}">
-                                <select name="course_id" aria-label="Kurs für {{ $membership->user->name }} freischalten" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs">
+                                <select name="course_id" aria-label="Kurs für {{ $membership->user->name }} freischalten" class="min-w-0 flex-1 sm:flex-none rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs">
                                     @foreach ($unbookedCourses as $course)
                                         @php($freeCount = $freeCourseCouponCounts->get($course->id, 0))
                                         <option value="{{ $course->id }}" @disabled($freeCount < 1) @class(['text-slate-600 dark:text-slate-400' => $freeCount < 1])>
@@ -364,7 +371,8 @@
                     </td>
                     @endif
                     @if ($canManageTenant)
-                        <td class="px-4 py-2">
+                        <td class="block sm:table-cell pt-2 sm:px-4 sm:py-2">
+                            <span class="sm:hidden block text-xs font-medium text-slate-600 dark:text-slate-300 mb-1">Status</span>
                             @if ($membership->user_id === auth()->id())
                                 {{-- Bug-Review (Du/Sie im Admin-Bereich gemischt): der restliche
                                      Admin-Bereich siezt durchgehend. --}}

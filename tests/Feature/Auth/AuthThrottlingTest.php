@@ -19,7 +19,7 @@ class AuthThrottlingTest extends TestCase
         $tenant = $this->createTestTenant();
 
         for ($i = 0; $i < 10; $i++) {
-            $response = $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/register', [
+            $response = $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/register', [...$this->registrationFormFields(),
                 'name' => 'Test',
                 'email' => 'nope-'.$i.'@example.test',
                 'password' => 'short',
@@ -28,7 +28,7 @@ class AuthThrottlingTest extends TestCase
             $this->assertNotEquals(429, $response->status());
         }
 
-        $response = $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/register', [
+        $response = $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/register', [...$this->registrationFormFields(),
             'name' => 'Test',
             'email' => 'one-more@example.test',
             'password' => 'short',

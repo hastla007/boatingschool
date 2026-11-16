@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Coupon;
+use App\Models\CouponBatch;
 use App\Models\Entitlement;
 use App\Notifications\CouponRedeemed;
 use App\Notifications\EntitlementExpiringSoon;
@@ -11,7 +12,7 @@ use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
 /**
- * Bestätigungsmail beim Einlösen, Coupon-Codes sperren bzw. mit
+ * Bestätigungsmail beim Einlösen, Zugangscodes sperren bzw. mit
  * Ablaufdatum, Vorwarnung vor dem Ablauf eines Kurszugangs.
  */
 class CouponAndExpiryNoticesTest extends TestCase
@@ -22,7 +23,11 @@ class CouponAndExpiryNoticesTest extends TestCase
 
     protected function tearDown(): void
     {
-        $this->onAdmin(fn () => Coupon::whereIn('code', $this->codes)->delete());
+        $this->onAdmin(function () {
+            $batchIds = Coupon::whereIn('code', $this->codes)->whereNotNull('batch_id')->pluck('batch_id');
+            Coupon::whereIn('code', $this->codes)->delete();
+            CouponBatch::withoutGlobalScopes()->whereIn('id', $batchIds)->delete();
+        });
         $this->cleanUpCreatedTenantsAndUsers();
         parent::tearDown();
     }

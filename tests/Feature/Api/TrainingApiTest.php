@@ -8,6 +8,7 @@ use App\Models\NavigationTask;
 use App\Models\PraxisProgress;
 use App\Models\PraxisTask;
 use App\Models\RadioTrainingProgress;
+use App\Models\VideoLesson;
 use App\Support\ExamRegistration;
 use App\Support\FunkTraining;
 use Illuminate\Support\Str;
@@ -115,9 +116,15 @@ class TrainingApiTest extends MobileApiTestCase
         $course = $this->existingCourse('SBF-SEE');
         $this->grantEntitlement($tenant, $user, $course);
         $token = $this->apiLogin($user);
+        // Die mitgelieferten Videos sind Platzhalter (nicht abschließbar, zählen
+        // nicht mit): für diesen Test zwei Lektionen mit echtem Video.
+        $lessons = $this->onAdmin(fn () => VideoLesson::whereHas('module', fn ($q) => $q->where('course_id', $course->id))
+            ->orderBy('video_module_id')->orderBy('sort_order')->limit(2)->get());
+        $this->onAdmin(fn () => VideoLesson::whereIn('id', $lessons->pluck('id'))->update(['video_url' => 'https://videos.example.test/lektion.mp4']));
+        $this->beforeApplicationDestroyed(fn () => $this->onAdmin(fn () => VideoLesson::whereIn('id', $lessons->pluck('id'))->update(['video_url' => VideoLesson::PLACEHOLDER_URL])));
 
         $list = $this->api('GET', "/courses/{$course->id}/videos", $token, $tenant)->assertOk();
-        $first = $list->json('data.0.lessons.0.id');
+        $first = $list->json('meta.next_lesson_id');
         $this->assertSame($course->id, $list->json('meta.course_id'));
         $this->assertSame(0, $list->json('meta.completed'));
         $this->assertSame($first, $list->json('meta.next_lesson_id'));

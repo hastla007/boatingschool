@@ -3,7 +3,7 @@
      Absatz nutzte bisher als einzige Stelle hier die informelle
      ihr-Form. --}}
 <p class="text-slate-500 dark:text-slate-400 mb-6">
-    Eigene Coupon-Codes bekommen Sie auf drei Wegen: Bestellungen im verknüpften Shop werden automatisch
+    Eigene Zugangscodes bekommen Sie auf drei Wegen: Bestellungen im verknüpften Shop werden automatisch
     gutgeschrieben, der Plattform-Betreiber teilt Ihnen welche zu, oder Sie übernehmen anderswo gekaufte Codes per
     Import in Ihren Bestand.
 </p>
@@ -20,7 +20,7 @@
         <form method="POST" action="{{ route('admin.coupons.import') }}" class="space-y-3">
             @csrf
             <div>
-                <label for="codes" class="sr-only">Coupon-Codes</label>
+                <label for="codes" class="sr-only">Zugangscodes</label>
                 <textarea id="codes" name="codes" rows="4" required placeholder="XXXX-XXXX-XXXX-XXXX" class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm font-mono">{{ old('codes') }}</textarea>
                 <x-input-error :messages="$errors->get('codes')" class="mt-2" />
             </div>
@@ -51,7 +51,10 @@
                         <td class="px-4 py-2 text-slate-500 dark:text-slate-400">{{ $row->used }}</td>
                     </tr>
                 @empty
-                    <tr><td colspan="3" class="px-4 py-3 text-slate-500 dark:text-slate-400">Noch keine eigenen Codes vorhanden.</td></tr>
+                    <tr><td colspan="3" class="px-4 py-3 text-slate-500 dark:text-slate-400">
+                        Noch keine eigenen Codes vorhanden.
+                        <span class="block text-xs mt-1">Importieren Sie gekaufte Codes über „Codes importieren“ oder bestellen Sie Codes im verknüpften Shop – sie erscheinen dann hier.</span>
+                    </td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -140,7 +143,16 @@
                         <td class="px-4 py-2 text-slate-500 dark:text-slate-400">{{ \App\Support\GermanTime::format($batch->created_at, 'd.m.Y') }}</td>
                     </tr>
                 @empty
-                    <tr><td colspan="4" class="px-4 py-3 text-slate-500 dark:text-slate-400">Noch keine Bestellungen aus dem Shop.</td></tr>
+                    <tr><td colspan="4" class="px-4 py-3 text-slate-500 dark:text-slate-400">
+                        Noch keine Bestellungen aus dem Shop.
+                        <span class="block text-xs mt-1">
+                            @if ($shopAccounts->isEmpty())
+                                Verknüpfen Sie zuerst Ihr Shopkonto („Verknüpfungscode erzeugen“) – Bestellungen und ihre Codes erscheinen danach automatisch hier.
+                            @else
+                                Sobald Sie im verknüpften Shop Codes bestellen, erscheinen die Bestellungen nach der Zahlung hier.
+                            @endif
+                        </span>
+                    </td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -215,7 +227,9 @@
                     </td>
                     <td class="px-4 py-2 text-slate-600 dark:text-slate-300">{{ $coupon->redeemableName() }}</td>
                     <td class="px-4 py-2">
-                        @if ($coupon->isUsable())
+                        @if ($coupon->isUsable() && isset($reservedCouponCodes[$coupon->code]))
+                            <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200" title="Wird eingelöst, sobald die eingeladene Person die Einladung annimmt.">reserviert für Einladung</span>
+                        @elseif ($coupon->isUsable())
                             <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">offen{{ $coupon->expires_at ? ' · bis '.\App\Support\GermanTime::format($coupon->expires_at, 'd.m.Y') : '' }}</span>
                         @else
                             <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full {{ $coupon->isRedeemed() ? 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400' : 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-200' }}">{{ $coupon->statusLabel() }}</span>
@@ -224,10 +238,10 @@
                     <td class="px-4 py-2 text-slate-500 dark:text-slate-400">{{ $coupon->redeemedBy?->name ?? '—' }}</td>
                     <td class="px-4 py-2 text-slate-500 dark:text-slate-400 text-xs">{{ \App\Support\GermanTime::format($coupon->redeemed_at, 'd.m.Y H:i') ?? '—' }}</td>
                     <td class="px-4 py-2">
-                        @if ($coupon->isUsable() && $coupon->tenant_id === $tenant->id)
+                        @if ($coupon->isUsable() && $coupon->tenant_id === $tenant->id && ! isset($reservedCouponCodes[$coupon->code]))
                             <form method="POST" action="{{ route('admin.coupons.assign', $coupon) }}" class="flex gap-1">
                                 @csrf
-                                <select name="user_id" required aria-label="Nutzer für Coupon {{ $coupon->code }} wählen" class="js-coupon-assign-select rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs">
+                                <select name="user_id" required aria-label="Nutzer für Zugangscode {{ $coupon->code }} wählen" class="js-coupon-assign-select rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs">
                                     <option value="">Teilnehmer wählen…</option>
                                 </select>
                                 <button type="submit" class="px-3 py-1 rounded-lg bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition text-xs whitespace-nowrap">Zuweisen</button>
@@ -243,6 +257,7 @@
                         Keine Codes gefunden, die zu diesem Filter passen.
                     @else
                         Noch keine Codes für diese Bootsschule.
+                        <span class="block text-xs mt-1">Importieren Sie vorhandene Codes über „Codes importieren“ oder bestellen Sie neue im verknüpften Shop. Codes, die Ihnen der Plattform-Betreiber zuteilt, erscheinen hier automatisch.</span>
                     @endif
                 </td></tr>
             @endforelse

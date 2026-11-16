@@ -3,9 +3,11 @@
 namespace App\Notifications;
 
 use App\Models\Tenant;
+use App\Notifications\Concerns\AddsNoReplyHint;
 use App\Notifications\Concerns\EscapesMarkdown;
 use App\Notifications\Concerns\SentFromSchool;
 use App\Support\CanonicalUrl;
+use App\Support\MailPreferences;
 use App\Support\MailTemplates;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -19,7 +21,7 @@ use Illuminate\Notifications\Notification;
  */
 class LearningReminder extends Notification implements ShouldQueue
 {
-    use EscapesMarkdown, Queueable, SentFromSchool;
+    use AddsNoReplyHint, EscapesMarkdown, Queueable, SentFromSchool;
 
     public function __construct(Tenant $tenant, private readonly ?int $days)
     {
@@ -30,7 +32,8 @@ class LearningReminder extends Notification implements ShouldQueue
     /** @return array<int, string> */
     public function via(mixed $notifiable): array
     {
-        return ['mail'];
+        // Abbestellbar (§ 7 UWG): ohne Einwilligung keine Mail.
+        return MailPreferences::wants($notifiable, MailPreferences::LEARNING_REMINDERS) ? ['mail'] : [];
     }
 
     public function shouldSend(mixed $notifiable, string $channel): bool
@@ -50,6 +53,6 @@ class LearningReminder extends Notification implements ShouldQueue
             // Review-Runde 12: kein eigener Gruß mehr -- die Unterschrift der Mail nennt die Schule.
             ->action('Weiterlernen', CanonicalUrl::root($tenant).route('dashboard', [], false));
 
-        return MailTemplates::apply($message, 'learning_reminder', ['schule' => $school, 'tage' => $this->days ? (string) $this->days : '']);
+        return MailPreferences::addUnsubscribe(self::withNoReplyHint(MailTemplates::apply($message, 'learning_reminder', ['schule' => $school, 'tage' => $this->days ? (string) $this->days : ''])), $notifiable, MailPreferences::LEARNING_REMINDERS, $tenant);
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\PraxisExamAppointment;
+use App\Notifications\Concerns\AddsNoReplyHint;
 use App\Notifications\Concerns\EscapesMarkdown;
 use App\Support\MailTemplates;
 use Illuminate\Bus\Queueable;
@@ -19,7 +20,7 @@ use Illuminate\Notifications\Notification;
 class PraxisExamAppointmentUpdated extends Notification
 {
     // Review: Termin-Bezeichnung kommt von der Schule -- kein Markdown-Link in der Mail.
-    use EscapesMarkdown, Queueable;
+    use AddsNoReplyHint, EscapesMarkdown, Queueable;
 
     /** @param  'proposed'|'withdrawn'|'cancelled'  $action */
     public function __construct(
@@ -58,6 +59,6 @@ class PraxisExamAppointmentUpdated extends Notification
         $subject = $message->subject;
         MailTemplates::apply($message, 'praxis_appointment', ['termin' => $this->appointment->label]);
 
-        return $this->action === 'proposed' ? $message : $message->subject($subject);
+        return self::withNoReplyHint($this->action === 'proposed' ? $message : $message->subject($subject));
     }
 }

@@ -121,6 +121,7 @@ class ProfileController extends Controller
             'user' => $user,
             'membership' => $membership,
             'bookings' => $bookings,
+            'hasProducts' => $productPurchases->isNotEmpty(),
         ]);
     }
 

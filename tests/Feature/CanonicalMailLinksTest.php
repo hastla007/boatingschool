@@ -71,7 +71,7 @@ class CanonicalMailLinksTest extends TestCase
         RateLimiter::clear('registration-mail:'.sha1(strtolower($existing->email)));
 
         foreach (range(1, 5) as $i) {
-            $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/register', [
+            $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/register', [...$this->registrationFormFields(),
                 'name' => 'x', 'email' => $existing->email, 'password' => 'password1234', 'password_confirmation' => 'password1234',
             ])->assertRedirect();
         }

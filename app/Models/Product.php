@@ -14,11 +14,17 @@ class Product extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['code', 'name', 'active'];
+    protected $fillable = ['code', 'name', 'active', 'sellable_standalone'];
 
     protected function casts(): array
     {
-        return ['active' => 'boolean'];
+        return ['active' => 'boolean', 'sellable_standalone' => 'boolean'];
+    }
+
+    /** Allein (als Produktcode) im Shop verkäuflich; als Zusatzprodukt geht jedes aktive Produkt. */
+    public function scopeSellableStandalone($query)
+    {
+        return $query->where('active', true)->where('sellable_standalone', true);
     }
 
     public function coupons(): HasMany

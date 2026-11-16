@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Coupon;
 use App\Models\TenantUser;
 use App\Services\CouponRedemptionService;
+use App\Services\InvitationCoupon;
 use App\Support\TenantContext;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
@@ -13,7 +14,7 @@ use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Zwei Wege, wie eine Bootsschule an Coupon-Codes für ihre eigenen
+ * Zwei Wege, wie eine Bootsschule an Zugangscodes für ihre eigenen
  * angebotenen Kurse/Produkte kommt: der Superadmin teilt direkt welche zu
  * (Superadmin\CouponController::store mit tenant_id), oder die Bootsschule
  * übernimmt selbst Codes in ihren Bestand (import()), die vorher im System
@@ -123,6 +124,11 @@ class CouponController extends Controller
         $validated = $request->validate([
             'user_id' => ['required', 'uuid'],
         ]);
+
+        // Für eine offene Einladung reserviert: wird beim Annehmen eingelöst.
+        if (InvitationCoupon::reservedCodes($tenant, [$coupon->code]) !== []) {
+            return back()->withErrors(['assign' => 'Dieser Code ist für eine offene Einladung reserviert und wird eingelöst, sobald die Person sie annimmt.']);
+        }
 
         $membership = TenantUser::where('user_id', $validated['user_id'])->first();
 

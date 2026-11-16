@@ -196,7 +196,7 @@ class AuthHardeningAuditTest extends TestCase
         $page = $this->actingAsInTenant($owner, $tenant)->get('/admin?tab=participants')->assertOk();
         $page->assertSee('Bestand Person')->assertSee($existing->email)->assertSee('Neue Person')->assertSee($newEmail);
         $this->assertSame(2, substr_count($page->getContent(), '>Einladung offen<'));
-        $this->assertSame('Bestand Person', $this->onAdmin(fn () => TenantInvitation::where('tenant_id', $tenant->id)->value('name')));
+        $this->assertSame('Bestand Person', $this->onAdmin(fn () => TenantInvitation::where('tenant_id', $tenant->id)->where('email', $existing->email)->value('name')));
     }
 
     public function test_a_code_given_with_the_invitation_gets_the_same_answer_for_both_cases(): void
@@ -229,10 +229,11 @@ class AuthHardeningAuditTest extends TestCase
             $other = $this->createTenantUser($this->createTestTenant(), 'learner');
             $valid[] = $this->actingAsInTenant($owner, $tenant)->post('/admin/participants/invite', ['name' => 'Bestand', 'email' => $other->email, 'code' => $codes[1]])->assertSessionHasNoErrors()->getSession()->get('status');
 
-            $this->assertSame($valid[0], $valid[1]);
-            $this->assertSame('Einladung verschickt.'.ParticipantInviter::CODE_NOTE, $valid[0]);
-            // Neues Konto: Code weiterhin direkt eingelöst.
-            $this->assertTrue($this->onAdmin(fn () => Coupon::where('code', $codes[0])->first()->isRedeemed()));
+            // Gleiche Antwort bis auf den Code; reserviert bis zur Annahme -- auch
+            // beim neuen Konto (InvitationAcceptance löst ihn beim Passwort-Festlegen ein).
+            $this->assertSame(str_replace($codes[0], 'CODE', $valid[0]), str_replace($codes[1], 'CODE', $valid[1]));
+            $this->assertSame('Einladung verschickt. Code "'.$codes[0].'" ist für diese Person reserviert und wird eingelöst, sobald sie die Einladung annimmt.', $valid[0]);
+            $this->assertFalse($this->onAdmin(fn () => Coupon::where('code', $codes[0])->first()->isRedeemed()));
         } finally {
             $this->onAdmin(function () use ($codes) {
                 Entitlement::whereIn('source_reference', $codes)->delete();

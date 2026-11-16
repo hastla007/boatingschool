@@ -18,6 +18,9 @@
                     <header>
                         <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">Deine Buchungen</h2>
                         <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Kurse und Zusatzleistungen, die du oder deine Bootsschule bei uns freigeschaltet habt, sowie deine eigenen Bestellungen und Anmeldungen.</p>
+                        @if ($hasProducts ?? false)
+                            <a href="{{ route('products.index') }}" class="inline-block mt-2 text-sm font-medium underline" style="color: var(--brand-primary, #005FD7)">Meine Produkte und nächste Schritte</a>
+                        @endif
                     </header>
 
                     <div class="mt-4 space-y-2">
@@ -59,6 +62,60 @@
                        class="mt-4 inline-flex items-center px-4 py-2 bg-gray-800 dark:bg-gray-200 border border-transparent rounded-md font-semibold text-xs text-white dark:text-gray-800 uppercase tracking-widest hover:bg-gray-700 dark:hover:bg-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900 dark:focus:ring-gray-300 transition ease-in-out duration-150">
                         Meine Daten exportieren
                     </a>
+                </div>
+            </div>
+
+            {{-- E-Mail-Benachrichtigungen (§ 7 UWG, MailPreferenceController). --}}
+            @php($mailPreferences = \App\Support\MailPreferences::forUser(auth()->user()))
+            <div class="p-4 sm:p-8 bg-white dark:bg-gray-800 shadow sm:rounded-lg">
+                <div class="max-w-xl">
+                    <header>
+                        <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">E-Mail-Benachrichtigungen</h2>
+                        <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">Wähle, welche E-Mails du bekommen möchtest. Wichtige Mails zu deinem Konto (z. B. Passwort, Anmeldung, Einladungen) bekommst du immer.</p>
+                    </header>
+                    <form method="POST" action="{{ route('profile.mail-preferences.update') }}" class="mt-4 space-y-3">
+                        @csrf
+                        @method('PATCH')
+                        @foreach (\App\Support\MailPreferences::CATEGORIES as $category => $label)
+                            <label class="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                <input type="hidden" name="{{ $category }}" value="0">
+                                <input type="checkbox" name="{{ $category }}" value="1" @checked($mailPreferences[$category]) class="mt-0.5 rounded border-gray-300 dark:bg-gray-700 dark:border-gray-600">
+                                <span>{{ $label }}</span>
+                            </label>
+                        @endforeach
+                        <div class="flex items-center gap-4">
+                            <x-primary-button>Speichern</x-primary-button>
+                            @if (session('status') === 'mail-preferences-updated')
+                                <p class="text-sm text-gray-600 dark:text-gray-400">Gespeichert.</p>
+                            @endif
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            {{-- Einwilligung Spracherkennung (SpeechConsentController). --}}
+            <div class="p-4 sm:p-8 bg-white dark:bg-gray-800 shadow sm:rounded-lg">
+                <div class="max-w-xl">
+                    <header>
+                        <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">Spracherkennung</h2>
+                        <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                            In den Funk-Übungen kannst du Funksprüche einsprechen. Dafür nutzt dein Browser seine eigene Spracherkennung:
+                            Chrome und Edge schicken die Aufnahme an Google, Safari an Apple.
+                        </p>
+                    </header>
+                    @if (auth()->user()->speech_consent_at)
+                        <p class="mt-3 text-sm text-gray-700 dark:text-gray-300">Eingewilligt am {{ \App\Support\GermanTime::format(auth()->user()->speech_consent_at, 'd.m.Y') }}.</p>
+                        <form method="POST" action="{{ route('profile.speech-consent.destroy') }}" class="mt-3">
+                            @csrf
+                            @method('DELETE')
+                            <x-secondary-button type="submit">Einwilligung widerrufen</x-secondary-button>
+                        </form>
+                    @else
+                        <p class="mt-3 text-sm text-gray-700 dark:text-gray-300">Spracherkennung ist aus. Vor der ersten Nutzung fragen wir dich in der Funk-Übung.</p>
+                    @endif
+                    @if (session('status') === 'speech-consent-updated')
+                        <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">Gespeichert.</p>
+                    @endif
                 </div>
             </div>
 

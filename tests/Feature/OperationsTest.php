@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Console\Commands\BackupApplication;
 use App\Models\PlatformSetting;
+use App\Models\Tenant;
 use App\Models\TenantBranding;
 use App\Support\BackupEncryption;
 use App\Support\ProductionReadiness;
@@ -129,6 +130,26 @@ class OperationsTest extends TestCase
         // Veraltetes Lebenszeichen: Scheduler gilt als ausgefallen.
         Cache::forever(ProductionReadiness::SCHEDULER_HEARTBEAT_KEY, now()->subMinutes(10)->timestamp);
         $this->assertSame('fail', collect(ProductionReadiness::checks())->firstWhere('label', 'Scheduler (Cron: schedule:run jede Minute)')['status']);
+    }
+
+    public function test_check_production_warns_about_a_sync_queue_and_database_only_drivers(): void
+    {
+        $label = fn (string $label) => collect(ProductionReadiness::checks())->firstWhere('label', $label);
+
+        config(['queue.default' => 'sync']);
+        $this->assertSame('warn', $label('Queue-Worker (QUEUE_CONNECTION nicht „sync“)')['status']);
+        config(['queue.default' => 'database']);
+        $this->assertNull($label('Queue-Worker (QUEUE_CONNECTION nicht „sync“)'));
+
+        // Mehr als 20 aktive Schulen und alles über die Datenbank: Redis empfohlen.
+        $existing = $this->onAdmin(fn () => Tenant::whereIn('status', ['active', 'trial'])->count());
+        foreach (range(1, max(0, ProductionReadiness::REDIS_RECOMMENDED_FROM_SCHOOLS + 1 - $existing)) as $i) {
+            $this->createTestTenant('Redis Schule');
+        }
+        config(['cache.default' => 'database', 'session.driver' => 'database', 'queue.default' => 'database']);
+        $this->assertSame('warn', $label('Cache, Sessions und Queue auf Redis')['status']);
+        config(['session.driver' => 'redis']);
+        $this->assertNull($label('Cache, Sessions und Queue auf Redis'));
     }
 
     /** Audit ARC-2: Massen-Mails brauchen den Worker -- Lebenszeichen und Wartezeit werden geprüft. */

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
+use App\Services\NewLoginDeviceNotifier;
 use App\Support\TenantContext;
 use App\Support\TenantPath;
 use Illuminate\Http\RedirectResponse;
@@ -54,6 +55,9 @@ class AuthenticatedSessionController extends Controller
     public function completeLogin(Request $request, TenantContext $tenantContext): RedirectResponse
     {
         $request->session()->regenerate();
+
+        // Team-Rollen und Superadmins: Hinweis-Mail bei unbekanntem Gerät.
+        app(NewLoginDeviceNotifier::class)->handle($request->user(), $request);
 
         if ($request->user()->is_superadmin) {
             // Bug-Review (Niedrig, Folgefehler): /login ist

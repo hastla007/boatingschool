@@ -157,7 +157,7 @@ class InstructorPermissionsTest extends TestCase
 
         $asInstructor = $this->actingAsInTenant($instructor, $tenant)->get('/admin');
         $asInstructor->assertOk();
-        $asInstructor->assertDontSee('Coupon-Codes', false);
+        $asInstructor->assertDontSee('Zugangscodes', false);
         $asInstructor->assertDontSee('>Branding<', false);
         $asInstructor->assertDontSee('>Addons<', false);
         $asInstructor->assertDontSee('Kursauswahl', false);
@@ -167,7 +167,7 @@ class InstructorPermissionsTest extends TestCase
 
         $asOwner = $this->actingAsInTenant($owner, $tenant)->get('/admin');
         $asOwner->assertOk();
-        $asOwner->assertSee('Coupon-Codes');
+        $asOwner->assertSee('Zugangscodes');
         $asOwner->assertSee('Branding');
         $asOwner->assertSee('Kursauswahl');
     }

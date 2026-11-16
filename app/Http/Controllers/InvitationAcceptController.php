@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\AuditLog;
 use App\Models\TenantInvitation;
-use App\Models\TenantUser;
-use Illuminate\Http\RedirectResponse;
+use App\Services\InvitationAcceptance;
+use App\Support\AgeConfirmation;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Gegenstück zu ParticipantController::invite() für eine bereits
@@ -18,7 +18,7 @@ use Illuminate\Http\Request;
  */
 class InvitationAcceptController extends Controller
 {
-    public function accept(Request $request, TenantInvitation $invitation): RedirectResponse
+    public function accept(Request $request, TenantInvitation $invitation, InvitationAcceptance $acceptance): Response
     {
         if (! hash_equals(sha1($invitation->email), (string) $request->route('hash'))) {
             abort(403);
@@ -45,16 +45,20 @@ class InvitationAcceptController extends Controller
                 ->with('status', 'Bitte bestätige zuerst deine E-Mail-Adresse, danach wird die Einladung automatisch angenommen.');
         }
 
-        TenantUser::firstOrCreate(
-            ['tenant_id' => $invitation->tenant_id, 'user_id' => $user->id],
-            ['role' => $invitation->role, 'status' => 'active']
-        );
+        // Altersbestätigung einmalig nachholen (Konten von vor der Pflicht-
+        // Checkbox bei der Registrierung): erst fragen, dann annehmen.
+        if ($user->age_confirmed_at === null) {
+            if (! $request->isMethod('POST')) {
+                return response()->view('auth.confirm-age', [
+                    'action' => $request->fullUrl(),
+                    'tenantName' => $invitation->tenant?->name,
+                ]);
+            }
+            $request->validate(['age_confirmed' => ['accepted']], ['age_confirmed.accepted' => AgeConfirmation::MESSAGE]);
+            $user->forceFill(['age_confirmed_at' => now()])->save();
+        }
 
-        $invitation->update(['accepted_at' => now()]);
-
-        AuditLog::record($invitation->tenant_id, $user->id, 'invitation.accept', 'tenant_invitation', $invitation->id, null, [
-            'user_id' => $user->id,
-        ]);
+        $acceptance->accept($invitation, $user);
 
         return redirect()->route('dashboard')->with('status', 'Einladung angenommen – du bist jetzt Mitglied.');
     }

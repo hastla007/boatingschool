@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Process\Process;
 
@@ -75,5 +76,40 @@ class ConnectorAccountsAndSettingsTest extends TestCase
         $this->assertNotContains('bs_connector_settings[app_url]', $out['saved']);
         $this->assertNotContains('bs_connector_settings[secret]', $out['saved']);
         $this->assertSame(['alert_email' => 'a@example.test'], $out['post_after_save']);
+    }
+
+    public static function connectionTestAndSecretsNoticeCases(): array
+    {
+        return [
+            'Shop-Manager' => [['manage_woocommerce'], false],
+            'Administrator' => [['manage_woocommerce', 'manage_options'], true],
+        ];
+    }
+
+    #[DataProvider('connectionTestAndSecretsNoticeCases')]
+    public function test_connection_test_and_secrets_notice_follow_the_settings_capability(array $caps, bool $visible): void
+    {
+        $out = $this->harness('settings', [
+            'caps' => $caps,
+            'stored' => ['bs_connector_settings' => ['secret' => 'aus-db']],
+        ]);
+
+        $this->assertSame($visible, $out['connection_test'], 'Knopf „Verbindung testen“');
+        $this->assertSame($visible, $out['secrets_notice'], 'Hinweis auf Geheimnisse in der Datenbank');
+    }
+
+    public function test_saving_removes_the_database_copy_of_a_secret_set_in_wp_config(): void
+    {
+        $out = $this->harness('settings', [
+            'caps' => ['manage_options'],
+            'constants' => ['BS_CONNECTOR_SECRET' => 'aus-wp-config', 'BS_CONNECTOR_APP_URL' => 'https://app.example.de'],
+            'stored' => ['bs_connector_settings' => ['secret' => 'alt-aus-db', 'inbound_secret' => 'aus-db', 'app_url' => 'https://alt.example.de']],
+        ]);
+
+        $this->assertNotContains('bs_connector_settings[secret]', $out['rendered']);
+        $this->assertContains('bs_connector_settings[inbound_secret]', $out['rendered']);
+        $this->assertNotContains('secret', $out['stored_after_save'], 'Kopie des Geheimnisses aus wp-config.php gelöscht');
+        $this->assertContains('inbound_secret', $out['stored_after_save'], 'Geheimnis ohne Konstante bleibt');
+        $this->assertContains('app_url', $out['stored_after_save'], 'andere gesperrte Felder behalten ihren Wert');
     }
 }

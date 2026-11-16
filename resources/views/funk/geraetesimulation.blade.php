@@ -29,5 +29,7 @@
         <script type="application/json" data-geraetesimulation-config>@json($config)</script>
     </div>
 
+    {{-- Spracherkennung erst nach Einwilligung (window.speechConsent). --}}
+    @include('funk._speech-consent')
     @vite(['resources/js/funkgeraet.js'])
 </x-app-layout>

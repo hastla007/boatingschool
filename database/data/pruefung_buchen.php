@@ -238,6 +238,31 @@ return [
                     'minutes' => 15,
                     'note' => 'Du hast schon den SBF Binnen unter Antriebsmaschine: Für „unter Segel“ legst du nur die 7 Segelfragen und eine praktische Prüfung unter Segel ab.',
                 ],
+                // Weitere Ergänzungen laut ELWIS (Kurse derzeit abgeschaltet; ohne
+                // Bestehensgrenze, solange sie nicht amtlich belegt ist).
+                'segel-see-addon' => [
+                    'label' => 'Ergänzung unter Segel für SBF-See-Inhaber',
+                    // Kein verifiziertes Regelwerk (Entwurf): ohne Kursbezug wie FKN → SKN;
+                    // ausgeblendet, solange der Kurs abgeschaltet ist.
+                    'course' => null,
+                    'course_code' => 'ADD-SEE-TO-BIN-SEGEL',
+                    'parts' => [
+                        ['module' => 'SBF_BINNEN', 'label' => 'Binnen-Fragen', 'of' => 23],
+                        ['module' => 'SBF_BINNEN_SEGELN', 'label' => 'Segelfragen', 'of' => 7],
+                    ],
+                    'minutes' => 35,
+                    'note' => 'Du hast schon den SBF See: Die Basisfragen entfallen. Zu den Binnen-Fragen kommen die Segelfragen; die praktische Prüfung findet unter Segel statt.',
+                ],
+                'motor-2012-addon' => [
+                    'label' => 'Ergänzung Antriebsmaschine (Segelschein vor Mai 2012)',
+                    // Kein verifiziertes Regelwerk (Entwurf): ohne Kursbezug wie FKN → SKN;
+                    // ausgeblendet, solange der Kurs abgeschaltet ist.
+                    'course' => null,
+                    'course_code' => 'ADD-BIN-MOTOR-2012',
+                    'parts' => [['module' => 'SBF_BINNEN']],
+                    'minutes' => 15,
+                    'note' => 'Du hast den SBF Binnen unter Segel vor dem 1. Mai 2012 erworben und möchtest ihn auf die Antriebsmaschine erweitern.',
+                ],
             ],
             'exam_parts' => [
                 ['key' => 'theory', 'title' => 'Theorie', 'icon' => 'document-text', 'link' => 'exam', 'text' => 'Fragebogen mit vier Antworten zur Auswahl aus dem amtlichen Fragenkatalog, je Frage genau eine richtige Antwort.'],
@@ -343,6 +368,8 @@ return [
         'SBF-BIN-SEGEL' => ['SBF-BIN' => 'segel'],
         'ADD-BIN-SEGEL' => ['SBF-BIN' => 'segel-addon'],
         'ADD-SEE-TO-BIN' => ['SBF-BIN' => 'addon'],
+        'ADD-SEE-TO-BIN-SEGEL' => ['SBF-BIN' => 'segel-see-addon'],
+        'ADD-BIN-MOTOR-2012' => ['SBF-BIN' => 'motor-2012-addon'],
         // Review: die Binnen-Bögen des Kombikurses sind die 23 Binnen-Fragen ohne
         // Basisfragen (die kommen nur einmal, im See-Teil).
         'SBF-SEE-BIN' => ['SBF-SEE' => 'full', 'SBF-BIN' => 'combo'],

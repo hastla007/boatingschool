@@ -13,7 +13,7 @@ use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Einlösen eines Coupon-Codes -- für einen Kurs (schaltet ein Entitlement
+ * Einlösen eines Zugangscodes -- für einen Kurs (schaltet ein Entitlement
  * frei) oder ein Produkt wie eine Fahrstunde (legt einen ProductPurchase-
  * Nachweis an). Die RLS-Policy auf "coupon" (tenant_id IS NULL ODER
  * tenant_id = aktueller Mandant) sorgt bereits dafür, dass ein einer
@@ -76,7 +76,10 @@ class CouponRedeemController extends Controller
                 ->with('status', "Code eingelöst – dein Zugang zu \"{$result['course']->name}\" wurde verlängert".($validUntil ? " bis {$validUntil}" : '').'!');
         }
 
-        return redirect()->route('profile.edit')
+        // Produkte (Fahrstunde, Praxiseinheit …): „Meine Produkte“ zeigt, was
+        // der Lerner bekommen hat und wie es weitergeht (das Profil nannte
+        // nur die Buchung ohne nächsten Schritt).
+        return redirect()->route('products.index')
             ->with('status', "Code eingelöst – \"{$result['product']->name}\" wurde deinem Konto gutgeschrieben!");
     }
 }

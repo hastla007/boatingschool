@@ -23,6 +23,9 @@ class ProductionReadiness
 {
     public const SCHEDULER_HEARTBEAT_KEY = 'ops:scheduler-heartbeat';
 
+    /** Ab so vielen Schulen empfiehlt der Check Redis statt der Datenbank für Cache/Sessions/Queue. */
+    public const REDIS_RECOMMENDED_FROM_SCHOOLS = 20;
+
     /** Lebenszeichen des Queue-Workers (Event Looping, siehe AppServiceProvider). */
     public const WORKER_HEARTBEAT_KEY = 'ops:queue-worker-heartbeat';
 
@@ -123,7 +126,9 @@ class ProductionReadiness
         // Audit ARC-2: Massen-Mails (Mitteilungen, Sammel-Einladung und
         // -Verlängerung, Lern-Erinnerungen, Lerngruppen) laufen über die
         // Queue -- ohne laufenden Worker (queue:work) gehen sie nie raus.
-        if (config('queue.default') !== 'sync') {
+        if (config('queue.default') === 'sync') {
+            $add('Hintergrunddienste', 'Queue-Worker (QUEUE_CONNECTION nicht „sync“)', 'warn', 'Massen-Mails laufen sonst im Request (Zeitüberschreitung bei vielen Empfängern)');
+        } else {
             $beat = Cache::get(self::WORKER_HEARTBEAT_KEY);
             $add('Hintergrunddienste', 'Queue-Worker (queue:work)', $beat && now()->timestamp - $beat < 300 ? 'ok' : 'fail',
                 $beat ? 'zuletzt '.self::ago($beat) : 'noch nie gelaufen (Vorlage deploy/supervisor-worker.conf)');
@@ -144,6 +149,16 @@ class ProductionReadiness
             $failed = DB::connection('pgsql_admin')->table(config('queue.failed.table', 'failed_jobs'))->count();
             $add('Hintergrunddienste', 'Fehlgeschlagene Jobs', $failed === 0 ? 'ok' : 'warn', $failed ? "{$failed} Job(s), siehe php artisan queue:failed" : '');
         });
+        // Ab einigen Schulen trägt die Datenbank Cache, Sessions und Queue
+        // spürbar mit: Redis entlastet sie (deploy/README.md, „Redis“).
+        if (config('cache.default') === 'database' && config('session.driver') === 'database' && config('queue.default') === 'database') {
+            $safely(function () use ($add) {
+                $schools = Tenant::on('pgsql_admin')->whereIn('status', ['active', 'trial'])->count();
+                if ($schools > self::REDIS_RECOMMENDED_FROM_SCHOOLS) {
+                    $add('Hintergrunddienste', 'Cache, Sessions und Queue auf Redis', 'warn', "{$schools} Schulen, alles läuft über die Datenbank: Redis empfohlen (deploy/README.md)");
+                }
+            });
+        }
         $backup = BackupApplication::latestBackupAt();
         $maxAge = (int) config('backup.max_age_hours', 26);
         $add('Hintergrunddienste', 'Datensicherung (app:backup)', $backup && $backup->diffInHours(now()) < $maxAge ? 'ok' : 'fail', $backup ? 'zuletzt '.$backup->format('d.m.Y H:i').(config('backup.disk') ? ', extern: '.config('backup.disk') : ', nur lokal') : 'noch keine Sicherung');

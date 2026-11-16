@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\InstructorCourse;
-use App\Models\TenantInvitation;
 use App\Models\TenantUser;
 use App\Models\User;
 use App\Services\AccountSetupLink;
@@ -50,53 +49,45 @@ class TeamController extends Controller
 
         // Plattformweite Suche wie bei der Teilnehmer-Einladung (RLS-frei).
         $existingUser = User::on('pgsql_admin')->whereRaw('lower(email) = ?', [mb_strtolower($validated['email'])])->first();
+        $membership = $existingUser ? TenantUser::where('tenant_id', $tenant->id)->where('user_id', $existingUser->id)->first() : null;
+
+        // Aktive Mitglieder kennt die Schule ohnehin (Team- bzw.
+        // Teilnehmerliste). Ein von hier angelegtes, nie aktiviertes Konto
+        // (status invited) zählt dagegen wie eine offene Einladung -- sonst
+        // verriete die Antwort, ob die Adresse beim ersten Mal neu war.
+        if ($membership && ($existingUser->status !== 'invited' || ! in_array($membership->role, self::ASSIGNABLE, true))) {
+            return back()->withErrors(['team_email' => $membership->role === 'learner'
+                ? 'Diese Person ist bereits Teilnehmer Ihrer Bootsschule. Ins Team holen Sie sie auf ihrer Teilnehmerseite unter „Ins Team holen“.'
+                : 'Diese Person ist bereits Mitglied Ihrer Bootsschule – ändern Sie die Rolle in der Team-Liste.']);
+        }
+
+        // Kein Konto-Orakel: neue Adresse und Bestandskonto bekommen dieselbe
+        // Drossel (höchstens eine Mail je Adresse, Schule und Tag, Review-
+        // Runde 9), dieselben Texte und erscheinen beide bis zur Annahme
+        // unter „eingeladen“ (siehe AdminDashboardController).
+        if (! ParticipantInviter::mayMailAddress($tenant, $existingUser?->email ?? $validated['email'])) {
+            return back()->with('status', ParticipantInviter::ALREADY_INVITED_STATUS);
+        }
 
         if ($existingUser) {
-            $membership = TenantUser::where('tenant_id', $tenant->id)->where('user_id', $existingUser->id)->first();
-            if ($membership && ! ($existingUser->status === 'invited' && $membership->role !== 'learner')) {
-                return back()->withErrors(['team_email' => $membership->role === 'learner'
-                    ? 'Diese Person ist bereits Teilnehmer Ihrer Bootsschule. Ins Team holen Sie sie auf ihrer Teilnehmerseite unter „Ins Team holen“.'
-                    : 'Diese Person ist bereits Mitglied Ihrer Bootsschule – ändern Sie die Rolle in der Team-Liste.']);
-            }
-
-            // Audit SEC-W-3: ein hier neu angelegtes, noch nie angemeldetes
-            // Team-Konto erneut einladen = neuer Link zum Passwort-Festlegen,
-            // mit derselben Rückmeldung wie bei einer offenen Einladung an ein
-            // bestehendes Konto (vorher „bereits Mitglied“ -- ein Konto-Orakel).
             if ($membership) {
-                if (! ParticipantInviter::mayMailAddress($tenant, $existingUser->email)) {
-                    return back()->with('status', ParticipantInviter::ALREADY_INVITED_STATUS);
+                // Nie aktiviertes, von hier angelegtes Konto: die neue Rolle
+                // gilt (Admins verwaltet nur der Inhaber), der Link zum
+                // Passwort-Festlegen geht erneut raus.
+                if ($membership->role !== $validated['role'] && ($membership->role !== 'admin' || $actorRole === 'owner')) {
+                    $membership->update(['role' => $validated['role']]);
                 }
+                $invitation = ParticipantInviter::openInvitation($tenant, $request->user(), $existingUser->email, $membership->role, $validated['name']);
                 $mailSent = BestEffortMail::send(fn () => app(AccountSetupLink::class)->send($existingUser, $tenant, $membership->role), "Team-Einladung erneut {$existingUser->id}");
-                AuditLog::record($tenant->id, $request->user()->id, 'team.invite_resent', 'app_user', $existingUser->id, null, ['email' => $existingUser->email]);
-
-                return back()->with('status', $mailSent ? ParticipantInviter::ALREADY_INVITED_STATUS : 'Der Versand der Einladung ist fehlgeschlagen – bitte später erneut versuchen.');
+            } else {
+                // Bestehendes Konto: Einladung, die die Person selbst annimmt
+                // (siehe ParticipantController::invite, Sicherheitsreview H2).
+                $invitation = ParticipantInviter::openInvitation($tenant, $request->user(), $existingUser->email, $validated['role'], $validated['name']);
+                $mailSent = ParticipantInviter::sendExistingAccountInvitation($existingUser, $tenant, $invitation);
             }
-
-            // Bestehendes Konto: Einladung, die die Person selbst annimmt
-            // (siehe ParticipantController::invite, Sicherheitsreview H2).
-            // Review-Runde 9: offene Einladung derselben Rolle wiederverwenden
-            // und je Adresse höchstens eine Mail am Tag (Schutz vor Mail-Flut).
-            if (! ParticipantInviter::mayMailAddress($tenant, $existingUser->email)) {
-                return back()->with('status', ParticipantInviter::ALREADY_INVITED_STATUS);
-            }
-            $open = TenantInvitation::where('tenant_id', $tenant->id)->where('role', $validated['role'])->whereNull('accepted_at')
-                ->whereRaw('lower(email) = ?', [mb_strtolower($existingUser->email)])->where('created_at', '>=', now()->subDays(7))
-                ->latest('created_at')->first();
-            $invitation = $open ?? TenantInvitation::create([
-                'tenant_id' => $tenant->id,
-                'email' => $existingUser->email,
-                'name' => mb_substr($validated['name'], 0, 255),
-                'role' => $validated['role'],
-                'invited_by_user_id' => $request->user()->id,
-            ]);
-            $mailSent = ParticipantInviter::sendExistingAccountInvitation($existingUser, $tenant, $invitation);
             AuditLog::record($tenant->id, $request->user()->id, 'team.invite_pending', 'tenant_invitation', $invitation->id, null, [
                 'email' => $existingUser->email, 'role' => $validated['role'],
             ]);
-            if ($open && $mailSent) {
-                return back()->with('status', ParticipantInviter::ALREADY_INVITED_STATUS);
-            }
         } else {
             $user = DB::transaction(function () use ($validated, $tenant, $request) {
                 $user = User::create([
@@ -107,6 +98,9 @@ class TeamController extends Controller
                     ...User::splitDisplayName($validated['name']),
                 ]);
                 TenantUser::create(['tenant_id' => $tenant->id, 'user_id' => $user->id, 'role' => $validated['role'], 'status' => 'active']);
+                // Auch das neue Konto nimmt über die Einladung an (beim
+                // Festlegen des Passworts, InvitationAcceptance).
+                ParticipantInviter::openInvitation($tenant, $request->user(), $user->email, $validated['role'], $validated['name']);
                 AuditLog::record($tenant->id, $request->user()->id, 'team.invite', 'app_user', $user->id, null, [
                     'email' => $user->email, 'role' => $validated['role'],
                 ]);

@@ -10,7 +10,7 @@ use Tests\TestCase;
  * Seitenwechsel. Der Tab-Wechsel in admin/dashboard.blade.php läuft rein
  * clientseitig über history.replaceState(), ohne eigenen Request -- die
  * Pagination-Links in den Tabs (Teilnehmer, Praxis-Anmeldungen,
- * Willkommensbox, Coupon-Codes) wurden dagegen serverseitig mit dem
+ * Willkommensbox, Zugangscodes) wurden dagegen serverseitig mit dem
  * Query-String des ERSTEN Requests gerendert und enthielten daher nie den
  * per Tab-Wechsel gesetzten tab-Parameter. Ein Klick auf "nächste Seite"
  * landete dadurch immer auf dem Dashboard-Tab, unabhängig vom zuvor

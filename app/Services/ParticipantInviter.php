@@ -24,8 +24,6 @@ use Illuminate\Support\Str;
  * Bug-Review B31). Mit $queueMail (Sammel-Einladung) gehen die Mails über
  * die Queue statt im Request (Audit ARC-2); „mail_sent“ heißt dann
  * „eingereiht“.
- *
- * @phpstan-type Result array{type: 'existing'|'new', mail_sent: bool, user: ?User, duplicate?: bool}
  */
 class ParticipantInviter
 {
@@ -38,16 +36,12 @@ class ParticipantInviter
      */
     public const ALREADY_INVITED_STATUS = 'Diese Person ist bereits eingeladen. Die Einladung wurde erneut verschickt, soweit das Tageslimit für diese Adresse es zulässt; der Link ist 7 Tage gültig.';
 
-    /** Hinweis zu einem beim Einladen angegebenen Code (für beide Fälle gleich). */
-    public const CODE_NOTE = ' Zum angegebenen Code: Ob er schon eingelöst ist, zeigt die Coupon-Codes-Verwaltung. Hatte die Person bereits ein Konto auf der Plattform, weisen Sie ihn dort nach Annahme der Einladung zu.';
-
-    /** Offene Teilnehmer-Einladungen an bestehende Konten (7 Tage gültig), ohne schon Mitglied gewordene. */
+    /** Offene Teilnehmer-Einladungen (7 Tage gültig), ohne schon aktiv gewordene Mitglieder. */
     public static function openLearnerInvitations(Tenant $tenant): Builder
     {
-        return TenantInvitation::where('tenant_id', $tenant->id)->where('role', 'learner')->whereNull('accepted_at')
-            ->where('created_at', '>=', now()->subDays(7))
-            ->whereRaw('not exists (select 1 from tenant_user tu join app_user au on au.id = tu.user_id
-                where tu.tenant_id = tenant_invitation.tenant_id and lower(au.email) = lower(tenant_invitation.email))')
+        return TenantInvitation::where('tenant_id', $tenant->id)->where('role', 'learner')->open()
+            ->whereRaw("not exists (select 1 from tenant_user tu join app_user au on au.id = tu.user_id
+                where tu.tenant_id = tenant_invitation.tenant_id and lower(au.email) = lower(tenant_invitation.email) and au.status <> 'invited')")
             ->orderByDesc('created_at')->orderBy('id');
     }
 
@@ -94,68 +88,80 @@ class ParticipantInviter
     }
 
     /**
+     * Offene Einladung dieser Rolle wiederverwenden oder anlegen (Link 7
+     * Tage gültig, siehe TenantInvitation::scopeOpen). Gemeinsam für neue
+     * Adressen und Bestandskonten: beide werden über die Einladung
+     * angenommen (InvitationAcceptance), ein beim Einladen angegebener Code
+     * ist bis dahin daran reserviert.
+     */
+    public static function openInvitation(Tenant $tenant, User $actor, string $email, string $role, ?string $name): TenantInvitation
+    {
+        return TenantInvitation::where('tenant_id', $tenant->id)->where('role', $role)->open()
+            ->whereRaw('lower(email) = ?', [mb_strtolower($email)])->latest('created_at')->first()
+            ?? TenantInvitation::create([
+                'tenant_id' => $tenant->id,
+                'email' => $email,
+                'name' => $name,
+                'role' => $role,
+                'invited_by_user_id' => $actor->id,
+            ]);
+    }
+
+    /**
+     * Kein Konto-Orakel: für eine Adresse, die (noch) nicht aktives Mitglied
+     * dieser Schule ist, verhält sich das Ergebnis nach außen gleich, egal ob
+     * es plattformweit schon ein Konto gibt -- dieselbe Mail-Drossel (eine
+     * Mail je Adresse, Schule und Tag), dieselben Felder (mail_sent,
+     * duplicate) und in beiden Fällen eine offene Einladung, an der ein Code
+     * bis zur Annahme reserviert wird. Die Unterscheidung „Konto angelegt“
+     * (new) vs. „Einladung zum Annehmen“ (existing) bleibt nur intern.
+     *
      * @param  array{street?: ?string, postal_code?: ?string, city?: ?string, country?: ?string}  $address
-     * @return array{type: 'existing'|'new', mail_sent: bool, user: ?User, duplicate?: bool, already_member?: bool, resent?: bool}
+     * @return array{type: 'existing'|'new', mail_sent: bool, user: ?User, invitation?: TenantInvitation, duplicate?: bool, already_member?: bool, role?: string}
      */
     public function invite(Tenant $tenant, User $actor, string $name, string $email, array $address = [], bool $queueMail = false): array
     {
         RateLimiter::hit(self::dailyKey($tenant), 86400);
         $existingUser = User::on('pgsql_admin')->whereRaw('lower(email) = ?', [mb_strtolower($email)])->first();
+        $membership = $existingUser
+            ? TenantUser::on('pgsql_admin')->withoutGlobalScopes()->where('tenant_id', $tenant->id)->where('user_id', $existingUser->id)->first()
+            : null;
 
-        if ($existingUser) {
-            $membership = TenantUser::on('pgsql_admin')->withoutGlobalScopes()->where('tenant_id', $tenant->id)->where('user_id', $existingUser->id)->first();
-            if ($membership) {
-                // Schon in dieser Schule: noch nie angemeldet -> Link zum
-                // Passwort-Festlegen erneut schicken (der alte ist evtl.
-                // abgelaufen), sonst nichts verschicken.
-                if ($existingUser->status !== 'invited') {
-                    return ['type' => 'existing', 'mail_sent' => false, 'user' => null, 'already_member' => true, 'role' => $membership->role];
-                }
-                // Höchstens drei neue Links je Person und Tag (Schutz vor Mail-Flut).
-                $resendKey = 'participant-invite-resend:'.$existingUser->id;
-                if (RateLimiter::tooManyAttempts($resendKey, 3)) {
-                    return ['type' => 'existing', 'mail_sent' => true, 'user' => null, 'duplicate' => true, 'resend_limit' => true];
-                }
-                RateLimiter::hit($resendKey, 86400);
-                $mailSent = BestEffortMail::send(fn () => app(AccountSetupLink::class)->send($existingUser, $tenant, $membership->role, $queueMail), "Einladung erneut {$existingUser->id}");
-                AuditLog::record($tenant->id, $actor->id, 'participant.invite_resent', 'app_user', $existingUser->id, null, ['email' => $existingUser->email]);
-
-                return ['type' => 'existing', 'mail_sent' => $mailSent, 'user' => null, 'resent' => true];
-            }
-
-            // Schutz vor Mail-Bombing: dieselbe Adresse höchstens einmal am Tag
-            // anschreiben; eine offene Einladung (Link 7 Tage gültig) wird
-            // wiederverwendet statt jedes Mal eine neue anzulegen.
-            $open = TenantInvitation::where('tenant_id', $tenant->id)->where('role', 'learner')->whereNull('accepted_at')
-                ->whereRaw('lower(email) = ?', [mb_strtolower($existingUser->email)])->where('created_at', '>=', now()->subDays(7))
-                ->latest('created_at')->first();
-            // Review-Runde 9: je Adresse und Schule höchstens eine Mail am Tag
-            // (auch an den Tagen 2–7 einer wiederverwendeten Einladung).
-            if (! self::mayMailAddress($tenant, $existingUser->email)) {
-                return ['type' => 'existing', 'mail_sent' => true, 'user' => null, 'duplicate' => true];
-            }
-            // Audit SEC-W-3: der Name erscheint in der Teilnehmerliste wie bei
-            // einem neu angelegten Konto.
-            $invitation = $open ?? TenantInvitation::create([
-                'tenant_id' => $tenant->id,
-                'email' => $existingUser->email,
-                'name' => mb_substr($name, 0, 255),
-                'role' => 'learner',
-                'invited_by_user_id' => $actor->id,
-            ]);
-
-            $mailSent = self::sendExistingAccountInvitation($existingUser, $tenant, $invitation, $queueMail);
-
-            AuditLog::record($tenant->id, $actor->id, 'participant.invite_pending', 'tenant_invitation', $invitation->id, null, [
-                'email' => $existingUser->email,
-            ]);
-
-            // Wiederverwendete Einladung: dieselbe Rückmeldung wie beim
-            // erneuten Senden an ein neu angelegtes Konto (kein Konto-Orakel).
-            return ['type' => 'existing', 'mail_sent' => $mailSent, 'user' => null, 'resent' => $open !== null];
+        // Schon aktiv in dieser Schule: nichts verschicken.
+        if ($membership && $existingUser->status !== 'invited') {
+            return ['type' => 'existing', 'mail_sent' => false, 'user' => null, 'already_member' => true, 'role' => $membership->role];
         }
 
-        $user = DB::transaction(function () use ($tenant, $actor, $name, $email, $address) {
+        // Schutz vor Mail-Bombing und kein Zeit-Orakel: je Adresse und
+        // Schule höchstens eine Mail am Tag, für neue Adressen genauso wie
+        // für Bestandskonten (auch an den Tagen 2–7 einer offenen Einladung).
+        if (! self::mayMailAddress($tenant, $existingUser?->email ?? $email)) {
+            return ['type' => 'existing', 'mail_sent' => true, 'user' => null, 'duplicate' => true];
+        }
+
+        if ($existingUser) {
+            // Der eingegebene Name wird nur an der Einladung gespeichert
+            // (Anzeige in „Offene Einladungen“ wie bei einer neuen Adresse),
+            // das bestehende Konto selbst bleibt unverändert.
+            $invitation = self::openInvitation($tenant, $actor, $existingUser->email, $membership?->role ?? 'learner', $name);
+
+            if ($membership) {
+                // Von hier angelegt, aber noch nie angemeldet: Link zum
+                // Passwort-Festlegen erneut schicken (der alte ist evtl.
+                // abgelaufen).
+                $mailSent = BestEffortMail::send(fn () => app(AccountSetupLink::class)->send($existingUser, $tenant, $membership->role, $queueMail), "Einladung erneut {$existingUser->id}");
+                AuditLog::record($tenant->id, $actor->id, 'participant.invite_resent', 'app_user', $existingUser->id, null, ['email' => $existingUser->email]);
+            } else {
+                $mailSent = self::sendExistingAccountInvitation($existingUser, $tenant, $invitation, $queueMail);
+                AuditLog::record($tenant->id, $actor->id, 'participant.invite_pending', 'tenant_invitation', $invitation->id, null, [
+                    'email' => $existingUser->email,
+                ]);
+            }
+
+            return ['type' => 'existing', 'mail_sent' => $mailSent, 'user' => null, 'invitation' => $invitation];
+        }
+
+        [$user, $invitation] = DB::transaction(function () use ($tenant, $actor, $name, $email, $address) {
             $user = User::create([
                 'email' => $email,
                 'display_name' => $name,
@@ -175,11 +181,15 @@ class ParticipantInviter
                 'country' => $address['country'] ?? null,
             ]);
 
+            // Auch das neue Konto nimmt über die Einladung an (beim
+            // Festlegen des Passworts, InvitationAcceptance).
+            $invitation = self::openInvitation($tenant, $actor, $user->email, 'learner', $name);
+
             AuditLog::record($tenant->id, $actor->id, 'participant.invite', 'app_user', $user->id, null, [
                 'email' => $user->email,
             ]);
 
-            return $user;
+            return [$user, $invitation];
         });
 
         $mailSent = BestEffortMail::send(
@@ -187,6 +197,6 @@ class ParticipantInviter
             "Einladungsmail neuer Teilnehmer {$user->id}"
         );
 
-        return ['type' => 'new', 'mail_sent' => $mailSent, 'user' => $user];
+        return ['type' => 'new', 'mail_sent' => $mailSent, 'user' => $user, 'invitation' => $invitation];
     }
 }

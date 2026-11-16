@@ -8,6 +8,7 @@ use App\Models\Module;
 use App\Models\Progress;
 use App\Models\Tenant;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 
 /**
@@ -20,34 +21,127 @@ use Illuminate\Support\Collection;
 class CourseProgressService
 {
     /**
-     * overallPercent() für viele Lernende eines Kurses auf einmal (zwei
-     * Abfragen statt zwei je Lerner) -- für Statistik und Exporte.
+     * Die eine Formel für den Kursfortschritt: Anteil gefestigter an den
+     * aktuell gültigen Fragen des Kurses, gerundet auf ganze Prozent. Ein
+     * Kurs ohne gültige Fragen zählt mit Nenner 1 (also 0 %).
+     */
+    public static function percentOf(int $mastered, int $validQuestionCount): int
+    {
+        return (int) round($mastered / max($validQuestionCount, 1) * 100);
+    }
+
+    /**
+     * Aktuell gültige Fragen-IDs eines Kurses (siehe Bug-Review F7/BB16 in
+     * exactPercent()).
+     *
+     * @return Collection<int, string>
+     */
+    public function validQuestionIds(CourseDefinition $course): Collection
+    {
+        return $this->validQuestionIdsByCourse(collect([$course]))[$course->id];
+    }
+
+    /**
+     * Aktuell gültige Fragen-IDs für mehrere Kurse auf einmal: Module/Fragen
+     * werden gemeinsam geladen und die Gültigkeit aller Fragen mit EINER
+     * Revisions-Abfrage geprüft (statt einer je Kurs).
+     *
+     * @param  Collection<int, CourseDefinition>  $courses
+     * @return array<string, Collection<int, string>> course_id => Fragen-IDs
+     */
+    public function validQuestionIdsByCourse(Collection $courses): array
+    {
+        $courses = EloquentCollection::make($courses->filter()->unique('id')->values());
+        if ($courses->isEmpty()) {
+            return [];
+        }
+        $courses->loadMissing('modules.questions');
+        $questionsOf = fn (CourseDefinition $course) => $course->modules->flatMap(fn ($m) => $m->questions);
+        $valid = array_flip(ContentQuestion::currentlyValidIds($courses->flatMap($questionsOf))->all());
+
+        return $courses->mapWithKeys(fn (CourseDefinition $course) => [
+            $course->id => $questionsOf($course)->pluck('id')->unique()->filter(fn ($id) => isset($valid[$id]))->values(),
+        ])->all();
+    }
+
+    /**
+     * Kursfortschritt (wie overallPercent()) für viele Lernende und Kurse
+     * einer Bootsschule auf einmal. Gezählt wird in SQL (GROUP BY Lerner und
+     * Kurs, verknüpft mit den gültigen Fragen-IDs je Kurs) -- Speicher und
+     * Laufzeit wachsen damit nicht mehr mit Lernenden × gefestigten Fragen,
+     * und die Zahl der Abfragen hängt weder von der Zahl der Lernenden noch
+     * der Kurse ab. Für Dashboard, Statistik, Exporte und Superadmin-Seiten.
+     *
+     * @param  Collection<int, CourseDefinition>  $courses
+     * @param  iterable<string>  $userIds
+     * @return array<string, array<string, int>> user_id => course_id => Prozent (für jede Kombination)
+     */
+    public function percentsByUserAndCourse(Tenant|string $tenant, Collection $courses, iterable $userIds): array
+    {
+        $tenantId = $tenant instanceof Tenant ? $tenant->id : $tenant;
+        $userIds = collect($userIds)->filter()->unique()->values();
+        $validIdsByCourse = $this->validQuestionIdsByCourse($courses);
+        if ($userIds->isEmpty() || $validIdsByCourse === []) {
+            return [];
+        }
+
+        // Paare (Kurs, Frage) als zwei parallele Array-Parameter -- ein
+        // Platzhalter je ID würde bei großen Kursen/Schulen an Postgres'
+        // Grenze von 65.535 Parametern stoßen.
+        $pairCourseIds = [];
+        $pairQuestionIds = [];
+        foreach ($validIdsByCourse as $courseId => $questionIds) {
+            foreach ($questionIds as $questionId) {
+                $pairCourseIds[] = $courseId;
+                $pairQuestionIds[] = $questionId;
+            }
+        }
+
+        $mastered = [];
+        if ($pairQuestionIds !== []) {
+            $connection = (new Progress)->getConnection();
+            foreach ($userIds->chunk(5000) as $chunk) {
+                $rows = $connection->select(
+                    "select p.user_id, v.course_id, count(*) as mastered
+                       from progress p
+                       join unnest(?::uuid[], ?::uuid[]) as v(course_id, question_id) on v.question_id = p.question_id
+                      where p.tenant_id = ? and p.user_id = any(?::uuid[]) and p.learning_state = 'gefestigt'
+                      group by p.user_id, v.course_id",
+                    [self::uuidArray($pairCourseIds), self::uuidArray($pairQuestionIds), $tenantId, self::uuidArray($chunk->all())]
+                );
+                foreach ($rows as $row) {
+                    $mastered[$row->user_id][$row->course_id] = (int) $row->mastered;
+                }
+            }
+        }
+
+        $result = [];
+        foreach ($userIds as $userId) {
+            foreach ($validIdsByCourse as $courseId => $questionIds) {
+                $result[$userId][$courseId] = self::percentOf($mastered[$userId][$courseId] ?? 0, $questionIds->count());
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * overallPercent() für viele Lernende eines Kurses auf einmal -- für
+     * Statistik und Exporte.
      *
      * @param  iterable<string>  $userIds
      * @return array<string, int> user_id => Prozent
      */
     public function overallPercents(CourseDefinition $course, Tenant $tenant, iterable $userIds): array
     {
-        $userIds = collect($userIds)->unique()->values();
-        if ($userIds->isEmpty()) {
-            return [];
-        }
-        $course->loadMissing('modules.questions');
-        $questionIds = ContentQuestion::currentlyValidIds($course->modules->flatMap(fn ($m) => $m->questions));
-        $total = max($questionIds->count(), 1);
+        return collect($this->percentsByUserAndCourse($tenant, collect([$course]), $userIds))
+            ->map(fn (array $byCourse) => $byCourse[$course->id])->all();
+    }
 
-        $mastered = [];
-        foreach ($userIds->chunk(2000) as $chunk) {
-            $mastered += Progress::where('tenant_id', $tenant->id)
-                ->whereIn('user_id', $chunk->all())
-                ->whereIn('question_id', $questionIds)
-                ->where('learning_state', 'gefestigt')
-                ->groupBy('user_id')
-                ->selectRaw('user_id, count(*) as mastered')
-                ->pluck('mastered', 'user_id')->all();
-        }
-
-        return $userIds->mapWithKeys(fn ($id) => [$id => (int) round(($mastered[$id] ?? 0) / $total * 100)])->all();
+    /** Postgres-Array-Literal aus UUIDs (aus der Datenbank, daher ohne Quoting). */
+    private static function uuidArray(array $ids): string
+    {
+        return '{'.implode(',', $ids).'}';
     }
 
     public function overallPercent(CourseDefinition $course, Tenant $tenant, User $user): int
@@ -69,8 +163,6 @@ class CourseProgressService
      */
     public function exactPercent(CourseDefinition $course, Tenant $tenant, User $user): float
     {
-        $course->loadMissing('modules.questions');
-
         // Bug-Review F7: eine vom Superadmin deaktivierte Frage (z. B.
         // fehlerhaft oder veraltet) taucht im Smarttrainer, im
         // Favoriten-Fragenpool und in der Prüfung nicht mehr auf (siehe
@@ -80,7 +172,7 @@ class CourseProgressService
         // und die darauf aufbauenden Freigaben (Praxisformular,
         // Willkommensbox, Addon-/Banner-Empfehlungen) blieben gesperrt.
         // Bug-Review BB16: dieselbe Lücke bestand für valid_from/valid_to.
-        $questionIds = ContentQuestion::currentlyValidIds($course->modules->flatMap(fn ($m) => $m->questions));
+        $questionIds = $this->validQuestionIds($course);
         $total = max($questionIds->count(), 1);
 
         $mastered = Progress::where('tenant_id', $tenant->id)

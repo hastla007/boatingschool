@@ -11,6 +11,7 @@ use App\Notifications\LearningReminder;
 use App\Services\LearnerOverview;
 use App\Support\BestEffortMail;
 use App\Support\InstructorScope;
+use App\Support\MailPreferences;
 use App\Support\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -54,7 +55,9 @@ class InactiveLearnerController extends Controller
 
         $candidates = $this->inactive($tenantContext, $overview, $days)
             ->when($request->filled('user_id'), fn ($c) => $c->where('membership.user_id', $request->input('user_id')))
-            ->reject(fn ($row) => $row['recently_reminded']);
+            ->reject(fn ($row) => $row['recently_reminded'])
+            // Lern-Erinnerungen abbestellt (§ 7 UWG): nicht anschreiben, nicht mitzählen.
+            ->filter(fn ($row) => MailPreferences::wants($row['membership']->user, MailPreferences::LEARNING_REMINDERS));
         $rows = $candidates->take(self::MAX_REMINDERS);
         $omitted = $candidates->count() - $rows->count();
 

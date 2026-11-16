@@ -30,8 +30,8 @@ use App\Models\TenantInvitation;
 use App\Models\TenantUser;
 use App\Models\WillkommensboxOrder;
 use App\Services\CourseProgressService;
+use App\Services\InvitationCoupon;
 use App\Services\LearningGroupService;
-use App\Services\ParticipantInviter;
 use App\Support\InstructorScope;
 use App\Support\ParticipantFilters;
 use App\Support\TenantContext;
@@ -42,11 +42,11 @@ use Illuminate\View\View;
 
 /**
  * Ein einziger Bootsschul-Admin-Bereich mit Tabs (Dashboard, Teilnehmer,
- * Branding, Webshop-Links, Kursauswahl, Coupon-Codes) statt sechs
+ * Branding, Webshop-Links, Kursauswahl, Zugangscodes) statt sechs
  * separater Seiten -- alle Daten werden hier gesammelt geladen, die Tabs
  * selbst sind reine Client-Umschaltung (siehe admin/dashboard.blade.php).
  * Die schreibenden Aktionen (Teilnehmer einladen, Branding/Webshop-Links/
- * Kursauswahl speichern, Kurs manuell freischalten, Coupon-Codes
+ * Kursauswahl speichern, Kurs manuell freischalten, Zugangscodes
  * importieren/zuweisen) bleiben in ihren jeweiligen Controllern, nur die
  * Anzeige ist hier zusammengeführt.
  */
@@ -58,7 +58,7 @@ class AdminDashboardController extends Controller
 
         // Steuert, ob die Tabs mit Finanz-/Vertrauens-relevanten
         // Einstellungen (Branding, Addons, Kursauswahl/Webshop-Links,
-        // Kursempfehlungen, Coupon-Codes) überhaupt angezeigt werden -- die
+        // Kursempfehlungen, Zugangscodes) überhaupt angezeigt werden -- die
         // zugehörigen Routen sind serverseitig ohnehin auf owner/admin
         // beschränkt (siehe routes/web.php, Sicherheitsreview H3), das hier
         // vermeidet nur unbedienbare Formulare für einen Instructor.
@@ -69,7 +69,9 @@ class AdminDashboardController extends Controller
         // Ausbilder mit zugeordneten Kursen sehen nur ihre Lernenden (InstructorScope).
         $visibleLearnerIds = InstructorScope::learnerIds($tenant, $request->user());
         $scopeCourseIds = InstructorScope::courseIds($tenant, $request->user());
-        $learnerIds = TenantUser::where('tenant_id', $tenant->id)->where('role', 'learner')->where('status', 'active')
+        // Offene Einladungen (nie aktivierte Konten) zählen nicht mit, siehe
+        // ParticipantFilters::withoutOpenInvitations.
+        $learnerIds = ParticipantFilters::withoutOpenInvitations(TenantUser::where('tenant_id', $tenant->id)->where('role', 'learner')->where('status', 'active'))
             ->when($visibleLearnerIds !== null, fn ($q) => $q->whereIn('user_id', $visibleLearnerIds))->pluck('user_id');
         $learnerCount = $learnerIds->count();
         // Bug-Review B15: status wechselt nie automatisch auf "expired" --
@@ -114,7 +116,8 @@ class AdminDashboardController extends Controller
                     'user' => $e->user->name ?? '—',
                     'label' => $e->course->name ?? '—',
                     'date' => $e->valid_from,
-                    'options' => $options->map(fn (ProductPurchase $p) => $p->product->name ?? '—')->values(),
+                    // Feste Reihenfolge (nach Name): die Kauf-Zeilen entstehen gleichzeitig.
+                    'options' => $options->map(fn (ProductPurchase $p) => $p->product->name ?? '—')->sort(SORT_NATURAL | SORT_FLAG_CASE)->values(),
                 ];
             });
 
@@ -323,43 +326,56 @@ class AdminDashboardController extends Controller
             ->paginate(25, ['*'], 'participants_page')
             ->withQueryString();
 
-        // Audit SEC-W-3: offene Einladungen an schon bestehende Konten stehen
-        // wie neu angelegte, noch nicht angemeldete Teilnehmer in der Liste
-        // (auf der ersten Seite, gleiche Filter) -- vorher erschien nur ein
-        // neu angelegtes Konto, und die Liste verriet so, ob es zur Adresse
-        // schon ein Konto auf der Plattform gab. Ausbilder mit
-        // Kursbeschränkung sehen beides nicht (sie laden nicht neu ein).
-        $pendingLearnerInvitations = collect();
-        if ($visibleLearnerIds === null && $participants->onFirstPage()
-            && $participantFilters['p_course'] === '' && $participantFilters['p_status'] !== 'suspended') {
-            $pendingLearnerInvitations = ParticipantInviter::openLearnerInvitations($tenant)
-                ->when($participantFilters['p_search'] !== '', function ($q) use ($participantFilters) {
-                    $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $participantFilters['p_search']).'%';
-                    $q->where(fn ($w) => $w->where('name', 'ilike', $like)->orWhere('email', 'ilike', $like));
-                })
-                ->limit(100)->get();
-        }
-
         // Team: alle Mitglieder außer Lernenden, dazu offene Team-Einladungen.
+        // Kein Konto-Orakel (wie bei „Offene Einladungen“ der Teilnehmer):
+        // ein von hier neu angelegtes, nie aktiviertes Konto erscheint bis
+        // zur Annahme genauso als „eingeladen“ wie eine Einladung an ein
+        // Bestandskonto (Name wie eingegeben, E-Mail, Rolle).
         $team = TenantUser::with('user')
             ->where('tenant_id', $tenant->id)
             ->where('role', '!=', 'learner')
+            ->whereHas('user', fn ($u) => $u->where('status', '!=', 'invited'))
             ->orderByRaw("CASE role WHEN 'owner' THEN 0 WHEN 'admin' THEN 1 WHEN 'instructor' THEN 2 ELSE 3 END")
             ->orderBy('created_at')
             ->orderBy('user_id')
             ->get();
+        $invitedTeamMembers = TenantUser::with('user')->where('tenant_id', $tenant->id)->where('role', '!=', 'learner')
+            ->whereHas('user', fn ($u) => $u->where('status', 'invited'))->get()
+            ->map(fn (TenantUser $m) => ['name' => $m->user->name, 'email' => $m->user->email, 'role' => $m->role, 'invited_at' => $m->created_at]);
         $pendingTeamInvitations = TenantInvitation::where('tenant_id', $tenant->id)
             ->where('role', '!=', 'learner')
             ->whereNull('accepted_at')
             ->orderByDesc('created_at')
-            ->get();
+            ->get()
+            ->map(fn (TenantInvitation $i) => ['name' => $i->name ?: strstr($i->email, '@', true), 'email' => $i->email, 'role' => $i->role, 'invited_at' => $i->created_at]);
+        $pendingTeamInvitations = $invitedTeamMembers->concat($pendingTeamInvitations)->sortByDesc('invited_at')
+            ->unique(fn ($row) => mb_strtolower($row['email']))->values();
 
-        $allParticipants = TenantUser::with('user')
+        $allParticipants = ParticipantFilters::withoutOpenInvitations(TenantUser::with('user')
             ->where('tenant_id', $tenant->id)
-            ->where('role', 'learner')
+            ->where('role', 'learner'))
             ->orderBy('created_at')
             ->orderBy('user_id')
             ->get();
+
+        // „Offene Einladungen“: neu angelegte, nie aktivierte Konten und
+        // Einladungen an Bestandskonten erscheinen hier gleich (Name wie
+        // eingegeben, E-Mail, Datum) -- kein Konto-Orakel, siehe
+        // ParticipantFilters::withoutOpenInvitations. Ausbilder mit
+        // Kurszuordnung sehen nur ihre Lernenden, Einladungen gehören noch
+        // zu keinem Kurs.
+        $openInvitations = collect();
+        if ($visibleLearnerIds === null) {
+            $invitedMembers = TenantUser::with('user')->where('tenant_id', $tenant->id)->where('role', 'learner')
+                ->whereHas('user', fn ($u) => $u->where('status', 'invited'))->get()
+                ->map(fn (TenantUser $m) => ['name' => $m->user->name, 'email' => $m->user->email, 'invited_at' => $m->created_at]);
+            $pendingInvitations = TenantInvitation::where('tenant_id', $tenant->id)->where('role', 'learner')->whereNull('accepted_at')->get()
+                ->map(fn (TenantInvitation $i) => ['name' => $i->name ?: strstr($i->email, '@', true), 'email' => $i->email, 'invited_at' => $i->created_at]);
+            // Ein neu angelegtes Konto hat zusätzlich eine Einladung (zum
+            // Annehmen beim Passwort-Festlegen): eine Zeile je Adresse.
+            $openInvitations = $invitedMembers->concat($pendingInvitations)->sortByDesc('invited_at')
+                ->unique(fn ($row) => mb_strtolower($row['email']))->values();
+        }
 
         // Sitewide deaktivierte Kurse (course_definition.site_enabled = false)
         // tauchen konsequent in keinem Tab auf -- weder zum manuellen
@@ -508,6 +524,8 @@ class AdminDashboardController extends Controller
             ->orderByDesc('created_at')
             ->paginate(50, ['*'], 'coupon_page')
             ->withQueryString();
+        // Beim Einladen angegebene Codes sind bis zur Annahme reserviert (InvitationCoupon).
+        $reservedCouponCodes = InvitationCoupon::reservedCodes($tenant, $coupons->getCollection()->pluck('code'));
 
         // Bestand je Kurs/Produkt aus den Codes, die dieser Bootsschule
         // gehören (übernommen per Import oder vom Superadmin zugeteilt) --
@@ -526,7 +544,8 @@ class AdminDashboardController extends Controller
         // die Schule muss es selbst per Code verknüpfen.
         $shopNeedsLink = CommerceShopAccount::where('tenant_id', $tenant->id)->whereNull('shop_customer_id')
             ->where('provisioning_status', 'needs_link')->exists();
-        $shopBatches = CouponBatch::where('tenant_id', $tenant->id)->with(['course', 'product'])
+        // Nur Shop-Lieferungen (Code-Pakete des Superadmins stehen nicht in dieser Tabelle).
+        $shopBatches = CouponBatch::where('tenant_id', $tenant->id)->where('source', 'woocommerce')->with(['course', 'product'])
             ->withCount(['coupons as redeemed_count' => fn ($q) => $q->whereNotNull('redeemed_at')])
             ->orderByDesc('created_at')->limit(20)->get();
 
@@ -599,8 +618,8 @@ class AdminDashboardController extends Controller
             'team' => $team,
             'instructorCourses' => InstructorCourse::where('tenant_id', $tenant->id)->get()->groupBy('user_id')->map(fn ($rows) => $rows->pluck('course_id')),
             'pendingTeamInvitations' => $pendingTeamInvitations,
-            'pendingLearnerInvitations' => $pendingLearnerInvitations,
             'allParticipants' => $allParticipants,
+            'openInvitations' => $openInvitations,
             'courses' => $courses,
             'participantFilters' => $participantFilters,
             'productPurchases' => $productPurchases,
@@ -619,6 +638,7 @@ class AdminDashboardController extends Controller
             'willkommensboxLabelSizes' => $branding->enabledLabelSizes(),
             'disabledCourseIds' => $disabledCourseIds,
             'coupons' => $coupons,
+            'reservedCouponCodes' => $reservedCouponCodes,
             'couponSummary' => $couponSummary,
             'shopAccounts' => $shopAccounts,
             'shopNeedsLink' => $shopNeedsLink,

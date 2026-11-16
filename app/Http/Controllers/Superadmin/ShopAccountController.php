@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\CommerceEvent;
 use App\Models\CommerceShopAccount;
+use App\Models\PlatformSetting;
 use App\Models\Tenant;
 use App\Models\TenantBranding;
 use App\Models\TenantUser;
@@ -39,15 +40,19 @@ class ShopAccountController extends Controller
         $accounts = CommerceShopAccount::with(['user', 'tenant'])
             ->when($status === 'open', fn ($q) => $q->whereIn('status', [CommerceShopAccount::PENDING_REVIEW, CommerceShopAccount::AWAITING_LINK])
                 ->orWhere('provisioning_status', 'failed'))
-            ->when($status !== 'open' && $status !== 'all', fn ($q) => $q->where('status', $status))
+            // Anlage im Shop läuft (wartet auf den nächsten Versuch oder wird gerade gesendet).
+            ->when($status === 'provisioning', fn ($q) => $q->where('provisioning_status', 'pending'))
+            ->when(! in_array($status, ['open', 'all', 'provisioning'], true), fn ($q) => $q->where('status', $status))
             ->orderByDesc('created_at')->paginate(30)->withQueryString();
-        $failedEvents = CommerceEvent::where('direction', 'out')->where('status', 'failed')
-            ->whereIn('shop_account_id', $accounts->pluck('id'))->get()->keyBy('shop_account_id');
+        // Letztes Ausgangs-Ereignis je Konto: pending (wartet), sending (wird
+        // gerade gesendet), failed (endgültig fehlgeschlagen) oder done.
+        $outEvents = CommerceEvent::where('direction', 'out')->whereIn('shop_account_id', $accounts->pluck('id'))
+            ->orderBy('created_at')->get()->keyBy('shop_account_id');
 
         return view('superadmin.shop-accounts.index', [
             'accounts' => $accounts,
             'status' => $status,
-            'failedEvents' => $failedEvents,
+            'outEvents' => $outEvents,
             'tenants' => Tenant::orderBy('name')->get(['id', 'name', 'slug']),
             'shopConfigured' => Outbox::enabled() || (bool) config('commerce.keys'),
         ]);
@@ -101,7 +106,9 @@ class ShopAccountController extends Controller
 
                 if ($validated['mode'] === 'new') {
                     $tenant = Tenant::create(['slug' => $validated['slug'], 'name' => $validated['name'], 'status' => 'active', 'default_locale' => 'de-DE']);
-                    TenantBranding::create(['tenant_id' => $tenant->id, 'primary_color' => '#005FD7', 'secondary_color' => '#007A7A']);
+                    // 2FA-Pflicht fürs Team nach der Plattform-Einstellung „2FA-Pflicht für neue Schulen“.
+                    TenantBranding::create(['tenant_id' => $tenant->id, 'primary_color' => '#005FD7', 'secondary_color' => '#007A7A',
+                        'require_team_two_factor' => PlatformSetting::newTenantRequiresTeamTwoFactor()]);
                     $role = 'owner';
                 } else {
                     $tenant = Tenant::findOrFail($validated['tenant_id']);

@@ -3,9 +3,11 @@
 namespace Tests\Feature;
 
 use App\Models\Coupon;
+use App\Models\TenantInvitation;
 use App\Models\TenantUser;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Password;
 use Tests\Feature\Concerns\InteractsWithTenants;
 use Tests\TestCase;
 
@@ -48,6 +50,7 @@ class ParticipantInviteTest extends TestCase
     private function deleteInvitedUser(User $user): void
     {
         DB::table('password_reset_tokens')->where('email', $user->email)->delete();
+        DB::table('account_setup_tokens')->where('email', $user->email)->delete();
         $user->delete();
     }
 
@@ -126,7 +129,7 @@ class ParticipantInviteTest extends TestCase
         $response->assertSessionHasErrors('country');
     }
 
-    public function test_admin_can_invite_a_participant_and_assign_a_code_in_one_step(): void
+    public function test_admin_can_invite_a_participant_with_a_code_that_is_redeemed_when_the_password_is_set(): void
     {
         $tenant = $this->createTestTenant();
         $admin = $this->createTenantUser($tenant, 'owner');
@@ -134,17 +137,30 @@ class ParticipantInviteTest extends TestCase
         $code = 'E2E-INVITE-ASSIGN';
         $this->createdCodes[] = $code;
         $this->onAdmin(fn () => Coupon::create(['code' => $code, 'course_id' => $course->id, 'tenant_id' => $tenant->id]));
+        $email = 'mit-code-'.uniqid().'@example.test';
 
         $response = $this->actingAsInTenant($admin, $tenant)->post('/admin/participants/invite', [
             'name' => 'Teilnehmer Mit Code',
-            'email' => 'mit-code-'.uniqid().'@example.test',
+            'email' => $email,
             'code' => $code,
         ]);
 
+        // Wie bei einem Bestandskonto: der Code ist an der Einladung
+        // reserviert und noch nicht eingelöst.
         $response->assertSessionHasNoErrors();
-        $this->onAdmin(function () use ($tenant, $course, $code) {
-            $user = User::where('display_name', 'Teilnehmer Mit Code')->first();
-            $this->assertNotNull($user);
+        $user = $this->onAdmin(fn () => User::where('email', $email)->firstOrFail());
+        $this->assertFalse($this->onAdmin(fn () => Coupon::where('code', $code)->first()->isRedeemed()));
+        $this->assertSame($code, $this->onAdmin(fn () => TenantInvitation::where('tenant_id', $tenant->id)->where('email', $email)->value('coupon_code')));
+
+        // Passwort über den Einladungslink festlegen: erst jetzt eingelöst.
+        $token = Password::broker('invites')->createToken($user);
+        $this->app['auth']->forgetGuards();
+        $this->withSession(['dev_tenant_slug' => $tenant->slug])->post('/reset-password', [
+            'invite' => '1', 'token' => $token, 'email' => $email, 'age_confirmed' => '1',
+            'password' => 'Ein-sicheres-Passwort-2026', 'password_confirmation' => 'Ein-sicheres-Passwort-2026',
+        ])->assertSessionHasNoErrors();
+
+        $this->onAdmin(function () use ($tenant, $course, $code, $user) {
             $this->assertDatabaseHas('entitlement', [
                 'tenant_id' => $tenant->id,
                 'user_id' => $user->id,
@@ -155,7 +171,7 @@ class ParticipantInviteTest extends TestCase
             $coupon = Coupon::where('code', $code)->first();
             $this->assertTrue($coupon->isRedeemed());
             $this->assertSame($user->id, $coupon->redeemed_by_user_id);
-            $this->deleteInvitedUser($user);
+            $this->deleteInvitedUser($user->fresh());
         });
     }
 
@@ -183,15 +199,11 @@ class ParticipantInviteTest extends TestCase
 
         $response->assertSessionHasErrors('code');
 
+        // Der Code wird vorab geprüft: es entsteht nichts (für neue
+        // Adressen und Bestandskonten gleich).
         $this->onAdmin(function () use ($code) {
-            $user = User::where('display_name', 'Von Instructor Eingeladen')->first();
-            $this->assertNotNull($user, 'Die Einladung soll trotz abgelehntem Code durchgehen.');
-            $this->assertCount(0, $user->entitlements);
-
-            $coupon = Coupon::where('code', $code)->first();
-            $this->assertFalse($coupon->isRedeemed());
-
-            $this->deleteInvitedUser($user);
+            $this->assertNull(User::where('display_name', 'Von Instructor Eingeladen')->first());
+            $this->assertFalse(Coupon::where('code', $code)->first()->isRedeemed());
         });
     }
 
@@ -239,7 +251,7 @@ class ParticipantInviteTest extends TestCase
         });
     }
 
-    public function test_an_unknown_code_does_not_block_the_invite_but_shows_an_error(): void
+    public function test_an_unknown_code_blocks_the_invite_before_anything_is_created(): void
     {
         $tenant = $this->createTestTenant();
         $admin = $this->createTenantUser($tenant, 'owner');
@@ -251,12 +263,7 @@ class ParticipantInviteTest extends TestCase
         ]);
 
         $response->assertSessionHasErrors('code');
-        $this->onAdmin(function () {
-            $user = User::where('display_name', 'Teilnehmer Falscher Code')->first();
-            $this->assertNotNull($user, 'Die Einladung soll trotz ungültigem Code durchgehen.');
-            $this->assertCount(0, $user->entitlements);
-            $this->deleteInvitedUser($user);
-        });
+        $this->onAdmin(fn () => $this->assertNull(User::where('display_name', 'Teilnehmer Falscher Code')->first()));
     }
 
     public function test_a_code_belonging_to_another_tenant_cannot_be_assigned_when_inviting(): void
@@ -277,12 +284,8 @@ class ParticipantInviteTest extends TestCase
 
         $response->assertSessionHasErrors('code');
         $this->onAdmin(function () use ($code) {
-            $user = User::where('display_name', 'Teilnehmer Fremder Code')->first();
-            $this->assertNotNull($user);
-            $this->assertCount(0, $user->entitlements);
-            $coupon = Coupon::where('code', $code)->first();
-            $this->assertFalse($coupon->isRedeemed());
-            $this->deleteInvitedUser($user);
+            $this->assertNull(User::where('display_name', 'Teilnehmer Fremder Code')->first());
+            $this->assertFalse(Coupon::where('code', $code)->first()->isRedeemed());
         });
     }
 

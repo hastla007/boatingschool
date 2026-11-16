@@ -63,7 +63,7 @@ class EntitlementController extends Controller
         //
         // Bug-Review (Hoch): dieser "Kurs freischalten"-Weg legte bisher
         // IMMER ein Entitlement an (source_type=manual, valid_until=null,
-        // also unbefristet), ohne jemals einen Coupon-Code zu verbrauchen --
+        // also unbefristet), ohne jemals einen Zugangscode zu verbrauchen --
         // das Dropdown im Teilnehmer-Tab zeigt dabei aber ausdrücklich an,
         // wie viele eigene, noch nicht eingelöste Codes die Bootsschule je
         // Kurs besitzt ($freeCourseCouponCounts, AdminDashboardController),

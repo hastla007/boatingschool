@@ -10,6 +10,7 @@ use App\Models\TenantAnnouncement;
 use App\Models\TenantUser;
 use App\Notifications\AnnouncementPublished;
 use App\Support\BestEffortMail;
+use App\Support\MailPreferences;
 use App\Support\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -69,7 +70,9 @@ class AnnouncementController extends Controller
         $queued = 0;
         $omitted = 0;
         if ($sendMail) {
-            $recipients = $this->recipients($tenant->id, $announcement->course_id);
+            // Abbestellt (§ 7 UWG): nicht anschreiben und nicht mitzählen.
+            $recipients = $this->recipients($tenant->id, $announcement->course_id)
+                ->filter(fn ($m) => MailPreferences::wants($m->user, MailPreferences::ANNOUNCEMENTS));
             $omitted = max($recipients->count() - self::MAX_MAILS, 0);
             foreach ($recipients->take(self::MAX_MAILS) as $membership) {
                 if (BestEffortMail::send(fn () => $membership->user->notify(new AnnouncementPublished($tenant, $announcement)), 'Mitteilung '.$announcement->id)) {

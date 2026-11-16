@@ -1,6 +1,6 @@
 <x-superadmin-layout>
     <x-slot name="header">
-        <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Coupon-Codes</h1>
+        <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Zugangscodes</h1>
     </x-slot>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">

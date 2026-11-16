@@ -279,6 +279,7 @@ class AccountSecurityTest extends TestCase
                 'email' => $email,
                 'password' => 'password1234',
                 'password_confirmation' => 'password1234',
+                'age_confirmed' => '1',
             ]);
             $response->assertSessionHasNoErrors()->assertRedirect(route('login'));
 

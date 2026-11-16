@@ -8,7 +8,7 @@
         <x-stat-tile icon="users" :value="$userCount" label="Nutzer" />
         <x-stat-tile icon="academic-cap" :value="$activeEntitlementCount" label="Aktive Kurszugänge" tone="success" />
         <x-stat-tile icon="book-open" :value="$courseCount" label="Kurse im Katalog" />
-        <x-stat-tile icon="bookmark" :value="$couponRedeemed.'/'.$couponTotal" label="Coupons eingelöst" tone="warning" />
+        <x-stat-tile icon="bookmark" :value="$couponRedeemed.'/'.$couponTotal" label="Zugangscodes eingelöst" tone="warning" />
     </div>
 
     <div class="grid sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
@@ -53,7 +53,7 @@
                 <x-icon name="bookmark" class="w-5 h-5" />
             </div>
             <div>
-                <div class="font-medium text-slate-700 dark:text-slate-200">Coupons</div>
+                <div class="font-medium text-slate-700 dark:text-slate-200">Zugangscodes</div>
                 <div class="text-xs text-slate-600 dark:text-slate-400">Codes erzeugen &amp; auswerten</div>
             </div>
         </a>

@@ -28,6 +28,7 @@ use App\Models\TenantUser;
 use App\Models\User;
 use App\Models\VideoProgress;
 use App\Models\WillkommensboxOrder;
+use App\Support\MailPreferences;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -88,6 +89,15 @@ class PersonalDataExportService
                 'account_created_at' => $user->created_at?->toIso8601String(),
                 'email_verified_at' => $user->email_verified_at?->toIso8601String(),
                 'two_factor_enabled' => $user->two_factor_confirmed_at !== null,
+                // Löschfrist für inaktive Konten (app:prune-inactive-learners).
+                'last_login_at' => $user->last_login_at?->toIso8601String(),
+                'inactivity_deletion_warned_at' => $user->inactivity_warned_at?->toIso8601String(),
+                // Bestätigung Mindestalter/Einverständnis der Erziehungsberechtigten.
+                'age_confirmed_at' => $user->age_confirmed_at?->toIso8601String(),
+                // Einwilligung in die Spracherkennung des Browsers (widerrufbar im Profil).
+                'speech_consent_at' => $user->speech_consent_at?->toIso8601String(),
+                // E-Mail-Benachrichtigungen (§ 7 UWG): true = erwünscht.
+                'mail_preferences' => MailPreferences::forUser($user),
             ],
             'membership' => $membership ? [
                 'role' => $membership->role,
@@ -331,6 +341,13 @@ class PersonalDataExportService
                     'created_at' => $row->created_at ? Carbon::parse($row->created_at)->toIso8601String() : null,
                     'last_used_at' => $row->last_used_at ? Carbon::parse($row->last_used_at)->toIso8601String() : null,
                     'revoked_at' => $row->revoked_at ? Carbon::parse($row->revoked_at)->toIso8601String() : null,
+                ])->all(),
+            // Bekannte Anmelde-Geräte (Team/Superadmin, Hinweis-Mail bei neuem
+            // Gerät): gespeichert ist nur ein Fingerabdruck-Hash, keine IP.
+            'known_login_devices' => $forSchool ? [] : DB::connection('pgsql_admin')->table('known_login_device')->where('user_id', $user->id)->orderBy('first_seen_at')->get()
+                ->map(fn ($row) => [
+                    'first_seen_at' => Carbon::parse($row->first_seen_at)->toIso8601String(),
+                    'last_seen_at' => Carbon::parse($row->last_seen_at)->toIso8601String(),
                 ])->all(),
             // Offener Löschantrag aus der App (bis zur Bestätigung per Mail).
             'app_deletion_requests' => ApiAccountDeletionRequest::where('tenant_id', $tenant->id)->where('user_id', $user->id)

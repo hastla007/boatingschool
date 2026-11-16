@@ -12,10 +12,11 @@ oder in der App ein (`POST /api/v1/coupons/redeem`).
 | Ausgang App → Shop (Outbox) | `app/Commerce/Outbox.php`, Befehl `app:commerce-outbox` (jede Minute) |
 | Superadmin „Shopkonten“ | `app/Http/Controllers/Superadmin/ShopAccountController.php` |
 | Schuladmin „Shop verknüpfen“ | `app/Http/Controllers/Admin/ShopLinkController.php`, Tab „Codes“ |
-| Datenmodell | Migration `2024_02_01_000610_create_commerce_tables` (RLS je Schule auf Batches, Verknüpfungscodes und Shopkonten) |
+| Code-Erzeugung | `app/Services/CouponBatchFactory.php` – ein Weg für Shop-Lieferungen und Superadmin „Codes erzeugen“ |
+| Datenmodell | Migration `2024_02_01_000610_create_commerce_tables` (RLS je Schule auf Batches, Verknüpfungscodes und Shopkonten), `000630` (Superadmin-Pakete), `000631` (`commerce_event.claimed_at`), `000632` (`product.sellable_standalone`) |
 | WooCommerce-Plugin | `integrations/woocommerce-connector/` |
 | Konfiguration | `config/commerce.php`, `.env` (`COMMERCE_*`) |
-| Tests | `tests/Feature/Commerce/`, `tests/Unit/ConnectorSignatureCompatibilityTest.php` |
+| Tests | `tests/Feature/Commerce/`, `tests/Unit/ConnectorSignatureCompatibilityTest.php`, `tests/Unit/ConnectorPluginHelpersTest.php`, `tests/Unit/ConnectorVatCheckTest.php`; WordPress-Integrationstest: [wordpress-integrationstest.md](wordpress-integrationstest.md) |
 
 ## Entscheidungen
 
@@ -27,6 +28,9 @@ oder in der App ein (`POST /api/v1/coupons/redeem`).
 | Verknüpfung | Per Einmalcode, den Inhaber oder Admin einer Schule in der App erzeugen (8 Zeichen, 15 Minuten gültig) | **E-Mail-Gleichheit verknüpft nie**, weder bei der Registrierung noch bei der Anlage aus der App |
 | Führend | Die App führt Schule, Schulname und App-Konten. WooCommerce führt Rechnungsdaten, USt-IdNr. und Zahlung | Der Shop-Abgleich schreibt nur in das Shopkonto (`commerce_shop_account`), nie in das App-Konto |
 | Idempotenz | Genau ein Code-Paket (`coupon_batch`) je Bestellposition, eindeutig über `(shop_id, order_id, order_line_id)` | Wiederholungen nach einer Zeitüberschreitung erzeugen nie neue Codes. Abweichender Inhalt ergibt 409 `ORDER_LINE_CONFLICT` |
+| Code-Erzeugung | `CouponBatchFactory`: eine Transaktion, Codes in PHP erzeugt, gesammelt gegen den Bestand geprüft und in Blöcken zu 500 per `insert()` geschrieben; Zusatzprodukte ebenso. Kollidiert ein Code doch (gleichzeitige Erzeugung), wird nur der Block mit neuen Codes wiederholt (Savepoint). Superadmin-Pakete ab zwei Codes bekommen einen `coupon_batch` mit `source = superadmin` ohne Shop-Angaben | 500 Codes brauchen lokal rund 0,05 s statt einer Abfrage-Kette je Code – weit unter dem Zeitlimit des Plugins (15 s). Superadmin-Pakete zählen nicht zum Tageskontingent und erscheinen nicht unter „Bestellungen aus dem Shop“ |
+| Allein verkäuflich | `product.sellable_standalone` (Superadmin → Produkte). Nur solche Produkte gibt es als Produktcode (`kind=product`); als Zusatzprodukt zu einem Kurscode geht jedes aktive Produkt | „Lernplattform“ und „Lernplattform (inkl. Willkommensbox)“ ergeben ohne Kurs keinen Sinn und sind deshalb nur Zusatzprodukte. Fahrstunden und Praxiseinheiten bleiben allein verkäuflich |
+| Praxiseinheiten | „Große Praxiseinheit ersetzt Kleine“ gilt für Zusatzprodukte eines Kurscodes und für eigene Produktcodes | Gleiche Regel, egal wie gekauft wurde |
 | Rückerstattung/Storno | Sperrt nur **unbenutzte** Codes. Eingelöste Codes bleiben gültig | Lernende verlieren keinen Zugang, den sie schon haben |
 | Alarme | Mail an `COMMERCE_ALERT_EMAIL`, sonst an die Support-Adresse der Plattform. Im Plugin an die Alarm-Adresse des Shops | |
 
@@ -34,11 +38,11 @@ oder in der App ein (`POST /api/v1/coupons/redeem`).
 
 ### 1. Bestehende Schule kauft im Shop
 
-1. Die Kundin registriert sich im Shop. Das Plugin sendet `POST /accounts`.
+1. Die Kundin registriert sich im Shop und bestätigt ihre E-Mail-Adresse über den Link aus der Bestätigungsmail des Shops. Erst dann sendet das Plugin `POST /accounts`.
    - Gibt es noch kein App-Konto mit der Adresse: Status `pending_review` (ohne App-Konto).
    - Gibt es schon eines: Status `awaiting_link` (ist die Person noch nicht Inhaberin/Admin einer Schule, legt der Superadmin die Schule mit dieser Adresse als Inhaber an; danach verknüpft sie per Code). Es wird **nicht** verknüpft, und der Superadmin kann es auch nicht freigeben (nur ablehnen); verknüpft wird es ausschließlich per Code aus diesem App-Konto. Nach außen meldet die API in beiden Fällen `pending_review`, damit der Shop nicht verrät, ob eine Adresse ein App-Konto hat.
 2. Inhaber oder Admin der Schule erzeugt unter Admin → Codes → „Shop verknüpfen“ einen Verknüpfungscode.
-3. Im Shop unter „Mein Konto → Bootsschule verknüpfen“ den Code eingeben. Das Plugin sendet `POST /accounts/{id}/link`, der Status wird `linked`.
+3. Im Shop unter „Mein Konto → Bootsschule verknüpfen“ den Code eingeben (nur mit bestätigter E-Mail-Adresse). Das Plugin sendet `POST /accounts/{id}/link`, der Status wird `linked`.
 4. Nach falschen Codes: höchstens 5 Versuche in 10 Minuten (danach 429).
 
 ### 2. Neue Schule registriert sich im Shop
@@ -59,7 +63,10 @@ oder in der App ein (`POST /api/v1/coupons/redeem`).
    - **Neues Kundenkonto** (`matched_by=created`): Der Shop schickt den Link zum Setzen des Passworts.
    - **Für dieselbe App-Person schon angelegt** (`matched_by=app_user`): Das Konto wird wiederverwendet.
    - **Fremdes Konto mit derselben E-Mail** (`matched_by=email`): Es wird **nicht** übernommen. Der Status ist dann `needs_link`, die Verknüpfung läuft per Code.
-4. Fehler: erster Versuch sofort, weitere nach 1, 5 und 30 Minuten, dann „fehlgeschlagen“. Es folgen eine Alarm-Mail und der Knopf „Erneut versuchen“ unter „Shopkonten“. Jedes Ereignis wird exklusiv beansprucht, auch wenn Scheduler und „Erneut versuchen“ gleichzeitig laufen.
+4. Fehler: erster Versuch sofort, weitere nach 1, 5 und 30 Minuten, dann „fehlgeschlagen“. Es folgen eine Alarm-Mail und der Knopf „Erneut versuchen“ unter „Shopkonten“.
+   - **Beanspruchen, dann senden:** Ein bedingtes `UPDATE … SET status = 'sending', claimed_at = now() WHERE status = 'pending' AND available_at <= now()` beansprucht jedes Ereignis exklusiv und committet sofort, auch wenn Scheduler und „Erneut versuchen“ gleichzeitig laufen. Der HTTP-Aufruf läuft danach ohne offene Transaktion und ohne Zeilensperre. Das Ergebnis wird nur geschrieben, solange das Ereignis noch `sending` ist.
+   - **Hängende Versände:** Steht ein Ereignis länger als 10 Minuten auf `sending` (Prozess abgebrochen), holt `app:commerce-outbox` es zurück. Das zählt als Fehlversuch (gleiche Wartezeiten, nach dem letzten Versuch „fehlgeschlagen“ mit Alarm). Die Anlage im Shop ist idempotent.
+   - Unter „Shopkonten“ zeigt der Filter „Anlage im Shop läuft“ alle noch nicht angelegten Konten, jeweils mit „wird gerade gesendet“ bzw. dem nächsten Versuch.
 5. Ist das Kundenkonto im Shop schon mit einer anderen Schule verknüpft, wird es nicht umgehängt (ebenfalls `needs_link`). Die Schule sieht im Codes-Tab einen Hinweis, dass sie selbst verknüpfen muss.
 
 ### 4. Bestellung
@@ -124,13 +131,13 @@ Konto- und Statusabfragen, die Shopkunden indirekt auslösen, können so Lieferu
 
 | Methode und Pfad | Zweck | Wichtige Fehler |
 |---|---|---|
-| `GET /catalog` | Kurse (`code`, `name`), Produkte und `max_quantity` für die Produktzuordnung | |
+| `GET /catalog` | Kurse (`code`, `name`), allein verkäufliche Produkte (`products`), alle aktiven Produkte als mögliche Zusatzprodukte (`option_products`) und `max_quantity` für die Produktzuordnung | |
 | `POST /accounts` | Registrierung (`shop_customer_id`, `email`, Name, `company_name`, `billing_country`, `vat_id`). 201 neu, 200 Wiederholung | 422 |
 | `GET /accounts/{customerId}` | Status, `can_purchase`, Schule, `deliverable_course_codes` | 404 |
 | `PATCH /accounts/{customerId}` | Kontaktdaten aus dem Shop | 404 |
 | `POST /accounts/{customerId}/link` | `link_code` | 422 `LINK_CODE_INVALID`, 409 `ACCOUNT_REJECTED`, 429 |
 | `POST /accounts/{customerId}/deactivate` | Shopkunde gelöscht: keine Einkäufe mehr | |
-| `POST /orders/lines` | Lieferauftrag (`shop_customer_id`, `order_id`, `order_line_id`, `order_number`, `kind` = course, renewal oder product, `course_code` bzw. `product_code`, `option_product_codes`, `quantity` ≤ `max_quantity` (500), `delivery=platform`). 201 neu, 200 Wiederholung | 403 `ACCOUNT_NOT_LINKED`, 422 `UNKNOWN_COURSE`, `COURSE_NOT_AVAILABLE`, `UNKNOWN_PRODUCT`, 409 `ORDER_LINE_CONFLICT`, 429 `CODE_QUOTA_EXCEEDED` (Tageskontingent der Schule) |
+| `POST /orders/lines` | Lieferauftrag (`shop_customer_id`, `order_id`, `order_line_id`, `order_number`, `kind` = course, renewal oder product, `course_code` bzw. `product_code`, `option_product_codes`, `quantity` ≤ `max_quantity` (500), `delivery=platform`). 201 neu, 200 Wiederholung | 403 `ACCOUNT_NOT_LINKED`, 422 `UNKNOWN_COURSE`, `COURSE_NOT_AVAILABLE`, `UNKNOWN_PRODUCT` (auch für nicht allein verkäufliche Produkte), 409 `ORDER_LINE_CONFLICT`, 429 `CODE_QUOTA_EXCEEDED` (Tageskontingent der Schule) |
 | `GET /orders/{orderId}/lines/{lineId}` | Status einer Position | 404 `BATCH_NOT_FOUND` |
 | `GET /batches/{id}` | Status eines Pakets | 404 `BATCH_NOT_FOUND` |
 | `POST /batches/{id}/void` | `reason`, optional `quantity`. Header `Idempotency-Key` ist Pflicht | 422 |
@@ -165,12 +172,23 @@ Der Scheduler (`schedule:run` jede Minute) muss laufen, er führt
 | `BS_CONNECTOR_SECRET` | `COMMERCE_SHOP_SECRET` |
 | `BS_CONNECTOR_INBOUND_SECRET` | `COMMERCE_OUTBOUND_SECRET` |
 
+Ist eine dieser Konstanten gesetzt, blendet die Einstellungsseite des Plugins
+das Feld aus und nennt nur die Konstante (die Konstante hat immer Vorrang; eine
+alte Kopie in der Datenbank wird beim nächsten Speichern gelöscht). Ebenso
+gesperrt sind `BS_CONNECTOR_APP_URL`, `BS_CONNECTOR_KEY_ID`,
+`BS_CONNECTOR_INBOUND_KEY_ID` und `BS_CONNECTOR_VIES_REQUESTER`, wenn gesetzt.
+Liegen Geheimnisse noch in der Datenbank (`bs_connector_settings`), zeigt das
+WordPress-Backend Administratoren einen dauerhaften Hinweis. Mit der Einstellung „Geheimnisse aus der Datenbank
+erlauben“ = aus oder dem Filter `bs_connector_allow_db_secrets` (`false`)
+ignoriert das Plugin Geheimnisse aus der Datenbank ganz; Standard ist „an“,
+damit bestehende Installationen weiterlaufen.
+
 Voraussetzungen: WooCommerce ab 8 (HPOS-kompatibel) und der mitgelieferte
 Action Scheduler. Außerdem:
 
 - Die Einstellungen (WooCommerce → Einstellungen → Bootsschule) sehen und
   speichern nur **Administratoren** (`manage_options`), nicht Shop-Manager.
-
+  Das gilt auch für den Knopf „Verbindung testen“.
 - **Permalinks** dürfen nicht auf „Einfach“ stehen, sonst ist
   `/wp-json/boatingschool/v1/provision` nicht erreichbar.
 - Produkte mit **Varianten** sind möglich; die Zuordnung steht am Hauptprodukt.
@@ -178,18 +196,37 @@ Action Scheduler. Außerdem:
 - „In den Warenkorb“, Warenkorb und Kasse prüfen, ob die verknüpfte Schule den Kurs erhalten kann (`deliverable_course_codes` aus `GET /accounts/{id}`), damit nicht nach der Zahlung eine Lieferung scheitert. Kurs- und Verlängerungscodes für nicht freigeschaltete Kurse kommen gar nicht erst in den Warenkorb.
 - **Klassischer und Block-Checkout** prüfen unmittelbar vor der Bestellung
   frisch, ob das Konto einkaufen darf.
+- **E-Mail-Bestätigung:** Neue Kundenkonten werden erst nach dem Klick auf den Bestätigungslink (signiert, 3 Tage gültig, einmalig) bei der Plattform angemeldet. „Mein Konto → Bootsschule verknüpfen“ zeigt den Stand und bietet „Bestätigungsmail erneut senden“. Vom Provisionierungs-Endpunkt angelegte Konten gelten als bestätigt.
+- **Betrieb im Shop:** Protokoll unter WooCommerce → Status → Protokolle (Quelle `bs-connector`, nie Codewerte oder Geheimnisse); Knopf „Verbindung testen“ auf dem Einstellungs-Tab (`GET /catalog`); Seite WooCommerce → Bootsschul-Zustellungen mit allen fehlgeschlagenen Positionen und der Sammelaktion „Erneut zustellen“; `wp bs-connector reconcile [--days=30]` gleicht Positionen mit `GET /orders/{id}/lines/{line}` ab und listet Abweichungen.
+- **Datenschutz und Übersetzung:** Export und Löschung der Plugin-Metadaten über die Datenschutz-Werkzeuge von WordPress; Text-Domain `bs-connector` mit Vorlage `languages/bs-connector.pot` (`php bin/make-pot.php`).
+- **USt-IdNr.-Prüfung (VIES):** Registrierung, Kasse und „Mein Konto → Adressen“ prüfen
+  eine angegebene USt-IdNr. zuerst auf das Format des EU-Lands und dann beim VIES-REST-Dienst
+  der EU-Kommission. Ungültig: Fehlermeldung. VIES nicht erreichbar (`MS_UNAVAILABLE` u. a.):
+  angenommen, „nicht geprüft“ und Wiederholung über Action Scheduler (15 Min., 1, 4, 12, 24 Std.).
+  Ergebnis, Zeitpunkt und Abfragenummer stehen am Kunden (Benutzerprofil im Backend) und als
+  Bestellnotiz an jeder neuen Bestellung. An die Plattform geht die Nummer normalisiert
+  (`DE811191002`); die Plattform selbst prüft nicht.
 - Zahlarten ohne bestätigten Zahlungseingang (Standard: Nachnahme `cod`; Einstellung
   „Gesperrte Zahlarten“ bzw. Filter `bs_connector_blocked_gateways`) werden für Warenkörbe mit
   Bootsschul-Codes ausgeblendet. Bestellungen mit einer solchen Zahlart werden erst zugestellt,
   wenn das Gateway die Zahlung bestätigt oder die Bestellung auf „Abgeschlossen“ gesetzt wird.
 
-**Test:** Geprüft sind:
+**Test:** Die Abläufe 1–5 sind gegen echtes WordPress mit WooCommerce und
+die App durchgespielt worden: einmal mit Plugin 1.2.0 (Versionen, Schritte,
+Ergebnisse und Grenzen: [wordpress-integrationstest.md](wordpress-integrationstest.md))
+und einmal lokal gegen WordPress 7.1.4 / WooCommerce 11.3.0 (SQLite statt
+MySQL; Ergebnis und Lücken: [`staging-test.md`](staging-test.md), Abschnitt
+„Ergebnis lokaler E2E-Test“). Automatisiert geprüft sind:
 
 - Signatur und Zustellentscheidungen gegen die App (Unit-Test).
-- Status-Zwischenspeicher, Einstellungen, Warenkorb-Sperren und Storno-Reaktivierung mit einem minimalen WordPress-/WooCommerce-Ersatz (Unit-Tests).
+- Die WordPress-freien Hilfsklassen des Plugins: Bestätigungslink, Protokoll ohne Codewerte, Abgleich, Datenschutz-Export, Aktualität der `.pot` (`tests/Unit/ConnectorPluginHelpersTest.php`).
+- USt-IdNr.-Format je EU-Land, Auswertung der VIES-Antworten und Vorrang der Geheimnisse aus `wp-config.php` (`tests/Unit/ConnectorVatCheckTest.php`).
+- Status-Zwischenspeicher, Einstellungen nur für Administratoren, gesperrte Felder aus `wp-config.php`, Warenkorb-Sperren und Storno-Reaktivierung mit einem minimalen WordPress-/WooCommerce-Ersatz (`tests/Unit/ConnectorAccountsAndSettingsTest.php`, `tests/Unit/ConnectorOrdersAndCheckoutTest.php`).
 - Alle App-Endpunkte mit simulierten Shop-Aufrufen (Feature-Tests).
-- Der Ausgang mit einem simulierten Shop.
-- Einmal lokal gegen echtes WordPress 7.1.4 / WooCommerce 11.3.0 (SQLite statt MySQL) zusammen mit der echten App, Abläufe 1–5. Ergebnis und Lücken: [`staging-test.md`](staging-test.md), Abschnitt „Ergebnis lokaler E2E-Test“.
+- Der Ausgang mit einem simulierten Shop, einschließlich gleichzeitigem Beanspruchen, hängender Versände und der Übernahme bestehender Shopkonten.
+- Eine Lieferung von 500 Codes (Zeitmessung) und die gemeinsame Code-Erzeugung (`tests/Feature/CouponBatchFactoryTest.php`).
 
-Vor dem Livebetrieb sollten die Abläufe 1–5 trotzdem einmal auf einer Staging-Installation mit MySQL,
-echter Testzahlart, echtem Mailversand und Cron durchgespielt werden (Checkliste: [`staging-test.md`](staging-test.md)).
+Vor dem Livebetrieb sollten die Abläufe 1–5 trotzdem einmal auf der
+Staging-Installation des Shops (mit dessen Theme, Zahlarten und Plugins,
+MySQL, echter Testzahlart, echtem Mailversand und Cron) durchgespielt werden
+(Checkliste: [`staging-test.md`](staging-test.md)).

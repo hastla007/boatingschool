@@ -75,12 +75,20 @@
                 </span>
             @endif
 
-            <form method="POST" action="{{ route('video.complete', array_filter(['course' => $course, 'lesson' => $lesson, 'kapitel' => $moduleIds ? implode(',', $moduleIds) : null])) }}" class="w-full sm:w-auto sm:min-w-[20rem]">
-                @csrf
-                <button type="submit" class="w-full text-center px-6 py-2.5 rounded-full text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
-                    {{ $next ? 'Nächstes Video' : 'Kurs abschließen' }}
-                </button>
-            </form>
+            @if ($lesson->isPlaceholder())
+                {{-- Video folgt noch: Lektion lässt sich nicht abschließen, nur weitergehen. --}}
+                <a href="{{ $next ? route('video.show', array_filter(['course' => $course, 'lesson' => $next, 'kapitel' => $moduleIds ? implode(',', $moduleIds) : null])) : route('courses.show', $course) }}"
+                   class="w-full sm:w-auto sm:min-w-[20rem] text-center px-6 py-2.5 rounded-full text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
+                    {{ $next ? 'Weiter zur nächsten Lektion' : 'Zurück zum Kurs' }}
+                </a>
+            @else
+                <form method="POST" action="{{ route('video.complete', array_filter(['course' => $course, 'lesson' => $lesson, 'kapitel' => $moduleIds ? implode(',', $moduleIds) : null])) }}" class="w-full sm:w-auto sm:min-w-[20rem]">
+                    @csrf
+                    <button type="submit" class="w-full text-center px-6 py-2.5 rounded-full text-white text-sm font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">
+                        {{ $next ? 'Nächstes Video' : 'Kurs abschließen' }}
+                    </button>
+                </form>
+            @endif
         </div>
     </div>
 </x-app-layout>

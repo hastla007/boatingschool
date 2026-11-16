@@ -18,7 +18,7 @@ use Tests\TestCase;
  * Sicherheitsreview M7 (Defense in Depth): die App-Rolle (RLS-Verbindung
  * "pgsql") darf plattformweiten Content nur noch lesen, nie schreiben --
  * zuvor hätte ein kompromittierter oder fehlerhafter Code-Pfad im
- * Mandantenkontext z. B. beliebige neue, global gültige Coupon-Codes
+ * Mandantenkontext z. B. beliebige neue, global gültige Zugangscodes
  * anlegen oder den zentralen Fragenkatalog verändern können. Außerdem hat
  * exam_session_question jetzt eine eigene tenant_id mit RLS-Policy, statt
  * sich allein auf sorgfältige Controller-Queries zu verlassen.

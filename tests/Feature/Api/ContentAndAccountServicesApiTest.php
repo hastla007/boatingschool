@@ -16,10 +16,13 @@ class ContentAndAccountServicesApiTest extends MobileApiTestCase
 {
     private array $couponIds = [];
 
+    private array $videoLessonIds = [];
+
     protected function tearDown(): void
     {
         $this->onAdmin(function () {
             Coupon::whereIn('id', $this->couponIds)->delete();
+            VideoLesson::whereIn('id', $this->videoLessonIds)->delete();
             foreach ($this->createdUserIds as $id) {
                 DB::table('api_data_export')->where('user_id', $id)->delete();
             }
@@ -43,7 +46,19 @@ class ContentAndAccountServicesApiTest extends MobileApiTestCase
         $this->assertNull($lesson['media']['url']);
         $this->assertFalse($lesson['completed']);
 
-        $this->api('GET', "/videos/{$lesson['id']}", $token, $tenant)->assertOk()->assertJsonStructure(['data' => ['id', 'title', 'media', 'steps']]);
+        $this->api('GET', "/videos/{$lesson['id']}", $token, $tenant)->assertOk()->assertJsonStructure(['data' => ['id', 'title', 'media', 'steps']])
+            ->assertJsonPath('data.media.available', false);
+        // Platzhalter („Video folgt“) lassen sich nicht abschließen -- wie im Web.
+        $this->api('PUT', "/videos/{$lesson['id']}/progress", $token, $tenant, ['position_seconds' => 42, 'completed' => true])
+            ->assertStatus(409)->assertJsonPath('code', 'VIDEO_NOT_AVAILABLE');
+        $this->assertFalse($this->onAdmin(fn () => DB::table('video_progress')->where('user_id', $user->id)->where('video_lesson_id', $lesson['id'])->exists()));
+
+        // Echtes Video: abspielbar und abschließbar.
+        $real = $this->onAdmin(fn () => VideoLesson::create(['video_module_id' => $lesson['module_id'], 'title' => 'Echtes Video', 'video_url' => 'https://videos.example.test/echt.mp4', 'sort_order' => 999]));
+        $this->videoLessonIds[] = $real->id;
+        $this->api('GET', "/videos/{$real->id}", $token, $tenant)->assertOk()
+            ->assertJsonPath('data.media.available', true)->assertJsonPath('data.media.url', 'https://videos.example.test/echt.mp4');
+        $lesson = ['id' => $real->id];
         $this->api('PUT', "/videos/{$lesson['id']}/progress", $token, $tenant, ['position_seconds' => 42, 'completed' => true])
             ->assertOk()->assertJsonPath('data.completed', true);
         // Abgeschlossen bleibt abgeschlossen, die Position wird weiter gemerkt.

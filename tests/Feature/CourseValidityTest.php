@@ -10,7 +10,7 @@ use Tests\TestCase;
 
 /**
  * "Kurse X Tage für Teilnehmer verfügbar" (Default 365, Kursauswahl-Seite):
- * ein neu per Coupon-Code eingelöstes Entitlement bekommt dieses Fenster
+ * ein neu per Zugangscode eingelöstes Entitlement bekommt dieses Fenster
  * als valid_until (siehe CouponRedemptionService) -- nach Ablauf greift die
  * bereits bestehende Filterung in EntitlementService::activeEntitlements()
  * ganz von selbst, der Kurs verschwindet aus der aktiven Kursliste. Auf der

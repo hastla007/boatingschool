@@ -30,8 +30,12 @@ return [
     // (Object Lock/Versionierung, siehe deploy/README.md).
     'prune_remote' => filter_var(env('BACKUP_PRUNE_REMOTE', true), FILTER_VALIDATE_BOOL),
 
-    // Pfad zu pg_dump (Version muss zur Server-Version passen).
+    // Pfad zu pg_dump bzw. pg_restore (Version muss zur Server-Version passen).
     'pg_dump' => env('BACKUP_PG_DUMP', 'pg_dump'),
+    'pg_restore' => env('BACKUP_PG_RESTORE', 'pg_restore'),
+
+    // app:backup:verify: diese Tabellen müssen in der Probe-Wiederherstellung Zeilen haben.
+    'verify_tables' => array_values(array_filter(array_map('trim', explode(',', (string) env('BACKUP_VERIFY_TABLES', 'migrations,tenant,app_user,tenant_user,content_question'))))),
 
     // Ab diesem Alter (Stunden) meldet app:check-production die letzte Sicherung als zu alt.
     'max_age_hours' => (int) env('BACKUP_MAX_AGE_HOURS', 26),

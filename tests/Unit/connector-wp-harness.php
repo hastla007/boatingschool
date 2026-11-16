@@ -75,9 +75,36 @@ function current_user_can($cap)
 {
     return in_array($cap, $GLOBALS['bs_caps'], true);
 }
+/** Kunde 7 mit bestätigter E-Mail-Adresse (E-Mail-Bestätigung vor der Verknüpfung). */
+function get_userdata($id)
+{
+    return (object) ['ID' => $id, 'user_email' => 'kunde@example.test'];
+}
+function wp_get_current_user()
+{
+    return get_userdata(get_current_user_id());
+}
+function get_user_meta($id, $key, $single = false)
+{
+    return ['_bs_email_confirmed' => 'kunde@example.test'][$key] ?? '';
+}
 function get_option($name, $default = false)
 {
     return $GLOBALS['bs_options'][$name] ?? $default;
+}
+function update_option($name, $value)
+{
+    $GLOBALS['bs_options'][$name] = $value;
+
+    return true;
+}
+function apply_filters($hook, $value)
+{
+    return $value;
+}
+function esc_url($url)
+{
+    return esc_attr($url);
 }
 function wp_slash($value)
 {
@@ -90,6 +117,15 @@ function woocommerce_admin_fields($fields)
 function woocommerce_update_options($fields)
 {
     $GLOBALS['bs_saved'] = $fields;
+}
+
+/** Ersatz für die Admin-Seiten (nur die URL des Verbindungstests). */
+final class BS_Admin
+{
+    public static function connection_test_url(): string
+    {
+        return 'admin-post.php?action=bs_connector_test';
+    }
 }
 
 /** Ersatz für den HTTP-Client: zeichnet Aufrufe auf, Antworten aus den Optionen. */
@@ -107,6 +143,7 @@ final class BS_Api_Client
 
 $includes = dirname(__DIR__, 2).'/integrations/woocommerce-connector/includes/';
 require $includes.'class-bs-settings.php';
+require $includes.'class-bs-email-verification.php';
 require $includes.'class-bs-accounts.php';
 
 $out = [];
@@ -158,12 +195,19 @@ switch ($scenario) {
 
     case 'settings':
         $out['tabs'] = array_keys(BS_Settings::add_tab(['general' => 'Allgemein']));
+        ob_start();
         BS_Settings::render();
+        BS_Settings::render_connection_test();
+        $out['connection_test'] = str_contains((string) ob_get_clean(), 'bs_connector_test');
         $out['rendered'] = $fieldIds($GLOBALS['bs_rendered']);
+        ob_start();
+        BS_Settings::secrets_notice();
+        $out['secrets_notice'] = (string) ob_get_clean() !== '';
         $_POST = ['bs_connector_settings' => ['app_url' => 'https://evil.example', 'secret' => 'neu', 'alert_email' => 'a@example.test']];
         BS_Settings::save();
         $out['saved'] = $fieldIds($GLOBALS['bs_saved']);
         $out['post_after_save'] = $_POST['bs_connector_settings'];
+        $out['stored_after_save'] = array_keys((array) get_option('bs_connector_settings', []));
         break;
 
     default:

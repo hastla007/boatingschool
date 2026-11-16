@@ -5,6 +5,7 @@ namespace App\Notifications;
 use App\Models\CourseDefinition;
 use App\Models\Entitlement;
 use App\Models\Product;
+use App\Notifications\Concerns\AddsNoReplyHint;
 use App\Notifications\Concerns\EscapesMarkdown;
 use App\Notifications\Concerns\SentFromSchool;
 use App\Support\CanonicalUrl;
@@ -27,7 +28,7 @@ use Illuminate\Notifications\Notification;
 class CouponRedeemed extends Notification implements ShouldQueue
 {
     // Kurs- und Produktnamen pflegt die Plattform, Schulnamen die Schule.
-    use EscapesMarkdown, Queueable, SentFromSchool;
+    use AddsNoReplyHint, EscapesMarkdown, Queueable, SentFromSchool;
 
     /** @param array{type: string, course?: CourseDefinition, entitlement?: Entitlement, product?: Product} $result */
     public function __construct(private readonly array $result)
@@ -48,10 +49,10 @@ class CouponRedeemed extends Notification implements ShouldQueue
         $until = isset($r['entitlement']) ? GermanTime::format($r['entitlement']->valid_until, 'd.m.Y') : null;
 
         if ($r['type'] === 'product') {
-            return (new MailMessage)
+            return self::withNoReplyHint((new MailMessage)
                 ->subject('Dein Code wurde eingelöst')
                 ->line('„'.self::escapeMarkdown($r['product']->name).'“ wurde deinem Konto gutgeschrieben.')
-                ->action('Zu deinem Profil', CanonicalUrl::root($this->school()).route('profile.edit', [], false));
+                ->action('Zu deinen Produkten', CanonicalUrl::root($this->school()).route('products.index', [], false)));
         }
 
         $name = self::escapeMarkdown($r['course']->name);
@@ -67,6 +68,6 @@ class CouponRedeemed extends Notification implements ShouldQueue
         // Verlängerungen behalten ihren eigenen Betreff; Einleitung/Schluss gelten für beide.
         $template = MailTemplates::apply($message, 'coupon_redeemed', ['kurs' => $r['course']->name]);
 
-        return $r['type'] === 'course_renewal' ? $template->subject('Dein Kurszugang wurde verlängert') : $template;
+        return self::withNoReplyHint($r['type'] === 'course_renewal' ? $template->subject('Dein Kurszugang wurde verlängert') : $template);
     }
 }

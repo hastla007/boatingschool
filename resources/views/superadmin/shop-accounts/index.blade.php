@@ -22,7 +22,7 @@
         <div>
             <label for="status" class="block text-xs text-slate-600 dark:text-slate-300 mb-1">Anzeigen</label>
             <select id="status" name="status" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
-                @foreach (['open' => 'Offen (Prüfung, Fehler)', 'linked' => 'Verknüpft', 'rejected' => 'Abgelehnt', 'revoked' => 'Gelöst/deaktiviert', 'all' => 'Alle'] as $value => $label)
+                @foreach (['open' => 'Offen (Prüfung, Fehler)', 'provisioning' => 'Anlage im Shop läuft', 'linked' => 'Verknüpft', 'rejected' => 'Abgelehnt', 'revoked' => 'Gelöst/deaktiviert', 'all' => 'Alle'] as $value => $label)
                     <option value="{{ $value }}" @selected($status === $value)>{{ $label }}</option>
                 @endforeach
             </select>
@@ -76,7 +76,17 @@
                         @if ($account->provisioning_error) {{ $account->provisioning_error }} @endif
                     </p>
                 @elseif ($account->provisioning_status === 'pending')
-                    <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">Shopkonto wird angelegt …</p>
+                    @php($outEvent = $outEvents[$account->id] ?? null)
+                    <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                        @if ($outEvent?->status === 'sending')
+                            Shopkonto wird angelegt – wird gerade an den Shop gesendet (seit {{ \App\Support\GermanTime::format($outEvent->claimed_at, 'H:i') }} Uhr).
+                        @elseif ($outEvent?->status === 'pending' && $outEvent->attempts > 0)
+                            Shopkonto wird angelegt – {{ $outEvent->attempts }}. Versuch fehlgeschlagen, nächster Versuch um {{ \App\Support\GermanTime::format($outEvent->available_at, 'H:i') }} Uhr.
+                            @if ($outEvent->last_error)<span class="block">{{ $outEvent->last_error }}</span>@endif
+                        @else
+                            Shopkonto wird angelegt …
+                        @endif
+                    </p>
                 @endif
 
                 @if (in_array($account->status, ['pending_review', 'awaiting_link'], true))

@@ -6,7 +6,7 @@ namespace App\Support;
  * Bug-Review (Fehlermeldungen erscheinen doppelt): layouts/app.blade.php
  * zeigte oben eine globale Fehlerbox mit $errors->all(), unabhängig
  * davon, ob eine Meldung bereits direkt neben ihrem Feld angezeigt wird
- * (z. B. <x-input-error> bei Adresse/Coupon-Zuweisung). Damit die
+ * (z. B. <x-input-error> bei Adresse/Zugangscode-Zuweisung). Damit die
  * globale Box nur noch Meldungen zeigt, die sonst nirgends auf der
  * Seite auftauchen, meldet jede feldspezifische Fehleranzeige ihre
  * Meldungen hier an.

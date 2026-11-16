@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Models\WillkommensboxOrder;
 use App\Services\AccountErasureService;
 use App\Services\CouponRedemptionService;
+use App\Services\InvitationCoupon;
 use App\Services\LearnerOverview;
 use App\Services\ParticipantInviter;
 use App\Support\Countries;
@@ -21,11 +22,9 @@ use App\Support\EmailInput;
 use App\Support\ExamRegistration;
 use App\Support\InstructorScope;
 use App\Support\TenantContext;
-use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
-use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 
 class ParticipantController extends Controller
@@ -86,7 +85,8 @@ class ParticipantController extends Controller
                     'source_reference' => $e->source_reference,
                     'date' => $e->valid_from,
                     'status' => $e->status,
-                    'options' => $options->map(fn (ProductPurchase $p) => $p->product->name ?? '—')->values(),
+                    // Feste Reihenfolge (nach Name): die Kauf-Zeilen entstehen gleichzeitig.
+                    'options' => $options->map(fn (ProductPurchase $p) => $p->product->name ?? '—')->sort(SORT_NATURAL | SORT_FLAG_CASE)->values(),
                     // Bug-Review B14: nur über diese beiden Felder lässt sich
                     // in der Detailansicht ein "Verlängern"/"Sperren"-Formular
                     // für genau diese Entitlement-Zeile rendern.
@@ -306,7 +306,7 @@ class ParticipantController extends Controller
         return back()->with('status', 'Mitgliedschaft aktualisiert.');
     }
 
-    public function invite(Request $request, TenantContext $tenantContext, CouponRedemptionService $redemption, ParticipantInviter $inviter): Response
+    public function invite(Request $request, TenantContext $tenantContext, ParticipantInviter $inviter, InvitationCoupon $invitationCoupon): Response
     {
         $tenant = $tenantContext->tenant();
         // Review-Runde 11: ein auf Kurse beschränkter Ausbilder sähe die
@@ -341,7 +341,7 @@ class ParticipantController extends Controller
             // der dem neuen Teilnehmer direkt bei der Einladung zugewiesen
             // wird -- Gegenstück zu CouponController::assign, nur in einem
             // Schritt mit der Einladung selbst statt danach separat über die
-            // Coupon-Codes-Tabelle.
+            // Zugangscodes-Tabelle.
             'code' => ['nullable', 'string', 'max:255'],
         ]);
 
@@ -360,6 +360,22 @@ class ParticipantController extends Controller
         // Prüfung läuft deshalb jetzt VOR der Existenz-Verzweigung und
         // liefert in beiden Fällen denselben Fehler.
         $codeRequiresAdmin = $code !== '' && ! $request->user()->isAdminFor($tenant);
+        if ($codeRequiresAdmin) {
+            return back()->withErrors(['code' => 'Nur Owner/Admin können beim Einladen direkt einen Code zuweisen – das geht sonst nach der Einladung über die Zugangscodes-Verwaltung.'])->withInput();
+        }
+
+        // Code samt Kurs/Produkt vorab prüfen, ohne etwas anzulegen: Fehler,
+        // die von Code, Kurs oder Schule abhängen, erscheinen so für neue
+        // Adressen und Bestandskonten gleich (kein Konto-Orakel). Eingelöst
+        // wird erst beim Annehmen der Einladung (InvitationAcceptance).
+        $coupon = null;
+        if ($code !== '') {
+            $check = $invitationCoupon->check($tenant, $code, $validated['email']);
+            if ($check['error']) {
+                return back()->withErrors(['code' => $check['error']])->withInput();
+            }
+            $coupon = $check['coupon'];
+        }
 
         // Existiert für diese Adresse schon ein Konto, wird NICHT sofort
         // Mitglied gemacht (Sicherheitsreview H2, Account-Pre-Hijacking):
@@ -396,13 +412,12 @@ class ParticipantController extends Controller
 
         $result = $inviter->invite($tenant, $request->user(), $validated['name'], $validated['email'], array_intersect_key($validated, array_flip(['street', 'postal_code', 'city', 'country'])));
 
-        // Audit SEC-W-3: erneutes Einladen meldet dasselbe, ob die Person
-        // neu angelegt wurde oder schon ein Konto hatte (vorher drei
-        // verschiedene Texte, an denen das ablesbar war).
-        if (($result['duplicate'] ?? false) || ($result['resent'] ?? false)) {
-            return ($result['resent'] ?? false) && ! $result['mail_sent']
-                ? back()->with('status', 'Der Versand der Einladung ist fehlgeschlagen – bitte später erneut versuchen.')
-                : back()->with('status', ParticipantInviter::ALREADY_INVITED_STATUS);
+        // Kein Konto-Orakel (Audit SEC-W-3): für Adressen, die (noch) nicht
+        // Mitglied dieser Schule sind, sieht die Antwort gleich aus, egal ob
+        // plattformweit schon ein Konto existiert -- dieselben Texte,
+        // dieselbe Code-Prüfung, dieselbe Anzeige unter „Offene Einladungen“.
+        if ($result['duplicate'] ?? false) {
+            return back()->with('status', ParticipantInviter::ALREADY_INVITED_STATUS);
         }
         if ($result['already_member'] ?? false) {
             return back()->with('status', ($result['role'] ?? 'learner') === 'learner'
@@ -414,60 +429,14 @@ class ParticipantController extends Controller
             ? 'Einladung verschickt.'
             : 'Einladung angelegt, der Versand der E-Mail ist aber fehlgeschlagen – bitte später erneut einladen.';
 
-        if ($code === '') {
-            return back()->with('status', $status);
+        // Neue Adresse wie Bestandskonto: der Code wird an der Einladung
+        // reserviert und erst beim Annehmen bzw. Passwort-Festlegen
+        // eingelöst (InvitationAcceptance).
+        if ($coupon && isset($result['invitation'])) {
+            $result['invitation']->update(['coupon_code' => $coupon->code]);
+            $status .= ' Code "'.$coupon->code.'" ist für diese Person reserviert und wird eingelöst, sobald sie die Einladung annimmt.';
         }
 
-        // Bug-Review H3 (Rest): /coupons/redeem schließt Instructor bewusst
-        // aus (siehe Kommentar dort, routes/web.php) -- über diesen Umweg
-        // (Code gleich beim Einladen mitgeben, diese Route lässt auch
-        // Instructor zu) ließe sich dieselbe Einschränkung sonst umgehen und
-        // ein begrenzter Coupon ohne Owner/Admin-Freigabe verbrauchen. Die
-        // Einladung selbst bleibt trotzdem bestehen -- nur die
-        // Code-Zuweisung wird abgelehnt.
-        if ($codeRequiresAdmin) {
-            return back()->withErrors(['code' => 'Nur Owner/Admin können beim Einladen direkt einen Code zuweisen – das geht sonst nach der Einladung über die Coupon-Codes-Verwaltung.'])->with('status', $status);
-        }
-
-        // Eine fehlgeschlagene Code-Zuweisung soll die bereits erfolgte
-        // Einladung nicht rückgängig machen -- nur der Code-Fehler wird
-        // separat gemeldet (die RLS-Policy auf "coupon" lässt uns ohnehin
-        // nur Codes sehen, die frei oder bereits uns zugeordnet sind, siehe
-        // CouponRedeemController). Audit SEC-W-3: geprüft wird für neue und
-        // bestehende Konten gleich, damit die Antwort nichts verrät.
-        // QA-D-7: dieselbe Code-Suche wie beim Einlösen (ohne Bindestriche,
-        // Leerzeichen, Kleinschreibung); nur freie oder eigene Codes.
-        $coupon = Coupon::lookup($code);
-        if ($coupon && ($coupon->isRedeemed() || ($coupon->tenant_id !== null && $coupon->tenant_id !== $tenant->id))) {
-            $coupon = null;
-        }
-
-        if (! $coupon) {
-            return back()->withErrors(['code' => 'Dieser Code ist ungültig oder wurde bereits eingelöst.'])->with('status', $status);
-        }
-        // Gesperrte (z. B. verlorene Charge) oder abgelaufene Codes.
-        if (! $coupon->isUsable()) {
-            return back()->withErrors(['code' => 'Dieser Code ist nicht mehr gültig.'])->with('status', $status);
-        }
-
-        // Bestehendes Konto: erst Mitglied nach eigener Annahme, der Code
-        // wird deshalb (noch) nicht eingelöst -- gleicher Hinweis wie unten.
-        if ($result['type'] === 'existing') {
-            return back()->with('status', $status.ParticipantInviter::CODE_NOTE);
-        }
-
-        $user = $result['user'];
-
-        try {
-            $redemption->redeem($coupon, $tenant, $user, $request->user());
-        } catch (RuntimeException $e) {
-            // Review: Datenbankfehler (QueryException ist auch eine
-            // RuntimeException) nicht als Formularfehler mit SQL anzeigen.
-            throw_if($e instanceof QueryException, $e);
-
-            return back()->withErrors(['code' => $e->getMessage()])->with('status', $status);
-        }
-
-        return back()->with('status', $status.ParticipantInviter::CODE_NOTE);
+        return back()->with('status', $status);
     }
 }

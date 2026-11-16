@@ -41,6 +41,8 @@ final class BS_Api_Client
         );
 
         if (is_wp_error($response)) {
+            BS_Log::error('Plattform nicht erreichbar', ['method' => $method, 'path' => $full_path, 'error' => $response->get_error_message()]);
+
             return ['status' => null, 'body' => null, 'error' => $response->get_error_message()];
         }
 
@@ -49,6 +51,18 @@ final class BS_Api_Client
         $error = null;
         if ($status >= 400) {
             $error = is_array($decoded) ? trim(($decoded['code'] ?? '').': '.($decoded['detail'] ?? $decoded['title'] ?? '')) : 'HTTP '.$status;
+            // Ohne Body und Header: Anfragen können Verknüpfungscodes enthalten,
+            // Header die Signatur. Die Fehlertexte der App enthalten keine Codewerte.
+            BS_Log::error(
+                'API-Fehler',
+                [
+                    'method' => $method,
+                    'path' => $full_path,
+                    'http_status' => $status,
+                    'error_code' => is_array($decoded) ? (string) ($decoded['code'] ?? '') : '',
+                    'error' => $error,
+                ]
+            );
         }
 
         return [

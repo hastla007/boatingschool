@@ -18,6 +18,13 @@
                     <x-text-input id="code" name="code" type="text" class="mt-1 block w-full" :value="old('code')" required placeholder="z. B. FAHRSTUNDE-3-EH" />
                     <x-input-error :messages="$errors->get('code')" class="mt-2" />
                 </div>
+                <div>
+                    <input type="hidden" name="sellable_standalone" value="0">
+                    <label class="inline-flex items-start gap-2 text-sm text-slate-700 dark:text-slate-200">
+                        <input type="checkbox" name="sellable_standalone" value="1" class="mt-0.5 rounded border-slate-300" @checked(old('sellable_standalone', '1') === '1')>
+                        <span>Allein im Shop verkäuflich<span class="block text-xs text-slate-500 dark:text-slate-400">Aus: nur als Zusatzprodukt zu einem Kurscode (z. B. Lernplattform).</span></span>
+                    </label>
+                </div>
                 <button type="submit" class="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium hover:opacity-90 transition">Produkt anlegen</button>
             </form>
         </div>
@@ -29,6 +36,7 @@
                     <tr>
                         <th class="px-4 py-2">Name</th>
                         <th class="px-4 py-2">Code</th>
+                        <th class="px-4 py-2">Shop</th>
                         <th class="px-4 py-2">Status</th>
                         <th class="px-4 py-2"></th>
                     </tr>
@@ -37,15 +45,22 @@
                     @forelse ($products as $product)
                         <tr class="border-t border-slate-100 dark:border-slate-700 {{ $product->active ? '' : 'opacity-50' }}">
                             <td class="px-4 py-2">
-                                <form method="POST" action="{{ route('superadmin.products.update', $product) }}" class="flex gap-2">
+                                <form id="product-form-{{ $product->id }}" method="POST" action="{{ route('superadmin.products.update', $product) }}" class="flex gap-2">
                                     @csrf
                                     @method('PATCH')
                                     <label for="product-name-{{ $product->id }}" class="sr-only">Name von {{ $product->code }}</label>
                                     <input id="product-name-{{ $product->id }}" name="name" type="text" required maxlength="255" value="{{ $product->name }}" class="flex-1 min-w-40 rounded-lg border-slate-200 dark:bg-slate-700 dark:border-slate-600 text-sm font-medium">
+                                    <input type="hidden" name="sellable_standalone" value="0">
                                     <button type="submit" class="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-700 text-xs hover:bg-slate-200 dark:hover:bg-slate-600">Speichern</button>
                                 </form>
                             </td>
                             <td class="px-4 py-2 text-slate-500 dark:text-slate-400 font-mono text-xs">{{ $product->code }}</td>
+                            <td class="px-4 py-2">
+                                <label class="inline-flex items-center gap-1 text-xs text-slate-600 dark:text-slate-300" title="Allein im Shop verkäuflich (sonst nur als Zusatzprodukt zu einem Kurscode)">
+                                    <input type="checkbox" form="product-form-{{ $product->id }}" name="sellable_standalone" value="1" class="rounded border-slate-300" @checked($product->sellable_standalone)>
+                                    allein verkäuflich
+                                </label>
+                            </td>
                             <td class="px-4 py-2">
                                 @if ($product->active)
                                     <span class="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">aktiv</span>
@@ -61,7 +76,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="4" class="px-4 py-3 text-slate-500 dark:text-slate-400">Noch keine Produkte angelegt.</td></tr>
+                        <tr><td colspan="5" class="px-4 py-3 text-slate-500 dark:text-slate-400">Noch keine Produkte angelegt.</td></tr>
                     @endforelse
                 </tbody>
             </table>
