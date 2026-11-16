@@ -73,6 +73,46 @@ Worker und Deploy-Skript in der Oberfläche ein.
    Morgen) Datensicherung grün sein; ein fälliger Job, der länger als 10 Minuten wartet,
    gilt als hängend.
 
+### Vor dem Go-live (Betreiber)
+
+Was der Go-live-Check (`php artisan app:check-production`) nur auf dem Server selbst grün
+bekommt. Ziel: `Ergebnis: … 0 Fehler`; Warnungen nur bewusst stehen lassen. In Klammern der
+Name des Punkts im Check und der erwartete Status.
+
+- [ ] `.env`: `APP_ENV=production`, `APP_DEBUG=false`, `APP_URL=https://…`, `CENTRAL_DOMAIN`,
+  `APP_LOCALE=de`, `SESSION_SECURE_COOKIE=true` (Konfiguration: alle OK); `chmod 600 .env`
+  („.env nur für den Deploy-Benutzer lesbar“ OK); `SUPERADMIN_PASSWORD` nach dem ersten
+  `app:create-superadmin` entfernen (OK).
+- [ ] `SUPERADMIN_HOST` setzen oder `TENANT_URL_MODE=subdomain`, `SESSION_DOMAIN` leer
+  („Superadmin getrennt von den Schulen“ OK, sonst WARN; §4).
+- [ ] Datenbank: zwei Rollen mit zufälligen Passwörtern ≥ 16 Zeichen (`openssl rand -base64 24`),
+  bei entferntem DB-Host `DB_SSLMODE=verify-full` („Starke DB-Passwörter“ OK, „Verschlüsselte
+  DB-Verbindung“ OK; der zweite Punkt erscheint nur bei entferntem Host).
+- [ ] Mail: `MAIL_MAILER=smtp` mit `MAIL_HOST`/`MAIL_USERNAME`/`MAIL_PASSWORD` des Mailanbieters,
+  `MAIL_FROM_ADDRESS` der eigenen Absender-Domain („Echter Mailversand“, „Absenderadresse“ OK; §6).
+- [ ] `npm ci && npm run build` (bzw. `deploy.sh`), keine `public/hot` auf dem Server
+  („Frontend-Build“ OK); `php artisan storage:link` („Storage-Link“ OK).
+- [ ] Cron mit `schedule:run` eingetragen („Scheduler“ OK nach wenigen Minuten; §1 Schritt 8).
+- [ ] Queue-Worker per Supervisor (`supervisor-worker.conf`) mit `QUEUE_CONNECTION=database`
+  („Queue-Worker (queue:work)“ OK; §1 Schritt 9).
+- [ ] `OPS_HEARTBEAT_URL` beim externen Heartbeat-Dienst („Externer Totmann-Schalter“ OK, sonst
+  WARN) und `OPS_ALERT_EMAIL` („Empfänger für Betriebsalarme“ OK; §5).
+- [ ] `BACKUP_DISK` mit `BACKUP_ENCRYPTION_PUBLIC_KEY` aus `php artisan app:backup-keygen`;
+  privaten Schlüssel in den Tresor („Datensicherung“, „Externe Sicherung erfolgreich“ OK am
+  Morgen nach der ersten Nacht bzw. nach `php artisan app:backup`, „Externe Sicherung
+  verschlüsselt“ OK; §3).
+- [ ] `SENTRY_LARAVEL_DSN` (EU-Standort) („Fehlertracking“ OK, ohne DSN WARN).
+- [ ] `php artisan app:create-superadmin du@example.de`, anmelden, Zwei-Faktor-Anmeldung
+  einschalten („Superadmin vorhanden“ OK, „Superadmins mit Zwei-Faktor-Anmeldung“ OK);
+  `SUPERADMIN_REQUIRE_TWO_FACTOR` nicht auf `false` („Zwei-Faktor-Pflicht im Superadmin“ OK).
+- [ ] Inhalte: echte Videos statt Platzhalter („Videolektionen mit echtem Video“ OK) und
+  Impressumsangaben jeder aktiven Schule („Impressumsangaben aller aktiven Schulen“ OK).
+- [ ] Footer-Platzhalter „XXX“ in `resources/views/components/site-footer.blade.php` durch die
+  echten Angaben ersetzen („Footer ohne Platzhalter“ OK; bis dahin bewusst FEHL).
+- [ ] Shop-Anbindung (falls genutzt): `COMMERCE_SHOP_SECRET`/`COMMERCE_OUTBOUND_SECRET` mit
+  `openssl rand -hex 32` („Geheimnisse der Shop-Anbindung mind. 32 Zeichen“ OK), im Shop
+  Plugin ab 1.4.1 mit Geheimnissen in `wp-config.php` (`docs/commerce/README.md`).
+
 ## 2. Updates einspielen
 
 ```bash

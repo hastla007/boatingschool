@@ -6,6 +6,18 @@ simulierte Shop-Aufrufe getestet. Diese Checkliste spielt die Abläufe aus
 eine Staging-Instanz der Plattform durch. Einmal vor dem Livebetrieb und nach
 größeren WooCommerce-Updates abhaken.
 
+> **Automatisch abgedeckt:** Der CI-Lauf
+> [`.github/workflows/connector-wordpress.yml`](../../.github/workflows/connector-wordpress.yml)
+> (`tests/connector-e2e/run.sh`, WordPress 7.1.4 / WooCommerce 11.3.0 mit MySQL)
+> spielt bei jeder Änderung an Plugin oder Commerce-Code einen Durchlauf durch:
+> Kundenkonto mit Bestätigungsmail und `POST /accounts`, Verknüpfung per Code,
+> Produkt mit Kurscode aus dem Katalog, Bestellung (Überweisung, im Backend
+> abgeschlossen) bis zur Zustellung der Codes. Punkte mit **✓ automatisch (CI)**
+> prüft dieser Lauf vollständig, **◐ teilweise (CI)** nennt, was davon; alles
+> andere bleibt beim Staging-Test von Hand zu prüfen. Er läuft mit
+> `APP_ENV=local`, Mailer `log`, ohne Cron und ohne WP-Cron (Aktionen einzeln per
+> WP-CLI) und ersetzt deshalb weder den Staging-Test noch `app:check-production`.
+
 ## Vorbereitung
 
 - [ ] Staging-Plattform mit `COMMERCE_SHOP_SECRET`, `COMMERCE_OUTBOUND_SECRET`
@@ -17,6 +29,8 @@ größeren WooCommerce-Updates abhaken.
 - [ ] Plugin kopiert und aktiviert. Geheimnisse in `wp-config.php` (siehe `readme.txt`).
       Ohne Konstanten zeigt WooCommerce → Einstellungen → Bootsschule keine Geheimnis-Felder,
       sondern die `define()`-Zeilen („Geheimnisse aus der Datenbank erlauben“ ist standardmäßig aus).
+      **◐ teilweise (CI):** Plugin aktiviert, signierte Aufrufe Shop → App mit den
+      Konstanten aus `wp-config.php`; die Einstellungsseite ohne Konstanten nicht.
 - [ ] Update von 1.3.x mit Geheimnissen nur in der Datenbank: Anbindung läuft nach dem Update weiter,
       „Geheimnisse aus der Datenbank erlauben“ ist eingeschaltet, Administratoren sehen den Hinweis
       „beim Update … eingeschaltet“. Nach Umzug in `wp-config.php` und Ausschalten verschwindet er.
@@ -29,7 +43,7 @@ größeren WooCommerce-Updates abhaken.
 
 - [ ] Neues Shopkonto mit einer Adresse **ohne** App-Konto registrieren → Superadmin „Shopkonten“ zeigt `pending_review`; auf der Plattform entsteht **kein** App-Konto (Selbstregistrierung mit der Adresse bleibt möglich).
 - [ ] Shopkonto mit der Adresse eines bestehenden Admins von Schule A → ebenfalls `pending_review` nach außen, Superadmin sieht `awaiting_link`, **keine** automatische Verknüpfung.
-- [ ] In Schule A: Admin → Codes → „Shop verknüpfen“ → Code im Shop unter „Mein Konto → Bootsschule verknüpfen“ eingeben → Status `linked`, Schulname im Shop sichtbar.
+- [ ] In Schule A: Admin → Codes → „Shop verknüpfen“ → Code im Shop unter „Mein Konto → Bootsschule verknüpfen“ eingeben → Status `linked`, Schulname im Shop sichtbar. **◐ teilweise (CI):** Code eingeben → `linked` mit der richtigen Schule, „Verknüpft mit: …“ in „Mein Konto“; der Code wird per Skript erzeugt, nicht über den Knopf im Admin-Bereich.
 - [ ] Fünf falsche Codes in Folge → sechster Versuch abgelehnt (429), Meldung im Shop verständlich.
 - [ ] „Mein Konto → Bootsschule verknüpfen“ mehrfach neu laden → im Zugriffsprotokoll der Plattform höchstens ein `GET /accounts/{id}` je 5 Minuten (bzw. 60 s bei Fehler).
 - [ ] Als Shop-Manager (ohne Administratorrechte) angemeldet: Tab „Bootsschule“ unter WooCommerce → Einstellungen fehlt. Als Administrator mit Konstanten in `wp-config.php`: die betroffenen Felder sind nicht editierbar.
@@ -52,13 +66,15 @@ größeren WooCommerce-Updates abhaken.
 - [ ] Nicht angemeldet / nicht verknüpft: „In den Warenkorb“ verweigert, auch im **Block-Checkout**.
 - [ ] Schule B kann SBF-SEE nicht in den Warenkorb legen (`deliverable_course_codes`).
 - [ ] Bei Bootsschul-Produkten im Warenkorb ist „Nachnahme“ ausgeblendet.
-- [ ] Verknüpftes Konto von Schule A kauft je ein Produkt jeder Art, Menge 3, Testzahlung → Bestellnotizen „eingeplant“ und „zugestellt“; Schule A sieht unter Admin → Codes die Codes und die Zeile in „Bestellungen aus dem Shop“.
+- [ ] Verknüpftes Konto von Schule A kauft je ein Produkt jeder Art, Menge 3, Testzahlung → Bestellnotizen „eingeplant“ und „zugestellt“; Schule A sieht unter Admin → Codes die Codes und die Zeile in „Bestellungen aus dem Shop“. **◐ teilweise (CI):** nur Kurscode, Menge 3, Überweisung im Backend auf „Abgeschlossen“ (keine Testzahlung, keine Kasse) → Position zugestellt, Notiz „… im Codebestand der Bootsschule hinterlegt“, ein Codepaket mit 3 offenen Codes der Schule in der Datenbank; die Admin-Ansicht nicht.
 - [ ] Im Shop (Bestellung, Notizen, Mails, Logs) erscheint **kein** Codewert.
 - [ ] Variables Produkt: Zustellung nach der Zuordnung am Hauptprodukt.
 - [ ] Bestellung im Backend mit Zahlart Nachnahme auf „In Bearbeitung“ → **keine** Zustellung, einmalige Notiz; nach „Abgeschlossen“ wird zugestellt.
 - [ ] Plattform während der Zustellung kurz nicht erreichbar → Wiederholung, am Ende genau **ein** Code-Paket (nicht doppelt).
 - [ ] `COMMERCE_DAILY_CODE_LIMIT` auf 2 setzen, Menge 3 bestellen → sofort „fehlgeschlagen“, Alarm-Mail; Limit anheben, „Erneut zustellen“ → geliefert.
 - [ ] Produktzuordnung nach dem Kauf ändern → bereits eingeplante Lieferung bleibt beim ursprünglichen Auftrag.
+- [ ] Kontoabgleich nur bei Änderung (ab Plugin 1.4.1): verknüpftes Konto bestellt erneut, ohne an der Kasse Name, Firma, Land oder USt-IdNr. zu ändern → unter `Geplante Aktionen` (Gruppe `bs-connector`) **keine** neue Aktion `bs_connector_sync_account` und im Zugriffsprotokoll der Plattform **kein** `PATCH /accounts/{id}`.
+- [ ] Dasselbe Konto ändert an der Kasse die Firma → genau **ein** `PATCH /accounts/{id}`; die neue Firma steht im Superadmin unter „Shopkonten“. Danach eine weitere Bestellung ohne Änderung → wieder kein `PATCH`.
 
 ## 5. Rückerstattung und Storno
 
