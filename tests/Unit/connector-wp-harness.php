@@ -24,6 +24,7 @@ $GLOBALS['bs_caps'] = $options['caps'] ?? [];
 $GLOBALS['bs_options'] = $options['stored'] ?? [];
 $GLOBALS['bs_rendered'] = null;
 $GLOBALS['bs_saved'] = null;
+$GLOBALS['bs_filters'] = $options['filters'] ?? [];
 
 function get_transient($key)
 {
@@ -98,9 +99,16 @@ function update_option($name, $value)
 
     return true;
 }
+function delete_option($name)
+{
+    unset($GLOBALS['bs_options'][$name]);
+
+    return true;
+}
+/** Filter aus den Optionen ('filters' => [hook => Wert]) ersetzen den Wert. */
 function apply_filters($hook, $value)
 {
-    return $value;
+    return array_key_exists($hook, $GLOBALS['bs_filters']) ? $GLOBALS['bs_filters'][$hook] : $value;
 }
 function esc_url($url)
 {
@@ -114,9 +122,22 @@ function woocommerce_admin_fields($fields)
 {
     $GLOBALS['bs_rendered'] = $fields;
 }
+/**
+ * Wie WC_Admin_Settings::save_fields() für Felder der Form option[key]: nur die
+ * übergebenen Felder werden geschrieben, Kästchen als yes/no, fehlende Werte leer.
+ */
 function woocommerce_update_options($fields)
 {
     $GLOBALS['bs_saved'] = $fields;
+    $values = (array) get_option('bs_connector_settings', []);
+    foreach ($fields as $field) {
+        if (! preg_match('/^bs_connector_settings\[(\w+)\]$/', (string) ($field['id'] ?? ''), $m)) {
+            continue;
+        }
+        $raw = $_POST['bs_connector_settings'][$m[1]] ?? null;
+        $values[$m[1]] = $field['type'] === 'checkbox' ? (in_array($raw, ['1', 'yes'], true) ? 'yes' : 'no') : (string) $raw;
+    }
+    update_option('bs_connector_settings', $values);
 }
 
 /** Ersatz für die Admin-Seiten (nur die URL des Verbindungstests). */
@@ -203,11 +224,35 @@ switch ($scenario) {
         ob_start();
         BS_Settings::secrets_notice();
         $out['secrets_notice'] = (string) ob_get_clean() !== '';
-        $_POST = ['bs_connector_settings' => ['app_url' => 'https://evil.example', 'secret' => 'neu', 'alert_email' => 'a@example.test']];
+        $_POST = ['bs_connector_settings' => $options['post'] ?? ['app_url' => 'https://evil.example', 'secret' => 'neu', 'alert_email' => 'a@example.test']];
         BS_Settings::save();
         $out['saved'] = $fieldIds($GLOBALS['bs_saved']);
         $out['post_after_save'] = $_POST['bs_connector_settings'];
         $out['stored_after_save'] = array_keys((array) get_option('bs_connector_settings', []));
+        $out['settings_after_save'] = (array) get_option('bs_connector_settings', []);
+        $out['options_after_save'] = array_keys($GLOBALS['bs_options']);
+        break;
+
+    case 'upgrade':
+        // Update-Schritt beim Laden (zweimal: läuft je Version nur einmal), dann
+        // wirksame Geheimnisse, Einstellung, Hinweis und Formular.
+        BS_Settings::maybe_upgrade($options['version'] ?? '1.4.0');
+        $first = (array) get_option('bs_connector_settings', []);
+        BS_Settings::maybe_upgrade($options['version'] ?? '1.4.0');
+        $out['settings'] = (array) get_option('bs_connector_settings', []);
+        $out['settings_unchanged_by_second_run'] = $out['settings'] === $first;
+        $out['version'] = get_option('bs_connector_version');
+        $out['kept_flag'] = get_option('bs_connector_db_secrets_kept');
+        $out['allow_db_secrets'] = BS_Settings::allow_db_secrets();
+        $settings = BS_Settings::get();
+        $out['secret'] = $settings['secret'];
+        $out['inbound_secret'] = $settings['inbound_secret'];
+        ob_start();
+        BS_Settings::secrets_notice();
+        $out['notice'] = (string) ob_get_clean();
+        BS_Settings::render();
+        $out['rendered'] = $fieldIds($GLOBALS['bs_rendered']);
+        $out['rendered_texts'] = implode(' ', array_map(static fn ($f) => (string) ($f['desc'] ?? ''), (array) $GLOBALS['bs_rendered']));
         break;
 
     default:

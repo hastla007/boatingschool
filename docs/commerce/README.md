@@ -180,10 +180,20 @@ alte Kopie in der Datenbank wird beim nächsten Speichern gelöscht). Ebenso
 gesperrt sind `BS_CONNECTOR_APP_URL`, `BS_CONNECTOR_KEY_ID`,
 `BS_CONNECTOR_INBOUND_KEY_ID` und `BS_CONNECTOR_VIES_REQUESTER`, wenn gesetzt.
 Liegen Geheimnisse noch in der Datenbank (`bs_connector_settings`), zeigt das
-WordPress-Backend Administratoren einen dauerhaften Hinweis. Mit der Einstellung „Geheimnisse aus der Datenbank
-erlauben“ = aus oder dem Filter `bs_connector_allow_db_secrets` (`false`)
-ignoriert das Plugin Geheimnisse aus der Datenbank ganz; Standard ist „an“,
-damit bestehende Installationen weiterlaufen.
+WordPress-Backend Administratoren einen dauerhaften Hinweis. Geheimnisse aus
+der Datenbank verwendet das Plugin seit Version 1.4.0 nur noch, wenn die
+Einstellung „Geheimnisse aus der Datenbank erlauben“ ausdrücklich eingeschaltet
+ist (Standard: aus) oder der Filter `bs_connector_allow_db_secrets` `true`
+liefert; der Filter hat Vorrang. Bei „aus“ zeigt die Einstellungsseite keine
+Geheimnis-Felder, sondern die `define()`-Zeilen für `wp-config.php`, und
+speichert keine Geheimnisse.
+
+**Übergang beim Update auf 1.4.0:** Liegen Geheimnisse ohne passende Konstante
+in der Datenbank, schaltet das Plugin die Einstellung beim ersten Laden nach dem
+Update einmalig ein (Merker `bs_connector_version`), damit die Anbindung nicht
+ausfällt, und zeigt Administratoren einen Hinweis. Danach die Konstanten in
+`wp-config.php` setzen, „Verbindung testen“ und die Einstellung ausschalten.
+Neuinstallationen und Installationen ohne solche Geheimnisse bleiben bei „aus“.
 
 Voraussetzungen: WooCommerce ab 8 (HPOS-kompatibel) und der mitgelieferte
 Action Scheduler. Außerdem:

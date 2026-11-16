@@ -129,7 +129,7 @@ class ConnectorVatCheckTest extends TestCase
     {
         $this->assertSame('aus-wp-config', BS_Settings::resolve_secret('aus-wp-config', 'aus-db', true));
         $this->assertSame('aus-wp-config', BS_Settings::resolve_secret('aus-wp-config', 'aus-db', false));
-        $this->assertSame('aus-db', BS_Settings::resolve_secret(null, 'aus-db', true), 'Standard: kompatibel zu älteren Installationen');
+        $this->assertSame('aus-db', BS_Settings::resolve_secret(null, 'aus-db', true), 'Datenbank ausdrücklich erlaubt');
         $this->assertSame('', BS_Settings::resolve_secret(null, 'aus-db', false), 'bs_connector_allow_db_secrets = false ignoriert die Datenbank');
         $this->assertSame(['secret' => 'BS_CONNECTOR_SECRET', 'inbound_secret' => 'BS_CONNECTOR_INBOUND_SECRET'], BS_Settings::SECRETS);
     }

@@ -2,7 +2,7 @@
 Requires at least: 6.5
 Requires PHP: 8.1
 Requires Plugins: woocommerce
-Stable tag: 1.3.0
+Stable tag: 1.4.0
 License: Proprietary
 
 Verkauft Codes der Bootsschul-Plattform über WooCommerce. Nach der Zahlung werden die Codes im Codebestand der verknüpften Bootsschule hinterlegt.
@@ -75,7 +75,7 @@ Text-Domain `bs-connector`, Ordner `languages/`. Die Vorlage `languages/bs-conne
     define( 'BS_CONNECTOR_INBOUND_KEY_ID', 'app' );     // = COMMERCE_OUTBOUND_KEY_ID
     define( 'BS_CONNECTOR_INBOUND_SECRET', '…' );       // = COMMERCE_OUTBOUND_SECRET
 
-   Per Konstante festgelegte Felder (auch `BS_CONNECTOR_VIES_REQUESTER`) sind unter WooCommerce → Einstellungen → Bootsschule gesperrt: Die Seite nennt nur die Konstanten, zeigt kein Eingabefeld und speichert dafür nichts. Die Seite sehen nur Administratoren mit `manage_options`. Nur aus Kompatibilität lassen sich die Werte noch dort in der Datenbank speichern (siehe „Geheimnisse“).
+   Per Konstante festgelegte Felder (auch `BS_CONNECTOR_VIES_REQUESTER`) sind unter WooCommerce → Einstellungen → Bootsschule gesperrt: Die Seite nennt nur die Konstanten, zeigt kein Eingabefeld und speichert dafür nichts. Die Seite sehen nur Administratoren mit `manage_options`. Geheimnisse lassen sich dort nur noch speichern, wenn „Geheimnisse aus der Datenbank erlauben“ ausdrücklich eingeschaltet ist (siehe „Geheimnisse“); sonst zeigt die Seite statt der Felder die passenden `define()`-Zeilen.
 3. Auf der Plattform `COMMERCE_SHOP_URL` auf die Shop-Adresse setzen.
 4. Produkte anlegen und unter „Allgemein“ die Art (Kurscode, Verlängerungscode, Produktcode) und den Kurs bzw. das Produkt auswählen. Die Auswahl kommt aus dem Katalog der Plattform.
 
@@ -87,9 +87,12 @@ Die beiden Geheimnisse (`BS_CONNECTOR_SECRET`, `BS_CONNECTOR_INBOUND_SECRET`) ge
 
 * Konstante gesetzt: Sie hat immer Vorrang, das Eingabefeld ist ausgeblendet (die Einstellungsseite nennt nur die Konstante). Eine ältere Kopie in der Datenbank wird beim nächsten Speichern der Einstellungen gelöscht. Andere gesperrte Felder (Adresse, Schlüssel-IDs) behalten ihren gespeicherten Wert.
 * Liegen Geheimnisse in der Datenbank (`bs_connector_settings`), zeigt das Backend Administratoren (`manage_options`) einen dauerhaften Hinweis mit der Empfehlung, sie nach `wp-config.php` zu verschieben.
-* Einstellung „Geheimnisse aus der Datenbank erlauben“ (Standard: an, kompatibel zu bestehenden Installationen) bzw. Filter `bs_connector_allow_db_secrets`: Ist sie aus bzw. liefert der Filter `false`, werden Geheimnisse aus der Datenbank ignoriert – ohne Konstanten ist die Anbindung dann aus (Aufrufe an die Plattform unterbleiben, der Provisionierungs-Endpunkt antwortet 401).
+* Einstellung „Geheimnisse aus der Datenbank erlauben“ (Standard seit 1.4.0: **aus**) bzw. Filter `bs_connector_allow_db_secrets`: Solange sie aus ist bzw. der Filter `false` liefert, werden Geheimnisse aus der Datenbank ignoriert – ohne Konstanten ist die Anbindung dann aus (Aufrufe an die Plattform unterbleiben, der Provisionierungs-Endpunkt antwortet 401). Die Einstellungsseite zeigt dann keine Geheimnis-Felder, sondern die `define()`-Zeilen für `wp-config.php`, und speichert keine Geheimnisse. Erst nach dem Einschalten und Speichern erscheinen die Felder. Der Filter hat Vorrang vor der Einstellung:
 
-    add_filter( 'bs_connector_allow_db_secrets', '__return_false' );
+    add_filter( 'bs_connector_allow_db_secrets', '__return_false' ); // nie aus der Datenbank
+    add_filter( 'bs_connector_allow_db_secrets', '__return_true' );  // immer erlaubt (nicht empfohlen)
+
+* **Update auf 1.4.0:** Beim ersten Laden nach dem Update prüft das Plugin einmalig (Merker `bs_connector_version`), ob Geheimnisse ohne passende Konstante in der Datenbank liegen. Wenn ja, wird „Geheimnisse aus der Datenbank erlauben“ ausdrücklich eingeschaltet – die Anbindung läuft weiter – und Administratoren sehen einen Hinweis. Danach: Geheimnisse als Konstanten in `wp-config.php` eintragen, „Verbindung testen“, dann die Einstellung ausschalten und speichern; die Kopie in der Datenbank wird beim Speichern mit gesetzter Konstante gelöscht. Neuinstallationen und Installationen ohne solche Geheimnisse bleiben bei „aus“ (ein früher gespeichertes „an“ wird dabei auf „aus“ gesetzt); ein ausdrückliches „aus“ bleibt. Nach einem Downgrade auf 1.3.x und erneutem Update auf 1.4.0 läuft diese Prüfung nicht noch einmal (der Merker steht schon auf 1.4.0); die Einstellung dann bei Bedarf von Hand setzen.
 
 == Datenschutz ==
 
@@ -100,6 +103,10 @@ Das Plugin meldet sich bei den Datenschutz-Werkzeugen von WordPress an (Werkzeug
 Für die USt-IdNr.-Prüfung geht die Nummer (Länderkennung und Nummer, ggf. die eigene USt-IdNr. des Shops) an den VIES-Dienst der EU-Kommission. Bestellungen und ihr Zustellstatus bleiben für die Buchhaltung erhalten. Das Konto auf der Plattform löscht der Plattform-Betreiber.
 
 == Changelog ==
+
+= 1.4.0 =
+* Geheimnisse standardmäßig nur noch aus `wp-config.php`: „Geheimnisse aus der Datenbank erlauben“ ist jetzt aus (Filter `bs_connector_allow_db_secrets` bleibt). Bei „aus“ zeigt die Einstellungsseite keine Geheimnis-Felder, sondern die `define()`-Zeilen, und speichert keine Geheimnisse (auch nicht aus selbst gebauten Anfragen).
+* Übergang: Bestehende Installationen mit Geheimnissen nur in der Datenbank bekommen die Einstellung beim Update einmalig eingeschaltet und einen Hinweis für Administratoren (Geheimnisse nach `wp-config.php` verschieben, dann ausschalten). Neue Optionen `bs_connector_version` und `bs_connector_db_secrets_kept`, bei der Deinstallation entfernt.
 
 = 1.3.0 =
 * Zusammenführung der Stände 1.2.0 und der parallelen Shop-Anbindung: Einstellungs-Tab „Bootsschule“, Verbindungstest und Hinweis auf Geheimnisse in der Datenbank nur noch für Administratoren (`manage_options`), nicht mehr für Shop-Manager.

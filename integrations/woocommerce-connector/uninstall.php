@@ -8,6 +8,8 @@
 defined('WP_UNINSTALL_PLUGIN') || exit;
 
 delete_option('bs_connector_settings');
+delete_option('bs_connector_version');
+delete_option('bs_connector_db_secrets_kept');
 delete_transient('bs_connector_catalog');
 
 // Ausstehende Hintergrund-Aufgaben des Plugins entfernen.

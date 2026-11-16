@@ -15,6 +15,11 @@ größeren WooCommerce-Updates abhaken.
 - [ ] Cron für `schedule:run` läuft (sonst wird `app:commerce-outbox` nicht gesendet).
 - [ ] WordPress ≥ 6.5, WooCommerce ≥ 8 mit HPOS, PHP ≥ 8.1, Permalinks **nicht** „Einfach“.
 - [ ] Plugin kopiert und aktiviert. Geheimnisse in `wp-config.php` (siehe `readme.txt`).
+      Ohne Konstanten zeigt WooCommerce → Einstellungen → Bootsschule keine Geheimnis-Felder,
+      sondern die `define()`-Zeilen („Geheimnisse aus der Datenbank erlauben“ ist standardmäßig aus).
+- [ ] Update von 1.3.x mit Geheimnissen nur in der Datenbank: Anbindung läuft nach dem Update weiter,
+      „Geheimnisse aus der Datenbank erlauben“ ist eingeschaltet, Administratoren sehen den Hinweis
+      „beim Update … eingeschaltet“. Nach Umzug in `wp-config.php` und Ausschalten verschwindet er.
 - [ ] Testzahlart mit Zahlungsbestätigung (z. B. Stripe-Testmodus) und zusätzlich „Nachnahme“ aktiv.
 - [ ] Zwei Testschulen auf der Plattform: **A** (aktiv, Kurs SBF-SEE freigeschaltet), **B** (aktiv, SBF-SEE abgeschaltet).
 - [ ] Shop-Produkte: Kurscode SBF-SEE, Verlängerungscode SBF-SEE, ein Produktcode, ein Kurscode mit Zusatzprodukt, ein variables Produkt.
