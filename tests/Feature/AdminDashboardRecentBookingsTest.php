@@ -81,8 +81,10 @@ class AdminDashboardRecentBookingsTest extends TestCase
         $response->assertOk();
         // Die Optionen erscheinen als Zusatzzeile unter dem Kurs statt als
         // eigenständige Buchung (wie auf der Teilnehmer-Detailseite).
-        $response->assertSeeInOrder(['Erika Musterfrau', $course->name, $willkommensbox->name, $kleinePraxis->name]);
-        $response->assertSeeText('+ '.$willkommensbox->name.', '.$kleinePraxis->name);
+        // Feste Reihenfolge nach Name (beide Kauf-Zeilen entstehen gleichzeitig).
+        $names = collect([$willkommensbox->name, $kleinePraxis->name])->sort(SORT_NATURAL | SORT_FLAG_CASE)->values()->all();
+        $response->assertSeeInOrder(['Erika Musterfrau', $course->name, ...$names]);
+        $response->assertSeeText('+ '.implode(', ', $names));
     }
 
     public function test_dashboard_does_not_show_bookings_older_than_seven_days(): void

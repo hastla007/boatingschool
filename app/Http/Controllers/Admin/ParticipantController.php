@@ -85,7 +85,8 @@ class ParticipantController extends Controller
                     'source_reference' => $e->source_reference,
                     'date' => $e->valid_from,
                     'status' => $e->status,
-                    'options' => $options->map(fn (ProductPurchase $p) => $p->product->name ?? '—')->values(),
+                    // Feste Reihenfolge (nach Name): die Kauf-Zeilen entstehen gleichzeitig.
+                    'options' => $options->map(fn (ProductPurchase $p) => $p->product->name ?? '—')->sort(SORT_NATURAL | SORT_FLAG_CASE)->values(),
                     // Bug-Review B14: nur über diese beiden Felder lässt sich
                     // in der Detailansicht ein "Verlängern"/"Sperren"-Formular
                     // für genau diese Entitlement-Zeile rendern.

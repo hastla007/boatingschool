@@ -116,7 +116,8 @@ class AdminDashboardController extends Controller
                     'user' => $e->user->name ?? '—',
                     'label' => $e->course->name ?? '—',
                     'date' => $e->valid_from,
-                    'options' => $options->map(fn (ProductPurchase $p) => $p->product->name ?? '—')->values(),
+                    // Feste Reihenfolge (nach Name): die Kauf-Zeilen entstehen gleichzeitig.
+                    'options' => $options->map(fn (ProductPurchase $p) => $p->product->name ?? '—')->sort(SORT_NATURAL | SORT_FLAG_CASE)->values(),
                 ];
             });
 

@@ -339,8 +339,10 @@ class ParticipantDetailTest extends TestCase
         $response->assertOk();
         // Der Kurs erscheint als eigene Buchung, die Optionen als
         // Zusatzzeile darunter statt als eigenständige Buchungen.
-        $response->assertSeeInOrder([$course->name, $willkommensbox->name, $kleinePraxis->name]);
-        $response->assertSeeText('+ '.$willkommensbox->name.', '.$kleinePraxis->name);
+        // Feste Reihenfolge nach Name (beide Kauf-Zeilen entstehen gleichzeitig).
+        $names = collect([$willkommensbox->name, $kleinePraxis->name])->sort(SORT_NATURAL | SORT_FLAG_CASE)->values()->all();
+        $response->assertSeeInOrder([$course->name, ...$names]);
+        $response->assertSeeText('+ '.implode(', ', $names));
     }
 
     public function test_a_standalone_product_purchase_without_a_matching_course_is_shown_on_its_own(): void
