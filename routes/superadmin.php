@@ -23,6 +23,7 @@ use App\Http\Controllers\Superadmin\SettingsController;
 use App\Http\Controllers\Superadmin\ShopAccountController;
 use App\Http\Controllers\Superadmin\SystemStatusController;
 use App\Http\Controllers\Superadmin\TenantController;
+use App\Http\Controllers\Superadmin\TenantSearchController;
 use App\Http\Controllers\Superadmin\TipCategoryController;
 use App\Http\Controllers\Superadmin\TipController;
 use App\Http\Controllers\Superadmin\UserAccountController;
@@ -58,6 +59,9 @@ Route::middleware(['auth', 'superadmin', 'admin-db', 'verified', AuditSuperadmin
     Route::post('/shop-accounts/{account}/reject', [ShopAccountController::class, 'reject'])->whereUuid('account')->name('shop-accounts.reject');
     Route::post('/shop-accounts/{account}/retry', [ShopAccountController::class, 'retryProvisioning'])->whereUuid('account')->name('shop-accounts.retry');
     Route::get('/tenants', [TenantController::class, 'index'])->name('tenants.index');
+    // Schulsuche der Schulauswahl (components/superadmin/tenant-picker); vor /tenants/{tenant}.
+    Route::get('/tenants/search', TenantSearchController::class)
+        ->middleware('throttle:120,1,superadmin-tenant-search')->name('tenants.search');
     Route::get('/tenants/create', [TenantController::class, 'create'])->name('tenants.create');
     Route::post('/tenants', [TenantController::class, 'store'])->name('tenants.store');
     Route::get('/tenants/{tenant}', [TenantController::class, 'show'])->name('tenants.show');

@@ -95,14 +95,12 @@
                         <form method="POST" action="{{ route('superadmin.shop-accounts.approve', $account) }}" class="space-y-2">
                             @csrf
                             <input type="hidden" name="mode" value="existing">
-                            <label for="tenant-{{ $account->id }}" class="block text-xs text-slate-600 dark:text-slate-300">Bestehender Bootsschule zuordnen</label>
-                            <select id="tenant-{{ $account->id }}" name="tenant_id" required class="w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
-                                <option value="">Bitte wählen</option>
-                                @foreach ($tenants as $tenant)
-                                    <option value="{{ $tenant->id }}">{{ $tenant->name }} ({{ $tenant->slug }})</option>
-                                @endforeach
-                            </select>
-                            <p class="text-xs text-slate-500 dark:text-slate-400">Die Inhaber der Schule werden per E-Mail informiert.</p>
+                            {{-- Suchfeld statt Liste aller Schulen je Konto (bis zu 30 je Seite);
+                                 Fehler stehen gesammelt oben, nicht an jedem der gleichnamigen Felder. --}}
+                            <x-superadmin.tenant-picker name="tenant_id" id="tenant-{{ $account->id }}" label="Bestehender Bootsschule zuordnen"
+                                                        label-class="block text-xs text-slate-600 dark:text-slate-300" input-class="text-sm" required
+                                                        :use-old="false" :show-errors="false"
+                                                        hint="Die Inhaber der Schule werden per E-Mail informiert." />
                             <button type="submit" class="px-3 py-2 rounded-lg bg-slate-900 text-white">Zuordnen &amp; freigeben</button>
                         </form>
                         <form method="POST" action="{{ route('superadmin.shop-accounts.approve', $account) }}" class="space-y-2">

@@ -164,14 +164,11 @@
                         <p class="text-slate-500 dark:text-slate-400">Noch keine Bootsschule zugeordnet.</p>
                     @endforelse
                 </div>
-                <form method="POST" action="{{ route('superadmin.users.memberships.store', $user) }}" class="flex flex-wrap gap-2">
+                <form method="POST" action="{{ route('superadmin.users.memberships.store', $user) }}" class="flex flex-wrap items-start gap-2">
                     @csrf
-                    <label for="membership_tenant_id" class="sr-only">Bootsschule</label>
-                    <select id="membership_tenant_id" name="tenant_id" required class="flex-1 min-w-0 basis-40 rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs">
-                        @foreach ($tenants as $tenant)
-                            <option value="{{ $tenant->id }}">{{ $tenant->name }}</option>
-                        @endforeach
-                    </select>
+                    {{-- Suchfeld statt Liste aller Schulen (components/superadmin/tenant-picker). --}}
+                    <x-superadmin.tenant-picker name="tenant_id" id="membership_tenant_id" label="Bootsschule" label-class="sr-only"
+                                                required input-class="text-xs" class="flex-1 min-w-0 basis-40" />
                     <label for="membership_role" class="sr-only">Rolle</label>
                     <select id="membership_role" name="role" class="rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-xs">
                         @foreach (\App\Support\StatusLabels::tenantRoleOptions() as $role => $label)

@@ -8,7 +8,6 @@ use App\Models\AuditLog;
 use App\Models\Entitlement;
 use App\Models\ExamSession;
 use App\Models\ProductPurchase;
-use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
 use App\Notifications\EmailChangeRequested;
@@ -18,6 +17,7 @@ use App\Support\BestEffortMail;
 use App\Support\Countries;
 use App\Support\EmailInput;
 use App\Support\StatusLabels;
+use App\Support\TenantPicker;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -46,8 +46,8 @@ class UserController extends Controller
 
     public function create(): View
     {
+        // Schulauswahl per Suchfeld (components/superadmin/tenant-picker) statt Liste aller Schulen.
         return view('superadmin.users.create', [
-            'tenants' => Tenant::orderBy('name')->get(),
             'countries' => Countries::OPTIONS,
         ]);
     }
@@ -74,8 +74,11 @@ class UserController extends Controller
             // Groß-/Kleinschreibung-sensitiv).
             'email' => ['bail', 'required', 'string', 'lowercase', 'email', 'max:255', 'unique:app_user,email'],
             'tenant_id' => ['nullable', 'uuid', 'exists:tenant,id'],
-            'role' => ['required_with:tenant_id', 'nullable', 'in:owner,admin,instructor,staff,learner,support'],
+            // Ohne JavaScript: Kürzel/Name der Schule (TenantPicker::resolve()).
+            'tenant_slug' => TenantPicker::companionRules(),
+            'role' => ['required_with:tenant_id,tenant_slug', 'nullable', 'in:owner,admin,instructor,staff,learner,support'],
         ]);
+        $validated['tenant_id'] = TenantPicker::resolve($validated);
 
         $user = User::create([
             'display_name' => trim($validated['first_name'].' '.$validated['last_name']),
@@ -168,7 +171,6 @@ class UserController extends Controller
             'results' => $results,
             'examResults' => $examResults,
             'productPurchases' => $productPurchases,
-            'tenants' => Tenant::orderBy('name')->get(),
         ]);
     }
 
@@ -270,9 +272,12 @@ class UserController extends Controller
     public function addMembership(Request $request, User $user): Response
     {
         $validated = $request->validate([
-            'tenant_id' => ['required', 'uuid', 'exists:tenant,id'],
+            'tenant_id' => ['nullable', 'uuid', 'exists:tenant,id'],
+            // Ohne JavaScript: Kürzel/Name der Schule (TenantPicker::resolve()).
+            'tenant_slug' => TenantPicker::companionRules(),
             'role' => ['required', 'in:owner,admin,instructor,staff,learner,support'],
         ]);
+        $validated['tenant_id'] = TenantPicker::resolve($validated, required: true);
 
         // Sicherheitsreview S4: eine über den Superadmin zugewiesene/
         // geänderte Rolle (z. B. "owner" einer Bootsschule) wurde bisher gar

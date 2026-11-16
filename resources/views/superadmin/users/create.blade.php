@@ -29,15 +29,8 @@
             <div class="pt-4 border-t border-slate-100 dark:border-slate-700">
                 <p class="text-sm font-medium text-slate-600 dark:text-slate-300 mb-3">Optional: direkt einer Bootsschule zuordnen</p>
                 <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <x-input-label for="tenant_id" value="Bootsschule" />
-                        <select id="tenant_id" name="tenant_id" class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
-                            <option value="">&mdash; keine &mdash;</option>
-                            @foreach ($tenants as $tenant)
-                                <option value="{{ $tenant->id }}">{{ $tenant->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
+                    {{-- Suchfeld statt Liste aller Schulen; leer = keine Zuordnung. --}}
+                    <x-superadmin.tenant-picker name="tenant_id" hint="Leer lassen: keiner Bootsschule zuordnen." />
                     <div>
                         <x-input-label for="role" value="Rolle" />
                         <select id="role" name="role" class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">

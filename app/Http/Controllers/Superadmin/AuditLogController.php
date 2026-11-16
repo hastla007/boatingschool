@@ -7,6 +7,7 @@ use App\Models\AuditLog;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Support\DateInput;
+use App\Support\TenantPicker;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
@@ -16,8 +17,15 @@ class AuditLogController extends Controller
 {
     public function index(Request $request): View
     {
+        // Schulfilter per Suchfeld (components/superadmin/tenant-picker):
+        // tenant=<uuid> wie bisher, ohne JavaScript tenant_slug (Kürzel/Name,
+        // TenantPicker::resolveQuery()); „Nur Plattform“ als eigenes
+        // Kästchen (platform_only), tenant=platform gilt weiterhin.
+        $tenantParam = $this->stringParam($request, 'tenant');
+        $picked = TenantPicker::resolveQuery($request, 'tenant');
+        $platformOnly = $tenantParam === 'platform' || $request->query('platform_only') === '1';
         $filters = [
-            'tenant' => $this->stringParam($request, 'tenant'),
+            'tenant' => $platformOnly ? 'platform' : $picked['id'],
             'actor' => $this->stringParam($request, 'actor'),
             'action' => $this->stringParam($request, 'action'),
             'entity' => $this->stringParam($request, 'entity'),
@@ -50,13 +58,16 @@ class AuditLogController extends Controller
         // Lesbare Texte (AuditLog::description()) ohne Einzelabfragen je Zeile.
         AuditLog::preloadFor($entries->getCollection());
         $actors = User::whereIn('id', $entries->pluck('actor_user_id')->filter()->unique())->get(['id', 'email', 'display_name'])->keyBy('id');
-        $tenants = Tenant::orderBy('name')->get(['id', 'name']);
+        // Nur die Namen der Schulen auf dieser Seite, nicht aller (Schulfilter: Suchfeld).
+        $tenantNames = Tenant::whereIn('id', $entries->pluck('tenant_id')->filter()->unique()->values())->pluck('name', 'id');
+        $selectedTenant = $filters['tenant'] && $filters['tenant'] !== 'platform' ? Tenant::find($filters['tenant']) : null;
 
         return view('superadmin.audit.index', [
             'entries' => $entries,
             'actors' => $actors,
-            'tenants' => $tenants,
-            'tenantNames' => $tenants->pluck('name', 'id'),
+            'tenantNames' => $tenantNames,
+            'selectedTenant' => $selectedTenant,
+            'tenantFilterError' => $platformOnly ? null : $picked['error'],
             'filters' => $filters,
         ]);
     }

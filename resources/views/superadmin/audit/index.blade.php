@@ -5,16 +5,19 @@
 
     @php($input = 'mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm')
     <div class="space-y-4">
-        <form method="GET" action="{{ route('superadmin.audit.index') }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 grid grid-cols-2 md:grid-cols-6 gap-3 items-end">
-            <div class="col-span-2 md:col-span-1">
-                <x-input-label for="tenant" value="Bootsschule" />
-                <select id="tenant" name="tenant" class="{{ $input }}">
-                    <option value="">Alle</option>
-                    <option value="platform" @selected($filters['tenant'] === 'platform')>Nur Plattform</option>
-                    @foreach ($tenants as $tenant)
-                        <option value="{{ $tenant->id }}" @selected($filters['tenant'] === $tenant->id)>{{ $tenant->name }}</option>
-                    @endforeach
-                </select>
+        <form method="GET" action="{{ route('superadmin.audit.index') }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 grid grid-cols-2 md:grid-cols-7 gap-3 items-start">
+            {{-- Suchfeld statt Liste aller Schulen; leer = alle. „Nur Plattform“ als eigenes Kästchen. --}}
+            <div class="col-span-2 md:col-span-2">
+                <x-superadmin.tenant-picker name="tenant" id="tenant" :selected="$selectedTenant" :use-old="false" :show-errors="false"
+                                            hint="Leer lassen: alle Schulen." />
+                <label class="mt-1 flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                    <input type="checkbox" name="platform_only" value="1" @checked($filters['tenant'] === 'platform')
+                           class="rounded border-slate-300 dark:bg-slate-700 dark:border-slate-600">
+                    Nur Plattform (ohne Bootsschule)
+                </label>
+                @if ($tenantFilterError)
+                    <p class="mt-1 text-sm text-red-600 dark:text-red-400" role="alert">{{ $tenantFilterError }} Der Schulfilter wurde nicht angewendet.</p>
+                @endif
             </div>
             <div>
                 <x-input-label for="actor" value="Person (E-Mail)" />
@@ -32,13 +35,13 @@
                 <x-input-label for="to" value="Bis" />
                 <input id="to" name="to" type="date" value="{{ $filters['to'] }}" class="{{ $input }}">
             </div>
-            <div class="flex gap-2">
+            <div class="flex gap-2 md:pt-6">
                 <button type="submit" class="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium hover:opacity-90">Filtern</button>
                 <a href="{{ route('superadmin.audit.index') }}" class="px-3 py-2 rounded-lg bg-slate-100 dark:bg-slate-700 text-sm">Zurücksetzen</a>
             </div>
             @if ($filters['entity'])
                 <input type="hidden" name="entity" value="{{ $filters['entity'] }}">
-                <p class="col-span-2 md:col-span-6 text-xs text-slate-600 dark:text-slate-400">Nur Einträge zu Objekt {{ $filters['entity'] }}</p>
+                <p class="col-span-2 md:col-span-7 text-xs text-slate-600 dark:text-slate-400">Nur Einträge zu Objekt {{ $filters['entity'] }}</p>
             @endif
         </form>
 
