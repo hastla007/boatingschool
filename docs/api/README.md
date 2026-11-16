@@ -846,7 +846,7 @@ entscheidet aber nur anhand von `code`.
     für iOS. Standard: nur der Löschpfad (das kann jede veröffentlichte
     App-Version). Empfohlen, sobald die App auch die übrigen Mail-Links
     verarbeitet:
-    `/app/konto-loeschen,/reset-password/*,/invitations/*/accept/*,/verify-email/*/*`
+    `/app/konto-loeschen,/reset-password/*,/invitations/*/accept/*,/verify-email/*/*,/gruppe/*`
     (`AppLinkAssociationController::recommendedPathsValue()`); alle außer dem
     Löschpfad automatisch auch als `/*/…` (Pfad-Modus `/<slug>/…`). Die App
     braucht zusätzlich die Associated Domain `applinks:<zentrale Domain>`

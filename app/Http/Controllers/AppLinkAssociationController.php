@@ -38,6 +38,8 @@ class AppLinkAssociationController extends Controller
         'password.reset' => 'Passwort festlegen oder zurücksetzen',
         'invitations.accept' => 'Einladung annehmen',
         'verification.verify' => 'E-Mail-Adresse bestätigen',
+        // Beitrittslink einer Lerngruppe (LearningGroupService, Infoseite im Web).
+        'learning-group-link.show' => 'Lerngruppe beitreten',
     ];
 
     private const DELETION_COMMENT = 'Bestätigung der Kontolöschung';

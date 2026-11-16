@@ -528,12 +528,12 @@ Weiterleitung und als JSON (`Cache-Control: public, max-age=3600`):
   (`AppLinkAssociationController::recommendedPathsValue()`):
 
   ```
-  MOBILE_API_APP_LINK_PATHS=/app/konto-loeschen,/reset-password/*,/invitations/*/accept/*,/verify-email/*/*
+  MOBILE_API_APP_LINK_PATHS=/app/konto-loeschen,/reset-password/*,/invitations/*/accept/*,/verify-email/*/*,/gruppe/*
   ```
 
   `/reset-password/*` (Passwort festlegen nach Einladung und zurücksetzen),
   `/invitations/*/accept/*` (Einladung eines bestehenden Kontos), `/verify-email/*/*`
-  (E-Mail-Bestätigung). Jeder Pfad außer der Kontolöschung steht zusätzlich mit Schul-Slug davor
+  (E-Mail-Bestätigung), `/gruppe/*` (Beitrittslink einer Lerngruppe). Jeder Pfad außer der Kontolöschung steht zusätzlich mit Schul-Slug davor
   (`/*/reset-password/*` usw., Pfad-Modus `/<slug>/…`).
 - `/.well-known/assetlinks.json` (Android App Links), wenn `MOBILE_API_ANDROID_PACKAGE` und
   `MOBILE_API_ANDROID_SHA256_FINGERPRINTS` gesetzt sind (SHA-256-Fingerabdrücke des

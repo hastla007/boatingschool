@@ -65,7 +65,7 @@ return [
         // (/app/konto-loeschen) -- die verarbeitet jede veröffentlichte
         // App-Version. Kann die App auch die übrigen Mail-Links, empfohlen
         // (AppLinkAssociationController::recommendedPathsValue()):
-        // /app/konto-loeschen,/reset-password/*,/invitations/*/accept/*,/verify-email/*/*
+        // /app/konto-loeschen,/reset-password/*,/invitations/*/accept/*,/verify-email/*/*,/gruppe/*
         // (Passwort festlegen/zurücksetzen, Einladung annehmen, E-Mail
         // bestätigen; deploy/README.md, Abschnitt 10). Jeder Pfad außer der
         // Kontolöschung gilt automatisch auch mit Schul-Slug davor (/*/…).

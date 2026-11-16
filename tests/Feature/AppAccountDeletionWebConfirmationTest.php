@@ -308,7 +308,7 @@ class AppAccountDeletionWebConfirmationTest extends MobileApiTestCase
     public function test_the_recommended_app_link_paths_are_documented(): void
     {
         $value = AppLinkAssociationController::recommendedPathsValue();
-        $this->assertSame('/app/konto-loeschen,/reset-password/*,/invitations/*/accept/*,/verify-email/*/*', $value);
+        $this->assertSame('/app/konto-loeschen,/reset-password/*,/invitations/*/accept/*,/verify-email/*/*,/gruppe/*', $value);
         $this->assertStringContainsString('MOBILE_API_APP_LINK_PATHS='.$value, file_get_contents(base_path('deploy/README.md')));
         $this->assertStringContainsString('MOBILE_API_APP_LINK_PATHS='.$value, file_get_contents(base_path('.env.example')));
         $this->assertStringContainsString('`'.$value.'`', file_get_contents(base_path('docs/api/README.md')));
@@ -331,6 +331,8 @@ class AppAccountDeletionWebConfirmationTest extends MobileApiTestCase
                     ['/' => '/*/invitations/*/accept/*', 'comment' => 'Einladung annehmen (Pfad-Modus /<slug>/…)'],
                     ['/' => '/verify-email/*/*', 'comment' => 'E-Mail-Adresse bestätigen'],
                     ['/' => '/*/verify-email/*/*', 'comment' => 'E-Mail-Adresse bestätigen (Pfad-Modus /<slug>/…)'],
+                    ['/' => '/gruppe/*', 'comment' => 'Lerngruppe beitreten'],
+                    ['/' => '/*/gruppe/*', 'comment' => 'Lerngruppe beitreten (Pfad-Modus /<slug>/…)'],
                 ],
             ]]]]);
         $patterns = collect($this->get('/.well-known/apple-app-site-association')->assertOk()->json('applinks.details.0.components'))->pluck('/');
