@@ -9,7 +9,7 @@
 #      → Shopkonto in der App mit der Testschule verknüpft
 #   4. Produkt mit Kurscode-Zuordnung (Kurs aus dem Katalog der App)
 #   5. Bestellung, bezahlt und abgeschlossen; Action Scheduler
-#      (wp action-scheduler run --group=bs-connector) bis zur Zustellung
+#      (fällige Aktionen der Gruppe bs-connector einzeln) bis zur Zustellung
 #   6. Prüfung: Positionen zugestellt, Bestellnotiz, Codes der Schule in der App
 # Jeder Fehlschlag endet mit Exit ≠ 0 und gibt die Protokolle aus.
 #
@@ -75,11 +75,29 @@ poll() {
     echo "    ok: $what"
 }
 
+# Fällige Aktionen der Gruppe einzeln per ID ausführen. "wp action-scheduler run
+# --group=bs-connector" bricht unter WooCommerce 11.3 mit 'The group "bs-connector"
+# does not exist' ab (MySQL wie SQLite; die Gruppe existiert), "action list --group"
+# funktioniert dagegen. Asynchrone Aktionen haben das Datum 0000-00-00.
+as_run_due() {
+    local now id date
+    now=$(date -u '+%Y-%m-%d %H:%M:%S')
+    wpc action-scheduler action list --group=bs-connector --status=pending \
+        --fields=id,scheduled_date --format=csv --per_page=100 2>/dev/null | tail -n +2 |
+        while IFS=, read -r id date; do
+            date=${date//\"/}
+            date=${date% +0000}
+            if [[ "$date" == 0000-* || ! "$date" > "$now" ]]; then
+                wpc action-scheduler action run "$id" 2>&1 | grep -v '^Deprecated' | tail -n 1
+            fi
+        done
+}
+
 as_run() {
     if [ -n "${AS_RUN:-}" ]; then
         eval "$AS_RUN"
     else
-        wpc action-scheduler run --group=bs-connector --batch-size=25 --batches=4
+        as_run_due
     fi
 }
 

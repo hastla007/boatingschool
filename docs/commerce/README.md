@@ -225,7 +225,7 @@ MySQL; Ergebnis und Lücken: [`staging-test.md`](staging-test.md), Abschnitt
 - Ein Ende-zu-Ende-Lauf in echtem WordPress mit WooCommerce (MySQL) gegen die laufende App
   (CI-Workflow `connector-wordpress.yml`, `tests/connector-e2e/run.sh`): Kundenkonto mit
   E-Mail-Bestätigung, Anmeldung bei der App, Verknüpfung per Code unter „Mein Konto“, Produkt mit
-  Kurscode aus dem Katalog, bezahlte Bestellung, `wp action-scheduler run` bis zur Zustellung;
+  Kurscode aus dem Katalog, bezahlte Bestellung, Action Scheduler bis zur Zustellung;
   geprüft werden Positionen und Bestellnotiz im Shop und das Codepaket der Schule in der App.
   Details und lokales Nachstellen: [wordpress-integrationstest.md](wordpress-integrationstest.md#automatisierter-lauf-in-der-ci).
 - Alle App-Endpunkte mit simulierten Shop-Aufrufen (Feature-Tests).

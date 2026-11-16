@@ -194,7 +194,8 @@ Datei (`tests/connector-e2e/wp/mu-plugin-mail.php`).
    Testschule, „Mein Konto“ zeigt die Verknüpfung.
 4. Produkt mit Kurscode-Zuordnung (Kurs aus dem Katalog der App, bevorzugt SRC).
 5. Bestellung mit Überweisung, „Abgeschlossen“, dann
-   `wp action-scheduler run --group=bs-connector`, bis die Zustellung im Shop
+   fällige Aktionen der Gruppe `bs-connector` einzeln per
+   `wp action-scheduler action run <id>`, bis die Zustellung im Shop
    vermerkt ist (gepollt mit Zeitlimit, Standard 60 s je Schritt).
 6. Im Shop: jede Position `delivered` mit Batch und Bestellnotiz „… im
    Codebestand der Bootsschule hinterlegt“; in der App: Codepaket zur
@@ -237,7 +238,8 @@ WooCommerce); so lässt sich auch eine vorhandene Installation verwenden.
 `run.sh` braucht dieselben `DB_*`-Werte wie die App (es liest die
 App-Datenbank). Weitere Schalter stehen im Kopf von `run.sh`
 (`WP_CLI_BIN`, `E2E_TIMEOUT`, `E2E_COURSE`, `E2E_QUANTITY`, `AS_RUN`).
-Mit dem SQLite-Drop-in statt MySQL scheitert `wp action-scheduler run
---group` an der Gruppenabfrage; dort per `AS_RUN` fällige Aktionen einzeln
-ausführen (`wp action-scheduler action run <id>`). So wurde das Skript vor
-der Aufnahme in die CI lokal geprüft (16.11.2026, bestanden).
+Warum einzeln: `wp action-scheduler run --group=bs-connector` bricht unter
+WooCommerce 11.3 mit „The group "bs-connector" does not exist“ ab, obwohl die
+Gruppe existiert (im ersten CI-Lauf mit MySQL ebenso wie lokal mit dem
+SQLite-Drop-in); `action list --group` funktioniert. Lokal mit SQLite-Drop-in
+geprüft am 16.11.2026 (bestanden).
