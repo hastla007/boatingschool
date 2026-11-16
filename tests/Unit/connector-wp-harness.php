@@ -79,10 +79,66 @@ function current_user_can($cap)
 {
     return in_array($cap, $GLOBALS['bs_caps'], true);
 }
-/** Kunde 7 mit bestätigter E-Mail-Adresse (E-Mail-Bestätigung vor der Verknüpfung). */
+final class WP_User
+{
+    public function __construct(public int $ID, public string $user_email) {}
+}
+/** Nur Kunde 7 existiert, mit bestätigter E-Mail-Adresse (E-Mail-Bestätigung vor der Verknüpfung). */
 function get_userdata($id)
 {
-    return (object) ['ID' => $id, 'user_email' => 'kunde@example.test'];
+    return (int) $id === 7 ? new WP_User(7, 'kunde@example.test') : false;
+}
+function get_user_by($field, $value)
+{
+    return $field === 'email' && strtolower((string) $value) === 'kunde@example.test' ? get_userdata(7) : false;
+}
+function is_email($email)
+{
+    return filter_var($email, FILTER_VALIDATE_EMAIL) !== false;
+}
+function _n($single, $plural, $number, $domain = null)
+{
+    return $number === 1 ? $single : $plural;
+}
+function absint($value)
+{
+    return abs((int) $value);
+}
+function admin_url($path = '')
+{
+    return 'https://shop.test/wp-admin/'.$path;
+}
+function get_edit_user_link($id)
+{
+    return admin_url('user-edit.php?user_id='.$id);
+}
+function add_query_arg(array $args, string $url)
+{
+    return $url.(str_contains($url, '?') ? '&' : '?').http_build_query($args);
+}
+/** Nonces: gültig ist genau „valid-<Aktion>“. */
+function wp_nonce_url($url, $action)
+{
+    return add_query_arg(['_wpnonce' => 'valid-'.$action], $url);
+}
+/** Abbruch statt exit/die, damit das Szenario weiterläuft. */
+final class BS_Harness_Stop extends Exception {}
+function check_admin_referer($action)
+{
+    if (($_REQUEST['_wpnonce'] ?? '') !== 'valid-'.$action) {
+        throw new BS_Harness_Stop('nonce');
+    }
+
+    return 1;
+}
+function wp_die($message = '', $code = 500)
+{
+    throw new BS_Harness_Stop('die:'.$code);
+}
+function wp_safe_redirect($url)
+{
+    $GLOBALS['bs_redirect'] = $url;
+    throw new BS_Harness_Stop('redirect');
 }
 function wp_get_current_user()
 {
@@ -217,11 +273,41 @@ final class BS_Orders
     }
 }
 
+/** WP-CLI-Ersatz: Meldungen aufzeichnen; error() bricht ab wie das echte (Exit-Status 1). */
+final class WP_CLI
+{
+    public static function log($message): void
+    {
+        $GLOBALS['bs_cli'][] = ['log', $message];
+    }
+
+    public static function success($message): void
+    {
+        $GLOBALS['bs_cli'][] = ['success', $message];
+    }
+
+    public static function warning($message): void
+    {
+        $GLOBALS['bs_cli'][] = ['warning', $message];
+    }
+
+    public static function error($message): void
+    {
+        $GLOBALS['bs_cli'][] = ['error', $message];
+        throw new BS_Harness_Stop('cli_error');
+    }
+}
+if (! empty($options['woocommerce'])) {
+    final class WooCommerce {}
+}
+
 $includes = dirname(__DIR__, 2).'/integrations/woocommerce-connector/includes/';
+require $includes.'class-bs-log.php';
 require $includes.'class-bs-settings.php';
 require $includes.'class-bs-vat.php';
 require $includes.'class-bs-email-verification.php';
 require $includes.'class-bs-accounts.php';
+require $includes.'class-bs-cli.php';
 
 $out = [];
 $calls = static fn (): int => count($GLOBALS['bs_api_calls']);
@@ -235,6 +321,23 @@ $runQueue = static function (): void {
     foreach ($jobs as $job) {
         BS_Accounts::sync_account(...$job[1]);
     }
+};
+// Aufruf, der mit Weiterleitung, wp_die oder ungültiger Nonce endet: Grund des Abbruchs.
+$stopped = static function (callable $fn): ?string {
+    try {
+        $fn();
+    } catch (BS_Harness_Stop $stop) {
+        return $stop->getMessage();
+    }
+
+    return null;
+};
+$noticesFor = static function (?string $url): string {
+    parse_str((string) parse_url((string) $url, PHP_URL_QUERY), $_GET);
+    ob_start();
+    BS_Accounts::resync_notices();
+
+    return (string) ob_get_clean();
 };
 $fieldIds = static fn (?array $fields): ?array => $fields === null ? null : array_values(array_map(static fn ($f) => $f['id'] ?? $f['type'], $fields));
 
@@ -396,6 +499,68 @@ switch ($scenario) {
         BS_Accounts::queue_update(7);
         $out['queued_after_register'] = count($GLOBALS['bs_queue']);
         $out['api_calls'] = $GLOBALS['bs_api_calls'];
+        break;
+
+    case 'account_resync':
+        // Abgeglichen (Prüfsumme gesetzt), Speichern ohne Änderung sendet nichts ...
+        BS_Accounts::queue_update(7);
+        $runQueue();
+        $hash = (string) get_user_meta(7, '_bs_account_sync_hash', true);
+        BS_Accounts::queue_update(7);
+        $out['queued_unchanged_save'] = count($GLOBALS['bs_queue']);
+        // ... der ausdrückliche Abgleich schon.
+        $out['resync_queued'] = BS_Accounts::queue_resync(7);
+        $out['resync_jobs'] = $GLOBALS['bs_queue'];
+        $runQueue();
+        $out['calls_after_resync'] = $calls();
+        $out['hash_unchanged'] = $hash !== '' && $hash === (string) get_user_meta(7, '_bs_account_sync_hash', true);
+        // Fehlschlag: die Wiederholung behält force und sendet trotz gleicher Prüfsumme.
+        BS_Accounts::queue_resync(7);
+        $runQueue();
+        $out['retry_jobs'] = $GLOBALS['bs_queue'];
+        $runQueue();
+        $out['calls_after_retry'] = $calls();
+        $out['hash_after_retry'] = (string) get_user_meta(7, '_bs_account_sync_hash', true) === $hash;
+        $out['api_calls'] = $GLOBALS['bs_api_calls'];
+        break;
+
+    case 'admin_resync':
+        // Profilseite, dann Klick auf den Knopf (Anfrage aus den Optionen), dann Hinweis.
+        $GLOBALS['bs_hooks'] = [];
+        BS_Accounts::init();
+        $out['profile_hooks'] = [$GLOBALS['bs_hooks']['show_user_profile'] ?? null, $GLOBALS['bs_hooks']['edit_user_profile'] ?? null];
+        ob_start();
+        BS_Accounts::render_resync_profile(get_userdata(7));
+        $out['profile'] = (string) ob_get_clean();
+        $_GET = $_REQUEST = $options['request'] ?? [];
+        $out['stop'] = $stopped([BS_Accounts::class, 'handle_admin_resync']);
+        $out['redirect'] = $GLOBALS['bs_redirect'] ?? null;
+        $out['queue'] = $GLOBALS['bs_queue'];
+        $out['notice'] = $noticesFor($out['redirect']);
+        $runQueue();
+        $out['api_calls'] = $GLOBALS['bs_api_calls'];
+        break;
+
+    case 'admin_resync_bulk':
+        $out['bulk_actions'] = array_keys(BS_Accounts::resync_bulk_action(['delete' => 'Löschen']));
+        $_GET = $_REQUEST = $options['request'] ?? [];
+        $redirect = null;
+        $out['stop'] = $stopped(static function () use (&$redirect) {
+            $redirect = BS_Accounts::handle_resync_bulk_action('https://shop.test/wp-admin/users.php', 'bs_connector_account_resync', ['7', '999']);
+        });
+        $out['other_action'] = BS_Accounts::handle_resync_bulk_action('users.php', 'delete', ['7']);
+        $out['redirect'] = $redirect;
+        $out['queue'] = $GLOBALS['bs_queue'];
+        $out['notice'] = $noticesFor($redirect);
+        break;
+
+    case 'cli_resync':
+        $GLOBALS['bs_cli'] = [];
+        $out['stop'] = $stopped(static fn () => (new BS_CLI)->resync($options['args'] ?? [], []));
+        $out['cli'] = $GLOBALS['bs_cli'];
+        $out['api_calls'] = $GLOBALS['bs_api_calls'];
+        $out['queue'] = $GLOBALS['bs_queue'];
+        $out['hash_set'] = (string) get_user_meta(7, '_bs_account_sync_hash', true) !== '';
         break;
 
     case 'uninstall':

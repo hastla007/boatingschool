@@ -9,7 +9,8 @@ use Symfony\Component\Process\Process;
 /**
  * WooCommerce-Plugin: Status-Cache (SEC-P1), Einstellungen nur für
  * Administratoren (SEC-P3) und Geheimnisse standardmäßig nur aus
- * wp-config.php samt Übergang beim Update (BS-04). Die Plugin-Klassen laufen mit einem minimalen
+ * wp-config.php samt Übergang beim Update (BS-04), Kontoabgleich nur bei
+ * Änderung und ausdrücklicher Abgleich (Backend, WP-CLI). Die Plugin-Klassen laufen mit einem minimalen
  * WordPress-Ersatz in einem eigenen Prozess (connector-wp-harness.php) --
  * kein Test gegen echtes WordPress.
  */
@@ -336,6 +337,137 @@ class ConnectorAccountsAndSettingsTest extends TestCase
         $this->assertSame(1, $out['calls'], 'zweite Aufgabe mit denselben Daten sendet nicht');
         $this->assertSame(0, $out['queued_after_register'], 'Registrierung setzt die Prüfsumme');
         $this->assertSame(['PATCH /accounts/7', 'POST /accounts'], $out['api_calls']);
+    }
+
+    public function test_forced_resync_sends_despite_an_unchanged_hash_and_keeps_force_on_retry(): void
+    {
+        $out = $this->harness('account_resync', ['user_meta' => self::CUSTOMER, 'action_scheduler' => true, 'responses' => [200, 200, 500, 200]]);
+
+        $this->assertSame(0, $out['queued_unchanged_save'], 'ohne Änderung kein Abgleich');
+        $this->assertTrue($out['resync_queued']);
+        $this->assertSame([['bs_connector_sync_account', ['update', 7, 1, true]]], $out['resync_jobs'], 'über Action Scheduler mit force');
+        $this->assertSame(2, $out['calls_after_resync'], 'sendet trotz gleicher Prüfsumme');
+        $this->assertTrue($out['hash_unchanged'], 'Prüfsumme nach Erfolg wie bisher gesetzt');
+        $this->assertSame([['bs_connector_sync_account', ['update', 7, 2, true]]], $out['retry_jobs'], 'Wiederholung behält force');
+        $this->assertSame(4, $out['calls_after_retry']);
+        $this->assertTrue($out['hash_after_retry']);
+        $this->assertSame(array_fill(0, 4, 'PATCH /accounts/7'), $out['api_calls']);
+    }
+
+    private const RESYNC_NONCE = ['user_id' => '7', '_wpnonce' => 'valid-bs_connector_account_resync_7'];
+
+    private const RESYNC_ADMIN = ['manage_woocommerce', 'manage_options', 'edit_user'];
+
+    public function test_admin_resync_button_schedules_a_forced_sync_and_shows_a_notice(): void
+    {
+        $out = $this->harness('admin_resync', ['user_meta' => self::CUSTOMER, 'action_scheduler' => true, 'caps' => self::RESYNC_ADMIN, 'request' => self::RESYNC_NONCE, 'responses' => [200]]);
+
+        $this->assertSame([['BS_Accounts', 'render_resync_profile'], ['BS_Accounts', 'render_resync_profile']], $out['profile_hooks']);
+        $this->assertStringContainsString('Konto mit der Bootsschul-Plattform neu abgleichen', $out['profile']);
+        $this->assertStringContainsString('action=bs_connector_account_resync&amp;user_id=7&amp;_wpnonce=valid-bs_connector_account_resync_7', $out['profile']);
+        $this->assertSame('redirect', $out['stop']);
+        $this->assertStringContainsString('user-edit.php?user_id=7&bs_resynced=1&bs_resync_skipped=0', $out['redirect']);
+        $this->assertSame([['bs_connector_sync_account', ['update', 7, 1, true]]], $out['queue']);
+        $this->assertStringContainsString('Abgleich eingeplant', $out['notice']);
+        $this->assertSame(['PATCH /accounts/7'], $out['api_calls'], 'die eingeplante Aufgabe sendet');
+    }
+
+    public static function resyncWithoutPermissionCases(): array
+    {
+        return [
+            'Shop-Manager' => [['manage_woocommerce', 'edit_user'], self::RESYNC_NONCE, 'die:403'],
+            'Administrator ohne Recht auf dieses Konto' => [['manage_woocommerce', 'manage_options'], self::RESYNC_NONCE, 'die:403'],
+            'ohne Nonce' => [self::RESYNC_ADMIN, ['user_id' => '7'], 'nonce'],
+            'falsche Nonce' => [self::RESYNC_ADMIN, ['user_id' => '7', '_wpnonce' => 'abgelaufen'], 'nonce'],
+            'Nonce eines anderen Kontos' => [self::RESYNC_ADMIN, ['user_id' => '7', '_wpnonce' => 'valid-bs_connector_account_resync_8'], 'nonce'],
+        ];
+    }
+
+    #[DataProvider('resyncWithoutPermissionCases')]
+    public function test_admin_resync_without_capability_or_valid_nonce_does_nothing(array $caps, array $request, string $stop): void
+    {
+        $out = $this->harness('admin_resync', ['user_meta' => self::CUSTOMER, 'action_scheduler' => true, 'caps' => $caps, 'request' => $request, 'responses' => [200]]);
+
+        $this->assertSame($stop, $out['stop']);
+        $this->assertNull($out['redirect']);
+        $this->assertSame([], $out['queue']);
+        $this->assertSame([], $out['api_calls']);
+    }
+
+    public function test_resync_button_only_for_registered_accounts_and_administrators(): void
+    {
+        $manager = $this->harness('admin_resync', ['user_meta' => self::CUSTOMER, 'caps' => ['manage_woocommerce', 'edit_user']]);
+        $this->assertSame('', $manager['profile'], 'kein Knopf für Shop-Manager');
+
+        $unregistered = array_diff_key(self::CUSTOMER, ['_bs_registered' => true]);
+        $out = $this->harness('admin_resync', ['user_meta' => $unregistered, 'action_scheduler' => true, 'caps' => self::RESYNC_ADMIN, 'request' => self::RESYNC_NONCE]);
+        $this->assertSame('', $out['profile'], 'kein Knopf für nicht registrierte Konten');
+        // Selbst gebaute Anfrage für ein nicht registriertes Konto: nichts eingeplant.
+        $this->assertSame('redirect', $out['stop']);
+        $this->assertStringContainsString('bs_resynced=0&bs_resync_skipped=1', $out['redirect']);
+        $this->assertSame([], $out['queue']);
+        $this->assertStringNotContainsString('Abgleich eingeplant', $out['notice']);
+        $this->assertStringContainsString('nicht bei der Bootsschul-Plattform registriert', $out['notice']);
+    }
+
+    public function test_bulk_resync_in_the_user_list_checks_nonce_and_capability(): void
+    {
+        $request = ['_wpnonce' => 'valid-bulk-users'];
+        $out = $this->harness('admin_resync_bulk', ['user_meta' => self::CUSTOMER, 'action_scheduler' => true, 'caps' => self::RESYNC_ADMIN, 'request' => $request]);
+
+        $this->assertSame(['delete', 'bs_connector_account_resync'], $out['bulk_actions']);
+        $this->assertNull($out['stop']);
+        $this->assertSame('users.php', $out['other_action'], 'andere Sammelaktionen unberührt');
+        $this->assertStringEndsWith('users.php?bs_resynced=1&bs_resync_skipped=1', $out['redirect'], 'unbekannter Nutzer 999 übersprungen');
+        $this->assertSame([['bs_connector_sync_account', ['update', 7, 1, true]]], $out['queue']);
+        $this->assertStringContainsString('Abgleich eingeplant (1 Konto)', $out['notice']);
+
+        $manager = $this->harness('admin_resync_bulk', ['user_meta' => self::CUSTOMER, 'action_scheduler' => true, 'caps' => ['manage_woocommerce', 'edit_user'], 'request' => $request]);
+        $this->assertSame(['delete'], $manager['bulk_actions']);
+        $this->assertSame('die:403', $manager['stop']);
+        $this->assertSame([], $manager['queue']);
+
+        $noNonce = $this->harness('admin_resync_bulk', ['user_meta' => self::CUSTOMER, 'action_scheduler' => true, 'caps' => self::RESYNC_ADMIN]);
+        $this->assertSame('nonce', $noNonce['stop']);
+        $this->assertSame([], $noNonce['queue']);
+    }
+
+    public function test_cli_resync_sends_synchronously_and_reports_each_account(): void
+    {
+        $out = $this->harness('cli_resync', [
+            'woocommerce' => true,
+            'user_meta' => self::CUSTOMER + ['_bs_account_sync_hash' => 'veraltet-aber-egal'],
+            'args' => ['7', 'kunde@example.test', '999', 'niemand@example.test'],
+            'responses' => [200, 200],
+        ]);
+
+        $this->assertSame(['PATCH /accounts/7', 'PATCH /accounts/7'], $out['api_calls'], 'ID und E-Mail, jeweils trotz Prüfsumme');
+        $this->assertTrue($out['hash_set']);
+        $this->assertSame([
+            ['log', '#7 (kunde@example.test): abgeglichen (HTTP 200).'],
+            ['log', '#7 (kunde@example.test): abgeglichen (HTTP 200).'],
+            ['warning', '999: kein Nutzer gefunden.'],
+            ['warning', 'niemand@example.test: kein Nutzer gefunden.'],
+            ['error', '2 von 4 Konto/Konten nicht abgeglichen.'],
+        ], $out['cli']);
+        $this->assertSame('cli_error', $out['stop'], 'Fehlerstatus, wenn ein Konto nicht abgeglichen wurde');
+
+        $ok = $this->harness('cli_resync', ['woocommerce' => true, 'user_meta' => self::CUSTOMER, 'args' => ['7'], 'responses' => [200]]);
+        $this->assertNull($ok['stop']);
+        $this->assertSame(['success', '1 Konto/Konten abgeglichen.'], end($ok['cli']));
+
+        $unregistered = $this->harness('cli_resync', ['woocommerce' => true, 'user_meta' => array_diff_key(self::CUSTOMER, ['_bs_registered' => true]), 'args' => ['7']]);
+        $this->assertSame([], $unregistered['api_calls']);
+        $this->assertSame(['warning', '#7 (kunde@example.test): nicht bei der Plattform registriert, übersprungen.'], $unregistered['cli'][0]);
+
+        $failed = $this->harness('cli_resync', ['woocommerce' => true, 'action_scheduler' => true, 'user_meta' => self::CUSTOMER, 'args' => ['7'], 'responses' => [500]]);
+        $this->assertSame(['warning', '#7 (kunde@example.test): fehlgeschlagen (HTTP 500), Wiederholung in 5 Minuten eingeplant.'], $failed['cli'][0]);
+        $this->assertSame([['bs_connector_sync_account', ['update', 7, 2, true]]], $failed['queue']);
+        $this->assertFalse($failed['hash_set']);
+
+        $noWoo = $this->harness('cli_resync', ['user_meta' => self::CUSTOMER, 'args' => ['7']]);
+        $this->assertSame([['error', 'WooCommerce ist nicht aktiv.']], $noWoo['cli']);
+        $this->assertSame([], $noWoo['api_calls']);
     }
 
     public function test_uninstall_removes_the_account_sync_hash(): void
