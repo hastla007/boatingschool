@@ -36,13 +36,13 @@
                     {{ $collection->name }}
                 </button>
             @endforeach
-            <button @click="newCollectionOpen = ! newCollectionOpen"
+            <button type="button" @click="newCollectionOpen = ! newCollectionOpen" :aria-expanded="newCollectionOpen" aria-controls="new-collection-form"
                     class="px-3 py-1 rounded-full text-xs font-medium border border-dashed border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400 hover:border-slate-400 dark:hover:border-slate-500 transition">
                 + Neue Sammlung
             </button>
         </div>
 
-        <div x-show="newCollectionOpen" style="display: none" class="mb-4">
+        <div id="new-collection-form" x-show="newCollectionOpen" style="display: none" class="mb-4">
             <form method="POST" action="{{ route('favorite-collections.store', $course) }}" class="flex flex-wrap items-center gap-2">
                 @csrf
                 <label for="new_collection_name" class="sr-only">Name der Sammlung</label>

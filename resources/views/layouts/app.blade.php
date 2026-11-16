@@ -56,7 +56,7 @@
              Screenreader-Nutzer musste bisher die gesamte Navigation
              (inkl. Kurse-Untermenü) durchtaben, um zum eigentlichen
              Seiteninhalt zu gelangen. --}}
-        <a href="#main-content" class="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-2 focus:left-2 focus:px-4 focus:py-2 focus:rounded-lg focus:bg-white focus:text-slate-900 focus:shadow-lg">Zum Hauptinhalt springen</a>
+        <a href="#inhalt" class="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:top-2 focus:left-2 focus:px-4 focus:py-2 focus:rounded-lg focus:bg-white focus:text-slate-900 focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-indigo-500">Zum Inhalt springen</a>
         @if ($impersonation = \App\Support\Impersonation::current())
             <div role="alert" class="sticky top-0 z-50 bg-red-700 text-white text-sm">
                 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex flex-wrap items-center justify-between gap-2">
@@ -71,15 +71,21 @@
         <div class="min-h-screen bg-slate-50 dark:bg-slate-900">
             @include('layouts.navigation')
 
+            {{-- Barrierefreiheit (WCAG 2.4.1/1.3.1): der Skip-Link springt auf
+                 <main>, das die Seitenüberschrift (h1 im Kopfbereich) mit
+                 einschließt -- vorher lag die h1 außerhalb des Hauptbereichs
+                 und wurde vom Skip-Link übersprungen. tabindex="-1", damit
+                 der Fokus beim Sprung wirklich im Inhalt landet. --}}
+            <main id="inhalt" tabindex="-1" class="focus:outline-none">
             @isset($header)
-                <header class="bg-white dark:bg-slate-800 shadow-sm">
+                <div class="bg-white dark:bg-slate-800 shadow-sm">
                     <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
                         {{ $header }}
                     </div>
-                </header>
+                </div>
             @endisset
 
-            <main id="main-content" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
                 {{-- Laravels interne Statusschlüssel als Text statt roh anzeigen. --}}
                 @php($statusText = match (session('status')) {
                     'password-updated' => 'Dein Passwort wurde geändert.',
@@ -129,6 +135,7 @@
                 @endif
 
                 {{ $slot }}
+            </div>
             </main>
 
             <x-site-footer />

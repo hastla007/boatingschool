@@ -33,8 +33,8 @@
                 </div>
                 <div>
                     <x-input-label for="custom_domain" value="Eigene Domain (optional)" />
-                    <x-text-input id="custom_domain" name="custom_domain" type="text" class="mt-1 block w-full font-mono text-sm" :value="old('custom_domain', $tenant->branding->custom_domain)" placeholder="lernen.bootsschule-mueller.de" />
-                    <x-input-error :messages="$errors->get('custom_domain')" class="mt-2" />
+                    <x-text-input :invalid="$errors->has('custom_domain')" id="custom_domain" name="custom_domain" type="text" class="mt-1 block w-full font-mono text-sm" :value="old('custom_domain', $tenant->branding->custom_domain)" placeholder="lernen.bootsschule-mueller.de" />
+                    <x-input-error for="custom_domain" :messages="$errors->get('custom_domain')" class="mt-2" />
                     <details class="mt-1 text-xs text-slate-600 dark:text-slate-400">
                         <summary class="cursor-pointer">So wird die Domain eingerichtet</summary>
                         <ol class="list-decimal pl-4 mt-1 space-y-1">
@@ -64,8 +64,8 @@
                             Vorher die Daten exportieren.
                         </p>
                         <x-input-label for="confirm_slug" value="Zur Bestätigung den Kurznamen eintippen: {{ $tenant->slug }}" />
-                        <x-text-input id="confirm_slug" name="confirm_slug" type="text" class="block w-full font-mono text-sm" autocomplete="off" />
-                        <x-input-error :messages="$errors->get('confirm_slug')" class="mt-1" />
+                        <x-text-input :invalid="$errors->has('confirm_slug')" id="confirm_slug" name="confirm_slug" type="text" class="block w-full font-mono text-sm" autocomplete="off" />
+                        <x-input-error for="confirm_slug" :messages="$errors->get('confirm_slug')" class="mt-1" />
                         <button type="submit" class="px-3 py-1.5 rounded-lg bg-red-700 text-white text-xs font-medium hover:opacity-90 transition">Endgültig löschen</button>
                     </form>
                 @else

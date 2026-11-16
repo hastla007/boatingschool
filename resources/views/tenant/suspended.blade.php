@@ -7,7 +7,7 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="bg-slate-100 dark:bg-slate-900 min-h-screen flex items-center justify-center p-6">
-    <div class="text-center max-w-md">
+    <main id="inhalt" class="text-center max-w-md">
         <div class="w-14 h-14 rounded-full bg-rose-50 dark:bg-rose-900/30 flex items-center justify-center mx-auto mb-4">
             <x-icon name="lock-closed" class="w-7 h-7 text-rose-400" />
         </div>
@@ -35,6 +35,6 @@
         <p class="mt-6 text-xs text-slate-500 dark:text-slate-400">
             <a href="{{ url('/impressum') }}" class="underline">Impressum</a> &middot; <a href="{{ url('/datenschutz') }}" class="underline">Datenschutz</a>
         </p>
-    </div>
+    </main>
 </body>
 </html>

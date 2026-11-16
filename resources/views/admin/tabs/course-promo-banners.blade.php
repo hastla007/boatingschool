@@ -38,7 +38,7 @@
             <form method="POST" action="{{ route('admin.course-promo-banners.destroy', $banner) }}" @submit="if (! confirm('Diesen Banner wirklich löschen?')) $event.preventDefault()">
                 @csrf
                 @method('DELETE')
-                <button type="submit" class="text-xs text-red-500 hover:underline">Banner löschen</button>
+                <button type="submit" class="text-xs text-red-700 dark:text-red-400 hover:underline">Banner löschen</button>
             </form>
         </div>
     @endforeach

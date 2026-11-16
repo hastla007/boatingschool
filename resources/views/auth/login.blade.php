@@ -21,14 +21,14 @@
 
         <div>
             <x-input-label for="email" value="E-Mail-Adresse" />
-            <x-text-input id="email" class="block mt-1 w-full" type="email" name="email" :value="old('email')" required autofocus autocomplete="username" placeholder="name@beispiel.de" />
-            <x-input-error :messages="$errors->get('email')" class="mt-2" />
+            <x-text-input :invalid="$errors->has('email')" id="email" class="block mt-1 w-full" type="email" name="email" :value="old('email')" required autofocus autocomplete="username" placeholder="name@beispiel.de" />
+            <x-input-error for="email" :messages="$errors->get('email')" class="mt-2" />
         </div>
 
         <div>
             <x-input-label for="password" value="Passwort" />
-            <x-text-input id="password" class="block mt-1 w-full" type="password" name="password" required autocomplete="current-password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" />
-            <x-input-error :messages="$errors->get('password')" class="mt-2" />
+            <x-text-input :invalid="$errors->has('password')" id="password" class="block mt-1 w-full" type="password" name="password" required autocomplete="current-password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" />
+            <x-input-error for="password" :messages="$errors->get('password')" class="mt-2" />
         </div>
 
         <div class="flex items-center justify-between">

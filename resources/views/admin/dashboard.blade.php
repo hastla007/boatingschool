@@ -41,7 +41,16 @@
          "Dashboard". syncPaginationLinksTab() schreibt den aktuellen
          tab-Wert bei jedem Wechsel (und beim initialen Laden) in jeden
          Pagination-Link innerhalb dieses Tab-Bereichs. --}}
-    <div x-data="{ tab: new URLSearchParams(window.location.search).get('tab') || 'dashboard' }"
+    <div x-data="{
+             tab: new URLSearchParams(window.location.search).get('tab') || 'dashboard',
+             moveTab(event, step) {
+                 const tabs = [...event.currentTarget.querySelectorAll('[role=tab]')];
+                 const current = Math.max(0, tabs.indexOf(document.activeElement));
+                 const next = step === 'first' ? 0 : (step === 'last' ? tabs.length - 1 : (current + step + tabs.length) % tabs.length);
+                 tabs[next].focus();
+                 tabs[next].click();
+             },
+         }"
          x-init="
              const syncPaginationLinksTab = (value) => {
                  $el.querySelectorAll('a[href*=\'_page=\']').forEach((link) => {
@@ -63,32 +72,38 @@
         <div class="flex flex-col sm:flex-row sm:items-end gap-1 mb-6 border-b border-slate-200 dark:border-slate-700">
         {{-- Tabs scrollen bei Platzmangel; die eigenen Seiten (Statistik,
              Mitteilungen, Protokoll) stehen getrennt und bleiben sichtbar. --}}
-        <div class="flex gap-1 overflow-x-auto min-w-0 flex-1" role="tablist" aria-label="Bereiche des Admin-Bereichs">
-            <button type="button" role="tab" :aria-selected="(tab === 'dashboard').toString()" data-tab="dashboard" @click="tab = 'dashboard'" :class="tab === 'dashboard' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
-                    :style="tab === 'dashboard' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Dashboard</button>
-            <button type="button" role="tab" :aria-selected="(tab === 'participants').toString()" data-tab="participants" @click="tab = 'participants'" :class="tab === 'participants' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
-                    :style="tab === 'participants' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Teilnehmer</button>
-            <button type="button" role="tab" :aria-selected="(tab === 'praxis-anmeldungen').toString()" data-tab="praxis-anmeldungen" @click="tab = 'praxis-anmeldungen'" :class="tab === 'praxis-anmeldungen' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
-                    :style="tab === 'praxis-anmeldungen' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Praxis-Anmeldungen</button>
-            <button type="button" role="tab" :aria-selected="(tab === 'willkommensbox').toString()" data-tab="willkommensbox" @click="tab = 'willkommensbox'" :class="tab === 'willkommensbox' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
-                    :style="tab === 'willkommensbox' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Willkommensbox</button>
+        {{-- Barrierefreiheit (WCAG 2.1.1/4.1.2): Tab-Muster nach WAI-ARIA --
+             Pfeiltasten/Pos1/Ende wechseln den Reiter, nur der aktive Reiter
+             liegt in der Tab-Reihenfolge, Reiter und Bereich sind über
+             aria-controls/aria-labelledby verknüpft. --}}
+        <div class="flex gap-1 overflow-x-auto min-w-0 flex-1" role="tablist" aria-label="Bereiche des Admin-Bereichs"
+             @keydown.arrow-right.prevent="moveTab($event, 1)" @keydown.arrow-left.prevent="moveTab($event, -1)"
+             @keydown.home.prevent="moveTab($event, 'first')" @keydown.end.prevent="moveTab($event, 'last')">
+            <button type="button" role="tab" id="admin-tab-dashboard" aria-controls="admin-panel-dashboard" :aria-selected="(tab === 'dashboard').toString()" :tabindex="tab === 'dashboard' ? 0 : -1" data-tab="dashboard" @click="tab = 'dashboard'" :class="tab === 'dashboard' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
+                    :style="tab === 'dashboard' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500">Dashboard</button>
+            <button type="button" role="tab" id="admin-tab-participants" aria-controls="admin-panel-participants" :aria-selected="(tab === 'participants').toString()" :tabindex="tab === 'participants' ? 0 : -1" data-tab="participants" @click="tab = 'participants'" :class="tab === 'participants' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
+                    :style="tab === 'participants' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500">Teilnehmer</button>
+            <button type="button" role="tab" id="admin-tab-praxis-anmeldungen" aria-controls="admin-panel-praxis-anmeldungen" :aria-selected="(tab === 'praxis-anmeldungen').toString()" :tabindex="tab === 'praxis-anmeldungen' ? 0 : -1" data-tab="praxis-anmeldungen" @click="tab = 'praxis-anmeldungen'" :class="tab === 'praxis-anmeldungen' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
+                    :style="tab === 'praxis-anmeldungen' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500">Praxis-Anmeldungen</button>
+            <button type="button" role="tab" id="admin-tab-willkommensbox" aria-controls="admin-panel-willkommensbox" :aria-selected="(tab === 'willkommensbox').toString()" :tabindex="tab === 'willkommensbox' ? 0 : -1" data-tab="willkommensbox" @click="tab = 'willkommensbox'" :class="tab === 'willkommensbox' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
+                    :style="tab === 'willkommensbox' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500">Willkommensbox</button>
             @if ($canManageTenant)
-                <button type="button" role="tab" :aria-selected="(tab === 'coupons').toString()" data-tab="coupons" @click="tab = 'coupons'" :class="tab === 'coupons' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
-                        :style="tab === 'coupons' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Zugangscodes</button>
-                <button type="button" role="tab" :aria-selected="(tab === 'courses').toString()" data-tab="courses" @click="tab = 'courses'" :class="tab === 'courses' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
-                        :style="tab === 'courses' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Kursauswahl</button>
-                <button type="button" role="tab" :aria-selected="(tab === 'learning-groups').toString()" data-tab="learning-groups" @click="tab = 'learning-groups'" :class="tab === 'learning-groups' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
-                        :style="tab === 'learning-groups' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Lerngruppen</button>
+                <button type="button" role="tab" id="admin-tab-coupons" aria-controls="admin-panel-coupons" :aria-selected="(tab === 'coupons').toString()" :tabindex="tab === 'coupons' ? 0 : -1" data-tab="coupons" @click="tab = 'coupons'" :class="tab === 'coupons' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
+                        :style="tab === 'coupons' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500">Zugangscodes</button>
+                <button type="button" role="tab" id="admin-tab-courses" aria-controls="admin-panel-courses" :aria-selected="(tab === 'courses').toString()" :tabindex="tab === 'courses' ? 0 : -1" data-tab="courses" @click="tab = 'courses'" :class="tab === 'courses' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
+                        :style="tab === 'courses' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500">Kursauswahl</button>
+                <button type="button" role="tab" id="admin-tab-learning-groups" aria-controls="admin-panel-learning-groups" :aria-selected="(tab === 'learning-groups').toString()" :tabindex="tab === 'learning-groups' ? 0 : -1" data-tab="learning-groups" @click="tab = 'learning-groups'" :class="tab === 'learning-groups' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
+                        :style="tab === 'learning-groups' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500">Lerngruppen</button>
             @endif
-            <button type="button" role="tab" :aria-selected="(tab === 'orte').toString()" data-tab="orte" @click="tab = 'orte'" :class="tab === 'orte' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
-                    :style="tab === 'orte' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Orte</button>
+            <button type="button" role="tab" id="admin-tab-orte" aria-controls="admin-panel-orte" :aria-selected="(tab === 'orte').toString()" :tabindex="tab === 'orte' ? 0 : -1" data-tab="orte" @click="tab = 'orte'" :class="tab === 'orte' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
+                    :style="tab === 'orte' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500">Orte</button>
             @if ($canManageTenant)
-                <button type="button" role="tab" :aria-selected="(tab === 'branding').toString()" data-tab="branding" @click="tab = 'branding'" :class="tab === 'branding' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
-                        :style="tab === 'branding' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Branding</button>
-                <button type="button" role="tab" :aria-selected="(tab === 'addons').toString()" data-tab="addons" @click="tab = 'addons'" :class="tab === 'addons' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
-                        :style="tab === 'addons' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Addons</button>
-                <button type="button" role="tab" :aria-selected="(tab === 'course-promo-banners').toString()" data-tab="course-promo-banners" @click="tab = 'course-promo-banners'" :class="tab === 'course-promo-banners' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
-                        :style="tab === 'course-promo-banners' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition">Kursempfehlungen</button>
+                <button type="button" role="tab" id="admin-tab-branding" aria-controls="admin-panel-branding" :aria-selected="(tab === 'branding').toString()" :tabindex="tab === 'branding' ? 0 : -1" data-tab="branding" @click="tab = 'branding'" :class="tab === 'branding' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
+                        :style="tab === 'branding' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500">Branding</button>
+                <button type="button" role="tab" id="admin-tab-addons" aria-controls="admin-panel-addons" :aria-selected="(tab === 'addons').toString()" :tabindex="tab === 'addons' ? 0 : -1" data-tab="addons" @click="tab = 'addons'" :class="tab === 'addons' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
+                        :style="tab === 'addons' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500">Addons</button>
+                <button type="button" role="tab" id="admin-tab-course-promo-banners" aria-controls="admin-panel-course-promo-banners" :aria-selected="(tab === 'course-promo-banners').toString()" :tabindex="tab === 'course-promo-banners' ? 0 : -1" data-tab="course-promo-banners" @click="tab = 'course-promo-banners'" :class="tab === 'course-promo-banners' ? 'border-b-2 font-medium text-slate-800 dark:text-white' : 'border-b-2 border-transparent text-slate-500 dark:text-slate-400'"
+                        :style="tab === 'course-promo-banners' ? 'border-color: var(--brand-primary, #005FD7)' : ''" class="px-4 py-2 text-sm whitespace-nowrap transition focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500">Kursempfehlungen</button>
             @endif
         </div>
         <div class="flex gap-1 shrink-0 overflow-x-auto">
@@ -101,40 +116,40 @@
         </div>
         </div>
 
-        <div x-show="tab === 'dashboard'">
+        <div x-show="tab === 'dashboard'" role="tabpanel" id="admin-panel-dashboard" aria-labelledby="admin-tab-dashboard">
             @include('admin.tabs.dashboard')
         </div>
-        <div x-show="tab === 'participants'" style="display: none">
+        <div x-show="tab === 'participants'" role="tabpanel" id="admin-panel-participants" aria-labelledby="admin-tab-participants" style="display: none">
             @include('admin.tabs.participants')
         </div>
-        <div x-show="tab === 'praxis-anmeldungen'" style="display: none">
+        <div x-show="tab === 'praxis-anmeldungen'" role="tabpanel" id="admin-panel-praxis-anmeldungen" aria-labelledby="admin-tab-praxis-anmeldungen" style="display: none">
             @include('admin.tabs.praxis-anmeldungen')
         </div>
-        <div x-show="tab === 'willkommensbox'" style="display: none">
+        <div x-show="tab === 'willkommensbox'" role="tabpanel" id="admin-panel-willkommensbox" aria-labelledby="admin-tab-willkommensbox" style="display: none">
             @include('admin.tabs.willkommensbox')
         </div>
         @if ($canManageTenant)
-            <div x-show="tab === 'coupons'" style="display: none">
+            <div x-show="tab === 'coupons'" role="tabpanel" id="admin-panel-coupons" aria-labelledby="admin-tab-coupons" style="display: none">
                 @include('admin.tabs.coupons')
             </div>
-            <div x-show="tab === 'courses'" style="display: none">
+            <div x-show="tab === 'courses'" role="tabpanel" id="admin-panel-courses" aria-labelledby="admin-tab-courses" style="display: none">
                 @include('admin.tabs.courses')
             </div>
-            <div x-show="tab === 'learning-groups'" style="display: none">
+            <div x-show="tab === 'learning-groups'" role="tabpanel" id="admin-panel-learning-groups" aria-labelledby="admin-tab-learning-groups" style="display: none">
                 @include('admin.tabs.learning-groups')
             </div>
         @endif
-        <div x-show="tab === 'orte'" style="display: none">
+        <div x-show="tab === 'orte'" role="tabpanel" id="admin-panel-orte" aria-labelledby="admin-tab-orte" style="display: none">
             @include('admin.tabs.orte')
         </div>
         @if ($canManageTenant)
-            <div x-show="tab === 'branding'" style="display: none">
+            <div x-show="tab === 'branding'" role="tabpanel" id="admin-panel-branding" aria-labelledby="admin-tab-branding" style="display: none">
                 @include('admin.tabs.branding')
             </div>
-            <div x-show="tab === 'addons'" style="display: none">
+            <div x-show="tab === 'addons'" role="tabpanel" id="admin-panel-addons" aria-labelledby="admin-tab-addons" style="display: none">
                 @include('admin.tabs.addons')
             </div>
-            <div x-show="tab === 'course-promo-banners'" style="display: none">
+            <div x-show="tab === 'course-promo-banners'" role="tabpanel" id="admin-panel-course-promo-banners" aria-labelledby="admin-tab-course-promo-banners" style="display: none">
                 @include('admin.tabs.course-promo-banners')
             </div>
         @endif

@@ -13,14 +13,14 @@
 
             <div>
                 <x-input-label for="site_name" value="Name der Plattform" />
-                <x-text-input id="site_name" name="site_name" type="text" class="mt-1 block w-full" :value="old('site_name', $settings->site_name)" required />
-                <x-input-error :messages="$errors->get('site_name')" class="mt-2" />
+                <x-text-input :invalid="$errors->has('site_name')" id="site_name" name="site_name" type="text" class="mt-1 block w-full" :value="old('site_name', $settings->site_name)" required />
+                <x-input-error for="site_name" :messages="$errors->get('site_name')" class="mt-2" />
             </div>
 
             <div>
                 <x-input-label for="support_email" value="Zentrale Support-E-Mail" />
-                <x-text-input id="support_email" name="support_email" type="email" class="mt-1 block w-full" :value="old('support_email', $settings->support_email)" />
-                <x-input-error :messages="$errors->get('support_email')" class="mt-2" />
+                <x-text-input :invalid="$errors->has('support_email')" id="support_email" name="support_email" type="email" class="mt-1 block w-full" :value="old('support_email', $settings->support_email)" />
+                <x-input-error for="support_email" :messages="$errors->get('support_email')" class="mt-2" />
             </div>
 
             <div class="pt-2 border-t border-slate-100 dark:border-slate-700">

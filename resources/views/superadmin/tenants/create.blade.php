@@ -9,15 +9,15 @@
 
             <div>
                 <x-input-label for="name" value="Name der Bootsschule" />
-                <x-text-input id="name" name="name" type="text" class="mt-1 block w-full" :value="old('name')" required />
-                <x-input-error :messages="$errors->get('name')" class="mt-2" />
+                <x-text-input :invalid="$errors->has('name')" id="name" name="name" type="text" class="mt-1 block w-full" :value="old('name')" required />
+                <x-input-error for="name" :messages="$errors->get('name')" class="mt-2" />
             </div>
 
             <div>
                 <x-input-label for="slug" value="Kurzname (Slug)" />
-                <x-text-input id="slug" name="slug" type="text" class="mt-1 block w-full" :value="old('slug')" required placeholder="z. B. mueller" />
+                <x-text-input :invalid="$errors->has('slug')" id="slug" name="slug" type="text" class="mt-1 block w-full" :value="old('slug')" required placeholder="z. B. mueller" />
                 <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Erreichbar unter {{ config('app.tenant_url_mode') === 'subdomain' ? '<slug>.'.config('app.central_domain') : config('app.central_domain').'/<slug>' }}</p>
-                <x-input-error :messages="$errors->get('slug')" class="mt-2" />
+                <x-input-error for="slug" :messages="$errors->get('slug')" class="mt-2" />
             </div>
 
             <div>
@@ -35,20 +35,20 @@
                 <div class="grid grid-cols-2 gap-4">
                     <div>
                         <x-input-label for="admin_first_name" value="Vorname" />
-                        <x-text-input id="admin_first_name" name="admin_first_name" type="text" class="mt-1 block w-full" :value="old('admin_first_name')" required />
-                        <x-input-error :messages="$errors->get('admin_first_name')" class="mt-2" />
+                        <x-text-input :invalid="$errors->has('admin_first_name')" id="admin_first_name" name="admin_first_name" type="text" class="mt-1 block w-full" :value="old('admin_first_name')" required />
+                        <x-input-error for="admin_first_name" :messages="$errors->get('admin_first_name')" class="mt-2" />
                     </div>
                     <div>
                         <x-input-label for="admin_last_name" value="Nachname" />
-                        <x-text-input id="admin_last_name" name="admin_last_name" type="text" class="mt-1 block w-full" :value="old('admin_last_name')" required />
-                        <x-input-error :messages="$errors->get('admin_last_name')" class="mt-2" />
+                        <x-text-input :invalid="$errors->has('admin_last_name')" id="admin_last_name" name="admin_last_name" type="text" class="mt-1 block w-full" :value="old('admin_last_name')" required />
+                        <x-input-error for="admin_last_name" :messages="$errors->get('admin_last_name')" class="mt-2" />
                     </div>
                 </div>
                 <div class="mt-4">
                     <x-input-label for="admin_email" value="E-Mail" />
-                    <x-text-input id="admin_email" name="admin_email" type="email" class="mt-1 block w-full" :value="old('admin_email')" required />
+                    <x-text-input :invalid="$errors->has('admin_email')" id="admin_email" name="admin_email" type="email" class="mt-1 block w-full" :value="old('admin_email')" required />
                     <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Erhält den Status "eingeladen" und kann sich per Passwort-Reset ein Passwort setzen.</p>
-                    <x-input-error :messages="$errors->get('admin_email')" class="mt-2" />
+                    <x-input-error for="admin_email" :messages="$errors->get('admin_email')" class="mt-2" />
                 </div>
             </div>
 

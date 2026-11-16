@@ -7,13 +7,13 @@
         @csrf
         <div x-show="! recovery">
             <x-input-label for="code" value="Code" />
-            <x-text-input id="code" class="block mt-1 w-full font-mono tracking-widest" type="text" name="code" inputmode="numeric" autocomplete="one-time-code" autofocus x-bind:disabled="recovery" />
+            <x-text-input :invalid="$errors->has('code')" id="code" class="block mt-1 w-full font-mono tracking-widest" type="text" name="code" inputmode="numeric" autocomplete="one-time-code" autofocus x-bind:disabled="recovery" />
         </div>
         <div x-show="recovery" style="display: none">
             <x-input-label for="recovery_code" value="Wiederherstellungscode" />
             <x-text-input id="recovery_code" class="block mt-1 w-full font-mono" type="text" name="recovery_code" autocomplete="off" x-bind:disabled="! recovery" />
         </div>
-        <x-input-error :messages="$errors->get('code')" class="mt-2" />
+        <x-input-error for="code" :messages="$errors->get('code')" class="mt-2" />
 
         <button type="submit" class="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-white transition hover:opacity-90"
                 style="background-color: var(--brand-primary, #005FD7)">

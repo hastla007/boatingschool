@@ -22,7 +22,7 @@
         @endif
     </form>
     {{-- relative: hält die absolut positionierten sr-only-Labels im Scrollbereich (sonst 498px breite Seite am Handy). --}}
-    <div class="overflow-x-auto relative">
+    <div tabindex="0" role="region" aria-label="Tabelle: Willkommensbox-Bestellungen (seitlich scrollbar)" class="overflow-x-auto relative">
     <table class="w-full text-sm">
         <thead class="bg-slate-50 dark:bg-slate-700 text-slate-500 dark:text-slate-300 text-left">
             <tr>
@@ -30,7 +30,7 @@
                 <th class="px-4 py-2">Lieferadresse</th>
                 <th class="px-4 py-2">Bestellt am</th>
                 <th class="px-4 py-2">Status</th>
-                <th class="px-4 py-2"></th>
+                <th class="px-4 py-2"><span class="sr-only">Aktionen</span></th>
             </tr>
         </thead>
         <tbody>

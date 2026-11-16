@@ -130,8 +130,8 @@
         </div>
         <div>
             <x-input-label for="valid_to" value="Gültig bis (optional)" />
-            <x-text-input id="valid_to" name="valid_to" type="date" class="mt-1 block w-full" :value="old('valid_to', optional($revision?->valid_to)->format('Y-m-d'))" />
-            <x-input-error :messages="$errors->get('valid_to')" class="mt-2" />
+            <x-text-input :invalid="$errors->has('valid_to')" id="valid_to" name="valid_to" type="date" class="mt-1 block w-full" :value="old('valid_to', optional($revision?->valid_to)->format('Y-m-d'))" />
+            <x-input-error for="valid_to" :messages="$errors->get('valid_to')" class="mt-2" />
         </div>
     </div>
 

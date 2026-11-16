@@ -1,6 +1,6 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Lerngruppe: {{ $group->name }}</h2>
+        <h1 class="font-semibold text-xl text-slate-800 dark:text-slate-200">Lerngruppe: {{ $group->name }}</h1>
     </x-slot>
 
     @php($revoked = $group->status === 'revoked')
@@ -12,7 +12,7 @@
         <div class="lg:col-span-2 space-y-4 self-start">
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 text-sm space-y-1">
                 <div class="flex items-center justify-between">
-                    <h3 class="font-medium text-slate-700 dark:text-slate-200">Überblick</h3>
+                    <h2 class="font-medium text-slate-700 dark:text-slate-200">Überblick</h2>
                     <span class="text-xs px-2 py-0.5 rounded-full {{ $statusLabel === 'Aktiv' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300' }}">{{ $statusLabel }}</span>
                 </div>
                 <p class="text-slate-600 dark:text-slate-300">Plätze belegt: {{ $payload['seats']['used'] }} / {{ $payload['seats']['total'] }}</p>
@@ -30,7 +30,7 @@
             {{-- Abrechnung: jeder Beitritt verbraucht je Kurs einen freien Kurscode der Schule (außer bei eigenem Vollzugang). --}}
             @php($short = collect($payload['course_codes'])->reject(fn ($row) => $row['sufficient']))
             <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 text-sm space-y-2">
-                <h3 class="font-medium text-slate-700 dark:text-slate-200">Kurscodes für Beitritte</h3>
+                <h2 class="font-medium text-slate-700 dark:text-slate-200">Kurscodes für Beitritte</h2>
                 <p class="text-xs text-slate-600 dark:text-slate-400">
                     Jeder Beitritt verbraucht je Kurs einen freien Kurscode aus Ihrem Codebestand, auch bei einzelnen
                     Funktionen. Personen mit eigenem Kurszugang verbrauchen keinen Code. Entfernte Mitglieder geben ihren
@@ -58,11 +58,11 @@
                 <form method="POST" action="{{ route('admin.learning-groups.update', $group) }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 space-y-3">
                     @csrf
                     @method('PATCH')
-                    <h3 class="font-medium text-slate-700 dark:text-slate-200">Bearbeiten</h3>
+                    <h2 class="font-medium text-slate-700 dark:text-slate-200">Bearbeiten</h2>
                     <div>
                         <x-input-label for="name" value="Name" />
-                        <x-text-input id="name" name="name" type="text" maxlength="{{ \App\Services\LearningGroupService::MAX_NAME_LENGTH }}" class="mt-1 block w-full" :value="old('name', $group->name)" required />
-                        <x-input-error :messages="$errors->get('name')" class="mt-1" />
+                        <x-text-input :invalid="$errors->has('name')" id="name" name="name" type="text" maxlength="{{ \App\Services\LearningGroupService::MAX_NAME_LENGTH }}" class="mt-1 block w-full" :value="old('name', $group->name)" required />
+                        <x-input-error for="name" :messages="$errors->get('name')" class="mt-1" />
                     </div>
                     <div>
                         <x-input-label for="owner_user_id" value="Verwalter (aktiver Teilnehmer)" />
@@ -77,8 +77,8 @@
                     <div class="grid sm:grid-cols-2 gap-3">
                         <div>
                             <x-input-label for="seats" value="Plätze (mind. {{ max(1, $payload['seats']['used']) }})" />
-                            <x-text-input id="seats" name="seats" type="number" min="{{ max(1, $payload['seats']['used']) }}" max="{{ \App\Services\LearningGroupService::MAX_SEATS }}" class="mt-1 block w-full" :value="old('seats', $group->seats)" required />
-                            <x-input-error :messages="$errors->get('seats')" class="mt-1" />
+                            <x-text-input :invalid="$errors->has('seats')" id="seats" name="seats" type="number" min="{{ max(1, $payload['seats']['used']) }}" max="{{ \App\Services\LearningGroupService::MAX_SEATS }}" class="mt-1 block w-full" :value="old('seats', $group->seats)" required />
+                            <x-input-error for="seats" :messages="$errors->get('seats')" class="mt-1" />
                         </div>
                         <div>
                             <x-input-label for="valid_until" value="Gültig bis (leer = unbefristet)" />
@@ -94,7 +94,7 @@
                 <form method="POST" action="{{ route('admin.learning-groups.revoke', $group) }}" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-4 space-y-2"
                       x-data="{}" @submit="if (! confirm('Diese Lerngruppe wirklich beenden? Alle Mitglieder verlieren ihren Gruppenzugang, offene Einladungen verfallen. Das lässt sich nicht rückgängig machen.')) $event.preventDefault()">
                     @csrf
-                    <h3 class="font-medium text-slate-700 dark:text-slate-200">Lerngruppe beenden</h3>
+                    <h2 class="font-medium text-slate-700 dark:text-slate-200">Lerngruppe beenden</h2>
                     <p class="text-xs text-slate-600 dark:text-slate-400">Beendet alle über die Gruppe erteilten Kurszugänge; eigene Zugänge der Mitglieder bleiben.</p>
                     <button type="submit" class="px-4 py-2 rounded-lg text-white text-sm font-medium bg-red-600 hover:bg-red-700">Lerngruppe beenden</button>
                 </form>
@@ -103,9 +103,9 @@
 
         <div class="lg:col-span-3 bg-white dark:bg-slate-800 rounded-2xl shadow-sm overflow-hidden self-start">
             <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-700">
-                <h3 class="font-medium text-slate-700 dark:text-slate-200">Mitglieder und offene Einladungen</h3>
+                <h2 class="font-medium text-slate-700 dark:text-slate-200">Mitglieder und offene Einladungen</h2>
             </div>
-            <div class="overflow-x-auto">
+            <div tabindex="0" role="region" aria-label="Tabelle: Mitglieder und offene Einladungen (seitlich scrollbar)" class="overflow-x-auto">
             <table class="w-full text-sm">
                 <thead class="bg-slate-50 dark:bg-slate-700 text-slate-500 dark:text-slate-300 text-left">
                     <tr>

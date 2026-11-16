@@ -28,7 +28,7 @@
                     ist fachlich noch nicht freigegeben. Die Simulation startet erst nach Verifizierung.</span>
                 </div>
             @else
-                <h3 class="font-medium text-slate-700 dark:text-slate-200 mb-3">Prüfungsbedingungen</h3>
+                <h2 class="font-medium text-slate-700 dark:text-slate-200 mb-3">Prüfungsbedingungen</h2>
                 <ul class="space-y-2 text-sm text-slate-600 dark:text-slate-300 mb-6">
                     <li class="flex items-center gap-2">
                         <x-icon name="clock" class="w-4 h-4 text-slate-600 dark:text-slate-400" /> Zeitlimit: {{ intdiv($ruleSet->time_limit_seconds, 60) }} Minuten
@@ -45,6 +45,10 @@
                 @if ($ruleSet->note())
                     <p class="text-xs text-slate-600 dark:text-slate-400 mb-4">{{ $ruleSet->note() }}</p>
                 @endif
+                {{-- Barrierefreiheit (WCAG 2.2.1): Zeitbegrenzung vorab ankündigen. --}}
+                <p class="text-xs text-slate-600 dark:text-slate-400 mb-4" data-exam-time-note>
+                    Die Prüfungszeit entspricht der amtlichen Prüfung. Fünf Minuten und eine Minute vor Ablauf bekommst du einen Hinweis (auch für Screenreader). In den Lernmodi gibt es kein Zeitlimit.
+                </p>
                 <form method="POST" action="{{ route('exam.start', $course) }}">
                     @csrf
                     <button type="submit" class="w-full inline-flex items-center justify-center gap-2 px-5 py-3 rounded-lg text-white font-medium hover:opacity-90 transition" style="background-color: var(--brand-primary, #005FD7)">

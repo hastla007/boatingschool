@@ -17,15 +17,15 @@
     </div>
     <div>
         <x-input-label for="sort_order" value="Reihenfolge" />
-        <x-text-input id="sort_order" name="sort_order" type="number" class="mt-1 block w-full" :value="old('sort_order', $tip?->sort_order ?? 0)" />
-        <x-input-error :messages="$errors->get('sort_order')" class="mt-2" />
+        <x-text-input :invalid="$errors->has('sort_order')" id="sort_order" name="sort_order" type="number" class="mt-1 block w-full" :value="old('sort_order', $tip?->sort_order ?? 0)" />
+        <x-input-error for="sort_order" :messages="$errors->get('sort_order')" class="mt-2" />
     </div>
 </div>
 
 <div>
     <x-input-label for="title" value="Titel" />
-    <x-text-input id="title" name="title" type="text" class="mt-1 block w-full" :value="old('title', $tip?->title)" required />
-    <x-input-error :messages="$errors->get('title')" class="mt-2" />
+    <x-text-input :invalid="$errors->has('title')" id="title" name="title" type="text" class="mt-1 block w-full" :value="old('title', $tip?->title)" required />
+    <x-input-error for="title" :messages="$errors->get('title')" class="mt-2" />
 </div>
 
 <div>

@@ -56,3 +56,28 @@
         color: #bbf7d0;
     }
 }
+
+/* Barrierefreiheit (WCAG 2.4.7 Fokus sichtbar): einheitlicher, deutlicher
+   Tastaturfokus für Links, Knöpfe und Bedienelemente. Der Standardring des
+   Browsers ging auf Knöpfen in der Markenfarbe oft unter. :where() hält die
+   Spezifität niedrig, eigene focus:/focus-visible:-Klassen haben Vorrang. */
+:where(a, button, summary, [role="tab"], [tabindex]:not([tabindex="-1"])):focus-visible {
+    outline: 2px solid #4f46e5;
+    outline-offset: 2px;
+}
+@media (prefers-color-scheme: dark) {
+    :where(a, button, summary, [role="tab"], [tabindex]:not([tabindex="-1"])):focus-visible {
+        outline-color: #a5b4fc;
+    }
+}
+
+/* Barrierefreiheit (WCAG 2.3.3, Hinweis): Systemeinstellung „Bewegung
+   reduzieren“ -- Übergänge und Animationen praktisch abschalten. */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}

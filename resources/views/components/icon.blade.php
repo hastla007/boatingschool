@@ -48,7 +48,15 @@
     ];
 
     $path = $outline[$name] ?? $outline['anchor'];
+
+    // Barrierefreiheit (WCAG 1.1.1): Icons stehen fast immer neben einem
+    // Text und sind dann reine Dekoration -- ohne aria-hidden lasen manche
+    // Screenreader ein namenloses „Grafik“ vor. Wer ein Icon als einzigen
+    // Inhalt nutzt, gibt aria-label mit; dann bleibt es als Bild sichtbar.
+    $a11y = $attributes->has('aria-label')
+        ? ['role' => 'img']
+        : ['aria-hidden' => 'true', 'focusable' => 'false'];
 @endphp
-<svg {{ $attributes->merge(['class' => 'w-5 h-5']) }} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+<svg {{ $attributes->merge(['class' => 'w-5 h-5'] + $a11y) }} viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
     <path d="{{ $path }}"></path>
 </svg>

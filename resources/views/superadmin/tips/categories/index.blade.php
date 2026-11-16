@@ -18,13 +18,13 @@
                 @csrf
                 <div>
                     <x-input-label for="name" value="Name" />
-                    <x-text-input id="name" name="name" type="text" class="mt-1 block w-full" :value="old('name')" required placeholder="z. B. Knoten" />
-                    <x-input-error :messages="$errors->get('name')" class="mt-2" />
+                    <x-text-input :invalid="$errors->has('name')" id="name" name="name" type="text" class="mt-1 block w-full" :value="old('name')" required placeholder="z. B. Knoten" />
+                    <x-input-error for="name" :messages="$errors->get('name')" class="mt-2" />
                 </div>
                 <div>
                     <x-input-label for="sort_order" value="Reihenfolge" />
-                    <x-text-input id="sort_order" name="sort_order" type="number" class="mt-1 block w-full" :value="old('sort_order', 0)" />
-                    <x-input-error :messages="$errors->get('sort_order')" class="mt-2" />
+                    <x-text-input :invalid="$errors->has('sort_order')" id="sort_order" name="sort_order" type="number" class="mt-1 block w-full" :value="old('sort_order', 0)" />
+                    <x-input-error for="sort_order" :messages="$errors->get('sort_order')" class="mt-2" />
                 </div>
                 <button type="submit" class="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm font-medium hover:opacity-90 transition">Kategorie anlegen</button>
             </form>

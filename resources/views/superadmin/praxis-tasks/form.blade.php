@@ -28,8 +28,8 @@
                 </div>
                 <div>
                     <x-input-label for="unterkategorie" value="Unterkategorie / Kartentitel" />
-                    <x-text-input id="unterkategorie" name="unterkategorie" type="text" maxlength="255" class="mt-1 block w-full" :value="old('unterkategorie', $task?->unterkategorie)" />
-                    <x-input-error :messages="$errors->get('unterkategorie')" class="mt-2" />
+                    <x-text-input :invalid="$errors->has('unterkategorie')" id="unterkategorie" name="unterkategorie" type="text" maxlength="255" class="mt-1 block w-full" :value="old('unterkategorie', $task?->unterkategorie)" />
+                    <x-input-error for="unterkategorie" :messages="$errors->get('unterkategorie')" class="mt-2" />
                 </div>
                 <div>
                     <x-input-label for="pruefungsbezug" value="Prüfungsbezug (optional)" />
@@ -37,8 +37,8 @@
                 </div>
                 <div>
                     <x-input-label for="sort_order" value="Reihenfolge (optional)" />
-                    <x-text-input id="sort_order" name="sort_order" type="number" min="1" class="mt-1 block w-full" :value="old('sort_order', $task?->sort_order)" />
-                    <x-input-error :messages="$errors->get('sort_order')" class="mt-2" />
+                    <x-text-input :invalid="$errors->has('sort_order')" id="sort_order" name="sort_order" type="number" min="1" class="mt-1 block w-full" :value="old('sort_order', $task?->sort_order)" />
+                    <x-input-error for="sort_order" :messages="$errors->get('sort_order')" class="mt-2" />
                 </div>
             </div>
 
@@ -64,8 +64,8 @@
                 </div>
                 <div>
                     <x-input-label for="quellen_url" value="Quellen-Link (optional)" />
-                    <x-text-input id="quellen_url" name="quellen_url" type="url" maxlength="2048" class="mt-1 block w-full" :value="old('quellen_url', $task?->quellen_url)" />
-                    <x-input-error :messages="$errors->get('quellen_url')" class="mt-2" />
+                    <x-text-input :invalid="$errors->has('quellen_url')" id="quellen_url" name="quellen_url" type="url" maxlength="2048" class="mt-1 block w-full" :value="old('quellen_url', $task?->quellen_url)" />
+                    <x-input-error for="quellen_url" :messages="$errors->get('quellen_url')" class="mt-2" />
                 </div>
             </div>
 

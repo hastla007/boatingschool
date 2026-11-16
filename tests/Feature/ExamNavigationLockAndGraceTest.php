@@ -43,6 +43,22 @@ class ExamNavigationLockAndGraceTest extends TestCase
         $this->assertNull(ExamSession::runningWithNavigationTask($tenant->id, $learner->id, $otherCopy->id));
     }
 
+    /**
+     * Die Übersicht /exam/navigation zeigt die erste Aufgabe über show() an --
+     * war genau sie Teil der laufenden Prüfung, lieferte show() eine
+     * Weiterleitung, index() war aber auf View typisiert (TypeError, 500).
+     */
+    public function test_the_navigation_overview_redirects_when_its_first_task_is_in_the_running_exam(): void
+    {
+        [$tenant, $learner, $session] = $this->startSeePaper();
+        $course = $this->existingCourse('SBF-SEE');
+        $first = $this->onAdmin(fn () => $course->navigationTasks()->first());
+        $this->onAdmin(fn () => ExamSession::whereKey($session->id)->update(['navigation_task_id' => $first->id]));
+
+        $this->actingAsInTenant($learner, $tenant)->get(route('exam.navigation.index', $course))
+            ->assertRedirect(route('exam.show', $session));
+    }
+
     public function test_a_late_answer_during_the_navigation_grace_period_keeps_the_exam_open(): void
     {
         [$tenant, $learner, $session] = $this->startSeePaper(answerAll: false);

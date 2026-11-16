@@ -43,7 +43,7 @@
                 <form method="POST" action="{{ route('admin.tenant-course-locations.destroy', $location) }}" @submit="if (! confirm('Diesen Ort wirklich löschen?')) $event.preventDefault()">
                     @csrf
                     @method('DELETE')
-                    <button type="submit" class="text-xs text-red-500 hover:underline">Ort löschen</button>
+                    <button type="submit" class="text-xs text-red-700 dark:text-red-400 hover:underline">Ort löschen</button>
                 </form>
             @endif
         </div>
