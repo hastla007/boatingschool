@@ -285,4 +285,63 @@ class ConnectorAccountsAndSettingsTest extends TestCase
         $this->assertSame('neu', $yes['settings_after_save']['secret']);
         $this->assertSame('yes', $yes['settings_after_save']['allow_db_secrets']);
     }
+
+    /** Registrierter Kunde 7 mit den abgeglichenen Feldern. */
+    private const CUSTOMER = ['_bs_registered' => '1', 'first_name' => 'Kim', 'billing_company' => 'Segelschule Möwe', 'billing_country' => 'DE'];
+
+    public function test_account_sync_is_only_sent_when_synced_fields_change(): void
+    {
+        $out = $this->harness('account_sync', ['user_meta' => self::CUSTOMER, 'responses' => [200, 200, 200, 200, 200]]);
+
+        $this->assertSame(1, $out['calls_first_save']);
+        $this->assertNotSame('', $out['hash_after_first'], 'Prüfsumme nach erfolgreichem Abgleich');
+        $this->assertSame(1, $out['calls_unchanged_save'], 'erneutes Speichern ohne Änderung (z. B. Bestellung): kein PATCH');
+        $this->assertSame(1, $out['calls_unsynced_field'], 'nicht abgeglichenes Feld: kein PATCH');
+        $this->assertSame(2, $out['calls_synced_field'], 'abgeglichenes Feld geändert: PATCH');
+        $this->assertTrue($out['hash_changed']);
+        $this->assertSame(3, $out['calls_vat_added']);
+        $this->assertSame(3, $out['calls_vat_same_normalized'], 'gleich aufbereitete USt-IdNr.: kein PATCH');
+        $this->assertSame(['PATCH /accounts/7', 'PATCH /accounts/7', 'PATCH /accounts/7'], $out['api_calls']);
+    }
+
+    public function test_billing_changes_saved_after_profile_update_are_still_synced(): void
+    {
+        $out = $this->harness('account_sync_wc_save', ['user_meta' => self::CUSTOMER, 'responses' => [200, 200]]);
+
+        $this->assertSame(1, $out['calls_first_save']);
+        $this->assertSame(2, $out['calls_after_order'], 'geänderte Firma an der Kasse wird abgeglichen');
+        $this->assertEqualsCanonicalizing(['woocommerce_customer_save_address', 'profile_update', 'woocommerce_update_customer'], $out['update_hooks']);
+    }
+
+    public function test_failed_account_sync_keeps_the_hash_unset_and_the_retry_sends(): void
+    {
+        $out = $this->harness('account_sync_failure', ['user_meta' => self::CUSTOMER, 'action_scheduler' => true, 'responses' => [500, 200, 200]]);
+
+        $this->assertSame(1, $out['queued'], 'über Action Scheduler eingeplant');
+        $this->assertSame(1, $out['calls_after_failure']);
+        $this->assertSame('', $out['hash_after_failure'], 'nach Fehler keine Prüfsumme');
+        $this->assertSame([], $out['alerts_after_failure'], 'erst nach dem dritten Versuch Alarm');
+        $this->assertSame([['bs_connector_sync_account', ['update', 7, 2]]], $out['retry_queued'], 'Wiederholung wie bisher');
+        $this->assertSame(2, $out['queued_after_failure_save'], 'Speichern nach Fehler plant wieder ein');
+        $this->assertSame(2, $out['calls_after_retry'], 'Wiederholung sendet, die doppelte Aufgabe entfällt');
+        $this->assertTrue($out['hash_after_retry']);
+        $this->assertSame(0, $out['queued_after_success_save']);
+    }
+
+    public function test_duplicate_queued_updates_and_registration_send_only_once(): void
+    {
+        $out = $this->harness('account_sync_twice_queued', ['user_meta' => self::CUSTOMER, 'action_scheduler' => true, 'responses' => [200, 201, 200]]);
+
+        $this->assertSame(2, $out['queued']);
+        $this->assertSame(1, $out['calls'], 'zweite Aufgabe mit denselben Daten sendet nicht');
+        $this->assertSame(0, $out['queued_after_register'], 'Registrierung setzt die Prüfsumme');
+        $this->assertSame(['PATCH /accounts/7', 'POST /accounts'], $out['api_calls']);
+    }
+
+    public function test_uninstall_removes_the_account_sync_hash(): void
+    {
+        $out = $this->harness('uninstall');
+
+        $this->assertContains(['user', 0, '_bs_account_sync_hash', true], $out['deleted_meta']);
+    }
 }

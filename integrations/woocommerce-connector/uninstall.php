@@ -1,7 +1,8 @@
 <?php
 
 /**
- * Deinstallation: nur Einstellungen und Zwischenspeicher entfernen.
+ * Deinstallation: nur Einstellungen und Zwischenspeicher entfernen (auch die
+ * Prüfsumme des Kontoabgleichs am Nutzer).
  * Bestell- und Kundendaten (Zustellstatus, Verknüpfung zur App) bleiben
  * erhalten -- sie gehören zur Buchhaltung und zur Historie der Bestellungen.
  */
@@ -26,5 +27,9 @@ foreach (['status', 'test\\_result'] as $bs_connector_transient) {
     $wpdb->query("DELETE FROM {$wpdb->options} WHERE option_name LIKE '\\_transient\\_bs\\_connector\\_{$bs_connector_transient}\\_%' OR option_name LIKE '\\_transient\\_timeout\\_bs\\_connector\\_{$bs_connector_transient}\\_%'"); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 }
 
-// Nutzer-Metadaten (Verknüpfung, E-Mail-Bestätigung) bleiben wie die Bestelldaten erhalten;
+// Prüfsumme des letzten Kontoabgleichs (reiner Zwischenspeicher): Nach einer
+// Neuinstallation gleicht der nächste Speichervorgang wieder ab.
+delete_metadata('user', 0, '_bs_account_sync_hash', '', true);
+
+// Übrige Nutzer-Metadaten (Verknüpfung, E-Mail-Bestätigung) bleiben wie die Bestelldaten erhalten;
 // einzeln löschen lassen sie sich über die Datenschutz-Werkzeuge von WordPress.
