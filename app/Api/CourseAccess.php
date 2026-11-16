@@ -10,6 +10,7 @@ use App\Models\Entitlement;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\EntitlementService;
+use App\Services\LearningGroupService;
 use App\Support\DisabledCourses;
 use App\Support\VideoCourseLessons;
 use Illuminate\Http\Request;
@@ -209,7 +210,7 @@ class CourseAccess
     /**
      * @param  ?Collection<int, Entitlement>  $preloaded  alle Zugänge der Person
      *                                                    in dieser Schule (spart eine Abfrage je Kurs in Listen)
-     * @return array{status: string, valid_from: ?string, valid_until: ?string, trial: bool, purchased: bool, limits: object, expires_soon: bool, expires_at: ?string, renew_url: ?string}
+     * @return array{status: string, valid_from: ?string, valid_until: ?string, trial: bool, purchased: bool, limits: object, expires_soon: bool, expires_at: ?string, renew_url: ?string, renewal: ?string, group_name: ?string}
      */
     public function status(Tenant $tenant, User $user, CourseDefinition $course, ?Entitlement $active = null, ?Collection $preloaded = null): array
     {
@@ -258,6 +259,13 @@ class CourseAccess
         // genauso lange), verlängert die Schule: kein Kauf-/Verlängerungslink.
         $renewable = $expiresSoon && $questionAccess->contains(fn (Entitlement $e) => $e->valid_until?->eq($questionExpiry) && ! $e->isGroupAccess());
 
+        // Wer verlängert: der am längsten tragende gültige Zugang, ohne
+        // gültigen der zuletzt abgelaufene; bei gleichem Ende zählt der eigene.
+        $ending = $valid->isNotEmpty() ? $valid : $rows->filter(fn (Entitlement $e) => in_array($e->status, ['active', 'expired'], true)
+            && $e->valid_until && $e->valid_until <= $now);
+        $decisive = Entitlement::longestPerCourse($ending)->first();
+        $renewal = $decisive?->valid_until === null ? null : ($decisive->isGroupAccess() ? 'school' : 'code');
+
         return [
             'status' => $status,
             'valid_from' => Present::time($froms->isNotEmpty() ? $froms->min() : null),
@@ -268,6 +276,8 @@ class CourseAccess
             'expires_soon' => $expiresSoon,
             'expires_at' => Present::time($questionExpiry),
             'renew_url' => $renewable ? $this->webshopUrls($tenant)->get($course->id) : null,
+            'renewal' => $renewal,
+            'group_name' => $renewal === 'school' ? $this->groupNames($tenant, $user, $preloaded)->get($decisive->id) : null,
         ];
     }
 
@@ -532,6 +542,12 @@ class CourseAccess
         return $this->remember("rules:{$tenant->id}", fn () => CourseAccessRule::where('tenant_id', $tenant->id)
             ->get(['course_id', 'feature_code', 'access_type', 'module_code', 'limit_value', 'valid_from', 'valid_until'])
             ->groupBy('course_id'));
+    }
+
+    /** @return Collection<string, string> Lerngruppen-Name je Gruppenzugang der Person (eine Abfrage) */
+    private function groupNames(Tenant $tenant, User $user, ?Collection $preloaded = null): Collection
+    {
+        return $this->remember("group-names:{$tenant->id}:{$user->id}", fn () => LearningGroupService::groupNamesFor($preloaded ?? $this->entitlementRows($tenant, $user)));
     }
 
     /** @return Collection<string, string> */

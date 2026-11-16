@@ -50,9 +50,7 @@ class CourseController extends Controller
         // Je Kurs der am längsten tragende Zugang (keyBy behält den letzten),
         // bei gleichem Ende der eigene vor dem Gruppenzugang -- danach richtet
         // sich die Ablauf-Warnung (Code/Kauf oder Hinweis auf die Gruppe).
-        $activeEntitlements = $allActive->filter(fn (Entitlement $e) => $e->capabilities === null)
-            ->sortBy(fn (Entitlement $e) => [$e->valid_until?->getTimestamp() ?? PHP_INT_MAX, $e->isGroupAccess() ? 0 : 1])
-            ->keyBy('course_id');
+        $activeEntitlements = Entitlement::longestPerCourse($allActive->filter(fn (Entitlement $e) => $e->capabilities === null));
         $partialCourseIds = $allActive->pluck('course_id')->diff($activeEntitlements->keys())->values();
         $progress = Progress::where('tenant_id', $tenant->id)->where('user_id', $user->id)->get();
 
@@ -101,13 +99,18 @@ class CourseController extends Controller
         // 'revoked' bleiben bewusst ausgeschlossen: das sind administrative
         // Entscheidungen, kein zeitliches Ablaufen, ein Verlängerungscode
         // würde daran nichts ändern.
-        $expiredCourseIds = Entitlement::where('tenant_id', $tenant->id)
+        // Je Kurs der zuletzt endende abgelaufene Zugang: stammt er aus einer
+        // Lerngruppe (auch WP-Gruppenplatz), verlängert die Schule -- Hinweis
+        // auf die Gruppe statt Verlängerungs-Code.
+        $expired = Entitlement::longestPerCourse(Entitlement::where('tenant_id', $tenant->id)
             ->where('user_id', $user->id)
             ->whereNull('capabilities')
             ->whereIn('status', ['active', 'expired'])
             ->whereNotNull('valid_until')
             ->where('valid_until', '<=', now())
-            ->pluck('course_id');
+            ->get());
+        $expiredCourseIds = $expired->keys();
+        $expiredGroupAccess = $expired->filter(fn (Entitlement $e) => $e->isGroupAccess());
 
         return view('courses.index', [
             'courses' => $courses,
@@ -117,6 +120,8 @@ class CourseController extends Controller
             'partialCourseIds' => $partialCourseIds,
             'renewalWebshopLink' => $tenant->branding->renewal_webshop_link,
             'expiringGroupNames' => LearningGroupService::groupNamesFor($activeEntitlements->filter->expiresSoon()),
+            'expiredGroupAccess' => $expiredGroupAccess,
+            'expiredGroupNames' => LearningGroupService::groupNamesFor($expiredGroupAccess),
         ]);
     }
 

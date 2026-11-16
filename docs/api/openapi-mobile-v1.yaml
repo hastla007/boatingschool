@@ -2309,6 +2309,17 @@ components:
         expires_soon: {type: boolean, description: 'Fragenkatalog-Zugang läuft in den nächsten 14 Tagen ab'}
         expires_at: {type: [string, 'null'], format: date-time}
         renew_url: {type: [string, 'null'], format: uri, description: 'Verlängerungslink (nur bei expires_soon; null, wenn der Zugang mit einem reinen Gruppenzugang endet -- verlängert wird dann über die Schule)'}
+        renewal:
+          type: [string, 'null']
+          enum: [code, school, null]
+          description: >-
+            Wie der Zugang verlängert wird: `code` = eigener Zugang (Verlängerungscode
+            bzw. Shop), `school` = der Zugang endet mit einem reinen Gruppenzugang
+            (Lerngruppe oder aus WordPress übernommener Gruppenplatz) -- für eine
+            Verlängerung an die Bootsschule wenden; `null` = unbefristet oder kein
+            Zugang. Maßgeblich ist der am längsten tragende gültige Zugang, ohne
+            gültigen der zuletzt abgelaufene; bei gleichem Ende zählt der eigene.
+        group_name: {type: [string, 'null'], description: 'Name der Lerngruppe bei renewal = school; null sonst und bei aus WordPress übernommenen Gruppenplätzen oder gelöschter Gruppe'}
     FeatureAccess:
       type: object
       properties:
