@@ -262,7 +262,7 @@ class LearningGroupService
     {
         $group = LearningGroup::whereKey($id)->where('owner_user_id', $user->id)->first();
         if (! $group) {
-            throw new ApiProblem(404, 'NOT_FOUND', 'Gruppe nicht gefunden');
+            throw new ApiProblem(404, 'RESOURCE_NOT_FOUND', 'Gruppe nicht gefunden');
         }
 
         return $group;
@@ -276,7 +276,8 @@ class LearningGroupService
     {
         $userKey = 'learning-group-invite-user:'.$owner->id;
         if (RateLimiter::tooManyAttempts($userKey, self::INVITE_REQUESTS_PER_HOUR)) {
-            throw new ApiProblem(429, 'TOO_MANY_REQUESTS', 'Zu viele Einladungen', 'Bitte warte eine Stunde und versuche es erneut.');
+            // Gleicher Code wie überall sonst (RATE_LIMITED) und mit Retry-After.
+            throw new ApiProblem(429, 'RATE_LIMITED', 'Zu viele Einladungen', 'Bitte warte eine Stunde und versuche es erneut.', [], ['Retry-After' => (string) RateLimiter::availableIn($userKey)]);
         }
         RateLimiter::hit($userKey, 3600);
         $ownerDailyKey = $this->ownerDailyKey($owner->id);
@@ -348,7 +349,7 @@ class LearningGroupService
             $member = LearningGroupMember::where('group_id', $group->id)->whereKey($memberId)
                 ->whereIn('status', ['invited', 'active'])->lockForUpdate()->first();
             if (! $member) {
-                throw new ApiProblem(404, 'NOT_FOUND', 'Mitglied nicht gefunden');
+                throw new ApiProblem(404, 'RESOURCE_NOT_FOUND', 'Mitglied nicht gefunden');
             }
             $this->revokeEntitlements($group, $member);
             $member->update(['status' => 'removed', 'invite_token' => null, 'email' => null]);
@@ -730,7 +731,7 @@ class LearningGroupService
     {
         $locked = LearningGroup::whereKey($group->id)->lockForUpdate()->first();
         if (! $locked) {
-            throw new ApiProblem(404, 'NOT_FOUND', 'Gruppe nicht gefunden');
+            throw new ApiProblem(404, 'RESOURCE_NOT_FOUND', 'Gruppe nicht gefunden');
         }
 
         return $locked;

@@ -135,9 +135,9 @@ paths:
               type: object
               required: [challenge_token]
               properties:
-                challenge_token: {type: string}
-                code: {type: string, description: '6-stelliger Code aus der Authenticator-App'}
-                recovery_code: {type: string}
+                challenge_token: {type: string, maxLength: 200}
+                code: {type: [string, 'null'], maxLength: 20, description: '6-stelliger Code aus der Authenticator-App'}
+                recovery_code: {type: [string, 'null'], maxLength: 40}
       responses:
         '200':
           description: Angemeldet
@@ -168,7 +168,7 @@ paths:
             schema:
               type: object
               required: [refresh_token]
-              properties: {refresh_token: {type: string}}
+              properties: {refresh_token: {type: string, minLength: 20, maxLength: 200}}
       responses:
         '200':
           description: Neue Tokens
@@ -204,7 +204,7 @@ paths:
             schema:
               type: object
               required: [email]
-              properties: {email: {type: string, format: email}}
+              properties: {email: {type: string, format: email, maxLength: 255}}
       responses:
         '202': {$ref: '#/components/responses/Accepted'}
         '422': {$ref: '#/components/responses/Problem'}
@@ -231,8 +231,8 @@ paths:
               type: object
               required: [email, token, password, password_confirmation]
               properties:
-                email: {type: string, format: email}
-                token: {type: string}
+                email: {type: string, format: email, maxLength: 255}
+                token: {type: string, maxLength: 200}
                 password: {type: string, minLength: 10}
                 password_confirmation: {type: string}
                 invite: {type: boolean, default: false}
@@ -648,8 +648,8 @@ paths:
         - {$ref: '#/components/parameters/CourseId'}
         - {in: query, name: mode, schema: {type: string, enum: [smarttrainer, new, wrong, topic, favorites], default: smarttrainer}}
         - {in: query, name: module_id, schema: {type: string, format: uuid}, description: 'Modul mit aktiver Drip-Sperre → 403 ENTITLEMENT_REQUIRED'}
-        - {in: query, name: topic, schema: {type: string}, description: 'Für mode=topic'}
-        - {in: query, name: question_ids, schema: {type: string}, description: 'Kommagetrennte Frage-IDs. Mit mode=favorites: genau diese Favoriten (z. B. „diese Frage üben“). Sonst „Fehler üben“ wie im Web: Fragen mit laufender richtiger Serie fallen heraus.'}
+        - {in: query, name: topic, schema: {type: string, maxLength: 255}, description: 'Für mode=topic'}
+        - {in: query, name: question_ids, schema: {type: string, maxLength: 4000}, description: 'Kommagetrennte Frage-IDs. Mit mode=favorites: genau diese Favoriten (z. B. „diese Frage üben“). Sonst „Fehler üben“ wie im Web: Fragen mit laufender richtiger Serie fallen heraus.'}
         - {in: query, name: collection_id, schema: {type: string, format: uuid}, description: 'Eine Favoriten-Sammlung üben (setzt mode=favorites)'}
       responses:
         '200':
@@ -762,6 +762,8 @@ paths:
                 type: object
                 properties:
                   data: {type: array, items: {$ref: '#/components/schemas/Favorite'}}
+        '403': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
   /courses/{courseId}/mistakes:
     get:
       tags: [Favorites]
@@ -796,7 +798,7 @@ paths:
               type: object
               properties:
                 context: {type: string, enum: [smart_learning, exam], default: smart_learning}
-                collection_ids: {type: array, items: {type: string, format: uuid}}
+                collection_ids: {type: [array, 'null'], minItems: 1, maxItems: 50, items: {type: string, format: uuid}}
       responses:
         '200':
           description: Favorit
@@ -805,6 +807,7 @@ paths:
               schema:
                 type: object
                 properties: {data: {$ref: '#/components/schemas/Favorite'}}
+        '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
         '422': {$ref: '#/components/responses/Problem'}
     delete:
@@ -817,6 +820,8 @@ paths:
         - {in: query, name: context, schema: {type: string, enum: [smart_learning, exam], default: smart_learning}}
       responses:
         '204': {description: 'Entfernt'}
+        '403': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
   /courses/{courseId}/favorite-collections:
     get:
       tags: [Favorites]
@@ -1023,6 +1028,8 @@ paths:
                 type: object
                 properties:
                   data: {type: object, properties: {question_id: {type: string}, model_answer: {type: [string, 'null']}}}
+        '403': {$ref: '#/components/responses/Problem'}
+        '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
         '410': {$ref: '#/components/responses/Problem'}
         '422': {$ref: '#/components/responses/Problem'}
@@ -1076,6 +1083,7 @@ paths:
                 type: object
                 properties:
                   data: {type: object, properties: {question_id: {type: string}, model_answer: {type: [string, 'null']}}}
+        '403': {$ref: '#/components/responses/Problem'}
         '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
         '410': {$ref: '#/components/responses/Problem'}
@@ -1095,7 +1103,7 @@ paths:
               type: object
               required: [answers]
               properties:
-                answers: {type: object, additionalProperties: {type: [string, 'null'], maxLength: 500}}
+                answers: {type: object, maxProperties: 50, additionalProperties: {type: [string, 'null'], maxLength: 500}}
       responses:
         '200':
           description: Abgegeben; Phase `navigation_assessment` mit Musterlösungen
@@ -1120,7 +1128,7 @@ paths:
               type: object
               required: [known]
               properties:
-                known: {type: object, additionalProperties: {type: [boolean, 'null']}}
+                known: {type: object, maxProperties: 50, additionalProperties: {type: [boolean, 'null']}}
       responses:
         '200':
           description: Ergebnis
@@ -1317,10 +1325,10 @@ paths:
           application/json:
             schema:
               type: object
-              description: Genau eines von beiden.
+              description: Mindestens eines von beiden (sonst 422). Mit `self_assessment` wird nur die Selbstbewertung gespeichert, eine mitgesendete `answer` bleibt unbeachtet.
               properties:
-                answer: {type: string, maxLength: 500}
-                self_assessment: {type: string, enum: [correct, incorrect]}
+                answer: {type: [string, 'null'], maxLength: 500}
+                self_assessment: {type: [string, 'null'], enum: [correct, incorrect, null]}
       responses:
         '200':
           description: Bewertet
@@ -1901,6 +1909,7 @@ paths:
       tags: [Groups]
       operationId: getMyGroup
       summary: Selbst verwaltete Lerngruppe
+      description: Fremde oder unbekannte Gruppe (auch einer anderen Schule) → 404 `RESOURCE_NOT_FOUND`.
       parameters: [{$ref: '#/components/parameters/TenantSlug'}, {$ref: '#/components/parameters/GroupId'}]
       responses:
         '200':
@@ -1920,10 +1929,12 @@ paths:
         Jede gültige, noch nicht eingeladene Adresse bekommt einen persönlichen Code (30 Tage gültig),
         solange Plätze frei sind -- unabhängig davon, ob es dazu ein Konto gibt (die Antwort verrät
         das nicht). Übersprungen werden ungültige und schon eingeladene Adressen sowie Adressen ohne
-        freien Platz oder über dem Tageslimit (`skipped`). Höchstens 20 Aufrufe pro Stunde, je Gruppe
+        freien Platz oder über dem Tageslimit (`skipped`). Höchstens 20 Aufrufe pro Stunde je Verwalter
+        (darüber 429 `RATE_LIMITED` mit `Retry-After`), je Gruppe
         und Tag höchstens max(20, 2 × Plätze) Einladungen, je Verwalter und Tag über alle seine
         Gruppen höchstens 200; ist diese Grenze schon erreicht, 429 `RATE_LIMITED` (`detail`
         anzeigen, `Retry-After`). 409 `GROUP_NOT_ACTIVE` bei abgelaufener oder gesperrter Gruppe.
+        Fremde oder unbekannte Gruppe: 404 `RESOURCE_NOT_FOUND`.
       parameters:
         - {$ref: '#/components/parameters/TenantSlug'}
         - {$ref: '#/components/parameters/GroupId'}
@@ -1936,7 +1947,7 @@ paths:
               type: object
               properties:
                 email: {type: [string, 'null'], maxLength: 320}
-                emails: {type: array, maxItems: 200, items: {type: string, maxLength: 320}}
+                emails: {type: array, maxItems: 200, items: {type: [string, 'null'], maxLength: 320}}
       responses:
         '200':
           description: Ergebnis
@@ -1961,7 +1972,7 @@ paths:
       tags: [Groups]
       operationId: removeGroupMember
       summary: Mitglied oder offene Einladung entfernen
-      description: Der Platz wird frei; die über die Gruppe erteilten Kurszugänge werden widerrufen, andere Zugänge der Person bleiben. Ein entferntes Mitglied kann nur mit einer neuen persönlichen Einladung wieder beitreten.
+      description: Der Platz wird frei; die über die Gruppe erteilten Kurszugänge werden widerrufen, andere Zugänge der Person bleiben. Ein entferntes Mitglied kann nur mit einer neuen persönlichen Einladung wieder beitreten. Unbekannte Gruppe oder kein aktives bzw. eingeladenes Mitglied → 404 `RESOURCE_NOT_FOUND`.
       parameters:
         - {$ref: '#/components/parameters/TenantSlug'}
         - {$ref: '#/components/parameters/GroupId'}
@@ -1980,6 +1991,7 @@ paths:
       tags: [Groups]
       operationId: regenerateGroupJoinCode
       summary: Beitrittscode erneuern (der bisherige wird ungültig)
+      description: Fremde oder unbekannte Gruppe → 404 `RESOURCE_NOT_FOUND`; abgelaufene oder gesperrte Gruppe → 409 `GROUP_NOT_ACTIVE`.
       parameters:
         - {$ref: '#/components/parameters/TenantSlug'}
         - {$ref: '#/components/parameters/GroupId'}
@@ -2046,6 +2058,7 @@ paths:
           content:
             application/json: {schema: {type: object}}
         '403': {description: 'LINK_INVALID: Signatur falsch oder Link abgelaufen', content: {application/problem+json: {schema: {$ref: '#/components/schemas/Problem'}}}}
+        '404': {$ref: '#/components/responses/Problem'}
         '410': {$ref: '#/components/responses/Problem'}
 
   # -------------------------------------------------------- Tipps & FAQ
@@ -2172,7 +2185,8 @@ components:
         detail: {type: string}
         code:
           type: string
-          description: Stabiler Fehlercode, siehe docs/api/README.md
+          description: >-
+            Stabiler Fehlercode, siehe docs/api/README.md.
           enum: [UNAUTHENTICATED, TWO_FACTOR_INVALID, VALIDATION_FAILED, RATE_LIMITED, DAILY_LIMIT_REACHED, FORBIDDEN, RESOURCE_NOT_FOUND, CONFLICT, GONE,
             METHOD_NOT_ALLOWED, SERVER_ERROR, SERVICE_UNAVAILABLE, REQUEST_FAILED,
             EMAIL_NOT_VERIFIED, TENANT_MEMBERSHIP_REQUIRED, TENANT_MEMBERSHIP_SUSPENDED, TENANT_UNAVAILABLE,
@@ -2181,9 +2195,15 @@ components:
             EXAM_NOT_SUBMITTED, EXAM_NO_NAVIGATION_PART, EXAM_NAVIGATION_ALREADY_SUBMITTED, EXAM_NAVIGATION_NOT_SUBMITTED,
             NAVIGATION_TASK_IN_EXAM, COUPON_INVALID, COUPON_NOT_APPLICABLE, EXPORT_EXPIRED,
             MAINTENANCE, APP_UPDATE_REQUIRED, EXAM_QUESTIONS_OPEN, EXAM_QUESTION_LOCKED, LINK_INVALID, VIDEO_NOT_AVAILABLE,
-            WEB_SESSION_DISABLED, WEB_SESSION_NOT_ALLOWED, ACCOUNT_DELETION_NOT_ALLOWED, DELETION_CONFIRMATION_INVALID]
+            WEB_SESSION_DISABLED, WEB_SESSION_NOT_ALLOWED, ACCOUNT_DELETION_NOT_ALLOWED, DELETION_CONFIRMATION_INVALID,
+            VERSION_CONFLICT, GROUP_NOT_ACTIVE, GROUP_ACCESS_REVOKED, GROUP_NO_CODES, GROUP_SCOPE_UNSUPPORTED]
         errors: {type: object, additionalProperties: {type: array, items: {type: string}}}
         request_id: {type: string}
+        details:
+          type: object
+          description: Bei VERSION_CONFLICT
+          properties:
+            current: {$ref: '#/components/schemas/MobileSettings'}
         exam_id: {type: string, description: Bei NAVIGATION_TASK_IN_EXAM}
         minimum_version: {type: string, description: Bei APP_UPDATE_REQUIRED}
         store_url: {type: [string, 'null'], description: Bei APP_UPDATE_REQUIRED}
@@ -2191,11 +2211,11 @@ components:
       type: object
       required: [email, password, device_name]
       properties:
-        email: {type: string, format: email}
-        password: {type: string}
+        email: {type: string, format: email, maxLength: 255}
+        password: {type: string, maxLength: 1000}
         device_name: {type: string, maxLength: 100}
-        device_platform: {type: string, enum: [ios, android]}
-        app_version: {type: string, maxLength: 40}
+        device_platform: {type: [string, 'null'], enum: [ios, android, null]}
+        app_version: {type: [string, 'null'], maxLength: 40}
     TokenPair:
       type: object
       required: [access_token, token_type, access_expires_at, refresh_token, refresh_expires_at, session_id]
@@ -2457,7 +2477,7 @@ components:
         created_at: {type: string, format: date-time}
         question:
           type: [object, 'null']
-          description: Kurzfassung für die Favoriten-Liste (ohne Lösung); null nur in der Antwort von PUT
+          description: 'Kurzfassung für die Favoriten-Liste (ohne Lösung); null ohne veröffentlichte Fassung der Frage. Fehlt in der Antwort von PUT.'
           properties:
             official_number: {type: [string, 'null']}
             text: {type: string}

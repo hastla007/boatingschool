@@ -131,7 +131,7 @@ class LearningGroupApiTest extends MobileApiTestCase
         $this->assertNull($list->json('data.0.scopes.0.capabilities'));
 
         // Fremde Gruppe (andere Schule) und fremder Verwalter: 404.
-        $this->api('GET', "/me/groups/{$foreign->id}", $token, $tenant)->assertNotFound();
+        $this->api('GET', "/me/groups/{$foreign->id}", $token, $tenant)->assertNotFound()->assertJsonPath('code', 'RESOURCE_NOT_FOUND');
         $this->api('GET', "/me/groups/{$foreign->id}", $token, $other)->assertOk()->assertJsonPath('data.name', 'Fremd');
         $this->api('GET', "/me/groups/{$group->id}", $stranger, $tenant)->assertNotFound();
         $this->api('POST', "/me/groups/{$group->id}/invites", $stranger, $tenant, ['email' => 'x@example.test'])->assertNotFound();
@@ -357,7 +357,7 @@ class LearningGroupApiTest extends MobileApiTestCase
         $this->assertNotSame('active', $this->courseEntry($tenant, $memberToken, $src)['access']['status']);
         $this->api('GET', "/courses/{$src->id}/overview", $memberToken, $tenant)->assertStatus(403);
         $this->assertSame('active', $this->courseEntry($tenant, $memberToken, $fkn)['access']['status']);
-        $this->api('DELETE', "/me/groups/{$group->id}/members/{$row['id']}", $ownerToken, $tenant)->assertNotFound();
+        $this->api('DELETE', "/me/groups/{$group->id}/members/{$row['id']}", $ownerToken, $tenant)->assertNotFound()->assertJsonPath('code', 'RESOURCE_NOT_FOUND');
 
         // Entfernte Person kommt über den Gruppencode nicht wieder hinein (nur mit neuer Einladung).
         $this->api('POST', '/coupons/redeem', $memberToken, $tenant, ['code' => $group->join_code])->assertStatus(422);

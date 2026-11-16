@@ -13,7 +13,7 @@ dieselben.
 | `app/Api/` | Tokens, Fehlerformat, Ausgabeformate |
 | `app/Http/Middleware/Api/` | Anmeldung, Schule, Idempotenz |
 | `config/mobile_api.php` | Laufzeiten (Tokens, Export, Idempotenz) |
-| `tests/Feature/Api/` | Tests inkl. Abgleich Routen ↔ OpenAPI |
+| `tests/Feature/Api/` | Tests inkl. Abgleich mit dem Vertrag (`OpenApiContractTest`: Routen, Methoden, Pfadparameter, Token-/Schul-/Idempotenz-Pflicht, Fehlercodes ↔ OpenAPI und Abschnitt 11) |
 
 ---
 
@@ -164,7 +164,7 @@ Antworten werden 24 Stunden je Konto gespeichert.
 | App-Einstellungen speichern | 60/Min. |
 | Schulbezogene Endpunkte | 240/Min. je Konto |
 | Codes einlösen | 10/Min. |
-| Lerngruppen | Vorschau 30/Min.; Einladen 20 Aufrufe/Std. je Verwalter, je Gruppe und Tag max(20, 2 × Plätze) Einladungen, je Verwalter und Tag höchstens 200 Einladungen über alle Gruppen (darüber 429 `RATE_LIMITED`) |
+| Lerngruppen | Vorschau 30/Min.; Einladen 20 Aufrufe/Std. je Verwalter (darüber 429 `RATE_LIMITED` mit `Retry-After`), je Gruppe und Tag max(20, 2 × Plätze) Einladungen, je Verwalter und Tag höchstens 200 Einladungen über alle Gruppen (darüber 429 `RATE_LIMITED`) |
 | Datenexport | 5/Std., Download 20/Min. |
 | Ausgelieferte Fragen | 2000 je Konto und Kalendertag (Europe/Berlin), siehe unten |
 
@@ -706,7 +706,7 @@ Der Lernstand ist derselbe wie im Web.
 |---|---|---|
 | 401 | `UNAUTHENTICATED` | Token fehlt/abgelaufen → einmal `refresh`, sonst Login |
 | 403 | `EMAIL_NOT_VERIFIED` | Bestätigungsmail anbieten |
-| 403 | `TENANT_MEMBERSHIP_REQUIRED` / `_SUSPENDED`, `TENANT_UNAVAILABLE` | Schulwahl / Support |
+| 403 | `TENANT_MEMBERSHIP_REQUIRED` / `TENANT_MEMBERSHIP_SUSPENDED`, `TENANT_UNAVAILABLE` | Schulwahl / Support |
 | 403 | `ENTITLEMENT_REQUIRED` / `ENTITLEMENT_EXPIRED` | Webshop-Link, Code-Eingabe |
 | 403 | `FORBIDDEN` | keine Berechtigung |
 | 403 | `LINK_INVALID` | Download-Link manipuliert oder abgelaufen → Status neu laden |
@@ -946,7 +946,10 @@ entscheidet aber nur anhand von `code`.
   die freien Kurscodes je Schule und Kurs).
 * **Tests:** `vendor/bin/phpunit tests/Feature/Api`.
   `OpenApiContractTest` schlägt fehl, wenn Routen und OpenAPI-Datei
-  auseinanderlaufen.
+  auseinanderlaufen (Methoden, Pfadparameter, `security`, `X-Tenant-Slug`,
+  `Idempotency-Key`) oder ein Fehlercode im Code (`new ApiProblem(…)`,
+  `ProblemResponse`) nicht genau in `Problem.code` und in Abschnitt 11
+  steht. Neue Codes deshalb immer als String-Literal übergeben.
 
 ## 14. Nicht in v1
 
