@@ -76,6 +76,14 @@ class ProductionReadiness
         if (config('commerce.keys') || config('commerce.outbound_secret')) {
             $add('Konfiguration', 'Geheimnisse der Shop-Anbindung mind. 32 Zeichen', $shortSecrets === 0 ? 'ok' : 'fail', $shortSecrets ? "{$shortSecrets} zu kurz (z. B. openssl rand -hex 32)" : '');
         }
+        // Über http gingen Kontaktdaten der Shopkonten unverschlüsselt an den Shop
+        // (Ausgang App → Shop). localhost/127.0.0.1 nur für lokale Tests.
+        $shopUrl = (string) config('commerce.shop_url');
+        if ($shopUrl !== '') {
+            $shopHost = (string) parse_url($shopUrl, PHP_URL_HOST);
+            $local = in_array($shopHost, ['localhost', '127.0.0.1', '::1'], true);
+            $add('Konfiguration', 'COMMERCE_SHOP_URL mit https', str_starts_with($shopUrl, 'https://') ? 'ok' : ($local ? 'warn' : 'fail'), $shopUrl);
+        }
         $url = (string) config('app.url');
         $add('Konfiguration', 'APP_URL mit https', str_starts_with($url, 'https://') ? 'ok' : 'fail', $url);
         $central = (string) config('app.central_domain');
