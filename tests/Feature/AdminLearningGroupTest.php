@@ -147,7 +147,7 @@ class AdminLearningGroupTest extends TestCase
         $this->actingAsInTenant($owner, $tenant)->get(route('admin.learning-groups.create'))->assertOk()
             ->assertDontSee('Aktive Anna')->assertDontSee('Gesperrter Gerd')->assertDontSee('Ausbilder Ingo')
             ->assertSee('name="owner_email"', false)->assertSee('name="owner_user_id"', false)
-            ->assertSee('learning-groups\\/manager-candidates', false)
+            ->assertSee('participantPicker(', false)->assertSee('manager-candidates', false)
             ->assertSee('name="courses[SRC]"', false)->assertDontSee('name="courses[SKN]"', false)
             ->assertSee('Prüfungssimulation');
 

@@ -423,9 +423,8 @@ class AdminDashboardController extends Controller
 
         // Bug-Review N14: ohne Seitenaufteilung lud diese Liste bei vielen
         // Teilnehmern jedes Mitglied samt all seiner Entitlements auf
-        // einen Schlag -- die "Coupon zuweisen"-Auswahl (admin.tabs.coupons)
-        // braucht dagegen wirklich alle Teilnehmer und bleibt deshalb eine
-        // eigene, schlanke Abfrage ohne Entitlements.
+        // einen Schlag (die "Coupon zuweisen"-Auswahl im Reiter
+        // Zugangscodes sucht inzwischen per Suchfeld, ganz ohne Liste).
         //
         // Bug-Review R4-4: die Listen (Teilnehmer, Anmeldungen, Coupons,
         // Willkommensbox) paginieren mit eigenem pageName -- Laravels Default
@@ -677,19 +676,8 @@ class AdminDashboardController extends Controller
         // Beim Einladen angegebene Codes sind bis zur Annahme reserviert (InvitationCoupon).
         $reservedCouponCodes = InvitationCoupon::reservedCodes($tenant, $coupons->getCollection()->pluck('code'));
 
-        // Auswahl „Zuweisen“ (admin.tabs.coupons): alle Teilnehmer, aber nur
-        // wenn die angezeigte Coupon-Seite überhaupt einen zuweisbaren Code
-        // enthält -- dieselbe Bedingung wie in der View. Sonst wurden bei
-        // jedem Aufruf alle Lernenden samt Konto geladen (1200 Lernende:
-        // ~1200 Modelle), ohne dass die Liste je gerendert wurde.
-        $allParticipants = $coupons->getCollection()->contains(fn (Coupon $c) => $c->isUsable() && $c->tenant_id === $tenant->id)
-            ? ParticipantFilters::withoutOpenInvitations(TenantUser::with('user:id,display_name,email')
-                ->where('tenant_id', $tenant->id)
-                ->where('role', 'learner'))
-                ->orderBy('created_at')
-                ->orderBy('user_id')
-                ->get()
-            : collect();
+        // „Zuweisen“ sucht Teilnehmer per Suchfeld (Admin\ParticipantSearchController):
+        // hier wird keine Teilnehmerliste mehr geladen.
 
         // Shop-Anbindung: verknüpfte Shopkonten und die letzten Bestellungen
         // (Code-Batches) der Schule (docs/commerce/README.md).
@@ -737,7 +725,6 @@ class AdminDashboardController extends Controller
         return [
             'coupons' => $coupons,
             'reservedCouponCodes' => $reservedCouponCodes,
-            'allParticipants' => $allParticipants,
             'couponSummary' => $couponSummary,
             'shopAccounts' => $shopAccounts,
             'shopNeedsLink' => $shopNeedsLink,

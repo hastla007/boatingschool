@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Coupon;
 use App\Models\ExamPaper;
 use App\Models\ExamSession;
 use Tests\Feature\Concerns\InteractsWithTenants;
@@ -26,10 +27,46 @@ class DynamicStatusMessagesAreAnnouncedTest extends TestCase
         // Warnung „Mehr Plätze als freie Kurscodes“ (Alpine x-show) in einer dauerhaft vorhandenen Live-Region.
         $page->assertSee('role="status" aria-live="polite"><span style="display: none" x-show="selected && seats >', false);
         // Trefferzahl und Auswahl der Verwaltersuche werden angesagt.
-        $page->assertSee('role="status" aria-live="polite" x-text="message" data-manager-search-status', false);
+        $page->assertSee('role="status" aria-live="polite" x-text="message" data-participant-search-status', false);
         // Ohne JavaScript kein Combobox-Rollenspiel: die Rollen setzt erst Alpine.
         $page->assertDontSee('role="combobox"', false)->assertSee('x-bind:role="\'combobox\'"', false)
             ->assertSee('x-bind:aria-activedescendant', false)->assertSee('role="listbox"', false);
+    }
+
+    public function test_the_coupon_assign_search_is_a_combobox_with_a_live_region(): void
+    {
+        $tenant = $this->createTestTenant();
+        $owner = $this->createTenantUser($tenant, 'owner');
+        $code = 'E2E-LIVE-'.uniqid();
+        $coupon = $this->onAdmin(fn () => Coupon::create(['code' => $code, 'course_id' => $this->existingCourse('SRC')->id, 'tenant_id' => $tenant->id]));
+
+        try {
+            $page = $this->actingAsInTenant($owner, $tenant)->get(route('admin.dashboard', ['tab' => 'coupons']))->assertOk();
+            $page->assertSee('role="status" aria-live="polite" x-text="message" data-participant-search-status', false)
+                ->assertDontSee('role="combobox"', false)->assertSee('x-bind:role="\'combobox\'"', false)
+                ->assertSee("x-bind:aria-controls=\"'assign-email-{$coupon->id}-listbox'\"", false)
+                ->assertSee('x-bind:aria-activedescendant', false)->assertSee('role="listbox"', false);
+        } finally {
+            $this->onAdmin(fn () => Coupon::where('code', $code)->delete());
+        }
+    }
+
+    /**
+     * Orte: Adresse und Zuständigkeit des gewählten Prüfungsausschusses
+     * wechseln per Alpine (x-if/x-text) mit der Auswahl -- in einer
+     * dauerhaft vorhandenen, höflichen Live-Region, als Ganzes vorgelesen.
+     */
+    public function test_the_examination_board_details_on_the_locations_tab_are_a_live_region(): void
+    {
+        $tenant = $this->createTestTenant();
+        $owner = $this->createTenantUser($tenant, 'owner');
+
+        $page = $this->actingAsInTenant($owner, $tenant)->get(route('admin.dashboard', ['tab' => 'orte']))->assertOk();
+        $this->assertMatchesRegularExpression(
+            '/<div id="new-pruefungsausschuss-details" role="status" aria-live="polite" aria-atomic="true" data-pruefungsausschuss-details>\s*<template x-if="pruefungsausschussId && pruefungsausschussInfo\[pruefungsausschussId\]">/',
+            $page->getContent()
+        );
+        $page->assertSee('<span class="sr-only">Adresse des Prüfungsausschusses: </span><span x-text="pruefungsausschussInfo[pruefungsausschussId].adresse"></span>', false);
     }
 
     public function test_the_exam_favorite_toggle_reports_its_result(): void

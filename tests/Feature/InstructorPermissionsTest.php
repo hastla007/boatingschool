@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Http\Controllers\Admin\AdminDashboardController;
 use App\Models\Coupon;
+use App\Models\InstructorCourse;
 use App\Models\Tenant;
 use App\Models\TenantUser;
 use App\Models\User;
@@ -135,8 +136,30 @@ class InstructorPermissionsTest extends TestCase
 
         $assignResponse = $this->actingAsInTenant($instructor, $tenant)->post("/admin/coupons/{$coupon->id}/assign", ['user_id' => $learner->id]);
         $assignResponse->assertForbidden();
+        // Auch nicht per E-Mail-Adresse (Weg ohne JavaScript).
+        $this->actingAsInTenant($instructor, $tenant)->post("/admin/coupons/{$coupon->id}/assign", ['participant_email' => $learner->email])->assertForbidden();
 
         $this->assertFalse($coupon->fresh()->isRedeemed());
+    }
+
+    /**
+     * Die Teilnehmersuche des Suchfelds „Zuweisen“ hat dieselbe Grenze wie
+     * die Zuweisung selbst: nur Inhaber/Admins -- ein Ausbilder (mit oder
+     * ohne Kurszuordnung) kann darüber keine Teilnehmer auflisten.
+     */
+    public function test_instructor_cannot_search_participants_for_coupon_assignment(): void
+    {
+        $tenant = $this->createTestTenant();
+        $instructor = $this->createTenantUser($tenant, 'instructor');
+        $scoped = $this->createTenantUser($tenant, 'instructor');
+        $course = $this->existingCourse('SRC');
+        $learner = $this->createTenantUser($tenant, 'learner', ['display_name' => 'Suchbare Susi']);
+        $this->grantEntitlement($tenant, $learner, $course);
+        $this->onAdmin(fn () => InstructorCourse::create(['tenant_id' => $tenant->id, 'user_id' => $scoped->id, 'course_id' => $course->id]));
+
+        foreach ([$instructor, $scoped] as $user) {
+            $this->actingAsInTenant($user, $tenant)->getJson(route('admin.participants.search', ['q' => 'Susi']))->assertForbidden();
+        }
     }
 
     public function test_instructor_cannot_update_addons_or_course_promo_banners(): void

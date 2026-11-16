@@ -5,11 +5,15 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Coupon;
 use App\Models\TenantUser;
+use App\Models\User;
 use App\Services\CouponRedemptionService;
 use App\Services\InvitationCoupon;
+use App\Support\InstructorScope;
+use App\Support\ParticipantFilters;
 use App\Support\TenantContext;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -30,6 +34,8 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class CouponController extends Controller
 {
+    private const NOT_A_MEMBER = 'Diese Person gehört nicht zu Ihrer Bootsschule.';
+
     public function import(Request $request, TenantContext $tenantContext): Response
     {
         $tenant = $tenantContext->tenant();
@@ -116,32 +122,69 @@ class CouponController extends Controller
         return back()->with('status', implode(' ', $parts));
     }
 
+    /**
+     * Code einem Teilnehmer zuweisen. Das Suchfeld „Zuweisen“ (mit
+     * JavaScript) schickt die gewählte user_id; ohne JavaScript -- oder wenn
+     * die Adresse nach der Auswahl geändert wurde -- löst der Server die
+     * eingetippte E-Mail-Adresse auf, nur unter den Teilnehmern, denen die
+     * Schule einen Code zuweisen kann (ParticipantFilters::assignableLearners(),
+     * dieselbe Grenze wie die Suche Admin\ParticipantSearchController).
+     * Fehler stehen unter „assign“; assign_coupon zeigt sie in der Zeile des
+     * Codes an (admin/tabs/coupons.blade.php).
+     */
     public function assign(Request $request, TenantContext $tenantContext, Coupon $coupon, CouponRedemptionService $redemption): Response
     {
         $tenant = $tenantContext->tenant();
         abort_unless($coupon->tenant_id === $tenant->id && $coupon->isUsable(), 404);
 
-        $validated = $request->validate([
-            'user_id' => ['required', 'uuid'],
-        ]);
+        $userId = is_string($request->input('user_id')) && $request->input('user_id') !== '' ? $request->input('user_id') : null;
+        $email = is_string($request->input('participant_email')) ? mb_strtolower(trim($request->input('participant_email'))) : '';
+        $fail = fn (string $message) => back()
+            ->withInput(['assign_coupon' => $coupon->id, 'user_id' => (string) $userId, 'participant_email' => mb_substr($email, 0, 255)])
+            ->withErrors(['assign' => $message]);
+
+        if (($userId !== null && ! Str::isUuid($userId)) || mb_strlen($email) > 255) {
+            return $fail(self::NOT_A_MEMBER);
+        }
 
         // Für eine offene Einladung reserviert: wird beim Annehmen eingelöst.
         if (InvitationCoupon::reservedCodes($tenant, [$coupon->code]) !== []) {
-            return back()->withErrors(['assign' => 'Dieser Code ist für eine offene Einladung reserviert und wird eingelöst, sobald die Person sie annimmt.']);
+            return $fail('Dieser Code ist für eine offene Einladung reserviert und wird eingelöst, sobald die Person sie annimmt.');
         }
 
-        $membership = TenantUser::where('user_id', $validated['user_id'])->first();
+        // Die gewählte Person gilt, solange die E-Mail-Adresse im Feld noch ihre ist.
+        if ($userId === null || ($email !== '' && mb_strtolower((string) User::whereKey($userId)->value('email')) !== $email)) {
+            if ($email === '') {
+                return $fail('Bitte einen Teilnehmer wählen.');
+            }
+            $userId = ParticipantFilters::assignableLearners($tenant, $request->user())->whereRaw('lower(email) = ?', [$email])->value('id');
+            if ($userId === null) {
+                return $fail('Unter dieser E-Mail-Adresse gibt es keinen aktiven Teilnehmer Ihrer Bootsschule.');
+            }
+        }
 
-        if (! $membership) {
+        $membership = TenantUser::with('user')->where('user_id', $userId)->first();
+
+        // Ausbilder mit Kurszuordnung: fremde Lernende wie Nicht-Mitglieder
+        // behandeln (die Route ist ohnehin Inhabern/Admins vorbehalten).
+        if (! $membership || ! InstructorScope::canSeeLearner($tenant, $request->user(), $userId)) {
             // Bug-Review (Du/Sie im Admin-Bereich -- weitere Reste): dieselbe
             // Meldung wie in EntitlementController nutzte hier noch die
             // informelle ihr-Form ("eurer" statt "Ihrer").
-            return back()->withErrors(['assign' => 'Diese Person gehört nicht zu Ihrer Bootsschule.']);
+            return $fail(self::NOT_A_MEMBER);
         }
 
         // Review: keinen Code an ein gesperrtes bzw. beendetes Mitglied verbrauchen.
         if ($membership->status !== 'active') {
-            return back()->withErrors(['assign' => 'Dieses Mitglied ist nicht aktiv – ein Code würde ungenutzt verbraucht.']);
+            return $fail('Dieses Mitglied ist nicht aktiv – ein Code würde ungenutzt verbraucht.');
+        }
+
+        // Wie die Auswahl: nur Teilnehmer (Lernende), keine offene Einladung.
+        if ($membership->role !== 'learner') {
+            return $fail('Zugangscodes lassen sich nur Teilnehmern zuweisen, nicht dem Team der Bootsschule.');
+        }
+        if ($membership->user->status === 'invited') {
+            return $fail('Diese Person hat ihre Einladung noch nicht angenommen. Weisen Sie den Code nach der Annahme zu.');
         }
 
         try {
@@ -151,7 +194,7 @@ class CouponController extends Controller
             // RuntimeException) nicht als Formularfehler mit SQL anzeigen.
             throw_if($e instanceof QueryException, $e);
 
-            return back()->withErrors(['assign' => $e->getMessage()]);
+            return $fail($e->getMessage());
         }
 
         return back()->with('status', 'Code "'.$coupon->code.'" wurde '.$membership->user->name.' zugewiesen.');
