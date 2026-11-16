@@ -2308,7 +2308,7 @@ components:
           additionalProperties: {type: integer, minimum: 1}
         expires_soon: {type: boolean, description: 'Fragenkatalog-Zugang läuft in den nächsten 14 Tagen ab'}
         expires_at: {type: [string, 'null'], format: date-time}
-        renew_url: {type: [string, 'null'], format: uri, description: 'Verlängerungslink (nur bei expires_soon)'}
+        renew_url: {type: [string, 'null'], format: uri, description: 'Verlängerungslink (nur bei expires_soon; null, wenn der Zugang mit einem reinen Gruppenzugang endet -- verlängert wird dann über die Schule)'}
     FeatureAccess:
       type: object
       properties:

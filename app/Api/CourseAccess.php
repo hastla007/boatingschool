@@ -254,6 +254,9 @@ class CourseAccess
             || in_array('smarttrainer', $e->capabilities, true) || in_array('favorites', $e->capabilities, true));
         $questionExpiry = $questionAccess->contains(fn (Entitlement $e) => $e->valid_until === null) ? null : $questionAccess->max('valid_until');
         $expiresSoon = $questionExpiry !== null && $questionExpiry->lte($now->copy()->addDays(Entitlement::EXPIRY_WARNING_DAYS));
+        // Endet der Zugang mit einem Gruppenzugang (kein eigener Zugang trägt
+        // genauso lange), verlängert die Schule: kein Kauf-/Verlängerungslink.
+        $renewable = $expiresSoon && $questionAccess->contains(fn (Entitlement $e) => $e->valid_until?->eq($questionExpiry) && ! $e->isGroupAccess());
 
         return [
             'status' => $status,
@@ -264,7 +267,7 @@ class CourseAccess
             'limits' => (object) $limits,
             'expires_soon' => $expiresSoon,
             'expires_at' => Present::time($questionExpiry),
-            'renew_url' => $expiresSoon ? $this->webshopUrls($tenant)->get($course->id) : null,
+            'renew_url' => $renewable ? $this->webshopUrls($tenant)->get($course->id) : null,
         ];
     }
 

@@ -17,7 +17,9 @@ use Illuminate\Console\Command;
  * Läuft mandantenübergreifend über die Owner-Verbindung (wie
  * ExpireEntitlements). Zugänge aus einer Lerngruppe bekommen einen eigenen
  * Text ohne Kauf-Hinweis (die Gruppe verwaltet die Schule) und nur, solange
- * Gruppe und Mitgliedschaft noch laufen.
+ * Gruppe und Mitgliedschaft noch laufen. Aus WordPress übernommene
+ * Gruppenplätze (import_meta.source „group“, ohne Lerngruppe hier) bekommen
+ * denselben Text ohne Gruppennamen (siehe EntitlementExpiringSoon).
  */
 class RemindExpiringEntitlements extends Command
 {

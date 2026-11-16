@@ -252,7 +252,13 @@ Geplante Kommandos:
   eigenen Text (Gruppenname, Verlängerung über die Schule, kein Kauf-
   oder Code-Hinweis; Mailvorlage „Zugang über eine Lerngruppe endet
   bald“) und keine Mail mehr, sobald Gruppe oder Mitgliedschaft beendet,
-  pausiert oder abgelaufen ist.
+  pausiert oder abgelaufen ist. Aus WordPress übernommene Gruppenplätze
+  (`import_meta.source = group`, ohne Lerngruppe auf der Plattform)
+  bekommen denselben Text ohne Gruppennamen; Vorlagentexte mit `{gruppe}`
+  entfallen dann. Dashboard und Kursübersicht zeigen für reine
+  Gruppenzugänge ebenso einen Hinweis auf die Gruppe statt
+  „Verlängerungscode einlösen“/„Verlängerungs-Code kaufen“, die App
+  liefert dann `access.renew_url = null`.
 - `app:backup` (täglich 03:15 Europe/Berlin) -- Datenbank-Dump, Uploads
   und geschützte Dateien (Fragenbilder, Kartenausschnitte, Kursdateien,
   Tipp-PDFs, Videoschritt-Bilder) nach `storage/app/backups/`, optional verschlüsselt auf externen

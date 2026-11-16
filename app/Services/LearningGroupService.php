@@ -616,6 +616,25 @@ class LearningGroupService
         return preg_match('/^group:([0-9a-f-]{36}):[0-9a-f-]{36}$/i', (string) $reference, $m) ? $m[1] : null;
     }
 
+    /**
+     * Gruppenname je Gruppenzugang (Entitlement-ID => Name) für Ablauf-
+     * Hinweise; aus WordPress übernommene oder gelöschte Gruppen fehlen.
+     *
+     * @param  Collection<int, Entitlement>  $entitlements
+     * @return Collection<string, string>
+     */
+    public static function groupNamesFor(Collection $entitlements): Collection
+    {
+        $groupIds = $entitlements->where('source_type', 'group')
+            ->mapWithKeys(fn (Entitlement $e) => [$e->id => self::groupIdFromReference($e->source_reference)])->filter();
+        if ($groupIds->isEmpty()) {
+            return collect();
+        }
+        $names = LearningGroup::whereIn('id', $groupIds->unique()->values())->pluck('name', 'id');
+
+        return $groupIds->map(fn (string $groupId) => $names->get($groupId))->filter();
+    }
+
     private function revokeEntitlements(LearningGroup $group, LearningGroupMember $member): void
     {
         Entitlement::where('tenant_id', $group->tenant_id)->where('source_type', 'group')
