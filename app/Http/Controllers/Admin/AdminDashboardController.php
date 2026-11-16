@@ -23,6 +23,7 @@ use App\Models\PraxisFormSubmission;
 use App\Models\Product;
 use App\Models\ProductPurchase;
 use App\Models\Pruefungsausschuss;
+use App\Models\Tenant;
 use App\Models\TenantAddon;
 use App\Models\TenantCourseDisabled;
 use App\Models\TenantCourseLocation;
@@ -37,6 +38,7 @@ use App\Support\ParticipantFilters;
 use App\Support\TenantContext;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
@@ -61,6 +63,9 @@ class AdminDashboardController extends Controller
      * ~550 KB allein für diesen Kasten).
      */
     public const RECENT_BOOKINGS_LIMIT = 25;
+
+    /** Höchstens so viele Zeilen je Liste „Offene Einladungen“ (Teilnehmer bzw. Team), die übrigen nur als Anzahl. */
+    public const OPEN_INVITATIONS_LIMIT = 100;
 
     public function __invoke(Request $request, TenantContext $tenantContext): View
     {
@@ -356,17 +361,10 @@ class AdminDashboardController extends Controller
             ->orderBy('created_at')
             ->orderBy('user_id')
             ->get();
-        $invitedTeamMembers = TenantUser::with('user')->where('tenant_id', $tenant->id)->where('role', '!=', 'learner')
-            ->whereHas('user', fn ($u) => $u->where('status', 'invited'))->get()
-            ->map(fn (TenantUser $m) => ['name' => $m->user->name, 'email' => $m->user->email, 'role' => $m->role, 'invited_at' => $m->created_at]);
-        $pendingTeamInvitations = TenantInvitation::where('tenant_id', $tenant->id)
-            ->where('role', '!=', 'learner')
-            ->whereNull('accepted_at')
-            ->orderByDesc('created_at')
-            ->get()
-            ->map(fn (TenantInvitation $i) => ['name' => $i->name ?: strstr($i->email, '@', true), 'email' => $i->email, 'role' => $i->role, 'invited_at' => $i->created_at]);
-        $pendingTeamInvitations = $invitedTeamMembers->concat($pendingTeamInvitations)->sortByDesc('invited_at')
-            ->unique(fn ($row) => mb_strtolower($row['email']))->values();
+        // Review: nur offene (nicht abgelaufene) Einladungen, ohne Adressen,
+        // die schon aktiv im Team sind, und höchstens OPEN_INVITATIONS_LIMIT
+        // Zeilen („… und N weitere“).
+        [$pendingTeamInvitations, $pendingTeamInvitationsTotal] = $this->openInvitationRows($tenant, team: true);
 
         // „Offene Einladungen“: neu angelegte, nie aktivierte Konten und
         // Einladungen an Bestandskonten erscheinen hier gleich (Name wie
@@ -375,16 +373,9 @@ class AdminDashboardController extends Controller
         // Kurszuordnung sehen nur ihre Lernenden, Einladungen gehören noch
         // zu keinem Kurs.
         $openInvitations = collect();
+        $openInvitationsTotal = 0;
         if ($visibleLearnerIds === null) {
-            $invitedMembers = TenantUser::with('user')->where('tenant_id', $tenant->id)->where('role', 'learner')
-                ->whereHas('user', fn ($u) => $u->where('status', 'invited'))->get()
-                ->map(fn (TenantUser $m) => ['name' => $m->user->name, 'email' => $m->user->email, 'invited_at' => $m->created_at]);
-            $pendingInvitations = TenantInvitation::where('tenant_id', $tenant->id)->where('role', 'learner')->whereNull('accepted_at')->get()
-                ->map(fn (TenantInvitation $i) => ['name' => $i->name ?: strstr($i->email, '@', true), 'email' => $i->email, 'invited_at' => $i->created_at]);
-            // Ein neu angelegtes Konto hat zusätzlich eine Einladung (zum
-            // Annehmen beim Passwort-Festlegen): eine Zeile je Adresse.
-            $openInvitations = $invitedMembers->concat($pendingInvitations)->sortByDesc('invited_at')
-                ->unique(fn ($row) => mb_strtolower($row['email']))->values();
+            [$openInvitations, $openInvitationsTotal] = $this->openInvitationRows($tenant, team: false);
         }
 
         // Sitewide deaktivierte Kurse (course_definition.site_enabled = false)
@@ -598,10 +589,13 @@ class AdminDashboardController extends Controller
         // eigene, noch nicht eingelöste Codes die Bootsschule je Kurs hat --
         // Verlängerungscodes zählen hier bewusst nicht mit, die schalten
         // keinen neuen Kurs frei, sondern verlängern einen bestehenden.
+        // Für offene Einladungen reservierte Codes zählen nicht als frei
+        // (wie beim Freischalten selbst, Coupon::scopeNotReservedForInvitation).
         $freeCourseCouponCounts = Coupon::where('tenant_id', $tenant->id)
             ->whereNotNull('course_id')
             ->where('is_renewal', false)
             ->usable()
+            ->notReservedForInvitation($tenant->id)
             ->selectRaw('course_id, count(*) as free_count')
             ->groupBy('course_id')
             ->pluck('free_count', 'course_id');
@@ -643,8 +637,10 @@ class AdminDashboardController extends Controller
             'team' => $team,
             'instructorCourses' => InstructorCourse::where('tenant_id', $tenant->id)->get()->groupBy('user_id')->map(fn ($rows) => $rows->pluck('course_id')),
             'pendingTeamInvitations' => $pendingTeamInvitations,
+            'pendingTeamInvitationsTotal' => $pendingTeamInvitationsTotal,
             'allParticipants' => $allParticipants,
             'openInvitations' => $openInvitations,
+            'openInvitationsTotal' => $openInvitationsTotal,
             'courses' => $courses,
             'participantFilters' => $participantFilters,
             'productPurchases' => $productPurchases,
@@ -672,6 +668,38 @@ class AdminDashboardController extends Controller
             'freeCourseCouponCounts' => $freeCourseCouponCounts,
             'learningGroups' => $learningGroups,
         ]);
+    }
+
+    /**
+     * Offene Einladungen (Teilnehmer bzw. Team) für die Listen im
+     * Teilnehmer-Tab: nur nicht angenommene, nicht abgelaufene Einladungen
+     * (TenantInvitation::scopeOpen), ohne Adressen, die schon aktives
+     * Mitglied sind (Team: schon aktiv im Team -- eine aktive Teilnehmerin
+     * mit offener Team-Einladung bleibt gelistet), eine Zeile je Adresse
+     * (die neueste), höchstens OPEN_INVITATIONS_LIMIT Zeilen.
+     *
+     * Kein Konto-Orakel: auch ein von hier neu angelegtes, nie aktiviertes
+     * Konto (status invited) hat eine solche Einladung -- beide Fälle
+     * erscheinen und verschwinden damit gleich (nach Annahme oder Ablauf).
+     *
+     * @return array{0: Collection<int, array{name: string, email: string, role: string, invited_at: mixed}>, 1: int}
+     */
+    private function openInvitationRows(Tenant $tenant, bool $team): array
+    {
+        $base = TenantInvitation::where('tenant_id', $tenant->id)->open()
+            ->where('role', $team ? '!=' : '=', 'learner')
+            ->whereRaw("not exists (select 1 from tenant_user tu join app_user au on au.id = tu.user_id
+                where tu.tenant_id = tenant_invitation.tenant_id and lower(au.email) = lower(tenant_invitation.email) and au.status <> 'invited'"
+                .($team ? " and tu.role <> 'learner'" : '').')');
+
+        $total = (int) (clone $base)->toBase()->selectRaw('count(distinct lower(email)) as total')->value('total');
+        $latestPerAddress = (clone $base)->selectRaw('distinct on (lower(email)) tenant_invitation.*')
+            ->orderByRaw('lower(email)')->orderByDesc('created_at')->orderBy('id');
+        $rows = TenantInvitation::query()->fromSub($latestPerAddress, 'tenant_invitation')
+            ->orderByDesc('created_at')->orderBy('id')->limit(self::OPEN_INVITATIONS_LIMIT)->get()
+            ->map(fn (TenantInvitation $i) => ['name' => $i->name ?: strstr($i->email, '@', true), 'email' => $i->email, 'role' => $i->role, 'invited_at' => $i->created_at]);
+
+        return [$rows, $total];
     }
 
     /** Lehnt sowohl unparsebare Strings als auch kalendarisch unmögliche Daten (z. B. "2026-02-31") ab. */

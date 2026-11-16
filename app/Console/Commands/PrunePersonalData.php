@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\PraxisFormSubmission;
 use App\Models\User;
 use App\Services\AccountErasureService;
+use App\Services\InvitationAcceptance;
 use App\Services\LearningGroupService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -26,7 +27,7 @@ class PrunePersonalData extends Command
         {--dry-run : Nur anzeigen, wie viele Zeilen betroffen wären, nichts löschen}
         {--mobile-api-only : Nur die Reste der Mobile-API (Sitzungen, Idempotenz, Exporte, Löschanträge, Webansicht-Codes, Gruppeneinladungen) -- läuft stündlich}';
 
-    protected $description = 'Löscht abgelaufene Sessions und technische Reste sowie (falls aktiviert) Audit-Log, Lern-Attempts, erledigte Shop-Ereignisse, Praxis-Angaben, Willkommensbox-Adressen und alte Anmelde-Geräte jenseits der konfigurierten Frist.';
+    protected $description = 'Löscht abgelaufene Sessions, technische Reste und nie angenommene Schul-Einladungen sowie (falls aktiviert) Audit-Log, Lern-Attempts, erledigte Shop-Ereignisse, Praxis-Angaben, Willkommensbox-Adressen und alte Anmelde-Geräte jenseits der konfigurierten Frist.';
 
     public function handle(): int
     {
@@ -45,6 +46,7 @@ class PrunePersonalData extends Command
         // „vor Kurzem neu eingeladen“ liest die Einladungs-Links, die das
         // Aufräumen der technischen Reste danach löscht.
         $this->pruneUnclaimedAccounts($dryRun);
+        $this->pruneTenantInvitations($dryRun);
         $this->pruneTechnicalLeftovers($dryRun);
         $this->pruneMobileApi($dryRun);
         $this->pruneCommerceEvents($dryRun);
@@ -221,6 +223,49 @@ class PrunePersonalData extends Command
     }
 
     /**
+     * Löschkonzept Nr. 31: nie angenommene Einladungen einer Schule
+     * (tenant_invitation) N Tage nach dem Anlegen löschen -- abgelaufen
+     * sind sie schon nach InvitationAcceptance::VALID_DAYS. Mindestens so
+     * lange wie die Frist für nie aktivierte Konten, solange die aktiv ist:
+     * dort schützt eine Einladung innerhalb der Frist das Konto. Angenommene
+     * Einladungen bleiben.
+     */
+    /** Wirksame Frist für nie angenommene Schul-Einladungen in Tagen (null = aus), auch für die Datenschutzerklärung. */
+    public static function tenantInvitationDays(): ?int
+    {
+        $days = config('data_retention.tenant_invitations.days');
+        if (! $days) {
+            return null;
+        }
+        $days = max((int) $days, InvitationAcceptance::VALID_DAYS);
+        if (config('data_retention.unclaimed_accounts.enabled')) {
+            $days = max($days, (int) config('data_retention.unclaimed_accounts.days'));
+        }
+
+        return $days;
+    }
+
+    private function pruneTenantInvitations(bool $dryRun): void
+    {
+        $days = self::tenantInvitationDays();
+        if (! $days) {
+            $this->line('Schul-Einladungen: Aufräumen deaktiviert (DATA_RETENTION_TENANT_INVITATION_DAYS).');
+
+            return;
+        }
+
+        $query = DB::table('tenant_invitation')->whereNull('accepted_at')->where('created_at', '<', now()->subDays($days));
+
+        if ($dryRun) {
+            $this->line("Schul-Einladungen: {$query->count()} nie angenommene älter als {$days} Tage würden gelöscht.");
+
+            return;
+        }
+
+        $this->line("Schul-Einladungen: {$query->delete()} nie angenommene gelöscht.");
+    }
+
+    /**
      * Löschkonzept Nr. 20: erledigte Shop-Ereignisse nach der Frist löschen.
      * Nie Ausgangs-Ereignisse, die noch warten („pending“), gerade gesendet
      * werden („sending“) oder endgültig fehlgeschlagen sind („failed“, im
@@ -262,7 +307,8 @@ class PrunePersonalData extends Command
      * nach dem letzten Bezug entfernen. Maßgeblich ist der späteste Zeitpunkt
      * aus letzter Änderung der Anmeldung, fixiertem Prüfungstermin und allen
      * Terminen (Beginn, Ende, letzte Rückmeldung) -- ein noch anstehender
-     * Termin schützt die Anmeldung also immer. Die Zeile bleibt (Zählungen in
+     * Termin schützt die Anmeldung also immer, ebenso ein aktiver Zugang
+     * der Person zum Kurs der Anmeldung. Die Zeile bleibt (Zählungen in
      * der Übersicht, „bereits angemeldet“, Termine mit Zeitpunkten); geleert
      * werden die Antworten (data), die Freitext-Rückmeldungen zu den
      * Terminen und die Kopien davon im Änderungsprotokoll.
@@ -283,6 +329,12 @@ class PrunePersonalData extends Command
             ->whereRaw('GREATEST(s.updated_at, s.created_at, s.confirmed_exam_date, (
                 SELECT MAX(GREATEST(a.exam_date, a.ends_at, a.responded_at, a.updated_at))
                 FROM praxis_exam_appointment a WHERE a.praxis_form_submission_id = s.id)) < ?', [$cutoff])
+            // Review: solange die Person noch einen aktiven Zugang zu diesem
+            // Kurs hat, bleibt die Anmeldung vollständig (sie kann sich z. B.
+            // nach einer nicht bestandenen Prüfung erneut anmelden).
+            ->whereNotExists(fn ($e) => $e->from('entitlement as en')->whereColumn('en.tenant_id', 's.tenant_id')
+                ->whereColumn('en.user_id', 's.user_id')->whereColumn('en.course_id', 's.course_id')->where('en.status', 'active')
+                ->where(fn ($q) => $q->whereNull('en.valid_until')->orWhere('en.valid_until', '>', now())))
             // Nur, wo noch etwas zu entfernen ist (Kennzeichen zählen nicht).
             ->where(fn ($q) => $q->whereRaw("(s.data - ? - ?) <> '{}'::jsonb", [$practiceOnly, $marker])
                 ->orWhereExists(fn ($e) => $e->from('praxis_exam_appointment as c')->whereColumn('c.praxis_form_submission_id', 's.id')->whereNotNull('c.response_comment')))
@@ -310,7 +362,7 @@ class PrunePersonalData extends Command
     }
 
     /** Kennzeichen in praxis_form_submission.data: Formularangaben nach der Frist entfernt (Datum). */
-    public const PRAXIS_REMOVED_KEY = '_angaben_entfernt_am';
+    public const PRAXIS_REMOVED_KEY = PraxisFormSubmission::ANSWERS_REMOVED_KEY;
 
     /**
      * Löschkonzept Nr. 17: Lieferadresse einer Willkommensbox N Tage nach dem

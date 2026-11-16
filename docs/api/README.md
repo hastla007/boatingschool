@@ -230,10 +230,12 @@ POST /auth/login {email, password, device_name, device_platform?, app_version?}
   zeigt dann die Checkbox „Ich bin mindestens 16 Jahre alt oder meine
   Erziehungsberechtigten sind einverstanden.“ und sendet erneut. Gefragt wird
   erst bei gültigem Token; bereits bestätigte Konten und ein normales
-  Zurücksetzen brauchen das Feld nicht. `user.age_confirmed` (Anmeldung,
+  Zurücksetzen brauchen das Feld nicht (dort wird es auch nicht gespeichert,
+  wie im Web). `user.age_confirmed` (Anmeldung,
   `GET /me`) zeigt den Stand.
 * **Links aus Mails in der App** (Universal Links/App Links, siehe
-  Abschnitt 13): Passwort festlegen/zurücksetzen (`/reset-password/{token}?email=…`,
+  Abschnitt 13; standardmäßig nur die Kontolöschung, die übrigen erst mit
+  dem empfohlenen Wert von `MOBILE_API_APP_LINK_PATHS`): Passwort festlegen/zurücksetzen (`/reset-password/{token}?email=…`,
   bei Einladungen mit `&invite=1`) → `POST /auth/password/reset`. Einladung
   eines bestehenden Kontos (`/invitations/…/accept/…`) und E-Mail-Bestätigung
   (`/verify-email/…`) haben keinen API-Endpunkt: die App öffnet sie im
@@ -841,8 +843,11 @@ entscheidet aber nur anhand von `code`.
     `/.well-known/assetlinks.json` aus. Ohne Werte gibt es beide Dateien
     nicht (404), der Link öffnet dann immer die Webseite.
   * `MOBILE_API_APP_LINK_PATHS` (kommagetrennt, `*` als Platzhalter): Pfade
-    für iOS. Standard: der Löschpfad, `/reset-password/*`,
-    `/invitations/*/accept/*` und `/verify-email/*/*`; alle außer dem
+    für iOS. Standard: nur der Löschpfad (das kann jede veröffentlichte
+    App-Version). Empfohlen, sobald die App auch die übrigen Mail-Links
+    verarbeitet:
+    `/app/konto-loeschen,/reset-password/*,/invitations/*/accept/*,/verify-email/*/*`
+    (`AppLinkAssociationController::recommendedPathsValue()`); alle außer dem
     Löschpfad automatisch auch als `/*/…` (Pfad-Modus `/<slug>/…`). Die App
     braucht zusätzlich die Associated Domain `applinks:<zentrale Domain>`
     bzw. einen Intent-Filter mit `autoVerify` für dieselben Pfade (Android
@@ -901,7 +906,8 @@ entscheidet aber nur anhand von `code`.
   Ein erneuter Lauf ist idempotent über `source_key` und übernimmt Status,
   Zeitraum, Funktion und Herkunft (z. B. eine Sperre nach dem ersten Import);
   in Laravel widerrufene oder dort gesperrte Zugänge schaltet er nicht wieder
-  frei. Zugänge, die im neuen Export fehlen, bleiben unverändert.
+  frei, und eine in Laravel aufgehobene WP-Sperre bleibt aufgehoben, solange
+  WP unverändert `suspended` meldet (Aktion „nicht ändern“). Zugänge, die im neuen Export fehlen, bleiben unverändert.
   `--dry-run` prüft dieselben Regeln, zeigt je Zugang die geplante Aktion
   (neu/aktualisieren/unverändert) und speichert nichts. Der Export enthält
   E-Mail-Adressen.

@@ -9,10 +9,17 @@ use Illuminate\Support\Facades\Route;
 
 /**
  * Zuordnungsdateien für Universal Links (iOS) und App Links (Android): Ist
- * die App installiert, öffnet sie die Links aus unseren Mails direkt
- * (Bestätigung der Kontolöschung, Passwort festlegen/zurücksetzen,
- * Einladung annehmen, E-Mail-Adresse bestätigen), sonst landen sie im
- * Browser. Pfade: config/mobile_api.php, app_links.paths; ohne App-Werte 404.
+ * die App installiert, öffnet sie die Links aus unseren Mails direkt, sonst
+ * landen sie im Browser. Pfade: config/mobile_api.php, app_links.paths; ohne
+ * App-Werte 404.
+ *
+ * Standard ist nur die Bestätigung der Kontolöschung -- die kann jede
+ * veröffentlichte App-Version. Passwort festlegen/zurücksetzen, Einladung
+ * annehmen und E-Mail bestätigen kommen erst dazu, wenn die App sie
+ * verarbeiten kann (sonst öffnete ein installierter, älterer Stand diese
+ * Links statt der Webseite und liefe ins Leere): dafür
+ * MOBILE_API_APP_LINK_PATHS auf recommendedPathsValue() setzen
+ * (deploy/README.md, Abschnitt 10).
  *
  * Auf welchen Hosts: Alle diese Mails bauen ihre Links über CanonicalUrl
  * (AccountSetupLink, ResetPassword/VerifyEmail in AppServiceProvider,
@@ -26,8 +33,8 @@ use Illuminate\Support\Facades\Route;
  */
 class AppLinkAssociationController extends Controller
 {
-    /** Standard-Pfade außer der Kontolöschung: Routennamen samt Hinweis für Apple. */
-    private const DEFAULT_ROUTES = [
+    /** Empfohlene Pfade außer der Kontolöschung (nicht Standard, s. o.): Routennamen samt Hinweis für Apple. */
+    private const RECOMMENDED_ROUTES = [
         'password.reset' => 'Passwort festlegen oder zurücksetzen',
         'invitations.accept' => 'Einladung annehmen',
         'verification.verify' => 'E-Mail-Adresse bestätigen',
@@ -40,12 +47,15 @@ class AppLinkAssociationController extends Controller
         $appIds = self::list(config('mobile_api.app_links.ios_app_ids'));
         $host = $this->servedHost($request);
         abort_if($appIds === [] || $host === null, 404);
+        // Schul-Subdomain mit nur der Kontolöschung (Standard): nichts zu öffnen.
+        $components = self::components($host === 'central');
+        abort_if($components === [], 404);
 
         return $this->json([
             'applinks' => [
                 'details' => [[
                     'appIDs' => $appIds,
-                    'components' => self::components($host === 'central'),
+                    'components' => $components,
                 ]],
             ],
         ]);
@@ -70,9 +80,34 @@ class AppLinkAssociationController extends Controller
     }
 
     /**
+     * Empfohlene Pfade für eine App, die alle Links aus den Mails verarbeiten
+     * kann: Kontolöschung plus die Pfade der Routen aus RECOMMENDED_ROUTES
+     * (Routenparameter als „*“).
+     *
+     * @return array<string, string> Pfad => Hinweis
+     */
+    public static function recommendedPaths(): array
+    {
+        $paths = [AppAccountDeletion::confirmationPath() => self::DELETION_COMMENT];
+        foreach (self::RECOMMENDED_ROUTES as $name => $comment) {
+            $route = Route::getRoutes()->getByName($name);
+            if ($route) {
+                $paths['/'.preg_replace('/\{[^}]+\}/', '*', trim($route->uri(), '/'))] = $comment;
+            }
+        }
+
+        return $paths;
+    }
+
+    /** Wert für MOBILE_API_APP_LINK_PATHS mit allen empfohlenen Pfaden (siehe deploy/README.md, Abschnitt 10). */
+    public static function recommendedPathsValue(): string
+    {
+        return implode(',', array_keys(self::recommendedPaths()));
+    }
+
+    /**
      * Konfigurierte Pfade (MOBILE_API_APP_LINK_PATHS, kommagetrennt) oder
-     * die Standardliste: Kontolöschung plus die Pfade der Routen aus
-     * DEFAULT_ROUTES (Routenparameter als „*“).
+     * der Standard: nur die Bestätigung der Kontolöschung.
      *
      * @return array<string, string> Pfad => Hinweis
      */
@@ -80,22 +115,15 @@ class AppLinkAssociationController extends Controller
     {
         $deletion = AppAccountDeletion::confirmationPath();
         $configured = self::list(config('mobile_api.app_links.paths'));
-        if ($configured !== []) {
-            $paths = [];
-            foreach ($configured as $path) {
-                $path = '/'.ltrim($path, '/');
-                $paths[$path] = $path === $deletion ? self::DELETION_COMMENT : 'Link aus einer Mail';
-            }
-
-            return $paths;
+        if ($configured === []) {
+            return [$deletion => self::DELETION_COMMENT];
         }
 
-        $paths = [$deletion => self::DELETION_COMMENT];
-        foreach (self::DEFAULT_ROUTES as $name => $comment) {
-            $route = Route::getRoutes()->getByName($name);
-            if ($route) {
-                $paths['/'.preg_replace('/\{[^}]+\}/', '*', trim($route->uri(), '/'))] = $comment;
-            }
+        $known = self::recommendedPaths();
+        $paths = [];
+        foreach ($configured as $path) {
+            $path = '/'.ltrim($path, '/');
+            $paths[$path] = $known[$path] ?? 'Link aus einer Mail';
         }
 
         return $paths;

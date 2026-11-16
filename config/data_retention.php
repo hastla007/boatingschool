@@ -56,6 +56,17 @@ return [
         'days' => env('DATA_RETENTION_UNCLAIMED_ACCOUNTS_DAYS', 90),
     ],
 
+    // Nie angenommene Einladungen einer Schule (tenant_invitation, Name und
+    // E-Mail der eingeladenen Person, ggf. reservierter Code): gültig sind
+    // sie 7 Tage (InvitationAcceptance::VALID_DAYS), gelöscht werden sie N
+    // Tage nach dem Anlegen -- standardmäßig 90 wie die nie aktivierten
+    // Konten (mindestens so lange wie diese Frist, solange sie aktiv ist:
+    // eine Einladung ist dort der Nachweis „kürzlich eingeladen“).
+    // Angenommene Einladungen bleiben (Nachweis der Annahme). 0 = aus.
+    'tenant_invitations' => [
+        'days' => (int) env('DATA_RETENTION_TENANT_INVITATION_DAYS', 90) > 0 ? (int) env('DATA_RETENTION_TENANT_INVITATION_DAYS', 90) : null,
+    ],
+
     // Lernende ohne Anmeldung und ohne Lernaktivität seit N Monaten und ohne
     // aktiven Kurszugang: Vorwarnung per Mail, 30 Tage später Löschung über
     // AccountErasureService (app:prune-inactive-learners, täglich).

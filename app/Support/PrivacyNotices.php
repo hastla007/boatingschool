@@ -2,8 +2,10 @@
 
 namespace App\Support;
 
+use App\Console\Commands\PrunePersonalData;
 use App\Http\Controllers\Api\V1\AccountDeletionController;
 use App\Http\Controllers\Api\V1\WebSessionController;
+use App\Services\InvitationAcceptance;
 use App\Services\LearningGroupService;
 
 /**
@@ -161,7 +163,7 @@ class PrivacyNotices
         $days = AccountDeletionController::CONFIRMATION_DAYS;
 
         return '**Konto löschen in der App:** Beantragst du in der Lern-App die Löschung deines Kontos, schicken wir dir eine E-Mail mit einem Bestätigungslink. '
-            ."Erst mit der Bestätigung (in der App oder auf einer Webseite) löschen wir deine Mitgliedschaft und alle Lerndaten bei dieser Bootsschule sofort, bist du bei keiner anderen Bootsschule mehr angemeldet, auch dein Konto. Der Link gilt {$days} Tage; ein nicht bestätigter Antrag wird danach gelöscht. "
+            ."Erst mit der Bestätigung (in der App oder auf einer Webseite) löschen wir deine Mitgliedschaft und alle Lerndaten bei dieser Bootsschule sofort. Bist du bei keiner anderen Bootsschule angemeldet, löschen wir auch dein Konto. Der Link gilt {$days} Tage; ein nicht bestätigter Antrag wird danach gelöscht. "
             .'Im Änderungsprotokoll der Bootsschule bleibt nur ein Eintrag ohne Angaben zu deiner Person, dass ein Konto gelöscht wurde. Grundlage ist die Erfüllung deines Rechts auf Löschung (Art. 6 Abs. 1 lit. c i. V. m. Art. 17 DSGVO).';
     }
 
@@ -178,6 +180,9 @@ class PrivacyNotices
         }
         if (config('data_retention.unclaimed_accounts.enabled')) {
             $items[] = '**Nie angenommene Einladungen:** '.(int) config('data_retention.unclaimed_accounts.days').' Tage.';
+        }
+        if ($invitationDays = PrunePersonalData::tenantInvitationDays()) {
+            $items[] = '**Einladungen einer Bootsschule, die du nicht annimmst:** '.$invitationDays.' Tage (gültig sind sie '.InvitationAcceptance::VALID_DAYS.' Tage).';
         }
         if (config('data_retention.sessions.enabled')) {
             $items[] = '**Anmeldesitzungen im Browser:** '.(int) config('data_retention.sessions.days').' Tage nach der letzten Nutzung.';

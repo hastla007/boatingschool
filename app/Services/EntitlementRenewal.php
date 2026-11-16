@@ -34,6 +34,7 @@ class EntitlementRenewal
             ->where('is_renewal', true)
             ->whereNull('redeemed_at')
             ->usable()
+            ->notReservedForInvitation($tenant->id)
             ->oldest()
             ->lock('for update skip locked')
             ->first();
@@ -63,6 +64,6 @@ class EntitlementRenewal
     public function freeCodes(Tenant $tenant, string $courseId): int
     {
         return Coupon::where('tenant_id', $tenant->id)->where('course_id', $courseId)->where('is_renewal', true)
-            ->whereNull('redeemed_at')->usable()->count();
+            ->whereNull('redeemed_at')->usable()->notReservedForInvitation($tenant->id)->count();
     }
 }

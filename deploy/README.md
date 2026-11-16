@@ -514,18 +514,27 @@ ebenfalls Redis.
 
 ## 10. App-Deep-Links (Lernenden-App)
 
-Damit Links aus Mails (Kontolöschung aus der App, Passwort festlegen/zurücksetzen, Einladung
-annehmen, E-Mail bestätigen) direkt in der App öffnen, liefert die Plattform ohne Weiterleitung
-und als JSON (`Cache-Control: public, max-age=3600`):
+Damit Links aus Mails (Kontolöschung aus der App, optional auch Passwort festlegen/zurücksetzen,
+Einladung annehmen, E-Mail bestätigen) direkt in der App öffnen, liefert die Plattform ohne
+Weiterleitung und als JSON (`Cache-Control: public, max-age=3600`):
 
 - `/.well-known/apple-app-site-association` (iOS Universal Links), wenn `MOBILE_API_IOS_APP_IDS`
   gesetzt ist: `<Team-ID>.<Bundle-ID>`, mehrere kommagetrennt. Die Pfade kommen aus
   `MOBILE_API_APP_LINK_PATHS` (kommagetrennt, `*` als Platzhalter). Leer gilt der Standard:
-  `MOBILE_API_DELETION_CONFIRMATION_PATH` (Standard `/app/konto-loeschen`), `/reset-password/*`
-  (Passwort festlegen nach Einladung und zurücksetzen), `/invitations/*/accept/*` (Einladung
-  eines bestehenden Kontos) und `/verify-email/*/*` (E-Mail-Bestätigung). Jeder Pfad außer der
-  Kontolöschung steht zusätzlich mit Schul-Slug davor (`/*/reset-password/*` usw.,
-  Pfad-Modus `/<slug>/…`).
+  **nur** `MOBILE_API_DELETION_CONFIRMATION_PATH` (Standard `/app/konto-loeschen`) -- die
+  Bestätigung der Kontolöschung kann jede veröffentlichte App-Version. Erst wenn die App auch die
+  übrigen Mail-Links verarbeitet (sonst öffnete ein installierter älterer Stand sie statt der
+  Webseite), den empfohlenen Wert setzen
+  (`AppLinkAssociationController::recommendedPathsValue()`):
+
+  ```
+  MOBILE_API_APP_LINK_PATHS=/app/konto-loeschen,/reset-password/*,/invitations/*/accept/*,/verify-email/*/*
+  ```
+
+  `/reset-password/*` (Passwort festlegen nach Einladung und zurücksetzen),
+  `/invitations/*/accept/*` (Einladung eines bestehenden Kontos), `/verify-email/*/*`
+  (E-Mail-Bestätigung). Jeder Pfad außer der Kontolöschung steht zusätzlich mit Schul-Slug davor
+  (`/*/reset-password/*` usw., Pfad-Modus `/<slug>/…`).
 - `/.well-known/assetlinks.json` (Android App Links), wenn `MOBILE_API_ANDROID_PACKAGE` und
   `MOBILE_API_ANDROID_SHA256_FINGERPRINTS` gesetzt sind (SHA-256-Fingerabdrücke des
   Signaturzertifikats aus der Play Console, App-Signatur und ggf. Upload-Schlüssel,
@@ -533,7 +542,8 @@ und als JSON (`Cache-Control: public, max-age=3600`):
   der App (`android:autoVerify="true"`, `pathPattern`/`pathAdvancedPattern`).
 
 **Auf welchen Hosts:** auf der zentralen Domain und nur bei `TENANT_URL_MODE=subdomain` auch auf
-den Subdomains der Schulen (`<slug>.lernen.example.de`, ohne den Pfad der Kontolöschung). Auf
+den Subdomains der Schulen (`<slug>.lernen.example.de`, ohne den Pfad der Kontolöschung -- mit dem
+Standard antwortet die iOS-Datei dort also mit 404). Auf
 eigenen Domains der Schulen nicht: alle diese Mails verlinken immer auf die zentrale Domain bzw.
 die Schul-Subdomain (`CanonicalUrl`), nie auf die eigene Domain. Die App braucht entsprechend
 die Associated Domain `applinks:lernen.example.de` (im Subdomain-Modus zusätzlich

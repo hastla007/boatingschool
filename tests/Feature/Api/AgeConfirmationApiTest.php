@@ -118,10 +118,12 @@ class AgeConfirmationApiTest extends MobileApiTestCase
             ->assertNoContent();
         $this->assertNull($this->onAdmin(fn () => User::find($legacy->id)->age_confirmed_at));
 
-        // ... übernimmt eine mitgeschickte Bestätigung aber.
+        // ... und speichert auch eine mitgeschickte Bestätigung nicht: die
+        // gilt wie im Web (NewPasswordController) nur beim Aktivieren eines
+        // eingeladenen Kontos.
         $token = $this->onAdmin(fn () => Password::broker()->createToken(User::find($legacy->id)));
         $this->postJson('/api/v1/auth/password/reset', ['email' => $legacy->email, 'token' => $token, 'password' => self::PASSWORD.'x', 'password_confirmation' => self::PASSWORD.'x', 'age_confirmed' => true])
             ->assertNoContent();
-        $this->assertNotNull($this->onAdmin(fn () => User::find($legacy->id)->age_confirmed_at));
+        $this->assertNull($this->onAdmin(fn () => User::find($legacy->id)->age_confirmed_at));
     }
 }

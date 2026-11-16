@@ -181,11 +181,25 @@ class Coupon extends Model
         return $query->usable()->where('coupon.tenant_id', $tenantId)->whereNotNull('coupon.course_id')
             ->whereNull('coupon.product_id')->where('coupon.is_renewal', false)
             ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('coupon_option_product')->whereColumn('coupon_option_product.coupon_id', 'coupon.id'))
-            ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('tenant_invitation')
-                ->where('tenant_invitation.tenant_id', $tenantId)->whereColumn('tenant_invitation.coupon_code', 'coupon.code')
-                // Wie TenantInvitation::scopeOpen(): nicht angenommen, nicht abgelaufen.
-                ->whereNull('tenant_invitation.accepted_at')
-                ->where('tenant_invitation.created_at', '>=', now()->subDays(InvitationAcceptance::VALID_DAYS)));
+            ->notReservedForInvitation($tenantId);
+    }
+
+    /**
+     * Ohne Codes, die gerade für eine offene Einladung der Schule reserviert
+     * sind (TenantInvitation.coupon_code, siehe InvitationCoupon). Gilt
+     * überall, wo ein freier Code automatisch gewählt oder als „frei“ gezählt
+     * wird (Kurs freischalten, Widerruf aufheben, Verlängern, Lerngruppen,
+     * Übersicht) -- sonst verbrauchte z. B. eine manuelle Freischaltung den
+     * reservierten Code, und die eingeladene Person bekäme beim Annehmen
+     * stillschweigend keinen Kurszugang.
+     */
+    public function scopeNotReservedForInvitation($query, string $tenantId)
+    {
+        return $query->whereNotExists(fn ($q) => $q->selectRaw('1')->from('tenant_invitation')
+            ->where('tenant_invitation.tenant_id', $tenantId)->whereColumn('tenant_invitation.coupon_code', 'coupon.code')
+            // Wie TenantInvitation::scopeOpen(): nicht angenommen, nicht abgelaufen.
+            ->whereNull('tenant_invitation.accepted_at')
+            ->where('tenant_invitation.created_at', '>=', now()->subDays(InvitationAcceptance::VALID_DAYS)));
     }
 
     /**

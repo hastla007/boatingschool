@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 class PraxisFormSubmission extends Model
@@ -61,6 +62,21 @@ class PraxisFormSubmission extends Model
      * Prüfung anmelden (ExamRegistration::SELF).
      */
     public const PRACTICE_ONLY_KEY = '_nur_praxisstunden';
+
+    /**
+     * Kennzeichen in data: Formularangaben nach Ablauf der Speicherfrist
+     * entfernt (Datum, app:prune-personal-data, Löschkonzept Nr. 16).
+     */
+    public const ANSWERS_REMOVED_KEY = '_angaben_entfernt_am';
+
+    /** Datum, an dem die Formularangaben nach der Speicherfrist entfernt wurden (sonst null). */
+    public function answersRemovedOn(): ?string
+    {
+        $date = ($this->data ?? [])[self::ANSWERS_REMOVED_KEY] ?? null;
+
+        return is_string($date) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)
+            ? Carbon::parse($date)->format('d.m.Y') : null;
+    }
 
     public function isPracticeOnly(): bool
     {

@@ -18,6 +18,10 @@
             {{ $submission->user->display_name ?? $submission->user->email }} &mdash; {{ $submission->course->name ?? '—' }}
         </p>
 
+        @if ($submission->answersRemovedOn())
+            <p class="text-sm text-slate-500 dark:text-slate-400 italic mb-4">Angaben am {{ $submission->answersRemovedOn() }} nach Ablauf der Speicherfrist entfernt.</p>
+        @endif
+
         <form method="POST" action="{{ route('admin.praxis-form-submissions.update', $submission) }}" class="space-y-5">
             @csrf
             @method('PATCH')

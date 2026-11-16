@@ -10,6 +10,7 @@ use App\Models\PraxisFormTemplate;
 use App\Models\Product;
 use App\Models\ProductPurchase;
 use App\Models\Tenant;
+use App\Models\TenantInvitation;
 use App\Models\User;
 use App\Models\WillkommensboxOrder;
 use App\Support\PrivacyNotices;
@@ -302,6 +303,92 @@ class PrunePersonalDataRetentionTest extends TestCase
         $this->assertSame('Erika', $row->data['vorname']);
     }
 
+    public function test_an_active_course_access_protects_an_old_praxis_registration(): void
+    {
+        config(['data_retention.praxis_submissions.months' => 12]);
+        [$tenant, $learner, $template] = $this->praxisSetup();
+        $protected = $this->submission($tenant, $learner, $template, 'SBF-SEE', ['vorname' => 'Erika'], 14, 13);
+        $other = $this->submission($tenant, $learner, $template, 'UBI', ['vorname' => 'Erika'], 14, 13);
+        $entitlement = $this->grantEntitlement($tenant, $learner, $this->existingCourse('SBF-SEE'));
+
+        $this->artisan('app:prune-personal-data')->assertExitCode(0);
+        $this->assertSame('Erika', $this->fresh($protected)[0]->data['vorname'], 'aktiver Zugang zum Kurs schützt');
+        $this->assertSame([PrunePersonalData::PRAXIS_REMOVED_KEY => '2026-06-15'], $this->fresh($other)[0]->data, 'anderer Kurs ohne Zugang');
+
+        // Zugang abgelaufen: danach wird auch diese Anmeldung anonymisiert.
+        $this->onAdmin(fn () => DB::table('entitlement')->where('id', $entitlement->id)->update(['status' => 'expired', 'valid_from' => now()->subDays(10), 'valid_until' => now()->subDay()]));
+        $this->artisan('app:prune-personal-data')->assertExitCode(0);
+        $this->assertSame([PrunePersonalData::PRAXIS_REMOVED_KEY => '2026-06-15'], $this->fresh($protected)[0]->data);
+    }
+
+    public function test_removed_praxis_answers_are_explained_where_they_were_shown(): void
+    {
+        config(['data_retention.praxis_submissions.months' => 12]);
+        [$tenant, $learner, $template] = $this->praxisSetup();
+        $this->onAdmin(fn () => PraxisFormTemplate::whereKey($template->id)->update([
+            'fields' => json_encode([['key' => 'vorname', 'label' => 'Vorname', 'type' => 'text', 'required' => true]]),
+        ]));
+        $admin = $this->createTenantUser($tenant, 'admin');
+        $submission = $this->submission($tenant, $learner, $template, 'SBF-SEE', ['vorname' => 'Erika'], 14, 13);
+        $this->artisan('app:prune-personal-data')->assertExitCode(0);
+        $this->travelBack();
+        $hint = 'Angaben am 15.06.2026 nach Ablauf der Speicherfrist entfernt.';
+
+        $this->actingAsInTenant($admin, $tenant)->get(route('admin.praxis-form-submissions.show', $submission))->assertOk()->assertSee($hint)->assertDontSee('Erika');
+        $this->actingAsInTenant($admin, $tenant)->get("/admin/participants/{$learner->id}")->assertOk()->assertSee($hint);
+        $this->actingAsInTenant($admin, $tenant)->get(route('admin.praxis-form-submissions.edit', $submission))->assertOk()->assertSee($hint);
+
+        // Lernende sehen auf „Praxis & Prüfung“ (Zustand „angemeldet“) denselben Hinweis.
+        [$row] = $this->fresh($submission);
+        $html = $this->asTenant($tenant, function () use ($learner, $row, $template) {
+            $this->actingAs($learner);
+
+            return view('praxis-pruefung.index', ['course' => $this->existingCourse('SBF-SEE'), 'state' => 'submitted', 'template' => $template->fresh(), 'submission' => $row])->render();
+        });
+        $this->assertStringContainsString($hint, $html);
+    }
+
+    // ---------------------------------------------------------------- Schul-Einladungen
+
+    public function test_never_accepted_tenant_invitations_are_deleted_after_ninety_days(): void
+    {
+        $this->assertSame(90, config('data_retention.tenant_invitations.days'));
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'owner');
+        $make = function (int $daysAgo, bool $accepted) use ($tenant, $admin): string {
+            return $this->onAdmin(function () use ($tenant, $admin, $daysAgo, $accepted) {
+                $invitation = TenantInvitation::create([
+                    'tenant_id' => $tenant->id, 'email' => 'frist-'.Str::lower(Str::random(8)).'@example.test', 'role' => 'learner',
+                    'invited_by_user_id' => $admin->id, 'accepted_at' => $accepted ? now()->subDays($daysAgo) : null,
+                ]);
+                DB::table('tenant_invitation')->where('id', $invitation->id)->update(['created_at' => now()->subDays($daysAgo)]);
+
+                return $invitation->id;
+            });
+        };
+        $old = $make(91, false);
+        $young = $make(89, false);
+        $acceptedOld = $make(400, true);
+        $exists = fn (string $id) => $this->onAdmin(fn () => DB::table('tenant_invitation')->where('id', $id)->exists());
+
+        $this->artisan('app:prune-personal-data --dry-run')->expectsOutputToContain('Schul-Einladungen:')->assertExitCode(0);
+        $this->assertTrue($exists($old));
+
+        $this->artisan('app:prune-personal-data')->assertExitCode(0);
+        $this->assertFalse($exists($old));
+        $this->assertTrue($exists($young));
+        $this->assertTrue($exists($acceptedOld), 'angenommene Einladungen bleiben');
+
+        // Nie kürzer als die Frist für nie aktivierte Konten (dort Nachweis „kürzlich eingeladen“).
+        config(['data_retention.tenant_invitations.days' => 30, 'data_retention.unclaimed_accounts.enabled' => true, 'data_retention.unclaimed_accounts.days' => 90]);
+        $this->assertSame(90, PrunePersonalData::tenantInvitationDays());
+        config(['data_retention.tenant_invitations.days' => null]);
+        $this->assertNull(PrunePersonalData::tenantInvitationDays());
+        $this->assertStringNotContainsString('Einladungen einer Bootsschule', PrivacyNotices::retention());
+        config(['data_retention.tenant_invitations.days' => 90]);
+        $this->assertStringContainsString('Einladungen einer Bootsschule, die du nicht annimmst:** 90 Tage', PrivacyNotices::retention());
+    }
+
     // ---------------------------------------------------------------- Willkommensbox
 
     private function order(Tenant $tenant, User $user, ?int $shippedDaysAgo): WillkommensboxOrder
@@ -384,6 +471,28 @@ class PrunePersonalDataRetentionTest extends TestCase
             ->get(route('admin.dashboard', ['tab' => 'willkommensbox']))
             ->assertOk()
             ->assertSee('Adresse nach Versand gelöscht (Löschfrist)');
+    }
+
+    public function test_participant_page_and_label_show_a_removed_address_as_such(): void
+    {
+        config(['data_retention.willkommensbox_addresses.days' => 30]);
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'admin');
+        $learner = $this->createTenantUser($tenant);
+        $order = $this->order($tenant, $learner, 31);
+        $this->artisan('app:prune-personal-data')->assertExitCode(0);
+        $this->travelBack();
+
+        $page = $this->actingAsInTenant($admin, $tenant)->get("/admin/participants/{$learner->id}")->assertOk();
+        $page->assertSee('Adresse nach Versand gelöscht (Löschfrist)')->assertDontSee('Lieferstraße');
+        $page->assertDontSee(route('admin.willkommensbox-orders.label', [$order->id, 'a6']), false);
+
+        // Das Label (auch direkt aufgerufen) druckt keine leere Empfängeradresse.
+        $order = $this->freshOrder($order)->load('user');
+        foreach (['a6', 'a4'] as $size) {
+            $html = view('admin.willkommensbox.label', ['order' => $order, 'branding' => $tenant->branding, 'tenant' => $tenant, 'size' => $size])->render();
+            $this->assertStringContainsString('Adresse nach Versand gelöscht (Löschfrist)', $html);
+        }
     }
 
     public function test_learner_page_explains_the_removed_address(): void
