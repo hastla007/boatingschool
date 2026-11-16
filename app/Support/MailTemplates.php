@@ -18,6 +18,7 @@ class MailTemplates
         'account_invitation' => ['label' => 'Einladung mit neuem Konto (Passwort festlegen)', 'subject' => 'Einladung zu {schule}', 'placeholders' => ['schule', 'rolle']],
         'invitation' => ['label' => 'Einladung in eine Bootsschule (bestehendes Konto)', 'subject' => 'Einladung zu {schule}', 'placeholders' => ['schule']],
         'entitlement_expiring' => ['label' => 'Kurszugang läuft bald ab', 'subject' => 'Dein Kurszugang läuft am {datum} ab', 'placeholders' => ['schule', 'kurs', 'datum']],
+        'group_entitlement_expiring' => ['label' => 'Zugang über eine Lerngruppe endet bald', 'subject' => 'Dein Zugang über die Lerngruppe endet am {datum}', 'placeholders' => ['schule', 'kurs', 'gruppe', 'datum']],
         'coupon_redeemed' => ['label' => 'Code eingelöst / Kurs freigeschaltet', 'subject' => 'Dein Kurs ist freigeschaltet', 'placeholders' => ['kurs']],
         'willkommensbox_shipped' => ['label' => 'Willkommensbox versendet', 'subject' => 'Deine Willkommensbox ist unterwegs', 'placeholders' => []],
         'learning_reminder' => ['label' => 'Erinnerung ans Lernen (inaktive Teilnehmer)', 'subject' => 'Weiterlernen bei {schule}', 'placeholders' => ['schule', 'tage']],

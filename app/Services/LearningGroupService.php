@@ -610,6 +610,12 @@ class LearningGroupService
         return 'group:'.$group->id.':'.$member->id;
     }
 
+    /** Gruppen-ID aus entitlement.source_reference (group:<Gruppe>:<Mitglied>), sonst null. */
+    public static function groupIdFromReference(?string $reference): ?string
+    {
+        return preg_match('/^group:([0-9a-f-]{36}):[0-9a-f-]{36}$/i', (string) $reference, $m) ? $m[1] : null;
+    }
+
     private function revokeEntitlements(LearningGroup $group, LearningGroupMember $member): void
     {
         Entitlement::where('tenant_id', $group->tenant_id)->where('source_type', 'group')
