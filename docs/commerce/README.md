@@ -15,6 +15,7 @@ oder in der App ein (`POST /api/v1/coupons/redeem`).
 | Code-Erzeugung | `app/Services/CouponBatchFactory.php` – ein Weg für Shop-Lieferungen und Superadmin „Codes erzeugen“ |
 | Datenmodell | Migration `2024_02_01_000610_create_commerce_tables` (RLS je Schule auf Batches, Verknüpfungscodes und Shopkonten), `000630` (Superadmin-Pakete), `000631` (`commerce_event.claimed_at`), `000632` (`product.sellable_standalone`) |
 | WooCommerce-Plugin | `integrations/woocommerce-connector/` |
+| Aufgaben zu Connectoren und Lizenz (Entscheidung 17, Stand 16.11.2026) | [connectoren-aufgaben.md](connectoren-aufgaben.md) |
 | Konfiguration | `config/commerce.php`, `.env` (`COMMERCE_*`) |
 | Tests | `tests/Feature/Commerce/`, `tests/Unit/ConnectorSignatureCompatibilityTest.php`, `tests/Unit/ConnectorPluginHelpersTest.php`, `tests/Unit/ConnectorVatCheckTest.php`; WordPress-Integrationstest: [wordpress-integrationstest.md](wordpress-integrationstest.md) |
 
@@ -33,6 +34,7 @@ oder in der App ein (`POST /api/v1/coupons/redeem`).
 | Praxiseinheiten | „Große Praxiseinheit ersetzt Kleine“ gilt für Zusatzprodukte eines Kurscodes und für eigene Produktcodes | Gleiche Regel, egal wie gekauft wurde |
 | Rückerstattung/Storno | Sperrt nur **unbenutzte** Codes. Eingelöste Codes bleiben gültig | Lernende verlieren keinen Zugang, den sie schon haben |
 | Alarme | Mail an `COMMERCE_ALERT_EMAIL`, sonst an die Support-Adresse der Plattform. Im Plugin an die Alarm-Adresse des Shops | |
+| Lizenz (Entscheidung 17) | Der WooCommerce-Connector bekommt **keine** Lizenzprüfung (Inhaber, 16.11.2026). Connectoren zu Captain-Plugins sind eigene Lizenzprodukte und liegen im Kunden-Repository, siehe [connectoren-aufgaben.md](connectoren-aufgaben.md) | Eigene Shop-Anbindung, kein Captain-Plugin; eine Lizenzsperre dürfte Zustellung und Storno nicht treffen |
 
 ## Abläufe
 
