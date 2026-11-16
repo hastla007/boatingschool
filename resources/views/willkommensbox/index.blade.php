@@ -23,8 +23,13 @@
             <div class="text-center mb-6">
                 <x-icon name="check-circle" class="w-10 h-10 mx-auto text-emerald-500 mb-3" />
                 <h3 class="font-semibold text-lg text-slate-800 dark:text-white">Deine Willkommensbox ist bestellt.</h3>
-                <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Wir versenden sie an die folgende Adresse.</p>
+                @if ($order->addressRemoved())
+                    <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Sie wurde versendet. Die Lieferadresse haben wir nach Ablauf der Speicherfrist gelöscht.</p>
+                @else
+                    <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Wir versenden sie an die folgende Adresse.</p>
+                @endif
             </div>
+            @unless ($order->addressRemoved())
             <dl class="divide-y divide-slate-100 dark:divide-slate-700 border-t border-b border-slate-100 dark:border-slate-700">
                 <div class="py-2.5 grid grid-cols-2 gap-4 text-sm">
                     <dt class="text-slate-500 dark:text-slate-400">Straße</dt>
@@ -45,6 +50,7 @@
                     </div>
                 @endif
             </dl>
+            @endunless
         </div>
     @elseif ($state === 'form')
         <div class="max-w-2xl mx-auto bg-white dark:bg-slate-800 rounded-2xl shadow-sm p-8">
