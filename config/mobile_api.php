@@ -48,15 +48,24 @@ return [
     // Pfad auf der zentralen Domain, den die App als Universal-/App-Link
     // öffnet (Bestätigungslink der Kontolöschung aus der App).
     'deletion_confirmation_path' => env('MOBILE_API_DELETION_CONFIRMATION_PATH', '/app/konto-loeschen'),
-    // Universal Links (iOS) und App Links (Android) für diesen Pfad: die zentrale
-    // Domain liefert /.well-known/apple-app-site-association bzw.
-    // /.well-known/assetlinks.json nur aus, wenn die Werte gesetzt sind
-    // (kommagetrennt). Ohne installierte App öffnet der Link die Web-Bestätigung.
+    // Universal Links (iOS) und App Links (Android) für die Links aus Mails:
+    // die zentrale Domain (im Subdomain-Modus auch die Schul-Subdomains,
+    // siehe AppLinkAssociationController) liefert
+    // /.well-known/apple-app-site-association bzw. /.well-known/assetlinks.json
+    // nur aus, wenn die Werte gesetzt sind (kommagetrennt). Ohne installierte
+    // App öffnet der Link die Webseite.
     'app_links' => [
         // App-IDs im Format <Team-ID>.<Bundle-ID>, z. B. ABCDE12345.de.example.app
         'ios_app_ids' => env('MOBILE_API_IOS_APP_IDS'),
         'android_package' => env('MOBILE_API_ANDROID_PACKAGE'),
         // SHA-256-Fingerprints des Signaturzertifikats (AA:BB:...)
         'android_sha256_fingerprints' => env('MOBILE_API_ANDROID_SHA256_FINGERPRINTS'),
+        // Pfade, die die App öffnet (kommagetrennt, „*“ als Platzhalter), z. B.
+        // /app/konto-loeschen,/reset-password/*. Leer = Standard: Bestätigung
+        // der Kontolöschung, Passwort festlegen/zurücksetzen
+        // (/reset-password/*), Einladung annehmen (/invitations/*/accept/*),
+        // E-Mail bestätigen (/verify-email/*/*). Jeder Pfad außer der
+        // Kontolöschung gilt automatisch auch mit Schul-Slug davor (/*/…).
+        'paths' => env('MOBILE_API_APP_LINK_PATHS'),
     ],
 ];

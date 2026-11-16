@@ -214,7 +214,14 @@ paths:
       tags: [Auth]
       operationId: resetPassword
       summary: Neues Passwort mit dem Token aus der Mail setzen
-      description: Beendet alle App-Sitzungen des Kontos. `invite=true` für den Link aus einer Einladung (Konto noch nicht aktiviert).
+      description: >-
+        Beendet alle App-Sitzungen des Kontos. `invite=true` für den Link aus einer Einladung
+        (Konto noch nicht aktiviert). Aktiviert das Passwort ein eingeladenes Konto ohne
+        Altersbestätigung (die Einladungen werden dabei angenommen, reservierte Zugangscodes
+        eingelöst), ist `age_confirmed: true` Pflicht – sonst 422 `VALIDATION_FAILED` mit
+        `errors.age_confirmed` („Bitte bestätige, dass du mindestens 16 Jahre alt bist oder
+        deine Erziehungsberechtigten einverstanden sind.“). Gefragt wird erst bei gültigem Token;
+        bestätigte Konten und ein normales Zurücksetzen brauchen das Feld nicht.
       security: []
       requestBody:
         required: true
@@ -229,6 +236,9 @@ paths:
                 password: {type: string, minLength: 10}
                 password_confirmation: {type: string}
                 invite: {type: boolean, default: false}
+                age_confirmed:
+                  type: boolean
+                  description: '„Ich bin mindestens 16 Jahre alt oder meine Erziehungsberechtigten sind einverstanden.“ Einmalig, siehe Beschreibung.'
       responses:
         '204': {description: 'Passwort gesetzt'}
         '422': {$ref: '#/components/responses/Problem'}
@@ -2216,6 +2226,7 @@ components:
         email: {type: string, format: email}
         email_verified: {type: boolean}
         two_factor_enabled: {type: boolean}
+        age_confirmed: {type: boolean, description: 'Mindestalter bzw. Einverständnis der Erziehungsberechtigten bestätigt'}
     Membership:
       type: object
       properties:
