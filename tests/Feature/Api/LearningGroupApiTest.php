@@ -835,6 +835,89 @@ class LearningGroupApiTest extends MobileApiTestCase
         $this->assertNotNull($grant->expiry_reminded_at);
     }
 
+    /** Gerenderter Text der Ablauf-Erinnerung (Betreff + Mail). */
+    private function expiryMailText(User $user): string
+    {
+        $sent = Notification::sent($user, EntitlementExpiringSoon::class)->sole();
+        $mail = $sent->toMail($user);
+
+        return $mail->subject."\n".implode("\n", [...$mail->introLines, (string) $mail->actionText, ...$mail->outroLines]);
+    }
+
+    public function test_pure_group_access_gets_the_group_reminder_without_purchase_hint(): void
+    {
+        Notification::fake();
+        $tenant = $this->createTestTenant();
+        $this->onAdmin(fn () => $tenant->branding()->update(['renewal_webshop_link' => 'https://shop.example.test/verlaengerung']));
+        $owner = $this->createTenantUser($tenant, 'learner');
+        $user = $this->createTenantUser($tenant, 'learner');
+        $group = $this->group($tenant, $owner, ['seats' => 2, 'name' => 'Jugendgruppe (Nord)', 'valid_until' => now()->addDays(5)]);
+        $this->api('POST', '/coupons/redeem', $this->apiLogin($user), $tenant, ['code' => $group->join_code])->assertOk();
+
+        $this->artisan('app:remind-expiring-entitlements')->assertSuccessful();
+
+        Notification::assertSentToTimes($user, EntitlementExpiringSoon::class, 1);
+        $text = $this->expiryMailText($user);
+        $date = $group->valid_until->timezone('Europe/Berlin')->format('d.m.Y');
+        $this->assertStringContainsString("Dein Zugang über die Lerngruppe endet am {$date}", $text);
+        $this->assertStringContainsString('über die Lerngruppe „Jugendgruppe (Nord)“', $text);
+        $this->assertStringContainsString('wende dich bitte an sie', $text);
+        $this->assertStringNotContainsString('kaufen', $text);
+        $this->assertStringNotContainsString('Verlängerungs-Code', $text);
+        $this->assertStringNotContainsString('shop.example.test', $text);
+        $this->assertNotNull($this->groupEntitlements($user)->sole()->expiry_reminded_at);
+    }
+
+    public function test_own_access_keeps_the_purchase_reminder(): void
+    {
+        Notification::fake();
+        $tenant = $this->createTestTenant();
+        $this->onAdmin(fn () => $tenant->branding()->update(['renewal_webshop_link' => 'https://shop.example.test/verlaengerung']));
+        $user = $this->createTenantUser($tenant, 'learner');
+        $this->ownAccess($tenant, $user, $this->existingCourse('SRC'), ['valid_until' => now()->addDays(5)]);
+
+        $this->artisan('app:remind-expiring-entitlements')->assertSuccessful();
+
+        $text = $this->expiryMailText($user);
+        $this->assertStringContainsString('Dein Kurszugang läuft am', $text);
+        $this->assertStringContainsString('Verlängerungs-Code kaufen', $text);
+        $this->assertStringNotContainsString('Lerngruppe', $text);
+    }
+
+    public function test_no_group_reminder_once_the_group_itself_has_ended(): void
+    {
+        Notification::fake();
+        $tenant = $this->createTestTenant();
+        $owner = $this->createTenantUser($tenant, 'learner');
+        $user = $this->createTenantUser($tenant, 'learner');
+        $group = $this->group($tenant, $owner, ['seats' => 2, 'valid_until' => now()->addDays(5)]);
+        $this->api('POST', '/coupons/redeem', $this->apiLogin($user), $tenant, ['code' => $group->join_code])->assertOk();
+        $grant = $this->groupEntitlements($user)->sole();
+
+        // Gruppe pausiert (Zugang selbst noch aktiv): keine Erinnerung, nichts vermerkt.
+        $this->onAdmin(fn () => LearningGroup::whereKey($group->id)->update(['status' => 'suspended']));
+        $this->artisan('app:remind-expiring-entitlements')->assertSuccessful();
+        Notification::assertNotSentTo($user, EntitlementExpiringSoon::class);
+
+        // Gruppe schon abgelaufen, der Zugang (Datenrest) noch nicht: ebenso.
+        $this->onAdmin(fn () => LearningGroup::whereKey($group->id)->update(['status' => 'active', 'valid_from' => now()->subDays(2), 'valid_until' => now()->subMinute()]));
+        $this->artisan('app:remind-expiring-entitlements')->assertSuccessful();
+        Notification::assertNotSentTo($user, EntitlementExpiringSoon::class);
+
+        // Mitgliedschaft beendet, Zugang (Datenrest) noch aktiv: ebenso.
+        $this->onAdmin(fn () => LearningGroup::whereKey($group->id)->update(['valid_until' => now()->addDays(5)]));
+        $this->onAdmin(fn () => LearningGroupMember::where('group_id', $group->id)->where('user_id', $user->id)->update(['status' => 'removed']));
+        $this->artisan('app:remind-expiring-entitlements')->assertSuccessful();
+        Notification::assertNotSentTo($user, EntitlementExpiringSoon::class);
+
+        // Beendet über den Dienst: Zugang endet mit, keine Erinnerung.
+        $this->onAdmin(fn () => LearningGroupMember::where('group_id', $group->id)->where('user_id', $user->id)->update(['status' => 'active']));
+        $this->onAdmin(fn () => app(LearningGroupService::class)->revokeGroup(LearningGroup::find($group->id)));
+        $this->artisan('app:remind-expiring-entitlements')->assertSuccessful();
+        Notification::assertNotSentTo($user, EntitlementExpiringSoon::class);
+        $this->assertNull($this->onAdmin(fn () => Entitlement::find($grant->id))->expiry_reminded_at);
+    }
+
     public function test_codes_reserved_for_open_school_invitations_are_not_used_for_group_seats(): void
     {
         $tenant = $this->createTestTenant();

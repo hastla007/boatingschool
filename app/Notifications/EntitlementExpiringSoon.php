@@ -3,6 +3,8 @@
 namespace App\Notifications;
 
 use App\Models\Entitlement;
+use App\Models\LearningGroup;
+use App\Models\Tenant;
 use App\Notifications\Concerns\AddsNoReplyHint;
 use App\Notifications\Concerns\EscapesMarkdown;
 use App\Support\CanonicalUrl;
@@ -16,12 +18,14 @@ use Illuminate\Notifications\Notification;
 /**
  * Erinnerung, dass ein Kurszugang bald abläuft (siehe
  * RemindExpiringEntitlements), mit dem Verlängerungs-Link der Bootsschule.
+ * Bei einem Zugang aus einer Lerngruppe ($group) ein eigener Text ohne
+ * Kauf-/Code-Hinweis: die Gruppe verwaltet die Schule, verlängert wird dort.
  */
 class EntitlementExpiringSoon extends Notification
 {
     use AddsNoReplyHint, EscapesMarkdown, Queueable;
 
-    public function __construct(private readonly Entitlement $entitlement) {}
+    public function __construct(private readonly Entitlement $entitlement, private readonly ?LearningGroup $group = null) {}
 
     /** @return array<int, string> */
     public function via(mixed $notifiable): array
@@ -37,6 +41,11 @@ class EntitlementExpiringSoon extends Notification
         $date = GermanTime::format($this->entitlement->valid_until, 'd.m.Y');
         // Links auf die Subdomain der Bootsschule (der Befehl läuft ohne Request).
         $root = CanonicalUrl::root($tenant);
+
+        if ($this->group) {
+            return $this->groupMail($notifiable, $tenant, $course, $date, $root);
+        }
+
         $renewal = $tenant->branding?->renewal_webshop_link;
 
         $message = (new MailMessage)
@@ -57,5 +66,21 @@ class EntitlementExpiringSoon extends Notification
         return MailPreferences::addUnsubscribe(self::withNoReplyHint(MailTemplates::apply($message, 'entitlement_expiring', [
             'schule' => $tenant->name, 'kurs' => $this->entitlement->course->name, 'datum' => $date,
         ])), $notifiable, MailPreferences::EXPIRY, $this->entitlement->tenant);
+    }
+
+    /** Gruppenzugang: Hinweis auf die Gruppe und die Schule, kein Kauf, kein Code. */
+    private function groupMail(mixed $notifiable, Tenant $tenant, string $course, string $date, string $root): MailMessage
+    {
+        $message = (new MailMessage)
+            ->subject("Dein Zugang über die Lerngruppe endet am {$date}")
+            ->line("Dein Zugang zu „{$course}“ über die Lerngruppe „".self::escapeMarkdown($this->group->name).'“ bei '
+                .self::escapeMarkdown($tenant->name)." endet am {$date}.")
+            ->line('Danach kannst du den Kurs nicht mehr nutzen, dein Lernstand bleibt aber erhalten.')
+            ->line('Die Lerngruppe verwaltet deine Bootsschule. Für eine Verlängerung wende dich bitte an sie.')
+            ->action('Zum Kurs', $root.route('courses.show', $this->entitlement->course, false));
+
+        return MailPreferences::addUnsubscribe(self::withNoReplyHint(MailTemplates::apply($message, 'group_entitlement_expiring', [
+            'schule' => $tenant->name, 'kurs' => $this->entitlement->course->name, 'gruppe' => $this->group->name, 'datum' => $date,
+        ])), $notifiable, MailPreferences::EXPIRY, $tenant);
     }
 }
