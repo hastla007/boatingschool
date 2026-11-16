@@ -34,9 +34,9 @@
                 @csrf
                 <div>
                     <x-input-label for="questions-file" value="Datei (.xlsx, max. 20 MB)" />
-                    <input id="questions-file" name="file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required class="mt-1 block w-full text-sm">
+                    <input id="questions-file" @if (old('_form') === 'questions') @ariaInvalid('file', 'questions-file') @endif name="file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required class="mt-1 block w-full text-sm">
                     @if (old('_form') === 'questions')
-                        <x-input-error :messages="$errors->get('file')" class="mt-2" />
+                        <x-input-error for="questions-file" :messages="$errors->get('file')" class="mt-2" />
                     @endif
                 </div>
                 <div>
@@ -57,9 +57,9 @@
                 @csrf
                 <div>
                     <x-input-label for="feedback-file" value="Datei (.csv, max. 10 MB)" />
-                    <input id="feedback-file" name="file" type="file" accept=".csv,text/csv" required class="mt-1 block w-full text-sm">
+                    <input id="feedback-file" @if (old('_form') === 'feedback') @ariaInvalid('file', 'feedback-file') @endif name="file" type="file" accept=".csv,text/csv" required class="mt-1 block w-full text-sm">
                     @if (old('_form') === 'feedback')
-                        <x-input-error :messages="$errors->get('file')" class="mt-2" />
+                        <x-input-error for="feedback-file" :messages="$errors->get('file')" class="mt-2" />
                     @endif
                 </div>
                 <input type="hidden" name="_form" value="feedback">

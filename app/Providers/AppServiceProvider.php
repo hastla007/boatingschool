@@ -29,6 +29,7 @@ use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Queue\Events\Looping;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
@@ -62,6 +63,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Fehlermeldung am Feld (aria-invalid/aria-describedby), siehe App\Support\FieldErrorAttributes.
+        Blade::directive('ariaInvalid', fn (string $expression) => "<?php echo \\App\\Support\\FieldErrorAttributes::render(\$errors ?? null, {$expression}); ?>");
         // Mobile-API: der Guard bekommt seinen Nutzer von AuthenticateMobileApi.
         Auth::viaRequest('mobile-token', fn () => null);
         // Mobile-API: Erneuern je Refresh-Token (10/Min.) und großzügig je IP

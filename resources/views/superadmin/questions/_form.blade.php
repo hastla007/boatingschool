@@ -47,21 +47,21 @@
                 <span class="block text-xs text-slate-600 dark:text-slate-400">Der Fragetyp kann nachträglich nicht mehr geändert werden.</span>
             </p>
         @else
-            <select id="question_type" name="question_type" x-model="questionType"
+            <select id="question_type" @ariaInvalid('question_type') name="question_type" x-model="questionType"
                     class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                 <option value="single_choice" @selected($questionType === 'single_choice')>Single Choice (eine richtige Antwort)</option>
                 <option value="multi_choice" @selected($questionType === 'multi_choice')>Multi Choice (mehrere richtige Antworten)</option>
                 <option value="open_text" @selected($questionType === 'open_text')>Offene Frage (Lernkarte, Selbsteinschätzung)</option>
             </select>
         @endif
-        <x-input-error :messages="$errors->get('question_type')" class="mt-2" />
+        <x-input-error for="question_type" :messages="$errors->get('question_type')" class="mt-2" />
     </div>
 
     <div>
         <x-input-label for="question_text" value="Frage" />
-        <textarea id="question_text" name="question_text" rows="3" required
+        <textarea id="question_text" @ariaInvalid('question_text') name="question_text" rows="3" required
                   class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">{{ old('question_text', $revision?->question_text) }}</textarea>
-        <x-input-error :messages="$errors->get('question_text')" class="mt-2" />
+        <x-input-error for="question_text" :messages="$errors->get('question_text')" class="mt-2" />
     </div>
 
     <div class="grid sm:grid-cols-3 gap-4">
@@ -140,15 +140,15 @@
         <div class="space-y-3">
             @foreach (['A', 'B', 'C', 'D'] as $key)
                 <div class="flex items-center gap-3">
-                    <input type="radio" id="correct_{{ $key }}" name="correct" value="{{ $key }}" @checked($singleCorrectKey === $key) class="shrink-0">
+                    <input type="radio" id="correct_{{ $key }}" name="correct" value="{{ $key }}" @ariaInvalid('correct') @checked($singleCorrectKey === $key) class="shrink-0">
                     <label for="correct_{{ $key }}" class="w-5 text-sm text-slate-600 dark:text-slate-400 shrink-0">{{ $key }}</label>
                     <x-input-label for="answer_{{ $key }}" value="Antworttext {{ $key }}" class="sr-only" />
-                    <x-text-input id="answer_{{ $key }}" name="answers[{{ $key }}]" type="text" class="block w-full" :value="$singleAnswerText($key)" />
+                    <x-text-input id="answer_{{ $key }}" name="answers[{{ $key }}]" type="text" class="block w-full" :value="$singleAnswerText($key)" :aria-invalid="$errors->has('answers') ? 'true' : null" :aria-describedby="$errors->has('answers') ? 'answers-error' : null" />
                 </div>
             @endforeach
         </div>
-        <x-input-error :messages="$errors->get('answers')" class="mt-2" />
-        <x-input-error :messages="$errors->get('correct')" class="mt-2" />
+        <x-input-error for="answers" :messages="$errors->get('answers')" class="mt-2" />
+        <x-input-error for="correct" :messages="$errors->get('correct')" class="mt-2" />
     </div>
 
     <div class="pt-2 border-t border-slate-100 dark:border-slate-700"
@@ -158,8 +158,8 @@
         <div class="space-y-3">
             <template x-for="(answer, index) in multiAnswers" :key="index">
                 <div class="flex items-center gap-3">
-                    <input type="checkbox" :name="'multi_correct[]'" :value="index" :aria-label="'Antwort ' + (index + 1) + ' als richtig markieren'" x-model="answer.correct" class="shrink-0">
-                    <input type="text" :name="'multi_answers['+index+'][text]'" :aria-label="'Antworttext ' + (index + 1)" x-model="answer.text"
+                    <input type="checkbox" @ariaInvalid('multi_correct') :name="'multi_correct[]'" :value="index" :aria-label="'Antwort ' + (index + 1) + ' als richtig markieren'" x-model="answer.correct" class="shrink-0">
+                    <input type="text" @ariaInvalid('multi_answers') :name="'multi_answers['+index+'][text]'" :aria-label="'Antworttext ' + (index + 1)" x-model="answer.text"
                            class="block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                     <button type="button" @click="multiAnswers.splice(index, 1)" class="text-xs text-red-500 hover:underline whitespace-nowrap">Entfernen</button>
                 </div>
@@ -169,16 +169,16 @@
                 class="mt-3 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition">
             + Antwort hinzufügen
         </button>
-        <x-input-error :messages="$errors->get('multi_answers')" class="mt-2" />
-        <x-input-error :messages="$errors->get('multi_correct')" class="mt-2" />
+        <x-input-error for="multi_answers" :messages="$errors->get('multi_answers')" class="mt-2" />
+        <x-input-error for="multi_correct" :messages="$errors->get('multi_correct')" class="mt-2" />
     </div>
 
     <div class="pt-2 border-t border-slate-100 dark:border-slate-700" x-show="questionType === 'open_text'" style="display: none">
         <x-input-label for="model_answer" value="Musterantwort (Rückseite der Lernkarte)" />
-        <textarea id="model_answer" name="model_answer" rows="3"
+        <textarea id="model_answer" @ariaInvalid('model_answer') name="model_answer" rows="3"
                   class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">{{ $modelAnswer }}</textarea>
         <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Dient nur als Lernkarte -- der Teilnehmer schätzt selbst ein, ob er die Antwort wusste, fließt nicht automatisch in eine Auswertung ein.</p>
-        <x-input-error :messages="$errors->get('model_answer')" class="mt-2" />
+        <x-input-error for="model_answer" :messages="$errors->get('model_answer')" class="mt-2" />
     </div>
 
     <div class="grid sm:grid-cols-2 gap-4 pt-2 border-t border-slate-100 dark:border-slate-700">

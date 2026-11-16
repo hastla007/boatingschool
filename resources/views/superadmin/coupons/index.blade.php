@@ -11,7 +11,7 @@
                 @csrf
                 <div>
                     <x-input-label for="target" value="Kurs oder Produkt" />
-                    <select id="target" name="target" x-model="target" required class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
+                    <select id="target" @ariaInvalid('target') name="target" x-model="target" required class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">
                         <optgroup label="Kurse">
                             @foreach ($courses as $course)
                                 <option value="course:{{ $course->id }}">{{ $course->name }}</option>
@@ -28,15 +28,15 @@
                             @endforeach
                         </optgroup>
                     </select>
-                    <x-input-error :messages="$errors->get('target')" class="mt-2" />
+                    <x-input-error for="target" :messages="$errors->get('target')" class="mt-2" />
                 </div>
                 @php($selectedOptionProductIds = old('option_product_ids', []))
                 <div x-show="target.startsWith('course:')" style="display: none">
-                    <x-input-label value="Optionen (optional)" />
-                    <div class="mt-1 space-y-1.5 border border-slate-200 dark:border-slate-600 rounded-lg p-3">
+                    <x-input-label id="option_product_ids-label" value="Optionen (optional)" />
+                    <div role="group" aria-labelledby="option_product_ids-label" class="mt-1 space-y-1.5 border border-slate-200 dark:border-slate-600 rounded-lg p-3">
                         @foreach ($products as $product)
                             <label class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-                                <input type="checkbox" name="option_product_ids[]" value="{{ $product->id }}"
+                                <input type="checkbox" name="option_product_ids[]" value="{{ $product->id }}" @ariaInvalid('option_product_ids')
                                        @checked(in_array($product->id, $selectedOptionProductIds, true))
                                        class="rounded border-slate-300 dark:bg-slate-700 dark:border-slate-600">
                                 {{ $product->name }}
@@ -44,7 +44,7 @@
                         @endforeach
                     </div>
                     <p class="text-xs text-slate-600 dark:text-slate-400 mt-1">Werden bei Einlösung zusätzlich zum Kurs als eigene Buchungen freigeschaltet.</p>
-                    <x-input-error :messages="$errors->get('option_product_ids')" class="mt-2" />
+                    <x-input-error for="option_product_ids" :messages="$errors->get('option_product_ids')" class="mt-2" />
                 </div>
                 <div>
                     <x-input-label for="tenant_id" value="Bootsschule (optional)" />

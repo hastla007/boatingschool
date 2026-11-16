@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\Admin\LearningGroupController;
 use App\Models\AuditLog;
 use App\Models\Coupon;
 use App\Models\Entitlement;
@@ -142,10 +143,106 @@ class AdminLearningGroupTest extends TestCase
         $instructor = $this->createTenantUser($tenant, 'instructor', ['display_name' => 'Ausbilder Ingo']);
         $this->onAdmin(fn () => TenantCourseDisabled::create(['tenant_id' => $tenant->id, 'course_id' => $this->existingCourse('SKN')->id]));
 
+        // Verwalter werden gesucht, nicht als Liste aller Teilnehmer ausgegeben.
         $this->actingAsInTenant($owner, $tenant)->get(route('admin.learning-groups.create'))->assertOk()
-            ->assertSee('Aktive Anna')->assertDontSee('Gesperrter Gerd')->assertDontSee('Ausbilder Ingo')
+            ->assertDontSee('Aktive Anna')->assertDontSee('Gesperrter Gerd')->assertDontSee('Ausbilder Ingo')
+            ->assertSee('name="owner_email"', false)->assertSee('name="owner_user_id"', false)
+            ->assertSee('learning-groups\\/manager-candidates', false)
             ->assertSee('name="courses[SRC]"', false)->assertDontSee('name="courses[SKN]"', false)
             ->assertSee('Prüfungssimulation');
+
+        $names = $this->actingAsInTenant($owner, $tenant)->getJson(route('admin.learning-groups.manager-candidates', ['q' => 'e']))->assertOk()->json('data');
+        $this->assertSame([], $names, 'Erst ab zwei Zeichen wird gesucht.');
+        foreach (['Anna', 'Gerd', 'Ingo'] as $query) {
+            $this->actingAsInTenant($owner, $tenant)->getJson(route('admin.learning-groups.manager-candidates', ['q' => $query]))->assertOk()
+                ->assertJsonCount($query === 'Anna' ? 1 : 0, 'data');
+        }
+        $this->actingAsInTenant($owner, $tenant)->getJson(route('admin.learning-groups.manager-candidates', ['q' => 'aktive ann']))->assertOk()
+            ->assertExactJson(['data' => [['id' => $active->id, 'name' => 'Aktive Anna', 'email' => $active->email]]]);
+    }
+
+    public function test_manager_search_finds_name_and_email_is_limited_and_school_scoped(): void
+    {
+        $tenant = $this->createTestTenant();
+        $other = $this->createTestTenant('Andere Schule');
+        $owner = $this->createTenantUser($tenant, 'owner', ['display_name' => 'Segler Inhaber']);
+        $admin = $this->createTenantUser($tenant, 'admin');
+        foreach (range(1, 25) as $i) {
+            $this->createTenantUser($tenant, 'learner', ['display_name' => sprintf('Segler %02d', $i)]);
+        }
+        $byMail = $this->createTenantUser($tenant, 'learner', ['display_name' => 'Ohne Treffername']);
+        $outsider = $this->createTenantUser($other, 'learner', ['display_name' => 'Segler Fremd']);
+        $url = fn (string $q) => route('admin.learning-groups.manager-candidates', ['q' => $q]);
+
+        foreach ([$owner, $admin] as $viewer) {
+            $data = $this->actingAsInTenant($viewer, $tenant)->getJson($url('segler'))->assertOk()->json('data');
+            $this->assertCount(LearningGroupController::MANAGER_SEARCH_LIMIT, $data);
+            $this->assertSame('Segler 01', $data[0]['name']);
+            $this->assertSame(['email', 'id', 'name'], collect(array_keys($data[0]))->sort()->values()->all());
+            // Inhaber (keine Teilnehmerrolle) und Teilnehmer anderer Schulen nie.
+            $this->assertNotContains($owner->id, array_column($data, 'id'));
+            $this->assertNotContains($outsider->id, array_column($data, 'id'));
+        }
+        $this->actingAsInTenant($admin, $tenant)->getJson($url(strtoupper(explode('@', $byMail->email)[0])))->assertOk()
+            ->assertJsonPath('data.0.id', $byMail->id)->assertJsonCount(1, 'data');
+        $this->actingAsInTenant($admin, $tenant)->getJson($url('Fremd'))->assertOk()->assertJsonCount(0, 'data');
+        // LIKE-Platzhalter werden wörtlich gesucht; ?q[]= führt nicht zu einem Fehler.
+        $this->actingAsInTenant($admin, $tenant)->getJson($url('%%'))->assertOk()->assertJsonCount(0, 'data');
+        $this->actingAsInTenant($admin, $tenant)->getJson(route('admin.learning-groups.manager-candidates').'?q[]=Segler')->assertOk()->assertJsonCount(0, 'data');
+
+        $instructor = $this->createTenantUser($tenant, 'instructor');
+        $learner = $this->createTenantUser($tenant, 'learner');
+        foreach ([$instructor, $learner] as $user) {
+            $this->actingAsInTenant($user, $tenant)->getJson($url('segler'))->assertForbidden();
+        }
+        $this->assertContains($this->getJson($url('segler'))->status(), [401, 403], 'Ohne Anmeldung keine Treffer.');
+    }
+
+    public function test_manager_can_be_given_by_email_without_javascript(): void
+    {
+        $tenant = $this->createTestTenant();
+        $admin = $this->createTenantUser($tenant, 'admin');
+        $manager = $this->createTenantUser($tenant, 'learner');
+        $newManager = $this->createTenantUser($tenant, 'learner');
+        $instructor = $this->createTenantUser($tenant, 'instructor');
+        $outsider = $this->createTenantUser($this->createTestTenant('Andere Schule'), 'learner');
+
+        // Anlegen nur mit E-Mail-Adresse (Groß-/Kleinschreibung egal), ohne owner_user_id.
+        $this->actingAsInTenant($admin, $tenant)->post(route('admin.learning-groups.store'), $this->validCreate($manager, [
+            'owner_user_id' => '', 'owner_email' => '  '.strtoupper($manager->email).' ',
+        ]))->assertSessionHasNoErrors();
+        $group = $this->onAdmin(fn () => LearningGroup::where('tenant_id', $tenant->id)->sole());
+        $this->assertSame($manager->id, $group->owner_user_id);
+
+        // Detailseite: Feld mit der Adresse des Verwalters vorbelegt, ohne Liste aller Teilnehmer.
+        $this->actingAsInTenant($admin, $tenant)->get(route('admin.learning-groups.show', $group))->assertOk()
+            ->assertSee('value="'.$manager->email.'"', false)->assertSee('value="'.$manager->id.'"', false)
+            ->assertDontSee($newManager->email);
+
+        $update = fn (array $owner) => $this->actingAsInTenant($admin, $tenant)->patch(route('admin.learning-groups.update', $group), $owner + [
+            'name' => 'Segelverein', 'seats' => 5, 'valid_until' => $group->valid_until->timezone('Europe/Berlin')->toDateString(),
+        ]);
+        // Ohne JavaScript bleibt die alte owner_user_id im versteckten Feld stehen: die geänderte Adresse zählt.
+        $update(['owner_user_id' => $manager->id, 'owner_email' => $newManager->email])->assertSessionHasNoErrors();
+        $this->assertSame($newManager->id, $this->fresh($group)->owner_user_id);
+
+        foreach ([$instructor->email, $outsider->email, 'gibt-es-nicht@example.test', 'Segler'] as $email) {
+            $update(['owner_user_id' => $newManager->id, 'owner_email' => $email])
+                ->assertSessionHasErrors(['owner_user_id' => 'Unter dieser E-Mail-Adresse gibt es keinen aktiven Teilnehmer Ihrer Bootsschule.']);
+        }
+        $update(['owner_user_id' => '', 'owner_email' => ''])->assertSessionHasErrors(['owner_user_id' => 'Bitte einen Verwalter wählen.']);
+        $this->assertSame($newManager->id, $this->fresh($group)->owner_user_id);
+
+        // Fehler am Feld: aria-invalid und verknüpfte Meldung.
+        $this->actingAsInTenant($admin, $tenant)->from(route('admin.learning-groups.show', $group))->followingRedirects()
+            ->patch(route('admin.learning-groups.update', $group), ['name' => 'Segelverein', 'seats' => 5, 'owner_email' => 'gibt-es-nicht@example.test'])
+            ->assertOk()->assertSee('aria-describedby="owner_email-hint owner_email-error"', false)
+            ->assertSee('aria-invalid="true"', false)->assertSee('id="owner_email-error"', false)
+            ->assertSee('value="gibt-es-nicht@example.test"', false);
+
+        // Mit JavaScript: owner_user_id und passende Adresse.
+        $update(['owner_user_id' => $manager->id, 'owner_email' => $manager->email])->assertSessionHasNoErrors();
+        $this->assertSame($manager->id, $this->fresh($group)->owner_user_id);
     }
 
     public function test_admin_creates_a_group_with_the_command_rules_and_an_audit_entry(): void
@@ -340,10 +437,13 @@ class AdminLearningGroupTest extends TestCase
         $this->onAdmin(fn () => User::whereKey($invited->id)->update(['status' => 'invited']));
         $group = $this->group($tenant, $manager);
 
-        $this->actingAsInTenant($admin, $tenant)->get(route('admin.learning-groups.create'))->assertOk()
-            ->assertSee('Aktiver Albert')->assertDontSee('Eingeladene Inge');
+        $this->actingAsInTenant($admin, $tenant)->getJson(route('admin.learning-groups.manager-candidates', ['q' => 'Albert']))->assertOk()->assertJsonCount(1, 'data');
+        $this->actingAsInTenant($admin, $tenant)->getJson(route('admin.learning-groups.manager-candidates', ['q' => 'Inge']))->assertOk()->assertJsonCount(0, 'data');
         $this->actingAsInTenant($admin, $tenant)->get(route('admin.learning-groups.show', $group))->assertOk()
             ->assertSee('Aktiver Albert')->assertDontSee('Eingeladene Inge');
+        $this->actingAsInTenant($admin, $tenant)->post(route('admin.learning-groups.store'), [
+            'name' => 'Neue Gruppe', 'owner_email' => $invited->email, 'seats' => 2, 'courses' => ['SRC' => 'course'],
+        ])->assertSessionHasErrors(['owner_user_id' => 'Unter dieser E-Mail-Adresse gibt es keinen aktiven Teilnehmer Ihrer Bootsschule.']);
 
         $this->actingAsInTenant($admin, $tenant)->post(route('admin.learning-groups.store'), [
             'name' => 'Neue Gruppe', 'owner_user_id' => $invited->id, 'seats' => 2, 'courses' => ['SRC' => 'course'],

@@ -73,21 +73,21 @@
                 @endif
                 <div>
                     <x-input-label for="operator_info" value="Betreiber der Plattform ({betreiber})" />
-                    <textarea id="operator_info" name="operator_info" rows="4" placeholder="Firma, Anschrift, E-Mail des Plattform-Betreibers"
+                    <textarea id="operator_info" @ariaInvalid('operator_info') name="operator_info" rows="4" placeholder="Firma, Anschrift, E-Mail des Plattform-Betreibers"
                               class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm">{{ old('operator_info', $settings->operator_info) }}</textarea>
-                    <x-input-error :messages="$errors->get('operator_info')" class="mt-2" />
+                    <x-input-error for="operator_info" :messages="$errors->get('operator_info')" class="mt-2" />
                 </div>
                 <div>
                     <x-input-label for="imprint_template" value="Vorlage Impressum" />
-                    <textarea id="imprint_template" name="imprint_template" rows="14"
+                    <textarea id="imprint_template" @ariaInvalid('imprint_template') name="imprint_template" rows="14"
                               class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm font-mono">{{ old('imprint_template', $settings->imprint_template ?: \App\Support\LegalPages::DEFAULT_IMPRESSUM) }}</textarea>
-                    <x-input-error :messages="$errors->get('imprint_template')" class="mt-2" />
+                    <x-input-error for="imprint_template" :messages="$errors->get('imprint_template')" class="mt-2" />
                 </div>
                 <div>
                     <x-input-label for="privacy_template" value="Vorlage Datenschutzerklärung" />
-                    <textarea id="privacy_template" name="privacy_template" rows="20"
+                    <textarea id="privacy_template" @ariaInvalid('privacy_template') name="privacy_template" rows="20"
                               class="mt-1 block w-full rounded-lg border-slate-300 dark:bg-slate-700 dark:border-slate-600 text-sm font-mono">{{ old('privacy_template', $settings->privacy_template ?: \App\Support\LegalPages::DEFAULT_DATENSCHUTZ) }}</textarea>
-                    <x-input-error :messages="$errors->get('privacy_template')" class="mt-2" />
+                    <x-input-error for="privacy_template" :messages="$errors->get('privacy_template')" class="mt-2" />
                 </div>
             </div>
 
