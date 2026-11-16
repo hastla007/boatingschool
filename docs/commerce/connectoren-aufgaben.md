@@ -1,6 +1,12 @@
 # Connectoren: Aufgaben aus der Prüfung vom 16.11.2026 und Entscheidung 17
 
-Stand: 16.11.2026. Reine Aufgabenliste. Es wurde nichts gebaut und nichts geändert.
+Stand: 16.11.2026. Aufgabenliste mit den Antworten des Inhabers vom 16.11.2026 (siehe „Entscheidungen des Inhabers“).
+
+## Entscheidungen des Inhabers (16.11.2026)
+
+- **Entscheidung 17 gilt in der Fassung „eigenes Lizenzprodukt“** (unten beschrieben). Die zwischenzeitlich notierte Fassung „in PRO enthalten, kein eigenes Lizenzprodukt“ (Branch `claude/youthful-bardeen-7ejd7a`, `docs/captain-connectoren.md`) gilt **nicht**.
+- **BS-01: nein.** Der WooCommerce-Connector fällt nicht unter Entscheidung 17 und bekommt keine Lizenzprüfung. BS-02 entfällt.
+- **BS-03: Kundenspezifische Connectoren liegen immer im Repository des Kunden.** Der Form-Connector für BoatingSchool entsteht also in diesem Repository (`hastla007/boatingschool`, unter `integrations/`).
 
 ## Worum es geht
 
@@ -35,7 +41,7 @@ Zweig), wann erledigt, was sie braucht. Kritische Aufgaben gibt es hier keine.
 
 ### Bestehender WooCommerce-Connector
 
-- [ ] **BS-01 · [WICHTIG] · Frage an den Inhaber: Fällt der WooCommerce-Connector unter Entscheidung 17?**
+- [x] **BS-01 · erledigt 16.11.2026: Antwort „nein“ · [WICHTIG] · Frage an den Inhaber: Fällt der WooCommerce-Connector unter Entscheidung 17?**
   **Was:** Der Inhaber sagt, ob `integrations/woocommerce-connector` (WooCommerce ↔ eigene Laravel-Plattform, kein
   Captain-Plugin) ein lizenziertes Projektprodukt nach Entscheidung 17 werden soll. **Empfehlung: nein.** Die
   Entscheidung nennt Connectoren zu Captain-Plugins (Form, Voucher, Affiliate, künftige); dieser Connector hat mit
@@ -47,7 +53,7 @@ Zweig), wann erledigt, was sie braucht. Kritische Aufgaben gibt es hier keine.
   **Erledigt, wenn:** die Antwort mit Datum in `docs/commerce/README.md` steht.
   **Braucht:** Entscheidung des Inhabers.
 
-- [ ] **BS-02 · [WICHTIG] · Nur falls BS-01 „ja“: WooCommerce-Connector lizenzieren.**
+- [x] **BS-02 · entfällt (BS-01 = „nein“) · [WICHTIG] · Nur falls BS-01 „ja“: WooCommerce-Connector lizenzieren.**
   **Was:** Add-on-Kernel und Lizenzclient einbauen, Produktschlüssel (Vorschlag `boatingschool-shop-connector`),
   eigenes Präfix (Vorschlag `boatingschool_shop`; nur Kleinbuchstaben, Ziffern, Unterstrich), `wplc-catalog.json`,
   Updater. Fail-closed ist hier heikel: Bezahlte Bestellungen müssen weiter zugestellt und Stornos weiter gesperrt
@@ -80,7 +86,7 @@ Zweig), wann erledigt, was sie braucht. Kritische Aufgaben gibt es hier keine.
 
 ### Geplanter Form-Connector (`boatingschool-form-connector`, Form Captain)
 
-- [ ] **BS-03 · [WICHTIG] · Ort und Namen für den Form-Connector festlegen.**
+- [x] **BS-03 · erledigt 16.11.2026: Ort = dieses Repository (Kunden-Repo), `integrations/boatingschool-form-connector/` · [WICHTIG] · Ort und Namen für den Form-Connector festlegen.**
   **Was:** Vermerken, wo `boatingschool-form-connector` entsteht und wie er heißt. Fest stehen: eigenes Plugin,
   Produktschlüssel `boatingschool-form-connector`, Präfix `boatingschool_form`, Recht `boatingschool_form.leads`,
   eigene `wplc-catalog.json`, fail-closed (ohne Lizenz keine neue Übergabe von Anfragen; schon übergebene bleiben),
@@ -94,6 +100,10 @@ Zweig), wann erledigt, was sie braucht. Kritische Aufgaben gibt es hier keine.
   (`wp-formmaster`, `docs/ENTSCHEIDUNGEN.md`).
   **Erledigt, wenn:** der Ort feststeht und hier steht. Kein Code.
   **Braucht:** Entscheidung des Inhabers zum Ort und zur Sichtbarkeit des Repositorys.
+  **Antwort (16.11.2026):** Kundenspezifische Connectoren liegen immer im Kunden-Repository, hier also unter
+  `integrations/boatingschool-form-connector/`. **Offen bleibt:** Solange dieses Repository öffentlich ist, wäre ein
+  dort eingebauter Add-on-Kernel aus `captain-pro` für jeden lesbar. Vor dem ersten Code für den Form-Connector das
+  Repository auf privat stellen oder den Kernel nur als Abhängigkeit beim Bau einbinden (nicht einchecken).
 
 ## Repository `hastla007/boatingschool-wp`
 

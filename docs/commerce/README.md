@@ -34,6 +34,7 @@ oder in der App ein (`POST /api/v1/coupons/redeem`).
 | Praxiseinheiten | „Große Praxiseinheit ersetzt Kleine“ gilt für Zusatzprodukte eines Kurscodes und für eigene Produktcodes | Gleiche Regel, egal wie gekauft wurde |
 | Rückerstattung/Storno | Sperrt nur **unbenutzte** Codes. Eingelöste Codes bleiben gültig | Lernende verlieren keinen Zugang, den sie schon haben |
 | Alarme | Mail an `COMMERCE_ALERT_EMAIL`, sonst an die Support-Adresse der Plattform. Im Plugin an die Alarm-Adresse des Shops | |
+| Lizenz (Entscheidung 17) | Der WooCommerce-Connector bekommt **keine** Lizenzprüfung (Inhaber, 16.11.2026). Connectoren zu Captain-Plugins sind eigene Lizenzprodukte und liegen im Kunden-Repository, siehe [connectoren-aufgaben.md](connectoren-aufgaben.md) | Eigene Shop-Anbindung, kein Captain-Plugin; eine Lizenzsperre dürfte Zustellung und Storno nicht treffen |
 
 ## Abläufe
 
