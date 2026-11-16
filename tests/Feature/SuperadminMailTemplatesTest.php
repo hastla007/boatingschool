@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Entitlement;
+use App\Models\LearningGroup;
 use App\Models\PlatformSetting;
 use App\Notifications\EntitlementExpiringSoon;
 use App\Support\MailTemplates;
@@ -50,5 +51,27 @@ class SuperadminMailTemplatesTest extends TestCase
         $this->actingAs($superadmin)->patch('/superadmin/mail-templates', ['templates' => []])->assertSessionHasNoErrors();
         $mail = $this->onAdmin(fn () => (new EntitlementExpiringSoon(Entitlement::with('course', 'tenant.branding')->find($entitlement->id)))->toMail($learner));
         $this->assertStringStartsWith('Dein Kurszugang läuft am', $mail->subject);
+    }
+
+    public function test_group_reminder_has_its_own_template_with_the_group_name(): void
+    {
+        $superadmin = $this->createSuperAdmin();
+        $tenant = $this->createTestTenant();
+        $learner = $this->createTenantUser($tenant, 'learner');
+        $entitlement = $this->grantEntitlement($tenant, $learner, $this->existingCourse('SRC'));
+        $this->onAdmin(fn () => Entitlement::where('id', $entitlement->id)->update(['valid_until' => now()->addDays(10)]));
+
+        $this->actingAs($superadmin)->get('/superadmin/mail-templates')->assertOk()
+            ->assertSee('Zugang über eine Lerngruppe endet bald')->assertSee('{gruppe}');
+        $this->actingAs($superadmin)->patch('/superadmin/mail-templates', ['templates' => [
+            'entitlement_expiring' => ['subject' => 'Eigener Zugang endet'],
+            'group_entitlement_expiring' => ['subject' => 'Gruppe {gruppe} endet am {datum}', 'intro' => 'Hallo aus {gruppe}!'],
+        ]])->assertSessionHasNoErrors();
+
+        $group = new LearningGroup(['name' => 'Jugend [Nord]']);
+        $mail = $this->onAdmin(fn () => (new EntitlementExpiringSoon(Entitlement::with('course', 'tenant.branding')->find($entitlement->id), $group))->toMail($learner));
+        $this->assertStringStartsWith('Gruppe Jugend [Nord] endet am', $mail->subject);
+        $this->assertSame('Hallo aus Jugend \[Nord\]!', $mail->introLines[0]);
+        $this->assertStringContainsString('über die Lerngruppe „Jugend \[Nord\]“', $mail->introLines[1]);
     }
 }

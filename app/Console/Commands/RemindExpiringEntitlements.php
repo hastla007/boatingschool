@@ -3,7 +3,9 @@
 namespace App\Console\Commands;
 
 use App\Models\Entitlement;
+use App\Models\LearningGroup;
 use App\Notifications\EntitlementExpiringSoon;
+use App\Services\LearningGroupService;
 use App\Support\BestEffortMail;
 use App\Support\MailPreferences;
 use App\Support\TenantContext;
@@ -13,7 +15,9 @@ use Illuminate\Console\Command;
  * Erinnert Lernende per E-Mail, wenn ein Kurszugang innerhalb von
  * Entitlement::EXPIRY_WARNING_DAYS Tagen abläuft -- einmal je Ablaufdatum.
  * Läuft mandantenübergreifend über die Owner-Verbindung (wie
- * ExpireEntitlements).
+ * ExpireEntitlements). Zugänge aus einer Lerngruppe bekommen einen eigenen
+ * Text ohne Kauf-Hinweis (die Gruppe verwaltet die Schule) und nur, solange
+ * Gruppe und Mitgliedschaft noch laufen.
  */
 class RemindExpiringEntitlements extends Command
 {
@@ -57,6 +61,16 @@ class RemindExpiringEntitlements extends Command
                 ->whereColumn('other.id', '<>', 'entitlement.id')->whereNull('other.capabilities')
                 ->where('other.status', 'active')->where('other.valid_from', '<=', now())
                 ->where(fn ($w) => $w->whereNull('other.valid_until')->orWhereColumn('other.valid_until', '>', 'entitlement.valid_until')))
+            // Gruppenzugang: nur, solange Gruppe und Mitgliedschaft laufen --
+            // ist die Gruppe pausiert, beendet oder abgelaufen, gibt es nichts
+            // mehr anzukündigen (source_reference = group:<Gruppe>:<Mitglied>).
+            ->where(fn ($q) => $q->where('entitlement.source_type', '<>', 'group')
+                ->orWhereExists(fn ($e) => $e->from('learning_group_member AS lgm')
+                    ->join('learning_group AS lg', 'lg.id', '=', 'lgm.group_id')
+                    ->whereColumn('lgm.tenant_id', 'entitlement.tenant_id')->whereColumn('lg.tenant_id', 'entitlement.tenant_id')
+                    ->whereRaw("entitlement.source_reference = 'group:' || lg.id::text || ':' || lgm.id::text")
+                    ->where('lgm.status', 'active')->where('lg.status', 'active')->where('lg.valid_from', '<=', now())
+                    ->where(fn ($v) => $v->whereNull('lg.valid_until')->orWhere('lg.valid_until', '>', now()))))
             ->chunkById(200, function ($entitlements) use (&$sent, &$failed) {
                 foreach ($entitlements as $entitlement) {
                     if (! $entitlement->user || ! $entitlement->course || ! $entitlement->tenant) {
@@ -66,6 +80,14 @@ class RemindExpiringEntitlements extends Command
                     if (! MailPreferences::wants($entitlement->user, MailPreferences::EXPIRY)) {
                         continue;
                     }
+                    $group = null;
+                    if ($entitlement->source_type === 'group') {
+                        $group = LearningGroup::withoutGlobalScopes()->where('tenant_id', $entitlement->tenant_id)
+                            ->find(LearningGroupService::groupIdFromReference($entitlement->source_reference));
+                        if (! $group) {
+                            continue;
+                        }
+                    }
                     // Erst vermerken, dann senden: ein Mailfehler führt nicht
                     // zu täglich neuen Versuchen und doppelten Mails.
                     Entitlement::whereKey($entitlement->id)->update(['expiry_reminded_at' => now()]);
@@ -74,7 +96,7 @@ class RemindExpiringEntitlements extends Command
                     $context = app(TenantContext::class);
                     $context->set($entitlement->tenant);
                     try {
-                        $ok = BestEffortMail::send(fn () => $entitlement->user->notify(new EntitlementExpiringSoon($entitlement)), 'Ablauf-Erinnerung '.$entitlement->id);
+                        $ok = BestEffortMail::send(fn () => $entitlement->user->notify(new EntitlementExpiringSoon($entitlement, $group)), 'Ablauf-Erinnerung '.$entitlement->id);
                     } finally {
                         $context->clear();
                     }

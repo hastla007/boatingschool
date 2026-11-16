@@ -248,7 +248,11 @@ Geplante Kommandos:
 - `app:remind-expiring-entitlements` (täglich 09:00 Europe/Berlin) --
   E-Mail an Lernende, deren Kurszugang in den nächsten Tagen abläuft
   (einmal je Ablaufdatum; scheitert der Versand, wird es beim nächsten
-  Lauf erneut versucht).
+  Lauf erneut versucht). Zugänge aus einer Lerngruppe bekommen einen
+  eigenen Text (Gruppenname, Verlängerung über die Schule, kein Kauf-
+  oder Code-Hinweis; Mailvorlage „Zugang über eine Lerngruppe endet
+  bald“) und keine Mail mehr, sobald Gruppe oder Mitgliedschaft beendet,
+  pausiert oder abgelaufen ist.
 - `app:backup` (täglich 03:15 Europe/Berlin) -- Datenbank-Dump, Uploads
   und geschützte Dateien (Fragenbilder, Kartenausschnitte, Kursdateien,
   Tipp-PDFs, Videoschritt-Bilder) nach `storage/app/backups/`, optional verschlüsselt auf externen

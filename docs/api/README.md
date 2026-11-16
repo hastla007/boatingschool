@@ -597,7 +597,9 @@ GET  /exams/{id}/result                 → Ergebnis mit Lösungen
     endet, und endet wie jeder Gruppenzugang mit Entfernen/Gruppenende;
     Kurs- und Verlängerungscodes verlängern weiter nur den eigenen Zugang.
     Die Ablauf-Erinnerung schweigt, solange ein anderer Vollzugang zum Kurs
-    länger gilt. Protokoll: `learning_group.join_own_access` mit
+    länger gilt; für einen reinen Gruppenzugang nennt sie die Gruppe und
+    verweist für eine Verlängerung an die Schule (kein Kauf-/Code-Hinweis),
+    nach Gruppen- oder Mitgliedschaftsende kommt keine. Protokoll: `learning_group.join_own_access` mit
     `course_ids_without_code`. Fehlt für einen Kurs ohne eigenen
     Vollzugang ein Code: 409 `GROUP_NO_CODES`, nichts wird verbraucht, eine
     persönliche Einladung bleibt offen. Die Vorschau meldet das als

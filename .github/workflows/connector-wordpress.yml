@@ -1,0 +1,186 @@
+name: Connector WordPress
+
+# Ende-zu-Ende-Lauf des WooCommerce-Connectors in echtem WordPress mit
+# WooCommerce gegen die Laravel-App (tests/connector-e2e/run.sh, Doku:
+# docs/commerce/wordpress-integrationstest.md). Eigener Workflow statt eines
+# Jobs in tests.yml: er braucht MySQL, WordPress-Downloads und zwei Server,
+# dauert länger und läuft nur, wenn sich Plugin, Commerce-Code der App oder
+# dieser Test ändern.
+
+on:
+  push:
+    paths:
+      - 'integrations/woocommerce-connector/**'
+      - 'app/Commerce/**'
+      - 'app/Http/Controllers/Commerce/**'
+      - 'app/Http/Middleware/Commerce/**'
+      - 'app/Models/Commerce*'
+      - 'app/Models/Coupon*'
+      - 'config/commerce.php'
+      - 'routes/**'
+      - 'bootstrap/app.php'
+      - 'database/migrations/**'
+      - 'composer.lock'
+      - 'tests/connector-e2e/**'
+      - '.github/workflows/connector-wordpress.yml'
+  pull_request:
+    paths:
+      - 'integrations/woocommerce-connector/**'
+      - 'app/Commerce/**'
+      - 'app/Http/Controllers/Commerce/**'
+      - 'app/Http/Middleware/Commerce/**'
+      - 'app/Models/Commerce*'
+      - 'app/Models/Coupon*'
+      - 'config/commerce.php'
+      - 'routes/**'
+      - 'bootstrap/app.php'
+      - 'database/migrations/**'
+      - 'composer.lock'
+      - 'tests/connector-e2e/**'
+      - '.github/workflows/connector-wordpress.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: connector-wordpress-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  wordpress-e2e:
+    name: WordPress ${{ matrix.wordpress }} / WooCommerce ${{ matrix.woocommerce }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    strategy:
+      matrix:
+        include:
+          # Versionen wie im Integrationstest von Hand (docs/commerce/wordpress-integrationstest.md).
+          - wordpress: '7.1.4'
+            woocommerce: '11.3.0'
+
+    env:
+      # Wegwerf-Rollen dieses Laufs (wie tests.yml).
+      DB_PASSWORD: boatingschool_app
+      DB_ADMIN_PASSWORD: boatingschool
+      WP_VERSION: ${{ matrix.wordpress }}
+      WC_VERSION: ${{ matrix.woocommerce }}
+      WP_CLI_VERSION: '2.12.0'
+      WP_DB_NAME: wordpress
+      WP_DB_USER: wordpress
+      WP_DB_PASSWORD: wordpress
+      WP_DB_HOST: '127.0.0.1:3306'
+      WP_URL: http://127.0.0.1:8080
+      APP_URL: http://127.0.0.1:8000
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: wordpress
+          MYSQL_USER: wordpress
+          MYSQL_PASSWORD: wordpress
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, pdo_pgsql, pgsql, mysqli, pdo_mysql, intl, gd
+          coverage: none
+
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Prepare paths and shared secrets
+        run: |
+          echo "WP_PATH=$RUNNER_TEMP/wordpress" >> "$GITHUB_ENV"
+          echo "WP_DEBUG_LOG_FILE=$RUNNER_TEMP/wp-debug.log" >> "$GITHUB_ENV"
+          echo "BS_E2E_MAIL_LOG=$RUNNER_TEMP/wp-mail.log" >> "$GITHUB_ENV"
+          echo "E2E_EXTRA_LOGS=$RUNNER_TEMP/app-server.log $RUNNER_TEMP/wp-server.log" >> "$GITHUB_ENV"
+          # Wegwerf-Geheimnisse nur für diesen Lauf (je 48 Zeichen).
+          echo "COMMERCE_SHOP_SECRET=$(openssl rand -hex 24)" >> "$GITHUB_ENV"
+          echo "COMMERCE_OUTBOUND_SECRET=$(openssl rand -hex 24)" >> "$GITHUB_ENV"
+
+      # APP_ENV=local wie beim Test von Hand: kein Hostfilter für 127.0.0.1,
+      # Demo-Seeder laufen mit. Alles steht in .env, weil "artisan serve" die
+      # Umgebung des Jobs nicht vollständig an den Server weiterreicht.
+      - name: Configure Laravel
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          set_env() {
+            if grep -q "^$1=" .env; then sed -i "s|^$1=.*|$1=$2|" .env; else echo "$1=$2" >> .env; fi
+          }
+          set_env APP_ENV local
+          set_env APP_DEBUG true
+          set_env APP_URL "$APP_URL"
+          set_env LOG_CHANNEL single
+          set_env LOG_LEVEL debug
+          set_env MAIL_MAILER log
+          set_env QUEUE_CONNECTION sync
+          set_env SESSION_SECURE_COOKIE false
+          set_env DB_PASSWORD "$DB_PASSWORD"
+          set_env DB_ADMIN_PASSWORD "$DB_ADMIN_PASSWORD"
+          set_env COMMERCE_SHOP_SECRET "$COMMERCE_SHOP_SECRET"
+          set_env COMMERCE_OUTBOUND_SECRET "$COMMERCE_OUTBOUND_SECRET"
+          set_env COMMERCE_SHOP_URL "$WP_URL"
+
+      - name: Create Postgres roles and database
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -h 127.0.0.1 -U postgres -c "CREATE ROLE boatingschool LOGIN PASSWORD 'boatingschool';"
+          psql -h 127.0.0.1 -U postgres -c "CREATE ROLE boatingschool_app LOGIN PASSWORD 'boatingschool_app';"
+          psql -h 127.0.0.1 -U postgres -c "CREATE DATABASE boatingschool OWNER boatingschool;"
+          psql -h 127.0.0.1 -U postgres -c "GRANT CONNECT ON DATABASE boatingschool TO boatingschool_app;"
+
+      - name: Migrate and seed
+        run: |
+          php artisan migrate --database=pgsql_admin --force
+          php artisan db:seed --database=pgsql_admin --force
+
+      - name: Start Laravel app
+        run: |
+          PHP_CLI_SERVER_WORKERS=4 nohup php artisan serve --no-reload --host=127.0.0.1 --port=8000 > "$RUNNER_TEMP/app-server.log" 2>&1 &
+
+      - name: Install WP-CLI
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/wp-cli.phar" "https://github.com/wp-cli/wp-cli/releases/download/v${WP_CLI_VERSION}/wp-cli-${WP_CLI_VERSION}.phar"
+          sudo install -m 0755 "$RUNNER_TEMP/wp-cli.phar" /usr/local/bin/wp
+          wp --version
+
+      - name: Install WordPress, WooCommerce and connector
+        run: tests/connector-e2e/install-wordpress.sh
+
+      - name: Start WordPress
+        run: |
+          PHP_CLI_SERVER_WORKERS=4 nohup php -S 127.0.0.1:8080 -t "$WP_PATH" tests/connector-e2e/router.php > "$RUNNER_TEMP/wp-server.log" 2>&1 &
+
+      - name: Order to delivery (end to end)
+        run: tests/connector-e2e/run.sh
